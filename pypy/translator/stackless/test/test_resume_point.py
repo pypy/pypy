@@ -68,7 +68,6 @@ def test_call_uncovered():
     def example():
         f(one(),one()+one())
         return 0
-    py.test.skip("in-progress")
     e = py.test.raises(Exception, transform_stackless_function, example)
     assert e.value.args == ('not covered needed value at resume_point',)
 

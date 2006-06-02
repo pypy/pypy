@@ -100,6 +100,10 @@ class StacklessAnalyzer(graphanalyze.GraphAnalyzer):
     def operation_is_true(self, op):
         if op.opname == 'yield_current_frame_to_caller':
             return True
+        elif op.opname == 'resume_point':
+            return True
+        elif op.opname == 'resume_point_invoke':
+            return True
         return self.stackless_gc and LL_OPERATIONS[op.opname].canunwindgc
 
     def analyze_external_call(self, op):
@@ -108,7 +112,18 @@ class StacklessAnalyzer(graphanalyze.GraphAnalyzer):
         return callable in [ll_stack.ll_stack_unwind, ll_stack.ll_stack_capture,
                             ll_stackless.ll_stackless_stack_frames_depth,
                             ll_stackless.ll_stackless_switch]
-                            
+
+def vars_to_save(block):
+    lastresult = block.operations[-1].result
+    args = []
+    for l in block.exits:
+        for arg in l.args:
+            if isinstance(arg, model.Variable) \
+               and arg is not lastresult \
+               and arg not in args \
+               and arg not in [l.last_exception, l.last_exc_value]:
+                args.append(arg)
+    return args             
 
 class StacklessTransformer(object):
 
@@ -228,6 +243,9 @@ class StacklessTransformer(object):
         self.c_gc_nocollect = model.Constant("gc_nocollect", lltype.Void)
 
         self.is_finished = False
+
+        self.explicit_resume_points = {}
+
         # register the prebuilt restartinfos
         for restartinfo in frame.RestartInfo.prebuilt:
             self.register_restart_info(restartinfo)
@@ -405,9 +423,54 @@ class StacklessTransformer(object):
             if op.opname == 'yield_current_frame_to_caller':
                 op = replace_with_call(self.yield_current_frame_to_caller_ptr)
                 stackless_op = True
-                
+
             if (op.opname in ('direct_call', 'indirect_call')
                 or self.analyzer.operation_is_true(op)):
+                if op.opname == 'resume_point':
+                    # in some circumstances we might be able to reuse
+                    # an already inserted resume point
+                    if i == len(block.operations) - 1:
+                        link = block.exits[0]
+                    else:
+                        link = support.split_block_with_keepalive(block, i+1)
+                    parms = op.args[1:]
+                    if not isinstance(parms[0], model.Variable):
+                        assert parms[0].value is None
+                        parms[0] = None
+                    args = vars_to_save(block)
+                    for a in args:
+                        if a not in parms:
+                            raise Exception, "not covered needed value at resume_point"
+                        if parms[0] is not None: # returns= case
+                            res = parms[0]
+                            args = [arg for arg in args if arg is not res]
+                        else:
+                            args = args
+                            res = op.result
+
+                    (frame_type,
+                     fieldnames) = self.frametyper.frame_type_for_vars(args)
+
+                    self.resume_points.append(
+                        ResumePoint(res, args, tuple(block.exits),
+                                    frame_type, fieldnames))
+
+                    field2parm = {}
+                    for arg, fieldname in zip(args, fieldnames):
+                        p = parms.index(arg)
+                        field2parm[fieldname] = p-1 # ignore parm[0]
+                        
+                    label = op.args[0].value
+                    self.explicit_resume_points[label] = {
+                        'restart': len(self.masterarray1) + len(self.resume_points)-1,
+                        'frame_type': frame_type,
+                        'restype': res.concretetype,
+                        'field2parm': field2parm,
+                    }
+                    block = link.target
+                    i = 0
+                    continue
+                    
                 # trap calls to stackless-related suggested primitives
                 if op.opname == 'direct_call':
                     func = getattr(op.args[0].value._obj, '_callable', None)
@@ -467,14 +530,7 @@ class StacklessTransformer(object):
                 # function be called right at the end of the resuming
                 # block, and that it is called even if the return
                 # value is not again used.
-                args = []
-                for l in block.exits:
-                    for arg in l.args:
-                        if isinstance(arg, model.Variable) \
-                           and arg is not op.result \
-                           and arg not in args \
-                           and arg not in [l.last_exception, l.last_exc_value]:
-                            args.append(arg)
+                args = vars_to_save(block)
 
                 save_block, frame_state_type, fieldnames = \
                         self.generate_save_block(args, var_unwind_exception)
