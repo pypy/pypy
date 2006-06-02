@@ -642,7 +642,6 @@ class __extend__(SomeOOInstance):
 
 class __extend__(SomeOOBoundMeth):
     def simple_call(m, *args_s):
-        llargs = [annotation_to_lltype(arg_s)._example() for arg_s in args_s]
         inst = m.ootype._example()
         RESULT = ootype.typeOf(m.ootype._lookup(m.name)[1]).RESULT
         return lltype_to_annotation(RESULT)
