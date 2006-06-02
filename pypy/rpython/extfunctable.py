@@ -10,21 +10,30 @@ from pypy.rpython.rarithmetic import r_longlong
 class ExtFuncInfo:
     def __init__(self, func, annotation, ll_function_path, ll_annotable, backend_functiontemplate):
         self.func = func
+        self.ll_function_path = ll_function_path
         self.annotation = annotation
-        modulename, tail = ll_function_path.split('/')
-        if '.' not in modulename:
-            modulename = 'pypy.rpython.module.%s' % modulename
-        self.ll_module = ImportMe(modulename)
-        lastmodulename = modulename[modulename.rfind('.')+1:]
-        self.ll_function_name = '%s_%s' % (lastmodulename, tail)
         self.ll_annotable = ll_annotable
         self.backend_functiontemplate = backend_functiontemplate
 
-    def get_ll_function(self):
+    def get_ll_function(self, type_system):
         """Get the ll_*() function implementing the given high-level 'func'."""
-        mod = self.ll_module.load()
-        return getattr(mod, self.ll_function_name)
-    ll_function = property(get_ll_function)
+        modulename, tail = self.ll_function_path.split('/')
+        if '.' not in modulename:
+            modulename = 'pypy.rpython.module.%s' % modulename
+        mod = self.import_module(modulename)
+        lastmodulename = modulename[modulename.rfind('.')+1:]
+        ll_function_name = '%s_%s' % (lastmodulename, tail)
+        try:
+            ll_function = getattr(mod, ll_function_name)
+        except AttributeError:
+            mod = self.import_module("pypy.rpython.%s.module.%s"
+                    % (type_system.name, lastmodulename))
+            ll_function = getattr(mod, ll_function_name)
+        return ll_function
+
+    def import_module(self, module_name):
+        ll_module = ImportMe(module_name)
+        return ll_module.load()
 
 
 class ExtTypeInfo:

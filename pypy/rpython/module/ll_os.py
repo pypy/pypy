@@ -55,10 +55,6 @@ def ll_os_close(fd):
 ll_os_close.suggested_primitive = True
 
 
-def ll_os_getcwd():
-    return to_rstr(os.getcwd())
-ll_os_getcwd.suggested_primitive = True
-
 
 def ll_os_dup(fd):
     return os.dup(fd)

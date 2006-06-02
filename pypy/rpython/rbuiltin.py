@@ -457,13 +457,13 @@ from pypy.rpython import extfunctable
 def make_rtype_extfunc(extfuncinfo):
     if extfuncinfo.ll_annotable:
         def rtype_extfunc(hop):
-            ll_function = extfuncinfo.ll_function
+            ll_function = extfuncinfo.get_ll_function(hop.rtyper.type_system)
             vars = hop.inputargs(*hop.args_r)
             hop.exception_is_here()
             return hop.gendirectcall(ll_function, *vars)
     else:
         def rtype_extfunc(hop):
-            ll_function = extfuncinfo.ll_function
+            ll_function = extfuncinfo.get_ll_function(hop.rtyper.type_system)
             resulttype = hop.r_result
             vars = hop.inputargs(*hop.args_r)
             hop.exception_is_here()

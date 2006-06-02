@@ -9,7 +9,8 @@ class Entry_oostring(ExtRegistryEntry):
         assert isinstance(obj_s, (annmodel.SomeInteger,
                                   annmodel.SomeChar,
                                   annmodel.SomeFloat,
-                                  annmodel.SomeOOInstance))
+                                  annmodel.SomeOOInstance,
+                                  annmodel.SomeString))
         assert isinstance(base_s, annmodel.SomeInteger)
         return annmodel.SomeOOInstance(ootype.String)
 
@@ -18,7 +19,8 @@ class Entry_oostring(ExtRegistryEntry):
                                          annmodel.SomeChar,
                                          annmodel.SomeString,
                                          annmodel.SomeFloat,
-                                         annmodel.SomeOOInstance))
+                                         annmodel.SomeOOInstance,
+                                         annmodel.SomeString))
         assert isinstance(hop.args_s[1], annmodel.SomeInteger)
         return hop.genop('oostring', hop.args_v, resulttype = ootype.String)
 

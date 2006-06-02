@@ -7,6 +7,7 @@ from pypy.tool import udir
 from pypy.rpython.rarithmetic import r_uint, intmask
 from pypy.annotation.builtin import *
 from pypy.rpython.module.support import to_rstr
+from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 import py
 
 def test_rbuiltin_list():
@@ -75,13 +76,6 @@ def enum_direct_calls(translator, func):
             if op.opname == 'direct_call':
                 yield op
 
-def test_os_getcwd():
-    import os
-    def fn():
-        return os.getcwd()
-    res = interpret(fn, []) 
-    assert ''.join(res.chars) == fn()
-        
 def test_os_dup():
     import os
     def fn(fd):
@@ -335,3 +329,21 @@ def test_cast_primitive():
         return lltype.cast_primitive(lltype.UniChar, v)
     res = interpret(llf, [ord('x')], policy=LowLevelAnnotatorPolicy())
     assert res == u'x'
+
+
+class BaseTestExtfunc(BaseRtypingTest):
+
+    def test_os_getcwd(self):
+        import os
+        def fn():
+            return os.getcwd()
+        res = self.interpret(fn, []) 
+        assert self.ll_to_string(res) == fn()
+        
+
+class TestOOtype(BaseTestExtfunc, OORtypeMixin):
+    pass
+
+class TestLLtype(BaseTestExtfunc, LLRtypeMixin):
+    pass
+
