@@ -26,6 +26,16 @@ class LLRtypeMixin(object):
     def class_name(self, value):
         return "".join(value.super.typeptr.name)[:-1]
 
+    def read_attr(self, value, attr_name):
+        value = value._obj
+        while value is not None:
+            attr = getattr(value, "inst_" + attr_name, None)
+            if attr is None:
+                value = value._parentstructure()
+            else:
+                return attr
+        raise AttributeError()
+
 
 class OORtypeMixin(object):
     type_system = 'ootype'
@@ -38,3 +48,7 @@ class OORtypeMixin(object):
 
     def class_name(self, value):
         return ootype.dynamicType(value)._name.split(".")[-1] 
+
+    def read_attr(self, value, attr):
+        value = ootype.oodowncast(ootype.dynamicType(value), value)
+        return getattr(value, "o" + attr)
