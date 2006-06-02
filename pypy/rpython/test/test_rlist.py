@@ -932,27 +932,6 @@ class BaseTestRlist(BaseRtypingTest):
         res = self.interpret(fn, [-2])
         assert res == -1
 
-    def test_no_unneeded_refs(self):
-        self._skip_oo('assert')
-        def fndel(p, q):
-            lis = ["5", "3", "99"]
-            assert q >= 0
-            assert p >= 0
-            del lis[p:q]
-            return lis
-        def fnpop(n):
-            lis = ["5", "3", "99"]
-            while n:
-                lis.pop()
-                n -=1
-            return lis
-        for i in range(2, 3+1):
-            lis = self.interpret(fndel, [0, i])
-            assert list_is_clear(lis, 3-i)
-        for i in range(3):
-            lis = self.interpret(fnpop, [i])
-            assert list_is_clear(lis, 3-i)
-
     def test_list_basic_ops(self):
         def list_basic_ops(i=int, j=int):
             l = [1,2,3]
@@ -1130,6 +1109,26 @@ class TestLLtype(BaseTestRlist, LLRtypeMixin):
         assert isinstance(r_B_list, self.rlist.ListRepr)
 
         assert r_A_list.lowleveltype == r_B_list.lowleveltype
+
+    def test_no_unneeded_refs(self):
+        def fndel(p, q):
+            lis = ["5", "3", "99"]
+            assert q >= 0
+            assert p >= 0
+            del lis[p:q]
+            return lis
+        def fnpop(n):
+            lis = ["5", "3", "99"]
+            while n:
+                lis.pop()
+                n -=1
+            return lis
+        for i in range(2, 3+1):
+            lis = self.interpret(fndel, [0, i])
+            assert list_is_clear(lis, 3-i)
+        for i in range(3):
+            lis = self.interpret(fnpop, [i])
+            assert list_is_clear(lis, 3-i)
     
 
 class TestOOtype(BaseTestRlist, OORtypeMixin):
