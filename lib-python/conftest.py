@@ -508,7 +508,7 @@ testmap = [
     RegrTest('test_future3.py', enabled=True, core=True),
     RegrTest('test_gc.py', enabled=True, dumbtest=1, usemodules='_weakref'),
     RegrTest('test_gdbm.py', enabled=False, dumbtest=1),
-    RegrTest('test_generators.py', enabled=True, core=True),
+    RegrTest('test_generators.py', enabled=True, core=True, usemodules='thread _weakref'),
         #rev 10840: 30 of 152 tests fail
     RegrTest('test_genexps.py', enabled=True, core=True, usemodules='_weakref'),
     RegrTest('test_getargs.py', enabled=False, dumbtest=1),
