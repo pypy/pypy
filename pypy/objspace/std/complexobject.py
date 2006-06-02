@@ -250,9 +250,10 @@ def coerce__Complex_Complex(space, w_complex1, w_complex2):
     return space.newtuple([w_complex1, w_complex2])
 
 def float__Complex(space, w_complex):
-    raise OperationError(space.w_TypeError, space.wrap("can't convert complex to int; use int(abs(z))"))
+    raise OperationError(space.w_TypeError, space.wrap("can't convert complex to float; use abs(z)"))
 
-int__Complex = float__Complex
+def int__Complex(space, w_complex):
+    raise OperationError(space.w_TypeError, space.wrap("can't convert complex to int; use int(abs(z))"))
 
 def complex_conjugate__Complex(space, w_self):
     #w_real = space.call_function(space.w_float,space.wrap(w_self.realval))

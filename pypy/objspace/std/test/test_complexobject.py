@@ -329,3 +329,7 @@ class AppTestAppComplexTest:
                 os.remove(pth)
             except (OSError, IOError):
                 pass
+
+    def test_convert(self):
+        raises(TypeError, int, 1+1j)
+        raises(TypeError, float, 1+1j)
