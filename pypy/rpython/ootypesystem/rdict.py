@@ -44,6 +44,9 @@ class DictRepr(AbstractDictRepr):
         self._custom_eq_hash_repr = custom_eq_hash
         # setup() needs to be called to finish this initialization
 
+    def _externalvsinternal(self, rtyper, item_repr):
+        return item_repr, item_repr
+
     def _setup_repr(self):
         if 'key_repr' not in self.__dict__:
             key_repr = self._key_repr_computer()

@@ -49,7 +49,7 @@ class AbstractDictRepr(rmodel.Repr):
         if self.custom_eq_hash:
             return item_repr, item_repr
         else:
-            return rmodel.externalvsinternal(self.rtyper, item_repr)
+            return self._externalvsinternal(self.rtyper, item_repr)
 
     def pickkeyrepr(self, key_repr):
         external, internal = self.pickrepr(key_repr)
