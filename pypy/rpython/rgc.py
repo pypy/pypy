@@ -1,5 +1,4 @@
 from pypy.rpython.extregistry import ExtRegistryEntry
-
 # ____________________________________________________________
 # Framework GC features
 
@@ -92,3 +91,18 @@ class CloneFnEntry(ExtRegistryEntry):
         v_gcobject = hop.genop('cast_opaque_ptr', [v_gcobjectptr],
                                resulttype = r_tuple.items_r[0])
         return rtuple.newtuple(hop.llops, r_tuple, [v_gcobject, v_pool])
+
+# Support for collection.
+import gc
+
+class CollectEntry(ExtRegistryEntry):
+    _about_ = gc.collect
+
+    def compute_result_annotation(self):
+        from pypy.annotation import model as annmodel
+        return annmodel.SomeImpossibleValue()
+
+    def specialize_call(self, hop):
+        return hop.genop('gc__collect', [], resulttype=hop.r_result)
+    
+

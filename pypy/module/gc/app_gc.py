@@ -1,7 +1,4 @@
 
-def collect():
-    pass
-
 def isenabled():
     pass
 
