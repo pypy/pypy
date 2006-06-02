@@ -428,6 +428,9 @@ class LLFrame(object):
     def op_hint(self, x, hints):
         return x
 
+    def op_resume_point(self, *args):
+        pass
+
     def op_decode_arg(self, fname, i, name, vargs, vkwds):
         raise NotImplementedError("decode_arg")
 

@@ -343,6 +343,10 @@ LL_OPERATIONS = {
     'yield_current_frame_to_caller': LLOp(canraise=(StackException,)),
     #                               can always unwind, not just if stackless gc
 
+    'resume_point':  LLOp(),
+    'resume_state_create':  LLOp(canraise=(MemoryError,), canunwindgc=True),
+    'resume_state_invoke':  LLOp(canraise=(Exception, StackException)),
+
     # __________ misc operations __________
 
     'keepalive':            LLOp(),
