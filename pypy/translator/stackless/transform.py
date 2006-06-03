@@ -112,7 +112,7 @@ class StacklessAnalyzer(graphanalyze.GraphAnalyzer):
             return True
         elif op.opname == 'resume_point':
             return True
-        elif op.opname == 'resume_point_invoke':
+        elif op.opname == 'resume_state_invoke':
             return True
         return self.stackless_gc and LL_OPERATIONS[op.opname].canunwindgc
 
@@ -394,23 +394,8 @@ class StacklessTransformer(object):
                 newblock.exitswitch = None
 
             if resume_point.var_result.concretetype != rettype:
-                llops = LowLevelOpList()
-                newvar = gen_cast(llops,
-                                  resume_point.var_result.concretetype,
-                                  retval)
-                convertblock = unsimplify.insert_empty_block(
-                    None, newblock.exits[0], llops)
-                # begin ouch!
-                for index, linkvar in enumerate(convertblock.exits[0].args):
-                    # does this var come from retval ?
-                    try:
-                        index1 = convertblock.inputargs.index(linkvar)
-                    except ValueError:   # e.g. linkvar is a Constant
-                        continue
-                    if newblock.exits[0].args[index1] is retval:
-                        # yes
-                        convertblock.exits[0].args[index] = newvar
-                # end ouch!
+                self.insert_return_conversion(
+                    newblock.exits[0], resume_point.var_result.concretetype, retval)
             
             resuming_links.append(
                 model.Link([], newblock, resume_point_index))
@@ -422,6 +407,25 @@ class StacklessTransformer(object):
         new_start_block.isstartblock = True
         graph.startblock = new_start_block
 
+    def insert_return_conversion(self, link, targettype, retvar):
+        llops = LowLevelOpList()
+        newvar = gen_cast(llops, targettype, retvar)
+        convertblock = unsimplify.insert_empty_block(None, link, llops)
+        # begin ouch!
+        foundit = False
+        for index, linkvar in enumerate(convertblock.exits[0].args):
+            # does this var come from retval ?
+            try:
+                index1 = convertblock.inputargs.index(linkvar)
+            except ValueError:   # e.g. linkvar is a Constant
+                continue
+            if link.args[index1] is retvar:
+                foundit = True
+                # yes
+                convertblock.exits[0].args[index] = newvar
+        # end ouch!
+        assert foundit
+        
     def handle_resume_point(self, block, i):
         # in some circumstances we might be able to reuse
         # an already inserted resume point
@@ -508,20 +512,30 @@ class StacklessTransformer(object):
         llops.append(model.SpaceOperation('same_as', [v_state], op.result))
         block.operations[i:i+1] = llops
 
-    def handle_resume_state_invoke(self, block, i):
-        op = block.operations[i]
-        if op.result.concretetype != lltype.Signed:
-            raise NotImplementedError
+    def handle_resume_state_invoke(self, block):
+        op = block.operations[-1]
+        assert op.opname == 'resume_state_invoke'
+        rettype = storage_type(op.result.concretetype)
+        if op.result.concretetype != rettype:
+            retvar = varoftype(rettype)
+        else:
+            retvar = op.result
         v_returns = op.args[1]
         if v_returns.concretetype == lltype.Signed:
             raise NotImplementedError
         elif v_returns.concretetype == lltype.Void:
             args = [self.resume_after_void_ptr] + op.args
-            newop = model.SpaceOperation('direct_call', args, op.result)
-            block.operations[i] = newop
+            newop = model.SpaceOperation('direct_call', args, retvar)
+            block.operations[-1] = newop
         else:
             raise NotImplementedError
-        return newop
+        if retvar is not op.result:
+            noexclink = block.exits[0]
+            for i, a in enumerate(noexclink.args):
+                if a is op.result:
+                    noexclink.args[i] = retvar
+            self.insert_return_conversion(
+                noexclink, op.result.concretetype, retvar)
 
     def transform_block(self, block):
         i = 0
@@ -543,10 +557,6 @@ class StacklessTransformer(object):
                 op = replace_with_call(self.yield_current_frame_to_caller_ptr)
                 stackless_op = True
 
-            if op.opname == 'resume_state_invoke':
-                op = self.handle_resume_state_invoke(block, i)
-                stackless_op = True
-
             if op.opname == 'resume_state_create':
                 self.handle_resume_state_create(block, i)
                 continue # go back and look at that malloc
@@ -556,7 +566,7 @@ class StacklessTransformer(object):
                 if op.opname == 'resume_point':
                     block, i = self.handle_resume_point(block, i)
                     continue
-                    
+                
                 # trap calls to stackless-related suggested primitives
                 if op.opname == 'direct_call':
                     func = getattr(op.args[0].value._obj, '_callable', None)
@@ -616,6 +626,11 @@ class StacklessTransformer(object):
                 # function be called right at the end of the resuming
                 # block, and that it is called even if the return
                 # value is not again used.
+
+                if op.opname == 'resume_state_invoke':
+                    self.handle_resume_state_invoke(block)
+                    op = block.operations[-1]
+
                 args = vars_to_save(block)
 
                 save_block, frame_state_type, fieldnames = \

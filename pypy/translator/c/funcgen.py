@@ -663,6 +663,9 @@ class FunctionCodeGenerator(object):
         typename = cdecl(self.db.gettype(TYPE), '')        
         return "%(result)s = (%(typename)s)(%(val)s);" % locals()
 
+    def OP_RESUME_POINT(self, op):
+        return '/* resume point %s */'%(op.args[0],)
+
     def OP_DEBUG_PRINT(self, op):
         # XXX
         from pypy.rpython.lltypesystem.rstr import STR

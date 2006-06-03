@@ -1,5 +1,5 @@
 from pypy.translator.stackless.transform import StacklessTransformer
-from pypy.translator.stackless.test.test_transform import llinterp_stackless_function, rtype_stackless_function, one
+from pypy.translator.stackless.test.test_transform import llinterp_stackless_function, rtype_stackless_function, one, run_stackless_function
 from pypy import conftest
 import py
 from pypy.rpython import rstack
@@ -123,3 +123,20 @@ def test_return_instance():
         return v1*100 + rstack.resume_state_invoke(int, s1)
     res = llinterp_stackless_function(example, assert_unwind=False)
     assert res == 406
+
+def test_really_return_instance():
+    class C:
+        pass
+    def g(x):
+        c = C()
+        c.x = x + 1
+        rstack.resume_point("rp1", c)
+        return c
+    def example():
+        v1 = g(one()).x
+        c = C()
+        c.x = 4*one()
+        s1 = rstack.resume_state_create(None, "rp1", c)
+        return v1*100 + rstack.resume_state_invoke(C, s1).x
+    res = run_stackless_function(example)
+    assert res == 204
