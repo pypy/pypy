@@ -67,6 +67,7 @@ class ReferencesTestCase(TestBase):
         ref1 = weakref.ref(o, self.callback)
         ref2 = weakref.ref(o, self.callback)
         del o
+        gc.collect()
         self.assert_(ref1() is None,
                      "expected reference to be invalidated")
         self.assert_(ref2() is None,
@@ -98,13 +99,17 @@ class ReferencesTestCase(TestBase):
         ref1 = weakref.proxy(o, self.callback)
         ref2 = weakref.proxy(o, self.callback)
         del o
+        gc.collect()
+        gc.collect()
+        gc.collect()
 
         def check(proxy):
             proxy.bar
 
         self.assertRaises(weakref.ReferenceError, check, ref1)
         self.assertRaises(weakref.ReferenceError, check, ref2)
-        self.assertRaises(weakref.ReferenceError, bool, weakref.proxy(C()))
+        # Works only with refcounting
+        # self.assertRaises(weakref.ReferenceError, bool, weakref.proxy(C()))
         self.assert_(self.cbcalled == 2)
 
     def check_basic_ref(self, factory):
@@ -121,6 +126,7 @@ class ReferencesTestCase(TestBase):
         o = factory()
         ref = weakref.ref(o, self.callback)
         del o
+        gc.collect()
         self.assert_(self.cbcalled == 1,
                      "callback did not properly set 'cbcalled'")
         self.assert_(ref() is None,
@@ -145,6 +151,7 @@ class ReferencesTestCase(TestBase):
         self.assert_(weakref.getweakrefcount(o) == 2,
                      "wrong weak ref count for object")
         del proxy
+        gc.collect()
         self.assert_(weakref.getweakrefcount(o) == 1,
                      "wrong weak ref count for object after deleting proxy")
 
@@ -284,6 +291,7 @@ class ReferencesTestCase(TestBase):
                      "got wrong number of weak reference objects")
 
         del ref1, ref2, proxy1, proxy2
+        gc.collect()
         self.assert_(weakref.getweakrefcount(o) == 0,
                      "weak reference objects not unlinked from"
                      " referent when discarded.")
@@ -297,6 +305,7 @@ class ReferencesTestCase(TestBase):
         ref1 = weakref.ref(o, self.callback)
         ref2 = weakref.ref(o, self.callback)
         del ref1
+        gc.collect()
         self.assert_(weakref.getweakrefs(o) == [ref2],
                      "list of refs does not match")
 
@@ -304,10 +313,12 @@ class ReferencesTestCase(TestBase):
         ref1 = weakref.ref(o, self.callback)
         ref2 = weakref.ref(o, self.callback)
         del ref2
+        gc.collect()
         self.assert_(weakref.getweakrefs(o) == [ref1],
                      "list of refs does not match")
 
         del ref1
+        gc.collect()
         self.assert_(weakref.getweakrefs(o) == [],
                      "list of refs not cleared")
 
@@ -728,12 +739,16 @@ class MappingTestCase(TestBase):
         self.assert_(items1 == items2,
                      "cloning of weak-valued dictionary did not work!")
         del items1, items2
+        gc.collect()
         self.assert_(len(dict) == self.COUNT)
         del objects[0]
+        gc.collect()
+        gc.collect()
         gc.collect()
         self.assert_(len(dict) == (self.COUNT - 1),
                      "deleting object did not cause dictionary update")
         del objects, o
+        gc.collect()
         self.assert_(len(dict) == 0,
                      "deleting the values did not clear the dictionary")
         # regression on SF bug #447152:
@@ -759,12 +774,16 @@ class MappingTestCase(TestBase):
         self.assert_(set(items1) == set(items2),
                      "cloning of weak-keyed dictionary did not work!")
         del items1, items2
+        gc.collect()
         self.assert_(len(dict) == self.COUNT)
         del objects[0]
+        gc.collect()
+        gc.collect()
         gc.collect()
         self.assert_(len(dict) == (self.COUNT - 1),
                      "deleting object did not cause dictionary update")
         del objects, o
+        gc.collect()
         self.assert_(len(dict) == 0,
                      "deleting the keys did not clear the dictionary")
         o = Object(42)
@@ -971,6 +990,7 @@ class MappingTestCase(TestBase):
         for o in objs:
             d[o] = o.value
         del o   # now the only strong references to keys are in objs
+        gc.collect()
         # Find the order in which iterkeys sees the keys.
         objs = d.keys()
         # Reverse it, so that the iteration implementation of __delitem__
@@ -989,6 +1009,7 @@ class MappingTestCase(TestBase):
         for o in objs:
             count += 1
             del d[o]
+            gc.collect()
         self.assertEqual(len(d), 0)
         self.assertEqual(count, 2)
 
