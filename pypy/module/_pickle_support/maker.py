@@ -50,6 +50,26 @@ def reverseseqiter_new(space, w_seq, w_index):
     index = space.int_w(w_index) - space.int_w(w_len)
     return W_ReverseSeqIterObject(space, w_seq, index)
     
-def frame_new(space, w_pycode, w_globals):
-    new_frame = PyFrame(space, w_pycode, w_globals, None)
+def frame_new(space, __args__):
+    args_w, kwds_w = __args__.unpack()  #stolen from std/fake.py
+    args = [space.unwrap(w_arg) for w_arg in args_w]
+    f_back, builtin, pycode, last_exception, globals, last_instr, next_instr,\
+        f_lineno, fastlocals, f_trace = args
+    w = space.wrap
+
+    new_frame = PyFrame(space, pycode, w(globals), None)
+    new_frame.f_back = f_back
+    new_frame.builtin = builtin
+    new_frame.last_exception = last_exception
+    new_frame.last_instr = last_instr
+    new_frame.next_instr = next_instr
+    new_frame.f_lineno = f_lineno
+    #new_frame.fastlocals_w = w(fastlocals)
+
+    if space.is_w(f_trace, space.w_None):
+        new_frame.w_f_trace = None
+    else:
+        new_frame.w_f_trace = w(f_trace)
+
     return space.wrap(new_frame)
+frame_new.unwrap_spec = [ObjSpace, Arguments]

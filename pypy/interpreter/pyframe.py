@@ -68,16 +68,44 @@ class PyFrame(eval.EvalFrame):
         self.instr_prev = -1;
 
     def descr__reduce__(self, space):
+        '''
+        >>>> dir(frame)
+        ['__class__', '__delattr__', '__doc__', '__getattribute__', '__hash__', '__init__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__str__', 'f_back', 'f_builtins', 'f_code', 'f_exc_traceback', 'f_exc_type', 'f_exc_value', 'f_globals', 'f_lasti', 'f_lineno', 'f_locals', 'f_restricted', 'f_trace']
+        '''
         raise Exception('frame pickling is work in progress')
         from pypy.interpreter.mixedmodule import MixedModule
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)
         new_inst = mod.get('frame_new')
         w        = space.wrap
-        tup      = [
+
+        #XXX how to call PyFrame.fget_f_lineno(..) from here? just make it a staticmethod?
+        #f_lineno = PyFrame.fget_f_lineno(space, self)   #TypeError: unbound method fget_f_lineno() must be called with PyFrame instance as first argument (got StdObjSpace instance instead)
+        if self.w_f_trace is None:
+            f_lineno = self.get_last_lineno()
+        else:
+            f_lineno = self.f_lineno
+
+        tup = [
+            w(self.f_back),
+            w(self.builtin),
             w(self.pycode),
+            w(self.last_exception), #f_exc_traceback, f_exc_type, f_exc_value
             self.w_globals,
+            w(self.last_instr),
+            w(self.next_instr),     #not in PyFrame.typedef!
+            w(f_lineno),            #why not w(self.f_lineno)? something with self.w_f_trace?
+
+            #space.newtuple(self.fastlocals_w), #XXX (application-level) PicklingError: Can't pickle <type 'AppTestInterpObjectPickling'>: it's not found as __builtin__.AppTestInterpObjectPickling
+            #self.getdictscope(),               #XXX (application-level) PicklingError: Can't pickle <type 'AppTestInterpObjectPickling'>: it's not found as __builtin__.AppTestInterpObjectPickling
+            space.w_None,           #XXX placeholder
+            
+            #f_restricted requires no additional data!
+            self.w_f_trace,
             ]
+
+        #XXX what to do with valuestack and blockstack here?
+            
         return space.newtuple([new_inst, space.newtuple(tup)])
 
     def hide(self):
