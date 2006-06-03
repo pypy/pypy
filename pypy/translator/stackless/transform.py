@@ -233,10 +233,33 @@ class StacklessTransformer(object):
         self.yield_current_frame_to_caller_ptr = mixlevelannotator.constfunc(
             code.yield_current_frame_to_caller, [], s_StatePtr)
 
-        self.resume_after_void_ptr = mixlevelannotator.constfunc(
-            code.resume_after_void, [annmodel.SomePtr(lltype.Ptr(STATE_HEADER)),
-                                     annmodel.s_None],
-                                    annmodel.s_None)
+        s_hdrptr = annmodel.SomePtr(lltype.Ptr(STATE_HEADER))
+        self.resume_afters = {
+            lltype.Void: mixlevelannotator.constfunc(
+                code.resume_after_void,
+                [s_hdrptr, annmodel.s_None],
+                annmodel.s_None),
+            lltype.Signed: mixlevelannotator.constfunc(
+                code.resume_after_long,
+                [s_hdrptr, annmodel.SomeInteger()],
+                annmodel.s_None),
+##             lltype.SignedLongLong: mixlevelannotator.constfunc(
+##                 code.resume_after_longlong,
+##                 [s_hdrptr, annmodel.SomeInteger(knowntype=rarithmetic.r_longlong)],
+##                 annmodel.s_None),
+##             lltype.Float: mixlevelannotator.constfunc(
+##                 code.resume_after_float,
+##                 [s_hdrptr, annmodel.SomeFloat()],
+##                 annmodel.s_None),
+##             llmemory.Address: mixlevelannotator.constfunc(
+##                 code.resume_after_addr,
+##                 [s_hdrptr, annmodel.SomeAddress()],
+##                 annmodel.s_None),
+##             SAVED_REFERENCE: mixlevelannotator.constfunc(
+##                 code.resume_after_ref,
+##                 [s_hdrptr, annmodel.SomePtr(SAVED_REFERENCE)],
+##                 annmodel.s_None),
+            }
 
         mixlevelannotator.finish()
 
@@ -531,14 +554,12 @@ class StacklessTransformer(object):
         retvar = varoftype(lltype.Void)
         realrettype = op.result.concretetype
         v_returns = op.args[1]
-        if v_returns.concretetype == lltype.Signed:
+        resume_after_ptr = self.resume_afters[storage_type(v_returns.concretetype)]
+        if storage_type(v_returns.concretetype) != v_returns.concretetype:
             raise NotImplementedError
-        elif v_returns.concretetype == lltype.Void:
-            args = [self.resume_after_void_ptr] + op.args
-            newop = model.SpaceOperation('direct_call', args, retvar)
-            block.operations[-1] = newop
-        else:
-            raise NotImplementedError
+        args = [resume_after_ptr] + op.args
+        newop = model.SpaceOperation('direct_call', args, retvar)
+        block.operations[-1] = newop
         noexclink = block.exits[0].copy()
         for i, a in enumerate(noexclink.args):
             if a is op.result:

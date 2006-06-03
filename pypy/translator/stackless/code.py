@@ -214,6 +214,39 @@ resume_after_void.stackless_explicit = True
 INDEX_RESUME_AFTER_VOID = frame.RestartInfo.add_prebuilt(resume_after_void,
                                                          [RESUME_AFTER_STATE,
                                                           EMPTY_STATE])
+
+def resume_after_long(state, retvalue):
+    if global_state.restart_substate == -1:
+        # normal entry point for a call to state.switch()
+        # first unwind the stack
+        u = UnwindException()
+        s = lltype.malloc(RESUME_AFTER_STATE)
+        s.header.f_restart = INDEX_RESUME_AFTER_LONG
+        s.c = state
+        global_state.retval_long = retvalue
+        add_frame_state(u, s.header)
+        raise u
+    elif global_state.restart_substate == 0:
+        # STATE 0: we didn't do anything so far, but the stack is unwound
+        global_state.restart_substate = -1
+        # grab the frame corresponding to ourself
+        # the 'targetstate' local is garbage here, it must be read back from
+        # 's.c' where we saved it by the normal entry point above
+        mystate = global_state.top
+        s = lltype.cast_pointer(lltype.Ptr(RESUME_AFTER_STATE), mystate)
+        targetstate = s.c
+        resume_bottom = targetstate
+        while resume_bottom.f_back:
+             resume_bottom = resume_bottom.f_back
+        resume_bottom.f_back = mystate.f_back
+        global_state.top = targetstate
+        raise UnwindException()
+
+resume_after_long.stackless_explicit = True
+INDEX_RESUME_AFTER_LONG = frame.RestartInfo.add_prebuilt(resume_after_long,
+                                                         [RESUME_AFTER_STATE,
+                                                          EMPTY_STATE])
+
 # ____________________________________________________________
 
 class StacklessData:

@@ -50,9 +50,12 @@ def test_call():
         rstack.resume_point("rp1", y, returns=z) 
         return z+y
     def example():
-        f(one(),one()+one())
-        return 0
-    transform_stackless_function(example)
+        v1 = f(one(),one()+one())
+        s = rstack.resume_state_create(None, "rp1", 5*one())
+        v2 = rstack.resume_state_invoke(int, s, returns=one()*7)
+        return v1*100 + v2
+    res = llinterp_stackless_function(example)
+    assert res == 412
 
 def test_call_exception_handling():
     def g(x,y):
@@ -140,3 +143,4 @@ def test_really_return_instance():
         return v1*100 + rstack.resume_state_invoke(C, s1).x
     res = llinterp_stackless_function(example)
     assert res == 204
+

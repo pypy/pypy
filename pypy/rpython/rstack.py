@@ -120,7 +120,7 @@ class ResumeStateInvokeFnEntry(ExtRegistryEntry):
         if 'i_returns' in kwds_i:
             assert len(kwds_i) == 1
             returns_index = kwds_i['i_returns']
-            v_return = args_v.pop(returns_index-1)
+            v_return = hop.args_v[returns_index]
         else:
             assert not kwds_i
             v_return = hop.inputconst(lltype.Void, None)
