@@ -121,6 +121,8 @@ class HtmlReport(object):
         err = len([x for x in tests if x.iserror()])
         to = len([x for x in tests if x.istimeout()])
         numtests = ok + err + to
+        assert numtests == len(tests)
+        assert numtests
 
         t = html.table()
         sum100 = numtests / 100.0
