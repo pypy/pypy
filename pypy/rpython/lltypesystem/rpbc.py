@@ -151,56 +151,12 @@ class ClassesPBCRepr(AbstractClassesPBCRepr):
 
     # no __init__ here, AbstractClassesPBCRepr.__init__ is good enough
 
-    def rtype_simple_call(self, hop):
-        return self.redispatch_call(hop, call_args=False)
+    def _instantiate_runtime_class(self, hop, vtypeptr, r_instance):
+        from pypy.rpython.lltypesystem.rbuiltin import ll_instantiate
+        v_inst1 = hop.gendirectcall(ll_instantiate, vtypeptr)
+        return hop.genop('cast_pointer', [v_inst1], resulttype = r_instance)
 
-    def rtype_call_args(self, hop):
-        return self.redispatch_call(hop, call_args=True)
 
-    def redispatch_call(self, hop, call_args):
-        s_instance = hop.s_result
-        r_instance = hop.r_result
-
-        if self.lowleveltype is Void:
-            # instantiating a single class
-            assert isinstance(s_instance, annmodel.SomeInstance)
-            classdef = hop.s_result.classdef
-            v_instance = rclass.rtype_new_instance(hop.rtyper, classdef,
-                                                   hop.llops, hop)
-            if isinstance(v_instance, tuple):
-                v_instance, must_call_init = v_instance
-                if not must_call_init:
-                    return v_instance
-            s_init = classdef.classdesc.s_read_attribute('__init__')
-            v_init = Constant("init-func-dummy")   # this value not really used
-        else:
-            # instantiating a class from multiple possible classes
-            from pypy.rpython.lltypesystem.rbuiltin import ll_instantiate
-            vtypeptr = hop.inputarg(self, arg=0)
-            try:
-                access_set, r_class = self.get_access_set('__init__')
-            except MissingRTypeAttribute:
-                s_init = annmodel.s_ImpossibleValue
-            else:
-                s_init = access_set.s_value
-                v_init = r_class.getpbcfield(vtypeptr, access_set, '__init__',
-                                             hop.llops)
-            v_inst1 = hop.gendirectcall(ll_instantiate, vtypeptr)
-            v_instance = hop.genop('cast_pointer', [v_inst1],
-                                   resulttype = r_instance)
-
-        if isinstance(s_init, annmodel.SomeImpossibleValue):
-            assert hop.nb_args == 1, ("arguments passed to __init__, "
-                                      "but no __init__!")
-        else:
-            hop2 = self.replace_class_with_inst_arg(
-                    hop, v_instance, s_instance, call_args)
-            hop2.v_s_insertfirstarg(v_init, s_init)   # add 'initfunc'
-            hop2.s_result = annmodel.s_None
-            hop2.r_result = self.rtyper.getrepr(hop2.s_result)
-            # now hop2 looks like simple_call(initfunc, instance, args...)
-            hop2.dispatch()
-        return v_instance
 
 # ____________________________________________________________
 

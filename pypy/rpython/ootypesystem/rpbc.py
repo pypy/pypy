@@ -11,6 +11,7 @@ from pypy.rpython.ootypesystem.rclass import mangle
 from pypy.annotation import model as annmodel
 from pypy.annotation import description
 from pypy.annotation.pairtype import pairtype
+from pypy.objspace.flow.model import Constant, Variable
 import types
 
 
@@ -37,54 +38,19 @@ class FunctionsPBCRepr(AbstractFunctionsPBCRepr):
         return llop.genop('oogetfield', [v, c_rowname], resulttype=resulttype)
         
 class ClassesPBCRepr(AbstractClassesPBCRepr):
-
-    def rtype_simple_call(self, hop):
-        classdef = hop.s_result.classdef
-        if self.lowleveltype is not ootype.Void:
-            # instantiating a class from multiple possible classes
-            v_meta = hop.inputarg(self, arg=0)
-            c_class_ = hop.inputconst(ootype.Void, "class_")
-            v_class = hop.genop('oogetfield', [v_meta, c_class_],
-                    resulttype=ootype.Class)
-            resulttype = getinstancerepr(hop.rtyper, classdef).lowleveltype
-            v_instance = hop.genop('runtimenew', [v_class], resulttype=resulttype)
-            c_meta = hop.inputconst(ootype.Void, "meta")
-            hop.genop('oosetfield', [v_instance, c_meta, v_meta],
-                    resulttype=ootype.Void)
-        else:
-            # instantiating a single class
-            v_instance = rtype_new_instance(hop.rtyper, classdef, hop.llops)
-
-        inits = []
-        for desc in self.s_pbc.descriptions:
-            if desc.find_source_for('__init__') is not None:
-                unbound = desc.s_get_value(desc.getuniqueclassdef(), '__init__')
-                if isinstance(unbound, annmodel.SomePBC):
-                    unbound, = unbound.descriptions
-                    bound = unbound.bind_self(desc.getuniqueclassdef())
-                    inits.append(bound)
-                else:
-                    assert isinstance(unbound, annmodel.SomeBuiltin)
-                    # do nothing, because builtin __init__s (for
-                    # example from exceptions such as Exception and
-                    # AssertionError) do nothing.
-
-        if inits:
-            s_init = annmodel.SomePBC(inits)
-            s_instance = annmodel.SomeInstance(classdef)
-            hop2 = hop.copy()
-            hop2.r_s_popfirstarg()   # discard the class pointer argument
-            hop2.v_s_insertfirstarg(v_instance, s_init)  # add 'instance'
-            hop2.s_result = annmodel.s_None
-            hop2.r_result = self.rtyper.getrepr(hop2.s_result)
-            # now hop2 looks like simple_call(initmeth, args...)
-            hop2.dispatch()
-        else:
-            assert hop.nb_args == 1, ("arguments passed to __init__, "
-                                      "but no __init__!")
+    
+    def _instantiate_runtime_class(self, hop, v_meta, r_instance):
+        classdef = hop.s_result.classdef            
+        c_class_ = hop.inputconst(ootype.Void, "class_")
+        v_class = hop.genop('oogetfield', [v_meta, c_class_],
+                resulttype=ootype.Class)
+        resulttype = getinstancerepr(hop.rtyper, classdef).lowleveltype
+        v_instance = hop.genop('runtimenew', [v_class], resulttype=resulttype)
+        c_meta = hop.inputconst(ootype.Void, "meta")
+        hop.genop('oosetfield', [v_instance, c_meta, v_meta],
+                resulttype=ootype.Void)
         return v_instance
 
-    rtype_call_args = rtype_simple_call
 
 def row_method_name(methodname, rowname):
     return "%s_%s" % (methodname, rowname)

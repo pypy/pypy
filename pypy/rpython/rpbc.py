@@ -651,6 +651,55 @@ class AbstractClassesPBCRepr(Repr):
             hop2.v_s_insertfirstarg(v_inst, s_inst)  # add 'instance'
         return hop2
 
+    def rtype_simple_call(self, hop):
+        return self.redispatch_call(hop, call_args=False)
+
+    def rtype_call_args(self, hop):
+        return self.redispatch_call(hop, call_args=True)
+
+    def redispatch_call(self, hop, call_args):
+        s_instance = hop.s_result
+        r_instance = hop.r_result
+
+        if self.lowleveltype is Void:
+            # instantiating a single class
+            assert isinstance(s_instance, annmodel.SomeInstance)
+            classdef = hop.s_result.classdef
+            v_instance = rclass.rtype_new_instance(hop.rtyper, classdef,
+                                                   hop.llops, hop)
+            if isinstance(v_instance, tuple):
+                v_instance, must_call_init = v_instance
+                if not must_call_init:
+                    return v_instance
+            s_init = classdef.classdesc.s_read_attribute('__init__')
+            v_init = Constant("init-func-dummy")   # this value not really used
+        else:
+            # instantiating a class from multiple possible classes
+            vtypeptr = hop.inputarg(self, arg=0)
+            try:
+                access_set, r_class = self.get_access_set('__init__')
+            except MissingRTypeAttribute:
+                s_init = annmodel.s_ImpossibleValue
+            else:
+                s_init = access_set.s_value
+                v_init = r_class.getpbcfield(vtypeptr, access_set, '__init__',
+                                             hop.llops)                
+                v_instance = self._instantiate_runtime_class(hop, vtypeptr, r_instance)
+                    
+        if isinstance(s_init, annmodel.SomeImpossibleValue):
+            assert hop.nb_args == 1, ("arguments passed to __init__, "
+                                      "but no __init__!")
+        else:
+            hop2 = self.replace_class_with_inst_arg(
+                    hop, v_instance, s_instance, call_args)
+            hop2.v_s_insertfirstarg(v_init, s_init)   # add 'initfunc'
+            hop2.s_result = annmodel.s_None
+            hop2.r_result = self.rtyper.getrepr(hop2.s_result)
+            # now hop2 looks like simple_call(initfunc, instance, args...)
+            hop2.dispatch()
+        return v_instance
+
+
 
 class __extend__(pairtype(AbstractClassesPBCRepr, rclass.AbstractClassRepr)):
     def convert_from_to((r_clspbc, r_cls), v, llops):
