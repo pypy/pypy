@@ -162,3 +162,20 @@ def test_really_return_instance():
     res = llinterp_stackless_function(example)
     assert res == 204
 
+def test_resume_and_raise():
+    def g(x):
+        rstack.resume_point("rp0", x)
+        if x == 0:
+            raise KeyError
+        return x + 1
+    def example():
+        v1 = g(one())
+        s = rstack.resume_state_create(None, "rp0", one()-1)
+        try:
+            v2 = rstack.resume_state_invoke(int, s)
+        except KeyError:
+            v2 = 42
+        return v1*100 + v2
+    res = llinterp_stackless_function(example)
+    assert res == 242
+    
