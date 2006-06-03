@@ -5,8 +5,9 @@ from pypy.translator.c.support import cdecl
 from pypy.rpython.lltypesystem.rstr import STR
 from pypy.rpython.lltypesystem import rstr
 from pypy.rpython.lltypesystem import rlist
-from pypy.rpython.module import ll_os, ll_time, ll_math, ll_strtod
+from pypy.rpython.module import ll_time, ll_math, ll_strtod
 from pypy.rpython.module import ll_stackless, ll_stack
+from pypy.rpython.lltypesystem.module import ll_os
 from pypy.module.thread.rpython import ll_thread
 
 # table of functions hand-written in src/ll_*.h

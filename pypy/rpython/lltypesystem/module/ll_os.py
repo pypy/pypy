@@ -1,5 +1,6 @@
 import os
 from pypy.rpython.module.support import from_rstr, to_rstr
+from pypy.rpython.module.ll_os import *
 
 def ll_os_open(fname, flag, mode):
     return os.open(from_rstr(fname), flag, mode)
