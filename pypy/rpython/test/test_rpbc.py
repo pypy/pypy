@@ -25,6 +25,9 @@ class MySubclassWithInit(MyBaseWithInit):
         MyBaseWithInit.__init__(self, a)
         self.b1 = b
 
+class MySubclassWithoutInit(MyBaseWithInit):
+    pass
+
 class Freezing:
     def _freeze_(self):
         return True
@@ -128,6 +131,12 @@ class BaseTestRPBC(BaseRtypingTest):
             return instance.a1 * instance.b1
         assert self.interpret(f, [6, 7]) == 42
 
+    def test_class_init_inherited(self):
+        self._skip_oo('inherited __init__')
+        def f(a):
+            instance = MySubclassWithoutInit(a)
+            return instance.a1
+        assert self.interpret(f, [42]) == 42
 
     def test_freezing(self):
         fr1 = Freezing()
