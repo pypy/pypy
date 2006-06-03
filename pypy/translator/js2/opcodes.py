@@ -19,13 +19,14 @@ from pypy.translator.js2.log import log
 class _SameAs(MicroInstruction):
     def render(self, generator, op):
         generator.change_name(op.result, op.args[0])
-        
+
 class _CastFun(MicroInstruction):
     def __init__(self, name, num):
         self.name = name
         self.num = num
 
     def render(self, generator, op):
+        log("Args: %r"%op.args)
         generator.cast_function(self.name, self.num)
 
 class _Prefix(MicroInstruction):
@@ -41,6 +42,10 @@ class _NotImplemented(MicroInstruction):
     
     def render(self, generator, op):
         raise NotImplementedError(self.reason)
+        
+class _New(MicroInstruction):
+    def render(self, generator, op):
+        generator.new(op.args[0].value)
 
 class _CastString(MicroInstruction):
     def render(self, generator, op):
@@ -121,6 +126,14 @@ class _CallMethod(_Call):
         method = op.args[0]
         self._render_method(generator, method.value, op.args[1:])
 
+class _IsInstance(MicroInstruction):
+    def render(self, generator, op):
+        # FIXME: just temporary hack
+        generator.load(op.args[0])
+        generator.ilasm.load_const(op.args[1].value._name.split('.')[-1])
+        generator.cast_function("isinstanceof", 2)
+
+IsInstance = _IsInstance()
 Call = _Call()
 CallMethod = _CallMethod()
 CopyName = [PushAllArgs, _SameAs ()]
@@ -207,6 +220,7 @@ opcodes = {'int_mul': '*',
     'indirect_call' : [_NotImplemented("Indirect call not implemented")],
     'same_as' : SameAs,
     'new' : [New],
+    'instanceof' : [IsInstance],
     
     # objects
     

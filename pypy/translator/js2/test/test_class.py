@@ -51,7 +51,7 @@ class TestClass(object):
         assert f() == 14
 
     def test_flow_type(self):
-        py.test.skip("isinstanceof not implemented")
+        #py.test.skip("isinstanceof not implemented")
         f = compile_function(llvmsnippet.flow_type, [])
         assert f() == 16
 
@@ -81,7 +81,7 @@ class TestClass(object):
         assert f(15) == 25
 
     def test_call_degrading_func(self):
-        py.test.skip("isinstanceof not implemented")
+        #py.test.skip("isinstanceof not implemented")
         f = compile_function(llvmsnippet.call_degrading_func, [bool])
         assert f(True) == llvmsnippet.call_degrading_func(True)
         assert f(False) == llvmsnippet.call_degrading_func(False)

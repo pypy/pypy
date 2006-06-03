@@ -16,6 +16,8 @@ from pypy.translator.cli.class_ import Class
 
 from pypy.translator.js2.log import log
 
+import re
+
 class LoopFinder(object):
 
     def __init__(self, startblock):
@@ -163,6 +165,9 @@ class Function(Node, Generator):
     def render_block(self, startblock):
         """ Block rendering routine using for variable trick
         """
+        def basename(x):
+            return str(x).split('.')[-1]
+        
         self.ilasm.begin_for()
         
         block_map = {}
@@ -176,16 +181,41 @@ class Function(Node, Generator):
         
         for block in graph.iterblocks():
             self.ilasm.write_case(block_map[block])
+            
+            is_exc_block = (block.exitswitch is flowmodel.c_last_exception)
+            
+            if is_exc_block:
+                self.ilasm.begin_try()
+                
             self.render_block_operations(block)
             if self._is_return_block(block):
                 return_var = block.inputargs[0]
                 #if return_var.concretetype is not Void:
                 self.load(return_var)
                 self.ilasm.ret()
+            elif self._is_raise_block(block):
+                self.ilasm.throw(block.inputargs[1])
             elif block.exitswitch is None:
                 self._setup_link(block.exits[0])
                 self.ilasm.jump_block(block_map[block.exits[0].target])
-            elif block.exitswitch.concretetype is Bool:
+            elif block.exitswitch is flowmodel.c_last_exception:
+                link = [i for i in block.exits if i.exitcase is None][0]
+                self._setup_link(link)
+                self.ilasm.jump_block(block_map[link.target])
+                self.ilasm.catch()
+                first = False
+                for link in [i for i in block.exits if i.exitcase is not None]:
+                    s = "isinstanceof(exc, %s)"%basename(link.exitcase)
+                    if not first:
+                        first = True
+                        self.ilasm.branch_if_string(s)
+                    else:
+                        self.ilasm.branch_elsif_string(s)
+                    self._setup_link(link, True)
+                    self.ilasm.jump_block(block_map[link.target])
+                self.ilasm.close_branch()
+                self.ilasm.close_branch()
+            elif len(block.exits) == 2:
                 self.ilasm.branch_if(block.exitswitch, True)
                 self._setup_link(block.exits[True])
                 self.ilasm.jump_block(block_map[block.exits[True].target])
@@ -193,8 +223,6 @@ class Function(Node, Generator):
                 self._setup_link(block.exits[False])
                 self.ilasm.jump_block(block_map[block.exits[False].target])
                 self.ilasm.close_branch()
-            elif block.exitswitch is flowmodel.c_last_exception:
-                raise NotImplementedError("Exception work in progress")
             else:
                 raise TypeError("Unknow block.exitswitch type %r"%block.exitswitch)
         
@@ -231,11 +259,14 @@ class Function(Node, Generator):
         else:
             self.db.record_function(self.graph, self.name)
 
-    def _setup_link(self, link):
+    def _setup_link(self, link, is_exc_link = False):
         target = link.target
         for to_load, to_store in zip(link.args, target.inputargs):
             if to_load.concretetype is not Void:
-                self.load(to_load)
+                if is_exc_link and isinstance(to_load, flowmodel.Variable) and re.match("last_exc_value", to_load.name):
+                    self.ilasm.load_str("exc")
+                else:
+                    self.load(to_load)
                 self.store(to_store)
 
 

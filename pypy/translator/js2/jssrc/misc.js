@@ -3,8 +3,28 @@ Function.prototype.method = function (name, func) {
     return this;
 };
 
-Function.method('inherits', function (parent) {
+function inherits(child, parent) {
+    child.parent = parent;
+    for (i in parent.prototype) {
+        child.prototype[i] = parent.prototype[i];
+    }
+}
+
+function isinstanceof(self, what) {
+    t = self.constructor;
+    while ( t ) {
+        if (t == what) {
+            return (true);
+        }
+        t = t.parent;
+    }
+    return (false);
+}
+
+Function.method('old_inherits', function (parent) {
     var d = 0, p = (this.prototype = new parent());
+    //var p = new parent();
+    //var d = 0;
     this.method('uber', function uber(name) {
         var f, r, t = d, v = parent.prototype;
         if (t) {

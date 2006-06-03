@@ -113,13 +113,38 @@ class AsmGen(object):
         self.right_hand.append("%s ( %s )" % (func_name, real_args))
 
     def branch_if(self, arg, exitcase):
-        arg_name = self.subst_table.get(arg.name, arg.name)
-        self.codegenerator.write("if ( %s == %s )"%(arg_name, str(exitcase).lower()))
+        def mapping(exitc):
+            if exitc in ['True', 'False']:
+                return exitc.lower()
+            return exitc
+        
+        if hasattr(arg,'name'):
+            arg_name = self.subst_table.get(arg.name, arg.name)
+        else:
+            arg_name = arg
+        self.branch_if_string("%s == %s"%(arg_name, mapping(str(exitcase))))
+        
+    def branch_if_string(self, arg):
+        self.codegenerator.writeline("if (%s)"%arg)
         self.codegenerator.openblock()
     
+    def branch_elsif_string(self, arg):
+        self.codegenerator.closeblock()
+        self.codegenerator.writeline("else if (%s)"%arg)
+        self.codegenerator.openblock()
+    
+    def branch_elsif(self, arg, exitcase):
+        self.codegenerator.closeblock()
+        self.branch_if(arg, exitcase, "else if")
+    
     def branch_while(self, arg, exitcase):
+        def mapping(exitc):
+            if exitc in ['True', 'False']:
+                return exitc.lower()
+            return exitc
+        
         arg_name = self.subst_table.get(arg.name, arg.name)
-        self.codegenerator.write("while ( %s == %s )"%(arg_name, str(exitcase).lower()))
+        self.codegenerator.write("while ( %s == %s )"%(arg_name, mapping(str(exitcase))))
         self.codegenerator.openblock()
     
     def branch_while_true(self):
@@ -229,8 +254,10 @@ class AsmGen(object):
         self.codegenerator.write("try ")
         self.codegenerator.openblock()
     
-    def end_try(self):
+    def catch(self):
         self.codegenerator.closeblock()
+        self.codegenerator.write("catch (exc)")
+        self.codegenerator.openblock()
     
     def begin_for(self):
         self.codegenerator.writeline("var block = 0;")
@@ -251,7 +278,10 @@ class AsmGen(object):
         self.codegenerator.closeblock()
     
     def inherits(self, subclass_name, parent_name):
-        self.codegenerator.writeline("%s.inherits(%s);"%(subclass_name, parent_name))
+        self.codegenerator.writeline("inherits(%s,%s);"%(subclass_name, parent_name))
+    
+    def throw(self, var):
+        self.codegenerator.writeline("throw(%s);"%var.name)
     
     #def finish ( self ):
     #    self . outfile . write ( "%r" % self . right_hand )

@@ -6,7 +6,7 @@ from pypy.rpython.rarithmetic import r_uint, ovfcheck, ovfcheck_lshift
 
 import sys
 
-py.test.skip("Exception work in progress")
+#py.test.skip("Exception work in progress")
 
 class TestException(Exception):
     pass
