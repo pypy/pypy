@@ -100,7 +100,7 @@ class CollectEntry(ExtRegistryEntry):
 
     def compute_result_annotation(self):
         from pypy.annotation import model as annmodel
-        return annmodel.SomeImpossibleValue()
+        return annmodel.s_None
 
     def specialize_call(self, hop):
         return hop.genop('gc__collect', [], resulttype=hop.r_result)
