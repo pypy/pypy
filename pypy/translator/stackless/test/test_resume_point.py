@@ -57,6 +57,24 @@ def test_call():
     res = llinterp_stackless_function(example)
     assert res == 412
 
+def test_returns_with_instance():
+    class C:
+        def __init__(self, x):
+            self.x = x
+    def g(x):
+        return C(x+1)
+    def f(x, y):
+        r = g(x)
+        rstack.resume_point("rp1", y, returns=r)
+        return r.x + y
+    def example():
+        v1 = f(one(),one()+one())
+        s = rstack.resume_state_create(None, "rp1", 5*one())
+        v2 = rstack.resume_state_invoke(int, s, returns=C(one()*3))
+        return v1*100 + v2
+    res = llinterp_stackless_function(example, assert_unwind=False)
+    assert res == 408
+
 def test_call_exception_handling():
     def g(x,y):
         if x == 0:

@@ -243,22 +243,22 @@ class StacklessTransformer(object):
                 code.resume_after_long,
                 [s_hdrptr, annmodel.SomeInteger()],
                 annmodel.s_None),
-##             lltype.SignedLongLong: mixlevelannotator.constfunc(
-##                 code.resume_after_longlong,
-##                 [s_hdrptr, annmodel.SomeInteger(knowntype=rarithmetic.r_longlong)],
-##                 annmodel.s_None),
-##             lltype.Float: mixlevelannotator.constfunc(
-##                 code.resume_after_float,
-##                 [s_hdrptr, annmodel.SomeFloat()],
-##                 annmodel.s_None),
-##             llmemory.Address: mixlevelannotator.constfunc(
-##                 code.resume_after_addr,
-##                 [s_hdrptr, annmodel.SomeAddress()],
-##                 annmodel.s_None),
-##             SAVED_REFERENCE: mixlevelannotator.constfunc(
-##                 code.resume_after_ref,
-##                 [s_hdrptr, annmodel.SomePtr(SAVED_REFERENCE)],
-##                 annmodel.s_None),
+            lltype.SignedLongLong: mixlevelannotator.constfunc(
+                code.resume_after_longlong,
+                [s_hdrptr, annmodel.SomeInteger(knowntype=rarithmetic.r_longlong)],
+                annmodel.s_None),
+            lltype.Float: mixlevelannotator.constfunc(
+                code.resume_after_float,
+                [s_hdrptr, annmodel.SomeFloat()],
+                annmodel.s_None),
+            llmemory.Address: mixlevelannotator.constfunc(
+                code.resume_after_addr,
+                [s_hdrptr, annmodel.SomeAddress()],
+                annmodel.s_None),
+            SAVED_REFERENCE: mixlevelannotator.constfunc(
+                code.resume_after_ref,
+                [s_hdrptr, annmodel.SomePtr(SAVED_REFERENCE)],
+                annmodel.s_None),
             }
 
         mixlevelannotator.finish()
@@ -551,16 +551,20 @@ class StacklessTransformer(object):
         # because the non-exceptional link has been stored in
         # self.resume_points and we don't want a constant "zero" in
         # there.
-        retvar = varoftype(lltype.Void)
-        realrettype = op.result.concretetype
+        v_state = op.args[0]
         v_returns = op.args[1]
-        resume_after_ptr = self.resume_afters[storage_type(v_returns.concretetype)]
-        if storage_type(v_returns.concretetype) != v_returns.concretetype:
-            raise NotImplementedError
-        args = [resume_after_ptr] + op.args
-        newop = model.SpaceOperation('direct_call', args, retvar)
-        block.operations[-1] = newop
+        erased_returns_type = storage_type(v_returns.concretetype)
+        resume_after_ptr = self.resume_afters[erased_returns_type]
+        llops = LowLevelOpList()
+        if erased_returns_type != v_returns.concretetype:
+            v_returns = gen_cast(llops, erased_returns_type, v_returns)
+        llops.genop('direct_call', [resume_after_ptr, v_state, v_returns],
+                    resulttype=lltype.Void)
+        del block.operations[-1]
+        block.operations.extend(llops)
+
         noexclink = block.exits[0].copy()
+        realrettype = op.result.concretetype
         for i, a in enumerate(noexclink.args):
             if a is op.result:
                 noexclink.args[i] = model.Constant(realrettype._defl(), realrettype)

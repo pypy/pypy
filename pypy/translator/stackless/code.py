@@ -2,7 +2,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, lloperation
 from pypy.rpython import rarithmetic
 from pypy.rpython import extfunctable
 from pypy.translator.stackless import frame
-from pypy.translator.stackless.frame import STATE_HEADER, SAVED_REFERENCE
+from pypy.translator.stackless.frame import STATE_HEADER, SAVED_REFERENCE, STORAGE_FIELDS
 
 EMPTY_STATE = frame.make_state_header_type('empty_state')
 
@@ -215,15 +215,16 @@ INDEX_RESUME_AFTER_VOID = frame.RestartInfo.add_prebuilt(resume_after_void,
                                                          [RESUME_AFTER_STATE,
                                                           EMPTY_STATE])
 
-def resume_after_long(state, retvalue):
+template = """\
+def resume_after_%(typename)s(state, retvalue):
     if global_state.restart_substate == -1:
         # normal entry point for a call to state.switch()
         # first unwind the stack
         u = UnwindException()
         s = lltype.malloc(RESUME_AFTER_STATE)
-        s.header.f_restart = INDEX_RESUME_AFTER_LONG
+        s.header.f_restart = INDEX_RESUME_AFTER_%(TYPENAME)s
         s.c = state
-        global_state.retval_long = retvalue
+        global_state.retval_%(typename)s = retvalue
         add_frame_state(u, s.header)
         raise u
     elif global_state.restart_substate == 0:
@@ -242,10 +243,16 @@ def resume_after_long(state, retvalue):
         global_state.top = targetstate
         raise UnwindException()
 
-resume_after_long.stackless_explicit = True
-INDEX_RESUME_AFTER_LONG = frame.RestartInfo.add_prebuilt(resume_after_long,
+
+resume_after_%(typename)s.stackless_explicit = True
+INDEX_RESUME_AFTER_%(TYPENAME)s = frame.RestartInfo.add_prebuilt(resume_after_%(typename)s,
                                                          [RESUME_AFTER_STATE,
                                                           EMPTY_STATE])
+"""
+
+for typename in STORAGE_FIELDS.values():
+    if typename == 'weak': continue
+    exec template%dict(typename=typename, TYPENAME=typename.upper())
 
 # ____________________________________________________________
 
