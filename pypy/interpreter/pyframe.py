@@ -105,6 +105,9 @@ class PyFrame(eval.EvalFrame):
             ]
 
         #XXX what to do with valuestack and blockstack here?
+        #YYY well, we build the valuestack as a tuple (with a marker for NULL objects)
+        #YYY and we pickle the blockstack as well.
+        #YYY see frameobject_reduce line 722 in prickelpit.c in the stackless distro.
             
         return space.newtuple([new_inst, space.newtuple(tup)])
 
