@@ -512,6 +512,8 @@ class LLFrame(object):
             args.append(arg.concretetype._defl())
         frame = self.__class__(graph, args, self.llinterpreter, self)
         result = frame.eval()
+        from pypy.translator.stackless.frame import storage_type
+        assert storage_type(lltype.typeOf(result)) == TGT
         return lltype._cast_whatever(TGT, result)
 
     def op_malloc(self, obj):
