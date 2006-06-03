@@ -206,6 +206,7 @@ class LLHelpers(AbstractLLHelpers):
         return hop.genop('oosend', [c_build, v_buf], resulttype=ootype.String)        
     do_stringformat = classmethod(do_stringformat)
 
+
 def add_helpers():
     dic = {}
     for name, meth in ootype.String._GENERIC_METHODS.iteritems():
@@ -223,7 +224,7 @@ def %s(obj, %s):
 add_helpers()
 del add_helpers
 
-
+do_stringformat = LLHelpers.do_stringformat
 string_repr = StringRepr()
 char_repr = CharRepr()
 unichar_repr = UniCharRepr()

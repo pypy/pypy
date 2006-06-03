@@ -58,6 +58,13 @@ class BaseTestRfloat(BaseRtypingTest):
         res = self.interpret(fn, [1.5])
         assert float(self.ll_to_string(res)) == 1.5
 
+    def test_string_mod_float(self):
+        def fn(f):
+            return '%f' % f
+
+        res = self.interpret(fn, [1.5])
+        assert float(self.ll_to_string(res)) == 1.5
+
 class TestLLtype(BaseTestRfloat, LLRtypeMixin):
     pass
 
