@@ -122,6 +122,10 @@ class AsmGen(object):
         self.codegenerator.write("while ( %s == %s )"%(arg_name, str(exitcase).lower()))
         self.codegenerator.openblock()
     
+    def branch_while_true(self):
+        self.codegenerator.write("while (true)")
+        self.codegenerator.openblock()
+    
     def branch_else(self):
         self.codegenerator.closeblock()
         self.codegenerator.write("else")
@@ -226,6 +230,24 @@ class AsmGen(object):
         self.codegenerator.openblock()
     
     def end_try(self):
+        self.codegenerator.closeblock()
+    
+    def begin_for(self):
+        self.codegenerator.writeline("var block = 0;")
+        self.codegenerator.write("for(;;)")
+        self.codegenerator.openblock()
+        self.codegenerator.write("switch(block)")
+        self.codegenerator.openblock()
+    
+    def write_case(self, num):
+        self.codegenerator.writeline("case %d:"%num)
+    
+    def jump_block(self, num):
+        self.codegenerator.writeline("block = %d;"%num)
+        self.codegenerator.writeline("break;")
+    
+    def end_for(self):
+        self.codegenerator.closeblock()
         self.codegenerator.closeblock()
     
     def inherits(self, subclass_name, parent_name):

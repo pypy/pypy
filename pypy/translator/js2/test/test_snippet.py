@@ -33,12 +33,12 @@ class TestSnippet(object):
         assert f() == 4
 
     def test_sieve_of_eratosthenes(self):
-        py.test.skip("Loop error in loop detection software")
+        #py.test.skip("Loop error in loop detection software")
         f = compile_function(test.sieve_of_eratosthenes, [])
         assert f() == 1028
     
     def test_nested_whiles(self):
-        py.test.skip("Loop error in loop detection software")
+        #py.test.skip("Loop error in loop detection software")
         f = compile_function(test.nested_whiles, [int, int])
         assert test.nested_whiles(3,2) == f(3,2)
 
@@ -51,7 +51,7 @@ class TestSnippet(object):
         assert while_func(10) == 55
 
     def test_time_waster(self):
-        py.test.skip("Loop error in loop detection software")
+        #py.test.skip("Loop error in loop detection software")
         f = compile_function(test.time_waster, [int])
         assert f(1) == 1
         assert f(2) == 2

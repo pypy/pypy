@@ -39,10 +39,14 @@ class LoopFinder(object):
 
     def visit_Link(self, link, switches):
         if link.target in switches:
+            #if self.loops.has_key(link.target):
+            #    # double loop
+            #    pass
+            block_switch = self.block_seeing_order[link.target]
             if len(self.block_seeing_order[link.target]) == 1:
-                self.loops[link.target] = self.block_seeing_order[link.target][0].exitcase
+                self.loops[(block_switch[0].exitcase,link.target)] = block_switch[0].exitcase
             else:
-                self.loops[link.target] = self.block_seeing_order[link.target][1].exitcase
+                self.loops[(block_switch[1].exitcase,link.target)] = block_switch[1].exitcase
             
         if not link.target in self.seen:
             self.parents[link.target] = self.parents[link.prevblock]
@@ -75,14 +79,16 @@ class Function(Node, Generator):
         return cmp(self.order, other.order)
 
     def _is_return_block(self, block):
-        return (not block.exits) and len(block.inputargs) == 1
-
+        return self.graph.returnblock is block
+    
     def _is_raise_block(self, block):
-        return (not block.exits) and len(block.inputargs) == 2        
-
-    def render_block(self, block, stop_block = None):
-        if block is stop_block:
+        return self.graph.exceptblock is block
+        
+    def loop_render_block(self, block, stop_blocks = []):
+        # FIXME: This code is awfull, some refactoring please
+        if block in stop_blocks:
             return
+        log("Rendering block %r"%block)
         
         handle_exc = (block.exitswitch == flowmodel.c_last_exception)
         if handle_exc:
@@ -102,35 +108,98 @@ class Function(Node, Generator):
             assert(len(block.exits) == 1)
             link = block.exits[0]
             self._setup_link(link)
-            self.render_block(link.target, stop_block)
+            self.render_block(link.target, stop_blocks)
         elif block.exitswitch is flowmodel.c_last_exception:
             # we've got exception block
             raise NotImplementedError("Exception handling not implemented")
         else:
-            if self.loops.has_key(block):
-                # we've got loop
-                self.ilasm.branch_while(block.exitswitch, self.loops[block])
-                exit_case = block.exits[self.loops[block]]
-                self._setup_link(exit_case)
-                self.render_block(exit_case.target, block)
+            if self.loops.has_key((True,block)) and self.loops.has_key((False,block)):
+                # double loop
+                #self.ilasm.branch_while
+                self.ilasm.branch_while_true()
+                self.ilasm.branch_if(block.exitswitch, self.loops[(True,block)])
+                self._setup_link(block.exits[True])
+                self.render_block(block.exits[True].target, stop_blocks+[block])
+                self.ilasm.branch_else()
+                self._setup_link(block.exits[False])
+                self.render_block(block.exits[False].target, stop_blocks+[block])
+                self.ilasm.close_branch()
                 for op in block.operations:
                     self._render_op(op)
                 self.ilasm.close_branch()
-                exit_case = block.exits[not self.loops[block]]
+            elif self.loops.has_key((True, block)) or self.loops.has_key((False, block)):
+                # we've got loop
+                try:
+                    loop_case = self.loops[(True, block)]
+                except KeyError:
+                    loop_case = self.loops[(False, block)]
+                self.ilasm.branch_while(block.exitswitch, loop_case)
+                exit_case = block.exits[loop_case]
+                self._setup_link(exit_case)
+                self.render_block(exit_case.target, stop_blocks+[block])
+                for op in block.operations:
+                    self._render_op(op)
+                self.ilasm.close_branch()
+                exit_case = block.exits[not loop_case]
                 self._setup_link(exit_case)
                 #log (  )
-                self.render_block(exit_case.target,block)
+                self.render_block(exit_case.target, stop_blocks+[block])
                 #raise NotImplementedError ( "loop" )
             else:
                 # just a simple if
                 assert(len(block.exits) == 2)
                 self.ilasm.branch_if(block.exitswitch, True)
                 self._setup_link(block.exits[True])
-                self.render_block(block.exits[True].target, stop_block)
+                self.render_block(block.exits[True].target, stop_blocks)
                 self.ilasm.branch_else()
                 self._setup_link(block.exits[False])
-                self.render_block(block.exits[False].target, stop_block)
+                self.render_block(block.exits[False].target, stop_blocks)
                 self.ilasm.close_branch()
+    
+    def render_block_operations(self, block):
+        for op in block.operations:
+            self._render_op(op)
+    
+    def render_block(self, startblock):
+        """ Block rendering routine using for variable trick
+        """
+        self.ilasm.begin_for()
+        
+        block_map = {}
+        blocknum = 0
+        
+        graph = self.graph
+        
+        for block in graph.iterblocks():
+            block_map[block] = blocknum
+            blocknum += 1
+        
+        for block in graph.iterblocks():
+            self.ilasm.write_case(block_map[block])
+            self.render_block_operations(block)
+            if self._is_return_block(block):
+                return_var = block.inputargs[0]
+                #if return_var.concretetype is not Void:
+                self.load(return_var)
+                self.ilasm.ret()
+            elif block.exitswitch is None:
+                self._setup_link(block.exits[0])
+                self.ilasm.jump_block(block_map[block.exits[0].target])
+            elif block.exitswitch.concretetype is Bool:
+                self.ilasm.branch_if(block.exitswitch, True)
+                self._setup_link(block.exits[True])
+                self.ilasm.jump_block(block_map[block.exits[True].target])
+                self.ilasm.branch_else()
+                self._setup_link(block.exits[False])
+                self.ilasm.jump_block(block_map[block.exits[False].target])
+                self.ilasm.close_branch()
+            elif block.exitswitch is flowmodel.c_last_exception:
+                raise NotImplementedError("Exception work in progress")
+            else:
+                raise TypeError("Unknow block.exitswitch type %r"%block.exitswitch)
+        
+        self.ilasm.end_for()
+        #self.render_operations(
 
     def render(self,ilasm):
         if self.db.graph_name(self.graph) is not None and not self.is_method:
@@ -143,16 +212,17 @@ class Function(Node, Generator):
         
         self.ilasm = ilasm
         
-        self.loops = LoopFinder(self.graph.startblock).loops
+        #self.loops = LoopFinder(self.graph.startblock).loops
         if self.is_method:
             self.ilasm.begin_method(self.name, self._class, args)
         else:
             self.ilasm.begin_function(self.name, args)
-        log("loops: %r"%self.loops)
+        #log("loops: %r"%self.loops)
 
         # render all variables
         
         self.ilasm.set_locals(",".join(self.locals))
+        
         self.render_block(self.graph.startblock)
 
         self.ilasm.end_function()
@@ -206,7 +276,7 @@ class Function(Node, Generator):
         seen = {}
         for v in mix:
             is_var = isinstance(v, flowmodel.Variable)
-            if id(v) not in seen and is_var and v.name not in args and v.concretetype is not Void:
+            if id(v) not in seen and is_var and v.name not in args:
                 locals.append(v.name)
                 seen[id(v)] = True
 
