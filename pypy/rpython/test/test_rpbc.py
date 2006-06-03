@@ -454,6 +454,21 @@ class BaseTestRPBC(BaseRtypingTest):
         res = self.interpret(f, [7])
         assert res == 42
 
+    def test_simple_function_pointer(self): 
+        py.test.skip("a problem with ootypesystem")
+        def f1(x):
+            return x + 1
+        def f2(x):
+            return x + 2
+
+        l = [f1, f2]
+
+        def pointersimple(i): 
+            return l[i](i)
+
+        res = self.interpret(pointersimple, [1])
+        assert res == 3
+
     def test_classdef_getattr(self):
         class A:
             myvalue = 123
