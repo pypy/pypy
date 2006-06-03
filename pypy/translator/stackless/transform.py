@@ -236,7 +236,7 @@ class StacklessTransformer(object):
         self.resume_after_void_ptr = mixlevelannotator.constfunc(
             code.resume_after_void, [annmodel.SomePtr(lltype.Ptr(STATE_HEADER)),
                                      annmodel.s_None],
-                                    annmodel.SomeInteger())
+                                    annmodel.s_None)
 
         mixlevelannotator.finish()
 
@@ -515,11 +515,21 @@ class StacklessTransformer(object):
     def handle_resume_state_invoke(self, block):
         op = block.operations[-1]
         assert op.opname == 'resume_state_invoke'
-        rettype = storage_type(op.result.concretetype)
-        if op.result.concretetype != rettype:
-            retvar = varoftype(rettype)
-        else:
-            retvar = op.result
+        # some commentary.
+        #
+        # we don't want to write 155 or so different versions of
+        # resume_after_foo that appear to the annotator to return
+        # different types.  we take advantage of the fact that this
+        # function always raises UnwindException and have it (appear
+        # to) return Void.  then to placate all the other machinery,
+        # we pass a constant zero-of-the-appropriate-type along the
+        # non-exceptional link (which we know will never be taken).
+        # Nota Bene: only mutate a COPY of the non-exceptional link
+        # because the non-exceptional link has been stored in
+        # self.resume_points and we don't want a constant "zero" in
+        # there.
+        retvar = varoftype(lltype.Void)
+        realrettype = op.result.concretetype
         v_returns = op.args[1]
         if v_returns.concretetype == lltype.Signed:
             raise NotImplementedError
@@ -529,13 +539,11 @@ class StacklessTransformer(object):
             block.operations[-1] = newop
         else:
             raise NotImplementedError
-        if retvar is not op.result:
-            noexclink = block.exits[0]
-            for i, a in enumerate(noexclink.args):
-                if a is op.result:
-                    noexclink.args[i] = retvar
-            self.insert_return_conversion(
-                noexclink, op.result.concretetype, retvar)
+        noexclink = block.exits[0].copy()
+        for i, a in enumerate(noexclink.args):
+            if a is op.result:
+                noexclink.args[i] = model.Constant(realrettype._defl(), realrettype)
+        block.recloseblock(*((noexclink,) + block.exits[1:]))        
 
     def transform_block(self, block):
         i = 0
@@ -627,10 +635,6 @@ class StacklessTransformer(object):
                 # block, and that it is called even if the return
                 # value is not again used.
 
-                if op.opname == 'resume_state_invoke':
-                    self.handle_resume_state_invoke(block)
-                    op = block.operations[-1]
-
                 args = vars_to_save(block)
 
                 save_block, frame_state_type, fieldnames = \
@@ -650,6 +654,9 @@ class StacklessTransformer(object):
                 block.recloseblock(*newexits)
                 self.translator.rtyper._convert_link(block, newlink)
 
+                if op.opname == 'resume_state_invoke':
+                    self.handle_resume_state_invoke(block)
+                
                 block = link.target
                 i = 0
             else:

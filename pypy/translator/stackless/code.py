@@ -209,8 +209,6 @@ def resume_after_void(state, retvalue):
         resume_bottom.f_back = mystate.f_back
         global_state.top = targetstate
         raise UnwindException()
-    else:
-        return 0
 
 resume_after_void.stackless_explicit = True
 INDEX_RESUME_AFTER_VOID = frame.RestartInfo.add_prebuilt(resume_after_void,

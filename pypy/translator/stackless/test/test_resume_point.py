@@ -138,5 +138,5 @@ def test_really_return_instance():
         c.x = 4*one()
         s1 = rstack.resume_state_create(None, "rp1", c)
         return v1*100 + rstack.resume_state_invoke(C, s1).x
-    res = run_stackless_function(example)
+    res = llinterp_stackless_function(example)
     assert res == 204
