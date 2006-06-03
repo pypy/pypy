@@ -9,6 +9,6 @@ class Module(MixedModule):
         'getweakrefs': 'interp__weakref.getweakrefs',
         'ReferenceType': 'interp__weakref.W_Weakref',
         'ProxyType': 'interp__weakref.W_Proxy', 
-        'CallableProxyType': 'interp__weakref.W_Proxy',
+        'CallableProxyType': 'interp__weakref.W_CallableProxy',
         'proxy': 'interp__weakref.proxy'
     }

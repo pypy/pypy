@@ -234,6 +234,7 @@ class AppTestWeakref(object):
             # leads to the fact that the __del__ of _weakref.ref is not called.
             assert _weakref.getweakrefs(a)[0]() is a
 
+
 class AppTestProxy(object):
     def setup_class(cls):
         space = gettestobjspace(usemodules=('_weakref',))
@@ -269,6 +270,15 @@ class AppTestProxy(object):
         a_ = _weakref.proxy(a)
         a_()
         assert global_a.x == 1
+
+    def test_callable_proxy_type(self):
+        import _weakref
+        class Callable:
+            def __call__(self, x):
+                pass
+        o = Callable()
+        ref1 = _weakref.proxy(o)
+        assert type(ref1) is _weakref.CallableProxyType
 
     def test_dont_create_directly(self):
         import _weakref
