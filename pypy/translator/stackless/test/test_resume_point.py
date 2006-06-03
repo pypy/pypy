@@ -29,6 +29,19 @@ def test_no_call():
     res = llinterp_stackless_function(example, assert_unwind=False)
     assert res == 24
 
+def test_bogus_restart_state_create():
+    def f(x, y):
+        x = x-1
+        rstack.resume_point("rp0", x, y) 
+        return x+y
+    def example():
+        v1 = f(one(),one()+one())
+        state = rstack.resume_state_create(None, "rp0", one())
+        return v1
+    info = py.test.raises(AssertionError, "transform_stackless_function(example)")
+    assert 'rp0' in str(info.value)
+    
+
 def test_call():
     def g(x,y):
         return x*y
@@ -71,3 +84,20 @@ def test_call_uncovered():
     e = py.test.raises(Exception, transform_stackless_function, example)
     assert e.value.args == ('not covered needed value at resume_point',)
 
+def test_chained_states():
+    def g(x, y):
+        x += 1
+        rstack.resume_point("rp1", x, y)
+        return x + y
+    def f(x, y, z):
+        y += 1
+        r = g(x, y)
+        rstack.resume_point("rp2", z, returns=r)
+        return r + z
+    def example():
+        v1 = f(one(), 2*one(), 3*one())
+        s2 = rstack.resume_state_create(None, "rp2", 2*one())
+        s1 = rstack.resume_state_create(s2, "rp1", 4*one(), 5*one())
+        return 100*v1 + rstack.resume_state_invoke(int, s1)
+    res = llinterp_stackless_function(example, assert_unwind=False)
+    assert res == 811

@@ -85,8 +85,7 @@ class ResumeStateCreateFnEntry(ExtRegistryEntry):
         assert hop.args_s[1].is_constant()
         c_label = hop.inputconst(lltype.Void, hop.args_s[1].const)
 
-        r =  SimplePointerRepr(lltype.Ptr(STATE_HEADER))
-        v_state = hop.inputarg(r, arg=0)
+        v_state = hop.inputarg(hop.r_result, arg=0)
         
         args_v = hop.args_v[2:]
 

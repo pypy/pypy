@@ -203,7 +203,10 @@ def resume_after_void(state, retvalue):
         mystate = global_state.top
         s = lltype.cast_pointer(lltype.Ptr(RESUME_AFTER_STATE), mystate)
         targetstate = s.c
-        targetstate.f_back = mystate.f_back
+        resume_bottom = targetstate
+        while resume_bottom.f_back:
+             resume_bottom = resume_bottom.f_back
+        resume_bottom.f_back = mystate.f_back
         global_state.top = targetstate
         raise UnwindException()
     else:

@@ -259,7 +259,9 @@ class StacklessTransformer(object):
 
         self.is_finished = False
 
-        #self.explicit_resume_points = {}
+        # only for sanity checking, but still very very important
+        self.explicit_resume_point_data = {}
+        
         self.symbolic_restart_numbers = {}
 
         # register the prebuilt restartinfos
@@ -446,18 +448,19 @@ class StacklessTransformer(object):
         (frame_type,
          fieldnames) = self.frametyper.frame_type_for_vars(parms[1:])
 
+        label = op.args[0].value
+
+        if label in self.explicit_resume_point_data:
+            other_type = self.explicit_resume_point_data[label]
+            assert frame_type == other_type, "inconsistent types for label %r"%(label,)
+        else:
+            self.explicit_resume_point_data[label] = frame_type
+
         self.resume_points.append(
             ResumePoint(res, parms[1:], tuple(block.exits),
                         frame_type, fieldnames))
 
-        label = op.args[0].value
-
         restart_number = len(self.masterarray1) + len(self.resume_points)-1
-
-##                     assert label not in self.explicit_resume_points
-##                     self.explicit_resume_points[label] = {
-##                         'restype': res.concretetype,
-##                     }
 
         if label in self.symbolic_restart_numbers:
             symb = self.symbolic_restart_numbers[label]
@@ -476,6 +479,13 @@ class StacklessTransformer(object):
         label = op.args[1].value
         parms = op.args[2:]
         FRAME, fieldnames = self.frametyper.frame_type_for_vars(parms)
+
+        if label in self.explicit_resume_point_data:
+            other_type = self.explicit_resume_point_data[label]
+            assert FRAME == other_type, "inconsistent types for label %r"%(label,)
+        else:
+            self.explicit_resume_point_data[label] = FRAME
+
         c_FRAME = model.Constant(FRAME, lltype.Void)
         v_state = llops.genop('malloc', [c_FRAME],
                               resulttype = lltype.Ptr(FRAME))
@@ -492,6 +502,9 @@ class StacklessTransformer(object):
         llops.genop('setfield', [v_state,
                                  model.Constant('f_restart', lltype.Void),
                                  model.Constant(symb, lltype.Signed)])
+        llops.genop('setfield', [v_state,
+                                 model.Constant('f_back', lltype.Void),
+                                 op.args[0]])
         llops.append(model.SpaceOperation('same_as', [v_state], op.result))
         block.operations[i:i+1] = llops
 
