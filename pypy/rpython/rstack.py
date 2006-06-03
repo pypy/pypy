@@ -86,12 +86,12 @@ class ResumeStateCreateFnEntry(ExtRegistryEntry):
         c_label = hop.inputconst(lltype.Void, hop.args_s[1].const)
 
         r =  SimplePointerRepr(lltype.Ptr(STATE_HEADER))
-        state_v = hop.inputarg(r, arg=0)
+        v_state = hop.inputarg(r, arg=0)
         
         args_v = hop.args_v[2:]
 
         hop.exception_is_here()
-        return hop.genop('resume_state_create', [c_label] + args_v,
+        return hop.genop('resume_state_create', [v_state, c_label] + args_v,
                          hop.r_result)
 
 class ResumeStateEntry(ExtRegistryEntry):
@@ -116,7 +116,7 @@ class ResumeStateInvokeFnEntry(ExtRegistryEntry):
 
     def specialize_call(self, hop, **kwds_i):
         from pypy.rpython.lltypesystem import lltype
-        v_state = hop.args_v[0]
+        v_state = hop.args_v[1]
         
         if 'i_returns' in kwds_i:
             assert len(kwds_i) == 1

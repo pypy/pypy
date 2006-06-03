@@ -25,9 +25,9 @@ def test_no_call():
         state = rstack.resume_state_create(None, "rp0", one(), one()+one()+one())
         v2 = rstack.resume_state_invoke(int, state)
         return v1*10 + v2
-    transform_stackless_function(example)
-##     res = llinterp_stackless_function(example, assert_unwind=False)
-##     assert res == 24
+##     transform_stackless_function(example)
+    res = llinterp_stackless_function(example, assert_unwind=False)
+    assert res == 24
 
 def test_call():
     def g(x,y):

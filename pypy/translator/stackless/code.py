@@ -181,6 +181,38 @@ ll_stack_capture.stackless_explicit = True
 INDEX_CAPTURE = frame.RestartInfo.add_prebuilt(ll_stack_capture,
                                                [EMPTY_STATE])
 
+RESUME_AFTER_STATE = frame.make_state_header_type('resume_after_state',
+                                                  ('c', lltype.Ptr(STATE_HEADER)),)
+
+def resume_after_void(state, retvalue):
+    if global_state.restart_substate == -1:
+        # normal entry point for a call to state.switch()
+        # first unwind the stack
+        u = UnwindException()
+        s = lltype.malloc(RESUME_AFTER_STATE)
+        s.header.f_restart = INDEX_RESUME_AFTER_VOID
+        s.c = state
+        add_frame_state(u, s.header)
+        raise u
+    elif global_state.restart_substate == 0:
+        # STATE 0: we didn't do anything so far, but the stack is unwound
+        global_state.restart_substate = -1
+        # grab the frame corresponding to ourself
+        # the 'targetstate' local is garbage here, it must be read back from
+        # 's.c' where we saved it by the normal entry point above
+        mystate = global_state.top
+        s = lltype.cast_pointer(lltype.Ptr(RESUME_AFTER_STATE), mystate)
+        targetstate = s.c
+        targetstate.f_back = mystate.f_back
+        global_state.top = targetstate
+        raise UnwindException()
+    else:
+        return 0
+
+resume_after_void.stackless_explicit = True
+INDEX_RESUME_AFTER_VOID = frame.RestartInfo.add_prebuilt(resume_after_void,
+                                                         [RESUME_AFTER_STATE,
+                                                          EMPTY_STATE])
 # ____________________________________________________________
 
 class StacklessData:

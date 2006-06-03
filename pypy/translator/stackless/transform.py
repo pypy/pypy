@@ -12,6 +12,7 @@ from pypy.rpython.rclass import getinstancerepr
 from pypy.rpython.rbuiltin import gen_cast
 from pypy.rpython.rtyper import LowLevelOpList
 from pypy.rpython.module import ll_stackless, ll_stack
+from pypy.rpython.objectmodel import ComputedIntSymbolic
 from pypy.translator.backendopt import graphanalyze
 
 from pypy.translator.stackless.frame import SAVED_REFERENCE, STORAGE_TYPES
@@ -53,6 +54,15 @@ from pypy.translator.stackless.frame import storage_type
 #     else:
 #         abort()
 #     return retval + x + 1
+
+class SymbolicRestartNumber(ComputedIntSymbolic):
+    def __init__(self, value=None):
+        ComputedIntSymbolic.__init__(self, self._getvalue)
+        self.value = value
+
+    def _getvalue(self):
+        assert self.value is not None
+        return self.value
 
 class ResumePoint:
     def __init__(self, var_result, args, links_to_resumption,
@@ -223,6 +233,11 @@ class StacklessTransformer(object):
         self.yield_current_frame_to_caller_ptr = mixlevelannotator.constfunc(
             code.yield_current_frame_to_caller, [], s_StatePtr)
 
+        self.resume_after_void_ptr = mixlevelannotator.constfunc(
+            code.resume_after_void, [annmodel.SomePtr(lltype.Ptr(STATE_HEADER)),
+                                     annmodel.s_None],
+                                    annmodel.SomeInteger())
+
         mixlevelannotator.finish()
 
         s_global_state = bk.immutablevalue(code.global_state)
@@ -244,7 +259,8 @@ class StacklessTransformer(object):
 
         self.is_finished = False
 
-        self.explicit_resume_points = {}
+        #self.explicit_resume_points = {}
+        self.symbolic_restart_numbers = {}
 
         # register the prebuilt restartinfos
         for restartinfo in frame.RestartInfo.prebuilt:
@@ -404,6 +420,96 @@ class StacklessTransformer(object):
         new_start_block.isstartblock = True
         graph.startblock = new_start_block
 
+    def handle_resume_point(self, block, i):
+        # in some circumstances we might be able to reuse
+        # an already inserted resume point
+        op = block.operations[i]
+        if i == len(block.operations) - 1:
+            link = block.exits[0]
+        else:
+            link = support.split_block_with_keepalive(block, i+1)
+        parms = op.args[1:]
+        if not isinstance(parms[0], model.Variable):
+            assert parms[0].value is None
+            parms[0] = None
+        args = vars_to_save(block)
+        for a in args:
+            if a not in parms:
+                raise Exception, "not covered needed value at resume_point"
+            if parms[0] is not None: # returns= case
+                res = parms[0]
+                args = [arg for arg in args if arg is not res]
+            else:
+                args = args
+                res = op.result
+
+        (frame_type,
+         fieldnames) = self.frametyper.frame_type_for_vars(parms[1:])
+
+        self.resume_points.append(
+            ResumePoint(res, parms[1:], tuple(block.exits),
+                        frame_type, fieldnames))
+
+        label = op.args[0].value
+
+        restart_number = len(self.masterarray1) + len(self.resume_points)-1
+
+##                     assert label not in self.explicit_resume_points
+##                     self.explicit_resume_points[label] = {
+##                         'restype': res.concretetype,
+##                     }
+
+        if label in self.symbolic_restart_numbers:
+            symb = self.symbolic_restart_numbers[label]
+            assert symb.value is None
+            symb.value = restart_number
+        else:
+            symb = SymbolicRestartNumber(restart_number)
+            self.symbolic_restart_numbers[label] = symb
+
+        return link.target, i
+
+    def handle_resume_state_create(self, block, i):
+        op = block.operations[i]
+        llops = LowLevelOpList()
+        # XXX we do not look at op.args[0], the prevstate, at all
+        label = op.args[1].value
+        parms = op.args[2:]
+        FRAME, fieldnames = self.frametyper.frame_type_for_vars(parms)
+        c_FRAME = model.Constant(FRAME, lltype.Void)
+        v_state = llops.genop('malloc', [c_FRAME],
+                              resulttype = lltype.Ptr(FRAME))
+        llops.extend(self.generate_saveops(v_state, parms, fieldnames))
+        v_state = llops.genop('cast_pointer', [v_state],
+                              resulttype = lltype.Ptr(frame.STATE_HEADER))
+
+        if label in self.symbolic_restart_numbers:
+            symb = self.symbolic_restart_numbers[label]
+        else:
+            symb = SymbolicRestartNumber()
+            self.symbolic_restart_numbers[label] = symb
+
+        llops.genop('setfield', [v_state,
+                                 model.Constant('f_restart', lltype.Void),
+                                 model.Constant(symb, lltype.Signed)])
+        llops.append(model.SpaceOperation('same_as', [v_state], op.result))
+        block.operations[i:i+1] = llops
+
+    def handle_resume_state_invoke(self, block, i):
+        op = block.operations[i]
+        if op.result.concretetype != lltype.Signed:
+            raise NotImplementedError
+        v_returns = op.args[1]
+        if v_returns.concretetype == lltype.Signed:
+            raise NotImplementedError
+        elif v_returns.concretetype == lltype.Void:
+            args = [self.resume_after_void_ptr] + op.args
+            newop = model.SpaceOperation('direct_call', args, op.result)
+            block.operations[i] = newop
+        else:
+            raise NotImplementedError
+        return newop
+
     def transform_block(self, block):
         i = 0
 
@@ -424,51 +530,18 @@ class StacklessTransformer(object):
                 op = replace_with_call(self.yield_current_frame_to_caller_ptr)
                 stackless_op = True
 
+            if op.opname == 'resume_state_invoke':
+                op = self.handle_resume_state_invoke(block, i)
+                stackless_op = True
+
+            if op.opname == 'resume_state_create':
+                self.handle_resume_state_create(block, i)
+                continue # go back and look at that malloc
+                        
             if (op.opname in ('direct_call', 'indirect_call')
                 or self.analyzer.operation_is_true(op)):
                 if op.opname == 'resume_point':
-                    # in some circumstances we might be able to reuse
-                    # an already inserted resume point
-                    if i == len(block.operations) - 1:
-                        link = block.exits[0]
-                    else:
-                        link = support.split_block_with_keepalive(block, i+1)
-                    parms = op.args[1:]
-                    if not isinstance(parms[0], model.Variable):
-                        assert parms[0].value is None
-                        parms[0] = None
-                    args = vars_to_save(block)
-                    for a in args:
-                        if a not in parms:
-                            raise Exception, "not covered needed value at resume_point"
-                        if parms[0] is not None: # returns= case
-                            res = parms[0]
-                            args = [arg for arg in args if arg is not res]
-                        else:
-                            args = args
-                            res = op.result
-
-                    (frame_type,
-                     fieldnames) = self.frametyper.frame_type_for_vars(args)
-
-                    self.resume_points.append(
-                        ResumePoint(res, args, tuple(block.exits),
-                                    frame_type, fieldnames))
-
-                    field2parm = {}
-                    for arg, fieldname in zip(args, fieldnames):
-                        p = parms.index(arg)
-                        field2parm[fieldname] = p-1 # ignore parm[0]
-                        
-                    label = op.args[0].value
-                    self.explicit_resume_points[label] = {
-                        'restart': len(self.masterarray1) + len(self.resume_points)-1,
-                        'frame_type': frame_type,
-                        'restype': res.concretetype,
-                        'field2parm': field2parm,
-                    }
-                    block = link.target
-                    i = 0
+                    block, i = self.handle_resume_point(block, i)
                     continue
                     
                 # trap calls to stackless-related suggested primitives
@@ -477,7 +550,7 @@ class StacklessTransformer(object):
                     if func in self.suggested_primitives:
                         op = replace_with_call(self.suggested_primitives[func])
                         stackless_op = True
-                        
+
                 if not stackless_op and not self.analyzer.analyze(op):
                     i += 1
                     continue
