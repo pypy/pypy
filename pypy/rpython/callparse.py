@@ -26,7 +26,7 @@ def getsig(rtyper, graph):
             getrinputs(rtyper, graph),
             getrresult(rtyper, graph))
 
-def callparse(rtyper, graph, hop, opname, is_method=False):
+def callparse(rtyper, graph, hop, opname, r_self=None):
     """Parse the arguments of 'hop' when calling the given 'graph'.
     """
     rinputs = getrinputs(rtyper, graph)
@@ -34,7 +34,11 @@ def callparse(rtyper, graph, hop, opname, is_method=False):
     def args_h(start):
         return [VarHolder(i, hop.args_s[i])
                         for i in range(start, hop.nb_args)]
-    start = 1 - is_method
+    if r_self is None:
+        start = 1
+    else:
+        start = 0
+        rinputs[0] = r_self
     if opname == "simple_call":
         arguments =  Arguments(space, args_h(start))
     elif opname == "call_args":

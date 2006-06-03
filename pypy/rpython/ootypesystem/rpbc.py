@@ -123,7 +123,7 @@ class MethodsPBCRepr(AbstractMethodsPBCRepr):
         anygraph = row_of_graphs.itervalues().next()  # pick any witness
         hop2 = self.add_instance_arg_to_hop(hop, opname == "call_args")
         vlist = callparse.callparse(self.rtyper, anygraph, hop2, opname,
-                is_method=True)
+                                    r_self = self.r_im_self)
         rresult = callparse.getrresult(self.rtyper, anygraph)
         hop.exception_is_here()
         mangled = mangle(self.methodname)

@@ -31,6 +31,7 @@ class MySubclassWithoutInit(MyBaseWithInit):
 class MySubclassWithoutMethods(MyBase):
     pass
 
+
 class Freezing:
     def _freeze_(self):
         return True
@@ -141,11 +142,36 @@ class BaseTestRPBC(BaseRtypingTest):
         assert self.interpret(f, [42]) == 42
 
     def test_class_method_inherited(self):
-        def f(a):
-            instance = MySubclassWithoutMethods()
-            instance.z = a
-            return instance.m(a)
-        assert self.interpret(f, [42]) == 84
+        # The strange names for this test are taken from richards,
+        # where the problem originally arose.
+        class Task:
+            def waitTask(self, a):
+                return a+1
+
+            def fn(self, a):
+                raise NotImplementedError
+
+            def runTask(self, a):
+                return self.fn(a)
+
+        class HandlerTask(Task):
+            def fn(self, a):
+                return self.waitTask(a)+2
+
+        class DeviceTask(Task):
+            def fn(self, a):
+                return self.waitTask(a)+3
+        
+        def f(a, b):
+            if b:
+                inst = HandlerTask()
+            else:
+                inst = DeviceTask()
+
+            return inst.runTask(a)
+                
+        assert self.interpret(f, [42, True]) == 45
+        assert self.interpret(f, [42, False]) == 46
 
     def test_freezing(self):
         fr1 = Freezing()
