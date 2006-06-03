@@ -101,3 +101,25 @@ def test_chained_states():
         return 100*v1 + rstack.resume_state_invoke(int, s1)
     res = llinterp_stackless_function(example, assert_unwind=False)
     assert res == 811
+
+def test_return_instance():
+    class C:
+        pass
+    def g(x):
+        c = C()
+        c.x = x + 1
+        rstack.resume_point("rp1", c)
+        return c
+    def f(x, y):
+        r = g(x)
+        rstack.resume_point("rp2", y, returns=r)
+        return r.x + y
+    def example():
+        v1 = f(one(), 2*one())
+        s2 = rstack.resume_state_create(None, "rp2", 2*one())
+        c = C()
+        c.x = 4*one()
+        s1 = rstack.resume_state_create(s2, "rp1", c)
+        return v1*100 + rstack.resume_state_invoke(int, s1)
+    res = llinterp_stackless_function(example, assert_unwind=False)
+    assert res == 406
