@@ -3,6 +3,8 @@ from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.function import Function, Method
 from pypy.interpreter.module import Module
 from pypy.interpreter.pyframe import PyFrame
+from pypy.interpreter.pytraceback import PyTraceback
+from pypy.interpreter.generator import GeneratorIterator
 from pypy.rpython.objectmodel import instantiate
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
@@ -53,13 +55,16 @@ def reverseseqiter_new(space, w_seq, w_index):
 def frame_new(space, __args__):
     args_w, kwds_w = __args__.unpack()  #stolen from std/fake.py
     args = [space.unwrap(w_arg) for w_arg in args_w]
-    f_back, builtin, pycode, last_exception, globals, last_instr, next_instr,\
-        f_lineno, fastlocals, f_trace = args
+    f_back, builtin, pycode, valuestack, blockstack, last_exception,\
+        globals, last_instr, next_instr, f_lineno, fastlocals, f_trace,\
+        instr_lb, instr_ub, instr_prev = args
     w = space.wrap
 
     new_frame = PyFrame(space, pycode, w(globals), None)
     new_frame.f_back = f_back
     new_frame.builtin = builtin
+    #new_frame.blockstack = blockstack
+    #new_frame.valuestack = valuestack
     new_frame.last_exception = last_exception
     new_frame.last_instr = last_instr
     new_frame.next_instr = next_instr
@@ -71,5 +76,26 @@ def frame_new(space, __args__):
     else:
         new_frame.w_f_trace = w(f_trace)
 
+    new_frame.instr_lb = instr_lb   #the three for tracing
+    new_frame.instr_ub = instr_ub
+    new_frame.instr_prev = instr_prev
+
     return space.wrap(new_frame)
 frame_new.unwrap_spec = [ObjSpace, Arguments]
+
+def traceback_new(space, __args__):
+    args_w, kwds_w = __args__.unpack()  #stolen from std/fake.py
+    args = [space.unwrap(w_arg) for w_arg in args_w]
+    frame, lasti, lineno, next = args
+    return PyTraceback(space, frame, lasti, lineno, next)
+traceback_new.unwrap_spec = [ObjSpace, Arguments]
+
+def generator_new(space, __args__):
+    args_w, kwds_w = __args__.unpack()  #stolen from std/fake.py
+    args = [space.unwrap(w_arg) for w_arg in args_w]
+    frame, running, exhausted = args
+    new_generator = GeneratorIterator(frame)
+    new_generator.running = running
+    new_generator.exhausted = exhausted
+    return new_generator
+generator_new.unwrap_spec = [ObjSpace, Arguments]

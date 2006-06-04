@@ -1,5 +1,5 @@
 class AppTestInterpObjectPickling:
-    
+
     def test_pickle_code(self):
         def f():
             return 42
@@ -71,7 +71,7 @@ class AppTestInterpObjectPickling:
         result = pickle.loads(pckl)
         assert cell == result
         assert not (cell != result)
-    
+
     def test_pickle_frame(self):
         '''
         >>>> dir(frame)
@@ -86,32 +86,33 @@ class AppTestInterpObjectPickling:
                 exc_type, exc, tb = exc_info()
                 return tb.tb_frame
         import pickle
-        frame  = f()
-        pckl   = pickle.dumps(frame)
-        result = pickle.loads(pckl)
-        assert type(frame) is type(result)
-        assert dir(frame) == dir(result)
-        assert frame.__doc__ == result.__doc__
-        assert type(frame.f_back) is type(result.f_back)
-        assert frame.f_builtins is result.f_builtins
-        assert frame.f_code == result.f_code
-        assert frame.f_exc_traceback is result.f_exc_traceback
-        assert frame.f_exc_type is result.f_exc_type
-        assert frame.f_exc_value is result.f_exc_value
+        f1     = f()
+        pckl   = pickle.dumps(f1)
+        f2     = pickle.loads(pckl)
 
-        #print 'frame f_globals =', frame.f_globals  #frame f_globals = {'__builtins__': <module object at 0x0167dc70>, '__name__': '__builtin__', 'test_pickle_frame': <function test_pickle_frame at 0x0237adb0>}
-        #print 'result.f_globals=', result.f_globals #result.f_globals= {'__builtins__': <module object at 0x0167dc70>, '__name__': '__builtin__', 'test_pickle_frame': <function test_pickle_frame at 0x02c346f0>}
-        #assert frame.f_globals == result.f_globals  #XXX test_pickle_frame function not same identity (see pickle func tests, we don't compare by identity there!)?
+        assert type(f1) is type(f2)
+        assert dir(f1) == dir(f2)
+        assert f1.__doc__ == f2.__doc__
+        assert type(f1.f_back) is type(f2.f_back)
+        assert f1.f_builtins is f2.f_builtins
+        assert f1.f_code == f2.f_code
+        assert f1.f_exc_traceback is f2.f_exc_traceback
+        assert f1.f_exc_type is f2.f_exc_type
+        assert f1.f_exc_value is f2.f_exc_value
 
-        assert frame.f_lasti == result.f_lasti
-        assert frame.f_lineno == result.f_lineno
+        #print 'f1.f_globals =', f1.f_globals #f1.f_globals = {'__builtins__': <module object at 0x0167dc70>, '__name__': '__builtin__', 'test_pickle_frame': <function test_pickle_frame at 0x0237adb0>}
+        #print 'f2.f_globals=', f2.f_globals  #f2.f_globals= {'__builtins__': <module object at 0x0167dc70>, '__name__': '__builtin__', 'test_pickle_frame': <function test_pickle_frame at 0x02c346f0>}
+        #assert f1.f_globals == f2.f_globals  #XXX test_pickle_frame function not same identity (see pickle func tests, we don't compare by identity there!)?
 
-        #print 'frame.f_locals=', frame.f_locals     #['exc_info', 'tb', 'exc_type', 'exc']
-        #print 'result.f_locals=', result.f_locals   #[]
-        #assert list(frame.f_locals) == list(result.f_locals)
-        
-        assert frame.f_restricted is result.f_restricted
-        assert frame.f_trace is result.f_trace
+        assert f1.f_lasti == f2.f_lasti
+        assert f1.f_lineno == f2.f_lineno
+
+        #print 'f1.f_locals=', f1.f_locals     #['exc_info', 'tb', 'exc_type', 'exc']
+        #print 'f2.f_locals=', f2.f_locals   #[]
+        #assert list(f1.f_locals) == list(f2.f_locals)
+
+        assert f1.f_restricted is f2.f_restricted
+        assert f1.f_trace is f2.f_trace
 
     def test_pickle_traceback(self):
         skip("work in progress")
@@ -126,8 +127,39 @@ class AppTestInterpObjectPickling:
         tb     = f()
         pckl   = pickle.dumps(tb)
         result = pickle.loads(pckl)
-        assert tb == result
-    
+
+        assert type(tb) is type(result)
+        assert tb.tb_lasti == result.tb_lasti
+        assert tb.tb_lineno == result.tb_lineno
+        assert tb.tb_next == result.tb_next
+
+        #XXX silly code duplication from frame pickling test
+        f1 = tb.tb_frame
+        f2 = result.tb_frame
+        assert type(f1) is type(f2)
+        assert dir(f1) == dir(f2)
+        assert f1.__doc__ == f2.__doc__
+        assert type(f1.f_back) is type(f2.f_back)
+        assert f1.f_builtins is f2.f_builtins
+        assert f1.f_code == f2.f_code
+        assert f1.f_exc_traceback is f2.f_exc_traceback
+        assert f1.f_exc_type is f2.f_exc_type
+        assert f1.f_exc_value is f2.f_exc_value
+
+        #print 'f1.f_globals =', f1.f_globals #f1.f_globals = {'__builtins__': <module object at 0x0167dc70>, '__name__': '__builtin__', 'test_pickle_frame': <function test_pickle_frame at 0x0237adb0>}
+        #print 'f2.f_globals=', f2.f_globals  #f2.f_globals= {'__builtins__': <module object at 0x0167dc70>, '__name__': '__builtin__', 'test_pickle_frame': <function test_pickle_frame at 0x02c346f0>}
+        #assert f1.f_globals == f2.f_globals  #XXX test_pickle_frame function not same identity (see pickle func tests, we don't compare by identity there!)?
+
+        assert f1.f_lasti == f2.f_lasti
+        assert f1.f_lineno == f2.f_lineno
+
+        #print 'f1.f_locals=', f1.f_locals     #['exc_info', 'tb', 'exc_type', 'exc']
+        #print 'f2.f_locals=', f2.f_locals   #[]
+        #assert list(f1.f_locals) == list(f2.f_locals)
+
+        assert f1.f_restricted is f2.f_restricted
+        assert f1.f_trace is f2.f_trace
+
     def test_pickle_module(self):
         import pickle
         mod    = pickle
@@ -270,5 +302,39 @@ class AppTestInterpObjectPickling:
             x = 0
             while x < n:
                 yield x
-        generator = giveme(10)
-        print pickle.dumps(generator)
+        g1   = giveme(10)
+        #print 'g1=', g1, dir(g1)
+        pckl = pickle.dumps(g1)
+        g2   = pickle.loads(pckl)
+        #print 'g2=', g2, dir(g2)
+
+        assert type(g1) is type(g2)
+        assert g1.gi_running == g2.gi_running
+        #assert g1.gi_exhausted == g2.gi_exhausted  #not exported!
+
+        #XXX silly code duplication from frame pickling test
+        f1 = g1.gi_frame
+        f2 = g2.gi_frame
+        assert type(f1) is type(f2)
+        assert dir(f1) == dir(f2)
+        assert f1.__doc__ == f2.__doc__
+        assert type(f1.f_back) is type(f2.f_back)
+        assert f1.f_builtins is f2.f_builtins
+        assert f1.f_code == f2.f_code
+        assert f1.f_exc_traceback is f2.f_exc_traceback
+        assert f1.f_exc_type is f2.f_exc_type
+        assert f1.f_exc_value is f2.f_exc_value
+
+        #print 'f1.f_globals =', f1.f_globals #f1.f_globals = {'__builtins__': <module object at 0x0167dc70>, '__name__': '__builtin__', 'test_pickle_frame': <function test_pickle_frame at 0x0237adb0>}
+        #print 'f2.f_globals=', f2.f_globals  #f2.f_globals= {'__builtins__': <module object at 0x0167dc70>, '__name__': '__builtin__', 'test_pickle_frame': <function test_pickle_frame at 0x02c346f0>}
+        #assert f1.f_globals == f2.f_globals  #XXX test_pickle_frame function not same identity (see pickle func tests, we don't compare by identity there!)?
+
+        assert f1.f_lasti == f2.f_lasti
+        assert f1.f_lineno == f2.f_lineno
+
+        #print 'f1.f_locals=', f1.f_locals     #['exc_info', 'tb', 'exc_type', 'exc']
+        #print 'f2.f_locals=', f2.f_locals   #[]
+        #assert list(f1.f_locals) == list(f2.f_locals)
+
+        assert f1.f_restricted is f2.f_restricted
+        assert f1.f_trace is f2.f_trace

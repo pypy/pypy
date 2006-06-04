@@ -18,6 +18,22 @@ class PyTraceback(baseobjspace.Wrappable):
         self.lineno = lineno
         self.next = next
 
+    def descr__reduce__(self, space):
+        raise Exception('traceback pickling is work in progress')
+        from pypy.interpreter.mixedmodule import MixedModule
+        w_mod    = space.getbuiltinmodule('_pickle_support')
+        mod      = space.interp_w(MixedModule, w_mod)
+        new_inst = mod.get('traceback_new')
+        w        = space.wrap
+
+        tup = [
+            w(self.frame),
+            w(self.lasti),
+            w(self.lineno),
+            w(self.next),
+            ]
+
+        return space.newtuple([new_inst, space.newtuple(tup)])
 
 def record_application_traceback(space, operror, frame, last_instruction):
     if frame.pycode.hidden_applevel:

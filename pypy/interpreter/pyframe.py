@@ -65,7 +65,7 @@ class PyFrame(eval.EvalFrame):
         # For tracing
         self.instr_lb = 0
         self.instr_ub = -1
-        self.instr_prev = -1;
+        self.instr_prev = -1
 
     def descr__reduce__(self, space):
         '''
@@ -86,10 +86,18 @@ class PyFrame(eval.EvalFrame):
         else:
             f_lineno = self.f_lineno
 
+        valuestack = [w(item) for item in self.valuestack.items]
+        #print 'XXX valuestack=', valuestack
+
+        blockstack = [w(item) for item in self.blockstack.items]
+        #print 'XXX blockstack=', blockstack
+
         tup = [
             w(self.f_back),
             w(self.builtin),
             w(self.pycode),
+            space.w_None, #space.newtuple(valuestack),  #XXX <pypy.interpreter.nestedscope.PyNestedScopeFrame object at 0x25545d0> causes AttributeError: 'NoneType' object has no attribute 'getclass'
+            space.w_None, #space.newtuple(blockstack),
             w(self.last_exception), #f_exc_traceback, f_exc_type, f_exc_value
             self.w_globals,
             w(self.last_instr),
@@ -98,10 +106,14 @@ class PyFrame(eval.EvalFrame):
 
             #space.newtuple(self.fastlocals_w), #XXX (application-level) PicklingError: Can't pickle <type 'AppTestInterpObjectPickling'>: it's not found as __builtin__.AppTestInterpObjectPickling
             #self.getdictscope(),               #XXX (application-level) PicklingError: Can't pickle <type 'AppTestInterpObjectPickling'>: it's not found as __builtin__.AppTestInterpObjectPickling
-            space.w_None,           #XXX placeholder
+            space.w_None,           #XXX placeholder for f_locals
             
             #f_restricted requires no additional data!
             self.w_f_trace,
+
+            w(self.instr_lb), #do we need these three (that are for tracing)
+            w(self.instr_ub),
+            w(self.instr_prev),
             ]
 
         #XXX what to do with valuestack and blockstack here?
@@ -294,7 +306,7 @@ class PyFrame(eval.EvalFrame):
             op = ord(code[addr])
 
             if op in (SETUP_LOOP, SETUP_EXCEPT, SETUP_FINALLY):
-                delta_iblock += 1;
+                delta_iblock += 1
             elif op == POP_BLOCK:
                 delta_iblock -= 1
                 if delta_iblock < min_delta_iblock:

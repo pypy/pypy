@@ -623,6 +623,8 @@ BuiltinFunction.typedef.rawdict.update({
 del BuiltinFunction.typedef.rawdict['__get__']
 
 PyTraceback.typedef = TypeDef("traceback",
+    #__reduce__   = interp2app(PyTraceback.descr__reduce__,
+    #                              unwrap_spec=['self', ObjSpace]),
     tb_frame  = interp_attrproperty('frame', cls=PyTraceback),
     tb_lasti  = interp_attrproperty('lasti', cls=PyTraceback),
     tb_lineno = interp_attrproperty('lineno', cls=PyTraceback),
@@ -630,6 +632,8 @@ PyTraceback.typedef = TypeDef("traceback",
     )
 
 GeneratorIterator.typedef = TypeDef("generator",
+    #__reduce__   = interp2app(GeneratorIterator.descr__reduce__,
+    #                              unwrap_spec=['self', ObjSpace]),
     next       = interp2app(GeneratorIterator.descr_next),
     __iter__   = interp2app(GeneratorIterator.descr__iter__),
     gi_running = interp_attrproperty('running', cls=GeneratorIterator),
