@@ -53,52 +53,66 @@ def reverseseqiter_new(space, w_seq, w_index):
     return W_ReverseSeqIterObject(space, w_seq, index)
     
 def frame_new(space, __args__):
-    return None
-##     args_w, kwds_w = __args__.unpack()  #stolen from std/fake.py
-##     args = [space.unwrap(w_arg) for w_arg in args_w]
-##     f_back, builtin, pycode, valuestack, blockstack, last_exception,\
-##         globals, last_instr, next_instr, f_lineno, fastlocals, f_trace,\
-##         instr_lb, instr_ub, instr_prev = args
-##     w = space.wrap
+    args_w, kwds_w = __args__.unpack()  #stolen from std/fake.py
+    w_pycode, = args_w
+    pycode = space.interp_w(PyCode, w_pycode)
+    w = space.wrap
 
-##     new_frame = PyFrame(space, pycode, w(globals), None)
-##     new_frame.f_back = f_back
-##     new_frame.builtin = builtin
-##     #new_frame.blockstack = blockstack
-##     #new_frame.valuestack = valuestack
-##     new_frame.last_exception = last_exception
-##     new_frame.last_instr = last_instr
-##     new_frame.next_instr = next_instr
-##     new_frame.f_lineno = f_lineno
-##     #new_frame.fastlocals_w = w(fastlocals)
-
-##     if space.is_w(f_trace, space.w_None):
-##         new_frame.w_f_trace = None
-##     else:
-##         new_frame.w_f_trace = w(f_trace)
-
-##     new_frame.instr_lb = instr_lb   #the three for tracing
-##     new_frame.instr_ub = instr_ub
-##     new_frame.instr_prev = instr_prev
-
-##     return space.wrap(new_frame)
+    # let the code object create the right kind of frame
+    # the distinction is a littleover-done but computable
+    Klass = pycode.get_frame_class()
+    new_frame = instantiate(Klass)
+    return space.wrap(new_frame)
 frame_new.unwrap_spec = [ObjSpace, Arguments]
 
 def traceback_new(space, __args__):
-    return None
-##     args_w, kwds_w = __args__.unpack()  #stolen from std/fake.py
-##     args = [space.unwrap(w_arg) for w_arg in args_w]
-##     frame, lasti, lineno, next = args
-##     return PyTraceback(space, frame, lasti, lineno, next)
+    args_w, kwds_w = __args__.unpack()  #stolen from std/fake.py
+    w_frame, w_lasti, w_lineno, w_next = args_w
+    frame = space.interp_w(PyFrame, w_frame)
+    lasti = space.int_w(w_lasti)
+    lineno = space.int_w(w_lineno)
+    next = space.interp_w(PyTraceback, w_next, can_be_None=True)
+    return space.wrap(PyTraceback(space, frame, lasti, lineno, next))
 traceback_new.unwrap_spec = [ObjSpace, Arguments]
 
 def generator_new(space, __args__):
-    return None
-##     args_w, kwds_w = __args__.unpack()  #stolen from std/fake.py
-##     args = [space.unwrap(w_arg) for w_arg in args_w]
-##     frame, running, exhausted = args
-##     new_generator = GeneratorIterator(frame)
-##     new_generator.running = running
-##     new_generator.exhausted = exhausted
-##     return new_generator
+    args_w, kwds_w = __args__.unpack()  #stolen from std/fake.py
+    w_frame, w_running, w_exhausted = args_w
+    frame = space.interp_w(PyFrame, w_frame)
+    running = space.int_w(w_running)
+    exhausted = space.int_w(w_exhausted)
+    new_generator = GeneratorIterator(frame)
+    new_generator.running = running
+    new_generator.exhausted = exhausted
+    return space.wrap(new_generator)
 generator_new.unwrap_spec = [ObjSpace, Arguments]
+
+# ___________________________________________________________________
+# Helper functions for internal use
+
+# adopted from prickelpit.c  (but almost completely different)
+
+def slp_into_tuple_with_nulls(space, seq_w):
+    """
+    create a tuple with the object and store
+    a tuple with the positions of NULLs as first element.
+    """
+    nulls = []
+    tup = [space.w_None]
+    w = space.wrap
+
+    for w_obj in seq_w:
+        if w_obj is None:
+            nulls.append(w(len(tup)-1))
+            w_obj = space.w_None
+        tup.append(w_obj)
+    tup[0] = space.newtuple(nulls)
+    return space.newtuple(tup)
+
+def slp_from_tuple_with_nulls(space, w_tup):
+    tup_w = space.unpackiterable(w_tup)
+    nulls = space.unpackiterable(tup_w.pop(0))
+    for w_p in nulls:
+        p = space.int_w(w_p)
+        tup_w[p] = None
+    return tup_w

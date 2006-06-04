@@ -69,6 +69,7 @@ class PyFrame(eval.EvalFrame):
 
     def descr__reduce__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
+        from pypy.module._pickle_support import maker # helper fns
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)
         new_inst = mod.get('frame_new')
@@ -79,34 +80,71 @@ class PyFrame(eval.EvalFrame):
         else:
             f_lineno = self.f_lineno
 
-        valuestack = [w(item) for item in self.valuestack.items]
-        blockstack = [w(item) for item in self.blockstack.items]
-
-        tup = [
+#        valuestack = [w(item) for item in self.valuestack.items]
+ #       blockstack = [w(item) for item in self.blockstack.items]
+        w_valuestack = maker.slp_into_tuple_with_nulls(space, self.valuestack.items)
+        w_blockstack = space.w_None ##
+        w_fastlocals = maker.slp_into_tuple_with_nulls(space, self.fastlocals_w)
+        tup_base = [
+            w(self.pycode),
+            ]
+        tup_state = [
             w(self.f_back),
             w(self.builtin),
             w(self.pycode),
-            space.w_None, #space.newtuple(valuestack),  #XXX <pypy.interpreter.nestedscope.PyNestedScopeFrame object at 0x25545d0> causes AttributeError: 'NoneType' object has no attribute 'getclass'
-            space.w_None, #space.newtuple(blockstack),
-            w(self.last_exception), #f_exc_traceback, f_exc_type, f_exc_value
+            w_valuestack,
+            space.w_None, ## w_blockstack,
+            space.w_None, ## w(self.last_exception), #f_exc_traceback, f_exc_type, f_exc_value
             self.w_globals,
             w(self.last_instr),
-            w(self.next_instr),     #not in PyFrame.typedef!
-            w(f_lineno),            #why not w(self.f_lineno)? something with self.w_f_trace?
-
-            #space.newtuple(self.fastlocals_w), #XXX (application-level) PicklingError: Can't pickle <type 'AppTestInterpObjectPickling'>: it's not found as __builtin__.AppTestInterpObjectPickling
-            #self.getdictscope(),               #XXX (application-level) PicklingError: Can't pickle <type 'AppTestInterpObjectPickling'>: it's not found as __builtin__.AppTestInterpObjectPickling
+            w(self.next_instr),
+            w(f_lineno),
+            w_fastlocals,
             space.w_None,           #XXX placeholder for f_locals
             
             #f_restricted requires no additional data!
-            self.w_f_trace,
+            space.w_None, ## self.w_f_trace,  ignore for now
 
             w(self.instr_lb), #do we need these three (that are for tracing)
             w(self.instr_ub),
             w(self.instr_prev),
             ]
 
-        return space.newtuple([new_inst, space.newtuple(tup)])
+        return space.newtuple([new_inst, space.newtuple(tup_base), space.newtuple(tup_state)])
+
+    def descr__setstate__(self, space, w_args):
+        from pypy.module._pickle_support import maker # helper fns
+        args_w = space.unpackiterable(w_args)
+        w_f_back, w_builtin, w_pycode, w_valuestack, w_blockstack, w_last_exception,\
+            w_globals, w_last_instr, w_next_instr, w_f_lineno, w_fastlocals, w_f_locals, \
+            w_f_trace, w_instr_lb, w_instr_ub, w_instr_prev = args_w
+        w = space.wrap
+        u = space.unwrap
+
+        #new_frame = PyFrame(space, pycode, w(globals), None)
+        # let the code object create the right kind of frame
+        # the distinction is a little over-done but computable
+        new_frame = self
+        pycode = space.unwrap(w_pycode)
+        new_frame.__init__(space, pycode, w_globals, None)
+        new_frame.f_back = u(w_f_back)
+        new_frame.builtin = u(w_builtin)
+        #new_frame.blockstack = blockstack
+        new_frame.valuestack.items = maker.slp_from_tuple_with_nulls(space, w_valuestack)
+        new_frame.last_exception = u(w_last_exception)
+        new_frame.last_instr = space.int_w(w_last_instr)
+        new_frame.next_instr = space.int_w(w_next_instr)
+        new_frame.f_lineno = space.int_w(w_f_lineno)
+        new_frame.fastlocals_w = maker.slp_from_tuple_with_nulls(space, w_fastlocals)
+
+        if space.is_w(w_f_trace, space.w_None):
+            new_frame.w_f_trace = None
+        else:
+            new_frame.w_f_trace = w_f_trace
+
+        new_frame.instr_lb = space.int_w(w_instr_lb)   #the three for tracing
+        new_frame.instr_ub = space.int_w(w_instr_ub)
+        new_frame.instr_prev = space.int_w(w_instr_prev)
 
     def hide(self):
         return self.pycode.hidden_applevel
