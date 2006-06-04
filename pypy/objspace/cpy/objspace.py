@@ -49,6 +49,8 @@ class CPyObjSpace(baseobjspace.ObjSpace):
             return PyInt_FromLong(x)
         if isinstance(x, str):
             return PyString_FromStringAndSize(x, len(x))
+        if isinstance(x, float): 
+            return PyFloat_FromDouble(x)
         raise TypeError("wrap(%r)" % (x,))
     wrap._annspecialcase_ = "specialize:wrap"
 
@@ -70,6 +72,7 @@ class CPyObjSpace(baseobjspace.ObjSpace):
     getitem = staticmethod(PyObject_GetItem)
     setitem = staticmethod(PyObject_SetItem)
     int_w   = staticmethod(PyInt_AsLong)
+    float_w = staticmethod(PyFloat_AsDouble)
     str_w   = staticmethod(PyString_AsString)
     iter    = staticmethod(PyObject_GetIter)
     type    = staticmethod(PyObject_Type)

@@ -157,6 +157,14 @@ PyInt_AsLong = cpyapi.PyInt_AsLong
 PyInt_AsLong.argtypes = [W_Object]
 PyInt_AsLong.restype = c_long
 
+PyFloat_FromDouble = cpyapi.PyFloat_FromDouble
+PyFloat_FromDouble.argtypes = [c_double]
+PyFloat_FromDouble.restype = W_Object
+
+PyFloat_AsDouble = cpyapi.PyFloat_AsDouble 
+PyFloat_AsDouble.argtypes = [W_Object]
+PyFloat_AsDouble.restype = c_double 
+
 
 ###################################################
 # ____________________ Strings ____________________

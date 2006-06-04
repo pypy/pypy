@@ -10,6 +10,13 @@ def test_simple():
     wback = space.getitem(d,wk1)
     assert space.eq_w(wback,wone)
 
+def test_wrap():
+    space = CPyObjSpace()
+    w_res = space.add(space.wrap(1.0), space.wrap(1.5))
+    assert space.eq_w(w_res, space.wrap(2.5))
+    res = space.float_w(w_res)
+    assert res == 2.5 
+
 def test_demo():
     from pypy.module._demo import demo
     space = CPyObjSpace()
