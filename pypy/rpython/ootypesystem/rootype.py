@@ -22,6 +22,14 @@ class __extend__(annmodel.SomeOOBoundMeth):
     def rtyper_makekey(self):
         return self.__class__, self.ootype, self.name
 
+class __extend__(annmodel.SomeOOStaticMeth):
+    def rtyper_makerepr(self, rtyper):
+        return OOStaticMethRepr(self.method)
+    def rtyper_makekey(self):
+        return self.__class__, self.method
+
+
+
 class OOClassRepr(Repr):
     lowleveltype = Class
 ooclass_repr = OOClassRepr()
@@ -77,7 +85,12 @@ class OOBoundMethRepr(Repr):
         hop.exception_is_here()
         return hop.genop("oosend", [cname]+vlist,
                          resulttype = hop.r_result.lowleveltype)
-        
+
+
+class OOStaticMethRepr(Repr):
+    def __init__(self, METHODTYPE):
+        self.lowleveltype = METHODTYPE
+
 
 class __extend__(pairtype(OOInstanceRepr, OOBoundMethRepr)):
 

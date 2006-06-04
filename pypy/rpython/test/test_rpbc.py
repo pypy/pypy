@@ -490,7 +490,6 @@ class BaseTestRPBC(BaseRtypingTest):
         assert res == 42
 
     def test_simple_function_pointer(self): 
-        py.test.skip("a problem with ootypesystem")
         def f1(x):
             return x + 1
         def f2(x):
