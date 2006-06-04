@@ -13,7 +13,8 @@ includes = ('sys/types.h',
             'fcntl.h',
             'stdio.h',
             'netdb.h',
-            'arpa/inet.h'
+            'arpa/inet.h',
+            'stdint.h', 
             )
 HEADER = ''.join(['#include <%s>\n' % filename for filename in includes])
 constants = {}
