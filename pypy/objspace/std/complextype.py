@@ -222,13 +222,19 @@ def complexwprop(name):
                                  space.wrap("descriptor is for 'complex'"))
         return space.newfloat(getattr(w_obj, name))
     return GetSetProperty(fget)
-
+    
+def descr___getnewargs__(space,  w_self):
+    from pypy.objspace.std.complexobject import W_ComplexObject
+    assert isinstance(w_self, W_ComplexObject)
+    return space.newtuple([space.newcomplex(w_self.realval,w_self.imagval)]) 
+    
 complex_typedef = StdTypeDef("complex",
     __doc__ = """complex(real[, imag]) -> complex number
         
 Create a complex number from a real part and an optional imaginary part.
 This is equivalent to (real + imag*1j) where imag defaults to 0.""",
     __new__ = newmethod(descr__new__),
+    __getnewargs__ = newmethod(descr___getnewargs__),
     real = complexwprop('realval'),
     imag = complexwprop('imagval'),
     )
