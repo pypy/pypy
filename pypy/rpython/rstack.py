@@ -70,9 +70,6 @@ class ResumePointFnEntry(ExtRegistryEntry):
         return hop.genop('resume_point', [c_label, v_return] + args_v,
                          hop.r_result)
 
-class ResumeState(object):
-    pass
-
 def resume_state_create(prevstate, label, *args):
     raise RuntimeError("cannot resume states in non-translated versions")
 
@@ -91,7 +88,7 @@ class ResumeStateCreateFnEntry(ExtRegistryEntry):
 
     def compute_result_annotation(self, s_prevstate, s_label, *args_s):
         from pypy.annotation import model as annmodel
-        return annmodel.SomeExternalObject(ResumeState)
+        return annmodel.SomeExternalObject(frame_stack_top)
 
     def specialize_call(self, hop):
         from pypy.rpython.lltypesystem import lltype
@@ -110,15 +107,6 @@ class ResumeStateCreateFnEntry(ExtRegistryEntry):
         hop.exception_is_here()
         return hop.genop('resume_state_create', [v_state, c_label] + args_v,
                          hop.r_result)
-
-class ResumeStateEntry(ExtRegistryEntry):
-    _type_ = ResumeState
-
-    def get_repr(self, rtyper, s_state):
-        from pypy.rpython.rmodel import SimplePointerRepr
-        from pypy.translator.stackless.frame import STATE_HEADER
-        from pypy.rpython.lltypesystem import lltype
-        return SimplePointerRepr(lltype.Ptr(STATE_HEADER))
 
 def resume_state_invoke(type, state, **kwds):
     raise NotImplementedError("only works in translated versions")

@@ -237,33 +237,33 @@ class StacklessTransformer(object):
         self.resume_afters = {
             lltype.Void: mixlevelannotator.constfunc(
                 code.resume_after_void,
-                [s_hdrptr, annmodel.s_None],
+                [s_StatePtr, annmodel.s_None],
                 annmodel.s_None),
             lltype.Signed: mixlevelannotator.constfunc(
                 code.resume_after_long,
-                [s_hdrptr, annmodel.SomeInteger()],
+                [s_StatePtr, annmodel.SomeInteger()],
                 annmodel.s_None),
             lltype.SignedLongLong: mixlevelannotator.constfunc(
                 code.resume_after_longlong,
-                [s_hdrptr, annmodel.SomeInteger(knowntype=rarithmetic.r_longlong)],
+                [s_StatePtr, annmodel.SomeInteger(knowntype=rarithmetic.r_longlong)],
                 annmodel.s_None),
             lltype.Float: mixlevelannotator.constfunc(
                 code.resume_after_float,
-                [s_hdrptr, annmodel.SomeFloat()],
+                [s_StatePtr, annmodel.SomeFloat()],
                 annmodel.s_None),
             llmemory.Address: mixlevelannotator.constfunc(
                 code.resume_after_addr,
-                [s_hdrptr, annmodel.SomeAddress()],
+                [s_StatePtr, annmodel.SomeAddress()],
                 annmodel.s_None),
             SAVED_REFERENCE: mixlevelannotator.constfunc(
                 code.resume_after_ref,
-                [s_hdrptr, annmodel.SomePtr(SAVED_REFERENCE)],
+                [s_StatePtr, annmodel.SomePtr(SAVED_REFERENCE)],
                 annmodel.s_None),
             }
         exception_def = bk.getuniqueclassdef(Exception)
         self.resume_after_raising_ptr = mixlevelannotator.constfunc(
             code.resume_after_raising,
-            [s_hdrptr, annmodel.SomeInstance(exception_def)],
+            [s_StatePtr, annmodel.SomeInstance(exception_def)],
             annmodel.s_None)
         self.exception_type = getinstancerepr(
             self.translator.rtyper, exception_def).lowleveltype
@@ -534,10 +534,12 @@ class StacklessTransformer(object):
         llops.genop('setfield', [v_state,
                                  model.Constant('f_restart', lltype.Void),
                                  model.Constant(symb, lltype.Signed)])
+        v_prevstate = llops.genop('cast_opaque_ptr', [op.args[0]],
+                                  resulttype=lltype.Ptr(frame.STATE_HEADER))
         llops.genop('setfield', [v_state,
                                  model.Constant('f_back', lltype.Void),
-                                 op.args[0]])
-        llops.append(model.SpaceOperation('same_as', [v_state], op.result))
+                                 v_prevstate])
+        llops.append(model.SpaceOperation('cast_opaque_ptr', [v_state], op.result))
         block.operations[i:i+1] = llops
 
     def handle_resume_state_invoke(self, block):

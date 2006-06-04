@@ -191,7 +191,7 @@ def resume_after_void(state, retvalue):
         u = UnwindException()
         s = lltype.malloc(RESUME_AFTER_STATE)
         s.header.f_restart = INDEX_RESUME_AFTER_VOID
-        s.c = state
+        s.c = lltype.cast_opaque_ptr(lltype.Ptr(STATE_HEADER), state)
         add_frame_state(u, s.header)
         raise u
     elif global_state.restart_substate == 0:
@@ -223,7 +223,7 @@ def resume_after_raising(state, exception):
         u = UnwindException()
         s = lltype.malloc(RESUME_AFTER_STATE)
         s.header.f_restart = INDEX_RESUME_AFTER_RAISING
-        s.c = state
+        s.c = lltype.cast_opaque_ptr(lltype.Ptr(STATE_HEADER), state)
         add_frame_state(u, s.header)
         global_state.exception = exception
         raise u
@@ -256,7 +256,7 @@ def resume_after_%(typename)s(state, retvalue):
         u = UnwindException()
         s = lltype.malloc(RESUME_AFTER_STATE)
         s.header.f_restart = INDEX_RESUME_AFTER_%(TYPENAME)s
-        s.c = state
+        s.c = lltype.cast_opaque_ptr(lltype.Ptr(STATE_HEADER), state)
         global_state.retval_%(typename)s = retvalue
         add_frame_state(u, s.header)
         raise u
