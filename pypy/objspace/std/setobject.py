@@ -559,7 +559,8 @@ app = gateway.applevel("""
         return '%s(%s)' % (s.__class__.__name__, [x for x in s])
 
     def reduce__Set(s):
-        return (s.__class__,(tuple(s),),None)
+        dict = getattr(s,'__dict__', None)
+        return (s.__class__, (tuple(s),), dict)
 
 """, filename=__file__)
 
