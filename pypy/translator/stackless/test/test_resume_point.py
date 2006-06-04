@@ -201,4 +201,25 @@ def test_resume_and_raise_and_catch():
         return v1*100 + v2
     res = llinterp_stackless_function(example)
     assert res == 141
+
+def test_invoke_raising():
+    def g(x):
+        rstack.resume_point("rp0", x)
+        return x + 1
+    def f(x):
+        x = x - 1
+        try:
+            r = g(x)
+            rstack.resume_point("rp1", returns=r)
+        except KeyError:
+            r = 42
+        return r - 1
+    def example():
+        v1 = f(one()+one())
+        s1 = rstack.resume_state_create(None, "rp1")
+        s0 = rstack.resume_state_create(s1, "rp0", 0)
+        v2 = rstack.resume_state_invoke(int, s0, raising=KeyError())
+        return v1*100 + v2
+    res = llinterp_stackless_function(example)
+    assert res == 141
     

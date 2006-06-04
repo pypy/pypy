@@ -48,6 +48,7 @@ class ResumePointFnEntry(ExtRegistryEntry):
 
     def specialize_call(self, hop, **kwds_i):
         from pypy.rpython.lltypesystem import lltype
+        from pypy.objspace.flow import model
 
         assert hop.args_s[0].is_constant()
         c_label = hop.inputconst(lltype.Void, hop.args_s[0].const)
@@ -56,9 +57,14 @@ class ResumePointFnEntry(ExtRegistryEntry):
             assert len(kwds_i) == 1
             returns_index = kwds_i['i_returns']
             v_return = args_v.pop(returns_index-1)
+            assert isinstance(v_return, model.Variable), \
+                   "resume_point returns= argument must be a Variable"
         else:
             assert not kwds_i
             v_return = hop.inputconst(lltype.Void, None)
+
+        for v in args_v:
+            assert isinstance(v, model.Variable), "resume_point arguments must be Variables"
 
         hop.exception_is_here()
         return hop.genop('resume_point', [c_label, v_return] + args_v,
@@ -69,6 +75,16 @@ class ResumeState(object):
 
 def resume_state_create(prevstate, label, *args):
     raise RuntimeError("cannot resume states in non-translated versions")
+
+def concretify_argument(hop, index):
+    from pypy.objspace.flow import model
+
+    v_arg = hop.args_v[index]
+    if isinstance(v_arg, model.Variable):
+        return v_arg
+
+    r_arg = hop.rtyper.bindingrepr(v_arg)
+    return hop.inputarg(r_arg, arg=index)
 
 class ResumeStateCreateFnEntry(ExtRegistryEntry):
     _about_ = resume_state_create
@@ -86,8 +102,10 @@ class ResumeStateCreateFnEntry(ExtRegistryEntry):
         c_label = hop.inputconst(lltype.Void, hop.args_s[1].const)
 
         v_state = hop.inputarg(hop.r_result, arg=0)
-        
-        args_v = hop.args_v[2:]
+
+        args_v = []
+        for i in range(2, len(hop.args_v)):
+            args_v.append(concretify_argument(hop, i))
 
         hop.exception_is_here()
         return hop.genop('resume_state_create', [v_state, c_label] + args_v,
@@ -119,14 +137,21 @@ class ResumeStateInvokeFnEntry(ExtRegistryEntry):
         
         if 'i_returning' in kwds_i:
             assert len(kwds_i) == 1
-            returns_index = kwds_i['i_returning']
-            v_return = hop.args_v[returns_index]
+            returning_index = kwds_i['i_returning']
+            v_returning = concretify_argument(hop, returning_index)
+            v_raising = hop.inputconst(lltype.Void, None)
+        elif 'i_raising' in kwds_i:
+            assert len(kwds_i) == 1
+            raising_index = kwds_i['i_raising']
+            v_returning = hop.inputconst(lltype.Void, None)
+            v_raising = concretify_argument(hop, raising_index)
         else:
             assert not kwds_i
-            v_return = hop.inputconst(lltype.Void, None)
+            v_returning = hop.inputconst(lltype.Void, None)
+            v_raising = hop.inputconst(lltype.Void, None)
 
         hop.exception_is_here()
-        return hop.genop('resume_state_invoke', [v_state, v_return],
+        return hop.genop('resume_state_invoke', [v_state, v_returning, v_raising],
                          hop.r_result)
         
         

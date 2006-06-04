@@ -260,6 +260,13 @@ class StacklessTransformer(object):
                 [s_hdrptr, annmodel.SomePtr(SAVED_REFERENCE)],
                 annmodel.s_None),
             }
+        exception_def = bk.getuniqueclassdef(Exception)
+        self.resume_after_raising_ptr = mixlevelannotator.constfunc(
+            code.resume_after_raising,
+            [s_hdrptr, annmodel.SomeInstance(exception_def)],
+            annmodel.s_None)
+        self.exception_type = getinstancerepr(
+            self.translator.rtyper, exception_def).lowleveltype
 
         mixlevelannotator.finish()
 
@@ -550,14 +557,25 @@ class StacklessTransformer(object):
         # self.resume_points and we don't want a constant "zero" in
         # there.
         v_state = op.args[0]
-        v_returns = op.args[1]
-        erased_returns_type = storage_type(v_returns.concretetype)
-        resume_after_ptr = self.resume_afters[erased_returns_type]
+        v_returning = op.args[1]
+        v_raising = op.args[2]
         llops = LowLevelOpList()
-        if erased_returns_type != v_returns.concretetype:
-            v_returns = gen_cast(llops, erased_returns_type, v_returns)
-        llops.genop('direct_call', [resume_after_ptr, v_state, v_returns],
+
+        if v_raising.concretetype == lltype.Void:
+            erased_type = storage_type(v_returning.concretetype)
+            resume_after_ptr = self.resume_afters[erased_type]
+            v_param = v_returning
+        else:
+            assert v_returning.concretetype == lltype.Void
+            erased_type = self.exception_type
+            resume_after_ptr = self.resume_after_raising_ptr
+            v_param = v_raising
+
+        if erased_type != v_param.concretetype:
+            v_param = gen_cast(llops, erased_type, v_param)
+        llops.genop('direct_call', [resume_after_ptr, v_state, v_param],
                     resulttype=lltype.Void)
+
         del block.operations[-1]
         block.operations.extend(llops)
 
