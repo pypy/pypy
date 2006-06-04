@@ -296,6 +296,19 @@ class AppTestAppComplexTest:
         for num in nums:
             h.assertAlmostEqual((num.real**2 + num.imag**2)  ** 0.5, abs(num))
 
+    def test_complex_subclass_ctr(self):
+        import sys
+        class j(complex):
+            pass
+        assert j(100 + 0j) == 100 + 0j
+        assert isinstance(j(100),j)
+        assert j(100L + 0j) == 100 + 0j
+        assert j("100 + 0j") == 100 + 0j
+        x = j(1+0j)
+        x.foo = 42
+        assert x.foo == 42
+        assert type(complex(x)) == complex
+                
     def test_repr(self):
         h = self.helper
         h.assertEqual(repr(1+6j), '(1+6j)')
