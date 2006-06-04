@@ -110,6 +110,27 @@ class Entry(ExtRegistryEntry):
                          resulttype = hop.r_result.lowleveltype)
 
 
+def cast_weakgcaddress_to_int(address):
+    if address.ref is None:  # NULL address
+        return 0
+    return address.cast_to_int()
+
+
+class Entry(ExtRegistryEntry):
+    _about_ = cast_weakgcaddress_to_int
+
+    def compute_result_annotation(self, s_int):
+        return annmodel.SomeInteger()
+    
+
+    def specialize_call(self, hop):
+        from pypy.rpython import raddress
+        assert isinstance(hop.args_r[0], raddress.WeakGcAddressRepr)
+        vlist = [hop.inputarg(raddress.weakgcaddress_repr, arg=0)]
+        return hop.genop('cast_weakadr_to_int', vlist,
+                         resulttype = hop.r_result.lowleveltype)
+
+
    
 # __ hlinvoke XXX this doesn't seem completely the right place for this
 

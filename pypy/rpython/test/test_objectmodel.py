@@ -69,15 +69,28 @@ def play_with_r_dict(d):
     assert d.keys() == []
     return True   # for the tests below
 
-def test_cast_to_and_from_address():
+def test_cast_to_and_from_weakaddress():
     class A(object):
         pass
     class B(object):
         pass
+    def f():
+        a = A()
+        addr = cast_object_to_weakgcaddress(a)
+        return a is cast_weakgcaddress_to_object(addr, A)
+    assert f()
+    res = interpret(f, [])
+    assert res
     a = A()
-    addr = cast_object_to_weakgcaddress(a)
+    addr = cast_object_to_weakgcaddress(A)
     py.test.raises(AssertionError, "cast_weakgcaddress_to_object(addr, B)")
-    assert a is cast_weakgcaddress_to_object(addr, A)
+    assert isinstance(cast_weakgcaddress_to_int(addr), int)
+    def g():
+        a = A()
+        addr = cast_object_to_weakgcaddress(a)
+        return cast_weakgcaddress_to_int(addr)
+    assert isinstance(interpret(f, []), int)
+
 
 def test_recursive_r_dict_repr():
     import operator

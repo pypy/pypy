@@ -483,6 +483,11 @@ class fakeweakaddress(object):
     def __init__(self, ob):
         if ob is not None:
             self.ref = weakref.ref(ob)
+            # umpf
+            if isinstance(ob, lltype._ptr):
+                self.id = ob._cast_to_int()
+            else:
+                self.id = id(ob)
         else:
             self.ref = None
     def get(self):
@@ -498,6 +503,10 @@ class fakeweakaddress(object):
         else:
             s = str(self.ref)
         return '<fakeweakaddr %s>' % (s,)
+    def cast_to_int(self):
+        # this is not always the behaviour that is really happening
+        # but make sure that nobody depends on it
+        return self.id ^ ~3
 
 WeakGcAddress = lltype.Primitive("WeakGcAddress",
                                  fakeweakaddress(None))

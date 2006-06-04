@@ -5,7 +5,7 @@ from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltypesystem.lltype import \
      Void, Bool, Float, Signed, Char, UniChar, \
      typeOf, LowLevelType, Ptr, PyObject, isCompatibleType
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.error import TyperError, MissingRTypeOperation 
 
@@ -214,8 +214,10 @@ class Repr:
                 self,))
         vobj, = hop.inputargs(self)
         # XXX
-        return hop.genop('cast_ptr_to_int', [vobj], resulttype=Signed)
-
+        v_waddr = hop.genop('cast_ptr_to_weakadr', [vobj],
+                            resulttype=llmemory.WeakGcAddress)
+        return hop.genop('cast_weakadr_to_int', [v_waddr], resulttype=Signed)
+        
     def rtype_hash(self, hop):
         ll_hash = self.get_ll_hash_function()
         v, = hop.inputargs(self)
