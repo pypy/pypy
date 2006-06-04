@@ -86,7 +86,7 @@ class PyCode(eval.Code):
                      code, consts, names, varnames, filename,
                      name, firstlineno, lnotab, freevars, cellvars,
                      hidden_applevel=False, magic = 62061 | 0x0a0d0000): # value for Python 2.4.1
-        """Initialize a new code objects from parameters given by
+        """Initialize a new code object from parameters given by
         the pypy compiler"""
         self.space = space
         eval.Code.__init__(self, name)
@@ -254,8 +254,7 @@ class PyCode(eval.Code):
         frame.init_cells()
         return frame.run()
 
-    def create_frame(self, space, w_globals, closure=None):
-        "Create an empty PyFrame suitable for this code object."
+    def get_frame_class(self):
         # select the appropriate kind of frame
         if not frame_classes:
             setup_frame_classes()   # lazily
@@ -265,7 +264,11 @@ class PyCode(eval.Code):
         if self.co_flags & CO_GENERATOR:
             choose |= GENERATOR
         Frame = frame_classes[choose]
-        return Frame(space, self, w_globals, closure)
+        return Frame
+
+    def create_frame(self, space, w_globals, closure=None):
+        "Create an empty PyFrame suitable for this code object."
+        return self.get_frame_class()(space, self, w_globals, closure)
 
     def getvarnames(self):
         return self.co_varnames
