@@ -43,7 +43,7 @@ class GCTransformer(object):
         else:
             self.mixlevelannotator = None
         self.inline = inline
-        if inline:
+        if translator and inline:
             self.lltype_to_classdef = translator.rtyper.lltype_to_classdef_mapping()
         self.graphs_to_inline = {}
         if self.MinimalGCTransformer:
