@@ -166,7 +166,7 @@ class Function(Node, Generator):
         """ Block rendering routine using for variable trick
         """
         def basename(x):
-            return str(x).split('.')[-1]
+            return str(x).replace('.', '_')#[-1]
         
         self.ilasm.begin_for()
         

@@ -21,7 +21,7 @@ class JTS(object):
         self.db = db
     
     def __class(self, name):
-        return name.split(".")[-1]
+        return name.replace(".", "_")
     
     def llvar_to_cts(self, var):
         return 'var ', var.name

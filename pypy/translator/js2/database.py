@@ -226,7 +226,7 @@ class InstanceConst(AbstractConst):
 
     def init(self, ilasm):
         classdef = self.obj._TYPE
-        ilasm.new(classdef._name.split(".")[-1])
+        ilasm.new(classdef._name.replace(".", "_"))
     
     def record_fields(self):
         # we support only primitives, tuples, strings and lists

@@ -130,7 +130,7 @@ class _IsInstance(MicroInstruction):
     def render(self, generator, op):
         # FIXME: just temporary hack
         generator.load(op.args[0])
-        generator.ilasm.load_const(op.args[1].value._name.split('.')[-1])
+        generator.ilasm.load_const(op.args[1].value._name.replace('.', '_'))#[-1])
         generator.cast_function("isinstanceof", 2)
 
 IsInstance = _IsInstance()

@@ -10,7 +10,7 @@ class Class(Node):
         self.db = db
         self.cts = db.type_system_class(db)
         self.classdef = classdef
-        self.name = classdef._name.split('.')[-1]
+        self.name = classdef._name.replace('.', '_')#[-1]
 
         if not self.is_root(classdef):
             self.parent = self.db.pending_class(classdef._superclass)
@@ -64,7 +64,7 @@ class Class(Node):
         self.db.record_class(self.classdef, self.name)
     
     def basename(self, name):
-        return name.split('.')[-1]
+        return name.replace('.', '_')#[-1]
 
     #def _ctor(self):
     #    self.ilasm.begin_function('.ctor', [], 'void', False, 'specialname', 'rtspecialname', 'instance')
