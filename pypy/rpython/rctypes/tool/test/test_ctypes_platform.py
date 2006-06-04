@@ -124,6 +124,7 @@ def test_configure():
     assert res == {'FILE': res['FILE'],
                    'ushort': ctypes.c_ushort,
                    'XYZZY': 42}
+
 def test_nested_structs():
     class CConfig:
         _header_ = """

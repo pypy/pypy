@@ -5,8 +5,6 @@ import ctypes
 from pypy.translator.tool.cbuild import build_executable
 from pypy.tool.udir import udir
 
-del sys.modules['pypy.tool.udir'] # Don't expose udir
-
 # ____________________________________________________________
 #
 # Helpers for simple cases
