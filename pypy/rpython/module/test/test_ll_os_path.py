@@ -2,15 +2,15 @@ import py
 
 import os
 
-from pypy.rpython.module.ll_os_path import *
-from pypy.rpython.module.support import to_rstr, from_rstr, ll_strcpy
+from pypy.rpython.lltypesystem.module.ll_os_path import Implementation as impl
+from pypy.rpython.module.support import ll_strcpy
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.tool.udir import udir
 
 def test_exists():
-    filename = to_rstr(str(py.magic.autopath()))
-    assert ll_os_path_exists(filename) == True
-    assert not ll_os_path_exists(to_rstr(
+    filename = impl.to_rstr(str(py.magic.autopath()))
+    assert impl.ll_os_path_exists(filename) == True
+    assert not impl.ll_os_path_exists(impl.to_rstr(
         "strange_filename_that_looks_improbable.sde"))
 
 def test_posixpath():

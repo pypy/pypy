@@ -1,6 +1,6 @@
 
 from pypy.rpython.module.ll_strtod import ll_strtod_parts_to_float, ll_strtod_formatd
-from pypy.rpython.module.support import to_rstr, from_rstr
+from pypy.rpython.module.support import LLSupport
 
 
 def test_parts_to_float():
@@ -14,9 +14,9 @@ def test_parts_to_float():
     ]
 
     for parts, val in data:
-        assert ll_strtod_parts_to_float(*map(to_rstr, parts)) == val
+        assert ll_strtod_parts_to_float(*map(LLSupport.to_rstr, parts)) == val
     
 
 def test_formatd():
-    res = ll_strtod_formatd(to_rstr("%.2f"), 1.5)
-    assert from_rstr(res) == "1.50"
+    res = ll_strtod_formatd(LLSupport.to_rstr("%.2f"), 1.5)
+    assert LLSupport.from_rstr(res) == "1.50"

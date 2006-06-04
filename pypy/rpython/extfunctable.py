@@ -28,7 +28,7 @@ class ExtFuncInfo:
         except AttributeError:
             mod = self.import_module("pypy.rpython.%s.module.%s"
                     % (type_system.name, lastmodulename))
-            ll_function = getattr(mod, ll_function_name)
+            ll_function = getattr(mod.Implementation, ll_function_name)
         return ll_function
 
     def import_module(self, module_name):
@@ -155,9 +155,9 @@ def posannotation(*args):
     return SomeInteger(nonneg=True)
 
 def statannotation(*args):
+    from pypy.rpython.lltypesystem.module.ll_os import Implementation
     from pypy.annotation.model import SomeInteger, SomeTuple
-    from pypy.rpython.module.ll_os import ll_stat_result
-    record_call(ll_stat_result, [SomeInteger()]*10, 'OS_STAT')
+    record_call(Implementation.ll_stat_result, [SomeInteger()]*10, 'OS_STAT')
     return SomeTuple((SomeInteger(),)*10)
 
 def frexpannotation(*args):

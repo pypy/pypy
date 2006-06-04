@@ -7,34 +7,37 @@ from pypy.rpython.lltypesystem import rstr
 from pypy.rpython.lltypesystem import rlist
 from pypy.rpython.module import ll_time, ll_math, ll_strtod
 from pypy.rpython.module import ll_stackless, ll_stack
-from pypy.rpython.lltypesystem.module import ll_os
+from pypy.rpython.lltypesystem.module.ll_os import STAT_RESULT, Implementation as impl
 from pypy.module.thread.rpython import ll_thread
 
 # table of functions hand-written in src/ll_*.h
+# Note about *.im_func: The annotator and the rtyper expect direct
+# references to functions, so we cannot insert classmethods here.
+
 EXTERNALS = {
-    ll_os  .ll_os_open:    'LL_os_open',
-    ll_os  .ll_read_into:  'LL_read_into',
-    ll_os  .ll_os_write:   'LL_os_write',
-    ll_os  .ll_os_close:   'LL_os_close',
-    ll_os  .ll_os_dup:     'LL_os_dup',
-    ll_os  .ll_os_stat:    'LL_os_stat',
-    ll_os  .ll_os_fstat:   'LL_os_fstat',
-    ll_os  .ll_os_lseek:   'LL_os_lseek',
-    ll_os  .ll_os_isatty:  'LL_os_isatty',
-    ll_os  .ll_os_ftruncate:'LL_os_ftruncate',
-    ll_os  .ll_os_strerror: 'LL_os_strerror',
-    ll_os  .ll_os_system:  'LL_os_system',
-    ll_os  .ll_os_unlink:  'LL_os_unlink',
-    ll_os  .ll_os_getcwd:  'LL_os_getcwd',
-    ll_os  .ll_os_chdir:   'LL_os_chdir',
-    ll_os  .ll_os_mkdir:   'LL_os_mkdir',
-    ll_os  .ll_os_rmdir:   'LL_os_rmdir',
-    ll_os  .ll_os_putenv:  'LL_os_putenv',
-    ll_os  .ll_os_unsetenv:'LL_os_unsetenv',
-    ll_os  .ll_os_environ: 'LL_os_environ',
-    ll_os  .ll_os_opendir: 'LL_os_opendir',
-    ll_os  .ll_os_readdir: 'LL_os_readdir',
-    ll_os  .ll_os_closedir:'LL_os_closedir',
+    impl.ll_os_open.im_func:    'LL_os_open',
+    impl.ll_read_into:          'LL_read_into', # it's a staticmethod
+    impl.ll_os_write.im_func:   'LL_os_write',
+    impl.ll_os_close.im_func:   'LL_os_close',
+    impl.ll_os_dup.im_func:     'LL_os_dup',
+    impl.ll_os_stat.im_func:    'LL_os_stat',
+    impl.ll_os_fstat.im_func:   'LL_os_fstat',
+    impl.ll_os_lseek.im_func:   'LL_os_lseek',
+    impl.ll_os_isatty.im_func:  'LL_os_isatty',
+    impl.ll_os_ftruncate.im_func:'LL_os_ftruncate',
+    impl.ll_os_strerror.im_func: 'LL_os_strerror',
+    impl.ll_os_system.im_func:  'LL_os_system',
+    impl.ll_os_unlink.im_func:  'LL_os_unlink',
+    impl.ll_os_getcwd.im_func:  'LL_os_getcwd',
+    impl.ll_os_chdir.im_func:   'LL_os_chdir',
+    impl.ll_os_mkdir.im_func:   'LL_os_mkdir',
+    impl.ll_os_rmdir.im_func:   'LL_os_rmdir',
+    impl.ll_os_putenv.im_func:  'LL_os_putenv',
+    impl.ll_os_unsetenv.im_func:'LL_os_unsetenv',
+    impl.ll_os_environ.im_func: 'LL_os_environ',
+    impl.ll_os_opendir.im_func: 'LL_os_opendir',
+    impl.ll_os_readdir.im_func: 'LL_os_readdir',
+    impl.ll_os_closedir.im_func:'LL_os_closedir',
     ll_time.ll_time_clock: 'LL_time_clock',
     ll_time.ll_time_sleep: 'LL_time_sleep',
     ll_time.ll_time_time:  'LL_time_time',
@@ -88,7 +91,7 @@ def predeclare_common_types(db, rtyper, optimize=True):
         yield ('RPyListOfString', LIST_OF_STR)
     yield ('RPyFREXP_RESULT', ll_math.FREXP_RESULT)
     yield ('RPyMODF_RESULT', ll_math.MODF_RESULT)
-    yield ('RPySTAT_RESULT', ll_os.STAT_RESULT)
+    yield ('RPySTAT_RESULT', STAT_RESULT)
 
 def predeclare_utility_functions(db, rtyper, optimize=True):
     # Common utility functions

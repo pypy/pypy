@@ -1,16 +1,29 @@
-import os
-from pypy.rpython.module.support import from_rstr, to_rstr
-from pypy.rpython.module.ll_os import *
+from pypy.rpython.module.support import LLSupport
+from pypy.rpython.module.ll_os import BaseOS
+from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.rarithmetic import intmask
 
-def ll_os_open(fname, flag, mode):
-    return os.open(from_rstr(fname), flag, mode)
-ll_os_open.suggested_primitive = True
+n = 10
+fieldnames = ['item%d' % i for i in range(n)]
+lltypes = [lltype.Signed]*n
+fields = tuple(zip(fieldnames, lltypes))    
+STAT_RESULT = lltype.GcStruct('tuple%d' % n, *fields)
 
-def ll_os_write(fd, astring):
-    return os.write(fd, from_rstr(astring))
-ll_os_write.suggested_primitive = True
-
-def ll_os_getcwd():
-    return to_rstr(os.getcwd())
-ll_os_getcwd.suggested_primitive = True
+class Implementation(BaseOS, LLSupport):
+    
+    def ll_stat_result(stat0, stat1, stat2, stat3, stat4,
+                       stat5, stat6, stat7, stat8, stat9):
+        tup = lltype.malloc(STAT_RESULT)
+        tup.item0 = intmask(stat0)
+        tup.item1 = intmask(stat1)
+        tup.item2 = intmask(stat2)
+        tup.item3 = intmask(stat3)
+        tup.item4 = intmask(stat4)
+        tup.item5 = intmask(stat5)
+        tup.item6 = intmask(stat6)
+        tup.item7 = intmask(stat7)
+        tup.item8 = intmask(stat8)
+        tup.item9 = intmask(stat9)
+        return tup
+    ll_stat_result = staticmethod(ll_stat_result)
 

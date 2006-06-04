@@ -9,7 +9,7 @@ from pypy.objspace.flow import model as flowmodel
 from pypy.translator.simplify import eliminate_empty_blocks, join_blocks
 from pypy.rpython.module.support import init_opaque_object
 from pypy.rpython.module.support import to_opaque_object, from_opaque_object
-from pypy.rpython.module.support import from_rstr
+from pypy.rpython.module.support import LLSupport
 from pypy.rpython.extregistry import ExtRegistryEntry
 
 
@@ -54,7 +54,7 @@ def _inputvars(vars):
 # is opname a runtime value?
 def genop(blockcontainer, opname, vars, gv_RESULT_TYPE):
     if not isinstance(opname, str):
-        opname = from_rstr(opname)
+        opname = LLSupport.from_rstr(opname)
     block = from_opaque_object(blockcontainer.obj)
     assert block.exits == [], "block already closed"
     RESULT_TYPE = from_opaque_object(gv_RESULT_TYPE).value

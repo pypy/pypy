@@ -20,8 +20,15 @@ class LLRtypeMixin(object):
     def ll_to_string(self, s):
         return ''.join(s.chars)
 
+    def string_to_ll(self, s):
+        from pypy.rpython.module.support import LLSupport        
+        return LLSupport.to_rstr(s)
+
     def ll_to_list(self, l):
         return map(None, l.ll_items())[:l.ll_length()]
+
+    def get_callable(self, fnptr):
+        return fnptr._obj._callable
 
     def class_name(self, value):
         return "".join(value.super.typeptr.name)[:-1]
@@ -43,8 +50,15 @@ class OORtypeMixin(object):
     def ll_to_string(self, s):
         return s._str
 
+    def string_to_ll(self, s):
+        from pypy.rpython.module.support import OOSupport        
+        return OOSupport.to_rstr(s)
+
     def ll_to_list(self, l):
         return l._list[:]
+
+    def get_callable(self, sm):
+        return sm._callable
 
     def class_name(self, value):
         return ootype.dynamicType(value)._name.split(".")[-1] 
