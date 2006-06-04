@@ -755,6 +755,7 @@ class MappingTestCase(TestBase):
         dict = weakref.WeakValueDictionary()
         self.assertRaises(KeyError, dict.__getitem__, 1)
         dict[2] = C()
+        gc.collect()
         self.assertRaises(KeyError, dict.__getitem__, 2)
 
     def test_weak_keys(self):
