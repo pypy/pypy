@@ -78,6 +78,7 @@ class GeneratorIterator(Wrappable):
                 self.exhausted = True
                 raise
         finally:
+            self.frame.f_back = None
             self.running = False
 
 #
