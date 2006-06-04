@@ -682,7 +682,7 @@ class GraphDisplay(Display):
 
 def shortlabel(label):
     """Shorten a graph node label."""
-    return label.replace('\\l', '').splitlines()[0]
+    return label.replace('\\l', '\n').splitlines()[0]
 
 
 def renderline(text, font, fgcolor, width, maxheight=sys.maxint,

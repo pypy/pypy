@@ -75,6 +75,7 @@ class DotGen:
 
 
 class FlowGraphDotGen(DotGen):
+    VERBOSE = False
 
     def __init__(self, graphname, rankdir=None):
         DotGen.__init__(self, graphname.replace('.', '_'), rankdir)
@@ -106,7 +107,11 @@ class FlowGraphDotGen(DotGen):
         data = funcgraph.name
         if hasattr(funcgraph, 'source'):
             source = funcgraph.source
-            data += "\\n" + "\\l".join(source.split('\n'))
+            if self.VERBOSE:
+                data += "\\n"
+            else:
+                data = ""
+            data += "\\l".join(source.split('\n'))
         if hasattr(funcgraph, 'func'):
             self.func = funcgraph.func
 
@@ -142,12 +147,16 @@ class FlowGraphDotGen(DotGen):
             lines.append("exitswitch: %s" % block.exitswitch)
 
         iargs = " ".join(map(repr, block.inputargs))
-        if block.exc_handler:
-            eh = ' (EH)'
+        if self.VERBOSE:
+            if block.exc_handler:
+                eh = ' (EH)'
+            else:
+                eh = ''
+            data = "%s%s%s\\n" % (name, block.at(), eh)
         else:
-            eh = ''
-        data = "%s%s%s\\ninputargs: %s\\n\\n" % (name, block.at(), eh, iargs)
-        if block.operations and self.func:
+            data = "%s\\n" % (name,)
+        data += "inputargs: %s\\n\\n" % (iargs,)
+        if self.VERBOSE and block.operations and self.func:
             maxoffs = max([op.offset for op in block.operations])
             if maxoffs >= 0:
                 minoffs = min([op.offset for op in block.operations
