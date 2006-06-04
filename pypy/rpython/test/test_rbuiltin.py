@@ -239,9 +239,127 @@ class BaseTestExtfunc(BaseRtypingTest):
         assert self.interpret(f, [self.string_to_ll(str(py.magic.autopath()))]) == False
         assert self.interpret(f, [self.string_to_ll("another/unlikely/directory/name")]) == False
 
+    def test_pbc_isTrue(self):
+        class C:
+            def f(self):
+                pass
+
+        def g(obj):
+            return bool(obj)
+        def fn(neg):    
+            c = C.f
+            return g(c)
+        assert self.interpret(fn, [True])
+        def fn(neg):    
+            c = None
+            return g(c)
+        assert not self.interpret(fn, [True]) 
+
+    def test_const_isinstance(self):
+        class B(object):
+            pass
+        def f():
+            b = B()
+            return isinstance(b, B)
+        res = self.interpret(f, [])
+        assert res is True
+
+    def test_isinstance(self):
+        self._skip_oo('isinstance')
+        class A(object):
+            pass
+        class B(A):
+            pass
+        class C(A):
+            pass
+        def f(x, y):
+            if x == 1:
+                a = A()
+            elif x == 2:
+                a = B()
+            else:
+                a = C()
+            if y == 1:
+                res = isinstance(a, A)
+                cls = A
+            elif y == 2:
+                res = isinstance(a, B)
+                cls = B
+            else:
+                res = isinstance(a, C)
+                cls = C
+            return int(res) + 2 * isinstance(a, cls)
+        for x in [1, 2, 3]:
+            for y in [1, 2, 3]:
+                res = self.interpret(f, [x, y])
+                assert res == isinstance([A(), B(), C()][x-1], [A, B, C][y-1]) * 3
+
+    def test_isinstance_list(self):
+        self._skip_oo('isinstance')
+        def f(i):
+            if i == 0:
+                l = []
+            else:
+                l = None
+            return isinstance(l, list)
+        res = self.interpret(f, [0])
+        assert res is True
+        res = self.interpret(f, [1])
+        assert res is False    
+
+    def test_hasattr(self):
+        self._skip_oo('hasattr')
+        class A(object):
+            def __init__(self):
+                self.x = 42
+        def f(i):
+            a = A()
+            if i==0: return int(hasattr(A, '__init__'))
+            if i==1: return int(hasattr(A, 'y'))
+            if i==2: return int(hasattr(42, 'x'))
+        for x, y in zip(range(3), (1, 0, 0)):
+            res = self.interpret(f, [x])
+            assert res._obj.value == y
+        # hmm, would like to test against PyObj, is this the wrong place/way?
+
 
 class TestLLtype(BaseTestExtfunc, LLRtypeMixin):
     from pypy.rpython.lltypesystem.module import ll_os
+
+    def test_instantiate(self):
+        class A:
+            pass
+        def f():
+            return instantiate(A)
+        res = self.interpret(f, [])
+        assert res.super.typeptr.name[0] == 'A'
+
+    def test_instantiate_multiple(self):
+        class A:
+            pass
+        class B(A):
+            pass
+        def f(i):
+            if i == 1:
+                cls = A
+            else:
+                cls = B
+            return instantiate(cls)
+        res = self.interpret(f, [1])
+        assert res.super.typeptr.name[0] == 'A'
+        res = self.interpret(f, [2])
+        assert res.super.typeptr.name[0] == 'B'
+
+    def test_isinstance_obj(self):
+        _1 = lltype.pyobjectptr(1)
+        def f(x):
+            return isinstance(x, int)
+        res = self.interpret(f, [_1], someobjects=True)
+        assert res is True
+        _1_0 = lltype.pyobjectptr(1.0)
+        res = self.interpret(f, [_1_0], someobjects=True)
+        assert res is False
+
     
 class TestOOtype(BaseTestExtfunc, OORtypeMixin):
     from pypy.rpython.ootypesystem.module import ll_os

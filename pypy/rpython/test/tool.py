@@ -3,11 +3,11 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.test.test_llinterp import interpret, interpret_raises
 
 class BaseRtypingTest(object):
-    def interpret(self, fn, args):
-        return interpret(fn, args, type_system=self.type_system)
+    def interpret(self, fn, args, **kwds):
+        return interpret(fn, args, type_system=self.type_system, **kwds)
 
-    def interpret_raises(self, exc, fn, args):
-        return interpret_raises(exc, fn, args, type_system=self.type_system)
+    def interpret_raises(self, exc, fn, args, **kwds):
+        return interpret_raises(exc, fn, args, type_system=self.type_system, **kwds)
 
     def _skip_oo(self, reason):
         if self.type_system == 'ootype':
