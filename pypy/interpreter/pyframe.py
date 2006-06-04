@@ -97,6 +97,8 @@ class PyFrame(eval.EvalFrame):
             w(self.builtin),
             w(self.pycode),
             space.w_None, #space.newtuple(valuestack),  #XXX <pypy.interpreter.nestedscope.PyNestedScopeFrame object at 0x25545d0> causes AttributeError: 'NoneType' object has no attribute 'getclass'
+            #YYY sure! the stack can contain NULLs.
+            #YYY I'm again and again strongly recommending to *read* the existing implementation.
             space.w_None, #space.newtuple(blockstack),
             w(self.last_exception), #f_exc_traceback, f_exc_type, f_exc_value
             self.w_globals,
