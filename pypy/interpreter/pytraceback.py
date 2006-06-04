@@ -19,7 +19,6 @@ class PyTraceback(baseobjspace.Wrappable):
         self.next = next
 
     def descr__reduce__(self, space):
-        raise Exception('traceback pickling is work in progress')
         from pypy.interpreter.mixedmodule import MixedModule
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)

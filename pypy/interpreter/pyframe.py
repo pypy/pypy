@@ -68,37 +68,25 @@ class PyFrame(eval.EvalFrame):
         self.instr_prev = -1
 
     def descr__reduce__(self, space):
-        '''
-        >>>> dir(frame)
-        ['__class__', '__delattr__', '__doc__', '__getattribute__', '__hash__', '__init__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__str__', 'f_back', 'f_builtins', 'f_code', 'f_exc_traceback', 'f_exc_type', 'f_exc_value', 'f_globals', 'f_lasti', 'f_lineno', 'f_locals', 'f_restricted', 'f_trace']
-        '''
-        raise Exception('frame pickling is work in progress')
         from pypy.interpreter.mixedmodule import MixedModule
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)
         new_inst = mod.get('frame_new')
         w        = space.wrap
 
-        #XXX how to call PyFrame.fget_f_lineno(..) from here? just make it a staticmethod?
-        #f_lineno = PyFrame.fget_f_lineno(space, self)   #TypeError: unbound method fget_f_lineno() must be called with PyFrame instance as first argument (got StdObjSpace instance instead)
         if self.w_f_trace is None:
             f_lineno = self.get_last_lineno()
         else:
             f_lineno = self.f_lineno
 
         valuestack = [w(item) for item in self.valuestack.items]
-        #print 'XXX valuestack=', valuestack
-
         blockstack = [w(item) for item in self.blockstack.items]
-        #print 'XXX blockstack=', blockstack
 
         tup = [
             w(self.f_back),
             w(self.builtin),
             w(self.pycode),
             space.w_None, #space.newtuple(valuestack),  #XXX <pypy.interpreter.nestedscope.PyNestedScopeFrame object at 0x25545d0> causes AttributeError: 'NoneType' object has no attribute 'getclass'
-            #YYY sure! the stack can contain NULLs.
-            #YYY I'm again and again strongly recommending to *read* the existing implementation.
             space.w_None, #space.newtuple(blockstack),
             w(self.last_exception), #f_exc_traceback, f_exc_type, f_exc_value
             self.w_globals,
@@ -118,11 +106,6 @@ class PyFrame(eval.EvalFrame):
             w(self.instr_prev),
             ]
 
-        #XXX what to do with valuestack and blockstack here?
-        #YYY well, we build the valuestack as a tuple (with a marker for NULL objects)
-        #YYY and we pickle the blockstack as well.
-        #YYY see frameobject_reduce line 722 in prickelpit.c in the stackless distro.
-            
         return space.newtuple([new_inst, space.newtuple(tup)])
 
     def hide(self):

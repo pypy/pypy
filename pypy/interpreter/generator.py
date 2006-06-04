@@ -44,7 +44,6 @@ class GeneratorIterator(Wrappable):
         self.exhausted = False
 
     def descr__reduce__(self, space):
-        raise Exception('generator pickling is work in progress')
         from pypy.interpreter.mixedmodule import MixedModule
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)

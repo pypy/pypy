@@ -14,15 +14,17 @@ class AppTestInterpObjectPickling:
         mod = new.module('mod')
         import sys
         sys.modules['mod'] = mod
-        def func():
-            return 42
-        mod.__dict__['func'] = func
-        func.__module__ = 'mod'
-        import pickle
-        pckl = pickle.dumps(func)
-        result = pickle.loads(pckl)
-        assert func is result
-        del sys.modules['mod']
+        try:
+            def func():
+                return 42
+            mod.__dict__['func'] = func
+            func.__module__ = 'mod'
+            import pickle
+            pckl = pickle.dumps(func)
+            result = pickle.loads(pckl)
+            assert func is result
+        finally:
+            del sys.modules['mod']
     
     def test_pickle_not_imported_module(self):
         import new
@@ -33,7 +35,6 @@ class AppTestInterpObjectPickling:
         result = pickle.loads(pckl)
         assert mod.__name__ == result.__name__
         assert mod.__dict__ == result.__dict__
-        #print mod.__dict__
     
     def test_pickle_builtin_func(self):
         import pickle
@@ -73,11 +74,6 @@ class AppTestInterpObjectPickling:
         assert not (cell != result)
 
     def test_pickle_frame(self):
-        '''
-        >>>> dir(frame)
-        ['__class__', '__delattr__', '__doc__', '__getattribute__', '__hash__', '__init__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__str__', 'f_back', 'f_builtins', 'f_code', 'f_exc_traceback', 'f_exc_type', 'f_exc_value', 'f_globals', 'f_lasti', 'f_lineno', 'f_locals', 'f_restricted', 'f_trace']
-        '''
-        skip("work in progress")
         from sys import exc_info
         def f():
             try:
@@ -115,7 +111,6 @@ class AppTestInterpObjectPickling:
         assert f1.f_trace is f2.f_trace
 
     def test_pickle_traceback(self):
-        skip("work in progress")
         def f():
             try:
                 raise Exception()
@@ -196,43 +191,54 @@ class AppTestInterpObjectPickling:
         assert a == result
     
     def test_pickle_method(self):
-        skip("work in progress")
         class myclass(object):
             def f(self):
-                pass
+                return 42
             def __reduce__(self):
-                return (myclass,())
-        import pickle
+                return (myclass, ())
+        import pickle, sys, new
+        myclass.__module__ = 'mod'
         myclass_inst = myclass()
-        method   = myclass_inst.f
-        pckl     = pickle.dumps(method)
-        result   = pickle.loads(pckl)
-        assert method == result
-        
+        mod = new.module('mod')
+        mod.myclass = myclass
+        sys.modules['mod'] = mod
+        try:
+            method   = myclass_inst.f
+            pckl     = pickle.dumps(method)
+            result   = pickle.loads(pckl)
+            # we cannot compare the objects, because the method will be a fresh one
+            assert method() == result()
+        finally:
+            del sys.modules['mod']
     
     def test_pickle_staticmethod(self):
-        skip("work in progress")
         class myclass(object):
-            def f(self):
-                pass
+            def f():
+                return 42
             f = staticmethod(f)
         import pickle
         method   = myclass.f
         pckl     = pickle.dumps(method)
         result   = pickle.loads(pckl)
-        assert method == result
+        assert method() == result()
     
     def test_pickle_classmethod(self):
-        skip("work in progress")
         class myclass(object):
-            def f(self):
-                pass
+            def f(cls):
+                return cls
             f = classmethod(f)
-        import pickle
-        method   = myclass.f
-        pckl     = pickle.dumps(method)
-        result   = pickle.loads(pckl)
-        assert method == result
+        import pickle, sys, new
+        myclass.__module__ = 'mod'
+        mod = new.module('mod')
+        mod.myclass = myclass
+        sys.modules['mod'] = mod
+        try:
+            method   = myclass.f
+            pckl     = pickle.dumps(method)
+            result   = pickle.loads(pckl)
+            assert method() == result()
+        finally:
+            del sys.modules['mod']
     
     def test_pickle_sequenceiter(self):
         '''
@@ -296,7 +302,6 @@ class AppTestInterpObjectPickling:
         assert list(result) == [2,3,4]
     
     def test_pickle_generator(self):
-        skip("work in progress (implement after frame pickling)")
         import pickle
         def giveme(n):
             x = 0
