@@ -1,0 +1,5 @@
+
+This is just some experimental code, likely
+we cannot implement a time module on top of rctypes
+as a mixed module because it would make life too hard
+for ootype backends. 
