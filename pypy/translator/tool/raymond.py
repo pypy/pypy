@@ -51,10 +51,13 @@ def guess_methannotation(func, cls):
         ret = [thetype or cls for thetype in pattern]
     return ret
 
-def should_expose_method(func):
+def should_expose(func):
     # expose all special methods but hide those starting with _
     name = func.__name__
-    return name in SPECIAL_METHODS or not name.startswith('_')
+    return name in SPECIAL_METHODS or not name.startswith('_') or must_expose(func)
+
+def must_expose(func):
+    return hasattr(func, '_initialannotation_')
 
 def get_compiled_module(func, view=conftest.option.view, inline_threshold=1,
                 use_boehm=False, exports=None, expose_all=True):
@@ -85,7 +88,7 @@ def get_compiled_module(func, view=conftest.option.view, inline_threshold=1,
             rtyper.add_wrapper(clsdef)
             for obj in cls.__dict__.values():
                 if isinstance(obj, types.FunctionType):
-                    if should_expose_method(obj) and expose_all:
+                    if should_expose(obj) and expose_all or must_expose(obj):
                         if not ann.bookkeeper.getdesc(obj).querycallfamily():
                             # not annotated, so enforce it
                             ann.build_types(obj, get_annotation(obj, [cls]), complete_now=False)
