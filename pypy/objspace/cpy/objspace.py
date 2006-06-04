@@ -1,8 +1,8 @@
 from pypy.objspace.cpy.capi import *
 from pypy.objspace.cpy.refcount import Py_Incref
-from pypy.annotation.pairtype import pair
 from pypy.interpreter import baseobjspace
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.function import Function
 
 
 class CPyObjSpace(baseobjspace.ObjSpace):
@@ -22,7 +22,6 @@ class CPyObjSpace(baseobjspace.ObjSpace):
         self.w_TypeError     = W_Object(TypeError)
         self.w_KeyError      = W_Object(KeyError)
         self.wrap_cache = {}
-        self.rev_wrap_cache = {}
 
     def _freeze_(self):
         return True
@@ -33,15 +32,17 @@ class CPyObjSpace(baseobjspace.ObjSpace):
     def wrap(self, x):
         if isinstance(x, baseobjspace.Wrappable):
             x = x.__spacebind__(self)
-            if isinstance(x, baseobjspace.Wrappable):
-                try:
-                    return self.wrap_cache[x]
-                except KeyError:
-                    import pypy.objspace.cpy.wrappable
-                    result = pair(self, x).wrap()
-                    self.wrap_cache[x] = result
-                    self.rev_wrap_cache[id(result)] = result, x
-                    return result
+            # special cases
+            if isinstance(x, Function):
+                from pypy.objspace.cpy.function import FunctionCache
+                return self.fromcache(FunctionCache).getorbuild(x)
+            # normal case
+            from pypy.objspace.cpy.typedef import TypeDefCache
+            w_x = x.__cpy_wrapper__
+            if w_x is None:
+                w_type = self.fromcache(TypeDefCache).getorbuild(x.typedef)
+                w_x = x.__cpy_wrapper__ = self.call_function(w_type)
+            return w_x
         if x is None:
             return self.w_None
         if isinstance(x, int):
@@ -57,9 +58,11 @@ class CPyObjSpace(baseobjspace.ObjSpace):
 
     def interpclass_w(self, w_obj):
         try:
-            return self.rev_wrap_cache[id(w_obj)][1]
+            w_obj, obj, follow = self.wrap_cache[id(w_obj)]
         except KeyError:
             return None
+        else:
+            return obj
 
     # __________ operations with a direct CPython equivalent __________
 

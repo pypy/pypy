@@ -400,8 +400,9 @@ class PyObjMaker:
         baseargs = ", ".join(basenames)
         if baseargs:
             baseargs = '(%s)' % baseargs
-        self.initcode.append('class %s%s:' % (name, baseargs))
+        self.initcode.append('class %s%s:' % (cls.__name__, baseargs))
         self.initcode.append('  __metaclass__ = %s' % metaclass)
+        self.initcode.append('%s = %s' % (name, cls.__name__))
         self.later(initclassobj())
         return name
 

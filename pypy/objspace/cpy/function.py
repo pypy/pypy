@@ -1,17 +1,16 @@
 """
-Support to turn interpreter objects (subclasses of Wrappable)
-into CPython objects (subclasses of W_Object).
+Support to turn Function objects into W_Objects containing a built-in
+function of CPython.
 """
 
 import py
-from pypy.annotation.pairtype import pair, pairtype
 from pypy.objspace.cpy.capi import *
 from pypy.objspace.cpy.refcount import Py_XIncref
 from pypy.objspace.cpy.objspace import CPyObjSpace
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.function import Function
 from pypy.interpreter.gateway import BuiltinCode, ObjSpace, W_Root
 from pypy.interpreter.gateway import UnwrapSpecRecipe, Signature
+from pypy.interpreter.baseobjspace import SpaceCache
 
 
 class UnwrapSpec_Trampoline(UnwrapSpecRecipe):
@@ -63,9 +62,9 @@ def reraise(e):
     RAW_PyErr_Restore(e.w_type, e.w_value, w_traceback)
 
 
-class __extend__(pairtype(CPyObjSpace, Function)):
-
-    def wrap((space, func)):
+class FunctionCache(SpaceCache):
+    def build(cache, func):
+        space = cache.space
         # make a built-in function
         assert isinstance(func.code, BuiltinCode)   # XXX
         factory = func.code.framefactory
@@ -112,12 +111,15 @@ class __extend__(pairtype(CPyObjSpace, Function)):
         trampoline = miniglobals['trampoline']
         trampoline.nb_args = len(tramp.inputargs)
         trampoline.allow_someobjects = True    # annotator hint
-        return W_Object(trampoline)
+        w_result = W_Object(trampoline)
+        space.wrap_cache[id(w_result)] = w_result, func, follow_annotations
+        return w_result
 
-    def follow_annotations((space, func), bookkeeper, w_trampoline):
-        from pypy.annotation import model as annmodel
-        trampoline = w_trampoline.value
-        s_trampoline = bookkeeper.immutablevalue(trampoline)
-        args_s = [annmodel.SomeObject()] * trampoline.nb_args
-        uniquekey = trampoline
-        bookkeeper.emulate_pbc_call(uniquekey, s_trampoline, args_s)
+
+def follow_annotations(bookkeeper, w_trampoline):
+    from pypy.annotation import model as annmodel
+    trampoline = w_trampoline.value
+    s_trampoline = bookkeeper.immutablevalue(trampoline)
+    args_s = [annmodel.SomeObject()] * trampoline.nb_args
+    uniquekey = trampoline
+    bookkeeper.emulate_pbc_call(uniquekey, s_trampoline, args_s)

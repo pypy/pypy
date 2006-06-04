@@ -43,6 +43,17 @@ typedef int Py_ssize_t;
 ##                                          ('ml_doc', c_char_p)])
 ##    METH_VARARGS = ctypes_platform.ConstantInteger('METH_VARARGS')
 
+##    # NB. all integers fields can be specified as c_int,
+##    #     which is replaced by the more precise type automatically.
+##    PyObject_HEAD = [('ob_refcnt', c_int), ('ob_type', 
+##    PyTypeObject = ctypes_platform.Struct('PyTypeObject', [
+##        ('tp_name', c_char_p),
+##        ('tp_basicsize', c_int),
+##        ('tp_flags', c_int),
+##        ('tp_doc', c_char_p),
+##        ])
+##    Py_TPFLAGS_DEFAULT = ctypes_platform.ConstantInteger('Py_TPFLAGS_DEFAULT')
+
 globals().update(ctypes_platform.configure(CConfig))
 del CConfig
 

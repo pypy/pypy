@@ -1,5 +1,4 @@
 from pypy.translator.goal.ann_override import PyPyAnnotatorPolicy
-from pypy.annotation.pairtype import pair
 from pypy.annotation import model as annmodel
 from pypy.interpreter.error import OperationError
 from pypy.objspace.cpy.ctypes_base import W_Object, rctypes_pyerrchecker
@@ -23,9 +22,8 @@ class CPyAnnotatorPolicy(PyPyAnnotatorPolicy):
             pending.update(space.wrap_cache)
             if len(pending) == nb_done:
                 break
-            for obj, w_obj in pending.items():
-                pair(space, obj).follow_annotations(annotator.bookkeeper,
-                                                    w_obj)
+            for w_obj, obj, follow in pending.values():
+                follow(annotator.bookkeeper, w_obj)
             # restart this loop: for all we know follow_annotations()
             # could have found new objects
 
