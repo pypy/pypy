@@ -17,7 +17,7 @@ if sys.platform == 'win32':
 elif sys.platform == 'linux2':
     mylib = cdll_load('libc.so.6')
 elif sys.platform == 'darwin':
-    mylib = cdll.c
+    mylib = cdll_load('libc.dylib')
 else:
     py.test.skip("don't know how to load the c lib for %s" % 
             sys.platform)
