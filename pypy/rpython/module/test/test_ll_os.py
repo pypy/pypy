@@ -1,6 +1,6 @@
 import os
 from pypy.tool.udir import udir
-from pypy.rpython.module.ll_os import *
+from pypy.rpython.lltypesystem.module.ll_os import *
 
 
 def test_open_read_write_close():
