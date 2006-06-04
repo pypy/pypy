@@ -211,7 +211,7 @@ class ObjSpace(object):
             if name not in modules: 
                 modules.append(name) 
 
-        modules.extend(['unicodedata', '_codecs', 'gc',
+        modules.extend(['unicodedata', '_codecs', 'gc', '_weakref',
                          'array', 'marshal', 'errno', 'math', '_sre'])
 	modules.append('_pickle_support')
 
