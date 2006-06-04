@@ -446,7 +446,7 @@ class BufferingInputStream(Stream):
         more = [data]
         k = len(data)
         while k < n:
-            data = self.do_read(min(self.bufsize, n-k))
+            data = self.do_read(max(self.bufsize, n-k))
             k += len(data)
             more.append(data)
             if not data:

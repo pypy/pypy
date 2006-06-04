@@ -15,6 +15,7 @@ class TSource(object):
         self.orig_packets = list(packets)
         self.packets = list(packets)
         self.pos = 0
+        self.chunks = []
 
     def tell(self):
         return self.pos
@@ -43,6 +44,7 @@ class TSource(object):
         if len(data) > n:
             data, rest = data[:n], data[n:]
             self.packets.insert(0, rest)
+        self.chunks.append((n, len(data), self.pos))
         self.pos += len(data)
         return data
 
@@ -121,6 +123,7 @@ class TestBufferingInputStreamTests:
 
     def makeStream(self, tell=False, seek=False, bufsize=None):
         base = TSource(self.packets)
+        self.source = base
         def f(*args):
             raise NotImplementedError
         if not tell:
@@ -316,6 +319,14 @@ class TestBufferingInputStreamTests:
                     rest = file.readall()
                     assert rest == all[seekto:]
 
+class TestBufferedRead(TestBufferingInputStreamTests):
+    def test_dont_read_small(self):
+        import sys
+        file = self.makeStream(bufsize=4)
+        while file.read(1): pass
+        for want, got, pos in self.source.chunks:
+            assert want >= 4
+
 class TestBufferingOutputStream: 
 
     def test_write(self):
@@ -428,6 +439,8 @@ class TestMMapFile(TestBufferingInputStreamTests):
                 print "can't remove %s: %s" % (tfn, msg)
 
     def makeStream(self, tell=None, seek=None, bufsize=None, mode="r"):
+        mmapmode = 0
+        filemode = 0
         import mmap
         if "r" in mode:
             mmapmode = mmap.ACCESS_READ
@@ -710,7 +723,7 @@ def timeit(fn=FN, opener=sio.MMapFile):
     f = opener(fn, "r")
     lines = bytes = 0
     t0 = time.clock()
-    for line in f:
+    for line in iter(f.readline, ""):
         lines += 1
         bytes += len(line)
     t1 = time.clock()
@@ -719,19 +732,29 @@ def timeit(fn=FN, opener=sio.MMapFile):
 
 def speed_main():
     def diskopen(fn, mode):
-        base = sio.DiskFile(fn, mode)
+        filemode = 0
+        import mmap
+        if "r" in mode:
+            filemode = os.O_RDONLY
+        if "w" in mode:
+            filemode |= os.O_WRONLY
+        
+        fd = os.open(fn, filemode)
+        base = sio.DiskFile(fd)
         return sio.BufferingInputStream(base)
+    def mmapopen(fn, mode):
+        mmapmode = 0
+        filemode = 0
+        import mmap
+        if "r" in mode:
+            mmapmode = mmap.ACCESS_READ
+            filemode = os.O_RDONLY
+        if "w" in mode:
+            mmapmode |= mmap.ACCESS_WRITE
+            filemode |= os.O_WRONLY
+        fd = os.open(fn, filemode)
+        return sio.MMapFile(fd, mmapmode)
     timeit(opener=diskopen)
-    timeit(opener=sio.MMapFile)
+    timeit(opener=mmapopen)
     timeit(opener=open)
-
-# Functional test
-
-def functional_main():
-    f = sio.DiskFile("sio.py")
-    f = sio.DecodingInputFilter(f)
-    f = sio.TextInputFilter(f)
-    f = sio.BufferingInputStream(f)
-    for i in range(10):
-        print repr(f.readline())
 
