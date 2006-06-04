@@ -56,6 +56,8 @@ def test_call():
         return v1*100 + v2
     res = llinterp_stackless_function(example)
     assert res == 412
+    res = run_stackless_function(example)
+    assert res == 412
 
 def test_returns_with_instance():
     class C:
@@ -74,23 +76,8 @@ def test_returns_with_instance():
         return v1*100 + v2
     res = llinterp_stackless_function(example, assert_unwind=False)
     assert res == 408
-
-def test_call_exception_handling():
-    def g(x,y):
-        if x == 0:
-            raise KeyError
-        return x*y
-    def f(x, y):
-        try:
-            z = g(x,y)
-            rstack.resume_point("rp1", y, returns=z)
-        except KeyError:
-            return 0
-        return z+y
-    def example():
-        f(one(),one()+one())
-        return 0
-    transform_stackless_function(example)
+    res = run_stackless_function(example)
+    assert res == 408
 
 def test_call_uncovered():
     def g(x,y):
@@ -120,7 +107,9 @@ def test_chained_states():
         s2 = rstack.resume_state_create(None, "rp2", 2*one())
         s1 = rstack.resume_state_create(s2, "rp1", 4*one(), 5*one())
         return 100*v1 + rstack.resume_state_invoke(int, s1)
-    res = llinterp_stackless_function(example, assert_unwind=False)
+    res = llinterp_stackless_function(example)
+    assert res == 811
+    res = run_stackless_function(example)
     assert res == 811
 
 def test_return_instance():
@@ -142,7 +131,9 @@ def test_return_instance():
         c.x = 4*one()
         s1 = rstack.resume_state_create(s2, "rp1", c)
         return v1*100 + rstack.resume_state_invoke(int, s1)
-    res = llinterp_stackless_function(example, assert_unwind=False)
+    res = llinterp_stackless_function(example)
+    assert res == 406
+    res = run_stackless_function(example)
     assert res == 406
 
 def test_really_return_instance():
@@ -161,6 +152,8 @@ def test_really_return_instance():
         return v1*100 + rstack.resume_state_invoke(C, s1).x
     res = llinterp_stackless_function(example)
     assert res == 204
+    res = run_stackless_function(example)
+    assert res == 204
 
 def test_resume_and_raise():
     def g(x):
@@ -177,6 +170,8 @@ def test_resume_and_raise():
             v2 = 42
         return v1*100 + v2
     res = llinterp_stackless_function(example)
+    assert res == 242
+    res = run_stackless_function(example)
     assert res == 242
     
 def test_resume_and_raise_and_catch():
@@ -201,6 +196,8 @@ def test_resume_and_raise_and_catch():
         return v1*100 + v2
     res = llinterp_stackless_function(example)
     assert res == 141
+    res = run_stackless_function(example)
+    assert res == 141
 
 def test_invoke_raising():
     def g(x):
@@ -221,5 +218,7 @@ def test_invoke_raising():
         v2 = rstack.resume_state_invoke(int, s0, raising=KeyError())
         return v1*100 + v2
     res = llinterp_stackless_function(example)
+    assert res == 141
+    res = run_stackless_function(example)
     assert res == 141
     

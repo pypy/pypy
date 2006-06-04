@@ -45,6 +45,9 @@ def name_signed(value, db):
             value = value.compute_fn()
         else:
             raise Exception("unimplemented symbolic %r"%value)
+    if value is None:
+        assert not db.completed
+        return None
     if value == -sys.maxint-1:   # blame C
         return '(-%dL-1L)' % sys.maxint
     else:

@@ -56,12 +56,17 @@ from pypy.translator.stackless.frame import storage_type
 #     return retval + x + 1
 
 class SymbolicRestartNumber(ComputedIntSymbolic):
-    def __init__(self, value=None):
+    def __init__(self, label, value=None):
         ComputedIntSymbolic.__init__(self, self._getvalue)
+        self.label = label
         self.value = value
 
     def _getvalue(self):
-        assert self.value is not None
+        # argh, we'd like to assert-fail if value is None here, but we
+        # get called too early (during databasing) for this to be
+        # valid.  so we might return None and rely on the database
+        # checking that this only happens before the database is
+        # complete.
         return self.value
 
 class ResumePoint:
@@ -499,7 +504,7 @@ class StacklessTransformer(object):
             assert symb.value is None
             symb.value = restart_number
         else:
-            symb = SymbolicRestartNumber(restart_number)
+            symb = SymbolicRestartNumber(label, restart_number)
             self.symbolic_restart_numbers[label] = symb
 
         return link.target, i
@@ -528,7 +533,7 @@ class StacklessTransformer(object):
         if label in self.symbolic_restart_numbers:
             symb = self.symbolic_restart_numbers[label]
         else:
-            symb = SymbolicRestartNumber()
+            symb = SymbolicRestartNumber(label)
             self.symbolic_restart_numbers[label] = symb
 
         llops.genop('setfield', [v_state,
