@@ -1,0 +1,33 @@
+============================================
+PyPy Extension Compiler 
+============================================
+
+This document describes the PyPy extension compiler 
+which is able to compile a single set of source code 
+to a PyPy or a CPython extension module.  
+
+**WARNING: this is beta software, APIs and details may change.**
+
+
+
+required ctypes version
+------------------------
+
+As of this time, only `ctypes-0.9.9.6`_ is known to work. 
+
+.. _`ctypes-0.9.9.6`: http://sourceforge.net/project/showfiles.php?group_id=71702&package_id=71318&release_id=411554 
+
+platform notes 
+-----------------
+
+Mac OSX 
+++++++++++++++++++++++++++
+
+*ctypes 0.9.9.6 on OSX 10.3*: you need to change the ``RTLD_LOCAL`` default 
+in  ctypes/__init__.py line 293 to::
+
+    def __init__(self, name, mode=RTLD_GLOBAL, handle=None):
+
+otherwise it will complain with "unable to open this file with RTLD_LOCAL"
+when trying to load the C library. 
+
