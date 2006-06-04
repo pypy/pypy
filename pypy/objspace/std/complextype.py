@@ -117,7 +117,9 @@ def simple_arg_check(space, w_r, w_c):
             raise TypeError
 
 def descr__new__(space, w_complextype, w_real=0.0, w_imag=None):
+    
     from pypy.objspace.std.complexobject import W_ComplexObject
+
     try:
         check_second_arg(space, w_imag)
     except TypeError:
@@ -127,29 +129,12 @@ def descr__new__(space, w_complextype, w_real=0.0, w_imag=None):
     except TypeError:
         raise OperationError(space.w_TypeError, space.wrap(ERR_WRONG_SECOND))
     # if arguments can be cast to a float, do it
-    try:
-        w_real = space.call_function(space.w_float,w_real) 
-    except:pass
-    try:
-        w_imag = space.call_function(space.w_float,w_imag) 
-    except:pass
+    if space.is_w(w_complextype, space.w_complex) and \
+        space.eq_w(space.type(w_real), space.w_complex) and \
+        space.eq_w(w_imag, space.w_None):
+        # common case
+        return w_real 
 
-    # test for '__complex__' attribute and get result of
-    # __complex__ method
-    w_complex_first = extract_complex(space, w_real)
-    if not space.eq_w(w_complex_first, space.w_None):
-        w_real = w_complex_first
-    
-    # if w_real is a complex number and there is no second
-    # argument, return w_real
-    if space.is_true(space.isinstance(w_real, space.w_complex)) and \
-            space.eq_w(w_imag, space.w_None):
-        return w_real
-
-    elif not space.is_true(space.isinstance(w_real, space.w_str)) and \
-            not space.eq_w(w_imag, space.w_None):
-        w_imag = space.mul(w_imag,space.newcomplex(0.0,1.0))
-        return space.add(w_real,w_imag)
     if space.is_true(space.isinstance(w_real, space.w_str)) or \
             space.is_true(space.isinstance(w_real, space.w_unicode)):
         try:
@@ -162,16 +147,52 @@ def descr__new__(space, w_complextype, w_real=0.0, w_imag=None):
             imagval = interp_string_to_float(space, imagstr)
         except ParseStringError:
             raise OperationError(space.w_ValueError, space.wrap(ERR_MALFORMED))
+        else:
+            if space.is_w(w_complextype, space.w_complex):
+                # common case
+                w_obj = W_ComplexObject(realval, imagval)
+            else:
+                # We are dealing with a subclass of complex
+                w_obj = space.allocate_instance(W_ComplexObject, w_complextype)
+                W_ComplexObject.__init__(w_obj,realval, imagval)
+
+            return w_obj
+    # w_imag is now either float or None
+    # w_real is either string, complex or float
+    # test for '__complex__' attribute and get result of
+    # __complex__ method
+    w_complex_first = extract_complex(space, w_real)
+    if not space.eq_w(w_complex_first, space.w_None):
+        w_real = w_complex_first
+    
+    # if w_real is a complex number and there is no second
+    # argument, return w_real after checking the type
+    if space.is_true(space.isinstance(w_real, space.w_complex)):
+        if not space.eq_w(w_imag, space.w_None):
+            if not space.is_true(space.isinstance(w_imag, space.w_complex)):
+                w_imag = space.call_function(space.w_float,w_imag)
+            w_tmp = space.newcomplex(0, 1)
+            w_tmp = space.mul(w_tmp,w_imag)
+            w_real  = space.add(w_real,w_tmp)
+
+    elif not space.is_true(space.isinstance(w_real, space.w_str)):
+        if space.eq_w(w_imag, space.w_None):
+            w_imag = space.wrap(0)
+        w_real = space.call_function(space.w_float,w_real)
+        if not space.is_true(space.isinstance(w_imag, space.w_complex)):
+            w_imag = space.call_function(space.w_float,w_imag)
+        tmp = space.newcomplex(0, 1)
+        w_imag = space.mul(w_imag,tmp)
+        w_real = space.add(w_real,w_imag)
+    if space.is_w(w_complextype, space.w_complex):
+        # common case
+        w_obj = W_ComplexObject(w_real.realval,w_real.imagval)
     else:
-        if space.eq_w(w_imag,space.w_None):
-            w_imag = space.wrap(0.0)
-        realval = space.float_w(w_real)
-        imagval = space.float_w(w_imag)
-    w_obj = space.allocate_instance(W_ComplexObject, w_complextype)
-    W_ComplexObject.__init__(w_obj, realval, imagval)
-
+        # We are dealing with a subclass of complex
+        w_obj = space.allocate_instance(W_ComplexObject, w_complextype)
+        W_ComplexObject.__init__(w_obj, w_real.realval, w_real.imagval)
     return w_obj
-
+        
 app = gateway.applevel(r"""
 def extract_complex(num):
     if not hasattr(num,'__complex__'):
