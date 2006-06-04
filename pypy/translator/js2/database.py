@@ -16,6 +16,7 @@ from pypy.rpython.lltypesystem.lltype import Char, UniChar
 from pypy.rpython.ootypesystem import ootype
 
 from pypy.objspace.flow.model import Variable, Constant
+from pypy.translator.js2.modules import dom
 
 try:
     set
@@ -39,6 +40,16 @@ class LowLevelDatabase(object):
         self.name_manager = JavascriptNameManager(self)
         self.pending_consts = []
         self.cts = type_system_class(self)
+        self.prepare_builtins()
+    
+    def prepare_builtins(self):
+        # Document Object Model elements
+        #for module in [dom]:
+        #    for i in dir(module):
+        #        if not i.startswith('__'):
+        #            # FIXME: shit, strange way of doing it
+        #            self.consts[BuiltinConst(module[i])] = i
+        return
 
     def is_primitive(self, type_):
         if type_ in [Void, Bool, Float, Signed, Unsigned, SignedLongLong, UnsignedLongLong, Char, UniChar] or \
@@ -153,9 +164,12 @@ class LowLevelDatabase(object):
         if self.is_primitive(type_):
             ilasm.load_const(self.cts.primitive_repr(type_, value))
         else:
-            name = self.record_const(value)
-            ilasm.load_local(self.const_var)
-            ilasm.get_field(name)
+            try:
+                return self.consts[BuiltinConst(value)]
+            except KeyError:
+                name = self.record_const(value)
+                ilasm.load_local(self.const_var)
+                ilasm.get_field(name)
             #assert False, 'Unknown constant %s' % const
 
 
@@ -322,3 +336,21 @@ class StringConst(AbstractConst):
     def init_fields(self, ilasm, const_var, name):
         pass
 
+class BuiltinConst(AbstractConst):
+    def __init__(self, name):
+        self.name = name
+    
+    def __hash__(self):
+        return hash(self.name)
+    
+    def __eq__(self, other):
+        return self.name == other.name
+    
+    def get_name(self):
+        return self.name
+    
+    def init_fields(self, *args):
+        pass
+    
+    def init(self, ilasm):
+        ilasm.load_str(self.name)

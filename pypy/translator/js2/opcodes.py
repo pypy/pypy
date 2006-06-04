@@ -58,7 +58,10 @@ class _Call(MicroInstruction):
         graph = op.args[0].value.graph
         #method_name = oopspec.get_method_name(graph, op)
         #if method_name is None:
-        bt = Builtins.map_builtin_function(op.args[0], self, op.args, generator)
+        if op.args[0] in generator.db.name_manager.predefined:
+            bt = op.args[0], False
+        else:
+            bt = Builtins.map_builtin_function(op.args[0], self, op.args, generator)
         if bt:
             builtin, is_property = bt
             self._render_builtin(generator, builtin, op.args, is_property)
@@ -104,6 +107,11 @@ class _Call(MicroInstruction):
     
     def do_nothing(self, base_obj, args, generator):
         generator.load_void()
+    
+    def setitem(self, base_obj, args, generator, real_name):
+        generator.load(base_obj)
+        generator.load(args[1])
+        generator.set_field(None, real_name)
     
     def equal(self, base_obj, args, generator):
         generator.load(args[1])

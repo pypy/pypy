@@ -4,7 +4,7 @@ import py
 from pypy.translator.js2.test.runtest import compile_function
 from pypy.rpython.lltypesystem import lltype 
 from pypy.rpython.rjs import jseval
-from pypy.translator.js import conftest
+from pypy.translator.js2 import conftest
 
 def jsnative(cmd):
     def do():
@@ -34,7 +34,8 @@ def test_jsnative1():
     assert jsnative1_fn() == localtime()[2]
 
 callbacks = []
-n_times_called = lltype.malloc(lltype.GcArray(lltype.Signed), 1) 
+#n_times_called = lltype.malloc(lltype.GcArray(lltype.Signed), 1) 
+n_times_called = [0]
 
 def callback_function():
     n_times_called[0] += 1
@@ -42,7 +43,8 @@ def callback_function():
     jseval("setTimeout('callback_function()', 100)")
 
 def test_register_callback():
-    if not conftest.option.jsbrowser:
+    py.test.skip("Hangs")
+    if not conftest.option.browser:
         py.test.skip("works only in a browser (use py.test --browser)")
 
     def register_callback():

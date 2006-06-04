@@ -1,0 +1,35 @@
+<html>
+<head>
+<script type="text/javascript">
+%(jscode)s
+function runTest() {
+    var result = undefined;
+    try {
+        result = %(jstestcase)s;
+    } catch (e) {
+        try {
+            result = "throw '" + e.toSource() + "'";
+        } catch (dummy) {
+            result = "throw 'unknown javascript exception'";
+        }
+    }
+
+   if (result != undefined) {  // if valid result (no timeout)
+        handle_result(result);
+   }
+}
+function handle_result(result) {
+   var resultform = document.forms['resultform'];
+   resultform.result.value = result;
+   %(isinteractive)s
+};
+</script>
+</head>
+<body onLoad="runTest()">
+<h1 id="dupa">Blah</h1>
+    <form method="post" name="resultform" id="resultform">
+        <input name="result" type="test" value="UNKNOWN" />
+        <input name="ok" value="OK" type="submit"/> <input name="notok" value="Not OK" type="submit"/>
+    </form>
+</body>
+</html>

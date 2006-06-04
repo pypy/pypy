@@ -8,11 +8,11 @@ from pypy.translator.translator import TranslationContext
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.js2.js import JS
 from pypy.translator.js2.test.browsertest import jstest
-from pypy.translator.js import conftest
+from pypy.translator.js2 import conftest
 from pypy.translator.js2.log import log
 from pypy.conftest import option
 log = log.runtest
-use_browsertest = conftest.option.jsbrowser
+use_browsertest = conftest.option.browser
 
 def _CLI_is_on_path():
     try:
@@ -22,10 +22,12 @@ def _CLI_is_on_path():
     return True
 
 class compile_function(object):
-    def __init__(self, function, annotation, stackless=False, view=False):
+    def __init__(self, function, annotation, stackless=False, view=False, html=None, is_interactive=False):
         if not use_browsertest and not _CLI_is_on_path():
             py.test.skip('Javascript CLI (js) not found')
 
+        self.html = html
+        self.is_interactive = is_interactive
         t = TranslationContext()
         t.buildannotator().build_types(function, annotation)
 
@@ -54,7 +56,8 @@ class compile_function(object):
         #    function_call = "slp_entry_point('%s')" % function_call
 
         if use_browsertest:
-            output = jstest(self.js.filename, function_call)
+            log("Used html: %r" % self.html)
+            output = jstest(self.js.filename, function_call, use_browsertest, self.html, self.is_interactive)
         else:
             cmd = 'echo "load(\'%s\'); print(%s)" | js 2>&1' % (self.js.filename, function_call)
             log(cmd)
