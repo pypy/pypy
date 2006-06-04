@@ -305,22 +305,6 @@ class BaseTestExtfunc(BaseRtypingTest):
         res = self.interpret(f, [1])
         assert res is False    
 
-    def test_hasattr(self):
-        self._skip_oo('hasattr')
-        class A(object):
-            def __init__(self):
-                self.x = 42
-        def f(i):
-            a = A()
-            if i==0: return int(hasattr(A, '__init__'))
-            if i==1: return int(hasattr(A, 'y'))
-            if i==2: return int(hasattr(42, 'x'))
-        for x, y in zip(range(3), (1, 0, 0)):
-            res = self.interpret(f, [x])
-            assert res._obj.value == y
-        # hmm, would like to test against PyObj, is this the wrong place/way?
-
-
 class TestLLtype(BaseTestExtfunc, LLRtypeMixin):
     from pypy.rpython.lltypesystem.module import ll_os
 
@@ -357,6 +341,20 @@ class TestLLtype(BaseTestExtfunc, LLRtypeMixin):
         _1_0 = lltype.pyobjectptr(1.0)
         res = self.interpret(f, [_1_0], someobjects=True)
         assert res is False
+
+    def test_hasattr(self):
+        class A(object):
+            def __init__(self):
+                self.x = 42
+        def f(i):
+            a = A()
+            if i==0: return int(hasattr(A, '__init__'))
+            if i==1: return int(hasattr(A, 'y'))
+            if i==2: return int(hasattr(42, 'x'))
+        for x, y in zip(range(3), (1, 0, 0)):
+            res = self.interpret(f, [x])
+            assert res._obj.value == y
+        # hmm, would like to test against PyObj, is this the wrong place/way?
 
     
 class TestOOtype(BaseTestExtfunc, OORtypeMixin):
