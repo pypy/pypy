@@ -24,14 +24,6 @@ class ExceptionData(AbstractExceptionData):
         return helper_fn
 
 
-    def make_raise_OSError(self, rtyper):
-        # ll_raise_OSError(errno)
-        def ll_raise_OSError(errno):
-            raise OSError(errno, None)
-        helper_fn = rtyper.annotate_helper_fn(ll_raise_OSError, [annmodel.SomeInteger()])
-        return helper_fn
-
-
     def make_type_of_exc_inst(self, rtyper):
         # ll_type_of_exc_inst(exception_instance) -> exception_vtable
         s_excinst = annmodel.SomePtr(self.lltype_of_exception_value)

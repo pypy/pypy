@@ -378,6 +378,14 @@ class InstanceRepr(AbstractInstanceRepr):
         v_attr = hop.inputconst(ootype.Void, mangled)
         return hop.genop('oosetfield', [v_inst, v_attr, v_newval])
 
+    def setfield(self, vinst, attr, vvalue, llops):
+        # this method emulates behaviour from the corresponding
+        # lltypesystem one. It is referenced in some obscure corners
+        # like rtyping of OSError.
+        mangled_name = mangle(attr)
+        cname = inputconst(ootype.Void, mangled_name)
+        llops.genop('oosetfield', [vinst, cname, vvalue])
+
     def rtype_is_true(self, hop):
         vinst, = hop.inputargs(self)
         return hop.genop('oononnull', [vinst], resulttype=ootype.Bool)

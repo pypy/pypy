@@ -1,5 +1,6 @@
 from pypy.rpython import rclass
 from pypy.rpython.extfunctable import standardexceptions
+from pypy.annotation import model as annmodel
 
 class AbstractExceptionData:
     """Public information for the code generators to help with exceptions."""
@@ -27,4 +28,11 @@ class AbstractExceptionData:
         for cls in self.standardexceptions:
             classdef = bk.getuniqueclassdef(cls)
             rclass.getclassrepr(rtyper, classdef).setup()
+
+    def make_raise_OSError(self, rtyper):
+        # ll_raise_OSError(errno)
+        def ll_raise_OSError(errno):
+            raise OSError(errno, None)
+        helper_fn = rtyper.annotate_helper_fn(ll_raise_OSError, [annmodel.SomeInteger()])
+        return helper_fn
 

@@ -232,3 +232,16 @@ def test_ooparse_int():
     for n in -42, 0, 42:
         for b in 8, 10, 16:
             assert interpret(oof, [n, b], type_system='ootype') == n
+
+def test_OSError():
+    def oof(b):
+        try:
+            if b:
+                raise OSError
+            else:
+                return 1
+        except OSError:
+            return 2
+
+    assert interpret(oof, [True], type_system='ootype') == 2
+    assert interpret(oof, [False], type_system='ootype') == 1

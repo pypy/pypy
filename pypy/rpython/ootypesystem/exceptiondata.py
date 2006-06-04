@@ -23,12 +23,14 @@ class ExceptionData(AbstractExceptionData):
         self.fn_exception_match = self.make_exception_matcher(rtyper)
         self.fn_pyexcclass2exc = self.make_pyexcclass2exc(rtyper)
         self.fn_type_of_exc_inst = self.make_type_of_exc_inst(rtyper)
+        self.fn_raise_OSError    = self.make_raise_OSError(rtyper)        
 
     def make_exception_matcher(self, rtyper):
         # ll_exception_matcher(real_exception_meta, match_exception_meta)
         s_classtype = annmodel.SomeOOInstance(self.lltype_of_exception_type)
         helper_fn = rtyper.annotate_helper_fn(rclass.ll_issubclass, [s_classtype, s_classtype])
         return helper_fn
+
     
     def make_type_of_exc_inst(self, rtyper):
         # ll_type_of_exc_inst(exception_instance) -> exception_vtable
