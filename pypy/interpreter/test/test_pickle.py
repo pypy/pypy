@@ -74,6 +74,7 @@ class AppTestInterpObjectPickling:
         assert not (cell != result)
 
     def test_pickle_frame(self):
+        skip("in-progress")
         from sys import exc_info
         def f():
             try:
@@ -101,6 +102,7 @@ class AppTestInterpObjectPickling:
         assert f1.f_trace is f2.f_trace
 
     def test_pickle_traceback(self):
+        skip("in-progress")
         def f():
             try:
                 raise Exception()

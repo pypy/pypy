@@ -114,24 +114,25 @@ class PyFrame(eval.EvalFrame):
 
     def descr__setstate__(self, space, w_args):
         from pypy.module._pickle_support import maker # helper fns
+        from pypy.interpreter.pycode import PyCode
+        from pypy.interpreter.module import Module
         args_w = space.unpackiterable(w_args)
         w_f_back, w_builtin, w_pycode, w_valuestack, w_blockstack, w_last_exception,\
             w_globals, w_last_instr, w_next_instr, w_f_lineno, w_fastlocals, w_f_locals, \
             w_f_trace, w_instr_lb, w_instr_ub, w_instr_prev = args_w
         w = space.wrap
-        u = space.unwrap
 
         #new_frame = PyFrame(space, pycode, w(globals), None)
         # let the code object create the right kind of frame
         # the distinction is a little over-done but computable
         new_frame = self
-        pycode = space.unwrap(w_pycode)
+        pycode = space.interp_w(PyCode, w_pycode)
         new_frame.__init__(space, pycode, w_globals, None)
-        new_frame.f_back = u(w_f_back)
-        new_frame.builtin = u(w_builtin)
+        new_frame.f_back = space.interp_w(PyFrame, w_f_back, can_be_None=True)
+        new_frame.builtin = space.interp_w(Module, w_builtin)
         #new_frame.blockstack = blockstack
         new_frame.valuestack.items = maker.slp_from_tuple_with_nulls(space, w_valuestack)
-        new_frame.last_exception = u(w_last_exception)
+        new_frame.last_exception = None#XXX (w_last_exception)
         new_frame.last_instr = space.int_w(w_last_instr)
         new_frame.next_instr = space.int_w(w_next_instr)
         new_frame.f_lineno = space.int_w(w_f_lineno)
