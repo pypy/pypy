@@ -177,10 +177,10 @@ def descr__new__(space, w_complextype, w_real=0.0, w_imag=None):
     if space.is_true(space.isinstance(w_real, space.w_complex)):
         if not space.eq_w(w_imag, space.w_None):
             if not space.is_true(space.isinstance(w_imag, space.w_complex)):
-                w_imag = space.call_function(space.w_float,w_imag)
+                w_imag = space.call_function(space.w_float, w_imag)
             w_tmp = space.newcomplex(0, 1)
-            w_tmp = space.mul(w_tmp,w_imag)
-            w_real  = space.add(w_real,w_tmp)
+            w_tmp = space.mul(w_tmp, w_imag)
+            w_real  = space.add(w_real, w_tmp)
 
     elif not space.is_true(space.isinstance(w_real, space.w_str)):
         if space.eq_w(w_imag, space.w_None):
@@ -189,11 +189,12 @@ def descr__new__(space, w_complextype, w_real=0.0, w_imag=None):
         if not space.is_true(space.isinstance(w_imag, space.w_complex)):
             w_imag = space.call_function(space.w_float,w_imag)
         tmp = space.newcomplex(0, 1)
-        w_imag = space.mul(w_imag,tmp)
-        w_real = space.add(w_real,w_imag)
+        w_imag = space.mul(w_imag, tmp)
+        w_real = space.add(w_real, w_imag)
+    assert isinstance(w_real, W_ComplexObject)
     if space.is_w(w_complextype, space.w_complex):
         # common case
-        w_obj = W_ComplexObject(w_real.realval,w_real.imagval)
+        w_obj = W_ComplexObject(w_real.realval, w_real.imagval)
     else:
         # We are dealing with a subclass of complex
         w_obj = space.allocate_instance(W_ComplexObject, w_complextype)
