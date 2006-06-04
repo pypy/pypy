@@ -431,6 +431,12 @@ class LLFrame(object):
     def op_resume_point(self, *args):
         pass
 
+    def op_resume_state_create(self, *args):
+        raise RuntimeError("resume_state_create can not be called.")
+
+    def op_resume_state_invoke(self, *args):
+        raise RuntimeError("resume_state_invoke can not be called.")
+
     def op_decode_arg(self, fname, i, name, vargs, vkwds):
         raise NotImplementedError("decode_arg")
 
@@ -648,6 +654,10 @@ class LLFrame(object):
         assert lltype.typeOf(wadr) == llmemory.WeakGcAddress
         return llmemory.cast_weakadr_to_ptr(wadr, TYPE)
 
+    def op_cast_weakadr_to_int(self, wadr):
+        assert lltype.typeOf(wadr) == llmemory.WeakGcAddress
+        return wadr.cast_to_int()
+    
     def op_cast_int_to_float(self, i):
         assert type(i) is int
         return float(i)
@@ -759,6 +769,7 @@ class LLFrame(object):
 
     def op_call_boehm_gc_alloc(self):
         raise NotImplementedError("call_boehm_gc_alloc")
+
 
     # operations on pyobjects!
     for opname in opimpls.keys():
