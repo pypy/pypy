@@ -2,6 +2,7 @@ from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem import rclass
+from pypy.rpython.lltypesystem.rdict import rtype_r_dict
 from pypy.rpython import objectmodel
 from pypy.rpython.rmodel import TyperError, Constant
 from pypy.rpython.robject import pyobj_repr
@@ -64,3 +65,4 @@ BUILTIN_TYPER[objectmodel.instantiate] = rtype_instantiate
 BUILTIN_TYPER[isinstance] = rtype_builtin_isinstance
 BUILTIN_TYPER[hasattr] = rtype_builtin_hasattr
 BUILTIN_TYPER[__import__] = rtype_builtin___import__
+BUILTIN_TYPER[objectmodel.r_dict] = rtype_r_dict

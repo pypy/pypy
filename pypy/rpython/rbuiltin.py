@@ -9,7 +9,6 @@ from pypy.rpython.rrange import rtype_builtin_range, rtype_builtin_xrange
 from pypy.rpython import rstr
 from pypy.rpython import rptr
 from pypy.rpython.robject import pyobj_repr
-from pypy.rpython.lltypesystem.rdict import rtype_r_dict # TODO: typesystem?
 from pypy.tool import sourcetools
 from pypy.rpython import extregistry
 
@@ -445,7 +444,6 @@ BUILTIN_TYPER[lltype.getRuntimeTypeInfo] = rtype_const_result
 BUILTIN_TYPER[lltype.Ptr] = rtype_const_result
 BUILTIN_TYPER[lltype.runtime_type_info] = rtype_runtime_type_info
 BUILTIN_TYPER[rarithmetic.intmask] = rtype_intmask
-BUILTIN_TYPER[objectmodel.r_dict] = rtype_r_dict
 BUILTIN_TYPER[objectmodel.we_are_translated] = rtype_we_are_translated
 BUILTIN_TYPER[rstack.yield_current_frame_to_caller] = (
     rtype_yield_current_frame_to_caller)

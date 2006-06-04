@@ -1,7 +1,9 @@
 from pypy.annotation import model as annmodel
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem import rclass
+from pypy.rpython.ootypesystem.rdict import rtype_r_dict
 from pypy.objspace.flow.model import Constant
+from pypy.rpython import objectmodel
 from pypy.rpython.error import TyperError
 
 def rtype_new(hop):
@@ -71,3 +73,4 @@ BUILTIN_TYPER[ootype.subclassof] = rtype_subclassof
 BUILTIN_TYPER[ootype.runtimenew] = rtype_runtimenew
 BUILTIN_TYPER[ootype.ooidentityhash] = rtype_ooidentityhash
 BUILTIN_TYPER[isinstance] = rtype_builtin_isinstance
+BUILTIN_TYPER[objectmodel.r_dict] = rtype_r_dict
