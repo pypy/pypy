@@ -1,6 +1,5 @@
 """Unit tests for sio (new standard I/O)."""
 
-import support
 import os
 import time
 from pypy.tool.udir import udir
@@ -50,47 +49,7 @@ class TSource(object):
     def close(self):
         pass
 
-class TReader(object):
-
-    def __init__(self, packets):
-        for x in packets:
-            assert x
-        self.orig_packets = list(packets)
-        self.packets = list(packets)
-        self.pos = 0
-
-    def tell(self):
-        return self.pos
-
-    def seek(self, offset, whence=0):
-        if whence == 1:
-            offset += self.pos
-        elif whence == 2:
-            for packet in self.orig_packets:
-                offset += len(packet)
-        else:
-            assert whence == 0
-        self.packets = list(self.orig_packets)
-        self.pos = 0
-        while self.pos < offset:
-            data = self.read(offset - self.pos)
-            if not data:
-                break
-        assert self.pos == offset
-
-    def read(self, n):
-        try:
-            data = self.packets.pop(0)
-        except IndexError:
-            return ""
-        if len(data) > n:
-            data, rest = data[:n], data[n:]
-            self.packets.insert(0, rest)
-        self.pos += len(data)
-        return data
-
-    def close(self):
-        pass
+class TReader(TSource):
 
     def flush(self):
         pass
@@ -99,9 +58,11 @@ class TWriter(object):
 
     def __init__(self, data=''):
         self.buf = data
+        self.chunks = []
         self.pos = 0
 
     def write(self, data):
+        self.chunks.append((self.pos, data))
         if self.pos >= len(self.buf):
             self.buf += "\0" * (self.pos - len(self.buf)) + data
             self.pos = len(self.buf)
@@ -160,24 +121,21 @@ class TestBufferingInputStreamTests:
 
     def makeStream(self, tell=False, seek=False, bufsize=None):
         base = TSource(self.packets)
+        def f(*args):
+            raise NotImplementedError
         if not tell:
-            base.tell = None
+            base.tell = f
         if not seek:
-            base.seek = None
+            base.seek = f
         return sio.BufferingInputStream(base, bufsize)
 
     def test_readline(self):
         file = self.makeStream()
         assert list(iter(file.readline, "")) == self.lines
 
-    def test_readlines(self):
-        # This also tests next() and __iter__()
-        file = self.makeStream()
-        assert file.readlines() == self.lines
-
     def test_readlines_small_bufsize(self):
         file = self.makeStream(bufsize=1)
-        assert list(file) == self.lines
+        assert list(iter(file.readline, "")) == self.lines
 
     def test_readall(self):
         file = self.makeStream()
@@ -364,17 +322,16 @@ class TestBufferingOutputStream:
         base = TWriter()
         filter = sio.BufferingOutputStream(base, 4)
         filter.write("123")
-        assert base.buf == ""
+        assert not base.chunks
         assert filter.tell() == 3
         filter.write("456")
-        assert base.buf == "1234"
         filter.write("789ABCDEF")
-        assert base.buf == "123456789ABC"
         filter.write("0123")
-        assert base.buf == "123456789ABCDEF0"
         assert filter.tell() == 19
         filter.close()
         assert base.buf == "123456789ABCDEF0123"
+        for chunk in base.chunks[:-1]:
+            assert len(chunk[1]) >= 4
 
     def test_write_seek(self):
         base = TWriter()
@@ -442,33 +399,6 @@ class TestLineBufferingOutputStreamTests:
         filter.close()
         assert base.buf == "x"*3 + "y"*2 + "x"*1
 
-class TestBufferingInputOutputStreamTests: 
-
-    def test_write(self):
-        base = TReaderWriter()
-        filter = sio.BufferingInputOutputStream(base, 4)
-        filter.write("123456789")
-        assert base.buf == "12345678"
-        s = filter.read()
-        assert base.buf == "123456789"
-        filter.write("01234")
-        assert base.buf == "1234567890123"
-        filter.seek(4,0)
-        assert base.buf == "12345678901234"
-        assert filter.read(3) == "567"
-        filter.write('x')
-        filter.flush()
-        assert base.buf == "1234567x901234"
-        
-    def test_write_seek_beyond_end(self):
-        "Linux behaviour. May be different on other platforms."
-        base = TReaderWriter()
-        filter = sio.BufferingInputOutputStream(base, 4)
-        filter.seek(3)
-        filter.write("y"*2)
-        filter.close()
-        assert base.buf == "\0"*3 + "y"*2
-
 class TestCRLFFilter: 
 
     def test_filter(self):
@@ -485,6 +415,7 @@ class TestCRLFFilter:
 
 class TestMMapFile(TestBufferingInputStreamTests): 
     tfn = None
+    fd = None
     Counter = 0
 
     def teardown_method(self, method):
@@ -497,13 +428,21 @@ class TestMMapFile(TestBufferingInputStreamTests):
                 print "can't remove %s: %s" % (tfn, msg)
 
     def makeStream(self, tell=None, seek=None, bufsize=None, mode="r"):
+        import mmap
+        if "r" in mode:
+            mmapmode = mmap.ACCESS_READ
+            filemode = os.O_RDONLY
+        if "w" in mode:
+            mmapmode |= mmap.ACCESS_WRITE
+            filemode |= os.O_WRONLY
         self.teardown_method(None) # for tests calling makeStream() several time
         self.tfn = str(udir.join('sio%03d' % TestMMapFile.Counter))
         TestMMapFile.Counter += 1
         f = open(self.tfn, "wb")
         f.writelines(self.packets)
         f.close()
-        return sio.MMapFile(self.tfn, mode)
+        self.fd = os.open(self.tfn, filemode)
+        return sio.MMapFile(self.fd, mmapmode)
 
     def test_write(self):
         if os.name == "posix":
@@ -519,6 +458,52 @@ class TestMMapFile(TestBufferingInputStreamTests):
         assert file.readlines() == (
                          ["BooHoo\n", "Barf\n", "a\n", "b\n", "c\n"])
         assert file.tell() == len("BooHoo\nBarf\na\nb\nc\n")
+
+
+
+
+
+class TestBufferingInputOutputStreamTests:
+
+    def test_write(self):
+        import sys
+        base = TReaderWriter()
+        filter = sio.BufferingInputStream(sio.BufferingOutputStream(base, 4), 4)
+        filter.write("123456789")
+        for chunk in base.chunks:
+            assert len(chunk[1]) >= 4
+        s = filter.read(sys.maxint)
+        assert base.buf == "123456789"
+        base.chunks = []
+        filter.write("abc")
+        assert not base.chunks
+        s = filter.read(sys.maxint)
+        assert base.buf == "123456789abc"
+        base.chunks = []
+        filter.write("012")
+        assert not base.chunks
+        filter.seek(4, 0)
+        assert base.buf == "123456789abc012"
+        assert filter.read(3) == "567"
+        filter.write('x')
+        filter.flush()
+        assert base.buf == "1234567x9abc012"
+
+    def test_write_seek_beyond_end(self):
+        "Linux behaviour. May be different on other platforms."
+        base = TReaderWriter()
+        filter = sio.BufferingInputStream(sio.BufferingOutputStream(base, 4), 4)
+        filter.seek(3)
+        filter.write("y"*2)
+        filter.close()
+        assert base.buf == "\0"*3 + "y"*2
+
+
+
+
+
+
+
 
 class TestTextInputFilter:
 
@@ -607,15 +592,6 @@ class TestTextInputFilter:
                 bufs.append(data)
             assert "".join(bufs) == all
             
-    def test_newlines_attribute(self):
-
-        for packets, expected in self.expected_newlines:
-            base = TReader(packets)
-            filter = sio.TextInputFilter(base)
-            for e in expected:
-                filter.read(100)
-                assert filter.newlines == e
-
 class TestTextOutputFilter: 
 
     def test_write_nl(self):
@@ -707,6 +683,24 @@ class TestEncodingOutputFilterTests:
                 pos += len(c)
                 filter.write(c)
             assert base.buf == data
+
+class OldDisabledTests:
+    def test_readlines(self):
+        # This also tests next() and __iter__()
+        file = self.makeStream()
+        assert file.readlines() == self.lines
+
+    
+    def test_newlines_attribute(self):
+
+        for packets, expected in self.expected_newlines:
+            base = TReader(packets)
+            filter = sio.TextInputFilter(base)
+            for e in expected:
+                filter.read(100)
+                assert filter.newlines == e
+
+
 
 # Speed test
 

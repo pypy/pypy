@@ -525,7 +525,7 @@ class BufferingOutputStream(Stream):
     def write(self, data):
         buflen = len(self.buf)
         datalen = len(data)
-        if datalen + buflen <= self.bufsize:
+        if datalen + buflen < self.bufsize:
             self.buf += data
         elif buflen:
             self.buf += data[:self.bufsize-buflen]
