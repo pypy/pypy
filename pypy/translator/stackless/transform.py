@@ -435,7 +435,6 @@ class StacklessTransformer(object):
         newvar = gen_cast(llops, targettype, retvar)
         convertblock = unsimplify.insert_empty_block(None, link, llops)
         # begin ouch!
-        foundit = False
         for index, linkvar in enumerate(convertblock.exits[0].args):
             # does this var come from retval ?
             try:
@@ -443,11 +442,9 @@ class StacklessTransformer(object):
             except ValueError:   # e.g. linkvar is a Constant
                 continue
             if link.args[index1] is retvar:
-                foundit = True
                 # yes
                 convertblock.exits[0].args[index] = newvar
         # end ouch!
-        assert foundit
         
     def handle_resume_point(self, block, i):
         # in some circumstances we might be able to reuse
@@ -594,10 +591,10 @@ class StacklessTransformer(object):
                and block.exitswitch == model.c_last_exception:
             link = block.exits[0]
             exitcases = dict.fromkeys(l.exitcase for l in block.exits)
-            if code.UnwindException in exitcases:
-                return
+            nextblock = None
         else:
             link = support.split_block_with_keepalive(block, i+1)
+            nextblock = link.target
             block.exitswitch = model.c_last_exception
             link.llexitcase = None
             # add a general Exception link, because all calls can
@@ -637,7 +634,7 @@ class StacklessTransformer(object):
         block.recloseblock(*newexits)
         self.translator.rtyper._convert_link(block, newlink)
         
-        return link
+        return nextblock
 
     def transform_block(self, block):
         i = 0
@@ -685,14 +682,14 @@ class StacklessTransformer(object):
                     i += 1
                     continue
 
-                link = self.insert_unwind_handling(block, i)
-                if link is None:
-                    return # XXX -- remember why this is necessary!
-
+                nextblock = self.insert_unwind_handling(block, i)
                 if op.opname == 'resume_state_invoke':
                     self.handle_resume_state_invoke(block)
                 
-                block = link.target
+                if nextblock is None:
+                    return
+
+                block = nextblock
                 i = 0
             else:
                 i += 1
