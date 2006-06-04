@@ -117,9 +117,9 @@ class ResumeStateInvokeFnEntry(ExtRegistryEntry):
         from pypy.rpython.lltypesystem import lltype
         v_state = hop.args_v[1]
         
-        if 'i_returns' in kwds_i:
+        if 'i_returning' in kwds_i:
             assert len(kwds_i) == 1
-            returns_index = kwds_i['i_returns']
+            returns_index = kwds_i['i_returning']
             v_return = hop.args_v[returns_index]
         else:
             assert not kwds_i

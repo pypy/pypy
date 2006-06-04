@@ -52,7 +52,7 @@ def test_call():
     def example():
         v1 = f(one(),one()+one())
         s = rstack.resume_state_create(None, "rp1", 5*one())
-        v2 = rstack.resume_state_invoke(int, s, returns=one()*7)
+        v2 = rstack.resume_state_invoke(int, s, returning=one()*7)
         return v1*100 + v2
     res = llinterp_stackless_function(example)
     assert res == 412
@@ -70,7 +70,7 @@ def test_returns_with_instance():
     def example():
         v1 = f(one(),one()+one())
         s = rstack.resume_state_create(None, "rp1", 5*one())
-        v2 = rstack.resume_state_invoke(int, s, returns=C(one()*3))
+        v2 = rstack.resume_state_invoke(int, s, returning=C(one()*3))
         return v1*100 + v2
     res = llinterp_stackless_function(example, assert_unwind=False)
     assert res == 408
@@ -97,7 +97,7 @@ def test_call_uncovered():
         return x*y
     def f(x, y):
         z = g(x,y)
-        rstack.resume_point("rp1", y, returns=z) 
+        rstack.resume_point("rp1", y, returns=z)
         return z+y+x
     def example():
         f(one(),one()+one())
