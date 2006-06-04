@@ -2,7 +2,7 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem import rclass
 from pypy.objspace.flow.model import Constant
-
+from pypy.rpython.error import TyperError
 
 def rtype_new(hop):
     assert hop.args_s[0].is_constant()
@@ -44,7 +44,8 @@ def rtype_builtin_isinstance(hop):
     if hop.args_s[1].is_constant() and hop.args_s[1].const == list:
         if hop.args_s[0].knowntype != list:
             raise TyperError("isinstance(x, list) expects x to be known statically to be a list or None")
-        raise TyperError("XXX missing impl of isinstance(x, list)")
+        v_list = hop.inputarg(hop.args_r[0], arg=0)
+        return hop.genop('oononnull', [v_list], resulttype=ootype.Bool)
 
     class_repr = rclass.get_type_repr(hop.rtyper)
     instance_repr = hop.args_r[0]
@@ -55,7 +56,12 @@ def rtype_builtin_isinstance(hop):
         c_cls = hop.inputconst(ootype.Void, v_cls.value.class_._INSTANCE)
         return hop.genop('instanceof', [v_obj, c_cls], resulttype=ootype.Bool)
     else:
-        raise TyperError("XXX missing impl of isinstance(x, variable)")
+        return hop.gendirectcall(ll_isinstance, v_obj, v_cls)
+
+def ll_isinstance(inst, meta):
+    c1 = inst.meta.class_
+    c2 = meta.class_
+    return ootype.subclassof(c1, c2)
 
 BUILTIN_TYPER = {}
 BUILTIN_TYPER[ootype.new] = rtype_new

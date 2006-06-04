@@ -265,7 +265,6 @@ class BaseTestExtfunc(BaseRtypingTest):
         assert res is True
 
     def test_isinstance(self):
-        self._skip_oo('isinstance')
         class A(object):
             pass
         class B(A):
@@ -295,7 +294,6 @@ class BaseTestExtfunc(BaseRtypingTest):
                 assert res == isinstance([A(), B(), C()][x-1], [A, B, C][y-1]) * 3
 
     def test_isinstance_list(self):
-        self._skip_oo('isinstance')
         def f(i):
             if i == 0:
                 l = []
