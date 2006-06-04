@@ -457,6 +457,7 @@ class StacklessTransformer(object):
             link = block.exits[0]
         else:
             link = support.split_block_with_keepalive(block, i+1)
+            i = 0
         parms = op.args[1:]
         if not isinstance(parms[0], model.Variable):
             assert parms[0].value is None
@@ -570,12 +571,76 @@ class StacklessTransformer(object):
                 noexclink.args[i] = model.Constant(realrettype._defl(), realrettype)
         block.recloseblock(*((noexclink,) + block.exits[1:]))        
 
-    def transform_block(self, block):
-        i = 0
-
+    def insert_unwind_handling(self, block, i):
+        # for the case where we are resuming to an except:
+        # block we need to store here a list of links that
+        # might be resumed to, and in insert_resume_handling
+        # we need to basically copy each link onto the
+        # resuming block.
+        #
+        # it probably also makes sense to compute the list of
+        # args to save once, here, and save that too.
+        #
+        # finally, it is important that the fetch_retval
+        # function be called right at the end of the resuming
+        # block, and that it is called even if the return
+        # value is not again used.
+        
         edata = self.translator.rtyper.getexceptiondata()
         etype = edata.lltype_of_exception_type
         evalue = edata.lltype_of_exception_value
+
+        if i == len(block.operations) - 1 \
+               and block.exitswitch == model.c_last_exception:
+            link = block.exits[0]
+            exitcases = dict.fromkeys(l.exitcase for l in block.exits)
+            if code.UnwindException in exitcases:
+                return
+        else:
+            link = support.split_block_with_keepalive(block, i+1)
+            block.exitswitch = model.c_last_exception
+            link.llexitcase = None
+            # add a general Exception link, because all calls can
+            # raise anything
+            v_exctype = varoftype(etype)
+            v_excvalue = varoftype(evalue)
+            newlink = model.Link([v_exctype, v_excvalue],
+                                 self.curr_graph.exceptblock,
+                                 Exception)
+            newlink.last_exception = v_exctype
+            newlink.last_exc_value = v_excvalue
+            newexits = list(block.exits)
+            newexits.append(newlink)
+            block.recloseblock(*newexits)
+            self.translator.rtyper._convert_link(block, newlink)
+
+        var_unwind_exception = varoftype(evalue)
+
+        op = block.operations[i]
+
+        args = vars_to_save(block)
+
+        save_block, frame_state_type, fieldnames = \
+                self.generate_save_block(args, var_unwind_exception)
+
+        self.resume_points.append(
+            ResumePoint(op.result, args, tuple(block.exits),
+                        frame_state_type, fieldnames))
+
+        newlink = model.Link(args + [var_unwind_exception], 
+                             save_block, code.UnwindException)
+        newlink.last_exception = model.Constant(code.UnwindException,
+                                                etype)
+        newlink.last_exc_value = var_unwind_exception
+        newexits = list(block.exits)
+        newexits.insert(1, newlink)
+        block.recloseblock(*newexits)
+        self.translator.rtyper._convert_link(block, newlink)
+        
+        return link
+
+    def transform_block(self, block):
+        i = 0
 
         def replace_with_call(fnptr):
             args = [fnptr] + op.args[1:]
@@ -620,64 +685,9 @@ class StacklessTransformer(object):
                     i += 1
                     continue
 
-                if i == len(block.operations) - 1 \
-                       and block.exitswitch == model.c_last_exception:
-                    link = block.exits[0]
-                    exitcases = dict.fromkeys(l.exitcase for l in block.exits)
-                    if code.UnwindException in exitcases:
-                        return
-                else:
-                    link = support.split_block_with_keepalive(block, i+1)
-                    block.exitswitch = model.c_last_exception
-                    link.llexitcase = None
-                    # add a general Exception link, because all calls can
-                    # raise anything
-                    v_exctype = varoftype(etype)
-                    v_excvalue = varoftype(evalue)
-                    newlink = model.Link([v_exctype, v_excvalue],
-                                         self.curr_graph.exceptblock,
-                                         Exception)
-                    newlink.last_exception = v_exctype
-                    newlink.last_exc_value = v_excvalue
-                    newexits = list(block.exits)
-                    newexits.append(newlink)
-                    block.recloseblock(*newexits)
-                    self.translator.rtyper._convert_link(block, newlink)
-
-                var_unwind_exception = varoftype(evalue)
-               
-                # for the case where we are resuming to an except:
-                # block we need to store here a list of links that
-                # might be resumed to, and in insert_resume_handling
-                # we need to basically copy each link onto the
-                # resuming block.
-                #
-                # it probably also makes sense to compute the list of
-                # args to save once, here, and save that too.
-                #
-                # finally, it is important that the fetch_retval
-                # function be called right at the end of the resuming
-                # block, and that it is called even if the return
-                # value is not again used.
-
-                args = vars_to_save(block)
-
-                save_block, frame_state_type, fieldnames = \
-                        self.generate_save_block(args, var_unwind_exception)
-
-                self.resume_points.append(
-                    ResumePoint(op.result, args, tuple(block.exits),
-                                frame_state_type, fieldnames))
-
-                newlink = model.Link(args + [var_unwind_exception], 
-                                     save_block, code.UnwindException)
-                newlink.last_exception = model.Constant(code.UnwindException,
-                                                        etype)
-                newlink.last_exc_value = var_unwind_exception
-                newexits = list(block.exits)
-                newexits.insert(1, newlink)
-                block.recloseblock(*newexits)
-                self.translator.rtyper._convert_link(block, newlink)
+                link = self.insert_unwind_handling(block, i)
+                if link is None:
+                    return # XXX -- remember why this is necessary!
 
                 if op.opname == 'resume_state_invoke':
                     self.handle_resume_state_invoke(block)
