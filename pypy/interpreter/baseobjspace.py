@@ -158,6 +158,15 @@ class ObjSpace(object):
         # override this in subclasses for extra-options
         pass
 
+    def startup(self):
+        # To be called before using the space
+        pass
+
+    def finish(self):
+        w_exitfunc = self.sys.getdictvalue_w(self, 'exitfunc')
+        if w_exitfunc is not None:
+            self.call_function(w_exitfunc)
+    
     def __repr__(self):
         try:
             return self._this_space_repr_

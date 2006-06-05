@@ -111,26 +111,27 @@ def main_(argv=None):
         banner = None
 
     try:
-        # compile and run it
-        if not main.run_toplevel(space, doit, verbose=Options.verbose):
-            exit_status = 1
+        def do_start():
+            space.startup()
+        if main.run_toplevel(space, do_start, verbose=Options.verbose):
+            # compile and run it
+            if not main.run_toplevel(space, doit, verbose=Options.verbose):
+                exit_status = 1
 
-        # start the interactive console
-        if go_interactive:
-            con = interactive.PyPyConsole(space, verbose=Options.verbose,
-                                                 completer=Options.completer)
-            if banner == '':
-                banner = '%s / %s'%(con.__class__.__name__,
-                                    repr(space))
-            con.interact(banner)
-            exit_status = 0
+            # start the interactive console
+            if go_interactive:
+                con = interactive.PyPyConsole(
+                    space, verbose=Options.verbose,
+                    completer=Options.completer)
+                if banner == '':
+                    banner = '%s / %s'%(con.__class__.__name__,
+                                        repr(space))
+                con.interact(banner)
+                exit_status = 0
     finally:
-        # call the sys.exitfunc()
-        w_exitfunc = space.sys.getdictvalue_w(space, 'exitfunc')
-        if w_exitfunc is not None:
-            def doit():
-                space.call_function(w_exitfunc)
-            main.run_toplevel(space, doit, verbose=Options.verbose)
+        def doit():
+            space.finish()
+        main.run_toplevel(space, doit, verbose=Options.verbose)
 
     return exit_status
 
