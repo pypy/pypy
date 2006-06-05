@@ -113,8 +113,6 @@ def test_premature_death():
 
     entry_point_graph = graphof(t, entry_point)
 
-    from pypy.rpython.module.support import to_rstr
-
     argv = t.rtyper.getrepr(inputtypes[0]).convert_const(['./pypy-c'])
 
     interp = LLInterpreter(t.rtyper)
