@@ -4,8 +4,15 @@ The essential objects are tasklets and channels.
 Please refer to their documentation.
 """
 
-from stackless import coroutine
-from collections import deque
+DEBUG = True
+
+try:
+    from stackless import coroutine
+except ImportError:
+    if not DEBUG:
+        raise
+    from coroutine_dummy import coroutine
+
 
 __all__ = 'run getcurrent getmain schedule tasklet channel'.split()
 
@@ -20,6 +27,11 @@ immediately react on messages.
 
 This is a necessary Stackless 3.1 feature.
 """
+
+# thread related stuff: assuming NON threaded execution for now
+
+def check_for_deadlock():
+    return True
 
 last_thread_id = 0
 
@@ -82,6 +94,15 @@ class bomb(object):
 
     def _explode(self):
         restore_exception(self.type, self.value, self.traceback)
+
+def make_deadlock_bomb():
+    return bomb(RuntimeError, 
+        RuntimeError("Deadlock: the last runnable tasklet cannot be blocked."),
+        None)
+
+def curexc_to_bomb():
+    import sys
+    return bomb(*sys.exc_info())
 
 # channel: see below
 
@@ -166,73 +187,18 @@ def set_schedule_callback(callable):
 
 # end interface
 
-# implicit scheduler
-
-def _next():
-    c = getcurrent()
-    if c.next is c:
-        return c
-    nt = c.next
-    if nt is main_tasklet and nt.next is not c:
-        return nt.next
-    else:
-        return nt
-
-def _insert(other):
-    "put other on the end tasklet queue"
-    this = getcurrent()
-    #print '_insert:',this,
-    #_print_queue()
-    prev = this.prev
-    this.prev = other
-    other.next = this
-    other.prev = prev
-    prev.next = other
-    other.blocked = False
-
-def _priority_insert(other):
-    "other will be the next tasklet"
-    this = getcurrent()
-    #print '_priority_insert:',this,
-    #_print_queue()
-    next = this.next
-    this.next = other
-    other.prev = this
-    other.next = next
-    next.prev = other
-    other.blocked = False
-
-def _remove(this):
-    #print '_remove:',this,
-    #_print_queue()
-    if this.next is this:
-        return
-    t = c = getcurrent()
-    count = 0
-    while t is not this:
-        if t is c and count:
-            break
-        count += 1
-        t = t.next
-    this.next.prev = this.prev
-    this.prev.next = this.next
-
-def _print_queue():
-    c = s = getcurrent()
-    print '[',c,
-    while c.next is not s:
-        c = c.next
-        print c,
-    print ']'
-
-# end implicit scheduler
-
 main_tasklet = None
 main_coroutine = None
+scheduler = None
+channel_hook = None
+schedlock = False
+_schedule_fasthook = None
 
 def __init():
     global main_tasklet
     global main_coroutine
+    global scheduler 
+    scheduler = Scheduler()
     main_coroutine = c = coroutine.getcurrent()
     main_tasklet = TaskletProxy(c)
     main_tasklet.next = main_tasklet.prev = main_tasklet
@@ -278,25 +244,9 @@ def schedule(retval=None):
     tasklet as default.
     schedule_remove(retval=stackless.current) -- ditto, and remove self.
     """
-    #print 'schedule: before switch',
-    #_print_queue()
-    curr = getcurrent()
-    curr.is_current = False
-    nt = _next()
-    if curr.blocked:
-        _remove(curr)
-    nt.is_current = True
-    nt.switch()
-    #print 'schedule: after switch',
-    #_print_queue()
-    curr = getcurrent()
-    if type(curr.tempval) is bomb:
-        raise curr.tempval._explode()
-    if retval is None:
-        return getcurrent()
-    else:
-        return retval
-
+    prev = getcurrent()
+    next = prev.next
+    return scheduler.schedule_task(prev, next, 0)
 """
 /***************************************************************************
 
@@ -385,8 +335,8 @@ class tasklet(coroutine):
         self.is_main = False
         self.nesting_level = 0
         self.next = None
-        self.paused = False
         self.prev = None
+        self.paused = False
         self.recursion_depth = 0
         self.restorable = False
         self.scheduled = False
@@ -415,13 +365,21 @@ class tasklet(coroutine):
             raise TypeError('tasklet function must be a callable')
         self.tempval = func
 
+    def _is_dead(self):
+        return False
+
     def insert(self):
         """
         Insert this tasklet at the end of the scheduler list,
         given that it isn't blocked.
         Blocked tasklets need to be reactivated by channels.
         """
-        _insert(self)
+        if self.blocked:
+            raise RuntimeError('You cannot run a blocked tasklet')
+        if self._is_dead():
+            raise RuntimeError('You cannot run an unbound(dead) tasklet')
+        if self.next is None:
+            scheduler.current_insert(self)
 
     ## note: this is needed. please call coroutine.kill()
     def kill(self):
@@ -452,15 +410,14 @@ class tasklet(coroutine):
         unwanted side-effects. Therefore it is recommended to either run 
         tasklets to the end or to explicitly kill() them.
         """
-        _remove(self)
+        scheduler.current_remove(self)
 
     def run(self):
         """
         Run this tasklet, given that it isn't blocked.
         Blocked tasks need to be reactivated by channels.
         """
-        _remove(self)
-        _priority_insert(self)
+        self.insert()
         ## note: please support different schedulers
         ## and don't mix calls to module functions with scheduler methods.
         schedule()
@@ -538,9 +495,10 @@ class tasklet(coroutine):
  ***************************************************************************/
 """
 
+
 class channel(object):
     """
-    A channel object is used for communication between tasklets.
+   A channel object is used for communication between tasklets.
     By sending on a channel, a tasklet that is waiting to receive
     is resumed. If there is no waiting receiver, the sender is suspended.
     By receiving from a channel, a tasklet that is waiting to send
@@ -552,18 +510,114 @@ class channel(object):
 
     def __init__(self):
         self.balance = 0
-        ## note: this is a deque candidate.
-        self.queue = deque()
         self.closing = False
         self.preference = 0
+        self.head = self.tail = None
 
     def __str__(self):
         return 'channel(' + str(self.balance) + ' : ' + str(self.queue) + ')'
     
     def _get_closed(self):
-        return self.closing and not self.queue
+        return self.closing and self.next is None
 
     closed = property(_get_closed)
+
+    def _channel_insert(self, task, d):
+        self._ins(task)
+        self.balance += d
+        task.blocked = dir
+
+    def _queue(self):
+        if self.head is self:
+            return None
+        else:
+            return self.head
+
+    def _channel_remove(self, d):
+        ret = self.head
+        assert isinstance(ret,tasklet)
+        self.balance -= d
+        self._rem(ret)
+        ret.blocked = 0
+
+        return ret
+
+    def channel_remove_specific(self, dir, task):
+        # note: we assume that the task is in the channel
+        self.balance -= dir
+        self._rem(task)
+        task.blocked = False
+        return task
+
+    def _ins(self, task):
+        assert task.next is None
+        assert task.prev is None
+        # insert at end
+        task.prev = self.head.prev
+        task.next = self.head
+        self.prev.next = task
+        self.prev = task
+
+    def _rem(self, task):
+        assert task.next is not None
+        assert task.prev is not None
+        #remove at end
+        task.next.prev = task.prev
+        task.prev.next = task.next
+        task.next = task.prev = None
+
+    def _notify(self, task, dir, cando, res):
+        global schedlock
+        if channel_hook is not None:
+            if schedlock:
+                raise RuntimeError('Recursive channel call due to callbacks!')
+            schedlock = 1
+            channel_callback(self, task, dir > 0, not cando)
+            schedlock = 0
+
+    def _channel_action(self, arg, dir, stackl):
+        source = getcurrent()
+        target = self.head
+        interthread = 0 # no interthreading at the moment
+        if dir > 0:
+            cando = self.balance < 0
+        else:
+            cando = self.balance > 0
+
+        assert abs(dir) == 1
+
+        source.tempval = arg
+        if not interthread:
+            self._notify(source, dir, cando, None)
+        if cando:
+            # communication 1): there is somebody waiting
+            target = self._channel_remove(-dir)
+            source.tempval, target.tempval = target.tempval, source.tempval
+            if interthread:
+                raise Exception('no interthreading: I can not be reached...')
+            else:
+                if self.schedule_all:
+                    scheduler.current_insert(target)
+                    target = source.next
+                elif self.preference == -dir:
+                    scheduler.current = source.next
+                    scheduler.current_insert(target)
+                    scheduler.current = source
+                else:
+                    scheduler.current_insert(target)
+                    target = source
+        else:
+            if source.block_trap:
+                raise RuntimeError("this tasklet does not like to be blocked")
+            if self.closing:
+                raise StopIteration()
+            scheduler.current_remove()
+            self._channel_insert(source, dir)
+            target = getcurrent()
+        retval = scheduler.schedule_task(source, target, stackl)
+        if interthread:
+            self._notify(source, dir, cando, None)
+        return retval
 
     ## note: needed
     def close(self):
@@ -582,7 +636,7 @@ class channel(object):
         """
         if self.closing and not self.balance:
             raise StopIteration()
-        return self.receive()
+        yield self.receive()
 
     ## note: needed
     def open(self):
@@ -639,25 +693,7 @@ class channel(object):
         the runnables list.
         The above policy can be changed by setting channel flags.
         """
-        if self.closing:
-            raise StopIteration
-        if self.balance > 0: # Receiving 1
-            wt = self.queue.popleft()
-            retval = wt.tempval
-            wt.tempval = None
-            _insert(wt)
-            self.balance -= 1
-            return retval
-        else: # Receiving 2
-            ct = getcurrent()
-            #_remove(ct)
-            ct.blocked = True
-            self.queue.append(ct)
-            self.balance -= 1
-            schedule()
-            retval = ct.tempval
-            ct.tempval = None
-            return retval
+        return self._channel_action(None, -1, 1)
 
     def send(self, msg):
         """
@@ -667,23 +703,7 @@ class channel(object):
         be activated immediately, and the sender is put at the end of
         the runnables list.
         """
-        if self.closing:
-            raise StopIteration
-        ct = getcurrent()
-        if ct.tempval is not None:
-            print 'THERE IS STILL SOME CHANNEL SEND VALUE',ct.tempval
-        if self.balance < 0: # Sending 1
-            wt = self.queue.popleft()
-            wt.tempval = msg
-            _priority_insert(wt)
-            self.balance += 1
-        else: # Sending 2
-            ct.tempval = msg
-            #_remove(ct)
-            ct.blocked = True
-            self.queue.append(ct)
-            self.balance += 1
-        schedule()
+        return self._channel_action(msg, 1, 1)
 
     ## note: see the C implementation on how to use bombs.
     def send_exception(self, exc, value):
@@ -706,6 +726,151 @@ class channel(object):
         """
         for item in value:
             self.send(item)
+
+class Scheduler(object):
+
+    def __init__(self):
+        self.chain = None
+        self.current = None
+
+    def reset(self):
+        self.__init__()
+
+    def __len__(self):
+        return len(self._content())
+
+    def _content(self):
+        visited = set()
+        items = []
+        if self.chain:
+            next = self.chain
+            while next is not None and next not in visited:
+                items.append(next)
+                visited.add(next)
+                next = next.next
+        return items
+
+    def __str__(self):
+        parts = ['%s' % x.thread_id for x in self._content()]
+        currid = (self.current and self.current.thread_id) or -1
+        return '===== Scheduler ====\nchain:' + \
+                ' -> '.join(parts) + '\ncurrent: %s' % currid + \
+                '\n===================='
+
+    def _chain_insert(self, task):
+        assert task.next is None
+        assert task.prev is None
+        if self.chain is None:
+            task.next = task.prev = task
+            self.chain = task
+        else:
+            r = self.chain
+            l = r.prev
+            l.next = r.prev = task
+            task.prev = l
+            task.next = r
+
+    def _chain_remove(self):
+        if self.chain is None: 
+            return None
+        task = self.chain
+        l = task.prev
+        r = task.next
+        l.next = r 
+        r.prev = l
+        self.chain = r
+        if r == task:
+            self.chain = None
+        task.prev = task.next = None
+
+        return task
+
+
+    def current_insert(self, task):
+        self.chain = self.current or getcurrent()
+        self._chain_insert(task)
+        self.current = None
+
+    def current_insert_after(self, task):
+        curr = self.current or getcurrent()
+        self.chain = curr.next
+        self._chain_insert(task)
+        self.chain = curr
+        self.current = None
+
+    def current_remove(self):
+        self.chain = self.current or getcurrent()
+        self.current = None
+        return self._chain_remove()
+
+    def channel_remove_slow(self, task):
+        prev = task.prev
+        while not isinstance(prev, channel):
+            prev = prev.prev
+        chan = prev
+        assert chan.balance
+        if chan.balance > 0:
+            dir = 1
+        else:
+            dir = -1
+        return chan.channel_remove_specific(dir, task)
+
+    def bomb_explode(self, task):
+        thisbomb = task.tempval
+        assert isinstance(thisbomb, bomb)
+        task.tempval = None
+        bomb._explode()
+        
+    def _notify_schedule(self, prev, next, errflag):
+        if _schedule_fasthook is not None:
+            global schedlock
+            if schedlock:
+                raise RuntimeError('Recursive scheduler call due to callbacks!')
+            schedlock = True
+            ret = _schedule_fasthook(prev, next)
+            schedlock = False
+            if ret:
+                return errflag
+
+    def schedule_task_block(self, prev, stackl):
+        next = None
+        if check_for_deadlock():
+            if main_tasklet.next is None:
+                if isinstance(prev.tempval, bomb):
+                    main_tasklet.tempval = prev.tempval
+                return self.schedule_task(prev, main_tasklet, stackl)
+            retval = make_deadlock_bomb()
+            prev.tempval = retval
+
+            return self.schedule_task(prev, prev, stackl)
+
+    def schedule_task(self, prev, next, stackl):
+        if next is None:
+            return self.schedule_task_block(prev, stackl)
+        if next.blocked:
+            self.channel_remove_slow(next)
+            self.current_insert(next)
+        elif next.next is None:
+            self.current_insert(next)
+        if prev is next:
+            retval = prev.tempval
+            if isinstance(retval, bomb):
+                self.bomb_explode(retval)
+                retval._explode()
+            return retval
+        self._notify_schedule(prev, next, None)
+
+        # lots of soft-/ hard switching stuff in C source
+
+        next.switch()
+
+        retval = next.tempval
+        if isinstance(retval, bomb):
+            self.bomb_explode(next)
+
+        return retval
+
+
 
 __init()
 
