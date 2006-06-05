@@ -1,7 +1,6 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.rpython.rctypes.tool import ctypes_platform
-from pypy.rpython.rctypes.tool.clib import clib 
 from pypy.rpython.rctypes.tool.util import find_library, load_library 
 
 import sys
