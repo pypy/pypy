@@ -90,6 +90,12 @@ elif os.name == "posix":
             return None
         return _get_soname(lib)
 
+if "load" in dir(ctypes.cdll):
+    load_library = ctypes.cdll.load
+else:
+    load_library = ctypes.cdll.LoadLibrary
+
+
 ################################################################
 # test code
 
