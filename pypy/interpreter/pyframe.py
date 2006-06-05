@@ -7,7 +7,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter import pytraceback
 from pypy.rpython.rarithmetic import r_uint, intmask
 import opcode
-from pypy.rpython.objectmodel import we_are_translated
+from pypy.rpython.objectmodel import we_are_translated, instantiate
 
 
 # Define some opcodes used
@@ -75,6 +75,7 @@ class PyFrame(eval.EvalFrame):
         mod      = space.interp_w(MixedModule, w_mod)
         new_inst = mod.get('frame_new')
         w        = space.wrap
+        nt = space.newtuple
 
         if isinstance(self, PyNestedScopeFrame):
             w_cells = w([w(cell) for cell in self.cells])
@@ -87,7 +88,7 @@ class PyFrame(eval.EvalFrame):
             f_lineno = self.f_lineno
 
         w_valuestack = maker.slp_into_tuple_with_nulls(space, self.valuestack.items)
-        w_blockstack = space.w_None ##
+        w_blockstack = nt([block._get_state_(space) for block in self.blockstack.items])
         w_fastlocals = maker.slp_into_tuple_with_nulls(space, self.fastlocals_w)
         tup_base = [
             w(self.pycode),
@@ -97,7 +98,7 @@ class PyFrame(eval.EvalFrame):
             w(self.builtin),
             w(self.pycode),
             w_valuestack,
-            space.w_None, ## w_blockstack,
+            w_blockstack,
             space.w_None, ## w(self.last_exception), #f_exc_traceback, f_exc_type, f_exc_value
             self.w_globals,
             w(self.last_instr),
@@ -115,7 +116,6 @@ class PyFrame(eval.EvalFrame):
             w_cells,
             ]
 
-        nt = space.newtuple
         return nt([new_inst, nt(tup_base), nt(tup_state)])
 
     def descr__setstate__(self, space, w_args):
@@ -139,7 +139,8 @@ class PyFrame(eval.EvalFrame):
         PyFrame.__init__(self, space, pycode, w_globals, None)
         new_frame.f_back = space.interp_w(PyFrame, w_f_back, can_be_None=True)
         new_frame.builtin = space.interp_w(Module, w_builtin)
-        #new_frame.blockstack = blockstack
+        new_frame.blockstack.items = [unpickle_block(space, w_blk)
+                                      for w_blk in space.unpackiterable(w_blockstack)]
         new_frame.valuestack.items = maker.slp_from_tuple_with_nulls(space, w_valuestack)
         new_frame.last_exception = None#XXX (w_last_exception)
         new_frame.last_instr = space.int_w(w_last_instr)
@@ -435,6 +436,32 @@ class PyFrame(eval.EvalFrame):
 
 ### Frame Blocks ###
 
+block_classes = {}
+
+def setup_block_classes():
+    "NOT_RPYTHON"
+    import types
+    for cls in globals().values():
+        if isinstance(cls, (types.ClassType,type)):
+            if issubclass(cls, FrameBlock) and hasattr(cls, '_opname'):
+                block_classes[cls._opname] = cls
+
+def get_block_class(opname):
+    # select the appropriate kind of block
+    if not block_classes:
+        setup_block_classes()   # lazily
+    return block_classes[opname]
+
+def unpickle_block(space, w_tup):
+    w_opname, w_handlerposition, w_valuestackdepth = space.unpackiterable(w_tup)
+    opname = space.str_w(w_opname)
+    handlerposition = space.int_w(w_handlerposition)
+    valuestackdepth = space.int_w(w_valuestackdepth)
+    blk = instantiate(get_block_class(opname))
+    blk.handlerposition = handlerposition
+    blk.valuestackdepth = valuestackdepth
+    return blk
+
 class FrameBlock:
 
     """Abstract base class for frame blocks from the blockstack,
@@ -468,9 +495,16 @@ class FrameBlock:
         self.cleanupstack(frame)
         return False  # continue to unroll
 
+    # internal pickling interface, not using the standard protocol
+    def _get_state_(self, space):
+        w = space.wrap
+        return space.newtuple([w(self._opname), w(self.handlerposition),
+                               w(self.valuestackdepth)])
 
 class LoopBlock(FrameBlock):
     """A loop block.  Stores the end-of-loop pointer in case of 'break'."""
+
+    _opname = 'SETUP_LOOP'
 
     def unroll(self, frame, unroller):
         if isinstance(unroller, SContinueLoop):
@@ -490,6 +524,8 @@ class LoopBlock(FrameBlock):
 
 class ExceptBlock(FrameBlock):
     """An try:except: block.  Stores the position of the exception handler."""
+
+    _opname = 'SETUP_EXCEPT'
 
     def unroll(self, frame, unroller):
         self.cleanupstack(frame)
@@ -512,6 +548,8 @@ class ExceptBlock(FrameBlock):
 
 class FinallyBlock(FrameBlock):
     """A try:finally: block.  Stores the position of the exception handler."""
+
+    _opname = 'SETUP_FINALLY'
 
     def cleanup(self, frame):
         # upon normal entry into the finally: part, the standard Python

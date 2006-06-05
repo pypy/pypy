@@ -355,7 +355,7 @@ class AppTestInterpObjectPickling:
         result = pickle.loads(pckl)
         assert type(riter) is type(result)
         assert list(result) == [2,3,4]
-    
+
     def test_pickle_generator(self):
         import new
         mod = new.module('mod')
@@ -373,6 +373,30 @@ class AppTestInterpObjectPickling:
             g1   = mod.giveme(10)
             #g1.next()
             #g1.next()
+            pckl = pickle.dumps(g1)
+            g2   = pickle.loads(pckl)
+            assert list(g1) == list(g2)
+        finally:
+            del sys.modules['mod']
+
+    def test_pickle_generator_blk(self):
+        # same as above but with the generator inside a block
+        import new
+        mod = new.module('mod')
+        import sys
+        sys.modules['mod'] = mod
+        try:
+            def giveme(n):
+                x = 0
+                while x < n:
+                    yield x
+                    x += 1
+            import pickle
+            mod.giveme = giveme
+            giveme.__module__ = mod
+            g1   = mod.giveme(10)
+            g1.next()
+            g1.next()
             pckl = pickle.dumps(g1)
             g2   = pickle.loads(pckl)
             assert list(g1) == list(g2)
