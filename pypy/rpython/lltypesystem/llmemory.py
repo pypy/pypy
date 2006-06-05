@@ -484,7 +484,8 @@ class fakeweakaddress(object):
         if ob is not None:
             self.ref = weakref.ref(ob)
             # umpf
-            if isinstance(ob, lltype._ptr):
+            from pypy.rpython.memory import lltypesimulation
+            if isinstance(ob, (lltype._ptr,lltypesimulation.simulatorptr)):
                 self.id = ob._cast_to_int()
             else:
                 self.id = id(ob)
