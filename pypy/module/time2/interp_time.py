@@ -1,7 +1,7 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.rpython.rctypes.tool import ctypes_platform
-from pypy.rpython.rctypes.tool.clib import clib 
+from pypy.rpython.rctypes.tool.libc import libc
 
 import sys
 from ctypes import *
@@ -18,7 +18,7 @@ cconfig = ctypes_platform.configure(CConfig)
 clock_t = cconfig['clock_t']
 CLOCKS_PER_SEC = cconfig['CLOCKS_PER_SEC']
 
-c_clock = clib.clock 
+c_clock = libc.clock 
 c_clock.restype = clock_t 
 
 def clock(space):

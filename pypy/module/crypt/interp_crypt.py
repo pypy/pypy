@@ -6,10 +6,6 @@ from pypy.rpython.rctypes.tool.util import find_library, load_library
 import sys
 from ctypes import *
 
-class CConfig:
-    _header_ = """#include <crypt.h>
-"""
-
 cryptfn = find_library("crypt")
 cryptdll = load_library(cryptfn)
 
