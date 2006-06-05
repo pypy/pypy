@@ -113,13 +113,14 @@ class AppTestInterpObjectPickling:
         assert not (cell != result)
 
     def test_pickle_frame(self):
-        skip("in-progress")
-        from sys import exc_info
+        #import sys
+        # avoid creating a closure for now
         def f():
             try:
                 raise Exception()
             except:
-                exc_type, exc, tb = exc_info()
+                import sys
+                exc_type, exc, tb = sys.exc_info()
                 return tb.tb_frame
         import pickle
         f1     = f()
@@ -131,7 +132,7 @@ class AppTestInterpObjectPickling:
         assert type(f1) is type(f2)
         assert dir(f1) == dir(f2)
         assert f1.__doc__ == f2.__doc__
-        assert type(f1.f_back) is type(f2.f_back)
+        assert f2.f_back is None # mecause we pruned it
         assert f1.f_builtins is f2.f_builtins
         assert f1.f_code == f2.f_code
         assert f1.f_exc_traceback is f2.f_exc_traceback
