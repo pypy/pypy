@@ -162,7 +162,7 @@ class AppTestInterpObjectPickling:
         f2     = pickle.loads(pckl)
 
     def test_pickle_traceback(self):
-        skip("in-progress: recursion problem")
+        #skip("in-progress: recursion problem")
         def f():
             try:
                 raise Exception()

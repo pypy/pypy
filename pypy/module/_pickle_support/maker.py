@@ -53,7 +53,7 @@ def reverseseqiter_new(space, w_seq, w_index):
     return W_ReverseSeqIterObject(space, w_seq, index)
     
 def frame_new(space, __args__):
-    args_w, kwds_w = __args__.unpack()  #stolen from std/fake.py
+    args_w, kwds_w = __args__.unpack()
     w_pycode, = args_w
     pycode = space.interp_w(PyCode, w_pycode)
     w = space.wrap
@@ -65,15 +65,10 @@ def frame_new(space, __args__):
     return space.wrap(new_frame)
 frame_new.unwrap_spec = [ObjSpace, Arguments]
 
-def traceback_new(space, __args__):
-    args_w, kwds_w = __args__.unpack()  #stolen from std/fake.py
-    w_frame, w_lasti, w_lineno, w_next = args_w
-    frame = space.interp_w(PyFrame, w_frame)
-    lasti = space.int_w(w_lasti)
-    lineno = space.int_w(w_lineno)
-    next = space.interp_w(PyTraceback, w_next, can_be_None=True)
-    return space.wrap(PyTraceback(space, frame, lasti, lineno, next))
-traceback_new.unwrap_spec = [ObjSpace, Arguments]
+def traceback_new(space):
+    tb = instantiate(PyTraceback)
+    return space.wrap(tb)
+traceback_new.unwrap_spec = [ObjSpace]
 
 def generator_new(space, __args__):
     args_w, kwds_w = __args__.unpack()  #stolen from std/fake.py

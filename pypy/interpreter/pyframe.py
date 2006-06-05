@@ -115,7 +115,8 @@ class PyFrame(eval.EvalFrame):
             w_cells,
             ]
 
-        return space.newtuple([new_inst, space.newtuple(tup_base), space.newtuple(tup_state)])
+        nt = space.newtuple
+        return nt([new_inst, nt(tup_base), nt(tup_state)])
 
     def descr__setstate__(self, space, w_args):
         from pypy.module._pickle_support import maker # helper fns

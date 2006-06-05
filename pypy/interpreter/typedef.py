@@ -627,6 +627,8 @@ del BuiltinFunction.typedef.rawdict['__get__']
 PyTraceback.typedef = TypeDef("traceback",
     __reduce__   = interp2app(PyTraceback.descr__reduce__,
                               unwrap_spec=['self', ObjSpace]),
+    __setstate__ = interp2app(PyTraceback.descr__setstate__,
+                              unwrap_spec=['self', ObjSpace, W_Root]),
     tb_frame  = interp_attrproperty('frame', cls=PyTraceback),
     tb_lasti  = interp_attrproperty('lasti', cls=PyTraceback),
     tb_lineno = interp_attrproperty('lineno', cls=PyTraceback),
