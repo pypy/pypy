@@ -1,4 +1,43 @@
+def _attach_helpers(space):
+    def hide_top_frame(space, w_frame):
+        w_last = None
+        while w_frame.f_back:
+            w_last = w_frame
+            w_frame = w_frame.f_back
+        assert w_last
+        w_saved = w_last.f_back
+        w_last.f_back = None
+        return w_saved
+
+    def restore_top_frame(space, w_frame, w_saved):
+        while w_frame.f_back:
+            w_frame = w_frame.f_back
+        w_frame.f_back = w_saved
+
+    from pypy.interpreter import gateway
+
+    hide_gw = gateway.interp2app(hide_top_frame)
+    space.setitem(space.builtin.w_dict,
+                  space.wrap('hide_top_frame'),
+                  space.wrap(hide_gw))
+    restore_gw = gateway.interp2app(restore_top_frame)
+    space.setitem(space.builtin.w_dict,
+                  space.wrap('restore_top_frame'),
+                  space.wrap(restore_gw))
+
+def _detatch_helpers(space):
+    space.delitem(space.builtin.w_dict,
+                  space.wrap('hide_top_frame'))
+    space.delitem(space.builtin.w_dict,
+                  space.wrap('restore_top_frame'))
+
 class AppTestInterpObjectPickling:
+
+    def setup_class(cls):
+        _attach_helpers(cls.space)
+
+    def teardown_class(cls):
+        _detatch_helpers(cls.space)
 
     def test_pickle_code(self):
         def f():
@@ -84,7 +123,9 @@ class AppTestInterpObjectPickling:
                 return tb.tb_frame
         import pickle
         f1     = f()
+        saved = hide_top_frame(f1)
         pckl   = pickle.dumps(f1)
+        restore_top_frame(f1, saved) 
         f2     = pickle.loads(pckl)
 
         assert type(f1) is type(f2)
