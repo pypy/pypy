@@ -13,7 +13,7 @@ def compilemodule(modname):
     "Compile a PyPy module for CPython."
     import pypy.rpython.rctypes.implementation
     from pypy.objspace.cpy.objspace import CPyObjSpace
-    from pypy.objspace.cpy.wrappable import reraise
+    from pypy.objspace.cpy.function import reraise
     from pypy.objspace.cpy.ann_policy import CPyAnnotatorPolicy
     from pypy.translator.driver import TranslationDriver
     from pypy.interpreter.error import OperationError
