@@ -1,4 +1,5 @@
 def _attach_helpers(space):
+    from pypy.interpreter import pytraceback
     def hide_top_frame(space, w_frame):
         w_last = None
         while w_frame.f_back:
@@ -132,7 +133,7 @@ class AppTestInterpObjectPickling:
         assert type(f1) is type(f2)
         assert dir(f1) == dir(f2)
         assert f1.__doc__ == f2.__doc__
-        assert f2.f_back is None # mecause we pruned it
+        assert f2.f_back is None # because we pruned it
         assert f1.f_builtins is f2.f_builtins
         assert f1.f_code == f2.f_code
         assert f1.f_exc_traceback is f2.f_exc_traceback
@@ -144,7 +145,7 @@ class AppTestInterpObjectPickling:
         assert f1.f_trace is f2.f_trace
 
     def test_pickle_traceback(self):
-        skip("in-progress")
+        skip("in-progress: recursion problem")
         def f():
             try:
                 raise Exception()
@@ -154,6 +155,7 @@ class AppTestInterpObjectPickling:
                 return tb
         import pickle
         tb     = f()
+        saved = hide_top_frame(tb.tb_frame)
         pckl   = pickle.dumps(tb)
         result = pickle.loads(pckl)
 
@@ -188,6 +190,8 @@ class AppTestInterpObjectPickling:
 
         assert f1.f_restricted is f2.f_restricted
         assert f1.f_trace is f2.f_trace
+
+        restore_top_frame(tb.tb_frame, saved)
 
     def test_pickle_module(self):
         import pickle
