@@ -30,7 +30,7 @@ class UnwrapSpec_Trampoline(UnwrapSpecRecipe):
 
     def visit__object(self, el, orig_sig, tramp):
         convertermap = {int: '___PyInt_AsLong',
-                        str: 'XXX',
+                        str: '___PyString_AsString',
                         float: 'XXX'}
         argname = orig_sig.next_arg()
         assert not argname.startswith('w_')
@@ -102,6 +102,7 @@ class FunctionCache(SpaceCache):
             '___space':           space,
             '___W_Object':        CPyObjSpace.W_Object,
             '___PyInt_AsLong':    PyInt_AsLong,
+            '___PyString_AsString':    PyString_AsString, 
             '___bltin':           bltin,
             '___OperationError':  OperationError,
             '___reraise':         reraise,
