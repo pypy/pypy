@@ -458,7 +458,7 @@ testmap = [
     RegrTest('test_copy.py', enabled=True, core=True),
     RegrTest('test_copy_reg.py', enabled=True, core=True),
     RegrTest('test_cpickle.py', enabled=True, core=True),
-    RegrTest('test_crypt.py', enabled=False, dumbtest=1),
+    RegrTest('test_crypt.py', usemodules='crypt', enabled=False, dumbtest=1),
     RegrTest('test_csv.py', enabled=False),
         #rev 10840: ImportError: _csv
 
