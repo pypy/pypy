@@ -144,6 +144,23 @@ class AppTestInterpObjectPickling:
         assert f1.f_restricted is f2.f_restricted
         assert f1.f_trace is f2.f_trace
 
+    def test_pickle_frame_clos(self):
+        # similar to above, therefore skipping the asserts.
+        # we just want to see that the closure works
+        import sys # this is the difference!
+        def f():
+            try:
+                raise Exception()
+            except:
+                exc_type, exc, tb = sys.exc_info()
+                return tb.tb_frame
+        import pickle
+        f1     = f()
+        saved = hide_top_frame(f1)
+        pckl   = pickle.dumps(f1)
+        restore_top_frame(f1, saved) 
+        f2     = pickle.loads(pckl)
+
     def test_pickle_traceback(self):
         skip("in-progress: recursion problem")
         def f():

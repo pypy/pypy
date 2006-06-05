@@ -70,18 +70,22 @@ class PyFrame(eval.EvalFrame):
     def descr__reduce__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
         from pypy.module._pickle_support import maker # helper fns
+        from pypy.interpreter.nestedscope import PyNestedScopeFrame
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)
         new_inst = mod.get('frame_new')
         w        = space.wrap
+
+        if isinstance(self, PyNestedScopeFrame):
+            w_cells = w([w(cell) for cell in self.cells])
+        else:
+            w_cells = space.w_None
 
         if self.w_f_trace is None:
             f_lineno = self.get_last_lineno()
         else:
             f_lineno = self.f_lineno
 
-#        valuestack = [w(item) for item in self.valuestack.items]
- #       blockstack = [w(item) for item in self.blockstack.items]
         w_valuestack = maker.slp_into_tuple_with_nulls(space, self.valuestack.items)
         w_blockstack = space.w_None ##
         w_fastlocals = maker.slp_into_tuple_with_nulls(space, self.fastlocals_w)
@@ -108,6 +112,7 @@ class PyFrame(eval.EvalFrame):
             w(self.instr_lb), #do we need these three (that are for tracing)
             w(self.instr_ub),
             w(self.instr_prev),
+            w_cells,
             ]
 
         return space.newtuple([new_inst, space.newtuple(tup_base), space.newtuple(tup_state)])
@@ -116,10 +121,11 @@ class PyFrame(eval.EvalFrame):
         from pypy.module._pickle_support import maker # helper fns
         from pypy.interpreter.pycode import PyCode
         from pypy.interpreter.module import Module
+        from pypy.interpreter.nestedscope import PyNestedScopeFrame, Cell
         args_w = space.unpackiterable(w_args)
         w_f_back, w_builtin, w_pycode, w_valuestack, w_blockstack, w_last_exception,\
             w_globals, w_last_instr, w_next_instr, w_f_lineno, w_fastlocals, w_f_locals, \
-            w_f_trace, w_instr_lb, w_instr_ub, w_instr_prev = args_w
+            w_f_trace, w_instr_lb, w_instr_ub, w_instr_prev, w_cells = args_w
         w = space.wrap
 
         #new_frame = PyFrame(space, pycode, w(globals), None)
@@ -127,7 +133,9 @@ class PyFrame(eval.EvalFrame):
         # the distinction is a little over-done but computable
         new_frame = self
         pycode = space.interp_w(PyCode, w_pycode)
-        new_frame.__init__(space, pycode, w_globals, None)
+        # do not use the instance's __init__ but the base's, because we set
+        # everything like cells from here
+        PyFrame.__init__(self, space, pycode, w_globals, None)
         new_frame.f_back = space.interp_w(PyFrame, w_f_back, can_be_None=True)
         new_frame.builtin = space.interp_w(Module, w_builtin)
         #new_frame.blockstack = blockstack
@@ -146,6 +154,10 @@ class PyFrame(eval.EvalFrame):
         new_frame.instr_lb = space.int_w(w_instr_lb)   #the three for tracing
         new_frame.instr_ub = space.int_w(w_instr_ub)
         new_frame.instr_prev = space.int_w(w_instr_prev)
+
+        if isinstance(self, PyNestedScopeFrame):
+            cells_w = space.unpackiterable(w_cells)
+            self.cells = [space.interp_w(Cell, w_cell) for w_cell in cells_w]
 
     def hide(self):
         return self.pycode.hidden_applevel
