@@ -18,14 +18,6 @@ def enum_direct_calls(translator, func):
             if op.opname == 'direct_call':
                 yield op
 
-    
-
-
-def test_we_are_translated():
-    def f():
-        return we_are_translated()
-    res = interpret(f, [])
-    assert res is True and f() is False
 
 def test_method_join():
     # this is tuned to catch a specific bug:
