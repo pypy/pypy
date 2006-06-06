@@ -9,21 +9,12 @@ http://www.w3schools.com/dhtml/dhtml_dom.asp - more informal stuff
 import time
 
 class Style(object):
+    _rpython_hints = {'_suggested_external' : True}
+    
     def __init__(self, s_str):
         self.left = "0"
         self.top = "0"
-    
-    def setLeft(self, left):
-        self.left = left
-    
-    def getLeft(self):
-        return self.left
-    
-    def setTop(self, top):
-        self.top = top
-    
-    def getTop(self):
-        return self.top
+
 
 class Node(object):
     _rpython_hints = {'_suggested_external' : True}
@@ -35,18 +26,19 @@ class Node(object):
     def getElementById(self, id):
         return Node()
     
-    def setInnerHTML(self, data):
-        self.innerHTML = data
-    
     def setAttribute(self, name, style_str):
         if name == 'style':
             self.style = Style( style_str)
-        
-    def getStyle(self):
-        return self.style
+
+def get_document():
+    return Node()
+
+get_document.suggested_primitive = True
 
 document = Node()
 
 def setTimeout(func, delay):
     # scheduler call, but we don't want to mess with threads right now
     return func
+
+setTimeout.suggested_primitive = True

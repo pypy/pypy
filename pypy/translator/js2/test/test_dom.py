@@ -5,7 +5,7 @@
 import py
 
 from pypy.translator.js2.test.runtest import compile_function
-from pypy.translator.js2.modules.dom import document, setTimeout, Node
+from pypy.translator.js2.modules.dom import document, setTimeout, Node, get_document
 from pypy.translator.js2 import conftest
 
 import time
@@ -16,7 +16,7 @@ if not conftest.option.browser:
 class TestDOM(object):
     def test_document_base(self):
         def f():
-            return document.getElementById("dupa")
+            return get_document().getElementById("dupa")
             #document.getElementById("dupa").setInnerHTML("<h1>Fire!</h1>")
             #return document.getElementById("dupa")
         
@@ -28,8 +28,8 @@ class TestDOM(object):
             if dir < 0:
                 dx = -dx
                 dy = -dy
-            obj.getStyle().setLeft(str(int(obj.getStyle().getLeft()) + dx) + "px")
-            obj.getStyle().setTop(str(int(obj.getStyle().getTop()) + dy) + "px")
+            obj.style.left = str(int(obj.style.left) + dx) + "px"
+            obj.style.top = str(int(obj.style.top) + dy) + "px"
         
         def move_it():
             move_it_by(get_document().getElementById("anim_img"), 3, 3, 1)

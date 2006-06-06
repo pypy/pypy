@@ -34,14 +34,10 @@ class _Call(MicroInstruction):
             generator.load(func_arg)
         generator.call_external(builtin, args[1:])
     
-    def _render_builtin_method(self, generator, builtin, args, is_property):
-        if not is_property:
-            for func_arg in args:
-                generator.load(func_arg)
-            generator.call_external_method(builtin, len(args)-1)
-        else:
-            generator.load(args[0])
-            generator.get_field(None, builtin)
+    def _render_builtin_method(self, generator, builtin, args):
+        for func_arg in args:
+            generator.load(func_arg)
+        generator.call_external_method(builtin, len(args)-1)
 
     def _render_function(self, generator, graph, args):
         for func_arg in args[1:]: # push parameters
@@ -71,6 +67,11 @@ class _Builtins(object):
             'll_js_jseval' : CallBuiltin('eval'),
             'll_newlist' : lambda g,op: g.ilasm.load_const("[]"),
             'll_alloc_and_set' : CallBuiltin('alloc_and_set'),
+            'get_document' : lambda g,op: g.ilasm.load_const('document'),
+            'setTimeout' : CallBuiltin('setTimeout'),
+            'll_int_str' : lambda g,op: Call._render_builtin_method(g, 'toString' , [op.args[2]]),
+            'll_strconcat' : InstructionList([PushAllArgs, '+']),
+            'll_int' : CallBuiltin('parseInt'),
         }
         self.builtin_obj_map = {
             ootype.String.__class__: {
@@ -134,9 +135,8 @@ class _CastString(MicroInstruction):
 class _GetBuiltinField(MicroInstruction):
     def render(self, generator, op):
         this = op.args[0]
-        field = op.args[1]
-        field_name = this.value.methods[field].name[1:]
-        self.run_it(generator, this, field_name)
+        field = op.args[1].value[1:]
+        self.run_it(generator, this, field)
     
     def run_it(self, generator, this, field_name):
         generator.load(this)
@@ -147,10 +147,13 @@ GetBuiltinField = _GetBuiltinField()
 class _SetBuiltinField(MicroInstruction):
     def render(self, generator, op):
         this = op.args[0]
-        field = op.args[1]
-        value = op.args[2]
-        field_name = this.value.methods[field].name[1:]
-        self.run_it(generator, this, field_name, value)
+        field = op.args[1].value
+        if not field.startswith('o'):
+            generator.load_void()
+        else:
+            value = op.args[2]
+            field_name = field[1:]
+            self.run_it(generator, this, field_name, value)
     
     def run_it(self, generator, this, field_name, value):
         generator.load(this)
@@ -163,6 +166,16 @@ class _CallMethod(_Call):
     def render(self, generator, op):
         method = op.args[0]
         self._render_method(generator, method.value, op.args[1:])
+
+class _CallBuiltinObject(_Call):
+    def render(self, generator, op):
+        this = op.args[1].concretetype
+        method = op.args[0]
+        method_name = this._methods[method.value]._name[1:]
+        generator.load(op.args[1])
+        self._render_builtin_method(generator, method_name, op.args[1:])
+
+CallBuiltinObject = _CallBuiltinObject()
 
 class _IsInstance(MicroInstruction):
     def render(self, generator, op):
@@ -206,8 +219,8 @@ class _CallDispatcher(_GeneralDispatcher):
         if getattr(func.value._callable, 'suggested_primitive', False):
             func_name = func.value._name.split("__")[0]
             log("Function name: %s suggested primitive" % func_name)
-            if Builtins.builtin_map.has_key(func_name):
-                return Builtins.builtin_map[func_name](generator, op)
+            #if Builtins.builtin_map.has_key(func_name):
+            return Builtins.builtin_map[func_name](generator, op)
         else:
             return Call.render(generator, op)
     

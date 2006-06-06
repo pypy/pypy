@@ -6,7 +6,8 @@ from pypy.translator.cli.metavm import PushArg, PushAllArgs, StoreResult,\
     InstructionList, New, SetField, GetField, RuntimeNew, MicroInstruction
      
 from pypy.translator.js2.metavm import SameAs, IsInstance, Call, CallMethod, CopyName, CastString,\
-    _Prefix, _CastFun, _NotImplemented, GetFieldDispatcher, SetFieldDispatcher, CallDispatcher, MethodDispatcher
+    _Prefix, _CastFun, _NotImplemented, GetFieldDispatcher, SetFieldDispatcher, CallDispatcher, MethodDispatcher,\
+    CallBuiltin
 
 DoNothing = [PushAllArgs]
 
@@ -105,6 +106,7 @@ opcodes = {'int_mul': '*',
     'oodowncast' : DoNothing,        
     'oononnull'  : [PushAllArgs,_Prefix('!!')],
     'oostring'   : [CastString],
+    'ooparse_int' : [CallBuiltin('parseInt')],
     'oois'       : '==', # FIXME: JS does not have real equal
     # when casting from bool we want that every truth value is casted
     # to 1: we can't simply DoNothing, because the CLI stack could
