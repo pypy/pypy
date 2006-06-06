@@ -125,6 +125,15 @@ class FrameTyper:
             self.frametypes[key] = T
         return T, fieldnames
 
+    def ensure_frame_type_for_types(self, frame_type):
+        key, fieldnames = self._key_fieldnames_for_types(
+            [frame_type._flds[n] for n in frame_type._names[1:]])
+        assert len(fieldnames) <= 1, "nasty field ordering issues need to be solved XXX mwh, pedronis"
+        if key in self.frametypes:
+            assert self.frametypes[key] is frame_type
+        self.frametypes[key] = frame_type
+        
+
 class StacklessAnalyzer(graphanalyze.GraphAnalyzer):
     def __init__(self, translator, unwindtype, stackless_gc):
         graphanalyze.GraphAnalyzer.__init__(self, translator)
@@ -331,12 +340,7 @@ class StacklessTransformer(object):
                     label, len(self.masterarray1) + i)
                 frame_type = restartinfo.frame_types[i]
                 self.explicit_resume_point_data[label] = frame_type
-                key, fieldnames = self.frametyper._key_fieldnames_for_types(
-                    [frame_type._flds[n] for n in frame_type._names[1:]])
-                assert len(fieldnames) <= 1, "nasty field ordering issues need to be solved XXX mwh, pedronis"
-                if key in self.frametyper.frametypes:
-                    assert self.frametyper.frametypes[key] is frame_type
-                self.frametyper.frametypes[key] = frame_type
+                self.frametyper.ensure_frame_type_for_types(frame_type)
             self.register_restart_info(restartinfo)
 
     def transform_all(self):
