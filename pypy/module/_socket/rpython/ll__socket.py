@@ -2,9 +2,12 @@ import _socket
 
 from pypy.rpython.lltypesystem.rstr import STR
 from pypy.rpython.lltypesystem.lltype import GcStruct, Signed, Array, Char, Ptr, malloc
-from pypy.rpython.module.support import to_rstr, from_rstr
+from pypy.rpython.module.support import LLSupport
 from pypy.rpython.module.support import to_opaque_object, from_opaque_object
 from pypy.module._socket.rpython import rsocket
+
+to_rstr = LLSupport.to_rstr
+from_rstr = LLSupport.from_rstr
 
 def ll__socket_gethostname():
     return to_rstr(_socket.gethostname())
