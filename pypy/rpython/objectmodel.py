@@ -261,3 +261,10 @@ class _r_dictkey(object):
 
     def __repr__(self):
         return repr(self.key)
+
+class _r_dictkey_with_hash(_r_dictkey):
+    def __init__(self, dic, key, hash):
+        self.dic = dic
+        self.key = key
+        self.hash = hash
+

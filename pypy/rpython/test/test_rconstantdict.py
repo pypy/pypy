@@ -41,7 +41,6 @@ class BaseTestRconstantdict(BaseRtypingTest):
         assert res == 321
 
     def test_constant_r_dict(self):
-        self._skip_oo('constant r_dict')
         def strange_key_eq(key1, key2):
             return key1[0] == key2[0]   # only the 1st character is relevant
         def strange_key_hash(key):

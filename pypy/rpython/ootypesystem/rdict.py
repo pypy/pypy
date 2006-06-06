@@ -181,12 +181,17 @@ class DictRepr(AbstractDictRepr):
             r_key = self.key_repr
             r_value = self.value_repr
 
-            for dictkey, dictvalue in dictobj.items():
-                llkey = r_key.convert_const(dictkey)
-                llvalue = r_value.convert_const(dictvalue)
-                if self.custom_eq_hash:
-                    l_dict._dict._dict[llkey] = llvalue # XXX: am I cheating?
-                else:
+            if self.custom_eq_hash:
+                for dictkeycont, dictvalue in dictobj._dict.items():
+                    llkey = r_key.convert_const(dictkeycont.key)
+                    llvalue = r_value.convert_const(dictvalue)
+                    llhash = dictkeycont.hash
+                    l_dictkeycont = objectmodel._r_dictkey_with_hash(l_dict._dict, llkey, llhash)
+                    l_dict._dict._dict[l_dictkeycont] = llvalue
+            else:
+                for dictkey, dictvalue in dictobj.items():
+                    llkey = r_key.convert_const(dictkey)
+                    llvalue = r_value.convert_const(dictvalue)
                     l_dict.ll_set(llkey, llvalue)
             return l_dict
 
@@ -209,11 +214,6 @@ class __extend__(pairtype(DictRepr, rmodel.Repr)):
 
     def rtype_setitem((r_dict, r_key), hop):
         v_dict, v_key, v_value = hop.inputargs(r_dict, r_dict.key_repr, r_dict.value_repr)
-        if r_dict.custom_eq_hash:
-            hop.exception_is_here()
-##        else:
-##            hop.exception_cannot_occur()
-##        hop.exception_is_here()
         return r_dict.send_message(hop, 'll_set', can_raise=r_dict.custom_eq_hash)
 
     def rtype_contains((r_dict, r_key), hop):
