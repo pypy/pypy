@@ -176,7 +176,6 @@ class BaseTestObjectModel(BaseRtypingTest):
         assert res == 2
 
     def test_rtype_r_dict_exceptions(self):
-        self._skip_oo('r_dict exception handling')
         def raising_hash(obj):
             if obj.startswith("bla"):
                 raise TypeError
@@ -234,7 +233,6 @@ class BaseTestObjectModel(BaseRtypingTest):
         assert res == 6
 
     def test_access_in_try_set(self):
-        self._skip_oo('r_dict exception handling')
         h = lambda x: 1
         eq = lambda x,y: x==y
         def f(d):
@@ -261,6 +259,7 @@ class BaseTestObjectModel(BaseRtypingTest):
         assert res == 5
 
 class TestLLtype(BaseTestObjectModel, LLRtypeMixin):
+
     def test_cast_to_and_from_weakaddress(self):
         class A(object):
             pass
