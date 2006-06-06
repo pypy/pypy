@@ -1,3 +1,4 @@
+from pypy.rpython.error import TyperError
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
@@ -10,6 +11,7 @@ from pypy.rpython.objectmodel import hlinvoke
 from pypy.rpython import robject
 from pypy.rpython import objectmodel
 from pypy.rpython import rmodel
+from pypy.rpython import llinterp
 
 
 class DictRepr(AbstractDictRepr):
@@ -153,7 +155,7 @@ class DictRepr(AbstractDictRepr):
     def convert_const(self, dictobj):
         if dictobj is None:
             return self.DICT._defl()
-        if not isinstance(dictobj, dict):
+        if not isinstance(dictobj, dict) and not isinstance(dictobj, objectmodel.r_dict):
             raise TyperError("expected a dict: %r" % (dictobj,))
         try:
             key = Constant(dictobj)
@@ -161,15 +163,31 @@ class DictRepr(AbstractDictRepr):
         except KeyError:
             self.setup()
             l_dict = ll_newdict(self.DICT)
+            if self.custom_eq_hash:
+                interp = llinterp.LLInterpreter(self.rtyper)
+                # key equality function
+                eq_func = self.r_rdict_eqfn.convert_const(dictobj.key_eq)
+                eq_name, interp_eq = llinterp.wrap_func_or_boundmethod(interp, eq_func, None)
+                EQ_FUNC = ootype.StaticMethod([self.DICT._KEYTYPE, self.DICT._KEYTYPE], ootype.Bool)
+                sm_eq = ootype.static_meth(EQ_FUNC, eq_name, _callable=interp_eq)
+                # key hashing function
+                hash_func = self.r_rdict_hashfn.convert_const(dictobj.key_hash)
+                hash_name, interp_hash = llinterp.wrap_func_or_boundmethod(interp, hash_func, None)
+                HASH_FUNC = ootype.StaticMethod([self.DICT._KEYTYPE], ootype.Signed)
+                sm_hash = ootype.static_meth(HASH_FUNC, hash_name, _callable=interp_hash)
+                l_dict.ll_set_functions(sm_eq, sm_hash)
+
             self.dict_cache[key] = l_dict 
             r_key = self.key_repr
             r_value = self.value_repr
 
-            # XXX need handling of r_dict here
             for dictkey, dictvalue in dictobj.items():
                 llkey = r_key.convert_const(dictkey)
                 llvalue = r_value.convert_const(dictvalue)
-                l_dict.ll_set(llkey, llvalue)
+                if self.custom_eq_hash:
+                    l_dict._dict._dict[llkey] = llvalue # XXX: am I cheating?
+                else:
+                    l_dict.ll_set(llkey, llvalue)
             return l_dict
 
 class __extend__(pairtype(DictRepr, rmodel.Repr)): 
