@@ -37,8 +37,9 @@ Class = Class()
 class Instance(OOType):
     """this is the type of user-defined objects"""
     def __init__(self, name, superclass, fields={}, methods={},
-            _is_root=False):
+            _is_root=False, _hints = {}):
         self._name = name
+        self._hints = frozendict(_hints)
 
         if _is_root:
             self._superclass = None

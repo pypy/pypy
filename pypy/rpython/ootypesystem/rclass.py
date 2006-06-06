@@ -162,7 +162,11 @@ class InstanceRepr(AbstractInstanceRepr):
             else:
                 b = OBJECT
 
-            self.lowleveltype = ootype.Instance(classdef.name, b, {}, {})
+            if hasattr(classdef.classdesc.pyobj, '_rpython_hints'):
+                hints = classdef.classdesc.pyobj._rpython_hints
+            else:
+                hints = {}
+            self.lowleveltype = ootype.Instance(classdef.name, b, {}, {}, _hints = hints)
         self.prebuiltinstances = {}   # { id(x): (x, _ptr) }
         self.object_type = self.lowleveltype
 
