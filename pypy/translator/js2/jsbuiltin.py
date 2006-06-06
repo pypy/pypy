@@ -1,0 +1,45 @@
+
+""" JavaScript builtin mappings
+"""
+
+from pypy.translator.oosupport.metavm import InstructionList, PushAllArgs
+from pypy.translator.js2.metavm import SetBuiltinField, ListGetitem, ListSetitem, \
+    GetBuiltinField, CallBuiltin, Call, SetTimeout
+
+from pypy.rpython.ootypesystem import ootype
+
+class _Builtins(object):
+    def __init__(self):
+        list_resize = lambda g,op: SetBuiltinField.run_it(g, op.args[1], 'length', op.args[2])
+        
+        self.builtin_map = {
+            'll_js_jseval' : CallBuiltin('eval'),
+            'll_newlist' : lambda g,op: g.ilasm.load_const("[]"),
+            'll_alloc_and_set' : CallBuiltin('alloc_and_set'),
+            'get_document' : lambda g,op: g.ilasm.load_const('document'),
+            'setTimeout' : SetTimeout,
+            'll_int_str' : lambda g,op: Call._render_builtin_method(g, 'toString' , [op.args[2]]),
+            'll_strconcat' : InstructionList([PushAllArgs, '+']),
+            'll_int' : CallBuiltin('parseInt'),
+        }
+        self.builtin_obj_map = {
+            ootype.String.__class__: {
+                'll_strconcat' : InstructionList([PushAllArgs, '+']),
+                'll_strlen' : lambda g,op: GetBuiltinField.run_it(g, op.args[1], 'length'),
+                'll_stritem_nonneg' : ListGetitem,
+                'll_streq' : InstructionList([PushAllArgs, '==']),
+                'll_strcmp' : CallBuiltin('strcmp'),
+                'll_startswith' : CallBuiltin('startswith'),
+                'll_endswith' : CallBuiltin('endswith'),
+            },
+            ootype.List: {
+                'll_setitem_fast' : ListSetitem,
+                'll_getitem_fast' : ListGetitem,
+                '_ll_resize' : list_resize,
+                '_ll_resize_ge' : list_resize,
+                '_ll_resize_le' : list_resize,
+                'll_length' : lambda g,op: GetBuiltinField.run_it(g, op.args[1], 'length'),
+            }
+        }
+
+Builtins = _Builtins()
