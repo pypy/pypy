@@ -33,22 +33,6 @@ class TestSnippet(object):
         for opname in annmodel.BINARY_OPERATIONS:
             print 'BINARY_OPERATIONS:', opname
 
-def test_int_conversion():
-    def fn(f):
-        return int(f)
-
-    res = interpret(fn, [1.0])
-    assert res == 1
-    assert type(res) is int 
-    res = interpret(fn, [2.34])
-    assert res == fn(2.34) 
-
-def test_hash():
-    def fn(f):
-        return hash(f)
-    res = interpret(fn, [1.5])
-    assert res == hash(1.5)
-
 class BaseTestRfloat(BaseRtypingTest):
     
     def test_float2str(self):
@@ -65,8 +49,25 @@ class BaseTestRfloat(BaseRtypingTest):
         res = self.interpret(fn, [1.5])
         assert float(self.ll_to_string(res)) == 1.5
 
+    def test_int_conversion(self):
+        def fn(f):
+            return int(f)
+
+        res = self.interpret(fn, [1.0])
+        assert res == 1
+        assert type(res) is int 
+        res = self.interpret(fn, [2.34])
+        assert res == fn(2.34) 
+
+
 class TestLLtype(BaseTestRfloat, LLRtypeMixin):
-    pass
+
+    def test_hash(self):
+        def fn(f):
+            return hash(f)
+        res = self.interpret(fn, [1.5])
+        assert res == hash(1.5)
+
 
 class TestOOtype(BaseTestRfloat, OORtypeMixin):
     pass
