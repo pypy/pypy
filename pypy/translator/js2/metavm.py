@@ -154,6 +154,21 @@ class _IndirectCall(MicroInstruction):
             generator.load(func_arg)
         generator.call_external(op.args[0].name, op.args[1:])
 
+class _SetTimeout(MicroInstruction):
+    # FIXME: Dirty hack for javascript callback stuff
+    def render(self, generator, op):
+        val = op.args[1].value
+        if isinstance(val, ootype.StaticMethod):
+            real_name = val._name
+            generator.db.pending_function(val.graph)
+        else:
+            real_name = val.concretize().value._name
+            generator.db.pending_function(val.concretize().value.graph)
+        generator.load_str("'%s()'" % real_name)
+        generator.load(op.args[2])
+        generator.call_external('setTimeout',[0]*2)
+
+SetTimeout = _SetTimeout()
 IndirectCall = _IndirectCall()
 IsInstance = _IsInstance()
 CallMethod = _CallMethod()
