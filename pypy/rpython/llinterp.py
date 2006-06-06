@@ -384,6 +384,8 @@ class LLFrame(object):
         obj = self.llinterpreter.typer.type_system.deref(fptr)
         try:
             return obj._callable(*args)
+        except LLException, e:
+            raise
         except Exception:
             self.make_llexception()
 
