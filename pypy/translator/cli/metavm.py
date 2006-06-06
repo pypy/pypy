@@ -24,6 +24,9 @@ class InstructionList(list):
                 instr.render(generator, op)
             else:
                 generator.emit(instr)
+    
+    def __call__(self, *args):
+        return self.render(*args)
 
 
 class MicroInstruction(object):
@@ -32,7 +35,9 @@ class MicroInstruction(object):
 
     def __str__(self):
         return self.__class__.__name__
-
+    
+    def __call__(self, *args):
+        return self.render(*args)
 
 class PushArg(MicroInstruction):
     def __init__(self, n):
