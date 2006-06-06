@@ -48,8 +48,6 @@ class _Call(MicroInstruction):
             generator.load(func_arg)
         generator.call_graph(graph)
     
-    # Various low level function-to-operator mappings
-    
     def _render_method(self, generator, method_name, args):
         this = args[0]
         for arg in args: # push parametes

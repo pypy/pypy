@@ -14,8 +14,6 @@ from pypy.translator.cli.metavm import Generator,InstructionList
 from pypy.translator.cli.node import Node
 from pypy.translator.cli.class_ import Class
 
-from pypy.translator.js2._builtin import Builtins
-
 from pypy.translator.js2.log import log
 
 import re

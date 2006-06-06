@@ -10,7 +10,6 @@ from pypy.translator.js2.metavm import SameAs, IsInstance, Call, CallMethod, Cop
 
 DoNothing = [PushAllArgs]
 
-from pypy.translator.js2._builtin import Builtins
 from pypy.translator.js2.log import log
 
 opcodes = {'int_mul': '*',
