@@ -634,8 +634,9 @@ class __extend__(SomeOOInstance):
     def setattr(r, s_attr, s_value): 
         assert s_attr.is_constant(), "setattr on ref %r with non-constant field-name" % r.ootype
         v = annotation_to_lltype(s_value)
-        setattr(r.ootype._example(), s_attr.const,
-                v._example())
+        example = r.ootype._example()
+        if example is not None:
+            setattr(r.ootype._example(), s_attr.const, v._example())
 
     def is_true(p):
         return SomeBool()

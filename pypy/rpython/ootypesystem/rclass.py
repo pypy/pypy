@@ -2,7 +2,7 @@ import types
 from pypy.annotation import model as annmodel
 from pypy.annotation import description
 from pypy.objspace.flow import model as flowmodel
-from pypy.rpython.rmodel import inputconst, TyperError
+from pypy.rpython.rmodel import inputconst, TyperError, warning
 from pypy.rpython.rmodel import mangle as pbcmangle
 from pypy.rpython.rclass import AbstractClassRepr, AbstractInstanceRepr, \
                                 getinstancerepr, getclassrepr, get_type_repr

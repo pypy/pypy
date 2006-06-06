@@ -51,6 +51,8 @@ class OOInstanceRepr(Repr):
                          resulttype = hop.r_result.lowleveltype)
 
     def rtype_setattr(self, hop):
+        if self.lowleveltype is Void:
+            return
         attr = hop.args_s[1].const
         self.lowleveltype._check_field(attr)
         vlist = hop.inputargs(self, Void, hop.args_r[2])
