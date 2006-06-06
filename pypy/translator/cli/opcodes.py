@@ -1,5 +1,7 @@
-from pypy.translator.cli.metavm import PushArg, PushAllArgs, StoreResult, Call,\
-     InstructionList, New, SetField, GetField, CallMethod, RuntimeNew
+from pypy.translator.cli.metavm import  Call, CallMethod, RuntimeNew
+
+from pypy.translator.oosupport.metavm import PushArg, PushAllArgs, StoreResult, InstructionList,\
+    SetField, GetField, New
 
 # some useful instruction patterns
 Not = ['ldc.i4.0', 'ceq']
