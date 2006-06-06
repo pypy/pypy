@@ -411,3 +411,11 @@ def test_closure():
     f = compile_function(testf, [int])
     assert f(1) == testf(1)
     assert f(2) == testf(2)
+
+def test_cast_str():
+    def cast_str(x):
+        return str(x)+str(x)+'px'
+    
+    f = compile_function(cast_str, [int])
+    assert f(1) == cast_str(1)
+    assert f(10) == cast_str(10)

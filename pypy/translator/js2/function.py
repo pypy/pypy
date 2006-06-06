@@ -451,8 +451,3 @@ class Function(Node, Generator):
         self.load(base_obj)
         self.load(item)
         self.ilasm.list_getitem()
-
-    def list_resize(self, lst, new_size):
-        self.load(lst)
-        self.load(new_size)
-        self.set_field(None, 'length')
