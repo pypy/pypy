@@ -13,6 +13,11 @@ from pypy.rpython.ootypesystem.ootype import String, _string, List, StaticMethod
 
 from pypy.translator.js2.log import log
 
+try:
+    set
+except NameError:
+    from sets import Set as set
+
 class JTS(object):
     """ Class implementing JavaScript type system
     calls with mapping similiar to cts
