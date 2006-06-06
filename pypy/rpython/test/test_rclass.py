@@ -3,9 +3,9 @@ import sys
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.test.test_llinterp import interpret, interpret_raises
+#from pypy.rpython.test.test_llinterp import interpret, interpret_raises
 from pypy.rpython.rarithmetic import intmask
-
+from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 
 class EmptyBase(object):
     pass
@@ -29,7 +29,7 @@ class B(A):
 class C(B):
     pass
 
-class BaseTestRclass:
+class BaseTestRclass(BaseRtypingTest):
 
     def test_instanceattr(self):
         def dummyfn():
@@ -37,16 +37,16 @@ class BaseTestRclass:
             x.a = 5
             x.a += 1
             return x.a
-        res = interpret(dummyfn, [], type_system=self.ts)
+        res = self.interpret(dummyfn, [])
         assert res == 6
 
     def test_simple(self):
         def dummyfn():
             x = EmptyBase()
             return x
-        res = interpret(dummyfn, [], type_system=self.ts)
+        res = self.interpret(dummyfn, [])
         T = typeOf(res)
-        if self.ts == "lltype":
+        if self.type_system == "lltype":
             assert isinstance(T, Ptr) and isinstance(T.TO, GcStruct)
         else:
             assert isinstance(T, ootype.Instance)
@@ -56,7 +56,7 @@ class BaseTestRclass:
         def dummyfn():
             x = Random()
             return x.xyzzy
-        res = interpret(dummyfn, [], type_system=self.ts)
+        res = self.interpret(dummyfn, [])
         assert res == 12
 
     def test_classattr_both(self):
@@ -74,9 +74,9 @@ class BaseTestRclass:
             C = pick(i)
             i = C()
             return C.a + i.a
-        res = interpret(dummyfn, [0], type_system=self.ts)
+        res = self.interpret(dummyfn, [0])
         assert res == 2
-        res = interpret(dummyfn, [1], type_system=self.ts)
+        res = self.interpret(dummyfn, [1])
         assert res == 4
 
     def test_classattr_both2(self):
@@ -96,9 +96,9 @@ class BaseTestRclass:
             C = pick(i)
             i = C()
             return C.a + i.a
-        res = interpret(dummyfn, [0], type_system=self.ts)
+        res = self.interpret(dummyfn, [0])
         assert res == 2
-        res = interpret(dummyfn, [1], type_system=self.ts)
+        res = self.interpret(dummyfn, [1])
         assert res == 4
 
     def test_runtime_exception(self):
@@ -110,15 +110,15 @@ class BaseTestRclass:
         def f(flag):
             ex = pick(flag)
             raise ex()
-        interpret_raises(TypeError, f, [True], type_system=self.ts)
-        interpret_raises(ValueError, f, [False], type_system=self.ts)
+        self.interpret_raises(TypeError, f, [True])
+        self.interpret_raises(ValueError, f, [False])
 
     def test_classattr_as_defaults(self):
         def dummyfn():
             x = Random()
             x.xyzzy += 1
             return x.xyzzy
-        res = interpret(dummyfn, [], type_system=self.ts)
+        res = self.interpret(dummyfn, [])
         assert res == 13
 
     def test_prebuilt_instance(self):
@@ -127,7 +127,7 @@ class BaseTestRclass:
         def dummyfn():
             a.x += 1
             return a.x
-        interpret(dummyfn, [], type_system=self.ts)
+        self.interpret(dummyfn, [])
 
     def test_recursive_prebuilt_instance(self):
         a = EmptyBase()
@@ -138,7 +138,7 @@ class BaseTestRclass:
         b.peer = a
         def dummyfn():
             return a.peer.peer.peer.x
-        res = interpret(dummyfn, [], type_system=self.ts)
+        res = self.interpret(dummyfn, [])
         assert res == 6
 
     def test_prebuilt_instances_with_void(self):
@@ -148,7 +148,7 @@ class BaseTestRclass:
         a.nothing_special = marker
         def dummyfn():
             return a.nothing_special()
-        res = interpret(dummyfn, [], type_system=self.ts)
+        res = self.interpret(dummyfn, [])
         assert res == 42
 
     def test_simple_method_call(self):
@@ -158,9 +158,9 @@ class BaseTestRclass:
             else:
                 a = B()
             return a.f()
-        res = interpret(f, [True], type_system=self.ts)
+        res = self.interpret(f, [True])
         assert res == 42
-        res = interpret(f, [False], type_system=self.ts)
+        res = self.interpret(f, [False])
         assert res == 1
 
     def test_isinstance(self):
@@ -175,14 +175,14 @@ class BaseTestRclass:
                 o = C()
             return 100*isinstance(o, A)+10*isinstance(o, B)+1*isinstance(o ,C)
 
-        res = interpret(f, [1], type_system=self.ts)
+        res = self.interpret(f, [1])
         assert res == 100
-        res = interpret(f, [2], type_system=self.ts)
+        res = self.interpret(f, [2])
         assert res == 110
-        res = interpret(f, [3], type_system=self.ts)
+        res = self.interpret(f, [3])
         assert res == 111
 
-        res = interpret(f, [0], type_system=self.ts)
+        res = self.interpret(f, [0])
         assert res == 0
 
     def test_method_used_in_subclasses_only(self):
@@ -194,7 +194,7 @@ class BaseTestRclass:
         def f():
             x = B()
             return x.meth()
-        res = interpret(f, [], type_system=self.ts)
+        res = self.interpret(f, [])
         assert res == 123
 
     def test_method_both_A_and_B(self):
@@ -207,7 +207,7 @@ class BaseTestRclass:
             a = A()
             b = B()
             return a.meth() + b.meth()
-        res = interpret(f, [], type_system=self.ts)
+        res = self.interpret(f, [])
         assert res == 246
 
     def test_issubclass_type(self):
@@ -223,8 +223,8 @@ class BaseTestRclass:
             else: 
                 c1 = B()
             return issubclass(type(c1), B)
-        assert interpret(f, [0], type_system=self.ts) == False 
-        assert interpret(f, [1], type_system=self.ts) == True
+        assert self.interpret(f, [0]) == False 
+        assert self.interpret(f, [1]) == True
 
         def g(i):
             if i == 0: 
@@ -232,8 +232,8 @@ class BaseTestRclass:
             else: 
                 c1 = B()
             return issubclass(type(c1), A)
-        assert interpret(g, [0], type_system=self.ts) == True
-        assert interpret(g, [1], type_system=self.ts) == True
+        assert self.interpret(g, [0]) == True
+        assert self.interpret(g, [1]) == True
 
     def test_staticmethod(self):
         class A(object):
@@ -241,7 +241,7 @@ class BaseTestRclass:
         def f():
             a = A()
             return a.f(6, 7)
-        res = interpret(f, [], type_system=self.ts)
+        res = self.interpret(f, [])
         assert res == 42
 
     def test_is(self):
@@ -264,13 +264,13 @@ class BaseTestRclass:
                     0x0008*(a is e) | 0x0010*(b is c) | 0x0020*(b is d) |
                     0x0040*(b is e) | 0x0080*(c is d) | 0x0100*(c is e) |
                     0x0200*(d is e))
-        res = interpret(f, [0], type_system=self.ts)
+        res = self.interpret(f, [0])
         assert res == 0x0004
-        res = interpret(f, [1], type_system=self.ts)
+        res = self.interpret(f, [1])
         assert res == 0x0020
-        res = interpret(f, [2], type_system=self.ts)
+        res = self.interpret(f, [2])
         assert res == 0x0100
-        res = interpret(f, [3], type_system=self.ts)
+        res = self.interpret(f, [3])
         assert res == 0x0200
 
     def test_eq(self):
@@ -293,13 +293,13 @@ class BaseTestRclass:
                     0x0008*(a == e) | 0x0010*(b == c) | 0x0020*(b == d) |
                     0x0040*(b == e) | 0x0080*(c == d) | 0x0100*(c == e) |
                     0x0200*(d == e))
-        res = interpret(f, [0], type_system=self.ts)
+        res = self.interpret(f, [0])
         assert res == 0x0004
-        res = interpret(f, [1], type_system=self.ts)
+        res = self.interpret(f, [1])
         assert res == 0x0020
-        res = interpret(f, [2], type_system=self.ts)
+        res = self.interpret(f, [2])
         assert res == 0x0100
-        res = interpret(f, [3])
+        res = self.interpret(f, [3])
         assert res == 0x0200
 
     def test_istrue(self):
@@ -314,9 +314,9 @@ class BaseTestRclass:
                 return 1
             else:
                 return 2
-        res = interpret(f, [0], type_system=self.ts)
+        res = self.interpret(f, [0])
         assert res == 1
-        res = interpret(f, [1], type_system=self.ts)
+        res = self.interpret(f, [1])
         assert res == 2
 
     def test_ne(self):
@@ -339,13 +339,13 @@ class BaseTestRclass:
                     0x0008*(a != e) | 0x0010*(b != c) | 0x0020*(b != d) |
                     0x0040*(b != e) | 0x0080*(c != d) | 0x0100*(c != e) |
                     0x0200*(d != e))
-        res = interpret(f, [0], type_system=self.ts)
+        res = self.interpret(f, [0])
         assert res == ~0x0004 & 0x3ff
-        res = interpret(f, [1], type_system=self.ts)
+        res = self.interpret(f, [1])
         assert res == ~0x0020 & 0x3ff
-        res = interpret(f, [2], type_system=self.ts)
+        res = self.interpret(f, [2])
         assert res == ~0x0100 & 0x3ff
-        res = interpret(f, [3], type_system=self.ts)
+        res = self.interpret(f, [3])
         assert res == ~0x0200 & 0x3ff
 
     def test_hash_preservation(self):
@@ -361,7 +361,7 @@ class BaseTestRclass:
             x = (hash(d2) & sys.maxint) == (id(d2) & sys.maxint)
             return x, hash(c)+hash(d)
 
-        res = interpret(f, [], type_system=self.ts)
+        res = self.interpret(f, [])
 
         assert res.item0 == True
         assert res.item1 == intmask(hash(c)+hash(d))
@@ -381,11 +381,11 @@ class BaseTestRclass:
             else:
                 a = None
             return g(a) is A    # should type(None) work?  returns None for now
-        res = interpret(f, [1], type_system=self.ts)
+        res = self.interpret(f, [1])
         assert res is True
-        res = interpret(f, [-1], type_system=self.ts)
+        res = self.interpret(f, [-1])
         assert res is False
-        res = interpret(f, [0], type_system=self.ts)
+        res = self.interpret(f, [0])
         assert res is False
 
     def test_void_fnptr(self):
@@ -395,7 +395,7 @@ class BaseTestRclass:
             e = EmptyBase()
             e.attr = g
             return e.attr()
-        res = interpret(f, [], type_system=self.ts)
+        res = self.interpret(f, [])
         assert res == 42
 
     def test_getattr_on_classes(self):
@@ -418,9 +418,9 @@ class BaseTestRclass:
             x = C()
             x.value = 12
             return meth(x)   # calls A.meth or C.meth, completely ignores B.meth
-        res = interpret(f, [1], type_system=self.ts)
+        res = self.interpret(f, [1])
         assert res == 54
-        res = interpret(f, [0], type_system=self.ts)
+        res = self.interpret(f, [0])
         assert res == 11
 
     def test_constant_bound_method(self):
@@ -431,7 +431,7 @@ class BaseTestRclass:
         meth = C().meth
         def f():
             return meth()
-        res = interpret(f, [], type_system=self.ts)
+        res = self.interpret(f, [])
         assert res == 1
 
     def test_mixin(self):
@@ -462,7 +462,7 @@ class BaseTestRclass:
             v2 = c.m('y')
             return v0, v1, v2
 
-        res = interpret(f, [], type_system=self.ts)
+        res = self.interpret(f, [])
         assert typeOf(res.item0) == Signed
 
     def test___class___attribute(self):
@@ -485,14 +485,12 @@ class BaseTestRclass:
             cls1, cls2 = f(1)
             return cls1 is A, cls2 is B
 
-        res = interpret(g, [], type_system=self.ts)
+        res = self.interpret(g, [])
         assert res.item0
         assert res.item1
 
 
-class TestLltype(BaseTestRclass):
-
-    ts = "lltype"
+class TestLltype(BaseTestRclass, LLRtypeMixin):
 
     def test__del__(self):
         class A(object):
@@ -558,9 +556,7 @@ class TestLltype(BaseTestRclass):
         assert destrptra is not None
         assert destrptrb is not None
 
-class TestOotype(BaseTestRclass):
-
-    ts = "ootype"
+class TestOOtype(BaseTestRclass, OORtypeMixin):
 
     def test__del__(self):
         class A(object):
@@ -573,7 +569,7 @@ class TestOotype(BaseTestRclass):
             return a.a
         t = TranslationContext()
         t.buildannotator().build_types(f, [])
-        t.buildrtyper(type_system=self.ts).specialize()
+        t.buildrtyper(type_system=self.type_system).specialize()
         graph = graphof(t, f)
         TYPE = graph.startblock.operations[0].args[0].value
         _, meth = TYPE._lookup("o__del___variant0")
@@ -605,7 +601,7 @@ class TestOotype(BaseTestRclass):
         assert res == 42
         t = TranslationContext()
         t.buildannotator().build_types(f, [])
-        t.buildrtyper(type_system=self.ts).specialize()
+        t.buildrtyper(type_system=self.type_system).specialize()
         graph = graphof(t, f)
         TYPEA = graph.startblock.operations[0].args[0].value
         TYPEB = graph.startblock.operations[2].args[0].value
