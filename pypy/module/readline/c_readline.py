@@ -1,5 +1,6 @@
 from pypy.module.readline import Module 
-import ctypes
+from ctypes import *
+from pypy.rpython.rctypes.tool.ctypes_platform import Library
 
 #------------------------------------------------------------
 # configuration for binding to external readline library 
@@ -7,18 +8,19 @@ import ctypes
 #
 class CConfig:
     _header_ = """#include <readline/readline.h>"""
-    _libraries_ = ('readline',)
+    readline = Library('readline')
 
+    
+    
 cconfig = Module.cconfig(CConfig)
 
-libreadline = cconfig.ctypes_lib['readline']
+libreadline = cconfig.readline
 
-c_readline = libreadline.readline
-c_readline.restype = ctypes.c_char_p
-
-c_rl_initialize = libreadline.rl_initiliaze 
-c_rl_initialize.argtypes = []
-#c_rl_initialize.restype = void 
+# get a binding to  c library functions and define their args and return types
+# char *readline(char *)
+c_readline = libreadline.get_func('readline', [c_char_p], c_char_p)
+# void rl_initiliaze(void)
+c_rl_initialize = libreadline.get_func('rl_initiliaze', [], None)
 
 #------------------------------------------------------------
 # special initialization of readline 
