@@ -9,7 +9,8 @@ from pypy.translator.oosupport.metavm import _GetFieldDispatcher, _SetFieldDispa
     _CallDispatcher, _MethodDispatcher
 
 from pypy.translator.js2.metavm import SameAs, IsInstance, Call, CallMethod, CopyName, CastString,\
-    _Prefix, _CastFun, _NotImplemented, CallBuiltin, CallBuiltinObject, GetBuiltinField, SetBuiltinField
+    _Prefix, _CastFun, _NotImplemented, CallBuiltin, CallBuiltinObject, GetBuiltinField, SetBuiltinField,\
+    IndirectCall
 
 from pypy.translator.js2.jsbuiltin import Builtins
 
@@ -104,7 +105,7 @@ opcodes = {'int_mul': '*',
     'float_is_true': [PushAllArgs,_Prefix('!!')],
     
     'direct_call' : [_CallDispatcher(Builtins, class_map)],
-    'indirect_call' : [_NotImplemented("Indirect call not implemented")],
+    'indirect_call' : [IndirectCall],
     'same_as' : SameAs,
     'new' : [New],
     'instanceof' : [IsInstance],

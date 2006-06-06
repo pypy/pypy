@@ -148,6 +148,13 @@ class _IsInstance(MicroInstruction):
         generator.ilasm.load_const(op.args[1].value._name.replace('.', '_'))#[-1])
         generator.cast_function("isinstanceof", 2)
 
+class _IndirectCall(MicroInstruction):
+    def render(self, generator, op):
+        for func_arg in op.args[1:]: # push parameters
+            generator.load(func_arg)
+        generator.call_external(op.args[0].name, op.args[1:])
+
+IndirectCall = _IndirectCall()
 IsInstance = _IsInstance()
 CallMethod = _CallMethod()
 CopyName = [PushAllArgs, _SameAs ()]

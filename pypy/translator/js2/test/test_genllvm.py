@@ -7,7 +7,7 @@ from pypy.rpython.rarithmetic import r_uint
 from pypy.translator.js2.test.runtest import compile_function
 
 def test_simple_function_pointer(): 
-    py.test.skip("ootypesystem problems with lists")
+    #py.test.skip("ootypesystem problems with lists")
     def f1(x):
         return x + 1
     def f2(x):
@@ -29,7 +29,7 @@ def test_return1():
     assert f() == 1
 
 def test_invoke_function_pointer(): 
-    py.test.skip("ootypesystem problems with lists")
+    #py.test.skip("ootypesystem problems with lists")
     def f1(x): 
         return x + 1
     def f2(x): 
