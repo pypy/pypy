@@ -173,45 +173,81 @@ class BaseTestObjectModel(BaseRtypingTest):
         res = self.interpret(fn, [2])
         assert res == 2
 
-def test_rtype_r_dict_exceptions():
-    def raising_hash(obj):
-        if obj.startswith("bla"):
-            raise TypeError
-        return 1
-    def eq(obj1, obj2):
-        return obj1 is obj2
-    def f():
-        d1 = r_dict(eq, raising_hash)
-        d1['xxx'] = 1
-        try:
-            x = d1["blabla"]
-        except Exception:
-            return 42
-        return x
-    res = interpret(f, [])
-    assert res == 42
+    def test_rtype_r_dict_exceptions(self):
+        self._skip_oo('r_dict exception handling')
+        def raising_hash(obj):
+            if obj.startswith("bla"):
+                raise TypeError
+            return 1
+        def eq(obj1, obj2):
+            return obj1 is obj2
+        def f():
+            d1 = r_dict(eq, raising_hash)
+            d1['xxx'] = 1
+            try:
+                x = d1["blabla"]
+            except Exception:
+                return 42
+            return x
+        res = self.interpret(f, [])
+        assert res == 42
 
-    def f():
-        d1 = r_dict(eq, raising_hash)
-        d1['xxx'] = 1
-        try:
-            x = d1["blabla"]
-        except TypeError:
-            return 42
-        return x
-    res = interpret(f, [])
-    assert res == 42
+        def f():
+            d1 = r_dict(eq, raising_hash)
+            d1['xxx'] = 1
+            try:
+                x = d1["blabla"]
+            except TypeError:
+                return 42
+            return x
+        res = self.interpret(f, [])
+        assert res == 42
 
-    def f():
-        d1 = r_dict(eq, raising_hash)
-        d1['xxx'] = 1
-        try:
-            d1["blabla"] = 2
-        except TypeError:
-            return 42
-        return 0
-    res = interpret(f, [])
-    assert res == 42
+        def f():
+            d1 = r_dict(eq, raising_hash)
+            d1['xxx'] = 1
+            try:
+                d1["blabla"] = 2
+            except TypeError:
+                return 42
+            return 0
+        res = self.interpret(f, [])
+        assert res == 42
+
+    def test_access_in_try(self):
+        h = lambda x: 1
+        eq = lambda x,y: x==y
+        def f(d):
+            try:
+                return d[2]
+            except ZeroDivisionError:
+                return 42
+            return -1
+        def g(n):
+            d = r_dict(eq, h)
+            d[1] = n
+            d[2] = 2*n
+            return f(d)
+        res = self.interpret(g, [3])
+        assert res == 6
+
+    def test_access_in_try_set(self):
+        self._skip_oo('r_dict exception handling')
+        h = lambda x: 1
+        eq = lambda x,y: x==y
+        def f(d):
+            try:
+                d[2] = 77
+            except ZeroDivisionError:
+                return 42
+            return -1
+        def g(n):
+            d = r_dict(eq, h)
+            d[1] = n
+            f(d)
+            return d[2]
+        res = self.interpret(g, [3])
+        assert res == 77
 
 
 def test_rtype_keepalive():
@@ -232,41 +268,6 @@ def test_hint():
         return x
     res = interpret(f, [])
     assert res == 5
-
-
-def test_access_in_try():
-    h = lambda x: 1
-    eq = lambda x,y: x==y
-    def f(d):
-        try:
-            return d[2]
-        except ZeroDivisionError:
-            return 42
-        return -1
-    def g(n):
-        d = r_dict(eq, h)
-        d[1] = n
-        d[2] = 2*n
-        return f(d)
-    res = interpret(g, [3])
-    assert res == 6
-
-def test_access_in_try_set():
-    h = lambda x: 1
-    eq = lambda x,y: x==y
-    def f(d):
-        try:
-            d[2] = 77
-        except ZeroDivisionError:
-            return 42
-        return -1
-    def g(n):
-        d = r_dict(eq, h)
-        d[1] = n
-        f(d)
-        return d[2]
-    res = interpret(g, [3])
-    assert res == 77
 
 def test_unboxed_value():
     class Base(object):

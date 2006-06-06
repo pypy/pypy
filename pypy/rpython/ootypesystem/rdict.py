@@ -209,12 +209,12 @@ class __extend__(pairtype(DictRepr, rmodel.Repr)):
 
     def rtype_setitem((r_dict, r_key), hop):
         v_dict, v_key, v_value = hop.inputargs(r_dict, r_dict.key_repr, r_dict.value_repr)
-##        if r_dict.custom_eq_hash:
-##            hop.exception_is_here()
+        if r_dict.custom_eq_hash:
+            hop.exception_is_here()
 ##        else:
 ##            hop.exception_cannot_occur()
 ##        hop.exception_is_here()
-        return r_dict.send_message(hop, 'll_set', can_raise=True)
+        return r_dict.send_message(hop, 'll_set', can_raise=r_dict.custom_eq_hash)
 
     def rtype_contains((r_dict, r_key), hop):
         v_dict, v_key = hop.inputargs(r_dict, r_dict.key_repr)
