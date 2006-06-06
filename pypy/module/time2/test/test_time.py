@@ -1,8 +1,9 @@
-from pypy.objspace.std import StdObjSpace 
+from pypy.objspace.std import Space 
+#from pypy.objspace.cpy import Space  # XXX should work! 
 import time
 
 def setup_module(mod): 
-    mod.space = StdObjSpace(usemodules=['time2'])
+    mod.space = Space(usemodules=['time2'])
 
 class TestTime: 
     def test_clock(self):
