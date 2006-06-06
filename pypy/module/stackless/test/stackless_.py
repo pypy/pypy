@@ -4,7 +4,26 @@ The essential objects are tasklets and channels.
 Please refer to their documentation.
 """
 
+import sys
+
+#DEBUG = True
 DEBUG = True
+
+switches = 0
+
+def ASSERT_Q(task):
+    try:
+        if task is not None:
+            assert isinstance(task,(tasklet,TaskletProxy))
+            if task.next is not None:
+                assert isinstance(task.next,(tasklet, TaskletProxy, Scheduler))
+            if task.prev is not None:
+                assert isinstance(task.prev,(tasklet, TaskletProxy, Scheduler))
+    except AssertionError:
+        if DEBUG:
+            print 'task to insert as _head is wrong'
+            print task
+        raise
 
 try:
     from stackless import coroutine
@@ -43,7 +62,7 @@ class TaskletProxy(object):
     def __init__(self, coro):
         self.alive = False
         self.atomic = False
-        self.blocked = False
+        self.blocked = 0
         self.frame = None
         self.ignore_nesting = False
         self.is_current = False
@@ -164,12 +183,19 @@ def set_channel_callback(callable):
     sending and willblock are booleans.
     Pass None to switch monitoring off again.
     """
-    pass
+    global channel_hook
+
+    channel_hook = callable
+
+def _schedule_callback(prev, next):
+    # lot's of error checking missing
+    global _schedule_hook
+    return _schedule_hook(prev, next)
 
 note = """
 should be implemented for debugging purposes. Low priority
 """
-def set_schedule_callback(callable):
+def set_schedule_callback(func):
     """
     set_schedule_callback(callable) -- install a callback for scheduling.
     Every explicit or implicit schedule will call the callback function
@@ -181,7 +207,17 @@ def set_schedule_callback(callable):
     When main starts up or after death, prev is None.
     Pass None to switch monitoring off again.
     """
-    pass
+    global _schedule_fasthook
+    global _schedule_hook
+    global _schedule_callback
+
+    if func is not None and not callable(func):
+        raise TypeError("schedule callback nust be callable")
+    _schedule_hook = func
+    if func is None:
+        _schedule_fasthook = None
+    else:
+        _schedule_fasthook = _schedule_callback
 
 # class tasklet: see below
 
@@ -193,16 +229,17 @@ scheduler = None
 channel_hook = None
 schedlock = False
 _schedule_fasthook = None
+_schedule_hook = None
 
 def __init():
     global main_tasklet
     global main_coroutine
     global scheduler 
-    scheduler = Scheduler()
     main_coroutine = c = coroutine.getcurrent()
     main_tasklet = TaskletProxy(c)
     main_tasklet.next = main_tasklet.prev = main_tasklet
     main_tasklet.is_main = True
+    scheduler = Scheduler()
 
 note = """
 It is not needed to implement the watchdog feature right now.
@@ -210,7 +247,7 @@ But run should be supported in the way the docstring says.
 The runner is always main, which must be removed while
 running all the tasklets. The implementation below is wrong.
 """
-def run():
+def run(timeout=0):
     """
     run_watchdog(timeout) -- run tasklets until they are all
     done, or timeout instructions have passed. Tasklets must
@@ -221,7 +258,19 @@ def run():
     tasklet that caused a timeout, if any.
     If an exception occours, it will be passed to the main tasklet.
     """
-    schedule()
+    me = scheduler.current_remove()
+    if me is not main_tasklet:
+        raise RuntimeError("run() must be run from the main thread's \
+                             main tasklet")
+    try:
+        scheduler.schedule_task(me, scheduler._head, 1)
+    except Exception, exp:
+        b = curexc_to_bomb()
+        main = main_tasklet
+        main.tempval = b
+        scheduler.current_insert_after(main)
+        scheduler.schedule_task(me, main, 1)
+
 
 def getcurrent():
     """
@@ -244,7 +293,7 @@ def schedule(retval=None):
     tasklet as default.
     schedule_remove(retval=stackless.current) -- ditto, and remove self.
     """
-    prev = getcurrent()
+    prev = scheduler._head
     next = prev.next
     return scheduler.schedule_task(prev, next, 0)
 """
@@ -305,7 +354,7 @@ class tasklet(coroutine):
     New tasklets can be created with methods from the stackless
     module.
     """
-    __slots__ = ['alive','atomic','blocked','frame',
+    __slots__ = ['alive','atomic','blocked','block_trap','frame',
                  'ignore_nesting','is_current','is_main',
                  'nesting_level','next','paused','prev','recursion_depth',
                  'restorable','scheduled','tempval','thread_id']
@@ -328,7 +377,8 @@ class tasklet(coroutine):
         super(tasklet,self).__init__()
         self.alive = False
         self.atomic = False
-        self.blocked = False
+        self.blocked = 0
+        self.block_trap = False
         self.frame = None
         self.ignore_nesting = False
         self.is_current = False
@@ -351,7 +401,9 @@ class tasklet(coroutine):
         return self
 
     def __str__(self):
-        return 'Tasklet-%s' % self.thread_id
+        next = (self.next and self.next.thread_id) or None
+        prev = (self.prev and self.prev.thread_id) or None
+        return 'Tasklet-%s(%s) n: %s; p: %s' % (self.thread_id, str(self.blocked), next, prev)
 
     def bind(self, func):
         """
@@ -469,7 +521,6 @@ class tasklet(coroutine):
         coroutine.bind(self,self.tempval,*argl,**argd)
         self.tempval = None
         self.insert()
-
 """
 /***************************************************************************
 
@@ -496,6 +547,9 @@ class tasklet(coroutine):
 """
 
 
+def channel_callback(chan, task, sending, willblock):
+    return channel_hook(chan, task, sending, willblock)
+
 class channel(object):
     """
    A channel object is used for communication between tasklets.
@@ -512,10 +566,12 @@ class channel(object):
         self.balance = 0
         self.closing = False
         self.preference = 0
-        self.head = self.tail = None
+        self.next = self.prev = self
+        self.schedule_all = False
+        self.thread_id = -2
 
     def __str__(self):
-        return 'channel(' + str(self.balance) + ' : ' + str(self.queue) + ')'
+        return 'channel(' + str(self.balance) + ')'
     
     def _get_closed(self):
         return self.closing and self.next is None
@@ -525,16 +581,16 @@ class channel(object):
     def _channel_insert(self, task, d):
         self._ins(task)
         self.balance += d
-        task.blocked = dir
+        task.blocked = d
 
     def _queue(self):
-        if self.head is self:
+        if self.next is self:
             return None
         else:
-            return self.head
+            return self.next
 
     def _channel_remove(self, d):
-        ret = self.head
+        ret = self.next
         assert isinstance(ret,tasklet)
         self.balance -= d
         self._rem(ret)
@@ -542,19 +598,22 @@ class channel(object):
 
         return ret
 
-    def channel_remove_specific(self, dir, task):
+    def channel_remove_specific(self, d, task):
         # note: we assume that the task is in the channel
-        self.balance -= dir
+        self.balance -= d
         self._rem(task)
-        task.blocked = False
+        task.blocked = 0
+
         return task
 
     def _ins(self, task):
-        assert task.next is None
-        assert task.prev is None
+        if DEBUG:
+            print '### channel._ins(%s)' % task
+        if (task.next is not None) or (task.prev is not None):
+            raise AssertionError('task.next and task.prev must be None')
         # insert at end
-        task.prev = self.head.prev
-        task.next = self.head
+        task.prev = self.prev
+        task.next = self
         self.prev.next = task
         self.prev = task
 
@@ -565,58 +624,83 @@ class channel(object):
         task.next.prev = task.prev
         task.prev.next = task.next
         task.next = task.prev = None
+        if DEBUG:
+            print '### channel._rem(%s)' % task
 
-    def _notify(self, task, dir, cando, res):
+    def _notify(self, task, d, cando, res):
         global schedlock
+        global channel_hook
         if channel_hook is not None:
             if schedlock:
                 raise RuntimeError('Recursive channel call due to callbacks!')
             schedlock = 1
-            channel_callback(self, task, dir > 0, not cando)
+            channel_callback(self, task, d > 0, not cando)
             schedlock = 0
 
-    def _channel_action(self, arg, dir, stackl):
-        source = getcurrent()
-        target = self.head
-        interthread = 0 # no interthreading at the moment
-        if dir > 0:
-            cando = self.balance < 0
-        else:
-            cando = self.balance > 0
-
-        assert abs(dir) == 1
-
-        source.tempval = arg
-        if not interthread:
-            self._notify(source, dir, cando, None)
-        if cando:
-            # communication 1): there is somebody waiting
-            target = self._channel_remove(-dir)
-            source.tempval, target.tempval = target.tempval, source.tempval
-            if interthread:
-                raise Exception('no interthreading: I can not be reached...')
+    def _channel_action(self, arg, d, stackl):
+        try:
+            #source = getcurrent()
+            source = scheduler._head
+            if DEBUG:
+                print '_channel_action -> source:', source
+            target = self.next
+            if DEBUG:
+                print '_channel_action -> target:', target
+                print
+            interthread = 0 # no interthreading at the moment
+            if d > 0:
+                cando = self.balance < 0
             else:
-                if self.schedule_all:
-                    scheduler.current_insert(target)
-                    target = source.next
-                elif self.preference == -dir:
-                    scheduler.current = source.next
-                    scheduler.current_insert(target)
-                    scheduler.current = source
+                cando = self.balance > 0
+
+            assert abs(d) == 1
+
+            source.tempval = arg
+            if not interthread:
+                self._notify(source, d, cando, None)
+            if DEBUG:
+                print '_channel_action(',arg, ',', d, ')'
+                print 'cando:',cando
+                print
+            if cando:
+                # communication 1): there is somebody waiting
+                target = self._channel_remove(-d)
+                source.tempval, target.tempval = target.tempval, source.tempval
+                if interthread:
+                    raise Exception('no interthreading: I can not be reached...')
                 else:
-                    scheduler.current_insert(target)
-                    target = source
-        else:
-            if source.block_trap:
-                raise RuntimeError("this tasklet does not like to be blocked")
-            if self.closing:
-                raise StopIteration()
-            scheduler.current_remove()
-            self._channel_insert(source, dir)
-            target = getcurrent()
-        retval = scheduler.schedule_task(source, target, stackl)
+                    if self.schedule_all:
+                        scheduler.current_insert(target)
+                        target = source.next
+                    elif self.preference == -d:
+                        scheduler._head = source.next
+                        scheduler.current_insert(target)
+                        scheduler._head = source
+                    else:
+                        scheduler.current_insert(target)
+                        target = source
+            else:
+                if source.block_trap:
+                    raise RuntimeError("this tasklet does not like to be blocked")
+                if self.closing:
+                    raise StopIteration()
+                scheduler.current_remove()
+                self._channel_insert(source, d)
+                target = scheduler._head
+        except Exception, exp:
+            if DEBUG:
+                print 'Exception in channel_action', exp, '\n\n'
+            raise
+        try:
+            print '# channel action: calling schedule with', source, target
+            retval = scheduler.schedule_task(source, target, stackl)
+        except Exception, exp:
+            print 'schedule_task raised', exp
+            print sys.exc_info()
+            print retval
+            raise
         if interthread:
-            self._notify(source, dir, cando, None)
+            self._notify(source, d, cando, None)
         return retval
 
     ## note: needed
@@ -730,8 +814,12 @@ class channel(object):
 class Scheduler(object):
 
     def __init__(self):
-        self.chain = None
-        self.current = None
+        self._head = getcurrent()
+        #self.chain = None
+        #self.current = getcurrent()
+
+    def _set_head(self, task):
+        self._head = task
 
     def reset(self):
         self.__init__()
@@ -742,8 +830,8 @@ class Scheduler(object):
     def _content(self):
         visited = set()
         items = []
-        if self.chain:
-            next = self.chain
+        next = self._head
+        if next is not self:
             while next is not None and next not in visited:
                 items.append(next)
                 visited.add(next)
@@ -752,7 +840,10 @@ class Scheduler(object):
 
     def __str__(self):
         parts = ['%s' % x.thread_id for x in self._content()]
-        currid = (self.current and self.current.thread_id) or -1
+        if self._head is not self:
+            currid = self._head.thread_id
+        else:
+            currid = -1
         return '===== Scheduler ====\nchain:' + \
                 ' -> '.join(parts) + '\ncurrent: %s' % currid + \
                 '\n===================='
@@ -760,47 +851,45 @@ class Scheduler(object):
     def _chain_insert(self, task):
         assert task.next is None
         assert task.prev is None
-        if self.chain is None:
+        if self._head is None:
             task.next = task.prev = task
-            self.chain = task
+            self._set_head(task)
         else:
-            r = self.chain
+            r = self._head
             l = r.prev
             l.next = r.prev = task
             task.prev = l
             task.next = r
 
     def _chain_remove(self):
-        if self.chain is None: 
+        if self._head is None: 
             return None
-        task = self.chain
+        task = self._head
         l = task.prev
         r = task.next
         l.next = r 
         r.prev = l
-        self.chain = r
+        self._set_head(r)
         if r == task:
-            self.chain = None
+            self._set_head(None)
         task.prev = task.next = None
 
         return task
 
 
     def current_insert(self, task):
-        self.chain = self.current or getcurrent()
         self._chain_insert(task)
-        self.current = None
 
     def current_insert_after(self, task):
-        curr = self.current or getcurrent()
-        self.chain = curr.next
-        self._chain_insert(task)
-        self.chain = curr
-        self.current = None
+        if self._head is not None:
+            curr = self._head
+            self._set_head(curr.next)
+            self._chain_insert(task)
+            self._set_head(curr)
+        else:
+            self.current_insert(task)
 
     def current_remove(self):
-        self.chain = self.current or getcurrent()
-        self.current = None
         return self._chain_remove()
 
     def channel_remove_slow(self, task):
@@ -810,16 +899,16 @@ class Scheduler(object):
         chan = prev
         assert chan.balance
         if chan.balance > 0:
-            dir = 1
+            d = 1
         else:
-            dir = -1
-        return chan.channel_remove_specific(dir, task)
+            d = -1
+        return chan.channel_remove_specific(d, task)
 
     def bomb_explode(self, task):
         thisbomb = task.tempval
         assert isinstance(thisbomb, bomb)
         task.tempval = None
-        bomb._explode()
+        thisbomb._explode()
         
     def _notify_schedule(self, prev, next, errflag):
         if _schedule_fasthook is not None:
@@ -845,30 +934,55 @@ class Scheduler(object):
             return self.schedule_task(prev, prev, stackl)
 
     def schedule_task(self, prev, next, stackl):
-        if next is None:
-            return self.schedule_task_block(prev, stackl)
-        if next.blocked:
-            self.channel_remove_slow(next)
-            self.current_insert(next)
-        elif next.next is None:
-            self.current_insert(next)
-        if prev is next:
-            retval = prev.tempval
-            if isinstance(retval, bomb):
-                self.bomb_explode(retval)
-                retval._explode()
-            return retval
-        self._notify_schedule(prev, next, None)
+        try:
+            global switches
+            switches += 1
+            myswitch = switches
+            print '\nschedule_task(%s)' % myswitch, prev, next
+            if next is None:
+                return self.schedule_task_block(prev, stackl)
+            if next.blocked:
+                self.channel_remove_slow(next)
+                self.current_insert(next)
+            elif next.next is None:
+                self.current_insert(next)
+            if prev is next:
+                retval = prev.tempval
+                if isinstance(retval, bomb):
+                    self.bomb_explode(prev)
+                return retval
+            self._notify_schedule(prev, next, None)
+        except Exception, exp:
+            print '### Exception BEFORE switch', exp
+            raise
 
         # lots of soft-/ hard switching stuff in C source
 
         next.switch()
 
-        retval = next.tempval
-        if isinstance(retval, bomb):
-            self.bomb_explode(next)
+        try:
+            if DEBUG:
+                print 'after switch(%s) ->' % myswitch ,next
+                print
+            #self._set_head(next)
+            self._head = next
 
-        return retval
+            retval = next.tempval
+            if isinstance(retval, bomb):
+                print '!!!!! exploding !!!!!!'
+                self.bomb_explode(next)
+
+            return retval
+        except Exception, exp:
+            print '### Exception AFTER switch', exp
+            raise
+
+    def schedule_callback(self, prev, next):
+        ret = _schedule_hook(prev, next)
+        if ret:
+            return 0
+        else:
+            return -1
 
 
 
