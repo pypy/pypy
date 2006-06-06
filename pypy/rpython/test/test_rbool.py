@@ -2,8 +2,7 @@ from pypy.translator.translator import TranslationContext
 from pypy.rpython.lltypesystem.lltype import pyobjectptr
 from pypy.annotation import model as annmodel
 from pypy.rpython.test import snippet
-from pypy.rpython.test.test_llinterp import interpret
-
+from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 
 class TestSnippet(object):
     
@@ -35,14 +34,16 @@ class TestSnippet(object):
         for opname in annmodel.BINARY_OPERATIONS:
             print 'BINARY_OPERATIONS:', opname
 
+class BaseTestRbool(BaseRtypingTest):
+
     def test_bool2int(self):
         def f(n):
             if n:
                 n = 2
             return n
-        res = interpret(f, [False])
+        res = self.interpret(f, [False])
         assert res == 0 and res is not False   # forced to int by static typing
-        res = interpret(f, [True])
+        res = self.interpret(f, [True])
         assert res == 2
 
     def test_arithmetic_with_bool_inputs(self):
@@ -51,7 +52,7 @@ class TestSnippet(object):
             a -= (a != n) > False
             return a + (-(n<0))
         for i in [-1, 1, 2, 42]:
-            res = interpret(f, [i])
+            res = self.interpret(f, [i])
             assert res == f(i)
 
     def test_bool2str(self):
@@ -62,15 +63,22 @@ class TestSnippet(object):
                 return oct(n > 5)
             else:
                 return str(n > 5)
-        res = interpret(f, [2, 0])
-        assert ''.join(res.chars) in ('0', 'False')   # unspecified so far
-        res = interpret(f, [9, 0])
-        assert ''.join(res.chars) in ('1', 'True')    # unspecified so far
-        res = interpret(f, [2, 1])
-        assert ''.join(res.chars) == '0x0'
-        res = interpret(f, [9, 1])
-        assert ''.join(res.chars) == '0x1'
-        res = interpret(f, [2, 2])
-        assert ''.join(res.chars) == '0'
-        res = interpret(f, [9, 2])
-        assert ''.join(res.chars) == '01'
+        res = self.interpret(f, [2, 0])
+        assert self.ll_to_string(res) in ('0', 'False')   # unspecified so far
+        res = self.interpret(f, [9, 0])
+        assert self.ll_to_string(res) in ('1', 'True')    # unspecified so far
+        res = self.interpret(f, [2, 1])
+        assert self.ll_to_string(res) == '0x0'
+        res = self.interpret(f, [9, 1])
+        assert self.ll_to_string(res) == '0x1'
+        res = self.interpret(f, [2, 2])
+        assert self.ll_to_string(res) == '0'
+        res = self.interpret(f, [9, 2])
+        assert self.ll_to_string(res) == '01'
+
+
+class TestLLtype(BaseTestRbool, LLRtypeMixin):
+    pass
+
+class TestOOtype(BaseTestRbool, OORtypeMixin):
+    pass
