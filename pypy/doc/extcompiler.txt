@@ -35,7 +35,11 @@ XXX describe directory structure here
 testing a module 
 ++++++++++++++++++++++++
 
-::
+testing only the (ctypes) bindings::
+
+    python2.4 pypy/test_all.py pypy/module/readline/test/test_c_readline.py 
+
+testing the (wrapped) package::
     python2.4 pypy/test_all.py pypy/module/readline/test/test_readline.py 
 
 or::

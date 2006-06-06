@@ -2,7 +2,6 @@
 # ctypes-using module, suitable for feeding to the ext-compiler
 
 from pypy.interpreter.ctypesmodule import CTypesModule
-from pypy.module.readline import c_readline 
 
 # XXX raw_input needs to check for space.readline_func and use
 # it if its there 
@@ -12,6 +11,7 @@ class Module(CTypesModule):
     # the above line is the doc string of the translated module  
 
     def init(self, space):
+        from pypy.module.readline import c_readline 
         c_readline.setup_readline(space, self)
         space.readline_func = self.dict_w['readline']
 
