@@ -449,8 +449,7 @@ class BaseTestRlist(BaseRtypingTest):
         
         res = self.interpret(dummyfn, (6,))
         assert res == 1
-        interpret_raises(ValueError, dummyfn, [42])
-
+        self.interpret_raises(ValueError, dummyfn, [42])
 
     def test_insert_pop(self):
         def dummyfn():
