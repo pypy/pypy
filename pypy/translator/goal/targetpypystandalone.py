@@ -25,35 +25,42 @@ def debug(msg):
 
 # __________  Entry point  __________
 
-def entry_point(argv):
-    debug("entry point starting") 
-    for arg in argv: 
-        debug(" argv -> " + arg)
-    try:
+def create_entry_point(space, w_dict):
+    w_entry_point = space.getitem(w_dict, space.wrap('entry_point'))
+    w_run_toplevel = space.getitem(w_dict, space.wrap('run_toplevel'))
+    w_call_finish_gateway = space.wrap(gateway.interp2app(call_finish))
+    w_call_startup_gateway = space.wrap(gateway.interp2app(call_startup))
+
+    def entry_point(argv):
+        debug("entry point starting") 
+        for arg in argv: 
+            debug(" argv -> " + arg)
         try:
-            space.call_function(w_run_toplevel, w_call_startup)
-            w_executable = space.wrap(argv[0])
-            w_argv = space.newlist([space.wrap(s) for s in argv[1:]])
-            w_exitcode = space.call_function(w_entry_point, w_executable, w_argv)
-            exitcode = space.int_w(w_exitcode)
-            # try to pull it all in
-        ##    from pypy.interpreter import main, interactive, error
-        ##    con = interactive.PyPyConsole(space)
-        ##    con.interact()
-        except OperationError, e:
-            debug("OperationError:")
-            debug(" operror-type: " + e.w_type.getname(space, '?'))
-            debug(" operror-value: " + space.str_w(space.str(e.w_value)))
-            return 1
-    finally:
-        try:
-            space.call_function(w_run_toplevel, w_call_finish)
-        except OperationError, e:
-            debug("OperationError:")
-            debug(" operror-type: " + e.w_type.getname(space, '?'))
-            debug(" operror-value: " + space.str_w(space.str(e.w_value)))
-            return 1
-    return exitcode
+            try:
+                space.call_function(w_run_toplevel, w_call_startup_gateway)
+                w_executable = space.wrap(argv[0])
+                w_argv = space.newlist([space.wrap(s) for s in argv[1:]])
+                w_exitcode = space.call_function(w_entry_point, w_executable, w_argv)
+                exitcode = space.int_w(w_exitcode)
+                # try to pull it all in
+            ##    from pypy.interpreter import main, interactive, error
+            ##    con = interactive.PyPyConsole(space)
+            ##    con.interact()
+            except OperationError, e:
+                debug("OperationError:")
+                debug(" operror-type: " + e.w_type.getname(space, '?'))
+                debug(" operror-value: " + space.str_w(space.str(e.w_value)))
+                return 1
+        finally:
+            try:
+                space.call_function(w_run_toplevel, w_call_finish_gateway)
+            except OperationError, e:
+                debug("OperationError:")
+                debug(" operror-type: " + e.w_type.getname(space, '?'))
+                debug(" operror-value: " + space.str_w(space.str(e.w_value)))
+                return 1
+        return exitcode
+    return entry_point
 
 # _____ Define and setup target ___
 
@@ -78,13 +85,8 @@ def print_help():
 def call_finish(space):
     space.finish()
 
-w_call_finish = gateway.interp2app(call_finish)
-
 def call_startup(space):
     space.startup()
-
-w_call_startup = gateway.interp2app(call_startup)
-
 
 
 def target(driver, args):
@@ -95,7 +97,8 @@ def target(driver, args):
 
     translate.log_options(tgt_options, "target PyPy options in effect")
 
-    global space, w_entry_point, w_run_toplevel
+    # expose the following variables to ease debugging
+    global space, entry_point
 
     geninterp = not getattr(options, 'lowmem', False)
     
@@ -125,8 +128,7 @@ def target(driver, args):
     filename = os.path.join(this_dir, 'app_main.py')
     w_dict = space.newdict([])
     space.exec_(open(filename).read(), w_dict, w_dict)
-    w_entry_point = space.getitem(w_dict, space.wrap('entry_point'))
-    w_run_toplevel = space.getitem(w_dict, space.wrap('run_toplevel'))
+    entry_point = create_entry_point(space, w_dict)
 
     # sanity-check: call the entry point
     res = entry_point(["pypy", "app_basic_example.py"])
