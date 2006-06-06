@@ -181,17 +181,14 @@ ll_stack_capture.stackless_explicit = True
 INDEX_CAPTURE = frame.RestartInfo.add_prebuilt(ll_stack_capture,
                                                [EMPTY_STATE])
 
-RESUME_AFTER_STATE = frame.make_state_header_type('resume_after_state',
-                                                  ('c', lltype.Ptr(STATE_HEADER)),)
-
 def resume_after_void(state, retvalue):
     if global_state.restart_substate == -1:
         # normal entry point for a call to state.switch()
         # first unwind the stack
         u = UnwindException()
-        s = lltype.malloc(RESUME_AFTER_STATE)
+        s = lltype.malloc(SWITCH_STATE)
         s.header.f_restart = INDEX_RESUME_AFTER_VOID
-        s.c = lltype.cast_opaque_ptr(lltype.Ptr(STATE_HEADER), state)
+        s.c = lltype.cast_opaque_ptr(SAVED_REFERENCE, state)
         add_frame_state(u, s.header)
         raise u
     elif global_state.restart_substate == 0:
@@ -201,8 +198,8 @@ def resume_after_void(state, retvalue):
         # the 'targetstate' local is garbage here, it must be read back from
         # 's.c' where we saved it by the normal entry point above
         mystate = global_state.top
-        s = lltype.cast_pointer(lltype.Ptr(RESUME_AFTER_STATE), mystate)
-        targetstate = s.c
+        s = lltype.cast_pointer(lltype.Ptr(SWITCH_STATE), mystate)
+        targetstate = lltype.cast_opaque_ptr(lltype.Ptr(STATE_HEADER), s.c)
         resume_bottom = targetstate
         while resume_bottom.f_back:
              resume_bottom = resume_bottom.f_back
@@ -212,7 +209,7 @@ def resume_after_void(state, retvalue):
 
 resume_after_void.stackless_explicit = True
 INDEX_RESUME_AFTER_VOID = frame.RestartInfo.add_prebuilt(resume_after_void,
-                                                         [RESUME_AFTER_STATE,
+                                                         [SWITCH_STATE,
                                                           EMPTY_STATE])
 
 
@@ -221,9 +218,9 @@ def resume_after_raising(state, exception):
         # normal entry point for a call to state.switch()
         # first unwind the stack
         u = UnwindException()
-        s = lltype.malloc(RESUME_AFTER_STATE)
+        s = lltype.malloc(SWITCH_STATE)
         s.header.f_restart = INDEX_RESUME_AFTER_RAISING
-        s.c = lltype.cast_opaque_ptr(lltype.Ptr(STATE_HEADER), state)
+        s.c = lltype.cast_opaque_ptr(SAVED_REFERENCE, state)
         add_frame_state(u, s.header)
         global_state.exception = exception
         raise u
@@ -234,8 +231,8 @@ def resume_after_raising(state, exception):
         # the 'targetstate' local is garbage here, it must be read back from
         # 's.c' where we saved it by the normal entry point above
         mystate = global_state.top
-        s = lltype.cast_pointer(lltype.Ptr(RESUME_AFTER_STATE), mystate)
-        targetstate = s.c
+        s = lltype.cast_pointer(lltype.Ptr(SWITCH_STATE), mystate)
+        targetstate = lltype.cast_opaque_ptr(lltype.Ptr(STATE_HEADER), s.c)
         resume_bottom = targetstate
         while resume_bottom.f_back:
              resume_bottom = resume_bottom.f_back
@@ -245,7 +242,7 @@ def resume_after_raising(state, exception):
 
 resume_after_raising.stackless_explicit = True
 INDEX_RESUME_AFTER_RAISING = frame.RestartInfo.add_prebuilt(resume_after_raising,
-                                                            [RESUME_AFTER_STATE,
+                                                            [SWITCH_STATE,
                                                              EMPTY_STATE])
 
 template = """\
@@ -254,9 +251,9 @@ def resume_after_%(typename)s(state, retvalue):
         # normal entry point for a call to state.switch()
         # first unwind the stack
         u = UnwindException()
-        s = lltype.malloc(RESUME_AFTER_STATE)
+        s = lltype.malloc(SWITCH_STATE)
         s.header.f_restart = INDEX_RESUME_AFTER_%(TYPENAME)s
-        s.c = lltype.cast_opaque_ptr(lltype.Ptr(STATE_HEADER), state)
+        s.c = lltype.cast_opaque_ptr(SAVED_REFERENCE, state)
         global_state.retval_%(typename)s = retvalue
         add_frame_state(u, s.header)
         raise u
@@ -267,8 +264,8 @@ def resume_after_%(typename)s(state, retvalue):
         # the 'targetstate' local is garbage here, it must be read back from
         # 's.c' where we saved it by the normal entry point above
         mystate = global_state.top
-        s = lltype.cast_pointer(lltype.Ptr(RESUME_AFTER_STATE), mystate)
-        targetstate = s.c
+        s = lltype.cast_pointer(lltype.Ptr(SWITCH_STATE), mystate)
+        targetstate = lltype.cast_opaque_ptr(lltype.Ptr(STATE_HEADER), s.c)
         resume_bottom = targetstate
         while resume_bottom.f_back:
              resume_bottom = resume_bottom.f_back
@@ -279,7 +276,7 @@ def resume_after_%(typename)s(state, retvalue):
 
 resume_after_%(typename)s.stackless_explicit = True
 INDEX_RESUME_AFTER_%(TYPENAME)s = frame.RestartInfo.add_prebuilt(resume_after_%(typename)s,
-                                                         [RESUME_AFTER_STATE,
+                                                         [SWITCH_STATE,
                                                           EMPTY_STATE])
 """
 

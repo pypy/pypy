@@ -30,7 +30,7 @@ The type of a switch is determined by the target's costate.
 """
 
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.rpython.rstack import yield_current_frame_to_caller
+from pypy.rpython.rstack import yield_current_frame_to_caller, resume_point
 
 import sys, os
 
@@ -127,6 +127,7 @@ class Coroutine(Wrappable):
         try:
             costate.do_things_to_do()
             thunk.call()
+            resume_point("coroutine__bind", self, state)
         except CoroutineExit:
             # ignore a shutdown exception
             pass
@@ -146,6 +147,7 @@ class Coroutine(Wrappable):
             raise CoroutineDamage
         state = self.costate
         incoming_frame = state.update(self).switch()
+        resume_point("coroutine_switch", self, state, returns=incoming_frame)
         left = state.last
         left.frame = incoming_frame
         left.goodbye()

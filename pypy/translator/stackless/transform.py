@@ -83,11 +83,11 @@ class FrameTyper:
     def __init__(self):
         self.frametypes = {}
 
-    def frame_type_for_vars(self, vars):
+    def _key_fieldnames_for_types(self, types):
         fieldnames = []
         counts = {}
-        for v in vars:
-            t = storage_type(v.concretetype)
+        for tt in types:
+            t = storage_type(tt)
             if t is lltype.Void:
                 fieldnames.append(None)
             else:
@@ -95,12 +95,31 @@ class FrameTyper:
                 fieldnames.append('state_%s_%d' % (STORAGE_FIELDS[t], n))
                 counts[t] = n + 1
         key = lltype.frozendict(counts)
+        return key, fieldnames
+        
+
+    def frame_type_for_vars(self, vars):
+        key, fieldnames = self._key_fieldnames_for_types([v.concretetype for v in vars])
         if key in self.frametypes:
             T = self.frametypes[key]
+            it = iter(T._names[1:])
+            rfieldnames = []
+            for name in fieldnames:
+                if name is None:
+                    rfieldnames.append(None)
+                else:
+                    rfieldnames.append(it.next())
+            try:
+                it.next()
+            except StopIteration:
+                pass
+            else:
+                assert False, "field name count mismatch"
+            return T, rfieldnames
         else:
             fields = []
             for t in STORAGE_TYPES:
-                for j in range(counts.get(t, 0)):
+                for j in range(key.get(t, 0)):
                     fields.append(('state_%s_%d' % (STORAGE_FIELDS[t], j), t))
             T = frame.make_state_header_type("FrameState", *fields)
             self.frametypes[key] = T
@@ -299,8 +318,25 @@ class StacklessTransformer(object):
         
         self.symbolic_restart_numbers = {}
 
-        # register the prebuilt restartinfos
+        # register the prebuilt restartinfos & give them names for use
+        # with resume_state_create
+        # the mauling of frame_typer internals should be a method on FrameTyper.
         for restartinfo in frame.RestartInfo.prebuilt:
+            name = restartinfo.func_or_graph.__name__
+            for i in range(len(restartinfo.frame_types)):
+                label = name + '_' + str(i)
+                assert label not in self.symbolic_restart_numbers
+                # XXX we think this is right:
+                self.symbolic_restart_numbers[label] = SymbolicRestartNumber(
+                    label, len(self.masterarray1) + i)
+                frame_type = restartinfo.frame_types[i]
+                self.explicit_resume_point_data[label] = frame_type
+                key, fieldnames = self.frametyper._key_fieldnames_for_types(
+                    [frame_type._flds[n] for n in frame_type._names[1:]])
+                assert len(fieldnames) <= 1, "nasty field ordering issues need to be solved XXX mwh, pedronis"
+                if key in self.frametyper.frametypes:
+                    assert self.frametyper.frametypes[key] is frame_type
+                self.frametyper.frametypes[key] = frame_type
             self.register_restart_info(restartinfo)
 
     def transform_all(self):
@@ -475,12 +511,12 @@ class StacklessTransformer(object):
         for a in args:
             if a not in parms:
                 raise Exception, "not covered needed value at resume_point"
-            if parms[0] is not None: # returns= case
-                res = parms[0]
-                args = [arg for arg in args if arg is not res]
-            else:
-                args = args
-                res = op.result
+        if parms[0] is not None: # returns= case
+            res = parms[0]
+            args = [arg for arg in args if arg is not res]
+        else:
+            args = args
+            res = op.result
 
         (frame_type,
          fieldnames) = self.frametyper.frame_type_for_vars(parms[1:])
