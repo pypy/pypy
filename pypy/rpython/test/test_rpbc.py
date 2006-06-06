@@ -1293,7 +1293,7 @@ class BaseTestRPBC(BaseRtypingTest):
             return value + AorB(n).meth(x)
 
         for i in [1, 3, 5]:
-            res = interpret(f, [i])
+            res = self.interpret(f, [i])
             assert res == f(i)
 
     def test_function_as_frozen_pbc(self):
@@ -1311,21 +1311,18 @@ class BaseTestRPBC(BaseRtypingTest):
         res = self.interpret(f, [2])
         assert res == False
 
-
-def test_call_from_list():
-    # Don't test with ootype, since it doesn't support lists in a
-    # coherent way yet.
-    def f0(n): return n+200
-    def f1(n): return n+192
-    def f2(n): return n+46
-    def f3(n): return n+2987
-    def f4(n): return n+217
-    lst = [f0, f1, f2, f3, f4]
-    def f(i, n):
-        return lst[i](n)
-    for i in range(5):
-        res = interpret(f, [i, 1000])
-        assert res == f(i, 1000)
+    def test_call_from_list(self):
+        def f0(n): return n+200
+        def f1(n): return n+192
+        def f2(n): return n+46
+        def f3(n): return n+2987
+        def f4(n): return n+217
+        lst = [f0, f1, f2, f3, f4]
+        def f(i, n):
+            return lst[i](n)
+        for i in range(5):
+            res = self.interpret(f, [i, 1000])
+            assert res == f(i, 1000)
 
 
 # We don't care about the following test_hlinvoke tests working on
