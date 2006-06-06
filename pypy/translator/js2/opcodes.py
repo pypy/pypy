@@ -2,16 +2,30 @@
 """ opcode definitions
 """
 
-from pypy.translator.cli.metavm import PushArg, PushAllArgs, StoreResult,\
-    InstructionList, New, SetField, GetField, RuntimeNew, MicroInstruction
+from pypy.translator.oosupport.metavm import PushArg, PushAllArgs, StoreResult,\
+    InstructionList, New, SetField, GetField, MicroInstruction
      
+from pypy.translator.oosupport.metavm import _GetFieldDispatcher, _SetFieldDispatcher, \
+    _CallDispatcher, _MethodDispatcher
+
 from pypy.translator.js2.metavm import SameAs, IsInstance, Call, CallMethod, CopyName, CastString,\
-    _Prefix, _CastFun, _NotImplemented, GetFieldDispatcher, SetFieldDispatcher, CallDispatcher, MethodDispatcher,\
-    CallBuiltin
+    _Prefix, _CastFun, _NotImplemented, CallBuiltin, CallBuiltinObject, GetBuiltinField, SetBuiltinField
+
+from pypy.translator.js2.jsbuiltin import Builtins
 
 DoNothing = [PushAllArgs]
 
 from pypy.translator.js2.log import log
+
+class_map = { 'Call' : Call,
+    'CallMethod' : CallMethod,
+    'CallBuiltinObject' : CallBuiltinObject,
+    'CallBuiltin' : CallBuiltin,
+    'GetBuiltinField' : GetBuiltinField,
+    'GetField' : GetField,
+    'SetField' : SetField,
+    'SetBuiltinField' : SetBuiltinField
+}
 
 opcodes = {'int_mul': '*',
     'int_add': '+',
@@ -89,7 +103,7 @@ opcodes = {'int_mul': '*',
     'uint_is_true': [PushAllArgs,_Prefix('!!')],
     'float_is_true': [PushAllArgs,_Prefix('!!')],
     
-    'direct_call' : [CallDispatcher],
+    'direct_call' : [_CallDispatcher(Builtins, class_map)],
     'indirect_call' : [_NotImplemented("Indirect call not implemented")],
     'same_as' : SameAs,
     'new' : [New],
@@ -97,9 +111,9 @@ opcodes = {'int_mul': '*',
     
     # objects
     
-    'oosetfield' : [SetFieldDispatcher],
-    'oogetfield' : [GetFieldDispatcher],
-    'oosend'     : [MethodDispatcher],
+    'oosetfield' : [_SetFieldDispatcher(Builtins, class_map)],
+    'oogetfield' : [_GetFieldDispatcher(Builtins, class_map)],
+    'oosend'     : [_MethodDispatcher(Builtins, class_map)],
     #'ooupcast'   : [_NotImplemented("Inheritance not implemented (ooupcast)")],
     #'oodowncast' : [_NotImplemented("Inheritance not implemented (oodowncast)")],
     'ooupcast'   : DoNothing,

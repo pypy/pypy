@@ -39,6 +39,6 @@ document = Node()
 
 def setTimeout(func, delay):
     # scheduler call, but we don't want to mess with threads right now
-    return func
+    func()
 
 setTimeout.suggested_primitive = True

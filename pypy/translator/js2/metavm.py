@@ -3,8 +3,8 @@
 """
 
 #from pypy.translator.js2.jsbuiltin import Builtins
-from pypy.translator.cli.metavm import PushArg, PushAllArgs, StoreResult,\
-    InstructionList, New, SetField, GetField, RuntimeNew, MicroInstruction
+from pypy.translator.oosupport.metavm import PushArg, PushAllArgs, StoreResult,\
+    InstructionList, New, SetField, GetField, MicroInstruction
 
 from pypy.translator.js2.log import log
 from pypy.rpython.ootypesystem import ootype
@@ -58,42 +58,6 @@ class CallBuiltin(_Call):
     
     def render(self, generator, op):
         self._render_builtin(generator, self.builtin, op.args)
-
-class _Builtins(object):
-    def __init__(self):
-        list_resize = lambda g,op: SetBuiltinField.run_it(g, op.args[1], 'length', op.args[2])
-        
-        self.builtin_map = {
-            'll_js_jseval' : CallBuiltin('eval'),
-            'll_newlist' : lambda g,op: g.ilasm.load_const("[]"),
-            'll_alloc_and_set' : CallBuiltin('alloc_and_set'),
-            'get_document' : lambda g,op: g.ilasm.load_const('document'),
-            'setTimeout' : CallBuiltin('setTimeout'),
-            'll_int_str' : lambda g,op: Call._render_builtin_method(g, 'toString' , [op.args[2]]),
-            'll_strconcat' : InstructionList([PushAllArgs, '+']),
-            'll_int' : CallBuiltin('parseInt'),
-        }
-        self.builtin_obj_map = {
-            ootype.String.__class__: {
-                'll_strconcat' : InstructionList([PushAllArgs, '+']),
-                'll_strlen' : lambda g,op: GetBuiltinField.run_it(g, op.args[1], 'length'),
-                'll_stritem_nonneg' : ListGetitem,
-                'll_streq' : InstructionList([PushAllArgs, '==']),
-                'll_strcmp' : CallBuiltin('strcmp'),
-                'll_startswith' : CallBuiltin('startswith'),
-                'll_endswith' : CallBuiltin('endswith'),
-            },
-            ootype.List: {
-                'll_setitem_fast' : ListSetitem,
-                'll_getitem_fast' : ListGetitem,
-                '_ll_resize' : list_resize,
-                '_ll_resize_ge' : list_resize,
-                '_ll_resize_le' : list_resize,
-                'll_length' : lambda g,op: GetBuiltinField.run_it(g, op.args[1], 'length'),
-            }
-        }
-        
-Builtins = _Builtins()
 
 class _SameAs(MicroInstruction):
     def render(self, generator, op):
@@ -184,64 +148,6 @@ class _IsInstance(MicroInstruction):
         generator.ilasm.load_const(op.args[1].value._name.replace('.', '_'))#[-1])
         generator.cast_function("isinstanceof", 2)
 
-# There are three distinct possibilities where we need to map call differently:
-# 1. Object is marked with rpython_hints as a builtin, so every attribut access
-#    and function call goes as builtin
-# 2. Function called is a builtin, so it might be mapped to attribute access, builtin function call
-#    or even method call
-# 3. Object on which method is called is primitive object and method is mapped to some
-#    method/function/attribute access
-class _GeneralDispatcher(MicroInstruction):
-    def render(self, generator, op):
-        raise NotImplementedError("pure virtual class")
-    
-    def check_builtin(self, this):
-        if not isinstance(this, ootype.Instance):
-            return False
-        return this._hints.get('_suggested_external')
-
-class _MethodDispatcher(_GeneralDispatcher):
-    def render(self, generator, op):
-        method = op.args[0].value
-        this = op.args[1].concretetype
-        if self.check_builtin(this):
-            return CallBuiltinObject.render(generator, op)
-        try:
-            Builtins.builtin_obj_map[this.__class__][method](generator, op)
-            log("%r.%r declared builtin" % (this, method))
-        except KeyError:
-            log("%r.%r declared normal" % (this, method))
-            CallMethod.render(generator, op)
-
-class _CallDispatcher(_GeneralDispatcher):
-    def render(self, generator, op):
-        func = op.args[0]
-        if getattr(func.value._callable, 'suggested_primitive', False):
-            func_name = func.value._name.split("__")[0]
-            log("Function name: %s suggested primitive" % func_name)
-            #if Builtins.builtin_map.has_key(func_name):
-            return Builtins.builtin_map[func_name](generator, op)
-        else:
-            return Call.render(generator, op)
-    
-class _GetFieldDispatcher(_GeneralDispatcher):
-    def render(self, generator, op):
-        if self.check_builtin(op.args[0].concretetype):
-            return GetBuiltinField.render(generator, op)
-        else:
-            return GetField.render(generator, op)
-    
-class _SetFieldDispatcher(_GeneralDispatcher):
-    def render(self, generator, op):
-        if self.check_builtin(op.args[0].concretetype):
-            return SetBuiltinField.render(generator, op)
-        else:
-            return SetField.render(generator, op)
-
-MethodDispatcher = _MethodDispatcher()
-CallDispatcher = _CallDispatcher()
-GetFieldDispatcher = _GetFieldDispatcher()
-SetFieldDispatcher = _SetFieldDispatcher()
 IsInstance = _IsInstance()
 CallMethod = _CallMethod()
 CopyName = [PushAllArgs, _SameAs ()]

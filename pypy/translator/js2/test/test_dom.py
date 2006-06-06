@@ -24,22 +24,32 @@ class TestDOM(object):
         assert fn() == '[object HTMLHeadingElement]'
 
     def test_anim(self):
-        def move_it_by(obj, dx, dy, dir):
-            if dir < 0:
-                dx = -dx
-                dy = -dy
-            obj.style.left = str(int(obj.style.left) + dx) + "px"
-            obj.style.top = str(int(obj.style.top) + dy) + "px"
+        class Mover(object):
+            def __init__(self):
+                self.elem = get_document().getElementById("anim_img")
+                self.x = 0
+                self.y = 0
+                self.dir = 1
+            
+            def move_it_by(self, obj, dx, dy):
+                if dir < 0:
+                    dx = -dx
+                    dy = -dy
+                self.x += dx
+                self.y += dy
+                obj.style.left = str(int(obj.style.left) + dx) + "px"
+                obj.style.top = str(int(obj.style.top) + dy) + "px"
         
-        def move_it():
-            move_it_by(get_document().getElementById("anim_img"), 3, 3, 1)
-            setTimeout('move_it()', 100)
+            def move_it(self):
+                self.move_it_by(get_document().getElementById("anim_img"), 3, 3)
+                setTimeout(mov.move_it, 100)
         
         def anim_fun():
             obj = get_document().getElementById("anim_img")
             obj.setAttribute('style', 'position: absolute; top: 0; left: 0;')
-            setTimeout('move_it()', 100)
-            move_it()
+            mov = Mover()
+            setTimeout(mov.move_it, 100)
+            mov.move_it()
         
         fn = compile_function(anim_fun, [], html = 'html/anim.html', is_interactive = True)
         assert fn() == 'ok'
