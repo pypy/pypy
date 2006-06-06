@@ -1,7 +1,6 @@
 from pypy.translator.translator import TranslationContext
 from pypy.rpython.lltypesystem.lltype import *
-from pypy.rpython.test.test_llinterp import interpret
-
+from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 
 class MyException(Exception):
     pass
@@ -55,14 +54,20 @@ def test_exception_data():
     strgerr_inst = excdata.fn_pyexcclass2exc(pyobjectptr(MyStrangeException))
     assert strgerr_inst.typeptr == t.rtyper.class_reprs[None].getvtable()
 
+class BaseTestException(BaseRtypingTest):
+    def test_exception_with_arg(self):
+        def g(n):
+            raise OSError(n, "?")
+        def f(n):
+            try:
+                g(n)
+            except OSError, e:
+                return e.errno
+        res = self.interpret(f, [42])
+        assert res == 42
 
-def test_exception_with_arg():
-    def g(n):
-        raise OSError(n, "?")
-    def f(n):
-        try:
-            g(n)
-        except OSError, e:
-            return e.errno
-    res = interpret(f, [42])
-    assert res == 42
+class TestLLtype(BaseTestException, LLRtypeMixin):
+    pass
+
+class TestOOtype(BaseTestException, OORtypeMixin):
+    pass
