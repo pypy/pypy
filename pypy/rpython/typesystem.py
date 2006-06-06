@@ -125,8 +125,8 @@ class ObjectOrientedTypeSystem(TypeSystem):
             robj1 = robj2
         elif robj2.lowleveltype is lltype.Void:
             robj2 = robj1
-        if (not isinstance(robj1.lowleveltype, ootype.Instance) or
-            not isinstance(robj2.lowleveltype, ootype.Instance)) and \
+        if (not isinstance(robj1.lowleveltype, (ootype.Instance, ootype.BuiltinADTType)) or
+            not isinstance(robj2.lowleveltype, (ootype.Instance, ootype.BuiltinADTType))) and \
             (robj1.lowleveltype is not ootype.Class or
              robj2.lowleveltype is not ootype.Class):
             raise TyperError('is of instances of the non-instances: %r, %r' % (
