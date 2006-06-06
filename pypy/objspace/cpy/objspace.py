@@ -37,12 +37,8 @@ class CPyObjSpace(baseobjspace.ObjSpace):
                 from pypy.objspace.cpy.function import FunctionCache
                 return self.fromcache(FunctionCache).getorbuild(x)
             # normal case
-            from pypy.objspace.cpy.typedef import TypeDefCache
-            w_x = x.__cpy_wrapper__
-            if w_x is None:
-                w_type = self.fromcache(TypeDefCache).getorbuild(x.typedef)
-                w_x = x.__cpy_wrapper__ = self.call_function(w_type)
-            return w_x
+            from pypy.objspace.cpy.typedef import rpython2cpython
+            return rpython2cpython(self, x)
         if x is None:
             return self.w_None
         if isinstance(x, int):
@@ -62,7 +58,8 @@ class CPyObjSpace(baseobjspace.ObjSpace):
         try:
             w_obj, obj, follow = self.wrap_cache[id(w_obj)]
         except KeyError:
-            return None
+            from pypy.objspace.cpy.typedef import cpython2rpython
+            return cpython2rpython(self, w_obj)
         else:
             return obj
 
