@@ -3,7 +3,6 @@ from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.rint import signed_repr
 from pypy.rpython.rbool import bool_repr
-from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 import py
 

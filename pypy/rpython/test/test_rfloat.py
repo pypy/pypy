@@ -1,6 +1,5 @@
 from pypy.translator.translator import TranslationContext
 from pypy.rpython.test import snippet
-from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 
 class TestSnippet(object):

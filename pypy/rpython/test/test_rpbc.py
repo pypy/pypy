@@ -1,6 +1,5 @@
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.rtyper import RPythonTyper
-from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 

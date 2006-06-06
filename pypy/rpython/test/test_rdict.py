@@ -1,6 +1,5 @@
 from pypy.translator.translator import TranslationContext
 from pypy.rpython.lltypesystem import lltype 
-from pypy.rpython.test.test_llinterp import interpret, interpret_raises
 from pypy.rpython import rint
 from pypy.rpython.lltypesystem import rdict, rstr
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin

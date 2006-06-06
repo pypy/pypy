@@ -3,7 +3,6 @@ import sys
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.ootypesystem import ootype
-#from pypy.rpython.test.test_llinterp import interpret, interpret_raises
 from pypy.rpython.rarithmetic import intmask
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 

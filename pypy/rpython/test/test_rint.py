@@ -2,7 +2,6 @@ import sys
 from pypy.translator.translator import TranslationContext
 from pypy.annotation import model as annmodel
 from pypy.rpython.test import snippet
-from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.rarithmetic import r_uint, r_longlong, r_ulonglong
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 

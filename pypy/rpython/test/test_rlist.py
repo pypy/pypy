@@ -8,8 +8,6 @@ from pypy.rpython.lltypesystem import rlist as ll_rlist
 from pypy.rpython.ootypesystem import rlist as oo_rlist
 from pypy.rpython.lltypesystem.rslice import ll_newslice
 from pypy.rpython.rint import signed_repr
-from pypy.rpython.test.test_llinterp import interpret
-from pypy.rpython.test.test_llinterp import interpret_raises
 from pypy.translator.translator import TranslationContext
 from pypy.objspace.flow.model import Constant, Variable
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
