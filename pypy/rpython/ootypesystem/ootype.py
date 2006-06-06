@@ -2,6 +2,7 @@ from pypy.rpython.lltypesystem.lltype import LowLevelType, Signed, Unsigned, Flo
 from pypy.rpython.lltypesystem.lltype import Bool, Void, UniChar, typeOf, \
         Primitive, isCompatibleType, enforce, saferecursive
 from pypy.rpython.lltypesystem.lltype import frozendict, isCompatibleType
+from pypy.rpython import objectmodel
 from pypy.tool.uid import uid
 
 STATICNESS = True
@@ -159,8 +160,19 @@ class Instance(OOType):
         all.update(self._fields)
         return all
 
+class SpecializableType(OOType):
+    def _specialize_type(self, TYPE, generic_types):
+        if isinstance(TYPE, SpecializableType):
+            res = TYPE._specialize(generic_types)
+        else:
+            res = generic_types.get(TYPE, TYPE)
+        assert res is not None
+        return res
 
-class StaticMethod(OOType):
+    def _specialize(self, generic_types):
+        raise NotImplementedError
+
+class StaticMethod(SpecializableType):
     __slots__ = ['_null']
 
     def __init__(self, args, result):
@@ -174,14 +186,24 @@ class StaticMethod(OOType):
 
     def _defl(self):
         return null(self)
-    
+
+    def __repr__(self):
+        return "<StaticMethod(%s, %s)>" % (list(self.ARGS), self.RESULT)
+
+    def _specialize(self, generic_types):
+        ARGS = tuple([self._specialize_type(ARG, generic_types)
+                      for ARG in self.ARGS])
+        RESULT = self._specialize_type(self.RESULT, generic_types)
+        return self.__class__(ARGS, RESULT)
+
+
 class Meth(StaticMethod):
 
     def __init__(self, args, result):
         StaticMethod.__init__(self, args, result)
 
 
-class BuiltinType(OOType):
+class BuiltinType(SpecializableType):
 
     def _example(self):
         return new(self)
@@ -241,21 +263,10 @@ class BuiltinADTType(BuiltinType):
     def _setup_methods(self, generic_types):
         methods = {}
         for name, meth in self._GENERIC_METHODS.iteritems():
-            #args = [generic_types.get(arg, arg) for arg in meth.ARGS]
-            #result = generic_types.get(meth.RESULT, meth.RESULT)
             args = [self._specialize_type(arg, generic_types) for arg in meth.ARGS]
             result = self._specialize_type(meth.RESULT, generic_types)
             methods[name] = Meth(args, result)
         self._METHODS = frozendict(methods)
-
-    def _specialize_type(self, type_, generic_types):
-        if isinstance(type_, BuiltinADTType):
-            return type_._specialize(generic_types)
-        else:
-            return generic_types.get(type_, type_)
-
-    def _specialize(self, generic_types):
-        raise NotImplementedError
 
     def _lookup(self, meth_name):
         METH = self._METHODS.get(meth_name)
@@ -434,11 +445,11 @@ class Dict(BuiltinADTType):
         return self._KEYTYPE is not None and self._VALUETYPE is not None
 
     def _init_methods(self):
-        generic_types = {
+        self._generic_types = frozendict({
             self.SELFTYPE_T: self,
             self.KEYTYPE_T: self._KEYTYPE,
             self.VALUETYPE_T: self._VALUETYPE
-            }
+            })
 
         self._GENERIC_METHODS = frozendict({
             "ll_length": Meth([], Signed),
@@ -450,7 +461,7 @@ class Dict(BuiltinADTType):
             "ll_get_items_iterator": Meth([], DictItemsIterator(self.KEYTYPE_T, self.VALUETYPE_T)),
         })
 
-        self._setup_methods(generic_types)
+        self._setup_methods(self._generic_types)
 
     # NB: We are expecting Dicts of the same KEYTYPE, VALUETYPE to
     # compare/hash equal. We don't redefine __eq__/__hash__ since the
@@ -487,6 +498,27 @@ class Dict(BuiltinADTType):
         self._KEYTYPE = KEYTYPE
         self._VALUETYPE = VALUETYPE
         self._init_methods()
+                                           
+
+class CustomDict(Dict):
+    def __init__(self, KEYTYPE=None, VALUETYPE=None):
+        Dict.__init__(self, KEYTYPE, VALUETYPE)
+        self._null = _null_custom_dict(self)
+
+        if self._is_initialized():
+            self._init_methods()
+
+    def _init_methods(self):
+        Dict._init_methods(self)
+        EQ_FUNC = StaticMethod([self.KEYTYPE_T, self.KEYTYPE_T], Bool)
+        HASH_FUNC = StaticMethod([self.KEYTYPE_T], Signed)
+        self._GENERIC_METHODS['ll_set_functions'] = Meth([EQ_FUNC, HASH_FUNC], Void)
+        self._GENERIC_METHODS['ll_copy'] = Meth([], self.SELFTYPE_T)
+        self._setup_methods(self._generic_types)
+
+    def _get_interp_class(self):
+        return _custom_dict
+
 
 class DictItemsIterator(BuiltinADTType):
     SELFTYPE_T = object()
@@ -1033,6 +1065,26 @@ class _null_dict(_null_mixin(_dict), _dict):
     def __init__(self, DICT):
         self.__dict__["_TYPE"] = DICT
 
+class _custom_dict(_dict):
+    def __init__(self, DICT):
+        self._TYPE = DICT
+        self._dict = 'DICT_NOT_CREATED_YET' # it's created inside ll_set_functions
+
+    def ll_set_functions(self, sm_eq, sm_hash):
+        "NOT_RPYTHON"
+        key_eq = sm_eq._callable
+        key_hash = sm_hash._callable
+        self._dict = objectmodel.r_dict(key_eq, key_hash)
+
+    def ll_copy(self):
+        "NOT_RPYTHON"
+        res = self.__class__(self._TYPE)
+        res._dict = self._dict.copy()
+        return res
+
+class _null_custom_dict(_null_mixin(_custom_dict), _custom_dict):
+    def __init__(self, DICT):
+        self.__dict__["_TYPE"] = DICT
 
 class _dict_items_iterator(_builtin_type):
     def __init__(self, ITER):
@@ -1107,6 +1159,11 @@ def new(TYPE):
         return make_instance(TYPE)
     elif isinstance(TYPE, BuiltinType):
         return TYPE._get_interp_class()(TYPE)
+
+def oonewcustomdict(DICT, ll_eq, ll_hash):
+    d = new(DICT)
+    d.ll_set_functions(ll_eq, ll_hash)
+    return d
 
 def runtimenew(class_):
     assert isinstance(class_, _class)
@@ -1206,6 +1263,9 @@ def hasItemType(LIST):
 
 def setDictTypes(DICT, KEYTYPE, VALUETYPE):
     return DICT._set_types(KEYTYPE, VALUETYPE)
+
+def setDictFunctions(DICT, ll_eq, ll_hash):
+    return DICT._set_functions(ll_eq, ll_hash)
 
 def hasDictTypes(DICT):
     return DICT._is_initialized()

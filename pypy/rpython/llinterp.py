@@ -999,6 +999,33 @@ class LLFrame(object):
     def op_runtimenew(self, class_):
         return ootype.runtimenew(class_)
 
+    def _get_func_or_boundmethod(self, func, method_name):
+        if method_name is None:
+            # eq_func is a HalfConcreteWrapper wrapping a StaticMethod
+            self_arg = []
+            func_graph = func.concretize().value.graph
+        else:
+            # eq_func is an instance, we want to call 'method_name' on it
+            self_arg = [func]
+            func_graph = func._TYPE._methods[method_name].graph
+
+        def interp_func(*args):
+            graph_args = self_arg + list(args)
+            return self.llinterpreter.eval_graph(func_graph, args=graph_args)
+        return func_graph.name, interp_func
+
+    def op_oonewcustomdict(self, DICT, eq_func, eq_method_name, hash_func, hash_method_name):
+        eq_name, interp_eq = self._get_func_or_boundmethod(eq_func, eq_method_name)
+        EQ_FUNC = ootype.StaticMethod([DICT._KEYTYPE, DICT._KEYTYPE], ootype.Bool)
+        sm_eq = ootype.static_meth(EQ_FUNC, eq_name, _callable=interp_eq)        
+
+        hash_name, interp_hash = self._get_func_or_boundmethod(hash_func, hash_method_name)
+        HASH_FUNC = ootype.StaticMethod([DICT._KEYTYPE], ootype.Signed)
+        sm_hash = ootype.static_meth(HASH_FUNC, hash_name, _callable=interp_hash)
+
+        # XXX: is it fine to have StaticMethod type for bound methods, too?
+        return ootype.newcustomdict(DICT, sm_eq, sm_hash)
+
     def op_oosetfield(self, inst, name, value):
         assert checkinst(inst)
         assert isinstance(name, str)

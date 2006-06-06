@@ -7,6 +7,7 @@ from pypy.annotation import model as annmodel
 from pypy.objspace.flow import FlowObjSpace
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.test.test_llinterp import interpret
+from pypy.rpython.objectmodel import r_dict
 from pypy.rpython.ootypesystem import ooregistry # side effects
 
 def gengraph(f, args=[], viewBefore=False, viewAfter=False):
@@ -245,3 +246,28 @@ def test_OSError():
 
     assert interpret(oof, [True], type_system='ootype') == 2
     assert interpret(oof, [False], type_system='ootype') == 1
+
+def test_r_dict():
+    def strange_key_eq(key1, key2):
+        return key1[0] == key2[0]   # only the 1st character is relevant
+    def strange_key_hash(key):
+        return ord(key[0])
+    def oof():
+        d = r_dict(strange_key_eq, strange_key_hash)
+        d['x'] = 42
+        return d['x']
+    assert interpret(oof, [], type_system='ootype') == 42
+
+def test_r_dict_bm():
+    class Strange:
+        def key_eq(strange, key1, key2):
+            return key1[0] == key2[0]   # only the 1st character is relevant
+        def key_hash(strange, key):
+            return ord(key[0])
+
+    def oof():
+        strange = Strange()
+        d = r_dict(strange.key_eq, strange.key_hash)
+        d['x'] = 42
+        return d['x']
+    assert interpret(oof, [], type_system='ootype') == 42

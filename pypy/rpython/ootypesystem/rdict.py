@@ -32,10 +32,15 @@ class DictRepr(AbstractDictRepr):
         else:
             self.external_value_repr, self.value_repr = self.pickrepr(value_repr)
 
-        if already_computed:
-            self.DICT = ootype.Dict(key_repr.lowleveltype, value_repr.lowleveltype)
+        if self.custom_eq_hash:
+            Dict = ootype.CustomDict
         else:
-            self.DICT = ootype.Dict()
+            Dict = ootype.Dict
+
+        if already_computed:
+            self.DICT = Dict(key_repr.lowleveltype, value_repr.lowleveltype)
+        else:
+            self.DICT = Dict()
         self.lowleveltype = self.DICT
 
         self.dictkey = dictkey
@@ -57,6 +62,9 @@ class DictRepr(AbstractDictRepr):
         if not ootype.hasDictTypes(self.DICT):
             ootype.setDictTypes(self.DICT, self.key_repr.lowleveltype,
                     self.value_repr.lowleveltype)
+
+        if self.custom_eq_hash:
+            self.r_rdict_eqfn, self.r_rdict_hashfn = self._custom_eq_hash_repr()
 
     def send_message(self, hop, message, can_raise=False, v_args=None):
         if v_args is None:
@@ -97,7 +105,11 @@ class DictRepr(AbstractDictRepr):
         v_dict, = hop.inputargs(self)
         cDICT = hop.inputconst(ootype.Void, self.lowleveltype)
         hop.exception_cannot_occur()
-        return hop.gendirectcall(ll_dict_copy, cDICT, v_dict)
+        if self.custom_eq_hash:
+            c_copy = hop.inputconst(ootype.Void, 'll_copy')
+            return hop.genop('oosend', [c_copy, v_dict], resulttype=hop.r_result.lowleveltype)
+        else:
+            return hop.gendirectcall(ll_dict_copy, cDICT, v_dict)
 
     def rtype_method_update(self, hop):
         v_dict1, v_dict2 = hop.inputargs(self, self)
@@ -193,7 +205,39 @@ class __extend__(pairtype(DictRepr, rmodel.Repr)):
 
 
 def rtype_r_dict(hop):
-    pass # TODO
+    r_dict = hop.r_result
+    if not r_dict.custom_eq_hash:
+        raise TyperError("r_dict() call does not return an r_dict instance")
+    v_eqfn, v_hashfn = hop.inputargs(r_dict.r_rdict_eqfn,
+                                     r_dict.r_rdict_hashfn)
+    cDICT = hop.inputconst(ootype.Void, r_dict.DICT)
+    hop.exception_cannot_occur()
+
+    if r_dict.r_rdict_eqfn.lowleveltype == ootype.Void:
+        c_eq_method_name = hop.inputconst(ootype.Void, None)
+    else:
+        # simulate a call to the method to get the exact variant name we need
+        s_pbc_eq = hop.args_s[0] # the instance which we take key_eq from
+        s_key = r_dict.dictkey.s_value
+        methodname = r_dict.r_rdict_eqfn._get_method_name("simple_call", s_pbc_eq, [s_key, s_key])
+        c_eq_method_name = hop.inputconst(ootype.Void, methodname)
+
+    if r_dict.r_rdict_hashfn.lowleveltype == ootype.Void:
+        c_hash_method_name = hop.inputconst(ootype.Void, None)
+    else:
+        # same as above
+        s_pbc_hash = hop.args_s[1] # the instance which we take key_hash from
+        s_key = r_dict.dictkey.s_value
+        methodname = r_dict.r_rdict_hashfn._get_method_name("simple_call", s_pbc_hash, [s_key])
+        c_hash_method_name = hop.inputconst(ootype.Void, methodname)
+
+    # the signature of oonewcustomdict is a bit complicated: v_eqfn
+    # can be either a function (with lowleveltype StaticMethod) or a
+    # bound method (with lowleveltype Instance). In the first case
+    # c_eq_method_name is None, in the latter it's a constant Void
+    # string containing the name of the method we want to call.
+    return hop.genop("oonewcustomdict", [cDICT, v_eqfn, c_eq_method_name, v_hashfn, c_hash_method_name],
+                     resulttype=hop.r_result.lowleveltype)
 
 def ll_newdict(DICT):
     return ootype.new(DICT)

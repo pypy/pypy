@@ -2,6 +2,7 @@ import py
 from pypy.rpython.objectmodel import *
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.test.test_llinterp import interpret
+from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 
 def test_we_are_translated():
     assert we_are_translated() == False
@@ -145,13 +146,15 @@ def test_annotate_r_dict_bm():
     assert a.binding(graph.getargs()[0]).knowntype == Strange_def
     assert a.binding(graph.getargs()[1]).knowntype == str
 
-def test_rtype_r_dict():
-    res = interpret(test_r_dict, [])
-    assert res is True
+class BaseTestObjectModel(BaseRtypingTest):
+    
+    def test_rtype_r_dict(self):
+        res = self.interpret(test_r_dict, [])
+        assert res is True
 
-def test_rtype_r_dict_bm():
-    res = interpret(test_r_dict_bm, [])
-    assert res is True
+    def test_rtype_r_dict_bm(self):
+        res = self.interpret(test_r_dict_bm, [])
+        assert res is True
 
 def test_rtype_constant_r_dicts():
     d1 = r_dict(strange_key_eq, strange_key_hash)
@@ -288,3 +291,10 @@ def test_symbolic_raises():
     s2 = Symbolic()
     py.test.raises(TypeError, "s1 < s2")
     py.test.raises(TypeError, "hash(s1)")
+
+
+class TestLLtype(BaseTestObjectModel, LLRtypeMixin):
+    pass
+
+class TestOOtype(BaseTestObjectModel, OORtypeMixin):
+    pass
