@@ -1,5 +1,4 @@
 from pypy.translator.translator import graphof
-from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.test import test_llinterp
 from pypy.rpython.objectmodel import instantiate, we_are_translated
 from pypy.rpython.lltypesystem import lltype
@@ -19,88 +18,62 @@ def enum_direct_calls(translator, func):
                 yield op
 
 
-def test_method_join():
-    # this is tuned to catch a specific bug:
-    # a wrong rtyper_makekey() for BuiltinMethodRepr
-    def f():
-        lst1 = ['abc', 'def']
-        s1 = ', '.join(lst1)
-        lst2 = ['1', '2', '3']
-        s2 = ''.join(lst2)
-        return s1 + s2
-    res = interpret(f, [])
-    assert ''.join(list(res.chars)) == 'abc, def123'
+class BaseTestRbuiltin(BaseRtypingTest):
 
-def test_method_repr():
-    def g(n):
-        if n >= 0:
-            return "egg"
-        else:
-            return "spam"
-    def f(n):
-        # this is designed for a specific bug: conversions between
-        # BuiltinMethodRepr.  The append method of the list is passed
-        # around, and g(-1) below causes a reflowing at the beginning
-        # of the loop (but not inside the loop).  This situation creates
-        # a newlist returning a SomeList() which '==' but 'is not' the
-        # SomeList() inside the loop.
-        x = len([ord(c) for c in g(1)])
-        g(-1)
-        return x
-    res = interpret(f, [0])
-    assert res == 3
+    def test_method_join(self):
+        # this is tuned to catch a specific bug:
+        # a wrong rtyper_makekey() for BuiltinMethodRepr
+        def f():
+            lst1 = ['abc', 'def']
+            s1 = ', '.join(lst1)
+            lst2 = ['1', '2', '3']
+            s2 = ''.join(lst2)
+            return s1 + s2
+        res = self.interpret(f, [])
+        assert self.ll_to_string(res) == 'abc, def123'
 
-def test_chr():
-    def f(x=int):
-        try:
-            return chr(x)
-        except ValueError:
-            return '?'
-    res = interpret(f, [65])
-    assert res == 'A'
-    res = interpret(f, [256])
-    assert res == '?'
-    res = interpret(f, [-1])
-    assert res == '?'
+    def test_method_repr(self):
+        def g(n):
+            if n >= 0:
+                return "egg"
+            else:
+                return "spam"
+        def f(n):
+            # this is designed for a specific bug: conversions between
+            # BuiltinMethodRepr.  The append method of the list is passed
+            # around, and g(-1) below causes a reflowing at the beginning
+            # of the loop (but not inside the loop).  This situation creates
+            # a newlist returning a SomeList() which '==' but 'is not' the
+            # SomeList() inside the loop.
+            x = len([ord(c) for c in g(1)])
+            g(-1)
+            return x
+        res = self.interpret(f, [0])
+        assert res == 3
 
-
-def test_intmask():
-    def f(x=r_uint):
-        try:
-            return intmask(x)
-        except ValueError:
-            return 0
-
-    res = interpret(f, [r_uint(5)])
-    assert type(res) is int and res == 5
-
-def test_cast_primitive():
-    from pypy.rpython.annlowlevel import LowLevelAnnotatorPolicy
-    def llf(u):
-        return lltype.cast_primitive(lltype.Signed, u)
-    res = interpret(llf, [r_uint(-1)], policy=LowLevelAnnotatorPolicy())
-    assert res == -1
-    res = interpret(llf, ['x'], policy=LowLevelAnnotatorPolicy())
-    assert res == ord('x')
-    def llf(v):
-        return lltype.cast_primitive(lltype.Unsigned, v)
-    res = interpret(llf, [-1], policy=LowLevelAnnotatorPolicy())
-    assert res == r_uint(-1)
-    res = interpret(llf, [u'x'], policy=LowLevelAnnotatorPolicy())
-    assert res == ord(u'x')
-    res = interpret(llf, [1.0], policy=LowLevelAnnotatorPolicy())
-    assert res == r_uint(1)
-    def llf(v):
-        return lltype.cast_primitive(lltype.Char, v)
-    res = interpret(llf, [ord('x')], policy=LowLevelAnnotatorPolicy())
-    assert res == 'x'
-    def llf(v):
-        return lltype.cast_primitive(lltype.UniChar, v)
-    res = interpret(llf, [ord('x')], policy=LowLevelAnnotatorPolicy())
-    assert res == u'x'
+    def test_chr(self):
+        def f(x=int):
+            try:
+                return chr(x)
+            except ValueError:
+                return '?'
+        res = self.interpret(f, [65])
+        assert res == 'A'
+        res = self.interpret(f, [256])
+        assert res == '?'
+        res = self.interpret(f, [-1])
+        assert res == '?'
 
 
-class BaseTestExtfunc(BaseRtypingTest):
+    def test_intmask(self):
+        def f(x=r_uint):
+            try:
+                return intmask(x)
+            except ValueError:
+                return 0
+
+        res = self.interpret(f, [r_uint(5)])
+        assert type(res) is int and res == 5
 
     def test_rbuiltin_list(self):
         def f(): 
@@ -297,7 +270,7 @@ class BaseTestExtfunc(BaseRtypingTest):
         res = self.interpret(f, [1])
         assert res is False    
 
-class TestLLtype(BaseTestExtfunc, LLRtypeMixin):
+class TestLLtype(BaseTestRbuiltin, LLRtypeMixin):
     from pypy.rpython.lltypesystem.module import ll_os
 
     def test_instantiate(self):
@@ -348,6 +321,32 @@ class TestLLtype(BaseTestExtfunc, LLRtypeMixin):
             assert res._obj.value == y
         # hmm, would like to test against PyObj, is this the wrong place/way?
 
+    def test_cast_primitive(self):
+        from pypy.rpython.annlowlevel import LowLevelAnnotatorPolicy
+        def llf(u):
+            return lltype.cast_primitive(lltype.Signed, u)
+        res = self.interpret(llf, [r_uint(-1)], policy=LowLevelAnnotatorPolicy())
+        assert res == -1
+        res = self.interpret(llf, ['x'], policy=LowLevelAnnotatorPolicy())
+        assert res == ord('x')
+        def llf(v):
+            return lltype.cast_primitive(lltype.Unsigned, v)
+        res = self.interpret(llf, [-1], policy=LowLevelAnnotatorPolicy())
+        assert res == r_uint(-1)
+        res = self.interpret(llf, [u'x'], policy=LowLevelAnnotatorPolicy())
+        assert res == ord(u'x')
+        res = self.interpret(llf, [1.0], policy=LowLevelAnnotatorPolicy())
+        assert res == r_uint(1)
+        def llf(v):
+            return lltype.cast_primitive(lltype.Char, v)
+        res = self.interpret(llf, [ord('x')], policy=LowLevelAnnotatorPolicy())
+        assert res == 'x'
+        def llf(v):
+            return lltype.cast_primitive(lltype.UniChar, v)
+        res = self.interpret(llf, [ord('x')], policy=LowLevelAnnotatorPolicy())
+        assert res == u'x'
+
+
     
-class TestOOtype(BaseTestExtfunc, OORtypeMixin):
+class TestOOtype(BaseTestRbuiltin, OORtypeMixin):
     from pypy.rpython.ootypesystem.module import ll_os
