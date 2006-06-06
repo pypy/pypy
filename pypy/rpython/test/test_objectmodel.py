@@ -1,16 +1,7 @@
 import py
 from pypy.rpython.objectmodel import *
 from pypy.translator.translator import TranslationContext, graphof
-from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
-
-def test_we_are_translated():
-    assert we_are_translated() == False
-
-    def fn():
-        return we_are_translated()
-    res = interpret(fn, [])
-    assert res is True
 
 def strange_key_eq(key1, key2):
     return key1[0] == key2[0]   # only the 1st character is relevant
@@ -70,28 +61,6 @@ def play_with_r_dict(d):
     assert d.keys() == []
     return True   # for the tests below
 
-def test_cast_to_and_from_weakaddress():
-    class A(object):
-        pass
-    class B(object):
-        pass
-    def f():
-        a = A()
-        addr = cast_object_to_weakgcaddress(a)
-        return a is cast_weakgcaddress_to_object(addr, A)
-    assert f()
-    res = interpret(f, [])
-    assert res
-    a = A()
-    addr = cast_object_to_weakgcaddress(A)
-    py.test.raises(AssertionError, "cast_weakgcaddress_to_object(addr, B)")
-    assert isinstance(cast_weakgcaddress_to_int(addr), int)
-    def g():
-        a = A()
-        addr = cast_object_to_weakgcaddress(a)
-        return cast_weakgcaddress_to_int(addr)
-    assert isinstance(interpret(f, []), int)
-
 
 def test_recursive_r_dict_repr():
     import operator
@@ -146,7 +115,40 @@ def test_annotate_r_dict_bm():
     assert a.binding(graph.getargs()[0]).knowntype == Strange_def
     assert a.binding(graph.getargs()[1]).knowntype == str
 
+
+def test_unboxed_value():
+    class Base(object):
+        pass
+    class C(Base, UnboxedValue):
+        __slots__ = 'smallint'
+
+    assert C(17).smallint == 17
+    assert C(17).getvalue() == 17
+
+    class A(UnboxedValue):
+        __slots__ = ['value']
+
+    assert A(12098).value == 12098
+    assert A(12098).getvalue() == 12098
+
+def test_symbolic():
+    py.test.skip("xxx no test here")
+
+def test_symbolic_raises():
+    s1 = Symbolic()
+    s2 = Symbolic()
+    py.test.raises(TypeError, "s1 < s2")
+    py.test.raises(TypeError, "hash(s1)")
+
 class BaseTestObjectModel(BaseRtypingTest):
+
+    def test_we_are_translated(self):
+        assert we_are_translated() == False
+
+        def fn():
+            return we_are_translated()
+        res = self.interpret(fn, [])
+        assert res is True
     
     def test_rtype_r_dict(self):
         res = self.interpret(test_r_dict, [])
@@ -249,53 +251,49 @@ class BaseTestObjectModel(BaseRtypingTest):
         res = self.interpret(g, [3])
         assert res == 77
 
-
-def test_rtype_keepalive():
-    from pypy.rpython import objectmodel
-    def f():
-        x = [1]
-        y = ['b']
-        objectmodel.keepalive_until_here(x,y)
-        return 1
-
-    res = interpret(f, [])
-    assert res == 1
-
-def test_hint():
-    from pypy.rpython import objectmodel
-    def f():
-        x = objectmodel.hint(5, hello="world")
-        return x
-    res = interpret(f, [])
-    assert res == 5
-
-def test_unboxed_value():
-    class Base(object):
-        pass
-    class C(Base, UnboxedValue):
-        __slots__ = 'smallint'
-
-    assert C(17).smallint == 17
-    assert C(17).getvalue() == 17
-
-    class A(UnboxedValue):
-        __slots__ = ['value']
-
-    assert A(12098).value == 12098
-    assert A(12098).getvalue() == 12098
-
-def test_symbolic():
-    py.test.skip("xxx no test here")
-
-def test_symbolic_raises():
-    s1 = Symbolic()
-    s2 = Symbolic()
-    py.test.raises(TypeError, "s1 < s2")
-    py.test.raises(TypeError, "hash(s1)")
-
+    def test_hint(self):
+        self._skip_oo('hint')
+        from pypy.rpython import objectmodel
+        def f():
+            x = objectmodel.hint(5, hello="world")
+            return x
+        res = self.interpret(f, [])
+        assert res == 5
 
 class TestLLtype(BaseTestObjectModel, LLRtypeMixin):
-    pass
+    def test_cast_to_and_from_weakaddress(self):
+        class A(object):
+            pass
+        class B(object):
+            pass
+        def f():
+            a = A()
+            addr = cast_object_to_weakgcaddress(a)
+            return a is cast_weakgcaddress_to_object(addr, A)
+        assert f()
+        res = self.interpret(f, [])
+        assert res
+        a = A()
+        addr = cast_object_to_weakgcaddress(A)
+        py.test.raises(AssertionError, "cast_weakgcaddress_to_object(addr, B)")
+        assert isinstance(cast_weakgcaddress_to_int(addr), int)
+        def g():
+            a = A()
+            addr = cast_object_to_weakgcaddress(a)
+            return cast_weakgcaddress_to_int(addr)
+        assert isinstance(self.interpret(f, []), int)
+
+    def test_rtype_keepalive(self):
+        from pypy.rpython import objectmodel
+        def f():
+            x = [1]
+            y = ['b']
+            objectmodel.keepalive_until_here(x,y)
+            return 1
+
+        res = self.interpret(f, [])
+        assert res == 1
+
 
 class TestOOtype(BaseTestObjectModel, OORtypeMixin):
     pass
