@@ -1,20 +1,6 @@
 from pypy.rpython.lltypesystem.lltype import *
-from pypy.rpython.test.test_llinterp import interpret, gengraph
-
-
-def test_override_ignore():
-    def f():
-        pass
-    f._annspecialcase_ = "override:ignore"
-    def g(i):
-        if i == 1:
-            return "ab"
-        else:
-            return f()
-    res = interpret(g, [0])
-    assert not res
-    res = interpret(g, [1])
-    assert ''.join(res.chars) == "ab"
+from pypy.rpython.test.test_llinterp import gengraph
+from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 
 def test_ignore_breaking_transformations():
     def f():
@@ -36,20 +22,43 @@ def test_ignore_breaking_transformations():
     simplify.eliminate_empty_blocks(graph)
     #should not crash:
     checkgraph(graph)
-    
-def test_meth_override_ignore():
-    class X:
-        def f(self):
+
+class BaseTestRspecialcase(BaseRtypingTest):
+
+    def test_override_ignore(self):
+        def f():
             pass
         f._annspecialcase_ = "override:ignore"
-    def g(i):
-        x = X()
-        if i == 1:
-            return "ab"
-        else:
-            return x.f()
+        def g(i):
+            if i == 1:
+                return "ab"
+            else:
+                return f()
+        res = self.interpret(g, [0])
+        assert not res
+        res = self.interpret(g, [1])
+        assert self.ll_to_string(res) == "ab"
+    
+    def test_meth_override_ignore(self):
+        self._skip_oo('override:ignore')
+        class X:
+            def f(self):
+                pass
+            f._annspecialcase_ = "override:ignore"
+        def g(i):
+            x = X()
+            if i == 1:
+                return "ab"
+            else:
+                return x.f()
 
-    res = interpret(g, [0])
-    assert not res
-    res = interpret(g, [1])
-    assert ''.join(res.chars) == "ab"
+        res = self.interpret(g, [0])
+        assert not res
+        res = self.interpret(g, [1])
+        assert self.ll_to_string(res) == "ab"
+
+class TestLLtype(BaseTestRspecialcase, LLRtypeMixin):
+    pass
+
+class TestOOtype(BaseTestRspecialcase, OORtypeMixin):
+    pass
