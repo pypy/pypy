@@ -9,16 +9,69 @@ to a PyPy or a CPython extension module.
 **WARNING: this is beta software, APIs and details may change.**
 
 
+Understanding the ext compiler 
+----------------------------------
+
+- using rctypes for binding to external libraries 
+- exchangeability of CPyObjspace and StdObjSpace 
+  * translation to CPython 
+  * translation to PyPy 
+
+Using the ext compiler  
+----------------------------------------------------
+
+XXXXXXXXXXXXXXXX THIS IS DOCUMENTATION WITHOUT CODE XXXXXXXXXXXXXXXXXXXXXX
+
+writing a module (provide example)
++++++++++++++++++++++++++++++++++++++++++
+
+see `pypy/module/readline.py`_ 
+
+XXX testing a module 
+XXX translating a module (to CPython extension) 
+XXX integration as a PyPy module 
+
+translating a module 
+++++++++++++++++++++++++
+
+:: 
+    python2.4 pypy/bin/extcompiler.py path/to/readline.py 
+
+The extension compiler imports the specified module/package 
+and produces a shared library importable from your local 
+python2.4 installation.  The produced shared library is 
+put into the current working directory by default. 
+
+XXX think about isolation (to only import the specified file and 
+    not implicitely include the parent directory in sys.path) 
+
+XXX think about shared state of imported modules (e.g. linecache
+    or other modules which might get imported from the ext-package) 
+
+XXX what actually happens to applevel code in an extension module? 
+
+somewhere-in-PYTHONPATH:
+    supportpackage/somecode.py 
+
+
+
+
+Installation notes requirements 
+--------------------------------------------------
+
+XXX more verbose, links
+you need to have a full PyPy checkout, refer to getting started
 
 required ctypes version
-------------------------
+++++++++++++++++++++++++++++
 
 As of this time, only `ctypes-0.9.9.6`_ is known to work. 
 
 .. _`ctypes-0.9.9.6`: http://sourceforge.net/project/showfiles.php?group_id=71702&package_id=71318&release_id=411554 
 
 platform notes 
------------------
+++++++++++++++++++
+
 
 Mac OSX 
 ++++++++++++++++++++++++++
