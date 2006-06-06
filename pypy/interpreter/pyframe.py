@@ -78,7 +78,7 @@ class PyFrame(eval.EvalFrame):
         nt = space.newtuple
 
         if isinstance(self, PyNestedScopeFrame):
-            w_cells = w([w(cell) for cell in self.cells])
+            w_cells = space.newlist([w(cell) for cell in self.cells])
         else:
             w_cells = space.w_None
 
@@ -127,7 +127,6 @@ class PyFrame(eval.EvalFrame):
         w_f_back, w_builtin, w_pycode, w_valuestack, w_blockstack, w_last_exception,\
             w_globals, w_last_instr, w_next_instr, w_f_lineno, w_fastlocals, w_f_locals, \
             w_f_trace, w_instr_lb, w_instr_ub, w_instr_prev, w_cells = args_w
-        w = space.wrap
 
         #new_frame = PyFrame(space, pycode, w(globals), None)
         # let the code object create the right kind of frame
@@ -436,32 +435,6 @@ class PyFrame(eval.EvalFrame):
 
 ### Frame Blocks ###
 
-block_classes = {}
-
-def setup_block_classes():
-    "NOT_RPYTHON"
-    import types
-    for cls in globals().values():
-        if isinstance(cls, (types.ClassType,type)):
-            if issubclass(cls, FrameBlock) and hasattr(cls, '_opname'):
-                block_classes[cls._opname] = cls
-
-def get_block_class(opname):
-    # select the appropriate kind of block
-    if not block_classes:
-        setup_block_classes()   # lazily
-    return block_classes[opname]
-
-def unpickle_block(space, w_tup):
-    w_opname, w_handlerposition, w_valuestackdepth = space.unpackiterable(w_tup)
-    opname = space.str_w(w_opname)
-    handlerposition = space.int_w(w_handlerposition)
-    valuestackdepth = space.int_w(w_valuestackdepth)
-    blk = instantiate(get_block_class(opname))
-    blk.handlerposition = handlerposition
-    blk.valuestackdepth = valuestackdepth
-    return blk
-
 class FrameBlock:
 
     """Abstract base class for frame blocks from the blockstack,
@@ -681,3 +654,29 @@ class ExitFrame(Exception):
 
 class BytecodeCorruption(ValueError):
     """Detected bytecode corruption.  Never caught; it's an error."""
+
+# ____________________________________________________________
+
+def setup_block_classes():
+    "NOT_RPYTHON"
+    import types
+    for cls in globals().values():
+        if isinstance(cls, (types.ClassType,type)):
+            if issubclass(cls, FrameBlock) and hasattr(cls, '_opname'):
+                block_classes[cls._opname] = cls
+block_classes = {}
+setup_block_classes()
+
+def get_block_class(opname):
+    # select the appropriate kind of block
+    return block_classes[opname]
+
+def unpickle_block(space, w_tup):
+    w_opname, w_handlerposition, w_valuestackdepth = space.unpackiterable(w_tup)
+    opname = space.str_w(w_opname)
+    handlerposition = space.int_w(w_handlerposition)
+    valuestackdepth = space.int_w(w_valuestackdepth)
+    blk = instantiate(get_block_class(opname))
+    blk.handlerposition = handlerposition
+    blk.valuestackdepth = valuestackdepth
+    return blk
