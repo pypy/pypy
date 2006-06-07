@@ -1,4 +1,5 @@
 from pypy.translator.cli import oopspec
+from pypy.rpython.ootypesystem import ootype
 from pypy.translator.oosupport.metavm import Generator, InstructionList, MicroInstruction
 
 class _Call(MicroInstruction):
@@ -40,7 +41,16 @@ class _RuntimeNew(MicroInstruction):
         generator.call_signature('object [pypylib]pypy.runtime.Utils::RuntimeNew(class [mscorlib]System.Type)')
         generator.cast_to(op.result.concretetype)
 
+class _GetField(MicroInstruction):
+    def render(self, generator, op):
+        if op.result.concretetype is ootype.Void:
+            return
+        this, field = op.args
+        generator.load(this)
+        generator.get_field(this.concretetype, field.value)
+
 Call = _Call()
 CallMethod = _CallMethod()
 IndirectCall = _IndirectCall()
 RuntimeNew = _RuntimeNew()
+GetField = _GetField()

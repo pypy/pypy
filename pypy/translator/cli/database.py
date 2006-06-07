@@ -378,6 +378,8 @@ class InstanceConst(AbstractConst):
         ilasm.new('instance void class %s::.ctor()' % classdef._name)
         while classdef is not None:
             for name, (TYPE, default) in classdef._fields.iteritems():
+                if TYPE is ootype.Void:
+                    continue
                 value = getattr(self.obj, name)
                 type_ = self.cts.lltype_to_cts(TYPE)
                 ilasm.opcode('dup')
