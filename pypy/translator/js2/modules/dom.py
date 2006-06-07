@@ -21,10 +21,11 @@ class Style(object):
 class Node(object):
     _rpython_hints = {'_suggested_external' : True}
     
-    def __init__(self):
+    def __init__(self, parent = None):
         self.innerHTML = ""
         self.style = None
         self.subnodes = {}
+        self.parent = parent
     
     def getElementById(self, id):
         try:
@@ -33,12 +34,28 @@ class Node(object):
             self.subnodes[id] = Node()
             return self.subnodes[id]
     
+    def createElement(self, type):
+        return Node()
+    
     def setAttribute(self, name, style_str):
         if name == 'style':
             self.style = Style( style_str)
+        elif name == 'id':
+            self.id = style_str
+        elif name == 'src':
+            self.src = style_str
+    
+    def appendChild(self, elem):
+        self.subnodes[elem.id] = elem
+
+class Document(Node):
+    def __init__(self):
+        Node.__init__(self)
+        self.body = Node()
+    
 
 def get_document():
-    return Node()
+    return Document()
 
 get_document.suggested_primitive = True
 
@@ -56,3 +73,4 @@ def setTimeout(func, delay):
     #pass
 
 setTimeout.suggested_primitive = True
+

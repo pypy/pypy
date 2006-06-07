@@ -24,12 +24,12 @@ except NameError:
     from sets import Set as set
 
 class LowLevelDatabase(object):
-    def __init__(self, type_system_class = JTS, opcode_dict = opcodes, function_class = Function):
+    def __init__(self, backend_mapping = None):
         self._pending_nodes = set()
-        self.opcode_dict = opcode_dict
+        self.opcode_dict = backend_mapping['opcode_dict']
         self._rendered_nodes = set()
-        self.function_class = function_class
-        self.type_system_class = type_system_class
+        self.function_class = backend_mapping['function_class']
+        self.type_system_class = backend_mapping['type_system_class']
         self.classes = {} # classdef --> class_name
         self.functions = {} # graph --> function_name
         self.function_names = {} # graph --> real_name
@@ -39,7 +39,8 @@ class LowLevelDatabase(object):
         self.const_var = Variable("__consts")
         self.name_manager = JavascriptNameManager(self)
         self.pending_consts = []
-        self.cts = type_system_class(self)
+        self.backend_mapping = backend_mapping
+        self.cts = self.type_system_class(self)
         self.prepare_builtins()
     
     def prepare_builtins(self):
@@ -159,9 +160,6 @@ class LowLevelDatabase(object):
             const.init_fields(ilasm, self.const_var, name)
             #ilasm.field(name, const.get_type(), static=True)
         
-    def gen_delegate_types(self, ilasm):
-        pass
-    
     def load_const(self, type_, value, ilasm):
         if self.is_primitive(type_):
             ilasm.load_const(self.cts.primitive_repr(type_, value))

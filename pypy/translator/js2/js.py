@@ -23,7 +23,7 @@ from pypy.translator.js2.opcodes import opcodes
 from pypy.translator.js2.function import Function
 from pypy.translator.js2.database import LowLevelDatabase
 
-from pypy.translator.cli.gencli import GenCli
+from pypy.translator.oosupport.genoo import GenOO
 
 from heapq import heappush, heappop
 
@@ -33,10 +33,17 @@ def _path_join(root_path, *paths):
         path = os.path.join(path, p)
     return path
 
-class JS(GenCli):
+class JS(GenOO):
     def __init__(self, translator, functions=[], stackless=False, compress=False, logging=False):
-        GenCli.__init__(self, udir, translator, type_system_class = JTS, opcode_dict = opcodes,\
-            name_suffix = '.js', function_class = Function, database_class = LowLevelDatabase)
+        backend_mapping = {
+            'type_system_class' : JTS,
+            'opcode_dict' : opcodes,
+            'name_suffix' : '.js',
+            'function_class' : Function,
+            'database_class' : LowLevelDatabase,
+            'asm_class' : AsmGen,
+        }
+        GenOO.__init__(self, udir, translator, backend_mapping = backend_mapping, pending_graphs = ())
         self.translator = translator
     
     def gen_pendings(self):
@@ -60,7 +67,7 @@ class JS(GenCli):
         # not be used as inlined, rather another script to load
         # this is just workaround
         
-        self.generate_source(AsmGen)
+        self.generate_source()
 
         data = self.tmpfile.open().read()
         src_filename = _path_join(os.path.dirname(__file__), 'jssrc', 'misc.js')
