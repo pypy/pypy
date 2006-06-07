@@ -3,4 +3,5 @@ from pypy.translator.cli.test.runtest import CliTest
 from pypy.rpython.test.test_rclass import BaseTestRclass
 
 class TestCliClass(CliTest, BaseTestRclass):
-    pass
+    def test_recursive_prebuilt_instance(self):
+        py.test.skip("gencli doesn't support this, yet'")
