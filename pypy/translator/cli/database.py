@@ -370,6 +370,10 @@ class InstanceConst(AbstractConst):
         return self.cts.lltype_to_cts(self.static_type)
 
     def init(self, ilasm):
+        if not self.obj:
+            ilasm.opcode('ldnull')
+            return
+
         classdef = self.obj._TYPE        
         ilasm.new('instance void class %s::.ctor()' % classdef._name)
         while classdef is not None:
