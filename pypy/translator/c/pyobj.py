@@ -570,7 +570,7 @@ class PyObjMaker:
                 if isinstance(value, FunctionType):
                     func = value
                     fname = '%s.%s' % (cls.__name__, func.__name__)
-                    if not should_expose_method(func):
+                    if not should_expose(func):
                         log.REMARK('method %s hidden from wrapper' % fname)
                         continue
                     if func.__name__ == '__init__':
