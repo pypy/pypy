@@ -169,6 +169,8 @@ class AbstractConst(object):
             return StringConst(db, const)
         elif isinstance(const, ootype._static_meth):
             return StaticMethodConst(db, const)
+        elif isinstance(const, ootype._class):
+            return ClassConst(db, const)
         else:
             assert False, 'Unknown constant: %s' % const
     make = staticmethod(make)
@@ -277,6 +279,29 @@ class StaticMethodConst(AbstractConst):
         ilasm.opcode('ldftn', signature)
         ilasm.new('instance void class %s::.ctor(object, native int)' % delegate_type)
 
+class ClassConst(AbstractConst):
+    def __init__(self, db, class_):
+        self.db = db
+        self.cts = CTS(db)
+        self.class_ = class_
+
+    def __hash__(self):
+        return hash(self.class_)
+
+    def __eq__(self, other):
+        return self.class_ == other.class_
+
+    def get_name(self):
+        return 'Class'
+
+    def get_type(self, include_class=True):
+        return self.cts.lltype_to_cts(self.class_._TYPE, include_class)
+
+    def init(self, ilasm):
+        self.cts.lltype_to_cts(self.class_._INSTANCE) # force scheduling class generation
+        classname = self.class_._INSTANCE._name
+        ilasm.opcode('ldtoken', classname)
+        ilasm.call('class [mscorlib]System.Type class [mscorlib]System.Type::GetTypeFromHandle(valuetype [mscorlib]System.RuntimeTypeHandle)')
 
 class ListConst(AbstractConst):
     def __init__(self, db, list_):
@@ -323,6 +348,7 @@ class ListConst(AbstractConst):
 
 class InstanceConst(AbstractConst):
     def __init__(self, db, obj, static_type):
+        self.db = db
         self.cts = CTS(db)
         self.obj = obj
         if static_type is None:
@@ -347,16 +373,10 @@ class InstanceConst(AbstractConst):
         classdef = self.obj._TYPE        
         ilasm.new('instance void class %s::.ctor()' % classdef._name)
         while classdef is not None:
-            for name, (type_, default) in classdef._fields.iteritems():
-                if isinstance(type_, ootype.StaticMethod):
-                    continue
-                elif type_ is ootype.Class:
-                    value = getattr(self.obj, name)
-                    self.cts.lltype_to_cts(value._INSTANCE) # force scheduling class generation
-                    classname = value._INSTANCE._name
-                    ilasm.opcode('dup')
-                    ilasm.opcode('ldtoken', classname)
-                    ilasm.call('class [mscorlib]System.Type class [mscorlib]System.Type::GetTypeFromHandle(valuetype [mscorlib]System.RuntimeTypeHandle)')
-                    ilasm.opcode('stfld class [mscorlib]System.Type %s::%s' % (classdef._name, name))
+            for name, (TYPE, default) in classdef._fields.iteritems():
+                value = getattr(self.obj, name)
+                type_ = self.cts.lltype_to_cts(TYPE)
+                ilasm.opcode('dup')
+                AbstractConst.load(self.db, TYPE, value, ilasm)
+                ilasm.opcode('stfld %s %s::%s' % (type_, classdef._name, name))
             classdef = classdef._superclass
-

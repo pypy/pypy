@@ -8,21 +8,6 @@ def test_oo():
 
         yield check, func, [int, int], (42, 13)
 
-class TestOO(CliTest):
-    def test_indirect_call(self):
-        def f():
-            return 1
-        def g():
-            return 2
-        def fn(flag):
-            if flag:
-                x = f
-            else:
-                x = g
-            return x()
-        assert self.interpret(fn, [True]) == 1
-        assert self.interpret(fn, [False]) == 2
-
 class MyClass:
     INCREMENT = 1
 
@@ -51,6 +36,35 @@ class MyDerivedClass(MyClass):
 
     def compute(self):
         return self.x - self.y
+
+
+class TestOO(CliTest):
+    def test_indirect_call(self):
+        def f():
+            return 1
+        def g():
+            return 2
+        def fn(flag):
+            if flag:
+                x = f
+            else:
+                x = g
+            return x()
+        assert self.interpret(fn, [True]) == 1
+        assert self.interpret(fn, [False]) == 2
+
+    def test_indirect_call_arguments(self):
+        def f(x):
+            return x+1
+        def g(x):
+            return x+2
+        def fn(flag, n):
+            if flag:
+                x = f
+            else:
+                x = g
+            return x(n)
+        assert self.interpret(fn, [True, 42]) == 43
 
 # helper functions
 def call_method(obj):
