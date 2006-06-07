@@ -32,6 +32,8 @@ see `pypy/module/readline`_ for an example.
 
 XXX describe directory structure here 
 
+.. _`pypy checkout`: getting-started.html#gettingpypy
+
 testing a module 
 ++++++++++++++++++++++++
 
@@ -103,3 +105,4 @@ in  ctypes/__init__.py line 293 to::
 otherwise it will complain with "unable to open this file with RTLD_LOCAL"
 when trying to load the C library. 
 
+.. include:: _ref.txt

@@ -28,10 +28,13 @@
 .. _`lib/test2/`:
 .. _`pypy/lib/test2`: ../../pypy/lib/test2
 .. _`module/`:
-.. _`pypy/module`: ../../pypy/module
+.. _`pypy/module`:
+.. _`pypy/module/`: ../../pypy/module
 .. _`module/__builtin__/`: ../../pypy/module/__builtin__
 .. _`pypy/module/__builtin__/__init__.py`: ../../pypy/module/__builtin__/__init__.py
 .. _`module/_sre/`: ../../pypy/module/_sre
+.. _`pypy/module/readline`: ../../pypy/module/readline
+.. _`pypy/module/readline/test/test_readline.py`: ../../pypy/module/readline/test/test_readline.py
 .. _`module/recparser/`: ../../pypy/module/recparser
 .. _`module/sys/`: ../../pypy/module/sys
 .. _`objspace/`:

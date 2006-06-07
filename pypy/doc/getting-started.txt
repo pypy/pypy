@@ -25,6 +25,8 @@ translation aspect - should become robust against language changes. `more...`_
 Just the facts 
 ============== 
 
+.. _gettingpypy: 
+
 Downloading & running the PyPy 0.8 release 
 -------------------------------------------
 
