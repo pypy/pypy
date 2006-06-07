@@ -1,0 +1,2 @@
+db_module=testme.model
+history_dir=$base/testme/sqlobject-history
