@@ -222,7 +222,7 @@ class CliTest(BaseRtypingTest, OORtypeMixin):
         f = compile_function(fn, ann)
         res = f(*args)
         if isinstance(res, ExceptionWrapper):
-            raise ExceptionWrapper
+            raise res
         return res
 
     def interpret_raises(self, exception, fn, args):
