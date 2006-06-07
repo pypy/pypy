@@ -298,10 +298,13 @@ class ClassConst(AbstractConst):
         return self.cts.lltype_to_cts(self.class_._TYPE, include_class)
 
     def init(self, ilasm):
-        self.cts.lltype_to_cts(self.class_._INSTANCE) # force scheduling class generation
-        classname = self.class_._INSTANCE._name
-        ilasm.opcode('ldtoken', classname)
-        ilasm.call('class [mscorlib]System.Type class [mscorlib]System.Type::GetTypeFromHandle(valuetype [mscorlib]System.RuntimeTypeHandle)')
+        INSTANCE = self.class_._INSTANCE
+        if INSTANCE is None:
+            ilasm.opcode('ldnull')
+        else:
+            self.cts.lltype_to_cts(INSTANCE) # force scheduling class generation
+            ilasm.opcode('ldtoken', INSTANCE._name)
+            ilasm.call('class [mscorlib]System.Type class [mscorlib]System.Type::GetTypeFromHandle(valuetype [mscorlib]System.RuntimeTypeHandle)')
 
 class ListConst(AbstractConst):
     def __init__(self, db, list_):
