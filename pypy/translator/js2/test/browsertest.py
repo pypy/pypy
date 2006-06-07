@@ -93,7 +93,12 @@ class TestHandler(BaseHTTPRequestHandler):
                 isinteractive = ''
             else:
                 isinteractive = 'resultform.submit();'
-            html_page  = open(self.server.html_page).read() % locals()
+            try:
+                html_page  = open(self.server.html_page).read() % locals()
+            except IOError:
+                log("HTML FILE WAS NOT FOUND!!!!")
+                self.send_error(404, "File not found")
+                return
         else:
             html_page = config.html_page % locals()
         
