@@ -15,6 +15,7 @@ from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython.objectmodel import we_are_translated
 from pypy.rpython.rarithmetic import intmask
 from pypy.tool import stdlib_opcode as pythonopcode
+from pypy.rpython import rstack # for resume points
 
 def unaryoperation(operationname):
     """NOT_RPYTHON"""
@@ -675,6 +676,7 @@ class PyInterpFrame(pyframe.PyFrame):
         args = Arguments(f.space, arguments, keywords, w_star, w_starstar)
         w_function  = f.valuestack.pop()
         w_result = f.space.call_args(w_function, args)
+        rstack.resume_point("call_function", f, returns=w_result)
         f.valuestack.push(w_result)
         
     def CALL_FUNCTION(f, oparg):
@@ -685,6 +687,7 @@ class PyInterpFrame(pyframe.PyFrame):
             w_function = f.valuestack.top(nargs)
             try:
                 w_result = f.space.call_valuestack(w_function, nargs, f.valuestack)
+                rstack.resume_point("CALL_FUNCTION", f, nargs, returns=w_result)
             finally:
                 f.valuestack.drop(nargs + 1)
             f.valuestack.push(w_result)
@@ -825,12 +828,14 @@ def dispatch_translated(self, ec):
 ''' % (pythonopcode.HAVE_ARGUMENT,
         pythonopcode.EXTENDED_ARG,
         pythonopcode.HAVE_ARGUMENT)
-        for opname,i in pythonopcode.opmap.iteritems():
+        for opname, i in pythonopcode.opmap.iteritems():
             if i == pythonopcode.EXTENDED_ARG or i < pythonopcode.HAVE_ARGUMENT:
                 continue
             opname         = opname.replace('+', '_')
             dispatch_code += '                elif opcode == %d:\n' % i
             dispatch_code += '                    self.%s(oparg)\n'  % opname
+            if opname == 'CALL_FUNCTION':
+                dispatch_code += '                    rstack.resume_point("dispatch_call", self, code, ec)\n'
         dispatch_code +=     '                else:\n'
         dispatch_code +=     '                    self.MISSING_OPCODE_W_ARG(oparg)\n'
         dispatch_code +=     '                break\n'

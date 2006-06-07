@@ -4,6 +4,7 @@ Code and Frame.
 """
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
+from pypy.rpython import rstack # for resume points
 
 
 class Code(Wrappable):
@@ -156,6 +157,7 @@ class EvalFrame(Frame):
         executioncontext.enter(self)
         try:
             result = self.eval(executioncontext)
+            rstack.resume_point("evalframe", self, executioncontext, returns=result)
         finally:
             executioncontext.leave(self)
         return result

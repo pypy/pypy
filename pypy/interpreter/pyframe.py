@@ -8,6 +8,7 @@ from pypy.interpreter import pytraceback
 from pypy.rpython.rarithmetic import r_uint, intmask
 import opcode
 from pypy.rpython.objectmodel import we_are_translated, instantiate
+from pypy.rpython import rstack # for resume points
 
 
 # Define some opcodes used
@@ -198,6 +199,7 @@ class PyFrame(eval.EvalFrame):
                         try:
                             if we_are_translated():
                                 self.dispatch_translated(executioncontext)
+                                rstack.resume_point("eval", self)
                             else:
                                 self.dispatch(executioncontext)
                         # catch asynchronous exceptions and turn them

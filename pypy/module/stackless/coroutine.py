@@ -26,6 +26,9 @@ from pypy.interpreter.function import StaticMethod
 from pypy.module.stackless.stackless_flags import StacklessFlags
 from pypy.module.stackless.interp_coroutine import Coroutine, BaseCoState, AbstractThunk
 
+from pypy.rpython import rstack # for resume points
+from pypy.tool import stdlib_opcode as pythonopcode
+
 class _AppThunk(AbstractThunk):
 
     def __init__(self, space, costate, w_obj, args):
@@ -40,7 +43,10 @@ class _AppThunk(AbstractThunk):
         self.args = args
 
     def call(self):
-        self.costate.w_tempval = self.space.call_args(self.w_func, self.args)
+        costate = self.costate
+        w_result = self.space.call_args(self.w_func, self.args)
+        rstack.resume_point("appthunk", costate, returns=w_result)
+        costate.w_tempval = w_result
 
 
 class AppCoroutine(Coroutine): # XXX, StacklessFlags):
@@ -77,6 +83,7 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
             raise OperationError(space.w_ValueError, space.wrap(
                 "cannot switch to an unbound Coroutine"))
         self.switch()
+        rstack.resume_point("w_switch", self, space)
         state = self.costate
         w_ret, state.w_tempval = state.w_tempval, space.w_None
         return w_ret
@@ -110,7 +117,7 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         # nor we allowto pickle the current coroutine.
         # rule: switch before pickling.
         # you cannot construct the tree that you are climbing.
-        
+        # XXX missing checks!
         from pypy.interpreter.mixedmodule import MixedModule
         w_mod    = space.getbuiltinmodule('stackless')
         mod      = space.interp_w(MixedModule, w_mod)
@@ -134,6 +141,54 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         self.flags = space.int_w(w_flags)
         ec = self.space.getexecutioncontext()
         ec.subcontext_setstate(self, w_state)
+        self.reconstruct_framechain()
+
+    def reconstruct_framechain(self):
+        from pypy.interpreter.pyframe import PyFrame
+        from pypy.rpython.rstack import resume_state_create
+        if self.framestack.empty():
+            self.frame = None
+            return
+
+        space = self.space
+        ec = space.getexecutioncontext()
+        costate = self.costate
+        # now the big fun of recreating tiny things...
+        bottom = resume_state_create(None, "yield_current_frame_to_caller_1")
+        # resume_point("coroutine__bind", self, state)
+        _bind_frame = resume_state_create(bottom, "coroutine__bind", self, costate)
+        # rstack.resume_point("appthunk", costate, returns=w_result)
+        appthunk_frame = resume_state_create(_bind_frame, "appthunk", costate)
+        chain = appthunk_frame
+        for frame in self.framestack.items:
+            assert isinstance(frame, PyFrame)
+            # rstack.resume_point("evalframe", self, executioncontext, returns=result)
+            evalframe_frame = resume_state_create(chain, "evalframe", frame, ec)
+            # rstack.resume_point("eval", self)
+            eval_frame = resume_state_create(evalframe_frame, "eval", frame)
+            # rstack.resume_point("dispatch_call", self, code, ec)
+            code = frame.getcode().co_code
+            dispatch_call_frame = resume_state_create(eval_frame, "dispatch_call", frame, code, ec)
+            instr = frame.last_instr
+            opcode = ord(code[instr])
+            assert opcode == pythonopcode.opmap['CALL_FUNCTION']
+            instr += 1
+            oparg = ord(code[instr]) | ord(code[instr + 1]) << 8
+            if (oparg >> 8) & 0xff == 0:
+                # Only positional arguments
+                nargs = oparg & 0xff
+                # case1: rstack.resume_point("CALL_FUNCTION", f, nargs, returns=w_result)
+                call_frame = resume_state_create(dispatch_call_frame, 'CALL_FUNCTION', frame, nargs)
+            else:
+                # case2: rstack.resume_point("call_function", f, returns=w_result)
+                call_frame = resume_state_create(dispatch_call_frame, 'call_function', frame)
+            chain = call_frame
+
+        # rstack.resume_point("w_switch", self, space)
+        w_switch_frame = resume_state_create(chain, 'w_switch', self, space)
+        # resume_point("coroutine_switch", self, state, returns=incoming_frame)
+        switch_frame = resume_state_create(w_switch_frame, "coroutine_switch", self, costate)
+        self.frame = switch_frame
 
 # _mixin_ did not work
 for methname in StacklessFlags.__dict__:
