@@ -76,7 +76,8 @@ class CTS(object):
             name = self.db.pending_record(t)
             return self.__class(name, include_class)
         elif isinstance(t, ootype.StaticMethod):
-            return 'void' # TODO: is it correct to ignore StaticMethod?
+            #return 'void' # TODO: is it correct to ignore StaticMethod?
+            return self.db.record_delegate_type(t)
         elif isinstance(t, ootype.List):
             item_type = self.lltype_to_cts(t._ITEMTYPE)
             if item_type == 'void': # special case: CLI doesn't allow List of void; use int instead
@@ -115,21 +116,25 @@ class CTS(object):
 
         return '%s %s(%s)' % (ret_type, func_name, arg_list)
 
-    def method_signature(self, obj, name):
+    def method_signature(self, TYPE, name):
         # TODO: use callvirt only when strictly necessary
-        if isinstance(obj, ootype.Instance):
-            owner, meth = obj._lookup(name)
-            class_name = obj._name
+        if isinstance(TYPE, ootype.Instance):
+            owner, meth = TYPE._lookup(name)
+            class_name = TYPE._name
             full_name = 'class %s::%s' % (class_name, name)
             return self.graph_to_signature(meth.graph, True, full_name), True
 
-        elif isinstance(obj, ootype.BuiltinType):
-            meth = oopspec.get_method(obj, name)
-            class_name = self.lltype_to_cts(obj)
-            ret_type = self.lltype_to_cts(meth.RESULT)
-            arg_types = [self.lltype_to_cts(arg) for arg in meth.ARGS]
+        elif isinstance(TYPE, (ootype.BuiltinType, ootype.StaticMethod)):
+            if isinstance(TYPE, ootype.StaticMethod):
+                METH = TYPE
+            else:
+                METH = oopspec.get_method(TYPE, name)
+            class_name = self.lltype_to_cts(TYPE)
+            ret_type = self.lltype_to_cts(METH.RESULT)
+            arg_types = [self.lltype_to_cts(arg) for arg in METH.ARGS]
             arg_list = ', '.join(arg_types)
             return '%s %s::%s(%s)' % (ret_type, class_name, name, arg_list), False
+
         else:
             assert False
 

@@ -71,13 +71,18 @@ class IlasmGenerator(object):
 
         self.code.writeline('.field public %s %s %s' % (s, type_, name))
 
-    def begin_function(self, name, arglist, returntype, is_entrypoint = False, *args):
+    def begin_function(self, name, arglist, returntype, is_entrypoint = False, *args, **kwds):
         # TODO: .maxstack
 
+        runtime = kwds.get('runtime', False)
+        if runtime:
+            method_type = 'runtime'
+        else:
+            method_type = 'il'
         attributes = ' '.join(args)
         arglist = ', '.join(['%s %s' % arg for arg in arglist])
-        self.code.writeline('.method public %s %s %s(%s) il managed' %\
-                            (attributes, returntype, name, arglist))
+        self.code.writeline('.method public %s %s %s(%s) %s managed' %\
+                            (attributes, returntype, name, arglist, method_type))
         
         self.code.openblock()
         if is_entrypoint:

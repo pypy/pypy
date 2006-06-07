@@ -29,6 +29,10 @@ class _CallMethod(_Call):
         self._render_method(generator, method.value, op.args[1:])
 
 
+class _IndirectCall(_Call):
+    def render(self, generator, op):
+        # discard the last argument because it's used only for analysis
+        self._render_method(generator, 'Invoke', op.args[:-1])
 
 class _RuntimeNew(MicroInstruction):
     def render(self, generator, op):
@@ -38,4 +42,5 @@ class _RuntimeNew(MicroInstruction):
 
 Call = _Call()
 CallMethod = _CallMethod()
+IndirectCall = _IndirectCall()
 RuntimeNew = _RuntimeNew()

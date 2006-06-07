@@ -1,4 +1,4 @@
-from pypy.translator.cli.metavm import  Call, CallMethod, RuntimeNew
+from pypy.translator.cli.metavm import  Call, CallMethod, RuntimeNew, IndirectCall
 
 from pypy.translator.oosupport.metavm import PushArg, PushAllArgs, StoreResult, InstructionList,\
     SetField, GetField, New
@@ -51,7 +51,7 @@ opcodes = {
     
     'same_as':                  DoNothing, # TODO: does same_as really do nothing else than renaming?    
     'direct_call':              [Call],
-    'indirect_call':            None,      # when is it generated?
+    'indirect_call':            [IndirectCall],
 
     # __________ numeric operations __________
 

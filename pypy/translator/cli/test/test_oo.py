@@ -1,4 +1,5 @@
 from pypy.translator.cli.test.runtest import check
+from pypy.translator.cli.test.runtest import CliTest
 
 def test_oo():
     for name, func in globals().iteritems():
@@ -7,6 +8,20 @@ def test_oo():
 
         yield check, func, [int, int], (42, 13)
 
+class TestOO(CliTest):
+    def test_indirect_call(self):
+        def f():
+            return 1
+        def g():
+            return 2
+        def fn(flag):
+            if flag:
+                x = f
+            else:
+                x = g
+            return x()
+        assert self.interpret(fn, [True]) == 1
+        assert self.interpret(fn, [False]) == 2
 
 class MyClass:
     INCREMENT = 1

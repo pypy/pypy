@@ -21,10 +21,12 @@ class LowLevelDatabase(object):
         self._rendered_nodes = set()
         self.function_class = function_class
         self.type_system_class = type_system_class
+        self.cts = type_system_class(self)
         self.classes = {} # classdef --> class_name
         self.functions = {} # graph --> function_name
         self.methods = {} # graph --> method_name
         self.consts = {}  # value --> const_name
+        self.delegates = {} # StaticMethod --> type_name
         self.const_names = set()
 
     def pending_function(self, graph):
@@ -50,6 +52,7 @@ class LowLevelDatabase(object):
         self.classes[classdef] = name
 
     def graph_name(self, graph):
+        # XXX: graph name are not guaranteed to be unique
         return self.functions.get(graph, None)
 
     def class_name(self, classdef):
@@ -68,6 +71,38 @@ class LowLevelDatabase(object):
 
         return '%s.%s::%s' % (CONST_NAMESPACE, CONST_CLASS, name)
 
+    def record_delegate_type(self, TYPE):
+        try:
+            return self.delegates[TYPE]
+        except KeyError:
+            name = 'StaticMethod__%d' % len(self.delegates)
+            # record we know about result and argument types
+            self.cts.lltype_to_cts(TYPE.RESULT)
+            for ARG in TYPE.ARGS:
+                self.cts.lltype_to_cts(ARG)
+            self.delegates[TYPE] = name
+            return name
+
+    def gen_delegate_types(self, ilasm):
+        for TYPE, name in self.delegates.iteritems():
+            ilasm.begin_class(name, '[mscorlib]System.MulticastDelegate')
+            ilasm.begin_function('.ctor',
+                                 [('object', "'object'"), ('native int', "'method'")],
+                                 'void',
+                                 False,
+                                 'hidebysig', 'specialname', 'rtspecialname', 'instance', 'default',
+                                 runtime=True)
+            ilasm.end_function()
+
+            resulttype = self.cts.lltype_to_cts(TYPE.RESULT)
+            arglist = [(self.cts.lltype_to_cts(ARG), '') for ARG in TYPE.ARGS]
+            ilasm.begin_function('Invoke', arglist, resulttype, False,
+                                 'virtual', 'hidebysig', 'instance', 'default',
+                                 runtime=True)
+            ilasm.end_function()
+            ilasm.end_class()
+            
+    
     def gen_constants(self, ilasm):
         ilasm.begin_namespace(CONST_NAMESPACE)
         ilasm.begin_class(CONST_CLASS)
@@ -132,6 +167,8 @@ class AbstractConst(object):
             return ListConst(db, const)
         elif isinstance(const, ootype._string):
             return StringConst(db, const)
+        elif isinstance(const, ootype._static_meth):
+            return StaticMethodConst(db, const)
         else:
             assert False, 'Unknown constant: %s' % const
     make = staticmethod(make)
@@ -213,6 +250,33 @@ class RecordConst(AbstractConst):
             ilasm.opcode('dup')
             AbstractConst.load(self.db, FIELD_TYPE, value, ilasm)            
             ilasm.set_field((f_type, class_name, f_name))
+
+class StaticMethodConst(AbstractConst):
+    def __init__(self, db, sm):
+        self.db = db
+        self.cts = CTS(db)
+        self.sm = sm
+
+    def __hash__(self):
+        return hash(self.sm)
+
+    def __eq__(self, other):
+        return self.sm == other.sm
+
+    def get_name(self):
+        return 'Delegate'
+
+    def get_type(self, include_class=True):
+        return self.cts.lltype_to_cts(self.sm._TYPE, include_class)
+
+    def init(self, ilasm):
+        self.db.pending_function(self.sm.graph)
+        signature = self.cts.graph_to_signature(self.sm.graph)
+        delegate_type = self.db.record_delegate_type(self.sm._TYPE)
+        ilasm.opcode('ldnull')
+        ilasm.opcode('ldftn', signature)
+        ilasm.new('instance void class %s::.ctor(object, native int)' % delegate_type)
+
 
 class ListConst(AbstractConst):
     def __init__(self, db, list_):
