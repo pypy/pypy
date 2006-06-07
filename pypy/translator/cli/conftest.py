@@ -15,6 +15,9 @@ option = py.test.Config.addoptions\
                  help="print the generated IL code to stdout, too"),
 
           Option('--nostop', action="store_true", dest="nostop", default=False,
-                 help="don't stop on warning. The generated IL code could not compile")
+                 help="don't stop on warning. The generated IL code could not compile"),
+
+          Option('--nowrap', action="store_true", dest="nowrap", default=False,
+                 help="don't wrap exceptions but let them to flow out of the entry point")
           )
 

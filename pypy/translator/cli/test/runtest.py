@@ -79,9 +79,12 @@ class TestEntryPoint(Node):
 
         for exc in ('[mscorlib]System.Exception', 'exceptions.Exception'):
             ilasm.begin_catch(exc)
-            ilasm.call('string class [pypylib]pypy.test.Result::FormatException(object)')
-            ilasm.call('void class [mscorlib]System.Console::WriteLine(string)')        
-            ilasm.leave('return')
+            if getoption('nowrap'):
+                ilasm.opcode('throw')
+            else:
+                ilasm.call('string class [pypylib]pypy.test.Result::FormatException(object)')
+                ilasm.call('void class [mscorlib]System.Console::WriteLine(string)')        
+                ilasm.leave('return')
             ilasm.end_catch()
 
         # write the result to stdout
@@ -210,12 +213,17 @@ class ExceptionWrapper:
     def __init__(self, class_name):
         self.class_name = class_name
 
+    def __repr__(self):
+        return 'ExceptionWrapper(%s)' % repr(self.class_name)
 
 class CliTest(BaseRtypingTest, OORtypeMixin):
     def interpret(self, fn, args):
         ann = [lltype_to_annotation(typeOf(x)) for x in args]
         f = compile_function(fn, ann)
-        return f(*args)
+        res = f(*args)
+        if isinstance(res, ExceptionWrapper):
+            raise ExceptionWrapper
+        return res
 
     def interpret_raises(self, exception, fn, args):
         import exceptions # needed by eval
