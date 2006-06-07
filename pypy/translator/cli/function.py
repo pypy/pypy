@@ -307,3 +307,6 @@ class Function(Node, Generator):
                 self.ilasm.opcode('stloc', repr(v.name))
         else:
             assert False
+
+    def isinstance(self, class_name):
+        self.ilasm.opcode('isinst', class_name)

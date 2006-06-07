@@ -1,4 +1,4 @@
-from pypy.translator.cli.metavm import  Call, CallMethod, RuntimeNew, IndirectCall, GetField
+from pypy.translator.cli.metavm import  Call, CallMethod, RuntimeNew, IndirectCall, GetField, CastTo
 from pypy.translator.oosupport.metavm import PushArg, PushAllArgs, StoreResult, InstructionList,\
     SetField, New
 
@@ -47,6 +47,7 @@ opcodes = {
     'oodowncast':               DoNothing, # TODO: is it really safe?
     'oois':                     'ceq',
     'oononnull':                [PushAllArgs, 'ldnull', 'ceq']+Not,
+    'instanceof':               [CastTo, 'ldnull', 'cgt.un'],
     
     'same_as':                  DoNothing, # TODO: does same_as really do nothing else than renaming?    
     'direct_call':              [Call],

@@ -49,8 +49,14 @@ class _GetField(MicroInstruction):
         generator.load(this)
         generator.get_field(this.concretetype, field.value)
 
+class _CastTo(MicroInstruction):
+    def render(self, generator, op):
+        generator.load(op.args[0])
+        generator.isinstance(op.args[1].value._name)
+
 Call = _Call()
 CallMethod = _CallMethod()
 IndirectCall = _IndirectCall()
 RuntimeNew = _RuntimeNew()
 GetField = _GetField()
+CastTo = _CastTo()
