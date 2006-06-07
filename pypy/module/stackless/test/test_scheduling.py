@@ -1,3 +1,4 @@
+import py; py.test.skip("doesn't run with py.test")
 from stackless_ import scheduler
 
 class task_mock(object):
