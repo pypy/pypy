@@ -597,25 +597,27 @@ def test_complementof():
     b_cls = URIRef('b')
     O.type(a_cls, URIRef(namespaces['owl']+'#Class'))
     O.type(b_cls, URIRef(namespaces['owl']+'#Class'))
-    for i in ['i1', 'i2', 'i3', 'i4']:
-        O.type(URIRef(i), a_cls)
+    O.oneOf(a_cls, [URIRef('i1'), URIRef('i2'), URIRef('i3'), URIRef('i4')])
+    for i in ['i1', 'i2', 'i3', 'i4']: 
         O.type(URIRef(i), URIRef(namespaces['owl']+'#Thing'))
     O.type(URIRef('i5'), URIRef(namespaces['owl']+'#Thing'))
     O.complementOf(b_cls, a_cls)
+    O.consistency()
     assert O.variables[O.make_var(None, b_cls)].getValues() == ['i5']
 
-def test_complementof():
+def test_complementof_raise():
     O = Ontology()
     a_cls = URIRef('a')
     b_cls = URIRef('b')
     O.type(a_cls, URIRef(namespaces['owl']+'#Class'))
     O.type(b_cls, URIRef(namespaces['owl']+'#Class'))
-    for i in ['i1', 'i2', 'i3', 'i4']:
-        O.type(URIRef(i), a_cls)
+    O.oneOf(a_cls, [URIRef('i1'), URIRef('i2'), URIRef('i3'), URIRef('i4')])
+    for i in ['i1', 'i2', 'i3', 'i4']: 
         O.type(URIRef(i), URIRef(namespaces['owl']+'#Thing'))
     O.type(URIRef('i5'), URIRef(namespaces['owl']+'#Thing'))
     O.type(URIRef('i4'), b_cls)
-    raises(ConsistencyFailure, O.complementOf, b_cls, a_cls)
+    O.complementOf(b_cls, a_cls)
+    raises(ConsistencyFailure, O.consistency)
 
 def test_class_promotion():
     O = Ontology()
@@ -649,3 +651,11 @@ def test_property_to_objectproperty():
     O.type(a_cls, URIRef(namespaces['rdf']+'#Property'))
 
     assert isinstance(O.variables['a_'], ObjectProperty)	
+
+def test_individual():
+    # test comparison (unknown, equal, different)
+    O = Ontology()
+    first = URIRef('first')
+    second = URIRef('second')
+    O.type(first, URIRef(namespaces['owl']+'#Thing'))
+    assert isinstance((O.variables['owl_Thing'].getValues()[0]), Individual)

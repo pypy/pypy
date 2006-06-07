@@ -26,8 +26,8 @@ def get_cardinality(props, cls):
 
 import py
 from pypy.tool.ansi_print import ansi_log
-log = py.log.Producer("CardinalityConstraint")
-py.log.setconsumer("CardinalityConstraint", ansi_log)
+log = py.log.Producer("Constraint")
+py.log.setconsumer("Constraint", ansi_log)
 
 class CardinalityConstraint(AbstractConstraint):
 
@@ -101,18 +101,29 @@ class DisjointClassConstraint(SubClassConstraint):
 
 Thing_uri = URIRef(u'http://www.w3.org/2002/07/owl#Thing')
 
+class MemberConstraint(AbstractConstraint):
+
+    def __init__(self, variable, cls_or_restriction):
+        AbstractConstraint.__init__(self, [ cls_or_restriction])
+        self.object = cls_or_restriction
+        self.variable = variable
+
+    def narrow(self, domains):
+        x_vals = domains[self.object].getValues()
+        if self.variable not in x_vals:
+            raise ConsistencyFailure("%s not in %s"% (self.variable, self.object))
+
 class ComplementOfConstraint(SubClassConstraint):
 
     def narrow(self, domains):
         vals = domains[self.variable].getValues()
         x_vals = domains[self.object].getValues()
-        for v in x_vals:
-            if v in vals:
-                raise ConsistencyFailure("%s cannot have the value %s and be \
-                                          complementOf %s" % (v, self.object, self.variable)) 
-        for v in domains['owl_Thing'].getValues():
-            if not v in vals:
-                domains[self.variable].addValue(v)       
+        remove = []
+        for v in vals:
+            if v in x_vals:
+                remove.append(v)
+        log("Complementof %r %r"%([x.name for x in remove], [x.name for x in x_vals]))
+        domains[self.variable].removeValues(remove)
         
 
 class RangeConstraint(SubClassConstraint):
@@ -133,10 +144,6 @@ class RangeConstraint(SubClassConstraint):
             res = newrange
         propdom.range = res
         propdom.setValues([(None,i) for i in res])
-        #prop = Linkeddict(propdom.getValues())
-        #for pval in sum(prop.values(),[]):
-        #    if pval not in range:
-        #        raise ConsistencyFailure("Value %r not in range %r for Var %s"%(pval,range, self.variable))
 
 class DomainConstraint(SubClassConstraint):
 
@@ -298,10 +305,8 @@ class SameasConstraint(SubClassConstraint):
                     val = Linkeddict(vals)
                     if self.variable in val.keys() and not self.object in val.keys():
                         vals +=[dom.addValue(self.object,v) for v in val[self.variable]]
-                        #dom.setValues(vals)
                     elif not self.variable in val.keys() and self.object in val.keys():
                         vals +=[dom.addValue(self.variable,v) for v in val[self.object]]
-                        #dom.setValues(vals)
                     elif self.variable in val.keys() and self.object in val.keys():
                         if not val[self.object] == val[self.variable]:
                             raise ConsistencyFailure("Sameas failure: The two individuals (%s, %s) \

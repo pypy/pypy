@@ -4,9 +4,8 @@ from logilab.constraint.fd import  Expression, FiniteDomain as fd
 from logilab.constraint.propagation import AbstractDomain, AbstractConstraint, ConsistencyFailure
 from constraint_classes import *
 import sys, py
-from pypy.tool.ansi_print import ansi_log
 import time
-
+from pypy.tool.ansi_print import ansi_log
 log = py.log.Producer("Pyontology")
 py.log.setconsumer("Pyontology", ansi_log)
 
@@ -57,9 +56,10 @@ class ClassDomain(fd, object):
     # Properties of a class is in the dictionary "properties"
     # The bases of a class is in the list "bases"
     
-    def __init__(self, name='', values=[], bases = []):
+    def __init__(self, name='', uri=None, values = [], bases = []):
         AbstractDomain.__init__(self)
         self.name = name
+        self.uri = uri
         self.values = {}
         self.setValues(values)
         self.property = None
@@ -67,16 +67,21 @@ class ClassDomain(fd, object):
         self.un_constraint = []
         self.in_constraint = []
         self.domains = {}
-        self._bases = [] #bases #+[name]
+        self.bases = [] 
         self.finished = False
+        self.value = None
 
     def finish(self, variables, glob_constraints):
         # The finish method constructs the constraints
         if not self.finished:
             log("FINISH %s" % self.name)
         # Try to initialise constraints for this class
+            prop = getattr(self, 'property')
+            val = getattr(self, 'value')
+            if prop:
+                prop = variables[prop]
             for constraint in self.un_constraint:
-                dom, constraints = constraint(self.name, variables[self.property], self.value)
+                dom, constraints = constraint(self.name, prop, val)
                 if dom:
                     self.domains.update(dom)
                     self.in_constraint.extend(constraints)
@@ -84,6 +89,8 @@ class ClassDomain(fd, object):
             for cls in self.bases:
                 cls = variables[cls]
                 dom,constraint = cls.finish(variables, glob_constraints)
+
+                log("DOM %r "%dom)
                 # if the base class is a Restriction we shouldnt add the constraints to the store
                 if not isinstance(cls, Restriction):
                     self.domains.update(dom)
@@ -97,7 +104,8 @@ class ClassDomain(fd, object):
             self.finished = True
             log("RESULT of finish %r, %r" %(self.domains,self.in_constraint))
             # update the store
-            if 'owl_Thing' in variables.keys() and isinstance(self, ClassDomain):
+            if ('owl_Thing' in variables.keys() and isinstance(self, ClassDomain)
+                 and  self.getValues() == []):
                 variables[self.name].setValues(variables['owl_Thing'].getValues())
             variables.update(self.domains)
             glob_constraints.extend(self.in_constraint)
@@ -115,7 +123,7 @@ class ClassDomain(fd, object):
     
     def removeValues(self, values):
         for val in values:
-            self.values.pop(val) #(self.values.index(val))
+            self.values.pop(val) 
     
     def getBases(self):
         return self._bases
@@ -124,7 +132,6 @@ class ClassDomain(fd, object):
         log(">>>>>>>>>>>>>>>>>>>>>>>  %r" %self.name)
         assert self.name != 'owl_Class'
         self._bases = bases
-    bases = property(getBases, setBases)
     
     def addValue(self, value):
         self.values[value] = True
@@ -141,11 +148,32 @@ class ClassDomain(fd, object):
 class Thing(ClassDomain):
     pass
 
+class Individual:
+    def __init__(self, name, uri=None, values=[], bases=[]):
+        self.name = name
+        self.uri = uri
+        self.sameas = [] 
+        self.differentfrom = []
+       
+    def __hash__(self):
+        return hash(self.uri) 
+    def __eq__(self, other):
+        log("CMP %r,%r"%(self,other))
+        if ((hasattr(other,'uri') and self.uri == other.uri) or
+            (not hasattr(other,'uri') and self.uri == other) or
+              other in self.sameas):
+            return True
+        if other in self.differentfrom:
+            return False
+        else:
+            return None
+           
+    cmp = __eq__
+ 
 class List(ClassDomain):
     
     def __init__(self, name='', values=[], bases = []):
         ClassDomain.__init__(self, name, values, bases)
-#        self.constraint = ListConstraint(name)
 
 class Property(fd):
     # Property contains the relationship between a class instance and a value
@@ -162,6 +190,7 @@ class Property(fd):
         self.constraint = []
         self.un_constraint = []
         self.in_constraint = []
+        self.bases = []
     
     def finish(self, var, constraints):
         return var, constraints
@@ -293,6 +322,7 @@ class Restriction(ClassDomain):
         ClassDomain.__init__(self, name, values, bases)
         self.property = None
 
+
 builtin_voc = {
                getUriref('owl', 'Thing') : Thing,
                getUriref('owl', 'Class') : ClassDomain,
@@ -344,16 +374,16 @@ class Ontology:
         self.graph.load(f, format=format)
     
     def attach_fd(self):
-        while len(list(self.graph.triples((None,)*3))) != len(self.seen.keys()):
-            for (s, p, o) in (self.graph.triples((None,)*3)):
-                self.consider_triple((s, p, o))
-                log("%s %s" %(s,p))
-                #assert len([x for x in self.variables.values() if isinstance(x, fd)])==0
+        #while len(list(self.graph.triples((None,)*3))) != len(self.seen.keys()):
+        for (s, p, o) in (self.graph.triples((None,)*3)):
+            self.consider_triple((s, p, o))
+            log("%s %s" %(s,p))
         log("=============================")
         assert len(list(self.graph.triples((None,)*3))) == len(self.seen.keys())
 
     def finish(self):
         for key in list(self.variables.keys()):
+            log("FINISHING %s,%r" % (key,self.variables[key].bases))
             self.variables[key].finish(self.variables, self.constraints)
     
     def consider_triple(self,(s, p, o)):
@@ -379,7 +409,7 @@ class Ontology:
             sub = self.make_var(Thing, s)
             obj = self.make_var(Thing, o)
             propdom = self.variables[avar]
-            res = propdom.addValue(s, o)
+            res = propdom.addValue(Individual(sub,s),Individual(obj,o))
 
     def resolve_item(self, item):
         item_as_subject = self.graph.triples((item, None, None))
@@ -436,6 +466,7 @@ class Ontology:
         return Solver().solve(rep, verbose)
     
     def consistency(self, verbose=0):
+        log("BEFORE FINISH %r" % self.variables)
         self.finish()
         log("DOMAINS %r"% self.variables)
         self.rep = Repository(self.variables.keys(), self.variables, self.constraints)
@@ -478,21 +509,22 @@ class Ontology:
         if not var in builtin_voc :
             # var is not one of the builtin classes -> it is a Thing
             self.type(s, Thing_uri)
-            svar = self.make_var(self.variables[avar].__class__, s)
-            self.variables[avar].addValue(s)
+            svar = self.make_var(None,s) 
+            self.constraints.append(MemberConstraint(Individual(svar,s), avar))
         else:
             # var is a builtin class
             cls = builtin_voc[var]
             if cls == List:
                 return
-            else:
-                svar = self.make_var(None, s)
             svar = self.make_var(cls, s)
             cls = self.variables[svar]
             if cls.constraint:
                 self.constraints.extend(cls.constraint)
             if not isinstance(self.variables[avar], Property):
-                self.variables[avar].addValue(s)
+                if isinstance(self.variables[avar], Thing):
+                    self.variables[avar].addValue(Individual(svar, s))
+                else:
+                    self.variables[avar].addValue(s)
     
     def first(self, s, var):
         pass
@@ -501,7 +533,6 @@ class Ontology:
         pass
     
     def onProperty(self, s, var):
-#        self.resolve_predicate(var)
         log("%r onProperty %r "%(s, var))
         svar =self.make_var(Restriction, s)
         avar =self.make_var(Property, var)
@@ -545,23 +576,13 @@ class Ontology:
         self.resolve_item(var)
         avar = self.make_var(ClassDomain, var)
         svar = self.make_var(ClassDomain, s)
-        vals = self.variables[avar].getValues()
-        x_vals = self.variables[svar].getValues()
-        for v in x_vals:
-            if v in vals:
-                raise ConsistencyFailure("%s cannot have the value %s and be \
-                                                    complementOf %s" % (s, v, var)) 
-        for v in self.variables[self.make_var(None,Thing_uri)].getValues():
-            if not v in vals:
-                self.variables[svar].addValue(v)
         self.constraints.append(ComplementOfConstraint(svar, avar))       
     
     def oneOf(self, s, var):
         var = self.flatten_rdf_list(var)
-        #avar = self.make_var(List, var)
         svar = self.make_var(ClassDomain, s)
         res = self.variables[var].getValues()
-        self.variables[svar].setValues(res)
+        self.variables[svar].setValues([Individual(self.make_var(None,x),x) for x in res])
     
     def unionOf(self,s, var):
         var = self.flatten_rdf_list(var)
@@ -683,21 +704,37 @@ class Ontology:
         """ The hasValue restriction defines a class having as an extension all
             Individuals that have a property with the value of var.
             To make an assertion we need to know for which class the restriction applies"""
-
         def Hasvalue(cls ,prop, val):
-            #The Domain of the cls should be Thing
             var = "%s_%s_hasvalue" %(cls, prop.name)
             dom = {var : fd(prop.getValues( ))}
-            cons = Expression([cls, var], "%s == %s[1] and %s == %s[0]" %(val, var, cls, var))
+            cons = Expression([cls, var], " %s[1].cmp(%s) and %s.cmp( %s[0])" %( var, val, cls, var))
+            log("HASVALUE %r %r"%(prop.getValues(),dom))
             return dom, [cons] 
         
         self.value_helper(s, var, Hasvalue)
 
     def allValuesFrom(self, s, var):
-        self.value_helper(s, var, AllValueConstraint)
+        def allvalue(cls ,prop, val):
+            # This creates a temporary domain to be able to help find the classes that only has values 
+            # from val
+            var = "%s_%s_allvalue" %(cls, prop.name)
+            dom = {var : fd([(x,tuple(y)) for (x,y) in prop.getValuesPrKey( )])}
+            # The condition should  return true if 
+            cons = Expression([cls, var], "%s == %s[1] and %s == %s[0]" %(val, var, cls, var))
+            return dom, [cons] 
+        self.value_helper(s, var, allvalue)
 
     def someValuesFrom(self, s, var):
-        self.value_helper(s, var, SomeValueConstraint)
+        #Maybe just add hasvalue 
+        def somevalue(cls ,prop, val):
+            # This creates a temporary domain to be able to help find the classes that only has values 
+            # from val
+            var = "%s_%s_allvalue" %(cls, prop.name)
+            dom = {var : fd(prop.getValues( ))}
+            # The condition should  return true if 
+            cons = Expression([cls, var], " %s[1] in %s and %s == %s[0]" %(var, val, cls, var))
+            return dom, [cons] 
+        self.value_helper(s, var, somevalue)
 
 # -----------------              ----------------
     
