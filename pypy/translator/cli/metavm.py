@@ -49,6 +49,16 @@ class _GetField(MicroInstruction):
         generator.load(this)
         generator.get_field(this.concretetype, field.value)
 
+class _SetField(MicroInstruction):
+    def render(self, generator, op):
+        this, field, value = op.args
+        if value.concretetype is ootype.Void:
+            return
+        generator.load(this)
+        generator.load(value)
+        generator.set_field(this.concretetype, field.value)
+
+
 class _CastTo(MicroInstruction):
     def render(self, generator, op):
         generator.load(op.args[0])
@@ -59,4 +69,5 @@ CallMethod = _CallMethod()
 IndirectCall = _IndirectCall()
 RuntimeNew = _RuntimeNew()
 GetField = _GetField()
+SetField = _SetField()
 CastTo = _CastTo()
