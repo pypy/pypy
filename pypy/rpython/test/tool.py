@@ -1,5 +1,6 @@
 import py
 from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.test.test_llinterp import interpret, interpret_raises
 
 class BaseRtypingTest(object):
@@ -43,6 +44,10 @@ class LLRtypeMixin(object):
                 return attr
         raise AttributeError()
 
+    def is_of_instance_type(self, val):
+        T = lltype.typeOf(val)
+        return isinstance(T, lltype.Ptr) and isinstance(T.TO, lltype.GcStruct)
+
 
 class OORtypeMixin(object):
     type_system = 'ootype'
@@ -66,3 +71,7 @@ class OORtypeMixin(object):
     def read_attr(self, value, attr):
         value = ootype.oodowncast(ootype.dynamicType(value), value)
         return getattr(value, "o" + attr)
+
+    def is_of_instance_type(self, val):
+        T = lltype.typeOf(val)
+        return isinstance(T, ootype.Instance)

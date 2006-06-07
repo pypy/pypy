@@ -44,12 +44,7 @@ class BaseTestRclass(BaseRtypingTest):
             x = EmptyBase()
             return x
         res = self.interpret(dummyfn, [])
-        T = typeOf(res)
-        if self.type_system == "lltype":
-            assert isinstance(T, Ptr) and isinstance(T.TO, GcStruct)
-        else:
-            assert isinstance(T, ootype.Instance)
-
+        assert self.is_of_instance_type(res)
 
     def test_classattr(self):
         def dummyfn():
