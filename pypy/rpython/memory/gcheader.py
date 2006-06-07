@@ -27,7 +27,7 @@ class GCHeaderBuilder(object):
         gcobj = gcptr._as_obj()
         assert gcobj not in self.obj2header
         # sanity checks
-        assert isinstance(gcobj._TYPE, lltype.GC_CONTAINER)
+        assert gcobj._TYPE._gckind == 'gc'
         assert not isinstance(gcobj._TYPE, lltype.GcOpaqueType)
         assert not gcobj._parentstructure()
         headerptr = lltype.malloc(self.HDR, immortal=True)

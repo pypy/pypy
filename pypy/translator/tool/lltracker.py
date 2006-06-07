@@ -56,7 +56,7 @@ class LLRefTrackerPage(BaseRefTrackerPage):
         # XXX clean up
         T = lltype.typeOf(o)
         if (self.size_gc_header is not None and with_header
-            and isinstance(T, lltype.GC_CONTAINER)):
+            and isinstance(T, lltype.ContainerType) and T._gckind == 'gc'):
             adr = llmemory.cast_ptr_to_adr(o._as_ptr())
             adr -= self.size_gc_header
             o = adr.get()._obj

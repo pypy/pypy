@@ -693,3 +693,12 @@ def test_str_of_dead_ptr():
     import gc
     gc.collect()
     repr(s)
+
+def test_pyobject():
+    p = pyobjectptr({42: 84})
+    assert typeOf(p) == Ptr(PyObject)
+    S1 = PyStruct('S1', ('head', PyObject), ('x', Signed))
+    # cannot really instantiate S1 so far
+    py.test.raises(TypeError, PyStruct, 'S2', ('y', Signed))
+    py.test.raises(TypeError, PyStruct, 'S2', ('x', Struct('X')))
+    py.test.raises(TypeError, PyStruct, 'S2', ('x', GcStruct('X')))

@@ -136,9 +136,6 @@ NFOUND = object()
 class ContainerType(LowLevelType):
     _adtmeths = {}
 
-    def _gcstatus(self):
-        return isinstance(self, GC_CONTAINER)
-
     def _inline_is_varsize(self, last):
         raise TypeError, "%r cannot be inlined in structure" % self
 
@@ -160,6 +157,8 @@ class ContainerType(LowLevelType):
         
 
 class Struct(ContainerType):
+    _gckind = 'raw'
+
     def __init__(self, name, *fields, **kwds):
         self._name = self.__name__ = name
         flds = {}
@@ -173,12 +172,12 @@ class Struct(ContainerType):
             if name in flds:
                 raise TypeError("%s: repeated field name" % self._name)
             flds[name] = typ
-            if isinstance(typ, GC_CONTAINER):
-                if name == fields[0][0] and isinstance(self, GC_CONTAINER):
-                    pass  # can inline a GC_CONTAINER as 1st field of GcStruct
+            if isinstance(typ, ContainerType) and typ._gckind != 'raw':
+                if name == fields[0][0] and typ._gckind == self._gckind:
+                    pass  # can inline a XxContainer as 1st field of XxStruct
                 else:
-                    raise TypeError("%s: cannot inline GC container %r" % (
-                        self._name, typ))
+                    raise TypeError("%s: cannot inline %s container %r" % (
+                        self._name, typ._gckind, typ))
 
         # look if we have an inlined variable-sized array as the last field
         if fields:
@@ -197,7 +196,8 @@ class Struct(ContainerType):
         if self._names:
             first = self._names[0]
             FIRSTTYPE = self._flds[first]
-            if isinstance(FIRSTTYPE, Struct) and self._gcstatus() == FIRSTTYPE._gcstatus():
+            if (isinstance(FIRSTTYPE, (Struct, PyObjectType)) and
+                self._gckind == FIRSTTYPE._gckind):
                 return first, FIRSTTYPE
         return None, None
 
@@ -263,6 +263,7 @@ class Struct(ContainerType):
         return _struct(self, n)
 
 class GcStruct(Struct):
+    _gckind = 'gc'
     _runtime_type_info = None
 
     def _attach_runtime_type_info_funcptr(self, funcptr, destrptr):
@@ -288,9 +289,18 @@ class GcStruct(Struct):
                 raise TypeError("expected a destructor function "
                                 "implementation, got: %s" % destrptr)
             self._runtime_type_info.destructor_funcptr = destrptr
-           
+
+class PyStruct(Struct):
+    _gckind = 'cpy'
+
+    def __init__(self, name, *fields, **kwds):
+        Struct.__init__(self, name, *fields, **kwds)
+        if self._first_struct() == (None, None):
+            raise TypeError("a PyStruct must have another PyStruct or "
+                            "PyObject as first field")
 
 class Array(ContainerType):
+    _gckind = 'raw'
     __name__ = 'array'
     _anonym_struct = False
     
@@ -300,8 +310,9 @@ class Array(ContainerType):
         else:
             self.OF = Struct("<arrayitem>", *fields)
             self._anonym_struct = True
-        if isinstance(self.OF, GC_CONTAINER):
-            raise TypeError("cannot have a GC container as array item type")
+        if isinstance(self.OF, ContainerType) and self.OF._gckind != 'raw':
+            raise TypeError("cannot have a %s container as array item type"
+                            % (self.OF._gckind,))
         self.OF._inline_is_varsize(False)
 
         self._install_extras(**kwds)
@@ -342,6 +353,7 @@ class Array(ContainerType):
         return _array(self, 1)
 
 class GcArray(Array):
+    _gckind = 'gc'
     def _inline_is_varsize(self, last):
         raise TypeError("cannot inline a GC array inside a structure")
 
@@ -356,8 +368,9 @@ class FixedSizeArray(Struct):
                                              **kwds)
         self.OF = OF
         self.length = length
-        if isinstance(self.OF, GC_CONTAINER):
-            raise TypeError("cannot have a GC container as array item type")
+        if isinstance(self.OF, ContainerType) and self.OF._gckind != 'raw':
+            raise TypeError("cannot have a %s container as array item type"
+                            % (self.OF._gckind,))
         self.OF._inline_is_varsize(False)
 
     def _str_fields(self):
@@ -377,6 +390,7 @@ class FixedSizeArray(Struct):
 
 
 class FuncType(ContainerType):
+    _gckind = 'raw'
     __name__ = 'func'
     def __init__(self, args, result):
         for arg in args:
@@ -410,6 +424,7 @@ class FuncType(ContainerType):
 
 
 class OpaqueType(ContainerType):
+    _gckind = 'raw'
     
     def __init__(self, tag):
         self.tag = tag
@@ -430,6 +445,7 @@ class OpaqueType(ContainerType):
 RuntimeTypeInfo = OpaqueType("RuntimeTypeInfo")
 
 class GcOpaqueType(OpaqueType):
+    _gckind = 'gc'
 
     def __str__(self):
         return "%s (gcopaque)" % self.tag
@@ -438,16 +454,23 @@ class GcOpaqueType(OpaqueType):
         raise TypeError, "%r cannot be inlined in structure" % self
 
 class PyObjectType(ContainerType):
+    _gckind = 'cpy'
     __name__ = 'PyObject'
     def __str__(self):
         return "PyObject"
+    def _inline_is_varsize(self, last):
+        return False
 PyObject = PyObjectType()
 
 class ForwardReference(ContainerType):
+    _gckind = 'raw'
     def become(self, realcontainertype):
         if not isinstance(realcontainertype, ContainerType):
             raise TypeError("ForwardReference can only be to a container, "
                             "not %r" % (realcontainertype,))
+        if realcontainertype._gckind != self._gckind:
+            raise TypeError("become() gives conflicting gckind, use the "
+                            "correct XxForwardReference")
         self.__class__ = realcontainertype.__class__
         self.__dict__ = realcontainertype.__dict__
 
@@ -455,15 +478,7 @@ class ForwardReference(ContainerType):
         raise TypeError("%r object is not hashable" % self.__class__.__name__)
 
 class GcForwardReference(ForwardReference):
-    def become(self, realcontainertype):
-        if not isinstance(realcontainertype, GC_CONTAINER):
-            raise TypeError("GcForwardReference can only be to GcStruct or "
-                            "GcArray, not %r" % (realcontainertype,))
-        self.__class__ = realcontainertype.__class__
-        self.__dict__ = realcontainertype.__dict__
-
-GC_CONTAINER = (GcStruct, GcArray, PyObjectType, GcForwardReference,
-                GcOpaqueType)
+    _gckind = 'gc'
 
 
 class Primitive(LowLevelType):
@@ -531,7 +546,8 @@ class Ptr(LowLevelType):
         self.TO = TO
 
     def _needsgc(self):
-        return self.TO._gcstatus()
+        # XXX deprecated interface
+        return self.TO._gckind != 'raw'
 
     def __str__(self):
         return '* %s' % (self.TO, )
@@ -540,7 +556,7 @@ class Ptr(LowLevelType):
         return 'Ptr %s' % (self.TO._short_name(), )
     
     def _is_atomic(self):
-        return not self.TO._gcstatus()
+        return self.TO._gckind == 'raw'
 
     def _defl(self, parent=None, parentindex=None):
         return _ptr(self, None)
@@ -641,7 +657,7 @@ def _castdepth(OUTSIDE, INSIDE):
         OUTSIDE = getattr(OUTSIDE, first)
  
 def castable(PTRTYPE, CURTYPE):
-    if CURTYPE._needsgc() != PTRTYPE._needsgc():
+    if CURTYPE.TO._gckind != PTRTYPE.TO._gckind:
         raise TypeError("cast_pointer() cannot change the gc status: %s to %s"
                         % (CURTYPE, PTRTYPE))
     if CURTYPE == PTRTYPE:
@@ -669,7 +685,7 @@ def cast_opaque_ptr(PTRTYPE, ptr):
     CURTYPE = typeOf(ptr)
     if not isinstance(CURTYPE, Ptr) or not isinstance(PTRTYPE, Ptr):
         raise TypeError, "can only cast pointers to other pointers"
-    if CURTYPE._needsgc() != PTRTYPE._needsgc():
+    if CURTYPE.TO._gckind != PTRTYPE.TO._gckind:
         raise TypeError("cast_opaque_ptr() cannot change the gc status: "
                         "%s to %s" % (CURTYPE, PTRTYPE))
     if (isinstance(CURTYPE.TO, OpaqueType)
@@ -813,7 +829,11 @@ class _ptr(object):
     def _set_obj0(self, obj):
         _ptr._obj0.__set__(self, obj)
 
+    def _togckind(self):
+        return self._T._gckind
+
     def _needsgc(self):
+        # XXX deprecated interface
         return self._TYPE._needsgc() # xxx other rules?
 
     def __init__(self, TYPE, pointing_to, solid=False):
@@ -855,7 +875,8 @@ class _ptr(object):
     def _setobj(self, pointing_to, solid=False):        
         if pointing_to is None:
             obj0 = None
-        elif solid or isinstance(self._T, (GC_CONTAINER, FuncType)):
+        elif (solid or self._T._gckind != 'raw' or
+              isinstance(self._T, FuncType)):
             obj0 = pointing_to
         else:
             self._set_weak(True)
@@ -1091,7 +1112,7 @@ class _parentable(_container):
         self._parent_index = parentindex
         if (isinstance(self._parent_type, Struct)
             and parentindex == self._parent_type._names[0]
-            and self._TYPE._gcstatus() == typeOf(parent)._gcstatus()):
+            and self._TYPE._gckind == typeOf(parent)._gckind):
             # keep strong reference to parent, we share the same allocation
             self._keepparent = parent 
 
@@ -1439,7 +1460,7 @@ def malloc(T, n=None, flavor='gc', immortal=False):
         o = _array(T, n)
     else:
         raise TypeError, "malloc for Structs and Arrays only"
-    if not isinstance(T, GC_CONTAINER) and not immortal and flavor.startswith('gc'):
+    if T._gckind != 'gc' and not immortal and flavor.startswith('gc'):
         raise TypeError, "gc flavor malloc of a non-GC non-immortal structure"
     solid = immortal or not flavor.startswith('gc') # immortal or non-gc case
     return _ptr(Ptr(T), o, solid)
@@ -1448,7 +1469,7 @@ def free(p, flavor):
     if flavor.startswith('gc'):
         raise TypeError, "gc flavor free"
     T = typeOf(p)
-    if not isinstance(T, Ptr) or p._needsgc():
+    if not isinstance(T, Ptr) or p._togckind() != 'raw':
         raise TypeError, "free(): only for pointers to non-gc containers"
 
 def functionptr(TYPE, name, **attrs):

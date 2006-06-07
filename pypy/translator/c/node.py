@@ -1,7 +1,7 @@
 from __future__ import generators
 from pypy.rpython.lltypesystem.lltype import \
      Struct, Array, FixedSizeArray, FuncType, PyObjectType, typeOf, \
-     GcStruct, GcArray, GC_CONTAINER, ContainerType, \
+     GcStruct, GcArray, ContainerType, \
      parentlink, Ptr, PyObject, Void, OpaqueType, Float, \
      RuntimeTypeInfo, getRuntimeTypeInfo, Char, _subarray
 from pypy.translator.c.funcgen import FunctionCodeGenerator
@@ -13,10 +13,12 @@ from pypy.translator.c import extfunc
 
 
 def needs_gcheader(T):
-    if not isinstance(T, GC_CONTAINER):
+    if not isinstance(T, ContainerType):
+        return False
+    if T._gckind == 'raw':
         return False
     if isinstance(T, GcStruct):
-        if T._names and isinstance(T._flds[T._names[0]], GC_CONTAINER):
+        if T._first_struct() != (None, None):
             return False   # gcheader already in the first field
     return True
 

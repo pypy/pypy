@@ -63,7 +63,7 @@ class CloneFnEntry(ExtRegistryEntry):
         from pypy.rpython.lltypesystem import lltype, llmemory, rtuple
         r_gcobject = hop.args_r[0]
         if (not isinstance(r_gcobject.lowleveltype, lltype.Ptr) or
-            not isinstance(r_gcobject.lowleveltype.TO, lltype.GC_CONTAINER)):
+            r_gcobject.lowleveltype.TO._gckind != 'gc'):
             raise TyperError("gc_clone() can only clone a dynamically "
                              "allocated object;\ngot %r" % (r_gcobject,))
         from pypy.annotation import model as annmodel

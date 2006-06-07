@@ -52,7 +52,7 @@ class ItemOffset(AddressOffset):
     def raw_malloc(self, rest):
         assert not rest
         if (isinstance(self.TYPE, lltype.ContainerType)
-            and self.TYPE._gcstatus()):
+            and self.TYPE._gckind == 'gc'):
             assert self.repeat == 1
             p = lltype.malloc(self.TYPE)
             return cast_ptr_to_adr(p)
@@ -148,7 +148,7 @@ class ArrayItemsOffset(AddressOffset):
         if self.TYPE._hints.get('isrpystring'):
             count -= 1  # because malloc() will give us the extra char for free
         p = lltype.malloc(parenttype or self.TYPE, count,
-                          immortal = not self.TYPE._gcstatus())
+                          immortal = self.TYPE._gckind == 'raw')
         return cast_ptr_to_adr(p)
 
 

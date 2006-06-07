@@ -106,7 +106,7 @@ class RefcountingGcPolicy(BasicGcPolicy):
     # zero malloc impl
 
     def zero_malloc(self, TYPE, esize, eresult):
-        assert TYPE._gcstatus()   # we don't really support this
+        assert TYPE._gckind == 'gc'   # we don't really support this
         return 'OP_ZERO_MALLOC(%s, %s);' % (esize,
                                             eresult)
 
@@ -186,7 +186,7 @@ class BoehmGcPolicy(BasicGcPolicy):
 
     def zero_malloc(self, TYPE, esize, eresult):
         gcinfo = self.db.gettypedefnode(TYPE).gcinfo
-        assert TYPE._gcstatus()   # _is_atomic() depends on this!
+        assert TYPE._gckind == 'gc'   # _is_atomic() depends on this!
         is_atomic = TYPE._is_atomic()
         is_varsize = TYPE._is_varsize()
         result = 'OP_BOEHM_ZERO_MALLOC(%s, %s, %d, %d);' % (esize,
@@ -320,7 +320,7 @@ class MoreExactBoehmGcPolicy(BoehmGcPolicy):
         gcinfo = defnode.gcinfo
         if gcinfo:
             if not gcinfo.malloc_exact:
-                assert TYPE._gcstatus()   # _is_atomic() depends on this!
+                assert TYPE._gckind == 'gc'   # _is_atomic() depends on this!
                 is_atomic = TYPE._is_atomic()
                 is_varsize = TYPE._is_varsize()
                 result = 'OP_BOEHM_ZERO_MALLOC(%s, %s, %d, %d);' % (
@@ -393,7 +393,7 @@ class FrameworkGcPolicy(BasicGcPolicy):
         return defnode.db.gctransformer.gc_field_values_for(o)
 
     def zero_malloc(self, TYPE, esize, eresult):
-        assert TYPE._gcstatus()   # we don't really support this
+        assert TYPE._gckind == 'gc'   # we don't really support this
         return 'OP_ZERO_MALLOC(%s, %s);' % (esize,
                                             eresult)
 
