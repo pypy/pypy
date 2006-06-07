@@ -28,6 +28,11 @@ class LowLevelDatabase(object):
         self.consts = {}  # value --> const_name
         self.delegates = {} # StaticMethod --> type_name
         self.const_names = set()
+        self.name_count = 0
+
+    def next_count(self):
+        self.name_count += 1
+        return self.name_count
 
     def pending_function(self, graph):
         self.pending_node(self.function_class(self, graph))
@@ -65,7 +70,7 @@ class LowLevelDatabase(object):
         except KeyError:
             name = const.get_name()
             if name in self.const_names:
-                name += '__%d' % len(self.consts)
+                name += '__%d' % self.next_count()
             self.consts[const] = name
             self.const_names.add(name)
 
