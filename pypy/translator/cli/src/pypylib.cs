@@ -35,6 +35,11 @@ namespace pypy.runtime
         {
             return t.GetConstructor(new Type[0]).Invoke(new object[0]);
         }
+
+        public static bool SubclassOf(Type a, Type b)
+        {
+            return (a == b || a.IsSubclassOf(b));
+        }
     }
 
     //The public interface List must implement is defined in

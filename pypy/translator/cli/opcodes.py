@@ -48,6 +48,7 @@ opcodes = {
     'oois':                     'ceq',
     'oononnull':                [PushAllArgs, 'ldnull', 'ceq']+Not,
     'instanceof':               [CastTo, 'ldnull', 'cgt.un'],
+    'subclassof':               [PushAllArgs, 'call bool [pypylib]pypy.runtime.Utils::SubclassOf(class [mscorlib]System.Type, class[mscorlib]System.Type)'],
     
     'same_as':                  DoNothing, # TODO: does same_as really do nothing else than renaming?    
     'direct_call':              [Call],
