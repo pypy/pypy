@@ -159,6 +159,8 @@ class LowLevelDatabase(object):
             const.init_fields(ilasm, self.const_var, name)
             #ilasm.field(name, const.get_type(), static=True)
         
+    def gen_delegate_types(self, ilasm):
+        pass
     
     def load_const(self, type_, value, ilasm):
         if self.is_primitive(type_):
