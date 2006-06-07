@@ -48,7 +48,6 @@ class Class(Node):
             if cts_type != 'void':
                 ilasm.field(f_name, cts_type)
 
-        # TODO: should the .ctor set the default values?
         self._ctor()
         self._toString()
 
@@ -65,11 +64,19 @@ class Class(Node):
 
         self.db.record_class(self.classdef, self.name)
 
-
     def _ctor(self):
+        from pypy.translator.cli.database import AbstractConst
         self.ilasm.begin_function('.ctor', [], 'void', False, 'specialname', 'rtspecialname', 'instance')
         self.ilasm.opcode('ldarg.0')
         self.ilasm.call('instance void %s::.ctor()' % self.get_base_class())
+        # set default values for fields
+        for f_name, (F_TYPE, f_default) in self.classdef._fields.iteritems():
+            cts_type = self.cts.lltype_to_cts(F_TYPE)
+            if cts_type != 'void':
+                self.ilasm.opcode('ldarg.0')
+                AbstractConst.load(self.db, F_TYPE, f_default, self.ilasm)
+                self.ilasm.set_field((cts_type, self.classdef._name, f_name))
+
         self.ilasm.opcode('ret')
         self.ilasm.end_function()
 
