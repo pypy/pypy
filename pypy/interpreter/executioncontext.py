@@ -58,7 +58,25 @@ class ExecutionContext:
         current.is_tracing = self.is_tracing
 
     # coroutine: I think this is all, folks!
-    
+
+    # well, not quite: we need an interface for pickling
+    def subcontext_getstate(coobj):
+        # we just save the framestack
+        space = coobj.space
+        items = [space.wrap(item) for item in coobj.framestack.items]
+        return space.newtuple(items)
+    subcontext_getstate = staticmethod(subcontext_getstate)
+
+    def subcontext_setstate(coobj, w_state):
+        from pypy.interpreter.pyframe import PyFrame
+        space = coobj.space
+        items = [space.interp_w(PyFrame, item)
+                 for item in space.unpackiterable(w_state)]
+        coobj.framestack.items = items
+    subcontext_setstate = staticmethod(subcontext_setstate)
+
+    # coroutine: now I really I think this is all, folks!
+
     def get_builtin(self):
         try:
             return self.framestack.top().builtin

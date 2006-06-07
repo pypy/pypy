@@ -102,6 +102,38 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         return space.wrap(AppCoroutine._get_state(space).current)
     w_getcurrent = staticmethod(w_getcurrent)
 
+    # pickling interface
+    def descr__reduce__(self, space):
+        # this is trying to be simplistic at the moment.
+        # we neither allow to pickle main (which can become a mess
+        # since it has some deep anchestor frames)
+        # nor we allowto pickle the current coroutine.
+        # rule: switch before pickling.
+        # you cannot construct the tree that you are climbing.
+        
+        from pypy.interpreter.mixedmodule import MixedModule
+        w_mod    = space.getbuiltinmodule('stackless')
+        mod      = space.interp_w(MixedModule, w_mod)
+        new_inst = mod.get('coroutine')
+        w        = space.wrap
+        nt = space.newtuple
+        ec = self.space.getexecutioncontext()
+
+        tup_base = [
+            ]
+        tup_state = [
+            w(self.flags),
+            ec.subcontext_getstate(self),
+            ]
+
+        return nt([new_inst, nt(tup_base), nt(tup_state)])
+
+    def descr__setstate__(self, space, w_args):
+        args_w = space.unpackiterable(w_args)
+        w_flags, w_state = args_w
+        self.flags = space.int_w(w_flags)
+        ec = self.space.getexecutioncontext()
+        ec.subcontext_setstate(self, w_state)
 
 # _mixin_ did not work
 for methname in StacklessFlags.__dict__:
@@ -140,6 +172,11 @@ AppCoroutine.typedef = TypeDef("coroutine",
     kill = interp2app(AppCoroutine.w_kill),
     is_zombie = GetSetProperty(AppCoroutine.w_get_is_zombie, doc=AppCoroutine.get_is_zombie.__doc__),
     getcurrent = interp2app(AppCoroutine.w_getcurrent),
+    __reduce__   = interp2app(AppCoroutine.descr__reduce__,
+                              unwrap_spec=['self', ObjSpace]),
+    __setstate__ = interp2app(AppCoroutine.descr__setstate__,
+                              unwrap_spec=['self', ObjSpace, W_Root]),
+    __module__ = 'stackless',
 )
 
 class AppCoState(BaseCoState):
