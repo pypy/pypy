@@ -83,56 +83,56 @@ class FrameTyper:
     def __init__(self):
         self.frametypes = {}
 
-    def _key_fieldnames_for_types(self, types):
-        fieldnames = []
+    def _key_for_types(self, types):
         counts = {}
         for tt in types:
+            if tt is lltype.Void:
+                continue
             t = storage_type(tt)
-            if t is lltype.Void:
-                fieldnames.append(None)
-            else:
-                n = counts.get(t, 0)
-                fieldnames.append('state_%s_%d' % (STORAGE_FIELDS[t], n))
-                counts[t] = n + 1
+            counts[t] = counts.get(t, 0) + 1
         key = lltype.frozendict(counts)
-        return key, fieldnames
-        
+        return key
 
     def frame_type_for_vars(self, vars):
-        key, fieldnames = self._key_fieldnames_for_types([v.concretetype for v in vars])
-        if key in self.frametypes:
-            T = self.frametypes[key]
-            it = iter(T._names[1:])
-            rfieldnames = []
-            for name in fieldnames:
-                if name is None:
-                    rfieldnames.append(None)
-                else:
-                    rfieldnames.append(it.next())
-            try:
-                it.next()
-            except StopIteration:
-                pass
-            else:
-                assert False, "field name count mismatch"
-            return T, rfieldnames
-        else:
+        key = self._key_for_types([v.concretetype for v in vars])
+        if key not in self.frametypes:
             fields = []
+            fieldsbytype = {}
             for t in STORAGE_TYPES:
                 for j in range(key.get(t, 0)):
-                    fields.append(('state_%s_%d' % (STORAGE_FIELDS[t], j), t))
-            T = frame.make_state_header_type("FrameState", *fields)
-            self.frametypes[key] = T
+                    fname = 'state_%s_%d' % (STORAGE_FIELDS[t], j)
+                    fields.append((fname, t))
+                    fieldsbytype.setdefault(t, []).append(fname)
+            self.frametypes[key] = (frame.make_state_header_type("FrameState", *fields),
+                                    fieldsbytype)
+        T, fieldsbytype = self.frametypes[key]
+        data = {}
+        for (k, fs) in fieldsbytype.iteritems():
+            data[k] = fs[:]
+        fieldnames = []
+        for v in vars:
+            if v.concretetype is lltype.Void:
+                fieldnames.append(None)
+            else:
+                t = storage_type(v.concretetype)
+                fieldnames.append(data[t].pop(0))
+        assert max([0] + [len(v) for v in data.itervalues()]) == 0
         return T, fieldnames
 
     def ensure_frame_type_for_types(self, frame_type):
-        key, fieldnames = self._key_fieldnames_for_types(
-            [frame_type._flds[n] for n in frame_type._names[1:]])
-        assert len(fieldnames) <= 1, "nasty field ordering issues need to be solved XXX mwh, pedronis"
+        assert len(frame_type._names[1:]) <= 1, "too lazy"
+        if len(frame_type._names[1:]) == 1:
+            fname, = frame_type._names[1:]
+            t = frame_type._flds[fname]
+            fieldsbytype = {t:[fname]}
+            key = self._key_for_types([t])
+        else:
+            key = self._key_for_types([])
+            fieldsbytype = {}
         if key in self.frametypes:
-            assert self.frametypes[key] is frame_type
-        self.frametypes[key] = frame_type
-        
+            assert self.frametypes[key][0] is frame_type
+        self.frametypes[key] = (frame_type, fieldsbytype)
+
 
 class StacklessAnalyzer(graphanalyze.GraphAnalyzer):
     def __init__(self, translator, unwindtype, stackless_gc):
