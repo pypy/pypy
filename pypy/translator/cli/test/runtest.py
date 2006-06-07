@@ -242,3 +242,6 @@ class CliTest(BaseRtypingTest, OORtypeMixin):
 
     def class_name(self, value):
         return value.class_name.split(".")[-1] 
+
+    def is_of_instance_type(self, val):
+        return isinstance(val, InstanceWrapper)
