@@ -227,9 +227,12 @@ class CliTest(BaseRtypingTest, OORtypeMixin):
 
     def interpret_raises(self, exception, fn, args):
         import exceptions # needed by eval
-        res = self.interpret(fn, args)
-        assert isinstance(res, ExceptionWrapper)
-        assert issubclass(eval(res.class_name), exception)
+        try:
+            self.interpret(fn, args)
+        except ExceptionWrapper, ex:
+            assert issubclass(eval(ex.class_name), exception)
+        else:
+            assert False, 'function did raise no exception at all'
 
     def ll_to_string(self, s):
         return s
