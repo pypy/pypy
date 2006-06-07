@@ -8,6 +8,8 @@ http://www.w3schools.com/dhtml/dhtml_dom.asp - more informal stuff
 
 import time
 
+from pypy.translator.stackless.test.test_transform import one
+
 class Style(object):
     _rpython_hints = {'_suggested_external' : True}
     
@@ -22,9 +24,14 @@ class Node(object):
     def __init__(self):
         self.innerHTML = ""
         self.style = None
+        self.subnodes = {}
     
     def getElementById(self, id):
-        return Node()
+        try:
+            return self.subnodes[id]
+        except KeyError:
+            self.subnodes[id] = Node()
+            return self.subnodes[id]
     
     def setAttribute(self, name, style_str):
         if name == 'style':
@@ -37,8 +44,15 @@ get_document.suggested_primitive = True
 
 document = Node()
 
+def some_fun():
+    pass
+
 def setTimeout(func, delay):
     # scheduler call, but we don't want to mess with threads right now
-    func()
+    if one():
+        setTimeout(some_fun, delay)
+    else:
+        func()
+    #pass
 
 setTimeout.suggested_primitive = True
