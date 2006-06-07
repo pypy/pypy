@@ -1,4 +1,4 @@
-from pypy.rpython.ootypesystem.ootype import List, Meth, Void
+from pypy.rpython.ootypesystem import ootype
 
 def get_method_name(graph, op):
     try:
@@ -29,19 +29,24 @@ def get_method_name(graph, op):
     else:
         return None # explicit is better than implicit :-)
 
-def get_method(obj, name):
+def get_method(TYPE, name):
     try:
-        return obj._GENERIC_METHODS[name]
+        # special case: when having List of Void, look at the concrete
+        # methods, not the generic ones
+        if isinstance(TYPE, ootype.List) and TYPE._ITEMTYPE is ootype.Void:
+            return TYPE._METHODS[name]
+        else:
+            return TYPE._GENERIC_METHODS[name]
     except KeyError:
-        t = type(obj)
+        t = type(TYPE)
         return BUILTIN_METHODS[t][name]
 
 BUILTIN_TYPES = {
-    'list': List
+    'list': ootype.List
     }
 
 BUILTIN_METHODS = {
-    List : {
-        'Add': Meth([List.ITEMTYPE_T], Void)
+    ootype.List : {
+        'Add': ootype.Meth([ootype.List.ITEMTYPE_T], ootype.Void)
         }
     } 

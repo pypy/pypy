@@ -1,4 +1,4 @@
-from pypy.translator.cli.cts import CTS
+from pypy.translator.cli.cts import CTS, PYPY_LIST_OF_VOID
 from pypy.translator.cli.function import Function
 from pypy.translator.cli.class_ import Class
 from pypy.translator.cli.record import Record
@@ -336,7 +336,7 @@ class ListConst(AbstractConst):
         if ITEMTYPE is ootype.Void:
             ilasm.opcode('dup')
             AbstractConst.load(self.db, ootype.Signed, len(self.list._list), ilasm)            
-            meth = 'void class [pypylib]pypy.runtime.List`1<int32>::_ll_resize(int32)'
+            meth = 'void class %s::_ll_resize(int32)' % PYPY_LIST_OF_VOID
             ilasm.call_method(meth, False)
             return
         

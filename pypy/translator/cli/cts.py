@@ -15,6 +15,7 @@ log = py.log.Producer("cli")
 py.log.setconsumer("cli", ansi_log) 
 
 PYPY_LIST = '[pypylib]pypy.runtime.List`1<%s>'
+PYPY_LIST_OF_VOID = '[pypylib]pypy.runtime.ListOfVoid'
 PYPY_DICT = '[pypylib]pypy.runtime.Dict`2<%s, %s>'
 PYPY_DICT_ITEMS_ITERATOR = '[pypylib]pypy.runtime.DictItemsIterator`2<%s, %s>'
 
@@ -76,12 +77,11 @@ class CTS(object):
             name = self.db.pending_record(t)
             return self.__class(name, include_class)
         elif isinstance(t, ootype.StaticMethod):
-            #return 'void' # TODO: is it correct to ignore StaticMethod?
             return self.db.record_delegate_type(t)
         elif isinstance(t, ootype.List):
             item_type = self.lltype_to_cts(t._ITEMTYPE)
-            if item_type == 'void': # special case: CLI doesn't allow List of void; use int instead
-                item_type = 'int32'
+            if item_type == 'void': # special case: List of Void
+                return PYPY_LIST_OF_VOID
             return self.__class(PYPY_LIST % item_type, include_class)
         elif isinstance(t, ootype.Dict):
             key_type = self.lltype_to_cts(t._KEYTYPE)
@@ -131,7 +131,7 @@ class CTS(object):
                 METH = oopspec.get_method(TYPE, name)
             class_name = self.lltype_to_cts(TYPE)
             ret_type = self.lltype_to_cts(METH.RESULT)
-            arg_types = [self.lltype_to_cts(arg) for arg in METH.ARGS]
+            arg_types = [self.lltype_to_cts(arg) for arg in METH.ARGS if arg is not ootype.Void]
             arg_list = ', '.join(arg_types)
             return '%s %s::%s(%s)' % (ret_type, class_name, name, arg_list), False
 

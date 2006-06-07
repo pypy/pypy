@@ -94,28 +94,28 @@ namespace pypy.runtime
                 this.RemoveRange(length, diff);
             }
         }
+    }
 
-        /*
-        public void append(T item)
+    public class ListOfVoid
+    {
+        int Count = 0;
+
+        public override string ToString()
         {
-            this.Add(item);
+            // TODO: use StringBuilder instead
+            string res = "[";
+            for(int i=0; i<this.Count; i++)
+                res += "None, ";
+            res += "]";
+            return res;
         }
 
-        public void extend(List<T> other)
-        {
-            this.AddRange(other);
-        }
-
-        public void remove_range(int start, int count)
-        {
-            this.RemoveRange(start, count);
-        }
-
-        public int index(T item)
-        {
-            return this.IndexOf(item);
-        }
-        */
+        public int ll_length() { return this.Count; }
+        public void ll_getitem_fast(int index) { }
+        public void ll_setitem_fast(int index) { }
+        public void _ll_resize(int length) { this.Count = length; }
+        public void _ll_resize_ge(int length) { this.Count = length; }
+        public void _ll_resize_le(int length) { this.Count = length; }
     }
 
     public class Dict<TKey, TValue>: System.Collections.Generic.Dictionary<TKey, TValue>
