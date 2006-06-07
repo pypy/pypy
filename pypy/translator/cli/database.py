@@ -277,6 +277,9 @@ class StaticMethodConst(AbstractConst):
         return self.cts.lltype_to_cts(self.sm._TYPE, include_class)
 
     def init(self, ilasm):
+        if self.sm is ootype.null(self.sm._TYPE):
+            ilasm.opcode('ldnull')
+            return
         self.db.pending_function(self.sm.graph)
         signature = self.cts.graph_to_signature(self.sm.graph)
         delegate_type = self.db.record_delegate_type(self.sm._TYPE)
