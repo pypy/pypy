@@ -214,6 +214,8 @@ class __extend__(pairtype(DictRepr, rmodel.Repr)):
 
     def rtype_setitem((r_dict, r_key), hop):
         v_dict, v_key, v_value = hop.inputargs(r_dict, r_dict.key_repr, r_dict.value_repr)
+        if not r_dict.custom_eq_hash:
+            hop.exception_cannot_occur() # XXX: maybe should we move this inside send_message?
         return r_dict.send_message(hop, 'll_set', can_raise=r_dict.custom_eq_hash)
 
     def rtype_contains((r_dict, r_key), hop):
