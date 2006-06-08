@@ -248,3 +248,20 @@ W_CallableProxy.typedef = TypeDef("weakcallableproxy",
     **callable_proxy_typedef_dict)
 W_CallableProxy.typedef.acceptable_as_base_class = False
 
+def basic_weakref(space, w_obj):
+    """this is a bit like the app-level weakref.ref(), but with no
+    fancy options like supporting subclasses of _weakref.ref and
+    callbacks."""
+    lifeline = w_obj.getweakref()
+    if lifeline is None:
+        lifeline = WeakrefLifeline()
+        w_obj.setweakref(space, lifeline)
+    if lifeline.cached_weakref_index >= 0:
+        cached_weakref_address = lifeline.addr_refs[lifeline.cached_weakref_index]
+        return cast_weakgcaddress_to_object(cached_weakref_address, W_Weakref)
+    index = len(lifeline.addr_refs)
+    w_ref = W_Weakref(space, lifeline, index, w_obj, space.w_None)
+    lifeline.addr_refs.append(cast_object_to_weakgcaddress(w_ref))
+    lifeline.cached_weakref_index = index
+    return w_ref
+    
