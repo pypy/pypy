@@ -25,8 +25,8 @@ class LowLevelDatabase(object):
         self.classes = {} # classdef --> class_name
         self.functions = {} # graph --> function_name
         self.methods = {} # graph --> method_name
-        self.consts = {}  # value --> AbstractConst, const_name
-        self.pending_consts = {} # value --> AbstractConst, const_name
+        self.consts = {}  # value --> AbstractConst
+        self.pending_consts = {} # value --> AbstractConst
         self.delegates = {} # StaticMethod --> type_name
         self.const_names = set()
         self.name_count = 0
@@ -66,18 +66,14 @@ class LowLevelDatabase(object):
 
     def record_const(self, value):
         if value in self.consts:
-            const, name = self.consts[value]
+            const = self.consts[value]
         elif value in self.pending_consts:
-            const, name = self.pending_consts[value]
+            const = self.pending_consts[value]
         else:
-            const = AbstractConst.make(self, value)
-            name = const.get_name()
-            if name in self.const_names:
-                name += '__%d' % self.next_count()
-            self.pending_consts[value] = const, name
-            self.const_names.add(name)
+            const = AbstractConst.make(self, value, self.next_count())
+            self.pending_consts[value] = const
 
-        return '%s.%s::%s' % (CONST_NAMESPACE, CONST_CLASS, name)
+        return '%s.%s::%s' % (CONST_NAMESPACE, CONST_CLASS, const.name)
 
     def record_delegate_type(self, TYPE):
         try:
@@ -131,14 +127,14 @@ class LowLevelDatabase(object):
             self.pending_consts = {}
 
             # render field definitions
-            for const, name in pending_consts.itervalues():
-                ilasm.field(name, const.get_type(), static=True)
+            for const in pending_consts.itervalues():
+                ilasm.field(const.name, const.get_type(), static=True)
 
             ilasm.begin_function('step%d' % step, [], 'void', False, 'static')
-            for const, name in pending_consts.itervalues():
+            for const in pending_consts.itervalues():
                 const.init(ilasm)
                 type_ = const.get_type()
-                ilasm.set_static_field (type_, CONST_NAMESPACE, CONST_CLASS, name)
+                ilasm.set_static_field (type_, CONST_NAMESPACE, CONST_CLASS, const.name)
 
             ilasm.ret()
             ilasm.end_function()
@@ -161,25 +157,25 @@ class LowLevelDatabase(object):
 
 
 class AbstractConst(object):
-    def make(db, const):
-        if isinstance(const, ootype._view):
-            static_type = const._TYPE
-            const = const._inst
+    def make(db, value, count):
+        if isinstance(value, ootype._view):
+            static_type = value._TYPE
+            value = value._inst
         else:
             static_type = None
 
-        if isinstance(const, ootype._instance):
-            return InstanceConst(db, const, static_type)
-        elif isinstance(const, ootype._record):
-            return RecordConst(db, const)
-        elif isinstance(const, ootype._list):
-            return ListConst(db, const)
-        elif isinstance(const, ootype._string):
-            return StringConst(db, const)
-        elif isinstance(const, ootype._static_meth):
-            return StaticMethodConst(db, const)
-        elif isinstance(const, ootype._class):
-            return ClassConst(db, const)
+        if isinstance(value, ootype._instance):
+            return InstanceConst(db, value, static_type, count)
+        elif isinstance(value, ootype._record):
+            return RecordConst(db, value, count)
+        elif isinstance(value, ootype._list):
+            return ListConst(db, value, count)
+        elif isinstance(value, ootype._string):
+            return StringConst(db, value, count)
+        elif isinstance(value, ootype._static_meth):
+            return StaticMethodConst(db, value, count)
+        elif isinstance(value, ootype._class):
+            return ClassConst(db, value, count)
         else:
             assert False, 'Unknown constant: %s' % const
     make = staticmethod(make)
@@ -214,19 +210,17 @@ class AbstractConst(object):
         pass
 
 class StringConst(AbstractConst):
-    def __init__(self, db, string):
+    def __init__(self, db, string, count):
         self.db = db
         self.cts = CTS(db)
         self.string = string
+        self.name = 'STRING_LITERAL__%d' % count
 
     def __hash__(self):
         return hash(self.string)
 
     def __eq__(self, other):
         return self.string == other.string
-
-    def get_name(self):
-        return 'string_literal'
 
     def get_type(self, include_class=True):
         return self.cts.lltype_to_cts(ootype.String, include_class)
@@ -235,19 +229,17 @@ class StringConst(AbstractConst):
         ilasm.opcode('ldstr', '"%s"' % self.string._str)
 
 class RecordConst(AbstractConst):
-    def __init__(self, db, record):
+    def __init__(self, db, record, count):
         self.db = db
         self.cts = CTS(db)        
         self.record = record
+        self.name = 'RECORD__%d' % count
 
     def __hash__(self):
         return hash(self.record)
 
     def __eq__(self, other):
         return self.record == other.record
-
-    def get_name(self):
-        return 'Record'
 
     def get_type(self, include_class=True):
         return self.cts.lltype_to_cts(self.record._TYPE, include_class)
@@ -263,19 +255,17 @@ class RecordConst(AbstractConst):
             ilasm.set_field((f_type, class_name, f_name))
 
 class StaticMethodConst(AbstractConst):
-    def __init__(self, db, sm):
+    def __init__(self, db, sm, count):
         self.db = db
         self.cts = CTS(db)
         self.sm = sm
+        self.name = 'DELEGATE__%d' % count
 
     def __hash__(self):
         return hash(self.sm)
 
     def __eq__(self, other):
         return self.sm == other.sm
-
-    def get_name(self):
-        return 'Delegate'
 
     def get_type(self, include_class=True):
         return self.cts.lltype_to_cts(self.sm._TYPE, include_class)
@@ -292,19 +282,17 @@ class StaticMethodConst(AbstractConst):
         ilasm.new('instance void class %s::.ctor(object, native int)' % delegate_type)
 
 class ClassConst(AbstractConst):
-    def __init__(self, db, class_):
+    def __init__(self, db, class_, count):
         self.db = db
         self.cts = CTS(db)
         self.class_ = class_
+        self.name = 'CLASS__%d' % count
 
     def __hash__(self):
         return hash(self.class_)
 
     def __eq__(self, other):
         return self.class_ == other.class_
-
-    def get_name(self):
-        return 'Class'
 
     def get_type(self, include_class=True):
         return self.cts.lltype_to_cts(self.class_._TYPE, include_class)
@@ -319,19 +307,17 @@ class ClassConst(AbstractConst):
             ilasm.call('class [mscorlib]System.Type class [mscorlib]System.Type::GetTypeFromHandle(valuetype [mscorlib]System.RuntimeTypeHandle)')
 
 class ListConst(AbstractConst):
-    def __init__(self, db, list_):
+    def __init__(self, db, list_, count):
         self.db = db
         self.cts = CTS(db)
         self.list = list_
+        self.name = 'LIST__%d' % count
 
     def __hash__(self):
         return hash(self.list)
 
     def __eq__(self, other):
         return self.list == other.list
-
-    def get_name(self):
-        return 'List'
 
     def get_type(self, include_class=True):
         return self.cts.lltype_to_cts(self.list._TYPE, include_class)
@@ -361,8 +347,9 @@ class ListConst(AbstractConst):
             meth = 'void class [pypylib]pypy.runtime.List`1<%s>::Add(%s)' % (itemtype, itemtype_T)
             ilasm.call_method(meth, False)
 
+
 class InstanceConst(AbstractConst):
-    def __init__(self, db, obj, static_type):
+    def __init__(self, db, obj, static_type, count):
         self.db = db
         self.cts = CTS(db)
         self.obj = obj
@@ -371,15 +358,14 @@ class InstanceConst(AbstractConst):
         else:
             self.static_type = static_type
             self.cts.lltype_to_cts(obj._TYPE) # force scheduling of obj's class
+        class_name = obj._TYPE._name.replace('.', '_')
+        self.name = '%s__%d' % (class_name, count)
 
     def __hash__(self):
         return hash(self.obj)
 
     def __eq__(self, other):
         return self.obj == other.obj
-
-    def get_name(self):
-        return self.obj._TYPE._name.replace('.', '_')
 
     def get_type(self):
         return self.cts.lltype_to_cts(self.static_type)
@@ -401,3 +387,4 @@ class InstanceConst(AbstractConst):
                 AbstractConst.load(self.db, TYPE, value, ilasm)
                 ilasm.opcode('stfld %s %s::%s' % (type_, classdef._name, name))
             classdef = classdef._superclass
+
