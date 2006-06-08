@@ -251,11 +251,12 @@ class RecordConst(AbstractConst):
         class_name = self.get_type(False)
         ilasm.new('instance void class %s::.ctor()' % class_name)
         for f_name, (FIELD_TYPE, f_default) in self.record._TYPE._fields.iteritems():
-            f_type = self.cts.lltype_to_cts(FIELD_TYPE)
-            value = self.record._items[f_name]
-            ilasm.opcode('dup')
-            AbstractConst.load(self.db, FIELD_TYPE, value, ilasm)            
-            ilasm.set_field((f_type, class_name, f_name))
+            if FIELD_TYPE is not ootype.Void:
+                f_type = self.cts.lltype_to_cts(FIELD_TYPE)
+                value = self.record._items[f_name]
+                ilasm.opcode('dup')
+                AbstractConst.load(self.db, FIELD_TYPE, value, ilasm)            
+                ilasm.set_field((f_type, class_name, f_name))
 
 class StaticMethodConst(AbstractConst):
     def __init__(self, db, sm, count):
