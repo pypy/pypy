@@ -7,15 +7,27 @@ namespace pypy.test
     {
         public static string ToPython(int x)    { return x.ToString(); }
         public static string ToPython(bool x)   { return x.ToString(); }
-        public static string ToPython(double x) { return x.ToString(); }
+        public static string ToPython(double x) { return x.ToString("F"); }
         public static string ToPython(char x)   { return string.Format("'{0}'", x); }
         public static string ToPython(uint x)   { return x.ToString(); }
         public static string ToPython(long x)   { return x.ToString(); }
         public static string ToPython(ulong x)  { return x.ToString(); }
         // XXX: it does not support strings containing "'".
-        public static string ToPython(string x) { return string.Format("'{0}'", x); }
+        public static string ToPython(string x) { 
+            if (x == null)
+                return "None";
+            else
+                return string.Format("'{0}'", x); 
+        }
 
-        public static string ToPython(object obj) 
+        public static string ToPython(object x) {
+            if (x == null)
+                return "None";
+            else
+                return x.ToString();
+        }
+
+        public static string InstanceToPython(object obj) 
         { 
             return string.Format("InstanceWrapper('{0}')", obj.GetType().FullName);
         }
