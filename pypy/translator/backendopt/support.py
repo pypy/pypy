@@ -84,6 +84,9 @@ def split_block_with_keepalive(block, index_operation,
     elif keep_alive_op_args and afterblock.operations: 
         keep_alive_vars = [var for var in afterblock.operations[0].args
                                if isinstance(var, Variable) and var_needsgc(var)]
+        if len(afterblock.operations) > 1 or afterblock.exitswitch != c_last_exception:
+            afterblock.operations[1:1] = generate_keepalive(keep_alive_vars)
+            keep_alive_vars = []
     else:
         keep_alive_vars = []
     if afterblock.exitswitch == c_last_exception:

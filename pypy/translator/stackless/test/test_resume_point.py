@@ -4,14 +4,21 @@ from pypy import conftest
 import py
 from pypy.rpython import rstack
 
-def transform_stackless_function(fn):
+def transform_stackless_function(fn, do_inline=False):
     def wrapper(argv):
         return fn()
     t = rtype_stackless_function(wrapper)
-    st = StacklessTransformer(t, wrapper, False)
-    st.transform_all()
+    if do_inline:
+        from pypy.translator.backendopt import inline, removenoops
+        callgraph = inline.inlinable_static_callers(t.graphs)
+        inline.auto_inlining(t, 1, callgraph=callgraph)
+        for graph in t.graphs:
+            removenoops.remove_superfluous_keep_alive(graph)
+            removenoops.remove_duplicate_casts(graph, t)
     if conftest.option.view:
         t.view()
+    st = StacklessTransformer(t, wrapper, False)
+    st.transform_all()
 
 def test_no_call():
     def f(x, y):
@@ -244,7 +251,7 @@ def test_finally():
     transform_stackless_function(example)
 
 def test_except():
-    py.test.skip('in-progress')
+    py.test.skip("please don't write code like this")
     def f(x):
         rstack.resume_point("rp1", x)        
         return 1/x
@@ -253,10 +260,54 @@ def test_except():
         r += f(x)
         try:
             y = f(x)
-            rstack.resume_point("rp0", x, r, returns=y)
+            rstack.resume_point("rp0", x, r, y, returns=y)
         except ZeroDivisionError:
             r += f(x)
         return r + y
     def example():
         return g(one())
     transform_stackless_function(example)
+
+def test_using_pointers():
+    from pypy.interpreter.miscutils import FixedStack
+    class Arguments:
+        def __init__(self, a, b, c, d, e):
+            pass
+    class W_Root:
+        pass
+    class FakeFrame:
+        def __init__(self, space):
+            self.space = space
+            self.valuestack = FixedStack()
+            self.valuestack.setup(10)
+            self.valuestack.push(W_Root())
+    class FakeSpace:
+        def call_args(self, args, kw):
+            return W_Root()
+        def str_w(self, ob):
+            return 'a string'
+    def call_function(f, oparg, w_star=None, w_starstar=None):
+        n_arguments = oparg & 0xff
+        n_keywords = (oparg>>8) & 0xff
+        keywords = None
+        if n_keywords:
+            keywords = {}
+            for i in range(n_keywords):
+                w_value = f.valuestack.pop()
+                w_key   = f.valuestack.pop()
+                key = f.space.str_w(w_key)
+                keywords[key] = w_value
+        arguments = [None] * n_arguments
+        for i in range(n_arguments - 1, -1, -1):
+            arguments[i] = f.valuestack.pop()
+        args = Arguments(f.space, arguments, keywords, w_star, w_starstar)
+        w_function  = f.valuestack.pop()
+        w_result = f.space.call_args(w_function, args)
+        rstack.resume_point("call_function", f, returns=w_result)
+        f.valuestack.push(w_result)
+    def example():
+        s = FakeSpace()
+        f = FakeFrame(s)
+        call_function(f, 100, W_Root(), W_Root())
+        return one()
+    transform_stackless_function(example, do_inline=True)
