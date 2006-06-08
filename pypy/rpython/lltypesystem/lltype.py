@@ -252,8 +252,8 @@ class Struct(ContainerType):
     def _short_name(self):
         return "%s %s" % (self.__class__.__name__, self._name)
 
-    def _defl(self, parent=None, parentindex=None):
-        return _struct(self, parent=parent, parentindex=parentindex)
+    def _defl(self, parent=None, parentindex=None, **kwds):
+        return _struct(self, parent=parent, parentindex=parentindex, **kwds)
 
     def _container_example(self):
         if self._arrayfld is None:
@@ -443,8 +443,8 @@ class OpaqueType(ContainerType):
     def _container_example(self):
         return _opaque(self)
 
-    def _defl(self, parent=None, parentindex=None):
-        return _opaque(self, parent=parent, parentindex=parentindex)
+    def _defl(self, parent=None, parentindex=None, **kwds):
+        return _opaque(self, parent=parent, parentindex=parentindex, **kwds)
 
 RuntimeTypeInfo = OpaqueType("RuntimeTypeInfo")
 
@@ -464,6 +464,13 @@ class PyObjectType(ContainerType):
         return "PyObject"
     def _inline_is_varsize(self, last):
         return False
+    def _defl(self, parent=None, parentindex=None, extra_args=()):
+        if not extra_args:
+            raise NotImplementedError("PyObjectType._defl()")
+        else:
+            ob_type = extra_args[0]
+            return _pyobjheader(ob_type, parent, parentindex)
+
 PyObject = PyObjectType()
 
 class ForwardReference(ContainerType):
@@ -658,14 +665,15 @@ def _castdepth(OUTSIDE, INSIDE):
     if OUTSIDE == INSIDE:
         return 0
     dwn = 0
-    while True:
+    while isinstance(OUTSIDE, Struct):
         first, FIRSTTYPE = OUTSIDE._first_struct()
         if first is None:
-            return -1
+            break
         dwn += 1
         if FIRSTTYPE == INSIDE:
             return dwn
         OUTSIDE = getattr(OUTSIDE, first)
+    return -1
  
 def castable(PTRTYPE, CURTYPE):
     if CURTYPE.TO._gckind != PTRTYPE.TO._gckind:
@@ -673,8 +681,8 @@ def castable(PTRTYPE, CURTYPE):
                         % (CURTYPE, PTRTYPE))
     if CURTYPE == PTRTYPE:
         return 0
-    if (not isinstance(CURTYPE.TO, Struct) or
-        not isinstance(PTRTYPE.TO, Struct)):
+    if (not isinstance(CURTYPE.TO, (Struct, PyObjectType)) or
+        not isinstance(PTRTYPE.TO, (Struct, PyObjectType))):
         raise InvalidCast(CURTYPE, PTRTYPE)
     CURSTRUC = CURTYPE.TO
     PTRSTRUC = PTRTYPE.TO
@@ -1182,19 +1190,22 @@ class _struct(_parentable):
 
     __slots__ = ()
 
-    def __new__(self, TYPE, n=None, parent=None, parentindex=None):
+    def __new__(self, TYPE, n=None, parent=None, parentindex=None, **kwds):
         my_variety = _struct_variety(TYPE._names)
         return object.__new__(my_variety)
 
-    def __init__(self, TYPE, n=None, parent=None, parentindex=None):
+    def __init__(self, TYPE, n=None, parent=None, parentindex=None, **kwds):
         _parentable.__init__(self, TYPE)
         if n is not None and TYPE._arrayfld is None:
             raise TypeError("%r is not variable-sized" % (TYPE,))
         if n is None and TYPE._arrayfld is not None:
             raise TypeError("%r is variable-sized" % (TYPE,))
+        first, FIRSTTYPE = TYPE._first_struct()
         for fld, typ in TYPE._flds.items():
             if fld == TYPE._arrayfld:
                 value = _array(typ, n, parent=self, parentindex=fld)
+            elif fld == first:
+                value = typ._defl(parent=self, parentindex=fld, **kwds)
             else:
                 value = typ._defl(parent=self, parentindex=fld)
             setattr(self, fld, value)
@@ -1461,14 +1472,29 @@ class _pyobject(Hashable, _container):
         return '<%s>' % (self,)
 
     def __str__(self):
-        return "pyobject %s" % (super(_pyobject, self).__str__(),)
+        return "pyobject %s" % (Hashable.__str__(self),)
+
+class _pyobjheader(_parentable):
+
+    def __init__(self, ob_type, parent=None, parentindex=None):
+        _parentable.__init__(self, PyObject)
+        assert typeOf(ob_type) == Ptr(PyObject)
+        self.ob_type = ob_type
+        if parent is not None:
+            self._setparentstructure(parent, parentindex)
+
+    def __repr__(self):
+        return '<%s>' % (self,)
+
+    def __str__(self):
+        return "pyobjheader of type %r" % (self.ob_type,)
 
 
-def malloc(T, n=None, flavor='gc', immortal=False):
+def malloc(T, n=None, flavor='gc', immortal=False, **kwds):
     if isinstance(T, Struct):
-        o = _struct(T, n)
+        o = _struct(T, n, **kwds)
     elif isinstance(T, Array):
-        o = _array(T, n)
+        o = _array(T, n, **kwds)
     else:
         raise TypeError, "malloc for Structs and Arrays only"
     if T._gckind != 'gc' and not immortal and flavor.startswith('gc'):
