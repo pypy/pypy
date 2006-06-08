@@ -222,3 +222,41 @@ def test_invoke_raising():
     res = run_stackless_function(example)
     assert res == 141
     
+
+def test_finally():
+    def f(x):
+        rstack.resume_point("rp1", x)        
+        return 1/x
+    def in_finally(x): 
+        rstack.resume_point("rp1.5", x)
+        return 2/x
+    def g(x):
+        r = y = 0
+        r += f(x)
+        try:
+            y = f(x)
+            rstack.resume_point("rp0", x, r, returns=y)
+        finally:
+            r += in_finally(x)
+        return r + y
+    def example():
+        return g(one())
+    transform_stackless_function(example)
+
+def test_except():
+    py.test.skip('in-progress')
+    def f(x):
+        rstack.resume_point("rp1", x)        
+        return 1/x
+    def g(x):
+        r = y = 0
+        r += f(x)
+        try:
+            y = f(x)
+            rstack.resume_point("rp0", x, r, returns=y)
+        except ZeroDivisionError:
+            r += f(x)
+        return r + y
+    def example():
+        return g(one())
+    transform_stackless_function(example)

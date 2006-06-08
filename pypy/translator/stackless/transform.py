@@ -504,9 +504,11 @@ class StacklessTransformer(object):
         op = block.operations[i]
         if i == len(block.operations) - 1:
             link = block.exits[0]
+            nextblock = None
         else:
             link = support.split_block_with_keepalive(block, i+1)
             i = 0
+            nextblock = link.target
         parms = op.args[1:]
         if not isinstance(parms[0], model.Variable):
             assert parms[0].value is None
@@ -547,7 +549,7 @@ class StacklessTransformer(object):
             symb = SymbolicRestartNumber(label, restart_number)
             self.symbolic_restart_numbers[label] = symb
 
-        return link.target, i
+        return nextblock
 
     def handle_resume_state_create(self, block, i):
         op = block.operations[i]
@@ -724,9 +726,13 @@ class StacklessTransformer(object):
             if (op.opname in ('direct_call', 'indirect_call')
                 or self.analyzer.operation_is_true(op)):
                 if op.opname == 'resume_point':
-                    block, i = self.handle_resume_point(block, i)
-                    continue
-                
+                    block = self.handle_resume_point(block, i)
+                    if block is None:
+                        return
+                    else:
+                        i = 0
+                        continue
+
                 # trap calls to stackless-related suggested primitives
                 if op.opname == 'direct_call':
                     func = getattr(op.args[0].value._obj, '_callable', None)
