@@ -155,5 +155,4 @@ class WeakGcAddressRepr(Repr):
         repr = self.rtyper.bindingrepr(Constant(ob))
         newob = repr.convert_const(ob)
         return cast_object_to_weakgcaddress(newob)
-    
-#weakgcaddress_repr = WeakGcAddressRepr()
+
