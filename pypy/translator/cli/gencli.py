@@ -73,6 +73,8 @@ class GenCli(object):
         while self.db._pending_nodes:
             node = self.db._pending_nodes.pop()
             node.render(self.ilasm)
+            self.db._rendered_nodes.add(node)
+            
 
     def fix_names(self):
         # it could happen that two distinct graph have the same name;

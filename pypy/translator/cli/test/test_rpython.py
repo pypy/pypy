@@ -4,17 +4,30 @@ from pypy.rpython.test.test_exception import BaseTestException
 from pypy.rpython.test.test_rclass import BaseTestRclass
 from pypy.rpython.test.test_rlist import BaseTestRlist
 from pypy.rpython.test.test_rpbc import BaseTestRPBC
+from pypy.rpython.test.test_rtuple import BaseTestRtuple
 
-class TestCliException(CliTest, BaseTestException):
+##from pypy.rpython.test.test_rbool import BaseTestRbool
+##from pypy.rpython.test.test_rfloat import BaseTestRfloat
+##from pypy.rpython.test.test_rint import BaseTestRint
+##from pypy.rpython.test.test_rbuiltin import BaseTestRbuiltin
+##from pypy.rpython.test.test_rrange import BaseTestRrange
+##from pypy.rpython.test.test_rstr import BaseTestRstr
+##from pypy.rpython.test.test_rdict import BaseTestRdict
+##from pypy.rpython.test.test_objectmodel import BaseTestObjectModel
+##from pypy.rpython.test.test_remptydict import BaseTestRemptydict
+##from pypy.rpython.test.test_rconstantdict import BaseTestRconstantdict
+##from pypy.rpython.test.test_rspecialcase import BaseTestRspecialcase
+
+class xTestCliException(CliTest, BaseTestException):
     pass
 
 
-class TestCliClass(CliTest, BaseTestRclass):
+class xTestCliClass(CliTest, BaseTestRclass):
     def test_recursive_prebuilt_instance(self):
         py.test.skip("gencli doesn't support recursive constants, yet")
 
 
-class TestCliPBC(CliTest, BaseTestRPBC):
+class xTestCliPBC(CliTest, BaseTestRPBC):
     def test_call_memoized_cache(self):
         py.test.skip("gencli doesn't support recursive constants, yet")        
 
@@ -28,7 +41,7 @@ class TestCliPBC(CliTest, BaseTestRPBC):
         py.test.skip("CLI doesn't support string, yet")
 
 
-class TestCliList(CliTest, BaseTestRlist):
+class xTestCliList(CliTest, BaseTestRlist):
     def test_recursive(self):
         py.test.skip("CLI doesn't support recursive lists")
 
@@ -43,3 +56,14 @@ class TestCliList(CliTest, BaseTestRlist):
 
     def test_inst_list(self):
         py.test.skip("CLI doesn't support string, yet")
+
+class TestCliTuple(CliTest, BaseTestRtuple):
+    def test_constant_tuple_contains(self):
+        py.test.skip("CLI doesn't support dict, yet")
+
+    test_constant_tuple_contains2 = test_constant_tuple_contains
+    test_constant_unichar_tuple_contains = test_constant_tuple_contains
+
+    def test_inst_tuple_add_getitem(self):
+        py.test.skip("Need to fix pending nodes rendering")
+

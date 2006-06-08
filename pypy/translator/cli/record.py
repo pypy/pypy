@@ -9,12 +9,13 @@ class Record(Node):
         self.cts = CTS(db)
         self.record = record
 
-        trans = string.maketrans('<>(), ', '______')
+        trans = string.maketrans('<>(), :', '_______')
         name = ['Record']
         for f_name, (FIELD_TYPE, f_default) in record._fields.iteritems():
             type_name = FIELD_TYPE._short_name().translate(trans)
             name.append(type_name)
         self.name = '__'.join(name)
+        assert ':' not in self.name
         record._name = self.name
 
     def __hash__(self):

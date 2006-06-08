@@ -31,6 +31,8 @@ class LowLevelDatabase(object):
         self.const_names = set()
         self.name_count = 0
 
+        self._records = []
+
     def next_count(self):
         self.name_count += 1
         return self.name_count
@@ -41,7 +43,7 @@ class LowLevelDatabase(object):
     def pending_class(self, classdef):
         self.pending_node(Class(self, classdef))
 
-    def pending_record(self, record):
+    def pending_record(self, record):        
         r = Record(self, record)
         self.pending_node(r)
         return r.get_name()
@@ -248,6 +250,10 @@ class RecordConst(AbstractConst):
         return self.cts.lltype_to_cts(self.record._TYPE, include_class)
 
     def init(self, ilasm):
+        if self.record is ootype.null(self.record._TYPE):
+            ilasm.opcode('ldnull')
+            return
+
         class_name = self.get_type(False)
         ilasm.new('instance void class %s::.ctor()' % class_name)
         for f_name, (FIELD_TYPE, f_default) in self.record._TYPE._fields.iteritems():
