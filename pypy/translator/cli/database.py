@@ -25,7 +25,8 @@ class LowLevelDatabase(object):
         self.classes = {} # classdef --> class_name
         self.functions = {} # graph --> function_name
         self.methods = {} # graph --> method_name
-        self.consts = {}  # value --> const_name
+        self.consts = {}  # value --> AbstractConst, const_name
+        self.pending_consts = {} # value --> AbstractConst, const_name
         self.delegates = {} # StaticMethod --> type_name
         self.const_names = set()
         self.name_count = 0
@@ -64,14 +65,16 @@ class LowLevelDatabase(object):
         return self.classes.get(classdef, None)
 
     def record_const(self, value):
-        const = AbstractConst.make(self, value)
-        try:
-            name = self.consts[const]
-        except KeyError:
+        if value in self.consts:
+            const, name = self.consts[value]
+        elif value in self.pending_consts:
+            const, name = self.pending_consts[value]
+        else:
+            const = AbstractConst.make(self, value)
             name = const.get_name()
             if name in self.const_names:
                 name += '__%d' % self.next_count()
-            self.consts[const] = name
+            self.pending_consts[value] = const, name
             self.const_names.add(name)
 
         return '%s.%s::%s' % (CONST_NAMESPACE, CONST_CLASS, name)
@@ -122,16 +125,17 @@ class LowLevelDatabase(object):
         # the last step0.
 
         step = 0
-        while self.consts: 
-            consts = self.consts
-            self.consts = {}
+        while self.pending_consts:
+            pending_consts = self.pending_consts
+            self.consts.update(pending_consts)
+            self.pending_consts = {}
 
             # render field definitions
-            for const, name in consts.iteritems():
+            for const, name in pending_consts.itervalues():
                 ilasm.field(name, const.get_type(), static=True)
 
             ilasm.begin_function('step%d' % step, [], 'void', False, 'static')
-            for const, name in consts.iteritems():
+            for const, name in pending_consts.itervalues():
                 const.init(ilasm)
                 type_ = const.get_type()
                 ilasm.set_static_field (type_, CONST_NAMESPACE, CONST_CLASS, name)
