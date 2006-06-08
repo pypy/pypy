@@ -105,7 +105,7 @@ class Entry(ExtRegistryEntry):
     def specialize_call(self, hop):
         from pypy.rpython import raddress
         assert isinstance(hop.args_r[0], raddress.WeakGcAddressRepr)
-        vlist = [hop.inputarg(raddress.weakgcaddress_repr, arg=0)]
+        vlist = [hop.inputarg(hop.args_r[0], arg=0)]
         return hop.genop('cast_weakadr_to_ptr', vlist,
                          resulttype = hop.r_result.lowleveltype)
 
@@ -126,7 +126,7 @@ class Entry(ExtRegistryEntry):
     def specialize_call(self, hop):
         from pypy.rpython import raddress
         assert isinstance(hop.args_r[0], raddress.WeakGcAddressRepr)
-        vlist = [hop.inputarg(raddress.weakgcaddress_repr, arg=0)]
+        vlist = [hop.inputarg(hop.args_r[0], arg=0)]
         return hop.genop('cast_weakadr_to_int', vlist,
                          resulttype = hop.r_result.lowleveltype)
 
