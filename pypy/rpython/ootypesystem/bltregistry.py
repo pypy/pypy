@@ -73,6 +73,12 @@ class ExternalType(ootype.Instance):
 ##
 ##ExternalInstanceSingleton = ExternalInstance()
 
+class Entry_basicexternalmeta(ExtRegistryEntry):
+    _metatype_ = BasicMetaExternal    
+    
+    def compute_annotation(self):
+        return annmodel.SomeOOInstance(ootype=ExternalType.get(self.instance))
+
 class Entry_basicexternal(ExtRegistryEntry):
     _type_ = BasicExternal.__metaclass__
     

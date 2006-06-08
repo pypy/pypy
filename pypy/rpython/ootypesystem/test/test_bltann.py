@@ -8,6 +8,7 @@ from pypy.annotation.annrpython import RPythonAnnotator
 import exceptions
 from pypy.rpython.ootypesystem.bltregistry import BasicExternal, ExternalType
 from pypy.rpython.ootypesystem.ootype import Signed
+from pypy.rpython.test.test_llinterp import interpret
 
 class C(BasicExternal):
     pass
@@ -52,4 +53,14 @@ def test_bltn_method():
     
     a = RPythonAnnotator()
     s = a.build_types(access_meth, [])
+    assert s.knowntype is int
+
+glob_b = B()
+
+def test_global():
+    def access_global():
+        return glob_b.a
+    
+    a = RPythonAnnotator()
+    s = a.build_types(access_global, [])
     assert s.knowntype is int
