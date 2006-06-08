@@ -311,3 +311,36 @@ def test_using_pointers():
         call_function(f, 100, W_Root(), W_Root())
         return one()
     transform_stackless_function(example, do_inline=True)
+
+def test_always_raising():
+    def g(out):
+        out.append(3)
+        rstack.resume_point('g')
+        raise KeyError
+
+    def h(out):
+        try:
+            # g is always raising, good enough to put the resume point
+            # before, instead of after!
+            rstack.resume_point('h', out)
+            g(out)
+        except KeyError:
+            return 0
+        return -1
+
+    def example():
+        out = []
+        x = h(out)
+        l  = len(out)
+        chain = rstack.resume_state_create(None, 'h', out)
+        chain = rstack.resume_state_create(chain, 'g')
+        x += rstack.resume_state_invoke(int, chain)
+        l += len(out)
+        return l*100+x
+
+    res = llinterp_stackless_function(example)
+    assert res == 200
+    res = run_stackless_function(example)
+    assert res == 200
+
+        
