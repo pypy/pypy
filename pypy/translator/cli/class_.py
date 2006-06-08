@@ -83,7 +83,7 @@ class Class(Node):
     def _toString(self):
         self.ilasm.begin_function('ToString', [], 'string', False, 'virtual', 'instance', 'default')
         self.ilasm.opcode('ldarg.0')
-        self.ilasm.call('string class [pypylib]pypy.test.Result::ToPython(object)')
+        self.ilasm.call('string class [pypylib]pypy.test.Result::InstanceToPython(object)')
         self.ilasm.ret()
         self.ilasm.end_function()
 

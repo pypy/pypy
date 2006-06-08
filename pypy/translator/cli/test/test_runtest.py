@@ -46,3 +46,11 @@ class TestRunTest(CliTest):
         def fn():
             raise IndexError
         self.interpret_raises(LookupError, fn, [])
+
+    def test_object_or_none(self):
+        def fn(flag):
+            if flag:
+                return "hello";
+            else:
+                return None
+        assert self.interpret(fn, [False]) is None

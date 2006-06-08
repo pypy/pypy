@@ -34,12 +34,13 @@ def check(func, annotation, args):
         assert res1 == res2
 
 def format_object(TYPE, ilasm):
-    if isinstance(TYPE, (ootype.BuiltinType, ootype.Instance)) and TYPE is not ootype.String:
-        ilasm.call_method('string object::ToString()', virtual=True)
-    elif TYPE is ootype.Void:
+    if TYPE is ootype.Void:
         ilasm.opcode('ldstr "None"')
     else:
-        type_ = cts.lltype_to_cts(TYPE)
+        if isinstance(TYPE, (ootype.BuiltinType, ootype.Instance)) and TYPE is not ootype.String:
+            type_ = 'object'
+        else:
+            type_ = cts.lltype_to_cts(TYPE)
         ilasm.call('string class [pypylib]pypy.test.Result::ToPython(%s)' % type_)
 
 
@@ -245,3 +246,6 @@ class CliTest(BaseRtypingTest, OORtypeMixin):
 
     def is_of_instance_type(self, val):
         return isinstance(val, InstanceWrapper)
+
+    def read_attr(self, obj, name):
+        py.test.skip('read_attr not supported on gencli tests')
