@@ -204,7 +204,7 @@ opcodes = {
     'cast_bool_to_int':         [PushAllArgs, 'ldc.i4.0', 'ceq']+Not,
     'cast_bool_to_uint':        [PushAllArgs, 'ldc.i4.0', 'ceq']+Not,
     'cast_bool_to_float':       [PushAllArgs, 'ldc.i4 0', 'ceq']+Not+['conv.r8'],
-    'cast_char_to_int':         None,
+    'cast_char_to_int':         DoNothing,
     'cast_unichar_to_int':      None,
     'cast_int_to_char':         None,
     'cast_int_to_unichar':      None,
