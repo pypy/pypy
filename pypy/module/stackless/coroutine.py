@@ -164,8 +164,8 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
             assert isinstance(frame, PyFrame)
             # rstack.resume_point("evalframe", self, executioncontext, returns=result)
             evalframe_frame = resume_state_create(chain, "evalframe", frame, ec)
-            # rstack.resume_point("eval", self)
-            eval_frame = resume_state_create(evalframe_frame, "eval", frame)
+            # rstack.resume_point("eval", self, executioncontext)
+            eval_frame = resume_state_create(evalframe_frame, "eval", frame, ec)
             # rstack.resume_point("dispatch_call", self, code, ec)
             code = frame.getcode().co_code
             dispatch_call_frame = resume_state_create(eval_frame, "dispatch_call", frame, code, ec)
