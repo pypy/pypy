@@ -45,6 +45,10 @@ class SessionData:
         region.save(icon_filename)
         print 'SAVED:', icon_filename
 
+    #note: we should add the feature that we can ignore/replace messages with
+    #      other messages. This is mostly important to avoid sending all the
+    #      pixel data to the client which it can not use in this format anyway.
+
     MESSAGES = {
         MSG_BROADCAST_PORT : broadcast_port,
         MSG_PING           : ping,
