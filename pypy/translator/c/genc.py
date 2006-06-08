@@ -527,7 +527,7 @@ def gen_startupcode(f, database):
 
     # put float infinities in global constants, we should not have so many of them for now to make
     # a table+loop preferable
-    for dest, value in database.infs:
+    for dest, value in database.late_initializations:
         print >> f, "\t%s = %s;" % (dest, value)
 
     firsttime = True

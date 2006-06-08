@@ -115,8 +115,12 @@ def name_address(value, db):
 
 def name_weakgcaddress(value, db):
     assert isinstance(value, fakeweakaddress)
-    assert value.ref is None # only weak NULL supported
-    return 'HIDE_POINTER(NULL)'
+    if value.ref is None: 
+        return 'HIDE_POINTER(NULL)'
+    else:
+        ob = value.ref()
+        assert ob is not None
+        return 'HIDE_POINTER(%s)'%db.get(ob)
 
 
 PrimitiveName = {

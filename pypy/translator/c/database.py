@@ -36,8 +36,11 @@ class LowLevelDatabase(object):
         self.containerstats = {}
         self.externalfuncs = {}
         self.helper2ptr = {}
-        
-        self.infs = []
+
+        # late_initializations is for when the value you want to
+        # assign to a constant object is something C doesn't think is
+        # constant
+        self.late_initializations = []
         self.namespace = CNameManager()
         if not standalone:
             self.pyobjmaker = PyObjMaker(self.namespace, self.get, translator)

@@ -17,7 +17,7 @@ class __extend__(annmodel.SomeAddress):
 
 class __extend__(annmodel.SomeWeakGcAddress):
     def rtyper_makerepr(self, rtyper):
-        return weakgcaddress_repr
+        return WeakGcAddressRepr(rtyper)
     
     def rtyper_makekey(self):
         return self.__class__,
@@ -140,4 +140,20 @@ class __extend__(pairtype(PtrRepr, AddressRepr)):
 class WeakGcAddressRepr(Repr):
     lowleveltype = WeakGcAddress
 
-weakgcaddress_repr = WeakGcAddressRepr()
+    def __init__(self, rtyper):
+        self.rtyper = rtyper
+
+    def convert_const(self, value):
+        from pypy.rpython.lltypesystem import llmemory
+        from pypy.rpython.objectmodel import cast_object_to_weakgcaddress
+        from pypy.objspace.flow.model import Constant
+        assert isinstance(value, llmemory.fakeweakaddress)
+        if value.ref is None:
+            return value
+        ob = value.ref()
+        assert ob is not None
+        repr = self.rtyper.bindingrepr(Constant(ob))
+        newob = repr.convert_const(ob)
+        return cast_object_to_weakgcaddress(newob)
+    
+#weakgcaddress_repr = WeakGcAddressRepr()

@@ -368,7 +368,6 @@ class Bookkeeper:
         elif isinstance(x, llmemory.fakeaddress):
             result = SomeAddress(is_null=not x)
         elif isinstance(x, llmemory.fakeweakaddress):
-            assert x.ref is None # only WEAKNULL allowed
             result = SomeWeakGcAddress()
         elif isinstance(x, ootype._static_meth):
             result = SomeOOStaticMeth(ootype.typeOf(x))
