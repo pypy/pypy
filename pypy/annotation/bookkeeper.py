@@ -462,6 +462,15 @@ class Bookkeeper:
             self.descs[pyobj] = result
             return result
 
+    def have_seen(self, x):
+        # this might need to expand some more.
+        if x in self.descs:
+            return True
+        elif x in self.seen_mutable:
+            return True
+        else:
+            return False
+        
     def getfrozen(self, pyobj):
         result = description.FrozenDesc(self, pyobj)
         cls = result.knowntype

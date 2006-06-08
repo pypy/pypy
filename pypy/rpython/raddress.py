@@ -152,7 +152,12 @@ class WeakGcAddressRepr(Repr):
             return value
         ob = value.ref()
         assert ob is not None
-        repr = self.rtyper.bindingrepr(Constant(ob))
-        newob = repr.convert_const(ob)
-        return cast_object_to_weakgcaddress(newob)
-
+        bk = self.rtyper.annotator.bookkeeper
+        # obscure!  if the annotator hasn't seen this object before,
+        # we don't want to look at it now (confusion tends to result).
+        if bk.have_seen(ob):
+            repr = self.rtyper.bindingrepr(Constant(ob))
+            newob = repr.convert_const(ob)
+            return cast_object_to_weakgcaddress(newob)
+        else:
+            return llmemory.fakeweakaddress(None)
