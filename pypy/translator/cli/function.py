@@ -115,8 +115,8 @@ class Function(Node, Generator):
                         assert len(target.inputargs) == 2
                         self.store(link.target.inputargs[1])
                     else:
-                        # pop the unused exception value
-                        self.ilasm.opcode('pop')
+                        # the exception value is on the stack, store it in the proper place
+                        self.store(link.last_exc_value)
                         self._setup_link(link)
                     
                     target_label = self._get_block_name(target)
