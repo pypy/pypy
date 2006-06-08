@@ -226,7 +226,10 @@ class StringConst(AbstractConst):
         return self.cts.lltype_to_cts(ootype.String, include_class)
 
     def init(self, ilasm):
-        ilasm.opcode('ldstr', '"%s"' % self.string._str)
+        if self.string._str is None:
+            ilasm.opcode('ldnull')
+        else:
+            ilasm.opcode('ldstr', '"%s"' % self.string._str)
 
 class RecordConst(AbstractConst):
     def __init__(self, db, record, count):
