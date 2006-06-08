@@ -83,7 +83,7 @@ class TestHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         global do_status
         if self.path != "/test.html":
-            self.send_error(404, "File not found")
+            self.send_error(404, "File /test.html not found")
             return
         jsfilename = jstest.jsfilename
         jstestcase = jstest.jstestcase
@@ -97,7 +97,7 @@ class TestHandler(BaseHTTPRequestHandler):
                 html_page  = open(self.server.html_page).read() % locals()
             except IOError:
                 log("HTML FILE WAS NOT FOUND!!!!")
-                self.send_error(404, "File not found")
+                self.send_error(404, "File %s not found" % self.server.html_page)
                 return
         else:
             html_page = config.html_page % locals()
@@ -109,7 +109,7 @@ class TestHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         global do_status
         if self.path != "/test.html":
-            self.send_error(404, "File not found")
+            self.send_error(404, "File /test.html not found")
             return
         form = parse_qs(self.rfile.read(int(self.headers['content-length'])))
         if self.server.is_interactive:
