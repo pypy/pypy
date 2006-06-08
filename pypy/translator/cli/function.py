@@ -24,7 +24,7 @@ class Function(Node, Generator):
         self.db = db
         self.cts = CTS(db)
         self.graph = graph
-        self.name = name or graph.name
+        self.name = self.cts.escape_name(name or graph.name)
         self.is_method = is_method
         self.is_entrypoint = is_entrypoint
         self.blocknum = {}

@@ -60,6 +60,8 @@ def _get_from_dict(d, key, error):
             assert False, error
 
 class CTS(object):
+    ILASM_KEYWORDS = ['call']
+    
     def __init__(self, db):
         self.db = db
 
@@ -68,6 +70,13 @@ class CTS(object):
             return 'class ' + result
         else:
             return result
+
+    def escape_name(self, name):
+        """Mangle then name if it's a ilasm reserved word"""
+        if name in self.ILASM_KEYWORDS:
+            return name + '__MANGLED' # XXX: it could not be unique
+        else:
+            return name
 
     def lltype_to_cts(self, t, include_class=True):
         if isinstance(t, ootype.Instance):
@@ -106,6 +115,7 @@ class CTS(object):
     def graph_to_signature(self, graph, is_method = False, func_name = None):
         ret_type, ret_var = self.llvar_to_cts(graph.getreturnvar())
         func_name = func_name or graph.name
+        func_name = self.escape_name(func_name)
 
         args = [arg for arg in graph.getargs() if arg.concretetype is not ootype.Void]
         if is_method:
