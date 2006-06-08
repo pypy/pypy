@@ -91,6 +91,9 @@ class TypeCache(SpaceCache):
         w_type.lazyloaders = lazyloaders
         return w_type
 
+    def ready(self, w_type):
+        w_type.ready()
+
 def hack_out_multimethods(ns):
     "NOT_RPYTHON: initialization-time only."
     result = []

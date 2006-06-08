@@ -111,6 +111,15 @@ class SpaceCache(Cache):
             return self.build(key)
         finally:
             self.space.leave_cache_building_mode(val)
+    def _ready(self, result):
+        val = self.space.enter_cache_building_mode()
+        try:
+            return self.ready(result)
+        finally:
+            self.space.leave_cache_building_mode(val)
+    def ready(self, result):
+        pass
+        
 
 class ObjSpaceOptions: 
     def _freeze_(self): 

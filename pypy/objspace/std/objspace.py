@@ -211,6 +211,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             if not bases:
                 bases = [space.w_object]
             res = W_TypeObject(space, name, bases, dic)
+            res.ready()
             return res
         try:
             # note that we hide the real call method by an instance variable!

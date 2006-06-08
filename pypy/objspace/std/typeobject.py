@@ -53,6 +53,7 @@ class W_TypeObject(W_Object):
         w_self.nslots = 0
         w_self.needsdel = False
         w_self.w_bestbase = None
+        w_self.weak_subclasses_w = []
 
         # make sure there is a __doc__ in dict_w
         if '__doc__' not in dict_w:
@@ -207,6 +208,12 @@ class W_TypeObject(W_Object):
                 return
         w_self.mro_w = w_self.compute_mro()
 
+    def ready(w_self):
+        for w_base in w_self.bases_w:
+            if not isinstance(w_base, W_TypeObject):
+                continue
+            w_base.add_subclass(w_self)
+
     # compute the most parent class with the same layout as us
     def get_layout(w_self):
         w_bestbase = w_self.w_bestbase
@@ -314,6 +321,20 @@ class W_TypeObject(W_Object):
             return w_self.dict_w['__module__']
         else:
             return space.wrap('__builtin__')
+
+    def add_subclass(w_self, w_subclass):
+        space = w_self.space
+        from pypy.module._weakref.interp__weakref import basic_weakref
+        w_newref = basic_weakref(space, w_subclass)
+        
+        for i in range(len(w_self.weak_subclasses_w)):
+            w_ref = w_self.weak_subclasses_w[i]
+            ob = space.call_function(w_ref)
+            if space.is_w(ob, space.w_None):
+                w_self.weak_subclasses_w[i] = w_newref
+                return
+        else:
+            w_self.weak_subclasses_w.append(w_newref)
 
     # for now, weakref support for W_TypeObject is hard to get automatically
     _lifeline_ = None

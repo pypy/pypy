@@ -44,6 +44,7 @@ def descr__new__(space, w_typetype, w_name, w_bases, w_dict):
     w_type = space.allocate_instance(W_TypeObject, w_typetype)
     W_TypeObject.__init__(w_type, space, name, bases_w or [space.w_object],
                           dict_w)
+    w_type.ready()
     return w_type
 
 def _precheck_for_new(space, w_type):
@@ -138,6 +139,15 @@ def descr_set__module(space, w_type, w_value):
                                         w_type.name))
     w_type.dict_w['__module__'] = w_value
 
+def descr___subclasses__(space, w_type):
+    w_type = _check(space, w_type)
+    subclasses_w = []
+    for w_ref in w_type.weak_subclasses_w:
+        w_ob = space.call_function(w_ref)
+        if not space.is_w(w_ob, space.w_None):
+            subclasses_w.append(w_ob)
+    return space.newlist(subclasses_w)
+
 # ____________________________________________________________
 
 type_typedef = StdTypeDef("type",
@@ -151,5 +161,6 @@ type_typedef = StdTypeDef("type",
     mro = gateway.interp2app(descr_mro),
     __flags__ = GetSetProperty(descr__flags),
     __module__ = GetSetProperty(descr_get__module, descr_set__module),
+    __subclasses__ = gateway.interp2app(descr___subclasses__),
     __weakref__ = weakref_descr,
     )

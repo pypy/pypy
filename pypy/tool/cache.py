@@ -36,8 +36,12 @@ class Cache(object):
         except KeyError:
             result = self._build(key)
             self.content[key] = result
+            self._ready(result)
             return result
     getorbuild._annspecialcase_ = "specialize:memo"
+
+    def _ready(self, result):
+        pass
 
     def _freeze_(self):
         # needs to be SomePBC, but otherwise we can't really freeze the
