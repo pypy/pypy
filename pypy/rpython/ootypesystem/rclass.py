@@ -148,7 +148,7 @@ def unmangle(mangled):
     return mangled[1:]
 
 class InstanceRepr(AbstractInstanceRepr):
-    def __init__(self, rtyper, classdef, does_need_gc=True):
+    def __init__(self, rtyper, classdef, gcflavor='ignored'):
         AbstractInstanceRepr.__init__(self, rtyper, classdef)
 
         self.baserepr = None
@@ -237,7 +237,7 @@ class InstanceRepr(AbstractInstanceRepr):
 
         ootype.addFields(self.lowleveltype, fields)
 
-        self.rbase = getinstancerepr(self.rtyper, self.classdef.basedef, True)
+        self.rbase = getinstancerepr(self.rtyper, self.classdef.basedef)
         self.rbase.setup()
 
         methods = {}

@@ -10,12 +10,12 @@ from pypy.rpython.rclass import AbstractClassRepr,\
                                 getclassrepr, getinstancerepr,\
                                 get_type_repr, rtype_new_instance
 from pypy.rpython.lltypesystem.lltype import \
-     ForwardReference, GcForwardReference, \
      Ptr, Struct, GcStruct, malloc, \
      cast_pointer, castable, nullptr, \
      RuntimeTypeInfo, getRuntimeTypeInfo, typeOf, \
      Array, Char, Void, attachRuntimeTypeInfo, \
      FuncType, Bool, Signed, functionptr, FuncType, PyObject
+from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.annotation import model as annmodel
@@ -55,7 +55,7 @@ from pypy.rpython.rarithmetic import intmask
 #
 # there's also a nongcobject 
 
-OBJECT_VTABLE = ForwardReference()
+OBJECT_VTABLE = lltype.ForwardReference()
 CLASSTYPE = Ptr(OBJECT_VTABLE)
 OBJECT = GcStruct('object', ('typeptr', CLASSTYPE))
 OBJECTPTR = Ptr(OBJECT)
@@ -71,6 +71,16 @@ OBJECT_VTABLE.become(Struct('object_vtable',
 NONGCOBJECT = Struct('nongcobject', ('typeptr', CLASSTYPE))
 NONGCOBJECTPTR = Ptr(OBJECT)
 
+# cpy case (XXX try to merge the typeptr with the ob_type)
+CPYOBJECT = lltype.PyStruct('cpyobject', ('head', PyObject),
+                                         ('typeptr', CLASSTYPE))
+CPYOBJECTPTR = Ptr(CPYOBJECT)
+
+OBJECT_BY_FLAVOR = {'gc': OBJECT,
+                    'raw': NONGCOBJECT,
+                    'cpy': CPYOBJECT}
+
+
 def cast_vtable_to_typeptr(vtable):
     while typeOf(vtable).TO != OBJECT_VTABLE:
         vtable = vtable.super
@@ -84,7 +94,7 @@ class ClassRepr(AbstractClassRepr):
             # 'object' root type
             self.vtable_type = OBJECT_VTABLE
         else:
-            self.vtable_type = ForwardReference()
+            self.vtable_type = lltype.ForwardReference()
         self.lowleveltype = Ptr(self.vtable_type)
 
     def _setup_repr(self):
@@ -173,7 +183,7 @@ class ClassRepr(AbstractClassRepr):
                 vtable.subclassrange_max = sys.maxint
             rinstance = getinstancerepr(self.rtyper, rsubcls.classdef)
             rinstance.setup()
-            if rinstance.needsgc: # only gc-case
+            if rinstance.gcflavor == 'gc': # only gc-case
                 vtable.rtti = getRuntimeTypeInfo(rinstance.object_type)
             if rsubcls.classdef is None:
                 name = 'object'
@@ -285,22 +295,17 @@ class ClassRepr(AbstractClassRepr):
 
 
 class InstanceRepr(AbstractInstanceRepr):
-    def __init__(self, rtyper, classdef, does_need_gc=True):
+    def __init__(self, rtyper, classdef, gcflavor='gc'):
         AbstractInstanceRepr.__init__(self, rtyper, classdef)
         if classdef is None:
-            if does_need_gc:
-                self.object_type = OBJECT
-            else:
-                self.object_type = NONGCOBJECT
+            self.object_type = OBJECT_BY_FLAVOR[gcflavor]
         else:
-            if does_need_gc:
-                self.object_type = GcForwardReference()
-            else:
-                self.object_type = ForwardReference()
+            ForwardRef = lltype.FORWARDREF_BY_FLAVOR[gcflavor]
+            self.object_type = ForwardRef()
             
         self.prebuiltinstances = {}   # { id(x): (x, _ptr) }
         self.lowleveltype = Ptr(self.object_type)
-        self.needsgc = does_need_gc
+        self.gcflavor = gcflavor
 
     def _setup_repr(self):
         # NOTE: don't store mutable objects like the dicts below on 'self'
@@ -330,7 +335,8 @@ class InstanceRepr(AbstractInstanceRepr):
                 fields['_hash_cache_'] = 'hash_cache', rint.signed_repr
                 llfields.append(('hash_cache', Signed))
 
-            self.rbase = getinstancerepr(self.rtyper, self.classdef.basedef, not self.needsgc)
+            self.rbase = getinstancerepr(self.rtyper, self.classdef.basedef,
+                                         self.gcflavor)
             self.rbase.setup()
             #
             # PyObject wrapper support
@@ -338,11 +344,7 @@ class InstanceRepr(AbstractInstanceRepr):
                 fields['_wrapper_'] = 'wrapper', pyobj_repr
                 llfields.append(('wrapper', Ptr(PyObject)))
 
-            if self.needsgc:
-                MkStruct = GcStruct
-            else:
-                MkStruct = Struct
-            
+            MkStruct = lltype.STRUCT_BY_FLAVOR[self.gcflavor]
             object_type = MkStruct(self.classdef.name,
                                    ('super', self.rbase.object_type),
                                    *llfields)
@@ -351,11 +353,11 @@ class InstanceRepr(AbstractInstanceRepr):
         allinstancefields.update(fields)
         self.fields = fields
         self.allinstancefields = allinstancefields
-        if self.needsgc: # only gc-case
+        if self.gcflavor == 'gc': # only gc-case
             attachRuntimeTypeInfo(self.object_type)
 
     def _setup_repr_final(self):
-        if self.needsgc: # only gc-case
+        if self.gcflavor == 'gc': # only gc-case
             if (self.classdef is not None and
                 self.classdef.classdesc.lookup('__del__') is not None):
                 s_func = self.classdef.classdesc.s_read_attribute('__del__')
@@ -375,10 +377,7 @@ class InstanceRepr(AbstractInstanceRepr):
                                                   ll_runtime_type_info,
                                                   OBJECT, destrptr)
     def common_repr(self): # -> object or nongcobject reprs
-        return getinstancerepr(self.rtyper, None, nogc=not self.needsgc)
-
-    def getflavor(self):
-        return self.classdef.classdesc.read_attribute('_alloc_flavor_', Constant('gc')).value
+        return getinstancerepr(self.rtyper, None, self.gcflavor)
 
     def null_instance(self):
         return nullptr(self.object_type)
@@ -387,7 +386,7 @@ class InstanceRepr(AbstractInstanceRepr):
         return cast_pointer(self.lowleveltype, result)
 
     def create_instance(self):
-        return malloc(self.object_type, flavor=self.getflavor()) # pick flavor
+        return malloc(self.object_type, flavor=self.gcflavor)
 
     def has_wrapper(self):
         return self.classdef is not None and (
@@ -481,12 +480,16 @@ class InstanceRepr(AbstractInstanceRepr):
         ctype = inputconst(Void, self.object_type)
         vlist = [ctype]
         if self.classdef is not None:
-            flavor = self.getflavor()
-            if flavor != 'gc': # not defalut flavor
+            flavor = self.gcflavor
+            if flavor != 'gc': # not default flavor
                 mallocop = 'flavored_malloc'
-                vlist = [inputconst(Void, flavor)] + vlist
+                vlist.insert(0, inputconst(Void, flavor))
+                if flavor == 'cpy':
+                    cpytype = self.classdef._cpy_exported_type_
+                    c = inputconst(Ptr(PyObject), lltype.pyobjectptr(cpytype))
+                    vlist.append(c)
         vptr = llops.genop(mallocop, vlist,
-                           resulttype = Ptr(self.object_type)) # xxx flavor
+                           resulttype = Ptr(self.object_type))
         ctypeptr = inputconst(CLASSTYPE, self.rclass.getvtable())
         self.setfield(vptr, '__class__', ctypeptr, llops)
         # initialize instance attributes from their defaults from the class
@@ -575,7 +578,7 @@ class InstanceRepr(AbstractInstanceRepr):
             return hop.gendirectcall(ll_isinstance, v_obj, v_cls)
 
 
-def buildinstancerepr(rtyper, classdef, does_need_gc=True):
+def buildinstancerepr(rtyper, classdef, gcflavor='gc'):
     if classdef is None:
         unboxed = []
     else:
@@ -583,14 +586,14 @@ def buildinstancerepr(rtyper, classdef, does_need_gc=True):
                           if subdef.classdesc.pyobj is not None and
                              issubclass(subdef.classdesc.pyobj, UnboxedValue)]
     if len(unboxed) == 0:
-        return InstanceRepr(rtyper, classdef, does_need_gc)
+        return InstanceRepr(rtyper, classdef, gcflavor)
     else:
         # the UnboxedValue class and its parent classes need a
         # special repr for their instances
         if len(unboxed) != 1:
             raise TyperError("%r has several UnboxedValue subclasses" % (
                 classdef,))
-        assert does_need_gc
+        assert gcflavor == 'gc'
         from pypy.rpython.lltypesystem import rtagged
         return rtagged.TaggedInstanceRepr(rtyper, classdef, unboxed[0])
 
@@ -618,16 +621,15 @@ class __extend__(pairtype(InstanceRepr, InstanceRepr)):
             return NotImplemented
 
     def rtype_is_((r_ins1, r_ins2), hop):
-        if r_ins1.needsgc != r_ins2.needsgc:
+        if r_ins1.gcflavor != r_ins2.gcflavor:
             # obscure logic, the is can be true only if both are None
             v_ins1, v_ins2 = hop.inputargs(r_ins1.common_repr(), r_ins2.common_repr())
             return hop.gendirectcall(ll_both_none, v_ins1, v_ins2)
-        nogc = not (r_ins1.needsgc and r_ins2.needsgc)
         if r_ins1.classdef is None or r_ins2.classdef is None:
             basedef = None
         else:
             basedef = r_ins1.classdef.commonbase(r_ins2.classdef)
-        r_ins = getinstancerepr(r_ins1.rtyper, basedef, nogc=nogc)
+        r_ins = getinstancerepr(r_ins1.rtyper, basedef, r_ins1.gcflavor)
         return pairtype(Repr, Repr).rtype_is_(pair(r_ins, r_ins), hop)
 
     rtype_eq = rtype_is_

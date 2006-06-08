@@ -8,7 +8,7 @@ from pypy.annotation import description
 from pypy.tool.sourcetools import has_varargs, valid_identifier
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython.error import TyperError
-from pypy.rpython.rmodel import needsgc
+from pypy.rpython.rmodel import getgcflavor
 from pypy.rpython.objectmodel import instantiate, ComputedIntSymbolic
 
 def normalize_call_familes(annotator):
@@ -246,7 +246,7 @@ def create_instantiate_functions(annotator):
     needs_generic_instantiate = annotator.bookkeeper.needs_generic_instantiate
     
     for classdef in needs_generic_instantiate:
-        assert needsgc(classdef) # only gc-case
+        assert getgcflavor(classdef) == 'gc'   # only gc-case
         create_instantiate_function(annotator, classdef)
 
 def create_instantiate_function(annotator, classdef):

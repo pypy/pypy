@@ -23,13 +23,15 @@ import sets, os
 def var_ispyobj(var):
     if hasattr(var, 'concretetype'):
         if isinstance(var.concretetype, lltype.Ptr):
-            return var.concretetype.TO is lltype.PyObject
+            return var.concretetype.TO._gckind == 'cpy'
         else:
             return False
     else:
         # assume PyObjPtr
         return True
-    
+
+PyObjPtr = lltype.Ptr(lltype.PyObject)
+
 
 class GCTransformer(object):
     finished_helpers = False
@@ -154,8 +156,9 @@ class GCTransformer(object):
             op = ops[index]
             if var_needsgc(op.result):
                 if var_ispyobj(op.result):
-                    assert op.opname != 'cast_pointer', 'casting to a PyObject*??'
-                    if op.opname in ('getfield', 'getarrayitem', 'same_as'):
+                    if op.opname in ('getfield', 'getarrayitem', 'same_as',
+                                     'cast_pointer', 'getsubstruct'):
+                        # XXX more operations?
                         lst = list(self.push_alive(op.result))
                         newops.extend(lst)
                 elif op.opname not in ('direct_call', 'indirect_call'):
@@ -211,7 +214,13 @@ class GCTransformer(object):
 
     def push_alive_pyobj(self, var):
         result = varoftype(lltype.Void)
-        return [SpaceOperation("gc_push_alive_pyobj", [var], result)]
+        lst = []
+        if hasattr(var, 'concretetype') and var.concretetype != PyObjPtr:
+            res = varoftype(PyObjPtr)
+            lst.append(SpaceOperation("cast_pointer", [var], res))
+            var = res
+        lst.append(SpaceOperation("gc_push_alive_pyobj", [var], result))
+        return lst
 
     def pop_alive(self, var):
         if var_ispyobj(var):
@@ -225,7 +234,13 @@ class GCTransformer(object):
 
     def pop_alive_pyobj(self, var):
         result = varoftype(lltype.Void)
-        return [SpaceOperation("gc_pop_alive_pyobj", [var], result)]
+        lst = []
+        if hasattr(var, 'concretetype') and var.concretetype != PyObjPtr:
+            res = varoftype(PyObjPtr)
+            lst.append(SpaceOperation("cast_pointer", [var], res))
+            var = res
+        lst.append(SpaceOperation("gc_pop_alive_pyobj", [var], result))
+        return lst
 
     def replace_gc_protect(self, op, livevars, block):
         """ protect this object from gc (make it immortal). the specific
@@ -653,7 +668,7 @@ def type_contains_pyobjs(TYPE):
             if type_contains_pyobjs(TYPE._flds[name]):
                 return True
         return False
-    elif isinstance(TYPE, lltype.Ptr) and TYPE.TO == lltype.PyObject:
+    elif isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'cpy':
         return True
     else:
         return False
@@ -722,7 +737,7 @@ def gc_pointers_inside(v, adr):
     t = lltype.typeOf(v)
     if isinstance(t, lltype.Struct):
         for n, t2 in t._flds.iteritems():
-            if isinstance(t2, lltype.Ptr) and t2._needsgc() and t2.TO != lltype.PyObject:
+            if isinstance(t2, lltype.Ptr) and t2.TO._gckind == 'gc':
                 yield adr + llmemory.offsetof(t, n)
             elif isinstance(t2, (lltype.Array, lltype.Struct)):
                 for a in gc_pointers_inside(getattr(v, n), adr + llmemory.offsetof(t, n)):
@@ -1068,7 +1083,7 @@ class FrameworkGCTransformer(GCTransformer):
                 adr = llmemory.cast_ptr_to_adr(hdr)
                 self.gcdata.gc.init_gc_object(adr, typeid)
 
-        if TYPE != lltype.PyObject and find_gc_ptrs_in_type(TYPE):
+        if find_gc_ptrs_in_type(TYPE):
             adr = llmemory.cast_ptr_to_adr(value._as_ptr())
             if isinstance(TYPE, (lltype.GcStruct, lltype.GcArray)):
                 self.static_gc_roots.append(adr)
@@ -1292,8 +1307,7 @@ def offsets_to_gc_pointers(TYPE):
         #adr = llmemory.cast_ptr_to_adr(ex)
         #for off in offsets:
         #    (adr + off)
-    elif (isinstance(TYPE, lltype.Ptr) and TYPE._needsgc() and
-          TYPE.TO is not lltype.PyObject):
+    elif isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'gc':
         offsets.append(0)
     return offsets
 

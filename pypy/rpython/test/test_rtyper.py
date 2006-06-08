@@ -113,13 +113,13 @@ def test_ll_calling_ll2():
     assert [vT.concretetype for vT in vTs] == [Void] * 3
     
 
-def test_needsgc():
+def test_getgcflavor():
     class A:
         pass
     class B:
         _alloc_flavor_ = "gc"
     class R:
-        _alloc_flavor_ = "nongc"
+        _alloc_flavor_ = "raw"
 
     NDF = object()
 
@@ -137,16 +137,9 @@ def test_needsgc():
                 else:
                     return default
             
-    assert rmodel.needsgc(DummyClsDescDef(A))
-    assert rmodel.needsgc(DummyClsDescDef(A), nogc=True)
-    assert rmodel.needsgc(DummyClsDescDef(B))
-    assert rmodel.needsgc(DummyClsDescDef(B), nogc=True)
-    assert not rmodel.needsgc(DummyClsDescDef(R))
-    assert not rmodel.needsgc(DummyClsDescDef(R), nogc=False)
-    assert rmodel.needsgc(None)
-    assert rmodel.needsgc(None, nogc=False)
-    assert not rmodel.needsgc(None, nogc=True)            
-
-    
-
-        
+    assert rmodel.getgcflavor(DummyClsDescDef(A)) == 'gc'
+    assert rmodel.getgcflavor(DummyClsDescDef(B)) == 'gc'
+    assert rmodel.getgcflavor(DummyClsDescDef(R)) == 'raw'
+    cdef = DummyClsDescDef(A)
+    cdef._cpy_exported_type_ = type(Ellipsis)
+    assert rmodel.getgcflavor(cdef) == 'cpy'

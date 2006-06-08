@@ -539,7 +539,7 @@ BUILTIN_TYPER[l3interp.malloc] = rtype_l3malloc
 
 def rtype_free_non_gc_object(hop):
     vinst, = hop.inputargs(hop.args_r[0])
-    flavor = hop.args_r[0].getflavor()
+    flavor = hop.args_r[0].gcflavor
     assert not flavor.startswith('gc')
     cflavor = hop.inputconst(lltype.Void, flavor)
     return hop.genop('flavored_free', [cflavor, vinst])

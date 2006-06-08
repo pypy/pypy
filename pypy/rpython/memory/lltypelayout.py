@@ -115,8 +115,7 @@ def offsets_to_gc_pointers(TYPE):
         offsets = []
         for name in TYPE._names:
             FIELD = getattr(TYPE, name)
-            if (isinstance(FIELD, lltype.Ptr) and FIELD._needsgc() and
-                FIELD.TO is not lltype.PyObject):
+            if isinstance(FIELD, lltype.Ptr) and FIELD.TO._gckind == 'gc':
                 offsets.append(llmemory.offsetof(TYPE, name))
             elif isinstance(FIELD, lltype.Struct):
                 suboffsets = offsets_to_gc_pointers(FIELD)

@@ -3,7 +3,7 @@ from pypy.annotation import model as annmodel
 #from pypy.annotation.classdef import isclassdef
 from pypy.annotation import description
 from pypy.rpython.error import TyperError
-from pypy.rpython.rmodel import Repr, needsgc
+from pypy.rpython.rmodel import Repr, getgcflavor
 
 def getclassrepr(rtyper, classdef):
     try:
@@ -24,19 +24,18 @@ def getclassrepr(rtyper, classdef):
         rtyper.add_pendingsetup(result)
     return result
 
-def getinstancerepr(rtyper, classdef, nogc=False):
-    does_need_gc = needsgc(classdef, nogc)
+def getinstancerepr(rtyper, classdef, default_flavor='gc'):
+    if classdef is None:
+        flavor = default_flavor
+    else:
+        flavor = getgcflavor(classdef)
     try:
-        result = rtyper.instance_reprs[classdef, does_need_gc]
+        result = rtyper.instance_reprs[classdef, flavor]
     except KeyError:
-        #if classdef and classdef.cls is Exception:
-        #    # see getclassrepr()
-        #    result = getinstancerepr(rtyper, None, nogc=False)
-        #else:
         result = rtyper.type_system.rclass.buildinstancerepr(
-                        rtyper, classdef, does_need_gc=does_need_gc)
+                        rtyper, classdef, gcflavor=flavor)
 
-        rtyper.instance_reprs[classdef, does_need_gc] = result
+        rtyper.instance_reprs[classdef, flavor] = result
         rtyper.add_pendingsetup(result)
     return result
 

@@ -299,6 +299,10 @@ class PyStruct(Struct):
             raise TypeError("a PyStruct must have another PyStruct or "
                             "PyObject as first field")
 
+STRUCT_BY_FLAVOR = {'raw': Struct,
+                    'gc':  GcStruct,
+                    'cpy': PyStruct}
+
 class Array(ContainerType):
     _gckind = 'raw'
     __name__ = 'array'
@@ -479,6 +483,13 @@ class ForwardReference(ContainerType):
 
 class GcForwardReference(ForwardReference):
     _gckind = 'gc'
+
+class PyForwardReference(ForwardReference):
+    _gckind = 'cpy'
+
+FORWARDREF_BY_FLAVOR = {'raw': ForwardReference,
+                        'gc':  GcForwardReference,
+                        'cpy': PyForwardReference}
 
 
 class Primitive(LowLevelType):

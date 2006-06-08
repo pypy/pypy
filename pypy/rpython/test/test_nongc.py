@@ -39,8 +39,8 @@ def test_alloc_flavor():
     assert s.knowntype == Adef
     rtyper = RPythonTyper(a)
     rtyper.specialize()
-    assert (Adef, False) in rtyper.instance_reprs
-    assert (Adef, True) not in rtyper.instance_reprs    
+    assert (Adef, 'raw') in rtyper.instance_reprs
+    assert (Adef, 'gc') not in rtyper.instance_reprs    
     
 def test_alloc_flavor_subclassing():
     class A:
@@ -58,10 +58,10 @@ def test_alloc_flavor_subclassing():
     assert s.knowntype == Bdef
     rtyper = RPythonTyper(a)
     rtyper.specialize()
-    assert (Adef, False) in rtyper.instance_reprs
-    assert (Adef, True) not in rtyper.instance_reprs
-    assert (Bdef, False) in rtyper.instance_reprs
-    assert (Bdef, True) not in rtyper.instance_reprs        
+    assert (Adef, 'raw') in rtyper.instance_reprs
+    assert (Adef, 'gc') not in rtyper.instance_reprs
+    assert (Bdef, 'raw') in rtyper.instance_reprs
+    assert (Bdef, 'gc') not in rtyper.instance_reprs        
 
 def test_unsupported():
     class A:

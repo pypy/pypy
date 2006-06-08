@@ -559,7 +559,11 @@ class FunctionCodeGenerator(object):
         if flavor == "raw": 
             return "OP_RAW_MALLOC(%s, %s);" % (esize, eresult) 
         elif flavor == "stack": 
-            return "OP_STACK_MALLOC(%s, %s);" % (esize, eresult) 
+            return "OP_STACK_MALLOC(%s, %s);" % (esize, eresult)
+        elif flavor == "cpy":
+            cpytype = self.expr(op.args[2])
+            return "%s = PyObject_New(%s, (PyTypeObject *)%s);" % (
+                eresult, cdecl(typename, ''), cpytype)
         else:
             raise NotImplementedError
 
@@ -593,7 +597,6 @@ class FunctionCodeGenerator(object):
         result.append('%s = (%s)%s;' % (self.expr(op.result),
                                         cdecl(typename, ''),
                                         self.expr(op.args[0])))
-        assert TYPE != PyObjPtr
         return '\t'.join(result)
 
     OP_CAST_PTR_TO_ADR = OP_CAST_POINTER
