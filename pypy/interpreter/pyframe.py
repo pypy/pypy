@@ -198,8 +198,10 @@ class PyFrame(eval.EvalFrame):
                     try:
                         try:
                             if we_are_translated():
-                                self.dispatch_translated(executioncontext)
-                                rstack.resume_point("eval", self)
+                                try:
+                                    self.dispatch_translated(executioncontext)
+                                finally:
+                                    rstack.resume_point("eval", self)
                             else:
                                 self.dispatch(executioncontext)
                         # catch asynchronous exceptions and turn them
