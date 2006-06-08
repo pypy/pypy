@@ -23,6 +23,7 @@ class RPythonAnnotator:
 
     def __init__(self, translator=None, policy=None, bookkeeper=None):
         import pypy.rpython.ootypesystem.ooregistry # has side effects
+        import pypy.rpython.ootypesystem.bltregistry # has side effects
         
         if translator is None:
             # interface for tests
