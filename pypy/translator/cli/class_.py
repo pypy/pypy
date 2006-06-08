@@ -45,6 +45,7 @@ class Class(Node):
         ilasm.begin_class(self.name, self.get_base_class())
         for f_name, (f_type, f_default) in self.classdef._fields.iteritems():
             cts_type = self.cts.lltype_to_cts(f_type)
+            f_name = self.cts.escape_name(f_name)
             if cts_type != 'void':
                 ilasm.field(f_name, cts_type)
 
@@ -72,6 +73,7 @@ class Class(Node):
         # set default values for fields
         for f_name, (F_TYPE, f_default) in self.classdef._fields.iteritems():
             cts_type = self.cts.lltype_to_cts(F_TYPE)
+            f_name = self.cts.escape_name(f_name)
             if cts_type != 'void':
                 self.ilasm.opcode('ldarg.0')
                 AbstractConst.load(self.db, F_TYPE, f_default, self.ilasm)

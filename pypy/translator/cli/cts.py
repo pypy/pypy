@@ -60,7 +60,7 @@ def _get_from_dict(d, key, error):
             assert False, error
 
 class CTS(object):
-    ILASM_KEYWORDS = ['call']
+    ILASM_KEYWORDS = ['call', 'on']
     
     def __init__(self, db):
         self.db = db

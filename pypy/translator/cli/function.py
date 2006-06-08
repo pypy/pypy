@@ -242,6 +242,7 @@ class Function(Node, Generator):
         
         class_name = self.class_name(class_)
         field_type = self.cts.lltype_to_cts(type_)
+        field = self.cts.escape_name(field)
         return '%s %s::%s' % (field_type, class_name, field)
 
     # following methods belongs to the Generator interface
