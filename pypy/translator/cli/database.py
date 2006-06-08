@@ -177,7 +177,7 @@ class AbstractConst(object):
         elif isinstance(value, ootype._class):
             return ClassConst(db, value, count)
         else:
-            assert False, 'Unknown constant: %s' % const
+            assert False, 'Unknown constant: %s' % value
     make = staticmethod(make)
 
     def load(db, TYPE, value, ilasm):
