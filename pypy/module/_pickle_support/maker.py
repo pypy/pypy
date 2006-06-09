@@ -38,6 +38,9 @@ def method_new(space, __args__):
     return space.call_args(w_type, __args__)
 method_new.unwrap_spec = [ObjSpace, Arguments]
 
+def builtin_method_new(space, w_instance, w_name):
+    return space.getattr(w_instance, w_name)
+
 def dictiter_surrogate_new(space, w_lis):
     # we got a listobject.
     # simply create an iterator and that's it.
