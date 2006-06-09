@@ -1,6 +1,5 @@
-import turbogears
-from turbogears import controllers
-import cherrypy
+from turbogears import controllers, expose
+from cherrypy import session
 from msgstruct import *
 import PIL.Image
 import zlib
@@ -47,9 +46,8 @@ class SessionData:
         region.save(icon_filename)
         print 'SAVED:', icon_filename
 
-    #note: we should add the feature that we can ignore/replace messages with
-    #      other messages. This is mostly important to avoid sending all the
-    #      pixel data to the client which it can not use in this format anyway.
+        filename = '../static/images/icon%d.gif' % code
+        return dict(type='def_icon', code=code, filename=filename)
 
     MESSAGES = {
         MSG_BROADCAST_PORT : broadcast_port,
@@ -67,9 +65,10 @@ class SessionData:
         #print 'RECEIVED MESSAGE:%s(%d)' % (values[0], len(values[1:]))
         fn = self.MESSAGES.get(values[0])
         if fn:
-            fn(self, *values[1:])
+            return fn(self, *values[1:])
         else:
             print "UNKNOWN MESSAGE:", values
+            return dict(type='unknown', values=values)
 
 
 class Root(controllers.Root):
@@ -82,7 +81,6 @@ class Root(controllers.Root):
     port = int(port[7:-1])
     
     def sessionData(self):
-        session = cherrypy.session
         sessionid = session['_id']
         if sessionid not in self._sessionData:
             self._sessionData[sessionid] = SessionData()
@@ -96,13 +94,13 @@ class Root(controllers.Root):
             #XXX todo: session.socket.close() after a timeout
         return d.socket
 
-    @turbogears.expose()
+    @expose(format='json')
     def send(self, data=message(CMSG_PING)):
         self.sessionSocket().send(data)
         print 'SENT:' + repr(data)
         return self.recv()
 
-    @turbogears.expose()
+    @expose(format='json')
     def recv(self):
         #XXX hangs if not first sending a ping!
         d = self.sessionData()
@@ -114,22 +112,26 @@ class Root(controllers.Root):
             print 'RECEIVED HEADER LINE: %s' % header_line
         
         #print 'RECEIVED DATA CONTAINS %d BYTES' % len(data)
+        messages = []
         while data:
             values, data = decodemessage(data)
             if not values:
                 break  # incomplete message
-            d.handleServerMessage(*values)
+            messageOutput = d.handleServerMessage(*values)
+            if messageOutput:
+                messages.append(messageOutput)
         d.data = data
         #print 'RECEIVED DATA REMAINING CONTAINS %d BYTES' % len(data)
 
-        return dict(data=data)
+        print 'MESSAGES:', messages
+        return dict(messages=messages)
 
-    @turbogears.expose()
+    @expose(format='json')
     def close(self):
-        session = cherrypy.session
         sessionid = session['_id']
         d = self.sessionData()
         if d.socket is not None:
             d.socket.close()
         del self._sessionData[sessionid]
+        return dict()
 
