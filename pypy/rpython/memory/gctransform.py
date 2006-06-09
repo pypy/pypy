@@ -8,7 +8,7 @@ from pypy.translator.unsimplify import insert_empty_startblock
 from pypy.translator.unsimplify import starts_with_empty_block
 from pypy.translator.unsimplify import remove_empty_startblock
 from pypy.translator.translator import graphof
-from pypy.translator.backendopt.support import var_needsgc, needs_conservative_livevar_calculation
+from pypy.translator.backendopt.support import var_needsgc
 from pypy.translator.backendopt import inline
 from pypy.translator.backendopt import graphanalyze
 from pypy.translator.backendopt.ssa import DataFlowFamilyBuilder
