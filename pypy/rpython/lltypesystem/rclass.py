@@ -481,7 +481,7 @@ class InstanceRepr(AbstractInstanceRepr):
                 raise MissingRTypeAttribute(attr)
             self.rbase.setfield(vinst, attr, vvalue, llops, force_cast=True, opname=opname)
 
-    def new_instance(self, llops, classcallhop=None):
+    def new_instance(self, llops, classcallhop=None, v_cpytype=None):
         """Build a new instance, without calling __init__."""
         mallocop = 'malloc'
         ctype = inputconst(Void, self.object_type)
@@ -492,15 +492,16 @@ class InstanceRepr(AbstractInstanceRepr):
                 mallocop = 'flavored_malloc'
                 vlist.insert(0, inputconst(Void, flavor))
                 if flavor == 'cpy':
-                    cache = self.rtyper.classdef_to_pytypeobject
-                    try:
-                        pytype = cache[self.classdef]
-                    except KeyError:
-                        from pypy.rpython import rcpy
-                        pytype = rcpy.build_pytypeobject(self)
-                        cache[self.classdef] = pytype
-                    c = inputconst(Ptr(PyObject), pytype)
-                    vlist.append(c)
+                    if v_cpytype is None:
+                        cache = self.rtyper.classdef_to_pytypeobject
+                        try:
+                            cpytype = cache[self.classdef]
+                        except KeyError:
+                            from pypy.rpython import rcpy
+                            cpytype = rcpy.build_pytypeobject(self)
+                            cache[self.classdef] = cpytype
+                        v_cpytype = inputconst(Ptr(PyObject), cpytype)
+                    vlist.append(v_cpytype)
         vptr = llops.genop(mallocop, vlist,
                            resulttype = Ptr(self.object_type))
         ctypeptr = inputconst(CLASSTYPE, self.rclass.getvtable())

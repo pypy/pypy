@@ -2,7 +2,8 @@ from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.objectmodel import CDefinedIntSymbolic
-from pypy.objspace.flow.model import Constant
+from pypy.objspace.flow.model import Constant, Variable
+from pypy.objspace.flow.model import FunctionGraph, Block, Link
 
 
 def cpy_export(cpytype, obj):
@@ -122,9 +123,6 @@ PY_TYPE_OBJECT.become(lltype.PyStruct(
     hints={'c_name': '_typeobject', 'external': True, 'inline_head': True}))
 # XXX should be PyTypeObject but genc inserts 'struct' :-(
 
-def ll_tp_new(tp, args, kwds):
-    return lltype.malloc(lltype.PyObject, flavor='cpy', extra_args=(tp,))
-
 def ll_tp_dealloc(p):
     addr = llmemory.cast_ptr_to_adr(p)
     # Warning: this relies on an optimization in gctransformer, which will
@@ -134,7 +132,24 @@ def ll_tp_dealloc(p):
     llop.gc_deallocate(lltype.Void, CPYOBJECT, addr)
 
 def build_pytypeobject(r_inst):
+    from pypy.rpython.lltypesystem.rclass import CPYOBJECTPTR
+    from pypy.rpython.rtyper import LowLevelOpList
     typetype = lltype.pyobjectptr(type)
+
+    # make the graph of tp_new manually    
+    v1 = Variable('tp');   v1.concretetype = lltype.Ptr(PY_TYPE_OBJECT)
+    v2 = Variable('args'); v2.concretetype = PyObjPtr
+    v3 = Variable('kwds'); v3.concretetype = PyObjPtr
+    block = Block([v1, v2, v3])
+    llops = LowLevelOpList(None)
+    v4 = r_inst.new_instance(llops, v_cpytype = v1)
+    v5 = llops.genop('cast_pointer', [v4], resulttype = PyObjPtr)
+    block.operations = list(llops)
+    tp_new_graph = FunctionGraph('ll_tp_new', block)
+    block.closeblock(Link([v5], tp_new_graph.returnblock))
+    tp_new_graph.getreturnvar().concretetype = v5.concretetype
+
+    # build the PyTypeObject structure
     pytypeobj = lltype.malloc(PY_TYPE_OBJECT, flavor='cpy',
                               extra_args=(typetype,))
     name = r_inst.classdef._cpy_exported_type_.__name__
@@ -146,10 +161,14 @@ def build_pytypeobject(r_inst):
     pytypeobj.c_tp_name = lltype.direct_arrayitems(p)
     pytypeobj.c_tp_basicsize = llmemory.sizeof(r_inst.lowleveltype.TO)
     pytypeobj.c_tp_flags = CDefinedIntSymbolic('Py_TPFLAGS_DEFAULT')
-    pytypeobj.c_tp_new = r_inst.rtyper.annotate_helper_fn(
-        ll_tp_new,
-        [lltype.Ptr(PY_TYPE_OBJECT), PyObjPtr, PyObjPtr])
+    pytypeobj.c_tp_new = r_inst.rtyper.type_system.getcallable(tp_new_graph)
     pytypeobj.c_tp_dealloc = r_inst.rtyper.annotate_helper_fn(
         ll_tp_dealloc,
         [PyObjPtr])
     return lltype.cast_pointer(PyObjPtr, pytypeobj)
+
+# To make this a Py_TPFLAGS_BASETYPE, we need to have a tp_new that does
+# something different for subclasses: it needs to allocate a bit more
+# for CPython's GC (see PyObject_GC_Malloc); it needs to Py_INCREF the
+# type if it's a heap type; and it needs to PyObject_GC_Track() the object.
+# Also, tp_dealloc needs to untrack the object.
