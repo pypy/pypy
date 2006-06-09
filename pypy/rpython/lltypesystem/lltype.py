@@ -252,8 +252,8 @@ class Struct(ContainerType):
     def _short_name(self):
         return "%s %s" % (self.__class__.__name__, self._name)
 
-    def _defl(self, parent=None, parentindex=None, **kwds):
-        return _struct(self, parent=parent, parentindex=parentindex, **kwds)
+    def _defl(self, parent=None, parentindex=None):
+        return _struct(self, parent=parent, parentindex=parentindex)
 
     def _container_example(self):
         if self._arrayfld is None:
@@ -445,8 +445,8 @@ class OpaqueType(ContainerType):
     def _container_example(self):
         return _opaque(self)
 
-    def _defl(self, parent=None, parentindex=None, **kwds):
-        return _opaque(self, parent=parent, parentindex=parentindex, **kwds)
+    def _defl(self, parent=None, parentindex=None):
+        return _opaque(self, parent=parent, parentindex=parentindex)
 
 RuntimeTypeInfo = OpaqueType("RuntimeTypeInfo")
 
@@ -459,8 +459,6 @@ class GcOpaqueType(OpaqueType):
     def _inline_is_varsize(self, last):
         raise TypeError, "%r cannot be inlined in structure" % self
 
-FOR_TESTING_ONLY = "for testing only"
-
 class PyObjectType(ContainerType):
     _gckind = 'cpy'
     __name__ = 'PyObject'
@@ -468,12 +466,8 @@ class PyObjectType(ContainerType):
         return "PyObject"
     def _inline_is_varsize(self, last):
         return False
-    def _defl(self, parent=None, parentindex=None, extra_args=()):
-        if not extra_args:
-            ob_type = FOR_TESTING_ONLY
-        else:
-            ob_type = extra_args[0]
-        return _pyobjheader(ob_type, parent, parentindex)
+    def _defl(self, parent=None, parentindex=None):
+        return _pyobjheader(Ellipsis, parent, parentindex)
 
 PyObject = PyObjectType()
 
@@ -1194,11 +1188,11 @@ class _struct(_parentable):
 
     __slots__ = ()
 
-    def __new__(self, TYPE, n=None, parent=None, parentindex=None, **kwds):
+    def __new__(self, TYPE, n=None, parent=None, parentindex=None):
         my_variety = _struct_variety(TYPE._names)
         return object.__new__(my_variety)
 
-    def __init__(self, TYPE, n=None, parent=None, parentindex=None, **kwds):
+    def __init__(self, TYPE, n=None, parent=None, parentindex=None):
         _parentable.__init__(self, TYPE)
         if n is not None and TYPE._arrayfld is None:
             raise TypeError("%r is not variable-sized" % (TYPE,))
@@ -1208,8 +1202,6 @@ class _struct(_parentable):
         for fld, typ in TYPE._flds.items():
             if fld == TYPE._arrayfld:
                 value = _array(typ, n, parent=self, parentindex=fld)
-            elif fld == first:
-                value = typ._defl(parent=self, parentindex=fld, **kwds)
             else:
                 value = typ._defl(parent=self, parentindex=fld)
             setattr(self, fld, value)
@@ -1260,6 +1252,9 @@ class _struct(_parentable):
     def setitem(self, index, value):  # for FixedSizeArray kind of structs
         assert isinstance(self._TYPE, FixedSizeArray)
         setattr(self, 'item%d' % index, value)
+
+    def _setup_extra_args(self, *args):
+        getattr(self, self._TYPE._names[0])._setup_extra_args(*args)
 
 class _array(_parentable):
     _kind = "array"
@@ -1482,11 +1477,13 @@ class _pyobjheader(_parentable):
 
     def __init__(self, ob_type, parent=None, parentindex=None):
         _parentable.__init__(self, PyObject)
-        assert (ob_type is FOR_TESTING_ONLY or
-                typeOf(ob_type) == Ptr(PyObject))
-        self.ob_type = ob_type
+        self._setup_extra_args(ob_type)
         if parent is not None:
             self._setparentstructure(parent, parentindex)
+
+    def _setup_extra_args(self, ob_type):
+        assert ob_type is Ellipsis or typeOf(ob_type) == Ptr(PyObject)
+        self.ob_type = ob_type
 
     def __repr__(self):
         return '<%s>' % (self,)
@@ -1495,15 +1492,17 @@ class _pyobjheader(_parentable):
         return "pyobjheader of type %r" % (self.ob_type,)
 
 
-def malloc(T, n=None, flavor='gc', immortal=False, **kwds):
+def malloc(T, n=None, flavor='gc', immortal=False, extra_args=()):
     if isinstance(T, Struct):
-        o = _struct(T, n, **kwds)
+        o = _struct(T, n)
     elif isinstance(T, Array):
-        o = _array(T, n, **kwds)
+        o = _array(T, n)
     else:
         raise TypeError, "malloc for Structs and Arrays only"
     if T._gckind != 'gc' and not immortal and flavor.startswith('gc'):
         raise TypeError, "gc flavor malloc of a non-GC non-immortal structure"
+    if extra_args:
+        o._setup_extra_args(*extra_args)
     solid = immortal or not flavor.startswith('gc') # immortal or non-gc case
     return _ptr(Ptr(T), o, solid)
 

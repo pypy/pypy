@@ -714,3 +714,21 @@ def test_pyobject():
     del s1, s2
     s3 = cast_pointer(Ptr(S1), h1)
     assert s3.x == 17
+
+def test_name_clash():
+    import re
+    from pypy.rpython.lltypesystem import lltype
+    fn = lltype.__file__
+    if fn.lower().endswith('pyc') or fn.lower().endswith('pyo'):
+        fn = fn[:-1]
+    f = open(fn, 'r')
+    data = f.read()
+    f.close()
+    words = dict.fromkeys(re.compile(r"[a-zA-Z][_a-zA-Z0-9]*").findall(data))
+    words = words.keys()
+    S = GcStruct('name_clash', *[(word, Signed) for word in words])
+    s = malloc(S)
+    for i, word in enumerate(words):
+        setattr(s, word, i)
+    for i, word in enumerate(words):
+        assert getattr(s, word) == i
