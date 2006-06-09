@@ -40,13 +40,18 @@ def var_needsgc(var):
 def needs_conservative_livevar_calculation(block):
     from pypy.rpython.lltypesystem import rclass
     vars = block.getvariables()
+    assert len(block.exits) == 1
+    exitingvars = block.exits[0].args
     for var in vars:
         TYPE = getattr(var, "concretetype", lltype.Ptr(lltype.PyObject))
         if isinstance(TYPE, lltype.Ptr) and not var_needsgc(var):
+            if isinstance(TYPE.TO, lltype.FuncType):
+                continue
             try:
                 lltype.castable(TYPE, rclass.CLASSTYPE)
             except lltype.InvalidCast:
-                return True
+                if var in exitingvars:
+                    return True
     else:
         return False
 
