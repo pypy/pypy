@@ -569,7 +569,8 @@ class FunctionCodeGenerator(object):
     def OP_FLAVORED_FREE(self, op):
         flavor = op.args[0].value
         if flavor == "raw":
-            return "OP_RAW_FREE(%s)" % (self.expr(op.args[1]),)
+            return "OP_RAW_FREE(%s, %s)" % (self.expr(op.args[1]),
+                                            self.expr(op.result))
         elif flavor == "cpy":
             return "OP_CPY_FREE(%s)" % (self.expr(op.args[1]),)
         else:

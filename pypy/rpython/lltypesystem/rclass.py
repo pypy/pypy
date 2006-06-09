@@ -85,6 +85,7 @@ LLFLAVOR = {'gc'   : 'gc',
             'cpy'  : 'cpy',
             'stack': 'raw',
             }
+RTTIFLAVORS = ('gc', 'cpy')
 
 def cast_vtable_to_typeptr(vtable):
     while typeOf(vtable).TO != OBJECT_VTABLE:
@@ -188,7 +189,7 @@ class ClassRepr(AbstractClassRepr):
                 vtable.subclassrange_max = sys.maxint
             rinstance = getinstancerepr(self.rtyper, rsubcls.classdef)
             rinstance.setup()
-            if rinstance.gcflavor == 'gc': # only gc-case
+            if rinstance.gcflavor in RTTIFLAVORS:
                 vtable.rtti = getRuntimeTypeInfo(rinstance.object_type)
             if rsubcls.classdef is None:
                 name = 'object'
@@ -358,11 +359,11 @@ class InstanceRepr(AbstractInstanceRepr):
         allinstancefields.update(fields)
         self.fields = fields
         self.allinstancefields = allinstancefields
-        if self.gcflavor == 'gc': # only gc-case
+        if self.gcflavor in RTTIFLAVORS:
             attachRuntimeTypeInfo(self.object_type)
 
     def _setup_repr_final(self):
-        if self.gcflavor == 'gc': # only gc-case
+        if self.gcflavor in RTTIFLAVORS:
             if (self.classdef is not None and
                 self.classdef.classdesc.lookup('__del__') is not None):
                 s_func = self.classdef.classdesc.s_read_attribute('__del__')
@@ -378,6 +379,7 @@ class InstanceRepr(AbstractInstanceRepr):
                                        _callable=graph.func)
             else:
                 destrptr = None
+            OBJECT = OBJECT_BY_FLAVOR[LLFLAVOR[self.gcflavor]]
             self.rtyper.attachRuntimeTypeInfoFunc(self.object_type,
                                                   ll_runtime_type_info,
                                                   OBJECT, destrptr)

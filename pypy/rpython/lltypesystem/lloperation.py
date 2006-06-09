@@ -321,6 +321,7 @@ LL_OPERATIONS = {
     'gc_fetch_exception':   LLOp(),
     'gc_restore_exception': LLOp(),
     'gc_call_rtti_destructor': LLOp(),
+    'gc_deallocate':        LLOp(),
     'gc_push_alive_pyobj':  LLOp(),
     'gc_pop_alive_pyobj':   LLOp(),
     'gc_protect':           LLOp(),

@@ -751,6 +751,9 @@ class LLFrame(object):
     def op_gc_call_rtti_destructor(self, rtti, addr):
         raise NotImplementedError("gc_call_rtti_destructor")
 
+    def op_gc_deallocate(self, TYPE, addr):
+        raise NotImplementedError("gc_deallocate")
+
     def op_gc_push_alive_pyobj(self, pyobj):
         raise NotImplementedError("gc_push_alive_pyobj")
 

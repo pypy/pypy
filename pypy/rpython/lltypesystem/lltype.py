@@ -262,8 +262,7 @@ class Struct(ContainerType):
             n = 1
         return _struct(self, n)
 
-class GcStruct(Struct):
-    _gckind = 'gc'
+class RttiStruct(Struct):
     _runtime_type_info = None
 
     def _attach_runtime_type_info_funcptr(self, funcptr, destrptr):
@@ -290,11 +289,14 @@ class GcStruct(Struct):
                                 "implementation, got: %s" % destrptr)
             self._runtime_type_info.destructor_funcptr = destrptr
 
-class PyStruct(Struct):
+class GcStruct(RttiStruct):
+    _gckind = 'gc'
+
+class PyStruct(RttiStruct):
     _gckind = 'cpy'
 
     def __init__(self, name, *fields, **kwds):
-        Struct.__init__(self, name, *fields, **kwds)
+        RttiStruct.__init__(self, name, *fields, **kwds)
         if self._first_struct() == (None, None):
             raise TypeError("a PyStruct must have another PyStruct or "
                             "PyObject as first field")
@@ -457,6 +459,8 @@ class GcOpaqueType(OpaqueType):
     def _inline_is_varsize(self, last):
         raise TypeError, "%r cannot be inlined in structure" % self
 
+FOR_TESTING_ONLY = "for testing only"
+
 class PyObjectType(ContainerType):
     _gckind = 'cpy'
     __name__ = 'PyObject'
@@ -466,10 +470,10 @@ class PyObjectType(ContainerType):
         return False
     def _defl(self, parent=None, parentindex=None, extra_args=()):
         if not extra_args:
-            raise NotImplementedError("PyObjectType._defl()")
+            ob_type = FOR_TESTING_ONLY
         else:
             ob_type = extra_args[0]
-            return _pyobjheader(ob_type, parent, parentindex)
+        return _pyobjheader(ob_type, parent, parentindex)
 
 PyObject = PyObjectType()
 
@@ -1478,7 +1482,8 @@ class _pyobjheader(_parentable):
 
     def __init__(self, ob_type, parent=None, parentindex=None):
         _parentable.__init__(self, PyObject)
-        assert typeOf(ob_type) == Ptr(PyObject)
+        assert (ob_type is FOR_TESTING_ONLY or
+                typeOf(ob_type) == Ptr(PyObject))
         self.ob_type = ob_type
         if parent is not None:
             self._setparentstructure(parent, parentindex)
@@ -1540,22 +1545,22 @@ def cast_int_to_ptr(PTRTYPE, oddint):
     return _ptr(PTRTYPE, oddint, solid=True)
 
 def attachRuntimeTypeInfo(GCSTRUCT, funcptr=None, destrptr=None):
-    if not isinstance(GCSTRUCT, GcStruct):
-        raise TypeError, "expected a GcStruct: %s" % GCSTRUCT
+    if not isinstance(GCSTRUCT, RttiStruct):
+        raise TypeError, "expected a RttiStruct: %s" % GCSTRUCT
     GCSTRUCT._attach_runtime_type_info_funcptr(funcptr, destrptr)
     return _ptr(Ptr(RuntimeTypeInfo), GCSTRUCT._runtime_type_info)
 
 def getRuntimeTypeInfo(GCSTRUCT):
-    if not isinstance(GCSTRUCT, GcStruct):
-        raise TypeError, "expected a GcStruct: %s" % GCSTRUCT
+    if not isinstance(GCSTRUCT, RttiStruct):
+        raise TypeError, "expected a RttiStruct: %s" % GCSTRUCT
     if GCSTRUCT._runtime_type_info is None:
         raise ValueError, "no attached runtime type info for %s" % GCSTRUCT
     return _ptr(Ptr(RuntimeTypeInfo), GCSTRUCT._runtime_type_info)
 
 def runtime_type_info(p):
     T = typeOf(p)
-    if not isinstance(T, Ptr) or not isinstance(T.TO, GcStruct):
-        raise TypeError, "runtime_type_info on non-GcStruct pointer: %s" % p
+    if not isinstance(T, Ptr) or not isinstance(T.TO, RttiStruct):
+        raise TypeError, "runtime_type_info on non-RttiStruct pointer: %s" % p
     struct = p._obj
     top_parent = top_container(struct)
     result = getRuntimeTypeInfo(top_parent._TYPE)

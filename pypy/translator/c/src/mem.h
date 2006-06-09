@@ -14,7 +14,7 @@
     r = (void*) alloca(size);                                              \
     if (r == NULL) FAIL_EXCEPTION(PyExc_MemoryError, "out of memory");\
  
-#define OP_RAW_FREE(x)             OP_FREE(x)
+#define OP_RAW_FREE(x,r)           OP_FREE(x)
 #define OP_RAW_MEMCOPY(x,y,size,r) memcpy(y,x,size);
 
 /************************************************************/
@@ -130,4 +130,4 @@ if GC integration has happened and this junk is still here, please delete it :)
         PyObject_Init((PyObject *)r, (PyTypeObject *)cpytype);  \
     }                                                           \
   }
-#define OP_CPY_FREE(x)   OP_RAW_FREE(x)
+#define OP_CPY_FREE(x)   OP_RAW_FREE(x, /*nothing*/)

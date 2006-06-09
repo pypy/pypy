@@ -1,6 +1,8 @@
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.objectmodel import CDefinedIntSymbolic
+from pypy.objspace.flow.model import Constant
 
 
 def cpy_export(cpytype, obj):
@@ -72,7 +74,8 @@ PY_TYPE_OBJECT.become(lltype.PyStruct(
     ('c_tp_name',      lltype.Ptr(lltype.FixedSizeArray(lltype.Char, 1))),
     ('c_tp_basicsize', lltype.Signed),
     ('c_tp_itemsize',  lltype.Signed),
-    ('c_tp_dealloc',   lltype.Signed),
+    ('c_tp_dealloc',   lltype.Ptr(lltype.FuncType([PyObjPtr],
+                                                  lltype.Void))),
     ('c_tp_print',     lltype.Signed),
     ('c_tp_getattr',   lltype.Signed),
     ('c_tp_setattr',   lltype.Signed),   # in
@@ -104,24 +107,31 @@ PY_TYPE_OBJECT.become(lltype.PyStruct(
     ('c_tp_descr_set', lltype.Signed),
     ('c_tp_dictoffset',lltype.Signed),
     ('c_tp_init',      lltype.Signed),
-    ('c_tp_alloc',     lltype.Ptr(lltype.FuncType([lltype.Ptr(PY_TYPE_OBJECT),
-                                                   lltype.Signed],
+    ('c_tp_alloc',     lltype.Signed),
+                       #lltype.Ptr(lltype.FuncType([lltype.Ptr(PY_TYPE_OBJECT),
+                       #                            lltype.Signed],
+                       #                           PyObjPtr))),
+    ('c_tp_new',       lltype.Ptr(lltype.FuncType([lltype.Ptr(PY_TYPE_OBJECT),
+                                                   PyObjPtr,
+                                                   PyObjPtr],
                                                   PyObjPtr))),
-    ('c_tp_new',       lltype.Signed),
-    ('c_tp_free',      lltype.Ptr(lltype.FuncType([llmemory.Address],
-                                                  lltype.Void))),
+    ('c_tp_free',      lltype.Signed),
+                       #lltype.Ptr(lltype.FuncType([llmemory.Address],
+                       #                           lltype.Void))),
 
     hints={'c_name': '_typeobject', 'external': True, 'inline_head': True}))
 # XXX should be PyTypeObject but genc inserts 'struct' :-(
 
-def ll_tp_alloc(tp, itemcount):
-    # XXX pass itemcount too
+def ll_tp_new(tp, args, kwds):
     return lltype.malloc(lltype.PyObject, flavor='cpy', extra_args=(tp,))
 
-def ll_tp_free(addr):
-    # hack: don't cast addr to PyObjPtr, otherwise there is an incref/decref
-    # added around the free!
-    lltype.free(addr, flavor='cpy')
+def ll_tp_dealloc(p):
+    addr = llmemory.cast_ptr_to_adr(p)
+    # Warning: this relies on an optimization in gctransformer, which will
+    # not insert any incref/decref for 'p'.  That would lead to infinite
+    # recursion, as the refcnt of 'p' is already zero!
+    from pypy.rpython.lltypesystem.rclass import CPYOBJECT
+    llop.gc_deallocate(lltype.Void, CPYOBJECT, addr)
 
 def build_pytypeobject(r_inst):
     typetype = lltype.pyobjectptr(type)
@@ -136,10 +146,10 @@ def build_pytypeobject(r_inst):
     pytypeobj.c_tp_name = lltype.direct_arrayitems(p)
     pytypeobj.c_tp_basicsize = llmemory.sizeof(r_inst.lowleveltype.TO)
     pytypeobj.c_tp_flags = CDefinedIntSymbolic('Py_TPFLAGS_DEFAULT')
-    pytypeobj.c_tp_alloc = r_inst.rtyper.annotate_helper_fn(
-        ll_tp_alloc,
-        [lltype.Ptr(PY_TYPE_OBJECT), lltype.Signed])
-    pytypeobj.c_tp_free = r_inst.rtyper.annotate_helper_fn(
-        ll_tp_free,
-        [llmemory.Address])
+    pytypeobj.c_tp_new = r_inst.rtyper.annotate_helper_fn(
+        ll_tp_new,
+        [lltype.Ptr(PY_TYPE_OBJECT), PyObjPtr, PyObjPtr])
+    pytypeobj.c_tp_dealloc = r_inst.rtyper.annotate_helper_fn(
+        ll_tp_dealloc,
+        [PyObjPtr])
     return lltype.cast_pointer(PyObjPtr, pytypeobj)

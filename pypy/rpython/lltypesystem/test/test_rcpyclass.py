@@ -43,7 +43,6 @@ def test_cpy_import():
 
 
 def test_tp_dealloc():
-    import py; py.test.skip("in-progress")
     class mytest(object):
         pass
 

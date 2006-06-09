@@ -410,7 +410,7 @@ def print_call_chain(ob):
 ADDRESS_VOID_FUNC = lltype.FuncType([llmemory.Address], lltype.Void)
 
 def get_rtti(TYPE):
-    if isinstance(TYPE, lltype.GcStruct):
+    if isinstance(TYPE, lltype.RttiStruct):
         try:
             return lltype.getRuntimeTypeInfo(TYPE)
         except ValueError:
@@ -635,6 +635,16 @@ def ll_deallocator(addr):
         self.dynamic_deallocator_funcptrs[TYPE] = fptr
         self.queryptr2dynamic_deallocator_funcptr[queryptr._obj] = fptr
         return fptr
+
+    def replace_gc_deallocate(self, op, livevars, block):
+        TYPE = op.args[0].value
+        v_addr = op.args[1]
+        dealloc_fptr = self.dynamic_deallocation_funcptr_for_type(TYPE)
+        cdealloc_fptr = rmodel.inputconst(
+            lltype.typeOf(dealloc_fptr), dealloc_fptr)
+        return [SpaceOperation("direct_call", [cdealloc_fptr,
+                                               v_addr],
+                               varoftype(lltype.Void))]
 
 def varoftype(concretetype):
     var = Variable()

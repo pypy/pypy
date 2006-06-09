@@ -1,7 +1,7 @@
 from __future__ import generators
 from pypy.rpython.lltypesystem.lltype import \
      Struct, Array, FixedSizeArray, FuncType, PyObjectType, typeOf, \
-     GcStruct, GcArray, PyStruct, ContainerType, \
+     GcStruct, GcArray, RttiStruct, PyStruct, ContainerType, \
      parentlink, Ptr, PyObject, Void, OpaqueType, Float, \
      RuntimeTypeInfo, getRuntimeTypeInfo, Char, _subarray, _pyobjheader
 from pypy.rpython.lltypesystem.llmemory import WeakGcAddress
@@ -85,7 +85,7 @@ class StructDefNode:
         self.gcinfo = None   # unless overwritten below
         rtti = None
         STRUCT = self.STRUCT
-        if isinstance(STRUCT, GcStruct):
+        if isinstance(STRUCT, RttiStruct):
             try:
                 rtti = getRuntimeTypeInfo(STRUCT)
             except ValueError:
