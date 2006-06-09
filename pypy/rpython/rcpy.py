@@ -64,7 +64,8 @@ class Entry(ExtRegistryEntry):
 
 PyObjPtr = lltype.Ptr(lltype.PyObject)
 
-PY_TYPE_OBJECT = lltype.PyStruct(
+PY_TYPE_OBJECT = lltype.PyForwardReference()
+PY_TYPE_OBJECT.become(lltype.PyStruct(
     'PyTypeObject',
     ('head',           lltype.PyObject),
     ('c_ob_size',      lltype.Signed),
@@ -87,9 +88,40 @@ PY_TYPE_OBJECT = lltype.PyStruct(
     ('c_tp_setattro',  lltype.Signed),
     ('c_tp_as_buffer', lltype.Signed),
     ('c_tp_flags',     lltype.Signed),
+    ('c_tp_doc',       lltype.Signed),
+    ('c_tp_traverse',  lltype.Signed),
+    ('c_tp_clear',     lltype.Signed),
+    ('c_tp_richcompare',lltype.Signed),
+    ('c_tp_weaklistoffset',lltype.Signed),
+    ('c_tp_iter',      lltype.Signed),
+    ('c_tp_iternext',  lltype.Signed),
+    ('c_tp_methods',   lltype.Signed),
+    ('c_tp_members',   lltype.Signed),
+    ('c_tp_getset',    lltype.Signed),
+    ('c_tp_base',      lltype.Signed),
+    ('c_tp_dict',      lltype.Signed),
+    ('c_tp_descr_get', lltype.Signed),
+    ('c_tp_descr_set', lltype.Signed),
+    ('c_tp_dictoffset',lltype.Signed),
+    ('c_tp_init',      lltype.Signed),
+    ('c_tp_alloc',     lltype.Ptr(lltype.FuncType([lltype.Ptr(PY_TYPE_OBJECT),
+                                                   lltype.Signed],
+                                                  PyObjPtr))),
+    ('c_tp_new',       lltype.Signed),
+    ('c_tp_free',      lltype.Ptr(lltype.FuncType([llmemory.Address],
+                                                  lltype.Void))),
 
-    hints={'c_name': '_typeobject', 'external': True, 'inline_head': True})
+    hints={'c_name': '_typeobject', 'external': True, 'inline_head': True}))
 # XXX should be PyTypeObject but genc inserts 'struct' :-(
+
+def ll_tp_alloc(tp, itemcount):
+    # XXX pass itemcount too
+    return lltype.malloc(lltype.PyObject, flavor='cpy', extra_args=(tp,))
+
+def ll_tp_free(addr):
+    # hack: don't cast addr to PyObjPtr, otherwise there is an incref/decref
+    # added around the free!
+    lltype.free(addr, flavor='cpy')
 
 def build_pytypeobject(r_inst):
     typetype = lltype.pyobjectptr(type)
@@ -104,4 +136,10 @@ def build_pytypeobject(r_inst):
     pytypeobj.c_tp_name = lltype.direct_arrayitems(p)
     pytypeobj.c_tp_basicsize = llmemory.sizeof(r_inst.lowleveltype.TO)
     pytypeobj.c_tp_flags = CDefinedIntSymbolic('Py_TPFLAGS_DEFAULT')
+    pytypeobj.c_tp_alloc = r_inst.rtyper.annotate_helper_fn(
+        ll_tp_alloc,
+        [lltype.Ptr(PY_TYPE_OBJECT), lltype.Signed])
+    pytypeobj.c_tp_free = r_inst.rtyper.annotate_helper_fn(
+        ll_tp_free,
+        [llmemory.Address])
     return lltype.cast_pointer(PyObjPtr, pytypeobj)

@@ -31,7 +31,7 @@ def compile_db(db):
     return m
 
 def compile(fn, argtypes, view=False, gcpolicy=None, backendopt=True,
-            annotatorpolicy=None):
+            annotatorpolicy=None, expected_extra_mallocs=0):
     t = TranslationContext()
     a = t.buildannotator(policy=annotatorpolicy)
     a.build_types(fn, argtypes)
@@ -50,7 +50,7 @@ def compile(fn, argtypes, view=False, gcpolicy=None, backendopt=True,
             return compiled_fn(*args, **kwds)
         finally:
             mallocs, frees = module.malloc_counters()
-            assert mallocs == frees
+            assert mallocs - frees == expected_extra_mallocs
     return checking_fn
 
 def test_func_as_pyobject():

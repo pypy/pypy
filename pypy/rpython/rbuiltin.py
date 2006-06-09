@@ -160,6 +160,23 @@ class __extend__(pairtype(BuiltinMethodRepr, BuiltinMethodRepr)):
             return NotImplemented
         return llops.convertvar(v, r_from.self_repr, r_to.self_repr)
 
+def parse_kwds(hop, *argspec_i_r):
+    lst = [i for (i, r) in argspec_i_r if i is not None]
+    lst.sort()
+    if lst != range(hop.nb_args - len(lst), hop.nb_args):
+        raise TyperError("keyword args are expected to be at the end of "
+                         "the 'hop' arg list")
+    result = []
+    for i, r in argspec_i_r:
+        if i is not None:
+            if r is None:
+                r = hop.args_r[i]
+            result.append(hop.inputarg(r, arg=i))
+        else:
+            result.append(None)
+    hop.nb_args -= len(lst)
+    return result
+
 # ____________________________________________________________
 
 def rtype_builtin_bool(hop):
@@ -297,19 +314,28 @@ BUILTIN_TYPER[OSError.__init__.im_func] = rtype_OSError__init__
 BUILTIN_TYPER[object.__init__] = rtype_object__init__
 # annotation of low-level types
 
-def rtype_malloc(hop, i_flavor=None):
+def rtype_malloc(hop, i_flavor=None, i_extra_args=None):
     assert hop.args_s[0].is_constant()
     vlist = [hop.inputarg(lltype.Void, arg=0)]
     opname = 'malloc'
-    positional_args = hop.nb_args
-    if i_flavor is not None:
-        assert i_flavor == hop.nb_args-1
-        positional_args -= 1
-        vlist.insert(0, hop.inputarg(lltype.Void, arg=i_flavor))
+    v_flavor, v_extra_args = parse_kwds(hop, (i_flavor, lltype.Void),
+                                             (i_extra_args, None))
+    if v_flavor is not None:
+        vlist.insert(0, v_flavor)
         opname = 'flavored_' + opname
-    if positional_args == 2:
+    if hop.nb_args == 2:
         vlist.append(hop.inputarg(lltype.Signed, arg=1))
         opname += '_varsize'
+
+    if v_extra_args is not None:
+        # items of the v_extra_args tuple become additional args to the op
+        from pypy.rpython.rtuple import AbstractTupleRepr
+        r_tup = hop.args_r[i_extra_args]
+        assert isinstance(r_tup, AbstractTupleRepr)
+        for n, r in enumerate(r_tup.items_r):
+            v = r_tup.getitem(hop.llops, v_extra_args, n)
+            vlist.append(v)
+
     return hop.genop(opname, vlist, resulttype = hop.r_result.lowleveltype)
 
 def rtype_free(hop, i_flavor):

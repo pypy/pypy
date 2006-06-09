@@ -384,24 +384,31 @@ BUILTIN_ANALYZERS[__import__] = import_func
 from pypy.annotation.model import SomePtr
 from pypy.rpython.lltypesystem import lltype
 
-def malloc(T, n=None, s_flavor=None):
-    assert n is None or (n.knowntype == int or issubclass(n.knowntype, pypy.rpython.rarithmetic.base_int))
-    assert T.is_constant()
-    if n is not None:
+def malloc(s_T, s_n=None, s_flavor=None, s_extra_args=None):
+    assert (s_n is None or s_n.knowntype == int
+            or issubclass(s_n.knowntype, pypy.rpython.rarithmetic.base_int))
+    assert s_T.is_constant()
+    if s_n is not None:
         n = 1
+    else:
+        n = None
     if s_flavor is None:
-        p = lltype.malloc(T.const, n)
+        p = lltype.malloc(s_T.const, n)
+        r = SomePtr(lltype.typeOf(p))
     else:
         assert s_flavor.is_constant()
-        p = lltype.malloc(T.const, n, s_flavor.const)
-    r = SomePtr(lltype.typeOf(p))
+        # not sure how to call malloc() for the example 'p' in the
+        # presence of s_extraargs
+        r = SomePtr(lltype.Ptr(s_T.const))
     return r
 
 def free(s_p, s_flavor):
     assert s_flavor.is_constant()
-    T = s_p.ll_ptrtype.TO
-    p = lltype.malloc(T, flavor=s_flavor.const)
-    lltype.free(p, flavor=s_flavor.const)
+    # same problem as in malloc(): some flavors are not easy to
+    # malloc-by-example
+    #T = s_p.ll_ptrtype.TO
+    #p = lltype.malloc(T, flavor=s_flavor.const)
+    #lltype.free(p, flavor=s_flavor.const)
 
 def typeOf(s_val):
     lltype = annotation_to_lltype(s_val, info="in typeOf(): ")

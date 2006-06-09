@@ -562,16 +562,16 @@ class FunctionCodeGenerator(object):
             return "OP_STACK_MALLOC(%s, %s);" % (esize, eresult)
         elif flavor == "cpy":
             cpytype = self.expr(op.args[2])
-            return "%s = PyObject_New(%s, (PyTypeObject *)%s);" % (
-                eresult, cdecl(typename, ''), cpytype)
+            return "OP_CPY_MALLOC(%s, %s);" % (cpytype, eresult)
         else:
             raise NotImplementedError
 
     def OP_FLAVORED_FREE(self, op):
         flavor = op.args[0].value
         if flavor == "raw":
-            return "OP_RAW_FREE(%s, %s)" % (self.expr(op.args[1]),
-                                            self.expr(op.result))
+            return "OP_RAW_FREE(%s)" % (self.expr(op.args[1]),)
+        elif flavor == "cpy":
+            return "OP_CPY_FREE(%s)" % (self.expr(op.args[1]),)
         else:
             raise NotImplementedError
 
