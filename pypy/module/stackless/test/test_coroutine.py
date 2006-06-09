@@ -24,4 +24,32 @@ class AppTest_Coroutine:
         import pickle
         pckl = pickle.dumps(co)
         co2 = pickle.loads(pckl)
+    
+    def test_pickle_coroutine_frame(self):
+        skip('passes in interactive interpreter but not here :/')
+        # this requires py.magic.greenlet!
+        del self # don't look
+        import pickle, sys, new
+        mod = new.module('mod')
+        try: 
+            sys.modules['mod'] = mod
+            exec '''
+import sys, stackless
+
+def f():
+    global the_frame
+    the_frame = sys._getframe()
+    main_coro.switch()
+
+co = stackless.coroutine()
+main_coro = stackless.coroutine.getcurrent()
+co.bind(mod.f)
+co.switch()
+''' in mod.__dict__
+            pckl = pickle.dumps(mod.the_frame)
+            #co2 = pickle.loads(pckl)
+        finally:
+            del sys.modules['mod']
         
+
+    
