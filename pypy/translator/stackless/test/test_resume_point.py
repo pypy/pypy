@@ -4,17 +4,24 @@ from pypy import conftest
 import py
 from pypy.rpython import rstack
 
-def transform_stackless_function(fn, do_inline=False):
+def do_inline(t):
+    from pypy.translator.backendopt import inline, removenoops
+    callgraph = inline.inlinable_static_callers(t.graphs)
+    inline.auto_inlining(t, 1, callgraph=callgraph)
+    for graph in t.graphs:
+        removenoops.remove_superfluous_keep_alive(graph)
+        removenoops.remove_duplicate_casts(graph, t)
+
+def do_backendopt(t):
+    from pypy.translator.backendopt import all
+    all.backend_optimizations(t)
+
+def transform_stackless_function(fn, callback_for_transform=None):
     def wrapper(argv):
         return fn()
     t = rtype_stackless_function(wrapper)
-    if do_inline:
-        from pypy.translator.backendopt import inline, removenoops
-        callgraph = inline.inlinable_static_callers(t.graphs)
-        inline.auto_inlining(t, 1, callgraph=callgraph)
-        for graph in t.graphs:
-            removenoops.remove_superfluous_keep_alive(graph)
-            removenoops.remove_duplicate_casts(graph, t)
+    if callback_for_transform:
+        callback_for_transform(t)
     if conftest.option.view:
         t.view()
     st = StacklessTransformer(t, wrapper, False)
@@ -310,7 +317,7 @@ def test_using_pointers():
         f = FakeFrame(s)
         call_function(f, 100, W_Root(), W_Root())
         return one()
-    transform_stackless_function(example, do_inline=True)
+    transform_stackless_function(example, do_backendopt)
 
 def test_always_raising():
     def g(out):
@@ -343,4 +350,115 @@ def test_always_raising():
     res = run_stackless_function(example)
     assert res == 200
 
-        
+def test_more_mess():
+    from pypy.interpreter.miscutils import Stack
+
+    def new_framestack():
+        return Stack()
+
+    class FakeFrame:
+        pass
+    class FakeSlpFrame:
+        def switch(self):
+            rstack.stack_unwind()
+            return FakeSlpFrame()
+
+    class FakeCoState:
+        def update(self, new):
+            self.last, self.current = self.current, new
+            frame, new.frame = new.frame, None
+            return frame
+        def do_things_to_do(self):
+            self.do_things_to_do()
+
+    costate = FakeCoState()
+    costate.current = None
+
+    class FakeExecutionContext:
+        def __init__(self):
+            self.space = space
+            self.framestack = new_framestack()
+
+        def subcontext_new(coobj):
+            coobj.framestack = new_framestack()
+        subcontext_new = staticmethod(subcontext_new)
+
+        def subcontext_enter(self, next):
+            self.framestack = next.framestack
+
+        def subcontext_leave(self, current):
+            current.framestack = self.framestack
+
+    class FakeSpace:
+        def __init__(self):
+            self.ec = None
+        def getexecutioncontext(self):
+            if self.ec is None:
+                self.ec = FakeExecutionContext()
+            return self.ec
+
+    space = FakeSpace()
+
+    class MainCoroutineGetter(object):
+        def __init__(self):
+            self.costate = None
+        def _get_default_costate(self):
+            if self.costate is None:
+                costate = FakeCoState()
+                self.costate = costate
+                return costate
+            return self.costate
+
+    main_coroutine_getter = MainCoroutineGetter()
+    
+    class FakeCoroutine:
+        def __init__(self):
+            self.frame = None
+            self.costate = costate
+            space.getexecutioncontext().subcontext_new(self)
+            
+        def switch(self):
+            if self.frame is None:
+                raise RuntimeError
+            state = self.costate
+            incoming_frame = state.update(self).switch()
+            rstack.resume_point("coroutine_switch", self, state, returns=incoming_frame)
+            left = state.last
+            left.frame = incoming_frame
+            left.goodbye()
+            self.hello()
+            #main_coroutine_getter._get_default_costate().do_things_to_do()
+
+        def hello(self):
+            pass
+
+        def goodbye(self):
+            pass
+
+    class FakeAppCoroutine(FakeCoroutine):
+        def __init__(self):
+            FakeCoroutine.__init__(self)
+            self.space = space
+            
+        def hello(self):
+            ec = self.space.getexecutioncontext()
+            ec.subcontext_enter(self)
+
+        def goodbye(self):
+            ec = self.space.getexecutioncontext()
+            ec.subcontext_leave(self)
+
+    def example():
+        coro = FakeAppCoroutine()
+        othercoro = FakeCoroutine()
+        othercoro.frame = FakeSlpFrame()
+        if one():
+            coro.frame = FakeSlpFrame()
+        if one() - one():
+            coro.costate = FakeCoState()
+            coro.costate.last = coro.costate.current = othercoro
+        space.getexecutioncontext().framestack.push(FakeFrame())
+        coro.switch()
+        return one()
+
+    transform_stackless_function(example, do_backendopt)

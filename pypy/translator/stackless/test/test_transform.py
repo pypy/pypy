@@ -254,8 +254,8 @@ def rtype_stackless_function(fn):
     from pypy.translator.transform import insert_ll_stackcheck
     insert_ll_stackcheck(t)
 
-    if conftest.option.view:
-        t.view()
+#    if conftest.option.view:
+#        t.view()
     return t
     
 def run_stackless_function(fn):
