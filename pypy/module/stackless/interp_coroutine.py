@@ -36,34 +36,45 @@ from pypy.rpython.objectmodel import we_are_translated
 try:
     from py.magic import greenlet
     main_greenlet = greenlet.getcurrent()
-    class MyGreenlet(object):
-        def __init__(self, thunk=None, curr=False):
-            if curr:
-                self.greenlet = greenlet.getcurrent()
-            else:
+
+    class FrameChain(object):
+
+        def __init__(self, thunk=None):
+            if thunk:
                 self.greenlet = greenlet(thunk)
+            else:
+                self.greenlet = greenlet.getcurrent()
+
         def switch(self):
-            last = MyGreenlet(curr=True)
-# XXX unclear what to do there
-#            self.greenlet.parent = greenlet.getcurrent()
+            last = FrameChain()
             return self.greenlet.switch(last)
-    GreenletExit = greenlet.GreenletExit
+
+        def shutdown(self):
+            current = FrameChain()
+            target = current.greenlet.parent
+            target.switch(None)
+
 except ImportError:
     def greenlet(*args, **kwargs):
         raise NotImplementedError("need either greenlets or a translated version of pypy")
-    class GreenletExit(Exception):
-        pass
 
 import sys, os
+
 
 class BaseCoState(object):
     def __init__(self):
         self.current = self.main = self.last = None
 
+    def __repr__(self):
+        "NOT_RPYTHON"
+        # for debugging only
+        return '<%s last=%r current=%r>' % (self.__class__.__name__,
+                                            self.last, self.current)
     def update(self, new):
         self.last, self.current = self.current, new
         frame, new.frame = new.frame, None
         return frame
+
 
 class CoState(BaseCoState):
     def __init__(self):
@@ -78,18 +89,20 @@ class CoState(BaseCoState):
     check_for_zombie = staticmethod(check_for_zombie)
 
     def postpone_deletion(obj):
-        main_coroutine_getter._get_default_costate().to_delete.append(obj)
-        main_coroutine_getter._get_default_costate().things_to_do = True
+        main_costate = main_costate_getter._get_default_costate()
+        main_costate.to_delete.append(obj)
+        main_costate.things_to_do = True
     postpone_deletion = staticmethod(postpone_deletion)
 
     def do_things_to_do():
         # inlineable stub
-        if main_coroutine_getter._get_default_costate().things_to_do:
-            main_coroutine_getter._get_default_costate()._do_things_to_do()
+        main_costate = main_costate_getter._get_default_costate()
+        if main_costate.things_to_do:
+            main_costate._do_things_to_do()
     do_things_to_do = staticmethod(do_things_to_do)
 
     def _do_things_to_do():
-        main_costate = main_coroutine_getter._get_default_costate()
+        main_costate = main_costate_getter._get_default_costate()
         if main_costate.temp_exc is not None:
             # somebody left an unhandled exception and switched to us.
             # this both provides default exception handling and the
@@ -110,7 +123,8 @@ class CoState(BaseCoState):
 class CoroutineDamage(SystemError):
     pass
 
-class MainCoroutineGetter(object):
+
+class MainCostateGetter(object):
     def __init__(self):
         self.costate = None
     def _get_default_costate(self):
@@ -119,34 +133,39 @@ class MainCoroutineGetter(object):
             self.costate = costate
             return costate
         return self.costate
-            
-main_coroutine_getter = MainCoroutineGetter()
+
+main_costate_getter = MainCostateGetter()
+
 
 class CoroutineExit(SystemExit):
     # XXX SystemExit's __init__ creates problems in bookkeeper.
     def __init__(self):
         pass
 
-def get_exit_class():  # XXX hum
-    if we_are_translated():
-        return CoroutineExit
-    else:
-        return GreenletExit
-
 class AbstractThunk(object):
     def call(self):
         raise NotImplementedError("abstract base class")
+
 
 class Coroutine(Wrappable):
     def __init__(self, state=None):
         self.frame = None
         if state is None:
-            state = main_coroutine_getter._get_default_costate()
+            state = main_costate_getter._get_default_costate()
         self.costate = state
         self.parent = None
+        self.thunk = None
+
+    def __repr__(self):
+        'NOT_RPYTHON'
+        # just for debugging
+        if hasattr(self, '__name__'):
+            return '<Coro %s frame=%r %s>' % (self.__name__, self.frame, self.thunk is not None)
+        else:
+            return '<coro frame=%r %s>' % (self.frame, self.thunk is not None)
 
     def _get_default_parent(self):
-        return main_coroutine_getter._get_default_costate().current
+        return main_costate_getter._get_default_costate().current
 
     def bind(self, thunk):
         assert isinstance(thunk, AbstractThunk)
@@ -155,37 +174,45 @@ class Coroutine(Wrappable):
         if self.parent is None:
             self.parent = self._get_default_parent()
         assert self.parent is not None
+        self.thunk = thunk
         if we_are_translated():
-            self.frame = self._bind(thunk)
+            self.frame = self._bind()
         else:
-            self.frame = self._greenlet_bind(thunk)
+            self.frame = self._greenlet_bind()
 
-    def _greenlet_bind(self, thunk):
+    def _greenlet_bind(self):
         state = self.costate
         self.parent = state.current
         assert self.parent is not None
+        weak = [self]
         def _greenlet_execute(incoming_frame):
-            return self._execute(thunk, state, incoming_frame)
-        return MyGreenlet(_greenlet_execute)
+            try:
+                return weak[0]._execute(incoming_frame)
+            finally:
+                del weak[0]
+                chain.shutdown()
+        chain = FrameChain(_greenlet_execute)
+        return chain
 
-    def _bind(self, thunk):
+    def _bind(self):
         state = self.costate
         self.parent = state.current
         incoming_frame = yield_current_frame_to_caller()
-        return self._execute(thunk, state, incoming_frame)
+        return self._execute(incoming_frame)
 
-    def _execute(self, thunk, state, incoming_frame):
+    def _execute(self, incoming_frame):
+        state = self.costate
         left = state.last
         left.frame = incoming_frame
         left.goodbye()
         self.hello()
         try:
-            main_coroutine_getter._get_default_costate().do_things_to_do()
-            thunk.call()
+            main_costate_getter._get_default_costate().do_things_to_do()
+            try:
+                self.thunk.call()
+            finally:
+                self.thunk = None
             resume_point("coroutine__bind", self, state)
-        except GreenletExit:
-            # ignore a shutdown exception
-            pass
         except CoroutineExit:
             # ignore a shutdown exception
             pass
@@ -210,13 +237,13 @@ class Coroutine(Wrappable):
         left.frame = incoming_frame
         left.goodbye()
         self.hello()
-        main_coroutine_getter._get_default_costate().do_things_to_do()
+        main_costate_getter._get_default_costate().do_things_to_do()
 
     def kill(self):
         if self.frame is None:
             return
-        main_coroutine_getter._get_default_costate().things_to_do = True
-        main_coroutine_getter._get_default_costate().temp_exc = get_exit_class()()
+        main_costate_getter._get_default_costate().things_to_do = True
+        main_costate_getter._get_default_costate().temp_exc = CoroutineExit()
         state = self.costate
         self.parent = state.current
         self.switch()
@@ -228,7 +255,7 @@ class Coroutine(Wrappable):
             pass # maybe print a warning?
         self.kill()
 
-    def X__del__(self):
+    def __del__(self):
         # provide the necessary clean-up if this coro is left
         # with a frame.
         # note that AppCoroutine has to take care about this
@@ -237,7 +264,7 @@ class Coroutine(Wrappable):
         # not in the position to issue a switch.
         # we defer it completely.
         if self.frame is not None:
-            main_coroutine_getter._get_default_costate().postpone_deletion(self)
+            main_costate_getter._get_default_costate().postpone_deletion(self)
 
     def _userdel(self):
         # override this for exposed coros
@@ -247,14 +274,14 @@ class Coroutine(Wrappable):
         return self.frame is not None or self is self.costate.current
 
     def is_zombie(self):
-        return self.frame is not None and main_coroutine_getter._get_default_costate().check_for_zombie(self)
+        return self.frame is not None and main_costate_getter._get_default_costate().check_for_zombie(self)
 
     def getcurrent():
-        return main_coroutine_getter._get_default_costate().current
+        return main_costate_getter._get_default_costate().current
     getcurrent = staticmethod(getcurrent)
 
     def getmain():
-        return main_coroutine_getter._get_default_costate().main
+        return main_costate_getter._get_default_costate().main
     getmain = staticmethod(getmain)
 
     def hello(self):

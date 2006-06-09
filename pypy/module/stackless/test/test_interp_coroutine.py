@@ -3,27 +3,27 @@ testing coroutines at interprepter level
 """
 
 import os
-from pypy.module.stackless.interp_coroutine import main_coroutine_getter, Coroutine, AbstractThunk
+from pypy.module.stackless.interp_coroutine import main_costate_getter, Coroutine, AbstractThunk
 from pypy.translator.c.test.test_stackless import StacklessTest
 from pypy.translator.c import gc
 
 def output(stuff):
     os.write(2, stuff + '\n')
 
-class TestCoroutine(StacklessTest):
+class _TestCoroutine(StacklessTest):
     backendopt = True
     stacklessmode = True
     gcpolicy = gc.BoehmGcPolicy
     Coroutine = Coroutine
 
     def setup_method(self, method):
-        main_coroutine_getter.costate = None
-        main_coroutine_getter.costate = None
+        main_costate_getter.costate = None
+        main_costate_getter.costate = None
 
     def _freeze_(self):    # for 'self.Coroutine'
         return True
 
-    def test_coroutine(self):
+    def test_coroutine1(self):
 
         def g(lst, coros):
             coro_f, coro_g, coro_h = coros
@@ -121,7 +121,9 @@ class TestCoroutine(StacklessTest):
         def f1(coro_f1):
             lst = [1]
             coro_g = self.Coroutine()
+            coro_g.__name__ = 'coro_g'
             coro_h = self.Coroutine()
+            coro_h.__name__ = 'coro_h'
             coros = [coro_f1, coro_g, coro_h]
             thunk_g = T(g, lst, coros)
             output('binding g after f1 set 1')
@@ -147,11 +149,13 @@ class TestCoroutine(StacklessTest):
 
         def f():
             coro_f = Coroutine.getcurrent()
+            coro_f.__name__ = 'coro_f'
             coro_f1 = self.Coroutine()
+            coro_f1.__name__ = 'coro_f1'
             thunk_f1 = T1(f1, coro_f1)
             output('binding f1 after f set 1')
             coro_f1.bind(thunk_f1)
-            coro_f1.switch()        
+            coro_f1.switch()
             output('return to main :-(')
             return thunk_f1.res
 
@@ -159,7 +163,6 @@ class TestCoroutine(StacklessTest):
         assert data == 12345678
 
     def test_kill_raise_del_coro(self):
-        py.test.skip("does not work :-(")
         class T(AbstractThunk):
             def __init__(self, func, arg):
                 self.func = func
@@ -178,6 +181,7 @@ class TestCoroutine(StacklessTest):
         def f():
             assert Coroutine.getmain().frame is None
             coro_g = self.Coroutine()
+            coro_g.__name__ = 'coro_g'
             thunk_g = T(g, 42)
             coro_g.bind(thunk_g)
             coro_g.switch()
@@ -189,6 +193,7 @@ class TestCoroutine(StacklessTest):
             res *= 10
             res |= coro_g.frame is None
             coro_g = self.Coroutine()
+            # see what happens if we __del__
             thunk_g = T(g, -42)
             coro_g.bind(thunk_g)
             try:
@@ -273,7 +278,8 @@ class TestCoroutine(StacklessTest):
         output = self.wrap_stackless_function(ep)
         assert output == int('0110')
 
-class TestCoroutineOnCPython(TestCoroutine):
+TestCoroutine = _TestCoroutine # to activate
+class TestCoroutineOnCPython(_TestCoroutine):
     def wrap_stackless_function(self, func):
         return func()
 
