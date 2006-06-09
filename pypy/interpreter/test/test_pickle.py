@@ -374,3 +374,21 @@ class AppTestInterpObjectPickling:
             assert list(g1) == list(g2)
         finally:
             del sys.modules['mod']
+
+    def test_pickle_builtin_method(self):
+        import pickle
+
+        a_list = [1]
+        meth1 = a_list.append
+        pckl = pickle.dumps(meth1)
+        meth2 = pickle.loads(pckl)
+        meth1(1)
+        meth2(2)
+        assert a_list == [1, 1]
+        assert meth2.im_self == [1, 2]
+
+        unbound_meth = list.append
+        unbound_meth2 = pickle.loads(pickle.dumps(unbound_meth))
+        l = []
+        unbound_meth2(l, 1)
+        assert l == [1]

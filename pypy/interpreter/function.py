@@ -404,12 +404,20 @@ class Method(Wrappable):
 
     def descr_method__reduce__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
+        from pypy.interpreter.gateway import BuiltinCode
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)
         new_inst = mod.get('method_new')
         w        = space.wrap
         w_instance = self.w_instance or space.w_None
-        if space.is_w( self.w_class, space.w_None ):
+        function = space.interpclass_w(self.w_function)
+        if isinstance(function, Function) and isinstance(function.code, BuiltinCode):
+            new_inst = mod.get('builtin_method_new')
+            if space.is_w(w_instance, space.w_None):
+                tup = [self.w_class, space.wrap(function.name)]
+            else:
+                tup = [w_instance, space.wrap(function.name)]
+        elif space.is_w( self.w_class, space.w_None ):
             tup = [self.w_function, w_instance]
         else:
             tup = [self.w_function, w_instance, self.w_class]
