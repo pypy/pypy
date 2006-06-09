@@ -485,8 +485,14 @@ class InstanceRepr(AbstractInstanceRepr):
                 mallocop = 'flavored_malloc'
                 vlist.insert(0, inputconst(Void, flavor))
                 if flavor == 'cpy':
-                    cpytype = self.classdef._cpy_exported_type_
-                    c = inputconst(Ptr(PyObject), lltype.pyobjectptr(cpytype))
+                    cache = self.rtyper.classdef_to_pytypeobject
+                    try:
+                        pytype = cache[self.classdef]
+                    except KeyError:
+                        from pypy.rpython import rcpy
+                        pytype = rcpy.build_pytypeobject(self)
+                        cache[self.classdef] = pytype
+                    c = inputconst(Ptr(PyObject), pytype)
                     vlist.append(c)
         vptr = llops.genop(mallocop, vlist,
                            resulttype = Ptr(self.object_type))

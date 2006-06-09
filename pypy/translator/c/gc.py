@@ -2,12 +2,10 @@ import sys
 from pypy.translator.c.support import cdecl
 from pypy.translator.c.node import ContainerNode
 from pypy.rpython.lltypesystem.lltype import \
-     typeOf, Ptr, PyObject, ContainerType, GcArray, GcStruct, \
+     typeOf, Ptr, ContainerType, GcArray, GcStruct, \
      RuntimeTypeInfo, getRuntimeTypeInfo, top_container
 from pypy.rpython.memory import gctransform
 from pypy.rpython.lltypesystem import lltype, llmemory
-
-PyObjPtr = Ptr(PyObject)
 
 class BasicGcPolicy(object):
     requires_stackless = False
@@ -63,13 +61,7 @@ class BasicGcPolicy(object):
 class RefcountingInfo:
     static_deallocator = None
 
-from pypy.rpython.objectmodel import Symbolic
-class REFCOUNT_IMMORTAL(Symbolic):
-    def annotation(self):
-        from pypy.annotation.model import SomeInteger
-        return SomeInteger()
-    def lltype(self):
-        return lltype.Signed
+from pypy.rpython.objectmodel import CDefinedIntSymbolic
 
 class RefcountingGcPolicy(BasicGcPolicy):
     transformerclass = gctransform.RefcountingGCTransformer
@@ -78,7 +70,7 @@ class RefcountingGcPolicy(BasicGcPolicy):
         return [('refcount', lltype.Signed)]
 
     def common_gcheader_initdata(self, defnode):
-        return [REFCOUNT_IMMORTAL()]
+        return [CDefinedIntSymbolic('REFCOUNT_IMMORTAL')]
 
     # for structs
 

@@ -1,9 +1,9 @@
 from __future__ import generators
 from pypy.rpython.lltypesystem.lltype import \
      Struct, Array, FixedSizeArray, FuncType, PyObjectType, typeOf, \
-     GcStruct, GcArray, ContainerType, \
+     GcStruct, GcArray, PyStruct, ContainerType, \
      parentlink, Ptr, PyObject, Void, OpaqueType, Float, \
-     RuntimeTypeInfo, getRuntimeTypeInfo, Char, _subarray
+     RuntimeTypeInfo, getRuntimeTypeInfo, Char, _subarray, _pyobjheader
 from pypy.rpython.lltypesystem.llmemory import WeakGcAddress
 from pypy.translator.c.funcgen import FunctionCodeGenerator
 from pypy.translator.c.external import CExternalFunctionCodeGenerator
@@ -16,7 +16,7 @@ from pypy.translator.c import extfunc
 def needs_gcheader(T):
     if not isinstance(T, ContainerType):
         return False
-    if T._gckind == 'raw':
+    if T._gckind != 'gc':
         return False
     if isinstance(T, GcStruct):
         if T._first_struct() != (None, None):
@@ -60,6 +60,9 @@ class StructDefNode:
 
     def setup(self):
         # this computes self.fields
+        if self.STRUCT._hints.get('external'):      # XXX hack
+            self.fields = None    # external definition only
+            return
         self.fields = []
         db = self.db
         STRUCT = self.STRUCT
@@ -101,22 +104,41 @@ class StructDefNode:
         return self.prefix + name
 
     def verbatim_field_name(self, name):
-        assert name.startswith('c_')   # produced in this way by rctypes
-        return name[2:]
+        if name.startswith('c_'):   # produced in this way by rctypes
+            return name[2:]
+        else:
+            # field names have to start with 'c_' or be meant for names that
+            # vanish from the C source, like 'head' if 'inline_head' is set
+            raise Exception("field %r should not be accessed in this way" % (
+                name,))
 
     def c_struct_field_type(self, name):
         return self.STRUCT._flds[name]
 
     def access_expr(self, baseexpr, fldname):
+        if self.STRUCT._hints.get('inline_head'):
+            first, FIRST = self.STRUCT._first_struct()
+            if fldname == first:
+                # "invalid" cast according to C99 but that's what CPython
+                # requires and does all the time :-/
+                return '(*(%s) &(%s))' % (cdecl(self.db.gettype(FIRST), '*'),
+                                          baseexpr)
         fldname = self.c_struct_field_name(fldname)
         return '%s.%s' % (baseexpr, fldname)
 
     def ptr_access_expr(self, baseexpr, fldname):
+        if self.STRUCT._hints.get('inline_head'):
+            first, FIRST = self.STRUCT._first_struct()
+            if fldname == first:
+                # "invalid" cast according to C99 but that's what CPython
+                # requires and does all the time :-/
+                return '(*(%s) %s)' % (cdecl(self.db.gettype(FIRST), '*'),
+                                       baseexpr)
         fldname = self.c_struct_field_name(fldname)
         return '%s->%s' % (baseexpr, fldname)
 
     def definition(self):
-        if self.STRUCT._hints.get('external'):      # XXX hack
+        if self.fields is None:   # external definition only
             return
         yield 'struct %s {' % self.name
         is_empty = True
@@ -421,10 +443,13 @@ class StructNode(ContainerNode):
             data.append((name, getattr(self.obj, name)))
         
         for name, value in data:
-            c_name = defnode.c_struct_field_name(name)
-            lines = generic_initializationexpr(self.db, value,
-                                               '%s.%s' % (self.name, c_name),
-                                               decoration + name)
+            if isinstance(value, _pyobjheader):   # hack
+                node = self.db.getcontainernode(value)
+                lines = [node.pyobj_initexpr()]
+            else:
+                c_expr = defnode.access_expr(self.name, name)
+                lines = generic_initializationexpr(self.db, value, c_expr,
+                                                   decoration + name)
             for line in lines:
                 yield '\t' + line
             if not lines[0].startswith('/*'):
@@ -711,6 +736,7 @@ class PyObjectNode(ContainerNode):
         self.obj = obj
         self.name = db.pyobjmaker.computenameof(obj.value)
         self.ptrname = self.name
+        self.exported_name = self.name
         # a list of expressions giving places where this constant PyObject
         # must be copied.  Normally just in the global variable of the same
         # name, but see also StructNode.initializationexpr()  :-(
@@ -725,13 +751,44 @@ class PyObjectNode(ContainerNode):
         return []
 
 
+class PyObjHeadNode(ContainerNode):
+    nodekind = 'pyobj'
+
+    def __init__(self, db, T, obj):
+        ContainerNode.__init__(self, db, T, obj)
+        self.where_to_copy_me = []
+        self.exported_name = db.namespace.uniquename('cpyobj')
+
+    def basename(self):
+        raise Exception("PyObjHead should always have a parent")
+
+    def enum_dependencies(self):
+        yield self.obj.ob_type
+
+    def pyobj_initexpr(self):
+        parent, parentindex = parentlink(self.obj)
+        assert typeOf(parent)._hints.get('inline_head')
+        typenode = self.db.getcontainernode(self.obj.ob_type._obj)
+        typenode.where_to_copy_me.append('(PyObject **) & %s.ob_type' % (
+            self.name,))
+        return 'PyObject_HEAD_INIT(NULL)'
+
+
+def objectnode_factory(db, T, obj):
+    if isinstance(obj, _pyobjheader):
+        return PyObjHeadNode(db, T, obj)
+    else:
+        return PyObjectNode(db, T, obj)
+
+
 ContainerNodeFactory = {
     Struct:       StructNode,
     GcStruct:     StructNode,
+    PyStruct:     StructNode,
     Array:        ArrayNode,
     GcArray:      ArrayNode,
     FixedSizeArray: FixedSizeArrayNode,
     FuncType:     FuncNode,
     OpaqueType:   opaquenode_factory,
-    PyObjectType: PyObjectNode,
+    PyObjectType: objectnode_factory,
     }

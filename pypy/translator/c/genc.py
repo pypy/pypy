@@ -1,6 +1,6 @@
 import autopath
 import py
-from pypy.translator.c.node import PyObjectNode, FuncNode
+from pypy.translator.c.node import PyObjectNode, PyObjHeadNode, FuncNode
 from pypy.translator.c.database import LowLevelDatabase
 from pypy.translator.c.extfunc import pre_include_code_lines
 from pypy.translator.gensupp import uniquemodulename, NameManager
@@ -689,10 +689,17 @@ def gen_source(database, modulename, targetdir, defines={}, exports={},
     print >> f
     print >> f, 'static globalobjectdef_t globalobjectdefs[] = {'
     for node in database.globalcontainers():
-        if isinstance(node, PyObjectNode):
+        if isinstance(node, (PyObjectNode, PyObjHeadNode)):
             for target in node.where_to_copy_me:
-                print >> f, '\t{%s, "%s"},' % (target, node.name)
-    print >> f, '\t{ NULL }\t/* Sentinel */'
+                print >> f, '\t{%s, "%s"},' % (target, node.exported_name)
+    print >> f, '\t{ NULL, NULL }\t/* Sentinel */'
+    print >> f, '};'
+    print >> f
+    print >> f, 'static cpyobjheaddef_t cpyobjheaddefs[] = {'
+    for node in database.containerlist:
+        if isinstance(node, PyObjHeadNode):
+            print >> f, '\t{"%s", %s},' % (node.exported_name, node.ptrname)
+    print >> f, '\t{ NULL, NULL }\t/* Sentinel */'
     print >> f, '};'
     print >> f
     print >> f, '/***********************************************************/'

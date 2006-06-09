@@ -1,5 +1,6 @@
 import sys
 from pypy.rpython.objectmodel import Symbolic, ComputedIntSymbolic
+from pypy.rpython.objectmodel import CDefinedIntSymbolic
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.lltypesystem.llmemory import Address, fakeaddress, \
      AddressOffset, ItemOffset, ArrayItemsOffset, FieldOffset, \
@@ -14,7 +15,6 @@ from pypy.translator.c.support import cdecl
 
 def name_signed(value, db):
     if isinstance(value, Symbolic):
-        from pypy.translator.c.gc import REFCOUNT_IMMORTAL
         if isinstance(value, FieldOffset):
             structnode = db.gettypedefnode(value.TYPE)
             return 'offsetof(%s, %s)'%(
@@ -39,8 +39,8 @@ def name_signed(value, db):
             return '0'
         elif type(value) == GCHeaderOffset:
             return '0'
-        elif type(value) == REFCOUNT_IMMORTAL:
-            return 'REFCOUNT_IMMORTAL'
+        elif isinstance(value, CDefinedIntSymbolic):
+            return str(value.expr)
         elif isinstance(value, ComputedIntSymbolic):
             value = value.compute_fn()
         else:

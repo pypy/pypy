@@ -60,6 +60,7 @@ class RPythonTyper:
         self.pbc_reprs = {}
         self.classes_with_wrapper = {}
         self.wrapper_context = None # or add an extra arg to convertvar?
+        self.classdef_to_pytypeobject = {}
         self.concrete_calltables = {}
         self.class_pbc_attributes = {}
         self.oo_meth_impls = {}

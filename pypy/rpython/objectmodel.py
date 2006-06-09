@@ -35,6 +35,19 @@ class ComputedIntSymbolic(Symbolic):
         from pypy.rpython.lltypesystem import lltype
         return lltype.Signed
 
+class CDefinedIntSymbolic(Symbolic):
+
+    def __init__(self, expr):
+        self.expr = expr
+
+    def annotation(self):
+        from pypy.annotation import model
+        return model.SomeInteger()
+
+    def lltype(self):
+        from pypy.rpython.lltypesystem import lltype
+        return lltype.Signed
+
 
 def instantiate(cls):
     "Create an empty instance of 'cls'."

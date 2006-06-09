@@ -40,7 +40,7 @@
 		return;	\
 	if (setup_initcode(frozen_initcode, FROZEN_INITCODE_SIZE) < 0) \
 		return;	\
-	if (setup_globalobjects(globalobjectdefs) < 0) \
+	if (setup_globalobjects(globalobjectdefs, cpyobjheaddefs) < 0) \
 		return;
 
 /*** table of global objects ***/
@@ -51,6 +51,11 @@ typedef struct {
 	PyObject** p;
 	char* name;
 } globalobjectdef_t;
+
+typedef struct {
+	char* name;
+	PyObject* cpyobj;
+} cpyobjheaddef_t;
 
 typedef struct {
 	PyObject** p;
@@ -69,11 +74,29 @@ int call_postsetup(PyObject *m);
 
 #ifndef PYPY_NOT_MAIN_FILE
 
-static int setup_globalobjects(globalobjectdef_t* def)
+static int setup_globalobjects(globalobjectdef_t* globtable,
+			       cpyobjheaddef_t* cpyheadtable)
 {
 	PyObject* obj;
-	
-	for (; def->p != NULL; def++) {
+	globalobjectdef_t* def;
+	cpyobjheaddef_t* cpydef;
+
+	/* Store the object given by their heads into the module's dict.
+	   Warning: these object heads might still be invalid, e.g.
+	   typically their ob_type needs patching!
+	   But PyDict_SetItemString() doesn't inspect them...
+	*/
+	for (cpydef = cpyheadtable; cpydef->name != NULL; cpydef++) {
+		obj = cpydef->cpyobj;
+		if (PyDict_SetItemString(this_module_globals,
+					 cpydef->name, obj) < 0)
+			return -1;
+	}
+	/* Patch all locations that need to contain a specific PyObject*.
+	   This must go after the previous loop, otherwise
+	   PyDict_GetItemString() might not find some of them.
+	 */
+	for (def = globtable; def->p != NULL; def++) {
 		obj = PyDict_GetItemString(this_module_globals, def->name);
 		if (obj == NULL) {
 			PyErr_Format(PyExc_AttributeError,
@@ -83,6 +106,16 @@ static int setup_globalobjects(globalobjectdef_t* def)
 		}
 		Py_INCREF(obj);
 		*def->p = obj;   /* store the object ref in the global var */
+	}
+	/* All objects should be valid at this point.  Loop again and
+	   make sure all types are ready.
+	*/
+	for (cpydef = cpyheadtable; cpydef->name != NULL; cpydef++) {
+		obj = cpydef->cpyobj;
+		if (PyType_Check(obj)) {
+			if (PyType_Ready((PyTypeObject*) obj) < 0)
+				return -1;
+		}
 	}
 	return 0;
 }

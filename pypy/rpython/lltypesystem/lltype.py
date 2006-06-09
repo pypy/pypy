@@ -752,7 +752,7 @@ def direct_fieldptr(structptr, fieldname):
         raise TypeError, "%s has no field %r" % (CURTYPE, fieldname)
     if not structptr:
         raise RuntimeError("direct_fieldptr: NULL argument")
-    return _subarray._makeptr(structptr._obj, fieldname)
+    return _subarray._makeptr(structptr._obj, fieldname, structptr._solid)
 
 def direct_arrayitems(arrayptr):
     """Get a pointer to the first item of the array.  The resulting
@@ -765,7 +765,7 @@ def direct_arrayitems(arrayptr):
         raise TypeError, "direct_arrayitems: not an array"
     if not arrayptr:
         raise RuntimeError("direct_arrayitems: NULL argument")
-    return _subarray._makeptr(arrayptr._obj, 0)
+    return _subarray._makeptr(arrayptr._obj, 0, arrayptr._solid)
 
 def direct_ptradd(ptr, n):
     """Shift a pointer forward or backward by n items.  The pointer must
@@ -776,7 +776,7 @@ def direct_ptradd(ptr, n):
     if not isinstance(ptr._obj, _subarray):
         raise TypeError("direct_ptradd: only for direct_arrayitems() ptrs")
     parent, base = parentlink(ptr._obj)
-    return _subarray._makeptr(parent, base + n)
+    return _subarray._makeptr(parent, base + n, ptr._solid)
 
 def _expose(val, solid=False):
     """XXX A nice docstring here"""
@@ -1130,7 +1130,7 @@ class _parentable(_container):
         self._parent_type = typeOf(parent)
         self._parent_index = parentindex
         if (isinstance(self._parent_type, Struct)
-            and parentindex == self._parent_type._names[0]
+            and parentindex in (self._parent_type._names[0], 0)
             and self._TYPE._gckind == typeOf(parent)._gckind):
             # keep strong reference to parent, we share the same allocation
             self._keepparent = parent 
@@ -1365,7 +1365,7 @@ class _subarray(_parentable):     # only for cast_subarray_pointer()
         else:
             self._parentstructure().setitem(baseoffset + index, value)
 
-    def _makeptr(parent, baseoffset_or_fieldname):
+    def _makeptr(parent, baseoffset_or_fieldname, solid=False):
         cache = _subarray._cache.setdefault(parent, {})
         try:
             subarray = cache[baseoffset_or_fieldname]
@@ -1380,7 +1380,7 @@ class _subarray(_parentable):     # only for cast_subarray_pointer()
             ARRAYTYPE = FixedSizeArray(ITEMTYPE, 1)
             subarray = _subarray(ARRAYTYPE, parent, baseoffset_or_fieldname)
             cache[baseoffset_or_fieldname] = subarray
-        return _ptr(Ptr(subarray._TYPE), subarray)
+        return _ptr(Ptr(subarray._TYPE), subarray, solid)
     _makeptr = staticmethod(_makeptr)
 
 
