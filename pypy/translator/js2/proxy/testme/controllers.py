@@ -5,6 +5,8 @@ from msgstruct import *
 import PIL.Image
 import zlib
 import socket
+import urllib
+import re
 
 
 class SessionData:
@@ -72,14 +74,13 @@ class SessionData:
 
 class Root(controllers.Root):
 
-    host = 'localhost'
-    port = 32819    #XXX automate this
-    size = 1024
-
-    #data
     _sessionData = {}
     n_header_lines = 2
 
+    host = 'localhost'
+    port = re.findall('value=".*"', urllib.urlopen('http://%s:8000' % host).read())[0]
+    port = int(port[7:-1])
+    
     def sessionData(self):
         session = cherrypy.session
         sessionid = session['_id']
@@ -105,7 +106,8 @@ class Root(controllers.Root):
     def recv(self):
         #XXX hangs if not first sending a ping!
         d = self.sessionData()
-        data = d.data + self.sessionSocket().recv(self.size)
+        size = 1024
+        data = d.data + self.sessionSocket().recv(size)
         while self.n_header_lines > 0 and '\n' in data:
             self.n_header_lines -= 1
             header_line, data = data.split('\n',1)
