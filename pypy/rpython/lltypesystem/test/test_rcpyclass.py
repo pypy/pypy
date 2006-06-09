@@ -19,8 +19,8 @@ def test_cpy_export():
         w = W_MyTest(21)
         return cpy_export(mytest, w)
 
-    fn = compile(f, [], expected_extra_mallocs=1)
-    res = fn()
+    fn = compile(f, [])
+    res = fn(expected_extra_mallocs=1)
     assert type(res).__name__ == 'mytest'
 
 
@@ -60,8 +60,38 @@ def test_tp_dealloc():
         w = cpy_import(W_MyTest, obj)
         return w.a.x
 
-    fn = compile(g, [], backendopt=False)
+    fn = compile(g, [])
     res = fn()
     # the A() should have been deallocated too, otherwise the number
     # of mallocs doesn't match the number of frees
     assert res == 4
+
+
+def test_subclass_from_cpython():
+    class mytest(object):
+        pass
+
+    def f(input):
+        current = total = 0
+        if input:
+            w = cpy_import(W_MyTest, input)
+            current, total = w.stuff
+        w = W_MyTest(21)
+        current += 1
+        total += current
+        w.stuff = current, total
+        return cpy_export(mytest, w), total
+
+    fn = compile(f, [object])
+    obj, total = fn(None, expected_extra_mallocs=2) # 1 W_MyTest (with 1 tuple)
+    assert total == 1
+    obj, total = fn(obj, expected_extra_mallocs=4)  # 2 W_MyTests alive
+    assert total == 3
+    obj, total = fn(obj, expected_extra_mallocs=4)  # 2 W_MyTests alive
+    assert total == 6
+    obj, total = fn(obj, expected_extra_mallocs=4)  # etc
+    assert total == 10
+    obj, total = fn(obj, expected_extra_mallocs=4)
+    assert total == 15
+    obj, total = fn(obj, expected_extra_mallocs=4)
+    assert total == 21

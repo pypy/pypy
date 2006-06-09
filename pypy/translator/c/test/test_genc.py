@@ -31,7 +31,7 @@ def compile_db(db):
     return m
 
 def compile(fn, argtypes, view=False, gcpolicy=None, backendopt=True,
-            annotatorpolicy=None, expected_extra_mallocs=0):
+            annotatorpolicy=None):
     t = TranslationContext()
     a = t.buildannotator(policy=annotatorpolicy)
     a.build_types(fn, argtypes)
@@ -46,6 +46,10 @@ def compile(fn, argtypes, view=False, gcpolicy=None, backendopt=True,
         t.view()
     compiled_fn = getattr(module, entrypoint)
     def checking_fn(*args, **kwds):
+        if 'expected_extra_mallocs' in kwds:
+            expected_extra_mallocs = kwds.pop('expected_extra_mallocs')
+        else:
+            expected_extra_mallocs = 0
         try:
             return compiled_fn(*args, **kwds)
         finally:
