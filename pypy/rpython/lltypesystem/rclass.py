@@ -80,6 +80,11 @@ OBJECT_BY_FLAVOR = {'gc': OBJECT,
                     'raw': NONGCOBJECT,
                     'cpy': CPYOBJECT}
 
+LLFLAVOR = {'gc'   : 'gc',
+            'raw'  : 'raw',
+            'cpy'  : 'cpy',
+            'stack': 'raw',
+            }
 
 def cast_vtable_to_typeptr(vtable):
     while typeOf(vtable).TO != OBJECT_VTABLE:
@@ -298,9 +303,9 @@ class InstanceRepr(AbstractInstanceRepr):
     def __init__(self, rtyper, classdef, gcflavor='gc'):
         AbstractInstanceRepr.__init__(self, rtyper, classdef)
         if classdef is None:
-            self.object_type = OBJECT_BY_FLAVOR[gcflavor]
+            self.object_type = OBJECT_BY_FLAVOR[LLFLAVOR[gcflavor]]
         else:
-            ForwardRef = lltype.FORWARDREF_BY_FLAVOR[gcflavor]
+            ForwardRef = lltype.FORWARDREF_BY_FLAVOR[LLFLAVOR[gcflavor]]
             self.object_type = ForwardRef()
             
         self.prebuiltinstances = {}   # { id(x): (x, _ptr) }
@@ -344,7 +349,7 @@ class InstanceRepr(AbstractInstanceRepr):
                 fields['_wrapper_'] = 'wrapper', pyobj_repr
                 llfields.append(('wrapper', Ptr(PyObject)))
 
-            MkStruct = lltype.STRUCT_BY_FLAVOR[self.gcflavor]
+            MkStruct = lltype.STRUCT_BY_FLAVOR[LLFLAVOR[self.gcflavor]]
             object_type = MkStruct(self.classdef.name,
                                    ('super', self.rbase.object_type),
                                    *llfields)
