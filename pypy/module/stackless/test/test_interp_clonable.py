@@ -5,7 +5,6 @@ testing cloning
 from pypy.translator.c import gc
 from pypy.rpython.memory import gctransform
 from pypy.rpython.memory.test import test_transformed_gc
-from pypy.module.stackless.interp_coroutine import costate
 from pypy.module.stackless.interp_clonable import ClonableCoroutine
 from pypy.module.stackless.interp_clonable import AbstractThunk, fork
 
@@ -22,7 +21,7 @@ class TestClonableCoroutine(test_transformed_gc.GCTest):
                 self.result = result
             def call(self):
                 self.result.append(2)
-                costate.main.switch()
+                ClonableCoroutine.getmain().switch()
                 self.result.append(4)
         def f():
             result = []
@@ -53,7 +52,7 @@ class TestClonableCoroutine(test_transformed_gc.GCTest):
                 localstate = []
                 localstate.append(10)
                 self.result.append(2)
-                costate.main.switch()
+                ClonableCoroutine.getmain().switch()
                 localstate.append(20)
                 if localstate == [10, 20]:
                     self.result.append(4)
