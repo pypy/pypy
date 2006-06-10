@@ -195,3 +195,16 @@ class TestLowLevelType:
         fn = self.getcompiled(llf)
         res = fn()
         assert res == 8765
+
+    def test_pystruct(self):
+        PS1 = PyStruct('PS1', ('head', PyObject), ('x', Signed))
+        class mytype(object):
+            pass
+        mytype_ptr = pyobjectptr(mytype)
+        def llf():
+            p = malloc(PS1, flavor='cpy', extra_args=(mytype_ptr,))
+            return cast_pointer(Ptr(PyObject), p)
+
+        fn = self.getcompiled(llf)
+        res = fn()
+        assert type(res).__name__.endswith('mytype')
