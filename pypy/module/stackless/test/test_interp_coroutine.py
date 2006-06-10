@@ -278,6 +278,43 @@ class _TestCoroutine(StacklessTest):
         output = self.wrap_stackless_function(ep)
         assert output == int('0110')
 
+    def test_hello_goodbye(self):
+
+        class C(Coroutine):
+            n = 2
+            def __init__(self, n):
+                Coroutine.__init__(self)
+                self.n = n
+            def hello(self):
+                costate.hello_goodbye *= 10
+                costate.hello_goodbye += self.n
+            def goodbye(self):
+                costate.hello_goodbye *= 10
+                costate.hello_goodbye += self.n + 1
+
+        class T(AbstractThunk):
+            def call(self):
+                pass
+
+        costate = main_costate_getter._get_default_costate()
+        costate.current.__class__ = C
+        costate.hello_goodbye = 0
+
+        def ep():
+            costate.hello_goodbye = 0
+            c1 = C(4)
+            c1.bind(T())
+            c1.switch()
+            return costate.hello_goodbye
+
+        output = self.wrap_stackless_function(ep)
+        # expected result:
+        #   goodbye main   3
+        #   hello   c1     4
+        #   goodbye c1     5
+        #   hello   main   2
+        assert output == 3452
+
 TestCoroutine = _TestCoroutine # to activate
 class TestCoroutineOnCPython(_TestCoroutine):
     def wrap_stackless_function(self, func):

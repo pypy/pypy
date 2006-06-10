@@ -236,7 +236,7 @@ class Coroutine(Wrappable):
         left = state.last
         left.frame = incoming_frame
         left.goodbye()
-        self.hello()
+        state.current.hello()
         main_costate_getter._get_default_costate().do_things_to_do()
 
     def kill(self):
