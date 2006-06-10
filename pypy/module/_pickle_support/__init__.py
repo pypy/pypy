@@ -19,4 +19,5 @@ class Module(MixedModule):
         'frame_new'    : 'maker.frame_new',
         'traceback_new' : 'maker.traceback_new',
         'generator_new' : 'maker.generator_new',
+        'return_main' : 'maker.return_main',
     }

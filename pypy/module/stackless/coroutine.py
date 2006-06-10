@@ -56,6 +56,7 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         state = self._get_state(space)
         Coroutine.__init__(self, state)
         self.flags = 0
+        self.framestack = None
         if not is_main:
              space.getexecutioncontext().subcontext_new(self)
 
@@ -121,10 +122,15 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         from pypy.interpreter.mixedmodule import MixedModule
         w_mod    = space.getbuiltinmodule('stackless')
         mod      = space.interp_w(MixedModule, w_mod)
+        w_mod2    = space.getbuiltinmodule('_pickle_support')
+        mod2      = space.interp_w(MixedModule, w_mod2)
         new_inst = mod.get('coroutine')
         w        = space.wrap
         nt = space.newtuple
         ec = self.space.getexecutioncontext()
+
+        if self is self._get_state(space).main:
+            return space.newtuple([mod2.get('return_main'), space.newtuple([])])
 
         tup_base = [
             ]
@@ -142,7 +148,7 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         ec = self.space.getexecutioncontext()
         ec.subcontext_setstate(self, w_state)
         self.reconstruct_framechain()
-
+        
     def reconstruct_framechain(self):
         from pypy.interpreter.pyframe import PyFrame
         from pypy.rpython.rstack import resume_state_create
@@ -201,6 +207,14 @@ def w_get_is_zombie(space, self):
     return space.wrap(self.get_is_zombie())
 AppCoroutine.w_get_is_zombie = w_get_is_zombie
 
+def w_descr__framestack(space, self):
+    assert isinstance(self, AppCoroutine)
+    if self.framestack:
+        items = [space.wrap(item) for item in self.framestack.items]
+        return space.newtuple(items)
+    else:
+        return space.newtuple([])
+
 def makeStaticMethod(module, classname, funcname):
     space = module.space
     space.appexec(map(space.wrap, (module, classname, funcname)), """
@@ -226,6 +240,7 @@ AppCoroutine.typedef = TypeDef("coroutine",
     switch = interp2app(AppCoroutine.w_switch),
     kill = interp2app(AppCoroutine.w_kill),
     is_zombie = GetSetProperty(AppCoroutine.w_get_is_zombie, doc=AppCoroutine.get_is_zombie.__doc__),
+    _framestack = GetSetProperty(w_descr__framestack),
     getcurrent = interp2app(AppCoroutine.w_getcurrent),
     __reduce__   = interp2app(AppCoroutine.descr__reduce__,
                               unwrap_spec=['self', ObjSpace]),

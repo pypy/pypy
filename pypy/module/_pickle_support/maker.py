@@ -86,6 +86,11 @@ def generator_new(space, __args__):
     return space.wrap(new_generator)
 generator_new.unwrap_spec = [ObjSpace, Arguments]
 
+def return_main(space):
+    from pypy.module.stackless.coroutine import AppCoroutine
+    return AppCoroutine._get_state(space).main
+return_main.unwrap_spec = [ObjSpace]
+
 # ___________________________________________________________________
 # Helper functions for internal use
 
