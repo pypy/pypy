@@ -13,7 +13,7 @@ from pypy.rpython.rarithmetic import r_uint, r_ulonglong, r_longlong, intmask
 from pypy.translator.tool import cbuild
 cbuild.enable_fast_compilation()
 
-class TestTypedTestCase:
+class CompilationTestCase:
 
     def annotatefunc(self, func):
         t = TranslationContext(simplifying=True)
@@ -46,6 +46,13 @@ class TestTypedTestCase:
         t.checkgraphs()
         insert_ll_stackcheck(t)
         return self.compilefunc(t, func)
+
+    def process(self, t):
+        t.buildrtyper().specialize()
+        #raisingop2direct_call(t)
+
+
+class TestTypedTestCase(CompilationTestCase):
 
     def test_set_attr(self):
         set_attr = self.getcompiled(snippet.set_attr)
@@ -282,10 +289,6 @@ class TestTypedTestCase:
         fn = self.getcompiled(g)
         assert fn(0) == 2
         assert fn(1) == 1
-
-    def process(self, t):
-        t.buildrtyper().specialize()
-        #raisingop2direct_call(t)
 
     def test_call_five(self):
         # --  the result of call_five() isn't a real list, but an rlist

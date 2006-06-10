@@ -764,6 +764,14 @@ class PyObjHeadNode(ContainerNode):
 
     def enum_dependencies(self):
         yield self.obj.ob_type
+        if self.obj.setup_fnptr:
+            yield self.obj.setup_fnptr
+
+    def get_setupfn_name(self):
+        if self.obj.setup_fnptr:
+            return self.db.get(self.obj.setup_fnptr)
+        else:
+            return 'NULL'
 
     def pyobj_initexpr(self):
         parent, parentindex = parentlink(self.obj)

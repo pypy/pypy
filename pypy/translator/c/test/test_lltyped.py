@@ -2,8 +2,7 @@ from pypy.rpython.lltypesystem.lltype import *
 from pypy.translator.c.test import test_typed
 
 
-class TestLowLevelType:
-    getcompiled = test_typed.TestTypedTestCase().getcompiled
+class TestLowLevelType(test_typed.CompilationTestCase):
 
     def test_simple(self):
         S = GcStruct("s", ('v', Signed))
@@ -197,7 +196,8 @@ class TestLowLevelType:
         assert res == 8765
 
     def test_pystruct(self):
-        PS1 = PyStruct('PS1', ('head', PyObject), ('x', Signed))
+        PS1 = PyStruct('PS1', ('head', PyObject), ('x', Signed),
+                       hints = {'inline_head': True})
         class mytype(object):
             pass
         mytype_ptr = pyobjectptr(mytype)
@@ -208,3 +208,33 @@ class TestLowLevelType:
         fn = self.getcompiled(llf)
         res = fn()
         assert type(res).__name__.endswith('mytype')
+
+    def test_pystruct_prebuilt(self):
+        PS1 = PyStruct('PS1', ('head', PyObject), ('x', Signed),
+                       hints = {'inline_head': True})
+        class mytype(object):
+            pass
+
+        def llsetup(phead):
+            "Called when the CPython ext module is imported."
+            p = cast_pointer(Ptr(PS1), phead)
+            p.x = 27
+
+        mytype_ptr = pyobjectptr(mytype)
+        p = malloc(PS1, flavor='cpy', extra_args=(mytype_ptr,))
+        p.x = -5   # overridden by llsetup()
+
+        def llf():
+            return p.x
+
+        def process(t):
+            rtyper = t.buildrtyper()
+            rtyper.specialize()
+            llsetup_ptr = rtyper.annotate_helper_fn(llsetup, [Ptr(PyObject)])
+            phead = cast_pointer(Ptr(PyObject), p)
+            phead._obj.setup_fnptr = llsetup_ptr
+
+        self.process = process
+        fn = self.getcompiled(llf)
+        res = fn()
+        assert res == 27

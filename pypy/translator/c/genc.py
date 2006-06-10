@@ -698,8 +698,10 @@ def gen_source(database, modulename, targetdir, defines={}, exports={},
     print >> f, 'static cpyobjheaddef_t cpyobjheaddefs[] = {'
     for node in database.containerlist:
         if isinstance(node, PyObjHeadNode):
-            print >> f, '\t{"%s", %s},' % (node.exported_name, node.ptrname)
-    print >> f, '\t{ NULL, NULL }\t/* Sentinel */'
+            print >> f, '\t{"%s", %s, %s},' % (node.exported_name,
+                                               node.ptrname,
+                                               node.get_setupfn_name())
+    print >> f, '\t{ NULL, NULL, NULL }\t/* Sentinel */'
     print >> f, '};'
     print >> f
     print >> f, '/***********************************************************/'
@@ -802,9 +804,9 @@ $(TARGET): $(OBJECTS)
 clean:
 \trm -f $(OBJECTS) $(TARGET)
 
-debug: clean
+debug:
 \tmake CFLAGS="-g -pthread"
 
-profile: clean
+profile:
 \tmake CFLAGS="-pg $(CFLAGS)" LDFLAGS="-pg $(LDFLAGS)"
 '''
