@@ -24,10 +24,11 @@ def code_new(space, __args__):
     return space.call_args(w_type, __args__)
 code_new.unwrap_spec = [ObjSpace, Arguments]
 
-def func_new(space, __args__):
-    w_type = space.gettypeobject(Function.typedef)
-    return space.call_args(w_type, __args__)
-func_new.unwrap_spec = [ObjSpace, Arguments]
+def func_new(space):
+    fu = instantiate(Function)
+    fu.w_func_dict = space.newdict([])
+    return space.wrap(fu)
+func_new.unwrap_spec = [ObjSpace]
 
 def module_new(space, w_name, w_dict):
     new_mod = Module(space, w_name, w_dict)
@@ -62,7 +63,7 @@ def frame_new(space, __args__):
     w = space.wrap
 
     # let the code object create the right kind of frame
-    # the distinction is a littleover-done but computable
+    # the distinction is a little over-done but computable
     Klass = pycode.get_frame_class()
     new_frame = instantiate(Klass)
     return space.wrap(new_frame)

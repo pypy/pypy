@@ -179,14 +179,39 @@ class Function(Wrappable):
             w_closure = space.w_None
         else:
             w_closure = space.newtuple([w(cell) for cell in self.closure])
-        tup      = [
+
+        nt = space.newtuple
+        tup_base = []
+        tup_state = [
+            w(self.name),
+            self.w_doc,
             w(self.code),
             self.w_func_globals,
-            w(self.name),
-            space.newtuple(self.defs_w),
             w_closure,
+            nt(self.defs_w),
+            self.w_func_dict,
+            self.w_module,
         ]
-        return space.newtuple([new_inst, space.newtuple(tup)])
+        return nt([new_inst, nt(tup_base), nt(tup_state)])
+
+    def descr_function__setstate__(self, space, w_args):
+        from pypy.interpreter.pycode import PyCode
+        args_w = space.unpackiterable(w_args)
+        (w_name, w_doc, w_code, w_func_globals, w_closure, w_defs_w,
+         w_func_dict, w_module) = args_w
+
+        self.space = space
+        self.name = space.str_w(w_name)
+        self.w_doc = w_doc
+        self.code = space.interp_w(PyCode, w_code)
+        self.w_func_globals = w_func_globals
+        if w_closure is not space.w_None:
+            self.closure = space.unpackiterable(w_closure)
+        else:
+            self.closure = None
+        self.defs_w    = space.unpackiterable(w_defs_w)
+        self.w_func_dict = w_func_dict
+        self.w_module = w_module
 
     def fget_func_defaults(space, self):
         values_w = self.defs_w
