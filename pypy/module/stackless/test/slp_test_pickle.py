@@ -1,11 +1,17 @@
-# app-level testing of coroutine pickling
-import stackless
+from pypy.conftest import gettestobjspace
 
-class TestPickle:
+# app-level testing of coroutine pickling
+
+class AppTest_Pickle:
+
+    def setup_class(cls):
+        space = gettestobjspace(usemodules=('stackless',))
+        cls.space = space
 
     def test_simple_ish(self):
 
         output = []
+        import stackless
         def f(coro, n, x):
             if n == 0:
                 coro.switch()
