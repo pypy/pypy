@@ -206,7 +206,9 @@ class Function(Wrappable):
         self.code = space.interp_w(PyCode, w_code)
         self.w_func_globals = w_func_globals
         if w_closure is not space.w_None:
-            self.closure = space.unpackiterable(w_closure)
+            from pypy.interpreter.nestedscope import Cell
+            closure_w = space.unpackiterable(w_closure)
+            self.closure = [space.interp_w(Cell, w_cell) for w_cell in closure_w]
         else:
             self.closure = None
         self.defs_w    = space.unpackiterable(w_defs_w)
