@@ -7,7 +7,7 @@ Please refer to their documentation.
 import sys
 
 #DEBUG = True
-DEBUG = True
+DEBUG = False
 
 switches = 0
 
@@ -47,6 +47,21 @@ immediately react on messages.
 This is a necessary Stackless 3.1 feature.
 """
 
+def SWAPVAL(task1, task2):
+    assert task1 is not None
+    assert task2 is not None
+    if DEBUG:
+        print 'SWAPVAL(%s, %s)' % (task1, task2)
+        print '\t', task1.tempval
+        print '\t', task2.tempval
+    task1.tempval, task2.tempval = task2.tempval, task1.tempval
+
+def SETVAL(task, val):
+    assert task is not None
+    if DEBUG:
+        print 'SETVAL(%s, %s)' % (task, val)
+    task.tempval = val
+
 # thread related stuff: assuming NON threaded execution for now
 
 def check_for_deadlock():
@@ -79,7 +94,7 @@ class TaskletProxy(object):
         self._coro = coro
 
     def __str__(self):
-        return 'Tasklet-%s' % self.thread_id
+        return tasklet.__str__(self)
 
     def __getattr__(self,attr):
         return getattr(self._coro,attr)
@@ -267,7 +282,7 @@ def run(timeout=0):
     except Exception, exp:
         b = curexc_to_bomb()
         main = main_tasklet
-        main.tempval = b
+        SETVAL(main, b)
         scheduler.current_insert_after(main)
         scheduler.schedule_task(me, main, 1)
 
@@ -403,7 +418,11 @@ class tasklet(coroutine):
     def __str__(self):
         next = (self.next and self.next.thread_id) or None
         prev = (self.prev and self.prev.thread_id) or None
-        return 'Tasklet-%s(%s) n: %s; p: %s' % (self.thread_id, str(self.blocked), next, prev)
+        if self.blocked:
+            bs = 'b'
+        else:
+            bs = '-'
+        return 'T%s(%s) (%s, %s)' % (self.thread_id, bs, next, prev)
 
     def bind(self, func):
         """
@@ -415,7 +434,7 @@ class tasklet(coroutine):
         """
         if not callable(func):
             raise TypeError('tasklet function must be a callable')
-        self.tempval = func
+        SETVAL(self, func)
 
     def _is_dead(self):
         return False
@@ -519,7 +538,7 @@ class tasklet(coroutine):
         if self.tempval is None:
             raise TypeError('cframe function must be callable')
         coroutine.bind(self,self.tempval,*argl,**argd)
-        self.tempval = None
+        SETVAL(self, None)
         self.insert()
 """
 /***************************************************************************
@@ -571,7 +590,8 @@ class channel(object):
         self.thread_id = -2
 
     def __str__(self):
-        return 'channel(' + str(self.balance) + ')'
+        parts = ['%s' % x.thread_id for x in self._content()]
+        return 'channel(' + str(self.balance) + '): ['+' -> '.join(parts)+']'
     
     def _get_closed(self):
         return self.closing and self.next is None
@@ -582,6 +602,17 @@ class channel(object):
         self._ins(task)
         self.balance += d
         task.blocked = d
+
+    def _content(self):
+        visited = set((self,))
+        items = []
+        next = self.next
+        if next is not self:
+            while next is not None and next not in visited:
+                items.append(next)
+                visited.add(next)
+                next = next.next
+        return items
 
     def _queue(self):
         if self.next is self:
@@ -618,14 +649,14 @@ class channel(object):
         self.prev = task
 
     def _rem(self, task):
+        if DEBUG:
+            print '### channel._rem(%s)' % task
         assert task.next is not None
         assert task.prev is not None
         #remove at end
         task.next.prev = task.prev
         task.prev.next = task.next
         task.next = task.prev = None
-        if DEBUG:
-            print '### channel._rem(%s)' % task
 
     def _notify(self, task, d, cando, res):
         global schedlock
@@ -641,31 +672,34 @@ class channel(object):
         try:
             #source = getcurrent()
             source = scheduler._head
-            if DEBUG:
-                print '_channel_action -> source:', source
             target = self.next
-            if DEBUG:
-                print '_channel_action -> target:', target
-                print
+            if not source is getcurrent():
+                print '!!!!! scheduler._head is not current !!!!!'
             interthread = 0 # no interthreading at the moment
             if d > 0:
                 cando = self.balance < 0
             else:
                 cando = self.balance > 0
 
+            if DEBUG:
+                print
+                print self
+                print '_channel_action(%s, %s)' % (arg, d)
+                print '_channel_action -> source:', source
+                print '_channel_action -> target:', target
+                print '--- cando --- :',cando
+                print scheduler
+                print
+                print
             assert abs(d) == 1
 
-            source.tempval = arg
+            SETVAL(source, arg)
             if not interthread:
                 self._notify(source, d, cando, None)
-            if DEBUG:
-                print '_channel_action(',arg, ',', d, ')'
-                print 'cando:',cando
-                print
             if cando:
                 # communication 1): there is somebody waiting
                 target = self._channel_remove(-d)
-                source.tempval, target.tempval = target.tempval, source.tempval
+                SWAPVAL(source, target)
                 if interthread:
                     raise Exception('no interthreading: I can not be reached...')
                 else:
@@ -680,6 +714,7 @@ class channel(object):
                         scheduler.current_insert(target)
                         target = source
             else:
+                # communication 2): there is nobody waiting
                 if source.block_trap:
                     raise RuntimeError("this tasklet does not like to be blocked")
                 if self.closing:
@@ -692,7 +727,8 @@ class channel(object):
                 print 'Exception in channel_action', exp, '\n\n'
             raise
         try:
-            print '# channel action: calling schedule with', source, target
+            if DEBUG:
+                print 'BEFORE SWITCH:',self
             retval = scheduler.schedule_task(source, target, stackl)
         except Exception, exp:
             print 'schedule_task raised', exp
@@ -815,8 +851,6 @@ class Scheduler(object):
 
     def __init__(self):
         self._head = getcurrent()
-        #self.chain = None
-        #self.current = getcurrent()
 
     def _set_head(self, task):
         self._head = task
@@ -844,9 +878,7 @@ class Scheduler(object):
             currid = self._head.thread_id
         else:
             currid = -1
-        return '===== Scheduler ====\nchain:' + \
-                ' -> '.join(parts) + '\ncurrent: %s' % currid + \
-                '\n===================='
+        return 'Scheduler: [' + ' -> '.join(parts) + ']'
 
     def _chain_insert(self, task):
         assert task.next is None
@@ -907,7 +939,7 @@ class Scheduler(object):
     def bomb_explode(self, task):
         thisbomb = task.tempval
         assert isinstance(thisbomb, bomb)
-        task.tempval = None
+        SETVAL(task, None)
         thisbomb._explode()
         
     def _notify_schedule(self, prev, next, errflag):
@@ -926,10 +958,10 @@ class Scheduler(object):
         if check_for_deadlock():
             if main_tasklet.next is None:
                 if isinstance(prev.tempval, bomb):
-                    main_tasklet.tempval = prev.tempval
+                    SETVAL(main_tasklet, prev.tempval)
                 return self.schedule_task(prev, main_tasklet, stackl)
             retval = make_deadlock_bomb()
-            prev.tempval = retval
+            SETVAL(prev, retval)
 
             return self.schedule_task(prev, prev, stackl)
 
@@ -938,7 +970,9 @@ class Scheduler(object):
             global switches
             switches += 1
             myswitch = switches
-            print '\nschedule_task(%s)' % myswitch, prev, next
+            if DEBUG:
+                print '\n\n!!! schedule_task(%s)' % myswitch, prev, next
+                print
             if next is None:
                 return self.schedule_task_block(prev, stackl)
             if next.blocked:
@@ -965,9 +999,9 @@ class Scheduler(object):
                 print 'after switch(%s) ->' % myswitch ,next
                 print
             #self._set_head(next)
-            self._head = next
+            #self._head = next
 
-            retval = next.tempval
+            retval = prev.tempval
             if isinstance(retval, bomb):
                 print '!!!!! exploding !!!!!!'
                 self.bomb_explode(next)

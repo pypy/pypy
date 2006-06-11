@@ -10,7 +10,7 @@ def g(t):
 def main():
     cg = tasklet(g)('test')
     cf = tasklet(f)()
-    schedule()
+    run()
     print 'in main', getcurrent()
 
 if __name__ == '__main__':
