@@ -136,6 +136,7 @@ def make_deadlock_bomb():
 
 def curexc_to_bomb():
     import sys
+    # XXX note that you should clear the exception
     return bomb(*sys.exc_info())
 
 # channel: see below
@@ -437,6 +438,7 @@ class tasklet(coroutine):
         SETVAL(self, func)
 
     def _is_dead(self):
+        # XXX missing
         return False
 
     def insert(self):
@@ -571,7 +573,7 @@ def channel_callback(chan, task, sending, willblock):
 
 class channel(object):
     """
-   A channel object is used for communication between tasklets.
+    A channel object is used for communication between tasklets.
     By sending on a channel, a tasklet that is waiting to receive
     is resumed. If there is no waiting receiver, the sender is suspended.
     By receiving from a channel, a tasklet that is waiting to send
@@ -622,7 +624,7 @@ class channel(object):
 
     def _channel_remove(self, d):
         ret = self.next
-        assert isinstance(ret,tasklet)
+        assert isinstance(ret, tasklet)
         self.balance -= d
         self._rem(ret)
         ret.blocked = 0
@@ -838,11 +840,9 @@ class channel(object):
     ## needed
     def send_sequence(self, value):
         """
-        channel.send(value) -- send a value over the channel.
-        If no other tasklet is already receiving on the channel,
-        the sender will be blocked. Otherwise, the receiver will
-        be activated immediately, and the sender is put at the end of
-        the runnables list.
+        channel.send_sequence(seq) -- sed a stream of values
+        over the channel. Combined with a generator, this is
+        a very efficient way to build fast pipes.
         """
         for item in value:
             self.send(item)
