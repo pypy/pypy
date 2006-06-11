@@ -6,7 +6,7 @@ Please refer to their documentation.
 
 import sys
 
-#DEBUG = True
+DEBUG = True
 DEBUG = False
 
 switches = 0
@@ -65,7 +65,7 @@ def SETVAL(task, val):
 # thread related stuff: assuming NON threaded execution for now
 
 def check_for_deadlock():
-    return True
+    return False
 
 last_thread_id = 0
 
@@ -279,13 +279,13 @@ def run(timeout=0):
         raise RuntimeError("run() must be run from the main thread's \
                              main tasklet")
     try:
-        scheduler.schedule_task(me, scheduler._head, 1)
+        scheduler.schedule_task(me, scheduler._head)
     except Exception, exp:
         b = curexc_to_bomb()
         main = main_tasklet
         SETVAL(main, b)
         scheduler.current_insert_after(main)
-        scheduler.schedule_task(me, main, 1)
+        scheduler.schedule_task(me, main)
 
 
 def getcurrent():
@@ -731,7 +731,7 @@ class channel(object):
         try:
             if DEBUG:
                 print 'BEFORE SWITCH:',self
-            retval = scheduler.schedule_task(source, target, stackl)
+            retval = scheduler.schedule_task(source, target)
         except Exception, exp:
             print 'schedule_task raised', exp
             print sys.exc_info()
@@ -953,19 +953,21 @@ class Scheduler(object):
             if ret:
                 return errflag
 
-    def schedule_task_block(self, prev, stackl):
+    def schedule_task_block(self, prev):
         next = None
         if check_for_deadlock():
             if main_tasklet.next is None:
                 if isinstance(prev.tempval, bomb):
                     SETVAL(main_tasklet, prev.tempval)
-                return self.schedule_task(prev, main_tasklet, stackl)
+                return self.schedule_task(prev, main_tasklet)
             retval = make_deadlock_bomb()
             SETVAL(prev, retval)
 
-            return self.schedule_task(prev, prev, stackl)
+            return self.schedule_task(prev, prev)
+        next = prev
+        return self.schedule_task(prev, next)
 
-    def schedule_task(self, prev, next, stackl):
+    def schedule_task(self, prev, next):
         try:
             global switches
             switches += 1
@@ -974,7 +976,7 @@ class Scheduler(object):
                 print '\n\n!!! schedule_task(%s)' % myswitch, prev, next
                 print
             if next is None:
-                return self.schedule_task_block(prev, stackl)
+                return self.schedule_task_block(prev)
             if next.blocked:
                 self.channel_remove_slow(next)
                 self.current_insert(next)
