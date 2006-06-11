@@ -8,10 +8,6 @@
 </head>
 
 <body py:match="item.tag=='{http://www.w3.org/1999/xhtml}body'">
-    <!-- p align="center"><img src="http://www.turbogears.org/tgheader.png"/></p -->
-    
-    <div py:if="tg_flash" class="flash" py:content="tg_flash"></div>
-    
     <div py:replace="item[:]"/>
 </body>
 </html>
