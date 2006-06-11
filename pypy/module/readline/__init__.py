@@ -1,5 +1,6 @@
 # this is a sketch of how one might one day be able to define a pretty simple
 # ctypes-using module, suitable for feeding to the ext-compiler
+import py; py.test.skip("in-progress")
 
 from pypy.interpreter.ctypesmodule import CTypesModule
 
