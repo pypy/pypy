@@ -120,8 +120,7 @@ static int setup_globalobjects(globalobjectdef_t* globtable,
 		if (cpydef->setupfn) {
 			cpydef->setupfn(obj);
 			if (RPyExceptionOccurred()) {
-				PyErr_SetString(PyExc_SystemError,
-					    "failed to setup CPython objects");
+				RPyConvertExceptionToCPython();
 				return -1;
 			}
 		}

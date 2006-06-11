@@ -6,12 +6,30 @@ from pypy.objspace.flow.model import Constant, Variable
 from pypy.objspace.flow.model import FunctionGraph, Block, Link
 
 
+class CPyTypeInterface(object):
+
+    def __init__(self, name, objects):
+
+        # the exported name of the type
+        self.name = name
+
+        # a dict {name, pyobjectptr()} for general class attributes
+        # (not for special methods!)
+        self.objects = objects
+
+    def _freeze_(self):
+        return True
+
+
 def cpy_export(cpytype, obj):
     raise NotImplementedError("only works in translated versions")
 
 def cpy_import(rpytype, obj):
     raise NotImplementedError("only works in translated versions")
 
+
+# ____________________________________________________________
+# Implementation
 
 class Entry(ExtRegistryEntry):
     _about_ = cpy_export
@@ -26,9 +44,7 @@ class Entry(ExtRegistryEntry):
             assert s_obj.classdef._cpy_exported_type_ == cpytype
         else:
             s_obj.classdef._cpy_exported_type_ = cpytype
-        s = SomeObject()
-        s.knowntype = cpytype
-        return s
+        return SomeObject()
 
     def specialize_call(self, hop):
         from pypy.rpython.lltypesystem import lltype
@@ -103,7 +119,7 @@ PY_TYPE_OBJECT.become(lltype.PyStruct(
     ('c_tp_members',   lltype.Signed),
     ('c_tp_getset',    lltype.Signed),
     ('c_tp_base',      lltype.Signed),
-    ('c_tp_dict',      lltype.Signed),
+    ('c_tp_dict',      PyObjPtr),
     ('c_tp_descr_get', lltype.Signed),
     ('c_tp_descr_set', lltype.Signed),
     ('c_tp_dictoffset',lltype.Signed),
@@ -121,7 +137,7 @@ PY_TYPE_OBJECT.become(lltype.PyStruct(
                        #                           lltype.Void))),
 
     hints={'c_name': '_typeobject', 'external': True, 'inline_head': True}))
-# XXX should be PyTypeObject but genc inserts 'struct' :-(
+# XXX 'c_name' should be 'PyTypeObject' but genc inserts 'struct' :-(
 
 def ll_tp_dealloc(p):
     addr = llmemory.cast_ptr_to_adr(p)
@@ -134,6 +150,7 @@ def ll_tp_dealloc(p):
 def build_pytypeobject(r_inst):
     from pypy.rpython.lltypesystem.rclass import CPYOBJECTPTR
     from pypy.rpython.rtyper import LowLevelOpList
+    rtyper = r_inst.rtyper
     typetype = lltype.pyobjectptr(type)
 
     # make the graph of tp_new manually    
@@ -152,7 +169,8 @@ def build_pytypeobject(r_inst):
     # build the PyTypeObject structure
     pytypeobj = lltype.malloc(PY_TYPE_OBJECT, flavor='cpy',
                               extra_args=(typetype,))
-    name = r_inst.classdef._cpy_exported_type_.__name__
+    cpytype = r_inst.classdef._cpy_exported_type_
+    name = cpytype.name
     T = lltype.FixedSizeArray(lltype.Char, len(name)+1)
     p = lltype.malloc(T, immortal=True)
     for i in range(len(name)):
@@ -161,11 +179,26 @@ def build_pytypeobject(r_inst):
     pytypeobj.c_tp_name = lltype.direct_arrayitems(p)
     pytypeobj.c_tp_basicsize = llmemory.sizeof(r_inst.lowleveltype.TO)
     pytypeobj.c_tp_flags = CDefinedIntSymbolic('Py_TPFLAGS_DEFAULT')
-    pytypeobj.c_tp_new = r_inst.rtyper.type_system.getcallable(tp_new_graph)
-    pytypeobj.c_tp_dealloc = r_inst.rtyper.annotate_helper_fn(
-        ll_tp_dealloc,
-        [PyObjPtr])
-    return lltype.cast_pointer(PyObjPtr, pytypeobj)
+    pytypeobj.c_tp_new = rtyper.type_system.getcallable(tp_new_graph)
+    pytypeobj.c_tp_dealloc = rtyper.annotate_helper_fn(ll_tp_dealloc,
+                                                       [PyObjPtr])
+    result =  lltype.cast_pointer(PyObjPtr, pytypeobj)
+
+    # the llsetup function that will store the 'objects' into the
+    # type's tp_dict
+    if cpytype.objects:
+        objects = [(lltype.pyobjectptr(name), value)
+                   for name, value in cpytype.objects.items()]
+        
+        def ll_type_setup(p):
+            tp = lltype.cast_pointer(lltype.Ptr(PY_TYPE_OBJECT), p)
+            tp_dict = tp.c_tp_dict
+            for name, value in objects:
+                llop.setitem(PyObjPtr, tp_dict, name, value)
+        result._obj.setup_fnptr = rtyper.annotate_helper_fn(ll_type_setup,
+                                                            [PyObjPtr])
+
+    return result
 
 # To make this a Py_TPFLAGS_BASETYPE, we need to have a tp_new that does
 # something different for subclasses: it needs to allocate a bit more

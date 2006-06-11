@@ -467,7 +467,7 @@ class PyObjectType(ContainerType):
     def _inline_is_varsize(self, last):
         return False
     def _defl(self, parent=None, parentindex=None):
-        return _pyobjheader(Ellipsis, parent, parentindex)
+        return _pyobjheader(parent, parentindex)
 
 PyObject = PyObjectType()
 
@@ -1474,16 +1474,17 @@ class _pyobject(Hashable, _container):
         return "pyobject %s" % (Hashable.__str__(self),)
 
 class _pyobjheader(_parentable):
-
-    def __init__(self, ob_type, parent=None, parentindex=None):
+    def __init__(self, parent=None, parentindex=None):
         _parentable.__init__(self, PyObject)
-        self._setup_extra_args(ob_type)
         if parent is not None:
             self._setparentstructure(parent, parentindex)
+        # the extra attributes 'ob_type' and 'setup_fnptr' are
+        # not set by __init__(), but by malloc(extra_args=(...))
 
-    def _setup_extra_args(self, ob_type):
-        assert ob_type is Ellipsis or typeOf(ob_type) == Ptr(PyObject)
+    def _setup_extra_args(self, ob_type, setup_fnptr=None):
+        assert typeOf(ob_type) == Ptr(PyObject)
         self.ob_type = ob_type
+        self.setup_fnptr = setup_fnptr
 
     def __repr__(self):
         return '<%s>' % (self,)

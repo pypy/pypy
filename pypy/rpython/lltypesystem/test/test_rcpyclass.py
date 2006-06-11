@@ -1,5 +1,6 @@
 from pypy.translator.c.test.test_genc import compile
-from pypy.rpython.rcpy import cpy_export, cpy_import
+from pypy.rpython.rcpy import cpy_export, cpy_import, CPyTypeInterface
+from pypy.rpython.lltypesystem import lltype
 
 
 class W_MyTest(object):
@@ -12,10 +13,9 @@ class W_MyTest(object):
         return self.x * 2
 
 
-def test_cpy_export():
-    class mytest(object):
-        pass
+mytest = CPyTypeInterface('mytest', {})
 
+def test_cpy_export():
     def f():
         w = W_MyTest(21)
         return cpy_export(mytest, w)
@@ -26,9 +26,6 @@ def test_cpy_export():
 
 
 def test_cpy_import():
-    class mytest(object):
-        pass
-
     def f():
         w = W_MyTest(21)
         return cpy_export(mytest, w)
@@ -44,9 +41,6 @@ def test_cpy_import():
 
 
 def test_tp_dealloc():
-    class mytest(object):
-        pass
-
     class A(object):
         pass
 
@@ -69,9 +63,6 @@ def test_tp_dealloc():
 
 
 def test_manipulate_more():
-    class mytest(object):
-        pass
-
     def f(input):
         current = total = 0
         if input:
@@ -99,9 +90,6 @@ def test_manipulate_more():
 
 
 def test_instantiate_from_cpython():
-    class mytest(object):
-        pass
-
     def f(input):
         if input:
             w = cpy_import(W_MyTest, input)
@@ -123,8 +111,6 @@ def test_instantiate_from_cpython():
 
 def test_subclass_from_cpython():
     import py; py.test.skip("not implemented (see comments in rcpy.py)")
-    class mytest(object):
-        pass
 
     def f(input):
         current = total = 10
@@ -155,3 +141,30 @@ def test_subclass_from_cpython():
     del objlist
     obj, total = fn(obj, expected_extra_mallocs=6) # 3 W_MyTests alive
     assert total == 3
+
+
+def test_export_constant():
+    mytest2 = CPyTypeInterface('mytest2', {'hi': lltype.pyobjectptr(123)})
+    def f():
+        w = W_MyTest(21)
+        return cpy_export(mytest2, w)
+
+    fn = compile(f, [])
+    obj = fn(expected_extra_mallocs=1)
+    assert obj.hi == 123
+    assert type(obj).hi == 123
+
+
+def test_export_two_constants():
+    mytest2 = CPyTypeInterface('mytest2', {'hi': lltype.pyobjectptr(123),
+                                           'there': lltype.pyobjectptr("foo")})
+    def f():
+        w = W_MyTest(21)
+        return cpy_export(mytest2, w)
+
+    fn = compile(f, [])
+    obj = fn(expected_extra_mallocs=1)
+    assert obj.hi == 123
+    assert type(obj).hi == 123
+    assert obj.there == "foo"
+    assert type(obj).there == "foo"
