@@ -91,7 +91,6 @@ class CTypesEntry(ExtRegistryEntry):
 ##        """To be overriden for ctypes objects whose mere presence influences
 ##        annotation, e.g. callback functions."""
 
-
 class CTypesCallEntry(CTypesEntry):
     "Annotation and rtyping of calls to ctypes types."
 

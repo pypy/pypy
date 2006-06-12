@@ -1,5 +1,6 @@
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.rmodel import Repr
 from pypy.rpython.extfunctable import typetable
 from pypy.rpython import rbuiltin
@@ -27,7 +28,54 @@ class __extend__(annmodel.SomeExternalObject):
             del attrs['const_box']
         return self.__class__, attrs
 
+class ExternalBuiltinRepr(Repr):
+    def __init__(self, knowntype):
+        self.knowntype = knowntype
+        self.lowleveltype = knowntype
+    
+    def convert_const(self, value):
+        from pypy.rpython.ootypesystem.bltregistry import ExternalType
+        if value is None:
+            return lltype.Void
+        return ExternalType.get(value)
+    
+    def rtype_getattr(self, hop):
+        s_attr = hop.args_s[1]
+        if s_attr.is_constant() and isinstance(s_attr.const, str):
+            field = self.knowntype.get_field(s_attr.const)
+            if isinstance(field, annmodel.SomeBuiltin):
+                # we need to type it as static method
+                args, retval = self.knowntype._methods[s_attr.const]
+                ll_args = [i.rtyper_makerepr(hop.rtyper).lowleveltype for i in args]
+                if retval is None:
+                    ll_retval = ootype.Void
+                else:
+                    ll_retval = retval.rtyper_makerepr(hop.rtyper).lowleveltype
+                return Constant(hop.args_v[0], concretetype=self.lowleveltype)
+                #return Constant(ootype.StaticMethod(ll_args, ll_retval), concretetype=self.lowleveltype)
+                #return Constant(ootype.StaticMethod(ll_args, ll_retval), concretetype = lltype.Void)
+            return self.knowntype.get_field(s_attr.const).rtyper_makerepr(hop.repr).lowleveltype
+        else:
+            raise TyperError("getattr() with a non-constant attribute name")
+    
+    def call_method(self, name, hop):
+        return hop.genop('oosend', [Constant(name)] + hop.args_v, resulttype=hop.r_result)
+    
+    def __getattr__(self, attr):
+        if attr.startswith("rtype_method_"):
+            name = attr[len("rtype_method_"):]
+            return lambda hop: self.call_method(name, hop)
+        else:
+            raise AttributeError(attr)
 
+class __extend__(annmodel.SomeExternalBuiltin):
+    
+    def rtyper_makerepr(self, rtyper):
+        return ExternalBuiltinRepr(self.knowntype)
+    
+    def rtyper_makekey(self):
+        return self.__class__, self.knowntype
+    
 class ExternalObjRepr(Repr):
     """Repr for the (obsolecent) extfunctable.declaretype() case.
     If you use the extregistry instead you get to pick your own Repr.

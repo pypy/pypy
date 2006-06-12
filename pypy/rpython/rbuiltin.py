@@ -49,7 +49,6 @@ class __extend__(annmodel.SomeBuiltin):
             # to it.
             return (self.__class__, self.methodname, id(self.s_self))
 
-
 class BuiltinFunctionRepr(Repr):
     lowleveltype = lltype.Void
 
