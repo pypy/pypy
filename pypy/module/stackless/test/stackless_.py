@@ -33,7 +33,9 @@ except ImportError:
     from coroutine_dummy import coroutine
 
 
-__all__ = 'run getcurrent getmain schedule tasklet channel'.split()
+__all__ = 'run getcurrent getmain schedule tasklet channel TaskletExit'.split()
+
+class TaskletExit(Exception):pass
 
 # interface from original stackless
 # class attributes are placeholders for some kind of descriptor
@@ -101,7 +103,7 @@ def restore_exception(etype, value, stack):
 
 class TaskletProxy(object):
     def __init__(self, coro):
-        self.alive = False
+        self.alive = True
         self.atomic = False
         self.blocked = 0
         self.frame = None
@@ -475,7 +477,7 @@ class tasklet(coroutine):
 
     def _is_dead(self):
         # XXX missing
-        return False
+        return self.is_zombie
 
     def insert(self):
         """
@@ -499,7 +501,9 @@ class tasklet(coroutine):
         If the exception passes the toplevel frame of the tasklet,
         the tasklet will silently die.
         """
-        coroutine.kill(self)
+        if not self._is_dead():
+            coroutine.kill(self)
+        return self.raise_excption(TaskletExit)
 
     ## note: see the C implementation about how to use bombs
     def raise_exception(self, exc, value):
@@ -508,7 +512,9 @@ class tasklet(coroutine):
         tasklet.  exc must be a subclass of Exception.
         The tasklet is immediately activated.
         """
-        pass
+        b = bomb(exc, value)
+        SETVAL(self, b)
+        return scheduler.schedule_task(getcurrent(), self)
 
     def remove(self):
         """
@@ -526,14 +532,13 @@ class tasklet(coroutine):
         Run this tasklet, given that it isn't blocked.
         Blocked tasks need to be reactivated by channels.
         """
-        self.insert()
         ## note: please support different schedulers
         ## and don't mix calls to module functions with scheduler methods.
-        schedule()
+        scheduler.schedule_task(getcurrent(), self)
 
     ## note: needed at some point. right now just a property
     ## the stackless_flags should all be supported
-    def set_atomic(self):
+    def set_atomic(self, val):
         """
         t.set_atomic(flag) -- set tasklet atomic status and return current one.
         If set, the tasklet will not be auto-scheduled.
@@ -548,7 +553,9 @@ class tasklet(coroutine):
         additionally influenced by the interpreter nesting level.
         See set_ignore_nesting.
         """
-        pass
+        tmpval = self.atomic
+        self.atomic = val
+        return tmpval
 
     ## note: see above
     def set_ignore_nesting(self, flag):
@@ -563,7 +570,9 @@ class tasklet(coroutine):
             # do critical stuff
             t.set_ignore_nesting(tmp)
         """
-        pass
+        tmpval = self.ignore_nesting
+        self.ignore_nesting = flag
+        return tmpval
 
     ## note
     ## tasklet(func)(*args, **kwds)
@@ -577,6 +586,7 @@ class tasklet(coroutine):
             raise TypeError('cframe function must be callable')
         coroutine.bind(self,self.tempval,*argl,**argd)
         SETVAL(self, None)
+        self.alive = True
         self.insert()
 """
 /***************************************************************************
