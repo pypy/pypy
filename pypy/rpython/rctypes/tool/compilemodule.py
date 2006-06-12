@@ -9,7 +9,7 @@ import autopath
 import sys
 
 
-def compilemodule(modname):
+def compilemodule(modname, interactive=False):
     "Compile a PyPy module for CPython."
     import pypy.rpython.rctypes.implementation
     from pypy.objspace.cpy.objspace import CPyObjSpace
@@ -63,6 +63,8 @@ def compilemodule(modname):
     except SystemExit:
         raise
     except:
+        if not interactive:
+            raise
         debug(driver)
         raise SystemExit(1)
     return driver.cbuilder.c_ext_module
@@ -109,7 +111,7 @@ def main(argv):
     if len(argv) != 2:
         print >> sys.stderr, __doc__
         sys.exit(2)
-    c_ext_module = compilemodule(argv[1])
+    c_ext_module = compilemodule(argv[1], interactive=True)
     print 'Created %r.' % (c_ext_module.__file__,)
 
 

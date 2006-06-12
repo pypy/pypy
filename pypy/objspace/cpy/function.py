@@ -41,15 +41,16 @@ class UnwrapSpec_Trampoline(UnwrapSpecRecipe):
         tramp.passedargs.append(argname)
 
     def visit__object(self, el, orig_sig, tramp):
-        convertermap = {int: '___PyInt_AsLong',
-                        str: '___PyString_AsString',
-                        float: 'XXX'}
+        convertermap = {int: 'int_w',
+                        str: 'str_w',
+                        float: 'float_w'}
         argname = orig_sig.next_arg()
         assert not argname.startswith('w_')
         tramp.inputargs.append(argname)
-        tramp.wrappings.append('%s = %s(%s)' % (argname,
-                                                convertermap[el],
-                                                argname))
+        tramp.wrappings.append('%s = ___space.%s(___W_Object(%s))' %
+                               (argname,
+                                convertermap[el],
+                                argname))
         tramp.passedargs.append(argname)
 
 
@@ -88,8 +89,6 @@ class FunctionCache(SpaceCache):
         tramp.miniglobals = {
             '___space':           space,
             '___W_Object':        CPyObjSpace.W_Object,
-            '___PyInt_AsLong':    PyInt_AsLong,
-            '___PyString_AsString':    PyString_AsString, 
             '___bltin':           bltin,
             '___OperationError':  OperationError,
             '___reraise':         reraise,
