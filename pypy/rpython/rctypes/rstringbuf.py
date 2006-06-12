@@ -5,6 +5,7 @@ from pypy.rpython.rctypes.rmodel import CTypesRefRepr
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.rslice import AbstractSliceRepr
 from pypy.rpython.lltypesystem.rstr import string_repr
+from pypy.rpython.error import TyperError
 
 class StringBufRepr(CTypesRefRepr):
 
@@ -15,13 +16,18 @@ class StringBufRepr(CTypesRefRepr):
                          resulttype = lltype.Signed)
 
     def rtype_getattr(self, hop):
-        from pypy.rpython.rctypes.rarray import ll_chararrayvalue
         s_attr = hop.args_s[1]
         assert s_attr.is_constant()
-        assert s_attr.const == 'value'
         v_box = hop.inputarg(self, 0)
         hop.exception_cannot_occur()
-        return hop.gendirectcall(ll_chararrayvalue, v_box)
+        if s_attr.const == 'value':
+            from pypy.rpython.rctypes.rarray import ll_chararrayvalue
+            return hop.gendirectcall(ll_chararrayvalue, v_box)
+        elif s_attr.const == 'raw':
+            return hop.gendirectcall(ll_stringbufraw, v_box)
+        else:
+            raise TyperError("StringBufRepr has no attribute %r" % (
+                s_attr.const,))
 
     def rtype_setattr(self, hop):
         s_attr = hop.args_s[1]
@@ -112,5 +118,12 @@ def ll_stringbuf_setvalue_from_string(box, s):
     for i in range(n):
         p[i] = s.chars[i]
 
+def ll_stringbufraw(box):
+    p = box.c_data
+    length = len(p)
+    newstr = lltype.malloc(string_repr.lowleveltype.TO, length)
+    for i in range(length):
+        newstr.chars[i] = p[i]
+    return newstr
 
 STRBUFTYPE = lltype.Array(lltype.Char)

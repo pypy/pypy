@@ -124,6 +124,17 @@ class Test_specialization:
         res = interpret(func, [12])
         assert ''.join(res.chars) == "xy"
 
+    def test_specialize_raw(self):
+        def func(n):
+            buf = create_string_buffer(n)
+            buf[0] = 'x'
+            buf[1] = '\x00'
+            buf[2] = 'y'
+            return buf.raw
+
+        res = interpret(func, [3])
+        assert ''.join(res.chars) == "x\x00y"
+
     def test_specialize_setvalue(self):
         def func(n):
             buf = create_string_buffer(n)

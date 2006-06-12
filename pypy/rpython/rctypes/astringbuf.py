@@ -40,7 +40,7 @@ class ObjEntry(CTypesObjEntry):
     _type_ = StringBufferType
 
     def get_field_annotation(self, s_array, fieldname):
-        assert fieldname == 'value'
+        assert fieldname in ('value', 'raw')
         return SomeString()   # can_be_None = False
 
     def get_repr(self, rtyper, s_stringbuf):
