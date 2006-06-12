@@ -61,9 +61,12 @@ def compilemodule(modname):
     driver.proceed(['compile_c'])
     return driver.cbuilder.c_ext_module
 
-
-if __name__ == '__main__':
-    if len(sys.argv) != 2:
+def main(argv):
+    if len(argv) != 2:
         print >> sys.stderr, __doc__
         sys.exit(2)
-    compilemodule(sys.argv[1])
+    compilemodule(argv[1])
+
+
+if __name__ == '__main__':
+    main(sys.argv)
