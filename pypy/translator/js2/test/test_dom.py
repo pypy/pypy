@@ -5,7 +5,8 @@
 import py
 
 from pypy.translator.js2.test.runtest import compile_function
-from pypy.translator.js2.modules.dom import document, Node, get_document, setTimeout
+from pypy.translator.js2.modules.dom import Node, get_document, setTimeout, alert
+from pypy.translator.js2.modules.xmlhttp import XMLHttpRequest
 from pypy.translator.js2 import conftest
 
 import time
@@ -45,22 +46,45 @@ class Mover(object):
     def move_it(self):
         #self.move_it_by(self.elem, 3, 3)
         self.move_it_by(get_document().getElementById(self.elem), 3, 3)
+        setTimeout(move_it, 10)
 
 movers = [Mover("anim_img"), Mover("anim_img2")]
 movers[1].x = 20
 
 def move_it():
     movers[0].move_it()
-    movers[1].move_it()
+    #movers[1].move_it()
 
 def test_anim_f():  
     def anim_fun():
-        obj = get_document().getElementById("anim_img")
-        obj.setAttribute('style', 'position: absolute; top: 0; left: 0;')
-        obj2 = get_document().getElementById("anim_img2")
-        obj2.setAttribute('style', 'position: absolute; top: 50; left: 0;')
+        obj = get_document().createElement('img')
+        obj.id = 'anim_img'
+        obj.setAttribute('style', 'position:absolute; top:0; left:0;')
+        obj.src = '/static/gfx/BubBob.gif'
+        get_document().body.appendChild(obj)
+        #obj2 = get_document().getElementById("anim_img2")
+        #obj2.setAttribute('style', 'position: absolute; top: 50; left: 0;')
         move_it()
+        setTimeout(move_it, 10)
         return get_document().getElementById("anim_img").style.left
     
     fn = compile_function(anim_fun, [], html = 'html/anim.html')
     assert fn() == '3px'
+
+xml = XMLHttpRequest()
+
+def t_xml_fun():
+    if xml.readyState == 4:
+        alert('Wow!')
+
+def test_xmlhttp():
+    """ Low level XMLHttpRequest test
+    """
+    def xml_fun():
+        return 4+4
+        #xml.open('GET', 'http://localhost:8080/get_some_info?info=dupa', True)
+        #xml.onreadystatechange = t_xml_fun
+        #xml.send__n(None)
+    
+    fn = compile_function(xml_fun, [])
+    fn()

@@ -13,6 +13,7 @@ from pypy.translator.js2.log import log
 from pypy.conftest import option
 log = log.runtest
 use_browsertest = conftest.option.browser
+use_tg = conftest.option.tg
 
 def _CLI_is_on_path():
     try:
@@ -56,8 +57,14 @@ class compile_function(object):
         #    function_call = "slp_entry_point('%s')" % function_call
 
         if use_browsertest:
-            log("Used html: %r" % self.html)
-            output = jstest(self.js.filename, function_call, use_browsertest, self.html, self.is_interactive)
+            if not use_tg:
+                log("Used html: %r" % self.html)
+                output = jstest(self.js.filename, function_call, use_browsertest, self.html, self.is_interactive)
+            else:
+                from pypy.translator.js2.test.tgtest import run_tgtest
+                out = run_tgtest(self, None).results
+                assert out[1] == 'undefined'
+                output = out[0]
         else:
             cmd = 'echo "load(\'%s\'); print(%s)" | js 2>&1' % (self.js.filename, function_call)
             log(cmd)

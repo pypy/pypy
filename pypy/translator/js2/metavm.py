@@ -86,10 +86,6 @@ class _NotImplemented(MicroInstruction):
     def render(self, generator, op):
         raise NotImplementedError(self.reason)
         
-class _New(MicroInstruction):
-    def render(self, generator, op):
-        generator.new(op.args[0].value)
-
 class _CastString(MicroInstruction):
     def render(self, generator, op):
         this = op.args[0]
@@ -171,6 +167,14 @@ class _SetTimeout(MicroInstruction):
         generator.load(op.args[2])
         generator.call_external('setTimeout',[0]*2)
 
+class _XmlSetCallback(MicroInstruction):
+    # FIXME: Another dirty hack. To remove soon
+    def render(self, generator, op):
+        generator.load(op.args[2])
+        generator.load(op.args[1])
+        generator.set_field(None, 'onreadystatechange')
+
+XmlSetCallback = _XmlSetCallback()
 SetTimeout = _SetTimeout()
 IndirectCall = _IndirectCall()
 IsInstance = _IsInstance()

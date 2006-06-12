@@ -195,6 +195,8 @@ class AbstractConst(object):
             return RecordConst(db, const)
         elif isinstance(const, ootype._string):
             return StringConst(db, const)
+        elif isinstance(const, ootype._dict):
+            return DictConst(db, const)
         else:
             assert False, 'Unknown constant: %s %r' % (const, typeOf(const))
     make = staticmethod(make)
@@ -240,7 +242,11 @@ class InstanceConst(AbstractConst):
 
     def init(self, ilasm):
         classdef = self.obj._TYPE
-        ilasm.new(classdef._name.replace(".", "_"))
+        try:
+            classdef._hints['_suggested_external']
+            ilasm.new(classdef._name.split(".")[-1])
+        except KeyError:
+            ilasm.new(classdef._name.replace(".", "_"))
     
     def record_fields(self):
         # we support only primitives, tuples, strings and lists
@@ -354,3 +360,19 @@ class BuiltinConst(AbstractConst):
     
     def init(self, ilasm):
         ilasm.load_str(self.name)
+
+class DictConst(RecordConst):
+    def record_fields(self):
+        for i in self.const._dict:
+            name = self.db.record_const(self.const._dict[i],'const')
+            if name is not None:
+                self.depends.add(name)
+
+    def init_fields(self, ilasm, const_var, name):
+        for i in self.const._dict:
+            ilasm.load_local(const_var)
+            el = self.const._dict[i]
+            self.db.load_const(typeOf(el), el, ilasm)
+            self.db.load_const(typeOf(i), i, ilasm)
+            ilasm.list_setitem()
+            ilasm.store_void()

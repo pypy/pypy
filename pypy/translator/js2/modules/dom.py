@@ -74,3 +74,7 @@ def setTimeout(func, delay):
 
 setTimeout.suggested_primitive = True
 
+def alert(msg):
+    pass
+
+alert.suggested_primitive = True

@@ -4,7 +4,7 @@
 
 from pypy.translator.oosupport.metavm import InstructionList, PushAllArgs
 from pypy.translator.js2.metavm import SetBuiltinField, ListGetitem, ListSetitem, \
-    GetBuiltinField, CallBuiltin, Call, SetTimeout
+    GetBuiltinField, CallBuiltin, Call, SetTimeout, XmlSetCallback
 
 from pypy.rpython.ootypesystem import ootype
 
@@ -18,9 +18,11 @@ class _Builtins(object):
             'll_alloc_and_set' : CallBuiltin('alloc_and_set'),
             'get_document' : lambda g,op: g.ilasm.load_const('document'),
             'setTimeout' : SetTimeout,
+            'xmlSetCallback' : XmlSetCallback,
             'll_int_str' : lambda g,op: Call._render_builtin_method(g, 'toString' , [op.args[2]]),
             'll_strconcat' : InstructionList([PushAllArgs, '+']),
             'll_int' : CallBuiltin('parseInt'),
+            'alert' : CallBuiltin('alert'),
         }
         self.builtin_obj_map = {
             ootype.String.__class__: {

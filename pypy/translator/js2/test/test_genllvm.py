@@ -204,7 +204,7 @@ def test_prebuilt_tuples():
     assert f(1) == 2
 
 def test_pbc_fns():
-    py.test.skip("Indirect call not implemented")
+    #py.test.skip("Indirect call not implemented")
     def f2(x):
          return x+1
     def f3(x):
@@ -419,3 +419,18 @@ def test_cast_str():
     f = compile_function(cast_str, [int])
     assert f(1) == cast_str(1)
     assert f(10) == cast_str(10)
+
+class A(object):
+    pass
+
+def some_fun():
+    return 3
+
+def test_me():
+    def some_test():
+        a = A()
+        a.some_fun = some_fun
+        return a.some_fun()
+    
+    fn = compile_function(some_test, [])
+    assert fn() == some_test()
