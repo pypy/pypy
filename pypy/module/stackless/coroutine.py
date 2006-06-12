@@ -145,6 +145,7 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         args_w = space.unpackiterable(w_args)
         w_flags, w_state = args_w
         self.flags = space.int_w(w_flags)
+        self.parent = AppCoroutine._get_state(space).current
         ec = self.space.getexecutioncontext()
         ec.subcontext_setstate(self, w_state)
         self.reconstruct_framechain()
