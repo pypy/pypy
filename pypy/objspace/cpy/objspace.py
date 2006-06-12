@@ -55,13 +55,18 @@ class CPyObjSpace(baseobjspace.ObjSpace):
         return w_obj.value
 
     def interpclass_w(self, w_obj):
-        try:
-            w_obj, obj, follow = self.wrap_cache[id(w_obj)]
-        except KeyError:
-            from pypy.objspace.cpy.typedef import cpython2rpython
-            return cpython2rpython(self, w_obj)
-        else:
-            return obj
+        raise NotImplementedError("interpclass_w()")
+
+    def interp_w(self, RequiredClass, w_obj, can_be_None=False):
+        """
+	 Unwrap w_obj, checking that it is an instance of the required internal
+	 interpreter class (a subclass of Wrappable).
+	"""
+	if can_be_None and self.is_w(w_obj, self.w_None):
+	    return None
+        from pypy.objspace.cpy.typedef import cpython2rpython
+        return cpython2rpython(self, RequiredClass, w_obj)
+    interp_w._annspecialcase_ = 'specialize:arg(1)'
 
     # __________ operations with a direct CPython equivalent __________
 

@@ -8,23 +8,36 @@ from pypy.objspace.flow.model import FunctionGraph, Block, Link
 
 class CPyTypeInterface(object):
 
-    def __init__(self, name, objects):
+    def __init__(self, name, objects={}):
 
         # the exported name of the type
         self.name = name
 
-        # a dict {name, pyobjectptr()} for general class attributes
+        # a dict {name: pyobjectptr()} for general class attributes
         # (not for special methods!)
-        self.objects = objects
+        self.objects = objects.copy()
 
     def _freeze_(self):
         return True
+
+    def emulate(self, rootbase):
+        "Build a type object that emulates 'self'."
+        d = {}
+        for name, value in self.objects.items():
+            assert lltype.typeOf(value) == PyObjPtr
+            assert isinstance(value._obj, lltype._pyobject)
+            d[name] = value._obj.value
+        t = type(self.name, (rootbase,), d)
+        return t
 
 
 def cpy_export(cpytype, obj):
     raise NotImplementedError("only works in translated versions")
 
 def cpy_import(rpytype, obj):
+    raise NotImplementedError("only works in translated versions")
+
+def cpy_typeobject(cpytype, cls):
     raise NotImplementedError("only works in translated versions")
 
 
@@ -40,10 +53,7 @@ class Entry(ExtRegistryEntry):
         assert isinstance(s_obj, SomeInstance)
         assert s_cpytype.is_constant()
         cpytype = s_cpytype.const
-        if hasattr(s_obj.classdef, '_cpy_exported_type_'):
-            assert s_obj.classdef._cpy_exported_type_ == cpytype
-        else:
-            s_obj.classdef._cpy_exported_type_ = cpytype
+        attach_cpy_flavor(s_obj.classdef, cpytype)
         return SomeObject()
 
     def specialize_call(self, hop):
@@ -79,6 +89,40 @@ class Entry(ExtRegistryEntry):
         v_obj = hop.inputarg(pyobj_repr, arg=1)
         return hop.genop('cast_pointer', [v_obj],
                          resulttype = r_inst.lowleveltype)
+
+
+class Entry(ExtRegistryEntry):
+    _about_ = cpy_typeobject
+
+    def compute_result_annotation(self, s_cpytype, s_cls):
+        from pypy.annotation.model import SomeObject
+        assert s_cls.is_constant()
+        assert s_cpytype.is_constant()
+        cpytype = s_cpytype.const
+        [classdesc] = s_cls.descriptions
+        classdef = classdesc.getuniqueclassdef()
+        attach_cpy_flavor(classdef, cpytype)
+        return SomeObject()
+
+    def specialize_call(self, hop):
+        from pypy.rpython.rclass import getinstancerepr
+        s_cls = hop.args_s[1]
+        assert s_cls.is_constant()
+        [classdesc] = s_cls.descriptions
+        classdef = classdesc.getuniqueclassdef()
+        r_inst = getinstancerepr(hop.rtyper, classdef)
+        cpytype = build_pytypeobject(r_inst)
+        return hop.inputconst(PyObjPtr, cpytype)
+
+
+def attach_cpy_flavor(classdef, cpytype):
+    for parentdef in classdef.getmro():
+        if not hasattr(parentdef, '_cpy_exported_type_'):
+            parentdef._cpy_exported_type_ = None
+    if classdef._cpy_exported_type_ is None:
+        classdef._cpy_exported_type_ = cpytype
+    else:
+        assert classdef._cpy_exported_type_ == cpytype
 
 
 PyObjPtr = lltype.Ptr(lltype.PyObject)
@@ -148,57 +192,69 @@ def ll_tp_dealloc(p):
     llop.gc_deallocate(lltype.Void, CPYOBJECT, addr)
 
 def build_pytypeobject(r_inst):
-    from pypy.rpython.lltypesystem.rclass import CPYOBJECTPTR
-    from pypy.rpython.rtyper import LowLevelOpList
     rtyper = r_inst.rtyper
-    typetype = lltype.pyobjectptr(type)
+    cache = rtyper.classdef_to_pytypeobject
+    try:
+        return cache[r_inst.classdef]
+    except KeyError:
+        for parentdef in r_inst.classdef.getmro():
+            cpytype = parentdef._cpy_exported_type_
+            if cpytype is not None:
+                break
+        else:
+            # for classes that cannot be exported at all
+            return lltype.nullptr(lltype.PyObject)
 
-    # make the graph of tp_new manually    
-    v1 = Variable('tp');   v1.concretetype = lltype.Ptr(PY_TYPE_OBJECT)
-    v2 = Variable('args'); v2.concretetype = PyObjPtr
-    v3 = Variable('kwds'); v3.concretetype = PyObjPtr
-    block = Block([v1, v2, v3])
-    llops = LowLevelOpList(None)
-    v4 = r_inst.new_instance(llops, v_cpytype = v1)
-    v5 = llops.genop('cast_pointer', [v4], resulttype = PyObjPtr)
-    block.operations = list(llops)
-    tp_new_graph = FunctionGraph('ll_tp_new', block)
-    block.closeblock(Link([v5], tp_new_graph.returnblock))
-    tp_new_graph.getreturnvar().concretetype = v5.concretetype
+        from pypy.rpython.lltypesystem.rclass import CPYOBJECTPTR
+        from pypy.rpython.rtyper import LowLevelOpList
+        typetype = lltype.pyobjectptr(type)
 
-    # build the PyTypeObject structure
-    pytypeobj = lltype.malloc(PY_TYPE_OBJECT, flavor='cpy',
-                              extra_args=(typetype,))
-    cpytype = r_inst.classdef._cpy_exported_type_
-    name = cpytype.name
-    T = lltype.FixedSizeArray(lltype.Char, len(name)+1)
-    p = lltype.malloc(T, immortal=True)
-    for i in range(len(name)):
-        p[i] = name[i]
-    p[len(name)] = '\x00'
-    pytypeobj.c_tp_name = lltype.direct_arrayitems(p)
-    pytypeobj.c_tp_basicsize = llmemory.sizeof(r_inst.lowleveltype.TO)
-    pytypeobj.c_tp_flags = CDefinedIntSymbolic('Py_TPFLAGS_DEFAULT')
-    pytypeobj.c_tp_new = rtyper.type_system.getcallable(tp_new_graph)
-    pytypeobj.c_tp_dealloc = rtyper.annotate_helper_fn(ll_tp_dealloc,
-                                                       [PyObjPtr])
-    result =  lltype.cast_pointer(PyObjPtr, pytypeobj)
+        # make the graph of tp_new manually    
+        v1 = Variable('tp');   v1.concretetype = lltype.Ptr(PY_TYPE_OBJECT)
+        v2 = Variable('args'); v2.concretetype = PyObjPtr
+        v3 = Variable('kwds'); v3.concretetype = PyObjPtr
+        block = Block([v1, v2, v3])
+        llops = LowLevelOpList(None)
+        v4 = r_inst.new_instance(llops, v_cpytype = v1)
+        v5 = llops.genop('cast_pointer', [v4], resulttype = PyObjPtr)
+        block.operations = list(llops)
+        tp_new_graph = FunctionGraph('ll_tp_new', block)
+        block.closeblock(Link([v5], tp_new_graph.returnblock))
+        tp_new_graph.getreturnvar().concretetype = v5.concretetype
 
-    # the llsetup function that will store the 'objects' into the
-    # type's tp_dict
-    if cpytype.objects:
-        objects = [(lltype.pyobjectptr(name), value)
-                   for name, value in cpytype.objects.items()]
-        
-        def ll_type_setup(p):
-            tp = lltype.cast_pointer(lltype.Ptr(PY_TYPE_OBJECT), p)
-            tp_dict = tp.c_tp_dict
-            for name, value in objects:
-                llop.setitem(PyObjPtr, tp_dict, name, value)
-        result._obj.setup_fnptr = rtyper.annotate_helper_fn(ll_type_setup,
-                                                            [PyObjPtr])
+        # build the PyTypeObject structure
+        pytypeobj = lltype.malloc(PY_TYPE_OBJECT, flavor='cpy',
+                                  extra_args=(typetype,))
+        name = cpytype.name
+        T = lltype.FixedSizeArray(lltype.Char, len(name)+1)
+        p = lltype.malloc(T, immortal=True)
+        for i in range(len(name)):
+            p[i] = name[i]
+        p[len(name)] = '\x00'
+        pytypeobj.c_tp_name = lltype.direct_arrayitems(p)
+        pytypeobj.c_tp_basicsize = llmemory.sizeof(r_inst.lowleveltype.TO)
+        pytypeobj.c_tp_flags = CDefinedIntSymbolic('Py_TPFLAGS_DEFAULT')
+        pytypeobj.c_tp_new = rtyper.type_system.getcallable(tp_new_graph)
+        pytypeobj.c_tp_dealloc = rtyper.annotate_helper_fn(ll_tp_dealloc,
+                                                           [PyObjPtr])
+        result =  lltype.cast_pointer(PyObjPtr, pytypeobj)
 
-    return result
+        # the llsetup function that will store the 'objects' into the
+        # type's tp_dict
+        if cpytype.objects:
+            objects = [(lltype.pyobjectptr(name), value)
+                       for name, value in cpytype.objects.items()]
+
+            def ll_type_setup(p):
+                tp = lltype.cast_pointer(lltype.Ptr(PY_TYPE_OBJECT), p)
+                tp_dict = tp.c_tp_dict
+                for name, value in objects:
+                    llop.setitem(PyObjPtr, tp_dict, name, value)
+            result._obj.setup_fnptr = rtyper.annotate_helper_fn(ll_type_setup,
+                                                                [PyObjPtr])
+
+        cache[r_inst.classdef] = result
+        return result
 
 # To make this a Py_TPFLAGS_BASETYPE, we need to have a tp_new that does
 # something different for subclasses: it needs to allocate a bit more

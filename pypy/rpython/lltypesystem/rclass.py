@@ -493,13 +493,8 @@ class InstanceRepr(AbstractInstanceRepr):
                 vlist.insert(0, inputconst(Void, flavor))
                 if flavor == 'cpy':
                     if v_cpytype is None:
-                        cache = self.rtyper.classdef_to_pytypeobject
-                        try:
-                            cpytype = cache[self.classdef]
-                        except KeyError:
-                            from pypy.rpython import rcpy
-                            cpytype = rcpy.build_pytypeobject(self)
-                            cache[self.classdef] = cpytype
+                        from pypy.rpython import rcpy
+                        cpytype = rcpy.build_pytypeobject(self)
                         v_cpytype = inputconst(Ptr(PyObject), cpytype)
                     vlist.append(v_cpytype)
         vptr = llops.genop(mallocop, vlist,

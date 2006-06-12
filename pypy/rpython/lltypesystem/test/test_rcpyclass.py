@@ -1,5 +1,6 @@
 from pypy.translator.c.test.test_genc import compile
 from pypy.rpython.rcpy import cpy_export, cpy_import, CPyTypeInterface
+from pypy.rpython.rcpy import cpy_typeobject
 from pypy.rpython.lltypesystem import lltype
 
 
@@ -168,3 +169,13 @@ def test_export_two_constants():
     assert type(obj).hi == 123
     assert obj.there == "foo"
     assert type(obj).there == "foo"
+
+
+def test_cpy_typeobject():
+    def f():
+        return cpy_typeobject(mytest, W_MyTest)
+
+    fn = compile(f, [])
+    typeobj = fn()
+    assert isinstance(typeobj, type)
+    assert typeobj.__name__ == 'mytest'

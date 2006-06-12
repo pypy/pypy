@@ -422,13 +422,13 @@ class HalfConcreteWrapper:
 PyObjPtr = Ptr(PyObject)
 
 def getgcflavor(classdef):
-    if hasattr(classdef, '_cpy_exported_type_'):
-        return 'cpy'
-    else:
-        classdesc = classdef.classdesc
-        alloc_flavor = classdesc.read_attribute('_alloc_flavor_',
-                                                Constant('gc')).value     
-        return alloc_flavor
+    for parentdef in classdef.getmro():
+        if hasattr(parentdef, '_cpy_exported_type_'):
+            return 'cpy'
+    classdesc = classdef.classdesc
+    alloc_flavor = classdesc.read_attribute('_alloc_flavor_',
+                                            Constant('gc')).value
+    return alloc_flavor
 
 def externalvsinternal(rtyper, item_repr): # -> external_item_repr, (internal_)item_repr
     from pypy.rpython import rclass
