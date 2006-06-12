@@ -86,11 +86,11 @@ class TypeDefCache(SpaceCache):
         space = cache.space
         objects = {}
         for name, value in typedef.rawdict.items():
-            if name.startswith('__') and name.endswith('__'):
-                raise NotImplementedError("missing support for special "
-                                          "attributes in TypeDef-to-CPython "
-                                          "converter (%s.%s)" % (
-                    typedef.name, name))
+            #if name.startswith('__') and name.endswith('__'):
+            #    raise NotImplementedError("missing support for special "
+            #                              "attributes in TypeDef-to-CPython "
+            #                              "converter (%s.%s)" % (
+            #        typedef.name, name))
             w_value = space.wrap(value)
             objects[name] = lltype.pyobjectptr(w_value.value)
         typeintf = CPyTypeInterface(typedef.name, objects)

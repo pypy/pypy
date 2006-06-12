@@ -2,6 +2,7 @@ import py
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import interp_attrproperty
 from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root
 from pypy.interpreter.function import BuiltinFunction
 from pypy.objspace.cpy.ann_policy import CPyAnnotatorPolicy
@@ -115,3 +116,38 @@ def test_method():
     res = fn(expected_extra_mallocs=1)
     assert type(res).__name__ == 'MyType'
     assert res.multiply(3) == 369
+
+
+def test_interp_attrproperty():
+    W_MyType.typedef = TypeDef("MyType",
+                               x = interp_attrproperty("x", W_MyType))
+    space = CPyObjSpace()
+
+    def mytest(w_myobj):
+        myobj = space.interp_w(W_MyType, w_myobj, can_be_None=True)
+        if myobj is None:
+            myobj = W_MyType(space)
+            myobj.x = 1
+        myobj.x *= 2
+        w_myobj = space.wrap(myobj)
+        w_x = space.wrap(myobj.x)
+        return space.newtuple([w_myobj, w_x])
+
+    def fn(obj):
+        w_obj = W_Object(obj)
+        w_res = mytest(w_obj)
+        return w_res.value
+    fn.allow_someobjects = True
+
+    fn = compile(fn, [object],
+                 annotatorpolicy = CPyAnnotatorPolicy(space))
+
+    res, x = fn(None, expected_extra_mallocs=1)
+    assert type(res).__name__ == 'MyType'
+    assert x == 2
+    assert res.x == 2
+
+    res2, x = fn(res, expected_extra_mallocs=1)
+    assert res2 is res
+    assert x == 4
+    assert res.x == 4

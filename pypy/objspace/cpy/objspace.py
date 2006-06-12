@@ -3,6 +3,7 @@ from pypy.objspace.cpy.refcount import Py_Incref
 from pypy.interpreter import baseobjspace
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import Function
+from pypy.interpreter.typedef import GetSetProperty
 
 
 class CPyObjSpace(baseobjspace.ObjSpace):
@@ -36,6 +37,9 @@ class CPyObjSpace(baseobjspace.ObjSpace):
             if isinstance(x, Function):
                 from pypy.objspace.cpy.function import FunctionCache
                 return self.fromcache(FunctionCache).getorbuild(x)
+            if isinstance(x, GetSetProperty):
+                from pypy.objspace.cpy.property import PropertyCache
+                return self.fromcache(PropertyCache).getorbuild(x)
             # normal case
             from pypy.objspace.cpy.typedef import rpython2cpython
             return rpython2cpython(self, x)
