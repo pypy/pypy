@@ -274,6 +274,8 @@ def run(timeout=0):
     tasklet that caused a timeout, if any.
     If an exception occours, it will be passed to the main tasklet.
     """
+    if DEBUG:
+        print 'stackless.run()'
     me = scheduler.current_remove()
     if me is not main_tasklet:
         raise RuntimeError("run() must be run from the main thread's \
@@ -281,6 +283,8 @@ def run(timeout=0):
     try:
         scheduler.schedule_task(me, scheduler._head)
     except Exception, exp:
+        if DEBUG:
+            print 'run: in Excpetion', exp
         b = curexc_to_bomb()
         main = main_tasklet
         SETVAL(main, b)
@@ -311,7 +315,7 @@ def schedule(retval=None):
     """
     prev = scheduler._head
     next = prev.next
-    return scheduler.schedule_task(prev, next, 0)
+    return scheduler.schedule_task(prev, next)
 """
 /***************************************************************************
 
@@ -586,7 +590,7 @@ class channel(object):
     def __init__(self):
         self.balance = 0
         self.closing = False
-        self.preference = 0
+        self.preference = -1
         self.next = self.prev = self
         self.schedule_all = False
         self.thread_id = -2
@@ -706,13 +710,20 @@ class channel(object):
                     raise Exception('no interthreading: I can not be reached...')
                 else:
                     if self.schedule_all:
+                        if DEBUG:
+                            print '--- in if ---'
                         scheduler.current_insert(target)
                         target = source.next
                     elif self.preference == -d:
-                        scheduler._head = source.next
+                        if DEBUG:
+                            print '--- in elif ---'
+                        scheduler._set_head(source.next)
                         scheduler.current_insert(target)
-                        scheduler._head = source
+                        scheduler._set_head(source)
+                        #schedule._head = target
                     else:
+                        if DEBUG:
+                            print '--- else ---'
                         scheduler.current_insert(target)
                         target = source
             else:
@@ -850,7 +861,7 @@ class channel(object):
 class Scheduler(object):
 
     def __init__(self):
-        self._head = getcurrent()
+        self._set_head(getcurrent())
 
     def _set_head(self, task):
         self._head = task
@@ -964,6 +975,7 @@ class Scheduler(object):
             SETVAL(prev, retval)
 
             return self.schedule_task(prev, prev)
+
         next = prev
         return self.schedule_task(prev, next)
 
@@ -988,6 +1000,8 @@ class Scheduler(object):
                     self.bomb_explode(prev)
                 return retval
             self._notify_schedule(prev, next, None)
+            #assert next is self._head
+            self._set_head(next)
         except Exception, exp:
             print '### Exception BEFORE switch', exp
             raise

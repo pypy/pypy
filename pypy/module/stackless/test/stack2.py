@@ -26,13 +26,11 @@ def f(outchan):
     for i in range(10):
         print 'T1: sending',i
         outchan.send(i)
-        print 'T1: after sending'
     print 'T1: sending -1'
     outchan.send(-1)
 
 def g(inchan):
     while 1:
-        print 'T2: before receiving'
         val = inchan.receive()
         print 'T2: received',val
         if val == -1:

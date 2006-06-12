@@ -1,17 +1,19 @@
-from stackless_ import *
+import stackless
+if hasattr(stackless,'coroutine'):
+    import stackless_ as stackless
 
 def f():
-    print 'in f', getcurrent()
+    print 'in f', stackless.getcurrent()
 
 def g(t):
-    print 'in g %s' % t , getcurrent()
-    schedule()
+    print 'in g %s' % t , stackless.getcurrent()
+    stackless.schedule()
 
 def main():
-    cg = tasklet(g)('test')
-    cf = tasklet(f)()
-    run()
-    print 'in main', getcurrent()
+    cg = stackless.tasklet(g)('test')
+    cf = stackless.tasklet(f)()
+    stackless.run()
+    print 'in main', stackless.getcurrent()
 
 if __name__ == '__main__':
     main()
