@@ -109,7 +109,7 @@ class StructDefNode:
         else:
             # field names have to start with 'c_' or be meant for names that
             # vanish from the C source, like 'head' if 'inline_head' is set
-            raise Exception("field %r should not be accessed in this way" % (
+            raise ValueError("field %r should not be accessed in this way" % (
                 name,))
 
     def c_struct_field_type(self, name):
@@ -172,8 +172,12 @@ class StructDefNode:
             if FIELD_T is Void:
                 yield '-1'
             else:
-                cname = self.c_struct_field_name(name)
-                yield 'offsetof(struct %s, %s)' % (self.name, cname)
+                try:
+                    cname = self.c_struct_field_name(name)
+                except ValueError:
+                    yield '-1'
+                else:
+                    yield 'offsetof(struct %s, %s)' % (self.name, cname)
 
 
 class ArrayDefNode:

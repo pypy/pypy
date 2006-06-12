@@ -4,6 +4,7 @@ from pypy.interpreter import baseobjspace
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import Function
 from pypy.interpreter.typedef import GetSetProperty
+from pypy.rpython.rarithmetic import r_uint
 
 
 class CPyObjSpace(baseobjspace.ObjSpace):
@@ -14,6 +15,7 @@ class CPyObjSpace(baseobjspace.ObjSpace):
         self.w_int   = W_Object(int)
         self.w_tuple = W_Object(tuple)
         self.w_str   = W_Object(str)
+        self.w_unicode = W_Object(unicode)
         self.w_None  = W_Object(None)
         self.w_False = W_Object(False)
         self.w_True  = W_Object(True)
@@ -51,6 +53,11 @@ class CPyObjSpace(baseobjspace.ObjSpace):
             return PyString_FromStringAndSize(x, len(x))
         if isinstance(x, float): 
             return PyFloat_FromDouble(x)
+        if isinstance(x, r_uint):
+            return PyLong_FromUnsignedLong(x)
+        # if we arrive here during RTyping, then the problem is *not* the %r
+        # in the format string, but it's that someone is calling space.wrap()
+        # on a strange object.
         raise TypeError("wrap(%r)" % (x,))
     wrap._annspecialcase_ = "specialize:wrap"
 
@@ -80,8 +87,8 @@ class CPyObjSpace(baseobjspace.ObjSpace):
     getitem = staticmethod(PyObject_GetItem)
     setitem = staticmethod(PyObject_SetItem)
     int_w   = staticmethod(PyInt_AsLong)
+    uint_w  = staticmethod(PyInt_AsUnsignedLongMask)
     float_w = staticmethod(PyFloat_AsDouble)
-    str_w   = staticmethod(PyString_AsString)
     iter    = staticmethod(PyObject_GetIter)
     type    = staticmethod(PyObject_Type)
     str     = staticmethod(PyObject_Str)
@@ -89,6 +96,18 @@ class CPyObjSpace(baseobjspace.ObjSpace):
 
     add     = staticmethod(PyNumber_Add)
     sub     = staticmethod(PyNumber_Subtract)
+
+    def len(self, w_obj):
+        return self.wrap(PyObject_Size(w_obj))
+
+    def str_w(self, w_obj):
+        # XXX inefficient
+        p = PyString_AsString(w_obj)
+        length = PyString_Size(w_obj)
+        buf = create_string_buffer(length)
+        for i in range(length):
+            buf[i] = p[i]
+        return buf.raw
 
     def call_function(self, w_callable, *args_w):
         args_w += (None,)
@@ -105,6 +124,20 @@ class CPyObjSpace(baseobjspace.ObjSpace):
         w_s = self.wrap(s)
         PyString_InternInPlace(byref(w_s))
         return w_s
+
+    def newstring(self, bytes_w):
+        length = len(bytes_w)
+        buf = ctypes.create_string_buffer(length)
+        for i in range(length):
+            buf[i] = chr(self.int_w(bytes_w[i]))
+        return PyString_FromStringAndSize(buf, length)
+
+    def newunicode(self, codes):
+        # XXX inefficient
+        lst = [PyUnicode_FromOrdinal(code) for code in codes]
+        w_lst = self.newlist(lst)
+        w_emptyunicode = PyUnicode_FromUnicode(None, 0)
+        return self.call_method(w_emptyunicode, 'join', w_lst)
 
     def newint(self, intval):
         return PyInt_FromLong(intval)
@@ -165,6 +198,25 @@ class CPyObjSpace(baseobjspace.ObjSpace):
             return self.w_True
         else:
             return self.w_False
+
+    def ord(self, w_obj):
+        w_type = self.type(w_obj)
+        if self.is_true(self.issubtype(w_type, self.w_str)):
+            length = PyObject_Size(w_obj)
+            if length == 1:
+                s = self.str_w(w_obj)
+                return self.wrap(ord(s[0]))
+            errtype = 'string of length %d' % length
+        elif self.is_true(self.issubtype(w_type, self.w_unicode)):
+            length = PyObject_Size(w_obj)
+            if length == 1:
+                p = PyUnicode_AsUnicode(w_obj)
+                return self.wrap(p[0])
+            errtype = 'unicode string of length %d' % length
+        else:
+            errtype = self.str_w(self.getattr(w_type, self.wrap('__name__')))
+        msg = 'expected a character, but %s found' % errtype
+        raise OperationError(self.w_TypeError, self.wrap(msg))
 
     def exec_(self, statement, w_globals, w_locals, hidden_applevel=False):
         "NOT_RPYTHON"

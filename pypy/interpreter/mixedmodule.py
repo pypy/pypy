@@ -142,7 +142,8 @@ def getinterpevalloader(pkgroot, spec):
                 if is_type:
                     return space.gettypeobject(value.typedef)
 
-                assert isinstance(value, W_Root), (
+                W_Object = getattr(space, 'W_Object', ()) # for cpyobjspace
+                assert isinstance(value, (W_Root, W_Object)), (
                     "interpleveldef %s.%s must return a wrapped object "
                     "(got %r instead)" % (pkgroot, spec, value))
                 return value 

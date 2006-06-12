@@ -28,6 +28,8 @@ typedef int Py_ssize_t;
     _include_dirs_ = [ctypes_platform.get_python_include_dir()]
     
     Py_ssize_t = ctypes_platform.SimpleType('Py_ssize_t')
+    Py_UNICODE = ctypes_platform.SimpleType('Py_UNICODE')
+    Py_UNICODE_WIDE = ctypes_platform.Defined('Py_UNICODE_WIDE')
 
     Py_LT = ctypes_platform.ConstantInteger('Py_LT')
     Py_LE = ctypes_platform.ConstantInteger('Py_LE')
@@ -60,6 +62,10 @@ del CConfig
 
 ###########################################################
 # ____________________ Object Protocol ____________________
+
+PyObject_Size = cpyapi.PyObject_Size
+PyObject_Size.argtypes = [W_Object]
+PyObject_Size.restype = Py_ssize_t
 
 PyObject_GetAttr = cpyapi.PyObject_GetAttr
 PyObject_GetAttr.argtypes = [W_Object, W_Object]
@@ -157,6 +163,10 @@ PyInt_AsLong = cpyapi.PyInt_AsLong
 PyInt_AsLong.argtypes = [W_Object]
 PyInt_AsLong.restype = c_long
 
+PyInt_AsUnsignedLongMask = cpyapi.PyInt_AsUnsignedLongMask
+PyInt_AsUnsignedLongMask.argtypes = [W_Object]
+PyInt_AsUnsignedLongMask.restype = c_ulong
+
 PyFloat_FromDouble = cpyapi.PyFloat_FromDouble
 PyFloat_FromDouble.argtypes = [c_double]
 PyFloat_FromDouble.restype = W_Object
@@ -164,6 +174,10 @@ PyFloat_FromDouble.restype = W_Object
 PyFloat_AsDouble = cpyapi.PyFloat_AsDouble 
 PyFloat_AsDouble.argtypes = [W_Object]
 PyFloat_AsDouble.restype = c_double 
+
+PyLong_FromUnsignedLong = cpyapi.PyLong_FromUnsignedLong
+PyLong_FromUnsignedLong.argtypes = [c_ulong]
+PyLong_FromUnsignedLong.restype = W_Object
 
 
 ###################################################
@@ -179,7 +193,26 @@ PyString_InternInPlace.restype = None
 
 PyString_AsString = cpyapi.PyString_AsString
 PyString_AsString.argtypes = [W_Object]
-PyString_AsString.restype = c_char_p
+PyString_AsString.restype = POINTER(c_char)
+
+PyString_Size = cpyapi.PyString_Size
+PyString_Size.argtypes = [W_Object]
+PyString_Size.restype = Py_ssize_t
+
+if Py_UNICODE_WIDE: PyUnicode_AsUnicode = cpyapi.PyUnicodeUCS4_AsUnicode
+else:               PyUnicode_AsUnicode = cpyapi.PyUnicodeUCS2_AsUnicode
+PyUnicode_AsUnicode.argtypes = [W_Object]
+PyUnicode_AsUnicode.restype = POINTER(Py_UNICODE)
+
+if Py_UNICODE_WIDE: PyUnicode_FromUnicode = cpyapi.PyUnicodeUCS4_FromUnicode
+else:               PyUnicode_FromUnicode = cpyapi.PyUnicodeUCS2_FromUnicode
+PyUnicode_FromUnicode.argtypes = [POINTER(Py_UNICODE), Py_ssize_t]
+PyUnicode_FromUnicode.restype = W_Object
+
+if Py_UNICODE_WIDE: PyUnicode_FromOrdinal = cpyapi.PyUnicodeUCS4_FromOrdinal
+else:               PyUnicode_FromOrdinal = cpyapi.PyUnicodeUCS2_FromOrdinal
+PyUnicode_FromOrdinal.argtypes = [Py_UNICODE]
+PyUnicode_FromOrdinal.restype = W_Object
 
 
 ##################################################
@@ -270,7 +303,7 @@ RAW_PyErr_Restore._rctypes_pyerrchecker_ = None
 
 RAW_PyErr_Occurred = pythonapi.PyErr_Occurred
 RAW_PyErr_Occurred.argtypes = []
-RAW_PyErr_Occurred.restype = c_int
+RAW_PyErr_Occurred.restype = c_void_p
 RAW_PyErr_Occurred._rctypes_pyerrchecker_ = None
 
 RAW_PyErr_Fetch = pythonapi.PyErr_Fetch
