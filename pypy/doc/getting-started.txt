@@ -413,9 +413,9 @@ Translating the flow graph to Javascript code
 
 The Javascript backend is still experimental but will be worked on during this
 years `Google summer of code`_. It contains some rudimentary support for
-stackless features and a good integration with PyPy's unittesting framework.
-Code can be tested with the `Spidermonkey`_ commandline javascript interpreter
-in addition to a multitude of javascript capable browsers. 
+for the document object model and a good integration with PyPy's unittesting
+framework. Code can be tested with the `Spidermonkey`_ commandline javascript
+interpreter in addition to a multitude of javascript capable browsers. 
 The emphasis of the Javascript backend is to compile RPython code into
 javascript snippets that can be used in a range of browsers. The goal is
 to make it more and more capable to produce full featured web applications.
@@ -425,7 +425,6 @@ Here is a simple example to try::
 
    >>> t = Translation(snippet.my_gcd)
    >>> a = t.annotate([int, int])
-   >>> t.rtype()
    >>> t.source_js()
 
 A slightly larger example
