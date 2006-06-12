@@ -88,6 +88,15 @@ class CBuilder(object):
                     objname, db.get(self.exports[objname]), poname)
             self.exports[objname] = po
         db.complete()
+
+        # add library dependencies
+        seen = dict.fromkeys(self.libraries)
+        for node in db.globalcontainers():
+            if hasattr(node, 'libraries'):
+                for library in node.libraries:
+                    if library not in seen:
+                        self.libraries.append(library)
+                        seen[library] = True
         return db
 
     have___thread = None

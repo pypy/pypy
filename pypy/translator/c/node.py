@@ -364,8 +364,7 @@ class ContainerNode(object):
         __slots__ = """db T obj 
                        typename implementationtypename
                         name ptrname
-                        globalcontainer
-                        includes""".split()
+                        globalcontainer""".split()
 
     def __init__(self, db, T, obj):
         self.db = db
@@ -585,6 +584,8 @@ class FuncNode(ContainerNode):
         else:
             self.name = (forcename or
                          db.namespace.uniquename('g_' + self.basename()))
+        if hasattr(obj, 'libraries'):
+            self.libraries = obj.libraries
         self.make_funcgens()
         #self.dependencies = {}
         self.typename = db.gettype(T)  #, who_asks=self)

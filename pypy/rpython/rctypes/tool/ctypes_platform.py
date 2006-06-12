@@ -73,7 +73,9 @@ def configure(CConfig):
     f = filepath.open('w')
     print >> f, C_HEADER
     print >> f
-    print >> f, CConfig._header_    # mandatory
+    for path in getattr(CConfig, '_includes_', ()):   # optional
+        print >> f, '#include <%s>' % (path,)
+    print >> f, CConfig._header_                      # mandatory
     print >> f
     for key, entry in entries:
         print >> f, 'void dump_section_%s(void) {' % (key,)
@@ -312,7 +314,14 @@ class Library(CConfigEntry):
         from pypy.rpython.rctypes.tool import util
         path = util.find_library(self.name)
         mylib = ctypes.cdll.LoadLibrary(path)
-        mylib._header_ = config_result.CConfig._header_
+
+        class _FuncPtr(ctypes._CFuncPtr):
+            _flags_ = ctypes._FUNCFLAG_CDECL
+            _restype_ = ctypes.c_int # default, can be overridden in instances
+            includes = tuple(config_result.CConfig._includes_)
+            libraries = (self.name,)
+        
+        mylib._FuncPtr = _FuncPtr
         return mylib
 
 # ____________________________________________________________

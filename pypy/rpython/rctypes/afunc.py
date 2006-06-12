@@ -121,6 +121,7 @@ class CallEntry(CTypesEntry):
             suppress_pyerr_occurred = True
         if suppress_pyerr_occurred:
             kwds['includes'] = getattr(cfuncptr, 'includes', ())
+            kwds['libraries'] = getattr(cfuncptr, 'libraries', ())
         #else:
         #   no 'includes': hack to trigger in GenC a PyErr_Occurred() check
 

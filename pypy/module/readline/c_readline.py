@@ -6,7 +6,8 @@ from pypy.rpython.rctypes.tool.ctypes_platform import configure, Library
 # through rctypes
 #
 class CConfig:
-    _header_ = """#include <readline/readline.h>"""
+    _header_ = ""
+    _includes_ = ["readline/readline.h"]
     readline = Library('readline')
 
 cconfig = configure(CConfig)
