@@ -1,21 +1,22 @@
 # this is a sketch of how one might one day be able to define a pretty simple
 # ctypes-using module, suitable for feeding to the ext-compiler
-import py; py.test.skip("in-progress")
 
-from pypy.interpreter.ctypesmodule import CTypesModule
+from pypy.interpreter.mixedmodule import MixedModule
 
 # XXX raw_input needs to check for space.readline_func and use
 # it if its there 
 
-class Module(CTypesModule):
+class Module(MixedModule):
     """Importing this module enables command line editing using GNU readline."""
     # the above line is the doc string of the translated module  
 
     def init(self, space):
         from pypy.module.readline import c_readline 
         c_readline.setup_readline(space, self)
-        space.readline_func = self.dict_w['readline']
 
     interpleveldefs = {
         'readline'    : 'interp_readline.readline',
+    }
+
+    appleveldefs = {
     }

@@ -1,10 +1,13 @@
+from pypy.conftest import gettestobjspace
 
 
-#def setup_mod(mod):
-#    mod.space = StdObjSpace(usemodules=['readline'])
-#    mod.space = CPyObjSpace(usemodules=['readline'])
+class AppTestReadline:
 
-def app_test_basic_import():
-    import readline 
-    readline.set_completer 
-    # test more 
+    def setup_class(cls):
+        space = gettestobjspace(usemodules=('readline',))
+        cls.space = space
+
+    def test_basic_import(self):
+        import readline 
+        readline.readline
+        # test more 

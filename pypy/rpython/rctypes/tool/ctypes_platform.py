@@ -297,6 +297,24 @@ class Defined(CConfigEntry):
     def build_result(self, info, config_result):
         return bool(info['defined'])
 
+
+class Library(CConfigEntry):
+    """The loaded CTypes library object.
+    """
+    def __init__(self, name):
+        self.name = name
+
+    def prepare_code(self):
+        # XXX should check that we can link against the lib
+        return []
+
+    def build_result(self, info, config_result):
+        from pypy.rpython.rctypes.tool import util
+        path = util.find_library(self.name)
+        mylib = ctypes.cdll.LoadLibrary(path)
+        mylib._header_ = config_result.CConfig._header_
+        return mylib
+
 # ____________________________________________________________
 #
 # internal helpers
