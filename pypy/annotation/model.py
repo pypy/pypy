@@ -403,6 +403,10 @@ class SomeBuiltin(SomeObject):
     def can_be_none(self):
         return False
 
+class SomeBuiltinMethod(SomeBuiltin):
+    """ Stands for a built-in method which has got special meaning
+    """
+    knowntype = MethodType
 
 class SomeExternalObject(SomeObject):
     """Stands for an object of 'external' type.  External types have a Repr
@@ -415,6 +419,13 @@ class SomeExternalObject(SomeObject):
 
     def can_be_none(self):
         return True
+
+class SomeExternalBuiltin(SomeExternalObject):
+    """Stands for an object of 'external' type, but with custom access to
+    attributes as well as methods
+    """
+    def can_be_none(self):
+        return False
 
 class SomeCTypesObject(SomeExternalObject):
     """Stands for an object of the ctypes module."""
