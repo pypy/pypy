@@ -69,6 +69,7 @@ class Module(MixedModule):
         'excepthook'            : 'app.excepthook', 
         '__excepthook__'        : 'app.excepthook', 
         'exit'                  : 'app.exit', 
+        'exitfunc'              : 'app.exitfunc',
         'getfilesystemencoding' : 'app.getfilesystemencoding', 
         'callstats'             : 'app.callstats',
         'getdefaultencoding'    : 'app.getdefaultencoding', 

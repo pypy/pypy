@@ -17,6 +17,9 @@ def exit(exitcode=0):
     # in normalize_exception, which is exactly like CPython's.
     raise SystemExit, exitcode
 
+def exitfunc():
+    pass
+
 #import __builtin__
 
 def getfilesystemencoding():
