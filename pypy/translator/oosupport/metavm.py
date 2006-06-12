@@ -113,9 +113,11 @@ class _CallDispatcher(_GeneralDispatcher):
         func = op.args[0]
         if getattr(func.value._callable, 'suggested_primitive', False):
             func_name = func.value._name.split("__")[0]
-            return self.builtins.builtin_map[func_name](generator, op)
-        else:
-            return self.class_map['Call'].render(generator, op)
+            try:
+                return self.builtins.builtin_map[func_name](generator, op)
+            except KeyError:
+                pass
+        return self.class_map['Call'].render(generator, op)
     
 class _GetFieldDispatcher(_GeneralDispatcher):
     def render(self, generator, op):
@@ -133,7 +135,11 @@ class _SetFieldDispatcher(_GeneralDispatcher):
 
 class _New(MicroInstruction):
     def render(self, generator, op):
-        generator.new(op.args[0].value)
+        try:
+            op.args[0].value._hints['_suggested_external']
+            generator.ilasm.new(op.args[0].value._name.split('.')[-1])
+        except (KeyError, AttributeError):
+            generator.new(op.args[0].value)
 
 New = _New()
 
