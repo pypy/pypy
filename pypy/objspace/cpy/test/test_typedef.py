@@ -10,8 +10,14 @@ from pypy.translator.c.test.test_genc import compile
 
 
 class W_MyType(Wrappable):
-    def __init__(self, space):
+    def __init__(self, space, x=1):
         self.space = space
+        self.x = x
+
+    def multiply(self, w_y):
+        space = self.space
+        y = space.int_w(w_y)
+        return space.wrap(self.x * y)
 
 
 def test_direct():
@@ -93,3 +99,19 @@ def test_class_attr():
     assert type(res).__name__ == 'MyType'
     assert res.hello == 7
     assert type(res).hello == 7
+
+
+def test_method():
+    W_MyType.typedef = TypeDef("MyType",
+                               multiply = interp2app(W_MyType.multiply))
+    space = CPyObjSpace()
+    assert space.int_w(W_MyType(space, 6).multiply(space.wrap(7))) == 42
+
+    def make_mytype():
+        return space.wrap(W_MyType(space, 123))
+    fn = compile(make_mytype, [],
+                 annotatorpolicy = CPyAnnotatorPolicy(space))
+
+    res = fn(expected_extra_mallocs=1)
+    assert type(res).__name__ == 'MyType'
+    assert res.multiply(3) == 369

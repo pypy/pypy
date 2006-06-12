@@ -28,6 +28,18 @@ class UnwrapSpec_Trampoline(UnwrapSpecRecipe):
         tramp.wrappings.append('%s = ___W_Object(%s)' % (argname, basename))
         tramp.passedargs.append(argname)
 
+    def visit__Wrappable(self, el, orig_sig, tramp):
+        clsname = el.__name__     # XXX name clashes, but in gateway.py too
+        tramp.miniglobals[clsname] = el
+        argname = orig_sig.next_arg()
+        assert not argname.startswith('w_')
+        tramp.inputargs.append(argname)
+        tramp.wrappings.append('%s = ___space.interp_w(%s, ___W_Object(%s))'
+                               % (argname,
+                                  clsname,
+                                  argname))
+        tramp.passedargs.append(argname)
+
     def visit__object(self, el, orig_sig, tramp):
         convertermap = {int: '___PyInt_AsLong',
                         str: '___PyString_AsString',
@@ -47,6 +59,7 @@ class TrampolineSignature(object):
         self.inputargs = []
         self.wrappings = []
         self.passedargs = []
+        self.miniglobals = {}
 
 
 def reraise(e):
@@ -72,6 +85,15 @@ class FunctionCache(SpaceCache):
         unwrap_spec = factory.unwrap_spec
 
         tramp = TrampolineSignature()
+        tramp.miniglobals = {
+            '___space':           space,
+            '___W_Object':        CPyObjSpace.W_Object,
+            '___PyInt_AsLong':    PyInt_AsLong,
+            '___PyString_AsString':    PyString_AsString, 
+            '___bltin':           bltin,
+            '___OperationError':  OperationError,
+            '___reraise':         reraise,
+            }
 
         from pypy.interpreter import pycode
         argnames, varargname, kwargname = pycode.cpython_code_signature(
@@ -98,15 +120,7 @@ class FunctionCache(SpaceCache):
         sourcelines.append('    return w_result.value')
         sourcelines.append('')
 
-        miniglobals = {
-            '___space':           space,
-            '___W_Object':        CPyObjSpace.W_Object,
-            '___PyInt_AsLong':    PyInt_AsLong,
-            '___PyString_AsString':    PyString_AsString, 
-            '___bltin':           bltin,
-            '___OperationError':  OperationError,
-            '___reraise':         reraise,
-            }
+        miniglobals = tramp.miniglobals
         exec py.code.Source('\n'.join(sourcelines)).compile() in miniglobals
 
         trampoline = miniglobals['trampoline']
