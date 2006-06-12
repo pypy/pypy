@@ -11,6 +11,10 @@ def entrypoint1(space, w_x):
     return space.wrap(result)
 entrypoint1.unwrap_spec = [ObjSpace, W_Root]
 
+def entrypoint2(space, w_x):
+    pass
+entrypoint2.unwrap_spec = [ObjSpace, W_Root]
+
 
 def test_builtin_function():
     space = CPyObjSpace()
@@ -38,3 +42,11 @@ def test_exception():
     w_entrypoint = space.wrap(bltin)
     w1 = space.wrap('not an int')
     raises_w(space, space.w_TypeError, space.call_function, w_entrypoint, w1)
+
+def test_None_result():
+    space = CPyObjSpace()
+    func = interp2app(entrypoint2).__spacebind__(space)
+    bltin = BuiltinFunction(func)
+    w_entrypoint = space.wrap(bltin)
+    w_result = space.call_function(w_entrypoint, space.wrap(-2))
+    assert space.is_w(w_result, space.wrap(None))

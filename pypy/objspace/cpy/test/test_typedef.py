@@ -2,7 +2,7 @@ import py
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.typedef import interp_attrproperty
+from pypy.interpreter.typedef import interp_attrproperty, GetSetProperty
 from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root
 from pypy.interpreter.function import BuiltinFunction
 from pypy.objspace.cpy.ann_policy import CPyAnnotatorPolicy
@@ -19,6 +19,12 @@ class W_MyType(Wrappable):
         space = self.space
         y = space.int_w(w_y)
         return space.wrap(self.x * y)
+
+    def fget_x(space, self):
+        return space.wrap(self.x)
+
+    def fset_x(space, self, w_value):
+        self.x = space.int_w(w_value)
 
 
 def test_direct():
@@ -151,3 +157,41 @@ def test_interp_attrproperty():
     assert res2 is res
     assert x == 4
     assert res.x == 4
+
+
+def test_getset():
+    getset_x = GetSetProperty(W_MyType.fget_x, W_MyType.fset_x, cls=W_MyType)
+    W_MyType.typedef = TypeDef("MyType",
+                               x = getset_x)
+    space = CPyObjSpace()
+
+    def mytest(w_myobj):
+        myobj = space.interp_w(W_MyType, w_myobj, can_be_None=True)
+        if myobj is None:
+            myobj = W_MyType(space)
+            myobj.x = 1
+        myobj.x *= 2
+        w_myobj = space.wrap(myobj)
+        w_x = space.wrap(myobj.x)
+        return space.newtuple([w_myobj, w_x])
+
+    def fn(obj):
+        w_obj = W_Object(obj)
+        w_res = mytest(w_obj)
+        return w_res.value
+    fn.allow_someobjects = True
+
+    fn = compile(fn, [object],
+                 annotatorpolicy = CPyAnnotatorPolicy(space))
+
+    res, x = fn(None, expected_extra_mallocs=1)
+    assert type(res).__name__ == 'MyType'
+    assert x == 2
+    assert res.x == 2
+    res.x += 100
+    assert res.x == 102
+
+    res2, x = fn(res, expected_extra_mallocs=1)
+    assert res2 is res
+    assert x == 204
+    assert res.x == 204

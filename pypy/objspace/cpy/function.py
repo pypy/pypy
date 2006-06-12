@@ -115,8 +115,10 @@ class FunctionCache(SpaceCache):
         # the following line is not reached, unless we are translated
         # in which case it makes the function return (PyObject*)NULL.
         sourcelines.append('        w_result = ___W_Object()')
-        #sourcelines.append('    except ___Exception, e:')
-        #sourcelines.append('        raise ___RPythonError(XXX)')
+        sourcelines.append('    else:')
+        #                           # convert None to Py_None
+        sourcelines.append('        if w_result is None:')
+        sourcelines.append('            return None')
         sourcelines.append('    return w_result.value')
         sourcelines.append('')
 

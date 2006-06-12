@@ -21,7 +21,7 @@ class PropertyCache(SpaceCache):
                 res = None
             else:
                 unwrap_spec = [ObjSpace] + [W_Root]*arity
-                func = interp2app(prop.fget, unwrap_spec=unwrap_spec)
+                func = interp2app(f, unwrap_spec=unwrap_spec)
                 func = func.__spacebind__(space)
                 bltin = BuiltinFunction(func)
                 res = space.wrap(bltin).value
