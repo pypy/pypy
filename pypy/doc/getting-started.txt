@@ -412,7 +412,7 @@ Translating the flow graph to Javascript code
 +++++++++++++++++++++++++++++++++++++++++++++
 
 The Javascript backend is still experimental but will be worked on during this
-years `Google summer of code`_. It contains some rudimentary support for
+years `Google summer of code`_. It contains some rudimentary support
 for the document object model and a good integration with PyPy's unittesting
 framework. Code can be tested with the `Spidermonkey`_ commandline javascript
 interpreter in addition to a multitude of javascript capable browsers. 
