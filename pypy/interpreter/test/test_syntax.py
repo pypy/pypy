@@ -553,25 +553,6 @@ if 1:
         """
         exec s
 
-class AppTestOddball:
-
-    def test_indentation_oddness(self):
-            skip("in-progress !?")
-            compile('''
-import sys, stackless
-
-def f():
-    global the_frame
-    the_frame = sys._getframe()
-    main_coro.switch()
-
-co = stackless.coroutine()
-main_coro = stackless.coroutine.getcurrent()
-co.bind(f)
-co.switch()
-''', "<exec>", "exec")
-        
-
 if __name__ == '__main__':
     # only to check on top of CPython (you need 2.4)
     from py.test import raises
