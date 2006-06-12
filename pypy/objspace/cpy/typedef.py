@@ -9,18 +9,22 @@ from pypy.interpreter.baseobjspace import Wrappable, SpaceCache
 from pypy.rpython.objectmodel import we_are_translated
 from pypy.rpython.rcpy import CPyTypeInterface, cpy_export, cpy_import
 from pypy.rpython.rcpy import cpy_typeobject
+from pypy.rpython.lltypesystem import lltype
 
 
 class rpython_object(object):
+    "NOT_RPYTHON"
     __slots__ = ('data',)
 rpython_data = rpython_object.data
 del rpython_object.data
 
 def init_rpython_data(w_object, value):
+    "NOT_RPYTHON"
     rpython_data.__set__(w_object.value, value)
     value.__cpy_wrapper__ = w_object
 
 def get_rpython_data(w_object):
+    "NOT_RPYTHON"
     return rpython_data.__get__(w_object.value)
 
 def rpython2cpython(space, x):
@@ -79,19 +83,29 @@ class TypeDefCache(SpaceCache):
         self.wrappedtypes = {}
 
     def build(cache, typedef):
-        typeintf = CPyTypeInterface(typedef.name)
+        space = cache.space
+        objects = {}
+        for name, value in typedef.rawdict.items():
+            if name.startswith('__') and name.endswith('__'):
+                raise NotImplementedError("missing support for special "
+                                          "attributes in TypeDef-to-CPython "
+                                          "converter (%s.%s)" % (
+                    typedef.name, name))
+            w_value = space.wrap(value)
+            objects[name] = lltype.pyobjectptr(w_value.value)
+        typeintf = CPyTypeInterface(typedef.name, objects)
         return typeintf
 
-    def wraptypeintf(self, typedef, typeintf):
-        # only when running on top of CPython, not for translation
+    def wraptypeintf(cache, typedef, typeintf):
+        "NOT_RPYTHON.  Not available after translation."
         try:
-            return self.wrappedtypes[typeintf]
+            return cache.wrappedtypes[typeintf]
         except KeyError:
-            space = self.space
+            space = cache.space
             newtype = typeintf.emulate(rpython_object)
             w_result = W_Object(newtype)
             space.wrap_cache[id(w_result)] = w_result, typedef, follow_annotations
-            self.wrappedtypes[typeintf] = w_result
+            cache.wrappedtypes[typeintf] = w_result
             return w_result
 
 def follow_annotations(bookkeeper, w_type):

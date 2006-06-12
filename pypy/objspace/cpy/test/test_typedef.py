@@ -77,3 +77,19 @@ def test_blackbox():
     res2, abc = fn(res, expected_extra_mallocs=1)
     assert abc == 16
     assert res2 is res
+
+
+def test_class_attr():
+    W_MyType.typedef = TypeDef("MyType",
+                               hello = 7)
+    space = CPyObjSpace()
+
+    def make_mytype():
+        return space.wrap(W_MyType(space))
+    fn = compile(make_mytype, [],
+                 annotatorpolicy = CPyAnnotatorPolicy(space))
+
+    res = fn(expected_extra_mallocs=1)
+    assert type(res).__name__ == 'MyType'
+    assert res.hello == 7
+    assert type(res).hello == 7
