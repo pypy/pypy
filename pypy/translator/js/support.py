@@ -1,5 +1,5 @@
 from pypy.translator.gensupp import NameManager
-#from pypy.translator.js2.optimize import is_optimized_function
+#from pypy.translator.js.optimize import is_optimized_function
 
 class JavascriptNameManager(NameManager):
     def __init__(self, db):

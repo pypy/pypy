@@ -4,7 +4,7 @@ import sys
 import py
 
 from pypy.rpython.rarithmetic import r_uint
-from pypy.translator.js2.test.runtest import compile_function
+from pypy.translator.js.test.runtest import compile_function
 
 def test_simple_function_pointer(): 
     #py.test.skip("ootypesystem problems with lists")

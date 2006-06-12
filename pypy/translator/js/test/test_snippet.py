@@ -1,6 +1,6 @@
 from __future__ import division
 
-from pypy.translator.js2.test.runtest import compile_function
+from pypy.translator.js.test.runtest import compile_function
 from pypy.translator.test import snippet as test
 
 import py

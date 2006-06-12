@@ -1,7 +1,7 @@
 from __future__ import division
 import py
 
-from pypy.translator.js2.test.runtest import compile_function
+from pypy.translator.js.test.runtest import compile_function
 from pypy.translator.llvm.test import llvmsnippet
 
 class TestClass(object):

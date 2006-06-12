@@ -1,10 +1,10 @@
 from __future__ import division
 import py
 
-from pypy.translator.js2.test.runtest import compile_function
+from pypy.translator.js.test.runtest import compile_function
 from pypy.rpython.lltypesystem import lltype 
 from pypy.rpython.rjs import jseval
-from pypy.translator.js2 import conftest
+from pypy.translator.js import conftest
 
 def jsnative(cmd):
     def do():

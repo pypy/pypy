@@ -1,6 +1,6 @@
 import py
 
-from pypy.translator.js2.test.runtest import compile_function 
+from pypy.translator.js.test.runtest import compile_function 
 
 import sys
 

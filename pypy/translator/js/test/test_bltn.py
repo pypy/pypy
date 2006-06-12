@@ -1,11 +1,10 @@
-
 """ blttest
 """
 
 import py
 
 #from pypy.rpython.ootypesystem.bltregistry import BasicExternal
-from pypy.translator.js2.test.runtest import compile_function
+from pypy.translator.js.test.runtest import compile_function
 
 from pypy.rpython.ootypesystem.ootype import Signed, Void, Float, List, String
 

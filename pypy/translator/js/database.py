@@ -3,12 +3,12 @@
 """
 
 from pypy.rpython.ootypesystem import ootype
-from pypy.translator.js2.opcodes import opcodes
-from pypy.translator.js2.function import Function
-from pypy.translator.js2.log import log
-from pypy.translator.js2.jts import JTS
-from pypy.translator.js2._class import Class
-from pypy.translator.js2.support import JavascriptNameManager
+from pypy.translator.js.opcodes import opcodes
+from pypy.translator.js.function import Function
+from pypy.translator.js.log import log
+from pypy.translator.js.jts import JTS
+from pypy.translator.js._class import Class
+from pypy.translator.js.support import JavascriptNameManager
 
 from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Void, Bool, Float
 from pypy.rpython.lltypesystem.lltype import SignedLongLong, UnsignedLongLong, typeOf
@@ -16,7 +16,7 @@ from pypy.rpython.lltypesystem.lltype import Char, UniChar
 from pypy.rpython.ootypesystem import ootype
 
 from pypy.objspace.flow.model import Variable, Constant
-from pypy.translator.js2.modules import dom
+from pypy.translator.js.modules import dom
 
 try:
     set

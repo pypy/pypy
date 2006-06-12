@@ -15,13 +15,13 @@ from pypy.rpython.typesystem import getfunctionptr
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
 from pypy.tool.udir import udir
-from pypy.translator.js2.log import log
+from pypy.translator.js.log import log
 
-from pypy.translator.js2.asmgen import AsmGen
-from pypy.translator.js2.jts import JTS
-from pypy.translator.js2.opcodes import opcodes
-from pypy.translator.js2.function import Function
-from pypy.translator.js2.database import LowLevelDatabase
+from pypy.translator.js.asmgen import AsmGen
+from pypy.translator.js.jts import JTS
+from pypy.translator.js.opcodes import opcodes
+from pypy.translator.js.function import Function
+from pypy.translator.js.database import LowLevelDatabase
 
 from pypy.translator.oosupport.genoo import GenOO
 

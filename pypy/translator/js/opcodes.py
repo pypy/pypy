@@ -1,4 +1,3 @@
-
 """ opcode definitions
 """
 
@@ -8,15 +7,15 @@ from pypy.translator.oosupport.metavm import PushArg, PushAllArgs, StoreResult,\
 from pypy.translator.oosupport.metavm import _GetFieldDispatcher, _SetFieldDispatcher, \
     _CallDispatcher, _MethodDispatcher
 
-from pypy.translator.js2.metavm import SameAs, IsInstance, Call, CallMethod, CopyName, CastString,\
+from pypy.translator.js.metavm import SameAs, IsInstance, Call, CallMethod, CopyName, CastString,\
     _Prefix, _CastFun, _NotImplemented, CallBuiltin, CallBuiltinObject, GetBuiltinField, SetBuiltinField,\
     IndirectCall
 
-from pypy.translator.js2.jsbuiltin import Builtins
+from pypy.translator.js.jsbuiltin import Builtins
 
 DoNothing = [PushAllArgs]
 
-from pypy.translator.js2.log import log
+from pypy.translator.js.log import log
 
 class_map = { 'Call' : Call,
     'CallMethod' : CallMethod,

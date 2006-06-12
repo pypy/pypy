@@ -1,4 +1,3 @@
-
 """ JavaScript type system
 """
 
@@ -11,7 +10,7 @@ from pypy.rpython.lltypesystem.lltype import SignedLongLong, UnsignedLongLong, P
 from pypy.rpython.lltypesystem.lltype import Char, UniChar
 from pypy.rpython.ootypesystem.ootype import String, _string, List, StaticMethod
 
-from pypy.translator.js2.log import log
+from pypy.translator.js.log import log
 
 try:
     set

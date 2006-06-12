@@ -1,12 +1,11 @@
-
 """ Opcode meaning objects, descendants of MicroInstruction
 """
 
-#from pypy.translator.js2.jsbuiltin import Builtins
+#from pypy.translator.js.jsbuiltin import Builtins
 from pypy.translator.oosupport.metavm import PushArg, PushAllArgs, StoreResult,\
     InstructionList, New, SetField, GetField, MicroInstruction
 
-from pypy.translator.js2.log import log
+from pypy.translator.js.log import log
 from pypy.rpython.ootypesystem import ootype
 
 class _ListSetitem(MicroInstruction):

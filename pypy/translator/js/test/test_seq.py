@@ -2,7 +2,7 @@ from __future__ import division
 import py
 
 from pypy.objspace.flow.model import Constant, Variable
-from pypy.translator.js2.test.runtest import compile_function
+from pypy.translator.js.test.runtest import compile_function
 from pypy.translator.llvm.test import llvmsnippet
 
 py.test.skip("Need to reinvestigate it")

@@ -1,5 +1,5 @@
 import py
-from pypy.translator.js2.test.runtest import compile_function
+from pypy.translator.js.test.runtest import compile_function
 
 #test returntypes
 def test_bool_return():

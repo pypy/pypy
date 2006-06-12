@@ -5,7 +5,7 @@ from cgi  import parse_qs
 from sys  import platform
 from time import sleep
 import webbrowser
-from pypy.translator.js2.log import log
+from pypy.translator.js.log import log
 log = log.browsertest
 
 class HTTPServer(BaseHTTPServer):

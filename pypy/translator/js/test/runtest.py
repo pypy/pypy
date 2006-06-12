@@ -6,10 +6,10 @@
 import py, os
 from pypy.translator.translator import TranslationContext
 from pypy.translator.backendopt.all import backend_optimizations
-from pypy.translator.js2.js import JS
-from pypy.translator.js2.test.browsertest import jstest
-from pypy.translator.js2 import conftest
-from pypy.translator.js2.log import log
+from pypy.translator.js.js import JS
+from pypy.translator.js.test.browsertest import jstest
+from pypy.translator.js import conftest
+from pypy.translator.js.log import log
 from pypy.conftest import option
 log = log.runtest
 use_browsertest = conftest.option.browser
@@ -61,7 +61,7 @@ class compile_function(object):
                 log("Used html: %r" % self.html)
                 output = jstest(self.js.filename, function_call, use_browsertest, self.html, self.is_interactive)
             else:
-                from pypy.translator.js2.test.tgtest import run_tgtest
+                from pypy.translator.js.test.tgtest import run_tgtest
                 out = run_tgtest(self, None).results
                 assert out[1] == 'undefined'
                 output = out[0]

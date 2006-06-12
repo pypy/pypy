@@ -1,9 +1,8 @@
-
 """ JavaScript builtin mappings
 """
 
 from pypy.translator.oosupport.metavm import InstructionList, PushAllArgs
-from pypy.translator.js2.metavm import SetBuiltinField, ListGetitem, ListSetitem, \
+from pypy.translator.js.metavm import SetBuiltinField, ListGetitem, ListSetitem, \
     GetBuiltinField, CallBuiltin, Call, SetTimeout, XmlSetCallback
 
 from pypy.rpython.ootypesystem import ootype

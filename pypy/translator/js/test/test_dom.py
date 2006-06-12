@@ -1,13 +1,12 @@
-
 """ test of DOM related functions
 """
 
 import py
 
-from pypy.translator.js2.test.runtest import compile_function
-from pypy.translator.js2.modules.dom import Node, get_document, setTimeout, alert
-from pypy.translator.js2.modules.xmlhttp import XMLHttpRequest
-from pypy.translator.js2 import conftest
+from pypy.translator.js.test.runtest import compile_function
+from pypy.translator.js.modules.dom import Node, get_document, setTimeout, alert
+from pypy.translator.js.modules.xmlhttp import XMLHttpRequest
+from pypy.translator.js import conftest
 
 import time
 

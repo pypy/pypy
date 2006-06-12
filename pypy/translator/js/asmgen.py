@@ -2,7 +2,7 @@
 """ backend generator routines
 """
 
-from pypy.translator.js2.log import log
+from pypy.translator.js.log import log
 
 from pypy.objspace.flow.model import Variable
 
