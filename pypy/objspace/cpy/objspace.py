@@ -55,7 +55,9 @@ class CPyObjSpace(baseobjspace.ObjSpace):
         return w_obj.value
 
     def interpclass_w(self, w_obj):
-        raise NotImplementedError("interpclass_w()")
+        "NOT_RPYTHON."
+        from pypy.objspace.cpy.typedef import cpython2rpython_raw
+        return cpython2rpython_raw(self, w_obj)
 
     def interp_w(self, RequiredClass, w_obj, can_be_None=False):
         """

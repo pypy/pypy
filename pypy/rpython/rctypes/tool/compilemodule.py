@@ -65,7 +65,8 @@ def main(argv):
     if len(argv) != 2:
         print >> sys.stderr, __doc__
         sys.exit(2)
-    compilemodule(argv[1])
+    c_ext_module = compilemodule(argv[1])
+    print 'Created %r.' % (c_ext_module.__file__,)
 
 
 if __name__ == '__main__':

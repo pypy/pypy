@@ -38,6 +38,17 @@ def rpython2cpython(space, x):
         return w_x
 rpython2cpython.allow_someobjects = True
 
+def cpython2rpython_raw(space, w_obj):
+    "NOT_RPYTHON."
+    try:
+        w_obj, result, follow = space.wrap_cache[id(w_obj)]
+    except KeyError:
+        if isinstance(w_obj.value, rpython_object):
+            result = get_rpython_data(w_obj)
+        else:
+            result = None
+    return result
+
 def cpython2rpython(space, RequiredClass, w_obj):
     if we_are_translated():
         cache = space.fromcache(TypeDefCache)
@@ -48,13 +59,7 @@ def cpython2rpython(space, RequiredClass, w_obj):
             x = w_obj.value
             return cpy_import(RequiredClass, x)
     else:
-        try:
-            w_obj, result, follow = space.wrap_cache[id(w_obj)]
-        except KeyError:
-            if isinstance(w_obj.value, rpython_object):
-                result = get_rpython_data(w_obj)
-            else:
-                result = None
+        result = cpython2rpython_raw(space, w_obj)
         if isinstance(result, RequiredClass):
             return result
     w_objtype = space.type(w_obj)
