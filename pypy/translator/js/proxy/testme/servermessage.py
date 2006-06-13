@@ -2,13 +2,14 @@ from turbogears import controllers, expose
 from cherrypy import session
 from msgstruct import *
 import PIL.Image
-import zlib
-import socket
-import urllib
-import re
+from zlib import decompress
+from urllib import quote
+from os import mkdir
+from os.path import exists
+from md5 import md5
 
 
-debug = True
+debug = False
 def log(msg):
     if debug:
         print msg
@@ -27,9 +28,14 @@ PMSG_DEF_KEY       = "def_key"
 # convert server messages to proxy messages in json format
 class ServerMessage:
 
+    base_gfx_dir = 'testme/static/images/'
+    base_gfx_url = 'static/images/'
+
     def __init__(self):
         self.socket = None
         self.data   = ''
+        self.gfx_dir = self.base_gfx_dir
+        self.gfx_url = self.base_gfx_url
 
     def dispatch(self, *values):
         #log('RECEIVED MESSAGE:%s(%d)' % (values[0], len(values[1:])))
@@ -45,7 +51,7 @@ class ServerMessage:
         log('MESSAGE (IGNORE):broadcast_port %s' % str(values))
 
     def ping(self, *rest):
-        log('MESSAGE:ping udpsockcounter=%s' % rest)
+        log('MESSAGE:ping udpsockcounter=%s' % str(rest))
         return dict(type=PMSG_PING)
 
     def pong(self):
@@ -55,36 +61,46 @@ class ServerMessage:
     def def_playfield(self, width, height, backcolor, FnDesc):
         log('MESSAGE:def_playfield width=%s, height=%s, backcolor=%s, FnDesc=%s' %\
             (width, height, backcolor, FnDesc))
+        hexdigest    = md5(FnDesc).hexdigest()
+        self.gfx_dir = self.base_gfx_dir + hexdigest + '/'
+        self.gfx_url = self.base_gfx_url + hexdigest + '/'
+        try:
+            mkdir(self.gfx_dir)
+        except OSError:
+            pass
         return dict(type=PMSG_DEF_PLAYFIELD, width=width, height=height,
                     backcolor=backcolor, FnDesc=FnDesc)
 
     def def_bitmap(self, code, data, *rest):
         log('MESSAGE:def_bitmap code=%s, data=%d bytes, colorkey=%s' %\
             (code, len(data), rest))
-        bitmap_filename = 'testme/static/images/bitmap%d.ppm' % code
+        gif_bitmap_filename = '%sbitmap%d.gif' % (self.gfx_dir, code)
+        if exists(gif_bitmap_filename):
+            return
+        bitmap_filename = '%sbitmap%d.ppm' % (self.gfx_dir, code)
         f = open(bitmap_filename, 'wb')
-        f.write(zlib.decompress(data))
+        f.write(decompress(data))
         f.close()
 
         #TODO: use in memory (don't save ppm first)
         bitmap = PIL.Image.open(bitmap_filename)
-        gif_bitmap_filename = 'testme/static/images/bitmap%d.gif' % code
         bitmap.save(gif_bitmap_filename)
 
     def def_icon(self, bitmap_code, code, x,y,w,h, *rest):
         log('MESSAGE:def_icon bitmap_code=%s, code=%s, x=%s, y=%s, w=%s, h=%s, alpha=%s' %\
             (bitmap_code, code, x,y,w,h, rest))
 
-        #TODO: use in memory (don't save ppm first)
-        bitmap_filename = 'testme/static/images/bitmap%d.gif' % bitmap_code
-        icon_filename = 'testme/static/images/icon%d.gif' % code
-        icon    = PIL.Image.open(bitmap_filename)
-        box     = (x, y, x+w, y+h)
-        region  = icon.crop(box)
-        region.save(icon_filename)
-        log('SAVED:%s' % icon_filename)
+        icon_filename   = '%sicon%d.gif' % (self.gfx_dir, code)
+        if not exists(icon_filename):
+            #TODO: use in memory (don't save ppm first)
+            bitmap_filename = '%sbitmap%d.gif' % (self.gfx_dir, bitmap_code)
+            icon    = PIL.Image.open(bitmap_filename)
+            box     = (x, y, x+w, y+h)
+            region  = icon.crop(box)
+            region.save(icon_filename)
+            log('SAVED:%s' % icon_filename)
 
-        filename = 'static/images/icon%d.gif' % code
+        filename = '%sicon%d.gif' % (self.gfx_url, code)
         return dict(type=PMSG_DEF_ICON, code=code, filename=filename, width=w, height=h)
 
     def player_icon(self, player_id, code):
@@ -95,22 +111,9 @@ class ServerMessage:
         log('MESSAGE:player_join player_id=%d, client_is_self=%d' % (player_id, client_is_self))
         return dict(type=PMSG_PLAYER_JOIN, player_id=player_id, client_is_self=client_is_self)
 
-    #UNKNOWN MESSAGE:('k', 'right', 0, 0, 1, 2, 3)  #def_key
-    #UNKNOWN MESSAGE:('k', 'left', 1, 4, 5, 6, 7)
-    #UNKNOWN MESSAGE:('k', 'jump', 2, 8, 9, 10, 11)
-    #UNKNOWN MESSAGE:('k', 'fire', 3, 12, 13, 14, 15)
-    #UNKNOWN MESSAGE:('k', '-right', 4)
-    #UNKNOWN MESSAGE:('k', '-left', 5)
-    #UNKNOWN MESSAGE:('k', '-jump', 6)
-    #UNKNOWN MESSAGE:('k', '-fire', 7)
-
-    def def_key(self, keyname, num, *rest):
-'''
-    for keyname, icolist, fn in game.FnKeys:
-      self.msgl.append(message(MSG_DEF_KEY, keyname, num,
-                               *[ico.code for ico in icolist]))
-'''
-        return dict(type=PMSG_DEF_KEY)
+    def def_key(self, keyname, num, *ico_codes):
+        log('MESSAGE:def_key keyname=%s, num=%d, ico_codes=%s' % (keyname, num, str(ico_codes)))
+        return dict(type=PMSG_DEF_KEY, keyname=keyname, num=num, ico_codes=ico_codes)
  
     MESSAGES = {
         MSG_BROADCAST_PORT : broadcast_port,
@@ -123,4 +126,3 @@ class ServerMessage:
         MSG_PONG           : pong,
         MSG_DEF_KEY        : def_key,
         }
-
