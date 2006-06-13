@@ -373,6 +373,27 @@ def test_weakref_dont_always_callback():
     f = compile_func(func, [])
     assert f()
 
+def test_gc_x_operations():
+    class FakeOptions:
+        pass
+    t = TranslationContext()
+    t.driver_options = FakeOptions()
+    t.driver_options.gc = 'ref'
+    from pypy.rpython.rgc import gc_clone, gc_swap_pool
+    S = lltype.GcStruct("S", ('x', lltype.Signed))
+    def f():
+        s = lltype.malloc(S)
+        gc_swap_pool(None)
+        try:
+            t = gc_clone(s, None)
+        except RuntimeError:
+            return 1
+        else:
+            return 0
+    fn = compile_func(f, [], t=t)
+    res = fn()
+    assert res == 1
+
 # _______________________________________________________________
 # test framework
 

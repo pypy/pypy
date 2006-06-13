@@ -330,7 +330,8 @@ LL_OPERATIONS = {
     # experimental operations in support of thread cloning, only
     # implemented by the Mark&Sweep GC
     'gc_x_swap_pool':       LLOp(canraise=(MemoryError,), canunwindgc=True),
-    'gc_x_clone':           LLOp(canraise=(MemoryError,), canunwindgc=True),
+    'gc_x_clone':           LLOp(canraise=(MemoryError, RuntimeError),
+                                 canunwindgc=True),
     'gc_x_size_header':     LLOp(),
     # this one is even more experimental; only implemented with the
     # Mark&Sweep GC, and likely only useful when combined with

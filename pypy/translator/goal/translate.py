@@ -268,6 +268,7 @@ def main():
     from pypy.translator.tool.pdbplus import PdbPlusShow
  
     t = translator.TranslationContext()
+    t.driver_options = options
 
     class ServerSetup:
         async_server = None

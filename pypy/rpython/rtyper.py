@@ -90,6 +90,9 @@ class RPythonTyper:
             log.info(s)
         self.crash_on_first_typeerror = True
 
+    def getdriveroptions(self):
+        return self.annotator.translator.driver_options
+
     def getprimitiverepr(self, lltype):
         try:
             return self.primitive_to_repr[lltype]
