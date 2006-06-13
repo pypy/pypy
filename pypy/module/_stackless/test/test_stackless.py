@@ -3,7 +3,7 @@ from pypy.conftest import gettestobjspace
 class AppTest_Stackless:
 
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('stackless',))
+        space = gettestobjspace(usemodules=('_stackless',))
         cls.space = space
 
     def test_one(self):

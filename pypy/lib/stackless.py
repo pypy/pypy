@@ -33,7 +33,7 @@ except ImportError:
     from coroutine_dummy import coroutine
 
 
-__all__ = 'run getcurrent getmain schedule tasklet channel TaskletExit'.split()
+__all__ = 'run getcurrent getmain schedule tasklet channel TaskletExit coroutine'.split()
 
 class TaskletExit(Exception):pass
 

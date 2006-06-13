@@ -1,4 +1,4 @@
-from pypy.module.stackless.interp_coroutine import Coroutine, AbstractThunk
+from pypy.module._stackless.interp_coroutine import Coroutine, AbstractThunk
 from pypy.rpython.rgc import gc_swap_pool, gc_clone
 
 

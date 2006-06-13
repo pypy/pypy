@@ -5,8 +5,8 @@ testing cloning
 from pypy.translator.c import gc
 from pypy.rpython.memory import gctransform
 from pypy.rpython.memory.test import test_transformed_gc
-from pypy.module.stackless.interp_clonable import ClonableCoroutine
-from pypy.module.stackless.interp_clonable import AbstractThunk, fork
+from pypy.module._stackless.interp_clonable import ClonableCoroutine
+from pypy.module._stackless.interp_clonable import AbstractThunk, fork
 
 
 class TestClonableCoroutine(test_transformed_gc.GCTest):

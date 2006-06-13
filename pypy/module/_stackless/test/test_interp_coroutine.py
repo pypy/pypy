@@ -3,7 +3,7 @@ testing coroutines at interprepter level
 """
 
 import os
-from pypy.module.stackless.interp_coroutine import main_costate_getter, Coroutine, AbstractThunk
+from pypy.module._stackless.interp_coroutine import main_costate_getter, Coroutine, AbstractThunk
 from pypy.translator.c.test.test_stackless import StacklessTest
 from pypy.translator.c import gc
 

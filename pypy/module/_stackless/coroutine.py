@@ -23,8 +23,8 @@ from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import StaticMethod
 
-from pypy.module.stackless.stackless_flags import StacklessFlags
-from pypy.module.stackless.interp_coroutine import Coroutine, BaseCoState, AbstractThunk
+from pypy.module._stackless.stackless_flags import StacklessFlags
+from pypy.module._stackless.interp_coroutine import Coroutine, BaseCoState, AbstractThunk
 
 from pypy.rpython import rstack # for resume points
 from pypy.tool import stdlib_opcode as pythonopcode
@@ -120,7 +120,7 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         # you cannot construct the tree that you are climbing.
         # XXX missing checks!
         from pypy.interpreter.mixedmodule import MixedModule
-        w_mod    = space.getbuiltinmodule('stackless')
+        w_mod    = space.getbuiltinmodule('_stackless')
         mod      = space.interp_w(MixedModule, w_mod)
         w_mod2    = space.getbuiltinmodule('_pickle_support')
         mod2      = space.interp_w(MixedModule, w_mod2)
@@ -247,7 +247,7 @@ AppCoroutine.typedef = TypeDef("coroutine",
                               unwrap_spec=['self', ObjSpace]),
     __setstate__ = interp2app(AppCoroutine.descr__setstate__,
                               unwrap_spec=['self', ObjSpace, W_Root]),
-    __module__ = 'stackless',
+    __module__ = '_stackless',
 )
 
 class AppCoState(BaseCoState):

@@ -17,5 +17,5 @@ class Module(MixedModule):
     def setup_after_space_initialization(self):
         # post-installing classmethods/staticmethods which
         # are not yet directly supported
-        from pypy.module.stackless.coroutine import post_install
+        from pypy.module._stackless.coroutine import post_install
         post_install(self)

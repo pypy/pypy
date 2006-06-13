@@ -5,11 +5,11 @@ from pypy.conftest import gettestobjspace
 class AppTest_Coroutine:
 
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('stackless',))
+        space = gettestobjspace(usemodules=('_stackless',))
         cls.space = space
 
     def test_one(self):
-        import stackless
+        import _stackless as stackless
         print stackless.__file__
         co = stackless.coroutine()
         print co
@@ -19,7 +19,7 @@ class AppTest_Coroutine:
     def test_pickle_coroutine(self):
         # this test is limited to basic pickling.
         # real stacks can only tested with a stackless pypy build.
-        import stackless
+        import _stackless as stackless
         co = stackless.coroutine()
         import pickle
         pckl = pickle.dumps(co)
@@ -33,7 +33,7 @@ class AppTest_Coroutine:
         try: 
             sys.modules['mod'] = mod
             exec '''
-import sys, stackless
+import sys, _stackless as stackless
 
 def f():
         global the_frame
