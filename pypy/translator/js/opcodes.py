@@ -9,7 +9,7 @@ from pypy.translator.oosupport.metavm import _GetFieldDispatcher, _SetFieldDispa
 
 from pypy.translator.js.metavm import SameAs, IsInstance, Call, CallMethod, CopyName, CastString,\
     _Prefix, _CastFun, _NotImplemented, CallBuiltin, CallBuiltinObject, GetBuiltinField, SetBuiltinField,\
-    IndirectCall
+    IndirectCall, CallExternalObject, SetExternalField
 
 from pypy.translator.js.jsbuiltin import Builtins
 
@@ -24,7 +24,9 @@ class_map = { 'Call' : Call,
     'GetBuiltinField' : GetBuiltinField,
     'GetField' : GetField,
     'SetField' : SetField,
-    'SetBuiltinField' : SetBuiltinField
+    'SetBuiltinField' : SetBuiltinField,
+    'CallExternalObject' : CallExternalObject,
+    'SetExternalField' : SetExternalField,
 }
 
 opcodes = {'int_mul': '*',

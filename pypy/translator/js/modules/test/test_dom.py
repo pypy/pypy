@@ -75,15 +75,15 @@ xml = XMLHttpRequest()
 def t_xml_fun():
     if xml.readyState == 4:
         alert('Wow!')
-
+        
 def test_xmlhttp():
     """ Low level XMLHttpRequest test
     """
     def xml_fun():
-        return 4+4
-        #xml.open('GET', 'http://localhost:8080/get_some_info?info=dupa', True)
-        #xml.onreadystatechange = t_xml_fun
-        #xml.send__n(None)
+        xml.open('GET', 'http://localhost:8080/get_some_info?info=dupa', True)
+        xml.onreadystatechange = t_xml_fun
+        #return xml.readyState
+        xml.send_finish()
     
     fn = compile_function(xml_fun, [])
     fn()

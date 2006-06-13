@@ -4,6 +4,7 @@ Varius microopcodes for different ootypesystem based backends
 """
 
 from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.ootypesystem.bltregistry import ExternalType
 
 class Generator(object):
     def function_signature(self, graph):
@@ -96,11 +97,18 @@ class _GeneralDispatcher(MicroInstruction):
         if not isinstance(this, ootype.Instance):
             return False
         return this._hints.get('_suggested_external')
+    
+    def check_external(self, this):
+        if isinstance(this, ExternalType):
+            return True
+        return False
 
 class _MethodDispatcher(_GeneralDispatcher):
     def render(self, generator, op):
         method = op.args[0].value
         this = op.args[1].concretetype
+        if self.check_external(this):
+            return self.class_map['CallExternalObject'].render(generator, op)
         if self.check_builtin(this):
             return self.class_map['CallBuiltinObject'].render(generator, op)
         try:
@@ -128,7 +136,9 @@ class _GetFieldDispatcher(_GeneralDispatcher):
     
 class _SetFieldDispatcher(_GeneralDispatcher):
     def render(self, generator, op):
-        if self.check_builtin(op.args[0].concretetype):
+        if self.check_external(op.args[0].concretetype):
+            return self.class_map['SetExternalField'].render(generator, op)
+        elif self.check_builtin(op.args[0].concretetype):
             return self.class_map['SetBuiltinField'].render(generator, op)
         else:
             return self.class_map['SetField'].render(generator, op)

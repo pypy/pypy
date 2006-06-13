@@ -14,6 +14,7 @@ from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Void, Bool, Float
 from pypy.rpython.lltypesystem.lltype import SignedLongLong, UnsignedLongLong, typeOf
 from pypy.rpython.lltypesystem.lltype import Char, UniChar
 from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.ootypesystem import bltregistry
 
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.translator.js.modules import dom
@@ -197,6 +198,8 @@ class AbstractConst(object):
             return StringConst(db, const)
         elif isinstance(const, ootype._dict):
             return DictConst(db, const)
+        elif isinstance(const, bltregistry._external_type):
+            return ExtObject(db, const)
         else:
             assert False, 'Unknown constant: %s %r' % (const, typeOf(const))
     make = staticmethod(make)
@@ -376,3 +379,22 @@ class DictConst(RecordConst):
             self.db.load_const(typeOf(i), i, ilasm)
             ilasm.list_setitem()
             ilasm.store_void()
+
+class ExtObject(AbstractConst):
+    def __init__(self, db, const):
+        self.db = db
+        self.const = const
+        self.name = self.get_name()
+    
+    def __eq__(self, other):
+        return self.name == other.name
+    
+    def __hash__(self):
+        return hash(self.name)
+    
+    def get_name(self):
+        return self.const._TYPE._name.split('.')[-1][:-2]
+    
+    def init(self, ilasm):
+        #import pdb; pdb.set_trace()
+        ilasm.new(self.get_name())

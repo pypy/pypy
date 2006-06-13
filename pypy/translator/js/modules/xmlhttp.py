@@ -12,9 +12,14 @@ class XMLHttpRequest(BasicExternal):
     
     _methods = {
         'open' : ((str, str, bool), None),
-        'send__s' : ((str,), None),
-        'send__n' : ((), None),
+        'send' : ((str,), None),
+        'send_finish' : ((), None),
         #'onreadystatechange' : ([], Void),
+    }
+    
+    _method_mapping = {
+        # this is neede because we've got some method duplications
+        'send_finish' : 'send'
     }
 
 ##class XMLHttpRequest(object):

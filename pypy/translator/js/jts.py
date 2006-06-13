@@ -12,6 +12,8 @@ from pypy.rpython.ootypesystem.ootype import String, _string, List, StaticMethod
 
 from pypy.translator.js.log import log
 
+from types import FunctionType
+
 try:
     set
 except NameError:
@@ -81,7 +83,12 @@ class JTS(object):
             else:
                 val = 'true'
         elif _type is Void:
-            val = 'undefined'
+            if isinstance(v, FunctionType):
+                graph = self.db.translator.annotator.bookkeeper.getdesc(v).cachedgraph(None)
+                self.db.pending_function(graph)
+                val = graph.name
+            else:
+                val = 'undefined'
         elif isinstance(_type,String.__class__):
             val = '%r'%v._str
         elif isinstance(_type,List):

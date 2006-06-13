@@ -45,6 +45,7 @@ class JS(GenOO):
         }
         GenOO.__init__(self, udir, translator, backend_mapping = backend_mapping, pending_graphs = ())
         self.translator = translator
+        self.db.translator = translator
     
     def gen_pendings(self):
         while self.db._pending_nodes:

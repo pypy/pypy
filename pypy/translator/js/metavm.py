@@ -118,8 +118,13 @@ class _SetBuiltinField(MicroInstruction):
         generator.load(this)
         generator.load(value)
         generator.set_field(None, field_name)
+    
+class _SetExternalField(_SetBuiltinField):
+    def render(self, generator, op):
+        self.run_it(generator, op.args[0], op.args[1].value, op.args[2])
 
 SetBuiltinField = _SetBuiltinField()
+SetExternalField = _SetExternalField()
 
 class _CallMethod(_Call):
     def render(self, generator, op):
@@ -134,7 +139,16 @@ class _CallBuiltinObject(_Call):
         generator.load(op.args[1])
         self._render_builtin_method(generator, method_name, op.args[1:])
 
+class _CallExternalObject(_Call):
+    def render(self, generator, op):
+        this = op.args[1].concretetype
+        method = op.args[0]
+        method_name = method.value
+        generator.load(op.args[1])
+        self._render_builtin_method(generator, method_name, op.args[1:])
+
 CallBuiltinObject = _CallBuiltinObject()
+CallExternalObject = _CallExternalObject()
 
 class _IsInstance(MicroInstruction):
     def render(self, generator, op):
