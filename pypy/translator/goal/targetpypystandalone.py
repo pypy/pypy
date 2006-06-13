@@ -117,7 +117,7 @@ def target(driver, args):
         # thread might appear twice now, but the objspace can handle this
         usemodules.append('thread')
     if options.stackless:
-        usemodules.append('stackless')
+        usemodules.append('_stackless')
         
     space = StdObjSpace(nofaking=True,
                         compiler="ast", # interpreter/astcompiler
