@@ -6,6 +6,6 @@
     <title>
         BnB - the game
     </title>
-    <body>
+    <body onLoad="BnB()">
     </body>
 </html>

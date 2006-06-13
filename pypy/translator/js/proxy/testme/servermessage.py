@@ -15,10 +15,13 @@ def log(msg):
 
 
 #proxy messages
-PMSG_PING          = "ping"
+PMSG_PING          = "ping"	#server wants to hear from client
+PMSG_PONG          = "pong"	#server responds to client's ping
 PMSG_DEF_PLAYFIELD = "def_playfield"
 PMSG_DEF_ICON      = "def_icon"
+PMSG_PLAYER_ICON   = "player_icon"
 PMSG_PLAYER_JOIN   = "player_join"
+PMSG_DEF_KEY       = "def_key"
 
 
 # convert server messages to proxy messages in json format
@@ -37,33 +40,17 @@ class ServerMessage:
             log("UNKNOWN MESSAGE:%s" % str(values))
             return dict(type='unknown', values=values)
 
-    #UNKNOWN MESSAGE:('k', 'right', 0, 0, 1, 2, 3)  #def_key
-    #UNKNOWN MESSAGE:('k', 'left', 1, 4, 5, 6, 7)
-    #UNKNOWN MESSAGE:('k', 'jump', 2, 8, 9, 10, 11)
-    #UNKNOWN MESSAGE:('k', 'fire', 3, 12, 13, 14, 15)
-    #UNKNOWN MESSAGE:('k', '-right', 4)
-    #UNKNOWN MESSAGE:('k', '-left', 5)
-    #UNKNOWN MESSAGE:('k', '-jump', 6)
-    #UNKNOWN MESSAGE:('k', '-fire', 7)
-    #UNKNOWN MESSAGE:('i', 0, 16)                   #player_icon
-    #UNKNOWN MESSAGE:('i', 1, 17)
-    #UNKNOWN MESSAGE:('i', 2, 18)
-    #UNKNOWN MESSAGE:('i', 3, 19)
-    #UNKNOWN MESSAGE:('i', 4, 20)
-    #UNKNOWN MESSAGE:('i', 5, 21)
-    #UNKNOWN MESSAGE:('i', 6, 22)
-    #UNKNOWN MESSAGE:('i', 7, 23)
-    #UNKNOWN MESSAGE:('i', 8, 24)
-    #UNKNOWN MESSAGE:('i', 9, 25)
-    #UNKNOWN MESSAGE:('G',)                         #pong
-
     #server message handlers...
     def broadcast_port(self, *values):
         log('MESSAGE (IGNORE):broadcast_port %s' % str(values))
 
-    def ping(self):
-        log('MESSAGE:ping')
+    def ping(self, *rest):
+        log('MESSAGE:ping udpsockcounter=%s' % rest)
         return dict(type=PMSG_PING)
+
+    def pong(self):
+        log('MESSAGE:pong')
+        return dict(type=PMSG_PONG)
 
     def def_playfield(self, width, height, backcolor, FnDesc):
         log('MESSAGE:def_playfield width=%s, height=%s, backcolor=%s, FnDesc=%s' %\
@@ -100,16 +87,40 @@ class ServerMessage:
         filename = 'static/images/icon%d.gif' % code
         return dict(type=PMSG_DEF_ICON, code=code, filename=filename, width=w, height=h)
 
+    def player_icon(self, player_id, code):
+        log('MESSAGE:player_icon player_id=%d, code=%d' % (player_id, code))
+        return dict(type=PMSG_PLAYER_ICON, player_id=player_id, code=code)
+
     def player_join(self, player_id, client_is_self):
         log('MESSAGE:player_join player_id=%d, client_is_self=%d' % (player_id, client_is_self))
         return dict(type=PMSG_PLAYER_JOIN, player_id=player_id, client_is_self=client_is_self)
-        
+
+    #UNKNOWN MESSAGE:('k', 'right', 0, 0, 1, 2, 3)  #def_key
+    #UNKNOWN MESSAGE:('k', 'left', 1, 4, 5, 6, 7)
+    #UNKNOWN MESSAGE:('k', 'jump', 2, 8, 9, 10, 11)
+    #UNKNOWN MESSAGE:('k', 'fire', 3, 12, 13, 14, 15)
+    #UNKNOWN MESSAGE:('k', '-right', 4)
+    #UNKNOWN MESSAGE:('k', '-left', 5)
+    #UNKNOWN MESSAGE:('k', '-jump', 6)
+    #UNKNOWN MESSAGE:('k', '-fire', 7)
+
+    def def_key(self, keyname, num, *rest):
+'''
+    for keyname, icolist, fn in game.FnKeys:
+      self.msgl.append(message(MSG_DEF_KEY, keyname, num,
+                               *[ico.code for ico in icolist]))
+'''
+        return dict(type=PMSG_DEF_KEY)
+ 
     MESSAGES = {
         MSG_BROADCAST_PORT : broadcast_port,
         MSG_PING           : ping,
         MSG_DEF_PLAYFIELD  : def_playfield,
         MSG_DEF_BITMAP     : def_bitmap,
         MSG_DEF_ICON       : def_icon,
+        MSG_PLAYER_ICON    : player_icon,
         MSG_PLAYER_JOIN    : player_join,
+        MSG_PONG           : pong,
+        MSG_DEF_KEY        : def_key,
         }
 
