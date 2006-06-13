@@ -93,8 +93,8 @@ class AppGreenlet(Coroutine):
         #print "switch", __args__, id(self)
         if __args__.num_kwds():
             raise OperationError(
-                space.w_TypeError,
-                space.wrap("switch() takes not keyword arguments"))
+                self.space.w_TypeError,
+                self.space.wrap("switch() takes not keyword arguments"))
         self.has_ever_run = True
         self.costate.__args__ = __args__
         self.switch()
@@ -113,7 +113,7 @@ class AppGreenlet(Coroutine):
 
     def w_throw(self, w_exception):
         self.costate.operr = OperationError(w_exception, self.space.wrap(""))
-        self.w_switch(Arguments([]))
+        self.w_switch(Arguments(self.space, []))
 
     def _userdel(self):
         self.space.userdel(self)
@@ -145,10 +145,21 @@ def w_get_frame(space, self):
     except IndexError:
         return space.w_None
 
+def get(space, name):
+    w_module = space.getbuiltinmodule('_stackless')
+    return space.getattr(w_module, space.wrap(name))
+
 def post_install(module):
     makeStaticMethod(module, 'greenlet', 'getcurrent')
     space = module.space
     AppGreenlet._get_state(space).post_install()
+    w_module = space.getbuiltinmodule('_stackless')
+    space.appexec([w_module, get(space, "GreenletExit"),
+                   get(space, "GreenletError")], """
+    (mod, exit, error):
+        mod.greenlet.GreenletExit = exit
+        mod.greenlet.error = error
+    """)
 
 AppGreenlet.typedef = TypeDef("greenlet",
     __new__ = interp2app(AppGreenlet.descr_method__new__.im_func),

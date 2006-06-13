@@ -7,6 +7,8 @@ class Module(MixedModule):
     """
 
     appleveldefs = {
+        'GreenletExit' : 'app_greenlet.GreenletExit',
+        'GreenletError' : 'app_greenlet.GreenletError',
     }
 
     interpleveldefs = {
