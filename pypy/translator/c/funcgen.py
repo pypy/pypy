@@ -702,5 +702,8 @@ class FunctionCodeGenerator(object):
             c_string_constant(' '.join(format) + '\n'),
             ''.join([', ' + s for s in argv]))
 
+    def OP_DEBUG_LOG_EXC(self, op):
+        exc_type = self.expr(op.args[0])
+        return 'RPY_LOG_EXC(%s);' % exc_type
 
 assert not USESLOTS or '__dict__' not in dir(FunctionCodeGenerator)

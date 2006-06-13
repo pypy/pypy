@@ -4,6 +4,7 @@ from pypy.translator.backendopt import canraise, inline, support, removenoops
 from pypy.objspace.flow.model import Block, Constant, Variable, Link, \
     c_last_exception, SpaceOperation, checkgraph, FunctionGraph
 from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import lloperation
 from pypy.rpython.memory.lladdress import NULL
 from pypy.rpython.memory.gctransform import varoftype
 from pypy.rpython import rtyper
@@ -51,7 +52,9 @@ class ExceptionTransformer(object):
         null_value = lltype.nullptr(self.lltype_of_exception_value.TO)
         
         def rpyexc_occured():
-            return exc_data.exc_type is not null_type
+            exc_type = exc_data.exc_type
+            lloperation.llop.debug_log_exc(lltype.Void, exc_type)
+            return  exc_type is not null_type
 
         def rpyexc_fetch_type():
             return exc_data.exc_type
@@ -275,6 +278,7 @@ class ExceptionTransformer(object):
 
         llops = rtyper.LowLevelOpList(None)
         v_exc_type = self.ExcData_repr.getfield(self.cexcdata, 'exc_type', llops)
+        llops.genop('debug_log_exc', [v_exc_type], lltype.Void)
         var_exc_occured = llops.genop('ptr_ne', [v_exc_type, self.cnulltype], lltype.Bool)
         block.operations.extend(llops)
         

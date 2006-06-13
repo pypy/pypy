@@ -6,9 +6,21 @@
    PyObject *RPythonError;
 #endif 
 
+#define RPY_LOG_EXC(exc_type)
+
+
 /******************************************************************/
 #ifdef HAVE_RTYPER               /* RPython version of exceptions */
 /******************************************************************/
+
+#ifdef DO_LOG_EXC
+#undef RPY_LOG_EXC
+#define RPY_LOG_EXC(exc_type)  if(exc_type) { \
+	fprintf(stderr, "propagating %s:%ld %s %s\n", \
+		__FILE__, __LINE__, __FUNCTION__, \
+		exc_type->ov_name->items); \
+}
+#endif
 
 /* Hint: functions and macros not defined here, like RPyRaiseException,
    come from exctransformer via the table in extfunc.py. */
