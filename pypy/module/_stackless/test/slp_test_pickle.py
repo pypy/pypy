@@ -5,13 +5,13 @@ from pypy.conftest import gettestobjspace
 class AppTest_Pickle:
 
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('stackless',))
+        space = gettestobjspace(usemodules=('_stackless',))
         cls.space = space
 
     def test_simple_ish(self):
 
         output = []
-        import stackless
+        import _stackless
         def f(coro, n, x):
             if n == 0:
                 coro.switch()
@@ -20,8 +20,8 @@ class AppTest_Pickle:
             output.append(x)
 
         def example():
-            main_coro = stackless.coroutine.getcurrent()
-            sub_coro = stackless.coroutine()
+            main_coro = _stackless.coroutine.getcurrent()
+            sub_coro = _stackless.coroutine()
             sub_coro.bind(f, main_coro, 5, 1)
             sub_coro.switch()
 
