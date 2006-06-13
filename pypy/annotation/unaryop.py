@@ -630,6 +630,10 @@ class __extend__(SomeExternalBuiltin):
         assert s_attr.is_constant()
         attr = s_attr.const
         entry = extregistry.lookup_type(p.knowntype._class_)
+        # we need to flow it, if it's something which can be called
+        if isinstance(s_value, SomePBC):
+            bookkeeper = getbookkeeper()
+            bookkeeper.pbc_call(s_value, bookkeeper.build_args("simple_call", ()))
         entry.set_field_annotation(p.knowntype, attr, s_value)
     
     def find_method(obj, name):
