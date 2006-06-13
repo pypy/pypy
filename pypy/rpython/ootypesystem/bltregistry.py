@@ -19,6 +19,7 @@ class BasicMetaExternal(type):
 
 class BasicExternal(object):
     __metaclass__ = BasicMetaExternal
+    __self__ = None
     
     _fields = {}
     _methods = {}
@@ -38,11 +39,10 @@ class Analyzer(object):
             return None
         return getbookkeeper().valueoftype(self.retval)
 
-class ExternalType(ootype.Instance):
+class ExternalType(ootype.OOType):
     class_dict = {}
     __name__ = "ExternalType"
-    _TYPE = BasicMetaExternal
-    
+
     def __init__(self, _class):
         # FIXME: We want to support inheritance at some point
         self._class_ = _class
@@ -60,6 +60,11 @@ class ExternalType(ootype.Instance):
     def update_fields(self, _fields):
         for i, val in _fields.iteritems():
             self._fields[i] = getbookkeeper().valueoftype(val)
+    
+    def _is_compatible(type2):
+        return type(type2) is ExternalType
+    
+    _is_compatible = staticmethod(_is_compatible)
     
     def update_methods(self, _methods):
         _signs = {}
@@ -104,8 +109,20 @@ class ExternalType(ootype.Instance):
     
     def __repr__(self):
         return "%s %s" % (self.__name__, self._name)
-    
+        
+##    def _defl(self):
+##        raise AttributeError()
+##        return self._null
+##
+##    def _example(self):
+##        raise AttributeError()return new(self)
+##    
     get = staticmethod(get)
+    
+class _external_type(object):
+    
+    def __init__(self, et):
+        self._TYPE = et
 
 class Entry_basicexternalmeta(ExtRegistryEntry):
     _metatype_ = BasicMetaExternal
