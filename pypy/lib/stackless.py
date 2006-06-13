@@ -299,7 +299,6 @@ def run(timeout=0):
     if DEBUG:
         print 'stackless.run()'
     me = scheduler.current_remove()
-    print 'me is', me
     if me is not main_tasklet:
         raise RuntimeError("run() must be run from the main thread's \
                              main tasklet")

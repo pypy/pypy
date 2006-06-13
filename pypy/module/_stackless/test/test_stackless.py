@@ -6,7 +6,7 @@ class AppTest_Stackless:
         space = gettestobjspace(usemodules=('_stackless',))
         cls.space = space
 
-    def test_one(self):
+    def x_test_one(self):
         import stackless
         print stackless.__file__
         t = stackless.tasklet()
@@ -19,3 +19,28 @@ class AppTest_Stackless:
         x = A("heinz")
         x.demo()
         print x.name
+
+    def test_simple(self):
+        import stackless
+
+        rlist = []
+
+        def f():
+            rlist.append('f')
+
+        def g():
+            rlist.append('g')
+            stackless.schedule()
+
+        def main():
+            rlist.append('m')
+            cg = stackless.tasklet(g)()
+            cf = stackless.tasklet(f)()
+            stackless.run()
+            rlist.append('m')
+
+        main()
+
+        assert stackless.getcurrent() is stackless.main_tasklet
+        assert rlist == 'm g f m'.split()
+
