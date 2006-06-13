@@ -25,13 +25,7 @@ def ASSERT_Q(task):
             print task
         raise
 
-try:
-    from stackless import coroutine
-except ImportError:
-    if not DEBUG:
-        raise
-    from coroutine_dummy import coroutine
-
+from _stackless import coroutine
 
 __all__ = 'run getcurrent getmain schedule tasklet channel TaskletExit coroutine'.split()
 
