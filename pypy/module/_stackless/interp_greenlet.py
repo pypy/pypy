@@ -21,22 +21,19 @@ class GreenletThunk(AbstractThunk):
         __args__ = self.costate.__args__
         assert __args__ is not None
         try:
+            w_result = self.space.call_args(self.greenlet.w_callable, __args__)
+        except OperationError, operr:
+            self.greenlet.w_dead = self.space.w_True
+            self.costate.operr = operr
+            w_result = self.space.w_None
+        else:
+            self.greenlet.w_dead = self.space.w_True
+        while 1:
+            __args__ = Arguments(self.space, [w_result])
             try:
-                w_result = self.space.call_args(self.greenlet.w_callable, __args__)
+                w_result = self.greenlet.w_parent.w_switch(__args__)
             except OperationError, operr:
-                self.greenlet.w_dead = self.space.w_True
                 self.costate.operr = operr
-                w_result = self.space.w_None
-            else:
-                self.greenlet.w_dead = self.space.w_True
-            while 1:
-                __args__ = Arguments(self.space, [w_result])
-                try:
-                    w_result = self.greenlet.w_parent.w_switch(__args__)
-                except OperationError, operr:
-                    self.costate.operr = operr
-        except Exception, e:
-            print "bad idea", e
 
 class AppGreenletCoState(BaseCoState):
     def __init__(self, space):
