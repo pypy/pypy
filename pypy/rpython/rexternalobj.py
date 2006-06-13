@@ -45,21 +45,36 @@ class ExternalBuiltinRepr(Repr):
             field = self.knowntype.get_field(s_attr.const)
             if isinstance(field, annmodel.SomeBuiltin):
                 # we need to type it as static method
-                args, retval = self.knowntype._methods[s_attr.const]
-                ll_args = [i.rtyper_makerepr(hop.rtyper).lowleveltype for i in args]
-                if retval is None:
-                    ll_retval = ootype.Void
-                else:
-                    ll_retval = retval.rtyper_makerepr(hop.rtyper).lowleveltype
-                return Constant(hop.args_v[0], concretetype=self.lowleveltype)
-                #return Constant(ootype.StaticMethod(ll_args, ll_retval), concretetype=self.lowleveltype)
-                #return Constant(ootype.StaticMethod(ll_args, ll_retval), concretetype = lltype.Void)
-            return self.knowntype.get_field(s_attr.const).rtyper_makerepr(hop.repr).lowleveltype
+                return hop.args_v[0]
+                #return hop.genop('oogetfield', hop.args_v, concretetype=self.lowleveltype)
+            ll_type = field.rtyper_makerepr(hop.rtyper).lowleveltype
+            return hop.genop('oogetfield', hop.args_v, ll_type)
         else:
             raise TyperError("getattr() with a non-constant attribute name")
     
+    def rtype_setattr(self, hop):
+        s_attr = hop.args_s[1]
+        if s_attr.is_constant() and isinstance(s_attr.const, str):
+            field = self.knowntype.get_field(s_attr.const)
+            if isinstance(hop.args_v[2], Constant):
+                hop.args_v[2] = hop.inputconst(field.rtyper_makerepr(hop.rtyper), hop.args_v[2].value)
+            return hop.genop('oosetfield', hop.args_v, ootype.Void)
+        else:
+            raise TyperError("setattr() with a non-constant attribute name")
+    
     def call_method(self, name, hop):
-        return hop.genop('oosend', [Constant(name)] + hop.args_v, resulttype=hop.r_result)
+        args, retval = self.knowntype._methods[name]
+        ll_args = [i.rtyper_makerepr(hop.rtyper) for i in args]
+        if retval is None:
+            ll_retval = ootype.Void
+        else:
+            ll_retval = retval.rtyper_makerepr(hop.rtyper)
+        ar = hop.args_v[:]
+        for i in xrange(1, len(ar)):
+            if isinstance(ar[i], Constant):
+                ar[i] = hop.inputconst(ll_args[i-1], ar[i].value)
+                ar[i].concretetype = ll_args[i-1].lowleveltype
+        return hop.genop('oosend', [Constant(name)] + ar, resulttype=hop.r_result)
     
     def __getattr__(self, attr):
         if attr.startswith("rtype_method_"):
