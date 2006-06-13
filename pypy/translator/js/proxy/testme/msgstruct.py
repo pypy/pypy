@@ -67,7 +67,10 @@ def decodemessage(data):
         limit = ord(data[0]) + 1
         if len(data) >= limit:
             typecodes = "!c" + data[1:limit]
-            end = limit + calcsize(typecodes)
+            try:
+                end = limit + calcsize(typecodes)
+            except TypeError:
+                return None, ''
             if len(data) >= end:
                 return unpack(typecodes, data[limit:end]), data[end:]
             elif end > 1000000:

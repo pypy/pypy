@@ -9,7 +9,7 @@ from os.path import exists
 from md5 import md5
 
 
-debug = False
+debug = True
 def log(msg):
     if debug:
         print msg
@@ -34,7 +34,8 @@ class ServerMessage:
     def __init__(self):
         self.socket = None
         self.data   = ''
-        self.gfx_dir = self.base_gfx_dir
+        self.n_header_lines = 2
+        self.gfx_dir = self.base_gfx_dir    #gets overwritten depending on playfield FnDesc
         self.gfx_url = self.base_gfx_url
 
     def dispatch(self, *values):

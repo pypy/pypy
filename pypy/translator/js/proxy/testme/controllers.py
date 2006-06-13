@@ -7,12 +7,13 @@ import socket
 import urllib
 import re
 from servermessage import ServerMessage, log
+from random import random
+from md5 import md5
 
 
 class Root(controllers.Root):
 
     _serverMessage = {}
-    n_header_lines = 2
 
     host = 'localhost'
     port = re.findall('value=".*"', urllib.urlopen('http://%s:8000' % host).read())[0]
@@ -34,6 +35,8 @@ class Root(controllers.Root):
 
     @expose(html='testme.templates.bnb')
     def index(self):
+        self._close()
+        session['_id'] = md5(str(random())).hexdigest() #force new session id to restart a game!
         return dict()
 
     @expose(format='json')
@@ -48,8 +51,8 @@ class Root(controllers.Root):
         sm   = self.serverMessage()
         size = 1024
         data = sm.data + self.sessionSocket().recv(size)
-        while self.n_header_lines > 0 and '\n' in data:
-            self.n_header_lines -= 1
+        while sm.n_header_lines > 0 and '\n' in data:
+            sm.n_header_lines -= 1
             header_line, data = data.split('\n',1)
             log('RECEIVED HEADER LINE: %s' % header_line)
         
@@ -68,12 +71,16 @@ class Root(controllers.Root):
         log('MESSAGES:%s' % messages)
         return dict(messages=messages)
 
+    def _close(self):
+        sessionid = session['_id']
+        if sessionid in self._serverMessage:
+            sm = self.serverMessage()
+            if sm.socket is not None:
+                sm.socket.close()
+            del self._serverMessage[sessionid]
+
     @expose(format='json')
     def close(self):
-        sessionid = session['_id']
-        sm = self.serverMessage()
-        if sm.socket is not None:
-            sm.socket.close()
-        del self._serverMessage[sessionid]
+        self._close()
         return dict()
 

@@ -28,9 +28,8 @@ function sendToServer() { //XXX for now, just get (proxy) server data
 		    body.setAttribute('bgcolor', bgcolor); //XXX hack!
 		} else if (msg.type == 'def_icon') {
 		    if (!(msg.code in icon)) {
-			icon[msg.code] = new Image();
-			icon[msg.code].src = msg.filename
-			var img = IMG({'src':icon[msg.code].src,
+			icon[msg.code] = true; //new Image();
+			var img = IMG({'src':msg.filename, 'title':msg.filename,
 				'width':msg.width, 'height':msg.height});
 			appendChildNodes(playfield, img);
 		    }
