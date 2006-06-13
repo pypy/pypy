@@ -87,6 +87,7 @@ class AppTest_Coroutine:
         g2 = greenlet(fmain)
         g1.switch(seen)
         g2.switch(seen)
+        raises(TypeError, "g2.parent = 1")
         g2.parent = g1
         assert seen == []
         raises(ValueError, g2.switch)

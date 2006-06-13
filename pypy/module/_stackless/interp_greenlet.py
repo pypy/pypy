@@ -59,7 +59,9 @@ class AppGreenlet(Coroutine):
         if is_main:
             self.w_parent = space.w_None
         else:
-            self.w_parent = state.current
+            w_parent = state.current
+            assert isinstance(w_parent, AppGreenlet)
+            self.w_parent = w_parent
         Coroutine.__init__(self, state)
         if not is_main:
             space.getexecutioncontext().subcontext_new(self)
@@ -124,7 +126,8 @@ def descr__bool__(space, w_self):
 def w_get_parent(space, self):
     return self.w_parent
 
-def w_set_parent(space, self, newparent):
+def w_set_parent(space, self, w_parent):
+    newparent = space.interp_w(AppGreenlet, w_parent)
     curr = newparent
     while 1:
         if space.is_true(space.is_(self, curr)):
