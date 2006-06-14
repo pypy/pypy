@@ -25,9 +25,10 @@ def ASSERT_Q(task):
             print task
         raise
 
-from _stackless import coroutine, greenlet
+from _stackless import coroutine
 
-__all__ = 'run getcurrent getmain schedule tasklet channel TaskletExit coroutine greenlet'.split()
+__all__ = 'run getcurrent getmain schedule tasklet \
+                channel TaskletExit coroutine greenlet'.split()
 
 class TaskletExit(Exception):pass
 
@@ -578,9 +579,15 @@ class tasklet(coroutine):
 
     def finished(self):
         self.alive = False
+        if self.next is not self:
+            next = self.next
+        else:
+            next = getmain()
         scheduler.remove_task(self)
+        scheduler.schedule_task(self, next)
 
-        print 'in finished', self
+        if DEBUG:
+            print 'in finished', self
 
     def setup(self, *argl, **argd):
         """

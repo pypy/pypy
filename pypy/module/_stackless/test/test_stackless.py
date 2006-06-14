@@ -23,7 +23,6 @@ class AppTest_Stackless:
 
     def test_simple(self):
         import stackless
-        stackless.__init()
 
         rlist = []
 
@@ -48,7 +47,6 @@ class AppTest_Stackless:
 
     def test_with_channel(self):
         import stackless
-        stackless.__init()
 
         rlist = []
         def f(outchan):
@@ -79,7 +77,6 @@ class AppTest_Stackless:
     def test_counter(self):
         import random
         import stackless
-        stackless.__init()
 
         numbers = range(20)
         random.shuffle(numbers)
@@ -101,3 +98,31 @@ class AppTest_Stackless:
 
         numbers.sort()
         assert rlist == numbers
+
+    def test_scheduling_cleanup(self):
+        import stackless
+        rlist = []
+        def f():
+            rlist.append('fb')
+            stackless.schedule()
+            rlist.append('fa')
+
+        def g():
+            rlist.append('gb')
+            stackless.schedule()
+            rlist.append('ga')
+
+        def h():
+            rlist.append('hb')
+            stackless.schedule()
+            rlist.append('ha')
+
+        tf = stackless.tasklet(f)()
+        tg = stackless.tasklet(g)()
+        th = stackless.tasklet(h)()
+
+        rlist.append('mb')
+        stackless.run()
+        rlist.append('ma')
+
+        assert rlist == 'mb fb gb hb fa ga ha ma'.split()
