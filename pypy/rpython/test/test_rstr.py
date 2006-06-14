@@ -210,21 +210,21 @@ class BaseTestRstr(BaseRtypingTest):
 
     def test_startswith(self):
         def fn(i, j):
-            s1 = ['one', 'two']
-            s2 = ['one', 'two', 'o', 'on', 'ne', 'e', 'twos', 'foobar', 'fortytwo']
+            s1 = ['', 'one', 'two']
+            s2 = ['', 'one', 'two', 'o', 'on', 'ne', 'e', 'twos', 'foobar', 'fortytwo']
             return s1[i].startswith(s2[j])
-        for i in range(2):
-            for j in range(9):
+        for i in range(3):
+            for j in range(10):
                 res = self.interpret(fn, [i,j])
                 assert res is fn(i, j)
 
     def test_endswith(self):
         def fn(i, j):
-            s1 = ['one', 'two']
-            s2 = ['one', 'two', 'o', 'on', 'ne', 'e', 'twos', 'foobar', 'fortytwo']
+            s1 = ['', 'one', 'two']
+            s2 = ['', 'one', 'two', 'o', 'on', 'ne', 'e', 'twos', 'foobar', 'fortytwo']
             return s1[i].endswith(s2[j])
-        for i in range(2):
-            for j in range(9):
+        for i in range(3):
+            for j in range(10):
                 res = self.interpret(fn, [i,j])
                 assert res is fn(i, j)
 
@@ -256,17 +256,17 @@ class BaseTestRstr(BaseRtypingTest):
             assert res == fn(i, j)
 
     def test_find_empty_string(self):
-        def f():
+        def f(i):
+            assert i >= 0
             s = "abc"
             x = s.find('')
-            x+= s.find('', 1)*10
-            x+= s.find('', 2)*100
-            x+= s.find('', 3)*1000
-            x+= s.find('', 4)*10000
-            x+= s.find('', 5)*100000
+            x+= s.find('', i)*10
+            x+= s.find('', i, i)*100
+            x+= s.find('', i, i+1)*1000
             return x
-        res = self.interpret(f, [])
-        assert res == f()
+        for i in range(5):
+            res = self.interpret(f, [i])
+            assert res == f(i)
             
     def test_rfind(self):
         def fn():
@@ -275,18 +275,17 @@ class BaseTestRstr(BaseRtypingTest):
         assert res == 2 + 2 + 1
 
     def test_rfind_empty_string(self):
-        def f():
+        def f(i):
+            assert i >= 0
             s = "abc"
-            x = s.rfind('', 0 ,0)
-            x+= s.rfind('', 0, 1)*10
-            x+= s.rfind('', 0, 2)*100
-            x+= s.rfind('', 0, 3)*1000
-            x+= s.rfind('', 0, 4)*10000
-            x+= s.rfind('', 0, 5)*100000
+            x = s.find('')
+            x+= s.find('', i)*10
+            x+= s.find('', i, i)*100
+            x+= s.find('', i, i+1)*1000
             return x
-        res = self.interpret(f, [])
-        assert res == f()
-
+        for i in range(5):
+            res = self.interpret(f, [i])
+            assert res == f(i)
 
     def test_find_char(self):
         def fn(ch):
