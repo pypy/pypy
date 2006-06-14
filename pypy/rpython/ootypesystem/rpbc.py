@@ -1,7 +1,8 @@
 from pypy.rpython.rmodel import CanBeNull, Repr, inputconst
 from pypy.rpython.rpbc import AbstractClassesPBCRepr, AbstractMethodsPBCRepr, \
         AbstractMultipleFrozenPBCRepr, MethodOfFrozenPBCRepr, \
-        AbstractFunctionsPBCRepr, AbstractMultipleUnrelatedFrozenPBCRepr
+        AbstractFunctionsPBCRepr, AbstractMultipleUnrelatedFrozenPBCRepr, \
+        none_frozen_pbc_repr
 from pypy.rpython.rclass import rtype_new_instance, getinstancerepr
 from pypy.rpython.rpbc import get_concrete_calltable
 from pypy.rpython import callparse
@@ -16,6 +17,8 @@ import types
 
 
 def rtype_is_None(robj1, rnone2, hop, pos=0):
+    if robj1 == none_frozen_pbc_repr:
+        return hop.inputconst(ootype.Bool, True)
     v1 = hop.inputarg(robj1, pos)
     v2 = hop.genop('oononnull', [v1], resulttype=ootype.Bool)
     v3 = hop.genop('bool_not', [v2], resulttype=ootype.Bool)

@@ -12,7 +12,7 @@ from pypy.rpython.rpbc import samesig,\
      AbstractClassesPBCRepr, AbstractMethodsPBCRepr, OverriddenFunctionPBCRepr, \
      AbstractMultipleFrozenPBCRepr, MethodOfFrozenPBCRepr, \
      AbstractFunctionsPBCRepr, AbstractMultipleUnrelatedFrozenPBCRepr, \
-     SingleFrozenPBCRepr
+     SingleFrozenPBCRepr, none_frozen_pbc_repr
 from pypy.rpython.lltypesystem import rclass, llmemory
 from pypy.tool.sourcetools import has_varargs
 
@@ -26,6 +26,8 @@ def rtype_is_None(robj1, rnone2, hop, pos=0):
         v1 = hop.inputarg(robj1, pos)
         cnull = hop.inputconst(llmemory.Address, robj1.null_instance())
         return hop.genop('adr_eq', [v1, cnull], resulttype=Bool)
+    elif robj1 == none_frozen_pbc_repr:
+        return hop.inputconst(Bool, True)
     else:
         raise TyperError('rtype_is_None of %r' % (robj1))
 

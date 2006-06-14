@@ -1323,6 +1323,14 @@ class BaseTestRPBC(BaseRtypingTest):
             res = self.interpret(f, [i, 1000])
             assert res == f(i, 1000)
 
+    def test_None_is_None(self):
+        def g():
+            return None
+        def f():
+            return g() is None
+        res = self.interpret(f, [])
+        assert res == True
+
 
 # We don't care about the following test_hlinvoke tests working on
 # ootype. Maybe later. This kind of thing is only used in rdict
