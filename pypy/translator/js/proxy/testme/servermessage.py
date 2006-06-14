@@ -2,11 +2,12 @@ from turbogears import controllers, expose
 from cherrypy import session
 from msgstruct import *
 import PIL.Image
-from zlib import decompress
+from zlib import decompressobj
 from urllib import quote
 from os import mkdir
 from os.path import exists
 from md5 import md5
+from struct import unpack
 
 
 debug = True
@@ -23,6 +24,7 @@ PMSG_DEF_ICON      = "def_icon"
 PMSG_PLAYER_ICON   = "player_icon"
 PMSG_PLAYER_JOIN   = "player_join"
 PMSG_DEF_KEY       = "def_key"
+PMSG_INLINE_FRAME  = "inline_frame"
 
 
 # convert server messages to proxy messages in json format
@@ -39,6 +41,8 @@ class ServerMessage:
         self.n_header_lines = 2
         self.gfx_dir = self.base_gfx_dir    #gets overwritten depending on playfield FnDesc
         self.gfx_url = self.base_gfx_url
+        self.decompressobj = decompressobj().decompress
+
 
     def dispatch(self, *values):
         #log('RECEIVED:%s(%d)' % (values[0], len(values[1:])))
@@ -84,12 +88,20 @@ class ServerMessage:
         else:
             bitmap_filename = '%sbitmap%d.ppm' % (self.gfx_dir, bitmap_code)
             f = open(bitmap_filename, 'wb')
-            f.write(decompress(data))
+            f.write(self.decompressobj(data))
             f.close()
             #TODO: use in memory (don't save ppm first)
-            bitmap = PIL.Image.open(bitmap_filename)
-            bitmap.save(gif_bitmap_filename)
-            log('SAVED:%s' % gif_bitmap_filename)
+            try:
+                bitmap = PIL.Image.open(bitmap_filename)
+            except IOError:
+                log('ERROR LOADING:%s' % bitmap_filename)
+                return 'error'
+            try:
+                bitmap.save(gif_bitmap_filename)
+                log('SAVED:%s' % gif_bitmap_filename)
+            except IOError:
+                log('ERROR SAVING:%s' % gif_bitmap_filename)
+                return 'error'
 
     def def_bitmap2(self, bitmap_code, fileid, *rest):
         #log('def_bitmap2: bitmap_code=%d, fileid=%d, colorkey=%s' % (bitmap_code, fileid, rest))
@@ -136,7 +148,9 @@ class ServerMessage:
         #log('zpatch_file fileid=%d, position=%d, len(data)=%d' % (fileid, position, len(data)))
         bitmap_code = self._md5_file[fileid]['bitmap_code']
         colorkey    = self._md5_file[fileid]['colorkey']
-        self.def_bitmap(bitmap_code, data, *colorkey)
+        t = self.def_bitmap(bitmap_code, data, *colorkey)
+        if t == 'error':
+            return
         messages = []
         if bitmap_code in self._def_icon_queue:
             #log('%d icons queued for bitmap %d' % (
@@ -169,6 +183,33 @@ class ServerMessage:
             'checksum'      : checksum,
             }
 
+    def inline_frame(self, data):
+        decompressed_data = d = self.decompressobj(data)
+        log('inline_frame len(data)=%d, len(decompressed_data)=%d' % (
+            len(data), len(d)))
+
+        return_raw_data = False
+        if return_raw_data:
+            return dict(type=PMSG_INLINE_FRAME, data=decompressed_data)
+
+        #note: we are not returning the raw data here but we could let the Javascript
+        #      handle it. If this is working we can convert this to RPython and move it
+        #      to the client instead. (based on BnB update_sprites in display/pclient.py)
+        sounds, sprites = [], []
+
+        base = 0
+        while d[base+4:base+6] == '\xFF\xFF':
+            key, lvol, rvol = struct.unpack("!hBB", udpdata[base:base+4])
+            sounds.append((key, lvol, rvol))
+            base += 6
+
+        for j in range(base, len(d)-5, 6):
+            info = d[j:j+6]
+            x, y, icon_code = unpack("!hhh", info[:6])
+            sprites.append((icon_code, x, y))
+
+        return dict(type=PMSG_INLINE_FRAME, sounds=sounds, sprites=sprites)
+
     MESSAGES = {
         MSG_BROADCAST_PORT : ignore,
         MSG_PING           : ignore,
@@ -181,4 +222,5 @@ class ServerMessage:
         MSG_PLAYER_JOIN    : player_join,
         MSG_DEF_KEY        : def_key,
         MSG_MD5_FILE       : md5_file,
+        MSG_INLINE_FRAME   : inline_frame,
         }

@@ -30,7 +30,10 @@ class Root(controllers.Root):
         if sm.socket is None:
             sm.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sm.socket.connect((self.host, self.port))
-            sm.socket.send(message(CMSG_PROTO_VERSION, 2))
+            sm.socket.send(message(CMSG_PROTO_VERSION, 2))  #, version
+            sm.socket.send(message(CMSG_ENABLE_SOUND, 0))   #, has_sound
+            sm.socket.send(message(CMSG_ENABLE_MUSIC, 0))   #, has_music
+            sm.socket.send(message(CMSG_UDP_PORT, "\\"))    #, port
             #XXX todo: session.socket.close() after a timeout
         return sm.socket
 
@@ -70,6 +73,8 @@ class Root(controllers.Root):
                     messages.append(messageOutput)
         sm.data = data
         #log('RECEIVED DATA REMAINING CONTAINS %d BYTES' % len(data))
+
+        #XXX: TODO: remove all but the last message where type == 'inline_frame'(PMSG_INLINE_FRAME)
 
         #if messages:
         #    log('MESSAGES:%s' % messages)
