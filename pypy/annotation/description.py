@@ -366,6 +366,10 @@ class ClassDesc(Desc):
             baselist = list(cls.__bases__)
             baselist.reverse()
 
+            # special case: skip BaseException in Python 2.5
+            if cls is Exception:
+                baselist = []
+
             for b1 in baselist:
                 if b1 is object:
                     continue

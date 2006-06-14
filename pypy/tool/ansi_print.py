@@ -79,5 +79,8 @@ def raise_nicer_exception(*extraargs):
             return '\n'.join(lines)
     ExcSubclass.__name__ = cls.__name__ + "'"
     ExcSubclass.__module__ = cls.__module__
-    e.__class__ = ExcSubclass
+    try:
+        e.__class__ = ExcSubclass
+    except TypeError:   # doesn't work any more on 2.5 :-(
+        pass
     raise ExcSubclass, e, tb

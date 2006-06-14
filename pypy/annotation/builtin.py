@@ -339,7 +339,7 @@ def import_func(*args):
     return SomeObject()
 
 # collect all functions
-import __builtin__
+import __builtin__, exceptions
 BUILTIN_ANALYZERS = {}
 EXTERNAL_TYPE_ANALYZERS = {}
 for name, value in globals().items():
@@ -365,11 +365,22 @@ BUILTIN_ANALYZERS[pypy.rpython.lltypesystem.llmemory.cast_weakadr_to_ptr] = llme
 BUILTIN_ANALYZERS[pypy.rpython.rstack.yield_current_frame_to_caller] = (
     rstack_yield_current_frame_to_caller)
 
-BUILTIN_ANALYZERS[Exception.__init__.im_func] = exception_init
-BUILTIN_ANALYZERS[OSError.__init__.im_func] = exception_init
-# this one is needed otherwise when annotating assert in a test we may try to annotate 
-# py.test AssertionError.__init__ .
-BUILTIN_ANALYZERS[AssertionError.__init__.im_func] = exception_init
+def setup_Exception_init(mod):
+    # Set a BUILTIN_ANALYZERS for the __init__ of each exception class.
+    # This is required for 2.5; previously, we could set just a few __init__:
+    # Exception, OSError, and AssertionError (for running on top of py.test)
+    for name in dir(exceptions):
+        obj = getattr(mod, name, None)
+        if isinstance(obj, type(Exception)) and issubclass(obj, Exception):
+            try:
+                f = obj.__init__.im_func
+            except AttributeError:
+                f = obj.__init__
+            BUILTIN_ANALYZERS[f] = exception_init
+setup_Exception_init(__builtin__)
+setup_Exception_init(exceptions)
+del setup_Exception_init
+
 BUILTIN_ANALYZERS[sys.getdefaultencoding] = conf
 import unicodedata
 BUILTIN_ANALYZERS[unicodedata.decimal] = unicodedata_decimal # xxx
