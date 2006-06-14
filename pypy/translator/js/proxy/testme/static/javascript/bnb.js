@@ -25,16 +25,16 @@ function handleServerResponse(json_doc) {
             replaceChildNodes(body, playfield);
             body.setAttribute('bgcolor', bgcolor); //XXX hack!
         } else if (msg.type == 'def_icon') {
-            if (!(msg.code in icon)) {
-                icon[msg.code] = new Image();
-                //icon[msg.code].src = msg.filename;
+            if (!(msg.icon_code in icon)) {
+                icon[msg.icon_code] = new Image();
+                //icon[msg.icon_code].src = msg.filename;
                 var img = IMG({'src':msg.filename, 'title':msg.filename,
                     'width':msg.width, 'height':msg.height});
                 appendChildNodes(playfield, img);
             }
         }
         else {
-            logWarning('unknown msg.type: ' + msg.type + ', msg: ' + msg);
+            logWarning('unknown msg.type: ' + msg.type + ', msg: ' + items(msg));
         }
     }
     sendPing();

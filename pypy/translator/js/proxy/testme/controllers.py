@@ -30,7 +30,7 @@ class Root(controllers.Root):
         if sm.socket is None:
             sm.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sm.socket.connect((self.host, self.port))
-            sm.socket.send(message(CMSG_PROTO_VERSION, 1))  #XXX we would like version 2
+            sm.socket.send(message(CMSG_PROTO_VERSION, 2))
             #XXX todo: session.socket.close() after a timeout
         return sm.socket
 
@@ -54,7 +54,7 @@ class Root(controllers.Root):
         while sm.n_header_lines > 0 and '\n' in data:
             sm.n_header_lines -= 1
             header_line, data = data.split('\n',1)
-            log('RECEIVED HEADER LINE: %s' % header_line)
+            #log('RECEIVED HEADER LINE: %s' % header_line)
         
         #log('RECEIVED DATA CONTAINS %d BYTES' % len(data))
         messages = []
@@ -64,12 +64,15 @@ class Root(controllers.Root):
                 break  # incomplete message
             messageOutput = sm.dispatch(*values)
             if messageOutput:
-                messages.append(messageOutput)
+                if type(messageOutput) is type([]):
+                    messages += messageOutput
+                else:
+                    messages.append(messageOutput)
         sm.data = data
         #log('RECEIVED DATA REMAINING CONTAINS %d BYTES' % len(data))
 
-        if messages:
-            log('MESSAGES:%s' % messages)
+        #if messages:
+        #    log('MESSAGES:%s' % messages)
         return dict(messages=messages)
 
     def _close(self):
