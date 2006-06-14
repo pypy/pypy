@@ -25,7 +25,7 @@ def ASSERT_Q(task):
             print task
         raise
 
-from _stackless import coroutine
+from _stackless import coroutine, greenlet
 
 __all__ = 'run getcurrent getmain schedule tasklet \
                 channel TaskletExit coroutine greenlet'.split()
