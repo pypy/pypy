@@ -17,7 +17,7 @@ def testformat(formatstr, args, output=None):
             print "%s %% %s works? ..." % (repr(formatstr), repr(args)),
     try:
         result = formatstr % args
-    except OverflowError:
+    except (OverflowError, MemoryError):
         if not overflowok:
             raise
         if verbose:
