@@ -6,13 +6,18 @@ option = py.test.Config.addoptions("pypy-doc options",
         Option('--generate-redirections', action="store_true",
                dest="generateredirections",
                default=False, help="Generate the redirecting HTML files"),
+        Option('--enable-doctests', action="store_true",
+               dest="doctests", 
+               default=False, help="enable doctests in .txt files"), 
     )
 
 class PyPyDoctestText(DoctestText): 
 
     def run(self): 
+        if not option.doctests: 
+            py.test.skip("specify --enable-doctests to run doctests") 
         # XXX refine doctest support with respect to scoping 
-        return  
+        return super(PyPyDoctestText, self).run()
         
     def execute(self, module, docstring): 
         # XXX execute PyPy prompts as well 

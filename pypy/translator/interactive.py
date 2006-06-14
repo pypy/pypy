@@ -171,7 +171,7 @@ class Translation(object):
         self.update_options(argtypes, kwds)
         self.ensure_backend('js')
         self.driver.source_js()
-        print open(str(self.driver.gen.filename)).read()
+        return open(str(self.driver.gen.filename)).read()
 
     def source_cl(self, argtypes=None, **kwds):
         self.update_options(argtypes, kwds)
