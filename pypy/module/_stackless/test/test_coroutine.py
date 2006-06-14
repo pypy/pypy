@@ -49,4 +49,16 @@ co.switch()
             #co2 = pickle.loads(pckl)
         finally:
             del sys.modules['mod']
-                
+
+    def test_raise_propagate(self):
+        import _stackless as stackless
+        co = stackless.coroutine()
+        def f():
+            return 1/0
+        co.bind(f)
+        try:
+            co.switch()
+        except ZeroDivisionError:
+            pass
+        else:
+            raise AssertionError("exception not propagated")

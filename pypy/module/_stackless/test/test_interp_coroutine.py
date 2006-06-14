@@ -3,7 +3,7 @@ testing coroutines at interprepter level
 """
 
 import os
-from pypy.module._stackless.interp_coroutine import main_costate_getter, Coroutine, AbstractThunk
+from pypy.module._stackless.interp_coroutine import syncstate, Coroutine, AbstractThunk
 from pypy.translator.c.test.test_stackless import StacklessTest
 from pypy.translator.c import gc
 
@@ -17,8 +17,7 @@ class _TestCoroutine(StacklessTest):
     Coroutine = Coroutine
 
     def setup_method(self, method):
-        main_costate_getter.costate = None
-        main_costate_getter.costate = None
+        syncstate.reset()
 
     def _freeze_(self):    # for 'self.Coroutine'
         return True
@@ -296,7 +295,7 @@ class _TestCoroutine(StacklessTest):
             def call(self):
                 pass
 
-        costate = main_costate_getter._get_default_costate()
+        costate = Coroutine._get_default_costate()
         costate.current.__class__ = C
         costate.hello_goodbye = 0
 
@@ -314,6 +313,25 @@ class _TestCoroutine(StacklessTest):
         #   goodbye c1     5
         #   hello   main   2
         assert output == 3452
+
+    def test_raise_propagate(self):
+        class T(AbstractThunk):
+            def call(self):
+                raise ValueError
+
+        def ep():
+            c = self.Coroutine()
+            c.bind(T())
+            try:
+                c.switch()
+            except ValueError:
+                return 100
+            else:
+                return -5
+
+        output = self.wrap_stackless_function(ep)
+        assert output == 100
+
 
 TestCoroutine = _TestCoroutine # to activate
 class TestCoroutineOnCPython(_TestCoroutine):

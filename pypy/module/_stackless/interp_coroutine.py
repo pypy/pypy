@@ -80,61 +80,50 @@ class CoState(BaseCoState):
     def __init__(self):
         BaseCoState.__init__(self)
         self.last = self.current = self.main = Coroutine(self)
-        self.things_to_do = False
-        self.temp_exc = None
-        self.to_delete = []
-
-    def check_for_zombie(obj):
-        return co in self.to_delete
-    check_for_zombie = staticmethod(check_for_zombie)
-
-    def postpone_deletion(obj):
-        main_costate = main_costate_getter._get_default_costate()
-        main_costate.to_delete.append(obj)
-        main_costate.things_to_do = True
-    postpone_deletion = staticmethod(postpone_deletion)
-
-    def do_things_to_do():
-        # inlineable stub
-        main_costate = main_costate_getter._get_default_costate()
-        if main_costate.things_to_do:
-            main_costate._do_things_to_do()
-    do_things_to_do = staticmethod(do_things_to_do)
-
-    def _do_things_to_do():
-        main_costate = main_costate_getter._get_default_costate()
-        if main_costate.temp_exc is not None:
-            # somebody left an unhandled exception and switched to us.
-            # this both provides default exception handling and the
-            # way to inject an exception, like CoroutineExit.
-            e, main_costate.temp_exc = main_costate.temp_exc, None
-            main_costate.things_to_do = len(main_costate.to_delete)
-            raise e
-        while main_costate.to_delete:
-            delete, main_costate.to_delete = main_costate.to_delete, []
-            for obj in delete:
-                obj.parent = obj.costate.current
-                obj._kill_finally()
-        else:
-            main_costate.things_to_do = False
-    _do_things_to_do = staticmethod(_do_things_to_do)
-
 
 class CoroutineDamage(SystemError):
     pass
 
 
-class MainCostateGetter(object):
+class SyncState(object):
     def __init__(self):
-        self.costate = None
-    def _get_default_costate(self):
-        if self.costate is None:
-            costate = CoState()
-            self.costate = costate
-            return costate
-        return self.costate
+        self.reset()
 
-main_costate_getter = MainCostateGetter()
+    def reset(self):
+        self.default_costate = None
+        self.things_to_do = False
+        self.temp_exc = None
+        self.to_delete = []
+
+    def check_for_zombie(self, obj):
+        return co in self.to_delete
+
+    def postpone_deletion(self, obj):
+        self.to_delete.append(obj)
+        self.things_to_do = True
+
+    def do_things_to_do(self):
+        # inlineable stub
+        if self.things_to_do:
+            self._do_things_to_do()
+
+    def _do_things_to_do(self):
+        if self.temp_exc is not None:
+            # somebody left an unhandled exception and switched to us.
+            # this both provides default exception handling and the
+            # way to inject an exception, like CoroutineExit.
+            e, self.temp_exc = self.temp_exc, None
+            self.things_to_do = bool(self.to_delete)
+            raise e
+        while self.to_delete:
+            delete, self.to_delete = self.to_delete, []
+            for obj in delete:
+                obj.parent = obj.costate.current
+                obj._kill_finally()
+        else:
+            self.things_to_do = False
+
+syncstate = SyncState()
 
 
 class CoroutineExit(SystemExit):
@@ -151,7 +140,7 @@ class Coroutine(Wrappable):
     def __init__(self, state=None):
         self.frame = None
         if state is None:
-            state = main_costate_getter._get_default_costate()
+            state = self._get_default_costate()
         self.costate = state
         self.parent = None
         self.thunk = None
@@ -164,8 +153,15 @@ class Coroutine(Wrappable):
         else:
             return '<coro frame=%r %s>' % (self.frame, self.thunk is not None)
 
+    def _get_default_costate():
+        state = syncstate.default_costate
+        if state is None:
+            state = syncstate.default_costate = CoState()
+        return state
+    _get_default_costate = staticmethod(_get_default_costate)
+
     def _get_default_parent(self):
-        return main_costate_getter._get_default_costate().current
+        return self.costate.current
 
     def bind(self, thunk):
         assert isinstance(thunk, AbstractThunk)
@@ -207,7 +203,7 @@ class Coroutine(Wrappable):
         left.goodbye()
         self.hello()
         try:
-            main_costate_getter._get_default_costate().do_things_to_do()
+            syncstate.do_things_to_do()
             try:
                 self.thunk.call()
             finally:
@@ -219,8 +215,8 @@ class Coroutine(Wrappable):
             pass
         except Exception, e:
             # redirect all unhandled exceptions to the parent
-            state.things_to_do = True
-            state.temp_exc = e
+            syncstate.things_to_do = True
+            syncstate.temp_exc = e
         while self.parent is not None and self.parent.frame is None:
             # greenlet behavior is fine
             self.parent = self.parent.parent
@@ -238,14 +234,14 @@ class Coroutine(Wrappable):
         left.frame = incoming_frame
         left.goodbye()
         state.current.hello()
-        main_costate_getter._get_default_costate().do_things_to_do()
+        syncstate.do_things_to_do()
 
     def kill(self):
         if self.frame is None:
             return
-        main_costate_getter._get_default_costate().things_to_do = True
-        main_costate_getter._get_default_costate().temp_exc = CoroutineExit()
         state = self.costate
+        syncstate.things_to_do = True
+        syncstate.temp_exc = CoroutineExit()
         self.parent = state.current
         self.switch()
 
@@ -265,7 +261,7 @@ class Coroutine(Wrappable):
         # not in the position to issue a switch.
         # we defer it completely.
         if self.frame is not None:
-            main_costate_getter._get_default_costate().postpone_deletion(self)
+            syncstate.postpone_deletion(self)
 
     def _userdel(self):
         # override this for exposed coros
@@ -275,14 +271,16 @@ class Coroutine(Wrappable):
         return self.frame is not None or self is self.costate.current
 
     def is_zombie(self):
-        return self.frame is not None and main_costate_getter._get_default_costate().check_for_zombie(self)
+        return self.frame is not None and syncstate.check_for_zombie(self)
 
     def getcurrent():
-        return main_costate_getter._get_default_costate().current
+        costate = Coroutine._get_default_costate()
+        return costate.current
     getcurrent = staticmethod(getcurrent)
 
     def getmain():
-        return main_costate_getter._get_default_costate().main
+        costate = Coroutine._get_default_costate()
+        return costate.main
     getmain = staticmethod(getmain)
 
     def hello(self):
