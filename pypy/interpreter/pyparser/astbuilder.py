@@ -246,8 +246,20 @@ def parse_listcomp(tokens):
             index += 1 # skip 'for'
             ass_node = to_lvalue(tokens[index], consts.OP_ASSIGN)
             index += 2 # skip 'in'
-            iterable = tokens[index]
+            iterables = [tokens[index]]
             index += 1
+            while index < len(tokens):
+                tok2 = tokens[index]
+                if not isinstance(tok2, TokenObject):
+                    break
+                if tok2.name != tok.COMMA:
+                    break
+                iterables.append(tokens[index+1])
+                index += 2
+            if len(iterables) == 1:
+                iterable = iterables[0]
+            else:
+                iterable = ast.Tuple(iterables, token.lineno)
             while index < len(tokens):
                 token = tokens[index]
                 assert isinstance(token, TokenObject) # rtyper info
