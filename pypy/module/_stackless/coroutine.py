@@ -107,7 +107,6 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         self.kill()
 
     def _userdel(self):
-        print 'in userdel'
         if self.get_is_zombie():
             return
         self.set_is_zombie(True)
