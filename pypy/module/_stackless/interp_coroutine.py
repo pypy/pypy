@@ -63,15 +63,17 @@ import sys, os
 
 class BaseCoState(object):
     def __init__(self):
-        self.current = self.main = self.last = None
+        self.current = self.main = None
 
     def __repr__(self):
         "NOT_RPYTHON"
         # for debugging only
-        return '<%s last=%r current=%r>' % (self.__class__.__name__,
-                                            self.last, self.current)
+        return '<%s current=%r>' % (self.__class__.__name__, self.current)
+
     def update(self, new):
-        self.last, self.current = self.current, new
+        syncstate.leaving = self.current
+        syncstate.entering = new
+        self.current = new
         frame, new.frame = new.frame, None
         return frame
 
@@ -79,7 +81,7 @@ class BaseCoState(object):
 class CoState(BaseCoState):
     def __init__(self):
         BaseCoState.__init__(self)
-        self.last = self.current = self.main = Coroutine(self)
+        self.current = self.main = Coroutine(self)
 
 class CoroutineDamage(SystemError):
     pass
@@ -91,9 +93,24 @@ class SyncState(object):
 
     def reset(self):
         self.default_costate = None
+        self.leaving = None
+        self.entering = None
         self.things_to_do = False
         self.temp_exc = None
         self.to_delete = []
+
+    def switched(self, incoming_frame):
+        left = syncstate.leaving
+        entered = syncstate.entering
+        syncstate.leaving = syncstate.entering = None
+        if left is not None:   # mostly to work around an annotation problem;
+                               # should not really be None
+            left.frame = incoming_frame
+            left.goodbye()
+        if entered is not None:
+            entered.hello()
+        if self.things_to_do:
+            self._do_things_to_do()
 
     def check_for_zombie(self, obj):
         return co in self.to_delete
@@ -101,11 +118,6 @@ class SyncState(object):
     def postpone_deletion(self, obj):
         self.to_delete.append(obj)
         self.things_to_do = True
-
-    def do_things_to_do(self):
-        # inlineable stub
-        if self.things_to_do:
-            self._do_things_to_do()
 
     def _do_things_to_do(self):
         if self.temp_exc is not None:
@@ -197,13 +209,9 @@ class Coroutine(Wrappable):
         return self._execute(incoming_frame)
 
     def _execute(self, incoming_frame):
+        syncstate.switched(incoming_frame)
         state = self.costate
-        left = state.last
-        left.frame = incoming_frame
-        left.goodbye()
-        self.hello()
         try:
-            syncstate.do_things_to_do()
             try:
                 self.thunk.call()
             finally:
@@ -230,11 +238,7 @@ class Coroutine(Wrappable):
         state = self.costate
         incoming_frame = state.update(self).switch()
         resume_point("coroutine_switch", self, state, returns=incoming_frame)
-        left = state.last
-        left.frame = incoming_frame
-        left.goodbye()
-        state.current.hello()
-        syncstate.do_things_to_do()
+        syncstate.switched(incoming_frame)
 
     def kill(self):
         if self.frame is None:

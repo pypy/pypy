@@ -43,7 +43,7 @@ class AppGreenletCoState(BaseCoState):
         self.operr = None
         
     def post_install(self):
-        self.current = self.main = self.last = AppGreenlet(self.space, is_main=True)
+        self.current = self.main = AppGreenlet(self.space, is_main=True)
 
 class GreenletExit(Exception):
     pass

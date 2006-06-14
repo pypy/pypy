@@ -264,4 +264,4 @@ class AppCoState(BaseCoState):
         self.space = space
         
     def post_install(self):
-        self.current = self.main = self.last = AppCoroutine(self.space, is_main=True)
+        self.current = self.main = AppCoroutine(self.space, is_main=True)
