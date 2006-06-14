@@ -57,7 +57,7 @@ class AppGreenlet(Coroutine):
         self.is_main = is_main
         state = self._get_state(space)
         if is_main:
-            self.w_parent = space.w_None
+            self.w_parent = None
         else:
             w_parent = state.current
             assert isinstance(w_parent, AppGreenlet)
@@ -117,27 +117,35 @@ class AppGreenlet(Coroutine):
     def _userdel(self):
         self.space.userdel(self)
 
-def w_get_is_dead(space, self):
+def w_get_is_dead(space, w_self):
+    self = space.interp_w(AppGreenlet, w_self)
     return self.w_dead
 
 def descr__bool__(space, w_self):
-    return space.wrap(w_self.has_ever_run and not space.is_true(w_self.w_dead))
+    self = space.interp_w(AppGreenlet, w_self)
+    return space.wrap(self.has_ever_run and not space.is_true(self.w_dead))
 
-def w_get_parent(space, self):
-    return self.w_parent
+def w_get_parent(space, w_self):
+    self = space.interp_w(AppGreenlet, w_self)
+    if self.w_parent is not None:
+        return self.w_parent
+    else:
+        return space.w_None
 
-def w_set_parent(space, self, w_parent):
+def w_set_parent(space, w_self, w_parent):
+    self = space.interp_w(AppGreenlet, w_self)
     newparent = space.interp_w(AppGreenlet, w_parent)
     curr = newparent
     while 1:
         if space.is_true(space.is_(self, curr)):
             raise OperationError(space.w_ValueError, space.wrap("cyclic parent chain"))
-        if not space.is_true(space.is_(curr.w_parent, space.w_None)):
+        if not curr.w_parent is None:
             break
         curr = curr.w_parent
     self.w_parent = newparent
 
-def w_get_frame(space, self):
+def w_get_frame(space, w_self):
+    self = space.interp_w(AppGreenlet, w_self)    
     if not self.has_ever_run or space.is_true(self.w_dead):
         return space.w_None
     try:
