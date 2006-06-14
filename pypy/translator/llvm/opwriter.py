@@ -164,6 +164,10 @@ class OpWriter(object):
     float_abs = int_abs
     llong_abs = int_abs
 
+    def debug_log_exc(self, opr):
+        # XXX tmp
+        pass
+
     def int_pow(self, opr):
         self._generic_pow(opr, "1") 
     uint_pow = int_pow

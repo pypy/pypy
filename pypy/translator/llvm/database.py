@@ -24,10 +24,10 @@ class Database(object):
         self.obj2node = {}
         self._pendingsetup = []
         self._tmpcount = 1
-
+        self.helper2ptr = {}
         # debug operation comments
         self._opcomments = {}
-
+        self.externalfuncs = {}
         self.primitives_init()
 
     def primitives_init(self):
@@ -98,6 +98,7 @@ class Database(object):
         if isinstance(type_, lltype.FuncType):
             if getattr(value._callable, "suggested_primitive", False):
                 node = ExternalFuncNode(self, value)
+                self.externalfuncs[node.callable] = value
             else:
                 node = FuncNode(self, value)
 

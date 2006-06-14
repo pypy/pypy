@@ -25,7 +25,6 @@ class GenLLVM(object):
 
     # see open_file() below
     function_count = {}
-    llexterns_header = llexterns_functions = None
 
     def __init__(self, translator, gcpolicy, exceptionpolicy, standalone,
                  debug=False, logging=True):
@@ -186,14 +185,11 @@ class GenLLVM(object):
         return c.value._obj 
 
     def generate_ll_externs(self):
-        # we only cache the llexterns to make tests run faster
-        if self.llexterns_header is None:
-            assert self.llexterns_functions is None
-            GenLLVM.llexterns_header, GenLLVM.llexterns_functions = \
-                                   generate_llfile(self.db,
-                                                   self.extern_decls,
-                                                   self.entrynode,
-                                                   self.standalone)
+        self.llexterns_header, self.llexterns_functions = \
+                               generate_llfile(self.db,
+                                               self.extern_decls,
+                                               self.entrynode,
+                                               self.standalone)
 
     def create_codewriter(self):
         # prevent running the same function twice in a test

@@ -1,6 +1,7 @@
 from pypy.translator.llvm.node import ConstantLLVMNode
 from pypy.translator.llvm.log import log 
 from pypy.translator.c.extfunc import EXTERNALS
+from pypy.rpython.lltypesystem import lltype
 
 log = log.extfuncnode
 
@@ -32,9 +33,10 @@ class ExternalFuncNode(ConstantLLVMNode):
         name = value._callable.__name__
         assert name.startswith("ll")
 
-        mapped_name = EXTERNALS[value._callable]
+        self.callable = value._callable
+        mapped_name = EXTERNALS[self.callable]
         self.ref = self.make_ref("%", mapped_name)
-
+        
     def setup(self):
         self.db.prepare_type(self.value._TYPE.RESULT)
         self.db.prepare_type_multi(self.value._TYPE._trueargs()) 
@@ -75,7 +77,7 @@ class ExternalFuncNode(ConstantLLVMNode):
     def getdecl_parts(self):
         T = self.value._TYPE
         rettype = self.db.repr_type(T.RESULT)
-        argtypes = [self.db.repr_type(a) for a in T.ARGS]
+        argtypes = [self.db.repr_type(a) for a in T.ARGS if a is not lltype.Void]
         return rettype, argtypes
     
     def getdecl(self):

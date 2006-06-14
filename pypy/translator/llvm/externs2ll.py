@@ -109,7 +109,7 @@ def setup_externs(db):
     # hacks to make predeclare_all work
     # XXX Rationalise this
     db.standalone = True
-    db.externalfuncs = {}
+    
     #XXX extfuncs need init. to use optimize=True
     decls = list(predeclare_all(db, rtyper, optimize=False))
 
