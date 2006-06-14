@@ -115,7 +115,12 @@ class ServerMessage:
     def def_key(self, keyname, num, *ico_codes):
         log('MESSAGE:def_key keyname=%s, num=%d, ico_codes=%s' % (keyname, num, str(ico_codes)))
         return dict(type=PMSG_DEF_KEY, keyname=keyname, num=num, ico_codes=ico_codes)
- 
+
+    def md5_file(self, fileid, protofilepath, offset, len_data, checksum):
+        log('MESSAGE:md5_file fileid=%d, protofilepath=%s, offset=%d, len_data=%d, checksum=...' % (
+            fileid, protofilepath, offset, len_data))
+        #skip for now...
+
     MESSAGES = {
         MSG_BROADCAST_PORT : broadcast_port,
         MSG_PING           : ping,
@@ -126,4 +131,5 @@ class ServerMessage:
         MSG_PLAYER_JOIN    : player_join,
         MSG_PONG           : pong,
         MSG_DEF_KEY        : def_key,
+        MSG_MD5_FILE       : md5_file,
         }

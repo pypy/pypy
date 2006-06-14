@@ -30,6 +30,7 @@ class Root(controllers.Root):
         if sm.socket is None:
             sm.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sm.socket.connect((self.host, self.port))
+            sm.socket.send(message(CMSG_PROTO_VERSION, 1))  #XXX we would like version 2
             #XXX todo: session.socket.close() after a timeout
         return sm.socket
 
@@ -40,9 +41,8 @@ class Root(controllers.Root):
         return dict()
 
     @expose(format='json')
-    def send(self, data=message(CMSG_PING)):
-        self.sessionSocket().send(data)
-        log('SENT: %s' % repr(data))
+    def ping(self):
+        self.sessionSocket().send(message(CMSG_PING))
         return self.recv()
 
     @expose(format='json')
@@ -68,7 +68,8 @@ class Root(controllers.Root):
         sm.data = data
         #log('RECEIVED DATA REMAINING CONTAINS %d BYTES' % len(data))
 
-        log('MESSAGES:%s' % messages)
+        if messages:
+            log('MESSAGES:%s' % messages)
         return dict(messages=messages)
 
     def _close(self):
