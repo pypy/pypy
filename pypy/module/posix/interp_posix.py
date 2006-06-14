@@ -266,7 +266,10 @@ Return a list containing the names of the entries in the directory.
 
 The list is in arbitrary order.  It does not include the special
 entries '.' and '..' even if they are present in the directory."""
-    dir = ros.opendir(dirname)
+    try:
+        dir = ros.opendir(dirname)
+    except OSError, e: 
+        raise wrap_oserror(space, e) 
     try:
         # sub-function call to make sure that 'try:finally:' will catch
         # everything including MemoryErrors
