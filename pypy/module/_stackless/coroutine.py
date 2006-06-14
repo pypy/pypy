@@ -89,7 +89,8 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         w_ret, state.w_tempval = state.w_tempval, space.w_None
         return w_ret
 
-    def w_finished(self): pass
+    def w_finished(self):
+        pass
 
     def finished(self):
         space = self.space

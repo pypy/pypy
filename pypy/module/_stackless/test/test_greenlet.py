@@ -143,3 +143,52 @@ class AppTest_Coroutine:
         assert next == "meaning of life"
         assert g.gr_frame is None
 
+    def test_mixing_greenlet_coroutine(self):
+        from _stackless import greenlet, coroutine
+        lst = []
+        def f():
+            lst.append(1)
+            greenlet.getcurrent().parent.switch()
+            lst.append(3)
+        def make_h(c):
+            def h():
+                g = greenlet(f)
+                lst.append(0)
+                g.switch()
+                c.switch()
+                lst.append(2)
+                g.switch()
+                c.switch()
+                lst.append(4)
+                c.switch()
+            return h
+        c1 = coroutine.getcurrent()
+        c2 = coroutine()
+        c3 = coroutine()
+        c2.bind(make_h(c3))
+        c3.bind(make_h(c2))
+        c2.switch()
+        assert lst == [0, 1, 0, 1, 2, 3, 2, 3, 4, 4]
+
+    def test_dealloc(self):
+        from _stackless import greenlet
+        import sys
+        def fmain(seen):
+            try:
+                greenlet.getcurrent().parent.switch()
+            except:
+                seen.append(sys.exc_info()[0])
+                raise
+            raise ValueError
+        seen = []
+        seen = []
+        g1 = greenlet(fmain)
+        g2 = greenlet(fmain)
+        g1.switch(seen)
+        g2.switch(seen)
+        assert seen == []
+        del g1
+        assert seen == [greenlet.GreenletExit]
+        del g2
+        assert seen == [greenlet.GreenletExit, greenlet.GreenletExit]
+

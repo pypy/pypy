@@ -45,9 +45,6 @@ class AppGreenletCoState(BaseCoState):
     def post_install(self):
         self.current = self.main = AppGreenlet(self.space, is_main=True)
 
-class GreenletExit(Exception):
-    pass
-
 class AppGreenlet(Coroutine):
     def __init__(self, space, w_callable=None, is_main=False):
         self.space = space
@@ -179,8 +176,6 @@ AppGreenlet.typedef = TypeDef("greenlet",
     throw = interp2app(AppGreenlet.w_throw),
     gr_frame = GetSetProperty(w_get_frame),
     __nonzero__ = interp2app(descr__bool__),
-#    GreenletExit = GreenletExit,
-#    error = GreenletExit,
     __module__ = '_stackless',
 )
 
