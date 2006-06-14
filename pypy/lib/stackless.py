@@ -439,6 +439,10 @@ class tasklet(coroutine):
         if func is not None:
             self.bind(func)
 
+    def __del__(self):
+        if DEBUG:
+            print 'in __del__', self
+
     def __call__(self, *argl, **argd):
         self.setup(*argl, **argd)
         return self
@@ -571,6 +575,13 @@ class tasklet(coroutine):
     ## tasklet(func)(*args, **kwds)
     ## is identical to
     ## t = tasklet; t.bind(func); t.setup(*args, **kwds)
+
+    def finished(self):
+        self.alive = False
+        scheduler.remove_task(self)
+
+        print 'in finished', self
+
     def setup(self, *argl, **argd):
         """
         supply the parameters for the callable
@@ -957,10 +968,7 @@ class Scheduler(object):
             SETPREV(task, l)
             SETNEXT(task, r)
 
-    def _chain_remove(self):
-        if self._head is None: 
-            return None
-        task = self._head
+    def remove_task(self, task):
         l = task.prev
         r = task.next
         SETNEXT(l, r)
@@ -972,6 +980,10 @@ class Scheduler(object):
 
         return task
 
+    def _chain_remove(self):
+        if self._head is None: 
+            return None
+        return self.remove_task(self._head)
 
     def current_insert(self, task):
         self._chain_insert(task)

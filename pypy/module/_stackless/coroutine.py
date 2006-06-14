@@ -89,6 +89,12 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         w_ret, state.w_tempval = state.w_tempval, space.w_None
         return w_ret
 
+    def w_finished(self): pass
+
+    def finished(self):
+        space = self.space
+        return space.call_method(space.wrap(self),'finished')
+
     def hello(self):
         ec = self.space.getexecutioncontext()
         ec.subcontext_enter(self)
@@ -101,6 +107,7 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         self.kill()
 
     def _userdel(self):
+        print 'in userdel'
         if self.get_is_zombie():
             return
         self.set_is_zombie(True)
@@ -240,6 +247,7 @@ AppCoroutine.typedef = TypeDef("coroutine",
                       unwrap_spec=['self', W_Root, Arguments]),
     switch = interp2app(AppCoroutine.w_switch),
     kill = interp2app(AppCoroutine.w_kill),
+    finished = interp2app(AppCoroutine.w_finished),
     is_zombie = GetSetProperty(AppCoroutine.w_get_is_zombie, doc=AppCoroutine.get_is_zombie.__doc__),
     _framestack = GetSetProperty(w_descr__framestack),
     getcurrent = interp2app(AppCoroutine.w_getcurrent),

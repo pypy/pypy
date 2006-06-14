@@ -211,6 +211,7 @@ class Coroutine(Wrappable):
             try:
                 self.thunk.call()
             finally:
+                self.finished()
                 self.thunk = None
             resume_point("coroutine__bind", self, state)
         except CoroutineExit:
@@ -289,5 +290,8 @@ class Coroutine(Wrappable):
 
     def goodbye(self):
         "Called just after execution is transferred away from this coroutine."
+
+    def finished(self):
+        "Called just after frame died"
 
 # _________________________________________________
