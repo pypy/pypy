@@ -867,6 +867,12 @@ else:
             if type(ret) is tuple:
                 ret = ret[0](self, ret[1], ret[2])
             return ret
+        if issubclass(cls, Exception):   # Python 2.5 only
+            # if cls.__module__ == 'exceptions':
+            # don't rely on this, py.magic redefines AssertionError
+            if getattr(__builtin__,cls.__name__,None) is cls:
+                # exception are defined on the space
+                return 'space.w_%s' % cls.__name__
         assert cls.__module__ != '__builtin__' or cls.__flags__&_HEAPTYPE, (
             "built-in class %r not found in typename_mapping "
             "while compiling %s" % (cls, self.currentfunc and
