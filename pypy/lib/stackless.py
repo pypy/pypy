@@ -6,89 +6,39 @@ Please refer to their documentation.
 
 import sys
 
-DEBUG = True
-DEBUG = False
-
 switches = 0
-
-def ASSERT_Q(task):
-    try:
-        if task is not None:
-            assert isinstance(task,(tasklet,TaskletProxy))
-            if task.next is not None:
-                assert isinstance(task.next,(tasklet, TaskletProxy, Scheduler))
-            if task.prev is not None:
-                assert isinstance(task.prev,(tasklet, TaskletProxy, Scheduler))
-    except AssertionError:
-        if DEBUG:
-            print 'task to insert as _head is wrong'
-            print task
-        raise
 
 from _stackless import coroutine, greenlet
 
 __all__ = 'run getcurrent getmain schedule tasklet \
                 channel TaskletExit coroutine greenlet'.split()
 
+main_tasklet = main_coroutine = None
+scheduler = None
+channel_hook = None
+schedlock = False
+_schedule_fasthook = None
+_schedule_hook = None
+
 class TaskletExit(Exception):pass
 
-# interface from original stackless
-# class attributes are placeholders for some kind of descriptor
-# (to be filled in later).
-
-note = """
-The bomb object decouples exception creation and exception
-raising. This is necessary to support channels which don't
-immediately react on messages.
-
-This is a necessary Stackless 3.1 feature.
-"""
-
 def SETNEXT(obj, val):
-    if DEBUG:
-        print 'SETNEXT', obj, val
     obj.next = val
 
 def SETPREV(obj, val):
-    if DEBUG:
-        print 'SETPREV', obj, val
     obj.prev = val
 
 def SETNONE(obj):
-    if DEBUG:
-        print 'SETNONE'
     obj.prev = obj.next = None
 
 def SWAPVAL(task1, task2):
-    try:
-        assert task1 is not None
-        assert task2 is not None
-    except:
-        print 'AssertionError in SWAPVAL', task1, task2
-        raise
-    if DEBUG:
-        print 'SWAPVAL(%s, %s)' % (task1, task2)
-        print '\t', task1.tempval
-        print '\t', task2.tempval
+    assert task1 is not None
+    assert task2 is not None
     task1.tempval, task2.tempval = task2.tempval, task1.tempval
 
 def SETVAL(task, val):
-    try:
-        assert task is not None
-    except:
-        print 'AssertionError in SETVAL'
-        raise
-    if isinstance(val, bomb):
-        print val.type, val.value
-    if DEBUG:
-        print 'SETVAL(%s, %s)' % (task, val)
+    assert task is not None
     task.tempval = val
-
-# thread related stuff: assuming NON threaded execution for now
-
-def check_for_deadlock():
-    return True
-    #return False
 
 last_thread_id = 0
 
@@ -143,6 +93,7 @@ class bomb(object):
     traceback = None
     type = None
     value = None
+
     def __init__(self,etype=None, value=None, traceback=None):
         self.type = etype
         self.value = value
@@ -158,15 +109,8 @@ def make_deadlock_bomb():
 
 def curexc_to_bomb():
     import sys
-    # XXX note that you should clear the exception
     return bomb(*sys.exc_info())
 
-# channel: see below
-
-note = """
-I would implement it as a simple flag but let it issue
-a warning that it has no effect.
-"""
 def enable_softswitch(flag):
     """
     enable_softswitch(flag) -- control the switching behavior.
@@ -180,9 +124,6 @@ def enable_softswitch(flag):
     """
     pass
 
-note = """
-Implementation can be deferred.
-"""
 def get_thread_info(thread_id):
     """
     get_thread_info(thread_id) -- return a 3-tuple of the thread's
@@ -193,12 +134,6 @@ def get_thread_info(thread_id):
     """
     pass
 
-# def getcurrent() : see below
-
-# def run(timeout): see below
-
-# def schedule(retval=stackless.current) : see below
-
 def schedule_remove(retval=None):
     """
     schedule(retval=stackless.current) -- switch to the next runnable tasklet.
@@ -208,9 +143,6 @@ def schedule_remove(retval=None):
     """
     pass
 
-note = """
-should be implemented for debugging purposes. Low priority
-"""
 def set_channel_callback(callable):
     """
     set_channel_callback(callable) -- install a callback for channels.
@@ -226,13 +158,9 @@ def set_channel_callback(callable):
     channel_hook = callable
 
 def _schedule_callback(prev, next):
-    # lot's of error checking missing
     global _schedule_hook
     return _schedule_hook(prev, next)
 
-note = """
-should be implemented for debugging purposes. Low priority
-"""
 def set_schedule_callback(func):
     """
     set_schedule_callback(callable) -- install a callback for scheduling.
@@ -257,35 +185,6 @@ def set_schedule_callback(func):
     else:
         _schedule_fasthook = _schedule_callback
 
-# class tasklet: see below
-
-# end interface
-
-main_tasklet = None
-main_coroutine = None
-scheduler = None
-channel_hook = None
-schedlock = False
-_schedule_fasthook = None
-_schedule_hook = None
-
-def __init():
-    global main_tasklet
-    global main_coroutine
-    global scheduler 
-    main_coroutine = c = coroutine.getcurrent()
-    main_tasklet = TaskletProxy(c)
-    SETNEXT(main_tasklet, main_tasklet)
-    SETPREV(main_tasklet, main_tasklet)
-    main_tasklet.is_main = True
-    scheduler = Scheduler()
-
-note = """
-It is not needed to implement the watchdog feature right now.
-But run should be supported in the way the docstring says.
-The runner is always main, which must be removed while
-running all the tasklets. The implementation below is wrong.
-"""
 def run(timeout=0):
     """
     run_watchdog(timeout) -- run tasklets until they are all
@@ -297,20 +196,14 @@ def run(timeout=0):
     tasklet that caused a timeout, if any.
     If an exception occours, it will be passed to the main tasklet.
     """
-    if DEBUG:
-        print 'stackless.run()'
     me = scheduler.current_remove()
     if me is not main_tasklet:
         raise RuntimeError("run() must be run from the main thread's \
                              main tasklet")
     try:
         retval = scheduler.schedule_task(me, scheduler._head)
-        if DEBUG:
-            print 'run: returning to main'
-        #scheduler.current_insert(me)
         return retval
     except Exception, exp:
-        print 'run: in Excpetion', exp
         b = curexc_to_bomb()
         SETVAL(me, b)
         scheduler.current_insert(me)
@@ -341,56 +234,6 @@ def schedule(retval=None):
     prev = scheduler._head
     next = prev.next
     return scheduler.schedule_task(prev, next)
-"""
-/***************************************************************************
-
-    Tasklet Flag Definition
-    -----------------------
-
-    blocked:        The tasklet is either waiting in a channel for
-                    writing (1) or reading (-1) or not blocked (0).
-                    Maintained by the channel logic. Do not change.
-
-    atomic:         If true, schedulers will never switch. Driven by
-                    the code object or dynamically, see below.
-
-    ignore_nesting: Allows auto-scheduling, even if nesting_level
-                    is not zero.
-
-    autoschedule:   The tasklet likes to be auto-scheduled. User driven.
-
-    block_trap:     Debugging aid. Whenever the tasklet would be
-                    blocked by a channel, an exception is raised.
-
-    is_zombie:      This tasklet is almost dead, its deallocation has
-                    started. The tasklet *must* die at some time, or the
-                    process can never end.
-
-    pending_irq:    If set, an interrupt was issued during an atomic
-                    operation, and should be handled when possible.
-
-
-    Policy for atomic/autoschedule and switching:
-    ---------------------------------------------
-    A tasklet switch can always be done explicitly by calling schedule().
-    Atomic and schedule are concerned with automatic features.
-
-    atomic  autoschedule
-
-        1       any     Neither a scheduler nor a watchdog will
-                        try to switch this tasklet.
-
-        0       0       The tasklet can be stopped on desire, or it
-                        can be killed by an exception.
-
-        0       1       Like above, plus auto-scheduling is enabled.
-
-    Default settings:
-    -----------------
-    All flags are zero by default.
-
- ***************************************************************************/
-"""
 
 class tasklet(coroutine):
     """
@@ -403,16 +246,6 @@ class tasklet(coroutine):
                  'ignore_nesting','is_current','is_main',
                  'nesting_level','next','paused','prev','recursion_depth',
                  'restorable','scheduled','tempval','thread_id']
-
-    ## note: most of the above should be properties
-
-    ## note that next and prev are not here.
-    ## should this be implemented, or better not?
-    ## I think yes. it is easier to keep the linkage.
-    ## tasklets gave grown this, and we can do different
-    ## classes, later.
-    ## well, it is a design question, but fow now probably simplest
-    ## to just copy that.
 
     def __new__(cls, func=None):
         return super(tasklet,cls).__new__(cls)
@@ -439,10 +272,6 @@ class tasklet(coroutine):
         self.tempval = None
         if func is not None:
             self.bind(func)
-
-    def __del__(self):
-        if DEBUG:
-            print 'in __del__', self
 
     def __call__(self, *argl, **argd):
         self.setup(*argl, **argd)
@@ -474,7 +303,6 @@ class tasklet(coroutine):
         SETVAL(self, func)
 
     def _is_dead(self):
-        # XXX missing
         return self.is_zombie
 
     def insert(self):
@@ -490,7 +318,6 @@ class tasklet(coroutine):
         if self.next is None:
             scheduler.current_insert(self)
 
-    ## note: this is needed. please call coroutine.kill()
     def kill(self):
         """
         tasklet.kill -- raise a TaskletExit exception for the tasklet.
@@ -503,7 +330,6 @@ class tasklet(coroutine):
             coroutine.kill(self)
         return self.raise_excption(TaskletExit)
 
-    ## note: see the C implementation about how to use bombs
     def raise_exception(self, exc, value):
         """
         tasklet.raise_exception(exc, value) -- raise an exception for the 
@@ -530,12 +356,8 @@ class tasklet(coroutine):
         Run this tasklet, given that it isn't blocked.
         Blocked tasks need to be reactivated by channels.
         """
-        ## note: please support different schedulers
-        ## and don't mix calls to module functions with scheduler methods.
         scheduler.schedule_task(getcurrent(), self)
 
-    ## note: needed at some point. right now just a property
-    ## the stackless_flags should all be supported
     def set_atomic(self, val):
         """
         t.set_atomic(flag) -- set tasklet atomic status and return current one.
@@ -555,7 +377,6 @@ class tasklet(coroutine):
         self.atomic = val
         return tmpval
 
-    ## note: see above
     def set_ignore_nesting(self, flag):
         """
         t.set_ignore_nesting(flag) -- set tasklet ignore_nesting status and 
@@ -572,11 +393,6 @@ class tasklet(coroutine):
         self.ignore_nesting = flag
         return tmpval
 
-    ## note
-    ## tasklet(func)(*args, **kwds)
-    ## is identical to
-    ## t = tasklet; t.bind(func); t.setup(*args, **kwds)
-
     def finished(self):
         self.alive = False
         if self.next is not self:
@@ -585,9 +401,6 @@ class tasklet(coroutine):
             next = getmain()
         scheduler.remove_task(self)
         scheduler.schedule_task(self, next)
-
-        if DEBUG:
-            print 'in finished', self
 
     def setup(self, *argl, **argd):
         """
@@ -599,31 +412,6 @@ class tasklet(coroutine):
         SETVAL(self, None)
         self.alive = True
         self.insert()
-"""
-/***************************************************************************
-
-    Channel Flag Definition
-    -----------------------
-
-
-    closing:        When the closing flag is set, the channel does not
-                    accept to be extended. The computed attribute
-                    'closed' is true when closing is set and the
-                    channel is empty.
-
-    preference:     0    no preference, caller will continue
-                    1    sender will be inserted after receiver and run
-                    -1   receiver will be inserted after sender and run
-
-    schedule_all:   ignore preference and always schedule the next task
-
-    Default settings:
-    -----------------
-    All flags are zero by default.
-
- ***************************************************************************/
-"""
-
 
 def channel_callback(chan, task, sending, willblock):
     return channel_hook(chan, task, sending, willblock)
@@ -636,9 +424,6 @@ class channel(object):
     By receiving from a channel, a tasklet that is waiting to send
     is resumed. If there is no waiting sender, the receiver is suspended.
     """
-
-#    __slots__ = ['balance','closed','closing','preference','queue',
-#                 'schedule_all']
 
     def __init__(self):
         self.balance = 0
@@ -681,11 +466,7 @@ class channel(object):
 
     def _channel_remove(self, d):
         ret = self.next
-        try:
-            assert isinstance(ret, (tasklet, TaskletProxy))
-        except:
-            print 'AssertionError in channel_remove'
-            raise
+        assert isinstance(ret, (tasklet, TaskletProxy))
         self.balance -= d
         self._rem(ret)
         ret.blocked = 0
@@ -701,8 +482,6 @@ class channel(object):
         return task
 
     def _ins(self, task):
-        if DEBUG:
-            print '### channel._ins(%s)' % task
         if (task.next is not None) or (task.prev is not None):
             raise AssertionError('task.next and task.prev must be None')
         # insert at end
@@ -712,14 +491,8 @@ class channel(object):
         SETPREV(self, task)
 
     def _rem(self, task):
-        if DEBUG:
-            print '### channel._rem(%s)' % task
-        try:
-            assert task.next is not None
-            assert task.prev is not None
-        except:
-            print 'AssertionError in channel._rem', task, task.next, task.prev
-            raise
+        assert task.next is not None
+        assert task.prev is not None
         #remove at end
         SETPREV(task.next, task.prev)
         SETNEXT(task.prev, task.next)
@@ -736,88 +509,50 @@ class channel(object):
             schedlock = 0
 
     def _channel_action(self, arg, d, stackl):
-        try:
-            #source = getcurrent()
-            source = scheduler._head
-            target = self.next
-            if not source is getcurrent():
-                print '!!!!! scheduler._head is not current !!!!!', source, getcurrent()
-            interthread = 0 # no interthreading at the moment
-            if d > 0:
-                cando = self.balance < 0
+        source = scheduler._head
+        target = self.next
+        assert source is getcurrent()
+        interthread = 0 # no interthreading at the moment
+        if d > 0:
+            cando = self.balance < 0
+        else:
+            cando = self.balance > 0
+
+        assert abs(d) == 1
+        SETVAL(source, arg)
+        if not interthread:
+            self._notify(source, d, cando, None)
+        if cando:
+            # communication 1): there is somebody waiting
+            target = self._channel_remove(-d)
+            SWAPVAL(source, target)
+            if interthread:
+                raise Exception('no interthreading: I can not be reached...')
             else:
-                cando = self.balance > 0
-
-            if DEBUG:
-                print
-                print self
-                print '_channel_action(%s, %s)' % (arg, d)
-                print '_channel_action -> source:', source
-                print '_channel_action -> target:', target
-                print '--- cando --- :',cando
-                print scheduler
-                print
-                print
-            try:
-                assert abs(d) == 1
-            except:
-                print 'AssertionError in channel_action'
-                raise
-
-            SETVAL(source, arg)
-            if not interthread:
-                self._notify(source, d, cando, None)
-            if cando:
-                # communication 1): there is somebody waiting
-                target = self._channel_remove(-d)
-                SWAPVAL(source, target)
-                if interthread:
-                    raise Exception('no interthreading: I can not be reached...')
+                if self.schedule_all:
+                    scheduler.current_insert(target)
+                    target = source.next
+                elif self.preference == -d:
+                    scheduler._set_head(source.next)
+                    scheduler.current_insert(target)
+                    scheduler._set_head(source)
                 else:
-                    if self.schedule_all:
-                        if DEBUG:
-                            print '--- in if ---'
-                        scheduler.current_insert(target)
-                        target = source.next
-                    elif self.preference == -d:
-                        if DEBUG:
-                            print '--- in elif ---'
-                        scheduler._set_head(source.next)
-                        scheduler.current_insert(target)
-                        scheduler._set_head(source)
-                        #schedule._head = target
-                    else:
-                        if DEBUG:
-                            print '--- else ---'
-                        scheduler.current_insert(target)
-                        target = source
-            else:
-                # communication 2): there is nobody waiting
-                if source.block_trap:
-                    raise RuntimeError("this tasklet does not like to be blocked")
-                if self.closing:
-                    raise StopIteration()
-                scheduler.current_remove()
-                self._channel_insert(source, d)
-                target = scheduler._head
-        except Exception, exp:
-            if DEBUG:
-                print 'Exception in channel_action', exp, '\n\n'
-            raise
-        try:
-            if DEBUG:
-                print 'BEFORE SWITCH:',self
-            retval = scheduler.schedule_task(source, target)
-        except Exception, exp:
-            print 'schedule_task raised', exp
-            print sys.exc_info()
-            print retval
-            raise
+                    scheduler.current_insert(target)
+                    target = source
+        else:
+            # communication 2): there is nobody waiting
+            if source.block_trap:
+                raise RuntimeError("this tasklet does not like to be blocked")
+            if self.closing:
+                raise StopIteration()
+            scheduler.current_remove()
+            self._channel_insert(source, d)
+            target = scheduler._head
+        retval = scheduler.schedule_task(source, target)
         if interthread:
             self._notify(source, d, cando, None)
         return retval
 
-    ## note: needed
     def close(self):
         """
         channel.close() -- stops the channel from enlarging its queue.
@@ -827,7 +562,6 @@ class channel(object):
         """
         self.closing = True
 
-    ## note: needed. iteration over a channel reads it all.
     def next(self):
         """
         x.next() -> the next value, or raise StopIteration
@@ -836,51 +570,11 @@ class channel(object):
             raise StopIteration()
         yield self.receive()
 
-    ## note: needed
     def open(self):
         """
         channel.open() -- reopen a channel. See channel.close.
         """
         self.closing = False
-
-    """
-    /**********************************************************
-
-      The central functions of the channel concept.
-      A tasklet can either send or receive on a channel.
-      A channel has a queue of waiting tasklets.
-      They are either all waiting to send or all
-      waiting to receive.
-      Initially, a channel is in a neutral state.
-      The queue is empty, there is no way to
-      send or receive without becoming blocked.
-
-      Sending 1):
-        A tasklet wants to send and there is
-        a queued receiving tasklet. The sender puts
-        its data into the receiver, unblocks it,
-        and inserts it at the top of the runnables.
-        The receiver is scheduled.
-      Sending 2):
-        A tasklet wants to send and there is
-        no queued receiving tasklet.
-        The sender will become blocked and inserted
-        into the queue. The next receiver will
-        handle the rest through "Receiving 1)".
-      Receiving 1):
-        A tasklet wants to receive and there is
-        a queued sending tasklet. The receiver takes
-        its data from the sender, unblocks it,
-        and inserts it at the end of the runnables.
-        The receiver continues with no switch.
-      Receiving 2):
-        A tasklet wants to receive and there is
-        no queued sending tasklet.
-        The receiver will become blocked and inserted
-        into the queue. The next sender will
-        handle the rest through "Sending 1)".
-     */
-    """
 
     def receive(self):
         """
@@ -903,7 +597,6 @@ class channel(object):
         """
         return self._channel_action(msg, 1, 1)
 
-    ## note: see the C implementation on how to use bombs.
     def send_exception(self, exc, value):
         """
         channel.send_exception(exc, value) -- send an exception over the 
@@ -913,7 +606,6 @@ class channel(object):
         b = bomb(exc, value)
         self.send(bomb)
 
-    ## needed
     def send_sequence(self, value):
         """
         channel.send_sequence(seq) -- sed a stream of values
@@ -957,12 +649,8 @@ class Scheduler(object):
         return 'Scheduler: [' + ' -> '.join(parts) + ']'
 
     def _chain_insert(self, task):
-        try:
-            assert task.next is None
-            assert task.prev is None
-        except:
-            print 'AssertionError in _chain_insert', task, task.prev, task.next
-            raise
+        assert task.next is None
+        assert task.prev is None
         if self._head is None:
             SETNEXT(task, task)
             SETPREV(task, task)
@@ -1012,11 +700,7 @@ class Scheduler(object):
         while not isinstance(prev, channel):
             prev = prev.prev
         chan = prev
-        try:
-            assert chan.balance
-        except:
-            print 'AssertionError in channel_remove_slow'
-            raise
+        assert chan.balance
         if chan.balance > 0:
             d = 1
         else:
@@ -1041,74 +725,41 @@ class Scheduler(object):
                 return errflag
 
     def schedule_task_block(self, prev):
-        if DEBUG:
-            print 'schedule_task_block(%s)' % prev
-        next = None
-        if check_for_deadlock():
-            try:
-                if main_tasklet.next is None:
-                    if isinstance(prev.tempval, bomb):
-                        SETVAL(main_tasklet, prev.tempval)
-                    return self.schedule_task(prev, main_tasklet)
-                retval = make_deadlock_bomb()
-                SETVAL(prev, retval)
+        if main_tasklet.next is None:
+            if isinstance(prev.tempval, bomb):
+                SETVAL(main_tasklet, prev.tempval)
+            return self.schedule_task(prev, main_tasklet)
+        retval = make_deadlock_bomb()
+        SETVAL(prev, retval)
 
-                return self.schedule_task(prev, prev)
-            except Exception, exp:
-                print 'exp in schedule_task_block', exp
-                raise
-
-
-        next = prev
-        return self.schedule_task(prev, next)
+        return self.schedule_task(prev, prev)
 
     def schedule_task(self, prev, next):
-        try:
-            global switches
-            switches += 1
-            myswitch = switches
-            if DEBUG:
-                print '\n\n!!! schedule_task(%s)' % myswitch, prev, next
-                print
-            if next is None:
-                return self.schedule_task_block(prev)
-            if next.blocked:
-                self.channel_remove_slow(next)
-                self.current_insert(next)
-            elif next.next is None:
-                self.current_insert(next)
-            if prev is next:
-                retval = prev.tempval
-                if isinstance(retval, bomb):
-                    self.bomb_explode(prev)
-                return retval
-            self._notify_schedule(prev, next, None)
-            #assert next is self._head
-            self._set_head(next)
-        except Exception, exp:
-            print '### Exception BEFORE switch', exp
-            raise
-
-        # lots of soft-/ hard switching stuff in C source
+        global switches
+        switches += 1
+        myswitch = switches
+        if next is None:
+            return self.schedule_task_block(prev)
+        if next.blocked:
+            self.channel_remove_slow(next)
+            self.current_insert(next)
+        elif next.next is None:
+            self.current_insert(next)
+        if prev is next:
+            retval = prev.tempval
+            if isinstance(retval, bomb):
+                self.bomb_explode(prev)
+            return retval
+        self._notify_schedule(prev, next, None)
+        self._set_head(next)
 
         next.switch()
 
-        try:
-            if DEBUG:
-                print 'after switch(%s) ->' % myswitch ,next
-                print
-            #self._set_head(next)
-            #self._head = next
+        retval = prev.tempval
+        if isinstance(retval, bomb):
+            self.bomb_explode(next)
 
-            retval = prev.tempval
-            if isinstance(retval, bomb):
-                print '!!!!! exploding !!!!!!'
-                self.bomb_explode(next)
-
-            return retval
-        except Exception, exp:
-            print '### Exception AFTER switch', exp
-            raise
+        return retval
 
     def schedule_callback(self, prev, next):
         ret = _schedule_hook(prev, next)
@@ -1117,7 +768,16 @@ class Scheduler(object):
         else:
             return -1
 
-
+def __init():
+    global main_tasklet
+    global main_coroutine
+    global scheduler 
+    main_coroutine = c = coroutine.getcurrent()
+    main_tasklet = TaskletProxy(c)
+    SETNEXT(main_tasklet, main_tasklet)
+    SETPREV(main_tasklet, main_tasklet)
+    main_tasklet.is_main = True
+    scheduler = Scheduler()
 
 __init()
 
