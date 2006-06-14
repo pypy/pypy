@@ -112,7 +112,7 @@ def compile(backend):
 
     if backend == 'llvm':   #create llvm exectutable from the current source
         compile_llvm_variants(revision)
-    else:                   #copy executable
+    elif os.path.exists(basename):                   #copy executable
         pypy = open(basename, 'rb').read()
         if len(pypy) > 0:
             open(realname, 'wb').write(pypy)
