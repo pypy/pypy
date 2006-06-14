@@ -347,10 +347,15 @@ class LLHelpers(AbstractLLHelpers):
 
     def ll_find(cls, s1, s2, start, end):
         """Knuth Morris Prath algorithm for substring match"""
+        len1 = len(s1.chars)
+        if end > len1:
+            end = len1
         len2 = len(s2.chars)
         if len2 == 1:
             return cls.ll_find_char(s1, s2.chars[0], start, end)
         if len2 == 0:
+            if (end-start) < 0:
+                return -1
             return start
         # Construct the array of possible restarting positions
         # T = Array_of_ints [-1..len2]
@@ -396,6 +401,9 @@ class LLHelpers(AbstractLLHelpers):
         if len2 == 1:
             return cls.ll_rfind_char(s1, s2.chars[0], start, end)
         if len2 == 0:
+            len1 = len(s1.chars)
+            if end > len(s1.chars):
+                return len1
             return end
         # Construct the array of possible restarting positions
         T = malloc( SIGNED_ARRAY, len2 )

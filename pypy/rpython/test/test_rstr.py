@@ -255,11 +255,38 @@ class BaseTestRstr(BaseRtypingTest):
             res = self.interpret(fn, [i, j])
             assert res == fn(i, j)
 
+    def test_find_empty_string(self):
+        def f():
+            s = "abc"
+            x = s.find('')
+            x+= s.find('', 1)*10
+            x+= s.find('', 2)*100
+            x+= s.find('', 3)*1000
+            x+= s.find('', 4)*10000
+            x+= s.find('', 5)*100000
+            return x
+        res = self.interpret(f, [])
+        assert res == f()
+            
     def test_rfind(self):
         def fn():
             return 'aaa'.rfind('a') + 'aaa'.rfind('a', 1) + 'aaa'.rfind('a', 1, 2)
         res = self.interpret(fn, [])
         assert res == 2 + 2 + 1
+
+    def test_rfind_empty_string(self):
+        def f():
+            s = "abc"
+            x = s.rfind('', 0 ,0)
+            x+= s.rfind('', 0, 1)*10
+            x+= s.rfind('', 0, 2)*100
+            x+= s.rfind('', 0, 3)*1000
+            x+= s.rfind('', 0, 4)*10000
+            x+= s.rfind('', 0, 5)*100000
+            return x
+        res = self.interpret(f, [])
+        assert res == f()
+
 
     def test_find_char(self):
         def fn(ch):
