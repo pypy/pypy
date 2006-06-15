@@ -547,7 +547,7 @@ class FunctionCodeGenerator(object):
 
         # ctypes Arrays have no length field
         if not VARPART._hints.get('nolength', False):
-            result += '\n%s->%s = %s;' % (eresult, lenfld, elength)
+            result += '\nif(%s) %s->%s = %s;' % (eresult, eresult, lenfld, elength)
         return result
 
     def OP_FLAVORED_MALLOC(self, op):

@@ -156,6 +156,24 @@ class TestUsingBoehm(AbstractTestClass):
         # if res is still 0, then we haven't tested anything so fail.
         # it might be the test's fault though.
         assert res > 0
+
+    def test_memory_error_varsize(self):
+        from pypy.rpython.lltypesystem import lltype
+        N = int(2**31-1)
+        A = lltype.GcArray(lltype.Char)
+        def alloc(n):
+            return lltype.malloc(A, n)
+        def f():
+            try:
+                x = alloc(N)
+            except MemoryError:
+                alloc(10)
+                return 0
+            alloc(10)
+            return 0 # allocation may work on 64 bits machines
+        fn = self.getcompiled(f)
+        res = fn()
+        assert res == 0
         
 
 class TestUsingExactBoehm(TestUsingBoehm):
