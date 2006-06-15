@@ -550,8 +550,6 @@ class CodeGenerator(ast.ASTVisitor):
 
     def visitWith(self, node):
         node.expr.accept(self)
-        self.emitop('LOAD_ATTR', '__context__')
-        self.emitop_int('CALL_FUNCTION', 0)
         self.emit('DUP_TOP')
 
         ## exit = ctx.__exit__

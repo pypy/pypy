@@ -261,63 +261,41 @@ class AppTestWith:
 
         s = """from __future__ import with_statement
 if 1:        
-        class ContextFactory:
-
-            class Context:
-                def __init__(self, factory):
-                    self.factory = factory
-
-                def __enter__(self):
-                    self.factory.calls.append('__enter__')
-                    pass
-
-                def __exit__(self, exc_type, exc_value, exc_tb):
-                    self.factory.calls.append('__exit__')
-                    pass
-
+        class Context:
             def __init__(self):
                 self.calls = list()
-                self.context = self.Context(self)
 
-            def __context__(self):
-                self.calls.append('__context__')
-                return self.context
+            def __enter__(self):
+                self.calls.append('__enter__')
+
+            def __exit__(self, exc_type, exc_value, exc_tb):
+                self.calls.append('__exit__')
             
-        acontext = ContextFactory()
+        acontext = Context()
         with acontext:
             pass
         """
         exec s
 
-        assert acontext.calls == '__context__ __enter__ __exit__'.split()
+        assert acontext.calls == '__enter__ __exit__'.split()
         
     def test_with_as_var(self):
 
         s = """from __future__ import with_statement
 if 1:
-        class ContextFactory:
-
-            class Context:
-                def __init__(self, factory):
-                    self.factory = factory
-
-                def __enter__(self):
-                    self.factory.calls.append('__enter__')
-                    return self.factory.calls
-
-                def __exit__(self, exc_type, exc_value, exc_tb):
-                    self.factory.calls.append('__exit__')
-                    self.factory.exit_params = (exc_type, exc_value, exc_tb)
-
+        class Context:
             def __init__(self):
                 self.calls = list()
-                self.context = self.Context(self)
 
-            def __context__(self):
-                self.calls.append('__context__')
-                return self.context
+            def __enter__(self):
+                self.calls.append('__enter__')
+                return self.calls
             
-        acontextfact = ContextFactory()
+            def __exit__(self, exc_type, exc_value, exc_tb):
+                self.calls.append('__exit__')
+                self.exit_params = (exc_type, exc_value, exc_tb)
+
+        acontextfact = Context()
         with acontextfact as avar:
             avar.append('__body__')
             pass
@@ -325,35 +303,25 @@ if 1:
         exec s
 
         assert acontextfact.exit_params == (None, None, None)
-        assert acontextfact.calls == '__context__ __enter__ __body__ __exit__'.split()
+        assert acontextfact.calls == '__enter__ __body__ __exit__'.split()
         
     def test_with_raise_exception(self):
 
         s = """from __future__ import with_statement
 if 1:
-        class ContextFactory:
-
-            class Context:
-                def __init__(self, factory):
-                    self.factory = factory
-
-                def __enter__(self):
-                    self.factory.calls.append('__enter__')
-                    return self.factory.calls
-
-                def __exit__(self, exc_type, exc_value, exc_tb):
-                    self.factory.calls.append('__exit__')
-                    self.factory.exit_params = (exc_type, exc_value, exc_tb)
-
+        class Context:
             def __init__(self):
                 self.calls = list()
-                self.context = self.Context(self)
 
-            def __context__(self):
-                self.calls.append('__context__')
-                return self.context
+            def __enter__(self):
+                self.calls.append('__enter__')
+                return self.calls
             
-        acontextfact = ContextFactory()
+            def __exit__(self, exc_type, exc_value, exc_tb):
+                self.calls.append('__exit__')
+                self.exit_params = (exc_type, exc_value, exc_tb)
+
+        acontextfact = Context()
         error = RuntimeError('With Test')
         try:
             with acontextfact as avar:
@@ -367,7 +335,7 @@ if 1:
         """
         exec s
 
-        assert acontextfact.calls == '__context__ __enter__ __body__ __exit__'.split()
+        assert acontextfact.calls == '__enter__ __body__ __exit__'.split()
         assert acontextfact.exit_params[0:2] == (RuntimeError, error)
         import types
         assert isinstance(acontextfact.exit_params[2], types.TracebackType)
@@ -376,30 +344,20 @@ if 1:
 
         s = """from __future__ import with_statement
 if 1:
-        class ContextFactory:
-
-            class Context:
-                def __init__(self, factory):
-                    self.factory = factory
-
-                def __enter__(self):
-                    self.factory.calls.append('__enter__')
-                    return self.factory.calls
-
-                def __exit__(self, exc_type, exc_value, exc_tb):
-                    self.factory.calls.append('__exit__')
-                    self.factory.exit_params = (exc_type, exc_value, exc_tb)
-                    return True
-                
+        class Context:
             def __init__(self):
                 self.calls = list()
-                self.context = self.Context(self)
 
-            def __context__(self):
-                self.calls.append('__context__')
-                return self.context
+            def __enter__(self):
+                self.calls.append('__enter__')
+                return self.calls
             
-        acontextfact = ContextFactory()
+            def __exit__(self, exc_type, exc_value, exc_tb):
+                self.calls.append('__exit__')
+                self.exit_params = (exc_type, exc_value, exc_tb)
+                return True
+
+        acontextfact = Context()
         error = RuntimeError('With Test')
         with acontextfact as avar:
             avar.append('__body__')
@@ -408,7 +366,7 @@ if 1:
         """
         exec s
 
-        assert acontextfact.calls == '__context__ __enter__ __body__ __exit__'.split()
+        assert acontextfact.calls == '__enter__ __body__ __exit__'.split()
         assert acontextfact.exit_params[0:2] == (RuntimeError, error)
         import types
         assert isinstance(acontextfact.exit_params[2], types.TracebackType)
@@ -417,29 +375,19 @@ if 1:
 
         s = """from __future__ import with_statement
 if 1:
-        class ContextFactory:
-
-            class Context:
-                def __init__(self, factory):
-                    self.factory = factory
-
-                def __enter__(self):
-                    self.factory.calls.append('__enter__')
-                    return self.factory.calls
-
-                def __exit__(self, exc_type, exc_value, exc_tb):
-                    self.factory.calls.append('__exit__')
-                    self.factory.exit_params = (exc_type, exc_value, exc_tb)
-
+        class Context:
             def __init__(self):
                 self.calls = list()
-                self.context = self.Context(self)
 
-            def __context__(self):
-                self.calls.append('__context__')
-                return self.context
+            def __enter__(self):
+                self.calls.append('__enter__')
+                return self.calls
             
-        acontextfact = ContextFactory()
+            def __exit__(self, exc_type, exc_value, exc_tb):
+                self.calls.append('__exit__')
+                self.exit_params = (exc_type, exc_value, exc_tb)
+
+        acontextfact = Context()
         error = RuntimeError('With Test')
         for x in 1,:
             with acontextfact as avar:
@@ -451,36 +399,26 @@ if 1:
         """
         exec s
 
-        assert acontextfact.calls == '__context__ __enter__ __body__ __exit__'.split()
+        assert acontextfact.calls == '__enter__ __body__ __exit__'.split()
         assert acontextfact.exit_params == (None, None, None)
         
     def test_with_continue(self):
 
         s = """from __future__ import with_statement
 if 1:
-        class ContextFactory:
-
-            class Context:
-                def __init__(self, factory):
-                    self.factory = factory
-
-                def __enter__(self):
-                    self.factory.calls.append('__enter__')
-                    return self.factory.calls
-
-                def __exit__(self, exc_type, exc_value, exc_tb):
-                    self.factory.calls.append('__exit__')
-                    self.factory.exit_params = (exc_type, exc_value, exc_tb)
-
+        class Context:
             def __init__(self):
                 self.calls = list()
-                self.context = self.Context(self)
 
-            def __context__(self):
-                self.calls.append('__context__')
-                return self.context
+            def __enter__(self):
+                self.calls.append('__enter__')
+                return self.calls
             
-        acontextfact = ContextFactory()
+            def __exit__(self, exc_type, exc_value, exc_tb):
+                self.calls.append('__exit__')
+                self.exit_params = (exc_type, exc_value, exc_tb)
+
+        acontextfact = Context()
         error = RuntimeError('With Test')
         for x in 1,:
             with acontextfact as avar:
@@ -492,35 +430,25 @@ if 1:
         """
         exec s
 
-        assert acontextfact.calls == '__context__ __enter__ __body__ __exit__ __continue__'.split()
+        assert acontextfact.calls == '__enter__ __body__ __exit__ __continue__'.split()
         assert acontextfact.exit_params == (None, None, None)
         
     def test_with_return(self):
         s = """from __future__ import with_statement
 if 1:
-        class ContextFactory:
-
-            class Context:
-                def __init__(self, factory):
-                    self.factory = factory
-
-                def __enter__(self):
-                    self.factory.calls.append('__enter__')
-                    return self.factory.calls
-
-                def __exit__(self, exc_type, exc_value, exc_tb):
-                    self.factory.calls.append('__exit__')
-                    self.factory.exit_params = (exc_type, exc_value, exc_tb)
-
+        class Context:
             def __init__(self):
                 self.calls = list()
-                self.context = self.Context(self)
 
-            def __context__(self):
-                self.calls.append('__context__')
-                return self.context
+            def __enter__(self):
+                self.calls.append('__enter__')
+                return self.calls
             
-        acontextfact = ContextFactory()
+            def __exit__(self, exc_type, exc_value, exc_tb):
+                self.calls.append('__exit__')
+                self.exit_params = (exc_type, exc_value, exc_tb)
+
+        acontextfact = Context()
         error = RuntimeError('With Test')
         def g(acontextfact):
             with acontextfact as avar:
@@ -531,7 +459,7 @@ if 1:
         """
         exec s
 
-        assert acontextfact.calls == '__context__ __enter__ __body__ __exit__ __return__'.split()
+        assert acontextfact.calls == '__enter__ __body__ __exit__ __return__'.split()
         assert acontextfact.exit_params == (None, None, None)
         
     def test_with_as_identifier(self):
