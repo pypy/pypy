@@ -46,7 +46,7 @@ opts = {
     '0_source': [OPT(('-s', '--source'), "Generate source code", GOAL),
                OPT(('--no-source',), "Don't generate source code", SKIP_GOAL)],
 
-    '1_backend': [OPT(('-b', '--backend'), "Backend", ['c', 'llvm', 'cl', 'squeak', 'js'])],
+    '1_backend': [OPT(('-b', '--backend'), "Backend", ['c', 'llvm', 'cl', 'squeak', 'js', 'cli'])],
 
     '2_gc': [OPT(('--gc',), "Garbage collector", ['boehm', 'ref', 'framework', 'none', 'exact_boehm', 'stacklessgc'])],
     '3_stackless': [OPT(('--new-stackless',), "Stackless code generation (graph transformer)", True)],

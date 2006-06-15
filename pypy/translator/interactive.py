@@ -59,6 +59,8 @@ class Translation(object):
         'compile_c': [],
         'compile_llvm': [],
         'source_cl': [],
+        'source_cli': [],
+        'compile_cli': [],
     }
 
     def view(self):
@@ -196,3 +198,13 @@ class Translation(object):
         self.driver.compile_llvm()
         return self.driver.c_entryp
   
+    def compile_cli(self, argtypes=None, **kwds):
+        self.update_options(argtypes, kwds)
+        self.ensure_backend('cli')
+        self.driver.compile_cli()
+        return self.driver.c_entryp
+
+    def source_cli(self, argtypes=None, **kwds):
+        self.update_options(argtypes, kwds)
+        self.ensure_backend('cli')
+        self.driver.source_cli()

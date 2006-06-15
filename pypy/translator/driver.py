@@ -411,6 +411,31 @@ class TranslationDriver(SimpleTaskEngine):
     task_run_js = taskdef(task_run_js, ['compile_js'],
                               'Please manually run the generated code')
 
+    def task_source_cli(self):
+        from pypy.translator.cli.gencli import GenCli
+        from pypy.translator.cli.test.runtest import TestEntryPoint
+        from pypy.tool.udir import udir
+        entry_point_graph = self.translator.graphs[0]
+        self.gen = GenCli(udir, self.translator, TestEntryPoint(entry_point_graph, False))
+        filename = self.gen.generate_source()
+        self.log.info("Wrote %s" % (filename,))
+    task_source_cli = taskdef(task_source_cli, ['ootype'],
+                             'Generating CLI source')
+
+    def task_compile_cli(self):
+        from pypy.translator.cli.test.runtest import CliFunctionWrapper
+        filename = self.gen.build_exe()
+        self.c_entryp = CliFunctionWrapper(filename)
+        self.log.info("Compiled %s" % filename)
+    task_compile_cli = taskdef(task_compile_cli, ['source_cli'],
+                              'Compiling CLI source')
+
+    def task_run_cli(self):
+        pass
+    task_run_cli = taskdef(task_run_cli, ['compile_cli'],
+                              'XXX')
+
+
     def proceed(self, goals):
         if not goals:
             if self.default_goal:
