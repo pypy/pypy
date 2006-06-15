@@ -11,6 +11,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import BuiltinCode, ObjSpace, W_Root
 from pypy.interpreter.gateway import UnwrapSpecRecipe, Signature
 from pypy.interpreter.baseobjspace import SpaceCache
+from pypy.tool.sourcetools import func_with_new_name
 
 
 class UnwrapSpec_Trampoline(UnwrapSpecRecipe):
@@ -125,6 +126,7 @@ class FunctionCache(SpaceCache):
         exec py.code.Source('\n'.join(sourcelines)).compile() in miniglobals
 
         trampoline = miniglobals['trampoline']
+        trampoline = func_with_new_name(trampoline, func.name)
         trampoline.nb_args = len(tramp.inputargs)
         trampoline.allow_someobjects = True    # annotator hint
         w_result = W_Object(trampoline)

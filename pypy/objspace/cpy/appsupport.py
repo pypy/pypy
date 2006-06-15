@@ -10,11 +10,21 @@ class W_AppLevel(W_Root):
         self.space = space
         self.w_moddict = space.fromcache(AppSupportModuleCache).getorbuild(app)
         self.name = name
+    def force(self):
+        dict = self.w_moddict.force()
+        return W_Object(dict[self.name])
 
 class W_AppLevelModDict(W_Root):
     def __init__(self, space, app):
         self.space = space
         self.app = app
+        self._dict = None
+    def force(self):
+        if self._dict is None:
+            import __builtin__
+            self._dict = {'__builtins__': __builtin__}
+            exec self.app.code in self._dict
+        return self._dict
 
 class AppSupportModuleCache(SpaceCache):
     def build(self, app):

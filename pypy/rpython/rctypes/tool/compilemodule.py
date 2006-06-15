@@ -18,7 +18,7 @@ def compilemodule(modname, interactive=False):
     from pypy.translator.driver import TranslationDriver
     from pypy.interpreter.error import OperationError
 
-    space = CPyObjSpace()
+    space = CPyObjSpace(translating=True)
     ModuleClass = __import__('pypy.module.%s' % modname,
                              None, None, ['Module']).Module
     module = ModuleClass(space, space.wrap(modname))

@@ -103,7 +103,10 @@ class MixedModule(Module):
             pkgroot = cls.__module__
             mod = __import__(pkgroot, None, None, ['__doc__'])
             fname = mod.__file__ 
-            assert os.path.basename(fname).startswith('__init__.py') 
+            assert os.path.basename(fname).startswith('__init__.py')
+            # make it clear that it's not really the interp-level module
+            # at this path that we are seeing, but an app-level version of it
+            fname = os.path.join(os.path.dirname(fname), '*.py')
             cls._fname = fname 
         return space.wrap(fname) 
 
@@ -170,3 +173,31 @@ def getappfileloader(pkgroot, spec):
     def afileloader(space): 
         return app.wget(space, attrname)
     return afileloader 
+
+# ____________________________________________________________
+# Helper to test mixed modules on top of CPython
+
+def testmodule(name):
+    """Helper to test mixed modules on top of CPython,
+    running with the CPy Object Space.  The module should behave
+    more or less as if it had been compiled, either with the
+    pypy/bin/compilemodule.py tool, or within pypy-c.
+
+    Try:   testmodule('_demo')
+    """
+    import sys, new
+    from pypy.objspace.cpy.objspace import CPyObjSpace
+    space = CPyObjSpace()
+    fullname = "pypy.module.%s" % name 
+    Module = __import__(fullname, 
+                        None, None, ["Module"]).Module
+    if Module.applevel_name is not None:
+        appname = Module.applevel_name
+    else:
+        appname = name
+    mod = Module(space, space.wrap(appname))
+    moddict = space.unwrap(mod.getdict())
+    res = new.module(appname)
+    res.__dict__.update(moddict)
+    sys.modules[appname] = res
+    return res

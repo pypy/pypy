@@ -280,7 +280,12 @@ class CPyObjSpace(baseobjspace.ObjSpace):
     def _applevelclass_hook(self, app, name):
         # hackish hook for gateway.py: in a MixedModule, all init-time gets
         # from app-level files should arrive here
-        return W_AppLevel(self, app, name)
+        w_res = W_AppLevel(self, app, name)
+        if not self.options.translating:
+            # e.g. when using pypy.interpreter.mixedmodule.testmodule(),
+            # we can force the object immediately
+            w_res = w_res.force()
+        return w_res
 
 
 # Register add, sub, neg, etc...
