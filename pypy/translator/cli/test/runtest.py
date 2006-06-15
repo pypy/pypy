@@ -113,52 +113,55 @@ class TestEntryPoint(Node):
             assert False, 'Input type %s not supported' % arg_type
 
 
-class compile_function:
-    def __init__(self, func, annotation=[], graph=None):
-        self._func = func
-        self._gen = self._build_gen(func, annotation, graph)
-        self._exe = self._gen.build_exe()
+def compile_function(func, annotation=[], graph=None):
+    gen = _build_gen(func, annotation, graph)
+    gen.generate_source()
+    exe_name = gen.build_exe()
+    return CliFunctionWrapper(exe_name)
 
-    def _build_gen(self, func, annotation, graph=None):
-        try: 
-            func = func.im_func
-        except AttributeError: 
-            pass
-        t = TranslationContext()
-        if graph is not None:
-            graph.func = func
-            ann = t.buildannotator()
-            inputcells = [ann.typeannotation(a) for a in annotation]
-            ann.build_graph_types(graph, inputcells)
-            t.graphs.insert(0, graph)
-        else:
-            ann = t.buildannotator()
-            ann.build_types(func, annotation)
+def _build_gen(func, annotation, graph=None):
+    try: 
+        func = func.im_func
+    except AttributeError: 
+        pass
+    t = TranslationContext()
+    if graph is not None:
+        graph.func = func
+        ann = t.buildannotator()
+        inputcells = [ann.typeannotation(a) for a in annotation]
+        ann.build_graph_types(graph, inputcells)
+        t.graphs.insert(0, graph)
+    else:
+        ann = t.buildannotator()
+        ann.build_types(func, annotation)
 
-        # quick hack: force exceptions.Exception to be rendered
-        def raiseKeyError():
-            raise KeyError
-        ann.build_types(raiseKeyError, [])
+    # quick hack: force exceptions.Exception to be rendered
+    def raiseKeyError():
+        raise KeyError
+    ann.build_types(raiseKeyError, [])
 
-        t.buildrtyper(type_system="ootype").specialize()
-        self.graph = t.graphs[0]
+    t.buildrtyper(type_system="ootype").specialize()
+    main_graph = t.graphs[0]
 
-        # XXX: horrible hack :-(
-        for graph in t.graphs:
-            if graph.name == 'raiseKeyError':
-                raiseKeyError_graph = graph
+    # XXX: horrible hack :-(
+    for graph in t.graphs:
+        if graph.name == 'raiseKeyError':
+            raiseKeyError_graph = graph
 
-        if getoption('view'):
-           t.view()
+    if getoption('view'):
+       t.view()
 
-        if getoption('wd'):
-            self.tmpdir = py.path.local('.')
-        else:
-            self.tmpdir = udir
+    if getoption('wd'):
+        tmpdir = py.path.local('.')
+    else:
+        tmpdir = udir
 
-        return GenCli(self.tmpdir, t, TestEntryPoint(self.graph, True),
-                      pending_graphs=[raiseKeyError_graph])
+    return GenCli(tmpdir, t, TestEntryPoint(main_graph, True),
+                  pending_graphs=[raiseKeyError_graph])
 
+class CliFunctionWrapper(object):
+    def __init__(self, exe_name):
+        self._exe = exe_name
 
     def __call__(self, *args):
         if self._exe is None:

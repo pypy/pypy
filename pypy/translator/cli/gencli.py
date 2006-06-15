@@ -89,7 +89,6 @@ class GenCli(object):
             names.add(graph.name)
 
     def build_exe(self):        
-        tmpfile = self.generate_source()
         if getoption('source'):
             return None
 
@@ -97,8 +96,9 @@ class GenCli(object):
         shutil.copy(pypy_dll, self.tmpdir.strpath)
 
         ilasm = SDK.ilasm()
+        tmpfile = self.tmpfile.strpath
         proc = subprocess.Popen([ilasm, tmpfile], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout, stderr = proc.communicate()
         retval = proc.wait()
-        assert retval == 0, 'ilasm failed to assemble %s (%s):\n%s' % (self.graph.name, tmpfile, stdout)
+        assert retval == 0, 'ilasm failed to assemble (%s):\n%s' % (tmpfile, stdout)
         return tmpfile.replace('.il', '.exe')
