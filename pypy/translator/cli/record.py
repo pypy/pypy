@@ -11,9 +11,12 @@ class Record(Node):
 
         trans = string.maketrans('<>(), :', '_______')
         name = ['Record']
+        # XXX: refactor this: we need a proper way to ensure unique names
         for f_name, (FIELD_TYPE, f_default) in record._fields.iteritems():
             type_name = FIELD_TYPE._short_name().translate(trans)
+            name.append(f_name)
             name.append(type_name)
+            
         self.name = '__'.join(name)
         assert ':' not in self.name
         record._name = self.name
@@ -38,6 +41,7 @@ class Record(Node):
 
         ilasm.begin_class(self.name, self.get_base_class())
         for f_name, (FIELD_TYPE, f_default) in self.record._fields.iteritems():
+            f_name = self.cts.escape_name(f_name)
             cts_type = self.cts.lltype_to_cts(FIELD_TYPE)
             if cts_type != 'void':
                 ilasm.field(f_name, cts_type)
