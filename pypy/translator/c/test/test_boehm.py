@@ -167,13 +167,13 @@ class TestUsingBoehm(AbstractTestClass):
             try:
                 x = alloc(N)
             except MemoryError:
-                alloc(10)
-                return 0
-            alloc(10)
-            return 0 # allocation may work on 64 bits machines
+                y = alloc(10)
+                return len(y)
+            y = alloc(10)
+            return len(y) # allocation may work on 64 bits machines
         fn = self.getcompiled(f)
         res = fn()
-        assert res == 0
+        assert res == 10
         
 
 class TestUsingExactBoehm(TestUsingBoehm):
