@@ -67,7 +67,9 @@ class CallEntry(CTypesEntry):
 
         def repr_for_ctype(ctype):
             s = SomeCTypesObject(ctype, SomeCTypesObject.MEMORYALIAS)
-            return hop.rtyper.getrepr(s)
+            r = hop.rtyper.getrepr(s)
+            r.setup()
+            return r
 
         args_r = []
         if getattr(cfuncptr, 'argtypes', None) is not None:
@@ -107,6 +109,7 @@ class CallEntry(CTypesEntry):
             s_res = SomeCTypesObject(cfuncptr.restype,
                                      SomeCTypesObject.OWNSMEMORY)
             r_res = hop.rtyper.getrepr(s_res)
+            r_res.setup()
             RESTYPE = r_res.ll_type
         else:
             RESTYPE = lltype.Void

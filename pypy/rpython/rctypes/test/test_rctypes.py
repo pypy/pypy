@@ -172,6 +172,13 @@ class Test_specialization:
         res = interpret(test_testfunc_struct_pointer_id, [])
         assert res == 21 - 17
 
+    def test_specialize_None_as_null_pointer(self):
+        def fn():
+            res = testfunc_struct_pointer_id(None)
+            return bool(res)
+        res = interpret(fn, [])
+        assert res is False
+
     def test_specialize_swap(self):
         res = interpret(test_testfunc_swap, [])
         assert res == 4
