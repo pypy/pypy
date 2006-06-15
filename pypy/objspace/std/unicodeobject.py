@@ -3,7 +3,7 @@ from pypy.interpreter import gateway
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.sliceobject import W_SliceObject
-from pypy.rpython.rarithmetic import intmask
+from pypy.rpython.rarithmetic import intmask, ovfcheck
 from pypy.module.unicodedata import unicodedb_4_1_0 as unicodedb
 
 class W_UnicodeObject(W_Object):
@@ -248,8 +248,9 @@ def mul__Unicode_ANY(space, w_uni, w_times):
         return W_UnicodeObject([w_uni._value[0]] * times)
 
     try:
-        result = [u'\0'] * (charlen * times)
-    except OverflowError:
+        result_size = ovfcheck(charlen * times)
+        result = [u'\0'] * result_size
+    except (OverflowError, MemoryError):
         raise OperationError(space.w_OverflowError, space.wrap('repeated string is too long'))
     for i in range(times):
         offset = i * charlen
