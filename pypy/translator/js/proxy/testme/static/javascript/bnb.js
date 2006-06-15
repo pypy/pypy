@@ -54,11 +54,12 @@ function handleServerResponse(json_doc) {
                 //    reuse what's already attached to the playfield.
                 //    On the other hand this might not be bad and communication overhead
                 //    seems to be the killer anyway.
-                var img = IMG({'src':icon[icon_code].filename,
-                'width':icon[icon_code].width, 'height':icon[icon_code].height,
-                'style':'position:absolute; top:' + y + 'px; left:' + x + 'px;'});
-
-                images.push(img);
+                if (icon_code in icon) {
+                    var img = IMG({'src':icon[icon_code].filename,
+                        'width':icon[icon_code].width, 'height':icon[icon_code].height,
+                        'style':'position:absolute; top:' + y + 'px; left:' + x + 'px;'});
+                    images.push(img);
+                }
             }
             replaceChildNodes(playfield, images);
         }

@@ -2,7 +2,7 @@ from turbogears import controllers, expose
 from cherrypy import session
 from msgstruct import *
 import PIL.Image
-from zlib import decompressobj
+from zlib import decompressobj, decompress
 from urllib import quote
 from os import mkdir
 from os.path import exists
@@ -96,7 +96,7 @@ class ServerMessage:
         else:
             bitmap_filename = '%sbitmap%d.ppm' % (self.gfx_dir, bitmap_code)
             try:
-                decompressed_data = self.decompressobj(data)
+                decompressed_data = decompress(data)
             except Exception, e:
                 raise BitmapCreationException('ERROR UNCOMPRESSING DATA FOR %s (%s)' % (
                     bitmap_filename, str(e)))
@@ -200,8 +200,8 @@ class ServerMessage:
 
     def inline_frame(self, data):
         decompressed_data = d = self.decompressobj(data)
-        log('inline_frame len(data)=%d, len(decompressed_data)=%d' % (
-            len(data), len(d)))
+        #log('inline_frame len(data)=%d, len(decompressed_data)=%d' % (
+        #    len(data), len(d)))
 
         return_raw_data = False
         if return_raw_data:

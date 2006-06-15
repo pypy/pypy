@@ -6,7 +6,7 @@ import zlib
 import socket
 import urllib
 import re
-from servermessage import ServerMessage, log
+from servermessage import ServerMessage, log, PMSG_INLINE_FRAME
 from random import random
 from md5 import md5
 
@@ -74,10 +74,15 @@ class Root(controllers.Root):
         sm.data = data
         #log('RECEIVED DATA REMAINING CONTAINS %d BYTES' % len(data))
 
-        #XXX: TODO: remove all but the last message where type == 'inline_frame'(PMSG_INLINE_FRAME)
+        len_before = len(messages)
+        #XXX we could do better by not generating only the last inline_frame message anyway!
+        inline_frames = [i for i,msg in enumerate(messages) if msg['type'] == PMSG_INLINE_FRAME]
+        for i in reversed(inline_frames[:-1]):
+            del messages[i]
 
         #if messages:
-        #    log('MESSAGES:%s' % messages)
+        #    log('MESSAGES:lenbefore=%d, inline_frames=%s, lenafter=%d' % (
+        #        len_before, inline_frames, len(messages)))
         return dict(messages=messages)
 
     def _close(self):
