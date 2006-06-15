@@ -3,6 +3,7 @@ CTypes declarations for the CPython API.
 """
 import sys
 import ctypes
+import py
 from ctypes import *
 from pypy.rpython.rctypes.tool import ctypes_platform
 ##from pypy.rpython.rctypes.implementation import CALLBACK_FUNCTYPE
@@ -71,6 +72,10 @@ PyObject_GetAttr = cpyapi.PyObject_GetAttr
 PyObject_GetAttr.argtypes = [W_Object, W_Object]
 PyObject_GetAttr.restype = W_Object
 
+PyObject_SetAttr = cpyapi.PyObject_SetAttr
+PyObject_SetAttr.argtypes = [W_Object, W_Object, W_Object]
+PyObject_SetAttr.restype = c_int
+
 PyObject_GetItem = cpyapi.PyObject_GetItem
 PyObject_GetItem.argtypes = [W_Object, W_Object]
 PyObject_GetItem.restype = W_Object
@@ -78,6 +83,10 @@ PyObject_GetItem.restype = W_Object
 PyObject_SetItem = cpyapi.PyObject_SetItem
 PyObject_SetItem.argtypes = [W_Object, W_Object, W_Object]
 PyObject_SetItem.restype = c_int
+
+PyObject_DelItem = cpyapi.PyObject_DelItem
+PyObject_DelItem.argtypes = [W_Object, W_Object]
+PyObject_DelItem.restype = c_int
 
 PyObject_Call = cpyapi.PyObject_Call
 PyObject_Call.argtypes = [W_Object, W_Object, W_Object]
@@ -94,6 +103,10 @@ PyObject_RichCompare.restype = W_Object
 PyObject_RichCompareBool = cpyapi.PyObject_RichCompareBool
 PyObject_RichCompareBool.argtypes = [W_Object, W_Object, c_int]
 PyObject_RichCompareBool.restype = c_int
+
+PyObject_Compare = cpyapi.PyObject_Compare
+PyObject_Compare.argtypes = [W_Object, W_Object]
+PyObject_Compare.restype = c_int
 
 PyObject_GetIter = cpyapi.PyObject_GetIter
 PyObject_GetIter.argtypes = [W_Object]
@@ -112,24 +125,80 @@ PyObject_Type.argtypes = [W_Object]
 PyObject_Type.restype = W_Object
 
 PyObject_Str = cpyapi.PyObject_Str
-PyObject_Str.argtyps = [W_Object]
+PyObject_Str.argtypes = [W_Object]
 PyObject_Str.restype = W_Object
 
 PyObject_Repr = cpyapi.PyObject_Repr
-PyObject_Repr.argtyps = [W_Object]
+PyObject_Repr.argtypes = [W_Object]
 PyObject_Repr.restype = W_Object
+
+PyObject_Hash = cpyapi.PyObject_Hash
+PyObject_Hash.argtypes = [W_Object]
+PyObject_Hash.restype = c_long
 
 
 ###########################################################
 # ____________________ Number Protocol ____________________
 
-PyNumber_Add = cpyapi.PyNumber_Add
-PyNumber_Add.argtypes = [W_Object, W_Object]
-PyNumber_Add.restype = W_Object
+UnaryOps = {'pos':       'PyNumber_Positive',
+            'neg':       'PyNumber_Negative',
+            'abs':       'PyNumber_Absolute',
+            'invert':    'PyNumber_Invert',
+            'int':       'PyNumber_Int',
+            'long':      'PyNumber_Long',
+            'float':     'PyNumber_Float',
+            }
+BinaryOps = {'add':      'PyNumber_Add',
+             'sub':      'PyNumber_Subtract',
+             'mul':      'PyNumber_Multiply',
+             'truediv':  'PyNumber_TrueDivide',
+             'floordiv': 'PyNumber_FloorDivide',
+             'div':      'PyNumber_Divide',
+             'mod':      'PyNumber_Remainder',
+             'divmod':   'PyNumber_Divmod',
+             'lshift':   'PyNumber_Lshift',
+             'rshift':   'PyNumber_Rshift',
+             'and_':     'PyNumber_And',
+             'or_':      'PyNumber_Or',
+             'xor':      'PyNumber_Xor',
 
-PyNumber_Subtract = cpyapi.PyNumber_Subtract
-PyNumber_Subtract.argtypes = [W_Object, W_Object]
-PyNumber_Subtract.restype = W_Object
+             'inplace_add':      'PyNumber_InPlaceAdd',
+             'inplace_sub':      'PyNumber_InPlaceSubtract',
+             'inplace_mul':      'PyNumber_InPlaceMultiply',
+             'inplace_truediv':  'PyNumber_InPlaceTrueDivide',
+             'inplace_floordiv': 'PyNumber_InPlaceFloorDivide',
+             'inplace_div':      'PyNumber_InPlaceDivide',
+             'inplace_mod':      'PyNumber_InPlaceRemainder',
+             'inplace_lshift':   'PyNumber_InPlaceLshift',
+             'inplace_rshift':   'PyNumber_InPlaceRshift',
+             'inplace_and':      'PyNumber_InPlaceAnd',
+             'inplace_or':       'PyNumber_InPlaceOr',
+             'inplace_xor':      'PyNumber_InPlaceXor',
+             }
+
+for name in UnaryOps.values():
+    exec py.code.Source("""
+        %(name)s = cpyapi.%(name)s
+        %(name)s.argtypes = [W_Object]
+        %(name)s.restype = W_Object
+    """ % locals()).compile()
+
+for name in BinaryOps.values():
+    exec py.code.Source("""
+        %(name)s = cpyapi.%(name)s
+        %(name)s.argtypes = [W_Object, W_Object]
+        %(name)s.restype = W_Object
+    """ % locals()).compile()
+
+del name
+
+PyNumber_Power = cpyapi.PyNumber_Power
+PyNumber_Power.argtypes = [W_Object, W_Object, W_Object]
+PyNumber_Power.restype = W_Object
+
+PyNumber_InPlacePower = cpyapi.PyNumber_InPlacePower
+PyNumber_InPlacePower.argtypes = [W_Object, W_Object, W_Object]
+PyNumber_InPlacePower.restype = W_Object
 
 
 #############################################################
@@ -142,6 +211,10 @@ PySequence_Tuple.restype = W_Object
 PySequence_SetItem = cpyapi.PySequence_SetItem
 PySequence_SetItem.argtypes = [W_Object, Py_ssize_t, W_Object]
 PySequence_SetItem.restype = c_int
+
+PySequence_Contains = cpyapi.PySequence_Contains
+PySequence_Contains.argtypes = [W_Object, W_Object]
+PySequence_Contains.restype = c_int
 
 
 ########################################################
@@ -178,6 +251,11 @@ PyFloat_AsDouble.restype = c_double
 PyLong_FromUnsignedLong = cpyapi.PyLong_FromUnsignedLong
 PyLong_FromUnsignedLong.argtypes = [c_ulong]
 PyLong_FromUnsignedLong.restype = W_Object
+
+# a version of PyLong_FromVoidPtr() that pretends to take a PyObject* arg
+PyLong_FromVoidPtr_PYOBJ = cpyapi.PyLong_FromVoidPtr
+PyLong_FromVoidPtr_PYOBJ.argtypes = [W_Object]
+PyLong_FromVoidPtr_PYOBJ.restype = W_Object
 
 
 ###################################################
@@ -265,6 +343,14 @@ PyImport_ImportModule.restype = W_Object
 _PyObject_Dump = cpyapi._PyObject_Dump
 _PyObject_Dump.argtypes = [W_Object]
 _PyObject_Dump.restype = None
+
+
+################################################
+# ____________________ Misc ____________________
+
+PySlice_New = cpyapi.PySlice_New
+PySlice_New.argtypes = [W_Object, W_Object, W_Object]
+PySlice_New.restype = W_Object
 
 
 ##############################################################

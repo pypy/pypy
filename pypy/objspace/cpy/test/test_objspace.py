@@ -9,6 +9,9 @@ def test_simple():
     space.setitem(d,wk1,wone)
     wback = space.getitem(d,wk1)
     assert space.eq_w(wback,wone)
+    assert space.is_true(space.contains(d,wk1))
+    space.delitem(d,wk1)
+    assert not space.is_true(space.contains(d,wk1))
 
 def test_wrap():
     space = CPyObjSpace()
@@ -58,3 +61,47 @@ def test_ord():
     assert space.int_w(space.ord(w)) == 65
     w = space.newunicode([0])
     assert space.int_w(space.ord(w)) == 0
+
+def test_id():
+    space = CPyObjSpace()
+    x = []
+    w = space.W_Object(x)
+    w_id = space.id(w)
+    assert space.eq_w(w_id, space.wrap(id(x)))
+
+def test_hash():
+    space = CPyObjSpace()
+    x = ("hello", 123)
+    w = space.W_Object(x)
+    w_hash = space.hash(w)
+    assert space.eq_w(w_hash, space.wrap(hash(x)))
+
+def test_setattr():
+    space = CPyObjSpace()
+    class X:
+        pass
+    w = space.W_Object(X)
+    space.setattr(w, space.wrap('hello'), space.wrap(42))
+    assert X.hello == 42
+    space.delattr(w, space.wrap('hello'))
+    assert not hasattr(X, 'hello')
+
+def test_some_more_ops():
+    space = CPyObjSpace()
+    assert space.eq_w(space.nonzero(space.wrap(17)), space.w_True)
+    assert space.eq_w(space.nonzero(space.wrap(0)), space.w_False)
+    assert space.eq_w(space.hex(space.wrap(18)), space.wrap("0x12"))
+    assert space.eq_w(space.oct(space.wrap(11)), space.wrap("013"))
+    assert space.eq_w(space.cmp(space.wrap(6), space.wrap(9)), space.wrap(-1))
+
+def test_complete():
+    from pypy.interpreter.baseobjspace import ObjSpace
+    space = CPyObjSpace()
+    for name, symbol, arity, specialmethods in ObjSpace.MethodTable:
+        assert hasattr(space, name)
+    for name in ObjSpace.ConstantTable:
+        assert hasattr(space, 'w_' + name)
+    for name in ObjSpace.ExceptionTable:
+        assert hasattr(space, 'w_' + name)
+    for name in ObjSpace.IrregularOpTable:
+        assert hasattr(space, name)

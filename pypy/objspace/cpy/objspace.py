@@ -10,20 +10,26 @@ from pypy.rpython.rarithmetic import r_uint
 class CPyObjSpace(baseobjspace.ObjSpace):
     from pypy.objspace.cpy.ctypes_base import W_Object
 
+    w_None           = W_Object(None)
+    w_False          = W_Object(False)
+    w_True           = W_Object(True)
+    w_Ellipsis       = W_Object(Ellipsis)
+    w_NotImplemented = W_Object(NotImplemented)
+
+    w_int            = W_Object(int)
+    w_float          = W_Object(float)
+    w_long           = W_Object(long)
+    w_tuple          = W_Object(tuple)
+    w_str            = W_Object(str)
+    w_unicode        = W_Object(unicode)
+    w_type           = W_Object(type)
+
+    w_hex            = W_Object(hex) # no C API function to do that :-(
+    w_oct            = W_Object(oct)
+
+
     def initialize(self):
         self.options.geninterp = False
-        self.w_int   = W_Object(int)
-        self.w_tuple = W_Object(tuple)
-        self.w_str   = W_Object(str)
-        self.w_unicode = W_Object(unicode)
-        self.w_None  = W_Object(None)
-        self.w_False = W_Object(False)
-        self.w_True  = W_Object(True)
-        self.w_type  = W_Object(type)
-        self.w_Exception     = W_Object(Exception)
-        self.w_StopIteration = W_Object(StopIteration)
-        self.w_TypeError     = W_Object(TypeError)
-        self.w_KeyError      = W_Object(KeyError)
         self.wrap_cache = {}
 
     def _freeze_(self):
@@ -84,8 +90,10 @@ class CPyObjSpace(baseobjspace.ObjSpace):
     # __________ operations with a direct CPython equivalent __________
 
     getattr = staticmethod(PyObject_GetAttr)
+    setattr = staticmethod(PyObject_SetAttr)
     getitem = staticmethod(PyObject_GetItem)
     setitem = staticmethod(PyObject_SetItem)
+    delitem = staticmethod(PyObject_DelItem)
     int_w   = staticmethod(PyInt_AsLong)
     uint_w  = staticmethod(PyInt_AsUnsignedLongMask)
     float_w = staticmethod(PyFloat_AsDouble)
@@ -93,9 +101,7 @@ class CPyObjSpace(baseobjspace.ObjSpace):
     type    = staticmethod(PyObject_Type)
     str     = staticmethod(PyObject_Str)
     repr    = staticmethod(PyObject_Repr)
-
-    add     = staticmethod(PyNumber_Add)
-    sub     = staticmethod(PyNumber_Subtract)
+    id      = staticmethod(PyLong_FromVoidPtr_PYOBJ)
 
     def len(self, w_obj):
         return self.wrap(PyObject_Size(w_obj))
@@ -163,6 +169,8 @@ class CPyObjSpace(baseobjspace.ObjSpace):
         w_list = self.newlist(items_w)
         return PySequence_Tuple(w_list)
 
+    newslice = staticmethod(PySlice_New)
+
     def lt(self, w1, w2): return PyObject_RichCompare(w1, w2, Py_LT)
     def le(self, w1, w2): return PyObject_RichCompare(w1, w2, Py_LE)
     def eq(self, w1, w2): return PyObject_RichCompare(w1, w2, Py_EQ)
@@ -193,6 +201,9 @@ class CPyObjSpace(baseobjspace.ObjSpace):
     def is_true(self, w_obj):
         return PyObject_IsTrue(w_obj) != 0
 
+    def nonzero(self, w_obj):
+        return self.newbool(PyObject_IsTrue(w_obj))
+
     def issubtype(self, w_type1, w_type2):
         if PyType_IsSubtype(w_type1, w_type2):
             return self.w_True
@@ -218,9 +229,58 @@ class CPyObjSpace(baseobjspace.ObjSpace):
         msg = 'expected a character, but %s found' % errtype
         raise OperationError(self.w_TypeError, self.wrap(msg))
 
+    def hash(self, w_obj):
+        return self.wrap(PyObject_Hash(w_obj))
+
+    def delattr(self, w_obj, w_attr):
+        PyObject_SetAttr(w_obj, w_attr, W_Object())
+
+    def contains(self, w_obj, w_item):
+        return self.newbool(PySequence_Contains(w_obj, w_item))
+
+    def hex(self, w_obj):
+        return self.call_function(self.w_hex, w_obj)
+
+    def oct(self, w_obj):
+        return self.call_function(self.w_oct, w_obj)
+
+    def pow(self, w_x, w_y, w_z=None):
+        if w_z is None:
+            w_z = self.w_None
+        return PyNumber_Power(w_x, w_y, w_z)
+
+    def inplace_pow(self, w_x, w_y, w_z=None):
+        if w_z is None:
+            w_z = self.w_None
+        return PyNumber_InPlacePower(w_x, w_y, w_z)
+
+    def cmp(self, w_x, w_y):
+        return self.wrap(PyObject_Compare(w_x, w_y))
+
+    # XXX missing operations
+    def coerce(self, *args):   raise NotImplementedError("space.coerce()")
+    def get(self, *args):      raise NotImplementedError("space.get()")
+    def set(self, *args):      raise NotImplementedError("space.set()")
+    def delete(self, *args):   raise NotImplementedError("space.delete()")
+    def userdel(self, *args):  raise NotImplementedError("space.userdel()")
+    def marshal_w(self, *args):raise NotImplementedError("space.marshal_w()")
+    def log(self, *args):      raise NotImplementedError("space.log()")
+
     def exec_(self, statement, w_globals, w_locals, hidden_applevel=False):
         "NOT_RPYTHON"
+        #raise NotImplementedError("space.exec_")
         from types import CodeType
         if not isinstance(statement, (str, CodeType)):
             raise TypeError("CPyObjSpace.exec_(): only for CPython code objs")
         exec statement in w_globals.value, w_locals.value
+
+
+# Register add, sub, neg, etc...
+for _name, _cname in UnaryOps.items() + BinaryOps.items():
+    setattr(CPyObjSpace, _name, staticmethod(globals()[_cname]))
+
+# Register all exceptions
+import exceptions
+for name in baseobjspace.ObjSpace.ExceptionTable:
+    exc = getattr(exceptions, name)
+    setattr(CPyObjSpace, 'w_' + name, W_Object(exc))
