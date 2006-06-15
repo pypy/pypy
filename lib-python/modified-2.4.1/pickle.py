@@ -223,6 +223,8 @@ class Pickler:
                 if isinstance(mod, ModuleType):
                     try:
                         modict[id(mod.__dict__)] = mod
+                    except KeyboardInterrupt:
+                        raise
                     except: # obscure: the above can fail for
                             # arbitrary reasons, because of the py lib
                         pass
