@@ -3,7 +3,7 @@ from pypy.conftest import gettestobjspace
 class AppTest_AllDistinct(object):
 
     def setup_class(cls):
-        cls.space = gettestobjspace('logic')
+        cls.space = gettestobjspace('logic', usemodules=('_stackless', ))
 
         
     def test_instantiate(self):
@@ -65,7 +65,7 @@ class AppTest_AllDistinct(object):
 class AppTest_Expression(object):
 
     def setup_class(cls):
-        cls.space = gettestobjspace('logic')
+        cls.space = gettestobjspace('logic', usemodules=('_stackless', ))
 
     def test_instantiate(self):
         csp = newspace()

@@ -5,7 +5,7 @@ class UnificationFailure(Exception):  pass
 class AppTest_Logic(object):
 
     def setup_class(cls):
-        cls.space = gettestobjspace('logic')
+        cls.space = gettestobjspace('logic', usemodules=("_stackless",))
 
     def test_bind_var_val(self):
         X = newvar()
@@ -199,7 +199,7 @@ class AppTest_Logic(object):
 class AppTest_LogicThreads(object):
 
     def setup_class(cls):
-        cls.space = gettestobjspace('logic')
+        cls.space = gettestobjspace('logic', usemodules=("_stackless",))
 
     def test_wait_needed(self):
         X = newvar()

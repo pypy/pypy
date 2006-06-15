@@ -3,7 +3,7 @@ from pypy.conftest import gettestobjspace
 class AppTest_FiniteDomain(object):
 
     def setup_class(cls):
-        cls.space = gettestobjspace('logic')
+        cls.space = gettestobjspace('logic', usemodules=('_stackless', ))
 
     def test_instantiate(self):
         fd = FiniteDomain([1, 2, 3])

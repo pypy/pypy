@@ -36,7 +36,7 @@ def have_uthreads():
     return False
 
 if USE_COROUTINES:
-    from pypy.module._stackless.interp_coroutine import Coroutine, AbstractThunk
+    from pypy.module._stackless.coroutine import AppCoroutine, _AppThunk
 
     class ScheduleState(object):
         def __init__(self):
@@ -53,11 +53,11 @@ if USE_COROUTINES:
             return key 
 
         def add_to_runnable(self, uthread):
-            assert isinstance(uthread, GreenletCoroutine)
+            assert isinstance(uthread, AppCoroutine)
             self.runnable_uthreads[uthread] = True
 
         def remove_from_runnable(self, uthread):
-            assert isinstance(uthread, GreenletCoroutine)
+            assert isinstance(uthread, AppCoroutine)
             del self.runnable_uthreads[uthread]
 
         def have_runnable_threads(self):
@@ -68,8 +68,7 @@ if USE_COROUTINES:
 
         def add_to_blocked(self, w_var, uthread):
             assert isinstance(w_var, W_Var)
-            if we_are_translated():
-                assert isinstance(uthread, Coroutine)
+            assert isinstance(uthread, AppCoroutine)
             if w_var in self.uthreads_blocked_on:
                 blocked = self.uthreads_blocked_on[w_var]
             else:
@@ -88,8 +87,7 @@ if USE_COROUTINES:
 
         def add_to_blocked_byneed(self, w_var, uthread):
             assert isinstance(w_var, W_Var)
-            if we_are_translated():
-                assert isinstance(uthread, Coroutine)
+            assert isinstance(uthread, AppCoroutine)
             #print " adding", uthread, "to byneed on", w_var
             if w_var in self.uthreads_blocked_byneed:
                 blocked = self.uthreads_blocked_byneed[w_var]
@@ -112,73 +110,32 @@ if USE_COROUTINES:
 
     schedule_state = ScheduleState()
 
-    class Thunk(AbstractThunk):
-        def __init__(self, space, w_callable, args, w_Result):
-            self.space = space
-            self.w_callable = w_callable
-            self.args = args
+    class Thunk(_AppThunk):
+        def __init__(self, space, state, w_callable, args, w_Result):
+            _AppThunk.__init__(self, space, state, w_callable, args)
             self.w_Result = w_Result # the upper-case R is because it is a logic variable
 
         def call(self):
+            costate = self.costate
+            _AppThunk.call(self)
             bind(self.space, self.w_Result,
-                 self.space.call_args(self.w_callable, self.args))
-
-    class GreenletCoroutine(object):
-        def bind(self, thunk):
-            self.greenlet = greenlet(thunk.call)
-
-        def switch(self):
-            self.greenlet.switch()
-
-        def is_alive(self):
-            return bool(self.greenlet)
-
-        def getcurrent():
-            result = GreenletCoroutine()
-            result.greenlet = greenlet.getcurrent()
-            return result
-        getcurrent = staticmethod(getcurrent)
-
-        def __hash__(self):
-            return hash(self.greenlet)
-
-        def __eq__(self, other):
-            assert isinstance(other, GreenletCoroutine)
-            return self.greenlet == other.greenlet
-
-        def __ne__(self, other):
-            assert isinstance(other, GreenletCoroutine)
-            return not (self == other)
-
-        def __repr__(self):
-            return '<greenlet 0x%x>' % uid(self)
-
-    def construct_coroutine():
-        if we_are_translated():
-            return Coroutine()
-        else:
-            return GreenletCoroutine()
-
-    def get_current_coroutine():
-        if we_are_translated():
-            return Coroutine.getcurrent()
-        else:
-            return GreenletCoroutine.getcurrent()
+                 costate.w_tempval)
 
     def uthread(space, w_callable, __args__):
         args = __args__.normalize()
         w_Result = W_Var()
-        thunk = Thunk(space, w_callable, args, w_Result)
-        coro = construct_coroutine()
+        coro = AppCoroutine(space)
+        state = coro.costate
+        thunk = Thunk(space, state, w_callable, args, w_Result)
         coro.bind(thunk)
-        current = get_current_coroutine()
+        current = AppCoroutine.w_getcurrent(space)
         schedule_state.add_to_runnable(current)
-        coro.switch()
+        coro.w_switch()
         while schedule_state.have_runnable_threads():
             next_coro = schedule_state.pop_runnable_thread()
             if next_coro.is_alive() and next_coro != current:
                 schedule_state.add_to_runnable(current)
-                next_coro.switch()
+                next_coro.w_switch()
         return w_Result
     app_uthread = gateway.interp2app(uthread, unwrap_spec=[baseobjspace.ObjSpace,
                                                            baseobjspace.W_Root,
@@ -224,13 +181,13 @@ def wait__Var(space, w_var):
                         #print "  :byneed waiter", waiter, "awaken on", w_alias
                         schedule_state.add_to_runnable(waiter)
                 # set curr thread to blocked, switch to runnable thread
-                current = get_current_coroutine()
+                current = AppCoroutine.w_getcurrent(space)
                 schedule_state.add_to_blocked(w_var, current)
                 while schedule_state.have_runnable_threads():
                     next_coro = schedule_state.pop_runnable_thread()
                     if next_coro.is_alive():
                         #print "  :waiter is switching"
-                        next_coro.switch()
+                        next_coro.w_switch()
                         #print " waiter is back"
                         # hope there is a value here now
                         break
@@ -262,14 +219,14 @@ def wait_needed__Var(space, w_var):
                                      space.wrap("oh please oh FIXME !"))
             else:
                 # add current thread to blocked byneed and switch
-                current = get_current_coroutine()
+                current = AppCoroutine.w_getcurrent(space)
                 for w_alias in aliases(space, w_var):
                     schedule_state.add_to_blocked_byneed(w_alias, current)
                 while schedule_state.have_runnable_threads():
                     next_coro = schedule_state.pop_runnable_thread()
                     if next_coro.is_alive():
                         #print "  :needed is switching"
-                        next_coro.switch()
+                        next_coro.w_switch()
                         #print " byneed is back"
                         # there might be some need right now
                         break
@@ -856,13 +813,15 @@ def Space(*args, **kwds):
 
     if USE_COROUTINES:
         import os
+        # make sure that _stackless is imported
+        w_modules = space.getbuiltinmodule('_stackless')
         def exitfunc():
-            current = get_current_coroutine()
+            current = AppCoroutine.w_getcurrent(space)
             while schedule_state.have_runnable_threads():
                 next_coro = schedule_state.pop_runnable_thread()
-                if next_coro.is_alive and next_coro != current:
+                if next_coro.is_alive() and next_coro != current:
                     schedule_state.add_to_runnable(current)
-                    next_coro.switch()
+                    next_coro.w_switch()
                     schedule_state.remove_from_runnable(current)
             if schedule_state.have_blocked_threads():
                 os.write(2, "there are still blocked uthreads!")
