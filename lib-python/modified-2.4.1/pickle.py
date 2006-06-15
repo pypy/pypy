@@ -221,7 +221,11 @@ class Pickler:
             from sys import modules
             for mod in modules.values():
                 if isinstance(mod, ModuleType):
-                    modict[id(mod.__dict__)] = mod
+                    try:
+                        modict[id(mod.__dict__)] = mod
+                    except: # obscure: the above can fail for
+                            # arbitrary reasons, because of the py lib
+                        pass
             self.module_dict_ids = modict
     		
         thisid = id(obj)
