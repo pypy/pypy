@@ -134,15 +134,6 @@ def get_thread_info(thread_id):
     """
     pass
 
-def schedule_remove(retval=None):
-    """
-    schedule(retval=stackless.current) -- switch to the next runnable tasklet.
-    The return value for this call is retval, with the current
-    tasklet as default.
-    schedule_remove(retval=stackless.current) -- ditto, and remove self.
-    """
-    pass
-
 def set_channel_callback(callable):
     """
     set_channel_callback(callable) -- install a callback for channels.
@@ -224,6 +215,26 @@ def getcurrent():
 def getmain():
     return main_tasklet
 
+def _do_schedule(retval=None, remove=False):
+    prev = scheduler._head
+    next = prev.next
+    if remove:
+        scheduler.current_remove()
+    ret = scheduler.schedule_task(prev, next)
+    if retval is None:
+        return ret
+    else:
+        return retval
+
+def schedule_remove(retval=None):
+    """
+    schedule(retval=stackless.current) -- switch to the next runnable tasklet.
+    The return value for this call is retval, with the current
+    tasklet as default.
+    schedule_remove(retval=stackless.current) -- ditto, and remove self.
+    """
+    return _do_schedule(retval, True)
+
 def schedule(retval=None):
     """
     schedule(retval=stackless.current) -- switch to the next runnable tasklet.
@@ -231,9 +242,7 @@ def schedule(retval=None):
     tasklet as default.
     schedule_remove(retval=stackless.current) -- ditto, and remove self.
     """
-    prev = scheduler._head
-    next = prev.next
-    return scheduler.schedule_task(prev, next)
+    return _do_schedule(retval, False)
 
 class tasklet(coroutine):
     """
