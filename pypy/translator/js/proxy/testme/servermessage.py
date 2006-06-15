@@ -16,6 +16,10 @@ def log(msg):
         print msg
 
 
+class BitmapCreationException(Exception):
+    pass
+
+
 #proxy messages
 #PMSG_PING          = "ping"	#server wants to hear from client
 #PMSG_PONG          = "pong"	#server responds to client's ping
@@ -87,21 +91,26 @@ class ServerMessage:
             pass
         else:
             bitmap_filename = '%sbitmap%d.ppm' % (self.gfx_dir, bitmap_code)
+            try:
+                decompressed_data = self.decompressobj(data)
+            except Exception, e:
+                raise BitmapCreationException('ERROR UNCOMPRESSING DATA FOR %s (%s)' % (
+                    bitmap_filename, str(e)))
             f = open(bitmap_filename, 'wb')
-            f.write(self.decompressobj(data))
+            f.write(decompressed_data)
             f.close()
             #TODO: use in memory (don't save ppm first)
             try:
                 bitmap = PIL.Image.open(bitmap_filename)
-            except IOError:
-                log('ERROR LOADING:%s' % bitmap_filename)
-                return 'error'
+            except IOError, e:
+                raise BitmapCreationException('ERROR LOADING %s (%s)' % (
+                    bitmap_flename, str(e)))
             try:
                 bitmap.save(gif_bitmap_filename)
                 log('SAVED:%s' % gif_bitmap_filename)
             except IOError:
-                log('ERROR SAVING:%s' % gif_bitmap_filename)
-                return 'error'
+                raise BitmapCreationException('ERROR SAVING %s (%s)' % (
+                    gif_bitmap_filename, str(e)))
 
     def def_bitmap2(self, bitmap_code, fileid, *rest):
         #log('def_bitmap2: bitmap_code=%d, fileid=%d, colorkey=%s' % (bitmap_code, fileid, rest))
@@ -148,9 +157,11 @@ class ServerMessage:
         #log('zpatch_file fileid=%d, position=%d, len(data)=%d' % (fileid, position, len(data)))
         bitmap_code = self._md5_file[fileid]['bitmap_code']
         colorkey    = self._md5_file[fileid]['colorkey']
-        t = self.def_bitmap(bitmap_code, data, *colorkey)
-        if t == 'error':
-            return
+        try:
+            t = self.def_bitmap(bitmap_code, data, *colorkey)
+        except BitmapCreationException, e:
+            log(str(e))
+            return #i.e. not attempting to create icons 
         messages = []
         if bitmap_code in self._def_icon_queue:
             #log('%d icons queued for bitmap %d' % (
