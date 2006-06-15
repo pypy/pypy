@@ -66,6 +66,20 @@ class BaseTestException(BaseRtypingTest):
         res = self.interpret(f, [42])
         assert res == 42
 
+    def test_catch_incompatible_class(self):
+        import py; py.test.skip("in-progress")
+        class MyError(Exception):
+            pass
+        def h(x):
+            pass
+        def f(n):
+            try:
+                assert n < 10
+            except MyError, operr:
+                h(operr)
+        res = self.interpret(f, [7])
+        assert res is None
+
 class TestLLtype(BaseTestException, LLRtypeMixin):
     pass
 
