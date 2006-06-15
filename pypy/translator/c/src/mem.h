@@ -85,7 +85,7 @@ PyObject* malloc_counters(PyObject* self, PyObject* args)
 
 #define OP_BOEHM_ZERO_MALLOC(size, r, is_atomic, is_varsize)   {             \
 	r = (void*) BOEHM_MALLOC_ ## is_atomic ## _ ## is_varsize (size);    \
-	if (r == NULL) {FAIL_EXCEPTION(PyExc_MemoryError, "out of memoy");}  \
+	if (r == NULL) {FAIL_EXCEPTION(PyExc_MemoryError, "out of memory");}  \
         else {                                                               \
             if (is_atomic)  /* the non-atomic versions return cleared memory */  \
                 memset((void*) r, 0, size);                                   \
