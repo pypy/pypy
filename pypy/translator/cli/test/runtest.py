@@ -48,9 +48,10 @@ class TestEntryPoint(Node):
     to int32, pass them to another method and prints out the result.
     """
     
-    def __init__(self, graph_to_call):
+    def __init__(self, graph_to_call, wrap_exceptions):
         self.graph = graph_to_call
         self.db = None
+        self.wrap_exceptions = wrap_exceptions
 
     def get_name(self):
         return 'main'
@@ -68,25 +69,28 @@ class TestEntryPoint(Node):
                        (arg_type, self.__convert_method(arg_type)))
 
         # call the function and convert the result to a string containing a valid python expression
-        ilasm.begin_try()
+        if self.wrap_exceptions:
+            ilasm.begin_try()
+            
         ilasm.call(cts.graph_to_signature(self.graph))
         TYPE = self.graph.getreturnvar().concretetype
         format_object(TYPE, ilasm)
         ilasm.call('void class [mscorlib]System.Console::WriteLine(string)')
         ilasm.leave('return')
-        ilasm.end_try()
 
-        for exc in ('[mscorlib]System.Exception', 'exceptions.Exception'):
-            ilasm.begin_catch(exc)
-            if getoption('nowrap'):
-                ilasm.opcode('throw')
-            else:
-                ilasm.call('string class [pypylib]pypy.test.Result::FormatException(object)')
-                ilasm.call('void class [mscorlib]System.Console::WriteLine(string)')        
-                ilasm.leave('return')
-            ilasm.end_catch()
+        if self.wrap_exceptions:
+            ilasm.end_try()
 
-        # write the result to stdout
+            for exc in ('[mscorlib]System.Exception', 'exceptions.Exception'):
+                ilasm.begin_catch(exc)
+                if getoption('nowrap'):
+                    ilasm.opcode('throw')
+                else:
+                    ilasm.call('string class [pypylib]pypy.test.Result::FormatException(object)')
+                    ilasm.call('void class [mscorlib]System.Console::WriteLine(string)')        
+                    ilasm.leave('return')
+                ilasm.end_catch()
+
         ilasm.label('return')
         ilasm.opcode('ret')
         ilasm.end_function()
@@ -152,7 +156,8 @@ class compile_function:
         else:
             self.tmpdir = udir
 
-        return GenCli(self.tmpdir, t, TestEntryPoint(self.graph), pending_graphs=[raiseKeyError_graph])
+        return GenCli(self.tmpdir, t, TestEntryPoint(self.graph, True),
+                      pending_graphs=[raiseKeyError_graph])
 
 
     def __call__(self, *args):
