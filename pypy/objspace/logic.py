@@ -768,8 +768,8 @@ all_mms.update(computationspace.all_mms)
 W_ComputationSpace = computationspace.W_ComputationSpace
 
 # ---- constraints ----------------
-#from pypy.objspace.constraint import constraint
-#all_mms.update(constraint.all_mms)
+from pypy.objspace.constraint import constraint
+all_mms.update(constraint.all_mms)
 
 #----- distributors ---------------
 from pypy.objspace.constraint import distributor
@@ -836,10 +836,10 @@ def Space(*args, **kwds):
     space.setitem(space.builtin.w_dict, space.wrap('intersection'),
                  space.wrap(domain.app_intersection))
     #-- contraint ----
-#    space.setitem(space.builtin.w_dict, space.wrap('make_expression'),
-#                 space.wrap(constraint.app_make_expression))
-#    space.setitem(space.builtin.w_dict, space.wrap('AllDistinct'),
-#                 space.wrap(constraint.app_make_alldistinct))
+    space.setitem(space.builtin.w_dict, space.wrap('make_expression'),
+                 space.wrap(constraint.app_make_expression))
+    space.setitem(space.builtin.w_dict, space.wrap('AllDistinct'),
+                 space.wrap(constraint.app_make_alldistinct))
     #-- distributor --
     space.setitem(space.builtin.w_dict, space.wrap('NaiveDistributor'),
                  space.wrap(distributor.app_make_naive_distributor))
