@@ -1,5 +1,6 @@
 from pypy.objspace.cpy.capi import *
 from pypy.objspace.cpy.refcount import Py_Incref
+from pypy.objspace.cpy.appsupport import W_AppLevel
 from pypy.interpreter import baseobjspace
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import Function
@@ -73,6 +74,8 @@ class CPyObjSpace(baseobjspace.ObjSpace):
 
     def interpclass_w(self, w_obj):
         "NOT_RPYTHON."
+        if isinstance(w_obj, W_AppLevel):
+            return None   # XXX
         from pypy.objspace.cpy.typedef import cpython2rpython_raw
         return cpython2rpython_raw(self, w_obj)
 
@@ -268,11 +271,16 @@ class CPyObjSpace(baseobjspace.ObjSpace):
 
     def exec_(self, statement, w_globals, w_locals, hidden_applevel=False):
         "NOT_RPYTHON"
-        #raise NotImplementedError("space.exec_")
-        from types import CodeType
-        if not isinstance(statement, (str, CodeType)):
-            raise TypeError("CPyObjSpace.exec_(): only for CPython code objs")
-        exec statement in w_globals.value, w_locals.value
+        raise NotImplementedError("space.exec_")
+        #from types import CodeType
+        #if not isinstance(statement, (str, CodeType)):
+        #    raise TypeError("CPyObjSpace.exec_(): only for CPython code objs")
+        #exec statement in w_globals.value, w_locals.value
+
+    def _applevelclass_hook(self, app, name):
+        # hackish hook for gateway.py: in a MixedModule, all init-time gets
+        # from app-level files should arrive here
+        return W_AppLevel(self, app, name)
 
 
 # Register add, sub, neg, etc...

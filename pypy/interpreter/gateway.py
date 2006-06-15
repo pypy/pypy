@@ -770,6 +770,8 @@ class ApplevelClass:
         return Module(space, space.wrap(name), self.getwdict(space))
 
     def wget(self, space, name): 
+        if hasattr(space, '_applevelclass_hook'):   # XXX for the CPyObjSpace
+            return space._applevelclass_hook(self, name)
         w_globals = self.getwdict(space) 
         return space.getitem(w_globals, space.wrap(name))
 

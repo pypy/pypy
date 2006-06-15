@@ -12,7 +12,6 @@ from pypy.translator.c.node import StructDefNode, ArrayDefNode
 from pypy.translator.c.node import FixedSizeArrayDefNode
 from pypy.translator.c.node import ContainerNodeFactory, ExtTypeOpaqueDefNode
 from pypy.translator.c.support import cdecl, CNameManager, ErrorValue
-from pypy.translator.c.pyobj import PyObjMaker
 from pypy.translator.c.support import log
 from pypy.translator.c.extfunc import do_the_getting
 from pypy.translator.c.exceptiontransform import ExceptionTransformer
@@ -43,6 +42,7 @@ class LowLevelDatabase(object):
         self.late_initializations = []
         self.namespace = CNameManager()
         if not standalone:
+            from pypy.translator.c.pyobj import PyObjMaker
             self.pyobjmaker = PyObjMaker(self.namespace, self.get, translator)
 
         gcpolicy = gcpolicy or conftest.option.gcpolicy or 'ref'

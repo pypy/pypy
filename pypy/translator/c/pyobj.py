@@ -11,6 +11,7 @@ from pypy.translator.tool.raymond import should_expose
 
 from pypy.rpython.rarithmetic import r_int, r_uint
 from pypy.rpython.lltypesystem.lltype import pyobjectptr, LowLevelType
+from pypy.rpython import extregistry
 
 # XXX maybe this can be done more elegantly:
 # needed to convince should_translate_attr
@@ -273,6 +274,8 @@ class PyObjMaker:
         return False
 
     def nameof_instance(self, instance):
+        if extregistry.is_registered(instance):
+            return extregistry.lookup(instance).genc_pyobj(self)
         if instance in self.import_hints:
             return self.import_instance(instance)
         klass = instance.__class__
