@@ -201,3 +201,8 @@ def testmodule(name):
     res.__dict__.update(moddict)
     sys.modules[appname] = res
     return res
+
+def compilemodule(name, interactive=False):
+    "Compile a PyPy module for CPython."
+    from pypy.rpython.rctypes.tool.compilemodule import compilemodule
+    return compilemodule(name, interactive=interactive)
