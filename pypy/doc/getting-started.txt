@@ -429,6 +429,38 @@ Here is a simple example to try::
    >>> a = t.annotate([int, int])
    >>> source = t.source_js()
 
+Translating the flow graph to CLI code
+++++++++++++++++++++++++++++++++++++++
+
+The CLI backend aim to translate RPython code into .NET executables:
+it is still work-in-progress, but it is already somewhat usable for
+small snippets of code since it supports classes, list, dictionaries,
+and strings. You can try out the CLI backend from the interactive
+translator shell::
+
+    >>> def myfunc(a, b): return a+b
+    ... 
+    >>> t = Translation(myfunc)
+    >>> t.annotate([int, int])
+    >>> f = t.compile_cli()
+    >>> f(4, 5)
+    9
+
+The object returned by ``compile_cli`` is a wrapper around the real
+executable: the parameters are passed as command line arguments, and
+the returned value is read from the standard output.
+
+Once you have compiled the snippet, you can also try to launch the
+executable directly from the shell; you can find the executable in one
+of the ``/tmp/usession-*`` directories::
+
+    anto@anto anto$ mono /tmp/usession-anto/main.exe 4 5
+    9
+
+To translate and run for CLI you must have the SDK installed: Windows
+users need the `.NET Frameword SDK 2.0`_, while Linux and Mac users
+can use Mono_.
+
 A slightly larger example
 +++++++++++++++++++++++++
 
@@ -663,6 +695,9 @@ plan where to meet with us.
 
 .. _`Spidermonkey`: http://www.mozilla.org/js/spidermonkey/
 .. _`Google summer of code`: http://code.google.com/soc
+
+.. _`.NET Frameword SDK 2.0`: http://msdn.microsoft.com/netframework/downloads/updates/default.aspx
+.. _Mono: http://www.mono-project.com/Main_Page
 
 .. _Dot Graphviz:           http://www.graphviz.org/
 .. _Pygame:                 http://www.pygame.org/
