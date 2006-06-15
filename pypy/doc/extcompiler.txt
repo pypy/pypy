@@ -2,15 +2,81 @@
 PyPy Extension Compiler 
 ============================================
 
-This document describes the PyPy extension compiler 
-which is able to compile a single set of source code 
-to a PyPy or a CPython extension module.  
+This document describes the PyPy extension compiler which is able to
+compile a set of source code to a PyPy or a CPython extension module.
 
 **WARNING: this is beta software, APIs and details may change.**
+
+The documentation corresponds to release 0.9.  The extension compiler
+has not been extensively tested and polished so far, so bugs and rough
+edges are likely.
 
 
 Understanding the ext compiler 
 ----------------------------------
+
+PyPy provides a generic way to write modules for all Python
+implementations: the so-called *mixed module* approach.  A single mixed
+module is implemented as a set of Python source files, making a
+subpackage of the ``pypy.module`` package.  While running PyPy, each of
+these subpackages appears to be a single module, whose interface was
+specified in the ``__init__.py`` of the subpackage, and whose
+implementation is lazily loaded from the various other ``.py`` files of
+the subpackage.
+
+The subpackage is written in a way that allows it to be reused for
+non-PyPy implementations of Python.  The goal of the *Extension
+Compiler* is to compile a mixed module into an extension module for
+these other Python implementation (so far, this means CPython only).
+
+This means that you can do the following with a mixed module:
+
+* run it on top of CPython.  This uses the CPy Object Space to directly
+  run all space operations.  Example::
+
+    $ python
+    >>> from pypy.interpreter.mixedmodule import testmodule
+    >>> demo = testmodule("_demo")
+    [ignore output here]
+    >>> demo.measuretime(1000000, long)
+    5
+
+* compile it as a CPython extension module.  Example::
+
+    $ pypy/bin/compilemodule.py _demo
+    [lots of output]
+    Created '/tmp/usession-5/_demo/_demo.so'.
+    $ cd /tmp/usession-5/_demo
+    $ python
+    >>> import _demo
+    >>> _demo.measuretime(10000000, long)
+    2
+
+* run it with PyPy on top of CPython.  Example::
+
+    $ python pypy/bin/py.py --usemodules=_demo
+    PyPy 0.9.0 in StdObjSpace on top of Python 2.4.4c0 (startuptime: 2.47 secs)
+    >>>> import _demo
+    >>>> _demo.measuretime(10000, long)
+    [ignore output here]
+    4
+
+* compile it together with PyPy.  It becomes a built-in module of ``pypy-c``.
+  Example::
+
+    $ cd pypy/translator/goal
+    $ python translate.py targetpypystandalone --usemodules=_demo
+    [wait for 1/2 to 1 hour]
+    [translation:info] created: ./pypy-c
+    (Pbd)
+    $ ./pypy-c
+    Python 2.4.1 (pypy 0.9.0 build 28xxx) on linux2
+    Type "help", "copyright", "credits" or "license" for more information.
+    (InteractiveConsole)
+    >>>> import _demo
+    >>>> _demo.measuretime(10000000, long)
+    2
+
 
 - using rctypes for binding to external libraries 
 - exchangeability of CPyObjspace and StdObjSpace 
