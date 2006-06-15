@@ -214,10 +214,10 @@ class Coroutine(Wrappable):
         try:
             try:
                 self.thunk.call()
+                resume_point("coroutine__bind", self, state)
             finally:
                 self.finished()
                 self.thunk = None
-            resume_point("coroutine__bind", self, state)
         except CoroutineExit:
             # ignore a shutdown exception
             pass
