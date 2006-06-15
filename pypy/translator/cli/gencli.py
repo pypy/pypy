@@ -1,5 +1,6 @@
 import sys
-from types import MethodType
+import subprocess
+import shutil
 
 from pypy.translator.cli import conftest
 from pypy.translator.cli.ilgenerator import IlasmGenerator
@@ -9,6 +10,9 @@ from pypy.translator.cli.option import getoption
 from pypy.translator.cli.database import LowLevelDatabase
 from pypy.translator.cli.cts import CTS
 from pypy.translator.cli.opcodes import opcodes
+from pypy.translator.cli.sdk import SDK
+from pypy.translator.cli.rte import get_pypy_dll
+
 
 class Tee(object):
     def __init__(self, *args):
@@ -74,7 +78,6 @@ class GenCli(object):
             node = self.db._pending_nodes.pop()
             node.render(self.ilasm)
             self.db._rendered_nodes.add(node)
-            
 
     def fix_names(self):
         # it could happen that two distinct graph have the same name;
@@ -84,3 +87,18 @@ class GenCli(object):
             while graph.name in names:
                 graph.name += '_'
             names.add(graph.name)
+
+    def build_exe(self):        
+        tmpfile = self.generate_source()
+        if getoption('source'):
+            return None
+
+        pypy_dll = get_pypy_dll() # get or recompile pypy.dll
+        shutil.copy(pypy_dll, self.tmpdir.strpath)
+
+        ilasm = SDK.ilasm()
+        proc = subprocess.Popen([ilasm, tmpfile], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = proc.communicate()
+        retval = proc.wait()
+        assert retval == 0, 'ilasm failed to assemble %s (%s):\n%s' % (self.graph.name, tmpfile, stdout)
+        return tmpfile.replace('.il', '.exe')

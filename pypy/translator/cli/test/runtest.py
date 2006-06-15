@@ -1,6 +1,5 @@
 import os
 import subprocess
-import shutil
 
 import py
 from pypy.tool.udir import udir
@@ -17,7 +16,6 @@ from pypy.translator.cli.node import Node
 from pypy.translator.cli.cts import CTS
 from pypy.translator.cli.database import LowLevelDatabase
 from pypy.translator.cli.sdk import SDK
-from pypy.translator.cli.rte import get_pypy_dll
 
 FLOAT_PRECISION = 8
 
@@ -115,7 +113,7 @@ class compile_function:
     def __init__(self, func, annotation=[], graph=None):
         self._func = func
         self._gen = self._build_gen(func, annotation, graph)
-        self._exe = self._build_exe()
+        self._exe = self._gen.build_exe()
 
     def _build_gen(self, func, annotation, graph=None):
         try: 
@@ -156,20 +154,6 @@ class compile_function:
 
         return GenCli(self.tmpdir, t, TestEntryPoint(self.graph), pending_graphs=[raiseKeyError_graph])
 
-    def _build_exe(self):        
-        tmpfile = self._gen.generate_source()
-        if getoption('source'):
-            return None
-
-        pypy_dll = get_pypy_dll() # get or recompile pypy.dll
-        shutil.copy(pypy_dll, self.tmpdir.strpath)
-
-        ilasm = SDK.ilasm()
-        proc = subprocess.Popen([ilasm, tmpfile], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdout, stderr = proc.communicate()
-        retval = proc.wait()
-        assert retval == 0, 'ilasm failed to assemble %s (%s):\n%s' % (self.graph.name, tmpfile, stdout)
-        return tmpfile.replace('.il', '.exe')
 
     def __call__(self, *args):
         if self._exe is None:
