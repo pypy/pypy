@@ -52,7 +52,11 @@ class ServerMessage:
         #log('RECEIVED:%s(%d)' % (values[0], len(values[1:])))
         fn = self.MESSAGES.get(values[0])
         if fn:
-            return fn(self, *values[1:])
+            try:
+                return fn(self, *values[1:])
+            except BitmapCreationException, e:
+                log(str(e))
+                return dict()
         else:
             log("UNKNOWN:%s" % str(values))
             return dict(type='unknown', values=values)
@@ -104,7 +108,7 @@ class ServerMessage:
                 bitmap = PIL.Image.open(bitmap_filename)
             except IOError, e:
                 raise BitmapCreationException('ERROR LOADING %s (%s)' % (
-                    bitmap_flename, str(e)))
+                    bitmap_filename, str(e)))
             try:
                 bitmap.save(gif_bitmap_filename)
                 log('SAVED:%s' % gif_bitmap_filename)
