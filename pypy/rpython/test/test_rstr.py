@@ -507,6 +507,8 @@ class BaseTestRstr(BaseRtypingTest):
         assert res == 4
         res = self.interpret(fn, ['c', 'b'])
         assert res == 5
+
+    def test_replace_TyperError(self):
         def fn():
             s = 'abbccc'
             s = s.replace('a', 'baz')
