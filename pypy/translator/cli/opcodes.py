@@ -1,5 +1,5 @@
 from pypy.translator.cli.metavm import  Call, CallMethod, RuntimeNew, \
-     IndirectCall, GetField, SetField, CastTo
+     IndirectCall, GetField, SetField, CastTo, OOString
 from pypy.translator.oosupport.metavm import PushArg, PushAllArgs, StoreResult, InstructionList,\
     New
 
@@ -28,9 +28,9 @@ def _check(op):
         # if overflow, raise a pypy's OverflowError
         'catch [mscorlib]System.OverflowException {',
         'newobj instance void class exceptions.OverflowError::.ctor()',
-        'dup',
-        'ldsfld class Object_meta pypy.runtime.Constants::exceptions_OverflowError_meta',
-        'stfld class Object_meta Object::meta',
+#        'dup',
+#        'ldsfld class Object_meta pypy.runtime.Constants::exceptions_OverflowError_meta',
+#        'stfld class Object_meta Object::meta',
         'throw }',
 
         '%s: nop' % label      # continue normal execution
@@ -51,7 +51,8 @@ opcodes = {
     'instanceof':               [CastTo, 'ldnull', 'cgt.un'],
     'subclassof':               [PushAllArgs, 'call bool [pypylib]pypy.runtime.Utils::SubclassOf(class [mscorlib]System.Type, class[mscorlib]System.Type)'],
     'ooidentityhash':           [PushAllArgs, 'callvirt instance int32 object::GetHashCode()'],
-
+    'oostring':                 [OOString],
+    'ooparse_int':              [PushAllArgs, 'call int32 [pypylib]pypy.runtime.Utils::OOParseInt(string, int32)'],
     
     'same_as':                  DoNothing, # TODO: does same_as really do nothing else than renaming?    
     'direct_call':              [Call],
@@ -206,7 +207,7 @@ opcodes = {
     'cast_bool_to_float':       [PushAllArgs, 'ldc.i4 0', 'ceq']+Not+['conv.r8'],
     'cast_char_to_int':         DoNothing,
     'cast_unichar_to_int':      None,
-    'cast_int_to_char':         None,
+    'cast_int_to_char':         DoNothing,
     'cast_int_to_unichar':      None,
     'cast_int_to_uint':         DoNothing,
     'cast_int_to_float':        'conv.r8',
