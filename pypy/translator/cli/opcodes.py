@@ -1,5 +1,5 @@
 from pypy.translator.cli.metavm import  Call, CallMethod, RuntimeNew, \
-     IndirectCall, GetField, SetField, CastTo, OOString
+     IndirectCall, GetField, SetField, CastTo, OOString, DownCast
 from pypy.translator.oosupport.metavm import PushArg, PushAllArgs, StoreResult, InstructionList,\
     New
 
@@ -45,7 +45,7 @@ opcodes = {
     'oogetfield':               [GetField],
     'oosend':                   [CallMethod],
     'ooupcast':                 DoNothing,
-    'oodowncast':               DoNothing, # TODO: is it really safe?
+    'oodowncast':               [DownCast],
     'oois':                     'ceq',
     'oononnull':                [PushAllArgs, 'ldnull', 'ceq']+Not,
     'instanceof':               [CastTo, 'ldnull', 'cgt.un'],

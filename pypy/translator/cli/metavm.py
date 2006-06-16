@@ -90,6 +90,13 @@ class _OOString(MicroInstruction):
         generator.load(op.args[1])
         generator.call_signature('string [pypylib]pypy.runtime.Utils::OOString(%s, int32)' % argtype)
 
+class _DownCast(MicroInstruction):
+    def render(self, generator, op):
+        RESULTTYPE = op.result.concretetype
+        resulttype = generator.cts.lltype_to_cts(RESULTTYPE)
+        generator.load(op.args[0])
+        generator.ilasm.opcode('castclass', resulttype)
+
 Call = _Call()
 CallMethod = _CallMethod()
 IndirectCall = _IndirectCall()
@@ -98,3 +105,4 @@ GetField = _GetField()
 SetField = _SetField()
 CastTo = _CastTo()
 OOString = _OOString()
+DownCast = _DownCast()
