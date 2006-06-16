@@ -45,6 +45,9 @@ option = py.test.Config.addoptions("pypy options",
                type="choice", dest="gcpolicy",
                choices=['ref', 'boehm', 'none', 'framework', 'exact_boehm'],
                help="GcPolicy class to use for genc tests"),
+        Option('-A', '--runappdirect', action="store_true", 
+               default=False, dest="runappdirect",
+               help="run applevel tests directly on python interpreter (not through PyPy)"), 
     )
 
 _SPACECACHE={}
@@ -207,6 +210,8 @@ class AppTestFunction(PyPyTestFunction):
 
     def execute(self, target, *args):
         assert not args 
+        if option.runappdirect:
+            return target(*args)
         space = gettestobjspace() 
         func = app2interp_temp(target)
         print "executing", func
@@ -215,6 +220,8 @@ class AppTestFunction(PyPyTestFunction):
 class AppTestMethod(AppTestFunction): 
 
     def setup(self): 
+        if option.runappdirect:
+            return 
         super(AppTestMethod, self).setup() 
         instance = self.parent.obj 
         w_instance = self.parent.w_instance 
@@ -226,6 +233,8 @@ class AppTestMethod(AppTestFunction):
 
     def execute(self, target, *args): 
         assert not args 
+        if option.runappdirect:
+            return target(*args)
         space = target.im_self.space 
         func = app2interp_temp(target.im_func) 
         w_instance = self.parent.w_instance 
@@ -248,6 +257,8 @@ class AppClassInstance(py.test.collect.Instance):
     Function = AppTestMethod 
 
     def setup(self): 
+        if option.runappdirect:
+            return
         super(AppClassInstance, self).setup()         
         instance = self.obj 
         space = instance.space 
@@ -262,6 +273,9 @@ class AppClassCollector(PyPyClassCollector):
                super(AppClassCollector, self).haskeyword(keyword)
 
     def setup(self): 
+        if option.runappdirect:
+            #self.class_ = self.obj
+            return
         super(AppClassCollector, self).setup()         
         cls = self.obj 
         space = cls.space 
