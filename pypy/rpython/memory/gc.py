@@ -173,7 +173,7 @@ class MarkSweepGC(GCBase):
             self.collect()
         size_gc_header = self.gcheaderbuilder.size_gc_header
         try:
-            tot_size = ovfcheck(size_gc_header + size)
+            tot_size = size_gc_header + size
             usage = raw_malloc_usage(tot_size)
             bytes_malloced = ovfcheck(self.bytes_malloced+usage)
             ovfcheck(self.heap_usage + bytes_malloced)
