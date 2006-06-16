@@ -540,6 +540,7 @@ def rtype_raw_malloc(hop):
 
 def rtype_raw_malloc_usage(hop):
     v_size, = hop.inputargs(lltype.Signed)
+    hop.exception_cannot_occur()
     return hop.genop('raw_malloc_usage', [v_size], resulttype=lltype.Signed)
 
 def rtype_raw_free(hop):

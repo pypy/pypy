@@ -973,6 +973,14 @@ class LLFrame(object):
         else:
             return self.original_int_add(x, y)
 
+    original_int_add_ovf = op_int_add_ovf
+
+    def op_int_add_ovf(self, x, y):
+        if isinstance(x, llmemory.AddressOffset) or isinstance(y, llmemory.AddressOffset) :
+            return x + y
+        else:
+            return self.original_int_add_ovf(x, y)
+
     original_int_mul = op_int_mul
 
     def op_int_mul(self, x, y):

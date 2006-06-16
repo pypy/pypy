@@ -753,6 +753,57 @@ class TestUsingFramework(AbstractTestClass):
         res = fn()
         assert res == 42
 
+    def test_memory_error_varsize(self):
+        py.test.skip("Needs lots (>2GB) of memory.")
+        import gc
+        import pypy.rpython.rgc
+        from pypy.rpython.lltypesystem import lltype
+        N = sys.maxint / 4 + 4
+        A = lltype.GcArray(lltype.Signed)
+        def alloc(n):
+            return lltype.malloc(A, n)
+        def f():
+            try:
+                try:
+                    x = alloc(N)
+                except MemoryError:
+                    y = alloc(10)
+                    return len(y)
+                return -1
+            finally:
+                gc.collect()
+                
+        fn = self.getcompiled(f)
+        res = fn()
+        assert res == 10
+        N = sys.maxint / 4
+        fn = self.getcompiled(f)
+        res = fn()
+        assert res == 10
+
+        N = sys.maxint / 4 - 1
+        fn = self.getcompiled(f)
+        res = fn()
+        assert res == 10
+
+        N = sys.maxint / 8 + 1000
+        def f():
+            try:
+                x0 = alloc(N)
+                try:
+                    x1 = alloc(N)
+                    return len(x0) + len(x1)
+                except MemoryError:
+                    y = alloc(10)
+                    return len(y)
+                return -1
+            finally:
+                gc.collect()
+
+        fn = self.getcompiled(f)
+        res = fn()
+        assert res == 10
+
 class TestUsingStacklessFramework(TestUsingFramework):
     from pypy.translator.c.gc import StacklessFrameworkGcPolicy as gcpolicy
 

@@ -6,9 +6,9 @@ from pypy.rpython.memory import lltypesimulation
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.objectmodel import free_non_gc_object
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rpython import rarithmetic
+from pypy.rpython.rarithmetic import ovfcheck
 
-import sys
+import sys, os
 
 int_size = lltypesimulation.sizeof(lltype.Signed)
 gc_header_two_ints = 2*int_size
@@ -110,7 +110,7 @@ class DummyGC(GCBase):
     init_gc_object_immortal = init_gc_object
 
 DEBUG_PRINT = True
-
+memoryError = MemoryError()
 class MarkSweepGC(GCBase):
     _alloc_flavor_ = "raw"
 
@@ -172,7 +172,14 @@ class MarkSweepGC(GCBase):
         if can_collect and self.bytes_malloced > self.bytes_malloced_threshold:
             self.collect()
         size_gc_header = self.gcheaderbuilder.size_gc_header
-        result = raw_malloc(size_gc_header + size)
+        try:
+            tot_size = ovfcheck(size_gc_header + size)
+            usage = raw_malloc_usage(tot_size)
+            bytes_malloced = ovfcheck(self.bytes_malloced+usage)
+            ovfcheck(self.heap_usage + bytes_malloced)
+        except OverflowError:
+            raise memoryError
+        result = raw_malloc(tot_size)
         hdr = llmemory.cast_adr_to_ptr(result, self.HDRPTR)
         hdr.typeid = typeid << 1
         if not self.getfinalizer(typeid):
@@ -181,7 +188,7 @@ class MarkSweepGC(GCBase):
         else:
             hdr.next = self.malloced_objects_with_finalizer
             self.malloced_objects_with_finalizer = hdr
-        self.bytes_malloced += raw_malloc_usage(size + size_gc_header)
+        self.bytes_malloced = bytes_malloced
         result += size_gc_header
         return llmemory.cast_adr_to_ptr(result, llmemory.GCREF)
 
@@ -189,14 +196,17 @@ class MarkSweepGC(GCBase):
                        can_collect):
         if can_collect and self.bytes_malloced > self.bytes_malloced_threshold:
             self.collect()
-        try:
-            varsize = rarithmetic.ovfcheck(itemsize * length)
-        except OverflowError:
-            raise MemoryError
-        # XXX also check for overflow on the various '+' below!
-        size += varsize
         size_gc_header = self.gcheaderbuilder.size_gc_header
-        result = raw_malloc(size_gc_header + size)
+        try:
+            varsize = ovfcheck(itemsize * length)
+            size = ovfcheck(size + varsize)
+            tot_size = ovfcheck(size_gc_header + size)
+            usage = raw_malloc_usage(tot_size)
+            bytes_malloced = ovfcheck(self.bytes_malloced+usage)
+            ovfcheck(self.heap_usage + bytes_malloced)
+        except OverflowError:
+            raise memoryError
+        result = raw_malloc(tot_size)
         (result + size_gc_header + offset_to_length).signed[0] = length
         hdr = llmemory.cast_adr_to_ptr(result, self.HDRPTR)
         hdr.typeid = typeid << 1
@@ -206,7 +216,8 @@ class MarkSweepGC(GCBase):
         else:
             hdr.next = self.malloced_objects_with_finalizer
             self.malloced_objects_with_finalizer = hdr
-        self.bytes_malloced += raw_malloc_usage(size + size_gc_header)
+        self.bytes_malloced = bytes_malloced
+            
         result += size_gc_header
         return llmemory.cast_adr_to_ptr(result, llmemory.GCREF)
 
@@ -838,7 +849,7 @@ class SemiSpaceGC(GCBase):
             #XXX need to increase the space size if the object is too big
             #for bonus points do big objects differently
             if self.free + totalsize > self.top_of_space:
-                raise MemoryError
+                raise memoryError
         result = self.free
         self.init_gc_object(result, typeid)
         self.free += totalsize
@@ -847,9 +858,9 @@ class SemiSpaceGC(GCBase):
     def malloc_varsize(self, typeid, length, size, itemsize, offset_to_length,
                        can_collect):
         try:
-            varsize = rarithmetic.ovfcheck(itemsize * length)
+            varsize = ovfcheck(itemsize * length)
         except OverflowError:
-            raise MemoryError
+            raise memoryError
         # XXX also check for overflow on the various '+' below!
         size += varsize
         size_gc_header = self.gcheaderbuilder.size_gc_header
@@ -859,7 +870,7 @@ class SemiSpaceGC(GCBase):
             #XXX need to increase the space size if the object is too big
             #for bonus points do big objects differently
             if self.free + totalsize > self.top_of_space:
-                raise MemoryError
+                raise memoryError
         result = self.free
         self.init_gc_object(result, typeid)
         (result + size_gc_header + offset_to_length).signed[0] = length
