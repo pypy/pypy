@@ -136,17 +136,17 @@ def _build_gen(func, annotation, graph=None):
         ann.build_types(func, annotation)
 
     # quick hack: force exceptions.Exception to be rendered
-    def raiseKeyError():
-        raise KeyError
-    ann.build_types(raiseKeyError, [])
+    def raiseValueError():
+        raise ValueError
+    ann.build_types(raiseValueError, [])
 
     t.buildrtyper(type_system="ootype").specialize()
     main_graph = t.graphs[0]
 
     # XXX: horrible hack :-(
     for graph in t.graphs:
-        if graph.name == 'raiseKeyError':
-            raiseKeyError_graph = graph
+        if graph.name == 'raiseValueError':
+            raiseValueError_graph = graph
 
     if getoption('view'):
        t.view()
@@ -157,7 +157,7 @@ def _build_gen(func, annotation, graph=None):
         tmpdir = udir
 
     return GenCli(tmpdir, t, TestEntryPoint(main_graph, True),
-                  pending_graphs=[raiseKeyError_graph])
+                  pending_graphs=[raiseValueError_graph])
 
 class CliFunctionWrapper(object):
     def __init__(self, exe_name):
@@ -210,9 +210,23 @@ class ExceptionWrapper:
         return 'ExceptionWrapper(%s)' % repr(self.class_name)
 
 class CliTest(BaseRtypingTest, OORtypeMixin):
-    def interpret(self, fn, args):
+    def __init__(self):
+        self._func = None
+        self._ann = None
+        self._cli_func = None
+
+    def _compile(self, fn, args):
         ann = [lltype_to_annotation(typeOf(x)) for x in args]
-        f = compile_function(fn, ann)
+        if self._func is fn and self._ann == ann:
+            return self._cli_func
+        else:
+            self._func = fn
+            self._ann = ann
+            self._cli_func = compile_function(fn, ann)
+            return self._cli_func
+    
+    def interpret(self, fn, args):
+        f = self._compile(fn, args)
         res = f(*args)
         if isinstance(res, ExceptionWrapper):
             raise res
