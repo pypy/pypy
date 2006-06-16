@@ -153,7 +153,7 @@ class LazyObjSpaceGetter(object):
 
 class PyPyTestFunction(py.test.Function):
     # All PyPy test items catch and display OperationErrors specially.
-
+    #
     def execute_appex(self, space, target, *args):
         try:
             target(*args)
@@ -169,6 +169,11 @@ class PyPyTestFunction(py.test.Function):
 _pygame_imported = False
 
 class IntTestFunction(PyPyTestFunction):
+    def haskeyword(self, keyword):
+        if keyword == 'interplevel':
+            return True 
+        return super(IntTestFunction, self).haskeyword(keyword)
+
     def execute(self, target, *args):
         co = target.func_code
         try:
@@ -197,6 +202,9 @@ class IntTestFunction(PyPyTestFunction):
                                      "if conftest.option.view is False")
 
 class AppTestFunction(PyPyTestFunction): 
+    def haskeyword(self, keyword):
+        return keyword == 'applevel' or super(AppTestFunction, self).haskeyword(keyword)
+
     def execute(self, target, *args):
         assert not args 
         space = gettestobjspace() 
@@ -204,7 +212,7 @@ class AppTestFunction(PyPyTestFunction):
         print "executing", func
         self.execute_appex(space, func, space)
 
-class AppTestMethod(PyPyTestFunction): 
+class AppTestMethod(AppTestFunction): 
 
     def setup(self): 
         super(AppTestMethod, self).setup() 
@@ -223,13 +231,18 @@ class AppTestMethod(PyPyTestFunction):
         w_instance = self.parent.w_instance 
         self.execute_appex(space, func, space, w_instance) 
 
-class IntClassCollector(py.test.collect.Class): 
-    Function = IntTestFunction 
-
+class PyPyClassCollector(py.test.collect.Class):
     def setup(self): 
         cls = self.obj 
         cls.space = LazyObjSpaceGetter()
-        super(IntClassCollector, self).setup() 
+        super(PyPyClassCollector, self).setup() 
+    
+class IntClassCollector(PyPyClassCollector): 
+    Function = IntTestFunction 
+
+    def haskeyword(self, keyword):
+        return keyword == 'interplevel' or \
+               super(IntClassCollector, self).haskeyword(keyword)
 
 class AppClassInstance(py.test.collect.Instance): 
     Function = AppTestMethod 
@@ -241,8 +254,12 @@ class AppClassInstance(py.test.collect.Instance):
         w_class = self.parent.w_class 
         self.w_instance = space.call_function(w_class)
 
-class AppClassCollector(IntClassCollector): 
+class AppClassCollector(PyPyClassCollector): 
     Instance = AppClassInstance 
+
+    def haskeyword(self, keyword):
+        return keyword == 'applevel' or \
+               super(AppClassCollector, self).haskeyword(keyword)
 
     def setup(self): 
         super(AppClassCollector, self).setup()         

@@ -1,15 +1,35 @@
 
-def test_something(space): 
-    assert space.w_None is space.w_None 
+import py
 
-def app_test_something(): 
-    assert 42 == 42 
+innertest = py.magic.autopath().dirpath('conftest1_innertest.py')
 
-class AppTestSomething: 
-    def test_method(self): 
-        assert 23 == 23 
-    
-class TestSomething:
-    def test_method(self): 
-        assert self.space 
- 
+class TestPyPyTests: 
+    def test_select_interplevel(self): 
+        config, args = py.test.Config.parse(['-k', 'interplevel'])
+        session = config.getsessionclass()(config, py.std.sys.stdout)
+        session.main([innertest])
+        l = session.getitemoutcomepairs(py.test.Item.Passed)
+        assert len(l) == 2 
+        for item in l:
+            assert item[0].name in ('test_something', 'test_method')
+        #item = l[0][0]
+        #assert item.name == 'test_one'
+        l = session.getitemoutcomepairs(py.test.Item.Skipped)
+        assert len(l) == 2 
+        for item in l:
+            assert item[0].name in ('app_test_something', 'test_method_app')
+
+    def test_select_applevel(self): 
+        config, args = py.test.Config.parse(['-k', 'applevel'])
+        session = config.getsessionclass()(config, py.std.sys.stdout)
+        session.main([innertest])
+        l = session.getitemoutcomepairs(py.test.Item.Passed)
+        assert len(l) == 2 
+        for item in l:
+            assert item[0].name in ('app_test_something', 'test_method_app')
+        #item = l[0][0]
+        #assert item.name == 'test_one'
+        l = session.getitemoutcomepairs(py.test.Item.Skipped)
+        assert len(l) == 2 
+        for item in l:
+            assert item[0].name in ('test_something', 'test_method')
