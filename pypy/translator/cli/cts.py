@@ -18,6 +18,7 @@ PYPY_LIST = '[pypylib]pypy.runtime.List`1<%s>'
 PYPY_LIST_OF_VOID = '[pypylib]pypy.runtime.ListOfVoid'
 PYPY_DICT = '[pypylib]pypy.runtime.Dict`2<%s, %s>'
 PYPY_DICT_ITEMS_ITERATOR = '[pypylib]pypy.runtime.DictItemsIterator`2<%s, %s>'
+PYPY_STRING_BUILDER = '[pypylib]pypy.runtime.StringBuilder'
 
 _lltype_to_cts = {
     ootype.Void: 'void',
@@ -31,6 +32,7 @@ _lltype_to_cts = {
     ootype.UniChar: 'char',
     ootype.Class: 'class [mscorlib]System.Type',
     ootype.String: 'string',
+    ootype.StringBuilder: PYPY_STRING_BUILDER,
 
     # maps generic types to their ordinal
     ootype.List.SELFTYPE_T: 'class ' + (PYPY_LIST % '!0'),
@@ -60,7 +62,7 @@ def _get_from_dict(d, key, error):
             assert False, error
 
 class CTS(object):
-    ILASM_KEYWORDS = ['call', 'on']
+    ILASM_KEYWORDS = ['call', 'on', 'string']
     
     def __init__(self, db):
         self.db = db

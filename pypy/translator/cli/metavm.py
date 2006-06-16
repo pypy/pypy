@@ -2,6 +2,8 @@ from pypy.translator.cli import oopspec
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.oosupport.metavm import Generator, InstructionList, MicroInstruction
 
+STRING_HELPER_CLASS = '[pypylib]pypy.runtime.String'
+
 class _Call(MicroInstruction):
     def render(self, generator, op):
         graph = op.args[0].value.graph
@@ -21,7 +23,20 @@ class _Call(MicroInstruction):
         this = args[0]
         for arg in args: # push parametes
             generator.load(arg)
-        generator.call_method(this.concretetype, method_name)
+
+        # XXX: very hackish, need refactoring
+        if this.concretetype is ootype.String:
+            # special case for string: don't use methods, but plain functions
+            METH = this.concretetype._METHODS[method_name]
+            cts = generator.cts
+            ret_type = cts.lltype_to_cts(METH.RESULT)
+            arg_types = [cts.lltype_to_cts(arg) for arg in METH.ARGS if arg is not ootype.Void]
+            arg_types.insert(0, cts.lltype_to_cts(ootype.String))
+            arg_list = ', '.join(arg_types)
+            signature = '%s %s::%s(%s)' % (ret_type, STRING_HELPER_CLASS, method_name, arg_list)
+            generator.call_signature(signature)
+        else:
+            generator.call_method(this.concretetype, method_name)
 
 
 class _CallMethod(_Call):
@@ -64,6 +79,17 @@ class _CastTo(MicroInstruction):
         generator.load(op.args[0])
         generator.isinstance(op.args[1].value._name)
 
+class _OOString(MicroInstruction):
+    def render(self, generator, op):
+        ARGTYPE = op.args[0].concretetype
+        if isinstance(ARGTYPE, ootype.Instance):
+            argtype = 'object'
+        else:
+            argtype = generator.cts.lltype_to_cts(ARGTYPE)
+        generator.load(op.args[0])
+        generator.load(op.args[1])
+        generator.call_signature('string [pypylib]pypy.runtime.Utils::OOString(%s, int32)' % argtype)
+
 Call = _Call()
 CallMethod = _CallMethod()
 IndirectCall = _IndirectCall()
@@ -71,3 +97,4 @@ RuntimeNew = _RuntimeNew()
 GetField = _GetField()
 SetField = _SetField()
 CastTo = _CastTo()
+OOString = _OOString()
