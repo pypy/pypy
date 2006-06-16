@@ -1,4 +1,10 @@
-from pypy.conftest import gettestobjspace
+from pypy.conftest import gettestobjspace, skip_on_missing_buildoption
+
+def setup_module(mod):
+    # XXX the below AppTest class code seems to imply that we
+    # want to run on py.py as well? 
+    skip_on_missing_buildoption(stackless=True)
+    
 
 class AppTest_Stackless:
 

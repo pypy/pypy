@@ -1,4 +1,7 @@
-from pypy.conftest import gettestobjspace
+from pypy.conftest import gettestobjspace, skip_on_missing_buildoption
+
+def setup_module(mod):
+    skip_on_missing_buildoption(stackless=True)
 
 class AppTest_Coroutine:
 

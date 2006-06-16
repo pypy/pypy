@@ -6,6 +6,10 @@ import os
 from pypy.module._stackless.interp_coroutine import syncstate, Coroutine, AbstractThunk
 from pypy.translator.c.test.test_stackless import StacklessTest
 from pypy.translator.c import gc
+from pypy.conftest import skip_on_missing_buildoption
+
+def setup_module(mod):
+    skip_on_missing_buildoption(stackless=True)
 
 def output(stuff):
     os.write(2, stuff + '\n')

@@ -146,6 +146,22 @@ def gettestobjspace(name=None, **kwds):
     #    py.test.skip('test requires object space %r' % (name,))
     return space
 
+def skip_on_missing_buildoption(**ropts): 
+    __tracebackhide__ = True
+    import sys
+    options = getattr(sys, 'pypy_translation_info', None)
+    if options is None:
+        py.test.skip("not running on translated pypy "
+                     "(btw, i would need options: %s)" %
+                     (ropts,))
+    for opt in ropts: 
+        if not options.has_key(opt) or options[opt] != ropts[opt]: 
+            break
+    else:
+        return
+    py.test.skip("need translated pypy with: %s, got %s" 
+                 %(ropts,options))
+
 class LazyObjSpaceGetter(object):
     def __get__(self, obj, cls=None):
         space = gettestobjspace()

@@ -1,16 +1,10 @@
-from pypy.conftest import gettestobjspace
+from pypy.conftest import gettestobjspace, skip_on_missing_buildoption
 import py
 
 # app-level testing of coroutine pickling
 
 def setup_module(mod):
-    import sys
-    options = getattr(sys, 'pypy_translation_info', None)
-    if options is None:
-        py.test.skip("only runs on translated pypy with stackless")
-    if not options['stackless']:
-        py.test.skip("only runs with a stackless build")
-        
+    skip_on_missing_buildoption(stackless=True)
 
 class TestPickle:
 
