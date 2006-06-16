@@ -520,6 +520,8 @@ class InstanceRepr(AbstractInstanceRepr):
         return vptr
 
     def rtype_type(self, hop):
+	if hop.s_result.is_constant():
+            return hop.inputconst(hop.r_result, hop.s_result.const)
         instance_repr = self.common_repr()
         vinst, = hop.inputargs(instance_repr)
         if hop.args_s[0].can_be_none():

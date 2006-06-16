@@ -382,6 +382,17 @@ class BaseTestRclass(BaseRtypingTest):
         res = self.interpret(f, [0])
         assert res is False
 
+    def test_type_of_constant(self):
+        class A:
+            pass
+        a = A()
+
+        def f():
+            return type(a) is A
+        
+        res = self.interpret(f, [])
+        
+        
     def test_void_fnptr(self):
         def g():
             return 42
