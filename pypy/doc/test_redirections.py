@@ -5,6 +5,7 @@ redir = py.magic.autopath().dirpath('redirections')
 
 def checkexist(path):
     print "checking", path
+    assert path.ext == '.html'
     assert path.new(ext='.txt').check(file=1) 
 
 def checkredirection(oldname, newname):

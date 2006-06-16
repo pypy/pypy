@@ -115,7 +115,7 @@ or::
 
 # XXX 
 
-`pypy/module/readline/test/test_readline.py`_. 
+pypy/module/readline/test/test_readline.py
 
 
 translating a module to a CPython extension

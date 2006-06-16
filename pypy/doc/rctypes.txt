@@ -1,0 +1,384 @@
+============================================================
+                          RCtypes
+============================================================
+
+.. contents::
+.. sectnum::
+
+
+Using RCtypes
+================
+
+ctypes_ is a library for CPython that has been around for some years,
+and that is now integrated in Python 2.5.  It allows Python programs to
+directly perform calls to external libraries written in C, by declaring
+function prototypes and all necessary data structures dynamically in
+Python.
+
+*RCtypes* is ctypes restricted to be used from RPython programs.
+Basically, an RPython program that is going to be translated to C or a
+C-like language can use (a subset of) ctypes more or less normally.
+
+During the translation of the RPython program to C, the source code --
+which contains dynamic foreign function calls written using ctypes --
+becomes static C code that performs the same calls.  In other words,
+once compiled within an RPython program, ctypes constructs are all
+replaced by regular, static C code that no longer uses the *libffi*
+library.  This makes ctypes a very good way to interface with any C
+library -- not only from the PyPy interpreter, but from any program or
+extension module that is written in RPython.
+
+This document assumes some basic familiarity with ctypes.
+Look up the `ctypes documentation`_, or see a few notes below about
+the `CPython's ctype's behaviour`_.
+
+
+Restrictions
+------------
+
+The main restriction that RCtypes adds over ctypes is similar to the
+general restriction that RPython_ adds over Python: you cannot be "too
+dynamic" at run-time, but you can be as dynamic as you want during
+bootstrapping, i.e. when the source code is imported.
+
+For RCtypes, this means that all ctypes type and function declarations
+must be done while bootstrapping.  You cannot declare new types and
+functions from inside RPython functions that are going to be translated
+to C.  In practice, this is a fairly soft limitation: most modules using
+ctypes would typically declare all functions globally at module-level
+anyway.
+
+Apart from this, you can use many ctypes constructs freely: all
+primitive types, pointers, structures, arrays, external functions.  The
+following ctypes functions are supported at run-time:
+create_string_buffer(), pointer(), POINTER(), sizeof(), cast().  (Adding
+support for more is easy.)  Free union are *not* supported.  There is
+some support for callbacks and a few more obscure ctypes features, but
+e.g. custom allocators and return-value-error-checkers are not
+supported.
+
+There is special support for the special variable ``errno`` of C: from
+the RPython program, use ``pypy.rpython.rctypes.aerrno.geterrno()`` to
+read it.
+
+Note that the support for the POINTER() function is an exception to the
+rule that types should not be manipulated at run-time.  You can only
+call it with a constant type, as in ``POINTER(c_int)``.
+
+The create_string_buffer() function allows you to build variable-size
+arrays of chars, but there is no way to build other variable-sized
+arrays: an expression like ``c_int * n`` can only appear at
+bootstrapping-time.  (This restriction should be lifted at some point.)
+
+NOTE: in order to translate an RPython program using ctypes, the module
+``pypy.rpython.rctypes.implementation`` must be imported!  This is
+required to register to the annotator/rtyper how the ctypes constructs
+should be translated.  Just import this module from your RPython
+program, in addition to importing ctypes.
+
+
+Implementation design
+=====================
+
+Annotation
+----------
+
+Ctypes on CPython tracks all the memory it has allocated by itself,
+may it be referenced by pointers and structures or only pointers.
+Thus memory allocated by ctypes is properly garbage collected and no
+dangling pointers should arise.
+
+Pointers to structures returned by an external function are a different
+story. For such pointers we have to assume that they were not allocated
+by ctypes, and just keep a pointer to the memory, hoping that it will
+not go away.  This is the same as in ctypes.
+
+For objects that are known to be allocated by RCtypes, a simple GC-aware
+box suffices to hold the needed memory.  For other objects, an extra
+indirection is required.  Thus we use the annotator to track which
+objects are statically known to be allocated by RCtypes.
+
+RTyping: Memory layout
+----------------------
+
+In ctypes, all instances are mutable boxes containing either some raw
+memory with a layout compatible to that of the equivalent C type, or a
+reference to such memory.  The reference indirection is transparent to
+the user; for example, dereferencing a ctypes object "pointer to
+structure" results in a "structure" object that doesn't include a copy
+of the data, but only a reference to that data.  (This is similar to the
+C++ notion of reference: it is just a pointer at the machine level, but
+at the language level it behaves like the object that it points to, not
+like a pointer.)
+
+The rtyper maps this to the LLType model as follows.  For boxes that
+embed the raw memory content (i.e. are known to own their memory)::
+
+    Ptr( GcStruct( "name_owner",
+           ("c_data", Struct(...) ) ) )
+
+where the raw memory content and layout is specified by the
+"Struct(...)" part.
+
+The key point here is that the "Struct(...)" part follows exactly the C
+layout, with no extra headers.  If it contains pointers, they point to
+exact C data as well, without headers, and so on.  From C's point of
+view this is all perfectly legal C data in the format expected by the
+external C library -- because the C library never sees pointers to the
+whole GcStruct boxes.
+
+In other words, we have a two-level picture of how data looks like in a
+translated RPython program: at the RPython level, it contains a graph of
+GcStructs, with GC headers, and sometimes fields pointing at each other
+for the purpose of keeping the necessary GcStructs alive.  At the same
+time, *inside* these GcStruct, there is a part that looks exactly like C
+data structures.  This part can contain pointers to other C data
+structures, which may live within other GcStructs.  So the C libraries
+will only see and modify the C data that is embedded in the "c_data"
+substructure of GcStructs.  This is somewhat similar to the idea that if
+you call malloc() in a C program, you actually get a block of memory
+that is embedded in some larger block with malloc-specific headers; but
+at the level of C it doesn't matter because you only pass around and
+store pointers to the "embedded sub-blocks" of memory, never to the
+whole block with all its headers.
+
+Owner/alias boxes
+~~~~~~~~~~~~~~~~~
+
+Here is again the case of boxes that embed the raw memory content (owner
+boxes)::
+
+    Ptr( GcStruct( "name_owner",
+           ("c_data", Struct(...) ) ) )
+
+For boxes that don't embed the raw memory content (alias boxes)::
+
+    Ptr( GcStruct( "name_alias",
+           ("c_data_owner_keepalive", Ptr( GcStruct( "name_owner" ) ),
+           ("c_data", Ptr( Struct(...) ) ) ) )
+
+In both cases, the outer GcStruct is needed to make the boxes tracked by
+the GC automatically.  The "c_data" field either embeds or references
+the raw memory (we reuse the same field name to simplify writing ll
+helpers).  The nested "Struct(...)" definition specifies the exact C
+layout expected for that memory.
+
+In the alias case, the "c_data_owner_keepalive" pointer is used for
+cases where the memory was actually allocated by Ctypes, even though the
+annotator didn't figure it out statically.  This pointer field is set in
+this case to the owner GcStruct, to keep it alive.  Note that the
+"c_data" pointer will then point inside the *same* owner GcStruct -- it
+will point to the structure "c_data_owner_keepalive.c_data".
+
+Of course, the "c_data" field is not visible to the RPython-level user.
+
+Primitive Types
+~~~~~~~~~~~~~~~
+Ctypes' primitive types are mapped directly to the correspondending PyPy
+LLType: Signed, Float, etc.  For the owned-memory case, we get::
+
+    Ptr( GcStruct( "CtypesBox_<TypeName>"
+            ( "c_data"
+                    (Struct "C_Data_<TypeName>
+                            ( "value", Signed/Float/etc. ) ) ) ) )
+
+Note that we don't make "c_data" itself a Signed or Float directly because
+in LLType we can't take pointers to Signed or Float, only to Struct or
+Array.
+
+The non-owned-memory case is::
+
+    Ptr( GcStruct( "CtypesBox_<TypeName>"
+            ( "c_data_owner_keepalive" ... ),
+            ( "c_data"
+                    (Ptr(Struct "C_Data_<TypeName>
+                            ( "value", Signed/Float/etc. ) ) ) ) ) )
+
+Pointers
+~~~~~~~~
+
+::
+
+    Ptr( GcStruct( "CtypesBox_<TypeName>"
+            ( "c_data"
+                    (Struct "C_Data_<TypeName>
+                            ( "value", Ptr(...) ) ) ) ) )
+
+or::
+
+    Ptr( GcStruct( "CtypesBox_<TypeName>"
+            ( "c_data_owner_keepalive" ... ),
+            ( "c_data"
+                    (Ptr(Struct "C_Data_<TypeName>
+                            ( "value", Ptr(...) ) ) ) ) ) )
+
+However, there is a special case here: the pointer might point to data
+owned by another CtypesBox -- i.e. it can point to the "c_data" field of
+some other CtypesBox.  In this case we must make sure that the other
+CtypesBox stays alive.  This is done by adding an extra field
+referencing the gc box (this field is not otherwise used)::
+
+    Ptr( GcStruct( "CtypesBox_<TypeName>"
+            ( "c_data"
+                    (Struct "C_Data_<TypeName>
+                            ( "value", Ptr(...) ) ) )
+            ( "keepalive"
+                    (Ptr(GcStruct("CtypesBox_<TargetTypeName>"))) ) ) )
+
+Note that the above example shows the memory-owning case.  As usual, its
+memory-aliasing equivalent also contains the "c_data_owner_keepalive"
+field::
+
+    Ptr( GcStruct( "CtypesBox_<TypeName>"
+            ( "c_data_owner_keepalive" ... ),
+            ( "c_data"
+                    (Ptr(Struct "C_Data_<TypeName>
+                            ( "value", Ptr(...) ) ) ) )
+            ( "keepalive"
+                    (Ptr(GcStruct("CtypesBox_<TargetTypeName>"))) ) ) )
+
+The two keepalive fields are easy to confuse with each other, but they
+have different types and goals.  The "c_data_owner_keepalive" is used if
+the place where the *pointer itself* is stored needs to be kept alive.
+The "keepalive" field is used if whatever it is that the pointer *points
+to* needs to be kept alive.
+
+Structures
+~~~~~~~~~~
+Structures have the following memory layout (owning their raw memory)
+if they were allocated by ctypes::
+
+    Ptr( GcStruct( "CtypesBox_<StructName>"
+            ( "c_data" 
+                    (Struct "C_Data_<StructName>
+                            *<Fieldefintions>) ) ) )
+
+For structures obtained by dereferencing a pointer (by reading its
+"contents" attribute), the structure box does not own the memory::
+
+    Ptr( GcStruct( "CtypesBox_<StructName>"
+            ( "c_data_owner_keepalive" ... ),
+            ( "c_data" 
+                    (Ptr(Struct "C_Data_<StructName>
+                            *<Fieldefintions>) ) ) ) )
+
+One or several Keepalive fields might be necessary in each case: more
+precisely, for every pointer field that the structure contains, we need
+an extra keepalive field.  It is set when a value is stored in the
+pointer field of the structure, and when this value is a pointer to
+RCtypes-owned memory.  In this case, the corresponding keepalive field
+of the GcStruct is made to point to the target GcStruct.
+
+Arrays
+~~~~~~
+Arrays behave like structures, but use an Array instead of a Struct in
+the "c_data" declaration.
+
+For similar reasons, arrays of pointers have an additional array of
+keepalives.
+
+
+
+
+.. _cpython-behavior:
+
+CPython's Ctype's Behaviour
+===========================
+
+For reference, this section describes ctypes behaviour on CPython, as
+far as it is know to the author and relevant for rctypes.  Of course,
+you should consult the `ctypes documentation`_ for more information.
+The test file `pypy/rpython/rctypes/test/test_ctypes.py`_ also exercices
+many corner cases of ctypes that were relevant for the rctypes
+implementation design.
+
+Primitive Types
+---------------
+All primitive types behave like their CPython counterparts.
+Some types like `c_long` and `c_int` are identical on some hardware platforms,
+depending on size of C's int type on those platforms.
+
+
+Heap Allocated Types
+--------------------
+Ctypes deals with heap allocated instances of types in a simple
+and straightforward manner. However documentationwise it 
+has some shady corners when it comes to heap allocated types.
+
+Structures
+~~~~~~~~~~
+Structures allocated by ctypes
+
+Structure instances in ctypes are actually proxies for C-compatible
+memory. The behaviour of such instances is illustrated by the following
+example structure throughout this document::
+
+    class TS( Structure ):
+        _fields_ = [ ( "f0", c_int ), ( "f1", c_float ) ]
+
+    ts0 = TS( 42, -42 )
+    ts1 = TS( -17, 17 )
+
+    p0 = pointer( ts0 )
+    p1 = pointer( ts1 )
+
+You can not assign structures by value as in C or C++.
+But ctypes provides a memmove-function just like C does.
+You do not need to pass a ctype's pointer to the structure type to
+memmove. Instead you can pass the structures directly as in the
+example below::
+
+    memmove( ts0, ts1, sizeof( ts0 ) )
+    assert ts0.f0 == -17
+    assert ts0.f1 == 17 
+
+Structures created from foreign pointers
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The author is currently not sure, whether the text below
+is correct in all aspects, but carefully planned trials did
+not provide any evidence to the contrary.
+
+Structure instances can also be created by dereferencing pointers
+that where returned by a call to an external function.
+
+More on pointers in the next section.
+
+Pointers
+--------
+
+Pointer types are created by a factory function named `POINTER`.
+Pointers can be created by either calling and thus instanciating a
+pointer type or by calling another function named `pointer` that
+creates the necessary pointer type on the fly and returns
+a pointer to the instance. 
+
+Pointers only implement one attribute named contents which 
+references the ctypes instance the pointer points to. Assigning to 
+this attribute only changes the pointers notion of the object it points
+to. The instances themselves are not touched, especially structures are
+not copied by value. 
+
+Pointers to Structures Allocated by The Ctypes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Pointers to structures that where allocated by ctypes contain
+a reference to the structure in the contents attribute
+mentioned above. This reference is know to the garbage collector,
+which means that even if the last structure instance is deallocated,
+the C-compatible memory is not, provided a pointer still points to it.
+
+Pointers to Structures Allocated by Foreign Modules
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In this case the structure was probably allocated by the foreign module - at
+least ctypes must assume it was. In this case the pointer's reference to the 
+structure should not be made known to the GC. In the same sense the structure itself
+must record the fact that its C-compatible memory was not allocated by ctypes itself.
+
+
+.. _`ctypes documentation`: http://docs.python.org/dev/lib/module-ctypes.html
+.. _ctypes: http://starship.python.net/crew/theller/ctypes/
+.. _RPython: coding-guide.html#rpython
+
+.. include:: _ref.txt

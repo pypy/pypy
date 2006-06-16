@@ -34,7 +34,6 @@
 .. _`pypy/module/__builtin__/__init__.py`: ../../pypy/module/__builtin__/__init__.py
 .. _`module/_sre/`: ../../pypy/module/_sre
 .. _`pypy/module/readline`: ../../pypy/module/readline
-.. _`pypy/module/readline/test/test_readline.py`: ../../pypy/module/readline/test/test_readline.py
 .. _`module/recparser/`: ../../pypy/module/recparser
 .. _`module/sys/`: ../../pypy/module/sys
 .. _`objspace/`:
@@ -59,6 +58,7 @@
 .. _`pypy/rpython/module/ll_os.py`: ../../pypy/rpython/module/ll_os.py
 .. _`pypy/rpython/module/test`: ../../pypy/rpython/module/test
 .. _`pypy/rpython/objectmodel.py`: ../../pypy/rpython/objectmodel.py
+.. _`pypy/rpython/rctypes/test/test_ctypes.py`: ../../pypy/rpython/rctypes/test/test_ctypes.py
 .. _`rpython/rint.py`: ../../pypy/rpython/rint.py
 .. _`rpython/rlist.py`: ../../pypy/rpython/rlist.py
 .. _`rpython/rmodel.py`: ../../pypy/rpython/rmodel.py
