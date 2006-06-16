@@ -77,6 +77,24 @@ should be translated.  Just import this module from your RPython
 program, in addition to importing ctypes.
 
 
+.. _installation:
+
+ctypes version and platform notes
+---------------------------------
+
+As of this time, only `ctypes-0.9.9.6`_ is known to work correctly
+with RCtypes.
+
+On Mac OSX 10.3 you need to change the ``RTLD_LOCAL`` default 
+in  ctypes/__init__.py line 293 to::
+
+    def __init__(self, name, mode=RTLD_GLOBAL, handle=None):
+
+otherwise it will complain with "unable to open this file with RTLD_LOCAL"
+when trying to load the C library. 
+
+
+
 Implementation design
 =====================
 
@@ -279,7 +297,6 @@ keepalives.
 
 
 
-
 .. _cpython-behavior:
 
 CPython's Ctype's Behaviour
@@ -380,5 +397,6 @@ must record the fact that its C-compatible memory was not allocated by ctypes it
 .. _`ctypes documentation`: http://docs.python.org/dev/lib/module-ctypes.html
 .. _ctypes: http://starship.python.net/crew/theller/ctypes/
 .. _RPython: coding-guide.html#rpython
+.. _`ctypes-0.9.9.6`: http://sourceforge.net/project/showfiles.php?group_id=71702&package_id=71318&release_id=411554
 
 .. include:: _ref.txt

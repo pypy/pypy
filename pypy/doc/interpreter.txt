@@ -286,6 +286,8 @@ involved, mostly due to the fact that the type-infering
 annotator needs to keep track of the types of objects flowing
 across those barriers. 
 
+.. _typedefs:
+
 Making interpreter-level functions available at application-level
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

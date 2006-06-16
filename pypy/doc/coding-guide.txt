@@ -689,14 +689,14 @@ here are examples for the possible locations::
 
     >>>> import sys
     >>>> sys.__file__
-    '/home/hpk/pypy-dist/pypy/module/sys/__init__.pyc'
+    '/home/hpk/pypy-dist/pypy/module/sys/*.py'
 
     >>>> import operator
     >>>> operator.__file__
     '/home/hpk/pypy-dist/pypy/lib/operator.py'
 
     >>>> import types
-    t>>>> types.__file__
+    >>>> types.__file__
     '/home/hpk/pypy-dist/lib-python/modified-2.4.1/types.py'
 
     >>>> import os

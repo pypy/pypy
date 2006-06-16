@@ -2,7 +2,11 @@
 PyPy Extension Compiler 
 ============================================
 
-This document describes the PyPy extension compiler which is able to
+.. contents::
+.. sectnum::
+
+
+This document describes the PyPy extension compiler, which is able to
 compile a set of source code to a PyPy or a CPython extension module.
 
 **WARNING: this is beta software, APIs and details may change.**
@@ -12,14 +16,16 @@ has not been extensively tested and polished so far, so bugs and rough
 edges are likely.
 
 
+.. _introduction:
+
 Understanding the ext compiler 
 ----------------------------------
 
 PyPy provides a generic way to write modules for all Python
 implementations: the so-called *mixed module* approach.  A single mixed
 module is implemented as a set of Python source files, making a
-subpackage of the ``pypy.module`` package.  While running PyPy, each of
-these subpackages appears to be a single module, whose interface was
+subpackage of the `pypy/module/`_ package.  While running PyPy, each of
+these subpackages appears to be a single module, whose interface is
 specified in the ``__init__.py`` of the subpackage, and whose
 implementation is lazily loaded from the various other ``.py`` files of
 the subpackage.
@@ -43,7 +49,7 @@ This means that you can do the following with a mixed module:
 
 * compile it as a CPython extension module.  Example::
 
-    $ pypy/bin/compilemodule.py _demo
+    $ python pypy/bin/compilemodule.py _demo
     [lots of output]
     Created '/tmp/usession-5/_demo/_demo.so'.
     $ cd /tmp/usession-5/_demo
@@ -78,97 +84,133 @@ This means that you can do the following with a mixed module:
     2
 
 
-- using rctypes for binding to external libraries 
-- exchangeability of CPyObjspace and StdObjSpace 
-  * translation to CPython 
-  * translation to PyPy 
-
 Using the ext compiler  
 ----------------------------------------------------
 
-XXXXXXXXXXXXXXXX THIS IS DOCUMENTATION WITHOUT CODE XXXXXXXXXXXXXXXXXXXXXX
-
-writing a module (provide example)
+Writing a module
 +++++++++++++++++++++++++++++++++++++++++
 
-You have to put your module into its own directory in `pypy/module/`_ 
-of your local `pypy checkout`_. 
+You have to put your module into its own directory in `pypy/module/`_ of
+your local `pypy checkout`_.  See the following directories as guidelines:
 
-see `pypy/module/readline`_ for an example. 
+* `pypy/module/_demo`_
 
-XXX describe directory structure here 
+    A demo module showing a few of the more interesting features.
+
+* `pypy/module/readline`_
+
+    A tiny, in-progress example giving bindings to the GNU ``readline``
+    library.
+
+* `pypy/module/_sre`_
+
+    An algorithmic example: the regular expression engine of CPython,
+    rewritten in RPython_.
+
+Modules can be based on ctypes.  This is the case in the
+`pypy/module/readline`_ and `pypy/module/_demo`_ examples: they use
+ctypes to access functions in external C libraries.  When translated to
+C, the calls in these examples become static, regular C function calls
+-- which means that most of the efficiency overhead of using ctypes
+disappears during the translation.  However, some rules must be followed
+in order to make ctypes translatable; for more information, see the
+documentation of RCtypes_.
+
+All these modules are called "mixed" because they mix interpreter-level
+and application-level submodules to present a single, coherent module to
+the user.  For a CPython extension module, you can think about
+`interpreter-level`_ as what will be compiled into C, and
+`application-level`_ as what will stay as it is, as Python code,
+included (as a frozen bytecode) within the C module.  The capability to
+group several interpreter-level files into the final compiled module is
+similar to having a CPython extension module that was compiled from a
+set of C sources; but the capability to also include nicely integrated
+Python sources in the C extension module has no direct equivalent in
+hand-written C extension modules.
+
+The directory structure is described in the Coding Guide, section `mixed
+modules`_.  The interpreter-level parts of a mixed module must follow
+the RPython_ programming style; this is necessary to allow them to be
+annotated and translated to C.  Whenever they manipulate
+application-level (i.e. user-visible) objects, they must do so via
+object space operations (see `wrapping rules`_).  The mixed modules can
+also export new user-visible types, as in the example of
+`pypy/module/_sre`_ (for reference, see the documentation about the
+`TypeDef`_ of the Module type itself to see how to expose types to
+app-level).
 
 .. _`pypy checkout`: getting-started.html#gettingpypy
+.. _`mixed modules`:     coding-guide.html#mixed-modules
+.. _`interpreter-level`: coding-guide.html#interpreter-level
+.. _`application-level`: coding-guide.html#application-level
+.. _`wrapping rules`:    coding-guide.html#wrapping-rules
+.. _`TypeDef`: interpreter.html#typedefs
+.. _RPython: coding-guide.html#rpython
+.. _RCtypes: rctypes.html
 
-testing a module 
+
+.. _tests:
+
+Testing a module 
 ++++++++++++++++++++++++
 
-testing only the (ctypes) bindings::
+The readline mixed module has a minimal example for each of 4 different
+kind of tests:
 
-    python2.4 pypy/test_all.py pypy/module/readline/test/test_c_readline.py 
+* As this is a ctypes bindings module, we should test the ctypes bindings
+  directly to see if they work as expected::
 
-testing the (wrapped) package::
-    python2.4 pypy/test_all.py pypy/module/readline/test/test_readline.py 
+    python pypy/test_all.py pypy/module/readline/test/test_c_readline.py 
 
-or::
-    py.test pypy/module/readline/test/test_readline.py 
+* We should then test that the mixed module wrapping is correct, using
+  the helper function ``pypy.interpreter.mixedmodule.testmodule()``.
+  Called from a normal CPython program, this function exposes a mixed
+  module as a plain CPython module for testing and inspection (it works
+  in the interactive interpreter too, of course: it is a good way to see
+  how mixed module wrappings look like in the end)::
 
-# XXX 
+    python pypy/test_all.py pypy/module/readline/test/test_mixedmodule.py
 
-pypy/module/readline/test/test_readline.py
+* We can also run the mixed module within PyPy, on top of CPython.
+  To do so from a test, we use a special ``AppTestXyz`` class::
+
+    python pypy/test_all.py pypy/module/readline/test/test_with_pypy.py
+
+* Finally, we can compile the mixed module to a CPython extension
+  module, re-import it into the running CPython interpreter, and test
+  it.  Only this test will pick up the translation failures caused by
+  breaking the RPython rules.  (To debug translation failures, though,
+  you should use ``compilemodule.py`` as described below: you will then
+  get a Pdb prompt and a flow graph viewer to look around.) ::
+
+    python pypy/test_all.py pypy/module/readline/test/test_compiler.py
 
 
-translating a module to a CPython extension
+Translating a module to a CPython extension
 ++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-:: 
-    python2.4 pypy/bin/extcompiler.py readline  #<needs to be in module dir
+As seen in the introduction_, you translate a module into a CPython
+extension with the following command-line::
 
-The extension compiler imports the specified module/package 
-and produces a shared library importable from your local 
-python2.4 installation.  The produced shared library is 
-put into the current working directory by default. 
+    python pypy/bin/compilemodule.py _demo
 
-XXX think about shared state of imported modules (e.g. linecache
-    or other modules which might get imported from the ext-package) 
+The extension compiler imports the specified package from
+`pypy/module/`_ and produces a shared library importable from your local
+Python installation.  The produced shared library is put into a
+temporary directory printed at the end (which on Linux is also
+accessible as `/tmp/usession-<username>/<modulename>/<modulename>.so`).
 
-XXX what actually happens to applevel code in an extension module? 
+Note that we recommend you to write and run tests_ for your module first.
+This is not only a matter of style: bogus modules are likely to make the
+translation tool-chain fail in mysterious ways.
 
-somewhere-in-PYTHONPATH:
-    supportpackage/somecode.py 
+See the introduction_ for other things you can do with a mixed module.
 
+Note that you obviously need to have a full `pypy checkout`_ first.  If
+you have troubles compiling the demo modules, check out our
+ctypes-specific `installation notes`_.
 
-XXX integration as a PyPy module 
+.. _`installation notes`: rctypes.html#installation
 
-
-
-
-Installation notes requirements 
---------------------------------------------------
-
-XXX more verbose, links
-you need to have a full PyPy checkout, refer to getting started
-
-required ctypes version
-++++++++++++++++++++++++++++
-
-As of this time, only `ctypes-0.9.9.6`_ is known to work. 
-
-.. _`ctypes-0.9.9.6`: http://sourceforge.net/project/showfiles.php?group_id=71702&package_id=71318&release_id=411554 
-
-platform notes 
-++++++++++++++++++
-
-
-Mac OSX 
-++++++++++++++++++++++++++
-
-*ctypes 0.9.9.6 on OSX 10.3*: you need to change the ``RTLD_LOCAL`` default 
-in  ctypes/__init__.py line 293 to::
-
-    def __init__(self, name, mode=RTLD_GLOBAL, handle=None):
-
-otherwise it will complain with "unable to open this file with RTLD_LOCAL"
-when trying to load the C library. 
 
 .. include:: _ref.txt

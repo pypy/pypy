@@ -32,7 +32,9 @@
 .. _`pypy/module/`: ../../pypy/module
 .. _`module/__builtin__/`: ../../pypy/module/__builtin__
 .. _`pypy/module/__builtin__/__init__.py`: ../../pypy/module/__builtin__/__init__.py
-.. _`module/_sre/`: ../../pypy/module/_sre
+.. _`pypy/module/_demo`: ../../pypy/module/_demo
+.. _`module/_sre/`:
+.. _`pypy/module/_sre`: ../../pypy/module/_sre
 .. _`pypy/module/readline`: ../../pypy/module/readline
 .. _`module/recparser/`: ../../pypy/module/recparser
 .. _`module/sys/`: ../../pypy/module/sys
