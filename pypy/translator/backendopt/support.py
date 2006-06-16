@@ -16,8 +16,8 @@ def graph_operations(graph):
         for op in block.operations: 
             yield op
 
-def all_operations(translator):
-    for graph in translator.graphs:
+def all_operations(graphs):
+    for graph in graphs:
         for block in graph.iterblocks():
             for op in block.operations: 
                 yield op
@@ -180,7 +180,7 @@ def find_loop_blocks(graph):
 def md5digest(translator):
     import md5
     m = md5.new()
-    for op in all_operations(translator):
+    for op in all_operations(translator.graphs):
         m.update(op.opname + str(op.result))
         for a in op.args:
             m.update(str(a))

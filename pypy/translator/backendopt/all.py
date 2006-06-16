@@ -30,8 +30,7 @@ def backend_optimizations(translator, graphs=None,
         print_statistics(translator.graphs[0], translator, "per-graph.txt")
 
     if raisingop2direct_call_all:
-        assert graphs is translator.graphs  # XXX for now
-        raisingop2direct_call(translator)
+        raisingop2direct_call(translator, graphs)
 
     # remove obvious no-ops
     for graph in graphs:

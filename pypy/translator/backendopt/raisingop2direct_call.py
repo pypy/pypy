@@ -2,7 +2,7 @@ from pypy.translator.backendopt.support import log, all_operations, annotate
 import pypy.rpython.raisingops.raisingops
 log = log.raisingop2directcall
 
-def raisingop2direct_call(translator):
+def raisingop2direct_call(translator, graphs=None):
     """search for operations that could raise an exception and change that
     operation into a direct_call to a function from the raisingops directory.
     This function also needs to be annotated and specialized.
@@ -11,6 +11,8 @@ def raisingop2direct_call(translator):
           a direct_call to a (RPython) function!
     """
     #special_operations = "int_floordiv int_mod".split()
+    if graphs is None:
+        graphs = translator.graphs
 
     def is_raisingop(op):
         s = op.opname
@@ -22,7 +24,7 @@ def raisingop2direct_call(translator):
 
     log('starting')
     seen = {}
-    for op in all_operations(translator):
+    for op in all_operations(graphs):
         if not is_raisingop(op):
             continue
         func = getattr(pypy.rpython.raisingops.raisingops, op.opname, None)
@@ -45,13 +47,13 @@ def raisingop2direct_call(translator):
 
     #rename some operations (that were introduced in the newly specialized graphs)
     #so this transformation becomes idempotent... 
-    #for op in all_operations(translator):
+    #for op in all_operations(graphs):
     #   if op.opname in special_operations:
     #       log('renamed %s to %s_' % (op.opname, op.opname))
     #       op.opname += '_' 
 
     #selfdiagnostics... assert that there are no more raisingops
-    for op in all_operations(translator):
+    for op in all_operations(graphs):
         if is_raisingop(op):
             log.warning("%s not transformed" % op.opname)
 
