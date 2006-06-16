@@ -65,7 +65,7 @@ def target(driver, args):
     #    usemodules = []
     #else:
     #    usemodules = ['thread']
-    usemodules = []
+    usemodules = ['_stackless']
 
     space = Space(nofaking=True,
                   compiler="ast", # interpreter/astcompiler
