@@ -7,7 +7,7 @@ namespace pypy.test
     {
         public static string ToPython(int x)    { return x.ToString(); }
         public static string ToPython(bool x)   { return x.ToString(); }
-        public static string ToPython(double x) { return x.ToString("F"); }
+        public static string ToPython(double x) { return x.ToString(); }
         public static string ToPython(char x)   { return string.Format("'{0}'", x); }
         public static string ToPython(uint x)   { return x.ToString(); }
         public static string ToPython(long x)   { return x.ToString(); }
@@ -51,6 +51,184 @@ namespace pypy.runtime
         public static bool SubclassOf(Type a, Type b)
         {
             return (a == b || a.IsSubclassOf(b));
+        }
+
+        public static string OOString(int n, int base_)
+        {
+            if (n<0)
+                return "-" + Convert.ToString(-n, base_);
+            else
+                return  Convert.ToString(n, base_);
+        }
+
+        public static string OOString(double d, int base_)
+        {
+            return d.ToString();
+        }
+
+        public static string OOString(object obj, int base_)
+        {
+            return string.Format("<{0} object>", obj.GetType().FullName);
+        }
+
+        public static string OOString(char ch, int base_)
+        {
+            return ch.ToString();
+        }
+
+        public static string OOString(string s, int base_)
+        {
+            return s;
+        }
+
+        public static int OOParseInt(string s, int base_)
+        {
+            return Convert.ToInt32(s, base_);
+        }
+    }
+
+    public class StringBuilder
+    {
+        System.Text.StringBuilder builder = new System.Text.StringBuilder();
+
+        public void ll_allocate(int size)
+        {
+            builder.Capacity = size;
+        }
+
+        public void ll_append_char(char ch)
+        {
+            builder.Append(ch);
+        }
+         
+        public void ll_append(string s)
+        {
+            builder.Append(s);
+        }
+
+        public string ll_build()
+        {
+            return builder.ToString();
+        }
+    }
+
+    public class String
+    {
+        public static char ll_stritem_nonneg(string s, int index)
+        {
+            return s[index];
+        }
+
+        public static int ll_strlen(string s)
+        {
+            return s.Length;
+        }
+
+        public static string ll_strconcat(string s1, string s2)
+        {
+            return s1+s2;
+        }
+
+        public static bool ll_streq(string s1, string s2)
+        {
+            return s1 == s2;
+        }
+
+        public static int ll_strcmp(string s1, string s2)
+        {
+            return string.Compare(s1, s2);
+        }
+
+        public static bool ll_startswith(string s1, string s2)
+        {
+            return s1.StartsWith(s2);
+        }
+
+        public static bool ll_endswith(string s1, string s2)
+        {
+            return s1.EndsWith(s2);
+        }
+        
+        public static int ll_find(string s1, string s2, int start, int stop)
+        {
+            if (stop > s1.Length)
+                stop = s1.Length;
+            int count = stop-start;
+            if (start > s1.Length)
+                return -1;
+            return s1.IndexOf(s2, start, count);
+        }
+
+        public static int ll_rfind(string s1, string s2, int start, int stop)
+        {
+            // XXX: it doesn't work properly
+            if (stop > s1.Length)
+                stop = s1.Length;
+            int count = stop-start;
+            if (start > s1.Length)
+                return -1;
+            return s1.LastIndexOf(s2, start, count);
+        }
+
+        public static int ll_find_char(string s, char ch, int start, int stop)
+        {
+            if (stop > s.Length)
+                stop = s.Length;
+            int count = stop-start;
+            return s.IndexOf(ch, start, count);
+        }
+
+        public static int ll_rfind_char(string s, char ch, int start, int stop)
+        {
+            if (stop > s.Length)
+                stop = s.Length;
+            int count=stop-start;
+            return s.IndexOf(ch, start, count);
+        }
+
+        public static string ll_strip(string s, char ch, bool left, bool right)
+        {
+            if (left && right)
+                return s.Trim(ch);
+            else if (left)
+                return s.TrimStart(ch);
+            else if (right)
+                return s.TrimEnd(ch);
+            else
+                return s;
+
+        }
+
+        public static string ll_upper(string s)
+        {
+            return s.ToUpper();
+        }
+
+        public static string ll_lower(string s)
+        {
+            return s.ToLower();
+        }
+
+        public static string ll_substring(string s, int start, int count)
+        {
+            return s.Substring(start, count);
+        }
+
+        public static List<string> ll_split_chr(string s, char ch)
+        {
+            List<string> res = new List<string>();
+            res.AddRange(s.Split(ch));
+            return res;
+        }
+
+        public static bool ll_contains(string s, char ch)
+        {
+            return s.IndexOf(ch) != -1;
+        }
+
+        public static string ll_replace_chr_chr(string s, char ch1, char ch2)
+        {
+            return s.Replace(ch1, ch2);
         }
     }
 
