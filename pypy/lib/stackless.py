@@ -4,6 +4,7 @@ The essential objects are tasklets and channels.
 Please refer to their documentation.
 """
 
+import traceback
 import sys
 
 switches = 0
@@ -44,7 +45,8 @@ last_thread_id = 0
 
 def restore_exception(etype, value, stack):
     """until I find out how to restore an exception on python level"""
-    raise value
+    sys.excepthook(etype, value, stack)
+    #raise value
 
 class TaskletProxy(object):
     def __init__(self, coro):
@@ -108,7 +110,6 @@ def make_deadlock_bomb():
         None)
 
 def curexc_to_bomb():
-    import sys
     return bomb(*sys.exc_info())
 
 def enable_softswitch(flag):
@@ -191,15 +192,7 @@ def run(timeout=0):
     if me is not main_tasklet:
         raise RuntimeError("run() must be run from the main thread's \
                              main tasklet")
-    try:
-        retval = scheduler.schedule_task(me, scheduler._head)
-        return retval
-    except Exception, exp:
-        b = curexc_to_bomb()
-        SETVAL(me, b)
-        scheduler.current_insert(me)
-        scheduler.schedule_task(me, me)
-
+    return scheduler.schedule_task(me, scheduler._head)
 
 def getcurrent():
     """
@@ -311,9 +304,6 @@ class tasklet(coroutine):
             raise TypeError('tasklet function must be a callable')
         SETVAL(self, func)
 
-    def _is_dead(self):
-        return self.is_zombie
-
     def insert(self):
         """
         Insert this tasklet at the end of the scheduler list,
@@ -322,7 +312,7 @@ class tasklet(coroutine):
         """
         if self.blocked:
             raise RuntimeError('You cannot run a blocked tasklet')
-        if self._is_dead():
+        if self.is_zombie:
             raise RuntimeError('You cannot run an unbound(dead) tasklet')
         if self.next is None:
             scheduler.current_insert(self)
@@ -335,7 +325,7 @@ class tasklet(coroutine):
         If the exception passes the toplevel frame of the tasklet,
         the tasklet will silently die.
         """
-        if not self._is_dead():
+        if not self.is_zombie:
             coroutine.kill(self)
         return self.raise_excption(TaskletExit)
 
@@ -402,14 +392,24 @@ class tasklet(coroutine):
         self.ignore_nesting = flag
         return tmpval
 
-    def finished(self):
+    def __finished(self):
         self.alive = False
-        if self.next is not self:
-            next = self.next
-        else:
-            next = getmain()
         scheduler.remove_task(self)
-        scheduler.schedule_task(self, next)
+
+    def finished(self, exctype=None, excvalue=None):
+        if self.alive:
+            self.alive = False
+            if self.next is not self:
+                next = self.next
+            else:
+                next = getmain()
+            scheduler.remove_task(self)
+            prev = self
+            if exctype is not None:
+                b = bomb(exctype, exctype(excvalue))
+                next = getmain()
+                SETVAL(next, b)
+            scheduler.schedule_task(prev, next)
 
     def setup(self, *argl, **argd):
         """
@@ -629,6 +629,13 @@ class Scheduler(object):
     def __init__(self):
         self._set_head(getcurrent())
 
+    def _cleanup(self, task):
+        task.alive = False
+        self.remove_task(task)
+        if self._head is None:
+            self.current_insert(main_tasklet)
+        self.schedule_task(getcurrent(), self._head)
+
     def _set_head(self, task):
         self._head = task
 
@@ -762,11 +769,11 @@ class Scheduler(object):
         self._notify_schedule(prev, next, None)
         self._set_head(next)
 
-        next.switch()
+        res = next.switch()
 
         retval = prev.tempval
         if isinstance(retval, bomb):
-            self.bomb_explode(next)
+            self.bomb_explode(prev)
 
         return retval
 
