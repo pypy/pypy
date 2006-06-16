@@ -915,7 +915,7 @@ class FrameworkGCTransformer(GCTransformer):
             [s_gc, annmodel.SomeInteger(nonneg=True),
              annmodel.SomeInteger(nonneg=True),
              annmodel.SomeBool()], s_gcref,
-            inline = True)
+            inline = False)
         self.malloc_varsize_ptr = getfn(
             GCClass.malloc_varsize.im_func,
             [s_gc] + [annmodel.SomeInteger(nonneg=True) for i in range(5)]
