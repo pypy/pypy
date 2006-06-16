@@ -217,6 +217,11 @@ class AppTestFunction(PyPyTestFunction):
         print "executing", func
         self.execute_appex(space, func, space)
 
+    def teardown(self):
+        if option.runappdirect:
+            return 
+        return super(AppTestFunction, self).teardown()
+
 class AppTestMethod(AppTestFunction): 
 
     def setup(self): 
@@ -256,6 +261,10 @@ class IntClassCollector(PyPyClassCollector):
 class AppClassInstance(py.test.collect.Instance): 
     Function = AppTestMethod 
 
+    def teardown(self):
+        if not option.runappdirect:
+            return super(AppClassInstance, self).teardown()
+
     def setup(self): 
         if option.runappdirect:
             return
@@ -271,6 +280,10 @@ class AppClassCollector(PyPyClassCollector):
     def haskeyword(self, keyword):
         return keyword == 'applevel' or \
                super(AppClassCollector, self).haskeyword(keyword)
+
+    def teardown(self):
+        if not option.runappdirect:
+            return super(AppClassCollector, self).teardown()
 
     def setup(self): 
         if option.runappdirect:
