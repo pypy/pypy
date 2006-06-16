@@ -85,6 +85,12 @@ namespace pypy.runtime
         {
             return Convert.ToInt32(s, base_);
         }
+
+        public static double Time()
+        {
+            TimeSpan t = (DateTime.UtcNow - new DateTime(1970, 1, 1));
+            return t.TotalSeconds;
+        }
     }
 
     public class StringBuilder

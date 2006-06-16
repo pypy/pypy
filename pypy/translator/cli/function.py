@@ -46,9 +46,39 @@ class Function(Node, Generator):
     def _is_raise_block(self, block):
         return (not block.exits) and len(block.inputargs) == 2        
 
+    def _render_primitive(self, ilasm):
+        self.ilasm = ilasm
+        graph = self.graph
+        func_name = graph.func.func_name
+        returntype, returnvar = self.cts.llvar_to_cts(graph.getreturnvar())
+
+        if self.is_method:
+            args = self.args[1:] # self is implicit
+            meth_type = 'virtual' # TODO: mark as virtual only when strictly necessary
+        else:
+            args = self.args
+            meth_type = 'static'
+
+        self.ilasm.begin_function(self.name, args, returntype, self.is_entrypoint, meth_type)        
+        if func_name == 'll_time_time':
+            ilasm.opcode('call float64 [pypylib]pypy.runtime.Utils::Time()')
+        else:
+            assert False, 'Unknown primitive function: %s' % func
+
+        self.ilasm.opcode('ret')
+        self.ilasm.end_function()
+        if self.is_method:
+            pass # TODO
+        else:
+            self.db.record_function(self.graph, self.name)
+
     def render(self, ilasm):
         if self.db.graph_name(self.graph) is not None and not self.is_method:
             return # already rendered
+
+        if getattr(self.graph.func, 'suggested_primitive', False):
+            self._render_primitive(ilasm) # XXX: refactoring needed
+            return
 
         self.ilasm = ilasm
         graph = self.graph
@@ -61,7 +91,7 @@ class Function(Node, Generator):
             args = self.args
             meth_type = 'static'
 
-        self.ilasm.begin_function(self.name, args, returntype, self.is_entrypoint, meth_type)
+        self.ilasm.begin_function(self.name, args, returntype, self.is_entrypoint, meth_type)        
         self.ilasm.locals(self.locals)
 
         return_blocks = []
