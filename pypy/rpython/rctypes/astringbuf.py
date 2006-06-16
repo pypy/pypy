@@ -21,7 +21,7 @@ class CreateStringBufferFnEntry(ExtRegistryEntry):
     def compute_result_annotation(self, s_length):
         if s_length.knowntype != int:
             raise Exception("only supports create_string_buffer(length)")
-        return SomeCTypesObject(StringBufferType, SomeCTypesObject.OWNSMEMORY)
+        return SomeCTypesObject(StringBufferType, ownsmemory=True)
 
     def specialize_call(self, hop):
         from pypy.rpython.lltypesystem import lltype
@@ -71,6 +71,6 @@ class SizeOfFnEntry(ExtRegistryEntry):
                 raise TyperError("ctypes.sizeof(non_ctypes_object)")
             # XXX check that s_arg.const is really a ctypes type
             ctype = s_arg.const
-            s_arg = SomeCTypesObject(ctype, SomeCTypesObject.OWNSMEMORY)
+            s_arg = SomeCTypesObject(ctype, ownsmemory=True)
             r_arg = hop.rtyper.getrepr(s_arg)
         return hop.inputconst(lltype.Signed, llmemory.sizeof(r_arg.ll_type))

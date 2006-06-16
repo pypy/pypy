@@ -42,8 +42,7 @@ class IncrefFnEntry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         from pypy.rpython.lltypesystem import lltype
-        s_pyobj = annmodel.SomeCTypesObject(W_Object,
-                                   annmodel.SomeCTypesObject.MEMORYALIAS)
+        s_pyobj = annmodel.SomeCTypesObject(W_Object, ownsmemory=False)
         r_pyobj = hop.rtyper.getrepr(s_pyobj)
         [v_box] = hop.inputargs(r_pyobj)
         v_value = r_pyobj.getvalue(hop.llops, v_box)
@@ -60,8 +59,7 @@ class DecrefFnEntry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         from pypy.rpython.lltypesystem import lltype
-        s_pyobj = annmodel.SomeCTypesObject(W_Object,
-                                   annmodel.SomeCTypesObject.MEMORYALIAS)
+        s_pyobj = annmodel.SomeCTypesObject(W_Object, ownsmemory=False)
         r_pyobj = hop.rtyper.getrepr(s_pyobj)
         [v_box] = hop.inputargs(r_pyobj)
         v_value = r_pyobj.getvalue(hop.llops, v_box)

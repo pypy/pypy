@@ -30,7 +30,7 @@ class CallEntry(CTypesEntry):
             #... because then in ctypes you don't get automatic unwrapping.
             #    That would not be annotatable, for the same reason that
             #    reading the .value attribute of py_object is not annotatable
-        s_result = SomeCTypesObject(result_ctype, SomeCTypesObject.OWNSMEMORY)
+        s_result = SomeCTypesObject(result_ctype, ownsmemory=True)
         return s_result.return_annotation()
 
 ##    def object_seen(self, bookkeeper):
@@ -66,7 +66,7 @@ class CallEntry(CTypesEntry):
         fnname = cfuncptr.__name__
 
         def repr_for_ctype(ctype):
-            s = SomeCTypesObject(ctype, SomeCTypesObject.MEMORYALIAS)
+            s = SomeCTypesObject(ctype, ownsmemory=False)
             r = hop.rtyper.getrepr(s)
             return r
 
@@ -106,8 +106,7 @@ class CallEntry(CTypesEntry):
                 unwrapped_args_v.append(r_arg.get_c_data(hop.llops, v))
                 ARGTYPES.append(r_arg.c_data_type)
         if cfuncptr.restype is not None:
-            s_res = SomeCTypesObject(cfuncptr.restype,
-                                     SomeCTypesObject.OWNSMEMORY)
+            s_res = SomeCTypesObject(cfuncptr.restype, ownsmemory=True)
             r_res = hop.rtyper.getrepr(s_res)
             RESTYPE = r_res.ll_type
         else:

@@ -34,17 +34,11 @@ class CTypesRepr(Repr):
         # ll_type: the low-level type representing the raw
         #          data, which is then embedded in a box.
         ctype = s_ctypesobject.knowntype
-        memorystate = s_ctypesobject.memorystate
 
         self.rtyper = rtyper
         self.ctype = ctype
         self.ll_type = ll_type
-        if memorystate == SomeCTypesObject.OWNSMEMORY:
-            self.ownsmemory = True
-        elif memorystate == SomeCTypesObject.MEMORYALIAS:
-            self.ownsmemory = False
-        else:
-            raise TyperError("unsupported ctypes memorystate %r" % memorystate)
+        self.ownsmemory = s_ctypesobject.ownsmemory
 
         self.c_data_type = self.get_c_data_type(ll_type)
 
@@ -57,8 +51,7 @@ class CTypesRepr(Repr):
             self.r_memoryowner = self
             fields.append(( "c_data", self.c_data_type ))
         else:
-            s_memoryowner = SomeCTypesObject(ctype,
-                                             SomeCTypesObject.OWNSMEMORY)
+            s_memoryowner = SomeCTypesObject(ctype, ownsmemory=True)
             self.r_memoryowner = rtyper.getrepr(s_memoryowner)
             fields += [
                 ( "c_data_owner_keepalive", self.r_memoryowner.lowleveltype ),

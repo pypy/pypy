@@ -22,7 +22,7 @@ class ArrayRepr(CTypesRefRepr):
         
         # Find the repr and low-level type of items from their ctype
         self.r_item = rtyper.getrepr(SomeCTypesObject(item_ctype,
-                                            SomeCTypesObject.MEMORYALIAS))
+                                                      ownsmemory=False))
 
         # Here, self.c_data_type == self.ll_type
         c_data_type = lltype.FixedSizeArray(self.r_item.ll_type,

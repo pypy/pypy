@@ -53,8 +53,7 @@ class ObjEntry(CTypesObjEntry):
     def get_field_annotation(self, s_struct, fieldname):
         for name, ctype in self.type._fields_:
             if name == fieldname:
-                s_result = SomeCTypesObject(ctype,
-                                            SomeCTypesObject.MEMORYALIAS)
+                s_result = SomeCTypesObject(ctype, ownsmemory=False)
                 return s_result.return_annotation()
         raise AttributeError('%r has no field %r' % (self.type, fieldname))
 

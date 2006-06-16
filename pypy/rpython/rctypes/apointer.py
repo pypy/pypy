@@ -25,8 +25,7 @@ class ObjEntry(CTypesObjEntry):
         assert fieldname == "contents"
         ptrtype = self.type
         assert s_pointer.knowntype == ptrtype
-        return SomeCTypesObject(ptrtype._type_,
-                                SomeCTypesObject.MEMORYALIAS)
+        return SomeCTypesObject(ptrtype._type_, ownsmemory=False)
 
     def get_repr(self, rtyper, s_pointer):
         from pypy.rpython.rctypes.rpointer import PointerRepr
@@ -41,7 +40,7 @@ class PointerFnEntry(ExtRegistryEntry):
         assert isinstance(s_arg, SomeCTypesObject)
         ctype = s_arg.knowntype
         result_ctype = POINTER(ctype)
-        return SomeCTypesObject(result_ctype, SomeCTypesObject.OWNSMEMORY)
+        return SomeCTypesObject(result_ctype, ownsmemory=True)
 
     def specialize_call(hop):
         r_ptr = hop.r_result

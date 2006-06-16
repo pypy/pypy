@@ -430,16 +430,14 @@ class SomeExternalBuiltin(SomeExternalObject):
 class SomeCTypesObject(SomeExternalObject):
     """Stands for an object of the ctypes module."""
 
-    NOMEMORY = "NOMEMORY"
-    OWNSMEMORY = "OWNSMEMORY"
-    MEMORYALIAS = "MEMORYALIAS"
-    MIXEDMEMORYOWNERSHIP = "MIXEDMEMORYOWNERSHIP"
-    
-    def __init__(self, knowntype, memorystate):
-        if memorystate is None:
-            memorystate = knowntype.default_memorystate
+    def __init__(self, knowntype, ownsmemory):
         self.knowntype = knowntype
-        self.memorystate = memorystate 
+        self.ownsmemory = ownsmemory
+        # 'ownsmemory' specifies if the object is *statically known* to own
+        # its C memory.  If it is False, it will be rtyped as an alias object.
+        # Alias objects are allowed, at run-time, to have keepalives, so
+        # that they can indirectly own their memory too (it's just less
+        # efficient).
 
     def can_be_none(self):
         # only 'py_object' can also be None

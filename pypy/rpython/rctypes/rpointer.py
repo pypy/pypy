@@ -20,7 +20,7 @@ class PointerRepr(CTypesValueRepr):
         rtyper = self.rtyper
         ref_ctype = self.ctype._type_
         self.r_contents = rtyper.getrepr(SomeCTypesObject(ref_ctype,
-                                               SomeCTypesObject.MEMORYALIAS))
+                                                          ownsmemory=False))
         if isinstance(self.ll_type.TO, lltype.ForwardReference):
             self.ll_type.TO.become(self.r_contents.c_data_type)
         if isinstance(self.keepalive_box_type, lltype.GcForwardReference):

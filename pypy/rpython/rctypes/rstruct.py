@@ -15,7 +15,7 @@ class StructRepr(CTypesRefRepr):
         llfields = []
         for name, field_ctype in struct_ctype._fields_:
             r_field = rtyper.getrepr(SomeCTypesObject(field_ctype,
-                                                SomeCTypesObject.MEMORYALIAS))
+                                                      ownsmemory=False))
             self.r_fields[name] = r_field
             llfields.append((cmangle(name), r_field.ll_type))
 

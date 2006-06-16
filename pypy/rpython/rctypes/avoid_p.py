@@ -46,7 +46,7 @@ class CastFnEntry(ExtRegistryEntry):
             pass
         else:
             self.checkptr(s_arg.knowntype)
-        return SomeCTypesObject(type, SomeCTypesObject.OWNSMEMORY)
+        return SomeCTypesObject(type, ownsmemory=True)
 
     def specialize_call(self, hop):
         from pypy.rpython.rctypes.rpointer import PointerRepr

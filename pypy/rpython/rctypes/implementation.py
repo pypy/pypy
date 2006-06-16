@@ -96,7 +96,7 @@ class CTypesCallEntry(CTypesEntry):
 
     def compute_result_annotation(self, *args_s, **kwds_s):
         ctype = self.instance    # the ctype is the called object
-        return SomeCTypesObject(ctype, SomeCTypesObject.OWNSMEMORY)
+        return SomeCTypesObject(ctype, ownsmemory=True)
 
 class CTypesObjEntry(CTypesEntry):
     "Annotation and rtyping of ctypes instances."
@@ -104,7 +104,7 @@ class CTypesObjEntry(CTypesEntry):
     def compute_annotation(self):
         #self.ctype_object_discovered()
         ctype = self.type
-        return SomeCTypesObject(ctype, SomeCTypesObject.OWNSMEMORY)
+        return SomeCTypesObject(ctype, ownsmemory=True)
 
 
 # Importing for side effect of registering types with extregistry

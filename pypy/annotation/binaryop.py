@@ -793,8 +793,7 @@ class __extend__(pairtype(SomeCTypesObject, SomeInteger)):
         # because both have a _type_ attribute that contains the type of the
         # object pointed to or in the case of an array the element type.
         result_ctype = s_cto.knowntype._type_
-        s_result = SomeCTypesObject(result_ctype,
-                                    memorystate=SomeCTypesObject.MEMORYALIAS)
+        s_result = SomeCTypesObject(result_ctype, ownsmemory=False)
         return s_result.return_annotation()
 
 class __extend__(pairtype(SomeCTypesObject, SomeSlice)):
@@ -804,8 +803,7 @@ class __extend__(pairtype(SomeCTypesObject, SomeSlice)):
 
     def getitem((s_cto, s_slice)):
         result_ctype = s_cto.knowntype._type_
-        s_result = SomeCTypesObject(result_ctype,
-                                    memorystate=SomeCTypesObject.MEMORYALIAS)
+        s_result = SomeCTypesObject(result_ctype, ownsmemory=False)
         list_item = s_result.return_annotation()
         if isinstance(list_item, SomeChar):
             return SomeString()
@@ -815,17 +813,9 @@ class __extend__(pairtype(SomeCTypesObject, SomeSlice)):
 class __extend__(pairtype(SomeCTypesObject, SomeCTypesObject)):
     def union((s_cto1, s_cto2)):
         if s_cto1.knowntype == s_cto2.knowntype:
-            states = {}
-            for s in [s_cto1, s_cto2]:
-                if s.memorystate != SomeCTypesObject.NOMEMORY:
-                    states[s.memorystate] = True
-            if len(states) == 0:
-                state = SomeCTypesObject.NOMEMORY
-            elif len(states) == 1:
-                [state] = states.keys()
-            else:
-                state = SomeCTypesObject.MIXEDMEMORYOWNERSHIP
-            return SomeCTypesObject(s_cto1.knowntype, state)
+            return SomeCTypesObject(s_cto1.knowntype,
+                                    ownsmemory = (s_cto1.ownsmemory and
+                                                  s_cto2.ownsmemory))
         else:
             return SomeObject()
 

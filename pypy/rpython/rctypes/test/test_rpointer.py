@@ -8,6 +8,7 @@ from pypy.translator.translator import TranslationContext
 from pypy import conftest
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.translator.c.test.test_genc import compile
+from pypy.annotation.model import SomeCTypesObject
 
 from ctypes import c_int, c_float, POINTER, pointer, Structure
 
@@ -128,6 +129,21 @@ class Test_annotation:
 
         if conftest.option.view:
             t.view()
+
+    def test_annotate_mixed_ownership(self):
+        def fn(n):
+            if n > 0:
+                p = pointer(c_int())
+                q = p.contents
+            else:
+                q = c_int()
+            return q
+
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(fn, [int])
+        assert isinstance(s, SomeCTypesObject)
+        assert not s.ownsmemory
 
 
 class Test_specialization:
@@ -274,6 +290,21 @@ class Test_specialization:
             p.contents = c_int(12)
             assert p
         interpret(fn, [])
+
+    def test_specialize_mixed_ownership(self):
+        def fn(n):
+            a = c_int(55)
+            if n > 0:
+                p = pointer(a)
+                q = p.contents
+            else:
+                q = c_int()
+            q.value = n
+            return a.value
+        res = interpret(fn, [12])
+        assert res == 12
+        res = interpret(fn, [-12])
+        assert res == 55
 
 class Test_compilation:
     def test_compile_getitem_nonzero_index(self):
