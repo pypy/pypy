@@ -59,11 +59,13 @@ class Function(Node, Generator):
             args = self.args
             meth_type = 'static'
 
-        self.ilasm.begin_function(self.name, args, returntype, self.is_entrypoint, meth_type)        
+        self.ilasm.begin_function(self.name, args, returntype, self.is_entrypoint, meth_type)
         if func_name == 'll_time_time':
             ilasm.opcode('call float64 [pypylib]pypy.runtime.Utils::Time()')
+        elif func_name == 'll_time_clock':
+            ilasm.opcode('call float64 [pypylib]pypy.runtime.Utils::Clock()')
         else:
-            assert False, 'Unknown primitive function: %s' % func
+            assert False, 'Unknown primitive function: %s' % func_name
 
         self.ilasm.opcode('ret')
         self.ilasm.end_function()
