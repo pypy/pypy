@@ -9,9 +9,6 @@ from pypy.module._stackless.interp_clonable import ClonableCoroutine
 from pypy.module._stackless.interp_clonable import AbstractThunk, fork
 from pypy.conftest import skip_on_missing_buildoption
 
-def setup_module(mod):
-    skip_on_missing_buildoption(stackless=True)
-
 class TestClonableCoroutine(test_transformed_gc.GCTest):
 
     class gcpolicy(gc.StacklessFrameworkGcPolicy):
