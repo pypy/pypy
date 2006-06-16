@@ -213,10 +213,15 @@ class Coroutine(Wrappable):
         state = self.costate
         try:
             try:
-                self.thunk.call()
-                resume_point("coroutine__bind", self, state)
+                try:
+                    exc = None
+                    self.thunk.call()
+                    resume_point("coroutine__bind", self, state)
+                except Exception, e:
+                    exc = e
+                    raise
             finally:
-                self.finished()
+                self.finish(exc)
                 self.thunk = None
         except CoroutineExit:
             # ignore a shutdown exception
@@ -224,7 +229,7 @@ class Coroutine(Wrappable):
         except Exception, e:
             # redirect all unhandled exceptions to the parent
             syncstate.things_to_do = True
-            syncstate.temp_exc = e
+            syncstate.temp_exc = exc
         while self.parent is not None and self.parent.frame is None:
             # greenlet behavior is fine
             self.parent = self.parent.parent
