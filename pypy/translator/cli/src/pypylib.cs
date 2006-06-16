@@ -91,6 +91,13 @@ namespace pypy.runtime
             TimeSpan t = (DateTime.UtcNow - new DateTime(1970, 1, 1));
             return t.TotalSeconds;
         }
+
+        static DateTime ClockStart = DateTime.UtcNow;
+        public static double Clock()
+        {
+            return (DateTime.UtcNow - ClockStart).TotalSeconds;
+        }
+
     }
 
     public class StringBuilder
