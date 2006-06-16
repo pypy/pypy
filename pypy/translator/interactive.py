@@ -4,23 +4,10 @@ import autopath
 from pypy.translator.translator import TranslationContext
 from pypy.translator import driver
 
-DEFAULT_OPTIONS = {
-  'gc': 'ref',
-
-  'thread': False, # influences GC policy
-
-  'stackless': False,
-  'debug': True,
-  'insist': False,
-   
-   'backend': None,
-   'lowmem': False,
-
-   'fork_before': None,
-
-   'raisingop2direct_call' : False,
-   'merge_if_blocks': True
-}
+DEFAULT_OPTIONS = driver.DEFAULT_OPTIONS.copy()
+DEFAULT_OPTIONS.update({
+  'backend': None,
+})
 
 class Translation(object):
 
@@ -48,10 +35,10 @@ class Translation(object):
 
     GOAL_USES_OPTS = {
         'annotate': ['debug'],
-        'rtype': ['insist'],
-        'ootype': [],
-        'backendopt': ['raisingop2direct_call', 'merge_if_blocks'],
-        'stackcheckinsertion': [],
+        'rtype_lltype': ['insist'],
+        'rtype_ootype': ['insist'],
+        'backendopt_lltype': ['raisingop2direct_call', 'merge_if_blocks'],
+        'stackcheckinsertion_lltype': [],
         'database_c': ['gc', 'stackless'],
         'source_llvm': [],
         'source_js': [],
@@ -114,12 +101,26 @@ class Translation(object):
                 setattr(self.driver.options, optname, value)
                 self.frozen_options[optname] = True
 
+    def ensure_opt(self, name, value=None, fallback=None):
+        if value is not None:
+            self.update_options(None, {name: value})
+        elif fallback is not None and name not in self.frozen_options:
+            self.update_options(None, {name: fallback})
+        val =  getattr(self.driver.options, name)
+        if val is None:
+            raise Exception("the %r option should have been specified at this point" % name)
+        return val
+
+    def ensure_type_system(self, type_system=None):
+        if type_system is None:
+            backend = self.driver.options.backend
+            if backend is not None:
+                type_system = driver.backend_to_typesystem(backend)
+        return self.ensure_opt('type_system', type_system, 'lltype')
+        
     def ensure_backend(self, backend=None):
-        if backend is not None:
-            self.update_options(None, {'backend': backend})
-        if self.driver.options.backend is None:
-            raise Exception("a backend should have been specified at this point")
-        backend = self.driver.options.backend
+        backend = self.ensure_opt('backend', backend)
+        self.ensure_type_system()
         if backend == 'llvm':
             self.update_options(None, {'gc': 'boehm'})
         return backend
@@ -134,26 +135,20 @@ class Translation(object):
         self.update_options(argtypes, kwds)
         return self.driver.annotate()
 
+    # type system dependent
+
     def rtype(self, argtypes=None, **kwds):
         self.update_options(argtypes, kwds)
-        return self.driver.rtype()
-
-    def ootype(self, argtypes=None, **kwds):
-        self.update_options(argtypes, kwds)
-        return self.driver.ootype()
-
-    # backend depedent
+        ts = self.ensure_type_system()
+        return getattr(self.driver, 'rtype_'+ts)()        
 
     def backendopt(self, argtypes=None, **kwds):
         self.update_options(argtypes, kwds)
-        #self.ensure_backend()
-        self.driver.backendopt()
-
-    def backendopt_c(self, argtypes=None, **kwds):
-        self.update_options(argtypes, kwds)
-        self.ensure_backend('c')
-        self.driver.backendopt()
+        ts = self.ensure_type_system('lltype')
+        return getattr(self.driver, 'backendopt_'+ts)()                
             
+    # backend depedent
+
     def source(self, argtypes=None, **kwds):
         self.update_options(argtypes, kwds)
         backend = self.ensure_backend()

@@ -103,6 +103,7 @@ defaults = {
 
     'gc': 'boehm',
     'backend': 'c',
+    'type_system': None,
     'stackless': False,
     'raisingop2direct_call' : False,
     'merge_if_blocks': True,

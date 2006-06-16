@@ -33,9 +33,13 @@ def test_simple_rtype():
     s = t.annotate()
     t.rtype()
 
+    assert 'rtype_lltype' in t.driver.done    
+
     t = Translation(f)
     s = t.annotate([int, int])
     t.rtype()
+
+    assert 'rtype_lltype' in t.driver.done        
 
     t = Translation(f, [int, int])
     t.annotate()
@@ -47,12 +51,13 @@ def test_simple_backendopt():
 
     t = Translation(f, [int, int], backend='c')
     t.backendopt()
-
-    t = Translation(f, [int, int])
-    t.backendopt_c()
+    
+    assert 'backendopt_lltype' in t.driver.done
 
     t = Translation(f, [int, int])
     t.backendopt()
+
+    assert 'backendopt_lltype' in t.driver.done
 
 def test_simple_source():
     def f(x, y):
@@ -112,3 +117,44 @@ def test_simple_compile_c():
 
     res = t_f(2,3)
     assert res == 5
+
+def test_simple_rtype_with_type_system():
+
+    def f(x,y):
+        return x+y
+
+    t = Translation(f, [int, int])
+    s = t.annotate()
+    t.rtype(type_system='lltype')
+
+    assert 'rtype_lltype' in t.driver.done    
+
+    t = Translation(f, [int, int])
+    s = t.annotate()
+    t.rtype(type_system='ootype')
+    assert 'rtype_ootype' in t.driver.done        
+
+    t = Translation(f, type_system='ootype')
+    s = t.annotate([int, int])
+    t.rtype()
+    assert 'rtype_ootype' in t.driver.done    
+
+    t = Translation(f)
+    s = t.annotate([int, int])
+    t.rtype(backend='squeak')
+    assert 'rtype_ootype' in t.driver.done
+
+
+    t = Translation(f, backend='squeak', type_system='ootype')
+    s = t.annotate([int, int])
+    t.rtype()
+    assert 'rtype_ootype' in t.driver.done        
+
+    t = Translation(f, type_system='lltype')
+    s = t.annotate([int, int])
+    py.test.raises(Exception, "t.rtype(backend='squeak')")
+
+    t = Translation(f, backend='squeak')
+    s = t.annotate([int, int])
+    py.test.raises(Exception, "t.rtype(type_system='lltype')")
+
