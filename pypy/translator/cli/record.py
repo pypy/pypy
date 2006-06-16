@@ -68,7 +68,7 @@ class Record(Node):
                 return # it's not a tuple
 
         self.ilasm.begin_function('ToString', [], 'string', False, 'virtual', 'instance', 'default')
-        self.ilasm.opcode('ldstr', '""')
+        self.ilasm.opcode('ldstr', '"("')
         for i in xrange(len(self.record._fields)):
             f_name = 'item%d' % i
             FIELD_TYPE, f_default = self.record._fields[f_name]
@@ -79,5 +79,7 @@ class Record(Node):
             self.ilasm.call('string string::Concat(string, string)')
             self.ilasm.opcode('ldstr ", "')
             self.ilasm.call('string string::Concat(string, string)')
+        self.ilasm.opcode('ldstr ")"')
+        self.ilasm.call('string string::Concat(string, string)')            
         self.ilasm.opcode('ret')
         self.ilasm.end_function()
