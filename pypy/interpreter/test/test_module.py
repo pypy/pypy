@@ -50,5 +50,5 @@ class AppTest_ModuleObject:
     def test___file__(self): 
         import sys, os
         assert sys.__file__ 
-        assert os.path.basename(sys.__file__).startswith('__init__.py') 
+        assert os.path.basename(sys.__file__).startswith('*.py') 
         
