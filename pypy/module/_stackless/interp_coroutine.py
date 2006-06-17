@@ -298,7 +298,7 @@ class Coroutine(Wrappable):
     def goodbye(self):
         "Called just after execution is transferred away from this coroutine."
 
-    def finished(self):
-        "Called just after frame died"
+    def finish(self, exc=None):
+        "stephan forgot me"
 
 # _________________________________________________
