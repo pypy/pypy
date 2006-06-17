@@ -1,5 +1,7 @@
+from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.backendopt.support import \
-     needs_conservative_livevar_calculation, split_block_with_keepalive
+     needs_conservative_livevar_calculation, split_block_with_keepalive, \
+     find_loop_blocks, find_backedges
 
 from pypy.rpython.rtyper import LowLevelOpList
 from pypy.rpython.lltypesystem import lltype
@@ -91,4 +93,36 @@ def test_sbwk_should_insert_keepalives_2():
     link = split_block_with_keepalive(block, 1)
     assert 'keepalive' in [op.opname for op in link.target.operations]
 
+#__________________________________________________________
+# test loop detection
+
+def test_find_backedges():
+    def f(k):
+        result = 0
+        for i in range(k):
+            result += 1
+        for j in range(k):
+            result += 1
+        return result
+    t = TranslationContext()
+    t.buildannotator().build_types(f, [int])
+    t.buildrtyper().specialize()
+    graph = graphof(t, f)
+    backedges = find_backedges(graph)
+    assert len(backedges) == 2
+
+def test_find_loop_blocks():
+    def f(k):
+        result = 0
+        for i in range(k):
+            result += 1
+        for j in range(k):
+            result += 1
+        return result
+    t = TranslationContext()
+    t.buildannotator().build_types(f, [int])
+    t.buildrtyper().specialize()
+    graph = graphof(t, f)
+    loop_blocks = find_loop_blocks(graph)
+    assert len(loop_blocks) == 4
 

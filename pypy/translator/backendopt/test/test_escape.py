@@ -404,32 +404,6 @@ def test_extfunc_resultonheap():
     assert not state.does_escape()
 
 
-#__________________________________________________________
-# test loop detection
-
-def test_find_backedges():
-    def f(k):
-        result = 0
-        for i in range(k):
-            result += 1
-        for j in range(k):
-            result += 1
-        return result
-    t, adi, graph = build_adi(f, [int])
-    backedges = find_backedges(graph)
-    assert len(backedges) == 2
-
-def test_find_loop_blocks():
-    def f(k):
-        result = 0
-        for i in range(k):
-            result += 1
-        for j in range(k):
-            result += 1
-        return result
-    t, adi, graph = build_adi(f, [int])
-    loop_blocks = find_loop_blocks(graph)
-    assert len(loop_blocks) == 4
 
 #__________________________________________________________
 # malloc removal tests
