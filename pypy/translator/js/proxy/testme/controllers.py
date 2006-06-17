@@ -28,12 +28,16 @@ class Root(controllers.Root):
     def sessionSocket(self, close=False):
         sm = self.serverMessage()
         if sm.socket is None:
+            player_id = 0 #XXX hardcoded for now
             sm.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sm.socket.connect((self.host, self.port))
             sm.socket.send(message(CMSG_PROTO_VERSION, 2))  #, version
             sm.socket.send(message(CMSG_ENABLE_SOUND, 0))   #, has_sound
             sm.socket.send(message(CMSG_ENABLE_MUSIC, 0))   #, has_music
             sm.socket.send(message(CMSG_UDP_PORT, "\\"))    #, port
+            sm.socket.send(message(CMSG_PING))              #so server starts sending data
+            sm.socket.send(message(CMSG_ADD_PLAYER, player_id))
+            sm.socket.send(message(CMSG_PLAYER_NAME, player_id, 'playername'))
             #XXX todo: session.socket.close() after a timeout
         return sm.socket
 
@@ -44,13 +48,8 @@ class Root(controllers.Root):
         return dict()
 
     @expose(format='json')
-    def ping(self):
-        self.sessionSocket().send(message(CMSG_PING))
-        return self.recv()
-
-    @expose(format='json')
     def recv(self):
-        #XXX hangs if not first sending a ping!
+        #XXX hangs if not first sending CMSG_PING!
         sm   = self.serverMessage()
         size = 1024
         data = sm.data + self.sessionSocket().recv(size)
@@ -85,6 +84,11 @@ class Root(controllers.Root):
         #        len_before, inline_frames, len(messages)))
         return dict(messages=messages)
 
+    @expose(format='json')
+    def close(self):
+        self._close()
+        return dict()
+
     def _close(self):
         sessionid = session['_id']
         if sessionid in self._serverMessage:
@@ -92,9 +96,4 @@ class Root(controllers.Root):
             if sm.socket is not None:
                 sm.socket.close()
             del self._serverMessage[sessionid]
-
-    @expose(format='json')
-    def close(self):
-        self._close()
-        return dict()
 

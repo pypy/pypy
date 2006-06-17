@@ -38,6 +38,7 @@ class ServerMessage:
     _def_icon_queue = {}
     base_gfx_dir = 'testme/static/images/'
     base_gfx_url = 'static/images/'
+    gfx_extension = 'gif'
 
     def __init__(self):
         self.socket = None
@@ -89,7 +90,7 @@ class ServerMessage:
     def def_bitmap1(self, bitmap_code, data, *rest):
         #log('def_bitmap1 bitmap_code=%d, data=%d bytes, colorkey=%s' % (
         #    bitmap_code, len(data), rest))
-        gif_bitmap_filename = '%sbitmap%d.gif' % (self.gfx_dir, bitmap_code)
+        gif_bitmap_filename = '%sbitmap%d.%s' % (self.gfx_dir, bitmap_code, self.gfx_extension)
         if exists(gif_bitmap_filename):
             #log('CACHED:%s' % gif_bitmap_filename)
             pass
@@ -118,7 +119,7 @@ class ServerMessage:
 
     def def_bitmap2(self, bitmap_code, fileid, *rest):
         #log('def_bitmap2: bitmap_code=%d, fileid=%d, colorkey=%s' % (bitmap_code, fileid, rest))
-        gif_bitmap_filename = '%sbitmap%d.gif' % (self.gfx_dir, bitmap_code)
+        gif_bitmap_filename = '%sbitmap%d.%s' % (self.gfx_dir, bitmap_code, self.gfx_extension)
         if exists(gif_bitmap_filename):
             #log('SKIP DATA_REQUEST:%s' % gif_bitmap_filename)
             pass
@@ -135,8 +136,8 @@ class ServerMessage:
         #log('def_icon bitmap_code=%s, icon_code=%s, x=%s, y=%s, w=%s, h=%s, alpha=%s' %\
         #    (bitmap_code, icon_code, x,y,w,h, rest))
 
-        bitmap_filename = '%sbitmap%d.gif' % (self.gfx_dir, bitmap_code)
-        icon_filename = '%sicon%d.gif' % (self.gfx_dir, icon_code)
+        bitmap_filename = '%sbitmap%d.%s' % (self.gfx_dir, bitmap_code, self.gfx_extension)
+        icon_filename = '%sicon%d.%s' % (self.gfx_dir, icon_code, self.gfx_extension)
         if exists(icon_filename):
             #log('CACHED:%s' % icon_filename)
             pass
@@ -154,7 +155,7 @@ class ServerMessage:
             self._def_icon_queue[bitmap_code].append((icon_code, x, y, w, h, rest))
             return
 
-        filename = '%sicon%d.gif' % (self.gfx_url, icon_code)
+        filename = '%sicon%d.%s' % (self.gfx_url, icon_code, self.gfx_extension)
         return dict(type=PMSG_DEF_ICON, icon_code=icon_code, filename=filename, width=w, height=h)
 
     def zpatch_file(self, fileid, position, data): #response to CMSG_DATA_REQUEST
