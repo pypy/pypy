@@ -447,7 +447,6 @@ def measure_median_execution_cost(graph):
     for block in graph.iterblocks():
         blockmap[block] = len(blocks)
         blocks.append(block)
-    backedges = dict.fromkeys(find_backedges(graph), True)
     loops = find_loop_blocks(graph)
     M = sparsemat.SparseMatrix(len(blocks))
     vector = []
