@@ -183,6 +183,30 @@ def test_inline_exceptions():
     result = eval_func([42])
     assert result == 1
 
+def test_inline_const_exceptions():
+    valueError = ValueError()
+    keyError = KeyError()
+    def f(x):
+        if x == 0:
+            raise valueError
+        if x == 1:
+            raise keyError
+    def g(x):
+        try:
+            f(x)
+        except ValueError:
+            return 2
+        except KeyError:
+            return x+2
+        return 1
+    eval_func = check_inline(f, g, [int])
+    result = eval_func([0])
+    assert result == 2
+    result = eval_func([1])
+    assert result == 3
+    result = eval_func([42])
+    assert result == 1
+
 def test_inline_exception_guarded():
     def h(x):
         if x == 1:

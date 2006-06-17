@@ -7,6 +7,7 @@ from pypy.objspace.flow.model import SpaceOperation, c_last_exception
 from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem.lltype import Bool, typeOf, Void, Ptr
+from pypy.rpython.lltypesystem.lltype import normalizeptr
 from pypy.rpython import rmodel
 from pypy.tool.algo import sparsemat
 from pypy.translator.backendopt.support import log, split_block_with_keepalive
@@ -82,14 +83,19 @@ def _find_exception_type(block):
     #XXX slightly brittle: find the exception type for simple cases
     #(e.g. if you do only raise XXXError) by doing pattern matching
     currvar = block.exits[0].args[1]
-    for op in block.operations[::-1]:
+    ops = block.operations
+    i = len(ops)-1
+    while True:
+        if isinstance(currvar, Constant):
+            return typeOf(normalizeptr(currvar.value)), block.exits[0]
+        if i < 0:
+            return None, None
+        op = ops[i]
+        i -= 1
         if op.opname in ("same_as", "cast_pointer") and op.result is currvar:
             currvar = op.args[0]
         elif op.opname == "malloc" and op.result is currvar:
-            break
-    else:
-        return None, None
-    return Ptr(op.args[0].value), block.exits[0]
+            return Ptr(op.args[0].value), block.exits[0]
 
 def does_raise_directly(graph, raise_analyzer):
     """ this function checks, whether graph contains operations which can raise
