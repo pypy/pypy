@@ -240,19 +240,17 @@ class W_TypeObject(W_Object):
         return w_self.getdictvalue_w(space, space.str_w(w_attr))
     
     def getdictvalue_w(w_self, space, attr):
-        try:
-            return w_self.dict_w[attr]
-        except KeyError:
-            if w_self.lazyloaders:
-                if attr in w_self.lazyloaders:
-                    w_attr = space.new_interned_str(attr)
-                    loader = w_self.lazyloaders[attr]
-                    del w_self.lazyloaders[attr]
-                    w_value = loader()
-                    if w_value is not None:   # None means no such attribute
-                        w_self.dict_w[attr] = w_value
-                        return w_value
-            return None
+        w_value = w_self.dict_w.get(attr, None)
+        if w_self.lazyloaders and w_value is None:
+            if attr in w_self.lazyloaders:
+                w_attr = space.new_interned_str(attr)
+                loader = w_self.lazyloaders[attr]
+                del w_self.lazyloaders[attr]
+                w_value = loader()
+                if w_value is not None:   # None means no such attribute
+                    w_self.dict_w[attr] = w_value
+                    return w_value
+        return w_value
 
     def lookup(w_self, key):
         # note that this doesn't call __get__ on the result at all
