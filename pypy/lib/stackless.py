@@ -45,8 +45,8 @@ last_thread_id = 0
 
 def restore_exception(etype, value, stack):
     """until I find out how to restore an exception on python level"""
-    sys.excepthook(etype, value, stack)
-    #raise value
+    #sys.excepthook(etype, value, stack)
+    raise etype(value)
 
 class TaskletProxy(object):
     def __init__(self, coro):
@@ -392,11 +392,8 @@ class tasklet(coroutine):
         self.ignore_nesting = flag
         return tmpval
 
-    def __finished(self):
-        self.alive = False
-        scheduler.remove_task(self)
-
-    def finished(self, exctype=None, excvalue=None):
+    def finished(self, excinfo):
+        #print 'finished(%s)' % excinfo
         if self.alive:
             self.alive = False
             if self.next is not self:
@@ -405,8 +402,11 @@ class tasklet(coroutine):
                 next = getmain()
             scheduler.remove_task(self)
             prev = self
-            if exctype is not None:
-                b = bomb(exctype, exctype(excvalue))
+            if excinfo[0] is not None:
+                et = excinfo[0]
+                ev = excinfo[1]
+                tr = excinfo[2]
+                b = bomb(et, et(ev), tr)
                 next = getmain()
                 SETVAL(next, b)
             scheduler.schedule_task(prev, next)
@@ -727,7 +727,14 @@ class Scheduler(object):
         thisbomb = task.tempval
         assert isinstance(thisbomb, bomb)
         SETVAL(task, None)
-        thisbomb._explode()
+        try:
+            thisbomb._explode()
+        finally:
+            if getcurrent() == main_tasklet:
+                sys.excepthook(thisbomb.type, 
+                               thisbomb.value, 
+                               thisbomb.traceback)
+                sys.exit()
         
     def _notify_schedule(self, prev, next, errflag):
         if _schedule_fasthook is not None:
@@ -769,7 +776,10 @@ class Scheduler(object):
         self._notify_schedule(prev, next, None)
         self._set_head(next)
 
-        res = next.switch()
+        try:
+            res = next.switch()
+        except:
+            pass
 
         retval = prev.tempval
         if isinstance(retval, bomb):

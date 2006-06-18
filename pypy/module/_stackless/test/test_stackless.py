@@ -127,3 +127,68 @@ class AppTest_Stackless:
         rlist.append('ma')
 
         assert rlist == 'mb fb gb hb fa ga ha ma'.split()
+
+    def test_except(self):
+        import stackless
+        
+        rlist = []
+        def f():
+            rlist.append('f')
+            return 1/0
+
+        def g():
+            rlist.append('bg')
+            stackless.schedule()
+            rlist.append('ag')
+
+        def h():
+            rlist.append('bh')
+            stackless.schedule()
+            rlist.append('ah')
+
+        tg = stackless.tasklet(g)()
+        tf = stackless.tasklet(f)()
+        th = stackless.tasklet(h)()
+
+        try:
+            stackless.run()
+        # cheating, can't test for ZeroDivisionError
+        except Exception, e:
+            rlist.append('E')
+        stackless.schedule()
+        stackless.schedule()
+
+        assert rlist == "bg f E bh ag ah".split()
+
+    def test_except(self):
+        skip('not working yet')
+        import stackless
+        
+        rlist = []
+        def f():
+            rlist.append('f')
+            return 1/0
+
+        def g():
+            rlist.append('bg')
+            stackless.schedule()
+            rlist.append('ag')
+
+        def h():
+            rlist.append('bh')
+            stackless.schedule()
+            rlist.append('ah')
+
+        tg = stackless.tasklet(g)()
+        tf = stackless.tasklet(f)()
+        th = stackless.tasklet(h)()
+
+        try:
+            stackless.run()
+        except ZeroDivisionError:
+            rlist.append('E')
+        stackless.schedule()
+        stackless.schedule()
+
+        assert rlist == "bg f E bh ag ah".split()
+

@@ -89,18 +89,21 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         w_ret, state.w_tempval = state.w_tempval, space.w_None
         return w_ret
 
-    def w_finished(self, w_exctype=None, w_excvalue=None):
+    def w_finished(self, w_excinfo):
         pass
 
     def finish(self, operror=None):
         space = self.space
-        w_exctype = space.w_None
-        w_excvalue = space.w_None
         if operror is not None:
             w_exctype = operror.w_type
             w_excvalue = operror.w_value
+            w_exctraceback = operror.application_traceback
+            w_excinfo = space.newtuple([w_exctype, w_excvalue, w_exctraceback])
+        else:
+            w_N = space.w_None
+            w_excinfo = space.newtuple([w_N, w_N, w_N])
 
-        return space.call_method(space.wrap(self),'finished', w_exctype, w_excvalue)
+        return space.call_method(space.wrap(self),'finished', w_excinfo)
 
     def hello(self):
         ec = self.space.getexecutioncontext()
