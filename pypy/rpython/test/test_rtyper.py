@@ -127,6 +127,10 @@ def test_getgcflavor():
         def __init__(self, cls):
             self._cls = cls
             self.classdesc = self
+            self.basedef = None
+
+        def getmro(self):
+            return [self]
 
         def read_attribute(self, attr, default=NDF):
             try:

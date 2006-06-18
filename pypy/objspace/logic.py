@@ -767,8 +767,9 @@ def Space(*args, **kwds):
     # /multimethods hack
 
     # provide a UnificationError exception
-    space.ExceptionTable.append('UnificationError')
-    space.ExceptionTable.sort() # hmmm
+    # XXX patching the table in-place?  ARGH
+    #space.ExceptionTable.append('UnificationError')
+    #space.ExceptionTable.sort() # hmmm
 
     space.setitem(space.builtin.w_dict, space.wrap('newvar'),
                   space.wrap(app_newvar))
