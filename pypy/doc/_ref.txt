@@ -35,6 +35,7 @@
 .. _`pypy/module/_demo`: ../../pypy/module/_demo
 .. _`module/_sre/`:
 .. _`pypy/module/_sre`: ../../pypy/module/_sre
+.. _`pypy/module/_sre/interp_sre.py`: ../../pypy/module/_sre/interp_sre.py
 .. _`pypy/module/readline`: ../../pypy/module/readline
 .. _`module/recparser/`: ../../pypy/module/recparser
 .. _`module/sys/`: ../../pypy/module/sys

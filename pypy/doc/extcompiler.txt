@@ -133,20 +133,70 @@ modules`_.  The interpreter-level parts of a mixed module must follow
 the RPython_ programming style; this is necessary to allow them to be
 annotated and translated to C.  Whenever they manipulate
 application-level (i.e. user-visible) objects, they must do so via
-object space operations (see `wrapping rules`_).  The mixed modules can
-also export new user-visible types, as in the example of
-`pypy/module/_sre`_ (for reference, see the documentation about the
-`TypeDef`_ of the Module type itself to see how to expose types to
-app-level).
+object space operations (see `wrapping rules`_).
 
 .. _`pypy checkout`: getting-started.html#gettingpypy
 .. _`mixed modules`:     coding-guide.html#mixed-modules
 .. _`interpreter-level`: coding-guide.html#interpreter-level
 .. _`application-level`: coding-guide.html#application-level
 .. _`wrapping rules`:    coding-guide.html#wrapping-rules
-.. _`TypeDef`: interpreter.html#typedefs
 .. _RPython: coding-guide.html#rpython
 .. _RCtypes: rctypes.html
+
+
+
+Exporting functions and types
+++++++++++++++++++++++++++++++++++++
+
+The interpreter-level parts of a mixed module exports functions and
+types to app-level, to make them visible to the module user.  From the
+user's point of view, they are built-in functions and built-in types.
+
+Exporting functions is done via the ``interpleveldefs`` dictionary in
+``__init__.py``.  The functions thus exported must either have a simple
+signature of the form ``(space, w_arg1, w_arg2, w_arg3...)`` -- in this
+case, it will be exposed to app-level as a built-in function taking the
+same number of arguments, and calling the built-in function from
+app-level will pass all the provided arguments as wrapped objects to the
+interp-level function.  Alternatively, the interp-level function can
+have an ``unwrap_spec`` attribute that declares what type of arguments
+it expects (XXX this is not documented in detail so far; grep for
+examples...).
+
+There are two ways to export types.  The first is to write the type at
+app-level, as a regular class.  You can then call interp-level functions
+from your own module to implement some of the methods, while keeping the
+class generally at app-level.
+
+This does not work, however, if you need special data attached to the
+instances of your class.  For this case, you need the second solution:
+write the class entierely at interp-level.  Such a class must inherit
+from ``pypy.interpreter.baseobjspace.Wrappable``.  You can manipulate
+instances of such a class freely at interp-level.  Instances of
+subclasses of ``Wrappable`` are *not* wrapped; they are merely
+wrappable.  To expose them to app-level, call ``w_obj =
+space.wrap(obj)`` -- it wraps your instance ``obj`` into a box, which
+can be passed to app-level.  To unwrap such a thing again, call ``obj =
+space.interp_w(YourSubclass, w_obj)``, which performs a type check and
+returns the unwrapped instance of ``YourSubclass``.  To avoid confusion,
+try to follow the usual naming convension: non-wrapped objects like
+instances of ``Wrappable`` go in variables whose name does *not* start
+with ``w_``; wrapped objects go in variables whose name starts with
+``w_``.
+
+Before you can wrap instances of subclasses of ``Wrappable``, though,
+you need to attach a ``TypeDef`` to the subclass in question.  The
+``TypeDef`` describes the public app-level interface of your type.  An
+example can be found in `pypy/module/_sre/interp_sre.py`_.  Some minimal
+documentation is provided here_, but note that the extcompiler itself
+does not support special methods at the moment, i.e. methods with
+``__xyz__()`` kind of names.  You can only export regular methods (with
+``interp2app()``), properties (with ``GetSetProperty()``), and simple
+class-level attributes like strings and integers.  (This limitation will
+be lifted soon.)
+
+.. _here: interpreter.html#typedefs
+
 
 
 .. _tests:
