@@ -4,6 +4,8 @@ The functions below produce L2 graphs, but they define an interface
 that can be used to produce any other kind of graph.
 """
 
+import py; py.test.skip("this is an outdated copy of rpython.rgenop.  XXX should have only one of those")
+
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.objspace.flow import model as flowmodel
 from pypy.translator.simplify import eliminate_empty_blocks, join_blocks
