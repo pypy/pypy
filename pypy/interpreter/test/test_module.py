@@ -49,6 +49,8 @@ class AppTest_ModuleObject:
 
     def test___file__(self): 
         import sys, os
+        if not hasattr(sys, "pypy_objspaceclass"):
+            skip("need PyPy for sys.__file__ checking")
         assert sys.__file__ 
         assert os.path.basename(sys.__file__).startswith('*.py') 
         
