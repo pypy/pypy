@@ -13,6 +13,7 @@ from pypy.objspace.constraint.computationspace import W_Constraint, W_Variable
 from pypy.objspace.std.model import StdObjSpaceMultiMethod
 
 from pypy.objspace.constraint.btree import BTree
+from pypy.objspace.constraint.util import sort, reverse
 
 import operator
 
@@ -169,24 +170,26 @@ def make_alldistinct(object_space, w_variables):
     return object_space.wrap(W_AllDistinct(object_space, w_variables))
 app_make_alldistinct = gateway.interp2app(make_alldistinct)
 
-
+from pypy.module.__builtin__.compiling import eval as ev
 def make_filter__List_String(object_space, w_variables, w_formula):
     """NOT RPYTHON"""
     assert isinstance(w_variables, W_ListObject)
     assert isinstance(w_formula, W_StringObject)
+    items = object_space.unpackiterable(w_variables)
+    for it in items:
+        assert isinstance(it, W_Variable)
     var_ids = ','.join([var.name_w()
-                        for var in w_variables.wrappeditems])
+                        for var in items]) 
     func_head = 'lambda ' + var_ids + ':'
     expr = func_head + object_space.str_w(w_formula)
-    func_obj = object_space.eval(expr, object_space.newdict({}),
-                                 object_space.newdict({}))
+    func_obj = ev(object_space, object_space.wrap(expr), object_space.newdict([]),
+                                 object_space.newdict([]))
     assert isinstance(func_obj, Function)
     return func_obj
 
 make_filter_mm = StdObjSpaceMultiMethod('make_filter', 2)
 make_filter_mm.register(make_filter__List_String, W_ListObject, W_StringObject)
 all_mms['make_filter'] = make_filter_mm
-
 
 class W_Expression(W_AbstractConstraint):
     """A constraint represented as a python expression."""
@@ -196,27 +199,31 @@ class W_Expression(W_AbstractConstraint):
         formula is a python expression that will be evaluated as a boolean"""
         W_AbstractConstraint.__init__(self, object_space, w_variables)
         self.formula = self._space.str_w(w_formula)
-        self.filter_func = self._space.make_filter(w_variables, w_formula)
+        # self.filter_func is a function taking keyword arguments and returning a boolean
+        self.filter_func = self._space.make_filter( w_variables, w_formula)
 
     def test_solution(self, sol_dict):
         """test a solution against this constraint 
         accept a mapping of variable names to value"""
         args = []
         for var in self._variables:
+            assert isinstance(var, W_Variable)
             args.append(sol_dict[var.w_name()])
         return self.filter_func(*args)
 
     def _init_result_cache(self):
         """key = (variable,value), value = [has_success,has_failure]"""
-        result_cache = self._space.newdict({})
+        result_cache = self._space.newdict([])
         for var in self._variables:
-            result_cache.content[var.w_name()] = self._space.newdict({})
+            assert isinstance(var, W_Variable)
+            result_cache.content[var.w_name()] = self._space.newdict([])
         return result_cache
 
     def _assign_values(self, w_cs):
         variables = []
-        kwargs = self._space.newdict({})
+        kwargs = self._space.newdict([])
         for variable in self._variables:
+            assert isinstance(variable, W_Variable)
             domain = w_cs.w_dom(variable)
             values = domain.w_get_values()
             variables.append((self._space.int_w(domain.w_size()),
@@ -224,23 +231,29 @@ class W_Expression(W_AbstractConstraint):
                                self._space.len(values)]))
             kwargs.content[variable.w_name()] = values.wrappeditems[0]
         # sort variables to instanciate those with fewer possible values first
-        variables.sort()
-
+        sort(variables)
+        res_kwargs = []
         go_on = 1
         while go_on:
+#            res_kwargs.append( kwargs)
             yield kwargs
             # try to instanciate the next variable
+            
             for size, curr in variables:
+                assert isinstance(curr[0], W_Variable)
+                w_name = curr[0].w_name()
+                assert isinstance(w_name, W_StringObject)
                 if self._space.int_w(curr[2]) + 1 < self._space.int_w(curr[-1]):
                     curr[2] = self._space.add(curr[2], self._space.newint(1))
-                    kwargs.content[curr[0].w_name()] = curr[1].wrappeditems[self._space.int_w(curr[2])]
+                    kwargs.content[w_name] = curr[1].wrappeditems[self._space.int_w(curr[2])]
                     break
                 else:
                     curr[2] = self._space.newint(0)
-                    kwargs.content[curr[0].w_name()] = curr[1].wrappeditems[0]
+                    kwargs.content[w_name] = curr[1].wrappeditems[0]
             else:
                 # it's over
                 go_on = 0
+#                return res_kwargs
         
     def revise(self, w_cs):
         """generic propagation algorithm for n-ary expressions"""
