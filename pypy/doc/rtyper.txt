@@ -563,7 +563,7 @@ wrapping the native ones in order to provide the right signature and
 semantic for the ADT methods.
 
 As an alternative, backends can special-case the ADT types to map them
-directly to the native equivalent, traslating the method names
+directly to the native equivalent, translating the method names
 on-the-fly at compile time.
 
 Generics
