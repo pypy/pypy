@@ -104,6 +104,17 @@ def check_keyboard_interrupt(e):
 # 
 # Interfacing/Integrating with py.test's collection process 
 #
+#
+def ensure_pytest_builtin_helpers(helpers='skip raises'.split()):
+    """ hack (py.test.) raises and skip into builtins, needed
+        for applevel tests to run directly on cpython but 
+        apparently earlier on "raises" was already added
+        to module's globals. 
+    """ 
+    import __builtin__
+    for helper in helpers: 
+        if not hasattr(__builtin__, helper):
+            setattr(__builtin__, helper, getattr(py.test, helper))
 
 class Module(py.test.collect.Module): 
     """ we take care of collecting classes both at app level 
@@ -117,8 +128,7 @@ class Module(py.test.collect.Module):
 
     def setup(self): 
         # stick py.test raise in module globals -- carefully
-        if not hasattr(self.obj, 'raises'):
-            self.obj.raises = py.test.raises 
+        ensure_pytest_builtin_helpers() 
         super(Module, self).setup() 
         #    if hasattr(mod, 'objspacename'): 
         #        mod.space = getttestobjspace(mod.objspacename)

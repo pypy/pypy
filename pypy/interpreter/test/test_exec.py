@@ -90,8 +90,7 @@ class AppTestExecStmt:
             def f():
                 exec 'a=3'
                 return a
-            x = f()
-        """
+            x = f()\n"""
         assert x == 3
 
     def test_specialcase_free_load2(self):
@@ -99,8 +98,7 @@ class AppTestExecStmt:
             def f(a):
                 exec 'a=3'
                 return a
-            x = f(4)
-        """
+            x = f(4)\n"""
         assert x == 3
 
     def test_specialcase_globals_and_exec(self):
@@ -115,8 +113,7 @@ class AppTestExecStmt:
                 return a,b,c,d
             #import dis
             #dis.dis(f)
-            res = f(3)
-        """ in d
+            res = f(3)\n""" in d
         r = d['res']
         assert r == (3,2,3,42)
 
@@ -144,7 +141,7 @@ class AppTestExecStmt:
             def f():
                 from sys import *
                 return platform
-            res = f()""" in d
+            res = f()\n""" in d
         import sys
         assert d['res'] == sys.platform
 
@@ -155,7 +152,7 @@ class AppTestExecStmt:
                 global platform
                 from sys import *
                 return platform
-            res = f()""" in d
+            res = f()\n""" in d
         import sys
         assert d['platform'] == 3
 
@@ -166,7 +163,7 @@ class AppTestExecStmt:
                 save = x 
                 exec "x=3"
                 return x,save
-        """ in d
+        \n""" in d
         res = d['f']()
         assert res == (3, 2)
 
@@ -175,7 +172,15 @@ class AppTestExecStmt:
         exec "x=5 " in d
         assert d['x'] == 5
 
+    def test_synerr(self):
+        def x():
+            exec "1 2"
+        raises(SyntaxError, x)
+
     def test_mapping_as_locals(self):
+        import sys
+        if sys.version_info < (2,5) or not hasattr(sys, 'pypy_objspaceclass'):
+            skip("need CPython 2.5 or PyPy for non-dictionaries in exec statements")
         class M(object):
             def __getitem__(self, key):
                 return key
@@ -188,7 +193,3 @@ class AppTestExecStmt:
         exec "y=n" in m   # NOTE: this doesn't work in CPython 2.4
         assert m.result == {'x': 'm', 'y': 'n'}
 
-    def test_synerr(self):
-        def x():
-            exec "1 2"
-        raises(SyntaxError, x)
