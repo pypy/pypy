@@ -447,7 +447,7 @@ The target platform
 
 There are plenty of object oriented languages and platforms around,
 each one with its own native features: they could be statically or
-dinamically typed, they could support or not things like multiple
+dynamically typed, they could support or not things like multiple
 inheritance, classes and functions as first class order objects,
 generics, and so on.
 
