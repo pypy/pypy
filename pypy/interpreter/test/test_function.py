@@ -222,7 +222,10 @@ class AppTestMethod:
         assert repr(A.f) == "<unbound method A.f>"
         assert repr(A().f).startswith("<bound method A.f of <") 
         class B:
-            __metaclass__ = _classobj
+            try:
+                __metaclass__ = _classobj
+            except NameError: # non-pypy, assuming oldstyle implicitely
+                pass
             def f(self):
                 pass
         assert repr(B.f) == "<unbound method B.f>"
