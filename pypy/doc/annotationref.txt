@@ -1,0 +1,208 @@
+Annotation Reference
+====================
+
+Description of the available types
+-----------------------------------------------
+
+The reference and the details for the annotation model is found in the
+module ``pypy.annotation.model``.  We describe below the issues related
+to the various kinds of annotations.
+
+
+Simple Types
+++++++++++++
+
+``SomeInteger``, ``SomeBool``, ``SomeString``, ``SomeChar`` all stands
+for the obvious corresponding set of immutable Python objects.
+
+
+Tuples
+++++++
+
+``SomeTuple`` only considers tuples of known length.  We don't try to
+handle tuples of varying length (the program should use lists instead).
+
+
+Lists and Dictionaries
+++++++++++++++++++++++
+
+``SomeList`` stands for a list of homogeneous type (i.e. all the
+elements of the list are represented by a single common ``SomeXxx``
+annotation).
+
+``SomeDict`` stands for a homogeneous dictionary (i.e. all keys have
+the same ``SomeXxx`` annotation, and so have all values).
+
+These types are mutable, which requires special support for the
+annotator.  The problem is that in code like::
+
+   lst = [42]
+   update_list(lst)
+   value = lst[0]
+
+the annotation given to ``value`` depends on the order in which the
+annotator progresses.  As ``lst`` is originally considered as a list
+of ``SomeInteger(const=42)``, it is possible that ``value`` becomes
+``SomeInteger(const=42)`` as well if the analysis of ``update_list()``
+is not completed by the time the third operation is first considered.
+
+
+To solve this problem, each ``SomeList`` or ``SomeDict`` is linked to
+so-called *list-definition* or *dict-definition*
+(``pypy.annotation.listdef.ListDef``,
+``pypy.annotation.dictdef.DictDef``).  The list definitions and dict
+definitions contain information about the type of list items, dict
+keys and values respectively.
+
+At each creation point, i.e. each 'newlist' or 'newdict', a
+``SomeList`` or ``SomeDict`` is created with a fresh definition object
+if its the first time we annotate this operation, otherwise the
+definition setup (which has been cached) the first time is reused.
+While proceeding the annotator also records on the definition objects
+all flow graph positions where values are read from the list or dict.
+
+For example, in code like::
+
+   lst = [42]
+   f(lst[0])
+   lst.append(43)
+
+the definition associated with the list at creation time (first line)
+represents list whose items are all constants equal to 42; when a
+value is read from the list (second line) this position is recorded on
+the definition; when the ``append(43)`` call is then found, the item
+type information in the definition is generalized (in this case to
+general list of integers) and the annotator schedule all the so far
+recorded read positions for reflowing, in order to keep the
+annotations consistent.
+
+Our model is not sensitive to timing: it doesn't know that the same
+list object may contain different items at different times.  It only
+computes how general the items in the list must be to cover all cases.
+
+For initially empty lists, as created by ``lst = []``, we build a list
+whose items have the annotation ``SomeImpossibleValue``.  This is an
+annotation that denotes that no Python object at all can possibly
+appear here at run-time.  It is the least general annotation.  The
+rationale is that::
+
+   lst = []
+   oups = lst[0]
+
+will give the variable ``oups`` the annotation
+``SomeImpossibleValue``, which is reasonable given that no concrete
+Python object can ever be put in ``oups`` at run-time.  In a more
+usual example::
+
+   lst = []
+   lst.append(42)
+
+the list is first built with ``SomeImpossibleValue`` items, and then
+the factory is generalized to produce a list of
+``SomeInteger(const=42)``.  With this "impossible object" trick we
+don't have to do anything special about empty lists.
+
+When the annotator has to unify different list or dict annotations it
+effectively unifies the corresponding definitions, the item types are
+generalized as necessary and the union of the read position sets is
+used, also things are internally setup in such a way that the involved
+definitions now are considered interchangeably the same for the rest of
+the process (that means that union for lists and dicts is a not
+reversible operation).  If the new item type is more general reflowing
+from all the read positions is also scheduled.
+
+User-defined Classes and Instances
+++++++++++++++++++++++++++++++++++
+
+``SomeInstance`` stands for an instance of the given class or any
+subclass of it.  For each user-defined class seen by the annotator, we
+maintain a ClassDef (``pypy.annotation.classdef``) describing the
+attributes of the instances of the class; essentially, a ClassDef gives
+the set of all class-level and instance-level attributes, and for each
+one, a corresponding ``SomeXxx`` annotation.
+
+Instance-level attributes are discovered progressively as the annotation
+progresses.  Assignments like::
+
+   inst.attr = value
+
+update the ClassDef of the given instance to record that the given
+attribute exists and can be as general as the given value.
+
+For every attribute, the ClassDef also records all the positions where
+the attribute is *read*.  If, at some later time, we discover an
+assignment that forces the annotation about the attribute to be
+generalized, then all the places that read the attribute so far are
+marked as invalid and the annotator will have to restart its analysis
+from there.
+
+The distinction between instance-level and class-level attributes is
+thin; class-level attributes are essentially considered as initial
+values for instance-level attributes.  Methods are not special in this
+respect, except that they are bound to the instance (i.e. ``self =
+SomeInstance(cls)``) when considered as the initial value for the
+instance.
+
+The inheritance rules are as follows: the union of two ``SomeInstance``
+annotations is the ``SomeInstance`` of the most precise common base
+class.  If an attribute is considered (i.e. read or written) through a
+``SomeInstance`` of a parent class, then we assume that all subclasses
+also have the same attribute, and that the same annotation applies to
+them all (so code like ``return self.x`` in a method of a parent class
+forces the parent class and all its subclasses to have an attribute
+``x``, whose annotation is general enough to contain all the values that
+all the subclasses might want to store in ``x``).  However, distinct
+subclasses can have attributes of the same names with different,
+unrelated annotations if they are not used in a general way through the
+parent class.
+
+
+Prebuilt Constants and instance methods
++++++++++++++++++++++++++++++++++++++++
+
+Constants in the flowgraph are annotated with a corresponding
+``SomeXxx`` instance with 'const' attribute set to their value.
+
+Constant instances of user-defined classes, callables (which include
+functions but also class types themself) and staticmethod are treated
+specially.  Constant user-defined class instances can declare themself
+immutable by having a '_freeze_' method returning true, otherwise they
+will be assumed mutable and be annotated with usual ``SomeInstance``
+annotation without 'const' set.
+
+For user-defined constant instances that declared themself immutable,
+staticmethods and other callables ``SomePBC`` is used (PBC = pre-built
+constant). Its instances contain a 'prebuiltinstances' dictionary. For
+the normal case and single value ``x`` this will be set to ``{x :
+True}``. For a single value the 'const' attribute will also be set.
+
+The union of ``SomePBC`` instances will result in an instance with the
+merge of the original dictionaries.  So for example a dictionary
+pointing to functions, will usually have as its value annotation such
+a ``SomePBC`` with a 'prebuiltinstances' dict having all the functions
+as keys.
+
+For a large part of operations when encountering ``SomeXxx`` with
+'const' set the annotator will do constant propagation and produce
+results with also 'const' set. This also means that based on 'const'
+truth values the annotator will not flow into code that is not
+reachable given global constant values. A later graph transformation
+will remove such dead code.
+
+XXX None, how methods annotation storage work
+
+
+XXX complete
+
+
+Built-in functions and methods
+++++++++++++++++++++++++++++++
+
+(to be completed)
+
+
+Others
+++++++
+
+(to be completed)
+
