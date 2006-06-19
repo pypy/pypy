@@ -1,5 +1,5 @@
 from pypy.conftest import gettestobjspace
-
+ 
 class UnificationFailure(Exception):  pass
 
 class AppTest_Logic(object):
@@ -270,28 +270,27 @@ class AppTest_LogicThreads(object):
         wait(T)
         assert T == 45
         
-    def notest_wait_two(self):
+    def test_wait_two(self):
         """this seems to trigger an
            infinite loop in the
            greenlet machinery
         """
         def sleep(X, Barrier):
+            print "sleeping on var"
             wait(X)
             bind(Barrier, True)
         
         def wait_two(X, Y):
-            Z = newvar()
-            uthread(sleep, X, Z)
-            uthread(sleep, Y, Z)
-            wait(Z)
+            Barrier = newvar()
+            uthread(sleep, X, Barrier)
+            uthread(sleep, Y, Barrier)
+            print "waiting for the barrier to be bound"
+            wait(Barrier)
             if is_free(Y):
                 return 1
             return 2
 
-        print
         X, Y = newvar(), newvar()
-        disp(X)
-        disp(Y)
         o = uthread(wait_two, X, Y)
         unify(X, Y)
         unify(Y, 42)
