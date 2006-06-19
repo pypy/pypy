@@ -336,6 +336,16 @@ class AppTestLong:
         x = long2(1L<<100)
         y = int(x)
         assert type(y) == long
+        assert type(+long2(5)) is long
+        assert type(long2(5) << 0) is long
+        assert type(long2(5) >> 0) is long
+        assert type(long2(5) + 0) is long
+        assert type(long2(5) - 0) is long
+        assert type(long2(5) * 1) is long
+        assert type(1 * long2(5)) is long
+        assert type(0 + long2(5)) is long
+        assert type(-long2(0)) is long
+        assert type(long2(5) // 1) is long
 
     def test_pow(self):
         assert pow(0L, 0L, 1L) == 0L

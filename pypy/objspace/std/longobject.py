@@ -471,7 +471,7 @@ def lshift__Long_Long(space, w_long1, w_long2):
         raise OperationError(space.w_ValueError,
                              space.wrap("negative shift count"))
     elif w_long2.sign == 0:
-        return w_long1
+        return long__Long(space, w_long1)
     try:
         shiftby = int_w__Long(space, w_long2)
     except OverflowError:   # b too big
@@ -512,7 +512,7 @@ def rshift__Long_Long(space, w_long1, w_long2):
         raise OperationError(space.w_ValueError,
                              space.wrap("negative shift count"))
     elif w_long2.sign == 0:
-        return w_long1
+        return long__Long(space, w_long1)
     if w_long1.sign == -1:
         w_a1 = invert__Long(space, w_long1)
         w_a2 = rshift__Long_Long(space, w_a1, w_long2)
