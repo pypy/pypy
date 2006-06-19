@@ -914,12 +914,12 @@ class FrameworkGCTransformer(GCTransformer):
             GCClass.malloc_fixedsize.im_func,
             [s_gc, annmodel.SomeInteger(nonneg=True),
              annmodel.SomeInteger(nonneg=True),
-             annmodel.SomeBool()], s_gcref,
+             annmodel.SomeBool(), annmodel.SomeBool()], s_gcref,
             inline = False)
         self.malloc_varsize_ptr = getfn(
             GCClass.malloc_varsize.im_func,
             [s_gc] + [annmodel.SomeInteger(nonneg=True) for i in range(5)]
-            + [annmodel.SomeBool()], s_gcref)
+            + [annmodel.SomeBool(), annmodel.SomeBool()], s_gcref)
         self.collect_ptr = getfn(GCClass.collect.im_func,
             [s_gc], annmodel.s_None)
 
@@ -1214,6 +1214,9 @@ class FrameworkGCTransformer(GCTransformer):
             args = [self.malloc_varsize_ptr, self.c_const_gc, c_type_id,
                     v_length, c_size, c_varitemsize, c_ofstolength,
                     c_can_collect]
+        c_has_finalizer = rmodel.inputconst(
+            lltype.Bool, bool(self.finalizer_funcptr_for_type(TYPE)))
+        args.append(c_has_finalizer)
         v = varoftype(llmemory.GCREF)
         newop = SpaceOperation("direct_call", args, v)
         ops, index = self.protect_roots(newop, livevars, block,

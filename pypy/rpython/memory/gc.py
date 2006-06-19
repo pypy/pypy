@@ -157,18 +157,19 @@ class MarkSweepGC(GCBase):
 
     def malloc(self, typeid, length=0):
         size = self.fixed_size(typeid)
+        needs_finalizer =  bool(self.getfinalizer(typeid))
         if self.is_varsize(typeid):
             itemsize = self.varsize_item_sizes(typeid)
             offset_to_length = self.varsize_offset_to_length(typeid)
             ref = self.malloc_varsize(typeid, length, size, itemsize,
-                                      offset_to_length, True)
+                                      offset_to_length, True, needs_finalizer)
         else:
-            ref = self.malloc_fixedsize(typeid, size, True)
+            ref = self.malloc_fixedsize(typeid, size, True, needs_finalizer)
         # XXX lots of cast and reverse-cast around, but this malloc()
         # should eventually be killed
         return llmemory.cast_ptr_to_adr(ref)
 
-    def malloc_fixedsize(self, typeid, size, can_collect):
+    def malloc_fixedsize(self, typeid, size, can_collect, has_finalizer=False):
         if can_collect and self.bytes_malloced > self.bytes_malloced_threshold:
             self.collect()
         size_gc_header = self.gcheaderbuilder.size_gc_header
@@ -182,18 +183,18 @@ class MarkSweepGC(GCBase):
         result = raw_malloc(tot_size)
         hdr = llmemory.cast_adr_to_ptr(result, self.HDRPTR)
         hdr.typeid = typeid << 1
-        if not self.getfinalizer(typeid):
-            hdr.next = self.malloced_objects
-            self.malloced_objects = hdr
-        else:
+        if has_finalizer:
             hdr.next = self.malloced_objects_with_finalizer
             self.malloced_objects_with_finalizer = hdr
+        else:
+            hdr.next = self.malloced_objects
+            self.malloced_objects = hdr
         self.bytes_malloced = bytes_malloced
         result += size_gc_header
         return llmemory.cast_adr_to_ptr(result, llmemory.GCREF)
 
     def malloc_varsize(self, typeid, length, size, itemsize, offset_to_length,
-                       can_collect):
+                       can_collect, has_finalizer=False):
         if can_collect and self.bytes_malloced > self.bytes_malloced_threshold:
             self.collect()
         size_gc_header = self.gcheaderbuilder.size_gc_header
@@ -210,12 +211,12 @@ class MarkSweepGC(GCBase):
         (result + size_gc_header + offset_to_length).signed[0] = length
         hdr = llmemory.cast_adr_to_ptr(result, self.HDRPTR)
         hdr.typeid = typeid << 1
-        if not self.getfinalizer(typeid):
-            hdr.next = self.malloced_objects
-            self.malloced_objects = hdr
-        else:
+        if has_finalizer:
             hdr.next = self.malloced_objects_with_finalizer
             self.malloced_objects_with_finalizer = hdr
+        else:
+            hdr.next = self.malloced_objects
+            self.malloced_objects = hdr
         self.bytes_malloced = bytes_malloced
             
         result += size_gc_header
