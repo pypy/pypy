@@ -161,8 +161,7 @@ class AppTest_Stackless:
 
         assert rlist == "bg f E bh ag ah".split()
 
-    def test_except(self):
-        skip('not working yet')
+    def test_except_full(self):
         import stackless
         
         rlist = []
@@ -192,4 +191,13 @@ class AppTest_Stackless:
         stackless.schedule()
 
         assert rlist == "bg f E bh ag ah".split()
+
+    def test_kill(self):
+        skip('kill is not really working')
+        import stackless
+        def f():pass
+        t =  stackless.tasklet(f)()
+        t.kill()
+        assert not t.alive
+
 

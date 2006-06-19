@@ -6,6 +6,12 @@ Please refer to their documentation.
 
 import traceback
 import sys
+try:
+    deadtask = set()
+except NameError:
+    from sets import Set as set
+    deadtask = set()
+
 
 switches = 0
 
@@ -401,6 +407,7 @@ class tasklet(coroutine):
             else:
                 next = getmain()
             scheduler.remove_task(self)
+            deadtask.add(self)
             prev = self
             if excinfo[0] is not None:
                 et = excinfo[0]
@@ -727,14 +734,15 @@ class Scheduler(object):
         thisbomb = task.tempval
         assert isinstance(thisbomb, bomb)
         SETVAL(task, None)
-        try:
-            thisbomb._explode()
-        finally:
-            if getcurrent() == main_tasklet:
-                sys.excepthook(thisbomb.type, 
-                               thisbomb.value, 
-                               thisbomb.traceback)
-                sys.exit()
+        thisbomb._explode()
+#        try:
+#            thisbomb._explode()
+#        finally:
+#            if getcurrent() == main_tasklet:
+#                sys.excepthook(thisbomb.type, 
+#                               thisbomb.value, 
+#                               thisbomb.traceback)
+#                sys.exit()
         
     def _notify_schedule(self, prev, next, errflag):
         if _schedule_fasthook is not None:
@@ -780,6 +788,15 @@ class Scheduler(object):
             res = next.switch()
         except:
             pass
+
+        for dead in tuple(deadtask):
+            deadtask.discard(dead)
+
+            # the code below should work, but doesn't
+
+            #if not dead.is_zombie:
+            #    coroutine.kill(dead)
+            #    del dead
 
         retval = prev.tempval
         if isinstance(retval, bomb):

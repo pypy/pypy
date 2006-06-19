@@ -1,4 +1,5 @@
 from pypy.conftest import gettestobjspace, skip_on_missing_buildoption
+from py.test import skip
 
 # no real testing possible without compiling stackless pypy
 #
@@ -63,3 +64,34 @@ co.switch()
             pass
         else:
             raise AssertionError("exception not propagated")
+
+    def test_finished(self):
+        skip('should a coroutine be a zombie after being done?')
+        import _stackless as stackless
+        co = stackless.coroutine()
+        def f():
+            pass
+        co.bind(f)
+        co.switch()
+        # doing an assert here runs into some (infinite looking)
+        # cycle.
+        # Lots of "GC Warning: Finalization cycle involving xxxx"
+        if not co.is_zombie:
+            raise Exception('co should be a zombie now')
+
+    def test_kill(self):
+        skip('should a coroutine be a zombie after killing?')
+        # running this test actually produces an
+        # Fatal PyPy error: CoroutineExit (pypy-c)
+        # or
+        # some interpreter error when running on py.py
+        # actually, this looks quite similar to what I (stephan)
+        # have seen when playing around with the 'finish' routine
+        import _stackless as stackless
+        co = stackless.coroutine()
+        def f():
+            pass
+        co.bind(f)
+        co.kill()
+        if not co.is_zombie:
+            raise Exception('co should be a zombie now')
