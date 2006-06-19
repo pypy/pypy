@@ -310,7 +310,10 @@ class AppTestBuiltinApp:
         assert callable(int), (
                     "Builtin function 'callable' misreads int")
         class Call:
-            __metaclass__ = _classobj
+            try:
+                __metaclass__ = _classobj
+            except NameError: # not running on PyPy, assuming oldstyle implicitely 
+                pass
             def __call__(self, a):
                 return a+2
         assert callable(Call())
@@ -330,7 +333,10 @@ class AppTestBuiltinApp:
         assert not callable(a), (
                     "Builtin function 'callable' tricked by instance-__call__")
         class NoCall:
-            __metaclass__ = _classobj
+            try:
+                __metaclass__ = _classobj
+            except NameError: # not running on PyPy, assuming oldstyle implicitely 
+                pass
         assert not callable(NoCall())
 
     def test_hash(self):
