@@ -54,8 +54,6 @@ class AppTestCodeIntrospection:
             import new
         except ImportError: 
             skip("could not import new module")
-        if sys.pypy_objspaceclass == 'TrivialObjSpace':
-            return   # skip
         codestr = "global c\na = 1\nb = 2\nc = a + b\n"
         ccode = compile(codestr, '<string>', 'exec')
         co = new.code(ccode.co_argcount,
