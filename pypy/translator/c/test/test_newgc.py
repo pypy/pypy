@@ -644,6 +644,51 @@ class TestUsingFramework(AbstractTestClass):
         res = run()
         assert res == 6
 
+    def test_del_catches(self):
+        import os
+        def g():
+            pass
+        class A(object):
+            def __del__(self):
+                try:
+                    g()
+                except:
+                    os.write(1, "hallo")
+        def f1(i):
+            if i:
+                raise TypeError
+        def f(i=int):
+            a = A()
+            f1(i)
+            a.b = 1
+            llop.gc__collect(lltype.Void)
+            return a.b
+        def f_0():
+            try:
+                return f(0)
+            except TypeError:
+                return 42
+        def f_1():
+            try:
+                return f(1)
+            except TypeError:
+                return 42
+        fn = self.getcompiled(f_0)
+        assert fn() == 1
+        fn = self.getcompiled(f_1)
+        assert fn() == 42
+
+    def test_del_raises(self):
+        class B(object):
+            def __del__(self):
+                raise TypeError
+        def func():
+            b = B()
+            return 0
+        fn = self.getcompiled(func)
+        # does not crash
+        fn()
+
     def test_framework_weakref_alive(self):
         def func():
             f = Weakrefable()
