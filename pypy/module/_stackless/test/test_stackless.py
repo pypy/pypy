@@ -1,4 +1,5 @@
 from pypy.conftest import gettestobjspace, skip_on_missing_buildoption
+from py.test import skip
 
 
 class AppTest_Stackless:
@@ -43,7 +44,7 @@ class AppTest_Stackless:
 
         main()
 
-        assert stackless.getcurrent() is stackless.main_tasklet
+        assert stackless.getcurrent() is stackless.getmain()
         assert rlist == 'm g f m'.split()
 
     def test_with_channel(self):
