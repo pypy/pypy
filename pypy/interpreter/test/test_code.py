@@ -24,7 +24,7 @@ class AppTestCodeIntrospection:
             ]
 
         import sys
-        if sys.pypy_objspaceclass != 'TrivialObjSpace':
+        if hasattr(sys, 'pypy_objspaceclass'): 
             testcases += [
                 (abs.func_code, {'co_name': 'abs',
                                  'co_varnames': ('val',),
