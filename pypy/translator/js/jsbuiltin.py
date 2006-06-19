@@ -22,6 +22,7 @@ class _Builtins(object):
             'll_strconcat' : InstructionList([PushAllArgs, '+']),
             'll_int' : CallBuiltin('parseInt'),
             'alert' : CallBuiltin('alert'),
+            'seval' : CallBuiltin('seval'),
         }
         self.builtin_obj_map = {
             ootype.String.__class__: {

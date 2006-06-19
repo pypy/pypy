@@ -23,7 +23,7 @@ def _CLI_is_on_path():
     return True
 
 class compile_function(object):
-    def __init__(self, function, annotation, stackless=False, view=False, html=None, is_interactive=False):
+    def __init__(self, function, annotation, stackless=False, view=False, html=None, is_interactive=False, root = None):
         if not use_browsertest and not _CLI_is_on_path():
             py.test.skip('Javascript CLI (js) not found')
 
@@ -42,6 +42,7 @@ class compile_function(object):
         #self.js = JS(t, [function, callback_function], stackless)
         self.js = JS(t, [function], stackless)
         self.js.write_source()
+        self.root = root
 
     def _conv(self, v):
         #if isinstance(v, str):
@@ -62,7 +63,7 @@ class compile_function(object):
                 output = jstest(self.js.filename, function_call, use_browsertest, self.html, self.is_interactive)
             else:
                 from pypy.translator.js.test.tgtest import run_tgtest
-                out = run_tgtest(self, None).results
+                out = run_tgtest(self, tg_root = self.root).results
                 assert out[1] == 'undefined'
                 output = out[0]
         else:

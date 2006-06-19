@@ -5,22 +5,25 @@
 from pypy.rpython.ootypesystem.bltregistry import BasicExternal
 from pypy.rpython.ootypesystem.ootype import String, Signed, StaticMethod, Bool, Void
 
+import types
+
 class XMLHttpRequest(BasicExternal):
     _fields = {
-        'readyState' : int
+        'readyState' : 3,
+        'responseText': "",
     }
     
     _methods = {
-        'open' : ((str, str, bool), None),
-        'send' : ((str,), None),
-        'send_finish' : ((), None),
+        'open' : (("", "", False), None),
+        'send' : ((None,), None),
+#        'send_finish' : ((), None),
         #'onreadystatechange' : ([], Void),
     }
     
-    _method_mapping = {
-        # this is neede because we've got some method duplications
-        'send_finish' : 'send'
-    }
+    #_method_mapping = {
+    #    # this is neede because we've got some method duplications
+    #    'send_finish' : 'send'
+    #}
 
 ##class XMLHttpRequest(object):
 ##    _rpython_hints = {'_suggested_external' : True}
