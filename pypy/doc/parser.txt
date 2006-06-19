@@ -3,7 +3,9 @@
 PyPy Parser 
 ==================
 
-[XXX: finish this document]
+WARNING: this document is out-of-date and unfinished.  Our compiler
+is done by now, unlike explained below.
+
 
 Overview
 ========

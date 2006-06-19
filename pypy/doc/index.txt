@@ -4,14 +4,14 @@ PyPy - a Python_ implementation written in Python
 
 .. _Python: http://www.python.org/dev/doc/maint24/ref/ref.html
 
+.. sectnum::
+.. contents::
+
+
+PyPy documentation
+===============================================
+
 architecture_ gives a complete view of PyPy's basic design. 
-
-`getting started`_ provides hands-on instructions 
-including a two-liner to run PyPy on your system. 
-
-`coding guide`_ helps you to write code for PyPy. 
-
-`development methodology`_ describe our sprint-driven approach. 
 
 `object spaces`_ discusses the object space interface 
 and several implementations. 
@@ -21,9 +21,6 @@ of the bytecode interpreter and virtual machine.
 
 `translation`_ offers the beginnings of documentation 
 about our low level code generator backends. 
-
-`EU reports`_ is a page that contains links to the
-preliminary reports that we submitted to the European Union.
 
 `dynamic-language translation`_ is a paper that describes
 the translation process, especially the flow object space
@@ -38,24 +35,47 @@ of the `EU reports`_.
 properties into our interpreter during the translation
 process. This document is also part of the `EU reports`_.
 
-`parser`_ contains the beginnings of documentation about
-the parser (and the compiler at some point). 
+`parser`_ contains (outdated, unfinished) documentation about
+the parser.
 
 `garbage collection`_ contains documentation about
 garbage collection in PyPy.
 
-`FAQ`_ contains the beginning of frequently asked questions.
-Right now it's a bit empty.
+`EU reports`_ is a page that contains links to the
+preliminary reports that we submitted to the European Union.
+
+
+Meta-documentation
+=====================================
+
+`getting started`_ provides hands-on instructions 
+including a two-liner to run PyPy on your system. 
+
+`coding guide`_ helps you to write code for PyPy. 
+
+`development methodology`_ describe our sprint-driven approach. 
 
 `talks and related projects`_ lists presentations 
 and related projects. 
+
+`license`_ contains licensing details (basically a straight MIT-license). 
+
+`FAQ`_ contains the beginning of frequently asked questions.
+Right now it's a bit empty.
+
+
+Status
+======================================
+
+`PyPy's own tests`_, daily updated.
+
+`Nightly builds and benchmarks`_ of PyPy to C and LLVM.
 
 `compliance test status`_ shows outcomes of 
 recent compliance test runs against PyPy. 
 
 `PyPy statistics`_ shows LOC statistics about PyPy. 
 
-`license`_ contains licensing details (basically a straight MIT-license). 
 
 .. _`FAQ`: faq.html
 .. _parser: parser.html
@@ -77,6 +97,8 @@ recent compliance test runs against PyPy.
 .. _`bytecode interpreter`: interpreter.html 
 .. _`EU reports`: index-report.html
 .. _`garbage collection`: garbage_collection.html
+.. _`PyPy's own tests`: http://snake.cs.uni-duesseldorf.de/pypytest/summary.html
+.. _`Nightly builds and benchmarks`: http://snake.cs.uni-duesseldorf.de/pypytest/benchmark.html
 .. _`directory reference`: 
 
 PyPy directory cross-reference 
