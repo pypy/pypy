@@ -1,4 +1,4 @@
-from pypy.module.stackless import interp_coroutine
+from pypy.module._stackless import interp_coroutine
 from pypy.rpython import rstack
 from pypy.rpython.rstack import resume_state_create
 from pypy.translator.stackless.test.test_transform import llinterp_stackless_function
