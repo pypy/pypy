@@ -8,6 +8,25 @@ PyPy - a Python_ implementation written in Python
 .. contents::
 
 
+Meta-documentation
+=====================================
+
+`getting started`_ provides hands-on instructions 
+including a two-liner to run PyPy on your system. 
+
+`coding guide`_ helps you to write code for PyPy. 
+
+`development methodology`_ describe our sprint-driven approach. 
+
+`talks and related projects`_ lists presentations 
+and related projects. 
+
+`license`_ contains licensing details (basically a straight MIT-license). 
+
+`FAQ`_ contains the beginning of frequently asked questions.
+Right now it's a bit empty.
+
+
 PyPy documentation
 ===============================================
 
@@ -43,25 +62,6 @@ garbage collection in PyPy.
 
 `EU reports`_ is a page that contains links to the
 preliminary reports that we submitted to the European Union.
-
-
-Meta-documentation
-=====================================
-
-`getting started`_ provides hands-on instructions 
-including a two-liner to run PyPy on your system. 
-
-`coding guide`_ helps you to write code for PyPy. 
-
-`development methodology`_ describe our sprint-driven approach. 
-
-`talks and related projects`_ lists presentations 
-and related projects. 
-
-`license`_ contains licensing details (basically a straight MIT-license). 
-
-`FAQ`_ contains the beginning of frequently asked questions.
-Right now it's a bit empty.
 
 
 Status

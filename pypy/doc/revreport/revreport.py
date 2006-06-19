@@ -2,7 +2,7 @@
 import os, sys
 import autopath 
 import py
-from pypy.documentation.revreport import delta 
+from pypy.doc.revreport import delta 
 from pypy.tool.pypyrev import pypyrev 
 from py.__.misc.simplecapture import callcapture 
 
