@@ -65,6 +65,32 @@ co.switch()
         else:
             raise AssertionError("exception not propagated")
 
+    def test_strange_test(self):
+        skip("test is failing for atm unknown reasons")
+        from _stackless import coroutine
+        def f():
+            print "in new coro"
+            return 42
+        def create():
+            b = coroutine()
+            b.bind(f)
+            print "bound"
+            b.switch()
+            print "switched"
+            return b
+        a = coroutine()
+        a.bind(create)
+        b = a.switch()
+        # now b.parent = a
+        def nothing():
+            pass
+        a.bind(nothing)
+        def kill():
+            # this sets a.parent = b
+            a.kill()
+        b.bind(kill)
+        b.switch()
+
     def test_finished(self):
         skip('should a coroutine be a zombie after being done?')
         import _stackless as stackless
