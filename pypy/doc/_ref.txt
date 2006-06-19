@@ -52,6 +52,7 @@
 .. _`pypy/rpython/extfunctable.py`: ../../pypy/rpython/extfunctable.py
 .. _`pypy/rpython/lltypesystem/lltype.py`:
 .. _`rpython/lltypesystem/lltype.py`: ../../pypy/rpython/lltypesystem/lltype.py
+.. _`rpython/ootypesystem/ootype.py`: ../../pypy/rpython/ootypesystem/ootype.py
 .. _`rpython/memory/`: ../../pypy/rpython/memory
 .. _`pypy/rpython/memory/gc.py`: ../../pypy/rpython/memory/gc.py
 .. _`pypy/rpython/memory/lladdress.py`: ../../pypy/rpython/memory/lladdress.py
