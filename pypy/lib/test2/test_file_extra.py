@@ -3,26 +3,61 @@ from pypy.lib import _file
 from pypy.tool.udir import udir 
 import py 
 
-class TestFile: 
-    def setup_method(self, method):
-        self.file = _file.file(__file__, 'r', buffering=None)
 
-    def teardown_method(self, method):
-        self.file.close()
-        
-    def test_case_1(self):
+SAMPLE = ''.join([chr(random.randrange(0, 256)) for i in range(12487)])
+for extra in ['\r\r', '\r\n', '\n\r', '\n\n']:
+    for i in range(20):
+        j = random.randrange(0, len(SAMPLE)+1)
+        SAMPLE = SAMPLE[:j] + extra + SAMPLE[j:]
+
+
+def setup_module(mod):
+    udir.join('sample').write(SAMPLE)
+
+
+class BaseROTests:
+    sample = SAMPLE
+
+    def expected_lines(self):
+        lines = self.sample.split('\n')
+        for i in range(len(lines)-1):
+            lines[i] += '\n'
+        return lines
+
+    def test_simple_tell(self):
         assert self.file.tell() == 0
 
     def test_plain_read(self):
         data1 = self.file.read()
-        data2 = open(__file__, 'r').read()
-        assert data1 == data2
+        assert data1 == self.sample
 
     def test_readline(self):
-        cpyfile = open(__file__, 'r')
-        assert self.file.readline() == cpyfile.readline()
-        for i in range(-1, 10):
-            assert self.file.readline(i) == cpyfile.readline(i)
+        lines = self.expected_lines()
+        for sampleline in lines:
+            inputline = self.file.readline()
+            assert inputline == sampleline
+        for i in range(5):
+            inputline = self.file.readline()
+            assert inputline == ""
+
+    def test_readline_max(self):
+        i = 0
+        stop = 0
+        while stop < 5:
+            max = random.randrange(0, 100)
+            sampleline = self.sample[i:i+max]
+            nexteol = sampleline.find('\n')
+            if nexteol >= 0:
+                sampleline = sampleline[:nexteol+1]
+            inputline = self.file.readline(max)
+            assert inputline == sampleline
+            i += len(sampleline)
+            if i == len(self.sample):
+                stop += 1
+
+    def test_iter(self):
+        inputlines = list(self.file)
+        assert inputlines == self.expected_lines()
 
     def test_repr(self):
         r = repr(self.file)
@@ -30,15 +65,235 @@ class TestFile:
         assert r.find(repr(self.file.name)) >= 0
         assert r.find(self.file.mode) >= 0
 
-class TestFdFile(TestFile):
+    def test_isatty(self):
+        assert not self.file.isatty()
+        try:
+            f = _file.file('/dev/tty')
+        except IOError:
+            pass
+        else:
+            assert f.isatty()
+            f.close()
+
+    def test_next(self):
+        lines = self.expected_lines()
+        for sampleline in lines:
+            inputline = self.file.next()
+            assert inputline == sampleline
+        for i in range(5):
+            py.test.raises(StopIteration, self.file.next)
+
+    def test_read(self):
+        i = 0
+        stop = 0
+        while stop < 5:
+            max = random.randrange(0, 100)
+            samplebuf = self.sample[i:i+max]
+            inputbuf = self.file.read(max)
+            assert inputbuf == samplebuf
+            i += len(samplebuf)
+            if i == len(self.sample):
+                stop += 1
+
+    def test_readlines(self):
+        lines = self.file.readlines()
+        assert lines == self.expected_lines()
+
+    def test_readlines_max(self):
+        i = 0
+        stop = 0
+        samplelines = self.expected_lines()
+        while stop < 5:
+            morelines = self.file.readlines(random.randrange(0, 300))
+            for inputline in morelines:
+                assert inputline == samplelines[0]
+                samplelines.pop(0)
+            if not samplelines:
+                stop += 1
+
+    def test_seek(self):
+        for i in range(100):
+            position = random.randrange(0, len(self.sample))
+            self.file.seek(position)
+            inputchar = self.file.read(1)
+            assert inputchar == self.sample[position]
+        for i in range(100):
+            position = random.randrange(0, len(self.sample))
+            self.file.seek(position - len(self.sample), 2)
+            inputchar = self.file.read(1)
+            assert inputchar == self.sample[position]
+        prevpos = position + 1
+        for i in range(100):
+            position = random.randrange(0, len(self.sample))
+            self.file.seek(position - prevpos, 1)
+            inputchar = self.file.read(1)
+            assert inputchar == self.sample[position]
+            prevpos = position + 1
+
+    def test_tell(self):
+        for i in range(100):
+            position = random.randrange(0, len(self.sample)+1)
+            self.file.seek(position)
+            told = self.file.tell()
+            assert told == position
+        for i in range(100):
+            position = random.randrange(0, len(self.sample)+1)
+            self.file.seek(position - len(self.sample), 2)
+            told = self.file.tell()
+            assert told == position
+        prevpos = position
+        for i in range(100):
+            position = random.randrange(0, len(self.sample)+1)
+            self.file.seek(position - prevpos, 1)
+            told = self.file.tell()
+            assert told == position
+            prevpos = position
+
+    def test_tell_and_seek_back(self):
+        i = 0
+        stop = 0
+        secondpass = []
+        while stop < 5:
+            max = random.randrange(0, 100)
+            samplebuf = self.sample[i:i+max]
+            secondpass.append((self.file.tell(), i))
+            inputbuf = self.file.read(max)
+            assert inputbuf == samplebuf
+            i += len(samplebuf)
+            if i == len(self.sample):
+                stop += 1
+        for i in range(100):
+            saved_position, i = random.choice(secondpass)
+            max = random.randrange(0, 100)
+            samplebuf = self.sample[i:i+max]
+            self.file.seek(saved_position)
+            inputbuf = self.file.read(max)
+            assert inputbuf == samplebuf
+
+    def test_xreadlines(self):
+        assert self.file.xreadlines() is self.file
+
+    def test_attr(self):
+        f = self.file
+        if self.expected_filename is not None:
+            assert f.name == self.expected_filename
+        if self.expected_mode is not None:
+            assert f.mode == self.expected_mode
+        assert f.closed == False
+        assert not f.softspace
+        py.test.raises((TypeError, AttributeError), 'f.name = 42')
+        py.test.raises((TypeError, AttributeError), 'f.name = "stuff"')
+        py.test.raises((TypeError, AttributeError), 'f.mode = "r"')
+        py.test.raises((TypeError, AttributeError), 'f.closed = True')
+        f.softspace = True
+        assert f.softspace
+        f.softspace = False
+        assert not f.softspace
+        f.close()
+        assert f.closed == True
+
+# ____________________________________________________________
+#
+#  Basic 'rb' mode
+
+class TestFile(BaseROTests):
+    expected_filename  = str(udir.join('sample'))
+    expected_mode      = 'rb'
+    extra_args = ()
+
     def setup_method(self, method):
-        import os
-        fd = os.open(__file__, os.O_RDONLY)
-        self.file = _file.file.fdopen(fd, 'r')
+        self.file = _file.file(self.expected_filename,
+                               self.expected_mode,
+                               *self.extra_args)
 
     def teardown_method(self, method):
         self.file.close()
 
+
+class TestUnbufferedFile(TestFile):
+    extra_args = (0,)
+
+
+class TestLineBufferedFile(TestFile):
+    extra_args = (1,)
+
+
+class TestLargeBufferFile(TestFile):
+    extra_args = (len(SAMPLE),)
+
+
+# ____________________________________________________________
+#
+#  Check on top of CPython
+
+
+class TestWithCPython(TestFile):
+    def setup_method(self, method):
+        self.file = open(self.expected_filename,
+                         self.expected_mode,
+                         *self.extra_args)
+
+
+# ____________________________________________________________
+#
+#  Files built with fdopen()
+
+class TestFdOpen(BaseROTests):
+    expected_filename  = None
+    expected_mode      = 'rb'
+    extra_args = ()
+
+    def setup_method(self, method):
+        fd = os.open(TestFile.expected_filename, os.O_RDONLY)
+        self.file = _file.file.fdopen(fd,
+                                      self.expected_mode,
+                                      *self.extra_args)
+
+    def teardown_method(self, method):
+        self.file.close()
+
+
+class TestUnbufferedFdOpen(TestFdOpen):
+    extra_args = (0,)
+
+
+class TestLineBufferedFdOpen(TestFdOpen):
+    extra_args = (1,)
+
+
+class TestLargeBufferFdOpen(TestFdOpen):
+    extra_args = (len(SAMPLE),)
+
+
+# ____________________________________________________________
+#
+#  Universal newlines
+
+class TestUniversalNewlines(TestFile):
+    expected_mode = 'rU'
+    sample = '\n'.join(SAMPLE.splitlines(False))
+
+    def test_seek(self):
+        py.test.skip("does not apply in universal newlines mode")
+
+    test_tell = test_seek
+
+
+class TestUnbufferedUniversal(TestUniversalNewlines):
+    extra_args = (0,)
+
+
+class TestLineBufferedUniversal(TestUniversalNewlines):
+    extra_args = (1,)
+
+
+class TestLargeBufferUniversal(TestUniversalNewlines):
+    extra_args = (len(SAMPLE),)
+
+
+# ____________________________________________________________
+#
+#  A few extra tests
 
 def test_case_readonly():
     fn = str(udir.join('temptestfile'))
@@ -110,7 +365,6 @@ def test_rw_bin():
                                   ('\r', '\r'), ('\r\n', '\r\n')])
 
 def test_rw():
-    # XXX tests in progress
     fn = str(udir.join('temptestfile'))
     f = _file.file(fn, 'w+')
     f.write('hello\nworld\n')
@@ -119,7 +373,6 @@ def test_rw():
     f.close()
 
 def test_r_universal():
-    # XXX tests in progress
     fn = str(udir.join('temptestfile'))
     f = open(fn, 'wb')
     f.write('hello\r\nworld\r\n')
@@ -128,3 +381,33 @@ def test_r_universal():
     assert f.read() == 'hello\nworld\n'
     f.close()
 
+def test_flush():
+    fn = str(udir.join('temptestfile'))
+    f = _file.file(fn, 'w', 0)
+    f.write('x')
+    assert os.stat(fn).st_size == 1
+    f.close()
+
+    f = _file.file(fn, 'w', 1)
+    f.write('x')
+    assert os.stat(fn).st_size == 0
+    f.write('\n')
+    assert os.stat(fn).st_size == 2
+    f.write('x')
+    assert os.stat(fn).st_size == 2
+    f.flush()
+    assert os.stat(fn).st_size == 3
+    f.close()
+    assert os.stat(fn).st_size == 3
+
+    f = _file.file(fn, 'w', 100)
+    f.write('x')
+    assert os.stat(fn).st_size == 0
+    f.write('\n')
+    assert os.stat(fn).st_size == 0
+    f.write('x')
+    assert os.stat(fn).st_size == 0
+    f.flush()
+    assert os.stat(fn).st_size == 3
+    f.close()
+    assert os.stat(fn).st_size == 3
