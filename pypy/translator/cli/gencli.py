@@ -100,5 +100,5 @@ class GenCli(object):
         proc = subprocess.Popen([ilasm, tmpfile], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout, stderr = proc.communicate()
         retval = proc.wait()
-        assert retval == 0, 'ilasm failed to assemble (%s):\n%s' % (tmpfile, stdout)
+        assert retval == 0, 'ilasm failed to assemble (%s):\n%s\n%s' % (tmpfile, stdout, stderr)
         return tmpfile.replace('.il', '.exe')
