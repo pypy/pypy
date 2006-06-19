@@ -94,7 +94,7 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
 
     def finish(self, operror=None):
         space = self.space
-        if operror is not None:
+        if isinstance(operror, OperationError):
             w_exctype = operror.w_type
             w_excvalue = operror.w_value
             w_exctraceback = operror.application_traceback
