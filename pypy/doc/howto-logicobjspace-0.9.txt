@@ -1,0 +1,248 @@
+======================================================
+How to use the Logic Object space features of PyPy 0.9
+======================================================
+
+Outline
+=======
+
+This document gives some information about the content and usage of an
+extension of PyPy known as the Logic Objectspace (LO). The LO, when
+finished, will provide additional builtins that will allow to write :
+
+* concurrent programs based on coroutines scheduled by dataflow logic
+  variables,
+
+* concurrent logic programs semantically equivalent to "pure Prolog",
+
+* concurrent constraint problems,
+
+* new search "engines" to help solve logic/constraint programs.
+
+The 0.9 preview comes without logic programming ; the constraint
+solver is only lightly tested, is not equipped with some specialized
+but important propagators for linear relations on numeric variables,
+and *might* support concurrency -- but that would be an accident ; the
+dataflow scheduling of coroutines is known to fail in at least one
+basic and important case.
+
+In this document, we skim over these topics, hoping to give enough
+information and examples for an uninformed user to understand what is
+going on and how to use the provided functionnality.
+
+To fire up a working PyPy with the LO, please type :
+
+/root-of-pypy-dist/pypy/bin/py.py -o logic --usemodules=_stackless
+
+
+Logic Variables and Dataflow Synchronisation of Coroutines
+==========================================================
+
+Logic Variables
++++++++++++++++
+
+Description and examples
+------------------------
+
+Logic variables are similar to Python variables in the following sense
+: they map names to values in a defined scope. But unlike normal
+Python variables, they have two states : free and bound. A bound logic
+variable is indistinguishable from a normal Python value which it
+wraps. A free variable can only be bound once (it is also said to be a
+single-assignment variable). It is good practice to denote these
+variables with a beginning capital letter, so as to avoid confusion
+with normal variables.
+
+The following snippet creates a new logic variable and asserts its
+state :
+
+  X = newvar()
+  assert is_free(X)
+  assert not is_bound(X)
+
+Logic variables can be bound thusly :
+
+  bind(X, 42)
+  assert X / 2 == 24
+
+The single-assignment property is easily checked :
+
+  bind(X, 'hello') # would raise a FailureException
+
+In the current state of the LO, a generic Exception will be raised.
+
+The bind operator is low-level. The more general operation that binds
+a logic variable is known as "unification". Unify is an operator that
+takes two arbitrary data structures and tries to assert their
+equivalentness, much in the sense of the == operator, but with one
+important twist : unify mutates the state of the involved logic
+variables.
+
+Unifying structures devoid of logic variables, like :
+
+  unify([1, 2], [1, 2])
+  unify(42, 43)
+
+is equivalent to an assertion about their equalness, the difference
+being that a FailureException will be raised instead of an
+AssertionError, would the assertion be violated :
+
+  assert [1, 2] == [1, 2]   
+  assert 42 == 43           
+
+A basic example involving logic variables embedded into a dictionnary
+:
+
+  Z, W = newvar(), newvar()
+  unify({'a': 42, 'b': Z},
+        {'a':  Z, 'b': W})
+  assert Z == W == 42
+
+Unifying one unbound variable with some value (a) means assigning the
+value to the variable (which then satisfies equalness), unifying two
+unbound variables (b) aliases them (they are constrained to reference
+the same -future- value). 
+
+Assignment or aliasing of variables is provided underneath by the
+'bind' operator.
+
+An example involving custom data types :
+
+  class Foo(object):
+      def __init__(self, a):
+          self.a = a
+          self.b = newvar()
+
+  f1 = Foo(newvar())
+  f2 = Foo(42)
+  unify(f1, f2)
+  assert f1.a == f2.a == 42    # assert (a)
+  assert alias_of(f1.b, f2.b)  # assert (b)
+  unify(f2.b, 'foo')
+  assert f1.b == f2.b == 'foo' # (b) is entailed indeed
+
+
+The operators table
+-------------------
+
+Logic variables support the following operators (with their arity) :
+
+Predicates : 
+ is_free/1   # applies to anything
+ is_bound/1  # applies to anything
+ alias_of/2  # wants logic variables
+
+Creation:
+ newvar/0
+ 
+Mutators :
+ bind/2      # wants a logic variable in first position
+ unify/2     # applies to anything
+
+
+Threads and dataflow synchronisation
+++++++++++++++++++++++++++++++++++++
+
+When a piece of code tries to access a free logic variable, the thread
+in which it runs is blocked (suspended) until the variable becomes
+bound. This behaviour is known as "dataflow synchronization" and
+mimics exactly the dataflow variables from the Oz programming
+language. With respect to behaviour under concurrency conditions,
+logic variables come with two operators :
+
+* wait : this suspends the current thread until the variable is bound,
+  it returns the value otherwise (impl. note : in the logic
+  objectspace, all operators make an implicit wait on their value
+  arguments)
+
+* wait_needed : this suspends the current thread until the variable
+  has received a wait message. It has to be used explicitely,
+  typically by a producer thread that wants to produce data only when
+  needed.
+
+In this context, binding a variable to a value will make runnable all
+threads blocked on this variable.
+
+Wait and wait_needed allow to write efficient lazy evaluating code.
+
+Using the "uthread" builtin, here is how to implement a
+producer-consummer scheme :
+
+  def generate(n, limit):
+      if n < limit:
+          return (n, generate(n + 1, limit))
+      return None
+
+  def sum(L, a):
+      Head, Tail = newvar(), newvar()
+      unify(L, (Head, Tail))
+      if Tail != None:
+          return sum(Tail, Head + a)
+      return a + Head
+
+  X = newvar()
+  S = newvar()
+        
+  unify(S, uthread(sum, X, 0))
+  unify(X, uthread(generate, 0, 10))
+
+  assert S == 45
+
+Note that this eagerly generates all elements before the first of them
+is consummed. Wait_needed helps write us a lazy version of the
+generator. But the consummer will be responsible of the proper
+termination, and thus must be adapted too :
+
+  def lgenerate(n, L):
+      """lazy version of generate"""
+      wait_needed(L)
+      Tail = newvar()
+      bind(L, (n, Tail))
+      lgenerate(n+1, Tail)
+
+  def lsum(L, a, limit):
+      """this summer controls the generator"""
+      if limit > 0:
+          Head, Tail = newvar(), newvar()
+          wait(L)
+          unify(L, (Head, Tail))
+          return lsum(Tail, a+Head, limit-1)
+      else:
+          return a
+
+  Y = newvar()
+  T = newvar()
+
+  uthread(lgenerate, 0, Y)
+  unify(T, uthread(lsum, Y, 0, 10))
+
+  wait(T)
+  assert T == 45
+
+Please note that in the current LO, we deal with coroutines, not
+threads (thus we can't rely on preemtive scheduling to lessen the
+problem with the eager consummer/producer program). Also these
+coroutines still don't support well being nested. This impact the
+ability to write a simple program like the following :
+
+  def sleep(X, Barrier):
+      wait(X)
+      bind(Barrier, True)
+        
+  def wait_two(X, Y):
+      Barrier = newvar()
+      uthread(sleep, X, Barrier)
+      uthread(sleep, Y, Barrier)
+      wait(Barrier)
+      if is_free(Y):
+          return 1
+      return 2
+
+  X, Y = newvar(), newvar()
+  o = uthread(wait_two, X, Y)
+  unify(X, Y)
+  unify(Y, 42)
+  assert X == Y == 42
+  assert o == 2
+
+This program currently blocks on the first call to sleep (we don't
+even get a chance to reach the first unify operation).
