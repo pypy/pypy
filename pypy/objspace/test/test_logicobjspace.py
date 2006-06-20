@@ -270,7 +270,7 @@ class AppTest_LogicThreads(object):
         wait(T)
         assert T == 45
 
-    def notest_nested_threads(self):
+    def test_nested_threads(self):
         """check that a wait nested in a tree of
            threads works correctly
         """

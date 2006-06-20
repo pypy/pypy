@@ -43,6 +43,7 @@ if USE_COROUTINES:
             self.runnable_uthreads = {}
             self.uthreads_blocked_on = {}
             self.uthreads_blocked_byneed = {}
+            self.exhausting = 0
 
         def pop_runnable_thread(self):
             # umpf, no popitem in RPython
@@ -131,11 +132,16 @@ if USE_COROUTINES:
         current = AppCoroutine.w_getcurrent(space)
         schedule_state.add_to_runnable(current)
         coro.w_switch()
-        while schedule_state.have_runnable_threads():
-            next_coro = schedule_state.pop_runnable_thread()
-            if next_coro.is_alive() and next_coro != current:
-                schedule_state.add_to_runnable(current)
-                next_coro.w_switch()
+        if not schedule_state.exhausting:
+            schedule_state.exhausting += 1
+            while schedule_state.have_runnable_threads():
+                next_coro = schedule_state.pop_runnable_thread()
+                if next_coro.is_alive() and next_coro is not current:
+                    schedule_state.add_to_runnable(current)
+                    next_coro.w_switch()
+                    if schedule_state.exhausting > 1:
+                        break
+            schedule_state.exhausting -= 1
         return w_Result
     app_uthread = gateway.interp2app(uthread, unwrap_spec=[baseobjspace.ObjSpace,
                                                            baseobjspace.W_Root,
@@ -816,12 +822,15 @@ def Space(*args, **kwds):
         import os
         # make sure that _stackless is imported
         w_modules = space.getbuiltinmodule('_stackless')
+        # xxx use the new startup/finish machinary for this
         def exitfunc():
             current = AppCoroutine.w_getcurrent(space)
+            schedule_state.exhausting = 2
             while schedule_state.have_runnable_threads():
                 next_coro = schedule_state.pop_runnable_thread()
                 if next_coro.is_alive() and next_coro != current:
                     schedule_state.add_to_runnable(current)
+                    print "FINISH_SCHED_SWITCH"
                     next_coro.w_switch()
                     schedule_state.remove_from_runnable(current)
             if schedule_state.have_blocked_threads():
