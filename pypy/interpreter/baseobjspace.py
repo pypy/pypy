@@ -548,7 +548,8 @@ class ObjSpace(object):
             w_inst = w_func.w_instance
             if w_inst is not None:
                 func = w_func.w_function
-                return func.funccall(w_inst, *args_w)
+                if isinstance(func, Function):
+                    return func.funccall(w_inst, *args_w)
             else:
                 w_func = w_func.w_function
 
@@ -566,7 +567,9 @@ class ObjSpace(object):
             w_inst = w_func.w_instance
             if w_inst is not None:
                 func = w_func.w_function
-                return func.funccall_obj_valuestack(w_inst, nargs, valuestack)
+                if isinstance(func, Function):
+                    return func.funccall_obj_valuestack(w_inst,
+                                                        nargs, valuestack)
             else:
                 w_func = w_func.w_function
 

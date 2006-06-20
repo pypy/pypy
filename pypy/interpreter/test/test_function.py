@@ -238,6 +238,23 @@ class AppTestMethod:
                 pass
         c = C(type='test')
 
+    def test_method_w_callable(self):
+        class A:
+            def __call__(self, x):
+                return x
+        import new
+        im = new.instancemethod(A(), 3)
+        assert im() == 3
+
+    def test_method_w_callable_call_function(self):
+        class A:
+            def __call__(self, x, y):
+                return x+y
+        import new
+        im = new.instancemethod(A(), 3)
+        assert map(im, [4]) == [7]
+
+
 class TestMethod: 
     def setup_method(self, method):
         def c(self, bar):
