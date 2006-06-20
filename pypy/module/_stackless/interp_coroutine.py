@@ -269,7 +269,7 @@ class Coroutine(Wrappable):
         # Additionally note that in the context of __del__, we are
         # not in the position to issue a switch.
         # we defer it completely.
-        if self.frame is not None:
+        if self.frame is not None and syncstate is not None:
             syncstate.postpone_deletion(self)
 
     def _userdel(self):
