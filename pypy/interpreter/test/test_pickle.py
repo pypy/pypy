@@ -15,6 +15,12 @@ def _attach_helpers(space):
             w_frame = w_frame.f_back
         w_frame.f_back = w_saved
 
+    def read_exc_type(space, w_frame):
+        if w_frame.last_exception is None:
+            return space.w_None
+        else:
+            return w_frame.last_exception.w_type
+
     from pypy.interpreter import gateway
 
     hide_gw = gateway.interp2app(hide_top_frame)
@@ -26,6 +32,11 @@ def _attach_helpers(space):
                   space.wrap('restore_top_frame'),
                   space.wrap(restore_gw))
 
+    read_exc_type_gw = gateway.interp2app(read_exc_type)
+    space.setitem(space.builtin.w_dict,
+                  space.wrap('read_exc_type'),
+                  space.wrap(read_exc_type_gw))
+    
 def _detatch_helpers(space):
     space.delitem(space.builtin.w_dict,
                   space.wrap('hide_top_frame'))
@@ -143,6 +154,27 @@ class AppTestInterpObjectPickling:
         assert f1.f_lineno == f2.f_lineno
         assert f1.f_restricted is f2.f_restricted
         assert f1.f_trace is f2.f_trace
+
+    def test_pickle_frame_with_exc(self):
+        #import sys
+        # avoid creating a closure for now
+        del self
+        def f():
+            try:
+                raise ValueError
+            except:
+                import sys, pickle
+                f = sys._getframe()
+                saved = hide_top_frame(f)
+                pckl = pickle.dumps(f)
+                restore_top_frame(f, saved)
+                return pckl
+
+        import pickle
+        pckl   = f()
+        f2     = pickle.loads(pckl)
+
+        assert read_exc_type(f2) is ValueError
 
     def test_pickle_frame_clos(self):
         # similar to above, therefore skipping the asserts.

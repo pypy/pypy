@@ -79,7 +79,6 @@ assert output == [19, 11, 7, 5, 4]
             del sys.modules['mod']
 
     def test_exception(self):
-        skip("saving of exceptions is not working")
         import new, sys
 
         mod = new.module('mod')

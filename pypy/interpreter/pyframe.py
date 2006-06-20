@@ -96,13 +96,22 @@ class PyFrame(eval.EvalFrame):
         tup_base = [
             w(self.pycode),
             ]
+
+        if self.last_exception is None:
+            w_exc_value = space.w_None
+            w_tb = space.w_None
+        else:
+            w_exc_value = self.last_exception.w_value
+            w_tb = w(self.last_exception.application_traceback)
+        
         tup_state = [
             w(self.f_back),
             w(self.builtin),
             w(self.pycode),
             w_valuestack,
             w_blockstack,
-            space.w_None, ## w(self.last_exception), #f_exc_traceback, f_exc_type, f_exc_value
+            w_exc_value, # last_exception
+            w_tb,        #
             self.w_globals,
             w(self.last_instr),
             w(self.next_instr),
@@ -127,7 +136,7 @@ class PyFrame(eval.EvalFrame):
         from pypy.interpreter.module import Module
         from pypy.interpreter.nestedscope import PyNestedScopeFrame, Cell
         args_w = space.unpackiterable(w_args)
-        w_f_back, w_builtin, w_pycode, w_valuestack, w_blockstack, w_last_exception,\
+        w_f_back, w_builtin, w_pycode, w_valuestack, w_blockstack, w_exc_value, w_tb,\
             w_globals, w_last_instr, w_next_instr, w_f_lineno, w_fastlocals, w_f_locals, \
             w_f_trace, w_instr_lb, w_instr_ub, w_instr_prev, w_cells = args_w
 
@@ -147,7 +156,14 @@ class PyFrame(eval.EvalFrame):
         valstack = new_frame.valuestack
         for w_value in values_w:
             valstack.push(w_value)
-        new_frame.last_exception = None#XXX (w_last_exception)
+        if space.is_w(w_exc_value, space.w_None):
+            new_frame.last_exception = None
+        else:
+            from pypy.interpreter.pytraceback import PyTraceback
+            tb = space.interp_w(PyTraceback, w_tb)
+            new_frame.last_exception = OperationError(space.type(w_exc_value),
+                                                      w_exc_value, tb
+                                                      )
         new_frame.last_instr = space.int_w(w_last_instr)
         new_frame.next_instr = space.int_w(w_next_instr)
         new_frame.f_lineno = space.int_w(w_f_lineno)
