@@ -26,7 +26,7 @@ def test_new_bltn():
 
 class A(BasicExternal):
     _fields = {
-        'b' : int,
+        'b' : 3,
     }
 
 def test_bltn_attrs():
@@ -53,11 +53,11 @@ def test_bltn_set_attr():
 
 class B(BasicExternal):
     _fields = {
-        'a' : int,
+        'a' : 32,
     }
     
     _methods = {
-        'm' : ([int],int),
+        'm' : ([1],2),
     }
 
 def test_bltn_method():
