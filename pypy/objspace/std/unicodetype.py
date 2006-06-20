@@ -5,42 +5,208 @@ from pypy.interpreter.error import OperationError
 
 from sys import maxint
 
-unicode_capitalize = StdObjSpaceMultiMethod('capitalize', 1)
-unicode_center     = StdObjSpaceMultiMethod('center', 3, defaults=(' ',))
-unicode_count      = StdObjSpaceMultiMethod('count', 4, defaults=(0, maxint))      
-unicode_encode     = StdObjSpaceMultiMethod('encode', 3, defaults=(None, None))
-unicode_endswith   = StdObjSpaceMultiMethod('endswith', 4, defaults=(0,maxint))
-unicode_expandtabs = StdObjSpaceMultiMethod('expandtabs', 2, defaults=(8,))
-unicode_find       = StdObjSpaceMultiMethod('find', 4, defaults=(0, maxint))
-unicode_index      = StdObjSpaceMultiMethod('index', 4, defaults=(0, maxint))
-unicode_isalnum    = StdObjSpaceMultiMethod('isalnum', 1)
-unicode_isalpha    = StdObjSpaceMultiMethod('isalpha', 1)
-unicode_isdecimal  = StdObjSpaceMultiMethod('isdecimal', 1)
-unicode_isdigit    = StdObjSpaceMultiMethod('isdigit', 1)
-unicode_islower    = StdObjSpaceMultiMethod('islower', 1)
-unicode_isnumeric  = StdObjSpaceMultiMethod('isnumeric', 1)
-unicode_isspace    = StdObjSpaceMultiMethod('isspace', 1)
-unicode_istitle    = StdObjSpaceMultiMethod('istitle', 1)
-unicode_isupper    = StdObjSpaceMultiMethod('isupper', 1)
-unicode_join       = StdObjSpaceMultiMethod('join', 2)
-unicode_ljust      = StdObjSpaceMultiMethod('ljust', 3, defaults=(' ',))
-unicode_lower      = StdObjSpaceMultiMethod('lower', 1)
-unicode_lstrip     = StdObjSpaceMultiMethod('lstrip', 2, defaults=(None,))
-unicode_replace    = StdObjSpaceMultiMethod('replace', 4, defaults=(-1,))
-unicode_rfind      = StdObjSpaceMultiMethod('rfind', 4, defaults=(0, maxint))
-unicode_rindex     = StdObjSpaceMultiMethod('rindex', 4, defaults=(0, maxint))
-unicode_rjust      = StdObjSpaceMultiMethod('rjust', 3, defaults=(' ',))
-unicode_rstrip     = StdObjSpaceMultiMethod('rstrip', 2, defaults=(None,))
-unicode_rsplit     = StdObjSpaceMultiMethod('rsplit', 3, defaults=(None,-1))
-unicode_split      = StdObjSpaceMultiMethod('split', 3, defaults=(None,-1))
-unicode_splitlines = StdObjSpaceMultiMethod('splitlines', 2, defaults=(0,))
-unicode_startswith = StdObjSpaceMultiMethod('startswith', 4, defaults=(0,maxint))
-unicode_strip      = StdObjSpaceMultiMethod('strip',  2, defaults=(None,))
-unicode_swapcase   = StdObjSpaceMultiMethod('swapcase', 1)
-unicode_title      = StdObjSpaceMultiMethod('title', 1)
-unicode_translate  = StdObjSpaceMultiMethod('translate', 2)
-unicode_upper      = StdObjSpaceMultiMethod('upper', 1)
-unicode_zfill      = StdObjSpaceMultiMethod('zfill', 2)
+unicode_capitalize = SMM('capitalize', 1,
+                         doc='S.capitalize() -> unicode\n\nReturn a'
+                             ' capitalized version of S, i.e. make the first'
+                             ' character\nhave upper case.')
+unicode_center     = SMM('center', 3, defaults=(' ',),
+                         doc='S.center(width[, fillchar]) -> unicode\n\nReturn'
+                             ' S centered in a Unicode string of length width.'
+                             ' Padding is\ndone using the specified fill'
+                             ' character (default is a space)')
+unicode_count      = SMM('count', 4, defaults=(0, maxint),
+                         doc='S.count(sub[, start[, end]]) -> int\n\nReturn'
+                             ' the number of occurrences of substring sub in'
+                             ' Unicode string\nS[start:end].  Optional'
+                             ' arguments start and end are\ninterpreted as in'
+                             ' slice notation.')
+unicode_encode     = SMM('encode', 3, defaults=(None, None),
+                         doc='S.encode([encoding[,errors]]) -> string or'
+                             ' unicode\n\nEncodes S using the codec registered'
+                             ' for encoding. encoding defaults\nto the default'
+                             ' encoding. errors may be given to set a'
+                             ' different error\nhandling scheme. Default is'
+                             " 'strict' meaning that encoding errors raise\na"
+                             ' UnicodeEncodeError. Other possible values are'
+                             " 'ignore', 'replace' and\n'xmlcharrefreplace' as"
+                             ' well as any other name registered'
+                             ' with\ncodecs.register_error that can handle'
+                             ' UnicodeEncodeErrors.')
+unicode_endswith   = SMM('endswith', 4, defaults=(0,maxint),
+                         doc='S.endswith(suffix[, start[, end]]) ->'
+                             ' bool\n\nReturn True if S ends with the'
+                             ' specified suffix, False otherwise.\nWith'
+                             ' optional start, test S beginning at that'
+                             ' position.\nWith optional end, stop comparing S'
+                             ' at that position.')
+unicode_expandtabs = SMM('expandtabs', 2, defaults=(8,),
+                         doc='S.expandtabs([tabsize]) -> unicode\n\nReturn a'
+                             ' copy of S where all tab characters are expanded'
+                             ' using spaces.\nIf tabsize is not given, a tab'
+                             ' size of 8 characters is assumed.')
+unicode_find       = SMM('find', 4, defaults=(0, maxint),
+                         doc='S.find(sub [,start [,end]]) -> int\n\nReturn the'
+                             ' lowest index in S where substring sub is'
+                             ' found,\nsuch that sub is contained within'
+                             ' s[start,end].  Optional\narguments start and'
+                             ' end are interpreted as in slice'
+                             ' notation.\n\nReturn -1 on failure.')
+unicode_index      = SMM('index', 4, defaults=(0, maxint),
+                         doc='S.index(sub [,start [,end]]) -> int\n\nLike'
+                             ' S.find() but raise ValueError when the'
+                             ' substring is not found.')
+unicode_isalnum    = SMM('isalnum', 1,
+                         doc='S.isalnum() -> bool\n\nReturn True if all'
+                             ' characters in S are alphanumeric\nand there is'
+                             ' at least one character in S, False otherwise.')
+unicode_isalpha    = SMM('isalpha', 1,
+                         doc='S.isalpha() -> bool\n\nReturn True if all'
+                             ' characters in S are alphabetic\nand there is at'
+                             ' least one character in S, False otherwise.')
+unicode_isdecimal  = SMM('isdecimal', 1,
+                         doc='S.isdecimal() -> bool\n\nReturn True if there'
+                             ' are only decimal characters in S,\nFalse'
+                             ' otherwise.')
+unicode_isdigit    = SMM('isdigit', 1,
+                         doc='S.isdigit() -> bool\n\nReturn True if all'
+                             ' characters in S are digits\nand there is at'
+                             ' least one character in S, False otherwise.')
+unicode_islower    = SMM('islower', 1,
+                         doc='S.islower() -> bool\n\nReturn True if all cased'
+                             ' characters in S are lowercase and there is\nat'
+                             ' least one cased character in S, False'
+                             ' otherwise.')
+unicode_isnumeric  = SMM('isnumeric', 1,
+                         doc='S.isnumeric() -> bool\n\nReturn True if there'
+                             ' are only numeric characters in S,\nFalse'
+                             ' otherwise.')
+unicode_isspace    = SMM('isspace', 1,
+                         doc='S.isspace() -> bool\n\nReturn True if all'
+                             ' characters in S are whitespace\nand there is at'
+                             ' least one character in S, False otherwise.')
+unicode_istitle    = SMM('istitle', 1,
+                         doc='S.istitle() -> bool\n\nReturn True if S is a'
+                             ' titlecased string and there is at least'
+                             ' one\ncharacter in S, i.e. upper- and titlecase'
+                             ' characters may only\nfollow uncased characters'
+                             ' and lowercase characters only cased'
+                             ' ones.\nReturn False otherwise.')
+unicode_isupper    = SMM('isupper', 1,
+                         doc='S.isupper() -> bool\n\nReturn True if all cased'
+                             ' characters in S are uppercase and there is\nat'
+                             ' least one cased character in S, False'
+                             ' otherwise.')
+unicode_join       = SMM('join', 2,
+                         doc='S.join(sequence) -> unicode\n\nReturn a string'
+                             ' which is the concatenation of the strings in'
+                             ' the\nsequence.  The separator between elements'
+                             ' is S.')
+unicode_ljust      = SMM('ljust', 3, defaults=(' ',),
+                         doc='S.ljust(width[, fillchar]) -> int\n\nReturn S'
+                             ' left justified in a Unicode string of length'
+                             ' width. Padding is\ndone using the specified'
+                             ' fill character (default is a space).')
+unicode_lower      = SMM('lower', 1,
+                         doc='S.lower() -> unicode\n\nReturn a copy of the'
+                             ' string S converted to lowercase.')
+unicode_lstrip     = SMM('lstrip', 2, defaults=(None,),
+                         doc='S.lstrip([chars]) -> unicode\n\nReturn a copy of'
+                             ' the string S with leading whitespace'
+                             ' removed.\nIf chars is given and not None,'
+                             ' remove characters in chars instead.\nIf chars'
+                             ' is a str, it will be converted to unicode'
+                             ' before stripping')
+unicode_replace    = SMM('replace', 4, defaults=(-1,),
+                         doc='S.replace (old, new[, maxsplit]) ->'
+                             ' unicode\n\nReturn a copy of S with all'
+                             ' occurrences of substring\nold replaced by new. '
+                             ' If the optional argument maxsplit is\ngiven,'
+                             ' only the first maxsplit occurrences are'
+                             ' replaced.')
+unicode_rfind      = SMM('rfind', 4, defaults=(0, maxint),
+                         doc='S.rfind(sub [,start [,end]]) -> int\n\nReturn'
+                             ' the highest index in S where substring sub is'
+                             ' found,\nsuch that sub is contained within'
+                             ' s[start,end].  Optional\narguments start and'
+                             ' end are interpreted as in slice'
+                             ' notation.\n\nReturn -1 on failure.')
+unicode_rindex     = SMM('rindex', 4, defaults=(0, maxint),
+                         doc='S.rindex(sub [,start [,end]]) -> int\n\nLike'
+                             ' S.rfind() but raise ValueError when the'
+                             ' substring is not found.')
+unicode_rjust      = SMM('rjust', 3, defaults=(' ',),
+                         doc='S.rjust(width[, fillchar]) -> unicode\n\nReturn'
+                             ' S right justified in a Unicode string of length'
+                             ' width. Padding is\ndone using the specified'
+                             ' fill character (default is a space).')
+unicode_rstrip     = SMM('rstrip', 2, defaults=(None,),
+                         doc='S.rstrip([chars]) -> unicode\n\nReturn a copy of'
+                             ' the string S with trailing whitespace'
+                             ' removed.\nIf chars is given and not None,'
+                             ' remove characters in chars instead.\nIf chars'
+                             ' is a str, it will be converted to unicode'
+                             ' before stripping')
+unicode_rsplit     = SMM('rsplit', 3, defaults=(None,-1),
+                         doc='S.rsplit([sep [,maxsplit]]) -> list of'
+                             ' strings\n\nReturn a list of the words in S,'
+                             ' using sep as the\ndelimiter string, starting at'
+                             ' the end of the string and\nworking to the'
+                             ' front.  If maxsplit is given, at most'
+                             ' maxsplit\nsplits are done. If sep is not'
+                             ' specified, any whitespace string\nis a'
+                             ' separator.')
+unicode_split      = SMM('split', 3, defaults=(None,-1),
+                         doc='S.split([sep [,maxsplit]]) -> list of'
+                             ' strings\n\nReturn a list of the words in S,'
+                             ' using sep as the\ndelimiter string.  If'
+                             ' maxsplit is given, at most maxsplit\nsplits are'
+                             ' done. If sep is not specified or is None,\nany'
+                             ' whitespace string is a separator.')
+unicode_splitlines = SMM('splitlines', 2, defaults=(0,),
+                         doc='S.splitlines([keepends]]) -> list of'
+                             ' strings\n\nReturn a list of the lines in S,'
+                             ' breaking at line boundaries.\nLine breaks are'
+                             ' not included in the resulting list unless'
+                             ' keepends\nis given and true.')
+unicode_startswith = SMM('startswith', 4, defaults=(0,maxint),
+                         doc='S.startswith(prefix[, start[, end]]) ->'
+                             ' bool\n\nReturn True if S starts with the'
+                             ' specified prefix, False otherwise.\nWith'
+                             ' optional start, test S beginning at that'
+                             ' position.\nWith optional end, stop comparing S'
+                             ' at that position.')
+unicode_strip      = SMM('strip',  2, defaults=(None,),
+                         doc='S.strip([chars]) -> unicode\n\nReturn a copy of'
+                             ' the string S with leading and'
+                             ' trailing\nwhitespace removed.\nIf chars is'
+                             ' given and not None, remove characters in chars'
+                             ' instead.\nIf chars is a str, it will be'
+                             ' converted to unicode before stripping')
+unicode_swapcase   = SMM('swapcase', 1,
+                         doc='S.swapcase() -> unicode\n\nReturn a copy of S'
+                             ' with uppercase characters converted to'
+                             ' lowercase\nand vice versa.')
+unicode_title      = SMM('title', 1,
+                         doc='S.title() -> unicode\n\nReturn a titlecased'
+                             ' version of S, i.e. words start with title'
+                             ' case\ncharacters, all remaining cased'
+                             ' characters have lower case.')
+unicode_translate  = SMM('translate', 2,
+                         doc='S.translate(table) -> unicode\n\nReturn a copy'
+                             ' of the string S, where all characters have been'
+                             ' mapped\nthrough the given translation table,'
+                             ' which must be a mapping of\nUnicode ordinals to'
+                             ' Unicode ordinals, Unicode strings or'
+                             ' None.\nUnmapped characters are left untouched.'
+                             ' Characters mapped to None\nare deleted.')
+unicode_upper      = SMM('upper', 1,
+                         doc='S.upper() -> unicode\n\nReturn a copy of S'
+                             ' converted to uppercase.')
+unicode_zfill      = SMM('zfill', 2,
+                         doc='S.zfill(width) -> unicode\n\nPad a numeric'
+                             ' string x with zeros on the left, to fill a'
+                             ' field\nof the specified width. The string x is'
+                             ' never truncated.')
 
 # ____________________________________________________________
 

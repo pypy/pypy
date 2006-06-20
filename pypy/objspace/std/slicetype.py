@@ -5,7 +5,13 @@ from pypy.objspace.std.register_all import register_all
 from pypy.interpreter.error import OperationError
 
 # indices multimehtod
-slice_indices = StdObjSpaceMultiMethod('indices', 2)
+slice_indices = SMM('indices', 2,
+                    doc='S.indices(len) -> (start, stop, stride)\n\nAssuming a'
+                        ' sequence of length len, calculate the start and'
+                        ' stop\nindices, and the stride length of the extended'
+                        ' slice described by\nS. Out of bounds indices are'
+                        ' clipped in a manner consistent with the\nhandling of'
+                        ' normal slices.')
 
 # utility functions
 def _Eval_SliceIndex(space, w_int):

@@ -1,18 +1,39 @@
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.objspace import register_all
 from pypy.objspace.std.stdtypedef import StdTypeDef, newmethod
-from pypy.objspace.std.stdtypedef import StdObjSpaceMultiMethod as SMM
+from pypy.objspace.std.stdtypedef import SMM
 from pypy.interpreter.gateway import NoneNotWrapped
 from pypy.interpreter import gateway
 
-frozenset_copy                  = SMM('copy', 1)
-frozenset_difference            = SMM('difference', 2)
-frozenset_intersection          = SMM('intersection', 2)
-frozenset_issubset              = SMM('issubset', 2)
-frozenset_issuperset            = SMM('issuperset', 2)
-frozenset_symmetric_difference  = SMM('symmetric_difference', 2)
-frozenset_union                 = SMM('union', 2)
-frozenset_reduce                = SMM('__reduce__',1)
+frozenset_copy                  = SMM('copy', 1,
+                                      doc='Return a shallow copy of a set.')
+frozenset_difference            = SMM('difference', 2,
+                                      doc='Return the difference of two sets'
+                                          ' as a new set.\n\n(i.e. all'
+                                          ' elements that are in this set but'
+                                          ' not the other.)')
+frozenset_intersection          = SMM('intersection', 2,
+                                      doc='Return the intersection of two sets'
+                                          ' as a new set.\n\n(i.e. all'
+                                          ' elements that are in both sets.)')
+frozenset_issubset              = SMM('issubset', 2,
+                                      doc='Report whether another set contains'
+                                          ' this set.')
+frozenset_issuperset            = SMM('issuperset', 2,
+                                      doc='Report whether this set contains'
+                                          ' another set.')
+frozenset_symmetric_difference  = SMM('symmetric_difference', 2,
+                                      doc='Return the symmetric difference of'
+                                          ' two sets as a new set.\n\n(i.e.'
+                                          ' all elements that are in exactly'
+                                          ' one of the sets.)')
+frozenset_union                 = SMM('union', 2,
+                                      doc='Return the union of two sets as a'
+                                          ' new set.\n\n(i.e. all elements'
+                                          ' that are in either set.)')
+frozenset_reduce                = SMM('__reduce__',1,
+                                      doc='Return state information for'
+                                          ' pickling.')
 
 register_all(vars(), globals())
 

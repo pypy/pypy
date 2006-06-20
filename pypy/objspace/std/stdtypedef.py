@@ -10,7 +10,9 @@ from pypy.tool.sourcetools import compile2
 
 __all__ = ['StdTypeDef', 'newmethod', 'gateway',
            'GetSetProperty', 'Member',
-           'StdObjSpaceMultiMethod', 'descr_get_dict', 'no_hash_descr']
+           'SMM', 'descr_get_dict', 'no_hash_descr']
+
+SMM = StdObjSpaceMultiMethod
 
 
 class StdTypeDef(TypeDef):

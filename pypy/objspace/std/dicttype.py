@@ -3,21 +3,46 @@ from pypy.objspace.std.stdtypedef import *
 from pypy.objspace.std.register_all import register_all
 from pypy.interpreter.error import OperationError
 
-dict_copy       = StdObjSpaceMultiMethod('copy',          1)
-dict_items      = StdObjSpaceMultiMethod('items',         1)
-dict_keys       = StdObjSpaceMultiMethod('keys',          1)
-dict_values     = StdObjSpaceMultiMethod('values',        1)
-dict_has_key    = StdObjSpaceMultiMethod('has_key',       2)
-dict_clear      = StdObjSpaceMultiMethod('clear',         1)
-dict_get        = StdObjSpaceMultiMethod('get',           3, defaults=(None,))
-dict_pop        = StdObjSpaceMultiMethod('pop',           2, w_varargs=True)
-dict_popitem    = StdObjSpaceMultiMethod('popitem',       1)
-dict_setdefault = StdObjSpaceMultiMethod('setdefault',    3, defaults=(None,))
-dict_update     = StdObjSpaceMultiMethod('update',        2, defaults=((),))
-dict_iteritems  = StdObjSpaceMultiMethod('iteritems',     1)
-dict_iterkeys   = StdObjSpaceMultiMethod('iterkeys',      1)
-dict_itervalues = StdObjSpaceMultiMethod('itervalues',    1)
-dict_reversed   = StdObjSpaceMultiMethod('__reversed__',      1)
+dict_copy       = SMM('copy',          1,
+                      doc='D.copy() -> a shallow copy of D')
+dict_items      = SMM('items',         1,
+                      doc="D.items() -> list of D's (key, value) pairs, as"
+                          ' 2-tuples')
+dict_keys       = SMM('keys',          1,
+                      doc="D.keys() -> list of D's keys")
+dict_values     = SMM('values',        1,
+                      doc="D.values() -> list of D's values")
+dict_has_key    = SMM('has_key',       2,
+                      doc='D.has_key(k) -> True if D has a key k, else False')
+dict_clear      = SMM('clear',         1,
+                      doc='D.clear() -> None.  Remove all items from D.')
+dict_get        = SMM('get',           3, defaults=(None,),
+                      doc='D.get(k[,d]) -> D[k] if k in D, else d.  d defaults'
+                          ' to None.')
+dict_pop        = SMM('pop',           2, w_varargs=True,
+                      doc='D.pop(k[,d]) -> v, remove specified key and return'
+                          ' the corresponding value\nIf key is not found, d is'
+                          ' returned if given, otherwise KeyError is raised')
+dict_popitem    = SMM('popitem',       1,
+                      doc='D.popitem() -> (k, v), remove and return some (key,'
+                          ' value) pair as a\n2-tuple; but raise KeyError if D'
+                          ' is empty')
+dict_setdefault = SMM('setdefault',    3, defaults=(None,),
+                      doc='D.setdefault(k[,d]) -> D.get(k,d), also set D[k]=d'
+                          ' if k not in D')
+dict_update     = SMM('update',        2, defaults=((),),
+                      doc='D.update(E, **F) -> None.  Update D from E and F:'
+                          ' for k in E: D[k] = E[k]\n(if E has keys else: for'
+                          ' (k, v) in E: D[k] = v) then: for k in F: D[k] ='
+                          ' F[k]')
+dict_iteritems  = SMM('iteritems',     1,
+                      doc='D.iteritems() -> an iterator over the (key, value)'
+                          ' items of D')
+dict_iterkeys   = SMM('iterkeys',      1,
+                      doc='D.iterkeys() -> an iterator over the keys of D')
+dict_itervalues = SMM('itervalues',    1,
+                      doc='D.itervalues() -> an iterator over the values of D')
+dict_reversed   = SMM('__reversed__',      1)
 
 def dict_reversed__ANY(space, w_dict):
     raise OperationError(space.w_TypeError, space.wrap('argument to reversed() must be a sequence'))

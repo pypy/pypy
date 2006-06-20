@@ -4,16 +4,32 @@ from pypy.objspace.std.stdtypedef import *
 from pypy.objspace.std.register_all import register_all
 from sys import maxint
 
-list_append   = StdObjSpaceMultiMethod('append', 2)
-list_insert   = StdObjSpaceMultiMethod('insert', 3)
-list_extend   = StdObjSpaceMultiMethod('extend', 2)
-list_pop      = StdObjSpaceMultiMethod('pop',    2, defaults=(-1,))
-list_remove   = StdObjSpaceMultiMethod('remove', 2)
-list_index    = StdObjSpaceMultiMethod('index',  4, defaults=(0,maxint))
-list_count    = StdObjSpaceMultiMethod('count',  2)
-list_reverse  = StdObjSpaceMultiMethod('reverse',1)
-list_sort     = StdObjSpaceMultiMethod('sort',   4, defaults=(None, None, False), argnames=['cmp', 'key', 'reverse'])
-list_reversed = StdObjSpaceMultiMethod('__reversed__', 1)
+list_append   = SMM('append', 2,
+                    doc='L.append(object) -- append object to end')
+list_insert   = SMM('insert', 3,
+                    doc='L.insert(index, object) -- insert object before index')
+list_extend   = SMM('extend', 2,
+                    doc='L.extend(iterable) -- extend list by appending'
+                        ' elements from the iterable')
+list_pop      = SMM('pop',    2, defaults=(-1,),
+                    doc='L.pop([index]) -> item -- remove and return item at'
+                        ' index (default last)')
+list_remove   = SMM('remove', 2,
+                    doc='L.remove(value) -- remove first occurrence of value')
+list_index    = SMM('index',  4, defaults=(0,maxint),
+                    doc='L.index(value, [start, [stop]]) -> integer -- return'
+                        ' first index of value')
+list_count    = SMM('count',  2,
+                    doc='L.count(value) -> integer -- return number of'
+                        ' occurrences of value')
+list_reverse  = SMM('reverse',1,
+                    doc='L.reverse() -- reverse *IN PLACE*')
+list_sort     = SMM('sort',   4, defaults=(None, None, False), argnames=['cmp', 'key', 'reverse'],
+                    doc='L.sort(cmp=None, key=None, reverse=False) -- stable'
+                        ' sort *IN PLACE*;\ncmp(x, y) -> -1, 0, 1')
+list_reversed = SMM('__reversed__', 1,
+                    doc='L.__reversed__() -- return a reverse iterator over'
+                        ' the list')
 ##
 ##list_reversed__ANY = gateway.applevel('''
 ##    # NOT_RPYTHON -- uses yield
