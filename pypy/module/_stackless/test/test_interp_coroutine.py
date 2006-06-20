@@ -13,8 +13,6 @@ def output(stuff):
 
 class _TestCoroutine(StacklessTest):
     backendopt = True
-    stacklessmode = True
-    gcpolicy = gc.BoehmGcPolicy
     Coroutine = Coroutine
 
     def setup_method(self, method):

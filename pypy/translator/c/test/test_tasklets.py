@@ -195,7 +195,6 @@ def getcurrent():
 # ____________________________________________________________
 
 class TestTasklets(test_stackless.StacklessTest):
-    gcpolicy = gc.BoehmGcPolicy
     backendopt = True
 
     def test_simplex(self):
@@ -496,8 +495,3 @@ class TestTasklets(test_stackless.StacklessTest):
 
         res = self.wrap_stackless_function(f)
         assert res == 1
-
-# ____________________________________________________________
-
-class TestTaskletsStacklessTransform(TestTasklets):
-    stacklessmode = True

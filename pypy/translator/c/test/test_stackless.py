@@ -10,7 +10,8 @@ import os
 
 class StacklessTest(object):
     backendopt = False
-    stacklessmode = 'old'
+    stacklessmode = True
+    gcpolicy = gc.BoehmGcPolicy
 
     def setup_class(cls):
         import py
@@ -51,7 +52,6 @@ class StacklessTest(object):
 
 
 class TestStackless(StacklessTest):
-    gcpolicy = None # Refcounting
 
     def test_stack_depth(self):
         def g1():
@@ -293,14 +293,3 @@ def malloc_a_lot():
     from pypy.rpython.lltypesystem.lloperation import llop
     from pypy.rpython.lltypesystem import lltype
     llop.gc__collect(lltype.Void)
-
-# ____________________________________________________________
-    
-class TestStacklessBoehm(TestStackless):
-    gcpolicy = gc.BoehmGcPolicy
-
-
-# ____________________________________________________________
-
-class TestStacklessTransformBoehm(TestStacklessBoehm):
-    stacklessmode = True

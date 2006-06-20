@@ -678,18 +678,7 @@ def select_function_code_generators(fnobj, db, functionname):
             fnobj._callable,)
     elif hasattr(fnobj, 'graph'):
         cpython_exc = getattr(fnobj, 'exception_policy', None) == "CPython"
-        if hasattr(db, 'stacklessdata'):
-            split_slp_function = False
-            if split_slp_function:
-                from pypy.translator.c.stackless import SlpSaveOnlyFunctionCodeGenerator, \
-                                                        SlpResumeFunctionCodeGenerator
-                return [SlpSaveOnlyFunctionCodeGenerator(fnobj.graph, db, cpython_exc, functionname),
-                        SlpResumeFunctionCodeGenerator(fnobj.graph, db, cpython_exc, functionname)]
-            else:
-                from pypy.translator.c.stackless import SlpFunctionCodeGenerator
-                return [SlpFunctionCodeGenerator(fnobj.graph, db, cpython_exc, functionname)]
-        else:
-            return [FunctionCodeGenerator(fnobj.graph, db, cpython_exc, functionname)]
+        return [FunctionCodeGenerator(fnobj.graph, db, cpython_exc, functionname)]
     elif getattr(fnobj, 'external', None) == 'C':
         # deprecated case
         if hasattr(fnobj, 'includes'):

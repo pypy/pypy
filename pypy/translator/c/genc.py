@@ -46,16 +46,12 @@ class CBuilder(object):
         if self.stackless:
             if not self.standalone:
                 raise Exception("stackless: only for stand-alone builds")
-            if self.stackless == 'old':
-                from pypy.translator.c.stackless import StacklessData
-                db.stacklessdata = StacklessData(db)
-            else:
-                from pypy.translator.stackless.transform import \
-                                                       StacklessTransformer
-                db.stacklesstransformer = StacklessTransformer(translator,
-                                              self.originalentrypoint,
-                                              db.gcpolicy.requires_stackless)
-                self.entrypoint = db.stacklesstransformer.slp_entry_point
+
+            from pypy.translator.stackless.transform import StacklessTransformer
+            db.stacklesstransformer = StacklessTransformer(translator,
+                                                           self.originalentrypoint,
+                                                           db.gcpolicy.requires_stackless)
+            self.entrypoint = db.stacklesstransformer.slp_entry_point
 
         # pass extra options into pyobjmaker
         if pyobj_options:
