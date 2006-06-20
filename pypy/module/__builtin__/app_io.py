@@ -6,6 +6,11 @@ Plain Python definition of the builtin I/O-related functions.
 import sys
 
 def execfile(filename, glob=None, loc=None):
+    """execfile(filename[, globals[, locals]])
+
+Read and execute a Python script from a file.
+The globals and locals are dictionaries, defaulting to the current
+globals and locals.  If only globals is given, locals defaults to it."""
     if glob is None:
         # Warning this is at hidden_applevel
         glob = globals()
@@ -23,6 +28,12 @@ def execfile(filename, glob=None, loc=None):
     exec co in glob, loc
 
 def raw_input(prompt=None):
+    """raw_input([prompt]) -> string
+
+Read a string from standard input.  The trailing newline is stripped.
+If the user hits EOF (Unix: Ctl-D, Windows: Ctl-Z+Return), raise EOFError.
+On Unix, GNU readline is used if enabled.  The prompt string, if given,
+is printed without a trailing newline before reading."""
     try:
         sys.stdin
     except AttributeError:
@@ -47,4 +58,5 @@ def raw_input(prompt=None):
     return line
 
 def input(prompt=None):
+    """Equivalent to eval(raw_input(prompt))."""
     return eval(raw_input(prompt))

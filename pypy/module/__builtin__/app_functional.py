@@ -5,6 +5,10 @@ functional programming.
 from __future__ import generators
 
 def sum(sequence, total=0):
+    """sum(sequence, start=0) -> value
+
+Returns the sum of a sequence of numbers (NOT strings) plus the value
+of parameter 'start'.  When the sequence is empty, returns start."""
     # must forbid "summing" strings, per specs of built-in 'sum'
     if isinstance(total, str): raise TypeError
     for item in sequence:
@@ -200,7 +204,8 @@ def range(x, y=None, step=1):
 # operator.__lt__  Perhaps later when we have operator.
 
 def min(*arr):
-    """return the smallest number in a list"""
+    """return the smallest number in a list,
+    or its smallest argument if more than one is given."""
 
     if not arr:
         raise TypeError, 'min() takes at least one argument'
@@ -220,7 +225,8 @@ def min(*arr):
     return min
 
 def max(*arr):
-    """return the largest number in a list"""
+    """return the largest number in a list,
+    or its largest argument if more than one is given."""
 
     if not arr:
         raise TypeError, 'max() takes at least one argument'
@@ -240,18 +246,25 @@ def max(*arr):
     return max
 
 class enumerate(object):
+    """enumerate(iterable) -> iterator for (index, value) of iterable.
+
+Return an enumerate object.  iterable must be an other object that supports
+iteration.  The enumerate object yields pairs containing a count (from
+zero) and a value yielded by the iterable argument.  enumerate is useful
+for obtaining an indexed list: (0, seq[0]), (1, seq[1]), (2, seq[2]), ..."""
+
     def __init__(self, collection):
         self._iter = iter(collection)
         self._index = 0
     
     def next(self):
         try:
-            result = self._index, self._iter.next()
+            next = self._iter.next
         except AttributeError:
             # CPython raises a TypeError when next() is not defined
-            raise TypeError('%s has no next() method' % \
-                            (self._iter))
-
+            raise TypeError('%s object has no next() method' %
+                            (type(self._iter).__name__,))
+        result = self._index, next()
         self._index += 1
         return result
     
@@ -261,18 +274,14 @@ class enumerate(object):
 # ____________________________________________________________
 
 def all( it ):
-    """
-    Implementation of the all() builtin function from 2.5.
-    """
+    "Return True if bool(x) is True for all values x in the given iterable."
     for i in it:
         if not i:
             return False
     return True
     
 def any( it ):
-    """
-    Implementation of the all() builtin function from 2.5.
-    """
+    "Return True if bool(x) is True for any value x in the given iterable."
     for i in it:
         if i:
             return True
@@ -289,6 +298,12 @@ def get_len_of_range(lo, hi, step):
     return n 
     
 class xrange(object):
+    """xrange([start,] stop[, step]) -> xrange object
+
+Like range(), but instead of returning a list, returns an object that
+generates the numbers in the range on demand.  For looping, this is
+more memory efficient."""
+
     def __init__(self, start, stop=None, step=1):
         if not isinstance(start, (int, long, float)):
             raise TypeError('an integer is required')
@@ -383,10 +398,7 @@ def sorted(lst, cmp=None, key=None, reverse=None):
     return sorted_lst
 
 def reversed(sequence):
-    """reversed(sequence) -> reverse iterator over values of the sequence
-
-    Return a reverse iterator
-    """
+    "reversed(sequence) -> reverse iterator over values of the sequence"
     if hasattr(sequence, '__reversed__'):
         return sequence.__reversed__()
     if not hasattr(sequence, '__getitem__'):

@@ -6,9 +6,12 @@ program introspection.
 import sys
 
 def globals():
+    "Return the dictionary containing the current scope's global variables."
     return sys._getframe(0).f_globals
 
 def locals():
+    """Return a dictionary containing the current scope's local variables.
+Note that this may be the real dictionary of local variables, or a copy."""
     return sys._getframe(0).f_locals
 
 def _caller_locals(): 
@@ -41,10 +44,16 @@ def _issubclass(cls, klass_or_tuple, check_cls, depth):
         return _recursive_issubclass(cls, klass_or_tuple)
 
 def issubclass(cls, klass_or_tuple):
+    """Check whether a class 'cls' is a subclass (i.e., a derived class) of
+another class.  When using a tuple as the second argument, check whether
+'cls' is a subclass of any of the classes listed in the tuple."""
     import sys
     return _issubclass(cls, klass_or_tuple, True, sys.getrecursionlimit())
 
 def isinstance(obj, klass_or_tuple):
+    """Check whether an object is an instance of a class (or of a subclass
+thereof).  When using a tuple as the second argument, check whether 'obj'
+is an instance of any of the classes listed in the tuple."""
     if issubclass(type(obj), klass_or_tuple):
         return True
     try:
@@ -58,7 +67,7 @@ def isinstance(obj, klass_or_tuple):
 
 
 def vars(*obj):
-    """return a dictionary of all the attributes currently bound in obj.  If
+    """Return a dictionary of all the attributes currently bound in obj.  If
     called with no argument, return the variables bound in local scope."""
 
     if len(obj) == 0:
@@ -71,9 +80,10 @@ def vars(*obj):
         except AttributeError:
             raise TypeError, "vars() argument must have __dict__ attribute"
 
-def hasattr(ob, attr):
+def hasattr(obj, attr):
+    """Check whether the object has an attribute with the given name."""
     try:
-        getattr(ob, attr)
+        getattr(obj, attr)
         return True
     except AttributeError:
         return False

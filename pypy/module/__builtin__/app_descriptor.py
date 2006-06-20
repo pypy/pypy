@@ -9,6 +9,19 @@ Plain Python definition of the builtin descriptors.
 # XXX there is an interp-level pypy.interpreter.function.StaticMethod
 # XXX because __new__ needs to be a StaticMethod early.
 class staticmethod(object):
+    """staticmethod(function) -> static method
+
+Convert a function to be a static method.
+
+A static method does not receive an implicit first argument.
+To declare a static method, use this idiom:
+
+     class C:
+         def f(arg1, arg2, ...): ...
+         f = staticmethod(f)
+
+It can be called either on the class (e.g. C.f()) or on an instance
+(e.g. C().f()).  The instance is ignored except for its class."""
     __slots__ = ['_f']
 
     def __init__(self, f):
@@ -19,6 +32,22 @@ class staticmethod(object):
 
 
 class classmethod(object):
+    """classmethod(function) -> class method
+
+Convert a function to be a class method.
+
+A class method receives the class as implicit first argument,
+just like an instance method receives the instance.
+To declare a class method, use this idiom:
+
+  class C:
+      def f(cls, arg1, arg2, ...): ...
+      f = classmethod(f)
+
+It can be called either on the class (e.g. C.f()) or on an instance
+(e.g. C().f()).  The instance is ignored except for its class.
+If a class method is called for a derived class, the derived class
+object is passed as the implied first argument."""
     __slots__ = ['_f']
 
     def __init__(self, f):
@@ -119,6 +148,15 @@ docstring.capture(property, 'slot__doc__')
 #     http://www.python.org/2.2.3/descrintro.html
 # it exposes the same special attributes as CPython's.
 class super(object):
+    """super(type) -> unbound super object
+super(type, obj) -> bound super object; requires isinstance(obj, type)
+super(type, type2) -> bound super object; requires issubclass(type2, type)
+
+Typical use to call a cooperative superclass method:
+
+class C(B):
+    def meth(self, arg):
+        super(C, self).meth(arg)"""
     __slots__ = ['__thisclass__', '__self__', '__self_class__']
     def __init__(self, typ, obj=None):
         if obj is None:

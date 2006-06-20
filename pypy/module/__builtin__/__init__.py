@@ -64,8 +64,6 @@ class Module(MixedModule):
 
     interpleveldefs = {
         # constants
-        '__name__'      : '(space.wrap("__builtin__"))', 
-        '__doc__'       : '(space.wrap("PyPy builtin module"))', 
         'None'          : '(space.w_None)',
         'False'         : '(space.w_False)',
         'True'          : '(space.w_True)',

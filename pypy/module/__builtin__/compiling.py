@@ -8,6 +8,18 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import NoneNotWrapped
 
 def compile(space, w_source, filename, mode, flags=0, dont_inherit=0):
+    """Compile the source string (a Python module, statement or expression)
+into a code object that can be executed by the exec statement or eval().
+The filename will be used for run-time error messages.
+The mode must be 'exec' to compile a module, 'single' to compile a
+single (interactive) statement, or 'eval' to compile an expression.
+The flags argument, if present, controls which future statements influence
+the compilation of the code.
+The dont_inherit argument, if non-zero, stops the compilation inheriting
+the effects of any future statements in effect in the code calling
+compile; if absent or zero these statements do influence the compilation,
+in addition to any features explicitly specified.
+"""
     if space.is_true(space.isinstance(w_source, space.w_unicode)):
         # hack: encode the unicode string as UTF-8 and attach
         # a BOM at the start
@@ -38,6 +50,12 @@ compile.unwrap_spec = [ObjSpace,W_Root,str,str,int,int]
 
 
 def eval(space, w_code, w_globals=NoneNotWrapped, w_locals=NoneNotWrapped):
+    """Evaluate the source in the context of globals and locals.
+The source may be a string representing a Python expression
+or a code object as returned by compile().  The globals and locals
+are dictionaries, defaulting to the current current globals and locals.
+If only globals is given, locals defaults to it.
+"""
     w = space.wrap
 
     if (space.is_true(space.isinstance(w_code, space.w_str)) or

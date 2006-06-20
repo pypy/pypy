@@ -40,6 +40,8 @@ def find_module(fullname,  path):
      #no hooks match - do normal import
 
 def reload(module):
+    """Reload the module.
+    The module must have been successfully imported before."""
     import imp, sys, errno
 
     if type(module) not in (type(imp), type(errno)):

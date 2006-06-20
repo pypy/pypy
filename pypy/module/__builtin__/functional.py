@@ -64,9 +64,9 @@ def get_len_of_range(lo, hi, step):
     return n
 
 def range(space, w_x, w_y=None, w_step=1):
-    """ returns a list of integers in arithmetic position from start (defaults
-        to zero) to stop - 1 by step (defaults to 1).  Use a negative step to
-        get a list in decending order."""
+    """Return a list of integers in arithmetic position from start (defaults
+to zero) to stop - 1 by step (defaults to 1).  Use a negative step to
+get a list in decending order."""
 
     try:
         # save duplication by redirecting every error to applevel

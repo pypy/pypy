@@ -30,4 +30,6 @@ def __pdb():
 __pdb._annspecialcase_ = 'override:ignore'
 
 def _pdb(space):
+    """Run an interp-level pdb.
+    This is not available in translated versions of PyPy."""
     __pdb()
