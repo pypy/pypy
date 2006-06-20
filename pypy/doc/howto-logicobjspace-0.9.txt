@@ -219,9 +219,9 @@ and thus must be adapted too::
 
 Please note that in the current LO, we deal with coroutines, not
 threads (thus we can't rely on preemtive scheduling to lessen the
-problem with the eager consummer/producer program). Also these
-coroutines still don't support well being nested. This impact the
-ability to write a simple program like the following::
+problem with the eager consummer/producer program). Also nested
+coroutine don't schedule properly. This impact the ability to write a
+simple program like the following::
 
   def sleep(X, Barrier):
       wait(X)
