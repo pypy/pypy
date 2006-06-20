@@ -8,7 +8,6 @@ from pypy.translator.js.modules.dom import Node, get_document, setTimeout, alert
 from pypy.translator.js.modules.xmlhttp import XMLHttpRequest
 from pypy.translator.js import conftest
 #from pypy.rpython.rjs import jseval
-from pypy.translator.js.modules.seval import seval
 
 import time
 
