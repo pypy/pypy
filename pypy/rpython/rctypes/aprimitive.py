@@ -8,7 +8,7 @@ from pypy.rpython.rctypes import rcarithmetic as rcarith
 
 ctypes_annotation_list = {
     c_char:          lltype.Char,
-    c_wchar:         lltype.UniChar,
+    #c_wchar:         lltype.UniChar,
     c_byte:          rcarith.CByte,
     c_ubyte:         rcarith.CUByte,
     c_short:         rcarith.CShort,
@@ -19,7 +19,7 @@ ctypes_annotation_list = {
     c_ulong:         rcarith.CULong,
     c_longlong:      rcarith.CLonglong,
     c_ulonglong:     rcarith.CULonglong,
-    c_float:         lltype.Float,
+    #c_float:         lltype.Float,
     c_double:        lltype.Float,
 }   # nb. platform-dependent duplicate ctypes are removed
 

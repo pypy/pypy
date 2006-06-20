@@ -69,9 +69,9 @@ class Test_annotation:
         if conftest.option.view:
             t.view()
     
-    def test_annotate_c_float(self):
+    def test_annotate_c_double(self):
         def func():
-            res = c_float(4.2)
+            res = c_double(4.2)
 
             return res.value
 
@@ -84,8 +84,8 @@ class Test_annotation:
         if conftest.option.view:
             t.view()
 
-    def test_annotate_prebuilt_c_float(self):
-        res = c_float(4.2)
+    def test_annotate_prebuilt_c_double(self):
+        res = c_double(4.2)
 
         def func():
             return res.value
@@ -99,9 +99,9 @@ class Test_annotation:
         if conftest.option.view:
             t.view()
 
-    def test_annotate_set_c_float_value(self):
+    def test_annotate_set_c_double_value(self):
         def func():
-            res = c_float(4.2)
+            res = c_double(4.2)
             res.value = 5.2
 
             return res.value
@@ -268,41 +268,41 @@ class Test_specialization:
         res = interpret(access_cint, [])
         assert res == 42
 
-    def test_specialize_c_float(self):
-        def create_c_float():
-            return c_float(4.2)
-        res = interpret(create_c_float, [])
+    def test_specialize_c_double(self):
+        def create_c_double():
+            return c_double(4.2)
+        res = interpret(create_c_double, [])
         c_data = res.c_data
         assert c_data[0] == 4.2
 
-    def test_specialize_c_float_default_value(self):
-        def create_c_float():
-            return c_float()
-        res = interpret(create_c_float, [])
+    def test_specialize_c_double_default_value(self):
+        def create_c_double():
+            return c_double()
+        res = interpret(create_c_double, [])
         c_data = res.c_data
         assert c_data[0] == 0.0
 
-    def test_specialize_c_float_access_value(self):
-        def create_c_float():
-            return c_float(4.2).value
-        res = interpret(create_c_float, [])
+    def test_specialize_c_double_access_value(self):
+        def create_c_double():
+            return c_double(4.2).value
+        res = interpret(create_c_double, [])
         assert res == 4.2
 
-    def test_specialize_c_float_set_value(self):
-        def set_c_float_value():
-            cf = c_float(4.2)
+    def test_specialize_c_double_set_value(self):
+        def set_c_double_value():
+            cf = c_double(4.2)
             cf.value = 5.2
             return cf.value
 
-        res = interpret(set_c_float_value, [])
+        res = interpret(set_c_double_value, [])
         assert res == 5.2
 
-    def test_specialize_access_prebuilt_c_float_value(self):
-        cf = c_float(4.3)
-        def access_c_float():
+    def test_specialize_access_prebuilt_c_double_value(self):
+        cf = c_double(4.3)
+        def access_c_double():
             return cf.value
 
-        res = interpret(access_c_float, [])
+        res = interpret(access_c_double, [])
         
         # XXX: goden: Not sure if this is an indication of some sort of
         #             problem, but the precision appears to be broken when
@@ -325,19 +325,19 @@ class Test_specialization:
             x = c_ulonglong(5)
             x.value += 1
             assert x.value == r_ulonglong(6)
-            x = c_float(2.5)
-            x.value += 0.25
-            assert x.value == 2.75
-            x.value -= 1
-            assert x.value == 1.75
+            # x = c_float(2.5)
+            # x.value += 0.25
+            # assert x.value == 2.75
+            # x.value -= 1
+            # assert x.value == 1.75
             x = c_double(2.5)
             x.value += 0.25
             assert x.value == 2.75
             x.value -= 1
             assert x.value == 1.75
-            x = c_wchar(u'A')
-            x.value = unichr(ord(x.value) + 1)
-            assert x.value == u'B'
+            # x = c_wchar(u'A')
+            # x.value = unichr(ord(x.value) + 1)
+            # assert x.value == u'B'
         interpret(func, [])
 
     def test_convert_from_llvalue(self):
@@ -354,19 +354,19 @@ class Test_specialization:
             x = c_ulonglong(5)
             pointer(x)[0] += 1
             assert x.value == r_ulonglong(6)
-            x = c_float(2.5)
-            pointer(x)[0] += 0.25
-            assert x.value == 2.75
-            pointer(x)[0] -= 1
-            assert x.value == 1.75
+            # x = c_float(2.5)
+            # pointer(x)[0] += 0.25
+            # assert x.value == 2.75
+            # pointer(x)[0] -= 1
+            # assert x.value == 1.75
             x = c_double(2.5)
             pointer(x)[0] += 0.25
             assert x.value == 2.75
             pointer(x)[0] -= 1
             assert x.value == 1.75
-            x = c_wchar(u'A')
-            pointer(x)[0] = unichr(ord(pointer(x)[0]) + 1)
-            assert x.value == u'B'
+            # x = c_wchar(u'A')
+            # pointer(x)[0] = unichr(ord(pointer(x)[0]) + 1)
+            # assert x.value == u'B'
         interpret(func, [])
 
     def test_truth_value(self):
@@ -378,7 +378,7 @@ class Test_specialization:
             assert c_int(-1)
             assert not c_byte(z)
             assert not c_char(chr(z))
-            assert not c_float(z)
+            # assert not c_float(z)
             assert not c_double(z)
             assert not c_ulonglong(bigzero)
             assert c_ulonglong(big)
@@ -489,18 +489,18 @@ class Test_compilation:
         fn = compile(access_cint, [])
         assert fn() == 52
     
-    def test_compile_c_float(self):
-        def create_c_float():
-            return c_float(4.2).value
-        fn = compile(create_c_float, [])
+    def test_compile_c_double(self):
+        def create_c_double():
+            return c_double(4.2).value
+        fn = compile(create_c_double, [])
         assert fn() == 4.2
 
-    def test_compile_prebuilt_c_float(self):
-        cf = c_float(4.2)
-        def access_c_float():
+    def test_compile_prebuilt_c_double(self):
+        cf = c_double(4.2)
+        def access_c_double():
             return cf.value
 
-        fn = compile(access_c_float, [])
+        fn = compile(access_c_double, [])
         # XXX: goden: Not sure if this is an indication of some sort of
         #             problem, but the precision appears to be broken when
         #             returning a float from the interpreted function when its
@@ -508,13 +508,13 @@ class Test_compilation:
         #             the precision to compare.
         assert ("%.2f" % (fn(),)) == ("%.2f" % (4.2,))
 
-    def test_compile_set_prebuilt_c_float_value(self):
-        cf = c_float(4.2)
-        def access_c_float():
+    def test_compile_set_prebuilt_c_double_value(self):
+        cf = c_double(4.2)
+        def access_c_double():
             cf.value = 5.2
             return cf.value
 
-        fn = compile(access_c_float, [])
+        fn = compile(access_c_double, [])
         assert fn() == 5.2
 
     def test_compile_c_integers(self):

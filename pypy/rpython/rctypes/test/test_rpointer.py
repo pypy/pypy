@@ -10,7 +10,7 @@ from pypy.rpython.test.test_llinterp import interpret
 from pypy.translator.c.test.test_genc import compile
 from pypy.annotation.model import SomeCTypesObject
 
-from ctypes import c_int, c_float, POINTER, pointer, Structure
+from ctypes import c_int, c_double, POINTER, pointer, Structure
 
 class Test_annotation:
     def test_simple(self):
@@ -34,10 +34,10 @@ class Test_annotation:
 
         assert s.knowntype == int
 
-    def test_annotate_c_float_ptr(self):
-        ptrtype = POINTER(c_float)
+    def test_annotate_c_double(self):
+        ptrtype = POINTER(c_double)
         def func():
-            res = c_float(4.2)
+            res = c_double(4.2)
             ptrres  = ptrtype(res)
             return ptrres.contents.value
         
@@ -118,14 +118,14 @@ class Test_annotation:
 
     def test_annotate_POINTER(self):
         def fn():
-            p = POINTER(c_float)()
-            p.contents = c_float(6.1)
+            p = POINTER(c_double)()
+            p.contents = c_double(6.1)
             return p
 
         t = TranslationContext()
         a = t.buildannotator()
         s = a.build_types(fn, [])
-        assert s.knowntype == POINTER(c_float)
+        assert s.knowntype == POINTER(c_double)
 
         if conftest.option.view:
             t.view()
@@ -261,8 +261,8 @@ class Test_specialization:
 
     def test_specialize_POINTER(self):
         def fn():
-            p = POINTER(c_float)()
-            p.contents = c_float(6.25)
+            p = POINTER(c_double)()
+            p.contents = c_double(6.25)
             return p
 
         res = interpret(fn, [])

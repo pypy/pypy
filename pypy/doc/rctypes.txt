@@ -49,8 +49,9 @@ ctypes would typically declare all functions globally at module-level
 anyway.
 
 Apart from this, you can use many ctypes constructs freely: all
-primitive types, pointers, structures, arrays, external functions.  The
-following ctypes functions are supported at run-time:
+primitive types except c_float and c_wchar and c_wchar_p (they will be
+added at a later time), pointers, structures, arrays, external functions.
+  The following ctypes functions are supported at run-time:
 create_string_buffer(), pointer(), POINTER(), sizeof(), cast().  (Adding
 support for more is easy.)  Free union are *not* supported.  There is
 some support for callbacks and a few more obscure ctypes features, but
