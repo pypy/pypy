@@ -26,6 +26,11 @@ char *pypy_malloc_atomic(long size) {
   return GC_MALLOC_ATOMIC(size);
 }
 
+void pypy_gc__collect() {
+  GC_gcollect();
+  GC_invoke_finalizers();
+}
+
 extern GC_all_interior_pointers;
 
 // startup specific code for boehm 

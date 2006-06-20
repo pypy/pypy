@@ -39,7 +39,9 @@ class Database(object):
             lltype.Void: "void",
             lltype.UnsignedLongLong: "ulong",
             lltype.SignedLongLong: "long",
-            llmemory.Address: "sbyte*"}
+            llmemory.Address: "sbyte*",
+            llmemory.WeakGcAddress: "sbyte*",
+            }
 
         # 32 bit platform
         if sys.maxint == 2**31-1:
@@ -368,6 +370,18 @@ class Database(object):
             # XXXXX things are happening in the gc world...
             # assert value == NULL
             repr = 'null' 
+        elif type_ is llmemory.WeakGcAddress:
+            repr = 'null' #refactor later
+            #assert isinstance(value, llmemory.fakeweakaddress)
+            #if value.ref is None:
+            #    repr = 'null' #'HIDE_POINTER(NULL)'
+            #else:
+            #    ob = value.ref()
+            #    assert ob is not None
+            #    print dir(ob)
+            #    #import pdb; pdb.set_trace()
+            #    #repr = self.repr_arg(ob._as_ptr()) #'HIDE_POINTER(%s)' % db.get(ob)
+            #    repr = self.repr_arg(ob) #'HIDE_POINTER(%s)' % db.get(ob)
         elif isinstance(value, Symbolic):
             if isinstance(value, llmemory.AddressOffset):
                 return self.offset_str(value)

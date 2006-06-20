@@ -154,6 +154,11 @@ class OpWriter(object):
     def _skipped(self, opr):
         self.codewriter.comment('***Skipping operation %s()' % opr.op.opname)
     keepalive = _skipped
+    resume_point = _skipped
+
+    def gc__collect(self, opr):
+        self.codewriter.call(opr.retref, opr.rettype, "%pypy_gc__collect",
+                             opr.argtypes, opr.argrefs)
 
     def int_abs(self, opr):
         assert len(opr.argrefs) == 1
@@ -435,6 +440,7 @@ class OpWriter(object):
     def raw_malloc(self, opr):
         self.codewriter.call(opr.retref, opr.rettype, "%raw_malloc",
                              opr.argtypes, opr.argrefs)
+
     def raw_free(self, opr):
         self.codewriter.call(opr.retref, opr.rettype, "%raw_free",
                              opr.argtypes, opr.argrefs)
