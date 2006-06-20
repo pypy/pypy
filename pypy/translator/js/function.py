@@ -242,7 +242,7 @@ class Function(Node, Generator):
         
         #self.loops = LoopFinder(self.graph.startblock).loops
         if self.is_method:
-            self.ilasm.begin_method(self.name, self._class, args)
+            self.ilasm.begin_method(self.name, self._class, [i[1] for i in args])
         else:
             self.ilasm.begin_function(self.name, args)
         #log("loops: %r"%self.loops)
