@@ -269,8 +269,24 @@ class AppTest_LogicThreads(object):
 
         wait(T)
         assert T == 45
+
+    def notest_nested_threads(self):
+        """check that a wait nested in a tree of
+           threads works correctly
+        """
+        def sleep(X):
+            wait(X)
+            return X
+
+        def call_sleep(X):
+            return uthread(sleep, X)
+
+        X = newvar()
+        v = uthread(call_sleep, X)
+        bind(X, 42)
+        assert X == v == 42
         
-    def dont_test_wait_two(self):
+    def notest_wait_two(self):
         """this seems to trigger an
            infinite loop in the
            greenlet machinery
