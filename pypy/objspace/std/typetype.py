@@ -80,6 +80,7 @@ def descr_get__mro__(space, w_type):
     return space.newtuple(w_type.mro_w)
 
 def descr_mro(space, w_type):
+    """Return a type's method resolution order."""
     w_type = _check(space, w_type,"expected type")
     return space.newlist(w_type.compute_mro())
 
@@ -140,6 +141,7 @@ def descr_set__module(space, w_type, w_value):
     w_type.dict_w['__module__'] = w_value
 
 def descr___subclasses__(space, w_type):
+    """Return the list of immediate subclasses."""
     w_type = _check(space, w_type)
     subclasses_w = []
     for w_ref in w_type.weak_subclasses_w:

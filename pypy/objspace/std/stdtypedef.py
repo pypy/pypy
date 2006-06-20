@@ -264,6 +264,8 @@ def wrap_trampoline_in_gateway(func, methname, multimethod):
         unwrap_spec.append('w_args')        
     if multimethod.extras.get('general__args__', False):
         unwrap_spec.append(argument.Arguments)
+    if 'doc' in multimethod.extras:
+        func.__doc__ = multimethod.extras['doc']
     return gateway.interp2app(func, app_name=methname, unwrap_spec=unwrap_spec)
 
 def slicemultimethod(space, multimethod, typedef, result, local=False):

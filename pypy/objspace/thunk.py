@@ -61,15 +61,19 @@ def force(space, w_self):
     return w_self
 
 def thunk(w_callable, __args__):
+    """thunk(f, *args, **kwds) -> an object that behaves like the
+    result of the call f(*args, **kwds).  The call is performed lazily."""
     return W_Thunk(w_callable, __args__)
 app_thunk = gateway.interp2app(thunk, unwrap_spec=[baseobjspace.W_Root,
                                                    argument.Arguments])
 
 def is_thunk(space, w_obj):
+    """Check if an object is a thunk that has not been computed yet."""
     return space.newbool(w_obj.w_thunkalias is w_NOT_COMPUTED_THUNK)
 app_is_thunk = gateway.interp2app(is_thunk)
 
 def become(space, w_target, w_source):
+    """Globally replace the target object with the source one."""
     w_target = force(space, w_target)
     w_target.w_thunkalias = w_source
     return space.w_None

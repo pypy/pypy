@@ -14,7 +14,8 @@ ERR_MALFORMED = "complex() arg is a malformed string"
 OVERFLOWED_FLOAT = 1e200
 OVERFLOWED_FLOAT *= OVERFLOWED_FLOAT
 
-complex_conjugate = StdObjSpaceMultiMethod('conjugate', 1)
+complex_conjugate = StdObjSpaceMultiMethod('conjugate', 1,
+                                           doc="(A+Bj).conjugate() -> A-Bj")
 
 register_all(vars(),globals())
 
