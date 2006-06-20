@@ -49,7 +49,7 @@ transformed and then translated to the target language.
 It is helpful to consider translation as being made up of the following
 steps:
 
-1. The complete program is imported, which means extra initialization can
+1. The complete program is imported, arbitrary run-time initialization can
    be performed.  Once this is done, the program must be present in memory
    as a form that is "static enough" in the sense of RPython_.
 
