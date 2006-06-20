@@ -165,9 +165,9 @@ class AppTestAllAny:
         raises(TypeError, all, [2, 4, 6], [])    # Too many args
         assert all([]) == True                   # Empty iterator
         S = [50, 60]
-        assert all(x > 42 for x in S) == True
+        assert all([x > 42 for x in S]) == True
         S = [50, 40, 60]
-        assert all(x > 42 for x in S) == False
+        assert all([x > 42 for x in S]) == False
 
     def test_any(self):
 
@@ -187,7 +187,7 @@ class AppTestAllAny:
         raises(TypeError, any, [2, 4, 6], [])    # Too many args
         assert any([]) == False                  # Empty iterator
         S = [40, 60, 30]
-        assert any(x > 42 for x in S) == True
+        assert any([x > 42 for x in S]) == True
         S = [10, 20, 30]
-        assert any(x > 42 for x in S) == False
+        assert any([x > 42 for x in S]) == False
 
