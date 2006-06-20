@@ -2,8 +2,6 @@
 """ Builtin annotation test
 """
 
-import autopath
-
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow import FlowObjSpace
 from pypy.annotation.annrpython import RPythonAnnotator
