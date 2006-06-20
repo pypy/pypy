@@ -145,7 +145,7 @@ sections XXX of `Compiling Dynamic Language Implementations`_.
 The major goal of the annotator is to "annotate" each variable that
 appears in a flow graph.  An "annotation" describes all the possible
 Python objects that this variable could contain at run-time, based on a
-whole-program analysis of all the flow graphs --- one per function.
+whole-program analysis of all the flow graphs -- one per function.
 
 An "annotation" is an instance of a subclass of ``SomeObject``.  Each
 subclass that represents a specific family of objects.
@@ -188,32 +188,31 @@ The RPython Typer
 
 http://codespeak.net/pypy/dist/pypy/rpython/
 
+The RTyper is the first place where the choice of backend makes a
+difference; as outlined above we are assuming that ANSI C is the target.
+
 The RPython Typer is the bridge between the Annotator_ and the code
 generator.  The information computed by the annotator is high-level, in
 the sense that it describe RPython types like lists or instances of
 user-defined classes.
 
-The RTyper is the first place where the choice of backend makes a
-difference; as outlined above we are assuming that ANSI C is the target.
+To emit code we need to represent these high-level annotations in the
+low-level model of the target language; for C, this means structures and
+pointers and arrays.  The Typer both determines the appropriate low-level type
+for each annotation and replaces each high-level operation in the control flow
+graphs with one or a few low-level operations.  Just like low-level types,
+there is only a fairly restricted set of low-level operations, along the lines
+of reading or writing from or to a field of a structure.
 
-In general, though, to emit code we need to represent these high-level
-annotations into the low-level model of the target language; for C, this
-means structures and pointers and arrays.  The Typer both determines the
-appropriate low-level type for each annotation, and tries to replace *all*
-operations in the control flow graphs with one or a few low-level
-operations.  Just like low-level types, there is only a fairly restricted
-set of low-level operations, along the lines of reading or writing from or
-to a field of a structure.
+In theory, this step is optional; a code generator might be able to read
+directly the high-level types.  Our experience, however, suggests that this is
+very unlikely to be pratical.  "Compiling" high-level types into low-level
+ones is rather more messy than one would expect and this was the motivation
+for making this step explicit and isolated in a single place.  After RTyping,
+the graphs only contain operations that already live on the level of the
+target langiage, which makes the job of the code generators much simpler.
 
-In theory, this step is optional; some code generators might be able to read
-directly the high-level types.  However, we expect that case to be the
-exception.  "Compiling" high-level types into low-level ones is rather more
-messy than one would expect.  This was the motivation for making this step
-explicit and isolated in a single place.  After Typing, the graphs can only
-contain very few operations, which makes the job of the code generators much
-simpler.
-
-For more information, see the `documentation for the RTyper`_.
+For more detailed information, see the `documentation for the RTyper`_.
 
 .. _`documentation for the RTyper`: rtyper.html
 
