@@ -21,7 +21,7 @@ finished, will provide additional builtins that will allow to write :
 The 0.9 preview comes without logic programming ; the constraint
 solver is only lightly tested, is not equipped with some specialized
 but important propagators for linear relations on numeric variables,
-and *might* support concurrency -- but that would be an accident ; the
+and *might* support concurrency -- but that would be an accident; the
 dataflow scheduling of coroutines is known to fail in at least one
 basic and important case.
 
@@ -29,7 +29,7 @@ In this document, we skim over these topics, hoping to give enough
 information and examples for an uninformed user to understand what is
 going on and how to use the provided functionnality.
 
-To fire up a working PyPy with the LO, please type :
+To fire up a working PyPy with the LO, please type::
 
 /root-of-pypy-dist/pypy/bin/py.py -o logic --usemodules=_stackless
 
@@ -43,9 +43,9 @@ Logic Variables
 Description and examples
 ------------------------
 
-Logic variables are similar to Python variables in the following sense
-: they map names to values in a defined scope. But unlike normal
-Python variables, they have two states : free and bound. A bound logic
+Logic variables are similar to Python variables in the following
+sense:: they map names to values in a defined scope. But unlike normal
+Python variables, they have two states:: free and bound. A bound logic
 variable is indistinguishable from a normal Python value which it
 wraps. A free variable can only be bound once (it is also said to be a
 single-assignment variable). It is good practice to denote these
@@ -64,7 +64,7 @@ Logic variables can be bound thusly :
   bind(X, 42)
   assert X / 2 == 24
 
-The single-assignment property is easily checked :
+The single-assignment property is easily checked::
 
   bind(X, 'hello') # would raise a FailureException
 
@@ -89,7 +89,7 @@ AssertionError, would the assertion be violated :
   assert [1, 2] == [1, 2]   
   assert 42 == 43           
 
-A basic example involving logic variables embedded into a dictionnary::
+A basic example involving logic variables embedded into dictionnaries::
 
   Z, W = newvar(), newvar()
   unify({'a': 42, 'b': Z},
@@ -104,7 +104,7 @@ the same -future- value).
 Assignment or aliasing of variables is provided underneath by the
 'bind' operator.
 
-An example involving custom data types :
+An example involving custom data types::
 
   class Foo(object):
       def __init__(self, a):
@@ -125,15 +125,15 @@ The operators table
 
 Logic variables support the following operators (with their arity) :
 
-Predicates : 
+Predicates:: 
  is_free/1   # applies to anything
  is_bound/1  # applies to anything
  alias_of/2  # wants logic variables
 
-Creation:
+Variable Creation::
  newvar/0
  
-Mutators :
+Mutators::
  bind/2      # wants a logic variable in first position
  unify/2     # applies to anything
 
@@ -148,12 +148,11 @@ mimics exactly the dataflow variables from the Oz programming
 language. With respect to behaviour under concurrency conditions,
 logic variables come with two operators :
 
-* wait : this suspends the current thread until the variable is bound,
+* wait:: this suspends the current thread until the variable is bound,
   it returns the value otherwise (impl. note : in the logic
-  objectspace, all operators make an implicit wait on their value
-  arguments)
+  objectspace, all operators make an implicit wait on their arguments)
 
-* wait_needed : this suspends the current thread until the variable
+* wait_needed:: this suspends the current thread until the variable
   has received a wait message. It has to be used explicitely,
   typically by a producer thread that wants to produce data only when
   needed.
@@ -245,3 +244,205 @@ ability to write a simple program like the following::
 
 This program currently blocks on the first call to sleep (we don't
 even get a chance to reach the first unify operation).
+
+
+Constraint Programming
+======================
+
+The LO comes stuffed with a flexible, extensible constraint solver
+engine. While regular search strategies such as depth-first or
+breadth-first search are provided, you can write better, specialized
+strategies (an exemple would be best-search). We therein describe how
+to use the solver to specify and get the solutions of a constraint
+satisfaction problem, and then highlight how to extend the solver with
+new strategies.
+
+Specification of a problem, getting solutions
+---------------------------------------------
+
+A constraint satisfaction problem is defined by a triple (X, D, C)
+where X is a set of finite domains variables, D the set of domains
+assocated to the variables in X, and C the set of constraints, or
+relations, that bind together the variables of X.
+
+Note that the constraint variables are NOT logic variables. Not yet
+anyway.
+
+So we basically need a way to declare variables, their domains and
+relations ; and something to hold these together. The later is what we
+call a "computation space". The notion of computation space is broad
+enough to encompass constraint and logic programming, but we use it
+there only as a box that holds the elements of our constraint
+satisfaction problem.
+
+A problem is a one-argument procedure defined as follow::
+
+  def simple_problem(cs):
+      cs.var('x', FiniteDomain(['spam', 'egg', 'ham']))
+      cs.var('y', FiniteDomain([3, 4, 5]))
+
+This snippet defines a couple of variables and their domains. Note
+that we didn't take a reference of the created variables. We can query
+the space to get these back if needed, and then complete the
+definition of our problem.
+
+      # ... continued ...
+      x = cs.find_var('x')
+      y = cs.find_var('y')
+      cs.tell(make_expression([x,y], 'len(x) == y'))
+      
+      return x, y
+      
+We must be careful to return the set of variables whose candidate
+values we are interested in. The rest should be sufficiently
+self-describing ... Now to print solutions out of this, we must::
+
+  import solver
+  cs = newspace()
+  cs.define_problem(simple_problem)
+  
+  for sol in solver.solve(cs):
+      print sol
+
+The builtin solve function returns a generator. You will note with
+pleasure how slow the search can be on a solver running on a Python
+interpreter written in Python and running on top of cpython... It is
+expected that the compiled version of PyPy + LO will provide decent
+performance.
+
+Operators for CSP specification
+-------------------------------
+
+Note that below, "variable/expression designators" really are strings.
+
+Space creation::
+ newspace/0
+
+Finite domain creation::
+ FiniteDomain/1    # a list/tuple of arbitrary objects
+
+Expressions::
+ make_expression/2 # a list of var. designators,
+                   # an expression encoded as a string
+ AllDistinct/0
+
+Space methods::
+ var/2             # variable designator (string) and a finite domain
+ find_var/1        # variable designator
+ tell/1            # an expression (built with make_expression
+                   # or AllDistinct)
+ define_problem/1  # an unary procedure (1)
+
+(1) takes a computation space as argument, returns tuple of constraint
+    variables.
+
+
+Extending the engine
+--------------------
+
+Here we show how the primitives allow you to write, in pure Python, a
+very basic solver that will search depth-first and return the first
+found solution.
+
+As we've seen, a CSP is encapsulated into a so-called "computation
+space". The space object has additional methods that allow the solver
+implementor to drive the search. First, let us see some code driving a
+binary depth-first search::
+
+1   def first_solution_dfs(space):
+2       status = space.ask()
+3       if status == 0:
+4           return None
+5       elif status == 1:
+6           return space
+7       else:
+8           new_space = space.clone()
+9           space.commit(1)
+10          outcome = first_solution_dfs(space)
+11          if outcome is None:
+13              new_space.commit(2)
+14              outcome = first_solution_dfs(new_space)
+15          return outcome
+
+This recursive solver takes a space as argument, and returns the first
+space containing a solution or None. Let us examine it piece by piece
+and discover the basics of the solver protocol.
+
+The first thing to do is "asking" the space about its status. This may
+force the "inside" of the space to check that the values of the
+domains are compatibles with the constraints. Every inconsistent value
+is removed from the variable domains. This phase is called "constraint
+propagation". It is crucial because it prunes as much as possible of
+the search space. Then, the call to ask returns a positive integer
+value, which means that all (possibly concurrent) computations of the
+space are terminated.
+
+At this point, either::
+
+* the space is failed (status == 0), which means that there is no set
+  of values of the finite domains that can satisfy the constraints,
+
+* one solution has been found (status == 1):: there is exactly one
+  valuation of the variables that satisfy the constraints,
+
+* several branches of the search space can be taken (status represents
+  the exact number of available alternatives, or branches).
+
+Now, we have written this toy solver as if there could be a maximum of
+two alternatives. This assumption holds for the simple_problem we
+defined above, where a binary "distributor" (see below for an
+explanation of this term) has been chosen automatically for us, but
+not in the general case. See the sources (applevel/solver.py) for a
+general-purpose solver.
+
+In line 8, we take a clone of the space; nothing is shared between
+space and newspace. Having taken a clone, we now have two identical
+versions of the space that we received. This will allow us to explore
+the two alternatives. This step is done, line 9 and 13, with the call
+to commit, each time with a different integer value representing the
+branch to be taken. The rest should be sufficiently self-describing.
+
+This shows the two important space methods used by a search engine::
+ask, which waits for the stability of the space and informs the solver
+of its status, and commit, which tells a space which road to take in
+case of a fork. 
+
+Now, earlier, we talked of a "distributor":: it is a program running
+in a computation space. It could be anything, and in fact, in the
+final version of the LO, it will be any Python program, augmented with
+calls to non-deterministic choice points. Each time a program embedded
+in a computation space reaches such a point, it blocks until some Deus
+ex machina make the choice for him. Only a solver can be responsible
+for the actual choice (that is the reason for the name
+"non-deterministic":: the decision does not belong to the embedded
+program, only to the solver that drives it).
+
+In the case of a CSP, the distributor is a simple piece of code, which
+works only after the propagation phase. The standard way of CSP
+solving is typically using binary search, so there is a default,
+binary distributor set up in any new space.
+
+Here are two examples of distribution strategies::
+
+* take the variable with the biggest domain, and remove exactly one
+  value from its domain,
+
+* take a variable with a small domain, and keep only one value in the
+  domain (in other words, we "instantiate" the variable).
+
+There are a great many ways to distribute ... Some of them perform
+better, depending on the caracteristics of the problem to be
+solved. But there is no absolutely better distribution strategy. Note
+that the second strategy given as example there is what is used (and
+hard-wired) in the MAC algorithm.
+
+Remaining space operators
+-------------------------
+
+For solver writers::
+ ask/0           # returns i| 0 <= i <= maxint
+ commit/1        # takes integer in [1, i]
+
+For distributor writers::
+ choose
+
