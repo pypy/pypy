@@ -167,6 +167,12 @@ class ExceptionTransformer(object):
         if block.exitswitch == c_last_exception:
             need_exc_matching = True
             last_operation -= 1
+        elif (len(block.exits) == 1 and 
+              block.exits[0].target is graph.returnblock and
+              len(block.operations) and
+              (block.exits[0].args[0].concretetype is lltype.Void or
+               block.exits[0].args[0] is block.operations[-1].result)):
+            last_operation -= 1
         lastblock = block
         for i in range(last_operation, -1, -1):
             op = block.operations[i]
