@@ -356,7 +356,7 @@ binary depth-first search::
   3       if status == 0:
   4           return None
   5       elif status == 1:
-  6           return space
+  6           return space.merge()
   7       else:
   8           new_space = space.clone()
   9           space.commit(1)
@@ -440,12 +440,14 @@ solved. But there is no absolutely better distribution strategy. Note
 that the second strategy given as example there is what is used (and
 hard-wired) in the MAC algorithm.
 
+
 Remaining space operators
 -------------------------
 
 For solver writers::
  ask/0           # returns i| 0 <= i <= maxint
  commit/1        # takes integer in [1, i]
+ merge/0         # return the valuations of an entailed space
 
 For distributor writers::
  choose
