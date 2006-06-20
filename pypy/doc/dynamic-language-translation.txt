@@ -624,7 +624,7 @@ constant-folded away, instead of having the various possible values of
 For more information see `The Interplevel Back-End`_ in the reference
 documentation.
 
-.. _`The Interplevel Back-End`: translation.html#the-interplevel-back-end
+.. _`The Interplevel Back-End`: geninterp.html
 
 
 
@@ -904,7 +904,7 @@ etc.  The complete list is defined and documented in
 `pypy/annotation/model.py`_ and described in the `annotator reference
 documentation`_ [TR]_.
 
-.. _`annotator reference documentation`: translation.html#annotator
+.. _`annotator reference documentation`: annotationref.html
 
 
 Rules
@@ -2354,12 +2354,12 @@ Glossary and links mentioned in the text:
 .. _`Hindley-Milner`: http://en.wikipedia.org/wiki/Hindley-Milner_type_inference
 .. _SSA: http://en.wikipedia.org/wiki/Static_single_assignment_form
 .. _LLVM: http://llvm.org/
-.. _`RTyper reference`: translation.html#rpython-typer
+.. _`RTyper reference`: rtyper.html
 .. _`GenC back-end`: translation.html#genc
 .. _`LLVM back-end`: translation.html#llvm
 .. _JavaScript: http://www.ecma-international.org/publications/standards/Ecma-262.htm
 .. _Squeak: http://www.squeak.org/
-.. _lltype: translation.html#low-level-types
+.. _lltype: rtyper.html#low-level-types
 .. _`post on the Perl 6 compiler mailing list`: http://www.nntp.perl.org/group/perl.perl6.compiler/1107
 
 .. include:: _ref.txt

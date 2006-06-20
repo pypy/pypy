@@ -116,7 +116,7 @@ GC manages, which is unique to each `low-level type`_. The GC uses this
 id to find pointers that are contained in the object and to find out the size
 of the object.
 
-.. _`low-level type`: translation.html#low-level-type
+.. _`low-level type`: rtyper.html#low-level-type
 
 .. _above:
 
@@ -266,7 +266,7 @@ calls are inserted to appropriate places by the backend):
         of ``addr`` and decrement that of the object stored at the old address
         in ``addr_to``.
 
-.. _LLInterpreter: translation.html#llinterpreter
+.. _LLInterpreter: rtyper.html#llinterpreter
 
 Description of Implemented Garbage Collectors
 ---------------------------------------------
