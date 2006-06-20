@@ -117,7 +117,7 @@ assert output == [ValueError]
             del sys.modules['mod']
 
     def test_loop(self):
-        skip("happily segfaulting")
+        #skip("happily segfaulting")
         import new, sys
 
         mod = new.module('mod')
@@ -143,13 +143,52 @@ def example():
     new_coro = pickle.loads(pckl)
 
     new_coro.switch()
-    new_coro.switch()    
+    new_coro.switch()
+    new_coro.switch()
 
 example()
 assert output == [1, 2, 3]
 ''' in mod.__dict__
         finally:
             del sys.modules['mod']
+
+    def test_valstack(self):
+        import new, sys
+
+        mod = new.module('mod')
+        sys.modules['mod'] = mod
+        try:
+            exec '''
+output = []
+import _stackless
+def f(coro):
+    r = 1+g(coro)+3
+    output.append(r)
+
+def g(coro):
+    coro.switch()
+    return 2
+
+def example():
+    main_coro = _stackless.coroutine.getcurrent()
+    sub_coro = _stackless.coroutine()
+
+    sub_coro.bind(f, main_coro)
+    sub_coro.switch()
+
+    import pickle
+    pckl = pickle.dumps(sub_coro)
+    new_coro = pickle.loads(pckl)
+
+    new_coro.switch()
+
+
+example()
+assert output == [6]
+''' in mod.__dict__
+        finally:
+            del sys.modules['mod']
+
 
     def test_exec_and_locals(self):
         import new, sys

@@ -88,7 +88,9 @@ class PyFrame(eval.EvalFrame):
         else:
             f_lineno = self.f_lineno
 
-        w_valuestack = maker.slp_into_tuple_with_nulls(space, self.valuestack.items)
+        values_w = self.valuestack.items[0:self.valuestack.ptr]
+        w_valuestack = maker.slp_into_tuple_with_nulls(space, values_w)
+        
         w_blockstack = nt([block._get_state_(space) for block in self.blockstack.items])
         w_fastlocals = maker.slp_into_tuple_with_nulls(space, self.fastlocals_w)
         tup_base = [
@@ -141,7 +143,10 @@ class PyFrame(eval.EvalFrame):
         new_frame.builtin = space.interp_w(Module, w_builtin)
         new_frame.blockstack.items = [unpickle_block(space, w_blk)
                                       for w_blk in space.unpackiterable(w_blockstack)]
-        new_frame.valuestack.items = maker.slp_from_tuple_with_nulls(space, w_valuestack)
+        values_w = maker.slp_from_tuple_with_nulls(space, w_valuestack)
+        valstack = new_frame.valuestack
+        for w_value in values_w:
+            valstack.push(w_value)
         new_frame.last_exception = None#XXX (w_last_exception)
         new_frame.last_instr = space.int_w(w_last_instr)
         new_frame.next_instr = space.int_w(w_next_instr)
