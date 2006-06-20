@@ -1,0 +1,210 @@
+The Interpreter-Level backend
+-----------------------------
+
+http://codespeak.net/pypy/dist/pypy/translator/geninterplevel.py
+
+Motivation
+++++++++++
+
+PyPy often makes use of `application-level`_ helper methods.
+The idea of the 'geninterplevel' backend is to automatically transform
+such application level implementations to their equivalent representation
+at interpreter level.  Then, the RPython to C translation hopefully can
+produce more efficient code than always re-interpreting these methods.
+
+One property of translation from application level Python to
+Python is, that the produced code does the same thing as the
+corresponding interpreted code, but no interpreter is needed
+any longer to execute this code.
+
+.. _`application-level`: coding-guide.html#app-preferable
+.. _exceptions: http://codespeak.net/pypy/dist/pypy/lib/_exceptions.py
+.. _oldstyle: http://codespeak.net/pypy/dist/pypy/lib/_classobj.py
+
+Examples are exceptions_ and oldstyle_ classes. They are
+needed in a very early phase of bootstrapping StdObjspace, but
+for simplicity, they are written as RPythonic application
+level code. This implies that the interpreter must be quite
+completely initialized to execute this code, which is
+impossible in the early phase, where we have neither
+exceptions implemented nor classes available.
+
+Solution
+++++++++
+
+This bootstrap issue is solved by invoking a new bytecode interpreter which
+runs on FlowObjspace. FlowObjspace is complete without complicated
+initialization. It is able to do abstract interpretation of any
+Rpythonic code, without actually implementing anything. It just
+records all the operations the bytecode interpreter would have done by
+building flowgraphs for all the code. What the Python backend does is
+just to produce correct Python code from these flowgraphs and return
+it as source code.
+
+Example
++++++++
+
+.. _implementation: http://codespeak.net/pypy/dist/pypy/translator/geninterplevel.py
+
+Let's try a little example. You might want to look at the flowgraph that it
+produces. Here, we directly run the Python translation and look at the
+generated source. See also the header section of the implementation_ for the
+interface::
+
+    >>> from pypy.translator.geninterplevel import translate_as_module
+    >>> entrypoint, source = translate_as_module("""
+    ...
+    ... def g(n):
+    ...     i = 0
+    ...     while n:
+    ...         i = i + n
+    ...         n = n - 1
+    ...     return i
+    ...
+    ... """)
+
+This call has invoked a PyPy bytecode interpreter running on FlowObjspace,
+recorded every possible codepath into a flowgraph, and then rendered the
+following source code:: 
+
+    >>> print source
+    #!/bin/env python
+    # -*- coding: LATIN-1 -*-
+
+    def initapp2interpexec(space):
+      """NOT_RPYTHON"""
+
+      def g(space, __args__):
+        funcname = "g"
+        signature = ['n'], None, None
+        defaults_w = []
+        w_n_2, = __args__.parse(funcname, signature, defaults_w)
+        return fastf_g(space, w_n_2)
+
+      f_g = g
+
+      def g(space, w_n_2):
+        goto = 3 # startblock
+        while True:
+
+            if goto == 1:
+                v0 = space.is_true(w_n)
+                if v0 == True:
+                    w_n_1, w_0 = w_n, w_i
+                    goto = 2
+                else:
+                    assert v0 == False
+                    w_1 = w_i
+                    goto = 4
+
+            if goto == 2:
+                w_2 = space.add(w_0, w_n_1)
+                w_3 = space.sub(w_n_1, space.w_True)
+                w_n, w_i = w_3, w_2
+                goto = 1
+                continue
+
+            if goto == 3:
+                w_n, w_i = w_n_2, space.w_False
+                goto = 1
+                continue
+
+            if goto == 4:
+                return w_1
+
+      fastf_g = g
+
+      g3dict = space.newdict([])
+      gs___name__ = space.wrap('__name__')
+      gs_app2interpexec = space.wrap('app2interpexec')
+      space.setitem(g3dict, gs___name__, gs_app2interpexec)
+      gs_g = space.wrap('g')
+      from pypy.interpreter import gateway
+      gfunc_g = space.wrap(gateway.interp2app(f_g, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
+      space.setitem(g3dict, gs_g, gfunc_g)
+      return g3dict
+
+You see that actually a single function is produced: ``initapp2interpexec``. This is the
+function that you will call with a space as argument. It defines a few functions and then
+does a number of initialization steps, builds the global objects the function need,
+and produces the interface function ``gfunc_g`` to be called from interpreter level.
+
+The return value is ``g3dict``, which contains a module name and the function we asked for.
+
+Let's have a look at the body of this code: The first definition of ``g`` is just
+for the argument parsing and is used as ``f_g`` in the ``gateway.interp2app``.
+We look at the second definition, ``fastf_g``, which does the actual
+computation. Comparing to the flowgraph,
+you see a code block for every block in the graph.
+Since Python has no goto statement, the jumps between the blocks are implemented
+by a loop that switches over a ``goto`` variable.
+
+::
+
+    .       if goto == 1:
+                v0 = space.is_true(w_n)
+                if v0 == True:
+                    w_n_1, w_0 = w_n, w_i
+                    goto = 2
+                else:
+                    assert v0 == False
+                    w_1 = w_i
+                    goto = 4
+
+This is the implementation of the "``while n:``". There is no implicit state,
+everything is passed over to the next block by initializing its
+input variables. This directly resembles the nature of flowgraphs.
+They are completely stateless.
+
+
+::
+
+    .       if goto == 2:
+                w_2 = space.add(w_0, w_n_1)
+                w_3 = space.sub(w_n_1, space.w_True)
+                w_n, w_i = w_3, w_2
+                goto = 1
+                continue
+
+The "``i = i + n``" and "``n = n - 1``" instructions.
+You see how every instruction produces a new variable.
+The state is again shuffled around by assigning to the
+input variables ``w_n`` and ``w_i`` of the next target, block 1.
+
+Note that it is possible to rewrite this by re-using variables,
+trying to produce nested blocks instead of the goto construction
+and much more. The source would look much more like what we
+used to write by hand. For the C backend, this doesn't make much
+sense since the compiler optimizes it for us. For the Python interpreter it could
+give a bit more speed. But this is a temporary format and will
+get optimized anyway when we produce the executable.
+
+Interplevel Snippets in the Sources
++++++++++++++++++++++++++++++++++++
+
+.. _`_exceptions.py`: http://codespeak.net/pypy/dist/pypy/lib/_exceptions.py
+.. _`_classobj.py`: http://codespeak.net/pypy/dist/pypy/lib/_classobj.py
+
+Code written in application space can consist of complete files
+to be translated (`_exceptions.py`_, `_classobj.py`_), or they
+can be tiny snippets scattered all over a source file, similar
+to our example from above.
+
+Translation of these snippets is done automatically and cached
+in pypy/_cache with the modulename and the md5 checksum appended
+to it as file name. If you have run your copy of pypy already,
+this folder should exist and have some generated files in it.
+These files consist of the generated code plus a little code
+that auto-destructs the cached file (plus .pyc/.pyo versions)
+if it is executed as __main__. On windows this means you can wipe
+a cached code snippet clear by double-clicking it. Note also that
+the auto-generated __init__.py file wipes the whole directory
+when executed.
+
+XXX this should go into some interpreter.doc, where gateway should be explained
+
+
+How it works
+++++++++++++
+
+XXX to be added later
