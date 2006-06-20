@@ -60,6 +60,13 @@ class JS(GenOO):
                 i.render(self.ilasm)
             
             node.render(self.ilasm)
+    
+    def generate_communication_proxy(self):
+        """ Render necessary stuff aroundc communication
+        proxies
+        """
+        for proxy in self.db.proxies:
+            proxy.render(self.ilasm)
         
     def write_source(self):
         
@@ -69,12 +76,14 @@ class JS(GenOO):
         # this is just workaround
         
         self.generate_source()
-
+        
         data = self.tmpfile.open().read()
         src_filename = _path_join(os.path.dirname(__file__), 'jssrc', 'misc.js')
         f = self.tmpfile.open("w")
         s = open(src_filename).read()
         f.write(s)
+        self.ilasm = self.backend_mapping['asm_class'](f, self.assembly_name )
+        self.generate_communication_proxy()
         f.write(data)
         f.close()
         

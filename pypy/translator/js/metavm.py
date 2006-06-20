@@ -23,6 +23,15 @@ class _ListGetitem(MicroInstruction):
         generator.ilasm.list_getitem()
 ListGetitem = _ListGetitem()
 
+class _ListContains(MicroInstruction):
+    def render(self, generator, op):
+        generator.load(op.args[1])
+        generator.load(op.args[2])
+        generator.ilasm.list_getitem()
+        generator.ilasm.load_void()
+        generator.emit('!=')
+ListContains = _ListContains()
+
 class _Call(MicroInstruction):
     def render(self, generator, op):
         graph = op.args[0].value.graph

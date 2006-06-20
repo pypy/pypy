@@ -3,7 +3,7 @@
 
 from pypy.translator.oosupport.metavm import InstructionList, PushAllArgs
 from pypy.translator.js.metavm import SetBuiltinField, ListGetitem, ListSetitem, \
-    GetBuiltinField, CallBuiltin, Call, SetTimeout, XmlSetCallback
+    GetBuiltinField, CallBuiltin, Call, SetTimeout, XmlSetCallback, ListContains
 
 from pypy.rpython.ootypesystem import ootype
 
@@ -41,6 +41,10 @@ class _Builtins(object):
                 '_ll_resize_ge' : list_resize,
                 '_ll_resize_le' : list_resize,
                 'll_length' : lambda g,op: GetBuiltinField.run_it(g, op.args[1], 'length'),
+            },
+            ootype.Dict: {
+                'll_get' : ListGetitem,
+                'll_contains' : ListContains,
             }
         }
 

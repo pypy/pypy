@@ -18,6 +18,7 @@ from pypy.rpython.ootypesystem import bltregistry
 
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.translator.js.modules import dom
+from pypy.translator.js.commproxy import XmlHttp
 
 try:
     set
@@ -43,6 +44,7 @@ class LowLevelDatabase(object):
         self.backend_mapping = backend_mapping
         self.cts = self.type_system_class(self)
         self.prepare_builtins()
+        self.proxies = []
     
     def prepare_builtins(self):
         # Document Object Model elements
@@ -90,6 +92,12 @@ class LowLevelDatabase(object):
 
     def record_class(self, classdef, name):
         self.classes[classdef] = name
+    
+    def register_comm_proxy(self, proxy_const, name):
+        """ Register external object which should be rendered as
+        method call
+        """
+        self.proxies.append(XmlHttp(proxy_const, name))
 
     def graph_name(self, graph):
         return self.functions.get(graph, None)
@@ -373,7 +381,7 @@ class DictConst(RecordConst):
 
     def init_fields(self, ilasm, const_var, name):
         for i in self.const._dict:
-            ilasm.load_local(const_var)
+            ilasm.load_str("%s.%s"%(const_var.name, name))
             el = self.const._dict[i]
             self.db.load_const(typeOf(el), el, ilasm)
             self.db.load_const(typeOf(i), i, ilasm)
@@ -396,5 +404,5 @@ class ExtObject(AbstractConst):
         return self.const._TYPE._name.split('.')[-1][:-2]
     
     def init(self, ilasm):
-        #import pdb; pdb.set_trace()
+        self.db.register_comm_proxy(self.const, self.name)
         ilasm.new(self.get_name())

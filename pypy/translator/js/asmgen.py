@@ -71,7 +71,7 @@ class AsmGen(object):
         self.codegenerator.openblock()
     
     def begin_method(self, name, _class, arglist):
-        args = ",".join([i[1] for i in arglist])
+        args = ",".join(arglist)
         self.codegenerator.write("%s.prototype.%s = function (%s)"%(_class, name, args))
         self.codegenerator.openblock()
     
@@ -79,14 +79,14 @@ class AsmGen(object):
         self.codegenerator.closeblock()
         self.codegenerator.writeline("")
     
-    def locals(self, loc):
-        self.codegenerator.writeline("var "+",".join([i[1] for i in loc])+";")
-    
     def load_arg(self, v):
         self.right_hand.append(v.name)
     
     def store_local(self, v):
-        name = self.subst_table.get(v.name, v.name)
+        self.store_name(v.name)
+    
+    def store_name(self, name):
+        name = self.subst_table.get(name, name)
         element = self.right_hand.pop()
         if element != name:
             self.codegenerator.writeline("%s = %s;"%(name, element))

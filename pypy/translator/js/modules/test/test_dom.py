@@ -105,15 +105,15 @@ def test_xmlhttp():
 ##    xml.onreadystatechange = ping_fun
 ##    xml.send(None)
 
-def send_ping_request():
-    pass
+def got_ping_request(data):
+    return data['a']
 
 def test_bnb():
     """ Higher level XMLHttpRequest
     """
     def bnb_fun():
         from pypy.translator.js.proxy.testme.controllers import RootInstance
-        RootInstance.ping(send_ping_request)
+        RootInstance.ping(got_ping_request)
     
     from pypy.translator.js.proxy.testme.controllers import Root
     fn = compile_function(bnb_fun, [], root = Root)

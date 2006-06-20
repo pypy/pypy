@@ -83,12 +83,12 @@ class JTS(object):
             else:
                 val = 'true'
         elif _type is Void:
-            if isinstance(v, FunctionType):
-                graph = self.db.translator.annotator.bookkeeper.getdesc(v).cachedgraph(None)
-                self.db.pending_function(graph)
-                val = graph.name
-            else:
-                val = 'undefined'
+            #if isinstance(v, FunctionType):
+            #    graph = self.db.translator.annotator.bookkeeper.getdesc(v).cachedgraph(None)
+            #    self.db.pending_function(graph)
+            #    val = graph.name
+            #else:
+            val = 'undefined'
         elif isinstance(_type,String.__class__):
             val = '%r'%v._str
         elif isinstance(_type,List):
