@@ -8,7 +8,7 @@ from pypy.rpython.lltypesystem import lltype
 class TestCoroutineReconstruction:
 
     def setup_meth(self):
-        interp_coroutine.main_costate_getter.costate = None
+        interp_coroutine.syncstate.reset()
 
     def test_simple_ish(self):
 
@@ -41,7 +41,7 @@ class TestCoroutineReconstruction:
             new_thunk_f = T(main_coro, 5, 1)
             new_coro.bind(new_thunk_f)
 
-            costate = interp_coroutine.main_costate_getter._get_default_costate()
+            costate = interp_coroutine.Coroutine._get_default_costate()
             bottom = resume_state_create(None, "yield_current_frame_to_caller_1")
             _bind_frame = resume_state_create(bottom, "coroutine__bind", new_coro, costate)
             f_frame_1 = resume_state_create(_bind_frame, "f_1", main_coro, 5, 1)
