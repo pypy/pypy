@@ -89,8 +89,7 @@ AssertionError, would the assertion be violated :
   assert [1, 2] == [1, 2]   
   assert 42 == 43           
 
-A basic example involving logic variables embedded into a dictionnary
-:
+A basic example involving logic variables embedded into a dictionnary::
 
   Z, W = newvar(), newvar()
   unify({'a': 42, 'b': Z},
@@ -165,7 +164,7 @@ threads blocked on this variable.
 Wait and wait_needed allow to write efficient lazy evaluating code.
 
 Using the "uthread" builtin, here is how to implement a
-producer-consummer scheme :
+producer-consummer scheme::
 
   def generate(n, limit):
       if n < limit:
@@ -190,7 +189,7 @@ producer-consummer scheme :
 Note that this eagerly generates all elements before the first of them
 is consummed. Wait_needed helps write us a lazy version of the
 generator. But the consummer will be responsible of the proper
-termination, and thus must be adapted too :
+termination, and thus must be adapted too::
 
   def lgenerate(n, L):
       """lazy version of generate"""
@@ -222,7 +221,7 @@ Please note that in the current LO, we deal with coroutines, not
 threads (thus we can't rely on preemtive scheduling to lessen the
 problem with the eager consummer/producer program). Also these
 coroutines still don't support well being nested. This impact the
-ability to write a simple program like the following :
+ability to write a simple program like the following::
 
   def sleep(X, Barrier):
       wait(X)
