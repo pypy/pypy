@@ -258,7 +258,7 @@ satisfaction problem, and then highlight how to extend the solver with
 new strategies.
 
 Specification of a problem, getting solutions
----------------------------------------------
++++++++++++++++++++++++++++++++++++++++++++++
 
 A constraint satisfaction problem is defined by a triple (X, D, C)
 where X is a set of finite domains variables, D the set of domains
@@ -311,7 +311,7 @@ expected that the compiled version of PyPy + LO will provide decent
 performance.
 
 Operators for CSP specification
--------------------------------
++++++++++++++++++++++++++++++++
 
 Note that below, "variable/expression designators" really are strings.
 
@@ -321,24 +321,22 @@ Space creation::
 Finite domain creation::
  FiniteDomain/1    # a list/tuple of arbitrary objects
 
-Expressions::
- make_expression/2 # a list of var. designators,
-                   # an expression encoded as a string
+Expressions::      # all returns expression objects
+ make_expression/2 # a list of var. designators, an expression encoded as a string
  AllDistinct/0
 
 Space methods::
  var/2             # variable designator (string) and a finite domain
  find_var/1        # variable designator
- tell/1            # an expression (built with make_expression
-                   # or AllDistinct)
+ tell/1            # an expression (built with make_expression or AllDistinct)
  define_problem/1  # an unary procedure (1)
 
 (1) takes a computation space as argument, returns tuple of constraint
     variables.
 
 
-Extending the engine
---------------------
+Extending the search engine
++++++++++++++++++++++++++++
 
 Here we show how the primitives allow you to write, in pure Python, a
 very basic solver that will search depth-first and return the first
