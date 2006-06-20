@@ -17,13 +17,13 @@ class WeakrefLifeline(object):
     def __del__(self):
         for i in range(len(self.addr_refs) - 1, -1, -1):
             addr_ref = self.addr_refs[i]
-            if cast_weakgcaddress_to_object(addr_ref, W_Root) is not None:
-                w_ref = cast_weakgcaddress_to_object(addr_ref, W_Root)
+            w_ref = cast_weakgcaddress_to_object(addr_ref, W_WeakrefBase)
+            if w_ref is not None:
                 w_ref.invalidate()
         for i in range(len(self.addr_refs) - 1, -1, -1):
             addr_ref = self.addr_refs[i]
-            if cast_weakgcaddress_to_object(addr_ref, W_Root) is not None:
-                w_ref = cast_weakgcaddress_to_object(addr_ref, W_Root)
+            w_ref = cast_weakgcaddress_to_object(addr_ref, W_WeakrefBase)
+            if w_ref is not None:
                 w_ref.activate_callback()
     
     def get_weakref(self, space, w_subtype, w_obj, w_callable):
