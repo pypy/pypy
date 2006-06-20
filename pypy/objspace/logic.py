@@ -830,7 +830,6 @@ def Space(*args, **kwds):
                 next_coro = schedule_state.pop_runnable_thread()
                 if next_coro.is_alive() and next_coro != current:
                     schedule_state.add_to_runnable(current)
-                    print "FINISH_SCHED_SWITCH"
                     next_coro.w_switch()
                     schedule_state.remove_from_runnable(current)
             if schedule_state.have_blocked_threads():
