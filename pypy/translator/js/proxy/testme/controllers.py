@@ -16,7 +16,12 @@ class Root(controllers.Root):
     _serverMessage = {}
 
     host = 'localhost'
-    port = re.findall('value=".*"', urllib.urlopen('http://%s:8000' % host).read())[0]
+    try:
+        port = re.findall('value=".*"', urllib.urlopen('http://%s:8000' % host).read())[0]
+    except IOError:
+        import sys
+        log("ERROR: Can't connect to BnB server on %s:8000" % host)
+        sys.exit()
     port = int(port[7:-1])
     
     def serverMessage(self):
@@ -36,8 +41,8 @@ class Root(controllers.Root):
             sm.socket.send(message(CMSG_ENABLE_MUSIC, 0))   #, has_music
             sm.socket.send(message(CMSG_UDP_PORT, "\\"))    #, port
             sm.socket.send(message(CMSG_PING))              #so server starts sending data
-            sm.socket.send(message(CMSG_ADD_PLAYER, player_id))
-            sm.socket.send(message(CMSG_PLAYER_NAME, player_id, 'playername'))
+            #sm.socket.send(message(CMSG_ADD_PLAYER, player_id))
+            #sm.socket.send(message(CMSG_PLAYER_NAME, player_id, 'PyPy'))
             #XXX todo: session.socket.close() after a timeout
         return sm.socket
 
@@ -48,16 +53,36 @@ class Root(controllers.Root):
         return dict()
 
     @expose(format='json')
+    def player_name(self, name):
+        self.sessionSocket().send(message(CMSG_PLAYER_NAME, name))
+        return self.recv()
+
+    @expose(format='json')
+    def add_player(self, player_id):
+        self.sessionSocket().send(message(CMSG_ADD_PLAYER, int(player_id)))
+        return self.recv()
+
+    @expose(format='json')
+    def remove_player(self, player_id):
+        self.sessionSocket().send(message(CMSG_REMOVE_PLAYER, int(player_id)))
+        return self.recv()
+
+    @expose(format='json')
+    def key(self, player_id, keynum):
+        self.sessionSocket().send(message(CMSG_KEY, int(player_id), int(keynum)))
+        return self.recv()
+
+    @expose(format='json')
     def recv(self):
         #XXX hangs if not first sending CMSG_PING!
         sm   = self.serverMessage()
-        size = 1024
+        size = 10000 #XXX should really loop until all data is handled
         data = sm.data + self.sessionSocket().recv(size)
         while sm.n_header_lines > 0 and '\n' in data:
             sm.n_header_lines -= 1
             header_line, data = data.split('\n',1)
             #log('RECEIVED HEADER LINE: %s' % header_line)
-        
+
         #log('RECEIVED DATA CONTAINS %d BYTES' % len(data))
         messages = []
         while data:

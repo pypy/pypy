@@ -88,8 +88,12 @@ class ServerMessage:
         return fn(bitmap_code, data_or_fileid, *rest)
 
     def def_bitmap1(self, bitmap_code, data, *rest):
+        if len(rest) == 0:
+            colorkey = None
+        else:
+            colorkey = rest[0]
         #log('def_bitmap1 bitmap_code=%d, data=%d bytes, colorkey=%s' % (
-        #    bitmap_code, len(data), rest))
+        #    bitmap_code, len(data), colokey))
         gif_bitmap_filename = '%sbitmap%d.%s' % (self.gfx_dir, bitmap_code, self.gfx_extension)
         if exists(gif_bitmap_filename):
             #log('CACHED:%s' % gif_bitmap_filename)
@@ -110,6 +114,16 @@ class ServerMessage:
             except IOError, e:
                 raise BitmapCreationException('ERROR LOADING %s (%s)' % (
                     bitmap_filename, str(e)))
+
+            #create alpha layer that hopefully gets into the .gif...
+            #if colorkey is not None:
+            #    bitmap = bitmap.convert("RGBA")
+            #    pixel = bitmap.getpixel( (0,0) )
+            #    log('%s: colorkey=%s, pixel=%s' % (bitmap_filename, colorkey, str(pixel)))
+            #    colorkeyT = (1, 1, 1, 255)
+            #    alpha = [pixel == (1,1,1,255) for pixel in list(bitmap.getdata())]
+            #    bitmap.putalpha(alpha)
+
             try:
                 bitmap.save(gif_bitmap_filename)
                 log('SAVED:%s' % gif_bitmap_filename)
@@ -134,7 +148,7 @@ class ServerMessage:
 
     def def_icon(self, bitmap_code, icon_code, x,y,w,h, *rest):
         #log('def_icon bitmap_code=%s, icon_code=%s, x=%s, y=%s, w=%s, h=%s, alpha=%s' %\
-        #    (bitmap_code, icon_code, x,y,w,h, rest))
+        #    (bitmap_code, icon_code, x,y,w,h, rest) #ignore alpha (bubbles)
 
         bitmap_filename = '%sbitmap%d.%s' % (self.gfx_dir, bitmap_code, self.gfx_extension)
         icon_filename = '%sicon%d.%s' % (self.gfx_dir, icon_code, self.gfx_extension)
