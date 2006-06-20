@@ -347,20 +347,20 @@ space". The space object has additional methods that allow the solver
 implementor to drive the search. First, let us see some code driving a
 binary depth-first search::
 
-1   def first_solution_dfs(space):
-2       status = space.ask()
-3       if status == 0:
-4           return None
-5       elif status == 1:
-6           return space
-7       else:
-8           new_space = space.clone()
-9           space.commit(1)
-10          outcome = first_solution_dfs(space)
-11          if outcome is None:
-13              new_space.commit(2)
-14              outcome = first_solution_dfs(new_space)
-15          return outcome
+    1   def first_solution_dfs(space):
+    2       status = space.ask()
+    3       if status == 0:
+    4           return None
+    5       elif status == 1:
+    6           return space
+    7       else:
+    8           new_space = space.clone()
+    9           space.commit(1)
+    10          outcome = first_solution_dfs(space)
+    11          if outcome is None:
+    13              new_space.commit(2)
+    14              outcome = first_solution_dfs(new_space)
+    15          return outcome
 
 This recursive solver takes a space as argument, and returns the first
 space containing a solution or None. Let us examine it piece by piece
@@ -375,7 +375,7 @@ the search space. Then, the call to ask returns a positive integer
 value, which means that all (possibly concurrent) computations of the
 space are terminated.
 
-At this point, either::
+At this point, either:
 
 * the space is failed (status == 0), which means that there is no set
   of values of the finite domains that can satisfy the constraints,
@@ -420,7 +420,7 @@ works only after the propagation phase. The standard way of CSP
 solving is typically using binary search, so there is a default,
 binary distributor set up in any new space.
 
-Here are two examples of distribution strategies::
+Here are two examples of distribution strategies:
 
 * take the variable with the biggest domain, and remove exactly one
   value from its domain,
