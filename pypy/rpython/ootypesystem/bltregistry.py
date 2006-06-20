@@ -37,11 +37,13 @@ class Analyzer(object):
         #    assert getbookkeeper().valueoftype(self.args[i]).contains(args[i])
         #if self.retval is None:
         #    return None
+        ann_retval = getbookkeeper().annotation_from_example(self.retval)
+        
         for i in args:
             if isinstance(i, annmodel.SomePBC):
                 bookkeeper = getbookkeeper()
-                bookkeeper.pbc_call(i, bookkeeper.build_args("simple_call", ()))
-        return getbookkeeper().immutablevalue(self.retval)
+                bookkeeper.pbc_call(i, bookkeeper.build_args("simple_call", (ann_retval,)))
+        return ann_retval
 
 class ExternalType(ootype.OOType):
     class_dict = {}
@@ -63,7 +65,7 @@ class ExternalType(ootype.OOType):
     
     def update_fields(self, _fields):
         for i, val in _fields.iteritems():
-            self._fields[i] = getbookkeeper().immutablevbalue(val)
+            self._fields[i] = getbookkeeper().annotation_from_example(val)
     
     def _is_compatible(type2):
         return type(type2) is ExternalType
@@ -73,8 +75,11 @@ class ExternalType(ootype.OOType):
     def update_methods(self, _methods):
         _signs = {}
         for i, val in _methods.iteritems():
-            retval = getbookkeeper().immutablevalue(val[1])
-            _signs[i] = tuple([getbookkeeper().immutablevalue(j) for j in val[0]]), retval
+            retval = getbookkeeper().annotation_from_example(val[1])
+            values = val[0]
+            if isinstance(val[0], dict):
+                values = val[0].values()
+            _signs[i] = tuple([getbookkeeper().annotation_from_example(j) for j in values]), retval
             next = annmodel.SomeBuiltin(Analyzer(i, val), s_self = annmodel.SomeExternalBuiltin(self), methodname = i)
             next.const = True
             self._fields[i] = next
