@@ -331,10 +331,31 @@ doing *any* thinking at the same time as actually generating source code.  For
 the C backend, this step does three things:
 
  - inserts explicit exception handling,
- - inserts explicit memory management operations,
- - decides on the names functions and types will have in the final source.
 
-XXX describe the steps!
+ - inserts explicit memory management operations,
+
+ - decides on the names functions and types will have in the final
+   source (this mapping of objects to names is sometimes referred to as
+   the "low-level database").
+
+Making Exception Handling Explicit
+----------------------------------
+
+XXX
+
+Memory Management Details
+-------------------------
+
+Three options:
+
+ - reference counting
+ - Boehm GC
+ - our own frameworks
+
+Building the Low-Level Database
+-------------------------------
+
+XXX
 
 .. _C:
 .. _GenC:
@@ -618,5 +639,16 @@ One test for all this can be found in
 
 How It Fits Together
 ====================
+
+As should be clear by now, the translation tool chain of PyPy is a flexible
+and complicated beast, formed from many separate components.
+
+The following image summarizes the various parts of the tool chain as of the
+0.9 release, with the default translation to C highlighted:
+
+.. image:: image/pypy-translation-0.9.png
+   :align: center
+
+A detail that has not yet been emphasised is the interaction of the
 
 .. include:: _ref.txt
