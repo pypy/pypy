@@ -368,6 +368,9 @@ Space methods
 Extending the search engine
 +++++++++++++++++++++++++++
 
+Writing a solver
+----------------
+
 Here we show how the additional builtin primitives allow you to write,
 in pure Python, a very basic solver that will search depth-first and
 return the first found solution.
@@ -437,6 +440,9 @@ ask, which waits for the stability of the space and informs the solver
 of its status, and commit, which tells a space which road to take in
 case of a fork.
 
+Using distributors
+------------------
+
 Now, earlier, we talked of a "distributor": it is a program running in
 a computation space. It could be anything, and in fact, in the final
 version of the LO, it will be any Python program, augmented with calls
@@ -444,21 +450,24 @@ to non-deterministic choice points. Each time a program embedded in a
 computation space reaches such a point, it blocks until some Deus ex
 machina makes the choice for him. Only a solver can be responsible for
 the actual choice (that is the reason for the name "non
-deterministic":: the decision does not belong to the embedded program,
+deterministic": the decision does not belong to the embedded program,
 only to the solver that drives it).
 
 In the case of a CSP, the distributor is a simple piece of code, which
-works only after the propagation phase has reached a fixpoint. The
-standard way of CSP solving is typically using binary search, so there
-is a default, binary distributor set up in any new space.
+works only after the propagation phase has reached a fixpoint. Its
+policy will determine the fanout, or branching factor, of the current
+computation space (or node in the abstract search space).
 
 Here are two examples of distribution strategies:
 
 * take the variable with the biggest domain, and remove exactly one
-  value from its domain,
+  value from its domain; thus we always get two branches: one with the
+  value removed, the other with only this value remaining,
 
 * take a variable with a small domain, and keep only one value in the
-  domain (in other words, we "instantiate" the variable).
+  domain for each branch (in other words, we "instantiate" the
+  variable); this makes for a branching factor equal to the size of
+  the domain of the variable.
 
 There are a great many ways to distribute... Some of them perform
 better, depending on the caracteristics of the problem to be
@@ -466,6 +475,22 @@ solved. But there is no absolutely better distribution strategy. Note
 that the second strategy given as example there is what is used (and
 hard-wired) in the MAC algorithm.
 
+Currently in the LO we have two builtin distributors:
+
+* NaiveDistributor, which distributes domains by splitting the
+  smallest domain in 2 new domains; the first new domain has a size of
+  one, and the second has all the other values,
+
+* SplitDistributor, which distributes domains by splitting the
+  smallest domain in N equal parts (or as equal as possible).  If N is
+  0, then the smallest domain is split in domains of size 1; a special
+  case of this, DichotomyDistributor, for which N == 2, is also
+  provided and is the default one.
+
+To explicitely specify a distributor for a constraint problem, you
+need to say, in the procedure that defines the problem::
+
+  cs.set_distributor(NaiveDistributor())
 
 Remaining space operators
 -------------------------
