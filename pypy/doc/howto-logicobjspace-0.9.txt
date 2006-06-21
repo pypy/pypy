@@ -169,7 +169,7 @@ logic variables come with two operators :
   objectspace, all operators make an implicit wait on their arguments)
 
 * wait_needed: this suspends the current thread until the variable
-  has received a wait message. It has to be used explicitely,
+  has received a wait message. It has to be used explicitly,
   typically by a producer thread that wants to produce data only when
   needed.
 
@@ -487,10 +487,13 @@ Currently in the LO we have two builtin distributors:
   case of this, DichotomyDistributor, for which N == 2, is also
   provided and is the default one.
 
-To explicitely specify a distributor for a constraint problem, you
+To explicitly specify a distributor for a constraint problem, you
 need to say, in the procedure that defines the problem::
 
   cs.set_distributor(NaiveDistributor())
+
+It is not possible currently to write distributors in pure Python;
+this is scheduled for PyPy version 1.
 
 Remaining space operators
 -------------------------
@@ -517,5 +520,6 @@ See also:
 
 * pypy-dist/pypy/objspace/constraint/applevel for the existing solver
   and some sample problems (I'm quite sure that the conference
-  scheduling problem is up to date wrt the current API).
+  scheduling problem is up to date wrt the current API, the others
+  likely lag behind).
 
