@@ -43,14 +43,14 @@ Logic Variables
 Description and examples
 ------------------------
 
-Logic variables are similar to Python variables in the following
-sense: they map names to values in a defined scope. But unlike normal
-Python variables, they have two states: free and bound. A bound logic
-variable is indistinguishable from a normal Python value, which it
-wraps. A free variable can only be bound once (it is also said to be a
-single-assignment variable). It is good practice to denote these
-variables with a beginning capital letter, so as to avoid confusion
-with normal variables.
+Logic variables are (should be, in an ideal LO) similar to Python
+variables in the following sense: they map names to values in a
+defined scope. But unlike normal Python variables, they have two
+states: free and bound. A bound logic variable is indistinguishable
+from a normal Python value, which it wraps. A free variable can only
+be bound once (it is also said to be a single-assignment variable). It
+is good practice to denote these variables with a beginning capital
+letter, so as to avoid confusion with normal variables.
 
 The following snippet creates a new logic variable and asserts its
 state::
@@ -67,14 +67,18 @@ Logic variables can be bound thusly::
 The single-assignment property is easily checked::
 
   bind(X, 'hello') # would raise a FailureException
+  bind(X, 42)      # is admitted (it is a noop)
 
 In the current state of the LO, a generic Exception will be raised.
+It is quite obvious from this that logic variables are really objects
+acting as boxes for python values. No syntactic extension to Python is
+provided yet to lessen this inconvenience.
 
 The bind operator is low-level. The more general operation that binds
 a logic variable is known as "unification". Unify is an operator that
 takes two arbitrary data structures and tries to assert their
 equalness, much in the sense of the == operator, but with one
-important twist : unify mutates the state of the involved logic
+important twist: unify mutates the state of the involved logic
 variables.
 
 Unifying structures devoid of logic variables, like::
@@ -125,17 +129,29 @@ The operators table
 
 Logic variables support the following operators (with their arity):
 
-Predicates:: 
- is_free/1   # applies to anything
- is_bound/1  # applies to anything
- alias_of/2  # wants logic variables
+Predicates
 
-Variable Creation::
+ is_free/1
+   any -> bool
+
+ is_bound/1
+   any -> bool
+
+ alias_of/2
+   logic vars. -> bool
+
+Variable Creation
+
  newvar/0
+   nothing -> logic variable
  
-Mutators::
- bind/2      # wants a logic variable in first position
- unify/2     # applies to anything
+Mutators
+
+ bind/2
+   logic var., any -> None
+
+ unify/2
+   any, any -> None
 
 
 Threads and dataflow synchronisation
@@ -220,8 +236,8 @@ and thus must be adapted too::
 Please note that in the current LO, we deal with coroutines, not
 threads (thus we can't rely on preemtive scheduling to lessen the
 problem with the eager consummer/producer program). Also nested
-coroutine don't schedule properly. This impact the ability to write a
-simple program like the following::
+coroutines don't schedule properly yet. This impacts the ability to
+write a simple program like the following::
 
   def sleep(X, Barrier):
       wait(X)
@@ -242,9 +258,6 @@ simple program like the following::
   unify(Y, 42)
   assert X == Y == 42
   assert o == 2
-
-This program currently blocks on the first call to sleep (we don't
-even get a chance to reach the first unify operation).
 
 Finally, it must be noted that bind/unify and wait pair of operations
 are quite similar to send and synchronous receive primitives for
@@ -285,12 +298,13 @@ A problem is a one-argument procedure defined as follow::
       cs.var('x', FiniteDomain(['spam', 'egg', 'ham']))
       cs.var('y', FiniteDomain([3, 4, 5]))
 
-This snippet defines a couple of variables and their domains. Note
-that we didn't take a reference of the created variables. We can query
-the space to get these back if needed, and then complete the
-definition of our problem. Our problem, continued::
+This snippet defines a couple of variables and their domains, on the
+'cs' argument which is indeed a computation space. Note that we didn't
+take a reference of the created variables. We can query the space to
+get these back if needed, and then complete the definition of our
+problem. Our problem, continued::
 
-      x = cs.find_var('x')
+  ... x = cs.find_var('x')
       y = cs.find_var('y')
       cs.tell(make_expression([x,y], 'len(x) == y'))
       
@@ -319,25 +333,36 @@ Operators for CSP specification
 
 Note that below, "variable/expression designators" really are strings.
 
-Space creation::
+Space creation
+
  newspace/0
 
-Finite domain creation::
- FiniteDomain/1    # a list/tuple of arbitrary objects
+Finite domain creation
 
-Expressions::      # all returns expression objects
- make_expression/2 # a list of var. designators, an expression encoded as a string
- AllDistinct/0
+ FiniteDomain/1    
+   list of any -> FiniteDomain
 
-Space methods::
- var/2             # variable designator (string) and a finite domain
- find_var/1        # variable designator
- tell/1            # an expression (built with make_expression or AllDistinct)
- define_problem/1  # an unary procedure (1)
+Expressions
 
-(1) takes a computation space as argument, returns tuple of constraint
-    variables.
+ make_expression/2 
+   list of var. designators, expression designator -> Expression
 
+ AllDistinct/1
+   list of var. designators -> Expression
+
+Space methods
+
+ var/2             
+   var. designator, FiniteDomain -> constraint variable instance
+
+ find_var/1        
+   var. designator -> constraint variable instance
+
+ tell/1            
+   Expression -> None
+
+ define_problem/1  
+   procedure (space -> tuple of constraint variables) -> None
 
 Extending the search engine
 +++++++++++++++++++++++++++
@@ -376,10 +401,10 @@ domains are compatibles with the constraints. Every inconsistent value
 is removed from the variable domains. This phase is called "constraint
 propagation". It is crucial because it prunes as much as possible of
 the search space. Then, the call to ask returns a positive integer
-value, which means that all (possibly concurrent) computations
-happening inside the space are terminated.
+value which we call the space status; at this point, all (possibly
+concurrent) computations happening inside the space are terminated.
 
-At this point, either:
+Depending on the status value, either:
 
 * the space is failed (status == 0), which means that there is no
   combination of values of the finite domains that can satisfy the
@@ -396,7 +421,7 @@ two alternatives. This assumption holds for the simple_problem we
 defined above, where a binary "distributor" (see below for an
 explanation of this term) has been chosen automatically for us, but
 not in the general case. See the sources (applevel/solver.py) for a
-general-purpose solver.
+more general-purpose solver.
 
 In line 8, we take a clone of the space; nothing is shared between
 space and newspace (the clone). Having taken a clone, we now have two
@@ -444,12 +469,19 @@ hard-wired) in the MAC algorithm.
 Remaining space operators
 -------------------------
 
-For solver writers::
- ask/0           # returns i| 0 <= i <= maxint
- commit/1        # takes integer in [1, i]
- merge/0         # return the valuations of an entailed space
+For solver writers
 
-For distributor writers::
+ ask/0           
+   nothing -> a positive integer i
+
+ commit/1        
+   integer in [1, i] -> None
+
+ merge/0         
+   nothing -> list of values
+
+For distributor writers
+
  choose
 
 Were to look
