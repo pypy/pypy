@@ -389,9 +389,6 @@ class FunctionCodeGenerator(object):
             # skip assignment of 'void' return value
             r = self.expr(op.result)
             line = '%s = %s' % (r, line)
-        check = self.check_directcall_result(op)
-        if check:
-            return line + '\n' + check
         return line
 
     # the following works since the extra arguments that indirect_call has
@@ -404,14 +401,8 @@ class FunctionCodeGenerator(object):
         if self.lltypemap(op.result) is not Void:
             r = self.expr(op.result)
             line = '%s = %s' % (r, line)
-        check = self.check_directcall_result(op)
-        if check:
-            return line + '\n' + check
         return line
             
-    def check_directcall_result(self, op):
-        return None
-
     # low-level operations
     def generic_get(self, op, sourceexpr):
         T = self.lltypemap(op.result)
