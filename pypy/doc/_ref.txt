@@ -8,7 +8,6 @@
 .. _`pypy/annotation/builtin.py`: ../../pypy/annotation/builtin.py
 .. _`pypy/annotation/model.py`: ../../pypy/annotation/model.py
 .. _`doc/`: ../../pypy/doc
-.. _`doc/revreport/`: ../../pypy/doc/revreport
 .. _`interpreter/`:
 .. _`pypy/interpreter`: ../../pypy/interpreter
 .. _`pypy/interpreter/argument.py`: ../../pypy/interpreter/argument.py
