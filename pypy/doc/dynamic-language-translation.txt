@@ -901,11 +901,7 @@ out a number of other annotations that are irrelevant for the basic
 description of the annotator and straightforward to handle:
 ``Dictionary``, ``Tuple``, ``Float``, ``UnicodePoint``, ``Iterator``,
 etc.  The complete list is defined and documented in
-`pypy/annotation/model.py`_ and described in the `annotator reference
-documentation`_ [TR]_.
-
-.. _`annotator reference documentation`: annotationref.html
-
+`pypy/annotation/model.py`_
 
 Rules
 ~~~~~
