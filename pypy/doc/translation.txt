@@ -266,6 +266,18 @@ XXX write this bit
 Preparation for Source Generation
 =================================
 
+This, perhaps slightly vaguely named, stage is the most recent to appear as a
+separate step.  Its job is to make the final implementation decisions before
+source generation -- experience has shown that you really don't want to be
+doing *any* thinking at the same time as actually generating source code.  For
+the C backend, this step does three things:
+
+ - inserts explicit exception handling,
+ - inserts explicit memory management operations,
+ - decides on the names functions and types will have in the final source.
+
+XXX describe the steps!
+
 .. _C:
 .. _GenC:
 .. _`c backend`:
@@ -275,9 +287,13 @@ The C Back-End
 
 http://codespeak.net/pypy/dist/pypy/translator/c/
 
-GenC is not really documented at the moment.  The basic principle of
-creating code from flowgraphs is similar to the `Python back-end`_.
-See also `Generating C code`_ in another draft.
+GenC is not really documented at the moment.  The basic principle of creating
+code from flowgraphs is similar to the `Python back-end`_.  See also
+`Generating C code`_ in another draft.
+
+GenC is usually the most actively maintained backend -- everyone working on
+PyPy has a C compiler, for one thing -- and is usually where new features are
+implemented first.
 
 .. _`Generating C code`: dynamic-language-translation.html#generating-c-code
 
@@ -313,9 +329,20 @@ For information on getting started on the LLVM (`low level virtual machine`_)
 backend - please see `here`_. 
 
 Similar to the task of GenC, GenLLVM translates a flow graph to low level LLVM
-bytecode.  GenLLVM requires annotation and the `RPython Typer`_ pass, to modify
-the annotated flow graph to replace operations with lower-level equivalents
-which are suitable to be easily translated to LLVM bytecode.
+bytecode.  LLVM's memory model is pretty similar to that of GenC's, and so the
+LLVM backend uses the same stages of the tool chain -- the annotator, the
+RTyper (targeting the low-level type system) and subsequent transformations,
+although the final preparations are done by different code (for historical,
+rather than fundamental, reasons).
+
+One of the reasons for targeting LLVM bytecodes is that the LLVM tools include
+excellent optimizers -- RPython programs, including the Standard Interpreter,
+compiled via LLVM are generally faster than when compiled via C.
+
+The LLVM backend is pretty well maintained, although fewer people have the
+necessary tools installed so it can take a bit longer to be fixed when a
+refactoring causes it to stop working.  It doesn't support all the features of
+GenC -- in particular it only supports the Boehm GC.
 
 The LLVM backend would not have been possible without all the people
 contributing to PyPy. Carl Friedrich did an amazing amount of groundwork during
@@ -336,10 +363,27 @@ worked on sharing the backend external code with GenC.
 The Object-Oriented Backends
 ----------------------------
 
+GenCLI
+++++++
+
+GenSqueak
++++++++++
+
+GenJS
++++++
+
+GenCL
++++++
+
 The Interpreter-Level backend
 -----------------------------
 
 http://codespeak.net/pypy/dist/pypy/translator/geninterplevel.py
+
+Above, this backend was described as a "special case in several ways".  One of
+these ways is that the job it does is specific to PyPy's standard interpreter,
+and the other is that it does not even use the annotator -- it works directly
+the graphs produced by the Flow Object Space.
 
 See `geninterp's documentation <geninterp.html>`__.
 
