@@ -161,8 +161,9 @@ in pystones::
     >>>> pystone.main(10)
 
 The parameter is the number of loops to run through the test. The
-default is 50000, which is far too many to run in a reasonable time
-on the current PyPy implementation.
+default is 50000, which is far too many to run in a non-translated
+PyPy version (i.e. when PyPy's interpreter itself is being interpreted 
+by CPython). 
 
 py.py options
 +++++++++++++
