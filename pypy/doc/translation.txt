@@ -167,17 +167,75 @@ Here is an overview (see ``pypy.annotation.model``):
   annotations.  For example, ``SomeTuple([SomeInteger(), SomeString()])``
   represents a tuple with two items: an integer and a string.
 
-(other ``SomeXxx`` classes are described in the `annotator reference`).
 
-There are more complex subclasses of ``SomeObject`` that we describe in
-more details below.
+The result of the annotation pass is essentially a large dictionary
+mapping ``Variable``\ s to annotations.
 
 All the ``SomeXxx`` instances are immutable.  If the annotator needs to
 revise its belief about what a Variable can contain, it does so creating a
 new annotation, not mutating the existing one.
 
-The result of the annotation pass is essentially a large dictionary
-mapping ``Variable``\ s to annotations.
+
+Mutable Values and Containers
+------------------------------
+
+Mutable objects need special treatment during annotation, because
+the annotation of contained values needs to be possibly updated to account
+for mutation operations, and consequentely the annotation information
+reflown through the relevant parts of the flow the graphs.
+
+* ``SomeList`` stands for a list of homogeneous type (i.e. all the
+  elements of the list are represented by a single common ``SomeXxx``
+  annotation).
+
+* ``SomeDict`` stands for a homogeneous dictionary (i.e. all keys have
+  the same ``SomeXxx`` annotation, and so have all values).
+
+User-defined Classes and Instances
+-----------------------------------
+
+``SomeInstance`` stands for an instance of the given class or any
+subclass of it.  For each user-defined class seen by the annotator, we
+maintain a ClassDef (``pypy.annotation.classdef``) describing the
+attributes of the instances of the class; essentially, a ClassDef gives
+the set of all class-level and instance-level attributes, and for each
+one, a corresponding ``SomeXxx`` annotation.
+
+Instance-level attributes are discovered progressively as the annotation
+progresses.  Assignments like::
+
+   inst.attr = value
+
+update the ClassDef of the given instance to record that the given
+attribute exists and can be as general as the given value.
+
+For every attribute, the ClassDef also records all the positions where
+the attribute is *read*.  If, at some later time, we discover an
+assignment that forces the annotation about the attribute to be
+generalized, then all the places that read the attribute so far are
+marked as invalid and the annotator will have to restart its analysis
+from there.
+
+The distinction between instance-level and class-level attributes is
+thin; class-level attributes are essentially considered as initial
+values for instance-level attributes.  Methods are not special in this
+respect, except that they are bound to the instance (i.e. ``self =
+SomeInstance(cls)``) when considered as the initial value for the
+instance.
+
+The inheritance rules are as follows: the union of two ``SomeInstance``
+annotations is the ``SomeInstance`` of the most precise common base
+class.  If an attribute is considered (i.e. read or written) through a
+``SomeInstance`` of a parent class, then we assume that all subclasses
+also have the same attribute, and that the same annotation applies to
+them all (so code like ``return self.x`` in a method of a parent class
+forces the parent class and all its subclasses to have an attribute
+``x``, whose annotation is general enough to contain all the values that
+all the subclasses might want to store in ``x``).  However, distinct
+subclasses can have attributes of the same names with different,
+unrelated annotations if they are not used in a general way through the
+parent class.
+
 
 .. _`Compiling Dynamic Language Implementations`: dynamic-language-translation.html
 
