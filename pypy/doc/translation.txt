@@ -21,8 +21,8 @@ then the `How It Fits Together`_ is probably what you want.
 Overview
 ========
 
-The job of translation tool-chain is to translate RPython_ progams into an
-efficient version of that progam for one of various target platforms,
+The job of translation tool-chain is to translate RPython_ programs into an
+efficient version of that program for one of various target platforms,
 generally one that is considerably lower-level than Python.  It divides
 this task into several steps, and the purpose of this document is to
 introduce them.
@@ -181,7 +181,7 @@ Mutable Values and Containers
 
 Mutable objects need special treatment during annotation, because
 the annotation of contained values needs to be possibly updated to account
-for mutation operations, and consequentely the annotation information
+for mutation operations, and consequently the annotation information
 reflown through the relevant parts of the flow the graphs.
 
 * ``SomeList`` stands for a list of homogeneous type (i.e. all the
@@ -264,11 +264,11 @@ of reading or writing from or to a field of a structure.
 
 In theory, this step is optional; a code generator might be able to read
 directly the high-level types.  Our experience, however, suggests that this is
-very unlikely to be pratical.  "Compiling" high-level types into low-level
+very unlikely to be practical.  "Compiling" high-level types into low-level
 ones is rather more messy than one would expect and this was the motivation
 for making this step explicit and isolated in a single place.  After RTyping,
 the graphs only contain operations that already live on the level of the
-target langiage, which makes the job of the code generators much simpler.
+target language, which makes the job of the code generators much simpler.
 
 For more detailed information, see the `documentation for the RTyper`_.
 
@@ -367,7 +367,7 @@ The C Back-End
 http://codespeak.net/pypy/dist/pypy/translator/c/
 
 GenC is not really documented at the moment.  The basic principle of creating
-code from flowgraphs is similar to the `Python back-end`_.  See also
+code from flow graphs is similar to the `Python back-end`_.  See also
 `Generating C code`_ in another draft.
 
 GenC is usually the most actively maintained backend -- everyone working on
@@ -429,7 +429,7 @@ the first half of 2005. Carl Friedrich and Holger then initiated a revamped
 version based on the new `RPython Typer`_ flow graph. Significant progress was
 made during the Gothenburg sprint - and then the following 6 weeks Eric and
 Richard worked on it, achieving a standalone executable just prior to the
-Heidelberg sprint.  During the Heildelberg sprint Eric and Richard mainly
+Heidelberg sprint.  During the Heidelberg sprint Eric and Richard mainly
 worked on sharing the backend external code with GenC.
 
 .. _`low level virtual machine`: http://llvm.org/
@@ -458,7 +458,7 @@ GenCLI
 ++++++
 
 GenCLI targets the `Common Language Infrastructure`_, the most famous
-implementations of which are Mircrosoft's `.NET`_ and Mono_.
+implementations of which are Microsoft's `.NET`_ and Mono_.
 
 .. _`Common Language Infrastructure`: http://www.ecma-international.org/publications/standards/Ecma-335.htm
 .. _`.NET`: http://www.microsoft.com/net/
@@ -543,7 +543,7 @@ reasons (e.g. if they need to make calls into the OS). These can be
 implemented by writing backend code by hand that either implements the
 functionality itself or calls appropriate libraries.
 
-Of course the annotator does not know what types these funtions return so we
+Of course the annotator does not know what types these functions return so we
 need a way to attach fixed annotations to such functions. Additionally for
 every such function we need a low level helper function that behaves like the
 hand-written backend code so that we can still test a call to such an external
@@ -560,7 +560,7 @@ of these functions and to attach a low level dummy implementation::
 
     declare(funct, annotation_factory, lowlevel_dummy)
 
-Here ``funct`` is the funtion that is supposed to be implemented in the
+Here ``funct`` is the function that is supposed to be implemented in the
 backend, ``annotation_factory`` is a function that returns an appropriate
 annotation of the return value (an instance of a primitive type is also ok, so
 you can do ``declare(func, int...)``), lowlevel_dummy is a string of the form
@@ -575,14 +575,14 @@ replaces calls to ``func`` with calls to the function
 ``module.ll_function``. The backend is supposed to replace calls to functions
 to ``module.ll_function`` by whatever code it finds appropriate.
 
-Implementating low level replacement functions in Python
+Implementing low level replacement functions in Python
 ---------------------------------------------------------
 
 The dummy low level replacement functions are there to implement the external
 function on the low level. In contrast to the original function they should
 take arguments that are of `low-level type`_. Most of the times they are
 implemented by calling appropriate low level to high level conversion
-functions and then calling the original funtion again.
+functions and then calling the original function again.
 
 .. _`low-level type`: rtyper.html#low-level-type
 
@@ -610,10 +610,10 @@ Here ``LL_c_name_of_function`` is the name of the C function that implements
 the functionality of the ``module.ll_function``. These C implementation are
 found in the directory `pypy/translator/c/src/`_.
 
-It sometimes neccessary to access a certain function or type that is written
+It sometimes necessary to access a certain function or type that is written
 in Python from the C code you write by hand (for example for constructing the
 return value in the correct low level type). This can be a problem because the
-C backend mangels names to prevent clashes. To get a certain low level type
+C backend mangles names to prevent clashes. To get a certain low level type
 under a fixed name the function ``predeclare_common_types`` needs to be
 changed. This function is a generator that yields tuples of the form
 ``('c_name', LLTYPE)``. This makes the genc assign the name ``c_name`` to the
