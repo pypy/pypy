@@ -33,7 +33,7 @@ The highlights of this fourth release of PyPy are:
 
     - some 2.5 features?
 
-XXX clearly needs expansion
+XXX clearly this needs expansion
 
 What is PyPy (about)? 
 ------------------------------------------------
