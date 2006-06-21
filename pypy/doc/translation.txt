@@ -442,17 +442,86 @@ worked on sharing the backend external code with GenC.
 The Object-Oriented Backends
 ----------------------------
 
+All of the OO backends are less mature than the C or LLVM backends.
+None can compile all of PyPy yet, but all can compile small examples.
+
+As they are newer than the low-level backends, we can predict the needs of
+these backends slightly better, and this is enabling them to share significant
+amounts of code, such as the equivalent of the low-level database (XXX
+details).
+
+LoopFinder?
+
+.. mention that pretty much all these backends are done by volunteers?
+
 GenCLI
 ++++++
+
+GenCLI targets the `Common Language Infrastructure`_, the most famous
+implementations of which are Mircrosoft's `.NET`_ and Mono_.
+
+.. _`Common Language Infrastructure`: http://www.ecma-international.org/publications/standards/Ecma-335.htm
+.. _`.NET`: http://www.microsoft.com/net/
+.. _Mono: http://www.mono-project.com/
+
+It is probably the most advanced of the object oriented backends -- it can
+compile our two standard benchmarks, RPyStone (CPython's PyStone benchmark
+modified slightly to be RPython) and a RPython version of the common Richards
+benchmark.
+
+It is almost entirely the work of Antonio Cuni, who worked on this backend as
+part of his Bachelor's thesis and is continuing to work on it as part of
+Google's Summer of Code 2006 program.
 
 GenSqueak
 +++++++++
 
+GenSqueak translates RPython programs into source that can be run in Squeak_,
+the free Smalltalk implementation.
+
+.. _Squeak: http://www.squeak.org/
+
+It is probably the least complete of the backends listed here.
+
+The first version was written by Bert Freudenberg of Impara GmbH, mostly as a
+way of motivating the design of the ootypesystem.  More recently, it has been
+worked on by Niklaus Haldimann.
+
 GenJS
 +++++
 
+GenJS targets JavaScript, or more properly ECMAScript.
+
+It is a little different to the other backends, in that it is not really a
+goal to ever translate the entire PyPy interpreter -- the most important JS
+implementations are browsers, and they probably wouldn't be too happy with the
+100+ megabyte JavaScript file that would result...
+
+Instead, the goal of GenJS is more directed towards allowing one to write
+Ajax_ web applications entirely in Python (the client side would have to be
+restricted to RPython_), and this is the subject of Maciej Fijalkowski's
+Summer Of Code 2006 project.
+
+.. _Ajax: http://en.wikipedia.org/wiki/AJAX
+
+The first version of GenJS was written by Eric van Riet Paap (Maciej's mentor
+for the Summer Of Code project) and now he and Maciej are collaborating on its
+further development.
+
 GenCL
 +++++
+
+GenCL generates `ANSI Common Lisp`_ source.
+
+.. _`ANSI Common Lisp`: http://www.lisp.org/HyperSpec/FrontMatter/index.html
+
+GenCL is one of the oldest backends -- some version of it has been present
+since before revision 2000, long long before any version of the RTyper
+existed!  At the Tokyo sprint in April 2006, GenCL was revived and ported to
+work on OOTyped graphs.
+
+GenCL has seen work from many people, but the driving force has mostly been
+Seo Sanghyeon.
 
 The Interpreter-Level backend
 -----------------------------
