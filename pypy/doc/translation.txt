@@ -476,10 +476,8 @@ Google's Summer of Code 2006 program.
 GenSqueak
 +++++++++
 
-GenSqueak translates RPython programs into source that can be run in Squeak_,
-the free Smalltalk implementation.
-
-.. _Squeak: http://www.squeak.org/
+GenSqueak translates RPython programs into source that can be run in `Squeak
+<http://www.squeak.org/>`__, the free Smalltalk implementation.
 
 It is probably the least complete of the backends listed here.
 
