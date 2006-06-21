@@ -1,70 +1,8 @@
 
-test_cpickle
-    has been re-run, still failing
-    ran test_cpickle on c-python using the pickle module instead of cpickle
-    pickle.py fails on all test_recursion but passes the test_nonrecursive 
-    this test has a 60 level deep structure
-
 test_descr
     cannot easily complete this; after another quick review, the failures
     left are mostly "don't care" internal details.
 
-test_builtin
-    (some of these might have been fixed by now:)
-    - our compilers need to recognize BOM markers
-    - eval etc  should accept dict subclasses
-    - hex/oct should output '-' for negative numbers
-    - FIXED unicode("\u0663", 'raw-unicode-escape') does not work properly
-    - disallow interning of string subclasses
-    - __future__ import division problems
-
 test_extcall
    cannot be fixed.  PyPy produces different TypeError messages but they are
    also correct and useful (reviewed them again).
-
-test_codecscallback
-    Should be fixed by now, takes a long time to re-run
-
-test_compiler 
-    not a core mode
-
-test_global
-    should be run and pass with --compiler=pyparseapp
-
-test_codeop
-    could be fixed, maybe (being worked on)
-
-test_compile
-    - test_exec_with_general_mapping_for_locals has been modified to expect
-      a NameError for global lookup failure with a non standard dictionnary
-      PyPy doesn't translate KeyError to NameError for the global case but it
-      does it correctly for local
-    - test_for_distinct_code_objects works with pypy on top of python2.4 but not
-      on top of python2.3 this is because code objects differing only
-      by line number are equal on 2.3 and different on 2.4. This test is not worth
-      fixing. Pypy's own PyCode objects behave correctly and this is what we use both
-      for _stable and ast compilers
-    - test_unary_minus fails on top of 2.3 with stable compiler because it uses c-python eval
-      and the tests checks that eval("0xffffffff") returns 2*MAXINT and not -1
-
-test_generators
-    all tests that do not depend on weakrefs pass
-    
-test_traceback
-    - test_caret : fails because we don't include line text into the syntax error. needs a bit of
-      refactoring of the link between parser and transformer to make it work
-    - test_nocaret : it's testing an obscure case that basicaly returns a syntax error with 3 parameters (no positional info)
-                     it even as a special if not_jython to pass on jython
-
-test_future
-    to be investigated...
-    
-test_genexps
-    three failures because of different error messages along the lines of:
-       'can't assign to genexpr' instead of 'assignement to genexpr ...'
-       'division by zero' instead of 'division or modulo by zero'
-    the other failures are due to missing weakref support
-    
-test_trace
-    Fails because of our compiler generating different linenumber information
-    than CPythons.
