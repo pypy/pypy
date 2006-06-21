@@ -290,9 +290,10 @@ relations; and something to hold these together. The later is what we
 call a "computation space". The notion of computation space is broad
 enough to encompass constraint and logic programming, but we use it
 there only as a box that holds the elements of our constraint
-satisfaction problem.
+satisfaction problem. Note that it is completely unrelated to the
+notion of object space (as in the logic object space).
 
-A problem is a one-argument procedure defined as follow::
+A problem is a one-argument procedure defined as follows::
 
   def simple_problem(cs):
       cs.var('x', FiniteDomain(['spam', 'egg', 'ham']))
