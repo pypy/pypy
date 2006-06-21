@@ -8,58 +8,127 @@ PyPy - Glossary
 annotator
 ----------------------------------------------------------------------
 
+Performs a form of `type inference`_.
+
 application level
 --------------------------------------------
+
+applevel_
 
 backend
 ----------------------------------------------------------------------
 
+Code that convert a RPython_ program to a `target language`_ using the PyPy toolchain_.
+
+external function
+----------------------------------------------------------------------
+
+XXX
+
+garbage collection framework
+--------------------------------------------
+
+XXX
+
 interpreter level
 --------------------------------------------
 
-l3interpreter (?)
+jit
+--------------------------------------------
+
+`just in time compiler`_
+
+l3interpreter
 ----------------------------------------------------------------------
 
-llinterpreter (?)
+XXX
+
+llinterpreter
 ----------------------------------------------------------------------
 
-lltype (?)
+XXX
+
+lltype
 ----------------------------------------------------------------------
+
+XXX
 
 mixed module
 ----------------------------------------------------------------------
 
+XXX
+
 object space
 ----------------------------------------------------------------------
 
-ootype (?)
+XXX
+
+ootype
 ----------------------------------------------------------------------
+
+XXX
 
 prebuilt constant
 --------------------------------------------
 
+XXX
+
 rpython
 --------------------------------------------
+
+RPython_ stands for Restricted Python
 
 rtyper
 --------------------------------------------
 
+XXX
+
 specialization
 --------------------------------------------
+
+XXX
 
 stackless
 ----------------------------------------------------------------------
 
+Technology that enables various forms of microthreading.
+
 standard interpreter
 --------------------------------------------
+
+XXX
+
+toolchain
+----------------------------------------------------------------------
+
+The `annotator pass`_, `The RPython Typer`_, and various `backends`_.
+
+transformation
+----------------------------------------------------------------------
+
+Code that modifies flowgraphs to weave in `translation-aspects`_
 
 translator
 ----------------------------------------------------------------------
 
+Tool_ based on the PyPy interpreter which can translate sufficiently static Python programs into low-level code.
+
+type inference
+----------------------------------------------------------------------
+
+Deduces either partially or fully the type of expressions as described in this `type inference article`_.
 
 
 
-.. _`RPython`: coding-guide.html#rpython
-.. _`getting-started`: getting-started.html
+.. _applevel: coding-guide.html#application-level
+.. _RPython: coding-guide.html#restricted-python
+.. _`target language`: getting-started.html#trying-out-the-translator
+.. _`just in time compiler`: http://en.wikipedia.org/wiki/Just-in-time_compilation
+.. _`type inference article`: http://en.wikipedia.org/wiki/Type_inference
+.. _`annotator pass`: translation.html#the-annotation-pass
+.. _`The RPython Typer`: translation.html#the-rpython-typer
+.. _`backends`: getting-started.html#trying-out-the-translator
+.. _Tool: getting-started.html#trying-out-the-translator
+.. _`translation-aspects`: translation-aspects.html
 
 .. include:: _ref.txt
