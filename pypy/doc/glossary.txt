@@ -140,10 +140,8 @@ Technology that enables various forms of coroutining.
 standard interpreter
 --------------------------------------------
 
-It is the subsystem implementing the Python language, composed of the
+It is the `subsystem implementing the Python language`_, composed of the
 bytecode interpreter and of the standard objectspace.
-
-See _stdinterp.
 
 toolchain
 ----------------------------------------------------------------------
@@ -187,6 +185,6 @@ this `type inference article`_.
 .. _Python: http://www.python.org
 .. _`object space`: objspace.html
 .. _`RPython Typer`: rtyper.html
-.. _stdinterp: architecture.html#standard-interpreter
+.. _`subsystem implementing the Python language`: architecture.html#standard-interpreter
 
 .. include:: _ref.txt
