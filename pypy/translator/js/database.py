@@ -168,7 +168,7 @@ class LowLevelDatabase(object):
             ilasm.store_void()
             const.init_fields(ilasm, self.const_var, name)
             #ilasm.field(name, const.get_type(), static=True)
-        
+    
     def load_const(self, type_, value, ilasm):
         if self.is_primitive(type_):
             ilasm.load_const(self.cts.primitive_repr(type_, value))
@@ -188,6 +188,9 @@ class AbstractConst(object):
         self.const = const
         self.cts = db.type_system_class(db)
         self.depends = set()
+    
+    def __ne__(self, other):
+        return not (self == other)
     
     def make(db, const):
         if isinstance(const, ootype._view):
