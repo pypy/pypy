@@ -1,0 +1,2 @@
+db_module=jsdemo.model
+history_dir=$base/jsdemo/sqlobject-history
