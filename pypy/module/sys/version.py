@@ -8,7 +8,7 @@ from pypy.interpreter import autopath
 CPYTHON_VERSION            = (2, 4, 1, "alpha", 42)
 CPYTHON_API_VERSION        = 1012
 
-PYPY_VERSION               = (0, 8, 0, "alpha", '?')
+PYPY_VERSION               = (0, 9, 0, "alpha", '?')
 # the last item is replaced by the svn revision ^^^
 
 SVN_URL = "$HeadURL: http://codespeak.net/svn/pypy/dist/pypy/module/sys/version.py $"[10:-28]
