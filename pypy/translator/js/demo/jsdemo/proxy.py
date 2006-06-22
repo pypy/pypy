@@ -17,6 +17,10 @@ class ProxyRoot(Root, BasicExternal):
         'send_result' : MethodDesc((('result', "aa"), ('exc', "aa"), ('callback',(lambda : None))), None)
     }
     
+    @turbogears.expose(format="json")
+    def return_eight(self):
+        return dict(eight = 8)
+    
     @turbogears.expose(html="jsdemo.templates.xmlhttp")
     def index(self):
         import time
