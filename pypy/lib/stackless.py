@@ -54,6 +54,9 @@ def restore_exception(etype, value, stack):
     #sys.excepthook(etype, value, stack)
     raise etype(value)
 
+def _return_main():
+    return main_tasklet
+
 class TaskletProxy(object):
     def __init__(self, coro):
         self.alive = True
@@ -78,6 +81,9 @@ class TaskletProxy(object):
 
     def __getattr__(self,attr):
         return getattr(self._coro,attr)
+
+    def __reduce__(self):
+        return _return_main, ()
 
 class bomb(object):
     """
@@ -428,6 +434,16 @@ class tasklet(coroutine):
         SETVAL(self, None)
         self.alive = True
         self.insert()
+
+    def __reduce__(self):
+        one, two, three = coroutine.__reduce__(self)
+        assert one is coroutine
+        assert two == ()
+        return tasklet, (), (three, self.tempval)
+
+    def __setstate__(self, (coro_state, tempval)):
+        coroutine.__setstate__(self, coro_state)
+        self.tempval = tempval
 
 def channel_callback(chan, task, sending, willblock):
     return channel_hook(chan, task, sending, willblock)
@@ -810,6 +826,13 @@ class Scheduler(object):
             return 0
         else:
             return -1
+
+    def __reduce__(self):
+        if self is scheduler:
+            return _return_sched, (), ()
+
+def _return_sched():
+    return scheduler
 
 def __init():
     global main_tasklet
