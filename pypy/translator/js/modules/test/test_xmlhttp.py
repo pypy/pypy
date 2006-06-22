@@ -16,4 +16,13 @@ def test_basic_proxy():
     result = fn()
     assert result == 3
 
-#def test_proxy_double_side
+def reply_fun(data):
+    ProxyRootInstance.send_result(str(data['eight']), "", empty_fun)
+
+def test_proxy_double_side():
+    def run_double_proxy():
+        ProxyRootInstance.return_eight(reply_fun)
+    
+    fn = compile_function(run_double_proxy, [], root = ProxyRoot)
+    result = fn()
+    assert result == 8
