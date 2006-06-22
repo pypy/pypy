@@ -76,8 +76,10 @@ class TaskletProxy(object):
         self.tempval = None
         self._coro = coro
 
-    def __str__(self):
+    def __repr__(self):
         return tasklet.__str__(self)
+
+    __str__ = __repr__
 
     def __getattr__(self,attr):
         return getattr(self._coro,attr)
@@ -291,7 +293,7 @@ class tasklet(coroutine):
         self.setup(*argl, **argd)
         return self
 
-    def __str__(self):
+    def __repr__(self):
         next = None
         if self.next is not None:
             next = self.next.thread_id
@@ -303,6 +305,8 @@ class tasklet(coroutine):
         else:
             bs = '-'
         return 'T%s(%s) (%s, %s)' % (self.thread_id, bs, next, prev)
+
+    __str__ = __repr__
 
     def bind(self, func):
         """
@@ -436,13 +440,15 @@ class tasklet(coroutine):
         self.insert()
 
     def __reduce__(self):
+        # xxx save more
         one, two, three = coroutine.__reduce__(self)
         assert one is coroutine
         assert two == ()
-        return tasklet, (), (three, self.tempval)
+        return tasklet, (), (three, self.alive, self.tempval)
 
-    def __setstate__(self, (coro_state, tempval)):
+    def __setstate__(self, (coro_state, alive, tempval)):
         coroutine.__setstate__(self, coro_state)
+        self.alive = alive
         self.tempval = tempval
 
 def channel_callback(chan, task, sending, willblock):

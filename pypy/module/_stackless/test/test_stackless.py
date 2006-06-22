@@ -308,6 +308,22 @@ class AppTest_Stackless:
 
         assert output == [(1,), (2,)]
 
+    def test_schedule(self):
+        output = []
+        def print_(*args):
+            output.append(args)
+
+        import stackless
+        def f(i):
+            print_(i)
+
+        stackless.tasklet(f)(1)
+        stackless.tasklet(f)(2)
+        stackless.schedule()
+
+        assert output == [(1,), (2,)]
+
+
     def test_cooperative(self):
         output = []
         def print_(*args):
@@ -327,3 +343,54 @@ class AppTest_Stackless:
         assert output == [('schedule', 1), ('schedule', 2),
                           ('schedule', 1), ('schedule', 2),
                           ('schedule', 1), ('schedule', 2),]
+
+class Test_StacklessPickling:
+
+    def setup_class(cls):
+        skip_on_missing_buildoption(stackless=True)
+
+
+    def test_basic_tasklet_pickling(self):
+        import stackless
+        from stackless import run, schedule, tasklet
+        import pickle
+
+        output = []
+
+        import new
+
+        mod = new.module('mod')
+        mod.output = output
+
+        exec """from stackless import schedule
+        
+def aCallable(name):
+    output.append(('b', name))
+    schedule()
+    output.append(('a', name))
+""" in mod.__dict__
+        import sys
+        sys.modules['mod'] = mod
+        aCallable = mod.aCallable
+
+
+        tasks = []
+        for name in "ABCDE":
+            tasks.append(tasklet(aCallable)(name))
+
+        schedule()
+
+        assert output == [('b', x) for x in "ABCDE"]
+        del output[:]
+        pickledTasks = pickle.dumps(tasks)
+
+        schedule()
+        assert output == [('a', x) for x in "ABCDE"]
+        del output[:]
+        
+        unpickledTasks = pickle.loads(pickledTasks)
+        for task in unpickledTasks:
+            task.insert()
+
+        schedule()
+        assert output == [('a', x) for x in "ABCDE"]
