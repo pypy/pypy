@@ -12,21 +12,22 @@ import os
 import sys
 import webbrowser
 
-from pypy.jsdemo.jsdemo import controllers
+from pypy.translator.js.demo.jsdemo import controllers
 
 conf_file = os.path.join(os.path.dirname(controllers.__file__), "..", "dev.cfg")
 
 class run_tgtest(object):
-    def __init__(self, compiled_fun, tg_root = None):
+    def __init__(self, compiled_fun, tg_root = None, port = 8080):
         def cont():
             cherrypy.server.wait()
-            webbrowser.open("http://localhost:8080/")
+            webbrowser.open("http://localhost:%d/" % port)
             cherrypy.root.wait_for_results()
             self.results = cherrypy.root.results
             cherrypy.server.stop()
             cherrypy.server.interrupt = SystemExit()
-        
+            
         cherrypy.config.update(file=conf_file)
+        cherrypy.config.update({'global':{'server.socketPort':port}})
 
         if tg_root is None:
             cherrypy.root = controllers.Root()

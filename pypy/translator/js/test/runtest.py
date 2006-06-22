@@ -15,6 +15,8 @@ log = log.runtest
 use_browsertest = conftest.option.browser
 use_tg = conftest.option.tg
 
+port = 8080
+
 def _CLI_is_on_path():
     try:
         py.path.local.sysfind('js') #we recommend Spidermonkey
@@ -42,7 +44,11 @@ class compile_function(object):
         #self.js = JS(t, [function, callback_function], stackless)
         self.js = JS(t, [function], stackless)
         self.js.write_source()
-        self.root = root
+        if root is None:
+            from pypy.translator.js.demo.jsdemo.controllers import Root
+            self.root = Root
+        else:
+            self.root = root
 
     def _conv(self, v):
         #if isinstance(v, str):
@@ -62,10 +68,12 @@ class compile_function(object):
                 log("Used html: %r" % self.html)
                 output = jstest(self.js.filename, function_call, use_browsertest, self.html, self.is_interactive)
             else:
+                global port
                 from pypy.translator.js.test.tgtest import run_tgtest
-                out = run_tgtest(self, tg_root = self.root).results
-                assert out[1] == 'undefined'
+                out = run_tgtest(self, tg_root = self.root, port=port).results
+                assert out[1] == 'undefined' or out[1] == ""
                 output = out[0]
+                port += 1
         else:
             cmd = 'echo "load(\'%s\'); print(%s)" | js 2>&1' % (self.js.filename, function_call)
             log(cmd)

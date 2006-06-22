@@ -7,15 +7,19 @@ from pypy.objspace.flow.model import Variable, Constant
 
 METHOD_BODY = """
 %(class)s.prototype.%(method)s = function ( %(args)s ) {
-   var data;
-   x = new XMLHttpRequest();
-   x.open("GET", '%(call)s', true);
-   x.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
-   x.onreadystatechange = function () { %(real_callback)s(callback) };
-   //x.setRequestHeader("Connection", "close");
-   data = %(data)s;
-   //x.send(data);
-   x.send(null);
+    var data,str;
+    x = new XMLHttpRequest();
+    data = %(data)s;
+    str = "?"
+    for(i in data) {
+        str += i + "=" + data[i].toString() + ";";
+    }
+    x.open("GET", '%(call)s' + str, true);
+    //x.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+    x.onreadystatechange = function () { %(real_callback)s(callback) };
+    //x.setRequestHeader("Connection", "close");
+    //x.send(data);
+    x.send(null);
 }
 """
 
@@ -23,8 +27,12 @@ CALLBACK_BODY = """
 function %(real_callback)s (cb) {
    var d;
    if (x.readyState == 4) {
-      eval ( "d = " + x.responseText );
-      cb(d);
+      if (x.responseText) {
+         eval ( "d = " + x.responseText );
+         cb(d);
+      } else {
+         cb({});
+      }
    }
 }
 """
@@ -47,11 +55,8 @@ class XmlHttp(object):
         ilasm.end_function()
     
     def render_method(self, method_name, method, ilasm):
-        args, retval = method
-        if isinstance(args, dict):
-            real_args = args.keys()
-        else:
-            real_args = ['v%d' % i for i in xrange(len(args))]
+        args, retval = method.args, method.retval.name
+        real_args = list(arg.name for arg in args)
         # FIXME: dirty JS here
         data = "{%s}" % ",".join(["'%s':%s" % (i,i) for i in real_args if i != 'callback'])
         real_callback = Variable("callback").name
@@ -59,4 +64,3 @@ class XmlHttp(object):
         ilasm.codegenerator.write(METHOD_BODY % {'class':self.name, 'method':method_name,\
             'args':",".join(real_args), 'data':data, 'call':'http://localhost:8080/'+method_name,\
             'real_callback':real_callback})
-        
