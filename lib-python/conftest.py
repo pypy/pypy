@@ -885,8 +885,6 @@ class ReallyRunFileExternal(py.test.Item):
         python = sys.executable 
         pypy_script = pypydir.join('bin', 'py.py')
         alarm_script = pypydir.join('tool', 'alarm.py')
-        regr_script = pypydir.join('tool', 'pytest', 
-                                   'run-script', 'regrverbose.py')
         pypy_options = []
         if regrtest.oldstyle: 
             pypy_options.append('--oldstyle') 
@@ -901,21 +899,27 @@ class ReallyRunFileExternal(py.test.Item):
         # previously we only did it if regrtest.outputpath() was True
         # the regrverbose script now does the logic that CPython
         # uses in its regrtest.py 
-        regrrun = str(regr_script)
-        regrrun_verbosity = regrtest.getoutputpath() and '0' or '1'
-        
+       
+        #if regrtest.getoutputpath():
+        #    regr_script = pypydir.join('tool', 'pytest', 
+        #                  'run-script', 'regrverbose.py')
+        #    regr_script_options = "1"
+        #else:
+        regr_script = regrtestdir.join("regrtest.py")
+        regr_script_options = " "
+       
+        regrrun = "%s %s" %(regr_script, regr_script_options)
         TIMEOUT = gettimeout()
         if option.use_compiled:
             execpath, info = getexecutable()
-            cmd = "%s %s %s %s" %(
+            cmd = "%s %s %s" %(
                 execpath, 
-                regrrun, regrrun_verbosity, fspath.purebasename)
-            print cmd
+                regrrun, fspath.purebasename)
         else:
-            cmd = "%s %s %d %s %s %s %s %s" %(
+            cmd = "%s %s %d %s %s %s %s" %(
                 python, alarm_script, TIMEOUT, 
                 pypy_script, sopt, 
-                regrrun, regrrun_verbosity, fspath.purebasename)
+                regrrun, fspath.purebasename)
         return cmd 
 
     def run(self): 
@@ -955,13 +959,16 @@ class ReallyRunFileExternal(py.test.Item):
         try: 
             stdout = tempdir.join(self.fspath.basename) + '.out'
             stderr = tempdir.join(self.fspath.basename) + '.err'
+            print >>sys.stderr, "executing:", cmd 
             if sys.platform == 'win32':
+                #stderr.write("executing: %s" %(cmd,)) XXX not sure we could append like below
                 status = os.system("%s >%s 2>%s" %(cmd, stdout, stderr))
                 if status>=0:
                     status = status
                 else:
                     status = 'abnormal termination 0x%x' % status
             else:
+                stderr.write("executing: %s" %(cmd,))
                 status = os.system("%s >>%s 2>>%s" %(cmd, stdout, stderr))
                 if os.WIFEXITED(status):
                     status = os.WEXITSTATUS(status)
@@ -1001,19 +1008,19 @@ class ReallyRunFileExternal(py.test.Item):
 
         outcome = 'OK'
         expectedpath = regrtest.getoutputpath()
-        if not exit_status: 
-            if expectedpath is not None: 
-                expected = expectedpath.read(mode='rU')
-                test_stdout = "%s\n%s" % (self.fspath.purebasename, test_stdout)     
-                if test_stdout != expected: 
-                    exit_status = 2  
-                    res, out, err = callcapture(reportdiff, expected, test_stdout)
-                    outcome = 'ERROUT' 
-                    result.addnamedtext('reportdiff', out)
-            else:
-                if 'FAIL' in test_stdout or 'ERROR' in test_stderr:
-                    outcome = 'FAIL'
-        elif timedout: 
+        #if expectedpath is not None: 
+        #    if not exit_status: 
+        #        expected = expectedpath.read(mode='rU')
+        #        test_stdout = "%s\n%s" % (self.fspath.purebasename, test_stdout)     
+        #        if test_stdout != expected: 
+        #            exit_status = 2  
+        #            res, out, err = callcapture(reportdiff, expected, test_stdout)
+        #            outcome = 'ERROUT' 
+        #            result.addnamedtext('reportdiff', out)
+        #    else:
+        #        if 'FAIL' in test_stdout or 'ERROR' in test_stderr:
+        #            outcome = 'FAIL'
+        if exit_status and timedout: 
             outcome = "T/O"    
         else: 
             outcome = "ERR"
