@@ -8,120 +8,150 @@ PyPy - Glossary
 annotator
 ----------------------------------------------------------------------
 
-Performs a form of `type inference`_.
+Performs a form of `type inference`_ on the flow graph.
+
 
 application level
 --------------------------------------------
 
 applevel_
 
+
 backend
 ----------------------------------------------------------------------
 
-Code that convert a RPython_ program to a `target language`_ using the PyPy toolchain_.
+Code generator that convert a RPython_ program to a `target language`_ using
+the PyPy toolchain_. A backend uses either the lltypesystem_ or the ootypesystem_.
+
 
 external function
 ----------------------------------------------------------------------
 
-XXX
+Functions that we don't want to implement in Python for various reasons
+(e.g. if they need to make calls into the OS) and will be implemented by the backend.
+
 
 garbage collection framework
 --------------------------------------------
 
-XXX
+Code that makes it possible to write `PyPy's garbage collectors`_ in Python
+itself.
+
 
 interpreter level
 --------------------------------------------
+
+XXX
+
 
 jit
 --------------------------------------------
 
 `just in time compiler`_
 
-l3interpreter
+
+l3interpreter XXX
 ----------------------------------------------------------------------
 
-XXX
 
-llinterpreter
+llinterpreter XXX
 ----------------------------------------------------------------------
 
-XXX
 
-lltype
+lltypesystem
 ----------------------------------------------------------------------
 
-XXX
+A backend_ that uses this typessystem is also called a low-level backend.
+The C and LLVM backends are using this typesystem.
+
 
 mixed module
 ----------------------------------------------------------------------
 
-XXX
+a module that accesses PyPy's `interpreter level`_
+
 
 object space
 ----------------------------------------------------------------------
 
-XXX
+The `object space`_ creates all objects and knows how to perform operations
+on the objects. You may think of an object space as being a library
+offering a fixed API, a set of operations, with implementations that
+correspond to the known semantics of Python objects.
 
-ootype
+
+ootypesystem
 ----------------------------------------------------------------------
 
-XXX
+A backend_ that uses this typessystem is also called a high-level backend.
+The common lisp, javascript and cli backends are all using this typesystem.
+
 
 prebuilt constant
 --------------------------------------------
+In RPython_ module globals are considered constants. Moreover, global
+(i.e. prebuilt) lists and dictionaries are supposed to be immutable.
+(prebuilts are sometimes called pbc's)
 
-XXX
 
 rpython
 --------------------------------------------
 
-RPython_ stands for Restricted Python
+`Restricted Python`_, which is the limited subset of the
+Python_ specification. It is also the language that the PyPy
+interpreter itself is written in.
+
 
 rtyper
 --------------------------------------------
 
-XXX
+Based on the type annotations, turns the flow graph into one that fits the
+model of the target platform/backend_ using either the lltypesystem_ or
+the ootypesystem_.
 
-specialization
+
+specialization XXX
 --------------------------------------------
 
-XXX
 
 stackless
 ----------------------------------------------------------------------
 
 Technology that enables various forms of microthreading.
 
-standard interpreter
+
+standard interpreter XXX
 --------------------------------------------
 
-XXX
 
 toolchain
 ----------------------------------------------------------------------
 
 The `annotator pass`_, `The RPython Typer`_, and various `backends`_.
 
+
 transformation
 ----------------------------------------------------------------------
 
 Code that modifies flowgraphs to weave in `translation-aspects`_
 
+
 translator
 ----------------------------------------------------------------------
 
-Tool_ based on the PyPy interpreter which can translate sufficiently static Python programs into low-level code.
+Tool_ based on the PyPy interpreter which can translate sufficiently static
+Python programs into low-level code.
+
 
 type inference
 ----------------------------------------------------------------------
 
-Deduces either partially or fully the type of expressions as described in this `type inference article`_.
+Deduces either partially or fully the type of expressions as described in
+this `type inference article`_.
 
 
 
 .. _applevel: coding-guide.html#application-level
-.. _RPython: coding-guide.html#restricted-python
 .. _`target language`: getting-started.html#trying-out-the-translator
 .. _`just in time compiler`: http://en.wikipedia.org/wiki/Just-in-time_compilation
 .. _`type inference article`: http://en.wikipedia.org/wiki/Type_inference
@@ -130,5 +160,10 @@ Deduces either partially or fully the type of expressions as described in this `
 .. _`backends`: getting-started.html#trying-out-the-translator
 .. _Tool: getting-started.html#trying-out-the-translator
 .. _`translation-aspects`: translation-aspects.html
+.. _`PyPy's garbage collectors`: garbage_collection.html
+.. _`Restricted Python`: coding-guide.html#restricted-python
+.. _RPython: coding-guide.html#restricted-python
+.. _Python: http://www.python.org
+.. _`object space`: objspace.html
 
 .. include:: _ref.txt
