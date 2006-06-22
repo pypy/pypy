@@ -43,9 +43,14 @@ copyrighted by one or more of the following people and organizations:
     Eric van Riet Paap <eric@vanrietpaap.nl>
     Richard Emslie <rxe@ukshells.co.uk>
     Anders Chrigstrom <ac@strakt.com>
+    Niklaus Haldimann <nhaldimann@gmx.ch>
+    Antonio Cuni <anto.cuni@gmail.com>
+    Maciek Fijalkowski <fijal@genesilico.pl>
+    Aurélien Campéas <aurelien.campeas@logilab.fr>
     Seo Sanghyeon <sanxiyn@gmail.com>
     Alex Martelli <aleaxit@yahoo.com>
     Anders Lehmann <serendipity-soft@get2net.dk>
+    Stephan Diehl <stephan.diehl@gmx.net>
     Patrick Maupin <pmaupin@gmail.com>
     Ludovic Aubry <ludovic.aubry@logilab.fr>
     Bob Ippolito <bob@redivi.com>
@@ -53,13 +58,14 @@ copyrighted by one or more of the following people and organizations:
     Jacob Hallen <jacob@strakt.com>
     Laura Creighton <lac@strakt.com>
     Marius Gedminas <mgedmin@b4net.lt>
-    Niklaus Haldimann <nhaldimann@gmx.ch>
     Amaury Forgeot d Arc <amauryfa@gmail.com>
     Boris Feigin <boria@fbg.uklinux.net>
     Valentino Volonghi <dialtone@divmod.com>        
     Bert Freudenberg <bert@impara.de>
     Andrew Thompson <andrew.thompson@newhert.com>    
     Jonathan David Riehl <jriehl@spaceship.com>
+    Amaury Forgeot D Arc <Amaury.Forgeotdarc@Ubitrade.Com>
+    Alexandre Fayolle <afayolle@debian.org>
     Guido van Rossum <guido@python.org>
 
     Heinrich-Heine University, Germany 
