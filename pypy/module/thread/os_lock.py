@@ -98,6 +98,8 @@ will block until another thread unlocks it.  Deadlocks may ensue.""",
 
 
 def allocate_lock(space):
+    """Create a new lock object.  (allocate() is an obsolete synonym.)
+See LockType.__doc__ for information about locks."""
     return space.wrap(Lock())
 
 def getlocktype(space):

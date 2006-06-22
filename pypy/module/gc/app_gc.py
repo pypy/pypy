@@ -1,9 +1,9 @@
 
 def isenabled():
-    pass
+    "Not implemented."
 
 def enable():
-    pass
+    "Not implemented."
 
 def disable():
-    pass
+    "Not implemented."

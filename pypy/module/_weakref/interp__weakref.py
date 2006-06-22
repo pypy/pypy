@@ -139,6 +139,9 @@ def descr__ne__(space, ref1, ref2):
     return space.not_(space.eq(ref1, ref2))
 
 W_Weakref.typedef = TypeDef("weakref",
+    __doc__ = """A weak reference to an object 'obj'.  A 'callback' can given,
+which is called with the weak reference as an argument when 'obj'
+is about to be finalized.""",
     __new__ = interp2app(descr__new__weakref),
     __eq__ = interp2app(descr__eq__,
                         unwrap_spec=[ObjSpace, W_Weakref, W_Weakref]),
@@ -150,6 +153,7 @@ W_Weakref.typedef = TypeDef("weakref",
 
 
 def getweakrefcount(space, w_obj):
+    """Return the number of weak references to 'obj'."""
     lifeline = w_obj.getweakref()
     if lifeline is None:
         return space.wrap(0)
@@ -161,6 +165,7 @@ def getweakrefcount(space, w_obj):
         return space.wrap(result)
 
 def getweakrefs(space, w_obj):
+    """Return a list of all weak reference objects that point to 'obj'."""
     lifeline = w_obj.getweakref()
     if lifeline is None:
         return space.newlist([])
@@ -186,6 +191,9 @@ class W_CallableProxy(W_Proxy):
         return space.call_args(w_obj, __args__)
 
 def proxy(space, w_obj, w_callable=None):
+    """Create a proxy object that weakly references 'obj'.
+'callback', if given, is called with the proxy as an argument when 'obj'
+is about to be finalized."""
     lifeline = w_obj.getweakref()
     if lifeline is None:
         lifeline = WeakrefLifeline()

@@ -13,6 +13,7 @@ import sys
 Py_MARSHAL_VERSION = 1
 
 def dump(space, w_data, w_f, w_version=Py_MARSHAL_VERSION):
+    """Write the 'data' object into the open file 'f'."""
     writer = FileWriter(space, w_f)
     # note: bound methods are currently not supported,
     # so we have to pass the instance in, instead.
@@ -21,16 +22,21 @@ def dump(space, w_data, w_f, w_version=Py_MARSHAL_VERSION):
     m.put_w_obj(w_data)
 
 def dumps(space, w_data, w_version=Py_MARSHAL_VERSION):
+    """Return the string that would have been written to a file
+by dump(data, file)."""
     m = StringMarshaller(space, space.int_w(w_version))
     m.put_w_obj(w_data)
     return space.wrap(m.get_value())
 
 def load(space, w_f):
+    """Read one value from the file 'f' and return it."""
     reader = FileReader(space, w_f)
     u = Unmarshaller(space, reader)
     return u.get_w_obj(False)
 
 def loads(space, w_str):
+    """Convert a string back to a value.  Extra characters in the string are
+ignored."""
     u = StringUnmarshaller(space, w_str)
     return u.get_w_obj(False)
 

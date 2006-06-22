@@ -19,6 +19,8 @@ def wrap_oserror(space, e):
     return OperationError(space.w_OSError, w_error)
                           
 def open(space, fname, flag, mode=0777):
+    """Open a file (for low level IO).
+Return a file descriptor (a small integer)."""
     try: 
         fd = os.open(fname, flag, mode)
     except OSError, e: 
@@ -27,6 +29,9 @@ def open(space, fname, flag, mode=0777):
 open.unwrap_spec = [ObjSpace, str, int, int]
 
 def lseek(space, fd, pos, how):
+    """Set the current position of a file descriptor.  Return the new position.
+If how == 0, 'pos' is relative to the start of the file; if how == 1, to the
+current position; if how == 2, to the end."""
     try:
         pos = os.lseek(fd, pos, how)
     except OSError, e: 
@@ -36,6 +41,8 @@ def lseek(space, fd, pos, how):
 lseek.unwrap_spec = [ObjSpace, int, int, int]
 
 def isatty(space, fd):
+    """Return True if 'fd' is an open file descriptor connected to the
+slave end of a terminal."""
     try:
         res = os.isatty(fd)
     except OSError, e: 
@@ -45,6 +52,7 @@ def isatty(space, fd):
 isatty.unwrap_spec = [ObjSpace, int]
 
 def read(space, fd, buffersize):
+    """Read data from a file descriptor."""
     try: 
         s = os.read(fd, buffersize)
     except OSError, e: 
@@ -54,6 +62,8 @@ def read(space, fd, buffersize):
 read.unwrap_spec = [ObjSpace, int, int]
 
 def write(space, fd, data):
+    """Write a string to a file descriptor.  Return the number of bytes
+actually written, which may be smaller than len(data)."""
     try: 
         res = os.write(fd, data)
     except OSError, e: 
@@ -63,6 +73,7 @@ def write(space, fd, data):
 write.unwrap_spec = [ObjSpace, int, str]
 
 def close(space, fd):
+    """Close a file descriptor (for low level IO)."""
     try: 
         os.close(fd)
     except OSError, e: 
@@ -70,6 +81,7 @@ def close(space, fd):
 close.unwrap_spec = [ObjSpace, int]
 
 def ftruncate(space, fd, length):
+    """Truncate a file to a specified length."""
     try:
         os.ftruncate(fd, length)
     except OSError, e: 
@@ -86,6 +98,8 @@ def build_stat_result(space, st):
     return space.call_function(w_stat_result, w_tuple)
 
 def fstat(space, fd):
+    """Perform a stat system call on the file referenced to by an open
+file descriptor."""
     try:
         st = os.fstat(fd)
     except OSError, e: 
@@ -95,6 +109,20 @@ def fstat(space, fd):
 fstat.unwrap_spec = [ObjSpace, int]
 
 def stat(space, path):
+    """Perform a stat system call on the given path.  Return an object
+with (at least) the following attributes:
+    st_mode
+    st_ino
+    st_dev
+    st_nlink
+    st_uid
+    st_gid
+    st_size
+    st_atime
+    st_mtime
+    st_ctime
+"""
+
     try:
         st = os.stat(path)
     except OSError, e: 
@@ -104,6 +132,8 @@ def stat(space, path):
 stat.unwrap_spec = [ObjSpace, str]
 
 def dup(space, fd):
+    """Create a copy of the file descriptor.  Return the new file
+descriptor."""
     try:
         newfd = os.dup(fd)
     except OSError, e: 
@@ -113,9 +143,7 @@ def dup(space, fd):
 dup.unwrap_spec = [ObjSpace, int]
 
 def system(space, cmd):
-    """system(command) -> exit_status
-
-Execute the command (a string) in a subshell."""
+    """Execute the command (a string) in a subshell."""
     try:
         rc = os.system(cmd)
     except OSError, e: 
@@ -125,9 +153,7 @@ Execute the command (a string) in a subshell."""
 system.unwrap_spec = [ObjSpace, str]
 
 def unlink(space, path):
-    """unlink(path)
-
-Remove a file (same as remove(path))."""
+    """Remove a file (same as remove(path))."""
     try:
         os.unlink(path)
     except OSError, e: 
@@ -135,9 +161,7 @@ Remove a file (same as remove(path))."""
 unlink.unwrap_spec = [ObjSpace, str]
 
 def remove(space, path):
-    """remove(path)
-
-Remove a file (same as unlink(path))."""
+    """Remove a file (same as unlink(path))."""
     try:
         os.unlink(path)
     except OSError, e: 
@@ -145,6 +169,7 @@ Remove a file (same as unlink(path))."""
 remove.unwrap_spec = [ObjSpace, str]
 
 def getcwd(space):
+    """Return the current working directory."""
     try:
         cur = os.getcwd()
     except OSError, e: 
@@ -154,9 +179,7 @@ def getcwd(space):
 getcwd.unwrap_spec = [ObjSpace]
 
 def chdir(space, path):
-    """chdir(path)
-
-Change the current working directory to the specified path."""
+    """Change the current working directory to the specified path."""
     try:
         os.chdir(path)
     except OSError, e: 
@@ -164,9 +187,7 @@ Change the current working directory to the specified path."""
 chdir.unwrap_spec = [ObjSpace, str]
 
 def mkdir(space, path, mode=0777):
-    """mkdir(path [, mode=0777])
-
-Create a directory."""
+    """Create a directory."""
     try:
         os.mkdir(path, mode)
     except OSError, e: 
@@ -174,9 +195,7 @@ Create a directory."""
 mkdir.unwrap_spec = [ObjSpace, str, int]
 
 def rmdir(space, path):
-    """rmdir(path)
-
-Remove a directory."""
+    """Remove a directory."""
     try:
         os.rmdir(path)
     except OSError, e: 
@@ -184,7 +203,7 @@ Remove a directory."""
 rmdir.unwrap_spec = [ObjSpace, str]
 
 def strerror(space, errno):
-    'strerror(code) -> string\n\nTranslate an error code to a message string.'
+    """Translate an error code to a message string."""
     try:
         text = os.strerror(errno)
     except ValueError:
@@ -221,9 +240,7 @@ def _convertenviron(space, w_env):
         idx += 1
 
 def putenv(space, name, value):
-    """putenv(key, value)
-
-Change or add an environment variable."""
+    """Change or add an environment variable."""
     txt = '%s=%s' % (name, value)
     ros.putenv(txt)
     # Install the first arg and newstr in posix_putenv_garbage;
@@ -234,9 +251,7 @@ Change or add an environment variable."""
 putenv.unwrap_spec = [ObjSpace, str, str]
 
 def unsetenv(space, name):
-    """unsetenv(key)
-
-Delete an environment variable."""
+    """Delete an environment variable."""
     if name in get(space).posix_putenv_garbage:
         os.unsetenv(name)
         # Remove the key from posix_putenv_garbage;
@@ -258,9 +273,7 @@ def enumeratedir(space, dir):
     return space.newlist(result)
 
 def listdir(space, dirname):
-    """listdir(path) -> list_of_strings
-
-Return a list containing the names of the entries in the directory.
+    """Return a list containing the names of the entries in the directory.
 
 \tpath: path of directory to list
 

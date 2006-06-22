@@ -16,6 +16,13 @@ def setbuiltinmodule(w_module, name):
     space.setitem(w_modules, space.wrap(name), w_module)
 
 def _getframe(space, w_depth=0):
+    """Return a frame object from the call stack.  If optional integer depth is
+given, return the frame object that many calls below the top of the stack.
+If that is deeper than the call stack, ValueError is raised.  The default
+for depth is zero, returning the frame at the top of the call stack.
+
+This function should be used for internal and specialized
+purposes only."""
     depth = space.int_w(w_depth)
     try:
         f = space.getexecutioncontext().framestack.top(depth)
@@ -30,9 +37,7 @@ def _getframe(space, w_depth=0):
 # directly from the C code in ceval.c, might be moved somewhere else.
 
 def setrecursionlimit(space, w_new_limit):
-    """setrecursionlimit(n)
-
-Set the maximum depth of the Python interpreter stack to n.  This
+    """Set the maximum depth of the Python interpreter stack to n.  This
 limit prevents infinite recursion from causing an overflow of the C
 stack and crashing Python.  The highest possible limit is platform
 dependent."""
@@ -45,8 +50,7 @@ dependent."""
     space.sys.recursionlimit = new_limit
 
 def getrecursionlimit(space):
-    """getrecursionlimit()
-    Return the current value of the recursion limit, the maximum depth
+    """Return the current value of the recursion limit, the maximum depth
     of the Python interpreter stack.  This limit prevents infinite
     recursion from causing an overflow of the C stack and crashing Python.
     """
@@ -54,17 +58,19 @@ def getrecursionlimit(space):
     return space.wrap(space.sys.recursionlimit)
 
 def setcheckinterval(space, w_interval):
-    """setcheckinterval(n)
-    Tell the Python interpreter to check for asynchronous events every
+    """Tell the Python interpreter to check for asynchronous events every
     n instructions.  This also affects how often thread switches occur."""
     space.sys.checkinterval = space.int_w(w_interval) 
     space.getexecutioncontext().ticker = 0
 
 def getcheckinterval(space):
-    """getcheckinterval() -> current check interval; see setcheckinterval()."""
+    """Return the current check interval; see setcheckinterval()."""
     return space.wrap(space.sys.checkinterval)
 
 def exc_info(space):
+    """Return the (type, value, traceback) of the most recent exception
+caught by an except clause in the current stack frame or in an older stack
+frame."""
     operror = space.getexecutioncontext().sys_exc_info()
     if operror is None:
         return space.newtuple([space.w_None,space.w_None,space.w_None])
@@ -73,6 +79,10 @@ def exc_info(space):
                                space.wrap(operror.application_traceback)])
 
 def exc_clear(space):
+    """Clear global information on the current exception.  Subsequent calls
+to exc_info() will return (None,None,None) until another exception is
+raised and caught in the current thread or the execution stack returns to a
+frame where another exception is being handled."""
     operror = space.getexecutioncontext().sys_exc_info()
     if operror is not None:
         operror.clear(space)
@@ -93,23 +103,17 @@ def pypy_getudir(space):
 ##     return space.wrap(sys.getrefcount(w_obj) - 6)
 
 def settrace(space, w_func):
-    """settrace(function)
-
-Set the global debug tracing function.  It will be called on each
+    """Set the global debug tracing function.  It will be called on each
 function call.  See the debugger chapter in the library manual."""
     space.getexecutioncontext().settrace(w_func)
     
 def setprofile(space, w_func):
-    """setprofile(function)
-
-Set the profiling function.  It will be called on each function call
+    """Set the profiling function.  It will be called on each function call
 and return.  See the profiler chapter in the library manual."""
     space.getexecutioncontext().setprofile(w_func)
 
 def call_tracing(space, w_func, w_args):
-    """call_tracing(func, args) -> object
-
-Call func(*args), while tracing is enabled.  The tracing state is
+    """Call func(*args), while tracing is enabled.  The tracing state is
 saved, and restored afterwards.  This is intended to be called from
 a debugger from a checkpoint, to recursively debug some other code."""
     return space.getexecutioncontext().call_tracing(w_func, w_args)

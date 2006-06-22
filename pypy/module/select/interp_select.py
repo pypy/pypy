@@ -8,6 +8,8 @@ from pypy.interpreter.error import OperationError
 defaultevents = _c.POLLIN | _c.POLLOUT | _c.POLLPRI
 
 def poll(space):
+    """Returns a polling object, which supports registering and
+unregistering file descriptors, and then polling them for I/O events."""
     return Poll()
 
 def as_fd_w(space, w_fd):
