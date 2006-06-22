@@ -50,12 +50,18 @@ jit
 `just in time compiler`_
 
 
-l3interpreter XXX
+l3interpreter
 ----------------------------------------------------------------------
 
+Piece of code that is able to interpret L3 flow graphs. This code is
+unfinished and its future is unclear.
 
-llinterpreter XXX
+
+llinterpreter
 ----------------------------------------------------------------------
+
+Piece of code that is able to interpret flow graphs. This is very useful for
+testing purposes, especially if you work on the RPython_ Typer.
 
 
 lltypesystem
@@ -105,13 +111,15 @@ interpreter itself is written in.
 rtyper
 --------------------------------------------
 
-Based on the type annotations, turns the flow graph into one that fits the
+Based on the type annotations, the `RPython Typer`_ turns the flow graph into one that fits the
 model of the target platform/backend_ using either the lltypesystem_ or
 the ootypesystem_.
 
 
-specialization XXX
+specialization
 --------------------------------------------
+
+XXX
 
 
 stackless
@@ -120,8 +128,10 @@ stackless
 Technology that enables various forms of microthreading.
 
 
-standard interpreter XXX
+standard interpreter
 --------------------------------------------
+
+XXX
 
 
 toolchain
@@ -165,5 +175,6 @@ this `type inference article`_.
 .. _RPython: coding-guide.html#restricted-python
 .. _Python: http://www.python.org
 .. _`object space`: objspace.html
+.. _`RPython Typer`: rtyper.html
 
 .. include:: _ref.txt
