@@ -2,7 +2,7 @@
 """ xmlhttp support
 """
 
-from pypy.rpython.ootypesystem.bltregistry import BasicExternal
+from pypy.rpython.ootypesystem.bltregistry import BasicExternal, MethodDesc
 from pypy.rpython.ootypesystem.ootype import String, Signed, StaticMethod, Bool, Void
 
 import types
@@ -14,8 +14,8 @@ class XMLHttpRequest(BasicExternal):
     }
     
     _methods = {
-        'open' : (("", "", False), None),
-        'send' : ((None,), None),
+        'open' : MethodDesc(("", "", False), None),
+        'send' : MethodDesc((None,), None),
 #        'send_finish' : ((), None),
         #'onreadystatechange' : ([], Void),
     }

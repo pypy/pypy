@@ -81,39 +81,10 @@ def test_xmlhttp():
     """ Low level XMLHttpRequest test
     """
     def xml_fun():
-        xml.open('GET', 'http://localhost:8080/get_some_info?info=dupa', True)
+        xml.open('GET', '/get_some_info?info=dupa', True)
         xml.onreadystatechange = t_xml_fun
         #return xml.readyState
         xml.send(None)
     
     fn = compile_function(xml_fun, [])
-    fn()
-
-##def ping_fun():
-##    if xml.readyState == 4:
-##        null = None
-##        if xml.responseText:
-##            data = seval(xml.responseText)
-##            alert(data['message'])
-##        #for i in data:
-##        #    alert(i)
-##        send_ping_request()
-##
-##def send_ping_request():
-##    xml.open('GET', 'http://localhost:8080/ping', True)
-##    xml.onreadystatechange = ping_fun
-##    xml.send(None)
-
-def got_ping_request(data):
-    return data['a']
-
-def test_bnb():
-    """ Higher level XMLHttpRequest
-    """
-    def bnb_fun():
-        from pypy.translator.js.proxy.testme.controllers import RootInstance
-        RootInstance.ping(got_ping_request)
-    
-    from pypy.translator.js.proxy.testme.controllers import Root
-    fn = compile_function(bnb_fun, [], root = Root)
     fn()

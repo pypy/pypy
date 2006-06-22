@@ -16,6 +16,7 @@ class Style(object):
     def __init__(self, s_str):
         self.left = "0"
         self.top = "0"
+        self.visibility = 'visible'
 
 
 class Node(object):
