@@ -40,17 +40,6 @@ class ExternalBuiltinRepr(Repr):
         return _external_type(self.knowntype)
     
     def rtype_getattr(self, hop):
-##        s_attr = hop.args_s[1]
-##        if s_attr.is_constant() and isinstance(s_attr.const, str):
-##            field = self.knowntype.get_field(s_attr.const)
-##            if isinstance(field, annmodel.SomeBuiltin):
-##                # we need to type it as static method
-##                return hop.args_v[0]
-##                #return hop.genop('oogetfield', hop.args_v, concretetype=self.lowleveltype)
-##            ll_type = field.rtyper_makerepr(hop.rtyper).lowleveltype
-##            return hop.genop('oogetfield', hop.args_v, ll_type)
-##        else:
-##            raise TyperError("getattr() with a non-constant attribute name")
         attr = hop.args_s[1].const
         s_inst = hop.args_s[0]
         if self.knowntype._methods.has_key(attr):
@@ -68,29 +57,8 @@ class ExternalBuiltinRepr(Repr):
         vlist = hop.inputargs(self, ootype.Void, hop.args_r[2])
         s_attr = hop.args_s[1]
         return hop.genop('oosetfield', vlist)
-##        if s_attr.is_constant() and isinstance(s_attr.const, str):
-##            #field = self.knowntype.get_field(s_attr.const)
-##            #if isinstance(hop.args_v[2], Constant):
-##            #    hop.args_v[2] = hop.inputconst(field.rtyper_makerepr(hop.rtyper), hop.args_v[2].value)
-##            return hop.genop('oosetfield', hop.args_v, ootype.Void)
-##        else:
-##            raise TyperError("setattr() with a non-constant attribute name")
     
     def call_method(self, name, hop):
-        #args, retval = self.knowntype._methods[name]
-        #ll_args = [i.rtyper_makerepr(hop.rtyper) for i in args]
-        #if retval is None:
-        #    ll_retval = ootype.Void
-        #else:
-        #    ll_retval = retval.rtyper_makerepr(hop.rtyper)
-        #ar = hop.args_v[:]
-        #for i in xrange(1, len(ar)):
-        #    if isinstance(ar[i], Constant):
-        #        ar[i] = hop.inputconst(ll_args[i-1], ar[i].value)
-        #        ar[i].concretetype = ll_args[i-1].lowleveltype
-##        args = hop.inputargs(*hop.args_v)
-##        import pdb; pdb.set_trace()
-        #attr = hop.args_s[1].const
         vlist = hop.inputargs(self, *(hop.args_r[1:]))
         return hop.genop('oosend', [Constant(name)] + vlist, resulttype=hop.r_result)
     

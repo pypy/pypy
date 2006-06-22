@@ -6,7 +6,7 @@ from pypy.annotation import model as annmodel
 from pypy.objspace.flow import FlowObjSpace
 from pypy.annotation.annrpython import RPythonAnnotator
 import exceptions
-from pypy.rpython.ootypesystem.bltregistry import BasicExternal, ExternalType
+from pypy.rpython.ootypesystem.bltregistry import BasicExternal, ExternalType, MethodDesc
 from pypy.rpython.ootypesystem.ootype import Signed, _static_meth, StaticMethod, Void
 from pypy.rpython.test.test_llinterp import interpret
 
@@ -55,7 +55,7 @@ class B(BasicExternal):
     }
     
     _methods = {
-        'm' : ([1],2),
+        'm' : MethodDesc([1],2),
     }
 
 def test_bltn_method():

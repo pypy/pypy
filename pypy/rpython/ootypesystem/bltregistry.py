@@ -11,6 +11,26 @@ from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.rpython.lltypesystem.lltype import frozendict, isCompatibleType
 from types import MethodType
 
+class ArgDesc(object):
+    def __init__(self, name, ex_value):
+        self.name = name
+        self.example = ex_value
+
+class MethodDesc(object):
+    def __init__(self, args, retval):
+        self.num = 0
+        self.args = [self.convert_val(arg) for arg in args]
+        self.retval = self.convert_val(retval)
+    
+    def convert_val(self, val):
+        if isinstance(val, ArgDesc):
+            return val
+        elif isinstance(val, tuple):
+            return ArgDesc(*val)
+        else:
+            self.num += 1
+            return ArgDesc('v%d' % (self.num-1), val)
+
 class BasicMetaExternal(type):
     def _is_compatible(type2):
         return type(type2) is BasicMetaExternal
@@ -30,7 +50,7 @@ from pypy.rpython.rmodel import Repr
 class Analyzer(object):
     def __init__(self, name, value):
         self.name = name
-        self.args, self.retval = value
+        self.args, self.retval = [i.example for i in value.args], value.retval.example
     
     def __call__(self, *args):
         #for i in xrange(len(args)):
@@ -75,11 +95,9 @@ class ExternalType(ootype.OOType):
     def update_methods(self, _methods):
         _signs = {}
         for i, val in _methods.iteritems():
-            retval = getbookkeeper().annotation_from_example(val[1])
-            values = val[0]
-            if isinstance(val[0], dict):
-                values = val[0].values()
-            _signs[i] = tuple([getbookkeeper().annotation_from_example(j) for j in values]), retval
+            retval = getbookkeeper().annotation_from_example(val.retval.example)
+            values = [arg.example for arg in val.args]
+            _signs[i] = MethodDesc(tuple([getbookkeeper().annotation_from_example(j) for j in values]), retval)
             next = annmodel.SomeBuiltin(Analyzer(i, val), s_self = annmodel.SomeExternalBuiltin(self), methodname = i)
             next.const = True
             self._fields[i] = next
