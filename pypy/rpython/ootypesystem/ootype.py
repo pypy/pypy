@@ -398,11 +398,16 @@ class List(BuiltinADTType):
     # of supposedly equal Lists compare/hash equal.
 
     def __eq__(self, other):
+        if self is other:
+            return True
         if not isinstance(other, List):
             return False
         if self._ITEMTYPE is None or other._ITEMTYPE is None:
             raise TypeError("Can't compare uninitialized List type.")
-        return BuiltinADTType.__eq__(self, other)    
+        return BuiltinADTType.__eq__(self, other)
+
+    def __ne__(self, other):
+        return not (self == other)
 
     def __hash__(self):
         if self._ITEMTYPE is None:
@@ -476,11 +481,16 @@ class Dict(BuiltinADTType):
                 self._KEYTYPE, saferecursive(str, "...")(self._VALUETYPE))
 
     def __eq__(self, other):
+        if self is other:
+            return True
         if not isinstance(other, Dict):
             return False
         if not self._is_initialized() or not other._is_initialized():
             raise TypeError("Can't compare uninitialized Dict type.")
         return BuiltinADTType.__eq__(self, other) 
+
+    def __ne__(self, other):
+        return not (self == other)
 
     def __hash__(self):
         if not self._is_initialized():
@@ -670,6 +680,9 @@ def _null_mixin(klass):
             if not isinstance(other, klass):
                 raise TypeError("comparing an %s with %r" % (klass.__name__, other))
             return not other
+
+        def __ne__(self, other):
+            return not (self == other)
 
         def __hash__(self):
             return hash(self._TYPE)
@@ -1148,6 +1161,9 @@ class _record(object):
 
     def __eq__(self, other):
         return self._items == other._items
+
+    def __ne__(self, other):
+        return not (self == other)
 
 class _null_record(_null_mixin(_record), _record):
 
