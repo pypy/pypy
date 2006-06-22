@@ -14,8 +14,10 @@ Performs a form of `type inference`_ on the flow graph.
 application level
 --------------------------------------------
 
-applevel_
+applevel_ code is normal Python code running on top of the PyPy or
+CPython interpreter
 
+See interpreter level
 
 backend
 ----------------------------------------------------------------------
@@ -41,7 +43,12 @@ itself.
 interpreter level
 --------------------------------------------
 
-XXX
+Code running at this level is part of the implementation of the PyPy
+interpreter and cannot interact normally with application level code;
+it typically provides implementation for an object space and its
+builtins.
+
+See application level.
 
 
 jit
@@ -80,10 +87,12 @@ a module that accesses PyPy's `interpreter level`_
 object space
 ----------------------------------------------------------------------
 
-The `object space`_ creates all objects and knows how to perform operations
-on the objects. You may think of an object space as being a library
-offering a fixed API, a set of operations, with implementations that
-correspond to the known semantics of Python objects.
+The `object space`_ creates all objects and knows how to perform
+operations on the objects. You may think of an object space as being a
+library offering a fixed API, a set of operations, with
+implementations that a) correspond to the known semantics of Python
+objects, b) extend or twist these semantics, or c) serve
+whole-program analysis purposes.
 
 
 ootypesystem
@@ -125,14 +134,16 @@ XXX
 stackless
 ----------------------------------------------------------------------
 
-Technology that enables various forms of microthreading.
+Technology that enables various forms of coroutining.
 
 
 standard interpreter
 --------------------------------------------
 
-XXX
+It is the subsystem implementing the Python language, composed of the
+bytecode interpreter and of the standard objectspace.
 
+See _stdinterp.
 
 toolchain
 ----------------------------------------------------------------------
@@ -176,5 +187,6 @@ this `type inference article`_.
 .. _Python: http://www.python.org
 .. _`object space`: objspace.html
 .. _`RPython Typer`: rtyper.html
+.. _stdinterp: architecture.html#standard-interpreter
 
 .. include:: _ref.txt
