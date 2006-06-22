@@ -78,7 +78,7 @@ from pypy.tool.ansi_print import ansi_log
 log = py.log.Producer("geninterp")
 py.log.setconsumer("geninterp", ansi_log)
 
-GI_VERSION = '1.1.16'  # bump this for substantial changes
+GI_VERSION = '1.1.17'  # bump this for substantial changes
 # ____________________________________________________________
 
 try:
@@ -755,7 +755,8 @@ else:
             for key, value in content:
                 if key.startswith('__'):
                     if key in ['__module__', '__doc__', '__dict__',
-                               '__weakref__', '__metaclass__', '__slots__','__new__']:
+                               '__weakref__', '__metaclass__', '__slots__',
+                               '__new__', '__del__']:
                         continue
 
                 # redirect value through class interface, in order to
@@ -776,7 +777,8 @@ else:
         initcode.append('_dic = space.newdict([])')
         for key, value in cls.__dict__.items():
             if key.startswith('__'):
-                if key in ['__module__', '__metaclass__', '__slots__','__new__']:
+                if key in ['__module__', '__metaclass__', '__slots__',
+                           '__new__', '__del__']:
                     keyname = self.nameof(key)
                     valname = self.nameof(value)
                     initcode.append("space.setitem(_dic, %s, %s)" % (
