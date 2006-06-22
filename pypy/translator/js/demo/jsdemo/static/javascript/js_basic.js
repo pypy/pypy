@@ -1,2 +1,0 @@
-v = document;
-alert(v);
