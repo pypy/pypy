@@ -249,41 +249,36 @@ The complete translation process is described in more details in the
 more theoretically-oriented paper `Compiling dynamic language
 implementations`_.
 
-Status of the implementation (Oct 2005)
+Status of the implementation (June 2006)
 ========================================== 
 
-With the pypy-0.8.0 release we have integrated our AST compiler with
-the rest of PyPy. The compiler gets translated with the rest to a
-static self-contained version of our `standard interpreter`_.  Like
-with 0.7.0 this version is `very compliant`_ to CPython 2.4.1 but you
-cannot run many existing programs on it yet because we are
-still missing a number of C-modules like socket or support for process
-creation.
+The work leading up to the pypy-0.9.0 release has concentrated on the
+features of the translation.  
+
+We can now produce a pypy-c that `has the majority of the features`_
+of `Stackless Python`_.  We have integrated the mark and sweep garbage
+collector written in RPython by Carl Friedrich as part of Google's
+Summer of Code 2005 with the translation machinery, and can produce a
+pypy-c that uses it for memory management.
+
+.. _`has the majority of the features`: stackless.html
+.. _`Stackless Python`: http://www.stackless.com/
 
 The self-contained PyPy version (single-threaded and using the
-`Boehm-Demers-Weiser garbage collector`_) now runs around 10-20 times
-slower than CPython, i.e. around 10 times faster than 0.7.0.
-This is the result of optimizing, adding short
-cuts for some common paths in our interpreter and adding relatively
-straightforward optimization transforms to our tool chain, like inlining
-paired with simple escape analysis to remove unnecessary heap allocations.
-We still have some way to go, and we still expect most of our speed
-will come from our Just-In-Time compiler work, which we have barely started
-at the moment.
+`Boehm-Demers-Weiser garbage collector`_) now runs around 4-5 times
+slower than CPython, i.e. around 3 times faster than 0.8.0.
 
-With the 0.8.0 release the "thunk" object space can also be translated
-(see `getting started`_), obtaining a self-contained version of PyPy
-with its features (and some speed degradation), show-casing at a small
-scale how our whole tool-chain supports flexibility from the interpreter
-written in Python to the resulting self-contained executable.
+We have improved our CPython compatibility still further, and now pass
+around 95% of CPython's core tests, the main improvement over 0.8.0
+being the implementation of the _weakref module.
 
 Our rather complete and Python 2.4-compliant interpreter consists 
 of about 30,000-50,000 lines of code (depending on the way you
 count code borrowed and adapted from other sources), with
 another 14,000 lines of unit tests.  If we include the tools,
 the parts related to code analysis and generation, and the
-standard library modules ported from C, PyPy is now 138,000
-lines of code and 32,000 lines of tests. Refer to 
+standard library modules ported from C, PyPy is now 230,000
+lines of code including 62,000 lines of tests. Refer to 
 the `statistics web page`_ for more detailed information. 
 
 .. _`statistics web page`: http://codespeak.net/~hpk/pypy-stat/
