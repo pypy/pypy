@@ -8,16 +8,16 @@ Overview
 --------
 
 The RPython Typer is the bridge between the Annotator_ and the low-level code
-generators.  The annotator computes types (or "annotations") that are
-high-level, in the sense that they describe RPython types like lists or
-instances of user-defined classes.  In general, though, to emit code we need
-to represent these high-level annotations into the low-level model of the
-target language; for C, this means structures and pointers and arrays.  The
-Typer both determines the appropriate low-level type for each annotation, and
-tries to replace *all* operations in the control flow graphs with one or a few
-low-level operations.  Just like low-level types, there is only a fairly
-restricted set of low-level operations, along the lines of reading or writing
-from or to a field of a structure.
+generators.  The annotations of the Annotator_ are high-level, in the sense
+that they describe RPython types like lists or instances of user-defined
+classes.  In general, though, to emit code we need to represent these
+high-level annotations in the low-level model of the target language; for C,
+this means structures and pointers and arrays.  The Typer both determines the
+appropriate low-level type for each annotation, and tries to replace *all*
+operations in the control flow graphs with one or a few low-level operations.
+Just like low-level types, there is only a fairly restricted set of low-level
+operations, along the lines of reading or writing from or to a field of a
+structure.
 
 In theory, this step is optional; some code generators might be able to read
 directly the high-level types.  However, we expect that case to be the
@@ -125,8 +125,8 @@ Low-Level Types
 ---------------
 
 The RPython Typer uses a standard low-level model which we believe can
-correspond rather directly to various target languages such as C and LLVM_.
-This model is implemented in the first part of 
+correspond rather directly to various target languages such as C and
+LLVM_.  This model is implemented in the first part of
 `rpython/lltypesystem/lltype.py`_.
 
 The second part of `rpython/lltypesystem/lltype.py`_ is a runnable
