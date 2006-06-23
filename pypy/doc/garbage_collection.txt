@@ -8,17 +8,27 @@ Garbage Collection in PyPy
 Current Situation and Objectives
 ================================
 
-This document describes the current status as well as plans for the future of
-garbage collection in PyPy. Work on this began as a `Summer-of-Code-project`_
-(thanks Google, especially Chris DiBona, who put lots of effort in making
-everything run smoothly) of Carl Friedrich Bolz.
+XXX *Warning*: The information below is unfortunately incomplete. I describes
+the garbage collectors themselves, but not how they are actually used in PyPy
+(via the GC transformer)
+
+This document describes how garbage collectors are implemented in PyPy. Work on
+this began as a `Summer-of-Code-project`_ (many thanks to Google!) of Carl
+Friedrich Bolz but has since been worked on by many PyPy developers.
 
 The central idea is of course to implement PyPy's garbage collectors in Python
-itself. At the moment (August 2005) the backends have the responsibility for
-implementing garbage collection. GenC provides the choice between reference
-counting and using the `Boehm-Demers-Weiser garbage collector`_ The LLVM
-backend offers only the Boehm collector. The idea is that the collectors
-should be written in a way so that the backends can share this code.
+itself. RPython itself is a garbage collected language that means at one point
+garbage collection has to be inserted into the flow graphs, since the typical
+target languages (C, LLVM) need explicit memory management.
+
+At the moment it is possible to do garbage collections in different ways in
+PyPy. The easiest one (and the one that performs best at the moment) is to use
+the `Boehm-Demers-Weiser garbage collector`_. Then there is a reference
+counting implementation (which is atrociously slow). In addition the
+mark-and-sweep collector that is described below can be used.
+
+Of these three, only the mark-and-sweep collector is written in Python itself.
+How garbage collectors can be written in Python is described in the following.
 
 .. _`Summer-of-Code-project`: http://code.google.com/summerofcode.html
 .. _`Boehm-Demers-Weiser garbage collector`: http://www.hpl.hp.com/personal/Hans_Boehm/gc/
