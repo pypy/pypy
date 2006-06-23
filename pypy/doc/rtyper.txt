@@ -1,7 +1,10 @@
 The RPython Typer
 =================
 
-http://codespeak.net/pypy/dist/pypy/rpython/
+.. contents::
+.. sectnum::
+
+The RPython Typer lives in the directory `pypy/rpython/`_.
 
 
 Overview
@@ -710,12 +713,12 @@ Exception handling:
 The LLInterpreter
 -----------------
 
-The LLInterpreter is a simply piece of code that is able to interpret flow
+The LLInterpreter is a simple piece of code that is able to interpret flow
 graphs. This is very useful for testing purposes, especially if you work on
 the `RPython Typer`_. The most useful interface for it is the ``interpret``
 function in the file `pypy/rpython/test/test_llinterp.py`_. It takes as
 arguments a function and a list of arguments with which the function is
-supposed to be called. Then it generates the flow graph, annotates is
+supposed to be called. Then it generates the flow graph, annotates it
 according to the types of the arguments you passed to it and runs the
 LLInterpreter on the result. Example::
 

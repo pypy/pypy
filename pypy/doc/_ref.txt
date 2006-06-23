@@ -48,6 +48,7 @@
 .. _`objspace/trace.py`:
 .. _`pypy/objspace/trace.py`: ../../pypy/objspace/trace.py
 .. _`pypy/rpython`:
+.. _`pypy/rpython/`:
 .. _`rpython/`: ../../pypy/rpython
 .. _`pypy/rpython/extfunctable.py`: ../../pypy/rpython/extfunctable.py
 .. _`pypy/rpython/lltypesystem/lltype.py`:
