@@ -70,8 +70,16 @@ links to more information.
 .. _lltypesystem:
 
 **lltypesystem**
-   A backend_ that uses this type system is also called a low-level
-   backend.  The C and LLVM backends use this typesystem.
+   A `C-like type model <rtyper.html#low-level-types>`__ that contains
+   structs and pointers.  A backend_ that uses this type system is also
+   called a low-level backend.  The C and LLVM backends use this
+   typesystem.
+
+.. _`low-level helper`:
+
+**low-level helper**
+    A function that the RTyper_ can use a call to as part of implementing
+    some operation in terms of the target `type system`_.
 
 .. _`mixed module`:
 
@@ -94,9 +102,10 @@ links to more information.
 .. _ootypesystem:
 
 **ootypesystem**
-   A backend_ that uses this type system is also called a high-level
-   backend.  The common lisp, javascript and cli backends all use this
-   typesystem.
+   An `object oriented type model <rtyper.html#object-oriented-types>`__
+   containing classes and instances.  A backend_ that uses this type system
+   is also called a high-level backend.  The common lisp, javascript and
+   cli backends all use this typesystem.
 
 .. _`prebuilt constant`:
 
@@ -157,6 +166,11 @@ links to more information.
 **translator**
   Tool_ based on the PyPy interpreter which can translate
   sufficiently static Python programs into low-level code.
+
+.. _`type system`:
+
+**type system**
+    The RTyper can target either the lltypesystem_ or the ootypesystem_.
 
 .. _`type inference`:
 
