@@ -1020,7 +1020,9 @@ class ReallyRunFileExternal(py.test.Item):
         #    else:
         #        if 'FAIL' in test_stdout or 'ERROR' in test_stderr:
         #            outcome = 'FAIL'
-        if exit_status and timedout: 
+        if not exit_status: 
+            outcome = "OK"
+        elif exit_status and timedout: 
             outcome = "T/O"    
         else: 
             outcome = "ERR"
