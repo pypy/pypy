@@ -275,6 +275,40 @@ is solely implemented in a small `objspace/thunk.py`_ file consisting
 of around 100 lines of code. Since the 0.8.0 release it is even possible
 to `translate PyPy with the thunk object space`_.
 
+Logic programming
++++++++++++++++++
+
+People familiar with logic programming languages will be interested to
+know that PyPy optionally supports logic variables and constraint-based
+programming.  Among the many interesting features of logic programming
+-- like unification --, this subsumes the thunk object space by
+providing a more extensive way to deal with laziness.
+
+Try it out::
+
+    cd pypy/bin
+    python py.py -o logic --usemodules=_stackless
+
+    >>>> X = newvar()         # a logic variable
+    >>>> bind(X, 42)          # give it a value
+    >>>> assert X / 2 == 21   # then use it
+    >>>> assert type(X) is int
+
+    >>>> X, Y, Z = newvar(), newvar(), newvar()  # three logic vars
+    >>>> unify({'hello': Y, 'world': Z}, X)      # a complex unification
+    >>>> bind(Y, 5)                              # then give values to Y
+    >>>> bind(Z, 7)                              # ... and Z
+    >>>> X
+    {'hello': 5, 'world': 7}
+
+    >>>> bind(Z, 8)
+    RuntimeError: Cannot bind twice
+
+Read more about `Logic Object space features`_.
+
+.. _`Logic Object space features`: howto-logicobjspace-0.9.html
+
+
 Running the tests
 +++++++++++++++++
 

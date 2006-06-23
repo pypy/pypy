@@ -62,7 +62,7 @@ state::
 Logic variables can be bound thusly::
 
   bind(X, 42)
-  assert X / 2 == 24
+  assert X / 2 == 21
 
 The single-assignment property is easily checked::
 
