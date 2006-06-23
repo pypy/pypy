@@ -41,7 +41,7 @@ The highlights of this fourth release of PyPy are:
 
 **logic space preview**
     This release contains the first version of the logic object space,
-    which will add logical variables to Python.  See it's docs for more:
+    which will add logical variables to Python.  See its docs for more:
     http://codespeak.net/pypy/dist/pypy/doc/howto-logicobjspace-0.9.html
 
 **high level backends preview**
