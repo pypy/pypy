@@ -2,6 +2,12 @@
 """ xmlhttp proxy test
 """
 
+import py
+from pypy import conftest
+
+if not conftest.option.browser or not conftest.option.tg:
+    py.test.skip("Works only in browser and with turbogears")
+
 from pypy.translator.js.demo.jsdemo.proxy import ProxyRootInstance, ProxyRoot
 from pypy.translator.js.test.runtest import compile_function
 
