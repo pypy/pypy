@@ -26,6 +26,9 @@ and related projects.
 `FAQ`_ contains the beginning of frequently asked questions.
 Right now it's a bit empty.
 
+`Glossary`_ of PyPy words to help you align your inner self with
+the PyPy universe.
+
 
 PyPy documentation
 ===============================================
@@ -78,6 +81,7 @@ recent compliance test runs against PyPy.
 
 
 .. _`FAQ`: faq.html
+.. _Glossary: glossary.html
 .. _parser: parser.html
 .. _`development methodology`: dev_method.html
 .. _`talks and related projects`: extradoc.html
