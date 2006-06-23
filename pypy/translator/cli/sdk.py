@@ -2,27 +2,27 @@ import platform
 import py
 
 class AbstractSDK(object):
-    @classmethod
     def _check_helper(cls, helper):
         try:
             py.path.local.sysfind(helper)
             return helper
         except py.error.ENOENT:
             py.test.skip("%s is not on your path." % helper)
+    _check_helper = classmethod(_check_helper)
 
-    @classmethod
     def runtime(cls):
         for item in cls.RUNTIME:
             cls._check_helper(item)
         return cls.RUNTIME
+    runtime = classmethod(runtime)
 
-    @classmethod
     def ilasm(cls):
         return cls._check_helper(cls.ILASM)
+    ilasm = classmethod(ilasm)
 
-    @classmethod
     def csc(cls):
         return cls._check_helper(cls.CSC)
+    csc = classmethod(csc)
 
 class MicrosoftSDK(AbstractSDK):
     RUNTIME = []
