@@ -67,7 +67,7 @@ Note that Tasklets and Channels are implemented at application-level in
 module for more details and the actual documentation.
 
 The current ``stackless`` module (pypy 0.9) is not yet feature complete and 
-will probably fail in spectacular ways. Just be warned.
+will may fail in spectacular ways. Just be warned.
 
 There is no support for stackless in a threaded environment whatsoever.
 
