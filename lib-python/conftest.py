@@ -889,6 +889,8 @@ class ReallyRunFileExternal(py.test.Item):
                                    'run-script', 'regrverbose.py')
         pypy_options = []
         if regrtest.oldstyle: 
+            if option.use_compiled:
+                py.test.skip("old-style classes not available in pypy-c")
             pypy_options.append('--oldstyle') 
         if regrtest.uselibfile: 
             pypy_options.append('--uselibfile')
