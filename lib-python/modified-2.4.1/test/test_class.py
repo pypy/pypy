@@ -244,6 +244,9 @@ del testme
 if sys.platform[:4] == 'java':
     import java
     java.lang.System.gc()
+else:
+    import gc
+    gc.collect()
 
 # Interfering tests
 
