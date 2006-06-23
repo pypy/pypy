@@ -444,6 +444,8 @@ coroutines as an RPython-level feature, which in turn are used to
 implement `coroutines, greenlets and tasklets`_ as an application
 level feature for the Standard Interpreter.
 
+.. _`coroutines, greenlets and tasklets`: stackless.html
+
 .. _`preparing the graphs for source generation`:
 
 Preparation for Source Generation
