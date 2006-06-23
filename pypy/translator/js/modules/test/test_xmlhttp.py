@@ -3,7 +3,7 @@
 """
 
 import py
-from pypy import conftest
+from pypy.translator.js import conftest
 
 if not conftest.option.browser or not conftest.option.tg:
     py.test.skip("Works only in browser and with turbogears")
