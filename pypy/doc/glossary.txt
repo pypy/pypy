@@ -1,26 +1,39 @@
+PyPy, like any large project, has developed a jargon of its own.  This
+document gives brief definition of some of these terms and provides
+links to more information.
+
+.. _annotator:
+
 **annotator**
-    Performs a form of `type inference`_ on the flow graph.
+    The component of the translator_\ 's toolchain_ that performs a form
+    of `type inference`_ on the flow graph.
 
 .. _`application level`:
 
 **application level**
     applevel_ code is normal Python code running on top of the PyPy or
-    CPython interpreter (see `interpreter level`_)
+    CPython_ interpreter (see `interpreter level`_)
 
 .. _backend:
 
 **backend** 
-    Code generator that converts a `RPython
+    Code generator that converts an `RPython
     <coding-guide.html#restricted-python>`__ program to a `target
     language`_ using the PyPy toolchain_. A backend uses either the
     lltypesystem_ or the ootypesystem_.
+
+.. _CPython:
+
+**CPython** 
+    The "default" implementation of Python, written in C and
+    distributed by the PSF_ on http://www.python.org.
 
 .. _`external function`:
 
 **external function**
     Functions that we don't want to implement in Python for various
-    reasons (e.g. if they need to make calls into the OS) and will be
-    implemented by the backend.
+    reasons (e.g. if they need to make calls into the OS) and whose
+    implementation will be provided by the backend.
 
 .. _`garbage collection framework`:
 
@@ -31,10 +44,10 @@
 .. _`interpreter level`:
 
 **interpreter level**
-   Code running at this level is part of the implementation of the
-   PyPy interpreter and cannot interact normally with application
-   level code; it typically provides implementation for an object
-   space and its builtins. (See application level)
+    Code running at this level is part of the implementation of the
+    PyPy interpreter and cannot interact normally with `application
+    level`_ code; it typically provides implementation for an object
+    space and its builtins.
 
 .. _`jit`:
 
@@ -47,7 +60,7 @@
    Piece of code that is able to interpret L3 flow graphs.  This code
    is unfinished and its future is unclear.
 
-.. _`llinterpreter`:
+.. _llinterpreter:
 
 **llinterpreter**
    Piece of code that is able to interpret flow graphs.  This is very
@@ -57,44 +70,47 @@
 .. _lltypesystem:
 
 **lltypesystem**
-   A backend_ that uses this typessystem is also called a low-level
-   backend.  The C and LLVM backends are using this typesystem.
+   A backend_ that uses this type system is also called a low-level
+   backend.  The C and LLVM backends use this typesystem.
 
 .. _`mixed module`:
 
 **mixed module**
-  a module that accesses PyPy's `interpreter level`_
+  a module that accesses PyPy's `interpreter level`_.  The name comes
+  from the fact that the module's implementation can be a mixture of
+  `application level`_ and `interpreter level`_ code.
    
 .. _`object space`:
 
 **object space**
-   The `object space <objspace.html>`__ creates all objects and knows
-   how to perform operations on the objects. You may think of an
-   object space as being a library offering a fixed API, a set of
-   operations, with implementations that a) correspond to the known
-   semantics of Python objects, b) extend or twist these semantics, or
-   c) serve whole-program analysis purposes.
+   The `object space <objspace.html>`__ (often abbreviated to
+   "objspace") creates all objects and knows how to perform operations
+   on the objects. You may think of an object space as being a library
+   offering a fixed API, a set of operations, with implementations
+   that a) correspond to the known semantics of Python objects, b)
+   extend or twist these semantics, or c) serve whole-program analysis
+   purposes.
 
 .. _ootypesystem:
 
 **ootypesystem**
-   A backend_ that uses this typessystem is also called a high-level
-   backend.  The common lisp, javascript and cli backends are all
-   using this typesystem.
+   A backend_ that uses this type system is also called a high-level
+   backend.  The common lisp, javascript and cli backends all use this
+   typesystem.
 
 .. _`prebuilt constant`:
 
 **prebuilt constant**
    In RPython_ module globals are considered constants.  Moreover,
    global (i.e. prebuilt) lists and dictionaries are supposed to be
-   immutable.  (prebuilts are sometimes called pbc's)
+   immutable ("prebuilt constant" is sometimes abbreviated to "pbc").
 
 .. _`rpython`:
 
 **rpython**
-   `Restricted Python`_, which is the limited subset of the Python_
-   specification. It is also the language that the PyPy interpreter
-   itself is written in.
+   `Restricted Python`_, a limited subset of the Python_ language. It
+   is also the language that the PyPy interpreter itself is written
+   in.
 
 .. _`rtyper`:
 
@@ -106,12 +122,17 @@
 .. _`specialization`:
 
 **specialization**
-    XXX
+   A way of controlling how a specifc function is handled by the
+   annotator_.  One specialization is to treat calls to a function
+   with different argument types as if they were calls to different
+   functions with identical source.
 
 .. _`stackless`:
 
 **stackless**
-    Technology that enables various forms of coroutining.
+    Technology that enables various forms of non conventional control
+    flow, such as coroutines, greenlets and tasklets.  Inspired by
+    Christian Tismer's `Stackless Python <http://www.stackless.com>`__.
 
 .. _`standard interpreter`:
 
@@ -134,19 +155,19 @@
 
 **translator**
   Tool_ based on the PyPy interpreter which can translate
-   sufficiently static Python programs into low-level code.
+  sufficiently static Python programs into low-level code.
 
 .. _`type inference`:
 
 **type inference**
    Deduces either partially or fully the type of expressions as
-   described in this `type inference article`_.
+   described in this `type inference article on Wikipedia`_.
 
 
 .. _applevel: coding-guide.html#application-level
 .. _`target language`: getting-started.html#trying-out-the-translator
 .. _`just in time compiler`: http://en.wikipedia.org/wiki/Just-in-time_compilation
-.. _`type inference article`: http://en.wikipedia.org/wiki/Type_inference
+.. _`type inference article on Wikipedia`: http://en.wikipedia.org/wiki/Type_inference
 .. _`annotator pass`: translation.html#the-annotation-pass
 .. _`The RPython Typer`: translation.html#the-rpython-typer
 .. _`backends`: getting-started.html#trying-out-the-translator
@@ -154,6 +175,7 @@
 .. _`translation-aspects`: translation-aspects.html
 .. _`PyPy's garbage collectors`: garbage_collection.html
 .. _`Restricted Python`: coding-guide.html#restricted-python
+.. _PSF: http://www.python.org/psf/
 .. _Python: http://www.python.org
 .. _`RPython Typer`: rtyper.html
 .. _`subsystem implementing the Python language`: architecture.html#standard-interpreter
