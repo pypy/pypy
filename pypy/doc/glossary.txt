@@ -132,7 +132,7 @@ links to more information.
 .. _`specialization`:
 
 **specialization**
-   A way of controlling how a specifc function is handled by the
+   A way of controlling how a specific function is handled by the
    annotator_.  One specialization is to treat calls to a function
    with different argument types as if they were calls to different
    functions with identical source.
