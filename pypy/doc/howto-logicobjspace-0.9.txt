@@ -163,8 +163,8 @@ Description and examples
 When a piece of code tries to access a free logic variable, the thread
 in which it runs is blocked (suspended) until the variable becomes
 bound. This behaviour is known as "dataflow synchronization" and
-mimics exactly the dataflow variables from the Oz programming
-language. With respect to behaviour under concurrency conditions,
+mimics exactly the dataflow variables from the `Oz programming
+language`_. With respect to behaviour under concurrency conditions,
 logic variables come with two operators :
 
 * wait: this suspends the current thread until the variable is bound,
@@ -426,8 +426,8 @@ binary depth-first search::
   15          return outcome
 
 This recursive solver takes a space as argument, and returns the first
-space containing a solution or None. Let us examine it piece by piece
-and discover the basics of the solver protocol.
+solution or None. Let us examine it piece by piece and discover the
+basics of the solver protocol.
 
 The first thing to do is "asking" the space about its status. This may
 force the "inside" of the space to check that the values of the
@@ -454,8 +454,9 @@ Now, we have written this toy solver as if there could be a maximum of
 two alternatives. This assumption holds for the simple_problem we
 defined above, where a binary "distributor" (see below for an
 explanation of this term) has been chosen automatically for us, but
-not in the general case. See the sources (applevel/solver.py) for a
-more general-purpose solver.
+not in the general case. See the sources for a more general-purpose
+`solver`_ and more involved `sample problems`_ (currently, probably
+only conference_scheduling is up to date with the current API).
 
 In line 8, we take a clone of the space; nothing is shared between
 space and newspace (the clone). Having taken a clone, we now have two
@@ -537,19 +538,15 @@ For solver writers
    integer in [1, i] -> None
 
  merge/0         
-   nothing -> list of values
+   nothing -> list of values (solution)
 
 For distributor writers
 
  choose
 
-Were to look
-------------
 
-See also:
+.. _`solver`: ../objspace/constraint/applevel/solver.py
+.. _`sample problems`: ../objspace/constraint/applevel/problems.py
+.. _`Oz programming language`: http://www.mozart-oz.org
 
-* pypy-dist/pypy/objspace/constraint/applevel for the existing solver
-  and some sample problems (I'm quite sure that the conference
-  scheduling problem is up to date wrt the current API, the others
-  likely lag behind).
 
