@@ -230,15 +230,12 @@ definition will probably continue to shift marginally as we improve it.
 
 The actual low-level code (and, in fact, also other high-level code) is
 emitted by "visiting" the type-annotated flow graph.  Currently we have
-a C-producing backend, and an LLVM_-producing backend.  The former also
-accepts non-annotated or partially-annotated graphs, which allow us to
-test it on a larger class of programs than what the Annotator can (or
-ever will) fully process.
+a C-producing backend, and an LLVM_-producing backend.
 
-The newest piece of this puzzle is the
-*Typer*, which inputs the high-level types inferred by the Annotator and
-uses them to modify the flow graph in-place to replace its operations with
-low-level ones, directly manipulating C-like values and data structures.
+The newest piece of this puzzle is the *Typer*, which inputs the
+high-level types inferred by the Annotator and uses them to modify the
+flow graph in-place to replace its operations with low-level ones,
+directly manipulating C-like values and data structures.
 
 Here is an overview of the translation process (`PDF color version`_):
 
