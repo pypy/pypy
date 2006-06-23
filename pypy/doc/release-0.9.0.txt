@@ -1,4 +1,4 @@
-pypy-0.9.0: 
+pypy-0.9.0: improved stackless, new extension compiler
 ==============================================================
 
 The PyPy development team has been busy working and we've now packaged 
@@ -7,35 +7,59 @@ version 0.9.0, our fourth public release.
 
 The highlights of this fourth release of PyPy are:
 
-  - stackless
+**Improved implementation of the "stackless" features**
+    We now support the larger part of the interface of the original
+    Stackless Python -- see http://www.stackless.com for more.  A
+    significant part of this is the pickling and unpickling of a running
+    tasklet.
 
-    - extended app-level interface
-    - tasklet pickling
+    These features, especially the pickling, can be considered to be a
+    "technology preview" -- they work, but for example the error handling
+    is a little patchy in places.
 
-  - ext-compiler
+**ext-compiler**
+    The "extension compiler" is a new way of writing a C extension for
+    CPython and PyPy at the same time. For more information, see its
+    documentation: http://codespeak.net/pypy/dist/pypy/doc/extcompiler.html
 
-  - rctypes
+**rctypes**
+    Most useful in combination with the ext-compiler is the fact that our
+    translation framework can translate code that uses the
+    standard-in-Python-2.5 ctypes module.  See its documentation for more:
+    http://codespeak.net/pypy/dist/pypy/doc/rctypes.html
 
-  - framework gcs
+**framework GCs** 
+    PyPy's interpreter can now be compiled to use a garbage collector
+    written in RPython.  This added control over PyPy's execution makes the
+    implementation of new and interesting features possible, apart from
+    being a significant achievement in its own right.
 
-  - __del__/weakref/__subclasses__
+**__del__/weakref/__subclasses__**
+    The PyPy interpreter's compatibility with CPython continues improves:
+    now we support __del__ methods, the __subclasses__ method on types and
+    weak references.  We now pass around 95% of CPython's core tests.
 
-  - logic space preview
+**logic space preview**
+    This release contains the first version of the logic object space,
+    which will add logical variables to Python.  See it's docs for more:
+    http://codespeak.net/pypy/dist/pypy/doc/howto-logicobjspace-0.9.html
 
-  - high level backends preview
+**high level backends preview**
+    This release contains the first versions of new backends targeting high
+    level languages such as Squeak and .NET/CLI and updated versions of the
+    JavaScript and Common Lisp backends.  They can't compile the PyPy
+    interpreter yet, but they're getting there...
 
-  - bugfixes, better performance
+**bugfixes, better performance**
+    As you would expect, performance continues to improve and bugs continue
+    to be fixed.  The performance of the translated PyPy interpreter is
+    2.5-3x times faster than 0.8 (on richards and pystone), and is now
+    stable enough to be able to run CPython's test suite to the end.
 
-     - 2.5-3x times faster than 0.8 (on richards and pystone).
-     - pypy-c can complete CPython's test suite
-
-  - testing refinements: preliminary doctest support, daily html reports 
-
-  - some other stuff
-
-    - some 2.5 features?
-
-XXX clearly this needs expansion
+**testing refinements**
+    py.test, our testing tool, now has preliminary support for doctests.
+    We now run all our tests every night, and you can see the summary at:
+    http://snake.cs.uni-duesseldorf.de/pypytest/summary.html
 
 What is PyPy (about)? 
 ------------------------------------------------
@@ -77,7 +101,9 @@ purposes.
 Ongoing work and near term goals
 ---------------------------------
 
-XXX
+The Just-in-Time compiler and other performance improvements will be one of
+the main topics of the next few months' work, along with finishing the
+logic object space.
 
 Project Details
 ---------------
