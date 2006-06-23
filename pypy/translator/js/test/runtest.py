@@ -44,7 +44,7 @@ class compile_function(object):
         #self.js = JS(t, [function, callback_function], stackless)
         self.js = JS(t, [function], stackless)
         self.js.write_source()
-        if root is None:
+        if root is None and use_tg:
             from pypy.translator.js.demo.jsdemo.controllers import Root
             self.root = Root
         else:
