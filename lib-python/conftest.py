@@ -906,7 +906,9 @@ class ReallyRunFileExternal(py.test.Item):
         #    regr_script_options = "1"
         #else:
         regr_script = regrtestdir.join("regrtest.py")
-        regr_script_options = " "
+        regr_script_options = ""
+        if not regrtest.getoutputpath():
+            regr_script_options = "-v "
        
         regrrun = "%s %s" %(regr_script, regr_script_options)
         TIMEOUT = gettimeout()
@@ -968,7 +970,7 @@ class ReallyRunFileExternal(py.test.Item):
                 else:
                     status = 'abnormal termination 0x%x' % status
             else:
-                stderr.write("executing: %s" %(cmd,))
+                stderr.write("executing: %s\n" %(cmd,))
                 status = os.system("%s >>%s 2>>%s" %(cmd, stdout, stderr))
                 if os.WIFEXITED(status):
                     status = os.WEXITSTATUS(status)
