@@ -24,6 +24,7 @@
 .. _`pypy/interpreter/typedef.py`: ../../pypy/interpreter/typedef.py
 .. _`lib/`:
 .. _`pypy/lib/`: ../../pypy/lib
+.. _`pypy/lib/stackless.py`: ../../pypy/lib/stackless.py
 .. _`lib/test2/`:
 .. _`pypy/lib/test2`: ../../pypy/lib/test2
 .. _`module/`:
@@ -51,7 +52,6 @@
 .. _`pypy/rpython/extfunctable.py`: ../../pypy/rpython/extfunctable.py
 .. _`pypy/rpython/lltypesystem/lltype.py`:
 .. _`rpython/lltypesystem/lltype.py`: ../../pypy/rpython/lltypesystem/lltype.py
-.. _`rpython/ootypesystem/ootype.py`: ../../pypy/rpython/ootypesystem/ootype.py
 .. _`rpython/memory/`: ../../pypy/rpython/memory
 .. _`pypy/rpython/memory/gc.py`: ../../pypy/rpython/memory/gc.py
 .. _`pypy/rpython/memory/lladdress.py`: ../../pypy/rpython/memory/lladdress.py
@@ -61,6 +61,7 @@
 .. _`pypy/rpython/module/ll_os.py`: ../../pypy/rpython/module/ll_os.py
 .. _`pypy/rpython/module/test`: ../../pypy/rpython/module/test
 .. _`pypy/rpython/objectmodel.py`: ../../pypy/rpython/objectmodel.py
+.. _`rpython/ootypesystem/ootype.py`: ../../pypy/rpython/ootypesystem/ootype.py
 .. _`pypy/rpython/rctypes/test/test_ctypes.py`: ../../pypy/rpython/rctypes/test/test_ctypes.py
 .. _`rpython/rint.py`: ../../pypy/rpython/rint.py
 .. _`rpython/rlist.py`: ../../pypy/rpython/rlist.py

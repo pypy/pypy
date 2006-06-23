@@ -1,0 +1,130 @@
+==========================================================
+         Application-level Stackless features
+==========================================================
+
+.. contents::
+.. sectnum::
+
+Introduction
+================
+
+PyPy can expose to its user language features similar to the ones
+present in `Stackless Python`_: the ability to write code in a massively
+concurrent style.  It actually exposes three different paradigms to
+choose from:
+
+* Tasklets and channels;
+
+* Greenlets;
+
+* Plain coroutines.
+
+All of them are extremely light-weight, which means that PyPy should be
+able to handle programs containing large amounts of
+coroutines/tasklet/greenlets.
+
+
+Requirements
+=================
+
+If you are running py.py on top of CPython, then you need to enable
+the _stackless module by running it as follows::
+
+    py.py --usemodules=_stackless
+
+This is implemented internally using greenlets, so it only works on a
+platform where greenlets_ are supported.
+
+To translate a version of ``pypy-c`` that includes Stackless support,
+run translate.py as follows::
+
+    cd pypy/translator/goal
+    python translate.py --stackless
+
+
+Quick reference
+==========================
+
+The new features are exposed in a module called ``stackless``.
+
+
+Tasklets and channels
++++++++++++++++++++++
+
+The ``stackless`` module provides an interface that is roughly
+compatible with the interface of the ``stackless`` module in `Stackless
+Python`_: it contains ``stackless.tasklet`` and ``stackless.channel``
+classes.  Tasklets are similar to microthreads, but don't actually run
+in parallel with other microthreads; instead, they synchronize and
+exchange data with each other over Channels, and these exchanges
+determine which Tasklet run next.
+
+For usage reference, see the documentation on the `Stackless Python`_
+website.
+
+Note that Tasklets and Channels are implemented at appplication-level in
+`pypy/lib/stackless.py`_ on top of coroutines.  You can refer to this
+module for more details.
+
+
+Greenlets
++++++++++
+
+Greenlets are primitive Tasklets with a lower-level interface and
+with exact control over the execution order.  For usage reference,
+see the greenlets_ documentation.
+
+
+Coroutines
+++++++++++
+
+Coroutines are similar to greenlets, with a slightly different
+interface.  One way to see the difference is to note that greenlets put
+more emphasis on a tree structure: the various greenlets of a program
+form a precise tree, which controls the order of execution.
+
+The ``stackless.coroutine`` class is instantiated with no argument.
+Such a coroutine object is similar to a microthread.  When execution is
+transferred to it, it starts to execute some Python code.  When
+execution is transferred away from it, it is temporarily suspended.
+When the execution comes back to it, it resumes its execution from the
+point where it was suspend.  Only one coroutine is actively running at
+any given time.
+
+The class ``stackless.coroutine`` has the following methods and
+attributes:
+
+* ``stackless.coroutine.getcurrent()``
+
+    Static method returning the currently running coroutine.  There is a
+    so-called "main" coroutine object that represents the "outer"
+    execution context, where your main program started and where it runs
+    as long as it does not switch to another coroutine.
+
+* ``coro.bind(callable, *args, **kwds)``
+
+    Bind the coroutine so that it will execute ``callable(*args,
+    **kwds)``.  The call is not performed immediately, but only the
+    first time we call the ``coro.switch()`` method.  A coroutine must
+    be bound before it is switched to.  When the coroutine finishes
+    (because the call to the callable returns), the coroutine exits and
+    implicitly switches back to its parent coroutine; after this point,
+    it is possible to bind it again and switch to it again.
+
+* ``coro.switch()``
+
+    Suspend the current (caller) coroutine, and resume execution in the
+    target coroutine ``coro``.
+
+* ``coro.kill()``
+
+    Kill ``coro`` by sending an exception to it.  (At the moment, the
+    exception is not visible to app-level, which means that you cannot
+    catch it, and that ``try: finally:`` clauses are not honored.  This
+    will be fixed in the future.)
+
+
+.. _`Stackless Python`: http://www.stackless.com
+.. _greenlets: http://codespeak.net/py/current/doc/greenlet.html
+
+.. include:: _ref.txt

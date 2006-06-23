@@ -67,6 +67,21 @@ garbage collection in PyPy.
 preliminary reports that we submitted to the European Union.
 
 
+New Python features
+==========================================
+
+(Note that emphasis so far has not been on adding new features to the
+Python language.  These new features are experimental, and require you
+to enable them explicitly while running or translating PyPy.)
+
+The Thunk_ Object Space: lazily computed objects.
+
+Stackless_ and coroutines
+
+.. _Thunk: getting-started.html#lazily-computed-objects
+.. _Stackless: stackless.html
+
+
 Status
 ======================================
 
