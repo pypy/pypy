@@ -78,8 +78,11 @@ The Thunk_ Object Space: lazily computed objects.
 
 Stackless_ and coroutines
 
+`Logic and Constraint`_ programming features
+
 .. _Thunk: getting-started.html#lazily-computed-objects
 .. _Stackless: stackless.html
+.. _`Logic and Constraint`: howto-logicobjspace-0.9.html
 
 
 Status
