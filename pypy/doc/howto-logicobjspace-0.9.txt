@@ -344,8 +344,7 @@ self-describing...
 Getting solutions
 -----------------
 
-Now to get and print solutions out of this, we
-must::
+Now to get and print solutions out of this, we must::
 
   import solver
   cs = newspace()
