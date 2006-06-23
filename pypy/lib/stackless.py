@@ -30,34 +30,37 @@ _schedule_hook = None
 class TaskletExit(Exception):pass
 
 def SETNEXT(obj, val):
+    "this function just makes debugging a bit easier :-)"
     obj.next = val
 
 def SETPREV(obj, val):
+    "just for debugging"
     obj.prev = val
 
 def SETNONE(obj):
+    "just for debugging"
     obj.prev = obj.next = None
 
 def SWAPVAL(task1, task2):
+    "just for debugging"
     assert task1 is not None
     assert task2 is not None
     task1.tempval, task2.tempval = task2.tempval, task1.tempval
 
 def SETVAL(task, val):
+    "just for debugging"
     assert task is not None
     task.tempval = val
 
-last_thread_id = 0
+last_task_id = 0
 
 def restore_exception(etype, value, stack):
     """until I find out how to restore an exception on python level"""
     #sys.excepthook(etype, value, stack)
     raise etype(value)
 
-def _return_main():
-    return main_tasklet
-
 class TaskletProxy(object):
+    """TaskletProxy is needed to give the main_coroutine tasklet behaviour"""
     def __init__(self, coro):
         self.alive = True
         self.atomic = False
@@ -72,7 +75,7 @@ class TaskletProxy(object):
         self.recursion_depth = 0
         self.restorable = False
         self.scheduled = False
-        self.thread_id = 0
+        self.task_id = 0
         self.tempval = None
         self._coro = coro
 
@@ -85,7 +88,7 @@ class TaskletProxy(object):
         return getattr(self._coro,attr)
 
     def __reduce__(self):
-        return _return_main, ()
+        return getmain, ()
 
 class bomb(object):
     """
@@ -136,16 +139,20 @@ def enable_softswitch(flag):
     For inquiry only, use the phrase
     ret = enable_softswitch(0); enable_softswitch(ret)
     By default, soft switching is enabled.
+
+    This is not implemented yet!!!!
     """
     pass
 
-def get_thread_info(thread_id):
+def get_thread_info(task_id):
     """
-    get_thread_info(thread_id) -- return a 3-tuple of the thread's
+    get_thread_info(task_id) -- return a 3-tuple of the thread's
     main tasklet, current tasklet and runcount.
     To obtain a list of all thread infos, use
     
     map (stackless.get_thread_info, stackless.threads)
+
+    This is not implemented yet!!!!
     """
     pass
 
@@ -201,6 +208,8 @@ def run(timeout=0):
     It is inserted back after the function stops, right before the
     tasklet that caused a timeout, if any.
     If an exception occours, it will be passed to the main tasklet.
+
+    Please note that the 'timeout' feature is not yet implemented
     """
     me = scheduler.current_remove()
     if me is not main_tasklet:
@@ -261,13 +270,13 @@ class tasklet(coroutine):
     __slots__ = ['alive','atomic','blocked','block_trap','frame',
                  'ignore_nesting','is_current','is_main',
                  'nesting_level','next','paused','prev','recursion_depth',
-                 'restorable','scheduled','tempval','thread_id']
+                 'restorable','scheduled','tempval','task_id']
 
     def __new__(cls, func=None):
         return super(tasklet,cls).__new__(cls)
 
     def __init__(self, func=None):
-        global last_thread_id
+        global last_task_id
         super(tasklet,self).__init__()
         self.alive = False
         self.atomic = False
@@ -283,8 +292,8 @@ class tasklet(coroutine):
         self.recursion_depth = 0
         self.restorable = False
         self.scheduled = False
-        last_thread_id += 1
-        self.thread_id = last_thread_id
+        last_task_id += 1
+        self.task_id = last_task_id
         self.tempval = None
         if func is not None:
             self.bind(func)
@@ -296,15 +305,15 @@ class tasklet(coroutine):
     def __repr__(self):
         next = None
         if self.next is not None:
-            next = self.next.thread_id
+            next = self.next.task_id
         prev = None
         if self.prev is not None:
-            prev = self.prev.thread_id
+            prev = self.prev.task_id
         if self.blocked:
             bs = 'b'
         else:
             bs = '-'
-        return 'T%s(%s) (%s, %s)' % (self.thread_id, bs, next, prev)
+        return 'T%s(%s) (%s, %s)' % (self.task_id, bs, next, prev)
 
     __str__ = __repr__
 
@@ -395,7 +404,7 @@ class tasklet(coroutine):
     def set_ignore_nesting(self, flag):
         """
         t.set_ignore_nesting(flag) -- set tasklet ignore_nesting status and 
-        return current one. If set, the tasklet may be be auto-scheduled, 
+        return current one. If set, the tasklet may be auto-scheduled, 
         even if its nesting_level is > 0.
         This flag makes sense if you know that nested interpreter levels are 
         safe for auto-scheduling. This is on your own risk, handle with care!
@@ -403,13 +412,17 @@ class tasklet(coroutine):
             tmp = t.set_ignore_nesting(1)
             # do critical stuff
             t.set_ignore_nesting(tmp)
+
+        Please note that this piece of code does effectively nothing.
         """
         tmpval = self.ignore_nesting
         self.ignore_nesting = flag
         return tmpval
 
     def finished(self, excinfo):
-        #print 'finished(%s)' % excinfo
+        """called, when coroutine is finished. This gives the tasklet
+           a chance to clean up after himself."""
+
         if self.alive:
             self.alive = False
             if self.next is not self:
@@ -469,10 +482,10 @@ class channel(object):
         self.preference = -1
         self.next = self.prev = self
         self.schedule_all = False
-        self.thread_id = -2
+        self.task_id = -2
 
     def __str__(self):
-        parts = ['%s' % x.thread_id for x in self._content()]
+        parts = ['%s' % x.task_id for x in self._content()]
         return 'channel(' + str(self.balance) + '): ['+' -> '.join(parts)+']'
     
     def _get_closed(self):
@@ -654,6 +667,10 @@ class channel(object):
             self.send(item)
 
 class Scheduler(object):
+    """The singleton Scheduler. Provides mostly scheduling convenience
+       functions. In normal circumstances, scheduler._head point the
+       current running tasklet. _head and current_tasklet might be
+       out of sync just before the actual task switch takes place."""
 
     def __init__(self):
         self._set_head(getcurrent())
@@ -675,6 +692,7 @@ class Scheduler(object):
         return len(self._content())
 
     def _content(self):
+        "convenience method to get the tasklets that are in the queue"
         visited = set()
         items = []
         next = self._head
@@ -686,9 +704,9 @@ class Scheduler(object):
         return items
 
     def __str__(self):
-        parts = ['%s' % x.thread_id for x in self._content()]
+        parts = ['%s' % x.task_id for x in self._content()]
         if self._head is not self:
-            currid = self._head.thread_id
+            currid = self._head.task_id
         else:
             currid = -1
         return 'Scheduler: [' + ' -> '.join(parts) + ']'
@@ -726,9 +744,11 @@ class Scheduler(object):
         return self.remove_task(self._head)
 
     def current_insert(self, task):
+        "insert 'task' at end of running queue"
         self._chain_insert(task)
 
     def current_insert_after(self, task):
+        "insert 'task' just after the current one"
         if self._head is not None:
             curr = self._head
             self._set_head(curr.next)
@@ -738,6 +758,7 @@ class Scheduler(object):
             self.current_insert(task)
 
     def current_remove(self):
+        "remove current tasklet from queue"
         return self._chain_remove()
 
     def channel_remove_slow(self, task):

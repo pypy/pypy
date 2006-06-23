@@ -62,10 +62,41 @@ determine which Tasklet run next.
 For usage reference, see the documentation on the `Stackless Python`_
 website.
 
-Note that Tasklets and Channels are implemented at appplication-level in
+Note that Tasklets and Channels are implemented at application-level in
 `pypy/lib/stackless.py`_ on top of coroutines.  You can refer to this
-module for more details.
+module for more details and the actual documentation.
 
+The current ``stackless`` module (pypy 0.9) is not yet feature complete and 
+will probably fail in spectacular ways. Just be warned.
+
+There is no support for stackless in a threaded environment whatsoever.
+
+The stackless.py code tries to resemble the stackless C code as much
+as possible. This makes the code somewhat unpythonic.
+
+Bird eyes view of tasklets and channels
+----------------------------------------
+
+tasklets are a bit like threads: they capsulate a function in such a way that
+they can be suspended/restarted any time. Unlike threads, they won't
+run concurrently, but must be quite cooperative. When using stackless
+features, it is vitaly important that no action is performed that blocks
+everything else.
+
+Communication between tasklets is done via channels. 
+
+There are three ways for a tasklet to give up control:
+
+1. call ``schedule()``
+2. send something over a channel
+3. receive something from a channel
+
+A (living) tasklet can be either running, or wait to get scheduled, or be
+blocked by a channel.
+
+Scheduling is done strictly round-robin. A blocked tasklet is removed from 
+the scheduling queue and a blocked tasklet will be reinserted into the
+queue when it becomes unblocked.
 
 Greenlets
 +++++++++
