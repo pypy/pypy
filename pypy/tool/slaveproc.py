@@ -49,7 +49,10 @@ class Slave(object):
     def do(self):
         exchg = Exchange(sys.stdin, sys.stdout)
         while True:
-            cmd = exchg.recv()
+            try:
+               cmd = exchg.recv()
+            except EOFError: # master died
+                break
             if cmd is None:
                 exchg.send('done')
                 break
