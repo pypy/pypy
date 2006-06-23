@@ -602,7 +602,7 @@ class ArgErrCount(ArgErr):
                 nargs)
         else:
             defcount = self.num_defaults
-            if defcount == 0 and has_vararg:
+            if defcount == 0 and not has_vararg:
                 msg1 = "exactly"
             elif not self.missing_args:
                 msg1 = "at most"
