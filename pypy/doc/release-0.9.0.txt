@@ -1,4 +1,4 @@
-pypy-0.9.0: improved stackless, new extension compiler
+pypy-0.9.0: stackless, new extension compiler
 ==============================================================
 
 The PyPy development team has been busy working and we've now packaged 
@@ -7,7 +7,7 @@ version 0.9.0, our fourth public release.
 
 The highlights of this fourth release of PyPy are:
 
-**Improved implementation of the "stackless" features**
+**implementation of "stackless" features**
     We now support the larger part of the interface of the original
     Stackless Python -- see http://www.stackless.com for more.  A
     significant part of this is the pickling and unpickling of a running
