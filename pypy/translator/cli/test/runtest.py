@@ -167,6 +167,9 @@ class CliFunctionWrapper(object):
         if self._exe is None:
             py.test.skip("Compilation disabled")
 
+        if getoption('norun'):
+            py.test.skip("Execution disabled")
+
         arglist = SDK.runtime() + [self._exe] + map(str, args)
         env = os.environ.copy()
         env['LANG'] = 'C'
@@ -176,7 +179,7 @@ class CliFunctionWrapper(object):
         retval = mono.wait()
         assert retval == 0, stderr
 
-        res = eval(stdout)
+        res = eval(stdout.strip())
         if isinstance(res, tuple):
             res = StructTuple(res) # so tests can access tuple elements with .item0, .item1, etc.
         elif isinstance(res, list):
