@@ -277,7 +277,8 @@ For more detailed information, see the `documentation for the RTyper`_.
 Example: Integer operations
 ---------------------------
 
-Integer operations are the easiest.  Assume a graph containing the following operation::
+Integer operations are make an easy example.  Assume a graph containing the
+following operation::
 
     v3 = add(v1, v2)
 
@@ -717,5 +718,25 @@ The following image summarizes the various parts of the tool chain as of the
    :align: center
 
 A detail that has not yet been emphasised is the interaction of the
+various components.  It makes for a nice presentation to say that
+after the annotator has finished the RTyper processes the graphs and
+then the exception handling is made explicit and so on, but it's not
+entirely true.  For example, the RTyper inserts calls to many
+`low-level helpers`_ which must first be annotated, and the GC
+transformer can use inlining (one of the `backend optimizations`_) of
+some of its small helper functions to improve performance.  The
+following picture attempts to summarize the components involved in
+perfoming each step of the default translation process:
+
+.. image:: image/translation-detail-0.9.png
+   :align: center
+
+.. _`low-level helpers`: glossary.html#low-level-helper
+
+A component not mentioned before is the "MixLevelAnnotator"; it
+provides a convenient interface for a "late" (after RTyping)
+translation step to declare that it needs to be able to call each of a
+collection of functions (which may refer to each other in a mutually
+recursive fashion) and annotate and rtype them all at once.
 
 .. include:: _ref.txt

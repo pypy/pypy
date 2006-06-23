@@ -14,7 +14,7 @@
 	<key>ColumnSpacing</key>
 	<real>36</real>
 	<key>CreationDate</key>
-	<string>2006-06-16 16:03:55 +0200</string>
+	<string>2006-06-16 15:03:55 +0100</string>
 	<key>Creator</key>
 	<string>Michael Hudson</string>
 	<key>GraphDocumentVersion</key>
@@ -34,7 +34,7 @@
 				<real>12</real>
 			</dict>
 			<key>ID</key>
-			<integer>404</integer>
+			<integer>104</integer>
 			<key>Magnets</key>
 			<array>
 				<string>{0, 1}</string>
@@ -88,7 +88,7 @@
 				<real>12</real>
 			</dict>
 			<key>ID</key>
-			<integer>403</integer>
+			<integer>103</integer>
 			<key>Shape</key>
 			<string>RoundedRectangle</string>
 			<key>Style</key>
@@ -119,7 +119,7 @@
 {\colortbl;\red255\green255\blue255;}
 \pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\qc\pardirnatural
 
-\f0\fs24 \cf0 Translation Task}</string>
+\f0\fs24 \cf0 Translation Step}</string>
 			</dict>
 		</dict>
 		<dict>
@@ -135,7 +135,7 @@
 				<real>12</real>
 			</dict>
 			<key>ID</key>
-			<integer>402</integer>
+			<integer>102</integer>
 			<key>Shape</key>
 			<string>Circle</string>
 			<key>Style</key>
@@ -175,12 +175,12 @@
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>396</integer>
+				<integer>96</integer>
 				<key>Info</key>
 				<integer>1</integer>
 			</dict>
 			<key>ID</key>
-			<integer>401</integer>
+			<integer>101</integer>
 			<key>OrthogonalBarAutomatic</key>
 			<true/>
 			<key>OrthogonalBarPosition</key>
@@ -207,7 +207,7 @@
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>380</integer>
+				<integer>80</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -216,14 +216,14 @@
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>395</integer>
+				<integer>95</integer>
 			</dict>
 			<key>ID</key>
-			<integer>400</integer>
+			<integer>100</integer>
 			<key>Points</key>
 			<array>
-				<string>{221.102, 418.131}</string>
-				<string>{155.1, 435.5}</string>
+				<string>{220, 414.737}</string>
+				<string>{161.196, 427.117}</string>
 			</array>
 			<key>Style</key>
 			<dict>
@@ -240,7 +240,7 @@
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>363</integer>
+				<integer>63</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -249,10 +249,10 @@
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>363</integer>
+				<integer>63</integer>
 			</dict>
 			<key>ID</key>
-			<integer>399</integer>
+			<integer>99</integer>
 			<key>Points</key>
 			<array>
 				<string>{161.196, 372.883}</string>
@@ -273,7 +273,7 @@
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>357</integer>
+				<integer>57</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -282,12 +282,12 @@
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>376</integer>
+				<integer>76</integer>
 				<key>Info</key>
 				<integer>3</integer>
 			</dict>
 			<key>ID</key>
-			<integer>398</integer>
+			<integer>98</integer>
 			<key>OrthogonalBarAutomatic</key>
 			<true/>
 			<key>OrthogonalBarPosition</key>
@@ -314,7 +314,7 @@
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>396</integer>
+				<integer>96</integer>
 				<key>Info</key>
 				<integer>4</integer>
 			</dict>
@@ -325,12 +325,12 @@
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>377</integer>
+				<integer>77</integer>
 				<key>Info</key>
 				<integer>3</integer>
 			</dict>
 			<key>ID</key>
-			<integer>397</integer>
+			<integer>97</integer>
 			<key>OrthogonalBarAutomatic</key>
 			<true/>
 			<key>OrthogonalBarPosition</key>
@@ -357,7 +357,7 @@
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>396</integer>
+				<integer>96</integer>
 				<key>Info</key>
 				<integer>3</integer>
 			</dict>
@@ -375,7 +375,7 @@
 				<real>12</real>
 			</dict>
 			<key>ID</key>
-			<integer>396</integer>
+			<integer>96</integer>
 			<key>Magnets</key>
 			<array>
 				<string>{1, 0.5}</string>
@@ -412,7 +412,7 @@
 		</dict>
 		<dict>
 			<key>Bounds</key>
-			<string>{{20, 430}, {160, 40}}</string>
+			<string>{{20, 420}, {160, 40}}</string>
 			<key>Class</key>
 			<string>ShapedGraphic</string>
 			<key>FontInfo</key>
@@ -423,7 +423,7 @@
 				<real>12</real>
 			</dict>
 			<key>ID</key>
-			<integer>395</integer>
+			<integer>95</integer>
 			<key>Shape</key>
 			<string>Circle</string>
 			<key>Style</key>
@@ -451,12 +451,12 @@
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>396</integer>
+				<integer>96</integer>
 				<key>Info</key>
 				<integer>2</integer>
 			</dict>
 			<key>ID</key>
-			<integer>394</integer>
+			<integer>94</integer>
 			<key>OrthogonalBarAutomatic</key>
 			<true/>
 			<key>OrthogonalBarPosition</key>
@@ -485,7 +485,7 @@
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>381</integer>
+				<integer>81</integer>
 				<key>Info</key>
 				<integer>1</integer>
 			</dict>
@@ -496,12 +496,12 @@
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>378</integer>
+				<integer>78</integer>
 				<key>Info</key>
 				<integer>9</integer>
 			</dict>
 			<key>ID</key>
-			<integer>393</integer>
+			<integer>93</integer>
 			<key>OrthogonalBarAutomatic</key>
 			<true/>
 			<key>OrthogonalBarPosition</key>
@@ -531,7 +531,7 @@
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>381</integer>
+				<integer>81</integer>
 				<key>Info</key>
 				<integer>2</integer>
 			</dict>
@@ -542,10 +542,10 @@
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>382</integer>
+				<integer>82</integer>
 			</dict>
 			<key>ID</key>
-			<integer>392</integer>
+			<integer>92</integer>
 			<key>Points</key>
 			<array>
 				<string>{360, 572.526}</string>
@@ -568,7 +568,7 @@
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>370</integer>
+				<integer>70</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -577,12 +577,12 @@
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>381</integer>
+				<integer>81</integer>
 				<key>Info</key>
 				<integer>4</integer>
 			</dict>
 			<key>ID</key>
-			<integer>391</integer>
+			<integer>91</integer>
 			<key>Points</key>
 			<array>
 				<string>{358.355, 498.708}</string>
@@ -605,7 +605,7 @@
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>369</integer>
+				<integer>69</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -614,12 +614,12 @@
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>380</integer>
+				<integer>80</integer>
 				<key>Info</key>
 				<integer>9</integer>
 			</dict>
 			<key>ID</key>
-			<integer>390</integer>
+			<integer>90</integer>
 			<key>Points</key>
 			<array>
 				<string>{360, 476.316}</string>
@@ -642,7 +642,7 @@
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>369</integer>
+				<integer>69</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -651,10 +651,10 @@
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>379</integer>
+				<integer>79</integer>
 			</dict>
 			<key>ID</key>
-			<integer>389</integer>
+			<integer>89</integer>
 			<key>Points</key>
 			<array>
 				<string>{360, 402.947}</string>
@@ -677,7 +677,7 @@
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>363</integer>
+				<integer>63</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -693,12 +693,12 @@
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>378</integer>
+				<integer>78</integer>
 				<key>Info</key>
 				<integer>10</integer>
 			</dict>
 			<key>ID</key>
-			<integer>388</integer>
+			<integer>88</integer>
 			<key>Points</key>
 			<array>
 				<string>{357.665, 380.769}</string>
@@ -721,7 +721,7 @@
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>363</integer>
+				<integer>63</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -737,10 +737,10 @@
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>376</integer>
+				<integer>76</integer>
 			</dict>
 			<key>ID</key>
-			<integer>387</integer>
+			<integer>87</integer>
 			<key>OrthogonalBarAutomatic</key>
 			<true/>
 			<key>OrthogonalBarPosition</key>
@@ -769,7 +769,7 @@
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>377</integer>
+				<integer>77</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -785,12 +785,12 @@
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>377</integer>
+				<integer>77</integer>
 				<key>Info</key>
 				<integer>10</integer>
 			</dict>
 			<key>ID</key>
-			<integer>386</integer>
+			<integer>86</integer>
 			<key>Points</key>
 			<array>
 				<string>{360, 306.737}</string>
@@ -813,7 +813,7 @@
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>362</integer>
+				<integer>62</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -829,10 +829,10 @@
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>375</integer>
+				<integer>75</integer>
 			</dict>
 			<key>ID</key>
-			<integer>385</integer>
+			<integer>85</integer>
 			<key>OrthogonalBarAutomatic</key>
 			<true/>
 			<key>OrthogonalBarPosition</key>
@@ -861,7 +861,7 @@
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>376</integer>
+				<integer>76</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -870,12 +870,12 @@
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>376</integer>
+				<integer>76</integer>
 				<key>Info</key>
 				<integer>10</integer>
 			</dict>
 			<key>ID</key>
-			<integer>384</integer>
+			<integer>84</integer>
 			<key>Points</key>
 			<array>
 				<string>{360, 233.368}</string>
@@ -898,7 +898,7 @@
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>361</integer>
+				<integer>61</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -907,10 +907,10 @@
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>375</integer>
+				<integer>75</integer>
 			</dict>
 			<key>ID</key>
-			<integer>383</integer>
+			<integer>83</integer>
 			<key>Points</key>
 			<array>
 				<string>{360, 160}</string>
@@ -933,7 +933,7 @@
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>354</integer>
+				<integer>54</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -949,7 +949,7 @@
 				<real>12</real>
 			</dict>
 			<key>ID</key>
-			<integer>382</integer>
+			<integer>82</integer>
 			<key>Magnets</key>
 			<array>
 				<string>{0, 1}</string>
@@ -991,7 +991,7 @@
 				<real>12</real>
 			</dict>
 			<key>ID</key>
-			<integer>381</integer>
+			<integer>81</integer>
 			<key>Magnets</key>
 			<array>
 				<string>{1, 0.5}</string>
@@ -1037,7 +1037,7 @@
 				<real>12</real>
 			</dict>
 			<key>ID</key>
-			<integer>380</integer>
+			<integer>80</integer>
 			<key>Magnets</key>
 			<array>
 				<string>{1, 0}</string>
@@ -1077,7 +1077,7 @@
 				<real>12</real>
 			</dict>
 			<key>ID</key>
-			<integer>379</integer>
+			<integer>79</integer>
 			<key>Magnets</key>
 			<array>
 				<string>{1, 0}</string>
@@ -1118,7 +1118,7 @@ Other Optimizations...}</string>
 				<real>12</real>
 			</dict>
 			<key>ID</key>
-			<integer>378</integer>
+			<integer>78</integer>
 			<key>Magnets</key>
 			<array>
 				<string>{1, 0.5}</string>
@@ -1166,7 +1166,7 @@ Other Optimizations...}</string>
 				<real>12</real>
 			</dict>
 			<key>ID</key>
-			<integer>377</integer>
+			<integer>77</integer>
 			<key>Magnets</key>
 			<array>
 				<string>{0, 1}</string>
@@ -1208,7 +1208,7 @@ Other Optimizations...}</string>
 				<real>12</real>
 			</dict>
 			<key>ID</key>
-			<integer>376</integer>
+			<integer>76</integer>
 			<key>Magnets</key>
 			<array>
 				<string>{0, 1}</string>
@@ -1250,7 +1250,7 @@ Other Optimizations...}</string>
 				<real>12</real>
 			</dict>
 			<key>ID</key>
-			<integer>375</integer>
+			<integer>75</integer>
 			<key>Magnets</key>
 			<array>
 				<string>{0, 1}</string>
@@ -1285,14 +1285,14 @@ Other Optimizations...}</string>
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>364</integer>
+				<integer>64</integer>
 			</dict>
 			<key>ID</key>
-			<integer>374</integer>
+			<integer>74</integer>
 			<key>Points</key>
 			<array>
-				<string>{221.102, 578.131}</string>
-				<string>{155.1, 595.5}</string>
+				<string>{220, 574.737}</string>
+				<string>{161.196, 587.117}</string>
 			</array>
 			<key>Style</key>
 			<dict>
@@ -1309,7 +1309,7 @@ Other Optimizations...}</string>
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>370</integer>
+				<integer>70</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -1318,14 +1318,14 @@ Other Optimizations...}</string>
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>370</integer>
+				<integer>70</integer>
 			</dict>
 			<key>ID</key>
-			<integer>373</integer>
+			<integer>73</integer>
 			<key>Points</key>
 			<array>
-				<string>{167.654, 540.682}</string>
-				<string>{220, 548.947}</string>
+				<string>{161.196, 532.883}</string>
+				<string>{220, 545.263}</string>
 			</array>
 			<key>Style</key>
 			<dict>
@@ -1342,7 +1342,7 @@ Other Optimizations...}</string>
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>358</integer>
+				<integer>58</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -1351,14 +1351,14 @@ Other Optimizations...}</string>
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>358</integer>
+				<integer>58</integer>
 			</dict>
 			<key>ID</key>
-			<integer>372</integer>
+			<integer>72</integer>
 			<key>Points</key>
 			<array>
-				<string>{221.102, 498.131}</string>
-				<string>{155.1, 515.5}</string>
+				<string>{220, 494.737}</string>
+				<string>{161.196, 507.117}</string>
 			</array>
 			<key>Style</key>
 			<dict>
@@ -1375,7 +1375,7 @@ Other Optimizations...}</string>
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>369</integer>
+				<integer>69</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -1384,14 +1384,14 @@ Other Optimizations...}</string>
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>369</integer>
+				<integer>69</integer>
 			</dict>
 			<key>ID</key>
-			<integer>371</integer>
+			<integer>71</integer>
 			<key>Points</key>
 			<array>
-				<string>{167.654, 460.682}</string>
-				<string>{220, 468.947}</string>
+				<string>{161.196, 452.883}</string>
+				<string>{220, 465.263}</string>
 			</array>
 			<key>Style</key>
 			<dict>
@@ -1408,7 +1408,7 @@ Other Optimizations...}</string>
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>395</integer>
+				<integer>95</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -1424,7 +1424,7 @@ Other Optimizations...}</string>
 				<real>12</real>
 			</dict>
 			<key>ID</key>
-			<integer>370</integer>
+			<integer>70</integer>
 			<key>Shape</key>
 			<string>RoundedRectangle</string>
 			<key>Style</key>
@@ -1459,7 +1459,7 @@ Other Optimizations...}</string>
 				<real>12</real>
 			</dict>
 			<key>ID</key>
-			<integer>369</integer>
+			<integer>69</integer>
 			<key>Shape</key>
 			<string>RoundedRectangle</string>
 			<key>Style</key>
@@ -1487,10 +1487,10 @@ Other Optimizations...}</string>
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>357</integer>
+				<integer>57</integer>
 			</dict>
 			<key>ID</key>
-			<integer>368</integer>
+			<integer>68</integer>
 			<key>Points</key>
 			<array>
 				<string>{220, 334.737}</string>
@@ -1511,7 +1511,7 @@ Other Optimizations...}</string>
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>362</integer>
+				<integer>62</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -1520,10 +1520,10 @@ Other Optimizations...}</string>
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>362</integer>
+				<integer>62</integer>
 			</dict>
 			<key>ID</key>
-			<integer>367</integer>
+			<integer>67</integer>
 			<key>Points</key>
 			<array>
 				<string>{161.196, 292.883}</string>
@@ -1544,7 +1544,7 @@ Other Optimizations...}</string>
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>356</integer>
+				<integer>56</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -1553,10 +1553,10 @@ Other Optimizations...}</string>
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>356</integer>
+				<integer>56</integer>
 			</dict>
 			<key>ID</key>
-			<integer>366</integer>
+			<integer>66</integer>
 			<key>Points</key>
 			<array>
 				<string>{220, 254.737}</string>
@@ -1577,7 +1577,7 @@ Other Optimizations...}</string>
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>361</integer>
+				<integer>61</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -1586,10 +1586,10 @@ Other Optimizations...}</string>
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>361</integer>
+				<integer>61</integer>
 			</dict>
 			<key>ID</key>
-			<integer>365</integer>
+			<integer>65</integer>
 			<key>Points</key>
 			<array>
 				<string>{161.196, 212.883}</string>
@@ -1610,12 +1610,12 @@ Other Optimizations...}</string>
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>355</integer>
+				<integer>55</integer>
 			</dict>
 		</dict>
 		<dict>
 			<key>Bounds</key>
-			<string>{{20, 590}, {160, 40}}</string>
+			<string>{{20, 580}, {160, 40}}</string>
 			<key>Class</key>
 			<string>ShapedGraphic</string>
 			<key>FontInfo</key>
@@ -1626,7 +1626,7 @@ Other Optimizations...}</string>
 				<real>12</real>
 			</dict>
 			<key>ID</key>
-			<integer>364</integer>
+			<integer>64</integer>
 			<key>Shape</key>
 			<string>Circle</string>
 			<key>Style</key>
@@ -1661,7 +1661,7 @@ Other Optimizations...}</string>
 				<real>12</real>
 			</dict>
 			<key>ID</key>
-			<integer>363</integer>
+			<integer>63</integer>
 			<key>Shape</key>
 			<string>RoundedRectangle</string>
 			<key>Style</key>
@@ -1696,7 +1696,7 @@ Other Optimizations...}</string>
 				<real>12</real>
 			</dict>
 			<key>ID</key>
-			<integer>362</integer>
+			<integer>62</integer>
 			<key>Shape</key>
 			<string>RoundedRectangle</string>
 			<key>Style</key>
@@ -1731,7 +1731,7 @@ Other Optimizations...}</string>
 				<real>12</real>
 			</dict>
 			<key>ID</key>
-			<integer>361</integer>
+			<integer>61</integer>
 			<key>Shape</key>
 			<string>RoundedRectangle</string>
 			<key>Style</key>
@@ -1759,10 +1759,10 @@ Other Optimizations...}</string>
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>355</integer>
+				<integer>55</integer>
 			</dict>
 			<key>ID</key>
-			<integer>360</integer>
+			<integer>60</integer>
 			<key>Points</key>
 			<array>
 				<string>{220, 174.737}</string>
@@ -1783,7 +1783,7 @@ Other Optimizations...}</string>
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>354</integer>
+				<integer>54</integer>
 			</dict>
 		</dict>
 		<dict>
@@ -1792,10 +1792,10 @@ Other Optimizations...}</string>
 			<key>Head</key>
 			<dict>
 				<key>ID</key>
-				<integer>354</integer>
+				<integer>54</integer>
 			</dict>
 			<key>ID</key>
-			<integer>359</integer>
+			<integer>59</integer>
 			<key>Points</key>
 			<array>
 				<string>{161.196, 132.883}</string>
@@ -1816,12 +1816,12 @@ Other Optimizations...}</string>
 			<key>Tail</key>
 			<dict>
 				<key>ID</key>
-				<integer>353</integer>
+				<integer>53</integer>
 			</dict>
 		</dict>
 		<dict>
 			<key>Bounds</key>
-			<string>{{20, 510}, {160, 40}}</string>
+			<string>{{20, 500}, {160, 40}}</string>
 			<key>Class</key>
 			<string>ShapedGraphic</string>
 			<key>FontInfo</key>
@@ -1832,7 +1832,7 @@ Other Optimizations...}</string>
 				<real>12</real>
 			</dict>
 			<key>ID</key>
-			<integer>358</integer>
+			<integer>58</integer>
 			<key>Shape</key>
 			<string>Circle</string>
 			<key>Style</key>
@@ -1867,7 +1867,7 @@ Other Optimizations...}</string>
 				<real>12</real>
 			</dict>
 			<key>ID</key>
-			<integer>357</integer>
+			<integer>57</integer>
 			<key>Shape</key>
 			<string>Circle</string>
 			<key>Style</key>
@@ -1902,7 +1902,7 @@ Other Optimizations...}</string>
 				<real>12</real>
 			</dict>
 			<key>ID</key>
-			<integer>356</integer>
+			<integer>56</integer>
 			<key>Shape</key>
 			<string>Circle</string>
 			<key>Style</key>
@@ -1937,7 +1937,7 @@ Other Optimizations...}</string>
 				<real>12</real>
 			</dict>
 			<key>ID</key>
-			<integer>355</integer>
+			<integer>55</integer>
 			<key>Shape</key>
 			<string>Circle</string>
 			<key>Style</key>
@@ -1973,7 +1973,7 @@ Other Optimizations...}</string>
 				<real>12</real>
 			</dict>
 			<key>ID</key>
-			<integer>354</integer>
+			<integer>54</integer>
 			<key>Shape</key>
 			<string>RoundedRectangle</string>
 			<key>Style</key>
@@ -2008,7 +2008,7 @@ Other Optimizations...}</string>
 				<real>12</real>
 			</dict>
 			<key>ID</key>
-			<integer>353</integer>
+			<integer>53</integer>
 			<key>Shape</key>
 			<string>Circle</string>
 			<key>Style</key>
@@ -2035,9 +2035,9 @@ Other Optimizations...}</string>
 	<key>GridInfo</key>
 	<dict>
 		<key>GridSpacing</key>
-		<real>2</real>
+		<real>5</real>
 		<key>MajorGridSpacing</key>
-		<integer>10</integer>
+		<integer>4</integer>
 		<key>MinorGridColor</key>
 		<dict>
 			<key>a</key>
@@ -2072,13 +2072,16 @@ Other Optimizations...}</string>
 		</dict>
 	</array>
 	<key>LayoutInfo</key>
-	<dict/>
+	<dict>
+		<key>ChildOrdering</key>
+		<integer>0</integer>
+	</dict>
 	<key>LinksVisible</key>
 	<string>NO</string>
 	<key>MagnetsVisible</key>
 	<string>NO</string>
 	<key>ModificationDate</key>
-	<string>2006-06-16 17:33:15 +0200</string>
+	<string>2006-06-23 13:01:31 +0100</string>
 	<key>Modifier</key>
 	<string>Michael Hudson</string>
 	<key>Orientation</key>
@@ -2165,7 +2168,7 @@ Other Optimizations...}</string>
 	CQkJCTwvYXJyYXk+CgkJCQkJPGtleT5jb20uYXBwbGUucHJpbnQudGlja2V0LmNsaWVu
 	dDwva2V5PgoJCQkJCTxzdHJpbmc+Y29tLmFwcGxlLnByaW50aW5nbWFuYWdlcjwvc3Ry
 	aW5nPgoJCQkJCTxrZXk+Y29tLmFwcGxlLnByaW50LnRpY2tldC5tb2REYXRlPC9rZXk+
-	CgkJCQkJPGRhdGU+MjAwNi0wNi0xNlQxNDowMzo1NVo8L2RhdGU+CgkJCQkJPGtleT5j
+	CgkJCQkJPGRhdGU+MjAwNi0wNi0yM1QxMjowMDoxOFo8L2RhdGU+CgkJCQkJPGtleT5j
 	b20uYXBwbGUucHJpbnQudGlja2V0LnN0YXRlRmxhZzwva2V5PgoJCQkJCTxpbnRlZ2Vy
 	PjA8L2ludGVnZXI+CgkJCQk8L2RpY3Q+CgkJCTwvYXJyYXk+CgkJPC9kaWN0PgoJCTxr
 	ZXk+Y29tLmFwcGxlLnByaW50LlBhZ2VGb3JtYXQuUE1BZGp1c3RlZFBhcGVyUmVjdDwv
@@ -2179,7 +2182,7 @@ Other Optimizations...}</string>
 	CQkJCTxrZXk+Y29tLmFwcGxlLnByaW50LnRpY2tldC5jbGllbnQ8L2tleT4KCQkJCQk8
 	c3RyaW5nPmNvbS5hcHBsZS5wcmludGluZ21hbmFnZXI8L3N0cmluZz4KCQkJCQk8a2V5
 	PmNvbS5hcHBsZS5wcmludC50aWNrZXQubW9kRGF0ZTwva2V5PgoJCQkJCTxkYXRlPjIw
-	MDYtMDYtMTZUMTQ6MDM6NTVaPC9kYXRlPgoJCQkJCTxrZXk+Y29tLmFwcGxlLnByaW50
+	MDYtMDYtMjNUMTI6MDA6MThaPC9kYXRlPgoJCQkJCTxrZXk+Y29tLmFwcGxlLnByaW50
 	LnRpY2tldC5zdGF0ZUZsYWc8L2tleT4KCQkJCQk8aW50ZWdlcj4wPC9pbnRlZ2VyPgoJ
 	CQkJPC9kaWN0PgoJCQk8L2FycmF5PgoJCTwvZGljdD4KCQk8a2V5PmNvbS5hcHBsZS5w
 	cmludC5QYXBlckluZm8uUE1QYXBlck5hbWU8L2tleT4KCQk8ZGljdD4KCQkJPGtleT5j
@@ -2273,7 +2276,7 @@ Other Optimizations...}</string>
 		<key>CurrentSheet</key>
 		<string>0</string>
 		<key>Frame</key>
-		<string>{{572, 61}, {973, 807}}</string>
+		<string>{{395, 71}, {973, 807}}</string>
 		<key>ShowRuler</key>
 		<false/>
 		<key>ShowStatusBar</key>
