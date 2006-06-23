@@ -27,45 +27,44 @@ Just the facts
 
 .. _gettingpypy: 
 
-Downloading & running the PyPy 0.8 release 
+Downloading & running the PyPy 0.9 release 
 -------------------------------------------
 
 Download one of the following release files and unpack it: 
 
-*pypy-0.8*
+*pypy-0.9*
     
   * download one of 
 
-    * `pypy-0.8.0.tar.bz2`_ (unix line endings) or
-    * `pypy-0.8.0.tar.gz`_ (unix line endings) or
-    * `pypy-0.8.0.zip`_ (windows line-endings) and unpack it 
+    * `pypy-0.9.0.tar.bz2`_ (unix line endings) or
+    * `pypy-0.9.0.tar.gz`_ (unix line endings) or
+    * `pypy-0.9.0.zip`_ (windows line-endings) and unpack it 
     
   * alternatively run 
   
-    * ``svn co http://codespeak.net/svn/pypy/release/0.8.x pypy-0.8.x``
-      (the 0.8 maintenance branch)
+    * ``svn co http://codespeak.net/svn/pypy/release/0.9.x pypy-0.9.x``
+      (the 0.9 maintenance branch)
 
 to get it from the subversion repository then change to the
-``pypy-0.8.0`` or ``pypy-0.8.x`` directory and execute the following
+``pypy-0.9.0`` or ``pypy-0.9.x`` directory and execute the following
 command line::
 
     python pypy/bin/py.py 
 
-This will give you a PyPy prompt, i.e. a very compliant 
-Python interpreter implemented in Python.  PyPy passes 
-around `90% of CPythons core language regression tests`_. 
-Because this invocation of PyPy still runs on top of 
-CPython, it runs around 2000 times slower than the 
-original CPython.  
+This will give you a PyPy prompt, i.e. a very compliant Python
+interpreter implemented in Python.  PyPy passes around `95% of
+CPythons core language regression tests`_.  Because this invocation of
+PyPy still runs on top of CPython, it runs around 2000 times slower
+than the original CPython.
 
 However, since the 0.7.0 release it is possible to use PyPy to `translate
 itself to lower level languages`_ after which it runs standalone, is not
 dependant on CPython anymore and becomes faster.
 
-.. _`90% of CPythons core language regression tests`: http://codespeak.net/~hpk/pypy-testresult/ 
-.. _`pypy-0.8.0.tar.bz2`: http://code2.codespeak.net/download/pypy/pypy-0.8.0.tar.bz2
-.. _`pypy-0.8.0.zip`: http://code2.codespeak.net/download/pypy/pypy-0.8.0.zip
-.. _`pypy-0.8.0.tar.gz`: http://code2.codespeak.net/download/pypy/pypy-0.8.0.tar.gz
+.. _`95% of CPythons core language regression tests`: http://codespeak.net/~hpk/pypy-testresult/ 
+.. _`pypy-0.9.0.tar.bz2`: http://code.codespeak.net/download/pypy/pypy-0.9.0.tar.bz2
+.. _`pypy-0.9.0.zip`: http://code.codespeak.net/download/pypy/pypy-0.9.0.zip
+.. _`pypy-0.9.0.tar.gz`: http://code.codespeak.net/download/pypy/pypy-0.8.0.tar.gz
 
 Svn-check out & run the latest PyPy as a two-liner
 --------------------------------------------------
@@ -281,7 +280,7 @@ Logic programming
 People familiar with logic programming languages will be interested to
 know that PyPy optionally supports logic variables and constraint-based
 programming.  Among the many interesting features of logic programming
--- like unification --, this subsumes the thunk object space by
+-- like unification -- this subsumes the thunk object space by
 providing a more extensive way to deal with laziness.
 
 Try it out::
@@ -570,12 +569,17 @@ The ``translate.py`` script itself takes a number of options controlling
 what to translate and how.  See ``translate.py -h``. Some of the more
 interesting options are:
 
-   * ``--text``: don't show the flowgraph after the translation is done. This
-     is useful if you don't have pygame installed.
+   * ``--text``: don't show the flowgraph after the translation is
+     done. This is useful if you don't have pygame installed.
 
-   * ``--gc=boehm|ref``: choose between using the `Boehm-Demers-Weiser
-     garbage collector`_ or our own reference counting implementation
-     (as we have seen Boehm's collector is the default). 
+   * ``--stackless``: this produces a pypy-c that includes features
+     inspired by `Stackless Python <http://www.stackless.com>`__.
+
+   * ``--gc=boehm|ref|framework|stacklessgc``: choose between using
+     the `Boehm-Demers-Weiser garbage collector`_, our reference
+     counting implementation or our own implementation of a mark and
+     sweep collector, with two different approaches for finding roots
+     (as we have seen Boehm's collector is the default).
 
 You can also use the translate.py script to try out several smaller
 programs, e.g. a slightly changed version of Pystone::
