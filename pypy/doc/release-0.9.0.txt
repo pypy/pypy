@@ -29,7 +29,7 @@ The highlights of this fourth release of PyPy are:
      - 2.5-3x times faster than 0.8 (on richards and pystone).
      - pypy-c can complete CPython's test suite
 
-  - testing refinements: preliminary doctest support 
+  - testing refinements: preliminary doctest support, daily html reports 
 
   - some other stuff
 
