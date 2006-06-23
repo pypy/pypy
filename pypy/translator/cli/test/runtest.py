@@ -59,6 +59,9 @@ class TestEntryPoint(Node):
     def render(self, ilasm):
         ilasm.begin_function('main', [('string[]', 'argv')], 'void', True, 'static')
 
+        if self.wrap_exceptions:
+            ilasm.begin_try()
+
         # convert string arguments to their true type
         for i, arg in enumerate(self.graph.getargs()):
             ilasm.opcode('ldarg.0')
@@ -69,9 +72,6 @@ class TestEntryPoint(Node):
                        (arg_type, self.__convert_method(arg_type)))
 
         # call the function and convert the result to a string containing a valid python expression
-        if self.wrap_exceptions:
-            ilasm.begin_try()
-            
         ilasm.call(cts.graph_to_signature(self.graph))
         TYPE = self.graph.getreturnvar().concretetype
         format_object(TYPE, ilasm)
