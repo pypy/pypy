@@ -213,7 +213,7 @@ For every attribute, the ClassDef also records all the positions where
 the attribute is *read*.  If, at some later time, we discover an
 assignment that forces the annotation about the attribute to be
 generalized, then all the places that read the attribute so far are
-marked as invalid and the annotator will have to restart its analysis
+marked as invalid and the annotator will restart its analysis
 from there.
 
 The distinction between instance-level and class-level attributes is
