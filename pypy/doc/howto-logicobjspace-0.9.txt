@@ -157,6 +157,9 @@ Mutators
 Threads and dataflow synchronisation
 ++++++++++++++++++++++++++++++++++++
 
+Description and examples
+------------------------
+
 When a piece of code tries to access a free logic variable, the thread
 in which it runs is blocked (suspended) until the variable becomes
 bound. This behaviour is known as "dataflow synchronization" and
@@ -263,6 +266,26 @@ Finally, it must be noted that bind/unify and wait pair of operations
 are quite similar to send and synchronous receive primitives for
 inter-process communication.
 
+The operators table
+-------------------
+
+Blocking ops
+
+ wait/1 # blocks if first arg. is a free logic var., til it becomes bound
+   value -> value
+
+ wait_needed/1 # blocks until its arg. receives a wait
+   logic var. -> logic var.
+
+ wait_two/2
+   logic var., logic var. ->  int in {1,2}
+
+Coroutine spawning
+
+ uthread/n | 1 <= n 
+   callable, opt args. -> logic var.
+
+
 Constraint Programming
 ======================
 
@@ -274,8 +297,11 @@ to use the solver to specify and get the solutions of a constraint
 satisfaction problem, and then highlight how to extend the solver with
 new strategies.
 
-Specification of a problem, getting solutions
-+++++++++++++++++++++++++++++++++++++++++++++
+Using the constraint engine
++++++++++++++++++++++++++++
+
+Specification of a problem 
+--------------------------
 
 A constraint satisfaction problem is defined by a triple (X, D, C)
 where X is a set of finite domain variables, D the set of domains
@@ -313,7 +339,12 @@ problem. Our problem, continued::
       
 We must be careful to return the set of variables whose candidate
 values we are interested in. The rest should be sufficiently
-self-describing... Now to get and print solutions out of this, we
+self-describing... 
+
+Getting solutions
+-----------------
+
+Now to get and print solutions out of this, we
 must::
 
   import solver
@@ -329,8 +360,8 @@ interpreter written in Python, the later running on top of
 cpython... It is expected that the compiled version of PyPy + LO will
 provide decent performance.
 
-Operators for CSP specification
-+++++++++++++++++++++++++++++++
+Table of Operators
+------------------
 
 Note that below, "variable/expression designators" really are strings.
 
