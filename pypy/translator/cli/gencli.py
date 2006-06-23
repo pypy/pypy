@@ -97,8 +97,17 @@ class GenCli(object):
 
         ilasm = SDK.ilasm()
         tmpfile = self.tmpfile.strpath
-        proc = subprocess.Popen([ilasm, tmpfile], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        self._exec_helper(ilasm, tmpfile, 'ilasm failed to assemble (%s):\n%s\n%s')
+
+        exefile = tmpfile.replace('.il', '.exe')
+        if getoption('verify'):
+            peverify = SDK.peverify()
+            self._exec_helper(peverify, exefile, 'peverify failed to verify (%s):\n%s\n%s')
+        return exefile
+
+    def _exec_helper(self, helper, filename, msg):
+        proc = subprocess.Popen([helper, filename], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout, stderr = proc.communicate()
         retval = proc.wait()
-        assert retval == 0, 'ilasm failed to assemble (%s):\n%s\n%s' % (tmpfile, stdout, stderr)
-        return tmpfile.replace('.il', '.exe')
+        assert retval == 0, msg % (filename, stdout, stderr)
+        

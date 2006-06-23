@@ -24,15 +24,21 @@ class AbstractSDK(object):
         return cls._check_helper(cls.CSC)
     csc = classmethod(csc)
 
+    def peverify(cls):
+        return cls._check_helper(cls.PEVERIFY)
+    peverify = classmethod(peverify)
+
 class MicrosoftSDK(AbstractSDK):
     RUNTIME = []
     ILASM = 'ilasm'    
     CSC = 'csc'
+    PEVERIFY = 'peverify'
 
 class MonoSDK(AbstractSDK):
     RUNTIME = ['mono']
     ILASM = 'ilasm2'
     CSC = 'gmcs'
+    PEVERIFY = 'peverify' # it's not part of mono, but we get a meaningful skip message
 
 if platform.system() == 'Windows':
     SDK = MicrosoftSDK

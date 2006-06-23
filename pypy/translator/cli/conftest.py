@@ -18,6 +18,14 @@ option = py.test.Config.addoptions\
                  help="don't stop on warning. The generated IL code could not compile"),
 
           Option('--nowrap', action="store_true", dest="nowrap", default=False,
-                 help="don't wrap exceptions but let them to flow out of the entry point")
+                 help="don't wrap exceptions but let them to flow out of the entry point"),
+
+          Option('--verify', action="store_true", dest="verify", default=False,
+                 help="check that compiled executables are verifiable"),
+
+          Option('--norun', action='store_true', dest="norun", default=False,
+                 help="don't run the compiled executable"),
           )
+
+
 
