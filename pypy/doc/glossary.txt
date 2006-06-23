@@ -6,7 +6,8 @@ links to more information.
 
 **annotator**
     The component of the translator_\ 's toolchain_ that performs a form
-    of `type inference`_ on the flow graph.
+    of `type inference`_ on the flow graph. See the `annotator pass`_
+    in the documentation.
 
 .. _`application level`:
 
@@ -177,7 +178,8 @@ links to more information.
 **type inference**
    Deduces either partially or fully the type of expressions as
    described in this `type inference article on Wikipedia`_.
-
+   PyPy's tool-chain own flavour of type inference is described
+   in the `annotator pass`_ section.
 
 .. _applevel: coding-guide.html#application-level
 .. _`target language`: getting-started.html#trying-out-the-translator
