@@ -5,7 +5,7 @@ import py
 log = py.log.Producer("log")
 logexec = py.log.Producer("exec")
 
-BASEURL = "file:///svn/pypy/release/0.8.x"
+BASEURL = "file:///svn/pypy/release/0.9.x"
 DDIR = py.path.local('/www/codespeak.net/htdocs/download/pypy')
 
 def usage():
@@ -59,7 +59,7 @@ def copydownload(fn):
     log("copying to download location")
     #fn.copy(dtarget) 
     ddir = DDIR
-    out = cexec("rsync %(fn)s code2.codespeak.net:%(ddir)s" 
+    out = cexec("cp %(fn)s %(ddir)s" 
                 % locals())
 
 def forced_export(BASEURL, target, lineend="LF"): 
