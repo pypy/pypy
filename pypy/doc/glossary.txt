@@ -108,8 +108,9 @@ links to more information.
 .. _`rpython`:
 
 **rpython**
-   `Restricted Python`_, a limited subset of the Python_ language. It
-   is also the language that the PyPy interpreter itself is written
+   `Restricted Python`_, a limited subset of the Python_ language.
+   The limitations make `type inference`_ possible.
+   It is also the language that the PyPy interpreter itself is written
    in.
 
 .. _`rtyper`:
