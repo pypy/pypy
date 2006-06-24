@@ -48,8 +48,8 @@ for value, name in sym_name.iteritems():
     setattr(symbol, name, value)
 
 # transforming is requiring a lot of recursion depth so make sure we have enough
-if sys.getrecursionlimit()<5000:
-    sys.setrecursionlimit(5000)
+if sys.getrecursionlimit()<2000:
+    sys.setrecursionlimit(2000)
 
 
 class WalkerError(StandardError):
