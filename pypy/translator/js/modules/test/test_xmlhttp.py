@@ -32,4 +32,3 @@ def test_proxy_double_side():
     fn = compile_function(run_double_proxy, [], root = ProxyRoot)
     result = fn()
     assert result == 8
-

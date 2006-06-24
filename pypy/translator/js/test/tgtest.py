@@ -17,10 +17,11 @@ from pypy.translator.js.demo.jsdemo import controllers
 conf_file = os.path.join(os.path.dirname(controllers.__file__), "..", "dev.cfg")
 
 class run_tgtest(object):
-    def __init__(self, compiled_fun, tg_root = None, port = 8080):
+    def __init__(self, compiled_fun, tg_root = None, port = 8080, run_browser=True):
         def cont():
             cherrypy.server.wait()
-            webbrowser.open("http://localhost:%d/" % port)
+            if run_browser:
+                webbrowser.open("http://localhost:%d/" % port)
             cherrypy.root.wait_for_results()
             self.results = cherrypy.root.results
             cherrypy.server.stop()

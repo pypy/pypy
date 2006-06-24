@@ -44,6 +44,12 @@ class _Builtins(object):
             },
             ootype.Dict: {
                 'll_get' : ListGetitem,
+                'll_set' : ListSetitem,
+                'll_contains' : ListContains,
+            },
+            ootype.Record: {
+                'll_get' : ListGetitem,
+                'll_set' : ListSetitem,
                 'll_contains' : ListContains,
             }
         }

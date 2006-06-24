@@ -40,7 +40,9 @@ class ServerMessage:
     base_gfx_url = 'static/images/'
     gfx_extension = 'gif'
 
-    def __init__(self):
+    def __init__(self, base_gfx_dir = None):
+        if base_gfx_dir:
+            self.base_gfx_dir = base_gfx_dir
         self.socket = None
         self.data   = ''
         self.n_header_lines = 2

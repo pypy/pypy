@@ -25,7 +25,7 @@ def _CLI_is_on_path():
     return True
 
 class compile_function(object):
-    def __init__(self, function, annotation, stackless=False, view=False, html=None, is_interactive=False, root = None):
+    def __init__(self, function, annotation, stackless=False, view=False, html=None, is_interactive=False, root = None, run_browser = True):
         if not use_browsertest and not _CLI_is_on_path():
             py.test.skip('Javascript CLI (js) not found')
 
@@ -70,7 +70,7 @@ class compile_function(object):
             else:
                 global port
                 from pypy.translator.js.test.tgtest import run_tgtest
-                out = run_tgtest(self, tg_root = self.root, port=port).results
+                out = run_tgtest(self, tg_root = self.root, port=port, run_browser=run_browser).results
                 assert out[1] == 'undefined' or out[1] == ""
                 output = out[0]
                 port += 1

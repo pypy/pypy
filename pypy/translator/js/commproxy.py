@@ -12,7 +12,9 @@ METHOD_BODY = """
     data = %(data)s;
     str = "?"
     for(i in data) {
-        str += i + "=" + data[i].toString() + ";";
+        if (data[i]) {
+            str += i + "=" + data[i].toString() + ";";
+        }
     }
     x.open("GET", '%(call)s' + str, true);
     //x.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
@@ -37,6 +39,20 @@ function %(real_callback)s (cb) {
 }
 """
 
+MOCHIKIT_BODY = """
+%(class)s.prototype.%(method)s = function ( %(args)s ) {
+    var data,str;
+    data = %(data)s;
+    str = "?"
+    for(i in data) {
+        if (data[i]) {
+            str += i + "=" + data[i].toString() + ";";
+        }
+    }
+    loadJSONDoc('%(call)s' + str).addCallback(callback);
+}
+"""
+
 class XmlHttp(object):
     """ Class for rendering xmlhttp request communication
     over normal js code
@@ -55,12 +71,18 @@ class XmlHttp(object):
         ilasm.end_function()
     
     def render_method(self, method_name, method, ilasm):
+        USE_MOCHIKIT = True # FIXME: some option?
+        
         args, retval = method.args, method.retval.name
         real_args = list(arg.name for arg in args)
         # FIXME: dirty JS here
         data = "{%s}" % ",".join(["'%s':%s" % (i,i) for i in real_args if i != 'callback'])
         real_callback = Variable("callback").name
-        ilasm.codegenerator.write(CALLBACK_BODY % {'real_callback':real_callback})
-        ilasm.codegenerator.write(METHOD_BODY % {'class':self.name, 'method':method_name,\
-            'args':",".join(real_args), 'data':data, 'call':'http://localhost:8080/'+method_name,\
-            'real_callback':real_callback})
+        if USE_MOCHIKIT:
+            ilasm.codegenerator.write(MOCHIKIT_BODY % {'class':self.name, 'method':method_name,\
+                'args':','.join(real_args), 'data':data, 'call':method_name})
+        else:
+            ilasm.codegenerator.write(CALLBACK_BODY % {'real_callback':real_callback})
+            ilasm.codegenerator.write(METHOD_BODY % {'class':self.name, 'method':method_name,\
+                'args':",".join(real_args), 'data':data, 'call':'http://localhost:8080/'+method_name,\
+                'real_callback':real_callback})

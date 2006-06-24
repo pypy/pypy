@@ -13,14 +13,14 @@
             result = ${onload}();
         } catch ( e ) {
             exc = e;
+            xml = new XMLHttpRequest();
+            xml.open('GET', '/send_result?result=0;exc='+exc, true);
+            xml.send(null);
         }
-        xml = new XMLHttpRequest();
-        xml.open('GET', 'http://localhost:8080/send_result?result='+result+';exc='+exc, true);
-        xml.send(null);
     }
     </script>
 </head>
-<body bgcolor="#FFFFFF" onLoad="call_fun()">
+<body onload="${onload}()">
   <p>This is a test!</p><br/>
   <p>Code:</p><br/>
   <pre>
