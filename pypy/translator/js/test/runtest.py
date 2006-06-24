@@ -49,6 +49,7 @@ class compile_function(object):
             self.root = Root
         else:
             self.root = root
+        self.run_browser = run_browser
 
     def _conv(self, v):
         #if isinstance(v, str):
@@ -70,7 +71,7 @@ class compile_function(object):
             else:
                 global port
                 from pypy.translator.js.test.tgtest import run_tgtest
-                out = run_tgtest(self, tg_root = self.root, port=port, run_browser=run_browser).results
+                out = run_tgtest(self, tg_root = self.root, port=port, run_browser=self.run_browser).results
                 assert out[1] == 'undefined' or out[1] == ""
                 output = out[0]
                 port += 1

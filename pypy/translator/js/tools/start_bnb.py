@@ -1,22 +1,32 @@
+#!/usr/bin/env python
 """ bub-n-bros testing utility
 """
 
+import autopath
+
 import py
+
+from pypy.translator.js import conftest
+
+conftest.option.tg = True
+conftest.option.browser = "default"
 
 from pypy.translator.js.test.runtest import compile_function
 from pypy.translator.js.modules.dom import Node, get_document, setTimeout, alert
 from pypy.translator.js.modules.xmlhttp import XMLHttpRequest
-from pypy.translator.js import conftest
 from pypy.translator.js.modules.mochikit import logDebug, createLoggingPane
 from pypy.translator.js.modules.dom import get_document
 
 import time
+import os
 
-if not conftest.option.browser:
-    py.test.skip("Works only in browser (right now?)")
+os.chdir("../demo/jsdemo")
+
+#if not conftest.option.browser:
+#    py.test.skip("Works only in browser (right now?)")
 
 from pypy.translator.js.demo.jsdemo.bnb import BnbRootInstance
-        
+
 ##def msg_dispatcher(data):
 ##    for i in data['messages']:
 ##        logDebug(i['type'])
@@ -103,12 +113,15 @@ def bnb_dispatcher(msgs):
     for msg in msgs['messages']:
         process_message(msg)
     
-def test_some():
+def run_bnb():
     def bnb():
         #get_document().
         createLoggingPane(True)
         BnbRootInstance.get_message(bnb_dispatcher)
     
     from pypy.translator.js.demo.jsdemo.bnb import BnbRoot
-    fn = compile_function(bnb, [], root = BnbRoot)
+    fn = compile_function(bnb, [], root = BnbRoot, run_browser = False)
     fn()
+
+if __name__ == '__main__':
+    run_bnb()
