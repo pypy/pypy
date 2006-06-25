@@ -135,15 +135,17 @@ def test_idempotent():
         c = [i for i in range(n2)]
         return 33 + big() + g(10)
 
-    t  = translateopt(idempotent, [int, int], raisingop2direct_call_all=True)
+    t  = translateopt(idempotent, [int, int], raisingop2direct_call_all=True,
+                      constfold=False)
     digest1 = md5digest(t)
 
     digest2 = md5digest(t)
     assert digest1 == digest2
 
-    #XXX Inlining is currently non-idempotent.
-    #    Maybe it just renames variables but it changes the graph in some way.
-    backend_optimizations(t, raisingop2direct_call_all=True, inline_threshold=0)
+    #XXX Inlining and constfold are currently non-idempotent.
+    #    Maybe they just renames variables but the graph changes in some way.
+    backend_optimizations(t, raisingop2direct_call_all=True,
+                          inline_threshold=0, constfold=False)
     digest3 = md5digest(t)
     assert digest1 == digest3
 

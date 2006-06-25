@@ -3,6 +3,7 @@ from pypy.translator.backendopt import removenoops
 from pypy.translator.backendopt import inline
 from pypy.translator.backendopt.malloc import remove_simple_mallocs
 from pypy.translator.backendopt.propagate import propagate_all
+from pypy.translator.backendopt.constfold import constant_fold_graph
 from pypy.translator.backendopt.stat import print_statistics
 from pypy.translator.backendopt.merge_if_blocks import merge_if_blocks
 from pypy.translator import simplify
@@ -19,6 +20,7 @@ def backend_optimizations(translator, graphs=None,
                                       mallocs=True,
                                       merge_if_blocks_to_switch=True,
                                       propagate=False,
+                                      constfold=False,
                                       heap2stack=False,
                                       clever_malloc_removal=False):
 
@@ -85,6 +87,10 @@ def backend_optimizations(translator, graphs=None,
         if PRINT_STATISTICS:
             print "after clever inlining and malloc removal"
             print_statistics(translator.graphs[0], translator)
+
+    if constfold:
+        for graph in graphs:
+            constant_fold_graph(graph)
 
     if propagate:
         assert graphs is translator.graphs  # XXX for now

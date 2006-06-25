@@ -47,11 +47,16 @@ class LLOp(object):
         # a canfold=True operation
         fold = self.fold
         if getattr(fold, 'need_result_type', False):
-            return fold(RESULTTYPE, *args)
+            val = fold(RESULTTYPE, *args)
         else:
-            return fold(*args)
+            val = fold(*args)
+        if RESULTTYPE is not lltype.Void:
+            val = lltype.enforce(RESULTTYPE, val)
+        return val
 
     def fold(self, RESULTTYPE, *args):
+        global lltype                 #  <- lazy import hack, worth an XXX
+        from pypy.rpython.lltypesystem import lltype
         if self.canfold or self.opname in ('getfield', 'getarrayitem'):
             from pypy.rpython.lltypesystem.opimpl import get_op_impl
             op_impl = get_op_impl(self.opname)

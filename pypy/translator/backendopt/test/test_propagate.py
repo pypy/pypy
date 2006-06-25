@@ -13,7 +13,7 @@ def get_graph(fn, signature, inline_threshold=True, all_opts=True):
     t.buildrtyper().specialize()
     if all_opts:
         backend_optimizations(t, inline_threshold=inline_threshold,
-                              propagate=False,
+                              propagate=False, constfold=False,
                               raisingop2direct_call_all=False) 
     graph = graphof(t, fn)
     if conftest.option.view:
