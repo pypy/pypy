@@ -34,6 +34,7 @@ class Module(MixedModule):
         'warnoptions'           : 'state.get(space).w_warnoptions', 
         'builtin_module_names'  : 'state.w_None',
         'pypy_getudir'          : 'state.pypy_getudir', 
+        'pypy_repr'             : 'state.pypy_repr',
 
         '_getframe'             : 'vm._getframe', 
         'setrecursionlimit'     : 'vm.setrecursionlimit', 

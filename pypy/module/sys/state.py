@@ -67,3 +67,7 @@ _pypy_getudir._annspecialcase_ = "override:ignore"
 # directly. 
 def pypy_getudir(space):
     return _pypy_getudir(space)
+
+
+def pypy_repr(space, w_object):
+    return space.wrap('%r' % (w_object,))
