@@ -76,8 +76,13 @@ class Root(controllers.Root):
     def recv(self):
         #XXX hangs if not first sending CMSG_PING!
         sm   = self.serverMessage()
-        size = 10000 #XXX should really loop until all data is handled
-        data = sm.data + self.sessionSocket().recv(size)
+        data = sm.data
+        sock = self.sessionSocket()
+        while True:
+            try:
+                data += sock.recv(4096, socket.MSG_DONTWAIT)
+            except:    
+                break
         while sm.n_header_lines > 0 and '\n' in data:
             sm.n_header_lines -= 1
             header_line, data = data.split('\n',1)

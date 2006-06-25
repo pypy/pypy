@@ -38,7 +38,7 @@ class ServerMessage:
     _def_icon_queue = {}
     base_gfx_dir = 'testme/static/images/'
     base_gfx_url = 'static/images/'
-    gfx_extension = 'gif'
+    gfx_extension = 'png'
 
     def __init__(self, base_gfx_dir = None):
         if base_gfx_dir:
@@ -93,9 +93,10 @@ class ServerMessage:
         if len(rest) == 0:
             colorkey = None
         else:
-            colorkey = rest[0]
+            c = rest[0]
+            colorkey = (c & 255, (c >> 8) & 255, (c >> 16) & 255)
         #log('def_bitmap1 bitmap_code=%d, data=%d bytes, colorkey=%s' % (
-        #    bitmap_code, len(data), colokey))
+        #    bitmap_code, len(data), colorkey))
         gif_bitmap_filename = '%sbitmap%d.%s' % (self.gfx_dir, bitmap_code, self.gfx_extension)
         if exists(gif_bitmap_filename):
             #log('CACHED:%s' % gif_bitmap_filename)
@@ -117,14 +118,17 @@ class ServerMessage:
                 raise BitmapCreationException('ERROR LOADING %s (%s)' % (
                     bitmap_filename, str(e)))
 
-            #create alpha layer that hopefully gets into the .gif...
-            #if colorkey is not None:
-            #    bitmap = bitmap.convert("RGBA")
-            #    pixel = bitmap.getpixel( (0,0) )
-            #    log('%s: colorkey=%s, pixel=%s' % (bitmap_filename, colorkey, str(pixel)))
-            #    colorkeyT = (1, 1, 1, 255)
-            #    alpha = [pixel == (1,1,1,255) for pixel in list(bitmap.getdata())]
-            #    bitmap.putalpha(alpha)
+            #create alpha layer (PIL export this correctly with png but not with gif)
+            if colorkey is not None:
+                bitmap = bitmap.convert("RGBA")
+                data   = bitmap.getdata()
+                c      = (colorkey[0], colorkey[1], colorkey[2], 255)
+                width, height = bitmap.size
+                for y in range(height): #this is slowish but gfx are cached, so...
+                    for x in range(width):
+                        p = data.getpixel((x,y))
+                        if p == c:
+                            data.putpixel((x,y), (0,0,0,0))
 
             try:
                 bitmap.save(gif_bitmap_filename)
@@ -194,7 +198,7 @@ class ServerMessage:
         return messages
     
     def player_icon(self, player_id, icon_code):
-        log('player_icon player_id=%d, icon_code=%d' % (player_id, icon_code))
+        #log('player_icon player_id=%d, icon_code=%d' % (player_id, icon_code))
         return dict(type=PMSG_PLAYER_ICON, player_id=player_id, icon_code=icon_code)
 
     def player_join(self, player_id, client_is_self):
@@ -202,7 +206,7 @@ class ServerMessage:
         return dict(type=PMSG_PLAYER_JOIN, player_id=player_id, client_is_self=client_is_self)
 
     def def_key(self, keyname, num, *icon_codes):
-        log('def_key keyname=%s, num=%d, icon_codes=%s' % (keyname, num, str(icon_codes)))
+        #log('def_key keyname=%s, num=%d, icon_codes=%s' % (keyname, num, str(icon_codes)))
         return dict(type=PMSG_DEF_KEY, keyname=keyname, num=num, icon_codes=icon_codes)
 
     def md5_file(self, fileid, protofilepath, offset, len_data, checksum):
