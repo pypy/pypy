@@ -52,12 +52,16 @@ class LLOp(object):
             return fold(*args)
 
     def fold(self, RESULTTYPE, *args):
-        if not self.canfold:
-            raise TypeError, "cannot constant-fold operation %r" % (
-                self.opname,)
-        from pypy.rpython.lltypesystem.opimpl import get_op_impl
+        if self.canfold or self.opname in ('getfield', 'getarrayitem'):
+            from pypy.rpython.lltypesystem.opimpl import get_op_impl
+            op_impl = get_op_impl(self.opname)
+        else:
+            error = TypeError("cannot constant-fold operation %r" % (
+                self.opname,))
+            def op_impl(*args):
+                raise error
         # cache the implementation function into 'self'
-        self.fold = get_op_impl(self.opname)
+        self.fold = op_impl
         return self(RESULTTYPE, *args)
     fold.need_result_type = True
 

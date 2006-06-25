@@ -322,6 +322,18 @@ def op_adr_delta(addr1, addr2):
     checkadr(addr2)
     return addr1 - addr2
 
+def op_getfield(p, name):
+    checkptr(p)
+    if not lltype.typeOf(p).TO._hints.get('immutable'):
+        raise TypeError("cannot fold getfield on mutable struct")
+    return getattr(p, name)
+
+def op_getarrayitem(p, index):
+    checkptr(p)
+    if not lltype.typeOf(p).TO._hints.get('immutable'):
+        raise TypeError("cannot fold getfield on mutable array")
+    return p[index]
+
 # ____________________________________________________________
 
 def get_op_impl(opname):
