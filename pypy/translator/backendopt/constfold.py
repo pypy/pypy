@@ -22,16 +22,20 @@ def fold_op_list(operations, constants, exit_early=False):
             vargs.append(v)
         if len(args) == len(vargs):
             RESTYPE = spaceop.result.concretetype
-            op = getattr(llop, spaceop.opname)
             try:
-                result = op(RESTYPE, *args)
-            except TypeError:
+                op = getattr(llop, spaceop.opname)
+            except AttributeError:
                 pass
             else:
-                # success in folding this space operation
-                constants[spaceop.result] = Constant(result, RESTYPE)
-                folded_count += 1
-                continue
+                try:
+                    result = op(RESTYPE, *args)
+                except TypeError:
+                    pass
+                else:
+                    # success in folding this space operation
+                    constants[spaceop.result] = Constant(result, RESTYPE)
+                    folded_count += 1
+                    continue
         # failed to fold an operation, exit early if requested
         if exit_early:
             return folded_count
