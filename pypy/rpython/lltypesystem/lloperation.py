@@ -43,7 +43,23 @@ class LLOp(object):
     __name__ = property(lambda self: 'llop_'+self.opname)
 
     def __call__(self, RESULTTYPE, *args):
-        raise TypeError, "llop is meant to be rtyped and not called direclty"
+        # llop is meant to be rtyped and not called directly, unless it is
+        # a canfold=True operation
+        fold = self.fold
+        if getattr(fold, 'need_result_type', False):
+            return fold(RESULTTYPE, *args)
+        else:
+            return fold(*args)
+
+    def fold(self, RESULTTYPE, *args):
+        if not self.canfold:
+            raise TypeError, "cannot constant-fold operation %r" % (
+                self.opname,)
+        from pypy.rpython.lltypesystem.opimpl import get_op_impl
+        # cache the implementation function into 'self'
+        self.fold = get_op_impl(self.opname)
+        return self(RESULTTYPE, *args)
+    fold.need_result_type = True
 
 
 def enum_ops_without_sideeffects(raising_is_ok=False):
@@ -258,7 +274,7 @@ LL_OPERATIONS = {
     'cast_int_to_float':    LLOp(canfold=True),
     'cast_int_to_longlong': LLOp(canfold=True),
     'cast_uint_to_int':     LLOp(canfold=True),
-    'cast_float_to_int':    LLOp(canfold=True),
+    'cast_float_to_int':    LLOp(canraise=(OverflowError,)),
     'cast_float_to_uint':   LLOp(canfold=True),
     'truncate_longlong_to_int':LLOp(canfold=True),
 
@@ -374,11 +390,11 @@ LL_OPERATIONS = {
 
 from pypy.objspace.flow.operation import FunctionByName
 opimpls = FunctionByName.copy()
-opimpls['is_true'] = True
-opimpls['simple_call'] = True
+opimpls['is_true'] = bool
 for opname in opimpls:
     LL_OPERATIONS[opname] = LLOp(canraise=(Exception,), pyobj=True)
-del opname, opimpls, FunctionByName
+LL_OPERATIONS['simple_call'] = LLOp(canraise=(Exception,), pyobj=True)
+del opname, FunctionByName
 
 # ____________________________________________________________
 # Post-processing

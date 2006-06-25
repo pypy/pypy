@@ -29,7 +29,7 @@ mark where overflow checking is required.
 
 """
 import math
-from pypy.rpython import extregistry
+from pypy.rpython import extregistry, objectmodel
 
 # set up of machine internals
 _bits = 0
@@ -49,6 +49,8 @@ def intmask(n):
         return int(n)   # possibly bool->int
     if isinstance(n, unsigned_int):
         n = long(n)
+    elif isinstance(n, objectmodel.Symbolic):
+        return n        # assume Symbolics don't overflow
     n &= LONG_MASK
     if n >= LONG_TEST:
         n -= 2*LONG_TEST

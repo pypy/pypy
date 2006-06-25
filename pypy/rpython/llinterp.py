@@ -147,24 +147,18 @@ class LLInterpreter(object):
         raise ValueError, "couldn't match exception"
 
 
-# implementations of ops from flow.operation
-from pypy.objspace.flow.operation import FunctionByName
-opimpls = FunctionByName.copy()
-opimpls['is_true'] = bool
-
-ops_returning_a_bool = {'gt': True, 'ge': True,
-                        'lt': True, 'le': True,
-                        'eq': True, 'ne': True,
-                        'is_true': True}
-
 def checkptr(ptr):
-    return isinstance(lltype.typeOf(ptr), lltype.Ptr)
+    assert isinstance(lltype.typeOf(ptr), lltype.Ptr)
 
 def checkadr(addr):
-    return lltype.typeOf(addr) == llmemory.Address
+    assert lltype.typeOf(addr) is llmemory.Address
     
-def checkinst(inst):
+def is_inst(inst):
     return isinstance(lltype.typeOf(inst), (ootype.Instance, ootype.BuiltinType))
+
+def checkinst(inst):
+    assert is_inst(inst)
+
 
 class LLFrame(object):
     def __init__(self, graph, args, llinterpreter, f_back=None):
@@ -225,7 +219,10 @@ class LLFrame(object):
     def getoperationhandler(self, opname):
         ophandler = getattr(self, 'op_' + opname, None)
         if ophandler is None:
-            raise AssertionError, "cannot handle operation %r yet" %(opname,)
+            # try to import the operation from opimpl.py
+            from pypy.rpython.lltypesystem.opimpl import get_op_impl
+            ophandler = get_op_impl(opname)
+            LLFrame.ophandler = staticmethod(ophandler)
         return ophandler
     # _______________________________________________________
     # evaling functions
@@ -332,12 +329,7 @@ class LLFrame(object):
         elif operation.opname == 'indirect_call':
             assert isinstance(operation.args[0], Variable)
         vals = [self.getval(x) for x in operation.args]
-        # XXX these special cases DO pile up, do something better here
-        if operation.opname in ['cast_pointer', 'ooupcast', 'oodowncast',
-                                'cast_adr_to_ptr', 'cast_weakadr_to_ptr',
-                                'cast_int_to_ptr',
-                                'cast_opaque_ptr', 'unsafe_call',
-                                'cast_primitive']:
+        if getattr(ophandler, 'need_result_type', False):
             vals.insert(0, operation.result.concretetype)
         try:
             retval = ophandler(*vals)
@@ -427,9 +419,6 @@ class LLFrame(object):
 
     def op_keepalive(self, value):
         pass
-
-    def op_same_as(self, x):
-        return x
 
     def op_hint(self, x, hints):
         return x
@@ -527,6 +516,7 @@ class LLFrame(object):
         from pypy.translator.stackless.frame import storage_type
         assert storage_type(lltype.typeOf(result)) == TGT
         return lltype._cast_whatever(TGT, result)
+    op_unsafe_call.need_result_type = True
 
     def op_malloc(self, obj):
         if self.llinterpreter.gc is not None:
@@ -565,179 +555,22 @@ class LLFrame(object):
         self.heap.free(obj, flavor=flavor)
 
     def op_getfield(self, obj, field):
-        assert checkptr(obj)
+        checkptr(obj)
         # check the difference between op_getfield and op_getsubstruct:
         assert not isinstance(getattr(lltype.typeOf(obj).TO, field),
                               lltype.ContainerType)
         return getattr(obj, field)
 
-    def op_getsubstruct(self, obj, field):
-        assert checkptr(obj)
-        # check the difference between op_getfield and op_getsubstruct:
-        assert isinstance(getattr(lltype.typeOf(obj).TO, field),
-                          lltype.ContainerType)
-        return getattr(obj, field)
-
-    def op_getarraysubstruct(self, array, index):
-        assert checkptr(array)
-        result = array[index]
-        return result
-        # the diff between op_getarrayitem and op_getarraysubstruct
-        # is the same as between op_getfield and op_getsubstruct
-
-    def op_getarraysize(self, array):
-        #print array,type(array),dir(array)
-        assert isinstance(lltype.typeOf(array).TO, lltype.Array)
-        return len(array)
-
-    def op_cast_pointer(self, tp, obj):
-        return lltype.cast_pointer(tp, obj)
-
-    def op_cast_opaque_ptr(self, tp, obj):
-        return lltype.cast_opaque_ptr(tp, obj)
-
-    def op_ptr_eq(self, ptr1, ptr2):
-        assert checkptr(ptr1)
-        assert checkptr(ptr2)
-        return ptr1 == ptr2
-
-    def op_ptr_ne(self, ptr1, ptr2):
-        assert checkptr(ptr1)
-        assert checkptr(ptr2)
-        return ptr1 != ptr2
-
-    def op_ptr_nonzero(self, ptr1):
-        assert checkptr(ptr1)
-        return bool(ptr1)
-
-    def op_ptr_iszero(self, ptr1):
-        assert checkptr(ptr1)
-        return not bool(ptr1)
-
-    def op_direct_fieldptr(self, obj, field):
-        assert checkptr(obj)
-        assert isinstance(field, str)
-        return lltype.direct_fieldptr(obj, field)
-
-    def op_direct_arrayitems(self, obj):
-        assert checkptr(obj)
-        return lltype.direct_arrayitems(obj)
-
-    def op_direct_ptradd(self, obj, index):
-        assert checkptr(obj)
-        assert isinstance(index, int)
-        return lltype.direct_ptradd(obj, index)
-
-    def op_cast_primitive(self, TYPE, value):
-        assert isinstance(lltype.typeOf(value), lltype.Primitive)
-        return lltype.cast_primitive(TYPE, value)
+    def op_cast_int_to_ptr(self, RESTYPE, int1):
+        return lltype.cast_int_to_ptr(RESTYPE, int1)
+    op_cast_int_to_ptr.need_result_type = True
 
     def op_cast_ptr_to_int(self, ptr1):
-        assert checkptr(ptr1)
-        assert isinstance(lltype.typeOf(ptr1).TO, (lltype.Array, lltype.Struct))
+        checkptr(ptr1)
+        assert isinstance(lltype.typeOf(ptr1).TO, (lltype.Array, lltype.Struct)
+)
         return lltype.cast_ptr_to_int(ptr1)
 
-    def op_cast_int_to_ptr(self, tp, int1):
-        return lltype.cast_int_to_ptr(tp, int1)
-
-    def op_cast_ptr_to_adr(self, ptr):
-        assert checkptr(ptr)
-        return llmemory.cast_ptr_to_adr(ptr)
-
-    def op_cast_adr_to_ptr(self, TYPE, adr):
-        assert checkadr(adr)
-        return llmemory.cast_adr_to_ptr(adr, TYPE)
-
-    def op_cast_adr_to_int(self, adr):
-        assert checkadr(adr)
-        return llmemory.cast_adr_to_int(adr)
-
-    def op_cast_ptr_to_weakadr(self, ptr):
-        assert checkptr(ptr)
-        return llmemory.cast_ptr_to_weakadr(ptr)
-
-    def op_cast_weakadr_to_ptr(self, TYPE, wadr):
-        assert lltype.typeOf(wadr) == llmemory.WeakGcAddress
-        return llmemory.cast_weakadr_to_ptr(wadr, TYPE)
-
-    def op_cast_weakadr_to_int(self, wadr):
-        assert lltype.typeOf(wadr) == llmemory.WeakGcAddress
-        return wadr.cast_to_int()
-    
-    def op_cast_int_to_float(self, i):
-        assert type(i) is int
-        return float(i)
-
-    def op_cast_int_to_char(self, b):
-        assert type(b) is int
-        return chr(b)
-
-    def op_cast_bool_to_int(self, b):
-        assert type(b) is bool
-        return int(b)
-
-    def op_cast_bool_to_uint(self, b):
-        assert type(b) is bool
-        return r_uint(int(b))
-
-    def op_cast_bool_to_float(self, b):
-        assert type(b) is bool
-        return float(b)
-
-    def op_bool_not(self, b):
-        assert type(b) is bool
-        return not b
-
-    def op_cast_float_to_int(self, f):
-        assert type(f) is float
-        return ovfcheck(int(f))
-
-    def op_cast_float_to_uint(self, f):
-        assert type(f) is float
-        return r_uint(int(f))
-
-    def op_cast_char_to_int(self, b):
-        assert type(b) is str and len(b) == 1
-        return ord(b)
-
-    def op_cast_unichar_to_int(self, b):
-        assert type(b) is unicode and len(b) == 1
-        return ord(b)
-
-    def op_cast_int_to_unichar(self, b):
-        assert type(b) is int 
-        return unichr(b)
-
-    def op_cast_int_to_uint(self, b):
-        assert type(b) is int
-        return r_uint(b)
-
-    def op_cast_uint_to_int(self, b):
-        assert type(b) is r_uint
-        return intmask(b)
-
-    def op_cast_int_to_longlong(self, b):
-        assert type(b) is int
-        return r_longlong(b)
-
-    def op_truncate_longlong_to_int(self, b):
-        assert type(b) is r_longlong
-        assert -sys.maxint-1 <= b <= sys.maxint
-        return int(b)
-
-    def op_float_floor(self, b):
-        assert type(b) is float
-        return math.floor(b)
-
-    def op_float_fmod(self, b,c):
-        assert type(b) is float
-        assert type(c) is float
-        return math.fmod(b,c)
-
-    def op_float_pow(self, b,c):
-        assert type(b) is float
-        assert type(c) is float
-        return math.pow(b,c)
 
     def op_gc__collect(self):
         import gc
@@ -781,12 +614,12 @@ class LLFrame(object):
 
 
     # operations on pyobjects!
-    for opname in opimpls.keys():
+    for opname in lloperation.opimpls.keys():
         exec py.code.Source("""
         def op_%(opname)s(self, *pyobjs):
             for pyo in pyobjs:
                 assert lltype.typeOf(pyo) == lltype.Ptr(lltype.PyObject)
-            func = opimpls[%(opname)r]
+            func = lloperation.opimpls[%(opname)r]
             try:
                 pyo = func(*[pyo._obj.value for pyo in pyobjs])
             except Exception:
@@ -814,198 +647,98 @@ class LLFrame(object):
         return self.heap.raw_malloc_usage(size)
 
     def op_raw_free(self, addr):
-        assert checkadr(addr) 
+        checkadr(addr) 
         self.heap.raw_free(addr)
 
     def op_raw_memcopy(self, fromaddr, toaddr, size):
-        assert checkadr(fromaddr)
-        assert checkadr(toaddr)
+        checkadr(fromaddr)
+        checkadr(toaddr)
         self.heap.raw_memcopy(fromaddr, toaddr, size)
 
     def op_raw_load(self, addr, typ, offset):
-        assert checkadr(addr)
+        checkadr(addr)
         value = getattr(addr, str(typ).lower())[offset]
         assert lltype.typeOf(value) == typ
         return value
 
     def op_raw_store(self, addr, typ, offset, value):
-        assert checkadr(addr)
+        checkadr(addr)
         assert lltype.typeOf(value) == typ
         getattr(addr, str(typ).lower())[offset] = value
 
-    def op_adr_add(self, addr, offset):
-        assert checkadr(addr)
-        assert lltype.typeOf(offset) is lltype.Signed
-        return addr + offset
-
-    def op_adr_sub(self, addr, offset):
-        assert checkadr(addr)
-        assert lltype.typeOf(offset) is lltype.Signed
-        return addr - offset
-
-    def op_adr_delta(self, addr1, addr2):
-        assert checkadr(addr1)
-        assert checkadr(addr2)
-        return addr1 - addr2
-
-    for opname, op in (("eq", "=="), ("ne", "!="), ("le", "<="), ("lt", "<"),
-                       ("gt", ">"), ("ge", ">=")):
-        exec py.code.Source("""
-            def op_adr_%s(self, addr1, addr2):
-                checkadr(addr1)
-                checkadr(addr2)
-                return addr1 %s addr2""" % (opname, op)).compile()
-
-    # __________________________________________________________
-    # primitive operations
-
-    def setup_primitive_operations():
-        for typ in (float, int, r_uint, r_longlong, r_ulonglong):
-            typname = typ.__name__
-            optup = ('add', 'sub', 'mul', 'truediv', 'floordiv',
-                     'mod', 'gt', 'lt', 'ge', 'ne', 'le', 'eq',)
-            overflowing_operations = ('add', 'sub', 'mul', 'floordiv',
-                                      'mod', 'lshift')
-            if typ is r_uint:
-                opnameprefix = 'uint'
-            elif typ is r_longlong:
-                opnameprefix = 'llong'
-            elif typ is r_ulonglong:
-                opnameprefix = 'ullong'
-            else:
-                opnameprefix = typname
-            if typ is not float:
-                optup += 'and_', 'or_', 'lshift', 'rshift', 'xor'
-            for opname in optup:
-                assert opname in opimpls
-                if typ is float and opname == 'floordiv':
-                    continue    # 'floordiv' is for integer types
-                if typ is not float and opname == 'truediv':
-                    continue    # 'truediv' is for floats only
-                if typ is int and opname not in ops_returning_a_bool:
-                    adjust_result = 'intmask'
-                else:
-                    adjust_result = ''
-                pureopname = opname.rstrip('_')
-                yield """
-                    def op_%(opnameprefix)s_%(pureopname)s(self, x, y):
-                        assert isinstance(x, %(typname)s)
-                        assert isinstance(y, %(typname)s)
-                        func = opimpls[%(opname)r]
-                        return %(adjust_result)s(func(x, y))
-                """ % locals()
-
-                suffixes = []
-                if typ is not float:
-                    if opname in ('lshift', 'rshift'):
-                        suffixes.append(('_val', 'ValueError'))
-                    if opname in ('floordiv', 'mod'):
-                        suffixes.append(('_zer', 'ZeroDivisionError'))
-                    if typ is int and opname in overflowing_operations:
-                        for suffix1, exccls1 in suffixes[:]:
-                            suffixes.append(('_ovf'+suffix1,
-                                             '(OverflowError, %s)' % exccls1))
-                        suffixes.append(('_ovf', 'OverflowError'))
-
-                for suffix, exceptionclasses in suffixes:
-                    if '_ovf' in suffix:
-                        opname_ex = opname + '_ovf'
-                    else:
-                        opname_ex = opname
-                    yield """
-                        def op_%(opnameprefix)s_%(pureopname)s%(suffix)s(self, x, y):
-                            assert isinstance(x, %(typname)s)
-                            assert isinstance(y, %(typname)s)
-                            func = opimpls[%(opname_ex)r]
-                            try:
-                                return %(adjust_result)s(func(x, y))
-                            except %(exceptionclasses)s:
-                                self.make_llexception()
-                    """ % locals()
-            for opname in 'is_true', 'neg', 'abs', 'invert':
-                assert opname in opimpls
-                if typ is float and opname == 'invert':
-                    continue
-                if typ is int and opname not in ops_returning_a_bool:
-                    adjust_result = 'intmask'
-                else:
-                    adjust_result = ''
-                yield """
-                    def op_%(opnameprefix)s_%(opname)s(self, x):
-                        assert isinstance(x, %(typname)s)
-                        func = opimpls[%(opname)r]
-                        return %(adjust_result)s(func(x))
-                """ % locals()
-                if typ is int and opname in ('neg', 'abs'):
-                    opname += '_ovf'
-                    yield """
-                        def op_%(opnameprefix)s_%(opname)s(self, x):
-                            assert isinstance(x, %(typname)s)
-                            func = opimpls[%(opname)r]
-                            try:
-                                return %(adjust_result)s(func(x))
-                            except OverflowError:
-                                self.make_llexception()
-                    """ % locals()
-
-        for opname in ('gt', 'lt', 'ge', 'ne', 'le', 'eq'):
-            assert opname in opimpls
-            yield """
-                def op_char_%(opname)s(self, x, y):
-                    assert isinstance(x, str) and len(x) == 1
-                    assert isinstance(y, str) and len(y) == 1
-                    func = opimpls[%(opname)r]
-                    return func(x, y)
-            """ % locals()
-
-    for _src in setup_primitive_operations():
-        exec py.code.Source(_src).compile()
-        del _src
-    del setup_primitive_operations
-
     # ____________________________________________________________
+    # Overflow-detecting variants
 
-    original_int_add = op_int_add
+    def op_int_neg_ovf(self, x):
+        assert type(x) is int
+        try:
+            return ovfcheck(-x)
+        except OverflowError:
+            self.make_llexception()
 
-    def op_int_add(self, x, y):
-        if isinstance(x, llmemory.AddressOffset) or isinstance(y, llmemory.AddressOffset) :
-            return x + y
+    def op_int_abs_ovf(self, x):
+        assert type(x) is int
+        try:
+            return ovfcheck(abs(x))
+        except OverflowError:
+            self.make_llexception()
+
+    def _makefunc2(fn, operator, xtype, ytype=None):
+        import sys
+        d = sys._getframe(1).f_locals
+        if ytype is None:
+            ytype = xtype
+        if '_ovf' in fn:
+            checkfn = 'ovfcheck'
+        elif fn.startswith('op_int_'):
+            checkfn = 'intmask'
         else:
-            return self.original_int_add(x, y)
+            checkfn = ''
+        exec py.code.Source("""
+        def %(fn)s(self, x, y):
+            assert isinstance(x, %(xtype)s)
+            assert isinstance(y, %(ytype)s)
+            try:
+                return %(checkfn)s(x %(operator)s y)
+            except (OverflowError, ValueError, ZeroDivisionError):
+                self.make_llexception()
+        """ % locals()).compile() in globals(), d
 
-    original_int_add_ovf = op_int_add_ovf
+    _makefunc2('op_int_add_ovf', '+', '(int, llmemory.AddressOffset)')
+    _makefunc2('op_int_mul_ovf', '*', '(int, llmemory.AddressOffset)', 'int')
+    _makefunc2('op_int_sub_ovf',          '-',  'int')
+    _makefunc2('op_int_floordiv_ovf',     '//', 'int')
+    _makefunc2('op_int_floordiv_zer',     '//', 'int')
+    _makefunc2('op_int_floordiv_ovf_zer', '//', 'int')
+    _makefunc2('op_int_mod_ovf',          '%',  'int')
+    _makefunc2('op_int_mod_zer',          '%',  'int')
+    _makefunc2('op_int_mod_ovf_zer',      '%',  'int')
+    _makefunc2('op_int_lshift_ovf',       '<<', 'int')
+    _makefunc2('op_int_lshift_val',       '<<', 'int')
+    _makefunc2('op_int_lshift_ovf_val',   '<<', 'int')
+    _makefunc2('op_int_rshift_val',       '>>', 'int')
 
-    def op_int_add_ovf(self, x, y):
-        if isinstance(x, llmemory.AddressOffset) or isinstance(y, llmemory.AddressOffset) :
-            return x + y
-        else:
-            return self.original_int_add_ovf(x, y)
+    _makefunc2('op_uint_floordiv_zer',    '//', 'r_uint')
+    _makefunc2('op_uint_mod_zer',         '%',  'r_uint')
+    _makefunc2('op_uint_lshift_val',      '<<', 'r_uint')
+    _makefunc2('op_uint_rshift_val',      '>>', 'r_uint')
 
-    original_int_mul = op_int_mul
+    _makefunc2('op_llong_floordiv_zer',   '//', 'r_longlong')
+    _makefunc2('op_llong_mod_zer',        '%',  'r_longlong')
+    _makefunc2('op_llong_lshift_val',     '<<', 'r_longlong')
+    _makefunc2('op_llong_rshift_val',     '>>', 'r_longlong')
 
-    def op_int_mul(self, x, y):
-        if isinstance(x, llmemory.AddressOffset):
-            return x * y
-        else:
-            return self.original_int_mul(x, y)
+    _makefunc2('op_ullong_floordiv_zer',  '//', 'r_ulonglong')
+    _makefunc2('op_ullong_mod_zer',       '%',  'r_ulonglong')
+    _makefunc2('op_ullong_lshift_val',    '<<', 'r_ulonglong')
+    _makefunc2('op_ullong_rshift_val',    '>>', 'r_ulonglong')
 
-    original_int_mul_ovf = op_int_mul_ovf
-
-    def op_int_mul_ovf(self, x, y):
-        if isinstance(x, llmemory.AddressOffset):
-            return x * y
-        else:
-            return self.original_int_mul_ovf(x, y)
-
-    def op_unichar_eq(self, x, y):
-        assert isinstance(x, unicode) and len(x) == 1
-        assert isinstance(y, unicode) and len(y) == 1
-        return x == y
-
-    def op_unichar_ne(self, x, y):
-        assert isinstance(x, unicode) and len(x) == 1
-        assert isinstance(y, unicode) and len(y) == 1
-        return x != y
+    def op_cast_float_to_int(self, f):
+        assert type(f) is float
+        try:
+            return ovfcheck(int(f))
+        except OverflowError:
+            self.make_llexception()
 
     #Operation of ootype
 
@@ -1031,19 +764,19 @@ class LLFrame(object):
         return ootype.oonewcustomdict(DICT, sm_eq, sm_hash)
 
     def op_oosetfield(self, inst, name, value):
-        assert checkinst(inst)
+        checkinst(inst)
         assert isinstance(name, str)
         FIELDTYPE = lltype.typeOf(inst)._field_type(name)
         if FIELDTYPE != lltype.Void:
             setattr(inst, name, value)
 
     def op_oogetfield(self, inst, name):
-        assert checkinst(inst)
+        checkinst(inst)
         assert isinstance(name, str)
         return getattr(inst, name)
 
     def op_oosend(self, message, inst, *args):
-        assert checkinst(inst)
+        checkinst(inst)
         assert isinstance(message, str)
         bm = getattr(inst, message)
         inst = bm.inst
@@ -1055,17 +788,19 @@ class LLFrame(object):
 
     def op_ooupcast(self, INST, inst):
         return ootype.ooupcast(INST, inst)
+    op_ooupcast.need_result_type = True
     
     def op_oodowncast(self, INST, inst):
         return ootype.oodowncast(INST, inst)
+    op_oodowncast.need_result_type = True
 
     def op_oononnull(self, inst):
-        assert checkinst(inst)
+        checkinst(inst)
         return bool(inst)
 
     def op_oois(self, obj1, obj2):
-        if checkinst(obj1):
-            assert checkinst(obj2)
+        if is_inst(obj1):
+            checkinst(obj2)
             return obj1 == obj2   # NB. differently-typed NULLs must be equal
         elif isinstance(obj1, ootype._class):
             assert isinstance(obj2, ootype._class)
