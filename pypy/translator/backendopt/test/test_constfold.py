@@ -122,3 +122,31 @@ def test_fold_exitswitch():
     constant_fold_graph(graph)
     assert summary(graph) == {'int_mul': 1}
     check_graph(graph, [12], 60, t)
+
+
+def xxx_test_later_along_link():
+    S1 = lltype.GcStruct('S1', ('x', lltype.Signed), hints={'immutable': True})
+    s1 = lltype.malloc(S1)
+    s1.x = 123
+    s2 = lltype.malloc(S1)
+    s2.x = 60
+    def fn(x, y):
+        if x:
+            x = s1.x
+        else:
+            x = s2.x
+        y *= 2
+        return (x+1) - y
+
+    graph, t = get_graph(fn, [int, int])
+    assert summary(graph) == {'int_is_true': 1,
+                              'getfield': 2,
+                              'int_mul': 1,
+                              'int_add': 1,
+                              'int_sub': 1}
+    constant_fold_graph(graph)
+    assert summary(graph) == {'int_is_true': 1,
+                              'int_mul': 1,
+                              'int_sub': 1}
+    check_graph(graph, [-1], 124, t)
+    check_graph(graph, [0], 61, t)
