@@ -7,7 +7,7 @@ import cherrypy
 from pypy.translator.js.demo.jsdemo.controllers import Root
 from pypy.rpython.ootypesystem.bltregistry import BasicExternal, MethodDesc
 
-from pypy.translator.js.proxy.testme.servermessage import ServerMessage, PMSG_INLINE_FRAME
+from pypy.translator.js.proxy.testme.servermessage import log, ServerMessage, PMSG_INLINE_FRAME
 from pypy.translator.js.proxy.testme.msgstruct import *
 from cherrypy import session
 
@@ -29,8 +29,10 @@ class BnbRoot(Root, BasicExternal):
     try:
         port = re.findall('value=".*"', urllib.urlopen('http://%s:8000' % host).read())[0]
     except IOError:
-        import sys
         log("ERROR: Can't connect to BnB server on %s:8000" % host)
+        sys.exit()
+    except IndexError:
+        log("ERROR: Connected to BnB server but unable to detect a running game")
         sys.exit()
     port = int(port[7:-1])
     
@@ -41,7 +43,7 @@ class BnbRoot(Root, BasicExternal):
     def serverMessage(self):
         sessionid = session['_id']
         if sessionid not in self._serverMessage:
-            self._serverMessage[sessionid] = ServerMessage('static/images')
+            self._serverMessage[sessionid] = ServerMessage('static/images/')
         return self._serverMessage[sessionid]
     
     @turbogears.expose(html="jsdemo.templates.bnb")

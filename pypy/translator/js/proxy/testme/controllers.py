@@ -6,6 +6,7 @@ import zlib
 import socket
 import urllib
 import re
+import sys
 from servermessage import ServerMessage, log, PMSG_INLINE_FRAME
 from random import random
 from md5 import md5
@@ -19,8 +20,10 @@ class Root(controllers.Root):
     try:
         port = re.findall('value=".*"', urllib.urlopen('http://%s:8000' % host).read())[0]
     except IOError:
-        import sys
         log("ERROR: Can't connect to BnB server on %s:8000" % host)
+        sys.exit()
+    except IndexError:
+        log("ERROR: Connected to BnB server but unable to detect a running game")
         sys.exit()
     port = int(port[7:-1])
     

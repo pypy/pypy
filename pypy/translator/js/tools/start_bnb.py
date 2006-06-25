@@ -41,6 +41,18 @@ from pypy.translator.js.demo.jsdemo.bnb import BnbRootInstance
 ##    fn = compile_function(mochikit, [], root = Root)
 ##    fn()
 
+class Stats(object):
+    """ Class containing some statistics
+    """
+    def __init__(self):
+        self.starttime = 0
+        self.n_received_inline_frames = 0
+        self.n_rendered_inline_frames = 0
+        self.n_rendered_dynamic_sprites = 0
+        self.n_sprites = 0 #why is inline frame broken up?
+
+stats = Stats()
+
 class SpriteContainer(object):
     """ Class containing all sprites
     """
@@ -104,6 +116,8 @@ def process_message(msg):
         img = sc.get_sprite(msg['icon_code'])
         img.style.left = msg['x'] + 'px'
         img.style.top = msg['y'] + 'px'
+        stats.n_sprites += 1
+        get_document().title = str(stats.n_sprites) + " sprites"
     elif msg['type'] == 'end_frame':
         pass
         sc.revive()
