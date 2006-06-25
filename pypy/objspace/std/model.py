@@ -9,6 +9,7 @@ import pypy.interpreter.pycode
 import pypy.interpreter.special
 
 WITHSMALLINT = False
+WITHSTRSLICE = False
 
 class StdTypeModel:
 
@@ -53,6 +54,8 @@ class StdTypeModel:
         from pypy.objspace.std import listobject
         from pypy.objspace.std import dictobject
         from pypy.objspace.std import stringobject
+        if WITHSTRSLICE:
+            from pypy.objspace.std import strsliceobject
         from pypy.objspace.std import typeobject
         from pypy.objspace.std import sliceobject
         from pypy.objspace.std import longobject
@@ -93,6 +96,8 @@ class StdTypeModel:
         self.typeorder[setobject.W_SetIterObject] = []
         if WITHSMALLINT:
             self.typeorder[smallintobject.W_SmallIntObject] = []
+        if WITHSTRSLICE:
+            self.typeorder[strsliceobject.W_StringSliceObject] = []
         for type in self.typeorder:
             self.typeorder[type].append((type, None))
 
@@ -139,6 +144,14 @@ class StdTypeModel:
         self.typeorder[stringobject.W_StringObject] += [
          (unicodeobject.W_UnicodeObject, unicodeobject.delegate_String2Unicode),
             ]
+
+        if WITHSTRSLICE:
+            self.typeorder[strsliceobject.W_StringSliceObject] += [
+                (stringobject.W_StringObject,
+                                       strsliceobject.delegate_slice2str),
+                (unicodeobject.W_UnicodeObject,
+                                       strsliceobject.delegate_slice2unicode),
+                ]
 
         # put W_Root everywhere
         self.typeorder[W_Root] = []

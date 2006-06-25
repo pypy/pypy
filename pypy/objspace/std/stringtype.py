@@ -3,6 +3,17 @@ from pypy.objspace.std.basestringtype import basestring_typedef
 
 from sys import maxint
 
+from pypy.objspace.std.model import WITHSTRSLICE
+if WITHSTRSLICE:
+    def sliced(s, start, stop):
+        from pypy.objspace.std.strsliceobject import W_StringSliceObject
+        return W_StringSliceObject(s, start, stop)
+else:
+    def sliced(s, start, stop):
+        from pypy.objspace.std.stringobject import W_StringObject
+        return W_StringObject(s[start:stop])
+
+
 str_join    = SMM('join', 2,
                   doc='S.join(sequence) -> string\n\nReturn a string which is'
                       ' the concatenation of the strings in the\nsequence. '

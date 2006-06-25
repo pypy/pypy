@@ -11,8 +11,7 @@ from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.tupleobject import W_TupleObject
 
-# XXX consider reimplementing _value to be a list of characters
-#     instead of a plain string
+from pypy.objspace.std.stringtype import sliced
 
 
 class W_StringObject(W_Object):
@@ -846,7 +845,7 @@ def getitem__String_Slice(space, w_str, w_slice):
         str = ""
     elif step == 1:
         assert start >= 0 and stop >= 0
-        str = s[start:stop]
+        return sliced(s, start, stop)
     else:
         str = "".join([s[start + i*step] for i in range(sl)])
     return W_StringObject(str)
