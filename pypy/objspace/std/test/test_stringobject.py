@@ -135,6 +135,7 @@ class AppTestStringObject:
 
     def test_split(self):
         assert "".split() == []
+        assert "".split('x') == ['']
         assert " ".split() == []
         assert "a".split() == ['a']
         assert "a".split("a", 1) == ['', '']

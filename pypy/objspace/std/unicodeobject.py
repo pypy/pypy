@@ -696,8 +696,6 @@ def unicode_split__Unicode_Unicode_ANY(space, w_self, w_delim, w_maxsplit):
         raise OperationError(space.w_ValueError,
                              space.wrap('empty separator'))
     parts = []
-    if len(self) == 0:
-        return space.newlist([])
     start = 0
     end = len(self)
     while maxsplit != 0:

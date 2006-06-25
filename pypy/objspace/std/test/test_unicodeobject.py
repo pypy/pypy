@@ -72,6 +72,7 @@ class AppTestUnicodeString:
 
     def test_split(self):
         assert u"".split() == []
+        assert u"".split(u'x') == ['']
         assert u" ".split() == []
         assert u"a".split() == [u'a']
         assert u"a".split(u"a", 1) == [u'', u'']
