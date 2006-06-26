@@ -148,7 +148,7 @@ def test_cast_simple_widening():
     S1bis = Struct("s1b", ('sub1', S2))
     p1b = malloc(S1bis, immortal=True)
     p2 = p1b.sub1
-    py.test.raises(TypeError, "cast_pointer(Ptr(S1), p2)")
+    py.test.raises(RuntimeError, "cast_pointer(Ptr(S1), p2)")
 
 def test_cast_simple_widening2():
     S2 = GcStruct("s2", ('a', Signed))
@@ -199,7 +199,7 @@ def test_cast_pointer():
     p3 = p1b.sub.sub
     assert typeOf(p3) == Ptr(S3)
     assert p1b == cast_pointer(Ptr(S1bis), p3)
-    py.test.raises(TypeError, "cast_pointer(Ptr(S1), p3)")
+    py.test.raises(RuntimeError, "cast_pointer(Ptr(S1), p3)")
 
 def test_best_effort_gced_parent_detection():
     S2 = Struct("s2", ('a', Signed))

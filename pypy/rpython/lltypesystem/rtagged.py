@@ -1,5 +1,5 @@
 from pypy.objspace.flow.model import Constant
-from pypy.rpython.rclass import getclassrepr, get_type_repr
+from pypy.rpython.rclass import getclassrepr, getinstancerepr, get_type_repr
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem.rclass import InstanceRepr, CLASSTYPE
 from pypy.rpython.lltypesystem.rclass import MissingRTypeAttribute
@@ -66,9 +66,27 @@ class TaggedInstanceRepr(InstanceRepr):
         unboxedclass_repr = getclassrepr(self.rtyper, self.unboxedclassdef)
         cunboxedcls = inputconst(CLASSTYPE, unboxedclass_repr.getvtable())
         if self.is_parent:
+            # If the lltype of vinst shows that it cannot be a tagged value,
+            # we can directly read the typeptr.  Otherwise, call a helper that
+            # checks if the tag bit is set in the pointer.
+            unboxedinstance_repr = getinstancerepr(self.rtyper,
+                                                   self.unboxedclassdef)
+            try:
+                lltype.castable(unboxedinstance_repr.lowleveltype,
+                                vinst.concretetype)
+            except lltype.InvalidCast:
+                can_be_tagged = False
+            else:
+                can_be_tagged = True
             vinst = llops.genop('cast_pointer', [vinst],
                                 resulttype=self.common_repr())
-            return llops.gendirectcall(ll_unboxed_getclass, vinst, cunboxedcls)
+            if can_be_tagged:
+                return llops.gendirectcall(ll_unboxed_getclass, vinst,
+                                           cunboxedcls)
+            else:
+                ctypeptr = inputconst(lltype.Void, 'typeptr')
+                return llops.genop('getfield', [vinst, ctypeptr],
+                                   resulttype = CLASSTYPE)
         else:
             return cunboxedcls
 

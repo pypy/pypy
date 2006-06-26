@@ -1,5 +1,6 @@
 from pypy.objspace.flow.model import Constant, Variable, SpaceOperation
 from pypy.translator.backendopt.support import split_block_with_keepalive
+from pypy.translator.backendopt.support import log
 from pypy.translator.simplify import eliminate_empty_blocks
 from pypy.translator.unsimplify import insert_empty_block
 from pypy.rpython.lltypesystem.lloperation import llop
@@ -33,6 +34,11 @@ def fold_op_list(operations, constants, exit_early=False):
                     result = op(RESTYPE, *args)
                 except TypeError:
                     pass
+                except (KeyboardInterrupt, SystemExit):
+                    raise
+                except Exception, e:
+                    log.WARNING('constant-folding %r:' % (spaceop,))
+                    log.WARNING('  %s: %s' % (e.__class__.__name__, e))
                 else:
                     # success in folding this space operation
                     constants[spaceop.result] = Constant(result, RESTYPE)

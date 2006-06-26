@@ -1059,7 +1059,7 @@ class _ptr(object):
             struc = parent
             u -= 1
         if PARENTTYPE != PTRTYPE.TO:
-            raise TypeError("widening %r inside %r instead of %r" % (CURTYPE, PARENTTYPE, PTRTYPE.TO))
+            raise RuntimeError("widening %r inside %r instead of %r" % (CURTYPE, PARENTTYPE, PTRTYPE.TO))
         return _ptr(PTRTYPE, struc, solid=self._solid)
 
     def _cast_to_int(self):

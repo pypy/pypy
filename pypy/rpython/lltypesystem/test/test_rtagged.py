@@ -2,6 +2,8 @@ import sys
 from pypy.rpython.test.test_llinterp import interpret, get_interpreter
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.objectmodel import UnboxedValue
+from pypy.translator.translator import graphof
+from pypy.objspace.flow.model import summary
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy import conftest
 
@@ -11,6 +13,7 @@ class A(object):
         raise NotImplementedError
 
 class B(A):
+    attrvalue = 66
     def __init__(self, normalint):
         self.normalint = normalint
     def meth(self, x):
@@ -20,6 +23,9 @@ class C(A, UnboxedValue):
     __slots__ = 'smallint'
     def meth(self, x):
         return self.smallint + x + 3
+
+class D(B):
+    attrvalue = 68
 
 # ____________________________________________________________
 
@@ -174,3 +180,25 @@ def test_optimize_method():
     interp.frame_class = MyFrame
     res = interp.eval_graph(graph, [-1000])
     assert res == -897
+
+def test_untagged_subclasses():
+    def g(x):
+        return x.attrvalue   # should not produce a call to ll_unboxed_getclass
+    def fn(n):
+        y = C(12)
+        if n > 0:
+            x = B(5)
+        else:
+            x = D(5)
+        return g(x)
+
+    interp, graph = get_interpreter(fn, [-1000])
+
+    t = interp.typer.annotator.translator
+    ggraph = graphof(t, g)
+    assert summary(ggraph) == {'cast_pointer': 2, 'getfield': 2}
+
+    res = interp.eval_graph(graph, [-1000])
+    assert res == 68
+    res = interp.eval_graph(graph, [3])
+    assert res == 66

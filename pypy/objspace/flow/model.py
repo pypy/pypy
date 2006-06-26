@@ -648,3 +648,12 @@ def checkgraph(graph):
         if block and not hasattr(e, '__annotator_block'):
             setattr(e, '__annotator_block', block)
         raise
+
+def summary(graph):
+    # return a summary of the instructions found in a graph
+    insns = {}
+    for block in graph.iterblocks():
+        for op in block.operations:
+            if op.opname != 'same_as':
+                insns[op.opname] = insns.get(op.opname, 0) + 1
+    return insns

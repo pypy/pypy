@@ -1,4 +1,4 @@
-from pypy.objspace.flow.model import checkgraph, Constant
+from pypy.objspace.flow.model import checkgraph, Constant, summary
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.lltypesystem import lltype
@@ -21,15 +21,6 @@ def check_graph(graph, args, expected_result, t):
     interp = LLInterpreter(t.rtyper)
     res = interp.eval_graph(graph, args)
     assert res == expected_result
-
-def summary(graph):
-    # return a summary of the instructions left in a graph
-    insns = {}
-    for block in graph.iterblocks():
-        for op in block.operations:
-            if op.opname != 'same_as':
-                insns[op.opname] = insns.get(op.opname, 0) + 1
-    return insns
 
 
 def test_simple():
