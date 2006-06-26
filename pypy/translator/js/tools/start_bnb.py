@@ -56,7 +56,7 @@ class Stats(object):
     
     def register_frame(self):
         self.n_rendered_inline_frames += 1
-        if self.n_rendered_inline_frames > 10:
+        if self.n_rendered_inline_frames >= 10:
             next_time = date()
             self.fps = 10000/(next_time - self.starttime)
             self.n_rendered_inline_frames = 0

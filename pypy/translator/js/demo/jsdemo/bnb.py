@@ -100,7 +100,7 @@ class BnbRoot(Root, BasicExternal):
     def index(self):
         import time
         sessionid = session['_id']
-        self._serverMessage[sessionid] = ServerMessage('static/images')
+        self._serverMessage[sessionid] = ServerMessage('static/images/')
         self.new_sprites = 0
         self.sm = SpriteManager()
         return dict(now=time.ctime(), onload=self.jsname, code=self.jssource)

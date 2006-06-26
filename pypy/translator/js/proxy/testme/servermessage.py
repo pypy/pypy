@@ -43,6 +43,8 @@ class ServerMessage:
     def __init__(self, base_gfx_dir = None):
         if base_gfx_dir:
             self.base_gfx_dir = base_gfx_dir
+            if not self.base_gfx_dir.endswith('/'):
+                self.base_gfx_dir += '/'
         self.socket = None
         self.data   = ''
         self.n_header_lines = 2
