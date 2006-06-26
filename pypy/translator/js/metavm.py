@@ -205,14 +205,37 @@ class _SetTimeout(MicroInstruction):
         generator.load(op.args[2])
         generator.call_external('setTimeout',[0]*2)
 
-class _XmlSetCallback(MicroInstruction):
-    # FIXME: Another dirty hack. To remove soon
+class _SetOnKeydown(MicroInstruction):
+    # FIXME: Dirty hack for javascript callback stuff
     def render(self, generator, op):
-        generator.load(op.args[2])
-        generator.load(op.args[1])
-        generator.set_field(None, 'onreadystatechange')
+        val = op.args[1].value
+        val = val.concretize().value
+        assert(isinstance(val, ootype._static_meth))
+        #if isinstance(val, ootype.StaticMethod):
+        real_name = val._name
+        generator.db.pending_function(val.graph)
+            #generator.db.pending_function(val.graph)
+        #else:
+        #    concrete = val.concretize()
+        #    real_name = concrete.value._name
+        #    generator.db.pending_function(concrete.value.graph)
+        #generator.load_str("'%s()'" % real_name)
+        #generator.load(op.args[2])
+        generator.load_str("document")
+        generator.load_str(real_name)
+        generator.set_field(None, 'onkeydown')
+        #generator.call_external('setTimeout',[0]*2)
 
-XmlSetCallback = _XmlSetCallback()
+SetOnKeydown = _SetOnKeydown()
+
+##class _XmlSetCallback(MicroInstruction):
+##    # FIXME: Another dirty hack. To remove soon
+##    def render(self, generator, op):
+##        generator.load(op.args[2])
+##        generator.load(op.args[1])
+##        generator.set_field(None, 'onreadystatechange')
+##
+##XmlSetCallback = _XmlSetCallback()
 SetTimeout = _SetTimeout()
 IndirectCall = _IndirectCall()
 IsInstance = _IsInstance()

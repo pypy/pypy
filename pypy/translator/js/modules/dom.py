@@ -18,6 +18,13 @@ class Style(object):
         self.top = "0"
         self.visibility = 'visible'
 
+def set_on_keydown(func):
+    if one():
+        func("str")
+    else:
+        func("str2")
+
+set_on_keydown.suggested_primitive = True
 
 class Node(object):
     _rpython_hints = {'_suggested_external' : True}
@@ -58,6 +65,10 @@ class Document(Node):
 def get_document():
     return Document()
 
+#def get_window():
+#    return Window()
+
+#get_window.suggested_primitive = True
 get_document.suggested_primitive = True
 
 document = Node()

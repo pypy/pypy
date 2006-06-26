@@ -74,7 +74,7 @@ class SpriteManager(object):
 class BnbRoot(Root, BasicExternal):
     _serverMessage = {}
 
-    host = 'localhost'
+    host = 'snake'
     try:
         port = re.findall('value=".*"', urllib.urlopen('http://%s:8000' % host).read())[0]
     except IOError:
@@ -165,17 +165,22 @@ class BnbRoot(Root, BasicExternal):
         for i, msg in enumerate(messages):
             if msg['type'] == PMSG_INLINE_FRAME:
                 for next in msg['sprites']:
+                    #to_append.append({'type':'ns', 's':self.num, 'icon_code':str(next[0]), 'x':str(next[1]), 'y':str(next[2])})
+                    #self.num += 1
                     new_sprite, s_num = self.sm.get_sprite(*next)
                     if new_sprite == 'new':
-                        #if self.new_sprites < 100:
                         to_append.append({'type':'ns', 's':s_num, 'icon_code':str(next[0]), 'x':str(next[1]), 'y':str(next[2])})
-                        self.new_sprites += 1
                     elif new_sprite == 'move':
                         to_append.append({'type':'sm', 's':str(s_num), 'x':str(next[1]), 'y':str(next[2])})
                 del messages[i]
 
-        for i in self.sm.end_frame():
-            to_append.append({'type':'ds', 's':str(i)})
+        empty_frame = False
+        if self.sm.seen == set([]):
+            empty_frame = True
+        
+        if not empty_frame:
+            for i in self.sm.end_frame():
+                to_append.append({'type':'ds', 's':str(i)})
         messages += to_append
         #messages.append(to_append[0])
         #print len(messages)

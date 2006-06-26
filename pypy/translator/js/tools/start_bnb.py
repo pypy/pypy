@@ -15,7 +15,7 @@ from pypy.translator.js.test.runtest import compile_function
 from pypy.translator.js.modules.dom import Node, get_document, setTimeout, alert
 from pypy.translator.js.modules.xmlhttp import XMLHttpRequest
 from pypy.translator.js.modules.mochikit import logDebug, createLoggingPane
-from pypy.translator.js.modules.dom import get_document
+from pypy.translator.js.modules.dom import get_document, set_on_keydown
 from pypy.translator.js.modules.bltns import date
 
 import time
@@ -64,47 +64,6 @@ class Stats(object):
 
 stats = Stats()
 
-class SpriteContainer(object):
-    """ Class containing all sprites
-    """
-    def __init__(self):
-        self.sprite_queues = {}
-        self.used = {}
-        self.filenames = {}
-        self.icon_codes = []
-    
-    def add_icon(self, icon_code, filename):
-        self.filenames[icon_code] = filename
-        self.sprite_queues[icon_code] = []
-        self.used[icon_code] = []
-        # FIXME: Need to write down DictIterator once...
-        self.icon_codes.append(icon_code)
-    
-    def get_sprite(self, icon_code):
-        #logDebug(str(len(self.sprite_queues[icon_code])))
-        try:
-            elem = self.sprite_queues[icon_code].pop()
-            elem.style.visibility = "visible"
-            self.used[icon_code].append(elem)
-            return elem
-        except IndexError:
-            img = get_document().createElement("img")
-            img.setAttribute("src", self.filenames[icon_code])
-            img.setAttribute("style", 'position:absolute; left:0px; top:0px; visibility:visible')
-            self.sprite_queues[icon_code].append(img)
-            get_document().getElementById("playfield").appendChild(img)
-            stats.n_sprites += 1
-            return img
-    
-    def revive(self):
-        for i in self.icon_codes:
-            for j in self.sprite_queues[i]:
-                j.style.visibility = "hidden"
-            self.sprite_queues[i] = self.sprite_queues[i] + self.used[i]
-            self.used[i] = []
-        
-#sc = SpriteContainer();
-
 class SpriteManager(object):
     def __init__(self):
         self.sprites = {}
@@ -139,6 +98,10 @@ class SpriteManager(object):
         i = self.sprites[s]
         i.style.visibility = "hidden"
         #pass
+    
+    #def show_sprite(self, s):
+    #    i = self.sprites[s]
+    #    i.style.visibility = "visible"
 
 sm = SpriteManager()
 
@@ -165,6 +128,11 @@ def process_message(msg):
         sm.move_sprite(msg['s'], msg['x'], msg['y'])
     elif msg['type'] == 'ds':
         sm.hide_sprite(msg['s'])
+    #elif msg['type'] == 'ss':
+    #    sm.show_sprite(msg['s'])
+
+def keydown(key):
+    logDebug(key)
 
 def bnb_dispatcher(msgs):
     BnbRootInstance.get_message(bnb_dispatcher)
@@ -179,6 +147,7 @@ def run_bnb():
         #get_document().
         createLoggingPane(True)
         BnbRootInstance.get_message(bnb_dispatcher)
+        set_on_keydown(keydown)
     
     from pypy.translator.js.demo.jsdemo.bnb import BnbRoot
     fn = compile_function(bnb, [], root = BnbRoot, run_browser = True)
