@@ -1,0 +1,32 @@
+Making a PyPy Release
+=======================
+
+Overview
+---------
+
+As a meta rule setting up issues in the tracker for items here may help not forgetting things.
+
+Check and prioritize all issues for the release, postpone some if necessary,
+create new  issues also as necessary. A meeting (or meetings) should be organized
+to decide what things are priorities, should go in and work for the release. 
+An important thing is to get the documentation into an up-to-date state.
+
+Release Steps
+----------------
+
+* at code freeze make a release branch under http://codepeak.net/svn/pypy/release/x.y(.z) ,
+  some of the next updates may be done before or after branching;
+  make sure things are ported back to the trunk and to the branch as necessary
+* XXX find out and list the set  of testing necessary
+* update dist/pypy/doc/contributort.txt (and possibly dist/LICENSE)
+* update dist/README
+* write release announcement dist/pypy/doc/release-x.y(.z).txt
+* update the status section in dist/pypy/doc/architecture.txt
+* update dist/pypy/doc/getting-started.txt links at the top
+  and release number references, make sure it is generally up-to-date
+* use, after the necessary updates, dist/pypy/tool/makerealase.py to make the tarballs 
+  on codespeak (XXX what about tagging the release?)
+* test the download links in dist/pypy/doc/getting-started.txt and possibly in the release announcement,
+  ask people to test them
+* write a news item for the release in dist/pypy/doc/news.txt
+* send announcements to pypy-dev, pypy-funding, python-list, python-announce, python-dev ...
