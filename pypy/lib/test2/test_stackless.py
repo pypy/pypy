@@ -44,18 +44,16 @@ class AppTest_Stackless(object):
         assert Y.receive() == 42
         
 
-    def notest_wait_two(self):
+    def test_wait_two(self):
         """
         A tasklets/channels adaptation of the test_wait_two from the
         logic object space
-        XXX: fails complaining that some channel has no Receive
-             attribute
         """
         from stackless import run, tasklet, channel
         run()
         
         def sleep(X, Barrier):
-            Barrier.send((X, X.Receive()))
+            Barrier.send((X, X.receive()))
 
         def wait_two(X, Y, Ret_chan):
             Barrier = channel()
