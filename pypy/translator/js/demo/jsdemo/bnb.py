@@ -89,7 +89,6 @@ class BnbRoot(Root, BasicExternal):
         'get_message' : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]})
     }
     
-    sm = SpriteManager()
     
     def serverMessage(self):
         sessionid = session['_id']
@@ -100,7 +99,9 @@ class BnbRoot(Root, BasicExternal):
     @turbogears.expose(html="jsdemo.templates.bnb")
     def index(self):
         import time
+        self._serverMessage[sessionid] = ServerMessage('static/images')
         self.new_sprites = 0
+        self.sm = SpriteManager()
         return dict(now=time.ctime(), onload=self.jsname, code=self.jssource)
     
     def sessionSocket(self, close=False):
