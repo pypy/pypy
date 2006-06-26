@@ -20,7 +20,7 @@ class AppTest_Stackless(object):
         X.send(42)
         assert Y.receive() == 42
 
-    def notest_nested_pipe(self):
+    def test_nested_pipe(self):
         """
         XXX: fails complaining that some coroutine hasn't the
              block_trap attribute/slot

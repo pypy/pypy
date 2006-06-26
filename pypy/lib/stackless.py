@@ -65,6 +65,7 @@ class TaskletProxy(object):
         self.alive = True
         self.atomic = False
         self.blocked = 0
+        self.block_trap = False
         self.frame = None
         self.ignore_nesting = False
         self.is_current = False
