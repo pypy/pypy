@@ -206,7 +206,7 @@ producer/consummer scheme::
   assert S == 45
 
 Note that this eagerly generates all elements before the first of them
-is consummed. Wait_needed helps write us a lazy version of the
+is consummed. Wait_needed helps us write a lazy version of the
 generator. But the consummer will be responsible of the termination,
 and thus must be adapted too::
 
@@ -262,9 +262,9 @@ write a simple program like the following::
   assert X == Y == 42
   assert o == 2
 
-Finally, it must be noted that bind/unify and wait pair of operations
-are quite similar to send and synchronous receive primitives for
-inter-process communication.
+Finally, it must be noted that the bind/unify and wait pair of
+operations are quite similar to the asynchronous send and receive
+primitives commonly used for for inter-process communication.
 
 The operators table
 -------------------
@@ -459,12 +459,11 @@ not in the general case. See the sources for a more general-purpose
 only conference_scheduling is up to date with the current API).
 
 In line 8, we take a clone of the space; nothing is shared between
-space and newspace (the clone). Having taken a clone, we now have two
-identical versions of the space that we got as parameter. This will
-allow us to explore the two alternatives. This step is done, line 9
-and 13, with the call to commit, each time with a different integer
-value representing the branch to be taken. The rest should be
-sufficiently self-describing.
+space and newspace (the clone). We now have two identical versions of
+the space that we got as parameter. This will allow us to explore the
+two alternatives. This step is done, line 9 and 13, with the call to
+commit, each time with a different integer value representing the
+branch to be taken. The rest should be sufficiently self-describing.
 
 This shows the two important space methods used by a search engine:
 ask, which waits for the stability of the space and informs the solver
