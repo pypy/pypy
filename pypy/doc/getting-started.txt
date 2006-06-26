@@ -64,7 +64,7 @@ dependant on CPython anymore and becomes faster.
 .. _`95% of CPythons core language regression tests`: http://codespeak.net/~hpk/pypy-testresult/ 
 .. _`pypy-0.9.0.tar.bz2`: http://codespeak.net/download/pypy/pypy-0.9.0.tar.bz2
 .. _`pypy-0.9.0.zip`: http://codespeak.net/download/pypy/pypy-0.9.0.zip
-.. _`pypy-0.9.0.tar.gz`: http://codespeak.net/download/pypy/pypy-0.8.0.tar.gz
+.. _`pypy-0.9.0.tar.gz`: http://codespeak.net/download/pypy/pypy-0.9.0.tar.gz
 
 Svn-check out & run the latest PyPy as a two-liner
 --------------------------------------------------
