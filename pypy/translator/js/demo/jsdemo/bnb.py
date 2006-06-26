@@ -154,9 +154,9 @@ class BnbRoot(Root, BasicExternal):
 
         len_before = len(messages)
         #XXX we could do better by not generating only the last inline_frame message anyway!
-        #inline_frames = [i for i,msg in enumerate(messages) if msg['type'] == PMSG_INLINE_FRAME]
-        #for i in reversed(inline_frames[:-1]):
-        #    del messages[i]
+        inline_frames = [i for i,msg in enumerate(messages) if msg['type'] == PMSG_INLINE_FRAME]
+        for i in reversed(inline_frames[:-1]):
+            del messages[i]
 
         #if messages:
         #    log('MESSAGES:lenbefore=%d, inline_frames=%s, lenafter=%d' % (
