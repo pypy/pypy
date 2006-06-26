@@ -15,6 +15,13 @@ for a list of past events.
 .. _`iCalendar format`: webcal://pypycal.sabi.net///calendars/PyPy.ics
 .. _eventhistory: eventhistory.html
 
+PyPy 0.9.0
+==================================================================
+
+We are proud to release PyPy 0.9.0, our fourth public release.  See
+the `release announcement <release-0.9.0.html>`__ to read about the
+many new features in this release.
+
 EuroPython PyPy sprint 6-9 July 2006
 ==================================================================
 
