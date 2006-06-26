@@ -131,9 +131,15 @@ def process_message(msg):
     #elif msg['type'] == 'ss':
     #    sm.show_sprite(msg['s'])
 
-def keydown(key):
-    logDebug(key.keyCode)
 
+def keydown(key):
+    if key.keyCode == '65': #Aa
+        BnbRootInstance.add_player(bnb_dispatcher)  #XXX player_id 0 hardcoded
+        #BnbRootInstance.add_player(bnb_dispatcher, 0)
+    elif key.keyCode == '82': #Rr
+        BnbRootInstance.remove_player(bnb_dispatcher)  #XXX player_id 0 hardcoded
+        #BnbRootInstance.remove_player(bnb_dispatcher, 0)
+    logDebug(key.keyCode)
 def bnb_dispatcher(msgs):
     BnbRootInstance.get_message(bnb_dispatcher)
     for msg in msgs['messages']:

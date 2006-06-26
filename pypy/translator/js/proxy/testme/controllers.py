@@ -76,6 +76,19 @@ class Root(controllers.Root):
         return self.recv()
 
     @expose(format='json')
+    def close(self):
+        self._close()
+        return dict()
+
+    def _close(self):
+        sessionid = session['_id']
+        if sessionid in self._serverMessage:
+            sm = self.serverMessage()
+            if sm.socket is not None:
+                sm.socket.close()
+            del self._serverMessage[sessionid]
+
+    @expose(format='json')
     def recv(self):
         #XXX hangs if not first sending CMSG_PING!
         sm   = self.serverMessage()
@@ -116,17 +129,4 @@ class Root(controllers.Root):
         #    log('MESSAGES:lenbefore=%d, inline_frames=%s, lenafter=%d' % (
         #        len_before, inline_frames, len(messages)))
         return dict(messages=messages)
-
-    @expose(format='json')
-    def close(self):
-        self._close()
-        return dict()
-
-    def _close(self):
-        sessionid = session['_id']
-        if sessionid in self._serverMessage:
-            sm = self.serverMessage()
-            if sm.socket is not None:
-                sm.socket.close()
-            del self._serverMessage[sessionid]
 

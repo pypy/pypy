@@ -11,7 +11,7 @@ from pypy.translator.js.proxy.testme.servermessage import log, ServerMessage, PM
 from pypy.translator.js.proxy.testme.msgstruct import *
 from cherrypy import session
 
-import re, time, sys, os, urllib, socket, copy
+import re, time, sys, os, urllib, socket, copy, md5, random
 
 class SortY(object):
     def __init__(self, data):
@@ -86,7 +86,9 @@ class BnbRoot(Root, BasicExternal):
     port = int(port[7:-1])
     
     _methods = {
-        'get_message' : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]})
+        'get_message' : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
+        'add_player'  : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
+        'remove_player'  : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
     }
     
     
@@ -95,16 +97,7 @@ class BnbRoot(Root, BasicExternal):
         if sessionid not in self._serverMessage:
             self._serverMessage[sessionid] = ServerMessage('static/images/')
         return self._serverMessage[sessionid]
-    
-    @turbogears.expose(html="jsdemo.templates.bnb")
-    def index(self):
-        import time
-        sessionid = session['_id']
-        self._serverMessage[sessionid] = ServerMessage('static/images/')
-        self.new_sprites = 0
-        self.sm = SpriteManager()
-        return dict(now=time.ctime(), onload=self.jsname, code=self.jssource)
-    
+
     def sessionSocket(self, close=False):
         sm = self.serverMessage()
         if sm.socket is None:
@@ -120,7 +113,53 @@ class BnbRoot(Root, BasicExternal):
             #sm.socket.send(message(CMSG_PLAYER_NAME, player_id, 'PyPy'))
             #XXX todo: session.socket.close() after a timeout
         return sm.socket
+
+    @turbogears.expose(html="jsdemo.templates.bnb")
+    def index(self):
+        import time
+        self._close()
+        #force new session id to restart a game!
+        session['_id'] = md5.md5(str(random.random())).hexdigest()
+        self._serverMessage[session['_id']] = ServerMessage('static/images/')
+        self.new_sprites = 0
+        self.sm = SpriteManager()
+        return dict(now=time.ctime(), onload=self.jsname, code=self.jssource)
     
+    @turbogears.expose(format='json')
+    def player_name(self, name):
+        self.sessionSocket().send(message(CMSG_PLAYER_NAME, name))
+        return self.get_message()
+
+    @turbogears.expose(format='json')
+    def add_player(self): #, player_id):
+        player_id = 0 #XXX hardcoded for now
+        self.sessionSocket().send(message(CMSG_ADD_PLAYER, int(player_id)))
+        return self.get_message()
+
+    @turbogears.expose(format='json')
+    def remove_player(self): #, player_id):
+        player_id = 0 #XXX hardcoded for now
+        self.sessionSocket().send(message(CMSG_REMOVE_PLAYER, int(player_id)))
+        return self.get_message()
+
+    @turbogears.expose(format='json')
+    def key(self, player_id, keynum):
+        self.sessionSocket().send(message(CMSG_KEY, int(player_id), int(keynum)))
+        return self.get_message()
+
+    @turbogears.expose(format='json')
+    def close(self):
+        self._close()
+        return dict()
+
+    def _close(self):
+        sessionid = session['_id']
+        if sessionid in self._serverMessage:
+            sm = self.serverMessage()
+            if sm.socket is not None:
+                sm.socket.close()
+            del self._serverMessage[sessionid]
+
     @turbogears.expose(format="json")
     def get_message(self):
         #XXX hangs if not first sending CMSG_PING!
