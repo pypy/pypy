@@ -18,11 +18,18 @@ class Style(object):
         self.top = "0"
         self.visibility = 'visible'
 
+class Key(object):
+    _rpython_hints = {'_suggested_external' : True}
+        
+    def __init__(self, s):
+        self.charCode = s
+        self.keyCode = s
+
 def set_on_keydown(func):
     if one():
-        func("str")
+        func(Key("str"))
     else:
-        func("str2")
+        func(Key("str2"))
 
 set_on_keydown.suggested_primitive = True
 

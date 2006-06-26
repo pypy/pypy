@@ -205,7 +205,10 @@ class _SetTimeout(MicroInstruction):
         generator.load(op.args[2])
         generator.call_external('setTimeout',[0]*2)
 
-class _SetOnKeydown(MicroInstruction):
+class SetOnEvent(MicroInstruction):
+    def __init__(self, field):
+        self.field = field
+    
     # FIXME: Dirty hack for javascript callback stuff
     def render(self, generator, op):
         val = op.args[1].value
@@ -223,10 +226,8 @@ class _SetOnKeydown(MicroInstruction):
         #generator.load(op.args[2])
         generator.load_str("document")
         generator.load_str(real_name)
-        generator.set_field(None, 'onkeydown')
+        generator.set_field(None, self.field)
         #generator.call_external('setTimeout',[0]*2)
-
-SetOnKeydown = _SetOnKeydown()
 
 ##class _XmlSetCallback(MicroInstruction):
 ##    # FIXME: Another dirty hack. To remove soon

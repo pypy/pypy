@@ -4,7 +4,7 @@
 from pypy.translator.oosupport.metavm import InstructionList, PushAllArgs
 from pypy.translator.js.metavm import SetBuiltinField, ListGetitem, ListSetitem, \
     GetBuiltinField, CallBuiltin, Call, SetTimeout, ListContains,\
-    NewBuiltin, SetOnKeydown
+    NewBuiltin, SetOnEvent
 
 from pypy.rpython.ootypesystem import ootype
 
@@ -17,7 +17,7 @@ class _Builtins(object):
             'll_newlist' : lambda g,op: g.ilasm.load_const("[]"),
             'll_alloc_and_set' : CallBuiltin('alloc_and_set'),
             'get_document' : lambda g,op: g.ilasm.load_const('document'),
-            'set_on_keydown' : SetOnKeydown,
+            'set_on_keydown' : SetOnEvent('onkeydown'),
             'setTimeout' : SetTimeout,
             #'xmlSetCallback' : XmlSetCallback,
             'll_int_str' : lambda g,op: Call._render_builtin_method(g, 'toString' , [op.args[2]]),

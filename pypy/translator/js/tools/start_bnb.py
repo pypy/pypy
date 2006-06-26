@@ -132,7 +132,7 @@ def process_message(msg):
     #    sm.show_sprite(msg['s'])
 
 def keydown(key):
-    logDebug(key)
+    logDebug(key.keyCode)
 
 def bnb_dispatcher(msgs):
     BnbRootInstance.get_message(bnb_dispatcher)
