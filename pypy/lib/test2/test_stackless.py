@@ -21,10 +21,6 @@ class AppTest_Stackless(object):
         assert Y.receive() == 42
 
     def test_nested_pipe(self):
-        """
-        XXX: fails complaining that some coroutine hasn't the
-             block_trap attribute/slot
-        """
         from stackless import run, tasklet, channel
         run()
 
