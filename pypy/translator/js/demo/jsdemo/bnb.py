@@ -7,11 +7,11 @@ import cherrypy
 from pypy.translator.js.demo.jsdemo.controllers import Root
 from pypy.rpython.ootypesystem.bltregistry import BasicExternal, MethodDesc
 
-from pypy.translator.js.proxy.testme.servermessage import log, ServerMessage, PMSG_INLINE_FRAME
+from pypy.translator.js.proxy.testme.servermessage import log, ServerMessage, PMSG_INLINE_FRAME, PMSG_DEF_ICON
 from pypy.translator.js.proxy.testme.msgstruct import *
 from cherrypy import session
 
-import re, time, sys, os, urllib, socket
+import re, time, sys, os, urllib, socket, copy
 
 class SortY(object):
     def __init__(self, data):
@@ -19,6 +19,55 @@ class SortY(object):
     
     def __cmp__(self, other):
         return cmp(self.data['y'], other.data['y'])
+
+
+class SpriteManager(object):
+    def __init__(self):
+        self.sprite_sets = {}
+        self.positions = {}
+        self.num = 0
+        self.next_pos = {}
+        self.last_seen = set()
+        self.seen = set()
+    
+    def def_icon(self, icon_code):
+        self.sprite_sets[icon_code] = []
+    
+    def get_sprite(self, icon_code, x, y):
+        try:
+            to_ret = self.positions[(icon_code, x, y)]
+            del self.positions[(icon_code, x, y)]
+            self.next_pos[(icon_code, x, y)] = to_ret
+            self.seen.add((icon_code, to_ret))
+            return "still", to_ret
+        except KeyError:
+            try:
+                try:
+                    to_ret = self.sprite_sets[icon_code].pop()
+                except KeyError:
+                    self.def_icon(icon_code)
+                    raise IndexError
+                self.next_pos[(icon_code, x, y)] = to_ret
+                self.seen.add((icon_code, to_ret))
+                return "move", to_ret
+            except IndexError:
+                next = self.num
+                self.num += 1
+                self.next_pos[(icon_code, x, y)] = next
+                self.seen.add((icon_code, next))
+                return "new", next
+    
+    def end_frame(self):
+        self.positions = copy.deepcopy(self.next_pos)
+        self.next_pos = {}
+        to_ret = []
+        #import pdb;pdb.set_trace()
+        for ic, i in self.last_seen - self.seen:
+            self.sprite_sets[ic].append(i)
+            to_ret.append(i)
+        self.last_seen = self.seen
+        self.seen = set()
+        return to_ret
 
 # Needed double inheritance for both server job
 # and semi-transparent communication proxy
@@ -40,6 +89,8 @@ class BnbRoot(Root, BasicExternal):
         'get_message' : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]})
     }
     
+    sm = SpriteManager()
+    
     def serverMessage(self):
         sessionid = session['_id']
         if sessionid not in self._serverMessage:
@@ -49,7 +100,7 @@ class BnbRoot(Root, BasicExternal):
     @turbogears.expose(html="jsdemo.templates.bnb")
     def index(self):
         import time
-        self.last_frames = set()
+        self.new_sprites = 0
         return dict(now=time.ctime(), onload=self.jsname, code=self.jssource)
     
     def sessionSocket(self, close=False):
@@ -72,8 +123,13 @@ class BnbRoot(Root, BasicExternal):
     def get_message(self):
         #XXX hangs if not first sending CMSG_PING!
         sm   = self.serverMessage()
-        size = 10000 #XXX should really loop until all data is handled
-        data = sm.data + self.sessionSocket().recv(size)
+        data = sm.data
+        sock = self.sessionSocket()
+        while True:
+            try:
+                data += sock.recv(4096, socket.MSG_DONTWAIT)
+            except:    
+                break
         while sm.n_header_lines > 0 and '\n' in data:
             sm.n_header_lines -= 1
             header_line, data = data.split('\n',1)
@@ -104,22 +160,23 @@ class BnbRoot(Root, BasicExternal):
         #    log('MESSAGES:lenbefore=%d, inline_frames=%s, lenafter=%d' % (
         #        len_before, inline_frames, len(messages)))
         to_append = []
-        next_last = set()
-        keep_sprites = []
         for i, msg in enumerate(messages):
             if msg['type'] == PMSG_INLINE_FRAME:
                 for next in msg['sprites']:
-#                    if not next in self.last_frames:
-                        # sort them by y axis
-                    to_append.append(SortY({'type':'sprite', 'x':str(next[1]), 'y':str(next[2]), 'icon_code':str(next[0])}))
-                    #next_last.add(next)
+                    new_sprite, s_num = self.sm.get_sprite(*next)
+                    if new_sprite == 'new':
+                        #if self.new_sprites < 100:
+                        to_append.append({'type':'ns', 's':s_num, 'icon_code':str(next[0]), 'x':str(next[1]), 'y':str(next[2])})
+                        self.new_sprites += 1
+                    elif new_sprite == 'move':
+                        to_append.append({'type':'sm', 's':str(s_num), 'x':str(next[1]), 'y':str(next[2])})
                 del messages[i]
-        
-        self.last_frames = next_last
-        to_append.sort()
-        messages += [i.data for i in to_append]
-        
-        messages.append({'type':'end_frame'})
+
+        for i in self.sm.end_frame():
+            to_append.append({'type':'ds', 's':str(i)})
+        messages += to_append
+        #messages.append(to_append[0])
+        #print len(messages)
         return dict(messages=messages)
 
 BnbRootInstance = BnbRoot()

@@ -3,6 +3,7 @@
 <head>
     <meta content="text/html; charset=UTF-8" http-equiv="content-type"/>
     <title>Bub'n'bros</title>
+    <script language="javascript" src="/tgtest${std.tg_js}/MochiKit.js"/>
     <script language="javascript" src="${std.tg_js}/MochiKit.js"/>
     <script type="text/javascript" src="js_basic.js"/>
     <script type="text/javascript">

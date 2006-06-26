@@ -124,7 +124,7 @@ class _CallDispatcher(_GeneralDispatcher):
             try:
                 return self.builtins.builtin_map[func_name](generator, op)
             except KeyError:
-                pass
+                return self.class_map['CallBuiltin'](func_name)(generator, op)
         return self.class_map['Call'].render(generator, op)
     
 class _GetFieldDispatcher(_GeneralDispatcher):

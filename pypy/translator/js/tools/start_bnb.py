@@ -16,6 +16,7 @@ from pypy.translator.js.modules.dom import Node, get_document, setTimeout, alert
 from pypy.translator.js.modules.xmlhttp import XMLHttpRequest
 from pypy.translator.js.modules.mochikit import logDebug, createLoggingPane
 from pypy.translator.js.modules.dom import get_document
+from pypy.translator.js.modules.bltns import date
 
 import time
 import os
@@ -49,7 +50,17 @@ class Stats(object):
         self.n_received_inline_frames = 0
         self.n_rendered_inline_frames = 0
         self.n_rendered_dynamic_sprites = 0
+        self.fps = 0
+        self.starttime = 0.0
         self.n_sprites = 0 #why is inline frame broken up?
+    
+    def register_frame(self):
+        self.n_rendered_inline_frames += 1
+        if self.n_rendered_inline_frames > 10:
+            next_time = date()
+            self.fps = 10000/(next_time - self.starttime)
+            self.n_rendered_inline_frames = 0
+            self.starttime = next_time
 
 stats = Stats()
 
@@ -82,6 +93,7 @@ class SpriteContainer(object):
             img.setAttribute("style", 'position:absolute; left:0px; top:0px; visibility:visible')
             self.sprite_queues[icon_code].append(img)
             get_document().getElementById("playfield").appendChild(img)
+            stats.n_sprites += 1
             return img
     
     def revive(self):
@@ -91,7 +103,44 @@ class SpriteContainer(object):
             self.sprite_queues[i] = self.sprite_queues[i] + self.used[i]
             self.used[i] = []
         
-sc = SpriteContainer();
+#sc = SpriteContainer();
+
+class SpriteManager(object):
+    def __init__(self):
+        self.sprites = {}
+        self.filenames = {}
+
+    def add_icon(self, icon_code, filename):
+        self.filenames[icon_code] = filename
+        #self.sprite_queues[icon_code] = []
+        #self.used[icon_code] = []
+        # FIXME: Need to write down DictIterator once...
+        #self.icon_codes.append(icon_code)
+
+    def add_sprite(self, s, icon_code, x, y):
+        #try:
+        #    img = self.sprite_queues[icon_code].pop()
+        #except IndexError:
+        stats.n_sprites += 1
+        img = get_document().createElement("img")
+        img.setAttribute("src", self.filenames[icon_code])
+        img.setAttribute("style", 'position:absolute; left:'+x+'px; top:'+y+'px; visibility:visible')
+        get_document().getElementById("playfield").appendChild(img)
+        self.sprites[s] = img
+        return img
+
+    def move_sprite(self, s, x, y):
+        i = self.sprites[s]
+        i.style.top = y + 'px'
+        i.style.left = x + 'px'
+        i.style.visibility = 'visible'
+    
+    def hide_sprite(self, s):
+        i = self.sprites[s]
+        i.style.visibility = "hidden"
+        #pass
+
+sm = SpriteManager()
 
 def process_message(msg):
     if msg['type'] == 'def_playfield':
@@ -109,23 +158,21 @@ def process_message(msg):
 ##        img.setAttribute("style", 'position:absolute; left:0; top:0')
 ##        img.setAttribute("id", msg["icon_code"])
 ##        get_document().getElementById("playfield").appendChild(img)
-        sc.add_icon(msg['icon_code'], msg['filename'])
-    elif msg['type'] == 'sprite':
-        #img = get_document().getElementById(msg["icon_code"])
-        #logDebug(str(img.left) + " " + str(img.right))
-        img = sc.get_sprite(msg['icon_code'])
-        img.style.left = msg['x'] + 'px'
-        img.style.top = msg['y'] + 'px'
-        stats.n_sprites += 1
-        get_document().title = str(stats.n_sprites) + " sprites"
-    elif msg['type'] == 'end_frame':
-        pass
-        sc.revive()
+        sm.add_icon(msg['icon_code'], msg['filename'])
+    elif msg['type'] == 'ns':
+        sm.add_sprite(msg['s'], msg['icon_code'], msg['x'], msg['y'])
+    elif msg['type'] == 'sm':
+        sm.move_sprite(msg['s'], msg['x'], msg['y'])
+    elif msg['type'] == 'ds':
+        sm.hide_sprite(msg['s'])
 
 def bnb_dispatcher(msgs):
     BnbRootInstance.get_message(bnb_dispatcher)
     for msg in msgs['messages']:
         process_message(msg)
+    stats.register_frame()
+    get_document().title = str(stats.n_sprites) + " sprites " + str(stats.fps)
+    #sc.revive()
     
 def run_bnb():
     def bnb():
@@ -134,7 +181,7 @@ def run_bnb():
         BnbRootInstance.get_message(bnb_dispatcher)
     
     from pypy.translator.js.demo.jsdemo.bnb import BnbRoot
-    fn = compile_function(bnb, [], root = BnbRoot, run_browser = False)
+    fn = compile_function(bnb, [], root = BnbRoot, run_browser = True)
     fn()
 
 if __name__ == '__main__':

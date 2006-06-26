@@ -3,7 +3,8 @@
 
 from pypy.translator.oosupport.metavm import InstructionList, PushAllArgs
 from pypy.translator.js.metavm import SetBuiltinField, ListGetitem, ListSetitem, \
-    GetBuiltinField, CallBuiltin, Call, SetTimeout, XmlSetCallback, ListContains
+    GetBuiltinField, CallBuiltin, Call, SetTimeout, XmlSetCallback, ListContains,\
+    NewBuiltin
 
 from pypy.rpython.ootypesystem import ootype
 
@@ -23,6 +24,7 @@ class _Builtins(object):
             'll_int' : CallBuiltin('parseInt'),
             'alert' : CallBuiltin('alert'),
             'seval' : CallBuiltin('seval'),
+            'date': NewBuiltin('Date')
         }
         self.builtin_obj_map = {
             ootype.String.__class__: {

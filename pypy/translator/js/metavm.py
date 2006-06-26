@@ -10,6 +10,13 @@ from pypy.rpython.ootypesystem import ootype
 from types import FunctionType
 from pypy.objspace.flow.model import Constant
 
+class NewBuiltin(MicroInstruction):
+    def __init__(self, arg):
+        self.arg = arg
+    
+    def render(self, generator, op):
+        generator.ilasm.new(self.arg)
+
 class _ListSetitem(MicroInstruction):
     def render(self, generator, op):
         generator.load(op.args[1])
