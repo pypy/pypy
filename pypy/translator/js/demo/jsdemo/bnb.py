@@ -99,6 +99,7 @@ class BnbRoot(Root, BasicExternal):
     @turbogears.expose(html="jsdemo.templates.bnb")
     def index(self):
         import time
+        sessionid = session['_id']
         self._serverMessage[sessionid] = ServerMessage('static/images')
         self.new_sprites = 0
         self.sm = SpriteManager()
