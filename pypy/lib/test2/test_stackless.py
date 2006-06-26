@@ -49,9 +49,7 @@ class AppTest_Stackless(object):
         A tasklets/channels adaptation of the test_wait_two from the
         logic object space
         XXX: fails complaining that some channel has no Receive
-             attribute OR some coroutine hasn't block_trap slot,
-             depending on where run() is placed (resp. before the
-             first send, on top as currently)
+             attribute
         """
         from stackless import run, tasklet, channel
         run()
