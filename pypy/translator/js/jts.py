@@ -46,6 +46,8 @@ class JTS(object):
             return '""'
         elif isinstance(t, ootype.Dict):
             return "Object"
+        elif isinstance(t, ootype.DictItemsIterator):
+            return "Object"
         #return "var"
         raise NotImplementedError("Type %r" % (t,))
     

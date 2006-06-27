@@ -22,6 +22,8 @@ class SortY(object):
 
 
 class SpriteManager(object):
+    FULL_FRAME = 100
+    
     def __init__(self):
         self.sprite_sets = {}
         self.positions = {}
@@ -29,9 +31,17 @@ class SpriteManager(object):
         self.next_pos = {}
         self.last_seen = set()
         self.seen = set()
+        self.num_frame = 0
     
     def def_icon(self, icon_code):
         self.sprite_sets[icon_code] = []
+    
+    def get_frame_number(self):
+        self.num_frame += 1
+        if self.num_frame >= self.FULL_FRAME:
+            self.num_frame = 0
+            return True
+        return False
     
     def get_sprite(self, icon_code, x, y):
         try:
@@ -73,8 +83,9 @@ class SpriteManager(object):
 # and semi-transparent communication proxy
 class BnbRoot(Root, BasicExternal):
     _serverMessage = {}
+    _spriteManagers = {}
 
-    host = 'snake'
+    host = 'localhost'
     try:
         port = re.findall('value=".*"', urllib.urlopen('http://%s:8000' % host).read())[0]
     except IOError:
@@ -90,6 +101,7 @@ class BnbRoot(Root, BasicExternal):
         'add_player'   : MethodDesc( [('player_id', 0), ('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
         'remove_player': MethodDesc( [('player_id', 0), ('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
         'key'          : MethodDesc( [('player_id', 0), ('keynum', '0'), ('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
+        'initialize_session' : MethodDesc( [('callback', (lambda : None))], {'aa':'bb'}),
         
 #        'add_player0'   : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
 #        'remove_player0': MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
@@ -126,15 +138,13 @@ class BnbRoot(Root, BasicExternal):
             #XXX todo: session.socket.close() after a timeout
         return sm.socket
 
+    def get_sprite_manager(self):
+        sessionid = session['_id']
+        return self._spriteManagers[sessionid]
+
     @turbogears.expose(html="jsdemo.templates.bnb")
     def index(self):
         import time
-        self._close()
-        #force new session id to restart a game!
-        session['_id'] = md5.md5(str(random.random())).hexdigest()
-        self._serverMessage[session['_id']] = ServerMessage('static/images/')
-        self.new_sprites = 0
-        self.sm = SpriteManager()
         return dict(now=time.ctime(), onload=self.jsname, code=self.jssource)
     
     @turbogears.expose(format='json')
@@ -206,6 +216,16 @@ class BnbRoot(Root, BasicExternal):
             del self._serverMessage[sessionid]
 
     @turbogears.expose(format="json")
+    def initialize_session(self):
+        self._close()
+        #force new session id to restart a game!
+        session['_id'] = md5.md5(str(random.random())).hexdigest()
+        sessionid = session['_id']
+        self._serverMessage[sessionid] = ServerMessage('static/images/')
+        self._spriteManagers[sessionid] = SpriteManager()
+        return dict()
+
+    @turbogears.expose(format="json")
     def get_message(self):
         #XXX hangs if not first sending CMSG_PING!
         sm   = self.serverMessage()
@@ -246,25 +266,44 @@ class BnbRoot(Root, BasicExternal):
         #    log('MESSAGES:lenbefore=%d, inline_frames=%s, lenafter=%d' % (
         #        len_before, inline_frames, len(messages)))
         to_append = []
+        sprite_manager = self.get_sprite_manager()
+        
+        def get_full_frame(next):
+            new_sprite, s_num = sprite_manager.get_sprite(*next)
+            to_append.append({'type':'show_sprite', 's':s_num, 'icon_code':str(next[0]), 'x':str(next[1]), 'y':str(next[2])})
+        
+        def get_partial_frame(next):
+            new_sprite, s_num = sprite_manager.get_sprite(*next)
+            if new_sprite == 'new':
+                to_append.append({'type':'ns', 's':s_num, 'icon_code':str(next[0]), 'x':str(next[1]), 'y':str(next[2])})
+            elif new_sprite == 'move':
+                to_append.append({'type':'sm', 's':str(s_num), 'x':str(next[1]), 'y':str(next[2])})
+
+        if sprite_manager.get_frame_number():
+            full_frame = True
+            get_frame = get_full_frame
+            to_append.append({'type':'begin_clean_sprites'})
+        else:
+            full_frame = False
+            get_frame = get_partial_frame
+            
         for i, msg in enumerate(messages):
             if msg['type'] == PMSG_INLINE_FRAME:
                 for next in msg['sprites']:
                     #to_append.append({'type':'ns', 's':self.num, 'icon_code':str(next[0]), 'x':str(next[1]), 'y':str(next[2])})
                     #self.num += 1
-                    new_sprite, s_num = self.sm.get_sprite(*next)
-                    if new_sprite == 'new':
-                        to_append.append({'type':'ns', 's':s_num, 'icon_code':str(next[0]), 'x':str(next[1]), 'y':str(next[2])})
-                    elif new_sprite == 'move':
-                        to_append.append({'type':'sm', 's':str(s_num), 'x':str(next[1]), 'y':str(next[2])})
+                    get_frame(next)
                 del messages[i]
 
         empty_frame = False
-        if self.sm.seen == set([]):
+        if sprite_manager.seen == set([]):
             empty_frame = True
         
-        if not empty_frame:
-            for i in self.sm.end_frame():
+        if not empty_frame and not full_frame:
+            for i in sprite_manager.end_frame():
                 to_append.append({'type':'ds', 's':str(i)})
+        if full_frame:
+            to_append.append({'type':'clean_sprites'})
         messages += to_append
         #messages.append(to_append[0])
         #print len(messages)

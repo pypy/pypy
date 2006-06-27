@@ -68,6 +68,7 @@ class SpriteManager(object):
     def __init__(self):
         self.sprites = {}
         self.filenames = {}
+        self.all_sprites = {}
 
     def add_icon(self, icon_code, filename):
         self.filenames[icon_code] = filename
@@ -99,6 +100,23 @@ class SpriteManager(object):
         i.style.visibility = "hidden"
         #pass
     
+    def start_clean_sprites(self):
+        self.all_sprites = {}
+    
+    def show_sprite(self, s, icon_code, x, y):
+        self.all_sprites[s] = 1
+        try:
+            self.move_sprite(s, x, y)
+        except KeyError:
+            self.add_sprite(s, icon_code, x, y)
+    
+    def end_clean_sprites(self):
+        for i in self.sprites:
+            try:
+                self.all_sprites[i]
+            except KeyError:
+                self.hide_sprite(i)
+    
     #def show_sprite(self, s):
     #    i = self.sprites[s]
     #    i.style.visibility = "visible"
@@ -128,6 +146,13 @@ def process_message(msg):
         sm.move_sprite(msg['s'], msg['x'], msg['y'])
     elif msg['type'] == 'ds':
         sm.hide_sprite(msg['s'])
+    elif msg['type'] == 'begin_clean_sprites':
+        sm.start_clean_sprites()
+    elif msg['type'] == 'clean_sprites':
+        sm.end_clean_sprites()
+    elif msg['type'] == 'show_sprite':
+        sm.show_sprite(msg['s'], msg['icon_code'], msg['x'], msg['y'])
+        
     #elif msg['type'] == 'ss':
     #    sm.show_sprite(msg['s'])
 
@@ -187,12 +212,16 @@ def bnb_dispatcher(msgs):
     get_document().title = str(stats.n_sprites) + " sprites " + str(stats.fps)
     #sc.revive()
     
+def session_dispatcher(msgs):
+    log("Something...")
+    BnbRootInstance.get_message(bnb_dispatcher)
+
 def run_bnb():
     def bnb():
         #get_document().
         createLoggingPane(True)
         log("keys: <a>dd player, <r>emove player and <e><s><d><x> to walk around")
-        BnbRootInstance.get_message(bnb_dispatcher)
+        BnbRootInstance.initialize_session(session_dispatcher)
         set_on_keydown(keydown)
         set_on_keyup(keyup)
     
