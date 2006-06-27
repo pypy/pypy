@@ -26,6 +26,18 @@ class W_IntObject(W_Object):
 
 registerimplementation(W_IntObject)
 
+# ____________________________________________________________
+# Prebuilt common integer values
+
+from pypy.objspace.std.model import WITHPREBUILTINT
+if WITHPREBUILTINT:
+    W_IntObject.PREBUILT = []
+    for i in WITHPREBUILTINT:
+        W_IntObject.PREBUILT.append(W_IntObject(i))
+    del i
+
+# ____________________________________________________________
+
 
 """
 XXX not implemented:

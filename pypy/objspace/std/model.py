@@ -9,6 +9,7 @@ import pypy.interpreter.pycode
 import pypy.interpreter.special
 
 WITHSMALLINT = False
+WITHPREBUILTINT = None   # or e.g. range(-5, 100); not used if WITHSMALLINT
 WITHSTRSLICE = False
 
 class StdTypeModel:

@@ -5,7 +5,8 @@ from pypy.interpreter.gateway import NoneNotWrapped
 
 # ____________________________________________________________
 
-from pypy.objspace.std.model import WITHSMALLINT
+from pypy.objspace.std.model import WITHSMALLINT, WITHPREBUILTINT
+
 if WITHSMALLINT:
     def wrapint(x):
         from pypy.objspace.std.smallintobject import W_SmallIntObject
@@ -14,6 +15,20 @@ if WITHSMALLINT:
         except OverflowError:
             from pypy.objspace.std.intobject import W_IntObject
             return W_IntObject(x)
+
+elif WITHPREBUILTINT:
+    PREBUILT_RANGE_START = WITHPREBUILTINT[0]
+    PREBUILT_RANGE_LEN   = len(WITHPREBUILTINT)
+    assert WITHPREBUILTINT == range(PREBUILT_RANGE_START,
+                                    PREBUILT_RANGE_START + PREBUILT_RANGE_LEN)
+    def wrapint(x):
+        from pypy.objspace.std.intobject import W_IntObject
+        index = x - PREBUILT_RANGE_START
+        if 0 <= index < PREBUILT_RANGE_LEN:
+            return W_IntObject.PREBUILT[index]
+        else:
+            return W_IntObject(x)
+
 else:
     def wrapint(x):
         from pypy.objspace.std.intobject import W_IntObject
