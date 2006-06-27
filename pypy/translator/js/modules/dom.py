@@ -33,6 +33,14 @@ def set_on_keydown(func):
 
 set_on_keydown.suggested_primitive = True
 
+def set_on_keyup(func):
+    if one():
+        func(Key("str"))
+    else:
+        func(Key("str2"))
+
+set_on_keyup.suggested_primitive = True
+
 class Node(object):
     _rpython_hints = {'_suggested_external' : True}
     

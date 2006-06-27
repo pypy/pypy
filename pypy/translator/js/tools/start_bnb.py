@@ -14,8 +14,8 @@ conftest.option.browser = "default"
 from pypy.translator.js.test.runtest import compile_function
 from pypy.translator.js.modules.dom import Node, get_document, setTimeout, alert
 from pypy.translator.js.modules.xmlhttp import XMLHttpRequest
-from pypy.translator.js.modules.mochikit import logDebug, createLoggingPane
-from pypy.translator.js.modules.dom import get_document, set_on_keydown
+from pypy.translator.js.modules.mochikit import log, logWarning, createLoggingPane
+from pypy.translator.js.modules.dom import get_document, set_on_keydown, set_on_keyup
 from pypy.translator.js.modules.bltns import date
 
 import time
@@ -30,7 +30,7 @@ from pypy.translator.js.demo.jsdemo.bnb import BnbRootInstance
 
 ##def msg_dispatcher(data):
 ##    for i in data['messages']:
-##        logDebug(i['type'])
+##        log(i['type'])
 ##    BnbRootInstance.get_message(msg_dispatcher)
 ##
 ##def test_mochikit():
@@ -93,7 +93,7 @@ class SpriteManager(object):
         i.style.top = y + 'px'
         i.style.left = x + 'px'
         i.style.visibility = 'visible'
-    
+
     def hide_sprite(self, s):
         i = self.sprites[s]
         i.style.visibility = "hidden"
@@ -133,13 +133,51 @@ def process_message(msg):
 
 
 def keydown(key):
-    if key.keyCode == '65': #Aa
-        BnbRootInstance.add_player(bnb_dispatcher)  #XXX player_id 0 hardcoded
-        #BnbRootInstance.add_player(bnb_dispatcher, 0)
-    elif key.keyCode == '82': #Rr
-        BnbRootInstance.remove_player(bnb_dispatcher)  #XXX player_id 0 hardcoded
-        #BnbRootInstance.remove_player(bnb_dispatcher, 0)
-    logDebug(key.keyCode)
+    #c = chr(int(key.keyCode)).lower()
+    #c = int(key.keyCode)
+    c = key.keyCode
+    if c == '65': #ord('A'):
+        BnbRootInstance.add_player0(bnb_dispatcher)
+        #BnbRootInstance.add_player(0, bnb_dispatcher)
+    elif c == '82': #ord('R'):
+        BnbRootInstance.remove_player0(bnb_dispatcher)
+        #BnbRootInstance.remove_player(0, bnb_dispatcher)
+    elif c == '68': #ord('D'):  #right
+        BnbRootInstance.key0(bnb_dispatcher)
+        log('start right')
+    elif c == '83': #ord('S'):  #left
+        BnbRootInstance.key1(bnb_dispatcher)
+        log('start left')
+    elif c == '69': #ord('E'):  #up
+        BnbRootInstance.key2(bnb_dispatcher)
+        log('start up')
+    elif c == '88': #ord('X'):  #fire
+        BnbRootInstance.key3(bnb_dispatcher)
+        log('start fire')
+    else:
+        logWarning('unknown keydown: ' + c)
+
+
+def keyup(key):
+    c = key.keyCode
+    if c in ('65', '82'): #Ignore A&R
+        pass
+    elif c == '68': #ord('D'):  #right
+        BnbRootInstance.key4(bnb_dispatcher)
+        log('stop right')
+    elif c == '83': #ord('S'):  #left
+        BnbRootInstance.key5(bnb_dispatcher)
+        log('stop left')
+    elif c == '69': #ord('E'):  #up
+        BnbRootInstance.key6(bnb_dispatcher)
+        log('stop up')
+    elif c == '88': #ord('X'):  #fire
+        BnbRootInstance.key7(bnb_dispatcher)
+        log('stop fire')
+    else:
+        logWarning('unknown keyup: ' + c)
+
+
 def bnb_dispatcher(msgs):
     BnbRootInstance.get_message(bnb_dispatcher)
     for msg in msgs['messages']:
@@ -152,8 +190,10 @@ def run_bnb():
     def bnb():
         #get_document().
         createLoggingPane(True)
+        log("keys: <a>dd player, <r>emove player and <e><s><d><x> to walk around")
         BnbRootInstance.get_message(bnb_dispatcher)
         set_on_keydown(keydown)
+        set_on_keyup(keyup)
     
     from pypy.translator.js.demo.jsdemo.bnb import BnbRoot
     fn = compile_function(bnb, [], root = BnbRoot, run_browser = True)

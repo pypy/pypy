@@ -18,6 +18,7 @@ class _Builtins(object):
             'll_alloc_and_set' : CallBuiltin('alloc_and_set'),
             'get_document' : lambda g,op: g.ilasm.load_const('document'),
             'set_on_keydown' : SetOnEvent('onkeydown'),
+            'set_on_keyup' : SetOnEvent('onkeyup'),
             'setTimeout' : SetTimeout,
             #'xmlSetCallback' : XmlSetCallback,
             'll_int_str' : lambda g,op: Call._render_builtin_method(g, 'toString' , [op.args[2]]),

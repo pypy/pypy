@@ -86,9 +86,21 @@ class BnbRoot(Root, BasicExternal):
     port = int(port[7:-1])
     
     _methods = {
-        'get_message' : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
-        'add_player'  : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
-        'remove_player'  : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
+        'get_message'  : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
+        'add_player'   : MethodDesc( [('player_id', '0'), ('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
+        'remove_player': MethodDesc( [('player_id', '0'), ('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
+        'key'          : MethodDesc( [('player_id', '0'), ('keynum', '0'), ('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
+        
+        'add_player0'   : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
+        'remove_player0': MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
+        'key0'         : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
+        'key1'         : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
+        'key2'         : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
+        'key3'         : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
+        'key4'         : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
+        'key5'         : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
+        'key6'         : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
+        'key7'         : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
     }
     
     
@@ -131,21 +143,59 @@ class BnbRoot(Root, BasicExternal):
         return self.get_message()
 
     @turbogears.expose(format='json')
-    def add_player(self): #, player_id):
-        player_id = 0 #XXX hardcoded for now
+    def add_player(self, player_id):
         self.sessionSocket().send(message(CMSG_ADD_PLAYER, int(player_id)))
         return self.get_message()
 
     @turbogears.expose(format='json')
-    def remove_player(self): #, player_id):
-        player_id = 0 #XXX hardcoded for now
+    def add_player0(self):
+        return self.add_player(0)
+
+    @turbogears.expose(format='json')
+    def remove_player(self, player_id):
         self.sessionSocket().send(message(CMSG_REMOVE_PLAYER, int(player_id)))
         return self.get_message()
+
+    @turbogears.expose(format='json')
+    def remove_player0(self):
+        return self.remove_player(0)
 
     @turbogears.expose(format='json')
     def key(self, player_id, keynum):
         self.sessionSocket().send(message(CMSG_KEY, int(player_id), int(keynum)))
         return self.get_message()
+
+    @turbogears.expose(format='json')
+    def key0(self):
+        return self.key(0, 0)
+
+    @turbogears.expose(format='json')
+    def key1(self):
+        return self.key(0, 1)
+
+    @turbogears.expose(format='json')
+    def key2(self):
+        return self.key(0, 2)
+
+    @turbogears.expose(format='json')
+    def key3(self):
+        return self.key(0, 3)
+
+    @turbogears.expose(format='json')
+    def key4(self):
+        return self.key(0, 4)
+
+    @turbogears.expose(format='json')
+    def key5(self):
+        return self.key(0, 5)
+
+    @turbogears.expose(format='json')
+    def key6(self):
+        return self.key(0, 6)
+
+    @turbogears.expose(format='json')
+    def key7(self):
+        return self.key(0, 7)
 
     @turbogears.expose(format='json')
     def close(self):
