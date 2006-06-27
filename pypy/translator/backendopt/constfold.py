@@ -1,4 +1,5 @@
 from pypy.objspace.flow.model import Constant, Variable, SpaceOperation
+from pypy.objspace.flow.model import c_last_exception, checkgraph
 from pypy.translator.backendopt.support import split_block_with_keepalive
 from pypy.translator.backendopt.support import log
 from pypy.translator.simplify import eliminate_empty_blocks
@@ -7,7 +8,7 @@ from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.lltypesystem import lltype
 
 
-def fold_op_list(operations, constants, exit_early=False):
+def fold_op_list(operations, constants, exit_early=False, exc_catch=False):
     newops = []
     keepalives = []
     folded_count = 0
@@ -66,13 +67,18 @@ def fold_op_list(operations, constants, exit_early=False):
         return folded_count
     else:
         # move the keepalives to the end of the block, which makes the life
-        # of prepare_constant_fold_link() easier
+        # of prepare_constant_fold_link() easier.  Don't put them past the
+        # exception-raising operation, though.
+        if exc_catch:
+            exc_raising_op = newops.pop()
+            keepalives.append(exc_raising_op)
         newops.extend(keepalives)
         return newops
 
 def constant_fold_block(block):
     constants = {}
-    block.operations = fold_op_list(block.operations, constants)
+    block.operations = fold_op_list(block.operations, constants,
+                           exc_catch = block.exitswitch == c_last_exception)
     if constants:
         if block.exitswitch in constants:
             switch = constants[block.exitswitch].value
@@ -91,18 +97,23 @@ def complete_constants(link, constants):
     # 'constants' maps some Variables of 'block' to Constants.
     # Some input args of 'block' may be absent from 'constants'
     # and must be fixed in the link to be passed directly from
-    # the origin of the link instead of via 'block'.
+    # 'link.prevblock' instead of via 'block'.
     for v1, v2 in zip(link.args, link.target.inputargs):
-        constants.setdefault(v2, v1)
+        if v2 in constants:
+            assert constants[v2] is v1
+        else:
+            constants[v2] = v1
 
 def prepare_constant_fold_link(link, constants, splitblocks):
     block = link.target
     folded_count = fold_op_list(block.operations, constants, exit_early=True)
 
-    if folded_count < len(block.operations):
+    n = len(block.operations)
+    if block.exitswitch == c_last_exception:
+        n -= 1
+    if folded_count < n:
         nextop = block.operations[folded_count]
-        if (nextop is not None and nextop.opname == 'indirect_call'
-            and nextop.args[0] in constants):
+        if nextop.opname == 'indirect_call' and nextop.args[0] in constants:
             # indirect_call -> direct_call
             callargs = [constants[nextop.args[0]]]
             constants1 = constants.copy()
@@ -122,7 +133,7 @@ def prepare_constant_fold_link(link, constants, splitblocks):
         splits = splitblocks.setdefault(block, [])
         splits.append((folded_count, link, constants))
 
-def rewire_links(splitblocks):
+def rewire_links(splitblocks, graph):
     for block, splits in splitblocks.items():
         # A splitting position is given by how many operations were
         # folded with the knowledge of an incoming link's constant.
@@ -131,6 +142,7 @@ def rewire_links(splitblocks):
         splits.sort()
         splits.reverse()
         for position, link, constants in splits:
+            assert link.target is block
             if position == len(block.operations) and block.exitswitch is None:
                 # a split here would leave nothing in the 2nd part, so
                 # directly rewire the links
@@ -140,17 +152,22 @@ def rewire_links(splitblocks):
                 # split the block at the given position
                 splitlink = split_block_with_keepalive(block, position)
                 assert block.exits == [splitlink]
+            assert link.target is block
+            assert splitlink.prevblock is block
             complete_constants(link, constants)
             args = [constants.get(v, v) for v in splitlink.args]
             link.args = args
             link.target = splitlink.target
+            checkgraph(graph)
 
 
 def constant_fold_graph(graph):
+    print "constant_fold", graph
     # first fold inside the blocks
     for block in graph.iterblocks():
         if block.operations:
             constant_fold_block(block)
+    checkgraph(graph)
     # then fold along the links - a fixpoint process, because new links
     # with new constants show up
     while 1:
@@ -162,6 +179,7 @@ def constant_fold_graph(graph):
                     constants[v2] = v1
             if constants:
                 prepare_constant_fold_link(link, constants, splitblocks)
+        print "loop", len(splitblocks)
         if not splitblocks:
             break   # finished
-        rewire_links(splitblocks)
+        rewire_links(splitblocks, graph)
