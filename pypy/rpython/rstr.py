@@ -302,17 +302,10 @@ class __extend__(pairtype(AbstractStringRepr, AbstractTupleRepr)):
         r_tuple = hop.args_r[1]
         v_tuple = hop.args_v[1]
 
-        if hop.rtyper.type_system.name == 'ootypesystem':
-            getfield = 'oogetfield'
-        else:
-            getfield = 'getfield'
-
         sourcevars = []
-        for fname, r_arg in zip(r_tuple.fieldnames, r_tuple.items_r):
-            cname = hop.inputconst(Void, fname)
-            vitem = hop.genop(getfield, [v_tuple, cname],
-                              resulttype=r_arg)
-            sourcevars.append((vitem, r_arg))
+        for i, r_arg in enumerate(r_tuple.external_items_r):
+            v_item = r_tuple.getitem(hop.llops, v_tuple, i)
+            sourcevars.append((v_item, r_arg))
 
         return r_str.ll.do_stringformat(hop, sourcevars)
                 

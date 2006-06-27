@@ -147,6 +147,18 @@ def test_str():
     res = interpret(fn, [1])
     assert ''.join(res.chars) == '<B object>'
 
+def test_format():
+    def fn(n):
+        if n > 0:
+            x = B(n)
+        else:
+            x = C(n)
+        return '%r' % (x,)
+    res = interpret(fn, [-832])
+    assert ''.join(res.chars) == '<unboxed -832>'
+    res = interpret(fn, [1])
+    assert ''.join(res.chars) == '<B object>'
+
 def test_method():
     def fn(n):
         if n > 0:

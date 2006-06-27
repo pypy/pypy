@@ -88,6 +88,14 @@ class AbstractTupleRepr(Repr):
         self.lltypes = [r.lowleveltype for r in items_r]
         self.tuple_cache = {}
 
+    def getitem(self, llops, v_tuple, index):
+        """Generate the operations to get the index'th item of v_tuple,
+        in the external repr external_items_r[index]."""
+        v = self.getitem_internal(llops, v_tuple, index)
+        r_item = self.items_r[index]
+        r_external_item = self.external_items_r[index]
+        return llops.convertvar(v, r_item, r_external_item)
+
     def newtuple_cached(cls, hop, items_v):
         r_tuple = hop.r_result
         if hop.s_result.is_constant():
@@ -143,8 +151,7 @@ class __extend__(pairtype(AbstractTupleRepr, IntegerRepr)):
         if hop.has_implicit_exception(IndexError):
             hop.exception_cannot_occur()
         index = v_index.value
-        v = r_tup.getitem(hop.llops, v_tuple, index)
-        return hop.llops.convertvar(v, r_tup.items_r[index], r_tup.external_items_r[index])
+        return r_tup.getitem(hop.llops, v_tuple, index)
 
 class __extend__(pairtype(AbstractTupleRepr, Repr)): 
     def rtype_contains((r_tup, r_item), hop):
@@ -173,9 +180,9 @@ class __extend__(pairtype(AbstractTupleRepr, AbstractTupleRepr)):
         v_tuple1, v_tuple2 = hop.inputargs(r_tup1, r_tup2)
         vlist = []
         for i in range(len(r_tup1.items_r)):
-            vlist.append(r_tup1.getitem(hop.llops, v_tuple1, i))
+            vlist.append(r_tup1.getitem_internal(hop.llops, v_tuple1, i))
         for i in range(len(r_tup2.items_r)):
-            vlist.append(r_tup2.getitem(hop.llops, v_tuple2, i))
+            vlist.append(r_tup2.getitem_internal(hop.llops, v_tuple2, i))
         return r_tup1.newtuple_cached(hop, vlist)
     rtype_inplace_add = rtype_add
 
@@ -186,7 +193,7 @@ class __extend__(pairtype(AbstractTupleRepr, AbstractTupleRepr)):
             n = len(r_from.items_r)
             items_v = []
             for i in range(n):
-                item_v = r_from.getitem(llops, v, i)
+                item_v = r_from.getitem_internal(llops, v, i)
                 item_v = llops.convertvar(item_v,
                                               r_from.items_r[i],
                                               r_to.items_r[i])

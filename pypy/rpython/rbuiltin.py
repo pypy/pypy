@@ -98,7 +98,7 @@ class BuiltinFunctionRepr(Repr):
             if not isinstance(r_tuple, AbstractTupleRepr):
                 raise TyperError("*arg must be a tuple")
             for i in range(len(r_tuple.items_r)):
-                v_item = r_tuple.getitem(hop.llops, v_tuple, i)
+                v_item = r_tuple.getitem_internal(hop.llops, v_tuple, i)
                 hop.nb_args += 1
                 hop.args_v.append(v_item)
                 hop.args_s.append(s_tuple.items[i])

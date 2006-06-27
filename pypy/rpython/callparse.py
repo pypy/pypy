@@ -154,7 +154,7 @@ class ItemHolder(Holder):
     def _emit(self, repr, hop):
         index = self.index
         r_tup, v_tuple = self.holder.access(hop)
-        v = r_tup.getitem(hop, v_tuple, index)
+        v = r_tup.getitem_internal(hop, v_tuple, index)
         return hop.llops.convertvar(v, r_tup.items_r[index], repr)
 
 # for parsing call arguments

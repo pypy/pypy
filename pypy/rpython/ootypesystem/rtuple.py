@@ -24,7 +24,8 @@ class TupleRepr(AbstractTupleRepr):
     def instantiate(self):
         return ootype.new(self.lowleveltype)
 
-    def getitem(self, llops, v_tuple, index): # ! returns internal repr lowleveltype
+    def getitem_internal(self, llops, v_tuple, index):
+        # ! returns internal repr lowleveltype
         name = self.fieldnames[index]
         llresult = self.lltypes[index]
         cname = inputconst(ootype.Void, name)

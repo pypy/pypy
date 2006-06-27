@@ -56,7 +56,8 @@ class TupleRepr(AbstractTupleRepr):
             hop.gendirectcall(rlist.ll_setitem_nonneg, v_func, vlist, cindex, vitem)
         return vlist
 
-    def getitem(self, llops, v_tuple, index): # ! returns internal repr lowleveltype
+    def getitem_internal(self, llops, v_tuple, index):
+        """Return the index'th item, in internal repr."""
         name = self.fieldnames[index]
         llresult = self.lltypes[index]
         cname = inputconst(Void, name)
