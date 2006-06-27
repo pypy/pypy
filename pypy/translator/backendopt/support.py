@@ -94,15 +94,11 @@ def split_block_with_keepalive(block, index_operation,
             keep_alive_vars = []
     else:
         keep_alive_vars = []
+    pos = len(afterblock.operations)
     if afterblock.exitswitch == c_last_exception:
-        for link in afterblock.exits:
-            betweenblock = insert_empty_block(None, link)
-            fresh_vars = [copyvar(None, var) for var in keep_alive_vars]
-            betweenblock.inputargs.extend(fresh_vars)
-            link.args.extend(keep_alive_vars)
-            betweenblock.operations = generate_keepalive(fresh_vars)
-    else:
-        afterblock.operations.extend(generate_keepalive(keep_alive_vars))
+        pos -= 1    # insert the keepalives just before the last operation
+                    # in case of exception-catching
+    afterblock.operations[pos:pos] = generate_keepalive(keep_alive_vars)
     return splitlink
 
 def calculate_call_graph(translator):

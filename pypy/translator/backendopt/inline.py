@@ -364,8 +364,11 @@ class BaseInliner(object):
         # this copy is created with the method passon_vars
         self.original_passon_vars = [arg for arg in block.exits[0].args
                                          if isinstance(arg, Variable)]
-        assert afterblock.operations[0].opname is self.op.opname
-        self.op = afterblock.operations[0]
+        n = 0
+        while afterblock.operations[n].opname == 'keepalive':
+            n += 1
+        assert afterblock.operations[n].opname == self.op.opname
+        self.op = afterblock.operations.pop(n)
         #vars that need to be passed through the blocks of the inlined function
         linktoinlined = splitlink 
         copiedstartblock = self.copy_block(self.graph_to_inline.startblock)
@@ -383,7 +386,6 @@ class BaseInliner(object):
         linktoinlined.target = copiedstartblock
         linktoinlined.args = passon_args
         afterblock.inputargs = [self.op.result] + afterblock.inputargs
-        afterblock.operations = afterblock.operations[1:]
         if self.graph_to_inline.returnblock in self.entrymap:
             self.rewire_returnblock(afterblock) 
         if self.graph_to_inline.exceptblock in self.entrymap:
