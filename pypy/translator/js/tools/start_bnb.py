@@ -197,7 +197,7 @@ def run_bnb():
         set_on_keyup(keyup)
     
     from pypy.translator.js.demo.jsdemo.bnb import BnbRoot
-    fn = compile_function(bnb, [], root = BnbRoot, run_browser = True)
+    fn = compile_function(bnb, [], root = BnbRoot, run_browser = False)
     fn()
 
 if __name__ == '__main__':
