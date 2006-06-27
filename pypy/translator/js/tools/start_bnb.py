@@ -137,11 +137,12 @@ def keydown(key):
     #c = int(key.keyCode)
     c = key.keyCode
     if c == '65': #ord('A'):
-        BnbRootInstance.add_player0(bnb_dispatcher)
-        #BnbRootInstance.add_player(0, bnb_dispatcher)
+        #BnbRootInstance.add_player0(bnb_dispatcher)
+        log("adding player")
+        BnbRootInstance.add_player(0, bnb_dispatcher)
     elif c == '82': #ord('R'):
-        BnbRootInstance.remove_player0(bnb_dispatcher)
-        #BnbRootInstance.remove_player(0, bnb_dispatcher)
+        #BnbRootInstance.remove_player0(bnb_dispatcher)
+        BnbRootInstance.remove_player(0, bnb_dispatcher)
     elif c == '68': #ord('D'):  #right
         BnbRootInstance.key0(bnb_dispatcher)
         log('start right')

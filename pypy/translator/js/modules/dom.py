@@ -49,6 +49,10 @@ class Node(object):
         self.style = None
         self.subnodes = {}
         self.parent = parent
+        if one():
+            self.value = "blah"
+        else:
+            self.value = "sth"
     
     def getElementById(self, id):
         try:
@@ -67,14 +71,20 @@ class Node(object):
             self.id = style_str
         elif name == 'src':
             self.src = style_str
+        elif name == 'value':
+            self.value = style_str
     
     def appendChild(self, elem):
         self.subnodes[elem.id] = elem
+
+class Form(Node):
+    pass
 
 class Document(Node):
     def __init__(self):
         Node.__init__(self)
         self.body = Node()
+        self.forms = [Form(), Form()]
     
 
 def get_document():

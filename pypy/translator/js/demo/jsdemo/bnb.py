@@ -87,12 +87,12 @@ class BnbRoot(Root, BasicExternal):
     
     _methods = {
         'get_message'  : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
-        'add_player'   : MethodDesc( [('player_id', '0'), ('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
-        'remove_player': MethodDesc( [('player_id', '0'), ('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
-        'key'          : MethodDesc( [('player_id', '0'), ('keynum', '0'), ('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
+        'add_player'   : MethodDesc( [('player_id', 0), ('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
+        'remove_player': MethodDesc( [('player_id', 0), ('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
+        'key'          : MethodDesc( [('player_id', 0), ('keynum', '0'), ('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
         
-        'add_player0'   : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
-        'remove_player0': MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
+#        'add_player0'   : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
+#        'remove_player0': MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
         'key0'         : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
         'key1'         : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
         'key2'         : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
@@ -144,21 +144,16 @@ class BnbRoot(Root, BasicExternal):
 
     @turbogears.expose(format='json')
     def add_player(self, player_id):
+        print "Adding player"
+        print player_id
         self.sessionSocket().send(message(CMSG_ADD_PLAYER, int(player_id)))
         return self.get_message()
 
     @turbogears.expose(format='json')
-    def add_player0(self):
-        return self.add_player(0)
-
-    @turbogears.expose(format='json')
     def remove_player(self, player_id):
+        print player_id
         self.sessionSocket().send(message(CMSG_REMOVE_PLAYER, int(player_id)))
         return self.get_message()
-
-    @turbogears.expose(format='json')
-    def remove_player0(self):
-        return self.remove_player(0)
 
     @turbogears.expose(format='json')
     def key(self, player_id, keynum):
