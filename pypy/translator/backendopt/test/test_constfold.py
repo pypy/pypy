@@ -115,6 +115,21 @@ def test_fold_exitswitch():
     check_graph(graph, [12], 60, t)
 
 
+def test_exception():
+    def g():
+        return 15
+    def fn(n):
+        try:
+            g()
+        except ValueError:
+            pass
+        return n
+
+    graph, t = get_graph(fn, [int])
+    constant_fold_graph(graph)
+    check_graph(graph, [12], 12, t)
+
+
 def xxx_test_later_along_link():
     S1 = lltype.GcStruct('S1', ('x', lltype.Signed), hints={'immutable': True})
     s1 = lltype.malloc(S1)

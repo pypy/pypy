@@ -1,5 +1,5 @@
 from pypy.objspace.flow.model import Constant, Variable, SpaceOperation
-from pypy.objspace.flow.model import c_last_exception, checkgraph
+from pypy.objspace.flow.model import c_last_exception
 from pypy.translator.backendopt.support import split_block_with_keepalive
 from pypy.translator.backendopt.support import log
 from pypy.translator.simplify import eliminate_empty_blocks
@@ -158,18 +158,17 @@ def rewire_links(splitblocks, graph):
             args = [constants.get(v, v) for v in splitlink.args]
             link.args = args
             link.target = splitlink.target
-            checkgraph(graph)
 
 
 def constant_fold_graph(graph):
-    print "constant_fold", graph
     # first fold inside the blocks
     for block in graph.iterblocks():
         if block.operations:
             constant_fold_block(block)
-    checkgraph(graph)
     # then fold along the links - a fixpoint process, because new links
-    # with new constants show up
+    # with new constants show up, even though we can probably prove that
+    # a single iteration is enough under some conditions, like the graph
+    # is in a join_blocks() form.
     while 1:
         splitblocks = {}
         for link in list(graph.iterlinks()):
@@ -179,7 +178,6 @@ def constant_fold_graph(graph):
                     constants[v2] = v1
             if constants:
                 prepare_constant_fold_link(link, constants, splitblocks)
-        print "loop", len(splitblocks)
         if not splitblocks:
             break   # finished
         rewire_links(splitblocks, graph)
