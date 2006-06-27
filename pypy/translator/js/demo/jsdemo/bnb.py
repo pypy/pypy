@@ -304,6 +304,7 @@ class BnbRoot(Root, BasicExternal):
                 to_append.append({'type':'ds', 's':str(i)})
         if full_frame:
             to_append.append({'type':'clean_sprites'})
+            sprite_manager.end_frame()
         messages += to_append
         #messages.append(to_append[0])
         #print len(messages)
