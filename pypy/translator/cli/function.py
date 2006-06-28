@@ -160,7 +160,7 @@ class Function(Node, Generator):
                 for link in block.exits:
                     self._setup_link(link)
                     target_label = self._get_block_name(link.target)
-                    if link.exitcase is None:
+                    if link.exitcase is None or link is block.exits[-1]:
                         self.ilasm.branch(target_label)
                     else:
                         assert type(link.exitcase is bool)
