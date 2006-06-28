@@ -281,6 +281,24 @@ def test_merge_const_before_return():
     assert res == 23-71
     assert insns == {'int_gt': 1, 'int_add': 2, 'int_sub': 2}
 
+def test_merge_3_redconsts_before_return():
+    def ll_function(x):
+        if x > 2:
+            y = hint(54, variable=True)
+        elif x > 0:
+            y = hint(17, variable=True)
+        else:
+            y = hint(22, variable=True)
+        x -= 1
+        y += 1
+        return y+x
+    insns, res = timeshift(ll_function, [-70], [])
+    assert res == ll_function(-70)
+    insns, res = timeshift(ll_function, [1], [])
+    assert res == ll_function(1)
+    insns, res = timeshift(ll_function, [-70], [])
+    assert res == ll_function(-70)
+
 def test_merge_const_at_return():
     def ll_function(x):
         if x > 0:
@@ -516,3 +534,28 @@ def test_red_subcontainer():
     insns, res = timeshift(ll_function, [7], [], policy=P_NOVIRTUAL)
     assert res == 42
     assert insns == {'int_lt': 1, 'int_mul': 1, 'int_sub': 1}
+
+def test_merge_structures():
+    S = lltype.GcStruct('S', ('n', lltype.Signed))
+    T = lltype.GcStruct('T', ('s', lltype.Ptr(S)), ('n', lltype.Signed))
+
+    def ll_function(flag):
+        if flag:
+            s = lltype.malloc(S)
+            s.n = 1
+            t = lltype.malloc(T)
+            t.s = s
+            t.n = 2
+        else:
+            s = lltype.malloc(S)
+            s.n = 5
+            t = lltype.malloc(T)
+            t.s = s
+            t.n = 6
+        return t.n + t.s.n
+    insns, res = timeshift(ll_function, [0], [], policy=P_NOVIRTUAL)
+    assert res == 5 + 6
+    assert insns == {'int_is_true': 1, 'int_add': 1}
+    insns, res = timeshift(ll_function, [1], [], policy=P_NOVIRTUAL)
+    assert res == 1 + 2
+    assert insns == {'int_is_true': 1, 'int_add': 1}

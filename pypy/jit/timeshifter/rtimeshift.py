@@ -758,9 +758,15 @@ def retrieve_jitstate_for_merge(states_dic, jitstate, key, redboxes):
     jitstate = dyn_enter_block(jitstate, outgoingvarboxes)
     newblock = rgenop.newblock()
     linkargs = []
+    replace_memo = rvalue.copy_memo()
     for box in outgoingvarboxes:
         linkargs.append(box.getgenvar(jitstate))
+        if box.is_constant():            # constant boxes considered immutable:
+            box = box.copy(replace_memo) # copy to avoid patching the original
         box.genvar = rgenop.geninputarg(newblock, box.gv_type)
+    if replace_memo.boxes:
+        for i in range(len(redboxes)):
+            redboxes[i] = redboxes[i].replace(replace_memo)
     link = rgenop.closeblock1(jitstate.curblock)
     rgenop.closelink(link, linkargs, newblock)
     jitstate.curblock = newblock
@@ -805,8 +811,8 @@ def dyn_enter_block(jitstate, redboxes):
     newblock = rgenop.newblock()
     incoming = []
     memo = rvalue.enter_block_memo()
-    for i in range(len(redboxes)):
-        redboxes[i].enter_block(newblock, incoming, memo)
+    for redbox in redboxes:
+        redbox.enter_block(newblock, incoming, memo)
     rgenop.closelink(jitstate.curoutgoinglink, incoming, newblock)
     jitstate.curblock = newblock
     jitstate.curoutgoinglink = lltype.nullptr(rgenop.LINK.TO)
@@ -827,7 +833,7 @@ def leave_block_split(jitstate, switchredbox, exitindex, redboxes):
         later_jitstate = jitstate.copystate()
         jitstate.curoutgoinglink = true_link
         later_jitstate.curoutgoinglink = false_link
-        memo = rvalue.Memo()
+        memo = rvalue.copy_memo()
         redboxcopies = [redbox.copy(memo) for redbox in redboxes]        
         jitstate.split_queue.append((exitindex, later_jitstate, redboxcopies))
         return True

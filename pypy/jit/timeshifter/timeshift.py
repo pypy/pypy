@@ -167,6 +167,7 @@ class HintTimeshift(object):
         self.insert_dispatch_logic(returnblock)
 
         # hack to allow the state caches to be cleared
+        # XXX! doesn't work if there are several graphs
         miniglobals = {}
         source = ["def clearcaches():"]
         if self.statecaches:
@@ -292,7 +293,8 @@ class HintTimeshift(object):
                              self.s_JITState)
 
         bridge = before_block.exits[0]
-        self.insert_read_out_boxes(bridge, llops, v_newjitstate, v_boxes, args_r, newinputargs)
+        # not used any more: v_boxes is not modified by enter_block() nowadays
+        #self.insert_read_out_boxes(bridge, llops, v_newjitstate, v_boxes, args_r, newinputargs)
         before_block.operations[:] = llops
         
     # insert before join blocks a block with:
@@ -341,6 +343,8 @@ class HintTimeshift(object):
               self.s_JITState)
 
         v_continue = llops.genop('ptr_nonzero', [v_newjitstate], resulttype=lltype.Bool)
+
+        # now read out the possibly modified red boxes out of v_boxes
 
         v_newjitstate2 = flowmodel.Variable(v_newjitstate)
         v_newjitstate2.concretetype = self.r_JITState.lowleveltype

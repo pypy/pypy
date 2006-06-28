@@ -17,6 +17,9 @@ def freeze_memo():
 def exactmatch_memo():
     return Memo()
 
+def copy_memo():
+    return Memo()
+
 
 class RedBox(object):
 
@@ -43,6 +46,10 @@ class RedBox(object):
             incoming.append(self.genvar)
             memo[self] = None
             self.genvar = rgenop.geninputarg(newblock, self.gv_type)
+
+    def replace(self, memo):
+        memo = memo.boxes
+        return memo.setdefault(self, self)
 
 
 def ll_redboxcls(TYPE):
@@ -118,11 +125,7 @@ class DoubleRedBox(RedBox):
 
 
 class PtrRedBox(RedBox):
-
-    def __init__(self, gv_type, genvar=rgenop.nullvar, content=None):
-        #assert rgenop.isptrtype(gv_type)
-        RedBox.__init__(self, gv_type, genvar)
-        self.content = content   # None or an AbstractContainer
+    content = None   # or an AbstractContainer
 
     def __repr__(self):
         if not self.genvar and self.content is not None:
@@ -140,6 +143,16 @@ class PtrRedBox(RedBox):
             if self.content:
                 result.content = self.content.copy(memo)
             return result
+
+    def replace(self, memo):
+        boxmemo = memo.boxes
+        try:
+            return boxmemo[self]
+        except KeyError:
+            boxmemo[self] = self
+            if self.content:
+                self.content.replace(memo)
+            return self
 
     def freeze(self, memo):
         boxmemo = memo.boxes

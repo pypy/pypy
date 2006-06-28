@@ -63,8 +63,8 @@ class StructTypeDesc(object):
         vstruct.substruct_boxes = []
         typedesc = self
         while typedesc is not None:
-            box = rvalue.PtrRedBox(typedesc.gv_ptrtype,
-                                   content=vstruct)
+            box = rvalue.PtrRedBox(typedesc.gv_ptrtype)
+            box.content = vstruct
             vstruct.substruct_boxes.append(box)
             typedesc = typedesc.firstsubstructdesc
         return vstruct.substruct_boxes[0]
@@ -251,6 +251,15 @@ class VirtualStruct(AbstractContainer):
             result.substruct_boxes = [box.copy(memo)
                                       for box in self.substruct_boxes]
             return result
+
+    def replace(self, memo):
+        contmemo = memo.containers
+        if self not in contmemo:
+            contmemo[self] = None
+            for i in range(len(self.content_boxes)):
+                self.content_boxes[i] = self.content_boxes[i].replace(memo)
+            for i in range(len(self.substruct_boxes)):
+                self.substruct_boxes[i] = self.substruct_boxes[i].replace(memo)
 
     def op_getfield(self, jitstate, fielddesc):
         return self.content_boxes[fielddesc.fieldindex]
