@@ -411,6 +411,14 @@ class __extend__(pairtype(SomeLLAbstractContainer, SomeLLAbstractConstant)):
 # ____________________________________________________________
 
 def handle_highlevel_operation(bookkeeper, ll_func, *args_hs):
+    if getattr(bookkeeper.annotator.policy, 'novirtualcontainer', False):
+        # "blue variables" disabled, we just return a red var all the time.
+        RESULT = bookkeeper.current_op_concretetype()
+        if RESULT is lltype.Void:
+            return None
+        else:
+            return SomeLLAbstractVariable(RESULT)
+
     # parse the oopspec and fill in the arguments
     operation_name, args = ll_func.oopspec.split('(', 1)
     assert args.endswith(')')

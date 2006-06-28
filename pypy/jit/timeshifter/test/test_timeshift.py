@@ -20,6 +20,7 @@ from pypy import conftest
 
 P_NOVIRTUAL = AnnotatorPolicy()
 P_NOVIRTUAL.novirtualcontainer = True
+P_NOVIRTUAL.oopspec = True
 
 def getargtypes(annotator, values):
     return [annotation(annotator, x) for x in values]
@@ -559,3 +560,13 @@ def test_merge_structures():
     insns, res = timeshift(ll_function, [1], [], policy=P_NOVIRTUAL)
     assert res == 1 + 2
     assert insns == {'int_is_true': 1, 'int_add': 1}
+
+def test_vlist():
+    py.test.skip("in-progress")
+    def ll_function():
+        lst = []
+        lst.append(12)
+        return lst[0]
+    insns, res = timeshift(ll_function, [], [], policy=P_NOVIRTUAL)
+    assert res == 12
+    assert insns == {}
