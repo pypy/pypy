@@ -1,0 +1,156 @@
+PyPy video documentation 
+=========================
+
+Requirements to download and view 
+---------------------------------
+
+In order to download the videos you need to point a
+BitTorrent client at the torrent files provided below. 
+We do not provide any other download method at this
+time.  Please get a BitTorrent client (such as bittorrent). 
+For a list of clients please 
+see http://en.wikipedia.org/wiki/Category:Free_BitTorrent_clients or 
+http://en.wikipedia.org/wiki/Comparison_of_BitTorrent_clients. 
+For more information about Bittorrent see 
+http://en.wikipedia.org/wiki/Bittorrent.
+
+In order to view the downloaded movies you need to 
+have a video player that supports DivX AVI files (DivX 5, mp3 audio)
+such as `mplayer`_, `xine`_ or the windows media player.
+
+.. _`mplayer`: http://www.mplayerhq.hu/design7/dload.html
+.. _`xine`: http://xinehq.de/index.php/releases
+
+You can find the necessary codecs in the ffdshow-library:
+http://ffdshow.sourceforge.net/tikiwiki/tiki-index.php
+
+
+PyPy Video Torrent Downloads 
+-----------------------------
+
+PyPy technical talk at the University of Palma de Mallorca
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+http://codespeak.net/download/pypy/video/introductory-student-talk-v2.avi.torrent
+
+.. image:: introductory-student-talk.jpg
+   :scale: 100
+   :alt: Introductory student talk
+   :align: left
+
+Technical talk on the PyPy project at the University of Palma de Mallorca, Spain. 27.1.2006
+
+PAL 72 min, DivX AVI
+
+Core developers Armin Rigo, Samuele Pedroni and Carl Friedrich Bolz are giving an overview of the PyPy architecture, the standard interpreter, the translation toolchain and the just-in-time compiler.
+
+
+Coding discussion of core developers Armin Rigo and Samuele Pedroni
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+http://codespeak.net/download/pypy/video/coding-discussion-v1.avi.torrent
+
+.. image:: coding-discussion.jpg
+   :scale: 100
+   :alt: Coding discussion
+   :align: left
+
+Coding discussion between Armin Rigo and Samuele Pedroni during the PyPy sprint at the University of Palma de Mallorca, Spain. 27.1.2006
+
+PAL 40 min, DivX AVI
+
+
+Talk on Agile Open Source Methods in the PyPy project
++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+http://codespeak.net/download/pypy/video/agile-talk-v1.avi.torrent
+
+.. image:: agile-talk.jpg
+   :scale: 100
+   :alt: Agile talk
+   :align: left
+
+Core developer Holger Krekel and project manager Beatrice During are giving a talk on the agile open source methods used in the PyPy project at the PyCon, Dallas, US. 26.2.2006
+
+PAL, 26 min, divx AVI
+
+
+Introductory talk on PyPy
++++++++++++++++++++++++++
+
+http://codespeak.net/download/pypy/video/introductory-talk-pycon-v1.avi.torrent
+
+.. image:: introductory-talk-pycon.jpg
+   :scale: 100
+   :alt: Introductory talk at PyCon
+   :align: left
+
+This introductory talk is given by core developers Michael Hudson and Christian Tismer at the PyCon, Dallas, US. 26.2.2006
+
+PAL, 28 min, divx AVI
+
+
+PyPy Architecture session
++++++++++++++++++++++++++
+
+http://codespeak.net/download/pypy/video/architecture-session-v1.avi.torrent
+
+.. image:: architecture-session.jpg
+   :scale: 100
+   :alt: Architecture session
+   :align: left
+
+This architecture session is given by core developers Holger Krekel and Armin Rigo at the PyCon, Dallas, US. 26.2.2006
+
+PAL, 48 min, divx AVI
+
+
+Sprint tutorial
++++++++++++++++
+
+http://codespeak.net/download/pypy/video/sprint-tutorial-v2.avi.torrent
+
+.. image:: sprint-tutorial.jpg
+   :scale: 100
+   :alt: Sprint Tutorial
+   :align: left
+
+Sprint tutorial by core developer Michael Hudson at the PyCon sprint, Dallas, US.  27.2.2006
+
+PAL, 44 min, divx AVI
+
+Michael Hudson gives an in-depth, very technical introduction to a PyPy sprint. The film provides a detailed and hands-on overview about the architecture of PyPy, especially the translation toolchain.
+
+
+Interview with Bob Ippolito
++++++++++++++++++++++++++++
+
+http://codespeak.net/download/pypy/video/interview-bobippolito-v2.avi.torrent  
+
+.. image:: interview-bobippolito.jpg
+   :scale: 100
+   :alt: Interview with Bob Ippolito
+   :align: left
+
+What do you think about PyPy? Interview with American software developer Bob Ippolito at this years PyCon, Dallas, US.  1.3.2006
+
+PAL 8 min, DivX AVI
+
+Bob Ippolito is an Open Source software developer from San Francisco and has been to two PyPy sprints. In this interview he is giving his opinion on the project.
+
+
+Interview with Tim Peters
++++++++++++++++++++++++++
+
+http://codespeak.net/download/pypy/video/interview-timpeters-v2.avi.torrent    
+
+.. image:: interview-timpeters.jpg
+   :scale: 100
+   :alt: Interview with Tim Peters
+   :align: left
+
+Interview with CPython core developer Tim Peters at this years PyCon, Dallas, US.  2.3.2006
+
+PAL, 23 min, DivX AVI
+
+Tim Peters, a longtime CPython core developer talks about how he got into Python, what he thinks about the PyPy project and why he thinks it would have never been possible in the US.
