@@ -33,7 +33,7 @@ PyPy technical talk at the University of Palma de Mallorca
 
 http://codespeak.net/download/pypy/video/introductory-student-talk-v2.avi.torrent
 
-.. image:: introductory-student-talk.jpg
+.. image:: image/introductory-student-talk.jpg
    :scale: 100
    :alt: Introductory student talk
    :align: left
@@ -50,7 +50,7 @@ Coding discussion of core developers Armin Rigo and Samuele Pedroni
 
 http://codespeak.net/download/pypy/video/coding-discussion-v1.avi.torrent
 
-.. image:: coding-discussion.jpg
+.. image:: image/coding-discussion.jpg
    :scale: 100
    :alt: Coding discussion
    :align: left
@@ -65,7 +65,7 @@ Talk on Agile Open Source Methods in the PyPy project
 
 http://codespeak.net/download/pypy/video/agile-talk-v1.avi.torrent
 
-.. image:: agile-talk.jpg
+.. image:: image/agile-talk.jpg
    :scale: 100
    :alt: Agile talk
    :align: left
@@ -80,7 +80,7 @@ Introductory talk on PyPy
 
 http://codespeak.net/download/pypy/video/introductory-talk-pycon-v1.avi.torrent
 
-.. image:: introductory-talk-pycon.jpg
+.. image:: image/introductory-talk-pycon.jpg
    :scale: 100
    :alt: Introductory talk at PyCon
    :align: left
@@ -95,7 +95,7 @@ PyPy Architecture session
 
 http://codespeak.net/download/pypy/video/architecture-session-v1.avi.torrent
 
-.. image:: architecture-session.jpg
+.. image:: image/architecture-session.jpg
    :scale: 100
    :alt: Architecture session
    :align: left
@@ -110,7 +110,7 @@ Sprint tutorial
 
 http://codespeak.net/download/pypy/video/sprint-tutorial-v2.avi.torrent
 
-.. image:: sprint-tutorial.jpg
+.. image:: image/sprint-tutorial.jpg
    :scale: 100
    :alt: Sprint Tutorial
    :align: left
@@ -127,7 +127,7 @@ Interview with Bob Ippolito
 
 http://codespeak.net/download/pypy/video/interview-bobippolito-v2.avi.torrent  
 
-.. image:: interview-bobippolito.jpg
+.. image:: image/interview-bobippolito.jpg
    :scale: 100
    :alt: Interview with Bob Ippolito
    :align: left
@@ -144,7 +144,7 @@ Interview with Tim Peters
 
 http://codespeak.net/download/pypy/video/interview-timpeters-v2.avi.torrent    
 
-.. image:: interview-timpeters.jpg
+.. image:: image/interview-timpeters.jpg
    :scale: 100
    :alt: Interview with Tim Peters
    :align: left
