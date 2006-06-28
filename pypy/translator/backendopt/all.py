@@ -20,7 +20,7 @@ def backend_optimizations(translator, graphs=None,
                                       mallocs=True,
                                       merge_if_blocks_to_switch=True,
                                       propagate=False,
-                                      constfold=False,
+                                      constfold=True,
                                       heap2stack=False,
                                       clever_malloc_removal=False):
 
