@@ -409,7 +409,9 @@ class LLFrame(object):
         print
 
     def op_debug_pdb(self, *ll_args):
-        print "entering pbb...", ll_args
+        if self.llinterpreter.tracer:
+            self.llinterpreter.tracer.flush()
+        print "entering pdb...", ll_args
         import pdb
         pdb.set_trace()
 
@@ -906,6 +908,9 @@ class Tracer(object):
             if bold:
                 text = '<b>%s</b>' % (text,)
             self.file.write(text.replace('\n', '\n'+self.indentation))
+
+    def flush(self):
+        self.file.flush()
 
 def wrap_func_or_boundmethod(llinterpreter, func, method_name):
     """

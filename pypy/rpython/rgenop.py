@@ -143,8 +143,12 @@ def closeblock2(blockcontainer, exitswitch):
 
 def _closelink(link, vars, targetblock):
     if isinstance(link, flowmodel.Link):
+        blockvars = dict.fromkeys(link.prevblock.getvariables())
         for v in vars:
-            assert isinstance(v, (flowmodel.Variable, flowmodel.Constant))
+            if isinstance(v, flowmodel.Variable):
+                assert v in blockvars    # link using vars not from prevblock!
+            else:
+                assert isinstance(v, flowmodel.Constant)
         assert ([v.concretetype for v in vars] ==
                 [v.concretetype for v in targetblock.inputargs])
         link.args[:] = vars
