@@ -396,7 +396,7 @@ Block
     Each Block ends in one of the following ways:
 
     * unconditional jump: exitswitch is None, exits contains a single Link.
-    * conditional jump: exitswitch is one of the Variables that appear in the Block, and exits contains one or more Links (usually 2).  Each Link's exitcase gives a concrete value.  This is the equivalent of a "switch": the control follows the Link whose exitcase matches the run-time value of the exitswitch Variable.  It is a run-time error if the Variable doesn't match any exitcase.  (Currently only used with 2 Links whose exitcase are False and True, respectively -- but this can change, so don't rely on it!)
+    * conditional jump: exitswitch is one of the Variables that appear in the Block, and exits contains one or more Links (usually 2).  Each Link's exitcase gives a concrete value.  This is the equivalent of a "switch": the control follows the Link whose exitcase matches the run-time value of the exitswitch Variable.  It is a run-time error if the Variable doesn't match any exitcase.
     * exception catching: exitswitch is ``Constant(last_exception)``.  The first Link has exitcase set to None and represents the non-exceptional path.  The next Links have exitcase set to a subclass of Exception, and are taken when the *last* operation of the basic block raises a matching exception.  (Thus the basic block must not be empty, and only the last operation is protected by the handler.)
     * return or except: the returnblock and the exceptblock have operations set to an empty tuple, exitswitch to None, and exits empty.
 
