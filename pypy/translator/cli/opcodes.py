@@ -72,7 +72,7 @@ opcodes = {
     'unichar_eq':               'ceq',
     'unichar_ne':               _not('ceq'),
 
-    'int_is_true':              DoNothing,
+    'int_is_true':              [PushAllArgs, 'ldc.i4.0', 'cgt.un'],
     'int_neg':                  'neg',
     'int_neg_ovf':              _check(['ldc.i4.0', PushAllArgs, 'sub.ovf', StoreResult]),
     'int_abs':                  _abs('int32'),
@@ -118,7 +118,7 @@ opcodes = {
     'int_floordiv_ovf_zer':     None,  # what's the meaning?
     'int_mod_ovf_zer':          None,
 
-    'uint_is_true':             DoNothing,
+    'uint_is_true':             [PushAllArgs, 'ldc.i4.0', 'cgt.un'],
     'uint_neg':                 None,      # What's the meaning?
     'uint_abs':                 _abs('unsigned int32'), # TODO: ?
     'uint_invert':              'not',
@@ -160,7 +160,7 @@ opcodes = {
     'float_floor':              None, # TODO
     'float_fmod':               None, # TODO
 
-    'llong_is_true':            [PushAllArgs, 'ldc.i8 0', 'ceq']+Not,
+    'llong_is_true':            [PushAllArgs, 'ldc.i8 0', 'cgt.un'],
     'llong_neg':                'neg',
     'llong_abs':                _abs('int64'),
     'llong_invert':             'not',
@@ -179,7 +179,7 @@ opcodes = {
     'llong_gt':                 'cgt',
     'llong_ge':                 _not('clt'),
 
-    'ullong_is_true':            [PushAllArgs, 'ldc.i8 0', 'ceq']+Not,
+    'ullong_is_true':            [PushAllArgs, 'ldc.i8 0', 'cgt.un'],
     'ullong_neg':                None,
     'ullong_abs':                _abs('unsigned int64'),
     'ullong_invert':             'not',
