@@ -1,7 +1,8 @@
+=========================
 PyPy video documentation 
 =========================
 
-Requirements to download and view 
+Requirements to download and view
 ---------------------------------
 
 In order to download the videos you need to point a
@@ -26,10 +27,10 @@ http://ffdshow.sourceforge.net/tikiwiki/tiki-index.php
 
 
 PyPy Video Torrent Downloads 
------------------------------
+----------------------------
 
 PyPy technical talk at the University of Palma de Mallorca
-++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+----------------------------------------------------------
 
 http://codespeak.net/download/pypy/video/introductory-student-talk-v2.avi.torrent
 
@@ -46,7 +47,7 @@ Core developers Armin Rigo, Samuele Pedroni and Carl Friedrich Bolz are giving a
 
 
 Coding discussion of core developers Armin Rigo and Samuele Pedroni
-+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+-------------------------------------------------------------------
 
 http://codespeak.net/download/pypy/video/coding-discussion-v1.avi.torrent
 
@@ -61,7 +62,7 @@ PAL 40 min, DivX AVI
 
 
 Talk on Agile Open Source Methods in the PyPy project
-+++++++++++++++++++++++++++++++++++++++++++++++++++++
+-----------------------------------------------------
 
 http://codespeak.net/download/pypy/video/agile-talk-v1.avi.torrent
 
@@ -76,7 +77,7 @@ PAL, 26 min, divx AVI
 
 
 Introductory talk on PyPy
-+++++++++++++++++++++++++
+-------------------------
 
 http://codespeak.net/download/pypy/video/introductory-talk-pycon-v1.avi.torrent
 
@@ -91,7 +92,7 @@ PAL, 28 min, divx AVI
 
 
 PyPy Architecture session
-+++++++++++++++++++++++++
+-------------------------
 
 http://codespeak.net/download/pypy/video/architecture-session-v1.avi.torrent
 
@@ -106,7 +107,7 @@ PAL, 48 min, divx AVI
 
 
 Sprint tutorial
-+++++++++++++++
+---------------
 
 http://codespeak.net/download/pypy/video/sprint-tutorial-v2.avi.torrent
 
@@ -123,7 +124,7 @@ Michael Hudson gives an in-depth, very technical introduction to a PyPy sprint. 
 
 
 Interview with Bob Ippolito
-+++++++++++++++++++++++++++
+---------------------------
 
 http://codespeak.net/download/pypy/video/interview-bobippolito-v2.avi.torrent  
 
@@ -140,7 +141,7 @@ Bob Ippolito is an Open Source software developer from San Francisco and has bee
 
 
 Interview with Tim Peters
-+++++++++++++++++++++++++
+-------------------------
 
 http://codespeak.net/download/pypy/video/interview-timpeters-v2.avi.torrent    
 
