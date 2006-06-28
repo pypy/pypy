@@ -82,12 +82,14 @@ class RPythonTyper:
         except:
             self.seed = 0
         self.order = None
-        RTYPERORDER = os.getenv('RTYPERORDER')
-        if RTYPERORDER:
-            order_module = RTYPERORDER.split(',')[0]
-            self.order = __import__(order_module, {}, {},  ['*']).order
-            s = 'Using %s.%s for order' % (self.order.__module__, self.order.__name__)
-            log.info(s)
+        # the following code would invoke translator.goal.order, which is
+        # not up-to-date any more:
+##        RTYPERORDER = os.getenv('RTYPERORDER')
+##        if RTYPERORDER:
+##            order_module = RTYPERORDER.split(',')[0]
+##            self.order = __import__(order_module, {}, {},  ['*']).order
+##            s = 'Using %s.%s for order' % (self.order.__module__, self.order.__name__)
+##            log.info(s)
         self.crash_on_first_typeerror = True
 
     def getdriveroptions(self):
