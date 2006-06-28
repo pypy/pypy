@@ -82,3 +82,12 @@ def op_any_operations(x, y):
 
 def op_any_abs(x, y):
     return abs(x)
+
+
+def test_int_is_true():
+    def f(x):
+        return bool(x)
+    check(f, [int], [0])
+    check(f, [int], [-1])
+    import py; py.test.skip("XXX the following test fails")
+    check(f, [int], [256])
