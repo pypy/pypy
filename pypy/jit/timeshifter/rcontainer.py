@@ -160,7 +160,7 @@ class FrozenVirtualStruct(AbstractContainer):
 
     def __init__(self, typedesc):
         self.typedesc = typedesc
-        #self.fz_content initialized later
+        #self.fz_content_boxes initialized later
 
     def exactmatch(self, vstruct, outgoingvarboxes, memo):
         contmemo = memo.containers

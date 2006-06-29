@@ -16,37 +16,92 @@ class ListTypeDesc(object):
     def _freeze_(self):
         return True
 
+    def ll_factory(self):
+        vlist = VirtualList(self)
+        box = rvalue.PtrRedBox(self.gv_ptrtype)
+        box.content = vlist
+        vlist.ownbox = box
+        return box
+
+
+class FrozenVirtualList(AbstractContainer):
+
+    def __init__(self, typedesc):
+        self.typedesc = typedesc
+        #self.fz_item_boxes initialized later
+
+    def exactmatch(self, vlist, outgoingvarboxes, memo):
+        contmemo = memo.containers
+        if self in contmemo:
+            ok = vlist is contmemo[self]
+            if not ok:
+                outgoingvarboxes.append(vlist.ownbox)
+            return ok
+        if vlist in contmemo:
+            assert contmemo[vlist] is not self
+            outgoingvarboxes.append(vlist.ownbox)
+            return False
+        assert self.typedesc is vlist.typedesc
+        contmemo[self] = vlist
+        contmemo[vlist] = self
+        self_boxes = self.fz_item_boxes
+        vlist_boxes = vlist.item_boxes
+        fullmatch = True
+        for i in range(len(self_boxes)):
+            if not self_boxes[i].exactmatch(vlist_boxes[i],
+                                            outgoingvarboxes,
+                                            memo):
+                fullmatch = False
+        return fullmatch
+
 
 class VirtualList(AbstractContainer):
 
     def __init__(self, typedesc):
         self.typedesc = typedesc
         self.item_boxes = []
+        # self.ownbox = ...    set in ll_factory
 
     def enter_block(self, newblock, incoming, memo):
-        pass
+        contmemo = memo.containers
+        if self not in contmemo:
+            contmemo[self] = None
+            for box in self.item_boxes:
+                box.enter_block(newblock, incoming, memo)
 
     def force_runtime_container(self, jitstate):
-        pass
+        assert 0
 
     def freeze(self, memo):
-        pass
+        contmemo = memo.containers
+        try:
+            return contmemo[self]
+        except KeyError:
+            result = contmemo[self] = FrozenVirtualList(self.typedesc)
+            frozens = [box.freeze(memo) for box in self.item_boxes]
+            result.fz_item_boxes = frozens
+            return result
 
     def copy(self, memo):
-        pass
+        contmemo = memo.containers
+        try:
+            return contmemo[self]
+        except KeyError:
+            result = contmemo[self] = VirtualList(self.typedesc)
+            result.item_boxes = [box.copy(memo)
+                                 for box in self.item_boxes]
+            result.ownbox = self.ownbox.copy(memo)
+            return result
 
     def replace(self, memo):
-        pass
+        assert 0
 
 
 def oop_newlist(jitstate, typedesc, lengthbox):
     assert lengthbox.is_constant()
     length = rvalue.ll_getvalue(lengthbox, lltype.Signed)
     assert length == 0
-    vlist = VirtualList(typedesc)
-    box = rvalue.PtrRedBox(typedesc.gv_ptrtype)
-    box.content = vlist
-    return box
+    return typedesc.ll_factory()
 
 def oop_list_append(jitstate, selfbox, itembox):
     assert isinstance(selfbox.content, VirtualList)
