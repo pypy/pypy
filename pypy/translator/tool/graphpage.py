@@ -438,3 +438,40 @@ def nameof(obj, cache={}):
         result = '%s__0x%x' % (getattr(obj, '__name__', ''), uid(obj))
         cache[obj] = result
         return result
+
+# ____________________________________________________________
+#
+# Helpers to try to show a graph when we only have a Block or a Link
+
+def try_show(obj):
+    if isinstance(obj, FunctionGraph):
+        obj.show()
+    elif isinstance(obj, Link):
+        try_show(obj.prevblock)
+    elif isinstance(obj, Block):
+        import gc
+        pending = [obj]   # pending blocks
+        seen = {obj: True, None: True}
+        for x in pending:
+            for y in gc.get_referrers(x):
+                if isinstance(y, FunctionGraph):
+                    y.show()
+                    return
+                elif isinstance(y, Link):
+                    block = y.prevblock
+                    if block not in seen:
+                        pending.append(block)
+                        seen[block] = True
+        graph = IncompleteGraph(pending)
+        SingleGraphPage(graph).display()
+    else:
+        raise TypeError("try_show(%r object)" % (type(obj).__name__,))
+
+class IncompleteGraph:
+    name = '(incomplete graph)'
+
+    def __init__(self, bunch_of_blocks):
+        self.bunch_of_blocks = bunch_of_blocks
+
+    def iterblocks(self):
+        return iter(self.bunch_of_blocks)

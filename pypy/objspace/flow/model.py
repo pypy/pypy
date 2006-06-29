@@ -41,6 +41,7 @@ class roproperty(object):
 
 
 class FunctionGraph(object):
+    __slots__ = ['startblock', 'returnblock', 'exceptblock', '__dict__']
     
     def __init__(self, name, startblock, return_var=None):
         self.name        = name    # function name (possibly mangled already)
@@ -162,6 +163,10 @@ class Link(object):
     __getstate__ = getstate_with_slots
     __setstate__ = setstate_with_slots
 
+    def show(self):
+        from pypy.translator.tool.graphpage import try_show
+        try_show(self)
+
 
 class Block(object):
     __slots__ = """isstartblock inputargs operations exitswitch
@@ -241,6 +246,10 @@ class Block(object):
 
     __getstate__ = getstate_with_slots
     __setstate__ = setstate_with_slots
+
+    def show(self):
+        from pypy.translator.tool.graphpage import try_show
+        try_show(self)
 
 
 class Variable(object):

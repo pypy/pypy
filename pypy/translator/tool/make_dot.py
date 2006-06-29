@@ -82,12 +82,13 @@ class FlowGraphDotGen(DotGen):
 
     def emit_subgraph(self, name, node):
         name = name.replace('.', '_') + '_'
-        self.blocks = {}
+        self.blocks = {id(None): '(None)'}
         self.func = None
         self.prefix = name
         self.enter_subgraph(name)
         self.visit_FunctionGraph(node)
-        traverse(self.visit, node)
+        for block in node.iterblocks():
+            self.visit_Block(block)
         self.leave_subgraph()
 
     def blockname(self, block):
@@ -97,10 +98,6 @@ class FlowGraphDotGen(DotGen):
         except KeyError:
             self.blocks[i] = name = "%s_%d" % (self.prefix, len(self.blocks))
             return name
-
-    def visit(self, obj):
-        if isinstance(obj, Block):
-            self.visit_Block(obj)
 
     def visit_FunctionGraph(self, funcgraph):
         name = self.prefix # +'_'+funcgraph.name
@@ -117,7 +114,8 @@ class FlowGraphDotGen(DotGen):
 
         self.emit_node(name, label=data, shape="box", fillcolor="green", style="filled")
         #('%(name)s [fillcolor="green", shape=box, label="%(data)s"];' % locals())
-        self.emit_edge(name, self.blockname(funcgraph.startblock), 'startblock')
+        if hasattr(funcgraph, 'startblock'):
+            self.emit_edge(name, self.blockname(funcgraph.startblock), 'startblock')
         #self.emit_edge(name, self.blockname(funcgraph.returnblock), 'returnblock', style="dashed")
 
     def visit_Block(self, block):

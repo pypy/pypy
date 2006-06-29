@@ -112,6 +112,13 @@ class RefTrackerPage(BaseRefTrackerPage):
             for k, v in o1.items():
                 if v is o2:
                     slst.append('[%r]' % (k,))
+        else:
+            for basetype in type(o1).__mro__:
+                for key, value in basetype.__dict__.items():
+                    if (type(value) is MemberDescriptorType or
+                        type(value) is AttributeType):
+                        if value.__get__(o1) is o2:
+                            slst.append(str(key))
         return ', '.join(slst)
 
 
@@ -119,7 +126,17 @@ def track(*objs):
     """Invoke a dot+pygame object reference tracker."""
     page = RefTrackerPage([MARKER] + list(objs))
     del objs
+    gc.collect()
+    gc.collect()
     page.display()
+
+
+class _A(object):
+    __slots__ = 'a'
+class _B(object):
+    pass
+MemberDescriptorType = type(_A.a)
+AttributeType = type(_B.__dict__['__dict__'])
 
 
 if __name__ == '__main__':
@@ -127,5 +144,9 @@ if __name__ == '__main__':
         sys.path.remove(os.getcwd())
     except ValueError:
         pass
+    class A(object):
+        __slots__ = ['a']
     d = {"lskjadldjslkj": "adjoiadoixmdoiemdwoi"}
+    a1 = A()
+    a1.a = d
     track(d)
