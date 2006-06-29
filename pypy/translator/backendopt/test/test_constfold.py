@@ -2,6 +2,7 @@ from pypy.objspace.flow.model import checkgraph, Constant, summary
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.lltypesystem import lltype
+from pypy.rpython import objectmodel
 from pypy.translator.backendopt.constfold import constant_fold_graph
 from pypy import conftest
 
@@ -128,6 +129,19 @@ def test_exception():
     graph, t = get_graph(fn, [int])
     constant_fold_graph(graph)
     check_graph(graph, [12], 12, t)
+
+
+def test_malloc():
+    S1 = lltype.GcStruct('S1', ('x', lltype.Signed), hints={'immutable': True})
+    def fn():
+        s = lltype.malloc(S1)
+        s.x = 12
+        objectmodel.keepalive_until_here(s)
+        return s.x
+
+    graph, t = get_graph(fn, [])
+    constant_fold_graph(graph)
+    check_graph(graph, [], 12, t)
 
 
 def xxx_test_later_along_link():

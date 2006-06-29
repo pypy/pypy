@@ -12,6 +12,7 @@ def fold_op_list(operations, constants, exit_early=False, exc_catch=False):
     newops = []
     keepalives = []
     folded_count = 0
+    first_sideeffect_index = None
     for spaceop in operations:
         vargsmodif = False
         vargs = []
@@ -24,13 +25,13 @@ def fold_op_list(operations, constants, exit_early=False, exc_catch=False):
                 vargsmodif = True
                 args.append(v.value)
             vargs.append(v)
-        if len(args) == len(vargs):
-            RESTYPE = spaceop.result.concretetype
-            try:
-                op = getattr(llop, spaceop.opname)
-            except AttributeError:
-                pass
-            else:
+        try:
+            op = getattr(llop, spaceop.opname)
+        except AttributeError:
+            sideeffects = True
+        else:
+            if len(args) == len(vargs):
+                RESTYPE = spaceop.result.concretetype
                 try:
                     result = op(RESTYPE, *args)
                 except TypeError:
@@ -45,10 +46,11 @@ def fold_op_list(operations, constants, exit_early=False, exc_catch=False):
                     constants[spaceop.result] = Constant(result, RESTYPE)
                     folded_count += 1
                     continue
+            sideeffects = op.sideeffects
         # failed to fold an operation, exit early if requested
         if exit_early:
             return folded_count
-        if spaceop.opname == 'keepalive':
+        if spaceop.opname == 'keepalive' and first_sideeffect_index is None:
             if vargsmodif:
                 continue    # keepalive(constant) is not useful
             keepalives.append(spaceop)
@@ -61,6 +63,8 @@ def fold_op_list(operations, constants, exit_early=False, exc_catch=False):
                 else:
                     spaceop = SpaceOperation(spaceop.opname, vargs,
                                              spaceop.result)
+            if sideeffects and first_sideeffect_index is None:
+                first_sideeffect_index = len(newops)
             newops.append(spaceop)
     # end
     if exit_early:
@@ -68,11 +72,11 @@ def fold_op_list(operations, constants, exit_early=False, exc_catch=False):
     else:
         # move the keepalives to the end of the block, which makes the life
         # of prepare_constant_fold_link() easier.  Don't put them past the
-        # exception-raising operation, though.
-        if exc_catch:
-            exc_raising_op = newops.pop()
-            keepalives.append(exc_raising_op)
-        newops.extend(keepalives)
+        # exception-raising operation, though.  There is also no point in
+        # moving them past the first sideeffect-ing operation.
+        if first_sideeffect_index is None:
+            first_sideeffect_index = len(newops) - exc_catch
+        newops[first_sideeffect_index:first_sideeffect_index] = keepalives
         return newops
 
 def constant_fold_block(block):
