@@ -93,7 +93,7 @@ class CTS(object):
         elif isinstance(t, ootype.List):
             item_type = self.lltype_to_cts(t._ITEMTYPE)
             if item_type == 'void': # special case: List of Void
-                return PYPY_LIST_OF_VOID
+                return self.__class(PYPY_LIST_OF_VOID, include_class)
             return self.__class(PYPY_LIST % item_type, include_class)
         elif isinstance(t, ootype.Dict):
             key_type = self.lltype_to_cts(t._KEYTYPE)
