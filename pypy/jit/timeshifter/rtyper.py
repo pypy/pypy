@@ -110,6 +110,10 @@ class HintRTyper(RPythonTyper):
     def translate_op_keepalive(self,hop):
         pass
 
+    def translate_op_same_as(self, hop):
+        [v] = hop.inputargs(hop.r_result)
+        return v
+
     def translate_op_getfield(self, hop):
         if isinstance(hop.args_r[0], BlueRepr):
             return hop.args_r[0].timeshift_getfield(hop)
@@ -246,7 +250,11 @@ class HintRTyper(RPythonTyper):
             args_s.insert(0, s_typedesc)
             ll_handler = oop_newlist
         else:
-            XXX - Later
+            typename, method = operation_name.split('.')
+            method = 'oop_%s_%s' % (typename, method)
+            vmodule = __import__('pypy.jit.timeshifter.v%s' % (typename,),
+                                 None, None, [method])
+            ll_handler = getattr(vmodule, method)
 
         v_jitstate = hop.llops.getjitstate()
         return hop.llops.genmixlevelhelpercall(ll_handler,
