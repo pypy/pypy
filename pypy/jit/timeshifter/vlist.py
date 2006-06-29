@@ -42,10 +42,13 @@ class FrozenVirtualList(AbstractContainer):
             outgoingvarboxes.append(vlist.ownbox)
             return False
         assert self.typedesc is vlist.typedesc
-        contmemo[self] = vlist
-        contmemo[vlist] = self
         self_boxes = self.fz_item_boxes
         vlist_boxes = vlist.item_boxes
+        if len(self_boxes) != len(vlist_boxes):
+            outgoingvarboxes.append(vlist.ownbox)
+            return False
+        contmemo[self] = vlist
+        contmemo[vlist] = self
         fullmatch = True
         for i in range(len(self_boxes)):
             if not self_boxes[i].exactmatch(vlist_boxes[i],
@@ -94,7 +97,12 @@ class VirtualList(AbstractContainer):
             return result
 
     def replace(self, memo):
-        assert 0
+        contmemo = memo.containers
+        if self not in contmemo:
+            contmemo[self] = None
+            for i in range(len(self.item_boxes)):
+                self.item_boxes[i] = self.item_boxes[i].replace(memo)
+            self.ownbox = self.ownbox.replace(memo)
 
 
 def oop_newlist(jitstate, typedesc, lengthbox):
