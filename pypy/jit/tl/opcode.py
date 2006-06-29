@@ -31,6 +31,8 @@ opcode(19, "BR_COND_STK")    # no operand, takes [condition, offset] from the st
 opcode(20, "CALL")  #1 operand offset
 opcode(21, "RETURN")
 
-opcode(22, "INVALID")
+opcode(22, "PUSHARG")
+
+opcode(23, "INVALID")
 
 del opcode

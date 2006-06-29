@@ -48,7 +48,7 @@ def test_tl_invalid_bytecode():
 
 def test_tl_translatable():
     code = list2bytecode([PUSH,42, PUSH,100, ADD])
-    fn = translate(interp, [str, int])
+    fn = translate(interp, [str, int, int])
     assert interp(code) == fn(code)
 
 def test_swap():
@@ -170,7 +170,7 @@ func2:
                                   PUSH,2, RETURN,
                                   PUSH,4, PUSH,5, ADD, RETURN])
 
-def test_factorial():
+def test_factorial_seven():
     code = compile('''
             PUSH 1   #  accumulator
             PUSH 7   #  N
@@ -197,7 +197,7 @@ def test_factorial():
     res = interp(code)
     assert res == 5040
 
-def test_factorial_harder():
+def test_factorial_seven_harder():
     code = compile('''
             PUSH 1   #  accumulator
             PUSH 7   #  N
@@ -225,3 +225,33 @@ def test_factorial_harder():
     ''')
     res = interp(code)
     assert res == 5040
+
+
+FACTORIAL_SOURCE = '''
+            PUSH 1   #  accumulator
+            PUSHARG
+
+        start:
+            PICK 0
+            PUSH 1
+            LE
+            BR_COND exit
+
+            SWAP
+            PICK 1
+            MUL
+            SWAP
+            PUSH 1
+            SUB
+            PUSH 1
+            BR_COND start
+
+        exit:
+            POP
+            RETURN
+    '''
+
+def test_factorial_with_arg():
+    code = compile(FACTORIAL_SOURCE)
+    res = interp(code, 0, 6)
+    assert res == 720
