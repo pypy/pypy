@@ -15,6 +15,17 @@ for a list of past events.
 .. _`iCalendar format`: webcal://pypycal.sabi.net///calendars/PyPy.ics
 .. _eventhistory: eventhistory.html
 
+Release of PyPy video documentations
+==================================================================
+
+The PyPy team is happy to announce that the first bunch of PyPy videos
+can now be downloaded from:
+
+http://codespeak.net/pypy/dist/pypy/doc/video-index.html
+
+The videos introduce involved people and contain different talks, tutorials and
+interviews and can be downloaded via bittorrent. **29th June 2006**
+
 PyPy 0.9.0
 ==================================================================
 
