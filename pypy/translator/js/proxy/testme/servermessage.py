@@ -8,6 +8,7 @@ from os import mkdir
 from os.path import exists
 from md5 import md5
 from struct import unpack
+from time import time
 
 
 debug = True
@@ -51,10 +52,12 @@ class ServerMessage:
         self.gfx_dir = self.base_gfx_dir    #gets overwritten depending on playfield FnDesc
         self.gfx_url = self.base_gfx_url
         self.decompressobj = decompressobj().decompress
+        self.last_active = time()
 
 
     def dispatch(self, *values):
         #log('RECEIVED:%s(%d)' % (values[0], len(values[1:])))
+        self.last_active = time()
         fn = self.MESSAGES.get(values[0])
         if fn:
             try:

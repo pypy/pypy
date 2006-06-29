@@ -107,6 +107,7 @@ class BnbRoot(Root, BasicExternal):
     
     
     def serverMessage(self):
+        self._closeIdleConnections()
         sessionid = session['_id']
         if sessionid not in self._serverMessage:
             self._serverMessage[sessionid] = ServerMessage('static/images/')
@@ -134,7 +135,6 @@ class BnbRoot(Root, BasicExternal):
 
     @turbogears.expose(html="jsdemo.templates.bnb")
     def index(self):
-        import time
         return dict(now=time.ctime(), onload=self.jsname, code=self.jssource)
     
     @turbogears.expose(format='json')
@@ -205,6 +205,16 @@ class BnbRoot(Root, BasicExternal):
             if sm.socket is not None:
                 sm.socket.close()
             del self._serverMessage[sessionid]
+
+    def _closeIdleConnections(self):
+        t = time.time() - 5.0 #5 seconds until considered idle
+        for sessionid, sm in self._serverMessage.items():
+            if sm.last_active < t:
+                log("Close connection with sessionid %s because it was idle for %.1f seconds" % (
+                    sessionid, time.time() - sm.last_active))
+                if sm.socket is not None:
+                    sm.socket.close()
+                del self._serverMessage[sessionid]
 
     @turbogears.expose(format="json")
     def initialize_session(self):
