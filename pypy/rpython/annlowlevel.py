@@ -184,6 +184,12 @@ class MixLevelHelperAnnotator:
 
     def delayedconst(self, repr, obj):
         if repr.is_setup_delayed():
+            # record the existence of this 'obj' for the bookkeeper - e.g.
+            # if 'obj' is an instance, this will populate the classdef with
+            # the prebuilt attribute values of the instance
+            bk = self.rtyper.annotator.bookkeeper
+            bk.immutablevalue(obj)
+
             delayedptr = lltype._ptr(repr.lowleveltype, "delayed!")
             self.delayedconsts.append((delayedptr, repr, obj))
             return delayedptr
