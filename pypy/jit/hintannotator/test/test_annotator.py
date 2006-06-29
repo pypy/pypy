@@ -421,7 +421,7 @@ def test_propagate_fixing_across_func_arguments():
     
 def test_hannotate_tl():
     from pypy.jit.tl import tl
-    hannotate(tl.interp, [str, int], policy=P_OOPSPEC)
+    hannotate(tl.interp, [str, int, int], policy=P_OOPSPEC)
 
 def test_hannotate_plus_minus():
     def ll_plus_minus(s, x, y):
