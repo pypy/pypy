@@ -4,7 +4,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, lloperation, llheap
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.objectmodel import ComputedIntSymbolic
 
-import sys
+import sys, os
 import math
 import py
 import traceback, cStringIO
@@ -869,8 +869,20 @@ class Tracer(object):
         from pypy.tool.udir import udir
         n = Tracer.Counter
         Tracer.Counter += 1
-        self.file = udir.join('llinterp_trace_%d.html' % n).open('w')
+        filename = 'llinterp_trace_%d.html' % n
+        self.file = udir.join(filename).open('w')
         print >> self.file, self.HEADER
+
+        linkname = str(udir.join('llinterp_trace.html'))
+        try:
+            os.unlink(linkname)
+        except OSError:
+            pass
+        try:
+            os.symlink(filename, linkname)
+        except (AttributeError, OSError):
+            pass
+
         self.count = 0
         self.indentation = ''
 
