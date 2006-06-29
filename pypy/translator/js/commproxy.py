@@ -10,10 +10,15 @@ METHOD_BODY = """
     var data,str;
     x = new XMLHttpRequest();
     data = %(data)s;
-    str = "?"
+    str = ""
     for(i in data) {
         if (data[i]) {
-            str += i + "=" + data[i].toString() + ";";
+            if (str.length == 0) {
+                str += "?";
+            } else {
+                str += "&";
+            }
+            str += i + "=" + data[i].toString();
         }
     }
     logDebug('%(call)s'+str);
@@ -44,10 +49,15 @@ MOCHIKIT_BODY = """
 %(class)s.prototype.%(method)s = function ( %(args)s ) {
     var data,str;
     data = %(data)s;
-    str = "?"
+    str = ""
     for(i in data) {
         //if (data[i]) {
-            str += i + "=" + data[i].toString() + ";";
+            if (str.length == 0) {
+                str += "?";
+            } else {
+                str += "&";
+            }
+            str += i + "=" + data[i].toString();
         //}
     }
     //logDebug('%(call)s'+str);

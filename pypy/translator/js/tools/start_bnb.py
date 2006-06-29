@@ -17,30 +17,12 @@ from pypy.translator.js.modules.xmlhttp import XMLHttpRequest
 from pypy.translator.js.modules.mochikit import log, logWarning, createLoggingPane
 from pypy.translator.js.modules.dom import get_document, set_on_keydown, set_on_keyup
 from pypy.translator.js.modules.bltns import date
+from pypy.translator.js.demo.jsdemo.bnb import BnbRootInstance
 
 import time
 import os
 
 os.chdir("../demo/jsdemo")
-
-#if not conftest.option.browser:
-#    py.test.skip("Works only in browser (right now?)")
-
-from pypy.translator.js.demo.jsdemo.bnb import BnbRootInstance
-
-##def msg_dispatcher(data):
-##    for i in data['messages']:
-##        log(i['type'])
-##    BnbRootInstance.get_message(msg_dispatcher)
-##
-##def test_mochikit():
-##    def mochikit():
-##        createLoggingPane(True)
-##        BnbRootInstance.get_message(msg_dispatcher)
-##
-##    from pypy.translator.js.proxy.testme.controllers import Root
-##    fn = compile_function(mochikit, [], root = Root)
-##    fn()
 
 class Stats(object):
     """ Class containing some statistics
@@ -63,6 +45,12 @@ class Stats(object):
             self.starttime = next_time
 
 stats = Stats()
+
+class Player(object):
+    def __init__(self):
+        self.id = -1
+
+player = Player()
 
 class SpriteManager(object):
     def __init__(self):
@@ -134,11 +122,6 @@ def process_message(msg):
         div.setAttribute('style', 'position:absolute; top:0px; left:0px')
         get_document().body.appendChild(div)
     elif msg['type'] == 'def_icon':
-##        img = get_document().createElement("img")
-##        img.setAttribute("src", msg["filename"])
-##        img.setAttribute("style", 'position:absolute; left:0; top:0')
-##        img.setAttribute("id", msg["icon_code"])
-##        get_document().getElementById("playfield").appendChild(img)
         sm.add_icon(msg['icon_code'], msg['filename'])
     elif msg['type'] == 'ns':
         sm.add_sprite(msg['s'], msg['icon_code'], msg['x'], msg['y'])
@@ -157,28 +140,59 @@ def process_message(msg):
     #    sm.show_sprite(msg['s'])
 
 
+def addPlayer(player_id):
+    name  = "player no. " + str(player_id)
+    #name  = "player no. %d" % player_id
+    #File "/Users/eric/projects/pypy-dist/pypy/translator/js/jts.py", line 52, in lltype_to_cts
+    #    raise NotImplementedError("Type %r" % (t,))
+    #    NotImplementedError: Type <StringBuilder>
+    prev_player_id = player.id
+    if player.id >= 0:
+        log("removing " + name)
+        BnbRootInstance.remove_player(player.id, bnb_dispatcher)
+        player.id = -1
+    if player_id != prev_player_id:
+        log("adding " + name)
+        BnbRootInstance.add_player(player_id, bnb_dispatcher)
+        BnbRootInstance.player_name(player_id, name, bnb_dispatcher)
+        player.id = player_id
+
+
 def keydown(key):
     #c = chr(int(key.keyCode)).lower()
     #c = int(key.keyCode)
     c = key.keyCode
-    if c == '65': #ord('A'):
-        #BnbRootInstance.add_player0(bnb_dispatcher)
-        log("adding player")
-        BnbRootInstance.add_player(0, bnb_dispatcher)
-    elif c == '82': #ord('R'):
-        #BnbRootInstance.remove_player0(bnb_dispatcher)
-        BnbRootInstance.remove_player(0, bnb_dispatcher)
+    if c == '48': #ord('0'):
+        addPlayer(0)
+    elif c == '49': #ord('1'):  #bwah. should really work on being able to cast to int
+        addPlayer(1)
+    elif c == '50': #ord('2'):
+        addPlayer(2)
+    elif c == '51': #ord('3'):
+        addPlayer(3)
+    elif c == '52': #ord('4'):
+        addPlayer(4)
+    elif c == '53': #ord('5'):
+        addPlayer(5)
+    elif c == '54': #ord('6'):
+        addPlayer(6)
+    elif c == '55': #ord('7'):
+        addPlayer(7)
+    elif c == '56': #ord('8'):
+        addPlayer(8)
+    elif c == '57': #ord('9'):
+        addPlayer(9)
     elif c == '68': #ord('D'):  #right
-        BnbRootInstance.key0(bnb_dispatcher)
+        BnbRootInstance.key(player.id, 0, bnb_dispatcher)
         log('start right')
     elif c == '83': #ord('S'):  #left
-        BnbRootInstance.key1(bnb_dispatcher)
+        BnbRootInstance.key(player.id, 1, bnb_dispatcher)
         log('start left')
     elif c == '69': #ord('E'):  #up
-        BnbRootInstance.key2(bnb_dispatcher)
+        BnbRootInstance.key(player.id, 2, bnb_dispatcher)
         log('start up')
     elif c == '88': #ord('X'):  #fire
-        BnbRootInstance.key3(bnb_dispatcher)
+        BnbRootInstance.key(player.id, 3, bnb_dispatcher)
         log('start fire')
     else:
         logWarning('unknown keydown: ' + c)
@@ -186,19 +200,20 @@ def keydown(key):
 
 def keyup(key):
     c = key.keyCode
-    if c in ('65', '82'): #Ignore A&R
-        pass
+    if c == '48' or c == '49' or c == '50' or c == '51' or c == '52' or\
+       c == '53' or c == '54' or c == '55' or c == '56' or c == '57': #XXX c in (...) didn't work
+        pass    #don't print warning
     elif c == '68': #ord('D'):  #right
-        BnbRootInstance.key4(bnb_dispatcher)
+        BnbRootInstance.key(player.id, 4, bnb_dispatcher)
         log('stop right')
     elif c == '83': #ord('S'):  #left
-        BnbRootInstance.key5(bnb_dispatcher)
+        BnbRootInstance.key(player.id, 5, bnb_dispatcher)
         log('stop left')
     elif c == '69': #ord('E'):  #up
-        BnbRootInstance.key6(bnb_dispatcher)
+        BnbRootInstance.key(player.id, 6, bnb_dispatcher)
         log('stop up')
     elif c == '88': #ord('X'):  #fire
-        BnbRootInstance.key7(bnb_dispatcher)
+        BnbRootInstance.key(player.id, 7, bnb_dispatcher)
         log('stop fire')
     else:
         logWarning('unknown keyup: ' + c)
@@ -221,7 +236,7 @@ def run_bnb():
         genjsinfo = get_document().getElementById("genjsinfo")
         get_document().body.removeChild(genjsinfo)
         createLoggingPane(True)
-        log("keys: <a>dd player, <r>emove player and <e><s><d><x> to walk around")
+        log("keys: [0-9] to add a player, [esdx] to walk around")
         BnbRootInstance.initialize_session(session_dispatcher)
         set_on_keydown(keydown)
         set_on_keyup(keyup)

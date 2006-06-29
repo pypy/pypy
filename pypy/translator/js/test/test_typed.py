@@ -260,7 +260,7 @@ def test_stringformatting():
     f = compile_function(wrapper, [int])
     assert f(42)
 
-def test_str2int():
+def test_int2str():
     def fn(i):
         return str(i)
     def wrapper(i):

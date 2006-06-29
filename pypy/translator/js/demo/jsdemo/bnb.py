@@ -100,19 +100,9 @@ class BnbRoot(Root, BasicExternal):
         'get_message'  : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
         'add_player'   : MethodDesc( [('player_id', 0), ('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
         'remove_player': MethodDesc( [('player_id', 0), ('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
+        'player_name'  : MethodDesc( [('player_id', 0), ('name', 'PyPy player'), ('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
         'key'          : MethodDesc( [('player_id', 0), ('keynum', '0'), ('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
         'initialize_session' : MethodDesc( [('callback', (lambda : None))], {'aa':'bb'}),
-        
-#        'add_player0'   : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
-#        'remove_player0': MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
-        'key0'         : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
-        'key1'         : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
-        'key2'         : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
-        'key3'         : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
-        'key4'         : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
-        'key5'         : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
-        'key6'         : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
-        'key7'         : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
     }
     
     
@@ -148,8 +138,9 @@ class BnbRoot(Root, BasicExternal):
         return dict(now=time.ctime(), onload=self.jsname, code=self.jssource)
     
     @turbogears.expose(format='json')
-    def player_name(self, name):
-        self.sessionSocket().send(message(CMSG_PLAYER_NAME, name))
+    def player_name(self, player_id, name):
+        print "Changing player #%s name to %s" % (player_id, name)
+        self.sessionSocket().send(message(CMSG_PLAYER_NAME, int(player_id), name))
         return self.get_message()
 
     @turbogears.expose(format='json')

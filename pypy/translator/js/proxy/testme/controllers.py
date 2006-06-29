@@ -56,8 +56,8 @@ class Root(controllers.Root):
         return dict()
 
     @expose(format='json')
-    def player_name(self, name):
-        self.sessionSocket().send(message(CMSG_PLAYER_NAME, name))
+    def player_name(self, player_id, name):
+        self.sessionSocket().send(message(CMSG_PLAYER_NAME, int(player_id), name))
         return self.recv()
 
     @expose(format='json')
