@@ -41,7 +41,7 @@ class LLVirtualList(LLAbstractContainer):
 
     def build_runtime_container(self, builder):
         items_v = [a.forcegenvarorconst(builder) for a in self.items_a]
-        v_result = self.T.list_builder(builder, items_v)
+        v_result = self.T.list_builder.build(builder, items_v)
         return v_result
 
     # ____________________________________________________________

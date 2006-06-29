@@ -538,12 +538,15 @@ class BlockBuilder(object):
             ls.link = cases[ls.exitcase]
         return b
 
-    def genop(self, opname, args, RESULT_TYPE):
+    def genop(self, opname, args, RESULT_TYPE=lltype.Void):
         return rgenop.genop(self.newblock, opname, args,
                             rgenop.constTYPE(RESULT_TYPE))
 
     def genconst(self, llvalue):
         return rgenop.genconst(llvalue)
+
+    def genvoidconst(self, placeholder):
+        return rgenop.placeholder(placeholder)
     
     def binding(self, v):
         assert isinstance(v, (Constant, Variable))

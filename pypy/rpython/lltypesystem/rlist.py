@@ -116,22 +116,21 @@ class ListBuilder(object):
         #self.c_dum_nocheck = inputconst(Void, dum_nocheck)
         #self.c_LIST = inputconst(Void, self.LIST)
 
-    def __call__(self, builder, items_v):
+    def build(self, llops, items_v):
         """Make the operations that would build a list containing the
         provided items."""
-        from pypy.rpython import rgenop
-        c_newlist = builder.genconst(self.newlist_ptr)
-        c_len  = builder.genconst(len(items_v))
-        v_result = builder.genop('direct_call',
-                                 [c_newlist, rgenop.placeholder(self.LIST), c_len],
-                                 self.LISTPTR)
-        c_setitem_nonneg = builder.genconst(self.setitem_nonneg_ptr)
-        for i, v in enumerate(items_v):
-            c_i = builder.genconst(i)
-            builder.genop('direct_call', [c_setitem_nonneg,
-                                          rgenop.placeholder(dum_nocheck),
-                                          v_result, c_i, v],
-                          Void)
+        c_newlist = llops.genconst(self.newlist_ptr)
+        c_len     = llops.genconst(len(items_v))
+        c_LIST    = llops.genvoidconst(self.LIST)
+        v_result = llops.genop('direct_call',
+                               [c_newlist, c_LIST, c_len],
+                               self.LISTPTR)
+        c_setitem_nonneg = llops.genconst(self.setitem_nonneg_ptr)
+        for i in range(len(items_v)):
+            c_i = llops.genconst(i)
+            llops.genop('direct_call', [c_setitem_nonneg,
+                                        llops.genvoidconst(dum_nocheck),
+                                        v_result, c_i, items_v[i]])
         return v_result
 
     def getlistptr(self):

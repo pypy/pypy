@@ -887,6 +887,12 @@ class LowLevelOpList(list):
     def gencapicall(self, cfnname, args_v, resulttype=None, **flags):
         return self.genexternalcall(cfnname, args_v, resulttype=resulttype, external="C", **flags)
 
+    def genconst(self, ll_value):
+        return inputconst(typeOf(ll_value), ll_value)
+
+    def genvoidconst(self, placeholder):
+        return inputconst(Void, placeholder)
+
 # _______________________________________________________________________
 # this has the side-effect of registering the unary and binary operations
 # and the rtyper_chooserepr() methods
