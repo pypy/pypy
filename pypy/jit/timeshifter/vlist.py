@@ -12,6 +12,8 @@ class ListTypeDesc(object):
         self.LISTPTR = lltype.Ptr(LIST)
         self.gv_type = rgenop.constTYPE(self.LIST)
         self.gv_ptrtype = rgenop.constTYPE(self.LISTPTR)
+        self.build_newlist = LIST.list_builder.build_newlist
+        self.build_setitem = LIST.list_builder.build_setitem
 
     def _freeze_(self):
         return True
@@ -73,7 +75,16 @@ class VirtualList(AbstractContainer):
                 box.enter_block(newblock, incoming, memo)
 
     def force_runtime_container(self, jitstate):
-        assert 0
+        typedesc = self.typedesc
+        boxes = self.item_boxes
+        self.item_boxes = None
+        llops = rgenop.LowLevelOpBuilder(jitstate.curblock)
+        gv_list = typedesc.build_newlist(llops, len(boxes))
+        self.ownbox.genvar = gv_list
+        self.ownbox.content = None
+        for i in range(len(boxes)):
+            gv_item = boxes[i].getgenvar(jitstate)
+            typedesc.build_setitem(llops, gv_list, i, gv_item)
 
     def freeze(self, memo):
         contmemo = memo.containers
@@ -105,18 +116,21 @@ class VirtualList(AbstractContainer):
             self.ownbox = self.ownbox.replace(memo)
 
 
-def oop_newlist(jitstate, typedesc, lengthbox):
+def oop_newlist(jitstate, oopspecdesc, lengthbox):
     assert lengthbox.is_constant()
     length = rvalue.ll_getvalue(lengthbox, lltype.Signed)
     assert length == 0
-    return typedesc.ll_factory()
+    return oopspecdesc.typedesc.ll_factory()
 
-def oop_list_append(jitstate, selfbox, itembox):
-    assert isinstance(selfbox.content, VirtualList)
-    selfbox.content.item_boxes.append(itembox)
+def oop_list_append(jitstate, oopspecdesc, selfbox, itembox):
+    if isinstance(selfbox.content, VirtualList):
+        selfbox.content.item_boxes.append(itembox)
+    else:
+        oopspecdesc.residual_call(jitstate, [selfbox, itembox])
 
-def oop_list_getitem(jitstate, selfbox, indexbox):
-    assert isinstance(selfbox.content, VirtualList)
-    assert indexbox.is_constant()
-    index = rvalue.ll_getvalue(indexbox, lltype.Signed)
-    return selfbox.content.item_boxes[index]
+def oop_list_getitem(jitstate, oopspecdesc, selfbox, indexbox):
+    if isinstance(selfbox.content, VirtualList) and indexbox.is_constant():
+        index = rvalue.ll_getvalue(indexbox, lltype.Signed)
+        return selfbox.content.item_boxes[index]
+    else:
+        return oopspecdesc.residual_call(jitstate, [selfbox, indexbox])

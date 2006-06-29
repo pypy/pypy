@@ -63,6 +63,23 @@ def ll_redboxcls(TYPE):
         # XXX what about long longs?
         return IntRedBox
 
+def redboxbuilder_void(gv_type, gv_value):return None
+def redboxbuilder_int(gv_ptr, gv_value):  return IntRedBox(gv_ptr, gv_value)
+def redboxbuilder_dbl(gv_ptr, gv_value):  return DoubleRedBox(gv_ptr, gv_value)
+def redboxbuilder_ptr(gv_ptr, gv_value):  return PtrRedBox(gv_ptr, gv_value)
+
+def ll_redboxbuilder(TYPE):
+    if TYPE is lltype.Void:
+        return redboxbuilder_void
+    elif isinstance(TYPE, lltype.Ptr):
+        return redboxbuilder_ptr
+    elif TYPE is lltype.Float:
+        return redboxbuilder_dbl
+    else:
+        assert isinstance(TYPE, lltype.Primitive)
+        # XXX what about long longs?
+        return redboxbuilder_int
+
 def ll_fromvalue(value):
     "Make a constant RedBox from a low-level value."
     T = lltype.typeOf(value)

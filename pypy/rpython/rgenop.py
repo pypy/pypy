@@ -311,3 +311,18 @@ setannotation(isptrtype, annmodel.SomeBool())
 setannotation(constFieldName, s_ConstOrVar, specialize_as_constant=True)
 setannotation(constTYPE,      s_ConstOrVar, specialize_as_constant=True)
 setannotation(placeholder,    s_ConstOrVar, specialize_as_constant=True)
+
+# ____________________________________________________________
+
+class LowLevelOpBuilder(object):
+
+    def __init__(self, block):
+        self.block = block
+
+    genconst = staticmethod(genconst)
+    genvoidconst = staticmethod(placeholder)
+
+    def genop(self, opname, args_gv, RESULTTYPE=lltype.Void):
+        gv_result_type = constTYPE(RESULTTYPE)
+        return genop(self.block, opname, args_gv, gv_result_type)
+    genop._annspecialcase_ = 'specialize:arg(3)'

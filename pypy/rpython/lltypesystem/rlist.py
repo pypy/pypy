@@ -106,32 +106,41 @@ class ListBuilder(object):
         self.LISTPTR = LISTPTR
 
         argtypes = [Signed]
-        fnptr = list_repr.rtyper.annotate_helper_fn(LIST.ll_newlist, argtypes)
-        self.newlist_ptr = fnptr
+        newlist_ptr = list_repr.rtyper.annotate_helper_fn(LIST.ll_newlist,
+                                                          argtypes)
 
         bk = list_repr.rtyper.annotator.bookkeeper
         argtypes = [bk.immutablevalue(dum_nocheck), LISTPTR, Signed, ITEM]
-        fnptr = list_repr.rtyper.annotate_helper_fn(ll_setitem_nonneg, argtypes)
-        self.setitem_nonneg_ptr = fnptr
+        setitem_nonneg_ptr = list_repr.rtyper.annotate_helper_fn(
+            ll_setitem_nonneg, argtypes)
         #self.c_dum_nocheck = inputconst(Void, dum_nocheck)
         #self.c_LIST = inputconst(Void, self.LIST)
+
+        def build_newlist(llops, length):
+            c_newlist = llops.genconst(newlist_ptr)
+            c_len     = llops.genconst(length)
+            c_LIST    = llops.genvoidconst(LIST)
+            return llops.genop('direct_call',
+                               [c_newlist, c_LIST, c_len],
+                               LISTPTR)
+
+        def build_setitem(llops, v_list, index, v_item):
+            c_setitem_nonneg = llops.genconst(setitem_nonneg_ptr)
+            c_i = llops.genconst(index)
+            llops.genop('direct_call', [c_setitem_nonneg,
+                                        llops.genvoidconst(dum_nocheck),
+                                        v_list, c_i, v_item])
+
+        self.build_newlist = build_newlist
+        self.build_setitem = build_setitem
 
     def build(self, llops, items_v):
         """Make the operations that would build a list containing the
         provided items."""
-        c_newlist = llops.genconst(self.newlist_ptr)
-        c_len     = llops.genconst(len(items_v))
-        c_LIST    = llops.genvoidconst(self.LIST)
-        v_result = llops.genop('direct_call',
-                               [c_newlist, c_LIST, c_len],
-                               self.LISTPTR)
-        c_setitem_nonneg = llops.genconst(self.setitem_nonneg_ptr)
-        for i in range(len(items_v)):
-            c_i = llops.genconst(i)
-            llops.genop('direct_call', [c_setitem_nonneg,
-                                        llops.genvoidconst(dum_nocheck),
-                                        v_result, c_i, items_v[i]])
-        return v_result
+        v_list = self.build_newlist(llops, len(items_v))
+        for i, v in enumerate(items_v):
+            self.build_setitem(llops, v_list, i, v)
+        return v_list
 
     def getlistptr(self):
         list_repr = self.tmp_list_repr

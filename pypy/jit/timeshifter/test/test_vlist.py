@@ -60,3 +60,15 @@ def test_replace():
     insns, res = timeshift(ll_function, [0], [], policy=P_OOPSPEC)
     assert res == 131
     assert insns == {'int_is_true': 1}
+
+def test_force():
+    def ll_function(n):
+        lst = []
+        lst.append(n)
+        if n:
+            lst.append(12)
+        return lst[-1]
+    insns, res = timeshift(ll_function, [6], [], policy=P_OOPSPEC)
+    assert res == 12
+    insns, res = timeshift(ll_function, [0], [], policy=P_OOPSPEC)
+    assert res == 0

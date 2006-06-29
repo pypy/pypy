@@ -207,23 +207,16 @@ class HintRTyper(RPythonTyper):
         fnobj = c_func.value._obj
         if hasattr(fnobj._callable, 'oopspec'):
             hop.r_s_popfirstarg()
-            return self.handle_highlevel_operation(fnobj._callable, hop)
+            return self.handle_highlevel_operation(fnobj, hop)
         else:
             raise NotImplementedError("direct_call")
 
-    def handle_highlevel_operation(self, ll_func, hop):
-        # parse the oopspec and fill in the arguments
-        class Index:
-            def __init__(self, n):
-                self.n = n
-        operation_name, args = ll_func.oopspec.split('(', 1)
-        assert args.endswith(')')
-        args = args[:-1] + ','     # trailing comma to force tuple syntax
-        argnames = ll_func.func_code.co_varnames[:hop.nb_args]
-        d = dict(zip(argnames, [Index(n) for n in range(hop.nb_args)]))
-        argtuple = eval(args, d)
+    def handle_highlevel_operation(self, fnobj, hop):
+        from pypy.jit.timeshifter.oop import OopSpecDesc, Index
+        oopspecdesc = OopSpecDesc(fnobj)
+
         args_v = []
-        for obj in argtuple:
+        for obj in oopspecdesc.argtuple:
             if isinstance(obj, Index):
                 hs = hop.args_s[obj.n]
                 r_arg = self.getredrepr(originalconcretetype(hs))
@@ -231,7 +224,6 @@ class HintRTyper(RPythonTyper):
             else:
                 v = hop.inputconst(self.getredrepr(lltype.typeOf(obj)), obj)
             args_v.append(v)
-        # end of rather XXX'edly hackish parsing
 
         ts = self.timeshifter
         args_s = [ts.s_RedBox] * len(args_v)
@@ -241,26 +233,15 @@ class HintRTyper(RPythonTyper):
         else:
             s_result = ts.s_RedBox
 
-        if operation_name == 'newlist':
-            from pypy.jit.timeshifter.vlist import ListTypeDesc, oop_newlist
-            typedesc = ListTypeDesc(RESULT.TO)
-            c_typedesc = inputconst(lltype.Void, typedesc)
-            s_typedesc = ts.rtyper.annotator.bookkeeper.immutablevalue(typedesc)
-            args_v.insert(0, c_typedesc)
-            args_s.insert(0, s_typedesc)
-            ll_handler = oop_newlist
-        else:
-            typename, method = operation_name.split('.')
-            method = 'oop_%s_%s' % (typename, method)
-            vmodule = __import__('pypy.jit.timeshifter.v%s' % (typename,),
-                                 None, None, [method])
-            ll_handler = getattr(vmodule, method)
+        c_oopspecdesc = hop.inputconst(lltype.Void, oopspecdesc)
+        s_oopspecdesc = ts.rtyper.annotator.bookkeeper.immutablevalue(
+            oopspecdesc)
 
         v_jitstate = hop.llops.getjitstate()
-        return hop.llops.genmixlevelhelpercall(ll_handler,
-                                               [ts.s_JITState] + args_s,
-                                               [v_jitstate] + args_v,
-                                               s_result)
+        return hop.llops.genmixlevelhelpercall(oopspecdesc.ll_handler,
+                                      [ts.s_JITState, s_oopspecdesc] + args_s,
+                                      [v_jitstate,    c_oopspecdesc] + args_v,
+                                      s_result)
 
 
 class HintLowLevelOpList(LowLevelOpList):
