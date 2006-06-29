@@ -761,6 +761,7 @@ def retrieve_jitstate_for_merge(states_dic, jitstate, key, redboxes):
     replace_memo = rvalue.copy_memo()
     for box in outgoingvarboxes:
         linkargs.append(box.getgenvar(jitstate))
+    for box in outgoingvarboxes:
         if box.is_constant():            # constant boxes considered immutable:
             box = box.copy(replace_memo) # copy to avoid patching the original
         box.genvar = rgenop.geninputarg(newblock, box.gv_type)

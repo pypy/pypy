@@ -206,8 +206,17 @@ class HintRTyper(RPythonTyper):
         assert isinstance(c_func, flowmodel.Constant)
         fnobj = c_func.value._obj
         if hasattr(fnobj._callable, 'oopspec'):
+            # special-cased call, for things like list methods
             hop.r_s_popfirstarg()
             return self.handle_highlevel_operation(fnobj, hop)
+        elif (originalconcretetype(hop.s_result) is not lltype.Void and
+              isinstance(hop.r_result, GreenRepr)):
+            # green-returning call, for now (XXX) we assume it's an
+            # all-green function that we can just call
+            for r_arg in hop.args_r:
+                assert isinstance(r_arg, GreenRepr)
+            v = hop.genop('direct_call', hop.args_v, hop.r_result.lowleveltype)
+            return v
         else:
             raise NotImplementedError("direct_call")
 
@@ -225,7 +234,19 @@ class HintRTyper(RPythonTyper):
                 v = hop.inputconst(self.getredrepr(lltype.typeOf(obj)), obj)
             args_v.append(v)
 
+        # if the ll_handler() takes more arguments, it must be 'None' defaults.
+        # Pass them as constant Nones.
         ts = self.timeshifter
+        ll_handler = oopspecdesc.ll_handler
+        missing_args = ((ll_handler.func_code.co_argcount - 2) -
+                        len(oopspecdesc.argtuple))
+        assert missing_args >= 0
+        if missing_args > 0:
+            assert (ll_handler.func_defaults[-missing_args:] ==
+                    (None,) * missing_args)
+            ll_None = lltype.nullptr(ts.r_RedBox.lowleveltype.TO)
+            args_v.extend([hop.llops.genconst(ll_None)] * missing_args)
+
         args_s = [ts.s_RedBox] * len(args_v)
         RESULT = originalconcretetype(hop.s_result)
         if RESULT is lltype.Void:
@@ -233,12 +254,12 @@ class HintRTyper(RPythonTyper):
         else:
             s_result = ts.s_RedBox
 
-        c_oopspecdesc = hop.inputconst(lltype.Void, oopspecdesc)
-        s_oopspecdesc = ts.rtyper.annotator.bookkeeper.immutablevalue(
-            oopspecdesc)
-
+        s_oopspecdesc  = ts.s_OopSpecDesc
+        ll_oopspecdesc = ts.annhelper.delayedconst(ts.r_OopSpecDesc,
+                                                   oopspecdesc)
+        c_oopspecdesc  = hop.llops.genconst(ll_oopspecdesc)
         v_jitstate = hop.llops.getjitstate()
-        return hop.llops.genmixlevelhelpercall(oopspecdesc.ll_handler,
+        return hop.llops.genmixlevelhelpercall(ll_handler,
                                       [ts.s_JITState, s_oopspecdesc] + args_s,
                                       [v_jitstate,    c_oopspecdesc] + args_v,
                                       s_result)
@@ -274,16 +295,11 @@ class HintLowLevelOpList(LowLevelOpList):
         graph = self.timeshifter.annhelper.getgraph(function, args_s, s_result)
         self.record_extra_call(graph) # xxx
 
-        rtyper = self.timeshifter.rtyper
-        ARGS = [rtyper.getrepr(s_arg).lowleveltype for s_arg in args_s]
-        RESULT = rtyper.getrepr(s_result).lowleveltype
-
-        F = lltype.FuncType(ARGS, RESULT)
-
-        fptr = lltype.functionptr(F, graph.name, graph=graph)
+        c = self.timeshifter.annhelper.graph2const(graph)
 
         # build the 'direct_call' operation
-        c = inputconst(lltype.Ptr(F), fptr)
+        rtyper = self.timeshifter.rtyper
+        RESULT = rtyper.getrepr(s_result).lowleveltype
         return self.genop('direct_call', [c]+args_v,
                           resulttype = RESULT)
 

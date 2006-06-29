@@ -3,7 +3,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.objspace.flow import model as flowmodel
 from pypy.annotation import model as annmodel
 from pypy.annotation import listdef, dictdef
-from pypy.jit.timeshifter import rvalue
+from pypy.jit.timeshifter import rvalue, oop
 from pypy.jit.timeshifter.rtimeshift import JITState
 from pypy.rpython import rmodel, rgenop, annlowlevel
 from pypy.rpython.lltypesystem import rtuple, rlist, rdict
@@ -26,6 +26,8 @@ class HintTimeshift(object):
 
         self.s_JITState, self.r_JITState = self.s_r_instanceof(JITState)
         self.s_RedBox, self.r_RedBox = self.s_r_instanceof(rvalue.RedBox)
+        self.s_OopSpecDesc, self.r_OopSpecDesc = self.s_r_instanceof(
+            oop.OopSpecDesc)
 
         getrepr = self.rtyper.getrepr
 
@@ -123,8 +125,14 @@ class HintTimeshift(object):
         return self.latestexitindex
 
     def timeshift(self):
-        for graph in self.hannotator.translator.graphs:
-            self.timeshift_graph(graph)
+        # XXX in-progress:
+        ##for graph in self.hannotator.translator.graphs:
+        ##    self.timeshift_graph(graph)
+
+        # instead:
+        graph = self.hannotator.translator.graphs[0]
+        self.timeshift_graph(graph)
+        
         # Annotate and rType the helpers found during timeshifting
         self.annhelper.finish()
 

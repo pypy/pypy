@@ -149,6 +149,14 @@ def reorigin(hs_v1, *deps_hs):
 
 class __extend__(SomeLLAbstractValue):
 
+    def define_unary(TYPE):
+        def var_unary(hs_v):
+            return SomeLLAbstractVariable(TYPE)
+        return var_unary
+
+    int_neg = define_unary(lltype.Signed)
+    uint_is_true = int_is_true = define_unary(lltype.Bool)
+
     def same_as(hs_v1):
         return hs_v1
 

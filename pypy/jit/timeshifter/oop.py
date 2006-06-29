@@ -53,9 +53,6 @@ class OopSpecDesc:
                                  None, None, [method])
             self.ll_handler = getattr(vmodule, method)
 
-    def _freeze_(self):
-        return True
-
     def residual_call(self, jitstate, argboxes):
         args_gv = self.args_gv[:]
         argpositions = self.argpositions
