@@ -1,5 +1,6 @@
 import string
 
+from pypy.rpython.ootypesystem import ootype
 from pypy.translator.cli.node import Node
 from pypy.translator.cli.cts import CTS
 
@@ -72,6 +73,8 @@ class Record(Node):
         for i in xrange(len(self.record._fields)):
             f_name = 'item%d' % i
             FIELD_TYPE, f_default = self.record._fields[f_name]
+            if FIELD_TYPE is ootype.Void:
+                continue
             self.ilasm.opcode('ldarg.0')
             f_type = self.cts.lltype_to_cts(FIELD_TYPE)
             self.ilasm.get_field((f_type, self.name, f_name))
