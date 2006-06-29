@@ -75,6 +75,10 @@ Core developer Holger Krekel and project manager Beatrice During are giving a ta
 
 PAL, 26 min, divx AVI
 
+Holger Krekel explains more about the goals and history of PyPy, and the
+structure and organisation behind it. Bea During describes the intricacies of
+driving a distributed community in an agile way, and how to combine that with
+the formalities required for EU funding.
 
 Introductory talk on PyPy
 -------------------------
@@ -90,6 +94,10 @@ This introductory talk is given by core developers Michael Hudson and Christian 
 
 PAL, 28 min, divx AVI
 
+Michael Hudson talks about the basic building blocks of Python, the currently
+available back-ends, and the status of PyPy in general. Christian Tismer takes
+over to explain how co-routines can be used to implement things like
+Stackless and Greenlets in PyPy.
 
 PyPy Architecture session
 -------------------------
@@ -105,6 +113,10 @@ This architecture session is given by core developers Holger Krekel and Armin Ri
 
 PAL, 48 min, divx AVI
 
+Holger Krekel and Armin Rigo talk about the basic implementation,
+implementation level aspects and the translation toolchain. This
+talk also gives an insight into how a developer works with these tools on
+a daily basis, and pays special attention to flow graphs.
 
 Sprint tutorial
 ---------------
