@@ -92,7 +92,7 @@ class LowLevelDatabase(object):
 
     def gen_delegate_types(self, ilasm):
         for TYPE, name in self.delegates.iteritems():
-            ilasm.begin_class(name, '[mscorlib]System.MulticastDelegate')
+            ilasm.begin_class(name, '[mscorlib]System.MulticastDelegate', sealed=True)
             ilasm.begin_function('.ctor',
                                  [('object', "'object'"), ('native int', "'method'")],
                                  'void',
