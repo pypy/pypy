@@ -48,7 +48,7 @@ def test_tl_invalid_bytecode():
 
 def test_tl_translatable():
     code = list2bytecode([PUSH,42, PUSH,100, ADD])
-    fn = translate(interp, [str, int, bool])
+    fn = translate(interp, [str, int])
     assert interp(code) == fn(code)
 
 def test_swap():

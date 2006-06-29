@@ -11,7 +11,7 @@ from pypy.jit.llabstractinterp.test.test_llabstractinterp import summary
 
 def setup_module(mod):
     t = TranslationContext()
-    t.buildannotator().build_types(tl.interp, [str, int, bool])
+    t.buildannotator().build_types(tl.interp, [str, int])
     rtyper = t.buildrtyper()
     rtyper.specialize()
     #inline.auto_inlining(t, 0.3)
@@ -23,12 +23,10 @@ def setup_module(mod):
 def jit_tl(code):
     interp = LLAbstractInterp()
     hints = {0: string_repr.convert_const(code),
-             1: 0,
-             2: True}
+             1: 0}
     graph2 = interp.eval(graph1, hints)
 
-    result1 = llinterp.eval_graph(graph1, [string_repr.convert_const(code), 0,
-                                           True])
+    result1 = llinterp.eval_graph(graph1, [string_repr.convert_const(code), 0])
     result2 = llinterp.eval_graph(graph2, [])
 
     assert result1 == result2
