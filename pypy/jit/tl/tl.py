@@ -11,7 +11,7 @@ def char2int(c):
         t = -(-ord(c) & 0xff)
     return t
 
-def interp(code='', pc=0):
+def interp(code='', pc=0, support_calls=True):
     if not isinstance(code,str):
         raise TypeError("code '%s' should be a string" % str(code))
 
@@ -111,7 +111,7 @@ def interp(code='', pc=0):
             if stack.pop():
                 pc += hint(offset, forget=True)
 
-        elif opcode == CALL:
+        elif support_calls and opcode == CALL:
             offset = char2int(code[pc])
             pc += 1
             res = interp(code, pc + offset)
