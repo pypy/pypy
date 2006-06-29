@@ -21,10 +21,12 @@
     </script>
 </head>
 <body onLoad="call_fun()">
-  <p>This is a test!</p><br/>
-  <p>Code:</p><br/>
-  <pre>
-    ${code}
-  </pre>
+  <div id="genjsinfo">
+    <p>This is a test!</p><br/>
+    <p>Code:</p><br/>
+    <pre>
+      ${code}
+    </pre>
+  </div>
 </body>
 </html>

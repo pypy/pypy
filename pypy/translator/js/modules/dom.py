@@ -77,6 +77,10 @@ class Node(object):
     def appendChild(self, elem):
         self.subnodes[elem.id] = elem
 
+    def removeChild(self, elem):
+        #del self.subnodes[elem.id]
+        pass
+
 class Form(Node):
     pass
 

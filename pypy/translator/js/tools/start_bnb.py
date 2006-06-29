@@ -213,12 +213,13 @@ def bnb_dispatcher(msgs):
     #sc.revive()
     
 def session_dispatcher(msgs):
-    log("Something...")
+    #log("Something...")
     BnbRootInstance.get_message(bnb_dispatcher)
 
 def run_bnb():
     def bnb():
-        #get_document().
+        genjsinfo = get_document().getElementById("genjsinfo")
+        get_document().body.removeChild(genjsinfo)
         createLoggingPane(True)
         log("keys: <a>dd player, <r>emove player and <e><s><d><x> to walk around")
         BnbRootInstance.initialize_session(session_dispatcher)
