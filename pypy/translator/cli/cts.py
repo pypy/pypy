@@ -88,7 +88,10 @@ class CTS(object):
             name = self.db.pending_record(t)
             return self.__class(name, include_class)
         elif isinstance(t, ootype.StaticMethod):
-            return self.db.record_delegate_type(t)
+            res = self.db.record_delegate_type(t)
+            if include_class:
+                res = 'class ' + res
+            return res
         elif isinstance(t, ootype.List):
             item_type = self.lltype_to_cts(t._ITEMTYPE)
             if item_type == 'void': # special case: List of Void
