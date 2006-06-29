@@ -1,7 +1,7 @@
 from pypy.annotation import model as annmodel
 from pypy.annotation.pairtype import pair, pairtype
 from pypy.jit.hintannotator.bookkeeper import getbookkeeper
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, lloperation
 
 UNARY_OPERATIONS = """same_as hint getfield setfield getsubstruct getarraysize setarrayitem
                       cast_pointer
@@ -50,11 +50,13 @@ class OriginFlags(object):
                 for p in self.read_positions:
                     annotator.reflowfromposition(p)
 
+
 class SomeLLAbstractValue(annmodel.SomeObject):
 
     def __init__(self, T):
         self.concretetype = T
         assert self.__class__ != SomeLLAbstractValue
+
 
 class SomeLLAbstractConstant(SomeLLAbstractValue):
 
@@ -97,8 +99,10 @@ class SomeLLAbstractConstant(SomeLLAbstractValue):
             return None
     annotationcolor = property(annotationcolor)
 
+
 class SomeLLAbstractVariable(SomeLLAbstractValue):
     pass
+
 
 class SomeLLAbstractContainer(SomeLLAbstractValue):
 
@@ -149,24 +153,18 @@ def reorigin(hs_v1, *deps_hs):
 
 class __extend__(SomeLLAbstractValue):
 
-    def define_unary(TYPE):
-        def var_unary(hs_v):
-            return SomeLLAbstractVariable(TYPE)
-        return var_unary
-
-    int_neg = define_unary(lltype.Signed)
-    uint_is_true = int_is_true = define_unary(lltype.Bool)
-
     def same_as(hs_v1):
         return hs_v1
 
     def hint(hs_v1, hs_flags):
         if hs_flags.const.get('variable', False): # only for testing purposes!!!
-            return SomeLLAbstractVariable(hs_c1.concretetype)
+            return SomeLLAbstractVariable(hs_v1.concretetype)
         if hs_flags.const.get('concrete', False):
             raise HintError("cannot make a concrete from %r" % (hs_v1,))
         if hs_flags.const.get('forget', False):
-            XXX    # not implemented
+            # turn a variable to a constant
+            origin = getbookkeeper().myorigin()
+            return SomeLLAbstractConstant(hs_v1.concretetype, {origin: True})
 
     def getfield(hs_v1, hs_fieldname):
         S = hs_v1.concretetype.TO
@@ -181,7 +179,24 @@ class __extend__(SomeLLAbstractValue):
         FIELD_TYPE = getattr(S, hs_fieldname.const)
         return SomeLLAbstractVariable(lltype.Ptr(FIELD_TYPE))
 
+    def getarrayitem(hs_v1, hs_index):
+        ARRAY = hs_v1.concretetype.TO
+        return SomeLLAbstractVariable(ARRAY.OF)
+
+    def setarrayitem(hs_v1, hs_index, hs_value):
+        pass
+
+    def getarraysubstruct(hs_v1, hs_index):
+        ARRAY = hs_v1.concretetype.TO
+        return SomeLLAbstractVariable(lltype.Ptr(ARRAY.OF))
+
+
 class __extend__(SomeLLAbstractConstant):
+
+    def same_as(hs_c1):
+        # this is here to prevent setup() below from adding a different
+        # version of same_as()
+        return hs_c1
 
     def hint(hs_c1, hs_flags):
         if hs_flags.const.get('variable', False): # only for testing purposes!!!
@@ -282,24 +297,7 @@ class __extend__(SomeLLAbstractConstant):
         d = setadd(hs_c1.origins, getbookkeeper().myorigin())
         return SomeLLAbstractConstant(lltype.Ptr(SUB_TYPE), d)
 
-    def getarraysize(hs_c1):
-        d = setadd(hs_c1.origins, getbookkeeper().myorigin())
-        return SomeLLAbstractConstant(lltype.Signed, d)
 
-    def define_unary(TYPE):
-        def const_unary(hs_c1):
-            d = setadd(hs_c1.origins, getbookkeeper().myorigin())
-            return SomeLLAbstractConstant(TYPE, d, eager_concrete=hs_c1.eager_concrete)
-        return const_unary
-
-    cast_int_to_char = define_unary(lltype.Char)
-    
-    cast_uint_to_int = cast_bool_to_int = cast_char_to_int = int_neg = define_unary(lltype.Signed)
-
-    cast_int_to_uint = define_unary(lltype.Unsigned)
-
-    uint_is_true = int_is_true = define_unary(lltype.Bool)
-    
 class __extend__(SomeLLAbstractContainer):
 
     def setfield(hs_s1, hs_fieldname, hs_value):
@@ -327,27 +325,12 @@ class __extend__(SomeLLAbstractContainer):
 
 class __extend__(pairtype(SomeLLAbstractValue, SomeLLAbstractValue)):
 
-    def define_binary(TYPE):
-        def var_binary((hs_v1, hs_v2)):
-            return SomeLLAbstractVariable(TYPE)
-        return var_binary
-
-    int_mul = int_mod = int_sub = int_add = define_binary(lltype.Signed)
-    int_floordiv = int_rshift = int_and = int_add 
-
-    uint_mul = uint_mod = uint_sub = uint_add = define_binary(lltype.Unsigned)
-    uint_floordiv = uint_rshift = uint_and = uint_add
-
-    int_lt = int_le = int_ge = int_ne = int_gt = int_eq = define_binary(lltype.Bool)
-    uint_lt = uint_le = uint_ge = uint_ne = uint_gt = uint_eq = int_eq
-
-    char_gt = char_lt = char_le = char_ge = char_eq = char_ne = int_eq
-
     def getarrayitem((hs_v1, hs_v2)):
         return SomeLLAbstractVariable(hs_v1.concretetype.TO.OF)
 
     def union((hs_v1, hs_v2)):
         raise annmodel.UnionError("%s %s don't mix" % (hs_v1, hs_v2))
+
 
 class __extend__(pairtype(SomeLLAbstractVariable, SomeLLAbstractConstant),
                  pairtype(SomeLLAbstractConstant, SomeLLAbstractVariable)):
@@ -358,25 +341,8 @@ class __extend__(pairtype(SomeLLAbstractVariable, SomeLLAbstractConstant),
             raise annmodel.UnionError("%s %s don't mix" % (hs_v1, hs_v2))
         return SomeLLAbstractVariable(hs_v1.concretetype)
 
+
 class __extend__(pairtype(SomeLLAbstractConstant, SomeLLAbstractConstant)):
-
-    def define_binary(TYPE):
-        def const_binary((hs_c1, hs_c2)):
-            d = newset(hs_c1.origins, hs_c2.origins,
-                       {getbookkeeper().myorigin(): True})
-            return SomeLLAbstractConstant(TYPE, d, eager_concrete= hs_c1.eager_concrete or hs_c2.eager_concrete)
-        return const_binary
-            
-    int_mul = int_mod = int_sub = int_add = define_binary(lltype.Signed)
-    int_floordiv = int_rshift = int_and = int_add 
-
-    uint_mul = uint_mod = uint_sub = uint_add = define_binary(lltype.Unsigned)
-    uint_floordiv = uint_rshift = uint_and = uint_add
-
-    int_lt = int_le = int_ge = int_ne = int_gt = int_eq = define_binary(lltype.Bool)
-    uint_lt = uint_le = uint_ge = uint_ne = uint_gt = uint_eq = int_eq
-
-    char_gt = char_lt = char_le = char_ge = char_eq = char_ne = int_eq
 
     def union((hs_c1, hs_c2)):
         assert hs_c1.concretetype == hs_c2.concretetype
@@ -393,11 +359,13 @@ class __extend__(pairtype(SomeLLAbstractConstant, SomeLLAbstractConstant)):
         else:
             return SomeLLAbstractVariable(READ_TYPE)
 
+
 class __extend__(pairtype(SomeLLAbstractContainer, SomeLLAbstractContainer)):
 
     def union((hs_cont1, hs_cont2)):
         contentdef = hs_cont1.contentdef.union(hs_cont2.contentdef)
         return SomeLLAbstractContainer(contentdef)
+
 
 class __extend__(pairtype(SomeLLAbstractContainer, SomeLLAbstractValue)):
     def union((hs_cont1, hs_val2)):
@@ -405,9 +373,11 @@ class __extend__(pairtype(SomeLLAbstractContainer, SomeLLAbstractValue)):
         assert hs_cont1.concretetype == hs_val2.concretetype
         return SomeLLAbstractVariable(hs_cont1.concretetype)
 
+
 class __extend__(pairtype(SomeLLAbstractValue, SomeLLAbstractContainer)):
     def union((hs_val1, hs_cont2)):
         return pair(hs_cont2, hs_val1).union()
+
 
 class __extend__(pairtype(SomeLLAbstractContainer, SomeLLAbstractConstant)):
 
@@ -461,3 +431,47 @@ def handle_highlevel_operation(bookkeeper, ll_func, *args_hs):
 
     hs_result = handler(*args_hs)   # which may raise NotImplementedError
     return hs_result
+
+# ____________________________________________________________
+#
+# Register automatically simple operations
+
+def var_unary(hs_v, *rest_hs):
+    RESTYPE = getbookkeeper().current_op_concretetype()
+    return SomeLLAbstractVariable(RESTYPE)
+
+def var_binary((hs_v1, hs_v2), *rest_hs):
+    RESTYPE = getbookkeeper().current_op_concretetype()
+    return SomeLLAbstractVariable(RESTYPE)
+
+def const_unary(hs_c1):
+    bk = getbookkeeper()
+    d = setadd(hs_c1.origins, bk.myorigin())
+    RESTYPE = bk.current_op_concretetype()
+    return SomeLLAbstractConstant(RESTYPE, d,
+                                  eager_concrete = hs_c1.eager_concrete)
+
+def const_binary((hs_c1, hs_c2)):
+    bk = getbookkeeper()
+    d = newset(hs_c1.origins, hs_c2.origins, {bk.myorigin(): True})
+    RESTYPE = bk.current_op_concretetype()
+    return SomeLLAbstractConstant(RESTYPE, d,
+                                  eager_concrete = hs_c1.eager_concrete or
+                                                   hs_c2.eager_concrete)
+
+def setup(oplist, ValueCls, var_fn, ConstantCls, const_fn):
+    for name in oplist:
+        llop = getattr(lloperation.llop, name)
+        if not llop.sideeffects:
+            if name not in ValueCls.__dict__:
+                setattr(ValueCls, name, var_fn)
+            if llop.canfold:
+                if name not in ConstantCls.__dict__:
+                    setattr(ConstantCls, name, const_fn)
+setup(UNARY_OPERATIONS,
+      SomeLLAbstractValue, var_unary,
+      SomeLLAbstractConstant, const_unary)
+setup(BINARY_OPERATIONS,
+      pairtype(SomeLLAbstractValue, SomeLLAbstractValue), var_binary,
+      pairtype(SomeLLAbstractConstant, SomeLLAbstractConstant), const_binary)
+del setup

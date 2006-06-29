@@ -13,6 +13,10 @@ from pypy import conftest
 P_OOPSPEC = AnnotatorPolicy()
 P_OOPSPEC.oopspec = True
 
+P_OOPSPEC_NOVIRTUAL = AnnotatorPolicy()
+P_OOPSPEC_NOVIRTUAL.oopspec = True
+P_OOPSPEC_NOVIRTUAL.novirtualcontainer = True
+
 def hannotate(func, argtypes, policy=None, annotator=False, inline=None):
     # build the normal ll graphs for ll_function
     t = TranslationContext()
@@ -140,7 +144,9 @@ def test_union():
 
 def test_op_meet():
     def meet(hs1, hs2):
-        HintBookkeeper(None).enter(None)
+        bk = HintBookkeeper(None)
+        bk.enter(None)
+        bk.current_op_concretetype = lambda: lltype.Signed     # hack
         return pair(hs1, hs2).int_add()
     av1, av2 = SomeLLAbstractVariable(lltype.Signed), SomeLLAbstractVariable(lltype.Signed)
     cv1, cv2 = SomeLLAbstractConstant(lltype.Signed, {}, True), SomeLLAbstractConstant(lltype.Signed, {}, True)
@@ -422,6 +428,10 @@ def test_propagate_fixing_across_func_arguments():
 def test_hannotate_tl():
     from pypy.jit.tl import tl
     hannotate(tl.interp, [str, int, int], policy=P_OOPSPEC)
+
+def test_hannotate_tl_novirtual():
+    from pypy.jit.tl import tl
+    hannotate(tl.interp, [str, int, int], policy=P_OOPSPEC_NOVIRTUAL)
 
 def test_hannotate_plus_minus():
     def ll_plus_minus(s, x, y):
