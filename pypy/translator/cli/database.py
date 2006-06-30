@@ -203,6 +203,12 @@ class AbstractConst(object):
             ilasm.opcode('ldsfld %s %s' % (cts_type, name))
     load = staticmethod(load)
 
+    def __eq__(self, other):
+        raise NotImplementedError
+
+    def __ne__(self, other):
+        return not self == other
+
     def get_name(self):
         pass
 

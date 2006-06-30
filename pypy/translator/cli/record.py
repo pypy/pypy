@@ -28,6 +28,9 @@ class Record(Node):
     def __eq__(self, other):
         return self.record == other.record
 
+    def __ne__(self, other):
+        return not self == other
+
     def get_name(self):
         return self.name
 

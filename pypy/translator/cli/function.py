@@ -40,6 +40,9 @@ class Function(Node, Generator):
     def __eq__(self, other):
         return self.graph == other.graph
 
+    def __ne__(self, other):
+        return not self == other
+
     def _is_return_block(self, block):
         return (not block.exits) and len(block.inputargs) == 1
 

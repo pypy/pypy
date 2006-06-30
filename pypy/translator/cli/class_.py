@@ -18,6 +18,9 @@ class Class(Node):
     def __eq__(self, other):
         return self.classdef == other.classdef
 
+    def __ne__(self, other):
+        return not self == other
+
     def is_root(classdef):
         return classdef._superclass is None
     is_root = staticmethod(is_root)
