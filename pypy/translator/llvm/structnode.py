@@ -209,24 +209,37 @@ class StructVarsizeNode(StructNode):
             types_repr.append(self._get_lastnode().get_typerepr())
             result = "{%s}" % ", ".join(types_repr)
             self._get_typerepr_cache = result
-            return result
-         
+            return result         
+
+    def get_childref(self, index):
+        pos = 0
+        found = False
+        for name in self.structtype._names_without_voids():
+            if name == index:
+                found = True
+                break
+            pos += 1
+
+        ref = "getelementptr(%s* %s, int 0, uint %s)" %(
+            self.get_typerepr(),
+            super(StructVarsizeNode, self).get_ref(),
+            pos)
+
+        return ref
+
     def get_ref(self):
-        if self._get_ref_cache:
-            return self._get_ref_cache
         ref = super(StructVarsizeNode, self).get_ref()
         typeval = self.db.repr_type(lltype.typeOf(self.value))
         ref = "cast(%s* %s to %s*)" % (self.get_typerepr(),
                                        ref,
                                        typeval)
-        self._get_ref_cache = ref
         return ref
     
     def get_pbcref(self, toptr):
         """ Returns a reference as used per pbc. """        
         ref = self.ref
         p, c = lltype.parentlink(self.value)
-        assert p is None, "child arrays are NOT needed by rtyper"
+        assert p is None, "child varsize struct are NOT needed by rtyper"
         fromptr = "%s*" % self.get_typerepr()
         refptr = "getelementptr(%s %s, int 0)" % (fromptr, ref)
         ref = "cast(%s %s to %s)" % (fromptr, refptr, toptr)

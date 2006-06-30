@@ -172,7 +172,7 @@ def test_struct_array1():
         return s.aptr[1] - a[0]
     f = compile_function(array_constant, [])
     assert f() == array_constant()
-
+    
 def test_struct_array2():
     A = lltype.Array(lltype.Signed)
     STEST = lltype.GcStruct('test', ('a', lltype.Signed), ('b', A))
@@ -180,6 +180,7 @@ def test_struct_array2():
     s.a = 41
     s.b[0] = 100
     s.b[1] = 101
+
     def array_constant():
         return s.b[1] - s.b[0] + s.a
     f = compile_function(array_constant, [])
