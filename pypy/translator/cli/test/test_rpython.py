@@ -31,14 +31,8 @@ class TestCliPBC(CliTest, BaseTestRPBC):
     def test_call_memoized_cache(self):
         py.test.skip("gencli doesn't support recursive constants, yet")        
 
-    def test_multiple_specialized_functions(self):
-        py.test.skip("CLI doesn't support string, yet")
-
     def test_specialized_method_of_frozen(self):
-        py.test.skip("CLI doesn't support string, yet")
-
-    def test_specialized_method(self):
-        py.test.skip("CLI doesn't support string, yet")
+        py.test.skip("waiting to be fixed")
 
 
 class TestCliList(CliTest, BaseTestRlist):
