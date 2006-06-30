@@ -222,9 +222,10 @@ class BnbRoot(Root, BasicExternal):
         #force new session id to restart a game!
         session['_id'] = md5.md5(str(random.random())).hexdigest()
         sessionid = session['_id']
-        self._serverMessage[sessionid] = ServerMessage('static/images/')
+        sm = ServerMessage('static/images/')
+        self._serverMessage[sessionid] = sm
         self._spriteManagers[sessionid] = SpriteManager()
-        return dict(messages=[])
+        return dict()
 
     @turbogears.expose(format="json")
     def get_message(self):
@@ -243,7 +244,7 @@ class BnbRoot(Root, BasicExternal):
             #log('RECEIVED HEADER LINE: %s' % header_line)
 
         #log('RECEIVED DATA CONTAINS %d BYTES' % len(data))
-        messages = []
+        messages = [ {'type':'count', 'n':sm.count()} ]
         while data:
             values, data = decodemessage(data)
             if not values:

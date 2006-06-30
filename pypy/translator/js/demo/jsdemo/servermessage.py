@@ -28,6 +28,7 @@ PMSG_DEF_PLAYFIELD = "def_playfield"
 PMSG_DEF_ICON      = "def_icon"
 PMSG_PLAYER_ICON   = "player_icon"
 PMSG_PLAYER_JOIN   = "player_join"
+PMSG_PLAYER_KILL   = "player_kill"
 PMSG_DEF_KEY       = "def_key"
 PMSG_INLINE_FRAME  = "inline_frame"
 
@@ -53,7 +54,11 @@ class ServerMessage:
         self.gfx_url = self.base_gfx_url
         self.decompressobj = decompressobj().decompress
         self.last_active = time()
+        self._count = 0
 
+    def count(self):
+        self._count += 1
+        return self._count
 
     def dispatch(self, *values):
         #log('RECEIVED:%s(%d)' % (values[0], len(values[1:])))
@@ -210,6 +215,10 @@ class ServerMessage:
         log('player_join player_id=%d, client_is_self=%d' % (player_id, client_is_self))
         return dict(type=PMSG_PLAYER_JOIN, player_id=player_id, client_is_self=client_is_self)
 
+    def player_kill(self, player_id):
+        log('player_kill player_id=%d' % player_id)
+        return dict(type=PMSG_PLAYER_KILL, player_id=player_id)
+
     def def_key(self, keyname, num, *icon_codes):
         #log('def_key keyname=%s, num=%d, icon_codes=%s' % (keyname, num, str(icon_codes)))
         return dict(type=PMSG_DEF_KEY, keyname=keyname, num=num, icon_codes=icon_codes)
@@ -261,6 +270,7 @@ class ServerMessage:
         MSG_DEF_ICON       : def_icon,
         MSG_PLAYER_ICON    : player_icon,
         MSG_PLAYER_JOIN    : player_join,
+        MSG_PLAYER_KILL    : player_kill,
         MSG_DEF_KEY        : def_key,
         MSG_MD5_FILE       : md5_file,
         MSG_INLINE_FRAME   : inline_frame,
