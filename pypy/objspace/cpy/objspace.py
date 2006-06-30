@@ -6,6 +6,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import Function
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.rpython.rarithmetic import r_uint
+from pypy.rpython.objectmodel import we_are_translated
 
 
 class CPyObjSpace(baseobjspace.ObjSpace):
@@ -41,14 +42,15 @@ class CPyObjSpace(baseobjspace.ObjSpace):
 
     def wrap(self, x):
         if isinstance(x, baseobjspace.Wrappable):
-            x = x.__spacebind__(self)
-            # special cases
-            if isinstance(x, Function):
-                from pypy.objspace.cpy.function import FunctionCache
-                return self.fromcache(FunctionCache).getorbuild(x)
-            if isinstance(x, GetSetProperty):
-                from pypy.objspace.cpy.property import PropertyCache
-                return self.fromcache(PropertyCache).getorbuild(x)
+            # special cases, only when bootstrapping
+            if not we_are_translated():
+                x = x.__spacebind__(self)
+                if isinstance(x, Function):
+                    from pypy.objspace.cpy.function import FunctionCache
+                    return self.fromcache(FunctionCache).getorbuild(x)
+                if isinstance(x, GetSetProperty):
+                    from pypy.objspace.cpy.property import PropertyCache
+                    return self.fromcache(PropertyCache).getorbuild(x)
             # normal case
             from pypy.objspace.cpy.typedef import rpython2cpython
             return rpython2cpython(self, x)
@@ -66,7 +68,7 @@ class CPyObjSpace(baseobjspace.ObjSpace):
         # in the format string, but it's that someone is calling space.wrap()
         # on a strange object.
         raise TypeError("wrap(%r)" % (x,))
-    wrap._annspecialcase_ = "specialize:wrap"
+    wrap._annspecialcase_ = "specialize:argtype(1)"
 
     def unwrap(self, w_obj):
         assert isinstance(w_obj, W_Object)

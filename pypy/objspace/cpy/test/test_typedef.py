@@ -54,7 +54,6 @@ def test_get_blackbox():
 
 
 def test_get_blackboxes():
-    py.test.skip("a bug with specialize:wrap?")
     W_MyType.typedef = TypeDef("MyType")
 
     class W_MyType2(Wrappable):
@@ -72,10 +71,10 @@ def test_get_blackboxes():
     fn = compile(make_mytype, [int],
                  annotatorpolicy = CPyAnnotatorPolicy(space))
 
-    res = fn(1, expected_extra_mallocs=1)
+    res2 = fn(1, expected_extra_mallocs=1)
+    assert type(res2).__name__ == 'MyType2'
+    res = fn(0, expected_extra_mallocs=2)
     assert type(res).__name__ == 'MyType'
-    res = fn(0, expected_extra_mallocs=1)
-    assert type(res).__name__ == 'MyType2'
 
 
 def test_blackbox():

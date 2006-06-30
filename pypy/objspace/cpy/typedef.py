@@ -6,6 +6,8 @@ into CPython objects (subclasses of W_Object) based on their typedef.
 from pypy.objspace.cpy.capi import *
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable, SpaceCache
+from pypy.interpreter.function import Function
+from pypy.interpreter.typedef import GetSetProperty
 from pypy.rpython.objectmodel import we_are_translated
 from pypy.rpython.rcpy import CPyTypeInterface, cpy_export, cpy_import
 from pypy.rpython.rcpy import cpy_typeobject
@@ -41,6 +43,7 @@ def rpython2cpython(space, x):
             init_rpython_data(w_x, x)
         return w_x
 rpython2cpython.allow_someobjects = True
+rpython2cpython._annspecialcase_ = "specialize:argtype(1)"
 
 def cpython2rpython_raw(space, w_obj):
     "NOT_RPYTHON."
@@ -83,6 +86,9 @@ class TypeDefCache(SpaceCache):
         self.wrappedtypes = {}
 
     def build(cache, typedef):
+        if typedef in (Function.typedef, GetSetProperty.typedef):
+            raise ValueError("cannot wrap at run-time an interpreter object "
+                             "of type %r" % (typedef.name,))
         space = cache.space
         objects = {}
         for name, value in typedef.rawdict.items():
