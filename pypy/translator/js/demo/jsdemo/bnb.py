@@ -7,8 +7,9 @@ import cherrypy
 from pypy.translator.js.demo.jsdemo.controllers import Root
 from pypy.rpython.ootypesystem.bltregistry import BasicExternal, MethodDesc
 
-from pypy.translator.js.proxy.testme.servermessage import log, ServerMessage, PMSG_INLINE_FRAME, PMSG_DEF_ICON
-from pypy.translator.js.proxy.testme.msgstruct import *
+from pypy.translator.js.demo.jsdemo.servermessage import log, ServerMessage,\
+    PMSG_INLINE_FRAME, PMSG_DEF_ICON
+from pypy.translator.js.demo.jsdemo.msgstruct import *
 from cherrypy import session
 
 import re, time, sys, os, urllib, socket, copy, md5, random
@@ -139,27 +140,26 @@ class BnbRoot(Root, BasicExternal):
     
     @turbogears.expose(format='json')
     def player_name(self, player_id, name):
-        print "Changing player #%s name to %s" % (player_id, name)
+        log("Changing player #%s name to %s" % (player_id, name))
         self.sessionSocket().send(message(CMSG_PLAYER_NAME, int(player_id), name))
-        return self.get_message()
+        return dict()
 
     @turbogears.expose(format='json')
     def add_player(self, player_id):
-        print "Adding player"
-        print player_id
+        log("Adding player " + player_id)
         self.sessionSocket().send(message(CMSG_ADD_PLAYER, int(player_id)))
-        return self.get_message()
+        return dict()
 
     @turbogears.expose(format='json')
     def remove_player(self, player_id):
-        print player_id
+        log("Remove player " + player_id)
         self.sessionSocket().send(message(CMSG_REMOVE_PLAYER, int(player_id)))
-        return self.get_message()
+        return dict()
 
     @turbogears.expose(format='json')
     def key(self, player_id, keynum):
         self.sessionSocket().send(message(CMSG_KEY, int(player_id), int(keynum)))
-        return self.get_message()
+        return dict()
 
     @turbogears.expose(format='json')
     def key0(self):
@@ -224,7 +224,7 @@ class BnbRoot(Root, BasicExternal):
         sessionid = session['_id']
         self._serverMessage[sessionid] = ServerMessage('static/images/')
         self._spriteManagers[sessionid] = SpriteManager()
-        return dict()
+        return dict(messages=[])
 
     @turbogears.expose(format="json")
     def get_message(self):
@@ -308,7 +308,7 @@ class BnbRoot(Root, BasicExternal):
             sprite_manager.end_frame()
         messages += to_append
         #messages.append(to_append[0])
-        #print len(messages)
+        #log(len(messages))
         return dict(messages=messages)
 
 BnbRootInstance = BnbRoot()

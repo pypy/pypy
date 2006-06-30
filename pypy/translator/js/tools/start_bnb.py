@@ -149,12 +149,12 @@ def addPlayer(player_id):
     prev_player_id = player.id
     if player.id >= 0:
         log("removing " + name)
-        BnbRootInstance.remove_player(player.id, bnb_dispatcher)
+        BnbRootInstance.remove_player(player.id, ignore_dispatcher)
         player.id = -1
     if player_id != prev_player_id:
         log("adding " + name)
-        BnbRootInstance.add_player(player_id, bnb_dispatcher)
-        BnbRootInstance.player_name(player_id, name, bnb_dispatcher)
+        BnbRootInstance.add_player(player_id, ignore_dispatcher)
+        BnbRootInstance.player_name(player_id, name, ignore_dispatcher)
         player.id = player_id
 
 
@@ -183,16 +183,16 @@ def keydown(key):
     elif c == '57': #ord('9'):
         addPlayer(9)
     elif c == '68': #ord('D'):  #right
-        BnbRootInstance.key(player.id, 0, bnb_dispatcher)
+        BnbRootInstance.key(player.id, 0, ignore_dispatcher)
         log('start right')
     elif c == '83': #ord('S'):  #left
-        BnbRootInstance.key(player.id, 1, bnb_dispatcher)
+        BnbRootInstance.key(player.id, 1, ignore_dispatcher)
         log('start left')
     elif c == '69': #ord('E'):  #up
-        BnbRootInstance.key(player.id, 2, bnb_dispatcher)
+        BnbRootInstance.key(player.id, 2, ignore_dispatcher)
         log('start up')
     elif c == '88': #ord('X'):  #fire
-        BnbRootInstance.key(player.id, 3, bnb_dispatcher)
+        BnbRootInstance.key(player.id, 3, ignore_dispatcher)
         log('start fire')
     else:
         logWarning('unknown keydown: ' + c)
@@ -204,20 +204,22 @@ def keyup(key):
        c == '53' or c == '54' or c == '55' or c == '56' or c == '57': #XXX c in (...) didn't work
         pass    #don't print warning
     elif c == '68': #ord('D'):  #right
-        BnbRootInstance.key(player.id, 4, bnb_dispatcher)
+        BnbRootInstance.key(player.id, 4, ignore_dispatcher)
         log('stop right')
     elif c == '83': #ord('S'):  #left
-        BnbRootInstance.key(player.id, 5, bnb_dispatcher)
+        BnbRootInstance.key(player.id, 5, ignore_dispatcher)
         log('stop left')
     elif c == '69': #ord('E'):  #up
-        BnbRootInstance.key(player.id, 6, bnb_dispatcher)
+        BnbRootInstance.key(player.id, 6, ignore_dispatcher)
         log('stop up')
     elif c == '88': #ord('X'):  #fire
-        BnbRootInstance.key(player.id, 7, bnb_dispatcher)
+        BnbRootInstance.key(player.id, 7, ignore_dispatcher)
         log('stop fire')
     else:
         logWarning('unknown keyup: ' + c)
 
+def ignore_dispatcher(msgs):
+    pass
 
 def bnb_dispatcher(msgs):
     BnbRootInstance.get_message(bnb_dispatcher)
@@ -226,7 +228,7 @@ def bnb_dispatcher(msgs):
     stats.register_frame()
     get_document().title = str(stats.n_sprites) + " sprites " + str(stats.fps)
     #sc.revive()
-    
+
 def session_dispatcher(msgs):
     #log("Something...")
     BnbRootInstance.get_message(bnb_dispatcher)
