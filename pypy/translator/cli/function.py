@@ -285,8 +285,11 @@ class Function(Node, Generator):
     def function_signature(self, graph):
         return self.cts.graph_to_signature(graph, False)
 
-    def class_name(self, ooinstance):
-        return ooinstance._name
+    def class_name(self, TYPE):
+        if isinstance(TYPE, ootype.Instance):
+            return TYPE._name
+        elif isinstance(TYPE, ootype.Record):
+            return self.db.get_record_name(TYPE)
 
     def emit(self, instr, *args):
         self.ilasm.opcode(instr, *args)

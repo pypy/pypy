@@ -30,7 +30,6 @@ class LowLevelDatabase(object):
         self.delegates = {} # StaticMethod --> type_name
         self.const_names = set()
         self.name_count = 0
-        self._recorded_records = [] # XXX: temporary hack
 
     def next_count(self):
         self.name_count += 1
@@ -44,9 +43,7 @@ class LowLevelDatabase(object):
 
     def pending_record(self, record):
         r = Record(self, record)
-        if r not in self._recorded_records: # XXX: temporary hack
-            self._recorded_records.append(r)
-            self.pending_node(r)
+        self.pending_node(r)
         return r.get_name()
 
     def pending_node(self, node):
@@ -66,6 +63,10 @@ class LowLevelDatabase(object):
 
     def class_name(self, classdef):
         return self.classes.get(classdef, None)
+
+    def get_record_name(self, RECORD):
+        r = Record(self, RECORD)
+        return r.get_name() # TODO: cache the result?
 
     def record_const(self, value):
         if value in self.consts:

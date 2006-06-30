@@ -20,7 +20,6 @@ class Record(Node):
             
         self.name = '__'.join(name)
         assert ':' not in self.name
-        record._name = self.name
 
     def __hash__(self):
         return hash(self.record)
