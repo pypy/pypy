@@ -65,9 +65,6 @@ class TestCliTuple(CliTest, BaseTestRtuple):
     test_constant_tuple_contains2 = test_constant_tuple_contains
     test_constant_unichar_tuple_contains = test_constant_tuple_contains
 
-    def test_inst_tuple_add_getitem(self):
-        py.test.skip("Need to fix pending nodes rendering")
-
 
 class TestCliString(CliTest, BaseTestRstr):
     def test_char_isxxx(self):

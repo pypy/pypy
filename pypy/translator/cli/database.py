@@ -30,7 +30,7 @@ class LowLevelDatabase(object):
         self.delegates = {} # StaticMethod --> type_name
         self.const_names = set()
         self.name_count = 0
-        self._recorded_records = set() # XXX: temporary hack
+        self._recorded_records = [] # XXX: temporary hack
 
     def next_count(self):
         self.name_count += 1
@@ -45,7 +45,7 @@ class LowLevelDatabase(object):
     def pending_record(self, record):
         r = Record(self, record)
         if r not in self._recorded_records: # XXX: temporary hack
-            self._recorded_records.add(r)
+            self._recorded_records.append(r)
             self.pending_node(r)
         return r.get_name()
 
