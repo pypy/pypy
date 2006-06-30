@@ -24,6 +24,10 @@ import os
 
 os.chdir("../demo/jsdemo")
 
+def logKey(msg):
+    #log(msg)
+    pass
+
 class Stats(object):
     """ Class containing some statistics
     """
@@ -49,6 +53,7 @@ stats = Stats()
 class Player(object):
     def __init__(self):
         self.id = -1
+        self.prev_count = 0
 
 player = Player()
 
@@ -135,9 +140,18 @@ def process_message(msg):
         sm.end_clean_sprites()
     elif msg['type'] == 'show_sprite':
         sm.show_sprite(msg['s'], msg['icon_code'], msg['x'], msg['y'])
-        
     #elif msg['type'] == 'ss':
     #    sm.show_sprite(msg['s'])
+    elif msg['type'] == 'player_icon' or msg['type'] == 'def_key' or \
+         msg['type'] == 'player_join' or msg['type'] == 'player_kill':
+        pass #ignore
+    elif msg['type'] == 'count':
+        count = int(msg['n'])
+        if count != player.prev_count + 1:
+            logWarning("incorrect response order, expected " + str(player.prev_count+1) + ' got ' + str(count))
+        player.prev_count = count
+    else:
+        logWarning('unknown message type: ' + msg['type'])
 
 
 def addPlayer(player_id):
@@ -148,11 +162,11 @@ def addPlayer(player_id):
     #    NotImplementedError: Type <StringBuilder>
     prev_player_id = player.id
     if player.id >= 0:
-        log("removing " + name)
+        #log("removing " + name)
         BnbRootInstance.remove_player(player.id, ignore_dispatcher)
         player.id = -1
     if player_id != prev_player_id:
-        log("adding " + name)
+        #log("adding " + name)
         BnbRootInstance.add_player(player_id, ignore_dispatcher)
         BnbRootInstance.player_name(player_id, name, ignore_dispatcher)
         player.id = player_id
@@ -184,16 +198,16 @@ def keydown(key):
         addPlayer(9)
     elif c == '68': #ord('D'):  #right
         BnbRootInstance.key(player.id, 0, ignore_dispatcher)
-        log('start right')
+        logKey('start right')
     elif c == '83': #ord('S'):  #left
         BnbRootInstance.key(player.id, 1, ignore_dispatcher)
-        log('start left')
+        logKey('start left')
     elif c == '69': #ord('E'):  #up
         BnbRootInstance.key(player.id, 2, ignore_dispatcher)
-        log('start up')
+        logKey('start up')
     elif c == '88': #ord('X'):  #fire
         BnbRootInstance.key(player.id, 3, ignore_dispatcher)
-        log('start fire')
+        logKey('start fire')
     else:
         logWarning('unknown keydown: ' + c)
 
@@ -205,16 +219,16 @@ def keyup(key):
         pass    #don't print warning
     elif c == '68': #ord('D'):  #right
         BnbRootInstance.key(player.id, 4, ignore_dispatcher)
-        log('stop right')
+        logKey('stop right')
     elif c == '83': #ord('S'):  #left
         BnbRootInstance.key(player.id, 5, ignore_dispatcher)
-        log('stop left')
+        logKey('stop left')
     elif c == '69': #ord('E'):  #up
         BnbRootInstance.key(player.id, 6, ignore_dispatcher)
-        log('stop up')
+        logKey('stop up')
     elif c == '88': #ord('X'):  #fire
         BnbRootInstance.key(player.id, 7, ignore_dispatcher)
-        log('stop fire')
+        logKey('stop fire')
     else:
         logWarning('unknown keyup: ' + c)
 
@@ -227,10 +241,8 @@ def bnb_dispatcher(msgs):
         process_message(msg)
     stats.register_frame()
     get_document().title = str(stats.n_sprites) + " sprites " + str(stats.fps)
-    #sc.revive()
 
 def session_dispatcher(msgs):
-    #log("Something...")
     BnbRootInstance.get_message(bnb_dispatcher)
 
 def run_bnb():
@@ -238,7 +250,7 @@ def run_bnb():
         genjsinfo = get_document().getElementById("genjsinfo")
         get_document().body.removeChild(genjsinfo)
         createLoggingPane(True)
-        log("keys: [0-9] to add a player, [esdx] to walk around")
+        log("keys: [0-9] to select player, [esdx] to walk around")
         BnbRootInstance.initialize_session(session_dispatcher)
         set_on_keydown(keydown)
         set_on_keyup(keyup)
