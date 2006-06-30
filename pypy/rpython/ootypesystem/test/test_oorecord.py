@@ -38,3 +38,14 @@ def test_ooidentityhash():
     t.a = 1
     t.b = 2
     assert ooidentityhash(t) != ooidentityhash(t2)
+
+import py
+def test_hash():
+    #py.test.skip("LowLevelType.__hash__ bug waiting to be fixed")
+    T1 = Record({"item0": Signed, "item1": Signed})
+    T2 = Record({"item0": Signed})
+
+    hash(T2) # compute the hash, it will stored in __cached_hash
+    T2._add_fields({"item1": Signed}) # modify the object
+    assert T1 == T2
+    assert hash(T1) == hash(T2)
