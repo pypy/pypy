@@ -1,4 +1,5 @@
 import py
+import py.test
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef
@@ -50,6 +51,31 @@ def test_get_blackbox():
 
     res = fn(expected_extra_mallocs=1)
     assert type(res).__name__ == 'MyType'
+
+
+def test_get_blackboxes():
+    py.test.skip("a bug with specialize:wrap?")
+    W_MyType.typedef = TypeDef("MyType")
+
+    class W_MyType2(Wrappable):
+        def __init__(self, space, x=1):
+            self.space = space
+            self.x = x
+    W_MyType2.typedef = TypeDef("MyType2")
+    space = CPyObjSpace()
+
+    def make_mytype(n):
+        if n:
+            return space.wrap(W_MyType2(space))
+        else:
+            return space.wrap(W_MyType(space))
+    fn = compile(make_mytype, [int],
+                 annotatorpolicy = CPyAnnotatorPolicy(space))
+
+    res = fn(1, expected_extra_mallocs=1)
+    assert type(res).__name__ == 'MyType'
+    res = fn(0, expected_extra_mallocs=1)
+    assert type(res).__name__ == 'MyType2'
 
 
 def test_blackbox():
