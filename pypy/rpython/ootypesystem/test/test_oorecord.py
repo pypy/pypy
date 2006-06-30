@@ -41,7 +41,7 @@ def test_ooidentityhash():
 
 import py
 def test_hash():
-    #py.test.skip("LowLevelType.__hash__ bug waiting to be fixed")
+    py.test.skip("LowLevelType.__hash__ bug waiting to be fixed")
     T1 = Record({"item0": Signed, "item1": Signed})
     T2 = Record({"item0": Signed})
 
