@@ -4,11 +4,10 @@ from msgstruct import *
 import PIL.Image
 from zlib import decompressobj, decompress
 from urllib import quote
-from os import mkdir
 from os.path import exists
-from md5 import md5
 from struct import unpack
 from time import time
+import md5
 
 
 debug = True
@@ -37,6 +36,7 @@ PMSG_INLINE_FRAME  = "inline_frame"
 class ServerMessage:
 
     _md5_file       = {}
+    _bitmap2hexdigits={}
     _def_icon_queue = {}
     base_gfx_dir = 'testme/static/images/'
     base_gfx_url = 'static/images/'
@@ -82,13 +82,8 @@ class ServerMessage:
     def def_playfield(self, width, height, backcolor, FnDesc):
         #log('def_playfield width=%s, height=%s, backcolor=%s, FnDesc=%s' % (\
         #    width, height, backcolor, FnDesc))
-        hexdigest    = md5(FnDesc).hexdigest()
-        self.gfx_dir = self.base_gfx_dir + hexdigest + '/'
-        self.gfx_url = self.base_gfx_url + hexdigest + '/'
-        try:
-            mkdir(self.gfx_dir)
-        except OSError:
-            pass
+        self.gfx_dir = self.base_gfx_dir
+        self.gfx_url = self.base_gfx_url
         return dict(type=PMSG_DEF_PLAYFIELD, width=width, height=height,
                     backcolor=backcolor, FnDesc=FnDesc)
 
@@ -107,17 +102,21 @@ class ServerMessage:
             colorkey = (c & 255, (c >> 8) & 255, (c >> 16) & 255)
         #log('def_bitmap1 bitmap_code=%d, data=%d bytes, colorkey=%s' % (
         #    bitmap_code, len(data), colorkey))
-        gif_bitmap_filename = '%sbitmap%d.%s' % (self.gfx_dir, bitmap_code, self.gfx_extension)
-        if exists(gif_bitmap_filename):
-            #log('CACHED:%s' % gif_bitmap_filename)
+
+        try:
+            decompressed_data = decompress(data)
+        except Exception, e:
+            raise BitmapCreationException('ERROR UNCOMPRESSING DATA FOR %s (%s)' % (
+                bitmap_filename, str(e)))
+        hexdigits = md5.new(decompressed_data).hexdigest()
+        self._bitmap2hexdigits[bitmap_code] = hexdigits
+
+        gfx_bitmap_filename = '%s%s.%s' % (self.gfx_dir, hexdigits, self.gfx_extension)
+        if exists(gfx_bitmap_filename):
+            #log('CACHED:%s' % gfx_bitmap_filename)
             pass
         else:
-            bitmap_filename = '%sbitmap%d.ppm' % (self.gfx_dir, bitmap_code)
-            try:
-                decompressed_data = decompress(data)
-            except Exception, e:
-                raise BitmapCreationException('ERROR UNCOMPRESSING DATA FOR %s (%s)' % (
-                    bitmap_filename, str(e)))
+            bitmap_filename = '%s%s.ppm' % (self.gfx_dir, hexdigits)
             f = open(bitmap_filename, 'wb')
             f.write(decompressed_data)
             f.close()
@@ -141,17 +140,19 @@ class ServerMessage:
                             data.putpixel((x,y), (0,0,0,0))
 
             try:
-                bitmap.save(gif_bitmap_filename)
-                log('SAVED:%s' % gif_bitmap_filename)
+                bitmap.save(gfx_bitmap_filename)
+                log('SAVED:%s' % gfx_bitmap_filename)
             except IOError:
                 raise BitmapCreationException('ERROR SAVING %s (%s)' % (
-                    gif_bitmap_filename, str(e)))
+                    gfx_bitmap_filename, str(e)))
 
     def def_bitmap2(self, bitmap_code, fileid, *rest):
         #log('def_bitmap2: bitmap_code=%d, fileid=%d, colorkey=%s' % (bitmap_code, fileid, rest))
-        gif_bitmap_filename = '%sbitmap%d.%s' % (self.gfx_dir, bitmap_code, self.gfx_extension)
-        if exists(gif_bitmap_filename):
-            #log('SKIP DATA_REQUEST:%s' % gif_bitmap_filename)
+        hexdigits = self._md5_file[fileid]['hexdigits']
+        self._bitmap2hexdigits[bitmap_code] = hexdigits
+        gfx_bitmap_filename = '%s%s.%s' % (self.gfx_dir, hexdigits, self.gfx_extension)
+        if exists(gfx_bitmap_filename):
+            #log('SKIP DATA_REQUEST:%s' % gfx_bitmap_filename)
             pass
         else:
             self._md5_file[fileid]['bitmap_code'] = bitmap_code
@@ -160,14 +161,17 @@ class ServerMessage:
             size     = self._md5_file[fileid]['len_data']
             msg      = message(CMSG_DATA_REQUEST, fileid, position, size)
             self.socket.send(msg)
-            log('DATA_REQUEST:%s' % gif_bitmap_filename)
+            log('DATA_REQUEST:fileid=%d(pos=%d,size=%d):%s' % (
+                fileid, position, size, gfx_bitmap_filename))
 
     def def_icon(self, bitmap_code, icon_code, x,y,w,h, *rest):
         #log('def_icon bitmap_code=%s, icon_code=%s, x=%s, y=%s, w=%s, h=%s, alpha=%s' %\
         #    (bitmap_code, icon_code, x,y,w,h, rest) #ignore alpha (bubbles)
 
-        bitmap_filename = '%sbitmap%d.%s' % (self.gfx_dir, bitmap_code, self.gfx_extension)
-        icon_filename = '%sicon%d.%s' % (self.gfx_dir, icon_code, self.gfx_extension)
+        hexdigits = self._bitmap2hexdigits[bitmap_code]
+        bitmap_filename = '%s%s.%s' % (self.gfx_dir, hexdigits, self.gfx_extension)
+        icon_filename = '%s%s_%d_%d_%d_%d.%s' % (
+            self.gfx_dir, hexdigits, x, y, w, h, self.gfx_extension)
         if exists(icon_filename):
             #log('CACHED:%s' % icon_filename)
             pass
@@ -185,11 +189,13 @@ class ServerMessage:
             self._def_icon_queue[bitmap_code].append((icon_code, x, y, w, h, rest))
             return
 
-        filename = '%sicon%d.%s' % (self.gfx_url, icon_code, self.gfx_extension)
+        filename = '%s%s_%d_%d_%d_%d.%s' % (
+            self.gfx_url, hexdigits, x, y, w, h, self.gfx_extension)
         return dict(type=PMSG_DEF_ICON, icon_code=icon_code, filename=filename, width=w, height=h)
 
     def zpatch_file(self, fileid, position, data): #response to CMSG_DATA_REQUEST
         #log('zpatch_file fileid=%d, position=%d, len(data)=%d' % (fileid, position, len(data)))
+
         bitmap_code = self._md5_file[fileid]['bitmap_code']
         colorkey    = self._md5_file[fileid]['colorkey']
         try:
@@ -212,11 +218,11 @@ class ServerMessage:
         return dict(type=PMSG_PLAYER_ICON, player_id=player_id, icon_code=icon_code)
 
     def player_join(self, player_id, client_is_self):
-        log('player_join player_id=%d, client_is_self=%d' % (player_id, client_is_self))
+        #log('player_join player_id=%d, client_is_self=%d' % (player_id, client_is_self))
         return dict(type=PMSG_PLAYER_JOIN, player_id=player_id, client_is_self=client_is_self)
 
     def player_kill(self, player_id):
-        log('player_kill player_id=%d' % player_id)
+        #log('player_kill player_id=%d' % player_id)
         return dict(type=PMSG_PLAYER_KILL, player_id=player_id)
 
     def def_key(self, keyname, num, *icon_codes):
@@ -224,13 +230,19 @@ class ServerMessage:
         return dict(type=PMSG_DEF_KEY, keyname=keyname, num=num, icon_codes=icon_codes)
 
     def md5_file(self, fileid, protofilepath, offset, len_data, checksum):
-        #log('md5_file fileid=%d, protofilepath=%s, offset=%d, len_data=%d, checksum=...' % (
-        #    fileid, protofilepath, offset, len_data))
+        hd = '0123456789abcdef'
+        hexdigits = ''
+        for c in checksum:
+            i = ord(c)
+            hexdigits = hexdigits + hd[i >> 4] + hd[i & 15]
+        #log('md5_file fileid=%d, protofilepath=%s, offset=%d, len_data=%d, hexdigits=%s' % (
+        #    fileid, protofilepath, offset, len_data, hexdigits))
         self._md5_file[fileid] = {
             'protofilepath' : protofilepath,
             'offset'        : offset,
             'len_data'      : len_data,
             'checksum'      : checksum,
+            'hexdigits'     : hexdigits,
             }
 
     def inline_frame(self, data):
