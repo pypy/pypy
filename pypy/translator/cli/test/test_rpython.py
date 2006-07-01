@@ -69,11 +69,6 @@ class TestCliString(CliTest, BaseTestRstr):
     test_unichar_ord = test_unichar_const
     test_unichar_hash = test_unichar_const
 
-    def test_rfind(self):
-        py.test.skip("CLI doens't support rfind(), yey")
-    test_rfind_empty_string = test_rfind
-    test_find_char = test_rfind
-
     def test_upper(self):
         py.test.skip("CLI doens't support backquotes inside string literals")
     test_lower = test_upper

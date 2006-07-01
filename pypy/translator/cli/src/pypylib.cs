@@ -174,13 +174,12 @@ namespace pypy.runtime
 
         public static int ll_rfind(string s1, string s2, int start, int stop)
         {
-            // XXX: it doesn't work properly
             if (stop > s1.Length)
                 stop = s1.Length;
             int count = stop-start;
             if (start > s1.Length)
                 return -1;
-            return s1.LastIndexOf(s2, start, count);
+            return s1.LastIndexOf(s2, stop-1, count);
         }
 
         public static int ll_find_char(string s, char ch, int start, int stop)
@@ -196,7 +195,9 @@ namespace pypy.runtime
             if (stop > s.Length)
                 stop = s.Length;
             int count=stop-start;
-            return s.IndexOf(ch, start, count);
+            if (start > s.Length)
+                return -1;
+            return s.LastIndexOf(ch, stop-1, count);
         }
 
         public static string ll_strip(string s, char ch, bool left, bool right)
