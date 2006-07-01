@@ -13,14 +13,8 @@ def app_init_globals_hack():
     b.s = support_test_app_sre
     sys.path.pop(0)
 
-def skip_if_faked(cls):
-    if "_sre" not in cls.space.options.usemodules:
-        skip("--usemodules=_sre option not provided")
-
 
 class AppTestSrePy:
-
-    setup_class = skip_if_faked
 
     def test_magic(self):
         import _sre, sre_constants
@@ -32,8 +26,6 @@ class AppTestSrePy:
 
 
 class AppTestSrePattern:
-
-    setup_class = skip_if_faked
 
     def test_copy(self):
         # copy support is disabled by default in _sre.c
@@ -93,8 +85,6 @@ class AppTestSrePattern:
 
 
 class AppTestSreMatch:
-
-    setup_class = skip_if_faked
 
     def test_copy(self):
         import re
@@ -201,8 +191,6 @@ class AppTestSreMatch:
 
 class AppTestSreScanner:
 
-    setup_class = skip_if_faked
-
     def test_scanner_attributes(self):
         import re
         p = re.compile("bla")
@@ -235,7 +223,6 @@ class AppTestSreScanner:
 class AppTestGetlower:
 
     def setup_class(cls):
-        skip_if_faked(cls)
         # This imports support_test_sre as the global "s"
         app2interp_temp(app_init_globals_hack)(cls.space)
 
@@ -278,8 +265,6 @@ class AppTestGetlower:
         
 
 class AppTestSimpleSearches:
-
-    setup_class = skip_if_faked
 
     def test_search_simple_literal(self):
         import re
@@ -461,8 +446,6 @@ class AppTestSimpleSearches:
 
 class AppTestMarksStack:
 
-    setup_class = skip_if_faked
-
     def test_mark_stack_branch(self):
         import re
         m = re.match("b(.)a|b.b", "bob")
@@ -497,7 +480,6 @@ class AppTestMarksStack:
 class AppTestOpcodes:
 
     def setup_class(cls):
-        skip_if_faked(cls)
         # This imports support_test_sre as the global "s"
         app2interp_temp(app_init_globals_hack)(cls.space)
 
@@ -874,8 +856,6 @@ class AppTestOpcodes:
 
 class AppTestOptimizations:
     """These tests try to trigger optmized edge cases."""
-
-    setup_class = skip_if_faked
 
     def test_match_length_optimization(self):
         import re
