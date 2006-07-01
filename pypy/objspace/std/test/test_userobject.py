@@ -175,3 +175,13 @@ class AppTestUserObject:
         assert 'NameError' in line2
         assert 'yaddadlaouti' in line2
         assert 'ignored' in line2
+
+    def test_instance_overrides_meth(self):
+        class C(object):
+            def m(self):
+                return "class"
+        assert C().m() == 'class'
+        c = C()
+        c.m = lambda: "instance"
+        res = c.m()
+        assert res == "instance"
