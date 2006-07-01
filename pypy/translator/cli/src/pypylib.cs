@@ -365,6 +365,25 @@ namespace pypy.runtime
         }
     }
 
+    public class DictOfVoid<TKey>: System.Collections.Generic.Dictionary<TKey, int> // int is a placeholder
+    {
+        public int ll_length() { return this.Count; }
+        public void ll_get(TKey key) { }
+        public void ll_set(TKey key) { this[key] = 0; }
+        public bool ll_remove(TKey key) { return this.Remove(key); }
+        public bool ll_contains(TKey key) { return this.ContainsKey(key); }
+        public void ll_clear() { this.Clear(); }
+
+        //XXX ll_get_items_iterator is not supported, yet
+        /*
+        public DictItemsIterator<TKey, TValue> ll_get_items_iterator()
+        {
+            return new DictItemsIterator<TKey, TValue>(this.GetEnumerator());
+        }
+        */
+    }
+
+
     public class DictItemsIterator<TKey, TValue>
     {
         IEnumerator<KeyValuePair<TKey, TValue>> it;

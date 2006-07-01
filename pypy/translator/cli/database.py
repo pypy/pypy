@@ -1,4 +1,4 @@
-from pypy.translator.cli.cts import CTS, PYPY_LIST_OF_VOID
+from pypy.translator.cli.cts import CTS, PYPY_LIST_OF_VOID, PYPY_DICT_OF_VOID
 from pypy.translator.cli.function import Function
 from pypy.translator.cli.class_ import Class
 from pypy.translator.cli.record import Record
@@ -180,6 +180,8 @@ class AbstractConst(object):
             return StaticMethodConst(db, value, count)
         elif isinstance(value, ootype._class):
             return ClassConst(db, value, count)
+        elif isinstance(value, ootype._dict):
+            return DictConst(db, value, count)
         else:
             assert False, 'Unknown constant: %s' % value
     make = staticmethod(make)
@@ -363,6 +365,60 @@ class ListConst(AbstractConst):
             ilasm.opcode('dup')
             AbstractConst.load(self.db, ITEMTYPE, item, ilasm)
             meth = 'void class [pypylib]pypy.runtime.List`1<%s>::Add(%s)' % (itemtype, itemtype_T)
+            ilasm.call_method(meth, False)
+
+
+class DictConst(AbstractConst):
+    def __init__(self, db, dict_, count):
+        self.db = db
+        self.cts = CTS(db)
+        self.dict = dict_
+        self.name = 'DICT__%d' % count
+
+    def __hash__(self):
+        return hash(self.dict)
+
+    def __eq__(self, other):
+        return self.dict == other.dict
+
+    def get_type(self, include_class=True):
+        return self.cts.lltype_to_cts(self.dict._TYPE, include_class)
+
+    def init(self, ilasm):
+        if not self.dict: # it is a null dict
+            ilasm.opcode('ldnull')
+            return
+
+        class_name = self.get_type(False)
+        KEYTYPE = self.dict._TYPE._KEYTYPE
+        keytype = self.cts.lltype_to_cts(KEYTYPE)
+        keytype_T = self.cts.lltype_to_cts(self.dict._TYPE.KEYTYPE_T)
+
+        VALUETYPE = self.dict._TYPE._VALUETYPE
+        valuetype = self.cts.lltype_to_cts(VALUETYPE)
+        valuetype_T = self.cts.lltype_to_cts(self.dict._TYPE.VALUETYPE_T)
+        
+        ilasm.new('instance void class %s::.ctor()' % class_name)
+
+        if KEYTYPE is ootype.Void:
+            assert False, "gencli doesn't support dict with void keys"
+
+        # special case: dict of void, ignore the values
+        if VALUETYPE is ootype.Void:
+            class_name = PYPY_DICT_OF_VOID % keytype
+            for key in self.dict._dict:
+                ilasm.opcode('dup')
+                AbstractConst.load(self.db, KEYTYPE, key, ilasm)
+                meth = 'void class %s::ll_set(%s)' % (class_name, keytype_T)
+                ilasm.call_method(meth, False)
+            return
+
+        for key, value in self.dict._dict.iteritems():
+            ilasm.opcode('dup')
+            AbstractConst.load(self.db, KEYTYPE, key, ilasm)
+            AbstractConst.load(self.db, VALUETYPE, value, ilasm)
+            meth = 'void class [pypylib]pypy.runtime.Dict`2<%s, %s>::ll_set(%s, %s)' %\
+                   (keytype, valuetype, keytype_T, valuetype_T)
             ilasm.call_method(meth, False)
 
 

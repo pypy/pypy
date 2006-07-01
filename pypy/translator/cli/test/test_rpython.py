@@ -41,11 +41,8 @@ class TestCliList(CliTest, BaseTestRlist):
         
 
 class TestCliTuple(CliTest, BaseTestRtuple):
-    def test_constant_tuple_contains(self):
-        py.test.skip("CLI doesn't support dict, yet")
-
-    test_constant_tuple_contains2 = test_constant_tuple_contains
-    test_constant_unichar_tuple_contains = test_constant_tuple_contains
+    def test_constant_unichar_tuple_contains(self):
+        py.test.skip("CLI doesn't support cast_int_to_unichar, yet")
 
 
 class TestCliString(CliTest, BaseTestRstr):
