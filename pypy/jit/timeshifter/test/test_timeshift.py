@@ -79,9 +79,8 @@ def timeshift(ll_function, values, opt_consts=[], inline=None, policy=None):
     # run the time-shifted graph-producing graphs
     graph1 = ha.translator.graphs[0]
     llinterp = LLInterpreter(rtyper)
-    llinterp.eval_graph(htshift.ll_clearcaches, [])
-    jitstate = llinterp.eval_graph(htshift.ll_build_jitstate_graph, [])
-    graph1args = [jitstate]
+    builder = llinterp.eval_graph(htshift.ll_make_builder_graph, [])
+    graph1args = [builder]
     residual_graph_args = []
     assert len(graph1.getargs()) == 1 + len(values)
     for i, (v, llvalue) in enumerate(zip(graph1.getargs()[1:], values)):
@@ -95,7 +94,7 @@ def timeshift(ll_function, values, opt_consts=[], inline=None, policy=None):
             assert residual_v == [llvalue], "XXX for now"
             TYPE = htshift.originalconcretetype(v)
             gv_type = rgenop.constTYPE(TYPE)
-            gvar = llinterp.eval_graph(htshift.ll_geninputarg_graph, [jitstate,
+            gvar = llinterp.eval_graph(htshift.ll_geninputarg_graph, [builder,
                                                                       gv_type])
             if i in opt_consts: # XXX what should happen here interface wise is unclear
                 gvar = rgenop.genconst(llvalue)
@@ -108,13 +107,13 @@ def timeshift(ll_function, values, opt_consts=[], inline=None, policy=None):
             box = llinterp.eval_graph(ll_box_graph, [gv_type, gvar])
             graph1args.append(box)
             residual_graph_args.append(llvalue)
-    startblock = llinterp.eval_graph(htshift.ll_end_setup_jitstate_graph, [jitstate])
+    startblock = llinterp.eval_graph(htshift.ll_end_setup_builder_graph, [builder])
 
-    newjitstate = llinterp.eval_graph(graph1, graph1args)
-    # now try to run the blocks produced by the jitstate
+    jitstate = llinterp.eval_graph(graph1, graph1args)
     r = htshift.hrtyper.getrepr(hs)
     llinterp.eval_graph(htshift.ll_close_jitstate_graph, [jitstate])
 
+    # now try to run the blocks produced by the builder
     residual_graph = rgenop.buildgraph(startblock)
     insns = summary(residual_graph)
     res = rgenop.testgengraph(residual_graph, residual_graph_args,
@@ -559,3 +558,12 @@ def test_merge_structures():
     insns, res = timeshift(ll_function, [1], [], policy=P_NOVIRTUAL)
     assert res == 1 + 2
     assert insns == {'int_is_true': 1, 'int_add': 1}
+
+def test_call_simple():
+    def ll_add_one(x):
+        return x + 1
+    def ll_function(y):
+        return ll_add_one(y)
+    insns, res = timeshift(ll_function, [5], [], policy=P_NOVIRTUAL)
+    assert res == 6
+    assert insns == {'int_add': 1}

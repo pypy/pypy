@@ -6,14 +6,14 @@ from pypy.rpython import annlowlevel
 from pypy.rpython.rtyper import RPythonTyper, LowLevelOpList, TyperError
 from pypy.rpython.rmodel import Repr, inputconst
 from pypy.rpython.lltypesystem.rstr import string_repr
-from pypy.rpython.typesystem import TypeSystem
+from pypy.rpython.typesystem import LowLevelTypeSystem
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython import rgenop
 from pypy.jit.hintannotator import model as hintmodel
 from pypy.jit.hintannotator import container as hintcontainer
 from pypy.jit.timeshifter import rtimeshift, rvalue, rcontainer
 
-class HintTypeSystem(TypeSystem):
+class HintTypeSystem(LowLevelTypeSystem):
     name = "hinttypesystem"
 
     offers_exceptiondata = False
@@ -218,7 +218,20 @@ class HintRTyper(RPythonTyper):
             v = hop.genop('direct_call', hop.args_v, hop.r_result.lowleveltype)
             return v
         else:
-            raise NotImplementedError("direct_call")
+            bk = self.annotator.bookkeeper
+            hop.r_s_popfirstarg()
+            args_hs = hop.args_s[:]
+            # fixed is always false here
+            graph = bk.get_graph_for_call(fnobj.graph, False, args_hs)
+            args_r = [self.getrepr(hs) for hs in args_hs]
+            args_v = hop.inputargs(*args_r)
+            fnptr = self.getcallable(graph)
+            self.timeshifter.schedule_graph(graph)
+            v_jitstate = hop.llops.getjitstate()
+            args_v.insert(0, v_jitstate)
+            args_v.insert(0, hop.llops.genconst(fnptr))
+            v = hop.genop('direct_call', args_v, hop.r_result.lowleveltype)
+            return v
 
     def handle_highlevel_operation(self, fnobj, hop):
         from pypy.jit.timeshifter.oop import OopSpecDesc, Index

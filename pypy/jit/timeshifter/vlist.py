@@ -75,7 +75,7 @@ class VirtualList(AbstractContainer):
         typedesc = self.typedesc
         boxes = self.item_boxes
         self.item_boxes = None
-        llops = rgenop.LowLevelOpBuilder(jitstate.curblock)
+        llops = jitstate.curbuilder
         gv_list = typedesc.build_newlist(llops, len(boxes))
         self.ownbox.genvar = gv_list
         self.ownbox.content = None

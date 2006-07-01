@@ -61,7 +61,7 @@ class OopSpecDesc:
             if pos > 0:
                 gv_arg = argboxes[i].getgenvar(jitstate)
                 args_gv[pos] = gv_arg
-        gv_result = rgenop.genop(jitstate.curblock,
+        gv_result = jitstate.curbuilder.genop(
                                  'direct_call',
                                  args_gv,
                                  self.gv_result_type)

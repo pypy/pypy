@@ -141,18 +141,17 @@ class StructFieldDesc(object):
 
     def generate_set(self, jitstate, genvar, box):
         gv_sub = genvar
+        genop = jitstate.curbuilder.genop
         for i in range(len(self.accessptrtype_gv)-1):
             op_args = lltype.malloc(rgenop.VARLIST.TO, 2)
             op_args[0] = gv_sub
             op_args[1] = self.fieldname_gv[i]
-            gv_sub = rgenop.genop(jitstate.curblock, 'getsubstruct',
-                                  op_args, self.accessptrtype_gv[i+1])
+            gv_sub = genop('getsubstruct', op_args, self.accessptrtype_gv[i+1])
         op_args = lltype.malloc(rgenop.VARLIST.TO, 3)
         op_args[0] = gv_sub
         op_args[1] = self.fieldname_gv[-1]
         op_args[2] = box.getgenvar(jitstate)
-        rgenop.genop(jitstate.curblock, 'setfield', op_args,
-                     rgenop.gv_Void)        
+        genop('setfield', op_args, rgenop.gv_Void)        
 
 # ____________________________________________________________
 
@@ -207,20 +206,19 @@ class VirtualStruct(AbstractContainer):
                 box.enter_block(newblock, incoming, memo)
 
     def force_runtime_container(self, jitstate):
+        genop = jitstate.curbuilder.genop
         typedesc = self.typedesc
         boxes = self.content_boxes
         self.content_boxes = None
         op_args = lltype.malloc(rgenop.VARLIST.TO, 1)
         op_args[0] = typedesc.gv_type
-        genvar = rgenop.genop(jitstate.curblock, 'malloc', op_args,
-                              typedesc.gv_ptrtype)
+        genvar = genop('malloc', op_args, typedesc.gv_ptrtype)
         # force all the boxes pointing to this VirtualStruct
         for box in self.substruct_boxes:
             # XXX using getsubstruct would be nicer
             op_args = lltype.malloc(rgenop.VARLIST.TO, 1)
             op_args[0] = genvar
-            box.genvar = rgenop.genop(jitstate.curblock, 'cast_pointer',
-                                      op_args, box.gv_type)
+            box.genvar = genop('cast_pointer', op_args, box.gv_type)
             box.content = None
         self.substruct_boxes = None
         fielddescs = typedesc.fielddescs

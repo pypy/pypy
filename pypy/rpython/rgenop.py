@@ -52,12 +52,15 @@ def _inputvars(vars):
     return res
 
 # is opname a runtime value?
-def genop(blockcontainer, opname, vars, gv_RESULT_TYPE):
+def genop(blockcontainer, opname, vars, resulttype):
     if not isinstance(opname, str):
         opname = LLSupport.from_rstr(opname)
     block = from_opaque_object(blockcontainer.obj)
     assert block.exits == [], "block already closed"
-    RESULT_TYPE = from_opaque_object(gv_RESULT_TYPE).value
+    if isinstance(resulttype, lltype.LowLevelType):
+        RESULT_TYPE = resultype
+    else:
+        RESULT_TYPE = from_opaque_object(resulttype).value
     opvars = _inputvars(vars)    
     v = flowmodel.Variable()
     v.concretetype = RESULT_TYPE
@@ -242,6 +245,8 @@ LINKPAIR = lltype.GcStruct('tuple2', *fields)
 # support constants and types
 
 nullvar = lltype.nullptr(CONSTORVAR.TO)
+nullblock = lltype.nullptr(BLOCK.TO)
+nulllink = lltype.nullptr(LINK.TO)
 gv_Void = constTYPE(lltype.Void)
 
 # VARLIST
@@ -322,7 +327,7 @@ class LowLevelOpBuilder(object):
     genconst = staticmethod(genconst)
     genvoidconst = staticmethod(placeholder)
 
-    def genop(self, opname, args_gv, RESULTTYPE=lltype.Void):
-        gv_result_type = constTYPE(RESULTTYPE)
-        return genop(self.block, opname, args_gv, gv_result_type)
-    genop._annspecialcase_ = 'specialize:arg(3)'
+    def genop(self, opname, args_gv, resulttype=lltype.Void):
+        #gv_result_type = constTYPE(RESULTTYPE)
+        return genop(self.block, opname, args_gv, resulttype)
+    genop._annspecialcase_ = "specialize:ll"

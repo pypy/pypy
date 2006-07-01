@@ -4,7 +4,7 @@ from pypy.objspace.flow import model as flowmodel
 from pypy.annotation import model as annmodel
 from pypy.annotation import listdef, dictdef
 from pypy.jit.timeshifter import rvalue, oop
-from pypy.jit.timeshifter.rtimeshift import JITState
+from pypy.jit.timeshifter.rtimeshift import JITState, ResidualGraphBuilder
 from pypy.rpython import rmodel, rgenop, annlowlevel
 from pypy.rpython.lltypesystem import rtuple, rlist, rdict
 from pypy.jit.timeshifter import rtimeshift
@@ -24,6 +24,7 @@ class HintTimeshift(object):
 
         self.annhelper = annlowlevel.MixLevelHelperAnnotator(rtyper)
 
+        self.s_ResidualGraphBuilder, self.r_ResidualGraphBuilder = self.s_r_instanceof(ResidualGraphBuilder)
         self.s_JITState, self.r_JITState = self.s_r_instanceof(JITState)
         self.s_RedBox, self.r_RedBox = self.s_r_instanceof(rvalue.RedBox)
         self.s_OopSpecDesc, self.r_OopSpecDesc = self.s_r_instanceof(
@@ -45,9 +46,9 @@ class HintTimeshift(object):
         self.r_box_accum = getrepr(self.s_box_accum)
         self.r_box_accum.setup()
 
-        self.ll_build_jitstate_graph = self.annhelper.getgraph(
-            rtimeshift.ll_build_jitstate,
-            [], self.s_JITState)
+        self.ll_make_builder_graph = self.annhelper.getgraph(
+            rtimeshift.ll_make_builder,
+            [], self.s_ResidualGraphBuilder)
         self.ll_int_box_graph = self.annhelper.getgraph(
             rtimeshift.ll_int_box,
             [rgenop.s_ConstOrVar, rgenop.s_ConstOrVar],
@@ -62,12 +63,13 @@ class HintTimeshift(object):
             self.s_RedBox)
         self.ll_geninputarg_graph = self.annhelper.getgraph(
             rtimeshift.ll_geninputarg,
-            [self.s_JITState, annmodel.SomePtr(rgenop.CONSTORVAR)],
+            [self.s_ResidualGraphBuilder, annmodel.SomePtr(rgenop.CONSTORVAR)],
             rgenop.s_ConstOrVar)
-        self.ll_end_setup_jitstate_graph = self.annhelper.getgraph(
-            rtimeshift.ll_end_setup_jitstate,
-            [self.s_JITState],
+        self.ll_end_setup_builder_graph = self.annhelper.getgraph(
+            rtimeshift.ll_end_setup_builder,
+            [self.s_ResidualGraphBuilder],
             annmodel.SomePtr(rgenop.BLOCK))
+
         self.ll_close_jitstate_graph = self.annhelper.getgraph(
             rtimeshift.ll_close_jitstate,
             [self.s_JITState],
@@ -124,16 +126,22 @@ class HintTimeshift(object):
         self.dispatch_to.append((self.latestexitindex, from_dispatch))        
         return self.latestexitindex
 
-    def timeshift(self):
-        # XXX in-progress:
-        ##for graph in self.hannotator.translator.graphs:
-        ##    self.timeshift_graph(graph)
+    def schedule_graph(self, graph):
+        if graph not in self.already_scheduled_graphs:
+            self.already_scheduled_graphs[graph] = True
+            self.graphs_to_timeshift.append(graph)
 
-        # instead:
-        graph = self.hannotator.translator.graphs[0]
-        self.timeshift_graph(graph)
+    def timeshift(self):
+        self.already_scheduled_graphs = {}
+        self.graphs_to_timeshift = []
+
+        self.schedule_graph(self.hannotator.translator.graphs[0])
+
+        while self.graphs_to_timeshift:
+            graph = self.graphs_to_timeshift.pop()
+            self.timeshift_graph(graph)
         
-        # Annotate and rType the helpers found during timeshifting
+        # Annotate and rtype the helpers found during timeshifting
         self.annhelper.finish()
 
     def timeshift_graph(self, graph):
@@ -186,9 +194,27 @@ class HintTimeshift(object):
             source.append("    pass")
         exec py.code.Source('\n'.join(source)).compile() in miniglobals
         clearcaches = miniglobals['clearcaches']
-        self.ll_clearcaches = self.annhelper.getgraph(clearcaches, [],
-                                                      annmodel.s_None)
+        self.c_ll_clearcaches_ptr = self.annhelper.constfunc(clearcaches, [],
+                                                             annmodel.s_None)
 
+        self.insert_start_setup()
+
+    def insert_start_setup(self):
+        newstartblock = self.insert_before_block(self.graph.startblock, None, closeblock=True)
+        v_builder = flowmodel.Variable('builder')
+        v_builder.concretetype = self.r_ResidualGraphBuilder.lowleveltype
+        v_jitstate = newstartblock.inputargs[0]
+        newstartblock.inputargs[0] = v_builder
+        llops = HintLowLevelOpList(self, None)
+
+        llops.genop('direct_call', [self.c_ll_clearcaches_ptr])
+        v_jitstate1 = llops.genmixlevelhelpercall(rtimeshift.enter_graph,
+                                                  [self.s_ResidualGraphBuilder],
+                                                  [v_builder],
+                                                  self.s_JITState)
+        llops.append(flowmodel.SpaceOperation('same_as', [v_jitstate1], v_jitstate))
+        newstartblock.operations = list(llops)
+        
     def insert_jitstate_arg(self, block):
         # pass 'jitstate' as an extra argument around the whole graph
         if block.operations != ():

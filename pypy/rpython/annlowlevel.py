@@ -99,6 +99,8 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
         funcdesc2 = bk.getdesc(x)
         return pol.default_specialize(funcdesc2, args_s)
 
+    specialize__ll = default_specialize
+
 def annotate_lowlevel_helper(annotator, ll_function, args_s, policy=None):
     if policy is None:
         policy= LowLevelAnnotatorPolicy()
