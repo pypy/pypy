@@ -152,7 +152,6 @@ class LLHelpers(AbstractLLHelpers):
 
     def ll_int(s, base):
         return ootype.ooparse_int(s, base)
-    ll_int.suggested_primitive = True
 
     def do_stringformat(cls, hop, sourcevarsrepr):
         InstanceRepr = hop.rtyper.type_system.rclass.InstanceRepr
