@@ -560,6 +560,7 @@ def test_merge_structures():
     assert insns == {'int_is_true': 1, 'int_add': 1}
 
 def test_call_simple():
+    py.test.skip("in-progress")
     def ll_add_one(x):
         return x + 1
     def ll_function(y):
