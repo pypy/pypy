@@ -53,7 +53,8 @@ class LLInstruction(Instruction):
 
     def execute(self, machine):
         sources = map(machine.get_register, self.sources)
-        result = getattr(self._frame(), 'op_' + self.opname)(*sources)
+        ophandler = self._frame().getoperationhandler(self.opname)
+        result = ophandler(*sources)
         machine.store_register(self.dest, result)
 
 
