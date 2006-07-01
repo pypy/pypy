@@ -4,6 +4,9 @@ from pypy.objspace.flow.model import checkgraph
 import pickle
 
 
+import py; py.test.skip("pickling graphs not really used")
+
+
 def test_pickle_block():
     # does not raise
     s = pickle.dumps(test_model.graph.startblock)
