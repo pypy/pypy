@@ -222,14 +222,9 @@ class Record(BuiltinType):
     
     def __init__(self, fields):
         self._fields = frozendict()
-        self._add_fields(fields)
-        self._null = _null_record(self)
-
-    def _add_fields(self, fields):
-        fields.copy()
         for name, ITEMTYPE in fields.items():
-            fields[name] = ITEMTYPE, ITEMTYPE._defl()
-        self._fields.update(fields)
+            self._fields[name] = ITEMTYPE, ITEMTYPE._defl()
+        self._null = _null_record(self)
 
     def _defl(self):
         return self._null
