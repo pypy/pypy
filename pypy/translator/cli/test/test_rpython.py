@@ -39,10 +39,6 @@ class TestCliList(CliTest, BaseTestRlist):
     def test_recursive(self):
         py.test.skip("CLI doesn't support recursive lists")
         
-    def test_list_str(self):
-        py.test.skip("CLI doesn't support ll_int_str, yet")
-
-
 
 class TestCliTuple(CliTest, BaseTestRtuple):
     def test_constant_tuple_contains(self):
