@@ -58,7 +58,7 @@ def genop(blockcontainer, opname, vars, resulttype):
     block = from_opaque_object(blockcontainer.obj)
     assert block.exits == [], "block already closed"
     if isinstance(resulttype, lltype.LowLevelType):
-        RESULT_TYPE = resultype
+        RESULT_TYPE = resulttype
     else:
         RESULT_TYPE = from_opaque_object(resulttype).value
     opvars = _inputvars(vars)    
