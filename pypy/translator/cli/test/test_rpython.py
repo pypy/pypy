@@ -41,9 +41,7 @@ class TestCliList(CliTest, BaseTestRlist):
         
 
 class TestCliTuple(CliTest, BaseTestRtuple):
-    def test_constant_unichar_tuple_contains(self):
-        py.test.skip("CLI doesn't support cast_int_to_unichar, yet")
-
+    pass
 
 class TestCliString(CliTest, BaseTestRstr):
     def test_char_isxxx(self):
