@@ -5,7 +5,6 @@ def const(c):
 
 def ll_int_str(repr, i):
     return ll_int2dec(i)
-ll_int_str.suggested_primitive = True
 
 def ll_int2dec(i):
     return oostring(i, const(10))
