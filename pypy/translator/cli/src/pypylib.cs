@@ -104,25 +104,10 @@ namespace pypy.runtime
     {
         System.Text.StringBuilder builder = new System.Text.StringBuilder();
 
-        public void ll_allocate(int size)
-        {
-            builder.Capacity = size;
-        }
-
-        public void ll_append_char(char ch)
-        {
-            builder.Append(ch);
-        }
-         
-        public void ll_append(string s)
-        {
-            builder.Append(s);
-        }
-
-        public string ll_build()
-        {
-            return builder.ToString();
-        }
+        public void ll_allocate(int size) { builder.Capacity = size; }
+        public void ll_append_char(char ch) { builder.Append(ch); }
+        public void ll_append(string s) { builder.Append(s); }
+        public string ll_build() { return builder.ToString(); }
     }
 
     public class String
@@ -329,35 +314,12 @@ namespace pypy.runtime
 
     public class Dict<TKey, TValue>: System.Collections.Generic.Dictionary<TKey, TValue>
     {
-        public int ll_length()
-        {
-            return this.Count;
-        }
-
-        public TValue ll_get(TKey key)
-        {
-            return this[key];
-        }
-
-        public void ll_set(TKey key, TValue value)
-        {
-            this[key] = value;
-        }
-
-        public bool ll_remove(TKey key)
-        {
-            return this.Remove(key);
-        }
-
-        public bool ll_contains(TKey key)
-        {
-            return this.ContainsKey(key);
-        }
-
-        public void ll_clear()
-        {
-            this.Clear();
-        }
+        public int ll_length() { return this.Count; }
+        public TValue ll_get(TKey key) { return this[key]; }
+        public void ll_set(TKey key, TValue value) { this[key] = value; }
+        public bool ll_remove(TKey key) { return this.Remove(key); }
+        public bool ll_contains(TKey key) { return this.ContainsKey(key); }
+        public void ll_clear() { this.Clear(); }
 
         public DictItemsIterator<TKey, TValue> ll_get_items_iterator()
         {
@@ -393,19 +355,8 @@ namespace pypy.runtime
             this.it = it;
         }
 
-        public bool ll_go_next()
-        {
-            return it.MoveNext();
-        }
-
-        public TKey ll_current_key()
-        {
-            return it.Current.Key;
-        }
-
-        public TValue ll_current_value()
-        {
-            return it.Current.Value;
-        }
+        public bool ll_go_next() { return it.MoveNext(); }
+        public TKey ll_current_key() { return it.Current.Key; }
+        public TValue ll_current_value() { return it.Current.Value; }
     }
 }
