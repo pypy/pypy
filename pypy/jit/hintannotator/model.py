@@ -228,29 +228,10 @@ class __extend__(SomeLLAbstractConstant):
         # normal call
         if not hasattr(fnobj, 'graph'):
             raise NotImplementedError("XXX call to externals or primitives")
-        desc = bookkeeper.getdesc(fnobj.graph)
-        key = None
-        alt_name = None
-        if bookkeeper.myorigin().read_fixed():
-            key = 'fixed'
-            alt_name = fnobj.graph.name + '_HFixed'
-        else:
-            key = []
-            specialize = False
-            for i, arg_hs in enumerate(args_hs):
-                if isinstance(arg_hs, SomeLLAbstractConstant) and arg_hs.eager_concrete:
-                    key.append('E')
-                    specialize = True
-                else:
-                    key.append('x')
-            if specialize:
-                key = ''.join(key)
-                alt_name = fnobj.graph.name + '_H'+key
-            else:
-                key = None
-                                    
+
         input_args_hs = list(args_hs)
-        graph = desc.specialize(input_args_hs, key=key, alt_name=alt_name)
+        fixed = bookkeeper.myorigin().read_fixed()
+        graph = bookkeeper.get_graph_for_call(fnobj.graph, fixed, input_args_hs)
 
         # propagate fixing of arguments in the function to the caller
         for inp_arg_hs, arg_hs in zip(input_args_hs, args_hs):
@@ -273,7 +254,7 @@ class __extend__(SomeLLAbstractConstant):
                     [o] = hs_inputarg.origins.keys()
                     if o in hs_res.origins:
                         deps_hs.append(hs_arg)
-            if key == 'fixed':
+            if fixed:
                 deps_hs.append(hs_res)
             hs_res = reorigin(hs_res, *deps_hs)
 
