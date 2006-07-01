@@ -115,23 +115,34 @@ def prepare_constant_fold_link(link, constants, splitblocks):
     n = len(block.operations)
     if block.exitswitch == c_last_exception:
         n -= 1
-    if folded_count < n:
-        nextop = block.operations[folded_count]
+    # is the next, non-folded operation an indirect_call?
+    m = folded_count
+    while m < n and block.operations[m].opname == 'keepalive':
+        m += 1
+    if m < n:
+        nextop = block.operations[m]
         if nextop.opname == 'indirect_call' and nextop.args[0] in constants:
             # indirect_call -> direct_call
             callargs = [constants[nextop.args[0]]]
             constants1 = constants.copy()
             complete_constants(link, constants1)
+            newkeepalives = []
+            for i in range(folded_count, m):
+                [v] = block.operations[i].args
+                v = constants1.get(v, v)
+                v_void = Variable()
+                v_void.concretetype = lltype.Void
+                newkeepalives.append(SpaceOperation('keepalive', [v], v_void))
             for v in nextop.args[1:-1]:
                 callargs.append(constants1.get(v, v))
             v_result = Variable(nextop.result)
             v_result.concretetype = nextop.result.concretetype
             constants[nextop.result] = v_result
             callop = SpaceOperation('direct_call', callargs, v_result)
-            newblock = insert_empty_block(None, link, [callop])
+            newblock = insert_empty_block(None, link, newkeepalives + [callop])
             [link] = newblock.exits
             assert link.target is block
-            folded_count += 1
+            folded_count = m+1
 
     if folded_count > 0:
         splits = splitblocks.setdefault(block, [])
