@@ -222,7 +222,7 @@ class LLFrame(object):
             # try to import the operation from opimpl.py
             from pypy.rpython.lltypesystem.opimpl import get_op_impl
             ophandler = get_op_impl(opname)
-            LLFrame.ophandler = staticmethod(ophandler)
+            setattr(self.__class__, 'op_' + opname, staticmethod(ophandler))
         return ophandler
     # _______________________________________________________
     # evaling functions
