@@ -10,6 +10,7 @@ from pypy.rpython.lltypesystem import rtuple, rlist, rdict
 from pypy.jit.timeshifter import rtimeshift
 from pypy.jit.timeshifter.rtyper import HintRTyper, originalconcretetype
 from pypy.jit.timeshifter.rtyper import GreenRepr, RedRepr, HintLowLevelOpList
+from pypy.translator.backendopt import support
 
 # ___________________________________________________________
 
@@ -151,8 +152,10 @@ class HintTimeshift(object):
         entering_links = flowmodel.mkentrymap(graph)
 
         originalblocks = list(graph.iterblocks())
+        timeshifted_blocks = []
         for block in originalblocks:
-            self.timeshift_block(block)
+            self.timeshift_block(timeshifted_blocks, entering_links,  block)
+        originalblocks = timeshifted_blocks
 
         returnblock = graph.returnblock
         # we need to get the jitstate to the before block of the return block
@@ -595,9 +598,23 @@ class HintTimeshift(object):
             self.block2jitstate[block] = v_jitstate
         return self.block2jitstate[block]
 
-    def timeshift_block(self, block):
-        self.getjitstate(block)   # force this to be precomputed
-        self.hrtyper.specialize_block(block)
+    def timeshift_block(self, timeshifted_blocks, entering_links, block):
+        blocks = [block]
+        #i = 0
+        #while i < len(block.operations):
+        #    op = block.operations[i]
+        #    if op.opname == 'direct_call':
+        #        link = support.split_block_with_keepalive(block, i+1)
+        #        block = link.target
+        #        entering_links[block] = [link]
+        #        blocks.append(block)
+        #        i = 0
+        #        continue
+        #    i += 1
+        for block in blocks:
+            self.getjitstate(block)   # force this to be precomputed
+            self.hrtyper.specialize_block(block)
+        timeshifted_blocks.extend(blocks)
 
     def originalconcretetype(self, var):
         return originalconcretetype(self.hannotator.binding(var))
