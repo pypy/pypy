@@ -1,5 +1,5 @@
 from pypy.translator.simplify import join_blocks, cleanup_graph
-from pypy.translator.unsimplify import copyvar, split_block
+from pypy.translator.unsimplify import copyvar
 from pypy.translator.backendopt import canraise, inline, support, removenoops
 from pypy.objspace.flow.model import Block, Constant, Variable, Link, \
     c_last_exception, SpaceOperation, checkgraph, FunctionGraph
@@ -233,7 +233,7 @@ class ExceptionTransformer(object):
         inlined, the correct exception matching blocks are produced."""
         # XXX slightly annoying: construct a graph by hand
         # but better than the alternative
-        result = copyvar(self.translator, op.result)
+        result = copyvar(None, op.result)
         opargs = []
         inputargs = []
         callargs = []

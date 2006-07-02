@@ -399,7 +399,7 @@ class StacklessTransformer(object):
 
     def insert_resume_handling(self, graph):
         old_start_block = graph.startblock
-        newinputargs = [unsimplify.copyvar(self.translator, v)
+        newinputargs = [unsimplify.copyvar(self.translator.annotator, v)
                         for v in old_start_block.inputargs]
         new_start_block = model.Block(newinputargs)
         var_resume_state = varoftype(lltype.Signed)

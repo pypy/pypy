@@ -32,7 +32,7 @@ def create_exception_handling(translator, graph):
                 continue
             n_calls_patched += 1
 
-            split_block(translator, block, i+1)
+            split_block(translator.annotator, block, i+1)
 
             res = Variable()
             res.concretetype = Bool

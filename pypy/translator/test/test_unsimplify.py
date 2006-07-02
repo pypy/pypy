@@ -16,7 +16,7 @@ def test_split_blocks_simple():
             w = x * y
             return z + w
         graph, t = translate(f, [int, int])
-        split_block(t, graph.startblock, i)
+        split_block(t.annotator, graph.startblock, i)
         checkgraph(graph)
         interp = LLInterpreter(t.rtyper)
         result = interp.eval_graph(graph, [1, 2])
@@ -30,7 +30,7 @@ def test_split_blocks_conditional():
             else:
                 return y + 2
         graph, t = translate(f, [int, int])
-        split_block(t, graph.startblock, i)
+        split_block(t.annotator, graph.startblock, i)
         checkgraph(graph)
         interp = LLInterpreter(t.rtyper)
         result = interp.eval_graph(graph, [-12, 2])
@@ -56,7 +56,7 @@ def test_split_block_exceptions():
                 return 1
             return x
         graph, t = translate(catches, [int])
-        split_block(t, graph.startblock, i)
+        split_block(t.annotator, graph.startblock, i)
         checkgraph(graph)
         interp = LLInterpreter(t.rtyper)
         result = interp.eval_graph(graph, [0])

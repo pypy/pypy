@@ -73,7 +73,7 @@ class FuncNode(ConstantLLVMNode):
 
     def post_setup_transform(self):
         #self.db.exceptionpolicy.transform(self.db.translator, self.graph)
-        remove_double_links(self.db.translator, self.graph)
+        remove_double_links(self.db.translator.annotator, self.graph)
     
     def writedecl(self, codewriter): 
         codewriter.declare(self.getdecl())

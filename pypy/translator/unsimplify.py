@@ -1,18 +1,16 @@
 from pypy.objspace.flow.model import *
 
-def copyvar(translator, v):
+def copyvar(annotator, v):
     """Make a copy of the Variable v, preserving annotations and concretetype."""
     assert isinstance(v, Variable)
     newvar = Variable(v)
-    if translator is not None:
-        annotator = translator.annotator
-        if annotator is not None and v in annotator.bindings:
-            annotator.transfer_binding(newvar, v)
+    if annotator is not None and v in annotator.bindings:
+        annotator.transfer_binding(newvar, v)
     if hasattr(v, 'concretetype'):
         newvar.concretetype = v.concretetype
     return newvar
 
-def insert_empty_block(translator, link, newops=[]):
+def insert_empty_block(annotator, link, newops=[]):
     """Insert and return a new block along the given link."""
     vars = {}
     for v in link.args:
@@ -26,7 +24,7 @@ def insert_empty_block(translator, link, newops=[]):
     vars = [v for v, keep in vars.items() if keep]
     mapping = {}
     for v in vars:
-        mapping[v] = copyvar(translator, v)
+        mapping[v] = copyvar(annotator, v)
     newblock = Block(vars)
     newblock.operations.extend(newops)
     newblock.closeblock(Link(link.args, link.target))
@@ -35,8 +33,8 @@ def insert_empty_block(translator, link, newops=[]):
     link.target = newblock
     return newblock
 
-def insert_empty_startblock(translator, graph):
-    vars = [copyvar(translator, v) for v in graph.startblock.inputargs]
+def insert_empty_startblock(annotator, graph):
+    vars = [copyvar(annotator, v) for v in graph.startblock.inputargs]
     newblock = Block(vars)
     newblock.closeblock(Link(vars, graph.startblock))
     graph.startblock.isstartblock = False
@@ -53,7 +51,7 @@ def remove_empty_startblock(graph):
     graph.startblock = graph.startblock.exits[0].target
     graph.startblock.isstartblock = True
 
-def split_block(translator, block, index):
+def split_block(annotator, block, index):
     """return a link where prevblock is the block leading up but excluding the
     index'th operation and target is a new block with the neccessary variables 
     passed on.  NOTE: if you call this after rtyping, you WILL need to worry
@@ -74,7 +72,7 @@ def split_block(translator, block, index):
         if var in vars_produced_in_new_block:
             return var
         if var not in varmap:
-            varmap[var] = copyvar(translator, var)
+            varmap[var] = copyvar(annotator, var)
         return varmap[var]
     moved_operations = block.operations[index:]
     new_moved_ops = []
@@ -111,7 +109,7 @@ def split_block(translator, block, index):
     block.exc_handler = False
     return link
 
-def remove_direct_loops(translator, graph):
+def remove_direct_loops(annotator, graph):
     """This is useful for code generators: it ensures that no link has
     common input and output variables, which could occur if a block's exit
     points back directly to the same block.  It allows code generators to be
@@ -119,10 +117,10 @@ def remove_direct_loops(translator, graph):
     variables when generating a sequence of assignments."""
     def visit(link):
         if isinstance(link, Link) and link.prevblock is link.target:
-            insert_empty_block(translator, link)
+            insert_empty_block(annotator, link)
     traverse(visit, graph)
 
-def remove_double_links(translator, graph):
+def remove_double_links(annotator, graph):
     """This can be useful for code generators: it ensures that no block has
     more than one incoming links from one and the same other block. It allows
     argument passing along links to be implemented with phi nodes since the
@@ -137,5 +135,5 @@ def remove_double_links(translator, graph):
                     double_links.append(link)
                 seen[link.target] = True
             for link in double_links:
-                insert_empty_block(translator, link)
+                insert_empty_block(annotator, link)
     traverse(visit, graph)

@@ -296,7 +296,7 @@ def partial_folding_once(graph, translator, analyzer=None):
                     return None
                 if isinstance(var, Constant):
                     return var
-                result = copyvar(translator, var)
+                result = copyvar(None, var)
                 vars_to_newvars[var] = result
                 return result
             newops = []

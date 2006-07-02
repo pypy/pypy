@@ -363,7 +363,7 @@ class RPythonTyper:
                 assert 0 <= pos < len(newops) - 1
                 extraops = block.operations[pos+1:]
                 del block.operations[pos+1:]
-                extrablock = insert_empty_block(self.annotator.translator,
+                extrablock = insert_empty_block(self.annotator,
                                                 noexclink,
                                                 newops = extraops)
 
@@ -439,7 +439,7 @@ class RPythonTyper:
                     # cannot insert conversion operations around a single
                     # link, unless it is the only exit of this block.
                     # create a new block along the link...
-                    newblock = insert_empty_block(self.annotator.translator,
+                    newblock = insert_empty_block(self.annotator,
                                                   link,
                     # ...and store the conversions there.
                                                newops=newops)

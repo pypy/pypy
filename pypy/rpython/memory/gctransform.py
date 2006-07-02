@@ -81,7 +81,7 @@ class GCTransformer(object):
 
         # for sanity, we need an empty block at the start of the graph
         if not starts_with_empty_block(graph):
-            insert_empty_startblock(self.translator, graph)
+            insert_empty_startblock(self.translator.annotator, graph)
         is_borrowed = self.compute_borrowed_vars(graph)
 
         for block in graph.iterblocks():
@@ -97,7 +97,7 @@ class GCTransformer(object):
                 if link.prevblock.exitswitch is None:
                     link.prevblock.operations.extend(newops)
                 else:
-                    insert_empty_block(self.translator, link, newops)
+                    insert_empty_block(self.translator.annotator, link, newops)
 
         # remove the empty block at the start of the graph, which should
         # still be empty (but let's check)

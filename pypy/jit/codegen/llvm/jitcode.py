@@ -52,7 +52,7 @@ class JITcode(object):
         remove_same_as(graph)
         simplify.eliminate_empty_blocks(graph)
         simplify.transform_dead_op_vars(graph, translator)
-        remove_double_links(translator, graph)
+        remove_double_links(None, graph)
         #translator.checkgraph(graph)
 
     def codegen(self, graph):
