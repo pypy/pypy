@@ -2,7 +2,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.rpython.rctypes.tool import ctypes_platform
 from pypy.rpython.rctypes.tool.libc import libc
-import sys
+import sys, math
 from ctypes import *
 
 time_t = ctypes_platform.getsimpletype('time_t', '#include <time.h>', c_long)
@@ -27,3 +27,22 @@ def measuretime(space, repetitions, w_callable):
     endtime = time(None)
     return space.wrap(endtime - starttime)
 measuretime.unwrap_spec = [ObjSpace, int, W_Root]
+
+def sieve(space, n):
+    lst = range(2, n + 1)
+    head = 0
+    while 1:
+        first = lst[head]
+        if first > math.sqrt(n) + 1:
+            lst_w = [space.newint(i) for i in range(n)]
+            return space.newlist(lst_w)
+        newlst = []
+        for element in lst:
+            if element <= first:
+                newlst.append(element)
+            elif element % first != 0:
+                newlst.append(element)
+        lst = newlst
+        head += 1
+sieve.unwrap_spec = [ObjSpace, int]
+ 
