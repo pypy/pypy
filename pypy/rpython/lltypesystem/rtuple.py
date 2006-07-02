@@ -16,18 +16,19 @@ from pypy.rpython.lltypesystem.lltype import \
 #        ...
 #    }
 
+def TUPLE_TYPE(field_lltypes):
+    if len(field_lltypes) == 0:
+        return Void      # empty tuple
+    else:
+        fields = [('item%d' % i, TYPE) for i, TYPE in enumerate(field_lltypes)]
+        kwds = {'hints': {'immutable': True}}
+        return Ptr(GcStruct('tuple%d' % len(field_lltypes), *fields, **kwds))
+
 class TupleRepr(AbstractTupleRepr):
 
     def __init__(self, rtyper, items_r):
         AbstractTupleRepr.__init__(self, rtyper, items_r)
-        if len(items_r) == 0:
-            self.lowleveltype = Void     # empty tuple
-        else:
-            fields = zip(self.fieldnames, self.lltypes)
-            kwds = {'hints': {'immutable': True}}
-            self.lowleveltype = Ptr(GcStruct('tuple%d' % len(self.items_r),
-                                             *fields,
-                                             **kwds))
+        self.lowleveltype = TUPLE_TYPE(self.lltypes)
 
     def newtuple(cls, llops, r_tuple, items_v):
         # items_v should have the lowleveltype of the internal reprs

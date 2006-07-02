@@ -1,13 +1,10 @@
 from pypy.rpython.module.support import LLSupport
 from pypy.rpython.module.ll_os import BaseOS
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, rtuple
 from pypy.rpython.rarithmetic import intmask
 
 n = 10
-fieldnames = ['item%d' % i for i in range(n)]
-lltypes = [lltype.Signed]*n
-fields = tuple(zip(fieldnames, lltypes))    
-STAT_RESULT = lltype.GcStruct('tuple%d' % n, *fields)
+STAT_RESULT = rtuple.TUPLE_TYPE([lltype.Signed]*n).TO
 
 class Implementation(BaseOS, LLSupport):
     
