@@ -203,6 +203,14 @@ class __extend__(AbstractStringRepr):
     def ll_str(self, s):
         return s
 
+
+class __extend__(pairtype(AbstractStringRepr, Repr)):
+    def rtype_mod((r_str, _), hop):
+        # for the case where the 2nd argument is a tuple, see the
+        # overriding rtype_mod() below
+        return r_str.ll.do_stringformat(hop, [(hop.args_v[1], hop.args_r[1])])
+
+
 class __extend__(pairtype(AbstractStringRepr, IntegerRepr)):
     def rtype_getitem((r_str, r_int), hop):
         string_repr = hop.rtyper.type_system.rstr.string_repr
@@ -219,9 +227,6 @@ class __extend__(pairtype(AbstractStringRepr, IntegerRepr)):
                 llfn = r_str.ll.ll_stritem
         hop.exception_is_here()
         return hop.gendirectcall(llfn, v_str, v_index)
-
-    def rtype_mod((r_str, r_int), hop):
-        return r_str.ll.do_stringformat(hop, [(hop.args_v[1], hop.args_r[1])])
 
 
 class __extend__(pairtype(AbstractStringRepr, AbstractSliceRepr)):
@@ -287,9 +292,6 @@ class __extend__(pairtype(AbstractStringRepr, AbstractStringRepr)):
         vres = hop.gendirectcall(r_str1.ll.ll_strcmp, v_str1, v_str2)
         return hop.genop('int_gt', [vres, hop.inputconst(Signed, 0)],
                          resulttype=Bool)
-
-    def rtype_mod((r_str1, r_str2), hop):
-        return r_str1.ll.do_stringformat(hop, [(hop.args_v[1], hop.args_r[1])])
 
 class __extend__(pairtype(AbstractStringRepr, AbstractCharRepr)):
     def rtype_contains((r_str, r_chr), hop):

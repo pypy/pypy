@@ -21,7 +21,10 @@ class TupleRepr(AbstractTupleRepr):
     def __init__(self, rtyper, items_r):
         AbstractTupleRepr.__init__(self, rtyper, items_r)
         fields = zip(self.fieldnames, self.lltypes)
-        self.lowleveltype = Ptr(GcStruct('tuple%d' % len(self.items_r), *fields))
+        kwds = {'hints': {'immutable': True}}
+        self.lowleveltype = Ptr(GcStruct('tuple%d' % len(self.items_r),
+                                         *fields,
+                                         **kwds))
 
     def newtuple(cls, llops, r_tuple, items_v):
         # items_v should have the lowleveltype of the internal reprs

@@ -12,7 +12,7 @@ def test_rtuple():
     assert rtuple.lowleveltype == Ptr(GcStruct('tuple2',
                                                ('item0', Signed),
                                                ('item1', Bool),
-                                               ))
+                                               hints={'immutable': True}))
 
 # ____________________________________________________________
 
