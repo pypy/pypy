@@ -15,7 +15,7 @@ for a list of past events.
 .. _`iCalendar format`: webcal://pypycal.sabi.net///calendars/PyPy.ics
 .. _eventhistory: eventhistory.html
 
-Release of PyPy video documentations
+Release of PyPy video documentation
 ==================================================================
 
 The PyPy team is happy to announce that the first bunch of PyPy videos
