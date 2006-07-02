@@ -53,14 +53,7 @@ class _Call(MicroInstruction):
     
     def _render_builtin_method(self, generator, builtin, args):
         for func_arg in args:
-            # FIXME: we cheat here
-            if isinstance(func_arg, Constant) and func_arg.concretetype is ootype.Void and isinstance(func_arg.value, FunctionType):
-                graph = generator.db.translator.annotator.bookkeeper.getdesc(func_arg.value).cachedgraph(None)
-                generator.db.pending_function(graph)
-                name = graph.name
-                generator.ilasm.load_str(name)
-            else:
-                generator.load(func_arg)
+            generator.load_special(func_arg)
         generator.call_external_method(builtin, len(args)-1)
 
     def _render_function(self, generator, graph, args):
@@ -141,7 +134,7 @@ class _SetBuiltinField(MicroInstruction):
     
     def run_it(self, generator, this, field_name, value):
         generator.load(this)
-        generator.load(value)
+        generator.load_special(value)
         generator.set_field(None, field_name)
     
 class _SetExternalField(_SetBuiltinField):

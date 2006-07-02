@@ -123,7 +123,7 @@ opcodes = {'int_mul': '*',
     'oononnull'  : [PushAllArgs,_Prefix('!!')],
     'oostring'   : [CastString],
     'ooparse_int' : [CallBuiltin('parseInt')],
-    'oois'       : '==', # FIXME: JS does not have real equal
+    'oois'       : '===',
     # when casting from bool we want that every truth value is casted
     # to 1: we can't simply DoNothing, because the CLI stack could
     # contains a truth value not equal to 1, so we should use the !=0
@@ -133,8 +133,8 @@ opcodes = {'int_mul': '*',
     'cast_bool_to_float':       CopyName,
     'cast_char_to_int':         CopyName,
     'cast_unichar_to_int':      CopyName,
-    'cast_int_to_char':         CopyName,
-    'cast_int_to_unichar':      CopyName,
+    'cast_int_to_char':         [PushAllArgs,_CastFun("String.fromCharCode",1)],
+    'cast_int_to_unichar':      [PushAllArgs,_CastFun("String.fromCharCode",1)],
     'cast_int_to_uint':         CopyName,
     'cast_int_to_float':        CopyName,
     'cast_int_to_longlong':     CopyName,

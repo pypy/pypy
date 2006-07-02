@@ -15,6 +15,7 @@ from pypy.translator.cli.node import Node
 from pypy.translator.cli.class_ import Class
 
 from pypy.translator.js.log import log
+from types import FunctionType
 
 import re
 
@@ -414,6 +415,18 @@ class Function(Node, Generator):
             self.db.load_const(v.concretetype, v.value, self.ilasm)
         else:
             assert False
+        
+    def load_special(self, v):
+        # special case for loading value
+        # when setting builtin field we need to load function instead of None
+        # FIXME: we cheat here
+        if isinstance(v, flowmodel.Constant) and v.concretetype is ootype.Void and isinstance(v.value, FunctionType):
+            graph = self.db.translator.annotator.bookkeeper.getdesc(v.value).cachedgraph(None)
+            self.db.pending_function(graph)
+            name = graph.name
+            self.ilasm.load_str(name)
+        else:
+            self.load(v)
     
     def store(self, v):
         if isinstance(v, flowmodel.Variable):

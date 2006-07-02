@@ -62,6 +62,7 @@ class SpriteManager(object):
         self.sprites = {}
         self.filenames = {}
         self.all_sprites = {}
+        self.frames = []
 
     def add_icon(self, icon_code, filename):
         self.filenames[icon_code] = filename
@@ -79,7 +80,11 @@ class SpriteManager(object):
         img.setAttribute("src", self.filenames[icon_code])
         img.setAttribute("style", 'position:absolute; left:'+x+'px; top:'+y+'px; visibility:visible')
         get_document().getElementById("playfield").appendChild(img)
-        self.sprites[s] = img
+        try:
+            self.sprites[s].style.visibility = "hidden"
+            # FIXME: We should delete it
+        except KeyError:
+            self.sprites[s] = img
         return img
 
     def move_sprite(self, s, x, y):
@@ -145,11 +150,6 @@ def process_message(msg):
     elif msg['type'] == 'player_icon' or msg['type'] == 'def_key' or \
          msg['type'] == 'player_join' or msg['type'] == 'player_kill':
         pass #ignore
-    elif msg['type'] == 'count':
-        count = int(msg['n'])
-        if count != player.prev_count + 1:
-            logWarning("incorrect response order, expected " + str(player.prev_count+1) + ' got ' + str(count))
-        player.prev_count = count
     else:
         logWarning('unknown message type: ' + msg['type'])
 
@@ -237,6 +237,18 @@ def ignore_dispatcher(msgs):
 
 def bnb_dispatcher(msgs):
     BnbRootInstance.get_message(bnb_dispatcher)
+    
+    count = int(msgs['add_data'][0]['n'])
+    if count != player.prev_count + 1:
+        logWarning("incorrect response order, expected " + str(player.prev_count+1) + ' got ' + str(count))
+        sm.frames.append(msgs)
+    #else:
+    #    player.prev_count = count
+    #    for i in sm.frames:
+    #        render_frame(i)
+    render_frame(msgs)
+
+def render_frame(msgs):
     for msg in msgs['messages']:
         process_message(msg)
     stats.register_frame()

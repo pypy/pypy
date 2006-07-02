@@ -23,8 +23,6 @@ class SortY(object):
 
 
 class SpriteManager(object):
-    FULL_FRAME = 100
-    
     def __init__(self):
         self.sprite_sets = {}
         self.positions = {}
@@ -39,10 +37,6 @@ class SpriteManager(object):
     
     def get_frame_number(self):
         self.num_frame += 1
-        if self.num_frame >= self.FULL_FRAME:
-            self.num_frame = 0
-            return True
-        return False
     
     def get_sprite(self, icon_code, x, y):
         try:
@@ -244,7 +238,7 @@ class BnbRoot(Root, BasicExternal):
             #log('RECEIVED HEADER LINE: %s' % header_line)
 
         #log('RECEIVED DATA CONTAINS %d BYTES' % len(data))
-        messages = [ {'type':'count', 'n':sm.count()} ]
+        messages = []
         while data:
             values, data = decodemessage(data)
             if not values:
@@ -270,9 +264,9 @@ class BnbRoot(Root, BasicExternal):
         to_append = []
         sprite_manager = self.get_sprite_manager()
         
-        def get_full_frame(next):
-            new_sprite, s_num = sprite_manager.get_sprite(*next)
-            to_append.append({'type':'show_sprite', 's':s_num, 'icon_code':str(next[0]), 'x':str(next[1]), 'y':str(next[2])})
+##        def get_full_frame(next):
+##            new_sprite, s_num = sprite_manager.get_sprite(*next)
+##            to_append.append({'type':'show_sprite', 's':s_num, 'icon_code':str(next[0]), 'x':str(next[1]), 'y':str(next[2])})
         
         def get_partial_frame(next):
             new_sprite, s_num = sprite_manager.get_sprite(*next)
@@ -281,35 +275,24 @@ class BnbRoot(Root, BasicExternal):
             elif new_sprite == 'move':
                 to_append.append({'type':'sm', 's':str(s_num), 'x':str(next[1]), 'y':str(next[2])})
 
-        if sprite_manager.get_frame_number():
-            full_frame = True
-            get_frame = get_full_frame
-            to_append.append({'type':'begin_clean_sprites'})
-        else:
-            full_frame = False
-            get_frame = get_partial_frame
-            
         for i, msg in enumerate(messages):
             if msg['type'] == PMSG_INLINE_FRAME:
                 for next in msg['sprites']:
                     #to_append.append({'type':'ns', 's':self.num, 'icon_code':str(next[0]), 'x':str(next[1]), 'y':str(next[2])})
                     #self.num += 1
-                    get_frame(next)
+                    get_partial_frame(next)
                 del messages[i]
 
         empty_frame = False
         if sprite_manager.seen == set([]):
             empty_frame = True
         
-        if not empty_frame and not full_frame:
+        if not empty_frame:
             for i in sprite_manager.end_frame():
                 to_append.append({'type':'ds', 's':str(i)})
-        if full_frame:
-            to_append.append({'type':'clean_sprites'})
-            sprite_manager.end_frame()
         messages += to_append
         #messages.append(to_append[0])
         #log(len(messages))
-        return dict(messages=messages)
+        return dict(messages=messages, add_data=[{'n':sm.count()}])
 
 BnbRootInstance = BnbRoot()

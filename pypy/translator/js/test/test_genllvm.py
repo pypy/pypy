@@ -284,14 +284,14 @@ def test_list_basic_ops():
             assert f(i,j) == list_basic_ops(i,j)
 
 def test_string_simple():
-    #py.test.skip("ord semantics")
+    py.test.skip("ord semantics")
     def string_simple(i): 
         return ord(str(i))
     f = compile_function(string_simple, [int])
-    assert f(3)
+    assert f(3) == string_simple(3)
     
 def test_string_simple_ops():
-    py.test.skip("ord semantics")
+    #py.test.skip("ord semantics")
     def string_simple_ops(i): 
         res = 0
         s = str(i)
@@ -303,7 +303,7 @@ def test_string_simple_ops():
         return res
     f = compile_function(string_simple_ops, [int])
     assert f(5) == ord('5') + 2
-        
+
 def test_string_getitem1():
     l = "Hello, World"
     def string_getitem1(i): 

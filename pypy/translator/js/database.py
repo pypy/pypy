@@ -351,7 +351,10 @@ class StringConst(AbstractConst):
         return self.const._str == other.const._str
 
     def init(self, ilasm):
-        ilasm.load_str("'%s'"%self.const._str)
+        s = self.const._str
+        # do some escaping
+        s = s.replace("\n", "\\n")
+        ilasm.load_str('"%s"'%s)
     
     def init_fields(self, ilasm, const_var, name):
         pass

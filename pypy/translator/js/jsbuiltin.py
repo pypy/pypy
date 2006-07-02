@@ -37,6 +37,8 @@ class _Builtins(object):
                 'll_strcmp' : CallBuiltin('strcmp'),
                 'll_startswith' : CallBuiltin('startswith'),
                 'll_endswith' : CallBuiltin('endswith'),
+                'll_split_chr' : CallBuiltin('splitchr'),
+                'll_substring' : lambda g,op: Call._render_builtin_method(g, 'substring', [op.args[1], op.args[2], op.args[3]])
             },
             ootype.List: {
                 'll_setitem_fast' : ListSetitem,

@@ -1,3 +1,4 @@
+// starts hand written code
 Function.prototype.method = function (name, func) {
     this.prototype[name] = func;
     return this;
@@ -76,3 +77,22 @@ function endswith(s1, s2) {
     }
     return(true);
 }
+
+function splitchr(s, ch) {
+    var i, lst;
+    lst = [];
+    next = "";
+    for (i = 0; i<s.length; ++i) {
+        if (s[i] == ch) {
+            lst.length += 1;
+            lst[lst.length-1] = next;
+            next = "";
+        } else {
+            next += s[i];
+        }
+    }
+    lst.length += 1;
+    lst[lst.length-1] = next;
+    return (lst);
+}
+// ends hand written code

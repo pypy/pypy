@@ -101,7 +101,10 @@ class JTS(object):
             val = v._name
         elif _type is UniChar or _type is Char:
             #log("Constant %r"%v)
-            val = '"%s"'%str(v)
+            s = repr(v)
+            if s != "'\''":
+                s.replace("'", '"')
+            val = s
         elif isinstance(_type,Primitive):
             #log("Type: %r"%_type)
             val = str(v)
