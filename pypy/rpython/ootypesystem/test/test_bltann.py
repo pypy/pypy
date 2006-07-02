@@ -94,3 +94,37 @@ def test_flowin():
     s = a.build_types(set_callback, [])
     assert s.knowntype is int
 
+class CC(BasicExternal):
+    _methods = {
+        'some_method' : MethodDesc(['some_callback', MethodDesc([('some_int', 3)], 3.0)], 3)
+    }
+
+def test_callback_flowin():
+    def some_f(i):
+        return 3.2
+    
+    def set_defined_callback():
+        a = CC()
+        return a.some_method(some_f)
+    
+    a = RPythonAnnotator()
+    s = a.build_types(set_defined_callback, [])
+    assert s.knowntype is int
+
+class CD(BasicExternal):
+    _fields = {
+        'callback_field' : MethodDesc([('some_int', 3)], 3.0)
+    }
+
+def test_callback_field():
+    def callback(x):
+        return 8.3
+    
+    def callback_field():
+        a = CD()
+        a.callback_field = callback
+        return a.callback_field
+    
+    a = RPythonAnnotator()
+    s = a.build_types(callback_field, [])
+    assert isinstance(s, annmodel.SomePBC)
