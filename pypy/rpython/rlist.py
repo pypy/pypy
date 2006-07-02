@@ -35,6 +35,7 @@ class __extend__(annmodel.SomeList):
 
 
 class AbstractBaseListRepr(Repr):
+    eq_func_cache = None
 
     def recast(self, llops, v):
         return llops.convertvar(v, self.item_repr, self.external_item_repr)
@@ -90,6 +91,17 @@ class AbstractBaseListRepr(Repr):
         hop.has_implicit_exception(ValueError)   # record that we know about it
         hop.exception_is_here()
         return hop.gendirectcall(ll_listindex, v_lst, v_value, self.get_eqfunc())
+
+    def get_ll_eq_function(self):
+        result = self.eq_func_cache
+        if result is not None:
+            return result
+        def list_eq(l1, l2):
+            return ll_listeq(l1, l2, item_eq_func)
+        self.eq_func_cache = list_eq
+        # ^^^ do this first, before item_repr.get_ll_eq_function()
+        item_eq_func = self.item_repr.get_ll_eq_function()
+        return list_eq
 
 
 class AbstractListRepr(AbstractBaseListRepr):

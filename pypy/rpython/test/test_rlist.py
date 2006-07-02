@@ -1015,6 +1015,14 @@ class BaseTestRlist(BaseRtypingTest):
         res = self.interpret(g, [3])
         assert res == 77
 
+    def test_list_equality(self):
+        def dummyfn(n):
+            lst = [12] * n
+            assert lst == [12, 12, 12]
+            lst2 = [[12, 34], [5], [], [12, 12, 12], [5]]
+            assert lst in lst2
+        self.interpret(dummyfn, [3])
+
 
 class TestLLtype(BaseTestRlist, LLRtypeMixin):
     rlist = ll_rlist
