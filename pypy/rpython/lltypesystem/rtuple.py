@@ -20,16 +20,19 @@ class TupleRepr(AbstractTupleRepr):
 
     def __init__(self, rtyper, items_r):
         AbstractTupleRepr.__init__(self, rtyper, items_r)
-        fields = zip(self.fieldnames, self.lltypes)
-        kwds = {'hints': {'immutable': True}}
-        self.lowleveltype = Ptr(GcStruct('tuple%d' % len(self.items_r),
-                                         *fields,
-                                         **kwds))
+        if len(items_r) == 0:
+            self.lowleveltype = Void     # empty tuple
+        else:
+            fields = zip(self.fieldnames, self.lltypes)
+            kwds = {'hints': {'immutable': True}}
+            self.lowleveltype = Ptr(GcStruct('tuple%d' % len(self.items_r),
+                                             *fields,
+                                             **kwds))
 
     def newtuple(cls, llops, r_tuple, items_v):
         # items_v should have the lowleveltype of the internal reprs
         if len(r_tuple.items_r) == 0:
-            return inputconst(r_tuple, ())    # always the same empty tuple
+            return inputconst(Void, ())    # a Void empty tuple
         c1 = inputconst(Void, r_tuple.lowleveltype.TO)
         v_result = llops.genop('malloc', [c1], resulttype = r_tuple.lowleveltype)
         for i in range(len(r_tuple.items_r)):
@@ -39,7 +42,10 @@ class TupleRepr(AbstractTupleRepr):
     newtuple = classmethod(newtuple)
 
     def instantiate(self):
-        return malloc(self.lowleveltype.TO)
+        if len(self.items_r) == 0:
+            return dum_empty_tuple     # PBC placeholder for an empty tuple
+        else:
+            return malloc(self.lowleveltype.TO)
 
     def rtype_bltn_list(self, hop):
         from pypy.rpython.lltypesystem import rlist
@@ -71,6 +77,8 @@ def rtype_newtuple(hop):
     return TupleRepr._rtype_newtuple(hop)
 
 newtuple = TupleRepr.newtuple
+
+def dum_empty_tuple(): pass
 
 #
 # _________________________ Conversions _________________________

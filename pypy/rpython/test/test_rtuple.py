@@ -242,6 +242,15 @@ class BaseTestRtuple(BaseRtypingTest):
         res = self.interpret(example, [])
         assert res == 6
 
+    def test_empty_tuple(self):
+        def f():
+            lst = [(), (), ()]
+            res = []
+            for x in lst:
+                res.append(list(x))
+            assert res[0] == res[1] == res[2] == []
+        self.interpret(f, [])
+
 class TestLLtype(BaseTestRtuple, LLRtypeMixin):
     pass
 
