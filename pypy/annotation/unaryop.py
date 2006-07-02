@@ -632,9 +632,13 @@ class __extend__(SomeExternalBuiltin):
         entry = extregistry.lookup_type(p.knowntype._class_)
         # we need to flow it, if it's something which can be called
         if isinstance(s_value, SomePBC):
+            # we have to have such a declaration to know what we're flowing it with
             bookkeeper = getbookkeeper()
-            bookkeeper.pbc_call(s_value, bookkeeper.build_args("simple_call", ()))
-        entry.set_field_annotation(p.knowntype, attr, s_value)
+            args_ann = entry.get_arg_annotation(p.knowntype, attr)
+            bookkeeper.pbc_call(s_value, bookkeeper.build_args("simple_call", args_ann))
+        p.knowntype.check_update()
+        if not p.knowntype._fields.has_key(attr):
+            entry.set_field_annotation(p.knowntype, attr, s_value)
     
     def find_method(obj, name):
         return obj.knowntype.get_field(name)

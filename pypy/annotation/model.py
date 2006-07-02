@@ -573,6 +573,7 @@ def annotation_to_lltype(s_val, info=None):
 ll_to_annotation_map = dict([(ll, ann) for ann, ll in annotation_to_ll_map if ll is not NUMBER])
 
 def lltype_to_annotation(T):
+    from pypy.rpython.ootypesystem.bltregistry import ExternalType
     try:
         s = ll_to_annotation_map.get(T)
     except TypeError:
@@ -586,6 +587,8 @@ def lltype_to_annotation(T):
             return SomeOOStaticMeth(T)
         elif T == ootype.Class:
             return SomeOOClass(ootype.ROOT)
+        elif isinstance(T, ExternalType):
+            return SomeExternalBuiltin(T)
         else:
             return SomePtr(T)
     else:
