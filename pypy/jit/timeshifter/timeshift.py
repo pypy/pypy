@@ -22,7 +22,7 @@ class HintTimeshift(object):
         self.hrtyper = HintRTyper(hannotator, self)
         self.latestexitindex = -1
         self.block2jitstate = {}
-
+        self.return_cache = None
         self.annhelper = annlowlevel.MixLevelHelperAnnotator(rtyper)
 
         self.s_ResidualGraphBuilder, self.r_ResidualGraphBuilder = self.s_r_instanceof(ResidualGraphBuilder)
@@ -71,9 +71,14 @@ class HintTimeshift(object):
             [self.s_ResidualGraphBuilder],
             annmodel.SomePtr(rgenop.BLOCK))
 
-        self.ll_close_jitstate_graph = self.annhelper.getgraph(
-            rtimeshift.ll_close_jitstate,
-            [self.s_JITState],
+##         self.ll_close_jitstate_graph = self.annhelper.getgraph(
+##             rtimeshift.ll_close_jitstate,
+##             [self.s_JITState],
+##             annmodel.s_None)
+
+        self.ll_close_builder_graph = self.annhelper.getgraph(
+            rtimeshift.ll_close_builder,
+            [self.s_ResidualGraphBuilder],
             annmodel.s_None)
 
     def s_r_instanceof(self, cls, can_be_None=True):
@@ -158,32 +163,35 @@ class HintTimeshift(object):
         originalblocks = timeshifted_blocks
 
         returnblock = graph.returnblock
+        self.r_returnvalue = self.hrtyper.bindingrepr(returnblock.inputargs[0])
+        returnblock.operations = []
+        graph.returnblock = None
         # we need to get the jitstate to the before block of the return block
         self.dispatchblock = flowmodel.Block([])
         self.insert_jitstate_arg(self.dispatchblock)
-        before_returnblock = self.insert_before_block(returnblock,
-                                 entering_links[returnblock],
-                                 closeblock=False)
+#        before_returnblock = self.insert_before_block(returnblock,
+#                                 entering_links[returnblock],
+#                                 closeblock=False)
         # fix its concretetypes
-        self.hrtyper.setup_block_entry(before_returnblock)
-        self.insert_jitstate_arg(before_returnblock)
+        #self.hrtyper.setup_block_entry(before_returnblock)
+        #self.insert_jitstate_arg(before_returnblock)
         for block in originalblocks:
             self.insert_jitstate_arg(block)            
 
         for block in originalblocks:
-            if block.operations != ():
-                block_entering_links = entering_links.pop(block)
-                before_block = self.insert_before_block(block, block_entering_links)
-                self.insert_bookkeeping_enter(block, before_block, len(block_entering_links))
-                
-                self.insert_bookkeeping_leave_block(block, entering_links)
+            block_entering_links = entering_links.pop(block)
+            before_block = self.insert_before_block(block,
+                                                    block_entering_links)
+            self.insert_bookkeeping_enter(block, before_block,
+                                          len(block_entering_links))
+            self.insert_bookkeeping_leave_block(block, entering_links)
 
-        self.hrtyper.insert_link_conversions(before_returnblock)
+        #self.hrtyper.insert_link_conversions(before_returnblock)
         # add booking logic
-        self.insert_return_bookkeeping(before_returnblock)
+        #self.insert_return_bookkeeping(before_returnblock)
 
         # fix its concretetypes
-        self.insert_dispatch_logic(returnblock)
+        self.insert_dispatch_logic()
 
         # hack to allow the state caches to be cleared
         # XXX! doesn't work if there are several graphs
@@ -220,14 +228,14 @@ class HintTimeshift(object):
         
     def insert_jitstate_arg(self, block):
         # pass 'jitstate' as an extra argument around the whole graph
-        if block.operations != ():
+        #if block.operations != ():
             v_jitstate = self.getjitstate(block)
             block.inputargs.insert(0, v_jitstate)
             for link in block.exits:
-                if link.target.operations != ():
-                    link.args.insert(0, v_jitstate)
-                elif len(link.args) == 1:
-                    assert False, "the return block should not be seen"
+                #if link.target.operations != ():
+                link.args.insert(0, v_jitstate)
+                #elif len(link.args) == 1:
+                #    assert False, "the return block should not be seen"
                     
     def insert_before_block(self, block, entering_links, closeblock=True):
         newinputargs = []
@@ -303,17 +311,21 @@ class HintTimeshift(object):
 
         v_boxes = self.build_box_list(llops, boxes_v)
 
-        if nentrylinks > 1:
+        is_returnblock = len(block.exits) == 0
+        if nentrylinks > 1 or is_returnblock:
             enter_block_logic = self.bookkeeping_enter_for_join
         else:
             enter_block_logic = self.bookkeeping_enter_simple
 
 
         # fill the block with logic
-        enter_block_logic(args_r, newinputargs,
-                          before_block,
-                          llops,
-                          v_boxes)
+        cache = enter_block_logic(args_r, newinputargs,
+                                  before_block,
+                                  llops,
+                                  v_boxes)
+        if is_returnblock:
+            assert self.return_cache is None
+            self.return_cache = cache
 
     def build_box_list(self, llops, boxes_v):
         type_erased_v = [llops.convertvar(v_box, self.r_RedBox,
@@ -333,7 +345,8 @@ class HintTimeshift(object):
         # not used any more: v_boxes is not modified by enter_block() nowadays
         #self.insert_read_out_boxes(bridge, llops, v_newjitstate, v_boxes, args_r, newinputargs)
         before_block.operations[:] = llops
-        
+
+        return None
     # insert before join blocks a block with:
     # key = (<tuple-of-green-values>)
     # boxes = [<rest-of-redboxes>]
@@ -426,6 +439,7 @@ class HintTimeshift(object):
 
         read_boxes_block.closeblock(to_target)
 
+        return cache
         
     def insert_bookkeeping_leave_block(self, block, entering_links):
         # XXX wrong with exceptions as much else
@@ -484,7 +498,13 @@ class HintTimeshift(object):
         block.recloseblock(inlink)
 
         llops = HintLowLevelOpList(self, None)
-        if len(newblock.exits) == 1 or isinstance(self.hrtyper.bindingrepr(oldexitswitch), GreenRepr):
+        if len(newblock.exits) == 0: # this is the original returnblock
+            llops.genmixlevelhelpercall(rtimeshift.save_return,
+                                        [...],
+                                        [...],
+                                        ...)
+            newblock.recloseblock(flowmodel.Link(newblock.inputargs, self.dispatchblock))
+        elif len(newblock.exits) == 1 or isinstance(self.hrtyper.bindingrepr(oldexitswitch), GreenRepr):
             newblock.exitswitch = rename(oldexitswitch)
             v_res = llops.genmixlevelhelpercall(rtimeshift.leave_block,
                                                 [self.s_JITState],
@@ -529,51 +549,34 @@ class HintTimeshift(object):
             newblock.exitswitch = v_res
         newblock.operations[:] = llops
 
-    def insert_return_bookkeeping(self, before_returnblock):
-        v_jitstate, v_value = before_returnblock.inputargs
-        
-        r_value = self.hrtyper.bindingrepr(v_value)
-        llops = HintLowLevelOpList(self, None)
-        if isinstance(r_value, GreenRepr):
-            v_value = self.make_const_box(llops, r_value, v_value)
-
-        llops.genmixlevelhelpercall(rtimeshift.schedule_return,
-                                    [self.s_JITState,
-                                     self.s_RedBox],
-                                    [v_jitstate, v_value],
-                                    self.s_JITState)
-
-        before_returnblock.operations[:] = llops
-        bridge = flowmodel.Link([v_jitstate], self.dispatchblock)
-        before_returnblock.closeblock(bridge)
-
-    def insert_dispatch_logic(self, returnblock):
+    def insert_dispatch_logic(self):
         dispatchblock = self.dispatchblock
         [v_jitstate] = dispatchblock.inputargs
         llops = HintLowLevelOpList(self, None)
 
 
+        v_returnbuilder = flowmodel.Variable('builder')
+        v_returnbuilder.concretetype = self.r_ResidualGraphBuilder.lowleveltype
+        returnblock = flowmodel.Block([v_returnbuilder])
+        returnblock.operations = ()
+        self.graph.returnblock = returnblock
+        
         v_boxes = rlist.newlist(llops, self.r_box_accum, [])
-
-
-        r_returnvalue = self.hrtyper.bindingrepr(returnblock.inputargs[0])
-        RETURN_TYPE = r_returnvalue.original_concretetype
-        c_TYPE = rmodel.inputconst(rgenop.CONSTORVAR, rgenop.constTYPE(RETURN_TYPE))      
         v_next = llops.genmixlevelhelpercall(rtimeshift.dispatch_next,
                                              [self.s_JITState,
-                                              self.s_box_accum,
-                                              annmodel.SomePtr(rgenop.CONSTORVAR)],
-                                             [v_jitstate, v_boxes, c_TYPE],
+                                              self.s_box_accum],
+                                             [v_jitstate, v_boxes],
                                              annmodel.SomeInteger())
 
-        dispatchblock.operations[:] = llops
+        dispatchblock.operations = list(llops)
 
         dispatch_to = self.dispatch_to
-        finishedlink = flowmodel.Link([v_jitstate], returnblock)
-        dispatch_to.append(('default', finishedlink))
+        prepare_return_block = flowmodel.Block([])
+        prepare_return_link = flowmodel.Link([], prepare_return_block)
+        dispatch_to.append(('default', prepare_return_link))
 
         if len(dispatch_to) == 1:
-            dispatchblock.closeblock(finishedlink)
+            dispatchblock.closeblock(prepare_return_link)
         else:        
             dispatchblock.exitswitch = v_next
             exitlinks = []
@@ -587,9 +590,19 @@ class HintTimeshift(object):
                 exitlinks.append(link)
             dispatchblock.closeblock(*exitlinks)
 
-        v_returnjitstate = flowmodel.Variable('jitstate')
-        returnblock.inputargs = [v_returnjitstate]
-        v_returnjitstate.concretetype = self.r_JITState.lowleveltype
+        return_cache = self.return_cache
+        assert return_cache is not None
+        RETURN_TYPE = self.r_returnvalue.original_concretetype
+        def prepare_return():
+            return rtimeshift.prepare_return(return_cache,
+                                             rgenop.constTYPE(RETURN_TYPE))
+        llops = HintLowLevelOpList(self, None)
+        v_return_builder = llops.genmixlevelhelpercall(prepare_return,
+                          [], [], self.s_ResidualGraphBuilder)
+
+        prepare_return_block.operations = list(llops)
+        finishedlink = flowmodel.Link([v_return_builder], returnblock)
+        prepare_return_block.closeblock(finishedlink)
 
     def getjitstate(self, block):
         if block not in self.block2jitstate:
@@ -600,17 +613,19 @@ class HintTimeshift(object):
 
     def timeshift_block(self, timeshifted_blocks, entering_links, block):
         blocks = [block]
-        #i = 0
-        #while i < len(block.operations):
-        #    op = block.operations[i]
-        #    if op.opname == 'direct_call':
-        #        link = support.split_block_with_keepalive(block, i+1)
-        #        block = link.target
-        #        entering_links[block] = [link]
-        #        blocks.append(block)
-        #        i = 0
-        #        continue
-        #    i += 1
+        i = 0
+        while i < len(block.operations):
+            op = block.operations[i]
+            if op.opname == 'direct_call':
+                link = support.split_block_with_keepalive(block, i+1,
+                                         annotator=self.hannotator)
+                block = link.target
+                entering_links[block] = [link]
+                blocks.append(block)
+                self.hannotator.annotated[block] = self.graph
+                i = 0
+                continue
+            i += 1
         for block in blocks:
             self.getjitstate(block)   # force this to be precomputed
             self.hrtyper.specialize_block(block)

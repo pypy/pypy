@@ -62,7 +62,7 @@ def ll_generate_operation1(opdesc, jitstate, argbox):
         res = opdesc.llop(RESULT, arg)
         return rvalue.ll_fromvalue(res)
     op_args = lltype.malloc(rgenop.VARLIST.TO, 1)
-    op_args[0] = argbox.getgenvar(jitstate)
+    op_args[0] = argbox.getgenvar(jitstate.curbuilder)
     genvar = jitstate.curbuilder.genop(opdesc.opname, op_args,
                                       opdesc.gv_RESULT)
     return opdesc.redboxcls(opdesc.gv_RESULT, genvar)
@@ -79,8 +79,8 @@ def ll_generate_operation2(opdesc, jitstate, argbox0, argbox1):
         res = opdesc.llop(RESULT, arg0, arg1)
         return rvalue.ll_fromvalue(res)
     op_args = lltype.malloc(rgenop.VARLIST.TO, 2)
-    op_args[0] = argbox0.getgenvar(jitstate)
-    op_args[1] = argbox1.getgenvar(jitstate)
+    op_args[0] = argbox0.getgenvar(jitstate.curbuilder)
+    op_args[1] = argbox1.getgenvar(jitstate.curbuilder)
     genvar = jitstate.curbuilder.genop(opdesc.opname, op_args,
                                        opdesc.gv_RESULT)
     return opdesc.redboxcls(opdesc.gv_RESULT, genvar)
@@ -93,7 +93,7 @@ def ll_generate_getfield(jitstate, fielddesc, argbox):
     assert isinstance(argbox, rvalue.PtrRedBox)
     if argbox.content is None:
         op_args = lltype.malloc(rgenop.VARLIST.TO, 2)
-        op_args[0] = argbox.getgenvar(jitstate)
+        op_args[0] = argbox.getgenvar(jitstate.curbuilder)
         op_args[1] = fielddesc.fieldname_gv[-1]
         genvar = jitstate.curbuilder.genop('getfield', op_args,
                                            fielddesc.gv_resulttype)
@@ -105,9 +105,9 @@ def ll_generate_setfield(jitstate, fielddesc, destbox, valuebox):
     assert isinstance(destbox, rvalue.PtrRedBox)
     if destbox.content is None:
         op_args = lltype.malloc(rgenop.VARLIST.TO, 3)
-        op_args[0] = destbox.getgenvar(jitstate)
+        op_args[0] = destbox.getgenvar(jitstate.curbuilder)
         op_args[1] = fielddesc.fieldname_gv[-1]
-        op_args[2] = valuebox.getgenvar(jitstate)
+        op_args[2] = valuebox.getgenvar(jitstate.curbuilder)
         jitstate.curbuilder.genop('setfield', op_args,
                                   rgenop.gv_Void)       
     else:
@@ -121,7 +121,7 @@ def ll_generate_getsubstruct(jitstate, fielddesc, argbox):
     assert isinstance(argbox, rvalue.PtrRedBox)
     if argbox.content is None:
         op_args = lltype.malloc(rgenop.VARLIST.TO, 2)
-        op_args[0] = argbox.getgenvar(jitstate)
+        op_args[0] = argbox.getgenvar(jitstate.curbuilder)
         op_args[1] = fielddesc.gv_fieldname
         genvar = jitstate.curbuilder.genop('getsubstruct', op_args,
                                            fielddesc.gv_resulttype)
@@ -136,8 +136,8 @@ def ll_generate_getarrayitem(jitstate, fielddesc, argbox, indexbox):
         res = array[rvalue.ll_getvalue(indexbox, lltype.Signed)]
         return rvalue.ll_fromvalue(res)
     op_args = lltype.malloc(rgenop.VARLIST.TO, 2)
-    op_args[0] = argbox.getgenvar(jitstate)
-    op_args[1] = indexbox.getgenvar(jitstate)
+    op_args[0] = argbox.getgenvar(jitstate.curbuilder)
+    op_args[1] = indexbox.getgenvar(jitstate.curbuilder)
     genvar = jitstate.curbuilder.genop('getarrayitem', op_args,
                                        fielddesc.gv_resulttype)
     return fielddesc.redboxcls(fielddesc.gv_resulttype, genvar)
@@ -179,7 +179,7 @@ def retrieve_jitstate_for_merge(states_dic, jitstate, key, redboxes):
         jitstate = dyn_enter_block(jitstate, outgoingvarboxes)
         linkargs = []
         for box in outgoingvarboxes:
-            linkargs.append(box.getgenvar(jitstate))
+            linkargs.append(box.getgenvar(jitstate.curbuilder))
         jitstate.curbuilder.leave_block()
         jitstate.curbuilder.finish_and_goto(linkargs, oldblock)
         return None
@@ -190,7 +190,7 @@ def retrieve_jitstate_for_merge(states_dic, jitstate, key, redboxes):
     linkargs = []
     replace_memo = rvalue.copy_memo()
     for box in outgoingvarboxes:
-        linkargs.append(box.getgenvar(jitstate))
+        linkargs.append(box.getgenvar(jitstate.curbuilder))
     for box in outgoingvarboxes:
         if box.is_constant():            # constant boxes considered immutable:
             box = box.copy(replace_memo) # copy to avoid patching the original
@@ -233,19 +233,16 @@ def leave_block_split(jitstate, switchredbox, exitindex, redboxes):
         jitstate.curbuilder.leave_block()
         return rvalue.ll_getvalue(switchredbox, lltype.Bool)
     else:
-        exitgvar = switchredbox.getgenvar(jitstate)
+        exitgvar = switchredbox.getgenvar(jitstate.curbuilder)
         later_builder = jitstate.curbuilder.leave_block_split(exitgvar)
         memo = rvalue.copy_memo()
         redboxcopies = [redbox.copy(memo) for redbox in redboxes]        
         jitstate.split_queue.append((exitindex, later_builder, redboxcopies))
         return True
 
-def schedule_return(jitstate, redbox):
-    jitstate.return_queue.append((jitstate.curbuilder, redbox))
-
 novars = lltype.malloc(rgenop.VARLIST.TO, 0)
 
-def dispatch_next(jitstate, outredboxes, gv_return_type):
+def dispatch_next(jitstate, outredboxes):
     split_queue = jitstate.split_queue
     if split_queue:
         exitindex, later_builder, redboxes = split_queue.pop()
@@ -253,41 +250,17 @@ def dispatch_next(jitstate, outredboxes, gv_return_type):
         for box in redboxes:
             outredboxes.append(box)
         return exitindex
-    return_queue = jitstate.return_queue
-    first_redbox = return_queue[0][1]
-    finalbuilder = ResidualGraphBuilder(rgenop.newblock())
-    finalblock = finalbuilder.block
-##    jitstate.curblock = finalblock
-##    if isinstance(first_redbox, ConstRedBox):
-##        for link, redbox in return_queue:
-##            if not redbox.match(first_redbox):
-##                break
-##        else:
-##            for link, _ in return_queue:
-##                rgenop.closelink(link, novars, finalblock)
-##            finallink = rgenop.closeblock1(finalblock)
-##            jitstate.curoutgoinglink = finallink
-##            jitstate.curvalue = first_redbox
-##            return -1
-
-    finalvar = rgenop.geninputarg(finalblock, gv_return_type)
-    for builder, redbox in return_queue:
-        newblock = rgenop.newblock()
-        incoming = []
-        memo = rvalue.enter_block_memo()
-        redbox.enter_block(newblock, incoming, memo)
-        jitstate.curbuilder = builder
-        builder.enter_block(incoming, newblock)
-        gv_retval = redbox.getgenvar(jitstate)
-        builder.leave_block()
-        builder.finish_and_goto([gv_retval], finalblock)
-    finalbuilder.leave_block()
-    finalbuilder.value = finalvar
-    jitstate.curbuilder = finalbuilder
     return -1
 
+def prepare_return(cache, gv_return_type):
+    frozens, block = cache[()]
+    builder = ResidualGraphBuilder(block)
+    memo = rvalue.unfreeze_memo()
+    builder.valuebox = frozens[0].unfreeze(memo, block, gv_return_type)
+    return builder
+
 def ll_gvar_from_redbox(jitstate, redbox):
-    return redbox.getgenvar(jitstate)
+    return redbox.getgenvar(jitstate.curbuilder)
 
 def ll_gvar_from_constant(ll_value):
     return rgenop.genconst(ll_value)
@@ -298,7 +271,7 @@ class ResidualGraphBuilder(rgenop.LowLevelOpBuilder):
     def __init__(self, block=rgenop.nullblock, link=rgenop.nulllink):
         rgenop.LowLevelOpBuilder.__init__(self, block)
         self.outgoinglink = link
-        self.value = rgenop.nullvar
+        self.valuebox = None
 
     def build_jitstate(self):
         return JITState(self)
@@ -323,7 +296,9 @@ class ResidualGraphBuilder(rgenop.LowLevelOpBuilder):
         self.outgoinglink = rgenop.nulllink
         
     def finish_and_return(self):
-        rgenop.closereturnlink(self.outgoinglink, self.value)
+        gv_retval = self.valuebox.getgenvar(self)
+        returnlink = rgenop.closeblock1(self.block)
+        rgenop.closereturnlink(returnlink, gv_retval)
         
     def clone(self):
         XXX
@@ -347,14 +322,13 @@ def ll_end_setup_builder(builder):
     builder.leave_block()
     return builder.block
     
-def ll_close_jitstate(jitstate):
-    jitstate.curbuilder.finish_and_return()
+def ll_close_builder(builder):
+    builder.finish_and_return()
         
 class JITState(object):
     # XXX obscure interface
 
     def __init__(self, builder):
-        self.return_queue = []
         self.split_queue = []
         self.curbuilder = builder
 

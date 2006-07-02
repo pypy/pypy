@@ -14,6 +14,9 @@ def enter_block_memo():
 def freeze_memo():
     return Memo()
 
+def unfreeze_memo():
+    return {} # Memo()
+
 def exactmatch_memo():
     return Memo()
 
@@ -37,7 +40,7 @@ class RedBox(object):
     def is_constant(self):
         return bool(self.genvar) and rgenop.isconst(self.genvar)
 
-    def getgenvar(self, jitstate):
+    def getgenvar(self, builder):
         return self.genvar
 
     def enter_block(self, newblock, incoming, memo):
@@ -188,10 +191,10 @@ class PtrRedBox(RedBox):
                 boxmemo[self] = result
             return result
 
-    def getgenvar(self, jitstate):
+    def getgenvar(self, builder):
         if not self.genvar:
             assert self.content
-            self.content.force_runtime_container(jitstate)
+            self.content.force_runtime_container(builder)
             assert self.genvar
         return self.genvar
 

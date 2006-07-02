@@ -139,9 +139,9 @@ class StructFieldDesc(object):
         return "Fld_%s_in_%s" % (self.fieldname.replace('.','_'),
                                  self.PTRTYPE._short_name())
 
-    def generate_set(self, jitstate, genvar, box):
+    def generate_set(self, builder, genvar, box):
         gv_sub = genvar
-        genop = jitstate.curbuilder.genop
+        genop = builder.genop
         for i in range(len(self.accessptrtype_gv)-1):
             op_args = lltype.malloc(rgenop.VARLIST.TO, 2)
             op_args[0] = gv_sub
@@ -150,7 +150,7 @@ class StructFieldDesc(object):
         op_args = lltype.malloc(rgenop.VARLIST.TO, 3)
         op_args[0] = gv_sub
         op_args[1] = self.fieldname_gv[-1]
-        op_args[2] = box.getgenvar(jitstate)
+        op_args[2] = box.getgenvar(builder)
         genop('setfield', op_args, rgenop.gv_Void)        
 
 # ____________________________________________________________
@@ -205,8 +205,8 @@ class VirtualStruct(AbstractContainer):
             for box in self.content_boxes:
                 box.enter_block(newblock, incoming, memo)
 
-    def force_runtime_container(self, jitstate):
-        genop = jitstate.curbuilder.genop
+    def force_runtime_container(self, builder):
+        genop = builder.genop
         typedesc = self.typedesc
         boxes = self.content_boxes
         self.content_boxes = None
@@ -226,7 +226,7 @@ class VirtualStruct(AbstractContainer):
             fielddesc = fielddescs[i]
             box = boxes[i]
             # xxx a bit inefficient
-            fielddesc.generate_set(jitstate, genvar, box)
+            fielddesc.generate_set(builder, genvar, box)
 
     def freeze(self, memo):
         contmemo = memo.containers

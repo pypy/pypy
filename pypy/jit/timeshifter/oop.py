@@ -53,16 +53,15 @@ class OopSpecDesc:
                                  None, None, [method])
             self.ll_handler = getattr(vmodule, method)
 
-    def residual_call(self, jitstate, argboxes):
+    def residual_call(self, builder, argboxes):
         args_gv = self.args_gv[:]
         argpositions = self.argpositions
         for i in range(len(argpositions)):
             pos = argpositions[i]
             if pos > 0:
-                gv_arg = argboxes[i].getgenvar(jitstate)
+                gv_arg = argboxes[i].getgenvar(builder)
                 args_gv[pos] = gv_arg
-        gv_result = jitstate.curbuilder.genop(
-                                 'direct_call',
-                                 args_gv,
-                                 self.gv_result_type)
+        gv_result = builder.genop('direct_call',
+                                  args_gv,
+                                  self.gv_result_type)
         return self.redboxbuilder(self.gv_result_type, gv_result)

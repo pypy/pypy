@@ -109,9 +109,9 @@ def timeshift(ll_function, values, opt_consts=[], inline=None, policy=None):
             residual_graph_args.append(llvalue)
     startblock = llinterp.eval_graph(htshift.ll_end_setup_builder_graph, [builder])
 
-    jitstate = llinterp.eval_graph(graph1, graph1args)
+    builder = llinterp.eval_graph(graph1, graph1args)
     r = htshift.hrtyper.getrepr(hs)
-    llinterp.eval_graph(htshift.ll_close_jitstate_graph, [jitstate])
+    llinterp.eval_graph(htshift.ll_close_builder_graph, [builder])
 
     # now try to run the blocks produced by the builder
     residual_graph = rgenop.buildgraph(startblock)
@@ -156,7 +156,7 @@ def test_simple_fixed():
     assert res == 12
     assert insns == {}
 
-def test_simple():
+def test_very_simple():
     def ll_function(x, y):
         return x + y
     insns, res = timeshift(ll_function, [5, 7])
@@ -560,7 +560,7 @@ def test_merge_structures():
     assert insns == {'int_is_true': 1, 'int_add': 1}
 
 def test_call_simple():
-    py.test.skip("in-progress")
+    #py.test.skip("in-progress")
     def ll_add_one(x):
         return x + 1
     def ll_function(y):
