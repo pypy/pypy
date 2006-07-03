@@ -68,8 +68,9 @@ def generate_keepalive(vars):
     return keepalive_ops
 
 def split_block_with_keepalive(block, index_operation,
-                               keep_alive_op_args=True):
-    splitlink = split_block(None, block, index_operation)
+                               keep_alive_op_args=True,
+                               annotator=None):
+    splitlink = split_block(annotator, block, index_operation)
     afterblock = splitlink.target
     conservative_keepalives = needs_conservative_livevar_calculation(block)
     if conservative_keepalives:
@@ -83,7 +84,7 @@ def split_block_with_keepalive(block, index_operation,
                 newvar = afterblock.inputargs[index]
             except ValueError:
                 splitlink.args.append(var)
-                newvar = copyvar(None, var)
+                newvar = copyvar(annotator, var)
                 afterblock.inputargs.append(newvar)
             keep_alive_vars[i] = newvar
     elif keep_alive_op_args and afterblock.operations: 
