@@ -24,6 +24,7 @@ class _Builtins(object):
             'll_int_str' : lambda g,op: Call._render_builtin_method(g, 'toString' , [op.args[2]]),
             'll_strconcat' : InstructionList([PushAllArgs, '+']),
             'll_int' : CallBuiltin('parseInt'),
+            #'ll_int' : lambda g,op: Call._render_builtin(g, 'parseInt', [op.args[0], op.args[0]]),
             'alert' : CallBuiltin('alert'),
             'seval' : CallBuiltin('seval'),
             'date': NewBuiltin('Date')

@@ -122,7 +122,7 @@ opcodes = {'int_mul': '*',
     'oodowncast' : DoNothing,        
     'oononnull'  : [PushAllArgs,_Prefix('!!')],
     'oostring'   : [CastString],
-    'ooparse_int' : [CallBuiltin('parseInt')],
+    'ooparse_int' : [PushAllArgs,_CastFun("parseInt",2)],
     'oois'       : '===',
     # when casting from bool we want that every truth value is casted
     # to 1: we can't simply DoNothing, because the CLI stack could
