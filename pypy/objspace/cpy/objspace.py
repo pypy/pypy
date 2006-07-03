@@ -167,11 +167,15 @@ class CPyObjSpace(baseobjspace.ObjSpace):
     def newlist(self, items_w):
         n = len(items_w)
         w_list = PyList_New(n)
-        for i in range(n):
-            w_item = items_w[i]
-            Py_Incref(w_item)
-            PyList_SetItem(w_list, i, w_item)
+        if n:
+            for i in range(n):
+                w_item = items_w[i]
+                Py_Incref(w_item)
+                PyList_SetItem(w_list, i, w_item)
         return w_list
+
+    def emptylist(self):
+        return PyList_New(0)
 
     def newtuple(self, items_w):
         # XXX not very efficient, but PyTuple_SetItem complains if the
