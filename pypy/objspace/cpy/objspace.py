@@ -167,11 +167,10 @@ class CPyObjSpace(baseobjspace.ObjSpace):
     def newlist(self, items_w):
         n = len(items_w)
         w_list = PyList_New(n)
-        if n:
-            for i in range(n):
-                w_item = items_w[i]
-                Py_Incref(w_item)
-                PyList_SetItem(w_list, i, w_item)
+        for i in range(n):
+            w_item = items_w[i]
+            Py_Incref(w_item)
+            PyList_SetItem(w_list, i, w_item)
         return w_list
 
     def emptylist(self):
