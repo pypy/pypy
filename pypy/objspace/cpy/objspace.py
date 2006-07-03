@@ -5,7 +5,7 @@ from pypy.interpreter import baseobjspace
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import Function
 from pypy.interpreter.typedef import GetSetProperty
-from pypy.rpython.rarithmetic import r_uint
+from pypy.rpython.rarithmetic import r_uint, r_longlong, r_ulonglong
 from pypy.rpython.objectmodel import we_are_translated
 
 
@@ -64,6 +64,11 @@ class CPyObjSpace(baseobjspace.ObjSpace):
             return PyFloat_FromDouble(x)
         if isinstance(x, r_uint):
             return PyLong_FromUnsignedLong(x)
+        if isinstance(x, r_longlong):
+            return PyLong_FromLongLong(x)
+        if isinstance(x, r_ulonglong):
+            return PyLong_FromUnsignedLongLong(x)
+
         # if we arrive here during RTyping, then the problem is *not* the %r
         # in the format string, but it's that someone is calling space.wrap()
         # on a strange object.

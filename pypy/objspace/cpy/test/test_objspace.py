@@ -1,5 +1,6 @@
 from pypy.objspace.cpy.objspace import CPyObjSpace
 from pypy.tool.pytest.appsupport import raises_w
+from pypy.rpython.rarithmetic import r_longlong, r_ulonglong
 
 def test_simple():
     space = CPyObjSpace()
@@ -19,6 +20,14 @@ def test_wrap():
     assert space.eq_w(w_res, space.wrap(2.5))
     res = space.float_w(w_res)
     assert res == 2.5
+
+def test_wraplonglongs():
+    space = CPyObjSpace()
+    w = space.wrap
+    w_res = space.add(w(r_longlong(1)), w(r_ulonglong(1)))
+    assert space.eq_w(w_res, w(2))
+    res = space.int_w(w_res)
+    assert res == 2
 
 def test_str_w():
     space = CPyObjSpace()
