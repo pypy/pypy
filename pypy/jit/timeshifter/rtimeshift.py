@@ -252,11 +252,13 @@ def dispatch_next(jitstate, outredboxes):
         return exitindex
     return -1
 
-def prepare_return(cache, gv_return_type):
+def save_return(jitstate, redboxes):
+    jitstate.returnbox = redboxes[0]
+
+def prepare_return(jitstate, cache, gv_return_type):
     frozens, block = cache[()]
     builder = ResidualGraphBuilder(block)
-    memo = rvalue.unfreeze_memo()
-    builder.valuebox = frozens[0].unfreeze(memo, block, gv_return_type)
+    builder.valuebox = jitstate.returnbox
     return builder
 
 def ll_gvar_from_redbox(jitstate, redbox):

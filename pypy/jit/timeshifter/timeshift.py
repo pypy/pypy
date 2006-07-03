@@ -322,7 +322,8 @@ class HintTimeshift(object):
         cache = enter_block_logic(args_r, newinputargs,
                                   before_block,
                                   llops,
-                                  v_boxes)
+                                  v_boxes,
+                                  is_returnblock)
         if is_returnblock:
             assert self.return_cache is None
             self.return_cache = cache
@@ -335,7 +336,7 @@ class HintTimeshift(object):
         return v_boxes
 
     def bookkeeping_enter_simple(self, args_r, newinputargs, before_block,
-                                 llops, v_boxes):
+                                 llops, v_boxes, is_returnblock=False):
         v_newjitstate = llops.genmixlevelhelpercall(rtimeshift.enter_block,
                              [self.s_JITState, self.s_box_list],
                              [newinputargs[0], v_boxes],
@@ -358,7 +359,7 @@ class HintTimeshift(object):
     # mapping green values combinations to frozen states for red boxes values
     # and generated blocks
     def bookkeeping_enter_for_join(self, args_r, newinputargs, before_block,
-                                   llops, v_boxes):
+                                   llops, v_boxes, is_returnblock):
         getrepr = self.rtyper.getrepr        
         items_s = []
         key_v = []
@@ -401,7 +402,7 @@ class HintTimeshift(object):
         v_boxes2 = flowmodel.Variable(v_boxes)
         v_boxes2.concretetype = self.r_box_list.lowleveltype
 
-
+        
         
         read_boxes_block_vars = [v_newjitstate2, v_boxes2]
         for greenvar in orig_key_v:
@@ -412,6 +413,8 @@ class HintTimeshift(object):
         read_boxes_block = flowmodel.Block(read_boxes_block_vars)
         to_read_boxes_block = flowmodel.Link([v_newjitstate, v_boxes] + orig_key_v, read_boxes_block)
         to_read_boxes_block.exitcase = to_read_boxes_block.llexitcase = True
+
+
         to_dispatch_block = flowmodel.Link([v_oldjitstate], self.dispatchblock)
         to_dispatch_block.exitcase = to_dispatch_block.llexitcase = False
         
@@ -423,16 +426,24 @@ class HintTimeshift(object):
         llops = HintLowLevelOpList(self, None)
 
         newinputargs2 = [v_newjitstate2]
-        i = 0
-        j = 0
-        for r in args_r[1:]:
-            if isinstance(r, RedRepr):
-                newinputargs2.append(self.read_out_box(llops, v_boxes2, i))
-                i += 1
-            else:
-                newinputargs2.append(read_boxes_block_vars[j+2])
-                j += 1
-
+        if not is_returnblock:
+            i = 0
+            j = 0
+            for r in args_r[1:]:
+                if isinstance(r, RedRepr):
+                    newinputargs2.append(self.read_out_box(llops, v_boxes2, i))
+                    i += 1
+                else:
+                    newinputargs2.append(read_boxes_block_vars[j+2])
+                    j += 1
+        else:
+            # xxx reorganize
+            llops.genmixlevelhelpercall(rtimeshift.save_return,
+                                        [self.s_JITState, self.s_box_list],
+                                        [v_newjitstate2, v_boxes2],
+                                        annmodel.s_None)
+            target = self.dispatchblock
+            
         read_boxes_block.operations[:] = llops
 
         to_target = flowmodel.Link(newinputargs2, target)
@@ -499,10 +510,6 @@ class HintTimeshift(object):
 
         llops = HintLowLevelOpList(self, None)
         if len(newblock.exits) == 0: # this is the original returnblock
-            llops.genmixlevelhelpercall(rtimeshift.save_return,
-                                        [...],
-                                        [...],
-                                        ...)
             newblock.recloseblock(flowmodel.Link(newblock.inputargs, self.dispatchblock))
         elif len(newblock.exits) == 1 or isinstance(self.hrtyper.bindingrepr(oldexitswitch), GreenRepr):
             newblock.exitswitch = rename(oldexitswitch)
@@ -571,8 +578,10 @@ class HintTimeshift(object):
         dispatchblock.operations = list(llops)
 
         dispatch_to = self.dispatch_to
-        prepare_return_block = flowmodel.Block([])
-        prepare_return_link = flowmodel.Link([], prepare_return_block)
+        v_jitstate2 = flowmodel.Variable('jitstate')
+        v_jitstate2.concretetype = self.r_JITState.lowleveltype
+        prepare_return_block = flowmodel.Block([v_jitstate2])
+        prepare_return_link = flowmodel.Link([v_jitstate], prepare_return_block)
         dispatch_to.append(('default', prepare_return_link))
 
         if len(dispatch_to) == 1:
@@ -593,12 +602,13 @@ class HintTimeshift(object):
         return_cache = self.return_cache
         assert return_cache is not None
         RETURN_TYPE = self.r_returnvalue.original_concretetype
-        def prepare_return():
-            return rtimeshift.prepare_return(return_cache,
+        def prepare_return(jitstate):
+            return rtimeshift.prepare_return(jitstate, return_cache,
                                              rgenop.constTYPE(RETURN_TYPE))
         llops = HintLowLevelOpList(self, None)
         v_return_builder = llops.genmixlevelhelpercall(prepare_return,
-                          [], [], self.s_ResidualGraphBuilder)
+                          [self.s_JITState], [v_jitstate2],
+                          self.s_ResidualGraphBuilder)
 
         prepare_return_block.operations = list(llops)
         finishedlink = flowmodel.Link([v_return_builder], returnblock)
