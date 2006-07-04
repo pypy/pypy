@@ -35,7 +35,7 @@ class Class(Node):
         return self.name
 
     def render(self, ilasm):
-        if self.is_root(self.classdef):
+        if self.is_root(self.classdef) or self.name == 'Object':
             return
 
         if self.db.class_name(self.classdef) is not None:

@@ -11,6 +11,8 @@ from pypy.translator.js.test.browsertest import jstest
 from pypy.translator.js import conftest
 from pypy.translator.js.log import log
 from pypy.conftest import option
+from pypy.rpython.test.tool import BaseRtypingTest, OORtypeMixin
+
 log = log.runtest
 use_browsertest = conftest.option.browser
 use_tg = conftest.option.tg
@@ -99,3 +101,60 @@ class compile_function(object):
             except:
                 res = str(s)
         return res
+
+class JsTest(BaseRtypingTest, OORtypeMixin):
+    #def __init__(self):
+    #    self._func = None
+    #    self._ann = None
+    #    self._cli_func = None
+
+    def _compile(self, fn, args):
+        #ann = [lltype_to_annotation(typeOf(x)) for x in args]
+        #if self._func is fn and self._ann == ann:
+        #    return self._cli_func
+        #else:
+        #    self._func = fn
+        #    self._ann = ann
+        #    self._cli_func = compile_function(fn, ann)
+        #    return self._cli_func
+        def f():
+            res = fn(*args)
+            return str(res)
+        return compile_function(f, [])
+    
+    def interpret(self, fn, args):
+        #def f(args):
+        #   fn(*args)
+        
+        f = self._compile(fn, args)
+        res = f(*args)
+        return res
+        #if isinstance(res, ExceptionWrapper):
+        #    raise res
+        #return res
+
+    def interpret_raises(self, exception, fn, args):
+        #import exceptions # needed by eval
+        #try:
+        #import pdb; pdb.set_trace()
+        #self.interpret(fn, args)
+        assert False
+        #except ExceptionWrapper, ex:
+        #    assert issubclass(eval(ex.class_name), exception)
+        #else:
+        #    assert False, 'function did raise no exception at all'
+
+    def ll_to_string(self, s):
+        return s
+
+    def ll_to_list(self, l):
+        return l
+
+    def class_name(self, value):
+        return value.class_name.split(".")[-1] 
+
+    def is_of_instance_type(self, val):
+        import pdb; pdb.set_trace()
+
+    def read_attr(self, obj, name):
+        py.test.skip('read_attr not supported on gencli tests')

@@ -52,7 +52,7 @@ class Root(controllers.Root):
         def gen(data):
             yield data
         
-        cherrypy.response.headerMap['Content-Type'] = 'test/javascript'
+        cherrypy.response.headerMap['Content-Type'] = 'text/javascript'
         cherrypy.response.headerMap['Content-Length'] = len(self.jssource)
         return gen(self.jssource)
     

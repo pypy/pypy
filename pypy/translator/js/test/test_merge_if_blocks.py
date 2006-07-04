@@ -26,7 +26,7 @@ def test_merge_if_blocks_basic():
         assert basic(i) == merge_if_blocks_basic(i)
 
 def test_merge_if_blocks_chr():
-    py.test.skip("String support in ootypesystem")
+    #py.test.skip("String support in ootypesystem")
     def merge_if_blocks_chr(i):
         c = chr(i)
         if c == '\x05':
@@ -39,7 +39,7 @@ def test_merge_if_blocks_chr():
         assert basic(i) == merge_if_blocks_chr(i)
 
 def test_merge_if_blocks_uni():
-    py.test.skip("String support in ootypesystem")
+    py.test.skip("Unicode support")
     def merge_if_blocks_uni(i):
         c = unichr(i)
         if c == u'\x05':

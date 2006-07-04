@@ -284,7 +284,7 @@ def test_list_basic_ops():
             assert f(i,j) == list_basic_ops(i,j)
 
 def test_string_simple():
-    py.test.skip("ord semantics")
+    #py.test.skip("ord semantics")
     def string_simple(i): 
         return ord(str(i))
     f = compile_function(string_simple, [int])
@@ -358,7 +358,7 @@ def test_method_call():
     assert f() == 4
 
 def test_dict_creation():
-    py.test.skip("Dict support not implemented")
+    #py.test.skip("Dict support not implemented")
     d = {'hello' : 23,
          'world' : 21}
     l = ["hello", "world"]

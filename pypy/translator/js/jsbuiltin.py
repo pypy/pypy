@@ -27,7 +27,8 @@ class _Builtins(object):
             #'ll_int' : lambda g,op: Call._render_builtin(g, 'parseInt', [op.args[0], op.args[0]]),
             'alert' : CallBuiltin('alert'),
             'seval' : CallBuiltin('seval'),
-            'date': NewBuiltin('Date')
+            'date': NewBuiltin('Date'),
+            'll_math_fmod' : InstructionList([PushAllArgs, '%']),
         }
         self.builtin_obj_map = {
             ootype.String.__class__: {

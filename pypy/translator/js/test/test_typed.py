@@ -172,6 +172,7 @@ def test_str_join():
             assert res == testfn(i, j)
 
 def test_unichr_eq():
+    py.test.skip("Unicode support")
     l = list(u'Hello world')
     def f(i, j):
         return l[i] == l[j]
@@ -182,6 +183,7 @@ def test_unichr_eq():
             assert res == f(i,j) 
 
 def test_unichr_ne():
+    py.test.skip("Unicode support")
     l = list(u'Hello world')
     def f(i, j):
         return l[i] != l[j]
@@ -192,7 +194,8 @@ def test_unichr_ne():
             assert res == f(i, j)
 
 def test_unichr_ord():
-    py.test.skip("ord semantics")
+    #py.test.skip("ord semantics")
+    py.test.skip("Unicode support")
     l = list(u'Hello world')
     def f(i):
         return ord(l[i]) 
@@ -202,7 +205,7 @@ def test_unichr_ord():
         assert res == f(i)
 
 def test_unichr_unichr():
-    py.test.skip("unichr function")
+    py.test.skip("Unicode support")
     l = list(u'Hello world')
     def f(i, j):
         return l[i] == unichr(j)
@@ -214,7 +217,7 @@ def test_unichr_unichr():
 
 # floats 
 def test_float_operations():
-    py.test.skip("issue with ll_math_fmod calling itself")
+    #py.test.skip("issue with ll_math_fmod calling itself")
     import math
     def func(x, y): 
         z = x + y / 2.1 * x 
@@ -313,7 +316,7 @@ def test_cast_to_int():
         assert f(ii) == ii
 
 def test_char_comparisons():
-    py.test.skip("chr/ord semantics")
+    #py.test.skip("chr/ord semantics")
     def comps(v):
         x = chr(v)
         res = 0
