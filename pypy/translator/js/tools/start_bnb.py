@@ -242,6 +242,7 @@ def bnb_dispatcher(msgs):
     if count != player.prev_count + 1:
         logWarning("incorrect response order, expected " + str(player.prev_count+1) + ' got ' + str(count))
         sm.frames.append(msgs)
+    player.prev_count = count
     #else:
     #    player.prev_count = count
     #    for i in sm.frames:
