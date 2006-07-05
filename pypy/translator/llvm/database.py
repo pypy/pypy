@@ -25,8 +25,6 @@ class Database(object):
         self._pendingsetup = []
         self._tmpcount = 1
         self.helper2ptr = {}
-        # debug operation comments
-        self._opcomments = {}
         self.externalfuncs = {}
         self.primitives_init()
 
@@ -59,18 +57,6 @@ class Database(object):
             assert False, "Unsupported platform"        
 
         self.primitives = primitives
-        
-    #_______for debugging llvm code_________________________
-
-    def add_op2comment(self, lenofopstr, op):
-        """ internal method for adding comments on each operation """
-        tmpname = self.repr_tmpvar() + ".comment"
-        self._opcomments[op] = (lenofopstr, tmpname)
-        return tmpname
-        
-    def get_op2comment(self, op):
-        """ internal method for adding comments on each operation """
-        return self._opcomments.get(op, None)
     
     #_______debuggging______________________________________
 
