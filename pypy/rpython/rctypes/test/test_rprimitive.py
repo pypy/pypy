@@ -470,7 +470,7 @@ class Test_specialization:
 class Test_compilation:
     def setup_class(self):
         if not test_c_compile:
-            py.test.skip("llvm tests disabled")
+            py.test.skip("c compilation disabled")
 
         from pypy.translator.c.test.test_genc import compile
         self.compile = lambda s, x, y : compile(x, y)
@@ -615,9 +615,9 @@ class Test_compilation:
         fn = self.compile(func, [int])
         assert fn(19) == func(19)
 
-class Test_compilation2(Test_compilation):
+class Test_compilation_llvm(Test_compilation):
     def setup_class(self):
         if not test_llvm_compile:
-            py.test.skip("llvm tests disabled")
+            py.test.skip("llvm compilation disabled")
         from pypy.translator.llvm.test.runtest import compile_function
         self.compile = lambda s, x, y : compile_function(x, y)
