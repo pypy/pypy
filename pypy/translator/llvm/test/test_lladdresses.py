@@ -25,24 +25,14 @@ def test_memory_access():
     def f(value):
         addr = raw_malloc(16)
         addr.signed[0] = value
-        return addr.signed[0]
+        res = addr.signed[0]
+        raw_free(addr)
+        return res
     fc = compile(f, [int])
     res = fc(42)
     assert res == 42
     res = fc(1)
     assert res == 1
-
-def test_memory_access2():
-    def f(value1, value2):
-        addr = raw_malloc(16)
-        addr.signed[0] = value1
-        addr.signed[1] = value2
-        return addr.signed[0] + addr.signed[1]
-    fc = compile(f, [int, int])
-    res = fc(23, 19)
-    assert res == 42
-    res = fc(42, -59)
-    assert res == -17
     
 def test_pointer_arithmetic():
     def f(offset, char):
@@ -75,17 +65,19 @@ def test_raw_memcopy():
     def f():
         addr = raw_malloc(100)
         addr.signed[0] = 12
-        (addr + 16).signed[0] = 42
-        (addr + 32).char[0] = "a"
+        (addr + 10).signed[0] = 42
+        (addr + 20).char[0] = "a"
         addr1 = raw_malloc(100)
         raw_memcopy(addr, addr1, 100)
         result = addr1.signed[0] == 12
-        result += (addr1 + 16).signed[0] == 42
-        result += (addr1 + 32).char[0] == "a"
+        result = result and (addr1 + 10).signed[0] == 42
+        result = result and (addr1 + 20).char[0] == "a"
+        raw_free(addr)
+        raw_free(addr1)
         return result
     fc = compile(f, [])
     res = fc()
-    assert res == 3
+    assert res
 
 def test_pointer_comparison():
     def f():
@@ -103,7 +95,7 @@ def test_pointer_comparison():
     res = fc()
     assert res == int('011100' * 2, 2)
 
-def test_flavored_malloc1_raw():
+def test_flavored_malloc_raw():
     class A(object):
         _alloc_flavor_ = "raw"
         def __init__(self, val):
@@ -116,56 +108,21 @@ def test_flavored_malloc1_raw():
     fn = compile(f, [int])
     assert fn(1) == 2 
 
-def test_flavored_malloc2_raw():
-    py.test.skip("AddressLinkedList not found")
-    from pypy.rpython.memory.support import AddressLinkedList
+# def test_flavored_varmalloc_raw():
+#     py.test.skip("test_flavored_varmalloc_raw not working - or maybe it will never to work?")
+#     A = lltype.Array(lltype.Signed)
+#     VARS = lltype.GcStruct('test', ('a', lltype.Signed), ('b', A))
+#     def f(x, y):
+#         #s = lltype.flavored_malloc('gc', VARS, x)
+#         s = lltype.malloc(VARS, n=x, flavor='gc')
+#         s.a = 42
+#         s.b[0] = y * 2
+#         return s.b[0] - s.a
 
-    def f():
-        addr = raw_malloc(100)
-        ll = AddressLinkedList()
-        ll.append(addr)
-        ll.append(addr + 1)
-        ll.append(addr + 2)
-        a = ll.pop()
-        assert a == addr
-        a = ll.pop()
-        assert a - addr == 1
-        a = ll.pop()
-        assert a - addr == 2
-        assert ll.pop() == NULL
-        assert ll.pop() == NULL
-        ll.append(addr)
-        ll.free()
-        free_non_gc_object(ll)
-        ll = AddressLinkedList()
-        ll.append(addr)
-        ll.append(addr + 1)
-        ll.append(addr + 2)
-        a = ll.pop()
-        res = a - addr
-        ll.free()
-        free_non_gc_object(ll)
-        raw_free(addr)
-        return res
-    
-    fn = compile(f, [])
-    assert fn() == 0 
+#     fn = compile(f, [int, int])
+#     assert fn(2, 24) == 6
 
-def test_flavored_varmalloc_raw():
-    py.test.skip("flavored_malloc not working?")
-    A = lltype.Array(lltype.Signed)
-    VARS = lltype.GcStruct('test', ('a', lltype.Signed), ('b', A))
-    def f(x, y):
-        #s = lltype.flavored_malloc('gc', VARS, x)
-        s = lltype.malloc(VARS, n=x, flavor='gc')
-        s.a = 42
-        s.b[0] = y * 2
-        return s.b[0] - s.a
-
-    fn = compile(f, [int, int])
-    assert fn(2, 24) == 6
-
-def test_flavored_malloc_alloca():
+def test_flavored_malloc_stack():
     class A(object):
         _alloc_flavor_ = "stack"
         def __init__(self, val):
@@ -177,3 +134,20 @@ def test_flavored_malloc_alloca():
         return result
     fn = compile(f, [int])
     assert fn(1) == 2 
+
+def test_weakaddress():
+    from pypy.rpython.objectmodel import cast_object_to_weakgcaddress
+    from pypy.rpython.objectmodel import cast_weakgcaddress_to_object
+    from pypy.rpython.lltypesystem.lloperation import llop
+    class A(object):
+        pass
+    def func(i):
+        l1 = []
+        l2 = []
+        for i in range(i):
+            a = A()
+            l1.append(a)
+            l2.append(cast_object_to_weakgcaddress(a))
+        return len(l1) == len(l2) and len(l1) > 0 and l2
+    fn = compile(func, [int])
+    assert fn(10)
