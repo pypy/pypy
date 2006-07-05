@@ -46,8 +46,24 @@ def gather_error(annotator, block, graph):
     msg.append('-+' * 30)
     return "\n".join(msg)
 
+def format_someobject_error(annotator, graph, block):
+    block_start = offset2lineno(graph.func.func_code, block.operations[0].offset) - graph.startline - 1
+    block_end = offset2lineno(graph.func.func_code, block.operations[-1].offset) - graph.startline - 1
+    msg = []
+    graph_lines = graph.source.split("\n")
+    msg.append("Somewhere here:")
+    for num, line in enumerate(graph_lines + [""]):
+        msg.append(line)
+        if num == block_start:
+            str_num = (len(graph_lines[num + 1]) - 6)/2
+            msg.append("-"*str_num + " BELOW " + "-"*str_num)
+        elif num == block_end:
+            str_num = (len(graph_lines[num]) - 6)/2
+            msg.append("^"*str_num + " ABOVE " + "^"*str_num)
+    return "\n".join(msg)
+
 def format_annotation_error(annotator, blocked_blocks, graph):
+    text = ""
     for block in blocked_blocks:
-        log.ERROR(gather_error(annotator, block, graph))
-    log.ERROR("END OF ERRORS")
-    raise SystemExit()
+        text += gather_error(annotator, block, graph)
+    return text

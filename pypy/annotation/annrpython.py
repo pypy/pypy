@@ -12,7 +12,7 @@ import py
 log = py.log.Producer("annrpython") 
 py.log.setconsumer("annrpython", ansi_log) 
 
-from pypy.tool.error import format_annotation_error
+from pypy.tool.error import format_annotation_error, format_someobject_error
 
 class AnnotatorError(Exception):
     pass
@@ -217,9 +217,9 @@ class RPythonAnnotator:
             blocked_blocks = [block for block, done in self.annotated.items()
                                     if done is False]
 
-            format_annotation_error(self, blocked_blocks, graph)
+            text = format_annotation_error(self, blocked_blocks, graph)
             #raise SystemExit()
-            #raise AnnotatorError('%d blocks are still blocked' % len(blocked_blocks))
+            raise AnnotatorError(text)
         # make sure that the return variables of all graphs is annotated
         if self.added_blocks is not None:
             newgraphs = [self.annotated[block] for block in self.added_blocks]
@@ -270,14 +270,17 @@ class RPythonAnnotator:
             except AttributeError:
                 pass
 
+        graph, block, i = position_key
         msglines = ["annotation of %r degenerated to SomeObject()" % (what,)]
-        if position_key is not None:
-            msglines.append(".. position: %s" % (self.whereami(position_key),))
-        if called_from_graph is not None:
-            msglines.append(".. called from %r" % (called_from_graph,))
-        if s_value.origin is not None:
-            msglines.append(".. SomeObject() origin: %s" % (
-                self.whereami(s_value.origin),))
+        msglines.append(format_someobject_error(self, graph, block))
+        
+##        if position_key is not None:
+##            msglines.append(".. position: %s" % (self.whereami(position_key),))
+##        if called_from_graph is not None:
+##            msglines.append(".. called from %r" % (called_from_graph,))
+##        if s_value.origin is not None:
+##            msglines.append(".. SomeObject() origin: %s" % (
+##                self.whereami(s_value.origin),))
         # FIXME: we need that as well as error handler
         raise AnnotatorError('\n'.join(msglines))
 
