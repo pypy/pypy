@@ -51,14 +51,14 @@ class OpWriter(object):
         'ptr_ne'        : 'setne' }
 
     # generic numeric ops
-    for tt in 'int llong uint'.split():
+    for tt in 'int llong ullong uint'.split():
         for oo in 'mul add sub and or xor'.split():
             binary_operations['%s_%s' % (tt, oo)] = oo
         binary_operations['%s_floordiv' % tt] = 'div'
         binary_operations['%s_mod' % tt] = 'rem'
 
     # comparison ops
-    for tt in 'int llong uint unichar float'.split():
+    for tt in 'int llong ullong uint unichar float'.split():
         for oo in 'lt le eq ne ge gt'.split():
             binary_operations['%s_%s' % (tt, oo)] = 'set%s' % oo
 
@@ -353,22 +353,33 @@ class OpWriter(object):
             self.codewriter.getelementptr(tmpvar, opr.argtypes[0],
                                           opr.argrefs[0], [("uint", index)])
             self.codewriter.store(opr.argtypes[2], opr.argrefs[2], tmpvar)
-
         else:
             self._skipped(opr)
             
     def getarrayitem(self, opr):        
-        if opr.rettype != "void":
-            arraytype, indextype = opr.argtypes
-            array, index = opr.argrefs
-            tmpvar = self._tmp()
+        arraytype, indextype = opr.argtypes
+        array, index = opr.argrefs
+
+        if opr.rettype == "void":
+            self._skipped(opr)
+            return
+
+        tmpvar = self._tmp()
+
+        ARRAYTYPE = opr.op.args[0].concretetype.TO
+        if isinstance(ARRAYTYPE, lltype.Array):
             self.codewriter.getelementptr(tmpvar, arraytype, array,
                                           [("uint", 1), (indextype, index)])
-            self.codewriter.load(opr.retref, opr.rettype, tmpvar)
         else:
-            self._skipped(opr)
+            assert isinstance(ARRAYTYPE, lltype.FixedSizeArray)
+            self.codewriter.getelementptr(tmpvar, arraytype, array,
+                                          [("uint", index)])
+
+        self.codewriter.load(opr.retref, opr.rettype, tmpvar)
 
     def getarraysubstruct(self, opr):        
+        ARRAYTYPE = opr.op.args[0].concretetype.TO
+        assert isinstance(ARRAYTYPE, lltype.Array)
         arraytype, indextype = opr.argtypes
         array, index = opr.argrefs
         self.codewriter.getelementptr(opr.retref, arraytype, array,
@@ -377,15 +388,27 @@ class OpWriter(object):
     def setarrayitem(self, opr):
         array, index, valuevar = opr.argrefs
         arraytype, indextype, valuetype = opr.argtypes
-        tmpvar = self._tmp()
-        if valuetype != "void":
+
+        if valuetype == "void":
+            self._skipped(opr)
+            return
+
+        tmpvar = self._tmp()    
+
+        ARRAYTYPE = opr.op.args[0].concretetype.TO
+        if isinstance(ARRAYTYPE, lltype.Array):
             self.codewriter.getelementptr(tmpvar, arraytype, array,
                                           [("uint", 1), (indextype, index)])
-            self.codewriter.store(valuetype, valuevar, tmpvar) 
         else:
-            self._skipped(opr)
-
+            assert isinstance(ARRAYTYPE, lltype.FixedSizeArray)
+            self.codewriter.getelementptr(tmpvar, arraytype, array,
+                                          [("uint", index)])
+            
+        self.codewriter.store(valuetype, valuevar, tmpvar) 
+            
     def getarraysize(self, opr):
+        ARRAYTYPE = opr.op.args[0].concretetype.TO
+        assert isinstance(ARRAYTYPE, lltype.Array)
         tmpvar = self._tmp()
         self.codewriter.getelementptr(tmpvar, opr.argtypes[0],
                                       opr.argrefs[0], [("uint", 0)])

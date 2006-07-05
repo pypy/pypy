@@ -6,7 +6,6 @@ import py.test
 import pypy.rpython.rctypes.implementation
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.translator.translator import TranslationContext
-from pypy.translator.c.test.test_genc import compile
 from pypy.annotation.model import SomeCTypesObject, SomeObject
 from pypy import conftest
 import sys
@@ -17,6 +16,9 @@ from ctypes import c_char, c_byte, c_ubyte, c_short, c_ushort, c_int, c_uint
 from ctypes import c_long, c_ulong, c_longlong, c_ulonglong, c_float
 from ctypes import c_double, c_wchar, c_char_p, pointer, sizeof
 from ctypes import Structure
+
+test_c_compile = True
+test_llvm_compile = False
 
 class Test_annotation:
     def test_simple(self):
@@ -466,10 +468,17 @@ class Test_specialization:
 
         
 class Test_compilation:
+    def setup_class(self):
+        if not test_c_compile:
+            py.test.skip("llvm tests disabled")
+
+        from pypy.translator.c.test.test_genc import compile
+        self.compile = lambda s, x, y : compile(x, y)
+
     def test_compile_c_int(self):
         def create_c_int():
             return c_int(42).value
-        fn = compile(create_c_int, [])
+        fn = self.compile(create_c_int, [])
         assert fn() == 42
 
     def test_compile_prebuilt_c_int(self):
@@ -477,7 +486,7 @@ class Test_compilation:
         def access_cint():
             return ci.value
 
-        fn = compile(access_cint, [])
+        fn = self.compile(access_cint, [])
         assert fn() == 42
 
     def test_compile_set_prebuilt_c_int_value(self):
@@ -486,13 +495,13 @@ class Test_compilation:
             ci.value = 52
             return ci.value
 
-        fn = compile(access_cint, [])
+        fn = self.compile(access_cint, [])
         assert fn() == 52
     
     def test_compile_c_double(self):
         def create_c_double():
             return c_double(4.2).value
-        fn = compile(create_c_double, [])
+        fn = self.compile(create_c_double, [])
         assert fn() == 4.2
 
     def test_compile_prebuilt_c_double(self):
@@ -500,7 +509,7 @@ class Test_compilation:
         def access_c_double():
             return cf.value
 
-        fn = compile(access_c_double, [])
+        fn = self.compile(access_c_double, [])
         # XXX: goden: Not sure if this is an indication of some sort of
         #             problem, but the precision appears to be broken when
         #             returning a float from the interpreted function when its
@@ -514,7 +523,7 @@ class Test_compilation:
             cf.value = 5.2
             return cf.value
 
-        fn = compile(access_c_double, [])
+        fn = self.compile(access_c_double, [])
         assert fn() == 5.2
 
     def test_compile_c_integers(self):
@@ -523,14 +532,14 @@ class Test_compilation:
         for c_integer in c_integers:
             def sizeof_c_integer():
                 return sizeof(c_integer)
-            fn = compile(sizeof_c_integer, [])
+            fn = self.compile(sizeof_c_integer, [])
             assert fn() == sizeof_c_integer()
 
         for c_integer in c_integers:
             def c_integer_is_unsigned(i):
                 return c_integer(-1).value > 0
             c_integer_is_unsigned.__name__ == c_integer.__name__
-            fn = compile(c_integer_is_unsigned, [int])
+            fn = self.compile(c_integer_is_unsigned, [int])
             assert fn(-1) == c_integer_is_unsigned(-1)
         
 
@@ -538,7 +547,7 @@ class Test_compilation:
         def func(x):
             cs = c_short(x)
             return cs.value
-        fn = compile(func, [int])
+        fn = self.compile(func, [int])
         assert fn(19) == func(19)
 
     def test_compile_primitive_arrayitem(self):
@@ -546,7 +555,7 @@ class Test_compilation:
         def func(x):
             csa = CSA(x)
             return csa[0]
-        fn = compile(func, [int])
+        fn = self.compile(func, [int])
         assert fn(19) == func(19)
 
     def test_compile_primitive_ptritem(self):
@@ -554,7 +563,7 @@ class Test_compilation:
             cs = pointer(c_short(x))
             return cs[0]
 
-        fn = compile(func, [int])
+        fn = self.compile(func, [int])
         assert fn(19) == func(19)
 
     def test_compile_primitive_structfield(self):
@@ -564,7 +573,7 @@ class Test_compilation:
             s = S(x)
             return s.cs
 
-        fn = compile(func, [int])
+        fn = self.compile(func, [int])
         assert fn(19) == func(19)
 
     def test_compile_set_primitive_value(self):
@@ -573,7 +582,7 @@ class Test_compilation:
             cs.value = x
             return cs.value
 
-        fn = compile(func, [int])
+        fn = self.compile(func, [int])
         assert fn(19) == func(19)
 
     def test_compile_set_primitive_arrayitem(self):
@@ -583,7 +592,7 @@ class Test_compilation:
             csa[0] = x
             return csa[0]
             
-        fn = compile(func, [int])
+        fn = self.compile(func, [int])
         assert fn(19) == func(19)
 
     def test_compile_set_primitive_ptritem(self):
@@ -592,7 +601,7 @@ class Test_compilation:
             cs[0] = x
             return cs[0]
 
-        fn = compile(func, [int])
+        fn = self.compile(func, [int])
         assert fn(19) == func(19)
 
     def test_compile_set_primitive_structfield(self):
@@ -603,6 +612,12 @@ class Test_compilation:
             s.cs = x
             return s.cs
 
-        fn = compile(func, [int])
+        fn = self.compile(func, [int])
         assert fn(19) == func(19)
 
+class Test_compilation2(Test_compilation):
+    def setup_class(self):
+        if not test_llvm_compile:
+            py.test.skip("llvm tests disabled")
+        from pypy.translator.llvm.test.runtest import compile_function
+        self.compile = lambda s, x, y : compile_function(x, y)

@@ -56,6 +56,23 @@ class Database(object):
         else:
             assert False, "Unsupported platform"        
 
+        try:
+            import ctypes
+        except ImportError:
+            pass
+        else:
+            from pypy.rpython.rctypes import rcarithmetic as rcarith
+            primitives.update({rcarith.CByte : 'sbyte',
+                               rcarith.CUByte : 'ubyte',
+                               rcarith.CShort : 'short',
+                               rcarith.CUShort : 'ushort',
+                               rcarith.CInt : 'int',
+                               rcarith.CUInt : 'uint',
+                               rcarith.CLong : primitives[lltype.Signed],
+                               rcarith.CULong : primitives[lltype.Unsigned],
+                               rcarith.CLonglong : 'long',
+                               rcarith.CULonglong : 'ulong'})
+                              
         self.primitives = primitives
     
     #_______debuggging______________________________________
