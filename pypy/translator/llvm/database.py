@@ -5,7 +5,8 @@ from pypy.translator.llvm.log import log
 from pypy.translator.llvm.funcnode import FuncNode, FuncTypeNode
 from pypy.translator.llvm.extfuncnode import ExternalFuncNode
 from pypy.translator.llvm.structnode import StructNode, StructVarsizeNode, \
-     StructTypeNode, StructVarsizeTypeNode, getindexhelper
+     StructTypeNode, StructVarsizeTypeNode, getindexhelper, \
+     FixedSizeArrayTypeNode, FixedSizeArrayNode
 from pypy.translator.llvm.arraynode import ArrayNode, StrArrayNode, \
      VoidArrayNode, ArrayTypeNode, VoidArrayTypeNode
 from pypy.translator.llvm.opaquenode import OpaqueNode, ExtOpaqueNode, \
@@ -107,6 +108,9 @@ class Database(object):
             else:
                 node = FuncNode(self, value)
 
+        elif isinstance(type_, lltype.FixedSizeArray):
+            node = FixedSizeArrayNode(self, value)
+
         elif isinstance(type_, lltype.Struct):
             if type_._arrayfld:
                 node = StructVarsizeNode(self, value)
@@ -151,11 +155,15 @@ class Database(object):
         elif isinstance(type_, lltype.Ptr): 
             self.prepare_type(type_.TO)
 
+        elif isinstance(type_, lltype.FixedSizeArray):
+            self.addpending(type_, FixedSizeArrayTypeNode(self, type_))
+            
         elif isinstance(type_, lltype.Struct):
             if type_._arrayfld:
                 self.addpending(type_, StructVarsizeTypeNode(self, type_))
             else:
                 self.addpending(type_, StructTypeNode(self, type_))                
+
         elif isinstance(type_, lltype.FuncType): 
             self.addpending(type_, FuncTypeNode(self, type_))
 

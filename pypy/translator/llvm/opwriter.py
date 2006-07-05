@@ -373,7 +373,7 @@ class OpWriter(object):
         else:
             assert isinstance(ARRAYTYPE, lltype.FixedSizeArray)
             self.codewriter.getelementptr(tmpvar, arraytype, array,
-                                          [("uint", index)])
+                                          [(indextype, index)])
 
         self.codewriter.load(opr.retref, opr.rettype, tmpvar)
 
@@ -402,7 +402,7 @@ class OpWriter(object):
         else:
             assert isinstance(ARRAYTYPE, lltype.FixedSizeArray)
             self.codewriter.getelementptr(tmpvar, arraytype, array,
-                                          [("uint", index)])
+                                          [(indextype, index)])
             
         self.codewriter.store(valuetype, valuevar, tmpvar) 
             

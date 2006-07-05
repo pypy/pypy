@@ -8,7 +8,6 @@ from pypy.annotation import model as annmodel
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.translator.translator import TranslationContext
 from pypy import conftest
-from pypy.translator.c.test.test_genc import compile
 import sys
 from pypy.rpython.test.test_llinterp import interpret
 
@@ -16,6 +15,9 @@ from ctypes import c_int, c_short, c_char_p, c_char, pointer
 from ctypes import ARRAY, POINTER, Structure
 
 c_int_10 = ARRAY(c_int,10)
+
+test_c_compile = True
+test_llvm_compile = False
 
 def maketest():
     A1 = c_int * 10
@@ -281,6 +283,13 @@ class Test_specialization:
         assert res.c_data[4] == 0
 
 class Test_compilation:
+    def setup_class(self):
+        if not test_c_compile:
+            py.test.skip("c compilation disabled")
+
+        from pypy.translator.c.test.test_genc import compile
+        self.compile = lambda s, x, y : compile(x, y)
+
     def test_compile_array_access(self):
         def access_array():
             my_array = c_int_10()
@@ -289,7 +298,7 @@ class Test_compilation:
 
             return my_array[1]
 
-        fn = compile(access_array, [])
+        fn = self.compile(access_array, [])
         
         assert fn() == 2
 
@@ -303,13 +312,13 @@ class Test_compilation:
                 array = my_array_3
             return array[n]
 
-        fn = compile(func, [int, int])
+        fn = self.compile(func, [int, int])
         assert fn(2, 7) == 49
         assert fn(3, 6) == 216
 
     def test_compile_variants(self):
         func, expected = maketest()
-        fn = compile(func, [])
+        fn = self.compile(func, [])
         assert fn() == expected
 
     def test_compile_char_array_value(self):
@@ -319,5 +328,12 @@ class Test_compilation:
             a[0] = 'x'
             a[1] = 'y'
             return a.value
-        fn = compile(func, [])
+        fn = self.compile(func, [])
         assert fn() == "xy"
+
+class Test_compilation_llvm(Test_compilation):
+    def setup_class(self):
+        if not test_llvm_compile:
+            py.test.skip("llvm tests disabled")
+        from pypy.translator.llvm.test.runtest import compile_function
+        self.compile = lambda s, x, y : compile_function(x, y)

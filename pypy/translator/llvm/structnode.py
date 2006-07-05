@@ -16,15 +16,15 @@ log = log.structnode
 
 class StructTypeNode(LLVMNode):
     __slots__ = "db struct ref name".split()
+    prefix = '%structtype_'
 
     def __init__(self, db, struct): 
         assert isinstance(struct, lltype.Struct)
         self.db = db
         self.struct = struct
-        prefix = '%structtype_'
         name = self.struct._name
-        self.ref = self.make_ref(prefix, name)
-        self.name = self.ref[len(prefix):]
+        self.ref = self.make_ref(self.prefix, name)
+        self.name = self.ref[len(self.prefix):]
         
     def __str__(self):
         return "<StructTypeNode %r>" %(self.ref,)
@@ -44,6 +44,18 @@ class StructTypeNode(LLVMNode):
     def writedatatypedecl(self, codewriter):
         fields_types = [self.db.repr_type(f) for f in self._fields()]
         codewriter.structdef(self.ref, fields_types)
+
+class FixedSizeArrayTypeNode(StructTypeNode):
+    prefix = '%fixarray_'
+
+    def __str__(self):
+        return "<FixedArrayTypeNode %r>" % self.ref
+
+    def writedatatypedecl(self, codewriter):
+        codewriter.fixedarraydef(self.ref,
+                                 self.struct.length,
+                                 self.db.repr_type(self.struct.OF))
+
 
 class StructVarsizeTypeNode(StructTypeNode):
     __slots__ = "constructor_ref constructor_decl".split()
@@ -86,13 +98,14 @@ class StructNode(ConstantLLVMNode):
     """
     __slots__ = "db value structtype ref _get_ref_cache _get_types".split()
 
+    prefix = '%structinstance_'
+
     def __init__(self, db, value):
         self.db = db
         self.value = value
         self.structtype = self.value._TYPE
-        prefix = '%structinstance_'
         name = str(value).split()[1]
-        self.ref = self.make_ref(prefix, name)
+        self.ref = self.make_ref(self.prefix, name)
         self._get_ref_cache = None
         self._get_types = self._compute_types()
 
@@ -160,6 +173,33 @@ class StructNode(ConstantLLVMNode):
         return "%s {\n  %s\n  }\n" % (self.get_typerepr(), all_values)
                 
                 
+class FixedSizeArrayNode(StructNode):
+    prefix = '%fixarrayinstance_'
+
+    def __str__(self):
+        return "<FixedSizeArrayNode %r>" % (self.ref,)
+
+    def constantvalue(self):
+        """ Returns the constant representation for this node. """
+        values = self._getvalues()
+        all_values = ",\n  ".join(values)
+        return "%s [\n  %s\n  ]\n" % (self.get_typerepr(), all_values)
+
+    def get_childref(self, index):
+        pos = 0
+        found = False
+        for name in self.structtype._names_without_voids():
+            if name == index:
+                found = True
+                break
+            pos += 1
+
+        return "getelementptr(%s* %s, int 0, int %s)" %(
+            self.get_typerepr(),
+            self.get_ref(),
+            pos)
+
+
 class StructVarsizeNode(StructNode):
     """ A varsize struct constant.  Can simply contain
     a primitive,
