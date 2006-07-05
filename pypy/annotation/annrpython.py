@@ -12,6 +12,8 @@ import py
 log = py.log.Producer("annrpython") 
 py.log.setconsumer("annrpython", ansi_log) 
 
+from pypy.tool.error import format_annotation_error
+
 class AnnotatorError(Exception):
     pass
 
@@ -195,20 +197,29 @@ class RPythonAnnotator:
                     if self.annotated[block] is False:
                         graph = self.why_not_annotated[block][1].break_at[0]
                         self.blocked_graphs[graph] = True
-                        import traceback
-                        blocked_err = []
-                        blocked_err.append('-+' * 30 +'\n')
-                        blocked_err.append('BLOCKED block at :' +
-                                           self.whereami(self.why_not_annotated[block][1].break_at) +
-                                           '\n')
-                        blocked_err.append('because of:\n')
-                        blocked_err.extend(traceback.format_exception(*self.why_not_annotated[block]))
-                        blocked_err.append('-+' * 30 +'\n')
-                        log.ERROR(''.join(blocked_err))
+##                        import traceback
+##                        blocked_err = []
+##                        blocked_err.append('-+' * 30 +'\n')
+##                        blocked_err.append('BLOCKED block at :' +
+##                                           self.whereami(self.why_not_annotated[block][1].break_at) +
+##                                           '\n')
+##                        blocked_err.append('because of:\n')
+##                        blocked_err.extend(traceback.format_exception(*self.why_not_annotated[block]))
+##                        from pypy.interpreter.pytraceback import offset2lineno
+##
+##                        offset = block.operations[self.why_not_annotated[block][1].break_at[2]].offset
+##                        lineno = offset2lineno(graph.func.func_code, offset)
+##                        blocked_err.append("Happened at file %s line %d\n" % (graph.filename, lineno))
+##                        blocked_err.append(graph.source.split("\n")[lineno-graph.startline] + "\n")
+##                        blocked_err.append('-+' * 30 +'\n')
+##                        log.ERROR(''.join(blocked_err))
 
             blocked_blocks = [block for block, done in self.annotated.items()
                                     if done is False]
-            raise AnnotatorError('%d blocks are still blocked' % len(blocked_blocks))
+
+            format_annotation_error(self, blocked_blocks, graph)
+            #raise SystemExit()
+            #raise AnnotatorError('%d blocks are still blocked' % len(blocked_blocks))
         # make sure that the return variables of all graphs is annotated
         if self.added_blocks is not None:
             newgraphs = [self.annotated[block] for block in self.added_blocks]
@@ -267,7 +278,8 @@ class RPythonAnnotator:
         if s_value.origin is not None:
             msglines.append(".. SomeObject() origin: %s" % (
                 self.whereami(s_value.origin),))
-        raise AnnotatorError('\n'.join(msglines))        
+        # FIXME: we need that as well as error handler
+        raise AnnotatorError('\n'.join(msglines))
 
     def setbinding(self, arg, s_value, called_from_graph=None, where=None):
         if arg in self.bindings:

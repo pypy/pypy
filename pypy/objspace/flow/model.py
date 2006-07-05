@@ -67,7 +67,15 @@ class FunctionGraph(object):
         from pypy.tool.sourcetools import getsource
         return getsource(self.func)
     source = roproperty(getsource)
-
+    
+    def getstartline(self):
+        return self.func.func_code.co_firstlineno
+    startline = roproperty(getstartline)
+    
+    def getfilename(self):
+        return self.func.func_code.co_filename
+    filename = roproperty(getfilename)
+    
     def __str__(self):
         if hasattr(self, 'func'):
             return nice_repr_for_func(self.func, self.name)
@@ -521,8 +529,8 @@ def copygraph(graph, shallow=False):
                 for op in oplist:
                     copyop = SpaceOperation(op.opname,
                                             [copyvar(v) for v in op.args],
-                                            copyvar(op.result))
-                    copyop.offset = op.offset
+                                            copyvar(op.result), op.offset)
+                    #copyop.offset = op.offset
                     result.append(copyop)
                 return result
             newblock.operations = copyoplist(block.operations)

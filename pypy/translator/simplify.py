@@ -330,7 +330,8 @@ def join_blocks(graph):
                 return renaming.get(v, v)
             def rename_op(op):
                 args = [rename(a) for a in op.args]
-                op = SpaceOperation(op.opname, args, rename(op.result))
+                op = SpaceOperation(op.opname, args, rename(op.result), op.offset)
+                #op = SpaceOperation(op.opname, args, rename(op.result))
                 return op
             for op in link.target.operations:
                 link.prevblock.operations.append(rename_op(op))
