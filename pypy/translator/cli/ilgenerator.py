@@ -151,9 +151,6 @@ class IlasmGenerator(object):
 
     def get_field(self, field_data):
         self.opcode('ldfld %s %s::%s' % field_data )
-
-    def load_static_field(self, cts_type, name):
-        self.opcode('ldsfld %s %s' % (cts_type, name))
     
     def throw(self):
         self.opcode('throw')
@@ -191,8 +188,14 @@ class IlasmGenerator(object):
     def store_local ( self , v ):
         self.opcode('stloc', repr(v.name))
 
-    def set_static_field ( self, type_, CONST_NAMESPACE, CONST_CLASS, name ):
-        self.opcode('stsfld %s %s.%s::%s' % (type_, CONST_NAMESPACE, CONST_CLASS, name))
+    def store_static_constant(self, cts_type, CONST_NAMESPACE, CONST_CLASS, name):
+        self.opcode('stsfld %s %s.%s::%s' % (cts_type, CONST_NAMESPACE, CONST_CLASS, name))
+
+    def load_static_constant(self, cts_type, CONST_NAMESPACE, CONST_CLASS, name):
+        self.opcode('ldsfld %s %s.%s::%s' % (cts_type, CONST_NAMESPACE, CONST_CLASS, name))
+
+    def load_static_field(self, cts_type, name):
+        self.opcode('ldsfld %s %s' % (cts_type, name))
 
     def emit ( self , opcode , *args ):
         self.opcode ( opcode , *args )
