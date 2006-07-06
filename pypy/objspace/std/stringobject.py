@@ -890,12 +890,7 @@ def mul__ANY_String(space, w_times, w_str):
 def add__String_String(space, w_left, w_right):
     right = w_right._value
     left = w_left._value
-    buf = [' '] * (len(left) + len(right))
-    for i in range(len(left)):
-        buf[i] = left[i]
-    for i in range(len(right)):
-        buf[i+len(left)] = right[i]
-    return space.wrap("".join(buf))
+    return space.wrap(left + right)
 
 def len__String(space, w_str):
     return space.wrap(len(w_str._value))
