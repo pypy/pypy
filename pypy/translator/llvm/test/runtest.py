@@ -6,7 +6,7 @@ MINIMUM_LLVM_VERSION = 1.7
 
 def llvm_test():
     if not llvm_is_on_path():
-        py.test.skip("llvm not found")
+        py.test.skip("could not find one of llvm-as or llvm-gcc")
         return False
     v = llvm_version()
     if v < MINIMUM_LLVM_VERSION:
