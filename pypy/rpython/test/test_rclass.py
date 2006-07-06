@@ -496,7 +496,6 @@ class BaseTestRclass(BaseRtypingTest):
 
 
     def test_common_class_attribute(self):
-        self._skip_oo('common class attribute')
         class A:
             def meth(self):
                 return self.x

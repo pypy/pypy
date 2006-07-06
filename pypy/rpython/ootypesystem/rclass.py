@@ -291,9 +291,6 @@ class InstanceRepr(AbstractInstanceRepr):
                         # classes to see if it's defined in a parent but only
                         # actually first used in self.classdef.
                         value = selfdesc.read_attribute(name, None)
-                        if value is None:
-                            raise TyperError("class %r has no attribute %r" % (
-                                self.classdef.name, name))
 
                     # a non-method class attribute
                     if not attrdef.s_value.is_constant():
@@ -319,19 +316,23 @@ class InstanceRepr(AbstractInstanceRepr):
         # really overridden in subclasses
         for mangled, (s_value, value) in classattributes.items():
             r = self.rtyper.getrepr(s_value)
-            oovalue = r.convert_desc_or_const(value)
-            m = self.attach_class_attr_accessor(mangled, oovalue,
-                                                r.lowleveltype)
+            m = self.attach_class_attr_accessor(mangled, value, r)
 
-    def attach_class_attr_accessor(self, mangled, oovalue, oovaluetype):
+    def attach_class_attr_accessor(self, mangled, value, r_value):
         def ll_getclassattr(self):
             return oovalue
-        ll_getclassattr = func_with_new_name(ll_getclassattr,
-                                             'll_get_' + mangled)
-        graph = self.rtyper.annotate_helper(ll_getclassattr, [self.lowleveltype])
-        M = ootype.Meth([], oovaluetype)
-        m = ootype.meth(M, _name=mangled, _callable=ll_getclassattr,
-                        graph=graph)
+
+        M = ootype.Meth([], r_value.lowleveltype)
+        if value is None:
+            m = ootype.meth(M, _name=mangled, abstract=True)
+        else:
+            oovalue = r_value.convert_desc_or_const(value)
+            ll_getclassattr = func_with_new_name(ll_getclassattr,
+                                                 'll_get_' + mangled)
+            graph = self.rtyper.annotate_helper(ll_getclassattr, [self.lowleveltype])
+            m = ootype.meth(M, _name=mangled, _callable=ll_getclassattr,
+                            graph=graph)
+
         ootype.addMethods(self.lowleveltype, {mangled: m})
 
     def get_ll_hash_function(self):
