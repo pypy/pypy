@@ -391,3 +391,9 @@ def test_view_instance_hash():
     assert inst_up == inst_up2
     assert hash(inst_up) == hash(inst_up2)
 
+def test_instance_equality():
+    A = Instance("Foo", ROOT)
+    B = Instance("Foo", ROOT)
+    # Instance compares by reference
+    assert not A == B
+    assert A != B 

@@ -55,6 +55,15 @@ class Instance(OOType):
 
         self._null = make_null_instance(self)
         self._class = _class(self)
+
+    def __eq__(self, other):
+        return self is other
+
+    def __ne__(self, other):
+        return self is not other
+
+    def __hash__(self):
+        return object.__hash__(self)
         
     def _defl(self):
         return self._null
