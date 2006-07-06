@@ -27,31 +27,13 @@ class BaseTestRspecialcase(BaseRtypingTest):
 
     def test_override_ignore(self):
         def f():
-            pass
+            xxx
         f._annspecialcase_ = "override:ignore"
         def g(i):
             if i == 1:
                 return "ab"
             else:
                 return f()
-        res = self.interpret(g, [0])
-        assert not res
-        res = self.interpret(g, [1])
-        assert self.ll_to_string(res) == "ab"
-    
-    def test_meth_override_ignore(self):
-        self._skip_oo('override:ignore')
-        class X:
-            def f(self):
-                pass
-            f._annspecialcase_ = "override:ignore"
-        def g(i):
-            x = X()
-            if i == 1:
-                return "ab"
-            else:
-                return x.f()
-
         res = self.interpret(g, [0])
         assert not res
         res = self.interpret(g, [1])

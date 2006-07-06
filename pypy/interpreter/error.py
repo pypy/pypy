@@ -75,9 +75,10 @@ class OperationError(Exception):
         """Records the current traceback inside the interpreter.
         This traceback is only useful to debug the interpreter, not the
         application."""
-        if RECORD_INTERPLEVEL_TRACEBACK:
-            self.debug_excs.append(sys.exc_info())
-    record_interpreter_traceback._annspecialcase_ = "override:ignore"
+        from pypy.rpython.objectmodel import we_are_translated
+        if not we_are_translated():
+            if RECORD_INTERPLEVEL_TRACEBACK:
+                self.debug_excs.append(sys.exc_info())
 
     def print_application_traceback(self, space, file=None):
         "NOT_RPYTHON: Dump a standard application-level traceback."
