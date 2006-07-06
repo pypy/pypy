@@ -54,7 +54,7 @@ def add_graph(msg, graph, lineno):
     msg.append('-+' * 30)
     
 def format_someobject_error(annotator, graph, block, what):
-    block = getattr(annotator, 'flowin_block', None) or block
+    #block = getattr(annotator, 'flowin_block', None) or block
     block_start = offset2lineno(graph.func.func_code, block.operations[0].offset) - graph.startline - 1
     block_end = offset2lineno(graph.func.func_code, block.operations[-1].offset) - graph.startline - 1
     msg = ["annotation of %r degenerated to SomeObject()" % (what,)]
