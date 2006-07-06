@@ -23,13 +23,14 @@ def _formatd(space, alt, prec, kind, x):
     return space.wrap(rarithmetic.formatd(fmt, x))
 _formatd.unwrap_spec = [gateway.ObjSpace, int, int, str, float]
 
-
-def __pdb():
-    import pdb
-    pdb.set_trace()
-__pdb._annspecialcase_ = 'override:ignore'
-
 def _pdb(space):
     """Run an interp-level pdb.
     This is not available in translated versions of PyPy."""
-    __pdb()
+    from pypy.rpython.objectmodel import we_are_translated
+    if we_are_translated():
+        raise OperationError(space.w_NotImplementedError,
+                             space.wrap("Cannot use interp-level pdb in translated pypy"))
+    else:
+        import pdb
+        pdb.set_trace()
+
