@@ -7,7 +7,12 @@ from pypy.objspace.std.model import WITHSTRSLICE
 if WITHSTRSLICE:
     def sliced(s, start, stop):
         from pypy.objspace.std.strsliceobject import W_StringSliceObject
-        return W_StringSliceObject(s, start, stop)
+        from pypy.objspace.std.stringobject import W_StringObject
+        # XXX heuristic, should be improved!
+        if (stop - start) > len(s) * 0.20 + 40:
+            return W_StringSliceObject(s, start, stop)
+        else:
+            return W_StringObject(s[start:stop])
 else:
     def sliced(s, start, stop):
         from pypy.objspace.std.stringobject import W_StringObject
