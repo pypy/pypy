@@ -17,14 +17,16 @@ class AppTestStringObject:
         assert s[3:7] == '3456'
         assert 'W_StringSliceObject' in sys.pypy_repr(s)
         # when the slice is too short, don't use the slice string object
-        assert 'W_StringObject' in sys.pypy_repr(s[3:7])
+        assert 'W_StringObject' in sys.pypy_repr("abcdefgh"[3:7])
 
     def test_find(self):
         import sys
         def slice(s): return (s*3)[len(s):-len(s)]
         s = slice('abcdefghiabc' + "X" * 100)
         assert 'W_StringSliceObject' in sys.pypy_repr(s)
-        assert s.find('abc') == 0
+        assert slice('abcdefghiabc' + 'X' * 100) == 'abcdefghiabc' + 'X' * 100
+        res = s.find('abc')
+        assert res == 0
         assert s.find('abc', 1) == 9
         assert s.find('def', 4) == -1
 

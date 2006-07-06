@@ -3,7 +3,7 @@ from pypy.objspace.std.basestringtype import basestring_typedef
 
 from sys import maxint
 
-from pypy.objspace.std.model import WITHSTRSLICE
+from pypy.objspace.std.model import WITHSTRSLICE, WITHSTRJOIN
 if WITHSTRSLICE:
     def sliced(s, start, stop):
         from pypy.objspace.std.strsliceobject import W_StringSliceObject
@@ -18,6 +18,14 @@ else:
         from pypy.objspace.std.stringobject import W_StringObject
         return W_StringObject(s[start:stop])
 
+if WITHSTRJOIN:
+    def joined(s1, s2):
+        from pypy.objspace.std.strjoinobject import W_StringJoinObject
+        return W_StringJoinObject([s1, s2])
+else:
+    def joined(s1, s2):
+        from pypy.objspace.std.stringobject import W_StringObject
+        return W_StringObject(s1 + s2)
 
 str_join    = SMM('join', 2,
                   doc='S.join(sequence) -> string\n\nReturn a string which is'

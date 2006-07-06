@@ -1,6 +1,8 @@
 from pypy.objspace.std.objspace import *
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.unicodeobject import delegate_String2Unicode
+from pypy.objspace.std.sliceobject import W_SliceObject
+from pypy.objspace.std import slicetype
 
 
 class W_StringSliceObject(W_Object):
@@ -52,20 +54,26 @@ def _convert_idx_params(space, w_self, w_sub, w_start, w_end):
     assert start >= 0
     assert end >= 0
 
-    return (w_self.str, sub, w_self.start + start, end)
+    return (w_self.str, sub, w_self.start + start, w_self.start + end)
 
 
 def str_find__StringSlice_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
 
     (self, sub, start, end) =  _convert_idx_params(space, w_self, w_sub, w_start, w_end)
     res = self.find(sub, start, end)
-    return space.wrap(res)
+    if res >= 0:
+        return space.wrap(res - w_self.start)
+    else:
+        return space.wrap(res)
 
 def str_rfind__StringSlice_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
 
     (self, sub, start, end) =  _convert_idx_params(space, w_self, w_sub, w_start, w_end)
     res = self.rfind(sub, start, end)
-    return space.wrap(res)
+    if res >= 0:
+        return space.wrap(res - w_self.start)
+    else:
+        return space.wrap(res)
 
 def str_index__StringSlice_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
 
@@ -75,7 +83,7 @@ def str_index__StringSlice_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
         raise OperationError(space.w_ValueError,
                              space.wrap("substring not found in string.index"))
 
-    return space.wrap(res)
+    return space.wrap(res - w_self.start)
 
 
 def str_rindex__StringSlice_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
@@ -86,7 +94,7 @@ def str_rindex__StringSlice_String_ANY_ANY(space, w_self, w_sub, w_start, w_end)
         raise OperationError(space.w_ValueError,
                              space.wrap("substring not found in string.rindex"))
 
-    return space.wrap(res)
+    return space.wrap(res - w_self.start)
 
 
 def str_w__StringSlice(space, w_str):
@@ -129,3 +137,6 @@ def str__StringSlice(space, w_str):
     if type(w_str) is W_StringSliceObject:
         return w_str
     return W_StringSliceObject(w_str.str, w_str.start, w_str.stop)
+
+from pypy.objspace.std import stringtype
+register_all(vars(), stringtype)

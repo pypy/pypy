@@ -11,6 +11,7 @@ import pypy.interpreter.special
 WITHSMALLINT = False
 WITHPREBUILTINT = None   # or e.g. range(-5, 100); not used if WITHSMALLINT
 WITHSTRSLICE = False
+WITHSTRJOIN = False
 
 class StdTypeModel:
 
@@ -57,6 +58,8 @@ class StdTypeModel:
         from pypy.objspace.std import stringobject
         if WITHSTRSLICE:
             from pypy.objspace.std import strsliceobject
+        if WITHSTRJOIN:
+            from pypy.objspace.std import strjoinobject
         from pypy.objspace.std import typeobject
         from pypy.objspace.std import sliceobject
         from pypy.objspace.std import longobject
@@ -99,6 +102,8 @@ class StdTypeModel:
             self.typeorder[smallintobject.W_SmallIntObject] = []
         if WITHSTRSLICE:
             self.typeorder[strsliceobject.W_StringSliceObject] = []
+        if WITHSTRJOIN:
+            self.typeorder[strjoinobject.W_StringJoinObject] = []
         for type in self.typeorder:
             self.typeorder[type].append((type, None))
 
@@ -152,6 +157,13 @@ class StdTypeModel:
                                        strsliceobject.delegate_slice2str),
                 (unicodeobject.W_UnicodeObject,
                                        strsliceobject.delegate_slice2unicode),
+                ]
+        if WITHSTRJOIN:
+            self.typeorder[strjoinobject.W_StringJoinObject] += [
+                (stringobject.W_StringObject,
+                                       strjoinobject.delegate_join2str),
+                (unicodeobject.W_UnicodeObject,
+                                       strjoinobject.delegate_join2unicode)
                 ]
 
         # put W_Root everywhere
