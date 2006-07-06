@@ -1,31 +1,27 @@
-""" blttest
+""" blttest - some tests of builtin stuff
 """
 
 import py
 
-#from pypy.rpython.ootypesystem.bltregistry import BasicExternal
+from pypy.rpython.ootypesystem.bltregistry import BasicExternal
 from pypy.translator.js.test.runtest import compile_function
 
-from pypy.rpython.ootypesystem.ootype import Signed, Void, Float, List, String
-
-py.test.skip("External object support not implemented yet")
-
-class Sth(BasicExternal):
-    # Take care!
-    # we do not annotate it, so we must take care of what we're talking with
-    _fields = {
-        'a' : Signed,
-        'b' : String,
-    }
+def check_source_contains(compiled_function, pattern):
+    import re
     
-    _methods = {
-    }
+    source = compiled_function.js.tmpfile.open().read()
+    return re.search(pattern, source)
 
-def test_simple():
-    def test_new():
-        s = Sth()
-        s.a = 3
-        return s
+# check rendering _dom.get_document()
+def test_simple_builtin():
+    from pypy.translator.js.modules._dom import get_document
+    def test_document_call():
+        return get_document().getElementById("some_id")
     
-    fn = compile_function(test_new, [])
-    fn()
+    fn = compile_function(test_document_call, [])
+    assert check_source_contains(fn, "= document")
+    assert check_source_contains(fn, ".getElementById")
+
+# check rendering transparent proxy
+#def test_simple_proxy():
+    

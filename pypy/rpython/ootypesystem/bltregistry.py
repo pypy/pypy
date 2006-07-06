@@ -93,7 +93,7 @@ class ExternalType(ootype.OOType):
     __name__ = "ExternalType"
 
     def __init__(self, _class):
-        # FIXME: We want to support inheritance at some point
+        # FIXME: We want to support inheritance at some point, or maybe not
         self._class_ = _class
         self._name = str(_class)
         self._superclass = None
@@ -125,7 +125,11 @@ class ExternalType(ootype.OOType):
             next.const = True
             self._fields[i] = next
         self._methods = frozendict(_signs)
-    
+
+    def __hash__(self):
+        # FIXME: for now
+        return hash(self._name)
+
     def get(class_):
         try:
             return ExternalType.class_dict[class_]

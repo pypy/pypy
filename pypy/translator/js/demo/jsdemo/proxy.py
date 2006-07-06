@@ -13,6 +13,8 @@ class ProxyRoot(Root, BasicExternal):
     """ Class for running communication tests which are not designed to end
     after single function call
     """
+    _render_xmlhttp = True
+    
     _methods = {
         'send_result' : MethodDesc((('result', "aa"), ('exc', "aa"), ('callback',(lambda : None))), None)
     }

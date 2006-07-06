@@ -91,6 +91,8 @@ class BnbRoot(Root, BasicExternal):
         sys.exit()
     port = int(port[7:-1])
     
+    _render_xmlhttp = True
+    
     _methods = {
         'get_message'  : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
         'add_player'   : MethodDesc( [('player_id', 0), ('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
