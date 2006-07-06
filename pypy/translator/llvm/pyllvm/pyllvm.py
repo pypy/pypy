@@ -17,14 +17,15 @@ class ExistingModuleProvider(Wrapper):
             M = Module()
         self.instance = ExistingModuleProvider__init__(M.instance)
 
-global ee_hack
+ee_hack = None
 
 class ExecutionEngine(Wrapper):
     def __init__(self, MP=None, ForceInterpreter=False):
+        global ee_hack
+        assert ee_hack is None, "can only make one ExecutionEngine"
         if not MP:
             MP = ExistingModuleProvider();
         self.instance = ExecutionEngine__create__(MP.instance, ForceInterpreter)
-        global ee_hack
         ee_hack = self.instance #XXX how to get to the executionengine from a function?
 
     # XXX cast to actual Python Module (can't we automate this?)
@@ -61,7 +62,7 @@ class Function(Wrapper):
         llvmvalues = ParamType()
         for i, arg in enumerate(args):
             llvmvalues[i] = to_llvm_value(arg, ft.getParamType(i)).LongVal
-        pLlvmValues = cast(llvmvalues, c_void_p) #would like to cast to c_longlong_p
+        pLlvmValues = cast(llvmvalues, c_void_p)
         llvmreturnvalue = ExecutionEngine_runFunction(ee_hack, self.instance, pLlvmValues)
         return to_python_value(llvmreturnvalue, ft.getReturnType())
 

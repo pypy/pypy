@@ -1,8 +1,8 @@
 import py
 from pypy.translator.llvm.buildllvm import llvm_is_on_path
-if not llvm_is_on_path():
-    py.test.skip("llvm not found")
-py.test.skip('aborts with SIGIOT on the snake machine :-(')
+#if not llvm_is_on_path():
+#    py.test.skip("llvm not found")
+#py.test.skip('aborts with SIGIOT on the snake machine :-(')
 
 try:
     from pypy.translator.llvm.pyllvm import pyllvm
@@ -11,26 +11,26 @@ except:
 
 from pypy.translator.llvm.pyllvm.test import ll_snippet
 
+ee = None
+def make_execution_engine():
+    global ee
+    if ee is None:
+        ee = pyllvm.ExecutionEngine()
 
-def test_execution_engine():
-    ee = pyllvm.ExecutionEngine()
-    ee = pyllvm.ExecutionEngine()
-    ee = pyllvm.ExecutionEngine()
-    del ee  #XXX not actualy deleted at the moment!!!
-    ee2 = pyllvm.ExecutionEngine()
-    ee2 = pyllvm.ExecutionEngine()
-    ee2 = pyllvm.ExecutionEngine()
+def test_execution_engine_singleton():
+    make_execution_engine()
+    py.test.raises(AssertionError, pyllvm.ExecutionEngine)
 
 codepath = py.path.local(__file__).dirpath()
 
 def test_load():
-    ee = pyllvm.ExecutionEngine()
-    ee.parse(codepath.join("hello.s").read())
-    ee.parse(codepath.join("addnumbers.s").read())
+    make_execution_engine()
+    ee.parse(codepath.join("hello.ll").read())
+    ee.parse(codepath.join("addnumbers.ll").read())
 
 def test_functions():
-    ee = pyllvm.ExecutionEngine()
-    ee.parse(codepath.join("hello.s").read())
+    make_execution_engine()
+    ee.parse(codepath.join("hello.ll").read())
     mod = ee.getModule()
     assert mod.n_functions() == 2
     #TODO
@@ -44,8 +44,8 @@ def test_functions():
     py.test.raises(Exception, mod.n_functions, "string")
 
 def test_call_parse_once():
-    ee = pyllvm.ExecutionEngine()
-    ee.parse(codepath.join("hello.s").read())
+    make_execution_engine()
+    ee.parse(codepath.join("hello.ll").read())
     f = ee.getModule().getNamedFunction
     hello = f("hello")
     gethellostr = f("gethellostr")
@@ -54,12 +54,12 @@ def test_call_parse_once():
 
 def test_call_parse_twice():
     py.test.skip("WIP")
-    ee = pyllvm.ExecutionEngine()
-    ee.parse(codepath.join("hello.s").read())
+    make_execution_engine()
+    ee.parse(codepath.join("hello.ll").read())
     f = ee.getModule().getNamedFunction
     f1 = f("gethellostr")
     assert f1() == "hello world\n"
-    ee.parse(codepath.join("addnumbers.s").read())
+    ee.parse(codepath.join("addnumbers.ll").read())
     f2 = f("add")
     assert f2(10, 32) == 42
     assert f1() == "hello world\n"
@@ -72,7 +72,7 @@ def test_call_between_parsed_code():
     the function at execution time. Not sure if we really need this
     particular feature. It appears that 'calc' requires a forward
     declaration to add1 otherwise a segfault will occur!"""
-    ee = pyllvm.ExecutionEngine()
+    make_execution_engine()
     ee.parse(ll_snippet.calc)
     ee.parse(ll_snippet.add1)
     f = ee.getModule().getNamedFunction
@@ -84,7 +84,7 @@ def test_replace_function():
     """similar to test_call_between_parsed_code with additional complexity
     because we rebind the add1 function to another version after it the
     first version already has been used."""
-    ee = pyllvm.ExecutionEngine()
+    make_execution_engine()
     ee.parse(ll_snippet.calc)
     ee.parse(ll_snippet.add1)
     f = ee.getModule().getNamedFunction
@@ -95,7 +95,7 @@ def test_replace_function():
     assert f("calc")(142) == 242
 
 def test_share_data_between_parsed_code():
-    ee = pyllvm.ExecutionEngine()
+    make_execution_engine()
     ee.parse(ll_snippet.global_int_a_is_100)
     ee.parse(ll_snippet.add1_to_global_int_a)
     ee.parse(ll_snippet.sub10_from_global_int_a)
@@ -108,7 +108,7 @@ def test_share_data_between_parsed_code():
 def test_native_code(): #examine JIT generate native (assembly) code
     py.test.skip("WIP")
     pyllvm.toggle_print_machineinstrs()
-    ee = pyllvm.ExecutionEngine()
+    make_execution_engine()
     ee.parse(ll_snippet.calc)
     ee.parse(ll_snippet.add1)
     f = ee.getModule().getNamedFunction
@@ -117,7 +117,7 @@ def test_native_code(): #examine JIT generate native (assembly) code
 
 def test_delete_function(): #this will only work if nothing uses Fn of course!
     py.test.skip("WIP")
-    ee = pyllvm.ExecutionEngine()
+    make_execution_engine()
     mod = ee.getModule()
     ee.parse(ll_snippet.calc)
     ee.parse(ll_snippet.add1)
