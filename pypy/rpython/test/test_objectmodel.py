@@ -250,7 +250,6 @@ class BaseTestObjectModel(BaseRtypingTest):
         assert res == 77
 
     def test_hint(self):
-        self._skip_oo('hint')
         from pypy.rpython import objectmodel
         def f():
             x = objectmodel.hint(5, hello="world")
