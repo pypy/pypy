@@ -12,10 +12,9 @@ conftest.option.tg = True
 conftest.option.browser = "default"
 
 from pypy.translator.js.test.runtest import compile_function
-from pypy.translator.js.modules.dom import Node, get_document, setTimeout, alert
+from pypy.translator.js.modules._dom import get_document
 from pypy.translator.js.modules.xmlhttp import XMLHttpRequest
 from pypy.translator.js.modules.mochikit import log, logWarning, createLoggingPane
-from pypy.translator.js.modules.dom import get_document, set_on_keydown, set_on_keyup
 from pypy.translator.js.modules.bltns import date
 from pypy.translator.js.demo.jsdemo.bnb import BnbRootInstance
 
@@ -32,13 +31,12 @@ class Stats(object):
     """ Class containing some statistics
     """
     def __init__(self):
-        self.starttime = 0
         self.n_received_inline_frames = 0
         self.n_rendered_inline_frames = 0
         self.n_rendered_dynamic_sprites = 0
         self.fps = 0
         self.starttime = 0.0
-        self.n_sprites = 0 #why is inline frame broken up?
+        self.n_sprites = 0
     
     def register_frame(self):
         self.n_rendered_inline_frames += 1
@@ -121,16 +119,29 @@ class SpriteManager(object):
 
 sm = SpriteManager()
 
+def appendPlayfield(msg):
+    bgcolor = '#000000'
+    get_document().body.setAttribute('bgcolor', bgcolor)
+    div = get_document().createElement("div")
+    div.setAttribute("id", "playfield")
+    div.setAttribute('width', msg['width'])
+    div.setAttribute('height', msg['height'])
+    div.setAttribute('style', 'position:absolute; top:0px; left:0px')
+    get_document().body.appendChild(div)
+
+def appendPlayfieldXXX():
+    bgcolor = '#000000'
+    get_document().body.setAttribute('bgcolor', bgcolor)
+    div = get_document().createElement("div")
+    div.setAttribute("id", "playfield")
+    div.setAttribute('width', 500)
+    div.setAttribute('height', 250)
+    div.setAttribute('style', 'position:absolute; top:0px; left:0px')
+    get_document().body.appendChild(div)
+
 def process_message(msg):
     if msg['type'] == 'def_playfield':
-        bgcolor = '#000000'
-        get_document().body.setAttribute('bgcolor', bgcolor)
-        div = get_document().createElement("div")
-        div.setAttribute("id", "playfield")
-        div.setAttribute('width', msg['width'])
-        div.setAttribute('height', msg['height'])
-        div.setAttribute('style', 'position:absolute; top:0px; left:0px')
-        get_document().body.appendChild(div)
+        appendPlayfield(msg)
     elif msg['type'] == 'def_icon':
         sm.add_icon(msg['icon_code'], msg['filename'])
     elif msg['type'] == 'ns':
@@ -176,68 +187,78 @@ def keydown(key):
     #c = chr(int(key.keyCode)).lower()
     #c = int(key.keyCode)
     c = key.keyCode
-    if c == '48': #ord('0'):
+    if c == 48: #ord('0'):
         addPlayer(0)
-    elif c == '49': #ord('1'):  #bwah. should really work on being able to cast to int
+    elif c == 49: #ord('1'):  #bwah. should really work on being able to cast to int
         addPlayer(1)
-    elif c == '50': #ord('2'):
+    elif c == 50: #ord('2'):
         addPlayer(2)
-    elif c == '51': #ord('3'):
+    elif c == 51: #ord('3'):
         addPlayer(3)
-    elif c == '52': #ord('4'):
+    elif c == 52: #ord('4'):
         addPlayer(4)
-    elif c == '53': #ord('5'):
+    elif c == 53: #ord('5'):
         addPlayer(5)
-    elif c == '54': #ord('6'):
+    elif c == 54: #ord('6'):
         addPlayer(6)
-    elif c == '55': #ord('7'):
+    elif c == 55: #ord('7'):
         addPlayer(7)
-    elif c == '56': #ord('8'):
+    elif c == 56: #ord('8'):
         addPlayer(8)
-    elif c == '57': #ord('9'):
+    elif c == 57: #ord('9'):
         addPlayer(9)
-    elif c == '68': #ord('D'):  #right
+    elif c == 68: #ord('D'):  #right
         BnbRootInstance.key(player.id, 0, ignore_dispatcher)
         logKey('start right')
-    elif c == '83': #ord('S'):  #left
+    elif c == 83: #ord('S'):  #left
         BnbRootInstance.key(player.id, 1, ignore_dispatcher)
         logKey('start left')
-    elif c == '69': #ord('E'):  #up
+    elif c == 69: #ord('E'):  #up
         BnbRootInstance.key(player.id, 2, ignore_dispatcher)
         logKey('start up')
-    elif c == '88': #ord('X'):  #fire
+    elif c == 88: #ord('X'):  #fire
         BnbRootInstance.key(player.id, 3, ignore_dispatcher)
         logKey('start fire')
     else:
-        logWarning('unknown keydown: ' + c)
+        logWarning('unknown keydown: ' + str(c))
 
 
 def keyup(key):
     c = key.keyCode
-    if c == '48' or c == '49' or c == '50' or c == '51' or c == '52' or\
-       c == '53' or c == '54' or c == '55' or c == '56' or c == '57': #XXX c in (...) didn't work
+    if c == 48 or c == 49 or c == 50 or c == 51 or c == 52 or\
+       c == 53 or c == 54 or c == 55 or c == 56 or c == 57: #XXX c in (...) didn't work
         pass    #don't print warning
-    elif c == '68': #ord('D'):  #right
+    elif c == 68: #ord('D'):  #right
         BnbRootInstance.key(player.id, 4, ignore_dispatcher)
         logKey('stop right')
-    elif c == '83': #ord('S'):  #left
+    elif c == 83: #ord('S'):  #left
         BnbRootInstance.key(player.id, 5, ignore_dispatcher)
         logKey('stop left')
-    elif c == '69': #ord('E'):  #up
+    elif c == 69: #ord('E'):  #up
         BnbRootInstance.key(player.id, 6, ignore_dispatcher)
         logKey('stop up')
-    elif c == '88': #ord('X'):  #fire
+    elif c == 88: #ord('X'):  #fire
         BnbRootInstance.key(player.id, 7, ignore_dispatcher)
         logKey('stop fire')
     else:
-        logWarning('unknown keyup: ' + c)
+        logWarning('unknown keyup: ' + str(c))
 
 def ignore_dispatcher(msgs):
     pass
 
 def bnb_dispatcher(msgs):
     BnbRootInstance.get_message(bnb_dispatcher)
-    
+
+    #sm_restart = int(msgs['add_data'][0]['sm_restart'])
+    #if sm_restart == 123:
+    #    log("sm_restart")
+    #    stats.__init__()
+    #    sm.__init__()
+    #    sm.begin_clean_sprites()
+    #    playfield = get_document().getElementById("playfield")
+    #    get_document().body.removeChild(playfield)
+    #    appendPlayfieldXXX()
+
     count = int(msgs['add_data'][0]['n'])
     if count != player.prev_count + 1:
         logWarning("incorrect response order, expected " + str(player.prev_count+1) + ' got ' + str(count))
@@ -265,8 +286,8 @@ def run_bnb():
         createLoggingPane(True)
         log("keys: [0-9] to select player, [esdx] to walk around")
         BnbRootInstance.initialize_session(session_dispatcher)
-        set_on_keydown(keydown)
-        set_on_keyup(keyup)
+        get_document().onkeydown = keydown
+        get_document().onkeyup   = keyup
     
     from pypy.translator.js.demo.jsdemo.bnb import BnbRoot
     fn = compile_function(bnb, [], root = BnbRoot, run_browser = False)

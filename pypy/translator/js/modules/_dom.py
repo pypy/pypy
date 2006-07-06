@@ -46,6 +46,7 @@ Node._methods = {
         'createElement' : MethodDesc(["aa"], Node()),
         'setAttribute' : MethodDesc(["aa", "bb"], None),
         'appendChild' : MethodDesc([Node()], None),
+        'removeChild' : MethodDesc([Node()], None),
     }
 
 class Document(Node):

@@ -263,6 +263,14 @@ class BnbRoot(Root, BasicExternal):
         #        len_before, inline_frames, len(messages)))
         to_append = []
         sprite_manager = self.get_sprite_manager()
+
+        sm_restart = 0
+        #if inline_frames:
+        #    sm_restart = 1
+        #    sprite_manager.__init__()
+        #    to_append.append({'type':'begin_clean_sprites'})
+        #    log("server sm_restart")
+
         
 ##        def get_full_frame(next):
 ##            new_sprite, s_num = sprite_manager.get_sprite(*next)
@@ -293,6 +301,6 @@ class BnbRoot(Root, BasicExternal):
         messages += to_append
         #messages.append(to_append[0])
         #log(len(messages))
-        return dict(messages=messages, add_data=[{'n':sm.count()}])
+        return dict(messages=messages, add_data=[{'n':sm.count(), 'sm_restart':sm_restart}])
 
 BnbRootInstance = BnbRoot()
