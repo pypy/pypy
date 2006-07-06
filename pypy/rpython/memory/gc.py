@@ -546,11 +546,11 @@ class MarkSweepGC(GCBase):
                 if self.is_varsize(typeid):
                     itemsize = self.varsize_item_sizes(typeid)
                     offset_to_length = self.varsize_offset_to_length(typeid)
-                    length = (oldobj_addr +
-                              self.varsize_offset_to_length(typeid)).signed[0]
+                    length = (oldobj_addr + offset_to_length).signed[0]
                     newobj = self.malloc_varsize(typeid, length, size,
                                                  itemsize, offset_to_length,
                                                  False)
+                    size += length*itemsize
                 else:
                     newobj = self.malloc_fixedsize(typeid, size, False)
                     length = -1
