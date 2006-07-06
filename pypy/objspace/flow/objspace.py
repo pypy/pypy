@@ -258,7 +258,14 @@ class FlowObjSpace(ObjSpace):
         graph.signature = cpython_code_signature(code)
         graph.defaults = func.func_defaults or ()
         self.setup_executioncontext(ec)
-        ec.build_flow()
+
+        from pypy.tool.error import AnnotatorError, format_global_error
+
+        try:
+            ec.build_flow()
+        except AnnotatorError, a:
+            # attach additional source info to AnnotatorError
+            raise AnnotatorError(format_global_error(ec.graph, ec.crnt_offset, str(a)))
         checkgraph(graph)
         return graph
 

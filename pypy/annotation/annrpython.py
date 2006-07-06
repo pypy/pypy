@@ -12,10 +12,7 @@ import py
 log = py.log.Producer("annrpython") 
 py.log.setconsumer("annrpython", ansi_log) 
 
-from pypy.tool.error import format_annotation_error, format_someobject_error
-
-class AnnotatorError(Exception):
-    pass
+from pypy.tool.error import format_annotation_error, format_someobject_error, AnnotatorError
 
 FAIL = object()
 
@@ -187,6 +184,8 @@ class RPythonAnnotator:
         while True:
             while self.pendingblocks:
                 block, graph = self.pendingblocks.popitem()
+                if annmodel.DEBUG:
+                    self.flowin_block = block # we need to keep track of block
                 self.processblock(graph, block)
             self.policy.no_more_blocks_to_annotate(self)
             if not self.pendingblocks:
@@ -260,6 +259,7 @@ class RPythonAnnotator:
         if self.policy.allow_someobjects:
             return
 
+    
         # is the function itself tagged with allow_someobjects?
         position_key = where or getattr(self.bookkeeper, 'position_key', None)
         if position_key is not None:
@@ -270,9 +270,8 @@ class RPythonAnnotator:
             except AttributeError:
                 pass
 
-        graph, block, i = position_key
-        msglines = ["annotation of %r degenerated to SomeObject()" % (what,)]
-        msglines.append(format_someobject_error(self, graph, block))
+        graph = position_key[0]
+        msgstr = format_someobject_error(self, graph, block, what)
         
 ##        if position_key is not None:
 ##            msglines.append(".. position: %s" % (self.whereami(position_key),))
@@ -282,7 +281,7 @@ class RPythonAnnotator:
 ##            msglines.append(".. SomeObject() origin: %s" % (
 ##                self.whereami(s_value.origin),))
         # FIXME: we need that as well as error handler
-        raise AnnotatorError('\n'.join(msglines))
+        raise AnnotatorError(msgstr)
 
     def setbinding(self, arg, s_value, called_from_graph=None, where=None):
         if arg in self.bindings:
