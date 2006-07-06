@@ -486,7 +486,9 @@ class LLHelpers(AbstractLLHelpers):
     def ll_stringslice(s1, slice):
         start = slice.start
         stop = slice.stop
-        if stop > len(s1.chars):
+        if stop >= len(s1.chars):
+            if start == 0:
+                return s1
             stop = len(s1.chars)
         newstr = malloc(STR, stop - start)
         j = 0
