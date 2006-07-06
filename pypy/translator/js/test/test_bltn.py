@@ -30,7 +30,9 @@ class SomeProxy(BasicExternal):
         'some_method' : MethodDesc([], 3),
     }
     
+class SomeNode(BasicExternal):
     _fields = {
+        'some_callback' : MethodDesc([3], 3),
     }
 
 SomeProxyInstance = SomeProxy()
@@ -42,5 +44,15 @@ def test_simple_proxy():
     fn = compile_function(simple_proxy, [])
     assert check_source_contains(fn, "loadJSONDoc\('some_method'")
 
-# next will try out the callback
+SomeNodeInstance = SomeNode()
 
+# next will try out the callback
+def test_callback():
+    def callback(a):
+        return a
+    
+    def callback_stuff():
+        SomeNodeInstance.some_callback = callback
+    
+    fn = compile_function(callback_stuff, [])
+    assert check_source_contains(fn, "\.some_callback = callback")
