@@ -3,7 +3,7 @@
 
 import py
 
-from pypy.rpython.ootypesystem.bltregistry import BasicExternal
+from pypy.rpython.ootypesystem.bltregistry import BasicExternal, MethodDesc
 from pypy.translator.js.test.runtest import compile_function
 
 def check_source_contains(compiled_function, pattern):
@@ -20,8 +20,27 @@ def test_simple_builtin():
     
     fn = compile_function(test_document_call, [])
     assert check_source_contains(fn, "= document")
-    assert check_source_contains(fn, ".getElementById")
+    assert check_source_contains(fn, "\.getElementById")
 
 # check rendering transparent proxy
-#def test_simple_proxy():
+class SomeProxy(BasicExternal):
+    _render_xmlhttp = True
     
+    _methods = {
+        'some_method' : MethodDesc([], 3),
+    }
+    
+    _fields = {
+    }
+
+SomeProxyInstance = SomeProxy()
+
+def test_simple_proxy():
+    def simple_proxy():
+        retval = SomeProxyInstance.some_method()
+    
+    fn = compile_function(simple_proxy, [])
+    assert check_source_contains(fn, "loadJSONDoc\('some_method'")
+
+# next will try out the callback
+

@@ -410,10 +410,9 @@ class ExtObject(AbstractConst):
         return self.const._TYPE._name.split('.')[-1][:-2]
     
     def init(self, ilasm):
-        #if getattr(self.const._TYPE._class_, '_render_xmlhttp', False):
-        self.db.register_comm_proxy(self.const, self.name)
-        ilasm.new(self.get_name())
-        #else:
+        if getattr(self.const._TYPE._class_, '_render_xmlhttp', False):
+            self.db.register_comm_proxy(self.const, self.name)
+            ilasm.new(self.get_name())
+        else:
             # Otherwise they just exist, or it's not implemented
-        #    pass
-
+            ilasm.load_str("undefined")
