@@ -11,6 +11,7 @@ from pypy.rpython.module.support import init_opaque_object
 from pypy.rpython.module.support import to_opaque_object, from_opaque_object
 from pypy.rpython.module.support import LLSupport
 from pypy.rpython.extregistry import ExtRegistryEntry
+from pypy.rpython.llinterp import LLInterpreter
 
 
 # for debugging, sanity checks in non-RPython code
@@ -210,16 +211,15 @@ def buildgraph(blockcontainer):
     block = from_opaque_object(blockcontainer.obj)
     return _buildgraph(block)
 
-def testgengraph(gengraph, args, viewbefore=False):
-    from pypy.rpython.llinterp import LLInterpreter
+def testgengraph(gengraph, args, viewbefore=False, executor=LLInterpreter):
     if viewbefore:
         gengraph.show()
-    llinterp = LLInterpreter(PseudoRTyper())
+    llinterp = executor(PseudoRTyper())
     return llinterp.eval_graph(gengraph, args)
     
-def runblock(blockcontainer, args, viewbefore=False):
+def runblock(blockcontainer, args, viewbefore=False, executor=LLInterpreter):
     graph = buildgraph(blockcontainer)
-    return testgengraph(graph, args, viewbefore)
+    return testgengraph(graph, args, viewbefore, executor)
 
 # ____________________________________________________________
 # RTyping of the above functions

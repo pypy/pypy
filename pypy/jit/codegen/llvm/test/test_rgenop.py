@@ -3,12 +3,18 @@ if not llvm_is_on_path():
     import py
     py.test.skip("llvm not found")
 
-from pypy.jit.codegen.llvm.rgenop import *
-from pypy.rpython.lltypesystem.lltype import *
+from pypy.rpython.rgenop import *
+from pypy.rpython.lltypesystem.lltype import Signed, Bool, malloc
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.module.support import from_opaque_object
 from pypy.objspace.flow import model as flowmodel
 
+import py
+py.test.skip("WIP")
+
+def _runblock(blockcontainer, args, viewbefore=False):
+    from pypy.jit.codegen.llvm.jitcode import JITCode
+    runblock(blockcontainer, args, viewbefore, JITCode)
 
 def build_square():
     """def square(v0): return v0*v0"""
@@ -21,7 +27,7 @@ def build_square():
 
 def test_square():
     block = build_square()
-    res = runblock(block, [17])
+    res = _runblock(block, [17])
     assert res == 289
 
 def test_rtype_newblock():
@@ -42,7 +48,7 @@ def test_rtype_geninputarg():
     
 def test_rtype_build_square():
     blockcontainer = interpret(build_square, [])
-    res = runblock(blockcontainer, [17])
+    res = _runblock(blockcontainer, [17])
     assert res == 289
 
 def build_if():
@@ -65,16 +71,16 @@ def build_if():
 
 def test_if():
     block = build_if()
-    res = runblock(block, [-1])
+    res = _runblock(block, [-1])
     assert res == 0
-    res = runblock(block, [42])
+    res = _runblock(block, [42])
     assert res == 42
 
 def test_rtype_build_if():
     blockcontainer = interpret(build_if, [])
-    res = runblock(blockcontainer, [-1])
+    res = _runblock(blockcontainer, [-1])
     assert res == 0
-    res = runblock(blockcontainer, [42])
+    res = _runblock(blockcontainer, [42])
     assert res == 42
 
 def build_loop():
@@ -108,20 +114,20 @@ def build_loop():
 
 def test_loop():
     block = build_loop()
-    res = runblock(block, [0])
+    res = _runblock(block, [0])
     assert res == 1
-    res = runblock(block, [1])
+    res = _runblock(block, [1])
     assert res == 1
-    res = runblock(block, [7])
+    res = _runblock(block, [7])
     assert res == 5040
 
 def test_rtype_build_loop():
     blockcontainer = interpret(build_loop, [])
-    res = runblock(blockcontainer, [0])
+    res = _runblock(blockcontainer, [0])
     assert res == 1
-    res = runblock(blockcontainer, [1])
+    res = _runblock(blockcontainer, [1])
     assert res == 1
-    res = runblock(blockcontainer, [7])
+    res = _runblock(blockcontainer, [7])
     assert res == 5040
 
 def test_rtype_void_constant_construction():
