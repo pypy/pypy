@@ -484,7 +484,6 @@ class InstanceConst(AbstractConst):
 
     def instantiate(self, ilasm):
         if not self.obj:
-            import pdb; pdb.set_trace()            
             ilasm.opcode('ldnull')
             return
 
