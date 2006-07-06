@@ -94,3 +94,14 @@ class AppTestPyFrame:
         assert len(l) == 1
         assert isinstance(l[0][1], Exception)
 
+    def test_trace_changes_locals(self):
+        import sys
+        def trace(frame, what, arg):
+            frame.f_locals['x'] = 42
+            return trace
+        def f(x):
+            return x
+        sys.settrace(trace)
+        res = f(1)
+        sys.settrace(None)
+        assert res == 42

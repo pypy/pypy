@@ -211,6 +211,7 @@ class ExecutionContext:
                 w_arg =  space.newtuple([operr.w_type, operr.w_value,
                                      space.wrap(operr.application_traceback)])
 
+            frame.fast2locals()
             self.is_tracing += 1
             try:
                 try:
@@ -225,6 +226,7 @@ class ExecutionContext:
                     raise
             finally:
                 self.is_tracing -= 1
+                frame.locals2fast()
 
         # Profile cases
         if self.w_profilefunc is not None:
