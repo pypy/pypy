@@ -511,6 +511,14 @@ class BaseTestRclass(BaseRtypingTest):
             return call_meth(b) + call_meth(c)
         assert self.interpret(f, []) == 85
 
+    def test_default_attribute_non_primitive(self):
+        class A:
+            x = (1, 2)
+        def f():
+            a = A()
+            a.x = (3, 4)
+            return a.x[0]
+        assert self.interpret(f, []) == 3
 
 class TestLltype(BaseTestRclass, LLRtypeMixin):
 

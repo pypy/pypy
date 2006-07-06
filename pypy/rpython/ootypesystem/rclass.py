@@ -308,9 +308,7 @@ class InstanceRepr(AbstractInstanceRepr):
         # step 2: provide default values for fields
         for mangled, impl in fielddefaults.items():
             oot = fields[mangled]
-            r = allfields[mangled]
-            oovalue = r.convert_const(impl)
-            ootype.addFields(self.lowleveltype, {mangled: (oot, oovalue)})
+            ootype.addFields(self.lowleveltype, {mangled: (oot, impl)})
 
         # step 3: provide accessor methods for class attributes that are
         # really overridden in subclasses
