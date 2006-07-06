@@ -11,7 +11,6 @@ from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.rpython.lltypesystem.lltype import frozendict, isCompatibleType
 from types import MethodType
 from pypy.rpython.extregistry import ExtRegistryEntry
-from pypy.rpython.rmodel import Repr
 
 class ArgDesc(object):
     def __init__(self, name, ex_value):

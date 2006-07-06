@@ -1,5 +1,6 @@
 from pypy.translator.translator import TranslationContext
 from pypy.rpython.lltypesystem.lltype import *
+from pypy.rpython.lltypesystem import rtupletype
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.rint import signed_repr
 from pypy.rpython.rbool import bool_repr
@@ -9,10 +10,7 @@ import py
 def test_rtuple():
     from pypy.rpython.lltypesystem.rtuple import TupleRepr
     rtuple = TupleRepr(None, [signed_repr, bool_repr])
-    assert rtuple.lowleveltype == Ptr(GcStruct('tuple2',
-                                               ('item0', Signed),
-                                               ('item1', Bool),
-                                               hints={'immutable': True}))
+    assert rtuple.lowleveltype == rtupletype.TUPLE_TYPE([Signed, Bool])
 
 # ____________________________________________________________
 

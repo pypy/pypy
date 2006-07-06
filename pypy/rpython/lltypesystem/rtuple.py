@@ -4,6 +4,7 @@ from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.rtuple import AbstractTupleRepr, AbstractTupleIteratorRepr
 from pypy.rpython.lltypesystem.lltype import \
      Ptr, GcStruct, Void, Signed, malloc, typeOf, nullptr
+from pypy.rpython.lltypesystem.rtupletype import TUPLE_TYPE
 
 # ____________________________________________________________
 #
@@ -15,14 +16,6 @@ from pypy.rpython.lltypesystem.lltype import \
 #        type2 item2;
 #        ...
 #    }
-
-def TUPLE_TYPE(field_lltypes):
-    if len(field_lltypes) == 0:
-        return Void      # empty tuple
-    else:
-        fields = [('item%d' % i, TYPE) for i, TYPE in enumerate(field_lltypes)]
-        kwds = {'hints': {'immutable': True}}
-        return Ptr(GcStruct('tuple%d' % len(field_lltypes), *fields, **kwds))
 
 class TupleRepr(AbstractTupleRepr):
 

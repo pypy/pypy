@@ -1,4 +1,4 @@
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, rtupletype
 
 import math
 import py
@@ -19,8 +19,7 @@ def ll_math_pow(x, y):
     return math.pow(x, y)
 ll_math_pow.suggested_primitive = True
 
-FREXP_RESULT = lltype.GcStruct('tuple2', ('item0', lltype.Float),
-                               ('item1', lltype.Signed))
+FREXP_RESULT = rtupletype.TUPLE_TYPE([lltype.Float, lltype.Signed]).TO
 
 def ll_frexp_result(mantissa, exponent):
     tup = lltype.malloc(FREXP_RESULT)
@@ -45,8 +44,7 @@ def ll_math_ldexp(x, y):
     return math.ldexp(x, y)
 ll_math_ldexp.suggested_primitive = True
 
-MODF_RESULT = lltype.GcStruct('tuple2', ('item0', lltype.Float),
-                       ('item1', lltype.Float))
+MODF_RESULT = rtupletype.TUPLE_TYPE([lltype.Float, lltype.Float]).TO
 
 def ll_modf_result(fracpart, intpart):
     tup = lltype.malloc(MODF_RESULT)

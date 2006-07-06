@@ -4,7 +4,7 @@ The functions below produce L2 graphs, but they define an interface
 that can be used to produce any other kind of graph.
 """
 
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import lltype, llmemory, rtupletype
 from pypy.objspace.flow import model as flowmodel
 from pypy.translator.simplify import eliminate_empty_blocks, join_blocks
 from pypy.rpython.module.support import init_opaque_object
@@ -236,11 +236,7 @@ CONSTORVAR = lltype.Ptr(consttypeinfo.get_lltype())
 BLOCKCONTAINERTYPE = blocktypeinfo.get_lltype()
 BLOCK = lltype.Ptr(BLOCKCONTAINERTYPE)
 LINK = lltype.Ptr(linktypeinfo.get_lltype())
-
-fieldnames = ['item%d' % i for i in range(2)]
-lltypes = [LINK]*2
-fields = tuple(zip(fieldnames, lltypes))    
-LINKPAIR = lltype.GcStruct('tuple2', *fields)
+LINKPAIR = rtupletype.TUPLE_TYPE([LINK, LINK]).TO
 
 # support constants and types
 

@@ -1,10 +1,10 @@
 from pypy.rpython.module.support import LLSupport
 from pypy.rpython.module.ll_os import BaseOS
-from pypy.rpython.lltypesystem import lltype, rtuple
+from pypy.rpython.lltypesystem import lltype, rtupletype
 from pypy.rpython.rarithmetic import intmask
 
 n = 10
-STAT_RESULT = rtuple.TUPLE_TYPE([lltype.Signed]*n).TO
+STAT_RESULT = rtupletype.TUPLE_TYPE([lltype.Signed]*n).TO
 
 class Implementation(BaseOS, LLSupport):
     
