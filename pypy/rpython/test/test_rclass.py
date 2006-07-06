@@ -495,6 +495,24 @@ class BaseTestRclass(BaseRtypingTest):
         assert res.item1
 
 
+    def test_common_class_attribute(self):
+        self._skip_oo('common class attribute')
+        class A:
+            def meth(self):
+                return self.x
+        class B(A):
+            x = 42
+        class C(A):
+            x = 43
+        def call_meth(a):
+            return a.meth()
+        def f():
+            b = B()
+            c = C()
+            return call_meth(b) + call_meth(c)
+        assert self.interpret(f, []) == 85
+
+
 class TestLltype(BaseTestRclass, LLRtypeMixin):
 
     def test__del__(self):
