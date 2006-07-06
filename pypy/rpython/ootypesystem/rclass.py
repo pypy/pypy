@@ -175,6 +175,7 @@ class InstanceRepr(AbstractInstanceRepr):
             self.allfields = {}
             self.allmethods = {}
             self.allclassattributes = {}
+            self.classattributes = {}
             return
 
         if self.baserepr is not None:
@@ -301,6 +302,7 @@ class InstanceRepr(AbstractInstanceRepr):
         self.allfields = allfields
         self.allmethods = allmethods
         self.allclassattributes = allclassattributes
+        self.classattributes = classattributes
 
         # the following is done after the rest of the initialization because
         # convert_const can require 'self' to be fully initialized.
@@ -310,9 +312,13 @@ class InstanceRepr(AbstractInstanceRepr):
             oot = fields[mangled]
             ootype.addFields(self.lowleveltype, {mangled: (oot, impl)})
 
-        # step 3: provide accessor methods for class attributes that are
-        # really overridden in subclasses
-        for mangled, (s_value, value) in classattributes.items():
+    def _setup_repr_final(self):
+        # step 3: provide accessor methods for class attributes that
+        # are really overridden in subclasses. Must be done here
+        # instead of _setup_repr to avoid recursion problems if class
+        # attributes are Instances of self.lowleveltype.
+        
+        for mangled, (s_value, value) in self.classattributes.items():
             r = self.rtyper.getrepr(s_value)
             m = self.attach_class_attr_accessor(mangled, value, r)
 

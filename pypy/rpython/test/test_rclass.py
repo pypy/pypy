@@ -135,6 +135,30 @@ class BaseTestRclass(BaseRtypingTest):
         res = self.interpret(dummyfn, [])
         assert res == 6
 
+    def test_recursive_prebuilt_instance_classattr(self):
+        class Base:
+            def m(self):
+                return self.d.t.v
+        class T1(Base):
+            v = 3
+        class T2(Base):
+            v = 4
+        class D:
+            def _freeze_(self):
+                return True
+
+        t1 = T1()
+        t2 = T2()
+        T1.d = D()
+        T2.d = D()
+        T1.d.t = t1
+
+        def call_meth(obj):
+            return obj.m()
+        def fn():
+            return call_meth(t1) + call_meth(t2)
+        assert self.interpret(fn, []) == 6
+
     def test_prebuilt_instances_with_void(self):
         def marker():
             return 42
