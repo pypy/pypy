@@ -13,21 +13,23 @@ from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 SAVED_REFERENCE = llmemory.GCREF
 null_saved_ref = lltype.nullptr(SAVED_REFERENCE.TO)
 
-STORAGE_TYPES = [lltype.Void, SAVED_REFERENCE, llmemory.Address,
-                 lltype.Signed, lltype.Float, lltype.SignedLongLong,
-                 llmemory.WeakGcAddress]
+STORAGE_TYPES_AND_FIELDS = [
+    (lltype.Void, 'void'),
+    (SAVED_REFERENCE, 'ref'),
+    (llmemory.Address, 'addr'),
+    (lltype.SignedLongLong, 'longlong'),
+    (lltype.Signed, 'long'),
+    (lltype.Float, 'float'),
+    (llmemory.WeakGcAddress, 'weak'),
+     ]
 
-STORAGE_FIELDS = {SAVED_REFERENCE: 'ref',
-                  llmemory.Address: 'addr',
-                  lltype.Signed: 'long',
-                  lltype.Float: 'float',
-                  lltype.SignedLongLong: 'longlong',
-                  llmemory.WeakGcAddress: 'weak',
-                  }
+STORAGE_TYPES = [_TYPE for _TYPE, _FIELD in STORAGE_TYPES_AND_FIELDS]
 
-RETVAL_VOID = 0
-for _key, _value in STORAGE_FIELDS.items():
-    globals()['RETVAL_' + _value.upper()] = STORAGE_TYPES.index(_key)
+STORAGE_FIELDS = dict(STORAGE_TYPES_AND_FIELDS)
+del STORAGE_FIELDS[lltype.Void]
+
+for i, (_key, _value) in enumerate(STORAGE_TYPES_AND_FIELDS):
+    globals()['RETVAL_' + _value.upper()] = i
 
 def storage_type(T):
     """Return the 'erased' storage type corresponding to T.

@@ -2,7 +2,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, lloperation
 from pypy.rpython import rarithmetic
 from pypy.rpython import extfunctable
 from pypy.translator.stackless import frame
-from pypy.translator.stackless.frame import STATE_HEADER, SAVED_REFERENCE, STORAGE_FIELDS
+from pypy.translator.stackless.frame import STATE_HEADER, SAVED_REFERENCE, STORAGE_TYPES_AND_FIELDS
 
 EMPTY_STATE = frame.make_state_header_type('empty_state')
 
@@ -280,7 +280,8 @@ INDEX_RESUME_AFTER_%(TYPENAME)s = frame.RestartInfo.add_prebuilt(resume_after_%(
                                                           EMPTY_STATE])
 """
 
-for typename in STORAGE_FIELDS.values():
+for _lltype, typename in STORAGE_TYPES_AND_FIELDS:
+    if typename == 'void': continue
     if typename == 'weak': continue
     exec template%dict(typename=typename, TYPENAME=typename.upper())
 
