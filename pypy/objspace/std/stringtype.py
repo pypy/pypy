@@ -19,13 +19,13 @@ else:
         return W_StringObject(s[start:stop])
 
 if WITHSTRJOIN:
-    def joined(s1, s2):
+    def joined(strlist):
         from pypy.objspace.std.strjoinobject import W_StringJoinObject
-        return W_StringJoinObject([s1, s2])
+        return W_StringJoinObject(strlist)
 else:
-    def joined(s1, s2):
+    def joined(strlist):
         from pypy.objspace.std.stringobject import W_StringObject
-        return W_StringObject(s1 + s2)
+        return W_StringObject("".join(strlist))
 
 str_join    = SMM('join', 2,
                   doc='S.join(sequence) -> string\n\nReturn a string which is'

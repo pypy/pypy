@@ -867,8 +867,8 @@ def mul_string_times(space, w_str, w_times):
         raise OperationError(
             space.w_OverflowError, 
             space.wrap("repeated string is too long: %d %d" % (input_len, mul)))
-    return space.wrap(''.join([input] * mul))
-
+    # XXX maybe only do this when input has a big length
+    return joined([input] * mul)
 
 def mul__String_ANY(space, w_str, w_times):
     return mul_string_times(space, w_str, w_times)
@@ -879,7 +879,7 @@ def mul__ANY_String(space, w_times, w_str):
 def add__String_String(space, w_left, w_right):
     right = w_right._value
     left = w_left._value
-    return joined(left, right)
+    return joined([left, right])
 
 def len__String(space, w_str):
     return space.wrap(len(w_str._value))
