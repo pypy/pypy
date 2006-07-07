@@ -1066,6 +1066,8 @@ class _ptr(object):
         obj = self._obj
         if isinstance(obj, int):
             return obj     # special case for cast_int_to_ptr() results
+        if obj is None:
+            return 0       # NULL pointer
         obj = top_container(obj)
         result = intmask(id(obj))
         # assume that id() returns an addressish value which is

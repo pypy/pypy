@@ -569,8 +569,6 @@ class LLFrame(object):
 
     def op_cast_ptr_to_int(self, ptr1):
         checkptr(ptr1)
-        assert isinstance(lltype.typeOf(ptr1).TO, (lltype.Array, lltype.Struct)
-)
         return lltype.cast_ptr_to_int(ptr1)
 
 

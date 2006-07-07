@@ -191,6 +191,8 @@ class MarkSweepGC(GCBase):
             self.malloced_objects = hdr
         self.bytes_malloced = bytes_malloced
         result += size_gc_header
+        #llop.debug_print(lltype.Void, 'malloc typeid', typeid,
+        #                 '->', llmemory.cast_adr_to_int(result))
         return llmemory.cast_adr_to_ptr(result, llmemory.GCREF)
 
     def malloc_varsize(self, typeid, length, size, itemsize, offset_to_length,
@@ -199,9 +201,9 @@ class MarkSweepGC(GCBase):
             self.collect()
         size_gc_header = self.gcheaderbuilder.size_gc_header
         try:
+            fixsize = size_gc_header + size
             varsize = ovfcheck(itemsize * length)
-            size = ovfcheck(size + varsize)
-            tot_size = ovfcheck(size_gc_header + size)
+            tot_size = ovfcheck(fixsize + varsize)
             usage = raw_malloc_usage(tot_size)
             bytes_malloced = ovfcheck(self.bytes_malloced+usage)
             ovfcheck(self.heap_usage + bytes_malloced)
@@ -220,6 +222,9 @@ class MarkSweepGC(GCBase):
         self.bytes_malloced = bytes_malloced
             
         result += size_gc_header
+        #llop.debug_print(lltype.Void, 'malloc_varsize length', length,
+        #                 'typeid', typeid,
+        #                 '->', llmemory.cast_adr_to_int(result))
         return llmemory.cast_adr_to_ptr(result, llmemory.GCREF)
 
     def collect(self):
@@ -460,6 +465,9 @@ class MarkSweepGC(GCBase):
         # invariant: each POOL GcStruct is at the _front_ of a linked list
         # of malloced objects.
         oldpool = self.curpool
+        #llop.debug_print(lltype.Void, 'x_swap_pool',
+        #                 lltype.cast_ptr_to_int(oldpool),
+        #                 lltype.cast_ptr_to_int(newpool))
         if not oldpool:
             # make a fresh pool object, which is automatically inserted at the
             # front of the current list
@@ -502,6 +510,7 @@ class MarkSweepGC(GCBase):
         # in the specified pool.  A new pool is built to contain the
         # copies, and the 'gcobjectptr' and 'pool' fields of clonedata
         # are adjusted to refer to the result.
+        CURPOOL_FLAG = sys.maxint // 2 + 1
 
         # install a new pool into which all the mallocs go
         curpool = self.x_swap_pool(lltype.nullptr(X_POOL))
@@ -518,7 +527,7 @@ class MarkSweepGC(GCBase):
         hdr = hdr.next   # skip the POOL object itself
         while hdr:
             next = hdr.next
-            hdr.typeid |= 1    # mark all objects from malloced_list
+            hdr.typeid |= CURPOOL_FLAG   # mark all objects from malloced_list
             hdr.next = lltype.nullptr(self.HDR)  # abused to point to the copy
             oldobjects.append(llmemory.cast_ptr_to_adr(hdr))
             hdr = next
@@ -536,11 +545,11 @@ class MarkSweepGC(GCBase):
             oldhdr = llmemory.cast_adr_to_ptr(oldobj_addr - size_gc_header,
                                               self.HDRPTR)
             typeid = oldhdr.typeid
-            if not (typeid & 1):
+            if not (typeid & CURPOOL_FLAG):
                 continue   # ignore objects that were not in the malloced_list
             newhdr = oldhdr.next      # abused to point to the copy
             if not newhdr:
-                typeid >>= 1
+                typeid = (typeid & ~CURPOOL_FLAG) >> 1
                 size = self.fixed_size(typeid)
                 # XXX! collect() at the beginning if the free heap is low
                 if self.is_varsize(typeid):
@@ -556,6 +565,13 @@ class MarkSweepGC(GCBase):
                     length = -1
 
                 newobj_addr = llmemory.cast_ptr_to_adr(newobj)
+
+                #llop.debug_print(lltype.Void, 'clone',
+                #                 llmemory.cast_adr_to_int(oldobj_addr),
+                #                 '->', llmemory.cast_adr_to_int(newobj_addr),
+                #                 'typeid', typeid,
+                #                 'length', length)
+
                 newhdr_addr = newobj_addr - size_gc_header
                 newhdr = llmemory.cast_adr_to_ptr(newhdr_addr, self.HDRPTR)
                 raw_memcopy(oldobj_addr, newobj_addr, size)
@@ -585,15 +601,22 @@ class MarkSweepGC(GCBase):
                 oldhdr.next = newhdr
             newobj_addr = llmemory.cast_ptr_to_adr(newhdr) + size_gc_header
             gcptr_addr.address[0] = newobj_addr
+        stack.delete()
 
         # re-create the original linked list
         next = lltype.nullptr(self.HDR)
         while oldobjects.non_empty():
             hdr = llmemory.cast_adr_to_ptr(oldobjects.pop(), self.HDRPTR)
-            hdr.typeid &= ~1   # reset the mark bit
+            hdr.typeid &= ~CURPOOL_FLAG   # reset the flag
             hdr.next = next
             next = hdr
         oldobjects.delete()
+
+        # consistency check
+        addr = llmemory.cast_ptr_to_adr(oldpool)
+        addr -= size_gc_header
+        hdr = llmemory.cast_adr_to_ptr(addr, self.HDRPTR)
+        assert hdr.next == next
 
         # build the new pool object collecting the new objects, and
         # reinstall the pool that was current at the beginning of x_clone()
@@ -1038,6 +1061,7 @@ class DeferredRefcountingGC(GCBase):
         while roots.non_empty():
             root = roots.pop()
             self.decref(root.address[0])
+        root.delete()
         self.collecting = False
 
     def write_barrier(self, addr, addr_to, addr_struct):

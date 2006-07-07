@@ -16,6 +16,7 @@
 #define OP_ADR_LT(x,y,r)	  r = ((x) <  (y))
 #define OP_ADR_GE(x,y,r)	  r = ((x) >= (y))
 
+#define OP_CAST_ADR_TO_INT(x, r)     r = ((long)x)
 #define OP_CAST_WEAKADR_TO_INT(x, r) r = ((long)x)
 
 #ifndef HIDE_POINTER

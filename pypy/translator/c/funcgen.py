@@ -11,6 +11,7 @@ from pypy.rpython.lltypesystem.lltype import UnsignedLongLong, Char, UniChar
 from pypy.rpython.lltypesystem.lltype import pyobjectptr, ContainerType
 from pypy.rpython.lltypesystem.lltype import Struct, Array, FixedSizeArray
 from pypy.rpython.lltypesystem.lltype import ForwardReference
+from pypy.rpython.lltypesystem.llmemory import Address, WeakGcAddress
 from pypy.translator.backendopt.ssa import SSI_to_SSA
 
 PyObjPtr = Ptr(PyObject)
@@ -679,7 +680,7 @@ class FunctionCodeGenerator(object):
                 format.append('%d')
             elif T == Float:
                 format.append('%f')
-            elif isinstance(T, Ptr):
+            elif isinstance(T, Ptr) or T in (Address, WeakGcAddress):
                 format.append('%p')
             elif T == Char:
                 if isinstance(arg, Constant):
