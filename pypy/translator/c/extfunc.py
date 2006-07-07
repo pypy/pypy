@@ -8,6 +8,7 @@ from pypy.rpython.lltypesystem import rlist
 from pypy.rpython.module import ll_time, ll_math, ll_strtod
 from pypy.rpython.module import ll_stackless, ll_stack
 from pypy.rpython.lltypesystem.module.ll_os import STAT_RESULT, Implementation as impl
+from pypy.rpython.lltypesystem.module import ll_math as ll_math2
 from pypy.module.thread.rpython import ll_thread
 
 # table of functions hand-written in src/ll_*.h
@@ -42,11 +43,11 @@ EXTERNALS = {
     ll_time.ll_time_sleep: 'LL_time_sleep',
     ll_time.ll_time_time:  'LL_time_time',
     ll_math.ll_math_pow:   'LL_math_pow',
-    ll_math.ll_math_frexp: 'LL_math_frexp',
+    ll_math2.Implementation.ll_math_frexp: 'LL_math_frexp',
     ll_math.ll_math_atan2: 'LL_math_atan2',
     ll_math.ll_math_fmod : 'LL_math_fmod',
     ll_math.ll_math_ldexp: 'LL_math_ldexp',
-    ll_math.ll_math_modf:  'LL_math_modf',
+    ll_math2.Implementation.ll_math_modf:  'LL_math_modf',
     ll_math.ll_math_hypot: 'LL_math_hypot',
     ll_strtod.ll_strtod_parts_to_float:
         'LL_strtod_parts_to_float',
@@ -89,8 +90,8 @@ def predeclare_common_types(db, rtyper, optimize=True):
     LIST_OF_STR = find_list_of_str(rtyper)
     if LIST_OF_STR is not None:
         yield ('RPyListOfString', LIST_OF_STR)
-    yield ('RPyFREXP_RESULT', ll_math.FREXP_RESULT)
-    yield ('RPyMODF_RESULT', ll_math.MODF_RESULT)
+    yield ('RPyFREXP_RESULT', ll_math2.FREXP_RESULT)
+    yield ('RPyMODF_RESULT', ll_math2.MODF_RESULT)
     yield ('RPySTAT_RESULT', STAT_RESULT)
 
 def predeclare_utility_functions(db, rtyper, optimize=True):
