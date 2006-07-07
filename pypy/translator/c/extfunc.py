@@ -52,7 +52,7 @@ EXTERNALS = {
     ll_math.ll_math_hypot: 'LL_math_hypot',
     ll_strtod.ll_strtod_parts_to_float:
         'LL_strtod_parts_to_float',
-    ll_strtod2.Implementation.ll_strtod_formatd.im_func:
+    ll_strtod2.Implementation.ll_strtod_formatd:
         'LL_strtod_formatd',
     ll_thread.ll_newlock:            'LL_thread_newlock',
     ll_thread.ll_acquirelock:        'LL_thread_acquirelock',
