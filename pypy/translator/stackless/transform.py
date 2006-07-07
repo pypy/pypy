@@ -427,14 +427,15 @@ class StacklessTransformer(object):
                         self.c_inst_top_name,
                         self.c_null_state])
             varmap = {}
-            for i, arg in enumerate(resume_point.args):
+            for arg, fieldname in zip(resume_point.args,
+                                      resume_point.fieldnames):
                 assert arg is not resume_point.var_result
                 t = storage_type(arg.concretetype)
                 if t is lltype.Void:
+                    assert fieldname is None
                     v_newarg = model.Constant(None, lltype.Void)
                 else:
-                    fname = model.Constant(resume_point.fieldnames[i],
-                                           lltype.Void)
+                    fname = model.Constant(fieldname, lltype.Void)
                     v_newarg = llops.genop('getfield', [frame_top, fname],
                                            resulttype = t)
                     v_newarg = gen_cast(llops, arg.concretetype, v_newarg)
