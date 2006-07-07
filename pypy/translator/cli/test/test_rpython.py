@@ -23,8 +23,9 @@ class TestCliException(CliTest, BaseTestException):
 
 
 class TestCliClass(CliTest, BaseTestRclass):
-    def test_recursive_prebuilt_instance(self):
-        py.test.skip("gencli doesn't support recursive constants, yet")
+    def test_recursive_prebuilt_instance_classattr(self):
+        py.test.skip("gencli doesn't support abstract methods, yet")
+    test_common_class_attribute = test_recursive_prebuilt_instance_classattr
 
 
 class TestCliPBC(CliTest, BaseTestRPBC):
