@@ -349,9 +349,17 @@ class Bookkeeper:
                     s_hashfn = self.immutablevalue(x.key_hash)
                     result.dictdef.dictkey.update_rdict_annotations(s_eqfn,
                                                                     s_hashfn)
-                for ek, ev in x.iteritems():
-                    result.dictdef.generalize_key(self.immutablevalue(ek))
-                    result.dictdef.generalize_value(self.immutablevalue(ev))
+                done = False
+                while not done:
+                    try:
+                        for ek, ev in x.iteritems():
+                            result.dictdef.generalize_key(self.immutablevalue(ek))
+                            result.dictdef.generalize_value(self.immutablevalue(ev))
+                    except RuntimeError, r:
+                        pass
+                    else:
+                        done = True
+                
         elif ishashable(x) and x in BUILTIN_ANALYZERS:
             _module = getattr(x,"__module__","unknown")
             result = SomeBuiltin(BUILTIN_ANALYZERS[x], methodname="%s.%s" % (_module, x.__name__))
