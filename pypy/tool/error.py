@@ -55,8 +55,13 @@ def add_graph(msg, graph, lineno):
     
 def format_someobject_error(annotator, graph, block, what):
     #block = getattr(annotator, 'flowin_block', None) or block
-    block_start = offset2lineno(graph.func.func_code, block.operations[0].offset) - graph.startline - 1
-    block_end = offset2lineno(graph.func.func_code, block.operations[-1].offset) - graph.startline - 1
+    offset1 = offset2 = 0
+    if block.operations:
+        offset1 = block.operations[0].offset
+        offset2 = block.operations[-1].offset
+        
+    block_start = offset2lineno(graph.func.func_code, offset1) - graph.startline - 1
+    block_end = offset2lineno(graph.func.func_code, offset2) - graph.startline - 1
     msg = ["annotation of %r degenerated to SomeObject()" % (what,)]
     graph_lines = graph.source.split("\n")
     msg.append("Somewhere here:")
