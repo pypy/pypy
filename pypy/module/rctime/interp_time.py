@@ -3,6 +3,9 @@ from pypy.rpython.rctypes.tool.libc import libc
 import pypy.rpython.rctypes.implementation # this defines rctypes magic
 from pypy.rpython.rctypes.aerrno import geterrno
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.gateway import ObjSpace
+from pypy.interpreter.gateway import W_Root, NoneNotWrapped
+from pypy.objspace.std.noneobject import W_NoneObject
 from ctypes import *
 import os
 
@@ -16,6 +19,7 @@ class CConfig:
     timeval = ctypes_platform.Struct("struct timeval", [("tv_sec", c_int), ("tv_usec", c_int)])
     CLOCKS_PER_SEC = ctypes_platform.ConstantInteger("CLOCKS_PER_SEC")
     clock_t = ctypes_platform.SimpleType("clock_t", c_ulong)
+    time_t = ctypes_platform.SimpleType("time_t", c_long)
 
 class cConfig:
     pass
@@ -31,6 +35,10 @@ if hasattr(libc, "gettimeofday"):
     has_gettimeofday = True
 
 libc.clock.restype = cConfig.clock_t
+libc.time.argtypes = [POINTER(cConfig.time_t)]
+libc.time.restype = cConfig.time_t
+libc.ctime.argtypes = [POINTER(cConfig.time_t)]
+libc.ctime.restype = c_char_p
 
 def _init_accept2dyear():
     return (1, 0)[bool(os.getenv("PYTHONY2K"))]
@@ -101,3 +109,29 @@ def clock(space):
     #     windll.kernel32.QueryPerformanceCounter(byref(now))
     #     diff = float(now.QuadPart - ctrStart.QuadPart)
     #     return float(diff / divisor)
+
+def ctime(space, w_seconds=None):
+    """ctime(seconds) -> string
+
+    Convert a time in seconds since the Epoch to a string in local time.
+    This is equivalent to asctime(localtime(seconds)). When the time tuple is
+    not present, current time as returned by localtime() is used."""
+
+    # this check is done because None will be automatically wrapped
+    if space.is_w(w_seconds, space.w_None):
+        tt = cConfig.time_t()
+        tt = cConfig.time_t(libc.time(byref(tt)))
+    else:
+        seconds = space.float_w(w_seconds)
+        w_module = space.getbuiltinmodule('rctime')
+        w_check_float = space.getattr(w_module, space.wrap('_check_float'))
+        space.call_function(w_check_float, space.wrap(seconds))
+        tt = cConfig.time_t(int(seconds))
+
+    p = libc.ctime(byref(tt))
+
+    if not p:
+        raise OperationError(space.w_ValueError, space.wrap("unconvertible time"))
+
+    return space.wrap(p[:-1]) # get rid of new line
+ctime.unwrap_spec = [ObjSpace, W_Root]

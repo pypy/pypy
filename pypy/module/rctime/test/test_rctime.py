@@ -36,12 +36,15 @@ class AppTestRCTime:
         rctime.time()
         assert isinstance(rctime.time(), float)
 
-    # def test_time():
-    #     py.test.raises(TypeError, rctime.rctime, "foo")
-    #     assert rctime.time() != None
-    #     assert rctime.time() != ""
-    #     assert rctime.time(None) != None
-    #     assert rctime.time(None) != ""
+    def test_ctime(self):
+        import rctime
+        raises(TypeError, rctime.ctime, "foo")
+        rctime.ctime(None)
+        rctime.ctime()
+        res = rctime.ctime(0)
+        assert isinstance(res, str)
+        rctime.ctime(rctime.time())
+
     # 
     # def test_gmtime():
     #     py.test.raises(TypeError, rctime.gmtime, "foo")

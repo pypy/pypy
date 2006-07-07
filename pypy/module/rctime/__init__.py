@@ -5,7 +5,8 @@ class Module(MixedModule):
     interpleveldefs = {
         'accept2dyear'      : 'interp_time.accept2dyear',
         'time': 'interp_time.time',
-        'clock': 'interp_time.clock'
+        'clock': 'interp_time.clock',
+        'ctime': 'interp_time.ctime',
     }
 
     # def init(self, space):
@@ -19,5 +20,6 @@ class Module(MixedModule):
     buildloaders = classmethod(buildloaders)
 
     appleveldefs = {
-        'sleep': 'app_time.sleep'    
+        'sleep': 'app_time.sleep',
+        '_check_float': 'app_time._check_float'   
     }
