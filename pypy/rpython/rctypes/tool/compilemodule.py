@@ -8,6 +8,7 @@ into a regular CPython extension module.
 import autopath
 import sys
 
+from pypy.tool.error import debug
 
 def compilemodule(modname, interactive=False):
     "Compile a PyPy module for CPython."
@@ -68,44 +69,6 @@ def compilemodule(modname, interactive=False):
         debug(driver)
         raise SystemExit(1)
     return driver.cbuilder.c_ext_module
-
-
-def debug(drv):
-    # XXX unify some code with pypy.translator.goal.translate
-    from pypy.translator.tool.pdbplus import PdbPlusShow
-    from pypy.translator.driver import log
-    t = drv.translator
-    class options:
-        huge = 100
-
-    tb = None
-    import traceback
-    errmsg = ["Error:\n"]
-    exc, val, tb = sys.exc_info()
-    errmsg.extend([" %s" % line for line in traceback.format_exception(exc, val, tb)])
-    block = getattr(val, '__annotator_block', None)
-    if block:
-        class FileLike:
-            def write(self, s):
-                errmsg.append(" %s" % s)
-        errmsg.append("Processing block:\n")
-        t.about(block, FileLike())
-    log.ERROR(''.join(errmsg))
-
-    log.event("start debugger...")
-
-    def server_setup(port=None):
-        if port is not None:
-            from pypy.translator.tool.graphserver import run_async_server
-            serv_start, serv_show, serv_stop = self.async_server = run_async_server(t, options, port)
-            return serv_start, serv_show, serv_stop
-        else:
-            from pypy.translator.tool.graphserver import run_server_for_inprocess_client
-            return run_server_for_inprocess_client(t, options)
-
-    pdb_plus_show = PdbPlusShow(t)
-    pdb_plus_show.start(tb, server_setup, graphic=True)
-
 
 def main(argv):
     if len(argv) != 2:
