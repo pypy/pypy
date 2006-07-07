@@ -8,6 +8,7 @@ class Config(object):
         config is divided in groups, each group is an instance on the root
         (this object)
     """
+    _frozen = False
     
     def __init__(self, descr, **overrides):
         self._descr = descr
@@ -25,6 +26,8 @@ class Config(object):
             setattr(self, name, value)
 
     def __setattr__(self, name, value):
+        if self._frozen:
+            raise TypeError("trying to change a frozen option object")
         if name.startswith('_'):
             self.__dict__[name] = value
             return
@@ -44,6 +47,9 @@ class Config(object):
         child.setoption(self, value)
         self._value_owners[name] = who
 
+    def require(self, name, value):
+        self.setoption(name, value, "required")
+
     def _get_by_path(self, path):
         """returns tuple (config, name)"""
         path = path.split('.')
@@ -52,7 +58,20 @@ class Config(object):
         return self, path[-1]
 
     def _freeze_(self):
+        self._frozen = True
         return True
+
+    def getkey(self):
+        return self._descr.getkey(self)
+
+    def __hash__(self):
+        return hash(self.getkey())
+
+    def __eq__(self, other):
+        return self.getkey() == other.getkey()
+
+    def __ne__(self, other):
+        return not self == other
 
 class Option(object):
     def validate(self, value):
@@ -66,6 +85,9 @@ class Option(object):
         if not self.validate(value):
             raise ValueError('invalid value %s for option %s' % (value, name))
         config.__dict__[name] = value
+
+    def getkey(self, value):
+        return value
 
 class ChoiceOption(Option):
     def __init__(self, name, doc, values, default):
@@ -86,8 +108,9 @@ class BoolOption(ChoiceOption):
         name = self._name
         for path, reqvalue in self._requires:
             subconfig, name = config._get_by_path(path)
-            subconfig.setoption(name, reqvalue, 'required')
+            subconfig.require(name, reqvalue)
         super(BoolOption, self).setoption(config, value)
+
 
 class ListOption(Option):
     def __init__(self, name, doc, allowed_values, default=None):
@@ -106,6 +129,11 @@ class ListOption(Option):
     def getdefault(self):
         return self.default[:]
 
+    def getkey(self, value):
+        key = value[:]
+        value.sort()
+        return tuple(value)
+
 class OptionDescription(object):
     def __init__(self, name, children):
         self._name = name
@@ -115,3 +143,7 @@ class OptionDescription(object):
     def _build(self):
         for child in self._children:
             setattr(self, child._name, child)
+
+    def getkey(self, config):
+        return tuple([child.getkey(getattr(config, child._name))
+                      for child in self._children])

@@ -1,7 +1,7 @@
 from pypy.config.config import *
 import py
 
-def test_base_config():
+def make_description():
     gcoption = ChoiceOption('name', 'GC name', ['ref', 'framework'], 'ref')
     objspaceoption = ChoiceOption('objspace', 'Object space', 
                                 ['std', 'logic'], 'std')
@@ -15,6 +15,11 @@ def test_base_config():
     gcgroup = OptionDescription('gc', [gcoption])
     descr = OptionDescription('pypy', [gcgroup, booloption, objspaceoption,
                                         listoption, wantref_option])
+    return descr
+    
+
+def test_base_config():
+    descr = make_description()
     config = Config(descr, bool=False)
     
     assert config.gc.name == 'ref'
@@ -43,6 +48,7 @@ def test_base_config():
     config.wantref = True
     assert config.gc.name == 'ref'
     py.test.raises(ValueError, 'config.gc.name = "framework"')
+    config.gc.name = "ref"
 
 def test_annotator_folding():
     from pypy.translator.interactive import Translation
@@ -67,3 +73,17 @@ def test_annotator_folding():
     assert len(block.exits) == 1
     assert block.operations[0].opname == 'int_add'
 
+    # the config should be frozen now
+    py.test.raises(TypeError, 'config.gc.name = "framework"')
+
+def test_compare_configs():
+    descr = make_description()
+    conf1 = Config(descr)
+    conf2 = Config(descr, wantref=True)
+    assert conf1 != conf2
+    assert hash(conf1) != hash(conf2)
+    assert conf1.getkey() != conf2.getkey()
+    conf1.wantref = True
+    assert conf1 == conf2
+    assert hash(conf1) == hash(conf2)
+    assert conf1.getkey() == conf2.getkey()
