@@ -97,12 +97,23 @@ decodestate.stackless_explicit = True
 
 class RestartInfo(object):
 
-    def __init__(self, func_or_graph, frame_types):
+    """A RestartInfo is created (briefly) for each graph that contains
+    a resume point.
+
+    In addition, a RestartInfo is created for each function that needs
+    to do explicit stackless manipulations
+    (e.g. code.yield_current_frame_to_caller)."""
+
+    def __init__(self, func_or_graph, resume_point_count):
         self.func_or_graph = func_or_graph
-        self.frame_types = frame_types
+        self.resume_point_count = resume_point_count
+        self.frame_types = ()
 
     def compress(self, rtyper):
-        if self.frame_types:
+        """This returns sufficient information to be able to build the
+        entries that will go in the global array of restart
+        information."""
+        if self.resume_point_count > 0:
             bk = rtyper.annotator.bookkeeper
             graph = self.func_or_graph
             if not isinstance(graph, FunctionGraph):
@@ -111,11 +122,9 @@ class RestartInfo(object):
             rettype = lltype.typeOf(funcptr).TO.RESULT
             retval_type = STORAGE_TYPES.index(storage_type(rettype))
 
-            result = [{'fnaddr': llmemory.cast_ptr_to_adr(funcptr),
-                       'info':   retval_type},
-                      ]
-            for i in range(1, len(self.frame_types)):
-                result.append({'info': i})
+            result = [(llmemory.cast_ptr_to_adr(funcptr), retval_type)]
+            for i in range(1, self.resume_point_count):
+                result.append((llmemory.NULL, i))
         else:
             result = []
         return result
@@ -125,7 +134,8 @@ class RestartInfo(object):
 
     def add_prebuilt(cls, func, frame_types):
         assert func.stackless_explicit    # did you forget this flag?
-        restart = cls(func, frame_types)
+        restart = cls(func, len(frame_types))
+        restart.frame_types = frame_types
         n = cls.prebuiltindex
         cls.prebuilt.append(restart)
         cls.prebuiltindex += len(frame_types)

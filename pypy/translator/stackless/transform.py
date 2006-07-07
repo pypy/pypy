@@ -845,15 +845,14 @@ class StacklessTransformer(object):
         return llops
 
     def generate_restart_infos(self, graph):
-        frame_types = [rp.frame_state_type for rp in self.resume_points]
-        restartinfo = frame.RestartInfo(graph, frame_types)
+        restartinfo = frame.RestartInfo(graph, len(self.resume_points))
         self.register_restart_info(restartinfo)
 
     def register_restart_info(self, restartinfo):
         assert not self.is_finished
         rtyper = self.translator.rtyper
-        for frame_info_dict in restartinfo.compress(rtyper):
-            self.masterarray1.append(frame_info_dict)
+        for frame_info in restartinfo.compress(rtyper):
+            self.masterarray1.append(frame_info)
 
     def finish(self):
         # compute the final masterarray by copying over the masterarray1,
@@ -863,8 +862,7 @@ class StacklessTransformer(object):
                                     len(self.masterarray1),
                                     immortal=True)
         for dst, src in zip(masterarray, self.masterarray1):
-            for key, value in src.items():
-                setattr(dst, key, value)
+            dst.fnaddr, dst.info = src
         # horrors in the same spirit as in rpython.memory.gctransform
         # (shorter, though)
         ll_global_state = self.ll_global_state.value
