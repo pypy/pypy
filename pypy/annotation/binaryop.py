@@ -15,6 +15,7 @@ from pypy.annotation.model import SomeExternalObject
 from pypy.annotation.model import SomeAddress, SomeTypedAddressAccess
 from pypy.annotation.model import SomeWeakGcAddress
 from pypy.annotation.model import SomeCTypesObject
+from pypy.annotation.model import SomeNumpyObject
 from pypy.annotation.model import unionof, UnionError, set, missing_operation, TLS
 from pypy.annotation.model import add_knowntypedata, merge_knowntypedata
 from pypy.annotation.model import lltype_to_annotation
@@ -795,6 +796,14 @@ class __extend__(pairtype(SomeCTypesObject, SomeInteger)):
         result_ctype = s_cto.knowntype._type_
         s_result = SomeCTypesObject(result_ctype, ownsmemory=False)
         return s_result.return_annotation()
+
+class __extend__(pairtype(SomeNumpyObject, SomeInteger)):
+    def setitem((s_cto, s_index), s_value):
+        pass
+
+    def getitem((s_cto, s_index)):
+        # TODO: higher ranked arrays have getitem returns SomeNumpyObject
+        return s_cto.get_item_type()
 
 class __extend__(pairtype(SomeCTypesObject, SomeSlice)):
     # XXX ctypes array slicing not really supported for now

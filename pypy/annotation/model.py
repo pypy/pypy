@@ -455,6 +455,40 @@ class SomeCTypesObject(SomeExternalObject):
         # special case for returning primitives or c_char_p
         return getattr(entry, 's_return_trick', self)
 
+class SomeNumpyObject(SomeExternalObject):
+    """Stands for an object from the numpy module."""
+
+    typecode_to_item = {
+        'i' : SomeInteger(),
+        'f' : SomeFloat(),
+    }
+    def __init__(self, knowntype, typecode, ownsmemory):
+        self.knowntype = knowntype
+        self.ownsmemory = ownsmemory
+	self.typecode = typecode
+	self.rank = 1
+        # 'ownsmemory' specifies if the object is *statically known* to own
+        # its C memory.  If it is False, it will be rtyped as an alias object.
+        # Alias objects are allowed, at run-time, to have keepalives, so
+        # that they can indirectly own their memory too (it's just less
+        # efficient).
+
+    def can_be_none(self):
+        return True
+
+    def return_annotation(self):
+        """Returns either 'self' or the annotation of the unwrapped version
+        of this ctype, following the logic used when ctypes operations
+        return a value.
+        """
+        from pypy.rpython import extregistry
+        assert extregistry.is_registered_type(self.knowntype)
+        entry = extregistry.lookup_type(self.knowntype)
+        # special case for returning primitives or c_char_p
+        return getattr(entry, 's_return_trick', self)
+
+    def get_item_type(self):
+        return self.typecode_to_item[self.typecode]
 
 class SomeImpossibleValue(SomeObject):
     """The empty set.  Instances are placeholders for objects that
