@@ -70,8 +70,9 @@ def rtype_instantiate(hop):
         INSTANCE = hop.s_result.rtyper_makerepr(hop.rtyper).lowleveltype
         v_instance = hop.inputconst(ootype.Void, INSTANCE)
         hop2 = hop.copy()
-        r, s = hop2.r_s_popfirstarg()
-        hop2.v_s_insertfirstarg(v_instance, s) # XXX: the annotation is wrong, but it works
+        hop2.r_s_popfirstarg()
+        s_instance = hop.rtyper.annotator.bookkeeper.immutablevalue(INSTANCE)
+        hop2.v_s_insertfirstarg(v_instance, s_instance)
         return rtype_new(hop2)
     else:
         INSTANCE = hop.s_result.rtyper_makerepr(hop.rtyper).lowleveltype
