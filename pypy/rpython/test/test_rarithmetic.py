@@ -1,3 +1,4 @@
+from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.rpython.rarithmetic import *
 import sys
 import py
@@ -264,3 +265,20 @@ def test_ovfcheck_float_to_int():
 
 def test_abs():
     assert type(abs(r_longlong(1))) is r_longlong
+
+
+class BaseTestRarithmetic(BaseRtypingTest):
+    def test_formatd(self):
+        from pypy.rpython.rarithmetic import formatd
+        def f(x):
+            return formatd('%.2f', x)
+        res = self.ll_to_string(self.interpret(f, [10/3.0]))
+        assert res == '3.33'
+
+
+class TestLLtype(BaseTestRarithmetic, LLRtypeMixin):
+    pass
+
+class TestOOtype(BaseTestRarithmetic, OORtypeMixin):
+    pass
+

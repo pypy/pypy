@@ -9,6 +9,7 @@ from pypy.rpython.module import ll_time, ll_math, ll_strtod
 from pypy.rpython.module import ll_stackless, ll_stack
 from pypy.rpython.lltypesystem.module.ll_os import STAT_RESULT, Implementation as impl
 from pypy.rpython.lltypesystem.module import ll_math as ll_math2
+from pypy.rpython.lltypesystem.module import ll_strtod as ll_strtod2
 from pypy.module.thread.rpython import ll_thread
 
 # table of functions hand-written in src/ll_*.h
@@ -51,7 +52,7 @@ EXTERNALS = {
     ll_math.ll_math_hypot: 'LL_math_hypot',
     ll_strtod.ll_strtod_parts_to_float:
         'LL_strtod_parts_to_float',
-    ll_strtod.ll_strtod_formatd:
+    ll_strtod2.Implementation.ll_strtod_formatd.im_func:
         'LL_strtod_formatd',
     ll_thread.ll_newlock:            'LL_thread_newlock',
     ll_thread.ll_acquirelock:        'LL_thread_acquirelock',
