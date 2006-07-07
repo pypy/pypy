@@ -1,10 +1,14 @@
 from py.test import raises
+from pypy.conftest import gettestobjspace
 
 # def setup_module(mod):
 #     mod.t = rctime.time()
 #     mod.tup = (1, 2, 3, 4, 5, 6, 7, 8, 9)
 #     mod.st_time = rctime.struct_time(mod.tup)
 class AppTestRCTime:
+    def setup_class(cls):
+        space = gettestobjspace(usemodules=('rctime',))
+        cls.space = space
     #def test_time(self):
     #    assert t != None
     #    assert t != 0.0
@@ -111,11 +115,14 @@ class AppTestRCTime:
     #     lt = rctime.localtime()
     #     assert rctime.asrctime(tuple(lt)) == rctime.asrctime(lt)
     # 
-    # def test_struct_time():
-    #     py.test.raises(TypeError, rctime.struct_time)
-    #     py.test.raises(TypeError, rctime.struct_time, "foo")
-    #     py.test.raises(TypeError, rctime.struct_time, (1, 2, 3))
-    #     assert str(st_time) == str(tup)
+    def test_struct_time(self):
+        import rctime
+        raises(TypeError, rctime.struct_time)
+        raises(TypeError, rctime.struct_time, "foo")
+        raises(TypeError, rctime.struct_time, (1, 2, 3))
+        tup = (1, 2, 3, 4, 5, 6, 7, 8, 9)
+        st_time = rctime.struct_time(tup)
+        assert str(st_time) == str(tup)
     # 
     # def test_tzset():
     #     if not hasattr(rctime, "tzset"):

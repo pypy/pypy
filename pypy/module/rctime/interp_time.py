@@ -79,6 +79,11 @@ def _floattime():
     #     _libc.time(byref(t))
     #     return t.value
 
+def _check_float(space, seconds):
+    w_module = space.getbuiltinmodule('rctime')
+    w_check_float = space.getattr(w_module, space.wrap('_check_float'))
+    space.call_function(w_check_float, space.wrap(seconds))
+
 def time(space):
     secs = _floattime()
     return space.wrap(secs)
@@ -123,9 +128,7 @@ def ctime(space, w_seconds=None):
         tt = cConfig.time_t(libc.time(byref(tt)))
     else:
         seconds = space.float_w(w_seconds)
-        w_module = space.getbuiltinmodule('rctime')
-        w_check_float = space.getattr(w_module, space.wrap('_check_float'))
-        space.call_function(w_check_float, space.wrap(seconds))
+        _check_float(space, seconds)
         tt = cConfig.time_t(int(seconds))
 
     p = libc.ctime(byref(tt))
@@ -135,3 +138,5 @@ def ctime(space, w_seconds=None):
 
     return space.wrap(p[:-1]) # get rid of new line
 ctime.unwrap_spec = [ObjSpace, W_Root]
+
+
