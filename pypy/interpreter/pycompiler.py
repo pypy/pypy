@@ -221,10 +221,14 @@ class PythonAstCompiler(PyCodeCompiler):
                                  e.wrap_info(space, filename))
 
         if not space.is_w(self.w_compile_hook, space.w_None):
-            w_ast_tree = space.call_function(self.w_compile_hook,
-                                             space.wrap(ast_tree),
-                                             space.wrap(encoding))
-            ast_tree = space.interp_w(Node, w_ast_tree)
+            try:
+                w_ast_tree = space.call_function(self.w_compile_hook,
+                                                 space.wrap(ast_tree),
+                                                 space.wrap(encoding))
+                ast_tree = space.interp_w(Node, w_ast_tree)
+            except OperationError:
+                self.w_compile_hook = space.w_None
+                raise
         try:
             astcompiler.misc.set_filename(filename, ast_tree)
             flag_names = get_flag_names(space, flags)

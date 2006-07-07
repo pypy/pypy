@@ -27,6 +27,21 @@ class AppTest_CompilerHooks:
         exec "a = 3" in d
         assert d['a'] == 2 # well, yes ...
 
+    def test_removal_of_broken_hooks(self):
+        def hook(ast, enc):
+            1/0
+        import parser
+        parser.install_compiler_hook(hook)
+        raises(ZeroDivisionError, "eval('1')")
+        assert eval("1") == 1
+
+        def hook2(ast, enc):
+            return 1
+        parser.install_compiler_hook(hook2)
+        raises(TypeError, "eval('2')")
+        assert eval("2") == 2
+        
+
 
 class DISABLEDAppTest_GlobalsAsConsts:
     def test_ast_parser(self):
