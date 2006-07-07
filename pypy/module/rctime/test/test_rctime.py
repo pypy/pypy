@@ -20,10 +20,11 @@ class AppTestRCTime:
         import rctime
         raises(TypeError, rctime.sleep, "foo")
         rctime.sleep(1.2345)
-    # 
-    # def test_clock():
-    #     assert rctime.clock() != None
-    #     assert rctime.clock() != 0.0
+        
+    def test_clock(self):
+        import rctime
+        rctime.clock()
+        assert isinstance(rctime.clock(), float)
 
     def test_accept2dyear(self):
         import rctime

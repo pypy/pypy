@@ -5,6 +5,7 @@ class Module(MixedModule):
     interpleveldefs = {
         'accept2dyear'      : 'interp_time.accept2dyear',
         'time': 'interp_time.time',
+        'clock': 'interp_time.clock'
     }
 
     # def init(self, space):

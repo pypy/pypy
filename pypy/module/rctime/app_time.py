@@ -1,4 +1,5 @@
 import os
+
 _POSIX = os.name == "posix"
 
 def _check_float(arg):
@@ -30,3 +31,4 @@ def _float_sleep(secs):
 def sleep(secs):
     _check_float(secs)
     _float_sleep(secs)
+

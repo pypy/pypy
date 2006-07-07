@@ -6,9 +6,16 @@ from pypy.interpreter.error import OperationError
 from ctypes import *
 import os
 
+_POSIX = os.name == "posix"
+
 class CConfig:
-    _header_ = "#include <sys/time.h>"
+    _header_ = """
+    #include <sys/time.h>
+    #include <time.h>
+    """
     timeval = ctypes_platform.Struct("struct timeval", [("tv_sec", c_int), ("tv_usec", c_int)])
+    CLOCKS_PER_SEC = ctypes_platform.ConstantInteger("CLOCKS_PER_SEC")
+    clock_t = ctypes_platform.SimpleType("clock_t", c_ulong)
 
 class cConfig:
     pass
@@ -23,6 +30,7 @@ if hasattr(libc, "gettimeofday"):
     libc.gettimeofday.restype = c_int
     has_gettimeofday = True
 
+libc.clock.restype = cConfig.clock_t
 
 def _init_accept2dyear():
     return (1, 0)[bool(os.getenv("PYTHONY2K"))]
@@ -66,3 +74,30 @@ def _floattime():
 def time(space):
     secs = _floattime()
     return space.wrap(secs)
+
+def clock(space):
+    """clock() -> floating point number
+
+    Return the CPU time or real time since the start of the process or since
+    the first call to clock().  This has as much precision as the system
+    records."""
+
+    if _POSIX:
+        res = float(float(libc.clock()) / cConfig.CLOCKS_PER_SEC)
+        return space.wrap(res)
+    # elif _MS_WINDOWS:
+    #     divisor = 0.0
+    #     ctrStart = _LARGE_INTEGER()
+    #     now = _LARGE_INTEGER()
+    # 
+    #     if divisor == 0.0:
+    #         freq = _LARGE_INTEGER()
+    #         windll.kernel32.QueryPerformanceCounter(byref(ctrStart))
+    #         res = windll.kernel32.QueryPerformanceCounter(byref(freq))
+    #         if not res or freq.QuadPart == 0:
+    #             return float(windll.msvcrt.clock())
+    #         divisor = float(freq.QuadPart)
+    # 
+    #     windll.kernel32.QueryPerformanceCounter(byref(now))
+    #     diff = float(now.QuadPart - ctrStart.QuadPart)
+    #     return float(diff / divisor)
