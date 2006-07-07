@@ -1,3 +1,4 @@
+import os
 from pypy.rpython.module.support import OOSupport
 from pypy.rpython.module.ll_os import BaseOS
 from pypy.rpython.ootypesystem import ootype
@@ -27,4 +28,6 @@ class Implementation(BaseOS, OOSupport):
         return tup
     ll_stat_result = staticmethod(ll_stat_result)
 
-
+    def ll_os_read(cls, fd, count):
+        return cls.to_rstr(os.read(fd, count))
+    ll_os_read.suggested_primitive = True

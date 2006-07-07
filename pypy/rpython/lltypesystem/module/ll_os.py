@@ -1,4 +1,6 @@
+import os, errno
 from pypy.rpython.module.support import LLSupport
+from pypy.rpython.module.support import ll_strcpy
 from pypy.rpython.module.ll_os import BaseOS
 from pypy.rpython.lltypesystem import lltype, rtupletype
 from pypy.rpython.rarithmetic import intmask
@@ -24,3 +26,14 @@ class Implementation(BaseOS, LLSupport):
         return tup
     ll_stat_result = staticmethod(ll_stat_result)
 
+    def ll_os_read(cls, fd, count):
+        from pypy.rpython.lltypesystem.rstr import STR
+        if count < 0:
+            raise OSError(errno.EINVAL, None)
+        buffer = lltype.malloc(STR, count)
+        n = cls.ll_read_into(fd, buffer)
+        if n != count:
+            s = lltype.malloc(STR, n)
+            ll_strcpy(s, buffer, n)
+            buffer = s
+        return buffer

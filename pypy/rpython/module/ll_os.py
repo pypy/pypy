@@ -14,17 +14,12 @@ Dummy low-level implementations for the external functions of the 'os' module.
 # and buffer preparation stuff is not useful.
 
 import os, errno
-from pypy.rpython.lltypesystem.lltype import \
-     GcStruct, Signed, Array, Char, Ptr, malloc
 from pypy.rpython.module.support import ll_strcpy, _ll_strfill
 from pypy.rpython.module.support import to_opaque_object, from_opaque_object
 from pypy.rpython import ros
 from pypy.rpython.rarithmetic import r_longlong
 from pypy.tool.staticmethods import ClassMethods
 import stat
-
-
-
 
 class BaseOS:
     __metaclass__ = ClassMethods
@@ -48,25 +43,9 @@ class BaseOS:
     ll_read_into.suggested_primitive = True
     ll_read_into = staticmethod(ll_read_into)
 
-    def ll_os_read(cls, fd, count):
-        from pypy.rpython.lltypesystem.rstr import STR
-        if count < 0:
-            raise OSError(errno.EINVAL, None)
-        buffer = malloc(STR, count)
-        n = cls.ll_read_into(fd, buffer)
-        if n != count:
-            s = malloc(STR, n)
-            ll_strcpy(s, buffer, n)
-            buffer = s
-        return buffer
-
-
-
     def ll_os_close(cls, fd):
         os.close(fd)
     ll_os_close.suggested_primitive = True
-
-
 
     def ll_os_dup(cls, fd):
         return os.dup(fd)

@@ -167,6 +167,18 @@ class BaseTestRbuiltin(BaseRtypingTest):
         hello = open(tmpdir).read()
         assert hello == "hello world"
 
+    def test_os_read(self):
+        import os
+        tmpfile = str(udir.udir.join("os_read_test"))
+        f = file(tmpfile, 'w')
+        f.write('hello world')
+        f.close()
+        def f():
+            fd = os.open(tmpfile, os.O_RDONLY, 0777)
+            return os.read(fd, 4096)
+        res = self.interpret(f, [])
+        assert self.ll_to_string(res) == 'hello world'
+
     def test_os_dup(self):
         import os
         def fn(fd):
