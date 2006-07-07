@@ -71,8 +71,9 @@ class SymbolicRestartNumber(ComputedIntSymbolic):
 
 class FrameTyper:
     # this class only exists independently to ease testing
-    def __init__(self):
+    def __init__(self, stackless_gc=False):
         self.frametypes = {}
+        self.stackless_gc = stackless_gc
 
     def _key_for_types(self, types):
         counts = {}
@@ -84,6 +85,40 @@ class FrameTyper:
         key = lltype.frozendict(counts)
         return key
 
+    def saving_function_for_type(self, FRAME_TYPE):
+        save_block = model.Block([])
+        llops = LowLevelOpList()
+        if self.stackless_gc:
+            v_state = llops.genop(
+                'flavored_malloc',
+                [self.c_gc_nocollect, model.Constant(FRAME_TYPE, lltype.Void)],
+                resulttype=lltype.Ptr(FRAME_TYPE))
+        else:
+            v_state = llops.genop(
+                'malloc',
+                [model.Constant(FRAME_TYPE, lltype.Void)],
+                resulttype=lltype.Ptr(FRAME_TYPE))
+
+        for fieldname in FRAME_TYPE._names[1:]: # skip the 'header' field
+            TYPE = FRAME_TYPE._flds[fieldname]
+            var = varoftype(TYPE)
+            save_block.inputargs.append(var)
+            llops.genop('setfield',
+                        [v_state, model.Constant(fieldname, lltype.Void), var],
+                        resulttype=lltype.Void)
+
+        save_state_graph = model.FunctionGraph('save_' + FRAME_TYPE._name, save_block,
+                                               unsimplify.copyvar(None, v_state))
+        save_block.operations = llops
+        save_block.closeblock(model.Link([v_state], save_state_graph.returnblock))
+
+
+        FUNC_TYPE = lltype.FuncType([v.concretetype for v in save_block.inputargs],
+                                    v_state.concretetype)
+        return lltype.functionptr(FUNC_TYPE, save_state_graph.name,
+                                  graph=save_state_graph)
+        
+
     def frame_type_for_vars(self, vars):
         key = self._key_for_types([v.concretetype for v in vars])
         if key not in self.frametypes:
@@ -94,21 +129,31 @@ class FrameTyper:
                     fname = 'state_%s_%d' % (STORAGE_FIELDS[t], j)
                     fields.append((fname, t))
                     fieldsbytype.setdefault(t, []).append(fname)
-            self.frametypes[key] = (frame.make_state_header_type("FrameState", *fields),
+            
+            FRAME_TYPE = frame.make_state_header_type("FrameState", *fields)
+            self.frametypes[key] = (FRAME_TYPE,
+                                    self.saving_function_for_type(FRAME_TYPE),
                                     fieldsbytype)
-        T, fieldsbytype = self.frametypes[key]
+
+        T, save_state_funcptr, fieldsbytype = self.frametypes[key]
         data = {}
         for (k, fs) in fieldsbytype.iteritems():
             data[k] = fs[:]
         fieldnames = []
+        varsforcall = [[] for t in STORAGE_TYPES]
         for v in vars:
             if v.concretetype is lltype.Void:
                 fieldnames.append(None)
+                varsforcall.append([])
             else:
                 t = storage_type(v.concretetype)
+                varsforcall[STORAGE_TYPES.index(t)].append(v)
                 fieldnames.append(data[t].pop(0))
+        varsforcall_ = []
+        for l in varsforcall:
+            varsforcall_.extend(l)
         assert max([0] + [len(v) for v in data.itervalues()]) == 0
-        return T, fieldnames
+        return T, fieldnames, varsforcall_, save_state_funcptr
 
     def ensure_frame_type_for_types(self, frame_type):
         assert len(frame_type._names[1:]) <= 1, "too lazy"
@@ -122,7 +167,9 @@ class FrameTyper:
             fieldsbytype = {}
         if key in self.frametypes:
             assert self.frametypes[key][0] is frame_type
-        self.frametypes[key] = (frame_type, fieldsbytype)
+        self.frametypes[key] = (frame_type,
+                                self.saving_function_for_type(frame_type),
+                                fieldsbytype)
 
 
 class StacklessAnalyzer(graphanalyze.GraphAnalyzer):
@@ -166,7 +213,7 @@ class StacklessTransformer(object):
         self.translator = translator
         self.stackless_gc = stackless_gc
 
-        self.frametyper = FrameTyper()
+        self.frametyper = FrameTyper(stackless_gc)
         self.masterarray1 = []
         self.curr_graph = None
         
@@ -457,7 +504,8 @@ class StacklessTransformer(object):
             res = op.result
 
         (frame_type,
-         fieldnames) = self.frametyper.frame_type_for_vars(parms[1:])
+         fieldnames,
+         varsforcall, saver) = self.frametyper.frame_type_for_vars(parms[1:])
 
         label = op.args[0].value
 
@@ -488,7 +536,7 @@ class StacklessTransformer(object):
         # XXX we do not look at op.args[0], the prevstate, at all
         label = op.args[1].value
         parms = op.args[2:]
-        FRAME, fieldnames = self.frametyper.frame_type_for_vars(parms)
+        FRAME, fieldnames, varsforcall, saver = self.frametyper.frame_type_for_vars(parms)
 
         if label in self.explicit_resume_point_data:
             other_type = self.explicit_resume_point_data[label]
@@ -615,12 +663,12 @@ class StacklessTransformer(object):
 
         args = vars_to_save(block)
 
-        save_block, resume_block = self.generate_save_and_resume_blocks(
+        save_block, resume_block, varsforcall = self.generate_save_and_resume_blocks(
             args, var_unwind_exception, op.result, block.exits)
 
         self.resume_blocks.append(resume_block)
 
-        newlink = model.Link(args + [var_unwind_exception], 
+        newlink = model.Link(varsforcall + [var_unwind_exception], 
                              save_block, code.UnwindException)
         newlink.last_exception = model.Constant(code.UnwindException,
                                                 etype)
@@ -696,59 +744,46 @@ class StacklessTransformer(object):
 
     def generate_save_and_resume_blocks(self, varstosave, var_exception,
                                         var_result, links_to_resumption):
-        frame_type, fieldnames = self.frametyper.frame_type_for_vars(varstosave)
-        return (self._generate_save_block(varstosave, var_exception, frame_type, fieldnames),
+        frame_type, fieldnames, varsforcall, saver = self.frametyper.frame_type_for_vars(varstosave)
+        return (self._generate_save_block(varsforcall, var_exception,
+                                          frame_type, fieldnames, saver),
                 self._generate_resume_block(varstosave, frame_type, fieldnames,
-                                            var_result, links_to_resumption))
+                                            var_result, links_to_resumption),
+                varsforcall)
 
-    def _generate_save_block(self, varstosave, var_unwind_exception, frame_type, fieldnames):
+    def _generate_save_block(self, varsforcall, var_unwind_exception,
+                             frame_type, fieldnames, saver):
         rtyper = self.translator.rtyper
         edata = rtyper.getexceptiondata()
         etype = edata.lltype_of_exception_type
         evalue = edata.lltype_of_exception_value
-        inputargs = [unsimplify.copyvar(None, v) for v in varstosave]
+        inputargs = [unsimplify.copyvar(None, v) for v in varsforcall]
         var_unwind_exception = unsimplify.copyvar(None, var_unwind_exception)
-        
+
         save_state_block = model.Block(inputargs + [var_unwind_exception])
-        saveops = save_state_block.operations
-        frame_state_var = varoftype(lltype.Ptr(frame_type))
-
-        if self.stackless_gc:
-            saveops.append(model.SpaceOperation(
-                'flavored_malloc',
-                [self.c_gc_nocollect, model.Constant(frame_type, lltype.Void)],
-                frame_state_var))
-        else:
-            saveops.append(model.SpaceOperation(
-                'malloc',
-                [model.Constant(frame_type, lltype.Void)],
-                frame_state_var))
-
-        saveops.extend(self.generate_saveops(frame_state_var, inputargs,
-                                             fieldnames))
-
-        var_exc = varoftype(self.unwind_exception_type)
-        saveops.append(model.SpaceOperation(
-            "cast_pointer",
-            [var_unwind_exception], 
-            var_exc))
+        saveops = LowLevelOpList()
         
-        var_header = varoftype(lltype.Ptr(STATE_HEADER))
-    
-        saveops.append(model.SpaceOperation(
-            "cast_pointer", [frame_state_var], var_header))
+        realvarsforcall = []
+        for v in inputargs:
+            realvarsforcall.append(gen_cast(saveops, storage_type(v.concretetype), v))
+        
+        frame_state_var = saveops.genop('direct_call',
+                                        [model.Constant(saver, lltype.typeOf(saver))] + realvarsforcall,
+                                        resulttype=lltype.Ptr(frame_type))
 
-        saveops.append(model.SpaceOperation(
-            "direct_call",
-            [self.add_frame_state_ptr, var_exc, var_header],
-            varoftype(lltype.Void)))
+        var_exc = gen_cast(saveops, self.unwind_exception_type, var_unwind_exception)
+        var_header = gen_cast(saveops, lltype.Ptr(STATE_HEADER), frame_state_var)
+
+        saveops.genop('direct_call', [self.add_frame_state_ptr, var_exc, var_header],
+                      resulttype=lltype.Void)
 
         f_restart = len(self.masterarray1) + len(self.resume_blocks)
-        saveops.append(model.SpaceOperation(
-            "setfield",
-            [var_header, self.c_f_restart_name,
-             model.Constant(f_restart, lltype.Signed)],
-            varoftype(lltype.Void)))
+
+        saveops.genop("setfield",
+                      [var_header, self.c_f_restart_name, model.Constant(f_restart, lltype.Signed)],
+                      resulttype=lltype.Void)
+
+        save_state_block.operations = saveops
 
         type_repr = rclass.get_type_repr(rtyper)
         c_unwindexception = model.Constant(
