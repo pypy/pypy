@@ -455,10 +455,14 @@ class InstanceRepr(AbstractInstanceRepr):
                 try:
                     attrvalue = getattr(value, name)
                 except AttributeError:
-                    warning("prebuilt instance %r has no attribute %r" % (
-                        value, name))
-                    continue
-                llattrvalue = self.allfields[mangled].convert_const(attrvalue)
+                    attrvalue = self.classdef.classdesc.read_attribute(name, None)
+                    if attrvalue is None:
+                        warning("prebuilt instance %r has no attribute %r" % (
+                                value, name))
+                        continue
+                    llattrvalue = r.convert_desc_or_const(attrvalue)
+                else:
+                    llattrvalue = self.allfields[mangled].convert_const(attrvalue)
             setattr(result, mangled, llattrvalue)
 
 buildinstancerepr = InstanceRepr
