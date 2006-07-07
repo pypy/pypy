@@ -19,12 +19,15 @@ import traceback
 
 def source_lines(graph, block, operindex=None, offset=None, long=False, \
     show_lines_of_code=SHOW_DEFAULT_LINES_OF_CODE):
-    source = graph.source
     if block is not None:
         if block is graph.returnblock:
             return ['<return>']
-    if source is not None:
-        graph_lines = graph.source.split("\n")
+    try:
+        source = graph.source
+    except AttributeError:
+        return ['no source!']
+    else:
+        graph_lines = source.split("\n")
         if offset is not None:
             linestart = offset2lineno(graph.func.func_code, offset)
             linerange = (linestart, linestart)
@@ -54,8 +57,6 @@ def source_lines(graph, block, operindex=None, offset=None, long=False, \
             if n == here:
                 lines.append('^ HERE')
         return lines
-    else:
-        return ['no source!']
 
 class FlowingError(Exception):
     pass

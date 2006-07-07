@@ -65,10 +65,11 @@ class FunctionGraph(object):
 
     def getsource(self):
         from pypy.tool.sourcetools import getsource
-        func = getattr(self, 'func', None)
-        if func is None:
-            return None
-        return getsource(self.func)
+        func = self.func    # can raise AttributeError
+        src = getsource(self.func)
+        if src is None:
+            raise AttributeError('source not found')
+        return src
     source = roproperty(getsource)
     
     def getstartline(self):
