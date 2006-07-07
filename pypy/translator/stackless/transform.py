@@ -270,13 +270,16 @@ class StacklessTransformer(object):
              annmodel.SomePtr(lltype.Ptr(STATE_HEADER))],
             l2a(lltype.Void))
 
+        # order really matters on 64 bits machines on which
+        # longlong==signed; so lltype.Signed must appear *after*
+        # longlong in this dict
         self.fetch_retvals = {
             lltype.Void: mixlevelannotator.constfunc(
                 code.fetch_retval_void, [], annmodel.s_None),
-            lltype.Signed: mixlevelannotator.constfunc(
-                code.fetch_retval_long, [], annmodel.SomeInteger()),
             lltype.SignedLongLong: mixlevelannotator.constfunc(
                 code.fetch_retval_longlong, [], annmodel.SomeInteger(knowntype=rarithmetic.r_longlong)),
+            lltype.Signed: mixlevelannotator.constfunc(
+                code.fetch_retval_long, [], annmodel.SomeInteger()),
             lltype.Float: mixlevelannotator.constfunc(
                 code.fetch_retval_float, [], annmodel.SomeFloat()),
             llmemory.Address: mixlevelannotator.constfunc(
@@ -305,18 +308,21 @@ class StacklessTransformer(object):
             code.yield_current_frame_to_caller, [], s_StatePtr)
 
         s_hdrptr = annmodel.SomePtr(lltype.Ptr(STATE_HEADER))
+        # order really matters on 64 bits machines on which
+        # longlong==signed; so lltype.Signed must appear *after*
+        # longlong in this dict
         self.resume_afters = {
             lltype.Void: mixlevelannotator.constfunc(
                 code.resume_after_void,
                 [s_StatePtr, annmodel.s_None],
                 annmodel.s_None),
-            lltype.Signed: mixlevelannotator.constfunc(
-                code.resume_after_long,
-                [s_StatePtr, annmodel.SomeInteger()],
-                annmodel.s_None),
             lltype.SignedLongLong: mixlevelannotator.constfunc(
                 code.resume_after_longlong,
                 [s_StatePtr, annmodel.SomeInteger(knowntype=rarithmetic.r_longlong)],
+                annmodel.s_None),
+            lltype.Signed: mixlevelannotator.constfunc(
+                code.resume_after_long,
+                [s_StatePtr, annmodel.SomeInteger()],
                 annmodel.s_None),
             lltype.Float: mixlevelannotator.constfunc(
                 code.resume_after_float,

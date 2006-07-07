@@ -23,13 +23,18 @@ STORAGE_TYPES_AND_FIELDS = [
     (llmemory.WeakGcAddress, 'weak'),
      ]
 
-STORAGE_TYPES = [_TYPE for _TYPE, _FIELD in STORAGE_TYPES_AND_FIELDS]
+STORAGE_TYPES = []
+for _TYPE, _FIELD in STORAGE_TYPES_AND_FIELDS:
+    # we do not want to add the longlong type twice on 64 bits
+    # machines on which longlong is the same as signed
+    if _TYPE not in STORAGE_TYPES:
+        STORAGE_TYPES.append(_TYPE)
 
 STORAGE_FIELDS = dict(STORAGE_TYPES_AND_FIELDS)
 del STORAGE_FIELDS[lltype.Void]
 
-for i, (_key, _value) in enumerate(STORAGE_TYPES_AND_FIELDS):
-    globals()['RETVAL_' + _value.upper()] = i
+for (_key, _value) in STORAGE_TYPES_AND_FIELDS:
+    globals()['RETVAL_' + _value.upper()] = STORAGE_TYPES.index(_key)
 
 def storage_type(T):
     """Return the 'erased' storage type corresponding to T.
