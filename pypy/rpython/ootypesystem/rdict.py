@@ -4,6 +4,8 @@ from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.rdict import AbstractDictRepr, AbstractDictIteratorRepr,\
      rtype_newdict, dum_variant, dum_keys, dum_values, dum_items
+from pypy.rpython.rpbc import MethodOfFrozenPBCRepr,\
+     AbstractFunctionsPBCRepr, AbstractMethodsPBCRepr
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem.rlist import ll_newlist
 from pypy.rpython.rarithmetic import r_uint
@@ -167,12 +169,12 @@ class DictRepr(AbstractDictRepr):
                 interp = llinterp.LLInterpreter(self.rtyper)
                 # key equality function
                 eq_func = self.r_rdict_eqfn.convert_const(dictobj.key_eq)
-                eq_name, interp_eq = llinterp.wrap_func_or_boundmethod(interp, eq_func, None)
+                eq_name, interp_eq = llinterp.wrap_callable(interp, eq_func, None, None)
                 EQ_FUNC = ootype.StaticMethod([self.DICT._KEYTYPE, self.DICT._KEYTYPE], ootype.Bool)
                 sm_eq = ootype.static_meth(EQ_FUNC, eq_name, _callable=interp_eq)
                 # key hashing function
                 hash_func = self.r_rdict_hashfn.convert_const(dictobj.key_hash)
-                hash_name, interp_hash = llinterp.wrap_func_or_boundmethod(interp, hash_func, None)
+                hash_name, interp_hash = llinterp.wrap_callable(interp, hash_func, None, None)
                 HASH_FUNC = ootype.StaticMethod([self.DICT._KEYTYPE], ootype.Signed)
                 sm_hash = ootype.static_meth(HASH_FUNC, hash_name, _callable=interp_hash)
                 l_dict.ll_set_functions(sm_eq, sm_hash)
@@ -223,40 +225,52 @@ class __extend__(pairtype(DictRepr, rmodel.Repr)):
         hop.exception_cannot_occur()
         return r_dict.send_message(hop, 'll_contains')
 
+def _get_call_vars(hop, r_func, arg, params_annotation):
+    if isinstance(r_func, AbstractFunctionsPBCRepr):
+        v_fn = hop.inputarg(r_func, arg=arg)
+        v_obj = hop.inputconst(ootype.Void, None)
+        c_method_name = hop.inputconst(ootype.Void, None)
+    elif isinstance(r_func, AbstractMethodsPBCRepr):
+        s_pbc_fn = hop.args_s[arg]
+        methodname = r_func._get_method_name("simple_call", s_pbc_fn, params_annotation)
+        v_fn = hop.inputconst(ootype.Void, None)
+        v_obj = hop.inputarg(r_func, arg=arg)
+        c_method_name = hop.inputconst(ootype.Void, methodname)
+    elif isinstance(r_func, MethodOfFrozenPBCRepr):
+        r_impl, nimplicitarg = r_func.get_r_implfunc()
+        v_fn = hop.inputconst(r_impl, r_func.funcdesc.pyobj)
+        v_obj = hop.inputarg(r_func, arg=arg)
+        c_method_name = hop.inputconst(ootype.Void, None)
+
+    return v_fn, v_obj, c_method_name
 
 def rtype_r_dict(hop):
     r_dict = hop.r_result
     if not r_dict.custom_eq_hash:
         raise TyperError("r_dict() call does not return an r_dict instance")
-    v_eqfn, v_hashfn = hop.inputargs(r_dict.r_rdict_eqfn,
-                                     r_dict.r_rdict_hashfn)
     cDICT = hop.inputconst(ootype.Void, r_dict.DICT)
     hop.exception_cannot_occur()
 
-    if r_dict.r_rdict_eqfn.lowleveltype == ootype.Void:
-        c_eq_method_name = hop.inputconst(ootype.Void, None)
-    else:
-        # simulate a call to the method to get the exact variant name we need
-        s_pbc_eq = hop.args_s[0] # the instance which we take key_eq from
-        s_key = r_dict.dictkey.s_value
-        methodname = r_dict.r_rdict_eqfn._get_method_name("simple_call", s_pbc_eq, [s_key, s_key])
-        c_eq_method_name = hop.inputconst(ootype.Void, methodname)
+    # the signature of oonewcustomdict is a bit complicated because we
+    # can have three different ways to pass the equal (and hash)
+    # callables:    
+    #   1. pass a plain function: v_eqfn is a StaticMethod, v_eqobj
+    #      and c_eq_method_name are None
+    #   2. pass a bound method: v_eqfn is None, v_eqobj is the
+    #      instance, c_method_name is the name of the method,
+    #   3. pass a method of a frozen PBC: v_eqfn is a StaticMethod,
+    #      v_eqobj is the PBC to be pushed in front of the StaticMethod,
+    #      c_eq_method_name is None
 
-    if r_dict.r_rdict_hashfn.lowleveltype == ootype.Void:
-        c_hash_method_name = hop.inputconst(ootype.Void, None)
-    else:
-        # same as above
-        s_pbc_hash = hop.args_s[1] # the instance which we take key_hash from
-        s_key = r_dict.dictkey.s_value
-        methodname = r_dict.r_rdict_hashfn._get_method_name("simple_call", s_pbc_hash, [s_key])
-        c_hash_method_name = hop.inputconst(ootype.Void, methodname)
+    s_key = r_dict.dictkey.s_value
+    v_eqfn, v_eqobj, c_eq_method_name =\
+             _get_call_vars(hop, r_dict.r_rdict_eqfn, 0, [s_key, s_key])
+    v_hashfn, v_hashobj, c_hash_method_name =\
+               _get_call_vars(hop, r_dict.r_rdict_hashfn, 1, [s_key])
 
-    # the signature of oonewcustomdict is a bit complicated: v_eqfn
-    # can be either a function (with lowleveltype StaticMethod) or a
-    # bound method (with lowleveltype Instance). In the first case
-    # c_eq_method_name is None, in the latter it's a constant Void
-    # string containing the name of the method we want to call.
-    return hop.genop("oonewcustomdict", [cDICT, v_eqfn, c_eq_method_name, v_hashfn, c_hash_method_name],
+    return hop.genop("oonewcustomdict", [cDICT,
+                                         v_eqfn, v_eqobj, c_eq_method_name,
+                                         v_hashfn, v_hashobj, c_hash_method_name],
                      resulttype=hop.r_result.lowleveltype)
 
 def ll_newdict(DICT):

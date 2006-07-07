@@ -751,14 +751,15 @@ class LLFrame(object):
     def op_runtimenew(self, class_):
         return ootype.runtimenew(class_)
 
-    def op_oonewcustomdict(self, DICT, eq_func, eq_method_name, hash_func, hash_method_name):
+    def op_oonewcustomdict(self, DICT, eq_func, eq_obj, eq_method_name,
+                           hash_func, hash_obj, hash_method_name):
         eq_name, interp_eq = \
-                 wrap_func_or_boundmethod(self.llinterpreter, eq_func, eq_method_name)
+                 wrap_callable(self.llinterpreter, eq_func, eq_obj, eq_method_name)
         EQ_FUNC = ootype.StaticMethod([DICT._KEYTYPE, DICT._KEYTYPE], ootype.Bool)
         sm_eq = ootype.static_meth(EQ_FUNC, eq_name, _callable=interp_eq)        
 
         hash_name, interp_hash = \
-                   wrap_func_or_boundmethod(self.llinterpreter, hash_func, hash_method_name)
+                   wrap_callable(self.llinterpreter, hash_func, hash_obj, hash_method_name)
         HASH_FUNC = ootype.StaticMethod([DICT._KEYTYPE], ootype.Signed)
         sm_hash = ootype.static_meth(HASH_FUNC, hash_name, _callable=interp_hash)
 
@@ -924,23 +925,31 @@ class Tracer(object):
     def flush(self):
         self.file.flush()
 
-def wrap_func_or_boundmethod(llinterpreter, func, method_name):
+def wrap_callable(llinterpreter, fn, obj, method_name):
+    if method_name is None:
+        # fn is a HalfConcreteWrapper wrapping a StaticMethod
+        if obj is not None:
+            self_arg = [obj]
+        else:
+            self_arg = []
+        func_graph = fn.concretize().value.graph
+    else:
+        # obj is an instance, we want to call 'method_name' on it
+        assert fn is None        
+        self_arg = [obj]
+        func_graph = obj._TYPE._methods[method_name].graph
+
+    return wrap_graph(llinterpreter, func_graph, self_arg)
+
+def wrap_graph(llinterpreter, graph, self_arg):
     """
     Returns a callable that inteprets the given func or method_name when called.
     """
-    if method_name is None:
-        # eq_func is a HalfConcreteWrapper wrapping a StaticMethod
-        self_arg = []
-        func_graph = func.concretize().value.graph
-    else:
-        # eq_func is an instance, we want to call 'method_name' on it
-        self_arg = [func]
-        func_graph = func._TYPE._methods[method_name].graph
 
     def interp_func(*args):
         graph_args = self_arg + list(args)
-        return llinterpreter.eval_graph(func_graph, args=graph_args)
-    return func_graph.name, interp_func
+        return llinterpreter.eval_graph(graph, args=graph_args)
+    return graph.name, interp_func
 
 
 # by default we route all logging messages to nothingness
