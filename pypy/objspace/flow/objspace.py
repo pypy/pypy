@@ -259,13 +259,13 @@ class FlowObjSpace(ObjSpace):
         graph.defaults = func.func_defaults or ()
         self.setup_executioncontext(ec)
 
-        from pypy.tool.error import AnnotatorError, format_global_error
+        from pypy.tool.error import FlowingError, format_global_error
 
         try:
             ec.build_flow()
-        except AnnotatorError, a:
+        except FlowingError, a:
             # attach additional source info to AnnotatorError
-            raise AnnotatorError(format_global_error(ec.graph, ec.crnt_offset, str(a)))
+            raise FlowingError(format_global_error(ec.graph, ec.crnt_offset, str(a)))
         checkgraph(graph)
         return graph
 

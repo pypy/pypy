@@ -16,16 +16,56 @@ SHOW_ANNOTATIONS = True
 from pypy.interpreter.pytraceback import offset2lineno
 import traceback
 
+def source_lines(graph, block, operindex=None, offset=None, long=False):
+    source = graph.source
+    if block is not None:
+        if block is graph.returnblock:
+            return ['<return>']
+    if source is not None:
+        graph_lines = graph.source.split("\n")
+        if offset is not None:
+            linestart = offset2lineno(graph.func.func_code, offset)
+            linerange = (linestart, linestart)
+            here = None
+        else:
+            if block is None or not block.operations:
+                return []
+            def toline(operindex):
+                return offset2lineno(graph.func.func_code, block.operations[operindex].offset)
+            if operindex is None:
+                linerange =  (toline(0), toline(-1))
+                if not long:
+                    return ['?']
+                here = None
+            else:
+                operline = toline(operindex)
+                if long:
+                    linerange =  (toline(0), toline(-1))
+                    here = operline
+                else:
+                    linerange = (operline, operline)
+                    here = None
+        lines = ["Happened at file %s line %d" % (graph.filename, here or linerange[0])]
+        for n in range(linerange[0], linerange[1]+1):
+            lines.append(graph_lines[n-graph.startline-1])
+            if n == here:
+                lines.append('^ HERE')
+        return lines
+    else:
+        return ['no source!']
+
+class FlowingError(Exception):
+    pass
+
 class AnnotatorError(Exception):
     pass
 
 def gather_error(annotator, block, graph):
-    oper = block.operations[annotator.why_not_annotated[block][1].break_at[2]]
-    offset = oper.offset
-    lineno = offset2lineno(graph.func.func_code, offset)
     msg = []
     msg.append('-+' * 30)
     msg.append("Operation cannot succeed")
+    _, _, operindex = annotator.why_not_annotated[block][1].break_at
+    oper = block.operations[operindex]
     msg.append(" " + str(oper))
     if SHOW_ANNOTATIONS:
         msg.append("Known variable annotations:")
@@ -36,57 +76,36 @@ def gather_error(annotator, block, graph):
                 except KeyError:
                     pass
         msg.append("")
-    msg.append("Happened at file %s line %d" % (graph.filename, lineno))    
     if SHOW_TRACEBACK:
         msg.extend(traceback.format_exception(*annotator.why_not_annotated[block]))
-    add_graph(msg, graph, lineno)
+    msg += source_lines(graph, block, operindex, long=True)
     return "\n".join(msg)
 
-def add_graph(msg, graph, lineno):
-    graph_lines = graph.source.split("\n")
-    graph_lineno = lineno - graph.startline
-    msg.append("")
-    str_num = (len(graph_lines[graph_lineno]) - 6)/2
-    for num, line in enumerate(graph_lines + [""]):
-        msg.append(line)
-        if num == graph_lineno:
-            msg.append("^" * str_num + " HERE " + "^" * str_num)
-    msg.append('-+' * 30)
-    
-def format_someobject_error(annotator, graph, block, what):
-    #block = getattr(annotator, 'flowin_block', None) or block
-    offset1 = offset2 = 0
-    if block.operations:
-        offset1 = block.operations[0].offset
-        offset2 = block.operations[-1].offset
-        
-    block_start = offset2lineno(graph.func.func_code, offset1) - graph.startline - 1
-    block_end = offset2lineno(graph.func.func_code, offset2) - graph.startline - 1
-    msg = ["annotation of %r degenerated to SomeObject()" % (what,)]
-    graph_lines = graph.source.split("\n")
-    msg.append("Somewhere here:")
-    for num, line in enumerate(graph_lines + [""]):
-        msg.append(line)
-        if num == block_start:
-            str_num = (len(graph_lines[num + 1]) - 6)/2
-            msg.append("-"*str_num + " BELOW " + "-"*str_num)
-        elif num == block_end:
-            str_num = (len(graph_lines[num]) - 6)/2
-            msg.append("^"*str_num + " ABOVE " + "^"*str_num)
-    return "\n".join(msg)
-
-def format_annotation_error(annotator, blocked_blocks, graph):
+def format_blocked_annotation_error(annotator, blocked_blocks, graph):
     text = ""
     for block in blocked_blocks:
         text += gather_error(annotator, block, graph)
     return text
+    
+def format_someobject_error(annotator, position_key, what, s_value, called_from_graph):
+    #block = getattr(annotator, 'flowin_block', None) or block
+    msg = ["annotation of %r degenerated to SomeObject()" % (what,)]
+    if position_key is not None:
+        graph, block, operindex = position_key
+        msg += source_lines(graph, block, operindex, long=True)
+        
+    if called_from_graph is not None:
+        msg.append(".. called from %r" % (called_from_graph,))
+    if s_value.origin is not None:
+        msg.append(".. SomeObject() origin: %s" % (
+            annotator.whereami(s_value.origin),))
+    return "\n".join(msg)
 
 def format_global_error(graph, offset, message):
     msg = []
     msg.append('-+' * 30)
-    lineno = offset2lineno(graph.func.func_code, offset)
     msg.append(message)
-    add_graph(msg, graph, lineno)
+    msg += source_lines(graph, None, offset=offset)
     return "\n".join(msg)
 
 def debug(drv):

@@ -17,8 +17,8 @@ class OperationError(Exception):
 
     def __init__(self, w_type, w_value, tb=None):
         if w_type is None:
-            from pypy.tool.error import AnnotatorError
-            raise AnnotatorError(w_value)
+            from pypy.tool.error import FlowingError
+            raise FlowingError(w_value)
         self.w_type = w_type
         self.w_value = w_value
         self.application_traceback = tb

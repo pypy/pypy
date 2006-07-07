@@ -12,7 +12,7 @@ import py
 log = py.log.Producer("annrpython") 
 py.log.setconsumer("annrpython", ansi_log) 
 
-from pypy.tool.error import format_annotation_error, format_someobject_error, AnnotatorError
+from pypy.tool.error import format_blocked_annotation_error, format_someobject_error, AnnotatorError
 
 FAIL = object()
 
@@ -216,7 +216,7 @@ class RPythonAnnotator:
             blocked_blocks = [block for block, done in self.annotated.items()
                                     if done is False]
 
-            text = format_annotation_error(self, blocked_blocks, graph)
+            text = format_blocked_annotation_error(self, blocked_blocks, graph)
             #raise SystemExit()
             raise AnnotatorError(text)
         # make sure that the return variables of all graphs is annotated
@@ -258,8 +258,6 @@ class RPythonAnnotator:
     def ondegenerated(self, what, s_value, where=None, called_from_graph=None):
         if self.policy.allow_someobjects:
             return
-
-    
         # is the function itself tagged with allow_someobjects?
         position_key = where or getattr(self.bookkeeper, 'position_key', None)
         if position_key is not None:
@@ -271,16 +269,10 @@ class RPythonAnnotator:
                 pass
 
         graph = position_key[0]
-        msgstr = format_someobject_error(self, graph, block, what)
+        msgstr = format_someobject_error(self, position_key, what, s_value,
+                                         called_from_graph)
         
-##        if position_key is not None:
-##            msglines.append(".. position: %s" % (self.whereami(position_key),))
-##        if called_from_graph is not None:
-##            msglines.append(".. called from %r" % (called_from_graph,))
-##        if s_value.origin is not None:
-##            msglines.append(".. SomeObject() origin: %s" % (
-##                self.whereami(s_value.origin),))
-        # FIXME: we need that as well as error handler
+
         raise AnnotatorError(msgstr)
 
     def setbinding(self, arg, s_value, called_from_graph=None, where=None):

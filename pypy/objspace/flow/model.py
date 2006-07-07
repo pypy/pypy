@@ -65,6 +65,9 @@ class FunctionGraph(object):
 
     def getsource(self):
         from pypy.tool.sourcetools import getsource
+        func = getattr(self, 'func', None)
+        if func is None:
+            return None
         return getsource(self.func)
     source = roproperty(getsource)
     
