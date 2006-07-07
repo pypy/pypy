@@ -16,10 +16,12 @@ class CConfig:
     #include <sys/time.h>
     #include <time.h>
     """
-    timeval = ctypes_platform.Struct("struct timeval", [("tv_sec", c_int), ("tv_usec", c_int)])
-    tm = ctypes_platform.Struct("struct tm", [("tm_sec", c_int), ("tm_min", c_int),
-        ("tm_hour", c_int), ("tm_mday", c_int), ("tm_mon", c_int), ("tm_year", c_int),
-        ("tm_wday", c_int), ("tm_yday", c_int), ("tm_isdst", c_int), ("tm_gmtoff", c_long),
+    timeval = ctypes_platform.Struct("struct timeval", [("tv_sec", c_int),
+        ("tv_usec", c_int)])
+    tm = ctypes_platform.Struct("struct tm", [("tm_sec", c_int),
+        ("tm_min", c_int), ("tm_hour", c_int), ("tm_mday", c_int),
+        ("tm_mon", c_int), ("tm_year", c_int), ("tm_wday", c_int),
+        ("tm_yday", c_int), ("tm_isdst", c_int), ("tm_gmtoff", c_long),
         ("tm_zone", c_char_p)])
     CLOCKS_PER_SEC = ctypes_platform.ConstantInteger("CLOCKS_PER_SEC")
     clock_t = ctypes_platform.SimpleType("clock_t", c_ulong)
@@ -46,6 +48,8 @@ libc.ctime.argtypes = [POINTER(cConfig.time_t)]
 libc.ctime.restype = c_char_p
 libc.gmtime.argtypes = [POINTER(cConfig.time_t)]
 libc.gmtime.restype = POINTER(cConfig.tm)
+libc.localtime.argtypes = [POINTER(cConfig.time_t)]
+libc.localtime.restype = POINTER(cConfig.tm)
 
 def _init_accept2dyear():
     return (1, 0)[bool(os.getenv("PYTHONY2K"))]
@@ -103,14 +107,6 @@ def _get_floattime(space, w_seconds):
         seconds = space.float_w(w_seconds)
         _check_float(space, seconds)
     return seconds
-
-def _get_time(space, func, seconds):
-    whent = cConfig.time_t(int(seconds))
-    p = func(byref(whent))
-    
-    if not p:
-        raise OperationError(space.w_ValueError, space.wrap(_get_error_msg()))
-    return _tm_to_tuple(space, p.contents)
 
 def _tm_to_tuple(space, t):
     time_tuple = []
@@ -172,7 +168,8 @@ def ctime(space, w_seconds=None):
 
     p = libc.ctime(byref(tt))
     if not p:
-        raise OperationError(space.w_ValueError, space.wrap("unconvertible time"))
+        raise OperationError(space.w_ValueError,
+            space.wrap("unconvertible time"))
 
     return space.wrap(p[:-1]) # get rid of new line
 ctime.unwrap_spec = [ObjSpace, W_Root]
@@ -182,7 +179,31 @@ def gmtime(space, w_seconds=None):
                           tm_sec, tm_wday, tm_yday, tm_isdst)
 
     Convert seconds since the Epoch to a time tuple expressing UTC (a.k.a.
-    GMT).  When 'seconds' is not passed in, convert the current time instead."""
+    GMT).  When 'seconds' is not passed in, convert the current time instead.
+    """
+
+    # rpython does not support that a variable has two incompatible builtins
+    # as value so we have to duplicate the code. NOT GOOD! see localtime()
+    seconds = _get_floattime(space, w_seconds)
+    whent = cConfig.time_t(int(seconds))
+    p = libc.gmtime(byref(whent))
+    
+    if not p:
+        raise OperationError(space.w_ValueError, space.wrap(_get_error_msg()))
+    return _tm_to_tuple(space, p.contents)
+
+def localtime(space, w_seconds=None):
+    """localtime([seconds]) -> (tm_year, tm_mon, tm_day, tm_hour, tm_min,
+                             tm_sec, tm_wday, tm_yday, tm_isdst)
+
+    Convert seconds since the Epoch to a time tuple expressing local time.
+    When 'seconds' is not passed in, convert the current time instead."""
 
     seconds = _get_floattime(space, w_seconds)
-    return _get_time(space, libc.gmtime, seconds)
+    whent = cConfig.time_t(int(seconds))
+    p = libc.localtime(byref(whent))
+    
+    if not p:
+        raise OperationError(space.w_ValueError, space.wrap(_get_error_msg()))
+    return _tm_to_tuple(space, p.contents)
+

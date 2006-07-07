@@ -52,19 +52,21 @@ class AppTestRCTime:
         raises(TypeError, rctime.gmtime, "foo")
         rctime.gmtime()
         rctime.gmtime(None)
-        res = rctime.gmtime(0)
-        rctime.gmtime(rctime.time())
+        rctime.gmtime(0)
+        res = rctime.gmtime(rctime.time())
+        assert res[-1] == 0 # DST is always zero in gmtime()
 #         t0 = rctime.mktime(rctime.gmtime())
 #         t1 = rctime.mktime(rctime.gmtime(None))
 #         assert 0 <= (t1 - t0) < 0.2
 #         assert rctime.gmtime(t) == rctime.gmtime(t)
 
-    # def test_localtime():
-    #     py.test.raises(TypeError, rctime.localtime, "foo")
-    #     assert rctime.localtime() != None
-    #     assert rctime.localtime() != ()
-    #     assert rctime.localtime(None) != None
-    #     assert rctime.localtime(None) != ()
+    def test_localtime(self):
+        import rctime
+        raises(TypeError, rctime.localtime, "foo")
+        rctime.localtime()
+        rctime.localtime(None)
+        rctime.localtime(0)
+        rctime.localtime(rctime.time())
     #     t0 = rctime.mktime(rctime.gmtime())
     #     t1 = rctime.mktime(rctime.gmtime(None))
     #     assert 0 <= (t1 - t0) < 0.2
@@ -121,6 +123,7 @@ class AppTestRCTime:
         tup = (1, 2, 3, 4, 5, 6, 7, 8, 9)
         st_time = rctime.struct_time(tup)
         assert str(st_time) == str(tup)
+        assert len(st_time) == len(tup)
     # 
     # def test_tzset():
     #     if not hasattr(rctime, "tzset"):

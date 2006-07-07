@@ -7,7 +7,8 @@ class Module(MixedModule):
         'time': 'interp_time.time',
         'clock': 'interp_time.clock',
         'ctime': 'interp_time.ctime',
-        'gmtime': 'interp_time.gmtime'
+        'gmtime': 'interp_time.gmtime',
+        'localtime': 'interp_time.localtime',
     }
 
     # def init(self, space):
