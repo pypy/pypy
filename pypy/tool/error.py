@@ -12,11 +12,13 @@ py.log.setconsumer("error", ansi_log)
 
 SHOW_TRACEBACK = False
 SHOW_ANNOTATIONS = True
+SHOW_DEFAULT_LINES_OF_CODE = 0
 
 from pypy.interpreter.pytraceback import offset2lineno
 import traceback
 
-def source_lines(graph, block, operindex=None, offset=None, long=False):
+def source_lines(graph, block, operindex=None, offset=None, long=False, \
+    show_lines_of_code=SHOW_DEFAULT_LINES_OF_CODE):
     source = graph.source
     if block is not None:
         if block is graph.returnblock:
@@ -46,8 +48,9 @@ def source_lines(graph, block, operindex=None, offset=None, long=False):
                     linerange = (operline, operline)
                     here = None
         lines = ["Happened at file %s line %d" % (graph.filename, here or linerange[0])]
-        for n in range(linerange[0], linerange[1]+1):
-            lines.append(graph_lines[n-graph.startline-1])
+        for n in range(max(0, linerange[0]-show_lines_of_code), \
+            min(linerange[1]+1+show_lines_of_code, len(graph_lines)+graph.startline)):
+            lines.append(graph_lines[n-graph.startline])
             if n == here:
                 lines.append('^ HERE')
         return lines
