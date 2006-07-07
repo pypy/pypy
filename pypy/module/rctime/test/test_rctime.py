@@ -1,10 +1,6 @@
 from py.test import raises
 from pypy.conftest import gettestobjspace
 
-# def setup_module(mod):
-#     mod.t = rctime.time()
-#     mod.tup = (1, 2, 3, 4, 5, 6, 7, 8, 9)
-#     mod.st_time = rctime.struct_time(mod.tup)
 class AppTestRCTime:
     def setup_class(cls):
         space = gettestobjspace(usemodules=('rctime',))
@@ -55,10 +51,11 @@ class AppTestRCTime:
         rctime.gmtime(0)
         res = rctime.gmtime(rctime.time())
         assert res[-1] == 0 # DST is always zero in gmtime()
-#         t0 = rctime.mktime(rctime.gmtime())
-#         t1 = rctime.mktime(rctime.gmtime(None))
-#         assert 0 <= (t1 - t0) < 0.2
-#         assert rctime.gmtime(t) == rctime.gmtime(t)
+        t0 = rctime.mktime(rctime.gmtime())
+        t1 = rctime.mktime(rctime.gmtime(None))
+        assert 0 <= (t1 - t0) < 0.2
+        t = rctime.time()
+        assert rctime.gmtime(t) == rctime.gmtime(t)
 
     def test_localtime(self):
         import rctime
@@ -67,53 +64,51 @@ class AppTestRCTime:
         rctime.localtime(None)
         rctime.localtime(0)
         rctime.localtime(rctime.time())
-    #     t0 = rctime.mktime(rctime.gmtime())
-    #     t1 = rctime.mktime(rctime.gmtime(None))
-    #     assert 0 <= (t1 - t0) < 0.2
-    #     assert rctime.localtime(t) == rctime.localtime(t)
+        t0 = rctime.mktime(rctime.gmtime())
+        t1 = rctime.mktime(rctime.gmtime(None))
+        assert 0 <= (t1 - t0) < 0.2
+        t = rctime.time()
+        assert rctime.localtime(t) == rctime.localtime(t)
+    
+    def test_mktime(self):
+        import rctime
+        raises(TypeError, rctime.mktime, "foo")
+        raises(TypeError, rctime.mktime, None)
+        raises(TypeError, rctime.mktime, (1, 2))
+        rctime.mktime(rctime.localtime())
+
+        ltime = rctime.localtime()
+        rctime.accept2dyear == 0
+        ltime = list(ltime)
+        ltime[0] = 1899
+        raises(ValueError, rctime.mktime, tuple(ltime))
+        rctime.accept2dyear == 1
+    
+        ltime = list(ltime)
+        ltime[0] = 67
+        ltime = tuple(ltime)
+        raises(OverflowError, rctime.mktime, ltime)
+    
+        ltime = list(ltime)
+        ltime[0] = 100
+        raises(ValueError, rctime.mktime, tuple(ltime))
+    
+        t = rctime.time()
+        assert long(rctime.mktime(rctime.localtime(t))) == long(t)
+        assert long(rctime.mktime(rctime.gmtime(t))) != long(t)
+        ltime = rctime.localtime()
+        assert rctime.mktime(tuple(ltime)) == rctime.mktime(ltime)
     # 
-    # def test_mktime():
-    #     py.test.raises(TypeError, rctime.mktime, "foo")
-    #     py.test.raises(TypeError, rctime.mktime, None)
-    #     py.test.raises(TypeError, rctime.mktime, (1, 2))
-    # 
-    #     arg = rctime.localtime(t)
-    # 
-    #     assert rctime.mktime(arg) != None
-    #     assert rctime.mktime(arg) != 0.0
-    # 
-    #     rctime.accept2dyear == 0
-    #     arg = list(arg)
-    #     arg[0] = 1899
-    #     arg = tuple(arg)
-    #     py.test.raises(ValueError, rctime.mktime, arg)
-    #     rctime.accept2dyear == 1
-    # 
-    #     arg = list(arg)
-    #     arg[0] = 67
-    #     arg = tuple(arg)
-    #     py.test.raises(ValueError, rctime.mktime, arg)
-    # 
-    #     arg = list(arg)
-    #     arg[0] = 100
-    #     arg = tuple(arg)
-    #     py.test.raises(ValueError, rctime.mktime, arg)
-    # 
-    #     assert long(rctime.mktime(rctime.localtime(t))) == long(t)
-    #     assert long(rctime.mktime(rctime.gmtime(t))) != long(t)
+    # def test_asctime():
+    #     py.test.raises(TypeError, rctime.asctime, "foo")
+    #     py.test.raises(TypeError, rctime.asctime, None)
+    #     py.test.raises(TypeError, rctime.asctime, (1, 2))
+    #     assert rctime.asctime() != None
+    #     assert rctime.asctime() != ""
+    #     assert rctime.rctime(t) == rctime.asctime(rctime.localtime(t))
+    #     assert rctime.rctime(t) != rctime.asctime(rctime.gmtime(t))
     #     lt = rctime.localtime()
-    #     assert rctime.mktime(tuple(lt)) == rctime.mktime(lt)
-    # 
-    # def test_asrctime():
-    #     py.test.raises(TypeError, rctime.asrctime, "foo")
-    #     py.test.raises(TypeError, rctime.asrctime, None)
-    #     py.test.raises(TypeError, rctime.asrctime, (1, 2))
-    #     assert rctime.asrctime() != None
-    #     assert rctime.asrctime() != ""
-    #     assert rctime.rctime(t) == rctime.asrctime(rctime.localtime(t))
-    #     assert rctime.rctime(t) != rctime.asrctime(rctime.gmtime(t))
-    #     lt = rctime.localtime()
-    #     assert rctime.asrctime(tuple(lt)) == rctime.asrctime(lt)
+    #     assert rctime.asctime(tuple(lt)) == rctime.asctime(lt)
     # 
     def test_struct_time(self):
         import rctime

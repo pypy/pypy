@@ -3,12 +3,13 @@ from pypy.interpreter.mixedmodule import MixedModule
 
 class Module(MixedModule):
     interpleveldefs = {
-        'accept2dyear'      : 'interp_time.accept2dyear',
+        'accept2dyear': 'interp_time.accept2dyear',
         'time': 'interp_time.time',
         'clock': 'interp_time.clock',
         'ctime': 'interp_time.ctime',
         'gmtime': 'interp_time.gmtime',
         'localtime': 'interp_time.localtime',
+        'mktime': 'interp_time.mktime',
     }
 
     # def init(self, space):

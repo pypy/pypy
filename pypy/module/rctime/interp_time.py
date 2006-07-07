@@ -4,10 +4,10 @@ import pypy.rpython.rctypes.implementation # this defines rctypes magic
 from pypy.rpython.rctypes.aerrno import geterrno
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import ObjSpace
-from pypy.interpreter.gateway import W_Root, NoneNotWrapped
-from pypy.objspace.std.noneobject import W_NoneObject
+from pypy.interpreter.gateway import W_Root
 from ctypes import *
 import os
+import math
 
 _POSIX = os.name == "posix"
 
@@ -50,6 +50,8 @@ libc.gmtime.argtypes = [POINTER(cConfig.time_t)]
 libc.gmtime.restype = POINTER(cConfig.tm)
 libc.localtime.argtypes = [POINTER(cConfig.time_t)]
 libc.localtime.restype = POINTER(cConfig.tm)
+libc.mktime.argtypes = [POINTER(cConfig.tm)]
+libc.mktime.restype = cConfig.time_t
 
 def _init_accept2dyear():
     return (1, 0)[bool(os.getenv("PYTHONY2K"))]
@@ -125,6 +127,40 @@ def _tm_to_tuple(space, t):
     w_time_tuple = space.newtuple(time_tuple)
     return space.call_function(w_struct_time, w_time_tuple)
 
+def _gettmarg(space, w_tup, buf):
+    y = space.int_w(w_tup[0])
+    buf.tm_mon = space.int_w(w_tup[1])
+    buf.tm_mday = space.int_w(w_tup[2])
+    buf.tm_hour = space.int_w(w_tup[3])
+    buf.tm_min = space.int_w(w_tup[4])
+    buf.tm_sec = space.int_w(w_tup[5])
+    buf.tm_wday = space.int_w(w_tup[6])
+    buf.tm_yday = space.int_w(w_tup[7])
+    buf.tm_isdst = space.int_w(w_tup[8])
+
+    w_accept2dyear = _get_app_object(space, "accept2dyear")
+    accept2dyear = space.int_w(w_accept2dyear)
+    
+    if y < 1900:
+        if not accept2dyear:
+            raise OperationError(space.w_ValueError,
+                space.wrap("year >= 1900 required"))
+
+        if 69 <= y <= 99:
+            y += 1900
+        elif 0 <= y <= 68:
+            y += 2000
+        else:
+            raise OperationError(space.w_ValueError,
+                space.wrap("year out of range"))
+
+    buf.tm_year = y - 1900
+    buf.tm_mon = buf.tm_mon - 1
+    buf.tm_wday = int(math.fmod((buf.tm_wday + 1), 7))
+    buf.tm_yday = buf.tm_yday - 1
+
+    return buf
+
 def time(space):
     secs = _floattime()
     return space.wrap(secs)
@@ -191,6 +227,7 @@ def gmtime(space, w_seconds=None):
     if not p:
         raise OperationError(space.w_ValueError, space.wrap(_get_error_msg()))
     return _tm_to_tuple(space, p.contents)
+gmtime.unwrap_spec = [ObjSpace, W_Root]
 
 def localtime(space, w_seconds=None):
     """localtime([seconds]) -> (tm_year, tm_mon, tm_day, tm_hour, tm_min,
@@ -206,4 +243,36 @@ def localtime(space, w_seconds=None):
     if not p:
         raise OperationError(space.w_ValueError, space.wrap(_get_error_msg()))
     return _tm_to_tuple(space, p.contents)
+localtime.unwrap_spec = [ObjSpace, W_Root]
 
+def mktime(space, w_tup):
+    """mktime(tuple) -> floating point number
+
+    Convert a time tuple in local time to seconds since the Epoch."""
+    
+    if space.is_w(w_tup, space.w_None):
+        raise OperationError(space.w_TypeError, 
+            space.wrap("argument must be 9-item sequence not None"))
+    else:
+        tup = space.unpackiterable(w_tup)
+    
+    if 1 < len(tup) < 9:
+        raise OperationError(space.w_TypeError,
+            space.wrap("argument must be a sequence of length 9, not %d"\
+                % len(tup)))
+
+    tt = cConfig.time_t(int(_floattime()))
+    
+    buf = libc.localtime(byref(tt))
+    if not buf:
+        raise OperationError(space.w_ValueError, space.wrap(_get_error_msg()))
+    
+    buf = _gettmarg(space, tup, buf.contents)
+
+    tt = libc.mktime(byref(buf))
+    if tt == -1:
+        raise OperationError(space.w_OverflowError,
+            space.wrap("mktime argument out of range"))
+
+    return space.wrap(float(tt))
+mktime.unwrap_spec = [ObjSpace, W_Root]
