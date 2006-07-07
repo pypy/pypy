@@ -362,3 +362,15 @@ def test_refcount_pyobj_setfield_increfs():
     class C(object):
         pass
     print f(C)
+
+def test_oswrite():
+    py.test.skip("Example of single character string degenerating to SomeObject")
+    def f():
+        import os
+        os.write(1,"o")
+
+    t = TranslationContext()
+    s = t.buildannotator().build_types(f, [])
+    rtyper = t.buildrtyper(type_system="lltype")
+    rtyper.specialize()
+
