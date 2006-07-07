@@ -162,13 +162,13 @@ def statannotation(*args):
 
 def frexpannotation(*args):
     from pypy.annotation.model import SomeInteger, SomeTuple, SomeFloat
-    from pypy.rpython.module.ll_math import ll_frexp_result
+    from pypy.rpython.lltypesystem.module.ll_math import ll_frexp_result
     record_call(ll_frexp_result, (SomeFloat(), SomeInteger()), 'MATH_FREXP')
     return SomeTuple((SomeFloat(), SomeInteger()))
 
 def modfannotation(*args):
     from pypy.annotation.model import SomeTuple, SomeFloat
-    from pypy.rpython.module.ll_math import ll_modf_result
+    from pypy.rpython.lltypesystem.module.ll_math import ll_modf_result
     record_call(ll_modf_result, (SomeFloat(), SomeFloat()), 'MATH_MODF')
     return SomeTuple((SomeFloat(), SomeFloat()))
 

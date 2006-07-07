@@ -132,6 +132,19 @@ class BaseTestRbuiltin(BaseRtypingTest):
                 ry = 100 * float(i-10) +0.1
                 assert fn(rv,ry) == self.interpret(fn, (rv, ry))
 
+    def test_builtin_math_frexp(self):
+        import math
+        def fn(f):
+            return math.frexp(f)
+        res = self.interpret(fn, [10/3.0])
+        assert (res.item0, res.item1) == math.frexp(10/3.0)
+
+    def test_builtin_math_modf(self):
+        import math
+        def fn(f):
+            return math.modf(f)
+        res = self.interpret(fn, [10/3.0])
+        assert (res.item0, res.item1) == math.modf(10/3.0)
 
     def test_os_getcwd(self):
         import os
