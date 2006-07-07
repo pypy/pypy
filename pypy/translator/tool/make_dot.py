@@ -102,7 +102,7 @@ class FlowGraphDotGen(DotGen):
     def visit_FunctionGraph(self, funcgraph):
         name = self.prefix # +'_'+funcgraph.name
         data = funcgraph.name
-        if hasattr(funcgraph, 'source'):
+        if getattr(funcgraph, 'source', None) is not None:
             source = funcgraph.source
             if self.VERBOSE:
                 data += "\\n"
