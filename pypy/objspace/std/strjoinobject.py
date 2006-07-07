@@ -7,21 +7,27 @@ from pypy.objspace.std.stringtype import joined
 class W_StringJoinObject(W_Object):
     from pypy.objspace.std.stringtype import str_typedef as typedef
 
-    def __init__(w_self, joined_strs):
+    def __init__(w_self, joined_strs, until=-1):
         w_self.joined_strs = joined_strs
+        if until == -1:
+            until = len(joined_strs)
+        w_self.until = until
 
     def force(w_self):
-        print "Force"
-        if len(w_self.joined_strs) == 1:
+        if w_self.until == 1:
             return w_self.joined_strs[0]
-        res = "".join(w_self.joined_strs)
+        res = "".join(w_self.joined_strs[:w_self.until])
         w_self.joined_strs = [res]
+        w_self.until = 1
         return res
 
     def __repr__(w_self):
         """ representation for debugging purposes """
-        return "%s(%r)" % (w_self.__class__.__name__, w_self.joined_strs)
+        return "%s(%r, %r)" % (
+            w_self.__class__.__name__, w_self.joined_strs, w_self.until)
 
+    def unwrap(w_self, space):
+        return w_self.force()
 
 registerimplementation(W_StringJoinObject)
 
@@ -34,23 +40,26 @@ def delegate_join2unicode(space, w_strjoin):
 
 def len__StringJoin(space, w_self):
     result = 0
-    for s in w_self.joined_strs:
-        result += len(s)
+    for i in range(w_self.until):
+        result += len(w_self.joined_strs[i])
     return space.wrap(result)
 
 def str_w__StringJoin(space, w_str):
     return w_str.force()
 
 def add__StringJoin_StringJoin(space, w_self, w_other):
-    return W_StringJoinObject(w_self.joined_strs + w_other.joined_strs)
+    w_self.joined_strs.extend(w_other.joined_strs)
+    return W_StringJoinObject(w_self.joined_strs)
 
 def add__StringJoin_String(space, w_self, w_other):
     other = space.str_w(w_other)
-    return W_StringJoinObject(w_self.joined_strs + [other])
+    w_self.joined_strs.append(other)
+    return W_StringJoinObject(w_self.joined_strs)
 
 def str__StringJoin(space, w_str):
     if type(w_str) is W_StringJoinObject:
         return w_str
     return W_StringJoinObject(w_str.joined_strs)
 
-register_all(vars())
+from pypy.objspace.std import stringtype
+register_all(vars(), stringtype)

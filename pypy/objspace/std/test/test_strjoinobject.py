@@ -27,3 +27,10 @@ class AppTestStringObject:
         s = join('a' * 101)
         assert 'W_StringJoinObject' in sys.pypy_repr(s)
         assert hash(s) & 0x7fffffff == 0x7e0bce58
+
+    def test_len(self):
+        import sys
+        s = "a" + "b"
+        r = "c" + "d"
+        t = s + r
+        assert len(s) == 2
