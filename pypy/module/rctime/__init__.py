@@ -18,5 +18,5 @@ class Module(MixedModule):
     buildloaders = classmethod(buildloaders)
 
     appleveldefs = {
-        # 'floattime'    : 'app_time._floattime'
+        'sleep': 'app_time.sleep'    
     }

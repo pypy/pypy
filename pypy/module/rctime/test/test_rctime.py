@@ -1,5 +1,4 @@
-import py
-#from pypy.module.rctime import interp_time as rctime
+from py.test import raises
 
 # def setup_module(mod):
 #     mod.t = rctime.time()
@@ -17,9 +16,10 @@ class AppTestRCTime:
     #     assert isinstance(rctime.timezone, int)
     #     assert isinstance(rctime.tzname, tuple)
     # 
-    # def test_sleep():
-    #     py.test.raises(TypeError, rctime.sleep, "foo")
-    #     rctime.sleep(1.2345)
+    def test_sleep(self):
+        import rctime
+        raises(TypeError, rctime.sleep, "foo")
+        rctime.sleep(1.2345)
     # 
     # def test_clock():
     #     assert rctime.clock() != None
