@@ -154,6 +154,17 @@ class DictRepr(AbstractDictRepr):
         hop.exception_cannot_occur()
         return self.send_message(hop, 'll_clear')
 
+    def __get_func(self, interp, r_func, fn, TYPE):
+        if isinstance(r_func, MethodOfFrozenPBCRepr):
+            obj = r_func.r_im_self.convert_const(fn.im_self)
+            r_func, nimplicitarg = r_func.get_r_implfunc()
+        else:
+            obj = None
+        callable = r_func.convert_const(fn)
+        func_name, interp_fn = llinterp.wrap_callable(interp, callable, obj, None)
+        return ootype.static_meth(TYPE, func_name, _callable=interp_fn)
+        
+
     def convert_const(self, dictobj):
         if dictobj is None:
             return self.DICT._defl()
@@ -167,16 +178,10 @@ class DictRepr(AbstractDictRepr):
             l_dict = ll_newdict(self.DICT)
             if self.custom_eq_hash:
                 interp = llinterp.LLInterpreter(self.rtyper)
-                # key equality function
-                eq_func = self.r_rdict_eqfn.convert_const(dictobj.key_eq)
-                eq_name, interp_eq = llinterp.wrap_callable(interp, eq_func, None, None)
                 EQ_FUNC = ootype.StaticMethod([self.DICT._KEYTYPE, self.DICT._KEYTYPE], ootype.Bool)
-                sm_eq = ootype.static_meth(EQ_FUNC, eq_name, _callable=interp_eq)
-                # key hashing function
-                hash_func = self.r_rdict_hashfn.convert_const(dictobj.key_hash)
-                hash_name, interp_hash = llinterp.wrap_callable(interp, hash_func, None, None)
+                sm_eq = self.__get_func(interp, self.r_rdict_eqfn, dictobj.key_eq, EQ_FUNC)
                 HASH_FUNC = ootype.StaticMethod([self.DICT._KEYTYPE], ootype.Signed)
-                sm_hash = ootype.static_meth(HASH_FUNC, hash_name, _callable=interp_hash)
+                sm_hash = self.__get_func(interp, self.r_rdict_hashfn, dictobj.key_hash, HASH_FUNC)
                 l_dict.ll_set_functions(sm_eq, sm_hash)
 
             self.dict_cache[key] = l_dict 
