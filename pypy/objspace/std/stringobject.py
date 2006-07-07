@@ -850,36 +850,25 @@ def getitem__String_Slice(space, w_str, w_slice):
         str = "".join([s[start + i*step] for i in range(sl)])
     return W_StringObject(str)
 
-def _makebuf(length):
-    """This helper needs to be a separate function so that we can safely
-    catch the MemoryErrors that it raises."""
-    return ['\x00'] * length
-
 def mul_string_times(space, w_str, w_times):
     try:
         mul = space.int_w(w_times)
     except OperationError, e:
         if e.match(space, space.w_TypeError):
             raise FailedToImplement
-        raise    
-    input = w_str._value
+        raise
     if mul < 0:
-        return space.wrap("")
+        return space.wrap('')
+    input = w_str._value
     input_len = len(input)
     try:
-        buffer = _makebuf(ovfcheck(mul*input_len))
-    except (MemoryError,OverflowError,ValueError):
-        # ugh. ValueError is what you get on 64-bit machines for
-        # integers in range(2**31, 2**63).
-        raise OperationError( space.w_OverflowError, space.wrap("repeated string is too long: %d %d" % (input_len,mul) ))
+        buflen = ovfcheck(mul * input_len)
+    except OverflowError:
+        raise OperationError(
+            space.w_OverflowError, 
+            space.wrap("repeated string is too long: %d %d" % (input_len, mul)))
+    return space.wrap(''.join([input] * mul))
 
-    pos = 0
-    for i in range(mul):
-        for j in range(len(input)):
-            buffer[pos] = input[j]
-            pos = pos + 1
-
-    return space.wrap("".join(buffer))
 
 def mul__String_ANY(space, w_str, w_times):
     return mul_string_times(space, w_str, w_times)
