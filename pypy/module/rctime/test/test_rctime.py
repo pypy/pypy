@@ -9,12 +9,10 @@ class AppTestRCTime:
     def setup_class(cls):
         space = gettestobjspace(usemodules=('rctime',))
         cls.space = space
-    #def test_time(self):
-    #    assert t != None
-    #    assert t != 0.0
 
-    # def test_attributes():
-    #     assert isinstance(rctime.accept2dyear, int)
+    def test_attributes(self):
+        import rctime
+        assert isinstance(rctime.accept2dyear, int)
     #     assert isinstance(rctime.altzone, int)
     #     assert isinstance(rctime.daylight, int)
     #     assert isinstance(rctime.timezone, int)
@@ -48,19 +46,19 @@ class AppTestRCTime:
         res = rctime.ctime(0)
         assert isinstance(res, str)
         rctime.ctime(rctime.time())
+    
+    def test_gmtime(self):
+        import rctime
+        raises(TypeError, rctime.gmtime, "foo")
+        rctime.gmtime()
+        rctime.gmtime(None)
+        res = rctime.gmtime(0)
+        rctime.gmtime(rctime.time())
+#         t0 = rctime.mktime(rctime.gmtime())
+#         t1 = rctime.mktime(rctime.gmtime(None))
+#         assert 0 <= (t1 - t0) < 0.2
+#         assert rctime.gmtime(t) == rctime.gmtime(t)
 
-    # 
-    # def test_gmtime():
-    #     py.test.raises(TypeError, rctime.gmtime, "foo")
-    #     assert rctime.gmtime() != None
-    #     assert rctime.gmtime() != ()
-    #     assert rctime.gmtime(None) != None
-    #     assert rctime.gmtime(None) != ()
-    #     t0 = rctime.mktime(rctime.gmtime())
-    #     t1 = rctime.mktime(rctime.gmtime(None))
-    #     assert 0 <= (t1 - t0) < 0.2
-    #     assert rctime.gmtime(t) == rctime.gmtime(t)
-    # 
     # def test_localtime():
     #     py.test.raises(TypeError, rctime.localtime, "foo")
     #     assert rctime.localtime() != None

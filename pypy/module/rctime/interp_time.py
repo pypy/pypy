@@ -17,6 +17,10 @@ class CConfig:
     #include <time.h>
     """
     timeval = ctypes_platform.Struct("struct timeval", [("tv_sec", c_int), ("tv_usec", c_int)])
+    tm = ctypes_platform.Struct("struct tm", [("tm_sec", c_int), ("tm_min", c_int),
+        ("tm_hour", c_int), ("tm_mday", c_int), ("tm_mon", c_int), ("tm_year", c_int),
+        ("tm_wday", c_int), ("tm_yday", c_int), ("tm_isdst", c_int), ("tm_gmtoff", c_long),
+        ("tm_zone", c_char_p)])
     CLOCKS_PER_SEC = ctypes_platform.ConstantInteger("CLOCKS_PER_SEC")
     clock_t = ctypes_platform.SimpleType("clock_t", c_ulong)
     time_t = ctypes_platform.SimpleType("time_t", c_long)
@@ -25,6 +29,7 @@ class cConfig:
     pass
 cConfig.__dict__.update(ctypes_platform.configure(CConfig))
 cConfig.timeval.__name__ = "ctimeval"
+cConfig.tm.__name__ = "ctm"
 
 libc.strerror.restype = c_char_p
 
@@ -39,6 +44,8 @@ libc.time.argtypes = [POINTER(cConfig.time_t)]
 libc.time.restype = cConfig.time_t
 libc.ctime.argtypes = [POINTER(cConfig.time_t)]
 libc.ctime.restype = c_char_p
+libc.gmtime.argtypes = [POINTER(cConfig.time_t)]
+libc.gmtime.restype = POINTER(cConfig.tm)
 
 def _init_accept2dyear():
     return (1, 0)[bool(os.getenv("PYTHONY2K"))]
@@ -80,9 +87,47 @@ def _floattime():
     #     return t.value
 
 def _check_float(space, seconds):
-    w_module = space.getbuiltinmodule('rctime')
-    w_check_float = space.getattr(w_module, space.wrap('_check_float'))
+    w_check_float = _get_app_object(space, "_check_float")
     space.call_function(w_check_float, space.wrap(seconds))
+    
+def _get_app_object(space, obj_name):
+    w_module = space.getbuiltinmodule('rctime')
+    w_obj = space.getattr(w_module, space.wrap(obj_name))
+    return w_obj
+
+def _get_floattime(space, w_seconds):
+    # this check is done because None will be automatically wrapped
+    if space.is_w(w_seconds, space.w_None):
+        seconds = _floattime()
+    else:
+        seconds = space.float_w(w_seconds)
+        _check_float(space, seconds)
+    return seconds
+
+def _get_time(space, func, seconds):
+    whent = cConfig.time_t(int(seconds))
+    p = func(byref(whent))
+    
+    if not p:
+        raise OperationError(space.w_ValueError, space.wrap(_get_error_msg()))
+    return _tm_to_tuple(space, p.contents)
+
+def _tm_to_tuple(space, t):
+    time_tuple = []
+
+    time_tuple.append(space.wrap(t.tm_year + 1900))
+    time_tuple.append(space.wrap(t.tm_mon + 1)) # want january == 1
+    time_tuple.append(space.wrap(t.tm_mday))
+    time_tuple.append(space.wrap(t.tm_hour))
+    time_tuple.append(space.wrap(t.tm_min))
+    time_tuple.append(space.wrap(t.tm_sec))
+    time_tuple.append(space.wrap((t.tm_wday + 6) % 7)) # want monday == 0
+    time_tuple.append(space.wrap(t.tm_yday + 1)) # want january, 1 == 1
+    time_tuple.append(space.wrap(t.tm_isdst))
+    
+    w_struct_time = _get_app_object(space, 'struct_time')
+    w_time_tuple = space.newtuple(time_tuple)
+    return space.call_function(w_struct_time, w_time_tuple)
 
 def time(space):
     secs = _floattime()
@@ -116,27 +161,28 @@ def clock(space):
     #     return float(diff / divisor)
 
 def ctime(space, w_seconds=None):
-    """ctime(seconds) -> string
+    """ctime([seconds]) -> string
 
     Convert a time in seconds since the Epoch to a string in local time.
     This is equivalent to asctime(localtime(seconds)). When the time tuple is
     not present, current time as returned by localtime() is used."""
 
-    # this check is done because None will be automatically wrapped
-    if space.is_w(w_seconds, space.w_None):
-        tt = cConfig.time_t()
-        tt = cConfig.time_t(libc.time(byref(tt)))
-    else:
-        seconds = space.float_w(w_seconds)
-        _check_float(space, seconds)
-        tt = cConfig.time_t(int(seconds))
+    seconds = _get_floattime(space, w_seconds)
+    tt = cConfig.time_t(int(seconds))
 
     p = libc.ctime(byref(tt))
-
     if not p:
         raise OperationError(space.w_ValueError, space.wrap("unconvertible time"))
 
     return space.wrap(p[:-1]) # get rid of new line
 ctime.unwrap_spec = [ObjSpace, W_Root]
 
+def gmtime(space, w_seconds=None):
+    """gmtime([seconds]) -> (tm_year, tm_mon, tm_day, tm_hour, tm_min,
+                          tm_sec, tm_wday, tm_yday, tm_isdst)
 
+    Convert seconds since the Epoch to a time tuple expressing UTC (a.k.a.
+    GMT).  When 'seconds' is not passed in, convert the current time instead."""
+
+    seconds = _get_floattime(space, w_seconds)
+    return _get_time(space, libc.gmtime, seconds)
