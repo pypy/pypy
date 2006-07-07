@@ -691,7 +691,7 @@ class FunctionCodeGenerator(object):
                 raise Exception("don't know how to debug_print %r" % (T,))
             argv.append(self.expr(arg))
         return "fprintf(stderr, %s%s);" % (
-            c_string_constant(' '.join(format) + '\n'),
+            c_string_constant(' '.join(format) + '\n\000'),
             ''.join([', ' + s for s in argv]))
 
     def OP_DEBUG_LOG_EXC(self, op):
