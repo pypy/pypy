@@ -45,7 +45,7 @@ double LL_strtod_parts_to_float(
 		strlen(expo) + 
 		1 /*  asciiz  */ ;
 
-        s = malloc(buf_size);
+        s = (char*)malloc(buf_size);
 
 	strcpy(s, RPyString_AsString(sign));
 	strcat(s, RPyString_AsString(beforept));

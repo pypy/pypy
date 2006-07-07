@@ -181,8 +181,11 @@ class BoehmGcPolicy(BasicGcPolicy):
         assert TYPE._gckind == 'gc'   # _is_atomic() depends on this!
         is_atomic = TYPE._is_atomic()
         is_varsize = TYPE._is_varsize()
-        result = 'OP_BOEHM_ZERO_MALLOC(%s, %s, %d, %d);' % (esize,
+        typename = self.db.gettype(TYPE)
+        eresulttype = cdecl(typename, '*')
+        result = 'OP_BOEHM_ZERO_MALLOC(%s, %s, %s, %d, %d);' % (esize,
                                                             eresult,
+                                                            eresulttype,
                                                             is_atomic,
                                                             is_varsize)
         if gcinfo and gcinfo.finalizer:
@@ -315,8 +318,10 @@ class MoreExactBoehmGcPolicy(BoehmGcPolicy):
                 assert TYPE._gckind == 'gc'   # _is_atomic() depends on this!
                 is_atomic = TYPE._is_atomic()
                 is_varsize = TYPE._is_varsize()
-                result = 'OP_BOEHM_ZERO_MALLOC(%s, %s, %d, %d);' % (
-                    esize, eresult, is_atomic, is_varsize)
+                typename = self.db.gettype(TYPE)
+                eresulttype = cdecl(typename, '*')
+                result = 'OP_BOEHM_ZERO_MALLOC(%s, %s, %s, %d, %d);' % (
+                    esize, eresult, eresulttype, is_atomic, is_varsize)
             else:
                 result = '%s = GC_MALLOC_EXPLICITLY_TYPED(%s, %s);' % (
                     eresult, esize, self.get_descr_name(defnode))

@@ -26,6 +26,13 @@ def cdecl(ctype, cname):
     # the function name, we don't need the very confusing parenthesis
     return ctype.replace('(@)', '@').replace('@', cname).strip()
 
+def forward_cdecl(ctype, cname, standalone):
+    cdecl_str = cdecl(ctype, cname)
+    if standalone:
+        return 'extern ' + cdecl_str
+    else:
+        return cdecl_str
+    
 def somelettersfrom(s):
     upcase = [c for c in s if c.isupper()]
     if not upcase:
@@ -78,6 +85,18 @@ def c_string_constant(s, force_quote=False):
         return '\\%03o' % ord(c)
     def line_repr(s):
         return ''.join([char_repr(c) for c in s])
+    def array_repr(s):
+        lines = []
+        for i in range(0, len(s), 20):
+            lines.append(','.join([str(ord(c)) for c in s[i:i+20]]))
+        return '{\n%s}' % ',\n'.join(lines)
+
+    #push a bit here to avoid cplusplus errors because strings add an
+    #implicit null-terminator.
+    if s[-1:] != '\000':
+        return array_repr(s)
+        
+    s = s[:-1]  #strip null-terminator because it's implicit in c(++)
 
     if len(s) < 64:
         return '"%s"' % line_repr(s)
@@ -90,10 +109,7 @@ def c_string_constant(s, force_quote=False):
         return '\\\n'.join(lines)
 
     else:
-        lines = []
-        for i in range(0, len(s), 20):
-            lines.append(','.join([str(ord(c)) for c in s[i:i+20]]))
-        return '{\n%s}' % ',\n'.join(lines)
+        return array_repr(s)
 
 
 def gen_assignments(assignments):

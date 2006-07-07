@@ -83,8 +83,8 @@ PyObject* malloc_counters(PyObject* self, PyObject* args)
 /* #define BOEHM_MALLOC_0_1   GC_MALLOC_IGNORE_OFF_PAGE */
 /* #define BOEHM_MALLOC_1_1   GC_MALLOC_ATOMIC_IGNORE_OFF_PAGE */
 
-#define OP_BOEHM_ZERO_MALLOC(size, r, is_atomic, is_varsize)   {             \
-	r = (void*) BOEHM_MALLOC_ ## is_atomic ## _ ## is_varsize (size);    \
+#define OP_BOEHM_ZERO_MALLOC(size, r, restype, is_atomic, is_varsize)   {             \
+	r = (restype) BOEHM_MALLOC_ ## is_atomic ## _ ## is_varsize (size);    \
 	if (r == NULL) {FAIL_EXCEPTION(PyExc_MemoryError, "out of memory");}  \
         else {                                                               \
             if (is_atomic)  /* the non-atomic versions return cleared memory */  \
@@ -97,7 +97,7 @@ PyObject* malloc_counters(PyObject* self, PyObject* args)
 # some kind of proper GC integration
 if GC integration has happened and this junk is still here, please delete it :)
 */
-#define OP_CALL_BOEHM_GC_ALLOC(size, r) OP_BOEHM_ZERO_MALLOC(size, r, 0, 0)
+#define OP_CALL_BOEHM_GC_ALLOC(size, r) OP_BOEHM_ZERO_MALLOC(size, r, void *, 0, 0)
 
 #endif /* USING_BOEHM_GC */
 

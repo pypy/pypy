@@ -8,7 +8,7 @@ from pypy.rpython.lltypesystem.llmemory import WeakGcAddress
 from pypy.translator.c.funcgen import FunctionCodeGenerator
 from pypy.translator.c.external import CExternalFunctionCodeGenerator
 from pypy.translator.c.support import USESLOTS # set to False if necessary while refactoring
-from pypy.translator.c.support import cdecl, somelettersfrom, c_string_constant
+from pypy.translator.c.support import cdecl, forward_cdecl, somelettersfrom, c_string_constant
 from pypy.translator.c.primitive import PrimitiveType, isinf
 from pypy.translator.c import extfunc
 
@@ -394,7 +394,8 @@ class ContainerNode(object):
 
     def forward_declaration(self):
         yield '%s;' % (
-            cdecl(self.implementationtypename, self.name))
+            forward_cdecl(self.implementationtypename,
+                self.name, self.db.standalone))
 
     def implementation(self):
         lines = list(self.initializationexpr())
@@ -612,7 +613,8 @@ class FuncNode(ContainerNode):
     def forward_declaration(self):
         for funcgen in self.funcgens:
             yield '%s;' % (
-                cdecl(self.implementationtypename, funcgen.name(self.name)))
+                forward_cdecl(self.implementationtypename,
+                    funcgen.name(self.name), self.db.standalone))
 
     def implementation(self):
         for funcgen in self.funcgens:
