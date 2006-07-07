@@ -32,8 +32,15 @@ class Config(object):
 
     def _freeze_(self):
         return True
-        
+
 class Option(object):
+    def validate(self, value):
+        raise NotImplementedError('abstract base class')
+
+    def getdefault(self):
+        return self.default
+
+class ChoiceOption(Option):
     def __init__(self, name, doc, values, default):
         self._name = name
         self.doc = doc
@@ -42,6 +49,27 @@ class Option(object):
 
     def validate(self, value):
         return value in self.values
+
+class BoolOption(ChoiceOption):
+    def __init__(self, name, doc, default=True):
+        super(BoolOption, self).__init__(name, doc, [True, False], default)
+
+class ListOption(Option):
+    def __init__(self, name, doc, allowed_values, default=None):
+        self._name = name
+        self.doc = doc
+        self.allowed_values = allowed_values
+        self.default = default or []
+
+    def validate(self, value):
+        assert isinstance(value, list)
+        for item in value:
+            if item not in self.allowed_values:
+                return False
+        return True
+
+    def getdefault(self):
+        return self.default[:]
 
 class OptionDescription(object):
     def __init__(self, name, children):
