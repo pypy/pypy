@@ -69,15 +69,6 @@ class SymbolicRestartNumber(ComputedIntSymbolic):
         # complete.
         return self.value
 
-class ResumePoint:
-    def __init__(self, var_result, args, links_to_resumption,
-                 frame_state_type, fieldnames):
-        self.var_result = var_result
-        self.args = args
-        self.links_to_resumption = links_to_resumption
-        self.frame_state_type = frame_state_type
-        self.fieldnames = fieldnames
-
 class FrameTyper:
     # this class only exists independently to ease testing
     def __init__(self):
@@ -349,7 +340,7 @@ class StacklessTransformer(object):
         self.finish()
         
     def transform_graph(self, graph):
-        self.resume_points = []
+        self.resume_blocks = []
         
         if hasattr(graph, 'func'):
             if getattr(graph.func, 'stackless_explicit', False):
@@ -368,7 +359,7 @@ class StacklessTransformer(object):
             self.transform_block(block)
             self.seen_blocks.add(block)
 
-        if self.resume_points:
+        if self.resume_blocks:
             self.insert_resume_handling(graph)
             self.generate_restart_infos(graph)
 
@@ -411,71 +402,11 @@ class StacklessTransformer(object):
         not_resuming_link = model.Link(newinputargs, old_start_block, -1)
         not_resuming_link.llexitcase = -1
         resuming_links = []
-        for resume_point_index, resume_point in enumerate(self.resume_points):
-            newblock = model.Block([])
-            newargs = []
-            llops = LowLevelOpList()
-            llops.genop("setfield",
-                        [self.ll_global_state,
-                         self.c_restart_substate_name,
-                         self.c_minus_one])
-            frame_state_type = resume_point.frame_state_type
-            frame_top = varoftype(lltype.Ptr(frame_state_type))
-            llops.extend(self.ops_read_global_state_field(frame_top, "top"))
-            llops.genop("setfield",
-                       [self.ll_global_state,
-                        self.c_inst_top_name,
-                        self.c_null_state])
-            varmap = {}
-            for arg, fieldname in zip(resume_point.args,
-                                      resume_point.fieldnames):
-                assert arg is not resume_point.var_result
-                t = storage_type(arg.concretetype)
-                if t is lltype.Void:
-                    assert fieldname is None
-                    v_newarg = model.Constant(None, lltype.Void)
-                else:
-                    fname = model.Constant(fieldname, lltype.Void)
-                    v_newarg = llops.genop('getfield', [frame_top, fname],
-                                           resulttype = t)
-                    v_newarg = gen_cast(llops, arg.concretetype, v_newarg)
-                varmap[arg] = v_newarg
-
-            rettype = storage_type(resume_point.var_result.concretetype)
-            getretval = self.fetch_retvals[rettype]
-            retval = llops.genop("direct_call", [getretval],
-                                 resulttype = rettype)
-            varmap[resume_point.var_result] = retval
-
-            newblock.operations.extend(llops)
-
-            def rename(arg):
-                if isinstance(arg, model.Variable):
-                    if arg in varmap:
-                        return varmap[arg]
-                    else:
-                        assert arg in [l.last_exception, l.last_exc_value]
-                        r = unsimplify.copyvar(None, arg)
-                        varmap[arg] = r
-                        return r
-                else:
-                    return arg
-
-            newblock.closeblock(*[l.copy(rename)
-                                  for l in resume_point.links_to_resumption])
-            # this check is a bit implicit!
-            if len(resume_point.links_to_resumption) > 1:
-                newblock.exitswitch = model.c_last_exception
-            else:
-                newblock.exitswitch = None
-
-            if resume_point.var_result.concretetype != rettype:
-                self.insert_return_conversion(
-                    newblock.exits[0], resume_point.var_result.concretetype, retval)
-            
+        for resume_index, resume_block in enumerate(self.resume_blocks):
             resuming_links.append(
-                model.Link([], newblock, resume_point_index))
-            resuming_links[-1].llexitcase = resume_point_index
+                model.Link([], resume_block, resume_index))
+            resuming_links[-1].llexitcase = resume_index
+
         new_start_block.exitswitch = var_resume_state
         new_start_block.closeblock(not_resuming_link, *resuming_links)
 
@@ -536,11 +467,10 @@ class StacklessTransformer(object):
         else:
             self.explicit_resume_point_data[label] = frame_type
 
-        self.resume_points.append(
-            ResumePoint(res, parms[1:], tuple(block.exits),
-                        frame_type, fieldnames))
+        self.resume_blocks.append(
+            self._generate_resume_block(parms[1:], frame_type, fieldnames, res, block.exits))
 
-        restart_number = len(self.masterarray1) + len(self.resume_points)-1
+        restart_number = len(self.masterarray1) + len(self.resume_blocks)-1
 
         if label in self.symbolic_restart_numbers:
             symb = self.symbolic_restart_numbers[label]
@@ -604,7 +534,7 @@ class StacklessTransformer(object):
         # non-exceptional link (which we know will never be taken).
         # Nota Bene: only mutate a COPY of the non-exceptional link
         # because the non-exceptional link has been stored in
-        # self.resume_points and we don't want a constant "zero" in
+        # self.resume_blocks and we don't want a constant "zero" in
         # there.
         v_state = op.args[0]
         v_returning = op.args[1]
@@ -685,12 +615,10 @@ class StacklessTransformer(object):
 
         args = vars_to_save(block)
 
-        save_block, frame_state_type, fieldnames = \
-                self.generate_save_block(args, var_unwind_exception)
+        save_block, resume_block = self.generate_save_and_resume_blocks(
+            args, var_unwind_exception, op.result, block.exits)
 
-        self.resume_points.append(
-            ResumePoint(op.result, args, tuple(block.exits),
-                        frame_state_type, fieldnames))
+        self.resume_blocks.append(resume_block)
 
         newlink = model.Link(args + [var_unwind_exception], 
                              save_block, code.UnwindException)
@@ -766,17 +694,21 @@ class StacklessTransformer(object):
             else:
                 i += 1
 
-    def generate_save_block(self, varstosave, var_unwind_exception):
+    def generate_save_and_resume_blocks(self, varstosave, var_exception,
+                                        var_result, links_to_resumption):
+        frame_type, fieldnames = self.frametyper.frame_type_for_vars(varstosave)
+        return (self._generate_save_block(varstosave, var_exception, frame_type, fieldnames),
+                self._generate_resume_block(varstosave, frame_type, fieldnames,
+                                            var_result, links_to_resumption))
+
+    def _generate_save_block(self, varstosave, var_unwind_exception, frame_type, fieldnames):
         rtyper = self.translator.rtyper
         edata = rtyper.getexceptiondata()
         etype = edata.lltype_of_exception_type
         evalue = edata.lltype_of_exception_value
         inputargs = [unsimplify.copyvar(None, v) for v in varstosave]
-        var_unwind_exception = unsimplify.copyvar(
-            None, var_unwind_exception) 
-
-        frame_type, fieldnames = self.frametyper.frame_type_for_vars(varstosave)
-
+        var_unwind_exception = unsimplify.copyvar(None, var_unwind_exception)
+        
         save_state_block = model.Block(inputargs + [var_unwind_exception])
         saveops = save_state_block.operations
         frame_state_var = varoftype(lltype.Ptr(frame_type))
@@ -811,7 +743,7 @@ class StacklessTransformer(object):
             [self.add_frame_state_ptr, var_exc, var_header],
             varoftype(lltype.Void)))
 
-        f_restart = len(self.masterarray1) + len(self.resume_points)
+        f_restart = len(self.masterarray1) + len(self.resume_blocks)
         saveops.append(model.SpaceOperation(
             "setfield",
             [var_header, self.c_f_restart_name,
@@ -830,7 +762,70 @@ class StacklessTransformer(object):
             self.curr_graph.exceptblock))
         self.translator.rtyper._convert_link(
             save_state_block, save_state_block.exits[0])
-        return save_state_block, frame_type, fieldnames
+        return save_state_block
+
+    def _generate_resume_block(self, varstosave, frame_type, fieldnames,
+                               var_result, links_to_resumption):
+        newblock = model.Block([])
+        newargs = []
+        llops = LowLevelOpList()
+        llops.genop("setfield",
+                    [self.ll_global_state,
+                     self.c_restart_substate_name,
+                     self.c_minus_one])
+        frame_top = varoftype(lltype.Ptr(frame_type))
+        llops.extend(self.ops_read_global_state_field(frame_top, "top"))
+        llops.genop("setfield",
+                   [self.ll_global_state,
+                    self.c_inst_top_name,
+                    self.c_null_state])
+        varmap = {}
+        for arg, fieldname in zip(varstosave, fieldnames):
+            assert arg is not var_result
+            t = storage_type(arg.concretetype)
+            if t is lltype.Void:
+                assert fieldname is None
+                v_newarg = model.Constant(None, lltype.Void)
+            else:
+                fname = model.Constant(fieldname, lltype.Void)
+                v_newarg = llops.genop('getfield', [frame_top, fname],
+                                       resulttype = t)
+                v_newarg = gen_cast(llops, arg.concretetype, v_newarg)
+            varmap[arg] = v_newarg
+
+        rettype = storage_type(var_result.concretetype)
+        getretval = self.fetch_retvals[rettype]
+        retval = llops.genop("direct_call", [getretval],
+                             resulttype = rettype)
+        varmap[var_result] = retval
+
+        newblock.operations.extend(llops)
+
+        def rename(arg):
+            if isinstance(arg, model.Variable):
+                if arg in varmap:
+                    return varmap[arg]
+                else:
+                    assert arg in [l.last_exception, l.last_exc_value]
+                    r = unsimplify.copyvar(None, arg)
+                    varmap[arg] = r
+                    return r
+            else:
+                return arg
+
+        newblock.closeblock(*[l.copy(rename)
+                              for l in links_to_resumption])
+        # this check is a bit implicit!
+        if len(links_to_resumption) > 1:
+            newblock.exitswitch = model.c_last_exception
+        else:
+            newblock.exitswitch = None
+
+        if var_result.concretetype != rettype:
+            self.insert_return_conversion(
+                newblock.exits[0], var_result.concretetype, retval)
+
+        return newblock
         
     def generate_saveops(self, frame_state_var, varstosave, fieldnames):
         frame_type = frame_state_var.concretetype.TO
@@ -845,7 +840,7 @@ class StacklessTransformer(object):
         return llops
 
     def generate_restart_infos(self, graph):
-        restartinfo = frame.RestartInfo(graph, len(self.resume_points))
+        restartinfo = frame.RestartInfo(graph, len(self.resume_blocks))
         self.register_restart_info(restartinfo)
 
     def register_restart_info(self, restartinfo):
