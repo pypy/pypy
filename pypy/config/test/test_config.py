@@ -8,10 +8,13 @@ def test_base_config():
     booloption = BoolOption('bool', 'Test Boolean option')
     listoption = ListOption('list', 'Test list valued option', ['foo', 'bar'],
                                 ['foo'])
+
+    wantref_option = BoolOption('wantref', 'Test requires', default=False,
+                                    requires=[('gc.name', 'ref')])
     
     gcgroup = OptionDescription('gc', [gcoption])
     descr = OptionDescription('pypy', [gcgroup, booloption, objspaceoption,
-                                        listoption])
+                                        listoption, wantref_option])
     config = Config(descr, bool=False)
     
     assert config.gc.name == 'ref'
@@ -22,19 +25,24 @@ def test_base_config():
     config.objspace = 'logic'
     assert config.objspace == 'logic'
     
-    assert not config.bool
-    config.bool = True
-    assert config.bool
 
     assert config.list == ['foo']
     config.list = ['bar']
     assert config.list == ['bar']
+
+    assert not config.wantref
 
     py.test.raises(ValueError, 'config.objspace = "foo"')
     py.test.raises(ValueError, 'config.gc.name = "foo"')
     py.test.raises(ValueError, 'config.gc.foo = "bar"')
     py.test.raises(ValueError, 'config.bool = 123')
     py.test.raises(ValueError, 'config.list = ["baz"]')
+
+    # test whether the gc.name is set to 'ref' when wantref is true (note that
+    # the current value of gc.name is 'framework')
+    config.wantref = True
+    assert config.gc.name == 'ref'
+    py.test.raises(ValueError, 'config.gc.name = "framework"')
 
 def test_annotator_folding():
     from pypy.translator.interactive import Translation

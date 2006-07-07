@@ -1,3 +1,4 @@
+
 class Config(object):
     """main config
 
@@ -10,12 +11,14 @@ class Config(object):
     
     def __init__(self, descr, **overrides):
         self._descr = descr
+        self._value_owners = {}
         self._build(overrides)
 
     def _build(self, overrides):
         for child in self._descr._children:
             if isinstance(child, Option):
                 self.__dict__[child._name] = child.default
+                self._value_owners[child._name] = 'default'
             elif isinstance(child, OptionDescription):
                 self.__dict__[child._name] = Config(child)
         for name, value in overrides.iteritems():
@@ -25,12 +28,28 @@ class Config(object):
         if name.startswith('_'):
             self.__dict__[name] = value
             return
+        self.setoption(name, value, 'user')
+
+    def setoption(self, name, value, who):
         if name not in self.__dict__:
             raise ValueError('unknown option %s' % (name,))
         child = getattr(self._descr, name)
-        if not child.validate(value):
-            raise ValueError('invalid value %s for option %s' % (value, name))
-        self.__dict__[name] = value
+        oldowner = self._value_owners[child._name]
+        oldvalue = getattr(self, name)
+        if oldowner == 'required':
+            if oldvalue != value:
+                raise ValueError('can not override value %s for option %s' %
+                                    (value, name))
+            return
+        child.setoption(self, value)
+        self._value_owners[name] = who
+
+    def _get_by_path(self, path):
+        """returns tuple (config, name)"""
+        path = path.split('.')
+        for step in path[:-1]:
+            self = getattr(self, step)
+        return self, path[-1]
 
     def _freeze_(self):
         return True
@@ -41,6 +60,12 @@ class Option(object):
 
     def getdefault(self):
         return self.default
+
+    def setoption(self, config, value):
+        name = self._name
+        if not self.validate(value):
+            raise ValueError('invalid value %s for option %s' % (value, name))
+        config.__dict__[name] = value
 
 class ChoiceOption(Option):
     def __init__(self, name, doc, values, default):
@@ -53,8 +78,16 @@ class ChoiceOption(Option):
         return value in self.values
 
 class BoolOption(ChoiceOption):
-    def __init__(self, name, doc, default=True):
+    def __init__(self, name, doc, default=True, requires=None):
         super(BoolOption, self).__init__(name, doc, [True, False], default)
+        self._requires = requires or []
+
+    def setoption(self, config, value):
+        name = self._name
+        for path, reqvalue in self._requires:
+            subconfig, name = config._get_by_path(path)
+            subconfig.setoption(name, reqvalue, 'required')
+        super(BoolOption, self).setoption(config, value)
 
 class ListOption(Option):
     def __init__(self, name, doc, allowed_values, default=None):
