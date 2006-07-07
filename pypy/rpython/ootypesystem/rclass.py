@@ -460,7 +460,7 @@ class InstanceRepr(AbstractInstanceRepr):
                         warning("prebuilt instance %r has no attribute %r" % (
                                 value, name))
                         continue
-                    llattrvalue = r.convert_desc_or_const(attrvalue)
+                    llattrvalue = self.allfields[mangled].convert_desc_or_const(attrvalue)
                 else:
                     llattrvalue = self.allfields[mangled].convert_const(attrvalue)
             setattr(result, mangled, llattrvalue)
