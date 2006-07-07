@@ -122,12 +122,13 @@ def name_weakgcaddress(value, db):
         assert ob is not None
         return 'HIDE_POINTER(%s)'%db.get(ob)
 
-
+# On 64 bit machines, SignedLongLong and Signed are the same, so the
+# order matters, because we want the Signed implementation.
 PrimitiveName = {
-    Signed:   name_signed,
     SignedLongLong:   name_signedlonglong,
-    Unsigned: name_unsigned,
+    Signed:   name_signed,
     UnsignedLongLong: name_unsignedlonglong,
+    Unsigned: name_unsigned,
     Float:    name_float,
     Char:     name_char,
     UniChar:  name_unichar,
@@ -138,10 +139,10 @@ PrimitiveName = {
     }
 
 PrimitiveType = {
-    Signed:   'long @',
     SignedLongLong:   'long long @',
-    Unsigned: 'unsigned long @',
+    Signed:   'long @',
     UnsignedLongLong: 'unsigned long long @',
+    Unsigned: 'unsigned long @',
     Float:    'double @',
     Char:     'char @',
     UniChar:  'unsigned int @',
@@ -152,10 +153,10 @@ PrimitiveType = {
     }
 
 PrimitiveErrorValue = {
-    Signed:   '-1',
     SignedLongLong:   '-1LL',
-    Unsigned: '((unsigned) -1)',
+    Signed:   '-1',
     UnsignedLongLong: '((unsigned long long) -1)',
+    Unsigned: '((unsigned) -1)',
     Float:    '-1.0',
     Char:     '((char) -1)',
     UniChar:  '((unsigned) -1)',
