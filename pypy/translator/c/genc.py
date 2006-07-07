@@ -263,6 +263,7 @@ class CStandaloneBuilder(CBuilder):
         print >> f
         print >> f, 'CFLAGS =', ' '.join(compiler.compile_extra)
         print >> f, 'LDFLAGS =', ' '.join(compiler.link_extra)
+        print >> f, 'TFLAGS = ' + ('', '-pthread')[self.thread_enabled]
         print >> f, MAKEFILE.strip()
         f.close()
 
@@ -797,6 +798,7 @@ setup(name="%(modulename)s",
                        include_dirs = [PYPY_INCLUDE_DIR])])
 '''
 
+#-pthread
 MAKEFILE = '''
 CC = gcc
 
@@ -810,7 +812,7 @@ clean:
 \trm -f $(OBJECTS) $(TARGET)
 
 debug:
-\tmake CFLAGS="-g -pthread"
+\tmake CFLAGS="-g $(TFLAGS)"
 
 profile:
 \tmake CFLAGS="-pg $(CFLAGS)" LDFLAGS="-pg $(LDFLAGS)"

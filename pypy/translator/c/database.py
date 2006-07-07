@@ -25,6 +25,7 @@ class LowLevelDatabase(object):
     def __init__(self, translator=None, standalone=False, gcpolicy=None, thread_enabled=False):
         self.translator = translator
         self.standalone = standalone
+        self.thread_enabled = thread_enabled
         self.structdefnodes = {}
         self.pendingsetupnodes = []
         self.containernodes = {}
