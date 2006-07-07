@@ -65,6 +65,24 @@ def ll_isinstance(inst, meta):
     c2 = meta.class_
     return ootype.subclassof(c1, c2)
 
+def rtype_instantiate(hop):
+    if hop.args_s[0].is_constant():
+        INSTANCE = hop.s_result.rtyper_makerepr(hop.rtyper).lowleveltype
+        v_instance = hop.inputconst(ootype.Void, INSTANCE)
+        hop2 = hop.copy()
+        r, s = hop2.r_s_popfirstarg()
+        hop2.v_s_insertfirstarg(v_instance, s) # XXX: the annotation is wrong, but it works
+        return rtype_new(hop2)
+    else:
+        INSTANCE = hop.s_result.rtyper_makerepr(hop.rtyper).lowleveltype
+        c_instance = hop.inputconst(ootype.Void, INSTANCE)
+        v_cls = hop.inputarg(hop.args_r[0], arg=0)
+        v_obj = hop.gendirectcall(ll_instantiate, c_instance, v_cls)
+        return hop.genop('oodowncast', [v_obj], resulttype=hop.r_result.lowleveltype)
+
+def ll_instantiate(INST, C):
+    return ootype.runtimenew(C.class_)
+
 BUILTIN_TYPER = {}
 BUILTIN_TYPER[ootype.new] = rtype_new
 BUILTIN_TYPER[ootype.null] = rtype_null
@@ -74,3 +92,4 @@ BUILTIN_TYPER[ootype.runtimenew] = rtype_runtimenew
 BUILTIN_TYPER[ootype.ooidentityhash] = rtype_ooidentityhash
 BUILTIN_TYPER[isinstance] = rtype_builtin_isinstance
 BUILTIN_TYPER[objectmodel.r_dict] = rtype_r_dict
+BUILTIN_TYPER[objectmodel.instantiate] = rtype_instantiate

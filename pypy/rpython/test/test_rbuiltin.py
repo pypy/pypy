@@ -64,7 +64,6 @@ class BaseTestRbuiltin(BaseRtypingTest):
         res = self.interpret(f, [-1])
         assert res == '?'
 
-
     def test_intmask(self):
         def f(x=r_uint):
             try:
@@ -268,10 +267,7 @@ class BaseTestRbuiltin(BaseRtypingTest):
         res = self.interpret(f, [0])
         assert res is True
         res = self.interpret(f, [1])
-        assert res is False    
-
-class TestLLtype(BaseTestRbuiltin, LLRtypeMixin):
-    from pypy.rpython.lltypesystem.module import ll_os
+        assert res is False
 
     def test_instantiate(self):
         class A:
@@ -279,7 +275,7 @@ class TestLLtype(BaseTestRbuiltin, LLRtypeMixin):
         def f():
             return instantiate(A)
         res = self.interpret(f, [])
-        assert res.super.typeptr.name[0] == 'A'
+        assert self.class_name(res) == 'A'
 
     def test_instantiate_multiple(self):
         class A:
@@ -293,9 +289,13 @@ class TestLLtype(BaseTestRbuiltin, LLRtypeMixin):
                 cls = B
             return instantiate(cls)
         res = self.interpret(f, [1])
-        assert res.super.typeptr.name[0] == 'A'
+        assert self.class_name(res) == 'A'
         res = self.interpret(f, [2])
-        assert res.super.typeptr.name[0] == 'B'
+        assert self.class_name(res) == 'B'
+        
+
+class TestLLtype(BaseTestRbuiltin, LLRtypeMixin):
+    from pypy.rpython.lltypesystem.module import ll_os
 
     def test_isinstance_obj(self):
         _1 = lltype.pyobjectptr(1)
