@@ -12,7 +12,7 @@ def test_base_config():
     gcgroup = OptionDescription('gc', [gcoption])
     descr = OptionDescription('pypy', [gcgroup, booloption, objspaceoption,
                                         listoption])
-    config = Config(descr)
+    config = Config(descr, bool=False)
     
     assert config.gc.name == 'ref'
     config.gc.name = 'framework'
@@ -22,9 +22,9 @@ def test_base_config():
     config.objspace = 'logic'
     assert config.objspace == 'logic'
     
-    assert config.bool
-    config.bool = False
     assert not config.bool
+    config.bool = True
+    assert config.bool
 
     assert config.list == ['foo']
     config.list = ['bar']

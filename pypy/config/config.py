@@ -8,16 +8,18 @@ class Config(object):
         (this object)
     """
     
-    def __init__(self, descr):
+    def __init__(self, descr, **overrides):
         self._descr = descr
-        self._build()
+        self._build(overrides)
 
-    def _build(self):
+    def _build(self, overrides):
         for child in self._descr._children:
             if isinstance(child, Option):
                 self.__dict__[child._name] = child.default
             elif isinstance(child, OptionDescription):
                 self.__dict__[child._name] = Config(child)
+        for name, value in overrides.iteritems():
+            setattr(self, name, value)
 
     def __setattr__(self, name, value):
         if name.startswith('_'):
