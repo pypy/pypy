@@ -74,6 +74,7 @@ class FrameTyper:
     def __init__(self, stackless_gc=False):
         self.frametypes = {}
         self.stackless_gc = stackless_gc
+        self.c_gc_nocollect = model.Constant("gc_nocollect", lltype.Void)
 
     def _key_for_types(self, types):
         counts = {}
