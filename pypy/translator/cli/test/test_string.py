@@ -3,6 +3,9 @@ from pypy.translator.cli.test.runtest import CliTest
 from pypy.rpython.test.test_rstr import BaseTestRstr
 
 class TestCliString(CliTest, BaseTestRstr):
+
+    EMPTY_STRING_HASH = 0
+
     def test_char_isxxx(self):
         def fn(s):
             return (s.isspace()      |
@@ -33,3 +36,11 @@ class TestCliString(CliTest, BaseTestRstr):
     def test_int(self):
         py.test.skip("CLI doesn't support integer parsing, yet")
     test_int_valueerror = test_int
+
+    def test_hash_value(self):
+        # make that hash are computed by value and not by reference
+        def fn(x, y):
+            s1 = ''.join([x, 'e', 'l', 'l', 'o'])
+            s2 = ''.join([y, 'e', 'l', 'l', 'o'])
+            return (hash(s1) == hash(s2)) and (s1 is not s2)
+        assert self.interpret(fn, ['h', 'h']) == True

@@ -51,6 +51,7 @@ opcodes = {
     'instanceof':               [CastTo, 'ldnull', 'cgt.un'],
     'subclassof':               [PushAllArgs, 'call bool [pypylib]pypy.runtime.Utils::SubclassOf(class [mscorlib]System.Type, class[mscorlib]System.Type)'],
     'ooidentityhash':           [PushAllArgs, 'callvirt instance int32 object::GetHashCode()'],
+    'oohash':                   [PushAllArgs, 'callvirt instance int32 object::GetHashCode()'],    
     'oostring':                 [OOString],
     'ooparse_int':              [PushAllArgs, 'call int32 [pypylib]pypy.runtime.Utils::OOParseInt(string, int32)'],
     
