@@ -61,10 +61,9 @@ class GenCli(object):
         self.gen_entrypoint()
         self.gen_pendings()
         self.db.collect_constants()
+        self.db.gen_constants(self.ilasm)        
         self.db.gen_delegate_types(self.ilasm)
         self.gen_pendings()
-        self.db.collect_constants()
-        self.db.gen_constants(self.ilasm)
         out.close()
         return self.tmpfile.strpath
 
