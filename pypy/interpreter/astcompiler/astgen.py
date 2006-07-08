@@ -401,8 +401,8 @@ class NodeInfo:
                 print >> buf, '        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))'
                 print >> buf, '        w_item_mutate_args = Arguments(space, [ w_visitor ])'
                 print >> buf, '        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)'
-                print >> buf, '        newitem_w.append(w_newitem)'
-                print >> buf, '    w_newitem = space.newlist(newitem_w)'
+                print >> buf, '        newlist_w.append(w_newitem)'
+                print >> buf, '    w_newlist = space.newlist(newlist_w)'
                 print >> buf, '    space.setslice(w_list, space.w_None, space.w_None, w_newlist)'
                 
     
