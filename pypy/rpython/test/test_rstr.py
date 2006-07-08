@@ -562,6 +562,19 @@ class BaseTestRstr(BaseRtypingTest):
         res = self.interpret(f, ['a', 0])
         assert self.ll_to_string(res) == ""
 
+    def test_hash(self):
+        def fn(i):
+            if i == 0:
+                s = ''
+            else:
+                s = "xxx"
+            return hash(s)
+        res = self.interpret(fn, [0])
+        assert res == self.EMPTY_STRING_HASH
+        res = self.interpret(fn, [1])
+        assert typeOf(res) == Signed
+
+
 def FIXME_test_str_to_pystringobj():
     def f(n):
         if n >= 0:
@@ -581,6 +594,8 @@ def FIXME_test_str_to_pystringobj():
 
 class TestLLtype(BaseTestRstr, LLRtypeMixin):
 
+    EMPTY_STRING_HASH = -1
+
     def llstr(self, s):
         p = malloc(STR, len(s))
         for i in range(len(s)):
@@ -599,18 +614,6 @@ class TestLLtype(BaseTestRstr, LLRtypeMixin):
             assert res == s1.rfind(s2)
 
 
-    def test_hash(self):
-        def fn(i):
-            if i == 0:
-                s = ''
-            else:
-                s = "xxx"
-            return hash(s)
-        res = self.interpret(fn, [0])
-        assert res == -1
-        res = self.interpret(fn, [1])
-        assert typeOf(res) == Signed
-
-
 class TestOOtype(BaseTestRstr, OORtypeMixin):
-    pass
+
+    EMPTY_STRING_HASH = 0

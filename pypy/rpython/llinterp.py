@@ -830,6 +830,9 @@ class LLFrame(object):
         except ValueError:
             self.make_llexception()
 
+    def op_oohash(self, s):
+        return ootype.oohash(s)
+
 class Tracer(object):
     Counter = 0
     file = None

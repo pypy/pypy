@@ -67,6 +67,12 @@ class LLHelpers(AbstractLLHelpers):
     def ll_chr2str(ch):
         return ootype.oostring(ch, LLHelpers.ll_const(-1))
 
+    def ll_strhash(s):
+        return ootype.oohash(s)
+
+    def ll_strfasthash(s):
+        return ootype.oohash(s)
+
     def ll_char_mul(ch, times):
         buf = ootype.new(ootype.StringBuilder)
         buf.ll_allocate(times)

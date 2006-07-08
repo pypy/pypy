@@ -1257,6 +1257,10 @@ def ooidentityhash(inst):
     assert isinstance(typeOf(inst), (Instance, Record))
     return inst._identityhash()
 
+def oohash(inst):
+    assert typeOf(inst) is String # for now only strings are supported
+    return hash(inst._str)
+
 def oostring(obj, base):
     """
     Convert char, int, float, instances and str to str.
