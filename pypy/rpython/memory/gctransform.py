@@ -960,7 +960,7 @@ class FrameworkGCTransformer(GCTransformer):
         self._gc_fields = fields = []
         for fldname in HDR._names:
             FLDTYPE = getattr(HDR, fldname)
-            fields.append((fldname, FLDTYPE))
+            fields.append(('_' + fldname, FLDTYPE))
 
     def build_stack_root_iterator(self):
         gcdata = self.gcdata
