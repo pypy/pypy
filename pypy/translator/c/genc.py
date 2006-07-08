@@ -208,11 +208,15 @@ class CStandaloneBuilder(CBuilder):
         # XXX for now, we always include Python.h
         from distutils import sysconfig
         python_inc = sysconfig.get_python_inc()
+        if self.translator.driver_options:
+            cc = self.translator.driver_options.cc
+        else:
+            cc = None
         return CCompiler(
             [self.c_source_filename] + self.extrafiles,
             include_dirs = [autopath.this_dir, python_inc] + extra_includes,
             libraries    = self.libraries,
-            compiler_exe = self.translator.driver_options.cc)
+            compiler_exe = cc)
 
     def compile(self):
         assert self.c_source_filename
@@ -246,6 +250,11 @@ class CStandaloneBuilder(CBuilder):
             cfiles.append(fn)
             ofiles.append(fn[:-2] + '.o')
 
+        if self.translator.driver_options and self.translator.driver_options.cc:
+            cc = self.translator.driver_options.cc
+        else:
+            cc = 'gcc'
+
         f = targetdir.join('Makefile').open('w')
         print >> f, '# automatically generated Makefile'
         print >> f
@@ -265,7 +274,7 @@ class CStandaloneBuilder(CBuilder):
         print >> f, 'CFLAGS =', ' '.join(compiler.compile_extra)
         print >> f, 'LDFLAGS =', ' '.join(compiler.link_extra)
         print >> f, 'TFLAGS = ' + ('', '-pthread')[self.thread_enabled]
-        print >> f, 'CC = ' + (self.translator.driver_options.cc or 'cc')
+        print >> f, 'CC = ' + cc
         print >> f
         print >> f, MAKEFILE.strip()
         f.close()

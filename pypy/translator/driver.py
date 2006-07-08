@@ -16,6 +16,7 @@ py.log.setconsumer("translation", ansi_log)
 
 DEFAULT_OPTIONS = {
   'gc': 'ref',
+  'cc': None,
 
   'thread': False, # influences GC policy
 
