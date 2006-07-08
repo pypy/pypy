@@ -72,7 +72,7 @@ def _init_timezone():
     if _POSIX:
         YEAR = (365 * 24 + 6) * 3600
 
-        t = (((libc.time(byref(c_long(0)))) / YEAR) * YEAR)
+        t = (((libc.time(byref(cConfig.time_t(0)))) / YEAR) * YEAR)
         tt = cConfig.time_t(t)
         p = libc.localtime(byref(tt)).contents
         janzone = -p.tm_gmtoff
@@ -133,13 +133,19 @@ def _floattime():
     #     return t.value
 
 def _check_float(space, seconds):
-    w_check_float = _get_app_object(space, "_check_float")
+    # this call the app level _check_float to check the type of
+    # the given seconds
+    w_check_float = _get_module_object(space, "_check_float")
     space.call_function(w_check_float, space.wrap(seconds))
     
-def _get_app_object(space, obj_name):
+def _get_module_object(space, obj_name):
     w_module = space.getbuiltinmodule('rctime')
     w_obj = space.getattr(w_module, space.wrap(obj_name))
     return w_obj
+
+def _set_module_object(space, obj_name, obj_value):
+    w_module = space.getbuiltinmodule('rctime')
+    w_obj = space.setattr(w_module, space.wrap(obj_name), space.wrap(obj_value))    
 
 def _get_floattime(space, w_seconds):
     # this check is done because None will be automatically wrapped
@@ -163,7 +169,7 @@ def _tm_to_tuple(space, t):
     time_tuple.append(space.wrap(t.tm_yday + 1)) # want january, 1 == 1
     time_tuple.append(space.wrap(t.tm_isdst))
     
-    w_struct_time = _get_app_object(space, 'struct_time')
+    w_struct_time = _get_module_object(space, 'struct_time')
     w_time_tuple = space.newtuple(time_tuple)
     return space.call_function(w_struct_time, w_time_tuple)
 
@@ -178,7 +184,7 @@ def _gettmarg(space, w_tup, buf):
     buf.tm_yday = space.int_w(w_tup[7])
     buf.tm_isdst = space.int_w(w_tup[8])
 
-    w_accept2dyear = _get_app_object(space, "accept2dyear")
+    w_accept2dyear = _get_module_object(space, "accept2dyear")
     accept2dyear = space.int_w(w_accept2dyear)
     
     if y < 1900:
@@ -309,7 +315,7 @@ def gmtime(space, w_seconds=None):
     """
 
     # rpython does not support that a variable has two incompatible builtins
-    # as value so we have to duplicate the code. NOT GOOD! see localtime()
+    # as value so we have to duplicate the code. NOT GOOD! see localtime() too
     seconds = _get_floattime(space, w_seconds)
     whent = cConfig.time_t(int(seconds))
     p = libc.gmtime(byref(whent))
@@ -366,3 +372,27 @@ def mktime(space, w_tup):
 
     return space.wrap(float(tt))
 mktime.unwrap_spec = [ObjSpace, W_Root]
+
+if _POSIX:
+    def tzset(space):
+        """tzset()
+
+        Initialize, or reinitialize, the local timezone to the value stored in
+        os.environ['TZ']. The TZ environment variable should be specified in
+        standard Unix timezone format as documented in the tzset man page
+        (eg. 'US/Eastern', 'Europe/Amsterdam'). Unknown timezones will silently
+        fall back to UTC. If the TZ environment variable is not set, the local
+        timezone is set to the systems best guess of wallclock time.
+        Changing the TZ environment variable without calling tzset *may* change
+        the local timezone used by methods such as localtime, but this behaviour
+        should not be relied on"""
+
+        libc.tzset()
+        
+        # reset timezone, altzone, daylight and tzname
+        timezone, daylight, tzname, altzone = _init_timezone()
+        _set_module_object(space, "timezone", timezone)
+        _set_module_object(space, 'daylight', daylight)
+        _set_module_object(space, 'tzname', tzname)
+        _set_module_object(space, 'altzone', altzone)
+    tzset.unwrap_spec = [ObjSpace]
