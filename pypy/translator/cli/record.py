@@ -105,6 +105,7 @@ class Record(Node):
         self.ilasm.opcode('ldc.i4', '1')
         for f_name, (FIELD_TYPE, default) in self.record._fields.iteritems():
             f_type = self.cts.lltype_to_cts(FIELD_TYPE)
+            f_name = self.cts.escape_name(f_name)
             self.ilasm.opcode('ldarg.0')
             self.ilasm.get_field((f_type, record_type, f_name))
             self.ilasm.opcode('ldloc.0')
@@ -121,6 +122,7 @@ class Record(Node):
         self.ilasm.begin_function('GetHashCode', [], 'int32', False, 'virtual', 'instance', 'default')
         gethash = 'int32 [pypylib]pypy.runtime.Utils::GetHashCode<%s>(!!0)'
         f_name, (FIELD_TYPE, default) = self.record._fields.iteritems().next()
+        f_name = self.cts.escape_name(f_name)
         f_type = self.cts.lltype_to_cts(FIELD_TYPE)
         self.ilasm.opcode('ldarg.0')
         self.ilasm.get_field((f_type, record_type, f_name))
