@@ -82,6 +82,8 @@ class CTS(object):
             return name
 
     def lltype_to_cts(self, t, include_class=True):
+        if t is ootype.ROOT:
+            return '[mscorlib]System.Object'
         if isinstance(t, ootype.Instance):
             self.db.pending_class(t)
             return self.__class(t._name, include_class)
