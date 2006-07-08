@@ -148,6 +148,6 @@ def test_weakaddress():
             a = A()
             l1.append(a)
             l2.append(cast_object_to_weakgcaddress(a))
-        return len(l1) == len(l2) and len(l1) > 0 and l2
+        return len(l1) == len(l2)
     fn = compile(func, [int])
     assert fn(10)
