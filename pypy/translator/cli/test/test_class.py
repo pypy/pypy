@@ -1,6 +1,7 @@
 import py
 from pypy.translator.cli.test.runtest import CliTest
 from pypy.rpython.test.test_rclass import BaseTestRclass
+from pypy.rpython.test.test_rspecialcase import BaseTestRspecialcase
 
 class TestCliClass(CliTest, BaseTestRclass):
     def test_abstract_method(self):
@@ -19,3 +20,7 @@ class TestCliClass(CliTest, BaseTestRclass):
             b = B()
             return call(a, x) + call(b, x)
         assert self.interpret(fn, [0]) == 3
+
+
+class TestCliSpecialCase(CliTest, BaseTestRspecialcase):
+    pass
