@@ -40,6 +40,11 @@ class CPyObjSpace(baseobjspace.ObjSpace):
     def getbuiltinmodule(self, name):
         return PyImport_ImportModule(name)
 
+    def gettypefor(self, Cls):
+        from pypy.objspace.cpy.typedef import rpython2cpytype
+        return rpython2cpytype(self, Cls)
+    gettypefor._annspecialcase_ = 'specialize:arg(1)'
+
     def wrap(self, x):
         if isinstance(x, baseobjspace.Wrappable):
             # special cases, only when bootstrapping

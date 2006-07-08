@@ -45,6 +45,17 @@ def rpython2cpython(space, x):
 rpython2cpython.allow_someobjects = True
 rpython2cpython._annspecialcase_ = "specialize:argtype(1)"
 
+def rpython2cpytype(space, Cls):
+    cache = space.fromcache(TypeDefCache)
+    typeintf = cache.getorbuild(Cls.typedef)
+    if we_are_translated():
+        cpytype = cpy_typeobject(typeintf, Cls)
+        return W_Object(cpytype)        
+    else:
+        return cache.wraptypeintf(Cls.typedef, typeintf)
+rpython2cpytype.allow_someobjects = True
+rpython2cpytype._annspecialcase_ = "specialize:arg(1)"
+    
 def cpython2rpython_raw(space, w_obj):
     "NOT_RPYTHON."
     try:

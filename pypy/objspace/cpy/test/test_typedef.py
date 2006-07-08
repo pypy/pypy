@@ -220,3 +220,35 @@ def test_getset():
     assert res2 is res
     assert x == 204
     assert res.x == 204
+
+def test_expose_types():
+    W_MyType.typedef = TypeDef("MyType")
+
+    class W_MyType2(Wrappable):
+        def __init__(self, space, x=1):
+            self.space = space
+            self.x = x
+    W_MyType2.typedef = TypeDef("MyType2")
+    space = CPyObjSpace()
+
+    def get_mytype(n):
+        if n:
+            return space.gettypefor(W_MyType2)
+        else:
+            return space.gettypefor(W_MyType)
+        return None
+    fn = compile(get_mytype, [int],
+                 annotatorpolicy = CPyAnnotatorPolicy(space))
+
+    w_mytype2 = get_mytype(1)
+    w_name = space.getattr(w_mytype2, space.wrap('__name__'))
+    assert space.unwrap(w_name) == 'MyType2'
+    w_mytype = get_mytype(0)
+    w_name = space.getattr(w_mytype, space.wrap('__name__'))
+    assert space.unwrap(w_name) == 'MyType'
+
+    res2 = fn(1)
+    assert type(res2) == type
+    assert res2.__name__ == 'MyType2'
+    res = fn(0)
+    assert res.__name__ == 'MyType'
