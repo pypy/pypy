@@ -126,6 +126,8 @@ class TranslationContext(object):
 # testing helper
 
 def graphof(translator, func):
+    if isinstance(func, FunctionGraph):
+        return func
     result = []
     for graph in translator.graphs:
         if getattr(graph, 'func', None) is func:

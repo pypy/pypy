@@ -36,13 +36,6 @@ class GraphPage:
         display_layout(self)
 
 
-class SingleGraphPage(GraphPage):
-    """ A GraphPage showing a single precomputed FlowGraph."""
-
-    def compute(self, graph):
-        self.source = make_dot(graph.name, graph, target=None)
-
-
 class VariableHistoryGraphPage(GraphPage):
     """ A GraphPage showing the history of variable bindings. """
 
@@ -115,7 +108,7 @@ class FlowGraphPage(GraphPage):
     """
     def compute(self, translator, functions=None, func_names=None):
         self.translator = translator
-        self.annotator = translator.annotator
+        self.annotator = getattr(translator, 'annotator', None)
         self.func_names = func_names or {}
         if functions:
             graphs = []
@@ -184,6 +177,13 @@ class FlowGraphPage(GraphPage):
         history.reverse()
         return VariableHistoryGraphPage(self.translator, varname, cur_value,
                                           caused_by, history, self.func_names)
+
+
+class SingleGraphPage(FlowGraphPage):
+    """ A GraphPage showing a single precomputed FlowGraph."""
+
+    def compute(self, graph):
+        return FlowGraphPage.compute(self, None, [graph])
 
 
 def nottoowide(text, width=72):
