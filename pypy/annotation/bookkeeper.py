@@ -716,21 +716,27 @@ class Bookkeeper:
         return s_result
 
     def emulate_pbc_call(self, unique_key, pbc, args_s, replace=[], callback=None):
+        emulate_enter = not hasattr(self, 'position_key')
+        if emulate_enter:
+            self.enter(None)
+        try:
+            emulated_pbc_calls = self.emulated_pbc_calls
+            prev = [unique_key]
+            prev.extend(replace)
+            for other_key in prev:
+                if other_key in emulated_pbc_calls:
+                    del emulated_pbc_calls[other_key]
+            emulated_pbc_calls[unique_key] = pbc, args_s
 
-        emulated_pbc_calls = self.emulated_pbc_calls
-        prev = [unique_key]
-        prev.extend(replace)
-        for other_key in prev:
-            if other_key in emulated_pbc_calls:
-                del emulated_pbc_calls[other_key]
-        emulated_pbc_calls[unique_key] = pbc, args_s
-
-        args = self.build_args("simple_call", args_s)
-        if callback is None:
-            emulated = True
-        else:
-            emulated = callback
-        return self.pbc_call(pbc, args, emulated=emulated)
+            args = self.build_args("simple_call", args_s)
+            if callback is None:
+                emulated = True
+            else:
+                emulated = callback
+            return self.pbc_call(pbc, args, emulated=emulated)
+        finally:
+            if emulate_enter:
+                self.leave()
 
     def build_args(self, op, args_s):
         space = RPythonCallsSpace()
