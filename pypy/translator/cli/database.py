@@ -109,9 +109,8 @@ class LowLevelDatabase(object):
                                  runtime=True)
             ilasm.end_function()
             ilasm.end_class()
-            
-    
-    def gen_constants(self, ilasm):
+
+    def collect_constants(self):
         # traverse the forest of the constants to collect all the constants needed
         while self.pending_consts:
             pending_consts = self.pending_consts
@@ -120,7 +119,7 @@ class LowLevelDatabase(object):
             for const in pending_consts.itervalues():
                 const.dependencies()
 
-        # render the class holding all the constants
+    def gen_constants(self, ilasm):
         ilasm.begin_namespace(CONST_NAMESPACE)
         ilasm.begin_class(CONST_CLASS)
 
