@@ -39,6 +39,8 @@ class ItemOffset(AddressOffset):
             return NotImplemented
         return ItemOffset(self.TYPE, self.repeat * other)
 
+    __rmul__ = __mul__
+
     def __neg__(self):
         return ItemOffset(self.TYPE, -self.repeat)
 
@@ -521,6 +523,7 @@ WeakGcAddress = lltype.Primitive("WeakGcAddress",
                                  fakeweakaddress(None))
 
 def cast_ptr_to_weakadr(obj):
+    # XXX this is missing the normalizations done by _ptr._cast_to_adr()
     assert isinstance(lltype.typeOf(obj), lltype.Ptr)
     return fakeweakaddress(obj)
 

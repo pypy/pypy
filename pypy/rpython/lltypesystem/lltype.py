@@ -1063,12 +1063,12 @@ class _ptr(object):
         return _ptr(PTRTYPE, struc, solid=self._solid)
 
     def _cast_to_int(self):
+        if not self:
+            return 0       # NULL pointer
         obj = self._obj
         if isinstance(obj, int):
             return obj     # special case for cast_int_to_ptr() results
-        if obj is None:
-            return 0       # NULL pointer
-        obj = top_container(obj)
+        obj = normalizeptr(self)._obj
         result = intmask(id(obj))
         # assume that id() returns an addressish value which is
         # not zero and aligned to at least a multiple of 4

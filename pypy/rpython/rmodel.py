@@ -213,11 +213,13 @@ class Repr:
             raise TyperError('id() of an instance of the non-pointer %r' % (
                 self,))
         vobj, = hop.inputargs(self)
-        # XXX
-        v_waddr = hop.genop('cast_ptr_to_weakadr', [vobj],
-                            resulttype=llmemory.WeakGcAddress)
-        return hop.genop('cast_weakadr_to_int', [v_waddr], resulttype=Signed)
-        
+        # XXX why did this go through weakadr??
+        #v_waddr = hop.genop('cast_ptr_to_weakadr', [vobj],
+        #                    resulttype=llmemory.WeakGcAddress)
+        #return hop.genop('cast_weakadr_to_int', [v_waddr], resulttype=Signed)
+
+        return hop.genop('cast_ptr_to_int', [vobj], resulttype=Signed)
+
     def rtype_hash(self, hop):
         ll_hash = self.get_ll_hash_function()
         v, = hop.inputargs(self)

@@ -149,7 +149,7 @@ def op_int_add(x, y):
 
 def op_int_mul(x, y):
     assert isinstance(x, (int, llmemory.AddressOffset))
-    assert isinstance(y, int)
+    assert isinstance(y, (int, llmemory.AddressOffset))
     return intmask(x * y)
 
 
