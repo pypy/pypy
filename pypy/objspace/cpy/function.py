@@ -54,6 +54,17 @@ class UnwrapSpec_Trampoline(UnwrapSpecRecipe):
                                 argname))
         tramp.passedargs.append(argname)
 
+    def visit_args_w(self, el, orig_sig, tramp):
+        argname = orig_sig.next_arg()
+        assert argname.endswith('_w')
+        basename = argname[:-2]
+        tramp.inputargs.append('*' + basename)
+        tramp.wrappings.append('%s = []' % (argname,))
+        tramp.wrappings.append('for ___i in range(len(%s)):' % (basename,))
+        tramp.wrappings.append('    %s.append(___W_Object(%s[___i]))' % (
+            argname, basename))
+        tramp.passedargs.append(argname)
+
 
 class TrampolineSignature(object):
 
