@@ -7,6 +7,7 @@ class Module(MixedModule):
         'time': 'interp_time.time',
         'clock': 'interp_time.clock',
         'ctime': 'interp_time.ctime',
+        'asctime': 'interp_time.asctime',
         'gmtime': 'interp_time.gmtime',
         'localtime': 'interp_time.localtime',
         'mktime': 'interp_time.mktime',
@@ -18,7 +19,8 @@ class Module(MixedModule):
 #         
     def buildloaders(cls):
         from pypy.module.rctime import interp_time
-        Module.interpleveldefs["accept2dyear"] = 'space.wrap(%r)' % interp_time._init_accept2dyear()
+        Module.interpleveldefs["accept2dyear"] = 'space.wrap(%r)' %\
+            interp_time._init_accept2dyear()
         super(Module, cls).buildloaders()
     buildloaders = classmethod(buildloaders)
 

@@ -24,15 +24,11 @@ class AppTestRCTime:
         rctime.clock()
         assert isinstance(rctime.clock(), float)
 
-    def test_accept2dyear(self):
-        import rctime
-        import os
-        assert rctime.accept2dyear == 1
-    
     def test_time(self):
         import rctime
         rctime.time()
         assert isinstance(rctime.time(), float)
+        assert rctime.time() != 0.0 # 0.0 means failure
 
     def test_ctime(self):
         import rctime
@@ -50,6 +46,7 @@ class AppTestRCTime:
         rctime.gmtime(None)
         rctime.gmtime(0)
         res = rctime.gmtime(rctime.time())
+        assert isinstance(res, rctime.struct_time)
         assert res[-1] == 0 # DST is always zero in gmtime()
         t0 = rctime.mktime(rctime.gmtime())
         t1 = rctime.mktime(rctime.gmtime(None))
@@ -63,9 +60,10 @@ class AppTestRCTime:
         rctime.localtime()
         rctime.localtime(None)
         rctime.localtime(0)
-        rctime.localtime(rctime.time())
-        t0 = rctime.mktime(rctime.gmtime())
-        t1 = rctime.mktime(rctime.gmtime(None))
+        res = rctime.localtime(rctime.time())
+        assert isinstance(res, rctime.struct_time)
+        t0 = rctime.mktime(rctime.localtime())
+        t1 = rctime.mktime(rctime.localtime(None))
         assert 0 <= (t1 - t0) < 0.2
         t = rctime.time()
         assert rctime.localtime(t) == rctime.localtime(t)
@@ -75,8 +73,10 @@ class AppTestRCTime:
         raises(TypeError, rctime.mktime, "foo")
         raises(TypeError, rctime.mktime, None)
         raises(TypeError, rctime.mktime, (1, 2))
-        rctime.mktime(rctime.localtime())
-
+        raises(TypeError, rctime.mktime, (1, 2, 3, 4, 5, 6, 'f', 8, 9))
+        res = rctime.mktime(rctime.localtime())
+        assert isinstance(res, float)
+        
         ltime = rctime.localtime()
         rctime.accept2dyear == 0
         ltime = list(ltime)
@@ -98,18 +98,22 @@ class AppTestRCTime:
         assert long(rctime.mktime(rctime.gmtime(t))) != long(t)
         ltime = rctime.localtime()
         assert rctime.mktime(tuple(ltime)) == rctime.mktime(ltime)
-    # 
-    # def test_asctime():
-    #     py.test.raises(TypeError, rctime.asctime, "foo")
-    #     py.test.raises(TypeError, rctime.asctime, None)
-    #     py.test.raises(TypeError, rctime.asctime, (1, 2))
-    #     assert rctime.asctime() != None
-    #     assert rctime.asctime() != ""
-    #     assert rctime.rctime(t) == rctime.asctime(rctime.localtime(t))
-    #     assert rctime.rctime(t) != rctime.asctime(rctime.gmtime(t))
-    #     lt = rctime.localtime()
-    #     assert rctime.asctime(tuple(lt)) == rctime.asctime(lt)
-    # 
+    
+    def test_asctime(self):
+        import rctime
+        raises(TypeError, rctime.asctime, None)
+        raises(TypeError, rctime.asctime, (1, 2))
+        raises(TypeError, rctime.asctime, (1, 2, 3, 4, 5, 6, 'f', 8, 9))
+        raises(TypeError, rctime.asctime, "foo")
+        res = rctime.asctime()
+        assert isinstance(res, str)
+        rctime.asctime(rctime.localtime())
+        t = rctime.time()
+        assert rctime.ctime(t) == rctime.asctime(rctime.localtime(t))
+        assert rctime.ctime(t) != rctime.asctime(rctime.gmtime(t))
+        ltime = rctime.localtime()
+        assert rctime.asctime(tuple(ltime)) == rctime.asctime(ltime)
+    
     def test_struct_time(self):
         import rctime
         raises(TypeError, rctime.struct_time)

@@ -3,8 +3,7 @@ from pypy.rpython.rctypes.tool.libc import libc
 import pypy.rpython.rctypes.implementation # this defines rctypes magic
 from pypy.rpython.rctypes.aerrno import geterrno
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import ObjSpace
-from pypy.interpreter.gateway import W_Root
+from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 from ctypes import *
 import os
 import math
@@ -33,14 +32,12 @@ cConfig.__dict__.update(ctypes_platform.configure(CConfig))
 cConfig.timeval.__name__ = "ctimeval"
 cConfig.tm.__name__ = "ctm"
 
-libc.strerror.restype = c_char_p
-
 has_gettimeofday = False
 if hasattr(libc, "gettimeofday"):
     libc.gettimeofday.argtypes = [c_void_p, c_void_p]
     libc.gettimeofday.restype = c_int
     has_gettimeofday = True
-
+libc.strerror.restype = c_char_p
 libc.clock.restype = cConfig.clock_t
 libc.time.argtypes = [POINTER(cConfig.time_t)]
 libc.time.restype = cConfig.time_t
@@ -52,6 +49,8 @@ libc.localtime.argtypes = [POINTER(cConfig.time_t)]
 libc.localtime.restype = POINTER(cConfig.tm)
 libc.mktime.argtypes = [POINTER(cConfig.tm)]
 libc.mktime.restype = cConfig.time_t
+libc.asctime.argtypes = [POINTER(cConfig.tm)]
+libc.asctime.restype = c_char_p
 
 def _init_accept2dyear():
     return (1, 0)[bool(os.getenv("PYTHONY2K"))]
@@ -162,6 +161,11 @@ def _gettmarg(space, w_tup, buf):
     return buf
 
 def time(space):
+    """time() -> floating point number
+
+    Return the current time in seconds since the Epoch.
+    Fractions of a second may be present if the system clock provides them."""
+    
     secs = _floattime()
     return space.wrap(secs)
 
@@ -210,6 +214,51 @@ def ctime(space, w_seconds=None):
     return space.wrap(p[:-1]) # get rid of new line
 ctime.unwrap_spec = [ObjSpace, W_Root]
 
+def asctime(space, tup_w): # *tup_w does not really work
+    """asctime([tuple]) -> string
+
+    Convert a time tuple to a string, e.g. 'Sat Jun 06 16:26:11 1998'.
+    When the time tuple is not present, current time as returned by localtime()
+    is used."""
+    
+    if len(tup_w):
+        w_tup = tup_w[0]
+        tuple_len = space.int_w(space.len(w_tup))
+        
+        if space.is_w(w_tup, space.w_None) or 1 < tuple_len < 9:
+            raise OperationError(space.w_TypeError, 
+                space.wrap("argument must be 9-item sequence"))
+
+        # check if every passed object is a int
+        tup = space.unpackiterable(w_tup)
+        map(space.int_w, tup)
+    else:
+        # empty list
+        w_tup = tup_w
+        tuple_len = 0
+
+    buf = None
+    if not w_tup:
+        tt = cConfig.time_t(int(_floattime())) 
+        buf = libc.localtime(byref(tt))
+        if not buf:
+            raise OperationError(space.w_ValueError,
+                space.wrap(_get_error_msg()))
+        buf = buf.contents
+    
+    if tuple_len:
+        if not buf:
+            buf = cConfig.tm()
+        buf = _gettmarg(space, tup, buf)
+    
+    p = libc.asctime(byref(buf))
+    if not p:
+        raise OperationError(space.w_ValueError,
+            space.wrap("unconvertible time"))
+    
+    return space.wrap(p[:-1]) # get rid of new line
+asctime.unwrap_spec = [ObjSpace, 'args_w']
+
 def gmtime(space, w_seconds=None):
     """gmtime([seconds]) -> (tm_year, tm_mon, tm_day, tm_hour, tm_min,
                           tm_sec, tm_wday, tm_yday, tm_isdst)
@@ -254,12 +303,12 @@ def mktime(space, w_tup):
         raise OperationError(space.w_TypeError, 
             space.wrap("argument must be 9-item sequence not None"))
     else:
-        tup = space.unpackiterable(w_tup)
+        tup_w = space.unpackiterable(w_tup)
     
-    if 1 < len(tup) < 9:
+    if 1 < len(tup_w) < 9:
         raise OperationError(space.w_TypeError,
             space.wrap("argument must be a sequence of length 9, not %d"\
-                % len(tup)))
+                % len(tup_w)))
 
     tt = cConfig.time_t(int(_floattime()))
     
@@ -267,7 +316,7 @@ def mktime(space, w_tup):
     if not buf:
         raise OperationError(space.w_ValueError, space.wrap(_get_error_msg()))
     
-    buf = _gettmarg(space, tup, buf.contents)
+    buf = _gettmarg(space, tup_w, buf.contents)
 
     tt = libc.mktime(byref(buf))
     if tt == -1:
