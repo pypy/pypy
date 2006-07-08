@@ -1,5 +1,7 @@
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.baseobjspace import ObjSpace, W_Root
+from pypy.interpreter.baseobjspace import ObjSpace, W_Root, Wrappable
+from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.typedef import TypeDef
 from pypy.rpython.rctypes.tool import ctypes_platform
 from pypy.rpython.rctypes.tool.libc import libc
 import sys, math
@@ -46,3 +48,26 @@ def sieve(space, n):
         head += 1
 sieve.unwrap_spec = [ObjSpace, int]
  
+class W_MyType(Wrappable):
+    def __init__(self, space, x=1):
+        self.space = space
+        self.x = x
+
+    def multiply(self, w_y):
+        space = self.space
+        y = space.int_w(w_y)
+        return space.wrap(self.x * y)
+
+    def fget_x(space, self):
+        return space.wrap(self.x)
+
+    def fset_x(space, self, w_value):
+        self.x = space.int_w(w_value)
+
+def mytype_new(space, w_subtype, x):
+    return space.wrap(W_MyType(space, x))
+mytype_new.unwrap_spec = [ObjSpace, W_Root, int]
+
+W_MyType.typedef = TypeDef('MyType',
+    __new__ = interp2app(mytype_new)
+)
