@@ -19,6 +19,8 @@ def isSimpleLoad(instr):
 def isSimpleStore(instr):
     return instr.op in ('STORE_NAME', 'STORE_FAST', 'STORE_GLOBAL')
 
+def isUnpack(instr):
+    return instr.op in ['UNPACK_TUPLE', 'UNPACK_SEQUENCE']
 
 TM_LOOKING_FOR_LOADS, TM_COUNTING_LOADS, TM_COUNTING_STORES = range(3)
 
@@ -32,6 +34,7 @@ class TupleMatcher:
         i = 0
         while i < len(block.insts):
             inst = block.insts[i]
+            #print inst.op, getattr(inst, 'intval', None), self.state
             if self.state == TM_LOOKING_FOR_LOADS:
                 if isSimpleLoad(inst):
                     self.state = TM_COUNTING_LOADS
@@ -42,7 +45,7 @@ class TupleMatcher:
                 elif inst.op == 'BUILD_TUPLE' and self.loadcount >= inst.intval:
                     if i+1 < len(block.insts):
                         nextinst = block.insts[i+1]
-                        if nextinst.op == 'UNPACK_TUPLE' and nextinst.intval == inst.intval:
+                        if isUnpack(nextinst) and nextinst.intval == inst.intval:
                             self.state = TM_COUNTING_STORES
                             self.storecount = 0
                             self.stores = {}
@@ -64,7 +67,7 @@ class TupleMatcher:
         index = i-loadcount-1
         assert block.insts[index].op == 'BUILD_TUPLE'
         del block.insts[index]
-        assert block.insts[index].op == 'UNPACK_TUPLE'
+        assert isUnpack(block.insts[index])
         del block.insts[index]
         saveops = block.insts[index:index+loadcount]
         saveops.reverse()
@@ -73,13 +76,14 @@ class TupleMatcher:
 
 def tuple_assign_block(n):
     block = pyassem.Block(None)
-    
+
     for i in range(n):
         block.emit(pyassem.InstrInt('LOAD_CONST', i))
     block.emit(pyassem.InstrInt('BUILD_TUPLE', n))
     block.emit(pyassem.InstrInt('UNPACK_TUPLE', n))
     for i in range(n):
-        block.emit(pyassem.InstrInt('STORE_FAST', i))
+        block.emit(pyassem.InstrInt('STORE_NAME', i))
+    
     return block
     
 def test_tuple_assignment():
