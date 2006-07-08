@@ -154,7 +154,7 @@ def checkadr(addr):
     assert lltype.typeOf(addr) is llmemory.Address
     
 def is_inst(inst):
-    return isinstance(lltype.typeOf(inst), (ootype.Instance, ootype.BuiltinType))
+    return isinstance(lltype.typeOf(inst), (ootype.Instance, ootype.BuiltinType, ootype.StaticMethod))
 
 def checkinst(inst):
     assert is_inst(inst)

@@ -64,6 +64,26 @@ class BaseTestRPBC(BaseRtypingTest):
         res = self.interpret(g, [1])
         assert res == 6
 
+    def test_function_is_null(self):
+        def f1(x):
+            return x+1
+        def f2(x):
+            return x+2
+        def g(x):
+            if x < 0:
+                return None
+            elif x == 0:
+                return f2
+            else:
+                return f1
+        def fn(x):
+            func = g(x)
+            if func:
+                return 42
+            else:
+                return 43
+        assert self.interpret(fn, [1]) == 42
+        assert self.interpret(fn, [-1]) == 43
 
     def test_method_call(self):
         def f(a, b):

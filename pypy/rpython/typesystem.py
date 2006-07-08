@@ -114,7 +114,11 @@ class ObjectOrientedTypeSystem(TypeSystem):
     def deref(self, obj):
         assert isinstance(ootype.typeOf(obj), ootype.OOType)
         return obj
-    
+
+    def check_null(self, repr, hop):
+        vlist = hop.inputargs(repr)
+        return hop.genop('oononnull', vlist, resulttype=ootype.Bool)
+
     def null_callable(self, T):
         return ootype.null(T)
 
