@@ -55,10 +55,10 @@ namespace pypy.runtime
 
         public static string OOString(int n, int base_)
         {
-            if (n<0)
+            if (n<0 && base_ != 10)
                 return "-" + Convert.ToString(-n, base_);
             else
-                return  Convert.ToString(n, base_);
+                return Convert.ToString(n, base_);
         }
 
         public static string OOString(double d, int base_)
