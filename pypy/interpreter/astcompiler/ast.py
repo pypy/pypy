@@ -802,7 +802,7 @@ def descr_Assert_mutate(space, w_self, w_visitor):
     space.setattr(w_self, space.wrap("test"), w_new_test)
 
     w_fail = space.getattr(w_self, space.wrap("fail"))
-    if space.is_w(w_fail, space.w_None):
+    if not space.is_w(w_fail, space.w_None):
         w_mutate_fail = space.getattr(w_fail, space.wrap("mutate"))
         w_mutate_fail_args = Arguments(space, [ w_visitor ])
         w_new_fail = space.call_args(w_mutate_fail, w_mutate_fail_args)
@@ -1465,14 +1465,14 @@ def descr_CallFunc_mutate(space, w_self, w_visitor):
     w_newlist = space.newlist(newlist_w)
     space.setslice(w_list, space.w_None, space.w_None, w_newlist)
     w_star_args = space.getattr(w_self, space.wrap("star_args"))
-    if space.is_w(w_star_args, space.w_None):
+    if not space.is_w(w_star_args, space.w_None):
         w_mutate_star_args = space.getattr(w_star_args, space.wrap("mutate"))
         w_mutate_star_args_args = Arguments(space, [ w_visitor ])
         w_new_star_args = space.call_args(w_mutate_star_args, w_mutate_star_args_args)
         space.setattr(w_self, space.wrap("star_args"), w_new_star_args)
 
     w_dstar_args = space.getattr(w_self, space.wrap("dstar_args"))
-    if space.is_w(w_dstar_args, space.w_None):
+    if not space.is_w(w_dstar_args, space.w_None):
         w_mutate_dstar_args = space.getattr(w_dstar_args, space.wrap("mutate"))
         w_mutate_dstar_args_args = Arguments(space, [ w_visitor ])
         w_new_dstar_args = space.call_args(w_mutate_dstar_args, w_mutate_dstar_args_args)
@@ -1642,7 +1642,8 @@ class Compare(Node):
 
     def mutate(self, visitor):
         self.expr = self.expr.mutate(visitor)
-        self.ops[:] = [n.mutate(visitor) for n in self.ops]
+        self.ops[:] = [(op_name, node.mutate(visitor)) for (op_name, node) in self.ops]
+
         return visitor.visitCompare(self)
 
     def fget_expr( space, self):
@@ -1663,7 +1664,7 @@ def descr_Compare_new(space, w_subtype, w_expr, w_ops, lineno=-1):
     self.ops = ops
     self.lineno = lineno
     return space.wrap(self)
-    
+
 
 
 def descr_Compare_accept( space, w_self, w_visitor):
@@ -1671,7 +1672,7 @@ def descr_Compare_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
-def descr_Compare_mutate(space, w_self, w_visitor): 
+def descr_Compare_mutate(space, w_self, w_visitor):
     w_expr = space.getattr(w_self, space.wrap("expr"))
     w_mutate_expr = space.getattr(w_expr, space.wrap("mutate"))
     w_mutate_expr_args = Arguments(space, [ w_visitor ])
@@ -1682,15 +1683,21 @@ def descr_Compare_mutate(space, w_self, w_visitor):
     list_w = space.unpackiterable(w_list)
     newlist_w = []
     for w_item in list_w:
-        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
-        w_item_mutate_args = Arguments(space, [ w_visitor ])
-        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
-        newlist_w.append(w_newitem)
+        w_opname, w_node = space.unpackiterable(w_item, 2)
+        
+        w_node_mutate = space.getattr(w_node, space.wrap("mutate"))
+        w_node_mutate_args = Arguments(space, [ w_visitor ])
+        w_newnode = space.call_args(w_node_mutate, w_node_mutate_args)
+        
+        newlist_w.append(space.newtuple([w_opname, w_newnode]))
     w_newlist = space.newlist(newlist_w)
     space.setslice(w_list, space.w_None, space.w_None, w_newlist)
     w_visitCompare = space.getattr(w_visitor, space.wrap("visitCompare"))
     w_visitCompare_args = Arguments(space, [ w_self ])
     return space.call_args(w_visitCompare, w_visitCompare_args)
+
+
+
 
 Compare.typedef = TypeDef('Compare', Node.typedef, 
                      __new__ = interp2app(descr_Compare_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, int]),
@@ -1986,7 +1993,8 @@ class Dict(Node):
         return visitor.visitDict(self)
 
     def mutate(self, visitor):
-        self.items[:] = [n.mutate(visitor) for n in self.items]
+        self.items[:] = [(n.mutate(visitor), o.mutate(visitor)) for (n, o) in self.items]
+
         return visitor.visitDict(self)
 
 
@@ -2002,7 +2010,6 @@ def descr_Dict_new(space, w_subtype, w_items, lineno=-1):
     self.items = items
     self.lineno = lineno
     return space.wrap(self)
-    
 
 
 
@@ -2011,20 +2018,29 @@ def descr_Dict_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
-def descr_Dict_mutate(space, w_self, w_visitor): 
+def descr_Dict_mutate(space, w_self, w_visitor):
     w_list = space.getattr(w_self, space.wrap("items"))
     list_w = space.unpackiterable(w_list)
     newlist_w = []
     for w_item in list_w:
-        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
-        w_item_mutate_args = Arguments(space, [ w_visitor ])
-        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
-        newlist_w.append(w_newitem)
+        w_key, w_value = space.unpackiterable(w_item, 2)
+        
+        w_key_mutate = space.getattr(w_key, space.wrap("mutate"))
+        w_key_mutate_args = Arguments(space, [ w_visitor ])
+        w_newkey = space.call_args(w_key_mutate, w_key_mutate_args)
+
+        w_value_mutate = space.getattr(w_value, space.wrap("mutate"))
+        w_value_mutate_args = Arguments(space, [ w_visitor ])
+        w_newvalue = space.call_args(w_value_mutate, w_value_mutate_args)
+        
+        newlist_w.append(space.newtuple([w_newkey, w_newvalue]))
     w_newlist = space.newlist(newlist_w)
     space.setslice(w_list, space.w_None, space.w_None, w_newlist)
     w_visitDict = space.getattr(w_visitor, space.wrap("visitDict"))
     w_visitDict_args = Arguments(space, [ w_self ])
     return space.call_args(w_visitDict, w_visitDict_args)
+
+
 
 Dict.typedef = TypeDef('Dict', Node.typedef, 
                      __new__ = interp2app(descr_Dict_new, unwrap_spec=[ObjSpace, W_Root, W_Root, int]),
@@ -2285,14 +2301,14 @@ def descr_Exec_mutate(space, w_self, w_visitor):
     space.setattr(w_self, space.wrap("expr"), w_new_expr)
 
     w_locals = space.getattr(w_self, space.wrap("locals"))
-    if space.is_w(w_locals, space.w_None):
+    if not space.is_w(w_locals, space.w_None):
         w_mutate_locals = space.getattr(w_locals, space.wrap("mutate"))
         w_mutate_locals_args = Arguments(space, [ w_visitor ])
         w_new_locals = space.call_args(w_mutate_locals, w_mutate_locals_args)
         space.setattr(w_self, space.wrap("locals"), w_new_locals)
 
     w_globals = space.getattr(w_self, space.wrap("globals"))
-    if space.is_w(w_globals, space.w_None):
+    if not space.is_w(w_globals, space.w_None):
         w_mutate_globals = space.getattr(w_globals, space.wrap("mutate"))
         w_mutate_globals_args = Arguments(space, [ w_visitor ])
         w_new_globals = space.call_args(w_mutate_globals, w_mutate_globals_args)
@@ -2481,7 +2497,7 @@ def descr_For_mutate(space, w_self, w_visitor):
     space.setattr(w_self, space.wrap("body"), w_new_body)
 
     w_else_ = space.getattr(w_self, space.wrap("else_"))
-    if space.is_w(w_else_, space.w_None):
+    if not space.is_w(w_else_, space.w_None):
         w_mutate_else_ = space.getattr(w_else_, space.wrap("mutate"))
         w_mutate_else__args = Arguments(space, [ w_visitor ])
         w_new_else_ = space.call_args(w_mutate_else_, w_mutate_else__args)
@@ -2522,7 +2538,7 @@ class From(Node):
     def fset_names( space, self, w_arg ):
         del self.names[:]
         for w_tup in space.unpackiterable( w_arg ):
-            w_name = space.getitem( w_tup, space.wrap(0) ) 
+            w_name = space.getitem( w_tup, space.wrap(0) )
             w_as_name = space.getitem( w_tup, space.wrap(1) )
             name = space.str_w( w_name )
             as_name = None
@@ -2698,7 +2714,7 @@ def descr_Function_accept( space, w_self, w_visitor):
 
 def descr_Function_mutate(space, w_self, w_visitor): 
     w_decorators = space.getattr(w_self, space.wrap("decorators"))
-    if space.is_w(w_decorators, space.w_None):
+    if not space.is_w(w_decorators, space.w_None):
         w_mutate_decorators = space.getattr(w_decorators, space.wrap("mutate"))
         w_mutate_decorators_args = Arguments(space, [ w_visitor ])
         w_new_decorators = space.call_args(w_mutate_decorators, w_mutate_decorators_args)
@@ -3218,7 +3234,8 @@ class If(Node):
         return visitor.visitIf(self)
 
     def mutate(self, visitor):
-        self.tests[:] = [n.mutate(visitor) for n in self.tests]
+        self.tests[:] = [(n.mutate(visitor), o.mutate(visitor)) for (n, o) in self.tests]
+
         if self.else_ is not None:
             self.else_ = self.else_.mutate(visitor)
         return visitor.visitIf(self)
@@ -3244,7 +3261,6 @@ def descr_If_new(space, w_subtype, w_tests, w_else_, lineno=-1):
     self.else_ = space.interp_w(Node, w_else_, can_be_None=True)
     self.lineno = lineno
     return space.wrap(self)
-    
 
 
 
@@ -3253,27 +3269,33 @@ def descr_If_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
-def descr_If_mutate(space, w_self, w_visitor): 
+def descr_If_mutate(space, w_self, w_visitor):
     w_list = space.getattr(w_self, space.wrap("tests"))
     list_w = space.unpackiterable(w_list)
     newlist_w = []
     for w_item in list_w:
-        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
-        w_item_mutate_args = Arguments(space, [ w_visitor ])
-        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
-        newlist_w.append(w_newitem)
+        w_test, w_suite = space.unpackiterable(w_item, 2)
+
+        w_test_mutate = space.getattr(w_test, space.wrap("mutate"))
+        w_test_mutate_args = Arguments(space, [ w_visitor ])
+        w_newtest = space.call_args(w_test_mutate, w_test_mutate_args)
+
+        w_suite_mutate = space.getattr(w_suite, space.wrap("mutate"))
+        w_suite_mutate_args = Arguments(space, [ w_visitor ])
+        w_newsuite = space.call_args(w_suite_mutate, w_suite_mutate_args)
+        newlist_w.append(space.newtuple([w_newtest, w_newsuite]))
+    
     w_newlist = space.newlist(newlist_w)
     space.setslice(w_list, space.w_None, space.w_None, w_newlist)
     w_else_ = space.getattr(w_self, space.wrap("else_"))
-    if space.is_w(w_else_, space.w_None):
+    if not space.is_w(w_else_, space.w_None):
         w_mutate_else_ = space.getattr(w_else_, space.wrap("mutate"))
         w_mutate_else__args = Arguments(space, [ w_visitor ])
         w_new_else_ = space.call_args(w_mutate_else_, w_mutate_else__args)
         space.setattr(w_self, space.wrap("else_"), w_new_else_)
 
-    w_visitIf = space.getattr(w_visitor, space.wrap("visitIf"))
-    w_visitIf_args = Arguments(space, [ w_self ])
-    return space.call_args(w_visitIf, w_visitIf_args)
+
+
 
 If.typedef = TypeDef('If', Node.typedef, 
                      __new__ = interp2app(descr_If_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, int]),
@@ -3303,7 +3325,7 @@ class Import(Node):
     def fset_names( space, self, w_arg ):
         del self.names[:]
         for w_tup in space.unpackiterable( w_arg ):
-            w_name = space.getitem( w_tup, space.wrap(0) ) 
+            w_name = space.getitem( w_tup, space.wrap(0) )
             w_as_name = space.getitem( w_tup, space.wrap(1) )
             name = space.str_w( w_name )
             as_name = None
@@ -3336,7 +3358,7 @@ def descr_Import_new(space, w_subtype, w_names, lineno=-1):
     self.names = names
     self.lineno = lineno
     return space.wrap(self)
-    
+
 
 
 def descr_Import_accept( space, w_self, w_visitor):
@@ -4590,7 +4612,7 @@ def descr_Print_mutate(space, w_self, w_visitor):
     w_newlist = space.newlist(newlist_w)
     space.setslice(w_list, space.w_None, space.w_None, w_newlist)
     w_dest = space.getattr(w_self, space.wrap("dest"))
-    if space.is_w(w_dest, space.w_None):
+    if not space.is_w(w_dest, space.w_None):
         w_mutate_dest = space.getattr(w_dest, space.wrap("mutate"))
         w_mutate_dest_args = Arguments(space, [ w_visitor ])
         w_new_dest = space.call_args(w_mutate_dest, w_mutate_dest_args)
@@ -4680,7 +4702,7 @@ def descr_Printnl_mutate(space, w_self, w_visitor):
     w_newlist = space.newlist(newlist_w)
     space.setslice(w_list, space.w_None, space.w_None, w_newlist)
     w_dest = space.getattr(w_self, space.wrap("dest"))
-    if space.is_w(w_dest, space.w_None):
+    if not space.is_w(w_dest, space.w_None):
         w_mutate_dest = space.getattr(w_dest, space.wrap("mutate"))
         w_mutate_dest_args = Arguments(space, [ w_visitor ])
         w_new_dest = space.call_args(w_mutate_dest, w_mutate_dest_args)
@@ -4778,21 +4800,21 @@ def descr_Raise_accept( space, w_self, w_visitor):
 
 def descr_Raise_mutate(space, w_self, w_visitor): 
     w_expr1 = space.getattr(w_self, space.wrap("expr1"))
-    if space.is_w(w_expr1, space.w_None):
+    if not space.is_w(w_expr1, space.w_None):
         w_mutate_expr1 = space.getattr(w_expr1, space.wrap("mutate"))
         w_mutate_expr1_args = Arguments(space, [ w_visitor ])
         w_new_expr1 = space.call_args(w_mutate_expr1, w_mutate_expr1_args)
         space.setattr(w_self, space.wrap("expr1"), w_new_expr1)
 
     w_expr2 = space.getattr(w_self, space.wrap("expr2"))
-    if space.is_w(w_expr2, space.w_None):
+    if not space.is_w(w_expr2, space.w_None):
         w_mutate_expr2 = space.getattr(w_expr2, space.wrap("mutate"))
         w_mutate_expr2_args = Arguments(space, [ w_visitor ])
         w_new_expr2 = space.call_args(w_mutate_expr2, w_mutate_expr2_args)
         space.setattr(w_self, space.wrap("expr2"), w_new_expr2)
 
     w_expr3 = space.getattr(w_self, space.wrap("expr3"))
-    if space.is_w(w_expr3, space.w_None):
+    if not space.is_w(w_expr3, space.w_None):
         w_mutate_expr3 = space.getattr(w_expr3, space.wrap("mutate"))
         w_mutate_expr3_args = Arguments(space, [ w_visitor ])
         w_new_expr3 = space.call_args(w_mutate_expr3, w_mutate_expr3_args)
@@ -4859,7 +4881,7 @@ def descr_Return_accept( space, w_self, w_visitor):
 
 def descr_Return_mutate(space, w_self, w_visitor): 
     w_value = space.getattr(w_self, space.wrap("value"))
-    if space.is_w(w_value, space.w_None):
+    if not space.is_w(w_value, space.w_None):
         w_mutate_value = space.getattr(w_value, space.wrap("mutate"))
         w_mutate_value_args = Arguments(space, [ w_visitor ])
         w_new_value = space.call_args(w_mutate_value, w_mutate_value_args)
@@ -5037,14 +5059,14 @@ def descr_Slice_mutate(space, w_self, w_visitor):
     space.setattr(w_self, space.wrap("expr"), w_new_expr)
 
     w_lower = space.getattr(w_self, space.wrap("lower"))
-    if space.is_w(w_lower, space.w_None):
+    if not space.is_w(w_lower, space.w_None):
         w_mutate_lower = space.getattr(w_lower, space.wrap("mutate"))
         w_mutate_lower_args = Arguments(space, [ w_visitor ])
         w_new_lower = space.call_args(w_mutate_lower, w_mutate_lower_args)
         space.setattr(w_self, space.wrap("lower"), w_new_lower)
 
     w_upper = space.getattr(w_self, space.wrap("upper"))
-    if space.is_w(w_upper, space.w_None):
+    if not space.is_w(w_upper, space.w_None):
         w_mutate_upper = space.getattr(w_upper, space.wrap("mutate"))
         w_mutate_upper_args = Arguments(space, [ w_visitor ])
         w_new_upper = space.call_args(w_mutate_upper, w_mutate_upper_args)
@@ -5404,7 +5426,24 @@ class TryExcept(Node):
 
     def mutate(self, visitor):
         self.body = self.body.mutate(visitor)
-        self.handlers[:] = [n.mutate(visitor) for n in self.handlers]
+        newhandlers = []
+
+        for expr1, expr2, body in self.handlers:
+
+            if expr1 is not None:
+
+                newhandlers.append(expr1.mutate(visitor))
+
+            if expr2 is not None:
+
+                newhandlers.append(expr2.mutate(visitor))
+
+            if body is not None:
+
+                newhandlers.append(body.mutate(visitor))
+
+        self.handlers[:] = newhandlers
+
         if self.else_ is not None:
             self.else_ = self.else_.mutate(visitor)
         return visitor.visitTryExcept(self)
@@ -5437,7 +5476,7 @@ def descr_TryExcept_new(space, w_subtype, w_body, w_handlers, w_else_, lineno=-1
     self.else_ = space.interp_w(Node, w_else_, can_be_None=True)
     self.lineno = lineno
     return space.wrap(self)
-    
+
 
 
 def descr_TryExcept_accept( space, w_self, w_visitor):
@@ -5445,7 +5484,7 @@ def descr_TryExcept_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
-def descr_TryExcept_mutate(space, w_self, w_visitor): 
+def descr_TryExcept_mutate(space, w_self, w_visitor):
     w_body = space.getattr(w_self, space.wrap("body"))
     w_mutate_body = space.getattr(w_body, space.wrap("mutate"))
     w_mutate_body_args = Arguments(space, [ w_visitor ])
@@ -5456,14 +5495,34 @@ def descr_TryExcept_mutate(space, w_self, w_visitor):
     list_w = space.unpackiterable(w_list)
     newlist_w = []
     for w_item in list_w:
-        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
-        w_item_mutate_args = Arguments(space, [ w_visitor ])
-        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
-        newlist_w.append(w_newitem)
+        w_expr1, w_expr2, w_body = space.unpackiterable(w_item, 3)
+
+        if space.is_w(w_expr1, space.w_None):
+            w_newexpr1 = w_expr1
+        else:
+            w_expr1_mutate = space.getattr(w_expr1, space.wrap("mutate"))
+            w_expr1_mutate_args = Arguments(space, [ w_visitor ])
+            w_newexpr1 = space.call_args(w_expr1_mutate, w_expr1_mutate_args)
+        
+        if space.is_w(w_expr2, space.w_None):
+            w_newexpr2 = w_expr2
+        else:
+            w_expr2_mutate = space.getattr(w_expr2, space.wrap("mutate"))
+            w_expr2_mutate_args = Arguments(space, [ w_visitor ])
+            w_newexpr2 = space.call_args(w_expr2_mutate, w_expr2_mutate_args)
+
+        if space.is_w(w_body, space.w_None):
+            w_newbody = w_body
+        else:
+            w_body_mutate = space.getattr(w_body, space.wrap("mutate"))
+            w_body_mutate_args = Arguments(space, [ w_visitor ])
+            w_newbody = space.call_args(w_body_mutate, w_body_mutate_args)
+        
+        newlist_w.append(space.newtuple([w_newexpr1, w_newexpr2, w_newbody]))
     w_newlist = space.newlist(newlist_w)
     space.setslice(w_list, space.w_None, space.w_None, w_newlist)
     w_else_ = space.getattr(w_self, space.wrap("else_"))
-    if space.is_w(w_else_, space.w_None):
+    if not space.is_w(w_else_, space.w_None):
         w_mutate_else_ = space.getattr(w_else_, space.wrap("mutate"))
         w_mutate_else__args = Arguments(space, [ w_visitor ])
         w_new_else_ = space.call_args(w_mutate_else_, w_mutate_else__args)
@@ -5472,6 +5531,7 @@ def descr_TryExcept_mutate(space, w_self, w_visitor):
     w_visitTryExcept = space.getattr(w_visitor, space.wrap("visitTryExcept"))
     w_visitTryExcept_args = Arguments(space, [ w_self ])
     return space.call_args(w_visitTryExcept, w_visitTryExcept_args)
+
 
 TryExcept.typedef = TypeDef('TryExcept', Node.typedef, 
                      __new__ = interp2app(descr_TryExcept_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, W_Root, int]),
@@ -5815,7 +5875,7 @@ def descr_While_mutate(space, w_self, w_visitor):
     space.setattr(w_self, space.wrap("body"), w_new_body)
 
     w_else_ = space.getattr(w_self, space.wrap("else_"))
-    if space.is_w(w_else_, space.w_None):
+    if not space.is_w(w_else_, space.w_None):
         w_mutate_else_ = space.getattr(w_else_, space.wrap("mutate"))
         w_mutate_else__args = Arguments(space, [ w_visitor ])
         w_new_else_ = space.call_args(w_mutate_else_, w_mutate_else__args)
@@ -5916,7 +5976,7 @@ def descr_With_mutate(space, w_self, w_visitor):
     space.setattr(w_self, space.wrap("body"), w_new_body)
 
     w_var = space.getattr(w_self, space.wrap("var"))
-    if space.is_w(w_var, space.w_None):
+    if not space.is_w(w_var, space.w_None):
         w_mutate_var = space.getattr(w_var, space.wrap("mutate"))
         w_mutate_var_args = Arguments(space, [ w_visitor ])
         w_new_var = space.call_args(w_mutate_var, w_mutate_var_args)

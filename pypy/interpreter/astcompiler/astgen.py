@@ -46,7 +46,9 @@ class NodeInfo:
         self.nargs = len(self.argnames)
         self.init = []
         self.applevel_new = []
+        self.applevel_mutate = []
         self.flatten_nodes = {}
+        self.mutate_nodes = {}
         self.additional_methods = {}
         self.parent = parent
 
@@ -299,7 +301,11 @@ class NodeInfo:
         print >> buf, "    def mutate(self, visitor):"
         if len(self.argnames) != 0:
             for argname in self.argnames:
-                if self.argprops[argname] == P_NODE:
+                if argname in self.mutate_nodes:
+                    for line in self.mutate_nodes[argname]:
+                        if line.strip():
+                            print >> buf, '    ' + line
+                elif self.argprops[argname] == P_NODE:
                     print >> buf, "        self.%s = self.%s.mutate(visitor)" % (argname,argname)
                 elif self.argprops[argname] == P_NONE:
                     print >> buf, "        if self.%s is not None:" % (argname,)
@@ -360,28 +366,17 @@ class NodeInfo:
             if "fset_%s" % attr not in self.additional_methods:
                 self._gen_fset_func( buf, attr, prop )
 
-    def _gen_typedef(self, buf):
-        initargs = [strip_default(arg.strip())
-                    for arg in self.get_initargs().split(',') if arg]
-        if initargs:
-            new_unwrap_spec = ['ObjSpace', 'W_Root'] + ['W_Root'] * len(initargs) + ['int']
-        else:
-            new_unwrap_spec = ['ObjSpace', 'W_Root', 'int']
-        parent_type = "%s.typedef" % self.parent.name
-        print >> buf, "def descr_%s_accept( space, w_self, w_visitor):" %self.name
-        print >> buf, "    w_callable = space.getattr(w_visitor, space.wrap('visit%s'))" % self.name
-        print >> buf, "    args = Arguments(space, [ w_self ])"
-        print >> buf, "    return space.call_args(w_callable, args)"
-
-        print >> buf, ""
-        # mutate stuff
+    def _gen_descr_mutate(self, buf):
+        if self.applevel_mutate:
+            print >> buf, ''.join(self.applevel_mutate)
+            return
         print >> buf, "def descr_%s_mutate(space, w_self, w_visitor): " % self.name
         for argname in self.argnames:
             if self.argprops[argname] in [P_NODE, P_NONE]:
                 print >> buf, '    w_%s = space.getattr(w_self, space.wrap("%s"))' % (argname,argname)
                 if self.argprops[argname] == P_NONE:
                     indent = '    '
-                    print >> buf, '    if space.is_w(w_%s, space.w_None):' % (argname,)
+                    print >> buf, '    if not space.is_w(w_%s, space.w_None):' % (argname,)
                 else:
                     indent = ''
                 print >> buf, indent+'    w_mutate_%s = space.getattr(w_%s, space.wrap("mutate"))' % ( argname,
@@ -411,7 +406,25 @@ class NodeInfo:
         print >> buf, "    w_visit%s_args = Arguments(space, [ w_self ])" % self.name
         print >> buf, "    return space.call_args(w_visit%s, w_visit%s_args)" % (self.name,
                                                                              self.name )
+        
 
+    def _gen_typedef(self, buf):
+        initargs = [strip_default(arg.strip())
+                    for arg in self.get_initargs().split(',') if arg]
+        if initargs:
+            new_unwrap_spec = ['ObjSpace', 'W_Root'] + ['W_Root'] * len(initargs) + ['int']
+        else:
+            new_unwrap_spec = ['ObjSpace', 'W_Root', 'int']
+        parent_type = "%s.typedef" % self.parent.name
+        print >> buf, "def descr_%s_accept( space, w_self, w_visitor):" %self.name
+        print >> buf, "    w_callable = space.getattr(w_visitor, space.wrap('visit%s'))" % self.name
+        print >> buf, "    args = Arguments(space, [ w_self ])"
+        print >> buf, "    return space.call_args(w_callable, args)"
+
+        print >> buf, ""
+        # mutate stuff
+        self._gen_descr_mutate(buf)
+        
         print >> buf, ""
         print >> buf, "%s.typedef = TypeDef('%s', %s, " % (self.name, self.name, parent_type)
         print >> buf, "                     __new__ = interp2app(descr_%s_new, unwrap_spec=[%s])," % (self.name, ', '.join(new_unwrap_spec))
@@ -457,6 +470,8 @@ rx_init = re.compile('init\((.*)\):')
 rx_flatten_nodes = re.compile('flatten_nodes\((.*)\.(.*)\):')
 rx_additional_methods = re.compile('(\\w+)\.(\w+)\((.*?)\):')
 rx_descr_news_methods = re.compile('def\s+descr_(\\w+)_new\((.*?)\):')
+rx_descr_mutate_methods = re.compile('def\s+descr_(\\w+)_mutate\((.*?)\):')
+rx_mutate = re.compile('mutate\((.*)\.(.*)\):')
 def parse_spec(file):
     classes = {}
     cur = None
@@ -503,6 +518,17 @@ def parse_spec(file):
             flatten_expect_comment = True
             continue
 
+        mo = rx_mutate.match(line)
+        if mo:
+            kind = 'mutate'
+            # special case for getChildNodes flattening
+            name = mo.group(1)
+            attr = mo.group(2)
+            cur = classes[name]
+            _cur_ = attr
+            cur.mutate_nodes[attr] = []
+            continue
+
         mo = rx_additional_methods.match(line)
         if mo:
             kind = 'additional_method'
@@ -522,6 +548,14 @@ def parse_spec(file):
             cur.applevel_new = [mo.group(0) + '\n']
             continue
 
+        mo = rx_descr_mutate_methods.match(line)
+        if mo:
+            kind = 'applevel_mutate'
+            name = mo.group(1)
+            cur = classes[name]
+            cur.applevel_mutate = [mo.group(0) + '\n']
+            continue
+
         if kind == 'init':
             # some code for the __init__ method
             cur.init.append(line)
@@ -530,10 +564,14 @@ def parse_spec(file):
                 assert line.strip().startswith("#")
                 flatten_expect_comment=False
             cur.flatten_nodes[_cur_].append(line)
+        elif kind == 'mutate':
+            cur.mutate_nodes[_cur_].append(line)
         elif kind == 'additional_method':
             cur.additional_methods[_cur_].append(' '*4 + line)
         elif kind == 'applevel_new':
             cur.applevel_new.append(line)
+        elif kind == 'applevel_mutate':
+            cur.applevel_mutate.append(line)
             
     for node in classes.values():
         node.setup_parent(classes)
