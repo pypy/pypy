@@ -360,6 +360,23 @@ namespace pypy.runtime
         */
     }
 
+    public class DictVoidVoid
+    {
+        public int ll_length() { return 0; }
+        public void ll_get() { }
+        public void ll_set() { }
+        public bool ll_remove() { return false; } // should it be true?
+        public bool ll_contains() { return false; }
+        public void ll_clear() { }
+
+        //XXX ll_get_items_iterator is not supported, yet
+        /*
+        public DictVoidVoidItemsIterator ll_get_items_iterator()
+        {
+            return new DictVoidVoidItemsIterator();
+        }
+        */
+    }
 
     public class DictItemsIterator<TKey, TValue>
     {

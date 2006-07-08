@@ -419,7 +419,9 @@ class DictConst(AbstractConst):
         valuetype_T = self.cts.lltype_to_cts(self.value._TYPE.VALUETYPE_T)
 
         if KEYTYPE is ootype.Void:
-            assert False, "gencli doesn't support dict with void keys"
+            assert VALUETYPE is ootype.Void
+            ilasm.opcode('pop')
+            return
 
         # special case: dict of void, ignore the values
         if VALUETYPE is ootype.Void:

@@ -18,6 +18,7 @@ PYPY_LIST = '[pypylib]pypy.runtime.List`1<%s>'
 PYPY_LIST_OF_VOID = '[pypylib]pypy.runtime.ListOfVoid'
 PYPY_DICT = '[pypylib]pypy.runtime.Dict`2<%s, %s>'
 PYPY_DICT_OF_VOID = '[pypylib]pypy.runtime.DictOfVoid`1<%s>'
+PYPY_DICT_VOID_VOID = '[pypylib]pypy.runtime.DictVoidVoid'
 PYPY_DICT_ITEMS_ITERATOR = '[pypylib]pypy.runtime.DictItemsIterator`2<%s, %s>'
 PYPY_STRING_BUILDER = '[pypylib]pypy.runtime.StringBuilder'
 
@@ -101,12 +102,17 @@ class CTS(object):
         elif isinstance(t, ootype.Dict):
             key_type = self.lltype_to_cts(t._KEYTYPE)
             value_type = self.lltype_to_cts(t._VALUETYPE)
-            if value_type == 'void': # special case: Dict of Void
-                return self.__class(PYPY_DICT_OF_VOID % key_type, include_class)
+            if value_type == 'void': # special cases: Dict with voids
+                if key_type == 'void':
+                    return self.__class(PYPY_DICT_VOID_VOID, include_class)
+                else:
+                    return self.__class(PYPY_DICT_OF_VOID % key_type, include_class)
             return self.__class(PYPY_DICT % (key_type, value_type), include_class)
         elif isinstance(t, ootype.DictItemsIterator):
             key_type = self.lltype_to_cts(t._KEYTYPE)
             value_type = self.lltype_to_cts(t._VALUETYPE)
+            if value_type == 'void' or key_type == 'void':
+                assert False, 'iteration on dicts of voids is not supported, yet'
             return self.__class(PYPY_DICT_ITEMS_ITERATOR % (key_type, value_type), include_class)
 
         return _get_from_dict(_lltype_to_cts, t, 'Unknown type %s' % t)
