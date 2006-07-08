@@ -81,6 +81,11 @@ namespace pypy.runtime
             return s;
         }
 
+        public static string OOString(bool b, int base_)
+        {
+            return b.ToString();
+        }
+
         public static int OOParseInt(string s, int base_)
         {
             return Convert.ToInt32(s, base_);
