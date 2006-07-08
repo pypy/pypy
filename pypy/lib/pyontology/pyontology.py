@@ -1,7 +1,8 @@
 from rdflib import Graph, URIRef, BNode, Literal
 from logilab.constraint import  Repository, Solver
 from logilab.constraint.fd import  Expression, FiniteDomain as fd
-from logilab.constraint.propagation import AbstractDomain, AbstractConstraint, ConsistencyFailure
+from logilab.constraint.propagation import AbstractDomain, AbstractConstraint,\
+       ConsistencyFailure
 from constraint_classes import *
 import sys, py
 import time
@@ -70,12 +71,20 @@ class ClassDomain(fd, object):
         self.bases = [] 
         self.finished = False
         self.value = None
+        self.type = []
 
     def finish(self, variables, glob_constraints):
         # The finish method constructs the constraints
         if not self.finished:
             log("FINISH %s" % self.name)
         # Try to initialise constraints for this class
+            if len(self.type) > 1:
+                #try to merge the domains of the types 
+                expr = []
+                for typ in self.type:
+                    expr +=[ "%s == %s" % (self.name, typ)]
+                expr = ' and '.join(expr)
+                self.in_constraint.append(Expression([self.name]+self.type, expr))
             prop = getattr(self, 'property')
             val = getattr(self, 'value')
             if prop:
@@ -123,7 +132,9 @@ class ClassDomain(fd, object):
     
     def removeValues(self, values):
         for val in values:
-            self.values.pop(val) 
+            self.values.pop(val)
+        if not self.values:
+            raise ConsistencyFailure 
     
     def getBases(self):
         return self._bases
@@ -145,6 +156,17 @@ class ClassDomain(fd, object):
     def setValues(self, values):
         self.values = dict.fromkeys(values)
 
+class FixedClassDomain(ClassDomain):
+
+    def removeValues(self, values):
+        pass #raise ConsistencyFailure
+
+    def setValues(self, values):
+        if not self.values:
+            self.values = dict.fromkeys(values)
+        #else:
+            #raise ConsistencyFailure
+
 class Thing(ClassDomain):
     pass
 
@@ -154,7 +176,10 @@ class Individual:
         self.uri = uri
         self.sameas = [] 
         self.differentfrom = []
-       
+    
+    def __repr__(self):
+        return "<%s( %s, %s)>"%(self.__class__.__name__, self.name, self.uri)
+
     def __hash__(self):
         return hash(self.uri) 
     def __eq__(self, other):
@@ -509,8 +534,9 @@ class Ontology:
         if not var in builtin_voc :
             # var is not one of the builtin classes -> it is a Thing
             self.type(s, Thing_uri)
-            svar = self.make_var(None,s) 
-            self.constraints.append(MemberConstraint(Individual(svar,s), avar))
+            svar = self.make_var(None,s)
+            self.variables[svar].type.append(avar) 
+            #self.constraints.append(MemberConstraint(Individual(svar,s), avar))
         else:
             # var is a builtin class
             cls = builtin_voc[var]
@@ -579,10 +605,14 @@ class Ontology:
         self.constraints.append(ComplementOfConstraint(svar, avar))       
     
     def oneOf(self, s, var):
+        # Oneof is used to generate a fixed class. The elements of the class
+        # are exactly the ones in the list.
+        # Can be used to define an enumerated datatype as well
         var = self.flatten_rdf_list(var)
-        svar = self.make_var(ClassDomain, s)
+        svar = self.make_var(FixedClassDomain, s)
         res = self.variables[var].getValues()
-        self.variables[svar].setValues([Individual(self.make_var(None,x),x) for x in res])
+        self.variables[svar].setValues([
+             Individual(self.make_var(None,x),x) for x in res])
     
     def unionOf(self,s, var):
         var = self.flatten_rdf_list(var)

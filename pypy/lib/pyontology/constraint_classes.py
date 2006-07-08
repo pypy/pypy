@@ -1,4 +1,5 @@
-from logilab.constraint.propagation import AbstractDomain, AbstractConstraint, ConsistencyFailure
+from logilab.constraint.propagation import AbstractDomain, AbstractConstraint,\
+       ConsistencyFailure
 from rdflib import URIRef
 
 class OwlConstraint(AbstractConstraint):

@@ -369,6 +369,24 @@ def test_oneofclassenumeration():
     assert len(O.rep._domains[restrict].getValues()) == 3
     assert set(O.rep._domains[restrict].getValues()) == set(own)
 
+def test_unification_of_two_oneofclassenumeration():
+    O = Ontology()
+    restrict = BNode('anon')
+    own = [UR('first'), UR('second'), UR('third')]
+    for i in own:
+        O.type(i,UR(namespaces['owl']+'#Thing'))
+    O.oneOf(restrict, own)
+    restrict1 = BNode('anon1')
+    own = [UR('second'), UR('third'), UR('first')]
+    O.oneOf(restrict1, own)
+    O.type(UR('test'), UR(namespaces['owl']+'#Thing'))
+    O.type(UR('test'), restrict)
+    O.type(UR('test'), restrict1)
+    O.consistency()
+    assert len(O.rep._domains[restrict].getValues()) == 3
+    assert set(O.rep._domains[restrict].getValues()) == set(own)
+
+
 def test_oneofdatarange():
     O = Ontology()
     restrict = BNode('anon')
@@ -616,7 +634,10 @@ def test_complementof_raise():
         O.type(URIRef(i), URIRef(namespaces['owl']+'#Thing'))
     O.type(URIRef('i5'), URIRef(namespaces['owl']+'#Thing'))
     O.type(URIRef('i4'), b_cls)
+    O.type(URIRef('i4'), a_cls)
     O.complementOf(b_cls, a_cls)
+    # The above ontology states that 'b' is complement of 'a'. But that leads
+    # to an inconsistency as 'i4' is of type 'a' and 'b'
     raises(ConsistencyFailure, O.consistency)
 
 def test_class_promotion():
