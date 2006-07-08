@@ -53,3 +53,12 @@ class TestConstant(CliTest):
             return const
         res = self.ll_to_list(self.interpret(fn, []))
         assert self.class_name(res[0]) == 'A'
+
+    def test_mix_string_and_char(self):
+        def fn(x):
+            if x < 0:
+                return 'a'
+            else:
+                return 'aa'
+        assert self.ll_to_string(self.interpret(fn, [-1])) == 'a'
+        assert self.ll_to_string(self.interpret(fn, [0])) == 'aa'

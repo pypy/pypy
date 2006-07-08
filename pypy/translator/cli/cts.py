@@ -149,10 +149,13 @@ class CTS(object):
             if isinstance(TYPE, ootype.StaticMethod):
                 METH = TYPE
             else:
-                METH = oopspec.get_method(TYPE, name)
+                METH = oopspec.get_method(TYPE, name)                
             class_name = self.lltype_to_cts(TYPE)
             ret_type = self.lltype_to_cts(METH.RESULT)
-            arg_types = [self.lltype_to_cts(arg) for arg in METH.ARGS if arg is not ootype.Void]
+            generic_types = getattr(TYPE, '_generic_types', {})
+            arg_types = [self.lltype_to_cts(arg) for arg in METH.ARGS if
+                         arg is not ootype.Void and \
+                         generic_types.get(arg, arg) is not ootype.Void]
             arg_list = ', '.join(arg_types)
             return '%s %s::%s(%s)' % (ret_type, class_name, name, arg_list), False
 
