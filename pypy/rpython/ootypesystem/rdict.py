@@ -226,9 +226,9 @@ class __extend__(pairtype(DictRepr, rmodel.Repr)):
         return r_dict.send_message(hop, 'll_set', can_raise=r_dict.custom_eq_hash, v_args=vlist)
 
     def rtype_contains((r_dict, r_key), hop):
-        v_dict, v_key = hop.inputargs(r_dict, r_dict.key_repr)
+        vlist = hop.inputargs(r_dict, r_dict.key_repr)
         hop.exception_cannot_occur()
-        return r_dict.send_message(hop, 'll_contains')
+        return r_dict.send_message(hop, 'll_contains', v_args=vlist)
 
 def _get_call_vars(hop, r_func, arg, params_annotation):
     if isinstance(r_func, AbstractFunctionsPBCRepr):
