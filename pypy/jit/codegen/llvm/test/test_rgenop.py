@@ -13,8 +13,8 @@ import py
 py.test.skip("WIP")
 
 def _runblock(blockcontainer, args, viewbefore=False):
-    from pypy.jit.codegen.llvm.jitcode import JITCode
-    runblock(blockcontainer, args, viewbefore, JITCode)
+    from pypy.jit.codegen.llvm.jitcode import JITcode
+    runblock(blockcontainer, args, viewbefore, JITcode)
 
 def build_square():
     """def square(v0): return v0*v0"""
