@@ -164,8 +164,6 @@ class AbstractConst(object):
             return RecordConst(db, value, count)
         elif isinstance(value, ootype._list):
             return ListConst(db, value, count)
-        elif isinstance(value, ootype._string):
-            return StringConst(db, value, count)
         elif isinstance(value, ootype._static_meth):
             return StaticMethodConst(db, value, count)
         elif isinstance(value, ootype._class):
@@ -177,7 +175,7 @@ class AbstractConst(object):
     make = staticmethod(make)
 
     PRIMITIVE_TYPES = set([ootype.Void, ootype.Bool, ootype.Char, ootype.UniChar,
-                           ootype.Float, ootype.Signed, ootype.Unsigned,
+                           ootype.Float, ootype.Signed, ootype.Unsigned, ootype.String,
                            lltype.SignedLongLong, lltype.UnsignedLongLong])
 
     def is_primitive(cls, TYPE):
@@ -197,6 +195,13 @@ class AbstractConst(object):
             ilasm.opcode('ldc.i4', str(value))
         elif TYPE in (lltype.SignedLongLong, lltype.UnsignedLongLong):
             ilasm.opcode('ldc.i8', str(value))
+        elif TYPE is ootype.String:
+            if value._str is None:
+                ilasm.opcode('ldnull')
+            else:
+                s = value._str
+                s = '"%s"' % s.replace('"', '\\"')
+                ilasm.opcode("ldstr", s)
         else:
             assert TYPE not in cls.PRIMITIVE_TYPES
             cts = CTS(db)
@@ -245,23 +250,6 @@ class AbstractConst(object):
         on the stack.
         """
         ilasm.opcode('pop')
-
-
-class StringConst(AbstractConst):
-    def __init__(self, db, string, count):
-        self.db = db
-        self.cts = CTS(db)
-        self.value = string
-        self.name = 'STRING_LITERAL__%d' % count
-
-    def get_type(self, include_class=True):
-        return self.cts.lltype_to_cts(ootype.String, include_class)
-
-    def instantiate(self, ilasm):
-        if self.value._str is None:
-            ilasm.opcode('ldnull')
-        else:
-            ilasm.opcode('ldstr', '"%s"' % self.value._str)
 
 
 class RecordConst(AbstractConst):
