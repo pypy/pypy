@@ -91,6 +91,16 @@ namespace pypy.runtime
             return Convert.ToInt32(s, base_);
         }
 
+        public static bool Equal<T>(T t1, T t2) 
+        { 
+            return t1.Equals(t2);
+        }
+
+        public static int GetHashCode<T>(T obj)
+        {
+            return obj.GetHashCode();
+        }
+
         public static double Time()
         {
             TimeSpan t = (DateTime.UtcNow - new DateTime(1970, 1, 1));

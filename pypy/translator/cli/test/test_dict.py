@@ -11,8 +11,5 @@ class TestCliDict(CliTest, BaseTestRdict):
         res = self.interpret(f, [])
         assert res == 2
 
-    def test_tuple_dict(self):
-        py.test.skip("Tuples don't compare by value, yet")
-
     def test_dict_of_dict(self):
         py.test.skip("CLI doesn't support recursive dicts")

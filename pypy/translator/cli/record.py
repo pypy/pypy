@@ -51,6 +51,8 @@ class Record(Node):
 
         self._ctor()
         self._toString()
+        self._equals()
+        self._getHashCode()
         ilasm.end_class()
 
         self.db.record_class(self.record, self.name)
@@ -86,5 +88,42 @@ class Record(Node):
             self.ilasm.call('string string::Concat(string, string)')
         self.ilasm.opcode('ldstr ")"')
         self.ilasm.call('string string::Concat(string, string)')            
+        self.ilasm.opcode('ret')
+        self.ilasm.end_function()
+
+    def _equals(self):
+        # field by field comparison
+        record_type = self.cts.lltype_to_cts(self.record, include_class=False)
+        self.ilasm.begin_function('Equals', [('object', 'obj')], 'bool',
+                                  False, 'virtual', 'instance', 'default')
+        self.ilasm.locals([(record_type, 'self')])
+        self.ilasm.opcode('ldarg.1')
+        self.ilasm.opcode('castclass', record_type)
+        self.ilasm.opcode('stloc.0')
+
+        equal = 'bool [pypylib]pypy.runtime.Utils::Equal<%s>(!!0, !!0)'
+        self.ilasm.opcode('ldc.i4', '1')
+        for f_name, (FIELD_TYPE, default) in self.record._fields.iteritems():
+            f_type = self.cts.lltype_to_cts(FIELD_TYPE)
+            self.ilasm.opcode('ldarg.0')
+            self.ilasm.get_field((f_type, record_type, f_name))
+            self.ilasm.opcode('ldloc.0')
+            self.ilasm.get_field((f_type, record_type, f_name))
+            self.ilasm.call(equal % f_type)
+            self.ilasm.opcode('and')
+
+        self.ilasm.opcode('ret')
+        self.ilasm.end_function()
+
+    def _getHashCode(self):
+        # return the hash of the first field. XXX: it can lead to a bad distribution
+        record_type = self.cts.lltype_to_cts(self.record, include_class=False)
+        self.ilasm.begin_function('GetHashCode', [], 'int32', False, 'virtual', 'instance', 'default')
+        gethash = 'int32 [pypylib]pypy.runtime.Utils::GetHashCode<%s>(!!0)'
+        f_name, (FIELD_TYPE, default) = self.record._fields.iteritems().next()
+        f_type = self.cts.lltype_to_cts(FIELD_TYPE)
+        self.ilasm.opcode('ldarg.0')
+        self.ilasm.get_field((f_type, record_type, f_name))
+        self.ilasm.call(gethash % f_type)
         self.ilasm.opcode('ret')
         self.ilasm.end_function()
