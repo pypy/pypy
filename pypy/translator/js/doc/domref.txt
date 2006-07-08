@@ -1,0 +1,910 @@
+DOM Elements Interface
+  attributes
+    var collAttributes = elementNodeReference.attributes;
+    
+  childNodes
+    var ndList = elementNodeReference.childNodes; 
+    
+  className
+    var cName = elementNodeReference.className;
+    elementNodeReference.className = cName;
+    
+  clientHeight
+    var h = element.clientHeight;
+    
+  clientLeft
+    var intElemClientLeft = element.clientLeft;
+    
+  clientTop
+    var intElemClientTop = element.clientTop;
+    
+  clientWidth
+    var intElemClientWidth = element.clientWidth;
+    
+  dir
+    var CurrentWritingDirection = elementNodeReference.dir;
+    elementNodeReference.dir = NewWritingDirection;
+    
+  firstChild
+    childNode = node.firstChild;
+    
+  id
+    idStr = element.id
+    element.id = idStr
+    
+  innerHTML
+    var markup = element.innerHTML;
+    element.innerHTML = markup;
+    
+  lang
+    var languageUsed = elementNodeReference.lang;
+    elementNodeReference.lang = NewLanguage;
+    
+  lastChild
+    last_child = element.lastChild
+    
+  length
+    numItems = nodeList.length
+    
+  localName
+    name = element.localName
+    
+  name
+    HTMLElement.name = string;
+    var elName = HTMLElement.name;
+    
+    var fControl = HTMLFormElement.elementName;
+    var controlCollection = HTMLFormElement.elements.elementName;
+    
+  namespaceURI
+    namespace = node.namespaceURI 
+    
+  nextSibling
+    nextNode = node.nextSibling
+    
+  nodeName
+    var nName = elementNodeReference.nodeName;
+    
+  nodeType
+    type = node.nodeType
+    
+  nodeValue
+    value = document.nodeValue
+    
+  offsetHeight
+    var intElemOffsetHeight = document.getElementById(id_attribute_value).offsetHeight;
+    
+  offsetLeft
+    left = element.offsetLeft
+    
+  offsetParent
+    parentObj = element.offsetParent
+    
+  offsetTop
+    topPos = element.offsetTop
+    
+  offsetWidth
+    var intElemOffsetWidth = document.getElementById(id_attribute_value).offsetWidth;
+    
+  ownerDocument
+    document = element.ownerDocument
+    
+  parentNode
+    pElement = element.parentNode
+    
+  prefix
+    string = element.prefix
+    element.prefix = string
+    
+  previousSibling
+    previousNode = node.previousSibling
+    
+  scrollHeight
+    var intElemScrollHeight = document.getElementById(id_attribute_value).scrollHeight;
+    
+  scrollLeft
+    // Get the number of pixels scrolled
+    var sLeft = element.scrollLeft;
+    
+  scrollTop
+    // Get the number of pixels scrolled
+    var  intElemScrollTop = element.scrollTop;
+    
+  scrollWidth
+    var xScrollWidth = element.scrollWidth;
+    
+  style
+    var div = document.getElementById("div1");
+    div.style.marginTop = ".25in";
+    
+  tabIndex
+    element.tabIndex = iIndex
+    
+  tagName
+    elementName = element.tagName
+    
+  textContent
+    text = element.textContent
+    element.textContent = "this is some sample text"
+    
+  addEventListener
+    target.addEventListener(type, listener, useCapture);
+    
+  appendChild
+    element.appendChild(child)
+    
+  blur
+    element.blur() 
+    
+  click
+    element.click() 
+    
+  cloneNode
+    dupNode = element.cloneNode(deep);
+    
+  dispatchEvent
+    bool = element.dispatchEvent(event)
+    
+  focus
+    element.focus() 
+    
+  getAttribute
+    attribute = element.getAttribute(attributeName)
+    
+  getAttributeNS
+    attrVal = element.getAttributeNS(namespace, name)
+    
+  getAttributeNode
+    attrNode = element.getAttributeNode(attrName) 
+    
+  getAttributeNodeNS
+    attributeNode = element.getAttributeNodeNS(namespace, nodeName) 
+    
+  getElementsByTagName
+    
+    // check the alignment on a number of cells in a table. 
+    table = document.getElementById(forecast-table); 
+    cells = table.getElementsByTagName(td); 
+    for (var i = 0; i  cells.length; i++) { 
+        status = cells[i].getAttribute(status); 
+        if ( status == open) { 
+            // grab the data 
+        }
+    }
+    
+  hasAttribute
+    result = element.hasAttribute(attName) 
+    
+  hasAttributeNS
+    result = element.hasAttributeNS(namespace, localName) 
+    
+  hasAttributes
+    
+    t1 = document.getElementById(table-data); 
+    if ( t1.hasAttributes ) { 
+        // do something with 
+        // t1.attributes
+    }
+    
+  hasChildNodes
+    
+    var foo = document.getElementById(foo)
+    if (foo.hasChildNodes()) { 
+      foo.removeChild(foo.childNodes[0]);
+    }
+    
+  insertBefore
+    var insertedElement = parentElement.insertBefore(newElement, referenceElement)
+    
+  item
+    nodeItem = nodeList.item(index) 
+    
+  normalize
+    element.normalize() 
+    
+  removeAttribute
+    element.removeAttribute(attrName) 
+    
+  removeAttributeNS
+    element.removeAttributeNS(namespace, attrName);
+    
+  removeAttributeNode
+    removedAttr = element.removeAttributeNode(attributeNode)
+    
+  removeChild
+    oldChild = element.removeChild(child) 
+    
+  removeEventListener
+    element.removeEventListener(type, listener, useCapture) 
+    
+  replaceChild
+    replacedNode = parentNode.replaceChild(newChild, oldChild);
+    
+  scrollIntoView
+    element.scrollIntoView(alignWithTop);
+    
+  setAttribute
+    element.setAttribute(name, value)
+    
+  setAttributeNS
+    element.setAttributeNS(namespace, name, value)
+    
+  setAttributeNode
+    replacedAttr = element.setAttributeNode(attribute)
+    
+  setAttributeNodeNS
+    replacedAttr = element.setAttributeNodeNS(namespace, attributeNode) 
+    
+  supports
+    
+    if ( document.supports(package, 4.0) ) {     // do something that only package 4.0 allows }
+    
+    
+  onblur
+    element.onblur = function;
+    
+  onclick
+    element.onclick = functionRef;
+    
+  ondblclick
+    element.ondblclick = function;
+    
+  onfocus
+    event handling code = element.onfocus 
+    
+  onkeydown
+    event handling code = element.onkeydown 
+    
+  onkeypress
+    element.onkeypress = event handling code
+    
+  onkeyup
+    event handling code = element.onkeyup
+    
+  onmousedown
+    event handling code = element.onMouseDown
+    
+  onmousemove
+    event handling code = element.onMouseMove 
+    
+  onmouseout
+    event handling code = element.onMouseOut 
+    
+  onmouseover
+    event handling code = element.onmouseover 
+    
+  onmouseup
+    event handling code = element.onMouseUp 
+    
+  onresize
+    // Set onresize to an anonymous function
+    window.onresize = function(){alert('Window resized')}
+    
+    // Set onresize to a function reference
+    function sayHi(){alert('Hi')}
+    
+    window.onresize = sayHi;
+    
+    // Show the value of window.onresize
+    alert(window.onresize);
+    
+DOM window Interface
+  window.content
+    var windowObject = window.content;
+    
+  window.closed
+    var isClosed = windowRef.closed;
+    
+  window.controllers
+    
+    script 
+      function con() { 
+        alert(window.controllers); 
+      } 
+    /script 
+    // displays: [object XULControllers]
+    
+  window.defaultStatus
+    sMsg = window.defaultStatus
+    window.defaultStatus = sMsg
+    
+  window.directories
+    dirBar = window.directories 
+    
+  window.document
+    doc = window.document 
+    
+  window.frameElement
+    var frameEl = window.frameElement;
+    
+  window.frames
+    frameList = window.frames;
+    
+  window.history
+    historyObj = window.history 
+    
+  window.innerHeight
+    
+    var intFrameHeight = window.innerHeight; // or
+    var intFrameHeight = self.innerHeight; /* will return the height of the 
+    frame viewport within the frameset */
+    var intFramesetHeight = parent.innerHeight; /* will return the height of 
+    the viewport of the closest frameset */
+    var intOuterFramesetHeight = top.innerHeight; /* will return the height 
+    of the viewport of the outermost frameset */
+    
+  window.innerWidth
+    
+    var intFrameWidth = window.innerWidth; // or
+    var intFrameWidth = self.innerWidth; /* will return the width of the 
+    frame viewport within the frameset */
+    var intFramesetWidth = parent.innerWidth; /* will return the width of 
+    the viewport of the closest frameset */
+    var intOuterFramesetWidth = top.innerWidth; /* will return the width 
+    of the viewport of the outermost frameset */
+    
+  window.length
+    framesCount = window.length;
+    
+  window.locationbar
+    objRef = window.locationbar 
+    
+  window.menubar
+    objRef = window.menubar 
+    
+  window.name
+    string = window.name
+     window.name = string
+    
+  window.navigator
+    alert("You're using " + navigator.appName);
+    
+  window.navigator.appCodeName
+    codeName = window.navigator.appCodeName 
+    
+  window.navigator.appName
+    appName = window.navigator.appName 
+    
+  window.navigator.appVersion
+    ver = window.navigator.appVersion 
+    
+  window.navigator.cookieEnabled
+    res = window.navigator.cookieEnabled 
+    
+  window.navigator.javaEnabled()
+    result = window.navigator.javaEnabled()
+    
+  window.navigator.language
+    lang = window.navigator.language 
+    
+  window.navigator.oscpu
+    oscpuInfo = window.navigator.oscpu 
+    
+  window.navigator.platform
+    plat = window.navigator.platform 
+    
+  window.navigator.plugins
+    plugins = window.navigator.plugins 
+    
+  window.navigator.product
+    productName = window.navigator.product 
+    
+  window.navigator.productSub
+    prodSub = window.navigator.productSub 
+    
+  window.navigator.userAgent
+    var ua = window.navigator.userAgent;
+    
+  window.navigator.vendor
+    venString = window.navigator.vendor 
+    
+  window.navigator.vendorSub
+    venSub = window.navigator.vendorSub 
+    
+  window.opener
+    objRef = window.opener 
+    
+  window.pageXOffset
+    hScroll = window.pageXOffset 
+    
+  window.pageYOffset
+    vScroll = window.pageYOffset 
+    
+  window.parent
+    objRef = window.parent 
+    
+  window.personalbar
+    objRef = window.personalbar
+    
+  window.pkcs11
+    objRef = window.pkcs11 
+    
+  window.prompter
+    objRef = window.prompter 
+    
+  window.screen
+    screenObj = window.screen
+    
+  window.screen.availTop
+    iAvail = window.screen.availTop
+    
+  window.screen.availLeft
+    iAvail = window.screen.availLeft
+    
+  window.screen.availHeight
+    iAvail = window.screen.availHeight
+    
+  window.screen.availWidth
+    iAvail = window.screen.availWidth
+    
+  window.screen.colorDepth
+    bitDepth = window.screen.colorDepth
+    
+  window.screen.height
+    iHeight = window.screen.height
+    
+  window.screen.left
+    var left = window.screen.left;
+    
+  window.screen.pixelDepth
+    depth = window.screen.pixelDepth
+    
+  window.screen.top
+    lTop = window.screen.top
+    
+    window.screen.top = lTop
+    
+  window.screen.width
+    lWidth = window.screen.width
+    
+  window.screenX
+    lLoc = window.screenX 
+    
+  window.screenY
+    lLoc = window.screenY 
+    
+  window.scrollbars
+    objRef = window.scrollbars 
+    
+  window.scrollMaxX
+    xpix = window.scrollMaxX
+    
+  window.scrollMaxY
+    ypix = window.scrollMaxY
+    
+  window.scrollX
+    xpix = window.scrollX 
+    
+  window.scrollY
+    ypix = window.scrollY 
+    
+  window.self
+    objRef = window.self 
+    
+  window.sidebar
+    window.sidebar.addPanel("Google", "http://www.google.com/", "");
+    
+  window.status
+    string = window.status
+    window.status = string 
+    
+  window.statusbar
+    objRef = window.statusbar
+    
+  window.toolbar
+    objRef = window.toolbar
+    
+  window.top
+    objRef = window.top
+    
+  window.alert
+    window.alert(message);
+    
+  window.atob
+    atob(encodedData)
+    
+  window.back
+    window.back() 
+    
+  window.blur
+    window.blur() 
+    
+  window.btoa
+    btoa(stringToEncode)
+    
+  window.captureEvents
+    window.captureEvents(eventType) 
+    
+  window.clearInterval
+    window.clearInterval(intervalID)
+    
+  window.clearTimeout
+    window.clearTimeout(timeoutID)
+    
+  window.close
+    window.close();
+    
+  window.confirm
+    result = window.confirm(message);
+    
+  window.dump
+    dump(message);
+    
+  window.escape
+    escaped = escape(regular);
+    
+  window.focus
+    window.focus() 
+    
+  window.forward
+    window.forward() 
+    
+  window.getAttention
+    window.getAttention();
+    
+  window.getComputedStyle
+    var style = window.getComputedStyle(element, pseudoElt);
+    
+  window.getSelection
+    selection = window.getSelection() 
+    
+  window.home
+    window.home() 
+    
+  window.moveBy
+    window.moveBy(deltaX, deltaY) 
+    
+  window.moveTo
+    window.moveTo(x, y) 
+    
+  window.open
+    WindowObjectReference = window.open(strUrl, strWindowName [,strWindowFeatures]);
+    
+  window.openDialog
+    openDialog(URL[, windowName [, windowFeatures [, args]]]) 
+    
+  window.print
+    window.print() 
+    
+  window.prompt
+    result = window.prompt(text, value);
+    
+  window.releaseEvents
+    window.releaseEvents(eventType) 
+    
+  window.resizeBy
+    window.resizeBy(xDelta, yDelta) 
+    
+  window.resizeTo
+    window.resizeTo(iWidth, iHeight) 
+    
+  window.scroll
+    window.scroll(x-coord, y-coord) 
+    
+  window.scrollBy
+    window.scrollBy(X,Y)
+    
+  window.scrollByLines
+    window.scrollByLines(lines) 
+    
+  window.scrollByPages
+    window.scrollByPages(pages) 
+    
+  window.scrollTo
+    window.scrollTo(x-coord, y-coord) 
+    
+  window.setInterval
+    ID = window.setInterval(funcName, delay) 
+    
+  window.setTimeout
+    timeoutID = window.setTimeout(func, delay[, param1, param2, ...]);
+    timeoutID = window.setTimeout(code, delay);
+    
+  window.sizeToContent
+    window.sizeToContent() 
+    
+  window.stop
+    window.stop() 
+    
+  window.unescape
+    regular = window.unescape(escaped)
+    
+  window.updateCommands
+    window.updateCommands("sCommandName")
+    
+  window.onabort
+    window.onabort = funcRef
+    
+  window.onblur
+    
+    window.onblur = funcRef;
+    
+  window.onchange
+    
+    window.onchange = funcRef;
+    
+  window.onclick
+    
+    window.onclick = funcRef;
+    
+  window.onclose
+    
+    window.onclose = funcRef;
+    
+  window.ondragdrop
+    window.ondragdrop = funcRef;
+    window.addEventListener("dragdrop", funcRef, useCapturing);
+    
+  window.onerror
+    
+    window.onerror = funcRef;
+    
+  window.onfocus
+    
+    window.onfocus = funcRef;
+    
+  window.onkeydown
+    
+    window.onkeydown = funcRef;
+    
+  window.onkeypress
+    
+    window.onkeypress = funcRef;
+    
+  window.onkeyup
+    
+    window.onkeyup = funcRef;
+    
+  window.onload
+    window.onload = funcRef;
+    
+  window.onmousedown
+    
+    window.onmousedown = funcRef;
+    
+  window.onmousemove
+    
+    window.onmousemove = funcRef;
+    
+  window.onmouseout
+    
+    window.onmouseout = funcRef;
+    
+  window.onmouseover
+    
+    window.onmouseover = funcRef;
+    
+  window.onmouseup
+    
+    window.onmouseup = funcRef;
+    
+  window.onpaint
+    window.onpaint = funcRef;
+    
+  window.onreset
+    
+    window.onreset = funcRef;
+    
+  window.onresize
+    
+    window.onresize = funcRef;
+    
+  window.onscroll
+    window.onscroll = funcRef;
+    
+  window.onselect
+    window.onselect = funcRef;
+    
+  window.onsubmit
+    
+    window.onsubmit = funcRef;
+    
+  window.onunload
+    
+    window.onunload = funcRef;
+    
+The document Interface
+  document.alinkColor
+    color = HTMLBodyElement.aLinkColor
+    HTMLBodyElement.aLinkColor = color
+    
+  document.anchors
+    nodeList = document.anchors 
+    
+  document.applets
+    nodeList = document.applets 
+    
+  document.bgColor
+    color = document.bgColor
+    document.bgColor = color 
+    
+  document.body
+    objRef = document.body 
+    document.body = objRef 
+    
+  document.characterSet
+    string = document.characterSet 
+    
+  document.compatMode
+    mode = document.compatMode 
+    
+  document.cookie
+    cookie_list = document.cookie
+    document.cookie = cookie_list 
+    
+  document.contentWindow
+    objRef = document.contentWindow 
+    
+  document.defaultView
+    var docDView = document.defaultView;
+    
+  document.doctype
+    doctype = document.doctype;
+    
+  document.documentElement
+    element = document.documentElement 
+    
+  document.domain
+    string = document.domain
+    document.domain = string
+    
+  document.embeds
+    nodeList = document.embeds 
+    
+  document.fgColor
+    color = document.fgColor
+    document.fgColor = color 
+    
+  document.firstChild
+    child = document.firstChild 
+    
+  document.forms
+    nodeList = document.forms 
+    
+  document.height
+    height_value = document.height
+    
+  document.images
+    htmlCollection = document.images 
+    
+  document.implementation
+    DOMImplementationObj = document.DOMImplentation 
+    
+  document.lastModified
+    string = document.lastModified 
+    
+  document.linkColor
+    color = document.linkColor
+    document.linkColor = color
+    
+  document.links
+    nodeList = document.links 
+    
+  document.location
+    // Get the location object
+    var locationObj = document.location;
+    
+    // Set the value of the location object (see Notes section)
+    document.location = 'http://www.mozilla.org';
+    
+  document.namespaceURI
+    NSURI = document.namespaceURI 
+    
+  document.plugins
+    PluginArrayObj = document.plugins 
+    
+  document.referrer
+    string = document.referrer 
+    
+  document.styleSheets
+    styleSheetList = document.styleSheets
+    
+  document.title
+    sTitle = document.title 
+    
+  document.URL
+    string = document.URL 
+    
+  document.vlinkColor
+    color = document.vlinkColor
+    document.vlinkColor = color
+    
+  document.width
+    pixels = document.width;
+    
+  document.clear
+    
+    document.clear() 
+    
+  document.close
+    document.close();
+    
+  document.createAttribute
+    attribute = document.createAttribute(name) 
+    
+  document.createDocumentFragment
+    var docFragment = document.createDocumentFragment();
+    
+  document.createElement
+    element = document.createElement(tagName);
+    
+  document.createTextNode
+    text = document.createTextNode(data) 
+    
+  document.createEvent
+    event = document.createEvent(type)
+    
+  document.createRange
+    range = document.createRange();
+    
+  document.evaluate
+    var xpathResult = document.evaluate(
+     xpathExpression, 
+     contextNode, 
+     namespaceResolver, 
+     resultType, 
+     result);
+    
+  document.getElementById
+    element = document.getElementById(id);
+    
+  document.getElementsByName
+    elements = document.getElementsByName(name) 
+    
+  document.getElementsByTagName
+    elements = document.getElementsByTagName(name)
+    
+  document.importNode
+    node = document.importNode(externalNode, deep) 
+    
+  document.loadOverlay
+    document.loadOverlay(url, observer);
+    
+  document.open
+    document.open();
+    
+  document.write
+    document.write(markup);
+    
+  document.writeln
+    document.writeln(line) 
+    
+DOM Event Interface
+  event.altKey
+    bool = event.altKey 
+    
+  event.initEvent
+    event.initKeyEvent(type, bubbles, cancelable) 
+    
+DOM Event Handler List
+DOM Style Object
+  style.media
+    medium = style.media
+    style.media = medium
+    
+DOM styleSheet Object
+  stylesheet.cssRules
+    rules = stylesheet.cssRules 
+    
+  stylesheet.deleteRule
+    stylesheet.deleteRule(index) 
+    
+DOM cssRule Object
+DOM CSS Properties List
+DOM 2 Range Interface
+  collapsed
+    isCollapsed = range.collapsed;
+    
+  setStart
+    range.setStart(startNode,startOffset);
+    
+  cloneContents
+    documentFragment = range.cloneContents();
+    
+  compareBoundaryPoints
+    compare = range.compareBoundaryPoints(how, sourceRange);
+    
+  compareNode
+    returnValue = range.compareNode( referenceNode );
+    
+Gecko Range Interface Extensions
