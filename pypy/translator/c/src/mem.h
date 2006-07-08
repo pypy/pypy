@@ -2,7 +2,7 @@
 /************************************************************/
  /***  C header subsection: operations on LowLevelTypes    ***/
 
-#define OP_RAW_MALLOC(size,r) OP_ZERO_MALLOC(size, r)
+#define OP_RAW_MALLOC(size,r,restype) OP_ZERO_MALLOC(size, r, restype)
 
 #define OP_RAW_MALLOC_USAGE(size, r) r = size
 
@@ -10,8 +10,8 @@
 #define alloca  _alloca
 #endif
 
-#define OP_STACK_MALLOC(size,r)                                            \
-    r = (void*) alloca(size);                                              \
+#define OP_STACK_MALLOC(size,r,restype)                                            \
+    r = (restype) alloca(size);                                              \
     if (r == NULL) FAIL_EXCEPTION(PyExc_MemoryError, "out of memory");\
  
 #define OP_RAW_FREE(x,r)           OP_FREE(x)
@@ -36,8 +36,8 @@
    other globals, plus one.  This upper bound "approximation" will do... */
 #define REFCOUNT_IMMORTAL  (INT_MAX/2)
 
-#define OP_ZERO_MALLOC(size, r)  {                                      \
-    r = (void*) PyObject_Malloc(size);                                  \
+#define OP_ZERO_MALLOC(size, r, restype)  {                                      \
+    r = (restype) PyObject_Malloc(size);                                  \
     if (r == NULL) {FAIL_EXCEPTION(PyExc_MemoryError, "out of memory"); } \
     else {                                                              \
         memset((void*) r, 0, size);                                     \
@@ -106,8 +106,8 @@ if GC integration has happened and this junk is still here, please delete it :)
 
 #undef OP_ZERO_MALLOC
 
-#define OP_ZERO_MALLOC(size, r)  {                                 \
-    r = (void*) malloc(size);                                  \
+#define OP_ZERO_MALLOC(size, r, restype)  {                                 \
+    r = (restype) malloc(size);                                  \
     if (r == NULL) { FAIL_EXCEPTION(PyExc_MemoryError, "out of memory"); } \
     else {                                                                  \
         memset((void*) r, 0, size);                                         \
@@ -123,9 +123,9 @@ if GC integration has happened and this junk is still here, please delete it :)
 /************************************************************/
 /* rcpy support */
 
-#define OP_CPY_MALLOC(cpytype, r)  {                            \
+#define OP_CPY_MALLOC(cpytype, r, restype)  {                            \
     /* XXX add tp_itemsize later */                             \
-    OP_RAW_MALLOC(((PyTypeObject *)cpytype)->tp_basicsize, r);  \
+    OP_RAW_MALLOC(((PyTypeObject *)cpytype)->tp_basicsize, r, restype);  \
     if (r) {                                                    \
         PyObject_Init((PyObject *)r, (PyTypeObject *)cpytype);  \
     }                                                           \

@@ -542,19 +542,25 @@ class FunctionCodeGenerator(object):
             result += '\nif(%s) %s->%s = %s;' % (eresult, eresult, lenfld, elength)
         return result
 
+    def OP_RAW_MALLOC(self, op):
+        eresult = self.expr(op.result)
+        esize = self.expr(op.args[0])
+        return "OP_RAW_MALLOC(%s, %s, void *);" % (esize, eresult)
+
     def OP_FLAVORED_MALLOC(self, op):
         TYPE = self.lltypemap(op.result).TO
         typename = self.db.gettype(TYPE)
         eresult = self.expr(op.result)
         esize = 'sizeof(%s)' % cdecl(typename, '')
+        erestype = cdecl(typename, '*')
         flavor = op.args[0].value
         if flavor == "raw": 
-            return "OP_RAW_MALLOC(%s, %s);" % (esize, eresult) 
+            return "OP_RAW_MALLOC(%s, %s, %s);" % (esize, eresult, erestype)
         elif flavor == "stack": 
-            return "OP_STACK_MALLOC(%s, %s);" % (esize, eresult)
+            return "OP_STACK_MALLOC(%s, %s, %s);" % (esize, eresult, erestype)
         elif flavor == "cpy":
             cpytype = self.expr(op.args[2])
-            return "OP_CPY_MALLOC(%s, %s);" % (cpytype, eresult)
+            return "OP_CPY_MALLOC(%s, %s, %s);" % (cpytype, eresult, erestype)
         else:
             raise NotImplementedError
 

@@ -99,8 +99,9 @@ class RefcountingGcPolicy(BasicGcPolicy):
 
     def zero_malloc(self, TYPE, esize, eresult):
         assert TYPE._gckind == 'gc'   # we don't really support this
-        return 'OP_ZERO_MALLOC(%s, %s);' % (esize,
-                                            eresult)
+        typename = self.db.gettype(TYPE)
+        erestype = cdecl(typename, '*')
+        return 'OP_ZERO_MALLOC(%s, %s, %s);' % (esize, eresult, erestype)
 
     def OP_GC_CALL_RTTI_DESTRUCTOR(self, funcgen, op):
         args = [funcgen.expr(v) for v in op.args]
@@ -182,10 +183,10 @@ class BoehmGcPolicy(BasicGcPolicy):
         is_atomic = TYPE._is_atomic()
         is_varsize = TYPE._is_varsize()
         typename = self.db.gettype(TYPE)
-        eresulttype = cdecl(typename, '*')
+        erestype = cdecl(typename, '*')
         result = 'OP_BOEHM_ZERO_MALLOC(%s, %s, %s, %d, %d);' % (esize,
                                                             eresult,
-                                                            eresulttype,
+                                                            erestype,
                                                             is_atomic,
                                                             is_varsize)
         if gcinfo and gcinfo.finalizer:
@@ -319,9 +320,9 @@ class MoreExactBoehmGcPolicy(BoehmGcPolicy):
                 is_atomic = TYPE._is_atomic()
                 is_varsize = TYPE._is_varsize()
                 typename = self.db.gettype(TYPE)
-                eresulttype = cdecl(typename, '*')
+                erestype = cdecl(typename, '*')
                 result = 'OP_BOEHM_ZERO_MALLOC(%s, %s, %s, %d, %d);' % (
-                    esize, eresult, eresulttype, is_atomic, is_varsize)
+                    esize, eresult, erestype, is_atomic, is_varsize)
             else:
                 result = '%s = GC_MALLOC_EXPLICITLY_TYPED(%s, %s);' % (
                     eresult, esize, self.get_descr_name(defnode))
@@ -391,8 +392,9 @@ class FrameworkGcPolicy(BasicGcPolicy):
 
     def zero_malloc(self, TYPE, esize, eresult):
         assert TYPE._gckind == 'gc'   # we don't really support this
-        return 'OP_ZERO_MALLOC(%s, %s);' % (esize,
-                                            eresult)
+        typename = self.db.gettype(TYPE)
+        erestype = cdecl(typename, '*')
+        return 'OP_ZERO_MALLOC(%s, %s, %s);' % (esize, eresult, erestype)
 
 class StacklessFrameworkGcPolicy(FrameworkGcPolicy):
     transformerclass = gctransform.StacklessFrameworkGCTransformer
