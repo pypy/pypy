@@ -126,6 +126,9 @@ class AbstractFunction(Node):
     def accept(self, visitor):
         return visitor.visitAbstractFunction(self)
 
+    def mutate(self, visitor):
+        return visitor.visitAbstractFunction(self)
+
 
 def descr_AbstractFunction_new(space, w_subtype, lineno=-1):
     self = space.allocate_instance(AbstractFunction, w_subtype)
@@ -137,9 +140,15 @@ def descr_AbstractFunction_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_AbstractFunction_mutate(space, w_self, w_visitor): 
+    w_visitAbstractFunction = space.getattr(w_visitor, space.wrap("visitAbstractFunction"))
+    w_visitAbstractFunction_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitAbstractFunction, w_visitAbstractFunction_args)
+
 AbstractFunction.typedef = TypeDef('AbstractFunction', Node.typedef, 
                      __new__ = interp2app(descr_AbstractFunction_new, unwrap_spec=[ObjSpace, W_Root, int]),
                      accept=interp2app(descr_AbstractFunction_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_AbstractFunction_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     )
 
 class AbstractTest(Node):
@@ -159,6 +168,9 @@ class AbstractTest(Node):
     def accept(self, visitor):
         return visitor.visitAbstractTest(self)
 
+    def mutate(self, visitor):
+        return visitor.visitAbstractTest(self)
+
 
 def descr_AbstractTest_new(space, w_subtype, lineno=-1):
     self = space.allocate_instance(AbstractTest, w_subtype)
@@ -170,9 +182,15 @@ def descr_AbstractTest_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_AbstractTest_mutate(space, w_self, w_visitor): 
+    w_visitAbstractTest = space.getattr(w_visitor, space.wrap("visitAbstractTest"))
+    w_visitAbstractTest_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitAbstractTest, w_visitAbstractTest_args)
+
 AbstractTest.typedef = TypeDef('AbstractTest', Node.typedef, 
                      __new__ = interp2app(descr_AbstractTest_new, unwrap_spec=[ObjSpace, W_Root, int]),
                      accept=interp2app(descr_AbstractTest_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_AbstractTest_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     )
 
 class BinaryOp(Node):
@@ -192,6 +210,9 @@ class BinaryOp(Node):
     def accept(self, visitor):
         return visitor.visitBinaryOp(self)
 
+    def mutate(self, visitor):
+        return visitor.visitBinaryOp(self)
+
 
 def descr_BinaryOp_new(space, w_subtype, lineno=-1):
     self = space.allocate_instance(BinaryOp, w_subtype)
@@ -203,9 +224,15 @@ def descr_BinaryOp_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_BinaryOp_mutate(space, w_self, w_visitor): 
+    w_visitBinaryOp = space.getattr(w_visitor, space.wrap("visitBinaryOp"))
+    w_visitBinaryOp_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitBinaryOp, w_visitBinaryOp_args)
+
 BinaryOp.typedef = TypeDef('BinaryOp', Node.typedef, 
                      __new__ = interp2app(descr_BinaryOp_new, unwrap_spec=[ObjSpace, W_Root, int]),
                      accept=interp2app(descr_BinaryOp_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_BinaryOp_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     )
 
 class Add(BinaryOp):
@@ -225,6 +252,11 @@ class Add(BinaryOp):
         return "Add(%s, %s)" % (self.left.__repr__(), self.right.__repr__())
 
     def accept(self, visitor):
+        return visitor.visitAdd(self)
+
+    def mutate(self, visitor):
+        self.left = self.left.mutate(visitor)
+        self.right = self.right.mutate(visitor)
         return visitor.visitAdd(self)
 
     def fget_left( space, self):
@@ -250,9 +282,27 @@ def descr_Add_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Add_mutate(space, w_self, w_visitor): 
+    w_left = space.getattr(w_self, space.wrap("left"))
+    w_mutate_left = space.getattr(w_left, space.wrap("mutate"))
+    w_mutate_left_args = Arguments(space, [ w_visitor ])
+    w_new_left = space.call_args(w_mutate_left, w_mutate_left_args)
+    space.setattr(w_self, space.wrap("left"), w_new_left)
+
+    w_right = space.getattr(w_self, space.wrap("right"))
+    w_mutate_right = space.getattr(w_right, space.wrap("mutate"))
+    w_mutate_right_args = Arguments(space, [ w_visitor ])
+    w_new_right = space.call_args(w_mutate_right, w_mutate_right_args)
+    space.setattr(w_self, space.wrap("right"), w_new_right)
+
+    w_visitAdd = space.getattr(w_visitor, space.wrap("visitAdd"))
+    w_visitAdd_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitAdd, w_visitAdd_args)
+
 Add.typedef = TypeDef('Add', BinaryOp.typedef, 
                      __new__ = interp2app(descr_Add_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_Add_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Add_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     left=GetSetProperty(Add.fget_left, Add.fset_left ),
                     right=GetSetProperty(Add.fget_right, Add.fset_right ),
                     )
@@ -277,6 +327,10 @@ class And(AbstractTest):
     def accept(self, visitor):
         return visitor.visitAnd(self)
 
+    def mutate(self, visitor):
+        self.nodes[:] = [n.mutate(visitor) for n in self.nodes]
+        return visitor.visitAnd(self)
+
     def fget_nodes( space, self):
         return space.newlist( [space.wrap(itm) for itm in self.nodes] )
     def fset_nodes( space, self, w_arg):
@@ -296,9 +350,25 @@ def descr_And_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_And_mutate(space, w_self, w_visitor): 
+    w_list = space.getattr(w_self, space.wrap("nodes"))
+    list_w = space.unpackiterable(w_list)
+    newlist_w = []
+    for w_item in list_w:
+        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
+        w_item_mutate_args = Arguments(space, [ w_visitor ])
+        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
+        newitem_w.append(w_newitem)
+    w_newitem = space.newlist(newitem_w)
+    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    w_visitAnd = space.getattr(w_visitor, space.wrap("visitAnd"))
+    w_visitAnd_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitAnd, w_visitAnd_args)
+
 And.typedef = TypeDef('And', AbstractTest.typedef, 
                      __new__ = interp2app(descr_And_new, unwrap_spec=[ObjSpace, W_Root, W_Root, int]),
                      accept=interp2app(descr_And_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_And_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(And.fget_nodes, And.fset_nodes ),
                     )
 
@@ -320,6 +390,10 @@ class AssAttr(Node):
         return "AssAttr(%s, %s, %s)" % (self.expr.__repr__(), self.attrname.__repr__(), self.flags.__repr__())
 
     def accept(self, visitor):
+        return visitor.visitAssAttr(self)
+
+    def mutate(self, visitor):
+        self.expr = self.expr.mutate(visitor)
         return visitor.visitAssAttr(self)
 
     def fget_expr( space, self):
@@ -351,9 +425,21 @@ def descr_AssAttr_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_AssAttr_mutate(space, w_self, w_visitor): 
+    w_expr = space.getattr(w_self, space.wrap("expr"))
+    w_mutate_expr = space.getattr(w_expr, space.wrap("mutate"))
+    w_mutate_expr_args = Arguments(space, [ w_visitor ])
+    w_new_expr = space.call_args(w_mutate_expr, w_mutate_expr_args)
+    space.setattr(w_self, space.wrap("expr"), w_new_expr)
+
+    w_visitAssAttr = space.getattr(w_visitor, space.wrap("visitAssAttr"))
+    w_visitAssAttr_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitAssAttr, w_visitAssAttr_args)
+
 AssAttr.typedef = TypeDef('AssAttr', Node.typedef, 
                      __new__ = interp2app(descr_AssAttr_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_AssAttr_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_AssAttr_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     expr=GetSetProperty(AssAttr.fget_expr, AssAttr.fset_expr ),
                     attrname=GetSetProperty(AssAttr.fget_attrname, AssAttr.fset_attrname ),
                     flags=GetSetProperty(AssAttr.fget_flags, AssAttr.fset_flags ),
@@ -376,6 +462,9 @@ class AssSeq(Node):
     def accept(self, visitor):
         return visitor.visitAssSeq(self)
 
+    def mutate(self, visitor):
+        return visitor.visitAssSeq(self)
+
 
 def descr_AssSeq_new(space, w_subtype, lineno=-1):
     self = space.allocate_instance(AssSeq, w_subtype)
@@ -387,9 +476,15 @@ def descr_AssSeq_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_AssSeq_mutate(space, w_self, w_visitor): 
+    w_visitAssSeq = space.getattr(w_visitor, space.wrap("visitAssSeq"))
+    w_visitAssSeq_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitAssSeq, w_visitAssSeq_args)
+
 AssSeq.typedef = TypeDef('AssSeq', Node.typedef, 
                      __new__ = interp2app(descr_AssSeq_new, unwrap_spec=[ObjSpace, W_Root, int]),
                      accept=interp2app(descr_AssSeq_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_AssSeq_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     )
 
 class AssList(AssSeq):
@@ -412,6 +507,10 @@ class AssList(AssSeq):
     def accept(self, visitor):
         return visitor.visitAssList(self)
 
+    def mutate(self, visitor):
+        self.nodes[:] = [n.mutate(visitor) for n in self.nodes]
+        return visitor.visitAssList(self)
+
     def fget_nodes( space, self):
         return space.newlist( [space.wrap(itm) for itm in self.nodes] )
     def fset_nodes( space, self, w_arg):
@@ -431,9 +530,25 @@ def descr_AssList_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_AssList_mutate(space, w_self, w_visitor): 
+    w_list = space.getattr(w_self, space.wrap("nodes"))
+    list_w = space.unpackiterable(w_list)
+    newlist_w = []
+    for w_item in list_w:
+        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
+        w_item_mutate_args = Arguments(space, [ w_visitor ])
+        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
+        newitem_w.append(w_newitem)
+    w_newitem = space.newlist(newitem_w)
+    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    w_visitAssList = space.getattr(w_visitor, space.wrap("visitAssList"))
+    w_visitAssList_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitAssList, w_visitAssList_args)
+
 AssList.typedef = TypeDef('AssList', AssSeq.typedef, 
                      __new__ = interp2app(descr_AssList_new, unwrap_spec=[ObjSpace, W_Root, W_Root, int]),
                      accept=interp2app(descr_AssList_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_AssList_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(AssList.fget_nodes, AssList.fset_nodes ),
                     )
 
@@ -454,6 +569,9 @@ class AssName(Node):
         return "AssName(%s, %s)" % (self.name.__repr__(), self.flags.__repr__())
 
     def accept(self, visitor):
+        return visitor.visitAssName(self)
+
+    def mutate(self, visitor):
         return visitor.visitAssName(self)
 
     def fget_name( space, self):
@@ -479,9 +597,15 @@ def descr_AssName_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_AssName_mutate(space, w_self, w_visitor): 
+    w_visitAssName = space.getattr(w_visitor, space.wrap("visitAssName"))
+    w_visitAssName_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitAssName, w_visitAssName_args)
+
 AssName.typedef = TypeDef('AssName', Node.typedef, 
                      __new__ = interp2app(descr_AssName_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_AssName_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_AssName_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     name=GetSetProperty(AssName.fget_name, AssName.fset_name ),
                     flags=GetSetProperty(AssName.fget_flags, AssName.fset_flags ),
                     )
@@ -520,6 +644,10 @@ class AssTuple(AssSeq):
     def accept(self, visitor):
         return visitor.visitAssTuple(self)
 
+    def mutate(self, visitor):
+        self.nodes[:] = [n.mutate(visitor) for n in self.nodes]
+        return visitor.visitAssTuple(self)
+
     def fget_nodes( space, self):
         return space.newlist( [space.wrap(itm) for itm in self.nodes] )
     def fset_nodes( space, self, w_arg):
@@ -539,9 +667,25 @@ def descr_AssTuple_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_AssTuple_mutate(space, w_self, w_visitor): 
+    w_list = space.getattr(w_self, space.wrap("nodes"))
+    list_w = space.unpackiterable(w_list)
+    newlist_w = []
+    for w_item in list_w:
+        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
+        w_item_mutate_args = Arguments(space, [ w_visitor ])
+        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
+        newitem_w.append(w_newitem)
+    w_newitem = space.newlist(newitem_w)
+    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    w_visitAssTuple = space.getattr(w_visitor, space.wrap("visitAssTuple"))
+    w_visitAssTuple_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitAssTuple, w_visitAssTuple_args)
+
 AssTuple.typedef = TypeDef('AssTuple', AssSeq.typedef, 
                      __new__ = interp2app(descr_AssTuple_new, unwrap_spec=[ObjSpace, W_Root, W_Root, int]),
                      accept=interp2app(descr_AssTuple_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_AssTuple_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(AssTuple.fget_nodes, AssTuple.fset_nodes ),
                     )
 
@@ -571,6 +715,12 @@ class Assert(Node):
     def accept(self, visitor):
         return visitor.visitAssert(self)
 
+    def mutate(self, visitor):
+        self.test = self.test.mutate(visitor)
+        if self.fail is not None:
+            self.fail = self.fail.mutate(visitor)
+        return visitor.visitAssert(self)
+
     def fget_test( space, self):
         return space.wrap(self.test)
     def fset_test( space, self, w_arg):
@@ -597,9 +747,28 @@ def descr_Assert_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Assert_mutate(space, w_self, w_visitor): 
+    w_test = space.getattr(w_self, space.wrap("test"))
+    w_mutate_test = space.getattr(w_test, space.wrap("mutate"))
+    w_mutate_test_args = Arguments(space, [ w_visitor ])
+    w_new_test = space.call_args(w_mutate_test, w_mutate_test_args)
+    space.setattr(w_self, space.wrap("test"), w_new_test)
+
+    w_fail = space.getattr(w_self, space.wrap("fail"))
+    if space.is_w(w_fail, space.w_None):
+        w_mutate_fail = space.getattr(w_fail, space.wrap("mutate"))
+        w_mutate_fail_args = Arguments(space, [ w_visitor ])
+        w_new_fail = space.call_args(w_mutate_fail, w_mutate_fail_args)
+        space.setattr(w_self, space.wrap("fail"), w_new_fail)
+
+    w_visitAssert = space.getattr(w_visitor, space.wrap("visitAssert"))
+    w_visitAssert_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitAssert, w_visitAssert_args)
+
 Assert.typedef = TypeDef('Assert', Node.typedef, 
                      __new__ = interp2app(descr_Assert_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_Assert_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Assert_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     test=GetSetProperty(Assert.fget_test, Assert.fset_test ),
                     fail=GetSetProperty(Assert.fget_fail, Assert.fset_fail ),
                     )
@@ -629,6 +798,11 @@ class Assign(Node):
     def accept(self, visitor):
         return visitor.visitAssign(self)
 
+    def mutate(self, visitor):
+        self.nodes[:] = [n.mutate(visitor) for n in self.nodes]
+        self.expr = self.expr.mutate(visitor)
+        return visitor.visitAssign(self)
+
     def fget_nodes( space, self):
         return space.newlist( [space.wrap(itm) for itm in self.nodes] )
     def fset_nodes( space, self, w_arg):
@@ -654,9 +828,31 @@ def descr_Assign_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Assign_mutate(space, w_self, w_visitor): 
+    w_list = space.getattr(w_self, space.wrap("nodes"))
+    list_w = space.unpackiterable(w_list)
+    newlist_w = []
+    for w_item in list_w:
+        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
+        w_item_mutate_args = Arguments(space, [ w_visitor ])
+        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
+        newitem_w.append(w_newitem)
+    w_newitem = space.newlist(newitem_w)
+    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    w_expr = space.getattr(w_self, space.wrap("expr"))
+    w_mutate_expr = space.getattr(w_expr, space.wrap("mutate"))
+    w_mutate_expr_args = Arguments(space, [ w_visitor ])
+    w_new_expr = space.call_args(w_mutate_expr, w_mutate_expr_args)
+    space.setattr(w_self, space.wrap("expr"), w_new_expr)
+
+    w_visitAssign = space.getattr(w_visitor, space.wrap("visitAssign"))
+    w_visitAssign_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitAssign, w_visitAssign_args)
+
 Assign.typedef = TypeDef('Assign', Node.typedef, 
                      __new__ = interp2app(descr_Assign_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_Assign_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Assign_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(Assign.fget_nodes, Assign.fset_nodes ),
                     expr=GetSetProperty(Assign.fget_expr, Assign.fset_expr ),
                     )
@@ -679,6 +875,11 @@ class AugAssign(Node):
         return "AugAssign(%s, %s, %s)" % (self.node.__repr__(), self.op.__repr__(), self.expr.__repr__())
 
     def accept(self, visitor):
+        return visitor.visitAugAssign(self)
+
+    def mutate(self, visitor):
+        self.node = self.node.mutate(visitor)
+        self.expr = self.expr.mutate(visitor)
         return visitor.visitAugAssign(self)
 
     def fget_node( space, self):
@@ -710,9 +911,27 @@ def descr_AugAssign_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_AugAssign_mutate(space, w_self, w_visitor): 
+    w_node = space.getattr(w_self, space.wrap("node"))
+    w_mutate_node = space.getattr(w_node, space.wrap("mutate"))
+    w_mutate_node_args = Arguments(space, [ w_visitor ])
+    w_new_node = space.call_args(w_mutate_node, w_mutate_node_args)
+    space.setattr(w_self, space.wrap("node"), w_new_node)
+
+    w_expr = space.getattr(w_self, space.wrap("expr"))
+    w_mutate_expr = space.getattr(w_expr, space.wrap("mutate"))
+    w_mutate_expr_args = Arguments(space, [ w_visitor ])
+    w_new_expr = space.call_args(w_mutate_expr, w_mutate_expr_args)
+    space.setattr(w_self, space.wrap("expr"), w_new_expr)
+
+    w_visitAugAssign = space.getattr(w_visitor, space.wrap("visitAugAssign"))
+    w_visitAugAssign_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitAugAssign, w_visitAugAssign_args)
+
 AugAssign.typedef = TypeDef('AugAssign', Node.typedef, 
                      __new__ = interp2app(descr_AugAssign_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_AugAssign_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_AugAssign_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     node=GetSetProperty(AugAssign.fget_node, AugAssign.fset_node ),
                     op=GetSetProperty(AugAssign.fget_op, AugAssign.fset_op ),
                     expr=GetSetProperty(AugAssign.fget_expr, AugAssign.fset_expr ),
@@ -735,6 +954,9 @@ class UnaryOp(Node):
     def accept(self, visitor):
         return visitor.visitUnaryOp(self)
 
+    def mutate(self, visitor):
+        return visitor.visitUnaryOp(self)
+
 
 def descr_UnaryOp_new(space, w_subtype, lineno=-1):
     self = space.allocate_instance(UnaryOp, w_subtype)
@@ -746,9 +968,15 @@ def descr_UnaryOp_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_UnaryOp_mutate(space, w_self, w_visitor): 
+    w_visitUnaryOp = space.getattr(w_visitor, space.wrap("visitUnaryOp"))
+    w_visitUnaryOp_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitUnaryOp, w_visitUnaryOp_args)
+
 UnaryOp.typedef = TypeDef('UnaryOp', Node.typedef, 
                      __new__ = interp2app(descr_UnaryOp_new, unwrap_spec=[ObjSpace, W_Root, int]),
                      accept=interp2app(descr_UnaryOp_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_UnaryOp_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     )
 
 class Backquote(UnaryOp):
@@ -769,6 +997,10 @@ class Backquote(UnaryOp):
     def accept(self, visitor):
         return visitor.visitBackquote(self)
 
+    def mutate(self, visitor):
+        self.expr = self.expr.mutate(visitor)
+        return visitor.visitBackquote(self)
+
     def fget_expr( space, self):
         return space.wrap(self.expr)
     def fset_expr( space, self, w_arg):
@@ -786,9 +1018,21 @@ def descr_Backquote_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Backquote_mutate(space, w_self, w_visitor): 
+    w_expr = space.getattr(w_self, space.wrap("expr"))
+    w_mutate_expr = space.getattr(w_expr, space.wrap("mutate"))
+    w_mutate_expr_args = Arguments(space, [ w_visitor ])
+    w_new_expr = space.call_args(w_mutate_expr, w_mutate_expr_args)
+    space.setattr(w_self, space.wrap("expr"), w_new_expr)
+
+    w_visitBackquote = space.getattr(w_visitor, space.wrap("visitBackquote"))
+    w_visitBackquote_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitBackquote, w_visitBackquote_args)
+
 Backquote.typedef = TypeDef('Backquote', UnaryOp.typedef, 
                      __new__ = interp2app(descr_Backquote_new, unwrap_spec=[ObjSpace, W_Root, W_Root, int]),
                      accept=interp2app(descr_Backquote_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Backquote_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     expr=GetSetProperty(Backquote.fget_expr, Backquote.fset_expr ),
                     )
 
@@ -809,6 +1053,9 @@ class BitOp(Node):
     def accept(self, visitor):
         return visitor.visitBitOp(self)
 
+    def mutate(self, visitor):
+        return visitor.visitBitOp(self)
+
 
 def descr_BitOp_new(space, w_subtype, lineno=-1):
     self = space.allocate_instance(BitOp, w_subtype)
@@ -820,9 +1067,15 @@ def descr_BitOp_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_BitOp_mutate(space, w_self, w_visitor): 
+    w_visitBitOp = space.getattr(w_visitor, space.wrap("visitBitOp"))
+    w_visitBitOp_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitBitOp, w_visitBitOp_args)
+
 BitOp.typedef = TypeDef('BitOp', Node.typedef, 
                      __new__ = interp2app(descr_BitOp_new, unwrap_spec=[ObjSpace, W_Root, int]),
                      accept=interp2app(descr_BitOp_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_BitOp_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     )
 
 class Bitand(BitOp):
@@ -845,6 +1098,10 @@ class Bitand(BitOp):
     def accept(self, visitor):
         return visitor.visitBitand(self)
 
+    def mutate(self, visitor):
+        self.nodes[:] = [n.mutate(visitor) for n in self.nodes]
+        return visitor.visitBitand(self)
+
     def fget_nodes( space, self):
         return space.newlist( [space.wrap(itm) for itm in self.nodes] )
     def fset_nodes( space, self, w_arg):
@@ -864,9 +1121,25 @@ def descr_Bitand_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Bitand_mutate(space, w_self, w_visitor): 
+    w_list = space.getattr(w_self, space.wrap("nodes"))
+    list_w = space.unpackiterable(w_list)
+    newlist_w = []
+    for w_item in list_w:
+        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
+        w_item_mutate_args = Arguments(space, [ w_visitor ])
+        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
+        newitem_w.append(w_newitem)
+    w_newitem = space.newlist(newitem_w)
+    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    w_visitBitand = space.getattr(w_visitor, space.wrap("visitBitand"))
+    w_visitBitand_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitBitand, w_visitBitand_args)
+
 Bitand.typedef = TypeDef('Bitand', BitOp.typedef, 
                      __new__ = interp2app(descr_Bitand_new, unwrap_spec=[ObjSpace, W_Root, W_Root, int]),
                      accept=interp2app(descr_Bitand_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Bitand_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(Bitand.fget_nodes, Bitand.fset_nodes ),
                     )
 
@@ -890,6 +1163,10 @@ class Bitor(BitOp):
     def accept(self, visitor):
         return visitor.visitBitor(self)
 
+    def mutate(self, visitor):
+        self.nodes[:] = [n.mutate(visitor) for n in self.nodes]
+        return visitor.visitBitor(self)
+
     def fget_nodes( space, self):
         return space.newlist( [space.wrap(itm) for itm in self.nodes] )
     def fset_nodes( space, self, w_arg):
@@ -909,9 +1186,25 @@ def descr_Bitor_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Bitor_mutate(space, w_self, w_visitor): 
+    w_list = space.getattr(w_self, space.wrap("nodes"))
+    list_w = space.unpackiterable(w_list)
+    newlist_w = []
+    for w_item in list_w:
+        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
+        w_item_mutate_args = Arguments(space, [ w_visitor ])
+        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
+        newitem_w.append(w_newitem)
+    w_newitem = space.newlist(newitem_w)
+    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    w_visitBitor = space.getattr(w_visitor, space.wrap("visitBitor"))
+    w_visitBitor_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitBitor, w_visitBitor_args)
+
 Bitor.typedef = TypeDef('Bitor', BitOp.typedef, 
                      __new__ = interp2app(descr_Bitor_new, unwrap_spec=[ObjSpace, W_Root, W_Root, int]),
                      accept=interp2app(descr_Bitor_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Bitor_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(Bitor.fget_nodes, Bitor.fset_nodes ),
                     )
 
@@ -935,6 +1228,10 @@ class Bitxor(BitOp):
     def accept(self, visitor):
         return visitor.visitBitxor(self)
 
+    def mutate(self, visitor):
+        self.nodes[:] = [n.mutate(visitor) for n in self.nodes]
+        return visitor.visitBitxor(self)
+
     def fget_nodes( space, self):
         return space.newlist( [space.wrap(itm) for itm in self.nodes] )
     def fset_nodes( space, self, w_arg):
@@ -954,9 +1251,25 @@ def descr_Bitxor_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Bitxor_mutate(space, w_self, w_visitor): 
+    w_list = space.getattr(w_self, space.wrap("nodes"))
+    list_w = space.unpackiterable(w_list)
+    newlist_w = []
+    for w_item in list_w:
+        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
+        w_item_mutate_args = Arguments(space, [ w_visitor ])
+        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
+        newitem_w.append(w_newitem)
+    w_newitem = space.newlist(newitem_w)
+    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    w_visitBitxor = space.getattr(w_visitor, space.wrap("visitBitxor"))
+    w_visitBitxor_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitBitxor, w_visitBitxor_args)
+
 Bitxor.typedef = TypeDef('Bitxor', BitOp.typedef, 
                      __new__ = interp2app(descr_Bitxor_new, unwrap_spec=[ObjSpace, W_Root, W_Root, int]),
                      accept=interp2app(descr_Bitxor_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Bitxor_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(Bitxor.fget_nodes, Bitxor.fset_nodes ),
                     )
 
@@ -977,6 +1290,9 @@ class Break(Node):
     def accept(self, visitor):
         return visitor.visitBreak(self)
 
+    def mutate(self, visitor):
+        return visitor.visitBreak(self)
+
 
 def descr_Break_new(space, w_subtype, lineno=-1):
     self = space.allocate_instance(Break, w_subtype)
@@ -988,9 +1304,15 @@ def descr_Break_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Break_mutate(space, w_self, w_visitor): 
+    w_visitBreak = space.getattr(w_visitor, space.wrap("visitBreak"))
+    w_visitBreak_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitBreak, w_visitBreak_args)
+
 Break.typedef = TypeDef('Break', Node.typedef, 
                      __new__ = interp2app(descr_Break_new, unwrap_spec=[ObjSpace, W_Root, int]),
                      accept=interp2app(descr_Break_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Break_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     )
 
 class CallFunc(Node):
@@ -1024,6 +1346,15 @@ class CallFunc(Node):
         return "CallFunc(%s, %s, %s, %s)" % (self.node.__repr__(), self.args.__repr__(), self.star_args.__repr__(), self.dstar_args.__repr__())
 
     def accept(self, visitor):
+        return visitor.visitCallFunc(self)
+
+    def mutate(self, visitor):
+        self.node = self.node.mutate(visitor)
+        self.args[:] = [n.mutate(visitor) for n in self.args]
+        if self.star_args is not None:
+            self.star_args = self.star_args.mutate(visitor)
+        if self.dstar_args is not None:
+            self.dstar_args = self.dstar_args.mutate(visitor)
         return visitor.visitCallFunc(self)
 
     def fget_node( space, self):
@@ -1069,9 +1400,45 @@ def descr_CallFunc_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_CallFunc_mutate(space, w_self, w_visitor): 
+    w_node = space.getattr(w_self, space.wrap("node"))
+    w_mutate_node = space.getattr(w_node, space.wrap("mutate"))
+    w_mutate_node_args = Arguments(space, [ w_visitor ])
+    w_new_node = space.call_args(w_mutate_node, w_mutate_node_args)
+    space.setattr(w_self, space.wrap("node"), w_new_node)
+
+    w_list = space.getattr(w_self, space.wrap("args"))
+    list_w = space.unpackiterable(w_list)
+    newlist_w = []
+    for w_item in list_w:
+        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
+        w_item_mutate_args = Arguments(space, [ w_visitor ])
+        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
+        newitem_w.append(w_newitem)
+    w_newitem = space.newlist(newitem_w)
+    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    w_star_args = space.getattr(w_self, space.wrap("star_args"))
+    if space.is_w(w_star_args, space.w_None):
+        w_mutate_star_args = space.getattr(w_star_args, space.wrap("mutate"))
+        w_mutate_star_args_args = Arguments(space, [ w_visitor ])
+        w_new_star_args = space.call_args(w_mutate_star_args, w_mutate_star_args_args)
+        space.setattr(w_self, space.wrap("star_args"), w_new_star_args)
+
+    w_dstar_args = space.getattr(w_self, space.wrap("dstar_args"))
+    if space.is_w(w_dstar_args, space.w_None):
+        w_mutate_dstar_args = space.getattr(w_dstar_args, space.wrap("mutate"))
+        w_mutate_dstar_args_args = Arguments(space, [ w_visitor ])
+        w_new_dstar_args = space.call_args(w_mutate_dstar_args, w_mutate_dstar_args_args)
+        space.setattr(w_self, space.wrap("dstar_args"), w_new_dstar_args)
+
+    w_visitCallFunc = space.getattr(w_visitor, space.wrap("visitCallFunc"))
+    w_visitCallFunc_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitCallFunc, w_visitCallFunc_args)
+
 CallFunc.typedef = TypeDef('CallFunc', Node.typedef, 
                      __new__ = interp2app(descr_CallFunc_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_CallFunc_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_CallFunc_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     node=GetSetProperty(CallFunc.fget_node, CallFunc.fset_node ),
                     args=GetSetProperty(CallFunc.fget_args, CallFunc.fset_args ),
                     star_args=GetSetProperty(CallFunc.fget_star_args, CallFunc.fset_star_args ),
@@ -1105,6 +1472,11 @@ class Class(Node):
         return "Class(%s, %s, %s, %s)" % (self.name.__repr__(), self.bases.__repr__(), self.w_doc.__repr__(), self.code.__repr__())
 
     def accept(self, visitor):
+        return visitor.visitClass(self)
+
+    def mutate(self, visitor):
+        self.bases[:] = [n.mutate(visitor) for n in self.bases]
+        self.code = self.code.mutate(visitor)
         return visitor.visitClass(self)
 
     def fget_name( space, self):
@@ -1145,9 +1517,31 @@ def descr_Class_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Class_mutate(space, w_self, w_visitor): 
+    w_list = space.getattr(w_self, space.wrap("bases"))
+    list_w = space.unpackiterable(w_list)
+    newlist_w = []
+    for w_item in list_w:
+        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
+        w_item_mutate_args = Arguments(space, [ w_visitor ])
+        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
+        newitem_w.append(w_newitem)
+    w_newitem = space.newlist(newitem_w)
+    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    w_code = space.getattr(w_self, space.wrap("code"))
+    w_mutate_code = space.getattr(w_code, space.wrap("mutate"))
+    w_mutate_code_args = Arguments(space, [ w_visitor ])
+    w_new_code = space.call_args(w_mutate_code, w_mutate_code_args)
+    space.setattr(w_self, space.wrap("code"), w_new_code)
+
+    w_visitClass = space.getattr(w_visitor, space.wrap("visitClass"))
+    w_visitClass_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitClass, w_visitClass_args)
+
 Class.typedef = TypeDef('Class', Node.typedef, 
                      __new__ = interp2app(descr_Class_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_Class_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Class_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     name=GetSetProperty(Class.fget_name, Class.fset_name ),
                     bases=GetSetProperty(Class.fget_bases, Class.fset_bases ),
                     w_doc=GetSetProperty(Class.fget_w_doc, Class.fset_w_doc ),
@@ -1199,6 +1593,11 @@ class Compare(Node):
     def accept(self, visitor):
         return visitor.visitCompare(self)
 
+    def mutate(self, visitor):
+        self.expr = self.expr.mutate(visitor)
+        self.ops[:] = [n.mutate(visitor) for n in self.ops]
+        return visitor.visitCompare(self)
+
     def fget_expr( space, self):
         return space.wrap(self.expr)
     def fset_expr( space, self, w_arg):
@@ -1225,9 +1624,31 @@ def descr_Compare_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Compare_mutate(space, w_self, w_visitor): 
+    w_expr = space.getattr(w_self, space.wrap("expr"))
+    w_mutate_expr = space.getattr(w_expr, space.wrap("mutate"))
+    w_mutate_expr_args = Arguments(space, [ w_visitor ])
+    w_new_expr = space.call_args(w_mutate_expr, w_mutate_expr_args)
+    space.setattr(w_self, space.wrap("expr"), w_new_expr)
+
+    w_list = space.getattr(w_self, space.wrap("ops"))
+    list_w = space.unpackiterable(w_list)
+    newlist_w = []
+    for w_item in list_w:
+        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
+        w_item_mutate_args = Arguments(space, [ w_visitor ])
+        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
+        newitem_w.append(w_newitem)
+    w_newitem = space.newlist(newitem_w)
+    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    w_visitCompare = space.getattr(w_visitor, space.wrap("visitCompare"))
+    w_visitCompare_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitCompare, w_visitCompare_args)
+
 Compare.typedef = TypeDef('Compare', Node.typedef, 
                      __new__ = interp2app(descr_Compare_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_Compare_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Compare_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     expr=GetSetProperty(Compare.fget_expr, Compare.fset_expr ),
                     ops=GetSetProperty(Compare.fget_ops, Compare.fset_ops ),
                     )
@@ -1250,6 +1671,12 @@ class CondExpr(Node):
         return "CondExpr(%s, %s, %s)" % (self.test.__repr__(), self.true_expr.__repr__(), self.false_expr.__repr__())
 
     def accept(self, visitor):
+        return visitor.visitCondExpr(self)
+
+    def mutate(self, visitor):
+        self.test = self.test.mutate(visitor)
+        self.true_expr = self.true_expr.mutate(visitor)
+        self.false_expr = self.false_expr.mutate(visitor)
         return visitor.visitCondExpr(self)
 
     def fget_test( space, self):
@@ -1281,9 +1708,33 @@ def descr_CondExpr_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_CondExpr_mutate(space, w_self, w_visitor): 
+    w_test = space.getattr(w_self, space.wrap("test"))
+    w_mutate_test = space.getattr(w_test, space.wrap("mutate"))
+    w_mutate_test_args = Arguments(space, [ w_visitor ])
+    w_new_test = space.call_args(w_mutate_test, w_mutate_test_args)
+    space.setattr(w_self, space.wrap("test"), w_new_test)
+
+    w_true_expr = space.getattr(w_self, space.wrap("true_expr"))
+    w_mutate_true_expr = space.getattr(w_true_expr, space.wrap("mutate"))
+    w_mutate_true_expr_args = Arguments(space, [ w_visitor ])
+    w_new_true_expr = space.call_args(w_mutate_true_expr, w_mutate_true_expr_args)
+    space.setattr(w_self, space.wrap("true_expr"), w_new_true_expr)
+
+    w_false_expr = space.getattr(w_self, space.wrap("false_expr"))
+    w_mutate_false_expr = space.getattr(w_false_expr, space.wrap("mutate"))
+    w_mutate_false_expr_args = Arguments(space, [ w_visitor ])
+    w_new_false_expr = space.call_args(w_mutate_false_expr, w_mutate_false_expr_args)
+    space.setattr(w_self, space.wrap("false_expr"), w_new_false_expr)
+
+    w_visitCondExpr = space.getattr(w_visitor, space.wrap("visitCondExpr"))
+    w_visitCondExpr_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitCondExpr, w_visitCondExpr_args)
+
 CondExpr.typedef = TypeDef('CondExpr', Node.typedef, 
                      __new__ = interp2app(descr_CondExpr_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_CondExpr_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_CondExpr_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     test=GetSetProperty(CondExpr.fget_test, CondExpr.fset_test ),
                     true_expr=GetSetProperty(CondExpr.fget_true_expr, CondExpr.fset_true_expr ),
                     false_expr=GetSetProperty(CondExpr.fget_false_expr, CondExpr.fset_false_expr ),
@@ -1307,6 +1758,9 @@ class Const(Node):
     def accept(self, visitor):
         return visitor.visitConst(self)
 
+    def mutate(self, visitor):
+        return visitor.visitConst(self)
+
     def fget_value( space, self):
         return self.value
     def fset_value( space, self, w_arg):
@@ -1325,9 +1779,15 @@ def descr_Const_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Const_mutate(space, w_self, w_visitor): 
+    w_visitConst = space.getattr(w_visitor, space.wrap("visitConst"))
+    w_visitConst_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitConst, w_visitConst_args)
+
 Const.typedef = TypeDef('Const', Node.typedef, 
                      __new__ = interp2app(descr_Const_new, unwrap_spec=[ObjSpace, W_Root, W_Root, int]),
                      accept=interp2app(descr_Const_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Const_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     value=GetSetProperty(Const.fget_value, Const.fset_value ),
                     )
 
@@ -1348,6 +1808,9 @@ class Continue(Node):
     def accept(self, visitor):
         return visitor.visitContinue(self)
 
+    def mutate(self, visitor):
+        return visitor.visitContinue(self)
+
 
 def descr_Continue_new(space, w_subtype, lineno=-1):
     self = space.allocate_instance(Continue, w_subtype)
@@ -1359,9 +1822,15 @@ def descr_Continue_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Continue_mutate(space, w_self, w_visitor): 
+    w_visitContinue = space.getattr(w_visitor, space.wrap("visitContinue"))
+    w_visitContinue_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitContinue, w_visitContinue_args)
+
 Continue.typedef = TypeDef('Continue', Node.typedef, 
                      __new__ = interp2app(descr_Continue_new, unwrap_spec=[ObjSpace, W_Root, int]),
                      accept=interp2app(descr_Continue_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Continue_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     )
 
 class Decorators(Node):
@@ -1384,6 +1853,10 @@ class Decorators(Node):
     def accept(self, visitor):
         return visitor.visitDecorators(self)
 
+    def mutate(self, visitor):
+        self.nodes[:] = [n.mutate(visitor) for n in self.nodes]
+        return visitor.visitDecorators(self)
+
     def fget_nodes( space, self):
         return space.newlist( [space.wrap(itm) for itm in self.nodes] )
     def fset_nodes( space, self, w_arg):
@@ -1403,9 +1876,25 @@ def descr_Decorators_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Decorators_mutate(space, w_self, w_visitor): 
+    w_list = space.getattr(w_self, space.wrap("nodes"))
+    list_w = space.unpackiterable(w_list)
+    newlist_w = []
+    for w_item in list_w:
+        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
+        w_item_mutate_args = Arguments(space, [ w_visitor ])
+        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
+        newitem_w.append(w_newitem)
+    w_newitem = space.newlist(newitem_w)
+    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    w_visitDecorators = space.getattr(w_visitor, space.wrap("visitDecorators"))
+    w_visitDecorators_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitDecorators, w_visitDecorators_args)
+
 Decorators.typedef = TypeDef('Decorators', Node.typedef, 
                      __new__ = interp2app(descr_Decorators_new, unwrap_spec=[ObjSpace, W_Root, W_Root, int]),
                      accept=interp2app(descr_Decorators_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Decorators_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(Decorators.fget_nodes, Decorators.fset_nodes ),
                     )
 
@@ -1449,6 +1938,10 @@ class Dict(Node):
     def accept(self, visitor):
         return visitor.visitDict(self)
 
+    def mutate(self, visitor):
+        self.items[:] = [n.mutate(visitor) for n in self.items]
+        return visitor.visitDict(self)
+
 
 def descr_Dict_new(space, w_subtype, w_items, lineno=-1):
     self = space.allocate_instance(Dict, w_subtype)
@@ -1471,9 +1964,25 @@ def descr_Dict_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Dict_mutate(space, w_self, w_visitor): 
+    w_list = space.getattr(w_self, space.wrap("items"))
+    list_w = space.unpackiterable(w_list)
+    newlist_w = []
+    for w_item in list_w:
+        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
+        w_item_mutate_args = Arguments(space, [ w_visitor ])
+        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
+        newitem_w.append(w_newitem)
+    w_newitem = space.newlist(newitem_w)
+    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    w_visitDict = space.getattr(w_visitor, space.wrap("visitDict"))
+    w_visitDict_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitDict, w_visitDict_args)
+
 Dict.typedef = TypeDef('Dict', Node.typedef, 
                      __new__ = interp2app(descr_Dict_new, unwrap_spec=[ObjSpace, W_Root, W_Root, int]),
                      accept=interp2app(descr_Dict_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Dict_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     items=GetSetProperty(Dict.fget_items, Dict.fset_items ),
                     )
 
@@ -1495,6 +2004,10 @@ class Discard(Node):
     def accept(self, visitor):
         return visitor.visitDiscard(self)
 
+    def mutate(self, visitor):
+        self.expr = self.expr.mutate(visitor)
+        return visitor.visitDiscard(self)
+
     def fget_expr( space, self):
         return space.wrap(self.expr)
     def fset_expr( space, self, w_arg):
@@ -1512,9 +2025,21 @@ def descr_Discard_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Discard_mutate(space, w_self, w_visitor): 
+    w_expr = space.getattr(w_self, space.wrap("expr"))
+    w_mutate_expr = space.getattr(w_expr, space.wrap("mutate"))
+    w_mutate_expr_args = Arguments(space, [ w_visitor ])
+    w_new_expr = space.call_args(w_mutate_expr, w_mutate_expr_args)
+    space.setattr(w_self, space.wrap("expr"), w_new_expr)
+
+    w_visitDiscard = space.getattr(w_visitor, space.wrap("visitDiscard"))
+    w_visitDiscard_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitDiscard, w_visitDiscard_args)
+
 Discard.typedef = TypeDef('Discard', Node.typedef, 
                      __new__ = interp2app(descr_Discard_new, unwrap_spec=[ObjSpace, W_Root, W_Root, int]),
                      accept=interp2app(descr_Discard_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Discard_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     expr=GetSetProperty(Discard.fget_expr, Discard.fset_expr ),
                     )
 
@@ -1535,6 +2060,11 @@ class Div(BinaryOp):
         return "Div(%s, %s)" % (self.left.__repr__(), self.right.__repr__())
 
     def accept(self, visitor):
+        return visitor.visitDiv(self)
+
+    def mutate(self, visitor):
+        self.left = self.left.mutate(visitor)
+        self.right = self.right.mutate(visitor)
         return visitor.visitDiv(self)
 
     def fget_left( space, self):
@@ -1560,9 +2090,27 @@ def descr_Div_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Div_mutate(space, w_self, w_visitor): 
+    w_left = space.getattr(w_self, space.wrap("left"))
+    w_mutate_left = space.getattr(w_left, space.wrap("mutate"))
+    w_mutate_left_args = Arguments(space, [ w_visitor ])
+    w_new_left = space.call_args(w_mutate_left, w_mutate_left_args)
+    space.setattr(w_self, space.wrap("left"), w_new_left)
+
+    w_right = space.getattr(w_self, space.wrap("right"))
+    w_mutate_right = space.getattr(w_right, space.wrap("mutate"))
+    w_mutate_right_args = Arguments(space, [ w_visitor ])
+    w_new_right = space.call_args(w_mutate_right, w_mutate_right_args)
+    space.setattr(w_self, space.wrap("right"), w_new_right)
+
+    w_visitDiv = space.getattr(w_visitor, space.wrap("visitDiv"))
+    w_visitDiv_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitDiv, w_visitDiv_args)
+
 Div.typedef = TypeDef('Div', BinaryOp.typedef, 
                      __new__ = interp2app(descr_Div_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_Div_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Div_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     left=GetSetProperty(Div.fget_left, Div.fset_left ),
                     right=GetSetProperty(Div.fget_right, Div.fset_right ),
                     )
@@ -1584,6 +2132,9 @@ class Ellipsis(Node):
     def accept(self, visitor):
         return visitor.visitEllipsis(self)
 
+    def mutate(self, visitor):
+        return visitor.visitEllipsis(self)
+
 
 def descr_Ellipsis_new(space, w_subtype, lineno=-1):
     self = space.allocate_instance(Ellipsis, w_subtype)
@@ -1595,9 +2146,15 @@ def descr_Ellipsis_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Ellipsis_mutate(space, w_self, w_visitor): 
+    w_visitEllipsis = space.getattr(w_visitor, space.wrap("visitEllipsis"))
+    w_visitEllipsis_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitEllipsis, w_visitEllipsis_args)
+
 Ellipsis.typedef = TypeDef('Ellipsis', Node.typedef, 
                      __new__ = interp2app(descr_Ellipsis_new, unwrap_spec=[ObjSpace, W_Root, int]),
                      accept=interp2app(descr_Ellipsis_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Ellipsis_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     )
 
 class Exec(Node):
@@ -1628,6 +2185,14 @@ class Exec(Node):
         return "Exec(%s, %s, %s)" % (self.expr.__repr__(), self.locals.__repr__(), self.globals.__repr__())
 
     def accept(self, visitor):
+        return visitor.visitExec(self)
+
+    def mutate(self, visitor):
+        self.expr = self.expr.mutate(visitor)
+        if self.locals is not None:
+            self.locals = self.locals.mutate(visitor)
+        if self.globals is not None:
+            self.globals = self.globals.mutate(visitor)
         return visitor.visitExec(self)
 
     def fget_expr( space, self):
@@ -1665,9 +2230,35 @@ def descr_Exec_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Exec_mutate(space, w_self, w_visitor): 
+    w_expr = space.getattr(w_self, space.wrap("expr"))
+    w_mutate_expr = space.getattr(w_expr, space.wrap("mutate"))
+    w_mutate_expr_args = Arguments(space, [ w_visitor ])
+    w_new_expr = space.call_args(w_mutate_expr, w_mutate_expr_args)
+    space.setattr(w_self, space.wrap("expr"), w_new_expr)
+
+    w_locals = space.getattr(w_self, space.wrap("locals"))
+    if space.is_w(w_locals, space.w_None):
+        w_mutate_locals = space.getattr(w_locals, space.wrap("mutate"))
+        w_mutate_locals_args = Arguments(space, [ w_visitor ])
+        w_new_locals = space.call_args(w_mutate_locals, w_mutate_locals_args)
+        space.setattr(w_self, space.wrap("locals"), w_new_locals)
+
+    w_globals = space.getattr(w_self, space.wrap("globals"))
+    if space.is_w(w_globals, space.w_None):
+        w_mutate_globals = space.getattr(w_globals, space.wrap("mutate"))
+        w_mutate_globals_args = Arguments(space, [ w_visitor ])
+        w_new_globals = space.call_args(w_mutate_globals, w_mutate_globals_args)
+        space.setattr(w_self, space.wrap("globals"), w_new_globals)
+
+    w_visitExec = space.getattr(w_visitor, space.wrap("visitExec"))
+    w_visitExec_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitExec, w_visitExec_args)
+
 Exec.typedef = TypeDef('Exec', Node.typedef, 
                      __new__ = interp2app(descr_Exec_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_Exec_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Exec_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     expr=GetSetProperty(Exec.fget_expr, Exec.fset_expr ),
                     locals=GetSetProperty(Exec.fget_locals, Exec.fset_locals ),
                     globals=GetSetProperty(Exec.fget_globals, Exec.fset_globals ),
@@ -1690,6 +2281,11 @@ class FloorDiv(BinaryOp):
         return "FloorDiv(%s, %s)" % (self.left.__repr__(), self.right.__repr__())
 
     def accept(self, visitor):
+        return visitor.visitFloorDiv(self)
+
+    def mutate(self, visitor):
+        self.left = self.left.mutate(visitor)
+        self.right = self.right.mutate(visitor)
         return visitor.visitFloorDiv(self)
 
     def fget_left( space, self):
@@ -1715,9 +2311,27 @@ def descr_FloorDiv_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_FloorDiv_mutate(space, w_self, w_visitor): 
+    w_left = space.getattr(w_self, space.wrap("left"))
+    w_mutate_left = space.getattr(w_left, space.wrap("mutate"))
+    w_mutate_left_args = Arguments(space, [ w_visitor ])
+    w_new_left = space.call_args(w_mutate_left, w_mutate_left_args)
+    space.setattr(w_self, space.wrap("left"), w_new_left)
+
+    w_right = space.getattr(w_self, space.wrap("right"))
+    w_mutate_right = space.getattr(w_right, space.wrap("mutate"))
+    w_mutate_right_args = Arguments(space, [ w_visitor ])
+    w_new_right = space.call_args(w_mutate_right, w_mutate_right_args)
+    space.setattr(w_self, space.wrap("right"), w_new_right)
+
+    w_visitFloorDiv = space.getattr(w_visitor, space.wrap("visitFloorDiv"))
+    w_visitFloorDiv_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitFloorDiv, w_visitFloorDiv_args)
+
 FloorDiv.typedef = TypeDef('FloorDiv', BinaryOp.typedef, 
                      __new__ = interp2app(descr_FloorDiv_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_FloorDiv_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_FloorDiv_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     left=GetSetProperty(FloorDiv.fget_left, FloorDiv.fset_left ),
                     right=GetSetProperty(FloorDiv.fget_right, FloorDiv.fset_right ),
                     )
@@ -1752,6 +2366,14 @@ class For(Node):
         return "For(%s, %s, %s, %s)" % (self.assign.__repr__(), self.list.__repr__(), self.body.__repr__(), self.else_.__repr__())
 
     def accept(self, visitor):
+        return visitor.visitFor(self)
+
+    def mutate(self, visitor):
+        self.assign = self.assign.mutate(visitor)
+        self.list = self.list.mutate(visitor)
+        self.body = self.body.mutate(visitor)
+        if self.else_ is not None:
+            self.else_ = self.else_.mutate(visitor)
         return visitor.visitFor(self)
 
     def fget_assign( space, self):
@@ -1792,9 +2414,40 @@ def descr_For_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_For_mutate(space, w_self, w_visitor): 
+    w_assign = space.getattr(w_self, space.wrap("assign"))
+    w_mutate_assign = space.getattr(w_assign, space.wrap("mutate"))
+    w_mutate_assign_args = Arguments(space, [ w_visitor ])
+    w_new_assign = space.call_args(w_mutate_assign, w_mutate_assign_args)
+    space.setattr(w_self, space.wrap("assign"), w_new_assign)
+
+    w_list = space.getattr(w_self, space.wrap("list"))
+    w_mutate_list = space.getattr(w_list, space.wrap("mutate"))
+    w_mutate_list_args = Arguments(space, [ w_visitor ])
+    w_new_list = space.call_args(w_mutate_list, w_mutate_list_args)
+    space.setattr(w_self, space.wrap("list"), w_new_list)
+
+    w_body = space.getattr(w_self, space.wrap("body"))
+    w_mutate_body = space.getattr(w_body, space.wrap("mutate"))
+    w_mutate_body_args = Arguments(space, [ w_visitor ])
+    w_new_body = space.call_args(w_mutate_body, w_mutate_body_args)
+    space.setattr(w_self, space.wrap("body"), w_new_body)
+
+    w_else_ = space.getattr(w_self, space.wrap("else_"))
+    if space.is_w(w_else_, space.w_None):
+        w_mutate_else_ = space.getattr(w_else_, space.wrap("mutate"))
+        w_mutate_else__args = Arguments(space, [ w_visitor ])
+        w_new_else_ = space.call_args(w_mutate_else_, w_mutate_else__args)
+        space.setattr(w_self, space.wrap("else_"), w_new_else_)
+
+    w_visitFor = space.getattr(w_visitor, space.wrap("visitFor"))
+    w_visitFor_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitFor, w_visitFor_args)
+
 For.typedef = TypeDef('For', Node.typedef, 
                      __new__ = interp2app(descr_For_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_For_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_For_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     assign=GetSetProperty(For.fget_assign, For.fset_assign ),
                     list=GetSetProperty(For.fget_list, For.fset_list ),
                     body=GetSetProperty(For.fget_body, For.fset_body ),
@@ -1837,6 +2490,9 @@ class From(Node):
     def accept(self, visitor):
         return visitor.visitFrom(self)
 
+    def mutate(self, visitor):
+        return visitor.visitFrom(self)
+
     def fget_modname( space, self):
         return space.wrap(self.modname)
     def fset_modname( space, self, w_arg):
@@ -1866,9 +2522,15 @@ def descr_From_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_From_mutate(space, w_self, w_visitor): 
+    w_visitFrom = space.getattr(w_visitor, space.wrap("visitFrom"))
+    w_visitFrom_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitFrom, w_visitFrom_args)
+
 From.typedef = TypeDef('From', Node.typedef, 
                      __new__ = interp2app(descr_From_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_From_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_From_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     modname=GetSetProperty(From.fget_modname, From.fset_modname ),
                     names=GetSetProperty(From.fget_names, From.fset_names ),
                     )
@@ -1916,6 +2578,14 @@ class Function(AbstractFunction):
         return "Function(%s, %s, %s, %s, %s, %s, %s)" % (self.decorators.__repr__(), self.name.__repr__(), self.argnames.__repr__(), self.defaults.__repr__(), self.flags.__repr__(), self.w_doc.__repr__(), self.code.__repr__())
 
     def accept(self, visitor):
+        return visitor.visitFunction(self)
+
+    def mutate(self, visitor):
+        if self.decorators is not None:
+            self.decorators = self.decorators.mutate(visitor)
+        self.argnames[:] = [n.mutate(visitor) for n in self.argnames]
+        self.defaults[:] = [n.mutate(visitor) for n in self.defaults]
+        self.code = self.code.mutate(visitor)
         return visitor.visitFunction(self)
 
     def fget_decorators( space, self):
@@ -1979,9 +2649,48 @@ def descr_Function_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Function_mutate(space, w_self, w_visitor): 
+    w_decorators = space.getattr(w_self, space.wrap("decorators"))
+    if space.is_w(w_decorators, space.w_None):
+        w_mutate_decorators = space.getattr(w_decorators, space.wrap("mutate"))
+        w_mutate_decorators_args = Arguments(space, [ w_visitor ])
+        w_new_decorators = space.call_args(w_mutate_decorators, w_mutate_decorators_args)
+        space.setattr(w_self, space.wrap("decorators"), w_new_decorators)
+
+    w_list = space.getattr(w_self, space.wrap("argnames"))
+    list_w = space.unpackiterable(w_list)
+    newlist_w = []
+    for w_item in list_w:
+        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
+        w_item_mutate_args = Arguments(space, [ w_visitor ])
+        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
+        newitem_w.append(w_newitem)
+    w_newitem = space.newlist(newitem_w)
+    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    w_list = space.getattr(w_self, space.wrap("defaults"))
+    list_w = space.unpackiterable(w_list)
+    newlist_w = []
+    for w_item in list_w:
+        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
+        w_item_mutate_args = Arguments(space, [ w_visitor ])
+        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
+        newitem_w.append(w_newitem)
+    w_newitem = space.newlist(newitem_w)
+    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    w_code = space.getattr(w_self, space.wrap("code"))
+    w_mutate_code = space.getattr(w_code, space.wrap("mutate"))
+    w_mutate_code_args = Arguments(space, [ w_visitor ])
+    w_new_code = space.call_args(w_mutate_code, w_mutate_code_args)
+    space.setattr(w_self, space.wrap("code"), w_new_code)
+
+    w_visitFunction = space.getattr(w_visitor, space.wrap("visitFunction"))
+    w_visitFunction_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitFunction, w_visitFunction_args)
+
 Function.typedef = TypeDef('Function', AbstractFunction.typedef, 
                      __new__ = interp2app(descr_Function_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, W_Root, W_Root, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_Function_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Function_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     decorators=GetSetProperty(Function.fget_decorators, Function.fset_decorators ),
                     name=GetSetProperty(Function.fget_name, Function.fset_name ),
                     argnames=GetSetProperty(Function.fget_argnames, Function.fset_argnames ),
@@ -2013,6 +2722,10 @@ class GenExpr(AbstractFunction):
     def accept(self, visitor):
         return visitor.visitGenExpr(self)
 
+    def mutate(self, visitor):
+        self.code = self.code.mutate(visitor)
+        return visitor.visitGenExpr(self)
+
     def fget_code( space, self):
         return space.wrap(self.code)
     def fset_code( space, self, w_arg):
@@ -2030,9 +2743,21 @@ def descr_GenExpr_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_GenExpr_mutate(space, w_self, w_visitor): 
+    w_code = space.getattr(w_self, space.wrap("code"))
+    w_mutate_code = space.getattr(w_code, space.wrap("mutate"))
+    w_mutate_code_args = Arguments(space, [ w_visitor ])
+    w_new_code = space.call_args(w_mutate_code, w_mutate_code_args)
+    space.setattr(w_self, space.wrap("code"), w_new_code)
+
+    w_visitGenExpr = space.getattr(w_visitor, space.wrap("visitGenExpr"))
+    w_visitGenExpr_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitGenExpr, w_visitGenExpr_args)
+
 GenExpr.typedef = TypeDef('GenExpr', AbstractFunction.typedef, 
                      __new__ = interp2app(descr_GenExpr_new, unwrap_spec=[ObjSpace, W_Root, W_Root, int]),
                      accept=interp2app(descr_GenExpr_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_GenExpr_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     code=GetSetProperty(GenExpr.fget_code, GenExpr.fset_code ),
                     )
 
@@ -2067,6 +2792,12 @@ class GenExprFor(Node):
     def accept(self, visitor):
         return visitor.visitGenExprFor(self)
 
+    def mutate(self, visitor):
+        self.assign = self.assign.mutate(visitor)
+        self.iter = self.iter.mutate(visitor)
+        self.ifs[:] = [n.mutate(visitor) for n in self.ifs]
+        return visitor.visitGenExprFor(self)
+
     def fget_assign( space, self):
         return space.wrap(self.assign)
     def fset_assign( space, self, w_arg):
@@ -2098,9 +2829,37 @@ def descr_GenExprFor_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_GenExprFor_mutate(space, w_self, w_visitor): 
+    w_assign = space.getattr(w_self, space.wrap("assign"))
+    w_mutate_assign = space.getattr(w_assign, space.wrap("mutate"))
+    w_mutate_assign_args = Arguments(space, [ w_visitor ])
+    w_new_assign = space.call_args(w_mutate_assign, w_mutate_assign_args)
+    space.setattr(w_self, space.wrap("assign"), w_new_assign)
+
+    w_iter = space.getattr(w_self, space.wrap("iter"))
+    w_mutate_iter = space.getattr(w_iter, space.wrap("mutate"))
+    w_mutate_iter_args = Arguments(space, [ w_visitor ])
+    w_new_iter = space.call_args(w_mutate_iter, w_mutate_iter_args)
+    space.setattr(w_self, space.wrap("iter"), w_new_iter)
+
+    w_list = space.getattr(w_self, space.wrap("ifs"))
+    list_w = space.unpackiterable(w_list)
+    newlist_w = []
+    for w_item in list_w:
+        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
+        w_item_mutate_args = Arguments(space, [ w_visitor ])
+        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
+        newitem_w.append(w_newitem)
+    w_newitem = space.newlist(newitem_w)
+    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    w_visitGenExprFor = space.getattr(w_visitor, space.wrap("visitGenExprFor"))
+    w_visitGenExprFor_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitGenExprFor, w_visitGenExprFor_args)
+
 GenExprFor.typedef = TypeDef('GenExprFor', Node.typedef, 
                      __new__ = interp2app(descr_GenExprFor_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_GenExprFor_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_GenExprFor_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     assign=GetSetProperty(GenExprFor.fget_assign, GenExprFor.fset_assign ),
                     iter=GetSetProperty(GenExprFor.fget_iter, GenExprFor.fset_iter ),
                     ifs=GetSetProperty(GenExprFor.fget_ifs, GenExprFor.fset_ifs ),
@@ -2124,6 +2883,10 @@ class GenExprIf(Node):
     def accept(self, visitor):
         return visitor.visitGenExprIf(self)
 
+    def mutate(self, visitor):
+        self.test = self.test.mutate(visitor)
+        return visitor.visitGenExprIf(self)
+
     def fget_test( space, self):
         return space.wrap(self.test)
     def fset_test( space, self, w_arg):
@@ -2141,9 +2904,21 @@ def descr_GenExprIf_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_GenExprIf_mutate(space, w_self, w_visitor): 
+    w_test = space.getattr(w_self, space.wrap("test"))
+    w_mutate_test = space.getattr(w_test, space.wrap("mutate"))
+    w_mutate_test_args = Arguments(space, [ w_visitor ])
+    w_new_test = space.call_args(w_mutate_test, w_mutate_test_args)
+    space.setattr(w_self, space.wrap("test"), w_new_test)
+
+    w_visitGenExprIf = space.getattr(w_visitor, space.wrap("visitGenExprIf"))
+    w_visitGenExprIf_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitGenExprIf, w_visitGenExprIf_args)
+
 GenExprIf.typedef = TypeDef('GenExprIf', Node.typedef, 
                      __new__ = interp2app(descr_GenExprIf_new, unwrap_spec=[ObjSpace, W_Root, W_Root, int]),
                      accept=interp2app(descr_GenExprIf_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_GenExprIf_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     test=GetSetProperty(GenExprIf.fget_test, GenExprIf.fset_test ),
                     )
 
@@ -2172,6 +2947,11 @@ class GenExprInner(Node):
     def accept(self, visitor):
         return visitor.visitGenExprInner(self)
 
+    def mutate(self, visitor):
+        self.expr = self.expr.mutate(visitor)
+        self.quals[:] = [n.mutate(visitor) for n in self.quals]
+        return visitor.visitGenExprInner(self)
+
     def fget_expr( space, self):
         return space.wrap(self.expr)
     def fset_expr( space, self, w_arg):
@@ -2197,9 +2977,31 @@ def descr_GenExprInner_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_GenExprInner_mutate(space, w_self, w_visitor): 
+    w_expr = space.getattr(w_self, space.wrap("expr"))
+    w_mutate_expr = space.getattr(w_expr, space.wrap("mutate"))
+    w_mutate_expr_args = Arguments(space, [ w_visitor ])
+    w_new_expr = space.call_args(w_mutate_expr, w_mutate_expr_args)
+    space.setattr(w_self, space.wrap("expr"), w_new_expr)
+
+    w_list = space.getattr(w_self, space.wrap("quals"))
+    list_w = space.unpackiterable(w_list)
+    newlist_w = []
+    for w_item in list_w:
+        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
+        w_item_mutate_args = Arguments(space, [ w_visitor ])
+        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
+        newitem_w.append(w_newitem)
+    w_newitem = space.newlist(newitem_w)
+    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    w_visitGenExprInner = space.getattr(w_visitor, space.wrap("visitGenExprInner"))
+    w_visitGenExprInner_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitGenExprInner, w_visitGenExprInner_args)
+
 GenExprInner.typedef = TypeDef('GenExprInner', Node.typedef, 
                      __new__ = interp2app(descr_GenExprInner_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_GenExprInner_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_GenExprInner_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     expr=GetSetProperty(GenExprInner.fget_expr, GenExprInner.fset_expr ),
                     quals=GetSetProperty(GenExprInner.fget_quals, GenExprInner.fset_quals ),
                     )
@@ -2221,6 +3023,10 @@ class Getattr(Node):
         return "Getattr(%s, %s)" % (self.expr.__repr__(), self.attrname.__repr__())
 
     def accept(self, visitor):
+        return visitor.visitGetattr(self)
+
+    def mutate(self, visitor):
+        self.expr = self.expr.mutate(visitor)
         return visitor.visitGetattr(self)
 
     def fget_expr( space, self):
@@ -2246,9 +3052,21 @@ def descr_Getattr_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Getattr_mutate(space, w_self, w_visitor): 
+    w_expr = space.getattr(w_self, space.wrap("expr"))
+    w_mutate_expr = space.getattr(w_expr, space.wrap("mutate"))
+    w_mutate_expr_args = Arguments(space, [ w_visitor ])
+    w_new_expr = space.call_args(w_mutate_expr, w_mutate_expr_args)
+    space.setattr(w_self, space.wrap("expr"), w_new_expr)
+
+    w_visitGetattr = space.getattr(w_visitor, space.wrap("visitGetattr"))
+    w_visitGetattr_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitGetattr, w_visitGetattr_args)
+
 Getattr.typedef = TypeDef('Getattr', Node.typedef, 
                      __new__ = interp2app(descr_Getattr_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_Getattr_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Getattr_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     expr=GetSetProperty(Getattr.fget_expr, Getattr.fset_expr ),
                     attrname=GetSetProperty(Getattr.fget_attrname, Getattr.fset_attrname ),
                     )
@@ -2271,6 +3089,9 @@ class Global(Node):
     def accept(self, visitor):
         return visitor.visitGlobal(self)
 
+    def mutate(self, visitor):
+        return visitor.visitGlobal(self)
+
     def fget_names( space, self):
         return space.newlist( [space.wrap(itm) for itm in self.names] )
     def fset_names( space, self, w_arg):
@@ -2290,9 +3111,15 @@ def descr_Global_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Global_mutate(space, w_self, w_visitor): 
+    w_visitGlobal = space.getattr(w_visitor, space.wrap("visitGlobal"))
+    w_visitGlobal_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitGlobal, w_visitGlobal_args)
+
 Global.typedef = TypeDef('Global', Node.typedef, 
                      __new__ = interp2app(descr_Global_new, unwrap_spec=[ObjSpace, W_Root, W_Root, int]),
                      accept=interp2app(descr_Global_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Global_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     names=GetSetProperty(Global.fget_names, Global.fset_names ),
                     )
 
@@ -2343,6 +3170,12 @@ class If(Node):
     def accept(self, visitor):
         return visitor.visitIf(self)
 
+    def mutate(self, visitor):
+        self.tests[:] = [n.mutate(visitor) for n in self.tests]
+        if self.else_ is not None:
+            self.else_ = self.else_.mutate(visitor)
+        return visitor.visitIf(self)
+
     def fget_else_( space, self):
         if self.else_ is None:
             return space.w_None
@@ -2373,9 +3206,32 @@ def descr_If_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_If_mutate(space, w_self, w_visitor): 
+    w_list = space.getattr(w_self, space.wrap("tests"))
+    list_w = space.unpackiterable(w_list)
+    newlist_w = []
+    for w_item in list_w:
+        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
+        w_item_mutate_args = Arguments(space, [ w_visitor ])
+        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
+        newitem_w.append(w_newitem)
+    w_newitem = space.newlist(newitem_w)
+    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    w_else_ = space.getattr(w_self, space.wrap("else_"))
+    if space.is_w(w_else_, space.w_None):
+        w_mutate_else_ = space.getattr(w_else_, space.wrap("mutate"))
+        w_mutate_else__args = Arguments(space, [ w_visitor ])
+        w_new_else_ = space.call_args(w_mutate_else_, w_mutate_else__args)
+        space.setattr(w_self, space.wrap("else_"), w_new_else_)
+
+    w_visitIf = space.getattr(w_visitor, space.wrap("visitIf"))
+    w_visitIf_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitIf, w_visitIf_args)
+
 If.typedef = TypeDef('If', Node.typedef, 
                      __new__ = interp2app(descr_If_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_If_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_If_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     tests=GetSetProperty(If.fget_tests, If.fset_tests ),
                     else_=GetSetProperty(If.fget_else_, If.fset_else_ ),
                     )
@@ -2415,6 +3271,9 @@ class Import(Node):
     def accept(self, visitor):
         return visitor.visitImport(self)
 
+    def mutate(self, visitor):
+        return visitor.visitImport(self)
+
 
 def descr_Import_new(space, w_subtype, w_names, lineno=-1):
     self = space.allocate_instance(Import, w_subtype)
@@ -2438,9 +3297,15 @@ def descr_Import_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Import_mutate(space, w_self, w_visitor): 
+    w_visitImport = space.getattr(w_visitor, space.wrap("visitImport"))
+    w_visitImport_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitImport, w_visitImport_args)
+
 Import.typedef = TypeDef('Import', Node.typedef, 
                      __new__ = interp2app(descr_Import_new, unwrap_spec=[ObjSpace, W_Root, W_Root, int]),
                      accept=interp2app(descr_Import_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Import_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     names=GetSetProperty(Import.fget_names, Import.fset_names ),
                     )
 
@@ -2462,6 +3327,10 @@ class Invert(UnaryOp):
     def accept(self, visitor):
         return visitor.visitInvert(self)
 
+    def mutate(self, visitor):
+        self.expr = self.expr.mutate(visitor)
+        return visitor.visitInvert(self)
+
     def fget_expr( space, self):
         return space.wrap(self.expr)
     def fset_expr( space, self, w_arg):
@@ -2479,9 +3348,21 @@ def descr_Invert_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Invert_mutate(space, w_self, w_visitor): 
+    w_expr = space.getattr(w_self, space.wrap("expr"))
+    w_mutate_expr = space.getattr(w_expr, space.wrap("mutate"))
+    w_mutate_expr_args = Arguments(space, [ w_visitor ])
+    w_new_expr = space.call_args(w_mutate_expr, w_mutate_expr_args)
+    space.setattr(w_self, space.wrap("expr"), w_new_expr)
+
+    w_visitInvert = space.getattr(w_visitor, space.wrap("visitInvert"))
+    w_visitInvert_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitInvert, w_visitInvert_args)
+
 Invert.typedef = TypeDef('Invert', UnaryOp.typedef, 
                      __new__ = interp2app(descr_Invert_new, unwrap_spec=[ObjSpace, W_Root, W_Root, int]),
                      accept=interp2app(descr_Invert_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Invert_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     expr=GetSetProperty(Invert.fget_expr, Invert.fset_expr ),
                     )
 
@@ -2502,6 +3383,10 @@ class Keyword(Node):
         return "Keyword(%s, %s)" % (self.name.__repr__(), self.expr.__repr__())
 
     def accept(self, visitor):
+        return visitor.visitKeyword(self)
+
+    def mutate(self, visitor):
+        self.expr = self.expr.mutate(visitor)
         return visitor.visitKeyword(self)
 
     def fget_name( space, self):
@@ -2527,9 +3412,21 @@ def descr_Keyword_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Keyword_mutate(space, w_self, w_visitor): 
+    w_expr = space.getattr(w_self, space.wrap("expr"))
+    w_mutate_expr = space.getattr(w_expr, space.wrap("mutate"))
+    w_mutate_expr_args = Arguments(space, [ w_visitor ])
+    w_new_expr = space.call_args(w_mutate_expr, w_mutate_expr_args)
+    space.setattr(w_self, space.wrap("expr"), w_new_expr)
+
+    w_visitKeyword = space.getattr(w_visitor, space.wrap("visitKeyword"))
+    w_visitKeyword_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitKeyword, w_visitKeyword_args)
+
 Keyword.typedef = TypeDef('Keyword', Node.typedef, 
                      __new__ = interp2app(descr_Keyword_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_Keyword_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Keyword_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     name=GetSetProperty(Keyword.fget_name, Keyword.fset_name ),
                     expr=GetSetProperty(Keyword.fget_expr, Keyword.fset_expr ),
                     )
@@ -2571,6 +3468,12 @@ class Lambda(AbstractFunction):
     def accept(self, visitor):
         return visitor.visitLambda(self)
 
+    def mutate(self, visitor):
+        self.argnames[:] = [n.mutate(visitor) for n in self.argnames]
+        self.defaults[:] = [n.mutate(visitor) for n in self.defaults]
+        self.code = self.code.mutate(visitor)
+        return visitor.visitLambda(self)
+
     def fget_argnames( space, self):
         return space.newlist( [space.wrap(itm) for itm in self.argnames] )
     def fset_argnames( space, self, w_arg):
@@ -2610,9 +3513,41 @@ def descr_Lambda_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Lambda_mutate(space, w_self, w_visitor): 
+    w_list = space.getattr(w_self, space.wrap("argnames"))
+    list_w = space.unpackiterable(w_list)
+    newlist_w = []
+    for w_item in list_w:
+        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
+        w_item_mutate_args = Arguments(space, [ w_visitor ])
+        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
+        newitem_w.append(w_newitem)
+    w_newitem = space.newlist(newitem_w)
+    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    w_list = space.getattr(w_self, space.wrap("defaults"))
+    list_w = space.unpackiterable(w_list)
+    newlist_w = []
+    for w_item in list_w:
+        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
+        w_item_mutate_args = Arguments(space, [ w_visitor ])
+        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
+        newitem_w.append(w_newitem)
+    w_newitem = space.newlist(newitem_w)
+    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    w_code = space.getattr(w_self, space.wrap("code"))
+    w_mutate_code = space.getattr(w_code, space.wrap("mutate"))
+    w_mutate_code_args = Arguments(space, [ w_visitor ])
+    w_new_code = space.call_args(w_mutate_code, w_mutate_code_args)
+    space.setattr(w_self, space.wrap("code"), w_new_code)
+
+    w_visitLambda = space.getattr(w_visitor, space.wrap("visitLambda"))
+    w_visitLambda_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitLambda, w_visitLambda_args)
+
 Lambda.typedef = TypeDef('Lambda', AbstractFunction.typedef, 
                      __new__ = interp2app(descr_Lambda_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_Lambda_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Lambda_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     argnames=GetSetProperty(Lambda.fget_argnames, Lambda.fset_argnames ),
                     defaults=GetSetProperty(Lambda.fget_defaults, Lambda.fset_defaults ),
                     flags=GetSetProperty(Lambda.fget_flags, Lambda.fset_flags ),
@@ -2638,6 +3573,11 @@ class LeftShift(BinaryOp):
     def accept(self, visitor):
         return visitor.visitLeftShift(self)
 
+    def mutate(self, visitor):
+        self.left = self.left.mutate(visitor)
+        self.right = self.right.mutate(visitor)
+        return visitor.visitLeftShift(self)
+
     def fget_left( space, self):
         return space.wrap(self.left)
     def fset_left( space, self, w_arg):
@@ -2661,9 +3601,27 @@ def descr_LeftShift_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_LeftShift_mutate(space, w_self, w_visitor): 
+    w_left = space.getattr(w_self, space.wrap("left"))
+    w_mutate_left = space.getattr(w_left, space.wrap("mutate"))
+    w_mutate_left_args = Arguments(space, [ w_visitor ])
+    w_new_left = space.call_args(w_mutate_left, w_mutate_left_args)
+    space.setattr(w_self, space.wrap("left"), w_new_left)
+
+    w_right = space.getattr(w_self, space.wrap("right"))
+    w_mutate_right = space.getattr(w_right, space.wrap("mutate"))
+    w_mutate_right_args = Arguments(space, [ w_visitor ])
+    w_new_right = space.call_args(w_mutate_right, w_mutate_right_args)
+    space.setattr(w_self, space.wrap("right"), w_new_right)
+
+    w_visitLeftShift = space.getattr(w_visitor, space.wrap("visitLeftShift"))
+    w_visitLeftShift_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitLeftShift, w_visitLeftShift_args)
+
 LeftShift.typedef = TypeDef('LeftShift', BinaryOp.typedef, 
                      __new__ = interp2app(descr_LeftShift_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_LeftShift_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_LeftShift_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     left=GetSetProperty(LeftShift.fget_left, LeftShift.fset_left ),
                     right=GetSetProperty(LeftShift.fget_right, LeftShift.fset_right ),
                     )
@@ -2688,6 +3646,10 @@ class List(Node):
     def accept(self, visitor):
         return visitor.visitList(self)
 
+    def mutate(self, visitor):
+        self.nodes[:] = [n.mutate(visitor) for n in self.nodes]
+        return visitor.visitList(self)
+
     def fget_nodes( space, self):
         return space.newlist( [space.wrap(itm) for itm in self.nodes] )
     def fset_nodes( space, self, w_arg):
@@ -2707,9 +3669,25 @@ def descr_List_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_List_mutate(space, w_self, w_visitor): 
+    w_list = space.getattr(w_self, space.wrap("nodes"))
+    list_w = space.unpackiterable(w_list)
+    newlist_w = []
+    for w_item in list_w:
+        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
+        w_item_mutate_args = Arguments(space, [ w_visitor ])
+        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
+        newitem_w.append(w_newitem)
+    w_newitem = space.newlist(newitem_w)
+    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    w_visitList = space.getattr(w_visitor, space.wrap("visitList"))
+    w_visitList_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitList, w_visitList_args)
+
 List.typedef = TypeDef('List', Node.typedef, 
                      __new__ = interp2app(descr_List_new, unwrap_spec=[ObjSpace, W_Root, W_Root, int]),
                      accept=interp2app(descr_List_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_List_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(List.fget_nodes, List.fset_nodes ),
                     )
 
@@ -2738,6 +3716,11 @@ class ListComp(Node):
     def accept(self, visitor):
         return visitor.visitListComp(self)
 
+    def mutate(self, visitor):
+        self.expr = self.expr.mutate(visitor)
+        self.quals[:] = [n.mutate(visitor) for n in self.quals]
+        return visitor.visitListComp(self)
+
     def fget_expr( space, self):
         return space.wrap(self.expr)
     def fset_expr( space, self, w_arg):
@@ -2763,9 +3746,31 @@ def descr_ListComp_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_ListComp_mutate(space, w_self, w_visitor): 
+    w_expr = space.getattr(w_self, space.wrap("expr"))
+    w_mutate_expr = space.getattr(w_expr, space.wrap("mutate"))
+    w_mutate_expr_args = Arguments(space, [ w_visitor ])
+    w_new_expr = space.call_args(w_mutate_expr, w_mutate_expr_args)
+    space.setattr(w_self, space.wrap("expr"), w_new_expr)
+
+    w_list = space.getattr(w_self, space.wrap("quals"))
+    list_w = space.unpackiterable(w_list)
+    newlist_w = []
+    for w_item in list_w:
+        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
+        w_item_mutate_args = Arguments(space, [ w_visitor ])
+        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
+        newitem_w.append(w_newitem)
+    w_newitem = space.newlist(newitem_w)
+    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    w_visitListComp = space.getattr(w_visitor, space.wrap("visitListComp"))
+    w_visitListComp_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitListComp, w_visitListComp_args)
+
 ListComp.typedef = TypeDef('ListComp', Node.typedef, 
                      __new__ = interp2app(descr_ListComp_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_ListComp_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_ListComp_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     expr=GetSetProperty(ListComp.fget_expr, ListComp.fset_expr ),
                     quals=GetSetProperty(ListComp.fget_quals, ListComp.fset_quals ),
                     )
@@ -2796,6 +3801,12 @@ class ListCompFor(Node):
         return "ListCompFor(%s, %s, %s)" % (self.assign.__repr__(), self.list.__repr__(), self.ifs.__repr__())
 
     def accept(self, visitor):
+        return visitor.visitListCompFor(self)
+
+    def mutate(self, visitor):
+        self.assign = self.assign.mutate(visitor)
+        self.list = self.list.mutate(visitor)
+        self.ifs[:] = [n.mutate(visitor) for n in self.ifs]
         return visitor.visitListCompFor(self)
 
     def fget_assign( space, self):
@@ -2829,9 +3840,37 @@ def descr_ListCompFor_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_ListCompFor_mutate(space, w_self, w_visitor): 
+    w_assign = space.getattr(w_self, space.wrap("assign"))
+    w_mutate_assign = space.getattr(w_assign, space.wrap("mutate"))
+    w_mutate_assign_args = Arguments(space, [ w_visitor ])
+    w_new_assign = space.call_args(w_mutate_assign, w_mutate_assign_args)
+    space.setattr(w_self, space.wrap("assign"), w_new_assign)
+
+    w_list = space.getattr(w_self, space.wrap("list"))
+    w_mutate_list = space.getattr(w_list, space.wrap("mutate"))
+    w_mutate_list_args = Arguments(space, [ w_visitor ])
+    w_new_list = space.call_args(w_mutate_list, w_mutate_list_args)
+    space.setattr(w_self, space.wrap("list"), w_new_list)
+
+    w_list = space.getattr(w_self, space.wrap("ifs"))
+    list_w = space.unpackiterable(w_list)
+    newlist_w = []
+    for w_item in list_w:
+        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
+        w_item_mutate_args = Arguments(space, [ w_visitor ])
+        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
+        newitem_w.append(w_newitem)
+    w_newitem = space.newlist(newitem_w)
+    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    w_visitListCompFor = space.getattr(w_visitor, space.wrap("visitListCompFor"))
+    w_visitListCompFor_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitListCompFor, w_visitListCompFor_args)
+
 ListCompFor.typedef = TypeDef('ListCompFor', Node.typedef, 
                      __new__ = interp2app(descr_ListCompFor_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_ListCompFor_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_ListCompFor_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     assign=GetSetProperty(ListCompFor.fget_assign, ListCompFor.fset_assign ),
                     list=GetSetProperty(ListCompFor.fget_list, ListCompFor.fset_list ),
                     ifs=GetSetProperty(ListCompFor.fget_ifs, ListCompFor.fset_ifs ),
@@ -2855,6 +3894,10 @@ class ListCompIf(Node):
     def accept(self, visitor):
         return visitor.visitListCompIf(self)
 
+    def mutate(self, visitor):
+        self.test = self.test.mutate(visitor)
+        return visitor.visitListCompIf(self)
+
     def fget_test( space, self):
         return space.wrap(self.test)
     def fset_test( space, self, w_arg):
@@ -2872,9 +3915,21 @@ def descr_ListCompIf_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_ListCompIf_mutate(space, w_self, w_visitor): 
+    w_test = space.getattr(w_self, space.wrap("test"))
+    w_mutate_test = space.getattr(w_test, space.wrap("mutate"))
+    w_mutate_test_args = Arguments(space, [ w_visitor ])
+    w_new_test = space.call_args(w_mutate_test, w_mutate_test_args)
+    space.setattr(w_self, space.wrap("test"), w_new_test)
+
+    w_visitListCompIf = space.getattr(w_visitor, space.wrap("visitListCompIf"))
+    w_visitListCompIf_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitListCompIf, w_visitListCompIf_args)
+
 ListCompIf.typedef = TypeDef('ListCompIf', Node.typedef, 
                      __new__ = interp2app(descr_ListCompIf_new, unwrap_spec=[ObjSpace, W_Root, W_Root, int]),
                      accept=interp2app(descr_ListCompIf_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_ListCompIf_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     test=GetSetProperty(ListCompIf.fget_test, ListCompIf.fset_test ),
                     )
 
@@ -2895,6 +3950,11 @@ class Mod(BinaryOp):
         return "Mod(%s, %s)" % (self.left.__repr__(), self.right.__repr__())
 
     def accept(self, visitor):
+        return visitor.visitMod(self)
+
+    def mutate(self, visitor):
+        self.left = self.left.mutate(visitor)
+        self.right = self.right.mutate(visitor)
         return visitor.visitMod(self)
 
     def fget_left( space, self):
@@ -2920,9 +3980,27 @@ def descr_Mod_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Mod_mutate(space, w_self, w_visitor): 
+    w_left = space.getattr(w_self, space.wrap("left"))
+    w_mutate_left = space.getattr(w_left, space.wrap("mutate"))
+    w_mutate_left_args = Arguments(space, [ w_visitor ])
+    w_new_left = space.call_args(w_mutate_left, w_mutate_left_args)
+    space.setattr(w_self, space.wrap("left"), w_new_left)
+
+    w_right = space.getattr(w_self, space.wrap("right"))
+    w_mutate_right = space.getattr(w_right, space.wrap("mutate"))
+    w_mutate_right_args = Arguments(space, [ w_visitor ])
+    w_new_right = space.call_args(w_mutate_right, w_mutate_right_args)
+    space.setattr(w_self, space.wrap("right"), w_new_right)
+
+    w_visitMod = space.getattr(w_visitor, space.wrap("visitMod"))
+    w_visitMod_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitMod, w_visitMod_args)
+
 Mod.typedef = TypeDef('Mod', BinaryOp.typedef, 
                      __new__ = interp2app(descr_Mod_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_Mod_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Mod_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     left=GetSetProperty(Mod.fget_left, Mod.fset_left ),
                     right=GetSetProperty(Mod.fget_right, Mod.fset_right ),
                     )
@@ -2944,6 +4022,10 @@ class Module(Node):
         return "Module(%s, %s)" % (self.w_doc.__repr__(), self.node.__repr__())
 
     def accept(self, visitor):
+        return visitor.visitModule(self)
+
+    def mutate(self, visitor):
+        self.node = self.node.mutate(visitor)
         return visitor.visitModule(self)
 
     def fget_w_doc( space, self):
@@ -2970,9 +4052,21 @@ def descr_Module_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Module_mutate(space, w_self, w_visitor): 
+    w_node = space.getattr(w_self, space.wrap("node"))
+    w_mutate_node = space.getattr(w_node, space.wrap("mutate"))
+    w_mutate_node_args = Arguments(space, [ w_visitor ])
+    w_new_node = space.call_args(w_mutate_node, w_mutate_node_args)
+    space.setattr(w_self, space.wrap("node"), w_new_node)
+
+    w_visitModule = space.getattr(w_visitor, space.wrap("visitModule"))
+    w_visitModule_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitModule, w_visitModule_args)
+
 Module.typedef = TypeDef('Module', Node.typedef, 
                      __new__ = interp2app(descr_Module_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_Module_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Module_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     w_doc=GetSetProperty(Module.fget_w_doc, Module.fset_w_doc ),
                     node=GetSetProperty(Module.fget_node, Module.fset_node ),
                     )
@@ -2994,6 +4088,11 @@ class Mul(BinaryOp):
         return "Mul(%s, %s)" % (self.left.__repr__(), self.right.__repr__())
 
     def accept(self, visitor):
+        return visitor.visitMul(self)
+
+    def mutate(self, visitor):
+        self.left = self.left.mutate(visitor)
+        self.right = self.right.mutate(visitor)
         return visitor.visitMul(self)
 
     def fget_left( space, self):
@@ -3019,9 +4118,27 @@ def descr_Mul_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Mul_mutate(space, w_self, w_visitor): 
+    w_left = space.getattr(w_self, space.wrap("left"))
+    w_mutate_left = space.getattr(w_left, space.wrap("mutate"))
+    w_mutate_left_args = Arguments(space, [ w_visitor ])
+    w_new_left = space.call_args(w_mutate_left, w_mutate_left_args)
+    space.setattr(w_self, space.wrap("left"), w_new_left)
+
+    w_right = space.getattr(w_self, space.wrap("right"))
+    w_mutate_right = space.getattr(w_right, space.wrap("mutate"))
+    w_mutate_right_args = Arguments(space, [ w_visitor ])
+    w_new_right = space.call_args(w_mutate_right, w_mutate_right_args)
+    space.setattr(w_self, space.wrap("right"), w_new_right)
+
+    w_visitMul = space.getattr(w_visitor, space.wrap("visitMul"))
+    w_visitMul_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitMul, w_visitMul_args)
+
 Mul.typedef = TypeDef('Mul', BinaryOp.typedef, 
                      __new__ = interp2app(descr_Mul_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_Mul_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Mul_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     left=GetSetProperty(Mul.fget_left, Mul.fset_left ),
                     right=GetSetProperty(Mul.fget_right, Mul.fset_right ),
                     )
@@ -3044,6 +4161,9 @@ class Name(Node):
     def accept(self, visitor):
         return visitor.visitName(self)
 
+    def mutate(self, visitor):
+        return visitor.visitName(self)
+
     def fget_varname( space, self):
         return space.wrap(self.varname)
     def fset_varname( space, self, w_arg):
@@ -3061,9 +4181,15 @@ def descr_Name_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Name_mutate(space, w_self, w_visitor): 
+    w_visitName = space.getattr(w_visitor, space.wrap("visitName"))
+    w_visitName_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitName, w_visitName_args)
+
 Name.typedef = TypeDef('Name', Node.typedef, 
                      __new__ = interp2app(descr_Name_new, unwrap_spec=[ObjSpace, W_Root, W_Root, int]),
                      accept=interp2app(descr_Name_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Name_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     varname=GetSetProperty(Name.fget_varname, Name.fset_varname ),
                     )
 
@@ -3084,6 +4210,9 @@ class NoneConst(Node):
     def accept(self, visitor):
         return visitor.visitNoneConst(self)
 
+    def mutate(self, visitor):
+        return visitor.visitNoneConst(self)
+
 
 def descr_NoneConst_new(space, w_subtype, lineno=-1):
     self = space.allocate_instance(NoneConst, w_subtype)
@@ -3095,9 +4224,15 @@ def descr_NoneConst_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_NoneConst_mutate(space, w_self, w_visitor): 
+    w_visitNoneConst = space.getattr(w_visitor, space.wrap("visitNoneConst"))
+    w_visitNoneConst_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitNoneConst, w_visitNoneConst_args)
+
 NoneConst.typedef = TypeDef('NoneConst', Node.typedef, 
                      __new__ = interp2app(descr_NoneConst_new, unwrap_spec=[ObjSpace, W_Root, int]),
                      accept=interp2app(descr_NoneConst_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_NoneConst_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     )
 
 class Not(UnaryOp):
@@ -3118,6 +4253,10 @@ class Not(UnaryOp):
     def accept(self, visitor):
         return visitor.visitNot(self)
 
+    def mutate(self, visitor):
+        self.expr = self.expr.mutate(visitor)
+        return visitor.visitNot(self)
+
     def fget_expr( space, self):
         return space.wrap(self.expr)
     def fset_expr( space, self, w_arg):
@@ -3135,9 +4274,21 @@ def descr_Not_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Not_mutate(space, w_self, w_visitor): 
+    w_expr = space.getattr(w_self, space.wrap("expr"))
+    w_mutate_expr = space.getattr(w_expr, space.wrap("mutate"))
+    w_mutate_expr_args = Arguments(space, [ w_visitor ])
+    w_new_expr = space.call_args(w_mutate_expr, w_mutate_expr_args)
+    space.setattr(w_self, space.wrap("expr"), w_new_expr)
+
+    w_visitNot = space.getattr(w_visitor, space.wrap("visitNot"))
+    w_visitNot_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitNot, w_visitNot_args)
+
 Not.typedef = TypeDef('Not', UnaryOp.typedef, 
                      __new__ = interp2app(descr_Not_new, unwrap_spec=[ObjSpace, W_Root, W_Root, int]),
                      accept=interp2app(descr_Not_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Not_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     expr=GetSetProperty(Not.fget_expr, Not.fset_expr ),
                     )
 
@@ -3161,6 +4312,10 @@ class Or(AbstractTest):
     def accept(self, visitor):
         return visitor.visitOr(self)
 
+    def mutate(self, visitor):
+        self.nodes[:] = [n.mutate(visitor) for n in self.nodes]
+        return visitor.visitOr(self)
+
     def fget_nodes( space, self):
         return space.newlist( [space.wrap(itm) for itm in self.nodes] )
     def fset_nodes( space, self, w_arg):
@@ -3180,9 +4335,25 @@ def descr_Or_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Or_mutate(space, w_self, w_visitor): 
+    w_list = space.getattr(w_self, space.wrap("nodes"))
+    list_w = space.unpackiterable(w_list)
+    newlist_w = []
+    for w_item in list_w:
+        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
+        w_item_mutate_args = Arguments(space, [ w_visitor ])
+        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
+        newitem_w.append(w_newitem)
+    w_newitem = space.newlist(newitem_w)
+    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    w_visitOr = space.getattr(w_visitor, space.wrap("visitOr"))
+    w_visitOr_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitOr, w_visitOr_args)
+
 Or.typedef = TypeDef('Or', AbstractTest.typedef, 
                      __new__ = interp2app(descr_Or_new, unwrap_spec=[ObjSpace, W_Root, W_Root, int]),
                      accept=interp2app(descr_Or_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Or_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(Or.fget_nodes, Or.fset_nodes ),
                     )
 
@@ -3203,6 +4374,9 @@ class Pass(Node):
     def accept(self, visitor):
         return visitor.visitPass(self)
 
+    def mutate(self, visitor):
+        return visitor.visitPass(self)
+
 
 def descr_Pass_new(space, w_subtype, lineno=-1):
     self = space.allocate_instance(Pass, w_subtype)
@@ -3214,9 +4388,15 @@ def descr_Pass_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Pass_mutate(space, w_self, w_visitor): 
+    w_visitPass = space.getattr(w_visitor, space.wrap("visitPass"))
+    w_visitPass_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitPass, w_visitPass_args)
+
 Pass.typedef = TypeDef('Pass', Node.typedef, 
                      __new__ = interp2app(descr_Pass_new, unwrap_spec=[ObjSpace, W_Root, int]),
                      accept=interp2app(descr_Pass_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Pass_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     )
 
 class Power(BinaryOp):
@@ -3236,6 +4416,11 @@ class Power(BinaryOp):
         return "Power(%s, %s)" % (self.left.__repr__(), self.right.__repr__())
 
     def accept(self, visitor):
+        return visitor.visitPower(self)
+
+    def mutate(self, visitor):
+        self.left = self.left.mutate(visitor)
+        self.right = self.right.mutate(visitor)
         return visitor.visitPower(self)
 
     def fget_left( space, self):
@@ -3261,9 +4446,27 @@ def descr_Power_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Power_mutate(space, w_self, w_visitor): 
+    w_left = space.getattr(w_self, space.wrap("left"))
+    w_mutate_left = space.getattr(w_left, space.wrap("mutate"))
+    w_mutate_left_args = Arguments(space, [ w_visitor ])
+    w_new_left = space.call_args(w_mutate_left, w_mutate_left_args)
+    space.setattr(w_self, space.wrap("left"), w_new_left)
+
+    w_right = space.getattr(w_self, space.wrap("right"))
+    w_mutate_right = space.getattr(w_right, space.wrap("mutate"))
+    w_mutate_right_args = Arguments(space, [ w_visitor ])
+    w_new_right = space.call_args(w_mutate_right, w_mutate_right_args)
+    space.setattr(w_self, space.wrap("right"), w_new_right)
+
+    w_visitPower = space.getattr(w_visitor, space.wrap("visitPower"))
+    w_visitPower_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitPower, w_visitPower_args)
+
 Power.typedef = TypeDef('Power', BinaryOp.typedef, 
                      __new__ = interp2app(descr_Power_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_Power_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Power_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     left=GetSetProperty(Power.fget_left, Power.fset_left ),
                     right=GetSetProperty(Power.fget_right, Power.fset_right ),
                     )
@@ -3294,6 +4497,12 @@ class Print(Node):
     def accept(self, visitor):
         return visitor.visitPrint(self)
 
+    def mutate(self, visitor):
+        self.nodes[:] = [n.mutate(visitor) for n in self.nodes]
+        if self.dest is not None:
+            self.dest = self.dest.mutate(visitor)
+        return visitor.visitPrint(self)
+
     def fget_nodes( space, self):
         return space.newlist( [space.wrap(itm) for itm in self.nodes] )
     def fset_nodes( space, self, w_arg):
@@ -3322,9 +4531,32 @@ def descr_Print_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Print_mutate(space, w_self, w_visitor): 
+    w_list = space.getattr(w_self, space.wrap("nodes"))
+    list_w = space.unpackiterable(w_list)
+    newlist_w = []
+    for w_item in list_w:
+        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
+        w_item_mutate_args = Arguments(space, [ w_visitor ])
+        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
+        newitem_w.append(w_newitem)
+    w_newitem = space.newlist(newitem_w)
+    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    w_dest = space.getattr(w_self, space.wrap("dest"))
+    if space.is_w(w_dest, space.w_None):
+        w_mutate_dest = space.getattr(w_dest, space.wrap("mutate"))
+        w_mutate_dest_args = Arguments(space, [ w_visitor ])
+        w_new_dest = space.call_args(w_mutate_dest, w_mutate_dest_args)
+        space.setattr(w_self, space.wrap("dest"), w_new_dest)
+
+    w_visitPrint = space.getattr(w_visitor, space.wrap("visitPrint"))
+    w_visitPrint_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitPrint, w_visitPrint_args)
+
 Print.typedef = TypeDef('Print', Node.typedef, 
                      __new__ = interp2app(descr_Print_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_Print_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Print_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(Print.fget_nodes, Print.fset_nodes ),
                     dest=GetSetProperty(Print.fget_dest, Print.fset_dest ),
                     )
@@ -3355,6 +4587,12 @@ class Printnl(Node):
     def accept(self, visitor):
         return visitor.visitPrintnl(self)
 
+    def mutate(self, visitor):
+        self.nodes[:] = [n.mutate(visitor) for n in self.nodes]
+        if self.dest is not None:
+            self.dest = self.dest.mutate(visitor)
+        return visitor.visitPrintnl(self)
+
     def fget_nodes( space, self):
         return space.newlist( [space.wrap(itm) for itm in self.nodes] )
     def fset_nodes( space, self, w_arg):
@@ -3383,9 +4621,32 @@ def descr_Printnl_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Printnl_mutate(space, w_self, w_visitor): 
+    w_list = space.getattr(w_self, space.wrap("nodes"))
+    list_w = space.unpackiterable(w_list)
+    newlist_w = []
+    for w_item in list_w:
+        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
+        w_item_mutate_args = Arguments(space, [ w_visitor ])
+        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
+        newitem_w.append(w_newitem)
+    w_newitem = space.newlist(newitem_w)
+    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    w_dest = space.getattr(w_self, space.wrap("dest"))
+    if space.is_w(w_dest, space.w_None):
+        w_mutate_dest = space.getattr(w_dest, space.wrap("mutate"))
+        w_mutate_dest_args = Arguments(space, [ w_visitor ])
+        w_new_dest = space.call_args(w_mutate_dest, w_mutate_dest_args)
+        space.setattr(w_self, space.wrap("dest"), w_new_dest)
+
+    w_visitPrintnl = space.getattr(w_visitor, space.wrap("visitPrintnl"))
+    w_visitPrintnl_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitPrintnl, w_visitPrintnl_args)
+
 Printnl.typedef = TypeDef('Printnl', Node.typedef, 
                      __new__ = interp2app(descr_Printnl_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_Printnl_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Printnl_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(Printnl.fget_nodes, Printnl.fset_nodes ),
                     dest=GetSetProperty(Printnl.fget_dest, Printnl.fset_dest ),
                     )
@@ -3419,6 +4680,15 @@ class Raise(Node):
         return "Raise(%s, %s, %s)" % (self.expr1.__repr__(), self.expr2.__repr__(), self.expr3.__repr__())
 
     def accept(self, visitor):
+        return visitor.visitRaise(self)
+
+    def mutate(self, visitor):
+        if self.expr1 is not None:
+            self.expr1 = self.expr1.mutate(visitor)
+        if self.expr2 is not None:
+            self.expr2 = self.expr2.mutate(visitor)
+        if self.expr3 is not None:
+            self.expr3 = self.expr3.mutate(visitor)
         return visitor.visitRaise(self)
 
     def fget_expr1( space, self):
@@ -3459,9 +4729,36 @@ def descr_Raise_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Raise_mutate(space, w_self, w_visitor): 
+    w_expr1 = space.getattr(w_self, space.wrap("expr1"))
+    if space.is_w(w_expr1, space.w_None):
+        w_mutate_expr1 = space.getattr(w_expr1, space.wrap("mutate"))
+        w_mutate_expr1_args = Arguments(space, [ w_visitor ])
+        w_new_expr1 = space.call_args(w_mutate_expr1, w_mutate_expr1_args)
+        space.setattr(w_self, space.wrap("expr1"), w_new_expr1)
+
+    w_expr2 = space.getattr(w_self, space.wrap("expr2"))
+    if space.is_w(w_expr2, space.w_None):
+        w_mutate_expr2 = space.getattr(w_expr2, space.wrap("mutate"))
+        w_mutate_expr2_args = Arguments(space, [ w_visitor ])
+        w_new_expr2 = space.call_args(w_mutate_expr2, w_mutate_expr2_args)
+        space.setattr(w_self, space.wrap("expr2"), w_new_expr2)
+
+    w_expr3 = space.getattr(w_self, space.wrap("expr3"))
+    if space.is_w(w_expr3, space.w_None):
+        w_mutate_expr3 = space.getattr(w_expr3, space.wrap("mutate"))
+        w_mutate_expr3_args = Arguments(space, [ w_visitor ])
+        w_new_expr3 = space.call_args(w_mutate_expr3, w_mutate_expr3_args)
+        space.setattr(w_self, space.wrap("expr3"), w_new_expr3)
+
+    w_visitRaise = space.getattr(w_visitor, space.wrap("visitRaise"))
+    w_visitRaise_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitRaise, w_visitRaise_args)
+
 Raise.typedef = TypeDef('Raise', Node.typedef, 
                      __new__ = interp2app(descr_Raise_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_Raise_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Raise_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     expr1=GetSetProperty(Raise.fget_expr1, Raise.fset_expr1 ),
                     expr2=GetSetProperty(Raise.fget_expr2, Raise.fset_expr2 ),
                     expr3=GetSetProperty(Raise.fget_expr3, Raise.fset_expr3 ),
@@ -3488,6 +4785,11 @@ class Return(Node):
     def accept(self, visitor):
         return visitor.visitReturn(self)
 
+    def mutate(self, visitor):
+        if self.value is not None:
+            self.value = self.value.mutate(visitor)
+        return visitor.visitReturn(self)
+
     def fget_value( space, self):
         if self.value is None:
             return space.w_None
@@ -3508,9 +4810,22 @@ def descr_Return_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Return_mutate(space, w_self, w_visitor): 
+    w_value = space.getattr(w_self, space.wrap("value"))
+    if space.is_w(w_value, space.w_None):
+        w_mutate_value = space.getattr(w_value, space.wrap("mutate"))
+        w_mutate_value_args = Arguments(space, [ w_visitor ])
+        w_new_value = space.call_args(w_mutate_value, w_mutate_value_args)
+        space.setattr(w_self, space.wrap("value"), w_new_value)
+
+    w_visitReturn = space.getattr(w_visitor, space.wrap("visitReturn"))
+    w_visitReturn_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitReturn, w_visitReturn_args)
+
 Return.typedef = TypeDef('Return', Node.typedef, 
                      __new__ = interp2app(descr_Return_new, unwrap_spec=[ObjSpace, W_Root, W_Root, int]),
                      accept=interp2app(descr_Return_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Return_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     value=GetSetProperty(Return.fget_value, Return.fset_value ),
                     )
 
@@ -3531,6 +4846,11 @@ class RightShift(BinaryOp):
         return "RightShift(%s, %s)" % (self.left.__repr__(), self.right.__repr__())
 
     def accept(self, visitor):
+        return visitor.visitRightShift(self)
+
+    def mutate(self, visitor):
+        self.left = self.left.mutate(visitor)
+        self.right = self.right.mutate(visitor)
         return visitor.visitRightShift(self)
 
     def fget_left( space, self):
@@ -3556,9 +4876,27 @@ def descr_RightShift_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_RightShift_mutate(space, w_self, w_visitor): 
+    w_left = space.getattr(w_self, space.wrap("left"))
+    w_mutate_left = space.getattr(w_left, space.wrap("mutate"))
+    w_mutate_left_args = Arguments(space, [ w_visitor ])
+    w_new_left = space.call_args(w_mutate_left, w_mutate_left_args)
+    space.setattr(w_self, space.wrap("left"), w_new_left)
+
+    w_right = space.getattr(w_self, space.wrap("right"))
+    w_mutate_right = space.getattr(w_right, space.wrap("mutate"))
+    w_mutate_right_args = Arguments(space, [ w_visitor ])
+    w_new_right = space.call_args(w_mutate_right, w_mutate_right_args)
+    space.setattr(w_self, space.wrap("right"), w_new_right)
+
+    w_visitRightShift = space.getattr(w_visitor, space.wrap("visitRightShift"))
+    w_visitRightShift_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitRightShift, w_visitRightShift_args)
+
 RightShift.typedef = TypeDef('RightShift', BinaryOp.typedef, 
                      __new__ = interp2app(descr_RightShift_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_RightShift_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_RightShift_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     left=GetSetProperty(RightShift.fget_left, RightShift.fset_left ),
                     right=GetSetProperty(RightShift.fget_right, RightShift.fset_right ),
                     )
@@ -3593,6 +4931,14 @@ class Slice(Node):
         return "Slice(%s, %s, %s, %s)" % (self.expr.__repr__(), self.flags.__repr__(), self.lower.__repr__(), self.upper.__repr__())
 
     def accept(self, visitor):
+        return visitor.visitSlice(self)
+
+    def mutate(self, visitor):
+        self.expr = self.expr.mutate(visitor)
+        if self.lower is not None:
+            self.lower = self.lower.mutate(visitor)
+        if self.upper is not None:
+            self.upper = self.upper.mutate(visitor)
         return visitor.visitSlice(self)
 
     def fget_expr( space, self):
@@ -3636,9 +4982,35 @@ def descr_Slice_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Slice_mutate(space, w_self, w_visitor): 
+    w_expr = space.getattr(w_self, space.wrap("expr"))
+    w_mutate_expr = space.getattr(w_expr, space.wrap("mutate"))
+    w_mutate_expr_args = Arguments(space, [ w_visitor ])
+    w_new_expr = space.call_args(w_mutate_expr, w_mutate_expr_args)
+    space.setattr(w_self, space.wrap("expr"), w_new_expr)
+
+    w_lower = space.getattr(w_self, space.wrap("lower"))
+    if space.is_w(w_lower, space.w_None):
+        w_mutate_lower = space.getattr(w_lower, space.wrap("mutate"))
+        w_mutate_lower_args = Arguments(space, [ w_visitor ])
+        w_new_lower = space.call_args(w_mutate_lower, w_mutate_lower_args)
+        space.setattr(w_self, space.wrap("lower"), w_new_lower)
+
+    w_upper = space.getattr(w_self, space.wrap("upper"))
+    if space.is_w(w_upper, space.w_None):
+        w_mutate_upper = space.getattr(w_upper, space.wrap("mutate"))
+        w_mutate_upper_args = Arguments(space, [ w_visitor ])
+        w_new_upper = space.call_args(w_mutate_upper, w_mutate_upper_args)
+        space.setattr(w_self, space.wrap("upper"), w_new_upper)
+
+    w_visitSlice = space.getattr(w_visitor, space.wrap("visitSlice"))
+    w_visitSlice_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitSlice, w_visitSlice_args)
+
 Slice.typedef = TypeDef('Slice', Node.typedef, 
                      __new__ = interp2app(descr_Slice_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_Slice_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Slice_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     expr=GetSetProperty(Slice.fget_expr, Slice.fset_expr ),
                     flags=GetSetProperty(Slice.fget_flags, Slice.fset_flags ),
                     lower=GetSetProperty(Slice.fget_lower, Slice.fset_lower ),
@@ -3665,6 +5037,10 @@ class Sliceobj(Node):
     def accept(self, visitor):
         return visitor.visitSliceobj(self)
 
+    def mutate(self, visitor):
+        self.nodes[:] = [n.mutate(visitor) for n in self.nodes]
+        return visitor.visitSliceobj(self)
+
     def fget_nodes( space, self):
         return space.newlist( [space.wrap(itm) for itm in self.nodes] )
     def fset_nodes( space, self, w_arg):
@@ -3684,9 +5060,25 @@ def descr_Sliceobj_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Sliceobj_mutate(space, w_self, w_visitor): 
+    w_list = space.getattr(w_self, space.wrap("nodes"))
+    list_w = space.unpackiterable(w_list)
+    newlist_w = []
+    for w_item in list_w:
+        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
+        w_item_mutate_args = Arguments(space, [ w_visitor ])
+        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
+        newitem_w.append(w_newitem)
+    w_newitem = space.newlist(newitem_w)
+    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    w_visitSliceobj = space.getattr(w_visitor, space.wrap("visitSliceobj"))
+    w_visitSliceobj_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitSliceobj, w_visitSliceobj_args)
+
 Sliceobj.typedef = TypeDef('Sliceobj', Node.typedef, 
                      __new__ = interp2app(descr_Sliceobj_new, unwrap_spec=[ObjSpace, W_Root, W_Root, int]),
                      accept=interp2app(descr_Sliceobj_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Sliceobj_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(Sliceobj.fget_nodes, Sliceobj.fset_nodes ),
                     )
 
@@ -3710,6 +5102,10 @@ class Stmt(Node):
     def accept(self, visitor):
         return visitor.visitStmt(self)
 
+    def mutate(self, visitor):
+        self.nodes[:] = [n.mutate(visitor) for n in self.nodes]
+        return visitor.visitStmt(self)
+
     def fget_nodes( space, self):
         return space.newlist( [space.wrap(itm) for itm in self.nodes] )
     def fset_nodes( space, self, w_arg):
@@ -3729,9 +5125,25 @@ def descr_Stmt_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Stmt_mutate(space, w_self, w_visitor): 
+    w_list = space.getattr(w_self, space.wrap("nodes"))
+    list_w = space.unpackiterable(w_list)
+    newlist_w = []
+    for w_item in list_w:
+        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
+        w_item_mutate_args = Arguments(space, [ w_visitor ])
+        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
+        newitem_w.append(w_newitem)
+    w_newitem = space.newlist(newitem_w)
+    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    w_visitStmt = space.getattr(w_visitor, space.wrap("visitStmt"))
+    w_visitStmt_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitStmt, w_visitStmt_args)
+
 Stmt.typedef = TypeDef('Stmt', Node.typedef, 
                      __new__ = interp2app(descr_Stmt_new, unwrap_spec=[ObjSpace, W_Root, W_Root, int]),
                      accept=interp2app(descr_Stmt_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Stmt_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(Stmt.fget_nodes, Stmt.fset_nodes ),
                     )
 
@@ -3752,6 +5164,11 @@ class Sub(BinaryOp):
         return "Sub(%s, %s)" % (self.left.__repr__(), self.right.__repr__())
 
     def accept(self, visitor):
+        return visitor.visitSub(self)
+
+    def mutate(self, visitor):
+        self.left = self.left.mutate(visitor)
+        self.right = self.right.mutate(visitor)
         return visitor.visitSub(self)
 
     def fget_left( space, self):
@@ -3777,9 +5194,27 @@ def descr_Sub_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Sub_mutate(space, w_self, w_visitor): 
+    w_left = space.getattr(w_self, space.wrap("left"))
+    w_mutate_left = space.getattr(w_left, space.wrap("mutate"))
+    w_mutate_left_args = Arguments(space, [ w_visitor ])
+    w_new_left = space.call_args(w_mutate_left, w_mutate_left_args)
+    space.setattr(w_self, space.wrap("left"), w_new_left)
+
+    w_right = space.getattr(w_self, space.wrap("right"))
+    w_mutate_right = space.getattr(w_right, space.wrap("mutate"))
+    w_mutate_right_args = Arguments(space, [ w_visitor ])
+    w_new_right = space.call_args(w_mutate_right, w_mutate_right_args)
+    space.setattr(w_self, space.wrap("right"), w_new_right)
+
+    w_visitSub = space.getattr(w_visitor, space.wrap("visitSub"))
+    w_visitSub_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitSub, w_visitSub_args)
+
 Sub.typedef = TypeDef('Sub', BinaryOp.typedef, 
                      __new__ = interp2app(descr_Sub_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_Sub_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Sub_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     left=GetSetProperty(Sub.fget_left, Sub.fset_left ),
                     right=GetSetProperty(Sub.fget_right, Sub.fset_right ),
                     )
@@ -3802,6 +5237,11 @@ class Subscript(Node):
         return "Subscript(%s, %s, %s)" % (self.expr.__repr__(), self.flags.__repr__(), self.sub.__repr__())
 
     def accept(self, visitor):
+        return visitor.visitSubscript(self)
+
+    def mutate(self, visitor):
+        self.expr = self.expr.mutate(visitor)
+        self.sub = self.sub.mutate(visitor)
         return visitor.visitSubscript(self)
 
     def fget_expr( space, self):
@@ -3833,9 +5273,27 @@ def descr_Subscript_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Subscript_mutate(space, w_self, w_visitor): 
+    w_expr = space.getattr(w_self, space.wrap("expr"))
+    w_mutate_expr = space.getattr(w_expr, space.wrap("mutate"))
+    w_mutate_expr_args = Arguments(space, [ w_visitor ])
+    w_new_expr = space.call_args(w_mutate_expr, w_mutate_expr_args)
+    space.setattr(w_self, space.wrap("expr"), w_new_expr)
+
+    w_sub = space.getattr(w_self, space.wrap("sub"))
+    w_mutate_sub = space.getattr(w_sub, space.wrap("mutate"))
+    w_mutate_sub_args = Arguments(space, [ w_visitor ])
+    w_new_sub = space.call_args(w_mutate_sub, w_mutate_sub_args)
+    space.setattr(w_self, space.wrap("sub"), w_new_sub)
+
+    w_visitSubscript = space.getattr(w_visitor, space.wrap("visitSubscript"))
+    w_visitSubscript_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitSubscript, w_visitSubscript_args)
+
 Subscript.typedef = TypeDef('Subscript', Node.typedef, 
                      __new__ = interp2app(descr_Subscript_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_Subscript_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Subscript_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     expr=GetSetProperty(Subscript.fget_expr, Subscript.fset_expr ),
                     flags=GetSetProperty(Subscript.fget_flags, Subscript.fset_flags ),
                     sub=GetSetProperty(Subscript.fget_sub, Subscript.fset_sub ),
@@ -3897,6 +5355,13 @@ class TryExcept(Node):
     def accept(self, visitor):
         return visitor.visitTryExcept(self)
 
+    def mutate(self, visitor):
+        self.body = self.body.mutate(visitor)
+        self.handlers[:] = [n.mutate(visitor) for n in self.handlers]
+        if self.else_ is not None:
+            self.else_ = self.else_.mutate(visitor)
+        return visitor.visitTryExcept(self)
+
     def fget_body( space, self):
         return space.wrap(self.body)
     def fset_body( space, self, w_arg):
@@ -3933,9 +5398,38 @@ def descr_TryExcept_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_TryExcept_mutate(space, w_self, w_visitor): 
+    w_body = space.getattr(w_self, space.wrap("body"))
+    w_mutate_body = space.getattr(w_body, space.wrap("mutate"))
+    w_mutate_body_args = Arguments(space, [ w_visitor ])
+    w_new_body = space.call_args(w_mutate_body, w_mutate_body_args)
+    space.setattr(w_self, space.wrap("body"), w_new_body)
+
+    w_list = space.getattr(w_self, space.wrap("handlers"))
+    list_w = space.unpackiterable(w_list)
+    newlist_w = []
+    for w_item in list_w:
+        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
+        w_item_mutate_args = Arguments(space, [ w_visitor ])
+        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
+        newitem_w.append(w_newitem)
+    w_newitem = space.newlist(newitem_w)
+    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    w_else_ = space.getattr(w_self, space.wrap("else_"))
+    if space.is_w(w_else_, space.w_None):
+        w_mutate_else_ = space.getattr(w_else_, space.wrap("mutate"))
+        w_mutate_else__args = Arguments(space, [ w_visitor ])
+        w_new_else_ = space.call_args(w_mutate_else_, w_mutate_else__args)
+        space.setattr(w_self, space.wrap("else_"), w_new_else_)
+
+    w_visitTryExcept = space.getattr(w_visitor, space.wrap("visitTryExcept"))
+    w_visitTryExcept_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitTryExcept, w_visitTryExcept_args)
+
 TryExcept.typedef = TypeDef('TryExcept', Node.typedef, 
                      __new__ = interp2app(descr_TryExcept_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_TryExcept_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_TryExcept_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     body=GetSetProperty(TryExcept.fget_body, TryExcept.fset_body ),
                     handlers=GetSetProperty(TryExcept.fget_handlers, TryExcept.fset_handlers ),
                     else_=GetSetProperty(TryExcept.fget_else_, TryExcept.fset_else_ ),
@@ -3958,6 +5452,11 @@ class TryFinally(Node):
         return "TryFinally(%s, %s)" % (self.body.__repr__(), self.final.__repr__())
 
     def accept(self, visitor):
+        return visitor.visitTryFinally(self)
+
+    def mutate(self, visitor):
+        self.body = self.body.mutate(visitor)
+        self.final = self.final.mutate(visitor)
         return visitor.visitTryFinally(self)
 
     def fget_body( space, self):
@@ -3983,9 +5482,27 @@ def descr_TryFinally_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_TryFinally_mutate(space, w_self, w_visitor): 
+    w_body = space.getattr(w_self, space.wrap("body"))
+    w_mutate_body = space.getattr(w_body, space.wrap("mutate"))
+    w_mutate_body_args = Arguments(space, [ w_visitor ])
+    w_new_body = space.call_args(w_mutate_body, w_mutate_body_args)
+    space.setattr(w_self, space.wrap("body"), w_new_body)
+
+    w_final = space.getattr(w_self, space.wrap("final"))
+    w_mutate_final = space.getattr(w_final, space.wrap("mutate"))
+    w_mutate_final_args = Arguments(space, [ w_visitor ])
+    w_new_final = space.call_args(w_mutate_final, w_mutate_final_args)
+    space.setattr(w_self, space.wrap("final"), w_new_final)
+
+    w_visitTryFinally = space.getattr(w_visitor, space.wrap("visitTryFinally"))
+    w_visitTryFinally_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitTryFinally, w_visitTryFinally_args)
+
 TryFinally.typedef = TypeDef('TryFinally', Node.typedef, 
                      __new__ = interp2app(descr_TryFinally_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_TryFinally_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_TryFinally_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     body=GetSetProperty(TryFinally.fget_body, TryFinally.fset_body ),
                     final=GetSetProperty(TryFinally.fget_final, TryFinally.fset_final ),
                     )
@@ -4010,6 +5527,10 @@ class Tuple(Node):
     def accept(self, visitor):
         return visitor.visitTuple(self)
 
+    def mutate(self, visitor):
+        self.nodes[:] = [n.mutate(visitor) for n in self.nodes]
+        return visitor.visitTuple(self)
+
     def fget_nodes( space, self):
         return space.newlist( [space.wrap(itm) for itm in self.nodes] )
     def fset_nodes( space, self, w_arg):
@@ -4029,9 +5550,25 @@ def descr_Tuple_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Tuple_mutate(space, w_self, w_visitor): 
+    w_list = space.getattr(w_self, space.wrap("nodes"))
+    list_w = space.unpackiterable(w_list)
+    newlist_w = []
+    for w_item in list_w:
+        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
+        w_item_mutate_args = Arguments(space, [ w_visitor ])
+        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
+        newitem_w.append(w_newitem)
+    w_newitem = space.newlist(newitem_w)
+    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    w_visitTuple = space.getattr(w_visitor, space.wrap("visitTuple"))
+    w_visitTuple_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitTuple, w_visitTuple_args)
+
 Tuple.typedef = TypeDef('Tuple', Node.typedef, 
                      __new__ = interp2app(descr_Tuple_new, unwrap_spec=[ObjSpace, W_Root, W_Root, int]),
                      accept=interp2app(descr_Tuple_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Tuple_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(Tuple.fget_nodes, Tuple.fset_nodes ),
                     )
 
@@ -4053,6 +5590,10 @@ class UnaryAdd(UnaryOp):
     def accept(self, visitor):
         return visitor.visitUnaryAdd(self)
 
+    def mutate(self, visitor):
+        self.expr = self.expr.mutate(visitor)
+        return visitor.visitUnaryAdd(self)
+
     def fget_expr( space, self):
         return space.wrap(self.expr)
     def fset_expr( space, self, w_arg):
@@ -4070,9 +5611,21 @@ def descr_UnaryAdd_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_UnaryAdd_mutate(space, w_self, w_visitor): 
+    w_expr = space.getattr(w_self, space.wrap("expr"))
+    w_mutate_expr = space.getattr(w_expr, space.wrap("mutate"))
+    w_mutate_expr_args = Arguments(space, [ w_visitor ])
+    w_new_expr = space.call_args(w_mutate_expr, w_mutate_expr_args)
+    space.setattr(w_self, space.wrap("expr"), w_new_expr)
+
+    w_visitUnaryAdd = space.getattr(w_visitor, space.wrap("visitUnaryAdd"))
+    w_visitUnaryAdd_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitUnaryAdd, w_visitUnaryAdd_args)
+
 UnaryAdd.typedef = TypeDef('UnaryAdd', UnaryOp.typedef, 
                      __new__ = interp2app(descr_UnaryAdd_new, unwrap_spec=[ObjSpace, W_Root, W_Root, int]),
                      accept=interp2app(descr_UnaryAdd_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_UnaryAdd_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     expr=GetSetProperty(UnaryAdd.fget_expr, UnaryAdd.fset_expr ),
                     )
 
@@ -4094,6 +5647,10 @@ class UnarySub(UnaryOp):
     def accept(self, visitor):
         return visitor.visitUnarySub(self)
 
+    def mutate(self, visitor):
+        self.expr = self.expr.mutate(visitor)
+        return visitor.visitUnarySub(self)
+
     def fget_expr( space, self):
         return space.wrap(self.expr)
     def fset_expr( space, self, w_arg):
@@ -4111,9 +5668,21 @@ def descr_UnarySub_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_UnarySub_mutate(space, w_self, w_visitor): 
+    w_expr = space.getattr(w_self, space.wrap("expr"))
+    w_mutate_expr = space.getattr(w_expr, space.wrap("mutate"))
+    w_mutate_expr_args = Arguments(space, [ w_visitor ])
+    w_new_expr = space.call_args(w_mutate_expr, w_mutate_expr_args)
+    space.setattr(w_self, space.wrap("expr"), w_new_expr)
+
+    w_visitUnarySub = space.getattr(w_visitor, space.wrap("visitUnarySub"))
+    w_visitUnarySub_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitUnarySub, w_visitUnarySub_args)
+
 UnarySub.typedef = TypeDef('UnarySub', UnaryOp.typedef, 
                      __new__ = interp2app(descr_UnarySub_new, unwrap_spec=[ObjSpace, W_Root, W_Root, int]),
                      accept=interp2app(descr_UnarySub_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_UnarySub_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     expr=GetSetProperty(UnarySub.fget_expr, UnarySub.fset_expr ),
                     )
 
@@ -4144,6 +5713,13 @@ class While(Node):
         return "While(%s, %s, %s)" % (self.test.__repr__(), self.body.__repr__(), self.else_.__repr__())
 
     def accept(self, visitor):
+        return visitor.visitWhile(self)
+
+    def mutate(self, visitor):
+        self.test = self.test.mutate(visitor)
+        self.body = self.body.mutate(visitor)
+        if self.else_ is not None:
+            self.else_ = self.else_.mutate(visitor)
         return visitor.visitWhile(self)
 
     def fget_test( space, self):
@@ -4178,9 +5754,34 @@ def descr_While_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_While_mutate(space, w_self, w_visitor): 
+    w_test = space.getattr(w_self, space.wrap("test"))
+    w_mutate_test = space.getattr(w_test, space.wrap("mutate"))
+    w_mutate_test_args = Arguments(space, [ w_visitor ])
+    w_new_test = space.call_args(w_mutate_test, w_mutate_test_args)
+    space.setattr(w_self, space.wrap("test"), w_new_test)
+
+    w_body = space.getattr(w_self, space.wrap("body"))
+    w_mutate_body = space.getattr(w_body, space.wrap("mutate"))
+    w_mutate_body_args = Arguments(space, [ w_visitor ])
+    w_new_body = space.call_args(w_mutate_body, w_mutate_body_args)
+    space.setattr(w_self, space.wrap("body"), w_new_body)
+
+    w_else_ = space.getattr(w_self, space.wrap("else_"))
+    if space.is_w(w_else_, space.w_None):
+        w_mutate_else_ = space.getattr(w_else_, space.wrap("mutate"))
+        w_mutate_else__args = Arguments(space, [ w_visitor ])
+        w_new_else_ = space.call_args(w_mutate_else_, w_mutate_else__args)
+        space.setattr(w_self, space.wrap("else_"), w_new_else_)
+
+    w_visitWhile = space.getattr(w_visitor, space.wrap("visitWhile"))
+    w_visitWhile_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitWhile, w_visitWhile_args)
+
 While.typedef = TypeDef('While', Node.typedef, 
                      __new__ = interp2app(descr_While_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_While_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_While_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     test=GetSetProperty(While.fget_test, While.fset_test ),
                     body=GetSetProperty(While.fget_body, While.fset_body ),
                     else_=GetSetProperty(While.fget_else_, While.fset_else_ ),
@@ -4215,6 +5816,13 @@ class With(Node):
     def accept(self, visitor):
         return visitor.visitWith(self)
 
+    def mutate(self, visitor):
+        self.expr = self.expr.mutate(visitor)
+        self.body = self.body.mutate(visitor)
+        if self.var is not None:
+            self.var = self.var.mutate(visitor)
+        return visitor.visitWith(self)
+
     def fget_expr( space, self):
         return space.wrap(self.expr)
     def fset_expr( space, self, w_arg):
@@ -4247,9 +5855,34 @@ def descr_With_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_With_mutate(space, w_self, w_visitor): 
+    w_expr = space.getattr(w_self, space.wrap("expr"))
+    w_mutate_expr = space.getattr(w_expr, space.wrap("mutate"))
+    w_mutate_expr_args = Arguments(space, [ w_visitor ])
+    w_new_expr = space.call_args(w_mutate_expr, w_mutate_expr_args)
+    space.setattr(w_self, space.wrap("expr"), w_new_expr)
+
+    w_body = space.getattr(w_self, space.wrap("body"))
+    w_mutate_body = space.getattr(w_body, space.wrap("mutate"))
+    w_mutate_body_args = Arguments(space, [ w_visitor ])
+    w_new_body = space.call_args(w_mutate_body, w_mutate_body_args)
+    space.setattr(w_self, space.wrap("body"), w_new_body)
+
+    w_var = space.getattr(w_self, space.wrap("var"))
+    if space.is_w(w_var, space.w_None):
+        w_mutate_var = space.getattr(w_var, space.wrap("mutate"))
+        w_mutate_var_args = Arguments(space, [ w_visitor ])
+        w_new_var = space.call_args(w_mutate_var, w_mutate_var_args)
+        space.setattr(w_self, space.wrap("var"), w_new_var)
+
+    w_visitWith = space.getattr(w_visitor, space.wrap("visitWith"))
+    w_visitWith_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitWith, w_visitWith_args)
+
 With.typedef = TypeDef('With', Node.typedef, 
                      __new__ = interp2app(descr_With_new, unwrap_spec=[ObjSpace, W_Root, W_Root, W_Root, W_Root, int]),
                      accept=interp2app(descr_With_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_With_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     expr=GetSetProperty(With.fget_expr, With.fset_expr ),
                     body=GetSetProperty(With.fget_body, With.fset_body ),
                     var=GetSetProperty(With.fget_var, With.fset_var ),
@@ -4273,6 +5906,10 @@ class Yield(Node):
     def accept(self, visitor):
         return visitor.visitYield(self)
 
+    def mutate(self, visitor):
+        self.value = self.value.mutate(visitor)
+        return visitor.visitYield(self)
+
     def fget_value( space, self):
         return space.wrap(self.value)
     def fset_value( space, self, w_arg):
@@ -4290,9 +5927,21 @@ def descr_Yield_accept( space, w_self, w_visitor):
     args = Arguments(space, [ w_self ])
     return space.call_args(w_callable, args)
 
+def descr_Yield_mutate(space, w_self, w_visitor): 
+    w_value = space.getattr(w_self, space.wrap("value"))
+    w_mutate_value = space.getattr(w_value, space.wrap("mutate"))
+    w_mutate_value_args = Arguments(space, [ w_visitor ])
+    w_new_value = space.call_args(w_mutate_value, w_mutate_value_args)
+    space.setattr(w_self, space.wrap("value"), w_new_value)
+
+    w_visitYield = space.getattr(w_visitor, space.wrap("visitYield"))
+    w_visitYield_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitYield, w_visitYield_args)
+
 Yield.typedef = TypeDef('Yield', Node.typedef, 
                      __new__ = interp2app(descr_Yield_new, unwrap_spec=[ObjSpace, W_Root, W_Root, int]),
                      accept=interp2app(descr_Yield_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_Yield_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     value=GetSetProperty(Yield.fget_value, Yield.fset_value ),
                     )
 

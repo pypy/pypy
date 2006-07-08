@@ -139,6 +139,8 @@ class NodeInfo:
         print >> buf
         self._gen_visit(buf)
         print >> buf
+        self._gen_mutate(buf)
+        print >> buf
         self._gen_attrs(buf)
         print >> buf
         self._gen_new(buf)
@@ -293,6 +295,18 @@ class NodeInfo:
         print >> buf, "    def accept(self, visitor):"
         print >> buf, "        return visitor.visit%s(self)" % self.name
 
+    def _gen_mutate(self, buf):
+        print >> buf, "    def mutate(self, visitor):"
+        if len(self.argnames) != 0:
+            for argname in self.argnames:
+                if self.argprops[argname] == P_NODE:
+                    print >> buf, "        self.%s = self.%s.mutate(visitor)" % (argname,argname)
+                elif self.argprops[argname] == P_NONE:
+                    print >> buf, "        if self.%s is not None:" % (argname,)
+                    print >> buf, "            self.%s = self.%s.mutate(visitor)" % (argname,argname)
+                elif self.argprops[argname] == P_NESTED:
+                    print >> buf, "        self.%s[:] = [n.mutate(visitor) for n in self.%s]" % (argname,argname)
+        print >> buf, "        return visitor.visit%s(self)" % self.name
 
     def _gen_fget_func(self, buf, attr, prop ):
         # FGET
@@ -358,10 +372,51 @@ class NodeInfo:
         print >> buf, "    w_callable = space.getattr(w_visitor, space.wrap('visit%s'))" % self.name
         print >> buf, "    args = Arguments(space, [ w_self ])"
         print >> buf, "    return space.call_args(w_callable, args)"
+
+        print >> buf, ""
+        # mutate stuff
+        print >> buf, "def descr_%s_mutate(space, w_self, w_visitor): " % self.name
+        for argname in self.argnames:
+            if self.argprops[argname] in [P_NODE, P_NONE]:
+                print >> buf, '    w_%s = space.getattr(w_self, space.wrap("%s"))' % (argname,argname)
+                if self.argprops[argname] == P_NONE:
+                    indent = '    '
+                    print >> buf, '    if space.is_w(w_%s, space.w_None):' % (argname,)
+                else:
+                    indent = ''
+                print >> buf, indent+'    w_mutate_%s = space.getattr(w_%s, space.wrap("mutate"))' % ( argname,
+                                                                                          argname)
+                print >> buf, indent+"    w_mutate_%s_args = Arguments(space, [ w_visitor ])"% ( argname )
+                print >> buf, indent+"    w_new_%s = space.call_args(w_mutate_%s, w_mutate_%s_args)"% ( argname,
+                                                                                            argname,
+                                                                                            argname)
+                print >> buf, indent+'    space.setattr(w_self, space.wrap("%s"), w_new_%s)' % ( argname,
+                                                                                   argname)
+                print >> buf, ""
+            elif self.argprops[argname] == P_NESTED:
+                print >> buf, '    w_list = space.getattr(w_self, space.wrap("%s"))' % (argname,)
+                print >> buf, '    list_w = space.unpackiterable(w_list)'
+                print >> buf, '    newlist_w = []'
+                print >> buf, '    for w_item in list_w:'
+                print >> buf, '        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))'
+                print >> buf, '        w_item_mutate_args = Arguments(space, [ w_visitor ])'
+                print >> buf, '        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)'
+                print >> buf, '        newitem_w.append(w_newitem)'
+                print >> buf, '    w_newitem = space.newlist(newitem_w)'
+                print >> buf, '    space.setslice(w_list, space.w_None, space.w_None, w_newlist)'
+                
+    
+        print >> buf, '    w_visit%s = space.getattr(w_visitor, space.wrap("visit%s"))' % (self.name,
+                                                                                    self.name)
+        print >> buf, "    w_visit%s_args = Arguments(space, [ w_self ])" % self.name
+        print >> buf, "    return space.call_args(w_visit%s, w_visit%s_args)" % (self.name,
+                                                                             self.name )
+
         print >> buf, ""
         print >> buf, "%s.typedef = TypeDef('%s', %s, " % (self.name, self.name, parent_type)
         print >> buf, "                     __new__ = interp2app(descr_%s_new, unwrap_spec=[%s])," % (self.name, ', '.join(new_unwrap_spec))
         print >> buf, "                     accept=interp2app(descr_%s_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] )," % self.name
+        print >> buf, "                     mutate=interp2app(descr_%s_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] )," % self.name
         for attr in self.argnames:
             print >> buf, "                    %s=GetSetProperty(%s.fget_%s, %s.fset_%s )," % (attr,self.name,attr,self.name,attr)
         print >> buf, "                    )"
