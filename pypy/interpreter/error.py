@@ -2,7 +2,7 @@ import autopath
 import os, sys
 
 AUTO_DEBUG = os.getenv('PYPY_DEBUG')
-RECORD_INTERPLEVEL_TRACEBACK = False
+RECORD_INTERPLEVEL_TRACEBACK = True
 
 
 class OperationError(Exception):

@@ -633,7 +633,16 @@ class SApplicationException(ControlFlowException):
 
     def emptystack(self, frame):
         # propagate the exception to the caller
-        raise self.operr
+        from pypy.rpython.objectmodel import we_are_translated
+        if we_are_translated():
+            raise self.operr
+        else:
+            # try to preserve the interp-level traceback
+            if self.operr.debug_excs:
+                _, _, tb = self.operr.debug_excs[-1]
+            else:
+                tb = None
+            raise OperationError, self.operr, tb
 
     def state_unpack_variables(self, space):
         return [self.operr.w_type, self.operr.w_value]
