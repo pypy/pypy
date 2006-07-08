@@ -8,7 +8,7 @@ class Class(Node):
         self.cts = db.type_system_class(db)
         self.classdef = classdef
         self.namespace, self.name = self.cts.split_class_name(classdef._name)
-
+        
         if not self.is_root(classdef):
             self.db.pending_class(classdef._superclass)
 
@@ -35,7 +35,7 @@ class Class(Node):
         else:
             return base_class._name
 
-    def render(self, ilasm):
+    def render(self, ilasm):        
         if self.is_root(self.classdef):
             return
 

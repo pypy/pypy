@@ -113,6 +113,13 @@ namespace pypy.runtime
             return (DateTime.UtcNow - ClockStart).TotalSeconds;
         }
 
+        // XXX: very hackish, refactoring needed
+        public static int os_write(int fd, string buffer)
+        {
+            if (fd == 1 || fd == 2)
+                Console.WriteLine(buffer);
+            return buffer.Length;
+        }
     }
 
     public class StringBuilder

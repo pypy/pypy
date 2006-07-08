@@ -67,6 +67,10 @@ class Function(Node, Generator):
             ilasm.opcode('call float64 [pypylib]pypy.runtime.Utils::Time()')
         elif func_name == 'll_time_clock':
             ilasm.opcode('call float64 [pypylib]pypy.runtime.Utils::Clock()')
+        elif func_name == 'll_os_write':
+            ilasm.opcode('ldarg.0')
+            ilasm.opcode('ldarg.1')
+            ilasm.opcode('call int32 [pypylib]pypy.runtime.Utils::os_write(int32, string)')
         else:
             assert False, 'Unknown primitive function: %s' % func_name
 
