@@ -3,7 +3,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.translator.simplify import get_graph
 from pypy.rpython.rmodel import inputconst 
 from pypy.tool.ansi_print import ansi_log
-from pypy.annotation.model import setunion
+from pypy.annotation.model import setunion, s_ImpossibleValue
 from pypy.translator.unsimplify import split_block, copyvar, insert_empty_block
 from pypy.objspace.flow.model import Constant, Variable, SpaceOperation, c_last_exception
 from pypy.rpython.lltypesystem import lltype
@@ -55,7 +55,7 @@ def needs_conservative_livevar_calculation(block):
     else:
         return False
 
-def generate_keepalive(vars):
+def generate_keepalive(vars, annotator=None):
     keepalive_ops = []
     for v in vars:
         if isinstance(v, Constant):
@@ -64,6 +64,8 @@ def generate_keepalive(vars):
             continue
         v_keepalive = Variable()
         v_keepalive.concretetype = lltype.Void
+        if annotator is not None:
+            annotator.setbinding(v_keepalive, s_ImpossibleValue)
         keepalive_ops.append(SpaceOperation('keepalive', [v], v_keepalive))
     return keepalive_ops
 
@@ -91,7 +93,8 @@ def split_block_with_keepalive(block, index_operation,
         keep_alive_vars = [var for var in afterblock.operations[0].args
                                if isinstance(var, Variable) and var_needsgc(var)]
         if len(afterblock.operations) > 1 or afterblock.exitswitch != c_last_exception:
-            afterblock.operations[1:1] = generate_keepalive(keep_alive_vars)
+            afterblock.operations[1:1] = generate_keepalive(keep_alive_vars,
+                                                            annotator=annotator)
             keep_alive_vars = []
     else:
         keep_alive_vars = []
