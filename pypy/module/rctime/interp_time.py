@@ -51,6 +51,8 @@ libc.mktime.argtypes = [POINTER(cConfig.tm)]
 libc.mktime.restype = cConfig.time_t
 libc.asctime.argtypes = [POINTER(cConfig.tm)]
 libc.asctime.restype = c_char_p
+libc.tzset.restype = c_int
+libc.tzset.argtypes = [c_int]
 
 def _init_accept2dyear():
     return (1, 0)[bool(os.getenv("PYTHONY2K"))]
@@ -87,12 +89,12 @@ def _init_timezone():
             timezone = julyzone
             altzone = janzone
             daylight = int(janzone != julyzone)
-            tzname = (julyname, janname)
+            tzname = [julyname, janname]
         else:
             timezone = janzone
             altzone = julyzone
             daylight = int(janzone != julyzone)
-            tzname = (janname, julyname)
+            tzname = [janname, julyname]
     
     return timezone, daylight, tzname, altzone
 
@@ -145,7 +147,12 @@ def _get_module_object(space, obj_name):
 
 def _set_module_object(space, obj_name, obj_value):
     w_module = space.getbuiltinmodule('rctime')
-    w_obj = space.setattr(w_module, space.wrap(obj_name), space.wrap(obj_value))    
+    space.setattr(w_module, space.wrap(obj_name), space.wrap(obj_value))
+
+# duplicated function to make the annotator work correctly
+def _set_module_list_object(space, list_name, list_value):
+    w_module = space.getbuiltinmodule('rctime')
+    space.setattr(w_module, space.wrap(list_name), space.newlist(list_value))
 
 def _get_floattime(space, w_seconds):
     # this check is done because None will be automatically wrapped
@@ -268,6 +275,10 @@ def asctime(space, tup_w): # *tup_w does not really work
     When the time tuple is not present, current time as returned by localtime()
     is used."""
     
+    tup = None
+    tuple_len = 0
+    buf_value = cConfig.tm()
+
     if len(tup_w):
         w_tup = tup_w[0]
         tuple_len = space.int_w(space.len(w_tup))
@@ -278,27 +289,23 @@ def asctime(space, tup_w): # *tup_w does not really work
 
         # check if every passed object is a int
         tup = space.unpackiterable(w_tup)
-        map(space.int_w, tup)
+        for t in tup:
+            space.int_w(t)
+        # map(space.int_w, tup) # XXX: can't use it
+        
+        buf_value = _gettmarg(space, tup, buf_value)
     else:
         # empty list
-        w_tup = tup_w
-        tuple_len = 0
-
-    buf = None
-    if not w_tup:
+        buf = None
+        
         tt = cConfig.time_t(int(_floattime())) 
         buf = libc.localtime(byref(tt))
         if not buf:
             raise OperationError(space.w_ValueError,
                 space.wrap(_get_error_msg()))
-        buf = buf.contents
-    
-    if tuple_len:
-        if not buf:
-            buf = cConfig.tm()
-        buf = _gettmarg(space, tup, buf)
-    
-    p = libc.asctime(byref(buf))
+        buf_value = buf.contents
+
+    p = libc.asctime(byref(buf_value))
     if not p:
         raise OperationError(space.w_ValueError,
             space.wrap("unconvertible time"))
@@ -387,12 +394,13 @@ if _POSIX:
         the local timezone used by methods such as localtime, but this behaviour
         should not be relied on"""
 
-        libc.tzset()
+        libc.tzset(0) # workaround to call the syscall
         
         # reset timezone, altzone, daylight and tzname
         timezone, daylight, tzname, altzone = _init_timezone()
         _set_module_object(space, "timezone", timezone)
         _set_module_object(space, 'daylight', daylight)
-        _set_module_object(space, 'tzname', tzname)
+        tzname_w = [space.wrap(tzname[0]), space.wrap(tzname[1])] 
+        _set_module_list_object(space, 'tzname', tzname_w)
         _set_module_object(space, 'altzone', altzone)
     tzset.unwrap_spec = [ObjSpace]

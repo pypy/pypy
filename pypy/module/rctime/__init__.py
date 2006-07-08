@@ -31,19 +31,12 @@ class Module(MixedModule):
         Module.interpleveldefs["accept2dyear"] = 'space.wrap(%r)' %\
             interp_time._init_accept2dyear()
         
-        timezonedict = dict()
-        timezonevalues = interp_time._init_timezone()
-        for index, key in enumerate(['timezone', 'daylight',
-            'tzname', 'altzone']):
-            val = timezonevalues[index]
-            if key == "tzname":
-                # tzname is a tuple
-                wrap = 'space.wrap(%s)' % str(val)
-            else:
-                wrap = 'space.wrap(%r)' % val
-            timezonedict[key] = wrap
-        Module.interpleveldefs.update(timezonedict)
-            
+        timezone, daylight, tzname, altzone = interp_time._init_timezone()
+        Module.interpleveldefs['timezone'] = 'space.wrap(%r)' % timezone
+        Module.interpleveldefs['daylight'] = 'space.wrap(%r)' % daylight
+        Module.interpleveldefs['tzname'] = \
+            'space.newlist([space.wrap(%r), space.wrap(%r)])' % tuple(tzname)
+        Module.interpleveldefs['altzone'] = 'space.wrap(%r)' % altzone
         super(Module, cls).buildloaders()
     buildloaders = classmethod(buildloaders)
 
