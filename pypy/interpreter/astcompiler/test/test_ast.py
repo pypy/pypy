@@ -46,9 +46,30 @@ except Exception:
         src = '1 > 3'
         ast = source2ast(FakeSpace(), src)
         ast.mutate(BaseVisitor())
-         
+
+    def test_mutate_elision(self):
+        class ConstRemover(BaseVisitor):
+            def visitConst(self, const):
+                return None
+        listast = source2ast(FakeSpace(), "[1, 2]")
+        listast = listast.mutate(ConstRemover())
+        listnode = listast.node.nodes[0].expr
+        assert isinstance(listnode, ast.List)
+        assert len(listnode.nodes) == 0
 
 class AppTestMutate:
+    def setup_class(cls):
+        cls.w_BaseVisitor, = cls.space.unpackiterable(cls.space.appexec([], '''():
+        class BaseVisitor:
+            def __getattr__(self, attr):
+                if attr.startswith('visit'):
+                    return self.default
+                else:
+                    raise AttributeError(attr)
+            def default(self, node):
+                return node
+        return BaseVisitor,'''))
+    
     def test_mutate_add(self):
         import parser
         c1 = parser.ASTConst(1)
@@ -69,16 +90,8 @@ class AppTestMutate:
 
     def test_mutate_strange_cases(self):
         import parser
-        class BaseVisitor:
-            def __getattr__(self, attr):
-                if attr.startswith('visit'):
-                    return self.default
-                else:
-                    raise AttributeError(attr)
-            def default(self, node):
-                return node
         ast = parser.source2ast('if a: b')
-        ast.mutate(BaseVisitor())
+        ast.mutate(self.BaseVisitor())
         
         src = '''
 try:
@@ -87,13 +100,32 @@ except Exception:
     pass
         '''
         ast = parser.source2ast(src)
-        ast.mutate(BaseVisitor())
+        ast.mutate(self.BaseVisitor())
 
         src = '{1:2}'
         ast = parser.source2ast(src)
-        ast.mutate(BaseVisitor())
+        ast.mutate(self.BaseVisitor())
 
         src = '1 > 3'
         ast = parser.source2ast(src)
-        ast.mutate(BaseVisitor())
-        
+        ast.mutate(self.BaseVisitor())
+
+    def test_mutate_tuple(self):
+        from parser import source2ast, ASTConst, ASTTuple
+        class TupleChanger(self.BaseVisitor):
+            def visitConst(self, const):
+                return ASTConst(1)
+        tup = ASTTuple([ASTConst(2)])
+        tup = tup.mutate(TupleChanger())
+        assert tup.nodes[0].value == 1
+
+    def test_mutate_elision(self):
+        from parser import source2ast, ASTConst, ASTList
+        class ConstRemover(self.BaseVisitor):
+            def visitConst(self, const):
+                return None
+        listast = source2ast("[1, 2]")
+        listast = listast.mutate(ConstRemover())
+        listnode = listast.node.nodes[0].expr
+        assert isinstance(listnode, ASTList)
+        assert len(listnode.nodes) == 0

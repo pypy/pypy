@@ -337,7 +337,7 @@ def descr_Compare_mutate(space, w_self, w_visitor):
         
         newlist_w.append(space.newtuple([w_opname, w_newnode]))
     w_newlist = space.newlist(newlist_w)
-    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    space.setattr(w_self, space.wrap("ops"), w_newlist)
     w_visitCompare = space.getattr(w_visitor, space.wrap("visitCompare"))
     w_visitCompare_args = Arguments(space, [ w_self ])
     return space.call_args(w_visitCompare, w_visitCompare_args)
@@ -373,7 +373,7 @@ def descr_Dict_mutate(space, w_self, w_visitor):
         
         newlist_w.append(space.newtuple([w_newkey, w_newvalue]))
     w_newlist = space.newlist(newlist_w)
-    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    space.setattr(w_self, space.wrap("items"), w_newlist)
     w_visitDict = space.getattr(w_visitor, space.wrap("visitDict"))
     w_visitDict_args = Arguments(space, [ w_self ])
     return space.call_args(w_visitDict, w_visitDict_args)
@@ -409,7 +409,7 @@ def descr_If_mutate(space, w_self, w_visitor):
         newlist_w.append(space.newtuple([w_newtest, w_newsuite]))
     
     w_newlist = space.newlist(newlist_w)
-    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    space.setattr(w_self, space.wrap("tests"), w_newlist)
     w_else_ = space.getattr(w_self, space.wrap("else_"))
     if not space.is_w(w_else_, space.w_None):
         w_mutate_else_ = space.getattr(w_else_, space.wrap("mutate"))
@@ -471,7 +471,7 @@ def descr_TryExcept_mutate(space, w_self, w_visitor):
         
         newlist_w.append(space.newtuple([w_newexpr1, w_newexpr2, w_newbody]))
     w_newlist = space.newlist(newlist_w)
-    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    space.setattr(w_self, space.wrap("handlers"), w_newlist)
     w_else_ = space.getattr(w_self, space.wrap("else_"))
     if not space.is_w(w_else_, space.w_None):
         w_mutate_else_ = space.getattr(w_else_, space.wrap("mutate"))

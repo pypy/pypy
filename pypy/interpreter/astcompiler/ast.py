@@ -375,7 +375,12 @@ class And(AbstractTest):
         return visitor.visitAnd(self)
 
     def mutate(self, visitor):
-        self.nodes[:] = [n.mutate(visitor) for n in self.nodes]
+        newlist = []
+        for n in self.nodes:
+            item = n.mutate(visitor)
+            if item is not None:
+                newlist.append(item)
+        self.nodes[:] = newlist
         return visitor.visitAnd(self)
 
     def fget_nodes( space, self):
@@ -405,9 +410,10 @@ def descr_And_mutate(space, w_self, w_visitor):
         w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
         w_item_mutate_args = Arguments(space, [ w_visitor ])
         w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
-        newlist_w.append(w_newitem)
+        if not space.is_w(w_newitem, space.w_None):
+            newlist_w.append(w_newitem)
     w_newlist = space.newlist(newlist_w)
-    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    space.setattr(w_self, space.wrap("nodes"), w_newlist)
     w_visitAnd = space.getattr(w_visitor, space.wrap("visitAnd"))
     w_visitAnd_args = Arguments(space, [ w_self ])
     return space.call_args(w_visitAnd, w_visitAnd_args)
@@ -555,7 +561,12 @@ class AssList(AssSeq):
         return visitor.visitAssList(self)
 
     def mutate(self, visitor):
-        self.nodes[:] = [n.mutate(visitor) for n in self.nodes]
+        newlist = []
+        for n in self.nodes:
+            item = n.mutate(visitor)
+            if item is not None:
+                newlist.append(item)
+        self.nodes[:] = newlist
         return visitor.visitAssList(self)
 
     def fget_nodes( space, self):
@@ -585,9 +596,10 @@ def descr_AssList_mutate(space, w_self, w_visitor):
         w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
         w_item_mutate_args = Arguments(space, [ w_visitor ])
         w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
-        newlist_w.append(w_newitem)
+        if not space.is_w(w_newitem, space.w_None):
+            newlist_w.append(w_newitem)
     w_newlist = space.newlist(newlist_w)
-    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    space.setattr(w_self, space.wrap("nodes"), w_newlist)
     w_visitAssList = space.getattr(w_visitor, space.wrap("visitAssList"))
     w_visitAssList_args = Arguments(space, [ w_self ])
     return space.call_args(w_visitAssList, w_visitAssList_args)
@@ -692,7 +704,12 @@ class AssTuple(AssSeq):
         return visitor.visitAssTuple(self)
 
     def mutate(self, visitor):
-        self.nodes[:] = [n.mutate(visitor) for n in self.nodes]
+        newlist = []
+        for n in self.nodes:
+            item = n.mutate(visitor)
+            if item is not None:
+                newlist.append(item)
+        self.nodes[:] = newlist
         return visitor.visitAssTuple(self)
 
     def fget_nodes( space, self):
@@ -722,9 +739,10 @@ def descr_AssTuple_mutate(space, w_self, w_visitor):
         w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
         w_item_mutate_args = Arguments(space, [ w_visitor ])
         w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
-        newlist_w.append(w_newitem)
+        if not space.is_w(w_newitem, space.w_None):
+            newlist_w.append(w_newitem)
     w_newlist = space.newlist(newlist_w)
-    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    space.setattr(w_self, space.wrap("nodes"), w_newlist)
     w_visitAssTuple = space.getattr(w_visitor, space.wrap("visitAssTuple"))
     w_visitAssTuple_args = Arguments(space, [ w_self ])
     return space.call_args(w_visitAssTuple, w_visitAssTuple_args)
@@ -846,7 +864,12 @@ class Assign(Node):
         return visitor.visitAssign(self)
 
     def mutate(self, visitor):
-        self.nodes[:] = [n.mutate(visitor) for n in self.nodes]
+        newlist = []
+        for n in self.nodes:
+            item = n.mutate(visitor)
+            if item is not None:
+                newlist.append(item)
+        self.nodes[:] = newlist
         self.expr = self.expr.mutate(visitor)
         return visitor.visitAssign(self)
 
@@ -883,9 +906,10 @@ def descr_Assign_mutate(space, w_self, w_visitor):
         w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
         w_item_mutate_args = Arguments(space, [ w_visitor ])
         w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
-        newlist_w.append(w_newitem)
+        if not space.is_w(w_newitem, space.w_None):
+            newlist_w.append(w_newitem)
     w_newlist = space.newlist(newlist_w)
-    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    space.setattr(w_self, space.wrap("nodes"), w_newlist)
     w_expr = space.getattr(w_self, space.wrap("expr"))
     w_mutate_expr = space.getattr(w_expr, space.wrap("mutate"))
     w_mutate_expr_args = Arguments(space, [ w_visitor ])
@@ -1146,7 +1170,12 @@ class Bitand(BitOp):
         return visitor.visitBitand(self)
 
     def mutate(self, visitor):
-        self.nodes[:] = [n.mutate(visitor) for n in self.nodes]
+        newlist = []
+        for n in self.nodes:
+            item = n.mutate(visitor)
+            if item is not None:
+                newlist.append(item)
+        self.nodes[:] = newlist
         return visitor.visitBitand(self)
 
     def fget_nodes( space, self):
@@ -1176,9 +1205,10 @@ def descr_Bitand_mutate(space, w_self, w_visitor):
         w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
         w_item_mutate_args = Arguments(space, [ w_visitor ])
         w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
-        newlist_w.append(w_newitem)
+        if not space.is_w(w_newitem, space.w_None):
+            newlist_w.append(w_newitem)
     w_newlist = space.newlist(newlist_w)
-    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    space.setattr(w_self, space.wrap("nodes"), w_newlist)
     w_visitBitand = space.getattr(w_visitor, space.wrap("visitBitand"))
     w_visitBitand_args = Arguments(space, [ w_self ])
     return space.call_args(w_visitBitand, w_visitBitand_args)
@@ -1211,7 +1241,12 @@ class Bitor(BitOp):
         return visitor.visitBitor(self)
 
     def mutate(self, visitor):
-        self.nodes[:] = [n.mutate(visitor) for n in self.nodes]
+        newlist = []
+        for n in self.nodes:
+            item = n.mutate(visitor)
+            if item is not None:
+                newlist.append(item)
+        self.nodes[:] = newlist
         return visitor.visitBitor(self)
 
     def fget_nodes( space, self):
@@ -1241,9 +1276,10 @@ def descr_Bitor_mutate(space, w_self, w_visitor):
         w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
         w_item_mutate_args = Arguments(space, [ w_visitor ])
         w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
-        newlist_w.append(w_newitem)
+        if not space.is_w(w_newitem, space.w_None):
+            newlist_w.append(w_newitem)
     w_newlist = space.newlist(newlist_w)
-    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    space.setattr(w_self, space.wrap("nodes"), w_newlist)
     w_visitBitor = space.getattr(w_visitor, space.wrap("visitBitor"))
     w_visitBitor_args = Arguments(space, [ w_self ])
     return space.call_args(w_visitBitor, w_visitBitor_args)
@@ -1276,7 +1312,12 @@ class Bitxor(BitOp):
         return visitor.visitBitxor(self)
 
     def mutate(self, visitor):
-        self.nodes[:] = [n.mutate(visitor) for n in self.nodes]
+        newlist = []
+        for n in self.nodes:
+            item = n.mutate(visitor)
+            if item is not None:
+                newlist.append(item)
+        self.nodes[:] = newlist
         return visitor.visitBitxor(self)
 
     def fget_nodes( space, self):
@@ -1306,9 +1347,10 @@ def descr_Bitxor_mutate(space, w_self, w_visitor):
         w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
         w_item_mutate_args = Arguments(space, [ w_visitor ])
         w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
-        newlist_w.append(w_newitem)
+        if not space.is_w(w_newitem, space.w_None):
+            newlist_w.append(w_newitem)
     w_newlist = space.newlist(newlist_w)
-    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    space.setattr(w_self, space.wrap("nodes"), w_newlist)
     w_visitBitxor = space.getattr(w_visitor, space.wrap("visitBitxor"))
     w_visitBitxor_args = Arguments(space, [ w_self ])
     return space.call_args(w_visitBitxor, w_visitBitxor_args)
@@ -1397,7 +1439,12 @@ class CallFunc(Node):
 
     def mutate(self, visitor):
         self.node = self.node.mutate(visitor)
-        self.args[:] = [n.mutate(visitor) for n in self.args]
+        newlist = []
+        for n in self.args:
+            item = n.mutate(visitor)
+            if item is not None:
+                newlist.append(item)
+        self.args[:] = newlist
         if self.star_args is not None:
             self.star_args = self.star_args.mutate(visitor)
         if self.dstar_args is not None:
@@ -1461,9 +1508,10 @@ def descr_CallFunc_mutate(space, w_self, w_visitor):
         w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
         w_item_mutate_args = Arguments(space, [ w_visitor ])
         w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
-        newlist_w.append(w_newitem)
+        if not space.is_w(w_newitem, space.w_None):
+            newlist_w.append(w_newitem)
     w_newlist = space.newlist(newlist_w)
-    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    space.setattr(w_self, space.wrap("args"), w_newlist)
     w_star_args = space.getattr(w_self, space.wrap("star_args"))
     if not space.is_w(w_star_args, space.w_None):
         w_mutate_star_args = space.getattr(w_star_args, space.wrap("mutate"))
@@ -1522,7 +1570,12 @@ class Class(Node):
         return visitor.visitClass(self)
 
     def mutate(self, visitor):
-        self.bases[:] = [n.mutate(visitor) for n in self.bases]
+        newlist = []
+        for n in self.bases:
+            item = n.mutate(visitor)
+            if item is not None:
+                newlist.append(item)
+        self.bases[:] = newlist
         self.code = self.code.mutate(visitor)
         return visitor.visitClass(self)
 
@@ -1572,9 +1625,10 @@ def descr_Class_mutate(space, w_self, w_visitor):
         w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
         w_item_mutate_args = Arguments(space, [ w_visitor ])
         w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
-        newlist_w.append(w_newitem)
+        if not space.is_w(w_newitem, space.w_None):
+            newlist_w.append(w_newitem)
     w_newlist = space.newlist(newlist_w)
-    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    space.setattr(w_self, space.wrap("bases"), w_newlist)
     w_code = space.getattr(w_self, space.wrap("code"))
     w_mutate_code = space.getattr(w_code, space.wrap("mutate"))
     w_mutate_code_args = Arguments(space, [ w_visitor ])
@@ -1691,7 +1745,7 @@ def descr_Compare_mutate(space, w_self, w_visitor):
         
         newlist_w.append(space.newtuple([w_opname, w_newnode]))
     w_newlist = space.newlist(newlist_w)
-    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    space.setattr(w_self, space.wrap("ops"), w_newlist)
     w_visitCompare = space.getattr(w_visitor, space.wrap("visitCompare"))
     w_visitCompare_args = Arguments(space, [ w_self ])
     return space.call_args(w_visitCompare, w_visitCompare_args)
@@ -1908,7 +1962,12 @@ class Decorators(Node):
         return visitor.visitDecorators(self)
 
     def mutate(self, visitor):
-        self.nodes[:] = [n.mutate(visitor) for n in self.nodes]
+        newlist = []
+        for n in self.nodes:
+            item = n.mutate(visitor)
+            if item is not None:
+                newlist.append(item)
+        self.nodes[:] = newlist
         return visitor.visitDecorators(self)
 
     def fget_nodes( space, self):
@@ -1938,9 +1997,10 @@ def descr_Decorators_mutate(space, w_self, w_visitor):
         w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
         w_item_mutate_args = Arguments(space, [ w_visitor ])
         w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
-        newlist_w.append(w_newitem)
+        if not space.is_w(w_newitem, space.w_None):
+            newlist_w.append(w_newitem)
     w_newlist = space.newlist(newlist_w)
-    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    space.setattr(w_self, space.wrap("nodes"), w_newlist)
     w_visitDecorators = space.getattr(w_visitor, space.wrap("visitDecorators"))
     w_visitDecorators_args = Arguments(space, [ w_self ])
     return space.call_args(w_visitDecorators, w_visitDecorators_args)
@@ -2035,7 +2095,7 @@ def descr_Dict_mutate(space, w_self, w_visitor):
         
         newlist_w.append(space.newtuple([w_newkey, w_newvalue]))
     w_newlist = space.newlist(newlist_w)
-    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    space.setattr(w_self, space.wrap("items"), w_newlist)
     w_visitDict = space.getattr(w_visitor, space.wrap("visitDict"))
     w_visitDict_args = Arguments(space, [ w_self ])
     return space.call_args(w_visitDict, w_visitDict_args)
@@ -2646,8 +2706,18 @@ class Function(AbstractFunction):
     def mutate(self, visitor):
         if self.decorators is not None:
             self.decorators = self.decorators.mutate(visitor)
-        self.argnames[:] = [n.mutate(visitor) for n in self.argnames]
-        self.defaults[:] = [n.mutate(visitor) for n in self.defaults]
+        newlist = []
+        for n in self.argnames:
+            item = n.mutate(visitor)
+            if item is not None:
+                newlist.append(item)
+        self.argnames[:] = newlist
+        newlist = []
+        for n in self.defaults:
+            item = n.mutate(visitor)
+            if item is not None:
+                newlist.append(item)
+        self.defaults[:] = newlist
         self.code = self.code.mutate(visitor)
         return visitor.visitFunction(self)
 
@@ -2727,9 +2797,10 @@ def descr_Function_mutate(space, w_self, w_visitor):
         w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
         w_item_mutate_args = Arguments(space, [ w_visitor ])
         w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
-        newlist_w.append(w_newitem)
+        if not space.is_w(w_newitem, space.w_None):
+            newlist_w.append(w_newitem)
     w_newlist = space.newlist(newlist_w)
-    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    space.setattr(w_self, space.wrap("argnames"), w_newlist)
     w_list = space.getattr(w_self, space.wrap("defaults"))
     list_w = space.unpackiterable(w_list)
     newlist_w = []
@@ -2737,9 +2808,10 @@ def descr_Function_mutate(space, w_self, w_visitor):
         w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
         w_item_mutate_args = Arguments(space, [ w_visitor ])
         w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
-        newlist_w.append(w_newitem)
+        if not space.is_w(w_newitem, space.w_None):
+            newlist_w.append(w_newitem)
     w_newlist = space.newlist(newlist_w)
-    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    space.setattr(w_self, space.wrap("defaults"), w_newlist)
     w_code = space.getattr(w_self, space.wrap("code"))
     w_mutate_code = space.getattr(w_code, space.wrap("mutate"))
     w_mutate_code_args = Arguments(space, [ w_visitor ])
@@ -2858,7 +2930,12 @@ class GenExprFor(Node):
     def mutate(self, visitor):
         self.assign = self.assign.mutate(visitor)
         self.iter = self.iter.mutate(visitor)
-        self.ifs[:] = [n.mutate(visitor) for n in self.ifs]
+        newlist = []
+        for n in self.ifs:
+            item = n.mutate(visitor)
+            if item is not None:
+                newlist.append(item)
+        self.ifs[:] = newlist
         return visitor.visitGenExprFor(self)
 
     def fget_assign( space, self):
@@ -2912,9 +2989,10 @@ def descr_GenExprFor_mutate(space, w_self, w_visitor):
         w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
         w_item_mutate_args = Arguments(space, [ w_visitor ])
         w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
-        newlist_w.append(w_newitem)
+        if not space.is_w(w_newitem, space.w_None):
+            newlist_w.append(w_newitem)
     w_newlist = space.newlist(newlist_w)
-    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    space.setattr(w_self, space.wrap("ifs"), w_newlist)
     w_visitGenExprFor = space.getattr(w_visitor, space.wrap("visitGenExprFor"))
     w_visitGenExprFor_args = Arguments(space, [ w_self ])
     return space.call_args(w_visitGenExprFor, w_visitGenExprFor_args)
@@ -3012,7 +3090,12 @@ class GenExprInner(Node):
 
     def mutate(self, visitor):
         self.expr = self.expr.mutate(visitor)
-        self.quals[:] = [n.mutate(visitor) for n in self.quals]
+        newlist = []
+        for n in self.quals:
+            item = n.mutate(visitor)
+            if item is not None:
+                newlist.append(item)
+        self.quals[:] = newlist
         return visitor.visitGenExprInner(self)
 
     def fget_expr( space, self):
@@ -3054,9 +3137,10 @@ def descr_GenExprInner_mutate(space, w_self, w_visitor):
         w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
         w_item_mutate_args = Arguments(space, [ w_visitor ])
         w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
-        newlist_w.append(w_newitem)
+        if not space.is_w(w_newitem, space.w_None):
+            newlist_w.append(w_newitem)
     w_newlist = space.newlist(newlist_w)
-    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    space.setattr(w_self, space.wrap("quals"), w_newlist)
     w_visitGenExprInner = space.getattr(w_visitor, space.wrap("visitGenExprInner"))
     w_visitGenExprInner_args = Arguments(space, [ w_self ])
     return space.call_args(w_visitGenExprInner, w_visitGenExprInner_args)
@@ -3286,7 +3370,7 @@ def descr_If_mutate(space, w_self, w_visitor):
         newlist_w.append(space.newtuple([w_newtest, w_newsuite]))
     
     w_newlist = space.newlist(newlist_w)
-    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    space.setattr(w_self, space.wrap("tests"), w_newlist)
     w_else_ = space.getattr(w_self, space.wrap("else_"))
     if not space.is_w(w_else_, space.w_None):
         w_mutate_else_ = space.getattr(w_else_, space.wrap("mutate"))
@@ -3538,8 +3622,18 @@ class Lambda(AbstractFunction):
         return visitor.visitLambda(self)
 
     def mutate(self, visitor):
-        self.argnames[:] = [n.mutate(visitor) for n in self.argnames]
-        self.defaults[:] = [n.mutate(visitor) for n in self.defaults]
+        newlist = []
+        for n in self.argnames:
+            item = n.mutate(visitor)
+            if item is not None:
+                newlist.append(item)
+        self.argnames[:] = newlist
+        newlist = []
+        for n in self.defaults:
+            item = n.mutate(visitor)
+            if item is not None:
+                newlist.append(item)
+        self.defaults[:] = newlist
         self.code = self.code.mutate(visitor)
         return visitor.visitLambda(self)
 
@@ -3590,9 +3684,10 @@ def descr_Lambda_mutate(space, w_self, w_visitor):
         w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
         w_item_mutate_args = Arguments(space, [ w_visitor ])
         w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
-        newlist_w.append(w_newitem)
+        if not space.is_w(w_newitem, space.w_None):
+            newlist_w.append(w_newitem)
     w_newlist = space.newlist(newlist_w)
-    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    space.setattr(w_self, space.wrap("argnames"), w_newlist)
     w_list = space.getattr(w_self, space.wrap("defaults"))
     list_w = space.unpackiterable(w_list)
     newlist_w = []
@@ -3600,9 +3695,10 @@ def descr_Lambda_mutate(space, w_self, w_visitor):
         w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
         w_item_mutate_args = Arguments(space, [ w_visitor ])
         w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
-        newlist_w.append(w_newitem)
+        if not space.is_w(w_newitem, space.w_None):
+            newlist_w.append(w_newitem)
     w_newlist = space.newlist(newlist_w)
-    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    space.setattr(w_self, space.wrap("defaults"), w_newlist)
     w_code = space.getattr(w_self, space.wrap("code"))
     w_mutate_code = space.getattr(w_code, space.wrap("mutate"))
     w_mutate_code_args = Arguments(space, [ w_visitor ])
@@ -3716,7 +3812,12 @@ class List(Node):
         return visitor.visitList(self)
 
     def mutate(self, visitor):
-        self.nodes[:] = [n.mutate(visitor) for n in self.nodes]
+        newlist = []
+        for n in self.nodes:
+            item = n.mutate(visitor)
+            if item is not None:
+                newlist.append(item)
+        self.nodes[:] = newlist
         return visitor.visitList(self)
 
     def fget_nodes( space, self):
@@ -3746,9 +3847,10 @@ def descr_List_mutate(space, w_self, w_visitor):
         w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
         w_item_mutate_args = Arguments(space, [ w_visitor ])
         w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
-        newlist_w.append(w_newitem)
+        if not space.is_w(w_newitem, space.w_None):
+            newlist_w.append(w_newitem)
     w_newlist = space.newlist(newlist_w)
-    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    space.setattr(w_self, space.wrap("nodes"), w_newlist)
     w_visitList = space.getattr(w_visitor, space.wrap("visitList"))
     w_visitList_args = Arguments(space, [ w_self ])
     return space.call_args(w_visitList, w_visitList_args)
@@ -3787,7 +3889,12 @@ class ListComp(Node):
 
     def mutate(self, visitor):
         self.expr = self.expr.mutate(visitor)
-        self.quals[:] = [n.mutate(visitor) for n in self.quals]
+        newlist = []
+        for n in self.quals:
+            item = n.mutate(visitor)
+            if item is not None:
+                newlist.append(item)
+        self.quals[:] = newlist
         return visitor.visitListComp(self)
 
     def fget_expr( space, self):
@@ -3829,9 +3936,10 @@ def descr_ListComp_mutate(space, w_self, w_visitor):
         w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
         w_item_mutate_args = Arguments(space, [ w_visitor ])
         w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
-        newlist_w.append(w_newitem)
+        if not space.is_w(w_newitem, space.w_None):
+            newlist_w.append(w_newitem)
     w_newlist = space.newlist(newlist_w)
-    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    space.setattr(w_self, space.wrap("quals"), w_newlist)
     w_visitListComp = space.getattr(w_visitor, space.wrap("visitListComp"))
     w_visitListComp_args = Arguments(space, [ w_self ])
     return space.call_args(w_visitListComp, w_visitListComp_args)
@@ -3875,7 +3983,12 @@ class ListCompFor(Node):
     def mutate(self, visitor):
         self.assign = self.assign.mutate(visitor)
         self.list = self.list.mutate(visitor)
-        self.ifs[:] = [n.mutate(visitor) for n in self.ifs]
+        newlist = []
+        for n in self.ifs:
+            item = n.mutate(visitor)
+            if item is not None:
+                newlist.append(item)
+        self.ifs[:] = newlist
         return visitor.visitListCompFor(self)
 
     def fget_assign( space, self):
@@ -3929,9 +4042,10 @@ def descr_ListCompFor_mutate(space, w_self, w_visitor):
         w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
         w_item_mutate_args = Arguments(space, [ w_visitor ])
         w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
-        newlist_w.append(w_newitem)
+        if not space.is_w(w_newitem, space.w_None):
+            newlist_w.append(w_newitem)
     w_newlist = space.newlist(newlist_w)
-    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    space.setattr(w_self, space.wrap("ifs"), w_newlist)
     w_visitListCompFor = space.getattr(w_visitor, space.wrap("visitListCompFor"))
     w_visitListCompFor_args = Arguments(space, [ w_self ])
     return space.call_args(w_visitListCompFor, w_visitListCompFor_args)
@@ -4382,7 +4496,12 @@ class Or(AbstractTest):
         return visitor.visitOr(self)
 
     def mutate(self, visitor):
-        self.nodes[:] = [n.mutate(visitor) for n in self.nodes]
+        newlist = []
+        for n in self.nodes:
+            item = n.mutate(visitor)
+            if item is not None:
+                newlist.append(item)
+        self.nodes[:] = newlist
         return visitor.visitOr(self)
 
     def fget_nodes( space, self):
@@ -4412,9 +4531,10 @@ def descr_Or_mutate(space, w_self, w_visitor):
         w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
         w_item_mutate_args = Arguments(space, [ w_visitor ])
         w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
-        newlist_w.append(w_newitem)
+        if not space.is_w(w_newitem, space.w_None):
+            newlist_w.append(w_newitem)
     w_newlist = space.newlist(newlist_w)
-    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    space.setattr(w_self, space.wrap("nodes"), w_newlist)
     w_visitOr = space.getattr(w_visitor, space.wrap("visitOr"))
     w_visitOr_args = Arguments(space, [ w_self ])
     return space.call_args(w_visitOr, w_visitOr_args)
@@ -4567,7 +4687,12 @@ class Print(Node):
         return visitor.visitPrint(self)
 
     def mutate(self, visitor):
-        self.nodes[:] = [n.mutate(visitor) for n in self.nodes]
+        newlist = []
+        for n in self.nodes:
+            item = n.mutate(visitor)
+            if item is not None:
+                newlist.append(item)
+        self.nodes[:] = newlist
         if self.dest is not None:
             self.dest = self.dest.mutate(visitor)
         return visitor.visitPrint(self)
@@ -4608,9 +4733,10 @@ def descr_Print_mutate(space, w_self, w_visitor):
         w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
         w_item_mutate_args = Arguments(space, [ w_visitor ])
         w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
-        newlist_w.append(w_newitem)
+        if not space.is_w(w_newitem, space.w_None):
+            newlist_w.append(w_newitem)
     w_newlist = space.newlist(newlist_w)
-    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    space.setattr(w_self, space.wrap("nodes"), w_newlist)
     w_dest = space.getattr(w_self, space.wrap("dest"))
     if not space.is_w(w_dest, space.w_None):
         w_mutate_dest = space.getattr(w_dest, space.wrap("mutate"))
@@ -4657,7 +4783,12 @@ class Printnl(Node):
         return visitor.visitPrintnl(self)
 
     def mutate(self, visitor):
-        self.nodes[:] = [n.mutate(visitor) for n in self.nodes]
+        newlist = []
+        for n in self.nodes:
+            item = n.mutate(visitor)
+            if item is not None:
+                newlist.append(item)
+        self.nodes[:] = newlist
         if self.dest is not None:
             self.dest = self.dest.mutate(visitor)
         return visitor.visitPrintnl(self)
@@ -4698,9 +4829,10 @@ def descr_Printnl_mutate(space, w_self, w_visitor):
         w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
         w_item_mutate_args = Arguments(space, [ w_visitor ])
         w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
-        newlist_w.append(w_newitem)
+        if not space.is_w(w_newitem, space.w_None):
+            newlist_w.append(w_newitem)
     w_newlist = space.newlist(newlist_w)
-    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    space.setattr(w_self, space.wrap("nodes"), w_newlist)
     w_dest = space.getattr(w_self, space.wrap("dest"))
     if not space.is_w(w_dest, space.w_None):
         w_mutate_dest = space.getattr(w_dest, space.wrap("mutate"))
@@ -5107,7 +5239,12 @@ class Sliceobj(Node):
         return visitor.visitSliceobj(self)
 
     def mutate(self, visitor):
-        self.nodes[:] = [n.mutate(visitor) for n in self.nodes]
+        newlist = []
+        for n in self.nodes:
+            item = n.mutate(visitor)
+            if item is not None:
+                newlist.append(item)
+        self.nodes[:] = newlist
         return visitor.visitSliceobj(self)
 
     def fget_nodes( space, self):
@@ -5137,9 +5274,10 @@ def descr_Sliceobj_mutate(space, w_self, w_visitor):
         w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
         w_item_mutate_args = Arguments(space, [ w_visitor ])
         w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
-        newlist_w.append(w_newitem)
+        if not space.is_w(w_newitem, space.w_None):
+            newlist_w.append(w_newitem)
     w_newlist = space.newlist(newlist_w)
-    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    space.setattr(w_self, space.wrap("nodes"), w_newlist)
     w_visitSliceobj = space.getattr(w_visitor, space.wrap("visitSliceobj"))
     w_visitSliceobj_args = Arguments(space, [ w_self ])
     return space.call_args(w_visitSliceobj, w_visitSliceobj_args)
@@ -5172,7 +5310,12 @@ class Stmt(Node):
         return visitor.visitStmt(self)
 
     def mutate(self, visitor):
-        self.nodes[:] = [n.mutate(visitor) for n in self.nodes]
+        newlist = []
+        for n in self.nodes:
+            item = n.mutate(visitor)
+            if item is not None:
+                newlist.append(item)
+        self.nodes[:] = newlist
         return visitor.visitStmt(self)
 
     def fget_nodes( space, self):
@@ -5202,9 +5345,10 @@ def descr_Stmt_mutate(space, w_self, w_visitor):
         w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
         w_item_mutate_args = Arguments(space, [ w_visitor ])
         w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
-        newlist_w.append(w_newitem)
+        if not space.is_w(w_newitem, space.w_None):
+            newlist_w.append(w_newitem)
     w_newlist = space.newlist(newlist_w)
-    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    space.setattr(w_self, space.wrap("nodes"), w_newlist)
     w_visitStmt = space.getattr(w_visitor, space.wrap("visitStmt"))
     w_visitStmt_args = Arguments(space, [ w_self ])
     return space.call_args(w_visitStmt, w_visitStmt_args)
@@ -5520,7 +5664,7 @@ def descr_TryExcept_mutate(space, w_self, w_visitor):
         
         newlist_w.append(space.newtuple([w_newexpr1, w_newexpr2, w_newbody]))
     w_newlist = space.newlist(newlist_w)
-    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    space.setattr(w_self, space.wrap("handlers"), w_newlist)
     w_else_ = space.getattr(w_self, space.wrap("else_"))
     if not space.is_w(w_else_, space.w_None):
         w_mutate_else_ = space.getattr(w_else_, space.wrap("mutate"))
@@ -5635,7 +5779,12 @@ class Tuple(Node):
         return visitor.visitTuple(self)
 
     def mutate(self, visitor):
-        self.nodes[:] = [n.mutate(visitor) for n in self.nodes]
+        newlist = []
+        for n in self.nodes:
+            item = n.mutate(visitor)
+            if item is not None:
+                newlist.append(item)
+        self.nodes[:] = newlist
         return visitor.visitTuple(self)
 
     def fget_nodes( space, self):
@@ -5665,9 +5814,10 @@ def descr_Tuple_mutate(space, w_self, w_visitor):
         w_item_mutate = space.getattr(w_item, space.wrap("mutate"))
         w_item_mutate_args = Arguments(space, [ w_visitor ])
         w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)
-        newlist_w.append(w_newitem)
+        if not space.is_w(w_newitem, space.w_None):
+            newlist_w.append(w_newitem)
     w_newlist = space.newlist(newlist_w)
-    space.setslice(w_list, space.w_None, space.w_None, w_newlist)
+    space.setattr(w_self, space.wrap("nodes"), w_newlist)
     w_visitTuple = space.getattr(w_visitor, space.wrap("visitTuple"))
     w_visitTuple_args = Arguments(space, [ w_self ])
     return space.call_args(w_visitTuple, w_visitTuple_args)

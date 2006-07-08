@@ -311,7 +311,12 @@ class NodeInfo:
                     print >> buf, "        if self.%s is not None:" % (argname,)
                     print >> buf, "            self.%s = self.%s.mutate(visitor)" % (argname,argname)
                 elif self.argprops[argname] == P_NESTED:
-                    print >> buf, "        self.%s[:] = [n.mutate(visitor) for n in self.%s]" % (argname,argname)
+                    print >> buf, "        newlist = []"
+                    print >> buf, "        for n in self.%s:"%(argname)
+                    print >> buf, "            item = n.mutate(visitor)"
+                    print >> buf, "            if item is not None:"
+                    print >> buf, "                newlist.append(item)"
+                    print >> buf, "        self.%s[:] = newlist"%(argname)
         print >> buf, "        return visitor.visit%s(self)" % self.name
 
     def _gen_fget_func(self, buf, attr, prop ):
@@ -396,9 +401,10 @@ class NodeInfo:
                 print >> buf, '        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))'
                 print >> buf, '        w_item_mutate_args = Arguments(space, [ w_visitor ])'
                 print >> buf, '        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)'
-                print >> buf, '        newlist_w.append(w_newitem)'
+                print >> buf, '        if not space.is_w(w_newitem, space.w_None):'
+                print >> buf, '            newlist_w.append(w_newitem)'
                 print >> buf, '    w_newlist = space.newlist(newlist_w)'
-                print >> buf, '    space.setslice(w_list, space.w_None, space.w_None, w_newlist)'
+                print >> buf, '    space.setattr(w_self, space.wrap("%s"), w_newlist)'%(argname)
                 
     
         print >> buf, '    w_visit%s = space.getattr(w_visitor, space.wrap("visit%s"))' % (self.name,
