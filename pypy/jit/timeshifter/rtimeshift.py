@@ -253,12 +253,18 @@ def dispatch_next(jitstate, outredboxes):
     return -1
 
 def save_return(jitstate, redboxes):
-    jitstate.returnbox = redboxes[0]
-
+    returnbox = redboxes[0]
+    jitstate.return_queue.append((jitstate.curbuilder, returnbox))
+    
 def prepare_return(jitstate, cache, gv_return_type):
+    for builder, retbox in jitstate.return_queue[:-1]:
+        builder.leave_block()
+        jitstate.curbuilder = builder
+        retrieve_jitstate_for_merge(cache, jitstate, (), [retbox])
     frozens, block = cache[()]
+    _, returnbox = jitstate.return_queue[-1]
     builder = ResidualGraphBuilder(block)
-    builder.valuebox = jitstate.returnbox
+    builder.valuebox = returnbox
     return builder
 
 def ll_gvar_from_redbox(jitstate, redbox):
@@ -332,6 +338,7 @@ class JITState(object):
 
     def __init__(self, builder):
         self.split_queue = []
+        self.return_queue = []
         self.curbuilder = builder
 
 
