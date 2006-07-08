@@ -62,14 +62,20 @@ class TestEntryPoint(Node):
         if self.wrap_exceptions:
             ilasm.begin_try()
 
-        # convert string arguments to their true type
-        for i, arg in enumerate(self.graph.getargs()):
+        ARG0 = self.graph.getargs()[0].concretetype
+        if isinstance(ARG0, ootype.List) and ARG0._ITEMTYPE is ootype.String:
+            # special case: List(String) == argv
             ilasm.opcode('ldarg.0')
-            ilasm.opcode('ldc.i4.%d' % i)
-            ilasm.opcode('ldelem.ref')
-            arg_type, arg_var = cts.llvar_to_cts(arg)
-            ilasm.call('%s class [mscorlib]System.Convert::%s(string)' %
-                       (arg_type, self.__convert_method(arg_type)))
+            ilasm.new('instance void class [pypylib]pypy.runtime.List`1<string>::.ctor(!0[])')
+        else:
+            # convert string arguments to their true type
+            for i, arg in enumerate(self.graph.getargs()):
+                ilasm.opcode('ldarg.0')
+                ilasm.opcode('ldc.i4.%d' % i)
+                ilasm.opcode('ldelem.ref')
+                arg_type, arg_var = cts.llvar_to_cts(arg)
+                ilasm.call('%s class [mscorlib]System.Convert::%s(string)' %
+                           (arg_type, self.__convert_method(arg_type)))
 
         # call the function and convert the result to a string containing a valid python expression
         ilasm.call(cts.graph_to_signature(self.graph))
@@ -218,8 +224,9 @@ class CliTest(BaseRtypingTest, OORtypeMixin):
         self._ann = None
         self._cli_func = None
 
-    def _compile(self, fn, args):
-        ann = [lltype_to_annotation(typeOf(x)) for x in args]
+    def _compile(self, fn, args, ann=None):
+        if ann is None:
+            ann = [lltype_to_annotation(typeOf(x)) for x in args]
         if self._func is fn and self._ann == ann:
             return self._cli_func
         else:
@@ -228,8 +235,8 @@ class CliTest(BaseRtypingTest, OORtypeMixin):
             self._cli_func = compile_function(fn, ann)
             return self._cli_func
     
-    def interpret(self, fn, args):
-        f = self._compile(fn, args)
+    def interpret(self, fn, args, annotation=None):
+        f = self._compile(fn, args, annotation)
         res = f(*args)
         if isinstance(res, ExceptionWrapper):
             raise res

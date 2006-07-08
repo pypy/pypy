@@ -1,5 +1,6 @@
 from pypy.translator.cli.test.runtest import CliTest
 from pypy.translator.cli.test.runtest import FLOAT_PRECISION
+from pypy.annotation.listdef import s_list_of_strings
 
 def ident(x):
     return x
@@ -54,3 +55,10 @@ class TestRunTest(CliTest):
             else:
                 return None
         assert self.interpret(fn, [False]) is None
+
+    def test_list_of_string(self):
+        def fn(argv):
+            return ' '.join(argv)
+        res = self.interpret(fn, ['hello', 'world'], annotation=[s_list_of_strings])
+        assert self.ll_to_string(res) == 'hello world'
+                

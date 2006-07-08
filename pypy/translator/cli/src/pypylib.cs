@@ -250,6 +250,14 @@ namespace pypy.runtime
     // rpython.ootypesystem.ootype.List.GENERIC_METHODS
     public class List<T>: System.Collections.Generic.List<T>
     {
+        public List(): base()
+        {
+        }
+
+        public List(T[] array): base(array)
+        {
+        }
+
         public override string ToString()
         {
             // TODO: use StringBuilder instead
