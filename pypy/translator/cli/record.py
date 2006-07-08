@@ -121,11 +121,14 @@ class Record(Node):
         record_type = self.cts.lltype_to_cts(self.record, include_class=False)
         self.ilasm.begin_function('GetHashCode', [], 'int32', False, 'virtual', 'instance', 'default')
         gethash = 'int32 [pypylib]pypy.runtime.Utils::GetHashCode<%s>(!!0)'
-        f_name, (FIELD_TYPE, default) = self.record._fields.iteritems().next()
-        f_name = self.cts.escape_name(f_name)
-        f_type = self.cts.lltype_to_cts(FIELD_TYPE)
-        self.ilasm.opcode('ldarg.0')
-        self.ilasm.get_field((f_type, record_type, f_name))
-        self.ilasm.call(gethash % f_type)
+        if self.record._fields:
+            f_name, (FIELD_TYPE, default) = self.record._fields.iteritems().next()
+            f_name = self.cts.escape_name(f_name)
+            f_type = self.cts.lltype_to_cts(FIELD_TYPE)
+            self.ilasm.opcode('ldarg.0')
+            self.ilasm.get_field((f_type, record_type, f_name))
+            self.ilasm.call(gethash % f_type)
+        else:
+            self.ilasm.opcode('ldc.i4.0')
         self.ilasm.opcode('ret')
         self.ilasm.end_function()
