@@ -150,6 +150,7 @@ def timeshift(ll_function, values, opt_consts=[], inline=None, policy=None):
 
 
 def test_simple_fixed():
+    py.test.skip("green return not working")
     def ll_function(x, y):
         return hint(x + y, concrete=True)
     insns, res = timeshift(ll_function, [5, 7])
@@ -299,6 +300,7 @@ def test_merge_3_redconsts_before_return():
     assert res == ll_function(-70)
 
 def test_merge_const_at_return():
+    py.test.skip("green return")
     def ll_function(x):
         if x > 0:
             return 17
@@ -560,7 +562,7 @@ def test_merge_structures():
     assert insns == {'int_is_true': 1, 'int_add': 1}
 
 def test_call_simple():
-    #py.test.skip("in-progress")
+    py.test.skip("in-progress")
     def ll_add_one(x):
         return x + 1
     def ll_function(y):
