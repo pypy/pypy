@@ -39,6 +39,16 @@ class OpReprInvoke(OpReprCall):
         else:
             self.functionref = '%pypyop_' + op.opname
 
+def arrayindices(arg):
+    ARRAYTYPE = arg.concretetype.TO
+    if isinstance(ARRAYTYPE, lltype.Array):
+        # skip the length field
+        indices = [("uint", 1)]
+    else:
+        assert isinstance(ARRAYTYPE, lltype.FixedSizeArray)
+        indices = []        
+    return indices
+
 class OpWriter(object):            
     
     binary_operations = {
@@ -300,10 +310,6 @@ class OpWriter(object):
         self.db.gcpolicy.var_malloc(self.codewriter, opr.retref, opr.rettype,
                                     node, opr.argrefs[1],
                                     atomic=arg_type._is_atomic())
-        #XXX tmp?
-        #self.codewriter.call(opr.retref, opr.rettype,
-        #                     self.db.repr_constructor(arg_type),
-        #                     opr.argtypes[1:], opr.argrefs[1:])
 
     def flavored_malloc(self, opr):
         flavor = opr.op.args[0].value
@@ -357,53 +363,36 @@ class OpWriter(object):
             self._skipped(opr)
             
     def getarrayitem(self, opr):        
-        arraytype, indextype = opr.argtypes
-        array, index = opr.argrefs
-
         if opr.rettype == "void":
             self._skipped(opr)
             return
 
+        array, index = opr.argrefs
+        arraytype, indextype = opr.argtypes
         tmpvar = self._tmp()
 
-        ARRAYTYPE = opr.op.args[0].concretetype.TO
-        if isinstance(ARRAYTYPE, lltype.Array):
-            self.codewriter.getelementptr(tmpvar, arraytype, array,
-                                          [("uint", 1), (indextype, index)])
-        else:
-            assert isinstance(ARRAYTYPE, lltype.FixedSizeArray)
-            self.codewriter.getelementptr(tmpvar, arraytype, array,
-                                          [(indextype, index)])
-
+        indices = arrayindices(opr.op.args[0]) + [(indextype, index)]
+        self.codewriter.getelementptr(tmpvar, arraytype, array, indices)
         self.codewriter.load(opr.retref, opr.rettype, tmpvar)
 
     def getarraysubstruct(self, opr):        
-        ARRAYTYPE = opr.op.args[0].concretetype.TO
-        assert isinstance(ARRAYTYPE, lltype.Array)
-        arraytype, indextype = opr.argtypes
         array, index = opr.argrefs
-        self.codewriter.getelementptr(opr.retref, arraytype, array,
-                                      [("uint", 1), (indextype, index)])
+        arraytype, indextype = opr.argtypes
+
+        indices = arrayindices(opr.op.args[0]) + [(indextype, index)]
+        self.codewriter.getelementptr(opr.retref, arraytype, array, indices)
 
     def setarrayitem(self, opr):
         array, index, valuevar = opr.argrefs
         arraytype, indextype, valuetype = opr.argtypes
+        tmpvar = self._tmp()    
 
         if valuetype == "void":
             self._skipped(opr)
             return
 
-        tmpvar = self._tmp()    
-
-        ARRAYTYPE = opr.op.args[0].concretetype.TO
-        if isinstance(ARRAYTYPE, lltype.Array):
-            self.codewriter.getelementptr(tmpvar, arraytype, array,
-                                          [("uint", 1), (indextype, index)])
-        else:
-            assert isinstance(ARRAYTYPE, lltype.FixedSizeArray)
-            self.codewriter.getelementptr(tmpvar, arraytype, array,
-                                          [(indextype, index)])
-            
+        indices = arrayindices(opr.op.args[0]) + [(indextype, index)]
+        self.codewriter.getelementptr(tmpvar, arraytype, array, indices)            
         self.codewriter.store(valuetype, valuevar, tmpvar) 
             
     def getarraysize(self, opr):
