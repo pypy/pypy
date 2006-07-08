@@ -1,8 +1,11 @@
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.annotation.model import SomeNumpyObject, SomeList, SomeImpossibleValue
 from pypy.annotation.model import SomeInteger, SomeFloat, SomeString, SomeChar
+from pypy.annotation.listdef import ListDef
 
 import numpy
+
+numpy_knowntype = type(numpy.array([]))
 
 numpy_typedict = {
     SomeInteger : 'i',
@@ -16,16 +19,18 @@ class CallEntry(ExtRegistryEntry):
     _about_ = numpy.array
 
     def compute_result_annotation(self, arg_list, *args_s, **kwds_s):
-        print self
-        print arg_list
-        print args_s
-        print kwds_s
+#        print self
+#        print arg_list
+#        print args_s
+#        print kwds_s
 	if not isinstance(arg_list, SomeList):
-            raise AnnotatorError("ahh!!")
+            raise AnnotatorError("numpy.array expects SomeList")
+#	if not isinstance(arg_list, SomeRange):
+#            raise AnnotatorError("numpy.array expects SomeList")
         # First guess type from input list
         listtype = type(arg_list.listdef.listitem.s_value)
         
-        typecode = numpy_typedict.get( listtype , None )
+        typecode = numpy_typedict.get( listtype, None )
 
         dtype = None
 	if len(args_s)>0:
@@ -39,24 +44,25 @@ class CallEntry(ExtRegistryEntry):
             raise AnnotatorError("dtype is not a valid type specification")
         if typecode not in valid_typecodes:
             raise AnnotatorError("List item type not supported")
-        ctype = self.instance    # the ctype is the called object
-        return SomeNumpyObject(ctype, typecode, ownsmemory=True)
+        knowntype = numpy_knowntype
+        print "SomeNumpyObject", knowntype, typecode
+        return SomeNumpyObject(knowntype, typecode, ownsmemory=True)
 
     def specialize_call(self, hop):
-        r_void_p = hop.r_result
-        hop.exception_cannot_occur()
-        v_result = r_void_p.allocate_instance(hop.llops)
+        print "specialize_call", hop
+        r_array = hop.r_result
+        [v_lst] = hop.inputargs(r_array)
+        v_result = r_array.allocate_instance(hop.llops, v_lst)
         return v_result
 
 class NumpyObjEntry(ExtRegistryEntry):
-    "Annotation and rtyping of XX instances."
-    _type_ = type(numpy.array([]))
+    "Annotation and rtyping of numpy array instances."
+    _type_ = numpy_knowntype
 
-    def get_repr(self, rtyper, s_void_p):
-        # XX FIX
-        from pypy.rpython.rctypes.rvoid_p import CVoidPRepr
-        from pypy.rpython.lltypesystem import llmemory
-        return CVoidPRepr(rtyper, s_void_p, llmemory.Address)
+    def get_repr(self, rtyper, s_array):
+        from pypy.rpython.numpy.rarray import ArrayRepr
+        print "NumpyObjEntry.get_repr", rtyper, s_array
+        return ArrayRepr(rtyper, s_array)
 
 
 #class NumpyObjEntry(NumpyEntry):
