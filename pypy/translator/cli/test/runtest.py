@@ -62,7 +62,10 @@ class TestEntryPoint(Node):
         if self.wrap_exceptions:
             ilasm.begin_try()
 
-        ARG0 = self.graph.getargs()[0].concretetype
+        try:
+            ARG0 = self.graph.getargs()[0].concretetype
+        except IndexError:
+            ARG0 = None
         if isinstance(ARG0, ootype.List) and ARG0._ITEMTYPE is ootype.String:
             # special case: List(String) == argv
             ilasm.opcode('ldarg.0')
