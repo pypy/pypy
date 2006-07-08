@@ -138,7 +138,12 @@ class CTS(object):
             owner, meth = TYPE._lookup(name)
             class_name = TYPE._name
             full_name = 'class %s::%s' % (class_name, name)
-            return self.graph_to_signature(meth.graph, True, full_name), True
+
+            METH = meth._TYPE
+            returntype = self.lltype_to_cts(METH.RESULT)
+            arg_types = [self.lltype_to_cts(ARG) for ARG in METH.ARGS if ARG is not ootype.Void]
+            arg_list = ', '.join(arg_types)
+            return '%s %s(%s)' % (returntype, full_name, arg_list), True
 
         elif isinstance(TYPE, (ootype.BuiltinType, ootype.StaticMethod)):
             if isinstance(TYPE, ootype.StaticMethod):

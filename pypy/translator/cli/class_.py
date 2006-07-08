@@ -59,17 +59,26 @@ class Class(Node):
         # lazy import to avoid circular dependencies
         #import pypy.translator.cli.function as function
         for m_name, m_meth in self.classdef._methods.iteritems():
-            args =  m_meth.graph.getargs()
-            
-            # if the first argument of the method is a strict subclass
-            # of this class, then this method is not really used by
-            # the class: don't render it, else there would be a type
-            # mismatch.
-            SELF = args[0].concretetype
-            if SELF is not self.classdef and ootype.isSubclass(SELF, self.classdef):
-                continue
-            f = self.db.function_class(self.db, m_meth.graph, m_name, is_method = True)
-            f.render(ilasm)
+            if hasattr(m_meth, 'graph'):
+                # if the first argument of the method is a strict subclass
+                # of this class, then this method is not really used by
+                # the class: don't render it, else there would be a type
+                # mismatch.
+                args =  m_meth.graph.getargs()
+                SELF = args[0].concretetype
+                if SELF is not self.classdef and ootype.isSubclass(SELF, self.classdef):
+                    continue
+                f = self.db.function_class(self.db, m_meth.graph, m_name, is_method = True)
+                f.render(ilasm)
+            else:
+                # abstract method
+                METH = m_meth._TYPE
+                arglist = [(self.cts.lltype_to_cts(ARG), 'v%d' % i)
+                           for i, ARG in enumerate(METH.ARGS)
+                           if ARG is not ootype.Void]
+                returntype = self.cts.lltype_to_cts(METH.RESULT)
+                ilasm.begin_function(m_name, arglist, returntype, False, 'virtual', 'abstract')
+                ilasm.end_function()
 
         ilasm.end_class()
 

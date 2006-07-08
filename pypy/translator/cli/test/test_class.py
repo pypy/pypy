@@ -3,6 +3,19 @@ from pypy.translator.cli.test.runtest import CliTest
 from pypy.rpython.test.test_rclass import BaseTestRclass
 
 class TestCliClass(CliTest, BaseTestRclass):
-    def test_recursive_prebuilt_instance_classattr(self):
-        py.test.skip("gencli doesn't support abstract methods, yet")
-    test_common_class_attribute = test_recursive_prebuilt_instance_classattr
+    def test_abstract_method(self):
+        class Base:
+            pass
+        class A(Base):
+            def f(self, x):
+                return x+1
+        class B(Base):
+            def f(self, x):
+                return x+2
+        def call(obj, x):
+            return obj.f(x)
+        def fn(x):
+            a = A()
+            b = B()
+            return call(a, x) + call(b, x)
+        assert self.interpret(fn, [0]) == 3
