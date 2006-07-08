@@ -262,7 +262,7 @@ def log_spawned_cmd(spawn):
 class CCompiler:
 
     def __init__(self, cfilenames, outputfilename=None, include_dirs=[],
-                 libraries=[], library_dirs=[]):
+                 libraries=[], library_dirs=[], compiler_exe=None):
         self.cfilenames = cfilenames
         ext = ''
         self.compile_extra = []
@@ -270,6 +270,7 @@ class CCompiler:
         self.libraries = list(libraries)
         self.include_dirs = list(include_dirs)
         self.library_dirs = list(library_dirs)
+        self.compiler_exe = compiler_exe
         if not sys.platform in ('win32', 'darwin'): # xxx
             if 'm' not in self.libraries:
                 self.libraries.append('m')
@@ -316,6 +317,10 @@ class CCompiler:
     def _build(self):
         from distutils.ccompiler import new_compiler 
         compiler = new_compiler()
+        if self.compiler_exe is not None:
+            for c in '''compiler compiler_so compiler_cxx
+                        linker_exe linker_so'''.split():
+                compiler.executables[c][0] = self.compiler_exe
         compiler.spawn = log_spawned_cmd(compiler.spawn)
         objects = []
         for cfile in self.cfilenames: 

@@ -211,7 +211,8 @@ class CStandaloneBuilder(CBuilder):
         return CCompiler(
             [self.c_source_filename] + self.extrafiles,
             include_dirs = [autopath.this_dir, python_inc] + extra_includes,
-            libraries    = self.libraries)
+            libraries    = self.libraries,
+            compiler_exe = self.translator.driver_options.cc)
 
     def compile(self):
         assert self.c_source_filename
@@ -264,6 +265,8 @@ class CStandaloneBuilder(CBuilder):
         print >> f, 'CFLAGS =', ' '.join(compiler.compile_extra)
         print >> f, 'LDFLAGS =', ' '.join(compiler.link_extra)
         print >> f, 'TFLAGS = ' + ('', '-pthread')[self.thread_enabled]
+        print >> f, 'CC = ' + (self.translator.driver_options.cc or 'cc')
+        print >> f
         print >> f, MAKEFILE.strip()
         f.close()
 
@@ -798,9 +801,7 @@ setup(name="%(modulename)s",
                        include_dirs = [PYPY_INCLUDE_DIR])])
 '''
 
-#-pthread
 MAKEFILE = '''
-CC = gcc
 
 $(TARGET): $(OBJECTS)
 \t$(CC) $(LDFLAGS) -o $@ $(OBJECTS) $(LIBDIRS) $(LIBS)

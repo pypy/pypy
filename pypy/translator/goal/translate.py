@@ -58,6 +58,7 @@ opts = {
     '4_Compilation options':{
     '_compile': [OPT(('-c', '--compile'), "Compile generated source", GOAL),
                 OPT(('--no-compile',), "Don't compile", SKIP_GOAL)],
+    '2_cc': [OPT(('--cc',), "Set compiler", str)],
     },
                
     '5_Run options': {
@@ -111,6 +112,7 @@ defaults = {
     'text': False,
     'graphserve': None,
     'huge': 100,
+    'cc': None,
 
     'fork_before': None
 }
