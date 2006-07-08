@@ -752,9 +752,6 @@ getdefaulttimeout.unwrap_spec = [ObjSpace]
 #
 # The socket type
 
-def getsockettype(space):
-    return space.gettypeobject(Socket.typedef)
-
 def newsocket(space, w_subtype, family=_c.AF_INET,
               type=_c.SOCK_STREAM, proto=0):
     fd = _c.socket(family, type, proto)

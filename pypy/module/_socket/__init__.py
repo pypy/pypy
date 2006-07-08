@@ -12,8 +12,8 @@ class Module(MixedModule):
     }
 
     interpleveldefs = {
-        'SocketType':  'interp_socket.getsockettype(space)',
-        'socket'    :  'interp_socket.getsockettype(space)',
+        'SocketType':  'interp_socket.Socket',
+        'socket'    :  'interp_socket.Socket',
     }
 
     def buildloaders(cls):
