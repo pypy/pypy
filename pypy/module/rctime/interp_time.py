@@ -55,6 +55,47 @@ libc.asctime.restype = c_char_p
 def _init_accept2dyear():
     return (1, 0)[bool(os.getenv("PYTHONY2K"))]
 
+def _init_timezone():
+    timezone = daylight = tzname = altzone = None
+
+    # if _MS_WINDOWS:
+    #     cdll.msvcrt._tzset()
+    # 
+    #     timezone = c_long.in_dll(cdll.msvcrt, "_timezone").value
+    #     if hasattr(cdll.msvcrt, "altzone"):
+    #         altzone = c_long.in_dll(cdll.msvcrt, "altzone").value
+    #     else:
+    #         altzone = timezone - 3600
+    #     daylight = c_long.in_dll(cdll.msvcrt, "_daylight").value
+    #     tzname = _tzname_t.in_dll(cdll.msvcrt, "_tzname")
+    #     tzname = (tzname.tzname_0, tzname.tzname_1)
+    if _POSIX:
+        YEAR = (365 * 24 + 6) * 3600
+
+        t = (((libc.time(byref(c_long(0)))) / YEAR) * YEAR)
+        tt = cConfig.time_t(t)
+        p = libc.localtime(byref(tt)).contents
+        janzone = -p.tm_gmtoff
+        janname = ("   ", p.tm_zone)[bool(p.tm_zone)]
+        tt = cConfig.time_t(tt.value + YEAR / 2)
+        p = libc.localtime(byref(tt)).contents
+        julyzone = -p.tm_gmtoff
+        julyname = ("   ", p.tm_zone)[bool(p.tm_zone)]
+
+        if janzone < julyzone:
+            # DST is reversed in the southern hemisphere
+            timezone = julyzone
+            altzone = janzone
+            daylight = int(janzone != julyzone)
+            tzname = (julyname, janname)
+        else:
+            timezone = janzone
+            altzone = julyzone
+            daylight = int(janzone != julyzone)
+            tzname = (janname, julyname)
+    
+    return timezone, daylight, tzname, altzone
+
 def _get_error_msg():
     errno = geterrno()
     return libc.strerror(errno)

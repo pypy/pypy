@@ -9,11 +9,11 @@ class AppTestRCTime:
     def test_attributes(self):
         import rctime
         assert isinstance(rctime.accept2dyear, int)
-    #     assert isinstance(rctime.altzone, int)
-    #     assert isinstance(rctime.daylight, int)
-    #     assert isinstance(rctime.timezone, int)
-    #     assert isinstance(rctime.tzname, tuple)
-    # 
+        assert isinstance(rctime.altzone, int)
+        assert isinstance(rctime.daylight, int)
+        assert isinstance(rctime.timezone, int)
+        assert isinstance(rctime.tzname, tuple)
+    
     def test_sleep(self):
         import rctime
         raises(TypeError, rctime.sleep, "foo")
