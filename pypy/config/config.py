@@ -73,6 +73,11 @@ class Config(object):
     def __ne__(self, other):
         return not self == other
 
+    def __iter__(self):
+        for child in self._descr._children:
+            if isinstance(child, Option):
+                yield child._name, getattr(self, child._name)
+
 class Option(object):
     def validate(self, value):
         raise NotImplementedError('abstract base class')
@@ -111,28 +116,62 @@ class BoolOption(ChoiceOption):
             subconfig.require(name, reqvalue)
         super(BoolOption, self).setoption(config, value)
 
-
-class ListOption(Option):
-    def __init__(self, name, doc, allowed_values, default=None):
+class IntOption(Option):
+    def __init__(self, name, doc, default=True):
         self._name = name
         self.doc = doc
-        self.allowed_values = allowed_values
-        self.default = default or []
+        self.default = default
 
     def validate(self, value):
-        assert isinstance(value, list)
-        for item in value:
-            if item not in self.allowed_values:
-                return False
+        try:
+            int(value)
+        except TypeError:
+            return False
         return True
 
-    def getdefault(self):
-        return self.default[:]
+    def setoption(self, config, value):
+        super(IntOption, self).setoption(config, int(value))
 
-    def getkey(self, value):
-        key = value[:]
-        value.sort()
-        return tuple(value)
+
+class IntOption(Option):
+    def __init__(self, name, doc, default=0):
+        self._name = name
+        self.doc = doc
+        self.default = default
+
+    def validate(self, value):
+        try:
+            int(value)
+        except TypeError:
+            return False
+        return True
+
+    def setoption(self, config, value):
+        try:
+            super(IntOption, self).setoption(config, int(value))
+        except TypeError, e:
+            raise ValueError(*e.args)
+
+
+class FloatOption(Option):
+    def __init__(self, name, doc, default=0.0):
+        self._name = name
+        self.doc = doc
+        self.default = default
+
+    def validate(self, value):
+        try:
+            float(value)
+        except TypeError:
+            return False
+        return True
+
+    def setoption(self, config, value):
+        try:
+            super(FloatOption, self).setoption(config, float(value))
+        except TypeError, e:
+            raise ValueError(*e.args)
+
 
 class OptionDescription(object):
     def __init__(self, name, children):

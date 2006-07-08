@@ -3,18 +3,19 @@ import py
 
 def make_description():
     gcoption = ChoiceOption('name', 'GC name', ['ref', 'framework'], 'ref')
+    gcdummy = BoolOption('dummy', 'dummy', default=False)
     objspaceoption = ChoiceOption('objspace', 'Object space', 
                                 ['std', 'logic'], 'std')
-    booloption = BoolOption('bool', 'Test Boolean option')
-    listoption = ListOption('list', 'Test list valued option', ['foo', 'bar'],
-                                ['foo'])
+    booloption = BoolOption('bool', 'Test boolean option')
+    intoption = IntOption('int', 'Test int option')
+    floatoption = FloatOption('float', 'Test float option', default=2.3)
 
     wantref_option = BoolOption('wantref', 'Test requires', default=False,
                                     requires=[('gc.name', 'ref')])
     
-    gcgroup = OptionDescription('gc', [gcoption])
+    gcgroup = OptionDescription('gc', [gcoption, gcdummy, floatoption])
     descr = OptionDescription('pypy', [gcgroup, booloption, objspaceoption,
-                                        listoption, wantref_option])
+                                       wantref_option, intoption])
     return descr
     
 
@@ -30,10 +31,12 @@ def test_base_config():
     config.objspace = 'logic'
     assert config.objspace == 'logic'
     
-
-    assert config.list == ['foo']
-    config.list = ['bar']
-    assert config.list == ['bar']
+    assert config.gc.float == 2.3
+    assert config.int == 0
+    config.gc.float = 3.4
+    config.int = 123
+    assert config.gc.float == 3.4
+    assert config.int == 123
 
     assert not config.wantref
 
@@ -41,7 +44,8 @@ def test_base_config():
     py.test.raises(ValueError, 'config.gc.name = "foo"')
     py.test.raises(ValueError, 'config.gc.foo = "bar"')
     py.test.raises(ValueError, 'config.bool = 123')
-    py.test.raises(ValueError, 'config.list = ["baz"]')
+    py.test.raises(ValueError, 'config.int = "hello"')
+    py.test.raises(ValueError, 'config.gc.float = None')
 
     # test whether the gc.name is set to 'ref' when wantref is true (note that
     # the current value of gc.name is 'framework')
@@ -87,3 +91,12 @@ def test_compare_configs():
     assert conf1 == conf2
     assert hash(conf1) == hash(conf2)
     assert conf1.getkey() == conf2.getkey()
+
+def test_loop():
+    descr = make_description()
+    conf = Config(descr)
+    for (name, value), (gname, gvalue) in \
+        zip(conf.gc, [("name", "ref"), ("dummy", False)]):
+        assert name == gname
+        assert value == gvalue
+        
