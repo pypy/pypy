@@ -231,7 +231,7 @@ class ObjSpace(object):
 
         modules.extend(['unicodedata', '_codecs', 'gc', '_weakref',
                          'array', 'marshal', 'errno', 'math', '_sre'])
-	modules.append('_pickle_support')
+        modules.append('_pickle_support')
 
         if self.options.nofaking:
             modules.append('posix')
