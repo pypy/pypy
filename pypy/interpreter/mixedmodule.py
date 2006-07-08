@@ -143,7 +143,7 @@ def getinterpevalloader(pkgroot, spec):
                 except TypeError:
                     is_type = False
                 if is_type:
-                    return space.gettypeobject(value.typedef)
+                    return space.gettypefor(value)
 
                 W_Object = getattr(space, 'W_Object', ()) # for cpyobjspace
                 assert isinstance(value, (W_Root, W_Object)), (

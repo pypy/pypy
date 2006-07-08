@@ -240,6 +240,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
         ec._py_repr = self.newdict([])
         return ec
 
+    def gettypefor(self, cls):
+        return self.gettypeobject(cls.typedef)
+
     def gettypeobject(self, typedef):
         # stdtypedef.TypeCache maps each StdTypeDef instance to its
         # unique-for-this-space W_TypeObject instance
