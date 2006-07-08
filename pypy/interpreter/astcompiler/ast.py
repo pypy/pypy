@@ -44,6 +44,8 @@ class Node(Wrappable):
         return [] # implemented by subclasses
     def accept(self, visitor):
         raise NotImplementedError
+    def mutate(self, visitor):
+        return visitor.visitNode(self)
     def flatten(self):
         res = []
         nodes = self.getChildNodes()
@@ -69,6 +71,11 @@ def descr_node_accept( space, w_self, w_visitor ):
     args = Arguments(space, [ w_self ])
     return space.call_args( w_callable, args )
 
+def descr_node_mutate(space, w_self, w_visitor): 
+    w_visitNode = space.getattr(w_visitor, space.wrap("visitNode"))
+    w_visitNode_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitNode, w_visitNode_args)
+
 def descr_Node_new(space, w_subtype, lineno=-1):
     node = space.allocate_instance(Node, w_subtype)
     node.lineno = lineno
@@ -79,6 +86,7 @@ Node.typedef = TypeDef('ASTNode',
                        #__repr__ = interp2app(descr_node_repr, unwrap_spec=['self', ObjSpace] ),
                        getChildNodes = interp2app(Node.descr_getChildNodes, unwrap_spec=[ 'self', ObjSpace ] ),
                        accept = interp2app(descr_node_accept, unwrap_spec=[ ObjSpace, W_Root, W_Root ] ),
+                       mutate = interp2app(descr_node_mutate, unwrap_spec=[ ObjSpace, W_Root, W_Root ] ),
                        lineno = interp_attrproperty('lineno', cls=Node),
                        filename = interp_attrproperty('filename', cls=Node),
                        )
@@ -106,6 +114,45 @@ class Expression(Node):
 
     def accept(self, visitor):
         return visitor.visitExpression(self)
+    def mutate(self, visitor):
+        self.node = self.node.mutate(visitor)
+        return visitor.visitExpression(self)
+
+    def fget_node(space, self):
+        return space.wrap(self.node)
+    def fset_node(space, self, w_arg):
+        self.node = space.interp_w(Node, w_arg, can_be_None=False)
+
+def descr_expression_new(space, w_subtype, w_node, lineno=-1):
+    self = space.allocate_instance(Expression, w_subtype)
+    node = space.interp_w(Node, w_node, can_be_None=False)
+    self.node = node
+    self.lineno = lineno
+    return space.wrap(self)
+
+def descr_expression_accept(space, w_self, w_visitor):
+    w_callable = space.getattr(w_visitor, space.wrap("visitExpression"))
+    args = Arguments(space, [ w_self ])
+    return space.call_args(w_callable, args)
+
+def descr_expression_mutate(space, w_self, w_visitor):
+    w_node = space.getattr(w_self, space.wrap("node"))
+    w_mutate_node = space.getattr(w_node, space.wrap("mutate"))
+    w_mutate_node_args = Arguments(space, [ w_visitor ])
+    w_new_node = space.call_args(w_mutate_node, w_mutate_node_args)
+    space.setattr(w_self, space.wrap("node"), w_new_node)
+
+    w_visitExpression = space.getattr(w_visitor, space.wrap("visitExpression"))
+    w_visitExpression_args = Arguments(space, [ w_self ])
+    return space.call_args(w_visitExpression, w_visitExpression_args)
+
+Expression.typedef = TypeDef('Expression', Node.typedef,
+                     __new__ = interp2app(descr_expression_new, unwrap_spec=[ObjSpace, W_Root, W_Root, int]),
+                     accept=interp2app(descr_expression_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     mutate=interp2app(descr_expression_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
+                     node=GetSetProperty(Expression.fget_node, Expression.fset_node ),
+                    )
+                    
 
 
 

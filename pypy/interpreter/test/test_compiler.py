@@ -421,3 +421,45 @@ class TestPythonAstCompiler(BaseTestCompiler):
     def setup_method(self, method):
         self.compiler = PythonAstCompiler(self.space)
 
+
+
+
+class AppTestOptimizer:
+    def test_constant_fold_add(self):
+        import parser
+        class Folder:
+            def defaultvisit(self, node):
+                return node
+            
+            def __getattr__(self, attrname):
+                if attrname.startswith('visit'):
+                    return self.defaultvisit
+                raise AttributeError(attrname)
+
+            def visitAdd(self, node):
+                left = node.left
+                right = node.right
+                if isinstance(left, parser.ASTConst) and \
+                       isinstance(right, parser.ASTConst):
+                    if type(left.value) == type(right.value):
+                        return parser.ASTConst(left.value + right.value)
+                return node
+
+        def hook(ast, enc):
+            return ast.mutate(Folder())
+        
+        parser.install_compiler_hook(hook)
+        code = compile("1+2", "", "eval")
+        parser.install_compiler_hook(None)
+        import dis, sys, StringIO
+        s = StringIO.StringIO()
+        so = sys.stdout
+        sys.stdout = s
+        try:
+            dis.dis(code)
+        finally:
+            sys.stdout = so
+        output = s.getvalue()
+        assert 'BINARY_ADD' not in output
+        
+        
