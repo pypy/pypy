@@ -1,13 +1,14 @@
 from __future__ import division
 
-import sys
 import os
-import py
+import sys
 
+import py
 from pypy.tool.udir import udir
-from pypy.translator.llvm.test.runtest import compile_function
 from pypy.rpython.rarithmetic import r_uint
 from pypy.rpython import ros
+
+from pypy.translator.llvm.test.runtest import *
 
 def test_external_function_ll_os_dup():
     def fn():

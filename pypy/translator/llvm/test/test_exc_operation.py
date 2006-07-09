@@ -1,8 +1,10 @@
-import py
 import sys
-from pypy.translator.llvm.test.runtest import compile_function
+
+import py
 from pypy.rpython.rarithmetic import r_uint, ovfcheck, ovfcheck_lshift
 from pypy.translator.test import snippet 
+
+from pypy.translator.llvm.test.runtest import *
 
 def test_zerodiv_int():
     def zerodiv_int(n):

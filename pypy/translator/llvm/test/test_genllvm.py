@@ -1,10 +1,11 @@
 from __future__ import division
 
 import sys
-import py
 
+import py
 from pypy.rpython.rarithmetic import r_uint
-from pypy.translator.llvm.test.runtest import compile_function
+
+from pypy.translator.llvm.test.runtest import *
 
 def test_return1():
     def simple1():

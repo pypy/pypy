@@ -1,8 +1,9 @@
+import sys
+
 import py
 
-from pypy.translator.llvm.test.runtest import compile_optimized_function
+from pypy.translator.llvm.test.runtest import *
 
-import sys
 
 def test_merge_if_blocks_simple():
     def merge_if_blocks_simple(i):
@@ -10,7 +11,7 @@ def test_merge_if_blocks_simple():
             return 1005
         else:
             return 2222
-    simple = compile_optimized_function(merge_if_blocks_simple, [int])
+    simple = compile_function(merge_if_blocks_simple, [int], optimize=True)
     for i in range(-20,20):
         assert simple(i) == merge_if_blocks_simple(i)
 
@@ -21,8 +22,8 @@ def test_merge_if_blocks_basic():
         elif i == 8:
             return 1008
         return 2222
-    basic  = compile_optimized_function(merge_if_blocks_basic , [int])
-    for i in range(-20,20):
+    basic = compile_function(merge_if_blocks_basic, [int], optimize=True)
+    for i in range(-20, 20):
         assert basic(i) == merge_if_blocks_basic(i)
 
 def test_merge_if_blocks_chr():
@@ -33,7 +34,7 @@ def test_merge_if_blocks_chr():
         elif c == '!':
             return 1008
         return 2222
-    basic  = compile_optimized_function(merge_if_blocks_chr , [int])
+    basic = compile_function(merge_if_blocks_chr, [int], optimize=True)
     for i in range(0, 50):
         assert basic(i) == merge_if_blocks_chr(i)
 
@@ -45,7 +46,7 @@ def test_merge_if_blocks_uni():
         elif c == u'!':
             return 1008
         return 2222
-    basic  = compile_optimized_function(merge_if_blocks_uni , [int])
+    basic = compile_function(merge_if_blocks_uni, [int], optimize=True)
     for i in range(0, 50):
         assert basic(i) == merge_if_blocks_uni(i)
 
@@ -74,6 +75,6 @@ def test_merge_if_blocks_many():
             return 1009
         else:
             return 2222
-    many   = compile_optimized_function(merge_if_blocks_many  , [int])
+    many = compile_function(merge_if_blocks_many, [int], optimize=True)
     for i in range(-20,20):
         assert many(i)   == merge_if_blocks_many(i)

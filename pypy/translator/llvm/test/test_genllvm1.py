@@ -2,10 +2,10 @@ from __future__ import division
 import sys
 
 import py
-
 from pypy.objspace.flow.model import Constant, Variable
-from pypy.translator.llvm.test.runtest import compile_function
 from pypy.translator.llvm.test import llvmsnippet
+
+from pypy.translator.llvm.test.runtest import *
 
 class TestGenLLVM(object):
     def test_simple1(self):

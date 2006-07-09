@@ -1,10 +1,10 @@
-import py
+import sys
 
-from pypy.translator.llvm.test.runtest import compile_function
+import py
 from pypy.translator.test.snippet import try_raise_choose
 from pypy.rpython.rarithmetic import r_uint, ovfcheck, ovfcheck_lshift
 
-import sys
+from pypy.translator.llvm.test.runtest import *
 
 class TestException(Exception):
     pass

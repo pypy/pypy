@@ -1,11 +1,11 @@
 import sys
+
 import py
-
 from pypy.rpython.lltypesystem import lltype
-
-from pypy.translator.llvm.test.runtest import compile_function
 from pypy.translator.llvm import database, codewriter
 from pypy.rpython import rarithmetic 
+
+from pypy.translator.llvm.test.runtest import *
 
 S = lltype.Struct("base", ('a', lltype.Signed), ('b', lltype.Signed))
 

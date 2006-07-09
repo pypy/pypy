@@ -1,13 +1,15 @@
+import py
 from pypy.rpython.memory.lladdress import *
 from pypy.annotation.model import SomeAddress, SomeChar
-from pypy.translator.llvm.test.runtest import compile_function as compile
-from pypy.rpython.objectmodel import free_non_gc_object                                              
-import py
+from pypy.rpython.objectmodel import free_non_gc_object
+
+from pypy.translator.llvm.test.runtest import *
+
 
 def test_null():
     def f():
         return NULL - NULL
-    fc = compile(f, [])
+    fc = compile_function(f, [])
 
 def test_convert_to_bool():
     def convert_to_bool(x):
@@ -15,7 +17,7 @@ def test_convert_to_bool():
             return bool(NULL)
         else:
             return bool(NULL + 1)
-    fc = compile(convert_to_bool, [int])
+    fc = compile_function(convert_to_bool, [int])
     res = fc(1)
     assert isinstance(res, int) and not res
     res = fc(0)
@@ -28,7 +30,7 @@ def test_memory_access():
         res = addr.signed[0]
         raw_free(addr)
         return res
-    fc = compile(f, [int])
+    fc = compile_function(f, [int])
     res = fc(42)
     assert res == 42
     res = fc(1)
@@ -43,7 +45,7 @@ def test_pointer_arithmetic():
         result = (addr + same_offset).char[0]
         raw_free(addr)
         return ord(result)
-    fc = compile(f, [int, int])
+    fc = compile_function(f, [int, int])
     res = fc(10, ord("c"))
     assert res == ord("c")
     res = fc(12, ord("x"))
@@ -57,7 +59,7 @@ def test_pointer_arithmetic_inplace():
         addr.char[-offset] = char
         addr -= offset
         return ord(addr.char[0])
-    fc = compile(f, [int, int])
+    fc = compile_function(f, [int, int])
     res = fc(10, ord("c"))
     assert res == ord("c")
 
@@ -75,7 +77,7 @@ def test_raw_memcopy():
         raw_free(addr)
         raw_free(addr1)
         return result
-    fc = compile(f, [])
+    fc = compile_function(f, [])
     res = fc()
     assert res
 
@@ -91,7 +93,7 @@ def test_pointer_comparison():
             result = result * 2 + int(addr1 >  addr2)
             result = result * 2 + int(addr1 >= addr2)
         return result
-    fc = compile(f, [])
+    fc = compile_function(f, [])
     res = fc()
     assert res == int('011100' * 2, 2)
 
@@ -105,7 +107,7 @@ def test_flavored_malloc_raw():
         result = a.val
         free_non_gc_object(a)
         return result
-    fn = compile(f, [int])
+    fn = compile_function(f, [int])
     assert fn(1) == 2 
 
 # def test_flavored_varmalloc_raw():
@@ -119,7 +121,7 @@ def test_flavored_malloc_raw():
 #         s.b[0] = y * 2
 #         return s.b[0] - s.a
 
-#     fn = compile(f, [int, int])
+#     fn = compile_function(f, [int, int])
 #     assert fn(2, 24) == 6
 
 def test_flavored_malloc_stack():
@@ -132,7 +134,7 @@ def test_flavored_malloc_stack():
         result = a.val
         free_non_gc_object(a)
         return result
-    fn = compile(f, [int])
+    fn = compile_function(f, [int])
     assert fn(1) == 2 
 
 def test_weakaddress():
@@ -149,5 +151,5 @@ def test_weakaddress():
             l1.append(a)
             l2.append(cast_object_to_weakgcaddress(a))
         return len(l1) == len(l2)
-    fn = compile(func, [int])
+    fn = compile_function(func, [int])
     assert fn(10)

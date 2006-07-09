@@ -5,7 +5,7 @@ from pypy.rpython.lltypesystem import llmemory, lltype
 from pypy.rpython.memory import lladdress
 from pypy.rpython.objectmodel import ComputedIntSymbolic
 
-from pypy.translator.llvm.test.runtest import compile_function
+from pypy.translator.llvm.test.runtest import *
 
 def test_offsetof():
     STRUCT = lltype.GcStruct("s", ("x", lltype.Signed), ("y", lltype.Signed))

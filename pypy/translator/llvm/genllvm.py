@@ -228,14 +228,12 @@ class GenLLVM(object):
         codewriter.ret("sbyte*", "null")
         codewriter.closefunc()
 
-    def compile_llvm_source(self, optimize=True,
-                            exe_name=None, return_fn=False):
+    def compile_llvm_source(self, optimize=True, exe_name=None):
         assert self.source_generated
 
         assert hasattr(self, "filename")
         if exe_name is not None:
             assert self.standalone
-            assert not return_fn
             return buildllvm.make_module_from_llvm(self, self.filename,
                                                    optimize=optimize,
                                                    exe_name=exe_name)
@@ -252,8 +250,6 @@ class GenLLVM(object):
                                                    optimize=optimize)
 
             mod, wrap_fun = self.isolate_module(*info)
-            if return_fn:
-                return wrap_fun
             return mod, wrap_fun
 
     def isolate_module(self, modname, dirpath):

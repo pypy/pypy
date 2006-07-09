@@ -1,7 +1,8 @@
 import sys
+
 import py
 
-from pypy.translator.llvm.test.runtest import compile_test
+from pypy.translator.llvm.test.runtest import *
 
 def test_GC_malloc(): 
     #XXX how to get to gcpolicy?

@@ -1,9 +1,10 @@
 from __future__ import division
-import py
 
+import py
 from pypy.objspace.flow.model import Constant, Variable
-from pypy.translator.llvm.test.runtest import compile_function
 from pypy.translator.llvm.test import llvmsnippet
+
+from pypy.translator.llvm.test.runtest import *
 
 class TestLLVMArray(object):
     def test_array(self):
