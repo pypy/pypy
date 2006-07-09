@@ -20,14 +20,14 @@ class CPyTypeInterface(object):
     def _freeze_(self):
         return True
 
-    def emulate(self, rootbase):
+    def emulate(self, original_class):
         "Build a type object that emulates 'self'."
-        d = {'__slots__': []}
+        d = {'__slots__': [], '_rpython_class_': original_class}
         for name, value in self.objects.items():
             assert lltype.typeOf(value) == PyObjPtr
             assert isinstance(value._obj, lltype._pyobject)
             d[name] = value._obj.value
-        t = type(self.name, (rootbase,), d)
+        t = type(self.name, (rpython_object,), d)
         return t
 
 
@@ -261,3 +261,40 @@ def build_pytypeobject(r_inst):
 # for CPython's GC (see PyObject_GC_Malloc); it needs to Py_INCREF the
 # type if it's a heap type; and it needs to PyObject_GC_Track() the object.
 # Also, tp_dealloc needs to untrack the object.
+
+
+# ____________________________________________________________
+# Emulation support, to have user-defined classes and instances
+# work nicely on top of CPython running the CPyObjSpace
+
+class rpython_meta(type):
+    pass
+
+class rpython_object(object):
+    "NOT_RPYTHON"
+    __metaclass__ = rpython_meta
+    __slots__ = ('data',)
+rpython_data = rpython_object.data
+del rpython_object.data
+
+def init_rpython_data(w_object, value):
+    "NOT_RPYTHON"
+    rpython_data.__set__(w_object.value, value)
+    value.__cpy_wrapper__ = w_object
+
+def get_rpython_data(w_object):
+    "NOT_RPYTHON"
+    return rpython_data.__get__(w_object.value)
+
+
+class Entry(ExtRegistryEntry):
+    """Support for translating prebuilt emulated type objects."""
+    _type_ = rpython_meta
+
+    def get_ll_pyobjectptr(self, rtyper):
+        from pypy.rpython.rclass import getinstancerepr
+        emulated_cls = self.instance
+        rpython_cls = emulated_cls._rpython_class_
+        classdef = rtyper.annotator.bookkeeper.getuniqueclassdef(rpython_cls)
+        r_inst = getinstancerepr(rtyper, classdef)
+        return build_pytypeobject(r_inst)

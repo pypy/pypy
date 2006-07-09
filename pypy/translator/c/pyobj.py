@@ -26,9 +26,9 @@ class PyObjMaker:
     reconstruct them.
     """
 
-    def __init__(self, namespace, getvalue, translator=None):
+    def __init__(self, namespace, db, translator=None):
         self.namespace = namespace
-        self.getvalue = getvalue
+        self.db = db
         self.translator = translator
         self.initcode = [      # list of lines for the module's initxxx()
             'import new, types, sys',
@@ -52,10 +52,21 @@ class PyObjMaker:
             stackentry = obj
         self.debugstack = (self.debugstack, stackentry)
         try:
-            return self.getvalue(pyobjectptr(obj))
+            try:
+                self.translator.rtyper   # check for presence
+                entry = extregistry.lookup(obj)
+                getter = entry.get_ll_pyobjectptr
+            except (KeyError, AttributeError):
+                # common case: 'p' is a _pyobject
+                p = pyobjectptr(obj)
+            else:
+                # 'p' should be a PyStruct pointer, i.e. a _pyobjheader
+                p = getter(self.translator.rtyper)
+            node = self.db.getcontainernode(p._obj)
         finally:
             self.debugstack, x = self.debugstack
             assert x is stackentry
+        return node.exported_name
 
     def computenameof(self, obj):
         obj_builtin_base = builtin_base(obj)
@@ -225,7 +236,7 @@ class PyObjMaker:
         except NoStandardGraph:
             return self.skipped_function(func)
         pycfunctionobj = self.uniquename('gfunc_' + func.__name__)
-        self.wrappers[pycfunctionobj] = func.__name__, self.getvalue(fwrapper), func.__doc__
+        self.wrappers[pycfunctionobj] = func.__name__, self.db.get(fwrapper), func.__doc__
         return pycfunctionobj
 
     def import_function(self, func):
@@ -622,7 +633,7 @@ class PyObjMaker:
         fwrapper = gen_wrapper(g, self.translator, newname=newname,
                                as_method=g in self.is_method)
         pycfunctionobj = self.uniquename('gfunc_' + newname)
-        self.wrappers[pycfunctionobj] = g.func.__name__, self.getvalue(fwrapper), g.func.__doc__
+        self.wrappers[pycfunctionobj] = g.func.__name__, self.db.get(fwrapper), g.func.__doc__
         return pycfunctionobj
 
     def nameof_property(self, p):

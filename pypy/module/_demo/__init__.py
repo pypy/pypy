@@ -6,7 +6,7 @@ class Module(MixedModule):
     interpleveldefs = {
         'measuretime'      : 'demo.measuretime',
         'sieve'            : 'demo.sieve',
-        #'MyType'           : 'demo.W_MyType'
+        'MyType'           : 'demo.W_MyType',
     }
 
     appleveldefs = {

@@ -10,24 +10,10 @@ from pypy.interpreter.function import Function
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.rpython.objectmodel import we_are_translated
 from pypy.rpython.rcpy import CPyTypeInterface, cpy_export, cpy_import
-from pypy.rpython.rcpy import cpy_typeobject
+from pypy.rpython.rcpy import cpy_typeobject, rpython_object
+from pypy.rpython.rcpy import init_rpython_data, get_rpython_data
 from pypy.rpython.lltypesystem import lltype
 
-
-class rpython_object(object):
-    "NOT_RPYTHON"
-    __slots__ = ('data',)
-rpython_data = rpython_object.data
-del rpython_object.data
-
-def init_rpython_data(w_object, value):
-    "NOT_RPYTHON"
-    rpython_data.__set__(w_object.value, value)
-    value.__cpy_wrapper__ = w_object
-
-def get_rpython_data(w_object):
-    "NOT_RPYTHON"
-    return rpython_data.__get__(w_object.value)
 
 def rpython2cpython(space, x):
     cache = space.fromcache(TypeDefCache)
@@ -38,7 +24,7 @@ def rpython2cpython(space, x):
     else:
         w_x = x.__cpy_wrapper__
         if w_x is None:
-            w_type = cache.wraptypeintf(x.typedef, typeintf)
+            w_type = cache.wraptypeintf(x, typeintf)
             w_x = W_Object(rpython_object.__new__(w_type.value))
             init_rpython_data(w_x, x)
         return w_x
@@ -52,7 +38,7 @@ def rpython2cpytype(space, Cls):
         cpytype = cpy_typeobject(typeintf, Cls)
         return W_Object(cpytype)        
     else:
-        return cache.wraptypeintf(Cls.typedef, typeintf)
+        return cache.wraptypeintf(Cls, typeintf)
 rpython2cpytype.allow_someobjects = True
 rpython2cpytype._annspecialcase_ = "specialize:arg(1)"
     
@@ -113,16 +99,17 @@ class TypeDefCache(SpaceCache):
         typeintf = CPyTypeInterface(typedef.name, objects)
         return typeintf
 
-    def wraptypeintf(cache, typedef, typeintf):
+    def wraptypeintf(cache, cls, typeintf):
         "NOT_RPYTHON.  Not available after translation."
         try:
-            return cache.wrappedtypes[typeintf]
+            return cache.wrappedtypes[cls]
         except KeyError:
+            typedef = cls.typedef
             space = cache.space
-            newtype = typeintf.emulate(rpython_object)
+            newtype = typeintf.emulate(cls)
             w_result = W_Object(newtype)
             space.wrap_cache[id(w_result)] = w_result, typedef, follow_annotations
-            cache.wrappedtypes[typeintf] = w_result
+            cache.wrappedtypes[cls] = w_result
             return w_result
 
 def follow_annotations(bookkeeper, w_type):

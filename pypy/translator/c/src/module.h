@@ -38,6 +38,8 @@
 	} \
 	if (setup_globalfunctions(globalfunctiondefs, #modname) < 0) \
 		return;	\
+	if (setup_exportglobalobjects(cpyobjheaddefs) < 0)	\
+		return;	\
 	if (setup_initcode(frozen_initcode, FROZEN_INITCODE_SIZE) < 0) \
 		return;	\
 	if (setup_globalobjects(globalobjectdefs, cpyobjheaddefs) < 0) \
@@ -75,11 +77,9 @@ int call_postsetup(PyObject *m);
 
 #ifndef PYPY_NOT_MAIN_FILE
 
-static int setup_globalobjects(globalobjectdef_t* globtable,
-			       cpyobjheaddef_t* cpyheadtable)
+static int setup_exportglobalobjects(cpyobjheaddef_t* cpyheadtable)
 {
 	PyObject* obj;
-	globalobjectdef_t* def;
 	cpyobjheaddef_t* cpydef;
 
 	/* Store the object given by their heads into the module's dict.
@@ -93,6 +93,16 @@ static int setup_globalobjects(globalobjectdef_t* globtable,
 					 cpydef->name, obj) < 0)
 			return -1;
 	}
+	return 0;
+}
+
+static int setup_globalobjects(globalobjectdef_t* globtable,
+			       cpyobjheaddef_t* cpyheadtable)
+{
+	PyObject* obj;
+	globalobjectdef_t* def;
+	cpyobjheaddef_t* cpydef;
+
 	/* Patch all locations that need to contain a specific PyObject*.
 	   This must go after the previous loop, otherwise
 	   PyDict_GetItemString() might not find some of them.

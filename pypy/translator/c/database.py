@@ -44,7 +44,7 @@ class LowLevelDatabase(object):
         self.namespace = CNameManager()
         if not standalone:
             from pypy.translator.c.pyobj import PyObjMaker
-            self.pyobjmaker = PyObjMaker(self.namespace, self.get, translator)
+            self.pyobjmaker = PyObjMaker(self.namespace, self, translator)
 
         gcpolicy = gcpolicy or conftest.option.gcpolicy or 'ref'
         if isinstance(gcpolicy, str):

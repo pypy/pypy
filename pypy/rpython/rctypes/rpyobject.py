@@ -3,6 +3,7 @@ from pypy.rpython.rmodel import inputconst
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.rctypes.rmodel import CTypesValueRepr
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
+from pypy.rpython import extregistry
 
 
 class CTypesPyObjRepr(CTypesValueRepr):
@@ -16,6 +17,11 @@ class CTypesPyObjRepr(CTypesValueRepr):
     def initialize_const(self, p, value):
         if isinstance(value, self.ctype):
             value = value.value
+        if extregistry.is_registered(value):
+            entry = extregistry.lookup(value)
+            if hasattr(entry, 'get_ll_pyobjectptr'):
+                p.c_data[0] = entry.get_ll_pyobjectptr(self.rtyper)
+                return
         p.c_data[0] = lltype.pyobjectptr(value)
 
     def rtype_getattr(self, hop):
