@@ -22,6 +22,7 @@ class CPyTypeInterface(object):
 
     def emulate(self, original_class):
         "Build a type object that emulates 'self'."
+        assert isinstance(original_class, type)
         d = {'__slots__': [], '_rpython_class_': original_class}
         for name, value in self.objects.items():
             assert lltype.typeOf(value) == PyObjPtr
@@ -271,20 +272,26 @@ class rpython_meta(type):
     pass
 
 class rpython_object(object):
-    "NOT_RPYTHON"
+    """NOT_RPYTHON
+    Wrapper object, for emulation.
+    """
     __metaclass__ = rpython_meta
     __slots__ = ('data',)
 rpython_data = rpython_object.data
 del rpython_object.data
 
-def init_rpython_data(w_object, value):
-    "NOT_RPYTHON"
-    rpython_data.__set__(w_object.value, value)
-    value.__cpy_wrapper__ = w_object
+def init_rpython_data(wrapperobj, value):
+    """NOT_RPYTHON
+    Set the wrapper object's hidden 'data' slot to point to the original
+    RPython instance 'value'.
+    """
+    rpython_data.__set__(wrapperobj, value)
 
-def get_rpython_data(w_object):
-    "NOT_RPYTHON"
-    return rpython_data.__get__(w_object.value)
+def get_rpython_data(wrapperobj):
+    """NOT_RPYTHON
+    Get the original RPython instance from the wrapper object.
+    """
+    return rpython_data.__get__(wrapperobj)
 
 
 class Entry(ExtRegistryEntry):
@@ -298,3 +305,18 @@ class Entry(ExtRegistryEntry):
         classdef = rtyper.annotator.bookkeeper.getuniqueclassdef(rpython_cls)
         r_inst = getinstancerepr(rtyper, classdef)
         return build_pytypeobject(r_inst)
+
+
+class Entry(ExtRegistryEntry):
+    """Support for translating prebuilt emulated type objects."""
+    _metatype_ = rpython_meta
+
+    def get_ll_pyobjectptr(self, rtyper):
+        from pypy.rpython.rclass import getinstancerepr
+        wrapperobj = self.instance
+        rpython_obj = get_rpython_data(wrapperobj)
+        rpython_cls = rpython_obj.__class__
+        classdef = rtyper.annotator.bookkeeper.getuniqueclassdef(rpython_cls)
+        r_inst = getinstancerepr(rtyper, classdef)
+        pyobj = r_inst.convert_const(rpython_obj)
+        return lltype.cast_pointer(PyObjPtr, pyobj)

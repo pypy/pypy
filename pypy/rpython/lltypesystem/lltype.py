@@ -1168,6 +1168,9 @@ class _parentable(_container):
             container = parent
         return container
 
+    def _setup_extra_args(self):
+        pass
+
 def _struct_variety(flds, cache={}):
     flds = list(flds)
     flds.sort()
@@ -1256,7 +1259,11 @@ class _struct(_parentable):
         setattr(self, 'item%d' % index, value)
 
     def _setup_extra_args(self, *args):
-        getattr(self, self._TYPE._names[0])._setup_extra_args(*args)
+        fieldname, FIELDTYPE = self._TYPE._first_struct()
+        if fieldname is not None:
+            getattr(self, fieldname)._setup_extra_args(*args)
+        else:
+            assert not args
 
 class _array(_parentable):
     _kind = "array"
@@ -1492,7 +1499,7 @@ class _pyobjheader(_parentable):
         return '<%s>' % (self,)
 
     def __str__(self):
-        return "pyobjheader of type %r" % (self.ob_type,)
+        return "pyobjheader of type %r" % (getattr(self, 'ob_type', '???'),)
 
 
 def malloc(T, n=None, flavor='gc', immortal=False, extra_args=()):
@@ -1504,8 +1511,7 @@ def malloc(T, n=None, flavor='gc', immortal=False, extra_args=()):
         raise TypeError, "malloc for Structs and Arrays only"
     if T._gckind != 'gc' and not immortal and flavor.startswith('gc'):
         raise TypeError, "gc flavor malloc of a non-GC non-immortal structure"
-    if extra_args:
-        o._setup_extra_args(*extra_args)
+    o._setup_extra_args(*extra_args)
     solid = immortal or not flavor.startswith('gc') # immortal or non-gc case
     return _ptr(Ptr(T), o, solid)
 

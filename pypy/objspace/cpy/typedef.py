@@ -24,9 +24,10 @@ def rpython2cpython(space, x):
     else:
         w_x = x.__cpy_wrapper__
         if w_x is None:
-            w_type = cache.wraptypeintf(x, typeintf)
+            w_type = cache.wraptypeintf(x.__class__, typeintf)
             w_x = W_Object(rpython_object.__new__(w_type.value))
-            init_rpython_data(w_x, x)
+            init_rpython_data(w_x.value, x)
+            x.__cpy_wrapper__ = w_x
         return w_x
 rpython2cpython.allow_someobjects = True
 rpython2cpython._annspecialcase_ = "specialize:argtype(1)"
@@ -48,7 +49,7 @@ def cpython2rpython_raw(space, w_obj):
         w_obj, result, follow = space.wrap_cache[id(w_obj)]
     except KeyError:
         if isinstance(w_obj.value, rpython_object):
-            result = get_rpython_data(w_obj)
+            result = get_rpython_data(w_obj.value)
         else:
             result = None
     return result

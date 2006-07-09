@@ -296,3 +296,48 @@ def test_prebuilt_type():
                  annotatorpolicy = CPyAnnotatorPolicy(space))
     res = fn(expected_extra_mallocs=1)
     assert type(res).__name__ == 'MyType'
+
+def test_prebuilt_instance():
+    def mytype_new(space, w_subtype, x):
+        return space.wrap(W_MyType(space, x))
+    mytype_new.unwrap_spec = [ObjSpace, W_Root, int]
+
+    W_MyType.typedef = TypeDef("MyType",
+                               __new__ = interp2app(mytype_new))
+    space = CPyObjSpace()
+
+    w_type = space.gettypefor(W_MyType)
+    w_obj = space.call_function(w_type, space.wrap(42))
+    def build():
+        return w_obj
+
+    w_name = space.getattr(space.type(w_obj), space.wrap('__name__'))
+    assert space.unwrap(w_name) == 'MyType'
+
+    fn = compile(build, [],
+                 annotatorpolicy = CPyAnnotatorPolicy(space))
+    res = fn(expected_extra_mallocs=0)
+    assert type(res).__name__ == 'MyType'
+
+def test_prebuilt_instance_inside_pyobj():
+    def mytype_new(space, w_subtype, x):
+        return space.wrap(W_MyType(space, x))
+    mytype_new.unwrap_spec = [ObjSpace, W_Root, int]
+
+    W_MyType.typedef = TypeDef("MyType",
+                               __new__ = interp2app(mytype_new))
+    space = CPyObjSpace()
+
+    w_type = space.gettypefor(W_MyType)
+    w_obj = space.call_function(w_type, space.wrap(42))
+    w_mydict = space.newdict([])
+    space.setitem(w_mydict, space.wrap('hello'), w_obj)
+    def build():
+        return w_mydict
+
+    fn = compile(build, [],
+                 annotatorpolicy = CPyAnnotatorPolicy(space))
+    res = fn(expected_extra_mallocs=0)
+    assert type(res) is dict
+    assert res.keys() == ['hello']
+    assert type(res['hello']).__name__ == 'MyType'

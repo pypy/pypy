@@ -771,11 +771,13 @@ class PyObjHeadNode(ContainerNode):
 
     def pyobj_initexpr(self):
         parent, parentindex = parentlink(self.obj)
-        assert typeOf(parent)._hints.get('inline_head')
         typenode = self.db.getcontainernode(self.obj.ob_type._obj)
         typenode.where_to_copy_me.append('(PyObject **) & %s.ob_type' % (
             self.name,))
-        return 'PyObject_HEAD_INIT(NULL)'
+        if typeOf(parent)._hints.get('inline_head'):
+            return 'PyObject_HEAD_INIT(NULL)'
+        else:
+            return '{ PyObject_HEAD_INIT(NULL) },'
 
 
 def objectnode_factory(db, T, obj):

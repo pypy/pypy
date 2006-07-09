@@ -393,7 +393,13 @@ class InstanceRepr(AbstractInstanceRepr):
         return cast_pointer(self.lowleveltype, result)
 
     def create_instance(self):
-        return malloc(self.object_type, flavor=self.gcflavor)
+        if self.gcflavor == 'cpy':
+            from pypy.rpython import rcpy
+            extra_args = (rcpy.build_pytypeobject(self),)
+        else:
+            extra_args = ()
+        return malloc(self.object_type, flavor=self.gcflavor,
+                      extra_args=extra_args)
 
     def has_wrapper(self):
         return self.classdef is not None and (
