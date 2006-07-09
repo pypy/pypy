@@ -9,7 +9,7 @@ from pypy.translator.oosupport.metavm import _GetFieldDispatcher, _SetFieldDispa
 
 from pypy.translator.js.metavm import SameAs, IsInstance, Call, CallMethod, CopyName, CastString,\
     _Prefix, _CastFun, _NotImplemented, CallBuiltin, CallBuiltinObject, GetBuiltinField, SetBuiltinField,\
-    IndirectCall, CallExternalObject, SetExternalField
+    IndirectCall, CallExternalObject, SetExternalField, _CastMethod, _LoadConst
 
 from pypy.translator.js.jsbuiltin import Builtins
 
@@ -121,7 +121,7 @@ opcodes = {'int_mul': '*',
     'ooupcast'   : DoNothing,
     'oodowncast' : DoNothing,        
     'oononnull'  : [PushAllArgs,_Prefix('!!')],
-    'oostring'   : [CastString],
+    'oostring'   : [PushArg(0),CastString],
     'ooparse_int' : [PushAllArgs,_CastFun("parseInt",2)],
     'oois'       : '===',
     # when casting from bool we want that every truth value is casted
@@ -131,8 +131,8 @@ opcodes = {'int_mul': '*',
     'cast_bool_to_int':         CopyName,
     'cast_bool_to_uint':        CopyName,
     'cast_bool_to_float':       CopyName,
-    'cast_char_to_int':         [PushAllArgs,_CastFun("String.charCodeAt",1)],
-    'cast_unichar_to_int':      [PushAllArgs,_CastFun("String.charCodeAt",1)],
+    'cast_char_to_int':         [PushAllArgs,_LoadConst(0),_CastMethod("charCodeAt",1)],
+    'cast_unichar_to_int':      [PushAllArgs,_LoadConst(0),_CastMethod("charCodeAt",1)],
     'cast_int_to_char':         [PushAllArgs,_CastFun("String.fromCharCode",1)],
     'cast_int_to_unichar':      [PushAllArgs,_CastFun("String.fromCharCode",1)],
     'cast_int_to_uint':         CopyName,

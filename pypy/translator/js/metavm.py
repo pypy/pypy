@@ -103,11 +103,20 @@ class _NotImplemented(MicroInstruction):
     def render(self, generator, op):
         raise NotImplementedError(self.reason)
         
-class _CastString(MicroInstruction):
+class _CastMethod(MicroInstruction):
+    def __init__(self, method_name, num=0):
+        self.method_name = method_name
+        self.num = num
+
     def render(self, generator, op):
-        this = op.args[0]
-        generator.load(this)
-        generator.call_external_method("toString", 0)
+        generator.call_external_method(self.method_name, self.num)
+
+class _LoadConst(MicroInstruction):
+    def __init__(self, value):
+        self.value = value
+
+    def render(self, generator, op):
+        generator.load(Constant(self.value, ootype.typeOf(self.value)))
     
 class _GetBuiltinField(MicroInstruction):
     def render(self, generator, op):
@@ -235,5 +244,5 @@ IndirectCall = _IndirectCall()
 IsInstance = _IsInstance()
 CallMethod = _CallMethod()
 CopyName = [PushAllArgs, _SameAs ()]
-CastString = _CastString()
+CastString = _CastMethod("toString")
 SameAs = CopyName
