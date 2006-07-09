@@ -274,3 +274,25 @@ def test_with_new():
                  annotatorpolicy = CPyAnnotatorPolicy(space))
     res = fn(expected_extra_mallocs=1)
     assert type(res).__name__ == 'MyType'
+
+def test_prebuilt_type():
+    def mytype_new(space, w_subtype, x):
+        return space.wrap(W_MyType(space, x))
+    mytype_new.unwrap_spec = [ObjSpace, W_Root, int]
+
+    W_MyType.typedef = TypeDef("MyType",
+                               __new__ = interp2app(mytype_new))
+    space = CPyObjSpace()
+
+    w_type = space.gettypefor(W_MyType)
+    def build():
+        return space.call_function(w_type, space.wrap(42))
+
+    w_obj = build()
+    w_name = space.getattr(space.type(w_obj), space.wrap('__name__'))
+    assert space.unwrap(w_name) == 'MyType'
+
+    fn = compile(build, [],
+                 annotatorpolicy = CPyAnnotatorPolicy(space))
+    res = fn(expected_extra_mallocs=1)
+    assert type(res).__name__ == 'MyType'

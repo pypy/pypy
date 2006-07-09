@@ -50,11 +50,10 @@ def compile(fn, argtypes, view=False, gcpolicy=None, backendopt=True,
             expected_extra_mallocs = kwds.pop('expected_extra_mallocs')
         else:
             expected_extra_mallocs = 0
-        try:
-            return compiled_fn(*args, **kwds)
-        finally:
-            mallocs, frees = module.malloc_counters()
-            assert mallocs - frees == expected_extra_mallocs
+        res = compiled_fn(*args, **kwds)
+        mallocs, frees = module.malloc_counters()
+        assert mallocs - frees == expected_extra_mallocs
+        return res
     return checking_fn
 
 def test_func_as_pyobject():

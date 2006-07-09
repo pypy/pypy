@@ -706,7 +706,7 @@ def gen_source(database, modulename, targetdir, defines={}, exports={},
     print >> f, '/***  Table of global PyObjects                          ***/'
     print >> f
     print >> f, 'static globalobjectdef_t globalobjectdefs[] = {'
-    for node in database.globalcontainers():
+    for node in database.containerlist:
         if isinstance(node, (PyObjectNode, PyObjHeadNode)):
             for target in node.where_to_copy_me:
                 print >> f, '\t{%s, "%s"},' % (target, node.exported_name)
