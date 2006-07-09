@@ -574,7 +574,13 @@ class MarkSweepGC(GCBase):
 
                 newhdr_addr = newobj_addr - size_gc_header
                 newhdr = llmemory.cast_adr_to_ptr(newhdr_addr, self.HDRPTR)
+
+                saved_id   = newhdr.typeid    # XXX hack needed for genc
+                saved_next = newhdr.next      # where size_gc_header == 0
                 raw_memcopy(oldobj_addr, newobj_addr, size)
+                newhdr.typeid = saved_id
+                newhdr.next   = saved_next
+
                 offsets = self.offsets_to_gc_pointers(typeid)
                 i = 0
                 while i < len(offsets):
