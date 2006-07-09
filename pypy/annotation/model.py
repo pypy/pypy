@@ -457,10 +457,20 @@ class SomeCTypesObject(SomeExternalObject):
 
 class SomeNumpyObject(SomeExternalObject):
     """Stands for an object from the numpy module."""
-
+    from pypy.rpython.rctypes import rcarithmetic
     typecode_to_item = {
-        'i' : SomeInteger(),
-        'f' : SomeFloat(),
+        'b' : SomeInteger(knowntype=rcarithmetic.rcbyte),
+        'h' : SomeInteger(knowntype=rcarithmetic.rcshort),
+        'i' : SomeInteger(knowntype=rcarithmetic.rcint),
+        'l' : SomeInteger(knowntype=rcarithmetic.rclong),
+        'q' : SomeInteger(knowntype=rcarithmetic.rclonglong),
+        'B' : SomeInteger(knowntype=rcarithmetic.rcubyte),
+        'H' : SomeInteger(knowntype=rcarithmetic.rcushort),
+        'I' : SomeInteger(knowntype=rcarithmetic.rcuint),
+        'L' : SomeInteger(knowntype=rcarithmetic.rculong),
+        'Q' : SomeInteger(knowntype=rcarithmetic.rculonglong),
+        'f' : SomeFloat(), # XX single precision float XX
+        'd' : SomeFloat(),
     }
     def __init__(self, knowntype, typecode, ownsmemory):
         self.knowntype = knowntype

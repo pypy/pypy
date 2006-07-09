@@ -2,36 +2,43 @@ from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.annotation.model import SomeNumpyObject, SomeList, SomeImpossibleValue
 from pypy.annotation.model import SomeInteger, SomeFloat, SomeString, SomeChar
 from pypy.annotation.listdef import ListDef
+from pypy.rpython.rctypes import rcarithmetic
+from pypy.tool.error import AnnotatorError
 
 import numpy
 
-numpy_knowntype = type(numpy.array([]))
-
 numpy_typedict = {
-    SomeInteger : 'i',
-    SomeFloat  : 'f',
+    (SomeInteger, rcarithmetic.rcbyte) : 'b', 
+    (SomeInteger, rcarithmetic.rcshort) : 'h', 
+    (SomeInteger, rcarithmetic.rcint) : 'i', 
+    (SomeInteger, rcarithmetic.rclong) : 'l', 
+    (SomeInteger, int) : 'l', 
+    (SomeInteger, rcarithmetic.rclonglong) : 'q', 
+    (SomeInteger, rcarithmetic.rcubyte) : 'B', 
+    (SomeInteger, rcarithmetic.rcushort) : 'H', 
+    (SomeInteger, rcarithmetic.rcuint) : 'I', 
+    (SomeInteger, rcarithmetic.rculong) : 'L', 
+    (SomeInteger, rcarithmetic.rculonglong) : 'Q', 
+    (SomeFloat, float) : 'f', 
+    (SomeFloat, float) : 'd', 
 }
 
-valid_typecodes='if'
+valid_typecodes='bhilqBHILQfd'
 
 class CallEntry(ExtRegistryEntry):
     "Annotation and rtyping of calls to numpy.array."
     _about_ = numpy.array
 
     def compute_result_annotation(self, arg_list, *args_s, **kwds_s):
-#        print self
-#        print arg_list
-#        print args_s
-#        print kwds_s
 	if not isinstance(arg_list, SomeList):
             raise AnnotatorError("numpy.array expects SomeList")
-#	if not isinstance(arg_list, SomeRange):
-#            raise AnnotatorError("numpy.array expects SomeList")
-        # First guess type from input list
-        listtype = type(arg_list.listdef.listitem.s_value)
-        
-        typecode = numpy_typedict.get( listtype, None )
 
+        # First guess type from input list
+        listitem = arg_list.listdef.listitem
+        key = type(listitem.s_value), listitem.s_value.knowntype
+        typecode = numpy_typedict.get( key, None )
+
+        # now see if the dtype arg over-rides the typecode
         dtype = None
 	if len(args_s)>0:
             dtype = args_s[0]
@@ -42,14 +49,12 @@ class CallEntry(ExtRegistryEntry):
             dtype = None
         if dtype is not None:
             raise AnnotatorError("dtype is not a valid type specification")
-        if typecode not in valid_typecodes:
+        if typecode is None or typecode not in valid_typecodes:
             raise AnnotatorError("List item type not supported")
-        knowntype = numpy_knowntype
-        print "SomeNumpyObject", knowntype, typecode
+        knowntype = numpy.ndarray
         return SomeNumpyObject(knowntype, typecode, ownsmemory=True)
 
     def specialize_call(self, hop):
-        print "specialize_call", hop
         r_array = hop.r_result
         [v_lst] = hop.inputargs(r_array)
         v_result = r_array.allocate_instance(hop.llops, v_lst)
@@ -57,21 +62,12 @@ class CallEntry(ExtRegistryEntry):
 
 class NumpyObjEntry(ExtRegistryEntry):
     "Annotation and rtyping of numpy array instances."
-    _type_ = numpy_knowntype
+    _type_ = numpy.ndarray
 
     def get_repr(self, rtyper, s_array):
         from pypy.rpython.numpy.rarray import ArrayRepr
-        print "NumpyObjEntry.get_repr", rtyper, s_array
         return ArrayRepr(rtyper, s_array)
 
-
-#class NumpyObjEntry(NumpyEntry):
-#    "Annotation and rtyping of ctypes instances."
-#
-#    def compute_annotation(self):
-#        #self.ctype_object_discovered()
-#        ctype = self.type
-#        return SomeNumpyObject(ctype, ownsmemory=True)
 
 
 # Importing for side effect of registering types with extregistry
