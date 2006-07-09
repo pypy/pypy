@@ -1067,7 +1067,7 @@ class DeferredRefcountingGC(GCBase):
         while roots.non_empty():
             root = roots.pop()
             self.decref(root.address[0])
-        root.delete()
+        roots.delete()
         self.collecting = False
 
     def write_barrier(self, addr, addr_to, addr_struct):

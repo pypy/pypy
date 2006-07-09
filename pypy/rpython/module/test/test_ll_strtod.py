@@ -1,6 +1,7 @@
 
-from pypy.rpython.module.ll_strtod import ll_strtod_parts_to_float, ll_strtod_formatd
+from pypy.rpython.module.ll_strtod import ll_strtod_parts_to_float
 from pypy.rpython.module.support import LLSupport
+from pypy.rpython.lltypesystem.module.ll_strtod import Implementation
 
 
 def test_parts_to_float():
@@ -18,5 +19,5 @@ def test_parts_to_float():
     
 
 def test_formatd():
-    res = ll_strtod_formatd(LLSupport.to_rstr("%.2f"), 1.5)
+    res = Implementation.ll_strtod_formatd(LLSupport.to_rstr("%.2f"), 1.5)
     assert LLSupport.from_rstr(res) == "1.50"
