@@ -67,21 +67,26 @@ class AnnotatorError(Exception):
 def gather_error(annotator, block, graph):
     msg = []
     msg.append('-+' * 30)
-    msg.append("Operation cannot succeed")
-    _, _, operindex = annotator.why_not_annotated[block][1].break_at
-    oper = block.operations[operindex]
-    msg.append(" " + str(oper))
-    if SHOW_ANNOTATIONS:
-        msg.append("Known variable annotations:")
-        for arg in oper.args + [oper.result]:
-            if isinstance(arg, Variable):
-                try:
-                    msg.append(" " + str(arg) + " = " + str(annotator.binding(arg)))
-                except KeyError:
-                    pass
-        msg.append("")
-    if SHOW_TRACEBACK:
-        msg.extend(traceback.format_exception(*annotator.why_not_annotated[block]))
+    from pypy.annotation import model
+    if model.DEBUG:
+        msg.append("Operation cannot succeed")
+        _, _, operindex = annotator.why_not_annotated[block][1].break_at
+        oper = block.operations[operindex]
+        msg.append(" " + str(oper))
+        if SHOW_ANNOTATIONS:
+            msg.append("Known variable annotations:")
+            for arg in oper.args + [oper.result]:
+                if isinstance(arg, Variable):
+                    try:
+                        msg.append(" " + str(arg) + " = " + str(annotator.binding(arg)))
+                    except KeyError:
+                        pass
+            msg.append("")
+        if SHOW_TRACEBACK:
+            msg.extend(traceback.format_exception(*annotator.why_not_annotated[block]))
+    else:
+        msg.append("Blocked block")
+        operindex = None
     msg += source_lines(graph, block, operindex, long=True)
     return "\n".join(msg)
 
