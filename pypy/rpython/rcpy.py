@@ -22,7 +22,7 @@ class CPyTypeInterface(object):
 
     def emulate(self, rootbase):
         "Build a type object that emulates 'self'."
-        d = {}
+        d = {'__slots__': []}
         for name, value in self.objects.items():
             assert lltype.typeOf(value) == PyObjPtr
             assert isinstance(value._obj, lltype._pyobject)

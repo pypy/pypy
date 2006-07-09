@@ -39,7 +39,7 @@ def rpython2cpython(space, x):
         w_x = x.__cpy_wrapper__
         if w_x is None:
             w_type = cache.wraptypeintf(x.typedef, typeintf)
-            w_x = space.call_function(w_type)
+            w_x = W_Object(rpython_object.__new__(w_type.value))
             init_rpython_data(w_x, x)
         return w_x
 rpython2cpython.allow_someobjects = True
