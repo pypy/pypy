@@ -12,6 +12,7 @@ class TestCliBuiltin(CliTest, BaseTestRbuiltin):
     test_builtin_math_modf = skip_math_os
     test_os_getcwd = skip_math_os
     test_os_write = skip_math_os
+    test_os_write_single_char = skip_math_os
     test_os_read = skip_math_os
     test_os_dup = skip_math_os
     test_os_open = skip_math_os
