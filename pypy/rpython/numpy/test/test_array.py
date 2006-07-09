@@ -11,6 +11,8 @@ from pypy import conftest
 import sys
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.rctypes import rcarithmetic
+from pypy.rpython.rint import IntegerRepr
+from pypy.rpython.numpy.rarray import ArrayRepr
 
 import numpy
 
@@ -66,14 +68,15 @@ class Test_annotation:
         assert s.knowntype == rcarithmetic.rcint
 
 class Test_specialization:
-    def test_specialize_array(self):
+    def test_specialize_array_create(self):
         def create_array():
             return numpy.array([1,2])
 
         res = interpret(create_array, [])
-        print res
+        assert res.data[0] == 1
+        assert res.data[1] == 2
 
-    def test_specialize_array2(self):
+    def test_specialize_array_access(self):
         def access_with_variable():
             my_array = numpy.array(range(10))
             my_array[2] = 2
@@ -84,7 +87,17 @@ class Test_specialization:
             return sum
 
         res = interpret(access_with_variable, [])
-        print res
+        assert res == 45
+
+    def test_specialize_array_add(self):
+        def create_array():
+            a1 = numpy.array([1,2])
+            a2 = numpy.array([6,9])
+            return a1 + a2
+
+        res = interpret(create_array, [])
+        assert res.data[0] == 7
+        assert res.data[1] == 11
 
 class Test_compile:
     def setup_class(self):

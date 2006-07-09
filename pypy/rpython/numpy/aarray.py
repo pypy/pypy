@@ -1,11 +1,64 @@
 from pypy.rpython.extregistry import ExtRegistryEntry
-from pypy.annotation.model import SomeNumpyObject, SomeList, SomeImpossibleValue
+from pypy.annotation.pairtype import pairtype
+from pypy.annotation.model import SomeExternalObject, SomeList, SomeImpossibleValue
 from pypy.annotation.model import SomeInteger, SomeFloat, SomeString, SomeChar
 from pypy.annotation.listdef import ListDef
 from pypy.rpython.rctypes import rcarithmetic
 from pypy.tool.error import AnnotatorError
 
 import numpy
+
+class SomeArray(SomeExternalObject):
+    """Stands for an object from the numpy module."""
+    from pypy.rpython.rctypes import rcarithmetic
+    typecode_to_item = {
+        'b' : SomeInteger(knowntype=rcarithmetic.rcbyte),
+        'h' : SomeInteger(knowntype=rcarithmetic.rcshort),
+        'i' : SomeInteger(knowntype=rcarithmetic.rcint),
+        'l' : SomeInteger(knowntype=rcarithmetic.rclong),
+        'q' : SomeInteger(knowntype=rcarithmetic.rclonglong),
+        'B' : SomeInteger(knowntype=rcarithmetic.rcubyte),
+        'H' : SomeInteger(knowntype=rcarithmetic.rcushort),
+        'I' : SomeInteger(knowntype=rcarithmetic.rcuint),
+        'L' : SomeInteger(knowntype=rcarithmetic.rculong),
+        'Q' : SomeInteger(knowntype=rcarithmetic.rculonglong),
+        'f' : SomeFloat(), # XX single precision float XX
+        'd' : SomeFloat(),
+    }
+    def __init__(self, knowntype, typecode):
+        self.knowntype = knowntype
+	self.typecode = typecode
+	self.rank = 1
+
+    def can_be_none(self):
+        return True
+
+    def return_annotation(self):
+        """Returns either 'self' or the annotation of the unwrapped version
+        of this ctype, following the logic used when ctypes operations
+        return a value.
+        """
+        from pypy.rpython import extregistry
+        assert extregistry.is_registered_type(self.knowntype)
+        entry = extregistry.lookup_type(self.knowntype)
+        # special case for returning primitives or c_char_p
+        return getattr(entry, 's_return_trick', self)
+
+    def get_item_type(self):
+        return self.typecode_to_item[self.typecode]
+
+class __extend__(pairtype(SomeArray, SomeArray)):
+    def add((s_arr1,s_arr2)):
+        # TODO: coerce the array types
+        return SomeArray(s_arr1.knowntype, s_arr1.typecode)
+
+class __extend__(pairtype(SomeArray, SomeInteger)):
+    def setitem((s_cto, s_index), s_value):
+        pass
+
+    def getitem((s_cto, s_index)):
+        # TODO: higher ranked arrays have getitem returns SomeArray
+        return s_cto.get_item_type()
 
 numpy_typedict = {
     (SomeInteger, rcarithmetic.rcbyte) : 'b', 
@@ -52,7 +105,7 @@ class CallEntry(ExtRegistryEntry):
         if typecode is None or typecode not in valid_typecodes:
             raise AnnotatorError("List item type not supported")
         knowntype = numpy.ndarray
-        return SomeNumpyObject(knowntype, typecode, ownsmemory=True)
+        return SomeArray(knowntype, typecode)
 
     def specialize_call(self, hop):
         r_array = hop.r_result
