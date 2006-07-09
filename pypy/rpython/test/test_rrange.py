@@ -13,7 +13,8 @@ class BaseTestRrange(BaseRtypingTest):
                 l = self.rrange.ll_newrangest(start, stop, step)
                 step = l.step
             else:
-                l = self.rrange.ll_newrange(start,stop)
+                RANGE = self.rrange.RangeRepr(step).RANGE
+                l = self.rrange.ll_newrange(RANGE,start,stop)
             assert ll_rangelen(l, step) == length
             lst = [ll_rangeitem(dum_nocheck, l, i, step) for i in range(length)]
             assert lst == expected

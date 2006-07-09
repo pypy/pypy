@@ -98,7 +98,8 @@ def rtype_builtin_range(hop):
             raise TyperError("range cannot have a const step of zero")
     if isinstance(hop.r_result, AbstractRangeRepr):
         if hop.r_result.step != 0:
-            return hop.gendirectcall(hop.r_result.ll_newrange, vstart, vstop)
+            c_rng = hop.inputconst(Void, hop.r_result.RANGE)
+            return hop.gendirectcall(hop.r_result.ll_newrange, c_rng, vstart, vstop)
         else:
             return hop.gendirectcall(hop.r_result.ll_newrangest, vstart, vstop, vstep)
     else:

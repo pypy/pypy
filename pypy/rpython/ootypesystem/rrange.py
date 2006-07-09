@@ -25,7 +25,7 @@ class RangeRepr(AbstractRangeRepr):
         return RangeIteratorRepr(self)
 
 
-def ll_newrange(start, stop):
+def ll_newrange(_RANGE, start, stop):
     l = new(RANGE)
     l.start = start
     l.stop = stop
