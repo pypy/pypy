@@ -21,6 +21,7 @@ from pypy import conftest
 
 class LowLevelDatabase(object):
     stacklesstransformer = None
+    gctransformer = None
 
     def __init__(self, translator=None, standalone=False, gcpolicy=None, thread_enabled=False):
         self.translator = translator
@@ -69,7 +70,8 @@ class LowLevelDatabase(object):
         else:
             self.exctransformer = ExceptionTransformer(translator)
         self.gcpolicy = gcpolicy(self, thread_enabled)
-        self.gctransformer = gcpolicy.transformerclass(translator)
+        if translator is not None:
+            self.gctransformer = gcpolicy.transformerclass(translator)
         self.completed = False
 
     def gettypedefnode(self, T, varlength=1):
@@ -271,10 +273,12 @@ class LowLevelDatabase(object):
         # steps with calls to the next 'finish' function from the following
         # list:
         finish_callbacks = []
-        finish_callbacks.append(self.gctransformer.finish_helpers)
+        if self.gctransformer:
+            finish_callbacks.append(self.gctransformer.finish_helpers)
         if self.stacklesstransformer:
             finish_callbacks.append(self.stacklesstransformer.finish)
-        finish_callbacks.append(self.gctransformer.finish_tables)
+        if self.gctransformer:
+            finish_callbacks.append(self.gctransformer.finish_tables)
 
         def add_dependencies(newdependencies):
             for value in newdependencies:

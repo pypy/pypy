@@ -49,7 +49,8 @@ class FunctionCodeGenerator(object):
         if self.db.exctransformer:
             self.db.exctransformer.create_exception_handling(self.graph)
         # apply the gc transformation
-        self.db.gctransformer.transform_graph(self.graph)
+        if self.db.gctransformer:
+            self.db.gctransformer.transform_graph(self.graph)
         #self.graph.show()
         self.collect_var_and_types()
 
@@ -104,7 +105,7 @@ class FunctionCodeGenerator(object):
 
     def patch_graph(self, copy_graph):
         graph = self.graph
-        if self.db.gctransformer.inline:
+        if self.db.gctransformer and self.db.gctransformer.inline:
             if copy_graph:
                 graph = copygraph(graph, shallow=True)
             self.db.gctransformer.inline_helpers(graph)
