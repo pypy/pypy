@@ -91,7 +91,7 @@ def get_executables():  #sorted by revision number (highest first)
 def main():
     benchmark_result = BenchmarkResult('bench-unix.benchmark_result')
 
-    print 'date                       executable                        richards             pystone'
+    print 'date                           size codesize    executable                        richards             pystone'
     sys.stdout.flush()
 
     v = 'python ' + sys.version.split()[0]
@@ -105,13 +105,13 @@ def main():
         benchmark_result.update(p, run_pystone(), PYSTONE_ASCENDING_GOOD)
     ref_stone = benchmark_result.get_best_result(p)
 
-    fmt = '%-26s %-30s   %6dms (%6.1fx)   %6d (%6.1fx)'
-    print fmt % (time.ctime(), v, ref_rich, 1.0, ref_stone, 1.0)
+    fmt = '%-26s %8s %8s    %-30s   %6dms (%6.1fx)   %6d (%6.1fx)'
+    print fmt % (time.ctime(), '-', '-', v, ref_rich, 1.0, ref_stone, 1.0)
     sys.stdout.flush()
 
     for exe in get_executables():
         exename = os.path.splitext(exe)[0].lstrip('./')
-        ctime   = time.ctime( os.path.getctime(exename) )
+        ctime   = time.ctime( os.path.getmtime(exename) )
 
         r = exe + '_richards'
         if not benchmark_result.is_stable(r):
@@ -123,7 +123,9 @@ def main():
             benchmark_result.update(p, run_pystone(exe), PYSTONE_ASCENDING_GOOD)
         stone = benchmark_result.get_best_result(p)
 
-        print fmt % (ctime, exename, rich, rich / ref_rich, stone, ref_stone / stone)
+        codesize = os.popen('size %s | tail -n1 | cut -f1'%(exename,)).read().strip()
+
+        print fmt % (ctime, os.path.getsize(exe), codesize, exename, rich, rich / ref_rich, stone, ref_stone / stone)
         sys.stdout.flush()
 
 if __name__ == '__main__':
