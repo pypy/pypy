@@ -5,6 +5,8 @@ import py
 import time, os, sys, stat
 from pypy.translator.llvm.buildllvm import optimizations
 
+os.umask(022)      # allow everyone to read/execute the produced pypy-c's
+
 homedir = os.getenv('HOME')
 tmpdir  = py.std.tempfile.gettempdir() + '/usession-' + os.environ['USER'] + '/'
 cflags  = "-march=pentium4 -O3 -fomit-frame-pointer"
@@ -28,9 +30,10 @@ def compile_llvm_variants(revision):
 
     bc2c_exe(revision, 'from richards import *;main(iterations=1)')
 
-    bc2x86_exe(revision, 'x86A', '-enable-x86-fastcc -relocation-model=static -join-liveintervals')
-    bc2x86_exe(revision, 'x86B', '-relocation-model=static')
-    bc2x86_exe(revision, 'x86C', '')
+    bc2x86_exe(revision, 'x86', '-relocation-model=static')
+    #bc2x86_exe(revision, 'x86A', '-enable-x86-fastcc -relocation-model=static -join-liveintervals')
+    #bc2x86_exe(revision, 'x86B', '-relocation-model=static')
+    #bc2x86_exe(revision, 'x86C', '')
 
 
 def ll2bc(revision):
@@ -127,11 +130,13 @@ def benchmark():
     run('echo "<html><body><pre>"    >  benchmark.html')
     run('cat benchmark.txt           >> benchmark.html')
     run('echo "</pre></body></html>" >> benchmark.html')
-    run('scp benchmark.html ericvrp@codespeak.net:public_html/benchmark/index.html')
+    #run('scp benchmark.html ericvrp@codespeak.net:public_html/benchmark/index.html')
 
 def main(backends=[]):
     if backends == []:  #_ prefix means target specific option
-        backends = 'llvm c c--gc=framework c--stackless c--_thread c--stackless--_thread'.split()
+        backends = 'llvm c c--gc=framework c--_thread c--stackless c--gc=framework--cc=c++'.split()
+        #backends = 'llvm c c--gc=framework c--_thread c--stackless'.split()
+        #backends = 'llvm c c--gc=framework c--new-stackless c--_thread'.split()
         #backends = 'llvm c c--stackless c--_thread c--stackless--_thread'.split()
         #backends = 'llvm c c--stackless c--gc=ref c--gc=ref--stackless c--_thread c--gc=ref--_thread'.split()
     print time.ctime()
