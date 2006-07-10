@@ -468,6 +468,10 @@ else:
                     value.__file__.endswith('.py') or
                     value.__file__.endswith('.pyo')) :
             return bltinmod_helper(self, value)
+
+        if value.__file__.endswith('*.py'):  # on top of PyPy, a mixed module
+            return bltinmod_helper(self, value)
+
         # we might have createda reference to a module
         # that is non-standard.
 
