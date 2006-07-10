@@ -315,7 +315,8 @@ class W_TypeObject(W_Object):
 
     def get_module(w_self):
         space = w_self.space
-        if '__module__' in w_self.dict_w:
+        if (not space.is_w(w_self, space.w_type)    # hum
+            and '__module__' in w_self.dict_w):
             return w_self.dict_w['__module__']
         else:
             return space.wrap('__builtin__')
