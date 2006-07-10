@@ -589,6 +589,9 @@ else:
     def nameof_function(self, func, namehint=''):
         if hasattr(func, 'geninterplevel_name'):
             return func.geninterplevel_name(self)
+        if func.func_globals is None:
+            # built-in functions on top of PyPy
+            return self.nameof_builtin_function(func)
 
         printable_name = '(%s:%d) %s' % (
             self.trans_funcname(func.func_globals.get('__name__', '?')),
@@ -615,6 +618,9 @@ else:
         return name
 
     def nameof_instancemethod(self, meth):
+        if meth.im_func.func_globals is None:
+            # built-in methods (bound or not) on top of PyPy
+            return self.nameof_builtin_method(meth)
         if meth.im_self is None:
             # no error checking here
             return self.nameof(meth.im_func, namehint="%s_" % meth.im_class.__name__)
@@ -691,36 +697,51 @@ else:
         
     def nameof_builtin_function_or_method(self, func):
         if func.__self__ is None:
-            # builtin function
-            if id(func) in self.builtin_ids:
-                func = self.builtin_ids[id(func)]
-                return "(space.builtin.get(space.str_w(%s)))" % self.nameof(func.__name__)
-            # where does it come from? Python2.2 doesn't have func.__module__
-            for modname, module in sys.modules.items():
-                if hasattr(module, '__file__'):
-                    if (module.__file__.endswith('.py') or
-                        module.__file__.endswith('.pyc') or
-                        module.__file__.endswith('.pyo')):
-                        continue    # skip non-builtin modules
-                if func is getattr(module, func.__name__, None):
-                    break
-            else:
-                raise Exception, '%r not found in any built-in module' % (func,)
-            #if modname == '__builtin__':
-            #    # be lazy
-            #    return "(space.builtin.get(space.str_w(%s)))" % self.nameof(func.__name__)
-            if modname == 'sys':
-                # be lazy
-                return "(space.sys.get(space.str_w(%s)))" % self.nameof(func.__name__)                
-            else:
-                name = self.uniquename('gbltin_' + func.__name__)
-                self.initcode.append1('%s = space.getattr(%s, %s)' % (
-                    name, self.nameof(module), self.nameof(func.__name__)))
+            return self.nameof_builtin_function(func)
+        else:
+            return self.nameof_builtin_method(func)
+
+    def nameof_builtin_function(self, func):
+        # builtin function
+        if id(func) in self.builtin_ids:
+            func = self.builtin_ids[id(func)]
+            return "(space.builtin.get(space.str_w(%s)))" % self.nameof(func.__name__)
+        # where does it come from? Python2.2 doesn't have func.__module__
+        for modname, module in sys.modules.items():
+            if hasattr(module, '__file__'):
+                if (module.__file__.endswith('.py') or
+                    module.__file__.endswith('.pyc') or
+                    module.__file__.endswith('.pyo')):
+                    continue    # skip non-builtin modules
+            if func is getattr(module, func.__name__, None):
+                break
+        else:
+            raise Exception, '%r not found in any built-in module' % (func,)
+        #if modname == '__builtin__':
+        #    # be lazy
+        #    return "(space.builtin.get(space.str_w(%s)))" % self.nameof(func.__name__)
+        if modname == 'sys':
+            # be lazy
+            return "(space.sys.get(space.str_w(%s)))" % self.nameof(func.__name__)                
+        else:
+            name = self.uniquename('gbltin_' + func.__name__)
+            self.initcode.append1('%s = space.getattr(%s, %s)' % (
+                name, self.nameof(module), self.nameof(func.__name__)))
+        return name
+
+    def nameof_builtin_method(self, meth):
+        try:
+            im_self = meth.__self__
+        except AttributeError:
+            im_self = meth.im_self    # on top of PyPy
+        if im_self is None:
+            # builtin unbound method (only on top of PyPy)
+            name = self.nameof_wrapper_descriptor(meth)
         else:
             # builtin (bound) method
-            name = self.uniquename('gbltinmethod_' + func.__name__)
+            name = self.uniquename('gbltinmethod_' + meth.__name__)
             self.initcode.append1('%s = space.getattr(%s, %s)' % (
-                name, self.nameof(func.__self__), self.nameof(func.__name__)))
+                name, self.nameof(im_self), self.nameof(meth.__name__)))
         return name
 
     def nameof_classobj(self, cls):
@@ -921,10 +942,13 @@ else:
     # strange prebuilt instances below, don't look too closely
     # XXX oh well.
     def nameof_member_descriptor(self, md):
+        try:
+            im_class = md.__objclass__
+        except AttributeError:
+            im_class = md.im_class    # on top of PyPy
         name = self.uniquename('gdescriptor_%s_%s' % (
-            md.__objclass__.__name__, md.__name__))
-        cls = self.nameof(md.__objclass__)
-        # do I need to take the dict and then getitem???
+            im_class.__name__, md.__name__))
+        cls = self.nameof(im_class)
         self.initcode.append1('%s = space.getattr(%s, %s)' %
                                 (name, cls, self.nameof(md.__name__)))
         return name

@@ -3,11 +3,14 @@ import struct, sys
 # This is temporary hack to run PyPy on PyPy
 # until PyPy's struct module handle P format character.
 try:
+    HUGEVAL_FMT   = 'P'
     HUGEVAL_BYTES = struct.calcsize('P')
 except struct.error:
     if sys.maxint <= 2147483647:
+        HUGEVAL_FMT   = 'l'
         HUGEVAL_BYTES = 4
     else:
+        HUGEVAL_FMT   = 'q'
         HUGEVAL_BYTES = 8
 
 HUGEVAL = 256 ** HUGEVAL_BYTES

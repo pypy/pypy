@@ -105,8 +105,8 @@ class _char_accessor(_accessor):
     convert_to = str
 
 class _address_accessor(_accessor):
-    format = "P"
-    size = struct.calcsize("P")
+    from pypy.tool.uid import HUGEVAL_FMT as format
+    from pypy.tool.uid import HUGEVAL_BYTES as size
     convert_from = _address
     convert_to = staticmethod(lambda addr: addr.intaddress)
 

@@ -16,8 +16,11 @@ class UnwrapException(Exception):
 class WrapException(Exception):
     """Attempted wrapping of a type that cannot sanely appear in flow graph or during its construction"""
 
-# method-wrappers
-method_wrapper = type(complex.real.__get__)
+# method-wrappers have not enough introspection in CPython
+if hasattr(complex.real.__get__, 'im_self'):
+    type_with_bad_introspection = None     # on top of PyPy
+else:
+    type_with_bad_introspection = type(complex.real.__get__)
 
 
 # ______________________________________________________________________
@@ -114,7 +117,7 @@ class FlowObjSpace(ObjSpace):
             raise TypeError("already wrapped: " + repr(obj))
         # method-wrapper have ill-defined comparison and introspection
         # to appear in a flow graph
-        if type(obj) is method_wrapper:
+        if type(obj) is type_with_bad_introspection:
             raise WrapException
         return Constant(obj)
 
