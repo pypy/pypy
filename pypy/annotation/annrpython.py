@@ -16,7 +16,7 @@ from pypy.tool.error import format_blocked_annotation_error, format_someobject_e
 
 FAIL = object()
 
-class RPythonAnnotator:
+class RPythonAnnotator(object):
     """Block annotator for RPython.
     See description in doc/translation.txt."""
 
@@ -714,22 +714,28 @@ class RPythonAnnotator:
         return annmodel.SomeSlice(start, stop, step)
 
 
-def _registeroperations(ns, model):
-    # All unary operations
-    for opname in model.UNARY_OPERATIONS:
-        exec """
+    def _registeroperations(cls, model):
+        # All unary operations
+        d = {}
+        for opname in model.UNARY_OPERATIONS:
+            fnname = 'consider_op_' + opname
+            exec """
 def consider_op_%s(self, arg, *args):
     return arg.%s(*args)
-""" % (opname, opname) in globals(), ns
-    # All binary operations
-    for opname in model.BINARY_OPERATIONS:
-        exec """
+""" % (opname, opname) in globals(), d
+            setattr(cls, fnname, d[fnname])
+        # All binary operations
+        for opname in model.BINARY_OPERATIONS:
+            fnname = 'consider_op_' + opname
+            exec """
 def consider_op_%s(self, arg1, arg2, *args):
     return pair(arg1,arg2).%s(*args)
-""" % (opname, opname) in globals(), ns
+""" % (opname, opname) in globals(), d
+            setattr(cls, fnname, d[fnname])
+    _registeroperations = classmethod(_registeroperations)
 
 # register simple operations handling
-_registeroperations(RPythonAnnotator.__dict__, annmodel)
+RPythonAnnotator._registeroperations(annmodel)
 
 
 class CannotSimplify(Exception):

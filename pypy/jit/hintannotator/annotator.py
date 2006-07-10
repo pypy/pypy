@@ -1,4 +1,4 @@
-from pypy.annotation.annrpython import RPythonAnnotator, _registeroperations
+from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.jit.hintannotator import model as hintmodel
 from pypy.jit.hintannotator.bookkeeper import HintBookkeeper
 from pypy.rpython.lltypesystem import lltype
@@ -39,4 +39,4 @@ class HintAnnotator(RPythonAnnotator):
         pass
 
 
-_registeroperations(HintAnnotator.__dict__, hintmodel)
+HintAnnotator._registeroperations(hintmodel)
