@@ -1,4 +1,4 @@
-import threading, pdb
+import pdb
 import types
 from pypy.objspace.flow.model import FunctionGraph
 
@@ -429,6 +429,7 @@ start serving graphs on <port>
             finally:
                 if cleanup is not None:
                     cleanup(*cleanup_args)
+        import threading
         return threading.Thread(target=_run_in_thread, args=())
 
     def start(self, tb, server_setup, graphic=False):
