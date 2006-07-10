@@ -164,6 +164,7 @@ class GenRpy:
                          Constant(False).key: 'space.w_False',
                          Constant(True).key:  'space.w_True',
                          Constant(Ellipsis).key: 'space.w_Ellipsis',
+                         Constant(NotImplemented).key: 'space.w_NotImplemented',
                          Constant(OperationError).key: late_OperationError,
                          Constant(Arguments).key: late_Arguments,
                        }
@@ -446,10 +447,6 @@ else:
             self.rpynames[key] = txt = self.uniquename(basename)
         return txt
             
-
-    def nameof_NotImplementedType(self, value):
-        return "space.w_NotImplemented"
-
     def nameof_object(self, value):
         if type(value) is not object:
             # try to just wrap it?
@@ -462,14 +459,19 @@ else:
                                 % name)
         return name
 
-    def nameof_module(self, value):
-        if value is os or not hasattr(value, "__file__") or \
-               not (value.__file__.endswith('.pyc') or
-                    value.__file__.endswith('.py') or
-                    value.__file__.endswith('.pyo')) :
-            return bltinmod_helper(self, value)
+    def is_module_builtin(self, mod):
+        if not hasattr(mod, "__file__"):
+            return True
+        if not (mod.__file__.endswith('.pyc') or
+                mod.__file__.endswith('.py') or
+                mod.__file__.endswith('.pyo')):
+            return True
+        if mod.__file__.endswith('*.py'):  # on top of PyPy, a mixed module
+            return True
+        return False
 
-        if value.__file__.endswith('*.py'):  # on top of PyPy, a mixed module
+    def nameof_module(self, value):
+        if value is os or self.is_module_builtin(value):
             return bltinmod_helper(self, value)
 
         # we might have createda reference to a module
@@ -712,11 +714,8 @@ else:
             return "(space.builtin.get(space.str_w(%s)))" % self.nameof(func.__name__)
         # where does it come from? Python2.2 doesn't have func.__module__
         for modname, module in sys.modules.items():
-            if hasattr(module, '__file__'):
-                if (module.__file__.endswith('.py') or
-                    module.__file__.endswith('.pyc') or
-                    module.__file__.endswith('.pyo')):
-                    continue    # skip non-builtin modules
+            if not self.is_module_builtin(module):
+                continue    # skip non-builtin modules
             if func is getattr(module, func.__name__, None):
                 break
         else:
