@@ -82,27 +82,27 @@ class AppTestFcntl:
         assert fcntl.fcntl(f.fileno(), fcntl.F_SETFL, os.O_NDELAY) == 0
         assert fcntl.fcntl(f, fcntl.F_SETFL, os.O_NONBLOCK) == 0
         assert fcntl.fcntl(f, fcntl.F_SETFL, os.O_NDELAY) == 0
-# 
-#     if "linux" in sys.platform:
-#         # test managing signals
-#         assert fcntl.fcntl(f, fcntl.F_GETOWN) == 0
-#         fcntl.fcntl(f, fcntl.F_SETOWN, 20)
-#         assert fcntl.fcntl(f, fcntl.F_GETOWN) == 20
-#         assert fcntl.fcntl(f, fcntl.F_GETSIG) == 0
-#         fcntl.fcntl(f, fcntl.F_SETSIG, 20)
-#         assert fcntl.fcntl(f, fcntl.F_GETSIG) == 20
-# 
-#         # test leases
-#         assert fcntl.fcntl(f, fcntl.F_GETLEASE) == fcntl.F_UNLCK
-#         fcntl.fcntl(f, fcntl.F_SETLEASE, fcntl.F_WRLCK)
-#         assert fcntl.fcntl(f, fcntl.F_GETLEASE) == fcntl.F_WRLCK
-#     else:
-#         # this tests should fail under BSD
-#         # with "Inappropriate ioctl for device"
-#         py.test.raises(IOError, fcntl.fcntl, f, fcntl.F_GETOWN)
-#         py.test.raises(IOError, fcntl.fcntl, f, fcntl.F_SETOWN, 20)
-# 
-# 
+
+        if "linux" in sys.platform:
+            # test managing signals
+            assert fcntl.fcntl(f, fcntl.F_GETOWN) == 0
+            fcntl.fcntl(f, fcntl.F_SETOWN, 20)
+            assert fcntl.fcntl(f, fcntl.F_GETOWN) == 20
+            assert fcntl.fcntl(f, fcntl.F_GETSIG) == 0
+            fcntl.fcntl(f, fcntl.F_SETSIG, 20)
+            assert fcntl.fcntl(f, fcntl.F_GETSIG) == 20
+
+            # test leases
+            assert fcntl.fcntl(f, fcntl.F_GETLEASE) == fcntl.F_UNLCK
+            fcntl.fcntl(f, fcntl.F_SETLEASE, fcntl.F_WRLCK)
+            assert fcntl.fcntl(f, fcntl.F_GETLEASE) == fcntl.F_WRLCK
+        else:
+            # this tests should fail under BSD
+            # with "Inappropriate ioctl for device"
+            raises(IOError, fcntl.fcntl, f, fcntl.F_GETOWN)
+            raises(IOError, fcntl.fcntl, f, fcntl.F_SETOWN, 20)
+
+
 # def test_flock():
 #     if "linux" in sys.platform:
 #         cfcntl.flock(f, cfcntl.LOCK_SH)

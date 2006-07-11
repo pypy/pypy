@@ -5,6 +5,7 @@ from pypy.rpython.rctypes.aerrno import geterrno
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 from ctypes import *
+import sys
 
 class CConfig:
     _header_ = """
@@ -39,6 +40,12 @@ class cConfig:
 
 cConfig.__dict__.update(ctypes_platform.configure(CConfig))
 cConfig.flock.__name__ = "_flock"
+
+if "linux" in sys.platform:
+    cConfig.F_GETSIG = 11
+    cConfig.F_SETSIG = 10
+    cConfig.F_GETLEASE = 1025
+    cConfig.F_SETLEASE = 1024
 
 # needed to export the constants outside. see __init__.py
 for name in constant_names:
