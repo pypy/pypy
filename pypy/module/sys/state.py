@@ -44,7 +44,7 @@ def get(space):
 class IOState: 
     def __init__(self, space): 
         self.space = space
-        if space.options.uselibfile: 
+        if space.config.objspace.uselibfile: 
             self.w_stdout = space.call_function(space.builtin.get('file'))
             self.w_stderr = space.call_function(space.builtin.get('file'))
             self.w_stdin = space.call_function(space.builtin.get('file'))

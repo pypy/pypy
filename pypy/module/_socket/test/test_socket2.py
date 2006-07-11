@@ -1,11 +1,12 @@
 from pypy.objspace.std import StdObjSpace
 from pypy.interpreter.error import OperationError
 from pypy.tool.udir import udir
+from pypy.conftest import gettestobjspace
 import py
 import socket, sys
 
 def setup_module(mod):
-    mod.space = StdObjSpace(usemodules=['_socket'])
+    mod.space = gettestobjspace(usemodules=['_socket'])
     mod.w_socket = space.appexec([], "(): import _socket as m; return m")
     mod.path = udir.join('fd')
     mod.path.write('fo')

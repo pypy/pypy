@@ -1,5 +1,7 @@
 import os, sys
 
+from pypy.tool.option import make_config
+
 # as of revision 27081, multimethod.py uses the InstallerVersion1 by default
 # because it is much faster both to initialize and run on top of CPython.
 # The InstallerVersion2 is optimized for making a translator-friendly
@@ -71,11 +73,14 @@ take_options = True
 def opt_parser():
     import py
     defl = {'thread': False, 'usemodules': ''}
-    parser = py.compat.optparse.OptionParser(usage="target PyPy standalone", add_help_option=False)
+    parser = py.compat.optparse.OptionParser(usage="target PyPy standalone", 
+                                                add_help_option=False)
     parser.set_defaults(**defl)
-    parser.add_option("--thread", action="store_true", dest="thread", help="enable threading")
-    parser.add_option("--usemodules", action="store", type="string", dest="usemodules",
-            help="list of mixed modules to include, comma-separated")
+    parser.add_option("--thread", action="store_true", dest="thread", 
+                        help="enable threading")
+    parser.add_option("--usemodules", action="store", type="string", 
+                        dest="usemodules", help=("list of mixed modules to "
+                                            "include, comma-separated"))
     return parser
 
 def print_help():
@@ -95,12 +100,15 @@ def target(driver, args):
 
     tgt_options, _ = opt_parser().parse_args(args)
 
+    config = make_config(tgt_options)
+
     translate.log_options(tgt_options, "target PyPy options in effect")
 
     # expose the following variables to ease debugging
     global space, entry_point
 
-    geninterp = not getattr(options, 'lowmem', False)
+    if getattr(options, "lowmem", False):
+        config.objspace.geninterp = False
     
     # obscure hack to stuff the translation options into the translated PyPy
     import pypy.module.sys
@@ -112,18 +120,18 @@ def target(driver, args):
 
     usemodules = []
     if tgt_options.usemodules:
-        usemodules.extend(tgt_options.usemodules.split(","))
+        for modname in tgt_options.usemodules.split(","):
+            setattr(config.objspace.usemodules, modname, True)
     if tgt_options.thread:
-        # thread might appear twice now, but the objspace can handle this
-        usemodules.append('thread')
+        config.objspace.usemodules.thread = True
     if options.stackless:
-        usemodules.append('_stackless')
+        config.objspace.usemodules._stackless = True
+    config.objspace.nofaking = True
+    config.objspace.compiler = "ast"
+    config.translating = True
         
-    space = StdObjSpace(nofaking=True,
-                        compiler="ast", # interpreter/astcompiler
-                        translating=True,
-                        usemodules=usemodules,
-                        geninterp=geninterp)
+    space = StdObjSpace(config)
+
     # manually imports app_main.py
     filename = os.path.join(this_dir, 'app_main.py')
     w_dict = space.newdict([])

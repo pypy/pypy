@@ -3,9 +3,8 @@ from pypy.objspace.std.basestringtype import basestring_typedef
 
 from sys import maxint
 
-from pypy.objspace.std.model import WITHSTRSLICE, WITHSTRJOIN
-if WITHSTRSLICE:
-    def sliced(s, start, stop):
+def sliced(space, s, start, stop):
+    if space.config.objspace.std.withstrslice:
         from pypy.objspace.std.strsliceobject import W_StringSliceObject
         from pypy.objspace.std.stringobject import W_StringObject
         # XXX heuristic, should be improved!
@@ -13,17 +12,15 @@ if WITHSTRSLICE:
             return W_StringSliceObject(s, start, stop)
         else:
             return W_StringObject(s[start:stop])
-else:
-    def sliced(s, start, stop):
+    else:
         from pypy.objspace.std.stringobject import W_StringObject
         return W_StringObject(s[start:stop])
 
-if WITHSTRJOIN:
-    def joined(strlist):
+def joined(space, strlist):
+    if space.config.objspace.std.withstrjoin:
         from pypy.objspace.std.strjoinobject import W_StringJoinObject
         return W_StringJoinObject(strlist)
-else:
-    def joined(strlist):
+    else:
         from pypy.objspace.std.stringobject import W_StringObject
         return W_StringObject("".join(strlist))
 

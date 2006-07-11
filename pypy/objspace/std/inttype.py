@@ -5,32 +5,25 @@ from pypy.interpreter.gateway import NoneNotWrapped
 
 # ____________________________________________________________
 
-from pypy.objspace.std.model import WITHSMALLINT, WITHPREBUILTINT
 
-if WITHSMALLINT:
-    def wrapint(x):
+def wrapint(space, x):
+    if space.config.objspace.std.withsmallint:
         from pypy.objspace.std.smallintobject import W_SmallIntObject
         try:
             return W_SmallIntObject(x)
         except OverflowError:
             from pypy.objspace.std.intobject import W_IntObject
             return W_IntObject(x)
-
-elif WITHPREBUILTINT:
-    PREBUILT_RANGE_START = WITHPREBUILTINT[0]
-    PREBUILT_RANGE_LEN   = len(WITHPREBUILTINT)
-    assert WITHPREBUILTINT == range(PREBUILT_RANGE_START,
-                                    PREBUILT_RANGE_START + PREBUILT_RANGE_LEN)
-    def wrapint(x):
+    elif space.config.objspace.std.withprebuiltint:
         from pypy.objspace.std.intobject import W_IntObject
-        index = x - PREBUILT_RANGE_START
-        if 0 <= index < PREBUILT_RANGE_LEN:
+        lower = space.config.objspace.std.prebuiltintfrom
+        upper =  space.config.objspace.std.prebuiltintto
+        index = x - lower
+        if 0 <= index < upper - lower:
             return W_IntObject.PREBUILT[index]
         else:
             return W_IntObject(x)
-
-else:
-    def wrapint(x):
+    else:
         from pypy.objspace.std.intobject import W_IntObject
         return W_IntObject(x)
 
@@ -116,7 +109,7 @@ def descr__new__(space, w_inttype, w_x=0, w_base=NoneNotWrapped):
         return w_longval
     elif space.is_w(w_inttype, space.w_int):
         # common case
-        return wrapint(value)
+        return wrapint(space, value)
     else:
         w_obj = space.allocate_instance(W_IntObject, w_inttype)
         W_IntObject.__init__(w_obj, value)

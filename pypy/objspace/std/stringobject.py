@@ -641,7 +641,7 @@ def str_count__String_String_ANY_ANY(space, w_self, w_arg, w_start, w_end):
             count += 1
             u_start = pos + len(u_arg)
        
-    return wrapint(count)
+    return wrapint(space, count)
 
 
 def str_endswith__String_String_ANY_ANY(space, w_self, w_suffix, w_start, w_end):
@@ -774,7 +774,7 @@ def hash__String(space, w_str):
         x = _hash_string(s)    # to make sure we get the same hash as rpython
         # (otherwise translation will freeze W_DictObjects where we can't find
         #  the keys any more!)
-    return wrapint(x)
+    return wrapint(space, x)
 
 def lt__String_String(space, w_str1, w_str2):
     s1 = w_str1._value
@@ -845,7 +845,7 @@ def getitem__String_Slice(space, w_str, w_slice):
         str = ""
     elif step == 1:
         assert start >= 0 and stop >= 0
-        return sliced(s, start, stop)
+        return sliced(space, s, start, stop)
     else:
         str = "".join([s[start + i*step] for i in range(sl)])
     return W_StringObject(str)
@@ -868,7 +868,7 @@ def mul_string_times(space, w_str, w_times):
             space.w_OverflowError, 
             space.wrap("repeated string is too long: %d %d" % (input_len, mul)))
     # XXX maybe only do this when input has a big length
-    return joined([input] * mul)
+    return joined(space, [input] * mul)
 
 def mul__String_ANY(space, w_str, w_times):
     return mul_string_times(space, w_str, w_times)
@@ -879,7 +879,7 @@ def mul__ANY_String(space, w_times, w_str):
 def add__String_String(space, w_left, w_right):
     right = w_right._value
     left = w_left._value
-    return joined([left, right])
+    return joined(space, [left, right])
 
 def len__String(space, w_str):
     return space.wrap(len(w_str._value))

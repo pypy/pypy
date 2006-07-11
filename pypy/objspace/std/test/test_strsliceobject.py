@@ -1,11 +1,12 @@
 import autopath, py
 
-from pypy.objspace.std.model import WITHSTRSLICE
-if not WITHSTRSLICE:
-    py.test.skip("WITHSTRSLICE is not enabled")
+from pypy.objspace.std.test import test_stringobject
+from pypy.conftest import gettestobjspace
 
+class AppTestStringObject(test_stringobject.AppTestStringObject):
 
-class AppTestStringObject:
+    def setup_class(cls):
+        cls.space = gettestobjspace(**{"objspace.std.withstrslice": True})
 
     def test_basic(self):
         import sys

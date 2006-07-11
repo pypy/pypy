@@ -53,18 +53,11 @@ def get_main_options():
         
     return options
 
-def make_objspace(cmdlineopt):
-    mod = __import__('pypy.objspace.%s' % cmdlineopt.objspace,
+def make_objspace(conf):
+    mod = __import__('pypy.objspace.%s' % conf.objspace.name,
                      None, None, ['Space'])
     Space = mod.Space
-
-    space = Space(usemodules = cmdlineopt.usemodules, 
-                  nofaking = cmdlineopt.nofaking,
-                  uselibfile = cmdlineopt.uselibfile,
-                  oldstyle = cmdlineopt.oldstyle, 
-                  parser = cmdlineopt.parser, 
-                  compiler = cmdlineopt.compiler,
-            ) 
+    space = Space(conf) 
     return space 
             
 def main_(argv=None):
@@ -75,7 +68,8 @@ def main_(argv=None):
 
     # create the object space
 
-    space = make_objspace(Options) 
+    config = option.make_config(Options)
+    space = make_objspace(config)
 
     space._starttime = starttime
     #assert 'pypy.tool.udir' not in sys.modules, (

@@ -120,11 +120,6 @@ class SpaceCache(Cache):
     def ready(self, result):
         pass
         
-
-class ObjSpaceOptions: 
-    def _freeze_(self): 
-        return True
-
 class UnpackValueError(ValueError):
     def __init__(self, msg):
         self.msg = msg
@@ -137,28 +132,17 @@ class ObjSpace(object):
     
     full_exceptions = True  # full support for exceptions (normalization & more)
 
-    def __init__(self, usemodules=(), 
-                 nofaking=False, 
-                 uselibfile=False,
-                 parser="pypy", 
-                 compiler="ast",
-                 translating=False,
-                 geninterp=True,
-                 **kw
-                 ): 
+    def __init__(self, config=None, **kw): 
         "NOT_RPYTHON: Basic initialization of objects."
         self.fromcache = InternalSpaceCache(self).getorbuild
         self.threadlocals = ThreadLocals()
         # set recursion limit
         # sets all the internal descriptors
-        self.options = ObjSpaceOptions() 
-        self.options.parser = parser 
-        self.options.nofaking = nofaking
-        self.options.uselibfile = uselibfile or nofaking
-        self.options.compiler = compiler 
-        self.options.usemodules = usemodules 
-        self.options.translating = translating
-        self.options.geninterp = geninterp
+        if config is None:
+            from pypy.config.config import Config
+            from pypy.config.pypyoption import pypy_optiondescription
+            config = Config(pypy_optiondescription)
+        self.config = config
         self.interned_strings = {}
         self.setoptions(**kw)
         self.initialize()
@@ -219,31 +203,20 @@ class ObjSpace(object):
         except AttributeError:
             pass
 
-        modules = ['sys', '__builtin__', 'exceptions']
+        modules = ['sys', '__builtin__', 'exceptions', 'unicodedata',
+                   '_codecs', 'gc', '_weakref', 'array', 'marshal', 'errno',
+                   'math', '_sre', '_pickle_support']
 
         # there also are the '_sre' and 'marshal' modules 
         # but those currently cause translation problems.  You can
         # enable them when running PyPy on top of CPython 
         # by e.g. specifying --usemodules=_sre,marshal 
-        for name in self.options.usemodules: 
-            if name not in modules: 
+        for name, value in self.config.objspace.usemodules:
+            if value and name not in modules:
                 modules.append(name) 
 
-        modules.extend(['unicodedata', '_codecs', 'gc', '_weakref',
-                         'array', 'marshal', 'errno', 'math', '_sre'])
-        modules.append('_pickle_support')
-
-        if self.options.nofaking:
-            modules.append('posix')
-            modules.append('time')
-            modules.append('errno')
-
-        if self.options.parser == "pypy":
-            modules.append('recparser')
-            modules.append('symbol')
-
         import pypy
-        if not self.options.nofaking:
+        if not self.config.objspace.nofaking:
             for modname in self.ALL_BUILTIN_MODULES:
                 if not (os.path.exists(
                         os.path.join(os.path.dirname(pypy.__file__),
@@ -370,13 +343,13 @@ class ObjSpace(object):
         try:
             return self.default_compiler
         except AttributeError:
-            if self.options.compiler == 'cpython':
+            if self.config.objspace.compiler == 'cpython':
                 compiler = CPythonCompiler(self)
-            elif self.options.compiler == 'ast':
+            elif self.config.objspace.compiler == 'ast':
                 compiler = PythonAstCompiler(self)
             else:
                 raise ValueError('unknown --compiler option value: %r' % (
-                    self.options.compiler,))
+                    self.config.objspace.compiler,))
             self.default_compiler = compiler
             return compiler
 

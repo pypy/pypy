@@ -2,6 +2,7 @@ import py, sys
 from pypy.interpreter.gateway import app2interp_temp 
 from pypy.interpreter.error import OperationError
 from pypy.tool.pytest import appsupport 
+from pypy.tool.option import make_config
 from inspect import isclass
 
 rootdir = py.magic.autopath().dirpath()
@@ -18,6 +19,8 @@ Option = py.test.Config.Option
 
 def usemodules_callback(option, opt, value, parser):
     parser.values.usemodules.append(value)
+
+# XXX these options should go away
 
 option = py.test.Config.addoptions("pypy options", 
         Option('-O', '--objspace', action="store", default=None, 
@@ -54,23 +57,16 @@ _SPACECACHE={}
 def getobjspace(name=None, **kwds): 
     """ helper for instantiating and caching space's for testing. 
     """ 
-    name = name or option.objspace or 'std'
-    key = kwds.items()
-    key.sort()
-    key = name, tuple(key)
+    config = make_config(option, objspace=name, **kwds)
+    key = config.getkey()
     try:
         return _SPACECACHE[key]
     except KeyError:
-        #assert name in ('std', 'thunk', 'logic', etc.), name 
-        mod = __import__('pypy.objspace.%s' % name, None, None, ['Space'])
+        mod = __import__('pypy.objspace.%s' % config.objspace.name,
+                         None, None, ['Space'])
         Space = mod.Space
         try: 
-            kwds.setdefault('uselibfile', option.uselibfile)
-            kwds.setdefault('nofaking', option.nofaking)
-            kwds.setdefault('oldstyle', option.oldstyle)
-            kwds.setdefault('usemodules', option.usemodules)
-            kwds.setdefault('compiler', option.compiler)
-            space = Space(**kwds)
+            space = Space(config)
         except OperationError, e:
             check_keyboard_interrupt(e)
             if option.verbose:  
@@ -152,8 +148,6 @@ class Module(py.test.collect.Module):
 
 def gettestobjspace(name=None, **kwds):
     space = getobjspace(name, **kwds)
-    #if space is None:   XXX getobjspace() cannot return None any more I think
-    #    py.test.skip('test requires object space %r' % (name,))
     return space
 
 def skip_on_missing_buildoption(**ropts): 

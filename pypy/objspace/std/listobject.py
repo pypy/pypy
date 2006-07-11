@@ -36,7 +36,7 @@ def init__List(space, w_list, __args__):
 
 def len__List(space, w_list):
     result = len(w_list.wrappeditems)
-    return wrapint(result)
+    return wrapint(space, result)
 
 def getitem__List_ANY(space, w_list, w_index):
     idx = space.int_w(w_index)

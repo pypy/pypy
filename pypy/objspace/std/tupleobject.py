@@ -25,7 +25,7 @@ registerimplementation(W_TupleObject)
 
 def len__Tuple(space, w_tuple):
     result = len(w_tuple.wrappeditems)
-    return wrapint(result)
+    return wrapint(space, result)
 
 def getitem__Tuple_ANY(space, w_tuple, w_index):
     items = w_tuple.wrappeditems

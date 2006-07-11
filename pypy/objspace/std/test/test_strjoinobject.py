@@ -1,10 +1,13 @@
 import autopath, py
 
-from pypy.objspace.std.model import WITHSTRJOIN
-if not WITHSTRJOIN:
-    py.test.skip("WITHSTRJOIN is not enabled")
+from pypy.objspace.std.test import test_stringobject
+from pypy.conftest import gettestobjspace
 
-class AppTestStringObject:
+class AppTestStringObject(test_stringobject.AppTestStringObject):
+
+    def setup_class(cls):
+        cls.space = gettestobjspace(**{"objspace.std.withstrjoin": True})
+
     def test_basic(self):
         import sys
         s = "Hello, " + "World!"

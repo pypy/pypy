@@ -25,6 +25,7 @@ from pypy.objspace.std.floatobject   import W_FloatObject
 from pypy.objspace.std.tupleobject   import W_TupleObject
 from pypy.objspace.std.listobject    import W_ListObject
 from pypy.objspace.std.dictobject    import W_DictObject
+from pypy.objspace.std.dictstrobject    import W_DictStrObject
 from pypy.objspace.std.stringobject  import W_StringObject
 from pypy.objspace.std.typeobject    import W_TypeObject
 from pypy.objspace.std.longobject    import W_LongObject
@@ -142,14 +143,14 @@ def marshal_w__Int(space, w_int, m):
             m.atom_int(TYPE_INT, w_int.intval)
 
 def unmarshal_Int(space, u, tc):
-    return wrapint(u.get_int())
+    return wrapint(space, u.get_int())
 register(TYPE_INT, unmarshal_Int)
 
 def unmarshal_Int64(space, u, tc):
     if LONG_BIT >= 64:
         lo = u.get_int() & (2**32-1)
         hi = u.get_int()
-        return wrapint((hi << 32) | lo)
+        return wrapint(space, (hi << 32) | lo)
     else:
         # fall back to a long
         # XXX at some point, we need to extend longobject
@@ -347,18 +348,29 @@ def marshal_w__Dict(space, w_dict, m):
         m.put_w_obj(w_value)
     m.atom(TYPE_NULL)
 
+def marshal_w__DictStr(space, w_dict, m):
+    m.start(TYPE_DICT)
+    if w_dict.content is not None:
+        for w_key, w_value in w_dict.content.iteritems():
+            m.put_w_obj(w_key)
+            m.put_w_obj(w_value)
+    else:
+        for key, w_value in w_dict.content_str.iteritems():
+            m.put_w_obj(space.wrap(key))
+            m.put_w_obj(w_value)
+    m.atom(TYPE_NULL)
+
 def unmarshal_Dict(space, u, tc):
     # since primitive lists are not optimized and we don't know
     # the dict size in advance, use the dict's setitem instead
     # of building a list of tuples.
-    w_dic = W_DictObject(space)
-    setter = dictobject.setitem__Dict_ANY_ANY
+    w_dic = space.newdict([])
     while 1:
         w_key = u.get_w_obj(True)
         if w_key is None:
             break
         w_value = u.get_w_obj(False)
-        setter(space, w_dic, w_key, w_value)
+        space.setitem(w_dic, w_key, w_value)
     return w_dic
 register(TYPE_DICT, unmarshal_Dict)
 

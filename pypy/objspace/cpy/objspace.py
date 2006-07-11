@@ -31,7 +31,7 @@ class CPyObjSpace(baseobjspace.ObjSpace):
 
 
     def initialize(self):
-        self.options.geninterp = False
+        self.config.objspace.geninterp = False
         self.wrap_cache = {}
 
     def _freeze_(self):
@@ -296,7 +296,7 @@ class CPyObjSpace(baseobjspace.ObjSpace):
         # hackish hook for gateway.py: in a MixedModule, all init-time gets
         # from app-level files should arrive here
         w_res = W_AppLevel(self, app, name)
-        if not self.options.translating:
+        if not self.config.translating:
             # e.g. when using pypy.interpreter.mixedmodule.testmodule(),
             # we can force the object immediately
             w_res = w_res.force()

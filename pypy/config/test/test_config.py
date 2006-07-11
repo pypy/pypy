@@ -17,7 +17,6 @@ def make_description():
     descr = OptionDescription('pypy', [gcgroup, booloption, objspaceoption,
                                        wantref_option, intoption])
     return descr
-    
 
 def test_base_config():
     descr = make_description()
@@ -77,7 +76,7 @@ def test_annotator_folding():
     assert len(block.exits) == 1
     assert block.operations[0].opname == 'int_add'
 
-    # the config should be frozen now
+    assert config._freeze_()
     py.test.raises(TypeError, 'config.gc.name = "framework"')
 
 def test_compare_configs():
@@ -100,3 +99,107 @@ def test_loop():
         assert name == gname
         assert value == gvalue
         
+def test_to_optparse():
+    gcoption = ChoiceOption('name', 'GC name', ['ref', 'framework'], 'ref',
+                                cmdline='--gc -g')
+    gcgroup = OptionDescription('gc', [gcoption])
+    descr = OptionDescription('pypy', [gcgroup])
+    config = Config(descr)
+    
+    parser = to_optparse(config, ['gc.name'])
+    (options, args) = parser.parse_args(args=['--gc=framework'])
+    
+    assert config.gc.name == 'framework'
+    
+    (options, args) = parser.parse_args(args=['-g ref'])
+    assert config.gc.name == 'ref'
+
+    # XXX strange exception
+    py.test.raises(SystemExit, 
+                    "(options, args) = parser.parse_args(args=['-g foobar'])")
+
+def test_to_optparse_number():
+    intoption = IntOption('int', 'Int option test', cmdline='--int -i')
+    floatoption = FloatOption('float', 'Float option test', 
+                                cmdline='--float -f')
+    descr = OptionDescription('test', [intoption, floatoption])
+    config = Config(descr)
+
+    parser = to_optparse(config, ['int', 'float'])
+    (options, args) = parser.parse_args(args=['-i 2', '--float=0.1'])
+
+    assert config.int == 2
+    assert config.float == 0.1
+    
+    py.test.raises(SystemExit, 
+        "(options, args) = parser.parse_args(args=['--int=foo', '-f bar'])")
+    
+def test_to_optparse_bool():
+    booloption = BoolOption('bool', 'Boolean option test', default=False,
+                            cmdline='--bool -b')
+    descr = OptionDescription('test', [booloption])
+    config = Config(descr)
+
+    parser = to_optparse(config, ['bool'])
+    (options, args) = parser.parse_args(args=['-b'])
+
+    assert config.bool
+
+    config = Config(descr)
+    parser = to_optparse(config, ['bool'])
+    (options, args) = parser.parse_args(args=[])
+    assert not config.bool
+
+    py.test.raises(SystemExit,
+            "(options, args) = parser.parse_args(args=['-bfoo'])")
+
+def test_optparse_boolgroup():
+    group = OptionDescription("test", [
+        BoolOption("smallint", "use tagged integers",
+                   default=False),
+        BoolOption("strjoin", "use strings optimized for addition",
+                   default=False),
+        BoolOption("strslice", "use strings optimized for slicing",
+                   default=False),
+        BoolOption("strdict", "use dictionaries optimized for string keys",
+                   default=False),
+    ], cmdline="--test")
+    descr = OptionDescription("all", [group])
+    config = Config(descr)
+    parser = to_optparse(config, ['test'])
+    (options, args) = parser.parse_args(
+        args=['--test=smallint,strjoin,strdict'])
+    
+    assert config.test.smallint
+    assert config.test.strjoin
+    assert config.test.strdict
+
+    config = Config(descr)
+    parser = to_optparse(config, ['test'])
+    (options, args) = parser.parse_args(
+        args=['--test=smallint'])
+    
+    assert config.test.smallint
+    assert not config.test.strjoin
+    assert not config.test.strdict
+
+def test_config_start():
+    descr = make_description()
+    config = Config(descr)
+    parser = to_optparse(config, ["gc.*"])
+
+    options, args = parser.parse_args(args=["--gc-name=framework", "--gc-dummy"])
+    assert config.gc.name == "framework"
+    assert config.gc.dummy
+
+
+def test_optparse_path_options():
+    gcoption = ChoiceOption('name', 'GC name', ['ref', 'framework'], 'ref')
+    gcgroup = OptionDescription('gc', [gcoption])
+    descr = OptionDescription('pypy', [gcgroup])
+    config = Config(descr)
+    
+    parser = to_optparse(config, ['gc.name'])
+    (options, args) = parser.parse_args(args=['--gc-name=framework'])
+
+    assert config.gc.name == 'framework'

@@ -124,9 +124,8 @@ register_all(vars(), globals())
 # ____________________________________________________________
 
 def descr__new__(space, w_dicttype, __args__):
-    from pypy.objspace.std.dictobject import W_DictObject
-    w_obj = space.allocate_instance(W_DictObject, w_dicttype)
-    W_DictObject.__init__(w_obj, space)
+    w_obj = space.allocate_instance(space.DictObjectCls, w_dicttype)
+    space.DictObjectCls.__init__(w_obj, space)
     return w_obj
 
 # ____________________________________________________________
@@ -165,8 +164,12 @@ def descr_dictiter__reduce__(w_self, space):
     a registration with copy_reg, instead.
     """
     from pypy.interpreter.mixedmodule import MixedModule
-    from pypy.objspace.std.dictobject import \
-         W_DictIter_Keys, W_DictIter_Values, W_DictIter_Items
+    if space.config.objspace.std.withstrdict:
+        from pypy.objspace.std.dictstrobject import \
+             W_DictIter_Keys, W_DictIter_Values, W_DictIter_Items
+    else:
+        from pypy.objspace.std.dictobject import \
+             W_DictIter_Keys, W_DictIter_Values, W_DictIter_Items
     w_mod    = space.getbuiltinmodule('_pickle_support')
     mod      = space.interp_w(MixedModule, w_mod)
     new_inst = mod.get('dictiter_surrogate_new')
@@ -183,6 +186,8 @@ def descr_dictiter__reduce__(w_self, space):
     # we cannot call __init__ since we don't have the original dict
     w_clone.space = space
     w_clone.content = w_self.content
+    if space.config.objspace.std.withstrdict:
+        w_clone.content_str = w_self.content_str
     w_clone.len = w_self.len
     w_clone.pos = 0
     w_clone.setup_iterator()
