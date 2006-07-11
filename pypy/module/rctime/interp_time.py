@@ -10,6 +10,8 @@ import math
 
 _POSIX = os.name == "posix"
 
+# XXXXXX: diminuisci i cConfig.qualcosa con qualcosa. insomma esporta
+
 class CConfig:
     _header_ = """
     #include <sys/time.h>
@@ -29,8 +31,8 @@ class CConfig:
 class cConfig:
     pass
 cConfig.__dict__.update(ctypes_platform.configure(CConfig))
-cConfig.timeval.__name__ = "ctimeval"
-cConfig.tm.__name__ = "ctm"
+cConfig.timeval.__name__ = "_timeval"
+cConfig.tm.__name__ = "_tm"
 
 has_gettimeofday = False
 if hasattr(libc, "gettimeofday"):
@@ -51,8 +53,7 @@ libc.mktime.argtypes = [POINTER(cConfig.tm)]
 libc.mktime.restype = cConfig.time_t
 libc.asctime.argtypes = [POINTER(cConfig.tm)]
 libc.asctime.restype = c_char_p
-libc.tzset.restype = c_int
-libc.tzset.argtypes = [c_int]
+libc.tzset.restype = None # tzset() returns void
 
 def _init_accept2dyear():
     return (1, 0)[bool(os.getenv("PYTHONY2K"))]
@@ -78,11 +79,11 @@ def _init_timezone():
         tt = cConfig.time_t(t)
         p = libc.localtime(byref(tt)).contents
         janzone = -p.tm_gmtoff
-        janname = ("   ", p.tm_zone)[bool(p.tm_zone)]
+        janname = ["   ", p.tm_zone][bool(p.tm_zone)]
         tt = cConfig.time_t(tt.value + YEAR / 2)
         p = libc.localtime(byref(tt)).contents
         julyzone = -p.tm_gmtoff
-        julyname = ("   ", p.tm_zone)[bool(p.tm_zone)]
+        julyname = ["   ", p.tm_zone][bool(p.tm_zone)]
 
         if janzone < julyzone:
             # DST is reversed in the southern hemisphere
@@ -268,50 +269,50 @@ def ctime(space, w_seconds=None):
     return space.wrap(p[:-1]) # get rid of new line
 ctime.unwrap_spec = [ObjSpace, W_Root]
 
-def asctime(space, tup_w): # *tup_w does not really work
-    """asctime([tuple]) -> string
-
-    Convert a time tuple to a string, e.g. 'Sat Jun 06 16:26:11 1998'.
-    When the time tuple is not present, current time as returned by localtime()
-    is used."""
-    
-    tup = None
-    tuple_len = 0
-    buf_value = cConfig.tm()
-
-    if len(tup_w):
-        w_tup = tup_w[0]
-        tuple_len = space.int_w(space.len(w_tup))
-        
-        if space.is_w(w_tup, space.w_None) or 1 < tuple_len < 9:
-            raise OperationError(space.w_TypeError, 
-                space.wrap("argument must be 9-item sequence"))
-
-        # check if every passed object is a int
-        tup = space.unpackiterable(w_tup)
-        for t in tup:
-            space.int_w(t)
-        # map(space.int_w, tup) # XXX: can't use it
-        
-        buf_value = _gettmarg(space, tup, buf_value)
-    else:
-        # empty list
-        buf = None
-        
-        tt = cConfig.time_t(int(_floattime())) 
-        buf = libc.localtime(byref(tt))
-        if not buf:
-            raise OperationError(space.w_ValueError,
-                space.wrap(_get_error_msg()))
-        buf_value = buf.contents
-
-    p = libc.asctime(byref(buf_value))
-    if not p:
-        raise OperationError(space.w_ValueError,
-            space.wrap("unconvertible time"))
-    
-    return space.wrap(p[:-1]) # get rid of new line
-asctime.unwrap_spec = [ObjSpace, 'args_w']
+# def asctime(space, tup_w): # *tup_w does not really work
+#     """asctime([tuple]) -> string
+# 
+#     Convert a time tuple to a string, e.g. 'Sat Jun 06 16:26:11 1998'.
+#     When the time tuple is not present, current time as returned by localtime()
+#     is used."""
+#     
+#     tup = None
+#     tuple_len = 0
+#     buf_value = cConfig.tm()
+# 
+#     if len(tup_w):
+#         w_tup = tup_w[0]
+#         tuple_len = space.int_w(space.len(w_tup))
+#         
+#         if space.is_w(w_tup, space.w_None) or 1 < tuple_len < 9:
+#             raise OperationError(space.w_TypeError, 
+#                 space.wrap("argument must be 9-item sequence"))
+# 
+#         # check if every passed object is a int
+#         tup = space.unpackiterable(w_tup)
+#         for t in tup:
+#             space.int_w(t)
+#         # map(space.int_w, tup) # XXX: can't use it
+#         
+#         buf_value = _gettmarg(space, tup, buf_value)
+#     else:
+#         # empty list
+#         buf = None
+#         
+#         tt = cConfig.time_t(int(_floattime())) 
+#         buf = libc.localtime(byref(tt))
+#         if not buf:
+#             raise OperationError(space.w_ValueError,
+#                 space.wrap(_get_error_msg()))
+#         buf_value = buf.contents
+# 
+#     p = libc.asctime(byref(buf_value))
+#     if not p:
+#         raise OperationError(space.w_ValueError,
+#             space.wrap("unconvertible time"))
+#     
+#     return space.wrap(p[:-1]) # get rid of new line
+# asctime.unwrap_spec = [ObjSpace, 'args_w']
 
 def gmtime(space, w_seconds=None):
     """gmtime([seconds]) -> (tm_year, tm_mon, tm_day, tm_hour, tm_min,
@@ -394,7 +395,7 @@ if _POSIX:
         the local timezone used by methods such as localtime, but this behaviour
         should not be relied on"""
 
-        libc.tzset(0) # workaround to call the syscall
+        libc.tzset()
         
         # reset timezone, altzone, daylight and tzname
         timezone, daylight, tzname, altzone = _init_timezone()

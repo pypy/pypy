@@ -7,7 +7,7 @@ class struct_time(object):
         if tup and len(tup) < 9:
             raise TypeError, "time.struct_time() takes a 9-sequence"
         if not tup:
-            raise TypeError, "structseq() takes at least 1 argument (0 given)"
+            raise TypeError, "time.struct_time() takes at least 1 argument (0 given)"
 
         self._tup = tup
         self.tm_year = self._tup[0]

@@ -11,7 +11,7 @@ class Module(MixedModule):
         'time': 'interp_time.time',
         'clock': 'interp_time.clock',
         'ctime': 'interp_time.ctime',
-        'asctime': 'interp_time.asctime',
+        # 'asctime': 'interp_time.asctime',
         'gmtime': 'interp_time.gmtime',
         'localtime': 'interp_time.localtime',
         'mktime': 'interp_time.mktime',
