@@ -172,15 +172,16 @@ Tim Peters, a longtime CPython core developer talks about how he got into Python
 Scripting .NET with IronPython by Jim Hugunin
 ---------------------------------------------
 
-http://codespeak.net/download/pypy/video/ironpython-talk.avi.torrent    
+http://codespeak.net/download/pypy/video/ironpython-talk-v1.avi.torrent    
 
 .. image:: image/ironpython.jpg
    :scale: 100
    :alt: Jim Hugunin on IronPython
    :align: left
 
-Talk by Jim Hugunin (Microsoft) on IronPython implementation on the .NET framework at this years PyCon, Dallas, US.
+Talk by Jim Hugunin (Microsoft) on the IronPython implementation on the .NET framework at this years PyCon, Dallas, US.
 
 PAL, 44 min, DivX AVI
 
 Jim Hugunin talks about regression tests, the code generation and the object layout, the new-style instance and gives a CLS interop demo.
+
