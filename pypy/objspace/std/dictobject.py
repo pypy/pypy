@@ -35,6 +35,12 @@ class W_DictObject(W_Object):
             result[space.unwrap(w_key)] = space.unwrap(w_value)
         return result
 
+    def len(w_self):
+        return len(w_self.content)
+
+    def set_str_keyed_item(w_dict, w_key, w_value):
+        w_dict.content[w_key] = w_value
+
 registerimplementation(W_DictObject)
 
 

@@ -1,4 +1,7 @@
 import os, sys
+
+from pypy.tool.option import make_config
+
 from pypy.objspace.logic import Space
 # XXX from pypy.annotation.model import *
 # since we are execfile()'ed this would pull some
@@ -44,12 +47,35 @@ def entry_point(argv):
 
 opt_defaults = {'stackless' :  True}
 
+take_options = True
+
+def opt_parser():
+    import py
+    defl = {'thread': False, 'usemodules': ''}
+    parser = py.compat.optparse.OptionParser(usage="target PyPy standalone", 
+                                                add_help_option=False)
+    parser.set_defaults(**defl)
+    # XXX threading doesn't work
+    #parser.add_option("--thread", action="store_true", dest="thread", 
+    #                    help="enable threading")
+    return parser
+
+def print_help():
+    opt_parser().print_help()
+
 def target(driver, args):
     options = driver.options
 
+    tgt_options, _ = opt_parser().parse_args(args)
+
+    config = make_config(tgt_options)
+
+    translate.log_options(tgt_options, "target PyPy options in effect")
+
     global space, w_entry_point
 
-    geninterp = not getattr(options, 'lowmem', False)
+    if getattr(options, "lowmem", False):
+        config.objspace.geninterp = False
     
     # obscure hack to stuff the translation options into the translated PyPy
     import pypy.module.sys
@@ -58,20 +84,17 @@ def target(driver, args):
 
     # disable translation of the whole of classobjinterp.py
     Space.setup_old_style_classes = lambda self: None
-    # XXX threads are not working right now!
-    #if options.gc == 'boehm':
-    #    #print "disabling thread with boehm for stabilitiy (combination not tested)"
-    #    #print "trying threads and boehm"
-    #    usemodules = []
-    #else:
-    #    usemodules = ['thread']
-    usemodules = ['_stackless']
 
-    space = Space(nofaking=True,
-                  compiler="ast", # interpreter/astcompiler
-                  translating=True,
-                  usemodules=usemodules,
-                  geninterp=geninterp)
+    config.objspace.nofaking = True
+    config.objspace.compiler = "ast"
+    config.translating = True
+        
+    # XXX threading is borken
+    config.objspace.usemodules.thread = False
+    config.objspace.usemodules._stackless = True
+
+    space = Space(config)
+
     # manually imports app_main.py
     filename = os.path.join(this_dir, 'app_main.py')
     w_dict = space.newdict([])
