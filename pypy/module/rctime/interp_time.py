@@ -13,6 +13,7 @@ _POSIX = os.name == "posix"
 class CConfig:
     _header_ = """
     #include <sys/time.h>
+    #include <time.h>
     """
     timeval = ctypes_platform.Struct("struct timeval", [("tv_sec", c_int),
         ("tv_usec", c_int)])
