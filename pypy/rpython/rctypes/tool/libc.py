@@ -11,7 +11,7 @@ else:
 
 if sys.platform == 'win32':
     libc = cdll_load('msvcrt.dll')
-elif sys.platform == 'linux2':
+elif sys.platform in ('linux2', 'freebsd6'):
     libc = cdll_load('libc.so.6')
 elif sys.platform == 'darwin':
     libc = cdll_load('libc.dylib') 
