@@ -140,7 +140,6 @@ def fcntl(space, w_fd, op, w_arg=0):
             space.wrap("int or string required"))
 fcntl.unwrap_spec = [ObjSpace, W_Root, int, W_Root]
 
-
 def flock(space, w_fd, op):
     """flock(fd, operation)
 
@@ -159,6 +158,5 @@ def flock(space, w_fd, op):
         l = _check_flock_op(space, op)
         l.l_whence = l.l_start = l.l_len = 0
         op = (F_SETLKW, F_SETLK)[op & LOCK_NB]
-        
-        rv = _call_func("fcntl", fd, op, byref(l))
+        fcntl_flock(fd, op, byref(l))
 flock.unwrap_spec = [ObjSpace, W_Root, int]
