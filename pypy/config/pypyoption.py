@@ -1,6 +1,6 @@
 import py
 from pypy.config.config import OptionDescription, BoolOption, IntOption
-from pypy.config.config import ChoiceOption, to_optparse, Config
+from pypy.config.config import ChoiceOption
 
 modulepath = py.magic.autopath().dirpath().dirpath().join("module")
 all_modules = [p.basename for p in modulepath.listdir()
@@ -13,8 +13,7 @@ default_modules = dict.fromkeys(
 pypy_optiondescription = OptionDescription("pypy", [
     OptionDescription("objspace", [
         ChoiceOption("name", "Object Space name",
-                     ["std", "flow", "logic", "thunk", "cpy"], "std",
-                     cmdline='--objspace -o'),
+                     ["std", "flow", "logic", "thunk", "cpy"], "std"),
 
         ChoiceOption("parser", "parser",
                      ["pypy", "cpython"], "pypy"),
@@ -49,19 +48,15 @@ pypy_optiondescription = OptionDescription("pypy", [
                        default=False, requires=[("withsmallint", False)]),
 
             IntOption("prebuiltintfrom", "lowest integer which is prebuilt",
-                      default=-5, cmdline="--prebuiltinfrom"),
+                      default=-5),
 
             IntOption("prebuiltintto", "highest integer which is prebuilt",
-                      default=100, cmdline="--prebuiltintto"),
+                      default=100),
 
             BoolOption("withstrjoin", "use strings optimized for addition",
                        default=False),
 
             BoolOption("withstrslice", "use strings optimized for slicing",
-                       default=False),
-
-            BoolOption("withstrdict",
-                       "use dictionaries optimized for string keys",
                        default=False),
 
             BoolOption("oldstyle",
@@ -75,14 +70,3 @@ pypy_optiondescription = OptionDescription("pypy", [
     BoolOption("translating", "indicates whether we are translating currently",
                default=False),
 ])
-
-if __name__ == '__main__':
-    config = Config(pypy_optiondescription)
-    parser = to_optparse(config, ["objspace.name",
-                                  "objspace.std.*",
-                                  "objspace.std.withsmallint",
-                                  "objspace.std.withprebuiltint",
-                                  "objspace.usemodules",
-                                  "objspace.std.prebuiltintfrom",])
-    option, args = parser.parse_args()
-    print config

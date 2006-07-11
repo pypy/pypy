@@ -1,5 +1,5 @@
 import os, sys
-from pypy.objspace.thunk import Space
+from pypy.objspace.logic import Space, newvar, unify
 # XXX from pypy.annotation.model import *
 # since we are execfile()'ed this would pull some
 # weird objects into the globals, which we would try to pickle.
@@ -22,23 +22,9 @@ def debug(msg):
 # __________  Entry point  __________
 
 def entry_point(argv):
-    debug("entry point starting") 
-    for arg in argv: 
-        debug(" argv -> " + arg)
-    try:
-        w_executable = space.wrap(argv[0])
-        w_argv = space.newlist([space.wrap(s) for s in argv[1:]])
-        w_exitcode = space.call_function(w_entry_point, w_executable, w_argv)
-        # try to pull it all in
-    ##    from pypy.interpreter import main, interactive, error
-    ##    con = interactive.PyPyConsole(space)
-    ##    con.interact()
-    except OperationError, e:
-        debug("OperationError:")
-        debug(" operror-type: " + e.w_type.getname(space, '?'))
-        debug(" operror-value: " + space.str_w(space.str(e.w_value)))
-        return 1
-    return space.int_w(w_exitcode)
+    X = newvar(space)
+    unify(space, X, space.newint(42))
+    return X
 
 # _____ Define and setup target ___
 
@@ -71,14 +57,15 @@ def target(driver, args):
                   usemodules=usemodules,
                   geninterp=geninterp)
     # manually imports app_main.py
-    filename = os.path.join(this_dir, 'app_main.py')
-    w_dict = space.newdict([])
-    space.exec_(open(filename).read(), w_dict, w_dict)
-    w_entry_point = space.getitem(w_dict, space.wrap('entry_point'))
+    #filename = os.path.join(this_dir, 'app_main.py')
+    #w_dict = space.newdict([])
+    #space.exec_(open(filename).read(), w_dict, w_dict)
+    #w_entry_point = space.getitem(w_dict, space.wrap('entry_point'))
 
     # sanity-check: call the entry point
-    res = entry_point(["pypy", "app_basic_example.py"])
-    assert res == 0
+    #res = entry_point(["pypy", "app_basic_example.py"])
+    #assert res == 0
 
     return entry_point, None, PyPyAnnotatorPolicy()
+
 

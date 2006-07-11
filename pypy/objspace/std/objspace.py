@@ -54,14 +54,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
         # Import all the object types and implementations
         self.model = StdTypeModel()
 
-        # XXX store the dict class on the space to access it in various places
-        if self.config.objspace.std.withstrdict:
-            from pypy.objspace.std import dictstrobject
-            self.DictObjectCls = dictstrobject.W_DictStrObject
-        else:
-            from pypy.objspace.std import dictobject
-            self.DictObjectCls = dictobject.W_DictObject
-
         # install all the MultiMethods into the space instance
         for name, mm in self.MM.__dict__.items():
             if isinstance(mm, StdObjSpaceMultiMethod) and not hasattr(self, name):
@@ -382,7 +374,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return W_ListObject(list_w)
 
     def newdict(self, list_pairs_w):
-        w_result = self.DictObjectCls(self)
+        w_result = W_DictObject(self)
         w_result.initialize_content(list_pairs_w)
         return w_result
 
@@ -454,25 +446,23 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return w_one is w_two
 
     def is_true(self, w_obj):
-        if type(w_obj) is self.DictObjectCls:
-            return w_obj.len() != 0
+        # XXX don't look!
+        if type(w_obj) is W_DictObject:
+            return len(w_obj.content) != 0
         else:
             return DescrOperation.is_true(self, w_obj)
 
     def finditem(self, w_obj, w_key):
         # performance shortcut to avoid creating the OperationError(KeyError)
-        if type(w_obj) is self.DictObjectCls:
-            if not self.config.objspace.std.withstrdict:
-                return w_obj.content.get(w_key, None)
-            else:
-                # XXX fix this here
-                pass
-        return ObjSpace.finditem(self, w_obj, w_key)
+        if type(w_obj) is W_DictObject:
+            return w_obj.content.get(w_key, None)
+        else:
+            return ObjSpace.finditem(self, w_obj, w_key)
 
     def set_str_keyed_item(self, w_obj, w_key, w_value):
         # performance shortcut to avoid creating the OperationError(KeyError)
-        if type(w_obj) is self.DictObjectCls:
-            w_obj.set_str_keyed_item(w_key, w_value)
+        if type(w_obj) is W_DictObject:
+            w_obj.content[w_key] = w_value
         else:
             self.setitem(w_obj, w_key, w_value)
 

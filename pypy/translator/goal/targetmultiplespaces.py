@@ -1,7 +1,4 @@
 import os, sys
-
-from pypy.tool.option import make_config
-
 from pypy.objspace.std.objspace import StdObjSpace
 # XXX from pypy.annotation.model import *
 # since we are execfile()'ed this would pull some
@@ -59,14 +56,9 @@ take_options = True
 def opt_parser():
     import py
     defl = {'thread': False}
-    parser = py.compat.optparse.OptionParser(usage="target multiple spaces", 
-                                                add_help_option=False)
+    parser = py.compat.optparse.OptionParser(usage="target PyPy standalone", add_help_option=False)
     parser.set_defaults(**defl)
-    parser.add_option("--thread", action="store_true", dest="thread", 
-                        help="enable threading")
-    parser.add_option("--usemodules", action="store", type="string", 
-                        dest="usemodules", help=("list of mixed modules to "
-                                            "include, comma-separated"))
+    parser.add_option("--thread", action="store_true", dest="thread", help="enable threading")
     return parser
 
 def print_help():
@@ -78,16 +70,13 @@ def target(driver, args):
 
     tgt_options, _ = opt_parser().parse_args(args)
 
-    config = make_config(tgt_options)
-
     translate.log_options(tgt_options, "target PyPy options in effect")
 
     options.thread = tgt_options.thread
 
     global space1, space2, w_entry_point_1, w_entry_point_2
 
-    if getattr(options, "lowmem", False):
-        config.objspace.geninterp = False
+    geninterp = not getattr(options, 'lowmem', False)
     
     # obscure hack to stuff the translation options into the translated PyPy
     import pypy.module.sys
@@ -98,21 +87,21 @@ def target(driver, args):
     StdObjSpace.setup_old_style_classes = lambda self: None
 
     usemodules = []
-    if tgt_options.usemodules:
-        for modname in tgt_options.usemodules.split(","):
-            setattr(config.objspace.usemodules, modname, True)
-    if tgt_options.thread:
+    if options.thread:
         print "threads unsupported right now: need thread-safe stack_too_big"
         raise SystemExit        
-        config.objspace.usemodules.thread = True
-    if options.stackless:
-        config.objspace.usemodules._stackless = True
-    config.objspace.nofaking = True
-    config.objspace.compiler = "ast"
-    config.translating = True
-
-    space1 = StdObjSpace(config)
-    space2 = StdObjSpace(config)
+        usemodules.append('thread')
+        
+    space1 = StdObjSpace(nofaking=True,
+                         compiler="ast", # interpreter/astcompiler
+                         translating=True,
+                         usemodules=usemodules,
+                         geninterp=geninterp)
+    space2 = StdObjSpace(nofaking=True,
+                         compiler="ast", # interpreter/astcompiler
+                         translating=True,
+                         usemodules=usemodules,
+                         geninterp=geninterp)
 
     space1.setattr(space1.getbuiltinmodule('sys'),
                    space1.wrap('pypy_space'),

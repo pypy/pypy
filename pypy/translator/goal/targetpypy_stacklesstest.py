@@ -1,5 +1,13 @@
+"""
+This is a hacked version of targetpypystandalone.py
+with options set and optimized for testing stackless
+on application level.
+The problem is, that with the standard interpreter,
+we have no choice for testing but to build everything.
+Trying to reduce time by disabling all optimizations.
+"""
 import os, sys
-from pypy.objspace.thunk import Space
+from pypy.objspace.std.objspace import StdObjSpace
 # XXX from pypy.annotation.model import *
 # since we are execfile()'ed this would pull some
 # weird objects into the globals, which we would try to pickle.
@@ -42,8 +50,45 @@ def entry_point(argv):
 
 # _____ Define and setup target ___
 
+# for now this will do for option handling
+
+take_options = True
+
+stackless_options = {
+    # no backend specific options, yet
+    }
+
+# this gets folded into the global options
+
+opt_defaults = {
+    'lowmem': True,
+    'text': True,
+    'debug': True,
+    'stackless': True,
+    }
+
+def opt_parser():
+    import py
+    defl = {'thread': False}
+    defl.update(stackless_options)
+    parser = py.compat.optparse.OptionParser(usage="target PyPy standalone", add_help_option=False)
+    parser.set_defaults(**defl)
+    parser.add_option("--thread", action="store_true", dest="thread", help="enable threading")
+    return parser
+
+def print_help():
+    opt_parser().print_help()
+
+
 def target(driver, args):
     options = driver.options
+    driver.disable(["backendopt"])
+
+    tgt_options, _ = opt_parser().parse_args(args)
+
+    translate.log_options(tgt_options, "target PyPy options in effect")
+
+    options.thread = tgt_options.thread
 
     global space, w_entry_point
 
@@ -55,21 +100,17 @@ def target(driver, args):
     pypy.module.sys.Module.interpleveldefs['pypy_translation_info'] = wrapstr
 
     # disable translation of the whole of classobjinterp.py
-    Space.setup_old_style_classes = lambda self: None
-    # XXX threads are not working right now!
-    #if options.gc == 'boehm':
-    #    #print "disabling thread with boehm for stabilitiy (combination not tested)"
-    #    #print "trying threads and boehm"
-    #    usemodules = []
-    #else:
-    #    usemodules = ['thread']
-    usemodules = []
+    StdObjSpace.setup_old_style_classes = lambda self: None
 
-    space = Space(nofaking=True,
-                  compiler="ast", # interpreter/astcompiler
-                  translating=True,
-                  usemodules=usemodules,
-                  geninterp=geninterp)
+    usemodules = ['stackless']
+    if options.thread:
+        usemodules.append('thread')
+        
+    space = StdObjSpace(nofaking=True,
+                        compiler="ast", # interpreter/astcompiler
+                        translating=True,
+                        usemodules=usemodules,
+                        geninterp=geninterp)
     # manually imports app_main.py
     filename = os.path.join(this_dir, 'app_main.py')
     w_dict = space.newdict([])
@@ -80,5 +121,5 @@ def target(driver, args):
     res = entry_point(["pypy", "app_basic_example.py"])
     assert res == 0
 
-    return entry_point, None, PyPyAnnotatorPolicy()
+    return entry_point, None, PyPyAnnotatorPolicy(single_space = space)
 

@@ -1,21 +1,19 @@
 import autopath
 from pypy.objspace.std.dictobject import W_DictObject
-from pypy.conftest import gettestobjspace
+
+
 
 class TestW_DictObject:
 
-    def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withstrdict": False})
-
     def test_empty(self):
         space = self.space
-        d = self.space.DictObjectCls(space)
+        d = W_DictObject(space)
         assert not self.space.is_true(d)
 
     def test_nonempty(self):
         space = self.space
         wNone = space.w_None
-        d = self.space.DictObjectCls(space)
+        d = W_DictObject(space)
         d.initialize_content([(wNone, wNone)])
         assert space.is_true(d)
         i = space.getitem(d, wNone)
@@ -26,7 +24,7 @@ class TestW_DictObject:
         space = self.space
         wk1 = space.wrap('key')
         wone = space.wrap(1)
-        d = self.space.DictObjectCls(space)
+        d = W_DictObject(space)
         d.initialize_content([(space.wrap('zero'),space.wrap(0))])
         space.setitem(d,wk1,wone)
         wback = space.getitem(d,wk1)
@@ -35,7 +33,7 @@ class TestW_DictObject:
     def test_delitem(self):
         space = self.space
         wk1 = space.wrap('key')
-        d = self.space.DictObjectCls(space)
+        d = W_DictObject(space)
         d.initialize_content( [(space.wrap('zero'),space.wrap(0)),
                                (space.wrap('one'),space.wrap(1)),
                                (space.wrap('two'),space.wrap(2))])
@@ -46,7 +44,7 @@ class TestW_DictObject:
                             space.getitem,d,space.wrap('one'))
 
     def test_wrap_dict(self):
-        assert isinstance(self.space.wrap({}), self.space.DictObjectCls)
+        assert isinstance(self.space.wrap({}), W_DictObject)
 
 
     def test_dict_compare(self):
@@ -356,10 +354,6 @@ class FakeSpace:
     eq_w = eq
     def newlist(self, l):
         return []
-    DictObjectCls = W_DictObject
-    def type(self, w_obj):
-        return type(w_obj)
-    w_str = str
 
 from pypy.objspace.std.dictobject import getitem__Dict_ANY, setitem__Dict_ANY_ANY
 
@@ -370,7 +364,7 @@ class TestDictImplementation:
 
     def test_stressdict(self):
         from random import randint
-        d = self.space.DictObjectCls(self.space)
+        d = W_DictObject(self.space)
         N = 10000
         pydict = {}
         for i in range(N):
