@@ -58,6 +58,8 @@ some support for callbacks and a few more obscure ctypes features, but
 e.g. custom allocators and return-value-error-checkers are not
 supported.
 
+Remember to use ``None`` as the return type in the function declaration if it returns void.
+
 There is special support for the special variable ``errno`` of C: from
 the RPython program, use ``pypy.rpython.rctypes.aerrno.geterrno()`` to
 read it.
