@@ -20,77 +20,87 @@ class AppTestFcntl:
         assert res == 10
         assert res_1 == f.fileno()
 
-# def test_fcntl():
-#     assert cfcntl.fcntl(f, 1, 0) == 0
-#     assert cfcntl.fcntl(f, 2, "foo") == "foo"
-#     py.test.raises(TypeError, cfcntl.fcntl, "foo")
-#     py.test.raises(IOError, cfcntl.fcntl, -1, 1, 0)
-# 
-#     try:
-#         os.O_LARGEFILE
-#     except AttributeError:
-#         start_len = "ll"
-#     else:
-#         start_len = "qq"
-# 
-#     if sys.platform in ('netbsd1', 'netbsd2', 'netbsd3', 
-#                         'Darwin1.2', 'darwin',
-#                         'freebsd2', 'freebsd3', 'freebsd4', 'freebsd5',
-#                         'freebsd6', 'freebsd7', 
-#                         'bsdos2', 'bsdos3', 'bsdos4',
-#                         'openbsd', 'openbsd2', 'openbsd3'):
-#         if struct.calcsize('l') == 8:
-#             off_t = 'l'
-#             pid_t = 'i'
-#         else:
-#             off_t = 'lxxxx'
-#             pid_t = 'l'
-# 
-#         format = "%s%s%shh" % (off_t, off_t, pid_t)
-#         lockdata = struct.pack(format, 0, 0, 0, cfcntl.F_WRLCK, 0)
-#     else:
-#         format = "hh%shh" % start_len
-#         lockdata = struct.pack(format, cfcntl.F_WRLCK, 0, 0, 0, 0, 0)
-# 
-#     rv = cfcntl.fcntl(f.fileno(), cfcntl.F_SETLKW, lockdata)
-#     assert rv == lockdata
-#     assert cfcntl.fcntl(f, cfcntl.F_SETLKW, lockdata) == lockdata
-# 
-#     # test duplication of file descriptor
-#     rv = cfcntl.fcntl(f, cfcntl.F_DUPFD)
-#     assert rv > 2 # > (stdin, stdout, stderr) at least
-#     assert cfcntl.fcntl(f, cfcntl.F_DUPFD) > rv
-#     assert cfcntl.fcntl(f, cfcntl.F_DUPFD, 99) == 99
-# 
-#     # test descriptor flags
-#     assert cfcntl.fcntl(f, cfcntl.F_GETFD) == 0
-#     cfcntl.fcntl(f, cfcntl.F_SETFD, 1)
-#     assert cfcntl.fcntl(f, cfcntl.F_GETFD, cfcntl.FD_CLOEXEC) == 1
-# 
-#     # test status flags
-#     assert cfcntl.fcntl(f.fileno(), cfcntl.F_SETFL, os.O_NONBLOCK) == 0
-#     assert cfcntl.fcntl(f.fileno(), cfcntl.F_SETFL, os.O_NDELAY) == 0
-#     assert cfcntl.fcntl(f, cfcntl.F_SETFL, os.O_NONBLOCK) == 0
-#     assert cfcntl.fcntl(f, cfcntl.F_SETFL, os.O_NDELAY) == 0
+    def test_fcntl(self):
+        import fcntl
+        import os
+        import sys
+        import struct
+        
+        f = open("/tmp/conv_descr", "w")
+        
+        fcntl.fcntl(f, 1, 0)
+        fcntl.fcntl(f, 1)
+        raises(TypeError, fcntl.fcntl, "foo")
+        raises(TypeError, fcntl.fcntl, f, "foo")
+        raises(IOError, fcntl.fcntl, -1, 1, 0)
+        assert fcntl.fcntl(f, 1, 0) == 0
+        assert fcntl.fcntl(f, 2, "foo") == "foo"
+        
+        try:
+            os.O_LARGEFILE
+        except AttributeError:
+            start_len = "ll"
+        else:
+            start_len = "qq"
+
+        if sys.platform in ('netbsd1', 'netbsd2', 'netbsd3', 
+                            'Darwin1.2', 'darwin',
+                            'freebsd2', 'freebsd3', 'freebsd4', 'freebsd5',
+                            'freebsd6', 'freebsd7', 
+                            'bsdos2', 'bsdos3', 'bsdos4',
+                            'openbsd', 'openbsd2', 'openbsd3'):
+            if struct.calcsize('l') == 8:
+                off_t = 'l'
+                pid_t = 'i'
+            else:
+                off_t = 'lxxxx'
+                pid_t = 'l'
+
+            format = "%s%s%shh" % (off_t, off_t, pid_t)
+            lockdata = struct.pack(format, 0, 0, 0, fcntl.F_WRLCK, 0)
+        else:
+            format = "hh%shh" % start_len
+            lockdata = struct.pack(format, fcntl.F_WRLCK, 0, 0, 0, 0, 0)
+
+        rv = fcntl.fcntl(f.fileno(), fcntl.F_SETLKW, lockdata)
+        assert rv == lockdata
+        assert fcntl.fcntl(f, fcntl.F_SETLKW, lockdata) == lockdata
+
+        # test duplication of file descriptor
+        rv = fcntl.fcntl(f, fcntl.F_DUPFD)
+        assert rv > 2 # > (stdin, stdout, stderr) at least
+        assert fcntl.fcntl(f, fcntl.F_DUPFD) > rv
+        assert fcntl.fcntl(f, fcntl.F_DUPFD, 99) == 99
+
+        # test descriptor flags
+        assert fcntl.fcntl(f, fcntl.F_GETFD) == 0
+        fcntl.fcntl(f, fcntl.F_SETFD, 1)
+        assert fcntl.fcntl(f, fcntl.F_GETFD, fcntl.FD_CLOEXEC) == 1
+
+        # test status flags
+        assert fcntl.fcntl(f.fileno(), fcntl.F_SETFL, os.O_NONBLOCK) == 0
+        assert fcntl.fcntl(f.fileno(), fcntl.F_SETFL, os.O_NDELAY) == 0
+        assert fcntl.fcntl(f, fcntl.F_SETFL, os.O_NONBLOCK) == 0
+        assert fcntl.fcntl(f, fcntl.F_SETFL, os.O_NDELAY) == 0
 # 
 #     if "linux" in sys.platform:
 #         # test managing signals
-#         assert cfcntl.fcntl(f, cfcntl.F_GETOWN) == 0
-#         cfcntl.fcntl(f, cfcntl.F_SETOWN, 20)
-#         assert cfcntl.fcntl(f, cfcntl.F_GETOWN) == 20
-#         assert cfcntl.fcntl(f, cfcntl.F_GETSIG) == 0
-#         cfcntl.fcntl(f, cfcntl.F_SETSIG, 20)
-#         assert cfcntl.fcntl(f, cfcntl.F_GETSIG) == 20
+#         assert fcntl.fcntl(f, fcntl.F_GETOWN) == 0
+#         fcntl.fcntl(f, fcntl.F_SETOWN, 20)
+#         assert fcntl.fcntl(f, fcntl.F_GETOWN) == 20
+#         assert fcntl.fcntl(f, fcntl.F_GETSIG) == 0
+#         fcntl.fcntl(f, fcntl.F_SETSIG, 20)
+#         assert fcntl.fcntl(f, fcntl.F_GETSIG) == 20
 # 
 #         # test leases
-#         assert cfcntl.fcntl(f, cfcntl.F_GETLEASE) == cfcntl.F_UNLCK
-#         cfcntl.fcntl(f, cfcntl.F_SETLEASE, cfcntl.F_WRLCK)
-#         assert cfcntl.fcntl(f, cfcntl.F_GETLEASE) == cfcntl.F_WRLCK
+#         assert fcntl.fcntl(f, fcntl.F_GETLEASE) == fcntl.F_UNLCK
+#         fcntl.fcntl(f, fcntl.F_SETLEASE, fcntl.F_WRLCK)
+#         assert fcntl.fcntl(f, fcntl.F_GETLEASE) == fcntl.F_WRLCK
 #     else:
 #         # this tests should fail under BSD
 #         # with "Inappropriate ioctl for device"
-#         py.test.raises(IOError, cfcntl.fcntl, f, cfcntl.F_GETOWN)
-#         py.test.raises(IOError, cfcntl.fcntl, f, cfcntl.F_SETOWN, 20)
+#         py.test.raises(IOError, fcntl.fcntl, f, fcntl.F_GETOWN)
+#         py.test.raises(IOError, fcntl.fcntl, f, fcntl.F_SETOWN, 20)
 # 
 # 
 # def test_flock():

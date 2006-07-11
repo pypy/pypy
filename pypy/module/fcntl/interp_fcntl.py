@@ -18,6 +18,7 @@ class CConfig:
 # constants, look in fcntl.h and platform docs for the meaning
 # some constants are linux only so they will be correctly exposed outside 
 # depending on the OS
+constants = {}
 constant_names = ['LOCK_SH', 'LOCK_EX', 'LOCK_NB', 'LOCK_UN', 'F_DUPFD',
     'F_GETFD', 'F_SETFD', 'F_GETFL', 'F_SETFL', 'F_UNLCK', 'FD_CLOEXEC',
     'LOCK_MAND', 'LOCK_READ', 'LOCK_WRITE', 'LOCK_RW', 'F_GETSIG', 'F_SETSIG', 
@@ -39,16 +40,70 @@ class cConfig:
 cConfig.__dict__.update(ctypes_platform.configure(CConfig))
 cConfig.flock.__name__ = "_flock"
 
+# needed to export the constants outside. see __init__.py
+for name in constant_names:
+    value = getattr(cConfig, name)
+    if value is not None:
+        constants[name] = value
+
 _flock = cConfig.flock
+libc.strerror.restype = c_char_p
+libc.strerror.argtypes = [c_int]
+
+fcntl_int = libc['fcntl']
+fcntl_int.argtypes = [c_int, c_int, c_int]
+fcntl_int.restype = c_int
+
+fcntl_str = libc['fcntl']
+fcntl_str.argtypes = [c_int, c_int, c_char_p]
+fcntl_str.restype = c_int
 
 def _get_error_msg():
     errno = geterrno()
     return libc.strerror(errno)
 
-def _conv_descriptor(space, f):
-    w_conv_descriptor = _get_module_object(space, "_check_float")
-    space.call_function(w_conv_descriptor, space.wrap(f))
+def _get_module_object(space, obj_name):
+    w_module = space.getbuiltinmodule('fcntl')
+    w_obj = space.getattr(w_module, space.wrap(obj_name))
+    return w_obj
 
+def _conv_descriptor(space, w_f):
+    w_conv_descriptor = _get_module_object(space, "_conv_descriptor")
+    w_fd = space.call_function(w_conv_descriptor, w_f)
+    return space.int_w(w_fd)
 
+def fcntl(space, w_fd, op, w_arg=0):
+    """fcntl(fd, op, [arg])
 
+    Perform the requested operation on file descriptor fd.  The operation
+    is defined by op and is operating system dependent.  These constants are
+    available from the fcntl module.  The argument arg is optional, and
+    defaults to 0; it may be an int or a string. If arg is given as a string,
+    the return value of fcntl is a string of that length, containing the
+    resulting value put in the arg buffer by the operating system. The length
+    of the arg string is not allowed to exceed 1024 bytes. If the arg given
+    is an integer or if none is specified, the result value is an integer
+    corresponding to the return value of the fcntl call in the C code."""
 
+    fd = _conv_descriptor(space, w_fd)
+    
+    if space.is_w(space.type(w_arg), space.w_int):
+        rv = fcntl_int(fd, op, space.int_w(w_arg))
+        if rv < 0:
+            raise OperationError(space.w_IOError,
+                space.wrap(_get_error_msg()))
+        return space.wrap(rv)
+    elif space.is_w(space.type(w_arg), space.w_str):
+        arg = space.str_w(w_arg)
+        if len(arg) > 1024:
+            raise OperationError(space.w_ValueError,
+                space.wrap("fcntl string arg too long"))
+        rv = fcntl_str(fd, op, arg)
+        if rv < 0:
+            raise OperationError(space.w_IOError,
+                space.wrap(_get_error_msg()))
+        return space.wrap(arg)
+    else:
+        raise OperationError(space.w_TypeError,
+            space.wrap("int or string required"))
+fcntl.unwrap_spec = [ObjSpace, W_Root, int, W_Root]
