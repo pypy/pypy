@@ -65,6 +65,16 @@ fcntl_str = libc['fcntl']
 fcntl_str.argtypes = [c_int, c_int, c_char_p]
 fcntl_str.restype = c_int
 
+fcntl_flock = libc['fcntl']
+fcntl_flock.argtypes = [c_int, c_int, POINTER(_flock)]
+fcntl_flock.restype = c_int
+
+has_flock = False
+if hasattr(libc, "flock"):
+    libc.flock.argtypes = [c_int, c_int]
+    libc.flock.restype = c_int
+    has_flock = True
+
 def _get_error_msg():
     errno = geterrno()
     return libc.strerror(errno)
@@ -78,6 +88,20 @@ def _conv_descriptor(space, w_f):
     w_conv_descriptor = _get_module_object(space, "_conv_descriptor")
     w_fd = space.call_function(w_conv_descriptor, w_f)
     return space.int_w(w_fd)
+
+def _check_flock_op(space, op):
+    l = _flock()
+
+    if op == LOCK_UN:
+        l.l_type = F_UNLCK
+    elif op & LOCK_SH:
+        l.l_type = F_RDLCK
+    elif op & LOCK_EX:
+        l.l_type = F_WRLCK
+    else:
+        raise OperationError(space.w_ValueError,
+            space.wrap("unrecognized flock argument"))
+    return l
 
 def fcntl(space, w_fd, op, w_arg=0):
     """fcntl(fd, op, [arg])
@@ -114,3 +138,26 @@ def fcntl(space, w_fd, op, w_arg=0):
         raise OperationError(space.w_TypeError,
             space.wrap("int or string required"))
 fcntl.unwrap_spec = [ObjSpace, W_Root, int, W_Root]
+
+
+def flock(space, w_fd, op):
+    """flock(fd, operation)
+
+    Perform the lock operation op on file descriptor fd.  See the Unix
+    manual flock(3) for details.  (On some systems, this function is
+    emulated using fcntl().)"""
+
+    fd = _conv_descriptor(space, w_fd)
+
+    if has_flock:
+        rv = libc.flock(fd, op)
+        if rv < 0:
+            raise OperationError(space.w_IOError,
+                space.wrap(_get_error_msg()))
+    else:
+        l = _check_flock_op(space, op)
+        l.l_whence = l.l_start = l.l_len = 0
+        op = (F_SETLKW, F_SETLK)[op & LOCK_NB]
+        
+        rv = _call_func("fcntl", fd, op, byref(l))
+flock.unwrap_spec = [ObjSpace, W_Root, int]

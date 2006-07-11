@@ -26,7 +26,7 @@ class AppTestFcntl:
         import sys
         import struct
         
-        f = open("/tmp/conv_descr", "w")
+        f = open("/tmp/fcntl", "w")
         
         fcntl.fcntl(f, 1, 0)
         fcntl.fcntl(f, 1)
@@ -101,17 +101,24 @@ class AppTestFcntl:
             # with "Inappropriate ioctl for device"
             raises(IOError, fcntl.fcntl, f, fcntl.F_GETOWN)
             raises(IOError, fcntl.fcntl, f, fcntl.F_SETOWN, 20)
+        
+        f.close()
 
-
-# def test_flock():
-#     if "linux" in sys.platform:
-#         cfcntl.flock(f, cfcntl.LOCK_SH)
-#         # this is an error EWOULDBLOCK, man: The file is locked and the
-#         # LOCK_NB flag was selected.
-#         py.test.raises(IOError, cfcntl.flock, f, cfcntl.LOCK_NB)
-#         py.test.raises(IOError, cfcntl.flock, f, 3)
-#     py.test.raises(TypeError, cfcntl.flock, f, "foo")
-#     cfcntl.flock(f, cfcntl.LOCK_UN)
+    def test_flock(self):
+        import fcntl
+        import sys
+        
+        f = open("/tmp/flock", "w")
+        
+        raises(TypeError, fcntl.flock, "foo")
+        raises(TypeError, fcntl.flock, f, "foo")
+        fcntl.flock(f, fcntl.LOCK_SH)
+        # this is an error EWOULDBLOCK, man: The file is locked and the
+        # LOCK_NB flag was selected.
+        raises(IOError, fcntl.flock, f, fcntl.LOCK_NB)
+        fcntl.flock(f, fcntl.LOCK_UN)
+        
+        f.close()
 # 
 # def test_lockf():
 #     py.test.raises(TypeError, cfcntl.lockf, f, "foo")
