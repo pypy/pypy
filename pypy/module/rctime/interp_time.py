@@ -10,8 +10,6 @@ import math
 
 _POSIX = os.name == "posix"
 
-# XXXXXX: diminuisci i cConfig.qualcosa con qualcosa. insomma esporta
-
 class CConfig:
     _header_ = """
     #include <sys/time.h>
@@ -34,24 +32,31 @@ cConfig.__dict__.update(ctypes_platform.configure(CConfig))
 cConfig.timeval.__name__ = "_timeval"
 cConfig.tm.__name__ = "_tm"
 
+CLOCKS_PER_SEC = cConfig.CLOCKS_PER_SEC
+clock_t = cConfig.clock_t
+time_t = cConfig.time_t
+timeval = cConfig.timeval
+tm = cConfig.tm
+
+
 has_gettimeofday = False
 if hasattr(libc, "gettimeofday"):
     libc.gettimeofday.argtypes = [c_void_p, c_void_p]
     libc.gettimeofday.restype = c_int
     has_gettimeofday = True
 libc.strerror.restype = c_char_p
-libc.clock.restype = cConfig.clock_t
-libc.time.argtypes = [POINTER(cConfig.time_t)]
-libc.time.restype = cConfig.time_t
-libc.ctime.argtypes = [POINTER(cConfig.time_t)]
+libc.clock.restype = clock_t
+libc.time.argtypes = [POINTER(time_t)]
+libc.time.restype = time_t
+libc.ctime.argtypes = [POINTER(time_t)]
 libc.ctime.restype = c_char_p
-libc.gmtime.argtypes = [POINTER(cConfig.time_t)]
-libc.gmtime.restype = POINTER(cConfig.tm)
-libc.localtime.argtypes = [POINTER(cConfig.time_t)]
-libc.localtime.restype = POINTER(cConfig.tm)
-libc.mktime.argtypes = [POINTER(cConfig.tm)]
-libc.mktime.restype = cConfig.time_t
-libc.asctime.argtypes = [POINTER(cConfig.tm)]
+libc.gmtime.argtypes = [POINTER(time_t)]
+libc.gmtime.restype = POINTER(tm)
+libc.localtime.argtypes = [POINTER(time_t)]
+libc.localtime.restype = POINTER(tm)
+libc.mktime.argtypes = [POINTER(tm)]
+libc.mktime.restype = time_t
+libc.asctime.argtypes = [POINTER(tm)]
 libc.asctime.restype = c_char_p
 libc.tzset.restype = None # tzset() returns void
 
@@ -75,12 +80,12 @@ def _init_timezone():
     if _POSIX:
         YEAR = (365 * 24 + 6) * 3600
 
-        t = (((libc.time(byref(cConfig.time_t(0)))) / YEAR) * YEAR)
-        tt = cConfig.time_t(t)
+        t = (((libc.time(byref(time_t(0)))) / YEAR) * YEAR)
+        tt = time_t(t)
         p = libc.localtime(byref(tt)).contents
         janzone = -p.tm_gmtoff
         janname = ["   ", p.tm_zone][bool(p.tm_zone)]
-        tt = cConfig.time_t(tt.value + YEAR / 2)
+        tt = time_t(tt.value + YEAR / 2)
         p = libc.localtime(byref(tt)).contents
         julyzone = -p.tm_gmtoff
         julyname = ["   ", p.tm_zone][bool(p.tm_zone)]
@@ -118,7 +123,7 @@ def _floattime():
     #     return libc.time(None)
     #
     if has_gettimeofday:
-        t = cConfig.timeval()
+        t = timeval()
         if libc.gettimeofday(byref(t), c_void_p(None)) == 0:
             return float(t.tv_sec) + t.tv_usec * 0.000001
     return 0.0
@@ -232,7 +237,7 @@ def clock(space):
     records."""
 
     if _POSIX:
-        res = float(float(libc.clock()) / cConfig.CLOCKS_PER_SEC)
+        res = float(float(libc.clock()) / CLOCKS_PER_SEC)
         return space.wrap(res)
     # elif _MS_WINDOWS:
     #     divisor = 0.0
@@ -259,7 +264,7 @@ def ctime(space, w_seconds=None):
     not present, current time as returned by localtime() is used."""
 
     seconds = _get_floattime(space, w_seconds)
-    tt = cConfig.time_t(int(seconds))
+    tt = time_t(int(seconds))
 
     p = libc.ctime(byref(tt))
     if not p:
@@ -278,7 +283,7 @@ ctime.unwrap_spec = [ObjSpace, W_Root]
 #     
 #     tup = None
 #     tuple_len = 0
-#     buf_value = cConfig.tm()
+#     buf_value = tm()
 # 
 #     if len(tup_w):
 #         w_tup = tup_w[0]
@@ -299,7 +304,7 @@ ctime.unwrap_spec = [ObjSpace, W_Root]
 #         # empty list
 #         buf = None
 #         
-#         tt = cConfig.time_t(int(_floattime())) 
+#         tt = time_t(int(_floattime())) 
 #         buf = libc.localtime(byref(tt))
 #         if not buf:
 #             raise OperationError(space.w_ValueError,
@@ -325,7 +330,7 @@ def gmtime(space, w_seconds=None):
     # rpython does not support that a variable has two incompatible builtins
     # as value so we have to duplicate the code. NOT GOOD! see localtime() too
     seconds = _get_floattime(space, w_seconds)
-    whent = cConfig.time_t(int(seconds))
+    whent = time_t(int(seconds))
     p = libc.gmtime(byref(whent))
     
     if not p:
@@ -341,7 +346,7 @@ def localtime(space, w_seconds=None):
     When 'seconds' is not passed in, convert the current time instead."""
 
     seconds = _get_floattime(space, w_seconds)
-    whent = cConfig.time_t(int(seconds))
+    whent = time_t(int(seconds))
     p = libc.localtime(byref(whent))
     
     if not p:
@@ -365,7 +370,7 @@ def mktime(space, w_tup):
             space.wrap("argument must be a sequence of length 9, not %d"\
                 % len(tup_w)))
 
-    tt = cConfig.time_t(int(_floattime()))
+    tt = time_t(int(_floattime()))
     
     buf = libc.localtime(byref(tt))
     if not buf:
