@@ -10,6 +10,7 @@ import sys
 class CConfig:
     _header_ = """
     #include <fcntl.h>
+    #include <sys/file.h>
     """
     flock = ctypes_platform.Struct("struct flock",
         [('l_start', c_longlong), ('l_len', c_longlong),
