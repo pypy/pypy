@@ -36,19 +36,21 @@ class Root(controllers.Root):
         import time
         return dict(now=time.ctime(), onload=self.jsname, code=self.jssource)
     
-    @turbogears.expose(format="json")
-    def send_result(self, result, exc):
-        self.results = (result, exc)
-        self.lock.release()
-        return dict()
-    
-    def get_some_info(self, *args, **kwargs):
-        print "Info: %s" % cherrypy.response.body.read()
-        return dict()
-    
-    get_some_info.exposed = True
+##    @turbogears.expose(format="json")
+##    def send_result(self, result, exc):
+##        self.results = (result, exc)
+##        self.lock.release()
+##        return dict()
+##    
+##    def get_some_info(self, *args, **kwargs):
+##        print "Info: %s" % cherrypy.response.body.read()
+##        return dict()
+##    
+##    get_some_info.exposed = True
     
     def js_basic_js(self):
+        """ Function that sends precompiled JS code
+        """
         def gen(data):
             yield data
         
@@ -57,6 +59,8 @@ class Root(controllers.Root):
         return gen(self.jssource)
     
     def wait_for_results(self):
+        """ funtion that makes tests working
+        """
         self.lock.acquire()
         self.lock.release()
     

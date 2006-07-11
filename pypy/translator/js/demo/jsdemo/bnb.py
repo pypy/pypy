@@ -14,14 +14,6 @@ from cherrypy import session
 
 import re, time, sys, os, urllib, socket, copy, md5, random
 
-class SortY(object):
-    def __init__(self, data):
-        self.data = data
-    
-    def __cmp__(self, other):
-        return cmp(self.data['y'], other.data['y'])
-
-
 class SpriteManager(object):
     def __init__(self):
         self.sprite_sets = {}
@@ -102,6 +94,8 @@ class BnbRoot(Root, BasicExternal):
         'initialize_session' : MethodDesc( [('callback', (lambda : None))], {'aa':'bb'}),
     }
     
+    def add_player(self, player_id = 0):
+        return dict()
     
     def serverMessage(self):
         self._closeIdleConnections()

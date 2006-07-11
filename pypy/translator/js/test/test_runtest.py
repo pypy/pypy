@@ -50,3 +50,15 @@ def test_combined_params():
     f = compile_function(combined_params, [bool,int,float])
     assert f(False, 13, 12.5) == combined_params(False, 13, 12.5)
     assert f(True , 13, 12.5) == combined_params(True , 13, 12.5)
+
+##def test_multiple_function():
+##    def one():
+##        return 1
+##    
+##    def two(x):
+##        return x
+##    
+##    f = compile_function([one, two], [[], [int]])
+##    assert f.call(one) == 1
+##    assert f.call(two, 3) == 3
+##

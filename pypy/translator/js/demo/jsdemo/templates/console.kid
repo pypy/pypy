@@ -8,11 +8,9 @@
     <script type="text/javascript" src="js_basic.js"/>
 </head>
 <body onload="${onload}()">
-    <h3>This is console. You can just run commands</h3>
-    <p id="data">
-    </p>
-<!--    <pre>
-        ${code}
-    </pre> -->
+    <h3>genJS on top of some browser:</h3>
+    <pre id="data"><br/>
+    </pre>
+    <input id="inp" size="100" type="text"/>
 </body>
 </html>

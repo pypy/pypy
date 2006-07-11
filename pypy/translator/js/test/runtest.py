@@ -27,16 +27,15 @@ def _CLI_is_on_path():
     return True
 
 class compile_function(object):
-    def __init__(self, function, annotation, stackless=False, view=False, html=None, is_interactive=False, root = None, run_browser = True):
+    def __init__(self, functions, annotations, stackless=False, view=False, html=None, is_interactive=False, root = None, run_browser = True):
         if not use_browsertest and not _CLI_is_on_path():
             py.test.skip('Javascript CLI (js) not found')
 
         self.html = html
         self.is_interactive = is_interactive
         t = TranslationContext()
-        t.buildannotator().build_types(function, annotation)
-
-        t.buildrtyper(type_system="ootype").specialize() 
+        t.buildannotator().build_types(functions, annotations)
+        t.buildrtyper(type_system="ootype").specialize()
         #print t.rtyper
 
         #backend_optimizations(t, raisingop2direct_call_all=True, inline_threshold=0, mallocs=False)
@@ -44,7 +43,7 @@ class compile_function(object):
         if view or option.view:
             t.view()
         #self.js = JS(t, [function, callback_function], stackless)
-        self.js = JS(t, [function], stackless)
+        self.js = JS(t, functions, stackless)
         self.js.write_source()
         if root is None and use_tg:
             from pypy.translator.js.demo.jsdemo.controllers import Root
@@ -52,6 +51,9 @@ class compile_function(object):
         else:
             self.root = root
         self.run_browser = run_browser
+    
+    def source(self):
+        return self.js.tmpfile.open().read()
 
     def _conv(self, v):
         #if isinstance(v, str):
@@ -59,9 +61,15 @@ class compile_function(object):
         return str(v).lower()
 
     def __call__(self, *kwds):
+        self.call(None, kwds)
+    
+    def call(self, entry_function, kwds):
         args = ', '.join([self._conv(kw) for kw in kwds]) #lowerstr for (py)False->(js)false, etc.
 
-        entry_function = self.js.translator.graphs[0].name
+        if entry_function is None:
+            entry_function = self.js.translator.graphs[0].name
+        else:
+            entry_function = self.js.translator.annotator.bookkeeper.getdesc(entry_function).cached_graph(None)
         function_call = "%s(%s)" % (entry_function, args)
         #if self.js.stackless:
         #    function_call = "slp_entry_point('%s')" % function_call

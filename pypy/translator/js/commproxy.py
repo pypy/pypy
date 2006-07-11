@@ -21,7 +21,7 @@ METHOD_BODY = """
             str += i + "=" + data[i].toString();
         }
     }
-    logDebug('%(call)s'+str);
+    //logDebug('%(call)s'+str);
     x.open("GET", '%(call)s' + str, true);
     //x.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
     x.onreadystatechange = function () { %(real_callback)s(callback) };
@@ -65,6 +65,8 @@ MOCHIKIT_BODY = """
 }
 """
 
+USE_MOCHIKIT = True # FIXME: some option?
+
 class XmlHttp(object):
     """ Class for rendering xmlhttp request communication
     over normal js code
@@ -82,9 +84,7 @@ class XmlHttp(object):
         ilasm.begin_function(self.name, [])
         ilasm.end_function()
     
-    def render_method(self, method_name, method, ilasm):
-        USE_MOCHIKIT = True # FIXME: some option?
-        
+    def render_method(self, method_name, method, ilasm):        
         args, retval = method.args, method.retval.name
         real_args = list(arg.name for arg in args)
         # FIXME: dirty JS here
@@ -96,5 +96,5 @@ class XmlHttp(object):
         else:
             ilasm.codegenerator.write(CALLBACK_BODY % {'real_callback':real_callback})
             ilasm.codegenerator.write(METHOD_BODY % {'class':self.name, 'method':method_name,\
-                'args':",".join(real_args), 'data':data, 'call':'http://localhost:8080/'+method_name,\
+                'args':",".join(real_args), 'data':data, 'call':method_name,\
                 'real_callback':real_callback})

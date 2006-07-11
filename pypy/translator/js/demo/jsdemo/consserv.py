@@ -23,6 +23,12 @@ class ConsoleRoot(BasicExternal, Root):
         'run_command' : MethodDesc([('str_to_eval', 'ss'), ('callback', lambda : None)], {'aa':'aa'})
     }
     
+    @turbogears.expose(format="json")
+    def str_to_eval(self, str_to_eval = "some_string"):
+        return dict()
+    
+    str_to_eval.returnval = {'aa':'aa'}
+    
     _render_xmlhttp = True
     
     @turbogears.expose(html='jsdemo.templates.console')

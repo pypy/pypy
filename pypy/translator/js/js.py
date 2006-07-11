@@ -43,7 +43,10 @@ class JS(GenOO):
             'database_class' : LowLevelDatabase,
             'asm_class' : AsmGen,
         }
-        GenOO.__init__(self, udir, translator, backend_mapping = backend_mapping, pending_graphs = ())
+        if not isinstance(functions, list):
+            functions = [functions]
+        GenOO.__init__(self, udir, translator, backend_mapping = backend_mapping, pending_graphs = [
+            translator.annotator.bookkeeper.getdesc(f).cachedgraph(None) for f in functions ])
         self.translator = translator
         self.db.translator = translator
     
