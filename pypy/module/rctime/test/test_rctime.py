@@ -164,23 +164,23 @@ class AppTestRCTime:
             rctime.tzset()
             assert rctime.gmtime(xmas2002) != rctime.localtime(xmas2002)
             assert rctime.tzname == ['EST', 'EDT']
-        #     assert len(rctime.tzname) == 2
-        #     assert rctime.daylight == 1
-        #     assert rctime.timezone == 18000
-        #     assert rctime.altzone == 14400
-        #     assert rctime.localtime(xmas2002).tm_isdst == 0
-        #     
-        #     # now go to the southern hemisphere.
-        #     os.environ['TZ'] = victoria
-        #     rctime.tzset()
-        #     assert rctime.gmtime(xmas2002) != rctime.localtime(xmas2002)
-        #     assert rctime.tzname[0] == 'AEST'
-        #     assert rctime.tzname[1] == 'AEDT'
-        #     assert len(rctime.tzname) == 2
-        #     assert rctime.daylight == 1
-        #     assert rctime.timezone == -36000
-        #     assert rctime.altzone == -39600
-        #     assert rctime.localtime(xmas2002).tm_isdst == 1
+            assert len(rctime.tzname) == 2
+            assert rctime.daylight == 1
+            assert rctime.timezone == 18000
+            assert rctime.altzone == 14400
+            assert rctime.localtime(xmas2002).tm_isdst == 0
+            
+            # now go to the southern hemisphere.
+            os.environ['TZ'] = victoria
+            rctime.tzset()
+            assert rctime.gmtime(xmas2002) != rctime.localtime(xmas2002)
+            assert rctime.tzname[0] == 'AEST'
+            assert rctime.tzname[1] == 'AEDT'
+            assert len(rctime.tzname) == 2
+            assert rctime.daylight == 1
+            assert rctime.timezone == -36000
+            assert rctime.altzone == -39600
+            assert rctime.localtime(xmas2002).tm_isdst == 1
         finally:
             # repair TZ environment variable in case any other tests
             # rely on it.
