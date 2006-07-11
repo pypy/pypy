@@ -119,12 +119,22 @@ class AppTestFcntl:
         fcntl.flock(f, fcntl.LOCK_UN)
         
         f.close()
-# 
-# def test_lockf():
-#     py.test.raises(TypeError, cfcntl.lockf, f, "foo")
-#     py.test.raises(TypeError, cfcntl.lockf, f, cfcntl.LOCK_UN, "foo")
-#     py.test.raises(ValueError, cfcntl.lockf, f, 0)
-# 
+
+    def test_lockf(self):
+        import fcntl
+        
+        f = open("/tmp/lockf", "w")
+        
+        raises(TypeError, fcntl.lockf, f, "foo")
+        raises(TypeError, fcntl.lockf, f, fcntl.LOCK_UN, "foo")
+        raises(ValueError, fcntl.lockf, f, -1)
+        raises(ValueError, fcntl.lockf, f, 255)
+        
+        fcntl.lockf(f, fcntl.LOCK_SH)
+        fcntl.lockf(f, fcntl.LOCK_UN)
+        
+        f.close()
+
 # def test_ioctl():
 #     py.test.raises(TypeError, cfcntl.ioctl, "foo")
 #     py.test.raises(TypeError, cfcntl.ioctl, 0, "foo")

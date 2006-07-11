@@ -48,11 +48,12 @@ if "linux" in sys.platform:
     cConfig.F_GETLEASE = 1025
     cConfig.F_SETLEASE = 1024
 
-# needed to export the constants outside. see __init__.py
+# needed to export the constants inside and outside. see __init__.py
 for name in constant_names:
     value = getattr(cConfig, name)
     if value is not None:
         constants[name] = value
+locals().update(constants)
 
 _flock = cConfig.flock
 libc.strerror.restype = c_char_p
@@ -157,6 +158,50 @@ def flock(space, w_fd, op):
     else:
         l = _check_flock_op(space, op)
         l.l_whence = l.l_start = l.l_len = 0
-        op = (F_SETLKW, F_SETLK)[op & LOCK_NB]
+        op = [F_SETLKW, F_SETLK][op & LOCK_NB]
         fcntl_flock(fd, op, byref(l))
 flock.unwrap_spec = [ObjSpace, W_Root, int]
+
+def lockf(space, w_fd, op, length=0, start=0, whence=0):
+    """lockf (fd, operation, length=0, start=0, whence=0)
+
+    This is essentially a wrapper around the fcntl() locking calls.  fd is the
+    file descriptor of the file to lock or unlock, and operation is one of the
+    following values:
+
+    LOCK_UN - unlock
+    LOCK_SH - acquire a shared lock
+    LOCK_EX - acquire an exclusive lock
+
+    When operation is LOCK_SH or LOCK_EX, it can also be bit-wise OR'd with
+    LOCK_NB to avoid blocking on lock acquisition.  If LOCK_NB is used and the
+    lock cannot be acquired, an IOError will be raised and the exception will
+    have an errno attribute set to EACCES or EAGAIN (depending on the
+    operating system -- for portability, check for either value).
+
+    length is the number of bytes to lock, with the default meaning to lock to
+    EOF.  start is the byte offset, relative to whence, to that the lock
+    starts.  whence is as with fileobj.seek(), specifically:
+
+    0 - relative to the start of the file (SEEK_SET)
+    1 - relative to the current buffer position (SEEK_CUR)
+    2 - relative to the end of the file (SEEK_END)"""
+
+    fd = _conv_descriptor(space, w_fd)
+
+    l = _check_flock_op(space, op)
+    l.l_start = l.l_len = 0
+
+    if start:
+        l.l_start = int(start)
+    if len:
+        l.l_len = int(length)
+    l.l_whence = whence
+
+    try:
+        op = [F_SETLKW, F_SETLK][op & LOCK_NB]
+    except IndexError:
+        raise OperationError(space.w_ValueError,
+            space.wrap("invalid value for operation"))
+    fcntl_flock(fd, op, byref(l))
+lockf.unwrap_spec = [ObjSpace, W_Root, int, int, int, int]

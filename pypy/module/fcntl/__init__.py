@@ -3,7 +3,8 @@ from pypy.interpreter.mixedmodule import MixedModule
 class Module(MixedModule):
     interpleveldefs = {
         'fcntl': 'interp_fcntl.fcntl',
-        'flock': 'interp_fcntl.flock'
+        'flock': 'interp_fcntl.flock',
+        'lockf': 'interp_fcntl.lockf'
     }
 
     appleveldefs = {
