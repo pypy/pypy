@@ -32,6 +32,16 @@
 #include <fcntl.h>
 #endif /* HAVE_FCNTL_H */
 
+#ifdef HAVE_SYS_FILE_H
+#include <sys/file.h>
+#endif
+
+#include <sys/ioctl.h>
+
+#ifdef HAVE_STROPTS_H
+#include <stropts.h>
+#endif
+
 #ifdef HAVE_GRP_H
 #include <grp.h>
 #endif
