@@ -36,7 +36,9 @@
 #include <sys/file.h>
 #endif
 
+#if !defined(MS_WINDOWS)
 #include <sys/ioctl.h>
+#endif
 
 #ifdef HAVE_STROPTS_H
 #include <stropts.h>
