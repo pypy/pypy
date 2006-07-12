@@ -164,16 +164,28 @@ def descr_dictiter__reduce__(w_self, space):
     a registration with copy_reg, instead.
     """
     from pypy.interpreter.mixedmodule import MixedModule
-    if space.config.objspace.std.withstrdict:
-        from pypy.objspace.std.dictstrobject import \
-             W_DictIter_Keys, W_DictIter_Values, W_DictIter_Items
-    else:
-        from pypy.objspace.std.dictobject import \
-             W_DictIter_Keys, W_DictIter_Values, W_DictIter_Items
+    #if space.config.objspace.std.withstrdict:
+    #    #from pypy.objspace.std.dictstrobject import \
+    #    #     W_DictIter_Keys, W_DictIter_Values, W_DictIter_Items
+    #    
+    #else:
+    #    #from pypy.objspace.std.dictobject import \
+    #    #     W_DictIter_Keys, W_DictIter_Values, W_DictIter_Items
     w_mod    = space.getbuiltinmodule('_pickle_support')
     mod      = space.interp_w(MixedModule, w_mod)
     new_inst = mod.get('dictiter_surrogate_new')
     w_typeobj = space.gettypeobject(dictiter_typedef)
+    
+    from pypy.interpreter.mixedmodule import MixedModule
+    if space.config.objspace.std.withstrdict:
+        from pypy.objspace.std.dictstrobject import \
+            W_DictStrIter_Keys as W_DictIter_Keys, \
+            W_DictStrIter_Values as W_DictIter_Values, \
+            W_DictStrIter_Items as W_DictIter_Items
+    else:
+        from pypy.objspace.std.dictobject import \
+            W_DictIter_Keys, W_DictIter_Values, W_DictIter_Items
+    
     if isinstance(w_self, W_DictIter_Keys):
         w_clone = space.allocate_instance(W_DictIter_Keys, w_typeobj)
     elif isinstance(w_self, W_DictIter_Values):
@@ -183,7 +195,7 @@ def descr_dictiter__reduce__(w_self, space):
     else:
         msg = "unsupported dictiter type '%s' during pickling" % (w_self, )
         raise OperationError(space.w_TypeError, space.wrap(msg))
-    # we cannot call __init__ since we don't have the original dict
+        # we cannot call __init__ since we don't have the original dict
     w_clone.space = space
     w_clone.content = w_self.content
     if space.config.objspace.std.withstrdict:
