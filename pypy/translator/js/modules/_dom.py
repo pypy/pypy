@@ -4,62 +4,133 @@ http://www.w3.org/DOM/ - main standart
 http://www.w3schools.com/dhtml/dhtml_dom.asp - more informal stuff
 """
 
-# FIXME: this should map somehow to xml.dom interface, or something else
-
 import time
 from pypy.rpython.ootypesystem.bltregistry import BasicExternal, MethodDesc
 
 #from pypy.translator.stackless.test.test_transform import one
 
-class Style(BasicExternal):
-    _fields = {
-        'left'       : "aa",
-        'top'        : "aa",
-        'visibility' : "aa"
-    }
-    
-class Key(BasicExternal):
-    _fields = {
-        'keyCode' : 3,
-        'charCode' : 3,
-        'charString' : 'aa',
-        'keyString' : 'aa',
-    }
-
-class Node(BasicExternal):
+class Attribute(BasicExternal):
     pass
 
-Node._fields = {
-        'innerHTML' : "aa",
-        'style' : Style(),
-        'parent' : Node(),
-        'value' : "aa",
-        'data' : "aa",
-        'onkeydown' : MethodDesc([Key()], None),
-        'onkeypress' : MethodDesc([Key()], None),
-        'onkeyup' : MethodDesc([Key()], None),
-        'childNodes' : [Node(), Node()]
-    }
-    
-Node._methods = {
-        'getElementById' : MethodDesc(["aa"], Node()),
-        'createElement' : MethodDesc(["aa"], Node()),
-        'setAttribute' : MethodDesc(["aa", "bb"], None),
-        'appendChild' : MethodDesc([Node()], None),
-        'removeChild' : MethodDesc([Node()], None),
-    }
+class Element(BasicExternal):
+    pass
+
+class Event(BasicExternal):
+    pass
+
+class KeyEvent(Event):
+    pass
+
+class MouseEvent(Event):
+    pass
+
+class Node(Element):
+    pass
 
 class Document(Node):
-    _fields = Node._fields
-    _fields['body'] = Node()
+    pass
+
+class Window(Node):
+    pass
+
+class Style(BasicExternal):
+    pass
+
+Element._fields = {
+        'attributes' : [Attribute()],
+        'childNodes' : [Element()],
+        'className' : "aa",
+        'clientHeight' : 12,
+        'clientWidth' : 12,
+        'clientLeft' : 12,
+        'clientTop' : 12,
+        'dir' : "aa",
+        'firstChild' : Element(),
+        'innerHTML' : "asd",
+        'lang' : "asd",
+        'id' : "aa",
+        'lastChild' : Element(),
+        'length' : 12,
+        'localName' : "aa",
+        'name' : "aa",
+        'namespaceURI' : "aa",
+        'nextSibling' : Element(),
+        'nodeName' : "aa",
+        'nodeType' : "aa",
+        'nodeValue' : "aa",
+        'offsetHeight' : 12,
+        'offsetLeft' : 12,
+        'offsetParent' : 12,
+        'offsetTop' : 12,
+        'offsetWidth' : 12,
+        'ownerDocument' : Document(),
+        'parentNode' : Element(),
+        'prefix' : "aa",
+        'previousSibling' : Element(),
+        'scrollHeight' : 12,
+        'scrollLeft' : 12,
+        'scrollTop' : 12,
+        'scrollWidth' : 12,
+        'style' : Style(),
+        'tabIndex' : 12,
+        'tagName' : "aa",
+        'textContent' : "aa",
+        'onblur' : MethodDesc([Event()]),
+        'onclick' : MethodDesc([MouseEvent()]),
+        'ondblclick' : MethodDesc([MouseEvent()]),
+        'onfocus' : MethodDesc([Event()]),
+        'onkeydown' : MethodDesc([KeyEvent()]),
+        'onkeypress' : MethodDesc([KeyEvent()]),
+        'onkeyup' : MethodDesc([KeyEvent()]),
+        'onmousedown' : MethodDesc([MouseEvent()]),
+        'onmousemove' : MethodDesc([MouseEvent()]),
+        'onmouseup' : MethodDesc([MouseEvent()]),
+        'onmouseover' : MethodDesc([MouseEvent()]),
+        'onmouseup' : MethodDesc([MouseEvent()]),
+        'onresize' : MethodDesc([Event()]),
+    }
+
+Element._methods = {
+        'addEventListener' : MethodDesc(["aa", lambda : None, True]),
+        'appendChild' : MethodDesc([Element()]),
+        'blur' : MethodDesc([]),
+        'click' : MethodDesc([]),
+        'cloneNode' : MethodDesc([12], Element()),
+        'dispatchEvent' : MethodDesc(["aa"], True),
+        'focus' : MethodDesc([]),
+        'getAttribute' : MethodDesc(["aa"], "aa"),
+        'getAttributeNS' : MethodDesc(["aa", "aa"], "aa"),
+        'getAttributeNode' : MethodDesc(["aa"], Element()),
+        'getAttributeNodeNS' : MethodDesc(["aa", "aa"], Element()),
+        'getElementsByTagName' : MethodDesc(["aa"], [Element()]),
+        'hasAttribute' : MethodDesc(["aa"], True),
+        'hasAttributeNS' : MethodDesc(["aa", "aa"], True),
+        'hasAttributes' : MethodDesc([], True),
+        'hasChildNodes' : MethodDesc([], True),
+        'insertBefore' : MethodDesc([Element(), Element()], Element()),
+        'item' : MethodDesc([3], Element()),
+        'normalize' : MethodDesc([]),
+        'removeAttribute' : MethodDesc(['aa']),
+        'removeAttributeNS' : MethodDesc(["aa", "aa"]),
+        'removeAttributeNode' : MethodDesc([Element()], "aa"),
+        'removeChild' : MethodDesc([Element()], Element()),
+        'removeEventListener' : MethodDesc(["aa", lambda : None, True]),
+        'replaceChild' : MethodDesc([Element(), Element()], Element()),
+        'scrollIntoView' : MethodDesc([12]),
+        'setAttribute' : MethodDesc(["aa", "aa"]),
+        'setAttributeNS' : MethodDesc(["aa", "aa", "aa"]),
+        'setAttributeNode' : MethodDesc([Element()], Element()),
+        'setAttributeNodeNS' : MethodDesc(["ns", Element()], Element()),
+        'supports' : MethodDesc(["aa", 1.0]),
+    }
 
 def get_document():
     return Document()
 
-#def get_window():
-#    return Window()
+def get_window():
+    return Window()
 
-#get_window.suggested_primitive = True
+get_window.suggested_primitive = True
 get_document.suggested_primitive = True
 
 document = Node()
