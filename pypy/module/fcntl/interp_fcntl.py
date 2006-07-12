@@ -11,6 +11,7 @@ class CConfig:
     _header_ = """
     #include <fcntl.h>
     #include <sys/file.h>
+    #include <sys/ioctl.h>
     """
     flock = ctypes_platform.Struct("struct flock",
         [('l_start', c_longlong), ('l_len', c_longlong),
@@ -70,6 +71,15 @@ fcntl_str.restype = c_int
 fcntl_flock = libc['fcntl']
 fcntl_flock.argtypes = [c_int, c_int, POINTER(_flock)]
 fcntl_flock.restype = c_int
+
+ioctl_int = libc['ioctl']
+ioctl_int.argtypes = [c_int, c_int, c_int]
+ioctl_int.restype = c_int
+
+ioctl_str = libc['ioctl']
+ioctl_str.argtypes = [c_int, c_int, c_char_p]
+ioctl_str.restype = c_int
+
 
 has_flock = False
 if hasattr(libc, "flock"):
@@ -205,3 +215,89 @@ def lockf(space, w_fd, op, length=0, start=0, whence=0):
             space.wrap("invalid value for operation"))
     fcntl_flock(fd, op, byref(l))
 lockf.unwrap_spec = [ObjSpace, W_Root, int, int, int, int]
+
+def ioctl(space, w_fd, op, w_arg=0, mutate_flag=True):
+    """ioctl(fd, opt[, arg[, mutate_flag]])
+
+    Perform the requested operation on file descriptor fd.  The operation is
+    defined by opt and is operating system dependent.  Typically these codes
+    are retrieved from the fcntl or termios library modules.
+
+    The argument arg is optional, and defaults to 0; it may be an int or a
+    buffer containing character data (most likely a string or an array).
+
+    If the argument is a mutable buffer (such as an array) and if the
+    mutate_flag argument (which is only allowed in this case) is true then the
+    buffer is (in effect) passed to the operating system and changes made by
+    the OS will be reflected in the contents of the buffer after the call has
+    returned.  The return value is the integer returned by the ioctl system
+    call.
+
+    If the argument is a mutable buffer and the mutable_flag argument is not
+    passed or is false, the behavior is as if a string had been passed.  This
+    behavior will change in future releases of Python.
+
+    If the argument is an immutable buffer (most likely a string) then a copy
+    of the buffer is passed to the operating system and the return value is a
+    string of the same length containing whatever the operating system put in
+    the buffer.  The length of the arg buffer in this case is not allowed to
+    exceed 1024 bytes.
+
+    If the arg given is an integer or if none is specified, the result value
+    is an integer corresponding to the return value of the ioctl call in the
+    C code."""
+
+    fd = _conv_descriptor(space, w_fd)
+    # Python turns number > sys.maxint into long, we need the signed C value
+    op = c_int(op).value
+
+    IOCTL_BUFSZ = 1024
+    
+    if space.is_w(space.type(w_arg), space.w_int):
+        arg = space.int_w(w_arg)
+        rv = ioctl_int(fd, op, arg)
+        if rv < 0:
+            raise OperationError(space.w_IOError,
+                space.wrap(_get_error_msg()))
+        return space.wrap(rv)
+    # elif _is_mutable(arg):
+    #     arg = space.str_w(w_arg)
+    #     buf = create_string_buffer(arg)
+    #     
+    #     # # AFAIK array.array is the only mutable buffer in Python
+    #     # try:
+    #     #     buf = create_string_buffer(arg.tostring())
+    #     # except AttributeError:
+    #     #     buf = create_string_buffer(str(arg))
+    # 
+    #     if not mutate_flag:
+    #         if len(arg) > IOCTL_BUFSZ:
+    #             raise OperationError(space.w_ValueError,
+    #                 space.wrap("ioctl string arg too long"))
+    #     
+    #     rv = libc.ioctl(fd, op, buf)
+    #     if rv < 0:
+    #         raise OperationError(space.w_IOError,
+    #             space.wrap(_get_error_msg()))
+    # 
+    #     if mutate_flag:
+    #         return space.wrap(rv)
+    #     else:
+    #         return space.wrap(buf.value)
+    elif space.is_w(space.type(w_arg), space.w_str): # immutable
+        arg = space.str_w(w_arg)
+        if len(arg) > IOCTL_BUFSZ:
+            raise OperationError(space.w_ValueError,
+                space.wrap("ioctl string arg too long"))
+    
+        buf = create_string_buffer(len(arg))
+    
+        rv = ioctl_str(fd, op, buf)
+        if rv < 0:
+            raise OperationError(space.w_IOError,
+                space.wrap(_get_error_msg()))
+        return space.wrap(buf.value)
+    else:
+        raise OperationError(space.w_TypeError,
+            space.wrap("an integer or a buffer required"))
+ioctl.unwrap_spec = [ObjSpace, W_Root, int, W_Root, int]

@@ -135,15 +135,28 @@ class AppTestFcntl:
         
         f.close()
 
-# def test_ioctl():
-#     py.test.raises(TypeError, cfcntl.ioctl, "foo")
-#     py.test.raises(TypeError, cfcntl.ioctl, 0, "foo")
-#     py.test.raises(TypeError, cfcntl.ioctl, 0, termios.TIOCGPGRP, float(0))
-#     py.test.raises(TypeError, cfcntl.ioctl, 0, termios.TIOCGPGRP, 1, "foo")
-# 
-#     buf = array.array('h', [0])
-#     assert cfcntl.ioctl(0, termios.TIOCGPGRP, buf, True) == 0
-#     buf = array.array('c', "a"*1025)
-#     py.test.raises(ValueError, cfcntl.ioctl, 0, termios.TIOCGPGRP, buf, 0)
-#     py.test.raises(ValueError, cfcntl.ioctl, 0, termios.TIOCGPGRP,
-#                    "a"*1025, 0)
+    def test_ioctl(self):
+        import fcntl
+        import array
+        import sys
+        
+        f = open("/tmp/ioctl", "w")
+        
+        if "linux" in sys.platform:
+            TIOCGPGRP = 0x540f
+        elif "darwin" in sys.platform:
+            TIOCGPGRP = 0x40047477
+        
+        raises(TypeError, fcntl.ioctl, "foo")
+        raises(TypeError, fcntl.ioctl, f, "foo")
+        raises(TypeError, fcntl.ioctl, f, TIOCGPGRP, float(0))
+        raises(TypeError, fcntl.ioctl, f, TIOCGPGRP, 1, "foo")
+        res = fcntl.ioctl(0, TIOCGPGRP, "foo")
+        assert isinstance(res, str)
+
+        # buf = array.array('h', [0])
+        # fcntl.ioctl(0, TIOCGPGRP, buf, True)
+        # buf = array.array('c', "a"*1025)
+        # py.test.raises(ValueError, cfcntl.ioctl, 0, termios.TIOCGPGRP, buf, 0)
+        # py.test.raises(ValueError, cfcntl.ioctl, 0, termios.TIOCGPGRP,
+        #                "a"*1025, 0)

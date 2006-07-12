@@ -4,7 +4,8 @@ class Module(MixedModule):
     interpleveldefs = {
         'fcntl': 'interp_fcntl.fcntl',
         'flock': 'interp_fcntl.flock',
-        'lockf': 'interp_fcntl.lockf'
+        'lockf': 'interp_fcntl.lockf',
+        'ioctl': 'interp_fcntl.ioctl'
     }
 
     appleveldefs = {
