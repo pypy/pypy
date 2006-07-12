@@ -8,16 +8,14 @@ class ClonableCoroutine(AppCoroutine):
     local_pool = None
 
     def hello(self):
-        print "enter hello"
         if we_are_translated():
             self.saved_pool = gc_swap_pool(self.local_pool)
-        super(ClonableCoroutine).hello(self)
+        AppCoroutine.hello(self)
 
     def goodbye(self):
-        print "enter goodbye"
         if we_are_translated():
             self.local_pool = gc_swap_pool(self.saved_pool)
-        super(ClonableCoroutine).goodbye(self)
+        AppCoroutine.goodbye(self)
 
     def clone(self):
         if not we_are_translated():
