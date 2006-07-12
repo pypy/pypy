@@ -1,17 +1,27 @@
-from pypy.module._stackless.interp_coroutine import Coroutine, AbstractThunk
+from pypy.module._stackless.interp_coroutine import AbstractThunk
+from pypy.module._stackless.coroutine import AppCoroutine
 from pypy.rpython.rgc import gc_swap_pool, gc_clone
+from pypy.rpython.objectmodel import we_are_translated
 
 
-class ClonableCoroutine(Coroutine):
+class ClonableCoroutine(AppCoroutine):
     local_pool = None
 
     def hello(self):
-        self.saved_pool = gc_swap_pool(self.local_pool)
+        print "enter hello"
+        if we_are_translated():
+            self.saved_pool = gc_swap_pool(self.local_pool)
+        super(ClonableCoroutine).hello(self)
 
     def goodbye(self):
-        self.local_pool = gc_swap_pool(self.saved_pool)
+        print "enter goodbye"
+        if we_are_translated():
+            self.local_pool = gc_swap_pool(self.saved_pool)
+        super(ClonableCoroutine).goodbye(self)
 
     def clone(self):
+        if not we_are_translated():
+            raise NotImplementedError
         if self.getcurrent() is self:
             raise RuntimeError("clone() cannot clone the current coroutine; "
                                "use fork() instead")
