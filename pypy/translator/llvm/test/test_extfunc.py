@@ -13,10 +13,9 @@ from pypy.translator.llvm.test.runtest import *
 def test_external_function_ll_os_dup():
     def fn():
         return os.dup(0)
-    f = compile_function(fn, [])
+    f = compile_function(fn, [], isolate=False)
     fn()
-    py.test.skip("cannot naively and reliably test os.dup using isolate")
-    #assert os.path.sameopenfile(f(), fn())
+    assert os.path.sameopenfile(f(), fn())
 
 def test_external_function_ll_time_time():
     import time
@@ -26,11 +25,10 @@ def test_external_function_ll_time_time():
     assert abs(f()-fn()) < 10.0
 
 def test_external_function_ll_time_clock():
-    py.test.skip("XXX TODO FIXME time.clock behaving strangly")
     import time
     def fn():
         return time.clock()
-    f = compile_function(fn, [])
+    f = compile_function(fn, [], isolate=False)
     assert abs(f()-fn()) < 10.0
 
 def test_external_function_ll_time_sleep():
@@ -237,10 +235,9 @@ def test_os_path_isdir():
     assert f() == False
 
 def test_os_isatty():
-    py.test.skip("os.isatty seems to be hit/miss (since using isolate_module?)")
     def call_isatty(fd):
         return os.isatty(fd)
-    f = compile_function(call_isatty, [int])
+    f = compile_function(call_isatty, [int], isolate=False)
     assert f(0) == os.isatty(0)
     assert f(1) == os.isatty(1)
     assert f(2) == os.isatty(2)
@@ -345,23 +342,21 @@ def _real_envkeys():
         raise ValueError, 'probing for all env vars returned %r' % (output,)
 
 def test_putenv():
-    py.test.skip("putenv seems to be hit/miss (since using isolate_module?)")
     s = 'abcdefgh=12345678'
     def put():
         ros.putenv(s)
         return 0
-    func = compile_function(put, [])
+    func = compile_function(put, [], isolate=False)
     func()
     assert _real_getenv('abcdefgh') == '12345678'
 
 posix = __import__(os.name)
 if hasattr(posix, "unsetenv"):
     def test_unsetenv():
-        py.test.skip("unsetenv seems to be hit/miss (since using isolate_module?)")
         def unsetenv():
             os.unsetenv("ABCDEF")
             return 0
-        f = compile_function(unsetenv, [])
+        f = compile_function(unsetenv, [], isolate=False)
         os.putenv("ABCDEF", "a")
         assert _real_getenv('ABCDEF') == 'a'
         f()

@@ -1,6 +1,6 @@
 import time
 
-from pypy.tool import isolate
+from pypy.tool.isolate import Isolate 
 
 from pypy.translator.llvm import buildllvm
 from pypy.translator.llvm.database import Database 
@@ -228,12 +228,13 @@ class GenLLVM(object):
         codewriter.ret("sbyte*", "null")
         codewriter.closefunc()
 
-    def compile_llvm_source(self, optimize=True, exe_name=None):
+    def compile_llvm_source(self, optimize=True, exe_name=None, isolate=False):
         assert self.source_generated
 
         assert hasattr(self, "filename")
         if exe_name is not None:
             assert self.standalone
+            assert not isolate
             return buildllvm.make_module_from_llvm(self, self.filename,
                                                    optimize=optimize,
                                                    exe_name=exe_name)
@@ -249,14 +250,19 @@ class GenLLVM(object):
                                                    pyxfile=pyxfile,
                                                    optimize=optimize)
 
-            mod, wrap_fun = self.isolate_module(*info)
+            mod, wrap_fun = self.get_module(isolate=isolate, *info)
             return mod, wrap_fun
 
-    def isolate_module(self, modname, dirpath):
-        ext_module = isolate.Isolate((dirpath, modname))
-        wrap_fun = getattr(ext_module, 'pypy_' + self.entry_func_name + "_wrapper")
-        return ext_module, wrap_fun
-    
+    def get_module(self, modname, dirpath, isolate=False):
+        if isolate:
+            mod = Isolate((dirpath, modname))
+        else:
+            from pypy.translator.tool.cbuild import import_module_from_directory
+            mod = import_module_from_directory(dirpath, modname)
+
+        wrap_fun = getattr(mod, 'pypy_' + self.entry_func_name + "_wrapper")
+        return mod, wrap_fun
+
     def _checkpoint(self, msg=None):
         if not self.logging:
             return
@@ -284,38 +290,66 @@ class GenLLVM(object):
         for s in stats:
             log('STATS %s' % str(s))
 
-def genllvm(translator, entry_point, gcpolicy=None,
-            exceptionpolicy=None, standalone=False,
-            log_source=False, logging=False, **kwds):
+#______________________________________________________________________________
 
-    gen = GenLLVM(translator, gcpolicy, exceptionpolicy,
-                  standalone, logging=logging)
-    filename = gen.gen_llvm_source(entry_point)
 
-    if log_source:
-        log(open(filename).read())
+def genllvm_compile(function,
+                    annotation,
 
-    return gen.compile_llvm_source(**kwds)
+                    # genllvm options
+                    gcpolicy=None,
+                    standalone=False,
+                    exceptionpolicy=None,
 
-def genllvm_compile(function, annotation, view=False, optimize=True, **kwds):
+                    # debug options
+                    view=False,
+                    debug=False,
+                    logging=False,
+                    log_source=False,
+
+                    # pass to compile
+                    optimize=True,
+                    **kwds):
+
+    """ helper for genllvm """
+
     assert llvm_is_on_path()
     
+    # annotate/rtype
     from pypy.translator.translator import TranslationContext
     from pypy.translator.backendopt.all import backend_optimizations
-    t = TranslationContext()
-    t.buildannotator().build_types(function, annotation)
-    t.buildrtyper().specialize()
+    translator = TranslationContext()
+    translator.buildannotator().build_types(function, annotation)
+    translator.buildrtyper().specialize()
+
+    # use backend optimizations?
     if optimize:
-        backend_optimizations(t, raisingop2direct_call_all=True)
+        backend_optimizations(translator, raisingop2direct_call_all=True)
     else:
-        backend_optimizations(t,
+        backend_optimizations(translator,
                               raisingop2direct_call_all=True,
                               inline_threshold=0,
                               mallocs=False,
                               merge_if_blocks_to_switch=False,
-                              propagate=False)
+                              propagate=False,
+                              constfold=False)
 
     # note: this is without policy transforms
     if view or conftest.option.view:
-        t.view()
-    return genllvm(t, function, optimize=optimize, **kwds)
+        translator.view()
+
+    # create genllvm
+    gen = GenLLVM(translator,
+                  gcpolicy,
+                  exceptionpolicy,
+                  standalone,
+                  debug=debug,
+                  logging=logging)
+
+    filename = gen.gen_llvm_source(function)
+    
+    log_source = kwds.pop("log_source", False)
+    if log_source:
+        log(open(filename).read())
+
+    return gen.compile_llvm_source(optimize=optimize, **kwds)
