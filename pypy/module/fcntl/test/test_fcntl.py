@@ -144,7 +144,7 @@ class AppTestFcntl:
         
         if "linux" in sys.platform:
             TIOCGPGRP = 0x540f
-        elif "darwin" in sys.platform:
+        elif "darwin" in sys.platform or "freebsd6" == sys.platform:
             TIOCGPGRP = 0x40047477
         
         raises(TypeError, fcntl.ioctl, "foo")
