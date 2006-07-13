@@ -1,5 +1,10 @@
 from py.test import raises, skip
 from pypy.conftest import gettestobjspace
+import os
+
+def teardown_module(mod):
+    if os.path.exists("foobar"):
+        os.unlink("foobar")
 
 class AppTestFcntl:
     def setup_class(cls):
@@ -9,7 +14,7 @@ class AppTestFcntl:
     def test_conv_descriptor(self):
         import fcntl
         
-        f = open("/tmp/conv_descr", "w")
+        f = open("foobar", "w+")
         
         raises(TypeError, fcntl._conv_descriptor, "foo")
         raises(TypeError, fcntl._conv_descriptor, 2.0)
@@ -19,6 +24,8 @@ class AppTestFcntl:
         res_1 = fcntl._conv_descriptor(f)
         assert res == 10
         assert res_1 == f.fileno()
+        
+        f.close()
 
     def test_fcntl(self):
         import fcntl
@@ -26,7 +33,7 @@ class AppTestFcntl:
         import sys
         import struct
         
-        f = open("/tmp/fcntl", "w")
+        f = open("foobar", "w+")
         
         fcntl.fcntl(f, 1, 0)
         fcntl.fcntl(f, 1)
@@ -108,7 +115,7 @@ class AppTestFcntl:
         import fcntl
         import sys
         
-        f = open("/tmp/flock", "w")
+        f = open("foobar", "w+")
         
         raises(TypeError, fcntl.flock, "foo")
         raises(TypeError, fcntl.flock, f, "foo")
@@ -123,7 +130,7 @@ class AppTestFcntl:
     def test_lockf(self):
         import fcntl
         
-        f = open("/tmp/lockf", "w")
+        f = open("foobar", "w+")
         
         raises(TypeError, fcntl.lockf, f, "foo")
         raises(TypeError, fcntl.lockf, f, fcntl.LOCK_UN, "foo")
@@ -140,7 +147,7 @@ class AppTestFcntl:
         import array
         import sys
         
-        f = open("/tmp/ioctl", "w")
+        f = open("foobar", "w+")
         
         if "linux" in sys.platform:
             TIOCGPGRP = 0x540f
