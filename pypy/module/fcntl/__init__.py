@@ -10,6 +10,7 @@ class Module(MixedModule):
 
     appleveldefs = {
         '_conv_descriptor': 'app_fcntl._conv_descriptor',
+        '__doc__': 'app_fcntl.__doc__'
     }
     
     def buildloaders(cls):
