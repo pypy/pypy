@@ -1,9 +1,10 @@
 from pypy.objspace.std import StdObjSpace 
 from pypy.tool.udir import udir
+from pypy.conftest import gettestobjspace
 import os
 
 def setup_module(mod): 
-    mod.space = StdObjSpace(usemodules=['posix'])
+    mod.space = gettestobjspace(usemodules=['posix'])
     mod.path = udir.join('posixtestfile.txt') 
     mod.path.write("this is a test")
     pdir = udir.ensure('posixtestdir', dir=True)

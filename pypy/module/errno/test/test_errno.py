@@ -1,8 +1,8 @@
-from pypy.objspace.std import StdObjSpace 
+from pypy.conftest import gettestobjspace
 import py
 import errno
 def setup_module(mod): 
-    mod.space = StdObjSpace(usemodules=['errno'])
+    mod.space = gettestobjspace(usemodules=['errno'])
 
 class AppTestErrno: 
     def setup_class(cls): 
