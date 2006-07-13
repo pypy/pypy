@@ -1,7 +1,7 @@
-from pypy.objspace.std import StdObjSpace 
+from pypy.conftest import gettestobjspace
 
 def setup_module(mod): 
-    mod.space = StdObjSpace(usemodules=['recparser'])
+    mod.space = gettestobjspace(usemodules=['recparser'])
 
 
 class AppTestRecparser: 

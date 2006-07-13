@@ -1,8 +1,8 @@
-from pypy.objspace.std import StdObjSpace 
+from pypy.conftest import gettestobjspace
 import time
 
 def setup_module(mod): 
-    mod.space = StdObjSpace(usemodules=['time'])
+    mod.space = gettestobjspace(usemodules=['time'])
 
 class TestTime: 
 
