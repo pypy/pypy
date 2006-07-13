@@ -4,8 +4,8 @@ import os
 
 def teardown_module(mod):
     for i in "abcde":
-        if os.path.exists("foobar"):
-            os.unlink("foobar")
+        if os.path.exists(i):
+            os.unlink(i)
 
 class AppTestFcntl:
     def setup_class(cls):
