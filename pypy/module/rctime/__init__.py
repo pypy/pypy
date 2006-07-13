@@ -43,5 +43,6 @@ class Module(MixedModule):
     appleveldefs = {
         'sleep': 'app_time.sleep',
         '_check_float': 'app_time._check_float',
-        'struct_time': 'app_time.struct_time'   
+        'struct_time': 'app_time.struct_time',
+        '__doc__': 'app_time.__doc__'
     }
