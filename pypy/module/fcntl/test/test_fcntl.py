@@ -3,8 +3,9 @@ from pypy.conftest import gettestobjspace
 import os
 
 def teardown_module(mod):
-    if os.path.exists("foobar"):
-        os.unlink("foobar")
+    for i in "abcde":
+        if os.path.exists("foobar"):
+            os.unlink("foobar")
 
 class AppTestFcntl:
     def setup_class(cls):
@@ -14,7 +15,7 @@ class AppTestFcntl:
     def test_conv_descriptor(self):
         import fcntl
         
-        f = open("foobar", "w+")
+        f = open("a", "w+")
         
         raises(TypeError, fcntl._conv_descriptor, "foo")
         raises(TypeError, fcntl._conv_descriptor, 2.0)
@@ -33,7 +34,7 @@ class AppTestFcntl:
         import sys
         import struct
         
-        f = open("foobar", "w+")
+        f = open("b", "w+")
         
         fcntl.fcntl(f, 1, 0)
         fcntl.fcntl(f, 1)
@@ -115,7 +116,7 @@ class AppTestFcntl:
         import fcntl
         import sys
         
-        f = open("foobar", "w+")
+        f = open("c", "w+")
         
         raises(TypeError, fcntl.flock, "foo")
         raises(TypeError, fcntl.flock, f, "foo")
@@ -130,7 +131,7 @@ class AppTestFcntl:
     def test_lockf(self):
         import fcntl
         
-        f = open("foobar", "w+")
+        f = open("d", "w+")
         
         raises(TypeError, fcntl.lockf, f, "foo")
         raises(TypeError, fcntl.lockf, f, fcntl.LOCK_UN, "foo")
@@ -147,7 +148,7 @@ class AppTestFcntl:
         import array
         import sys
         
-        f = open("foobar", "w+")
+        f = open("e", "w+")
         
         if "linux" in sys.platform:
             TIOCGPGRP = 0x540f
