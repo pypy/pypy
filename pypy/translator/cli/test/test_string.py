@@ -44,3 +44,8 @@ class TestCliString(CliTest, BaseTestRstr):
             s2 = ''.join([y, 'e', 'l', 'l', 'o'])
             return (hash(s1) == hash(s2)) and (s1 is not s2)
         assert self.interpret(fn, ['h', 'h']) == True
+
+    def test_int_formatting(self):
+        def fn(answer):
+            return 'the answer is %s' % answer
+        assert self.ll_to_string(self.interpret(fn, [42])) == 'the answer is 42'
