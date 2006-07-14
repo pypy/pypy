@@ -1,12 +1,38 @@
 
-iterations = 100000
-def test_dict_setitem():
+iterations = 500000
+d_x = {}
+def test_dict_setitem1():
     d = {}
     for x in range(iterations):
         d[x] = None
         d[x] = None
         d[x] = None
         d[x] = None
+
+
+def test_dict_setitem2():
+    for x in range(iterations):
+        d_x[x] = None
+        d_x[x] = None
+        d_x[x] = None
+        d_x[x] = None
+
+def test_dict_creation_mode1():
+    for x in range(iterations):
+        d = {}
+        d[1] = "a"
+
+def test_dict_creation_mode2():
+    for x in range(iterations):
+        d = {1: "b"}
+
+def test_dict_creation_mode3():
+    for x in range(iterations):
+        d = {}
+        d = {}
+        d = {}
+        {}
+
 
 d = {}
 for x in range(iterations):
