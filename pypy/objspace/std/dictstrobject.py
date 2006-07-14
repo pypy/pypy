@@ -1,4 +1,3 @@
-
 from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
 
@@ -7,52 +6,52 @@ from pypy.rpython.objectmodel import r_dict
 class W_DictStrObject(W_Object):
     from pypy.objspace.std.dicttype import dict_typedef as typedef
 
-    def __init__(w_self, space, w_otherdict=None):
+    def __init__(w_self, space):
         w_self.space = space
-        if w_otherdict is None:
-            w_self.content = None
-            w_self.content_str = {}
-        else:
-            if w_otherdict.content is None:
-                w_self.content = None
-                w_self.content_str = w_otherdict.content_str.copy()
-            else:
-                w_self.content = w_otherdict.content.copy()
-                w_self.content_str = None
+        w_self.content = None
+        w_self.content_str = {}
 
     def initialize_content(w_self, list_pairs_w): # YYY
         for w_k, w_v in list_pairs_w:
             w_self.setitem(w_k, w_v)
 
     def getitem(w_dict, w_lookup):
+        """ Helper function, raises rpython exceptions. """
         space = w_dict.space
         if w_dict.content is None:
-            if space.is_w(space.type(w_lookup), space.w_str):
+            w_lookup_type = space.type(w_lookup)
+            if space.is_w(w_lookup_type, space.w_str):
                 return w_dict.content_str[space.str_w(w_lookup)]
             else:
+                if w_dict.isSaneHash(w_lookup_type):
+                    raise KeyError
                 w_dict.str2object()
         return w_dict.content[w_lookup]
 
-    def get(w_dict, w_lookup):
+    def get(w_dict, w_lookup, w_default):
+        """ Helper function, raises rpython exceptions. """
         space = w_dict.space
         if w_dict.content is None:
-            if space.is_w(space.type(w_lookup), space.w_str):
-                return w_dict.content_str.get(space.str_w(w_lookup), None)
+            w_lookup_type = space.type(w_lookup)
+            if space.is_w(w_lookup_type, space.w_str):
+                return w_dict.content_str.get(space.str_w(w_lookup), w_default)
             else:
+                if w_dict.isSaneHash(w_lookup_type):
+                    return w_default
                 w_dict.str2object()
-        return w_dict.content.get(w_lookup, None)
+        return w_dict.content.get(w_lookup, w_default)
 
     
     def setitem(w_self, w_k, w_v):
         space = w_self.space
-        if w_self.content is None:
+        if w_self.content is not None:
+            w_self.content[w_k] = w_v
+        else:
             if space.is_w(space.type(w_k), space.w_str):
                 w_self.content_str[space.str_w(w_k)] = w_v
             else:
                 w_self.str2object()
                 w_self.content[w_k] = w_v
-        else:
-            w_self.content[w_k] = w_v
 
     set_str_keyed_item = setitem
 
@@ -65,7 +64,17 @@ class W_DictStrObject(W_Object):
         for k, w_v in w_self.content_str.items():
             w_self.content[w_self.space.wrap(k)] = w_v
         w_self.content_str = None
-        
+
+    def isSaneHash(w_self, w_lookup_type):
+        """ Handles the case of a non string key lookup.
+        Types that have a sane hash/eq function should allow us to return True
+        directly to signal that the key is not in the dict in any case.
+        XXX The types should provide such a flag. """
+    
+        space = w_self.space
+        # XXX there are much more types
+        return space.is_w(w_lookup_type, space.w_NoneType) or space.is_w(w_lookup_type, space.w_int)
+
     def __repr__(w_self):
         """ representation for debugging purposes """
         return "%s(%s,%s)" % (w_self.__class__.__name__, w_self.content, w_self.content_str)
@@ -144,7 +153,11 @@ def len__DictStr(space, w_dict):
 
 def contains__DictStr_ANY(space, w_dict, w_lookup):
     if w_dict.content is None:
-        if not space.is_w(space.type(w_lookup), space.w_str):
+        w_lookup_type = space.type(w_lookup)
+        if not space.is_w(w_lookup_type, space.w_str):
+            if w_dict.isSaneHash(w_lookup_type):
+                return space.w_False
+            #foo("degenerated in contains: " + space.type(w_lookup).getname(space, '?'))
             w_dict.str2object()
         else:
             return space.newbool(space.str_w(w_lookup) in w_dict.content_str)
@@ -247,7 +260,14 @@ def lt__DictStr_DictStr(space, w_left, w_right):
     return w_res
 
 def dict_copy__DictStr(space, w_self):
-    return W_DictStrObject(space, w_self)
+    w_new_dict = W_DictStrObject(space)
+    if w_self.content is None:
+        w_new_dict.content = None
+        w_new_dict.content_str = w_self.content_str.copy()
+    else:
+        w_new_dict.content = w_self.content.copy()
+        w_new_dict.content_str = None
+    return w_new_dict
 
 def dict_items__DictStr(space, w_self):
     if w_self.content is not None:
@@ -291,9 +311,7 @@ def dict_clear__DictStr(space, w_self):
         w_self.content.clear()
 
 def dict_get__DictStr_ANY_ANY(space, w_dict, w_lookup, w_default):
-    if w_dict.content is None:
-        return w_dict.content_str.get(space.str_w(w_lookup), w_default)
-    return w_dict.content.get(w_lookup, w_default)
+    return w_dict.get(w_lookup, w_default)
 
 app = gateway.applevel('''
     def dictrepr(currently_in_repr, d):
@@ -347,6 +365,12 @@ class W_DictStrIterObject(W_Object):
 
     def return_entry(w_self, w_key, w_value):
         raise NotImplementedError
+
+    def handleMutation(w_self):
+        space = w_self.space
+        w_self.len = -1   # Make this error state sticky
+        raise OperationError(space.w_RuntimeError,
+                 space.wrap("dictionary changed size during iteration"))
 
 registerimplementation(W_DictStrIterObject)
 
@@ -435,16 +459,25 @@ def iter__DictStrIterObject(space, w_dictiter):
     return w_dictiter
 
 def next__DictStrIterObject(space, w_dictiter):
-    # XXX hum, this is broken currently
-    if w_dictiter.content_str is not None and w_dictiter.w_dictobject.content_str is None:
-        raise OperationError(space.w_RuntimeError,
-                space.wrap("you stupid dictionary user - you have just done an operation internally mutating the dictionary"))
+    # iterate over the string dict even if the dictobject's data was forced
+    # to degenerate. just bail out if the obj's dictionary size differs.
+    if (w_dictiter.content_str is not None and w_dictiter.w_dictobject.content_str is None
+        and len(w_dictiter.w_dictobject.content) != w_dictiter.len):
+        w_dictiter.handleMutation()
 
-    if w_dictiter.content is not None:
+    if w_dictiter.content_str is not None:
+        if w_dictiter.len != len(w_dictiter.content_str):
+            w_dictiter.handleMutation()
+        # look for the next entry
+        w_result = w_dictiter.next_entry()
+        if w_result is not None:
+            w_dictiter.pos += 1
+            return w_result
+        # no more entries
+        w_dictiter.content_str = None
+    elif w_dictiter.content is not None:
         if w_dictiter.len != len(w_dictiter.content):
-            w_dictiter.len = -1   # Make this error state sticky
-            raise OperationError(space.w_RuntimeError,
-                     space.wrap("dictionary changed size during iteration"))
+            w_dictiter.handleMutation()
         # look for the next entry
         w_result = w_dictiter.next_entry()
         if w_result is not None:
@@ -452,19 +485,6 @@ def next__DictStrIterObject(space, w_dictiter):
             return w_result
         # no more entries
         w_dictiter.content = None
-    else:
-        if w_dictiter.content_str is not None:
-            if w_dictiter.len != len(w_dictiter.content_str):
-                w_dictiter.len = -1   # Make this error state sticky
-                raise OperationError(space.w_RuntimeError,
-                         space.wrap("dictionary changed size during iteration"))
-            # look for the next entry
-            w_result = w_dictiter.next_entry()
-            if w_result is not None:
-                w_dictiter.pos += 1
-                return w_result
-            # no more entries
-            w_dictiter.content_str = None
     raise OperationError(space.w_StopIteration, space.w_None)
 
 def len__DictStrIterObject(space, w_dictiter):
