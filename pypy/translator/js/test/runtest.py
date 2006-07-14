@@ -61,7 +61,7 @@ class compile_function(object):
         return str(v).lower()
 
     def __call__(self, *kwds):
-        self.call(None, kwds)
+        return self.call(None, kwds)
     
     def call(self, entry_function, kwds):
         args = ', '.join([self._conv(kw) for kw in kwds]) #lowerstr for (py)False->(js)false, etc.
