@@ -2,6 +2,7 @@ from pypy.translator.cli.cts import CTS, PYPY_LIST_OF_VOID, PYPY_DICT_OF_VOID
 from pypy.translator.cli.function import Function
 from pypy.translator.cli.class_ import Class
 from pypy.translator.cli.record import Record
+from pypy.translator.cli.node import Node
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.cli.opcodes import opcodes
@@ -26,7 +27,6 @@ class LowLevelDatabase(object):
         self.functions = {} # graph --> function_name
         self.methods = {} # graph --> method_name
         self.consts = {}  # value --> AbstractConst
-        self.pending_consts = {} # value --> AbstractConst
         self.delegates = {} # StaticMethod --> type_name
         self.const_names = set()
         self.name_count = 0
@@ -49,7 +49,9 @@ class LowLevelDatabase(object):
     def pending_node(self, node):
         if node in self._pending_nodes or node in self._rendered_nodes:
             return
+
         self._pending_nodes.add(node)
+        node.dependencies()
 
     def record_function(self, graph, name):
         self.functions[graph] = name
@@ -71,11 +73,10 @@ class LowLevelDatabase(object):
     def record_const(self, value):
         if value in self.consts:
             const = self.consts[value]
-        elif value in self.pending_consts:
-            const = self.pending_consts[value]
         else:
             const = AbstractConst.make(self, value, self.next_count())
-            self.pending_consts[value] = const
+            self.consts[value] = const
+            self.pending_node(const)
 
         return '%s.%s::%s' % (CONST_NAMESPACE, CONST_CLASS, const.name)
 
@@ -110,15 +111,6 @@ class LowLevelDatabase(object):
             ilasm.end_function()
             ilasm.end_class()
 
-    def collect_constants(self):
-        # traverse the forest of the constants to collect all the constants needed
-        while self.pending_consts:
-            pending_consts = self.pending_consts
-            self.consts.update(pending_consts)
-            self.pending_consts = {}
-            for const in pending_consts.itervalues():
-                const.dependencies()
-
     def gen_constants(self, ilasm):
         ilasm.begin_namespace(CONST_NAMESPACE)
         ilasm.begin_class(CONST_CLASS)
@@ -149,7 +141,7 @@ class LowLevelDatabase(object):
         ilasm.end_namespace()
 
 
-class AbstractConst(object):
+class AbstractConst(Node):
     def make(db, value, count):
         if isinstance(value, ootype._view):
             static_type = value._TYPE
@@ -218,6 +210,9 @@ class AbstractConst(object):
     def __ne__(self, other):
         return not self == other
 
+    def __repr__(self):
+        return '<Const %s %s>' % (self.name, self.value)
+
     def get_name(self):
         pass
 
@@ -228,6 +223,9 @@ class AbstractConst(object):
         if AbstractConst.is_primitive(TYPE):
             return
         self.db.record_const(value)
+
+    def render(self, ilasm):
+        pass
 
     def dependencies(self):
         """
@@ -300,11 +298,15 @@ class StaticMethodConst(AbstractConst):
     def get_type(self, include_class=True):
         return self.cts.lltype_to_cts(self.value._TYPE, include_class)
 
+    def dependencies(self):
+        if self.value is ootype.null(self.value._TYPE):
+            return
+        self.db.pending_function(self.value.graph)
+
     def instantiate(self, ilasm):
         if self.value is ootype.null(self.value._TYPE):
             ilasm.opcode('ldnull')
             return
-        self.db.pending_function(self.value.graph)
         signature = self.cts.graph_to_signature(self.value.graph)
         delegate_type = self.db.record_delegate_type(self.value._TYPE)
         ilasm.opcode('ldnull')
@@ -321,12 +323,16 @@ class ClassConst(AbstractConst):
     def get_type(self, include_class=True):
         return self.cts.lltype_to_cts(self.value._TYPE, include_class)
 
+    def dependencies(self):
+        INSTANCE = self.value._INSTANCE
+        if INSTANCE is not None:
+            self.cts.lltype_to_cts(INSTANCE) # force scheduling class generation
+
     def instantiate(self, ilasm):
         INSTANCE = self.value._INSTANCE
         if INSTANCE is None:
             ilasm.opcode('ldnull')
         else:
-            self.cts.lltype_to_cts(INSTANCE) # force scheduling class generation
             ilasm.opcode('ldtoken', INSTANCE._name)
             ilasm.call('class [mscorlib]System.Type class [mscorlib]System.Type::GetTypeFromHandle(valuetype [mscorlib]System.RuntimeTypeHandle)')
 
@@ -462,12 +468,13 @@ class InstanceConst(AbstractConst):
     def dependencies(self):
         if not self.value:
             return
+
         INSTANCE = self.value._TYPE
         while INSTANCE is not None:
             for name, (TYPE, default) in INSTANCE._fields.iteritems():
                 if TYPE is ootype.Void:
                     continue
-                type_ = self.cts.lltype_to_cts(TYPE) # record type                
+                type_ = self.cts.lltype_to_cts(TYPE) # record type
                 value = getattr(self.value, name) # record value
                 self.record_const_maybe(TYPE, value)
             INSTANCE = INSTANCE._superclass                

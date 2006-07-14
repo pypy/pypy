@@ -8,9 +8,10 @@ class Class(Node):
         self.cts = db.type_system_class(db)
         self.classdef = classdef
         self.namespace, self.name = self.cts.split_class_name(classdef._name)
-        
-        if not self.is_root(classdef):
-            self.db.pending_class(classdef._superclass)
+
+    def dependencies(self):
+        if not self.is_root(self.classdef):
+            self.db.pending_class(self.classdef._superclass)
 
     def __hash__(self):
         return hash(self.classdef)
@@ -27,6 +28,9 @@ class Class(Node):
 
     def get_name(self):
         return self.name
+
+    def __repr__(self):
+        return '<Class %s>' % self.name
 
     def get_base_class(self):
         base_class = self.classdef._superclass

@@ -34,6 +34,9 @@ class Function(Node, Generator):
     def get_name(self):
         return self.name
 
+    def __repr__(self):
+        return '<Function %s>' % self.name
+
     def __hash__(self):
         return hash(self.graph)
 
