@@ -361,7 +361,6 @@ class List(BuiltinADTType):
 
     def __init__(self, ITEMTYPE=None):
         self._ITEMTYPE = ITEMTYPE
-        self._name = 'List<%s>' % ITEMTYPE
         self._null = _null_list(self)
         if ITEMTYPE is not None:
             self._init_methods()
@@ -665,7 +664,11 @@ def _null_mixin(klass):
     class mixin(object):
 
         def __str__(self):
-            return '%r null inst' % (self._TYPE._name,)
+            try:
+                name = self._TYPE._name
+            except AttributeError:
+                name = self._TYPE
+            return '%r null inst' % (name,)
 
         def __getattribute__(self, name):
             if name.startswith("_"):
