@@ -361,6 +361,7 @@ class List(BuiltinADTType):
 
     def __init__(self, ITEMTYPE=None):
         self._ITEMTYPE = ITEMTYPE
+        self._name = 'List<%s>' % ITEMTYPE
         self._null = _null_list(self)
         if ITEMTYPE is not None:
             self._init_methods()
