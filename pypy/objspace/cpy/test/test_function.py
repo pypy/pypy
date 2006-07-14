@@ -67,3 +67,12 @@ def test_star_args():
                                                  space.wrap("world"))
     result = space.int_w(w_result)
     assert result == -4
+
+def test_star_args_no_args():
+    space = CPyObjSpace()
+    func = interp2app(entrypoint3).__spacebind__(space)
+    bltin = BuiltinFunction(func)
+    w_entrypoint = space.wrap(bltin)
+    w_result = space.call_function(w_entrypoint, space.wrap(-2))
+    result = space.int_w(w_result)
+    assert result == 0
