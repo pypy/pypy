@@ -55,10 +55,3 @@ class TestRunTest(CliTest):
             else:
                 return None
         assert self.interpret(fn, [False]) is None
-
-    def test_list_of_string(self):
-        def fn(argv):
-            return ' '.join(argv)
-        res = self.interpret(fn, ['hello', 'world'], annotation=[s_list_of_strings])
-        assert self.ll_to_string(res) == 'hello world'
-                

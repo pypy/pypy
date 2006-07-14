@@ -57,17 +57,22 @@ class TestEntryPoint(Node):
         return 'main'
 
     def render(self, ilasm):
+        try:
+            ARG0 = self.graph.getargs()[0].concretetype
+        except IndexError:
+            ARG0 = None
+        # special case: List(String) == argv
+        if isinstance(ARG0, ootype.List) and ARG0._ITEMTYPE is ootype.String:
+            main_argv = True
+        else:
+            main_argv = False
+        
         ilasm.begin_function('main', [('string[]', 'argv')], 'void', True, 'static')
 
         if self.wrap_exceptions:
             ilasm.begin_try()
 
-        try:
-            ARG0 = self.graph.getargs()[0].concretetype
-        except IndexError:
-            ARG0 = None
-        if isinstance(ARG0, ootype.List) and ARG0._ITEMTYPE is ootype.String:
-            # special case: List(String) == argv
+        if main_argv:
             ilasm.opcode('ldarg.0')
             ilasm.new('instance void class [pypylib]pypy.runtime.List`1<string>::.ctor(!0[])')
         else:
@@ -82,10 +87,14 @@ class TestEntryPoint(Node):
 
         # call the function and convert the result to a string containing a valid python expression
         ilasm.call(cts.graph_to_signature(self.graph))
-        TYPE = self.graph.getreturnvar().concretetype
-        format_object(TYPE, ilasm)
-        ilasm.call('void class [mscorlib]System.Console::WriteLine(string)')
-        ilasm.leave('return')
+
+        if main_argv:
+            ilasm.opcode('pop') # XXX: return this value
+        else:
+            TYPE = self.graph.getreturnvar().concretetype
+            format_object(TYPE, ilasm)
+            ilasm.call('void class [mscorlib]System.Console::WriteLine(string)')
+            ilasm.leave('return')
 
         if self.wrap_exceptions:
             ilasm.end_try()
