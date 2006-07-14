@@ -60,7 +60,6 @@ class GenCli(object):
         self.fix_names()
         self.gen_entrypoint()
         self.gen_pendings()
-        self.db.gen_delegate_types(self.ilasm)
         self.db.gen_constants(self.ilasm)
 
         out.close()

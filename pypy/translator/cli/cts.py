@@ -92,7 +92,7 @@ class CTS(object):
             name = self.db.pending_record(t)
             return self.__class(name, include_class)
         elif isinstance(t, ootype.StaticMethod):
-            delegate = self.db.record_delegate_type(t)
+            delegate = self.db.record_delegate(t)
             return self.__class(delegate, include_class)
         elif isinstance(t, ootype.List):
             item_type = self.lltype_to_cts(t._ITEMTYPE)

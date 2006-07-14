@@ -2,6 +2,7 @@ from pypy.translator.cli.cts import CTS, PYPY_LIST_OF_VOID, PYPY_DICT_OF_VOID
 from pypy.translator.cli.function import Function
 from pypy.translator.cli.class_ import Class
 from pypy.translator.cli.record import Record
+from pypy.translator.cli.delegate import Delegate
 from pypy.translator.cli.node import Node
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.lltypesystem import lltype
@@ -80,36 +81,14 @@ class LowLevelDatabase(object):
 
         return '%s.%s::%s' % (CONST_NAMESPACE, CONST_CLASS, const.name)
 
-    def record_delegate_type(self, TYPE):
+    def record_delegate(self, TYPE):
         try:
             return self.delegates[TYPE]
         except KeyError:
             name = 'StaticMethod__%d' % len(self.delegates)
-            # record we know about result and argument types
-            self.cts.lltype_to_cts(TYPE.RESULT)
-            for ARG in TYPE.ARGS:
-                self.cts.lltype_to_cts(ARG)
             self.delegates[TYPE] = name
+            self.pending_node(Delegate(self, TYPE, name))
             return name
-
-    def gen_delegate_types(self, ilasm):
-        for TYPE, name in self.delegates.iteritems():
-            ilasm.begin_class(name, '[mscorlib]System.MulticastDelegate', sealed=True)
-            ilasm.begin_function('.ctor',
-                                 [('object', "'object'"), ('native int', "'method'")],
-                                 'void',
-                                 False,
-                                 'hidebysig', 'specialname', 'rtspecialname', 'instance', 'default',
-                                 runtime=True)
-            ilasm.end_function()
-
-            resulttype = self.cts.lltype_to_cts(TYPE.RESULT)
-            arglist = [(self.cts.lltype_to_cts(ARG), '') for ARG in TYPE.ARGS]
-            ilasm.begin_function('Invoke', arglist, resulttype, False,
-                                 'virtual', 'hidebysig', 'instance', 'default',
-                                 runtime=True)
-            ilasm.end_function()
-            ilasm.end_class()
 
     def gen_constants(self, ilasm):
         ilasm.begin_namespace(CONST_NAMESPACE)
@@ -302,16 +281,16 @@ class StaticMethodConst(AbstractConst):
         if self.value is ootype.null(self.value._TYPE):
             return
         self.db.pending_function(self.value.graph)
+        self.delegate_type = self.db.record_delegate(self.value._TYPE)
 
     def instantiate(self, ilasm):
         if self.value is ootype.null(self.value._TYPE):
             ilasm.opcode('ldnull')
             return
         signature = self.cts.graph_to_signature(self.value.graph)
-        delegate_type = self.db.record_delegate_type(self.value._TYPE)
         ilasm.opcode('ldnull')
         ilasm.opcode('ldftn', signature)
-        ilasm.new('instance void class %s::.ctor(object, native int)' % delegate_type)
+        ilasm.new('instance void class %s::.ctor(object, native int)' % self.delegate_type)
 
 class ClassConst(AbstractConst):
     def __init__(self, db, class_, count):
