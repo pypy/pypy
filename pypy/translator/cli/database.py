@@ -16,6 +16,14 @@ except NameError:
 CONST_NAMESPACE = 'pypy.runtime'
 CONST_CLASS = 'Constants'
 
+BUILTIN_RECORDS = {
+    ootype.Record({"item0": ootype.Float, "item1": ootype.Signed}):
+    '[pypylib]pypy.runtime.Record_Float_Signed',
+    
+    ootype.Record({"item0": ootype.Float, "item1": ootype.Float}):
+    '[pypylib]pypy.runtime.Record_Float_Float'
+    }
+
 class LowLevelDatabase(object):
     def __init__(self, type_system_class = CTS, opcode_dict = opcodes, function_class = Function):
         self._pending_nodes = set()
@@ -43,9 +51,12 @@ class LowLevelDatabase(object):
         self.pending_node(Class(self, classdef))
 
     def pending_record(self, record):
-        r = Record(self, record)
-        self.pending_node(r)
-        return r.get_name()
+        try:
+            return BUILTIN_RECORDS[record]
+        except KeyError:
+            r = Record(self, record)
+            self.pending_node(r)
+            return r.get_name()
 
     def pending_node(self, node):
         if node in self._pending_nodes or node in self._rendered_nodes:
@@ -68,8 +79,11 @@ class LowLevelDatabase(object):
         return self.classes.get(classdef, None)
 
     def get_record_name(self, RECORD):
-        r = Record(self, RECORD)
-        return r.get_name() # TODO: cache the result?
+        try:
+            return BUILTIN_RECORDS[RECORD]
+        except KeyError:
+            r = Record(self, RECORD)
+            return r.get_name() # TODO: cache the result?
 
     def record_const(self, value):
         if value in self.consts:
