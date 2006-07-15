@@ -130,21 +130,23 @@ class BaseTestRbuiltin(BaseRtypingTest):
             for j in range(10):
                 rv = 1000 * float(i-10) 
                 ry = 100 * float(i-10) +0.1
-                assert fn(rv,ry) == self.interpret(fn, (rv, ry))
+                assert self.float_eq(fn(rv,ry), self.interpret(fn, (rv, ry)))
 
     def test_builtin_math_frexp(self):
         import math
         def fn(f):
             return math.frexp(f)
         res = self.interpret(fn, [10/3.0])
-        assert (res.item0, res.item1) == math.frexp(10/3.0)
+        mantissa, exponent = math.frexp(10/3.0)        
+        assert self.float_eq(res.item0, mantissa) and self.float_eq(res.item1, exponent)
 
     def test_builtin_math_modf(self):
         import math
         def fn(f):
             return math.modf(f)
         res = self.interpret(fn, [10/3.0])
-        assert (res.item0, res.item1) == math.modf(10/3.0)
+        intpart, fracpart = math.modf(10/3.0)
+        assert self.float_eq(res.item0, intpart) and self.float_eq(res.item1, fracpart)
 
     def test_os_getcwd(self):
         import os

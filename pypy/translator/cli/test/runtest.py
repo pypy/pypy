@@ -245,6 +245,9 @@ class CliTest(BaseRtypingTest, OORtypeMixin):
         else:
             assert False, 'function did raise no exception at all'
 
+    def float_eq(self, x, y):
+        return round(x, FLOAT_PRECISION) == round(y, FLOAT_PRECISION)        
+
     def ll_to_string(self, s):
         return s
 

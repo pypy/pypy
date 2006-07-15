@@ -10,6 +10,9 @@ class BaseRtypingTest(object):
     def interpret_raises(self, exc, fn, args, **kwds):
         return interpret_raises(exc, fn, args, type_system=self.type_system, **kwds)
 
+    def float_eq(self, x, y):
+        return x == y
+
     def _skip_oo(self, reason):
         if self.type_system == 'ootype':
             py.test.skip("ootypesystem doesn't support %s, yet" % reason)
