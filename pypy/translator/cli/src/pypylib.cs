@@ -435,8 +435,12 @@ namespace pypy.builtin
         // XXX: very hackish, refactoring needed
         public static int ll_os_write(int fd, string buffer)
         {
-            if (fd == 1 || fd == 2)
+            if (fd == 1)
                 Console.WriteLine(buffer);
+            else if (fd == 2)
+                Console.Error.WriteLine(buffer);
+            else
+                throw new ApplicationException(string.Format("Wrong file descriptor: {0}", fd));
             return buffer.Length;
         }
 
