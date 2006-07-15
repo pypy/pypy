@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using pypy.runtime;
 
 namespace pypy.test
 {
@@ -101,26 +103,6 @@ namespace pypy.runtime
         public static int GetHashCode<T>(T obj)
         {
             return obj.GetHashCode();
-        }
-
-        public static double Time()
-        {
-            TimeSpan t = (DateTime.UtcNow - new DateTime(1970, 1, 1));
-            return t.TotalSeconds;
-        }
-
-        static DateTime ClockStart = DateTime.UtcNow;
-        public static double Clock()
-        {
-            return (DateTime.UtcNow - ClockStart).TotalSeconds;
-        }
-
-        // XXX: very hackish, refactoring needed
-        public static int os_write(int fd, string buffer)
-        {
-            if (fd == 1 || fd == 2)
-                Console.WriteLine(buffer);
-            return buffer.Length;
         }
     }
 
@@ -432,6 +414,92 @@ namespace pypy.runtime
         }
         public override int GetHashCode() { return item0.GetHashCode(); }
     }
-
 }
 
+namespace pypy.builtin
+{
+    public class Builtin
+    {
+        public static double ll_time_time()
+        {
+            TimeSpan t = (DateTime.UtcNow - new DateTime(1970, 1, 1));
+            return t.TotalSeconds;
+        }
+
+        static DateTime ClockStart = DateTime.UtcNow;
+        public static double ll_time_clock()
+        {
+            return (DateTime.UtcNow - ClockStart).TotalSeconds;
+        }
+
+        // XXX: very hackish, refactoring needed
+        public static int ll_os_write(int fd, string buffer)
+        {
+            if (fd == 1 || fd == 2)
+                Console.WriteLine(buffer);
+            return buffer.Length;
+        }
+
+        public static double ll_math_floor(double x)
+        {
+            return Math.Floor(x);
+        }
+
+        public static double ll_math_fmod(double x, double y)
+        {
+            return Math.IEEERemainder(x, y);
+        }
+
+        public static Record_Float_Float ll_math_modf(double x)
+        {
+            Record_Float_Float result = new Record_Float_Float();
+            result.item1 = (long)x; // truncate
+            result.item0 = x - result.item1;
+            return result;
+        }
+
+        // this code is borrowed from 
+        // http://web.telia.com/~u31115556/under_construction/Functions.Cephes.CFunctions.cs
+        [StructLayout(LayoutKind.Explicit), CLSCompliantAttribute(false)]
+        struct DoubleUshorts 
+        {
+            [FieldOffset(0)] public double d;
+            [FieldOffset(0)] public ushort u0;
+            [FieldOffset(2)] public ushort u1;
+            [FieldOffset(4)] public ushort u2;
+            [FieldOffset(6)] public ushort u3;
+        }
+
+        public static unsafe Record_Float_Signed ll_math_frexp(double x)
+        {
+            Record_Float_Signed result = new Record_Float_Signed();
+            if (x == 0.0) // Laj: Else pw2 = -1022
+            {
+                result.item0 = 0.0;
+                result.item1 = 0;
+                return result;
+            }
+
+            DoubleUshorts u;
+            u.d = x;
+
+            short *q = (short *)&u.u3;
+
+            int i = (*q >> 4) & 0x7ff;
+
+            i -= 0x3fe;
+            result.item1 = i;
+            unchecked
+            {
+                // Constant value '32783' cannot be converted to a 'short'
+                *q &= (short)0x800f;
+            }
+            // Warning: Bitwise-or operator used on a sign-extended operand;
+            // consider casting to a smaller unsigned type first
+            *q |= 0x3fe0;
+            result.item0 = u.d;
+            return result;
+        }
+
+    }
+}

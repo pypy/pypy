@@ -52,45 +52,12 @@ class Function(Node, Generator):
     def _is_raise_block(self, block):
         return (not block.exits) and len(block.inputargs) == 2        
 
-    def _render_primitive(self, ilasm):
-        self.ilasm = ilasm
-        graph = self.graph
-        func_name = graph.func.func_name
-        returntype, returnvar = self.cts.llvar_to_cts(graph.getreturnvar())
-
-        if self.is_method:
-            args = self.args[1:] # self is implicit
-            meth_type = 'virtual' # TODO: mark as virtual only when strictly necessary
-        else:
-            args = self.args
-            meth_type = 'static'
-
-        self.ilasm.begin_function(self.name, args, returntype, self.is_entrypoint, meth_type)
-        if func_name == 'll_time_time':
-            ilasm.opcode('call float64 [pypylib]pypy.runtime.Utils::Time()')
-        elif func_name == 'll_time_clock':
-            ilasm.opcode('call float64 [pypylib]pypy.runtime.Utils::Clock()')
-        elif func_name == 'll_os_write':
-            ilasm.opcode('ldarg.0')
-            ilasm.opcode('ldarg.1')
-            ilasm.opcode('call int32 [pypylib]pypy.runtime.Utils::os_write(int32, string)')
-        else:
-            assert False, 'Unknown primitive function: %s' % func_name
-
-        self.ilasm.opcode('ret')
-        self.ilasm.end_function()
-        if self.is_method:
-            pass # TODO
-        else:
-            self.db.record_function(self.graph, self.name)
-
     def render(self, ilasm):
         if self.db.graph_name(self.graph) is not None and not self.is_method:
             return # already rendered
 
         if getattr(self.graph.func, 'suggested_primitive', False):
-            self._render_primitive(ilasm) # XXX: refactoring needed
-            return
+            assert False, 'Cannot render a suggested_primitive'
 
         self.ilasm = ilasm
         graph = self.graph
@@ -289,8 +256,8 @@ class Function(Node, Generator):
 
     # following methods belongs to the Generator interface
 
-    def function_signature(self, graph):
-        return self.cts.graph_to_signature(graph, False)
+    def function_signature(self, graph, func_name=None):
+        return self.cts.graph_to_signature(graph, False, func_name)
 
     def class_name(self, TYPE):
         if isinstance(TYPE, ootype.Instance):
@@ -301,9 +268,10 @@ class Function(Node, Generator):
     def emit(self, instr, *args):
         self.ilasm.opcode(instr, *args)
 
-    def call_graph(self, graph):
-        self.db.pending_function(graph)
-        func_sig = self.function_signature(graph)        
+    def call_graph(self, graph, func_name=None):
+        if func_name is None: # else it is a suggested primitive
+            self.db.pending_function(graph)
+        func_sig = self.function_signature(graph, func_name)
         self.ilasm.call(func_sig)
 
     def call_signature(self, signature):

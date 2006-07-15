@@ -14,10 +14,15 @@ class _Call(MicroInstruction):
             self._render_method(generator, method_name, op.args[1:])
 
     def _render_function(self, generator, graph, args):
-        #func_sig = generator.function_signature(graph)
+        primitive = getattr(graph.func, 'suggested_primitive', False)
         for func_arg in args[1:]: # push parameters
             generator.load(func_arg)
-        generator.call_graph(graph)
+
+        if primitive:
+            func_name = '[pypylib]pypy.builtin.Builtin::%s' % graph.func.func_name
+            generator.call_graph(graph, func_name)
+        else:
+            generator.call_graph(graph)
 
     def _render_method(self, generator, method_name, args):
         this = args[0]
