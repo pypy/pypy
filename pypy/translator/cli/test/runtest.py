@@ -48,7 +48,7 @@ class TestEntryPoint(Node):
     to int32, pass them to another method and prints out the result.
     """
     
-    def __init__(self, graph_to_call, wrap_exceptions):
+    def __init__(self, graph_to_call, wrap_exceptions=False):
         self.graph = graph_to_call
         self.db = None
         self.wrap_exceptions = wrap_exceptions
@@ -57,44 +57,26 @@ class TestEntryPoint(Node):
         return 'main'
 
     def render(self, ilasm):
-        try:
-            ARG0 = self.graph.getargs()[0].concretetype
-        except IndexError:
-            ARG0 = None
-        # special case: List(String) == argv
-        if isinstance(ARG0, ootype.List) and ARG0._ITEMTYPE is ootype.String:
-            main_argv = True
-        else:
-            main_argv = False
-        
         ilasm.begin_function('main', [('string[]', 'argv')], 'void', True, 'static')
 
         if self.wrap_exceptions:
             ilasm.begin_try()
 
-        if main_argv:
+        # convert string arguments to their true type
+        for i, arg in enumerate(self.graph.getargs()):
             ilasm.opcode('ldarg.0')
-            ilasm.new('instance void class [pypylib]pypy.runtime.List`1<string>::.ctor(!0[])')
-        else:
-            # convert string arguments to their true type
-            for i, arg in enumerate(self.graph.getargs()):
-                ilasm.opcode('ldarg.0')
-                ilasm.opcode('ldc.i4.%d' % i)
-                ilasm.opcode('ldelem.ref')
-                arg_type, arg_var = cts.llvar_to_cts(arg)
-                ilasm.call('%s class [mscorlib]System.Convert::%s(string)' %
-                           (arg_type, self.__convert_method(arg_type)))
+            ilasm.opcode('ldc.i4.%d' % i)
+            ilasm.opcode('ldelem.ref')
+            arg_type, arg_var = cts.llvar_to_cts(arg)
+            ilasm.call('%s class [mscorlib]System.Convert::%s(string)' %
+                       (arg_type, self.__convert_method(arg_type)))
 
         # call the function and convert the result to a string containing a valid python expression
         ilasm.call(cts.graph_to_signature(self.graph))
-
-        if main_argv:
-            ilasm.opcode('pop') # XXX: return this value
-        else:
-            TYPE = self.graph.getreturnvar().concretetype
-            format_object(TYPE, ilasm)
-            ilasm.call('void class [mscorlib]System.Console::WriteLine(string)')
-            ilasm.leave('return')
+        TYPE = self.graph.getreturnvar().concretetype
+        format_object(TYPE, ilasm)
+        ilasm.call('void class [mscorlib]System.Console::WriteLine(string)')
+        ilasm.leave('return')
 
         if self.wrap_exceptions:
             ilasm.end_try()

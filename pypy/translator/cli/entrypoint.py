@@ -1,0 +1,58 @@
+from pypy.translator.cli.cts import CTS
+from pypy.translator.cli.database import LowLevelDatabase
+from pypy.translator.cli.node import Node
+from pypy.translator.cli.test.runtest import TestEntryPoint
+from pypy.rpython.ootypesystem import ootype
+
+cts = CTS(LowLevelDatabase()) # this is a hack!
+
+def get_entrypoint(graph):
+    try:
+        ARG0 = graph.getargs()[0].concretetype
+    except IndexError:
+        ARG0 = None
+    if isinstance(ARG0, ootype.List) and ARG0._ITEMTYPE is ootype.String:
+        return StandaloneEntryPoint(graph)
+    else:
+        return TestEntryPoint(graph)
+
+class StandaloneEntryPoint(Node):
+    """
+    This class produces a 'main' method that converts the argv in a
+    List of Strings and pass it to the real entry point.
+    """
+    
+    def __init__(self, graph_to_call):
+        self.graph = graph_to_call
+        self.db = None
+
+    def get_name(self):
+        return 'main'
+
+    def render(self, ilasm):
+        try:
+            ARG0 = self.graph.getargs()[0].concretetype
+        except IndexError:
+            ARG0 = None
+        assert isinstance(ARG0, ootype.List) and ARG0._ITEMTYPE is ootype.String,\
+               'Wrong entry point signature: List(String) expected'
+
+        ilasm.begin_function('main', [('string[]', 'argv')], 'void', True, 'static')
+        ilasm.new('instance void class [pypylib]pypy.runtime.List`1<string>::.ctor()')
+
+        # fake argv[0]        
+        ilasm.opcode('dup')
+        ilasm.opcode('ldstr ""')
+        ilasm.call_method('void class [mscorlib]System.Collections.Generic.List`1<string>::Add(!0)', True)
+
+        # add real argv
+        ilasm.opcode('dup')
+        ilasm.opcode('ldarg.0')
+        ilasm.call_method('void class [mscorlib]System.Collections.Generic.List`1<string>::'
+                          'AddRange(class [mscorlib]System.Collections.Generic.IEnumerable`1<!0>)', True)
+
+        ilasm.call(cts.graph_to_signature(self.graph))
+        ilasm.opcode('pop') # XXX: return this value, if it's an int32
+        ilasm.opcode('ret')
+        ilasm.end_function()
+        self.db.pending_function(self.graph)
