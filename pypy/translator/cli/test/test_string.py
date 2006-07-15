@@ -33,10 +33,6 @@ class TestCliString(CliTest, BaseTestRstr):
     def test_replace_TyperError(self):
         pass # it doesn't make sense here
 
-    def test_int(self):
-        py.test.skip("CLI doesn't support integer parsing, yet")
-    test_int_valueerror = test_int
-
     def test_hash_value(self):
         # make that hash are computed by value and not by reference
         def fn(x, y):
