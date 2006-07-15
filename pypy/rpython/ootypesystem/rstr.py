@@ -157,7 +157,44 @@ class LLHelpers(AbstractLLHelpers):
         return s.ll_split_chr(c)
 
     def ll_int(s, base):
-        return ootype.ooparse_int(s, base)
+        if not 2 <= base <= 36:
+            raise ValueError
+        strlen = s.ll_strlen()
+        i = 0
+        #XXX: only space is allowed as white space for now
+        while i < strlen and s.ll_stritem_nonneg(i) == ' ':
+            i += 1
+        if not i < strlen:
+            raise ValueError
+        #check sign
+        sign = 1
+        if s.ll_stritem_nonneg(i) == '-':
+            sign = -1
+            i += 1
+        elif s.ll_stritem_nonneg(i) == '+':
+            i += 1;
+        #now get digits
+        val = 0
+        while i < strlen:
+            c = ord(s.ll_stritem_nonneg(i))
+            if ord('a') <= c <= ord('z'):
+                digit = c - ord('a') + 10
+            elif ord('A') <= c <= ord('Z'):
+                digit = c - ord('A') + 10
+            elif ord('0') <= c <= ord('9'):
+                digit = c - ord('0')
+            else:
+                break
+            if digit >= base:
+                break
+            val = val * base + digit
+            i += 1
+        #skip trailing whitespace
+        while i < strlen and s.ll_stritem_nonneg(i) == ' ':
+            i += 1
+        if not i == strlen:
+            raise ValueError
+        return sign * val
 
     def do_stringformat(cls, hop, sourcevarsrepr):
         InstanceRepr = hop.rtyper.type_system.rclass.InstanceRepr
