@@ -180,10 +180,19 @@ class BaseTestObjectModel(BaseRtypingTest):
             def _freeze_(self):
                 return True
         obj = FreezingClass()
-        pbc_d = r_dict(obj.key_eq, obj.key_hash)        
         def fn():
             d = r_dict(obj.key_eq, obj.key_hash)
-            return play_with_r_dict(d) and play_with_r_dict(pbc_d)
+            return play_with_r_dict(d)
+        assert self.interpret(fn, []) is True
+
+    def test_rtype_r_dict_singlefrozen_func_pbc(self):
+        class FreezingClass(Strange):
+            def _freeze_(self):
+                return True
+        obj = FreezingClass()
+        pbc_d = r_dict(obj.key_eq, obj.key_hash)        
+        def fn():
+            return play_with_r_dict(pbc_d)
         assert self.interpret(fn, []) is True
 
     def test_rtype_r_dict_exceptions(self):

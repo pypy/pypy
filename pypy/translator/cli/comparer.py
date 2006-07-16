@@ -43,16 +43,13 @@ class EqualityComparer(Node):
 
         fn, obj, method_name = fn_args
         if method_name.value is None:
-            if obj.value is None:
-                self._call_function(fn, len(arglist), [])
-            else:
-                assert False, 'XXX'
+            self._call_function(fn, len(arglist))
         else:
             assert False, 'XXX'
 
         self.ilasm.end_function()
 
-    def _call_function(self, fn, n_args, additional_args):
+    def _call_function(self, fn, n_args):
         # fn is a HalfConcreteWrapper
         sm = fn.value.concretize().value
         self.db.pending_function(sm.graph)

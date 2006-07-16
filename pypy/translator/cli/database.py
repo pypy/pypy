@@ -154,6 +154,8 @@ class AbstractConst(Node):
             return StaticMethodConst(db, value, count)
         elif isinstance(value, ootype._class):
             return ClassConst(db, value, count)
+        elif isinstance(value, ootype._custom_dict):
+            assert False, 'Unknown constant: %s' % value
         elif isinstance(value, ootype._dict):
             return DictConst(db, value, count)
         else:
