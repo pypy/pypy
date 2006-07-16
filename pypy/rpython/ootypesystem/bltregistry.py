@@ -18,7 +18,7 @@ class ArgDesc(object):
         self.example = ex_value
 
 class MethodDesc(object):
-    def __init__(self, args, retval):
+    def __init__(self, args, retval = None):
         self.num = 0
         self.args = [self.convert_val(arg) for arg in args]
         self.retval = self.convert_val(retval)
