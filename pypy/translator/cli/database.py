@@ -45,7 +45,9 @@ class LowLevelDatabase(object):
         return self.name_count
 
     def pending_function(self, graph):
-        self.pending_node(self.function_class(self, graph))
+        function = self.function_class(self, graph)
+        self.pending_node(function)
+        return function.get_name()
 
     def pending_class(self, classdef):
         self.pending_node(Class(self, classdef))

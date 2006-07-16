@@ -1,6 +1,7 @@
 from pypy.translator.cli import oopspec
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.oosupport.metavm import Generator, InstructionList, MicroInstruction
+from pypy.translator.cli.comparer import EqualityComparer
 
 STRING_HELPER_CLASS = '[pypylib]pypy.runtime.String'
 
@@ -102,6 +103,22 @@ class _DownCast(MicroInstruction):
         generator.load(op.args[0])
         generator.ilasm.opcode('castclass', resulttype)
 
+class _NewCustomDict(MicroInstruction):
+    def render(self, generator, op):
+        DICT = op.args[0].value
+        comparer = EqualityComparer(generator.db, DICT._KEYTYPE,
+                                    (op.args[1], op.args[2], op.args[3]),
+                                    (op.args[4], op.args[5], op.args[6]))
+        generator.db.pending_node(comparer)
+        dict_type = generator.cts.lltype_to_cts(DICT)
+
+        generator.ilasm.new(comparer.get_ctor())
+        generator.ilasm.new('instance void %s::.ctor(class'
+                            '[mscorlib]System.Collections.Generic.IEqualityComparer`1<!0>)'
+                            % dict_type)
+
+
+
 Call = _Call()
 CallMethod = _CallMethod()
 IndirectCall = _IndirectCall()
@@ -111,3 +128,4 @@ SetField = _SetField()
 CastTo = _CastTo()
 OOString = _OOString()
 DownCast = _DownCast()
+NewCustomDict = _NewCustomDict()

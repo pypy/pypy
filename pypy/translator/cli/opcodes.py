@@ -1,5 +1,5 @@
 from pypy.translator.cli.metavm import  Call, CallMethod, RuntimeNew, \
-     IndirectCall, GetField, SetField, CastTo, OOString, DownCast
+     IndirectCall, GetField, SetField, CastTo, OOString, DownCast, NewCustomDict
 from pypy.translator.oosupport.metavm import PushArg, PushAllArgs, StoreResult, InstructionList,\
     New
 
@@ -54,6 +54,7 @@ opcodes = {
     'oohash':                   [PushAllArgs, 'callvirt instance int32 object::GetHashCode()'],    
     'oostring':                 [OOString],
     'ooparse_int':              [PushAllArgs, 'call int32 [pypylib]pypy.runtime.Utils::OOParseInt(string, int32)'],
+    'oonewcustomdict':          [NewCustomDict],
     
     'same_as':                  DoNothing, # TODO: does same_as really do nothing else than renaming?    
     'direct_call':              [Call],

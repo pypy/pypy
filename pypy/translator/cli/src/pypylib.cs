@@ -331,6 +331,13 @@ namespace pypy.runtime
 
     public class Dict<TKey, TValue>: System.Collections.Generic.Dictionary<TKey, TValue>
     {
+        IEqualityComparer<TKey> comparer = null;
+        public Dict() {}
+        public Dict(IEqualityComparer<TKey> comparer): base(comparer) 
+        { 
+            this.comparer = comparer;
+        }
+
         public int ll_length() { return this.Count; }
         public TValue ll_get(TKey key) { return this[key]; }
         public void ll_set(TKey key, TValue value) { this[key] = value; }
@@ -341,6 +348,15 @@ namespace pypy.runtime
         public DictItemsIterator<TKey, TValue> ll_get_items_iterator()
         {
             return new DictItemsIterator<TKey, TValue>(this.GetEnumerator());
+        }
+
+        // XXX: this is CustomDict specific, maybe we should have a separate class for it
+        public Dict<TKey, TValue> ll_copy()
+        {
+            Dict<TKey, TValue> res = new Dict<TKey, TValue>(comparer);
+            foreach(KeyValuePair<TKey, TValue> item in this)
+                res[item.Key] = item.Value;
+            return res;
         }
     }
 
