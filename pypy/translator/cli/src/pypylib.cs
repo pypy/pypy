@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Runtime.InteropServices;
+using Mono.Unix;
+using Mono.Unix.Native;
 using pypy.runtime;
 
 namespace pypy.test
@@ -432,6 +435,38 @@ namespace pypy.builtin
             return (DateTime.UtcNow - ClockStart).TotalSeconds;
         }
 
+        public static int ll_os_open(string name, int flag, int mode)
+        {
+            OpenFlags f = NativeConvert.ToOpenFlags(flag);
+            FilePermissions perm = NativeConvert.ToFilePermissions((uint)mode);
+            return Syscall.open(name, f, perm);
+        }
+
+        public static void ll_os_close(int fd)
+        {
+            Syscall.close(fd);
+        }
+
+        public static int ll_os_write(int fd, string buffer)
+        {
+            // TODO: this is very inefficient
+            UnixStream fs = new UnixStream (fd);
+            StreamWriter w = new StreamWriter(fs);
+            w.Write(buffer);
+            w.Flush();
+            return buffer.Length;
+        }
+
+        public static string ll_os_read(int fd, int count)
+        {
+            UnixStream fs = new UnixStream (fd);
+            StreamReader r = new StreamReader(fs);
+            char[] buf = new char[count];
+            int n = r.Read(buf, 0, count);
+            return new string(buf, 0, n);
+        }
+
+        /*
         // XXX: very hackish, refactoring needed
         public static int ll_os_write(int fd, string buffer)
         {
@@ -443,6 +478,7 @@ namespace pypy.builtin
                 throw new ApplicationException(string.Format("Wrong file descriptor: {0}", fd));
             return buffer.Length;
         }
+        */
 
         public static double ll_math_floor(double x)
         {
