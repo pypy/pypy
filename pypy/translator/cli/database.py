@@ -3,6 +3,7 @@ from pypy.translator.cli.function import Function
 from pypy.translator.cli.class_ import Class
 from pypy.translator.cli.record import Record
 from pypy.translator.cli.delegate import Delegate
+from pypy.translator.cli.comparer import EqualityComparer
 from pypy.translator.cli.node import Node
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.lltypesystem import lltype
@@ -155,7 +156,7 @@ class AbstractConst(Node):
         elif isinstance(value, ootype._class):
             return ClassConst(db, value, count)
         elif isinstance(value, ootype._custom_dict):
-            assert False, 'Unknown constant: %s' % value
+            return CustomDictConst(db, value, count)
         elif isinstance(value, ootype._dict):
             return DictConst(db, value, count)
         else:
@@ -444,6 +445,28 @@ class DictConst(AbstractConst):
                    (keytype, valuetype, keytype_T, valuetype_T)
             ilasm.call_method(meth, False)
         ilasm.opcode('pop')
+
+class CustomDictConst(DictConst):
+    def dependencies(self):
+        if not self.value:
+            return
+
+        eq = self.value._dict.key_eq
+        hash = self.value._dict.key_hash
+        self.comparer = EqualityComparer(self.db, self.value._TYPE._KEYTYPE, eq, hash)
+        self.db.pending_node(self.comparer)
+        DictConst.dependencies(self)
+
+    def instantiate(self, ilasm):
+        if not self.value: # it is a null dict
+            ilasm.opcode('ldnull')
+            return
+
+        ilasm.new(self.comparer.get_ctor())
+        class_name = self.get_type()
+        ilasm.new('instance void %s::.ctor(class '
+                  '[mscorlib]System.Collections.Generic.IEqualityComparer`1<!0>)'
+                  % class_name)
 
 
 class InstanceConst(AbstractConst):

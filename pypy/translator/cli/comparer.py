@@ -1,3 +1,5 @@
+import types
+from pypy.rpython.ootypesystem import ootype
 from pypy.translator.cli.cts import CTS
 from pypy.translator.cli.node import Node
 
@@ -41,21 +43,26 @@ class EqualityComparer(Node):
                                   'final', 'virtual', 'hidebysig', 'newslot',
                                   'instance', 'default')
 
-        fn, obj, method_name = fn_args
-        if method_name.value is None:
-            self._call_function(fn, len(arglist))
+        if type(fn_args) == types.FunctionType:
+            assert len(fn_args.self_arg) <= 1
+            if len(fn_args.self_arg) == 1:
+                assert fn_args.graph.getargs()[0].concretetype is ootype.Void
+            self._call_function(fn_args.graph, len(arglist))
         else:
-            assert False, 'XXX'
+            fn, obj, method_name = fn_args
+            # fn is a HalfConcreteWrapper
+            sm = fn.value.concretize().value
+            if method_name.value is None:
+                self._call_function(sm.graph, len(arglist))
+            else:
+                assert False, 'XXX'
 
         self.ilasm.end_function()
 
-    def _call_function(self, fn, n_args):
-        # fn is a HalfConcreteWrapper
-        sm = fn.value.concretize().value
-        self.db.pending_function(sm.graph)
+    def _call_function(self, graph, n_args):
+        self.db.pending_function(graph)
         for arg in range(1, n_args+1):
             self.ilasm.opcode('ldarg', arg)
-
-        signature = self.cts.graph_to_signature(sm.graph)
+        signature = self.cts.graph_to_signature(graph)
         self.ilasm.call(signature)
         self.ilasm.opcode('ret')

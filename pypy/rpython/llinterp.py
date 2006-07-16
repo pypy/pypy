@@ -950,6 +950,8 @@ def wrap_graph(llinterpreter, graph, self_arg):
     def interp_func(*args):
         graph_args = self_arg + list(args)
         return llinterpreter.eval_graph(graph, args=graph_args)
+    interp_func.graph = graph
+    interp_func.self_arg = self_arg
     return graph.name, interp_func
 
 

@@ -7,5 +7,3 @@ def skip_r_dict(self):
 
 class TestCliObjectModel(CliTest, BaseTestObjectModel):
     test_rtype_r_dict_bm = skip_r_dict
-    test_rtype_constant_r_dicts = skip_r_dict
-    test_rtype_r_dict_singlefrozen_func_pbc = skip_r_dict
