@@ -56,7 +56,8 @@ opcodes = {
     'ooparse_int':              [PushAllArgs, 'call int32 [pypylib]pypy.runtime.Utils::OOParseInt(string, int32)'],
     'oonewcustomdict':          [NewCustomDict],
     
-    'same_as':                  DoNothing, # TODO: does same_as really do nothing else than renaming?    
+    'same_as':                  DoNothing,
+    'hint':                     [PushArg(0), StoreResult],
     'direct_call':              [Call],
     'indirect_call':            [IndirectCall],
 
