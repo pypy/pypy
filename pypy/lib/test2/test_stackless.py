@@ -6,8 +6,18 @@ class AppTest_Stackless(object):
         cls.space = gettestobjspace('std', usemodules=("_stackless",))
 
 
-    def test_simple_pipe(self):
+    def test_noop(self):
+        from stackless import run, tasklet, channel, getcurrent
+        main = getcurrent()
+
+        def switch_to_main():
+            main.switch()
         
+        t = tasklet(switch_to_main)()
+        run()
+
+    def test_simple_pipe(self):
+
         from stackless import run, tasklet, channel
 
         def pipe(X_in, X_out):
