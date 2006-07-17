@@ -191,6 +191,10 @@ opcodes = {
     'llong_gt':                 'cgt',
     'llong_ge':                 _not('clt'),
     'llong_and':                'and',
+    'llong_or':                 'or',
+    'llong_lshift':             'shl',
+    'llong_rshift':             'shr',
+    'llong_xor':                'xor',
 
     'ullong_is_true':            [PushAllArgs, 'ldc.i8 0', 'cgt.un'],
     'ullong_neg':                None,
