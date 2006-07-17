@@ -400,7 +400,7 @@ class TranslationDriver(SimpleTaskEngine):
             self.c_entryp = gen.compile_llvm_source(exe_name=exe_name)
             self.create_exe()
         else:
-            self.c_entryp = gen.compile_llvm_source(return_fn=True)
+            _, self.c_entryp = gen.compile_llvm_source()
     #
     task_compile_llvm = taskdef(task_compile_llvm, 
                                 ['source_llvm'], 
