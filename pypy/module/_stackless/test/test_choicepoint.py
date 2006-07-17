@@ -1,5 +1,5 @@
 from pypy.module._stackless.interp_coroutine import AbstractThunk
-from pypy.module._stackless.interp_clonable import ClonableCoroutine
+from pypy.module._stackless.interp_clonable import InterpClonableCoroutine as ClonableCoroutine
 
 class ChoicePointHolder(object):
     def __init__(self):

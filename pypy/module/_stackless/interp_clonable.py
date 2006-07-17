@@ -8,12 +8,14 @@ class InterpClonableCoroutine(object):
     def hello(self):
         if we_are_translated():
             self.saved_pool = gc_swap_pool(self.local_pool)
-        AppCoroutine.hello(self)
+        else:
+            AppCoroutine.hello(self)
 
     def goodbye(self):
         if we_are_translated():
             self.local_pool = gc_swap_pool(self.saved_pool)
-        AppCoroutine.goodbye(self)
+        else:
+            AppCoroutine.goodbye(self)
 
     def clone(self):
         if not we_are_translated():
