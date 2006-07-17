@@ -6,6 +6,7 @@ import exceptions
 
 from pypy.rpython.lltypesystem.lltype import SignedLongLong, UnsignedLongLong
 from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.lltypesystem.llmemory import WeakGcAddress
 from pypy.translator.cli.option import getoption
 from pypy.translator.cli import oopspec
 
@@ -14,6 +15,7 @@ import py
 log = py.log.Producer("cli") 
 py.log.setconsumer("cli", ansi_log) 
 
+WEAKREF = '[mscorlib]System.WeakReference'
 PYPY_LIST = '[pypylib]pypy.runtime.List`1<%s>'
 PYPY_LIST_OF_VOID = '[pypylib]pypy.runtime.ListOfVoid'
 PYPY_DICT = '[pypylib]pypy.runtime.Dict`2<%s, %s>'
@@ -35,6 +37,7 @@ _lltype_to_cts = {
     ootype.Class: 'class [mscorlib]System.Type',
     ootype.String: 'string',
     ootype.StringBuilder: 'class ' + PYPY_STRING_BUILDER,
+    WeakGcAddress: 'class ' + WEAKREF,
 
     # maps generic types to their ordinal
     ootype.List.SELFTYPE_T: 'class ' + (PYPY_LIST % '!0'),

@@ -117,7 +117,13 @@ class _NewCustomDict(MicroInstruction):
                             '[mscorlib]System.Collections.Generic.IEqualityComparer`1<!0>)'
                             % dict_type)
 
-
+class _CastWeakAdrToPtr(MicroInstruction):
+    def render(self, generator, op):
+        RESULTTYPE = op.result.concretetype
+        resulttype = generator.cts.lltype_to_cts(RESULTTYPE)
+        generator.load(op.args[0])
+        generator.ilasm.call_method('object class [mscorlib]System.WeakReference::get_Target()', True)
+        generator.ilasm.opcode('castclass', resulttype)
 
 Call = _Call()
 CallMethod = _CallMethod()
@@ -129,3 +135,4 @@ CastTo = _CastTo()
 OOString = _OOString()
 DownCast = _DownCast()
 NewCustomDict = _NewCustomDict()
+CastWeakAdrToPtr = _CastWeakAdrToPtr()

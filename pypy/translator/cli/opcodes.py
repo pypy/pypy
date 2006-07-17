@@ -1,5 +1,6 @@
 from pypy.translator.cli.metavm import  Call, CallMethod, RuntimeNew, \
-     IndirectCall, GetField, SetField, CastTo, OOString, DownCast, NewCustomDict
+     IndirectCall, GetField, SetField, CastTo, OOString, DownCast, NewCustomDict,\
+     CastWeakAdrToPtr
 from pypy.translator.oosupport.metavm import PushArg, PushAllArgs, StoreResult, InstructionList,\
     New
 
@@ -60,6 +61,9 @@ opcodes = {
     'hint':                     [PushArg(0), StoreResult],
     'direct_call':              [Call],
     'indirect_call':            [IndirectCall],
+
+    'cast_ptr_to_weakadr':      [PushAllArgs, 'newobj instance void class [mscorlib]System.WeakReference::.ctor(object)'],
+    'cast_weakadr_to_ptr':      [CastWeakAdrToPtr],
 
     # __________ numeric operations __________
 
