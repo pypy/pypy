@@ -105,7 +105,20 @@ class CTS(object):
     "disablejitoptimizer", "preservesig", "beforefieldinit",
     "alignment", "nullref", "valuetype", "compilercontrolled",
     "reqsecobj", "enum", "object", "string", "true", "false", "is",
-    "on", "off"])
+    "on", "off", "add", "and", "arglist", "beq", "bge", "bgt", "ble",
+    "blt", "bne", "box", "br", "break", "brfalse", "brnull", "brtrue",
+    "call", "calli", "callvirt", "castclass", "ceq", "cgt",
+    "ckfinite", "clt", "conf", "constrained", "conv", "cpblk",
+    "cpobj", "div", "dup", "endfault", "endfilter", "endfinally",
+    "initblk", "initobj", "isinst", "jmp", "ldarg", "ldarga", "ldc",
+    "ldelem", "ldelema", "ldfld", "ldflda", "ldftn", "ldind", "ldlen",
+    "ldloc", "ldloca", "ldnull", "ldobj", "ldsfld", "ldsflda",
+    "ldstr", "ldtoken", "ldvirtftn", "leave", "localloc", "mkrefany",
+    "mul", "neg", "newarr", "newobj", "nop", "not", "or", "pop",
+    "readonly", "refanytype", "refanyval", "rem", "ret", "rethrow",
+    "shl", "shr", "sizeof", "starg", "stelem", "stfld", "stind",
+    "stloc", "stobj", "stsfld", "sub", "switch", "tail", "throw",
+    "unaligned", "unbox", "volatile", "xor"])
 
     def __init__(self, db):
         self.db = db
