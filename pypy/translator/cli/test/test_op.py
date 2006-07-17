@@ -26,6 +26,11 @@ class TestOperations(CliTest):
         assert self.interpret(fn, [10, 3]) == 1
         assert self.interpret(fn, [10, 0]) == -2
 
+    def test_llong_and(self):
+        def fn(x, y):
+            return x & y
+        assert self.interpret(fn, [r_longlong(10), r_longlong(11)]) == 10
+
 
 def test_op():
     yield check, op_any_ge, [int, int], (42, 42)

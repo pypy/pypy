@@ -190,6 +190,7 @@ opcodes = {
     'llong_ne':                 _not('ceq'),
     'llong_gt':                 'cgt',
     'llong_ge':                 _not('clt'),
+    'llong_and':                'and',
 
     'ullong_is_true':            [PushAllArgs, 'ldc.i8 0', 'cgt.un'],
     'ullong_neg':                None,
