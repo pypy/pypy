@@ -69,8 +69,44 @@ def _get_from_dict(d, key, error):
             assert False, error
 
 class CTS(object):
-    ILASM_KEYWORDS = ['call', 'on', 'string']
-    
+
+    ILASM_KEYWORDS = set(["at", "as", "implicitcom", "implicitres",
+    "noappdomain", "noprocess", "nomachine", "extern", "instance",
+    "explicit", "default", "vararg", "unmanaged", "cdecl", "stdcall",
+    "thiscall", "fastcall", "marshal", "in", "out", "opt", "retval",
+    "static", "public", "private", "family", "initonly",
+    "rtspecialname", "specialname", "assembly", "famandassem",
+    "famorassem", "privatescope", "literal", "notserialized", "value",
+    "not_in_gc_heap", "interface", "sealed", "abstract", "auto",
+    "sequential", "ansi", "unicode", "autochar", "bestfit",
+    "charmaperror", "import", "serializable", "nested", "lateinit",
+    "extends", "implements", "final", "virtual", "hidebysig",
+    "newslot", "unmanagedexp", "pinvokeimpl", "nomangle", "ole",
+    "lasterr", "winapi", "native", "il", "cil", "optil", "managed",
+    "forwardref", "runtime", "internalcall", "synchronized",
+    "noinlining", "custom", "fixed", "sysstring", "array", "variant",
+    "currency", "syschar", "void", "bool", "int8", "int16", "int32",
+    "int64", "float32", "float64", "error", "unsigned", "uint",
+    "uint8", "uint16", "uint32", "uint64", "decimal", "date", "bstr",
+    "lpstr", "lpwstr", "lptstr", "objectref", "iunknown", "idispatch",
+    "struct", "safearray", "int", "byvalstr", "tbstr", "lpvoid",
+    "any", "float", "lpstruct", "null", "ptr", "vector", "hresult",
+    "carray", "userdefined", "record", "filetime", "blob", "stream",
+    "storage", "streamed_object", "stored_object", "blob_object",
+    "cf", "clsid", "method", "class", "pinned", "modreq", "modopt",
+    "typedref", "type","refany", "wchar", "char", "fromunmanaged",
+    "callmostderived", "bytearray", "with", "init", "to", "catch",
+    "filter", "finally", "fault", "handler", "tls", "field",
+    "request", "demand", "assert", "deny", "permitonly", "linkcheck",
+    "inheritcheck", "reqmin", "reqopt", "reqrefuse", "prejitgrant",
+    "prejitdeny", "noncasdemand", "noncaslinkdemand",
+    "noncasinheritance", "readonly", "nometadata", "algorithm",
+    "fullorigin", "nan", "inf", "publickey", "enablejittracking",
+    "disablejitoptimizer", "preservesig", "beforefieldinit",
+    "alignment", "nullref", "valuetype", "compilercontrolled",
+    "reqsecobj", "enum", "object", "string", "true", "false", "is",
+    "on", "off"])
+
     def __init__(self, db):
         self.db = db
 
