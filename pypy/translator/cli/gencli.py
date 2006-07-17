@@ -4,7 +4,7 @@ import shutil
 
 from pypy.translator.cli import conftest
 from pypy.translator.cli.ilgenerator import IlasmGenerator
-from pypy.translator.cli.function import Function
+from pypy.translator.cli.function import Function, log
 from pypy.translator.cli.class_ import Class
 from pypy.translator.cli.option import getoption
 from pypy.translator.cli.database import LowLevelDatabase
@@ -73,10 +73,17 @@ class GenCli(object):
             self.db.pending_function(self.translator.graphs[0])
 
     def gen_pendings(self):
+        n = 0
         while self.db._pending_nodes:
             node = self.db._pending_nodes.pop()
             node.render(self.ilasm)
             self.db._rendered_nodes.add(node)
+
+            n+=1
+            total = len(self.db._pending_nodes) + n
+            log.graphs('Rendered %d/%d (approx. %.2f%%)' %\
+                     (n, total, n*100.0/total))
+
 
     def fix_names(self):
         # it could happen that two distinct graph have the same name;
