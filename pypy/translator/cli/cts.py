@@ -5,6 +5,7 @@ Translate between PyPy ootypesystem and .NET Common Type System
 import exceptions
 
 from pypy.rpython.lltypesystem.lltype import SignedLongLong, UnsignedLongLong
+from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.lltypesystem.llmemory import WeakGcAddress
 from pypy.translator.cli.option import getoption
@@ -88,7 +89,9 @@ class CTS(object):
     def lltype_to_cts(self, t, include_class=True):
         if t is ootype.ROOT:
             return '[mscorlib]System.Object'
-        if isinstance(t, ootype.Instance):
+        elif isinstance(t, lltype.Ptr) and isinstance(t.TO, lltype.OpaqueType):
+            return '[mscorlib]System.Object'
+        elif isinstance(t, ootype.Instance):
             self.db.pending_class(t)
             return self.__class(t._name, include_class)
         elif isinstance(t, ootype.Record):
