@@ -1,7 +1,5 @@
 from pypy.conftest import gettestobjspace
  
-class UnificationFailure(Exception):  pass
-
 class AppTest_Logic(object):
 
     def setup_class(cls):
@@ -132,7 +130,7 @@ class AppTest_Logic(object):
         X = newvar()
         def f(x):
             return x + 1
-        raises(RuntimeError, f, X)
+        raises(Exception, f, X)
 
     def test_eq_unifies_simple(self):
         X = newvar()
@@ -196,10 +194,41 @@ class AppTest_Logic(object):
         assert f1.b == f2.b == 'foo'
         raises(Exception, unify, f1.b, 24)
 
+
 class AppTest_LogicThreads(object):
 
     def setup_class(cls):
         cls.space = gettestobjspace('logic', usemodules=("_stackless",))
+
+    def test_one_thread(self):
+        initial_conditions()
+        
+        def poop(X):
+            wait(X)
+            return X + 1
+
+        X = newvar()
+        Y = uthread(poop, X)
+        bind(X, 42)
+        assert Y == 43
+
+    def test_nested_threads(self):
+        """check that a wait nested in a tree of
+           threads works correctly
+        """
+        def sleep(X):
+            wait(X)
+            return X
+
+        def call_sleep(X):
+            return uthread(sleep, X)
+
+        X = newvar()
+        v = uthread(call_sleep, X)
+        bind(X, 42)
+        assert X == 42
+        assert is_free(v)
+        assert v == 42
 
     def test_wait_needed(self):
         X = newvar()
@@ -220,13 +249,11 @@ class AppTest_LogicThreads(object):
     def test_eager_producer_consummer(self):
 
         def generate(n, limit):
-            #print "generate", n, limit
             if n < limit:
                 return (n, generate(n + 1, limit))
             return None
 
         def sum(L, a):
-            #print "sum", a
             Head, Tail = newvar(), newvar()
             unify(L, (Head, Tail))
             if Tail != None:
@@ -235,10 +262,8 @@ class AppTest_LogicThreads(object):
 
         X = newvar()
         S = newvar()
-        
         unify(S, uthread(sum, X, 0))
         unify(X, uthread(generate, 0, 10))
-
         assert S == 45
 
 
@@ -270,29 +295,8 @@ class AppTest_LogicThreads(object):
         wait(T)
         assert T == 45
 
-    def test_nested_threads(self):
-        """check that a wait nested in a tree of
-           threads works correctly
-        """
-        def sleep(X):
-            wait(X)
-            return X
-
-        def call_sleep(X):
-            return uthread(sleep, X)
-
-        X = newvar()
-        v = uthread(call_sleep, X)
-        bind(X, 42)
-        assert X == v == 42
-        
-    def notest_wait_two(self):
-        """this seems to trigger an
-           infinite loop in the
-           greenlet machinery
-        """
+    def test_wait_two(self):
         def sleep(X, Barrier):
-            print "sleeping on var"
             wait(X)
             bind(Barrier, True)
         
@@ -300,7 +304,6 @@ class AppTest_LogicThreads(object):
             Barrier = newvar()
             uthread(sleep, X, Barrier)
             uthread(sleep, Y, Barrier)
-            print "waiting for the barrier to be bound"
             wait(Barrier)
             if is_free(Y):
                 return 1
@@ -312,3 +315,4 @@ class AppTest_LogicThreads(object):
         unify(Y, 42)
         assert X == Y == 42
         assert o == 2
+        
