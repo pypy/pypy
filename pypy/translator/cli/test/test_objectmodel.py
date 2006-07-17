@@ -30,3 +30,25 @@ class TestCliObjectModel(CliTest, BaseTestObjectModel):
 ##            addr = cast_object_to_weakgcaddress(a)
 ##            return cast_weakgcaddress_to_int(addr)
 ##        assert isinstance(self.interpret(f, []), int)
+
+    def test_weakref_const(self):
+        py.test.skip('Skip due to a mono bug')
+        class A(object):
+            def __init__(self):
+                self.x = 42
+        a = A()
+        weak = cast_object_to_weakgcaddress(a)
+        def f():
+            a.x = 10
+            b = cast_weakgcaddress_to_object(weak, A)
+            return b.x
+        assert self.interpret(f, []) == 10
+
+    def test_weakref_const_null(self):
+        class A(object):
+            pass
+        weak = cast_object_to_weakgcaddress(None)
+        def f():
+            b = cast_weakgcaddress_to_object(weak, A)
+            return b
+        assert self.interpret(f, []) is None

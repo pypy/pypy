@@ -1,5 +1,5 @@
-from pypy.translator.cli.cts import CTS, PYPY_LIST_OF_VOID, PYPY_DICT_OF_VOID
-from pypy.translator.cli.function import Function
+from pypy.translator.cli.cts import CTS, PYPY_LIST_OF_VOID, PYPY_DICT_OF_VOID, WEAKREF
+from pypy.translator.cli.function import Function, log
 from pypy.translator.cli.class_ import Class
 from pypy.translator.cli.record import Record
 from pypy.translator.cli.delegate import Delegate
@@ -7,6 +7,7 @@ from pypy.translator.cli.comparer import EqualityComparer
 from pypy.translator.cli.node import Node
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import llmemory
 from pypy.translator.cli.opcodes import opcodes
 
 try:
@@ -40,6 +41,7 @@ class LowLevelDatabase(object):
         self.delegates = {} # StaticMethod --> type_name
         self.const_names = set()
         self.name_count = 0
+        self.locked = False
 
     def next_count(self):
         self.name_count += 1
@@ -65,6 +67,7 @@ class LowLevelDatabase(object):
         if node in self._pending_nodes or node in self._rendered_nodes:
             return
 
+        assert not self.locked # sanity check
         self._pending_nodes.add(node)
         node.dependencies()
 
@@ -108,6 +111,7 @@ class LowLevelDatabase(object):
             return name
 
     def gen_constants(self, ilasm):
+        self.locked = True # new pending nodes are not allowed here
         ilasm.begin_namespace(CONST_NAMESPACE)
         ilasm.begin_class(CONST_CLASS)
 
@@ -135,7 +139,7 @@ class LowLevelDatabase(object):
 
         ilasm.end_class()
         ilasm.end_namespace()
-
+        self.locked = False
 
 class AbstractConst(Node):
     def make(db, value, count):
@@ -159,6 +163,10 @@ class AbstractConst(Node):
             return CustomDictConst(db, value, count)
         elif isinstance(value, ootype._dict):
             return DictConst(db, value, count)
+        elif isinstance(value, llmemory.fakeweakaddress):
+            if value.get() is not None:
+                log.WARNING("non-null fakeweakaddress may not works because of a Mono bug")
+            return WeakRefConst(db, value, count)
         else:
             assert False, 'Unknown constant: %s' % value
     make = staticmethod(make)
@@ -524,3 +532,28 @@ class InstanceConst(AbstractConst):
                 ilasm.opcode('stfld %s %s::%s' % (type_, INSTANCE._name, name))
             INSTANCE = INSTANCE._superclass
         ilasm.opcode('pop')
+
+class WeakRefConst(AbstractConst):
+    def __init__(self, db, fakeaddr, count):
+        self.db = db
+        self.cts = CTS(db)
+        self.value = fakeaddr.get()
+        self.name = 'WEAKREF__%d' % count
+
+    def get_type(self, include_class=True):
+        return 'class ' + WEAKREF
+
+    def dependencies(self):
+        if self.value is not None:
+            self.db.record_const(self.value)
+
+    def instantiate(self, ilasm):
+        ilasm.opcode('ldnull')
+        ilasm.new('instance void class [mscorlib]System.WeakReference::.ctor(object)')
+
+    def init(self, ilasm):
+        if self.value is not None:
+            AbstractConst.load(self.db, self.value._TYPE, self.value, ilasm)        
+            ilasm.call_method('void class [mscorlib]System.WeakReference::set_Target(object)', True)
+        else:
+            ilasm.opcode('pop')
