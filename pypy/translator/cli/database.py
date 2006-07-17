@@ -188,7 +188,12 @@ class AbstractConst(Node):
         elif TYPE is ootype.Char or TYPE is ootype.UniChar:
             ilasm.opcode('ldc.i4', ord(value))
         elif TYPE is ootype.Float:
-            ilasm.opcode('ldc.r8', repr(value))
+            if value == float('inf'):
+                ilasm.opcode('ldc.r8', '(00 00 00 00 00 00 f0 7f)')
+            elif value == float('NaN'):
+                ilasm.opcode('ldc.r8', '(00 00 00 00 00 00 f8 ff)')
+            else:
+                ilasm.opcode('ldc.r8', repr(value))
         elif TYPE in (ootype.Signed, ootype.Unsigned):
             ilasm.opcode('ldc.i4', str(value))
         elif TYPE in (lltype.SignedLongLong, lltype.UnsignedLongLong):
