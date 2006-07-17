@@ -1,9 +1,31 @@
+from pypy.translator.cli.test.runtest import CliTest
 from pypy.translator.cli.test.runtest import check
-from pypy.rpython.rarithmetic import r_uint, r_ulonglong, r_longlong
+from pypy.rpython.rarithmetic import r_uint, r_ulonglong, r_longlong, ovfcheck
 from pypy.annotation import model as annmodel
 import sys
 
 char = annmodel.SomeChar()
+
+class TestOperations(CliTest):
+    def test_div_zero(self):
+        def fn(x, y):
+            try:
+                return x/y
+            except ZeroDivisionError:
+                return -1
+        assert self.interpret(fn, [10, 0]) == -1
+
+    def test_mod_ovf_zer(self):
+        def fn(x, y):
+            try:
+                return ovfcheck(x % y)
+            except OverflowError:
+                return -1
+            except ZeroDivisionError:
+                return -2
+        assert self.interpret(fn, [10, 3]) == 1
+        assert self.interpret(fn, [10, 0]) == -2
+
 
 def test_op():
     yield check, op_any_ge, [int, int], (42, 42)

@@ -29,9 +29,11 @@ def _check(op):
         # if overflow, raise a pypy's OverflowError
         'catch [mscorlib]System.OverflowException {',
         'newobj instance void class exceptions.OverflowError::.ctor()',
-#        'dup',
-#        'ldsfld class Object_meta pypy.runtime.Constants::exceptions_OverflowError_meta',
-#        'stfld class Object_meta Object::meta',
+        'throw }',
+
+        # DivideByZeroException --> ZeroDivisionError
+        'catch [mscorlib]System.DivideByZeroException {',
+        'newobj instance void class exceptions.ZeroDivisionError::.ctor()',
         'throw }',
 
         '%s: nop' % label      # continue normal execution
@@ -92,6 +94,7 @@ opcodes = {
     'int_sub':                  'sub',
     'int_mul':                  'mul',
     'int_floordiv':             'div',
+    'int_floordiv_zer':         _check('div'),
     'int_mod':                  'rem',
     'int_lt':                   'clt',
     'int_le':                   _not('cgt'),
@@ -124,8 +127,8 @@ opcodes = {
 
     'int_rshift_ovf':           'shr', # these can't overflow!
     'int_xor_ovf':              'xor',
-    'int_floordiv_ovf_zer':     None,  # what's the meaning?
-    'int_mod_ovf_zer':          None,
+    'int_floordiv_ovf_zer':     _check('div'),
+    'int_mod_ovf_zer':          _check('rem'),
 
     'uint_is_true':             [PushAllArgs, 'ldc.i4.0', 'cgt.un'],
     'uint_neg':                 None,      # What's the meaning?

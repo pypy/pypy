@@ -135,18 +135,23 @@ def _build_gen(func, annotation, graph=None):
         ann = t.buildannotator()
         ann.build_types(func, annotation)
 
-    # quick hack: force exceptions.Exception to be rendered
-    def raiseValueError():
-        raise ValueError
-    ann.build_types(raiseValueError, [])
+    # quick hack: force some exceptions to be rendered
+    def raiseExceptions(switch):
+        if switch == 0:
+            raise ValueError
+        elif switch == 1:
+            raise OverflowError
+        else:
+            raise ZeroDivisionError
+    ann.build_types(raiseExceptions, [int])
 
     t.buildrtyper(type_system="ootype").specialize()
     main_graph = t.graphs[0]
 
     # XXX: horrible hack :-(
     for graph in t.graphs:
-        if graph.name == 'raiseValueError':
-            raiseValueError_graph = graph
+        if graph.name == 'raiseExceptions':
+            raiseExceptions_graph = graph
 
     if getoption('view'):
        t.view()
@@ -157,7 +162,7 @@ def _build_gen(func, annotation, graph=None):
         tmpdir = udir
 
     return GenCli(tmpdir, t, TestEntryPoint(main_graph, True),
-                  pending_graphs=[raiseValueError_graph])
+                  pending_graphs=[raiseExceptions_graph])
 
 class CliFunctionWrapper(object):
     def __init__(self, exe_name):
