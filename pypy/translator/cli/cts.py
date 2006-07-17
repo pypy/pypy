@@ -20,9 +20,10 @@ WEAKREF = '[mscorlib]System.WeakReference'
 PYPY_LIST = '[pypylib]pypy.runtime.List`1<%s>'
 PYPY_LIST_OF_VOID = '[pypylib]pypy.runtime.ListOfVoid'
 PYPY_DICT = '[pypylib]pypy.runtime.Dict`2<%s, %s>'
-PYPY_DICT_OF_VOID = '[pypylib]pypy.runtime.DictOfVoid`1<%s>'
+PYPY_DICT_OF_VOID = '[pypylib]pypy.runtime.DictOfVoid`2<%s, int32>'
 PYPY_DICT_VOID_VOID = '[pypylib]pypy.runtime.DictVoidVoid'
 PYPY_DICT_ITEMS_ITERATOR = '[pypylib]pypy.runtime.DictItemsIterator`2<%s, %s>'
+PYPY_DICT_VOID_ITEMS_ITERATOR = '[pypylib]pypy.runtime.DictOfVoidItemsIterator`1<%s>'
 PYPY_STRING_BUILDER = '[pypylib]pypy.runtime.StringBuilder'
 
 _lltype_to_cts = {
@@ -117,8 +118,11 @@ class CTS(object):
         elif isinstance(t, ootype.DictItemsIterator):
             key_type = self.lltype_to_cts(t._KEYTYPE)
             value_type = self.lltype_to_cts(t._VALUETYPE)
-            if value_type == 'void' or key_type == 'void':
-                assert False, 'iteration on dicts of voids is not supported, yet'
+            if key_type == 'void':
+                assert False, 'iteration on dicts with void keys is not supported, yet'
+            if value_type == 'void':
+                value_type = 'int32' # placeholder
+
             return self.__class(PYPY_DICT_ITEMS_ITERATOR % (key_type, value_type), include_class)
 
         return _get_from_dict(_lltype_to_cts, t, 'Unknown type %s' % t)

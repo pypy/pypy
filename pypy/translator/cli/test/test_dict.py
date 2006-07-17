@@ -13,6 +13,15 @@ class TestCliDict(CliTest, BaseTestRdict):
         res = self.interpret(f, [])
         assert res == 2
 
+    def test_dict_of_void_iter(self):
+        def f():
+            d = {1: None, 2: None, 3: None}
+            total = 0
+            for k in d:
+                total += k
+            return total
+        assert self.interpret(f, []) == 6
+
     def test_dict_of_dict(self):
         py.test.skip("CLI doesn't support recursive dicts")
 
