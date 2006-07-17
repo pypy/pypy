@@ -27,54 +27,8 @@ class Database(object):
         self._tmpcount = 1
         self.helper2ptr = {}
         self.externalfuncs = {}
-        self.primitives_init()
 
-    def primitives_init(self):
-        primitives = {
-            lltype.Char: "sbyte",
-            lltype.Bool: "bool",
-            lltype.Float: "double",
-            lltype.UniChar: "uint",
-            lltype.Void: "void",
-            lltype.UnsignedLongLong: "ulong",
-            lltype.SignedLongLong: "long",
-            llmemory.Address: "sbyte*",
-            llmemory.WeakGcAddress: "sbyte*",
-            }
-
-        # 32 bit platform
-        if sys.maxint == 2**31-1:
-            primitives.update({
-                lltype.Signed: "int",
-                lltype.Unsigned: "uint" })
-            
-        # 64 bit platform
-        elif sys.maxint == 2**63-1:        
-            primitives.update({
-                lltype.Signed: "long",
-                lltype.Unsigned: "ulong" })
-            
-        else:
-            assert False, "Unsupported platform"        
-
-        try:
-            import ctypes
-        except ImportError:
-            pass
-        else:
-            from pypy.rpython.rctypes import rcarithmetic as rcarith
-            primitives.update({rcarith.CByte : 'sbyte',
-                               rcarith.CUByte : 'ubyte',
-                               rcarith.CShort : 'short',
-                               rcarith.CUShort : 'ushort',
-                               rcarith.CInt : 'int',
-                               rcarith.CUInt : 'uint',
-                               rcarith.CLong : primitives[lltype.Signed],
-                               rcarith.CULong : primitives[lltype.Unsigned],
-                               rcarith.CLonglong : 'long',
-                               rcarith.CULonglong : 'ulong'})
-                              
-        self.primitives = primitives
+        self.primitives = Primitives(self)
     
     #_______debuggging______________________________________
 
@@ -260,7 +214,7 @@ class Database(object):
     def repr_arg(self, arg):
         if isinstance(arg, Constant):
             if isinstance(arg.concretetype, lltype.Primitive):
-                return self.primitive_to_str(arg.concretetype, arg.value)
+                return self.primitives.repr(arg.concretetype, arg.value)
             else:
                 assert isinstance(arg.value, lltype._ptr)
                 node = self.obj2node.get(arg.value._obj)
@@ -301,7 +255,7 @@ class Database(object):
         " returns node and repr as tuple "
         type_ = lltype.typeOf(value)
         if isinstance(type_, lltype.Primitive):
-            repr = self.primitive_to_str(type_, value)
+            repr = self.primitives.repr(type_, value)
             return None, "%s %s" % (self.repr_type(type_), repr)
 
         elif isinstance(type_, lltype.Ptr):
@@ -343,9 +297,114 @@ class Database(object):
         return self.obj2node[value].get_ref()
 
     # __________________________________________________________
-    # Primitive stuff
+    # Other helpers
 
-    def float_to_str(self, value):
+    def get_machine_word(self):
+        return self.primitives[lltype.Signed]
+
+    def get_machine_uword(self):
+        return self.primitives[lltype.Unsigned]
+
+    def is_function_ptr(self, arg):
+        if isinstance(arg, (Constant, Variable)): 
+            arg = arg.concretetype 
+            if isinstance(arg, lltype.Ptr):
+                if isinstance(arg.TO, lltype.FuncType):
+                    return True
+        return False
+
+    def get_childref(self, parent, child):
+        node = self.obj2node[parent]
+        return node.get_childref(child)
+
+
+class Primitives(object):
+    def __init__(self, database):        
+        self.database = database
+        self.types = {
+            lltype.Char: "sbyte",
+            lltype.Bool: "bool",
+            lltype.Float: "double",
+            lltype.UniChar: "uint",
+            lltype.Void: "void",
+            lltype.UnsignedLongLong: "ulong",
+            lltype.SignedLongLong: "long",
+            llmemory.Address: "sbyte*",
+            llmemory.WeakGcAddress: "sbyte*",
+            }
+
+        # 32 bit platform
+        if sys.maxint == 2**31-1:
+            self.types.update({
+                lltype.Signed: "int",
+                lltype.Unsigned: "uint" })
+            
+        # 64 bit platform
+        elif sys.maxint == 2**63-1:        
+            self.types.update({
+                lltype.Signed: "long",
+                lltype.Unsigned: "ulong" })            
+        else:
+            raise Exception("Unsupported platform - unknown word size")
+            
+        self.reprs = {
+            lltype.SignedLongLong : self.repr_signed,
+            lltype.Signed : self.repr_signed,
+            lltype.UnsignedLongLong : self.repr_unsigned,
+            lltype.Unsigned : self.repr_unsigned,
+            lltype.Float : self.repr_float,
+            lltype.Char : self.repr_char,
+            lltype.UniChar : self.repr_unichar,
+            lltype.Bool : self.repr_bool,
+            lltype.Void : self.repr_void,
+            llmemory.Address : self.repr_address,
+            llmemory.WeakGcAddress : self.repr_address,
+            }        
+        #XXX
+#         try:
+#             import ctypes
+#         except ImportError:
+#             pass
+#         else:
+#             from pypy.rpython.rctypes import rcarithmetic as rcarith
+#             types.update({rcarith.CByte : 'sbyte',
+#                           rcarith.CUByte : 'ubyte',
+#                           rcarith.CShort : 'short',
+#                           rcarith.CUShort : 'ushort',
+#                           rcarith.CInt : 'int',
+#                           rcarith.CUInt : 'uint',
+#                           rcarith.CLong : types[lltype.Signed],
+#                           rcarith.CULong : types[lltype.Unsigned],
+#                           rcarith.CLonglong : 'long',
+#                           rcarith.CULonglong : 'ulong'})
+        
+    def __getitem__(self, key):
+        return self.types[key]
+        
+    def repr(self, type_, value):
+        try:
+            return self.reprs[type_](type_, value)
+        except KeyError:
+            raise Exception, "unsupported primitive type %r, value %r" % (type_, value)
+        
+    def repr_bool(self, type_, value):
+        return str(value).lower() #False --> false
+
+    def repr_void(self, type_, value):
+        return 'void'
+  
+    def repr_char(self, type_, value):
+        x = ord(value)
+        if x >= 128:
+            r = "cast (ubyte %s to sbyte)" % x
+        else:
+            r = str(x)
+        return r
+
+    def repr_unichar(self, type_, value):
+        return str(ord(value))
+
+    def repr_float(self, type_, value):
         repr = "%f" % value
         # llvm requires a . when using e notation
         if "e" in repr and "." not in repr:
@@ -360,94 +419,71 @@ class Database(object):
             repr = "0x" + "".join([("%02x" % ord(ii)) for ii in packed])
         return repr
 
-    def char_to_str(self, value):
-        x = ord(value)
-        if x >= 128:
-            r = "cast (ubyte %s to sbyte)" % x
-        else:
-            r = str(x)
-        return r
+    def repr_address(self, type_, value):
+        # XXX fix this
+        assert value == NULL
+        return 'null' 
+
+    def repr_signed(self, type_, value):
+        if isinstance(value, Symbolic):
+            return self.repr_symbolic(type_, value)
+        return str(value)
     
-    def primitive_to_str(self, type_, value):
-        if type_ is lltype.Bool:
-            repr = str(value).lower() #False --> false
-        elif type_ is lltype.Char:
-            repr = self.char_to_str(value)
-        elif type_ is lltype.UniChar:
-            repr = str(ord(value))
-        elif type_ is lltype.Float:
-            repr = self.float_to_str(value)
-        elif type_ is llmemory.Address:
-            # XXXXX things are happening in the gc world...
-            # assert value == NULL
-            repr = 'null' 
-        elif type_ is llmemory.WeakGcAddress:
-            repr = 'null' #refactor later
-            #assert isinstance(value, llmemory.fakeweakaddress)
-            #if value.ref is None:
-            #    repr = 'null' #'HIDE_POINTER(NULL)'
-            #else:
-            #    ob = value.ref()
-            #    assert ob is not None
-            #    print dir(ob)
-            #    #import pdb; pdb.set_trace()
-            #    #repr = self.repr_arg(ob._as_ptr()) #'HIDE_POINTER(%s)' % db.get(ob)
-            #    repr = self.repr_arg(ob) #'HIDE_POINTER(%s)' % db.get(ob)
-        elif isinstance(value, Symbolic):
-            if isinstance(value, llmemory.AddressOffset):
-                return self.offset_str(value)
-            elif isinstance(value, ComputedIntSymbolic):
-                repr = '%d' % (value.compute_fn(),)
+    def repr_unsigned(self, type_, value):
+        return str(value)
+
+    def repr_symbolic(self, type_, value):
+        if isinstance(value, llmemory.AddressOffset):
+            if isinstance(value, llmemory.CompositeOffset):
+                # add offsets together...
+                from_, indices, to = self.get_offset(value.offsets[0])
+                indices = list(indices)
+                for item in value.offsets[1:]:
+                    _, more, to = self.get_offset(item)
+                    indices.extend(more)
             else:
-                raise NotImplementedError("symbolic: %r" % (value,))
+                from_, indices, to = self.get_offset(value)
+
+            indices_as_str = ", ".join("%s %s" % (w, i) for w, i in indices)
+            repr = "cast(%s* getelementptr(%s* null, %s) to int)" % (to,
+                                                                     from_,
+                                                                     indices_as_str)
+        elif isinstance(value, ComputedIntSymbolic):
+            # XXX what does this do?  Is this safe?
+            repr = '%d' % value.compute_fn()
         else:
-            repr = str(value)
-        return repr
-
-    def offset_str(self, value):
-
-        #XXX Need to understand and doc this better
+            raise NotImplementedError("symbolic: %r" % (value,))
         
-        if isinstance(value, llmemory.FieldOffset):
+        return repr
+    
+    def get_offset(self, value):
+        " return (from_type, (indices, ...), to_type) "        
+        word = self.database.get_machine_word()
+        uword = self.database.get_machine_uword()
+
+        if isinstance(value, llmemory.ItemOffset):
+            # skips over a fixed size item (eg array access)
+            from_ = value.TYPE
+            indices = (word, value.repeat),
+            to = value.TYPE
+        
+        elif isinstance(value, llmemory.FieldOffset):
+            # jumps to a field position in a struct
             pos = getindexhelper(value.fldname, value.TYPE)
-            return "cast(%s* getelementptr(%s* null, int 0, uint %s) to int)" % (
-                self.repr_type(getattr(value.TYPE, value.fldname)),
-                self.repr_type(value.TYPE),
-                pos)
-
-        elif isinstance(value, llmemory.ItemOffset):
-            return "cast(%s* getelementptr(%s* null, int %s) to int)" % (
-                self.repr_type(value.TYPE), self.repr_type(value.TYPE), value.repeat)
-
+            from_ = value.TYPE
+            indices = (word,  0), (uword, pos)
+            to = getattr(value.TYPE, value.fldname)            
+                
         elif isinstance(value, llmemory.ArrayItemsOffset):
-            return "cast(%s* getelementptr(%s* null, int 0, uint 1) to int)" % (
-                self.repr_type(value.TYPE.OF), self.repr_type(value.TYPE))
-
-        elif isinstance(value, llmemory.CompositeOffset):
-            return "cast(%s* getelementptr(%s* null, int 0, uint 1, int %s) to int)" % (
-                self.repr_type(value.offsets[1].TYPE),
-                self.repr_type(value.offsets[0].TYPE),
-                value.offsets[1].repeat)
+            # jumps to the beginning of array area
+            if isinstance(value.TYPE, lltype.FixedSizeArray):
+                indices = (word, 0),
+            else:
+                indices = (word, 0), (uword, 1) 
+            from_ = value.TYPE
+            to = value.TYPE.OF
         else:
             raise Exception("unsupported offset")
-        
-    def get_machine_word(self):
-        return self.primitives[lltype.Signed]
 
-    def get_machine_uword(self):
-        return self.primitives[lltype.Unsigned]
-
-    # __________________________________________________________
-    # Other helpers
-
-    def is_function_ptr(self, arg):
-        if isinstance(arg, (Constant, Variable)): 
-            arg = arg.concretetype 
-            if isinstance(arg, lltype.Ptr):
-                if isinstance(arg.TO, lltype.FuncType):
-                    return True
-        return False
-
-    def get_childref(self, parent, child):
-        node = self.obj2node[parent]
-        return node.get_childref(child)
+        return self.database.repr_type(from_), indices, self.database.repr_type(to)
+    
