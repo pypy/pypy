@@ -67,3 +67,9 @@ class TestConstant(CliTest):
         def fn():
             return 'hello "world"'
         assert self.ll_to_string(self.interpret(fn, [])) == 'hello "world"'
+
+    def test_string_literal2(self):
+        s = '\001\002\003'
+        def fn():
+            return ord(s[0]) + ord(s[1])
+        assert self.interpret(fn, []) == 3
