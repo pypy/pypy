@@ -45,7 +45,7 @@ def entry_point(argv):
 
 # _____ Define and setup target ___
 
-opt_defaults = {'stackless' :  True}
+opt_defaults = {'stackless' :  True, 'debug': True}
 
 take_options = True
 

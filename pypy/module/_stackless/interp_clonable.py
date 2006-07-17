@@ -1,10 +1,8 @@
 from pypy.module._stackless.interp_coroutine import AbstractThunk
-from pypy.module._stackless.coroutine import AppCoroutine
 from pypy.rpython.rgc import gc_swap_pool, gc_clone
 from pypy.rpython.objectmodel import we_are_translated
 
-
-class ClonableCoroutine(AppCoroutine):
+class InterpClonableCoroutine(object):
     local_pool = None
 
     def hello(self):

@@ -45,6 +45,7 @@ class _AppThunk(AbstractThunk):
     def call(self):
         costate = self.costate
         w_result = self.space.call_args(self.w_func, self.args)
+        #XXX: unreachable code ?
         rstack.resume_point("appthunk", costate, returns=w_result)
         costate.w_tempval = w_result
 
@@ -68,7 +69,7 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
     def _get_state(space):
         return space.fromcache(AppCoState)
     _get_state = staticmethod(_get_state)
-
+ 
     def w_bind(self, w_func, __args__):
         space = self.space
         if self.frame is not None:
@@ -245,6 +246,19 @@ def post_install(module):
     makeStaticMethod(module, 'coroutine', 'getcurrent')
     space = module.space
     AppCoroutine._get_state(space).post_install()
+
+
+from pypy.module._stackless.interp_clonable import InterpClonableCoroutine
+
+
+class ClonableCoroutine(AppCoroutine, InterpClonableCoroutine):
+    
+    def w_getcurrent(space):
+        c = AppCoroutine._get_state(space).current
+        assert c.frame is None
+        return space.wrap(c)
+    w_getcurrent = staticmethod(w_getcurrent)
+
 
 # space.appexec("""() :
 
