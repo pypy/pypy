@@ -247,19 +247,6 @@ def post_install(module):
     space = module.space
     AppCoroutine._get_state(space).post_install()
 
-
-from pypy.module._stackless.interp_clonable import InterpClonableCoroutine
-
-
-class ClonableCoroutine(AppCoroutine, InterpClonableCoroutine):
-    
-    def w_getcurrent(space):
-        c = AppCoroutine._get_state(space).current
-        assert c.frame is None
-        return space.wrap(c)
-    w_getcurrent = staticmethod(w_getcurrent)
-
-
 # space.appexec("""() :
 
 # maybe use __spacebind__ for postprocessing

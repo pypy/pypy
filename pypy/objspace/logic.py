@@ -15,17 +15,18 @@ from pypy.objspace.std.model import StdObjSpaceMultiMethod
 # misc
 import os
 
-DEBUG = True
-def w(*msgs, **kwopt):
-    if not DEBUG: return
+def w(*msgs):
+    """writeln"""
+    if we_are_translated(): return
+    v(*msgs)
+    os.write(1, ' \n')
+
+def v(*msgs):
+    """write"""
+    if we_are_translated(): return
     for msg in msgs:
         os.write(1, str(msg))
         os.write(1, ' ')
-    try: 
-        if kwopt['LF']:
-            raise Exception
-    except:
-        os.write(1, ' \n')
 
 #-- THE BUILTINS ----------------------------------------------------------------------
 
@@ -53,7 +54,9 @@ def have_uthreads():
 
 assert USE_COROUTINES # once & for all
 
-from pypy.module._stackless.coroutine import _AppThunk, AppCoState, Coroutine, ClonableCoroutine
+from pypy.module._stackless.coroutine import _AppThunk
+from pypy.module._stackless.coroutine import Coroutine
+from pypy.module._stackless.interp_clonable import InterpClonableCoroutine as ClonableCoroutine
 
 def SETNEXT(obj, val):
     obj.next = val
@@ -133,7 +136,7 @@ class Scheduler(object):
     def schedule(self):
         to_be_run = self._select_next(lambda coro: coro in self._blocked)
         w(".. SWITCHING", id(ClonableCoroutine.w_getcurrent(self.space)), "=>", id(to_be_run))
-        to_be_run.w_switch()
+        to_be_run.switch()
         
     def _select_next(self, skip_condition):
         """skip_condition is a predicate for NOT selecting one thread"""
@@ -155,15 +158,16 @@ class Scheduler(object):
 
     def display_head(self):
         curr = self._head
-        w("HEAD : [prev, curr, next]", LF=False)
-        w([id(self._head.prev), id(self._head), id(self._head.next)], LF=False)
+        v("HEAD : [prev, curr, next]")
+        v([id(self._head.prev), id(self._head), id(self._head.next)])
         while curr.next != self._head:
             curr = curr.next
-            w([id(curr.prev), id(curr), id(curr.next)], LF=False)
+            v([id(curr.prev), id(curr), id(curr.next)])
         w()
 
     def add_new_thread(self, thread):
         "insert 'thread' at end of running queue"
+        assert isinstance(thread, ClonableCoroutine)
         self._chain_insert(thread)
 
     def add_to_blocked_on(self, w_var, uthread):
@@ -180,7 +184,7 @@ class Scheduler(object):
         self._blocked[uthread] = True
 
     def unblock_on(self, w_var):
-        w(".. we UNBLOCK threads dependants of var", id(w_var), LF=False)
+        v(".. we UNBLOCK threads dependants of var", id(w_var))
         assert isinstance(w_var, W_Var)
         blocked = []
         if w_var in self._blocked_on:
@@ -192,7 +196,7 @@ class Scheduler(object):
     def add_to_blocked_byneed(self, w_var, uthread):
         w(".. we BLOCK BYNEED thread", id(uthread), "on var", id(w_var))
         assert isinstance(w_var, W_Var)
-        assert isinstance(uthread, Coroutine)
+        assert isinstance(uthread, ClonableCoroutine)
         if w_var in self._blocked_byneed:
             blocked = self._blocked_byneed[w_var]
         else:
@@ -202,7 +206,7 @@ class Scheduler(object):
         self._blocked[uthread] = True
 
     def unblock_byneed_on(self, space, w_var):
-        w(".. we UNBLOCK BYNEED dependants of var", id(w_var), LF=False)
+        v(".. we UNBLOCK BYNEED dependants of var", id(w_var))
         assert isinstance(w_var, W_Var)
         blocked = []
         for w_alias in aliases(space, w_var):
@@ -420,7 +424,8 @@ def prettyfy_id(a_str):
     l = len(a_str) - 1
     return a_str[l-3:l]
 
-def interp_id(w_obj):
+def interp_id(space, w_obj):
+    assert isinstance(w_obj, W_ObjectObject)
     return space.newint(id(w_obj))
 app_interp_id = gateway.interp2app(interp_id)
 
@@ -431,7 +436,7 @@ def bind(space, w_var, w_obj):
        2. assign bound var to unbound var
        3. assign value to unbound var
     """
-    w(" :bind", LF=False)
+    v(" :bind")
     assert isinstance(w_var, W_Var)
     assert isinstance(w_obj, W_Root)
     space.bind(w_var, w_obj)

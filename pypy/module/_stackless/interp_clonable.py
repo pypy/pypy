@@ -1,8 +1,9 @@
 from pypy.module._stackless.interp_coroutine import AbstractThunk
+from pypy.module._stackless.coroutine import AppCoroutine
 from pypy.rpython.rgc import gc_swap_pool, gc_clone
 from pypy.rpython.objectmodel import we_are_translated
 
-class InterpClonableCoroutine(object):
+class InterpClonableCoroutine(AppCoroutine):
     local_pool = None
 
     def hello(self):
@@ -17,6 +18,10 @@ class InterpClonableCoroutine(object):
         else:
             AppCoroutine.goodbye(self)
 
+    def w_getcurrent(space):
+        return space.wrap(InterpClonableCoroutine._get_state(space).current)
+    w_getcurrent = staticmethod(w_getcurrent)
+
     def clone(self):
         if not we_are_translated():
             raise NotImplementedError
@@ -28,7 +33,7 @@ class InterpClonableCoroutine(object):
         # cannot gc_clone() directly self, because it is not in its own
         # local_pool.  Moreover, it has a __del__, which cloning doesn't
         # support properly at the moment.
-        copy = ClonableCoroutine(self.costate)
+        copy = InterpClonableCoroutine(self.costate)
         copy.parent = self.parent
         copy.frame, copy.local_pool = gc_clone(self.frame, self.local_pool)
         return copy
