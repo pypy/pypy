@@ -845,7 +845,7 @@ def Space(*args, **kwds):
     space.setitem(space.builtin.w_dict, space.wrap('initial_conditions'),
                   space.wrap(app_initial_conditions))
     space.setitem(space.builtin.w_dict, space.wrap('interp_id'),
-                  space.wrap(interp_id))
+                  space.wrap(app_interp_id))
     
     #-- path to the applevel modules --
     import pypy.objspace.constraint
