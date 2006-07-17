@@ -1,6 +1,5 @@
 class TestBTree(object):
 
-
     def test_everything_at_once(self):
         from pypy.objspace.constraint.btree import BTree
         b = BTree()

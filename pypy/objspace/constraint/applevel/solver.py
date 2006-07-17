@@ -40,3 +40,64 @@ def lazily_iter_solve_all(space, direction=Depth):
             print ' '*len(sp_stack), "dead-end"
 
 solve = lazily_iter_solve_all
+
+
+#-- dfs with recomputations
+
+class Chain(object):
+    def __init__(self, space=None, parent=None, distance=1):
+        self.space = space
+        self.parent = parent
+        self.distance = distance
+        self.child = None
+        self.last_branch = None
+    def set_branches(self, branches):
+        self.branches = range(branches)
+    def collect_space(self, space):
+        self.child = Chain(space, parent=self,
+                           distance=self.distance + 1)
+        return self.child
+    def clone_time(self):
+        return self.distance % recomputation_distance
+
+def dfs_with_recomputations(space, recomputation_distance=1):
+    assert recomputation_distance > 0
+
+    node = Chain(space)
+
+    def get_space():
+        # XXX: write me
+        pass
+        
+    while node:
+        space = get_space()
+        status = space.ask()
+        if status == 1:
+            yield space.merge()
+        elif status > 1:
+            if node.clone_time():
+                clone = space.clone()
+                if node.child is None:
+                    node.set_branges(status)
+                branch = node.branches.pop()
+                node.last_branch = branch # recomputation info
+                node = node.collect(clone)
+                clone.commit(branch)
+            else:
+                #find previous clone_time node
+                cur = node.parent
+                while not cur.clone_time():
+                    cur = cur.parent
+                # take a clone of the local space,
+                # replay all the branches
+                clone = cur.space.clone()
+                while cur.child:
+                    clone.commit(cur.last_branch)
+                    cur = cur.child
+                # now, do the new computation
+                # XXX: factor me out
+                assert cur is node
+                branch = node.branches.pop()
+                node.last_branch = branch
+                node = node.collect(None)
+                clone.commit(branch)

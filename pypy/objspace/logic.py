@@ -12,6 +12,20 @@ from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.model import StdObjSpaceMultiMethod
 
+# misc
+import os
+
+DEBUG = True
+def w(*msgs, **kwopt):
+    if not DEBUG: return
+    for msg in msgs:
+        os.write(1, str(msg))
+        os.write(1, ' ')
+    try: 
+        if kwopt['LF']:
+            raise Exception
+    except:
+        os.write(1, ' \n')
 
 #-- THE BUILTINS ----------------------------------------------------------------------
 
@@ -19,6 +33,8 @@ from pypy.objspace.std.model import StdObjSpaceMultiMethod
 all_mms = {}
 W_Root = baseobjspace.W_Root
 Wrappable = baseobjspace.Wrappable
+
+#-- THREADING/COROUTINING -----------------------------------
 
 USE_COROUTINES = True
 HAVE_GREENLETS = True
@@ -35,118 +51,206 @@ def have_uthreads():
             return HAVE_GREENLETS
     return False
 
-if USE_COROUTINES:
-    from pypy.module._stackless.coroutine import AppCoroutine, _AppThunk
+assert USE_COROUTINES # once & for all
 
-    class ScheduleState(object):
-        def __init__(self):
-            self.runnable_uthreads = {}
-            self.uthreads_blocked_on = {}
-            self.uthreads_blocked_byneed = {}
-            self.exhausting = 0
+from pypy.module._stackless.coroutine import _AppThunk, AppCoState, Coroutine, ClonableCoroutine
 
-        def pop_runnable_thread(self):
-            # umpf, no popitem in RPython
-            key = None
-            for key, item in self.runnable_uthreads.iteritems():
-                break
-            del self.runnable_uthreads[key]
-            return key 
+def SETNEXT(obj, val):
+    obj.next = val
 
-        def add_to_runnable(self, uthread):
-            assert isinstance(uthread, AppCoroutine)
-            self.runnable_uthreads[uthread] = True
+def SETPREV(obj, val):
+    obj.prev = val
 
-        def remove_from_runnable(self, uthread):
-            assert isinstance(uthread, AppCoroutine)
-            del self.runnable_uthreads[uthread]
+def SETNONE(obj):
+    obj.prev = obj.next = None
 
-        def have_runnable_threads(self):
-            return bool(self.runnable_uthreads)
+class Scheduler(object):
 
-        def have_blocked_threads(self):
-            return bool(self.uthreads_blocked_on)
+    def __init__(self, space):
+        self.space = space
+        self._main = ClonableCoroutine.w_getcurrent(space)
+        self._init_head(self._main)
+        self._init_blocked()
+        w ("MAIN THREAD = ", id(self._main))
 
-        def add_to_blocked(self, w_var, uthread):
-            assert isinstance(w_var, W_Var)
-            assert isinstance(uthread, AppCoroutine)
-            if w_var in self.uthreads_blocked_on:
-                blocked = self.uthreads_blocked_on[w_var]
-            else:
-                blocked = []
-                self.uthreads_blocked_on[w_var] = blocked
-            blocked.append(uthread)
+    def _init_blocked(self):
+        self._blocked = {} # thread set
+        self._blocked_on = {} # var -> threads
+        self._blocked_byneed = {} # var -> threads
 
-        def pop_blocked_on(self, w_var):
-            assert isinstance(w_var, W_Var)
-            if w_var not in self.uthreads_blocked_on:
-                blocked = []
-            else:
-                blocked = self.uthreads_blocked_on[w_var]
-                del self.uthreads_blocked_on[w_var]
-            return blocked
+    def _init_head(self, coro):
+        self._head = coro
+        self._head.next = self._head.prev = self._head
 
-        def add_to_blocked_byneed(self, w_var, uthread):
-            assert isinstance(w_var, W_Var)
-            assert isinstance(uthread, AppCoroutine)
-            #print " adding", uthread, "to byneed on", w_var
-            if w_var in self.uthreads_blocked_byneed:
-                blocked = self.uthreads_blocked_byneed[w_var]
-            else:
-                blocked = []
-                self.uthreads_blocked_byneed[w_var] = blocked
-            blocked.append(uthread)
+    def _set_head(self, thread):
+        self._head = thread
 
-        def pop_blocked_byneed_on(self, w_var):
-            assert isinstance(w_var, W_Var)
-            if w_var not in self.uthreads_blocked_byneed:
-                #print " there was nobody to remove for", w_var
-                blocked = []
-            else:
-                blocked = self.uthreads_blocked_byneed[w_var]
-                del self.uthreads_blocked_byneed[w_var]
-            #print " removing", blocked, "from byneed on", w_var
-            return blocked
+    def _check_initial_conditions(self):
+        try:
+            assert self._head.next == self._head.prev == self._head
+            assert self._head not in self._blocked
+            assert self._head not in self._blocked_on
+            assert self._head not in self._blocked_byneed
+        except:
+            self.display_head()
+            w("BLOCKED", self._blocked)
+            all = {}
+            all.update(self._blocked_on)
+            all.update(self._blocked_byneed)
+            w(all)
+            raise
+            
+    def _chain_insert(self, thread):
+        assert thread.next is None
+        assert thread.prev is None
+        if self._head is None:
+            SETNEXT(thread, thread)
+            SETPREV(thread, thread)
+            self._set_head(thread)
+        else:
+            r = self._head
+            l = r.prev
+            SETNEXT(l, thread)
+            SETPREV(r, thread)
+            SETPREV(thread, l)
+            SETNEXT(thread, r)
 
+    def remove_thread(self, thread):
+        w(".. REMOVING", id(thread))
+        assert thread not in self._blocked
+        l = thread.prev
+        r = thread.next
+        SETNEXT(l, r)
+        SETPREV(r, l)
+        if r == thread:
+            w("DUH !")
+            self.display_head()
+        SETNONE(thread)
+        return thread
 
-    schedule_state = ScheduleState()
+    #-- to be used by logic objspace
 
-    class Thunk(_AppThunk):
-        def __init__(self, space, state, w_callable, args, w_Result):
-            _AppThunk.__init__(self, space, state, w_callable, args)
-            self.w_Result = w_Result # the upper-case R is because it is a logic variable
+    def schedule(self):
+        to_be_run = self._select_next(lambda coro: coro in self._blocked)
+        w(".. SWITCHING", id(ClonableCoroutine.w_getcurrent(self.space)), "=>", id(to_be_run))
+        to_be_run.w_switch()
+        
+    def _select_next(self, skip_condition):
+        """skip_condition is a predicate for NOT selecting one thread"""
+        to_be_run = self._head
+        sentinel = to_be_run
+        current = ClonableCoroutine.w_getcurrent(self.space)
+        while skip_condition(to_be_run) or to_be_run == current: 
+            to_be_run = to_be_run.next
+            if to_be_run == sentinel:
+                self.display_head()
+                ## we RESET sched state so as to keep being usable beyond that
+                #  (for instance, allow other tests to be run)
+                self._init_head(self._main)
+                self._init_blocked()
+                w(".. SCHEDULER reinitialized")
+                raise OperationError(self.space.w_RuntimeError,
+                                     self.space.wrap("can't schedule, possible deadlock in sight"))
+        return to_be_run
 
-        def call(self):
-            costate = self.costate
-            _AppThunk.call(self)
-            bind(self.space, self.w_Result,
-                 costate.w_tempval)
+    def display_head(self):
+        curr = self._head
+        w("HEAD : [prev, curr, next]", LF=False)
+        w([id(self._head.prev), id(self._head), id(self._head.next)], LF=False)
+        while curr.next != self._head:
+            curr = curr.next
+            w([id(curr.prev), id(curr), id(curr.next)], LF=False)
+        w()
 
-    def uthread(space, w_callable, __args__):
-        args = __args__.normalize()
-        w_Result = W_Var()
-        coro = AppCoroutine(space)
-        state = coro.costate
-        thunk = Thunk(space, state, w_callable, args, w_Result)
-        coro.bind(thunk)
-        current = AppCoroutine.w_getcurrent(space)
-        schedule_state.add_to_runnable(current)
-        coro.w_switch()
-        if not schedule_state.exhausting:
-            schedule_state.exhausting += 1
-            while schedule_state.have_runnable_threads():
-                next_coro = schedule_state.pop_runnable_thread()
-                if next_coro.is_alive() and next_coro is not current:
-                    schedule_state.add_to_runnable(current)
-                    next_coro.w_switch()
-                    if schedule_state.exhausting > 1:
-                        break
-            schedule_state.exhausting -= 1
-        return w_Result
-    app_uthread = gateway.interp2app(uthread, unwrap_spec=[baseobjspace.ObjSpace,
-                                                           baseobjspace.W_Root,
-                                                           argument.Arguments])
+    def add_new_thread(self, thread):
+        "insert 'thread' at end of running queue"
+        self._chain_insert(thread)
+
+    def add_to_blocked_on(self, w_var, uthread):
+        w(".. we BLOCK thread", id(uthread), "on var", id(w_var))
+        assert isinstance(w_var, W_Var)
+        assert isinstance(uthread, Coroutine)
+        assert uthread not in self._blocked
+        if w_var in self._blocked_on:
+            blocked = self._blocked_on[w_var]
+        else:
+            blocked = []
+            self._blocked_on[w_var] = blocked
+        blocked.append(uthread)
+        self._blocked[uthread] = True
+
+    def unblock_on(self, w_var):
+        w(".. we UNBLOCK threads dependants of var", id(w_var), LF=False)
+        assert isinstance(w_var, W_Var)
+        blocked = []
+        if w_var in self._blocked_on:
+            blocked = self._blocked_on[w_var]
+            del self._blocked_on[w_var]
+        w([id(thr) for thr in blocked])
+        for thr in blocked: del self._blocked[thr]
+
+    def add_to_blocked_byneed(self, w_var, uthread):
+        w(".. we BLOCK BYNEED thread", id(uthread), "on var", id(w_var))
+        assert isinstance(w_var, W_Var)
+        assert isinstance(uthread, Coroutine)
+        if w_var in self._blocked_byneed:
+            blocked = self._blocked_byneed[w_var]
+        else:
+            blocked = []
+            self._blocked_byneed[w_var] = blocked
+        blocked.append(uthread)
+        self._blocked[uthread] = True
+
+    def unblock_byneed_on(self, space, w_var):
+        w(".. we UNBLOCK BYNEED dependants of var", id(w_var), LF=False)
+        assert isinstance(w_var, W_Var)
+        blocked = []
+        for w_alias in aliases(space, w_var):
+            if w_alias in self._blocked_byneed:
+                blocked += self._blocked_byneed[w_alias]
+                del self._blocked_byneed[w_alias]
+            w_alias.w_needed = True
+        w([id(thr) for thr in blocked])
+        for thr in blocked: del self._blocked[thr]
+
+scheduler = []
+
+class Thunk(_AppThunk):
+    def __init__(self, space, w_callable, args, w_Result, coro):
+        _AppThunk.__init__(self, space, coro.costate, w_callable, args)
+        self.w_Result = w_Result 
+        self._coro = coro
+
+    def call(self):
+        _AppThunk.call(self)
+        # bind does not suffice for we can have a right-hand logic var
+        unify(self.space, self.w_Result, self.costate.w_tempval)
+        scheduler[0].remove_thread(self._coro)
+        scheduler[0].schedule()
+
+def uthread(space, w_callable, __args__):
+    args = __args__.normalize()
+    w_Future = W_Var()
+    # coro init
+    coro = ClonableCoroutine(space)
+    # prepare thread chaining, create missing slots
+    coro.next = coro.prev = None
+    # feed the coro
+    thunk = Thunk(space, w_callable, args, w_Future, coro)
+    coro.bind(thunk)
+    scheduler[0].add_new_thread(coro)
+    # XXX we should think about a way to make it read-only for the client
+    #     aka true futures
+    return w_Future
+app_uthread = gateway.interp2app(uthread, unwrap_spec=[baseobjspace.ObjSpace,
+                                                       baseobjspace.W_Root,
+                                                       argument.Arguments])
     
+
+def initial_conditions(space):
+    scheduler[0]._check_initial_conditions()
+    w('success !')
+app_initial_conditions = gateway.interp2app(initial_conditions)
 
 #-- VARIABLE ---------------------
 
@@ -171,37 +275,12 @@ def wait__Root(space, w_obj):
     return w_obj
 
 def wait__Var(space, w_var):
-    while 1:
-        #print " :wait", w_var
-        if space.is_true(space.is_free(w_var)):
-            if not have_uthreads():
-                raise OperationError(space.w_RuntimeError,
-                                     space.wrap("trying to perform an operation on an unbound variable"))
-            else:
-                # notify wait_needed clients, give them a chance to run
-                w_var.w_needed = True
-                for w_alias in aliases(space, w_var):
-                    need_waiters = schedule_state.pop_blocked_byneed_on(w_alias)
-                    w_alias.w_needed = True
-                    for waiter in need_waiters:
-                        #print "  :byneed waiter", waiter, "awaken on", w_alias
-                        schedule_state.add_to_runnable(waiter)
-                # set curr thread to blocked, switch to runnable thread
-                current = AppCoroutine.w_getcurrent(space)
-                schedule_state.add_to_blocked(w_var, current)
-                while schedule_state.have_runnable_threads():
-                    next_coro = schedule_state.pop_runnable_thread()
-                    if next_coro.is_alive():
-                        #print "  :waiter is switching"
-                        next_coro.w_switch()
-                        #print " waiter is back"
-                        # hope there is a value here now
-                        break
-                else:
-                    raise OperationError(space.w_RuntimeError,
-                                         space.wrap("blocked on variable, but no uthread that can bind it"))
-        else:
-            return w_var.w_bound_to
+    #print " :wait", w_var
+    if space.is_true(space.is_free(w_var)):
+        scheduler[0].unblock_byneed_on(space, w_var)
+        scheduler[0].add_to_blocked_on(w_var, ClonableCoroutine.w_getcurrent(space))
+        scheduler[0].schedule()
+    return w_var.w_bound_to
 
 def wait(space, w_obj):
     assert isinstance(w_obj, W_Root)
@@ -215,34 +294,15 @@ all_mms['wait'] = wait_mm
 
 
 def wait_needed__Var(space, w_var):
-    while 1:
-        #print " :needed", w_var
-        if space.is_true(space.is_free(w_var)):
-            if w_var.w_needed:
-                break # we're done
-            if not have_uthreads():
-                raise OperationError(space.w_RuntimeError,
-                                     space.wrap("oh please oh FIXME !"))
-            else:
-                # add current thread to blocked byneed and switch
-                current = AppCoroutine.w_getcurrent(space)
-                for w_alias in aliases(space, w_var):
-                    schedule_state.add_to_blocked_byneed(w_alias, current)
-                while schedule_state.have_runnable_threads():
-                    next_coro = schedule_state.pop_runnable_thread()
-                    if next_coro.is_alive():
-                        #print "  :needed is switching"
-                        next_coro.w_switch()
-                        #print " byneed is back"
-                        # there might be some need right now
-                        break
-                else:
-                    raise OperationError(space.w_RuntimeError,
-                                         space.wrap("blocked on need, but no uthread that can wait"))
-            
-        else:
-            raise OperationError(space.w_RuntimeError,
-                                 space.wrap("wait_needed only supported on unbound variables"))
+    #print " :needed", w_var
+    if space.is_true(space.is_free(w_var)):
+        if w_var.w_needed:
+            return
+        scheduler[0].add_to_blocked_byneed(w_var, ClonableCoroutine.w_getcurrent(space))
+        scheduler[0].schedule()
+    else:
+        raise OperationError(space.w_RuntimeError,
+                             space.wrap("wait_needed only supported on unbound variables"))
 
 def wait_needed(space, w_var):
     assert isinstance(w_var, W_Var)
@@ -315,16 +375,6 @@ app_alias_of = gateway.interp2app(alias_of)
 
 #-- HELPERS ----------------------
 
-## def disp(space, w_var):
-##     print w_var
-## app_disp = gateway.interp2app(disp)
-
-## def disp_aliases(space, w_var):
-##     print "Aliases of ", w_var, "are", 
-##     for w_al in aliases(space, w_var):
-##         print w_al,
-##     print
-
 def deref(space, w_var):
     """gets the value of a bound variable
        user has to ensure boundness of the var"""
@@ -364,43 +414,15 @@ def fail(space, w_obj1, w_obj2):
     raise OperationError(space.w_RuntimeError,
                          space.wrap("Unification failure"))
 
-def check_and_memoize_pair(space, w_x, w_y):
-    pass
-
-def reset_memo():
-    pass
 
 def prettyfy_id(a_str):
-    assert isinstance(a_str, W_StringObject)
+    assert isinstance(a_str, str)
     l = len(a_str) - 1
     return a_str[l-3:l]
 
-
-#FIXME : does not work at all,
-# even a pure applevel version ...
-## def _sleep(space, w_var, w_barrier):
-##     assert isinstance(w_var, W_Var)
-##     assert isinstance(w_barrier, W_Var)
-##     wait(space, w_var)
-##     bind(space, w_barrier, space.newint(1))
-
-## def wait_two(space, w_v1, w_v2):
-##     """waits until one out of two logic variables
-##        becomes bound, then tells which one,
-##        with a bias toward the first if both are
-##        suddenly bound"""
-##     assert isinstance(w_v1, W_Var)
-##     assert isinstance(w_v2, W_Var)
-##     w_barrier = newvar(space)
-##     uthread(space, space.wrap(_sleep),
-##             argument.Arguments(space, [w_v1, w_barrier]))
-##     uthread(space, space.wrap(_sleep),
-##             argument.Arguments(space, [w_v2, w_barrier]))
-##     wait(space, w_barrier)
-##     if space.is_true(space.is_free(w_v2)):
-##         return space.newint(1)
-##     return space.newint(2)
-## app_wait_two = gateway.interp2app(wait_two)
+def interp_id(w_obj):
+    return space.newint(id(w_obj))
+app_interp_id = gateway.interp2app(interp_id)
 
 #-- BIND -----------------------------
 
@@ -409,13 +431,14 @@ def bind(space, w_var, w_obj):
        2. assign bound var to unbound var
        3. assign value to unbound var
     """
-    #print " :bind", w_var, w_obj
+    w(" :bind", LF=False)
     assert isinstance(w_var, W_Var)
     assert isinstance(w_obj, W_Root)
     space.bind(w_var, w_obj)
 app_bind = gateway.interp2app(bind)
 
 def bind__Var_Var(space, w_v1, w_v2):
+    w("var var")
     if space.is_true(space.is_bound(w_v1)):
         if space.is_true(space.is_bound(w_v2)):
             return unify(space, #FIXME: we could just raise
@@ -431,40 +454,39 @@ def bind__Var_Var(space, w_v1, w_v2):
 
 
 def bind__Var_Root(space, w_var, w_obj):
+    w("var val", id(w_var))
     # 3. var and value
     if space.is_true(space.is_free(w_var)):
         return _assign(space, w_var, w_obj)
     # for dataflow behaviour we should allow
     # rebinding of unifiable values
+    if space.is_true(space.eq(w_var.w_bound_to, w_obj)):
+        return
     raise OperationError(space.w_RuntimeError,
                          space.wrap("Cannot bind twice"))
     
-
 bind_mm = StdObjSpaceMultiMethod('bind', 2)
 bind_mm.register(bind__Var_Root, W_Var, W_Root)
 bind_mm.register(bind__Var_Var, W_Var, W_Var)
 all_mms['bind'] = bind_mm
 
 def _assign(space, w_var, w_val):
+    w("  :assign")
     assert isinstance(w_var, W_Var)
     assert isinstance(w_val, W_Root)
-    #print "  :assign", w_var, w_val, '[',
     w_curr = w_var
     ass_count = 0
     while 1:
         w_next = w_curr.w_bound_to
         w_curr.w_bound_to = w_val
-        #print w_curr, 
         ass_count += 1
         # notify the blocked threads
-        to_awake = schedule_state.pop_blocked_on(w_curr)
-        for thread in to_awake:
-            schedule_state.add_to_runnable(thread)
+        scheduler[0].unblock_on(w_curr)
         if space.is_true(space.is_nb_(w_next, w_var)):
             break
         # switch to next
         w_curr = w_next
-    #print "] (to", ass_count, "aliases)"
+    w("  :assigned")
     return space.w_None
     
 def _alias(space, w_v1, w_v2):
@@ -472,7 +494,7 @@ def _alias(space, w_v1, w_v2):
        user must ensure freeness of both vars"""
     assert isinstance(w_v1, W_Var)
     assert isinstance(w_v2, W_Var)
-    #print "  :alias", w_v1, w_v2
+    w("  :alias", id(w_v1), id(w_v2))
     if space.is_true(space.is_nb_(w_v1, w_v2)):
         return space.w_None
     if space.is_true(is_aliased(space, w_v1)):
@@ -489,7 +511,7 @@ def _alias(space, w_v1, w_v2):
 def _add_to_aliases(space, w_v1, w_v2):
     assert isinstance(w_v1, W_Var)
     assert isinstance(w_v2, W_Var)
-    #print "   :add to aliases", w_v1, w_v2
+    w("   :add to aliases")
     w_tail = w_v1.w_bound_to
     w_v1.w_bound_to = w_v2
     w_v2.w_bound_to = w_tail
@@ -498,7 +520,7 @@ def _add_to_aliases(space, w_v1, w_v2):
 def _merge_aliases(space, w_v1, w_v2):
     assert isinstance(w_v1, W_Var)
     assert isinstance(w_v2, W_Var)
-    #print "   :merge aliases", w_v1, w_v2
+    w("   :merge aliases")
     w_tail1 = get_ring_tail(space, w_v1)
     w_tail2 = get_ring_tail(space, w_v2)
     w_tail1.w_bound_to = w_v2
@@ -510,7 +532,7 @@ def _merge_aliases(space, w_v1, w_v2):
 def unify(space, w_x, w_y):
     assert isinstance(w_x, W_Root)
     assert isinstance(w_y, W_Root)
-    #print ":unify ", w_x, w_y
+    #print ":unify ", id(w_x), id(w_y)
     return space.unify(w_x, w_y)
 app_unify = gateway.interp2app(unify)
 
@@ -525,7 +547,7 @@ def unify__Root_Root(space, w_x, w_y):
     return space.w_None
     
 def unify__Var_Var(space, w_x, w_y):
-    #print " :unify of two vars"
+    w(":unify var var", id(w_x), id(w_y))
     if space.is_true(space.is_bound(w_x)):
         if space.is_true(space.is_bound(w_y)):
             return space.unify(deref(space, w_x), 
@@ -536,7 +558,7 @@ def unify__Var_Var(space, w_x, w_y):
         return bind(space, w_x, w_y) 
     
 def unify__Var_Root(space, w_x, w_y):
-    #print " :unify var and value"
+    w(" :unify var val", id(w_x))
     if space.is_true(space.is_bound(w_x)):
         return space.unify(deref(space, w_x), w_y)            
     return bind(space, w_x, w_y)
@@ -557,7 +579,6 @@ def unify__Tuple_Tuple(space, w_i1, w_i2):
         unify(space, w_xi, w_yi)
     return space.w_None
 
-
 def unify__List_List(space, w_i1, w_i2):
     if len(w_i1.wrappeditems) != len(w_i2.wrappeditems):
         fail(space, w_i1, w_i2)
@@ -570,11 +591,7 @@ def unify__List_List(space, w_i1, w_i2):
             continue
         unify(space, w_xi, w_yi)
     return space.w_None
-    
-## def _unify_iterables(space, w_i1, w_i2):
-##     assert isinstance(w_i1, W_TupleObject) or isinstance(w_i1, W_ListObject)
-##     assert isinstance(w_i2, W_TupleObject) or isinstance(w_i2, W_ListObject)
-##     #print " :unify iterables", w_i1, w_i2
+
 
 def unify__Dict_Dict(space, w_m1, w_m2):
     assert isinstance(w_m1, W_DictObject)
@@ -638,11 +655,14 @@ setup()
 del setup
 
 def eqproxy(space, parentfn):
+    """shortcuts wait filtering"""
     def eq(w_obj1, w_obj2):
         assert isinstance(w_obj1, W_Root)
         assert isinstance(w_obj2, W_Root)
+        # check identity
         if space.is_true(space.is_nb_(w_obj1, w_obj2)):
             return space.newbool(True)
+        # check aliasing
         if space.is_true(space.is_free(w_obj1)):
             if space.is_true(space.is_free(w_obj2)):
                 if space.is_true(alias_of(space, w_obj1, w_obj2)):
@@ -772,8 +792,8 @@ def Space(*args, **kwds):
         setattr(space, name, boundmethod)  # store into 'space' instance
     # /multimethods hack
 
-    # provide a UnificationError exception
-    # XXX patching the table in-place?  ARGH
+    # XXXprovide a UnificationError exception
+    # patching the table in-place?  
     #space.ExceptionTable.append('UnificationError')
     #space.ExceptionTable.sort() # hmmm
 
@@ -799,7 +819,7 @@ def Space(*args, **kwds):
                  space.wrap(domain.app_make_fd))
     space.setitem(space.builtin.w_dict, space.wrap('intersection'),
                  space.wrap(domain.app_intersection))
-    #-- contraint ----
+    #-- constraint ----
     space.setitem(space.builtin.w_dict, space.wrap('make_expression'),
                  space.wrap(constraint.app_make_expression))
     space.setitem(space.builtin.w_dict, space.wrap('AllDistinct'),
@@ -811,6 +831,22 @@ def Space(*args, **kwds):
                  space.wrap(distributor.app_make_split_distributor))
     space.setitem(space.builtin.w_dict, space.wrap('DichotomyDistributor'),
                  space.wrap(distributor.app_make_dichotomy_distributor))
+    #-- threading --
+    space.setitem(space.builtin.w_dict, space.wrap('uthread'),
+                 space.wrap(app_uthread))
+    space.setitem(space.builtin.w_dict, space.wrap('wait'),
+                 space.wrap(app_wait))
+    space.setitem(space.builtin.w_dict, space.wrap('wait_needed'),
+                  space.wrap(app_wait_needed))
+
+    #-- misc -----
+    space.setitem(space.builtin.w_dict, space.wrap('initial_conditions'),
+                  space.wrap(app_initial_conditions))
+    space.setitem(space.builtin.w_dict, space.wrap('initial_conditions'),
+                  space.wrap(app_initial_conditions))
+    space.setitem(space.builtin.w_dict, space.wrap('interp_id'),
+                  space.wrap(interp_id))
+    
     #-- path to the applevel modules --
     import pypy.objspace.constraint
     import os
@@ -818,36 +854,21 @@ def Space(*args, **kwds):
     dir = os.path.join(dir, 'applevel')
     space.call_method(space.sys.get('path'), 'append', space.wrap(dir))
 
-    if USE_COROUTINES:
-        import os
-        # make sure that _stackless is imported
-        w_modules = space.getbuiltinmodule('_stackless')
-        # xxx use the new startup/finish machinary for this
-        def exitfunc():
-            current = AppCoroutine.w_getcurrent(space)
-            schedule_state.exhausting = 2
-            while schedule_state.have_runnable_threads():
-                next_coro = schedule_state.pop_runnable_thread()
-                if next_coro.is_alive() and next_coro != current:
-                    schedule_state.add_to_runnable(current)
-                    next_coro.w_switch()
-                    schedule_state.remove_from_runnable(current)
-            if schedule_state.have_blocked_threads():
-                os.write(2, "there are still blocked uthreads!")
-        app_exitfunc = gateway.interp2app(exitfunc, unwrap_spec=[])
+    # make sure that _stackless is imported
+    w_modules = space.getbuiltinmodule('_stackless')
+    # cleanup func called from space.finish()
+    def exitfunc():
+        pass
+    
+    app_exitfunc = gateway.interp2app(exitfunc, unwrap_spec=[])
+    space.setitem(space.sys.w_dict, space.wrap("exitfunc"), space.wrap(app_exitfunc))
 
-        space.setitem(space.sys.w_dict, space.wrap("exitfunc"), space.wrap(app_exitfunc))
-        space.setitem(space.builtin.w_dict, space.wrap('uthread'),
-                     space.wrap(app_uthread))
-        space.setitem(space.builtin.w_dict, space.wrap('wait'),
-                     space.wrap(app_wait))
-        space.setitem(space.builtin.w_dict, space.wrap('wait_needed'),
-                      space.wrap(app_wait_needed))
-
-    # capture a bunch of non-blocking ops
+    # capture one non-blocking op
     space.is_nb_ = space.is_
-        
+
+    # do the magic
     patch_space_in_place(space, 'logic', proxymaker)
+
+    # instantiate singleton scheduler
+    scheduler.append(Scheduler(space))
     return space
-
-
