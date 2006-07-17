@@ -1,3 +1,4 @@
+import string
 from pypy.translator.cli.cts import CTS, PYPY_LIST_OF_VOID, PYPY_DICT_OF_VOID, WEAKREF
 from pypy.translator.cli.function import Function, log
 from pypy.translator.cli.class_ import Class
@@ -40,6 +41,7 @@ class LowLevelDatabase(object):
         self.cts = type_system_class(self)
         self.classes = {} # classdef --> class_name
         self.classnames = set() # (namespace, name)
+        self.recordnames = {} # RECORD --> name
         self.functions = {} # graph --> function_name
         self.methods = {} # graph --> method_name
         self.consts = {}  # value --> AbstractConst
@@ -52,6 +54,17 @@ class LowLevelDatabase(object):
         self.name_count += 1
         return self.name_count
 
+    def _default_record_name(self, RECORD):
+        trans = string.maketrans('<>(), :', '_______')
+        name = ['Record']
+        # XXX: refactor this: we need a proper way to ensure unique names
+        for f_name, (FIELD_TYPE, f_default) in RECORD._fields.iteritems():
+            type_name = FIELD_TYPE._short_name().translate(trans)
+            name.append(f_name)
+            name.append(type_name)
+            
+        return '__'.join(name)
+
     def pending_function(self, graph):
         function = self.function_class(self, graph)
         self.pending_node(function)
@@ -60,13 +73,21 @@ class LowLevelDatabase(object):
     def pending_class(self, classdef):
         self.pending_node(Class(self, classdef))
 
-    def pending_record(self, record):
+    def pending_record(self, RECORD):
         try:
-            return BUILTIN_RECORDS[record]
+            return BUILTIN_RECORDS[RECORD]
         except KeyError:
-            r = Record(self, record)
-            self.pending_node(r)
-            return r.get_name()
+            pass
+        try:
+            return self.recordnames[RECORD]
+        except KeyError:
+            pass
+        name = self._default_record_name(RECORD)
+        name = self.get_unique_class_name('', name)
+        self.recordnames[RECORD] = name
+        r = Record(self, RECORD, name)
+        self.pending_node(r)
+        return name
 
     def pending_node(self, node):
         if node in self._pending_nodes or node in self._rendered_nodes:
@@ -99,8 +120,7 @@ class LowLevelDatabase(object):
         try:
             return BUILTIN_RECORDS[RECORD]
         except KeyError:
-            r = Record(self, RECORD)
-            return r.get_name() # TODO: cache the result?
+            return self.recordnames[RECORD]
 
     def record_const(self, value):
         if value in self.consts:

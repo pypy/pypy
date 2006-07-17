@@ -1,25 +1,13 @@
-import string
-
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.cli.node import Node
 from pypy.translator.cli.cts import CTS
 
 class Record(Node):
-    def __init__(self, db, record):
+    def __init__(self, db, record, name):
         self.db = db
         self.cts = CTS(db)
         self.record = record
-
-        trans = string.maketrans('<>(), :', '_______')
-        name = ['Record']
-        # XXX: refactor this: we need a proper way to ensure unique names
-        for f_name, (FIELD_TYPE, f_default) in record._fields.iteritems():
-            type_name = FIELD_TYPE._short_name().translate(trans)
-            name.append(f_name)
-            name.append(type_name)
-            
-        self.name = '__'.join(name)
-        assert ':' not in self.name
+        self.name = name
 
     def __hash__(self):
         return hash(self.record)
