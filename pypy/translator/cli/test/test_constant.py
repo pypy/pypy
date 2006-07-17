@@ -75,8 +75,10 @@ class TestConstant(CliTest):
         assert self.interpret(fn, []) == 3
 
     def test_float_special(self):
-        inf = float("inf")
-        nan = float("nan")
-        def fn():
-            return inf*2 == inf and not (nan == nan)
-        assert self.interpret(fn, []) == True
+        c = [float("inf"), float("nan")]
+        def fn(i):
+            return c[i]*2 == c[i]
+        def fn2(i):
+            return c[i] != c[i]
+        assert self.interpret(fn, [0]) == True
+        assert self.interpret(fn2, [1]) == True

@@ -27,6 +27,9 @@ BUILTIN_RECORDS = {
     '[pypylib]pypy.runtime.Record_Float_Float'
     }
 
+def isnan(v):
+	return v != v*1.0 or (v == 1.0 and v == 2.0)
+
 class LowLevelDatabase(object):
     def __init__(self, type_system_class = CTS, opcode_dict = opcodes, function_class = Function):
         self._pending_nodes = set()
@@ -197,7 +200,7 @@ class AbstractConst(Node):
         elif TYPE is ootype.Float:
             if value == float('inf'):
                 ilasm.opcode('ldc.r8', '(00 00 00 00 00 00 f0 7f)')
-            elif value == float('NaN'):
+            elif isnan(value):
                 ilasm.opcode('ldc.r8', '(00 00 00 00 00 00 f8 ff)')
             else:
                 ilasm.opcode('ldc.r8', repr(value))
