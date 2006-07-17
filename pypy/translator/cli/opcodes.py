@@ -64,6 +64,7 @@ opcodes = {
 
     'cast_ptr_to_weakadr':      [PushAllArgs, 'newobj instance void class [mscorlib]System.WeakReference::.ctor(object)'],
     'cast_weakadr_to_ptr':      [CastWeakAdrToPtr],
+    'gc__collect':              'call void class [mscorlib]System.GC::Collect()',
 
     # __________ numeric operations __________
 
