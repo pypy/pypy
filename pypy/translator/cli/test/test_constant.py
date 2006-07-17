@@ -62,3 +62,8 @@ class TestConstant(CliTest):
                 return 'aa'
         assert self.ll_to_string(self.interpret(fn, [-1])) == 'a'
         assert self.ll_to_string(self.interpret(fn, [0])) == 'aa'
+
+    def test_string_literal(self):
+        def fn():
+            return 'hello "world"'
+        assert self.ll_to_string(self.interpret(fn, [])) == 'hello "world"'

@@ -5,6 +5,7 @@ from pypy.translator.cli.record import Record
 from pypy.translator.cli.delegate import Delegate
 from pypy.translator.cli.comparer import EqualityComparer
 from pypy.translator.cli.node import Node
+from pypy.translator.cli.support import string_literal
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem import llmemory
@@ -196,9 +197,7 @@ class AbstractConst(Node):
             if value._str is None:
                 ilasm.opcode('ldnull')
             else:
-                s = value._str
-                s = '"%s"' % s.replace('"', '\\"')
-                ilasm.opcode("ldstr", s)
+                ilasm.opcode("ldstr", string_literal(value._str))
         else:
             assert TYPE not in cls.PRIMITIVE_TYPES
             cts = CTS(db)
