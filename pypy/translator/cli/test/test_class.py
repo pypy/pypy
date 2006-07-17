@@ -21,6 +21,18 @@ class TestCliClass(CliTest, BaseTestRclass):
             return call(a, x) + call(b, x)
         assert self.interpret(fn, [0]) == 3
 
+    def test_same_name(self):
+        class A:
+            pass
+        B=A
+        class A:
+            pass
+        assert A is not B
+        assert A.__name__ == B.__name__
+        def fn():
+            obj1 = A()
+            obj2 = B()
+        self.interpret(fn, [])
 
 class TestCliSpecialCase(CliTest, BaseTestRspecialcase):
     pass

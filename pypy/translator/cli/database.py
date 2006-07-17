@@ -36,6 +36,7 @@ class LowLevelDatabase(object):
         self.type_system_class = type_system_class
         self.cts = type_system_class(self)
         self.classes = {} # classdef --> class_name
+        self.classnames = set() # (namespace, name)
         self.functions = {} # graph --> function_name
         self.methods = {} # graph --> method_name
         self.consts = {}  # value --> AbstractConst
@@ -81,6 +82,12 @@ class LowLevelDatabase(object):
     def graph_name(self, graph):
         # XXX: graph name are not guaranteed to be unique
         return self.functions.get(graph, None)
+
+    def get_unique_class_name(self, namespace, name):
+        while (namespace, name) in self.classnames:
+            name += '_'
+        self.classnames.add((namespace, name))            
+        return name
 
     def class_name(self, classdef):
         return self.classes.get(classdef, None)

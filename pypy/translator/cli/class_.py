@@ -7,7 +7,8 @@ class Class(Node):
         self.db = db
         self.cts = db.type_system_class(db)
         self.classdef = classdef
-        self.namespace, self.name = self.cts.split_class_name(classdef._name)
+        self.namespace, name = self.cts.split_class_name(classdef._name)
+        self.name = self.db.get_unique_class_name(self.namespace, name)
 
     def dependencies(self):
         if not self.is_root(self.classdef):
