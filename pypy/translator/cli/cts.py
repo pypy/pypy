@@ -138,7 +138,7 @@ class CTS(object):
 
     def lltype_to_cts(self, t, include_class=True):
         if t is ootype.ROOT:
-            return '[mscorlib]System.Object'
+            return self.__class('[mscorlib]System.Object', include_class)
         elif isinstance(t, lltype.Ptr) and isinstance(t.TO, lltype.OpaqueType):
             return '[mscorlib]System.Object'
         elif isinstance(t, ootype.Instance):

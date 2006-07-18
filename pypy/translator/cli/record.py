@@ -75,9 +75,10 @@ class Record(Node):
     def _equals(self):
         # field by field comparison
         record_type = self.cts.lltype_to_cts(self.record, include_class=False)
+        class_record_type = self.cts.lltype_to_cts(self.record, include_class=True)
         self.ilasm.begin_function('Equals', [('object', 'obj')], 'bool',
                                   False, 'virtual', 'instance', 'default')
-        self.ilasm.locals([(record_type, 'self')])
+        self.ilasm.locals([(class_record_type, 'self')])
         self.ilasm.opcode('ldarg.1')
         self.ilasm.opcode('castclass', record_type)
         self.ilasm.opcode('stloc.0')
