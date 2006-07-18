@@ -41,9 +41,24 @@ class Class(Node):
             return self.db.class_name(base_class)
 
     def is_abstract(self):
+        # if INSTANCE has an abstract method, the class is abstract
+        method_names = set()
         for m_name, m_meth in self.INSTANCE._methods.iteritems():
             if not hasattr(m_meth, 'graph'):
                 return True
+            method_names.add(m_name)
+
+        # if superclasses have abstract methods not overriden by
+        # INSTANCE, the class is abstract
+        abstract_method_names = set()
+        cls = self.INSTANCE._superclass
+        while cls is not None:
+            abstract_method_names.update(cls._methods.keys())
+            cls = cls._superclass
+        not_overriden = abstract_method_names.difference(method_names)
+        if not_overriden:
+            return True
+        
         return False
 
     def render(self, ilasm):        

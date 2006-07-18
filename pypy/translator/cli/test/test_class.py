@@ -21,6 +21,23 @@ class TestCliClass(CliTest, BaseTestRclass):
             return call(a, x) + call(b, x)
         assert self.interpret(fn, [0]) == 3
 
+    def test_abstract_method2(self):
+        class Root:
+            pass
+        class Class1(Root):
+            pass
+        class Derived(Class1):
+            x = 1
+        class Class2(Root):
+            x = 2
+        def get_x(obj):
+            return obj.x
+        def fn():
+            a = Derived()
+            b = Class2()
+            return get_x(a) + get_x(b)
+        assert self.interpret(fn, []) == 3
+
     def test_same_name(self):
         class A:
             def __init__(self, x):
