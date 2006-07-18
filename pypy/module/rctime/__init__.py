@@ -15,7 +15,8 @@ class Module(MixedModule):
         'gmtime': 'interp_time.gmtime',
         'localtime': 'interp_time.localtime',
         'mktime': 'interp_time.mktime',
-        'tzset': 'interp_time.tzset'
+        'tzset': 'interp_time.tzset',
+        'strftime': 'interp_time.strftime',
     }
 
     # def init(self, space):

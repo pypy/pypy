@@ -190,55 +190,57 @@ class AppTestRCTime:
             elif os.environ.has_key('TZ'):
                 del os.environ['TZ']
             rctime.tzset()
-        #     
-    # def test_strftime():
-    #     tt = rctime.gmtime(t)
-    #     for directive in ('a', 'A', 'b', 'B', 'c', 'd', 'H', 'I',
-    #                       'j', 'm', 'M', 'p', 'S',
-    #                       'U', 'w', 'W', 'x', 'X', 'y', 'Y', 'Z', '%'):
-    #         format = ' %' + directive
-    #         assert rctime.strftime(format, tt) != None
-    #         assert rctime.strftime(format, tt) != ""
-    # 
-    # def test_strftime_bounds_checking():
-    #     # make sure that strftime() checks the bounds of the various parts
-    #     # of the time tuple.
-    # 
-    #     raises = py.test.raises
-    # 
-    #     # check year
-    #     raises(ValueError, rctime.strftime, '', (1899, 1, 1, 0, 0, 0, 0, 1, -1))
-    #     if rctime.accept2dyear:
-    #         raises(ValueError, rctime.strftime, '', (-1, 1, 1, 0, 0, 0, 0, 1, -1))
-    #         raises(ValueError, rctime.strftime, '', (100, 1, 1, 0, 0, 0, 0, 1, -1))
-    #     # check month
-    #     raises(ValueError, rctime.strftime, '', (1900, 0, 1, 0, 0, 0, 0, 1, -1))
-    #     raises(ValueError, rctime.strftime, '', (1900, 13, 1, 0, 0, 0, 0, 1, -1))
-    #     # check day of month
-    #     raises(ValueError, rctime.strftime, '', (1900, 1, 0, 0, 0, 0, 0, 1, -1))
-    #     raises(ValueError, rctime.strftime, '', (1900, 1, 32, 0, 0, 0, 0, 1, -1))
-    #     # check hour
-    #     raises(ValueError, rctime.strftime, '', (1900, 1, 1, -1, 0, 0, 0, 1, -1))
-    #     raises(ValueError, rctime.strftime, '', (1900, 1, 1, 24, 0, 0, 0, 1, -1))
-    #     # check minute
-    #     raises(ValueError, rctime.strftime, '', (1900, 1, 1, 0, -1, 0, 0, 1, -1))
-    #     raises(ValueError, rctime.strftime, '', (1900, 1, 1, 0, 60, 0, 0, 1, -1))
-    #     # check second
-    #     raises(ValueError, rctime.strftime, '', (1900, 1, 1, 0, 0, -1, 0, 1, -1))
-    #     # C99 only requires allowing for one leap second, but Python's docs say
-    #     # allow two leap seconds (0..61)
-    #     raises(ValueError, rctime.strftime, '', (1900, 1, 1, 0, 0, 62, 0, 1, -1))
-    #     # no check for upper-bound day of week;
-    #     #  value forced into range by a "% 7" calculation.
-    #     # start check at -2 since gettmarg() increments value before taking
-    #     #  modulo.
-    #     raises(ValueError, rctime.strftime, '', (1900, 1, 1, 0, 0, 0, -2, 1, -1))
-    #     # check day of the year
-    #     raises(ValueError, rctime.strftime, '', (1900, 1, 1, 0, 0, 0, 0, 0, -1))
-    #     raises(ValueError, rctime.strftime, '', (1900, 1, 1, 0, 0, 0, 0, 367, -1))
-    #     # check daylight savings flag
-    #     raises(ValueError, rctime.strftime, '', (1900, 1, 1, 0, 0, 0, 0, 1, -2))
-    #     raises(ValueError, rctime.strftime, '', (1900, 1, 1, 0, 0, 0, 0, 1, 2))
+            
+    def test_strftime(self):
+        import rctime
+        
+        t = rctime.time()
+        tt = rctime.gmtime(t)
+        for directive in ('a', 'A', 'b', 'B', 'c', 'd', 'H', 'I',
+                          'j', 'm', 'M', 'p', 'S',
+                          'U', 'w', 'W', 'x', 'X', 'y', 'Y', 'Z', '%'):
+            format = ' %' + directive
+            rctime.strftime(format, tt)
+
+    def test_strftime_bounds_checking(self):
+        import rctime
+        
+        # make sure that strftime() checks the bounds of the various parts
+        # of the time tuple.
+    
+        # check year
+        raises(ValueError, rctime.strftime, '', (1899, 1, 1, 0, 0, 0, 0, 1, -1))
+        if rctime.accept2dyear:
+            raises(ValueError, rctime.strftime, '', (-1, 1, 1, 0, 0, 0, 0, 1, -1))
+            raises(ValueError, rctime.strftime, '', (100, 1, 1, 0, 0, 0, 0, 1, -1))
+        # check month
+        raises(ValueError, rctime.strftime, '', (1900, 0, 1, 0, 0, 0, 0, 1, -1))
+        raises(ValueError, rctime.strftime, '', (1900, 13, 1, 0, 0, 0, 0, 1, -1))
+        # check day of month
+        raises(ValueError, rctime.strftime, '', (1900, 1, 0, 0, 0, 0, 0, 1, -1))
+        raises(ValueError, rctime.strftime, '', (1900, 1, 32, 0, 0, 0, 0, 1, -1))
+        # check hour
+        raises(ValueError, rctime.strftime, '', (1900, 1, 1, -1, 0, 0, 0, 1, -1))
+        raises(ValueError, rctime.strftime, '', (1900, 1, 1, 24, 0, 0, 0, 1, -1))
+        # check minute
+        raises(ValueError, rctime.strftime, '', (1900, 1, 1, 0, -1, 0, 0, 1, -1))
+        raises(ValueError, rctime.strftime, '', (1900, 1, 1, 0, 60, 0, 0, 1, -1))
+        # check second
+        raises(ValueError, rctime.strftime, '', (1900, 1, 1, 0, 0, -1, 0, 1, -1))
+        # C99 only requires allowing for one leap second, but Python's docs say
+        # allow two leap seconds (0..61)
+        raises(ValueError, rctime.strftime, '', (1900, 1, 1, 0, 0, 62, 0, 1, -1))
+        # no check for upper-bound day of week;
+        #  value forced into range by a "% 7" calculation.
+        # start check at -2 since gettmarg() increments value before taking
+        #  modulo.
+        raises(ValueError, rctime.strftime, '', (1900, 1, 1, 0, 0, 0, -2, 1, -1))
+        # check day of the year
+        raises(ValueError, rctime.strftime, '', (1900, 1, 1, 0, 0, 0, 0, 0, -1))
+        raises(ValueError, rctime.strftime, '', (1900, 1, 1, 0, 0, 0, 0, 367, -1))
+        # check daylight savings flag
+        raises(ValueError, rctime.strftime, '', (1900, 1, 1, 0, 0, 0, 0, 1, -2))
+        raises(ValueError, rctime.strftime, '', (1900, 1, 1, 0, 0, 0, 0, 1, 2))
     # 
     # def test_strptime():
     #     tt = rctime.gmtime(t)

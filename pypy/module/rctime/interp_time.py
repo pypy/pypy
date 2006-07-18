@@ -25,6 +25,7 @@ class CConfig:
     CLOCKS_PER_SEC = ctypes_platform.ConstantInteger("CLOCKS_PER_SEC")
     clock_t = ctypes_platform.SimpleType("clock_t", c_ulong)
     time_t = ctypes_platform.SimpleType("time_t", c_long)
+    size_t = ctypes_platform.SimpleType("time_t", c_long)
 
 class cConfig:
     pass
@@ -35,6 +36,7 @@ cConfig.tm.__name__ = "_tm"
 CLOCKS_PER_SEC = cConfig.CLOCKS_PER_SEC
 clock_t = cConfig.clock_t
 time_t = cConfig.time_t
+size_t = cConfig.size_t
 timeval = cConfig.timeval
 tm = cConfig.tm
 
@@ -59,6 +61,8 @@ libc.mktime.restype = time_t
 libc.asctime.argtypes = [POINTER(tm)]
 libc.asctime.restype = c_char_p
 libc.tzset.restype = None # tzset() returns void
+libc.strftime.argtypes = [c_char_p, size_t, c_char_p, POINTER(tm)]
+libc.strftime.restype = size_t
 
 def _init_accept2dyear():
     return (1, 0)[bool(os.getenv("PYTHONY2K"))]
@@ -413,3 +417,92 @@ if _POSIX:
         _set_module_list_object(space, 'tzname', tzname_w)
         _set_module_object(space, 'altzone', altzone)
     tzset.unwrap_spec = [ObjSpace]
+
+def strftime(space, w_format, w_tup=None):
+    """strftime(format[, tuple]) -> string
+
+    Convert a time tuple to a string according to a format specification.
+    See the library reference manual for formatting codes. When the time tuple
+    is not present, current time as returned by localtime() is used."""
+    
+    tup = None
+    tuple_len = 0
+    buf_value = tm()
+    
+    format = space.str_w(w_format)
+    
+    # if len(tup_w):
+    #     w_tup = tup_w[0]
+    if not space.is_w(w_tup, space.w_None):
+        tuple_len = space.int_w(space.len(w_tup))
+        
+        #if space.is_w(w_tup, space.w_None) or 1 < tuple_len < 9:
+        if 1 < tuple_len < 9:
+            raise OperationError(space.w_TypeError, 
+                space.wrap("argument must be 9-item sequence"))
+
+        # check if every passed object is a int
+        tup = space.unpackiterable(w_tup)
+        for t in tup:
+            space.int_w(t)
+        # map(space.int_w, tup) # XXX: can't use it
+        
+        buf_value = _gettmarg(space, tup, buf_value)
+    else:
+        # empty list
+        buf = None
+        
+        tt = time_t(int(_floattime())) 
+        buf = libc.localtime(byref(tt))
+        if not buf:
+            raise OperationError(space.w_ValueError,
+                space.wrap(_get_error_msg()))
+        buf_value = buf.contents
+
+    # Checks added to make sure strftime() does not crash Python by
+    # indexing blindly into some array for a textual representation
+    # by some bad index (fixes bug #897625).
+    # No check for year since handled in gettmarg().
+    if buf_value.tm_mon < 0 or buf_value.tm_mon > 11:
+        raise OperationError(space.w_ValueError,
+            space.wrap("month out of range"))
+    if buf_value.tm_mday < 1 or buf_value.tm_mday > 31:
+        raise OperationError(space.w_ValueError,
+            space.wrap("day of month out of range"))
+    if buf_value.tm_hour < 0 or buf_value.tm_hour > 23:
+        raise OperationError(space.w_ValueError,
+            space.wrap("hour out of range"))
+    if buf_value.tm_min < 0 or buf_value.tm_min > 59:
+        raise OperationError(space.w_ValueError,
+            space.wrap("minute out of range"))
+    if buf_value.tm_sec < 0 or buf_value.tm_sec > 61:
+        raise OperationError(space.w_ValueError,
+            space.wrap("seconds out of range"))
+    # tm_wday does not need checking of its upper-bound since taking
+    #   "% 7" in gettmarg() automatically restricts the range.
+    if buf_value.tm_wday < 0:
+        raise OperationError(space.w_ValueError,
+            space.wrap("day of week out of range"))
+    if buf_value.tm_yday < 0 or buf_value.tm_yday > 365:
+        raise OperationError(space.w_ValueError,
+            space.wrap("day of year out of range"))
+    if buf_value.tm_isdst < -1 or buf_value.tm_isdst > 1:
+        raise OperationError(space.w_ValueError,
+            space.wrap("daylight savings flag out of range"))
+
+    i = 1024
+    while True:
+        outbuf = create_string_buffer(i)
+        buflen = libc.strftime(outbuf, i, format, byref(buf_value))
+
+        if buflen > 0 or i >= 256 * len(format):
+            # if the buffer is 256 times as long as the format,
+            # it's probably not failing for lack of room!
+            # More likely, the format yields an empty result,
+            # e.g. an empty format, or %Z when the timezone
+            # is unknown.
+            if buflen > 0:
+                return space.wrap(outbuf.value[:buflen])
+
+        i += i
+strftime.unwrap_spec = [ObjSpace, W_Root, W_Root]
