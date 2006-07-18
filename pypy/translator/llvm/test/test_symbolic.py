@@ -111,3 +111,58 @@ def test_computed_int_symbolic():
     res = fn()
     assert res == 42
 
+def offsetofs(TYPE, *fldnames):
+    import operator
+    offsets = []
+    for name in fldnames:
+        assert name in TYPE._flds
+        offset = llmemory.FieldOffset(TYPE, name)
+        offsets.append(offset)
+        TYPE = getattr(TYPE, name)
+    return reduce(operator.add, offsets)
+            
+def test_complex_struct():
+    A = lltype.Array(lltype.Signed)
+    # XXX WHY cant we create a varsize array as last elemen here? :-(
+    S2 = lltype.Struct('s2', ('a', lltype.Signed)) # ('a', A)
+    S3 = lltype.Struct('s3', ('s', lltype.Signed), ('s2', S2))
+    SBASE = lltype.GcStruct('base', ('a', lltype.Signed), ('b', S3))
+    SBASEPTR = lltype.Ptr(SBASE)
+
+    sizeofsbase = llmemory.sizeof(SBASE)
+    offset_toa = offsetofs(SBASE, 'b', 's2', 'a') 
+    def complex_struct():
+        adr = lladdress.raw_malloc(sizeofsbase)
+        s = llmemory.cast_adr_to_ptr(adr, SBASEPTR)
+        s.b.s2.a = 42
+        return (adr + offset_toa).signed[0]
+
+    fn = compile_function(complex_struct, [])
+    assert fn() == 42
+
+def test_vararray():
+    S1 = lltype.Struct('s1', ('s', lltype.Signed))
+    A = lltype.Array(S1)
+    S2 = lltype.GcStruct('s2', ('b', lltype.Signed), ('a', A))
+    S1PTR = lltype.Ptr(S1)
+
+    offset1 = (llmemory.offsetof(S2, 'a') +
+               llmemory.ArrayItemsOffset(A) +
+               llmemory.ItemOffset(S1, 21) +
+               llmemory.offsetof(S1, 's'))
+    
+    offset2 = (llmemory.offsetof(S2, 'a') +
+               llmemory.ArrayItemsOffset(A) +
+               llmemory.ItemOffset(S1, 21))
+    
+    def vararray(n):
+        s = lltype.malloc(S2, n)
+        adr = llmemory.cast_ptr_to_adr(s)
+        s.a[n].s = n
+        s1 = llmemory.cast_adr_to_ptr(adr + offset2, S1PTR)
+        return (adr + offset1).signed[0] + s1.s
+    
+    fn = compile_function(vararray, [int])
+    assert fn(21) == 42
+
+

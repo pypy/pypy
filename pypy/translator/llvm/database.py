@@ -439,7 +439,7 @@ class Primitives(object):
                 from_, indices, to = self.get_offset(value.offsets[0])
                 indices = list(indices)
                 for item in value.offsets[1:]:
-                    _, more, to = self.get_offset(item)
+                    _, more, to = self.get_offset(item, fromoffset=True)
                     indices.extend(more)
             else:
                 from_, indices, to = self.get_offset(value)
@@ -456,30 +456,33 @@ class Primitives(object):
         
         return repr
     
-    def get_offset(self, value):
+    def get_offset(self, value, fromoffset=False):
         " return (from_type, (indices, ...), to_type) "        
         word = self.database.get_machine_word()
         uword = self.database.get_machine_uword()
+        indices = []
 
         if isinstance(value, llmemory.ItemOffset):
             # skips over a fixed size item (eg array access)
             from_ = value.TYPE
-            indices = (word, value.repeat),
+            indices.append((word, value.repeat))
             to = value.TYPE
         
         elif isinstance(value, llmemory.FieldOffset):
             # jumps to a field position in a struct
             pos = getindexhelper(value.fldname, value.TYPE)
             from_ = value.TYPE
-            indices = (word,  0), (uword, pos)
+            if not fromoffset:
+                indices.append((word, 0))
+            indices.append((uword, pos))
             to = getattr(value.TYPE, value.fldname)            
                 
         elif isinstance(value, llmemory.ArrayItemsOffset):
             # jumps to the beginning of array area
-            if isinstance(value.TYPE, lltype.FixedSizeArray):
-                indices = (word, 0),
-            else:
-                indices = (word, 0), (uword, 1) 
+            if not fromoffset:
+                indices.append((word, 0))
+            if not isinstance(value.TYPE, lltype.FixedSizeArray):
+                indices.append((uword, 1))
             from_ = value.TYPE
             to = value.TYPE.OF
         else:
