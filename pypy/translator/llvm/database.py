@@ -358,12 +358,12 @@ class Primitives(object):
                 lltype.Unsigned: "ulong" })            
         else:
             raise Exception("Unsupported platform - unknown word size")
-            
+
         self.reprs = {
             lltype.SignedLongLong : self.repr_signed,
             lltype.Signed : self.repr_signed,
-            lltype.UnsignedLongLong : self.repr_unsigned,
-            lltype.Unsigned : self.repr_unsigned,
+            lltype.UnsignedLongLong : self.repr_default,
+            lltype.Unsigned : self.repr_default,
             lltype.Float : self.repr_float,
             lltype.Char : self.repr_char,
             lltype.UniChar : self.repr_unichar,
@@ -372,23 +372,32 @@ class Primitives(object):
             llmemory.Address : self.repr_address,
             llmemory.WeakGcAddress : self.repr_weakgcaddress,
             }        
-        #XXX
-#         try:
-#             import ctypes
-#         except ImportError:
-#             pass
-#         else:
-#             from pypy.rpython.rctypes import rcarithmetic as rcarith
-#             types.update({rcarith.CByte : 'sbyte',
-#                           rcarith.CUByte : 'ubyte',
-#                           rcarith.CShort : 'short',
-#                           rcarith.CUShort : 'ushort',
-#                           rcarith.CInt : 'int',
-#                           rcarith.CUInt : 'uint',
-#                           rcarith.CLong : types[lltype.Signed],
-#                           rcarith.CULong : types[lltype.Unsigned],
-#                           rcarith.CLonglong : 'long',
-#                           rcarith.CULonglong : 'ulong'})
+
+        try:
+            import ctypes
+        except ImportError:
+            pass
+        else:
+            from pypy.rpython.rctypes import rcarithmetic as rcarith
+
+            def update(from_, type):
+                if from_ not in self.types:
+                    self.types[from_] = type
+                if from_ not in self.reprs:
+                    self.reprs[from_] = self.repr_default
+            
+            for k, v in [
+                (rcarith.CByte, self.types[lltype.Char]),
+                (rcarith.CUByte, 'ubyte'),
+                (rcarith.CShort, 'short'),
+                (rcarith.CUShort, 'ushort'),
+                (rcarith.CInt, 'int'),
+                (rcarith.CUInt, 'uint'),
+                (rcarith.CLong, self.types[lltype.Signed]),
+                (rcarith.CULong, self.types[lltype.Unsigned]),
+                (rcarith.CLonglong, self.types[lltype.SignedLongLong]),
+                (rcarith.CULonglong, self.types[lltype.UnsignedLongLong])]:
+                update(k, v)
         
     def __getitem__(self, key):
         return self.types[key]
@@ -399,6 +408,9 @@ class Primitives(object):
         except KeyError:
             raise Exception, "unsupported primitive type %r, value %r" % (type_, value)
         
+    def repr_default(self, type_, value):
+        return str(value)
+
     def repr_bool(self, type_, value):
         return str(value).lower() #False --> false
 
@@ -469,9 +481,6 @@ class Primitives(object):
             return self.repr_symbolic(type_, value)
         return str(value)
     
-    def repr_unsigned(self, type_, value):
-        return str(value)
-
     def repr_symbolic(self, type_, value):
         """ returns an int value for pointer arithmetic - not sure this is the
         llvm way, but well XXX need to fix adr_xxx operations  """
@@ -529,5 +538,4 @@ class Primitives(object):
         else:
             raise Exception("unsupported offset")
 
-        return from_, indices, to
-    
+        return from_, indices, to    
