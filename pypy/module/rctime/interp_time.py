@@ -25,7 +25,7 @@ class CConfig:
     CLOCKS_PER_SEC = ctypes_platform.ConstantInteger("CLOCKS_PER_SEC")
     clock_t = ctypes_platform.SimpleType("clock_t", c_ulong)
     time_t = ctypes_platform.SimpleType("time_t", c_long)
-    size_t = ctypes_platform.SimpleType("time_t", c_long)
+    size_t = ctypes_platform.SimpleType("size_t", c_long)
 
 class cConfig:
     pass
