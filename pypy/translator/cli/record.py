@@ -86,6 +86,8 @@ class Record(Node):
         equal = 'bool [pypylib]pypy.runtime.Utils::Equal<%s>(!!0, !!0)'
         self.ilasm.opcode('ldc.i4', '1')
         for f_name, (FIELD_TYPE, default) in self.record._fields.iteritems():
+            if FIELD_TYPE is ootype.Void:
+                continue
             f_type = self.cts.lltype_to_cts(FIELD_TYPE)
             f_name = self.cts.escape_name(f_name)
             self.ilasm.opcode('ldarg.0')
