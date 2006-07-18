@@ -25,7 +25,7 @@ def v(*msgs):
     """write"""
     if we_are_translated(): return
     for msg in msgs:
-        os.write(1, str(msg))
+        os.write(1, msg)
         os.write(1, ' ')
 
 #-- THE BUILTINS ----------------------------------------------------------------------
@@ -74,7 +74,7 @@ class Scheduler(object):
         self._main = ClonableCoroutine.w_getcurrent(space)
         self._init_head(self._main)
         self._init_blocked()
-        w ("MAIN THREAD = ", id(self._main))
+        w ("MAIN THREAD = ", str(id(self._main)))
 
     def _init_blocked(self):
         self._blocked = {} # thread set
@@ -96,11 +96,11 @@ class Scheduler(object):
             assert self._head not in self._blocked_byneed
         except:
             self.display_head()
-            w("BLOCKED", self._blocked)
+            w("BLOCKED", str(self._blocked))
             all = {}
             all.update(self._blocked_on)
             all.update(self._blocked_byneed)
-            w(all)
+            w(str(all))
             raise
             
     def _chain_insert(self, thread):
@@ -119,7 +119,7 @@ class Scheduler(object):
             SETNEXT(thread, r)
 
     def remove_thread(self, thread):
-        w(".. REMOVING", id(thread))
+        w(".. REMOVING", str(id(thread)))
         assert thread not in self._blocked
         l = thread.prev
         r = thread.next
@@ -134,16 +134,15 @@ class Scheduler(object):
     #-- to be used by logic objspace
 
     def schedule(self):
-        to_be_run = self._select_next(lambda coro: coro in self._blocked)
-        w(".. SWITCHING", id(ClonableCoroutine.w_getcurrent(self.space)), "=>", id(to_be_run))
-        to_be_run.switch()
+        to_be_run = self._select_next()
+        w(".. SWITCHING", str(id(ClonableCoroutine.w_getcurrent(self.space))), "=>", str(id(to_be_run)))
+        to_be_run.w_switch() # <- "Variable object has no attribute 'dict'
         
-    def _select_next(self, skip_condition):
-        """skip_condition is a predicate for NOT selecting one thread"""
+    def _select_next(self):
         to_be_run = self._head
         sentinel = to_be_run
         current = ClonableCoroutine.w_getcurrent(self.space)
-        while skip_condition(to_be_run) or to_be_run == current: 
+        while (to_be_run in self._blocked) or (to_be_run == current): 
             to_be_run = to_be_run.next
             if to_be_run == sentinel:
                 self.display_head()
@@ -159,10 +158,10 @@ class Scheduler(object):
     def display_head(self):
         curr = self._head
         v("HEAD : [prev, curr, next]")
-        v([id(self._head.prev), id(self._head), id(self._head.next)])
+        v(str([id(self._head.prev), id(self._head), id(self._head.next)]))
         while curr.next != self._head:
             curr = curr.next
-            v([id(curr.prev), id(curr), id(curr.next)])
+            v(str([id(curr.prev), id(curr), id(curr.next)]))
         w()
 
     def add_new_thread(self, thread):
@@ -171,7 +170,7 @@ class Scheduler(object):
         self._chain_insert(thread)
 
     def add_to_blocked_on(self, w_var, uthread):
-        w(".. we BLOCK thread", id(uthread), "on var", id(w_var))
+        w(".. we BLOCK thread", str(id(uthread)), "on var", str(id(w_var)))
         assert isinstance(w_var, W_Var)
         assert isinstance(uthread, Coroutine)
         assert uthread not in self._blocked
@@ -184,17 +183,17 @@ class Scheduler(object):
         self._blocked[uthread] = True
 
     def unblock_on(self, w_var):
-        v(".. we UNBLOCK threads dependants of var", id(w_var))
+        v(".. we UNBLOCK threads dependants of var", str(id(w_var)))
         assert isinstance(w_var, W_Var)
         blocked = []
         if w_var in self._blocked_on:
             blocked = self._blocked_on[w_var]
             del self._blocked_on[w_var]
-        w([id(thr) for thr in blocked])
+        w(str([id(thr) for thr in blocked]))
         for thr in blocked: del self._blocked[thr]
 
     def add_to_blocked_byneed(self, w_var, uthread):
-        w(".. we BLOCK BYNEED thread", id(uthread), "on var", id(w_var))
+        w(".. we BLOCK BYNEED thread", str(id(uthread)), "on var", str(id(w_var)))
         assert isinstance(w_var, W_Var)
         assert isinstance(uthread, ClonableCoroutine)
         if w_var in self._blocked_byneed:
@@ -206,7 +205,7 @@ class Scheduler(object):
         self._blocked[uthread] = True
 
     def unblock_byneed_on(self, space, w_var):
-        v(".. we UNBLOCK BYNEED dependants of var", id(w_var))
+        v(".. we UNBLOCK BYNEED dependants of var", str(id(w_var)))
         assert isinstance(w_var, W_Var)
         blocked = []
         for w_alias in aliases(space, w_var):
@@ -214,7 +213,7 @@ class Scheduler(object):
                 blocked += self._blocked_byneed[w_alias]
                 del self._blocked_byneed[w_alias]
             w_alias.w_needed = True
-        w([id(thr) for thr in blocked])
+        w(str([id(thr) for thr in blocked]))
         for thr in blocked: del self._blocked[thr]
 
 scheduler = []
@@ -251,10 +250,9 @@ app_uthread = gateway.interp2app(uthread, unwrap_spec=[baseobjspace.ObjSpace,
                                                        argument.Arguments])
     
 
-def initial_conditions(space):
-    scheduler[0]._check_initial_conditions()
-    w('success !')
-app_initial_conditions = gateway.interp2app(initial_conditions)
+
+# need : complete scheduler info, getcurrent(), getmain(), 
+# wrappers for schedule()
 
 #-- VARIABLE ---------------------
 
@@ -459,7 +457,7 @@ def bind__Var_Var(space, w_v1, w_v2):
 
 
 def bind__Var_Root(space, w_var, w_obj):
-    w("var val", id(w_var))
+    w("var val", str(id(w_var)))
     # 3. var and value
     if space.is_true(space.is_free(w_var)):
         return _assign(space, w_var, w_obj)
@@ -499,7 +497,7 @@ def _alias(space, w_v1, w_v2):
        user must ensure freeness of both vars"""
     assert isinstance(w_v1, W_Var)
     assert isinstance(w_v2, W_Var)
-    w("  :alias", id(w_v1), id(w_v2))
+    w("  :alias", str(id(w_v1)), str(id(w_v2)))
     if space.is_true(space.is_nb_(w_v1, w_v2)):
         return space.w_None
     if space.is_true(is_aliased(space, w_v1)):
@@ -552,7 +550,7 @@ def unify__Root_Root(space, w_x, w_y):
     return space.w_None
     
 def unify__Var_Var(space, w_x, w_y):
-    w(":unify var var", id(w_x), id(w_y))
+    w(":unify var var", str(id(w_x)), str(id(w_y)))
     if space.is_true(space.is_bound(w_x)):
         if space.is_true(space.is_bound(w_y)):
             return space.unify(deref(space, w_x), 
@@ -563,7 +561,7 @@ def unify__Var_Var(space, w_x, w_y):
         return bind(space, w_x, w_y) 
     
 def unify__Var_Root(space, w_x, w_y):
-    w(" :unify var val", id(w_x))
+    w(" :unify var val", str(id(w_x)))
     if space.is_true(space.is_bound(w_x)):
         return space.unify(deref(space, w_x), w_y)            
     return bind(space, w_x, w_y)
@@ -743,24 +741,24 @@ def proxymaker(space, opname, parentfn):
     return proxy
 
 
-#------ domains ------------------
-from pypy.objspace.constraint import domain 
-all_mms.update(domain.all_mms)
+## #------ domains ------------------
+## from pypy.objspace.constraint import domain 
+## all_mms.update(domain.all_mms)
 
-W_FiniteDomain = domain.W_FiniteDomain
+## W_FiniteDomain = domain.W_FiniteDomain
 
-#-------- computationspace --------
-from pypy.objspace.constraint import computationspace
-all_mms.update(computationspace.all_mms)
+## #-------- computationspace --------
+## from pypy.objspace.constraint import computationspace
+## all_mms.update(computationspace.all_mms)
 
-W_ComputationSpace = computationspace.W_ComputationSpace
+## W_ComputationSpace = computationspace.W_ComputationSpace
 
-# ---- constraints ----------------
-from pypy.objspace.constraint import constraint
-all_mms.update(constraint.all_mms)
+## # ---- constraints ----------------
+## from pypy.objspace.constraint import constraint
+## all_mms.update(constraint.all_mms)
 
-#----- distributors ---------------
-from pypy.objspace.constraint import distributor
+## #----- distributors ---------------
+## from pypy.objspace.constraint import distributor
 
 
 #-- THE SPACE ---------------------------------------
@@ -779,7 +777,7 @@ def Space(*args, **kwds):
 
     # multimethods hack
     space.model.typeorder[W_Var] = [(W_Var, None), (W_Root, None)] # None means no conversion
-    space.model.typeorder[W_FiniteDomain] = [(W_FiniteDomain, None), (W_Root, None)] 
+##     space.model.typeorder[W_FiniteDomain] = [(W_FiniteDomain, None), (W_Root, None)] 
 
 
     for name in all_mms.keys():
@@ -816,26 +814,26 @@ def Space(*args, **kwds):
                  space.wrap(app_bind))
     space.setitem(space.builtin.w_dict, space.wrap('unify'),
                  space.wrap(app_unify))
-    #-- comp space ---
-    space.setitem(space.builtin.w_dict, space.wrap('newspace'),
-                 space.wrap(computationspace.app_newspace))
-    #-- domain -------
-    space.setitem(space.builtin.w_dict, space.wrap('FiniteDomain'),
-                 space.wrap(domain.app_make_fd))
-    space.setitem(space.builtin.w_dict, space.wrap('intersection'),
-                 space.wrap(domain.app_intersection))
-    #-- constraint ----
-    space.setitem(space.builtin.w_dict, space.wrap('make_expression'),
-                 space.wrap(constraint.app_make_expression))
-    space.setitem(space.builtin.w_dict, space.wrap('AllDistinct'),
-                 space.wrap(constraint.app_make_alldistinct))
-    #-- distributor --
-    space.setitem(space.builtin.w_dict, space.wrap('NaiveDistributor'),
-                 space.wrap(distributor.app_make_naive_distributor))
-    space.setitem(space.builtin.w_dict, space.wrap('SplitDistributor'),
-                 space.wrap(distributor.app_make_split_distributor))
-    space.setitem(space.builtin.w_dict, space.wrap('DichotomyDistributor'),
-                 space.wrap(distributor.app_make_dichotomy_distributor))
+##     #-- comp space ---
+##     space.setitem(space.builtin.w_dict, space.wrap('newspace'),
+##                  space.wrap(computationspace.app_newspace))
+##     #-- domain -------
+##     space.setitem(space.builtin.w_dict, space.wrap('FiniteDomain'),
+##                  space.wrap(domain.app_make_fd))
+##     space.setitem(space.builtin.w_dict, space.wrap('intersection'),
+##                  space.wrap(domain.app_intersection))
+##     #-- constraint ----
+##     space.setitem(space.builtin.w_dict, space.wrap('make_expression'),
+##                  space.wrap(constraint.app_make_expression))
+##     space.setitem(space.builtin.w_dict, space.wrap('AllDistinct'),
+##                  space.wrap(constraint.app_make_alldistinct))
+##     #-- distributor --
+##     space.setitem(space.builtin.w_dict, space.wrap('NaiveDistributor'),
+##                  space.wrap(distributor.app_make_naive_distributor))
+##     space.setitem(space.builtin.w_dict, space.wrap('SplitDistributor'),
+##                  space.wrap(distributor.app_make_split_distributor))
+##     space.setitem(space.builtin.w_dict, space.wrap('DichotomyDistributor'),
+##                  space.wrap(distributor.app_make_dichotomy_distributor))
     #-- threading --
     space.setitem(space.builtin.w_dict, space.wrap('uthread'),
                  space.wrap(app_uthread))
@@ -845,10 +843,6 @@ def Space(*args, **kwds):
                   space.wrap(app_wait_needed))
 
     #-- misc -----
-    space.setitem(space.builtin.w_dict, space.wrap('initial_conditions'),
-                  space.wrap(app_initial_conditions))
-    space.setitem(space.builtin.w_dict, space.wrap('initial_conditions'),
-                  space.wrap(app_initial_conditions))
     space.setitem(space.builtin.w_dict, space.wrap('interp_id'),
                   space.wrap(app_interp_id))
     

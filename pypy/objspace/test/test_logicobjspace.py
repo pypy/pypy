@@ -201,7 +201,6 @@ class AppTest_LogicThreads(object):
         cls.space = gettestobjspace('logic', usemodules=("_stackless",))
 
     def test_one_thread(self):
-        initial_conditions()
         
         def poop(X):
             wait(X)
