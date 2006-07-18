@@ -25,25 +25,18 @@ class Record(Node):
         return '[mscorlib]System.Object'        
 
     def render(self, ilasm):
-        if self.db.class_name(self.record) is not None:
-            return # already rendered
-
         self.ilasm = ilasm
-
         ilasm.begin_class(self.name, self.get_base_class())
         for f_name, (FIELD_TYPE, f_default) in self.record._fields.iteritems():
             f_name = self.cts.escape_name(f_name)
             cts_type = self.cts.lltype_to_cts(FIELD_TYPE)
             if cts_type != 'void':
                 ilasm.field(f_name, cts_type)
-
         self._ctor()
         self._toString()
         self._equals()
         self._getHashCode()
         ilasm.end_class()
-
-        self.db.record_class(self.record, self.name)
 
     def _ctor(self):
         self.ilasm.begin_function('.ctor', [], 'void', False, 'specialname', 'rtspecialname', 'instance')
@@ -70,7 +63,7 @@ class Record(Node):
             self.ilasm.opcode('ldarg.0')
             f_type = self.cts.lltype_to_cts(FIELD_TYPE)
             self.ilasm.get_field((f_type, self.name, f_name))
-            format_object(FIELD_TYPE, self.ilasm)
+            format_object(FIELD_TYPE, self.cts, self.ilasm)
             self.ilasm.call('string string::Concat(string, string)')
             self.ilasm.opcode('ldstr ", "')
             self.ilasm.call('string string::Concat(string, string)')

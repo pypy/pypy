@@ -43,6 +43,7 @@ class GenCli(object):
         if entrypoint is None:
             self.assembly_name = self.translator.graphs[0].name
         else:
+            entrypoint.set_db(self.db)
             self.assembly_name = entrypoint.get_name()
 
         self.tmpfile = tmpdir.join(self.assembly_name + name_suffix)

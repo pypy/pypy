@@ -39,7 +39,7 @@ class LowLevelDatabase(object):
         self.function_class = function_class
         self.type_system_class = type_system_class
         self.cts = type_system_class(self)
-        self.classes = {} # classdef --> class_name
+        self.classes = {} # INSTANCE --> class_name
         self.classnames = set() # (namespace, name)
         self.recordnames = {} # RECORD --> name
         self.functions = {} # graph --> function_name
@@ -65,13 +65,33 @@ class LowLevelDatabase(object):
             
         return '__'.join(name)
 
+    def _default_class_name(self, INSTANCE):
+        parts = INSTANCE._name.rsplit('.', 1)
+        if len(parts) == 2:
+            return parts
+        else:
+            return None, parts[0]
+
     def pending_function(self, graph):
         function = self.function_class(self, graph)
         self.pending_node(function)
         return function.get_name()
 
-    def pending_class(self, classdef):
-        self.pending_node(Class(self, classdef))
+    def pending_class(self, INSTANCE):
+        try:
+            return self.classes[INSTANCE]
+        except KeyError:
+            pass
+        namespace, name = self._default_class_name(INSTANCE)
+        name = self.get_unique_class_name(namespace, name)
+        if namespace is None:
+            full_name = name
+        else:
+            full_name = '%s.%s' % (namespace, name)
+        self.classes[INSTANCE] = full_name
+        cls = Class(self, INSTANCE, namespace, name)
+        self.pending_node(cls)
+        return full_name
 
     def pending_record(self, RECORD):
         try:
@@ -83,7 +103,7 @@ class LowLevelDatabase(object):
         except KeyError:
             pass
         name = self._default_record_name(RECORD)
-        name = self.get_unique_class_name('', name)
+        name = self.get_unique_class_name(None, name)
         self.recordnames[RECORD] = name
         r = Record(self, RECORD, name)
         self.pending_node(r)
@@ -100,9 +120,6 @@ class LowLevelDatabase(object):
     def record_function(self, graph, name):
         self.functions[graph] = name
 
-    def record_class(self, classdef, name):
-        self.classes[classdef] = name
-
     def graph_name(self, graph):
         # XXX: graph name are not guaranteed to be unique
         return self.functions.get(graph, None)
@@ -113,8 +130,8 @@ class LowLevelDatabase(object):
         self.classnames.add((namespace, name))            
         return name
 
-    def class_name(self, classdef):
-        return self.classes.get(classdef, None)
+    def class_name(self, INSTANCE):
+        return self.classes.get(INSTANCE, None)
 
     def get_record_name(self, RECORD):
         try:
@@ -373,7 +390,7 @@ class ClassConst(AbstractConst):
         if INSTANCE is None:
             ilasm.opcode('ldnull')
         else:
-            ilasm.opcode('ldtoken', INSTANCE._name)
+            ilasm.opcode('ldtoken', self.db.class_name(INSTANCE))
             ilasm.call('class [mscorlib]System.Type class [mscorlib]System.Type::GetTypeFromHandle(valuetype [mscorlib]System.RuntimeTypeHandle)')
 
 class ListConst(AbstractConst):
@@ -521,7 +538,7 @@ class InstanceConst(AbstractConst):
         else:
             self.static_type = static_type
             self.cts.lltype_to_cts(obj._TYPE) # force scheduling of obj's class
-        class_name = obj._TYPE._name.replace('.', '_')
+        class_name = db.class_name(obj._TYPE).replace('.', '_')
         self.name = '%s__%d' % (class_name, count)
 
     def get_type(self):
@@ -546,8 +563,8 @@ class InstanceConst(AbstractConst):
             ilasm.opcode('ldnull')
             return
 
-        classdef = self.value._TYPE        
-        ilasm.new('instance void class %s::.ctor()' % classdef._name)
+        INSTANCE = self.value._TYPE
+        ilasm.new('instance void class %s::.ctor()' % self.db.class_name(INSTANCE))
 
     def init(self, ilasm):
         if not self.value:
@@ -563,7 +580,7 @@ class InstanceConst(AbstractConst):
                 type_ = self.cts.lltype_to_cts(TYPE)
                 ilasm.opcode('dup')
                 AbstractConst.load(self.db, TYPE, value, ilasm)
-                ilasm.opcode('stfld %s %s::%s' % (type_, INSTANCE._name, name))
+                ilasm.opcode('stfld %s %s::%s' % (type_, self.db.class_name(INSTANCE), name))
             INSTANCE = INSTANCE._superclass
         ilasm.opcode('pop')
 

@@ -246,10 +246,10 @@ class Function(Node, Generator):
                 assert False, 'Unknown opcode: %s ' % op
 
     def field_name(self, obj, field):
-        class_, type_ = obj._lookup_field(field)
+        INSTANCE, type_ = obj._lookup_field(field)
         assert type_ is not None, 'Cannot find the field %s in the object %s' % (field, obj)
         
-        class_name = self.class_name(class_)
+        class_name = self.class_name(INSTANCE)
         field_type = self.cts.lltype_to_cts(type_)
         field = self.cts.escape_name(field)
         return '%s %s::%s' % (field_type, class_name, field)
@@ -261,7 +261,7 @@ class Function(Node, Generator):
 
     def class_name(self, TYPE):
         if isinstance(TYPE, ootype.Instance):
-            return TYPE._name
+            return self.db.class_name(TYPE)
         elif isinstance(TYPE, ootype.Record):
             return self.db.get_record_name(TYPE)
 

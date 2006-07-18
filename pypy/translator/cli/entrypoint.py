@@ -1,12 +1,10 @@
 from pypy.translator.cli.cts import CTS
 from pypy.translator.cli.database import LowLevelDatabase
 from pypy.translator.cli.node import Node
-from pypy.translator.cli.test.runtest import TestEntryPoint
 from pypy.rpython.ootypesystem import ootype
 
-cts = CTS(LowLevelDatabase()) # this is a hack!
-
 def get_entrypoint(graph):
+    from pypy.translator.cli.test.runtest import TestEntryPoint
     try:
         ARG0 = graph.getargs()[0].concretetype
     except IndexError:
@@ -16,7 +14,12 @@ def get_entrypoint(graph):
     else:
         return TestEntryPoint(graph)
 
-class StandaloneEntryPoint(Node):
+class BaseEntryPoint(Node):
+    def set_db(self, db):
+        self.db = db
+        self.cts = CTS(db)
+
+class StandaloneEntryPoint(BaseEntryPoint):
     """
     This class produces a 'main' method that converts the argv in a
     List of Strings and pass it to the real entry point.
@@ -24,7 +27,6 @@ class StandaloneEntryPoint(Node):
     
     def __init__(self, graph_to_call):
         self.graph = graph_to_call
-        self.db = None
 
     def get_name(self):
         return 'main'
@@ -51,7 +53,7 @@ class StandaloneEntryPoint(Node):
         ilasm.call_method('void class [mscorlib]System.Collections.Generic.List`1<string>::'
                           'AddRange(class [mscorlib]System.Collections.Generic.IEnumerable`1<!0>)', True)
 
-        ilasm.call(cts.graph_to_signature(self.graph))
+        ilasm.call(self.cts.graph_to_signature(self.graph))
         ilasm.opcode('pop') # XXX: return this value, if it's an int32
         ilasm.opcode('ret')
         ilasm.end_function()

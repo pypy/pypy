@@ -16,10 +16,9 @@ from pypy.translator.cli.node import Node
 from pypy.translator.cli.cts import CTS
 from pypy.translator.cli.database import LowLevelDatabase
 from pypy.translator.cli.sdk import SDK
+from pypy.translator.cli.entrypoint import BaseEntryPoint
 
 FLOAT_PRECISION = 8
-
-cts = CTS(LowLevelDatabase()) # this is a hack!
 
 def check(func, annotation, args):
     mono = compile_function(func, annotation)
@@ -31,7 +30,7 @@ def check(func, annotation, args):
     else:
         assert res1 == res2
 
-def format_object(TYPE, ilasm):
+def format_object(TYPE, cts, ilasm):
     if TYPE is ootype.Void:
         ilasm.opcode('ldstr "None"')
     else:
@@ -41,8 +40,7 @@ def format_object(TYPE, ilasm):
             type_ = cts.lltype_to_cts(TYPE)
         ilasm.call('string class [pypylib]pypy.test.Result::ToPython(%s)' % type_)
 
-
-class TestEntryPoint(Node):
+class TestEntryPoint(BaseEntryPoint):
     """
     This class produces a 'main' method that converts its arguments
     to int32, pass them to another method and prints out the result.
@@ -50,7 +48,6 @@ class TestEntryPoint(Node):
     
     def __init__(self, graph_to_call, wrap_exceptions=False):
         self.graph = graph_to_call
-        self.db = None
         self.wrap_exceptions = wrap_exceptions
 
     def get_name(self):
@@ -67,14 +64,14 @@ class TestEntryPoint(Node):
             ilasm.opcode('ldarg.0')
             ilasm.opcode('ldc.i4.%d' % i)
             ilasm.opcode('ldelem.ref')
-            arg_type, arg_var = cts.llvar_to_cts(arg)
+            arg_type, arg_var = self.cts.llvar_to_cts(arg)
             ilasm.call('%s class [mscorlib]System.Convert::%s(string)' %
                        (arg_type, self.__convert_method(arg_type)))
 
         # call the function and convert the result to a string containing a valid python expression
-        ilasm.call(cts.graph_to_signature(self.graph))
+        ilasm.call(self.cts.graph_to_signature(self.graph))
         TYPE = self.graph.getreturnvar().concretetype
-        format_object(TYPE, ilasm)
+        format_object(TYPE, self.cts, ilasm)
         ilasm.call('void class [mscorlib]System.Console::WriteLine(string)')
         ilasm.leave('return')
 

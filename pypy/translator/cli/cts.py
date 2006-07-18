@@ -142,8 +142,8 @@ class CTS(object):
         elif isinstance(t, lltype.Ptr) and isinstance(t.TO, lltype.OpaqueType):
             return '[mscorlib]System.Object'
         elif isinstance(t, ootype.Instance):
-            self.db.pending_class(t)
-            return self.__class(t._name, include_class)
+            name = self.db.pending_class(t)
+            return self.__class(name, include_class)
         elif isinstance(t, ootype.Record):
             name = self.db.pending_record(t)
             return self.__class(name, include_class)
@@ -203,7 +203,7 @@ class CTS(object):
         # TODO: use callvirt only when strictly necessary
         if isinstance(TYPE, ootype.Instance):
             owner, meth = TYPE._lookup(name)
-            class_name = TYPE._name
+            class_name = self.db.class_name(TYPE)
             full_name = 'class %s::%s' % (class_name, name)
 
             METH = meth._TYPE
@@ -228,10 +228,3 @@ class CTS(object):
 
         else:
             assert False
-
-    def split_class_name(self, class_name):
-        parts = class_name.rsplit('.', 1)
-        if len(parts) == 2:
-            return parts
-        else:
-            return None, parts[0]

@@ -83,7 +83,7 @@ class _SetField(MicroInstruction):
 class _CastTo(MicroInstruction):
     def render(self, generator, op):
         generator.load(op.args[0])
-        generator.isinstance(op.args[1].value._name)
+        generator.isinstance(generator.db.class_name(op.args[1].value))
 
 class _OOString(MicroInstruction):
     def render(self, generator, op):
