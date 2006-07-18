@@ -40,6 +40,12 @@ class Class(Node):
         else:
             return self.db.class_name(base_class)
 
+    def is_abstract(self):
+        for m_name, m_meth in self.INSTANCE._methods.iteritems():
+            if not hasattr(m_meth, 'graph'):
+                return True
+        return False
+
     def render(self, ilasm):        
         if self.is_root(self.INSTANCE):
             return
@@ -48,7 +54,7 @@ class Class(Node):
         if self.namespace:
             ilasm.begin_namespace(self.namespace)
 
-        ilasm.begin_class(self.name, self.get_base_class())
+        ilasm.begin_class(self.name, self.get_base_class(), abstract=self.is_abstract())
         for f_name, (f_type, f_default) in self.INSTANCE._fields.iteritems():
             cts_type = self.cts.lltype_to_cts(f_type)
             f_name = self.cts.escape_name(f_name)
