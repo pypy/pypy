@@ -1,3 +1,4 @@
+from pypy.rpython.ootypesystem import ootype
 from pypy.translator.cli.cts import CTS
 from pypy.translator.cli.node import Node
 
@@ -38,7 +39,7 @@ class Delegate(Node):
         ilasm.end_function()
 
         resulttype = self.cts.lltype_to_cts(TYPE.RESULT)
-        arglist = [(self.cts.lltype_to_cts(ARG), '') for ARG in TYPE.ARGS]
+        arglist = [(self.cts.lltype_to_cts(ARG), '') for ARG in TYPE.ARGS if ARG is not ootype.Void]
         ilasm.begin_function('Invoke', arglist, resulttype, False,
                              'virtual', 'hidebysig', 'instance', 'default',
                              runtime=True)
