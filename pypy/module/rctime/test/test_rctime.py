@@ -241,14 +241,17 @@ class AppTestRCTime:
         # check daylight savings flag
         raises(ValueError, rctime.strftime, '', (1900, 1, 1, 0, 0, 0, 0, 1, -2))
         raises(ValueError, rctime.strftime, '', (1900, 1, 1, 0, 0, 0, 0, 1, 2))
-    # 
-    # def test_strptime():
-    #     tt = rctime.gmtime(t)
-    #     for directive in ('a', 'A', 'b', 'B', 'c', 'd', 'H', 'I',
-    #                       'j', 'm', 'M', 'p', 'S',
-    #                       'U', 'w', 'W', 'x', 'X', 'y', 'Y', 'Z', '%'):
-    #         format = ' %' + directive
-    #         try:
-    #             assert rctime.strptime(rctime.strftime(format, tt), format) != None
-    #         except ValueError:
-    #             raise ValueError, "conversion specifier: %r failed.' % format"
+
+    def test_strptime(self):
+        import rctime
+        
+        t = rctime.time()
+        tt = rctime.gmtime(t)
+        for directive in ('a', 'A', 'b', 'B', 'c', 'd', 'H', 'I',
+                          'j', 'm', 'M', 'p', 'S',
+                          'U', 'w', 'W', 'x', 'X', 'y', 'Y', 'Z', '%'):
+            format = ' %' + directive
+            # try:
+            rctime.strptime(rctime.strftime(format, tt), format)
+            # except ValueError:
+            #     raise ValueError, "conversion specifier: %r failed.' % format"

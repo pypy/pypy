@@ -17,6 +17,7 @@ class Module(MixedModule):
         'mktime': 'interp_time.mktime',
         'tzset': 'interp_time.tzset',
         'strftime': 'interp_time.strftime',
+        'strptime': 'interp_time.strptime'
     }
 
     # def init(self, space):
@@ -45,5 +46,5 @@ class Module(MixedModule):
         'sleep': 'app_time.sleep',
         '_check_float': 'app_time._check_float',
         'struct_time': 'app_time.struct_time',
-        '__doc__': 'app_time.__doc__'
+        '__doc__': 'app_time.__doc__',
     }
