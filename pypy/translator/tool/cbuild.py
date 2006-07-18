@@ -262,7 +262,8 @@ def log_spawned_cmd(spawn):
 class CCompiler:
 
     def __init__(self, cfilenames, outputfilename=None, include_dirs=[],
-                 libraries=[], library_dirs=[], compiler_exe=None):
+                 libraries=[], library_dirs=[], compiler_exe=None,
+                 profopt=None):
         self.cfilenames = cfilenames
         ext = ''
         self.compile_extra = []
@@ -271,6 +272,7 @@ class CCompiler:
         self.include_dirs = list(include_dirs)
         self.library_dirs = list(library_dirs)
         self.compiler_exe = compiler_exe
+        self.profopt = profopt
         if not sys.platform in ('win32', 'darwin'): # xxx
             if 'm' not in self.libraries:
                 self.libraries.append('m')
@@ -301,7 +303,26 @@ class CCompiler:
         try:
             try:
                 c = stdoutcapture.Capture(mixed_out_err = True)
-                self._build()
+                log.profopt(str(self.profopt))
+                if self.profopt is None:
+                    self._build()
+                else:   #XXX assuming gcc style flags for now
+                    self.compile_extra.append('-fprofile-generate')
+                    self.link_extra.append('-fprofile-generate')
+                    self._build()
+                    self.compile_extra.pop()
+                    self.link_extra.pop()
+
+                    log.profopt('Gathering profile data from: %s %s' % (
+                        str(self.outputfilename), self.profopt))
+                    import subprocess
+                    subprocess.call([str(self.outputfilename), self.profopt])
+
+                    self.compile_extra.append('-fprofile-use')
+                    self.link_extra.append('-fprofile-use')
+                    self._build()
+                    self.compile_extra.pop()
+                    self.link_extra.pop()
             finally:
                 foutput, foutput = c.done()
                 data = foutput.read()
@@ -316,7 +337,7 @@ class CCompiler:
  
     def _build(self):
         from distutils.ccompiler import new_compiler 
-        compiler = new_compiler()
+        compiler = new_compiler(force=1)
         if self.compiler_exe is not None:
             for c in '''compiler compiler_so compiler_cxx
                         linker_exe linker_so'''.split():

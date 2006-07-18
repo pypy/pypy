@@ -212,11 +212,15 @@ class CStandaloneBuilder(CBuilder):
             cc = self.translator.driver_options.cc
         else:
             cc = None
+        if self.translator.driver_options:
+            profopt = self.translator.driver_options.profopt
+        else:
+            profopt = None
         return CCompiler(
             [self.c_source_filename] + self.extrafiles,
             include_dirs = [autopath.this_dir, python_inc] + extra_includes,
             libraries    = self.libraries,
-            compiler_exe = cc)
+            compiler_exe = cc, profopt = profopt)
 
     def compile(self):
         assert self.c_source_filename
@@ -255,6 +259,11 @@ class CStandaloneBuilder(CBuilder):
         else:
             cc = 'gcc'
 
+        if self.translator.driver_options and self.translator.driver_options.profopt:
+            profopt = self.translator.driver_options.profopt
+        else:
+            profopt = ''
+
         f = targetdir.join('Makefile').open('w')
         print >> f, '# automatically generated Makefile'
         print >> f
@@ -271,10 +280,11 @@ class CStandaloneBuilder(CBuilder):
         args = ['-I'+path for path in compiler.include_dirs]
         write_list(args, 'INCLUDEDIRS =')
         print >> f
-        print >> f, 'CFLAGS =', ' '.join(compiler.compile_extra)
+        print >> f, 'CFLAGS  =', ' '.join(compiler.compile_extra)
         print >> f, 'LDFLAGS =', ' '.join(compiler.link_extra)
-        print >> f, 'TFLAGS = ' + ('', '-pthread')[self.thread_enabled]
-        print >> f, 'CC = ' + cc
+        print >> f, 'TFLAGS  = ' + ('', '-pthread')[self.thread_enabled]
+        print >> f, 'PROFOPT = ' + profopt
+        print >> f, 'CC      = ' + cc
         print >> f
         print >> f, MAKEFILE.strip()
         f.close()
@@ -813,7 +823,7 @@ setup(name="%(modulename)s",
 MAKEFILE = '''
 
 $(TARGET): $(OBJECTS)
-\t$(CC) $(LDFLAGS) -o $@ $(OBJECTS) $(LIBDIRS) $(LIBS)
+\t$(CC) $(LDFLAGS) $(TFLAGS) -o $@ $(OBJECTS) $(LIBDIRS) $(LIBS)
 
 %.o: %.c
 \t$(CC) $(CFLAGS) -o $@ -c $< $(INCLUDEDIRS)
@@ -822,8 +832,14 @@ clean:
 \trm -f $(OBJECTS) $(TARGET)
 
 debug:
-\tmake CFLAGS="-g $(TFLAGS)"
+\tmake CFLAGS="-g $(CFLAGS)"
 
 profile:
 \tmake CFLAGS="-pg $(CFLAGS)" LDFLAGS="-pg $(LDFLAGS)"
+
+profopt:
+\tmake CFLAGS="-fprofile-generate $(CFLAGS)" LDFLAGS="-fprofile-generate $(LDFLAGS)"
+\t./$(TARGET) $(PROFOPT)
+\trm -f $(OBJECTS) $(TARGET)
+\tmake CFLAGS="-fprofile-use $(CFLAGS)" LDFLAGS="-fprofile-use $(LDFLAGS)"
 '''

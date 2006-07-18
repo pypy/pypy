@@ -59,6 +59,7 @@ opts = {
     '_compile': [OPT(('-c', '--compile'), "Compile generated source", GOAL),
                 OPT(('--no-compile',), "Don't compile", SKIP_GOAL)],
     '2_cc': [OPT(('--cc',), "Set compiler", str)],
+    '3_profopt': [OPT(('--profopt',), "Set profile based optimization script", str)],
     },
                
     '5_Run options': {
@@ -113,6 +114,7 @@ defaults = {
     'graphserve': None,
     'huge': 100,
     'cc': None,
+    'profopt': None,
 
     'fork_before': None
 }
