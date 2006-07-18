@@ -107,11 +107,14 @@ class Record(Node):
         gethash = 'int32 [pypylib]pypy.runtime.Utils::GetHashCode<%s>(!!0)'
         if self.record._fields:
             f_name, (FIELD_TYPE, default) = self.record._fields.iteritems().next()
-            f_name = self.cts.escape_name(f_name)
-            f_type = self.cts.lltype_to_cts(FIELD_TYPE)
-            self.ilasm.opcode('ldarg.0')
-            self.ilasm.get_field((f_type, record_type, f_name))
-            self.ilasm.call(gethash % f_type)
+            if FIELD_TYPE is ootype.Void:
+                self.ilasm.opcode('ldc.i4.0')
+            else:
+                f_name = self.cts.escape_name(f_name)
+                f_type = self.cts.lltype_to_cts(FIELD_TYPE)
+                self.ilasm.opcode('ldarg.0')
+                self.ilasm.get_field((f_type, record_type, f_name))
+                self.ilasm.call(gethash % f_type)
         else:
             self.ilasm.opcode('ldc.i4.0')
         self.ilasm.opcode('ret')
