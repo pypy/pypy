@@ -274,50 +274,53 @@ def ctime(space, w_seconds=None):
     return space.wrap(p[:-1]) # get rid of new line
 ctime.unwrap_spec = [ObjSpace, W_Root]
 
-# def asctime(space, tup_w): # *tup_w does not really work
-#     """asctime([tuple]) -> string
-# 
-#     Convert a time tuple to a string, e.g. 'Sat Jun 06 16:26:11 1998'.
-#     When the time tuple is not present, current time as returned by localtime()
-#     is used."""
-#     
-#     tup = None
-#     tuple_len = 0
-#     buf_value = tm()
-# 
-#     if len(tup_w):
-#         w_tup = tup_w[0]
-#         tuple_len = space.int_w(space.len(w_tup))
-#         
-#         if space.is_w(w_tup, space.w_None) or 1 < tuple_len < 9:
-#             raise OperationError(space.w_TypeError, 
-#                 space.wrap("argument must be 9-item sequence"))
-# 
-#         # check if every passed object is a int
-#         tup = space.unpackiterable(w_tup)
-#         for t in tup:
-#             space.int_w(t)
-#         # map(space.int_w, tup) # XXX: can't use it
-#         
-#         buf_value = _gettmarg(space, tup, buf_value)
-#     else:
-#         # empty list
-#         buf = None
-#         
-#         tt = time_t(int(_floattime())) 
-#         buf = libc.localtime(byref(tt))
-#         if not buf:
-#             raise OperationError(space.w_ValueError,
-#                 space.wrap(_get_error_msg()))
-#         buf_value = buf.contents
-# 
-#     p = libc.asctime(byref(buf_value))
-#     if not p:
-#         raise OperationError(space.w_ValueError,
-#             space.wrap("unconvertible time"))
-#     
-#     return space.wrap(p[:-1]) # get rid of new line
-# asctime.unwrap_spec = [ObjSpace, 'args_w']
+# by now w_tup is an optional argument (and not *args)
+# because of the ext. compiler bugs in handling such arguments (*args, **kwds)
+def asctime(space, w_tup=None):
+    """asctime([tuple]) -> string
+
+    Convert a time tuple to a string, e.g. 'Sat Jun 06 16:26:11 1998'.
+    When the time tuple is not present, current time as returned by localtime()
+    is used."""
+    tup = None
+    tuple_len = 0
+    buf_value = tm()
+    
+    # if len(tup_w):
+    #     w_tup = tup_w[0]
+    if not space.is_w(w_tup, space.w_None):
+        tuple_len = space.int_w(space.len(w_tup))
+        
+        # if space.is_w(w_tup, space.w_None) or 1 < tuple_len < 9:
+        if 1 < tuple_len < 9:
+            raise OperationError(space.w_TypeError, 
+                space.wrap("argument must be 9-item sequence"))
+    
+        # check if every passed object is a int
+        tup = space.unpackiterable(w_tup)
+        for t in tup:
+            space.int_w(t)
+        # map(space.int_w, tup) # XXX: can't use it
+        
+        buf_value = _gettmarg(space, tup, buf_value)
+    else:
+        # empty list
+        buf = None
+        
+        tt = time_t(int(_floattime())) 
+        buf = libc.localtime(byref(tt))
+        if not buf:
+            raise OperationError(space.w_ValueError,
+                space.wrap(_get_error_msg()))
+        buf_value = buf.contents
+    
+    p = libc.asctime(byref(buf_value))
+    if not p:
+        raise OperationError(space.w_ValueError,
+            space.wrap("unconvertible time"))
+    
+    return space.wrap(p[:-1]) # get rid of new line
+asctime.unwrap_spec = [ObjSpace, W_Root]
 
 def gmtime(space, w_seconds=None):
     """gmtime([seconds]) -> (tm_year, tm_mon, tm_day, tm_hour, tm_min,
