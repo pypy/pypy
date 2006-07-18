@@ -145,8 +145,7 @@ class Database(object):
             #log.prepareconstant(value, "(is primitive)")
             return
         
-        if isinstance(type_, lltype.Ptr):        
-            
+        if isinstance(type_, lltype.Ptr):
             type_ = type_.TO
             value = value._obj
 
@@ -170,11 +169,23 @@ class Database(object):
         if isinstance(const_or_var, Constant):
             ct = const_or_var.concretetype
             if isinstance(ct, lltype.Primitive):
-                #log.prepare(const_or_var, "(is primitive)")
-                return
-
-            assert isinstance(ct, lltype.Ptr), "Preparation of non primitive and non pointer" 
-            value = const_or_var.value._obj
+                # special cases for address
+                if ct is llmemory.Address:
+                    fakedaddress = const_or_var.value
+                    if fakedaddress is not None and fakedaddress.ob is not None:
+                        ptrvalue = fakedaddress.ob
+                        ct = lltype.typeOf(ptrvalue)
+                    else:
+                        return                        
+                elif ct is llmemory.WeakGcAddress:
+                    return # XXX sometime soon
+                else:
+                    return
+            else:
+                assert isinstance(ct, lltype.Ptr), "Preparation of non primitive and non pointer" 
+                ptrvalue = const_or_var.value
+                
+            value = ptrvalue._obj
 
             # Only prepare root values at this point 
             if isinstance(ct, lltype.Array) or isinstance(ct, lltype.Struct):
@@ -264,7 +275,7 @@ class Database(object):
 
             # special case, null pointer
             if value is None:
-                return None, "%s null" % (toptr,)
+                return None, "%s null" % toptr
 
             node = self.obj2node[value]
             ref = node.get_pbcref(toptr)
@@ -290,6 +301,7 @@ class Database(object):
         return self.obj2node[type_].constructor_ref
 
     def repr_name(self, obj):
+        " simply returns a reference to constant value "
         return self.obj2node[obj].ref
 
     def repr_value(self, value):
@@ -358,7 +370,7 @@ class Primitives(object):
             lltype.Bool : self.repr_bool,
             lltype.Void : self.repr_void,
             llmemory.Address : self.repr_address,
-            llmemory.WeakGcAddress : self.repr_address,
+            llmemory.WeakGcAddress : self.repr_weakgcaddress,
             }        
         #XXX
 #         try:
@@ -420,9 +432,37 @@ class Primitives(object):
         return repr
 
     def repr_address(self, type_, value):
-        # XXX fix this
-        assert value == NULL
-        return 'null' 
+        if value is NULL:
+            return 'null'
+
+        assert isinstance(value, llmemory.fakeaddress)
+
+        if value.offset is None:
+            if value.ob is None:
+                return 'null'
+            else:
+                obj = value.ob._obj
+                typename = self.database.repr_type(lltype.typeOf(obj))
+                ref = self.database.repr_name(obj)
+        else:
+            from_, indices, to = self.get_offset(value.offset)
+            indices_as_str = ", ".join("%s %s" % (w, i) for w, i in indices)
+
+            original_typename = self.database.repr_type(from_)
+            orignal_ref = self.database.repr_name(value.ob._obj)
+
+            typename = self.database.repr_type(to)
+            ref = "getelementptr(%s* %s, %s)" % (original_typename,
+                                                 orignal_ref,
+                                                 indices_as_str)
+            
+        res = "cast(%s* %s to sbyte*)" % (typename, ref)
+        return res    
+    
+    def repr_weakgcaddress(self, type_, value):
+        assert isinstance(value, llmemory.fakeweakaddress)
+        log.settingup("XXXX weakgcaddress completely ignored...")
+        return 'null'
 
     def repr_signed(self, type_, value):
         if isinstance(value, Symbolic):
@@ -433,20 +473,14 @@ class Primitives(object):
         return str(value)
 
     def repr_symbolic(self, type_, value):
+        """ returns an int value for pointer arithmetic - not sure this is the
+        llvm way, but well XXX need to fix adr_xxx operations  """
         if isinstance(value, llmemory.AddressOffset):
-            if isinstance(value, llmemory.CompositeOffset):
-                # add offsets together...
-                from_, indices, to = self.get_offset(value.offsets[0])
-                indices = list(indices)
-                for item in value.offsets[1:]:
-                    _, more, to = self.get_offset(item, fromoffset=True)
-                    indices.extend(more)
-            else:
-                from_, indices, to = self.get_offset(value)
-
+            from_, indices, to = self.get_offset(value)
             indices_as_str = ", ".join("%s %s" % (w, i) for w, i in indices)
-            repr = "cast(%s* getelementptr(%s* null, %s) to int)" % (to,
-                                                                     from_,
+            r = self.database.repr_type
+            repr = "cast(%s* getelementptr(%s* null, %s) to int)" % (r(to),
+                                                                     r(from_),
                                                                      indices_as_str)
         elif isinstance(value, ComputedIntSymbolic):
             # XXX what does this do?  Is this safe?
@@ -485,8 +519,15 @@ class Primitives(object):
                 indices.append((uword, 1))
             from_ = value.TYPE
             to = value.TYPE.OF
+
+        elif isinstance(value, llmemory.CompositeOffset):
+            from_, indices, to = self.get_offset(value.offsets[0])
+            indices = list(indices)
+            for item in value.offsets[1:]:
+                _, more, to = self.get_offset(item, fromoffset=True)
+                indices.extend(more)
         else:
             raise Exception("unsupported offset")
 
-        return self.database.repr_type(from_), indices, self.database.repr_type(to)
+        return from_, indices, to
     

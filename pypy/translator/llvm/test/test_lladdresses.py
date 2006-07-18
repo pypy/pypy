@@ -137,6 +137,39 @@ def test_flavored_malloc_stack():
     fn = compile_function(f, [int])
     assert fn(1) == 2 
 
+def test_fakeaddress():
+    S = lltype.GcStruct('s', ('val', lltype.Signed))
+    s = lltype.malloc(S)
+    s.val = 10
+    PtrS = lltype.Ptr(S)
+    adr = llmemory.cast_ptr_to_adr(s)
+    def f(n):
+        s1 = llmemory.cast_adr_to_ptr(adr, PtrS)
+        old = s1.val
+        s1.val = n
+        return old + s1.val
+    fn = compile_function(f, [int])
+    assert fn(32) == 42
+
+def test_fakeaddress2():
+    S1 = lltype.GcStruct("S1", ("x", lltype.Signed), ("y", lltype.Signed))
+    PtrS1 = lltype.Ptr(S1)
+    S2 = lltype.GcStruct("S2", ("s", S1))
+
+    s2 = lltype.malloc(S2)
+    s2.s.x = 123
+    s2.s.y = 456
+
+    addr_s2 = llmemory.cast_ptr_to_adr(s2)
+    addr_s1 = addr_s2 + llmemory.FieldOffset(S2, 's')
+
+    def f():
+        s1 = llmemory.cast_adr_to_ptr(addr_s1, PtrS1)
+        return s1.x + s1.y
+    
+    fn = compile_function(f, [])
+    assert f() == 579
+    
 def test_weakaddress():
     from pypy.rpython.objectmodel import cast_object_to_weakgcaddress
     from pypy.rpython.objectmodel import cast_weakgcaddress_to_object
@@ -153,3 +186,4 @@ def test_weakaddress():
         return len(l1) == len(l2)
     fn = compile_function(func, [int])
     assert fn(10)
+    
