@@ -131,7 +131,7 @@ class LowLevelDatabase(object):
         return name
 
     def class_name(self, INSTANCE):
-        return self.classes.get(INSTANCE, None)
+        return self.classes[INSTANCE]
 
     def get_record_name(self, RECORD):
         try:
