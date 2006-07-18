@@ -33,6 +33,9 @@ http://www.divx.com/divx/windows/download/index.php
 PyPy Video Torrent Downloads 
 ----------------------------
 
+These videos are published under the Creative Commons Attribution License 2.0:
+http://creativecommons.org/licenses/by/2.0/
+
 
 Interview with Tim Peters
 -------------------------
