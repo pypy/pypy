@@ -67,9 +67,13 @@ def _float_sleep(secs):
     #     lock.release()
 
 def sleep(secs):
+    """sleep(seconds)
+
+    Delay execution for a given number of seconds.  The argument may be
+    a floating point number for subsecond precision."""
     _check_float(secs)
     _float_sleep(secs)
-
+    
 __doc__ = """This module provides various functions to manipulate time values.
 
 There are two standard representations of time.  One is the number
