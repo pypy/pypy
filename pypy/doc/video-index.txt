@@ -33,36 +33,62 @@ http://www.divx.com/divx/windows/download/index.php
 PyPy Video Torrent Downloads 
 ----------------------------
 
-PyPy technical talk at the University of Palma de Mallorca
-----------------------------------------------------------
 
-http://codespeak.net/download/pypy/video/introductory-student-talk-v2.avi.torrent
+Interview with Tim Peters
+-------------------------
 
-.. image:: image/introductory-student-talk.jpg
+http://codespeak.net/download/pypy/video/interview-timpeters-v2.avi.torrent    
+
+.. image:: image/interview-timpeters.jpg
    :scale: 100
-   :alt: Introductory student talk
+   :alt: Interview with Tim Peters
    :align: left
 
-Technical talk on the PyPy project at the University of Palma de Mallorca, Spain. 27.1.2006
+Interview with CPython core developer Tim Peters at this years PyCon, Dallas, US.  2.3.2006
 
-PAL 72 min, DivX AVI
+PAL, 23 min, DivX AVI
 
-Core developers Armin Rigo, Samuele Pedroni and Carl Friedrich Bolz are giving an overview of the PyPy architecture, the standard interpreter, the translation toolchain and the just-in-time compiler.
+Tim Peters, a longtime CPython core developer talks about how he got into Python, what he thinks about the PyPy project and why he thinks it would have never been possible in the US.
 
 
-Coding discussion of core developers Armin Rigo and Samuele Pedroni
--------------------------------------------------------------------
 
-http://codespeak.net/download/pypy/video/coding-discussion-v1.avi.torrent
+Interview with Bob Ippolito
+---------------------------
 
-.. image:: image/coding-discussion.jpg
+http://codespeak.net/download/pypy/video/interview-bobippolito-v2.avi.torrent  
+
+.. image:: image/interview-bobippolito.jpg
    :scale: 100
-   :alt: Coding discussion
+   :alt: Interview with Bob Ippolito
    :align: left
 
-Coding discussion between Armin Rigo and Samuele Pedroni during the PyPy sprint at the University of Palma de Mallorca, Spain. 27.1.2006
+What do you think about PyPy? Interview with American software developer Bob Ippolito at this years PyCon, Dallas, US.  1.3.2006
 
-PAL 40 min, DivX AVI
+PAL 8 min, DivX AVI
+
+Bob Ippolito is an Open Source software developer from San Francisco and has been to two PyPy sprints. In this interview he is giving his opinion on the project.
+
+
+
+Introductory talk on PyPy
+-------------------------
+
+http://codespeak.net/download/pypy/video/introductory-talk-pycon-v1.avi.torrent
+
+.. image:: image/introductory-talk-pycon.jpg
+   :scale: 100
+   :alt: Introductory talk at PyCon
+   :align: left
+
+This introductory talk is given by core developers Michael Hudson and Christian Tismer at the PyCon, Dallas, US. 26.2.2006
+
+PAL, 28 min, divx AVI
+
+Michael Hudson talks about the basic building blocks of Python, the currently
+available back-ends, and the status of PyPy in general. Christian Tismer takes
+over to explain how co-routines can be used to implement things like
+Stackless and Greenlets in PyPy.
+
 
 
 Talk on Agile Open Source Methods in the PyPy project
@@ -84,24 +110,7 @@ structure and organisation behind it. Bea During describes the intricacies of
 driving a distributed community in an agile way, and how to combine that with
 the formalities required for EU funding.
 
-Introductory talk on PyPy
--------------------------
 
-http://codespeak.net/download/pypy/video/introductory-talk-pycon-v1.avi.torrent
-
-.. image:: image/introductory-talk-pycon.jpg
-   :scale: 100
-   :alt: Introductory talk at PyCon
-   :align: left
-
-This introductory talk is given by core developers Michael Hudson and Christian Tismer at the PyCon, Dallas, US. 26.2.2006
-
-PAL, 28 min, divx AVI
-
-Michael Hudson talks about the basic building blocks of Python, the currently
-available back-ends, and the status of PyPy in general. Christian Tismer takes
-over to explain how co-routines can be used to implement things like
-Stackless and Greenlets in PyPy.
 
 PyPy Architecture session
 -------------------------
@@ -122,6 +131,8 @@ implementation level aspects and the translation toolchain. This
 talk also gives an insight into how a developer works with these tools on
 a daily basis, and pays special attention to flow graphs.
 
+
+
 Sprint tutorial
 ---------------
 
@@ -139,38 +150,37 @@ PAL, 44 min, divx AVI
 Michael Hudson gives an in-depth, very technical introduction to a PyPy sprint. The film provides a detailed and hands-on overview about the architecture of PyPy, especially the translation toolchain.
 
 
-Interview with Bob Ippolito
----------------------------
 
-http://codespeak.net/download/pypy/video/interview-bobippolito-v2.avi.torrent  
+Coding discussion of core developers Armin Rigo and Samuele Pedroni
+-------------------------------------------------------------------
 
-.. image:: image/interview-bobippolito.jpg
+http://codespeak.net/download/pypy/video/coding-discussion-v1.avi.torrent
+
+.. image:: image/coding-discussion.jpg
    :scale: 100
-   :alt: Interview with Bob Ippolito
+   :alt: Coding discussion
    :align: left
 
-What do you think about PyPy? Interview with American software developer Bob Ippolito at this years PyCon, Dallas, US.  1.3.2006
+Coding discussion between Armin Rigo and Samuele Pedroni during the PyPy sprint at the University of Palma de Mallorca, Spain. 27.1.2006
 
-PAL 8 min, DivX AVI
-
-Bob Ippolito is an Open Source software developer from San Francisco and has been to two PyPy sprints. In this interview he is giving his opinion on the project.
+PAL 40 min, DivX AVI
 
 
-Interview with Tim Peters
--------------------------
+PyPy technical talk at the University of Palma de Mallorca
+----------------------------------------------------------
 
-http://codespeak.net/download/pypy/video/interview-timpeters-v2.avi.torrent    
+http://codespeak.net/download/pypy/video/introductory-student-talk-v2.avi.torrent
 
-.. image:: image/interview-timpeters.jpg
+.. image:: image/introductory-student-talk.jpg
    :scale: 100
-   :alt: Interview with Tim Peters
+   :alt: Introductory student talk
    :align: left
 
-Interview with CPython core developer Tim Peters at this years PyCon, Dallas, US.  2.3.2006
+Technical talk on the PyPy project at the University of Palma de Mallorca, Spain. 27.1.2006
 
-PAL, 23 min, DivX AVI
+PAL 72 min, DivX AVI
 
-Tim Peters, a longtime CPython core developer talks about how he got into Python, what he thinks about the PyPy project and why he thinks it would have never been possible in the US.
+Core developers Armin Rigo, Samuele Pedroni and Carl Friedrich Bolz are giving an overview of the PyPy architecture, the standard interpreter, the translation toolchain and the just-in-time compiler.
 
 
 Scripting .NET with IronPython by Jim Hugunin
