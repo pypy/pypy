@@ -147,7 +147,7 @@ class LowLevelDatabase(object):
             self.consts[value] = const
             self.pending_node(const)
 
-        return '%s.%s::%s' % (CONST_NAMESPACE, CONST_CLASS, const.name)
+        return '%s.%s::%s' % (CONST_NAMESPACE, CONST_CLASS, const.name), const.get_type()
 
     def record_delegate(self, TYPE):
         try:
@@ -253,9 +253,10 @@ class AbstractConst(Node):
         else:
             assert TYPE not in cls.PRIMITIVE_TYPES
             cts = CTS(db)
-            name = db.record_const(value)
-            cts_type = cts.lltype_to_cts(TYPE)
-            ilasm.opcode('ldsfld %s %s' % (cts_type, name))
+            name, cts_static_type = db.record_const(value)
+            ilasm.opcode('ldsfld %s %s' % (cts_static_type, name))
+            if cts_static_type != cts.lltype_to_cts(TYPE):
+                ilasm.opcode('castclass', cts.lltype_to_cts(TYPE, include_class=False))
     load = classmethod(load)
 
     def __hash__(self):
@@ -572,6 +573,8 @@ class InstanceConst(AbstractConst):
             return
 
         INSTANCE = self.value._TYPE
+        if INSTANCE is not self.static_type:
+            ilasm.opcode('castclass', self.cts.lltype_to_cts(INSTANCE, include_class=False))
         while INSTANCE is not None:
             for name, (TYPE, default) in INSTANCE._fields.iteritems():
                 if TYPE is ootype.Void:
