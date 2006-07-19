@@ -1,5 +1,10 @@
 from py.test import raises, skip
 from pypy.conftest import gettestobjspace
+import os
+
+def teardown_module(mod):
+    if os.path.exists("foo"):
+        os.unlink("foo")
 
 class AppTestMMap:
     def setup_class(cls):
@@ -26,39 +31,50 @@ class AppTestMMap:
         
         assert mmap.error is EnvironmentError
             
-    # def test_args(self):
-    #     raises(TypeError, mmap, "foo")
-    #     raises(TypeError, mmap, 0, "foo")
-        #     
-        # if _POSIX:
-        #     py.test.raises(ValueError, mmap, 0, 1, 2, 3, 4, 5)
-        #     py.test.raises(TypeError, mmap, 0, 1, 2, 3, "foo", 5)
-        #     py.test.raises(TypeError, mmap, 0, 1, foo="foo")
-        #     py.test.raises(TypeError, mmap, 0, -1)
-        #     py.test.raises(OverflowError, mmap, 0, sys.maxint)
-        #     py.test.raises(ValueError, mmap, 0, 1, flags=2, access=3)
-        #     py.test.raises(ValueError, mmap, 0, 1, access=123)
+    def test_args(self):
+        from mmap import mmap
+        import os
+        import sys
+        
+        raises(TypeError, mmap, "foo")
+        raises(TypeError, mmap, 0, "foo")
+             
+        if os.name == "posix":
+            raises(TypeError, mmap, 0, 1, 2, 3, 4, 5)
+            raises(TypeError, mmap, 0, 1, 2, 3, "foo", 5)
+            raises(TypeError, mmap, 0, 1, foo="foo")
+            raises(TypeError, mmap, 0, -1)
+            raises(OverflowError, mmap, 0, sys.maxint)
+            raises(ValueError, mmap, 0, 1, flags=2, access=3)
+            raises(ValueError, mmap, 0, 1, access=123)
         # elif _MS_WINDOWS:
         #     py.test.raises(TypeError, mmap, 0, 1, 2, 3, 4)
         #     py.test.raises(TypeError, mmap, 0, 1, tagname=123)
         #     py.test.raises(TypeError, mmap, 0, 1, access="foo")
         #     py.test.raises(ValueError, mmap, 0, 1, access=-1)
-# 
-# 
-#     def test_file_size(self):
-#         if _MS_WINDOWS:
-#             py.test.skip("Only Unix checks file size")
-#         self.f.write("c")
-#         self.f.flush()
-#         py.test.raises(ValueError, mmap, self.f.fileno(), 123)
-# 
-#     def test_mmap_creation(self):
-#         self.f.write("c")
-#         self.f.flush()
-#         m = mmap(self.f.fileno(), 1)
-#         assert m._data[0] == "c"
-#         m.close()
-# 
+
+    def test_file_size(self):
+        # if _MS_WINDOWS:
+        #     py.test.skip("Only Unix checks file size")
+        from mmap import mmap
+        f = open("foo", "w+")
+        
+        f.write("c")
+        f.flush()
+        raises(ValueError, mmap, f.fileno(), 123)
+        f.close()
+
+    def test_mmap_creation(self):
+        from mmap import mmap
+        f = open("foo", "w+")
+        
+        f.write("c")
+        f.flush()
+        m = mmap(f.fileno(), 1)
+        assert m._to_str() == "c"
+        
+        f.close()
+
 #     def test_close(self):
 #         self.f.write("c")
 #         self.f.flush()

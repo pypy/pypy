@@ -3,6 +3,7 @@ from pypy.interpreter.mixedmodule import MixedModule
 class Module(MixedModule):
     interpleveldefs = {
         'PAGESIZE': 'interp_mmap.PAGESIZE',
+        'mmap': 'interp_mmap.mmap'
     }
 
     appleveldefs = {
