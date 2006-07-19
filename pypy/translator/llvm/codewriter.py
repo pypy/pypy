@@ -202,8 +202,15 @@ class CodeWriter(object):
     def alloca(self, targetvar, vartype):
         self._indent("%s = alloca %s" % (targetvar, vartype))
 
-    def malloc(self, targetvar, vartype):
-        self._indent("%s = malloc %s" % (targetvar, vartype))
+    def malloc(self, targetvar, vartype, numelements=1):
+        if numelements == 1:
+            self._indent("%s = malloc %s" % (targetvar, vartype))
+        else:
+            assert numelements > 1
+            self._indent("%s = malloc %s, uint %s" % (targetvar,
+                                                      vartype,
+                                                      numelements))
+            
 
     def free(self, vartype, varref):
         self._indent("free %s %s" % (vartype, varref))

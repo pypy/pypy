@@ -30,6 +30,9 @@ class GenLLVM(object):
         # reset counters
         LLVMNode.nodename_count = {}    
 
+        if gcpolicy is None:
+            gcpolicy = "none"
+            
         self.gcpolicy = gcpolicy
 
         self.stackless = stackless
@@ -73,7 +76,7 @@ class GenLLVM(object):
         # please dont ask!
         from pypy.translator.c.genc import CStandaloneBuilder
         from pypy.translator.c import gc
-        cbuild = CStandaloneBuilder(self.translator, func, gc.NoneGcPolicy)
+        cbuild = CStandaloneBuilder(self.translator, func, self.gcpolicy)
         cbuild.stackless = self.stackless
         c_db = cbuild.generate_graphs_for_llinterp()
 

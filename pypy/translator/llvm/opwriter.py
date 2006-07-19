@@ -287,8 +287,8 @@ class OpWriter(object):
         if 'Exception' in name or 'Error' in name:
             exc = True
 
-        self.db.gcpolicy.malloc(self.codewriter, opr.retref, opr.rettype,
-                                atomic=arg_type._is_atomic(), exc_flag=exc)
+        self.db.gcpolicy.zeromalloc(self.codewriter, opr.retref, opr.rettype,
+                                    atomic=arg_type._is_atomic(), exc_flag=exc)
 
     def malloc_varsize(self, opr):
 
@@ -301,10 +301,10 @@ class OpWriter(object):
             return
 
         node = self.db.obj2node[arg_type]
-        self.db.gcpolicy.var_malloc(self.codewriter, opr.retref, opr.rettype,
-                                    node, opr.argrefs[1],
-                                    atomic=arg_type._is_atomic())
-
+        self.db.gcpolicy.var_zeromalloc(self.codewriter, opr.retref,
+                                        opr.rettype, node, opr.argrefs[1],
+                                        atomic=arg_type._is_atomic())
+        
     def flavored_malloc(self, opr):
         flavor = opr.op.args[0].value
         type_  = opr.rettype[:-1] #XXX stripping of *
