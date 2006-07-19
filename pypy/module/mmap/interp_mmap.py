@@ -188,13 +188,27 @@ class _mmap(Wrappable):
             if self._data:
                 libc.munmap(self._data, self._size)
     close.unwrap_spec = ['self']
+    
+    def read_byte(self):
+        self._check_valid()
+
+        if self._pos < self._size:
+            value = self._data[self._pos]
+            self._pos += 1
+            return self.space.wrap(value)
+        else:
+            raise OperationError(self.space.w_ValueError,
+                self.space.wrap("read byte out of range"))
+    read_byte.unwrap_spec = ['self']
 
 _mmap.typedef = TypeDef("_mmap",
     _to_str = interp2app(_mmap._to_str, unwrap_spec=_mmap._to_str.unwrap_spec),
     _check_valid = interp2app(_mmap._check_valid,
         unwrap_spec=_mmap._check_valid.unwrap_spec),
     close = interp2app(_mmap.close, unwrap_spec=_mmap.close.unwrap_spec),
-    )
+    read_byte = interp2app(_mmap.read_byte,
+        unwrap_spec=_mmap.read_byte.unwrap_spec),
+)
 
 def _check_map_size(space, size):
     if size < 0:

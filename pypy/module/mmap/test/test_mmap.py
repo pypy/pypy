@@ -85,13 +85,17 @@ class AppTestMMap:
         m.close()
         raises(ValueError, m._check_valid)
 
-#     def test_read_byte(self):
-#         self.f.write("c")
-#         self.f.flush()
-#         m = mmap(self.f.fileno(), 1)
-#         assert m.read_byte() == "c"
-#         py.test.raises(ValueError, m.read_byte)
-#         m.close()
+    def test_read_byte(self):
+        from mmap import mmap
+        f = open("foo", "w+")
+
+        f.write("c")
+        f.flush()
+        m = mmap(f.fileno(), 1)
+        assert m.read_byte() == "c"
+        raises(ValueError, m.read_byte)
+        m.close()
+        f.close()
 # 
 #     def test_readline(self):
 #         self.f.seek(0)
