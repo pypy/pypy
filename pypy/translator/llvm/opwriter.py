@@ -110,7 +110,10 @@ class OpWriter(object):
         else:
             opr = OpRepr(op, self.db)
 
-        if op.opname in self.binary_operations:
+        if op.opname.startswith('gc'):
+            meth = getattr(self.db.gcpolicy, 'op' + op.opname[2:])
+            meth(self.codewriter, opr)
+        elif op.opname in self.binary_operations:
             self.binaryop(opr)
         elif op.opname in self.shift_operations:
             self.shiftop(opr)
@@ -159,10 +162,6 @@ class OpWriter(object):
         self.codewriter.comment('***Skipping operation %s()' % opr.op.opname)
     keepalive = _skipped
     resume_point = _skipped
-
-    def gc__collect(self, opr):
-        self.codewriter.call(opr.retref, opr.rettype, "%pypy_gc__collect",
-                             opr.argtypes, opr.argrefs)
 
     def int_abs(self, opr):
         assert len(opr.argrefs) == 1

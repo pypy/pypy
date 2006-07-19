@@ -403,11 +403,10 @@ class Primitives(object):
         return self.types[key]
         
     def repr(self, type_, value):
-        #XXX TMP
-        #try:
-        return self.reprs[type_](type_, value)
-        #except KeyError:
-        #    raise Exception, "unsupported primitive type %r, value %r" % (type_, value)
+        try:
+            return self.reprs[type_](type_, value)
+        except KeyError:
+            raise Exception, "unsupported primitive type %r, value %r" % (type_, value)
         
     def repr_default(self, type_, value):
         return str(value)
@@ -474,7 +473,7 @@ class Primitives(object):
     
     def repr_weakgcaddress(self, type_, value):
         assert isinstance(value, llmemory.fakeweakaddress)
-        log.settingup("XXXX weakgcaddress completely ignored...")
+        log.WARNING("XXX weakgcaddress completely ignored...")
         return 'null'
 
     def repr_signed(self, type_, value):
@@ -485,7 +484,11 @@ class Primitives(object):
     def repr_symbolic(self, type_, value):
         """ returns an int value for pointer arithmetic - not sure this is the
         llvm way, but well XXX need to fix adr_xxx operations  """
-        if isinstance(value, llmemory.AddressOffset):
+        if (type(value) == llmemory.GCHeaderOffset or
+            type(value) == llmemory.AddressOffset):
+            repr = 0
+        
+        elif isinstance(value, llmemory.AddressOffset):
             from_, indices, to = self.get_offset(value)
             indices_as_str = ", ".join("%s %s" % (w, i) for w, i in indices)
             r = self.database.repr_type
@@ -514,8 +517,8 @@ class Primitives(object):
         
         elif isinstance(value, llmemory.FieldOffset):
             # jumps to a field position in a struct
-            pos = getindexhelper(value.fldname, value.TYPE)
             from_ = value.TYPE
+            pos = getindexhelper(value.fldname, value.TYPE)
             if not fromoffset:
                 indices.append((word, 0))
             indices.append((uword, pos))
@@ -523,11 +526,11 @@ class Primitives(object):
                 
         elif isinstance(value, llmemory.ArrayItemsOffset):
             # jumps to the beginning of array area
+            from_ = value.TYPE
             if not fromoffset:
                 indices.append((word, 0))
             if not isinstance(value.TYPE, lltype.FixedSizeArray):
                 indices.append((uword, 1))
-            from_ = value.TYPE
             to = value.TYPE.OF
 
         elif isinstance(value, llmemory.CompositeOffset):
@@ -536,6 +539,7 @@ class Primitives(object):
             for item in value.offsets[1:]:
                 _, more, to = self.get_offset(item, fromoffset=True)
                 indices.extend(more)
+
         else:
             raise Exception("unsupported offset")
 

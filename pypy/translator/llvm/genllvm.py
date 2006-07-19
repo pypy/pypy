@@ -31,7 +31,7 @@ class GenLLVM(object):
         LLVMNode.nodename_count = {}    
 
         if gcpolicy is None:
-            gcpolicy = "none"
+            gcpolicy = "boehm"
             
         self.gcpolicy = gcpolicy
 

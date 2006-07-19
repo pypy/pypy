@@ -93,6 +93,22 @@ class GcPolicy:
                                  targetvar,  indices_to_arraylength)
         codewriter.store(lentype, len, arraylength)
 
+
+    def op_call_rtti_destructor(self, codewriter, opr):
+        raise Exception, 'GcPolicy should not be used directly'
+     
+    def op_free(self, codewriter, opr):
+        raise Exception, 'GcPolicy should not be used directly'
+
+    def op_fetch_exception(self, codewriter, opr):
+        raise Exception, 'GcPolicy should not be used directly'
+
+    def op_restore_exception(self, codewriter, opr):
+        raise Exception, 'GcPolicy should not be used directly'
+
+    def op_collect(self, codewriter, opr):
+        raise Exception, 'GcPolicy should not be used directly'
+
     def new(db, gcpolicy=None):
         """ factory """
         if gcpolicy == 'boehm':
@@ -187,6 +203,18 @@ def GC_get_heap_size_wrapper():
                             cconv='ccc')        
 
 
-class RefcountingGcPolicy(GcPolicy):
-    def __init__(self, db):
-        raise NotImplementedError, 'RefcountingGcPolicy'
+    def op__collect(self, opr):
+        self.codewriter.call(opr.retref, opr.rettype, "%pypy_gc__collect",
+                             opr.argtypes, opr.argrefs)
+
+class RefcountingGcPolicy(RawGcPolicy):
+
+    def __init__(self, db, exc_useringbuf=True):
+        self.db = db
+
+    def op_call_rtti_destructor(self, codewriter, opr):
+        log.WARNING("skipping op_call_rtti_destructor")
+        
+    def op_free(self, codewriter, opr):
+        assert opr.rettype == 'void' and len(opr.argtypes) == 1
+        codewriter.free(opr.argtypes[0], opr.argrefs[0])

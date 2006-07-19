@@ -39,3 +39,16 @@ def test_nogc():
         return x
     mod, f = compile_test(tuple_getitem, [int], gcpolicy="none")
     assert f(5000) == tuple_getitem(5000)
+
+def test_ref(): 
+    def tuple_getitem(n): 
+        x = 666
+        i = 0
+        while i < n:
+            l = (1,2,i,4,5,6,7,8,9,10,11)
+            x += l[2]
+            i += 1
+        return x
+    mod, f = compile_test(tuple_getitem, [int], gcpolicy="ref")
+    assert f(5000) == tuple_getitem(5000)
+
