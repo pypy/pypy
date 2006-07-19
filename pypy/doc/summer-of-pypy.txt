@@ -94,8 +94,7 @@ registered with the Google's Summer of Code under the PSF_.
 
 .. _`Ajax in python based on PyPy's JavaScript backend`: http://code.google.com/soc/psf/appinfo.html?csaid=12134111E3C90670
 
-.. _`Write and port modules from CPython with ctypes`:
-http://codespeak.net/svn/user/rhymes/proposal_abstract.txt
+.. _`Write and port modules from CPython with ctypes`: http://codespeak.net/svn/user/rhymes/proposal_abstract.txt
 
 .. _`Complete gencli, the PyPy CLI backend`: http://code.google.com/soc/psf/appinfo.html?csaid=CB4EC4BA30BDDBCD
 
