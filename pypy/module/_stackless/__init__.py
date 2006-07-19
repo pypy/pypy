@@ -14,6 +14,7 @@ class Module(MixedModule):
     interpleveldefs = {
         'tasklet'    : 'interp_stackless.tasklet',
         'coroutine'  : 'coroutine.AppCoroutine',
+        'clonable'   : 'interp_clonable.ClonableCoroutine',
         'greenlet'   : 'interp_greenlet.AppGreenlet',
     }
 
@@ -22,6 +23,8 @@ class Module(MixedModule):
         # are not yet directly supported
         from pypy.module._stackless.coroutine import post_install as post_install_coro
         post_install_coro(self)
+        from pypy.module._stackless.interp_clonable import post_install as post_install_clonable
+        post_install_clonable(self)
         from pypy.module._stackless.interp_greenlet import post_install as post_install_greenlet
         post_install_greenlet(self)
 
