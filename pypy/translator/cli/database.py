@@ -31,6 +31,9 @@ BUILTIN_RECORDS = {
 def isnan(v):
 	return v != v*1.0 or (v == 1.0 and v == 2.0)
 
+def isinf(v):
+    return v!=0 and (v == v*2)
+
 class LowLevelDatabase(object):
     def __init__(self, type_system_class = CTS, opcode_dict = opcodes, function_class = Function):
         self._pending_nodes = set()
@@ -235,7 +238,7 @@ class AbstractConst(Node):
         elif TYPE is ootype.Char or TYPE is ootype.UniChar:
             ilasm.opcode('ldc.i4', ord(value))
         elif TYPE is ootype.Float:
-            if value == float('inf'):
+            if isinf(value):
                 ilasm.opcode('ldc.r8', '(00 00 00 00 00 00 f0 7f)')
             elif isnan(value):
                 ilasm.opcode('ldc.r8', '(00 00 00 00 00 00 f8 ff)')

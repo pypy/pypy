@@ -75,6 +75,7 @@ class TestConstant(CliTest):
         assert self.interpret(fn, []) == 3
 
     def test_float_special(self):
+        self._skip_win('inf & nan')
         c = [float("inf"), float("nan")]
         def fn(i):
             return c[i]*2 == c[i]

@@ -1,5 +1,6 @@
 import os
 import subprocess
+import platform
 
 import py
 from pypy.tool.udir import udir
@@ -230,7 +231,11 @@ class CliTest(BaseRtypingTest, OORtypeMixin):
             self._ann = ann
             self._cli_func = compile_function(fn, ann)
             return self._cli_func
-    
+
+    def _skip_win(self, reason):
+        if platform.system() == 'Windows':
+            py.test.skip('Windows --> %s' % reason)
+
     def interpret(self, fn, args, annotation=None):
         f = self._compile(fn, args, annotation)
         res = f(*args)
