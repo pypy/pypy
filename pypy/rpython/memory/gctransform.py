@@ -1053,7 +1053,7 @@ class FrameworkGCTransformer(GCTransformer):
                     info["varitemsize"] = llmemory.sizeof(ARRAY.OF)
                 else:
                     info["varofstoptrs"] = self.offsets2table((), lltype.Void)
-                    info["varitemsize"] = 0
+                    info["varitemsize"] = llmemory.sizeof(ARRAY.OF)
             return type_id
 
     def finalizer_funcptr_for_type(self, TYPE):
