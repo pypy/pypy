@@ -80,8 +80,8 @@ XXX check with Valentino about his proposal
 - `Ajax in python based on PyPy's JavaScript backend`_
   by Maciej Fijalkowski, mentored by Eric van Riet Paap 
 
-- **Write and port modules from CPython with ctypes**
-  by Tenitope Lawrence Oluyede, mentored by Anders Chrigstroem
+- `Write and port modules from CPython with ctypes`_
+  by Lawrence Oluyede, mentored by Anders Chrigstroem
 
 - `Complete gencli, the PyPy CLI backend`_
   by Antonio Cuni, mentored by Armin Rigo 
@@ -93,6 +93,9 @@ registered with the Google's Summer of Code under the PSF_.
 .. _PSF: http://code.google.com/soc/psf/about.html
 
 .. _`Ajax in python based on PyPy's JavaScript backend`: http://code.google.com/soc/psf/appinfo.html?csaid=12134111E3C90670
+
+.. _`Write and port modules from CPython with ctypes`:
+http://codespeak.net/svn/user/rhymes/proposal_abstract.txt
 
 .. _`Complete gencli, the PyPy CLI backend`: http://code.google.com/soc/psf/appinfo.html?csaid=CB4EC4BA30BDDBCD
 
