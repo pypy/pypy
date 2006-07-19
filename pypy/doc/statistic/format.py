@@ -102,6 +102,7 @@ def txt2png(p):
 
     pylab.savefig(p.purebasename + ".png")
     pylab.savefig(p.purebasename + ".eps")
+    py.process.cmdexec("epstopdf %s" % (p.purebasename + ".eps", ))
  
 if __name__ == '__main__':
     args = py.std.sys.argv
