@@ -25,6 +25,7 @@ class TestCliBuiltin(CliTest, BaseTestRbuiltin):
         pass
 
     def test_os_open_write(self):
+        py.test.skip("Temporarily disabled")
         tmpdir = str(udir.udir.join("os_write_test"))
         def fn():
             fd = os.open(tmpdir, os.O_WRONLY|os.O_CREAT, 0777)            
