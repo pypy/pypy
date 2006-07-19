@@ -63,6 +63,10 @@ libc.memcpy.argtypes = [POINTER(c_char), POINTER(c_char), c_int]
 libc.memcpy.restype = c_void_p
 libc.mmap.argtypes = [c_void_p, size_t, c_int, c_int, c_int, off_t]
 libc.mmap.restype = c_void_p
+libc.close.argtypes = [c_int]
+libc.close.restype = c_int
+libc.munmap.argtypes = [POINTER(c_char), size_t]
+libc.munmap.restype = c_int
 
 if _POSIX:
     def _get_page_size():
@@ -142,6 +146,7 @@ class _mmap(Wrappable):
         self._size = 0
         self._pos = 0
         self._access = _ACCESS_DEFAULT
+        self._closed = False
 
         # if _MS_WINDOWS:
         #     self._map_handle = wintypes.HANDLE()
@@ -154,9 +159,41 @@ class _mmap(Wrappable):
         str = "".join([self._data[i] for i in range(self._size)])
         return self.space.wrap(str)
     _to_str.unwrap_spec = ['self']
-        
+    
+    def _check_valid(self):
+        # if _MS_WINDOWS:
+        #     if self._map_handle.value == _INVALID_HANDLE_VALUE:
+        #         raise ValueError, "map closed or invalid"
+        if _POSIX:
+            if self._closed:
+                raise OperationError(self.space.w_ValueError, 
+                    self.space.wrap("map closed or invalid"))
+    _check_valid.unwrap_spec = ['self']
+    
+    def close(self):
+        # if _MS_WINDOWS:
+        #     if self._data:
+        #         self._unmapview()
+        #         self._data = None
+        #     if self._map_handle.value != _INVALID_HANDLE_VALUE:
+        #         windll.kernel32.CloseHandle(self._map_handle)
+        #         self._map_handle.value = _INVALID_HANDLE_VALUE
+        #     if self._file_handle.value != _INVALID_HANDLE_VALUE:
+        #         windll.kernel32.CloseHandle(self._file_handle)
+        #         self._file_handle.value = _INVALID_HANDLE_VALUE
+        if _POSIX:
+            self._closed = True
+            libc.close(self._fd)
+            self._fd = -1
+            if self._data:
+                libc.munmap(self._data, self._size)
+    close.unwrap_spec = ['self']
+
 _mmap.typedef = TypeDef("_mmap",
-    _to_str = interp2app(_mmap._to_str, unwrap_spec=_mmap._to_str.unwrap_spec)
+    _to_str = interp2app(_mmap._to_str, unwrap_spec=_mmap._to_str.unwrap_spec),
+    _check_valid = interp2app(_mmap._check_valid,
+        unwrap_spec=_mmap._check_valid.unwrap_spec),
+    close = interp2app(_mmap.close, unwrap_spec=_mmap.close.unwrap_spec),
     )
 
 def _check_map_size(space, size):

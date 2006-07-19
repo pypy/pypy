@@ -75,19 +75,16 @@ class AppTestMMap:
         
         f.close()
 
-#     def test_close(self):
-#         self.f.write("c")
-#         self.f.flush()
-#         m = mmap(self.f.fileno(), 1)
-#         m.close()
-#         assert m._data == None
-#         if _MS_WINDOWS:
-#             assert m._map_handle.value == cmmap._INVALID_HANDLE_VALUE
-#             assert m._file_handle.value == cmmap._INVALID_HANDLE_VALUE
-#         elif _POSIX:
-#             assert m._fd == -1
-#         py.test.raises(ValueError, m._check_valid)
-# 
+    def test_close(self):
+        from mmap import mmap
+        f = open("foo", "w+")
+        
+        f.write("c")
+        f.flush()
+        m = mmap(f.fileno(), 1)
+        m.close()
+        raises(ValueError, m._check_valid)
+
 #     def test_read_byte(self):
 #         self.f.write("c")
 #         self.f.flush()
