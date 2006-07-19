@@ -3,7 +3,7 @@
 char *RPyString_AsString(RPyString*);
 long RPyString_Size(RPyString*);
 RPyString *RPyString_FromString(char *);
-int RPyExceptionOccurred(void);
+int _RPyExceptionOccurred(void);
 char* LLVM_RPython_StartupCode(void);
 
 #define RPyRaiseSimpleException(exctype, errormsg) raise##exctype(errormsg)

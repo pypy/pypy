@@ -16,28 +16,23 @@ from pypy.translator.llvm.module.support import \
 from pypy.translator.llvm.node import LLVMNode
 from pypy.translator.llvm.externs2ll import setup_externs, generate_llfile
 from pypy.translator.llvm.gc import GcPolicy
-from pypy.translator.llvm.exception import ExceptionPolicy
 from pypy.translator.llvm.log import log
 from pypy import conftest
 from pypy.translator.llvm.buildllvm import llvm_is_on_path
 
 class GenLLVM(object):
-
-    # see open_file() below
+    # see create_codewriter() below
     function_count = {}
 
-    def __init__(self, translator, gcpolicy, exceptionpolicy, standalone,
-                 debug=False, logging=True):
+    def __init__(self, translator, gcpolicy, standalone,
+                 debug=False, logging=True, stackless=False):
     
         # reset counters
         LLVMNode.nodename_count = {}    
 
-        # create and set internals
-        self.db = Database(self, translator)
-        self.db.gcpolicy = GcPolicy.new(self.db, gcpolicy)
-        self.db.exceptionpolicy = ExceptionPolicy.new(self.db,
-                                                      exceptionpolicy)
+        self.gcpolicy = gcpolicy
 
+        self.stackless = stackless
         self.standalone = standalone
         self.translator = translator
 
@@ -74,18 +69,29 @@ class GenLLVM(object):
             create c file for externs
             create ll file for c file
             create codewriter """
-        
+
+        # please dont ask!
+        from pypy.translator.c.genc import CStandaloneBuilder
+        from pypy.translator.c import gc
+        cbuild = CStandaloneBuilder(self.translator, func, gc.NoneGcPolicy)
+        cbuild.stackless = self.stackless
+        c_db = cbuild.generate_graphs_for_llinterp()
+
+        self.db = Database(self, self.translator)
+        self.db.gcpolicy = GcPolicy.new(self.db, self.gcpolicy)
+
         # get entry point
         entry_point = self.get_entry_point(func)
         self._checkpoint('get_entry_point')
         
         # set up all nodes
         self.db.setup_all()
+        
         self.entrynode = self.db.set_entrynode(entry_point)
         self._checkpoint('setup_all all nodes')
 
         # set up externs nodes
-        self.extern_decls = setup_externs(self.db)
+        self.extern_decls = setup_externs(c_db, self.db)
         self.translator.rtyper.specialize_more_blocks()
         self.db.setup_all()
         self._checkpoint('setup_all externs')
@@ -119,10 +125,6 @@ class GenLLVM(object):
         # write extern type declarations
         self.write_extern_decls(codewriter)
         self._checkpoint('write externs type declarations')
-
-        # write exception declarations
-        ep = self.db.exceptionpolicy
-        codewriter.write_lines(ep.llvm_declcode())
 
         # write node type declarations
         for typ_decl in self.db.getnodes():
@@ -162,8 +164,8 @@ class GenLLVM(object):
         self._checkpoint('write support implentations')
 
         # write exception implementaions
-        ep = self.db.exceptionpolicy
-        codewriter.write_lines(ep.llvm_implcode(self.entrynode))
+        from pypy.translator.llvm.exception import llvm_implcode
+        codewriter.write_lines(llvm_implcode(self.entrynode))
 
         # write all node implementations
         for typ_decl in self.db.getnodes():
@@ -292,15 +294,14 @@ class GenLLVM(object):
 
 #______________________________________________________________________________
 
-
 def genllvm_compile(function,
                     annotation,
 
                     # genllvm options
                     gcpolicy=None,
                     standalone=False,
-                    exceptionpolicy=None,
-
+                    stackless=False,
+                    
                     # debug options
                     view=False,
                     debug=False,
@@ -334,17 +335,21 @@ def genllvm_compile(function,
                               propagate=False,
                               constfold=False)
 
-    # note: this is without policy transforms
+    # note: this is without stackless and policy transforms
     if view or conftest.option.view:
         translator.view()
+
+    if stackless:
+        from pypy.translator.transform import insert_ll_stackcheck
+        insert_ll_stackcheck(translator)
 
     # create genllvm
     gen = GenLLVM(translator,
                   gcpolicy,
-                  exceptionpolicy,
                   standalone,
                   debug=debug,
-                  logging=logging)
+                  logging=logging,
+                  stackless=stackless)
 
     filename = gen.gen_llvm_source(function)
     

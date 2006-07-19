@@ -403,10 +403,11 @@ class Primitives(object):
         return self.types[key]
         
     def repr(self, type_, value):
-        try:
-            return self.reprs[type_](type_, value)
-        except KeyError:
-            raise Exception, "unsupported primitive type %r, value %r" % (type_, value)
+        #XXX TMP
+        #try:
+        return self.reprs[type_](type_, value)
+        #except KeyError:
+        #    raise Exception, "unsupported primitive type %r, value %r" % (type_, value)
         
     def repr_default(self, type_, value):
         return str(value)

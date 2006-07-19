@@ -1,7 +1,4 @@
 
-// overflows/zeros/values raising operations
-#include "raisingop.h"
-
 // append some genc files here manually from python
 #include "c/src/thread.h"
 #include "c/src/ll_os.h"
@@ -63,11 +60,11 @@ int main(int argc, char *argv[])
     if (errmsg) goto error;
     
     list = _RPyListOfString_New(argc);
-    if (RPyExceptionOccurred()) goto memory_out;
+    if (_RPyExceptionOccurred()) goto memory_out;
     for (i=0; i<argc; i++) {
       RPyString *s = RPyString_FromString(argv[i]);
 
-      if (RPyExceptionOccurred()) {
+      if (_RPyExceptionOccurred()) {
 	goto memory_out;
       }
 
@@ -76,7 +73,7 @@ int main(int argc, char *argv[])
 
     exitcode = __ENTRY_POINT__(list);
 
-    if (RPyExceptionOccurred()) {
+    if (_RPyExceptionOccurred()) {
       goto error; // XXX see genc
     }
     return exitcode;

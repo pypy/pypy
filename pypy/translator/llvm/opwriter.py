@@ -126,12 +126,6 @@ class OpWriter(object):
             if not meth:
                 raise Exception, "operation %s not found" % op.opname
             meth(opr)            
-
-    def write_invoke_op(self, op, node, block):
-        opr = OpReprInvoke(op, self.db)
-        ep = self.db.exceptionpolicy
-        ep.invoke(self.codewriter, opr.retref, opr.rettype, opr.functionref,
-                  opr.argrefs, opr.argtypes, node, block)
     
     def _generic_pow(self, opr, onestr): 
 
@@ -505,15 +499,3 @@ class OpWriter(object):
             cast_addr = incr_addr
 
         self.codewriter.load(opr.retref, opr.rettype, cast_addr) 
-        
-    # ______________________________________________________________________
-    # 
-    # XXX exception specific - move to policy?
-
-    def last_exception_type_ptr(self, opr):
-        op = opr.op
-        e = self.db.translator.rtyper.getexceptiondata()
-        self.codewriter.load('%' + str(op.result),
-                             self.db.repr_type(e.lltype_of_exception_type),
-                             '%last_exception_type')
-

@@ -102,16 +102,15 @@ def get_ll(ccode, function_names):
     return decl, impl
 
 
-def setup_externs(db):
+def setup_externs(c_db, db):
     rtyper = db.translator.rtyper
-    from pypy.translator.llvm.extfunchelper import predeclare_all
+    from pypy.translator.c.extfunc import predeclare_all
 
     # hacks to make predeclare_all work
     # XXX Rationalise this
     db.standalone = True
     
-    #XXX extfuncs need init. to use optimize=True
-    decls = list(predeclare_all(db, rtyper, optimize=False))
+    decls = list(predeclare_all(c_db, rtyper))
 
     for c_name, obj in decls:
         if isinstance(obj, lltype.LowLevelType):

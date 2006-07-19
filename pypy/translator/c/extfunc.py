@@ -85,7 +85,7 @@ def find_list_of_str(rtyper):
             return r.lowleveltype.TO
     return None
 
-def predeclare_common_types(db, rtyper, optimize=True):
+def predeclare_common_types(db, rtyper):
     # Common types
     yield ('RPyString', STR)
     LIST_OF_STR = find_list_of_str(rtyper)
@@ -95,7 +95,7 @@ def predeclare_common_types(db, rtyper, optimize=True):
     yield ('RPyMODF_RESULT', ll_math2.MODF_RESULT)
     yield ('RPySTAT_RESULT', STAT_RESULT)
 
-def predeclare_utility_functions(db, rtyper, optimize=True):
+def predeclare_utility_functions(db, rtyper):
     # Common utility functions
     def RPyString_New(length=lltype.Signed):
         return lltype.malloc(STR, length)
@@ -131,7 +131,7 @@ def predeclare_utility_functions(db, rtyper, optimize=True):
                 yield (fname, graph)
 
 
-def get_extfunc_helper_ptrs(db, rtyper, optimize=True):
+def get_extfunc_helper_ptrs(db, rtyper):
 
     def annotate(func, args):
         fptr = rtyper.annotate_helper(func, args)
@@ -141,7 +141,7 @@ def get_extfunc_helper_ptrs(db, rtyper, optimize=True):
     for func, args, symb in db.translator._implicitly_called_by_externals:
         yield annotate(func, args)
 
-def predeclare_extfunc_helpers(db, rtyper, optimize=True):
+def predeclare_extfunc_helpers(db, rtyper):
     def decl(func):
         return (func.__name__, db.helper2ptr[func])
 
@@ -149,7 +149,7 @@ def predeclare_extfunc_helpers(db, rtyper, optimize=True):
         yield decl(func)
         yield ('LL_NEED_' + symb, 1)
 
-def predeclare_extfuncs(db, rtyper, optimize=True):
+def predeclare_extfuncs(db, rtyper):
     modules = {}
     def module_name(c_name):
         frags = c_name[3:].split('_')
@@ -168,7 +168,7 @@ def predeclare_extfuncs(db, rtyper, optimize=True):
         funcptr = funcobj._as_ptr()
         yield c_name, funcptr
 
-def predeclare_exception_data(db, rtyper, optimize=True):
+def predeclare_exception_data(db, rtyper):
     # Exception-related types and constants
     exceptiondata = rtyper.getexceptiondata()
     exctransformer = db.exctransformer
@@ -182,6 +182,7 @@ def predeclare_exception_data(db, rtyper, optimize=True):
     if not db.standalone:
         yield ('RPYTHON_PYEXCCLASS2EXC', exceptiondata.fn_pyexcclass2exc)
 
+    yield ('_RPyExceptionOccurred',    exctransformer._rpyexc_occured_ptr.value)
     yield ('RPyExceptionOccurred',     exctransformer.rpyexc_occured_ptr.value)
     yield ('RPyFetchExceptionType',    exctransformer.rpyexc_fetch_type_ptr.value)
     yield ('RPyFetchExceptionValue',   exctransformer.rpyexc_fetch_value_ptr.value)
@@ -199,25 +200,25 @@ def predeclare_exception_data(db, rtyper, optimize=True):
         yield ('RPyExc_%s' % name, exc_llvalue)
 
 
-def predeclare_all(db, rtyper, optimize=True):
+def predeclare_all(db, rtyper):
     for fn in [predeclare_common_types,
                predeclare_utility_functions,
                predeclare_exception_data,
                predeclare_extfunc_helpers,
                predeclare_extfuncs,
                ]:
-        for t in fn(db, rtyper, optimize):
+        for t in fn(db, rtyper):
             yield t
 
 
-def get_all(db, rtyper, optimize=True):
+def get_all(db, rtyper):
     for fn in [predeclare_common_types,
                predeclare_utility_functions,
                predeclare_exception_data,
                get_extfunc_helper_ptrs,
                predeclare_extfuncs,
                ]:
-        for t in fn(db, rtyper, optimize):
+        for t in fn(db, rtyper):
             yield t[1]
 
 # ____________________________________________________________

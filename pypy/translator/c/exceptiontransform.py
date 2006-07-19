@@ -54,7 +54,15 @@ class ExceptionTransformer(object):
         def rpyexc_occured():
             exc_type = exc_data.exc_type
             lloperation.llop.debug_log_exc(lltype.Void, exc_type)
-            return  exc_type is not null_type
+            return exc_type is not null_type
+
+        # XXX tmp HACK for genllvm
+        # llvm is strongly typed between bools and ints, which means we have no way of
+        # calling rpyexc_occured() from c code with lltype.Bool
+        def _rpyexc_occured():
+            exc_type = exc_data.exc_type
+            lloperation.llop.debug_log_exc(lltype.Void, exc_type)
+            return exc_type is not null_type
 
         def rpyexc_fetch_type():
             return exc_data.exc_type
@@ -78,6 +86,15 @@ class ExceptionTransformer(object):
             RPYEXC_OCCURED_TYPE, "RPyExceptionOccurred",
             graph=rpyexc_occured_graph),
             lltype.Ptr(RPYEXC_OCCURED_TYPE))
+
+        # XXX tmp HACK for genllvm
+        _RPYEXC_OCCURED_TYPE = lltype.FuncType([], lltype.Signed)
+        _rpyexc_occured_graph = mixlevelannotator.getgraph(
+            _rpyexc_occured, [], l2a(lltype.Signed))
+        self._rpyexc_occured_ptr = Constant(lltype.functionptr(
+            _RPYEXC_OCCURED_TYPE, "_RPyExceptionOccurred",
+            graph=_rpyexc_occured_graph),
+            lltype.Ptr(_RPYEXC_OCCURED_TYPE))
         
         RPYEXC_FETCH_TYPE_TYPE = lltype.FuncType([], self.lltype_of_exception_type)
         rpyexc_fetch_type_graph = mixlevelannotator.getgraph(
