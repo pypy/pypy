@@ -41,6 +41,8 @@ class Class(Node):
             return self.db.class_name(base_class)
 
     def is_abstract(self):
+        return False # XXX
+        
         # if INSTANCE has an abstract method, the class is abstract
         method_names = set()
         for m_name, m_meth in self.INSTANCE._methods.iteritems():
@@ -98,7 +100,13 @@ class Class(Node):
                            for i, ARG in enumerate(METH.ARGS)
                            if ARG is not ootype.Void]
                 returntype = self.cts.lltype_to_cts(METH.RESULT)
-                ilasm.begin_function(m_name, arglist, returntype, False, 'virtual', 'abstract')
+                ilasm.begin_function(m_name, arglist, returntype, False, 'virtual') #, 'abstract')
+                if isinstance(METH.RESULT, ootype.OOType):
+                    ilasm.opcode('ldnull')
+                else:
+                    from pypy.translator.cli.database import AbstractConst
+                    AbstractConst.load(self.db, METH.RESULT, 0, ilasm)
+                ilasm.opcode('ret')
                 ilasm.end_function()
 
         ilasm.end_class()
