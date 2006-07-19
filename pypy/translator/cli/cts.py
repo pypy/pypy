@@ -140,7 +140,7 @@ class CTS(object):
         if t is ootype.ROOT:
             return self.__class('[mscorlib]System.Object', include_class)
         elif isinstance(t, lltype.Ptr) and isinstance(t.TO, lltype.OpaqueType):
-            return '[mscorlib]System.Object'
+            return self.__class('[mscorlib]System.Object', include_class)
         elif isinstance(t, ootype.Instance):
             name = self.db.pending_class(t)
             return self.__class(name, include_class)
