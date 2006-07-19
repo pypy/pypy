@@ -96,30 +96,37 @@ class AppTestMMap:
         raises(ValueError, m.read_byte)
         m.close()
         f.close()
-# 
-#     def test_readline(self):
-#         self.f.seek(0)
-#         self.f.write("foo\n")
-#         self.f.flush()
-#         m = mmap(self.f.fileno(), 4)
-#         if _MS_WINDOWS:
-#             # windows replaces \n with \r. it's time to change to \n only MS!
-#             assert m.readline() == "foo\r"
-#         elif _POSIX:
-#             assert m.readline() == "foo\n"
-#         assert m.readline() == ""
-#         m.close()
-# 
-#     def test_read(self):
-#         self.f.seek(0)
-#         self.f.write("foobar")
-#         self.f.flush()
-#         m = mmap(self.f.fileno(), 6)
-#         py.test.raises(TypeError, m.read, "foo")
-#         assert m.read(1) == "f"
-#         assert m.read(6) == "oobar"
-#         assert m.read(1) == ""
-#         m.close()
+
+    def test_readline(self):
+        from mmap import mmap
+        import os
+        f = open("foo", "w+")
+
+        f.write("foo\n")
+        f.flush()
+        m = mmap(f.fileno(), 4)
+        # if _MS_WINDOWS:
+        #     # windows replaces \n with \r. it's time to change to \n only MS!
+        #     assert m.readline() == "foo\r"
+        if os.name == "posix":
+            assert m.readline() == "foo\n"
+        assert m.readline() == ""
+        m.close()
+        f.close()
+
+    def test_read(self):
+        from mmap import mmap
+        f = open("foo", "w+")
+        
+        f.write("foobar")
+        f.flush()
+        m = mmap(f.fileno(), 6)
+        raises(TypeError, m.read, "foo")
+        assert m.read(1) == "f"
+        assert m.read(6) == "oobar"
+        assert m.read(1) == ""
+        m.close()
+        f.close()
 # 
 #     def test_find(self):
 #         self.f.seek(0)

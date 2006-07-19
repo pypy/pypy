@@ -200,6 +200,46 @@ class _mmap(Wrappable):
             raise OperationError(self.space.w_ValueError,
                 self.space.wrap("read byte out of range"))
     read_byte.unwrap_spec = ['self']
+    
+    def readline(self):
+        self._check_valid()
+
+        found = False
+        for pos in range(self._pos, self._size):
+            if self._data[pos] == '\n':
+                found = True
+                break
+
+        if not found:
+            eol = self._size
+        else:
+            eol = pos + 1 # we're interested in the position after new line
+
+        # res = self._data[self._pos:eol-self._pos] XXX: can't use this slicing
+        # in translation step
+        res = "".join([self._data[i] for i in range(self._pos, eol-self._pos)])
+        self._pos += eol - self._pos
+        return self.space.wrap(res)
+    readline.unwrap_spec = ['self']
+    
+    def read(self, num):
+        self._check_valid()
+        
+        num_bytes = num
+        
+        # silently adjust out of range requests
+        if self._pos + num_bytes > self._size:
+            num_bytes -= (self._pos + num_bytes) - self._size
+        
+        # due to slicing of python, the last char is not always returned
+        if num_bytes < self._size - 1:
+            res = "".join([self._data[i] for i in range(self._pos, num_bytes)])
+        else:
+            res = "".join([self._data[i] for i in range(self._pos, self._size)])
+        self._pos += num_bytes
+        return self.space.wrap(res)
+    read.unwrap_spec = ['self', int]
+
 
 _mmap.typedef = TypeDef("_mmap",
     _to_str = interp2app(_mmap._to_str, unwrap_spec=_mmap._to_str.unwrap_spec),
@@ -208,6 +248,9 @@ _mmap.typedef = TypeDef("_mmap",
     close = interp2app(_mmap.close, unwrap_spec=_mmap.close.unwrap_spec),
     read_byte = interp2app(_mmap.read_byte,
         unwrap_spec=_mmap.read_byte.unwrap_spec),
+    readline = interp2app(_mmap.readline,
+        unwrap_spec=_mmap.readline.unwrap_spec),
+    read = interp2app(_mmap.read, unwrap_spec=_mmap.read.unwrap_spec),
 )
 
 def _check_map_size(space, size):
