@@ -124,19 +124,24 @@ def calculate_call_graph(translator):
                             calls[graph][called_graph] = block
     return calls
 
-def find_backedges(graph):
+def find_backedges(graph, block=None, seen=None, seeing=None):
     """finds the backedges in the flow graph"""
-    scheduled = [graph.startblock]
-    seen = {}
     backedges = []
-    while scheduled:
-        current = scheduled.pop()
-        seen[current] = True
-        for link in current.exits:
-            if link.target in seen:
+    if block is None:
+        block = graph.startblock
+    if seen is None:
+        seen = {block: None}
+    if seeing is None:
+        seeing = {}
+    seeing[block] = True
+    for link in block.exits:
+        if link.target in seen:
+            if link.target in seeing:
                 backedges.append(link)
-            else:
-                scheduled.append(link.target)
+        else:
+            seen[link.target] = None
+            backedges.extend(find_backedges(graph, link.target, seen, seeing))
+    del seeing[block]
     return backedges
 
 def compute_reachability(graph):
