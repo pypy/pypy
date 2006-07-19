@@ -295,6 +295,30 @@ class _mmap(Wrappable):
         
         self._pos = where
     seek.unwrap_spec = ['self', int, int]
+    
+    def tell(self):
+        self._check_valid()
+        
+        return self.space.wrap(self._pos)
+    tell.unwrap_spec = ['self']
+    
+    def size(self):
+        self._check_valid()
+        
+        # if _MS_WINDOWS:
+        #     if self._file_handle.value != _INVALID_HANDLE_VALUE:
+        #         low, high = _get_file_size(self._file_handle)
+        #         if not high and low.value < sys.maxint:
+        #             return int(low.value)
+        #         size = (long(high.value) << 32) + low.value
+        #         return long(size)
+        #     else:
+        #         return self._size
+        if _POSIX:
+            st = os.fstat(self._fd)
+            SIZE_BIT = 6
+            return self.space.wrap(st[SIZE_BIT])
+    size.unwrap_spec = ['self']
 
 
 _mmap.typedef = TypeDef("_mmap",
@@ -312,7 +336,9 @@ _mmap.typedef = TypeDef("_mmap",
         unwrap_spec=_mmap.readline.unwrap_spec),
     read = interp2app(_mmap.read, unwrap_spec=_mmap.read.unwrap_spec),
     find = interp2app(_mmap.find, unwrap_spec=_mmap.find.unwrap_spec),
-    seek = interp2app(_mmap.seek, unwrap_spec=_mmap.seek.unwrap_spec)
+    seek = interp2app(_mmap.seek, unwrap_spec=_mmap.seek.unwrap_spec),
+    tell = interp2app(_mmap.tell, unwrap_spec=_mmap.tell.unwrap_spec),
+    size = interp2app(_mmap.size, unwrap_spec=_mmap.size.unwrap_spec),
 )
 
 def _check_map_size(space, size):

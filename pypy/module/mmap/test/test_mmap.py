@@ -172,15 +172,16 @@ class AppTestMMap:
         raises(ValueError, m.seek, 1, 3)
         raises(ValueError, m.seek, 10)
         m.seek(0)
+        assert m.tell() == 0
+        m.read(1)
+        m.seek(1, 1)
+        assert m.tell() == 2
+        m.seek(0)
+        m.seek(-1, 2)
+        assert m.tell() == 5
         m.close()
         f.close()
-        # assert m.tell() == 0
-        # m.read(1)
-        # m.seek(1, 1)
-        # assert m.tell() == 2
-        # m.seek(0)
-        # m.seek(-1, 2)
-        # assert m.tell() == 5
+
 # 
 #     def test_write(self):
 #         self.f.seek(0)
@@ -209,19 +210,28 @@ class AppTestMMap:
 #         m.seek(0)
 #         assert m.read(6) == "xoobar"
 #         m.close()
-# 
-#     def test_size(self):
-#         self.f.seek(0)
-#         self.f.write("foobar")
-#         self.f.flush()
-#         m = mmap(self.f.fileno(), 5)
-#         assert m.size() > m._size
-#         m.close()
-# 
-#     def test_tell(self):
-#         m = mmap(self.f.fileno(), 1)
-#         assert m.tell() >= 0
-#         m.close()
+
+    def test_size(self):
+        from mmap import mmap
+        f = open("foo", "w+")
+        
+        f.write("foobar")
+        f.flush()
+        m = mmap(f.fileno(), 5)
+        assert m.size() == 6 # size of the underline file, not the mmap
+        m.close()
+        f.close()
+
+    def test_tell(self):
+        from mmap import mmap
+        f = open("foo", "w+")
+        
+        f.write("c")
+        f.flush()
+        m = mmap(f.fileno(), 1)
+        assert m.tell() >= 0
+        m.close()
+        f.close()
 # 
 #     def test_flush(self):
 #         self.f.seek(0)
