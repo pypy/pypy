@@ -127,50 +127,60 @@ class AppTestMMap:
         assert m.read(1) == ""
         m.close()
         f.close()
-# 
-#     def test_find(self):
-#         self.f.seek(0)
-#         self.f.write("foobar\0")
-#         self.f.flush()
-#         m = mmap(self.f.fileno(), 7)
-#         py.test.raises(TypeError, m.find, 123)
-#         py.test.raises(TypeError, m.find, "foo", "baz")
-#         assert m.find("b") == 3
-#         assert m.find("z") == -1
-#         assert m.find("o", 5) == -1
-#         assert m.find("ob") == 2
-#         assert m.find("\0") == 6
-#         m.close()
-# 
-#     def test_is_modifiable(self):
-#         self.f.seek(0)
-#         self.f.write("foobar")
-#         self.f.flush()
-#         m = mmap(self.f.fileno(), 6, access=cmmap.ACCESS_READ)
-#         py.test.raises(TypeError, m._check_writeable)
-#         py.test.raises(TypeError, m._check_resizeable)
-#         m.close()
-# 
-#     def test_seek(self):
-#         self.f.seek(0)
-#         self.f.write("foobar")
-#         self.f.flush()
-#         m = mmap(self.f.fileno(), 6)
-#         py.test.raises(TypeError, m.seek, "foo")
-#         py.test.raises(TypeError, m.seek, 0, "foo")
-#         py.test.raises(ValueError, m.seek, -1, 0)
-#         py.test.raises(ValueError, m.seek, -1, 1)
-#         py.test.raises(ValueError, m.seek, -7, 2)
-#         py.test.raises(ValueError, m.seek, 1, 3)
-#         py.test.raises(ValueError, m.seek, 10)
-#         m.seek(0)
-#         assert m._pos == 0
-#         m.read(1)
-#         m.seek(1, 1)
-#         assert m._pos == 2
-#         m.seek(0)
-#         m.seek(-1, 2)
-#         assert m._pos == 5
+
+    def test_find(self):
+        from mmap import mmap
+        f = open("foo", "w+")
+
+        f.write("foobar\0")
+        f.flush()
+        m = mmap(f.fileno(), 7)
+        raises(TypeError, m.find, 123)
+        raises(TypeError, m.find, "foo", "baz")
+        assert m.find("b") == 3
+        assert m.find("z") == -1
+        assert m.find("o", 5) == -1
+        assert m.find("ob") == 2
+        assert m.find("\0") == 6
+        m.close()
+        f.close()
+
+    def test_is_modifiable(self):
+        import mmap
+        f = open("foo", "w+")
+        
+        f.write("foobar")
+        f.flush()
+        m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_READ)
+        raises(TypeError, m._check_writeable)
+        raises(TypeError, m._check_resizeable)
+        m.close()
+        f.close()
+
+    def test_seek(self):
+        from mmap import mmap
+        f = open("foo", "w+")
+        
+        f.write("foobar")
+        f.flush()
+        m = mmap(f.fileno(), 6)
+        raises(TypeError, m.seek, "foo")
+        raises(TypeError, m.seek, 0, "foo")
+        raises(ValueError, m.seek, -1, 0)
+        raises(ValueError, m.seek, -1, 1)
+        raises(ValueError, m.seek, -7, 2)
+        raises(ValueError, m.seek, 1, 3)
+        raises(ValueError, m.seek, 10)
+        m.seek(0)
+        m.close()
+        f.close()
+        # assert m.tell() == 0
+        # m.read(1)
+        # m.seek(1, 1)
+        # assert m.tell() == 2
+        # m.seek(0)
+        # m.seek(-1, 2)
+        # assert m.tell() == 5
 # 
 #     def test_write(self):
 #         self.f.seek(0)

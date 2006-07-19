@@ -170,6 +170,19 @@ class _mmap(Wrappable):
                     self.space.wrap("map closed or invalid"))
     _check_valid.unwrap_spec = ['self']
     
+    def _check_writeable(self):
+        if not (self._access != ACCESS_READ):
+            raise OperationError(self.space.w_TypeError,
+                self.space.wrap("mmap can't modify a readonly memory map."))
+    _check_writeable.unwrap_spec = ['self']
+    
+    def _check_resizeable(self):
+        if not (self._access == ACCESS_WRITE or self._access == _ACCESS_DEFAULT):
+            raise OperationError(self.space.w_TypeError,
+                self.space.wrap(
+                    "mmap can't resize a readonly or copy-on-write memory map."))
+    _check_resizeable.unwrap_spec = ['self']
+    
     def close(self):
         # if _MS_WINDOWS:
         #     if self._data:
@@ -240,17 +253,66 @@ class _mmap(Wrappable):
         return self.space.wrap(res)
     read.unwrap_spec = ['self', int]
 
+    def find(self, str, start=0):
+        self._check_valid()
+        
+        # since we don't have to update positions we
+        # gain advantage of python strings :-)
+        w_str_data = self._to_str()
+        str_data = self.space.str_w(w_str_data)
+        assert start >= 0
+        return self.space.wrap(str_data.find(str, start))
+    find.unwrap_spec = ['self', str, int]
+
+    def seek(self, pos, whence=0):
+        self._check_valid()
+        
+        dist = pos
+        how = whence
+        
+        if how == 0: # relative to start
+            if dist < 0:
+                raise OperationError(self.space.w_ValueError,
+                    self.space.wrap("seek out of range"))
+            where = dist
+        elif how == 1: # relative to current position
+            if self._pos + dist < 0:
+                raise OperationError(self.space.w_ValueError,
+                    self.space.wrap("seek out of range"))
+            where = self._pos + dist
+        elif how == 2: # relative to the end
+            if self._size + dist < 0:
+                raise OperationError(self.space.w_ValueError,
+                    self.space.wrap("seek out of range"))
+            where = self._size + dist
+        else:
+            raise OperationError(self.space.w_ValueError,
+                    self.space.wrap("unknown seek type"))
+        
+        if where > self._size:
+            raise OperationError(self.space.w_ValueError,
+                    self.space.wrap("seek out of range"))
+        
+        self._pos = where
+    seek.unwrap_spec = ['self', int, int]
+
 
 _mmap.typedef = TypeDef("_mmap",
     _to_str = interp2app(_mmap._to_str, unwrap_spec=_mmap._to_str.unwrap_spec),
     _check_valid = interp2app(_mmap._check_valid,
         unwrap_spec=_mmap._check_valid.unwrap_spec),
+    _check_writeable = interp2app(_mmap._check_writeable,
+        unwrap_spec=_mmap._check_writeable.unwrap_spec),
+    _check_resizeable = interp2app(_mmap._check_resizeable,
+        unwrap_spec=_mmap._check_resizeable.unwrap_spec),
     close = interp2app(_mmap.close, unwrap_spec=_mmap.close.unwrap_spec),
     read_byte = interp2app(_mmap.read_byte,
         unwrap_spec=_mmap.read_byte.unwrap_spec),
     readline = interp2app(_mmap.readline,
         unwrap_spec=_mmap.readline.unwrap_spec),
     read = interp2app(_mmap.read, unwrap_spec=_mmap.read.unwrap_spec),
+    find = interp2app(_mmap.find, unwrap_spec=_mmap.find.unwrap_spec),
+    seek = interp2app(_mmap.seek, unwrap_spec=_mmap.seek.unwrap_spec)
 )
 
 def _check_map_size(space, size):
@@ -324,9 +386,6 @@ if _POSIX:
                 raise OperationError(space.w_EnvironmentError,
                     space.wrap(_get_error_msg()))
 
-        # for an unknown reason mmap crashes under FreeBSD or OSX if
-        # called with 6 parameters like man says. Call it with 7 and works well.
-        # that's really odd but it works
         res = libc.mmap(c_void_p(0), map_size, prot, flags, fd, 0)
         if not res:
             raise OperationError(space.w_EnvironmentError,
