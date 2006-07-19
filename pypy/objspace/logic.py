@@ -41,6 +41,7 @@ USE_COROUTINES = True
 HAVE_GREENLETS = True
 try:
     from py.magic import greenlet
+    del greenlet
 except ImportError:
     HAVE_GREENLETS = False
 
@@ -55,8 +56,8 @@ def have_uthreads():
 assert USE_COROUTINES # once & for all
 
 from pypy.module._stackless.coroutine import _AppThunk
-from pypy.module._stackless.coroutine import Coroutine
-from pypy.module._stackless.interp_clonable import InterpClonableCoroutine as ClonableCoroutine
+from pypy.module._stackless.coroutine import Coroutine # XXX (that's for main)
+from pypy.module._stackless.interp_clonable import ClonableCoroutine
 
 def SETNEXT(obj, val):
     obj.next = val
@@ -74,6 +75,7 @@ class Scheduler(object):
         self._main = ClonableCoroutine.w_getcurrent(space)
         self._init_head(self._main)
         self._init_blocked()
+        self._switch_count = 0
         w ("MAIN THREAD = ", str(id(self._main)))
 
     def _init_blocked(self):
@@ -136,13 +138,17 @@ class Scheduler(object):
     def schedule(self):
         to_be_run = self._select_next()
         w(".. SWITCHING", str(id(ClonableCoroutine.w_getcurrent(self.space))), "=>", str(id(to_be_run)))
-        to_be_run.w_switch() # <- "Variable object has no attribute 'dict'
+        self._switch_count += 1
+        to_be_run.w_switch() 
         
     def _select_next(self):
         to_be_run = self._head
         sentinel = to_be_run
         current = ClonableCoroutine.w_getcurrent(self.space)
-        while (to_be_run in self._blocked) or (to_be_run == current): 
+        print type(to_be_run)
+        while (to_be_run in self._blocked) \
+                  or (to_be_run == current) \
+                  or to_be_run.is_dead():
             to_be_run = to_be_run.next
             if to_be_run == sentinel:
                 self.display_head()
@@ -154,6 +160,15 @@ class Scheduler(object):
                 raise OperationError(self.space.w_RuntimeError,
                                      self.space.wrap("can't schedule, possible deadlock in sight"))
         return to_be_run
+
+    def __len__(self):
+        curr = self._head
+        sentinel = curr
+        count = 1
+        while curr.next != sentinel:
+            curr = curr.next
+            count += 1
+        return count
 
     def display_head(self):
         curr = self._head
@@ -218,20 +233,27 @@ class Scheduler(object):
 
 scheduler = []
 
-class Thunk(_AppThunk):
+class FutureThunk(_AppThunk):
     def __init__(self, space, w_callable, args, w_Result, coro):
         _AppThunk.__init__(self, space, coro.costate, w_callable, args)
         self.w_Result = w_Result 
         self._coro = coro
 
     def call(self):
-        _AppThunk.call(self)
-        # bind does not suffice for we can have a right-hand logic var
-        unify(self.space, self.w_Result, self.costate.w_tempval)
-        scheduler[0].remove_thread(self._coro)
-        scheduler[0].schedule()
+        try:
+            try:
+                _AppThunk.call(self)
+            except Exception, exc:
+                print "EXCEPTION in call", exc
+                bind(self.space, self.w_Result, exc)
+            else:
+                unify(self.space, self.w_Result, self.costate.w_tempval)
+        finally:
+            scheduler[0].remove_thread(self._coro)
+            scheduler[0].schedule()
 
-def uthread(space, w_callable, __args__):
+def future(space, w_callable, __args__):
+    """returns a future result"""
     args = __args__.normalize()
     w_Future = W_Var()
     # coro init
@@ -239,20 +261,29 @@ def uthread(space, w_callable, __args__):
     # prepare thread chaining, create missing slots
     coro.next = coro.prev = None
     # feed the coro
-    thunk = Thunk(space, w_callable, args, w_Future, coro)
+    thunk = FutureThunk(space, w_callable, args, w_Future, coro)
     coro.bind(thunk)
     scheduler[0].add_new_thread(coro)
     # XXX we should think about a way to make it read-only for the client
     #     aka true futures
     return w_Future
-app_uthread = gateway.interp2app(uthread, unwrap_spec=[baseobjspace.ObjSpace,
-                                                       baseobjspace.W_Root,
-                                                       argument.Arguments])
+app_future = gateway.interp2app(future, unwrap_spec=[baseobjspace.ObjSpace,
+                                                     baseobjspace.W_Root,
+                                                     argument.Arguments])
     
+# need : getcurrent(), getmain(), 
+# wrapper for schedule() ?
 
-
-# need : complete scheduler info, getcurrent(), getmain(), 
-# wrappers for schedule()
+def sched_stats(space):
+    sched = scheduler[0]
+    ret = space.newdict([])
+    space.setitem(ret, space.wrap('switches'), space.wrap(sched._switch_count))
+    space.setitem(ret, space.wrap('threads'), space.wrap(len(sched)))
+    space.setitem(ret, space.wrap('blocked'), space.wrap(len(sched._blocked)))
+    space.setitem(ret, space.wrap('blocked_on'), space.wrap(len(sched._blocked_on)))
+    space.setitem(ret, space.wrap('blocked_byneed'), space.wrap(len(sched._blocked_byneed)))
+    return ret
+app_sched_stats = gateway.interp2app(sched_stats)
 
 #-- VARIABLE ---------------------
 
@@ -410,7 +441,6 @@ def get_ring_tail(space, w_start):
 def fail(space, w_obj1, w_obj2):
     """raises a specific exception for bind/unify"""
     #FIXME : really raise some specific exception
-    #print "failed to bind/unify"
     assert isinstance(w_obj1, W_Root)
     assert isinstance(w_obj2, W_Root)
     raise OperationError(space.w_RuntimeError,
@@ -423,7 +453,7 @@ def prettyfy_id(a_str):
     return a_str[l-3:l]
 
 def interp_id(space, w_obj):
-    assert isinstance(w_obj, W_ObjectObject)
+    assert isinstance(w_obj, W_Root) # or W_Wrappable ?
     return space.newint(id(w_obj))
 app_interp_id = gateway.interp2app(interp_id)
 
@@ -436,8 +466,12 @@ def bind(space, w_var, w_obj):
     """
     v(" :bind")
     assert isinstance(w_var, W_Var)
-    assert isinstance(w_obj, W_Root)
-    space.bind(w_var, w_obj)
+    try:
+        assert isinstance(w_obj, W_Root)
+    except: # we've got an interpreter exception, probably
+        _assign_exception(space, w_var, w_obj)
+    else:
+        space.bind(w_var, w_obj)
 app_bind = gateway.interp2app(bind)
 
 def bind__Var_Var(space, w_v1, w_v2):
@@ -455,14 +489,30 @@ def bind__Var_Var(space, w_v1, w_v2):
     else: # 1. both are unbound
         return _alias(space, w_v1, w_v2)
 
+#XXX 
+def _assign_exception(space, w_var, w_exc):
+    w()
+    w("  :assign an exception")
+    assert isinstance(w_var, W_Var)
+    w_curr = w_var
+    while 1:
+        w_next = w_curr.w_bound_to
+        w_curr.w_bound_to = w_exc
+        # notify the blocked threads
+        scheduler[0].unblock_on(w_curr)
+        if space.is_true(space.is_nb_(w_next, w_var)):
+            break
+        # switch to next
+        w_curr = w_next
+    w("  :assigned")
+    return space.w_None
+
 
 def bind__Var_Root(space, w_var, w_obj):
     w("var val", str(id(w_var)))
     # 3. var and value
     if space.is_true(space.is_free(w_var)):
         return _assign(space, w_var, w_obj)
-    # for dataflow behaviour we should allow
-    # rebinding of unifiable values
     if space.is_true(space.eq(w_var.w_bound_to, w_obj)):
         return
     raise OperationError(space.w_RuntimeError,
@@ -478,11 +528,9 @@ def _assign(space, w_var, w_val):
     assert isinstance(w_var, W_Var)
     assert isinstance(w_val, W_Root)
     w_curr = w_var
-    ass_count = 0
     while 1:
         w_next = w_curr.w_bound_to
         w_curr.w_bound_to = w_val
-        ass_count += 1
         # notify the blocked threads
         scheduler[0].unblock_on(w_curr)
         if space.is_true(space.is_nb_(w_next, w_var)):
@@ -835,12 +883,14 @@ def Space(*args, **kwds):
 ##     space.setitem(space.builtin.w_dict, space.wrap('DichotomyDistributor'),
 ##                  space.wrap(distributor.app_make_dichotomy_distributor))
     #-- threading --
-    space.setitem(space.builtin.w_dict, space.wrap('uthread'),
-                 space.wrap(app_uthread))
+    space.setitem(space.builtin.w_dict, space.wrap('future'),
+                 space.wrap(app_future))
     space.setitem(space.builtin.w_dict, space.wrap('wait'),
                  space.wrap(app_wait))
     space.setitem(space.builtin.w_dict, space.wrap('wait_needed'),
                   space.wrap(app_wait_needed))
+    space.setitem(space.builtin.w_dict, space.wrap('sched_stats'),
+                  space.wrap(app_sched_stats))
 
     #-- misc -----
     space.setitem(space.builtin.w_dict, space.wrap('interp_id'),

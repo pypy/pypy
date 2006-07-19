@@ -1,4 +1,5 @@
 from pypy.conftest import gettestobjspace
+from py.test import skip
  
 class AppTest_Logic(object):
 
@@ -200,16 +201,59 @@ class AppTest_LogicThreads(object):
     def setup_class(cls):
         cls.space = gettestobjspace('logic', usemodules=("_stackless",))
 
-    def test_one_thread(self):
+    def test_future_value(self):
         
         def poop(X):
-            wait(X)
             return X + 1
 
         X = newvar()
-        Y = uthread(poop, X)
+        Y = future(poop, X)
         bind(X, 42)
         assert Y == 43
+
+    def test_future_exception(self):
+        skip('wait until we have working exception propagation')
+        class FooException(Exception): pass
+        
+        def poop(X):
+            wait(X)
+            raise FooException
+
+        X=newvar()
+        Y=future(poop, X)
+        unify(X, 42)
+        try:
+            assert Y == 43
+        except FooException:
+            return
+        assert False
+
+    def test_exceptions_harder(self):
+        skip('wait until we have working exception propagation')
+        class FooException(Exception): pass
+
+        def raise_foo():
+            print "STATS", sched_stats()
+            raise FooException
+
+        def spawn(X, n):
+            print "SPAWN !"
+            if n>0:
+                F = future(spawn, X, n-1)
+                wait(X)
+            else:
+                raise_foo()
+
+        X = newvar()
+        Y = spawn(X, 3)
+        unify(X, 42)
+        try:
+            assert Y == 1
+        except FooException:
+            print "SUCCESS !"
+            print sched_stats()
+            return
+        assert False
 
     def test_nested_threads(self):
         """check that a wait nested in a tree of
@@ -220,10 +264,10 @@ class AppTest_LogicThreads(object):
             return X
 
         def call_sleep(X):
-            return uthread(sleep, X)
+            return future(sleep, X)
 
         X = newvar()
-        v = uthread(call_sleep, X)
+        v = future(call_sleep, X)
         bind(X, 42)
         assert X == 42
         assert is_free(v)
@@ -240,8 +284,8 @@ class AppTest_LogicThreads(object):
             wait(V)
             return V
 
-        uthread(reader, X)
-        uthread(binder, X)
+        future(reader, X)
+        future(binder, X)
 
         assert X == 42
 
@@ -261,8 +305,8 @@ class AppTest_LogicThreads(object):
 
         X = newvar()
         S = newvar()
-        unify(S, uthread(sum, X, 0))
-        unify(X, uthread(generate, 0, 10))
+        unify(S, future(sum, X, 0))
+        unify(X, future(generate, 0, 10))
         assert S == 45
 
 
@@ -288,8 +332,8 @@ class AppTest_LogicThreads(object):
         Y = newvar()
         T = newvar()
 
-        uthread(lgenerate, 0, Y)
-        unify(T, uthread(lsum, Y, 0, 10))
+        future(lgenerate, 0, Y)
+        unify(T, future(lsum, Y, 0, 10))
 
         wait(T)
         assert T == 45
@@ -301,15 +345,15 @@ class AppTest_LogicThreads(object):
         
         def wait_two(X, Y):
             Barrier = newvar()
-            uthread(sleep, X, Barrier)
-            uthread(sleep, Y, Barrier)
+            future(sleep, X, Barrier)
+            future(sleep, Y, Barrier)
             wait(Barrier)
             if is_free(Y):
                 return 1
             return 2
 
         X, Y = newvar(), newvar()
-        o = uthread(wait_two, X, Y)
+        o = future(wait_two, X, Y)
         unify(X, Y)
         unify(Y, 42)
         assert X == Y == 42
