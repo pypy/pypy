@@ -201,7 +201,7 @@ class BoehmGcPolicy(BasicGcPolicy):
 
     def pre_pre_gc_code(self):
         if sys.platform == "linux2":
-            if self.thread_enabled:
+            if self.thread_enabled or True:
                 yield "#define _REENTRANT 1"
                 yield "#define GC_LINUX_THREADS 1"
                 yield "#define GC_REDIRECT_TO_LOCAL 1"
