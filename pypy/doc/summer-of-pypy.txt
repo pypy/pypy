@@ -10,12 +10,12 @@ for reimbursement of your travel+expenses for attending PyPy sprints.
 For this you need to come up with a brief synopsis/proposal that contains: 
 
 - a clear description of intended work 
-- one or more deliverables 
-- your background and why you'd like to tackle it
+- one or more deliverables with an estimated timeframe 
+- your background and why you'd like to tackle it 
 
 To help you with preparing your proposal you can 
 chat to some developers first (on #pypy irc.freenode.net) or 
-post to `pypy-dev at codespeak net` and ask for feedback.  
+post to ``pypy-dev at codespeak net`` and ask for feedback.  
 
 You may want to check out `project ideas`_ to get some inspiration. 
 
@@ -58,14 +58,14 @@ please send mail to ``pypy-sop at codespeak net``.
 getting reimbursements
 ++++++++++++++++++++++
 
-For getting reimbursements you must collect your receipts 
+For getting reimbursements you must collect your travel receipts 
 (train/plane tickets etc.).  For each sprint you need
-to fill out a template (XXX will be here soon) and send 
-it to merlinux which handles the reimbursements. 
-After each two sprints you should usually get reimbursements
-into your back account. 
+to fill out a template that will be send to you after
+your proposal got accepted.  We aim at getting 
+reimbursements to your bank account after each two sprints. 
 
-Currently the reimbursements are calculated like this: 
+Currently the reimbursements are determined and 
+calculated like this: 
 
  * full reimbursement for travel costs (flights, train etc.)
  * per-diem of 80 Euro per Day for accomodation
