@@ -47,9 +47,6 @@ any restrictions for participating: you can make use of your
 work in other contexts as well apart from the fact that
 you need to license your works under the MIT license. 
 
-In fact, we already have three Summer of Code students
-who also receive sprint funding from the PyPy project. 
-
 If you have any questions regarding procedural details
 (travels, receipts, filling out the template, etc.) 
 please send mail to ``pypy-sop at codespeak net``. 
@@ -73,3 +70,20 @@ calculated like this:
 
 However, if you do not fulfil the tasks described in 
 your proposal the actual reimbursements may get reduced. 
+
+
+Accepted Proposals 
+---------------------------
+
+XXX check with Valentino about his proposal
+
+- **Ajax in python based on PyPy's JavaScript backend**
+  by Maciej Fijalkowski, mentored by Eric van Riet Paap 
+
+- **Write and port modules from CPython with ctypes**
+  by Tenitope Lawrence Oluyede, mentored by Anders Chrigstroem
+
+- **Complete gencli, the PyPy CLI backend"
+  by Antonio Cuni, mentored by Armin Rigo 
+
+
