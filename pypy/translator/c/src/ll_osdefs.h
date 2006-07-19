@@ -40,6 +40,10 @@
 #include <sys/ioctl.h>
 #endif
 
+#include <sys/types.h>
+
+#include <sys/mman.h>
+
 #ifdef HAVE_STROPTS_H
 #include <stropts.h>
 #endif
