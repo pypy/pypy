@@ -40,7 +40,9 @@ http://creativecommons.org/licenses/by/2.0/
 Interview with Tim Peters
 -------------------------
 
-http://codespeak.net/download/pypy/video/interview-timpeters-v2.avi.torrent    
+http://codespeak.net/download/pypy/video/interview-timpeters-v2.avi.torrent
+
+http://codespeak.net/download/pypy/video/interview-timpeters-320x240.avi.torrent
 
 .. image:: image/interview-timpeters.jpg
    :scale: 100
@@ -58,7 +60,9 @@ Tim Peters, a longtime CPython core developer talks about how he got into Python
 Interview with Bob Ippolito
 ---------------------------
 
-http://codespeak.net/download/pypy/video/interview-bobippolito-v2.avi.torrent  
+http://codespeak.net/download/pypy/video/interview-bobippolito-v2.avi.torrent
+
+http://codespeak.net/download/pypy/video/interview-bobippolito-320x240.avi.torrent
 
 .. image:: image/interview-bobippolito.jpg
    :scale: 100
@@ -77,6 +81,8 @@ Introductory talk on PyPy
 -------------------------
 
 http://codespeak.net/download/pypy/video/introductory-talk-pycon-v1.avi.torrent
+
+http://codespeak.net/download/pypy/video/introductory-student-talk-320x240.avi.torrent
 
 .. image:: image/introductory-talk-pycon.jpg
    :scale: 100
@@ -99,6 +105,8 @@ Talk on Agile Open Source Methods in the PyPy project
 
 http://codespeak.net/download/pypy/video/agile-talk-v1.avi.torrent
 
+http://codespeak.net/download/pypy/video/agile-talk-320x240.avi.torrent
+
 .. image:: image/agile-talk.jpg
    :scale: 100
    :alt: Agile talk
@@ -119,6 +127,8 @@ PyPy Architecture session
 -------------------------
 
 http://codespeak.net/download/pypy/video/architecture-session-v1.avi.torrent
+
+http://codespeak.net/download/pypy/video/architecture-session-320x240.avi.torrent
 
 .. image:: image/architecture-session.jpg
    :scale: 100
