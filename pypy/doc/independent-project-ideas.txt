@@ -2,21 +2,13 @@ Independent project ideas in PyPy
 =================================
 
 PyPy allows experimentation in a lot of directions.  This page is meant to
-collect some ideas of things to try.  We have built it with Google's Summer of
-Code in mind, which means that we try to describe ideas and projects that
-should fit in two months of work including getting started with PyPy.
-(This might not actually be true, if you want to finish it all; two months
-should get some major sub-goals done.)
+collect some ideas of things to try.  If you are a student you can 
+also get inspired for a proposal for our new `Summer of PyPy`_ campaign:
+you get a mentor and good funding of travels and accomodation for our
+sprints.  
 
-::
-
-   Note about the Summer of Code: Your proposals need to somehow
-   give the impression that they are yours, and that your are interested in
-   them and have some idea about what is involved.  Feel free to discuss
-   ideas on pypy-dev, and submit proposals early -- you'll get early feedback
-   from us too, and you can update your proposal any number of times until the
-   deadline.  Basically, just copy-and-pasting one of the paragraphs from
-   here is *not* enough for a proposal!
+Feel free to suggest new ideas and discuss them on IRC or the pypy-dev
+list. 
 
 In no particular order:
 
@@ -90,4 +82,7 @@ mailing list`_.  You can also have a look around our documentation_.
 .. _`pypy-dev mailing list`: http://codespeak.net/mailman/listinfo/pypy-dev
 .. _`object spaces`: objspace.html
 .. _`py lib`: http://codespeak.net/py/
+.. _`py.test`: http://codespeak.net/py/current/doc/test.html
+.. _`py.execnet`: http://codespeak.net/py/current/doc/execnet.html
+
 .. _documentation: index.html
