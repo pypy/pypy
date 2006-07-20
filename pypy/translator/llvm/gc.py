@@ -203,7 +203,7 @@ def GC_get_heap_size_wrapper():
                             cconv='ccc')        
 
 
-    def op__collect(self, opr):
+    def op__collect(self, codewriter, opr):
         self.codewriter.call(opr.retref, opr.rettype, "%pypy_gc__collect",
                              opr.argtypes, opr.argrefs)
 
