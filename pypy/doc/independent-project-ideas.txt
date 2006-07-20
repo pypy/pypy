@@ -1,65 +1,131 @@
 Independent project ideas in PyPy
 =================================
 
-PyPy allows experimentation in a lot of directions.  This page is meant to
+PyPy allows experimentation in many directions.  This page is meant to
 collect some ideas of things to try.  If you are a student you can 
 also get inspired for a proposal for our new `Summer of PyPy`_ campaign:
-you get a mentor and good funding of travels and accomodation for our
+you get a mentor and good funding of travel and accomodation for our
 sprints.  
 
 Feel free to suggest new ideas and discuss them on IRC or the pypy-dev
-list. 
+list (see the contact_ page).
 
-In no particular order:
+-----------
 
-* Rewrite one or several CPython extension modules to be based on **ctypes**
-  (newly integrated in Python 2.5): this is generally useful for Python
-  developers, and it is now the best path to write extension modules that are
-  compatible with both CPython and PyPy.  See for example
-  http://wiki.python.org/moin/CodingProjectIdeas/PygameOnCtypes .  
-  (This is not documented so far; for an example on which we are working now,
-  look at the socket module at
-  http://codespeak.net/svn/pypy/dist/pypy/module/_socket/).
+.. contents::
 
-* A related idea is to provide efficient numeric arrays (as in
-  numeric/numpy/numarray) in this way, or `recreate them as builtins`_.
+Extension modules
+-----------------
 
-* Start a back-end for a new target platform, e.g. for the **Java** virtual
-  machine.  This would be a path to bring PyPy and Jython closer and help
-  support Jython's effort to keep up-to-date, in particular with extension
-  modules.  Other back-ends that we are already working on are for Squeak,
-  Microsoft's CLI, and Common Lisp; look for ``squeak``, ``cli`` and ``cl``
-  in http://codespeak.net/svn/pypy/dist/pypy/translator.
+Rewrite one or several CPython extension modules to be based on **ctypes**
+(newly integrated in Python 2.5): this is generally useful for Python
+developers, and it is now the best path to write extension modules that are
+compatible with both CPython and PyPy.  This is done with the `extension
+compiler`_ component of PyPy, which will likely require some attention as
+well.
 
-* A research project: experiment with optimizations in PyPy, e.g. by trying
-  various **data structures** for dicts or other built-in objects, by switching
-  between data structures at run-time, comparing results for different
-  applications, etc.  This should produce experimental results (mostly
-  timings, memory usage trade-offs) as much as code.
+Modules where some work is already done:
 
-* Revive **rexec** : implement security checks, sandboxing, or
-  some similar model within PyPy (which, if I may venture an opinion, makes
-  more sense and is more robust than trying to do it in CPython).
+* ``_socket``, ``os``, ``select`` (unfinished yet, feel free to help;
+  see e.g. http://codespeak.net/svn/pypy/dist/pypy/module/_socket/).
 
-* Write **new object spaces** adding features like transparent or
-  semi-transparent distribution of a program across several machines, and/or
-  persistence (pickling of program state).
-  Read more about `object spaces`_...
+* SSL for socket, ``bz2``, ``fcntl``, ``mmap`` and ``time``: part of the
+  Summer of Code project of Lawrence Oluyede
+  (http://codespeak.net/svn/user/rhymes/).
 
-* Write an interpreter for **another dynamic language** in the PyPy framework.
-  For example, a Javascript interpreter would be suitable.  Ruby too (though
-  the latter is probably more than two months of work).  Or Scheme, or... etc.
+You are free to pick any other CPython module, either standard or third-party
+(if relatively well-known).  Note that some modules exist in a ctypes version
+already, which would be a good start for porting them to PyPy's extension
+compiler.  We'd particularly appreciate ``readline`` :-)
 
-* a P2P model of distributed execution (extending `py.execnet`_) 
+Numeric/NumPy/numarray support
+------------------------------
+
+At the EuroPython sprint, some work was done on making RPython's annotator
+recognise Numeric arrays, with the goal of allowing programs using them to be
+efficiently translated.  It would be a reasonably sized project to finish this
+work, i.e. allow RPython programs to use some Numeric facilities.
+Additionally, these facilities could be exposed to applications interpreted by
+the translated PyPy interpreter.
+
+Start or improve a back-end
+---------------------------
+
+PyPy has complete, or nearly so, back-ends for C, LLVM and CLI/.NET and
+partial backends for Common Lisp and Squeak.  It would be an interesting
+project to improve either of these partial backends, or start one for another
+platform -- the most obvious of which would be the **Java** Virtual Machine.
+
+Write a new front end
+---------------------
+
+Write an interpreter for **another dynamic language** in the PyPy framework.
+For example, a Javascript interpreter would be suitable.  Ruby too (though
+the latter is probably more than two months of work).  Or Scheme, or... etc.
+
+We have a prototype `Prolog interpreter`_ :-)
+
+Experiment with optimizations
+-----------------------------
+
+A research project: experiment with optimizations in PyPy, e.g. by trying
+various **data structures** for dicts or other built-in objects, by switching
+between data structures at run-time, comparing results for different
+applications, etc.  This should produce experimental results (mostly timings,
+memory usage trade-offs) as much as code.  (The point of PyPy is that we can
+do this without making the interpreted applications aware of the optimization
+at all.)
+
+For example, we have started some work on:
+
+* lazy string slices (slicing a string gives an object that references a part
+  of the original string).
+
+* lazily concatenated strings (repeated additions and joins are done
+  incrementally).
+
+* dictionaries specialized for string-only keys.
+
+Investigate restricted execution models
+---------------------------------------
+
+Revive **rexec**\ : implement security checks, sandboxing, or some similar
+model within PyPy (which, if I may venture an opinion, makes more sense and is
+more robust than trying to do it in CPython).
+
+There are multiple approaches that can be discussed and tried.  One of them is
+about safely executing limited snippets of untrusted RPython code (see
+http://codespeak.net/pipermail/pypy-dev/2006q2/003131.html).  More general
+approaches, to execute general but untrusted Python code on top of PyPy,
+require more design.  The object space model of PyPy would easily allow
+objects to be tagged and tracked.  The translation of PyPy would also be a
+good place to insert e.g. systematic checks around all system calls.
+
+Write a new object space
+------------------------
+
+Write **new object spaces** adding features like transparent or
+semi-transparent distribution of a program across several machines, and/or
+persistence (pickling of program state).  This could typically be based on
+"proxy" objects, behaving as transparent links to objects located on other
+machines.  Read more about `object spaces`_...
+
+Extend py.execnet to a peer-to-peer model
+-----------------------------------------
+
+* Work on a P2P model of distributed execution (extending `py.execnet`_) 
   that allows `py.test`_ and other upcoming utilities to make use of a 
   network of computers executing python tasks (e.g. tests or PyPy build tasks). 
 
-* a client tool and according libraries to instantiate a dynamic network 
+* Make a client tool and according libraries to instantiate a (dynamic) network
   of computers executing centrally managed tasks (e.g. build or test ones). 
-  (this may make use of a P2P model or not, both is likely feasible). 
+  (This may make use of a P2P model or not, both is likely feasible). 
 
-* improving `py.test`_ to contain benchmarking and/or better
-  reporting (e.g. cool html or PDF reports). 
+Or else...
+----------
+
+* Improve `py.test`_ to contain benchmarking and/or better reporting
+  (e.g. cool html or PDF reports).
 
 * Constraint programming: `efficient propagators for specialized
   finite domains`_ (like numbers, sets, intervals).
@@ -77,12 +143,14 @@ mailing list`_.  You can also have a look around our documentation_.
 
 
 .. _`efficient propagators for specialized finite domains`: http://codespeak.net/svn/pypy/extradoc/soc-2006/constraints.txt
-.. _`recreate them as builtins`: http://codespeak.net/svn/pypy/extradoc/soc-2006/numeric-arrays.txt
-.. _`code templating solution`: http://codespeak.net/svn/pypy/extradoc/soc-2006/code-templating.txt
-.. _`pypy-dev mailing list`: http://codespeak.net/mailman/listinfo/pypy-dev
-.. _`object spaces`: objspace.html
-.. _`py lib`: http://codespeak.net/py/
 .. _`py.test`: http://codespeak.net/py/current/doc/test.html
 .. _`py.execnet`: http://codespeak.net/py/current/doc/execnet.html
+.. _`Prolog interpreter`: http://codespeak.net/svn/user/cfbolz/hack/prolog/interpreter
+.. _`extension compiler`: extcompiler.html
+.. _`object spaces`: objspace.html
+.. _`code templating solution`: http://codespeak.net/svn/pypy/extradoc/soc-2006/code-templating.txt
 
 .. _documentation: index.html
+.. _contact: contact.html
+.. _`pypy-dev mailing list`: http://codespeak.net/mailman/listinfo/pypy-dev
+.. _`Summer of PyPy`: summer-of-pypy.html

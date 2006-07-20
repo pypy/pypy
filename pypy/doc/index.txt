@@ -21,6 +21,9 @@ including a two-liner to run PyPy on your system.
 `talks and related projects`_ lists presentations 
 and related projects. 
 
+`ideas for relatively independent projects`_ which might be a good way to get
+into PyPy.
+
 `PyPy video documentation`_ is a page linking to the videos (e.g. of talks and
 introductions) that is available.
 
@@ -123,6 +126,7 @@ recent compliance test runs against PyPy.
 .. _`EU reports`: index-report.html
 .. _`garbage collection`: garbage_collection.html
 .. _`PyPy's own tests`: http://snake.cs.uni-duesseldorf.de/pypytest/summary.html
+.. _`ideas for relatively independent projects`: independent-project-ideas.html
 .. _`Nightly builds and benchmarks`: http://snake.cs.uni-duesseldorf.de/pypytest/benchmark.html
 .. _`directory reference`: 
 
