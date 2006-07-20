@@ -211,8 +211,7 @@ class AppTest_LogicThreads(object):
         bind(X, 42)
         assert Y == 43
 
-    def test_future_exception(self):
-        skip('wait until we have working exception propagation')
+    def test_one_future_exception(self):
         class FooException(Exception): pass
         
         def poop(X):
@@ -359,3 +358,24 @@ class AppTest_LogicThreads(object):
         assert X == Y == 42
         assert o == 2
         
+    def test_fib(self):
+        skip("recursion limits breakage")
+        def fib(X):
+            if X<2:
+                return 1
+            else:
+                return future(fib, X-1) + fib(X-2)
+
+        X = newvar()
+        F = future(fib, X)
+        unify(11, X)
+        assert F == 144
+
+        X = newvar()
+        F = future(fib, X)
+
+        try:
+            unify(50, X)
+            print F
+        except Exception, e:
+            print e
