@@ -58,9 +58,16 @@ In no particular order:
   For example, a Javascript interpreter would be suitable.  Ruby too (though
   the latter is probably more than two months of work).  Or Scheme, or... etc.
 
-* A different kind of project: work on **py.test** to add features like
-  distributed testing, automatic reports, etc.  The py.test tool is part of
-  the `py lib`_, on which many PyPy developers work.
+* a P2P model of distributed execution (extending `py.execnet`_) 
+  that allows `py.test`_ and other upcoming utilities to make use of a 
+  network of computers executing python tasks (e.g. tests or PyPy build tasks). 
+
+* a client tool and according libraries to instantiate a dynamic network 
+  of computers executing centrally managed tasks (e.g. build or test ones). 
+  (this may make use of a P2P model or not, both is likely feasible). 
+
+* improving `py.test`_ to contain benchmarking and/or better
+  reporting (e.g. cool html or PDF reports). 
 
 * Constraint programming: `efficient propagators for specialized
   finite domains`_ (like numbers, sets, intervals).
