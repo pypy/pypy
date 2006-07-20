@@ -89,6 +89,8 @@ static int setup_exportglobalobjects(cpyobjheaddef_t* cpyheadtable)
 	*/
 	for (cpydef = cpyheadtable; cpydef->name != NULL; cpydef++) {
 		obj = cpydef->cpyobj;
+		if (obj->ob_type == NULL)
+			obj->ob_type = &PyType_Type;
 		if (PyDict_SetItemString(this_module_globals,
 					 cpydef->name, obj) < 0)
 			return -1;
@@ -124,6 +126,8 @@ static int setup_globalobjects(globalobjectdef_t* globtable,
 	for (cpydef = cpyheadtable; cpydef->name != NULL; cpydef++) {
 		obj = cpydef->cpyobj;
 		if (PyType_Check(obj)) {
+			/* XXX hmmm */
+			obj->ob_type = NULL;
 			if (PyType_Ready((PyTypeObject*) obj) < 0)
 				return -1;
 		}
