@@ -204,8 +204,8 @@ def GC_get_heap_size_wrapper():
 
 
     def op__collect(self, codewriter, opr):
-        self.codewriter.call(opr.retref, opr.rettype, "%pypy_gc__collect",
-                             opr.argtypes, opr.argrefs)
+        codewriter.call(opr.retref, opr.rettype, "%pypy_gc__collect",
+                        opr.argtypes, opr.argrefs)
 
 class RefcountingGcPolicy(RawGcPolicy):
 
