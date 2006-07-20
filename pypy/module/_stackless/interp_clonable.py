@@ -49,7 +49,7 @@ class ClonableCoroutine(InterpClonableCoroutine):
         self.framestack = None
         if not is_main:
              space.getexecutioncontext().subcontext_new(self)
-        self._exc = None # not space.w_None ?
+        self._dead = False
 
     def hello(self):
         if we_are_translated():
@@ -71,10 +71,10 @@ class ClonableCoroutine(InterpClonableCoroutine):
 
     def w_finished(self, w_excinfo):
         """called by AppCoroutine.finish"""
-        self._exc = w_excinfo
-
+        pass
+        
     def is_dead(self):
-        return self._exc is not None
+        return self._dead
 
     def w_switch(self):
         space = self.space
