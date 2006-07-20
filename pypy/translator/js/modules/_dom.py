@@ -19,7 +19,10 @@ class Event(BasicExternal):
     pass
 
 class KeyEvent(Event):
-    pass
+    _fields = {
+        'keyCode' : 12,
+        'charCode' : 12,
+    }
 
 class MouseEvent(Event):
     pass
@@ -203,6 +206,7 @@ Element._fields = {
         'tabIndex' : 12,
         'tagName' : "aa",
         'textContent' : "aa",
+        'value' : "aa",
         'onblur' : MethodDesc([Event()]),
         'onclick' : MethodDesc([MouseEvent()]),
         'ondblclick' : MethodDesc([MouseEvent()]),
@@ -251,6 +255,17 @@ Element._methods = {
         'setAttributeNodeNS' : MethodDesc(["ns", Element()], Element()),
         'supports' : MethodDesc(["aa", 1.0]),
     }
+
+Document._methods = Element._methods
+Document._methods.update({
+    'getElementById' : MethodDesc(["aa"], Element()),
+    'createElement' : MethodDesc(["aa"], Element()),
+})
+
+Document._fields = Element._fields
+Document._fields.update({
+    'body' : Element(),
+})
 
 def get_document():
     return Document()
