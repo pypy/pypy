@@ -53,14 +53,14 @@ class ClonableCoroutine(InterpClonableCoroutine):
 
     def hello(self):
         if we_are_translated():
-            super(ClonableCoroutine, self).hello()
+            InterpClonableCoroutine.hello(self)
         else:
             ec = self.space.getexecutioncontext()
             ec.subcontext_enter(self)
 
     def goodbye(self):
         if we_are_translated():
-            super(ClonableCoroutine, self).goodbye()
+            InterpClonableCoroutine.goodbye(self)
         else:
             ec = self.space.getexecutioncontext()
             ec.subcontext_leave(self)
