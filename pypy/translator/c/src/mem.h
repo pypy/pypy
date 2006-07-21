@@ -10,10 +10,11 @@
 #define alloca  _alloca
 #endif
 
-#define OP_STACK_MALLOC(size,r,restype)                                            \
-    r = (restype) alloca(size);                                              \
-    if (r == NULL) FAIL_EXCEPTION(PyExc_MemoryError, "out of memory");\
- 
+#define OP_STACK_MALLOC(size,r,restype)                                 \
+    r = (restype) alloca(size);                                         \
+    if (r == NULL) FAIL_EXCEPTION(PyExc_MemoryError, "out of memory");  \
+    memset((void*) r, 0, size);
+
 #define OP_RAW_FREE(x,r)           OP_FREE(x)
 #define OP_RAW_MEMCOPY(x,y,size,r) memcpy(y,x,size);
 

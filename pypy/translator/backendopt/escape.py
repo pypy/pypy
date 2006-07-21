@@ -217,13 +217,11 @@ class AbstractDataFlowInterpreter(object):
         "state1 depends on state2: if state2 does escape/change, so does state1"
         # change state1 according to how state2 is now
         #print "registering dependency of %s on %s" % (state1, state2)
-        escapes = state2.does_escape()
-        if escapes and not state1.does_escape():
-            changed = state1.setescapes()
+        if state2.does_escape():
+            changed = state1.setescapes()  # mark all crep's as escaping
             self.handle_changed(changed)
-        changes = state2.does_change()
-        if changes and not state1.does_change():
-            changed = state1.setchanges()
+        if state2.does_change():
+            changed = state1.setchanges()  # mark all crep's as changing
             self.handle_changed(changed)
         # register a dependency of the current block on state2:
         # that means that if state2 changes the current block will be reflown
