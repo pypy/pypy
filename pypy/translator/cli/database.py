@@ -128,8 +128,11 @@ class LowLevelDatabase(object):
         return self.functions.get(graph, None)
 
     def get_unique_class_name(self, namespace, name):
+        base_name = name
+        i = 0
         while (namespace, name) in self.classnames:
-            name += '_'
+            name = '%s_%d' % (base_name, i)
+            i+= 1
         self.classnames.add((namespace, name))            
         return name
 
