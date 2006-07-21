@@ -1,6 +1,7 @@
 from pypy.translator.cli import oopspec
 from pypy.rpython.ootypesystem import ootype
-from pypy.translator.oosupport.metavm import Generator, InstructionList, MicroInstruction
+from pypy.translator.oosupport.metavm import Generator, InstructionList, MicroInstruction,\
+     PushAllArgs, StoreResult
 from pypy.translator.cli.comparer import EqualityComparer
 
 STRING_HELPER_CLASS = '[pypylib]pypy.runtime.String'
@@ -126,6 +127,32 @@ class _CastWeakAdrToPtr(MicroInstruction):
         generator.load(op.args[0])
         generator.ilasm.call_method('object class [mscorlib]System.WeakReference::get_Target()', True)
         generator.ilasm.opcode('castclass', resulttype)
+
+class MapException(MicroInstruction):
+    COUNT = 0
+    
+    def __init__(self, instr, mapping):
+        if isinstance(instr, str):
+            self.instr = InstructionList([PushAllArgs, instr, StoreResult])
+        else:
+            self.instr = InstructionList(instr)
+        self.mapping = mapping
+
+    def render(self, generator, op):
+        ilasm = generator.ilasm
+        label = '__check_block_%d' % MapException.COUNT
+        MapException.COUNT += 1
+        ilasm.begin_try()
+        self.instr.render(generator, op)
+        ilasm.leave(label)
+        ilasm.end_try()
+        for cli_exc, py_exc in self.mapping:
+            ilasm.begin_catch(cli_exc)
+            ilasm.new('instance void class %s::.ctor()' % py_exc)
+            ilasm.opcode('throw')
+            ilasm.end_catch()
+        ilasm.label(label)
+        ilasm.opcode('nop')
 
 Call = _Call()
 CallMethod = _CallMethod()

@@ -1,6 +1,6 @@
 from pypy.translator.cli.metavm import  Call, CallMethod, RuntimeNew, \
      IndirectCall, GetField, SetField, CastTo, OOString, DownCast, NewCustomDict,\
-     CastWeakAdrToPtr
+     CastWeakAdrToPtr, MapException
 from pypy.translator.oosupport.metavm import PushArg, PushAllArgs, StoreResult, InstructionList,\
     New
 
@@ -14,31 +14,14 @@ def _not(op):
 def _abs(type_):
     return [PushAllArgs, 'call %s class [mscorlib]System.Math::Abs(%s)' % (type_, type_)]
 
-def _check(op):
-    if isinstance(op, str):
-        op = [PushAllArgs, op, StoreResult]
+def _check_ovf(op):
+    mapping = [('[mscorlib]System.OverflowException', 'exceptions.OverflowError')]
+    return [MapException(op, mapping)]
 
-    label = '__check_block_%d' % _check.count
-    _check.count += 1
+def _check_zer(op):
+    mapping = [('[mscorlib]System.DivideByZeroException', 'exceptions.ZeroDivisionError')]
+    return [MapException(op, mapping)]
 
-    return [
-        '.try {'
-        ] + op + [             # do the real operations
-        'leave %s }' % label,  # continue normal execution
-
-        # if overflow, raise a pypy's OverflowError
-        'catch [mscorlib]System.OverflowException {',
-        'newobj instance void class exceptions.OverflowError::.ctor()',
-        'throw }',
-
-        # DivideByZeroException --> ZeroDivisionError
-        'catch [mscorlib]System.DivideByZeroException {',
-        'newobj instance void class exceptions.ZeroDivisionError::.ctor()',
-        'throw }',
-
-        '%s: nop' % label      # continue normal execution
-        ]
-_check.count = 0
 
 opcodes = {
     # __________ object oriented operations __________
@@ -85,16 +68,16 @@ opcodes = {
 
     'int_is_true':              [PushAllArgs, 'ldc.i4.0', 'cgt.un'],
     'int_neg':                  'neg',
-    'int_neg_ovf':              _check(['ldc.i4.0', PushAllArgs, 'sub.ovf', StoreResult]),
+    'int_neg_ovf':              _check_ovf(['ldc.i4.0', PushAllArgs, 'sub.ovf', StoreResult]),
     'int_abs':                  _abs('int32'),
-    'int_abs_ovf':              _check(_abs('int32')),
+    'int_abs_ovf':              _check_ovf(_abs('int32')),
     'int_invert':               'not',
 
     'int_add':                  'add',
     'int_sub':                  'sub',
     'int_mul':                  'mul',
     'int_floordiv':             'div',
-    'int_floordiv_zer':         _check('div'),
+    'int_floordiv_zer':         _check_zer('div'),
     'int_mod':                  'rem',
     'int_lt':                   'clt',
     'int_le':                   _not('cgt'),
@@ -107,9 +90,9 @@ opcodes = {
     'int_lshift':               'shl',
     'int_rshift':               'shr',
     'int_xor':                  'xor',
-    'int_add_ovf':              _check('add.ovf'),
-    'int_sub_ovf':              _check('sub.ovf'),
-    'int_mul_ovf':              _check('mul.ovf'),
+    'int_add_ovf':              _check_ovf('add.ovf'),
+    'int_sub_ovf':              _check_ovf('sub.ovf'),
+    'int_mul_ovf':              _check_ovf('mul.ovf'),
     'int_floordiv_ovf':         'div', # these can't overflow!
     'int_mod_ovf':              'rem',
     'int_lt_ovf':               'clt',
@@ -121,14 +104,15 @@ opcodes = {
     'int_and_ovf':              'and',
     'int_or_ovf':               'or',
 
-    # are they the same?
-    'int_lshift_ovf':           _check([PushArg(0),'conv.i8',PushArg(1), 'shl', 'conv.ovf.i4', StoreResult]),
-    'int_lshift_ovf_val':       _check([PushArg(0),'conv.i8',PushArg(1), 'shl', 'conv.ovf.i4', StoreResult]),
+    'int_lshift_ovf':           _check_ovf([PushArg(0),'conv.i8',PushArg(1), 'shl',
+                                            'conv.ovf.i4', StoreResult]),
+    'int_lshift_ovf_val':       _check_ovf([PushArg(0),'conv.i8',PushArg(1), 'shl',
+                                            'conv.ovf.i4', StoreResult]),
 
     'int_rshift_ovf':           'shr', # these can't overflow!
     'int_xor_ovf':              'xor',
-    'int_floordiv_ovf_zer':     _check('div'),
-    'int_mod_ovf_zer':          _check('rem'),
+    'int_floordiv_ovf_zer':     _check_zer('div'),
+    'int_mod_ovf_zer':          _check_zer('rem'),
 
     'uint_is_true':             [PushAllArgs, 'ldc.i4.0', 'cgt.un'],
     'uint_neg':                 None,      # What's the meaning?
@@ -239,7 +223,7 @@ for key, value in opcodes.iteritems():
     if type(value) is str:
         value = InstructionList([PushAllArgs, value, StoreResult])
     elif value is not None:
-        if StoreResult not in value:
+        if StoreResult not in value and not isinstance(value[0], MapException):
             value.append(StoreResult)
         value = InstructionList(value)
 

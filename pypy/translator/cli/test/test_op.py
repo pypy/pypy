@@ -31,6 +31,19 @@ class TestOperations(CliTest):
             return x & y
         assert self.interpret(fn, [r_longlong(10), r_longlong(11)]) == 10
 
+    def test_two_overflows(self):
+        def fn(x, y):
+            res = -42
+            try:
+                res = ovfcheck(x+y)
+            except OverflowError:
+                res = 0
+            try:
+                res += ovfcheck(x+y)
+            except OverflowError:
+                res += 1
+            return res
+        assert self.interpret(fn, [sys.maxint, 2]) == 1
 
 def test_op():
     yield check, op_any_ge, [int, int], (42, 42)
