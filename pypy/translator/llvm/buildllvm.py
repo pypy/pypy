@@ -18,7 +18,7 @@ def llvm_is_on_path():
     return True
 
 def llvm_version():
-    v = os.popen('llvm-as -version 2>&1').readline()
+    v = os.popen('llvm-as -version 2>&1').read()
     v = ''.join([c for c in v if c.isdigit()])
     v = int(v) / 10.0
     return v
@@ -29,6 +29,7 @@ def optimizations(simple, use_gcc):
         opts = "-globaldce -adce -deadtypeelim -simplifycfg -raiseallocs " \
                "-simplifycfg -mem2reg -simplifycfg -verify "
     else:
+#         opts = """-verify -lowersetjmp -funcresolve -raiseallocs -simplifycfg -mem2reg -globalopt -globaldce -ipconstprop -deadargelim -instcombine -simplifycfg -basiccg -prune-eh -inline -simplify-libcalls -basiccg -argpromotion -raise -tailduplicate -simplifycfg -scalarrepl -instcombine -break-crit-edges -condprop -tailcallelim -simplifycfg -reassociate -loopsimplify -licm -lcssa -loop-unswitch -instcombine -indvars -loop-unroll -instcombine -lowerswitch -instcombine -load-vn -gcse -sccp -instcombine -break-crit-edges -condprop -dse -mergereturn -adce -simplifycfg -deadtypeelim -constmerge -verify"""
         cmd = "gccas /dev/null -o /dev/null -debug-pass=Arguments 2>&1"
         gccas_output = os.popen(cmd)
         opts = gccas_output.read()[17:-1] + " "
