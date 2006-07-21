@@ -44,7 +44,17 @@ class _Call(MicroInstruction):
             generator.call_signature(signature)
         else:
             generator.call_method(this.concretetype, method_name)
-
+            
+            # special case: DictItemsIterator(XXX,
+            # Void).ll_current_value needs to return an int32 because
+            # we can't use 'void' as a parameter of a Generic. This
+            # means that after the call to ll_current_value there will
+            # be a value on the stack, and we need to explicitly pop
+            # it.
+            if isinstance(this.concretetype, ootype.DictItemsIterator) and \
+               this.concretetype._VALUETYPE is ootype.Void and \
+               method_name == 'll_current_value':
+                generator.ilasm.pop()
 
 class _CallMethod(_Call):
     def render(self, generator, op):

@@ -17,8 +17,8 @@ class TestCliDict(CliTest, BaseTestRdict):
         def f():
             d = {1: None, 2: None, 3: None}
             total = 0
-            for k in d:
-                total += k
+            for key, value in d.iteritems():
+                total += key
             return total
         assert self.interpret(f, []) == 6
 
