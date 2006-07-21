@@ -1,3 +1,4 @@
+import operator
 import string
 from pypy.translator.cli.cts import CTS, PYPY_LIST_OF_VOID, PYPY_DICT_OF_VOID, WEAKREF
 from pypy.translator.cli.function import Function, log
@@ -187,7 +188,9 @@ class LowLevelDatabase(object):
             ilasm.store_static_constant(type_, CONST_NAMESPACE, CONST_CLASS, const.name)
         ilasm.stderr('CONST: instantiated', DEBUG_CONST_INIT)
 
-        for i, const in enumerate(self.consts.itervalues()):
+        const_list = self.consts.values()
+        const_list.sort(key=operator.attrgetter('PRIORITY'))
+        for i, const in enumerate(const_list):
             ilasm.stderr('CONST: initializing #%d' % i, DEBUG_CONST_INIT)
             type_ = const.get_type()
             ilasm.load_static_constant(type_, CONST_NAMESPACE, CONST_CLASS, const.name)
@@ -202,6 +205,8 @@ class LowLevelDatabase(object):
         self.locked = False
 
 class AbstractConst(Node):
+    PRIORITY = 0
+    
     def make(db, value, count):
         if isinstance(value, ootype._view):
             static_type = value._TYPE
@@ -519,6 +524,8 @@ class DictConst(AbstractConst):
         ilasm.opcode('pop')
 
 class CustomDictConst(DictConst):
+    PRIORITY = 100
+    
     def dependencies(self):
         if not self.value:
             return
