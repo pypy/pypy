@@ -418,3 +418,26 @@ def test_closure():
     f = compile_function(testf, [int])
     assert f(1) == testf(1)
     assert f(2) == testf(2)
+
+def test_broken_after_transform():
+    class A:
+        pass
+    a = A()
+    a.count = 0
+    
+    def drop(n):
+        loops = 0
+        while n > 0:
+            n -= 1
+            a.count += 1
+
+    def rundrop(n):
+        drop(n)
+        return a.count
+
+    f = compile_function(rundrop, [int])
+    assert f(42) == 42
+    f = compile_function(rundrop, [int])
+    assert f(0) == 0
+    
+
