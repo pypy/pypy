@@ -54,5 +54,16 @@ class TestCliClass(CliTest, BaseTestRclass):
             return obj1.x + obj2.y
         assert self.interpret(fn, [1, 2]) == 3
 
+    def test_ctr_location(self):
+        class A:
+            _annspecialcase_ = "specialize:ctr_location"
+            def __init__(self, x):
+                self.x = x
+        def fn(x, y):
+            a = A(x)
+            b = A(y)
+            return a.x + b.x
+        assert self.interpret(fn, [1, 2]) == 3
+
 class TestCliSpecialCase(CliTest, BaseTestRspecialcase):
     pass

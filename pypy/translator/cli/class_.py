@@ -83,13 +83,13 @@ class Class(Node):
 
         for m_name, m_meth in self.INSTANCE._methods.iteritems():
             if hasattr(m_meth, 'graph'):
-                # if the first argument of the method is a strict subclass
-                # of this class, then this method is not really used by
-                # the class: don't render it, else there would be a type
-                # mismatch.
+                # if the first argument's type is not a supertype of
+                # this class it means that this method this method is
+                # not really used by the class: don't render it, else
+                # there would be a type mismatch.
                 args =  m_meth.graph.getargs()
                 SELF = args[0].concretetype
-                if SELF is not self.INSTANCE and ootype.isSubclass(SELF, self.INSTANCE):
+                if not ootype.isSubclass(self.INSTANCE, SELF):
                     continue
                 f = self.db.function_class(self.db, m_meth.graph, m_name, is_method = True)
                 f.render(ilasm)
