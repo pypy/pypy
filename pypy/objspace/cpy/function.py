@@ -64,6 +64,7 @@ class UnwrapSpec_Trampoline(UnwrapSpecRecipe):
         tramp.wrappings.append('    %s.append(___W_Object(%s[___i]))' % (
             argname, basename))
         tramp.passedargs.append(argname)
+        tramp.star_arg = True
 
 
 class TrampolineSignature(object):
@@ -73,6 +74,7 @@ class TrampolineSignature(object):
         self.wrappings = []
         self.passedargs = []
         self.miniglobals = {}
+        self.star_arg = False
 
 
 def reraise(e):
@@ -139,7 +141,9 @@ class FunctionCache(SpaceCache):
         trampoline = miniglobals['trampoline']
         trampoline = func_with_new_name(trampoline, func.name)
         trampoline.nb_args = len(tramp.inputargs)
+        trampoline.star_arg = tramp.star_arg
         trampoline.allow_someobjects = True    # annotator hint
+        trampoline._annspecialcase_ = "specialize:all_someobjects"
         w_result = W_Object(trampoline)
         space.wrap_cache[id(w_result)] = w_result, func, follow_annotations
         return w_result
@@ -150,5 +154,7 @@ def follow_annotations(bookkeeper, w_trampoline):
     trampoline = w_trampoline.value
     s_trampoline = bookkeeper.immutablevalue(trampoline)
     args_s = [annmodel.SomeObject()] * trampoline.nb_args
+    if trampoline.star_arg:
+        args_s[-1] = Ellipsis   # hack, see bookkeeper.RPythonCallsSpace
     uniquekey = trampoline
     bookkeeper.emulate_pbc_call(uniquekey, s_trampoline, args_s)

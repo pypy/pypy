@@ -40,3 +40,6 @@ class CPyAnnotatorPolicy(PyPyAnnotatorPolicy):
         s_pyerrchecker = bk.immutablevalue(rctypes_pyerrchecker)
         s_result = bk.emulate_pbc_call(uniquekey, s_pyerrchecker, [])
         assert annmodel.s_None.contains(s_result)
+
+    def specialize__all_someobjects(self, funcdesc, args_s):
+        return funcdesc.cachedgraph(None)

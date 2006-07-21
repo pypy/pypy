@@ -787,7 +787,12 @@ class RPythonCallsSpace:
     """
     w_tuple = SomeTuple
     def newtuple(self, items_s):
-        return SomeTuple(items_s)
+        if items_s == [Ellipsis]:
+            res = SomeObject()   # hack to get a SomeObject as the *arg
+            res.from_ellipsis = True
+            return res
+        else:
+            return SomeTuple(items_s)
 
     def newdict(self, stuff):
         raise CallPatternTooComplex, "'**' argument"
@@ -798,6 +803,9 @@ class RPythonCallsSpace:
                 expected_length != len(s_obj.items)):
                 raise ValueError
             return s_obj.items
+        if (s_obj.__class__ is SomeObject and
+            getattr(s_obj, 'from_ellipsis', False)):    # see newtuple()
+            return [Ellipsis]
         raise CallPatternTooComplex, "'*' argument must be SomeTuple"
 
     def is_w(self, one, other):

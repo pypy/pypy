@@ -3,6 +3,8 @@ from pypy.tool.pytest.appsupport import raises_w
 from pypy.interpreter.function import BuiltinFunction
 from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root
 from pypy.interpreter.argument import Arguments
+from pypy.objspace.cpy.ann_policy import CPyAnnotatorPolicy
+from pypy.translator.c.test.test_genc import compile
 
 
 def entrypoint1(space, w_x):
@@ -76,3 +78,24 @@ def test_star_args_no_args():
     w_result = space.call_function(w_entrypoint, space.wrap(-2))
     result = space.int_w(w_result)
     assert result == 0
+
+def test_compile_star_args():
+    space = CPyObjSpace()
+    func = interp2app(entrypoint3).__spacebind__(space)
+    bltin = BuiltinFunction(func)
+    w_entrypoint = space.wrap(bltin)
+
+    def entry_point():
+        w_result_1 = space.call_function(w_entrypoint, space.wrap(-200),
+                                                       space.wrap("hello"),
+                                                       space.wrap("world"))
+        w_result_2 = space.call_function(w_entrypoint, space.wrap(-20))
+        return space.int_w(space.add(w_result_1, w_result_2))
+
+    assert entry_point() == -400
+
+    fn = compile(entry_point, [],
+                 annotatorpolicy = CPyAnnotatorPolicy(space))
+
+    res = fn()
+    assert res == -400
