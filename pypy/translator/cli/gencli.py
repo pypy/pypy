@@ -91,8 +91,11 @@ class GenCli(object):
         # here we assign an unique name to each graph.
         names = set()
         for graph in self.translator.graphs:
+            base_name = graph.name
+            i = 0
             while graph.name in names:
-                graph.name += '_'
+                graph.name = '%s_%d' % (base_name, i)
+                i+=1
             names.add(graph.name)
 
     def build_exe(self):        
