@@ -208,8 +208,28 @@ class AppTest_LogicThreads(object):
 
         X = newvar()
         Y = future(poop, X)
-        bind(X, 42)
+        unify(X, 42)
         assert Y == 43
+        assert sched_stats()['threads'] == 1
+
+        X = newvar()
+        T = future(poop, X)
+        raises(Exception, unify, T, 42)
+        print sched_stats()
+        assert sched_stats()['threads'] == 2
+
+        X, Y = newvar(), newvar()
+        T = future(poop, X)
+        raises(Exception, unify, T, Y)
+        assert sched_stats()['threads'] == 3
+
+        assert is_free(Y)
+        X = newvar()
+        T = future(poop, X)
+        unify(Y, T)
+        unify(X, 42)
+        assert Y == 43
+        assert sched_stats()['threads'] == 3
 
     def test_one_future_exception(self):
         class FooException(Exception): pass

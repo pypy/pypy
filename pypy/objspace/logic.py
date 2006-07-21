@@ -63,15 +63,6 @@ from pypy.module._stackless.coroutine import _AppThunk
 from pypy.module._stackless.coroutine import Coroutine # XXX (that's for main)
 from pypy.module._stackless.interp_clonable import ClonableCoroutine
 
-def SETNEXT(obj, val):
-    obj.next = val
-
-def SETPREV(obj, val):
-    obj.prev = val
-
-def SETNONE(obj):
-    obj.prev = obj.next = None
-
 class Scheduler(object):
 
     def __init__(self, space):
@@ -80,7 +71,7 @@ class Scheduler(object):
         self._init_head(self._main)
         self._init_blocked()
         self._switch_count = 0
-        w ("MAIN THREAD = ", str(id(self._main)))
+        w (".. MAIN THREAD = ", str(id(self._main)))
 
     def _init_blocked(self):
         self._blocked = {} # thread set
@@ -113,16 +104,16 @@ class Scheduler(object):
         assert thread.next is None
         assert thread.prev is None
         if self._head is None:
-            SETNEXT(thread, thread)
-            SETPREV(thread, thread)
+            thread.next = thread
+            thread.prev = thread
             self._set_head(thread)
         else:
             r = self._head
             l = r.prev
-            SETNEXT(l, thread)
-            SETPREV(r, thread)
-            SETPREV(thread, l)
-            SETNEXT(thread, r)
+            l.next = thread
+            r.prev = thread
+            thread.prev = l
+            thread.next = r
 
     def remove_thread(self, thread):
         #XXX don't we need to notify the consumers ?
@@ -130,12 +121,12 @@ class Scheduler(object):
         assert thread not in self._blocked
         l = thread.prev
         r = thread.next
-        SETNEXT(l, r)
-        SETPREV(r, l)
+        l.next = r
+        r.prev = l
         if r == thread:
             w("DUH !")
             self.display_head()
-        SETNONE(thread)
+        thread.next = thread.next = None
         return thread
 
     #-- to be used by logic objspace
@@ -262,9 +253,9 @@ class FutureThunk(_AppThunk):
 
 def future(space, w_callable, __args__):
     """returns a future result"""
-    v(".. FUTURE")
+    v(".. THREAD")
     args = __args__.normalize()
-    w_Future = W_Var()
+    w_Future = W_Future(space)
     # coro init
     coro = ClonableCoroutine(space)
     # prepare thread chaining, create missing slots
@@ -330,16 +321,25 @@ def newvar(space):
     return W_Var()
 app_newvar = gateway.interp2app(newvar)
 
+class W_Future(W_Var):
+    def __init__(w_self, space):
+        W_Var.__init__(w_self)
+        w_self.client = ClonableCoroutine.w_getcurrent(space)
 
 class W_FailedValue(W_Root, object):
+    """wraps an exception raised in some coro, to be re-raised in
+       some dependant coro sometime later
+    """
     def __init__(w_self, exc):
         w_self.exc = exc
+
+#-- wait/needed ----
 
 def wait__Root(space, w_obj):
     return w_obj
 
 def wait__Var(space, w_var):
-    #print " :wait", w_var
+    w(":wait", str(id(ClonableCoroutine.w_getcurrent(space))))
     if space.is_true(space.is_free(w_var)):
         scheduler[0].unblock_byneed_on(space, w_var)
         scheduler[0].add_to_blocked_on(w_var, ClonableCoroutine.w_getcurrent(space))
@@ -510,11 +510,29 @@ def bind(space, w_var, w_obj):
     space.bind(w_var, w_obj)
 app_bind = gateway.interp2app(bind)
 
+def bind__Var_Root(space, w_var, w_obj):
+    w("var val", str(id(w_var)))
+    # 3. var and value
+    if space.is_true(space.is_free(w_var)):
+        return _assign(space, w_var, w_obj)
+    if space.is_true(space.eq(w_var.w_bound_to, w_obj)):
+        return
+    raise OperationError(space.w_RuntimeError,
+                         space.wrap("Cannot bind twice"))
+
+def bind__Future_Root(space, w_fut, w_obj):
+    #v("future val", str(id(w_fut)))
+    if w_fut.client == ClonableCoroutine.w_getcurrent(space):
+        raise OperationError(space.w_RuntimeError,
+                             space.wrap("This future is read-only for you, pal"))
+    bind__Var_Root(space, w_fut, w_obj) # call-next-method ?
+
 def bind__Var_Var(space, w_v1, w_v2):
     w("var var")
     if space.is_true(space.is_bound(w_v1)):
         if space.is_true(space.is_bound(w_v2)):
-            return unify(space, #FIXME: we could just raise
+            # we allow re-binding to same value, see 3.
+            return unify(space,
                          deref(space, w_v1),
                          deref(space, w_v2))
         # 2. a (obj unbound, var bound)
@@ -525,19 +543,20 @@ def bind__Var_Var(space, w_v1, w_v2):
     else: # 1. both are unbound
         return _alias(space, w_v1, w_v2)
 
-def bind__Var_Root(space, w_var, w_obj):
-    w("var val", str(id(w_var)))
-    # 3. var and value
-    if space.is_true(space.is_free(w_var)):
-        return _assign(space, w_var, w_obj)
-    if space.is_true(space.eq(w_var.w_bound_to, w_obj)):
-        return
-    raise OperationError(space.w_RuntimeError,
-                         space.wrap("Cannot bind twice"))
+def bind__Future_Var(space, w_fut, w_var):
+    #v("future var")
+    if w_fut.client == ClonableCoroutine.w_getcurrent(space):
+        raise OperationError(space.w_RuntimeError,
+                             space.wrap("This future is read-only for you, pal"))
+    bind__Var_Var(space, w_fut, w_var)
+
+#XXX Var_Future would just alias or assign, this is ok
     
 bind_mm = StdObjSpaceMultiMethod('bind', 2)
 bind_mm.register(bind__Var_Root, W_Var, W_Root)
 bind_mm.register(bind__Var_Var, W_Var, W_Var)
+bind_mm.register(bind__Future_Root, W_Future, W_Root)
+bind_mm.register(bind__Future_Var, W_Future, W_Var)
 all_mms['bind'] = bind_mm
 
 def _assign(space, w_var, w_val):
@@ -600,7 +619,7 @@ def _merge_aliases(space, w_v1, w_v2):
 def unify(space, w_x, w_y):
     assert isinstance(w_x, W_Root)
     assert isinstance(w_y, W_Root)
-    w(":unify ", str(id(w_x)), str(id(w_y)))
+    #w(":unify ", str(id(w_x)), str(id(w_y)))
     return space.unify(w_x, w_y)
 app_unify = gateway.interp2app(unify)
 
@@ -615,21 +634,21 @@ def unify__Root_Root(space, w_x, w_y):
     return space.w_None
     
 def unify__Var_Var(space, w_x, w_y):
-    w(":unify var var", str(id(w_x)), str(id(w_y)))
+    #w(":unify var var", str(id(w_x)), str(id(w_y)))
     if space.is_true(space.is_bound(w_x)):
         if space.is_true(space.is_bound(w_y)):
             return space.unify(deref(space, w_x), 
                                deref(space, w_y))
-        return bind(space, w_y, w_x)
+        return space.bind(w_y, w_x)
     # binding or aliasing x & y
     else:
-        return bind(space, w_x, w_y) 
+        return space.bind(w_x, w_y) 
     
 def unify__Var_Root(space, w_x, w_y):
-    w(" :unify var val", str(id(w_x)), str(w_y))
+    #w(" :unify var val", str(id(w_x)), str(w_y))
     if space.is_true(space.is_bound(w_x)):
         return space.unify(deref(space, w_x), w_y)            
-    return bind(space, w_x, w_y)
+    return space.bind(w_x, w_y)
 
 def unify__Root_Var(space, w_x, w_y):
     return space.unify(w_y, w_x)
@@ -842,6 +861,7 @@ def Space(*args, **kwds):
 
     # multimethods hack
     space.model.typeorder[W_Var] = [(W_Var, None), (W_Root, None)] # None means no conversion
+    space.model.typeorder[W_Future] = [(W_Future, None), (W_Var, None)]
 ##     space.model.typeorder[W_FiniteDomain] = [(W_FiniteDomain, None), (W_Root, None)] 
 
 
