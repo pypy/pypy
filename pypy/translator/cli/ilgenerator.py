@@ -209,3 +209,10 @@ class IlasmGenerator(object):
     def opcode(self, opcode, *args):
         self.code.write(opcode + ' ')
         self.code.writeline(' '.join(map(str, args)))
+
+    def stderr(self, msg, cond=True):
+        from pypy.translator.cli.support import string_literal
+        if cond:
+            self.call('class [mscorlib]System.IO.TextWriter class [mscorlib]System.Console::get_Error()')
+            self.opcode('ldstr', string_literal(msg))
+            self.call_method('void class [mscorlib]System.IO.TextWriter::WriteLine(string)', virtual=True)

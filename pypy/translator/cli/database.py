@@ -17,6 +17,8 @@ try:
 except NameError:
     from sets import Set as set
 
+DEBUG_CONST_INIT = False
+
 CONST_NAMESPACE = 'pypy.runtime'
 CONST_CLASS = 'Constants'
 
@@ -178,16 +180,20 @@ class LowLevelDatabase(object):
 
         # this point we have collected all constant we
         # need. Instantiate&initialize them.
+        ilasm.stderr('CONST: instantiating', DEBUG_CONST_INIT)
         for const in self.consts.itervalues():
             type_ = const.get_type()
             const.instantiate(ilasm)
             ilasm.store_static_constant(type_, CONST_NAMESPACE, CONST_CLASS, const.name)
+        ilasm.stderr('CONST: instantiated', DEBUG_CONST_INIT)
 
-        for const in self.consts.itervalues():
+        for i, const in enumerate(self.consts.itervalues()):
+            ilasm.stderr('CONST: initializing #%d' % i, DEBUG_CONST_INIT)
             type_ = const.get_type()
             ilasm.load_static_constant(type_, CONST_NAMESPACE, CONST_CLASS, const.name)
             const.init(ilasm)
 
+        ilasm.stderr('CONST: initialization completed', DEBUG_CONST_INIT)
         ilasm.ret()
         ilasm.end_function()
 
