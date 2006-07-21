@@ -1,8 +1,8 @@
 Summer of PyPy
 =======================
 
-Call for Proposals for PyPy!
---------------------------------
+Open Call for Proposals for PyPy!
+-----------------------------------
 
 If you are a student and would like to work in an area related
 to PyPy (there are tons of them :-)) you may consider applying
@@ -31,7 +31,7 @@ pypy-dev for discussions/help.
 Accepted students can attend sprints and get reimbursements 
 for travel and accomodation costs. 
 
-.. _`project ideas`: independent-project-ideas.html 
+.. _`project ideas`: project-ideas.html 
 
 Procedural details
 -----------------------

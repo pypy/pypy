@@ -21,7 +21,7 @@ including a two-liner to run PyPy on your system.
 `talks and related projects`_ lists presentations 
 and related projects. 
 
-`ideas for relatively independent projects`_ which might be a good way to get
+`ideas for projects involving PyPy`_ which might be a good way to get
 into PyPy.
 
 `PyPy video documentation`_ is a page linking to the videos (e.g. of talks and
