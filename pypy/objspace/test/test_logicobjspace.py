@@ -248,29 +248,25 @@ class AppTest_LogicThreads(object):
         assert False
 
     def test_exceptions_harder(self):
-        skip('wait until we have working exception propagation')
         class FooException(Exception): pass
 
         def raise_foo():
-            print "STATS", sched_stats()
             raise FooException
 
         def spawn(X, n):
-            print "SPAWN !"
             if n>0:
                 F = future(spawn, X, n-1)
                 wait(X)
             else:
                 raise_foo()
+            return F
 
         X = newvar()
-        Y = spawn(X, 3)
+        Y = future(spawn, X, 5)
         unify(X, 42)
         try:
             assert Y == 1
         except FooException:
-            print "SUCCESS !"
-            print sched_stats()
             return
         assert False
 

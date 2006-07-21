@@ -511,7 +511,7 @@ def bind(space, w_var, w_obj):
 app_bind = gateway.interp2app(bind)
 
 def bind__Var_Root(space, w_var, w_obj):
-    w("var val", str(id(w_var)))
+    #w("var val", str(id(w_var)))
     # 3. var and value
     if space.is_true(space.is_free(w_var)):
         return _assign(space, w_var, w_obj)
