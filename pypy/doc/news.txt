@@ -15,6 +15,32 @@ for a list of past events.
 .. _`iCalendar format`: webcal://pypycal.sabi.net///calendars/PyPy.ics
 .. _eventhistory: eventhistory.html
 
+Summer of PyPy: Calls for proposals open now! 
+==================================================================
+
+Happily, we are able to offer students mentoring and full sprint
+participant's funding if we receive a proposal outlining an
+interesting project related to PyPy and its development tools.  This
+follows up on the "Summer of Code" campaign from Google but is
+completely independent from it and also works differently. 
+See the full call for details: 
+
+    http://codespeak.net/pypy/dist/pypy/doc/summer-of-pypy.html
+
+
+Ireland sprint 21st-27th August 
+==================================================================
+
+The next PyPy sprint will happen in the nice city of 
+Limerick in Ireland from 21st till 27th August.  
+The main focus of the sprint will be on JIT compiler works, 
+various optimization works, porting extension modules, 
+infrastructure works like a build tool for PyPy, or 
+extended (distributed) testing.  It's also open to new topics.  
+Read the full `announcement`_ for more details. 
+
+.. _`announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/ireland-2006/announce.html
+
 Release of PyPy video documentation
 ==================================================================
 
