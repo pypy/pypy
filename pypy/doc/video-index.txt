@@ -40,9 +40,9 @@ http://creativecommons.org/licenses/by/2.0/
 Interview with Tim Peters
 -------------------------
 
-LARGE: http://codespeak.net/download/pypy/video/interview-timpeters-v2.avi.torrent
+440mb: http://codespeak.net/download/pypy/video/interview-timpeters-v2.avi.torrent
 
-SMALL: http://codespeak.net/download/pypy/video/interview-timpeters-320x240.avi.torrent
+138mb: http://codespeak.net/download/pypy/video/interview-timpeters-320x240.avi.torrent
 
 .. image:: image/interview-timpeters.jpg
    :scale: 100
@@ -60,9 +60,9 @@ Tim Peters, a longtime CPython core developer talks about how he got into Python
 Interview with Bob Ippolito
 ---------------------------
 
-LARGE: http://codespeak.net/download/pypy/video/interview-bobippolito-v2.avi.torrent
+155mb: http://codespeak.net/download/pypy/video/interview-bobippolito-v2.avi.torrent
 
-SMALL: http://codespeak.net/download/pypy/video/interview-bobippolito-320x240.avi.torrent
+50mb: http://codespeak.net/download/pypy/video/interview-bobippolito-320x240.avi.torrent
 
 .. image:: image/interview-bobippolito.jpg
    :scale: 100
@@ -80,9 +80,9 @@ Bob Ippolito is an Open Source software developer from San Francisco and has bee
 Introductory talk on PyPy
 -------------------------
 
-LARGE: http://codespeak.net/download/pypy/video/introductory-talk-pycon-v1.avi.torrent
+430mb: http://codespeak.net/download/pypy/video/introductory-talk-pycon-v1.avi.torrent
 
-SMALL: http://codespeak.net/download/pypy/video/introductory-student-talk-320x240.avi.torrent
+166mb: http://codespeak.net/download/pypy/video/introductory-talk-pycon-320x240.avi.torrent
 
 .. image:: image/introductory-talk-pycon.jpg
    :scale: 100
@@ -103,9 +103,9 @@ Stackless and Greenlets in PyPy.
 Talk on Agile Open Source Methods in the PyPy project
 -----------------------------------------------------
 
-LARGE: http://codespeak.net/download/pypy/video/agile-talk-v1.avi.torrent
+395mb: http://codespeak.net/download/pypy/video/agile-talk-v1.avi.torrent
 
-SMALL: http://codespeak.net/download/pypy/video/agile-talk-320x240.avi.torrent
+153mb: http://codespeak.net/download/pypy/video/agile-talk-320x240.avi.torrent
 
 .. image:: image/agile-talk.jpg
    :scale: 100
@@ -126,9 +126,9 @@ the formalities required for EU funding.
 PyPy Architecture session
 -------------------------
 
-LARGE: http://codespeak.net/download/pypy/video/architecture-session-v1.avi.torrent
+744mb: http://codespeak.net/download/pypy/video/architecture-session-v1.avi.torrent
 
-SMALL: http://codespeak.net/download/pypy/video/architecture-session-320x240.avi.torrent
+288mb: http://codespeak.net/download/pypy/video/architecture-session-320x240.avi.torrent
 
 .. image:: image/architecture-session.jpg
    :scale: 100
@@ -149,9 +149,9 @@ a daily basis, and pays special attention to flow graphs.
 Sprint tutorial
 ---------------
 
-LARGE: http://codespeak.net/download/pypy/video/sprint-tutorial-v2.avi.torrent
+680mb: http://codespeak.net/download/pypy/video/sprint-tutorial-v2.avi.torrent
 
-SMALL: http://codespeak.net/download/pypy/video/sprint-tutorial-320x240.avi.torrent
+263mb: http://codespeak.net/download/pypy/video/sprint-tutorial-320x240.avi.torrent
 
 .. image:: image/sprint-tutorial.jpg
    :scale: 100
@@ -169,9 +169,9 @@ Michael Hudson gives an in-depth, very technical introduction to a PyPy sprint. 
 Coding discussion of core developers Armin Rigo and Samuele Pedroni
 -------------------------------------------------------------------
 
-LARGE: http://codespeak.net/download/pypy/video/coding-discussion-v1.avi.torrent
+620mb: http://codespeak.net/download/pypy/video/coding-discussion-v1.avi.torrent
 
-SMALL: http://codespeak.net/download/pypy/video/coding-discussion-320x240.avi.torrent
+240mb: http://codespeak.net/download/pypy/video/coding-discussion-320x240.avi.torrent
 
 .. image:: image/coding-discussion.jpg
    :scale: 100
@@ -186,9 +186,9 @@ PAL 40 min, DivX AVI
 PyPy technical talk at the University of Palma de Mallorca
 ----------------------------------------------------------
 
-LARGE: http://codespeak.net/download/pypy/video/introductory-student-talk-v2.avi.torrent
+865mb: http://codespeak.net/download/pypy/video/introductory-student-talk-v2.avi.torrent
 
-SMALL: http://codespeak.net/download/pypy/video/introductory-student-talk-320x240.avi.torrent
+437mb: http://codespeak.net/download/pypy/video/introductory-student-talk-320x240.avi.torrent
 
 .. image:: image/introductory-student-talk.jpg
    :scale: 100
@@ -205,7 +205,7 @@ Core developers Armin Rigo, Samuele Pedroni and Carl Friedrich Bolz are giving a
 Scripting .NET with IronPython by Jim Hugunin
 ---------------------------------------------
 
-LARGE: http://codespeak.net/download/pypy/video/ironpython-talk-v1.avi.torrent    
+686mb: http://codespeak.net/download/pypy/video/ironpython-talk-v1.avi.torrent    
 
 .. image:: image/ironpython.jpg
    :scale: 100
