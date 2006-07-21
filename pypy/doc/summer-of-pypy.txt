@@ -75,8 +75,6 @@ your proposal the actual reimbursements may get reduced.
 Accepted Proposals 
 ---------------------------
 
-XXX check with Valentino about his proposal
-
 - `Ajax in python based on PyPy's JavaScript backend`_
   by Maciej Fijalkowski, mentored by Eric van Riet Paap 
 
