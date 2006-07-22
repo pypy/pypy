@@ -388,7 +388,10 @@ class _mmap(Wrappable):
                     # alignment of the address
                     value = pythonapi.PyLong_FromVoidPtr(data)
                     aligned_value = value & ~(PAGESIZE - 1)
-                    res = linux_msync(c_void_p(aligned_value), size, MS_SYNC)
+                    # the size should be increased too. otherwise the final
+                    # part is not "msynced"
+                    new_size = size + value & (PAGESIZE - 1)
+                    res = linux_msync(c_void_p(aligned_value), new_size, MS_SYNC)
                 else:
                     res = libc.msync(data, size, MS_SYNC)
                 if res == -1:
