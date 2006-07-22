@@ -59,7 +59,7 @@ size_t = cConfig.size_t
 off_t = cConfig.off_t
 libc.strerror.restype = c_char_p
 libc.strerror.argtypes = [c_int]
-libc.memcpy.argtypes = [POINTER(c_char), POINTER(c_char), c_int]
+libc.memcpy.argtypes = [POINTER(c_char), c_char_p, c_int]
 libc.memcpy.restype = c_void_p
 libc.mmap.argtypes = [c_void_p, size_t, c_int, c_int, c_int, off_t]
 libc.mmap.restype = c_void_p
@@ -319,6 +319,38 @@ class _mmap(Wrappable):
             SIZE_BIT = 6
             return self.space.wrap(st[SIZE_BIT])
     size.unwrap_spec = ['self']
+    
+    def write(self, str):
+        self._check_valid()        
+        self._check_writeable()
+        
+        if self._pos + len(str) > self._size:
+            raise OperationError(self.space.w_ValueError,
+                self.space.wrap("data out of range"))
+        
+        p = c_char_p(str)
+        libc.memcpy(self._data, p, len(str))
+        self._pos += len(str)
+    write.unwrap_spec = ['self', str]
+    
+    def write_byte(self, byte):
+        self._check_valid()
+        
+        if len(byte) > 1:
+            raise OperationError(self.space.w_TypeError,
+                self.space.wrap("write_byte() argument must be char"))
+        
+        self._check_writeable()
+        
+        str_data = self.space.str_w(self._to_str())
+        str_data = list(str_data)
+        str_data[self._pos] = byte
+        str_data = "".join(str_data)
+        
+        p = c_char_p(str_data)
+        libc.memcpy(self._data, p, len(str_data))
+        self._pos += 1
+    write_byte.unwrap_spec = ['self', str]
 
 
 _mmap.typedef = TypeDef("_mmap",
@@ -339,6 +371,9 @@ _mmap.typedef = TypeDef("_mmap",
     seek = interp2app(_mmap.seek, unwrap_spec=_mmap.seek.unwrap_spec),
     tell = interp2app(_mmap.tell, unwrap_spec=_mmap.tell.unwrap_spec),
     size = interp2app(_mmap.size, unwrap_spec=_mmap.size.unwrap_spec),
+    write = interp2app(_mmap.write, unwrap_spec=_mmap.write.unwrap_spec),
+    write_byte = interp2app(_mmap.write_byte,
+        unwrap_spec=_mmap.write_byte.unwrap_spec),
 )
 
 def _check_map_size(space, size):

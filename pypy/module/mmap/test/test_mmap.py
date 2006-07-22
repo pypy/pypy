@@ -182,34 +182,37 @@ class AppTestMMap:
         m.close()
         f.close()
 
-# 
-#     def test_write(self):
-#         self.f.seek(0)
-#         self.f.write("foobar")
-#         self.f.flush()
-#         m = mmap(self.f.fileno(), 6, access=cmmap.ACCESS_READ)
-#         py.test.raises(TypeError, m.write, "foo")
-#         m = mmap(self.f.fileno(), 6, access=cmmap.ACCESS_WRITE)
-#         py.test.raises(TypeError, m.write, 123)
-#         py.test.raises(ValueError, m.write, "c"*10)
-#         m.write("ciao\n")
-#         m.seek(0)
-#         assert m.read(6) == "ciao\nr"
-#         m.close()
-# 
-#     def test_write_byte(self):
-#         self.f.seek(0)
-#         self.f.write("foobar")
-#         self.f.flush()
-#         m = mmap(self.f.fileno(), 6, access=cmmap.ACCESS_READ)
-#         py.test.raises(TypeError, m.write_byte, "foo")
-#         m = mmap(self.f.fileno(), 6, access=cmmap.ACCESS_WRITE)
-#         py.test.raises(TypeError, m.write_byte, 123)
-#         py.test.raises(TypeError, m.write_byte, "ab")
-#         m.write_byte("x")
-#         m.seek(0)
-#         assert m.read(6) == "xoobar"
-#         m.close()
+    def test_write(self):
+        import mmap
+        f = open("foo", "w+")
+
+        f.write("foobar")
+        f.flush()
+        m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_READ)
+        raises(TypeError, m.write, "foo")
+        m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_WRITE)
+        raises(TypeError, m.write, 123)
+        raises(ValueError, m.write, "c"*10)
+        m.write("ciao\n")
+        m.seek(0)
+        assert m.read(6) == "ciao\nr"
+        m.close()
+
+    def test_write_byte(self):
+        import mmap
+        f = open("foo", "w+")
+        
+        f.write("foobar")
+        f.flush()
+        m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_READ)
+        raises(TypeError, m.write_byte, "f")
+        m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_WRITE)
+        raises(TypeError, m.write_byte, 123)
+        raises(TypeError, m.write_byte, "ab")
+        m.write_byte("x")
+        m.seek(0)
+        assert m.read(6) == "xoobar"
+        m.close()
 
     def test_size(self):
         from mmap import mmap
@@ -232,16 +235,20 @@ class AppTestMMap:
         assert m.tell() >= 0
         m.close()
         f.close()
-# 
-#     def test_flush(self):
-#         self.f.seek(0)
-#         self.f.write("foobar")
-#         m = mmap(self.f.fileno(), 6)
-#         py.test.raises(TypeError, m.flush, 1, 2, 3)
-#         py.test.raises(TypeError, m.flush, 1, "a")
-#         py.test.raises(ValueError, m.flush, 0, 99)
-#         assert m.flush() == 0
-#         m.close()
+
+    # def test_flush(self):
+    #     from mmap import mmap
+    #     f = open("foo", "w+")
+    #     
+    #     f.write("foobar")
+    #     f.flush()
+    #     m = mmap(f.fileno(), 6)
+    #     raises(TypeError, m.flush, 1, 2, 3)
+    #     raises(TypeError, m.flush, 1, "a")
+    #     raises(ValueError, m.flush, 0, 99)
+    #     assert m.flush() == 0
+    #     m.close()
+    #     f.close()
 # 
 #     def test_move(self):
 #         self.f.seek(0)
