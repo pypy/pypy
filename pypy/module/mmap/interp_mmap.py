@@ -385,10 +385,10 @@ class _mmap(Wrappable):
             #     return res
             if _POSIX:
                 if _LINUX:
-                    # padding of the address
+                    # alignment of the address
                     value = pythonapi.PyLong_FromVoidPtr(data)
-                    padded_value = value & ~(PAGESIZE - 1)
-                    res = linux_msync(c_void_p(padded_value), size, MS_SYNC)
+                    aligned_value = value & ~(PAGESIZE - 1)
+                    res = linux_msync(c_void_p(aligned_value), size, MS_SYNC)
                 else:
                     res = libc.msync(data, size, MS_SYNC)
                 if res == -1:
