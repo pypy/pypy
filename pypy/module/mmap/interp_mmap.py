@@ -14,7 +14,7 @@ import stat
 
 _POSIX = os.name == "posix"
 _MS_WINDOWS = os.name == "nt"
-_FREEBSD = "freebsd" in sys.platform
+_LINUX = "linux" in sys.platform
 _64BIT = "64bit" in platform.architecture()[0]
 
 class CConfig:
@@ -69,6 +69,16 @@ libc.munmap.argtypes = [POINTER(c_char), size_t]
 libc.munmap.restype = c_int
 libc.msync.argtypes = [c_char_p, size_t, c_int]
 libc.msync.restype = c_int
+
+## LINUX msync syscall helper stuff
+# you don't have addressof() in rctypes so I looked up the implementation
+# of addressof in ctypes source and come up with this.
+pythonapi.PyLong_FromVoidPtr.argtypes = [c_char_p]
+pythonapi.PyLong_FromVoidPtr.restype = c_int
+# we also need to alias msync to take a c_void_p instead of c_char_p
+linux_msync = libc["msync"]
+linux_msync.argtypes = [c_void_p, size_t, c_int]
+linux_msync.restype = c_int
 
 if _POSIX:
     def _get_page_size():
@@ -374,7 +384,13 @@ class _mmap(Wrappable):
             #     res = FlushViewOfFile(data, size)
             #     return res
             if _POSIX:
-                res = libc.msync(data, size, MS_SYNC)
+                if _LINUX:
+                    # padding of the address
+                    value = pythonapi.PyLong_FromVoidPtr(data)
+                    padded_value = value & ~(PAGESIZE - 1)
+                    res = linux_msync(c_void_p(padded_value), size, MS_SYNC)
+                else:
+                    res = libc.msync(data, size, MS_SYNC)
                 if res == -1:
                     raise OperationError(self.space.w_EnvironmentError,
                         self.space.wrap(_get_error_msg()))
