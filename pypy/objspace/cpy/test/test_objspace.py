@@ -114,3 +114,22 @@ def test_complete():
         assert hasattr(space, 'w_' + name)
     for name in ObjSpace.IrregularOpTable:
         assert hasattr(space, name)
+
+def test_lookup():
+    space = CPyObjSpace()
+    class X(object):
+        def f():
+            return 5
+    def g():
+        return 7
+    x = X()
+    x.f = g
+    w = space.W_Object(x)
+    w_f = space.lookup(w, "f")
+    w_5 = space.call_function(w_f)
+    assert space.int_w(w_5) == 5
+
+def test_callable():
+    space = CPyObjSpace()
+    assert space.is_true(space.callable(space.w_int))
+    assert not space.is_true(space.callable(space.w_Ellipsis))

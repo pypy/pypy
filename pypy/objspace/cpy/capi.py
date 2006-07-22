@@ -224,6 +224,10 @@ PyType_IsSubtype = cpyapi.PyType_IsSubtype
 PyType_IsSubtype.argtypes = [W_Object, W_Object]
 PyType_IsSubtype.restype = c_int
 
+_PyType_Lookup = cpyapi._PyType_Lookup
+_PyType_Lookup.argtypes = [W_Object, W_Object]
+_PyType_Lookup.restype = W_Object
+
 
 ###########################################################
 # ____________________ Numeric Objects ____________________

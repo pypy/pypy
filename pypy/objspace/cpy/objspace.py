@@ -1,4 +1,6 @@
+import types
 from pypy.objspace.cpy.capi import *
+from pypy.objspace.cpy.capi import _PyType_Lookup
 from pypy.objspace.cpy.refcount import Py_Incref
 from pypy.objspace.cpy.appsupport import W_AppLevel
 from pypy.interpreter import baseobjspace
@@ -25,6 +27,7 @@ class CPyObjSpace(baseobjspace.ObjSpace):
     w_str            = W_Object(str)
     w_unicode        = W_Object(unicode)
     w_type           = W_Object(type)
+    w_instance       = W_Object(types.InstanceType)
 
     w_hex            = W_Object(hex) # no C API function to do that :-(
     w_oct            = W_Object(oct)
@@ -101,6 +104,16 @@ class CPyObjSpace(baseobjspace.ObjSpace):
         from pypy.objspace.cpy.typedef import cpython2rpython
         return cpython2rpython(self, RequiredClass, w_obj)
     interp_w._annspecialcase_ = 'specialize:arg(1)'
+
+    def lookup(self, w_obj, name):
+        w_type = self.type(w_obj)
+        w_name = self.wrap(name)
+        w_res = _PyType_Lookup(w_type, w_name)
+        if w_res:
+            Py_Incref(w_res)
+            return w_res
+        else:
+            return None
 
     # __________ operations with a direct CPython equivalent __________
 
