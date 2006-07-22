@@ -343,9 +343,9 @@ class _mmap(Wrappable):
         self._check_writeable()
         
         str_data = self.space.str_w(self._to_str())
-        str_data = list(str_data)
-        str_data[self._pos] = byte
-        str_data = "".join(str_data)
+        str_data_lst = [i for i in str_data] 
+        str_data_lst[self._pos] = byte
+        str_data = "".join(str_data_lst)
         
         p = c_char_p(str_data)
         libc.memcpy(self._data, p, len(str_data))
