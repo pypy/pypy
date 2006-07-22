@@ -278,13 +278,14 @@ class AppTestMMap:
         import mmap
         import os
         
-        f = open(filename, "w+")
+        f = open("foo", "w+")
         f.write("foobar")
-        m = mmap(f.fileno(), 6, access=mmap.ACCESS_READ)
+        f.flush()
+        m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_READ)
         raises(TypeError, m.resize, 1)
-        m = mmap(f.fileno(), 6, access=mmap.ACCESS_COPY)
+        m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_COPY)
         raises(TypeError, m.resize, 1)
-        m = mmap(f.fileno(), 6, access=mmap.ACCESS_WRITE)
+        m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_WRITE)
         f_size = os.fstat(f.fileno()).st_size
         assert m.size() == f_size == 6
         m.resize(10)
