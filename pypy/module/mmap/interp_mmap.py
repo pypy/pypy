@@ -82,6 +82,13 @@ linux_msync.restype = c_int
 
 libc.memmove.argtypes = [c_char_p, c_char_p, size_t]
 libc.memmove.restype = c_void_p
+has_mremap = False
+if hasattr(libc, "mremap"):
+    libc.mremap.argtypes = [c_void_p, size_t, size_t, c_ulong]
+    libc.mremap.restype = c_void_p
+    has_mremap = True
+libc.ftruncate.argtypes = [c_int, off_t]
+libc.ftruncate.restype = c_int
 
 if _POSIX:
     def _get_page_size():
@@ -425,6 +432,87 @@ class _mmap(Wrappable):
         p = c_char_p(final_str)
         libc.memcpy(self._data, p, len(final_str))
     move.unwrap_spec = ['self', int, int, int]
+    
+    def resize(self, newsize):
+        self._check_valid()
+        
+        self._check_resizeable()
+        
+        if _POSIX:
+            if not has_mremap:
+                raise "mmap: resizing not available -- no mremap()"
+            
+            # resize the underlying file first
+            res = libc.ftruncate(self._fd, newsize)
+            if res == -1:
+                raise OperationError(self.space.w_EnvironmentError,
+                    self.space.wrap(_get_error_msg()))
+                
+            # now resize the mmap
+            MREMAP_MAYMOVE = 1
+            res = libc.mremap(cast(self._data, c_void_p), self._size, newsize,
+                MREMAP_MAYMOVE)
+            if res == -1:
+                raise OperationError(self.space.w_EnvironmentError,
+                    self.space.wrap(_get_error_msg()))
+            self._data = cast(res, POINTER(c_char))
+            self._size = newsize
+        # elif _MS_WINDOWS:
+        #     # disconnect the mapping
+        #     self._unmapview()
+        #     windll.kernel32.CloseHandle(self._map_handle)
+        # 
+        #     # move to the desired EOF position
+        #     if _64BIT:
+        #         newsize_high = wintypes.DWORD(newsize >> 32)
+        #         newsize_low = wintypes.DWORD(newsize & 0xFFFFFFFF)
+        #     else:
+        #         newsize_high = wintypes.DWORD(0)
+        #         newsize_low = wintypes.DWORD(newsize)
+        # 
+        #     FILE_BEGIN = wintypes.DWORD(0)
+        #     SetFilePointer = windll.kernel32.SetFilePointer
+        #     SetFilePointer.argtypes = [wintypes.HANDLE, wintypes.LONG,
+        #                                POINTER(wintypes.LONG), wintypes.DWORD]
+        #     SetFilePointer(self._file_handle,
+        #                    wintypes.LONG(newsize_low.value),    
+        #                    byref(wintypes.LONG(newsize_high.value)),
+        #                    FILE_BEGIN)
+        #     # resize the file
+        #     SetEndOfFile = windll.kernel32.SetEndOfFile
+        #     SetEndOfFile.argtypes = [wintypes.HANDLE]
+        #     SetEndOfFile(self._file_handle)
+        #     # create another mapping object and remap the file view
+        #     CreateFileMapping = windll.kernel32.CreateFileMappingA
+        #     CreateFileMapping.argtypes = [wintypes.HANDLE, c_void_p, wintypes.DWORD,
+        #                                   wintypes.DWORD, wintypes.DWORD, c_char_p]
+        #     CreateFileMapping.restype = wintypes.HANDLE
+        # 
+        #     self._map_handle = wintypes.HANDLE(CreateFileMapping(self._file_handle, None,
+        #                                                          _PAGE_READWRITE,
+        #                                                          newsize_high, newsize_low,
+        #                                                          self._tagname))
+        # 
+        #     dwErrCode = wintypes.DWORD(0)
+        #     if self._map_handle:
+        #         MapViewOfFile = windll.kernel32.MapViewOfFile
+        #         MapViewOfFile.argtypes = [wintypes.HANDLE, wintypes.DWORD,
+        #                                   wintypes.DWORD, wintypes.DWORD,
+        #                                   wintypes.DWORD]
+        #         MapViewOfFile.restype = c_void_p
+        #         self._data = MapViewOfFile(self._map_handle, _FILE_MAP_WRITE,
+        #                                    0, 0, 0)
+        #         if self._data:
+        #             self._data = cast(self._data, POINTER(c_char))
+        #             self._size = newsize
+        #             return
+        #         else:
+        #             dwErrCode = GetLastError()
+        #     else:
+        #         dwErrCode = GetLastError()
+        # 
+        #     raise WinError(dwErrCode)
+    resize.unwrap_spec = ['self', int]
 
 _mmap.typedef = TypeDef("_mmap",
     _to_str = interp2app(_mmap._to_str, unwrap_spec=_mmap._to_str.unwrap_spec),
@@ -449,6 +537,7 @@ _mmap.typedef = TypeDef("_mmap",
         unwrap_spec=_mmap.write_byte.unwrap_spec),
     flush = interp2app(_mmap.flush, unwrap_spec=_mmap.flush.unwrap_spec),
     move = interp2app(_mmap.move, unwrap_spec=_mmap.move.unwrap_spec),
+    resize = interp2app(_mmap.resize, unwrap_spec=_mmap.resize.unwrap_spec),
 )
 
 def _check_map_size(space, size):

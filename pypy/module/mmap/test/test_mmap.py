@@ -269,22 +269,27 @@ class AppTestMMap:
         a = m.read(6)
         assert a == "frarar"
         m.close()
-#     
-#     def test_resize(self):
-#         if "darwin" in sys.platform or _FREEBSD:
-#             py.test.skip("resize does not work under OSX or FreeBSD")
-#         self.f = open(filename, "w+")
-#         self.f.write("foobar")
-#         m = mmap(self.f.fileno(), 6, access=cmmap.ACCESS_READ)
-#         py.test.raises(TypeError, m.resize, 1)
-#         m = mmap(self.f.fileno(), 6, access=cmmap.ACCESS_COPY)
-#         py.test.raises(TypeError, m.resize, 1)
-#         m = mmap(self.f.fileno(), 6, access=cmmap.ACCESS_WRITE)
-#         f_size = os.fstat(self.f.fileno()).st_size
-#         assert m.size() == f_size == 6
-#         m.resize(10)
-#         f_size = os.fstat(self.f.fileno()).st_size
-#         assert m.size() == f_size == 10
+    
+    def test_resize(self):
+        import sys
+        if ("darwin" in sys.platform) or ("freebsd" in sys.platform):
+            skip("resize does not work under OSX or FreeBSD")
+        
+        import mmap
+        import os
+        
+        f = open(filename, "w+")
+        f.write("foobar")
+        m = mmap(f.fileno(), 6, access=mmap.ACCESS_READ)
+        raises(TypeError, m.resize, 1)
+        m = mmap(f.fileno(), 6, access=mmap.ACCESS_COPY)
+        raises(TypeError, m.resize, 1)
+        m = mmap(f.fileno(), 6, access=mmap.ACCESS_WRITE)
+        f_size = os.fstat(f.fileno()).st_size
+        assert m.size() == f_size == 6
+        m.resize(10)
+        f_size = os.fstat(f.fileno()).st_size
+        assert m.size() == f_size == 10
 # 
 #     def test_len(self):
 #         m = mmap(self.f.fileno(), 6)
