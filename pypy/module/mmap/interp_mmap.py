@@ -30,7 +30,8 @@ class CConfig:
 # depending on the OS
 constants = {}
 constant_names = ['MAP_SHARED', 'MAP_PRIVATE', 'MAP_ANON', 'MAP_ANONYMOUS',
-    'PROT_READ', 'PROT_WRITE', 'PROT_EXEC', 'MAP_DENYWRITE', 'MAP_EXECUTABLE']
+    'PROT_READ', 'PROT_WRITE', 'PROT_EXEC', 'MAP_DENYWRITE', 'MAP_EXECUTABLE',
+    'MS_SYNC']
 for name in constant_names:
     setattr(CConfig, name, ctypes_platform.DefinedConstantInteger(name))
 
@@ -52,7 +53,6 @@ if cConfig.MAP_ANONYMOUS is None:
 
 locals().update(constants)
 
-_MS_SYNC = ctypes_platform.DefinedConstantInteger("MS_SYNC")
 _ACCESS_DEFAULT, ACCESS_READ, ACCESS_WRITE, ACCESS_COPY = range(4)
 
 size_t = cConfig.size_t
@@ -67,6 +67,8 @@ libc.close.argtypes = [c_int]
 libc.close.restype = c_int
 libc.munmap.argtypes = [POINTER(c_char), size_t]
 libc.munmap.restype = c_int
+libc.msync.argtypes = [c_char_p, size_t, c_int]
+libc.msync.restype = c_int
 
 if _POSIX:
     def _get_page_size():
@@ -138,6 +140,8 @@ if _POSIX:
 # 
 #     windll.kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
 #     windll.kernel32.CloseHandle.restype = wintypes.BOOL
+
+PAGESIZE = _get_page_size()
 
 class _mmap(Wrappable):
     def __init__(self, space):
@@ -351,7 +355,32 @@ class _mmap(Wrappable):
         libc.memcpy(self._data, p, len(str_data))
         self._pos += 1
     write_byte.unwrap_spec = ['self', str]
-
+    
+    def flush(self, offset=0, size=0):
+        self._check_valid()
+        
+        if size == 0:
+            size = self._size
+        
+        if offset + size > self._size:
+            raise OperationError(self.space.w_ValueError,
+                self.space.wrap("flush values out of range"))
+        else:
+            data = c_char_p("".join([self._data[i] for i in range(offset, size)]))
+            
+            # if _MS_WINDOWS:
+            #     FlushViewOfFile = windll.kernel32.FlushViewOfFile
+            #     FlushViewOfFile.argtypes = [c_void_p, c_int]
+            #     res = FlushViewOfFile(data, size)
+            #     return res
+            if _POSIX:
+                res = libc.msync(data, size, MS_SYNC)
+                if res == -1:
+                    raise OperationError(self.space.w_EnvironmentError,
+                        self.space.wrap(_get_error_msg()))
+        
+        return self.space.wrap(0)
+    flush.unwrap_spec = ['self', int, int]
 
 _mmap.typedef = TypeDef("_mmap",
     _to_str = interp2app(_mmap._to_str, unwrap_spec=_mmap._to_str.unwrap_spec),
@@ -374,6 +403,7 @@ _mmap.typedef = TypeDef("_mmap",
     write = interp2app(_mmap.write, unwrap_spec=_mmap.write.unwrap_spec),
     write_byte = interp2app(_mmap.write_byte,
         unwrap_spec=_mmap.write_byte.unwrap_spec),
+    flush = interp2app(_mmap.flush, unwrap_spec=_mmap.flush.unwrap_spec),
 )
 
 def _check_map_size(space, size):

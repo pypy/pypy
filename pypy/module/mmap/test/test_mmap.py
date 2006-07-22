@@ -236,19 +236,19 @@ class AppTestMMap:
         m.close()
         f.close()
 
-    # def test_flush(self):
-    #     from mmap import mmap
-    #     f = open("foo", "w+")
-    #     
-    #     f.write("foobar")
-    #     f.flush()
-    #     m = mmap(f.fileno(), 6)
-    #     raises(TypeError, m.flush, 1, 2, 3)
-    #     raises(TypeError, m.flush, 1, "a")
-    #     raises(ValueError, m.flush, 0, 99)
-    #     assert m.flush() == 0
-    #     m.close()
-    #     f.close()
+    def test_flush(self):
+        from mmap import mmap
+        f = open("foo", "w+")
+        
+        f.write("foobar")
+        f.flush()
+        m = mmap(f.fileno(), 6)
+        raises(TypeError, m.flush, 1, 2, 3)
+        raises(TypeError, m.flush, 1, "a")
+        raises(ValueError, m.flush, 0, 99)
+        assert m.flush() == 0
+        m.close()
+        f.close()
 # 
 #     def test_move(self):
 #         self.f.seek(0)
