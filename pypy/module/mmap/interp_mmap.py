@@ -80,6 +80,9 @@ linux_msync = libc["msync"]
 linux_msync.argtypes = [c_void_p, size_t, c_int]
 linux_msync.restype = c_int
 
+libc.memmove.argtypes = [c_char_p, c_char_p, size_t]
+libc.memmove.restype = c_void_p
+
 if _POSIX:
     def _get_page_size():
         return libc.getpagesize()
@@ -400,6 +403,28 @@ class _mmap(Wrappable):
         
         return self.space.wrap(0)
     flush.unwrap_spec = ['self', int, int]
+    
+    def move(self, dest, src, count):
+        self._check_valid()
+        
+        self._check_writeable()
+        
+        # check boundings
+        if (src + count > self._size) or (dest + count > self._size):
+            raise OperationError(self.space.w_ValueError,
+                self.space.wrap("source or destination out of range"))
+        
+        data_dest = c_char_p("".join([self._data[i] for i in range(dest, self._size)]))
+        data_src = c_char_p("".join([self._data[i] for i in range(src, src+count)]))
+        libc.memmove(data_dest, data_src, count)
+        
+        assert dest >= 0
+        str_left = self.space.str_w(self._to_str())[0:dest]
+        final_str = "%s%s" % (str_left, data_dest.value)
+        
+        p = c_char_p(final_str)
+        libc.memcpy(self._data, p, len(final_str))
+    move.unwrap_spec = ['self', int, int, int]
 
 _mmap.typedef = TypeDef("_mmap",
     _to_str = interp2app(_mmap._to_str, unwrap_spec=_mmap._to_str.unwrap_spec),
@@ -423,6 +448,7 @@ _mmap.typedef = TypeDef("_mmap",
     write_byte = interp2app(_mmap.write_byte,
         unwrap_spec=_mmap.write_byte.unwrap_spec),
     flush = interp2app(_mmap.flush, unwrap_spec=_mmap.flush.unwrap_spec),
+    move = interp2app(_mmap.move, unwrap_spec=_mmap.move.unwrap_spec),
 )
 
 def _check_map_size(space, size):

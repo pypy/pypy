@@ -249,23 +249,26 @@ class AppTestMMap:
         assert m.flush() == 0
         m.close()
         f.close()
-# 
-#     def test_move(self):
-#         self.f.seek(0)
-#         self.f.write("foobar")
-#         m = mmap(self.f.fileno(), 6, access=cmmap.ACCESS_READ)
-#         py.test.raises(TypeError, m.move, 1)
-#         py.test.raises(TypeError, m.move, 1, "foo", 2)
-#         m = mmap(self.f.fileno(), 6, access=cmmap.ACCESS_WRITE)
-#         py.test.raises(ValueError, m.move, 7, 1, 2)
-#         py.test.raises(ValueError, m.move, 1, 7, 2)
-#         m.move(1, 3, 3)
-#         assert m.read(6) == "fbarar"
-#         m.seek(0)
-#         m.move(1, 3, 2)
-#         a = m.read(6)
-#         assert a == "frarar"
-#         m.close()
+
+    def test_move(self):
+        import mmap
+        f = open("foo", "w+")
+        
+        f.write("foobar")
+        f.flush()
+        m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_READ)
+        raises(TypeError, m.move, 1)
+        raises(TypeError, m.move, 1, "foo", 2)
+        m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_WRITE)
+        raises(ValueError, m.move, 7, 1, 2)
+        raises(ValueError, m.move, 1, 7, 2)
+        m.move(1, 3, 3)
+        assert m.read(6) == "fbarar"
+        m.seek(0)
+        m.move(1, 3, 2)
+        a = m.read(6)
+        assert a == "frarar"
+        m.close()
 #     
 #     def test_resize(self):
 #         if "darwin" in sys.platform or _FREEBSD:
