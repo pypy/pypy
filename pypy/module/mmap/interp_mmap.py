@@ -84,7 +84,7 @@ libc.memmove.argtypes = [c_char_p, c_char_p, size_t]
 libc.memmove.restype = c_void_p
 has_mremap = False
 if hasattr(libc, "mremap"):
-    libc.mremap.argtypes = [c_void_p, size_t, size_t, c_ulong]
+    libc.mremap.argtypes = [POINTER(c_char), size_t, size_t, c_ulong]
     libc.mremap.restype = c_void_p
     has_mremap = True
 libc.ftruncate.argtypes = [c_int, off_t]
@@ -450,12 +450,7 @@ class _mmap(Wrappable):
                 
             # now resize the mmap
             MREMAP_MAYMOVE = 1
-            res = libc.mremap(cast(self._data, c_void_p), self._size, newsize,
-                MREMAP_MAYMOVE)
-            if res == -1:
-                raise OperationError(self.space.w_EnvironmentError,
-                    self.space.wrap(_get_error_msg()))
-            self._data = cast(res, POINTER(c_char))
+            libc.mremap(self._data, self._size, newsize, MREMAP_MAYMOVE)
             self._size = newsize
         # elif _MS_WINDOWS:
         #     # disconnect the mapping
