@@ -1081,17 +1081,18 @@ class FrameworkGCTransformer(GCTransformer):
         return fptr
 
     def consider_constant(self, TYPE, value):
+        value = lltype.top_container(value)
+
         if id(value) in self.seen_roots:
             return
         self.seen_roots[id(value)] = True
 
         if isinstance(TYPE, (lltype.GcStruct, lltype.GcArray)):
             typeid = self.get_type_id(TYPE)
-            if lltype.top_container(value) is value:
-                hdrbuilder = self.gcdata.gc.gcheaderbuilder
-                hdr = hdrbuilder.new_header(value)
-                adr = llmemory.cast_ptr_to_adr(hdr)
-                self.gcdata.gc.init_gc_object(adr, typeid)
+            hdrbuilder = self.gcdata.gc.gcheaderbuilder
+            hdr = hdrbuilder.new_header(value)
+            adr = llmemory.cast_ptr_to_adr(hdr)
+            self.gcdata.gc.init_gc_object(adr, typeid)
 
         if find_gc_ptrs_in_type(TYPE):
             adr = llmemory.cast_ptr_to_adr(value._as_ptr())
