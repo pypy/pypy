@@ -1,4 +1,4 @@
-import types
+import types, py
 from pypy.objspace.flow.model import Constant, FunctionGraph
 from pypy.interpreter.pycode import cpython_code_signature
 from pypy.interpreter.argument import rawshape
@@ -416,6 +416,13 @@ class ClassDesc(Desc):
         if type(value) is MemberDescriptorType:
             # skip __slots__, showing up in the class as 'member' objects
             return
+        if name == '__init__' and self.is_builtin_exception_class():
+            # pretend that built-in exceptions have no __init__,
+            # unless explicitly specified in builtin.py
+            from pypy.annotation.builtin import BUILTIN_ANALYZERS
+            value = getattr(value, 'im_func', value)
+            if value not in BUILTIN_ANALYZERS:
+                return
         self.classdict[name] = Constant(value)
 
     def add_sources_for_class(self, cls, mixin=False):
@@ -481,16 +488,29 @@ class ClassDesc(Desc):
         s_init = self.s_read_attribute('__init__')
         if isinstance(s_init, SomeImpossibleValue):
             # no __init__: check that there are no constructor args
-            try:
-                args.fixedunpack(0)
-            except ValueError:
-                raise Exception("default __init__ takes no argument"
-                                " (class %s)" % (self.name,))
+            if not self.is_exception_class():
+                try:
+                    args.fixedunpack(0)
+                except ValueError:
+
+                    raise Exception("default __init__ takes no argument"
+                                    " (class %s)" % (self.name,))
         else:
             # call the constructor
             args = args.prepend(s_instance)
             s_init.call(args)
         return s_instance
+
+    def is_exception_class(self):
+        return self.pyobj is not None and issubclass(self.pyobj, Exception)
+
+    def is_builtin_exception_class(self):
+        if self.is_exception_class():
+            if self.pyobj.__module__ == 'exceptions':
+                return True
+            if self.pyobj is py.magic.AssertionError:
+                return True
+        return False
 
     def lookup(self, name):
         cdesc = self

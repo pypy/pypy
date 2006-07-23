@@ -673,6 +673,7 @@ class AbstractClassesPBCRepr(Repr):
                     return v_instance
             s_init = classdef.classdesc.s_read_attribute('__init__')
             v_init = Constant("init-func-dummy")   # this value not really used
+            is_exception_class = classdef.classdesc.is_exception_class()
         else:
             # instantiating a class from multiple possible classes
             vtypeptr = hop.inputarg(self, arg=0)
@@ -685,10 +686,12 @@ class AbstractClassesPBCRepr(Repr):
                 v_init = r_class.getpbcfield(vtypeptr, access_set, '__init__',
                                              hop.llops)                
                 v_instance = self._instantiate_runtime_class(hop, vtypeptr, r_instance)
-                    
+            is_exception_class = False    # approximative, but should not hurt
+
         if isinstance(s_init, annmodel.SomeImpossibleValue):
-            assert hop.nb_args == 1, ("arguments passed to __init__, "
-                                      "but no __init__!")
+            if not is_exception_class:
+                assert hop.nb_args == 1, ("arguments passed to __init__, "
+                                          "but no __init__!")
         else:
             hop2 = self.replace_class_with_inst_arg(
                     hop, v_instance, s_instance, call_args)

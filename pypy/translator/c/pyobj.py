@@ -1,5 +1,6 @@
 from __future__ import generators
 import autopath, os, sys, __builtin__, marshal, zlib
+import py
 from types import FunctionType, CodeType, InstanceType, ClassType
 
 from pypy.objspace.flow.model import Variable, Constant, FunctionGraph
@@ -373,9 +374,8 @@ class PyObjMaker:
             return self.import_classobj(cls)
         metaclass = "type"
         if issubclass(cls, Exception):
-            # if cls.__module__ == 'exceptions':
-            # don't rely on this, py.magic redefines AssertionError
-            if getattr(__builtin__, cls.__name__, None) is cls:
+            if (cls.__module__ == 'exceptions' or
+                cls is py.magic.AssertionError):
                 name = self.uniquename('gexc_' + cls.__name__)
                 self.initcode_python(name, cls.__name__)
                 return name

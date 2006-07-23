@@ -234,10 +234,10 @@ def builtin_slice(*args):
             args[0], args[1], args[2])
     else:
         raise Exception, "bogus call to slice()"
-        
 
-def exception_init(s_self, *args):
-    pass   # XXX check correctness of args, maybe
+
+def OSError_init(s_self, *args):
+    pass
 
 def object_init(s_self, *args):
     # ignore - mostly used for abstract classes initialization
@@ -365,21 +365,8 @@ BUILTIN_ANALYZERS[pypy.rpython.lltypesystem.llmemory.cast_weakadr_to_ptr] = llme
 BUILTIN_ANALYZERS[pypy.rpython.rstack.yield_current_frame_to_caller] = (
     rstack_yield_current_frame_to_caller)
 
-def setup_Exception_init(mod):
-    # Set a BUILTIN_ANALYZERS for the __init__ of each exception class.
-    # This is required for 2.5; previously, we could set just a few __init__:
-    # Exception, OSError, and AssertionError (for running on top of py.test)
-    for name in dir(exceptions):
-        obj = getattr(mod, name, None)
-        if isinstance(obj, type(Exception)) and issubclass(obj, Exception):
-            try:
-                f = obj.__init__.im_func
-            except AttributeError:
-                f = obj.__init__
-            BUILTIN_ANALYZERS[f] = exception_init
-setup_Exception_init(__builtin__)
-setup_Exception_init(exceptions)
-del setup_Exception_init
+BUILTIN_ANALYZERS[getattr(OSError.__init__, 'im_func', OSError.__init__)] = (
+    OSError_init)
 
 BUILTIN_ANALYZERS[sys.getdefaultencoding] = conf
 import unicodedata

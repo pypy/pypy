@@ -8,6 +8,13 @@
 
 #define RPY_LOG_EXC(exc_type)
 
+#ifndef PyExceptionClass_Check    /* Python < 2.5 */
+# define PyExceptionClass_Check(x)	PyClass_Check(x)
+# define PyExceptionInstance_Check(x)	PyInstance_Check(x)
+# define PyExceptionInstance_Class(x)	\
+				(PyObject*)((PyInstanceObject*)(x))->in_class
+#endif
+
 
 /******************************************************************/
 #ifdef HAVE_RTYPER               /* RPython version of exceptions */
@@ -77,8 +84,8 @@ void RPyConvertExceptionToCPython(void)
 	assert(!PyErr_Occurred());
 	clsname = RPyFetchExceptionType()->ov_name->items;
 	pycls = PyDict_GetItemString(PyEval_GetBuiltins(), clsname);
-	if (pycls != NULL && PyClass_Check(pycls) &&
-	    PyClass_IsSubclass(pycls, PyExc_Exception)) {
+	if (pycls != NULL && PyExceptionClass_Check(pycls) &&
+	    PyObject_IsSubclass(pycls, PyExc_Exception)) {
 		PyErr_SetNone(pycls);
 	}
 	else {

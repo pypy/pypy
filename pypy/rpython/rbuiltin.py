@@ -308,22 +308,8 @@ for name, value in globals().items():
         original = getattr(__builtin__, name[14:])
         BUILTIN_TYPER[original] = value
 
-def setup_Exception_init(mod):
-    # should be kept in sync with annotation/builtin.py.
-    for name in dir(exceptions):
-        obj = getattr(mod, name, None)
-        if isinstance(obj, type(Exception)) and issubclass(obj, Exception):
-            try:
-                f = obj.__init__.im_func
-            except AttributeError:
-                f = obj.__init__
-            if issubclass(obj, OSError):
-                BUILTIN_TYPER[f] = rtype_OSError__init__
-            else:
-                BUILTIN_TYPER[f] = rtype_Exception__init__
-setup_Exception_init(__builtin__)
-setup_Exception_init(exceptions)
-del setup_Exception_init
+BUILTIN_TYPER[getattr(OSError.__init__, 'im_func', OSError.__init__)] = (
+    rtype_OSError__init__)
 
 BUILTIN_TYPER[object.__init__] = rtype_object__init__
 # annotation of low-level types
