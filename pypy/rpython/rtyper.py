@@ -34,7 +34,7 @@ from pypy.rpython.typesystem import LowLevelTypeSystem,\
                                     ObjectOrientedTypeSystem
 
 
-class RPythonTyper:
+class RPythonTyper(object):
 
     def __init__(self, annotator, type_system="lltype"):
         self.annotator = annotator
@@ -523,22 +523,26 @@ class RPythonTyper:
     # __________ regular operations __________
 
     def _registeroperations(cls, model):
-        ns = cls.__dict__
+        d = {}
         # All unary operations
         for opname in model.UNARY_OPERATIONS:
+            fnname = 'translate_op_' + opname
             exec py.code.compile("""
                 def translate_op_%s(self, hop):
                     r_arg1 = hop.args_r[0]
                     return r_arg1.rtype_%s(hop)
-                """ % (opname, opname)) in globals(), ns
+                """ % (opname, opname)) in globals(), d
+            setattr(cls, fnname, d[fnname])
         # All binary operations
         for opname in model.BINARY_OPERATIONS:
+            fnname = 'translate_op_' + opname
             exec py.code.compile("""
                 def translate_op_%s(self, hop):
                     r_arg1 = hop.args_r[0]
                     r_arg2 = hop.args_r[1]
                     return pair(r_arg1, r_arg2).rtype_%s(hop)
-                """ % (opname, opname)) in globals(), ns
+                """ % (opname, opname)) in globals(), d
+            setattr(cls, fnname, d[fnname])
     _registeroperations = classmethod(_registeroperations)
 
     # this one is not in BINARY_OPERATIONS
