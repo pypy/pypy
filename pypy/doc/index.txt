@@ -69,6 +69,10 @@ the parser.
 `garbage collection`_ contains documentation about
 garbage collection in PyPy.
 
+`extension compiler`_ describes the (in-progress) tool that can be used
+to write modules in PyPy's style and compile them into regular CPython
+extension modules.
+
 `EU reports`_ is a page that contains links to the
 preliminary reports that we submitted to the European Union.
 
@@ -230,6 +234,7 @@ Directory                      explanation/links
 .. _`LLVM backend`: translation.html#llvm 
 .. _`revision report`: http://codespeak.net/pypy/rev/current 
 .. _`garbage collector`: garbage_collection.html
+.. _`extension compiler`: extcompiler.html
 
 
 .. include:: _ref.txt
