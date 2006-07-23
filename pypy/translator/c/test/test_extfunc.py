@@ -458,6 +458,101 @@ def test_strerror():
         res = f1(i)
         assert res == os.strerror(i)
 
+def test_pipe_dup_dup2():
+    def does_stuff():
+        a, b = os.pipe()
+        c = os.dup(a)
+        d = os.dup(b)
+        assert a != b
+        assert a != c
+        assert a != d
+        assert b != c
+        assert b != d
+        assert c != d
+        os.close(c)
+        os.dup2(d, c)
+        e, f = os.pipe()
+        assert e != a
+        assert e != b
+        assert e != c
+        assert e != d
+        assert f != a
+        assert f != b
+        assert f != c
+        assert f != d
+        assert f != e
+        os.close(a)
+        os.close(b)
+        os.close(c)
+        os.close(d)
+        os.close(e)
+        os.close(f)
+        return 42
+    f1 = compile(does_stuff, [])
+    res = f1()
+    assert res == 42
+
+def test_os_chmod():
+    tmpfile = str(udir.join('test_os_chmod.txt'))
+    f = open(tmpfile, 'w')
+    f.close()
+    def does_stuff(mode):
+        os.chmod(tmpfile, mode)
+    f1 = compile(does_stuff, [int])
+    f1(0000)
+    assert os.stat(tmpfile).st_mode & 0777 == 0000
+    f1(0644)
+    assert os.stat(tmpfile).st_mode & 0777 == 0644
+
+def test_os_rename():
+    tmpfile1 = str(udir.join('test_os_rename_1.txt'))
+    tmpfile2 = str(udir.join('test_os_rename_2.txt'))
+    f = open(tmpfile1, 'w')
+    f.close()
+    def does_stuff():
+        os.rename(tmpfile1, tmpfile2)
+    f1 = compile(does_stuff, [])
+    f1()
+    assert os.path.exists(tmpfile2)
+    assert not os.path.exists(tmpfile1)
+
+if hasattr(os, 'getpid'):
+    def test_os_getpid():
+        def does_stuff():
+            return os.getpid()
+        f1 = compile(does_stuff, [])
+        res = f1()
+        assert res == os.getpid()
+
+if hasattr(os, 'lstat'):
+    def test_links():
+        import stat
+        tmpfile1 = str(udir.join('test_links_1.txt'))
+        tmpfile2 = str(udir.join('test_links_2.txt'))
+        tmpfile3 = str(udir.join('test_links_3.txt'))
+        f = open(tmpfile1, 'w')
+        f.close()
+        def does_stuff():
+            os.symlink(tmpfile1, tmpfile2)
+            os.link(tmpfile1, tmpfile3)
+            assert os.readlink(tmpfile2) == tmpfile1
+            flag= 0
+            st = os.lstat(tmpfile1)
+            flag = flag*10 + stat.S_ISREG(st[0])
+            flag = flag*10 + stat.S_ISLNK(st[0])
+            st = os.lstat(tmpfile2)
+            flag = flag*10 + stat.S_ISREG(st[0])
+            flag = flag*10 + stat.S_ISLNK(st[0])
+            st = os.lstat(tmpfile3)
+            flag = flag*10 + stat.S_ISREG(st[0])
+            flag = flag*10 + stat.S_ISLNK(st[0])
+            return flag
+        f1 = compile(does_stuff, [])
+        res = f1()
+        assert res == 100110
+        assert os.path.islink(tmpfile2)
+        assert not os.path.islink(tmpfile3)
+
 # ____________________________________________________________
 
 def _real_getenv(var):

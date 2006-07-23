@@ -51,6 +51,10 @@ class BaseOS:
         return os.dup(fd)
     ll_os_dup.suggested_primitive = True
 
+    def ll_os_dup2(cls, old_fd, new_fd):
+        os.dup2(old_fd, new_fd)
+    ll_os_dup2.suggested_primitive = True
+
     def ll_os_lseek(cls, fd,pos,how):
         return r_longlong(os.lseek(fd,pos,how))
     ll_os_lseek.suggested_primitive = True
@@ -76,6 +80,13 @@ class BaseOS:
         return cls.ll_stat_result(stat0, stat1, stat2, stat3, stat4,
                                   stat5, stat6, stat7, stat8, stat9)
     ll_os_stat.suggested_primitive = True
+
+    def ll_os_lstat(cls, path):
+        (stat0, stat1, stat2, stat3, stat4,
+         stat5, stat6, stat7, stat8, stat9) = os.lstat(cls.from_rstr(path))
+        return cls.ll_stat_result(stat0, stat1, stat2, stat3, stat4,
+                                  stat5, stat6, stat7, stat8, stat9)
+    ll_os_lstat.suggested_primitive = True
 
     def ll_os_strerror(cls, errnum):
         return cls.to_rstr(os.strerror(errnum))
@@ -114,6 +125,39 @@ class BaseOS:
     def ll_os_environ(cls, idx):
         return ros.environ(idx)
     ll_os_environ.suggested_primitive = True
+
+    def ll_os_pipe(cls):
+        fd1, fd2 = os.pipe()
+        return cls.ll_pipe_result(fd1, fd2)
+    ll_os_pipe.suggested_primitive = True
+
+    def ll_os_chmod(cls, path, mode):
+        os.chmod(cls.from_rstr(path), mode)
+    ll_os_chmod.suggested_primitive = True
+
+    def ll_os_rename(cls, path1, path2):
+        os.rename(cls.from_rstr(path1), cls.from_rstr(path2))
+    ll_os_rename.suggested_primitive = True
+
+    def ll_os_getpid(cls):
+        return os.getpid()
+    ll_os_getpid.suggested_primitive = True
+
+    def ll_os_link(cls, path1, path2):
+        os.link(cls.from_rstr(path1), cls.from_rstr(path2))
+    ll_os_link.suggested_primitive = True
+
+    def ll_os_symlink(cls, path1, path2):
+        os.symlink(cls.from_rstr(path1), cls.from_rstr(path2))
+    ll_os_symlink.suggested_primitive = True
+
+    def ll_readlink_into(cls, path, buffer):
+        data = os.readlink(cls.from_rstr(path))
+        if len(data) < len(buffer.chars):   # safely no overflow
+            _ll_strfill(buffer, data, len(data))
+        return len(data)
+    ll_readlink_into.suggested_primitive = True
+    ll_readlink_into = staticmethod(ll_readlink_into)
 
     # ____________________________________________________________
     # opendir/readdir

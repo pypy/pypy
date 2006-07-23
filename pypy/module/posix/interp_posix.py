@@ -131,6 +131,16 @@ with (at least) the following attributes:
         return build_stat_result(space, st)
 stat.unwrap_spec = [ObjSpace, str]
 
+def lstat(space, path):
+    "Like stat(path), but do no follow symbolic links."
+    try:
+        st = os.lstat(path)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    else:
+        return build_stat_result(space, st)
+lstat.unwrap_spec = [ObjSpace, str]
+
 def dup(space, fd):
     """Create a copy of the file descriptor.  Return the new file
 descriptor."""
@@ -141,6 +151,14 @@ descriptor."""
     else:
         return space.wrap(newfd)
 dup.unwrap_spec = [ObjSpace, int]
+
+def dup2(space, old_fd, new_fd):
+    """Duplicate a file descriptor."""
+    try:
+        os.dup2(old_fd, new_fd)
+    except OSError, e: 
+        raise wrap_oserror(space, e) 
+dup2.unwrap_spec = [ObjSpace, int, int]
 
 def system(space, cmd):
     """Execute the command (a string) in a subshell."""
@@ -290,3 +308,62 @@ entries '.' and '..' even if they are present in the directory."""
     finally:
         dir.closedir()
 listdir.unwrap_spec = [ObjSpace, str]
+
+def pipe(space):
+    "Create a pipe.  Returns (read_end, write_end)."
+    try: 
+        fd1, fd2 = os.pipe()
+    except OSError, e: 
+        raise wrap_oserror(space, e) 
+    return space.newtuple([space.wrap(fd1), space.wrap(fd2)])
+pipe.unwrap_spec = [ObjSpace]
+
+def chmod(space, path, mode):
+    "Change the access permissions of a file."
+    try: 
+        os.chmod(path, mode)
+    except OSError, e: 
+        raise wrap_oserror(space, e) 
+chmod.unwrap_spec = [ObjSpace, str, int]
+
+def rename(space, old, new):
+    "Rename a file or directory."
+    try: 
+        os.rename(old, new)
+    except OSError, e: 
+        raise wrap_oserror(space, e) 
+rename.unwrap_spec = [ObjSpace, str, str]
+
+def getpid(space):
+    "Return the current process id."
+    try: 
+        pid = os.getpid()
+    except OSError, e: 
+        raise wrap_oserror(space, e) 
+    return space.wrap(pid)
+getpid.unwrap_spec = [ObjSpace]
+
+def link(space, src, dst):
+    "Create a hard link to a file."
+    try: 
+        os.link(src, dst)
+    except OSError, e: 
+        raise wrap_oserror(space, e) 
+link.unwrap_spec = [ObjSpace, str, str]
+
+def symlink(space, src, dst):
+    "Create a symbolic link pointing to src named dst."
+    try: 
+        os.symlink(src, dst)
+    except OSError, e: 
+        raise wrap_oserror(space, e) 
+symlink.unwrap_spec = [ObjSpace, str, str]
+
+def readlink(space, path):
+    "Return a string representing the path to which the symbolic link points."
+    try:
+        result = os.readlink(path)
+    except OSError, e: 
+        raise wrap_oserror(space, e) 
+    return space.wrap(result)
+readlink.unwrap_spec = [ObjSpace, str]

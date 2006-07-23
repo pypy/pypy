@@ -7,7 +7,8 @@ from pypy.rpython.lltypesystem import rstr
 from pypy.rpython.lltypesystem import rlist
 from pypy.rpython.module import ll_time, ll_math, ll_strtod
 from pypy.rpython.module import ll_stackless, ll_stack
-from pypy.rpython.lltypesystem.module.ll_os import STAT_RESULT, Implementation as impl
+from pypy.rpython.lltypesystem.module.ll_os import STAT_RESULT, PIPE_RESULT
+from pypy.rpython.lltypesystem.module.ll_os import Implementation as impl
 from pypy.rpython.lltypesystem.module import ll_math as ll_math2
 from pypy.rpython.lltypesystem.module import ll_strtod as ll_strtod2
 
@@ -26,8 +27,10 @@ EXTERNALS = {
     impl.ll_os_write.im_func:   'LL_os_write',
     impl.ll_os_close.im_func:   'LL_os_close',
     impl.ll_os_dup.im_func:     'LL_os_dup',
+    impl.ll_os_dup2.im_func:    'LL_os_dup2',
     impl.ll_os_stat.im_func:    'LL_os_stat',
     impl.ll_os_fstat.im_func:   'LL_os_fstat',
+    impl.ll_os_lstat.im_func:   'LL_os_lstat',
     impl.ll_os_lseek.im_func:   'LL_os_lseek',
     impl.ll_os_isatty.im_func:  'LL_os_isatty',
     impl.ll_os_ftruncate.im_func:'LL_os_ftruncate',
@@ -44,6 +47,13 @@ EXTERNALS = {
     impl.ll_os_opendir.im_func: 'LL_os_opendir',
     impl.ll_os_readdir.im_func: 'LL_os_readdir',
     impl.ll_os_closedir.im_func:'LL_os_closedir',
+    impl.ll_os_pipe.im_func:    'LL_os_pipe',
+    impl.ll_os_chmod.im_func:   'LL_os_chmod',
+    impl.ll_os_rename.im_func:  'LL_os_rename',
+    impl.ll_os_getpid.im_func:  'LL_os_getpid',
+    impl.ll_os_link.im_func:    'LL_os_link',
+    impl.ll_os_symlink.im_func: 'LL_os_symlink',
+    impl.ll_readlink_into:      'LL_readlink_into',
     ll_time.ll_time_clock: 'LL_time_clock',
     ll_time.ll_time_sleep: 'LL_time_sleep',
     ll_time.ll_time_time:  'LL_time_time',
@@ -101,6 +111,7 @@ def predeclare_common_types(db, rtyper):
     yield ('RPyFREXP_RESULT', ll_math2.FREXP_RESULT)
     yield ('RPyMODF_RESULT', ll_math2.MODF_RESULT)
     yield ('RPySTAT_RESULT', STAT_RESULT)
+    yield ('RPyPIPE_RESULT', PIPE_RESULT)
 
 def predeclare_utility_functions(db, rtyper):
     # Common utility functions

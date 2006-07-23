@@ -5,8 +5,8 @@ from pypy.rpython.module.ll_os import BaseOS
 from pypy.rpython.lltypesystem import lltype, rtupletype
 from pypy.rpython.rarithmetic import intmask
 
-n = 10
-STAT_RESULT = rtupletype.TUPLE_TYPE([lltype.Signed]*n).TO
+STAT_RESULT = rtupletype.TUPLE_TYPE([lltype.Signed]*10).TO
+PIPE_RESULT = rtupletype.TUPLE_TYPE([lltype.Signed]*2).TO
 
 class Implementation(BaseOS, LLSupport):
     
@@ -26,6 +26,13 @@ class Implementation(BaseOS, LLSupport):
         return tup
     ll_stat_result = staticmethod(ll_stat_result)
 
+    def ll_pipe_result(fd1, fd2):
+        tup = lltype.malloc(PIPE_RESULT)
+        tup.item0 = fd1
+        tup.item1 = fd2
+        return tup
+    ll_pipe_result = staticmethod(ll_pipe_result)
+
     def ll_os_read(cls, fd, count):
         from pypy.rpython.lltypesystem.rstr import STR
         if count < 0:
@@ -37,3 +44,16 @@ class Implementation(BaseOS, LLSupport):
             ll_strcpy(s, buffer, n)
             buffer = s
         return buffer
+
+    def ll_os_readlink(cls, path):
+        from pypy.rpython.lltypesystem.rstr import STR
+        bufsize = 1023
+        while 1:
+            buffer = lltype.malloc(STR, bufsize)
+            n = cls.ll_readlink_into(cls, path, buffer)
+            if n < bufsize:
+                break
+            bufsize *= 4     # overflow, try again with a bigger buffer
+        s = lltype.malloc(STR, n)
+        ll_strcpy(s, buffer, n)
+        return s

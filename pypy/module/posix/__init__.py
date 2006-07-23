@@ -28,6 +28,7 @@ corresponding Unix manual entries for more information on calls."""
     'fstat'     : 'interp_posix.fstat',
     'stat'      : 'interp_posix.stat',
     'dup'       : 'interp_posix.dup',
+    'dup2'      : 'interp_posix.dup2',
     'system'    : 'interp_posix.system',
     'unlink'    : 'interp_posix.unlink',
     'remove'    : 'interp_posix.remove',
@@ -38,6 +39,9 @@ corresponding Unix manual entries for more information on calls."""
     'environ'   : 'interp_posix.get(space).w_environ',
     'listdir'   : 'interp_posix.listdir',
     'strerror'  : 'interp_posix.strerror',
+    'pipe'      : 'interp_posix.pipe',
+    'chmod'     : 'interp_posix.chmod',
+    'rename'    : 'interp_posix.rename',
     }
     if hasattr(os, 'ftruncate'):
         interpleveldefs['ftruncate'] = 'interp_posix.ftruncate'
@@ -45,6 +49,16 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['putenv'] = 'interp_posix.putenv'
     if hasattr(posix, 'unsetenv'): # note: emulated in os
         interpleveldefs['unsetenv'] = 'interp_posix.unsetenv'
+    if hasattr(os, 'getpid'):
+        interpleveldefs['getpid'] = 'interp_posix.getpid'
+    if hasattr(os, 'lstat'):
+        interpleveldefs['lstat'] = 'interp_posix.lstat'
+    if hasattr(os, 'link'):
+        interpleveldefs['link'] = 'interp_posix.link'
+    if hasattr(os, 'symlink'):
+        interpleveldefs['symlink'] = 'interp_posix.symlink'
+    if hasattr(os, 'readlink'):
+        interpleveldefs['readlink'] = 'interp_posix.readlink'
 
 
 for constant in dir(os):

@@ -14,6 +14,14 @@
 #  define PATH_MAX 254
 #endif
 
+#ifndef MAXPATHLEN
+#if defined(PATH_MAX) && PATH_MAX > 1024
+#define MAXPATHLEN PATH_MAX
+#else
+#define MAXPATHLEN 1024
+#endif
+#endif /* MAXPATHLEN */
+
 /* The functions below are mapped to functions from pypy.rpython.module.*
    by the pypy.translator.c.extfunc.EXTERNALS dictionary.
    They should correspond to the functions with the suggested_primitive
@@ -33,6 +41,9 @@
 #       define STAT stat
 #       define FSTAT fstat
 #       define STRUCT_STAT struct stat
+/* plus some approximate guesses */
+#       define LSTAT lstat
+#       define HAVE_FILESYSTEM_WITH_LINKS
 #endif
 
 
@@ -43,9 +54,11 @@ long LL_read_into(int fd, RPyString *buffer);
 long LL_os_write(int fd, RPyString *buffer);
 void LL_os_close(int fd);
 int LL_os_dup(int fd);
+void LL_os_dup2(int old_fd, int new_fd);
 RPySTAT_RESULT* _stat_construct_result_helper(STRUCT_STAT st);
 RPySTAT_RESULT* LL_os_stat(RPyString * fname);
 RPySTAT_RESULT* LL_os_fstat(long fd);
+RPyPIPE_RESULT* LL_os_pipe(void);
 long LL_os_lseek(long fd, long pos, long how);
 int LL_os_isatty(long fd);
 RPyString *LL_os_strerror(int errnum);
@@ -55,6 +68,12 @@ RPyString *LL_os_getcwd(void);
 void LL_os_chdir(RPyString * path);
 void LL_os_mkdir(RPyString * path, int mode);
 void LL_os_rmdir(RPyString * path);
+void LL_os_chmod(RPyString * path, int mode);
+void LL_os_rename(RPyString * path1, RPyString * path2);
+long LL_os_getpid(void);
+void LL_os_link(RPyString * path1, RPyString * path2);
+void LL_os_symlink(RPyString * path1, RPyString * path2);
+long LL_readlink_into(RPyString *path, RPyString *buffer);
 void LL_os_putenv(RPyString * name_eq_value);
 void LL_os_unsetenv(RPyString * name);
 RPyString* LL_os_environ(int idx);
@@ -113,6 +132,13 @@ int LL_os_dup(int fd)
 	return fd;
 }
 
+void LL_os_dup2(int old_fd, int new_fd)
+{
+	new_fd = dup2(old_fd, new_fd);
+	if (new_fd < 0)
+		RPYTHON_RAISE_OSERROR(errno);
+}
+
 #ifdef LL_NEED_OS_STAT
 
 RPySTAT_RESULT* _stat_construct_result_helper(STRUCT_STAT st) {
@@ -144,6 +170,18 @@ RPySTAT_RESULT* LL_os_stat(RPyString * fname) {
   return _stat_construct_result_helper(st);
 }
 
+#ifdef LSTAT
+RPySTAT_RESULT* LL_os_lstat(RPyString * fname) {
+  STRUCT_STAT st;
+  int error = LSTAT(RPyString_AsString(fname), &st);
+  if (error != 0) {
+    RPYTHON_RAISE_OSERROR(errno);
+    return NULL;
+  }
+  return _stat_construct_result_helper(st);
+}
+#endif
+
 RPySTAT_RESULT* LL_os_fstat(long fd) {
   STRUCT_STAT st;
   int error = FSTAT(fd, &st);
@@ -152,6 +190,20 @@ RPySTAT_RESULT* LL_os_fstat(long fd) {
     return NULL;
   }
   return _stat_construct_result_helper(st);
+}
+
+#endif
+
+#ifdef LL_NEED_OS_PIPE
+
+RPyPIPE_RESULT* LL_os_pipe(void) {
+	int filedes[2];
+	int error = pipe(filedes);
+	if (error != 0) {
+		RPYTHON_RAISE_OSERROR(errno);
+		return NULL;
+	}
+	return ll_pipe_result(filedes[0], filedes[1]);
 }
 
 #endif
@@ -252,6 +304,51 @@ void LL_os_rmdir(RPyString * path) {
 	RPYTHON_RAISE_OSERROR(errno);
     }
 }
+
+void LL_os_chmod(RPyString * path, int mode) {
+    int error = chmod(RPyString_AsString(path), mode);
+    if (error != 0) {
+	RPYTHON_RAISE_OSERROR(errno);
+    }
+}
+
+void LL_os_rename(RPyString * path1, RPyString * path2) {
+    int error = rename(RPyString_AsString(path1), RPyString_AsString(path2));
+    if (error != 0) {
+	RPYTHON_RAISE_OSERROR(errno);
+    }
+}
+
+long LL_os_getpid(void) {
+	return getpid();
+}
+
+#ifdef HAVE_FILESYSTEM_WITH_LINKS
+
+void LL_os_link(RPyString * path1, RPyString * path2) {
+    int error = link(RPyString_AsString(path1), RPyString_AsString(path2));
+    if (error != 0) {
+	RPYTHON_RAISE_OSERROR(errno);
+    }
+}
+
+void LL_os_symlink(RPyString * path1, RPyString * path2) {
+    int error = symlink(RPyString_AsString(path1), RPyString_AsString(path2));
+    if (error != 0) {
+	RPYTHON_RAISE_OSERROR(errno);
+    }
+}
+
+long LL_readlink_into(RPyString *path, RPyString *buffer)
+{
+	long n = readlink(RPyString_AsString(path),
+			  RPyString_AsString(buffer), RPyString_Size(buffer));
+	if (n < 0)
+		RPYTHON_RAISE_OSERROR(errno);
+	return n;
+}
+
+#endif
 
 #ifdef HAVE_PUTENV
 /* Note that this doesn't map to os.putenv, it is the name=value
