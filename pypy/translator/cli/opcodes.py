@@ -7,6 +7,7 @@ from pypy.translator.oosupport.metavm import PushArg, PushAllArgs, StoreResult, 
 # some useful instruction patterns
 Not = ['ldc.i4.0', 'ceq']
 DoNothing = [PushAllArgs]
+Ignore = []
 
 def _not(op):
     return [PushAllArgs, op]+Not
@@ -50,7 +51,7 @@ opcodes = {
     'cast_ptr_to_weakadr':      [PushAllArgs, 'newobj instance void class [mscorlib]System.WeakReference::.ctor(object)'],
     'cast_weakadr_to_ptr':      [CastWeakAdrToPtr],
     'gc__collect':              'call void class [mscorlib]System.GC::Collect()',
-    'resume_point':             DoNothing,
+    'resume_point':             Ignore,
 
     # __________ numeric operations __________
 
@@ -223,7 +224,7 @@ for key, value in opcodes.iteritems():
     if type(value) is str:
         value = InstructionList([PushAllArgs, value, StoreResult])
     elif value is not None:
-        if StoreResult not in value and not isinstance(value[0], MapException):
+        if value is not Ignore and StoreResult not in value and not isinstance(value[0], MapException):
             value.append(StoreResult)
         value = InstructionList(value)
 

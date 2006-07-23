@@ -1,6 +1,7 @@
 from pypy.translator.cli.test.runtest import CliTest
 from pypy.translator.cli.test.runtest import check
 from pypy.rpython.rarithmetic import r_uint, r_ulonglong, r_longlong, ovfcheck
+from pypy.rpython import rstack
 from pypy.annotation import model as annmodel
 import sys
 
@@ -44,6 +45,12 @@ class TestOperations(CliTest):
                 res += 1
             return res
         assert self.interpret(fn, [sys.maxint, 2]) == 1
+
+    def test_ignore_resume_point(self):
+        def fn(x):
+            rstack.resume_point('hello world', x)
+            return x
+        assert self.interpret(fn, [42]) == 42
 
 def test_op():
     yield check, op_any_ge, [int, int], (42, 42)
