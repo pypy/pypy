@@ -145,7 +145,11 @@ class BuiltinMethodRepr(Repr):
         assert hop2.args_r[0] is self
         if isinstance(hop2.args_v[0], Constant):
             c = hop2.args_v[0].value    # get object from bound method
-            hop2.args_v[0] = Constant(c.__self__)
+            if hasattr(c, '__self__'):
+                c = c.__self__    # on top of CPython
+            else:
+                c = c.im_self     # on top of PyPy
+            hop2.args_v[0] = Constant(c)
         hop2.args_s[0] = self.s_self
         hop2.args_r[0] = self.self_repr
         return bltintyper(hop2)

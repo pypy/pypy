@@ -10,7 +10,11 @@ from pypy.rpython.module import ll_stackless, ll_stack
 from pypy.rpython.lltypesystem.module.ll_os import STAT_RESULT, Implementation as impl
 from pypy.rpython.lltypesystem.module import ll_math as ll_math2
 from pypy.rpython.lltypesystem.module import ll_strtod as ll_strtod2
-from pypy.module.thread.rpython import ll_thread
+
+try:
+    from pypy.module.thread.rpython import ll_thread
+except ImportError:
+    ll_thread = None
 
 # table of functions hand-written in src/ll_*.h
 # Note about *.im_func: The annotator and the rtyper expect direct
@@ -54,17 +58,20 @@ EXTERNALS = {
         'LL_strtod_parts_to_float',
     ll_strtod2.Implementation.ll_strtod_formatd:
         'LL_strtod_formatd',
+    ll_stackless.ll_stackless_switch:             'LL_stackless_switch',
+    ll_stackless.ll_stackless_stack_frames_depth: 'LL_stackless_stack_frames_depth',
+    ll_stack.ll_stack_unwind: 'LL_stack_unwind',
+    ll_stack.ll_stack_too_big: 'LL_stack_too_big',
+    }
+
+if ll_thread: EXTERNALS.update({
     ll_thread.ll_newlock:            'LL_thread_newlock',
     ll_thread.ll_acquirelock:        'LL_thread_acquirelock',
     ll_thread.ll_releaselock:        'LL_thread_releaselock',
     ll_thread.ll_fused_releaseacquirelock: 'LL_thread_fused_releaseacquirelock',
     ll_thread.ll_thread_start:     'LL_thread_start',
     ll_thread.ll_thread_get_ident: 'LL_thread_get_ident',
-    ll_stackless.ll_stackless_switch:             'LL_stackless_switch',
-    ll_stackless.ll_stackless_stack_frames_depth: 'LL_stackless_stack_frames_depth',
-    ll_stack.ll_stack_unwind: 'LL_stack_unwind',
-    ll_stack.ll_stack_too_big: 'LL_stack_too_big',
-    }
+    })
 
 #______________________________________________________
 # insert 'simple' math functions into EXTERNALs table:

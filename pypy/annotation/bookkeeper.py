@@ -390,7 +390,14 @@ class Bookkeeper:
                 result = s_self.find_method(x.__name__)
                 if result is None:
                     result = SomeObject()
+            elif hasattr(x, 'im_self') and hasattr(x, 'im_func'):
+                # on top of PyPy, for cases like 'l.append' where 'l' is a
+                # global constant list, the find_method() returns non-None
+                s_self = self.immutablevalue(x.im_self)
+                result = s_self.find_method(x.im_func.__name__)
             else:
+                result = None
+            if result is None:
                 if (self.annotator.policy.allow_someobjects
                     and getattr(x, '__module__', None) == '__builtin__'
                     # XXX note that the print support functions are __builtin__
