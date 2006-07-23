@@ -1,0 +1,85 @@
+=====================================
+How to use JavaScript backend of PyPy
+=====================================
+
+Author:
+=======
+
+Maciej Fijalkowski, fijal@genesilico.pl
+
+Purpose:
+========
+
+This tutorial explains hot to use a `PyPy`_'s JavaScript backend,
+altough a reader should have some previous knowledge of writing
+an `RPython`_ programs.
+
+A JavaScript backend is intended for writing `RPython`_ source code
+which get translated into JavaScript and executed on a browser. Resulting
+JavaScript code should not depend on a browser (this is backend responsibility)
+and should integrate as much as possible with a web server.
+
+.. _`PyPy`: http://codespeak.net/pypy
+.. _`RPython`: http://codespeak.net/pypy/dist/pypy/doc/coding-guide.html#restricted-python
+
+Getting started:
+----------------
+
+You can use a JavaScript backend in many different ways. One of those is to
+simply run `jscompile`_ from bin directory with module name and functions to 
+get your functions compiled. Other way is to use compile_function from `runtest`_ and to get your javascript generated on-the-fly (When serving a web page)
+
+.. _`jscompile`: http://codespeak.net/svn/pypy/dist/pypy/bin/jscompile.py
+.. _`runtest`: http://codespeak.net/svn/pypy/dist/pypy/translator/js/test/runtest.py
+
+Web server integration:
+-----------------------
+
+There is an `example`_ of using this toolkit with BaseHTTPServer from
+standart python library. Web server integration is simple - you can compile
+any RPython function at runtime and provide it to client as JavaScript file.
+
+.. _`example`: http://codespeak.net/svn/pypy/dist/pypy/translator/js/demo/jsdemo/example.py
+
+Easy AJAX:
+----------
+
+Idea is simple: Normal python method calls get rendered as communication over
+XmlHTTPRequest without too much user intervention. To acheieve it, you must
+provide some informations that *these* method calls needs to be rendered like
+that. First you must subclass BasicExternal from `bltregistry`_ to any class 
+and provide instance of it to RPython code (as global variable or any other 
+way). Then you need to set class instance _render_xmlhttp of it, to tell
+JS backend to render it as xmlhttp communication. Because web server code
+does not need to be rpython, you have to supply some way of telling
+what types can be returned out of it. This is done by decorator
+@described(retval = <example of used type>), for example you may provide::
+
+  @described(retval = {'a':'a'})
+  def some_fun(self, some_arg = 3):
+    ....
+
+to tell compiler that this function will return mapping from string to string
+and will take integer as an argument (note that 'a' and 3 are not special
+values, just examples of the type).
+ 
+On the other hand you must supply a method for returning JSON tables by
+server itself (this is done automatically in for example TurboGears or others).
+
+.. _`bltregistry`: http://codespeak.net/svn/pypy/dist/pypy/rpython/ootypesystem/bltregistry.py
+
+Integration with turbogears or any other web framework:
+-------------------------------------------------------
+
+There is nothing special in this case. JS backend can work with virtually
+any web framework. In some examples there is use of turbogears, but just
+for simplifying JSON tables and so on.
+
+Further examples:
+-----------------
+
+There is bub'n'bros client working in javascript aviable `here`_ (No working copy on-line right
+now, sorry) and simple example of JS `console`_.
+
+.. _`here`: http://codespeak.net/svn/pypy/dist/pypy/translator/js/tools/start_bnb.py
+.. _`console`: http://codespeak.net/svn/pypy/dist/pypy/translator/js/tools/console.py
