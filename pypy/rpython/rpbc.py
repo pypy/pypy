@@ -57,13 +57,13 @@ class __extend__(annmodel.SomePBC):
         lst.sort()
         return tuple([self.__class__, self.can_be_None]+lst)
 
-builtin_descriptor_type = (
-    type(len),                             # type 'builtin_function_or_method'
-    type(list.append),                     # type 'method_descriptor'
-    type(type(None).__repr__),             # type 'wrapper_descriptor'
-    type(type.__dict__['__dict__']),       # type 'getset_descriptor'
-    type(type.__dict__['__basicsize__']),  # type 'member_descriptor'
-    )
+##builtin_descriptor_type = (
+##    type(len),                            # type 'builtin_function_or_method'
+##    type(list.append),                    # type 'method_descriptor'
+##    type(type(None).__repr__),            # type 'wrapper_descriptor'
+##    type(type.__dict__['__dict__']),      # type 'getset_descriptor'
+##    type(type.__dict__['__flags__']),     # type 'member_descriptor'
+##    )
 
 # ____________________________________________________________
 
