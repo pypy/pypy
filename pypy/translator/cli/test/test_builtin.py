@@ -12,6 +12,7 @@ class TestCliBuiltin(CliTest, BaseTestRbuiltin):
     test_os_dup = skip_os
     test_os_path_exists = skip_os
     test_os_isdir = skip_os
+    test_os_read = skip_os
 
     # the following tests can't be executed with gencli because they
     # returns file descriptors, and cli code is executed in another
