@@ -4,7 +4,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.translator.llvm.node import LLVMNode, ConstantLLVMNode
 from pypy.translator.llvm.opwriter import OpWriter
 from pypy.translator.llvm.log import log 
-from pypy.translator.unsimplify import remove_double_links, insert_empty_startblock
+from pypy.translator.unsimplify import remove_double_links, no_links_to_startblack
 log = log.funcnode
 
 class FuncTypeNode(LLVMNode):
@@ -67,24 +67,8 @@ class FuncNode(ConstantLLVMNode):
     # main entry points from genllvm 
 
     def post_setup_transform(self):
-        graph = self.graph
-
-        remove_double_links(self.db.translator.annotator, graph)
-
-        # XXX below is a quick hack to compile pypy-llvm
-        broken_start_block = False
-        for block in graph.iterblocks():
-            for link in block.exits:
-                if link.target == graph.startblock:
-                    broken_start_block = True
-                    break
-
-        if broken_start_block:
-            insert_empty_startblock(None, graph)
-        
-        for block in graph.iterblocks():
-            for link in block.exits:
-                assert link.target != graph.startblock
+        remove_double_links(self.db.translator.annotator, self.graph)
+        no_links_to_startblack(self.graph)
 
     def writedecl(self, codewriter): 
         codewriter.declare(self.getdecl())
