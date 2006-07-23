@@ -1081,8 +1081,8 @@ class FrameworkGCTransformer(GCTransformer):
         return fptr
 
     def consider_constant(self, TYPE, value):
-        value = lltype.top_container(value)
-
+        if value is not lltype.top_container(value):
+            return
         if id(value) in self.seen_roots:
             return
         self.seen_roots[id(value)] = True
