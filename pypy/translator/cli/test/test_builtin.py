@@ -1,4 +1,4 @@
-import os
+import os, stat
 import py
 from pypy.tool import udir
 from pypy.translator.cli.test.runtest import CliTest
@@ -34,3 +34,9 @@ class TestCliBuiltin(CliTest, BaseTestRbuiltin):
             os.close(fd)
         self.interpret(fn, [])
         assert file(tmpdir).read() == 'hello world'
+
+    def test_os_stat(self):
+        def fn():
+            return os.stat('.')[0]
+        mode = self.interpret(fn, [])
+        assert stat.S_ISDIR(mode)

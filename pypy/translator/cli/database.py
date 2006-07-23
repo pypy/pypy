@@ -9,6 +9,7 @@ from pypy.translator.cli.comparer import EqualityComparer
 from pypy.translator.cli.node import Node
 from pypy.translator.cli.support import string_literal
 from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.ootypesystem.module import ll_os
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem import llmemory
 from pypy.translator.cli.opcodes import opcodes
@@ -28,7 +29,9 @@ BUILTIN_RECORDS = {
     '[pypylib]pypy.runtime.Record_Float_Signed',
     
     ootype.Record({"item0": ootype.Float, "item1": ootype.Float}):
-    '[pypylib]pypy.runtime.Record_Float_Float'
+    '[pypylib]pypy.runtime.Record_Float_Float',
+
+    ll_os.STAT_RESULT: '[pypylib]pypy.runtime.Record_Stat_Result',
     }
 
 def isnan(v):

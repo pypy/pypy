@@ -43,7 +43,7 @@ def get_pypy_dll():
 def compile(source, dll):
     log.red("Compiling pypylib.dll")
     csc = SDK.csc()
-    compiler = subprocess.Popen([csc, '/unsafe', '/t:library', '/out:%s' % dll, source],
+    compiler = subprocess.Popen([csc, '/r:Mono.Posix', '/unsafe', '/t:library', '/out:%s' % dll, source],
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = compiler.communicate()
     retval = compiler.wait()
