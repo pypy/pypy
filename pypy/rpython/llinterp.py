@@ -129,19 +129,17 @@ class LLInterpreter(object):
 
     def find_exception(self, exc):
         assert isinstance(exc, LLException)
-        import exceptions
         klass, inst = exc.args[0], exc.args[1]
         exdata = self.typer.getexceptiondata()
         frame = self.frame_class(None, [], self)
         old_active_frame = self.active_frame
         try:
-            for cls in exceptions.__dict__.values():
-                if type(cls) is type(Exception):
-                    evalue = frame.op_direct_call(exdata.fn_pyexcclass2exc,
-                            lltype.pyobjectptr(cls))
-                    etype = frame.op_direct_call(exdata.fn_type_of_exc_inst, evalue)
-                    if etype == klass:
-                        return cls
+            for cls in enumerate_exceptions_top_down():
+                evalue = frame.op_direct_call(exdata.fn_pyexcclass2exc,
+                        lltype.pyobjectptr(cls))
+                etype = frame.op_direct_call(exdata.fn_type_of_exc_inst, evalue)
+                if etype == klass:
+                    return cls
         finally:
             self.active_frame = old_active_frame
         raise ValueError, "couldn't match exception"
@@ -954,6 +952,22 @@ def wrap_graph(llinterpreter, graph, self_arg):
     interp_func.self_arg = self_arg
     return graph.name, interp_func
 
+
+def enumerate_exceptions_top_down():
+    import exceptions
+    result = []
+    seen = {}
+    def addcls(cls):
+        if type(cls) is type(Exception) and issubclass(cls, Exception):
+            if cls in seen:
+                return
+            for base in cls.__bases__:   # bases first
+                addcls(base)
+            result.append(cls)
+            seen[cls] = True
+    for cls in exceptions.__dict__.values():
+        addcls(cls)
+    return result
 
 # by default we route all logging messages to nothingness
 # e.g. tests can then switch on logging to get more help
