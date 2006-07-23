@@ -82,6 +82,8 @@ opts = {
                            ['annotate', 'rtype', 'backendopt', 'database', 'source'])],
   
     '6_llinterpret':  [OPT(('--llinterpret',), "Interpret the rtyped flow graphs", GOAL)],
+
+    '7_profile':  [OPT(('--profile',), "cProfile (to debug the speed of the translation process)", True)],
     },
 
             
@@ -116,7 +118,8 @@ defaults = {
     'cc': None,
     'profopt': None,
 
-    'fork_before': None
+    'fork_before': None,
+    'profile': False,
 }
 
 import py
@@ -270,7 +273,13 @@ def main():
     from pypy.translator import translator
     from pypy.translator import driver
     from pypy.translator.tool.pdbplus import PdbPlusShow
- 
+    if options.profile:
+        from cProfile import Profile
+        prof = Profile()
+        prof.enable()
+    else:
+        prof = None
+
     t = translator.TranslationContext()
     t.driver_options = options
 
@@ -294,6 +303,11 @@ def main():
     pdb_plus_show = PdbPlusShow(t) # need a translator to support extended commands
 
     def debug(got_error):
+        if prof:
+            prof.disable()
+            statfilename = 'prof.dump'
+            log.info('Dumping profiler stats to: %s' % statfilename)
+            prof.dump_stats(statfilename)
         tb = None
         if got_error:
             import traceback
@@ -326,7 +340,7 @@ def main():
                                                       empty_translator=t,
                                                       disable=options.skipped_goals,
                                                       default_goal='compile')
-        pdb_plus_show.expose({'drv': drv})
+        pdb_plus_show.expose({'drv': drv, 'prof': prof})
 
         if drv.exe_name is None and '__name__' in targetspec_dic:
             drv.exe_name = targetspec_dic['__name__'] + '-%(backend)s'
