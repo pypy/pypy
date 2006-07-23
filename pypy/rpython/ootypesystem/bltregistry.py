@@ -59,6 +59,30 @@ class BasicExternal(object):
     
     _fields = {}
     _methods = {}
+    
+    def described(cls, retval=None, args={}):
+        def decorator(func):
+            code = func.func_code
+            assert(code.co_argcount < len(func.func_defaults) + len(args), "Not enough information for describing method")
+            
+            for arg in xrange(1, code.co_argcount - len(func.func_defaults)):
+                assert code.co_varnames[arg] in args, "Don't have example for arg %s" % code.co_varnames[arg]
+            
+            arg_pass = []
+            start_pos = code.co_argcount - len(func.func_defaults)
+            for arg in xrange(1, code.co_argcount):
+                varname = code.co_varnames[arg]
+                if varname in args:
+                    arg_pass.append((varname, args[varname]))
+                else:
+                    arg_pass.append((varname, func.func_defaults[arg - start_pos]))
+            cls._methods[func.__name__] = MethodDesc(arg_pass, retval)
+            return func
+        return decorator
+    
+    described = classmethod(described)
+
+described = BasicExternal.described
 
 class Analyzer(object):
     def __init__(self, name, value):
