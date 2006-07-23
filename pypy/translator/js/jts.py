@@ -48,6 +48,8 @@ class JTS(object):
             return "Object"
         elif isinstance(t, ootype.DictItemsIterator):
             return "Object"
+        elif t is ootype.StringBuilder:
+            return '"dupa"'
         #return "var"
         raise NotImplementedError("Type %r" % (t,))
     

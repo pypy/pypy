@@ -166,3 +166,9 @@ class JsTest(BaseRtypingTest, OORtypeMixin):
 
     def read_attr(self, obj, name):
         py.test.skip('read_attr not supported on gencli tests')
+
+def check_source_contains(compiled_function, pattern):
+    import re
+    
+    source = compiled_function.js.tmpfile.open().read()
+    return re.search(pattern, source)

@@ -4,13 +4,7 @@
 import py
 
 from pypy.rpython.ootypesystem.bltregistry import BasicExternal, MethodDesc
-from pypy.translator.js.test.runtest import compile_function
-
-def check_source_contains(compiled_function, pattern):
-    import re
-    
-    source = compiled_function.js.tmpfile.open().read()
-    return re.search(pattern, source)
+from pypy.translator.js.test.runtest import compile_function, check_source_contains
 
 # check rendering _dom.get_document()
 def test_simple_builtin():

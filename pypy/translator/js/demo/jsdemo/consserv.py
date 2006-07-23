@@ -4,7 +4,7 @@
 
 import turbogears
 import cherrypy
-from pypy.rpython.ootypesystem.bltregistry import BasicExternal, MethodDesc
+from pypy.rpython.ootypesystem.bltregistry import BasicExternal, MethodDesc, described
 from pypy.translator.js.demo.jsdemo.controllers import Root
 from cherrypy import session
 
@@ -36,6 +36,7 @@ class ConsoleRoot(BasicExternal, Root):
         return dict(now=time.ctime(), onload=self.jsname, code=self.jssource)
 
     @turbogears.expose(format="json")
+    @described(retval={'aa':'aa'})
     def run_command(self, str_to_eval):
         # we need what has changed
         # we try to run it...

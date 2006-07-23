@@ -17,7 +17,7 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem import bltregistry
 
 from pypy.objspace.flow.model import Variable, Constant
-from pypy.translator.js.modules import dom
+from pypy.translator.js.modules import _dom
 from pypy.translator.js.commproxy import XmlHttp
 
 try:
@@ -56,7 +56,7 @@ class LowLevelDatabase(object):
         return
 
     def is_primitive(self, type_):
-        if type_ in [Void, Bool, Float, Signed, Unsigned, SignedLongLong, UnsignedLongLong, Char, UniChar] or \
+        if type_ in [Void, Bool, Float, Signed, Unsigned, SignedLongLong, UnsignedLongLong, Char, UniChar, ootype.StringBuilder] or \
             isinstance(type_,ootype.StaticMethod):
             return True
         return False
@@ -353,8 +353,9 @@ class StringConst(AbstractConst):
     def init(self, ilasm):
         s = self.const._str
         # do some escaping
-        s = s.replace("\n", "\\n")
-        ilasm.load_str('"%s"'%s)
+        #s = s.replace("\n", "\\n").replace('"', '\"')
+        #s = repr(s).replace("\"", "\\\"")
+        ilasm.load_str("%s" % repr(s))
     
     def init_fields(self, ilasm, const_var, name):
         pass
