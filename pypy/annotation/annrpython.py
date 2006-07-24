@@ -190,7 +190,15 @@ class RPythonAnnotator(object):
             self.policy.no_more_blocks_to_annotate(self)
             if not self.pendingblocks:
                 break   # finished
-        if False in self.annotated.values():
+        # make sure that the return variables of all graphs is annotated
+        if self.added_blocks is not None:
+            newgraphs = [self.annotated[block] for block in self.added_blocks]
+            newgraphs = dict.fromkeys(newgraphs)
+            got_blocked_blocks = False in newgraphs
+        else:
+            newgraphs = self.translator.graphs  #all of them
+            got_blocked_blocks = False in self.annotated.values()
+        if got_blocked_blocks:
             if annmodel.DEBUG:
                 for block in self.annotated:
                     if self.annotated[block] is False:
@@ -219,12 +227,6 @@ class RPythonAnnotator(object):
             text = format_blocked_annotation_error(self, blocked_blocks, graph)
             #raise SystemExit()
             raise AnnotatorError(text)
-        # make sure that the return variables of all graphs is annotated
-        if self.added_blocks is not None:
-            newgraphs = [self.annotated[block] for block in self.added_blocks]
-            newgraphs = dict.fromkeys(newgraphs)
-        else:
-            newgraphs = self.translator.graphs  #all of them
         for graph in newgraphs:
             v = graph.getreturnvar()
             if v not in self.bindings:
