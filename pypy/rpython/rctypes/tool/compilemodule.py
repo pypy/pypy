@@ -10,7 +10,7 @@ import sys
 
 from pypy.tool.error import debug
 
-def compilemodule(modname, interactive=False):
+def compilemodule(modname, interactive=False, basepath='pypy.module'):
     "Compile a PyPy module for CPython."
     import pypy.rpython.rctypes.implementation
     from pypy.objspace.cpy.objspace import CPyObjSpace
@@ -21,7 +21,7 @@ def compilemodule(modname, interactive=False):
 
     space = CPyObjSpace()
     space.config.translating = True
-    ModuleClass = __import__('pypy.module.%s' % modname,
+    ModuleClass = __import__(basepath + '.%s' % modname,
                              None, None, ['Module']).Module
     module = ModuleClass(space, space.wrap(modname))
     w_moduledict = module.getdict()
