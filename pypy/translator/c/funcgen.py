@@ -274,7 +274,7 @@ class FunctionCodeGenerator(object):
                     expr = self.expr(block.exitswitch)
                     yield 'switch (%s) {' % self.expr(block.exitswitch)
                     for link in block.exits:
-                        if link.exitcase is 'default':
+                        if link.exitcase == 'default':
                             defaultlink = link
                             continue
                         yield 'case %s:' % self.db.get(link.llexitcase)

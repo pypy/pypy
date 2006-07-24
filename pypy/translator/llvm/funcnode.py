@@ -167,7 +167,7 @@ class FuncNode(ConstantLLVMNode):
             defaultlink = None
             value_labels = []
             for link in block.exits:
-                if link.exitcase is 'default':
+                if link.exitcase == 'default':
                     defaultlink = link
                     continue
 
