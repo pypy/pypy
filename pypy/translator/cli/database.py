@@ -19,8 +19,9 @@ try:
 except NameError:
     from sets import Set as set
 
-DEBUG_CONST_INIT = True
+DEBUG_CONST_INIT = False
 DEBUG_CONST_INIT_VERBOSE = False
+MAX_CONST_PER_STEP = 100
 
 CONST_NAMESPACE = 'pypy.runtime'
 CONST_CLASS = 'Constants'
@@ -171,6 +172,17 @@ class LowLevelDatabase(object):
             self.pending_node(Delegate(self, TYPE, name))
             return name
 
+    def __new_step(self, ilasm):
+        if self.step > 0:
+            self.__end_step(ilasm) # close the previous step
+        # open the new step
+        ilasm.begin_function('step%d' % self.step, [], 'void', False, 'static')
+        self.step += 1
+
+    def __end_step(self, ilasm):
+        ilasm.ret()
+        ilasm.end_function()
+
     def gen_constants(self, ilasm):
         self.locked = True # new pending nodes are not allowed here
         ilasm.begin_namespace(CONST_NAMESPACE)
@@ -180,33 +192,35 @@ class LowLevelDatabase(object):
         for const in self.consts.itervalues():
             ilasm.field(const.name, const.get_type(), static=True)
 
-        ilasm.begin_function('.cctor', [], 'void', False, 'static',
-            'specialname', 'rtspecialname', 'default')
-
         # this point we have collected all constant we
         # need. Instantiate&initialize them.
-        ilasm.stderr('CONST: instantiating', DEBUG_CONST_INIT_VERBOSE)
+        self.step = 0
+        self.__new_step(ilasm)
         for const in self.consts.itervalues():
             type_ = const.get_type()
             const.instantiate(ilasm)
             ilasm.store_static_constant(type_, CONST_NAMESPACE, CONST_CLASS, const.name)
-        ilasm.stderr('CONST: instantiated', DEBUG_CONST_INIT_VERBOSE)
 
         const_list = self.consts.values()
         num_const = len(const_list)
-        last_perc = 0
         const_list.sort(key=operator.attrgetter('PRIORITY'))
         for i, const in enumerate(const_list):
+            if i % MAX_CONST_PER_STEP == 0:
+                self.__new_step(ilasm)
             ilasm.stderr('CONST: initializing #%d' % i, DEBUG_CONST_INIT_VERBOSE)
-            perc = int((i+1) * 100.0 / num_const)
-            if perc != last_perc:
-                ilasm.stderr('CONST: %d%%' % perc, DEBUG_CONST_INIT)
-                last_perc = perc
             type_ = const.get_type()
             ilasm.load_static_constant(type_, CONST_NAMESPACE, CONST_CLASS, const.name)
             const.init(ilasm)
+        self.__end_step(ilasm) # close the pending step
 
-        ilasm.stderr('CONST: initialization completed', DEBUG_CONST_INIT_VERBOSE)
+        ilasm.begin_function('.cctor', [], 'void', False, 'static',
+            'specialname', 'rtspecialname', 'default')
+        ilasm.stderr('CONST: initialization starts', DEBUG_CONST_INIT)
+        for i in range(self.step):
+            ilasm.stderr('CONST: step %d of %d' % (i, self.step), DEBUG_CONST_INIT)
+            step_name = 'step%d' % i
+            ilasm.call('void %s.%s::%s()' % (CONST_NAMESPACE, CONST_CLASS, step_name))
+        ilasm.stderr('CONST: initialization completed', DEBUG_CONST_INIT)
         ilasm.ret()
         ilasm.end_function()
 
