@@ -199,7 +199,10 @@ class LowLevelDatabase(object):
             if i % MAX_CONST_PER_STEP == 0:
                 self.__new_step(ilasm)
             type_ = const.get_type()
-            const.instantiate(ilasm)
+            if const.is_null():
+                ilasm.opcode('ldnull')
+            else:
+                const.instantiate(ilasm)
             ilasm.store_static_constant(type_, CONST_NAMESPACE, CONST_CLASS, const.name)
 
         const_list = self.consts.values()
@@ -209,6 +212,8 @@ class LowLevelDatabase(object):
             if i % MAX_CONST_PER_STEP == 0:
                 self.__new_step(ilasm)
             ilasm.stderr('CONST: initializing #%d' % i, DEBUG_CONST_INIT_VERBOSE)
+            if const.is_null():
+                continue
             type_ = const.get_type()
             ilasm.load_static_constant(type_, CONST_NAMESPACE, CONST_CLASS, const.name)
             const.init(ilasm)
@@ -227,6 +232,7 @@ class LowLevelDatabase(object):
 
         ilasm.end_class()
         ilasm.end_namespace()
+        log.INFO("%d constants rendered" % num_const)
         self.locked = False
 
 class AbstractConst(Node):
@@ -255,7 +261,7 @@ class AbstractConst(Node):
             return DictConst(db, value, count)
         elif isinstance(value, llmemory.fakeweakaddress):
             if value.get() is not None:
-                log.WARNING("non-null fakeweakaddress may not works because of a Mono bug")
+                log.WARNING("non-null fakeweakaddress may not work because of a Mono bug")
             return WeakRefConst(db, value, count)
         else:
             assert False, 'Unknown constant: %s' % value
@@ -319,6 +325,9 @@ class AbstractConst(Node):
     def get_type(self):
         pass
 
+    def is_null(self):
+        return self.value is ootype.null(self.value._TYPE)
+
     def record_const_maybe(self, TYPE, value):
         if AbstractConst.is_primitive(TYPE):
             return
@@ -346,6 +355,7 @@ class AbstractConst(Node):
         object to be initialized is on the stack. Don't leave anything
         on the stack.
         """
+        assert not self.is_null()
         ilasm.opcode('pop')
 
 
@@ -367,17 +377,12 @@ class RecordConst(AbstractConst):
             self.record_const_maybe(FIELD_TYPE, value)
 
     def instantiate(self, ilasm):
-        if self.value is ootype.null(self.value._TYPE):
-            ilasm.opcode('ldnull')
-            return
-
+        assert not self.is_null()
         class_name = self.get_type(False)
         ilasm.new('instance void class %s::.ctor()' % class_name)
 
     def init(self, ilasm):
-        if self.value is ootype.null(self.value._TYPE):
-            ilasm.opcode('pop')
-            return
+        assert not self.is_null()
         class_name = self.get_type(False)        
         for f_name, (FIELD_TYPE, f_default) in self.value._TYPE._fields.iteritems():
             if FIELD_TYPE is not ootype.Void:
@@ -405,9 +410,7 @@ class StaticMethodConst(AbstractConst):
         self.delegate_type = self.db.record_delegate(self.value._TYPE)
 
     def instantiate(self, ilasm):
-        if self.value is ootype.null(self.value._TYPE):
-            ilasm.opcode('ldnull')
-            return
+        assert not self.is_null()
         signature = self.cts.graph_to_signature(self.value.graph)
         ilasm.opcode('ldnull')
         ilasm.opcode('ldftn', signature)
@@ -428,13 +431,14 @@ class ClassConst(AbstractConst):
         if INSTANCE is not None:
             self.cts.lltype_to_cts(INSTANCE) # force scheduling class generation
 
+    def is_null(self):
+        return self.value._INSTANCE is None
+
     def instantiate(self, ilasm):
+        assert not self.is_null()
         INSTANCE = self.value._INSTANCE
-        if INSTANCE is None:
-            ilasm.opcode('ldnull')
-        else:
-            ilasm.opcode('ldtoken', self.db.class_name(INSTANCE))
-            ilasm.call('class [mscorlib]System.Type class [mscorlib]System.Type::GetTypeFromHandle(valuetype [mscorlib]System.RuntimeTypeHandle)')
+        ilasm.opcode('ldtoken', self.db.class_name(INSTANCE))
+        ilasm.call('class [mscorlib]System.Type class [mscorlib]System.Type::GetTypeFromHandle(valuetype [mscorlib]System.RuntimeTypeHandle)')
 
 class ListConst(AbstractConst):
     def __init__(self, db, list_, count):
@@ -453,18 +457,12 @@ class ListConst(AbstractConst):
             self.record_const_maybe(self.value._TYPE._ITEMTYPE, item)
 
     def instantiate(self, ilasm):
-        if not self.value: # it is a null list
-            ilasm.opcode('ldnull')
-            return
-
+        assert not self.is_null()
         class_name = self.get_type(False)
         ilasm.new('instance void class %s::.ctor()' % class_name)
 
     def init(self, ilasm):
-        if not self.value:
-            ilasm.opcode('pop')
-            return
-
+        assert not self.is_null()
         ITEMTYPE = self.value._TYPE._ITEMTYPE
         itemtype = self.cts.lltype_to_cts(ITEMTYPE)
         itemtype_T = self.cts.lltype_to_cts(self.value._TYPE.ITEMTYPE_T)
@@ -502,18 +500,12 @@ class DictConst(AbstractConst):
             self.record_const_maybe(self.value._TYPE._VALUETYPE, value)
 
     def instantiate(self, ilasm):
-        if not self.value: # it is a null dict
-            ilasm.opcode('ldnull')
-            return
-
+        assert not self.is_null()
         class_name = self.get_type(False)
         ilasm.new('instance void class %s::.ctor()' % class_name)
         
     def init(self, ilasm):
-        if not self.value:
-            ilasm.opcode('pop')
-            return
-        
+        assert not self.is_null()
         class_name = self.get_type(False)
         KEYTYPE = self.value._TYPE._KEYTYPE
         keytype = self.cts.lltype_to_cts(KEYTYPE)
@@ -562,10 +554,7 @@ class CustomDictConst(DictConst):
         DictConst.dependencies(self)
 
     def instantiate(self, ilasm):
-        if not self.value: # it is a null dict
-            ilasm.opcode('ldnull')
-            return
-
+        assert not self.is_null()
         ilasm.new(self.comparer.get_ctor())
         class_name = self.get_type()
         ilasm.new('instance void %s::.ctor(class '
@@ -603,19 +592,16 @@ class InstanceConst(AbstractConst):
                 self.record_const_maybe(TYPE, value)
             INSTANCE = INSTANCE._superclass                
 
-    def instantiate(self, ilasm):
-        if not self.value:
-            ilasm.opcode('ldnull')
-            return
+    def is_null(self):
+        return not self.value
 
+    def instantiate(self, ilasm):
+        assert not self.is_null()
         INSTANCE = self.value._TYPE
         ilasm.new('instance void class %s::.ctor()' % self.db.class_name(INSTANCE))
 
     def init(self, ilasm):
-        if not self.value:
-            ilasm.opcode('pop')
-            return
-
+        assert not self.is_null()
         INSTANCE = self.value._TYPE
         if INSTANCE is not self.static_type:
             ilasm.opcode('castclass', self.cts.lltype_to_cts(INSTANCE, include_class=False))
@@ -640,6 +626,9 @@ class WeakRefConst(AbstractConst):
 
     def get_type(self, include_class=True):
         return 'class ' + WEAKREF
+
+    def is_null(self):
+        return False
 
     def dependencies(self):
         if self.value is not None:
