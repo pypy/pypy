@@ -195,8 +195,9 @@ class LowLevelDatabase(object):
         # this point we have collected all constant we
         # need. Instantiate&initialize them.
         self.step = 0
-        self.__new_step(ilasm)
-        for const in self.consts.itervalues():
+        for i, const in enumerate(self.consts.itervalues()):
+            if i % MAX_CONST_PER_STEP == 0:
+                self.__new_step(ilasm)
             type_ = const.get_type()
             const.instantiate(ilasm)
             ilasm.store_static_constant(type_, CONST_NAMESPACE, CONST_CLASS, const.name)
