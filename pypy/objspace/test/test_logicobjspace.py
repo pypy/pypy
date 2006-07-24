@@ -247,7 +247,7 @@ class AppTest_LogicThreads(object):
             return
         assert False
 
-    def test_exceptions_harder(self):
+    def test_exception_in_chain(self):
         class FooException(Exception): pass
 
         def raise_foo():
@@ -270,6 +270,36 @@ class AppTest_LogicThreads(object):
             return
         assert False
 
+    def test_exception_in_group(self):
+        class FooException(Exception): pass
+        from operator import add
+
+        def loop_or_raise(Canary, crit, Bomb_signal):
+            "Canary will be untouched there ..."
+            while(1):
+                if is_bound(Bomb_signal):
+                    if Bomb_signal == crit:
+                        raise FooException
+                    else: # but returned
+                        return Canary
+                schedule()
+            return 42
+
+        B, C = newvar(), newvar()
+        T = future(loop_or_raise, C, 'foo', B)
+        U = future(loop_or_raise, C, 'bar', B)
+
+        unify(B, 'foo')
+        try:
+            wait(T)
+        except FooException:
+            try:
+                # and contamined
+                wait(U)
+            except FooException:
+                return
+        assert False
+        
     def test_nested_threads(self):
         """check that a wait nested in a tree of
            threads works correctly
