@@ -36,27 +36,26 @@ from pypy.rpython.objectmodel import we_are_translated
 try:
     from py.magic import greenlet
     #main_greenlet = greenlet.getcurrent()
-
-    class FrameChain(object):
-
-        def __init__(self, thunk=None):
-            if thunk:
-                self.greenlet = greenlet(thunk)
-            else:
-                self.greenlet = greenlet.getcurrent()
-
-        def switch(self):
-            last = FrameChain()
-            return self.greenlet.switch(last)
-
-        def shutdown(self):
-            current = FrameChain()
-            target = current.greenlet.parent
-            target.switch(None)
-
-except ImportError:
+except (ImportError, ValueError):
     def greenlet(*args, **kwargs):
         raise NotImplementedError("need either greenlets or a translated version of pypy")
+
+class FrameChain(object):
+
+    def __init__(self, thunk=None):
+        if thunk:
+            self.greenlet = greenlet(thunk)
+        else:
+            self.greenlet = greenlet.getcurrent()
+
+    def switch(self):
+        last = FrameChain()
+        return self.greenlet.switch(last)
+
+    def shutdown(self):
+        current = FrameChain()
+        target = current.greenlet.parent
+        target.switch(None)
 
 import sys, os
 
