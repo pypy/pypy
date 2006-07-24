@@ -68,6 +68,13 @@ namespace pypy.runtime
                 return Convert.ToString(n, base_);
         }
 
+        public static string OOString(uint n, int base_)
+        {
+            if (base_ == -1)
+                base_ = 10;
+            return Convert.ToString(n, base_);
+        }
+
         public static string OOString(double d, int base_)
         {
             return d.ToString();
