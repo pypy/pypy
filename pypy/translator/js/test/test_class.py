@@ -127,3 +127,20 @@ def test_init_list():
     fn = compile_function(init_list, [int])
     assert fn(8) == 1
     assert fn(3) == INIT_VAL
+
+class C(object):
+    pass
+
+def test_instance_str():
+    def instance_str():
+        return str(C())
+    
+    fn = compile_function(instance_str, [])
+    assert fn() == '<pypy_translator_js_test_test_class_C instance>'
+
+def test_instance_ret():
+    def instance_ret():
+        return C()
+    
+    fn = compile_function(instance_ret, [])
+    assert fn() == '<pypy_translator_js_test_test_class_C instance>'

@@ -3,7 +3,7 @@
     Sests with DONT in front of them will probably not be fixed for the time being.
 '''
 
-import py, os
+import py, os, re
 from pypy.translator.translator import TranslationContext
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.js.js import JS
@@ -145,8 +145,9 @@ class JsTest(BaseRtypingTest, OORtypeMixin):
         #import exceptions # needed by eval
         #try:
         #import pdb; pdb.set_trace()
-        #self.interpret(fn, args)
-        assert False
+        res = self.interpret(fn, args)
+        assert res.startswith('uncaught exception:')
+        assert re.search(str(exception), res)
         #except ExceptionWrapper, ex:
         #    assert issubclass(eval(ex.class_name), exception)
         #else:
@@ -162,10 +163,12 @@ class JsTest(BaseRtypingTest, OORtypeMixin):
         return value.class_name.split(".")[-1] 
 
     def is_of_instance_type(self, val):
-        import pdb; pdb.set_trace()
+        m = re.match("^<.* instance>$", val)
+        return bool(m)
 
     def read_attr(self, obj, name):
-        py.test.skip('read_attr not supported on gencli tests')
+        pass
+        #py.test.skip('read_attr not supported on gencli tests')
 
 def check_source_contains(compiled_function, pattern):
     import re

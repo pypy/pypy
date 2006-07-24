@@ -79,5 +79,3 @@ class TestString(object):
         
         fn = compile_function(upperlower, [])
         assert fn() == "ABAFabaf"
-    
-    

@@ -45,6 +45,12 @@ class Class(Node):
         
         ilasm.begin_function(self.name, [])
         ilasm.end_function()
+        
+        # begin to_String method
+        ilasm.begin_method("toString", self.name, [])
+        ilasm.load_str("'<%s instance>'" % self.name)
+        ilasm.ret()
+        ilasm.end_function()
 
         #for f_name, (f_type, f_default) in self.classdef._fields.iteritems():
         #    cts_type = self.cts.lltype_to_cts(f_type)
