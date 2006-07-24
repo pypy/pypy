@@ -91,3 +91,39 @@ class TestClass(object):
         #py.test.skip("Inheritance not implemented")
         f = compile_function(llvmsnippet.circular_classdef, [])
         assert f() == 10
+
+class A(object):
+    def __init__(self, a):
+        self.a = a
+        if a is None:
+            self.b = 0
+        else:
+            self.b = a.b + 3
+
+a = A(None)
+
+def test_circular_class():
+    def circular_class():
+        b = A(a)
+        return b.b
+    
+    fn = compile_function(circular_class, [])
+    assert fn() == 3
+    
+INIT_VAL = 0
+
+class B(object):
+    def __init__(self):
+        self.a = [INIT_VAL] * 30
+
+b = B()
+
+def test_init_list():
+    def init_list(i):
+        if i == 8:
+            b.a = [1,1,1]
+        return b.a[2]
+    
+    fn = compile_function(init_list, [int])
+    assert fn(8) == 1
+    assert fn(3) == INIT_VAL

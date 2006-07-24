@@ -22,13 +22,13 @@ function isinstanceof(self, what) {
     return (false);
 }
 
-function alloc_and_set(L0, len, elem) {
+/*function alloc_and_set(L0, len, elem) {
     l = [];
     for(i = 0; i < len; ++i){
         l[i] = elem;
     }
     return(l);
-}
+}*/
 
 function strconcat(s1, s2) {
     return(s1+s2);
@@ -94,5 +94,65 @@ function splitchr(s, ch) {
     lst.length += 1;
     lst[lst.length-1] = next;
     return (lst);
+}
+
+function DictIter() {
+}
+
+DictIter.prototype.ll_go_next = function () {
+    var ret = this.l.length != 0;
+    this.current_key = this.l.pop();
+    return ret;
+}
+
+DictIter.prototype.ll_current_key = function () {
+    return this.current_key;
+}
+
+function dict_items_iterator(d) {
+    var d2 = new DictIter();
+    var l = [];
+    for (var i in d) {
+        l.length += 1;
+        l[l.length-1] = i;
+    }
+    d2.l = l;
+    d2.current_key = undefined;
+    return d2;
+}
+
+function StringBuilder() {
+    this.l = [];
+}
+
+StringBuilder.prototype.ll_append = function(s) {
+    this.l.length += 1;
+    this.l[this.l.length - 1] = s;
+}
+
+StringBuilder.prototype.ll_build = function() {
+    var s;
+    s = "";
+    for (i in this.l) {
+        s += this.l[i];
+    }
+    return (s);
+}
+
+function time() {
+    var d;
+    d = new Date();
+    return d/1000;
+}
+
+var main_clock_stuff;
+
+function clock() {
+    if (main_clock_stuff) {
+        return (new Date() - main_clock_stuff)/1000;
+    } else {
+        main_clock_stuff = new Date();
+        return 0;
+    }
 }
 // ends hand written code

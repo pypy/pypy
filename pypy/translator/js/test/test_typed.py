@@ -159,7 +159,7 @@ def test_str_methods():
 
 def test_str_join():
     #py.test.skip("issue with malloc_varsize of varsized struct (rpystring here)")
-    py.test.skip("stringBuilder support")
+    #py.test.skip("stringBuilder support")
     def testfn(i, j):
         s1 = [ '', ',', ' and ']
         s2 = [ [], ['foo'], ['bar', 'baz', 'bazz']]
@@ -253,7 +253,7 @@ def test_constant_return_disagreement():
     assert res == 0
 
 def test_stringformatting():
-    py.test.skip("StringBuilder not implemented")
+    #py.test.skip("StringBuilder not implemented")
     def fn(i):
         return "you said %d, you did" % i
     def wrapper(i):

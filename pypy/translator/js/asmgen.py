@@ -281,7 +281,10 @@ class AsmGen(object):
         self.codegenerator.writeline("inherits(%s,%s);"%(subclass_name, parent_name))
     
     def throw(self, var):
-        self.codegenerator.writeline("throw(%s);"%var.name)
+        self.throw_real(var.name)
+    
+    def throw_real(self, s):
+        self.codegenerator.writeline("throw(%s);"%s)
     
     #def finish ( self ):
     #    self . outfile . write ( "%r" % self . right_hand )

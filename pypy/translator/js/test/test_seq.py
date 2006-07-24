@@ -5,94 +5,54 @@ from pypy.objspace.flow.model import Constant, Variable
 from pypy.translator.js.test.runtest import compile_function
 from pypy.translator.llvm.test import llvmsnippet
 
-##py.test.skip("Need to reinvestigate it")
-##
-##class TestLLVMArray(object):
-##    def test_array(self):
-##        f = compile_function(llvmsnippet.array_simple, [])
-##        assert f() == 42
-##
-##    def test_array1(self):
-##        f = compile_function(llvmsnippet.array_simple1, [int])
-##        assert f(1) == 10
-##        assert f(-42) == -420
-##
-##    def test_array_setitem(self):
-##        f = compile_function(llvmsnippet.array_setitem, [int])
-##        assert f(1) == 12
-##        assert f(2) == 13
-##        assert f(3) == 3
-##
-##    def test_array_add(self):
-##        f = compile_function(llvmsnippet.array_add, [int, int, int, int, int])
-##        assert f(1,2,3,4,0) == 1
-##        assert f(1,2,3,4,1) == 2
-##        assert f(1,2,3,4,2) == 3
-##        assert f(1,2,5,6,3) == 6
-##
-##    def test_array_double(self):
-##        f = compile_function(llvmsnippet.double_array, [])
-##        assert f() == 15
-##
-##    def test_bool_array(self):
-##        f = compile_function(llvmsnippet.bool_array, [])
-##        assert f() == 1
-##
-##    def test_array_arg(self):
-##        f = compile_function(llvmsnippet.array_arg, [int])
-##        assert f(5) == 0
-##
-##    def test_array_len(self):
-##        f = compile_function(llvmsnippet.array_len, [])
-##        assert f() == 10
-##
-##    def test_array_append(self):
-##        f = compile_function(llvmsnippet.array_append, [int])
-##        for i in range(3):
-##            assert f(i) == 0
-##        assert f(3) == 10
-##
-##    def test_array_reverse(self):
-##        f = compile_function(llvmsnippet.array_reverse, [int])
-##        assert f(0) == 1
-##        assert f(1) == 0
-##
-##    def test_range(self):
-##        f = compile_function(llvmsnippet.rangetest, [int])
-##        for i in range(10):
-##            assert f(i) == i
-##
-##    def test_array_pop(self):
-##        f = compile_function(llvmsnippet.array_pop, [int])
-##        assert f(0) == 6
-##        assert f(1) == 7
-##        assert f(2) == 8
-##
-##    def test_newlist_zero_arg(self):
-##        f = compile_function(llvmsnippet.newlist_zero_arg, [int])
-##        assert f(10) == 11
-##        assert f(-41) == -40
-##
-##    def test_big_array(self):
-##        f = compile_function(llvmsnippet.big_array, [int])
-##        for i in range(18):
-##            assert f(i) == i
-##
-##    def DONTtest_access_global_array(self): #issue we restart every test with a fresh set of globals
-##        f = compile_function(llvmsnippet.access_global_array, [int, int, int])
-##        for i in range(5):
-##            for j in range(5):
-##                assert f(i, j, i + j) == i
-##        for i in range(5):
-##            for j in range(5):
-##                assert f(i, j, 0) == i + j
-##
-##    def test_circular_list(self):
-##        f = compile_function(llvmsnippet.circular_list, [int])
-##        assert f(0) == 0
-##        assert f(1) == 1
-##        assert f(10) == 1
+class TestList(object):
+    def test_normal_list(self):
+        def normal_list():
+            l = [1,2,3]
+            return l[1]
+        
+        fn = compile_function(normal_list, [])
+        assert fn() == 2
+    
+    def test_var_list(self):
+        def var_list():
+            l = []
+            for i in xrange(10):
+                l.append(i)
+            return l[8]
+        
+        fn = compile_function(var_list, [])
+        assert fn() == 8
+    
+    def test_slice(self):
+        def l_test():
+            l = []
+            for i in xrange(10):
+                l.append(i)
+            return len(l[3:8])
+        
+        fn = compile_function(l_test, [])
+        assert fn() == l_test()
+    
+    def test_init_0(self):
+        def l_init():
+            l = [0] * 100
+            return l[38]
+        
+        fn = compile_function(l_init, [])
+        assert fn() == 0
 
+class TestDict(object):
+    def test_dict_iter(self):
+        def dict_iter():
+            sum = 0
+            d = {'a':3, 'b':4, 'c':8}
+            for k in d:
+                sum += d[k]
+            return sum
+        
+        fn = compile_function(dict_iter, [])
+        assert fn() == dict_iter()
 
 class TestTuple(object):
     def test_f1(self):
@@ -110,3 +70,14 @@ class TestTuple(object):
         f = compile_function(llvmsnippet.constant_tuple, [int])
         for i in range(3, 7):
             assert f(i) == i + 3
+
+class TestString(object):
+    def test_upperlower(self):
+        def upperlower():
+            s = "aBaF"
+            return s.upper() + s.lower()
+        
+        fn = compile_function(upperlower, [])
+        assert fn() == "ABAFabaf"
+    
+    

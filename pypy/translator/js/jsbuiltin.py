@@ -14,8 +14,8 @@ class _Builtins(object):
         
         self.builtin_map = {
             'll_js_jseval' : CallBuiltin('eval'),
-            'll_newlist' : lambda g,op: g.ilasm.load_const("[]"),
-            'll_alloc_and_set' : CallBuiltin('alloc_and_set'),
+            #'ll_newlist' : CallBuiltin('newlist'),
+            #'ll_alloc_and_set' : CallBuiltin('alloc_and_set'),
             'get_document' : lambda g,op: g.ilasm.load_const('document'),
             'set_on_keydown' : SetOnEvent('onkeydown'),
             'set_on_keyup' : SetOnEvent('onkeyup'),
@@ -29,6 +29,9 @@ class _Builtins(object):
             'seval' : CallBuiltin('seval'),
             'date': NewBuiltin('Date'),
             'll_math_fmod' : InstructionList([PushAllArgs, '%']),
+            'll_time_time' : CallBuiltin('time'),
+            'll_time_clock' : CallBuiltin('clock'),
+            'll_os_write' : CallBuiltin('print'),
         }
         self.builtin_obj_map = {
             ootype.String.__class__: {
@@ -40,7 +43,9 @@ class _Builtins(object):
                 'll_startswith' : CallBuiltin('startswith'),
                 'll_endswith' : CallBuiltin('endswith'),
                 'll_split_chr' : CallBuiltin('splitchr'),
-                'll_substring' : lambda g,op: Call._render_builtin_method(g, 'substring', [op.args[1], op.args[2], op.args[3]])
+                'll_substring' : lambda g,op: Call._render_builtin_method(g, 'substring', [op.args[1], op.args[2], op.args[3]]),
+                'll_lower' : lambda g, op: Call._render_builtin_method(g, 'toLowerCase', [op.args[1]]),
+                'll_upper' : lambda g, op: Call._render_builtin_method(g, 'toUpperCase', [op.args[1]]),
             },
             ootype.List: {
                 'll_setitem_fast' : ListSetitem,
@@ -54,6 +59,7 @@ class _Builtins(object):
                 'll_get' : ListGetitem,
                 'll_set' : ListSetitem,
                 'll_contains' : ListContains,
+                'll_get_items_iterator' : CallBuiltin('dict_items_iterator'),
             },
             ootype.Record: {
                 'll_get' : ListGetitem,

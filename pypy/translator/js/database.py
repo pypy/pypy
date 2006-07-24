@@ -105,8 +105,9 @@ class LowLevelDatabase(object):
     def class_name(self, classdef):
         return self.classes.get(classdef, None)
 
-    def record_const(self, value, retval='name'):
-        type_ = typeOf(value)
+    def record_const(self, value, type_ = None, retval='name'):
+        if type_ is None:
+            type_ = typeOf(value)
         if self.is_primitive(type_):
             return None
         const = AbstractConst.make(self, value)
@@ -145,21 +146,29 @@ class LowLevelDatabase(object):
         def generate_constants(consts):
             all_c = [const for const,name in consts.iteritems()]
             rendered = set()
+            dep_ok = set()
             while len(all_c) > 0:
                 const = all_c.pop()
                 if const not in rendered:
-                    if (not hasattr(const,'depends')) or (not const.depends):
+                    if hasattr(const, 'depends_on') and const.depends_on:
+                        for i in const.depends_on:
+                            if i not in rendered and i not in dep_ok:
+                                assert i.depends is None or const in i.depends
+                                continue
+                    
+                    if (not hasattr(const, 'depends')) or (not const.depends) or const in dep_ok:
                         yield const,consts[const]
                         rendered.add(const)
                     else:
                         all_c.append(const)
                         for i in const.depends:
-                            const.depends = None
                             all_c.append(i)
+                        dep_ok.add(const)
 
         log("Consts: %r"%self.consts)
         # We need to keep track of fields to make sure
         # our items appear earlier than us
+        #import pdb;pdb.set_trace()
         for const,name in generate_constants(self.consts):
             log("Recording %r %r"%(const,name))
             ilasm.load_local(self.const_var)
@@ -188,6 +197,7 @@ class AbstractConst(object):
         self.const = const
         self.cts = db.type_system_class(db)
         self.depends = set()
+        self.depends_on = set()
     
     def __ne__(self, other):
         return not (self == other)
@@ -233,6 +243,7 @@ class AbstractConst(object):
 class InstanceConst(AbstractConst):
     def __init__(self, db, obj, static_type):
         self.depends = set()
+        self.depends_on = set()
         self.db = db
         self.cts = db.type_system_class(db)
         self.obj = obj
@@ -255,6 +266,11 @@ class InstanceConst(AbstractConst):
         return self.cts.lltype_to_cts(self.static_type)
 
     def init(self, ilasm):
+        #import pdb;pdb.set_trace()
+        if not self.obj:
+            ilasm.load_void()
+            return
+        
         classdef = self.obj._TYPE
         try:
             classdef._hints['_suggested_external']
@@ -263,38 +279,54 @@ class InstanceConst(AbstractConst):
             ilasm.new(classdef._name.replace(".", "_"))
     
     def record_fields(self):
+        if not self.obj:
+            return
         # we support only primitives, tuples, strings and lists
-        for i in self.obj.__dict__:
-            # FIXME: is this ok?
-            if i.startswith('o'):
-                val = self.obj.__dict__[i]
-                name = self.db.record_const(val,'const')
-                if name is not None:
-                    self.depends.add(name)
-    
+        
+        INSTANCE = self.obj._TYPE
+        while INSTANCE:
+            for i, (_type, val) in INSTANCE._fields.iteritems():
+                if _type is not ootype.Void and i.startswith('o'):
+                    name = self.db.record_const(getattr(self.obj, i), _type, 'const')
+                    if name is not None:
+                        self.depends.add(name)
+                        name.depends_on.add(self)
+            INSTANCE = INSTANCE._superclass
+        
     def init_fields(self, ilasm, const_var, name):
-        for i in self.obj.__dict__:
-            # FIXME: is this ok?
-            if i.startswith('o'):
-                ilasm.load_local(const_var)
-                el = self.obj.__dict__[i]
-                self.db.load_const(typeOf(el), el, ilasm)
-                ilasm.set_field(None, "%s.%s"%(name, i))
-                ilasm.store_void()
-        #raise NotImplementedError("Default fields of instances")
+        if not self.obj:
+            return
+        
+        INSTANCE = self.obj._TYPE
+        while INSTANCE:
+            for i, (_type, el) in INSTANCE._fields.iteritems():
+                if _type is not ootype.Void and i.startswith('o'):
+                    ilasm.load_local(const_var)
+                    self.db.load_const(_type, getattr(self.obj, i), ilasm)
+                    ilasm.set_field(None, "%s.%s"%(name, i))
+                    ilasm.store_void()
+            INSTANCE = INSTANCE._superclass
+            #raise NotImplementedError("Default fields of instances")
 
 class RecordConst(AbstractConst):
     def get_name(self):
         return "const_tuple"
     
     def init(self, ilasm):
-        ilasm.new_obj()
+        if not self.const:
+            ilasm.load_void()
+        else:
+            ilasm.new_obj()
     
     def record_fields(self):
+        if not self.const:
+            return
+        
         for i in self.const._items:
-            name = self.db.record_const(self.const._items[i],'const')
+            name = self.db.record_const(self.const._items[i], None, 'const')
             if name is not None:
                 self.depends.add(name)
+                name.depends_on.add(self)
     
     def __hash__(self):
         return hash(self.const)
@@ -303,6 +335,9 @@ class RecordConst(AbstractConst):
         return self.const == other.const
 
     def init_fields(self, ilasm, const_var, name):
+        if not self.const:
+            return
+        
         #for i in self.const.__dict__["_items"]:
         for i in self.const._items:
             ilasm.load_local(const_var)
@@ -317,14 +352,21 @@ class ListConst(AbstractConst):
         return "const_list"
     
     def init(self, ilasm):
-        ilasm.new_list()
+        if not self.const:
+            ilasm.load_void()
+        else:
+            ilasm.new_list()
     
     def record_fields(self):
+        if not self.const:
+            return
+        
         for i in self.const._list:
-            name = self.db.record_const(i,'const')
+            name = self.db.record_const(i, None, 'const')
             if name is not None:
                 self.depends.add(name)
-
+                name.depends_on.add(self)
+        
     def __hash__(self):
         return hash(self.const)
     
@@ -332,6 +374,10 @@ class ListConst(AbstractConst):
         return self.const == other.const
 
     def init_fields(self, ilasm, const_var, name):
+        #import pdb;pdb.set_trace()
+        if not self.const:
+            return
+        
         for i in xrange(len(self.const._list)):
             ilasm.load_str("%s.%s"%(const_var.name, name))
             el = self.const._list[i]
@@ -381,12 +427,19 @@ class BuiltinConst(AbstractConst):
 
 class DictConst(RecordConst):
     def record_fields(self):
+        if not self.const:
+            return
+        
         for i in self.const._dict:
-            name = self.db.record_const(self.const._dict[i],'const')
+            name = self.db.record_const(self.const._dict[i], None, 'const')
             if name is not None:
                 self.depends.add(name)
+                name.depends_on.add(self)
 
     def init_fields(self, ilasm, const_var, name):
+        if not self.const:
+            return
+        
         for i in self.const._dict:
             ilasm.load_str("%s.%s"%(const_var.name, name))
             el = self.const._dict[i]

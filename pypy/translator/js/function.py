@@ -214,7 +214,9 @@ class Function(Node, Generator):
                         self.ilasm.branch_elsif_string(s)
                     self._setup_link(link, True)
                     self.ilasm.jump_block(block_map[link.target])
+                # otherwise just re-raise it
                 self.ilasm.close_branch()
+                self.ilasm.throw_real("exc")
                 self.ilasm.close_branch()
             elif len(block.exits) == 2:
                 self.ilasm.branch_if(block.exitswitch, True)
