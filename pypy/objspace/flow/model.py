@@ -4,6 +4,7 @@
 # the below object/attribute model evolved from
 # a discussion in Berlin, 4th of october 2003
 from __future__ import generators
+import py
 from pypy.tool.uid import uid, Hashable
 from pypy.tool.sourcetools import PY_IDENTIFIER, nice_repr_for_func
 from pypy.tool.picklesupport import getstate_with_slots, setstate_with_slots
@@ -629,7 +630,7 @@ def checkgraph(graph):
                 assert len(block.exits) >= 2
                 assert block.exits[0].exitcase is None
                 for link in block.exits[1:]:
-                    assert issubclass(link.exitcase, Exception)
+                    assert issubclass(link.exitcase, py.builtin.BaseException)
                     exc_links[link] = True
             else:
                 assert isinstance(block.exitswitch, Variable)

@@ -366,9 +366,13 @@ class ClassDesc(Desc):
             baselist = list(cls.__bases__)
             baselist.reverse()
 
-            # special case: skip BaseException in Python 2.5
+            # special case: skip BaseException in Python 2.5, and pretend
+            # that all exceptions ultimately inherit from Exception instead
+            # of BaseException (XXX hack)
             if cls is Exception:
                 baselist = []
+            elif baselist == [py.builtin.BaseException]:
+                baselist = [Exception]
 
             for b1 in baselist:
                 if b1 is object:

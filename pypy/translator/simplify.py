@@ -5,6 +5,7 @@
 simplify_graph() applies all simplifications defined in this file.
 """
 
+import py
 from pypy.objspace.flow.model import SpaceOperation
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import c_last_exception
@@ -237,7 +238,7 @@ def simplify_exceptions(graph):
                 break
             renaming.update(newrenaming)
             case = query.operations[0].args[-1].value
-            assert issubclass(case, Exception)
+            assert issubclass(case, py.builtin.BaseException)
             lno, lyes = query.exits
             assert lno.exitcase == False and lyes.exitcase == True
             if case not in seen:
