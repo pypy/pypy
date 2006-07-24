@@ -5,6 +5,7 @@ from pypy.objspace.std.inttype import int_typedef
 
 
 def descr__new__(space, w_booltype, w_obj=None):
+    space.w_bool.check_user_subclass(w_booltype)
     if space.is_true(w_obj):
         return space.w_True
     else:

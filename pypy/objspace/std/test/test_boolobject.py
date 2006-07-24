@@ -39,3 +39,9 @@ class AppTestAppBoolTest:
         assert True ^ True is False
         assert False ^ False is False
         assert True ^ False is True
+
+    def test_new(self):
+        assert bool.__new__(bool, "hi") is True
+        assert bool.__new__(bool, "") is False
+        raises(TypeError, bool.__new__, int)
+        raises(TypeError, bool.__new__, 42)

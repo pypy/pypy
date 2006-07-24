@@ -1,4 +1,6 @@
 import autopath
+from pypy.objspace.std.objspace import *
+from pypy.objspace.std.stdtypedef import *
 
 ##class TestSpecialMultimethodCode(testit.TestCase):
 
@@ -51,6 +53,29 @@ import autopath
 ##            self.assertEqual_w(meth.eval_code(self.space, None,
 ##                                              w({'x1': 5.5, 'x2': 7})),
 ##                               w(-1.5))
+
+
+class TestTypeObject:
+
+    def test_not_acceptable_as_base_class(self):
+        space = self.space
+        class W_Stuff(W_Object):
+            pass
+        def descr__new__(space, w_subtype):
+            return space.allocate_instance(W_Stuff, w_subtype)
+        W_Stuff.typedef = StdTypeDef("stuff",
+                                     __new__ = newmethod(descr__new__))
+        W_Stuff.typedef.acceptable_as_base_class = False
+        w_stufftype = space.gettypeobject(W_Stuff.typedef)
+        space.appexec([w_stufftype], """(stufftype):
+            x = stufftype.__new__(stufftype)
+            assert type(x) is stufftype
+            raises(TypeError, stufftype.__new__)
+            raises(TypeError, stufftype.__new__, int)
+            raises(TypeError, stufftype.__new__, 42)
+            raises(TypeError, stufftype.__new__, stufftype, 511)
+            raises(TypeError, type, 'sub', (stufftype,), {})
+        """)
 
 
 class AppTestTypeObject:
