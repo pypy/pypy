@@ -439,6 +439,7 @@ class NodeInfo:
         for attr in self.argnames:
             print >> buf, "                    %s=GetSetProperty(%s.fget_%s, %s.fset_%s )," % (attr,self.name,attr,self.name,attr)
         print >> buf, "                    )"
+        print >> buf, "%s.typedef.acceptable_as_base_class = False" % self.name
 
 
     def _gen_additional_methods(self, buf):

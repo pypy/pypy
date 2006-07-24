@@ -197,6 +197,7 @@ AbstractFunction.typedef = TypeDef('AbstractFunction', Node.typedef,
                      accept=interp2app(descr_AbstractFunction_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                      mutate=interp2app(descr_AbstractFunction_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     )
+AbstractFunction.typedef.acceptable_as_base_class = False
 
 class AbstractTest(Node):
     def __init__(self, lineno=-1):
@@ -239,6 +240,7 @@ AbstractTest.typedef = TypeDef('AbstractTest', Node.typedef,
                      accept=interp2app(descr_AbstractTest_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                      mutate=interp2app(descr_AbstractTest_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     )
+AbstractTest.typedef.acceptable_as_base_class = False
 
 class BinaryOp(Node):
     def __init__(self, lineno=-1):
@@ -281,6 +283,7 @@ BinaryOp.typedef = TypeDef('BinaryOp', Node.typedef,
                      accept=interp2app(descr_BinaryOp_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                      mutate=interp2app(descr_BinaryOp_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     )
+BinaryOp.typedef.acceptable_as_base_class = False
 
 class Add(BinaryOp):
     def __init__(self, left, right, lineno=-1):
@@ -353,6 +356,7 @@ Add.typedef = TypeDef('Add', BinaryOp.typedef,
                     left=GetSetProperty(Add.fget_left, Add.fset_left ),
                     right=GetSetProperty(Add.fget_right, Add.fset_right ),
                     )
+Add.typedef.acceptable_as_base_class = False
 
 class And(AbstractTest):
     def __init__(self, nodes, lineno=-1):
@@ -424,6 +428,7 @@ And.typedef = TypeDef('And', AbstractTest.typedef,
                      mutate=interp2app(descr_And_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(And.fget_nodes, And.fset_nodes ),
                     )
+And.typedef.acceptable_as_base_class = False
 
 class AssAttr(Node):
     def __init__(self, expr, attrname, flags, lineno=-1):
@@ -497,6 +502,7 @@ AssAttr.typedef = TypeDef('AssAttr', Node.typedef,
                     attrname=GetSetProperty(AssAttr.fget_attrname, AssAttr.fset_attrname ),
                     flags=GetSetProperty(AssAttr.fget_flags, AssAttr.fset_flags ),
                     )
+AssAttr.typedef.acceptable_as_base_class = False
 
 class AssSeq(Node):
     def __init__(self, lineno=-1):
@@ -539,6 +545,7 @@ AssSeq.typedef = TypeDef('AssSeq', Node.typedef,
                      accept=interp2app(descr_AssSeq_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                      mutate=interp2app(descr_AssSeq_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     )
+AssSeq.typedef.acceptable_as_base_class = False
 
 class AssList(AssSeq):
     def __init__(self, nodes, lineno=-1):
@@ -610,6 +617,7 @@ AssList.typedef = TypeDef('AssList', AssSeq.typedef,
                      mutate=interp2app(descr_AssList_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(AssList.fget_nodes, AssList.fset_nodes ),
                     )
+AssList.typedef.acceptable_as_base_class = False
 
 class AssName(Node):
     def __init__(self, name, flags, lineno=-1):
@@ -668,6 +676,7 @@ AssName.typedef = TypeDef('AssName', Node.typedef,
                     name=GetSetProperty(AssName.fget_name, AssName.fset_name ),
                     flags=GetSetProperty(AssName.fget_flags, AssName.fset_flags ),
                     )
+AssName.typedef.acceptable_as_base_class = False
 
 class AssTuple(AssSeq):
     def __init__(self, nodes, lineno=-1):
@@ -753,6 +762,7 @@ AssTuple.typedef = TypeDef('AssTuple', AssSeq.typedef,
                      mutate=interp2app(descr_AssTuple_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(AssTuple.fget_nodes, AssTuple.fset_nodes ),
                     )
+AssTuple.typedef.acceptable_as_base_class = False
 
 class Assert(Node):
     def __init__(self, test, fail, lineno=-1):
@@ -837,6 +847,7 @@ Assert.typedef = TypeDef('Assert', Node.typedef,
                     test=GetSetProperty(Assert.fget_test, Assert.fset_test ),
                     fail=GetSetProperty(Assert.fget_fail, Assert.fset_fail ),
                     )
+Assert.typedef.acceptable_as_base_class = False
 
 class Assign(Node):
     def __init__(self, nodes, expr, lineno=-1):
@@ -927,6 +938,7 @@ Assign.typedef = TypeDef('Assign', Node.typedef,
                     nodes=GetSetProperty(Assign.fget_nodes, Assign.fset_nodes ),
                     expr=GetSetProperty(Assign.fget_expr, Assign.fset_expr ),
                     )
+Assign.typedef.acceptable_as_base_class = False
 
 class AugAssign(Node):
     def __init__(self, node, op, expr, lineno=-1):
@@ -1007,6 +1019,7 @@ AugAssign.typedef = TypeDef('AugAssign', Node.typedef,
                     op=GetSetProperty(AugAssign.fget_op, AugAssign.fset_op ),
                     expr=GetSetProperty(AugAssign.fget_expr, AugAssign.fset_expr ),
                     )
+AugAssign.typedef.acceptable_as_base_class = False
 
 class UnaryOp(Node):
     def __init__(self, lineno=-1):
@@ -1049,6 +1062,7 @@ UnaryOp.typedef = TypeDef('UnaryOp', Node.typedef,
                      accept=interp2app(descr_UnaryOp_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                      mutate=interp2app(descr_UnaryOp_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     )
+UnaryOp.typedef.acceptable_as_base_class = False
 
 class Backquote(UnaryOp):
     def __init__(self, expr, lineno=-1):
@@ -1106,6 +1120,7 @@ Backquote.typedef = TypeDef('Backquote', UnaryOp.typedef,
                      mutate=interp2app(descr_Backquote_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     expr=GetSetProperty(Backquote.fget_expr, Backquote.fset_expr ),
                     )
+Backquote.typedef.acceptable_as_base_class = False
 
 class BitOp(Node):
     def __init__(self, lineno=-1):
@@ -1148,6 +1163,7 @@ BitOp.typedef = TypeDef('BitOp', Node.typedef,
                      accept=interp2app(descr_BitOp_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                      mutate=interp2app(descr_BitOp_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     )
+BitOp.typedef.acceptable_as_base_class = False
 
 class Bitand(BitOp):
     def __init__(self, nodes, lineno=-1):
@@ -1219,6 +1235,7 @@ Bitand.typedef = TypeDef('Bitand', BitOp.typedef,
                      mutate=interp2app(descr_Bitand_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(Bitand.fget_nodes, Bitand.fset_nodes ),
                     )
+Bitand.typedef.acceptable_as_base_class = False
 
 class Bitor(BitOp):
     def __init__(self, nodes, lineno=-1):
@@ -1290,6 +1307,7 @@ Bitor.typedef = TypeDef('Bitor', BitOp.typedef,
                      mutate=interp2app(descr_Bitor_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(Bitor.fget_nodes, Bitor.fset_nodes ),
                     )
+Bitor.typedef.acceptable_as_base_class = False
 
 class Bitxor(BitOp):
     def __init__(self, nodes, lineno=-1):
@@ -1361,6 +1379,7 @@ Bitxor.typedef = TypeDef('Bitxor', BitOp.typedef,
                      mutate=interp2app(descr_Bitxor_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(Bitxor.fget_nodes, Bitxor.fset_nodes ),
                     )
+Bitxor.typedef.acceptable_as_base_class = False
 
 class Break(Node):
     def __init__(self, lineno=-1):
@@ -1403,6 +1422,7 @@ Break.typedef = TypeDef('Break', Node.typedef,
                      accept=interp2app(descr_Break_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                      mutate=interp2app(descr_Break_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     )
+Break.typedef.acceptable_as_base_class = False
 
 class CallFunc(Node):
     def __init__(self, node, args, star_args = None, dstar_args = None, lineno=-1):
@@ -1539,6 +1559,7 @@ CallFunc.typedef = TypeDef('CallFunc', Node.typedef,
                     star_args=GetSetProperty(CallFunc.fget_star_args, CallFunc.fset_star_args ),
                     dstar_args=GetSetProperty(CallFunc.fget_dstar_args, CallFunc.fset_dstar_args ),
                     )
+CallFunc.typedef.acceptable_as_base_class = False
 
 class Class(Node):
     def __init__(self, name, bases, w_doc, code, lineno=-1):
@@ -1648,6 +1669,7 @@ Class.typedef = TypeDef('Class', Node.typedef,
                     w_doc=GetSetProperty(Class.fget_w_doc, Class.fset_w_doc ),
                     code=GetSetProperty(Class.fget_code, Class.fset_code ),
                     )
+Class.typedef.acceptable_as_base_class = False
 
 class Compare(Node):
     def __init__(self, expr, ops, lineno=-1):
@@ -1760,6 +1782,7 @@ Compare.typedef = TypeDef('Compare', Node.typedef,
                     expr=GetSetProperty(Compare.fget_expr, Compare.fset_expr ),
                     ops=GetSetProperty(Compare.fget_ops, Compare.fset_ops ),
                     )
+Compare.typedef.acceptable_as_base_class = False
 
 class CondExpr(Node):
     def __init__(self, test, true_expr, false_expr, lineno=-1):
@@ -1847,6 +1870,7 @@ CondExpr.typedef = TypeDef('CondExpr', Node.typedef,
                     true_expr=GetSetProperty(CondExpr.fget_true_expr, CondExpr.fset_true_expr ),
                     false_expr=GetSetProperty(CondExpr.fget_false_expr, CondExpr.fset_false_expr ),
                     )
+CondExpr.typedef.acceptable_as_base_class = False
 
 class Const(Node):
     def __init__(self, value, lineno=-1):
@@ -1898,6 +1922,7 @@ Const.typedef = TypeDef('Const', Node.typedef,
                      mutate=interp2app(descr_Const_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     value=GetSetProperty(Const.fget_value, Const.fset_value ),
                     )
+Const.typedef.acceptable_as_base_class = False
 
 class Continue(Node):
     def __init__(self, lineno=-1):
@@ -1940,6 +1965,7 @@ Continue.typedef = TypeDef('Continue', Node.typedef,
                      accept=interp2app(descr_Continue_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                      mutate=interp2app(descr_Continue_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     )
+Continue.typedef.acceptable_as_base_class = False
 
 class Decorators(Node):
     def __init__(self, nodes, lineno=-1):
@@ -2011,6 +2037,7 @@ Decorators.typedef = TypeDef('Decorators', Node.typedef,
                      mutate=interp2app(descr_Decorators_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(Decorators.fget_nodes, Decorators.fset_nodes ),
                     )
+Decorators.typedef.acceptable_as_base_class = False
 
 class Dict(Node):
     def __init__(self, items, lineno=-1):
@@ -2108,6 +2135,7 @@ Dict.typedef = TypeDef('Dict', Node.typedef,
                      mutate=interp2app(descr_Dict_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     items=GetSetProperty(Dict.fget_items, Dict.fset_items ),
                     )
+Dict.typedef.acceptable_as_base_class = False
 
 class Discard(Node):
     def __init__(self, expr, lineno=-1):
@@ -2165,6 +2193,7 @@ Discard.typedef = TypeDef('Discard', Node.typedef,
                      mutate=interp2app(descr_Discard_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     expr=GetSetProperty(Discard.fget_expr, Discard.fset_expr ),
                     )
+Discard.typedef.acceptable_as_base_class = False
 
 class Div(BinaryOp):
     def __init__(self, left, right, lineno=-1):
@@ -2237,6 +2266,7 @@ Div.typedef = TypeDef('Div', BinaryOp.typedef,
                     left=GetSetProperty(Div.fget_left, Div.fset_left ),
                     right=GetSetProperty(Div.fget_right, Div.fset_right ),
                     )
+Div.typedef.acceptable_as_base_class = False
 
 class Ellipsis(Node):
     def __init__(self, lineno=-1):
@@ -2279,6 +2309,7 @@ Ellipsis.typedef = TypeDef('Ellipsis', Node.typedef,
                      accept=interp2app(descr_Ellipsis_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                      mutate=interp2app(descr_Ellipsis_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     )
+Ellipsis.typedef.acceptable_as_base_class = False
 
 class Exec(Node):
     def __init__(self, expr, locals, globals, lineno=-1):
@@ -2386,6 +2417,7 @@ Exec.typedef = TypeDef('Exec', Node.typedef,
                     locals=GetSetProperty(Exec.fget_locals, Exec.fset_locals ),
                     globals=GetSetProperty(Exec.fget_globals, Exec.fset_globals ),
                     )
+Exec.typedef.acceptable_as_base_class = False
 
 class FloorDiv(BinaryOp):
     def __init__(self, left, right, lineno=-1):
@@ -2458,6 +2490,7 @@ FloorDiv.typedef = TypeDef('FloorDiv', BinaryOp.typedef,
                     left=GetSetProperty(FloorDiv.fget_left, FloorDiv.fset_left ),
                     right=GetSetProperty(FloorDiv.fget_right, FloorDiv.fset_right ),
                     )
+FloorDiv.typedef.acceptable_as_base_class = False
 
 class For(Node):
     def __init__(self, assign, list, body, else_, lineno=-1):
@@ -2576,6 +2609,7 @@ For.typedef = TypeDef('For', Node.typedef,
                     body=GetSetProperty(For.fget_body, For.fset_body ),
                     else_=GetSetProperty(For.fget_else_, For.fset_else_ ),
                     )
+For.typedef.acceptable_as_base_class = False
 
 class From(Node):
     def __init__(self, modname, names, lineno=-1):
@@ -2657,6 +2691,7 @@ From.typedef = TypeDef('From', Node.typedef,
                     modname=GetSetProperty(From.fget_modname, From.fset_modname ),
                     names=GetSetProperty(From.fget_names, From.fset_names ),
                     )
+From.typedef.acceptable_as_base_class = False
 
 class Function(AbstractFunction):
     def __init__(self, decorators, name, argnames, defaults, flags, w_doc, code, lineno=-1):
@@ -2834,6 +2869,7 @@ Function.typedef = TypeDef('Function', AbstractFunction.typedef,
                     w_doc=GetSetProperty(Function.fget_w_doc, Function.fset_w_doc ),
                     code=GetSetProperty(Function.fget_code, Function.fset_code ),
                     )
+Function.typedef.acceptable_as_base_class = False
 
 class GenExpr(AbstractFunction):
     def __init__(self, code, lineno=-1):
@@ -2895,6 +2931,7 @@ GenExpr.typedef = TypeDef('GenExpr', AbstractFunction.typedef,
                      mutate=interp2app(descr_GenExpr_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     code=GetSetProperty(GenExpr.fget_code, GenExpr.fset_code ),
                     )
+GenExpr.typedef.acceptable_as_base_class = False
 
 class GenExprFor(Node):
     def __init__(self, assign, iter, ifs, lineno=-1):
@@ -3005,6 +3042,7 @@ GenExprFor.typedef = TypeDef('GenExprFor', Node.typedef,
                     iter=GetSetProperty(GenExprFor.fget_iter, GenExprFor.fset_iter ),
                     ifs=GetSetProperty(GenExprFor.fget_ifs, GenExprFor.fset_ifs ),
                     )
+GenExprFor.typedef.acceptable_as_base_class = False
 
 class GenExprIf(Node):
     def __init__(self, test, lineno=-1):
@@ -3062,6 +3100,7 @@ GenExprIf.typedef = TypeDef('GenExprIf', Node.typedef,
                      mutate=interp2app(descr_GenExprIf_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     test=GetSetProperty(GenExprIf.fget_test, GenExprIf.fset_test ),
                     )
+GenExprIf.typedef.acceptable_as_base_class = False
 
 class GenExprInner(Node):
     def __init__(self, expr, quals, lineno=-1):
@@ -3152,6 +3191,7 @@ GenExprInner.typedef = TypeDef('GenExprInner', Node.typedef,
                     expr=GetSetProperty(GenExprInner.fget_expr, GenExprInner.fset_expr ),
                     quals=GetSetProperty(GenExprInner.fget_quals, GenExprInner.fset_quals ),
                     )
+GenExprInner.typedef.acceptable_as_base_class = False
 
 class Getattr(Node):
     def __init__(self, expr, attrname, lineno=-1):
@@ -3217,6 +3257,7 @@ Getattr.typedef = TypeDef('Getattr', Node.typedef,
                     expr=GetSetProperty(Getattr.fget_expr, Getattr.fset_expr ),
                     attrname=GetSetProperty(Getattr.fget_attrname, Getattr.fset_attrname ),
                     )
+Getattr.typedef.acceptable_as_base_class = False
 
 class Global(Node):
     def __init__(self, names, lineno=-1):
@@ -3269,6 +3310,7 @@ Global.typedef = TypeDef('Global', Node.typedef,
                      mutate=interp2app(descr_Global_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     names=GetSetProperty(Global.fget_names, Global.fset_names ),
                     )
+Global.typedef.acceptable_as_base_class = False
 
 class If(Node):
     def __init__(self, tests, else_, lineno=-1):
@@ -3388,6 +3430,7 @@ If.typedef = TypeDef('If', Node.typedef,
                     tests=GetSetProperty(If.fget_tests, If.fset_tests ),
                     else_=GetSetProperty(If.fget_else_, If.fset_else_ ),
                     )
+If.typedef.acceptable_as_base_class = False
 
 class Import(Node):
     def __init__(self, names, lineno=-1):
@@ -3461,6 +3504,7 @@ Import.typedef = TypeDef('Import', Node.typedef,
                      mutate=interp2app(descr_Import_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     names=GetSetProperty(Import.fget_names, Import.fset_names ),
                     )
+Import.typedef.acceptable_as_base_class = False
 
 class Invert(UnaryOp):
     def __init__(self, expr, lineno=-1):
@@ -3518,6 +3562,7 @@ Invert.typedef = TypeDef('Invert', UnaryOp.typedef,
                      mutate=interp2app(descr_Invert_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     expr=GetSetProperty(Invert.fget_expr, Invert.fset_expr ),
                     )
+Invert.typedef.acceptable_as_base_class = False
 
 class Keyword(Node):
     def __init__(self, name, expr, lineno=-1):
@@ -3583,6 +3628,7 @@ Keyword.typedef = TypeDef('Keyword', Node.typedef,
                     name=GetSetProperty(Keyword.fget_name, Keyword.fset_name ),
                     expr=GetSetProperty(Keyword.fget_expr, Keyword.fset_expr ),
                     )
+Keyword.typedef.acceptable_as_base_class = False
 
 class Lambda(AbstractFunction):
     def __init__(self, argnames, defaults, flags, code, lineno=-1):
@@ -3718,6 +3764,7 @@ Lambda.typedef = TypeDef('Lambda', AbstractFunction.typedef,
                     flags=GetSetProperty(Lambda.fget_flags, Lambda.fset_flags ),
                     code=GetSetProperty(Lambda.fget_code, Lambda.fset_code ),
                     )
+Lambda.typedef.acceptable_as_base_class = False
 
 class LeftShift(BinaryOp):
     def __init__(self, left, right, lineno=-1):
@@ -3790,6 +3837,7 @@ LeftShift.typedef = TypeDef('LeftShift', BinaryOp.typedef,
                     left=GetSetProperty(LeftShift.fget_left, LeftShift.fset_left ),
                     right=GetSetProperty(LeftShift.fget_right, LeftShift.fset_right ),
                     )
+LeftShift.typedef.acceptable_as_base_class = False
 
 class List(Node):
     def __init__(self, nodes, lineno=-1):
@@ -3861,6 +3909,7 @@ List.typedef = TypeDef('List', Node.typedef,
                      mutate=interp2app(descr_List_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(List.fget_nodes, List.fset_nodes ),
                     )
+List.typedef.acceptable_as_base_class = False
 
 class ListComp(Node):
     def __init__(self, expr, quals, lineno=-1):
@@ -3951,6 +4000,7 @@ ListComp.typedef = TypeDef('ListComp', Node.typedef,
                     expr=GetSetProperty(ListComp.fget_expr, ListComp.fset_expr ),
                     quals=GetSetProperty(ListComp.fget_quals, ListComp.fset_quals ),
                     )
+ListComp.typedef.acceptable_as_base_class = False
 
 class ListCompFor(Node):
     def __init__(self, assign, list, ifs, lineno=-1):
@@ -4058,6 +4108,7 @@ ListCompFor.typedef = TypeDef('ListCompFor', Node.typedef,
                     list=GetSetProperty(ListCompFor.fget_list, ListCompFor.fset_list ),
                     ifs=GetSetProperty(ListCompFor.fget_ifs, ListCompFor.fset_ifs ),
                     )
+ListCompFor.typedef.acceptable_as_base_class = False
 
 class ListCompIf(Node):
     def __init__(self, test, lineno=-1):
@@ -4115,6 +4166,7 @@ ListCompIf.typedef = TypeDef('ListCompIf', Node.typedef,
                      mutate=interp2app(descr_ListCompIf_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     test=GetSetProperty(ListCompIf.fget_test, ListCompIf.fset_test ),
                     )
+ListCompIf.typedef.acceptable_as_base_class = False
 
 class Mod(BinaryOp):
     def __init__(self, left, right, lineno=-1):
@@ -4187,6 +4239,7 @@ Mod.typedef = TypeDef('Mod', BinaryOp.typedef,
                     left=GetSetProperty(Mod.fget_left, Mod.fset_left ),
                     right=GetSetProperty(Mod.fget_right, Mod.fset_right ),
                     )
+Mod.typedef.acceptable_as_base_class = False
 
 class Module(Node):
     def __init__(self, w_doc, node, lineno=-1):
@@ -4253,6 +4306,7 @@ Module.typedef = TypeDef('Module', Node.typedef,
                     w_doc=GetSetProperty(Module.fget_w_doc, Module.fset_w_doc ),
                     node=GetSetProperty(Module.fget_node, Module.fset_node ),
                     )
+Module.typedef.acceptable_as_base_class = False
 
 class Mul(BinaryOp):
     def __init__(self, left, right, lineno=-1):
@@ -4325,6 +4379,7 @@ Mul.typedef = TypeDef('Mul', BinaryOp.typedef,
                     left=GetSetProperty(Mul.fget_left, Mul.fset_left ),
                     right=GetSetProperty(Mul.fget_right, Mul.fset_right ),
                     )
+Mul.typedef.acceptable_as_base_class = False
 
 class Name(Node):
     def __init__(self, varname, lineno=-1):
@@ -4375,6 +4430,7 @@ Name.typedef = TypeDef('Name', Node.typedef,
                      mutate=interp2app(descr_Name_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     varname=GetSetProperty(Name.fget_varname, Name.fset_varname ),
                     )
+Name.typedef.acceptable_as_base_class = False
 
 class NoneConst(Node):
     def __init__(self, lineno=-1):
@@ -4417,6 +4473,7 @@ NoneConst.typedef = TypeDef('NoneConst', Node.typedef,
                      accept=interp2app(descr_NoneConst_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                      mutate=interp2app(descr_NoneConst_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     )
+NoneConst.typedef.acceptable_as_base_class = False
 
 class Not(UnaryOp):
     def __init__(self, expr, lineno=-1):
@@ -4474,6 +4531,7 @@ Not.typedef = TypeDef('Not', UnaryOp.typedef,
                      mutate=interp2app(descr_Not_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     expr=GetSetProperty(Not.fget_expr, Not.fset_expr ),
                     )
+Not.typedef.acceptable_as_base_class = False
 
 class Or(AbstractTest):
     def __init__(self, nodes, lineno=-1):
@@ -4545,6 +4603,7 @@ Or.typedef = TypeDef('Or', AbstractTest.typedef,
                      mutate=interp2app(descr_Or_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(Or.fget_nodes, Or.fset_nodes ),
                     )
+Or.typedef.acceptable_as_base_class = False
 
 class Pass(Node):
     def __init__(self, lineno=-1):
@@ -4587,6 +4646,7 @@ Pass.typedef = TypeDef('Pass', Node.typedef,
                      accept=interp2app(descr_Pass_accept, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                      mutate=interp2app(descr_Pass_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     )
+Pass.typedef.acceptable_as_base_class = False
 
 class Power(BinaryOp):
     def __init__(self, left, right, lineno=-1):
@@ -4659,6 +4719,7 @@ Power.typedef = TypeDef('Power', BinaryOp.typedef,
                     left=GetSetProperty(Power.fget_left, Power.fset_left ),
                     right=GetSetProperty(Power.fget_right, Power.fset_right ),
                     )
+Power.typedef.acceptable_as_base_class = False
 
 class Print(Node):
     def __init__(self, nodes, dest, lineno=-1):
@@ -4755,6 +4816,7 @@ Print.typedef = TypeDef('Print', Node.typedef,
                     nodes=GetSetProperty(Print.fget_nodes, Print.fset_nodes ),
                     dest=GetSetProperty(Print.fget_dest, Print.fset_dest ),
                     )
+Print.typedef.acceptable_as_base_class = False
 
 class Printnl(Node):
     def __init__(self, nodes, dest, lineno=-1):
@@ -4851,6 +4913,7 @@ Printnl.typedef = TypeDef('Printnl', Node.typedef,
                     nodes=GetSetProperty(Printnl.fget_nodes, Printnl.fset_nodes ),
                     dest=GetSetProperty(Printnl.fget_dest, Printnl.fset_dest ),
                     )
+Printnl.typedef.acceptable_as_base_class = False
 
 class Raise(Node):
     def __init__(self, expr1, expr2, expr3, lineno=-1):
@@ -4964,6 +5027,7 @@ Raise.typedef = TypeDef('Raise', Node.typedef,
                     expr2=GetSetProperty(Raise.fget_expr2, Raise.fset_expr2 ),
                     expr3=GetSetProperty(Raise.fget_expr3, Raise.fset_expr3 ),
                     )
+Raise.typedef.acceptable_as_base_class = False
 
 class Return(Node):
     def __init__(self, value, lineno=-1):
@@ -5029,6 +5093,7 @@ Return.typedef = TypeDef('Return', Node.typedef,
                      mutate=interp2app(descr_Return_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     value=GetSetProperty(Return.fget_value, Return.fset_value ),
                     )
+Return.typedef.acceptable_as_base_class = False
 
 class RightShift(BinaryOp):
     def __init__(self, left, right, lineno=-1):
@@ -5101,6 +5166,7 @@ RightShift.typedef = TypeDef('RightShift', BinaryOp.typedef,
                     left=GetSetProperty(RightShift.fget_left, RightShift.fset_left ),
                     right=GetSetProperty(RightShift.fget_right, RightShift.fset_right ),
                     )
+RightShift.typedef.acceptable_as_base_class = False
 
 class Slice(Node):
     def __init__(self, expr, flags, lower, upper, lineno=-1):
@@ -5217,6 +5283,7 @@ Slice.typedef = TypeDef('Slice', Node.typedef,
                     lower=GetSetProperty(Slice.fget_lower, Slice.fset_lower ),
                     upper=GetSetProperty(Slice.fget_upper, Slice.fset_upper ),
                     )
+Slice.typedef.acceptable_as_base_class = False
 
 class Sliceobj(Node):
     def __init__(self, nodes, lineno=-1):
@@ -5288,6 +5355,7 @@ Sliceobj.typedef = TypeDef('Sliceobj', Node.typedef,
                      mutate=interp2app(descr_Sliceobj_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(Sliceobj.fget_nodes, Sliceobj.fset_nodes ),
                     )
+Sliceobj.typedef.acceptable_as_base_class = False
 
 class Stmt(Node):
     def __init__(self, nodes, lineno=-1):
@@ -5359,6 +5427,7 @@ Stmt.typedef = TypeDef('Stmt', Node.typedef,
                      mutate=interp2app(descr_Stmt_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(Stmt.fget_nodes, Stmt.fset_nodes ),
                     )
+Stmt.typedef.acceptable_as_base_class = False
 
 class Sub(BinaryOp):
     def __init__(self, left, right, lineno=-1):
@@ -5431,6 +5500,7 @@ Sub.typedef = TypeDef('Sub', BinaryOp.typedef,
                     left=GetSetProperty(Sub.fget_left, Sub.fset_left ),
                     right=GetSetProperty(Sub.fget_right, Sub.fset_right ),
                     )
+Sub.typedef.acceptable_as_base_class = False
 
 class Subscript(Node):
     def __init__(self, expr, flags, sub, lineno=-1):
@@ -5511,6 +5581,7 @@ Subscript.typedef = TypeDef('Subscript', Node.typedef,
                     flags=GetSetProperty(Subscript.fget_flags, Subscript.fset_flags ),
                     sub=GetSetProperty(Subscript.fget_sub, Subscript.fset_sub ),
                     )
+Subscript.typedef.acceptable_as_base_class = False
 
 class TryExcept(Node):
     def __init__(self, body, handlers, else_, lineno=-1):
@@ -5685,6 +5756,7 @@ TryExcept.typedef = TypeDef('TryExcept', Node.typedef,
                     handlers=GetSetProperty(TryExcept.fget_handlers, TryExcept.fset_handlers ),
                     else_=GetSetProperty(TryExcept.fget_else_, TryExcept.fset_else_ ),
                     )
+TryExcept.typedef.acceptable_as_base_class = False
 
 class TryFinally(Node):
     def __init__(self, body, final, lineno=-1):
@@ -5757,6 +5829,7 @@ TryFinally.typedef = TypeDef('TryFinally', Node.typedef,
                     body=GetSetProperty(TryFinally.fget_body, TryFinally.fset_body ),
                     final=GetSetProperty(TryFinally.fget_final, TryFinally.fset_final ),
                     )
+TryFinally.typedef.acceptable_as_base_class = False
 
 class Tuple(Node):
     def __init__(self, nodes, lineno=-1):
@@ -5828,6 +5901,7 @@ Tuple.typedef = TypeDef('Tuple', Node.typedef,
                      mutate=interp2app(descr_Tuple_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     nodes=GetSetProperty(Tuple.fget_nodes, Tuple.fset_nodes ),
                     )
+Tuple.typedef.acceptable_as_base_class = False
 
 class UnaryAdd(UnaryOp):
     def __init__(self, expr, lineno=-1):
@@ -5885,6 +5959,7 @@ UnaryAdd.typedef = TypeDef('UnaryAdd', UnaryOp.typedef,
                      mutate=interp2app(descr_UnaryAdd_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     expr=GetSetProperty(UnaryAdd.fget_expr, UnaryAdd.fset_expr ),
                     )
+UnaryAdd.typedef.acceptable_as_base_class = False
 
 class UnarySub(UnaryOp):
     def __init__(self, expr, lineno=-1):
@@ -5942,6 +6017,7 @@ UnarySub.typedef = TypeDef('UnarySub', UnaryOp.typedef,
                      mutate=interp2app(descr_UnarySub_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     expr=GetSetProperty(UnarySub.fget_expr, UnarySub.fset_expr ),
                     )
+UnarySub.typedef.acceptable_as_base_class = False
 
 class While(Node):
     def __init__(self, test, body, else_, lineno=-1):
@@ -6043,6 +6119,7 @@ While.typedef = TypeDef('While', Node.typedef,
                     body=GetSetProperty(While.fget_body, While.fset_body ),
                     else_=GetSetProperty(While.fget_else_, While.fset_else_ ),
                     )
+While.typedef.acceptable_as_base_class = False
 
 class With(Node):
     def __init__(self, expr, body, var, lineno=-1):
@@ -6144,6 +6221,7 @@ With.typedef = TypeDef('With', Node.typedef,
                     body=GetSetProperty(With.fget_body, With.fset_body ),
                     var=GetSetProperty(With.fget_var, With.fset_var ),
                     )
+With.typedef.acceptable_as_base_class = False
 
 class Yield(Node):
     def __init__(self, value, lineno=-1):
@@ -6201,6 +6279,7 @@ Yield.typedef = TypeDef('Yield', Node.typedef,
                      mutate=interp2app(descr_Yield_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                     value=GetSetProperty(Yield.fget_value, Yield.fset_value ),
                     )
+Yield.typedef.acceptable_as_base_class = False
 
 
 class ASTVisitor(object):
