@@ -497,9 +497,9 @@ namespace pypy.builtin
         public static int ll_os_write(int fd, string buffer)
         {
             if (fd == 1)
-                Console.WriteLine(buffer);
+                Console.Write(buffer);
             else if (fd == 2)
-                Console.Error.WriteLine(buffer);
+                Console.Error.Write(buffer);
             else
                 throw new ApplicationException(string.Format("Wrong file descriptor: {0}", fd));
             return buffer.Length;
