@@ -52,6 +52,11 @@ class TestOperations(CliTest):
             return x
         assert self.interpret(fn, [42]) == 42
 
+    def test_rshift(self):
+        def fn(x, y):
+            return x >> y
+        assert self.interpret(fn, [r_longlong(32), 1]) == 16
+
 def test_op():
     yield check, op_any_ge, [int, int], (42, 42)
     yield check, op_any_ge, [int, int], (13, 42)

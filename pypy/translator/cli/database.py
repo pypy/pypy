@@ -19,7 +19,8 @@ try:
 except NameError:
     from sets import Set as set
 
-DEBUG_CONST_INIT = False
+DEBUG_CONST_INIT = True
+DEBUG_CONST_INIT_VERBOSE = False
 
 CONST_NAMESPACE = 'pypy.runtime'
 CONST_CLASS = 'Constants'
@@ -184,22 +185,28 @@ class LowLevelDatabase(object):
 
         # this point we have collected all constant we
         # need. Instantiate&initialize them.
-        ilasm.stderr('CONST: instantiating', DEBUG_CONST_INIT)
+        ilasm.stderr('CONST: instantiating', DEBUG_CONST_INIT_VERBOSE)
         for const in self.consts.itervalues():
             type_ = const.get_type()
             const.instantiate(ilasm)
             ilasm.store_static_constant(type_, CONST_NAMESPACE, CONST_CLASS, const.name)
-        ilasm.stderr('CONST: instantiated', DEBUG_CONST_INIT)
+        ilasm.stderr('CONST: instantiated', DEBUG_CONST_INIT_VERBOSE)
 
         const_list = self.consts.values()
+        num_const = len(const_list)
+        last_perc = 0
         const_list.sort(key=operator.attrgetter('PRIORITY'))
         for i, const in enumerate(const_list):
-            ilasm.stderr('CONST: initializing #%d' % i, DEBUG_CONST_INIT)
+            ilasm.stderr('CONST: initializing #%d' % i, DEBUG_CONST_INIT_VERBOSE)
+            perc = int((i+1) * 100.0 / num_const)
+            if perc != last_perc:
+                ilasm.stderr('CONST: %d%%' % perc, DEBUG_CONST_INIT)
+                last_perc = perc
             type_ = const.get_type()
             ilasm.load_static_constant(type_, CONST_NAMESPACE, CONST_CLASS, const.name)
             const.init(ilasm)
 
-        ilasm.stderr('CONST: initialization completed', DEBUG_CONST_INIT)
+        ilasm.stderr('CONST: initialization completed', DEBUG_CONST_INIT_VERBOSE)
         ilasm.ret()
         ilasm.end_function()
 

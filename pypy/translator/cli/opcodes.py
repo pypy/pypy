@@ -178,7 +178,7 @@ opcodes = {
     'llong_and':                'and',
     'llong_or':                 'or',
     'llong_lshift':             'shl',
-    'llong_rshift':             'shr',
+    'llong_rshift':             [PushAllArgs, 'conv.i4', 'shr'],
     'llong_xor':                'xor',
 
     'ullong_is_true':            [PushAllArgs, 'ldc.i8 0', 'cgt.un'],
