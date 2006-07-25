@@ -42,7 +42,9 @@
 
 #include <sys/types.h>
 
+#if !defined(MS_WINDOWS)
 #include <sys/mman.h>
+#endif
 
 #ifdef HAVE_STROPTS_H
 #include <stropts.h>
