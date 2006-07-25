@@ -243,6 +243,7 @@ class AppTestRCTime:
         raises(ValueError, rctime.strftime, '', (1900, 1, 1, 0, 0, 0, 0, 1, 2))
 
     def test_strptime(self):
+        skip("strptime is not implemented right now")
         import rctime
         
         t = rctime.time()
