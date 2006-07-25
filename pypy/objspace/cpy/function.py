@@ -118,6 +118,8 @@ class FunctionCache(SpaceCache):
                                    tramp)
 
         sourcelines = ['def trampoline(%s):' % (', '.join(tramp.inputargs),)]
+        # this description is to aid viewing in graphviewer
+        sourcelines.append('    "wrapper for fn: %s"' % func.name)
         for line in tramp.wrappings:
             sourcelines.append('    ' + line)
         sourcelines.append('    try:')
