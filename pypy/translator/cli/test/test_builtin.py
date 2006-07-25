@@ -36,6 +36,7 @@ class TestCliBuiltin(CliTest, BaseTestRbuiltin):
         assert file(tmpdir).read() == 'hello world'
 
     def test_os_stat(self):
+        py.test.skip("Temporarily disabled")
         def fn():
             return os.stat('.')[0]
         mode = self.interpret(fn, [])
