@@ -709,7 +709,7 @@ class LocaleTime(object):
             has_saving = frozenset()
         self.timezone = (no_saving, has_saving)
 
-class TimeRE(dict):
+class TimeRE(object):
     """Handle conversion from format directives to regexes."""
 
     def __init__(self, space, locale_time=None):
@@ -718,13 +718,13 @@ class TimeRE(dict):
         Order of execution is important for dependency reasons.
 
         """
+        self._dict = {}
         self.space = space
         if locale_time:
             self.locale_time = locale_time
         else:
             self.locale_time = LocaleTime(self.space)
-        base = super(TimeRE, self)
-        base.__init__({
+        self._dict.update({
             # The " \d" part of the regex is to make %c from ANSI C work
             'd': r"(?P<d>3[0-1]|[1-2]\d|0[1-9]|[1-9]| [1-9])",
             'H': r"(?P<H>2[0-3]|[0-1]\d|\d)",
@@ -749,10 +749,10 @@ class TimeRE(dict):
                                         for tz in tz_names),
                                 'Z'),
             '%': '%'})
-        base.__setitem__('W', base.__getitem__('U').replace('U', 'W'))
-        base.__setitem__('c', self.pattern(self.locale_time.LC_date_time))
-        base.__setitem__('x', self.pattern(self.locale_time.LC_date))
-        base.__setitem__('X', self.pattern(self.locale_time.LC_time))
+        self._dict['W'] = self._dict['U'].replace('U', 'W')
+        self._dict['c'] = self.pattern(self.locale_time.LC_date_time)
+        self._dict['x'] = self.pattern(self.locale_time.LC_date)
+        self._dict['X'] = self.pattern(self.locale_time.LC_time)
 
     def __seqToRE(self, to_convert, directive):
         """Convert a list to a regex string for matching a directive.
@@ -792,7 +792,7 @@ class TimeRE(dict):
             directive_index = format.index('%')+1
             processed_format = "%s%s%s" % (processed_format,
                                            format[:directive_index-1],
-                                           self[format[directive_index]])
+                                           self._dict[format[directive_index]])
             format = format[directive_index+1:]
         return "%s%s" % (processed_format, format)
 
