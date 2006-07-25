@@ -4,11 +4,14 @@ from pypy.rpython.module.ll_os import BaseOS
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.rarithmetic import intmask
 
-n = 10
-fieldnames = ['item%d' % i for i in range(n)]
-lltypes = [ootype.Signed]*n
-fields = dict(zip(fieldnames, lltypes))    
-STAT_RESULT = ootype.Record(fields)
+def _make_tuple(FIELDS):
+    n = len(FIELDS)
+    fieldnames = ['item%d' % i for i in range(n)]
+    fields = dict(zip(fieldnames, FIELDS))
+    return ootype.Record(fields)
+
+STAT_RESULT = _make_tuple([ootype.Signed]*10)
+PIPE_RESULT = _make_tuple([ootype.Signed]*2)
 
 class Implementation(BaseOS, OOSupport):
     
@@ -31,3 +34,14 @@ class Implementation(BaseOS, OOSupport):
     def ll_os_read(cls, fd, count):
         return cls.to_rstr(os.read(fd, count))
     ll_os_read.suggested_primitive = True
+
+    def ll_pipe_result(fd1, fd2):
+        tup = ootype.new(PIPE_RESULT)
+        tup.item0 = fd1
+        tup.item1 = fd2
+        return tup
+    ll_pipe_result = staticmethod(ll_pipe_result)
+
+    def ll_os_readlink(cls, path):
+        return cls.to_rstr(os.readlink(path))
+    ll_os_readlink.suggested_primitive = True

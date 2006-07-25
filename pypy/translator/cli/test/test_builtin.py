@@ -41,3 +41,6 @@ class TestCliBuiltin(CliTest, BaseTestRbuiltin):
             return os.stat('.')[0]
         mode = self.interpret(fn, [])
         assert stat.S_ISDIR(mode)
+
+    # XXX: remember to test ll_os_readlink and ll_os_pipe as soon as
+    # they are implemented
