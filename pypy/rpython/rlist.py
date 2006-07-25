@@ -42,7 +42,6 @@ class AbstractBaseListRepr(Repr):
 
     def convert_const(self, listobj):
         # get object from bound list method
-        #listobj = getattr(listobj, '__self__', listobj)
         if listobj is None:
             return self.null_const()
         if not isinstance(listobj, list):
