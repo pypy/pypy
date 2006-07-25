@@ -6,6 +6,7 @@ from pypy.module._stackless.stackless_flags import StacklessFlags
 from pypy.interpreter.function import StaticMethod
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root
+from pypy.interpreter.error import OperationError
 
 from pypy.rpython import rstack # for resume points
 from pypy.tool import stdlib_opcode as pythonopcode
@@ -268,11 +269,11 @@ def fork():
     into the parent first, which can switch to the child later.
     """
     #XXX ClonableCoroutine might well be InterpClonableCoroutine
-    current = ClonableCoroutine.getcurrent()
-    if not isinstance(current, ClonableCoroutine):
+    current = InterpClonableCoroutine.getcurrent()
+    if not isinstance(current, InterpClonableCoroutine):
         raise RuntimeError("fork() in a non-clonable coroutine")
     thunk = ForkThunk(current)
-    coro_fork = ClonableCoroutine() 
+    coro_fork = InterpClonableCoroutine() 
     coro_fork.bind(thunk)
     coro_fork.switch()
     # we resume here twice.  The following would need explanations about

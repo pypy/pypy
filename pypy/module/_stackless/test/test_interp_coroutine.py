@@ -12,7 +12,7 @@ def output(stuff):
     os.write(2, stuff + '\n')
 
 class _TestCoroutine(StacklessTest):
-    backendopt = True
+    #backendopt = True
     Coroutine = Coroutine
 
     def setup_method(self, method):
