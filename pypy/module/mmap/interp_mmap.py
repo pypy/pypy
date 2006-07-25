@@ -440,7 +440,9 @@ class _mmap(Wrappable):
         
         if _POSIX:
             if not has_mremap:
-                raise "mmap: resizing not available -- no mremap()"
+                msg = "mmap: resizing not available -- no mremap()"
+                raise OperationError(self.space.w_EnvironmentError,
+                    self.space.wrap(msg))
             
             # resize the underlying file first
             res = libc.ftruncate(self._fd, newsize)
