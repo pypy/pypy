@@ -126,6 +126,11 @@ class MethodsPBCRepr(AbstractMethodsPBCRepr):
         derived_mangled = self._get_method_name(opname, s_pbc, args_s)
         cname = hop.inputconst(ootype.Void, derived_mangled)
         hop.exception_is_here()
+        # sanity check: make sure that INSTANCE has the method
+        self.r_im_self.setup()
+        INSTANCE, meth = self.r_im_self.lowleveltype._lookup(derived_mangled)
+        assert meth is not None, 'Missing method %s in class %s'\
+               % (derived_mangled, self.r_im_self.lowleveltype)
         v = hop.genop("oosend", [cname]+vlist, resulttype=rresult)
         return hop.llops.convertvar(v, rresult, hop.r_result)
 
