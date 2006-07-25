@@ -102,8 +102,6 @@ class SyncState(object):
         left = syncstate.leaving
         entered = syncstate.entering
         syncstate.leaving = syncstate.entering = None
-        assert left is not None
-        assert entered is not None
         if left is not None:   # mostly to work around an annotation problem;
                                # should not really be None
             left.frame = incoming_frame
