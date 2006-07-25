@@ -12,6 +12,8 @@ char* LLVM_RPython_StartupCode(void);
 RPyFREXP_RESULT *ll_frexp_result(double, int);
 RPyMODF_RESULT *ll_modf_result(double, double);
 RPySTAT_RESULT *ll_stat_result(int, int, int, int, int, int, int, int, int, int);
+RPyPIPE_RESULT *ll_pipe_result(int, int);
+
 void RPYTHON_RAISE_OSERROR(int error);
 #ifdef RPyListOfString
   RPyListOfString *_RPyListOfString_New(long);
