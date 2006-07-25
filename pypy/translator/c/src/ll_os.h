@@ -196,6 +196,7 @@ RPySTAT_RESULT* LL_os_fstat(long fd) {
 #ifdef LL_NEED_OS_PIPE
 
 RPyPIPE_RESULT* LL_os_pipe(void) {
+#if !defined(MS_WINDOWS)
 	int filedes[2];
 	int error = pipe(filedes);
 	if (error != 0) {
@@ -203,6 +204,18 @@ RPyPIPE_RESULT* LL_os_pipe(void) {
 		return NULL;
 	}
 	return ll_pipe_result(filedes[0], filedes[1]);
+#else
+	HANDLE read, write;
+	int read_fd, write_fd;
+	BOOL ok = CreatePipe(&read, &write, NULL, 0);
+	if (!ok) {
+		RPYTHON_RAISE_OSERROR(errno);
+		return NULL;
+	}
+	read_fd = _open_osfhandle((long)read, 0);
+	write_fd = _open_osfhandle((long)write, 1);
+	return ll_pipe_result(read_fd, write_fd);
+#endif
 }
 
 #endif
