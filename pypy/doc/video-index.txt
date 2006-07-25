@@ -37,6 +37,26 @@ These videos are published under the Creative Commons Attribution License 2.0:
 http://creativecommons.org/licenses/by/2.0/
 
 
+Trailer: PyPy at the PyCon
+--------------------------
+
+130mb: http://codespeak.net/download/pypy/video/pycon-trailer.avi.torrent
+
+71mb: http://codespeak.net/download/pypy/video/pycon-trailer-medium.avi.torrent
+
+50mb: http://codespeak.net/download/pypy/video/pycon-trailer-320x240.avi.torrent
+
+.. image:: image/pycon-trailer.jpg
+   :scale: 100
+   :alt: Trailer PyPy at PyCon
+   :align: left
+
+This trailer shows the PyPy team at the PyCon, a behind-the-scenes at sprints, talks and everywhere else.
+
+PAL, 9 min, DivX AVI
+
+
+
 Interview with Tim Peters
 -------------------------
 
