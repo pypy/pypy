@@ -79,12 +79,12 @@ def get_primitive_op_src(fullopname):
 def checkptr(ptr):
     if not isinstance(lltype.typeOf(ptr), lltype.Ptr):
         raise TypeError("arg must be a pointer, got %r instead" % (
-            typeOf(ptr),))
+            lltype.typeOf(ptr),))
 
 def checkadr(adr):
     if lltype.typeOf(adr) is not llmemory.Address:
         raise TypeError("arg must be an address, got %r instead" % (
-            typeOf(adr),))
+            lltype.typeOf(adr),))
 
 
 def op_ptr_eq(ptr1, ptr2):
