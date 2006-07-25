@@ -37,6 +37,7 @@
 #       define STAT _stati64
 #       define FSTAT _fstati64
 #       define STRUCT_STAT struct _stati64
+#       define LSTAT STAT
 #else
 #       define STAT stat
 #       define FSTAT fstat
@@ -170,7 +171,6 @@ RPySTAT_RESULT* LL_os_stat(RPyString * fname) {
   return _stat_construct_result_helper(st);
 }
 
-#ifdef LSTAT
 RPySTAT_RESULT* LL_os_lstat(RPyString * fname) {
   STRUCT_STAT st;
   int error = LSTAT(RPyString_AsString(fname), &st);
@@ -180,7 +180,6 @@ RPySTAT_RESULT* LL_os_lstat(RPyString * fname) {
   }
   return _stat_construct_result_helper(st);
 }
-#endif
 
 RPySTAT_RESULT* LL_os_fstat(long fd) {
   STRUCT_STAT st;

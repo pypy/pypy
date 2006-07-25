@@ -524,7 +524,7 @@ if hasattr(os, 'getpid'):
         res = f1()
         assert res == os.getpid()
 
-if hasattr(os, 'lstat'):
+if hasattr(os, 'link'):
     def test_links():
         import stat
         tmpfile1 = str(udir.join('test_links_1.txt'))

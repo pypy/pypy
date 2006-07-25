@@ -27,6 +27,7 @@ corresponding Unix manual entries for more information on calls."""
     'close'     : 'interp_posix.close',
     'fstat'     : 'interp_posix.fstat',
     'stat'      : 'interp_posix.stat',
+    'lstat'     : 'interp_posix.lstat',
     'dup'       : 'interp_posix.dup',
     'dup2'      : 'interp_posix.dup2',
     'system'    : 'interp_posix.system',
@@ -51,8 +52,6 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['unsetenv'] = 'interp_posix.unsetenv'
     if hasattr(os, 'getpid'):
         interpleveldefs['getpid'] = 'interp_posix.getpid'
-    if hasattr(os, 'lstat'):
-        interpleveldefs['lstat'] = 'interp_posix.lstat'
     if hasattr(os, 'link'):
         interpleveldefs['link'] = 'interp_posix.link'
     if hasattr(os, 'symlink'):

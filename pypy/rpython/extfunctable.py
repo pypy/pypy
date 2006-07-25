@@ -196,6 +196,7 @@ if hasattr(posix, 'ftruncate'):
     declare(os.ftruncate, noneannotation, 'll_os/ftruncate')
 declare(os.fstat    , statannotation, 'll_os/fstat')
 declare(os.stat     , statannotation, 'll_os/stat')
+declare(os.lstat    , statannotation, 'll_os/lstat')
 declare(os.system   , int           , 'll_os/system')
 declare(os.strerror , str           , 'll_os/strerror')
 declare(os.unlink   , noneannotation, 'll_os/unlink')
@@ -210,8 +211,6 @@ declare(os.chmod    , noneannotation, 'll_os/chmod')
 declare(os.rename   , noneannotation, 'll_os/rename')
 if hasattr(os, 'getpid'):
     declare(os.getpid   , int,            'll_os/getpid')
-if hasattr(os, 'lstat'):
-    declare(os.lstat    , statannotation, 'll_os/lstat')
 if hasattr(os, 'link'):
     declare(os.link     , noneannotation, 'll_os/link')
 if hasattr(os, 'symlink'):
