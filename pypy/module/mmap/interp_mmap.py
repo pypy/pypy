@@ -510,6 +510,74 @@ class _mmap(Wrappable):
         # 
         #     raise WinError(dwErrCode)
     resize.unwrap_spec = ['self', int]
+    
+    ## XXX: The following is a series of "special" methods turned into regular
+    # because the ext compiler does not support __xx__ methods right now.
+    def get_len(self):
+        self._check_valid()
+        
+        return self.space.wrap(self._size)
+    get_len.unwrap_spec = ['self']
+    
+    def get_item(self, index):
+        self._check_valid()
+
+        # XXX this does not support slice() instances
+
+        try:
+            return self.space.wrap(self.space.str_w(self._to_str())[index])
+        except IndexError:
+            raise OperationError(self.space.w_IndexError,
+                self.space.wrap("mmap index out of range"))
+    get_item.unwrap_spec = ['self', int]
+    
+    def set_item(self, index, value):
+        self._check_valid()
+        self._check_writeable()
+        
+        # XXX this does not support slice() instances
+        
+        if len(value) != 1:
+            raise OperationError(self.space.w_IndexError,
+                self.space.wrap("mmap assignment must be single-character string"))
+
+        str_data = ""
+        try:
+            str_data = self.space.str_w(self._to_str())
+            str_data_lst = [i for i in str_data] 
+            str_data_lst[index] = value
+            str_data = "".join(str_data_lst)
+        except IndexError:
+            raise OperationError(self.space.w_IndexError,
+                self.space.wrap("mmap index out of range"))
+        
+        p = c_char_p(str_data)
+        libc.memcpy(self._data, p, len(str_data))
+    set_item.unwrap_spec = ['self', int, str]
+    
+    def del_item(self, index):
+        self._check_valid()
+        
+        # XXX this does not support slice() instances (does it matter?)
+        
+        raise OperationError(self.space.w_TypeError,
+            self.space.wrap("mmap object doesn't support item deletion"))
+    del_item.unwrap_spec = ['self', int]
+    
+    def add(self, w_other):
+        self._check_valid()
+        
+        raise OperationError(self.space.w_SystemError,
+            self.space.wrap("mmaps don't support concatenation"))
+    add.unwrap_spec = ['self', W_Root]
+    
+    def mul(self, w_other):
+        self._check_valid()
+        
+        raise OperationError(self.space.w_SystemError,
+            self.space.wrap("mmaps don't support repeat operation"))
+    mul.unwrap_spec = ['self', W_Root]
+
 
 _mmap.typedef = TypeDef("_mmap",
     _to_str = interp2app(_mmap._to_str, unwrap_spec=_mmap._to_str.unwrap_spec),
@@ -535,6 +603,14 @@ _mmap.typedef = TypeDef("_mmap",
     flush = interp2app(_mmap.flush, unwrap_spec=_mmap.flush.unwrap_spec),
     move = interp2app(_mmap.move, unwrap_spec=_mmap.move.unwrap_spec),
     resize = interp2app(_mmap.resize, unwrap_spec=_mmap.resize.unwrap_spec),
+
+    get_len = interp2app(_mmap.get_len, unwrap_spec=_mmap.get_len.unwrap_spec),
+    get_item = interp2app(_mmap.get_item, unwrap_spec=_mmap.get_item.unwrap_spec),
+    set_item = interp2app(_mmap.set_item, unwrap_spec=_mmap.set_item.unwrap_spec),
+    del_item = interp2app(_mmap.del_item, unwrap_spec=_mmap.del_item.unwrap_spec),
+    add = interp2app(_mmap.add, unwrap_spec=_mmap.add.unwrap_spec),
+    mul = interp2app(_mmap.mul, unwrap_spec=_mmap.mul.unwrap_spec),
+    
 )
 
 def _check_map_size(space, size):
@@ -581,7 +657,11 @@ if _POSIX:
                 space.wrap("mmap invalid access parameter."))
 
         # check file size
-        st = os.fstat(fd)
+        try:
+            st = os.fstat(fd)
+        except OSError:
+            raise OperationError(space.w_EnvironmentError,
+                space.wrap("bad file descriptor"))
         MODE_BIT, SIZE_BIT = 0, 6 # cannot use st.st_mode and st.st_size
         mode = st[MODE_BIT]
         size = st[SIZE_BIT]
