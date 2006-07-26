@@ -19,10 +19,6 @@ class Module(MixedModule):
         'strftime': 'interp_time.strftime',
     }
 
-    # def init(self, space):
-#         from pypy.module.rctime import interp_time
-#         interp_time.init_module(space)
-#         
     def buildloaders(cls):
         from pypy.module.rctime import interp_time
 
