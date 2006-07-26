@@ -2,6 +2,10 @@
 PyPyBuilder
 ============
 
+NOTE: this package is under construction, it does not contain all the 
+functionality described below. It is useful for testing, but e.g. it does not
+really compile anything yet.
+
 What is this?
 =============
 
