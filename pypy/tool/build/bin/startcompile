@@ -1,0 +1,57 @@
+#!/usr/bin/python
+
+import path
+import sys
+import random
+from pypybuilder import config
+
+initcode = """
+    import sys
+    sys.path += %r
+    
+    from pypybuilder import ppbserver
+    channel.send(ppbserver.compile(%r, %r))
+    channel.close()
+"""
+def init(gw, sysinfo, email, port=12321):
+    from pypybuilder import execnetconference
+
+    conference = execnetconference.conference(gw, port, False)
+    channel = conference.remote_exec(initcode % (config.path, email, sysinfo))
+    return channel
+
+if __name__ == '__main__':
+    from py.execnet import SshGateway
+
+    from optparse import OptionParser
+    optparser = OptionParser('%prog [options] email')
+    for args, kwargs in config.options:
+        optparser.add_option(*args, **kwargs)
+    optparser.add_option('-r', '--revision', dest='revision', default='trunk',
+                        help='SVN revision (defaults to "trunk")')
+        
+    (options, args) = optparser.parse_args()
+
+    if not args or len(args) != 1:
+        optparser.error('please provide an email address')
+
+    sysinfo = dict([(attr, getattr(options, attr)) for attr in dir(options) if
+                        not attr.startswith('_') and 
+                        not callable(getattr(options, attr))])
+    
+    print 'going to start compile job with info:'
+    for k, v in sysinfo.items():
+        print '%s: %r' % (k, v)
+    print
+
+    gw = SshGateway(config.server)
+    channel = init(gw, sysinfo, args[0], port=config.port)
+    ispath, data = channel.receive()
+    if ispath:
+        print ('a suitable result is already available, you can find it '
+                'at "%s"' % (data,))
+    else:
+        print data
+        print 'you will be mailed once it\'s ready'
+    channel.close()
+    gw.exit()
