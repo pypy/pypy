@@ -1,0 +1,58 @@
+#!/usr/bin/python
+
+BUFSIZE = 1024
+
+import path
+import sys
+import random
+from pypy.tool.build import config
+
+# XXX using random values for testing
+modules = ['_stackless', '_socket']
+
+"""
+random.shuffle(modules)
+sysinfo = {
+    'maxint': random.choice((sys.maxint, (2 ** 63 - 1))),
+    'use_modules': modules[:random.randrange(len(modules) + 1)],
+    'byteorder': random.choice(('little', 'big')),
+}
+"""
+
+sysinfo = {
+    'maxint': sys.maxint,
+    'use_modules': ['_stackless', '_socket'],
+    'byteorder': sys.byteorder,
+}
+
+if __name__ == '__main__':
+    from py.execnet import SshGateway
+    from pypy.tool.build.client import init
+    gw = SshGateway(config.server)
+    channel = init(gw, sysinfo, path=config.path, port=config.port)
+    print channel.receive() # welcome message
+    try:
+        while 1:
+            data = channel.receive()
+            if not isinstance(data, dict): # needs more checks here
+                raise ValueError(
+                    'received wrong unexpected data of type %s' % (type(data),)
+                )
+            info = data
+            # XXX we should compile here, using data dict for info
+            print 'compilation requested for info %r, now faking that' % (info,)
+            import time; time.sleep(10)
+
+            # write the zip to the server in chunks to server
+            # XXX we're still faking this
+            zipfp = (path.packagedir / 'test/test.zip').open()
+            while True:
+                chunk = zipfp.read(BUFSIZE)
+                if not chunk:
+                    break
+                channel.send(chunk)
+            channel.send(None) # tell the server we're done
+            print 'done with compilation, waiting for next'
+    finally:
+        channel.close()
+        gw.exit()
