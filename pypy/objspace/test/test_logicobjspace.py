@@ -272,7 +272,6 @@ class AppTest_LogicThreads(object):
 
     def test_exception_in_group(self):
         class FooException(Exception): pass
-        from operator import add
 
         def loop_or_raise(Canary, crit, Bomb_signal):
             "Canary will be untouched there ..."
@@ -288,13 +287,12 @@ class AppTest_LogicThreads(object):
         B, C = newvar(), newvar()
         T = future(loop_or_raise, C, 'foo', B)
         U = future(loop_or_raise, C, 'bar', B)
-
         unify(B, 'foo')
         try:
             wait(T)
         except FooException:
             try:
-                # and contamined
+                # and contaminated
                 wait(U)
             except FooException:
                 return
