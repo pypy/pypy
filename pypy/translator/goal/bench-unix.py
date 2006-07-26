@@ -6,11 +6,11 @@ import os, sys, time, pickle
 
 PYSTONE_CMD = 'from test import pystone;pystone.main(%s)'
 PYSTONE_PATTERN = 'This machine benchmarks at'
-PYSTONE_ASCENDING_GOOD = True 
+PYSTONE_ASCENDING_GOOD = True
 
 RICHARDS_CMD = 'from richards import *;main(iterations=%d)'
 RICHARDS_PATTERN = 'Average time per iteration:'
-RICHARDS_ASCENDING_GOOD = False 
+RICHARDS_ASCENDING_GOOD = False
 
 class BenchmarkResult(object):
 
