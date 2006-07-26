@@ -399,7 +399,7 @@ must record the fact that its C-compatible memory was not allocated by ctypes it
 
 .. _`ctypes documentation`: http://docs.python.org/dev/lib/module-ctypes.html
 .. _ctypes: http://starship.python.net/crew/theller/ctypes/
-.. _RPython: coding-guide.html#rpython
+.. _RPython: coding-guide.html#restricted-python
 .. _`ctypes-0.9.9.6`: http://sourceforge.net/project/showfiles.php?group_id=71702&package_id=71318&release_id=411554
 
 .. include:: _ref.txt
