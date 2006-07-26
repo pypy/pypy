@@ -68,12 +68,12 @@ def run_cmd(cmd):
 
 def run_pystone(executable='/usr/local/bin/python', n=0):
     argstr = PYSTONE_CMD % (str(n) and n or '')
-    txt = run_cmd('%s -c "%s"' % (executable, argstr))
+    txt = run_cmd('"%s" -c "%s"' % (executable, argstr))
     return get_result(txt, PYSTONE_PATTERN)
 
 def run_richards(executable='/usr/local/bin/python', n=5):
     argstr = RICHARDS_CMD % n
-    txt = run_cmd('%s -c "%s"' % (executable, argstr))
+    txt = run_cmd('"%s" -c "%s"' % (executable, argstr))
     return get_result(txt, RICHARDS_PATTERN)
 
 def get_executables():  #sorted by revision number (highest first)
@@ -123,7 +123,7 @@ def main():
             benchmark_result.update(p, run_pystone(exe), PYSTONE_ASCENDING_GOOD)
         stone = benchmark_result.get_best_result(p)
 
-        codesize = os.popen('size %s | tail -n1 | cut -f1'%(exename,)).read().strip()
+        codesize = os.popen('size "%s" | tail -n1 | cut -f1'%(exename,)).read().strip()
 
         print fmt % (ctime, os.path.getsize(exe), codesize, exename, rich, rich / ref_rich, stone, ref_stone / stone)
         sys.stdout.flush()

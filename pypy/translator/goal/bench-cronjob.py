@@ -134,8 +134,8 @@ def benchmark():
 
 def main(backends=[]):
     if backends == []:  #_ prefix means target specific option
-        backends = """llvm@c@c--gc=framework@c--_thread@c--stackless@c--gc=framework--cc=c++@c--cc=c++""".split('@')
-        #backends = """llvm@c@c--gc=framework@c--_thread@c--stackless@c--gc=framework--cc=c++@c--cc=c++@c--profopt='-c "from richards import *;main(iterations=1)"'""".split('@')
+        #backends = """llvm@c@c--gc=framework@c--_thread@c--stackless@c--gc=framework--cc=c++@c--cc=c++""".split('@')
+        backends = """llvm@c@c--gc=framework@c--_thread@c--stackless@c--gc=framework--cc=c++@c--cc=c++@c--profopt='-c "from richards import *;main(iterations=1)"'""".split('@')
         #backends = 'llvm c c--gc=framework c--_thread c--stackless'.split()
         #backends = 'llvm c c--gc=framework c--new-stackless c--_thread'.split()
         #backends = 'llvm c c--stackless c--_thread c--stackless--_thread'.split()
