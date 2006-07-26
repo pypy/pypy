@@ -1,9 +1,9 @@
 import path
-from pypybuilder import server
+from pypy.tool.build import server
 import py
 from fake import FakeChannel, FakeClient
-from pypybuilder.server.server import RequestStorage
-from pypybuilder.server.server import BuildPath
+from pypy.tool.build.server import RequestStorage
+from pypy.tool.build.server import BuildPath
 import time
 
 def setup_module(mod):
@@ -17,7 +17,7 @@ def setup_module(mod):
     mod.svr.register(mod.c2)
 
 def test_server_issubdict():
-    from pypybuilder.server.server import issubdict
+    from pypy.tool.build.server import issubdict
     assert issubdict({'foo': 1, 'bar': 2}, {'foo': 1, 'bar': 2, 'baz': 3})
     assert not issubdict({'foo': 1, 'bar': 2}, {'foo': 1, 'baz': 3})
     assert not issubdict({'foo': 1, 'bar': 3}, {'foo': 1, 'bar': 2, 'baz': 3})

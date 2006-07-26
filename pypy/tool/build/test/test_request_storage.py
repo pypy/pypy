@@ -1,6 +1,6 @@
 import path
 import py
-from pypybuilder.server.server import RequestStorage
+from pypy.tool.build.server import RequestStorage
 
 def test_request_storage():
     s = RequestStorage()

@@ -1,5 +1,5 @@
 import path
-from pypybuilder import client
+from pypy.tool.build import client
 import py
 import time
 from fake import FakeChannel, FakeServer
@@ -13,8 +13,8 @@ def setup_module(mod):
     mod.temp = temp = py.test.ensuretemp('pypybuilder-client')
     mod.svr = svr = FakeServer(temp)
 
-    import pypybuilder
-    pypybuilder.ppbserver = svr
+    import pypy.tool.build
+    pypy.tool.build.ppbserver = svr
 
     mod.c1c = c1c = FakeChannel()
     mod.c1 = c1 = ClientForTests(c1c, {'foo': 1, 'bar': [1,2]})

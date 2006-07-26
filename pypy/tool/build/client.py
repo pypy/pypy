@@ -8,7 +8,7 @@ class PPBClient(object):
         self.busy_on = None
         self.testing = testing
 
-        from pypybuilder import ppbserver
+        from pypy.tool.build import ppbserver
         self.server = ppbserver
         self.server.register(self)
         
@@ -52,7 +52,7 @@ initcode = """
     import sys
     sys.path += %r
     
-    from pypybuilder.client import PPBClient
+    from pypy.tool.build.client import PPBClient
 
     try:
         client = PPBClient(channel, %r, %r)
@@ -61,7 +61,7 @@ initcode = """
         channel.close()
 """
 def init(gw, sysinfo, path=None, port=12321, testing=False):
-    from pypybuilder import execnetconference
+    from pypy.tool.build import execnetconference
     
     if path is None:
         path = []

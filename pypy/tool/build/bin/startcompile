@@ -3,18 +3,18 @@
 import path
 import sys
 import random
-from pypybuilder import config
+from pypy.tool.build import config
 
 initcode = """
     import sys
     sys.path += %r
     
-    from pypybuilder import ppbserver
+    from pypy.tool.build import ppbserver
     channel.send(ppbserver.compile(%r, %r))
     channel.close()
 """
 def init(gw, sysinfo, email, port=12321):
-    from pypybuilder import execnetconference
+    from pypy.tool.build import execnetconference
 
     conference = execnetconference.conference(gw, port, False)
     channel = conference.remote_exec(initcode % (config.path, email, sysinfo))

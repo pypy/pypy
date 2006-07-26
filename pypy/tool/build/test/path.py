@@ -2,4 +2,5 @@ import py
 
 testpath = py.magic.autopath().dirpath()
 packagepath = testpath.dirpath()
-py.std.sys.path.append(str(packagepath.dirpath()))
+rootpath = packagepath.dirpath().dirpath().dirpath()
+py.std.sys.path.append(str(rootpath))

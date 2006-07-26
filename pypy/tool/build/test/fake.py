@@ -1,4 +1,4 @@
-from pypybuilder.server.server import BuildPath
+from pypy.tool.build.server import BuildPath
 
 class FakeChannel(object):
     def __init__(self):

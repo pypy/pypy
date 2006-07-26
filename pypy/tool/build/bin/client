@@ -5,7 +5,7 @@ BUFSIZE = 1024
 import path
 import sys
 import random
-from pypybuilder import config
+from pypy.tool.build import config
 
 # XXX using random values for testing
 modules = ['_stackless', '_socket']
@@ -27,7 +27,7 @@ sysinfo = {
 
 if __name__ == '__main__':
     from py.execnet import SshGateway
-    from pypybuilder.client import init
+    from pypy.tool.build.client import init
     gw = SshGateway(config.server)
     channel = init(gw, sysinfo, path=config.path, port=config.port)
     print channel.receive() # welcome message

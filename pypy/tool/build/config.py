@@ -3,7 +3,7 @@ import py
 # general settings, used by both server and client
 server = 'johnnydebris.net'
 port = 12321
-path = ['/home/johnny/temp'] 
+path = ['/home/johnny/temp/pypy-dist'] 
 
 # option definitions for the startcompile script
 # for now we have them here, we should probably use pypy's config instead 
@@ -35,7 +35,7 @@ options = [
 
 # settings for the server
 projectname = 'pypy'
-buildpath = '/home/johnny/temp/pypybuilder/builds'
+buildpath = '/home/johnny/temp/pypy-dist/pypy/tool/build/builds'
 mailhost = '127.0.0.1'
 mailport = 25
 mailfrom = 'johnny@johnnydebris.net'

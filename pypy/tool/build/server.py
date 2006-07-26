@@ -311,20 +311,26 @@ initcode = """
     sys.path += %r
 
     try:
-        from pypybuilder.server import PPBServer
-        server = PPBServer(%r, channel, %r, %r, %r, %r)
+        try:
+            from pypy.tool.build.server import PPBServer
+            server = PPBServer(%r, channel, %r, %r, %r, %r)
 
-        # make the server available to clients as pypybuild.ppbserver
-        import pypybuilder
-        pypybuilder.ppbserver = server
+            # make the server available to clients as pypy.tool.build.ppbserver
+            from pypy.tool import build
+            build.ppbserver = server
 
-        server.serve_forever()
+            server.serve_forever()
+        except:
+            import sys
+            exc, e, tb = sys.exc_info()
+            channel.send(str(exc) + ' - ' + str(e))
+            del tb
     finally:
         channel.close()
 """
 def init(gw, port=12321, path=[], projectname='pypy', buildpath=None,
             mailhost=None, mailport=25, mailfrom=None):
-    from pypybuilder import execnetconference
+    from pypy.tool.build import execnetconference
     conference = execnetconference.conference(gw, port, True)
     channel = conference.remote_exec(initcode % (path, projectname, buildpath,
                                                     mailhost, mailport,

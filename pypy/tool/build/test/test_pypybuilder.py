@@ -1,6 +1,6 @@
 import path
-from pypybuilder import client, server, execnetconference
-from pypybuilder import config
+from pypy.tool.build import client, server, execnetconference
+from pypy.tool.build import config
 import py
 
 # some functional tests (although some of the rest aren't strictly
@@ -47,7 +47,7 @@ def test_functional_1():
         import sys
         sys.path += %r
         
-        from pypybuilder import ppbserver
+        from pypy.tool.build import ppbserver
         channel.send(ppbserver.compile(%r, %r))
         channel.close()
     """
@@ -101,7 +101,7 @@ def test_functional_1():
         import sys, time
         sys.path += %r
         
-        from pypybuilder import ppbserver
+        from pypy.tool.build import ppbserver
         ppbserver._try_queued()
         # give the server some time, the clients 'compile' in threads
         time.sleep(%s) 
