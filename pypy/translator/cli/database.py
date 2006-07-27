@@ -263,8 +263,6 @@ class AbstractConst(Node):
         elif isinstance(value, ootype._dict):
             return DictConst(db, value, count)
         elif isinstance(value, llmemory.fakeweakaddress):
-            if value.get() is not None:
-                log.WARNING("non-null fakeweakaddress may not work because of a Mono bug")
             return WeakRefConst(db, value, count)
         else:
             assert False, 'Unknown constant: %s' % value
