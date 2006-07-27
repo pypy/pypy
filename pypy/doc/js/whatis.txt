@@ -1,0 +1,59 @@
+============================================
+What is pypy.js (JavaScript backend of pypy)
+============================================
+
+Author:
+=======
+
+Maciej Fijalkowski, fijal@genesilico.pl
+
+Purpose:
+========
+
+This document explains what is pypy.js and mostly, what is not.
+
+What is?
+--------
+
+Pypy.js is mostly RPython to javascript converter. Nothing more, nothing
+less. By `using`_ it you can write down RPython code (static enough subset
+of python) which get translated into JavaScript and then run it in a browser.
+As an addon you can get access to semi-transparent rendering of AJAX calls.
+
+This means that you might expect python semantics: ie. when trying to get
+non-existing key from dictionary, you'll get KeyError, not undefined element.
+If you prefer JavaScript semantics there is no point in using pypy.js, if
+you instead prefer Python semantics this is a good point. Some of the
+errors might appear at compile time (such as wrong number of arguments
+to function, non-existing global variable, non-existing method call).
+
+This also means that you will get python features - such as multi-inheritance,
+exception handling etc. But you'll not get python dynamic features - modifying
+dict access etc.
+
+This also means, that it is much easier to write code in pypy.js than in
+JavaScript itself. Whole b'n'b demo is just about 250 lines of code, with
+many AJAX calls. Imagine writing it in JavaScript.
+
+We can say that pypy.js extends Mochikit's motto ("Makes JavaScript suck 
+less"), by "Makes JavaScript suck less, by not using it".
+
+.. _`using`: http://codespeak.net/XXX
+
+What is not?
+------------
+
+Pypy.js is definitely not browser-abstract library (with exceptions to
+semi-transparent AJAX calls, which are trying to be browser-independend).
+Pypy.js is trying to expose browser API as it comes, with all shortcoming.
+If you need something like that you can expose any existing JS library
+(there is example with few mochikit calls in modules). But it seems evident
+that writing such a library on top of pypy.js sounds more interesting.
+
+Pypy.js is not browser for python. Right now you cannot run your DOM-dependent
+code on top of CPython (and this is unlikely to change in a future, because
+we don't want to have just-another-browser-problem, do we?). Altough because
+RPython is just subset of python, nothing stops you from separating code
+DOM-dependent from other and running other part on top of CPython. Or, if you
+really want to, from writing DOM library in CPython itself (just a library, no
+mangling with compiler at all) which will allow you to run that code.
