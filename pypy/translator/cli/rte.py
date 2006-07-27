@@ -78,7 +78,7 @@ class UnixDLL(Target):
 
 def get_pypy_dll():
     dll = _filename('pypylib.dll')
-    if platform.system() == 'Windows':
+    if platform.system() == 'Windows' or os.environ.get('PYPYLIB', '').lower() == 'framework':
         dll_orig = FrameworkDLL.get()
     else:
         dll_orig = UnixDLL.get()

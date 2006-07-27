@@ -25,8 +25,8 @@ class GenCli(object):
         self.db = database_class(type_system_class = type_system_class, opcode_dict = opcode_dict,
             function_class = function_class)
 
-        for graph in pending_graphs:
-            self.db.pending_function(graph)
+        for graph, functype in pending_graphs:
+            self.db.pending_function(graph, functype)
 
         if entrypoint is None:
             self.assembly_name = self.translator.graphs[0].name

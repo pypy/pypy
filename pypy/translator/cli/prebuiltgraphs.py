@@ -1,3 +1,11 @@
+from pypy.translator.cli.function import Function
+
+class PrebuiltGraph(Function):
+    def render(self, ilasm):
+        ilasm.begin_class('PrebuiltGraphs')
+        Function.render(self, ilasm)
+        ilasm.end_class()
+
 ## The following functions are used for construct prebuilt graphs.
 
 ## We need prebuilt graphs for force rendering of some classes
@@ -14,19 +22,22 @@ def raiseExceptions(switch):
 def raiseOSError(errno):
     raise OSError(errno, None)
 
-PREBUILT_GRAPHS = [(raiseExceptions, [int]),
-                   (raiseOSError, [int]),
+PREBUILT_GRAPHS = [(raiseExceptions, [int], PrebuiltGraph),
+                   (raiseOSError, [int], PrebuiltGraph),
                    ]
 
 def get_prebuilt_graphs(translator):
-    funcset = set()
-    for fn, annotation in PREBUILT_GRAPHS:
-        funcset.add(fn)
+    functions = {}
+    for fn, annotation, functype in PREBUILT_GRAPHS:
+        functions[fn] = functype
         translator.annotator.build_types(fn, annotation)
-        
+
     res = []
     for graph in translator.graphs:
-        if getattr(graph, 'func', None) in funcset:
-            res.append(graph)
+        try:
+            functype = functions[graph.func]
+            res.append((graph, functype))
+        except (AttributeError, KeyError):
+            pass
     return res
 

@@ -12,7 +12,8 @@ namespace pypy.builtin
 
         public static int ll_os_open(string name, int flag, int mode)
         {
-            return -1; // TODO: raise OSError
+            PrebuiltGraphs.raiseOSError(2); // ENOENT
+            return -1; // can't be reached
         }
 
         public static void ll_os_close(int fd)
