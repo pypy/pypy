@@ -83,8 +83,11 @@ class LowLevelDatabase(object):
         else:
             return None, parts[0]
 
-    def pending_function(self, graph):
-        function = self.function_class(self, graph)
+    def pending_function(self, graph, functype=None):
+        if functype is None:
+            function = self.function_class(self, graph)
+        else:
+            function = functype(self, graph)
         self.pending_node(function)
         return function.get_name()
 
@@ -461,6 +464,12 @@ class ListConst(AbstractConst):
         class_name = self.get_type(False)
         ilasm.new('instance void class %s::.ctor()' % class_name)
 
+    def _list_of_zeroes(self):
+        try:
+            return self.value._list == [0] * len(self.value._list)
+        except:
+            return False
+
     def init(self, ilasm):
         assert not self.is_null()
         ITEMTYPE = self.value._TYPE._ITEMTYPE
@@ -468,9 +477,10 @@ class ListConst(AbstractConst):
         itemtype_T = self.cts.lltype_to_cts(self.value._TYPE.ITEMTYPE_T)
 
         # special case: List(Void); only resize it, don't care of the contents
-        if ITEMTYPE is ootype.Void:
+        # special case: list of zeroes, don't need to initialize every item
+        if ITEMTYPE is ootype.Void or self._list_of_zeroes():
             AbstractConst.load(self.db, ootype.Signed, len(self.value._list), ilasm)            
-            meth = 'void class %s::_ll_resize(int32)' % PYPY_LIST_OF_VOID
+            meth = 'void class %s::_ll_resize(int32)' % self.get_type(False) #PYPY_LIST_OF_VOID
             ilasm.call_method(meth, False)
             return
         

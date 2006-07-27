@@ -47,6 +47,13 @@ class TestConstant(CliTest):
         res = self.interpret(fn, [])
         assert self.class_name(res) == 'A'
 
+    def test_list_of_zeroes(self):
+        const = [0] * 10
+        def fn():
+            return const
+        res = self.ll_to_list(self.interpret(fn, []))
+        assert res == const
+
     def test_list_of_instances(self):
         const = [A()]
         def fn():
