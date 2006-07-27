@@ -99,6 +99,14 @@ def compile(backend):
     else:
         translateoptions = ''
 
+    def normalize(f):
+        if f.startswith('_'):
+            f = f[1:]
+        if f.startswith('profopt'):
+            f = 'prof'
+        return f
+    features = '--'.join([normalize(f) for f in features.split('--')])
+
     os.chdir(homedir + '/projects/pypy-dist/pypy/translator/goal')
     run('/usr/local/bin/python translate.py --backend=%(backend)s%(featureoptions)s%(translateoptions)s --text --batch targetpypystandalone.py %(targetoptions)s 2>&1' % locals())
     run('mv %s/entry_point.ll %s/pypy.ll' % (tmpdir, tmpdir))
