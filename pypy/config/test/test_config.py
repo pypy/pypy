@@ -204,10 +204,10 @@ def test_optparse_path_options():
 
     assert config.gc.name == 'framework'
 
-def test_get_paths():
+def test_getpaths():
     descr = make_description()
     config = Config(descr)
     
-    assert get_paths(config), ['gc.name', 'gc.dummy', 'gc.float', 'bool', 
+    assert config.getpaths(), ['gc.name', 'gc.dummy', 'gc.float', 'bool', 
                                 'objspace', 'wantref', 'int']
-    assert get_paths(config.gc), ['name', 'dummy', 'float']
+    assert config.gc.getpaths(), ['name', 'dummy', 'float']

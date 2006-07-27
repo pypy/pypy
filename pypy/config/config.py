@@ -87,7 +87,24 @@ class Config(object):
                 result += substr
         return result
 
-
+    def getpaths(self, currpath=None):
+        """returns a list of all paths in self, recursively
+        
+            currpath should not be provided (helps with recursion)
+        """
+        if currpath is None:
+            currpath = []
+        paths = []
+        for attr, value in self.__dict__.iteritems():
+            if attr.startswith('_'):
+                continue
+            if isinstance(value, Config):
+                currpath.append(attr)
+                paths += value.getpaths(currpath)
+                currpath.pop()
+            else:
+                paths.append('.'.join(currpath + [attr]))
+        return paths
 
 class Option(object):
     def __init__(self, name, doc, cmdline=None):
