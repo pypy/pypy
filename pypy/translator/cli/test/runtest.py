@@ -18,6 +18,7 @@ from pypy.translator.cli.cts import CTS
 from pypy.translator.cli.database import LowLevelDatabase
 from pypy.translator.cli.sdk import SDK
 from pypy.translator.cli.entrypoint import BaseEntryPoint
+from pypy.translator.cli.prebuiltgraphs import get_prebuilt_graphs
 
 FLOAT_PRECISION = 8
 
@@ -133,23 +134,9 @@ def _build_gen(func, annotation, graph=None):
         ann = t.buildannotator()
         ann.build_types(func, annotation)
 
-    # quick hack: force some exceptions to be rendered
-    def raiseExceptions(switch):
-        if switch == 0:
-            raise ValueError
-        elif switch == 1:
-            raise OverflowError
-        else:
-            raise ZeroDivisionError
-    ann.build_types(raiseExceptions, [int])
-
+    prebuilt_graphs = get_prebuilt_graphs(t)
     t.buildrtyper(type_system="ootype").specialize()
     main_graph = t.graphs[0]
-
-    # XXX: horrible hack :-(
-    for graph in t.graphs:
-        if graph.name == 'raiseExceptions':
-            raiseExceptions_graph = graph
 
     if getoption('view'):
        t.view()
@@ -160,7 +147,7 @@ def _build_gen(func, annotation, graph=None):
         tmpdir = udir
 
     return GenCli(tmpdir, t, TestEntryPoint(main_graph, True),
-                  pending_graphs=[raiseExceptions_graph])
+                  pending_graphs=prebuilt_graphs)
 
 class CliFunctionWrapper(object):
     def __init__(self, exe_name):

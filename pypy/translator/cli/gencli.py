@@ -12,20 +12,8 @@ from pypy.translator.cli.cts import CTS
 from pypy.translator.cli.opcodes import opcodes
 from pypy.translator.cli.sdk import SDK
 from pypy.translator.cli.rte import get_pypy_dll
+from pypy.translator.cli.support import Tee
 
-
-class Tee(object):
-    def __init__(self, *args):
-        self.outfiles = args
-
-    def write(self, s):
-        for outfile in self.outfiles:
-            outfile.write(s)
-
-    def close(self):
-        for outfile in self.outfiles:
-            if outfile is not sys.stdout:
-                outfile.close()
 
 class GenCli(object):
     def __init__(self, tmpdir, translator, entrypoint=None, type_system_class=CTS,

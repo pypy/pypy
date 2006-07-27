@@ -16,3 +16,16 @@ def string_literal(s):
     except ValueError:
         return "bytearray ( %s )" % array_repr(s)
 
+
+class Tee(object):
+    def __init__(self, *args):
+        self.outfiles = args
+
+    def write(self, s):
+        for outfile in self.outfiles:
+            outfile.write(s)
+
+    def close(self):
+        for outfile in self.outfiles:
+            if outfile is not sys.stdout:
+                outfile.close()

@@ -16,48 +16,64 @@ import py
 log = py.log.Producer("cli") 
 py.log.setconsumer("cli", ansi_log) 
 
-def _filename(name):
-    rel_path = os.path.join(os.path.dirname(__file__), 'src/' + name)
+SRC_DIR = os.path.join(os.path.dirname(__file__), 'src/')
+
+def _filename(name, path=None):
+    rel_path =  os.path.join(SRC_DIR, name)
     return os.path.abspath(rel_path)
 
-class DLL:
+class Target:
+    SOURCES = []
+    OUTPUT = None
+    FLAGS = []
+    DEPENDENCIES = []
+    COMPILER = SDK.csc()
+    
     def get(cls):
+        for dep in cls.DEPENDENCIES:
+            dep.get()
         sources = [_filename(src) for src in cls.SOURCES]
-        dll = _filename(cls.DLL)
+        out = _filename(cls.OUTPUT)
         recompile = True
         try:
             src_mtime = max([os.stat(src).st_mtime for src in sources])
-            dll_mtime = os.stat(dll).st_mtime
-            if src_mtime <= dll_mtime:
+            out_mtime = os.stat(out).st_mtime
+            if src_mtime <= out_mtime:
                 recompile = False
         except OSError:
             pass
 
         if recompile:
-            cls.compile(sources, dll)
-        return dll
+            cls.compile(sources, out)
+        return out
     get = classmethod(get)
 
-    def compile(cls, sources, dll):
-        log.red("Compiling %s" % cls.DLL)
-        csc = SDK.csc()
-        compiler = subprocess.Popen([csc] + cls.FLAGS + ['/t:library', '/out:%s' % dll] + sources,
+    def compile(cls, sources, out):
+        log.red("Compiling %s" % cls.OUTPUT)
+        os.chdir(SRC_DIR)
+        compiler = subprocess.Popen([cls.COMPILER] + cls.FLAGS + ['/out:%s' % out] + sources,
                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout, stderr = compiler.communicate()
         retval = compiler.wait()
-        assert retval == 0, 'Failed to compile %s: the compiler said:\n %s' % (DLL, stderr)
+        assert retval == 0, 'Failed to compile %s: the compiler said:\n %s' % (cls.OUTPUT, stderr)
     compile = classmethod(compile)
 
+class MainStub(Target):
+    SOURCES = ['stub/main.il']
+    OUTPUT = 'main.exe'
+    COMPILER = SDK.ilasm()
 
-class FrameworkDLL(DLL):
+class FrameworkDLL(Target):
     SOURCES = ['pypylib.cs', 'll_os.cs']
-    DLL = 'pypylib-framework.dll'
-    FLAGS = ['/unsafe']
+    OUTPUT = 'pypylib-framework.dll'
+    FLAGS = ['/t:library', '/unsafe', '/r:main.exe']
+    DEPENDENCIES = [MainStub]
 
-class UnixDLL(DLL):
+class UnixDLL(Target):
     SOURCES = ['pypylib.cs', 'll_os-unix.cs']
-    DLL = 'pypylib-unix.dll'
-    FLAGS = ['/unsafe', '/r:Mono.Posix']
+    OUTPUT = 'pypylib-unix.dll'
+    FLAGS = ['/t:library', '/unsafe', '/r:Mono.Posix', '/r:main.exe']
+    DEPENDENCIES = [MainStub]
 
 
 def get_pypy_dll():
@@ -70,6 +86,10 @@ def get_pypy_dll():
     return dll
 
 if __name__ == '__main__':
-    if platform.system() != 'Windows':
-        shutil.copy(UnixDLL.get(), '.')
-    shutil.copy(FrameworkDLL.get(), '.')
+    if os.getcwd() == os.path.abspath('.'):
+        UnixDLL.get()
+        FrameworkDLL.get()
+    else:
+        shutil.copy(FrameworkDLL.get(), '.')
+        if platform.system() != 'Windows':
+            shutil.copy(UnixDLL.get(), '.')
