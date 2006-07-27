@@ -225,7 +225,9 @@ Core developers Armin Rigo, Samuele Pedroni and Carl Friedrich Bolz are giving a
 Scripting .NET with IronPython by Jim Hugunin
 ---------------------------------------------
 
-686mb: http://codespeak.net/download/pypy/video/ironpython-talk-v1.avi.torrent    
+372mb: http://codespeak.net/download/pypy/video/ironpython-talk-v2.avi.torrent    
+
+270mb: http://codespeak.net/download/pypy/video/ironpython-talk-320x240.avi.torrent
 
 .. image:: image/ironpython.jpg
    :scale: 100
