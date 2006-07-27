@@ -506,7 +506,7 @@ def parse_attraccess(tokens):
         elif isinstance(token, SlicelistObject):
             result = reduce_slice(result, token)
         else:
-            assert False, "Don't know how to handle index %s of %s" % (index, tokens)
+            assert False, "Don't know how to handle index %s of %s" % (index, len(tokens))
         index += 1
     return result
 
