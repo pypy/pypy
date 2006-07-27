@@ -7,7 +7,9 @@ Function.prototype.method = function (name, func) {
 function inherits(child, parent) {
     child.parent = parent;
     for (i in parent.prototype) {
-        child.prototype[i] = parent.prototype[i];
+        if (!child.prototype[i]) {
+            child.prototype[i] = parent.prototype[i];
+        }
     }
 }
 

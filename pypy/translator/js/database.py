@@ -37,6 +37,7 @@ class LowLevelDatabase(object):
         self.function_names = {} # graph --> real_name
         self.methods = {} # graph --> method_name
         self.consts = {}  # value --> const_name
+        self.reverse_consts = {}
         self.const_names = set()
         self.const_var = Variable("__consts")
         self.name_manager = JavascriptNameManager(self)
@@ -116,7 +117,7 @@ class LowLevelDatabase(object):
                 return self.consts[const]
             else:
                 self.consts[const]
-                return const
+                return self.reverse_consts[self.consts[const]]
         except KeyError:
             log("New const:%r"%value)
             if isinstance(value, ootype._string):
@@ -125,6 +126,7 @@ class LowLevelDatabase(object):
             if name in self.const_names:
                 name += '__%d' % len(self.consts)
             self.consts[const] = name
+            self.reverse_consts[name] = const
             self.const_names.add(name)
             self.pending_consts.append((const,name))
         if retval == 'name':
@@ -150,13 +152,17 @@ class LowLevelDatabase(object):
             while len(all_c) > 0:
                 const = all_c.pop()
                 if const not in rendered:
+                    to_render = True
+                    #if consts[const] == 'const_str__63':
+                    #    import pdb;pdb.set_trace()
                     if hasattr(const, 'depends_on') and const.depends_on:
                         for i in const.depends_on:
                             if i not in rendered and i not in dep_ok:
                                 assert i.depends is None or const in i.depends
+                                to_render = False
                                 continue
                     
-                    if (not hasattr(const, 'depends')) or (not const.depends) or const in dep_ok:
+                    if to_render and (not hasattr(const, 'depends')) or (not const.depends) or const in dep_ok:
                         yield const,consts[const]
                         rendered.add(const)
                     else:
@@ -426,15 +432,21 @@ class BuiltinConst(AbstractConst):
         ilasm.load_str(self.name)
 
 class DictConst(RecordConst):
+    def record_const(self, co):
+        #if isinstance(co, ootype._string) and co._str == 'fire':
+        #    import pdb;pdb.set_trace()
+        name = self.db.record_const(co, None, 'const')
+        if name is not None:
+            self.depends.add(name)
+            name.depends_on.add(self)
+    
     def record_fields(self):
         if not self.const:
             return
         
         for i in self.const._dict:
-            name = self.db.record_const(self.const._dict[i], None, 'const')
-            if name is not None:
-                self.depends.add(name)
-                name.depends_on.add(self)
+            self.record_const(i)
+            self.record_const(self.const._dict[i])
 
     def init_fields(self, ilasm, const_var, name):
         if not self.const:

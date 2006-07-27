@@ -14,7 +14,7 @@ conftest.option.browser = "default"
 from pypy.translator.js.test.runtest import compile_function
 from pypy.translator.js.modules._dom import get_document
 from pypy.translator.js.modules.xmlhttp import XMLHttpRequest
-from pypy.translator.js.modules.mochikit import log, logWarning, createLoggingPane
+from pypy.translator.js.modules.mochikit import log, logWarning, createLoggingPane, logDebug
 from pypy.translator.js.modules.bltns import date
 from pypy.translator.js.demo.jsdemo.bnb import BnbRootInstance
 
@@ -113,11 +113,34 @@ class SpriteManager(object):
             except KeyError:
                 self.hide_sprite(i)
     
+    def set_z_index(self, s_num, z):
+        self.sprites[s_num].style.zIndex = z
+    
     #def show_sprite(self, s):
     #    i = self.sprites[s]
     #    i.style.visibility = "visible"
 
 sm = SpriteManager()
+
+class KeyManager(object):
+    def __init__(self):
+        self.keymappings = {ord('D'):'right', ord('S'):'fire', ord('A'):'left', ord('W'):'up'}
+        self.key_to_bnb_down = {'right':0, 'left':1, 'fire':3, 'up':2}
+        self.key_to_bnb_up = {'right':4, 'left':5, 'fire':7, 'up':6}
+        self.queue = []
+            
+    def add_key_up(self, key):
+        self.queue.append(self.key_to_bnb_up[key])
+    
+    def add_key_down(self, key):
+        self.queue.append(self.key_to_bnb_down[key])
+
+    def get_keys(self):
+        retval = self.queue
+        self.queue = []
+        return retval
+    
+km = KeyManager()
 
 def appendPlayfield(msg):
     bgcolor = '#000000'
@@ -146,8 +169,10 @@ def process_message(msg):
         sm.add_icon(msg['icon_code'], msg['filename'])
     elif msg['type'] == 'ns':
         sm.add_sprite(msg['s'], msg['icon_code'], msg['x'], msg['y'])
+        sm.set_z_index(msg['s'], msg['z'])
     elif msg['type'] == 'sm':
         sm.move_sprite(msg['s'], msg['x'], msg['y'])
+        sm.set_z_index(msg['s'], msg['z'])
     elif msg['type'] == 'ds':
         sm.hide_sprite(msg['s'])
     elif msg['type'] == 'begin_clean_sprites':
@@ -156,6 +181,8 @@ def process_message(msg):
         sm.end_clean_sprites()
     elif msg['type'] == 'show_sprite':
         sm.show_sprite(msg['s'], msg['icon_code'], msg['x'], msg['y'])
+    elif msg['type'] == 'zindex':
+        sm.set_z_index(msg['s'], msg['z'])
     #elif msg['type'] == 'ss':
     #    sm.show_sprite(msg['s'])
     elif msg['type'] == 'player_icon' or msg['type'] == 'def_key' or \
@@ -186,69 +213,37 @@ def addPlayer(player_id):
 def keydown(key):
     #c = chr(int(key.keyCode)).lower()
     #c = int(key.keyCode)
-    c = key.keyCode
-    if c == 48: #ord('0'):
-        addPlayer(0)
-    elif c == 49: #ord('1'):  #bwah. should really work on being able to cast to int
-        addPlayer(1)
-    elif c == 50: #ord('2'):
-        addPlayer(2)
-    elif c == 51: #ord('3'):
-        addPlayer(3)
-    elif c == 52: #ord('4'):
-        addPlayer(4)
-    elif c == 53: #ord('5'):
-        addPlayer(5)
-    elif c == 54: #ord('6'):
-        addPlayer(6)
-    elif c == 55: #ord('7'):
-        addPlayer(7)
-    elif c == 56: #ord('8'):
-        addPlayer(8)
-    elif c == 57: #ord('9'):
-        addPlayer(9)
-    elif c == 68: #ord('D'):  #right
-        BnbRootInstance.key(player.id, 0, ignore_dispatcher)
-        logKey('start right')
-    elif c == 83: #ord('S'):  #left
-        BnbRootInstance.key(player.id, 1, ignore_dispatcher)
-        logKey('start left')
-    elif c == 69: #ord('E'):  #up
-        BnbRootInstance.key(player.id, 2, ignore_dispatcher)
-        logKey('start up')
-    elif c == 88: #ord('X'):  #fire
-        BnbRootInstance.key(player.id, 3, ignore_dispatcher)
-        logKey('start fire')
-    else:
+    try:
+        logWarning("Keydown pressed")
+        c = key.keyCode
+        if c > ord('0') and c < ord('9'):
+            addPlayer(int(chr(c)))
+        #for i in km.keymappings:
+        #    log(str(i))
+        if c in km.keymappings:
+            logWarning('adding' + str(c))
+            km.add_key_down(km.keymappings[c])
+        #else:
         logWarning('unknown keydown: ' + str(c))
-
+    except Exception, e:
+        log(str(e))
 
 def keyup(key):
     c = key.keyCode
-    if c == 48 or c == 49 or c == 50 or c == 51 or c == 52 or\
-       c == 53 or c == 54 or c == 55 or c == 56 or c == 57: #XXX c in (...) didn't work
+    if c > ord('0') and c < ord('9'):
         pass    #don't print warning
-    elif c == 68: #ord('D'):  #right
-        BnbRootInstance.key(player.id, 4, ignore_dispatcher)
-        logKey('stop right')
-    elif c == 83: #ord('S'):  #left
-        BnbRootInstance.key(player.id, 5, ignore_dispatcher)
-        logKey('stop left')
-    elif c == 69: #ord('E'):  #up
-        BnbRootInstance.key(player.id, 6, ignore_dispatcher)
-        logKey('stop up')
-    elif c == 88: #ord('X'):  #fire
-        BnbRootInstance.key(player.id, 7, ignore_dispatcher)
-        logKey('stop fire')
+    elif c in km.keymappings:
+        km.add_key_up(km.keymappings[c])
     else:
         logWarning('unknown keyup: ' + str(c))
-
+    
 def ignore_dispatcher(msgs):
     pass
 
 def bnb_dispatcher(msgs):
-    BnbRootInstance.get_message(bnb_dispatcher)
-
+    #a = [str(i) for i in q]
+    #logDebug(str(a))
+    BnbRootInstance.get_message(player.id, ":".join([str(i) for i in km.get_keys()]), bnb_dispatcher)
     #sm_restart = int(msgs['add_data'][0]['sm_restart'])
     #if sm_restart == 123:
     #    log("sm_restart")
@@ -259,12 +254,12 @@ def bnb_dispatcher(msgs):
     #    get_document().body.removeChild(playfield)
     #    appendPlayfieldXXX()
 
-    count = int(msgs['add_data'][0]['n'])
-    if count != player.prev_count + 1:
-        logWarning("incorrect response order, expected " + str(player.prev_count+1) + ' got ' + str(count))
-        sm.frames.append(msgs)
-    player.prev_count = count
-    #else:
+##    count = int(msgs['add_data'][0]['n'])
+##    if count != player.prev_count + 1:
+##        logWarning("incorrect response order, expected " + str(player.prev_count+1) + ' got ' + str(count))
+##        sm.frames.append(msgs)
+##    player.prev_count = count
+##        #else:
     #    player.prev_count = count
     #    for i in sm.frames:
     #        render_frame(i)
@@ -277,14 +272,14 @@ def render_frame(msgs):
     get_document().title = str(stats.n_sprites) + " sprites " + str(stats.fps)
 
 def session_dispatcher(msgs):
-    BnbRootInstance.get_message(bnb_dispatcher)
+    BnbRootInstance.get_message(player.id, "", bnb_dispatcher)
 
 def run_bnb():
     def bnb():
         genjsinfo = get_document().getElementById("genjsinfo")
         get_document().body.removeChild(genjsinfo)
         createLoggingPane(True)
-        log("keys: [0-9] to select player, [esdx] to walk around")
+        log("keys: [0-9] to select player, [wsad] to walk around")
         BnbRootInstance.initialize_session(session_dispatcher)
         get_document().onkeydown = keydown
         get_document().onkeyup   = keyup

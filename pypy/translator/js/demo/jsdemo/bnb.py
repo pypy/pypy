@@ -23,6 +23,7 @@ class SpriteManager(object):
         self.last_seen = set()
         self.seen = set()
         self.num_frame = 0
+        self.z_index = {}
     
     def def_icon(self, icon_code):
         self.sprite_sets[icon_code] = []
@@ -86,11 +87,11 @@ class BnbRoot(Root, BasicExternal):
     _render_xmlhttp = True
     
     _methods = {
-        'get_message'  : MethodDesc( [('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
+        'get_message'  : MethodDesc( [('player_id', -1), ('keys' , "aaa"), ('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
         'add_player'   : MethodDesc( [('player_id', 0), ('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
         'remove_player': MethodDesc( [('player_id', 0), ('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
         'player_name'  : MethodDesc( [('player_id', 0), ('name', 'PyPy player'), ('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
-        'key'          : MethodDesc( [('player_id', 0), ('keynum', '0'), ('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
+#        'key'          : MethodDesc( [('player_id', 0), ('keynum', '0'), ('callback', (lambda : None))] , {'aa':[{'aa':'bb'}]}),
         'initialize_session' : MethodDesc( [('callback', (lambda : None))], {'aa':'bb'}),
     }
     
@@ -146,42 +147,10 @@ class BnbRoot(Root, BasicExternal):
         self.sessionSocket().send(message(CMSG_REMOVE_PLAYER, int(player_id)))
         return dict()
 
-    @turbogears.expose(format='json')
-    def key(self, player_id, keynum):
-        self.sessionSocket().send(message(CMSG_KEY, int(player_id), int(keynum)))
-        return dict()
-
-    @turbogears.expose(format='json')
-    def key0(self):
-        return self.key(0, 0)
-
-    @turbogears.expose(format='json')
-    def key1(self):
-        return self.key(0, 1)
-
-    @turbogears.expose(format='json')
-    def key2(self):
-        return self.key(0, 2)
-
-    @turbogears.expose(format='json')
-    def key3(self):
-        return self.key(0, 3)
-
-    @turbogears.expose(format='json')
-    def key4(self):
-        return self.key(0, 4)
-
-    @turbogears.expose(format='json')
-    def key5(self):
-        return self.key(0, 5)
-
-    @turbogears.expose(format='json')
-    def key6(self):
-        return self.key(0, 6)
-
-    @turbogears.expose(format='json')
-    def key7(self):
-        return self.key(0, 7)
+##    @turbogears.expose(format='json')
+##    def key(self, player_id, keynum):
+##        self.sessionSocket().send(message(CMSG_KEY, int(player_id), int(keynum)))
+##        return dict()
 
     @turbogears.expose(format='json')
     def close(self):
@@ -218,7 +187,7 @@ class BnbRoot(Root, BasicExternal):
         return dict()
 
     @turbogears.expose(format="json")
-    def get_message(self):
+    def get_message(self, player_id, keys):
         #XXX hangs if not first sending CMSG_PING!
         sm   = self.serverMessage()
         data = sm.data
@@ -272,19 +241,31 @@ class BnbRoot(Root, BasicExternal):
 ##            new_sprite, s_num = sprite_manager.get_sprite(*next)
 ##            to_append.append({'type':'show_sprite', 's':s_num, 'icon_code':str(next[0]), 'x':str(next[1]), 'y':str(next[2])})
         
-        def get_partial_frame(next):
+        if player_id != -1:
+            if keys:
+                for i in keys.split(":"):
+                    self.sessionSocket().send(message(CMSG_KEY, int(player_id), int(i)))
+                
+        def get_partial_frame(next, z_num):
             new_sprite, s_num = sprite_manager.get_sprite(*next)
             if new_sprite == 'new':
-                to_append.append({'type':'ns', 's':s_num, 'icon_code':str(next[0]), 'x':str(next[1]), 'y':str(next[2])})
+                to_append.append({'type':'ns', 's':s_num, 'icon_code':str(next[0]), 'x':str(next[1]), 'y':str(next[2]), 'z':z_num})
+                sprite_manager.z_index[s_num] = z_num
             elif new_sprite == 'move':
-                to_append.append({'type':'sm', 's':str(s_num), 'x':str(next[1]), 'y':str(next[2])})
-
+                to_append.append({'type':'sm', 's':str(s_num), 'x':str(next[1]), 'y':str(next[2]), 'z':z_num})
+                sprite_manager.z_index[s_num] = z_num
+            else:
+                if sprite_manager.z_index[s_num] != z_num:
+                    to_append.append({'type':'zindex', 's':s_num, 'z':z_num})
+                    sprite_manager.z_index[s_num] = z_num
+            return s_num
+        
+        z_num = 0
         for i, msg in enumerate(messages):
             if msg['type'] == PMSG_INLINE_FRAME:
                 for next in msg['sprites']:
-                    #to_append.append({'type':'ns', 's':self.num, 'icon_code':str(next[0]), 'x':str(next[1]), 'y':str(next[2])})
-                    #self.num += 1
-                    get_partial_frame(next)
+                    s_num = get_partial_frame(next, z_num)
+                    z_num += 1
                 del messages[i]
 
         empty_frame = False
