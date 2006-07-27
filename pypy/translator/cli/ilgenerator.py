@@ -95,6 +95,9 @@ class IlasmGenerator(object):
         if is_entrypoint:
             self.code.writeline('.entrypoint')
 
+        self.code.writeline('.maxstack 32')
+
+
     def end_function(self):
         self.code.closeblock()
 
