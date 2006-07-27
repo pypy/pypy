@@ -21,7 +21,8 @@ class _Call(MicroInstruction):
             generator.load(func_arg)
 
         if primitive:
-            func_name = '[pypylib]pypy.builtin.Builtin::%s' % graph.func.func_name
+            _, module = graph.func.__module__.rsplit('.', 1)
+            func_name = '[pypylib]pypy.builtin.%s::%s' % (module, graph.func.func_name)
             generator.call_graph(graph, func_name)
         else:
             generator.call_graph(graph)

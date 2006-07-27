@@ -1,3 +1,4 @@
+import platform
 import os, stat
 import py
 from pypy.tool import udir
@@ -7,12 +8,18 @@ from pypy.rpython.test.test_rbuiltin import BaseTestRbuiltin
 def skip_os(self):
     py.test.skip("CLI doesn't support the os module, yet")
 
+def skip_win():
+    if platform.system() == 'Windows':
+        py.test.skip("Doesn't work on Windows, yet")
+
 class TestCliBuiltin(CliTest, BaseTestRbuiltin):
-    test_os_getcwd = skip_os
     test_os_dup = skip_os
     test_os_path_exists = skip_os
     test_os_isdir = skip_os
-    test_os_read = skip_os
+
+    def test_os_read(self):
+        skip_win()
+        BaseTestRbuiltin.test_os_read(self)
 
     # the following tests can't be executed with gencli because they
     # returns file descriptors, and cli code is executed in another
@@ -26,7 +33,7 @@ class TestCliBuiltin(CliTest, BaseTestRbuiltin):
         pass
 
     def test_os_open_write(self):
-        py.test.skip("Temporarily disabled")
+        skip_win()
         tmpdir = str(udir.udir.join("os_write_test"))
         def fn():
             fd = os.open(tmpdir, os.O_WRONLY|os.O_CREAT, 0777)            
@@ -36,7 +43,7 @@ class TestCliBuiltin(CliTest, BaseTestRbuiltin):
         assert file(tmpdir).read() == 'hello world'
 
     def test_os_stat(self):
-        py.test.skip("Temporarily disabled")
+        skip_win()
         def fn():
             return os.stat('.')[0]
         mode = self.interpret(fn, [])
