@@ -281,22 +281,3 @@ def to_optparse(config, useoptions, parser=None):
             option.add_optparse_option(chunks, parser, subconf)
     return parser
 
-def get_paths(config, currpath=None):
-    """returns a list of all paths in a config
-    
-        walks through the config recursively
-    """
-    if currpath is None:
-        currpath = []
-    paths = []
-    for attr, value in config.__dict__.iteritems():
-        if attr.startswith('_'):
-            continue
-        if isinstance(value, Config):
-            currpath.append(attr)
-            paths += get_paths(value, currpath)
-            currpath.pop()
-        else:
-            paths.append('.'.join(currpath + [attr]))
-    return paths
-
