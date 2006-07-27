@@ -53,6 +53,28 @@ class TestDict(object):
         
         fn = compile_function(dict_iter, [])
         assert fn() == dict_iter()
+    
+    def test_const_dict(self):
+        c = {'aa':'asd', 'ab':'ds', 'ac':'asddsa', 'ad':'sadsad', 'ae':'sadsa'}
+            
+        def const_dict(ind):
+            return c[ind]
+        
+        fn = compile_function(const_dict, [str])
+        for i in c.keys():
+            assert fn(i) == const_dict(i)
+    
+    def test_sophisticated_const(self):
+        c = {'aa':1, 'bb':2, 'cc':3, 'dd':4}
+        c1 = {'fff' : 'aa', 'zzz' : 'bb', 'xxx' : 'cc', 'bbb' : 'dd'}
+        c2 = {'xxx' : 'aa', 'kkk' : 'bb', 'aaaa' : 'cc', 'www' : 'dd'}
+        def soph_const(i1, i2):
+            return c1[i1] + c2[i2]
+        
+        fn = compile_function(soph_const, [str, str])
+        for x in c1.keys():
+            for y in c2.keys():
+                assert fn(x, y) == soph_const(x, y)
 
 class TestTuple(object):
     def test_f1(self):

@@ -58,6 +58,8 @@ class compile_function(object):
     def _conv(self, v):
         #if isinstance(v, str):
         #    return "{hash:0, chars:'%s'}" % v
+        if isinstance(v, str):
+            return repr(v)
         return str(v).lower()
 
     def __call__(self, *kwds):

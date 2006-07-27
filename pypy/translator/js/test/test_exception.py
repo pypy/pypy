@@ -269,3 +269,16 @@ def no_magic():
 def restore_magic(saved):
     if saved:
         py.magic.invoke(assertion=True)
+
+def test_always_raise():
+    def function_raise2(i):
+        if i == 3:
+            raise IndexError()
+        else:
+            pass
+    
+    def function_raise1(i):
+        function_raise2(i)
+    
+    fn = compile_function(function_raise1, [int])
+    fn()
