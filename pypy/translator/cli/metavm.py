@@ -3,6 +3,7 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.translator.oosupport.metavm import Generator, InstructionList, MicroInstruction,\
      PushAllArgs, StoreResult
 from pypy.translator.cli.comparer import EqualityComparer
+from pypy.translator.cli.cts import WEAKREF
 
 STRING_HELPER_CLASS = '[pypylib]pypy.runtime.String'
 
@@ -136,7 +137,7 @@ class _CastWeakAdrToPtr(MicroInstruction):
         RESULTTYPE = op.result.concretetype
         resulttype = generator.cts.lltype_to_cts(RESULTTYPE)
         generator.load(op.args[0])
-        generator.ilasm.call_method('object class [mscorlib]System.WeakReference::get_Target()', True)
+        generator.ilasm.call_method('object class %s::get_Target()' % WEAKREF, True)
         generator.ilasm.opcode('castclass', resulttype)
 
 class MapException(MicroInstruction):

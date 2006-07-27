@@ -32,7 +32,6 @@ class TestCliObjectModel(CliTest, BaseTestObjectModel):
 ##        assert isinstance(self.interpret(f, []), int)
 
     def test_weakref_const(self):
-        py.test.skip('Skip due to a mono bug')
         class A(object):
             def __init__(self):
                 self.x = 42

@@ -3,6 +3,7 @@ from pypy.translator.cli.metavm import  Call, CallMethod, RuntimeNew, \
      CastWeakAdrToPtr, MapException
 from pypy.translator.oosupport.metavm import PushArg, PushAllArgs, StoreResult, InstructionList,\
     New
+from pypy.translator.cli.cts import WEAKREF
 
 # some useful instruction patterns
 Not = ['ldc.i4.0', 'ceq']
@@ -48,7 +49,7 @@ opcodes = {
     'direct_call':              [Call],
     'indirect_call':            [IndirectCall],
 
-    'cast_ptr_to_weakadr':      [PushAllArgs, 'newobj instance void class [mscorlib]System.WeakReference::.ctor(object)'],
+    'cast_ptr_to_weakadr':      [PushAllArgs, 'newobj instance void class %s::.ctor(object)' % WEAKREF],
     'cast_weakadr_to_ptr':      [CastWeakAdrToPtr],
     'gc__collect':              'call void class [mscorlib]System.GC::Collect()',
     'resume_point':             Ignore,

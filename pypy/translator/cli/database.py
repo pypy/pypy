@@ -646,11 +646,11 @@ class WeakRefConst(AbstractConst):
 
     def instantiate(self, ilasm):
         ilasm.opcode('ldnull')
-        ilasm.new('instance void class [mscorlib]System.WeakReference::.ctor(object)')
+        ilasm.new('instance void %s::.ctor(object)' % self.get_type())
 
     def init(self, ilasm):
         if self.value is not None:
             AbstractConst.load(self.db, self.value._TYPE, self.value, ilasm)        
-            ilasm.call_method('void class [mscorlib]System.WeakReference::set_Target(object)', True)
+            ilasm.call_method('void %s::set_Target(object)' % self.get_type(), True)
         else:
             ilasm.opcode('pop')

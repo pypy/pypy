@@ -113,6 +113,28 @@ namespace pypy.runtime
         }
     }
 
+    // this is a simple wrapper around System.WeakReference, whose
+    // interface is the same as here. This is a workaround for a Mono
+    // bug that causes a crash when calling set_Target.
+    public class WeakReference
+    {
+        System.WeakReference weakref;
+        public WeakReference(object obj)
+        {
+            set_Target(obj);
+        }
+
+        public virtual void set_Target(object obj)
+        {
+            this.weakref = new System.WeakReference(obj);
+        }
+
+        public virtual object get_Target()
+        {
+            return this.weakref.Target;
+        }
+    }
+
     public class StringBuilder
     {
         System.Text.StringBuilder builder = new System.Text.StringBuilder();
