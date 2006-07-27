@@ -33,8 +33,8 @@ http://www.divx.com/divx/windows/download/index.php
 PyPy Video Torrent Downloads 
 ----------------------------
 
-These videos are published under the Creative Commons Attribution License 2.0:
-http://creativecommons.org/licenses/by/2.0/
+The rights of these videos are owned by merlinux gmbh and are published under the Creative Commons Attribution License 2.0 Germany:
+http://creativecommons.org/licenses/by/2.0/de/
 
 
 Trailer: PyPy at the PyCon
