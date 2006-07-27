@@ -1,5 +1,8 @@
 from pypy.interpreter import gateway, baseobjspace
 
+# commonly imported there, used from types, variable, thread
+from pypy.module._stackless.clonable import ClonableCoroutine
+
 import os
 
 NO_DEBUG_INFO = [False]

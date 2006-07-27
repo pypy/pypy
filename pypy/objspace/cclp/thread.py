@@ -1,12 +1,9 @@
 from pypy.interpreter import gateway, baseobjspace, argument
 from pypy.interpreter.error import OperationError
 
-from pypy.module._stackless.coroutine import _AppThunk
-from pypy.module._stackless.coroutine import Coroutine # XXX (type of main coro)
-from pypy.module._stackless.interp_clonable import Coroutine, ClonableCoroutine
-
 from pypy.objspace.cclp.types import W_Var, W_Future, W_FailedValue, aliases
-from pypy.objspace.cclp.misc import w, v
+from pypy.objspace.cclp.misc import w, v, ClonableCoroutine
+from pypy.module._stackless.coroutine import _AppThunk
 
 #-- Singleton scheduler ------------------------------------------------
 
@@ -66,7 +63,6 @@ class Scheduler(object):
             thread.next = r
 
     def remove_thread(self, thread):
-        #XXX don't we need to notify the consumers ?
         w(".. REMOVING", str(id(thread)))
         assert thread not in self._blocked
         del self._traced[thread]
@@ -75,7 +71,8 @@ class Scheduler(object):
         l.next = r
         r.prev = l
         if r == thread:
-            w("DUH !")
+            import traceback
+            traceback.print_exc()
             self.display_head()
         thread.next = thread.next = None
         return thread
@@ -143,7 +140,7 @@ class Scheduler(object):
     def add_to_blocked_on(self, w_var, uthread):
         w(".. we BLOCK thread", str(id(uthread)), "on var", str(w_var))
         assert isinstance(w_var, W_Var)
-        assert isinstance(uthread, Coroutine)
+        assert isinstance(uthread, ClonableCoroutine)
         assert uthread not in self._blocked
         if w_var in self._blocked_on:
             blocked = self._blocked_on[w_var]
@@ -187,8 +184,10 @@ class Scheduler(object):
         w(str([id(thr) for thr in blocked]))
         for thr in blocked: del self._blocked[thr]
 
+    # Logic Variables tracing, helps exception propagation
+    # amongst threads
     def trace_vars(self, thread, lvars):
-        assert isinstance(thread, Coroutine)
+        assert isinstance(thread, ClonableCoroutine)
         assert isinstance(lvars, list)
         w(".. TRACING logic vars.", str(lvars), "for", str(id(thread)))
         #assert not self._traced.has_key(thread) doesn't translate 

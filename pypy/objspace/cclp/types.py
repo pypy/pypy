@@ -1,5 +1,6 @@
 from pypy.interpreter import baseobjspace
-from pypy.module._stackless.interp_clonable import Coroutine, ClonableCoroutine
+
+from pypy.objspace.cclp.misc import w, ClonableCoroutine
 
 W_Root = baseobjspace.W_Root
 
@@ -24,6 +25,8 @@ class W_Future(W_Var):
     def __init__(w_self, space):
         W_Var.__init__(w_self, space)
         w_self.client = ClonableCoroutine.w_getcurrent(space)
+        w("FUT", str(w_self))
+
 
 class W_FailedValue(W_Root, object):
     """wraps an exception raised in some coro, to be re-raised in

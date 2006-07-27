@@ -4,12 +4,9 @@ from pypy.objspace.std.model import StdObjSpaceMultiMethod
 from pypy.objspace.std.listobject import W_ListObject, W_TupleObject
 from pypy.objspace.std.dictobject import W_DictObject
 
-from pypy.objspace.cclp.misc import w, v
-from pypy.objspace.cclp.types import deref
+from pypy.objspace.cclp.misc import w, v, ClonableCoroutine
 from pypy.objspace.cclp.thread import scheduler
-from pypy.objspace.cclp.types import W_Var, W_Future, W_FailedValue
-
-from pypy.module._stackless.interp_clonable import Coroutine, ClonableCoroutine
+from pypy.objspace.cclp.types import deref, W_Var, W_Future, W_FailedValue
 
 
 W_Root = baseobjspace.W_Root
@@ -32,7 +29,8 @@ def wait__Var(space, w_var):
         scheduler[0].unblock_byneed_on(w_var)
         scheduler[0].add_to_blocked_on(w_var, ClonableCoroutine.w_getcurrent(space))
         scheduler[0].schedule()
-    assert space.is_true(space.is_bound(w_var))
+        print "pooooopp ?", id(ClonableCoroutine.w_getcurrent(space))
+        assert space.is_true(space.is_bound(w_var))
     w_ret = w_var.w_bound_to
     if isinstance(w_ret, W_FailedValue):
         w(".. reraising Failed Value")

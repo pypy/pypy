@@ -210,6 +210,7 @@ class AppTest_LogicThreads(object):
         Y = future(poop, X)
         unify(X, 42)
         assert Y == 43
+        print "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAa"
         assert sched_stats()['threads'] == 1
 
         X = newvar()
