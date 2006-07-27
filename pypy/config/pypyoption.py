@@ -1,6 +1,6 @@
 import py
 from pypy.config.config import OptionDescription, BoolOption, IntOption
-from pypy.config.config import ChoiceOption, to_optparse, Config
+from pypy.config.config import ChoiceOption, to_optparse, Config, get_paths
 
 modulepath = py.magic.autopath().dirpath().dirpath().join("module")
 all_modules = [p.basename for p in modulepath.listdir()
@@ -79,11 +79,7 @@ pypy_optiondescription = OptionDescription("pypy", [
 
 if __name__ == '__main__':
     config = Config(pypy_optiondescription)
-    parser = to_optparse(config, ["objspace.name",
-                                  "objspace.std.*",
-                                  "objspace.std.withsmallint",
-                                  "objspace.std.withprebuiltint",
-                                  "objspace.usemodules",
-                                  "objspace.std.prebuiltintfrom",])
+    paths = get_paths(config)
+    parser = to_optparse(config, paths)
     option, args = parser.parse_args()
     print config
