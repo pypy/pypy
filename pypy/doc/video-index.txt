@@ -30,12 +30,14 @@ or use the original divx codec (for Windows):
 http://www.divx.com/divx/windows/download/index.php
 
 
-PyPy Video Torrent Downloads 
+Copyrights and Licensing 
 ----------------------------
 
-The rights of these videos are owned by merlinux gmbh and are published under the Creative Commons Attribution License 2.0 Germany:
-http://creativecommons.org/licenses/by/2.0/de/
+The following videos are copyrighted by merlinux gmbh and 
+are published under the Creative Commons Attribution 
+License 2.0 Germany: http://creativecommons.org/licenses/by/2.0/de/
 
+If you need another license, don't hesitate to contact us. 
 
 Trailer: PyPy at the PyCon
 --------------------------
