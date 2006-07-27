@@ -211,7 +211,7 @@ class InstanceRepr(AbstractInstanceRepr):
                         # attrdef is for a method
                         if mangled in allclassattributes:
                             raise TyperError("method overrides class attribute")
-                        allmethods[mangled] = name, s_value
+                        allmethods[mangled] = name, self.classdef.lookup_filter(s_value)
                         continue
                 # class attribute
                 if mangled in allmethods:
