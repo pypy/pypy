@@ -260,30 +260,6 @@ def ioctl(space, w_fd, op, w_arg=0, mutate_flag=True):
             raise OperationError(space.w_IOError,
                 space.wrap(_get_error_msg()))
         return space.wrap(rv)
-    # elif _is_mutable(arg):
-    #     arg = space.str_w(w_arg)
-    #     buf = create_string_buffer(arg)
-    #     
-    #     # # AFAIK array.array is the only mutable buffer in Python
-    #     # try:
-    #     #     buf = create_string_buffer(arg.tostring())
-    #     # except AttributeError:
-    #     #     buf = create_string_buffer(str(arg))
-    # 
-    #     if not mutate_flag:
-    #         if len(arg) > IOCTL_BUFSZ:
-    #             raise OperationError(space.w_ValueError,
-    #                 space.wrap("ioctl string arg too long"))
-    #     
-    #     rv = libc.ioctl(fd, op, buf)
-    #     if rv < 0:
-    #         raise OperationError(space.w_IOError,
-    #             space.wrap(_get_error_msg()))
-    # 
-    #     if mutate_flag:
-    #         return space.wrap(rv)
-    #     else:
-    #         return space.wrap(buf.value)
     elif space.is_w(space.type(w_arg), space.w_str): # immutable
         arg = space.str_w(w_arg)
         if len(arg) > IOCTL_BUFSZ:
@@ -298,6 +274,33 @@ def ioctl(space, w_fd, op, w_arg=0, mutate_flag=True):
                 space.wrap(_get_error_msg()))
         return space.wrap(buf.value)
     else:
-        raise OperationError(space.w_TypeError,
-            space.wrap("an integer or a buffer required"))
+        try:
+            # array.array instances
+            arg = space.call_method(w_arg, "tostring")
+            buf = create_string_buffer(len(arg))
+        except:
+            raise OperationError(space.w_TypeError,
+                space.wrap("an integer or a buffer required"))
+        
+        if not mutate_flag:
+            if len(arg) > IOCTL_BUFSZ:
+                raise OperationError(space.w_ValueError,
+                    space.wrap("ioctl string arg too long"))
+        
+        rv = ioctl_str(fd, op, buf)
+        if rv < 0:
+            raise OperationError(space.w_IOError,
+                space.wrap(_get_error_msg()))
+        
+        if mutate_flag:
+            return space.wrap(rv)
+        else:
+            return space.wrap(buf.value)
+        
+    #     # # AFAIK array.array is the only mutable buffer in Python
+    #     # try:
+    #     #     buf = create_string_buffer(arg.tostring())
+    #     # except AttributeError:
+    #     #     buf = create_string_buffer(str(arg))
+    # 
 ioctl.unwrap_spec = [ObjSpace, W_Root, int, W_Root, int]
