@@ -5,12 +5,15 @@ exec 'import %s as posix' % os.name
 
 def setup_module(module):
     testf = udir.join('test.txt')
-    testfile = testf.open('w')
-    testfile.write('This is a test')
-    testfile.close()
     module.path = testf.strpath
 
 class BaseTestPosix(BaseRtypingTest):
+
+    def setup_method(self, meth):
+        # prepare/restore the file before each test
+        testfile = open(path, 'wb')
+        testfile.write('This is a test')
+        testfile.close()
 
     def test_open(self):
         def f():
