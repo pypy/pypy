@@ -9,6 +9,7 @@ from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Void, Bool, Float
 from pypy.rpython.lltypesystem.lltype import SignedLongLong, UnsignedLongLong, Primitive
 from pypy.rpython.lltypesystem.lltype import Char, UniChar
 from pypy.rpython.ootypesystem.ootype import String, _string, List, StaticMethod
+from pypy.rpython.objectmodel import Symbolic
 
 from pypy.translator.js.log import log
 
@@ -107,7 +108,9 @@ class JTS(object):
             if s != "'\''":
                 s.replace("'", '"')
             val = s
-        elif isinstance(_type,Primitive):
+        elif isinstance(v, Symbolic):
+            val = v.expr
+        elif isinstance(_type, Primitive):
             #log("Type: %r"%_type)
             val = str(v)
         else:

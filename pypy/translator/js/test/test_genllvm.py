@@ -434,3 +434,14 @@ def test_me():
     
     fn = compile_function(some_test, [])
     assert fn() == some_test()
+
+def test_symbolic():
+    from pypy.rpython.objectmodel import malloc_zero_filled
+    
+    def symbolic1():
+        if malloc_zero_filled:
+            return 3
+        return 2
+    
+    fn = compile_function(symbolic1, [])
+    assert fn() == 2
