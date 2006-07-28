@@ -834,6 +834,9 @@ clean:
 debug:
 \tmake CFLAGS="-g $(CFLAGS)"
 
+debug_exc:
+\tmake CFLAGS="-g -DDO_LOG_EXC $(CFLAGS)"
+
 profile:
 \tmake CFLAGS="-pg $(CFLAGS)" LDFLAGS="-pg $(LDFLAGS)"
 

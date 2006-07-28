@@ -58,6 +58,7 @@ int LL_os_dup(int fd);
 void LL_os_dup2(int old_fd, int new_fd);
 RPySTAT_RESULT* _stat_construct_result_helper(STRUCT_STAT st);
 RPySTAT_RESULT* LL_os_stat(RPyString * fname);
+RPySTAT_RESULT* LL_os_lstat(RPyString * fname);
 RPySTAT_RESULT* LL_os_fstat(long fd);
 RPyPIPE_RESULT* LL_os_pipe(void);
 long LL_os_lseek(long fd, long pos, long how);
