@@ -40,6 +40,7 @@ class CConfig:
     #include <openssl/bio.h>
     #include <sys/types.h>
     #include <sys/time.h>
+    #include <sys/poll.h>
     """
     OPENSSL_VERSION_NUMBER = ctypes_platform.ConstantInteger(
         "OPENSSL_VERSION_NUMBER")
@@ -61,6 +62,11 @@ class CConfig:
     FD_SETSIZE = ctypes_platform.ConstantInteger("FD_SETSIZE")
     SSL_CTRL_OPTIONS = ctypes_platform.ConstantInteger("SSL_CTRL_OPTIONS")
     BIO_C_SET_NBIO = ctypes_platform.ConstantInteger("BIO_C_SET_NBIO")
+    pollfd = ctypes_platform.Struct("struct pollfd",
+        [("fd", c_int), ("events", c_short), ("revents", c_short)])
+    nfds_t = ctypes_platform.SimpleType("nfds_t", c_uint)
+    POLLOUT = ctypes_platform.ConstantInteger("POLLOUT")
+    POLLIN = ctypes_platform.ConstantInteger("POLLIN")
 
 class cConfig:
     pass
@@ -82,6 +88,11 @@ SSL_ERROR_SSL = cConfig.SSL_ERROR_SSL
 FD_SETSIZE = cConfig.FD_SETSIZE
 SSL_CTRL_OPTIONS = cConfig.SSL_CTRL_OPTIONS
 BIO_C_SET_NBIO = cConfig.BIO_C_SET_NBIO
+POLLOUT = cConfig.POLLOUT
+POLLIN = cConfig.POLLIN
+
+pollfd = cConfig.pollfd
+nfds_t = cConfig.nfds_t
 
 constants = {}
 constants["SSL_ERROR_ZERO_RETURN"] = PY_SSL_ERROR_ZERO_RETURN
@@ -131,6 +142,8 @@ libssl.SSL_get_error.restype = c_int
 have_poll = False
 if hasattr(libc, "poll"):
     have_poll = True
+    libc.poll.argtypes = [POINTER(pollfd), nfds_t, c_int]
+    libc.poll.restype = c_int
 libssl.ERR_get_error.restype = c_int
 libssl.ERR_error_string.argtypes = [c_int, c_char_p]
 libssl.ERR_error_string.restype = c_char_p
@@ -324,16 +337,16 @@ def check_socket_and_wait_for_timeout(space, w_sock, writing):
     # Prefer poll, if available, since you can poll() any fd
     # which can't be done with select().
     if have_poll:
-        poller = select.poll()
+        _pollfd = pollfd()
+        _pollfd.fd = sock_fd
         if writing:
-            event = select.POLLOUT
+            _pollfd.events = POLLOUT
         else:
-            event = select.POLLIN
-        poller.register(sock_fd, event)
+            _pollfd.events = POLLIN
         # socket's timeout is in seconds, poll's timeout in ms
         timeout = int(sock_timeout * 1000 + 0.5)
-        res = poller.poll(timeout)
-        if not res:
+        rc = libc.poll(byref(_pollfd), 1, timeout)
+        if rc == 0:
             return SOCKET_HAS_TIMED_OUT
         else:
             return SOCKET_OPERATION_OK
