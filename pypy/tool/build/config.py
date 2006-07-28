@@ -1,9 +1,11 @@
 import py
 
+packageparent = py.magic.autopath().dirpath().dirpath().dirpath().dirpath()
+
 # general settings, used by both server and client
-server = 'johnnydebris.net'
+server = 'localhost'
 port = 12321
-path = ['/home/johnny/temp/pypy-dist'] 
+path = [str(packageparent)]
 
 # configuration of options for client and startcompile
 from pypy.config.config import Config, to_optparse
@@ -21,7 +23,7 @@ compile_config = Config(pypy_optiondescription)
 
 # settings for the server
 projectname = 'pypy'
-buildpath = '/home/johnny/temp/pypy-dist/pypy/tool/build/builds'
+buildpath = packageparent.join('/pypy/tool/build/builds')
 mailhost = '127.0.0.1'
 mailport = 25
 mailfrom = 'johnny@johnnydebris.net'

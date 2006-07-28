@@ -14,10 +14,10 @@ def issubdict(d1, d2):
         if not k in d2:
             return False
         d2v = d2[k]
-        if isinstance(v, dict):
+        if isinstance(v, dict) and isinstance(d2v, dict):
             if not issubdict(v, d2v):
                 return False
-        elif isinstance(v, list):
+        elif isinstance(v, list) and isinstance(d2v, list):
             if not set(v).issubset(set(d2v)):
                 return False
         elif v != d2v:
@@ -191,8 +191,9 @@ class PPBServer(object):
         """
         path = self._requeststorage.request(requester_email, info)
         if path is not None:
+            pathstr = str(path)
             self._channel.send('already a build for this info available')
-            return (True, path)
+            return (True, pathstr)
         for client in self._clients:
             if client.busy_on == info:
                 self._channel.send('build for %r currently in progress' % 
@@ -326,9 +327,11 @@ initcode = """
 
             server.serve_forever()
         except:
-            import sys
+            import sys, traceback
             exc, e, tb = sys.exc_info()
             channel.send(str(exc) + ' - ' + str(e))
+            for line in traceback.format_tb(tb):
+                channel.send(line[:1])
             del tb
     finally:
         channel.close()

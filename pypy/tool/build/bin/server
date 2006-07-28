@@ -6,10 +6,13 @@ from pypy.tool.build import config
 from py.execnet import SshGateway
 
 if __name__ == '__main__':
-    from py.execnet import SshGateway
+    from py.execnet import SshGateway, PopenGateway
     from pypy.tool.build.server import init
 
-    gw = SshGateway(config.server)
+    if config.server in ['localhost', '127.0.0.1']:
+        gw = PopenGateway()
+    else:
+        gw = SshGateway(config.server)
     channel = init(gw, port=config.port, path=config.path, 
                     projectname=config.projectname,
                     buildpath=str(config.buildpath),
@@ -20,7 +23,8 @@ if __name__ == '__main__':
     try:
         while 1:
             data = channel.receive()
-            assert isinstance(data, str)
+            if not isinstance(data, str):
+                print 'received non-string "%s", ignoring' % (repr(data)[:10],)
             print data
     finally:
         channel.close()

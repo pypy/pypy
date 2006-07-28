@@ -76,8 +76,8 @@ def test_compile():
     svr.compilation_done((info, None), bp)
     ret = svr.compile('test@domain.com', (info, None))
     assert ret[0]
-    assert isinstance(ret[1], BuildPath)
-    assert ret[1] == bp
+    assert isinstance(ret[1], str)
+    assert BuildPath(ret[1]) == bp
     assert svr._channel.receive().find('compilation done for') > -1
     for i in range(2):
         assert svr._channel.receive().find('going to send email to') > -1

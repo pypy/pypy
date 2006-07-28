@@ -7,36 +7,125 @@ import sys
 import random
 from pypy.tool.build import config
 
+# example compile_config
+{
+    'translating': False, 
+    'objspace': {
+        'std': {
+            'withstrslice': False, 
+            'withstrdict': False, 
+            'withstrjoin': False, 
+            'oldstyle': False, 
+            'withprebuiltint': False, 
+            'prebuiltintto': 100, 
+            'prebuiltintfrom': -5, 
+            'withsmallint': False
+        }, 
+        'name': 'std', 
+        'usemodules': {
+            '_sre': True, 
+            'errno': True, 
+            '__builtin__': False, 
+            'crypt': False, 
+            'gc': True, 
+            'recparser': True, 
+            'rctime': False, 
+            'array': True, 
+            'select': False, 
+            'mmap': False, 
+            '_socket': False, 
+            'time2': False, 
+            '_stackless': False, 
+            '_pickle_support': True, 
+            '_random': False, 
+            'math': True, 
+            'fcntl': False, 
+            '_ssl': False, 
+            'wraptest': False, 
+            '_codecs': True, 
+            'symbol': True, 
+            'sys': True, 
+            'readline': False, 
+            'unicodedata': True, 
+            'thread': False, 
+            '_weakref': True, 
+            '_md5': False, 
+            'Numeric': False, 
+            'posix': False, 
+            'time': False, 
+            'marshal': True, 
+            '_demo': False
+        }, 
+        'geninterp': True, 
+        'parser': 'pypy', 
+        'uselibfile': False, 
+        'nofaking': False, 
+        'compiler': 'ast'
+    }
+}
+
+def info_to_options(info):
+    """temporary solution (until translate.py uses the config stuff) for
+        converting the compile_info dict to pypy translate options
+    """
+    opts = []
+    
+    d = info[0]
+    opts.append('-b %s' % (info[0].get('backend', 'C'),))
+
+    d = info[1]
+    opts.append('-O %s' % (d['objspace']['name'],))
+    opts.append('--usemodules=%s' % 
+                (','.join([k for k, v in 
+                    d['objspace']['usemodules'].items() if v]),))
+
+    return opts
+
 if __name__ == '__main__':
-    from py.execnet import SshGateway
+    from py.execnet import SshGateway, PopenGateway
     from pypy.tool.build.client import init
-    gw = SshGateway(config.server)
+    
+    if config.server in ['localhost', '127.0.0.1']:
+        gw = PopenGateway()
+    else:
+        gw = SshGateway(config.server)
     channel = init(gw, config.system_config, path=config.path, 
                     port=config.port)
 
     print channel.receive() # welcome message
     try:
-        while 1:
-            data = channel.receive()
-            if not isinstance(data, tuple): # needs more checks here
-                raise ValueError(
-                    'received wrong unexpected data of type %s' % (type(data),)
-                )
-            info = data
-            # XXX we should compile here, using data dict for info
-            print 'compilation requested for info %r, now faking that' % (info,)
-            import time; time.sleep(10)
+        try:
+            while 1:
+                data = channel.receive()
+                if isinstance(data, str):
+                    print data
+                    continue
+                if not isinstance(data, tuple): # needs more checks here
+                    raise ValueError(
+                        'received wrong unexpected data of type %s' % (
+                                type(data),)
+                    )
+                info = data
+                # XXX we should compile here, using data dict for info
+                print 'compilation requested for info %r, now faking that' % (
+                        info,)
+                options = info_to_options(info)
+                print 'options:', options
 
-            # write the zip to the server in chunks to server
-            # XXX we're still faking this
-            zipfp = (path.packagedir / 'test/test.zip').open()
-            while True:
-                chunk = zipfp.read(BUFSIZE)
-                if not chunk:
-                    break
-                channel.send(chunk)
-            channel.send(None) # tell the server we're done
-            print 'done with compilation, waiting for next'
+                import time; time.sleep(10)
+
+                # write the zip to the server in chunks to server
+                # XXX we're still faking this
+                zipfp = (path.packagedir / 'test/test.zip').open()
+                while True:
+                    chunk = zipfp.read(BUFSIZE)
+                    if not chunk:
+                        break
+                    channel.send(chunk)
+                channel.send(None) # tell the server we're done
+                print 'done with compilation, waiting for next'
+        except EOFError:
+            sys.exit()
     finally:
         channel.close()
         gw.exit()

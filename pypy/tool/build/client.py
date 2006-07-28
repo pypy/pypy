@@ -61,8 +61,16 @@ initcode = """
     from pypy.tool.build.client import PPBClient
 
     try:
-        client = PPBClient(channel, %r, %r)
-        client.sit_and_wait()
+        try:
+            client = PPBClient(channel, %r, %r)
+            client.sit_and_wait()
+        except:
+            import sys, traceback
+            exc, e, tb = sys.exc_info()
+            channel.send(str(exc) + ' - ' + str(e))
+            for line in traceback.format_tb(tb):
+                channel.send(line[:-1])
+            del tb
     finally:
         channel.close()
 """
