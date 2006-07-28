@@ -13,7 +13,10 @@ from pypy.annotation.listdef import s_list_of_strings
 from pypy import conftest
 
 def test_frame_typer():
-    ft = FrameTyper()
+    class TestFrameTyper(FrameTyper):
+        def saving_function_for_type(self, frame_type):
+            return None
+    ft = TestFrameTyper()
     ft4vars = lambda types:ft.frame_type_for_vars(types)[0]
 
     signed = varoftype(lltype.Signed)

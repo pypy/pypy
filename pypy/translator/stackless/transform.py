@@ -20,6 +20,38 @@ from pypy.translator.stackless.frame import STORAGE_FIELDS
 from pypy.translator.stackless.frame import STATE_HEADER, null_state
 from pypy.translator.stackless.frame import storage_type
 
+SAVE_STATISTICS = True
+
+if SAVE_STATISTICS:
+    import cStringIO
+    
+    class StacklessStats:
+        def __init__(self):
+            self.rp_count = 0
+            self.rp_type_counts = {}
+            self.rp_per_graph = {}
+            self.rp_per_graph_type_counts = {}
+            self.saveops = self.resumeops = 0
+            self.pot_exact_saves = {}
+            self.total_pot_exact_saves = 0
+            self.pot_erased_saves = {}
+            self.total_pot_erased_saves = 0
+        def __repr__(self):
+            s = cStringIO.StringIO()
+            print >> s, self.__class__.__name__
+            for k in sorted(self.__dict__.keys()):
+                r = repr(self.__dict__[k])
+                if len(r) > 60:
+                    r = r[:50] + '...'
+                print >>s, '    '+k, r
+            return s.getvalue()
+
+    def inc(d, key):
+        d[key] = d.get(key, 0) + 1
+
+    def gkey(graph):
+        return (graph.name, id(graph))
+
 # a simple example of what the stackless transform does
 #
 # def func(x):
@@ -71,10 +103,12 @@ class SymbolicRestartNumber(ComputedIntSymbolic):
 
 class FrameTyper:
     # this class only exists independently to ease testing
-    def __init__(self, stackless_gc=False):
+    def __init__(self, stackless_gc=False, transformer=None):
         self.frametypes = {}
         self.stackless_gc = stackless_gc
         self.c_gc_nocollect = model.Constant("gc_nocollect", lltype.Void)
+        self.transformer = transformer
+        
 
     def _key_for_types(self, types):
         counts = {}
@@ -87,7 +121,11 @@ class FrameTyper:
         return key
 
     def saving_function_for_type(self, FRAME_TYPE):
-        save_block = model.Block([])
+        v_restart = varoftype(lltype.Signed)
+        v_exception = varoftype(self.transformer.unwind_exception_type)
+        
+        save_block = model.Block([v_restart, v_exception])
+        
         llops = LowLevelOpList()
         if self.stackless_gc:
             v_state = llops.genop(
@@ -108,14 +146,21 @@ class FrameTyper:
                         [v_state, model.Constant(fieldname, lltype.Void), var],
                         resulttype=lltype.Void)
 
-        save_state_graph = model.FunctionGraph('save_' + FRAME_TYPE._name, save_block,
-                                               unsimplify.copyvar(None, v_state))
-        save_block.operations = llops
-        save_block.closeblock(model.Link([v_state], save_state_graph.returnblock))
+        v_header = gen_cast(llops, lltype.Ptr(STATE_HEADER), v_state)
+        llops.genop('direct_call',
+                    [self.transformer.add_frame_state_ptr, v_exception, v_header],
+                    resulttype=lltype.Void)
+        llops.genop("setfield",
+                    [v_header, self.transformer.c_f_restart_name, v_restart],
+                    resulttype=lltype.Void)
 
+        save_state_graph = model.FunctionGraph('save_' + FRAME_TYPE._name, save_block,
+                                               varoftype(lltype.Void))
+        save_block.operations = llops
+        save_block.closeblock(model.Link([v_header], save_state_graph.returnblock))
 
         FUNC_TYPE = lltype.FuncType([v.concretetype for v in save_block.inputargs],
-                                    v_state.concretetype)
+                                    lltype.Void)
         return lltype.functionptr(FUNC_TYPE, save_state_graph.name,
                                   graph=save_state_graph)
         
@@ -125,13 +170,17 @@ class FrameTyper:
         if key not in self.frametypes:
             fields = []
             fieldsbytype = {}
+            tcounts = []
             for t in STORAGE_TYPES:
-                for j in range(key.get(t, 0)):
+                tcount = key.get(t, 0)
+                tcounts.append(str(tcount))
+                for j in range(tcount):
                     fname = 'state_%s_%d' % (STORAGE_FIELDS[t], j)
                     fields.append((fname, t))
                     fieldsbytype.setdefault(t, []).append(fname)
             
-            FRAME_TYPE = frame.make_state_header_type("FrameState", *fields)
+            FRAME_TYPE = frame.make_state_header_type(
+                "FrameState_"+'_'.join(tcounts), *fields)
             self.frametypes[key] = (FRAME_TYPE,
                                     self.saving_function_for_type(FRAME_TYPE),
                                     fieldsbytype)
@@ -214,7 +263,7 @@ class StacklessTransformer(object):
         self.translator = translator
         self.stackless_gc = stackless_gc
 
-        self.frametyper = FrameTyper(stackless_gc)
+        self.frametyper = FrameTyper(stackless_gc, self)
         self.masterarray1 = []
         self.curr_graph = None
         
@@ -388,6 +437,9 @@ class StacklessTransformer(object):
                 self.frametyper.ensure_frame_type_for_types(frame_type)
             self.register_restart_info(restartinfo)
 
+        if SAVE_STATISTICS:
+            translator.stackless_stats = self.stats = StacklessStats()
+
     def transform_all(self):
         for graph in self.translator.graphs:
             self.transform_graph(graph)
@@ -407,6 +459,10 @@ class StacklessTransformer(object):
         
         assert self.curr_graph is None
         self.curr_graph = graph
+        if SAVE_STATISTICS:
+            self.stats.cur_rp_exact_types = {}
+            self.stats.cur_rp_erased_types = {}
+            
         
         for block in list(graph.iterblocks()):
             assert block not in self.seen_blocks
@@ -418,6 +474,23 @@ class StacklessTransformer(object):
             self.generate_restart_infos(graph)
 
         model.checkgraph(graph)
+
+        if SAVE_STATISTICS:
+            pot_exact_save_count = 0
+            for t, count in self.stats.cur_rp_exact_types.items():
+                pot_exact_save_count += count - 1
+            del self.stats.cur_rp_exact_types
+            self.stats.pot_exact_saves[gkey(self.curr_graph)] = pot_exact_save_count
+            self.stats.total_pot_exact_saves += pot_exact_save_count
+            
+            pot_erased_save_count = 0
+            for t, count in self.stats.cur_rp_erased_types.items():
+                pot_erased_save_count += count - 1
+            del self.stats.cur_rp_erased_types
+            self.stats.pot_erased_saves[gkey(self.curr_graph)] = pot_erased_save_count 
+            self.stats.total_pot_erased_saves += pot_erased_save_count
+           
+            
 
         self.curr_graph = None
 
@@ -752,6 +825,18 @@ class StacklessTransformer(object):
     def generate_save_and_resume_blocks(self, varstosave, var_exception,
                                         var_result, links_to_resumption):
         frame_type, fieldnames, varsforcall, saver = self.frametyper.frame_type_for_vars(varstosave)
+        if SAVE_STATISTICS:
+            self.stats.rp_count += 1
+            inc(self.stats.rp_type_counts, frame_type)
+            inc(self.stats.rp_per_graph, gkey(self.curr_graph))
+            inc(self.stats.rp_per_graph_type_counts.setdefault(gkey(self.curr_graph), {}), frame_type)
+            exact_key = [v.concretetype for v in varstosave]
+            exact_key.sort()
+            exact_key = (tuple(exact_key), var_result.concretetype)
+            inc(self.stats.cur_rp_exact_types, exact_key)
+            inc(self.stats.cur_rp_erased_types, frame_type)
+            
+        
         return (self._generate_save_block(varsforcall, var_exception,
                                           frame_type, fieldnames, saver),
                 self._generate_resume_block(varstosave, frame_type, fieldnames,
@@ -770,26 +855,17 @@ class StacklessTransformer(object):
         save_state_block = model.Block(inputargs + [var_unwind_exception])
         saveops = LowLevelOpList()
         
-        realvarsforcall = []
+        var_exc = gen_cast(saveops, self.unwind_exception_type, var_unwind_exception)
+        
+        c_restart = model.Constant(len(self.masterarray1) + len(self.resume_blocks), lltype.Signed)
+
+        realvarsforcall = [c_restart, var_exc]
         for v in inputargs:
             realvarsforcall.append(gen_cast(saveops, storage_type(v.concretetype), v))
         
-        frame_state_var = saveops.genop('direct_call',
-                                        [model.Constant(saver, lltype.typeOf(saver))] + realvarsforcall,
-                                        resulttype=lltype.Ptr(frame_type))
-
-        var_exc = gen_cast(saveops, self.unwind_exception_type, var_unwind_exception)
-        var_header = gen_cast(saveops, lltype.Ptr(STATE_HEADER), frame_state_var)
-
-        saveops.genop('direct_call', [self.add_frame_state_ptr, var_exc, var_header],
+        saveops.genop('direct_call',
+                      [model.Constant(saver, lltype.typeOf(saver))] + realvarsforcall,
                       resulttype=lltype.Void)
-
-        f_restart = len(self.masterarray1) + len(self.resume_blocks)
-
-        saveops.genop("setfield",
-                      [var_header, self.c_f_restart_name, model.Constant(f_restart, lltype.Signed)],
-                      resulttype=lltype.Void)
-
         save_state_block.operations = saveops
 
         type_repr = rclass.get_type_repr(rtyper)
@@ -804,6 +880,8 @@ class StacklessTransformer(object):
             self.curr_graph.exceptblock))
         self.translator.rtyper._convert_link(
             save_state_block, save_state_block.exits[0])
+        if SAVE_STATISTICS:
+            self.stats.saveops += len(save_state_block.operations)
         return save_state_block
 
     def _generate_resume_block(self, varstosave, frame_type, fieldnames,
@@ -867,6 +945,8 @@ class StacklessTransformer(object):
             self.insert_return_conversion(
                 newblock.exits[0], var_result.concretetype, retval)
 
+        if SAVE_STATISTICS:
+            self.stats.resumeops += len(newblock.operations)
         return newblock
         
     def generate_saveops(self, frame_state_var, varstosave, fieldnames):
@@ -894,6 +974,10 @@ class StacklessTransformer(object):
     def finish(self):
         # compute the final masterarray by copying over the masterarray1,
         # which is a list of dicts of attributes
+        if SAVE_STATISTICS:
+            import cPickle
+            cPickle.dump(self.stats, open('stackless-stats.pickle', 'wb'))
+
         self.is_finished = True
         masterarray = lltype.malloc(frame.FRAME_INFO_ARRAY,
                                     len(self.masterarray1),
