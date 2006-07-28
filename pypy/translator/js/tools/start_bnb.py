@@ -214,17 +214,14 @@ def keydown(key):
     #c = chr(int(key.keyCode)).lower()
     #c = int(key.keyCode)
     try:
-        logWarning("Keydown pressed")
         c = key.keyCode
         if c > ord('0') and c < ord('9'):
             addPlayer(int(chr(c)))
         #for i in km.keymappings:
         #    log(str(i))
         if c in km.keymappings:
-            logWarning('adding' + str(c))
             km.add_key_down(km.keymappings[c])
         #else:
-        logWarning('unknown keydown: ' + str(c))
     except Exception, e:
         log(str(e))
 
