@@ -108,10 +108,11 @@ class InstallerVersion1:
         self.multimethod = multimethod
         # avoid prefix clashes, user code should supply different prefixes
         # itself for nice names in tracebacks
+        base_prefix = prefix
         n = 1
         while prefix in self.prefix_memo:
             n += 1
-            prefix = "%s%d" % (prefix,n)
+            prefix = "%s%d" % (base_prefix, n)
         self.prefix = prefix
         self.prefix_memo[prefix] = 1
         self.list_of_typeorders = list_of_typeorders
