@@ -57,12 +57,8 @@ class ExceptionData(AbstractExceptionData):
                                    and not clsdef.attrs)
                 if is_standard:
                     r_inst = rclass.getinstancerepr(rtyper, clsdef)
-                    r_inst.setup()
-                    r_class = rclass.getclassrepr(rtyper, clsdef)
-                    r_class.setup()
-                    example = ootype.new(r_inst.lowleveltype)
+                    example = r_inst.get_reusable_prebuilt_instance()
                     example = ootype.ooupcast(self.lltype_of_exception_value, example)
-                    example.meta = r_class.get_meta_instance()
                     table[cls] = example
         r_inst = rclass.getinstancerepr(rtyper, None)
         r_inst.setup()

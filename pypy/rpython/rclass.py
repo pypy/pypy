@@ -166,6 +166,17 @@ class AbstractInstanceRepr(Repr):
             self.initialize_prebuilt_instance(value, self.classdef, result)
             return result
 
+    def get_reusable_prebuilt_instance(self):
+        "Get a dummy prebuilt instance.  Multiple calls reuse the same one."
+        try:
+            return self._reusable_prebuilt_instance
+        except AttributeError:
+            self.setup()
+            result = self.create_instance()
+            self._reusable_prebuilt_instance = result
+            self.initialize_prebuilt_instance(Ellipsis, self.classdef, result)
+            return result
+
     def rtype_type(self, hop):
         raise NotImplementedError
 

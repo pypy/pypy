@@ -122,10 +122,10 @@ def test_pystone():
     # does not crash
     t, graph = rtype(entrypoint, [int])
     total = clever_inlining_and_malloc_removal(t)
-    assert total == 12
+    assert total == 8
 
 def test_richards():
     from pypy.translator.goal.richards import entry_point
     t, graph = rtype(entry_point, [int])
     total = clever_inlining_and_malloc_removal(t)
-    assert total == 11
+    assert total == 9

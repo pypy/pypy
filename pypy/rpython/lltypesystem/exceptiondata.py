@@ -50,10 +50,8 @@ class ExceptionData(AbstractExceptionData):
                                    and not clsdef.attrs)
                 if is_standard:
                     r_inst = rclass.getinstancerepr(rtyper, clsdef)
-                    r_inst.setup()
-                    example = malloc(r_inst.lowleveltype.TO, immortal=True)
+                    example = r_inst.get_reusable_prebuilt_instance()
                     example = rclass.ll_cast_to_object(example)
-                    example.typeptr = r_inst.rclass.getvtable()
                     table[cls] = example
                 #else:
                 #    assert cls.__module__ != 'exceptions', (

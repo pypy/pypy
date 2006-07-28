@@ -151,7 +151,7 @@ def test_raises():
         if x:
             raise ValueError()
     t, g = transform_func(foo, [int])
-    assert len(list(g.iterblocks())) == 4
+    assert len(list(g.iterblocks())) == 3
     f = compile_func(foo, [int])
     f(0)
     py.test.raises(ValueError, f, 1)
