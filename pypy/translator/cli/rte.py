@@ -25,6 +25,7 @@ def _filename(name, path=None):
 class Target:
     SOURCES = []
     OUTPUT = None
+    ALIAS = None
     FLAGS = []
     DEPENDENCIES = []
     COMPILER = SDK.csc()
@@ -34,11 +35,12 @@ class Target:
             dep.get()
         sources = [_filename(src) for src in cls.SOURCES]
         out = _filename(cls.OUTPUT)
+        alias = _filename(cls.ALIAS or cls.OUTPUT)
         recompile = True
         try:
             src_mtime = max([os.stat(src).st_mtime for src in sources])
-            out_mtime = os.stat(out).st_mtime
-            if src_mtime <= out_mtime:
+            alias_mtime = os.stat(alias).st_mtime
+            if src_mtime <= alias_mtime:
                 recompile = False
         except OSError:
             pass
@@ -49,13 +51,17 @@ class Target:
     get = classmethod(get)
 
     def compile(cls, sources, out):
-        log.red("Compiling %s" % cls.OUTPUT)
+        log.red("Compiling %s" % (cls.ALIAS or cls.OUTPUT))
         os.chdir(SRC_DIR)
         compiler = subprocess.Popen([cls.COMPILER] + cls.FLAGS + ['/out:%s' % out] + sources,
                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout, stderr = compiler.communicate()
         retval = compiler.wait()
         assert retval == 0, 'Failed to compile %s: the compiler said:\n %s' % (cls.OUTPUT, stderr)
+        if cls.ALIAS is not None:
+            alias = _filename(cls.ALIAS)
+            shutil.copy(out, alias)
+
     compile = classmethod(compile)
 
 class MainStub(Target):
@@ -65,31 +71,26 @@ class MainStub(Target):
 
 class FrameworkDLL(Target):
     SOURCES = ['pypylib.cs', 'll_os.cs']
-    OUTPUT = 'pypylib-framework.dll'
+    OUTPUT = 'pypylib.dll'
+    ALIAS = 'pypylib-framework.dll'
     FLAGS = ['/t:library', '/unsafe', '/r:main.exe']
     DEPENDENCIES = [MainStub]
 
 class UnixDLL(Target):
     SOURCES = ['pypylib.cs', 'll_os-unix.cs']
-    OUTPUT = 'pypylib-unix.dll'
+    OUTPUT = 'pypylib.dll'
+    ALIAS = 'pypylib-unix.dll'
     FLAGS = ['/t:library', '/unsafe', '/r:Mono.Posix', '/r:main.exe']
     DEPENDENCIES = [MainStub]
 
-
 def get_pypy_dll():
-    dll = _filename('pypylib.dll')
     if platform.system() == 'Windows' or os.environ.get('PYPYLIB', '').lower() == 'framework':
-        dll_orig = FrameworkDLL.get()
+        DLL = FrameworkDLL
     else:
-        dll_orig = UnixDLL.get()
-    shutil.copy(dll_orig, dll)
-    return dll
+        DLL = UnixDLL
+    return DLL.get()
 
 if __name__ == '__main__':
-    if os.getcwd() == os.path.abspath('.'):
-        UnixDLL.get()
-        FrameworkDLL.get()
-    else:
-        shutil.copy(FrameworkDLL.get(), '.')
-        if platform.system() != 'Windows':
-            shutil.copy(UnixDLL.get(), '.')
+    dlls = [FrameworkDLL.get()]
+    if platform.system() != 'Windows':
+        dlls.append(UnixDLL.get())

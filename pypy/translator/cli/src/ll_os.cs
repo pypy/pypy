@@ -12,7 +12,7 @@ namespace pypy.builtin
 
         public static int ll_os_open(string name, int flag, int mode)
         {
-            PrebuiltGraphs.raiseOSError(2); // ENOENT
+            //PrebuiltGraphs.raiseOSError(2); // ENOENT
             return -1; // can't be reached
         }
 
