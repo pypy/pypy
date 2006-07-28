@@ -22,6 +22,18 @@ class Symbolic(object):
     def __hash__(self):
         raise TypeError("Symbolics are not hashable!")
 
+class BackendFlagSymbolic(object):
+    def __init__(self, val):
+        self.val = val
+    
+    def annotation(self):
+        from pypy.annotation import model
+        return model.SomeBoolean()
+    
+    def lltype(self):
+        from pypy.rpython.lltypesystem import lltype
+        return lltype.Bool
+
 class ComputedIntSymbolic(Symbolic):
 
     def __init__(self, compute_fn):
@@ -48,6 +60,7 @@ class CDefinedIntSymbolic(Symbolic):
         from pypy.rpython.lltypesystem import lltype
         return lltype.Signed
 
+malloc_zero_filled = CDefinedIntSymbolic('MALLOC_ZERO_FILLED')
 
 def instantiate(cls):
     "Create an empty instance of 'cls'."

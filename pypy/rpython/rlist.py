@@ -6,6 +6,7 @@ from pypy.rpython.rslice import AbstractSliceRepr
 from pypy.rpython.lltypesystem.lltype import typeOf, Ptr, Void, Signed, Bool
 from pypy.rpython.lltypesystem.lltype import nullptr, Char, UniChar
 from pypy.rpython import robject
+from pypy.rpython.objectmodel import malloc_zero_filled
 
 def dum_checkidx(): pass
 def dum_nocheck(): pass
@@ -371,7 +372,8 @@ def ll_alloc_and_set(LIST, count, item):
         check = ord(item)
     else:
         check = item
-    if check: # as long as malloc it is known to zero the allocated memory avoid zeroing twice
+    if (not malloc_zero_check) or check: # as long as malloc it is known to zero the allocated memory avoid zeroing twice
+    
         i = 0
         while i < count:
             l.ll_setitem_fast(i, item)

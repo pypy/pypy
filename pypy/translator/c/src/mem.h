@@ -10,6 +10,8 @@
 #define alloca  _alloca
 #endif
 
+#define MALLOC_ZERO_FILLED 1
+
 #define OP_STACK_MALLOC(size,r,restype)                                 \
     r = (restype) alloca(size);                                         \
     if (r == NULL) FAIL_EXCEPTION(PyExc_MemoryError, "out of memory");  \
