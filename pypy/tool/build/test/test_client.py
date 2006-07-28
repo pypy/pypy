@@ -25,7 +25,7 @@ def setup_module(mod):
     svr.register(c2)
 
 def test_compile():
-    info = {'foo': 1}
+    info = ({'foo': 1}, {'bar': 2})
     c1.compile(info)
     c1.channel.receive()
     c1.channel.send('foo bar')

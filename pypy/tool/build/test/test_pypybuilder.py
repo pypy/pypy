@@ -1,7 +1,15 @@
 import path
 from pypy.tool.build import client, server, execnetconference
 from pypy.tool.build import config
+from pypy.config import config as pypyconfig
 import py
+
+def _get_sysconfig():
+    return pypyconfig.Config(
+        pypyconfig.OptionDescription('foo', [
+            pypyconfig.ChoiceOption('foo', 'foo', [1,2,3], 1),
+        ])
+    )
 
 # some functional tests (although some of the rest aren't strictly
 # unit tests either), to run use --functional as an arg to py.test
@@ -25,19 +33,14 @@ def test_functional_1():
     py.std.time.sleep(sleep_interval)
 
     # then two clients, both with different system info
-    sysinfo1 = {
-        'foo': 1,
-        'bar': [1,2],
-    }
+    sysconfig1 = _get_sysconfig()
     cgw1 = py.execnet.PopenGateway()
-    cc1 = client.init(cgw1, sysinfo1, port=config.port, testing=True)
+    cc1 = client.init(cgw1, sysconfig1, port=config.port, testing=True)
 
-    sysinfo2 = {
-        'foo': 2,
-        'bar': [1],
-    }
+    sysconfig2 = _get_sysconfig()
+    sysconfig2.foo = 2
     cgw2 = py.execnet.PopenGateway()
-    cc2 = client.init(cgw2, sysinfo2, port=config.port, testing=True)
+    cc2 = client.init(cgw2, sysconfig2, port=config.port, testing=True)
 
     # give the clients some time to register themselves
     py.std.time.sleep(sleep_interval)
@@ -48,7 +51,7 @@ def test_functional_1():
         sys.path += %r
         
         from pypy.tool.build import ppbserver
-        channel.send(ppbserver.compile(%r, %r))
+        channel.send(ppbserver.compile(%r, (%r, {})))
         channel.close()
     """
     compgw = py.execnet.PopenGateway()
@@ -67,7 +70,7 @@ def test_functional_1():
 
     # this one should be handled by client 1
     compc = compconf.remote_exec(code % (config.testpath, 'foo2@bar.com',
-                                            {'foo': 1, 'bar': [1]}))
+                                            {'foo': 1}))
     
     # and another one
     py.std.time.sleep(sleep_interval)
@@ -82,15 +85,16 @@ def test_functional_1():
     # client 1 should by now have received the info to build for
     cc1.receive() # 'welcome'
     ret = cc1.receive() 
-    assert ret == {'foo': 1, 'bar': [1], 'revision': 'trunk'}
+    assert ret == ({'foo': 1}, {})
 
     # this should have created a package in the temp dir
     assert len(temppath.listdir()) == 1
 
     # now we're going to satisfy the first request by adding a new client
-    sysinfo3 = {'foo': 3}
+    sysconfig3 = _get_sysconfig()
+    sysconfig3.foo = 3
     cgw3 = py.execnet.PopenGateway()
-    cc3 = client.init(cgw3, sysinfo3, port=config.port, testing=True)
+    cc3 = client.init(cgw3, sysconfig3, port=config.port, testing=True)
 
     # again a bit of waiting may be desired
     py.std.time.sleep(sleep_interval)

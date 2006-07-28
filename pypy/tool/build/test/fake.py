@@ -23,8 +23,7 @@ class FakeClient(object):
         self.busy_on = None
 
     def compile(self, info):
-        info.pop('revision')
-        for k, v in info.items():
+        for k, v in info[0].items():
             self.channel.send('%s: %r' % (k, v))
         self.channel.send(None)
         self.busy_on = info

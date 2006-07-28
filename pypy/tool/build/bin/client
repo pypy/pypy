@@ -7,34 +7,18 @@ import sys
 import random
 from pypy.tool.build import config
 
-# XXX using random values for testing
-modules = ['_stackless', '_socket']
-
-"""
-random.shuffle(modules)
-sysinfo = {
-    'maxint': random.choice((sys.maxint, (2 ** 63 - 1))),
-    'use_modules': modules[:random.randrange(len(modules) + 1)],
-    'byteorder': random.choice(('little', 'big')),
-}
-"""
-
-sysinfo = {
-    'maxint': sys.maxint,
-    'use_modules': ['_stackless', '_socket'],
-    'byteorder': sys.byteorder,
-}
-
 if __name__ == '__main__':
     from py.execnet import SshGateway
     from pypy.tool.build.client import init
     gw = SshGateway(config.server)
-    channel = init(gw, sysinfo, path=config.path, port=config.port)
+    channel = init(gw, config.system_config, path=config.path, 
+                    port=config.port)
+
     print channel.receive() # welcome message
     try:
         while 1:
             data = channel.receive()
-            if not isinstance(data, dict): # needs more checks here
+            if not isinstance(data, tuple): # needs more checks here
                 raise ValueError(
                     'received wrong unexpected data of type %s' % (type(data),)
                 )

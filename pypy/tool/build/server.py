@@ -24,8 +24,17 @@ def issubdict(d1, d2):
             return False
     return True
 
-# XXX note that all this should be made thread-safe at some point (meaning it
-# currently isn't)!!
+def config_to_dict(config, is_optiondescription=False):
+    from pypy.config.config import OptionDescription
+    ret = {}
+    children = config._descr._children
+    for child in children:
+        value = getattr(config, child._name)
+        if isinstance(child, OptionDescription):
+            ret[child._name] = config_to_dict(value, True)
+        else:
+            ret[child._name] = value
+    return ret
 
 class RequestStorage(object):
     """simple registry that manages information"""
@@ -45,7 +54,6 @@ class RequestStorage(object):
             this either returns a path to the binary (if it's available 
             already) or an id for the info
         """
-        self._normalize(info)
         infoid = self.get_info_id(info)
         path = self._id_to_path.get(infoid)
         if path is not None:
@@ -56,7 +64,6 @@ class RequestStorage(object):
         """retrieve or create an id for an info dict"""
         self._id_lock.acquire()
         try:
-            self._normalize(info)
             for k, v in self._id_to_info.iteritems():
                 if v == info:
                     return k
@@ -73,7 +80,6 @@ class RequestStorage(object):
             returns a list of email addresses for the people that should be
             warned
         """
-        self._normalize(info)
         infoid = self.get_info_id(info)
         emails = self._id_to_emails.pop(infoid)
         self._id_to_path[infoid] = path
@@ -85,41 +91,42 @@ class RequestStorage(object):
             id = self.get_info_id(info)
             self._id_to_path[id] = path
 
-    def _normalize(self, info):
-        for k, v in info.iteritems():
-            if isinstance(v, list):
-                v.sort()
-
 from py.__.path.local.local import LocalPath
 class BuildPath(LocalPath):
     def _info(self):
-        info = getattr(self, '_info_value', {})
+        info = getattr(self, '_info_value', [])
         if info:
             return info
-        infopath = self / 'info.txt'
-        if not infopath.check():
-            return {}
-        for line in infopath.readlines():
-            line = line.strip()
-            if not line:
-                continue
-            chunks = line.split(':')
-            key = chunks.pop(0)
-            value = ':'.join(chunks)
-            info[key] = eval(value)
+        for name in ['system', 'compile']:
+            currinfo = {}
+            infopath = self.join('%s_info.txt' % (name,))
+            if not infopath.check():
+                return ({}, {})
+            for line in infopath.readlines():
+                line = line.strip()
+                if not line:
+                    continue
+                chunks = line.split(':')
+                key = chunks.pop(0)
+                value = ':'.join(chunks)
+                currinfo[key] = eval(value)
+            info.append(currinfo)
+        info = tuple(info)
         self._info_value = info
         return info
 
     def _set_info(self, info):
         self._info_value = info
-        infopath = self / 'info.txt'
-        infopath.ensure()
-        fp = infopath.open('w')
-        try:
-            for key, value in info.iteritems():
-                fp.write('%s: %r\n' % (key, value))
-        finally:
-            fp.close()
+        assert len(info) == 2, 'not a proper info tuple'
+        for i, name in enumerate(['system', 'compile']):
+            infopath = self.join('%s_info.txt' % (name,))
+            infopath.ensure()
+            fp = infopath.open('w')
+            try:
+                for key, value in info[i].iteritems():
+                    fp.write('%s: %r\n' % (key, value))
+            finally:
+                fp.close()
     
     info = property(_info, _set_info)
 
@@ -168,6 +175,10 @@ class PPBServer(object):
     def compile(self, requester_email, info):
         """start a compilation
 
+            requester_email is an email address of the person requesting the
+            build, info is a tuple (sysinfo, compileinfo) where both infos
+            are configs converted (or serialized, basically) to dict
+
             returns a tuple (ispath, data)
 
             if there's already a build available for info, this will return
@@ -203,15 +214,10 @@ class PPBServer(object):
         # XXX shuffle should be replaced by something smarter obviously ;)
         clients = self._clients[:]
         random.shuffle(clients)
-        rev = info.pop('revision', 'trunk')
         for client in clients:
-            # popping out revision here, going to add later... the client 
-            # should be able to retrieve source code for any revision (so
-            # it doesn't need to match a revision field in client.sysinfo)
-            if client.busy_on or not issubdict(info, client.sysinfo):
+            if client.busy_on or not issubdict(info[0], client.sysinfo):
                 continue
             else:
-                info['revision'] = rev
                 self._channel.send(
                     'going to send compile job with info %r to %s' % (
                         info, client
@@ -219,7 +225,6 @@ class PPBServer(object):
                 )
                 client.compile(info)
                 return True
-        info['revision'] = rev
         self._channel.send(
             'no suitable client available for compilation with info %r' % (
                 info,

@@ -47,7 +47,7 @@ def test_register():
 def test_compile():
     # XXX this relies on the output not changing... quite scary
     info = {'foo': 1}
-    ret = svr.compile('test@domain.com', info)
+    ret = svr.compile('test@domain.com', (info, None))
     assert not ret[0]
     assert ret[1].find('found a suitable client') > -1
     assert svr._channel.receive().find('going to send compile job') > -1
@@ -55,26 +55,26 @@ def test_compile():
     assert c1.channel.receive() is None
     py.test.raises(IndexError, "c2.channel.receive()")
 
-    svr.compile('test@domain.com', {'foo': 3})
+    svr.compile('test@domain.com', ({'foo': 3}, None))
     assert svr._channel.receive().find('no suitable client available') > -1
 
     info = {'bar': [3]}
-    ret = svr.compile('test@domain.com', info)
+    ret = svr.compile('test@domain.com', (info, None))
     assert svr._channel.receive().find('going to send') > -1
     assert c2.channel.receive() == 'bar: [3]'
     assert c2.channel.receive() is None
     py.test.raises(IndexError, "c1.channel.receive()")
 
     info = {'foo': 1}
-    ret = svr.compile('test@domain.com', info)
+    ret = svr.compile('test@domain.com', (info, None))
     assert not ret[0]
     assert ret[1].find('this build is already') > -1
     assert svr._channel.receive().find('currently in progress') > -1
 
     c1.busy_on = None
     bp = BuildPath(str(temppath / 'foo'))
-    svr.compilation_done(info, bp)
-    ret = svr.compile('test@domain.com', info)
+    svr.compilation_done((info, None), bp)
+    ret = svr.compile('test@domain.com', (info, None))
     assert ret[0]
     assert isinstance(ret[1], BuildPath)
     assert ret[1] == bp
@@ -88,11 +88,11 @@ def test_buildpath():
     # grmbl... local.__new__ checks for class equality :(
     bp = BuildPath(str(tempdir / 'test1')) 
     assert not bp.check()
-    assert bp.info == {}
+    assert bp.info == ({}, {})
 
-    bp.info = {'foo': 1, 'bar': [1,2]}
-    assert bp.info == {'foo': 1, 'bar': [1,2]}
-    assert (sorted((bp / 'info.txt').readlines()) == 
+    bp.info = ({'foo': 1, 'bar': [1,2]}, {'baz': 1})
+    assert bp.info == ({'foo': 1, 'bar': [1,2]}, {'baz': 1})
+    assert (sorted((bp / 'system_info.txt').readlines()) == 
             ['bar: [1, 2]\n', 'foo: 1\n'])
 
     assert isinstance(bp.zipfile, py.path.local)
@@ -116,15 +116,15 @@ def test_get_new_buildpath():
     svr._i = 0
     today = time.strftime('%Y%m%d')
 
-    path1 = svr.get_new_buildpath({'foo': 'bar'})
+    path1 = svr.get_new_buildpath(({'foo': 'bar'}, {'baz': 'qux'}))
     try:
         assert isinstance(path1, BuildPath)
-        assert path1.info == {'foo': 'bar'}
+        assert path1.info == ({'foo': 'bar'}, {'baz': 'qux'})
         assert path1.basename == 'pypytest-%s-0' % (today,)
 
         try:
-            path2 = svr.get_new_buildpath({'foo': 'baz'})
-            assert path2.info == {'foo': 'baz'}
+            path2 = svr.get_new_buildpath(({'foo': 'baz'}, {'bar': 'qux'}))
+            assert path2.info == ({'foo': 'baz'}, {'bar': 'qux'})
             assert path2.basename == 'pypytest-%s-1' % (today,)
         finally:
             path2.remove()

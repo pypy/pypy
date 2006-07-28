@@ -58,7 +58,3 @@ def test__build_initial():
     assert s._id_to_emails == {}
     assert s._id_to_path == {id1: 'foo', id2: 'bar'}
 
-def test__normalize():
-    s = RequestStorage()
-    assert (s._normalize({'foo': ['bar', 'baz']}) == 
-            s._normalize({'foo': ['baz', 'bar']}))

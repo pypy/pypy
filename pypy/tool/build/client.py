@@ -18,20 +18,21 @@ class PPBClient(object):
         self.channel.close()
 
     def compile(self, info):
-        """send a compile job to the client side
-
-            this waits until the client is done, and assumes the client sends
-            back the whole binary as a single string (XXX this should change ;)
-        """
+        """send a compile job to the client side"""
         self.busy_on = info
         self.channel.send(info)
         thread.start_new_thread(self.wait_until_done, (info,))
 
     def wait_until_done(self, info):
+        efp = open('/tmp/foo', 'w')
+        efp.write(repr(info) + '\n')
         buildpath = self.server.get_new_buildpath(info)
+        efp.flush()
         
-        fp = buildpath.zipfile.open('w')
         if not self.testing:
+            efp.write('2\n')
+            efp.flush()
+            fp = buildpath.zipfile.open('w')
             try:
                 while True:
                     try:
@@ -44,9 +45,14 @@ class PPBClient(object):
                     fp.write(chunk)
             finally:
                 fp.close()
-            
+        
+        efp.write('3\n')
+        efp.flush()
         self.server.compilation_done(info, buildpath)
         self.busy_on = None
+        efp.write(repr(info))
+        efp.flush()
+        efp.close()
 
 initcode = """
     import sys
@@ -60,12 +66,14 @@ initcode = """
     finally:
         channel.close()
 """
-def init(gw, sysinfo, path=None, port=12321, testing=False):
+def init(gw, sysconfig, path=None, port=12321, testing=False):
     from pypy.tool.build import execnetconference
+    from pypy.tool.build import server
     
     if path is None:
         path = []
 
+    sysinfo = server.config_to_dict(sysconfig)
     conference = execnetconference.conference(gw, port, False)
     channel = conference.remote_exec(initcode % (path, sysinfo, testing))
     return channel
