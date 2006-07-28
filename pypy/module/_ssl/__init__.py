@@ -5,6 +5,9 @@ from pypy.interpreter.mixedmodule import MixedModule
 class Module(MixedModule):
     interpleveldefs = {
         'ssl': 'interp_ssl.ssl',
+        'RAND_add': 'interp_ssl.RAND_add',
+        'RAND_status': 'interp_ssl.RAND_status',
+        'RAND_egd': 'interp_ssl.RAND_egd',
     }
 
     appleveldefs = {
