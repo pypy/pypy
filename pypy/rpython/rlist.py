@@ -372,7 +372,7 @@ def ll_alloc_and_set(LIST, count, item):
         check = ord(item)
     else:
         check = item
-    if (not malloc_zero_check) or check: # as long as malloc it is known to zero the allocated memory avoid zeroing twice
+    if (not malloc_zero_filled) or check: # as long as malloc it is known to zero the allocated memory avoid zeroing twice
     
         i = 0
         while i < count:

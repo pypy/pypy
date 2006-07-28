@@ -21,18 +21,9 @@ class Symbolic(object):
 
     def __hash__(self):
         raise TypeError("Symbolics are not hashable!")
-
-class BackendFlagSymbolic(object):
-    def __init__(self, val):
-        self.val = val
     
-    def annotation(self):
-        from pypy.annotation import model
-        return model.SomeBoolean()
-    
-    def lltype(self):
-        from pypy.rpython.lltypesystem import lltype
-        return lltype.Bool
+    def __nonzero__(self):
+        raise TypeError("Symbolics are not comparable")
 
 class ComputedIntSymbolic(Symbolic):
 
@@ -49,8 +40,9 @@ class ComputedIntSymbolic(Symbolic):
 
 class CDefinedIntSymbolic(Symbolic):
 
-    def __init__(self, expr):
+    def __init__(self, expr, default=0):
         self.expr = expr
+        self.default = default
 
     def annotation(self):
         from pypy.annotation import model
@@ -59,8 +51,8 @@ class CDefinedIntSymbolic(Symbolic):
     def lltype(self):
         from pypy.rpython.lltypesystem import lltype
         return lltype.Signed
-
-malloc_zero_filled = CDefinedIntSymbolic('MALLOC_ZERO_FILLED')
+    
+malloc_zero_filled = CDefinedIntSymbolic('MALLOC_ZERO_FILLED', default=1)
 
 def instantiate(cls):
     "Create an empty instance of 'cls'."
