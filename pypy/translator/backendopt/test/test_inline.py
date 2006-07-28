@@ -52,10 +52,7 @@ def check_inline(func, in_func, sig, entry=None, inline_guarded_calls=False):
     sanity_check(t)    # also check before inlining (so we don't blame it)
     if option.view:
         t.view()
-    if inline_guarded_calls:
-        raise_analyzer = canraise.RaiseAnalyzer(t)
-    else:
-        raise_analyzer = None
+    raise_analyzer = canraise.RaiseAnalyzer(t)
     inliner = Inliner(t, graphof(t, in_func), func,
                       t.rtyper.lltype_to_classdef_mapping(),
                       inline_guarded_calls,
@@ -121,21 +118,29 @@ def test_inline_big():
     result = eval_func([10])
     assert result.length == len(f(10))
 
+class CustomError1(Exception):
+    def __init__(self):
+        self.data = 123
+
+class CustomError2(Exception):
+    def __init__(self):
+        self.data2 = 456
+
 def test_inline_raising():
     def f(x):
         if x == 1:
-            raise ValueError
+            raise CustomError1
         return x
     def g(x):
         a = f(x)
         if x == 2:
-            raise KeyError
+            raise CustomError2
     def h(x):
         try:
             g(x)
-        except ValueError:
+        except CustomError1:
             return 1
-        except KeyError:
+        except CustomError2:
             return 2
         return x
     eval_func = check_inline(f,g, [int], entry=h)
@@ -164,15 +169,15 @@ def test_inline_several_times():
 def test_inline_exceptions():
     def f(x):
         if x == 0:
-            raise ValueError
+            raise CustomError1
         if x == 1:
-            raise KeyError
+            raise CustomError2
     def g(x):
         try:
             f(x)
-        except ValueError:
+        except CustomError1:
             return 2
-        except KeyError:
+        except CustomError2:
             return x+2
         return 1
     eval_func = check_inline(f, g, [int])
@@ -210,9 +215,9 @@ def test_inline_const_exceptions():
 def test_inline_exception_guarded():
     def h(x):
         if x == 1:
-            raise ValueError()
+            raise CustomError1()
         elif x == 2:
-            raise TypeError()
+            raise CustomError2()
         return 1
     def f(x):
         try:
@@ -222,9 +227,9 @@ def test_inline_exception_guarded():
     def g(x):
         try:
             f(x)
-        except ValueError:
+        except CustomError1:
             return 2
-        except TypeError:
+        except CustomError2:
             return 3
         return 1
     eval_func = check_inline(f, g, [int], inline_guarded_calls=True)
@@ -239,7 +244,7 @@ def test_inline_var_exception():
     def f(x):
         e = None
         if x == 0:
-            e = ValueError()
+            e = CustomError1()
         elif x == 1:
             e = KeyError()
         if x == 0 or x == 1:
@@ -247,7 +252,7 @@ def test_inline_var_exception():
     def g(x):
         try:
             f(x)
-        except ValueError:
+        except CustomError1:
             return 2
         except KeyError:
             return 3
@@ -364,11 +369,11 @@ def test_auto_inlining_small_call_big():
 
 def test_inline_exception_catching():
     def f3():
-        raise KeyError
+        raise CustomError1
     def f2():
         try:
             f3()
-        except KeyError:
+        except CustomError1:
             return True
         else:
             return False
@@ -404,11 +409,11 @@ def test_auto_inline_os_path_isdir():
 
 def test_inline_raiseonly():
     def f2(x):
-        raise KeyError
+        raise CustomError1
     def f(x):
         try:
             return f2(x)
-        except KeyError:
+        except CustomError1:
             return 42
     eval_func = check_inline(f2, f, [int])
     result = eval_func([98371])
@@ -437,10 +442,10 @@ def test_measure_median_execution_cost():
     assert round(res, 5) == round(32.333333333, 5)
 
 def test_indirect_call_with_exception():
-    class MyExc(Exception):
+    class Dummy:
         pass
     def x1():
-        return 1
+        return Dummy()   # can raise MemoryError
     def x2():
         return 2
     def x3(x):
@@ -453,7 +458,7 @@ def test_indirect_call_with_exception():
         try:
             x3(0)
             x3(1)
-        except MyExc:
+        except CustomError2:
             return 0
         return 1
     assert x4() == 1

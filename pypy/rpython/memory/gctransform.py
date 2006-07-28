@@ -11,6 +11,7 @@ from pypy.translator.translator import graphof
 from pypy.translator.backendopt.support import var_needsgc
 from pypy.translator.backendopt import inline
 from pypy.translator.backendopt import graphanalyze
+from pypy.translator.backendopt.canraise import RaiseAnalyzer
 from pypy.translator.backendopt.ssa import DataFlowFamilyBuilder
 from pypy.annotation import model as annmodel
 from pypy.rpython import rmodel, rptr, annlowlevel, typesystem
@@ -127,11 +128,13 @@ class GCTransformer(object):
 
     def inline_helpers(self, graph):
         if self.inline:
+            raise_analyzer = RaiseAnalyzer(self.translator)
             for inline_graph in self.graphs_to_inline:
                 try:
                     # XXX quite inefficient: we go over the function lots of times
                     inline.inline_function(self.translator, inline_graph, graph,
-                                           self.lltype_to_classdef)
+                                           self.lltype_to_classdef,
+                                           raise_analyzer)
                 except inline.CannotInline, e:
                     print 'CANNOT INLINE:', e
                     print '\t%s into %s' % (inline_graph, graph)

@@ -4,6 +4,7 @@ from pypy.translator.simplify import get_graph
 from pypy.translator.unsimplify import copyvar
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import SpaceOperation, c_last_exception
+from pypy.objspace.flow.model import FunctionGraph
 from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem.lltype import Bool, typeOf, Void, Ptr
@@ -12,6 +13,7 @@ from pypy.rpython import rmodel
 from pypy.tool.algo import sparsemat
 from pypy.translator.backendopt.support import log, split_block_with_keepalive
 from pypy.translator.backendopt.support import generate_keepalive, find_backedges, find_loop_blocks
+from pypy.translator.backendopt.canraise import RaiseAnalyzer
 
 BASE_INLINE_THRESHOLD = 32.4    # just enough to inline add__Int_Int()
 # and just small enough to prevend inlining of some rlist functions.
@@ -69,13 +71,16 @@ def contains_call(graph, calling_what):
     except StopIteration:
         return False
 
-def inline_function(translator, inline_func, graph, lltype_to_classdef):
-    inliner = Inliner(translator, graph, inline_func, lltype_to_classdef)
+def inline_function(translator, inline_func, graph, lltype_to_classdef,
+                    raise_analyzer):
+    inliner = Inliner(translator, graph, inline_func, lltype_to_classdef,
+                      raise_analyzer = raise_analyzer)
     return inliner.inline_all()
 
 def simple_inline_function(translator, inline_func, graph):
     inliner = Inliner(translator, graph, inline_func,
-                      translator.rtyper.lltype_to_classdef_mapping())
+                      translator.rtyper.lltype_to_classdef_mapping(),
+                      raise_analyzer = RaiseAnalyzer(translator))
     return inliner.inline_all()
 
 
@@ -110,6 +115,14 @@ def does_raise_directly(graph, raise_analyzer):
                 return True
     return False
 
+def any_call_to_raising_graphs(from_graph, translator, raise_analyzer):
+    for graph in collect_called_graphs(from_graph, translator):
+        if not isinstance(graph, FunctionGraph):
+            return True     # conservatively
+        if does_raise_directly(graph, raise_analyzer):
+            return True
+    return False
+
 class BaseInliner(object):
     def __init__(self, translator, graph, lltype_to_classdef, 
                  inline_guarded_calls=False,
@@ -120,11 +133,8 @@ class BaseInliner(object):
         # if this argument is set, the inliner will happily produce wrong code!
         # it is used by the exception transformation
         self.inline_guarded_calls_no_matter_what = inline_guarded_calls_no_matter_what
-        if inline_guarded_calls:
-            assert raise_analyzer is not None
-            self.raise_analyzer = raise_analyzer
-        else:
-            self.raise_analyzer = None
+        assert raise_analyzer is not None
+        self.raise_analyzer = raise_analyzer
         self.lltype_to_classdef = lltype_to_classdef
 
     def inline_all(self):
@@ -158,7 +168,8 @@ class BaseInliner(object):
                 if (not self.inline_guarded_calls_no_matter_what and 
                     does_raise_directly(self.graph_to_inline, self.raise_analyzer)):
                     raise CannotInline("can't inline because the call is exception guarded")
-            elif len(collect_called_graphs(self.graph_to_inline, self.translator)) != 0:
+            elif any_call_to_raising_graphs(self.graph_to_inline,
+                                            self.translator, self.raise_analyzer):
                 raise CannotInline("can't handle exceptions")
         self._passon_vars = {}
         self.entrymap = mkentrymap(self.graph_to_inline)
@@ -538,6 +549,7 @@ def auto_inlining(translator, multiplier=1, callgraph=None,
     valid_weight = {}
     couldnt_inline = {}
     lltype_to_classdef = translator.rtyper.lltype_to_classdef_mapping()
+    raise_analyzer = RaiseAnalyzer(translator)
     count = 0
 
     while heap:
@@ -574,7 +586,7 @@ def auto_inlining(translator, multiplier=1, callgraph=None,
             sys.stdout.flush()
             try:
                 res = bool(inline_function(translator, graph, parentgraph,
-                                           lltype_to_classdef))
+                                           lltype_to_classdef, raise_analyzer))
             except CannotInline:
                 couldnt_inline[graph] = True
                 res = CannotInline
