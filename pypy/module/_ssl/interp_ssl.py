@@ -159,6 +159,13 @@ libssl.X509_get_issuer_name.argtypes = [POINTER(X509)]
 libssl.X509_get_issuer_name.restype = POINTER(X509_NAME)
 libssl.X509_NAME_oneline.argtypes = [POINTER(X509_NAME), arr_x509, c_int]
 libssl.X509_NAME_oneline.restype = arr_x509
+libssl.X509_free.argtypes = [POINTER(X509)]
+libssl.X509_free.restype = c_void
+libssl.SSL_free.argtypes = [POINTER(SSL)]
+libssl.SSL_free.restype = c_void
+libssl.SSL_CTX_free.argtypes = [POINTER(SSL_CTX)]
+libssl.SSL_CTX_free.restype = c_void
+
 
 def _init_ssl():
     libssl.SSL_load_error_strings()
@@ -222,6 +229,16 @@ class SSLObject(Wrappable):
     def issuer(self):
         return self.space.wrap(self._issuer.value)
     issuer.unwrap_spec = ['self']
+    
+    def __del__(self):
+        Wrappable.__del__(self)
+        if self.server_cert:
+            libssl.X509_free(self.server_cert)
+        if self.ssl:
+            libssl.SSL_free(self.ssl)
+        if self.ctx:
+            libssl.SSL_CTX_free(self.ctx)
+
 
 SSLObject.typedef = TypeDef("SSLObject",
     server = interp2app(SSLObject.server,
