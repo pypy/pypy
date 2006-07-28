@@ -165,6 +165,8 @@ libssl.SSL_free.argtypes = [POINTER(SSL)]
 libssl.SSL_free.restype = c_void
 libssl.SSL_CTX_free.argtypes = [POINTER(SSL_CTX)]
 libssl.SSL_CTX_free.restype = c_void
+libssl.SSL_write.argtypes = [POINTER(SSL), c_char_p, c_int]
+libssl.SSL_write.restype = c_int
 
 
 def _init_ssl():
@@ -231,20 +233,76 @@ class SSLObject(Wrappable):
     issuer.unwrap_spec = ['self']
     
     def __del__(self):
-        Wrappable.__del__(self)
         if self.server_cert:
             libssl.X509_free(self.server_cert)
         if self.ssl:
             libssl.SSL_free(self.ssl)
         if self.ctx:
             libssl.SSL_CTX_free(self.ctx)
+    
+    def write(self, data):
+        """write(s) -> len
+
+        Writes the string s into the SSL object.  Returns the number
+        of bytes written."""
+        
+        sockstate = check_socket_and_wait_for_timeout(self.space,
+            self.w_socket, True)
+        if sockstate == SOCKET_HAS_TIMED_OUT:
+            raise OperationError(self.space.w_Exception,
+                self.space.wrap("The write operation timed out"))
+        elif sockstate == SOCKET_HAS_BEEN_CLOSED:
+            raise OperationError(self.space.w_Exception,
+                self.space.wrap("Underlying socket has been closed."))
+        elif sockstate == SOCKET_TOO_LARGE_FOR_SELECT:
+            raise OperationError(self.space.w_Exception,
+                self.space.wrap("Underlying socket too large for select()."))
+
+        num_bytes = 0
+        while True:
+            err = 0
+            
+            num_bytes = libssl.SSL_write(self.ssl, data, len(data))
+            err = libssl.SSL_get_error(self.ssl, num_bytes)
+        
+            if err == SSL_ERROR_WANT_READ:
+                sockstate = check_socket_and_wait_for_timeout(self.space,
+                    self.w_socket, False)
+            elif err == SSL_ERROR_WANT_WRITE:
+                sockstate = check_socket_and_wait_for_timeout(self.space,
+                    w_socket, True)
+            else:
+                sockstate = SOCKET_OPERATION_OK
+        
+            if sockstate == SOCKET_HAS_TIMED_OUT:
+                raise OperationError(space.w_Exception,
+                    space.wrap("The connect operation timed out"))
+            elif sockstate == SOCKET_HAS_BEEN_CLOSED:
+                raise OperationError(space.w_Exception,
+                    space.wrap("Underlying socket has been closed."))
+            elif sockstate == SOCKET_IS_NONBLOCKING:
+                break
+        
+            if err == SSL_ERROR_WANT_READ or err == SSL_ERROR_WANT_WRITE:
+                continue
+            else:
+                break
+        
+        if num_bytes > 0:
+            return self.space.wrap(num_bytes)
+        else:
+            errstr, errval = _ssl_seterror(self.space, self, num_bytes)
+            raise OperationError(space.w_Exception,
+                space.wrap("%s: %d" % (errstr, errval)))
+    write.unwrap_spec = ['self', str]
 
 
 SSLObject.typedef = TypeDef("SSLObject",
     server = interp2app(SSLObject.server,
         unwrap_spec=SSLObject.server.unwrap_spec),
     issuer = interp2app(SSLObject.issuer,
-        unwrap_spec=SSLObject.issuer.unwrap_spec)
+        unwrap_spec=SSLObject.issuer.unwrap_spec),
+    write = interp2app(SSLObject.write, unwrap_spec=SSLObject.write.unwrap_spec)
 )
 
 
@@ -310,9 +368,9 @@ def new_sslobject(space, w_sock, w_key_file, w_cert_file):
         err = libssl.SSL_get_error(ss.ssl, ret)
         
         if err == SSL_ERROR_WANT_READ:
-            sockstate = check_socket_and_wait_for_timeout(space, w_sock, 0)
+            sockstate = check_socket_and_wait_for_timeout(space, w_sock, False)
         elif err == SSL_ERROR_WANT_WRITE:
-            sockstate = check_socket_and_wait_for_timeout(space, w_sock, 1)
+            sockstate = check_socket_and_wait_for_timeout(space, w_sock, True)
         else:
             sockstate = SOCKET_OPERATION_OK
         
@@ -334,7 +392,7 @@ def new_sslobject(space, w_sock, w_key_file, w_cert_file):
             break
     
     if ret < 0:
-        errstr, p = _ssl_seterror(space, ss, ret)
+        errstr, errval = _ssl_seterror(space, ss, ret)
         raise OperationError(space.w_Exception,
             space.wrap("%s: %d" % (errstr, p)))
 
@@ -447,7 +505,7 @@ def _ssl_seterror(space, ss, ret):
                 errval = PY_SSL_ERROR_SYSCALL
         else:
             errstr = libssl.ERR_error_string(e, None)
-            p = PY_SSL_ERROR_SYSCALL
+            errval = PY_SSL_ERROR_SYSCALL
     elif err == SSL_ERROR_SSL:
         e = libssl.ERR_get_error()
         errval = PY_SSL_ERROR_SSL

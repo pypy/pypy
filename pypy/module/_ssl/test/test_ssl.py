@@ -55,7 +55,7 @@ class AppTestSSL:
         ss = socket.ssl(s)
         s.close()
     
-    def test_server_method(self):
+    def test_server(self):
         import socket
         ADDR = "connect.sigen-ca.si", 443
         s = socket.socket()
@@ -64,11 +64,22 @@ class AppTestSSL:
         assert isinstance(ss.server(), str)
         s.close()
     
-    def test_issuer_method(self):
+    def test_issuer(self):
         import socket
         ADDR = "connect.sigen-ca.si", 443
         s = socket.socket()
         s.connect(ADDR)
         ss = socket.ssl(s)
         assert isinstance(ss.issuer(), str)
+        s.close()
+        
+    def test_write(self):
+        import socket
+        ADDR = "connect.sigen-ca.si", 443
+        s = socket.socket()
+        s.connect(ADDR)
+        ss = socket.ssl(s)
+        num_bytes = ss.write("hello\n")
+        assert isinstance(num_bytes, int)
+        assert num_bytes >= 0
         s.close()
