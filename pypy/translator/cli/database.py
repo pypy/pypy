@@ -13,6 +13,7 @@ from pypy.rpython.ootypesystem.module import ll_os
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem import llmemory
 from pypy.translator.cli.opcodes import opcodes
+from pypy.rpython.objectmodel import CDefinedIntSymbolic
 
 try:
     set
@@ -35,6 +36,8 @@ BUILTIN_RECORDS = {
 
     ll_os.STAT_RESULT: '[pypylib]pypy.runtime.Record_Stat_Result',
     }
+
+DEFINED_INT_SYMBOLICS = {'MALLOC_ZERO_FILLED':1}
 
 def isnan(v):
 	return v != v*1.0 or (v == 1.0 and v == 2.0)
@@ -290,6 +293,8 @@ class AbstractConst(Node):
                 ilasm.opcode('ldc.r8', '(00 00 00 00 00 00 f8 ff)')
             else:
                 ilasm.opcode('ldc.r8', repr(value))
+        elif isinstance(value, CDefinedIntSymbolic):
+            ilasm.opcode('ldc.i4', DEFINED_INT_SYMBOLICS[value.expr])
         elif TYPE in (ootype.Signed, ootype.Unsigned):
             ilasm.opcode('ldc.i4', str(value))
         elif TYPE in (lltype.SignedLongLong, lltype.UnsignedLongLong):
