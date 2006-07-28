@@ -544,6 +544,26 @@ class BaseTestRclass(BaseRtypingTest):
             return a.x[0]
         assert self.interpret(f, []) == 3
 
+    def test_filter_unreachable_methods(self):
+        # this creates a family with 20 unreachable methods m(), all
+        # hidden by a 21st method m().
+        class Base:
+            pass
+        prev = Base
+        for i in range(20):
+            class Intermediate(prev):
+                def m(self, value=i):
+                    return value
+            prev = Intermediate
+        class Final(prev):
+            def m(self):
+                return -7
+        def f():
+            return Final().m()
+        res = self.interpret(f, [])
+        assert res == -7
+
+
 class TestLltype(BaseTestRclass, LLRtypeMixin):
 
     def test__del__(self):
