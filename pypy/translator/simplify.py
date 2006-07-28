@@ -385,14 +385,10 @@ def remove_assertion_errors(graph):
 # _____________________________________________________________________
 # decide whether a function has side effects
 
-class HasSideEffects(Exception):
-    pass
-
 def op_has_side_effects(op):
     return lloperation.LL_OPERATIONS[op.opname].sideeffects
 
-def has_no_side_effects(translator, graph, seen=None,
-                        is_operation_false=op_has_side_effects):
+def has_no_side_effects(translator, graph, seen=None):
     #is the graph specialized? if no we can't say anything
     #don't cache the result though
     if translator.rtyper is None:
@@ -406,31 +402,26 @@ def has_no_side_effects(translator, graph, seen=None,
         return True
     newseen = seen.copy()
     newseen[graph] = True
-    try:
-        def visit(block):
-            if not isinstance(block, Block):
-                return
-            for op in block.operations:
-                if op.opname == "direct_call":
-                    g = get_graph(op.args[0], translator)
-                    if g is None:
-                        raise HasSideEffects
+    for block in graph.iterblocks():
+        if block is graph.exceptblock:
+            return False     # graphs explicitly raising have side-effects
+        for op in block.operations:
+            if op.opname == "direct_call":
+                g = get_graph(op.args[0], translator)
+                if g is None:
+                    return False
+                if not has_no_side_effects(translator, g, newseen):
+                    return False
+            elif op.opname == "indirect_call":
+                graphs = op.args[-1].value
+                if graphs is None:
+                    return False
+                for g in graphs:
                     if not has_no_side_effects(translator, g, newseen):
-                        raise HasSideEffects
-                elif op.opname == "indirect_call":
-                    graphs = op.args[-1].value
-                    if graphs is None:
-                        raise HasSideEffects
-                    for g in graphs:
-                        if not has_no_side_effects(translator, g, newseen):
-                            raise HasSideEffects
-                elif is_operation_false(op):
-                    raise HasSideEffects
-        traverse(visit, graph)
-    except HasSideEffects:
-        return False
-    else:
-        return True
+                        return False
+            elif op_has_side_effects(op):
+                return False
+    return True
 
 # ___________________________________________________________________________
 # remove operations if their result is not used and they have no side effects

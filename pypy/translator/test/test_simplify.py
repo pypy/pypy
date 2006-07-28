@@ -1,6 +1,7 @@
+import py
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.backendopt.all import backend_optimizations
-from pypy.translator.simplify import get_graph
+from pypy.translator.simplify import get_graph, transform_dead_op_vars
 from pypy.objspace.flow.model import traverse, Block
 
 def translate(func, argtypes, backend_optimize=True):
@@ -172,3 +173,17 @@ def test_join_blocks_cleans_links():
     # does not crash: previously join_blocks would barf on this
     remove_same_as(graph)
     backend_optimizations(t)
+
+def test_transform_dead_op_vars_bug():
+    from pypy.rpython.llinterp import LLInterpreter, LLException
+    exc = ValueError()
+    def f1():
+        raise exc     # this function used to be considered side-effects-free
+    def f2():
+        f1()          # <- so this call was removed
+
+    graph, t = translate(f2, [], backend_optimize=False)
+    transform_dead_op_vars(graph, t)
+    interp = LLInterpreter(t.rtyper)
+    e = py.test.raises(LLException, 'interp.eval_graph(graph, [])')
+    assert 'ValueError' in str(e)
