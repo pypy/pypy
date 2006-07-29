@@ -1,6 +1,8 @@
 from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Void, Bool, Float
 from pypy.rpython.lltypesystem.lltype import SignedLongLong, UnsignedLongLong
 
+TRACE_CALL = False
+
 class CodeGenerator(object):
     def __init__(self, out, indentstep = 4, startblock = '{', endblock = '}'):
         self._out = out
@@ -94,9 +96,8 @@ class IlasmGenerator(object):
         self.code.openblock()
         if is_entrypoint:
             self.code.writeline('.entrypoint')
-
         self.code.writeline('.maxstack 32')
-
+        self.stderr('start %s' % name, TRACE_CALL)
 
     def end_function(self):
         self.code.closeblock()
