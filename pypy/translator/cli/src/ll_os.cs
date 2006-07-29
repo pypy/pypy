@@ -29,7 +29,6 @@ namespace pypy.builtin
         {
             FileAccess f_access = FileAccess.Read;
             FileMode f_mode = FileMode.Open;
-            Console.Error.WriteLine("ll_os_open {0}", flag);
             if ((flag & O_RDWR) != 0) {
                 throw new ApplicationException("Read/Write mode is not supported, yet");
             }
