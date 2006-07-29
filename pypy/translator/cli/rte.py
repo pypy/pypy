@@ -84,10 +84,10 @@ class UnixDLL(Target):
     DEPENDENCIES = [MainStub]
 
 def get_pypy_dll():
-    if platform.system() == 'Windows' or os.environ.get('PYPYLIB', '').lower() == 'framework':
-        DLL = FrameworkDLL
-    else:
+    if os.environ.get('PYPYLIB', '').lower() == 'unix':
         DLL = UnixDLL
+    else:
+        DLL = FrameworkDLL
     return DLL.get()
 
 if __name__ == '__main__':
