@@ -480,6 +480,17 @@ namespace pypy.runtime
 
 namespace pypy.builtin
 {
+    public class ll_strtod
+    {
+        public static string ll_strtod_formatd(string format, double d)
+        {
+            // XXX: this is really a quick hack to make things work.
+            // it should disappear, because this function is not
+            // supported by ootypesystem.
+            return d.ToString(); // XXX: we are ignoring "format"
+        }
+    }
+
     public class ll_time
     {
         public static double ll_time_time()
@@ -516,8 +527,11 @@ namespace pypy.builtin
             return result;
         }
 
-        // this code is borrowed from 
+        // the following code is borrowed from 
         // http://web.telia.com/~u31115556/under_construction/Functions.Cephes.CFunctions.cs
+        const double MAXNUM = double.MaxValue; // 1.79769313486232e308
+        const int MEXP = 0x7ff;
+
         [StructLayout(LayoutKind.Explicit)] //, CLSCompliantAttribute(false)]
         struct DoubleUshorts 
         {
@@ -558,6 +572,65 @@ namespace pypy.builtin
             result.item0 = u.d;
             return result;
         }
+
+        static public unsafe double ll_math_ldexp(double x, int pw2)
+        {
+            DoubleUshorts u;
+            u.d = x;
+
+            short *q = (short *)&u.u3;
+            double ud;
+            int e;
+            while ((e = (*q & 0x7ff0) >> 4) == 0)
+            {
+                if (u.d == 0.0)
+                {
+                    return 0.0;
+                }
+                // Input is denormal.
+                if (pw2 > 0)
+                {
+                    u.d *= 2.0;
+                    pw2 -= 1;
+                }
+                if (pw2 < 0)
+                {
+                    if (pw2 < -53)
+                        return 0.0;
+                    u.d /= 2.0;
+                    pw2 += 1;
+                }
+                if (pw2 == 0)
+                {
+                    return u.d;
+                }
+            }
+
+            e += pw2;
+
+            // Handle overflow
+            if (e >= MEXP)
+                return 2.0*MAXNUM;
+
+            if (e < 1)
+            {
+                return 0.0;
+            }
+            else
+            {
+                unchecked
+                {
+                    // Constant value '32783' cannot be converted to a 'short'
+                    *q &= (short)0x800f;
+                }
+                // Cannot implicitly convert type 'int' to 'short'
+                // Warning: Bitwise-or operator used on a sign-extended operand;
+                // consider casting to a smaller unsigned type first
+                *q |= (short)((e & 0x7ff) << 4);
+                return u.d;
+            }
+        }
+
 
     }
 }
