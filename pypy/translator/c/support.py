@@ -74,42 +74,41 @@ class CNameManager(NameManager):
            else      register  union
            ''')
 
+def _char_repr(c):
+    if c in '\\"': return '\\' + c
+    if ' ' <= c < '\x7F': return c
+    return '\\%03o' % ord(c)
 
-def c_string_constant(s, force_quote=False):
-    '''Returns EITHER a " "-delimited string literal for C
-               OR a { }-delimited array of chars.
+def _line_repr(s):
+    return ''.join([_char_repr(c) for c in s])
+
+
+def c_string_constant(s):
+    '''Returns a " "-delimited string literal for C.'''
+    lines = []
+    for i in range(0, len(s), 64):
+        lines.append('"%s"' % _line_repr(s[i:i+64]))
+    return '\n'.join(lines)
+
+
+def c_char_array_constant(s):
+    '''Returns an initializer for a constant char[N] array,
+    where N is exactly len(s).  This is either a " "-delimited
+    string or a { }-delimited array of small integers.
     '''
-    def char_repr(c):
-        if c in '\\"': return '\\' + c
-        if ' ' <= c < '\x7F': return c
-        return '\\%03o' % ord(c)
-    def line_repr(s):
-        return ''.join([char_repr(c) for c in s])
-    def array_repr(s):
+    if s.endswith('\x00') and len(s) < 1024:
+        # C++ is stricted than C: we can only use a " " literal
+        # if the last character is NULL, because such a literal
+        # always has an extra implicit NULL terminator.
+        return c_string_constant(s[:-1])
+    else:
         lines = []
         for i in range(0, len(s), 20):
             lines.append(','.join([str(ord(c)) for c in s[i:i+20]]))
-        return '{\n%s}' % ',\n'.join(lines)
-
-    #push a bit here to avoid cplusplus errors because strings add an
-    #implicit null-terminator.
-    if s[-1:] != '\000':
-        return array_repr(s)
-        
-    s = s[:-1]  #strip null-terminator because it's implicit in c(++)
-
-    if len(s) < 64:
-        return '"%s"' % line_repr(s)
-
-    elif len(s) < 1024 or force_quote:
-        lines = ['"']
-        for i in range(0, len(s), 32):
-            lines.append(line_repr(s[i:i+32]))
-        lines[-1] += '"'
-        return '\\\n'.join(lines)
-
-    else:
-        return array_repr(s)
+        if len(lines) > 1:
+            return '{\n%s}' % ',\n'.join(lines)
+        else:
+            return '{%s}' % ', '.join(lines)
 
 
 def gen_assignments(assignments):

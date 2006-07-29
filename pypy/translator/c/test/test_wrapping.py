@@ -1,5 +1,3 @@
-import py; py.test.skip("XXX occasionally segfaults")
-
 from pypy.translator.tool.raymond import (get_compiled_module, get_compiled,
                                           wrap, unwrap, __init__,
                                           ExtCompiler)
@@ -101,6 +99,17 @@ def democlass_helper2(a=int, b=int):
     self.demo()
     self2 = DemoSubclass(a, b, 42)
     return self
+
+def test_wrap_docstring():
+    def f(x):
+        return x+1
+    for doc in ['SHORT',
+                'MIDDLE' * 100,    # 600 chars
+                'VERY LONG ' * 200,       # 2000 chars
+                ]:
+        f.__doc__ = doc
+        f1 = get_compiled(f)
+        assert f1.__doc__ == doc
 
 # creating an object, wrapping, unwrapping, call function, check whether __del__ is called
 def test_wrap_call_dtor():

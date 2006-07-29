@@ -8,7 +8,8 @@ from pypy.rpython.lltypesystem.llmemory import WeakGcAddress
 from pypy.translator.c.funcgen import FunctionCodeGenerator
 from pypy.translator.c.external import CExternalFunctionCodeGenerator
 from pypy.translator.c.support import USESLOTS # set to False if necessary while refactoring
-from pypy.translator.c.support import cdecl, forward_cdecl, somelettersfrom, c_string_constant
+from pypy.translator.c.support import cdecl, forward_cdecl, somelettersfrom
+from pypy.translator.c.support import c_char_array_constant
 from pypy.translator.c.primitive import PrimitiveType, isinf
 from pypy.translator.c import extfunc
 
@@ -492,7 +493,7 @@ class ArrayNode(ContainerNode):
             yield '}'
         elif self.T.OF == Char:
             yield '\t%d, %s' % (len(self.obj.items),
-                                c_string_constant(''.join(self.obj.items)))
+                                c_char_array_constant(''.join(self.obj.items)))
             yield '}'
         else:
             yield '\t%d, {' % len(self.obj.items)
