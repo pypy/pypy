@@ -51,7 +51,10 @@ class AppTestSSL:
         # https://connect.sigen-ca.si/index-en.html
         ADDR = "connect.sigen-ca.si", 443
         s = socket.socket()
-        s.connect(ADDR)
+        try:
+            s.connect(ADDR)
+        except:
+            skip("no network available or issues with connection")
         ss = socket.ssl(s)
         s.close()
     
@@ -59,7 +62,10 @@ class AppTestSSL:
         import socket
         ADDR = "connect.sigen-ca.si", 443
         s = socket.socket()
-        s.connect(ADDR)
+        try:
+            s.connect(ADDR)
+        except:
+            skip("no network available or issues with connection")
         ss = socket.ssl(s)
         assert isinstance(ss.server(), str)
         s.close()
@@ -68,7 +74,10 @@ class AppTestSSL:
         import socket
         ADDR = "connect.sigen-ca.si", 443
         s = socket.socket()
-        s.connect(ADDR)
+        try:
+            s.connect(ADDR)
+        except:
+            skip("no network available or issues with connection")
         ss = socket.ssl(s)
         assert isinstance(ss.issuer(), str)
         s.close()
@@ -77,9 +86,44 @@ class AppTestSSL:
         import socket
         ADDR = "connect.sigen-ca.si", 443
         s = socket.socket()
-        s.connect(ADDR)
+        try:
+            s.connect(ADDR)
+        except:
+            skip("no network available or issues with connection")
         ss = socket.ssl(s)
+        raises(TypeError, ss.write, 123)
         num_bytes = ss.write("hello\n")
         assert isinstance(num_bytes, int)
         assert num_bytes >= 0
+        s.close()
+        
+    def test_read(self):
+        import socket
+        ADDR = "connect.sigen-ca.si", 443
+        s = socket.socket()
+        try:
+            s.connect(ADDR)
+        except:
+            skip("no network available or issues with connection")
+        ss = socket.ssl(s)
+        raises(TypeError, ss.read, "foo")
+        ss.write("hello\n")
+        data = ss.read()
+        assert isinstance(data, str)
+        s.close()
+
+    def test_read_upto(self):
+        import socket
+        ADDR = "connect.sigen-ca.si", 443
+        s = socket.socket()
+        try:
+            s.connect(ADDR)
+        except:
+            skip("no network available or issues with connection")
+        ss = socket.ssl(s)
+        raises(TypeError, ss.read, "foo")
+        ss.write("hello\n")
+        data = ss.read(10)
+        assert isinstance(data, str)
+        assert len(data) == 10
         s.close()

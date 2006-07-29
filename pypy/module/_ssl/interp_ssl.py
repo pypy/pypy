@@ -167,7 +167,10 @@ libssl.SSL_CTX_free.argtypes = [POINTER(SSL_CTX)]
 libssl.SSL_CTX_free.restype = c_void
 libssl.SSL_write.argtypes = [POINTER(SSL), c_char_p, c_int]
 libssl.SSL_write.restype = c_int
-
+libssl.SSL_pending.argtypes = [POINTER(SSL)]
+libssl.SSL_pending.restype = c_int
+libssl.SSL_read.argtypes = [POINTER(SSL), c_char_p, c_int]
+libssl.SSL_read.restype = c_int
 
 def _init_ssl():
     libssl.SSL_load_error_strings()
@@ -295,6 +298,69 @@ class SSLObject(Wrappable):
             raise OperationError(space.w_Exception,
                 space.wrap("%s: %d" % (errstr, errval)))
     write.unwrap_spec = ['self', str]
+    
+    def read(self, num_bytes=1024):
+        """read([len]) -> string
+
+        Read up to len bytes from the SSL socket."""
+
+        count = libssl.SSL_pending(self.ssl)
+        if not count:
+            sockstate = check_socket_and_wait_for_timeout(self.space,
+                self.w_socket, False)
+            if sockstate == SOCKET_HAS_TIMED_OUT:
+                raise OperationError(self.space.w_Exception,
+                    self.space.wrap("The read operation timed out"))
+            elif sockstate == SOCKET_TOO_LARGE_FOR_SELECT:
+                raise OperationError(self.space.w_Exception,
+                    self.space.wrap("Underlying socket too large for select()."))
+        
+        buf = create_string_buffer(num_bytes)
+        while True:
+            err = 0
+            
+            count = libssl.SSL_read(self.ssl, buf, num_bytes)
+            err = libssl.SSL_get_error(self.ssl, count)
+        
+            if err == SSL_ERROR_WANT_READ:
+                sockstate = check_socket_and_wait_for_timeout(self.space,
+                    self.w_socket, False)
+            elif err == SSL_ERROR_WANT_WRITE:
+                sockstate = check_socket_and_wait_for_timeout(self.space,
+                    w_socket, True)
+            else:
+                sockstate = SOCKET_OPERATION_OK
+        
+            if sockstate == SOCKET_HAS_TIMED_OUT:
+                raise OperationError(space.w_Exception,
+                    space.wrap("The read operation timed out"))
+            elif sockstate == SOCKET_IS_NONBLOCKING:
+                break
+        
+            if err == SSL_ERROR_WANT_READ or err == SSL_ERROR_WANT_WRITE:
+                continue
+            else:
+                break
+                
+        if count <= 0:
+            errstr, errval = _ssl_seterror(self.space, self, count)
+            raise OperationError(self.space.w_Exception,
+                self.space.wrap("%s: %d" % (errstr, errval)))
+        
+        if count != num_bytes:
+            # resize
+            data = buf.raw
+            assert count >= 0
+            try:
+                new_data = data[0:count]
+            except:
+                raise OperationError(self.space.w_MemoryException,
+                    self.space.wrap("error in resizing of the buffer."))
+            buf = create_string_buffer(count)
+            buf.raw = new_data
+            
+        return self.space.wrap(buf.value)
+    read.unwrap_spec = ['self', int]
 
 
 SSLObject.typedef = TypeDef("SSLObject",
@@ -302,7 +368,9 @@ SSLObject.typedef = TypeDef("SSLObject",
         unwrap_spec=SSLObject.server.unwrap_spec),
     issuer = interp2app(SSLObject.issuer,
         unwrap_spec=SSLObject.issuer.unwrap_spec),
-    write = interp2app(SSLObject.write, unwrap_spec=SSLObject.write.unwrap_spec)
+    write = interp2app(SSLObject.write,
+        unwrap_spec=SSLObject.write.unwrap_spec),
+    read = interp2app(SSLObject.read, unwrap_spec=SSLObject.read.unwrap_spec)
 )
 
 
