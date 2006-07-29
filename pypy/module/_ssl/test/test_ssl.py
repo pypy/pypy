@@ -28,22 +28,28 @@ class AppTestSSL:
         assert isinstance(_ssl.SSL_ERROR_INVALID_ERROR_CODE, int)
     
     def test_RAND_add(self):
-        from _ssl import RAND_add
-        raises(TypeError, RAND_add, 4, 4)
-        raises(TypeError, RAND_add, "xyz", "zyx")
-        RAND_add("xyz", 1.2345)
+        import _ssl
+        if not hasattr(_ssl, "RAND_add"):
+            skip("RAND_add is not available on this machine")
+        raises(TypeError, _ssl.RAND_add, 4, 4)
+        raises(TypeError, _ssl.RAND_add, "xyz", "zyx")
+        _ssl.RAND_add("xyz", 1.2345)
     
     def test_RAND_status(self):
         import _ssl
+        if not hasattr(_ssl, "RAND_status"):
+            skip("RAND_status is not available on this machine")
         _ssl.RAND_status()
     
     def test_RAND_egd(self):
-        from _ssl import RAND_egd
-        raises(TypeError, RAND_egd, 4)
+        import _ssl
+        if not hasattr(_ssl, "RAND_egd"):
+            skip("RAND_egd is not available on this machine")
+        raises(TypeError, _ssl.RAND_egd, 4)
         
         # you need to install http://egd.sourceforge.net/ to test this
         # execute "egd.pl entropy" in the current dir
-        RAND_egd("entropy")
+        _ssl.RAND_egd("entropy")
     
     def test_connect(self):
         import socket
