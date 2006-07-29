@@ -97,7 +97,8 @@ class IlasmGenerator(object):
         if is_entrypoint:
             self.code.writeline('.entrypoint')
         self.code.writeline('.maxstack 32')
-        self.stderr('start %s' % name, TRACE_CALL)
+        self.stderr('start %s' % name, TRACE_CALL and name!='.ctor'
+                    and method_type!='runtime')
 
     def end_function(self):
         self.code.closeblock()
