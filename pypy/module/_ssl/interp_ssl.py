@@ -273,16 +273,16 @@ class SSLObject(Wrappable):
                     self.w_socket, False)
             elif err == SSL_ERROR_WANT_WRITE:
                 sockstate = check_socket_and_wait_for_timeout(self.space,
-                    w_socket, True)
+                    self.w_socket, True)
             else:
                 sockstate = SOCKET_OPERATION_OK
         
             if sockstate == SOCKET_HAS_TIMED_OUT:
-                raise OperationError(space.w_Exception,
-                    space.wrap("The connect operation timed out"))
+                raise OperationError(self.space.w_Exception,
+                    self.space.wrap("The connect operation timed out"))
             elif sockstate == SOCKET_HAS_BEEN_CLOSED:
-                raise OperationError(space.w_Exception,
-                    space.wrap("Underlying socket has been closed."))
+                raise OperationError(self.space.w_Exception,
+                    self.space.wrap("Underlying socket has been closed."))
             elif sockstate == SOCKET_IS_NONBLOCKING:
                 break
         
@@ -295,8 +295,8 @@ class SSLObject(Wrappable):
             return self.space.wrap(num_bytes)
         else:
             errstr, errval = _ssl_seterror(self.space, self, num_bytes)
-            raise OperationError(space.w_Exception,
-                space.wrap("%s: %d" % (errstr, errval)))
+            raise OperationError(self.space.w_Exception,
+                self.space.wrap("%s: %d" % (errstr, errval)))
     write.unwrap_spec = ['self', str]
     
     def read(self, num_bytes=1024):
@@ -327,13 +327,13 @@ class SSLObject(Wrappable):
                     self.w_socket, False)
             elif err == SSL_ERROR_WANT_WRITE:
                 sockstate = check_socket_and_wait_for_timeout(self.space,
-                    w_socket, True)
+                    self.w_socket, True)
             else:
                 sockstate = SOCKET_OPERATION_OK
         
             if sockstate == SOCKET_HAS_TIMED_OUT:
-                raise OperationError(space.w_Exception,
-                    space.wrap("The read operation timed out"))
+                raise OperationError(self.space.w_Exception,
+                    self.space.wrap("The read operation timed out"))
             elif sockstate == SOCKET_IS_NONBLOCKING:
                 break
         
@@ -381,10 +381,8 @@ def new_sslobject(space, w_sock, w_key_file, w_cert_file):
     w_timeout = space.call_method(w_sock, "gettimeout")
     if space.is_w(w_timeout, space.w_None):
         has_timeout = False
-        sock_timeout = 0
     else:
         has_timeout = True
-        sock_timeout = space.int_w(w_timeout)
     if space.is_w(w_key_file, space.w_None):
         key_file = None
     else:
@@ -462,7 +460,7 @@ def new_sslobject(space, w_sock, w_key_file, w_cert_file):
     if ret < 0:
         errstr, errval = _ssl_seterror(space, ss, ret)
         raise OperationError(space.w_Exception,
-            space.wrap("%s: %d" % (errstr, p)))
+            space.wrap("%s: %d" % (errstr, errval)))
 
     ss.ssl.debug = 1
     
