@@ -111,11 +111,12 @@ constants["SSL_ERROR_INVALID_ERROR_CODE"] = PY_SSL_ERROR_INVALID_ERROR_CODE
 
 libssl.SSL_load_error_strings.restype = c_void
 libssl.SSL_library_init.restype = c_int
-libssl.RAND_add.argtypes = [c_char_p, c_int, c_double]
-libssl.RAND_add.restype = c_void
-libssl.RAND_status.restype = c_int
-libssl.RAND_egd.argtypes = [c_char_p]
-libssl.RAND_egd.restype = c_int
+if HAVE_OPENSSL_RAND:
+    libssl.RAND_add.argtypes = [c_char_p, c_int, c_double]
+    libssl.RAND_add.restype = c_void
+    libssl.RAND_status.restype = c_int
+    libssl.RAND_egd.argtypes = [c_char_p]
+    libssl.RAND_egd.restype = c_int
 libssl.SSL_CTX_new.argtypes = [POINTER(SSL_METHOD)]
 libssl.SSL_CTX_new.restype = POINTER(SSL_CTX)
 libssl.SSLv23_method.restype = POINTER(SSL_METHOD)
