@@ -382,7 +382,10 @@ int main() {
 }
 """)
         cfile.close()
-        build_executable([cfname], libraries=['gc'], noerr=True)
+        if sys.platform == 'win32':
+            build_executable([cfname], libraries=['gc_pypy'], noerr=True)
+        else:
+            build_executable([cfname], libraries=['gc'], noerr=True)
     except:
         return False
     else:
