@@ -104,7 +104,8 @@ def test_call_uncovered():
         f(one(),one()+one())
         return 0
     e = py.test.raises(Exception, transform_stackless_function, example)
-    assert e.value.args == ('not covered needed value at resume_point',)
+    msg, = e.value.args
+    assert msg.startswith('not covered needed value at resume_point') and 'rp1' in msg
 
 def test_chained_states():
     def g(x, y):

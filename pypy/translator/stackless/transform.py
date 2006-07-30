@@ -568,6 +568,9 @@ class StacklessTransformer(object):
             link = support.split_block_with_keepalive(block, i+1)
             i = 0
             nextblock = link.target
+
+        label = op.args[0].value
+
         parms = op.args[1:]
         if not isinstance(parms[0], model.Variable):
             assert parms[0].value is None
@@ -575,7 +578,7 @@ class StacklessTransformer(object):
         args = vars_to_save(block)
         for a in args:
             if a not in parms:
-                raise Exception, "not covered needed value at resume_point"
+                raise Exception, "not covered needed value at resume_point %r"%(label,)
         if parms[0] is not None: # returns= case
             res = parms[0]
             args = [arg for arg in args if arg is not res]
@@ -586,8 +589,6 @@ class StacklessTransformer(object):
         (frame_type,
          fieldnames,
          varsforcall, saver) = self.frametyper.frame_type_for_vars(parms[1:])
-
-        label = op.args[0].value
 
         if label in self.explicit_resume_point_data:
             other_type = self.explicit_resume_point_data[label]
