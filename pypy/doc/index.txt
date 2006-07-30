@@ -98,7 +98,7 @@ Stackless_ and coroutines
 Status
 ======================================
 
-`PyPy's own tests`_, daily updated.
+PyPy's own tests, daily updated, `on Linux`_ and `on Windows`_.
 
 `Nightly builds and benchmarks`_ of PyPy to C and LLVM.
 
@@ -129,7 +129,8 @@ recent compliance test runs against PyPy.
 .. _`bytecode interpreter`: interpreter.html 
 .. _`EU reports`: index-report.html
 .. _`garbage collection`: garbage_collection.html
-.. _`PyPy's own tests`: http://snake.cs.uni-duesseldorf.de/pypytest/summary.html
+.. _`on Linux`: http://snake.cs.uni-duesseldorf.de/pypytest/summary.html
+.. _`on Windows`: http://scottdial.com/pypytest/summary.html
 .. _`ideas for PyPy related projects`: project-ideas.html
 .. _`Nightly builds and benchmarks`: http://snake.cs.uni-duesseldorf.de/pypytest/benchmark.html
 .. _`directory reference`: 
