@@ -186,8 +186,9 @@ class LowLevelDatabase(object):
         self.step += 1
 
     def __end_step(self, ilasm):
-        ilasm.ret()
-        ilasm.end_function()
+        if self.step > 0:
+            ilasm.ret()
+            ilasm.end_function()
 
     def gen_constants(self, ilasm):
         self.locked = True # new pending nodes are not allowed here

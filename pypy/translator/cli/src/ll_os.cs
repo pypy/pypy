@@ -25,12 +25,23 @@ namespace pypy.builtin
             return System.IO.Directory.GetCurrentDirectory();
         }
 
+        private static FileStream getfd(int fd)
+        {
+            FileStream stream = FileDescriptors[fd];
+            Debug.Assert(stream != null, string.Format("Invalid file descriptor: {0}", fd));
+            return stream;
+        }
+
         public static int ll_os_open(string name, int flag, int mode)
         {
             FileAccess f_access = FileAccess.Read;
             FileMode f_mode = FileMode.Open;
             if ((flag & O_RDWR) != 0) {
-                throw new ApplicationException("Read/Write mode is not supported, yet");
+                f_access = FileAccess.ReadWrite;
+                if ((flag & O_APPEND) != 0)
+                    f_mode = FileMode.Append;
+                else
+                    f_mode = FileMode.Create;
             }
             else if ((flag & O_WRONLY) != 0) {
                 f_access = FileAccess.Write;
@@ -53,8 +64,7 @@ namespace pypy.builtin
 
         public static void ll_os_close(int fd)
         {
-            FileStream stream = FileDescriptors[fd];
-            Debug.Assert(stream != null);
+            FileStream stream = getfd(fd);
             stream.Close();
             FileDescriptors.Remove(fd);
         }
@@ -66,8 +76,7 @@ namespace pypy.builtin
             else if (fd == 2)
                 Console.Error.Write(buffer);
             else {
-                FileStream stream = FileDescriptors[fd];
-                Debug.Assert(stream != null);
+                FileStream stream = getfd(fd);
                 StreamWriter w = new StreamWriter(stream);
                 w.Write(buffer);
                 w.Flush();
@@ -86,8 +95,7 @@ namespace pypy.builtin
              if (fd == 0)
                  reader = Console.In;
              else {
-                 FileStream stream = FileDescriptors[fd];
-                 Debug.Assert(stream != null);
+                 FileStream stream = getfd(fd);
                  reader = new StreamReader(stream);
              }
              char[] buf = new char[count];
@@ -113,8 +121,39 @@ namespace pypy.builtin
                 res.item0 ^= S_IFDIR;
                 return res;
             }
-            // TODO: path is not a file nor a dir, should raise OSError
-            return null;
+            // path is not a file nor a dir, raise OSError
+            PrebuiltGraphs.raiseOSError(2); // ENOENT
+            return null; // never reached
+        }
+
+        public static Record_Stat_Result ll_os_fstat(int fd)
+        {
+            FileStream stream = getfd(fd);
+            return ll_os_stat(stream.Name);
+        }
+
+        public static void ll_os_unlink(string path)
+        {
+            File.Delete(path);
+        }
+     
+        public static long ll_os_lseek(int fd, int offset, int whence)
+        {
+            SeekOrigin origin = SeekOrigin.Begin;
+            switch(whence)
+                {
+                case 0:
+                    origin = SeekOrigin.Begin;
+                    break;
+                case 1:
+                    origin = SeekOrigin.Current;
+                    break;
+                case 2:
+                    origin = SeekOrigin.End;
+                    break;
+                }
+            FileStream stream = getfd(fd);
+            return stream.Seek(offset, origin);
         }
     }
 }
