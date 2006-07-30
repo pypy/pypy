@@ -445,6 +445,7 @@ OP_WEIGHTS = {'same_as': 0,
               'keepalive': 0,
               'malloc': 2,
               'yield_current_frame_to_caller': sys.maxint, # XXX bit extreme
+              'resume_point': sys.maxint, # XXX bit extreme
               }
 
 def block_weight(block, weights=OP_WEIGHTS):
