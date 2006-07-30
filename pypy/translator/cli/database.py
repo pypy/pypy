@@ -7,7 +7,7 @@ from pypy.translator.cli.record import Record
 from pypy.translator.cli.delegate import Delegate
 from pypy.translator.cli.comparer import EqualityComparer
 from pypy.translator.cli.node import Node
-from pypy.translator.cli.support import string_literal
+from pypy.translator.cli.support import string_literal, Counter
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem.module import ll_os
 from pypy.rpython.lltypesystem import lltype
@@ -60,6 +60,7 @@ class LowLevelDatabase(object):
         self.methods = {} # graph --> method_name
         self.consts = {}  # value --> AbstractConst
         self.delegates = {} # StaticMethod --> type_name
+        self.const_count = Counter() # store statistics about constants
         self.const_names = set()
         self.name_count = 0
         self.locked = False
@@ -387,6 +388,7 @@ class RecordConst(AbstractConst):
         assert not self.is_null()
         class_name = self.get_type(False)
         ilasm.new('instance void class %s::.ctor()' % class_name)
+        self.db.const_count.inc('Record')
 
     def init(self, ilasm):
         assert not self.is_null()
@@ -422,6 +424,7 @@ class StaticMethodConst(AbstractConst):
         ilasm.opcode('ldnull')
         ilasm.opcode('ldftn', signature)
         ilasm.new('instance void class %s::.ctor(object, native int)' % self.delegate_type)
+        self.db.const_count.inc('StaticMethod')
 
 class ClassConst(AbstractConst):
     def __init__(self, db, class_, count):
@@ -446,6 +449,7 @@ class ClassConst(AbstractConst):
         INSTANCE = self.value._INSTANCE
         ilasm.opcode('ldtoken', self.db.class_name(INSTANCE))
         ilasm.call('class [mscorlib]System.Type class [mscorlib]System.Type::GetTypeFromHandle(valuetype [mscorlib]System.RuntimeTypeHandle)')
+        self.db.const_count.inc('Class')
 
 class ListConst(AbstractConst):
     def __init__(self, db, list_, count):
@@ -467,6 +471,9 @@ class ListConst(AbstractConst):
         assert not self.is_null()
         class_name = self.get_type(False)
         ilasm.new('instance void class %s::.ctor()' % class_name)
+        self.db.const_count.inc('List')
+        self.db.const_count.inc('List', self.value._TYPE._ITEMTYPE)
+        self.db.const_count.inc('List', len(self.value._list))
 
     def _list_of_zeroes(self):
         try:
@@ -517,6 +524,8 @@ class DictConst(AbstractConst):
         assert not self.is_null()
         class_name = self.get_type(False)
         ilasm.new('instance void class %s::.ctor()' % class_name)
+        self.db.const_count.inc('Dict')
+        self.db.const_count.inc('Dict', self.value._TYPE._KEYTYPE, self.value._TYPE.VALUETYPE)
         
     def init(self, ilasm):
         assert not self.is_null()
@@ -574,6 +583,8 @@ class CustomDictConst(DictConst):
         ilasm.new('instance void %s::.ctor(class '
                   '[mscorlib]System.Collections.Generic.IEqualityComparer`1<!0>)'
                   % class_name)
+        self.db.const_count.inc('CustomDict')
+        self.db.const_count.inc('CustomDict', self.value._TYPE._KEYTYPE, self.value._TYPE.VALUETYPE)
 
 
 class InstanceConst(AbstractConst):
@@ -604,7 +615,7 @@ class InstanceConst(AbstractConst):
                 type_ = self.cts.lltype_to_cts(TYPE) # record type
                 value = getattr(self.value, name) # record value
                 self.record_const_maybe(TYPE, value)
-            INSTANCE = INSTANCE._superclass                
+            INSTANCE = INSTANCE._superclass
 
     def is_null(self):
         return not self.value
@@ -613,6 +624,8 @@ class InstanceConst(AbstractConst):
         assert not self.is_null()
         INSTANCE = self.value._TYPE
         ilasm.new('instance void class %s::.ctor()' % self.db.class_name(INSTANCE))
+        self.db.const_count.inc('Instance')
+        self.db.const_count.inc('Instance', INSTANCE)
 
     def init(self, ilasm):
         assert not self.is_null()
@@ -651,6 +664,7 @@ class WeakRefConst(AbstractConst):
     def instantiate(self, ilasm):
         ilasm.opcode('ldnull')
         ilasm.new('instance void %s::.ctor(object)' % self.get_type())
+        self.db.const_count.inc('WeakRef')
 
     def init(self, ilasm):
         if self.value is not None:

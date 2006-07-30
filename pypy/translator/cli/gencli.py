@@ -35,6 +35,7 @@ class GenCli(object):
             self.assembly_name = entrypoint.get_name()
 
         self.tmpfile = tmpdir.join(self.assembly_name + name_suffix)
+        self.const_stat = str(tmpdir.join('const_stat'))
 
     def generate_source(self , asm_class = IlasmGenerator ):
         out = self.tmpfile.open('w')
@@ -50,8 +51,8 @@ class GenCli(object):
         self.gen_entrypoint()
         self.gen_pendings()
         self.db.gen_constants(self.ilasm)
-
         out.close()
+        self.db.const_count.dump(self.const_stat)
         return self.tmpfile.strpath
 
     def gen_entrypoint(self):

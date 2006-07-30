@@ -29,3 +29,20 @@ class Tee(object):
         for outfile in self.outfiles:
             if outfile is not sys.stdout:
                 outfile.close()
+
+class Counter:
+    def __init__(self):
+        self.counters = {}
+
+    def inc(self, *label):
+        cur = self.counters.get(label, 0)
+        self.counters[label] = cur+1
+
+    def dump(self, filename):
+        f = file(filename, 'w')
+        keys = self.counters.keys()
+        keys.sort()
+        for key in keys:
+            label = ', '.join([str(item) for item in key])
+            f.write('%s: %d\n' % (label, self.counters[key]))
+        f.close()
