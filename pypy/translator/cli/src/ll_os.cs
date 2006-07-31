@@ -122,7 +122,7 @@ namespace pypy.builtin
                 return res;
             }
             // path is not a file nor a dir, raise OSError
-            PrebuiltGraphs.raiseOSError(2); // ENOENT
+            Helpers.raise_OSError(2); // ENOENT
             return null; // never reached
         }
 

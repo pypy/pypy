@@ -13,7 +13,7 @@ from pypy.translator.cli.opcodes import opcodes
 from pypy.translator.cli.sdk import SDK
 from pypy.translator.cli.rte import get_pypy_dll
 from pypy.translator.cli.support import Tee
-
+from pypy.translator.cli.prebuiltgraphs import get_prebuilt_nodes
 
 class GenCli(object):
     def __init__(self, tmpdir, translator, entrypoint=None, type_system_class=CTS,
@@ -25,8 +25,8 @@ class GenCli(object):
         self.db = database_class(type_system_class = type_system_class, opcode_dict = opcode_dict,
             function_class = function_class)
 
-        for graph, functype in pending_graphs:
-            self.db.pending_function(graph, functype)
+        for node in get_prebuilt_nodes(translator, self.db):
+            self.db.pending_node(node)
 
         if entrypoint is None:
             self.assembly_name = self.translator.graphs[0].name
