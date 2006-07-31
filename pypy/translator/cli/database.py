@@ -525,7 +525,7 @@ class DictConst(AbstractConst):
         class_name = self.get_type(False)
         ilasm.new('instance void class %s::.ctor()' % class_name)
         self.db.const_count.inc('Dict')
-        self.db.const_count.inc('Dict', self.value._TYPE._KEYTYPE, self.value._TYPE.VALUETYPE)
+        self.db.const_count.inc('Dict', self.value._TYPE._KEYTYPE, self.value._TYPE._VALUETYPE)
         
     def init(self, ilasm):
         assert not self.is_null()
@@ -584,7 +584,7 @@ class CustomDictConst(DictConst):
                   '[mscorlib]System.Collections.Generic.IEqualityComparer`1<!0>)'
                   % class_name)
         self.db.const_count.inc('CustomDict')
-        self.db.const_count.inc('CustomDict', self.value._TYPE._KEYTYPE, self.value._TYPE.VALUETYPE)
+        self.db.const_count.inc('CustomDict', self.value._TYPE._KEYTYPE, self.value._TYPE._VALUETYPE)
 
 
 class InstanceConst(AbstractConst):
