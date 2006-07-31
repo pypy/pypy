@@ -20,6 +20,19 @@ class TestCliBuiltin(CliTest, BaseTestRbuiltin):
     def test_os_read(self):
         BaseTestRbuiltin.test_os_read(self)
 
+    def test_os_read_binary(self):
+        tmpfile = str(udir.udir.join("os_read_test"))
+        def fn():
+            from pypy.module.__builtin__.importing import BIN_READMASK
+            fd = os.open(tmpfile, BIN_READMASK, 0666)
+            res = os.read(fd, 4096)
+            os.close(fd)
+            return len(res)
+        f = file(tmpfile, 'w')
+        f.write('Hello\nWorld')
+        f.close()
+        assert self.interpret(fn, []) == len(file(tmpfile, 'rb').read())
+
     # the following tests can't be executed with gencli because they
     # returns file descriptors, and cli code is executed in another
     # process. Instead of those, there is a new test that opens and
