@@ -12,18 +12,18 @@ class Module(MixedModule):
         'sslerror': 'app_ssl.sslerror',
     }
     
-    def buildloaders(cls):
-        # init the SSL module
-        from pypy.module._ssl.interp_ssl import _init_ssl, constants, HAVE_OPENSSL_RAND
-        _init_ssl()
-        
-        for constant, value in constants.iteritems():
-            Module.interpleveldefs[constant] = "space.wrap(%r)" % value
-            
-        if HAVE_OPENSSL_RAND:
-            Module.interpleveldefs['RAND_add'] = "interp_ssl.RAND_add"
-            Module.interpleveldefs['RAND_status'] = "interp_ssl.RAND_status"
-            Module.interpleveldefs['RAND_egd'] = "interp_ssl.RAND_egd"
-        
-        super(Module, cls).buildloaders()
-    buildloaders = classmethod(buildloaders)
+    # def buildloaders(cls):
+    #     # init the SSL module
+    #     from pypy.module._ssl.interp_ssl import _init_ssl, constants, HAVE_OPENSSL_RAND
+    #     _init_ssl()
+    #     
+    #     for constant, value in constants.iteritems():
+    #         Module.interpleveldefs[constant] = "space.wrap(%r)" % value
+    #         
+    #     if HAVE_OPENSSL_RAND:
+    #         Module.interpleveldefs['RAND_add'] = "interp_ssl.RAND_add"
+    #         Module.interpleveldefs['RAND_status'] = "interp_ssl.RAND_status"
+    #         Module.interpleveldefs['RAND_egd'] = "interp_ssl.RAND_egd"
+    #     
+    #     super(Module, cls).buildloaders()
+    # buildloaders = classmethod(buildloaders)

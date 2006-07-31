@@ -1,7 +1,6 @@
 from pypy.rpython.rctypes.tool import ctypes_platform
 from pypy.rpython.rctypes.tool.libc import libc
 import pypy.rpython.rctypes.implementation # this defines rctypes magic
-from pypy.rpython.rctypes.aerrno import geterrno
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable
 from pypy.interpreter.typedef import TypeDef
