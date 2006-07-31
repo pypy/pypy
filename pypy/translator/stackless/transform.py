@@ -628,7 +628,8 @@ class StacklessTransformer(object):
 
         realvarsforcall = []
         for v in varsforcall:
-            realvarsforcall.append(gen_cast(llops, storage_type(v.concretetype), v))
+            if v.concretetype != lltype.Void:
+                realvarsforcall.append(gen_cast(llops, storage_type(v.concretetype), v))
         
         llops.genop('direct_call',
                     [model.Constant(saver, lltype.typeOf(saver)), v_exc,
