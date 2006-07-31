@@ -19,7 +19,7 @@ namespace pypy.test
             if (x == null)
                 return "None";
             else
-                return string.Format("'{0}'", x); 
+                return string.Format("'''{0}'''", x.Replace("\\", "\\\\"));
         }
 
         public static string ToPython(object x) {
