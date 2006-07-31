@@ -13,7 +13,7 @@ from pypy.translator.cli.opcodes import opcodes
 from pypy.translator.cli.sdk import SDK
 from pypy.translator.cli.rte import get_pypy_dll
 from pypy.translator.cli.support import Tee
-from pypy.translator.cli.prebuiltgraphs import get_prebuilt_nodes
+from pypy.translator.cli.prebuiltnodes import get_prebuilt_nodes
 
 class GenCli(object):
     def __init__(self, tmpdir, translator, entrypoint=None, type_system_class=CTS,
