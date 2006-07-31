@@ -18,7 +18,6 @@ class TestCliBuiltin(CliTest, BaseTestRbuiltin):
     test_os_isdir = skip_os
 
     def test_os_read(self):
-        skip_win()
         BaseTestRbuiltin.test_os_read(self)
 
     # the following tests can't be executed with gencli because they
@@ -33,7 +32,6 @@ class TestCliBuiltin(CliTest, BaseTestRbuiltin):
         pass
 
     def test_os_open_write(self):
-        skip_win()
         tmpdir = str(udir.udir.join("os_write_test"))
         def fn():
             fd = os.open(tmpdir, os.O_WRONLY|os.O_CREAT, 0777)            
@@ -43,11 +41,15 @@ class TestCliBuiltin(CliTest, BaseTestRbuiltin):
         assert file(tmpdir).read() == 'hello world'
 
     def test_os_stat(self):
-        skip_win()
         def fn():
             return os.stat('.')[0]
         mode = self.interpret(fn, [])
         assert stat.S_ISDIR(mode)
+
+    def test_os_stat_oserror(self):
+        def fn():
+            return os.stat('/directory/unlikely/to/exists')[0]
+        self.interpret_raises(OSError, fn, [])
 
     # XXX: remember to test ll_os_readlink and ll_os_pipe as soon as
     # they are implemented
