@@ -121,10 +121,10 @@ class FrameTyper:
         return key
 
     def saving_function_for_type(self, FRAME_TYPE):
-        v_restart = varoftype(lltype.Signed)
         v_exception = varoftype(self.transformer.unwind_exception_type)
+        v_restart = varoftype(lltype.Signed)
         
-        save_block = model.Block([v_restart, v_exception])
+        save_block = model.Block([v_exception, v_restart])
         
         llops = LowLevelOpList()
         if self.stackless_gc:
@@ -459,6 +459,7 @@ class StacklessTransformer(object):
         
         assert self.curr_graph is None
         self.curr_graph = graph
+        self.curr_graph_save_blocks = {}
         if SAVE_STATISTICS:
             self.stats.cur_rp_exact_types = {}
             self.stats.cur_rp_erased_types = {}
@@ -490,9 +491,8 @@ class StacklessTransformer(object):
             self.stats.pot_erased_saves[gkey(self.curr_graph)] = pot_erased_save_count 
             self.stats.total_pot_erased_saves += pot_erased_save_count
            
-            
-
         self.curr_graph = None
+        self.curr_graph_save_blocks = None
 
     def ops_read_global_state_field(self, targetvar, fieldname):
         ops = []
@@ -836,7 +836,9 @@ class StacklessTransformer(object):
             exact_key = (tuple(exact_key), var_result.concretetype)
             inc(self.stats.cur_rp_exact_types, exact_key)
             inc(self.stats.cur_rp_erased_types, frame_type)
-            
+
+        c_restart = model.Constant(len(self.masterarray1) + len(self.resume_blocks), lltype.Signed)
+        varsforcall.insert(0, c_restart)
         
         return (self._generate_save_block(varsforcall, var_exception,
                                           frame_type, fieldnames, saver),
@@ -846,11 +848,19 @@ class StacklessTransformer(object):
 
     def _generate_save_block(self, varsforcall, var_unwind_exception,
                              frame_type, fieldnames, saver):
+        conc_types = tuple([v.concretetype for v in varsforcall])
+        if conc_types in self.curr_graph_save_blocks:
+            return self.curr_graph_save_blocks[conc_types]
         rtyper = self.translator.rtyper
         edata = rtyper.getexceptiondata()
         etype = edata.lltype_of_exception_type
         evalue = edata.lltype_of_exception_value
-        inputargs = [unsimplify.copyvar(None, v) for v in varsforcall]
+        def cv(v):
+            if isinstance(v, model.Variable):
+                return unsimplify.copyvar(None, v)
+            else:
+                return varoftype(v.concretetype)
+        inputargs = [cv(v) for v in varsforcall]
         var_unwind_exception = unsimplify.copyvar(None, var_unwind_exception)
 
         save_state_block = model.Block(inputargs + [var_unwind_exception])
@@ -858,9 +868,7 @@ class StacklessTransformer(object):
         
         var_exc = gen_cast(saveops, self.unwind_exception_type, var_unwind_exception)
         
-        c_restart = model.Constant(len(self.masterarray1) + len(self.resume_blocks), lltype.Signed)
-
-        realvarsforcall = [c_restart, var_exc]
+        realvarsforcall = [var_exc]
         for v in inputargs:
             realvarsforcall.append(gen_cast(saveops, storage_type(v.concretetype), v))
         
@@ -883,6 +891,7 @@ class StacklessTransformer(object):
             save_state_block, save_state_block.exits[0])
         if SAVE_STATISTICS:
             self.stats.saveops += len(save_state_block.operations)
+        self.curr_graph_save_blocks[conc_types] = save_state_block
         return save_state_block
 
     def _generate_resume_block(self, varstosave, frame_type, fieldnames,
