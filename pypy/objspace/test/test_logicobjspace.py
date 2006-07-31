@@ -1,6 +1,6 @@
 from pypy.conftest import gettestobjspace
 from py.test import skip
- 
+
 class AppTest_Logic(object):
 
     def setup_class(cls):
@@ -196,13 +196,14 @@ class AppTest_Logic(object):
         raises(Exception, unify, f1.b, 24)
 
 
-class AppTest_LogicThreads(object):
+class AppTest_LogicFutures(object):
 
     def setup_class(cls):
         cls.space = gettestobjspace('logic', usemodules=("_stackless",))
 
     def test_future_value(self):
-        
+        print "future value", sched_stats()
+
         def poop(X):
             return X + 1
 
@@ -210,7 +211,6 @@ class AppTest_LogicThreads(object):
         Y = future(poop, X)
         unify(X, 42)
         assert Y == 43
-        print "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAa"
         assert sched_stats()['threads'] == 1
 
         X = newvar()
@@ -233,6 +233,7 @@ class AppTest_LogicThreads(object):
         assert sched_stats()['threads'] == 3
 
     def test_one_future_exception(self):
+        print "one future exception", sched_stats()
         class FooException(Exception): pass
         
         def poop(X):
@@ -249,6 +250,7 @@ class AppTest_LogicThreads(object):
         assert False
 
     def test_exception_in_chain(self):
+        print "exception in chain", sched_stats()
         class FooException(Exception): pass
 
         def raise_foo():
@@ -272,6 +274,7 @@ class AppTest_LogicThreads(object):
         assert False
 
     def test_exception_in_group(self):
+        print "exception in groups", sched_stats()
         class FooException(Exception): pass
 
         def loop_or_raise(Canary, crit, Bomb_signal):
@@ -303,6 +306,7 @@ class AppTest_LogicThreads(object):
         """check that a wait nested in a tree of
            threads works correctly
         """
+        print "nested threads", sched_stats()
         def sleep(X):
             wait(X)
             return X
@@ -318,6 +322,7 @@ class AppTest_LogicThreads(object):
         assert v == 42
 
     def test_wait_needed(self):
+        print "wait_needed", sched_stats()
         X = newvar()
 
         def binder(V):
@@ -334,6 +339,7 @@ class AppTest_LogicThreads(object):
         assert X == 42
 
     def test_eager_producer_consummer(self):
+        print "eager_producer_consummer", sched_stats()
 
         def generate(n, limit):
             if n < limit:
@@ -355,6 +361,7 @@ class AppTest_LogicThreads(object):
 
 
     def test_lazy_producer_consummer(self):
+        print "lazy_producer_consummer", sched_stats()
 
         def lgenerate(n, L):
             """wait-needed version of generate"""
@@ -383,6 +390,8 @@ class AppTest_LogicThreads(object):
         assert T == 45
 
     def test_wait_two(self):
+        print "wait_two", sched_stats()
+
         def sleep(X, Barrier):
             wait(X)
             bind(Barrier, True)
@@ -424,3 +433,36 @@ class AppTest_LogicThreads(object):
             print F
         except Exception, e:
             print e
+
+    def test_stacklet(self):
+
+        print "stacklet", sched_stats()
+        reset_scheduler()
+        #XXX each of the previous test decorates
+        #    the scheduler with unreclaimed stuff
+        #    In this case, side-effect happen. Nasty.
+
+        count = [0]
+
+        def inc_and_greet(count, max_, Finished, Failed):
+            if count[0] >= max_:
+                count[0] += 1
+                bind(Finished, count[0])
+                return
+            count[0] += 1
+
+        Finished, Failed = newvar(), newvar()
+        max_spawn = 2
+        erring = 3
+        for i in range(max_spawn + erring):
+            stacklet(inc_and_greet, count, max_spawn, Finished, Failed)
+
+        wait(Finished)
+        assert count[0] == max_spawn + erring
+        try:
+            wait(Failed)
+        except Exception, e: # Unification Failure
+            assert sched_stats()['threads'] == 1
+            return
+        assert False
+                

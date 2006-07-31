@@ -14,8 +14,10 @@ from pypy.objspace.cclp.misc import app_interp_id, app_switch_debug_info
 
 #-- THREADING/COROUTINING -----------------------------------
 
-from pypy.objspace.cclp.thread import Scheduler, app_future, app_sched_stats, \
-     app_schedule, scheduler
+from pypy.objspace.cclp.thread import app_future, app_stacklet, app_this_thread
+
+from pypy.objspace.cclp.scheduler import Scheduler, scheduler, app_sched_stats, \
+     app_schedule, app_reset_scheduler
 
 #-- VARIABLE ------------------------------------------------
 
@@ -246,6 +248,8 @@ def Space(*args, **kwds):
     #-- threading --
     space.setitem(space.builtin.w_dict, space.wrap('future'),
                  space.wrap(app_future))
+    space.setitem(space.builtin.w_dict, space.wrap('stacklet'),
+                 space.wrap(app_stacklet))
     space.setitem(space.builtin.w_dict, space.wrap('wait'),
                  space.wrap(app_wait))
     space.setitem(space.builtin.w_dict, space.wrap('wait_needed'),
@@ -254,6 +258,10 @@ def Space(*args, **kwds):
                   space.wrap(app_sched_stats))
     space.setitem(space.builtin.w_dict, space.wrap('schedule'),
                   space.wrap(app_schedule))
+    space.setitem(space.builtin.w_dict, space.wrap('this_thread'),
+                  space.wrap(app_this_thread))
+    space.setitem(space.builtin.w_dict, space.wrap('reset_scheduler'),
+                  space.wrap(app_reset_scheduler))
 
     #-- misc -----
     space.setitem(space.builtin.w_dict, space.wrap('interp_id'),
