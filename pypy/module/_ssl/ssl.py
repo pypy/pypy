@@ -1167,6 +1167,21 @@ class ssl_method_st(Structure):
     pass
 class ssl3_enc_method(Structure):
     pass
+ssl3_enc_method._fields_ = [
+    ('enc', CFUNCTYPE(POINTER(SSL), c_int)),
+    ('mac', CFUNCTYPE(POINTER(SSL), STRING, c_int)),
+    ('setup_key_block', CFUNCTYPE(POINTER(SSL))),
+    ('generate_master_secret', CFUNCTYPE(POINTER(SSL), STRING, STRING, c_int)),
+    ('change_cipher_state', CFUNCTYPE(POINTER(SSL), c_int)),
+    ('final_finish_mac', CFUNCTYPE(POINTER(SSL), POINTER(EVP_MD_CTX), POINTER(EVP_MD_CTX), STRING, c_int, STRING)),
+    ('finish_mac_length', c_int),
+    ('cert_verify_mac', CFUNCTYPE(POINTER(SSL), POINTER(EVP_MD_CTX), STRING)),
+    ('client_finished_label', STRING),
+    ('client_finished_label_len', c_int),
+    ('server_finished_label', STRING),
+    ('server_finished_label_len', c_int),
+    ('alert_value', CFUNCTYPE(c_int)),
+]
 ssl_method_st._fields_ = [
     ('version', c_int),
     ('ssl_new', CFUNCTYPE(c_int, POINTER(SSL))),
