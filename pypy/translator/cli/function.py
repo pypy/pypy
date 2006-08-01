@@ -125,7 +125,10 @@ class Function(Node, Generator):
                         self.store(link.target.inputargs[1])
                     else:
                         # the exception value is on the stack, store it in the proper place
+                        self.ilasm.opcode('dup')
                         self.store(link.last_exc_value)
+                        self.ilasm.get_field(('Object_meta', 'Object', 'meta'))
+                        self.store(link.last_exception)
                         self._setup_link(link)
                     
                     target_label = self._get_block_name(target)

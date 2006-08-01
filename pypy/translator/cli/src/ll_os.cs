@@ -46,6 +46,46 @@ namespace pypy.builtin
         }
     }
 
+    class CRLFFile: IFile
+    {
+        private FileStream stream;
+        private TextWriter writer;
+        private TextReader reader;
+        public CRLFFile(FileStream stream, TextReader reader, TextWriter writer)
+        {
+            this.stream = stream;
+            this.writer = writer;
+            this.reader = reader;
+        }
+        
+        public FileStream GetStream()
+        {
+            return stream;
+        }
+
+        public void Write(string buffer)
+        {
+            Debug.Assert(writer != null); // XXX: raise OSError?
+            writer.Write(buffer);
+            writer.Flush();
+        }
+        
+        public string Read(int count)
+        {
+            Debug.Assert(reader != null); // XXX: raise OSError?
+            System.Text.StringBuilder builder = new System.Text.StringBuilder(count);
+            while (count-- > 0) {
+                int ch = reader.Read();
+                if (ch == -1)
+                    break;
+                if (ch == '\r' && reader.Peek() == '\n')
+                    ch = reader.Read();
+                builder.Append((char)ch);
+            }
+            return builder.ToString();
+        }
+    }
+
     class BinaryFile: IFile
     {
         private FileStream stream;
@@ -124,7 +164,7 @@ namespace pypy.builtin
         private static FileMode get_file_mode(int flags) {
             if ((flags & O_APPEND) !=0 ) return FileMode.Append;
             if ((flags & O_TRUNC) !=0 ) return FileMode.Truncate;
-            if ((flags & O_CREAT) !=0 ) return FileMode.CreateNew;
+            if ((flags & O_CREAT) !=0 ) return FileMode.OpenOrCreate;
             return FileMode.Open;
         }
 
@@ -143,8 +183,15 @@ namespace pypy.builtin
                 if (f_access == FileAccess.Read || f_access == FileAccess.ReadWrite)
                     reader = new StreamReader(stream);
                 if (f_access == FileAccess.Write || f_access == FileAccess.ReadWrite)
-                    writer = new StreamWriter(stream);
-                f = new TextFile(stream, reader, writer);
+                    {
+                        Console.Error.WriteLine("opening {0} for writing", name);
+                        writer = new StreamWriter(stream);
+                    }
+
+                if (System.Environment.NewLine == "\r\n")
+                    f = new CRLFFile(stream, reader, writer);
+                else
+                    f = new TextFile(stream, reader, writer);
             }
 
             fdcount++;
@@ -194,7 +241,8 @@ namespace pypy.builtin
                 return res;
             }
             // path is not a file nor a dir, raise OSError
-            Helpers.raise_OSError(2); // ENOENT
+            //Helpers.raise_OSError(2); // ENOENT
+            PrebuiltGraphs.raiseOSError(2);
             return null; // never reached
         }
 
