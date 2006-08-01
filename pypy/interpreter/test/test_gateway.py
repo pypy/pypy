@@ -91,7 +91,20 @@ class TestGateway:
             return a+b
         g3 = gateway.app2interp_temp(noapp_g3, gateway.applevelinterp_temp)
         assert self.space.eq_w(g3(self.space, w('foo'), w('bar')), w('foobar'))
-        
+
+    def test_app2interp_general_args(self):
+        w = self.space.wrap
+        def app_general(x, *args, **kwds):
+            assert type(args) is tuple
+            assert type(kwds) is dict
+            return x + 10 * len(args) + 100 * len(kwds)
+        gg = gateway.app2interp_temp(app_general)
+        args = gateway.Arguments(self.space, [w(6), w(7)])
+        assert self.space.int_w(gg(self.space, w(3), args)) == 23
+        args = gateway.Arguments(self.space, [w(6)], {'hello': w(7),
+                                                      'world': w(8)})
+        assert self.space.int_w(gg(self.space, w(3), args)) == 213
+
     def test_interp2app(self):
         space = self.space
         w = space.wrap

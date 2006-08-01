@@ -3,7 +3,6 @@ Arguments objects.
 """
 
 from pypy.interpreter.error import OperationError
-import os
 
 class AbstractArguments:
 

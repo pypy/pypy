@@ -17,7 +17,7 @@ from pypy.interpreter import eval
 from pypy.interpreter.function import Function, Method
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable
 from pypy.interpreter.baseobjspace import Wrappable, SpaceCache
-from pypy.interpreter.argument import Arguments
+from pypy.interpreter.argument import Arguments, AbstractArguments
 from pypy.tool.sourcetools import NiceCompile, compile2
 
 # internal non-translatable parts: 
@@ -788,7 +788,16 @@ class ApplevelClass:
                     ret_w = sc[ApplevelClass](space, self, name, args_w)
                     if ret_w is not None: # it was RPython
                         return ret_w
-            args = Arguments(space, list(args_w))
+            # the last argument can be an Arguments
+            if args_w and isinstance(args_w[-1], AbstractArguments):
+                # ...which is merged with the previous arguments, if any
+                args = args_w[-1]
+                if len(args_w) > 1:
+                    more_args_w, more_kwds_w = args.unpack()
+                    args = Arguments(space, list(args_w[:-1]) + more_args_w,
+                                            more_kwds_w)
+            else:
+                args = Arguments(space, list(args_w))
             w_func = self.wget(space, name) 
             return space.call_args(w_func, args)
         def get_function(space):
