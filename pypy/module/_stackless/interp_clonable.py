@@ -4,7 +4,6 @@ from pypy.rpython.objectmodel import we_are_translated
 
 from pypy.interpreter.error import OperationError
 
-from pypy.rpython import rstack # for resume points
 from pypy.tool import stdlib_opcode as pythonopcode
 
 class InterpClonableCoroutine(Coroutine):

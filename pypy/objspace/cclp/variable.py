@@ -55,7 +55,7 @@ def wait_needed__Var(space, w_var):
         scheduler[0].add_to_blocked_byneed(w_var, ClonableCoroutine.w_getcurrent(space))
         scheduler[0].schedule()
     else:
-        raise OperationError(space.w_RuntimeError,
+        raise OperationError(space.w_TypeError,
                              space.wrap("wait_needed only supported on unbound variables"))
 
 def wait_needed(space, w_var):
@@ -140,17 +140,20 @@ def get_ring_tail(space, w_start):
         w_curr = w_next
 
 
-def fail(space, w_obj1, w_obj2):
+def raise_unification_failure(space):
     """raises a specific exception for bind/unify
        should fail the current comp. space at some point"""
-    #FIXME : really raise some specific exception
-    assert isinstance(w_obj1, W_Root)
-    assert isinstance(w_obj2, W_Root)
-    raise OperationError(space.w_RuntimeError,
+    raise OperationError(space.w_UnificationError,
                          space.wrap("Unification failure"))
+
+# to signal a future binding exception
+def raise_future_binding(space):
+    raise OperationError(space.w_FutureBindingError,
+                         space.wrap("This future is read-only for you, pal"))
 
 
 #-- BIND -----------------------------
+
 
 def bind(space, w_var, w_obj):
     """1. aliasing of unbound variables
@@ -170,15 +173,15 @@ def bind__Var_Root(space, w_var, w_obj):
         return _assign(space, w_var, w_obj)
     if space.is_true(space.eq(w_var.w_bound_to, w_obj)):
         return
-    raise OperationError(space.w_RuntimeError,
-                         space.wrap("Cannot bind twice"))
+    raise OperationError(space.w_RebindingError,
+                         space.wrap("Cannot bind twice but two identical values"))
+
 
 def bind__Future_Root(space, w_fut, w_obj):
     #v("future val", str(id(w_fut)))
     if w_fut.client == ClonableCoroutine.w_getcurrent(space):
-        raise OperationError(space.w_RuntimeError,
-                             space.wrap("This future is read-only for you, pal"))
-    bind__Var_Root(space, w_fut, w_obj) # call-next-method ?
+        raise_future_binding(space)
+    return bind__Var_Root(space, w_fut, w_obj) # call-next-method ?
 
 def bind__Var_Var(space, w_v1, w_v2):
     #w("var var")
@@ -199,17 +202,20 @@ def bind__Var_Var(space, w_v1, w_v2):
 def bind__Future_Var(space, w_fut, w_var):
     #v("future var")
     if w_fut.client == ClonableCoroutine.w_getcurrent(space):
-        raise OperationError(space.w_RuntimeError,
-                             space.wrap("This future is read-only for you, pal"))
-    bind__Var_Var(space, w_fut, w_var)
+        raise_future_binding(space)
+    return bind__Var_Var(space, w_fut, w_var)
 
-#XXX Var_Future would just alias or assign, this is ok
+def bind__Var_Future(space, w_var, w_fut):
+    if space.is_true(space.is_bound(w_fut)):
+        return bind__Var_Root(w_var, w_fut.w_bound_to)
+    raise_future_binding(space)
     
 bind_mm = StdObjSpaceMultiMethod('bind', 2)
 bind_mm.register(bind__Var_Root, W_Var, W_Root)
 bind_mm.register(bind__Var_Var, W_Var, W_Var)
 bind_mm.register(bind__Future_Root, W_Future, W_Root)
 bind_mm.register(bind__Future_Var, W_Future, W_Var)
+bind_mm.register(bind__Var_Future, W_Var, W_Future)
 all_mms['bind'] = bind_mm
 
 def _assign(space, w_var, w_val):
@@ -281,7 +287,7 @@ def unify__Root_Root(space, w_x, w_y):
         w_d1 = w_x.getdict() #returns wrapped dict or unwrapped None ...
         w_d2 = w_y.getdict()
         if None in [w_d1, w_d2]:
-            fail(space, w_x, w_y)
+            raise_unification_failure(space)
         else:
             return space.unify(w_d1, w_d2)
     return space.w_None
@@ -308,7 +314,7 @@ def unify__Root_Var(space, w_x, w_y):
 
 def unify__Tuple_Tuple(space, w_i1, w_i2):
     if len(w_i1.wrappeditems) != len(w_i2.wrappeditems):
-        fail(space, w_i1, w_i2)
+        raise_unification_failure(space)
     idx, top = (-1, space.int_w(space.len(w_i1))-1)
     while idx < top:
         idx += 1
@@ -321,7 +327,7 @@ def unify__Tuple_Tuple(space, w_i1, w_i2):
 
 def unify__List_List(space, w_i1, w_i2):
     if len(w_i1.wrappeditems) != len(w_i2.wrappeditems):
-        fail(space, w_i1, w_i2)
+        raise_unification_failure(space)
     idx, top = (-1, space.int_w(space.len(w_i1))-1)
     while idx < top:
         idx += 1

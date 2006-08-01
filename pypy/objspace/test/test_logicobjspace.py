@@ -17,7 +17,7 @@ class AppTest_Logic(object):
         assert is_bound(1)
         # FIXME : propagate proper
         #         FailureException
-        raises(Exception, bind, X, 2)
+        raises(RebindingError, bind, X, 2)
 
     def test_bind_to_self(self):
         X = newvar()
@@ -51,7 +51,6 @@ class AppTest_Logic(object):
         assert alias_of(X, Y)
         assert alias_of(X, Y)
         unify(X, 1)
-        # what about is_alias, then ?
         assert X == 1
         assert Y == 1
 
@@ -131,7 +130,7 @@ class AppTest_Logic(object):
         X = newvar()
         def f(x):
             return x + 1
-        raises(Exception, f, X)
+        raises(AllBlockedError, f, X)
 
     def test_eq_unifies_simple(self):
         X = newvar()
@@ -171,7 +170,7 @@ class AppTest_Logic(object):
         unify(X, (1, (2, None)))
         assert X == (1, (2, None))
         unify(X, (1, (2, None)))
-        raises(Exception, unify, X, (1, 2))
+        raises(UnificationError, unify, X, (1, 2))
 
     def test_unify_dict(self):
         Z, W = newvar(), newvar()
@@ -193,7 +192,7 @@ class AppTest_Logic(object):
         assert alias_of(f1.b, f2.b)
         unify(f2.b, 'foo')
         assert f1.b == f2.b == 'foo'
-        raises(Exception, unify, f1.b, 24)
+        raises(UnificationError, unify, f1.b, 24)
 
 
 class AppTest_LogicFutures(object):
@@ -202,8 +201,6 @@ class AppTest_LogicFutures(object):
         cls.space = gettestobjspace('logic', usemodules=("_stackless",))
 
     def test_future_value(self):
-        print "future value", sched_info()
-
         def poop(X):
             return X + 1
 
@@ -214,21 +211,17 @@ class AppTest_LogicFutures(object):
 
         X = newvar()
         T = future(poop, X)
-        raises(Exception, unify, T, 42)
+        raises(FutureBindingError, unify, T, 42)
         bind(X, 42); schedule() # helps the gc
 
-        X, Y = newvar(), newvar()
+        X, Y, Z = newvar(), newvar(), newvar()
+        bind(Z, 42)
         T = future(poop, X)
-        raises(Exception, unify, T, Y)
+        raises(FutureBindingError, unify, T, Z)
+        raises(FutureBindingError, unify, Z, T)
+        raises(FutureBindingError, unify, Y, T)
+        raises(FutureBindingError, unify, T, Y)
         bind(X, 42); schedule() # gc ...
-
-        assert is_free(Y)
-        X = newvar()
-        T = future(poop, X)
-        unify(Y, T)
-        unify(X, 42)
-        assert Y == 43
-        bind(X, 42); schedule()
 
     def test_one_future_exception(self):
         print "one future exception", sched_info()
@@ -340,22 +333,26 @@ class AppTest_LogicFutures(object):
     def test_eager_producer_consummer(self):
         print "eager_producer_consummer", sched_info()
 
-        def generate(n, limit):
+        def generate(n, limit, R):
             if n < limit:
-                return (n, generate(n + 1, limit))
-            return None
+                Tail = newvar()
+                unify(R, (n, Tail))
+                return generate(n + 1, limit, Tail)
+            bind(R, None)
+            return
 
-        def sum(L, a):
+        def sum(L, a, R):
             Head, Tail = newvar(), newvar()
             unify(L, (Head, Tail))
             if Tail != None:
-                return sum(Tail, Head + a)
-            return a + Head
+                return sum(Tail, Head + a, R)
+            bind(R, a + Head)
+            return
 
         X = newvar()
         S = newvar()
-        unify(S, future(sum, X, 0))
-        unify(X, future(generate, 0, 10))
+        stacklet(sum, X, 0, S)
+        stacklet(generate, 0, 10, X)
         assert S == 45
 
 
@@ -365,28 +362,32 @@ class AppTest_LogicFutures(object):
         def lgenerate(n, L):
             """wait-needed version of generate"""
             #XXX how is this ever collected ?
+            #    should be when L becomes unreferenced from
+            #    outside this thread ... But this can't
+            #    happen right now because we keep
+            #    references also of this thread in the
+            #    scheduler.
             wait_needed(L)
             Tail = newvar()
             bind(L, (n, Tail))
             lgenerate(n+1, Tail)
 
-        def lsum(L, a, limit):
+        def lsum(L, a, limit, R):
             """this summer controls the generator"""
             if limit > 0:
                 Head, Tail = newvar(), newvar()
-                wait(L)
+                wait(L) # send needed signal to generator
                 unify(L, (Head, Tail))
-                return lsum(Tail, a+Head, limit-1)
+                return lsum(Tail, a+Head, limit-1, R)
             else:
-                return a
+                bind(R, a)
 
         Y = newvar()
         T = newvar()
 
         future(lgenerate, 0, Y)
-        unify(T, future(lsum, Y, 0, 10))
+        stacklet(lsum, Y, 0, 10, T)
 
-        wait(T)
         assert T == 45
         assert len(sched_info()['blocked_byneed']) == 1
         reset_scheduler()

@@ -436,3 +436,16 @@ class UnicodeEncodeError(UnicodeError):
                      badchar, self.start, self.reason)
         return "%r codec can't encode characters in position %d-%d: %s" % (
             self.encoding, self.start, self.end - 1, self.reason)
+
+
+
+#-- Logic object space specific stuff
+#XXX conditionalize me on '-o logic'
+
+class LOError(Exception): pass
+
+class UnificationError(LOError): pass
+class RebindingError(LOError): pass
+class FutureBindingError(LOError): pass
+
+class AllBlockedError(LOError): pass

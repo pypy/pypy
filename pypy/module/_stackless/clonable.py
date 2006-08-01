@@ -57,7 +57,7 @@ class ClonableCoroutine(InterpClonableCoroutine):
             raise OperationError(space.w_ValueError, space.wrap(
                 "cannot switch to an unbound Coroutine"))
         self.switch()
-        rstack.resume_point("w_switch", self, space)
+        #rstack.resume_point("w_switch", self, space)
         state = self.costate
         w_ret, state.w_tempval = state.w_tempval, space.w_None
         return w_ret

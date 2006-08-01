@@ -1,10 +1,10 @@
-from pypy.interpreter import baseobjspace
+from pypy.interpreter import baseobjspace, typedef
 
 from pypy.objspace.cclp.misc import w, ClonableCoroutine
 
 W_Root = baseobjspace.W_Root
 
-#-- Types --------------------------------------------------
+#-- Variables types ----------------------------------------
 
 class W_Var(W_Root):
     def __init__(w_self, space):
@@ -27,15 +27,16 @@ class W_Future(W_Var):
         w_self.client = ClonableCoroutine.w_getcurrent(space)
         w("FUT", str(w_self))
 
+#-- Exception types ----------------------------------------
 
-class W_FailedValue(W_Root, object):
+class W_FailedValue(W_Root):
     """wraps an exception raised in some coro, to be re-raised in
        some dependant coro sometime later
     """
     def __init__(w_self, exc):
         w_self.exc = exc
 
-#-- Misc ----------------------------------------------------
+#-- Misc ---------------------------------------------------
 
 def deref(space, w_var):
     #XXX kill me ?

@@ -126,7 +126,7 @@ class Scheduler(object):
                 self._init_head(self._main)
                 self._init_blocked()
                 w(".. SCHEDULER reinitialized")
-                raise OperationError(self.space.w_RuntimeError,
+                raise OperationError(self.space.w_AllBlockedError,
                                      self.space.wrap("can't schedule, possible deadlock in sight"))
         return to_be_run
 
