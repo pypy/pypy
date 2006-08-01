@@ -1,3 +1,4 @@
+from pypy.rpython.objectmodel import we_are_translated
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import gateway
 
@@ -26,10 +27,10 @@ class Scheduler(object):
 
     def get_threads(self):
         threads = [self._head]
-        curr = self._head.next
+        curr = self._head._next
         while curr != self._head:
             threads.append(curr)
-            curr = curr.next
+            curr = curr._next
         return threads
 
     def _init_blocked(self):
@@ -39,14 +40,15 @@ class Scheduler(object):
 
     def _init_head(self, coro):
         self._head = coro
-        self._head.next = self._head.prev = self._head
+        self._head._next = self._head._prev = self._head
 
     def _set_head(self, thread):
+        assert isinstance(thread, ClonableCoroutine)
         self._head = thread
 
     def _check_initial_conditions(self):
         try:
-            assert self._head.next == self._head.prev == self._head
+            assert self._head._next == self._head._prev == self._head
             assert self._head not in self._blocked
             assert self._head not in self._blocked_on
             assert self._head not in self._blocked_byneed
@@ -60,34 +62,37 @@ class Scheduler(object):
             raise
             
     def _chain_insert(self, thread):
-        assert thread.next is None
-        assert thread.prev is None
+        assert thread._next is thread
+        assert thread._prev is thread
+        assert isinstance(thread, ClonableCoroutine)
+        assert isinstance(thread._next, ClonableCoroutine)
+        assert isinstance(thread._prev, ClonableCoroutine)
         if self._head is None:
-            thread.next = thread
-            thread.prev = thread
+            thread._next = thread
+            thread._prev = thread
             self._set_head(thread)
         else:
             r = self._head
-            l = r.prev
-            l.next = thread
-            r.prev = thread
-            thread.prev = l
-            thread.next = r
+            l = r._prev
+            l._next = thread
+            r._prev = thread
+            thread._prev = l
+            thread._next = r
 
     def remove_thread(self, thread):
         w(".. REMOVING", str(id(thread)))
         assert thread not in self._blocked
         del self._traced[thread]
-        l = thread.prev
-        r = thread.next
-        l.next = r
-        r.prev = l
-        if r == thread:
-            if not we_are_translated():
+        l = thread._prev
+        r = thread._next
+        l._next = r
+        r._prev = l
+        if r == thread: #XXX write a test for me !
+            if not we_are_translated(): 
                 import traceback
                 traceback.print_exc()
             self.display_head()
-        thread.next = thread.next = None
+        thread._next = thread._next = None
         return thread
 
     #-- to be used by logic objspace
@@ -117,7 +122,7 @@ class Scheduler(object):
         while (to_be_run in self._blocked) \
                   or to_be_run.is_dead() \
                   or (to_be_run == current):
-            to_be_run = to_be_run.next
+            to_be_run = to_be_run._next
             if to_be_run == sentinel:
                 if not dont_pass:
                     return ClonableCoroutine.w_getcurrent(self.space)
@@ -136,16 +141,16 @@ class Scheduler(object):
         curr = self._head
         sentinel = curr
         count = 1 # there is always a main thread
-        while curr.next != sentinel:
-            curr = curr.next
+        while curr._next != sentinel:
+            curr = curr._next
             count += 1
         return count
 
     def display_head(self):
         curr = self._head
         v('Threads : [', '-'.join([str(id(curr)), str(curr in self._blocked)]))
-        while curr.next != self._head:
-            curr = curr.next
+        while curr._next != self._head:
+            curr = curr._next
             v('-'.join([str(id(curr)), str(curr in self._blocked)]))
         w(']')
 

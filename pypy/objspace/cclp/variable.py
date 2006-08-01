@@ -205,10 +205,12 @@ def bind__Future_Var(space, w_fut, w_var):
         raise_future_binding(space)
     return bind__Var_Var(space, w_fut, w_var)
 
-def bind__Var_Future(space, w_var, w_fut):
-    if space.is_true(space.is_bound(w_fut)):
-        return bind__Var_Root(w_var, deref(space, w_fut))
-    raise_future_binding(space)
+def bind__Var_Future(space, w_var, w_fut): 
+    if space.is_true(space.is_bound(w_fut)): #XXX write a test for me !
+        return bind__Var_Root(space, w_var, deref(space, w_fut))
+    if w_fut.client == ClonableCoroutine.w_getcurrent(space):
+        raise_future_binding(space)
+    return bind__Var_Var(space, w_var, w_fut) #and for me ...
     
 bind_mm = StdObjSpaceMultiMethod('bind', 2)
 bind_mm.register(bind__Var_Root, W_Var, W_Root)

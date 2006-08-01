@@ -25,6 +25,7 @@ class ClonableCoroutine(InterpClonableCoroutine):
         if not is_main:
              space.getexecutioncontext().subcontext_new(self)
         self._dead = False
+        self._next = self._prev = self # help the annotator with the scheduling ring
 
     def hello(self):
         if we_are_translated():
