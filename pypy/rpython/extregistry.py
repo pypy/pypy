@@ -19,16 +19,28 @@ class AutoRegisteringType(type):
             del selfcls._metatype_
 
     def _register_value(selfcls, key):
-        assert key not in EXT_REGISTRY_BY_VALUE
-        EXT_REGISTRY_BY_VALUE[key] = selfcls
+        if isinstance(key, (tuple, list)):
+            for k in key:
+                selfcls._register_value(k)
+        else:
+            assert key not in EXT_REGISTRY_BY_VALUE
+            EXT_REGISTRY_BY_VALUE[key] = selfcls
 
     def _register_type(selfcls, key):
-        assert key not in EXT_REGISTRY_BY_TYPE
-        EXT_REGISTRY_BY_TYPE[key] = selfcls
+        if isinstance(key, (tuple, list)):
+            for k in key:
+                selfcls._register_type(k)
+        else:
+            assert key not in EXT_REGISTRY_BY_TYPE
+            EXT_REGISTRY_BY_TYPE[key] = selfcls
 
     def _register_metatype(selfcls, key):
-        assert key not in EXT_REGISTRY_BY_METATYPE
-        EXT_REGISTRY_BY_METATYPE[key] = selfcls
+        if isinstance(key, (tuple, list)):
+            for k in key:
+                selfcls._register_metatype(k)
+        else:
+            assert key not in EXT_REGISTRY_BY_METATYPE
+            EXT_REGISTRY_BY_METATYPE[key] = selfcls
 
 
 class ExtRegistryEntry(object):

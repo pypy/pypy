@@ -4,6 +4,12 @@ from pypy.annotation.model import SomeCTypesObject, SomeString, SomeInteger
 
 from ctypes import create_string_buffer, c_char, sizeof
 
+######################################################################
+#  NOTE: astringbuf and rstringbuf should be removed and replaced    #
+#        with a regular var-sized array of char, now that we         #
+#        support var-sized arrays.                                   #
+######################################################################
+
 
 class StringBufferType(object):
     """Placeholder for the result type of create_string_buffer(),
@@ -68,7 +74,7 @@ class SizeOfFnEntry(ExtRegistryEntry):
                 return r_arg.rtype_len(hop)
         else:
             if not s_arg.is_constant():
-                raise TyperError("ctypes.sizeof(non_ctypes_object)")
+                raise TyperError("ctypes.sizeof(non_constant_type)")
             # XXX check that s_arg.const is really a ctypes type
             ctype = s_arg.const
             s_arg = SomeCTypesObject(ctype, ownsmemory=True)

@@ -68,10 +68,11 @@ Note that the support for the POINTER() function is an exception to the
 rule that types should not be manipulated at run-time.  You can only
 call it with a constant type, as in ``POINTER(c_int)``.
 
-The create_string_buffer() function allows you to build variable-size
-arrays of chars, but there is no way to build other variable-sized
-arrays: an expression like ``c_int * n`` can only appear at
-bootstrapping-time.  (This restriction should be lifted at some point.)
+*New:* an expression like ``c_int * n`` can appear at run-time.  It can
+be used to create variable-sized array instances, i.e. arrays whose
+length is not a static constant, as in ``my_array = (c_int * n)()``.
+Similarly, the create_string_buffer() function returns a variable-size
+array of chars.
 
 NOTE: in order to translate an RPython program using ctypes, the module
 ``pypy.rpython.rctypes.implementation`` must be imported!  This is

@@ -92,7 +92,14 @@ class CTypesEntry(ExtRegistryEntry):
 ##        annotation, e.g. callback functions."""
 
 class CTypesCallEntry(CTypesEntry):
-    "Annotation and rtyping of calls to ctypes types."
+    "Annotation and rtyping of ctypes types (mostly their calls)."
+
+    def compute_annotation(self):
+        ctype = self.instance
+        assert ctype is not None
+        analyser = self.compute_result_annotation
+        methodname = ctype.__name__
+        return SomeCTypesType(analyser, methodname=methodname)
 
     def compute_result_annotation(self, *args_s, **kwds_s):
         ctype = self.instance    # the ctype is the called object
@@ -108,6 +115,7 @@ class CTypesObjEntry(CTypesEntry):
 
 
 # Importing for side effect of registering types with extregistry
+from pypy.rpython.rctypes.atype import SomeCTypesType
 import pypy.rpython.rctypes.aprimitive
 import pypy.rpython.rctypes.apointer
 import pypy.rpython.rctypes.aarray

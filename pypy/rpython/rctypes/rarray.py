@@ -7,6 +7,7 @@ from pypy.rpython.rctypes.rmodel import CTypesRefRepr, CTypesValueRepr
 from pypy.rpython.rctypes.rmodel import genreccopy_arrayitem, reccopy, C_ZERO
 from pypy.rpython.rctypes.rprimitive import PrimitiveRepr
 from pypy.rpython.rctypes.rpointer import PointerRepr
+from pypy.rpython.rctypes.aarray import VarSizedArrayType
 from pypy.annotation.model import SomeCTypesObject
 from pypy.objspace.flow.model import Constant
 
@@ -18,15 +19,22 @@ class ArrayRepr(CTypesRefRepr):
         array_ctype = s_array.knowntype
         
         item_ctype = array_ctype._type_
-        self.length = array_ctype._length_
+        if isinstance(array_ctype, VarSizedArrayType):
+            self.length = None
+        else:
+            self.length = array_ctype._length_
         
         # Find the repr and low-level type of items from their ctype
         self.r_item = rtyper.getrepr(SomeCTypesObject(item_ctype,
                                                       ownsmemory=False))
 
         # Here, self.c_data_type == self.ll_type
-        c_data_type = lltype.FixedSizeArray(self.r_item.ll_type,
-                                            self.length)
+        if self.length is not None:
+            c_data_type = lltype.FixedSizeArray(self.r_item.ll_type,
+                                                self.length)
+        else:
+            c_data_type = lltype.Array(self.r_item.ll_type,
+                                       hints={'nolength': True})
 
         super(ArrayRepr, self).__init__(rtyper, s_array, c_data_type)
 
@@ -35,8 +43,11 @@ class ArrayRepr(CTypesRefRepr):
         item_keepalive_type = self.r_item.get_content_keepalive_type()
         if not item_keepalive_type:
             return None
-        else:
+        elif self.length is not None:
             return lltype.FixedSizeArray(item_keepalive_type, self.length)
+        else:
+            raise NotImplementedError("XXX not supported yet: "
+                                      "var-sized arrays of pointers")
 
     def initialize_const(self, p, value):
         for i in range(self.length):
@@ -99,6 +110,11 @@ class ArrayRepr(CTypesRefRepr):
             v_newkeepalive = self.r_item.getkeepalive(llops, v_item)
             genreccopy_arrayitem(llops, v_newkeepalive,
                                  v_keepalive_array, v_index)
+
+    def initializeitems(self, llops, v_array, items_v):
+        for i, v_item in enumerate(items_v):
+            c_index = inputconst(lltype.Signed, i)
+            self.setitem(llops, v_array, c_index, v_item)
 
 
 class __extend__(pairtype(ArrayRepr, IntegerRepr)):

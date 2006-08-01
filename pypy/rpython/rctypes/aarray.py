@@ -5,6 +5,28 @@ from pypy.rpython.lltypesystem import lltype
 
 ArrayType = type(ARRAY(c_int, 10))
 
+class VarSizedArrayType(object):
+    """Placeholder for ctypes array types whose size is not an
+    annotation-time constant.
+    """
+    def __init__(self, itemtype):
+        self._type_ = itemtype
+        #self._length_ = unspecified
+        self.__name__ = itemtype.__name__ + '_Array'
+
+    def get_instance_annotation(self, *args_s):
+        return SomeCTypesObject(self, ownsmemory=True)
+
+    def __eq__(self, other):
+        return (self.__class__ is other.__class__ and
+                self._type_ == other._type_)
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    def __hash__(self):
+        return hash(self._type_)
+
 
 class CallEntry(CTypesCallEntry):
     "Annotation and rtyping of calls to array types."
@@ -19,16 +41,14 @@ class CallEntry(CTypesCallEntry):
         if hop.nb_args > r_array.length:
             raise TyperError("too many arguments for an array of length %d" % (
                 r_array.length,))
-        for i in range(hop.nb_args):
-            v_item = hop.inputarg(r_array.r_item, arg=i)
-            c_index = inputconst(lltype.Signed, i)
-            r_array.setitem(hop.llops, v_result, c_index, v_item)
+        items_v = hop.inputargs(*[r_array.r_item] * hop.nb_args)
+        r_array.initializeitems(hop.llops, v_result, items_v)
         return v_result
 
 
 class ObjEntry(CTypesObjEntry):
     "Annotation and rtyping of array instances."
-    _metatype_ = ArrayType
+    _metatype_ = ArrayType, VarSizedArrayType
 
     def get_field_annotation(self, s_array, fieldname):
         assert fieldname == 'value'

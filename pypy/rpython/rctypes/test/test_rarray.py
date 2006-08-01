@@ -163,6 +163,18 @@ class Test_annotation:
             a.translator.view()
         assert s == annmodel.SomeString()
 
+    def test_annotate_varsize_array(self):
+        def func(n):
+            a = (c_int * n)()
+            a[n//2] = 12
+            return a[n//3]
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(func, [int])
+        if conftest.option.view:
+            a.translator.view()
+        assert s.knowntype == int
+
 class Test_specialization:
     def test_specialize_array(self):
         def create_array():
@@ -281,6 +293,27 @@ class Test_specialization:
         assert res.c_data[2] == 0
         assert res.c_data[3] == 0
         assert res.c_data[4] == 0
+
+    def test_specialize_varsize_array_constructor(self):
+        def func(n):
+            return (c_int * n)()
+        res = interpret(func, [12])
+        py.test.raises(TypeError, "len(res.c_data)")    # nolength hint
+        assert res.c_data[0] == 0
+        assert res.c_data[11] == 0
+        py.test.raises(IndexError, "res.c_data[12]")
+
+    def test_specialize_varsize_array(self):
+        def func(n):
+            a = (c_int * n)(5)
+            for i in range(1, n):
+                a[i] = i
+            res = 0
+            for i in range(n):
+                res += a[i]
+            return res
+        res = interpret(func, [10])
+        assert res == 50
 
 class Test_compilation:
     def setup_class(self):

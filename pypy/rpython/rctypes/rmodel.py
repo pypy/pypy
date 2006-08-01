@@ -115,8 +115,19 @@ class CTypesRepr(Repr):
                                self.r_memoryowner.lowleveltype)
 
     def allocate_instance(self, llops):
-        c1 = inputconst(lltype.Void, self.lowleveltype.TO) 
+        TYPE = self.lowleveltype.TO
+        if TYPE._is_varsize():
+            raise TyperError("allocating array with unknown length")
+        c1 = inputconst(lltype.Void, TYPE)
         return llops.genop("malloc", [c1], resulttype=self.lowleveltype)
+
+    def allocate_instance_varsize(self, llops, v_length):
+        TYPE = self.lowleveltype.TO
+        if not TYPE._is_varsize():
+            raise TyperError("allocating non-array with a specified length")
+        c1 = inputconst(lltype.Void, TYPE)
+        return llops.genop("malloc_varsize", [c1, v_length],
+                           resulttype=self.lowleveltype)
 
     def allocate_instance_ref(self, llops, v_c_data, v_c_data_owner=None):
         """Only if self.ownsmemory is false.  This allocates a new instance
