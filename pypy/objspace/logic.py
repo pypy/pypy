@@ -16,7 +16,7 @@ from pypy.objspace.cclp.misc import app_interp_id, app_switch_debug_info
 
 from pypy.objspace.cclp.thread import app_future, app_stacklet, app_this_thread
 
-from pypy.objspace.cclp.scheduler import Scheduler, scheduler, app_sched_stats, \
+from pypy.objspace.cclp.scheduler import Scheduler, scheduler, app_sched_info, \
      app_schedule, app_reset_scheduler
 
 #-- VARIABLE ------------------------------------------------
@@ -254,8 +254,8 @@ def Space(*args, **kwds):
                  space.wrap(app_wait))
     space.setitem(space.builtin.w_dict, space.wrap('wait_needed'),
                   space.wrap(app_wait_needed))
-    space.setitem(space.builtin.w_dict, space.wrap('sched_stats'),
-                  space.wrap(app_sched_stats))
+    space.setitem(space.builtin.w_dict, space.wrap('sched_info'),
+                  space.wrap(app_sched_info))
     space.setitem(space.builtin.w_dict, space.wrap('schedule'),
                   space.wrap(app_schedule))
     space.setitem(space.builtin.w_dict, space.wrap('this_thread'),

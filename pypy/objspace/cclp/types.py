@@ -6,7 +6,7 @@ W_Root = baseobjspace.W_Root
 
 #-- Types --------------------------------------------------
 
-class W_Var(W_Root, object):
+class W_Var(W_Root):
     def __init__(w_self, space):
         # ring of aliases or bound value
         w_self.w_bound_to = w_self

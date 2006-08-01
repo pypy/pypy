@@ -1,5 +1,4 @@
 from pypy.interpreter import gateway, baseobjspace, argument
-from pypy.interpreter.error import OperationError
 from pypy.rpython.objectmodel import we_are_translated
 
 from pypy.objspace.cclp.types import W_Var, W_Future, W_FailedValue
@@ -24,7 +23,7 @@ def future(space, w_callable, __args__):
     w_Future = W_Future(space)
     thunk = FutureThunk(space, w_callable, args, w_Future, coro)
     coro.bind(thunk)
-    w("THREAD", str(id(coro)))
+    w("FUTURE", str(id(coro)))
     scheduler[0].add_new_thread(coro)
     return w_Future
 app_future = gateway.interp2app(future, unwrap_spec=[baseobjspace.ObjSpace,
@@ -44,7 +43,7 @@ def stacklet(space, w_callable, __args__):
     coro.cspace = ClonableCoroutine.w_getcurrent(space).cspace
     thunk = ProcedureThunk(space, w_callable, args, coro)
     coro.bind(thunk)
-    w("THREAD", str(id(coro)))
+    w("STACKLET", str(id(coro)))
     scheduler[0].add_new_thread(coro)
     scheduler[0].schedule()
     return coro

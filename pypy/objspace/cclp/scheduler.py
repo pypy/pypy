@@ -24,6 +24,14 @@ class Scheduler(object):
         self._traced = {}
         w (".. MAIN THREAD = ", str(id(self._main)))
 
+    def get_threads(self):
+        threads = [self._head]
+        curr = self._head.next
+        while curr != self._head:
+            threads.append(curr)
+            curr = curr.next
+        return threads
+
     def _init_blocked(self):
         self._blocked = {} # thread set
         self._blocked_on = {} # var -> threads
@@ -88,6 +96,7 @@ class Scheduler(object):
         to_be_run = self._select_next()
         w(".. SWITCHING", str(id(ClonableCoroutine.w_getcurrent(self.space))), "=>", str(id(to_be_run)))
         self._switch_count += 1
+        assert isinstance(to_be_run, ClonableCoroutine)
         to_be_run.w_switch() 
 
     def schedule_or_pass(self):
@@ -98,6 +107,7 @@ class Scheduler(object):
             return
         w(".. SWITCHING", str(id(curr)), "=>", str(id(to_be_run)))
         self._switch_count += 1
+        assert isinstance(to_be_run, ClonableCoroutine)
         to_be_run.w_switch() 
         
     def _select_next(self, dont_pass=True):
@@ -213,16 +223,20 @@ def reset_scheduler(space):
     scheduler[0] = Scheduler(space)
 app_reset_scheduler = gateway.interp2app(reset_scheduler)
 
-def sched_stats(space):
+def sched_info(space):
     sched = scheduler[0]
     w_ret = space.newdict([])
     space.setitem(w_ret, space.wrap('switches'), space.wrap(sched._switch_count))
-    space.setitem(w_ret, space.wrap('threads'), space.wrap(sched.__len__()))
-    space.setitem(w_ret, space.wrap('blocked'), space.wrap(len(sched._blocked)))
-    space.setitem(w_ret, space.wrap('blocked_on'), space.wrap(len(sched._blocked_on)))
-    space.setitem(w_ret, space.wrap('blocked_byneed'), space.wrap(len(sched._blocked_byneed)))
+    space.setitem(w_ret, space.wrap('threads'),
+                  space.wrap([id(th) for th in sched.get_threads()]))
+    space.setitem(w_ret, space.wrap('blocked'),
+                  space.wrap([id(th) for th in sched._blocked.keys()]))
+    space.setitem(w_ret, space.wrap('blocked_on'),
+                  space.wrap([id(th) for th in sched._blocked_on.keys()]))
+    space.setitem(w_ret, space.wrap('blocked_byneed'),
+                  space.wrap([id(th) for th in sched._blocked_byneed.keys()]))
     return w_ret
-app_sched_stats = gateway.interp2app(sched_stats)
+app_sched_info = gateway.interp2app(sched_info)
 
 
 def schedule(space):

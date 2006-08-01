@@ -202,7 +202,7 @@ class AppTest_LogicFutures(object):
         cls.space = gettestobjspace('logic', usemodules=("_stackless",))
 
     def test_future_value(self):
-        print "future value", sched_stats()
+        print "future value", sched_info()
 
         def poop(X):
             return X + 1
@@ -211,18 +211,16 @@ class AppTest_LogicFutures(object):
         Y = future(poop, X)
         unify(X, 42)
         assert Y == 43
-        assert sched_stats()['threads'] == 1
 
         X = newvar()
         T = future(poop, X)
         raises(Exception, unify, T, 42)
-        print sched_stats()
-        assert sched_stats()['threads'] == 2
+        bind(X, 42); schedule() # helps the gc
 
         X, Y = newvar(), newvar()
         T = future(poop, X)
         raises(Exception, unify, T, Y)
-        assert sched_stats()['threads'] == 3
+        bind(X, 42); schedule() # gc ...
 
         assert is_free(Y)
         X = newvar()
@@ -230,10 +228,10 @@ class AppTest_LogicFutures(object):
         unify(Y, T)
         unify(X, 42)
         assert Y == 43
-        assert sched_stats()['threads'] == 3
+        bind(X, 42); schedule()
 
     def test_one_future_exception(self):
-        print "one future exception", sched_stats()
+        print "one future exception", sched_info()
         class FooException(Exception): pass
         
         def poop(X):
@@ -250,7 +248,7 @@ class AppTest_LogicFutures(object):
         assert False
 
     def test_exception_in_chain(self):
-        print "exception in chain", sched_stats()
+        print "exception in chain", sched_info()
         class FooException(Exception): pass
 
         def raise_foo():
@@ -274,7 +272,7 @@ class AppTest_LogicFutures(object):
         assert False
 
     def test_exception_in_group(self):
-        print "exception in groups", sched_stats()
+        print "exception in groups", sched_info()
         class FooException(Exception): pass
 
         def loop_or_raise(Canary, crit, Bomb_signal):
@@ -306,7 +304,7 @@ class AppTest_LogicFutures(object):
         """check that a wait nested in a tree of
            threads works correctly
         """
-        print "nested threads", sched_stats()
+        print "nested threads", sched_info()
         def sleep(X):
             wait(X)
             return X
@@ -322,7 +320,7 @@ class AppTest_LogicFutures(object):
         assert v == 42
 
     def test_wait_needed(self):
-        print "wait_needed", sched_stats()
+        print "wait_needed", sched_info()
         X = newvar()
 
         def binder(V):
@@ -337,9 +335,10 @@ class AppTest_LogicFutures(object):
         future(binder, X)
 
         assert X == 42
+        schedule() # gc help
 
     def test_eager_producer_consummer(self):
-        print "eager_producer_consummer", sched_stats()
+        print "eager_producer_consummer", sched_info()
 
         def generate(n, limit):
             if n < limit:
@@ -361,10 +360,11 @@ class AppTest_LogicFutures(object):
 
 
     def test_lazy_producer_consummer(self):
-        print "lazy_producer_consummer", sched_stats()
+        print "lazy_producer_consummer", sched_info()
 
         def lgenerate(n, L):
             """wait-needed version of generate"""
+            #XXX how is this ever collected ?
             wait_needed(L)
             Tail = newvar()
             bind(L, (n, Tail))
@@ -388,9 +388,10 @@ class AppTest_LogicFutures(object):
 
         wait(T)
         assert T == 45
+        assert len(sched_info()['blocked_byneed']) == 1
+        reset_scheduler()
 
     def test_wait_two(self):
-        print "wait_two", sched_stats()
 
         def sleep(X, Barrier):
             wait(X)
@@ -411,6 +412,8 @@ class AppTest_LogicFutures(object):
         unify(Y, 42)
         assert X == Y == 42
         assert o == 2
+        schedule() # give a chance to the second thread to exit
+        assert len(sched_info()['threads']) == 1
         
     def test_fib(self):
         skip("recursion limits breakage")
@@ -436,12 +439,7 @@ class AppTest_LogicFutures(object):
 
     def test_stacklet(self):
 
-        print "stacklet", sched_stats()
         reset_scheduler()
-        #XXX each of the previous test decorates
-        #    the scheduler with unreclaimed stuff
-        #    In this case, side-effect happen. Nasty.
-
         count = [0]
 
         def inc_and_greet(count, max_, Finished, Failed):
@@ -462,7 +460,7 @@ class AppTest_LogicFutures(object):
         try:
             wait(Failed)
         except Exception, e: # Unification Failure
-            assert sched_stats()['threads'] == 1
+            assert len(sched_info()['threads']) == 1
             return
         assert False
                 

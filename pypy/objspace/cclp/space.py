@@ -1,18 +1,28 @@
+from pypy.interpreter import baseobjspace
 from pypy.interpreter.error import OperationError
+
 from pypy.objspace.cclp.misc import ClonableCoroutine
 
-class CSpace:
+## def newspace(w_callable, __args__):
+##     w_coro = stacklet(w_callable, __args__)
+##     w_space = CSpace(coro, parent=coro.space)
+##     w_coro.space = space
+##     return w_space
+
+class CSpace(baseobjspace.Wrappable):
 
     def __init__(self, space, distributor, parent=None):
-        assert isinstance(distributor, ClonableCoroutine)
-        assert (parent is None) or isinstance(parent, CSpace)
-        self.space = space # the object space ;-)
-        self.parent = parent
-        self.distributor = distributor
-        self.threads = {} # the eventual other threads
+        pass
+##         assert isinstance(distributor, ClonableCoroutine)
+##         assert (parent is None) or isinstance(parent, CSpace)
+##         self.space = space # the object space ;-)
+##         self.parent = parent
+##         self.distributor = distributor
+##         self.threads = {} # the eventual other threads
+        
 
-    def is_top_level(self):
-        return self.parent is None
+##     def is_top_level(self):
+##         return self.parent is None
 
 ##     def current_space():
 ##         #XXX return w_getcurrent().cspace
@@ -22,16 +32,16 @@ class CSpace:
 ##         #XXX fork ?
 ##         pass
 
-    def clone(self):
-        if self.is_top_level():
-            raise OperationError(self.space.w_RuntimeError,
-                                 self.space.wrap("Clone"+forbidden_boilerplate))
-        new = CSpace(self.distributor.clone(), parent=self)
-        new.distributor.cspace = new
-        for thread in self.threads:
-            tclone = thread.clone()
-            tclone.cspace = new
-            new.threads[tclone] = True
+##     def clone(self):
+##         if self.is_top_level():
+##             raise OperationError(self.space.w_RuntimeError,
+##                                  self.space.wrap("Clone"+forbidden_boilerplate))
+##         new = CSpace(self.distributor.clone(), parent=self)
+##         new.distributor.cspace = new
+##         for thread in self.threads:
+##             tclone = thread.clone()
+##             tclone.cspace = new
+##             new.threads[tclone] = True
 
 ##     def choose(self, n):
 ##         if self.is_top_level():
