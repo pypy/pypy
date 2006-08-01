@@ -11,7 +11,7 @@ from pypy import conftest
 import sys
 from pypy.rpython.test.test_llinterp import interpret
 
-from ctypes import c_int, c_short, c_char_p, c_char, pointer
+from ctypes import c_int, c_short, c_char_p, c_char, c_ubyte, pointer, cast
 from ctypes import ARRAY, POINTER, Structure
 
 c_int_10 = ARRAY(c_int,10)
@@ -363,6 +363,22 @@ class Test_compilation:
             return a.value
         fn = self.compile(func, [])
         assert fn() == "xy"
+
+    def test_compile_varsize_cast(self):
+        # this cannot work on top of lltype, but only in unsafe C
+        import struct
+        N = struct.calcsize("i")
+        BYTES = list(enumerate(struct.pack("i", 12345678)))
+        def func(n):
+            x = c_int()
+            arraytype = c_ubyte * n     # runtime length
+            p = cast(pointer(x), POINTER(arraytype))
+            for i, c in BYTES:
+                p.contents[i] = ord(c)
+            return x.value
+        fn = self.compile(func, [int])
+        res = fn(N)
+        assert res == 12345678
 
 class Test_compilation_llvm(Test_compilation):
     def setup_class(self):

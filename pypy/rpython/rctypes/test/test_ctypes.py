@@ -218,3 +218,12 @@ def test_convert_pointers():
     assert PyString_FromString((c_char * 6)(*"hello")) == "hello"
     assert PyString_FromString((c_byte * 6)(104,101,108,108,111)) =="hello"
     assert PyString_FromString(create_string_buffer("hello")) == "hello"
+
+def test_varsize_cast():
+    import struct
+    N = struct.calcsize("l")
+    x = c_long()
+    p = cast(pointer(x), POINTER(c_ubyte*N))
+    for i, c in enumerate(struct.pack("l", 12345678)):
+        p.contents[i] = ord(c)
+    assert x.value == 12345678

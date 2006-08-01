@@ -63,9 +63,18 @@ class POINTERFnEntry(ExtRegistryEntry):
 
     def compute_result_annotation(self, s_arg):
         from pypy.annotation.bookkeeper import getbookkeeper
-        assert s_arg.is_constant(), (
-            "POINTER(%r): argument must be constant" % (s_arg,))
-        RESTYPE = POINTER(s_arg.const)
+        from atype import SomeVarSizedCTypesType
+        if isinstance(s_arg, SomeVarSizedCTypesType):
+            # POINTER(varsized_array_type): given that rctypes performs
+            # no index checking, this pointer-to-array type is equivalent
+            # to a pointer to an array of whatever size.
+            RESTYPE = POINTER(s_arg.ctype_array._type_ * 0)
+        else:
+            # POINTER(constant_ctype) returns the constant annotation
+            # corresponding to the POINTER(ctype).
+            assert s_arg.is_constant(), (
+                "POINTER(%r): argument must be constant" % (s_arg,))
+            RESTYPE = POINTER(s_arg.const)
         return getbookkeeper().immutablevalue(RESTYPE)
 
     def specialize_call(self, hop):
