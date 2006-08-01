@@ -207,7 +207,7 @@ def bind__Future_Var(space, w_fut, w_var):
 
 def bind__Var_Future(space, w_var, w_fut):
     if space.is_true(space.is_bound(w_fut)):
-        return bind__Var_Root(w_var, w_fut.w_bound_to)
+        return bind__Var_Root(w_var, deref(space, w_fut))
     raise_future_binding(space)
     
 bind_mm = StdObjSpaceMultiMethod('bind', 2)
