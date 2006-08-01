@@ -233,9 +233,3 @@ class TestGateway:
         assert space.eq_w(space.call_function(w_app_g_id,w("foo")),w("foo"))
         assert len(l) == 1
         assert space.eq_w(l[0], w("foo"))
-
-        
-
-
-def app_g3(b):
-    return 'foo'+b
