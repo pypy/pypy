@@ -212,7 +212,10 @@ class FunctionalCardinality(OwlConstraint):
         domain_dict = Linkeddict(domain)
         for cls, val in domain_dict.items():
             if len(val) != 1:
-                raise ConsistencyFailure("FunctionalCardinality error")
+                for item in val:
+                    for otheritem in val:
+                        if (otheritem == item) == False: 
+                            raise ConsistencyFailure("FunctionalCardinality error")
         else:
             return 0
 
