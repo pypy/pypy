@@ -163,7 +163,7 @@ namespace pypy.builtin
 
         private static FileMode get_file_mode(int flags) {
             if ((flags & O_APPEND) !=0 ) return FileMode.Append;
-            if ((flags & O_TRUNC) !=0 ) return FileMode.Truncate;
+            if ((flags & O_TRUNC) !=0 ) return FileMode.Create;
             if ((flags & O_CREAT) !=0 ) return FileMode.OpenOrCreate;
             return FileMode.Open;
         }
@@ -189,9 +189,15 @@ namespace pypy.builtin
                     }
 
                 if (System.Environment.NewLine == "\r\n")
-                    f = new CRLFFile(stream, reader, writer);
+                    {
+                        Console.Error.WriteLine("opening {0} for reading (with CRLF conversion)", name);
+                        f = new CRLFFile(stream, reader, writer);
+                    }
                 else
-                    f = new TextFile(stream, reader, writer);
+                    {
+                        Console.Error.WriteLine("opening {0} for reading (without CRLF conversion)", name);
+                        f = new TextFile(stream, reader, writer);
+                    }
             }
 
             fdcount++;
@@ -208,8 +214,20 @@ namespace pypy.builtin
 
         public static int ll_os_write(int fd, string buffer)
         {
+            PrintString("ll_os_write", buffer);
             getfd(fd).Write(buffer);
             return buffer.Length;
+        }
+
+        private static void PrintString(string source, string s)
+        {
+            Console.WriteLine(source);
+            Console.WriteLine(s);
+            Console.WriteLine("Length: {0}", s.Length);
+            for (int i=0; i<s.Length; i++)
+                Console.Write("{0} ", (int)s[i]);
+            Console.WriteLine();
+            Console.WriteLine();
         }
 
         public static string ll_os_read(int fd, long count)
@@ -241,8 +259,7 @@ namespace pypy.builtin
                 return res;
             }
             // path is not a file nor a dir, raise OSError
-            //Helpers.raise_OSError(2); // ENOENT
-            PrebuiltGraphs.raiseOSError(2);
+            Helpers.raise_OSError(2); // ENOENT
             return null; // never reached
         }
 

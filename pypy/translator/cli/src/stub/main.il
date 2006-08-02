@@ -36,15 +36,3 @@
         }
     }
 }
-
-/// XXX: remove
-.class public PrebuiltGraphs
-{
-    .method public static void raiseOSError(int32 errno_1) il managed
-    {
-        ldstr "This is only a stub, it should not be called"
-        newobj instance void class [mscorlib]System.ApplicationException::.ctor(string)
-        throw
-        ret
-    }
-}

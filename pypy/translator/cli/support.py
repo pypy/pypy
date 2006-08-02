@@ -9,7 +9,7 @@ def string_literal(s):
     def line_repr(s):
         return ''.join([char_repr(c) for c in s])
     def array_repr(s):
-        return ' '.join(['%x 00' % ord(c) for c in s+'\001'])
+        return ' '.join(['%x 00' % ord(c) for c in s]+['00'])
 
     try:
         return '"%s"' % line_repr(s)

@@ -76,10 +76,16 @@ class TestConstant(CliTest):
         assert self.ll_to_string(self.interpret(fn, [])) == 'hello "world"'
 
     def test_string_literal2(self):
-        s = '\001\002\003'
-        def fn():
-            return ord(s[0]) + ord(s[1])
-        assert self.interpret(fn, []) == 3
+        literals = ['\001\002\003', '\004\005\006']
+        def fn(i):
+            s = literals[i]
+            return len(s), ord(s[0]) + ord(s[1]) + ord(s[2])
+        res = self.interpret(fn, [0])
+        assert res.item0 == 3
+        assert res.item1 == 6
+        res = self.interpret(fn, [1])
+        assert res.item0 == 3
+        assert res.item1 == 15
 
     def test_float_special(self):
         self._skip_win('inf & nan')
