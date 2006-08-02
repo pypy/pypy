@@ -7,7 +7,7 @@ from constraint_classes import *
 import sys, py
 import time
 log = py.log.Producer("Pyontology")
-#from pypy.tool.ansi_print import ansi_log
+from pypy.tool.ansi_print import ansi_log
 py.log.setconsumer("Pyontology", None)
 
 
@@ -116,6 +116,7 @@ class ClassDomain(fd, object):
             if ('owl_Thing' in variables.keys() and isinstance(self, ClassDomain)
                  and  self.getValues() == []):
                 variables[self.name].setValues(variables['owl_Thing'].getValues())
+                log.finish("setting the domain %s to all individuals %r"%(self.name,variables[self.name]))
             variables.update(self.domains)
             glob_constraints.extend(self.in_constraint)
             assert len([x for x in glob_constraints if type(x)==list])==0
@@ -435,9 +436,13 @@ class Ontology:
             # Set the values of the property p to o
             self.type(s, Thing_uri)
             sub = self.make_var(Thing, s)
-            obj = self.make_var(Thing, o)
+            if type(o) == URIRef:
+                obj = self.make_var(Thing, o)
+                val = Individual(obj,o)
+            else:
+                val = o
             propdom = self.variables[avar]
-            res = propdom.addValue(Individual(sub,s),Individual(obj,o))
+            res = propdom.addValue(Individual(sub,s), val)
 
     def resolve_item(self, item):
         item_as_subject = self.graph.triples((item, None, None))
@@ -612,15 +617,19 @@ class Ontology:
     def oneOf(self, s, var):
         # Oneof is used to generate a fixed class. The elements of the class
         # are exactly the ones in the list.
-        # Can be used to define an enumerated datatype as well
+        # Can be used to define an enumerated datatype as well.
+        # The memebers of the list can be Urirefs (Individuals) or Literals
         var = self.flatten_rdf_list(var)
         svar = self.make_var(FixedClassDomain, s)
         res = self.variables[var].getValues()
-        for ind in res:
-            self.make_var(Thing, ind)
-        self.variables[svar].setValues([
-             Individual(self.make_var(None,x),x) for x in res])
-    
+        if type(res[0]) == URIRef:
+            self.variables[svar].setValues([
+                Individual(self.make_var(Thing, x), x) for x in res])
+            for i in res:
+                self.type(i, Thing_uri)
+        else: 
+            self.variables[svar].setValues(res)
+
     def unionOf(self,s, var):
         var = self.flatten_rdf_list(var)
         vals = self.variables[var].getValues()
@@ -744,7 +753,7 @@ class Ontology:
         def Hasvalue(cls ,prop, val):
             var = "%s_%s_hasvalue" %(cls, prop.name)
             dom = {var : fd(prop.getValues( ))}
-            cons = Expression([cls, var], " %s[1].cmp(%s) and %s.cmp( %s[0])" %( var, val, cls, var))
+            cons = Expression([cls, var], " %s[1] == %s and %s.cmp( %s[0])" %( var, val, cls, var))
             log("HASVALUE %r %r"%(prop.getValues(),dom))
             return dom, [cons] 
         
