@@ -6,9 +6,9 @@ from logilab.constraint.propagation import AbstractDomain, AbstractConstraint,\
 from constraint_classes import *
 import sys, py
 import time
-from pypy.tool.ansi_print import ansi_log
 log = py.log.Producer("Pyontology")
-py.log.setconsumer("Pyontology", ansi_log)
+#from pypy.tool.ansi_print import ansi_log
+py.log.setconsumer("Pyontology", None)
 
 
 namespaces = {
@@ -76,7 +76,7 @@ class ClassDomain(fd, object):
     def finish(self, variables, glob_constraints):
         # The finish method constructs the constraints
         if not self.finished:
-            log("FINISH %s" % self.name)
+            log.finish("%s" % self.name)
         # Try to initialise constraints for this class
             if len(self.type) > 1:
                 #try to merge the domains of the types 
@@ -95,11 +95,12 @@ class ClassDomain(fd, object):
                     self.domains.update(dom)
                     self.in_constraint.extend(constraints)
         # Initialise constraints from the base classes
+            self.finished = True
             for cls in self.bases:
                 cls = variables[cls]
                 dom,constraint = cls.finish(variables, glob_constraints)
 
-                log("DOM %r "%dom)
+                log.finish("DOM %r "%dom)
                 # if the base class is a Restriction we shouldnt add the constraints to the store
                 if not isinstance(cls, Restriction):
                     self.domains.update(dom)
@@ -110,7 +111,6 @@ class ClassDomain(fd, object):
                     self.domains.update(dom)
                     log("Updating constraints %r" % constraints)
                     self.in_constraint.extend(constraints)
-            self.finished = True
             log("RESULT of finish %r, %r" %(self.domains,self.in_constraint))
             # update the store
             if ('owl_Thing' in variables.keys() and isinstance(self, ClassDomain)
@@ -145,6 +145,7 @@ class ClassDomain(fd, object):
         self._bases = bases
     
     def addValue(self, value):
+#        assert isinstance(value, URIRef)
         self.values[value] = True
 
     def getValues(self):
@@ -154,7 +155,8 @@ class ClassDomain(fd, object):
         return iter(self.values.keys())
         
     def setValues(self, values):
-        self.values = dict.fromkeys(values)
+        for val in values:
+            self.addValue(val) #self.values = dict.fromkeys(values)
 
 class FixedClassDomain(ClassDomain):
 
@@ -181,7 +183,8 @@ class Individual:
         return "<%s( %s, %s)>"%(self.__class__.__name__, self.name, self.uri)
 
     def __hash__(self):
-        return hash(self.uri) 
+        return hash(self.uri)
+ 
     def __eq__(self, other):
         log("CMP %r,%r"%(self,other))
         if ((hasattr(other,'uri') and self.uri == other.uri) or
@@ -465,8 +468,10 @@ class Ontology:
             a = uris[ns] + '_' + name
             var = str(a.replace('.','_'))
             var = str(a.replace('-','_'))
-        else:
+        elif type(a) == BNode:
             var = str(a)
+        else:
+            return a
         if not cls:
             return var
         if not var in self.variables:
@@ -550,7 +555,7 @@ class Ontology:
                 if isinstance(self.variables[avar], Thing):
                     self.variables[avar].addValue(Individual(svar, s))
                 else:
-                    self.variables[avar].addValue(s)
+                    self.variables[avar].addValue(svar)
     
     def first(self, s, var):
         pass
@@ -611,6 +616,8 @@ class Ontology:
         var = self.flatten_rdf_list(var)
         svar = self.make_var(FixedClassDomain, s)
         res = self.variables[var].getValues()
+        for ind in res:
+            self.make_var(Thing, ind)
         self.variables[svar].setValues([
              Individual(self.make_var(None,x),x) for x in res])
     
@@ -728,7 +735,7 @@ class Ontology:
         avar = self.make_var(None, var)
         scls = self.variables[svar]
         scls.un_constraint.append(constraint)
-        scls.value = var
+        scls.value = avar
 
     def hasValue(self, s, var):
         """ The hasValue restriction defines a class having as an extension all
@@ -762,7 +769,7 @@ class Ontology:
             var = "%s_%s_allvalue" %(cls, prop.name)
             dom = {var : fd(prop.getValues( ))}
             # The condition should  return true if 
-            cons = Expression([cls, var], " %s[1] in %s and %s == %s[0]" %(var, val, cls, var))
+            cons = Expression([cls, var, val], " %s[1] in %s and %s == %s[0]" %(var, val, cls, var))
             return dom, [cons] 
         self.value_helper(s, var, somevalue)
 
