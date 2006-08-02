@@ -55,13 +55,9 @@ class Scheduler(object):
             assert self._head not in self._blocked_on
             assert self._head not in self._blocked_byneed
         except:
-            self.display_head()
-            w("BLOCKED", str(self._blocked))
-            all = {}
-            all.update(self._blocked_on)
-            all.update(self._blocked_byneed)
-            w(str(all))
-            raise
+            #XXX give sched_info maybe
+            raise OperationError(self.space.w_RuntimeError,
+                                 self.space.wrap("scheduler is in an incoherent state"))
             
     def _chain_insert(self, thread):
         assert thread._next is thread
@@ -69,11 +65,6 @@ class Scheduler(object):
         assert isinstance(thread, ClonableCoroutine)
         assert isinstance(thread._next, ClonableCoroutine)
         assert isinstance(thread._prev, ClonableCoroutine)
-##         if self._head is None:
-##             thread._next = thread
-##             thread._prev = thread
-##             self._set_head(thread)
-##         else:
         r = self._head
         l = r._prev
         l._next = thread
