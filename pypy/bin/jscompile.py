@@ -7,9 +7,10 @@ import autopath
 import sys
 
 from pypy.translator.js.test.runtest import compile_function
-from pypy.translator.translator import TranslationContext
+#from pypy.translator.translator import TranslationContext
+from pypy.translator.driver import TranslationDriver
 from pypy.translator.js.js import JS
-from pypy.tool.error import AnnotatorError, FlowingError
+from pypy.tool.error import AnnotatorError, FlowingError, debug
 
 class FunctionNotFound(Exception):
     pass
@@ -42,18 +43,13 @@ def _main(argv):
     exec(source_ssf) in globals()
     #fn = compile_function([mod.__dict__[f_name] for f_name in function_names], [[] for i in function_names])
     # now we gonna just cut off not needed function
+    driver = TranslationDriver()
     try:
-        t = TranslationContext()
-        t.buildannotator().build_types(some_strange_function_which_will_never_be_called, [])
-        t.buildrtyper(type_system="ootype").specialize() 
-        j = JS(t, [mod.__dict__[f_name] for f_name in function_names], False)
-        j.write_source()
-        f = open("out.js", "w")
-        f.write(j.tmpfile.open().read())
-        f.close()
-    except (AnnotatorError, FlowingError), e:
+        driver.setup(some_strange_function_which_will_never_be_called, [])
+        driver.proceed(["compile_js"])
+    except Exception, e:
         # do something nice with it
-        raise
+        debug(driver)
     
 if __name__ == '__main__':
     _main(sys.argv)
