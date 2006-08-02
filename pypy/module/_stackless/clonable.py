@@ -41,6 +41,13 @@ class ClonableCoroutine(InterpClonableCoroutine):
             ec = self.space.getexecutioncontext()
             ec.subcontext_leave(self)
 
+    def w_clone(self):
+        try:
+            return InterpClonableCoroutine.clone(self)
+        except NotImplementedError:
+            raise OperationError(self.space.w_NotImplementedError,
+                                 self.space.wrap("clone() is only available in translated PyPy"))
+
     def w_getcurrent(space):
         return space.wrap(ClonableCoroutine._get_state(space).current)
     w_getcurrent = staticmethod(w_getcurrent)
@@ -219,6 +226,7 @@ ClonableCoroutine.typedef = TypeDef("clonable",
     __new__ = interp2app(ClonableCoroutine.descr_method__new__.im_func),
     _framestack = GetSetProperty(w_descr__framestack),
     getcurrent = interp2app(ClonableCoroutine.w_getcurrent),
+    clone = interp2app(ClonableCoroutine.w_clone),
     __reduce__   = interp2app(ClonableCoroutine.descr__reduce__,
                               unwrap_spec=['self', ObjSpace]),
     __setstate__ = interp2app(ClonableCoroutine.descr__setstate__,
