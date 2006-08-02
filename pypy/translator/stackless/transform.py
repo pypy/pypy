@@ -449,7 +449,6 @@ class StacklessTransformer(object):
         assert self.curr_graph is None
         self.curr_graph = graph
         self.curr_graph_save_blocks = {}
-        self.curr_graph_resume_blocks = {}
         if SAVE_STATISTICS:
             self.stats.cur_rp_exact_types = {}
             self.stats.cur_rp_erased_types = {}
@@ -483,7 +482,6 @@ class StacklessTransformer(object):
            
         self.curr_graph = None
         self.curr_graph_save_blocks = None
-        self.curr_graph_resume_blocks = None
 
     def ops_read_global_state_field(self, targetvar, fieldname):
         ops = []
@@ -521,12 +519,8 @@ class StacklessTransformer(object):
         not_resuming_link.llexitcase = -1
         resuming_links = []
         for resume_index, resume_block in enumerate(self.resume_blocks):
-            if resume_block.inputargs:
-                args = [var_resume_state]
-            else:
-                args = []
             resuming_links.append(
-                model.Link(args, resume_block, resume_index))
+                model.Link([], resume_block, resume_index))
             resuming_links[-1].llexitcase = resume_index
 
         new_start_block.exitswitch = var_resume_state
@@ -903,111 +897,68 @@ class StacklessTransformer(object):
 
     def _generate_resume_block(self, varsinfieldorder, frame_type,
                                var_result, links_to_resumption):
-        typekey = [v.concretetype for v in varsinfieldorder]
-        linkkey = [(link.target, link.exitcase) for link in links_to_resumption[1:]]
-        key = tuple([var_result.concretetype] + typekey + linkkey)
-        if key in self.curr_graph_resume_blocks:
-            newblock, switchblock, newargs, newresult = self.curr_graph_resume_blocks[key]
-            if switchblock is None:
-                newblock.inputargs = [varoftype(lltype.Signed)]
-                switchblock = unsimplify.insert_empty_block(None, newblock.exits[0], [])
-                newblock.exits[0].args.append(newblock.inputargs[0])
-                switchblock.inputargs.append(varoftype(lltype.Signed))
-                switchblock.exitswitch = switchblock.inputargs[-1]
-                link, = switchblock.exits
-                link.exitcase = link.llexitcase = self.resume_blocks.index(newblock)
-                mapping = {}
-                for i in range(len(newblock.exits[0].args)):
-                    mapping[newblock.exits[0].args[i]] = switchblock.inputargs[i]
-                if newresult in mapping:
-                    newresult = mapping[newresult]
-                newnewargs = []
-                for arg in newargs:
-                    newnewargs.append(mapping[arg])
-                newargs = newnewargs
-                self.curr_graph_resume_blocks[key] = newblock, switchblock, newnewargs, newresult
-            oldlink = links_to_resumption[0]
-            varmap = {}
-            for old, new in zip(varsinfieldorder, newargs):
-                varmap[old] = new
-            varmap[var_result] = newresult
-            def rename(arg):
-                if isinstance(arg, model.Variable):
+        newblock = model.Block([])
+        newargs = []
+        llops = LowLevelOpList()
+        llops.genop("setfield",
+                    [self.ll_global_state,
+                     self.c_restart_substate_name,
+                     self.c_minus_one])
+        frame_top = varoftype(lltype.Ptr(frame_type))
+        llops.extend(self.ops_read_global_state_field(frame_top, "top"))
+        llops.genop("setfield",
+                   [self.ll_global_state,
+                    self.c_inst_top_name,
+                    self.c_null_state])
+        varmap = {}
+        fielditer = iter(frame_type._names[1:])
+        for arg in varsinfieldorder:
+            assert arg is not var_result
+            t = storage_type(arg.concretetype)
+            if t is lltype.Void:
+                v_newarg = model.Constant(None, lltype.Void)
+            else:
+                fname = model.Constant(fielditer.next(), lltype.Void)
+                assert frame_type._flds[fname.value] is t
+                v_newarg = llops.genop('getfield', [frame_top, fname],
+                                       resulttype = t)
+                v_newarg = gen_cast(llops, arg.concretetype, v_newarg)
+            varmap[arg] = v_newarg
+
+        rettype = storage_type(var_result.concretetype)
+        getretval = self.fetch_retvals[rettype]
+        retval = llops.genop("direct_call", [getretval],
+                             resulttype = rettype)
+        varmap[var_result] = retval
+
+        newblock.operations.extend(llops)
+
+        def rename(arg):
+            if isinstance(arg, model.Variable):
+                if arg in varmap:
                     return varmap[arg]
                 else:
-                    return arg
-            newlink = oldlink.copy(rename)
-            newlink.exitcase = newlink.llexitcase = len(self.resume_blocks)
-            switchblock.recloseblock(*(switchblock.exits + (newlink,)))
-            rettype = newresult.concretetype
-            retval = newresult
-            retlink = newlink
-        else:
-            newblock = model.Block([])
-            newargs = []
-            llops = LowLevelOpList()
-            llops.genop("setfield",
-                        [self.ll_global_state,
-                         self.c_restart_substate_name,
-                         self.c_minus_one])
-            frame_top = varoftype(lltype.Ptr(frame_type))
-            llops.extend(self.ops_read_global_state_field(frame_top, "top"))
-            llops.genop("setfield",
-                       [self.ll_global_state,
-                        self.c_inst_top_name,
-                        self.c_null_state])
-            varmap = {}
-            newargs = []
-            fielditer = iter(frame_type._names[1:])
-            for arg in varsinfieldorder:
-                assert arg is not var_result
-                t = storage_type(arg.concretetype)
-                if t is lltype.Void:
-                    v_newarg = model.Constant(None, lltype.Void)
-                else:
-                    fname = model.Constant(fielditer.next(), lltype.Void)
-                    assert frame_type._flds[fname.value] is t
-                    v_newarg = llops.genop('getfield', [frame_top, fname],
-                                           resulttype = t)
-                    v_newarg = gen_cast(llops, arg.concretetype, v_newarg)
-                newargs.append(v_newarg)
-                varmap[arg] = v_newarg
-
-            rettype = storage_type(var_result.concretetype)
-            getretval = self.fetch_retvals[rettype]
-            retval = llops.genop("direct_call", [getretval],
-                                 resulttype = rettype)
-            varmap[var_result] = retval
-
-            newblock.operations.extend(llops)
-
-            def rename(arg):
-                if isinstance(arg, model.Variable):
-                    if arg in varmap:
-                        return varmap[arg]
-                    else:
-                        assert arg in [l.last_exception, l.last_exc_value]
-                        r = unsimplify.copyvar(None, arg)
-                        varmap[arg] = r
-                        return r
-                else:
-                    return arg
-
-            newblock.closeblock(*[l.copy(rename)
-                                  for l in links_to_resumption])
-            # this check is a bit implicit!
-            if len(links_to_resumption) > 1:
-                newblock.exitswitch = model.c_last_exception
+                    assert arg in [l.last_exception, l.last_exc_value]
+                    r = unsimplify.copyvar(None, arg)
+                    varmap[arg] = r
+                    return r
             else:
-                newblock.exitswitch = None
-            self.curr_graph_resume_blocks[key] = newblock, None, newargs, retval
-            retlink = newblock.exits[0]
-            if SAVE_STATISTICS:
-                self.stats.resumeops += len(newblock.operations)
-        
-        if var_result.concretetype != rettype:
-            self.insert_return_conversion(retlink, var_result.concretetype, retval)
+                return arg
 
+        newblock.closeblock(*[l.copy(rename)
+                              for l in links_to_resumption])
+        # this check is a bit implicit!
+        if len(links_to_resumption) > 1:
+            newblock.exitswitch = model.c_last_exception
+        else:
+            newblock.exitswitch = None
+
+        if var_result.concretetype != rettype:
+            self.insert_return_conversion(
+                newblock.exits[0], var_result.concretetype, retval)
+
+        if SAVE_STATISTICS:
+            self.stats.resumeops += len(newblock.operations)
         return newblock
         
     def generate_restart_infos(self, graph):
