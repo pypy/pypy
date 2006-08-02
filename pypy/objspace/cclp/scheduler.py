@@ -2,9 +2,9 @@ from pypy.rpython.objectmodel import we_are_translated
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import gateway
 
-from pypy.objspace.cclp.types import W_Var, aliases
+from pypy.objspace.cclp.types import W_Var, W_FailedValue, aliases
 from pypy.objspace.cclp.misc import w, v, ClonableCoroutine
-from pypy.objspace.cclp.space import CSpace
+#from pypy.objspace.cclp.space import CSpace
 
 scheduler = []
 
@@ -16,14 +16,14 @@ class Scheduler(object):
         self.space = space
         self._main = ClonableCoroutine.w_getcurrent(space)
         # link top_level space to main coroutine
-        self.top_space = CSpace(space, self._main)
-        self._main.cspace = self.top_space
+        #self.top_space = CSpace(space, self._main)
+        #self._main.cspace = self.top_space
         # ...
         self._init_head(self._main)
         self._init_blocked()
         self._switch_count = 0
         self._traced = {}
-        w (".. MAIN THREAD = ", str(id(self._main)))
+        w ("MAIN THREAD = ", str(id(self._main)))
 
     def get_threads(self):
         threads = [self._head]
@@ -38,8 +38,10 @@ class Scheduler(object):
         self._blocked_on = {} # var -> threads
         self._blocked_byneed = {} # var -> threads
 
-    def _init_head(self, coro):
-        self._head = coro
+    def _init_head(self, thread):
+        assert isinstance(thread, ClonableCoroutine)
+        self._head = thread
+        # for the reset case
         self._head._next = self._head._prev = self._head
 
     def _set_head(self, thread):
@@ -67,19 +69,20 @@ class Scheduler(object):
         assert isinstance(thread, ClonableCoroutine)
         assert isinstance(thread._next, ClonableCoroutine)
         assert isinstance(thread._prev, ClonableCoroutine)
-        if self._head is None:
-            thread._next = thread
-            thread._prev = thread
-            self._set_head(thread)
-        else:
-            r = self._head
-            l = r._prev
-            l._next = thread
-            r._prev = thread
-            thread._prev = l
-            thread._next = r
+##         if self._head is None:
+##             thread._next = thread
+##             thread._prev = thread
+##             self._set_head(thread)
+##         else:
+        r = self._head
+        l = r._prev
+        l._next = thread
+        r._prev = thread
+        thread._prev = l
+        thread._next = r
 
     def remove_thread(self, thread):
+        assert isinstance(thread, ClonableCoroutine)
         w(".. REMOVING", str(id(thread)))
         assert thread not in self._blocked
         del self._traced[thread]
@@ -99,20 +102,20 @@ class Scheduler(object):
 
     def schedule(self):
         to_be_run = self._select_next()
+        assert isinstance(to_be_run, ClonableCoroutine)
         w(".. SWITCHING", str(id(ClonableCoroutine.w_getcurrent(self.space))), "=>", str(id(to_be_run)))
         self._switch_count += 1
-        assert isinstance(to_be_run, ClonableCoroutine)
         to_be_run.w_switch() 
 
     def schedule_or_pass(self):
         to_be_run = self._select_next(dont_pass=False)
+        assert isinstance(to_be_run, ClonableCoroutine)
         curr = ClonableCoroutine.w_getcurrent(self.space)
         if to_be_run == curr:
             w(".. PASS")
             return
         w(".. SWITCHING", str(id(curr)), "=>", str(id(to_be_run)))
         self._switch_count += 1
-        assert isinstance(to_be_run, ClonableCoroutine)
         to_be_run.w_switch() 
         
     def _select_next(self, dont_pass=True):
@@ -147,6 +150,9 @@ class Scheduler(object):
         return count
 
     def display_head(self):
+        if we_are_translated():
+            w("<translated: we don't display the head>")
+            return
         curr = self._head
         v('Threads : [', '-'.join([str(id(curr)), str(curr in self._blocked)]))
         while curr._next != self._head:
@@ -159,18 +165,18 @@ class Scheduler(object):
         assert isinstance(thread, ClonableCoroutine)
         self._chain_insert(thread)
 
-    def add_to_blocked_on(self, w_var, uthread):
-        w(".. we BLOCK thread", str(id(uthread)), "on var", str(w_var))
+    def add_to_blocked_on(self, w_var, thread):
+        w(".. we BLOCK thread", str(id(thread)), "on var", str(w_var))
         assert isinstance(w_var, W_Var)
-        assert isinstance(uthread, ClonableCoroutine)
-        assert uthread not in self._blocked
+        assert isinstance(thread, ClonableCoroutine)
+        assert thread not in self._blocked
         if w_var in self._blocked_on:
             blocked = self._blocked_on[w_var]
         else:
             blocked = []
             self._blocked_on[w_var] = blocked
-        blocked.append(uthread)
-        self._blocked[uthread] = True
+        blocked.append(thread)
+        self._blocked[thread] = True
 
     def unblock_on(self, w_var):
         v(".. we UNBLOCK threads dependants of var", str(w_var))
@@ -182,17 +188,17 @@ class Scheduler(object):
         w(str([id(thr) for thr in blocked]))
         for thr in blocked: del self._blocked[thr]
 
-    def add_to_blocked_byneed(self, w_var, uthread):
-        w(".. we BLOCK BYNEED thread", str(id(uthread)), "on var", str(w_var))
+    def add_to_blocked_byneed(self, w_var, thread):
+        w(".. we BLOCK BYNEED thread", str(id(thread)), "on var", str(w_var))
         assert isinstance(w_var, W_Var)
-        assert isinstance(uthread, ClonableCoroutine)
+        assert isinstance(thread, ClonableCoroutine)
         if w_var in self._blocked_byneed:
             blocked = self._blocked_byneed[w_var]
         else:
             blocked = []
             self._blocked_byneed[w_var] = blocked
-        blocked.append(uthread)
-        self._blocked[uthread] = True
+        blocked.append(thread)
+        self._blocked[thread] = True
 
     def unblock_byneed_on(self, w_var):
         v(".. we UNBLOCK BYNEED dependants of var", str(w_var))
@@ -216,6 +222,8 @@ class Scheduler(object):
         self._traced[thread] = lvars
 
     def dirty_traced_vars(self, thread, failed_value):
+        assert isinstance(thread, ClonableCoroutine)
+        assert isinstance(failed_value, W_FailedValue)
         w(".. DIRTYING traced vars")
         for w_var in self._traced[thread]:
             if self.space.is_true(self.space.is_free(w_var)):
@@ -226,20 +234,22 @@ class Scheduler(object):
 def reset_scheduler(space):
     "garbage collection of threads might pose some problems"
     scheduler[0] = Scheduler(space)
+    scheduler[0]._check_initial_conditions()
 app_reset_scheduler = gateway.interp2app(reset_scheduler)
 
 def sched_info(space):
     sched = scheduler[0]
     w_ret = space.newdict([])
-    space.setitem(w_ret, space.wrap('switches'), space.wrap(sched._switch_count))
-    space.setitem(w_ret, space.wrap('threads'),
-                  space.wrap([id(th) for th in sched.get_threads()]))
-    space.setitem(w_ret, space.wrap('blocked'),
-                  space.wrap([id(th) for th in sched._blocked.keys()]))
-    space.setitem(w_ret, space.wrap('blocked_on'),
-                  space.wrap([id(th) for th in sched._blocked_on.keys()]))
-    space.setitem(w_ret, space.wrap('blocked_byneed'),
-                  space.wrap([id(th) for th in sched._blocked_byneed.keys()]))
+    if not we_are_translated(): # XXX and otherwise, WTF ???
+        space.setitem(w_ret, space.wrap('switches'), space.wrap(sched._switch_count))
+        space.setitem(w_ret, space.wrap('threads'),
+                      space.wrap([id(th) for th in sched.get_threads()]))
+        space.setitem(w_ret, space.wrap('blocked'),
+                      space.wrap([id(th) for th in sched._blocked.keys()]))
+        space.setitem(w_ret, space.wrap('blocked_on'),
+                      space.wrap([id(th) for th in sched._blocked_on.keys()]))
+        space.setitem(w_ret, space.wrap('blocked_byneed'),
+                      space.wrap([id(th) for th in sched._blocked_byneed.keys()]))
     return w_ret
 app_sched_info = gateway.interp2app(sched_info)
 

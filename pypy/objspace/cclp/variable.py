@@ -179,7 +179,7 @@ def bind__Var_Root(space, w_var, w_obj):
 
 def bind__Future_Root(space, w_fut, w_obj):
     #v("future val", str(id(w_fut)))
-    if w_fut.client == ClonableCoroutine.w_getcurrent(space):
+    if w_fut._client == ClonableCoroutine.w_getcurrent(space):
         raise_future_binding(space)
     return bind__Var_Root(space, w_fut, w_obj) # call-next-method ?
 
@@ -201,14 +201,14 @@ def bind__Var_Var(space, w_v1, w_v2):
 
 def bind__Future_Var(space, w_fut, w_var):
     #v("future var")
-    if w_fut.client == ClonableCoroutine.w_getcurrent(space):
+    if w_fut._client == ClonableCoroutine.w_getcurrent(space):
         raise_future_binding(space)
     return bind__Var_Var(space, w_fut, w_var)
 
 def bind__Var_Future(space, w_var, w_fut): 
     if space.is_true(space.is_bound(w_fut)): #XXX write a test for me !
         return bind__Var_Root(space, w_var, deref(space, w_fut))
-    if w_fut.client == ClonableCoroutine.w_getcurrent(space):
+    if w_fut._client == ClonableCoroutine.w_getcurrent(space):
         raise_future_binding(space)
     return bind__Var_Var(space, w_var, w_fut) #and for me ...
     

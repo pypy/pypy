@@ -391,6 +391,8 @@ class AppTest_LogicFutures(object):
         assert T == 45
         assert len(sched_info()['blocked_byneed']) == 1
         reset_scheduler()
+        assert len(sched_info()['blocked_byneed']) == 0
+        assert len(sched_info()['threads']) == 1
 
     def test_wait_two(self):
 

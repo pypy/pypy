@@ -24,7 +24,7 @@ class W_Future(W_Var):
     "a read-only-by-its-consummer variant of logic. var"
     def __init__(w_self, space):
         W_Var.__init__(w_self, space)
-        w_self.client = ClonableCoroutine.w_getcurrent(space)
+        w_self._client = ClonableCoroutine.w_getcurrent(space)
         w("FUT", str(w_self))
 
 #-- Exception types ----------------------------------------
@@ -36,10 +36,53 @@ class W_FailedValue(W_Root):
     def __init__(w_self, exc):
         w_self.exc = exc
 
+#-- Something to hold the ring of coros --------------------------------
+
+## class Triple(object):
+
+##     def __init__(self, thread):
+##         assert isinstance(thread, ClonableCoroutine)
+##         self._thread = thread
+##         self._prev = self._next = self
+
+##     def get_next(self):
+##         return self._next
+
+##     def get_prev(self):
+##         return self._prev
+
+##     def set_next(self, triple):
+##         assert isinstance(triple, Triple)
+##         self._next = triple
+
+##     def set_prev(self, triple):
+##         assert isinstance(triple, Triple)
+##         self._prev = triple
+
+##     next = property(get_next, set_next)
+##     prev = property(get_prev, set_prev)
+
+##     def insert_before(self, triple):
+##         assert isinstance(triple, Triple)
+##         before = self.prev
+##         # ...
+##         before.next = triple
+##         triple.prev = before
+##         # ...
+##         self.prev = triple
+##         triple.next = self
+
+##     def __str__(self):
+##         curr = self
+##         out = ['[', str(id(self._thread))]
+##         while curr != self:
+##             curr = self.next
+##             out.append(str(id(curr._thread)))
+##         return ''.join(out)
+
 #-- Misc ---------------------------------------------------
 
 def deref(space, w_var):
-    #XXX kill me ?
     "gets the value/next alias of a variable"
     assert isinstance(w_var, W_Var)
     return w_var.w_bound_to

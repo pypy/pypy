@@ -16,7 +16,7 @@ def future(space, w_callable, __args__):
     # coro init
     coro = ClonableCoroutine(space)
     # computation space is the same as in the parent
-    coro.cspace = ClonableCoroutine.w_getcurrent(space).cspace
+    #coro.cspace = ClonableCoroutine.w_getcurrent(space).cspace
     # feed the coro
     w_Future = W_Future(space)
     thunk = FutureThunk(space, w_callable, args, w_Future, coro)
@@ -36,7 +36,7 @@ def stacklet(space, w_callable, __args__):
     # coro init
     coro = ClonableCoroutine(space)
     # computation space is the same as in the parent
-    coro.cspace = ClonableCoroutine.w_getcurrent(space).cspace
+    #coro.cspace = ClonableCoroutine.w_getcurrent(space).cspace
     thunk = ProcedureThunk(space, w_callable, args, coro)
     coro.bind(thunk)
     w("STACKLET", str(id(coro)))
