@@ -126,13 +126,19 @@ namespace pypy.builtin
     {
         private static Dictionary<int, IFile> FileDescriptors;
         private static int fdcount;
-        private const int O_RDONLY = 0;
-        private const int O_WRONLY = 1;
-        private const int O_RDWR = 2;
-        private const int O_CREAT = 64;
-        private const int O_TRUNC = 512;
-        private const int O_APPEND = 1024;
-        private const int O_BINARY = 32768;
+        
+        // NB: these values are those used by Windows and they differs
+        // from the Unix ones; the os module is patched with these
+        // values before flowgraphing to make sure we get the very
+        // same values on each platform we do the compilation.
+        private const int O_RDONLY = 0x0000;
+        private const int O_WRONLY = 0x0001;
+        private const int O_RDWR   = 0x0002;
+        private const int O_APPEND = 0x0008;
+        private const int O_CREAT  = 0x0100;
+        private const int O_TRUNC  = 0x0200;
+        private const int O_TEXT   = 0x4000;
+        private const int O_BINARY = 0x8000;
 
         private const int S_IFMT = 61440;
         private const int S_IFDIR = 16384;

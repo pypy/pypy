@@ -199,7 +199,19 @@ class TranslationDriver(SimpleTaskEngine):
             self.done[goal] = True
         return res
 
-    def task_annotate(self):  
+    def task_annotate(self):
+        # XXX: this should be a separate task, but I don't know how to
+        # specify a task to be executed before annotation only if the
+        # backend is 'cli'
+
+        # patch some attributes of the os module to make sure they
+        # have the same value on every platform.
+        backend, ts = self.get_backend_and_type_system()
+        if backend == 'cli':
+            from pypy.translator.cli.support import patch_os
+            self.old_os_defs = patch_os()
+        # end of XXX
+        
         # includes annotation and annotatation simplifications
         translator = self.translator
         policy = self.policy
@@ -482,9 +494,13 @@ class TranslationDriver(SimpleTaskEngine):
                              'Generating CLI source')
 
     def task_compile_cli(self):
+        from pypy.translator.cli.support import patch_os
         from pypy.translator.cli.test.runtest import CliFunctionWrapper
         filename = self.gen.build_exe()
         self.c_entryp = CliFunctionWrapper(filename)
+        # restore original os values
+        patch_os(self.old_os_defs)
+        
         self.log.info("Compiled %s" % filename)
     task_compile_cli = taskdef(task_compile_cli, ['source_cli'],
                               'Compiling CLI source')
