@@ -5,6 +5,17 @@ PyPy - talks and related projects
 Talks and Presentations 
 ----------------------------------
 
+* `Trouble in Paradise: the Open Source Project PyPy, 
+     EU-funding and Agile Practices`_ talk, by Bea During at
+     Agile 2006 (experience report).
+
+*  `Sprint Driven Development, Agile Methodologies in a
+      Distributed Open Source Project (PyPy)`_ talk, by Bea During
+      at XP 2006 (experience report).
+      
+* `Kill -1: process refactoring in the PyPy project`_ talk, by Bea During
+    at the Agile track/Europython 2006.
+
 * `PyPy intro`_ talk, given by Michael Hudson at ACCU 2006 (April), 
   also stating the status of the project. 
 
@@ -14,6 +25,9 @@ Talks and Presentations
 * `PyPy - the new Python implementation on the block`_ talk, 
   given by Carl Friedrich Bolz and Holger Krekel at the 
   22nd Chaos Communication Conference in Berlin, Dec. 2005. 
+  
+* `Open Source, EU-Funding and Agile Methods`_ talk, given by Holger Krekel
+    and Bea During at the 22nd Chaos Communication Conference in Berlin, Dec. 2005
 
 * oscon2003-paper_ an early paper presented at Oscon 2003 describing 
   what the PyPy project is about and why you should care. 
@@ -37,6 +51,11 @@ Talks and Presentations
 .. _`EU funding for FOSS`: http://codespeak.net/pypy/extradoc/talk/2004-21C3-pypy-EU-hpk.pdf
 .. _`py lib slides`: http://codespeak.net/pypy/extradoc/talk/2005-pycon-py.pdf
 .. _`PyCon 2005`: http://codespeak.net/pypy/extradoc/talk/pypy-talk-pycon2005/README.html
+.. _ `Trouble in Paradise`: http://codespeak.net/pypy/extradoc/talk/during-oss-sprints_talk.pdf
+.. _ `Sprint Driven Development`:http://codespeak.net/pypy/extradoc/talk/during-xp2006-sprints.pdf
+.. _ `Kill -1`:http://codespeak.net/pypy/extradoc/talk/kill_1_agiletalk.pdf
+.. _ `Open Source, EU-Funding and Agile Methods`:http://codespeak.net/pypy/extradoc/talk/agility.pdf
+
 
 Related projects 
 ----------------------------------
