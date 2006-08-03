@@ -11,6 +11,8 @@ from pypy.translator.js.test.runtest import compile_function
 from pypy.translator.driver import TranslationDriver
 from pypy.translator.js.js import JS
 from pypy.tool.error import AnnotatorError, FlowingError, debug
+from pypy.rpython.nonconst import NonConstant
+from pypy.annotation.policy import AnnotatorPolicy
 
 class FunctionNotFound(Exception):
     pass
@@ -18,10 +20,13 @@ class FunctionNotFound(Exception):
 class BadSignature(Exception):
     pass
 
+class JsPolicy(AnnotatorPolicy):
+    allow_someobjects = False
+
 def get_args(func_data):
     l = []
     for i in xrange(func_data.func_code.co_argcount):
-        l.append(repr(func_data.func_defaults[i]))
+        l.append("NonConstant(%s)" % repr(func_data.func_defaults[i]))
     return "(%s)" % ",".join(l)
 
 def _main(argv):
@@ -45,7 +50,7 @@ def _main(argv):
     # now we gonna just cut off not needed function
     driver = TranslationDriver()
     try:
-        driver.setup(some_strange_function_which_will_never_be_called, [])
+        driver.setup(some_strange_function_which_will_never_be_called, [], policy = JsPolicy())
         driver.proceed(["compile_js"])
     except Exception, e:
         # do something nice with it
