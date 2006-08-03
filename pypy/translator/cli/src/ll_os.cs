@@ -13,6 +13,7 @@ namespace pypy.builtin
         string Read(int count);
     }
 
+    // this class is used only for stdin/stdout/stderr
     class TextFile: IFile
     {
         private FileStream stream;
@@ -46,41 +47,45 @@ namespace pypy.builtin
         }
     }
 
-    class CRLFFile: IFile
+    class CRLFTextFile: IFile
     {
         private FileStream stream;
-        private TextWriter writer;
-        private TextReader reader;
-        public CRLFFile(FileStream stream, TextReader reader, TextWriter writer)
+        public CRLFTextFile(FileStream stream)
         {
             this.stream = stream;
-            this.writer = writer;
-            this.reader = reader;
         }
-        
+
         public FileStream GetStream()
         {
             return stream;
         }
-
+        
         public void Write(string buffer)
         {
-            Debug.Assert(writer != null); // XXX: raise OSError?
-            writer.Write(buffer);
-            writer.Flush();
+            foreach(char ch in buffer) {
+                if (ch == '\n')
+                    stream.WriteByte((byte)'\r');
+                stream.WriteByte((byte)ch);
+            }
+            stream.Flush(); // XXX: should we flush every time or not?
         }
-        
+
         public string Read(int count)
         {
-            Debug.Assert(reader != null); // XXX: raise OSError?
             System.Text.StringBuilder builder = new System.Text.StringBuilder(count);
+            bool pending_CR = false;
             while (count-- > 0) {
-                int ch = reader.Read();
+                int ch = stream.ReadByte();
                 if (ch == -1)
                     break;
-                if (ch == '\r' && reader.Peek() == '\n')
-                    ch = reader.Read();
-                builder.Append((char)ch);
+                else if (ch == '\r')
+                    pending_CR = true;
+                else {
+                    if (pending_CR && ch != '\n')
+                        builder.Append('\r');
+                    builder.Append((char)ch);
+                    pending_CR = false;
+                }
             }
             return builder.ToString();
         }
@@ -136,6 +141,7 @@ namespace pypy.builtin
         static ll_os()
         {
             FileDescriptors = new Dictionary<int, IFile>();
+            // XXX: what about CRLF conversion for stdin, stdout and stderr?
             FileDescriptors[0] = new TextFile(null, Console.In, null);
             FileDescriptors[1] = new TextFile(null, null, Console.Out);
             FileDescriptors[2] = new TextFile(null, null, Console.Error);
@@ -175,30 +181,13 @@ namespace pypy.builtin
             FileStream stream = new FileStream(name, f_mode, f_access);
             IFile f;
 
-            if ((flags & O_BINARY) != 0)
+            // - on Unix there is no difference between text and binary modes
+            // - on Windows text mode means that we should convert '\n' from and to '\r\n'
+            // - on Mac < OS9 text mode means that we should convert '\n' from and to '\r' -- XXX: TODO!
+            if ((flags & O_BINARY) == 0 && System.Environment.NewLine == "\r\n")
+                f = new CRLFTextFile(stream);
+            else
                 f = new BinaryFile(stream);
-            else {
-                StreamWriter writer = null;
-                StreamReader reader = null;
-                if (f_access == FileAccess.Read || f_access == FileAccess.ReadWrite)
-                    reader = new StreamReader(stream);
-                if (f_access == FileAccess.Write || f_access == FileAccess.ReadWrite)
-                    {
-                        Console.Error.WriteLine("opening {0} for writing", name);
-                        writer = new StreamWriter(stream);
-                    }
-
-                if (System.Environment.NewLine == "\r\n")
-                    {
-                        Console.Error.WriteLine("opening {0} for reading (with CRLF conversion)", name);
-                        f = new CRLFFile(stream, reader, writer);
-                    }
-                else
-                    {
-                        Console.Error.WriteLine("opening {0} for reading (without CRLF conversion)", name);
-                        f = new TextFile(stream, reader, writer);
-                    }
-            }
 
             fdcount++;
             FileDescriptors[fdcount] = f;
@@ -214,21 +203,22 @@ namespace pypy.builtin
 
         public static int ll_os_write(int fd, string buffer)
         {
-            PrintString("ll_os_write", buffer);
             getfd(fd).Write(buffer);
             return buffer.Length;
         }
 
+        /*
         private static void PrintString(string source, string s)
         {
-            Console.WriteLine(source);
-            Console.WriteLine(s);
-            Console.WriteLine("Length: {0}", s.Length);
+            Console.Error.WriteLine(source);
+            Console.Error.WriteLine(s);
+            Console.Error.WriteLine("Length: {0}", s.Length);
             for (int i=0; i<s.Length; i++)
-                Console.Write("{0} ", (int)s[i]);
-            Console.WriteLine();
-            Console.WriteLine();
+                Console.Error.Write("{0} ", (int)s[i]);
+            Console.Error.WriteLine();
+            Console.Error.WriteLine();
         }
+        */
 
         public static string ll_os_read(int fd, long count)
         {

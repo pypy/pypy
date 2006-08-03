@@ -18,8 +18,12 @@ namespace pypy.test
         public static string ToPython(string x) { 
             if (x == null)
                 return "None";
-            else
-                return string.Format("'''{0}'''", x.Replace("\\", "\\\\"));
+            else {
+                string res = "";
+                foreach(char ch in x)
+                    res+= string.Format("\\x{0:X2}", (int)ch);
+                return string.Format("'{0}'", res);
+            }
         }
 
         public static string ToPython(object x) {
