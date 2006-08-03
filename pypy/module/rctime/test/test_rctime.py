@@ -1,5 +1,9 @@
 from py.test import raises, skip
 from pypy.conftest import gettestobjspace
+import os
+
+if os.name == "nt":
+    skip("Windows is not supported")
 
 class AppTestRCTime:
     def setup_class(cls):

@@ -2,6 +2,9 @@ from py.test import raises, skip
 from pypy.conftest import gettestobjspace
 import os
 
+if os.name == "nt":
+    skip("Windows is not supported")
+
 def teardown_module(mod):
     if os.path.exists("foo"):
         os.unlink("foo")

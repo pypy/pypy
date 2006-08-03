@@ -2,6 +2,9 @@ from py.test import raises, skip
 from pypy.conftest import gettestobjspace
 import os
 
+if os.name == "nt":
+    skip("Windows is not supported")
+
 class AppTestSSL:
     def setup_class(cls):
         space = gettestobjspace(usemodules=('_ssl',))
