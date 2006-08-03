@@ -18,6 +18,7 @@ class ClonableCoroutine(InterpClonableCoroutine):
 
     def __init__(self, space, is_main=False):
         self.space = space
+        self.is_main = is_main
         state = self._get_state(space)
         Coroutine.__init__(self, state)
         self.flags = 0
@@ -41,9 +42,23 @@ class ClonableCoroutine(InterpClonableCoroutine):
             ec = self.space.getexecutioncontext()
             ec.subcontext_leave(self)
 
+    def from_interp(self, interp_coro):
+        assert isinstance(interp_coro, InterpClonableCoroutine)
+        # get parent, frame, local_pool
+        new = ClonableCoroutine(self.space, self.is_main)
+        new.parent = interp_coro.parent
+        new.frame = interp_coro.frame
+        new.local_pool = interp_coro.local_pool
+        return new
+
     def w_clone(self):
+        if self.is_main:
+            raise OperationError(self.space.w_NotImplementedError,
+                                 self.space.wrap("The main coroutine can't be cloned"))
         try:
-            return InterpClonableCoroutine.clone(self)
+            interp_coro = InterpClonableCoroutine.clone(self)
+            app_coro = self.from_interp(interp_coro)
+            return app_coro
         except NotImplementedError:
             raise OperationError(self.space.w_NotImplementedError,
                                  self.space.wrap("clone() is only available in translated PyPy"))
