@@ -46,7 +46,37 @@ class AppTestBz2:
         bz2f = BZ2File("foo", mode='w')
         pos = bz2f.tell()
         assert pos == 0
+    
+    def test_seek(self):
+        from bz2 import BZ2File
         
+        # hack to create a foo file
+        open("foo", "w").close()
+        
+        # cannot seek if close
+        bz2f = BZ2File("foo", mode='r')
+        bz2f.close()
+        raises(ValueError, bz2f.seek, 0)
+        
+        # cannot seek if 'w'
+        bz2f = BZ2File("foo", mode='w')
+        raises(IOError, bz2f.seek, 0)
+        bz2f.close()
+        
+        bz2f = BZ2File("foo", mode='r')
+        raises(TypeError, bz2f.seek, "foo")
+        raises(TypeError, bz2f.seek, 0, "foo")
+        
+        bz2f.seek(0)
+        assert bz2f.tell() == 0
+        assert False
+        # bz2f.read(1)
+        # bz2f.seek(1, 1)
+        # assert bz2f.tell() == 2
+        # bz2f.seek(0)
+        # bz2f.seek(-1, 2)
+        # assert bz2f.tell() == 5
+
         
 # #!/usr/bin/python
 # from test import test_support

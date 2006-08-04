@@ -25,9 +25,10 @@ class CConfig:
     off_t = ctypes_platform.SimpleType("off_t", c_longlong)
     size_t = ctypes_platform.SimpleType("size_t", c_ulong)
     BUFSIZ = ctypes_platform.ConstantInteger("BUFSIZ")
+    SEEK_SET = ctypes_platform.ConstantInteger("SEEK_SET")
 
 constants = {}
-constant_names = ['BUFSIZ', 'BZ_RUN', 'BZ_FLUSH', 'BZ_FINISH', 'BZ_OK',
+constant_names = ['BZ_RUN', 'BZ_FLUSH', 'BZ_FINISH', 'BZ_OK',
     'BZ_RUN_OK', 'BZ_FLUSH_OK', 'BZ_FINISH_OK', 'BZ_STREAM_END',
     'BZ_SEQUENCE_ERROR', 'BZ_PARAM_ERROR', 'BZ_MEM_ERROR', 'BZ_DATA_ERROR',
     'BZ_DATA_ERROR_MAGIC', 'BZ_IO_ERROR', 'BZ_UNEXPECTED_EOF',
@@ -46,6 +47,8 @@ for name in constant_names:
 locals().update(constants)
 
 off_t = cConfig.off_t
+BUFSIZ = cConfig.BUFSIZ
+SEEK_SET = cConfig.SEEK_SET
 BZ_OK = cConfig.BZ_OK
 BZ_STREAM_END = cConfig.BZ_STREAM_END
 BZ_CONFIG_ERROR = cConfig.BZ_CONFIG_ERROR
@@ -64,10 +67,16 @@ MODE_READ_EOF = 2
 MODE_WRITE = 3
 
 # bits in f_newlinetypes
-NEWLINE_UNKNOWN	= 0	# No newline seen, yet
+NEWLINE_UNKNOWN = 0 # No newline seen, yet
 NEWLINE_CR = 1 # \r newline seen
 NEWLINE_LF = 2 # \n newline seen
 NEWLINE_CRLF = 4 # \r\n newline seen
+
+if BUFSIZ < 8192:
+    SMALLCHUNK = 8192
+else:
+    SMALLCHUNK = BUFSIZ
+
 
 pythonapi.PyFile_FromString.argtypes = [c_char_p, c_char_p]
 pythonapi.PyFile_FromString.restype = POINTER(PyFileObject)
@@ -77,6 +86,7 @@ pythonapi.PyFile_AsFile.argtypes = [POINTER(PyFileObject)]
 pythonapi.PyFile_AsFile.restype = POINTER(FILE)
 pythonapi.PyMem_Free.argtypes = [c_char_p]
 pythonapi.PyMem_Free.restype = c_void
+
 libbz2.BZ2_bzReadOpen.argtypes = [POINTER(c_int), POINTER(FILE), c_int,
     c_int, c_void_p, c_int]
 libbz2.BZ2_bzReadOpen.restype = POINTER(BZFILE)
@@ -88,10 +98,15 @@ libbz2.BZ2_bzReadClose.restype = c_void
 libbz2.BZ2_bzWriteClose.argtypes = [POINTER(c_int), POINTER(BZFILE),
     c_int, POINTER(c_uint), POINTER(c_uint)]
 libbz2.BZ2_bzWriteClose.restype = c_void
+libbz2.BZ2_bzRead.argtypes = [POINTER(c_int), POINTER(BZFILE), c_char_p, c_int]
+libbz2.BZ2_bzRead.restype = c_int
+
 libc.strerror.restype = c_char_p
 libc.strerror.argtypes = [c_int]
 libc.fclose.argtypes = [POINTER(FILE)]
 libc.fclose.restype = c_int
+libc.fseek.argtypes = [POINTER(FILE), c_int, c_int]
+libc.fseek.restype = c_int
 
 def _get_error_msg():
     errno = geterrno()
@@ -122,7 +137,72 @@ def _drop_readahead(obj):
     if obj.f_buf:
         pythonapi.PyMem_Free(obj.f_buf)
         obj.f_buf = c_char_p()
-
+        
+def _univ_newline_read(bzerror, stream, buf, n, obj):
+    dst = buf
+    
+    if not obj.f_univ_newline:
+        return libbz2.BZ2_bzRead(byref(bzerror), stream, buf, n)
+        
+    newlinetypes = obj.f_newlinetypes
+    skipnextlf = obj.f_skipnextlf
+    
+    while n:
+        src = dst
+        
+        nread = libbz2.BZ2_bzRead(byref(bzerror), stream, buf, n)
+        n -= nread # assuming 1 byte out for each in; will adjust
+        shortread = n != 0 # True iff EOF or error
+        
+        # needed to operate with "pointers"
+        src_lst = list(src.value)
+        src_pos = 0
+        dst_lst = list(dst.value)
+        dst_pos = 0
+        while nread:
+            nread -= 1
+                    
+            c = src_lst[src_pos]
+            src_pos += 1
+            
+            if c == '\r':
+                # save as LF and set flag to skip next LF.
+                dst_lst[dst_pos] = '\n'
+                dst_pos += 1
+                skipnextlf = True
+            elif skipnextlf and c == '\n':
+                # skip LF, and remember we saw CR LF.
+                skipnextlf = False
+                newlinetypes |= NEWLINE_CRLF
+                n += 1
+            else:
+                # normal char to be stored in buffer.  Also
+                # update the newlinetypes flag if either this
+                # is an LF or the previous char was a CR.
+                if c == '\n':
+                    newlinetypes |= NEWLINE_LF
+                elif skipnextlf:
+                    newlinetypes |= NEWLINE_CR
+                
+                dst_lst[dst_pos] = c
+                dst_pos += 1
+                
+                skipnextlf = False
+        
+        if shortread:
+            # if this is EOF, update type flags.
+            if skipnextlf and (bzerror == BZ_STREAM_END):
+                newlinetypes |= NEWLINE_CR
+            break
+    
+    obj.f_newlinetypes = newlinetypes
+    obj.f_skipnextlf = skipnextlf
+    
+    buf = c_char_p("".join(dst_lst))
+    
+    return dst_pos
+            
+    
 class _BZ2File(Wrappable):
     def __init__(self, space, filename, mode='r', buffering=-1, compresslevel=9):
         self.space = space
@@ -154,7 +234,6 @@ class _BZ2File(Wrappable):
             raise OperationError(self.space.w_ValueError,
                 self.space.wrap("compresslevel must be between 1 and 9"))
         
-        i = 1
         for mode in mode_list:
             error = False
             
@@ -209,6 +288,11 @@ class _BZ2File(Wrappable):
             libbz2.BZ2_bzWriteClose(byref(bzerror), self.fp, 0, None, None)
             
         _drop_readahead(self)
+        
+    def _check_if_close(self):
+        if self.mode == MODE_CLOSED:
+            raise OperationError(self.space.w_ValueError,
+                self.space.wrap("I/O operation on closed file"))
     
     def close(self):
         """close() -> None or (perhaps) an integer
@@ -245,18 +329,112 @@ class _BZ2File(Wrappable):
 
         Return the current file position, an integer (may be a long integer)."""
         
-        if self.mode == MODE_CLOSED:
-            raise OperationError(self.space.w_ValueError,
-                self.space.wrap("I/O operation on closed file"))
+        self._check_if_close()
         
         return self.space.wrap(self.pos)
     tell.unwrap_spec = ['self']
+    
+    def seek(self, offset, whence=0):
+        """"seek(offset [, whence]) -> None
+    
+        Move to new file position. Argument offset is a byte count. Optional
+        argument whence defaults to 0 (offset from start of file, offset
+        should be >= 0); other values are 1 (move relative to current position,
+        positive or negative), and 2 (move relative to end of file, usually
+        negative, although many platforms allow seeking beyond the end of a file).
+    
+        Note that seeking of bz2 files is emulated, and depending on the parameters
+        the operation may be extremely slow."""
+        
+        _drop_readahead(self)
+        self._check_if_close()
+        
+        buf = c_char_p()
+        bufsize = SMALLCHUNK
+        bytesread = 0
+        bzerror = c_int()
+        
+        if self.mode not in (MODE_READ, MODE_READ_EOF):
+            raise OperationError(self.space.w_IOError,
+                self.space.wrap("seek works only while reading"))
+        
+        if whence == 2:
+            if self.size == -1:
+                while True:
+                    chunksize = _univ_newline_read(bzerror, self.fp, buf,
+                        bufsize, self)
+                    self.pos += chunksize
+                    bytesread += chunksize
+                    
+                    if bzerror == BZ_STREAM_END:
+                        break
+                    elif bzerror != BZ_OK:
+                        _catch_bz2_error(bzerror)
+                    
+                self.mode = MODE_READ_EOF
+                self.size = self.pos
+                bytesread = 0
+            offset += self.size
+        elif whence == 1:
+            offset += self.pos
+        
+        # Before getting here, offset must be the absolute position the file
+        # pointer should be set to.
+        if offset >= self.pos:
+            # we can move forward
+            offset -= self.pos
+        else:
+            # we cannot move back, so rewind the stream
+            libbz2.BZ2_bzReadClose(byref(bzerror), self.fp)
+            if bzerror != BZ_OK:
+                _catch_bz2_error(bzerror)
+            
+            ret = libc.fseek(self._file, 0, SEEK_SET)
+            if ret != 0:
+                raise OperationError(self.space.w_IOError,
+                    self.space.wrap(_get_error_msg()))
+            
+            self.pos = 0
+            self.fp = libbz2.BZ2_bzReadOpen(byref(bzerror), self._file,
+                0, 0, None, 0)
+            if bzerror != BZ_OK:
+                _catch_bz2_error(bzerror)
+            
+            self.mode = MODE_READ
+        
+        if offset <= 0 or self.mode == MODE_READ_EOF:
+            return
+        
+        # Before getting here, offset must be set to the number of bytes
+        # to walk forward.
+        while True:
+            if (offset - bytesread) > bufsize:
+                readsize = bufsize
+            else:
+                # offset might be wider that readsize, but the result
+                # of the subtraction is bound by buffersize (see the
+                # condition above). bufsize is 8192.
+                readsize = offset - bytesread
+            
+            chunksize = _univ_newline_read(bzerror, self.fp, buf, readsize, self)
+            self.pos += chunksize
+            bytesread += chunksize
+            
+            if bzerror == BZ_STREAM_END:
+                self.size = self.pos
+                self.mode = MODE_READ_EOF
+            elif bzerror != BZ_OK:
+                _catch_bz2_error(bzerror)
+            
+            if bytesread == offset:
+                break
+    seek.unwrap_spec = ['self', int, int]
                   
+
 _BZ2File.typedef = TypeDef("_BZ2File",
-    close = interp2app(_BZ2File.close,
-        unwrap_spec=_BZ2File.close.unwrap_spec),
-    tell = interp2app(_BZ2File.tell,
-        unwrap_spec=_BZ2File.tell.unwrap_spec),
+    close = interp2app(_BZ2File.close, unwrap_spec=_BZ2File.close.unwrap_spec),
+    tell = interp2app(_BZ2File.tell, unwrap_spec=_BZ2File.tell.unwrap_spec),
+    seek = interp2app(_BZ2File.seek, unwrap_spec=_BZ2File.seek.unwrap_spec),
 )
 
 def BZ2File(space, filename, mode='r', buffering=-1, compresslevel=9):
