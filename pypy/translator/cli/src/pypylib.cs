@@ -282,6 +282,10 @@ namespace pypy.runtime
         {
         }
 
+        public List(int capacity): base(capacity)
+        {
+        }
+
         public override string ToString()
         {
             // TODO: use StringBuilder instead
@@ -340,6 +344,9 @@ namespace pypy.runtime
     public class ListOfVoid
     {
         int Count = 0;
+
+        public ListOfVoid() { }
+        public ListOfVoid(int capacity) { }
 
         public override string ToString()
         {

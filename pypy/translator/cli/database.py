@@ -470,7 +470,8 @@ class ListConst(AbstractConst):
     def instantiate(self, ilasm):
         assert not self.is_null()
         class_name = self.get_type(False)
-        ilasm.new('instance void class %s::.ctor()' % class_name)
+        AbstractConst.load(self.db, ootype.Signed, len(self.value._list), ilasm)
+        ilasm.new('instance void class %s::.ctor(int32)' % class_name)
         self.db.const_count.inc('List')
         self.db.const_count.inc('List', self.value._TYPE._ITEMTYPE)
         self.db.const_count.inc('List', len(self.value._list))
