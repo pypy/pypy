@@ -1,4 +1,5 @@
 from pypy.rpython.rctypes.tool import ctypes_platform
+from pypy.rpython.rctypes.tool.libc import libc
 import pypy.rpython.rctypes.implementation # this defines rctypes magic
 from pypy.rpython.rctypes.aerrno import geterrno
 from pypy.interpreter.error import OperationError
@@ -19,6 +20,7 @@ class CConfig:
     _header_ = """
     #include <stdio.h>
     #include <sys/types.h>
+    #include <bzlib.h>
     """
     off_t = ctypes_platform.SimpleType("off_t", c_longlong)
     size_t = ctypes_platform.SimpleType("size_t", c_ulong)
@@ -86,7 +88,14 @@ libbz2.BZ2_bzReadClose.restype = c_void
 libbz2.BZ2_bzWriteClose.argtypes = [POINTER(c_int), POINTER(BZFILE),
     c_int, POINTER(c_uint), POINTER(c_uint)]
 libbz2.BZ2_bzWriteClose.restype = c_void
+libc.strerror.restype = c_char_p
+libc.strerror.argtypes = [c_int]
+libc.fclose.argtypes = [POINTER(FILE)]
+libc.fclose.restype = c_int
 
+def _get_error_msg():
+    errno = geterrno()
+    return libc.strerror(errno)
 
 def _catch_bz2_error(space, bzerror):
     if BZ_CONFIG_ERROR and bzerror == BZ_CONFIG_ERROR:
@@ -200,8 +209,41 @@ class _BZ2File(Wrappable):
             libbz2.BZ2_bzWriteClose(byref(bzerror), self.fp, 0, None, None)
             
         _drop_readahead(self)
+    
+    def close(self):
+        """close() -> None or (perhaps) an integer
+
+        Close the file. Sets data attribute .closed to true. A closed file
+        cannot be used for further I/O operations."""
+        
+        # this feature is not supported due to fclose():
+        #   close() may be called more than once without error.
+                
+        bzerror = c_int(BZ_OK)
+        
+        if self.mode in (MODE_READ, MODE_READ_EOF):
+            libbz2.BZ2_bzReadClose(byref(bzerror), self.fp)
+        elif self.mode == MODE_WRITE:
+            libbz2.BZ2_bzWriteClose(byref(bzerror), self.fp, 0, None, None)
+        
+        self.mode = MODE_CLOSED
+        
+        # close the underline file
+        ret = libc.fclose(self._file)
+        if ret != 0:
+            raise OperationError(self.space.w_IOError,
+                self.space.wrap(_get_error_msg()))
+        
+        if bzerror != BZ_OK:
+            return _catch_bz2_error(self.space, bzerror)
+        
+        return ret
+    close.unwrap_spec = ['self']
                   
-_BZ2File.typedef = TypeDef("_BZ2File")
+_BZ2File.typedef = TypeDef("_BZ2File",
+    close = interp2app(_BZ2File.close,
+        unwrap_spec=_BZ2File.close.unwrap_spec),
+)
 
 def BZ2File(space, filename, mode='r', buffering=-1, compresslevel=9):
     """BZ2File(name [, mode='r', buffering=0, compresslevel=9]) -> file object

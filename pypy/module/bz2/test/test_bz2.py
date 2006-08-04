@@ -22,7 +22,19 @@ class AppTestBz2:
         BZ2File("foo", mode='wb')
         # a large buf size
         BZ2File("foo", mode='w', buffering=4096)
+    
+    def test_close(self):
+        from bz2 import BZ2File
         
+        # readonly
+        bz2f = BZ2File("foo", mode='w')
+        bz2f.close()
+        # since we use fclose() internally you can't close it twice
+        # bz2f.close()
+        
+        # writeonly
+        bz2f = BZ2File("foo", mode='r')
+        bz2f.close()
         
 # #!/usr/bin/python
 # from test import test_support
