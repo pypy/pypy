@@ -1,0 +1,31 @@
+============================================
+Summer of PyPy proposal: Distributed py.test
+============================================
+
+
+Purpose:
+========
+
+The main purpose of distributing py.test is to speedup tests
+of actual applications (running all pypy tests already takes
+ages).
+
+Method:
+=======
+
+XXX: some draft
+
+- remote import (which I've already implemented)
+- run on session level probably (like RemoteSession)
+- do not run on low level (around call(*args)) [previous,
+  Executor approach], because there are problems with displaying and
+  we need everything to get every data.
+- We need to get data on higher level - perform remote import of py lib
+  and run session there (ServerSession or so) to send data to client
+  and get info. Probably more sophisticated stuff such as PDB, or any other
+  input will get run by re-running test on client side (transfering every pdb
+  call seems hard and what if they implement readline-like approach in pdb?)
+
+XXX: Remote import, how it works
+
+Sending data as new files. Possible additions of some kind of checksums.
