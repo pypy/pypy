@@ -26,15 +26,27 @@ class AppTestBz2:
     def test_close(self):
         from bz2 import BZ2File
         
-        # readonly
+        # writeonly
         bz2f = BZ2File("foo", mode='w')
         bz2f.close()
         # since we use fclose() internally you can't close it twice
         # bz2f.close()
         
-        # writeonly
+        # readonly
         bz2f = BZ2File("foo", mode='r')
         bz2f.close()
+        
+    def test_tell(self):
+        from bz2 import BZ2File
+        
+        bz2f = BZ2File("foo", mode='w')
+        bz2f.close()
+        raises(ValueError, bz2f.tell)
+        
+        bz2f = BZ2File("foo", mode='w')
+        pos = bz2f.tell()
+        assert pos == 0
+        
         
 # #!/usr/bin/python
 # from test import test_support

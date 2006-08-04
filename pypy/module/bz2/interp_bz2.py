@@ -239,10 +239,24 @@ class _BZ2File(Wrappable):
         
         return ret
     close.unwrap_spec = ['self']
+    
+    def tell(self):
+        """tell() -> int
+
+        Return the current file position, an integer (may be a long integer)."""
+        
+        if self.mode == MODE_CLOSED:
+            raise OperationError(self.space.w_ValueError,
+                self.space.wrap("I/O operation on closed file"))
+        
+        return self.space.wrap(self.pos)
+    tell.unwrap_spec = ['self']
                   
 _BZ2File.typedef = TypeDef("_BZ2File",
     close = interp2app(_BZ2File.close,
         unwrap_spec=_BZ2File.close.unwrap_spec),
+    tell = interp2app(_BZ2File.tell,
+        unwrap_spec=_BZ2File.tell.unwrap_spec),
 )
 
 def BZ2File(space, filename, mode='r', buffering=-1, compresslevel=9):
