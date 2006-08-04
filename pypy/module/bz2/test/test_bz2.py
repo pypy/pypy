@@ -2,6 +2,9 @@ from py.test import raises, skip
 from pypy.conftest import gettestobjspace
 import os
 
+if os.name == "nt":
+    skip("fcntl module is not available on Windows")
+
 def teardown_module(mod):
     if os.path.exists("foo"):
         os.unlink("foo")
