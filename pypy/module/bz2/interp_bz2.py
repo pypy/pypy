@@ -73,12 +73,20 @@ pythonapi.PyFile_SetBufSize.argtypes = [POINTER(PyFileObject), c_int]
 pythonapi.PyFile_SetBufSize.restype = c_void
 pythonapi.PyFile_AsFile.argtypes = [POINTER(PyFileObject)]
 pythonapi.PyFile_AsFile.restype = POINTER(FILE)
+pythonapi.PyMem_Free.argtypes = [c_char_p]
+pythonapi.PyMem_Free.restype = c_void
 libbz2.BZ2_bzReadOpen.argtypes = [POINTER(c_int), POINTER(FILE), c_int,
     c_int, c_void_p, c_int]
 libbz2.BZ2_bzReadOpen.restype = POINTER(BZFILE)
 libbz2.BZ2_bzWriteOpen.argtypes = [POINTER(c_int), POINTER(FILE), c_int,
     c_int, c_int]
 libbz2.BZ2_bzWriteOpen.restype = POINTER(BZFILE)
+libbz2.BZ2_bzReadClose.argtypes = [POINTER(c_int), POINTER(BZFILE)]
+libbz2.BZ2_bzReadClose.restype = c_void
+libbz2.BZ2_bzWriteClose.argtypes = [POINTER(c_int), POINTER(BZFILE),
+    c_int, POINTER(c_uint), POINTER(c_uint)]
+libbz2.BZ2_bzWriteClose.restype = c_void
+
 
 def _catch_bz2_error(space, bzerror):
     if BZ_CONFIG_ERROR and bzerror == BZ_CONFIG_ERROR:
@@ -101,6 +109,10 @@ def _catch_bz2_error(space, bzerror):
         raise OperationError(space.w_RuntimeError,
             space.wrap("wrong sequence of bz2 library commands used"))
 
+def _drop_readahead(obj):
+    if obj.f_buf:
+        pythonapi.PyMem_Free(obj.f_buf)
+        obj.f_buf = c_char_p()
 
 class _BZ2File(Wrappable):
     def __init__(self, space, filename, mode='r', buffering=-1, compresslevel=9):
@@ -178,6 +190,16 @@ class _BZ2File(Wrappable):
             _catch_bz2_error(self.space, bzerror)
         
         self.mode = (MODE_WRITE, MODE_READ)[mode_char == 'r']
+    
+    def __del__(self):
+        bzerror = c_int()
+        
+        if self.mode in (MODE_READ, MODE_READ_EOF):
+            libbz2.BZ2_bzReadClose(byref(bzerror), self.fp)
+        elif self.mode == MODE_WRITE:
+            libbz2.BZ2_bzWriteClose(byref(bzerror), self.fp, 0, None, None)
+            
+        _drop_readahead(self)
                   
 _BZ2File.typedef = TypeDef("_BZ2File")
 
