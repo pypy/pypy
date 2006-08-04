@@ -138,18 +138,12 @@ class SymbolicRestartNumber(ComputedIntSymbolic):
 # cast blocks will (conceptually at least) have a switch on the
 # restate subcase at the end of it.
 #
-# conditions for reuse:
-#
-# 1. retrieval block: the erased types being read out
-#
-# 2. the return value blocks: the erased the erased return type and the exception
-#    and target of any exception links
-#
-# 3. the cast blocks: the exact types required.
-#
 # note that we order types by the index of the erased type in
 # STORAGE_TYPES, to increase the chance that we can resuse the types.
-
+#
+# in simple cases this approach creates graphs that are more
+# complicated than needed, so we run the graph through a few
+# simplifications to join blocks and remove unused variables.
 
 
 class FrameTyper:
@@ -161,13 +155,13 @@ class FrameTyper:
         self.transformer = transformer
         
 
-    def _key_for_types(self, types):
+    def _key_for_types(self, TYPES):
         counts = {}
-        for tt in types:
-            if tt is lltype.Void:
+        for EXACT_TYPE in TYPES:
+            if EXACT_TYPE is lltype.Void:
                 continue
-            t = storage_type(tt)
-            counts[t] = counts.get(t, 0) + 1
+            ERASED_TYPE = storage_type(EXACT_TYPE)
+            counts[ERASED_TYPE] = counts.get(ERASED_TYPE, 0) + 1
         key = lltype.frozendict(counts)
         return key
 
@@ -190,11 +184,10 @@ class FrameTyper:
                 resulttype=lltype.Ptr(FRAME_TYPE))
 
         for fieldname in FRAME_TYPE._names[1:]: # skip the 'header' field
-            TYPE = FRAME_TYPE._flds[fieldname]
-            var = varoftype(TYPE)
-            save_block.inputargs.append(var)
+            v_arg = varoftype(FRAME_TYPE._flds[fieldname])
+            save_block.inputargs.append(v_arg)
             llops.genop('setfield',
-                        [v_state, model.Constant(fieldname, lltype.Void), var],
+                        [v_state, model.Constant(fieldname, lltype.Void), v_arg],
                         resulttype=lltype.Void)
 
         v_header = gen_cast(llops, lltype.Ptr(STATE_HEADER), v_state)
@@ -220,7 +213,6 @@ class FrameTyper:
         key = self._key_for_types([v.concretetype for v in vars])
         if key not in self.frametypes:
             fields = []
-            fieldsbytype = {}
             tcounts = []
             for t in STORAGE_TYPES:
                 tcount = key.get(t, 0)
@@ -228,15 +220,12 @@ class FrameTyper:
                 for j in range(tcount):
                     fname = 'state_%s_%d' % (STORAGE_FIELDS[t], j)
                     fields.append((fname, t))
-                    fieldsbytype.setdefault(t, []).append(fname)
             
             FRAME_TYPE = frame.make_state_header_type(
                 "FrameState_"+'_'.join(tcounts), *fields)
-            self.frametypes[key] = (FRAME_TYPE,
-                                    self.saving_function_for_type(FRAME_TYPE),
-                                    fieldsbytype)
+            self.frametypes[key] = (FRAME_TYPE, self.saving_function_for_type(FRAME_TYPE))
 
-        T, save_state_funcptr, fieldsbytype = self.frametypes[key]
+        T, save_state_funcptr = self.frametypes[key]
         varsforcall = list(vars)
         def key(v):
             return STORAGE_TYPES.index(storage_type(v.concretetype))
@@ -245,21 +234,17 @@ class FrameTyper:
         varsforcall.sort(mycmp)
         return T, varsforcall, save_state_funcptr
 
-    def ensure_frame_type_for_types(self, frame_type):
-        assert len(frame_type._names[1:]) <= 1, "too lazy"
-        if len(frame_type._names[1:]) == 1:
-            fname, = frame_type._names[1:]
-            t = frame_type._flds[fname]
-            fieldsbytype = {t:[fname]}
-            key = self._key_for_types([t])
+    def ensure_frame_type_for_types(self, FRAME_TYPE):
+        assert len(FRAME_TYPE._names[1:]) <= 1, "too lazy"
+        if len(FRAME_TYPE._names[1:]) == 1:
+            fname, = FRAME_TYPE._names[1:]
+            T = FRAME_TYPE._flds[fname]
+            key = self._key_for_types([T])
         else:
             key = self._key_for_types([])
-            fieldsbytype = {}
         if key in self.frametypes:
-            assert self.frametypes[key][0] is frame_type
-        self.frametypes[key] = (frame_type,
-                                self.saving_function_for_type(frame_type),
-                                fieldsbytype)
+            assert self.frametypes[key][0] is FRAME_TYPE
+        self.frametypes[key] = (FRAME_TYPE, self.saving_function_for_type(FRAME_TYPE))
 
 
 class StacklessAnalyzer(graphanalyze.GraphAnalyzer):
@@ -279,7 +264,6 @@ class StacklessAnalyzer(graphanalyze.GraphAnalyzer):
 
     def analyze_external_call(self, op):
         callable = op.args[0].value._obj._callable
-        #assert getattr(callable, 'suggested_primitive', False)
         return callable in [ll_stack.ll_stack_unwind, ll_stack.ll_stack_capture,
                             ll_stackless.ll_stackless_stack_frames_depth,
                             ll_stackless.ll_stackless_switch]
@@ -294,7 +278,7 @@ def vars_to_save(block):
                and arg not in args \
                and arg not in [l.last_exception, l.last_exc_value]:
                 args.append(arg)
-    return args             
+    return args
 
 class StacklessTransformer(object):
 
@@ -517,8 +501,6 @@ class StacklessTransformer(object):
             self.insert_resume_handling(graph)
             self.generate_restart_infos(graph)
 
-        model.checkgraph(graph)
-
         if SAVE_STATISTICS:
             pot_exact_save_count = 0
             for t, count in self.stats.cur_rp_exact_types.items():
@@ -536,48 +518,30 @@ class StacklessTransformer(object):
            
         self.curr_graph = None
         self.curr_graph_save_blocks = None
-
-    def ops_read_global_state_field(self, targetvar, fieldname):
-        ops = []
-        llfieldname = "inst_%s" % fieldname
-        llfieldtype = self.ll_global_state.value._T._flds[llfieldname]
-        if llfieldtype == targetvar.concretetype: 
-            tmpvar = targetvar
-        else:
-            assert isinstance(llfieldtype, lltype.Ptr)
-            tmpvar = varoftype(llfieldtype)
-   
-        ops.append(model.SpaceOperation(
-            "getfield",
-            [self.ll_global_state,
-             model.Constant(llfieldname, lltype.Void)],
-            tmpvar))
-        if tmpvar is not targetvar: 
-            ops.append(model.SpaceOperation(
-                "cast_pointer", [tmpvar],
-                targetvar))
-        return ops
+        self.curr_graph_resume_retrieval_blocks = None
+        self.curr_graph_resume_return_blocks = None
+        self.curr_graph_resume_cast_blocks = None
 
     def insert_resume_handling(self, graph):
         old_start_block = graph.startblock
         newinputargs = [unsimplify.copyvar(self.translator.annotator, v)
                         for v in old_start_block.inputargs]
         new_start_block = model.Block(newinputargs)
-        var_resume_state = varoftype(lltype.Signed)
+        v_resume_substate = varoftype(lltype.Signed)
         new_start_block.operations.append(
             model.SpaceOperation("getfield",
                                  [self.ll_global_state,
                                   self.c_restart_substate_name],
-                                 var_resume_state))
+                                 v_resume_substate))
         not_resuming_link = model.Link(newinputargs, old_start_block, -1)
         not_resuming_link.llexitcase = -1
         resuming_links = []
         for resume_index, resume_block in enumerate(self.resume_blocks):
             resuming_links.append(
-                model.Link([var_resume_state], resume_block, resume_index))
+                model.Link([v_resume_substate], resume_block, resume_index))
             resuming_links[-1].llexitcase = resume_index
 
-        new_start_block.exitswitch = var_resume_state
+        new_start_block.exitswitch = v_resume_substate
         new_start_block.closeblock(not_resuming_link, *resuming_links)
 
         old_start_block.isstartblock = False
@@ -637,16 +601,15 @@ class StacklessTransformer(object):
             args = args
             res = op.result
 
-        (frame_type,
-         varsforcall, saver) = self.frametyper.frame_type_for_vars(parms[1:])
+        (FRAME_TYPE, varsforcall, saver) = self.frametyper.frame_type_for_vars(parms[1:])
 
         if label in self.explicit_resume_point_data:
-            other_type = self.explicit_resume_point_data[label]
-            assert frame_type == other_type, "inconsistent types for label %r"%(label,)
+            OTHER_TYPE = self.explicit_resume_point_data[label]
+            assert FRAME_TYPE == OTHER_TYPE, "inconsistent types for label %r"%(label,)
         else:
-            self.explicit_resume_point_data[label] = frame_type
+            self.explicit_resume_point_data[label] = FRAME_TYPE
 
-        self._make_resume_handling(frame_type, varsforcall, res, block.exits)
+        self._make_resume_handling(FRAME_TYPE, varsforcall, res, block.exits)
 
         restart_number = len(self.masterarray1) + len(self.resume_blocks) - 1
 
@@ -663,16 +626,15 @@ class StacklessTransformer(object):
     def handle_resume_state_create(self, block, i):
         op = block.operations[i]
         llops = LowLevelOpList()
-        # XXX we do not look at op.args[0], the prevstate, at all
         label = op.args[1].value
         parms = op.args[2:]
-        FRAME, varsforcall, saver = self.frametyper.frame_type_for_vars(parms)
+        FRAME_TYPE, varsforcall, saver = self.frametyper.frame_type_for_vars(parms)
 
         if label in self.explicit_resume_point_data:
-            other_type = self.explicit_resume_point_data[label]
-            assert FRAME == other_type, "inconsistent types for label %r"%(label,)
+            OTHER_TYPE = self.explicit_resume_point_data[label]
+            assert FRAME_TYPE == OTHER_TYPE, "inconsistent types for label %r"%(label,)
         else:
-            self.explicit_resume_point_data[label] = FRAME
+            self.explicit_resume_point_data[label] = FRAME_TYPE
 
         if label in self.symbolic_restart_numbers:
             symb = self.symbolic_restart_numbers[label]
@@ -697,18 +659,18 @@ class StacklessTransformer(object):
                      model.Constant(symb, lltype.Signed)] + realvarsforcall,
                     resulttype = lltype.Void)
         v_state = varoftype(lltype.Ptr(frame.STATE_HEADER))
-        llops.extend(self.ops_read_global_state_field(v_state, "top"))
+        v_state_hdr = llops.genop("getfield",
+                                  [self.ll_global_state, self.c_inst_top_name],
+                                  resulttype=lltype.Ptr(STATE_HEADER))
+        v_state = gen_cast(llops, lltype.Ptr(FRAME_TYPE), v_state_hdr)
         llops.genop("setfield",
-                   [self.ll_global_state,
-                    self.c_inst_top_name,
-                    self.c_null_state])
+                    [self.ll_global_state, self.c_inst_top_name, self.c_null_state])
 
-        v_prevstate = llops.genop('cast_opaque_ptr', [op.args[0]],
-                                  resulttype=lltype.Ptr(frame.STATE_HEADER))
-        llops.genop('setfield', [v_state,
+        v_prevstate = gen_cast(llops, lltype.Ptr(frame.STATE_HEADER), op.args[0])
+        llops.genop('setfield', [v_state_hdr,
                                  model.Constant('f_back', lltype.Void),
                                  v_prevstate])
-        llops.append(model.SpaceOperation('cast_opaque_ptr', [v_state], op.result))
+        llops.append(model.SpaceOperation('cast_opaque_ptr', [v_state_hdr], op.result))
         block.operations[i:i+1] = llops
 
     def handle_resume_state_invoke(self, block):
@@ -800,20 +762,20 @@ class StacklessTransformer(object):
             block.recloseblock(*newexits)
             self.translator.rtyper._convert_link(block, newlink)
 
-        var_unwind_exception = varoftype(evalue)
+        v_unwind_exception = varoftype(evalue)
 
         op = block.operations[i]
 
         args = vars_to_save(block)
 
         save_block, varsforcall = self.generate_save_and_resume_blocks(
-            args, var_unwind_exception, op.result, block.exits)
+            args, v_unwind_exception, op.result, block.exits)
 
-        newlink = model.Link(varsforcall + [var_unwind_exception], 
+        newlink = model.Link(varsforcall + [v_unwind_exception], 
                              save_block, code.UnwindException)
         newlink.last_exception = model.Constant(code.UnwindException,
                                                 etype)
-        newlink.last_exc_value = var_unwind_exception
+        newlink.last_exc_value = v_unwind_exception
         newexits = list(block.exits)
         newexits.insert(1, newlink)
         block.recloseblock(*newexits)
@@ -883,8 +845,8 @@ class StacklessTransformer(object):
             else:
                 i += 1
 
-    def generate_save_and_resume_blocks(self, varstosave, var_exception,
-                                        var_result, links_to_resumption):
+    def generate_save_and_resume_blocks(self, varstosave, v_exception,
+                                        v_result, links_to_resumption):
         frame_type, varsforcall, saver = self.frametyper.frame_type_for_vars(varstosave)
         if SAVE_STATISTICS:
             self.stats.rp_count += 1
@@ -893,7 +855,7 @@ class StacklessTransformer(object):
             inc(self.stats.rp_per_graph_type_counts.setdefault(gkey(self.curr_graph), {}), frame_type)
             exact_key = [v.concretetype for v in varstosave]
             exact_key.sort()
-            exact_key = (tuple(exact_key), var_result.concretetype)
+            exact_key = (tuple(exact_key), v_result.concretetype)
             inc(self.stats.cur_rp_exact_types, exact_key)
             inc(self.stats.cur_rp_erased_types, frame_type)
 
@@ -903,12 +865,12 @@ class StacklessTransformer(object):
         varsforcall = [v for v in varsforcall if v.concretetype != lltype.Void]
         
         self._make_resume_handling(frame_type, varsforcall0,
-                                   var_result, links_to_resumption)
+                                   v_result, links_to_resumption)
         
-        return (self._generate_save_block(varsforcall, var_exception, saver),
+        return (self._generate_save_block(varsforcall, v_exception, saver),
                 varsforcall)
 
-    def _generate_save_block(self, varsforcall, var_unwind_exception, saver):
+    def _generate_save_block(self, varsforcall, v_unwind_exception, saver):
         conc_types = tuple([v.concretetype for v in varsforcall])
         if conc_types in self.curr_graph_save_blocks:
             return self.curr_graph_save_blocks[conc_types]
@@ -916,20 +878,15 @@ class StacklessTransformer(object):
         edata = rtyper.getexceptiondata()
         etype = edata.lltype_of_exception_type
         evalue = edata.lltype_of_exception_value
-        def cv(v):
-            if isinstance(v, model.Variable):
-                return unsimplify.copyvar(None, v)
-            else:
-                return varoftype(v.concretetype)
-        inputargs = [cv(v) for v in varsforcall]
-        var_unwind_exception = unsimplify.copyvar(None, var_unwind_exception)
+        inputargs = [copyvar(v) for v in varsforcall]
+        v_unwind_exception = copyvar(v_unwind_exception)
 
-        save_state_block = model.Block(inputargs + [var_unwind_exception])
+        save_state_block = model.Block(inputargs + [v_unwind_exception])
         saveops = LowLevelOpList()
         
-        var_exc = gen_cast(saveops, self.unwind_exception_type, var_unwind_exception)
+        v_exc = gen_cast(saveops, self.unwind_exception_type, v_unwind_exception)
         
-        realvarsforcall = [var_exc]
+        realvarsforcall = [v_exc]
         for v in inputargs:
             realvarsforcall.append(gen_cast(saveops, storage_type(v.concretetype), v))
         
@@ -946,7 +903,7 @@ class StacklessTransformer(object):
         if not hasattr(self.curr_graph.exceptblock.inputargs[1], 'concretetype'):
             self.curr_graph.exceptblock.inputargs[1].concretetype = evalue
         save_state_block.closeblock(model.Link(
-            [c_unwindexception, var_unwind_exception], 
+            [c_unwindexception, v_unwind_exception], 
             self.curr_graph.exceptblock))
         self.translator.rtyper._convert_link(
             save_state_block, save_state_block.exits[0])
@@ -954,72 +911,6 @@ class StacklessTransformer(object):
             self.stats.saveops += len(save_state_block.operations)
         self.curr_graph_save_blocks[conc_types] = save_state_block
         return save_state_block
-
-    def _generate_resume_block(self, varsinfieldorder, frame_type,
-                               var_result, links_to_resumption):
-        newblock = model.Block([])
-        newargs = []
-        llops = LowLevelOpList()
-        llops.genop("setfield",
-                    [self.ll_global_state,
-                     self.c_restart_substate_name,
-                     self.c_minus_one])
-        frame_top = varoftype(lltype.Ptr(frame_type))
-        llops.extend(self.ops_read_global_state_field(frame_top, "top"))
-        llops.genop("setfield",
-                   [self.ll_global_state,
-                    self.c_inst_top_name,
-                    self.c_null_state])
-        varmap = {}
-        fielditer = iter(frame_type._names[1:])
-        for arg in varsinfieldorder:
-            assert arg is not var_result
-            t = storage_type(arg.concretetype)
-            if t is lltype.Void:
-                v_newarg = model.Constant(None, lltype.Void)
-            else:
-                fname = model.Constant(fielditer.next(), lltype.Void)
-                assert frame_type._flds[fname.value] is t
-                v_newarg = llops.genop('getfield', [frame_top, fname],
-                                       resulttype = t)
-                v_newarg = gen_cast(llops, arg.concretetype, v_newarg)
-            varmap[arg] = v_newarg
-
-        rettype = storage_type(var_result.concretetype)
-        getretval = self.fetch_retvals[rettype]
-        retval = llops.genop("direct_call", [getretval],
-                             resulttype = rettype)
-        varmap[var_result] = retval
-
-        newblock.operations.extend(llops)
-
-        def rename(arg):
-            if isinstance(arg, model.Variable):
-                if arg in varmap:
-                    return varmap[arg]
-                else:
-                    assert arg in [l.last_exception, l.last_exc_value]
-                    r = unsimplify.copyvar(None, arg)
-                    varmap[arg] = r
-                    return r
-            else:
-                return arg
-
-        newblock.closeblock(*[l.copy(rename)
-                              for l in links_to_resumption])
-        # this check is a bit implicit!
-        if len(links_to_resumption) > 1:
-            newblock.exitswitch = model.c_last_exception
-        else:
-            newblock.exitswitch = None
-
-        if var_result.concretetype != rettype:
-            self.insert_return_conversion(
-                newblock.exits[0], var_result.concretetype, retval)
-
-        if SAVE_STATISTICS:
-            self.stats.resumeops += len(newblock.operations)
-        return newblock
 
     def _make_resume_handling(self, FRAME_TYPE, sorted_vars, v_retval, links_to_resumption):
         resume_substate = len(self.resume_blocks)
@@ -1078,11 +969,11 @@ class StacklessTransformer(object):
                     [self.ll_global_state, self.c_inst_top_name, self.c_null_state])
         output_args = [retrieve_block.inputargs[0]]
         assert len(FRAME_TYPE._names[1:]) == len(erased_types)
-        for fieldname, typ in zip(FRAME_TYPE._names[1:], erased_types):
-            assert FRAME_TYPE._flds[fieldname] == typ
+        for fieldname, TYPE in zip(FRAME_TYPE._names[1:], erased_types):
+            assert FRAME_TYPE._flds[fieldname] == TYPE
             output_args.append(llops.genop("getfield",
                                            [v_state, model.Constant(fieldname, lltype.Void)],
-                                           resulttype=typ))
+                                           resulttype=TYPE))
         retrieve_block.operations = llops
         return retrieve_block, output_args
 
