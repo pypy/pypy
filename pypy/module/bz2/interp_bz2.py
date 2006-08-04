@@ -204,6 +204,20 @@ class _BZ2File(Wrappable):
 _BZ2File.typedef = TypeDef("_BZ2File")
 
 def BZ2File(space, filename, mode='r', buffering=-1, compresslevel=9):
+    """BZ2File(name [, mode='r', buffering=0, compresslevel=9]) -> file object
+    
+    Open a bz2 file. The mode can be 'r' or 'w', for reading (default) or
+    writing. When opened for writing, the file will be created if it doesn't
+    exist, and truncated otherwise. If the buffering argument is given, 0 means
+    unbuffered, and larger numbers specify the buffer size. If compresslevel
+    is given, must be a number between 1 and 9.
+
+    Add a 'U' to mode to open the file for input with universal newline
+    support. Any line ending in the input file will be seen as a '\\n' in
+    Python. Also, a file so opened gains the attribute 'newlines'; the value
+    for this attribute is one of None (no newline read yet), '\\r', '\\n',
+    '\\r\\n' or a tuple containing all the newline types seen. Universal
+    newlines are available only when reading."""
     return _BZ2File(space, filename, mode, buffering, compresslevel)
 BZ2File.unwrap_spec = [ObjSpace, str, str, int, int]
 
