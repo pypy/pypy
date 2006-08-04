@@ -72,7 +72,6 @@ class AppTestBz2:
         
         bz2f.seek(0)
         assert bz2f.tell() == 0
-        assert False
         # bz2f.read(1)
         # bz2f.seek(1, 1)
         # assert bz2f.tell() == 2
