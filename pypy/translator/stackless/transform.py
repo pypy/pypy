@@ -4,7 +4,7 @@ from pypy.rpython import rarithmetic, rclass, rmodel
 from pypy.translator.backendopt import support
 from pypy.objspace.flow import model
 from pypy.rpython.memory.gctransform import varoftype
-from pypy.translator import unsimplify
+from pypy.translator import unsimplify, simplify
 from pypy.annotation import model as annmodel
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.translator.stackless import code, frame
@@ -22,6 +22,28 @@ from pypy.translator.stackless.frame import storage_type
 
 SAVE_STATISTICS = True
 
+# we do this _a lot_:
+def copyvar(var):
+    if isinstance(var, model.Variable):
+        return unsimplify.copyvar(None, var)
+    else:
+        return varoftype(var.concretetype)
+
+def copy_link_with_varmap(link, varmap):
+    varmap = varmap.copy()
+    def rename(arg):
+        if isinstance(arg, model.Variable):
+            if arg in varmap:
+                return varmap[arg]
+            else:
+                assert arg in [link.last_exception, link.last_exc_value]
+                r = copyvar(arg)
+                varmap[arg] = r
+                return r
+        else:
+            return arg
+    return link.copy(rename)
+
 if SAVE_STATISTICS:
     import cStringIO
     
@@ -36,6 +58,9 @@ if SAVE_STATISTICS:
             self.total_pot_exact_saves = 0
             self.pot_erased_saves = {}
             self.total_pot_erased_saves = 0
+            self.saved_retrieval_ops = 0
+            self.saved_cast_ops = 0
+            self.saved_return_ops = 0
         def __repr__(self):
             s = cStringIO.StringIO()
             print >> s, self.__class__.__name__
@@ -100,6 +125,32 @@ class SymbolicRestartNumber(ComputedIntSymbolic):
         # checking that this only happens before the database is
         # complete.
         return self.value
+
+# the strategy for sharing parts of the resume code:
+#
+# when a function is being resumed, there are three things that need to
+# be done: the values (as erased types) need to be read out of the
+# frame state structure, the return value needs to be read out of
+# the global_state (this is also when the check is made if we are
+# resuming with an exception) and the return value might need to be
+# cast to an exact type.  our strategy is to do each of these things
+# in separate blocks, reusing blocks where we can.  the retrieval and
+# cast blocks will (conceptually at least) have a switch on the
+# restate subcase at the end of it.
+#
+# conditions for reuse:
+#
+# 1. retrieval block: the erased types being read out
+#
+# 2. the return value blocks: the erased the erased return type and the exception
+#    and target of any exception links
+#
+# 3. the cast blocks: the exact types required.
+#
+# note that we order types by the index of the erased type in
+# STORAGE_TYPES, to increase the chance that we can resuse the types.
+
+
 
 class FrameTyper:
     # this class only exists independently to ease testing
@@ -449,10 +500,13 @@ class StacklessTransformer(object):
         assert self.curr_graph is None
         self.curr_graph = graph
         self.curr_graph_save_blocks = {}
+        self.curr_graph_resume_retrieval_blocks = {}
+        self.curr_graph_resume_return_blocks = {}
+        self.curr_graph_resume_cast_blocks = {}
+        
         if SAVE_STATISTICS:
             self.stats.cur_rp_exact_types = {}
             self.stats.cur_rp_erased_types = {}
-            
         
         for block in list(graph.iterblocks()):
             assert block not in self.seen_blocks
@@ -520,7 +574,7 @@ class StacklessTransformer(object):
         resuming_links = []
         for resume_index, resume_block in enumerate(self.resume_blocks):
             resuming_links.append(
-                model.Link([], resume_block, resume_index))
+                model.Link([var_resume_state], resume_block, resume_index))
             resuming_links[-1].llexitcase = resume_index
 
         new_start_block.exitswitch = var_resume_state
@@ -529,6 +583,14 @@ class StacklessTransformer(object):
         old_start_block.isstartblock = False
         new_start_block.isstartblock = True
         graph.startblock = new_start_block
+
+        for block in graph.iterblocks():
+            if len(block.exits) == 1 and block.exitswitch is not None:
+                block.exitswitch = None
+                block.exits[0].exitcase = block.exits[0].llexitcase = None
+        simplify.simplify_graph(graph, [simplify.eliminate_empty_blocks,
+                                        simplify.join_blocks,
+                                        simplify.transform_dead_op_vars])
 
     def insert_return_conversion(self, link, targettype, retvar):
         llops = LowLevelOpList()
@@ -584,10 +646,9 @@ class StacklessTransformer(object):
         else:
             self.explicit_resume_point_data[label] = frame_type
 
-        self.resume_blocks.append(
-            self._generate_resume_block(varsforcall, frame_type, res, block.exits))
+        self._make_resume_handling(frame_type, varsforcall, res, block.exits)
 
-        restart_number = len(self.masterarray1) + len(self.resume_blocks)-1
+        restart_number = len(self.masterarray1) + len(self.resume_blocks) - 1
 
         if label in self.symbolic_restart_numbers:
             symb = self.symbolic_restart_numbers[label]
@@ -745,10 +806,8 @@ class StacklessTransformer(object):
 
         args = vars_to_save(block)
 
-        save_block, resume_block, varsforcall = self.generate_save_and_resume_blocks(
+        save_block, varsforcall = self.generate_save_and_resume_blocks(
             args, var_unwind_exception, op.result, block.exits)
-
-        self.resume_blocks.append(resume_block)
 
         newlink = model.Link(varsforcall + [var_unwind_exception], 
                              save_block, code.UnwindException)
@@ -843,9 +902,10 @@ class StacklessTransformer(object):
         varsforcall.insert(0, c_restart)
         varsforcall = [v for v in varsforcall if v.concretetype != lltype.Void]
         
+        self._make_resume_handling(frame_type, varsforcall0,
+                                   var_result, links_to_resumption)
+        
         return (self._generate_save_block(varsforcall, var_exception, saver),
-                self._generate_resume_block(varsforcall0, frame_type,
-                                            var_result, links_to_resumption),
                 varsforcall)
 
     def _generate_save_block(self, varsforcall, var_unwind_exception, saver):
@@ -960,6 +1020,182 @@ class StacklessTransformer(object):
         if SAVE_STATISTICS:
             self.stats.resumeops += len(newblock.operations)
         return newblock
+
+    def _make_resume_handling(self, FRAME_TYPE, sorted_vars, v_retval, links_to_resumption):
+        resume_substate = len(self.resume_blocks)
+        
+        erased_types = []
+        for v in sorted_vars:
+            if v.concretetype != lltype.Void:
+                erased_types.append(storage_type(v.concretetype))
+
+        retval_type = v_retval.concretetype
+        erased_retval_type = storage_type(retval_type)
+
+        retrieve_block, output_args = self._get_resume_retrieval_block(FRAME_TYPE, erased_types)
+
+        return_block, switch_block = self._get_resume_return_block(
+            erased_types, erased_retval_type, links_to_resumption[1:], sorted_vars)
+
+        link = model.Link(output_args, return_block, resume_substate)
+        link.llexitcase = link.exitcase
+        retrieve_block.recloseblock(*(tuple(retrieve_block.exits) + (link,)))
+
+        if erased_retval_type != lltype.Void:
+            erased_types.append(erased_retval_type)
+        cast_block, cast_args = self._get_resume_cast_block(
+            erased_types,
+            [v.concretetype for v in sorted_vars] + [retval_type])
+
+        link = model.Link(switch_block.inputargs, cast_block, resume_substate)
+        link.llexitcase = resume_substate
+        switch_block.recloseblock(*(tuple(switch_block.exits) + (link,)))
+        
+        varmap = dict([(v, cast_args[sorted_vars.index(v)]) for v in sorted_vars])
+        for k, v in varmap.items():
+            assert k.concretetype == v.concretetype
+        
+        varmap[v_retval] = cast_args[-1]
+        
+        link = copy_link_with_varmap(links_to_resumption[0], varmap)
+        link.exitcase = link.llexitcase = resume_substate
+        cast_block.recloseblock(*(tuple(cast_block.exits) + (link,)))
+
+        self.resume_blocks.append(retrieve_block)
+
+    def _make_resume_retrieval_block(self, FRAME_TYPE, erased_types):
+        retrieve_block = model.Block([varoftype(lltype.Signed)])
+        retrieve_block.exitswitch = retrieve_block.inputargs[0]
+
+        llops = LowLevelOpList()
+        llops.genop("setfield",
+                    [self.ll_global_state, self.c_restart_substate_name, self.c_minus_one])
+        v_state_hdr = llops.genop("getfield",
+                                  [self.ll_global_state, self.c_inst_top_name],
+                                  resulttype=lltype.Ptr(STATE_HEADER))
+        v_state = gen_cast(llops, lltype.Ptr(FRAME_TYPE), v_state_hdr)
+        llops.genop("setfield",
+                    [self.ll_global_state, self.c_inst_top_name, self.c_null_state])
+        output_args = [retrieve_block.inputargs[0]]
+        assert len(FRAME_TYPE._names[1:]) == len(erased_types)
+        for fieldname, typ in zip(FRAME_TYPE._names[1:], erased_types):
+            assert FRAME_TYPE._flds[fieldname] == typ
+            output_args.append(llops.genop("getfield",
+                                           [v_state, model.Constant(fieldname, lltype.Void)],
+                                           resulttype=typ))
+        retrieve_block.operations = llops
+        return retrieve_block, output_args
+
+    def _get_resume_retrieval_block(self, FRAME_TYPE, erased_types):
+        key = tuple(erased_types)
+        if key in self.curr_graph_resume_retrieval_blocks:
+            retrieve_block, output_args = self.curr_graph_resume_retrieval_blocks[key]
+            if SAVE_STATISTICS:
+                self.stats.saved_retrieval_ops += len(retrieve_block.operations)
+            return retrieve_block, output_args
+        else:
+            retrieve_block, output_args = self._make_resume_retrieval_block(
+                FRAME_TYPE, erased_types)
+            self.curr_graph_resume_retrieval_blocks[key] = retrieve_block, output_args
+            return retrieve_block, output_args
+
+    def _make_resume_return_block(self, erased_types, erased_retval_type, except_links, sorted_vars):
+        inputargs = [varoftype(lltype.Signed)] + [varoftype(t) for t in erased_types]
+        return_block = model.Block(inputargs)
+        return_block.exitswitch = model.c_last_exception
+        llops = LowLevelOpList()
+        
+        getretval = self.fetch_retvals[erased_retval_type]        
+        v_retval = llops.genop("direct_call", [getretval],
+                               resulttype=erased_retval_type)
+
+        switch_block = model.Block([copyvar(v) for v in inputargs])
+        switch_block.exitswitch = switch_block.inputargs[0]
+
+        retlink = model.Link(inputargs, switch_block, None)
+        
+        if erased_retval_type != lltype.Void:
+            retlink.args.append(v_retval)
+            switch_block.inputargs.append(copyvar(v_retval))
+
+        links = [retlink]
+
+        for except_link in except_links:
+            cast_block, cast_args = self._make_cast_block(
+                erased_types, [v.concretetype for v in sorted_vars])
+            varmap = dict([(v, cast_args[sorted_vars.index(v)]) for v in sorted_vars])
+            
+            link = model.Link(inputargs[1:], cast_block, except_link.exitcase)
+            link.llexitcase = except_link.llexitcase
+            for attr in "last_exception", "last_exc_value":
+                old = getattr(except_link, attr)
+                new = copyvar(old)
+                setattr(link, attr, new)
+                link.args.append(new)
+                newnew = copyvar(new)
+                cast_block.inputargs.append(newnew)
+                varmap[old] = newnew
+            links.append(link)
+
+            link = copy_link_with_varmap(except_link, varmap)
+            link.exitcase = link.llexitcase = None
+            link.last_exception = link.last_exc_value = None
+            cast_block.closeblock(link)
+
+        return_block.operations = llops
+        return_block.closeblock(*links)
+
+        return return_block, switch_block
+
+    def _get_resume_return_block(self, erased_types, erased_retval_type, except_links, sorted_vars):
+        key = (erased_retval_type,)
+        key += tuple(erased_types)
+        key += tuple([(elink.exitcase, elink.target) for elink in except_links])
+        if except_links and max([len(elink.args) for elink in except_links]) > 2:
+            key = None
+        if key in self.curr_graph_resume_return_blocks:
+            return_block, switch_block = self.curr_graph_resume_return_blocks[key]
+            if SAVE_STATISTICS:
+                self.stats.saved_return_ops += len(return_block.operations)
+            return return_block, switch_block
+        else:
+            return_block, switch_block = self._make_resume_return_block(erased_types, erased_retval_type, except_links, sorted_vars)
+            if key is not None:
+                self.curr_graph_resume_return_blocks[key] = return_block, switch_block
+            return return_block, switch_block
+
+    def _make_cast_block(self, erased_types, exact_types):
+        inputargs = [varoftype(t) for t in erased_types]
+        cast_block = model.Block(inputargs)
+        cast_block.operations = LowLevelOpList()
+        output_args = []
+        assert len(inputargs) == len([typ for typ in exact_types if typ != lltype.Void])
+        i_arg = 0
+        for typ in exact_types:
+            if typ == lltype.Void:
+                output_args.append(model.Constant(None, lltype.Void))
+            else:
+                arg = inputargs[i_arg]
+                i_arg += 1
+                output_args.append(gen_cast(cast_block.operations, typ, arg))
+        assert i_arg == len(inputargs)
+        return cast_block, output_args
+        
+    def _get_resume_cast_block(self, erased_vars, exact_types):
+        # returns something that you should add a link to (with
+        # recloseblock), and the output_args to use in that link.
+        key = tuple(exact_types)
+        if key in self.curr_graph_resume_cast_blocks:
+            cast_block, output_args = self.curr_graph_resume_cast_blocks[key]
+            if SAVE_STATISTICS:
+                self.stats.saved_cast_ops += len(cast_block.operations)
+            return cast_block, output_args
+        else:
+            cast_block, output_args = self._make_cast_block(erased_vars, exact_types)
+            cast_block.inputargs.insert(0, varoftype(lltype.Signed))
+            cast_block.exitswitch = cast_block.inputargs[0]
+            self.curr_graph_resume_cast_blocks[key] = cast_block, output_args
+            return cast_block, output_args
         
     def generate_restart_infos(self, graph):
         restartinfo = frame.RestartInfo(graph, len(self.resume_blocks))
