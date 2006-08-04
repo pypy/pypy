@@ -200,18 +200,6 @@ class TranslationDriver(SimpleTaskEngine):
         return res
 
     def task_annotate(self):
-        # XXX: this should be a separate task, but I don't know how to
-        # specify a task to be executed before annotation only if the
-        # backend is 'cli'
-
-        # patch some attributes of the os module to make sure they
-        # have the same value on every platform.
-        backend, ts = self.get_backend_and_type_system()
-        if backend == 'cli':
-            from pypy.translator.cli.support import patch_os
-            self.old_os_defs = patch_os()
-        # end of XXX
-        
         # includes annotation and annotatation simplifications
         translator = self.translator
         policy = self.policy
@@ -532,6 +520,13 @@ class TranslationDriver(SimpleTaskEngine):
             options = _default_options
 
         driver = TranslationDriver(options, default_goal, disable)
+        # patch some attributes of the os module to make sure they
+        # have the same value on every platform.
+        backend, ts = driver.get_backend_and_type_system()
+        if backend == 'cli':
+            from pypy.translator.cli.support import patch_os
+            driver.old_os_defs = patch_os()
+        
         target = targetspec_dic['target']
         spec = target(driver, args)
 
