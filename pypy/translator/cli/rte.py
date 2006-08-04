@@ -91,6 +91,4 @@ def get_pypy_dll():
     return DLL.get()
 
 if __name__ == '__main__':
-    dlls = [FrameworkDLL.get()]
-    if platform.system() != 'Windows':
-        dlls.append(UnixDLL.get())
+    FrameworkDLL.get()
