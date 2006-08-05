@@ -17,7 +17,7 @@ XXX: some draft
 
 - remote import (which I've already implemented)
 - run on session level probably (like RemoteSession)
-- do not run on low level (around call(*args)) [previous,
+- do not run on low level (around `call(*args)`) [previous,
   Executor approach], because there are problems with displaying and
   we need everything to get every data.
 - We need to get data on higher level - perform remote import of py lib
