@@ -526,6 +526,7 @@ class _BZ2File(Wrappable):
             if bzerror.value == BZ_STREAM_END:
                 self.size = self.pos
                 self.mode = MODE_READ_EOF
+                break
             elif bzerror.value != BZ_OK:
                 _catch_bz2_error(self.space, bzerror.value)
             
