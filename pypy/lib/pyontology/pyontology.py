@@ -48,7 +48,7 @@ def check_format(f):
         format = "n3"
     return format
 
-class ClassDomain(fd, object):
+class ClassDomain(AbstractDomain, object):
     
     # Class domain is intended as a (abstract/virtual) domain for implementing
     # Class axioms. Working on class descriptions the class domain should allow
@@ -133,10 +133,13 @@ class ClassDomain(fd, object):
     
     def removeValues(self, values):
         for val in values:
-            self.values.pop(val)
+            self.removeValue(val)
+
+    def removeValue(self, value):
+        self.values.pop(value)
         if not self.values:
-            raise ConsistencyFailure 
-    
+            raise ConsistencyFailure
+ 
     def getBases(self):
         return self._bases
 
@@ -161,6 +164,8 @@ class ClassDomain(fd, object):
 
 class FixedClassDomain(ClassDomain):
 
+    finished = False
+    
     def removeValues(self, values):
         pass #raise ConsistencyFailure
 
@@ -177,8 +182,8 @@ class Individual:
     def __init__(self, name, uri=None, values=[], bases=[]):
         self.name = name
         self.uri = uri
-        self.sameas = [] 
-        self.differentfrom = []
+        self.sameas = set() 
+        self.differentfrom = set()
     
     def __repr__(self):
         return "<%s( %s, %s)>"%(self.__class__.__name__, self.name, self.uri)
@@ -187,7 +192,7 @@ class Individual:
         return hash(self.uri)
  
     def __eq__(self, other):
-        log("CMP %r,%r"%(self,other))
+        log("CMP %r,%r %i"%(self.name,other, len(self.differentfrom)))
         if ((hasattr(other,'uri') and self.uri == other.uri) or
             (not hasattr(other,'uri') and self.uri == other) or
               other in self.sameas):
@@ -220,7 +225,7 @@ class Property(fd):
         self.un_constraint = []
         self.in_constraint = []
         self.bases = []
-    
+        self.finished = True
     def finish(self, var, constraints):
         return var, constraints
     
@@ -257,7 +262,7 @@ class Property(fd):
                 self._dict[k] = [ x for x in vals if x != v]
 
     def __contains__(self, (cls, val)):
-        if not cls in self._dict.keys():
+        if not cls in self._dict:
             return False
         vals = self._dict[cls]
         if val in vals:
@@ -381,6 +386,7 @@ class Ontology:
         self.store = store
         if store != 'default':
             self.graph.open(py.path.local().join("db").strpath)
+            self.store_path = py.path.local().join("db").strpath
         self.variables = {}
         self.constraints = []
         self.seen = {}
@@ -404,11 +410,12 @@ class Ontology:
     
     def attach_fd(self):
         #while len(list(self.graph.triples((None,)*3))) != len(self.seen.keys()):
+        self.time = time.time()
+        self.nr_of_triples = 0
         for (s, p, o) in (self.graph.triples((None,)*3)):
             self.consider_triple((s, p, o))
-            log("%s %s" %(s,p))
         log("=============================")
-        assert len(list(self.graph.triples((None,)*3))) == len(self.seen.keys())
+#        assert len(list(self.graph.triples((None,)*3))) == len(self.seen.keys())
 
     def finish(self):
         for key in list(self.variables.keys()):
@@ -416,10 +423,13 @@ class Ontology:
             self.variables[key].finish(self.variables, self.constraints)
     
     def consider_triple(self,(s, p, o)):
-        log("Trying %r" % ((s, p, o),))
-        if (s, p, o) in self.seen.keys():
+        if (s, p, o) in self.seen:
             return
-        log("Doing %r" % ((s, p, o),))
+        self.nr_of_triples += 1
+        log("Doing triple nr %i: %r" % (self.nr_of_triples,(s, p, o)))
+        tim = time.time()
+        log.considerTriple("Triples per second %f" %(1./(tim-self.time)))
+        self.time = tim
         self.seen[(s, p, o)] = True
         if p.find('#') != -1:
             ns, func = p.split('#')
@@ -646,8 +656,8 @@ class Ontology:
         self.variables[svar].setValues(res)
     
     def intersectionOf(self, s, var):
-        var = self.flatten_rdf_list(var)
-        vals = [self.make_var(ClassDomain, x) for x in self.variables[var].getValues()]
+        var_list = self.flatten_rdf_list(var)
+        vals = [self.make_var(ClassDomain, x) for x in self.variables[var_list].getValues()]
         
         res = vals[0]
         for l in vals[1:]:
@@ -692,20 +702,10 @@ class Ontology:
         self.constraints.append(cons)
     
     def inverseOf(self, s, var):
-        self.resolve_predicate(s)
-        self.resolve_predicate(var)
         avar = self.make_var(Property, var)
         svar = self.make_var(Property, s)
-#        con = InverseofConstraint(svar, avar)
-#        self.constraints.append(con)
-        avals = self.variables[avar].getValues()
-        svals = self.variables[svar].getValues()
-        for pair in avals:
-            if not (pair[1], pair[0]) in svals:
-	            self.variables[svar].addValue(pair[1], pair[0])
-        for pair in svals:
-            if not (pair[1], pair[0]) in avals:
-	            self.variables[avar].addValue(pair[1], pair[0])
+        con = InverseofConstraint(svar, avar)
+        self.constraints.append(con)
 
 #---Property restrictions------------------------------------------------------
         
@@ -750,38 +750,22 @@ class Ontology:
         """ The hasValue restriction defines a class having as an extension all
             Individuals that have a property with the value of var.
             To make an assertion we need to know for which class the restriction applies"""
-        def Hasvalue(cls ,prop, val):
-            var = "%s_%s_hasvalue" %(cls, prop.name)
-            dom = {var : fd(prop.getValues( ))}
-            cons = Expression([cls, var], " %s[1] == %s and %s.cmp( %s[0])" %( var, val, cls, var))
-            log("HASVALUE %r %r"%(prop.getValues(),dom))
-            return dom, [cons] 
-        
-        self.value_helper(s, var, Hasvalue)
+        sub = self.make_var(Restriction, s)
+        cons = HasvalueConstraint(sub, var)
+        self.constraints.append(cons)
 
     def allValuesFrom(self, s, var):
-        def allvalue(cls ,prop, val):
-            # This creates a temporary domain to be able to help find the classes that only has values 
-            # from val
-            var = "%s_%s_allvalue" %(cls, prop.name)
-            dom = {var : fd([(x,tuple(y)) for (x,y) in prop.getValuesPrKey( )])}
-            # The condition should  return true if 
-            cons = Expression([cls, var], "%s == %s[1] and %s == %s[0]" %(val, var, cls, var))
-            return dom, [cons] 
-        self.value_helper(s, var, allvalue)
+        sub = self.make_var(Restriction, s)
+        obj = self.make_var(ClassDomain, var)
+        cons = AllValueConstraint(sub, obj)
+        self.constraints.append(cons)
 
     def someValuesFrom(self, s, var):
-        #Maybe just add hasvalue 
-        def somevalue(cls ,prop, val):
-            # This creates a temporary domain to be able to help find the classes that only has values 
-            # from val
-            var = "%s_%s_allvalue" %(cls, prop.name)
-            dom = {var : fd(prop.getValues( ))}
-            # The condition should  return true if 
-            cons = Expression([cls, var, val], " %s[1] in %s and %s == %s[0]" %(var, val, cls, var))
-            return dom, [cons] 
-        self.value_helper(s, var, somevalue)
-
+        sub = self.make_var(Restriction, s)
+        obj = self.make_var(ClassDomain, var)
+        cons = SomeValueConstraint(sub, obj)
+        self.constraints.append(cons)
+        
 # -----------------              ----------------
     
     def imports(self, s, var):

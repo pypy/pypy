@@ -313,6 +313,7 @@ def test_inverseof():
     O.type(sub, obj)
     O.variables['owner_'].setValues([('Bob_','Fiat_')])
     O.inverseOf(own, owned)
+    O.consistency()
     assert ('Fiat_','Bob_') in O.variables['ownedby_'].getValues()   
     
 def test_hasvalue():

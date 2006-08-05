@@ -2,6 +2,11 @@ from logilab.constraint.propagation import AbstractDomain, AbstractConstraint,\
        ConsistencyFailure
 from rdflib import URIRef
 
+import py
+from pypy.tool.ansi_print import ansi_log
+log = py.log.Producer("Constraint")
+py.log.setconsumer("Constraint", ansi_log)
+
 class OwlConstraint(AbstractConstraint):
 
     cost = 1
@@ -24,11 +29,6 @@ def get_cardinality(props, cls):
         else:
            card = 0
         return card 
-
-import py
-from pypy.tool.ansi_print import ansi_log
-log = py.log.Producer("Constraint")
-py.log.setconsumer("Constraint", ansi_log)
 
 class CardinalityConstraint(AbstractConstraint):
 
@@ -281,13 +281,11 @@ class InverseofConstraint(SubClassConstraint):
         for cls, val in obj_domain:
             for v in val:
                 if not (v,cls) in sub_domain:
-                    raise ConsistencyFailure("Inverseof failed for (%r, %r) in %r" % 
-                                         (val, cls, sub_domain) )
+                    domains[self.variable].addValue(v, cls)
         for cls, val in sub_domain:
             for v in val:
                 if not (val,cls) in obj_domain:
-                    raise ConsistencyFailure("Inverseof failed for (%r, %r) in %r" % 
-                                         (val, cls, obj_domain)) 
+                    domains[self.object].addValue(val, cls)
 
 class DifferentfromConstraint(SubClassConstraint):
 
@@ -449,55 +447,61 @@ class SomeValueConstraint(OneofPropertyConstraint):
         
     def narrow(self, domains):
         val = domains[self.List].getValues()
-        property = domains[self.variable].property
-        cls = domains[self.variable].getValues()[0]
+        dom = domains[self.variable]
+        property = dom.property
+        indi = dom.getValues()
         prop = Linkeddict(domains[property].getValues())
-        for v in prop[cls]:
-            if v in val:
-                break
-        else:
-            raise ConsistencyFailure(
-                    "The value of the property %s in the class %s has no values from %r"
-                        %(property, cls, val))
-
+        for v in indi:
+            if not v in prop.keys():
+                dom.removeValue(v)
+            else:
+                prop_val = prop[v]
+                for p in prop_val:
+                    if p in val:
+                       break
+                else:
+                    dom.removeValue(v)
+            
 class AllValueConstraint(OneofPropertyConstraint):
-
+    """ AllValuesfrom property restriction is used to define the class
+        of individuals for which the values for the property (defined 
+        by the onProperty triple) all comes from the class description
+        which is the object of this triple.
+        The constraint shall narrow the domain of the subject class to
+        only contain individuals satisfying the above condition
+     """
     cost = 100
         
     def narrow(self, domains):
         val = domains[self.List].getValues()
-        property = domains[self.variable].property
-        cls = domains[self.variable].getValues()[0]
+        dom = domains[self.variable]
+        property = dom.property
+        indi = dom.getValues()
         prop = Linkeddict(domains[property].getValues())
-        for v in prop[cls]:
-            if not v in val:
-                raise ConsistencyFailure(
-                    "The value of the property %s in the class %s has a value not from %r"
-                        %(property, cls, val))
+        for v in indi:
+            if not v in prop.keys():
+                dom.removeValue(v)
+            else:
+                prop_val = prop[v]
+                for p in prop_val:
+                    if not p in val:
+                       dom.removeValue(v)
 
-class HasvalueConstraint(AbstractConstraint):
-
-    def __init__(self, variable, property, value):
-        AbstractConstraint.__init__(self, [variable])
-        self.variable = variable
-        self.property = property
-        self.value = value
+class HasvalueConstraint(OneofPropertyConstraint):
 
     cost = 100
 
-    def estimateCost(self, domains):
-        return self.cost
-
     def narrow(self, domains):
-        """ This is to check the assertion that the class self.variable has a value of self.value
-            for the property """
-        val = self.value
-        prop = domains[self.property].getValuesPrKey(self.variable)
-        for v in prop:
-            if v == val:
-                break
-        else:
-            raise ConsistencyFailure(
-                    "The value of the property %s in the class %s has a value not from %r"
-                        %(self.property, self.variable, self.value))
+        val = self.List
+        dom = domains[self.variable]
+        property = dom.property
+        indi = dom.getValues()
+        prop = Linkeddict(domains[property].getValues())
+        for v in indi:
+            if not v in prop.keys():
+                dom.removeValue(v)
+            else:
+                prop_val = prop[v] 
+                if not val in prop_val:
+                       dom.removeValue(v)
 
