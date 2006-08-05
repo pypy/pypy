@@ -78,6 +78,11 @@ if BUFSIZ < 8192:
 else:
     SMALLCHUNK = BUFSIZ
     
+if sizeof(c_int) > 4:
+    BIGCHUNK = 512 * 32
+else:
+    BIGCHUNK = 512 * 1024
+    
 MAXINT = sys.maxint
 
 pythonapi.PyFile_FromString.argtypes = [c_char_p, c_char_p]
@@ -225,7 +230,7 @@ def _getline(space, obj, size):
             while True:
                 libbz2.BZ2_bzRead(byref(bzerror), obj.fp, byref(ch), 1)
                 obj.pos += 1
-                if bzerror != BZ_OK or buf_pos == end_pos:
+                if bzerror.value != BZ_OK or buf_pos == end_pos:
                     break
                 
                 if skipnextlf:
@@ -235,7 +240,7 @@ def _getline(space, obj, size):
                         # skipnextlf true means we saw a \r before.
                         newlinetypes |= NEWLINE_CRLF
                         libbz2.BZ2_bzRead(byref(bzerror), obj.fp, byref(ch), 1)
-                        if bzerror != BZ_OK: break
+                        if bzerror.value != BZ_OK: break
                     else:
                         newlinetypes |= NEWLINE_CR
                 
@@ -248,7 +253,7 @@ def _getline(space, obj, size):
                 buf_pos += 1
                 
                 if ch.value == '\n': break
-            if bzerror == BZ_STREAM_END and skipnextlf:
+            if bzerror.value == BZ_STREAM_END and skipnextlf:
                 newlinetypes |= NEWLINE_CR
         else: # if not universal newlines use the normal loop
             while True:
@@ -268,7 +273,7 @@ def _getline(space, obj, size):
             obj.mode = MODE_READ_EOF
             break
         elif bzerror.value != BZ_OK:
-            _catch_bz2_error(space, bzerror)
+            _catch_bz2_error(space, bzerror.value)
         
         if ch.value == '\n': break
         # must be because buf_pos == end_pos
@@ -289,7 +294,17 @@ def _getline(space, obj, size):
     used_v_size = buf_pos
     if used_v_size != total_v_size:
         return "".join(buf_lst[:used_v_size])
-    return "".join(buf_lst) 
+    return "".join(buf_lst)
+
+def _new_buffer_size(current_size):
+    if current_size > SMALLCHUNK:
+        # keep doubling until we reach BIGCHUNK
+        # then keep adding BIGCHUNK
+        if current_size <= BIGCHUNK:
+            return current_size + current_size
+        else:
+            return current_size + BIGCHUNK
+    return current_size + SMALLCHUNK
     
 class _BZ2File(Wrappable):
     def __init__(self, space, filename, mode='r', buffering=-1, compresslevel=9):
@@ -362,8 +377,8 @@ class _BZ2File(Wrappable):
             self.fp = libbz2.BZ2_bzWriteOpen(byref(bzerror), self._file,
                 compresslevel, 0, 0)
         
-        if bzerror != BZ_OK:
-            _catch_bz2_error(self.space, bzerror)
+        if bzerror.value != BZ_OK:
+            _catch_bz2_error(self.space, bzerror.value)
         
         self.mode = (MODE_WRITE, MODE_READ)[mode_char == 'r']
     
@@ -406,8 +421,8 @@ class _BZ2File(Wrappable):
             raise OperationError(self.space.w_IOError,
                 self.space.wrap(_get_error_msg()))
         
-        if bzerror != BZ_OK:
-            return _catch_bz2_error(self.space, bzerror)
+        if bzerror.value != BZ_OK:
+            return _catch_bz2_error(self.space, bzerror.value)
         
         return ret
     close.unwrap_spec = ['self']
@@ -454,10 +469,10 @@ class _BZ2File(Wrappable):
                     self.pos += chunksize
                     bytesread += chunksize
                     
-                    if bzerror == BZ_STREAM_END:
+                    if bzerror.value == BZ_STREAM_END:
                         break
-                    elif bzerror != BZ_OK:
-                        _catch_bz2_error(self.space, bzerror)
+                    elif bzerror.value != BZ_OK:
+                        _catch_bz2_error(self.space, bzerror.value)
                     
                 self.mode = MODE_READ_EOF
                 self.size = self.pos
@@ -474,8 +489,8 @@ class _BZ2File(Wrappable):
         else:
             # we cannot move back, so rewind the stream
             libbz2.BZ2_bzReadClose(byref(bzerror), self.fp)
-            if bzerror != BZ_OK:
-                _catch_bz2_error(self.space, bzerror)
+            if bzerror.value != BZ_OK:
+                _catch_bz2_error(self.space, bzerror.value)
             
             ret = libc.fseek(self._file, 0, SEEK_SET)
             if ret != 0:
@@ -485,8 +500,8 @@ class _BZ2File(Wrappable):
             self.pos = 0
             self.fp = libbz2.BZ2_bzReadOpen(byref(bzerror), self._file,
                 0, 0, None, 0)
-            if bzerror != BZ_OK:
-                _catch_bz2_error(self.space, bzerror)
+            if bzerror.value != BZ_OK:
+                _catch_bz2_error(self.space, bzerror.value)
             
             self.mode = MODE_READ
         
@@ -508,11 +523,11 @@ class _BZ2File(Wrappable):
             self.pos += chunksize
             bytesread += chunksize
             
-            if bzerror == BZ_STREAM_END:
+            if bzerror.value == BZ_STREAM_END:
                 self.size = self.pos
                 self.mode = MODE_READ_EOF
-            elif bzerror != BZ_OK:
-                _catch_bz2_error(self.space, bzerror)
+            elif bzerror.value != BZ_OK:
+                _catch_bz2_error(self.space, bzerror.value)
             
             if bytesread == offset:
                 break
@@ -540,14 +555,63 @@ class _BZ2File(Wrappable):
             size = (size, 0)[size < 0]
             return self.space.wrap(_getline(self.space, self, size))
     readline.unwrap_spec = ['self', int]
-                  
+    
+    def read(self, size=-1):
+        """read([size]) -> string
+
+        Read at most size uncompressed bytes, returned as a string. If the size
+        argument is negative or omitted, read until EOF is reached."""
+        
+        self._check_if_close()
+        
+        if self.mode == MODE_READ_EOF:
+            return self.space.wrap("")
+        elif not self.mode == MODE_READ:
+            raise OperationError(self.space.w_IOError,
+                self.space.wrap("file is not ready for reading"))
+        
+        bufsize = (size, _new_buffer_size(0))[size < 0]
+        
+        if bufsize > MAXINT:
+            raise OperationError(self.space.w_OverflowError,
+                self.space.wrap(
+                    "requested number of bytes is more than a Python string can hold"))
+        
+        bytesread = 0
+        buf = create_string_buffer(bufsize)
+        bzerror = c_int()
+        while True:
+            chunksize = _univ_newline_read(bzerror, self.fp, buf,
+                bufsize - bytesread, self)
+            self.pos += chunksize
+            bytesread += chunksize
+            
+            if bzerror.value == BZ_STREAM_END:
+                self.size = self.pos
+                self.mode = MODE_READ_EOF
+                break
+            elif bzerror.value != BZ_OK:
+                _catch_bz2_error(self.space, bzerror.value)
+            
+            if size < 0:
+                bufsize = _new_buffer_size(bufsize)
+            else:
+                break
+        
+        buf_lst = list(buf.value)
+        if bytesread != bufsize:
+            return self.space.wrap("".join(buf_lst[:bytesread]))
+        return self.space.wrap("".join(buf_lst))
+    read.unwrap_spec = ['self', int]
+
 
 _BZ2File.typedef = TypeDef("_BZ2File",
     close = interp2app(_BZ2File.close, unwrap_spec=_BZ2File.close.unwrap_spec),
     tell = interp2app(_BZ2File.tell, unwrap_spec=_BZ2File.tell.unwrap_spec),
     seek = interp2app(_BZ2File.seek, unwrap_spec=_BZ2File.seek.unwrap_spec),
     readline = interp2app(_BZ2File.readline,
-        unwrap_spec=_BZ2File.readline.unwrap_spec)
+        unwrap_spec=_BZ2File.readline.unwrap_spec),
+    read = interp2app(_BZ2File.read, unwrap_spec=_BZ2File.read.unwrap_spec)
 )
 
 def BZ2File(space, filename, mode='r', buffering=-1, compresslevel=9):
