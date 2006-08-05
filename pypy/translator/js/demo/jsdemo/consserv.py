@@ -19,10 +19,6 @@ from pypy.translator.js.modules.mochikit import logDebug, createLoggingPane, log
 from pypy.translator.js.modules.bltns import date
 
 class ConsoleRoot(BasicExternal, Root):
-    _methods = {
-        'run_command' : MethodDesc([('str_to_eval', 'ss'), ('callback', lambda : None)], {'aa':'aa'})
-    }
-    
     @turbogears.expose(format="json")
     def str_to_eval(self, str_to_eval = "some_string"):
         return dict()
@@ -37,7 +33,7 @@ class ConsoleRoot(BasicExternal, Root):
 
     @turbogears.expose(format="json")
     @described(retval={'aa':'aa'})
-    def run_command(self, str_to_eval):
+    def run_command(self, str_to_eval = "aa"):
         # we need what has changed
         # we try to run it...
         

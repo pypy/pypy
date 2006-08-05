@@ -104,6 +104,7 @@ opcodes = {'int_mul': '*',
     'int_is_true': [PushAllArgs,_Prefix('!!')],
     'uint_is_true': [PushAllArgs,_Prefix('!!')],
     'float_is_true': [PushAllArgs,_Prefix('!!')],
+    'is_true': [PushAllArgs,_Prefix('!!')],
     
     'direct_call' : [_CallDispatcher(Builtins, class_map)],
     'indirect_call' : [IndirectCall],

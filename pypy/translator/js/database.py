@@ -465,6 +465,8 @@ class ExtObject(AbstractConst):
         self.db = db
         self.const = const
         self.name = self.get_name()
+        self.depends = set()
+        self.depends_on = set()
     
     def __eq__(self, other):
         return self.name == other.name

@@ -278,7 +278,10 @@ def test_always_raise():
             pass
     
     def function_raise1(i):
-        function_raise2(i)
+        try:
+            function_raise2(i)
+        except Exception, e:
+            return str(e)
     
     fn = compile_function(function_raise1, [int])
-    fn()
+    fn(3)

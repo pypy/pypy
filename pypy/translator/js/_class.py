@@ -71,10 +71,3 @@ class Class(Node):
     
     def basename(self, name):
         return name.replace('.', '_')#[-1]
-
-    #def _ctor(self):
-    #    self.ilasm.begin_function('.ctor', [], 'void', False, 'specialname', 'rtspecialname', 'instance')
-    #    self.ilasm.opcode('ldarg.0')
-    #    self.ilasm.call('instance void %s::.ctor()' % self.get_base_class())
-    #    self.ilasm.opcode('ret')
-    #    self.ilasm.end_function()

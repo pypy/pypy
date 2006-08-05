@@ -1,6 +1,12 @@
 // starts hand written code
 MALLOC_ZERO_FILLED = 0
 
+try {
+    log;
+    print = log;
+} catch(e) {
+}
+
 Function.prototype.method = function (name, func) {
     this.prototype[name] = func;
     return this;
@@ -26,28 +32,12 @@ function isinstanceof(self, what) {
     return (false);
 }
 
-/*function alloc_and_set(L0, len, elem) {
-    l = [];
-    for(i = 0; i < len; ++i){
-        l[i] = elem;
-    }
-    return(l);
-}*/
-
-function strconcat(s1, s2) {
-    return(s1+s2);
-}
-
-function stritem(cl, s, it) {
-    return(s[it]);
-}
-
-function delitem(fn, l, i) {
+/*function delitem(fn, l, i) {
     for(j = i; j < l.length-1; ++j) {
         l[j] = l[j+1];
     }
     l.length--;
-}
+}*/
 
 function strcmp(s1, s2) {
     if ( s1 < s2 ) {

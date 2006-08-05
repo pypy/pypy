@@ -36,6 +36,9 @@ class Document(Node):
 class Window(Node):
     pass
 
+class Form(Node):
+    pass
+
 class Style(BasicExternal):
     _fields = {
         'azimuth' : 'aa',
@@ -256,15 +259,132 @@ Element._methods = {
         'supports' : MethodDesc(["aa", 1.0]),
     }
 
-Document._methods = Element._methods
+Document._methods = Element._methods.copy()
 Document._methods.update({
-    'getElementById' : MethodDesc(["aa"], Element()),
+    'clear' : MethodDesc([]),
+    'close' : MethodDesc([]),
+    'createAttribute' : MethodDesc(["aa"], Element()),
+    'createDocumentFragment' : MethodDesc([], Element()),
     'createElement' : MethodDesc(["aa"], Element()),
+    'createElementNS' : MethodDesc(["aa", "aa"], Element()),
+    'createTextNode' : MethodDesc(["aa"], Element()),
+    'createEvent' : MethodDesc(["aa"], Event()),
+    #'createRange' : MethodDesc(["aa"], Range()) - don't know what to do here
+    'getElementById' : MethodDesc(["aa"], Element()),
+    'getElementsByName' : MethodDesc(["aa"], [Element(), Element()]),
+    'getElementsByTagName' : MethodDesc(["aa"], [Element(), Element()]),
+    'importNode' : MethodDesc([Element(), True], Element()),
+    'open' : MethodDesc([]),
+    'write' : MethodDesc(["aa"]),
+    'writeln' : MethodDesc(["aa"]),
 })
 
-Document._fields = Element._fields
+Document._fields = Element._fields.copy()
 Document._fields.update({
+    'alinkColor' : "aa",
+    'bgColor' : "aa",
     'body' : Element(),
+    'characterSet' : "aa",
+    'cookie' : "aa",
+    'contentWindow' : Window(),
+    'defaultView' : Window(),
+    'doctype' : "aa",
+    'documentElement' : Element(),
+    'domain' : "aa",
+    'embeds' : [Element(), Element()],
+    'fgColor' : "aa",
+    'firstChild' : Element(),
+    'forms' : [Form(), Form()],
+    'height' : 123,
+    'images' : [Element(), Element()],
+    'lastModified' : "aa",
+    'linkColor' : "aa",
+    'links' : [Element(), Element()],
+    'location' : "aa",
+    'namespaceURI' : "aa",
+    'referrer' : "aa",
+    'styleSheets' : [Style(), Style()],
+    'title' : "aa",
+    'URL' : "aa",
+    'vlinkColor' : "aa",
+    'width' : 123,
+})
+
+Window._fields = Element._fields.copy()
+Window._fields.update({
+    'content' : Window(),
+    'closed' : True,
+    #'crypto' : Crypto() - not implemented in Gecko, leave alone
+    'defaultStatus' : "aa",
+    'document' : Document(),
+    # 'frameElement' :  - leave alone
+    'frames' : [Window(), Window()],
+    'history' : ["aa", "aa"],
+    'innerHeight' : 123,
+    'innerWidth' : 123,
+    'length' : 12,
+    'location' : "aa",
+    'name' : "aa",
+    # 'preference' : # denied in gecko
+    'opener' : Window(),
+    'outerHeight' : 123,
+    'outerWidth' : 123,
+    'pageXOffset' : 12,
+    'pageYOffset' : 12,
+    'parent' : Window(),
+    # 'personalbar' :  - disallowed
+    # 'screen' : Screen() - not part of the standard, allow it if you want
+    'screenX' : 12,
+    'screenY' : 12,
+    'scrollMaxX' : 12,
+    'scrollMaxY' : 12,
+    'scrollX' : 12,
+    'scrollY' : 12,
+    'self' : Window(),
+    'status' : "asd",
+    'top' : Window(),
+    'window' : Window(),
+})
+
+Window._methods = Element._methods.copy()
+Window._methods.update({
+    'alert' : MethodDesc(["aa"]),
+    'atob' : MethodDesc(["aa"], "aa"),
+    'back' : MethodDesc([]),
+    'blur' : MethodDesc([]),
+    'btoa' : MethodDesc(["aa"], "aa"),
+    'close' : MethodDesc([]),
+    'confirm' : MethodDesc(["aa"], True),
+    'dump' : MethodDesc(["aa"]),
+    'escape' : MethodDesc(["aa"], "aa"),
+    #'find' : MethodDesc(["aa"],  - gecko only
+    'focus' : MethodDesc([]),
+    'forward' : MethodDesc([]),
+    'getComputedStyle' : MethodDesc([Element(), "aa"], Style()),
+    'home' : MethodDesc([]),
+    'open' : MethodDesc(["aa", "aa"]),
+    'onabort' : MethodDesc([Event()]),
+    'onblur' : MethodDesc([Event()]),
+    'onchange' : MethodDesc([Event()]),
+    'onclick' : MethodDesc([MouseEvent()]),
+    'onclose' : MethodDesc([MouseEvent()]),
+    'ondragdrop' : MethodDesc([MouseEvent()]),
+    'onerror' : MethodDesc([MouseEvent()]),
+    'onfocus' : MethodDesc([Event()]),
+    'onkeydown' : MethodDesc([KeyEvent()]),
+    'onkeypress' : MethodDesc([KeyEvent()]),
+    'onkeyup' : MethodDesc([KeyEvent()]),
+    'onload' : MethodDesc([KeyEvent()]),
+    'onmousedown' : MethodDesc([MouseEvent()]),
+    'onmousemove' : MethodDesc([MouseEvent()]),
+    'onmouseup' : MethodDesc([MouseEvent()]),
+    'onmouseover' : MethodDesc([MouseEvent()]),
+    'onmouseup' : MethodDesc([MouseEvent()]),
+    'onresize' : MethodDesc([MouseEvent()]),
+    'onscroll' : MethodDesc([MouseEvent()]),
+    'onselect' : MethodDesc([MouseEvent()]),
+    'onsubmit' : MethodDesc([MouseEvent()]),
+    'onunload' : MethodDesc([Event()]),
 })
 
 def get_document():
