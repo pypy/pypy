@@ -364,8 +364,9 @@ class _BZ2File(Wrappable):
         mode = ('wb', 'rb')[mode_char == 'r']
         
         # open the file and set the buffer
-        f = pythonapi.PyFile_FromString(name, mode)
-        if not f:
+        try:
+            f = pythonapi.PyFile_FromString(name, mode)
+        except IOError:
             raise OperationError(self.space.w_IOError,
                 self.space.wrap("cannot open file %s" % name))
         pythonapi.PyFile_SetBufSize(f, buffering)
