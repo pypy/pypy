@@ -149,7 +149,8 @@ def _univ_newline_read(bzerror, stream, buf, n, obj):
     dst = buf
     
     if not obj.f_univ_newline:
-        return libbz2.BZ2_bzRead(byref(bzerror), stream, buf, n)
+        nread = libbz2.BZ2_bzRead(byref(bzerror), stream, buf, n)
+        return nread, buf
         
     newlinetypes = obj.f_newlinetypes
     skipnextlf = obj.f_skipnextlf
@@ -205,9 +206,12 @@ def _univ_newline_read(bzerror, stream, buf, n, obj):
     obj.f_newlinetypes = newlinetypes
     obj.f_skipnextlf = skipnextlf
     
-    buf = c_char_p("".join(dst_lst))
+    data = "".join(dst_lst)
+    buf = create_string_buffer(len(data))
+    for i, ch in enumerate(data):
+        buf[i] = ch
     
-    return dst_pos
+    return dst_pos, buf
     
 def _getline(space, obj, size):
     used_v_size = 0 # no. used slots in buffer
@@ -464,7 +468,7 @@ class _BZ2File(Wrappable):
         if whence == 2:
             if self.size == -1:
                 while True:
-                    chunksize = _univ_newline_read(bzerror, self.fp, buf,
+                    chunksize, buf = _univ_newline_read(bzerror, self.fp, buf,
                         bufsize, self)
                     self.pos += chunksize
                     bytesread += chunksize
@@ -519,7 +523,8 @@ class _BZ2File(Wrappable):
                 # condition above). bufsize is 8192.
                 readsize = offset - bytesread
             
-            chunksize = _univ_newline_read(bzerror, self.fp, buf, readsize, self)
+            chunksize, buf = _univ_newline_read(bzerror, self.fp, buf,
+                readsize, self)
             self.pos += chunksize
             bytesread += chunksize
             
@@ -582,7 +587,7 @@ class _BZ2File(Wrappable):
         buf = create_string_buffer(bufsize)
         bzerror = c_int()
         while True:
-            chunksize = _univ_newline_read(bzerror, self.fp, buf,
+            chunksize, buf = _univ_newline_read(bzerror, self.fp, buf,
                 bufsize - bytesread, self)
             self.pos += chunksize
             bytesread += chunksize
