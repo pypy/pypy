@@ -402,7 +402,7 @@ class _BZ2File(Wrappable):
             
         _drop_readahead(self)
     
-    def _check_if_close(self):
+    def _check_if_closed(self):
         if self.mode == MODE_CLOSED:
             raise OperationError(self.space.w_ValueError,
                 self.space.wrap("I/O operation on closed file"))
@@ -442,7 +442,7 @@ class _BZ2File(Wrappable):
 
         Return the current file position, an integer (may be a long integer)."""
         
-        self._check_if_close()
+        self._check_if_closed()
         
         return self.space.wrap(self.pos)
     tell.unwrap_spec = ['self']
@@ -460,7 +460,7 @@ class _BZ2File(Wrappable):
         the operation may be extremely slow."""
         
         _drop_readahead(self)
-        self._check_if_close()
+        self._check_if_closed()
         
         bufsize = SMALLCHUNK
         buf = create_string_buffer(bufsize)
@@ -553,7 +553,7 @@ class _BZ2File(Wrappable):
         return (an incomplete line may be returned then). Return an empty
         string at EOF."""
         
-        self._check_if_close()
+        self._check_if_closed()
         
         if self.mode == MODE_READ_EOF:
             return self.space.wrap("")
@@ -574,7 +574,7 @@ class _BZ2File(Wrappable):
         Read at most size uncompressed bytes, returned as a string. If the size
         argument is negative or omitted, read until EOF is reached."""
         
-        self._check_if_close()
+        self._check_if_closed()
         
         if self.mode == MODE_READ_EOF:
             return self.space.wrap("")
@@ -623,7 +623,7 @@ class _BZ2File(Wrappable):
         The optional size argument, if given, is an approximate bound on the
         total number of bytes in the lines returned."""
         
-        self._check_if_close()
+        self._check_if_closed()
         
         # it seems size definitely ignored in CPython, so...
         lines = []
