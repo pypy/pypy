@@ -623,6 +623,8 @@ class _BZ2File(Wrappable):
         The optional size argument, if given, is an approximate bound on the
         total number of bytes in the lines returned."""
         
+        self._check_if_close()
+        
         # it seems size definitely ignored in CPython, so...
         lines = []
 
@@ -662,6 +664,27 @@ class _BZ2File(Wrappable):
     
     def fget_closed(space, self):
         return space.wrap(self.mode == MODE_CLOSED)
+    
+    # XXX: I have to hack-in this UGLY thing because there's no support of
+    # special methods outside so I can't use the iterator protocol (no __iter__)
+    # next() method is not implemented, it's useless right now
+    # XXX no 2: unwrap() is the evil itself! XXX
+    def get_iterator(self):
+        w_lines = self.readlines()
+        lines = self.space.unwrap(w_lines)
+        return self.space.wrap(iter(lines))
+    get_iterator.unwrap_spec = ['self']
+
+    def xreadlines(self):
+        """xreadlines() -> self
+
+        For backward compatibility. BZ2File objects now include the performance
+        optimizations previously implemented in the xreadlines module."""
+        
+        # this method should use the iterator protocol one day...
+        return self.get_iterator()
+    xreadlines.unwrap_spec = ['self']
+
 
 get_newlines = GetSetProperty(_BZ2File.fget_newlines, cls=_BZ2File)
 get_closed = GetSetProperty(_BZ2File.fget_closed, cls=_BZ2File)
@@ -674,6 +697,10 @@ _BZ2File.typedef = TypeDef("_BZ2File",
     readlines = interp2app(_BZ2File.readlines,
         unwrap_spec=_BZ2File.readlines.unwrap_spec),
     read = interp2app(_BZ2File.read, unwrap_spec=_BZ2File.read.unwrap_spec),
+    get_iterator = interp2app(_BZ2File.get_iterator,
+        unwrap_spec=_BZ2File.get_iterator.unwrap_spec),
+    xreadlines = interp2app(_BZ2File.xreadlines,
+        unwrap_spec=_BZ2File.xreadlines.unwrap_spec),
     newlines = get_newlines,
     closed = get_closed,
     name = interp_attrproperty("filename", _BZ2File),
