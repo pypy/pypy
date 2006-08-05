@@ -108,6 +108,8 @@ libbz2.BZ2_bzWriteClose.argtypes = [POINTER(c_int), POINTER(BZFILE),
 libbz2.BZ2_bzWriteClose.restype = c_void
 libbz2.BZ2_bzRead.argtypes = [POINTER(c_int), POINTER(BZFILE), c_char_p, c_int]
 libbz2.BZ2_bzRead.restype = c_int
+libbz2.BZ2_bzWrite.argtypes = [POINTER(c_int), POINTER(BZFILE), c_char_p, c_int]
+libbz2.BZ2_bzWrite.restype = c_void
 
 libc.strerror.restype = c_char_p
 libc.strerror.argtypes = [c_int]
@@ -319,11 +321,11 @@ class _BZ2File(Wrappable):
         self.f_bufend = c_char_p() # points after last occupied position
         self.f_bufptr = c_char_p() # current buffer position
         
-        self.f_softspace = 0 # flag used by print command
+        self.f_softspace = False # flag used by print command
         
         self.f_univ_newline = False # handle any newline convention
         self.f_newlinetypes = 0 # types of newlines seen
-        self.f_skipnextlf = 0 # skip next \n
+        self.f_skipnextlf = False # skip next \n
         
         self.mode = 0
         self.pos = 0
@@ -639,6 +641,30 @@ class _BZ2File(Wrappable):
         return self.space.wrap(lines)
     readlines.unwrap_spec = ['self', int]
     
+    def write(self, data):
+        """write(data) -> None
+
+        Write the 'data' string to file. Note that due to buffering, close() may
+        be needed before the file on disk reflects the data written."""
+        
+        self._check_if_closed()
+        
+        if not self.mode == MODE_WRITE:
+            raise OperationError(self.space.w_IOError,
+                self.space.wrap("file is not ready for writing"))
+        
+        self.f_softspace = False
+        
+        bzerror = c_int()
+        bufsize = len(data)
+        buf = c_char_p(data)
+        libbz2.BZ2_bzWrite(byref(bzerror), self.fp, buf, bufsize)
+        self.pos += bufsize
+        
+        if bzerror.value != BZ_OK:
+            _catch_bz2_error(self.space, bzerror)
+    write.unwrap_spec = ['self', str]
+    
     # accessors for properties
     def fget_newlines(space, self):
         if self.f_newlinetypes == NEWLINE_UNKNOWN:
@@ -701,6 +727,7 @@ _BZ2File.typedef = TypeDef("_BZ2File",
         unwrap_spec=_BZ2File.get_iterator.unwrap_spec),
     xreadlines = interp2app(_BZ2File.xreadlines,
         unwrap_spec=_BZ2File.xreadlines.unwrap_spec),
+    write = interp2app(_BZ2File.write, unwrap_spec=_BZ2File.write.unwrap_spec),
     newlines = get_newlines,
     closed = get_closed,
     name = interp_attrproperty("filename", _BZ2File),
