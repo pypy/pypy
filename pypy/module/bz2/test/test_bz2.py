@@ -21,6 +21,7 @@ class AppTestBz2File:
         assert bz2f.name == "foo"
         assert bz2f.newlines == None
         assert bz2f.mode == "wb"
+        assert bz2f.softspace == False
         assert bz2f.closed == False
         bz2f.close()
         assert bz2f.closed == True

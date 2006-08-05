@@ -652,9 +652,10 @@ _BZ2File.typedef = TypeDef("_BZ2File",
         unwrap_spec=_BZ2File.readline.unwrap_spec),
     read = interp2app(_BZ2File.read, unwrap_spec=_BZ2File.read.unwrap_spec),
     newlines = get_newlines,
+    closed = get_closed,
     name = interp_attrproperty("filename", _BZ2File),
     mode = interp_attrproperty("mode_string", _BZ2File),
-    closed = get_closed,
+    softspace = interp_attrproperty("f_softspace", _BZ2File),
 )
 
 def BZ2File(space, filename, mode='r', buffering=-1, compresslevel=9):
