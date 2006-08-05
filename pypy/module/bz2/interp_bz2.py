@@ -665,6 +665,16 @@ class _BZ2File(Wrappable):
             _catch_bz2_error(self.space, bzerror)
     write.unwrap_spec = ['self', str]
     
+    def writelines(self, w_sequence_of_strings):
+        self._check_if_closed()
+        
+        seq_w = self.space.unpackiterable(w_sequence_of_strings)
+        
+        for w_line in seq_w:
+            line = self.space.str_w(w_line)
+            self.write(line)
+    writelines.unwrap_spec = ['self', W_Root]
+    
     # accessors for properties
     def fget_newlines(space, self):
         if self.f_newlinetypes == NEWLINE_UNKNOWN:
@@ -728,6 +738,8 @@ _BZ2File.typedef = TypeDef("_BZ2File",
     xreadlines = interp2app(_BZ2File.xreadlines,
         unwrap_spec=_BZ2File.xreadlines.unwrap_spec),
     write = interp2app(_BZ2File.write, unwrap_spec=_BZ2File.write.unwrap_spec),
+    writelines = interp2app(_BZ2File.writelines,
+        unwrap_spec=_BZ2File.writelines.unwrap_spec),
     newlines = get_newlines,
     closed = get_closed,
     name = interp_attrproperty("filename", _BZ2File),

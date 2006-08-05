@@ -542,6 +542,32 @@ class AppTestBz2File:
         assert decompress(f.read()) == TEXT
         f.close()
 
+    def test_writelines(self):
+        def decompress(data):
+            import popen2
+            import bz2
+            pop = popen2.Popen3("bunzip2", capturestderr=1)
+            pop.tochild.write(data)
+            pop.tochild.close()
+            res = pop.fromchild.read()
+            pop.fromchild.close()
+            if pop.wait() != 0:
+                res = bz2.decompress(data)
+            return res
+            
+        from bz2 import BZ2File
+        from cStringIO import StringIO
+        TEXT = 'root:x:0:0:root:/root:/bin/bash\nbin:x:1:1:bin:/bin:\ndaemon:x:2:2:daemon:/sbin:\nadm:x:3:4:adm:/var/adm:\nlp:x:4:7:lp:/var/spool/lpd:\nsync:x:5:0:sync:/sbin:/bin/sync\nshutdown:x:6:0:shutdown:/sbin:/sbin/shutdown\nhalt:x:7:0:halt:/sbin:/sbin/halt\nmail:x:8:12:mail:/var/spool/mail:\nnews:x:9:13:news:/var/spool/news:\nuucp:x:10:14:uucp:/var/spool/uucp:\noperator:x:11:0:operator:/root:\ngames:x:12:100:games:/usr/games:\ngopher:x:13:30:gopher:/usr/lib/gopher-data:\nftp:x:14:50:FTP User:/var/ftp:/bin/bash\nnobody:x:65534:65534:Nobody:/home:\npostfix:x:100:101:postfix:/var/spool/postfix:\nniemeyer:x:500:500::/home/niemeyer:/bin/bash\npostgres:x:101:102:PostgreSQL Server:/var/lib/pgsql:/bin/bash\nmysql:x:102:103:MySQL server:/var/lib/mysql:/bin/bash\nwww:x:103:104::/var/www:/bin/false\n'
+
+        bz2f = BZ2File("foo", 'w')
+        raises(TypeError, bz2f.writelines)
+        sio = StringIO(TEXT)
+        bz2f.writelines(sio.readlines())
+        bz2f.close()
+        f = open("foo", "rb")
+        assert decompress(f.read()) == TEXT
+        f.close()
+
 # has_cmdline_bunzip2 = sys.platform not in ("win32", "os2emx", "riscos")
 # 
 # if has_cmdline_bunzip2:
@@ -560,22 +586,7 @@ class AppTestBz2File:
 #     # isn't available to run.
 #     def decompress(self, data):
 #         return bz2.decompress(data)
-# 
-# class BZ2FileTest(BaseTest):
-#     "Test BZ2File type miscellaneous methods."
-#     def testWriteLines(self):
-#         # "Test BZ2File.writelines()"
-#         bz2f = BZ2File(self.filename, "w")
-#         self.assertRaises(TypeError, bz2f.writelines)
-#         sio = StringIO(self.TEXT)
-#         bz2f.writelines(sio.readlines())
-#         bz2f.close()
-#         f = open(self.filename, 'rb')
-#         self.assertEqual(self.decompress(f.read()), self.TEXT)
-#         f.close()
 #
-# 
-# 
 # class BZ2CompressorTest(BaseTest):
 #     def testCompress(self):
 #         # "Test BZ2Compressor.compress()/flush()"
