@@ -467,6 +467,24 @@ class AppTestBz2File:
         assert list(bz2f.xreadlines()) == sio.readlines()
         bz2f.close()
 
+    def test_readlines_bug_1191043(self):
+        # readlines()/xreadlines() for files containing no newline
+        from bz2 import BZ2File
+        
+        data = 'BZh91AY&SY\xd9b\x89]\x00\x00\x00\x03\x80\x04\x00\x02\x00\x0c\x00 \x00!\x9ah3M\x13<]\xc9\x14\xe1BCe\x8a%t'
+        f = open("foo", "wb")
+        f.write(data)
+        f.close()
+        
+        bz2f = BZ2File("foo")
+        lines = bz2f.readlines()
+        bz2f.close()
+        assert lines == ['Test']
+
+        bz2f = BZ2File("foo")
+        xlines = list(bz2f.xreadlines())
+        bz2f.close()
+        assert xlines == ['Test']
 
 # #!/usr/bin/python
 # from test import test_support
@@ -544,20 +562,6 @@ class AppTestBz2File:
 #         self.assertEqual(self.decompress(f.read()), self.TEXT)
 #         f.close()
 #
-#     def testBug1191043(self):
-#         # readlines() for files containing no newline
-#         data = 'BZh91AY&SY\xd9b\x89]\x00\x00\x00\x03\x80\x04\x00\x02\x00\x0c\x00 \x00!\x9ah3M\x13<]\xc9\x14\xe1BCe\x8a%t'
-#         f = open(self.filename, "wb")
-#         f.write(data)
-#         f.close()
-#         bz2f = BZ2File(self.filename)
-#         lines = bz2f.readlines()
-#         bz2f.close()
-#         self.assertEqual(lines, ['Test'])
-#         bz2f = BZ2File(self.filename)
-#         xlines = list(bz2f.xreadlines())
-#         bz2f.close()
-#         self.assertEqual(lines, ['Test'])
 # 
 # 
 # class BZ2CompressorTest(BaseTest):
