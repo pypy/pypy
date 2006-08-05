@@ -401,7 +401,7 @@ class _BZ2File(Wrappable):
             libbz2.BZ2_bzWriteClose(byref(bzerror), self.fp, 0, None, None)
             
         _drop_readahead(self)
-        
+    
     def _check_if_close(self):
         if self.mode == MODE_CLOSED:
             raise OperationError(self.space.w_ValueError,
@@ -616,6 +616,27 @@ class _BZ2File(Wrappable):
         return self.space.wrap("".join(buf_lst))
     read.unwrap_spec = ['self', int]
     
+    def readlines(self, size=0):
+        """"readlines([size]) -> list
+
+        Call readline() repeatedly and return a list of lines read.
+        The optional size argument, if given, is an approximate bound on the
+        total number of bytes in the lines returned."""
+        
+        # it seems size definitely ignored in CPython, so...
+        lines = []
+
+        while True:
+            w_line = self.readline()
+            line = self.space.str_w(w_line)
+            if not line:
+                break
+            
+            lines.append(line)
+        
+        return self.space.wrap(lines)
+    readlines.unwrap_spec = ['self', int]
+    
     # accessors for properties
     def fget_newlines(space, self):
         if self.f_newlinetypes == NEWLINE_UNKNOWN:
@@ -650,6 +671,8 @@ _BZ2File.typedef = TypeDef("_BZ2File",
     seek = interp2app(_BZ2File.seek, unwrap_spec=_BZ2File.seek.unwrap_spec),
     readline = interp2app(_BZ2File.readline,
         unwrap_spec=_BZ2File.readline.unwrap_spec),
+    readlines = interp2app(_BZ2File.readlines,
+        unwrap_spec=_BZ2File.readlines.unwrap_spec),
     read = interp2app(_BZ2File.read, unwrap_spec=_BZ2File.read.unwrap_spec),
     newlines = get_newlines,
     closed = get_closed,
