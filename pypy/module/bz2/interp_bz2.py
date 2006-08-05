@@ -452,8 +452,8 @@ class _BZ2File(Wrappable):
         _drop_readahead(self)
         self._check_if_close()
         
-        buf = c_char_p()
         bufsize = SMALLCHUNK
+        buf = create_string_buffer(bufsize)
         bytesread = 0
         bzerror = c_int()
         
