@@ -13,6 +13,17 @@ class AppTestBz2File:
     def setup_class(cls):
         space = gettestobjspace(usemodules=('bz2',))
         cls.space = space
+        
+    def test_attributes(self):
+        from bz2 import BZ2File
+        
+        bz2f = BZ2File("foo", mode="w")
+        assert bz2f.name == "foo"
+        assert bz2f.newlines == None
+        assert bz2f.mode == "wb"
+        assert bz2f.closed == False
+        bz2f.close()
+        assert bz2f.closed == True
     
     def test_creation(self):
         from bz2 import BZ2File
@@ -489,13 +500,7 @@ class AppTestBz2File:
 #         f = open(self.filename, 'rb')
 #         self.assertEqual(self.decompress(f.read()), self.TEXT)
 #         f.close()
-#     def testOpenDel(self):
-#         # "Test opening and deleting a file many times"
-#         self.createTempFile()
-#         for i in xrange(10000):
-#             o = BZ2File(self.filename)
-#             del o
-# 
+#
 #     def testBug1191043(self):
 #         # readlines() for files containing no newline
 #         data = 'BZh91AY&SY\xd9b\x89]\x00\x00\x00\x03\x80\x04\x00\x02\x00\x0c\x00 \x00!\x9ah3M\x13<]\xc9\x14\xe1BCe\x8a%t'

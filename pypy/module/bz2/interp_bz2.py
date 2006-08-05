@@ -5,6 +5,7 @@ from pypy.rpython.rctypes.aerrno import geterrno
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.interpreter.typedef import interp_attrproperty
 from pypy.interpreter.gateway import interp2app
 from ctypes import *
 import ctypes.util
@@ -328,12 +329,15 @@ class _BZ2File(Wrappable):
         self.pos = 0
         self.size = 0
         
-        self._init_bz2file(filename, mode, buffering, compresslevel)        
+        self.filename = filename
+        self.mode_string = ""
+
+        self._init_bz2file(mode, buffering, compresslevel)        
     
-    def _init_bz2file(self, filename, mode_, buffering, compresslevel):
+    def _init_bz2file(self, mode_, buffering, compresslevel):
         self.size = -1
         
-        name = filename
+        name = self.filename
         mode_char = ""
         mode_list = mode_
         
@@ -362,6 +366,7 @@ class _BZ2File(Wrappable):
         if mode_char == "":
             mode_char = 'r'
         mode = ('wb', 'rb')[mode_char == 'r']
+        self.mode_string = mode
         
         # open the file and set the buffer
         try:
@@ -611,7 +616,7 @@ class _BZ2File(Wrappable):
         return self.space.wrap("".join(buf_lst))
     read.unwrap_spec = ['self', int]
     
-    # accessor for newlines property
+    # accessors for properties
     def fget_newlines(space, self):
         if self.f_newlinetypes == NEWLINE_UNKNOWN:
             return space.wrap(None)
@@ -633,8 +638,12 @@ class _BZ2File(Wrappable):
             raise OperationError(space.w_SystemError,
                 space.wrap(
                     "Unknown newlines value 0x%d\n" % hex(self.f_newlinetypes)))
+    
+    def fget_closed(space, self):
+        return space.wrap(self.mode == MODE_CLOSED)
 
 get_newlines = GetSetProperty(_BZ2File.fget_newlines, cls=_BZ2File)
+get_closed = GetSetProperty(_BZ2File.fget_closed, cls=_BZ2File)
 _BZ2File.typedef = TypeDef("_BZ2File",
     close = interp2app(_BZ2File.close, unwrap_spec=_BZ2File.close.unwrap_spec),
     tell = interp2app(_BZ2File.tell, unwrap_spec=_BZ2File.tell.unwrap_spec),
@@ -643,6 +652,9 @@ _BZ2File.typedef = TypeDef("_BZ2File",
         unwrap_spec=_BZ2File.readline.unwrap_spec),
     read = interp2app(_BZ2File.read, unwrap_spec=_BZ2File.read.unwrap_spec),
     newlines = get_newlines,
+    name = interp_attrproperty("filename", _BZ2File),
+    mode = interp_attrproperty("mode_string", _BZ2File),
+    closed = get_closed,
 )
 
 def BZ2File(space, filename, mode='r', buffering=-1, compresslevel=9):
