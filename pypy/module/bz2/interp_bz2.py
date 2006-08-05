@@ -4,7 +4,7 @@ import pypy.rpython.rctypes.implementation # this defines rctypes magic
 from pypy.rpython.rctypes.aerrno import geterrno
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app
 from ctypes import *
 import ctypes.util
@@ -604,15 +604,39 @@ class _BZ2File(Wrappable):
             return self.space.wrap("".join(buf_lst[:bytesread]))
         return self.space.wrap("".join(buf_lst))
     read.unwrap_spec = ['self', int]
+    
+    # accessor for newlines property
+    def fget_newlines(space, self):
+        if self.f_newlinetypes == NEWLINE_UNKNOWN:
+            return space.wrap(None)
+        elif self.f_newlinetypes == NEWLINE_CR:
+            return space.wrap('\r')
+        elif self.f_newlinetypes == NEWLINE_LF:
+            return space.wrap('\n')
+        elif self.f_newlinetypes == NEWLINE_CR|NEWLINE_LF:
+            return space.wrap(('\r', '\n'))
+        elif self.f_newlinetypes == NEWLINE_CRLF:
+            return space.wrap("\r\n")
+        elif self.f_newlinetypes == NEWLINE_CR|NEWLINE_CRLF:
+            return space.wrap(('\r', "\r\n"))
+        elif self.f_newlinetypes == NEWLINE_LF|NEWLINE_CRLF:
+            return space.wrap(('\n', "\r\n"))
+        elif self.f_newlinetypes == NEWLINE_CR|NEWLINE_LF|NEWLINE_CRLF:
+            return space.wrap(('\r', '\n', "\r\n"))
+        else:
+            raise OperationError(space.w_SystemError,
+                space.wrap(
+                    "Unknown newlines value 0x%d\n" % hex(self.f_newlinetypes)))
 
-
+get_newlines = GetSetProperty(_BZ2File.fget_newlines, cls=_BZ2File)
 _BZ2File.typedef = TypeDef("_BZ2File",
     close = interp2app(_BZ2File.close, unwrap_spec=_BZ2File.close.unwrap_spec),
     tell = interp2app(_BZ2File.tell, unwrap_spec=_BZ2File.tell.unwrap_spec),
     seek = interp2app(_BZ2File.seek, unwrap_spec=_BZ2File.seek.unwrap_spec),
     readline = interp2app(_BZ2File.readline,
         unwrap_spec=_BZ2File.readline.unwrap_spec),
-    read = interp2app(_BZ2File.read, unwrap_spec=_BZ2File.read.unwrap_spec)
+    read = interp2app(_BZ2File.read, unwrap_spec=_BZ2File.read.unwrap_spec),
+    newlines = get_newlines,
 )
 
 def BZ2File(space, filename, mode='r', buffering=-1, compresslevel=9):
