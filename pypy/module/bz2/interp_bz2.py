@@ -359,7 +359,7 @@ class _BZ2File(Wrappable):
                 raise OperationError(self.space.w_ValueError,
                     self.space.wrap("invalid mode char %s" % mode))
         
-        if mode_char == 0:
+        if mode_char == "":
             mode_char = 'r'
         mode = ('wb', 'rb')[mode_char == 'r']
         
