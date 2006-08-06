@@ -9,7 +9,7 @@ def teardown_module(mod):
     if os.path.exists("foo"):
         os.unlink("foo")
 
-class AppTestBz2File:
+class AppTestBZ2File:
     def setup_class(cls):
         space = gettestobjspace(usemodules=('bz2',))
         cls.space = space
@@ -567,6 +567,21 @@ class AppTestBz2File:
         f = open("foo", "rb")
         assert decompress(f.read()) == TEXT
         f.close()
+
+
+class AppTestBZ2Compressor:
+    def setup_class(cls):
+        space = gettestobjspace(usemodules=('bz2',))
+        cls.space = space
+        
+    def test_creation(self):
+        from bz2 import BZ2Compressor
+        
+        raises(TypeError, BZ2Compressor, "foo")
+        raises(ValueError, BZ2Compressor, 10)
+        
+        BZ2Compressor(1)
+        BZ2Compressor(9)
 
 # has_cmdline_bunzip2 = sys.platform not in ("win32", "os2emx", "riscos")
 # 

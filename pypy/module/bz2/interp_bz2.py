@@ -111,6 +111,9 @@ libbz2.BZ2_bzRead.restype = c_int
 libbz2.BZ2_bzWrite.argtypes = [POINTER(c_int), POINTER(BZFILE), c_char_p, c_int]
 libbz2.BZ2_bzWrite.restype = c_void
 
+libbz2.BZ2_bzCompressInit.argtypes = [POINTER(bz_stream), c_int, c_int, c_int]
+libbz2.BZ2_bzCompressInit.restype = c_int
+
 libc.strerror.restype = c_char_p
 libc.strerror.argtypes = [c_int]
 libc.fclose.argtypes = [POINTER(FILE)]
@@ -747,6 +750,39 @@ _BZ2File.typedef = TypeDef("_BZ2File",
     softspace = interp_attrproperty("f_softspace", _BZ2File),
 )
 
+class _BZ2Comp(Wrappable):
+    def __init__(self, space, compresslevel):
+        self.space = space
+        self.bzs = bz_stream()
+        self.running = False
+        
+        self._init_bz2comp(compresslevel)
+        
+    def _init_bz2comp(self, compresslevel):
+        if compresslevel < 1 or compresslevel > 9:
+            raise OperationError(self.space.w_ValueError,
+                self.space.wrap("compresslevel must be between 1 and 9"))
+        
+        bzerror = libbz2.BZ2_bzCompressInit(byref(self.bzs), compresslevel, 0, 0)
+        if bzerror != BZ_OK:
+            _catch_bz2_error(self.space, bzerror)
+        
+        self.running = True
+
+
+_BZ2Comp.typedef = TypeDef("_BZ2File")
+
+def BZ2Compressor(space, compresslevel=9):
+    """BZ2Compressor([compresslevel=9]) -> compressor object
+
+    Create a new compressor object. This object may be used to compress
+    data sequentially. If you want to compress data in one shot, use the
+    compress() function instead. The compresslevel parameter, if given,
+    must be a number between 1 and 9."""
+    
+    return _BZ2Comp(space, compresslevel)
+BZ2Compressor.unwrap_spec = [ObjSpace, int]
+
 def BZ2File(space, filename, mode='r', buffering=-1, compresslevel=9):
     """BZ2File(name [, mode='r', buffering=0, compresslevel=9]) -> file object
     
@@ -762,6 +798,7 @@ def BZ2File(space, filename, mode='r', buffering=-1, compresslevel=9):
     for this attribute is one of None (no newline read yet), '\\r', '\\n',
     '\\r\\n' or a tuple containing all the newline types seen. Universal
     newlines are available only when reading."""
+
     return _BZ2File(space, filename, mode, buffering, compresslevel)
 BZ2File.unwrap_spec = [ObjSpace, str, str, int, int]
 
