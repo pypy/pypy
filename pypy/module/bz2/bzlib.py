@@ -8,11 +8,11 @@ __darwin_wctype_t = c_ulong
 class bz_stream(Structure):
     pass
 bz_stream._fields_ = [
-    ('next_in', STRING),
+    ('next_in', POINTER(c_char)),
     ('avail_in', c_uint),
     ('total_in_lo32', c_uint),
     ('total_in_hi32', c_uint),
-    ('next_out', STRING),
+    ('next_out', POINTER(c_char)),
     ('avail_out', c_uint),
     ('total_out_lo32', c_uint),
     ('total_out_hi32', c_uint),

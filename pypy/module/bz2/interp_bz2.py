@@ -86,6 +86,17 @@ else:
     
 MAXINT = sys.maxint
 
+if BZ_CONFIG_ERROR:
+    if sizeof(c_long) >= 8 or sizeof(c_longlong) >= 8:
+        def _bzs_total_out(bzs):
+            return long(bzs.total_out_hi32 << 32) + bzs.total_out_lo32
+    else:
+        def _bzs_total_out(bzs):
+            return bzs.total_out_lo32
+else:
+    def _bzs_total_out(bzs):
+        return bzs.total_out
+
 pythonapi.PyFile_FromString.argtypes = [c_char_p, c_char_p]
 pythonapi.PyFile_FromString.restype = POINTER(PyFileObject)
 pythonapi.PyFile_SetBufSize.argtypes = [POINTER(PyFileObject), c_int]
@@ -764,7 +775,7 @@ class _BZ2Comp(Wrappable):
         if compresslevel < 1 or compresslevel > 9:
             raise OperationError(self.space.w_ValueError,
                 self.space.wrap("compresslevel must be between 1 and 9"))
-        
+                
         bzerror = libbz2.BZ2_bzCompressInit(byref(self.bzs), compresslevel, 0, 0)
         if bzerror != BZ_OK:
             _catch_bz2_error(self.space, bzerror)
@@ -773,9 +784,79 @@ class _BZ2Comp(Wrappable):
         
     def __del__(self):
         libbz2.BZ2_bzCompressEnd(byref(self.bzs))
+    
+    def compress(self, data):
+        """compress(data) -> string
+
+        Provide more data to the compressor object. It will return chunks of
+        compressed data whenever possible. When you've finished providing data
+        to compress, call the flush() method to finish the compression process,
+        and return what is left in the internal buffers."""
+        
+        datasize = len(data)
+        
+        if datasize == 0:
+            return self.space.wrap("")
+        
+        if not self.running:
+            raise OperationError(self.space.w_ValueError,
+                self.space.wrap("this object was already flushed"))
+        
+        out_bufsize = SMALLCHUNK
+        out_buf = create_string_buffer(out_bufsize)
+        
+        in_bufsize = datasize
+        in_buf = create_string_buffer(in_bufsize)
+        in_buf.value = data
+        
+        self.bzs.next_in = in_buf
+        self.bzs.avail_in = in_bufsize
+        self.bzs.next_out = out_buf
+        self.bzs.avail_out = out_bufsize
+        
+        while True:
+            bzerror = libbz2.BZ2_bzCompress(byref(self.bzs), BZ_RUN)
+            if bzerror != BZ_OK:
+                _catch_bz2_error(self.space, bzerror)
+
+            if self.bzs.avail_in == 0:
+                break
+
+        total_out = _bzs_total_out(self.bzs)
+        res = "".join([out_buf[i] for i in range(total_out)])
+        return self.space.wrap(res)
+    compress.unwrap_spec = ['self', str]
+    
+    def flush(self):
+        if not self.running:
+            raise OperationError(self.space.w_ValueError,
+                self.space.wrap("this object was already flushed"))
+        self.running = False
+        
+        out_bufsize = SMALLCHUNK
+        out_buf = create_string_buffer(out_bufsize)
+
+        self.bzs.next_out = out_buf
+        self.bzs.avail_out = out_bufsize
+        
+        while True:
+            bzerror = libbz2.BZ2_bzCompress(byref(self.bzs), BZ_FINISH)
+            if bzerror == BZ_STREAM_END:
+                break
+            elif bzerror != BZ_FINISH_OK:
+                _catch_bz2_error(self.space, bzerror)
+
+        total_out = _bzs_total_out(self.bzs)
+        res = "".join([out_buf[i] for i in range(total_out)])
+        return self.space.wrap(res)
+    flush.unwrap_spec = ['self']
 
 
-_BZ2Comp.typedef = TypeDef("_BZ2File")
+_BZ2Comp.typedef = TypeDef("_BZ2Comp",
+    compress = interp2app(_BZ2Comp.compress,
+        unwrap_spec=_BZ2Comp.compress.unwrap_spec),
+    flush = interp2app(_BZ2Comp.flush, unwrap_spec=_BZ2Comp.flush.unwrap_spec),
+)
 
 def BZ2Compressor(space, compresslevel=9):
     """BZ2Compressor([compresslevel=9]) -> compressor object
