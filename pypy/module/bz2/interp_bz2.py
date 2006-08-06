@@ -113,6 +113,8 @@ libbz2.BZ2_bzWrite.restype = c_void
 
 libbz2.BZ2_bzCompressInit.argtypes = [POINTER(bz_stream), c_int, c_int, c_int]
 libbz2.BZ2_bzCompressInit.restype = c_int
+libbz2.BZ2_bzCompressEnd.argtypes = [POINTER(bz_stream)]
+libbz2.BZ2_bzCompressEnd.restype = c_int
 
 libc.strerror.restype = c_char_p
 libc.strerror.argtypes = [c_int]
@@ -768,6 +770,9 @@ class _BZ2Comp(Wrappable):
             _catch_bz2_error(self.space, bzerror)
         
         self.running = True
+        
+    def __del__(self):
+        libbz2.BZ2_bzCompressEnd(byref(self.bzs))
 
 
 _BZ2Comp.typedef = TypeDef("_BZ2File")
