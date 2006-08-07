@@ -1054,6 +1054,67 @@ def compress(space, data, compresslevel=9):
     return self.space.wrap(res)
 compress.unwrap_spec = [ObjSpace, str, int]
 
+def decompress(space, data):
+    """decompress(data) -> decompressed data
+
+    Decompress data in one shot. If you want to decompress data sequentially,
+    use an instance of BZ2Decompressor instead."""
+    
+    in_bufsize = len(data)
+    if in_bufsize == 0:
+        return self.space.wrap("")
+    
+    bzs = bz_stream()
+    
+    in_buf = create_string_buffer(in_bufsize)
+    in_buf.value = data
+
+    out_bufsize = SMALLCHUNK
+    out_buf = create_string_buffer(out_bufsize)
+    
+    self.bzs.next_in = in_buf
+    self.bzs.avail_in = in_bufsize
+    self.bzs.next_out = out_buf
+    self.bzs.avail_out = out_bufsize
+    
+    bzerror = libbz2.BZ2_bzDecompressInit(byref(self.bzs), 0, 0)
+    if bzerror != BZ_OK:
+        _catch_bz2_error(self.space, bzerror)
+        
+    temp = []
+    while True:
+        bzerror = libbz2.BZ2_bzDecompress(byref(bzs))
+        if bzerror == BZ_STREAM_END:
+            break
+        if bzerror != BZ_OK:
+            libbz2.BZ2_bzDecompressEnd(byref(bzs))
+            _catch_bz2_error(self.space, bzerror)
+        
+        if self.bzs.avail_in == 0:
+            libbz2.BZ2_bzDecompressEnd(byref(bzs))
+            raise OperationError(space.w_ValueError,
+                space.wrap("couldn't find end of stream"))
+        elif self.bzs.avail_out == 0:
+            total_out = _bzs_total_out(self.bzs)
+            data = "".join([out_buf[i] for i in range(total_out)])
+            temp.append(data)
+            
+            out_bufsize = _new_buffer_size(out_bufsize)
+            out_buf = create_string_buffer(out_bufsize)
+            self.bzs.next_out = out_buf
+            self.bzs.avail_out = out_bufsize
+    
+    total_out = _bzs_total_out(self.bzs)
+    if temp:
+        data = "".join([out_buf[i] for i in range(total_out - len(temp[0]))])
+        temp.append(data)
+        res = "".join(temp)
+    else:
+        res = "".join([out_buf[i] for i in range(total_out) if out_buf[i] != '\x00'])
+    
+    libbz2.BZ2_bzDecompressEnd(byref(bzs))
+    return self.space.wrap(res)    
+decompress.unwrap_spec = [ObjSpace, str]
 
 def BZ2Compressor(space, compresslevel=9):
     """BZ2Compressor([compresslevel=9]) -> compressor object
