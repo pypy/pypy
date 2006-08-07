@@ -724,6 +724,30 @@ class AppTestBZ2Decompressor:
         bz2d = BZ2Decompressor()
         bz2d.decompress(DATA)
         raises(EOFError, bz2d.decompress, "foo")
+        
+def test_compress_function():
+    def decompress(data):
+        import popen2
+        import bz2
+        pop = popen2.Popen3("bunzip2", capturestderr=1)
+        pop.tochild.write(data)
+        pop.tochild.close()
+        res = pop.fromchild.read()
+        pop.fromchild.close()
+        if pop.wait() != 0:
+            res = bz2.decompress(data)
+        return res
+
+    from bz2 import compress
+    
+    TEXT = 'root:x:0:0:root:/root:/bin/bash\nbin:x:1:1:bin:/bin:\ndaemon:x:2:2:daemon:/sbin:\nadm:x:3:4:adm:/var/adm:\nlp:x:4:7:lp:/var/spool/lpd:\nsync:x:5:0:sync:/sbin:/bin/sync\nshutdown:x:6:0:shutdown:/sbin:/sbin/shutdown\nhalt:x:7:0:halt:/sbin:/sbin/halt\nmail:x:8:12:mail:/var/spool/mail:\nnews:x:9:13:news:/var/spool/news:\nuucp:x:10:14:uucp:/var/spool/uucp:\noperator:x:11:0:operator:/root:\ngames:x:12:100:games:/usr/games:\ngopher:x:13:30:gopher:/usr/lib/gopher-data:\nftp:x:14:50:FTP User:/var/ftp:/bin/bash\nnobody:x:65534:65534:Nobody:/home:\npostfix:x:100:101:postfix:/var/spool/postfix:\nniemeyer:x:500:500::/home/niemeyer:/bin/bash\npostgres:x:101:102:PostgreSQL Server:/var/lib/pgsql:/bin/bash\nmysql:x:102:103:MySQL server:/var/lib/mysql:/bin/bash\nwww:x:103:104::/var/www:/bin/false\n'
+    
+    raises(TypeError, compress, 123)
+    raises(ValueError, compress, "foo", 10)
+    raises(TypeError, compress, "foo", "foo")
+    
+    data = compress(TEXT)
+    assert decompress(data) == TEXT
 
 # has_cmdline_bunzip2 = sys.platform not in ("win32", "os2emx", "riscos")
 # 
@@ -744,14 +768,6 @@ class AppTestBZ2Decompressor:
 #     def decompress(self, data):
 #         return bz2.decompress(data)
 #
-# class FuncTest(BaseTest):
-#     "Test module functions"
-# 
-#     def testCompress(self):
-#         # "Test compress() function"
-#         data = bz2.compress(self.TEXT)
-#         self.assertEqual(self.decompress(data), self.TEXT)
-# 
 #     def testDecompress(self):
 #         # "Test decompress() function"
 #         text = bz2.decompress(self.DATA)

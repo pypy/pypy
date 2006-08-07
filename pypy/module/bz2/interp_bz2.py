@@ -992,6 +992,69 @@ _BZ2Decomp.typedef = TypeDef("_BZ2Decomp",
 )
 
 
+def compress(space, data, compresslevel=9):
+    """compress(data [, compresslevel=9]) -> string
+
+    Compress data in one shot. If you want to compress data sequentially,
+    use an instance of BZ2Compressor instead. The compresslevel parameter, if
+    given, must be a number between 1 and 9."""
+    
+    if compresslevel < 1 or compresslevel > 9:
+        raise OperationError(self.space.w_ValueError,
+            self.space.wrap("compresslevel must be between 1 and 9"))
+            
+    bzs = bz_stream()
+    
+    in_bufsize = len(data)
+    # conforming to bz2 manual, this is large enough to fit compressed
+	# data in one shot. We will check it later anyway.
+    out_bufsize = in_bufsize + (in_bufsize / 100 + 1) + 600
+    
+    out_buf = create_string_buffer(out_bufsize)        
+    in_buf = create_string_buffer(in_bufsize)
+    in_buf.value = data
+    
+    self.bzs.next_in = in_buf
+    self.bzs.avail_in = in_bufsize
+    self.bzs.next_out = out_buf
+    self.bzs.avail_out = out_bufsize
+
+    bzerror = libbz2.BZ2_bzCompressInit(byref(self.bzs), compresslevel, 0, 0)
+    if bzerror != BZ_OK:
+        _catch_bz2_error(self.space, bzerror)
+    
+    while True:
+        bzerror = libbz2.BZ2_bzCompress(byref(self.bzs), BZ_FINISH)
+        if bzerror == BZ_STREAM_END:
+            break
+        elif bzerror != BZ_FINISH_OK:
+            libbz2.BZ2_bzCompressEnd(byref(self.bzs))
+            _catch_bz2_error(self.space, bzerror)
+            
+        if self.bzs.avail_out == 0:
+            data = "".join([out_buf[i] for i in range(_bzs_total_out(self.bzs))])
+            temp.append(data)
+            
+            out_bufsize = _new_buffer_size(out_bufsize)
+            out_buf = create_string_buffer(out_bufsize)
+            self.bzs.next_out = out_buf
+            self.bzs.avail_out = out_bufsize
+    
+    if temp:
+        res = "".join(temp)
+        
+    if self.bzs.avail_out:
+        size = _bzs_total_out(self.bzs) - total_out
+        res = "".join([out_buf[i] for i in range(size)])
+    else:
+        total_out = _bzs_total_out(self.bzs)
+        res = "".join([out_buf[i] for i in range(total_out)])
+    
+    libbz2.BZ2_bzCompressEnd(byref(self.bzs))
+    return self.space.wrap(res)
+compress.unwrap_spec = [ObjSpace, str, int]
+
+
 def BZ2Compressor(space, compresslevel=9):
     """BZ2Compressor([compresslevel=9]) -> compressor object
 
