@@ -667,6 +667,12 @@ class AppTestBZ2Decompressor:
         raises(TypeError, BZ2Decompressor, "foo")
         
         BZ2Decompressor()
+        
+    def test_attribute(self):
+        from bz2 import BZ2Decompressor
+        
+        bz2d = BZ2Decompressor()
+        assert bz2d.unused_data == ""
 
 # has_cmdline_bunzip2 = sys.platform not in ("win32", "os2emx", "riscos")
 # 

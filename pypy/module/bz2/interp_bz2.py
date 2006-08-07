@@ -921,7 +921,12 @@ class _BZ2Decomp(Wrappable):
     
     def __del__(self):
         libbz2.BZ2_bzDecompressEnd(byref(self.bzs))
-        
+    
+
+_BZ2Decomp.typedef = TypeDef("_BZ2Decomp",
+    unused_data = interp_attrproperty("unused_data", _BZ2Decomp),
+)
+
 
 def BZ2Compressor(space, compresslevel=9):
     """BZ2Compressor([compresslevel=9]) -> compressor object
