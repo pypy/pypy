@@ -38,6 +38,9 @@ class W_DictObject(W_Object):
     def len(w_self):
         return len(w_self.content)
 
+    def get(w_dict, w_lookup, w_default):
+        return w_dict.content.get(w_lookup, w_default)
+
     def set_str_keyed_item(w_dict, w_key, w_value):
         w_dict.content[w_key] = w_value
 

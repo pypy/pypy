@@ -472,10 +472,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def finditem(self, w_obj, w_key):
         # performance shortcut to avoid creating the OperationError(KeyError)
         if type(w_obj) is self.DictObjectCls:
-            if not self.config.objspace.std.withstrdict and not self.config.objspace.std.withmultidict:
-                return w_obj.content.get(w_key, None)
-            else:
-                return w_obj.get(w_key, None)
+            return w_obj.get(w_key, None)
         return ObjSpace.finditem(self, w_obj, w_key)
 
     def set_str_keyed_item(self, w_obj, w_key, w_value):
