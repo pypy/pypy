@@ -219,9 +219,9 @@ class PyFrame(eval.EvalFrame):
                     try:
                         try:
                             if we_are_translated():
-                                 # always raising, put the resume point just before!
-                                 rstack.resume_point("eval", self, executioncontext)
-                                 self.dispatch_translated(executioncontext)
+                                # always raising, put the resume point just before!
+                                rstack.resume_point("eval", self, executioncontext)
+                                self.dispatch_translated(executioncontext)
                             else:
                                 self.dispatch(executioncontext)
                         # catch asynchronous exceptions and turn them
