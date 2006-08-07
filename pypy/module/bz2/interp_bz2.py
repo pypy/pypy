@@ -1000,8 +1000,8 @@ def compress(space, data, compresslevel=9):
     given, must be a number between 1 and 9."""
     
     if compresslevel < 1 or compresslevel > 9:
-        raise OperationError(self.space.w_ValueError,
-            self.space.wrap("compresslevel must be between 1 and 9"))
+        raise OperationError(space.w_ValueError,
+            space.wrap("compresslevel must be between 1 and 9"))
             
     bzs = bz_stream()
     
@@ -1014,44 +1014,44 @@ def compress(space, data, compresslevel=9):
     in_buf = create_string_buffer(in_bufsize)
     in_buf.value = data
     
-    self.bzs.next_in = in_buf
-    self.bzs.avail_in = in_bufsize
-    self.bzs.next_out = out_buf
-    self.bzs.avail_out = out_bufsize
+    bzs.next_in = in_buf
+    bzs.avail_in = in_bufsize
+    bzs.next_out = out_buf
+    bzs.avail_out = out_bufsize
 
-    bzerror = libbz2.BZ2_bzCompressInit(byref(self.bzs), compresslevel, 0, 0)
+    bzerror = libbz2.BZ2_bzCompressInit(byref(bzs), compresslevel, 0, 0)
     if bzerror != BZ_OK:
-        _catch_bz2_error(self.space, bzerror)
+        _catch_bz2_error(space, bzerror)
     
     while True:
-        bzerror = libbz2.BZ2_bzCompress(byref(self.bzs), BZ_FINISH)
+        bzerror = libbz2.BZ2_bzCompress(byref(bzs), BZ_FINISH)
         if bzerror == BZ_STREAM_END:
             break
         elif bzerror != BZ_FINISH_OK:
-            libbz2.BZ2_bzCompressEnd(byref(self.bzs))
-            _catch_bz2_error(self.space, bzerror)
+            libbz2.BZ2_bzCompressEnd(byref(bzs))
+            _catch_bz2_error(space, bzerror)
             
-        if self.bzs.avail_out == 0:
-            data = "".join([out_buf[i] for i in range(_bzs_total_out(self.bzs))])
+        if bzs.avail_out == 0:
+            data = "".join([out_buf[i] for i in range(_bzs_total_out(bzs))])
             temp.append(data)
             
             out_bufsize = _new_buffer_size(out_bufsize)
             out_buf = create_string_buffer(out_bufsize)
-            self.bzs.next_out = out_buf
-            self.bzs.avail_out = out_bufsize
+            bzs.next_out = out_buf
+            bzs.avail_out = out_bufsize
     
     if temp:
         res = "".join(temp)
         
-    if self.bzs.avail_out:
-        size = _bzs_total_out(self.bzs) - total_out
+    if bzs.avail_out:
+        size = _bzs_total_out(bzs) - total_out
         res = "".join([out_buf[i] for i in range(size)])
     else:
-        total_out = _bzs_total_out(self.bzs)
+        total_out = _bzs_total_out(bzs)
         res = "".join([out_buf[i] for i in range(total_out)])
     
-    libbz2.BZ2_bzCompressEnd(byref(self.bzs))
-    return self.space.wrap(res)
+    libbz2.BZ2_bzCompressEnd(byref(bzs))
+    return space.wrap(res)
 compress.unwrap_spec = [ObjSpace, str, int]
 
 def decompress(space, data):
@@ -1062,7 +1062,7 @@ def decompress(space, data):
     
     in_bufsize = len(data)
     if in_bufsize == 0:
-        return self.space.wrap("")
+        return space.wrap("")
     
     bzs = bz_stream()
     
@@ -1072,14 +1072,14 @@ def decompress(space, data):
     out_bufsize = SMALLCHUNK
     out_buf = create_string_buffer(out_bufsize)
     
-    self.bzs.next_in = in_buf
-    self.bzs.avail_in = in_bufsize
-    self.bzs.next_out = out_buf
-    self.bzs.avail_out = out_bufsize
+    bzs.next_in = in_buf
+    bzs.avail_in = in_bufsize
+    bzs.next_out = out_buf
+    bzs.avail_out = out_bufsize
     
-    bzerror = libbz2.BZ2_bzDecompressInit(byref(self.bzs), 0, 0)
+    bzerror = libbz2.BZ2_bzDecompressInit(byref(bzs), 0, 0)
     if bzerror != BZ_OK:
-        _catch_bz2_error(self.space, bzerror)
+        _catch_bz2_error(space, bzerror)
         
     temp = []
     while True:
@@ -1088,23 +1088,23 @@ def decompress(space, data):
             break
         if bzerror != BZ_OK:
             libbz2.BZ2_bzDecompressEnd(byref(bzs))
-            _catch_bz2_error(self.space, bzerror)
+            _catch_bz2_error(space, bzerror)
         
-        if self.bzs.avail_in == 0:
+        if bzs.avail_in == 0:
             libbz2.BZ2_bzDecompressEnd(byref(bzs))
             raise OperationError(space.w_ValueError,
                 space.wrap("couldn't find end of stream"))
-        elif self.bzs.avail_out == 0:
-            total_out = _bzs_total_out(self.bzs)
+        elif bzs.avail_out == 0:
+            total_out = _bzs_total_out(bzs)
             data = "".join([out_buf[i] for i in range(total_out)])
             temp.append(data)
             
             out_bufsize = _new_buffer_size(out_bufsize)
             out_buf = create_string_buffer(out_bufsize)
-            self.bzs.next_out = out_buf
-            self.bzs.avail_out = out_bufsize
+            bzs.next_out = out_buf
+            bzs.avail_out = out_bufsize
     
-    total_out = _bzs_total_out(self.bzs)
+    total_out = _bzs_total_out(bzs)
     if temp:
         data = "".join([out_buf[i] for i in range(total_out - len(temp[0]))])
         temp.append(data)
@@ -1113,7 +1113,7 @@ def decompress(space, data):
         res = "".join([out_buf[i] for i in range(total_out) if out_buf[i] != '\x00'])
     
     libbz2.BZ2_bzDecompressEnd(byref(bzs))
-    return self.space.wrap(res)    
+    return space.wrap(res)    
 decompress.unwrap_spec = [ObjSpace, str]
 
 def BZ2Compressor(space, compresslevel=9):
