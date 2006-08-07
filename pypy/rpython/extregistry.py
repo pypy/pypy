@@ -19,7 +19,7 @@ class AutoRegisteringType(type):
             del selfcls._metatype_
 
     def _register_value(selfcls, key):
-        if isinstance(key, (tuple, list)):
+        if isinstance(key, tuple):
             for k in key:
                 selfcls._register_value(k)
         else:
@@ -27,7 +27,7 @@ class AutoRegisteringType(type):
             EXT_REGISTRY_BY_VALUE[key] = selfcls
 
     def _register_type(selfcls, key):
-        if isinstance(key, (tuple, list)):
+        if isinstance(key, tuple):
             for k in key:
                 selfcls._register_type(k)
         else:
@@ -35,7 +35,7 @@ class AutoRegisteringType(type):
             EXT_REGISTRY_BY_TYPE[key] = selfcls
 
     def _register_metatype(selfcls, key):
-        if isinstance(key, (tuple, list)):
+        if isinstance(key, tuple):
             for k in key:
                 selfcls._register_metatype(k)
         else:

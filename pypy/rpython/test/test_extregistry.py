@@ -1,6 +1,4 @@
-import py
-
-##py.test.skip('In progress at PyCon')
+import py, sys
 
 from pypy.rpython import extregistry
 from pypy.rpython.extregistry import ExtRegistryEntry
@@ -172,10 +170,10 @@ def test_register_unhashable():
     assert isinstance(extregistry.lookup(lst1), Entry)
     py.test.raises(KeyError, "extregistry.lookup(lst2)")
 
-def test_register_non_weakly_refable(n=6):
-    tup1 = (5, 6)
-    tup2 = (5, n)
+def test_register_non_weakly_refable():
+    n1 = sys.maxint // 2
+    n2 = sys.maxint // 2
     class Entry(ExtRegistryEntry):
-        _about_ = tup1
-    assert isinstance(extregistry.lookup(tup1), Entry)
-    assert isinstance(extregistry.lookup(tup2), Entry)
+        _about_ = n1
+    assert isinstance(extregistry.lookup(n1), Entry)
+    assert isinstance(extregistry.lookup(n2), Entry)
