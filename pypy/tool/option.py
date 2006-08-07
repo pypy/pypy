@@ -103,7 +103,7 @@ def make_config(cmdlineopt, **kwds):
         kwds.get("uselibfile", False)):
         conf.objspace.uselibfile = True
     if getattr(cmdlineopt, "oldstyle", False) or kwds.get("oldstyle", False):
-        conf.objspace.oldstyle = True
+        conf.objspace.std.oldstyle = True
     if hasattr(cmdlineopt, "parser") and cmdlineopt.parser is not None:
         conf.objspace.parser = cmdlineopt.parser
     if kwds.get("compiler") is not None:
