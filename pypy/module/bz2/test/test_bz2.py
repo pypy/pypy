@@ -656,6 +656,18 @@ class AppTestBZ2Compressor:
         data = "%s%s" % (data, bz2c.flush())
         assert decompress(data) == TEXT
 
+class AppTestBZ2Decompressor:
+    def setup_class(cls):
+        space = gettestobjspace(usemodules=('bz2',))
+        cls.space = space
+        
+    def test_creation(self):
+        from bz2 import BZ2Decompressor
+        
+        raises(TypeError, BZ2Decompressor, "foo")
+        
+        BZ2Decompressor()
+
 # has_cmdline_bunzip2 = sys.platform not in ("win32", "os2emx", "riscos")
 # 
 # if has_cmdline_bunzip2:

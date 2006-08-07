@@ -126,6 +126,13 @@ libbz2.BZ2_bzCompressInit.argtypes = [POINTER(bz_stream), c_int, c_int, c_int]
 libbz2.BZ2_bzCompressInit.restype = c_int
 libbz2.BZ2_bzCompressEnd.argtypes = [POINTER(bz_stream)]
 libbz2.BZ2_bzCompressEnd.restype = c_int
+libbz2.BZ2_bzCompress.argtypes = [POINTER(bz_stream), c_int]
+libbz2.BZ2_bzCompress.restype = c_int
+
+libbz2.BZ2_bzDecompressInit.argtypes = [POINTER(bz_stream), c_int, c_int]
+libbz2.BZ2_bzDecompressInit.restype = c_int
+libbz2.BZ2_bzDecompressEnd.argtypes = [POINTER(bz_stream)]
+libbz2.BZ2_bzDecompressEnd.restype = c_int
 
 libc.strerror.restype = c_char_p
 libc.strerror.argtypes = [c_int]
@@ -894,6 +901,28 @@ _BZ2Comp.typedef = TypeDef("_BZ2Comp",
     flush = interp2app(_BZ2Comp.flush, unwrap_spec=_BZ2Comp.flush.unwrap_spec),
 )
 
+
+class _BZ2Decomp(Wrappable):
+    def __init__(self, space):
+        self.space = space
+        
+        self.bzs = bz_stream()
+        self.running = False
+        self.unused_data = ""
+        
+        self._init_bz2decomp()
+    
+    def _init_bz2decomp(self):
+        bzerror = libbz2.BZ2_bzDecompressInit(byref(self.bzs), 0, 0)
+        if bzerror != BZ_OK:
+            _catch_bz2_error(self.space, bzerror)
+        
+        self.running = True
+    
+    def __del__(self):
+        libbz2.BZ2_bzDecompressEnd(byref(self.bzs))
+        
+
 def BZ2Compressor(space, compresslevel=9):
     """BZ2Compressor([compresslevel=9]) -> compressor object
 
@@ -904,6 +933,16 @@ def BZ2Compressor(space, compresslevel=9):
     
     return _BZ2Comp(space, compresslevel)
 BZ2Compressor.unwrap_spec = [ObjSpace, int]
+
+def BZ2Decompressor(space):
+    """BZ2Decompressor() -> decompressor object
+
+    Create a new decompressor object. This object may be used to decompress
+    data sequentially. If you want to decompress data in one shot, use the
+    decompress() function instead."""
+    
+    return _BZ2Decomp(space)
+BZ2Decompressor.unwrap_spec = [ObjSpace]
 
 def BZ2File(space, filename, mode='r', buffering=-1, compresslevel=9):
     """BZ2File(name [, mode='r', buffering=0, compresslevel=9]) -> file object
