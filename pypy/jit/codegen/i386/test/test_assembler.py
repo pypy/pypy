@@ -1,4 +1,4 @@
-from assembler import *
+from pypy.jit.codegen.i386.assembler import *
 
 
 def test_simple():

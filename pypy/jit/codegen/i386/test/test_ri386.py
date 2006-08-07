@@ -1,5 +1,5 @@
 import py
-from ri386 import *
+from pypy.jit.codegen.i386.ri386 import *
 
 class CodeBuilder(AbstractCodeBuilder):
     def __init__(self):

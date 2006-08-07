@@ -1,4 +1,4 @@
-from ri386genop import *
+from pypy.jit.codegen.i386.ri386genop import *
 
 
 def test_machinecodeblock():

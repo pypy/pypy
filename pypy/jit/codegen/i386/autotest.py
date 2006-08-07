@@ -2,8 +2,8 @@ import os, random, string, struct
 import i386
 
 FILENAME = 'checkfile.tmp'
-BEGIN_TAG = '<<<psyco-test-begin>>>'
-END_TAG =   '<<<psyco-test-end>>>'
+BEGIN_TAG = '<<<ri386-test-begin>>>'
+END_TAG =   '<<<ri386-test-end>>>'
 
 COUNT1 = 15
 COUNT2 = 25

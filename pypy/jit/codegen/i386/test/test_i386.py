@@ -1,6 +1,6 @@
 import py
-from i386 import *
-from assembler import CodeBuilder
+from pypy.jit.codegen.i386.i386 import *
+from pypy.jit.codegen.i386.assembler import CodeBuilder
 
 
 def test_basic():
@@ -40,7 +40,7 @@ def test_auto():
     if not data.startswith('GNU assembler'):
         py.test.skip("full tests require the GNU 'as' assembler")
 
-    import autotest
+    from pypy.jit.codegen.i386 import autotest
     def do_test(name, insn):
         print name
         if name in ('CMOVPE', 'CMOVPO'):
