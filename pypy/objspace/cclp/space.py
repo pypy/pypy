@@ -1,25 +1,52 @@
-from pypy.interpreter import baseobjspace
+from pypy.rpython.objectmodel import we_are_translated
+from pypy.interpreter import baseobjspace, gateway, argument, typedef
 from pypy.interpreter.error import OperationError
 
-from pypy.objspace.cclp.misc import ClonableCoroutine
+from pypy.objspace.cclp.misc import ClonableCoroutine, w
+from pypy.objspace.cclp.thunk import FutureThunk, ProcedureThunk
+from pypy.objspace.cclp.global_state import scheduler
 
-## def newspace(w_callable, __args__):
-##     w_coro = stacklet(w_callable, __args__)
-##     w_space = CSpace(coro, parent=coro.space)
-##     w_coro.space = space
-##     return w_space
+def newspace(space, w_callable, __args__):
+    try:
+        args = __args__.normalize()
+        # coro init
+        w_coro = ClonableCoroutine(space)
+        thunk = ProcedureThunk(space, w_callable, args, w_coro)
+        w_coro.bind(thunk)
+        if not we_are_translated():
+            w("NEWSPACE, thread", str(id(w_coro)), "for", str(w_callable.name))
 
-class CSpace(baseobjspace.Wrappable):
+            w_space = W_CSpace(space, w_coro, parent=w_coro._cspace)
+            w_coro._cspace = w_space
 
-    def __init__(self, space, distributor, parent=None):
-        pass
-##         assert isinstance(distributor, ClonableCoroutine)
-##         assert (parent is None) or isinstance(parent, CSpace)
-##         self.space = space # the object space ;-)
-##         self.parent = parent
-##         self.distributor = distributor
-##         self.threads = {} # the eventual other threads
-        
+            scheduler[0].add_new_thread(w_coro)
+            scheduler[0].schedule()
+    except:
+        print "oh, uh"
+
+    return w_space
+app_newspace = gateway.interp2app(newspace, unwrap_spec=[baseobjspace.ObjSpace,
+                                                         baseobjspace.W_Root,
+                                                         argument.Arguments])
+
+class W_CSpace(baseobjspace.Wrappable):
+
+    def __init__(self, space, thread, parent=None):
+        assert isinstance(thread, ClonableCoroutine)
+        assert (parent is None) or isinstance(parent, CSpace)
+        self.space = space # the object space ;-)
+        self.parent = parent
+        self.main_thread = thread
+
+    def w_ask(self):
+        scheduler[0].wait_stable(self)
+        return self.space.newint(0)
+
+W_CSpace.typedef = typedef.TypeDef("W_CSpace",
+    ask = gateway.interp2app(W_CSpace.w_ask))
+
+
+
 
 ##     def is_top_level(self):
 ##         return self.parent is None
@@ -28,9 +55,6 @@ class CSpace(baseobjspace.Wrappable):
 ##         #XXX return w_getcurrent().cspace
 ##         pass
 
-##     def newspace():
-##         #XXX fork ?
-##         pass
 
 ##     def clone(self):
 ##         if self.is_top_level():

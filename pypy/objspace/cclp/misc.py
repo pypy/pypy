@@ -5,7 +5,7 @@ from pypy.module._stackless.clonable import ClonableCoroutine
 
 import os
 
-NO_DEBUG_INFO = [False]
+NO_DEBUG_INFO = [True]
 def w(*msgs):
     """writeln"""
     if NO_DEBUG_INFO[0]: return

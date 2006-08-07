@@ -600,3 +600,31 @@ class AppTest_LogicFutures(object):
         schedule()
 
         reset_scheduler() # free all the hanging threads
+
+    def test_newspace_ask_noop(self):
+
+        def bar(X): return X + 42
+
+        X = newvar()
+        s = newspace(bar, X)
+        s.ask()
+
+    def test_newspace_ask_wait(self):
+
+        def quux(X):
+            while 1:
+                if is_bound(X):
+                    break
+                schedule()
+
+        def asker(cspace):
+            cspace.ask()
+
+        X = newvar()
+        s = newspace(quux, X)
+        stacklet(asker, s)
+        unify(X, 42)
+        assert len(sched_all()['asking']) == 1
+        schedule() # allow quux exit
+        schedule() # allow asker exit
+        assert len(sched_all()['asking']) == 0

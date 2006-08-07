@@ -4,7 +4,7 @@ from pypy.rpython.objectmodel import we_are_translated
 from pypy.objspace.cclp.types import W_Var, W_Future, W_FailedValue
 from pypy.objspace.cclp.misc import w, v, ClonableCoroutine
 from pypy.objspace.cclp.thunk import FutureThunk, ProcedureThunk
-from pypy.objspace.cclp.scheduler import scheduler
+from pypy.objspace.cclp.global_state import scheduler
 
 
 #-- Future --------------------------------------------------
@@ -21,7 +21,8 @@ def future(space, w_callable, __args__):
     w_Future = W_Future(space)
     thunk = FutureThunk(space, w_callable, args, w_Future, coro)
     coro.bind(thunk)
-    w("FUTURE", str(id(coro)))
+    if not we_are_translated():
+        w("FUTURE", str(id(coro)), "for", str(w_callable.name))
     scheduler[0].add_new_thread(coro)
     return w_Future
 app_future = gateway.interp2app(future, unwrap_spec=[baseobjspace.ObjSpace,
@@ -39,7 +40,9 @@ def stacklet(space, w_callable, __args__):
     #coro.cspace = ClonableCoroutine.w_getcurrent(space).cspace
     thunk = ProcedureThunk(space, w_callable, args, coro)
     coro.bind(thunk)
-    w("STACKLET", str(id(coro)))
+    print we_are_translated()
+    if not we_are_translated():
+        w("STACKLET", str(id(coro)), "for", str(w_callable.name))
     scheduler[0].add_new_thread(coro)
     scheduler[0].schedule()
     return coro

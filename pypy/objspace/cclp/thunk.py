@@ -1,6 +1,6 @@
 from pypy.module._stackless.coroutine import _AppThunk
 from pypy.objspace.cclp.misc import w 
-from pypy.objspace.cclp.scheduler import scheduler
+from pypy.objspace.cclp.global_state import scheduler
 from pypy.objspace.cclp.types import W_Var, W_Future, W_FailedValue
 
 #-- Thunk -----------------------------------------

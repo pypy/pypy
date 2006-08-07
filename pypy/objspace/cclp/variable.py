@@ -5,7 +5,7 @@ from pypy.objspace.std.listobject import W_ListObject, W_TupleObject
 from pypy.objspace.std.dictobject import W_DictObject
 
 from pypy.objspace.cclp.misc import w, v, ClonableCoroutine
-from pypy.objspace.cclp.scheduler import scheduler
+from pypy.objspace.cclp.global_state import scheduler
 from pypy.objspace.cclp.types import deref, W_Var, W_Future, W_FailedValue
 
 

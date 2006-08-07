@@ -16,8 +16,12 @@ from pypy.objspace.cclp.misc import app_interp_id, app_switch_debug_info
 
 from pypy.objspace.cclp.thread import app_future, app_stacklet, app_this_thread
 
-from pypy.objspace.cclp.scheduler import Scheduler, scheduler, app_sched_info, \
-     app_schedule, app_reset_scheduler
+from pypy.objspace.cclp.scheduler import Scheduler,  app_sched_info, \
+     app_schedule, app_reset_scheduler, app_sched_all
+
+from pypy.objspace.cclp.global_state import scheduler
+
+from pypy.objspace.cclp.space import app_newspace, W_CSpace
 
 #-- VARIABLE ------------------------------------------------
 
@@ -188,6 +192,7 @@ def Space(*args, **kwds):
     # multimethods hack
     space.model.typeorder[W_Var] = [(W_Var, None), (W_Root, None)] # None means no conversion
     space.model.typeorder[W_Future] = [(W_Future, None), (W_Var, None)]
+    space.model.typeorder[W_CSpace] = [(W_CSpace, None), (baseobjspace.Wrappable, None)]
 ##     space.model.typeorder[W_FiniteDomain] = [(W_FiniteDomain, None), (W_Root, None)] 
 
 
@@ -256,12 +261,16 @@ def Space(*args, **kwds):
                   space.wrap(app_wait_needed))
     space.setitem(space.builtin.w_dict, space.wrap('sched_info'),
                   space.wrap(app_sched_info))
+    space.setitem(space.builtin.w_dict, space.wrap('sched_all'),
+                  space.wrap(app_sched_all))
     space.setitem(space.builtin.w_dict, space.wrap('schedule'),
                   space.wrap(app_schedule))
     space.setitem(space.builtin.w_dict, space.wrap('this_thread'),
                   space.wrap(app_this_thread))
     space.setitem(space.builtin.w_dict, space.wrap('reset_scheduler'),
                   space.wrap(app_reset_scheduler))
+    space.setitem(space.builtin.w_dict, space.wrap('newspace'),
+                  space.wrap(app_newspace))
 
     #-- misc -----
     space.setitem(space.builtin.w_dict, space.wrap('interp_id'),

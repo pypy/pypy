@@ -4,26 +4,25 @@ from pypy.interpreter import gateway
 
 from pypy.objspace.cclp.types import W_Var, W_FailedValue, aliases
 from pypy.objspace.cclp.misc import w, v, ClonableCoroutine
-#from pypy.objspace.cclp.space import CSpace
-
-scheduler = []
+from pypy.objspace.cclp.space import W_CSpace
+from pypy.objspace.cclp.global_state import scheduler
 
 #-- Singleton scheduler ------------------------------------------------
+
+class FunnyBoat: pass
 
 class Scheduler(object):
 
     def __init__(self, space):
         self.space = space
         self._main = ClonableCoroutine.w_getcurrent(space)
-        # link top_level space to main coroutine
-        #self.top_space = CSpace(space, self._main)
-        #self._main.cspace = self.top_space
-        # ...
         self._init_head(self._main)
         self._init_blocked()
         self._switch_count = 0
-        self._traced = {}
-        w ("MAIN THREAD = ", str(id(self._main)))
+        # more accounting
+        self._per_space_live_threads = {} # space -> nb runnable threads
+        self._traced = {} # thread -> vars
+        w("MAIN THREAD = ", str(id(self._main)))
 
     def get_threads(self):
         threads = [self._head]
@@ -35,8 +34,10 @@ class Scheduler(object):
 
     def _init_blocked(self):
         self._blocked = {} # thread set
+        # variables suspension lists
         self._blocked_on = {} # var -> threads
         self._blocked_byneed = {} # var -> threads
+        self._asking = {} # thread -> cspace
 
     def _init_head(self, thread):
         assert isinstance(thread, ClonableCoroutine)
@@ -81,13 +82,37 @@ class Scheduler(object):
         r = thread._next
         l._next = r
         r._prev = l
+        self._head = r
         if r == thread: #XXX write a test for me !
             if not we_are_translated(): 
                 import traceback
                 traceback.print_exc()
             self.display_head()
-        thread._next = thread._next = None
-        return thread
+        thread._next = thread._prev = FunnyBoat
+        # cspace/threads account mgmt
+        if thread._cspace is not None:
+            count = self._per_space_live_threads[thread._cspace]
+            assert count > 0
+            self._per_space_live_threads[thread._cspace] = count - 1
+            if count == 1:
+                del self._per_space_live_threads[thread._cspace]
+            
+#        return thread
+
+    #-- cspace helper
+
+    def is_stable(self, cspace):
+        if not self._per_space_live_threads.has_key(cspace):
+            return True
+        return self._per_space_live_threads[cspace] == 0
+
+    def wait_stable(self, cspace):
+        if self.is_stable(cspace):
+            return
+        curr = ClonableCoroutine.w_getcurrent(self.space)
+        self._asking[curr] = cspace
+        self._blocked[curr] = True
+        self.schedule()
 
     #-- to be used by logic objspace
 
@@ -117,6 +142,7 @@ class Scheduler(object):
                   or to_be_run.is_dead() \
                   or (to_be_run == current):
             to_be_run = to_be_run._next
+            assert isinstance(to_be_run, ClonableCoroutine)
             if to_be_run == sentinel:
                 if not dont_pass:
                     return ClonableCoroutine.w_getcurrent(self.space)
@@ -127,6 +153,11 @@ class Scheduler(object):
                 w(".. SCHEDULER reinitialized")
                 raise OperationError(self.space.w_AllBlockedError,
                                      self.space.wrap("can't schedule, possible deadlock in sight"))
+            if to_be_run in self._asking:
+                if self.is_stable(self._asking[to_be_run]):
+                    del self._asking[to_be_run]
+                    del self._blocked[to_be_run]
+        self._head = to_be_run
         return to_be_run
 
     #XXX call me directly for this to work translated
@@ -154,6 +185,11 @@ class Scheduler(object):
     def add_new_thread(self, thread):
         "insert 'thread' at end of running queue"
         assert isinstance(thread, ClonableCoroutine)
+        if thread._cspace != None:
+            print "Yeeeep"
+            count = self._per_space_live_threads.get(thread._cspace, 0)
+            self._per_space_live_threads[thread._cspace] = count + 1
+            assert len(self._per_space_live_threads)
         self._chain_insert(thread)
 
     def add_to_blocked_on(self, w_var, thread):
@@ -168,6 +204,9 @@ class Scheduler(object):
             self._blocked_on[w_var] = blocked
         blocked.append(thread)
         self._blocked[thread] = True
+        # cspace accounting
+        if thread._cspace is not None:
+            self._per_space_live_threads[thread._cspace] -= 1
 
     def unblock_on(self, w_var):
         v(".. we UNBLOCK threads dependants of var", str(w_var))
@@ -177,7 +216,11 @@ class Scheduler(object):
             blocked = self._blocked_on[w_var]
             del self._blocked_on[w_var]
         w(str([id(thr) for thr in blocked]))
-        for thr in blocked: del self._blocked[thr]
+        for thr in blocked:
+            del self._blocked[thr]
+            # cspace accounting
+            if thr._cspace is not None:
+                self._per_space_live_threads[thr._cspace] += 1
 
     def add_to_blocked_byneed(self, w_var, thread):
         w(".. we BLOCK BYNEED thread", str(id(thread)), "on var", str(w_var))
@@ -190,6 +233,9 @@ class Scheduler(object):
             self._blocked_byneed[w_var] = blocked
         blocked.append(thread)
         self._blocked[thread] = True
+        # cspace accounting
+        if thread._cspace is not None:
+            self._per_space_live_threads[thread._cspace] += 1
 
     def unblock_byneed_on(self, w_var):
         v(".. we UNBLOCK BYNEED dependants of var", str(w_var))
@@ -201,7 +247,12 @@ class Scheduler(object):
                 del self._blocked_byneed[w_alias]
             w_alias.needed = True
         w(str([id(thr) for thr in blocked]))
-        for thr in blocked: del self._blocked[thr]
+        for thr in blocked:
+            del self._blocked[thr]
+            # cspace accounting
+            if thr._cspace is not None:
+                self._per_space_live_threads[thr._cspace] -= 1
+            
 
     # Logic Variables tracing, helps exception propagation
     # amongst threads
@@ -244,6 +295,31 @@ def sched_info(space):
     return w_ret
 app_sched_info = gateway.interp2app(sched_info)
 
+def sched_all(space):
+    s = scheduler[0]
+    si = space.setitem
+    sw = space.wrap
+    w_ret = space.newdict([])
+    if not we_are_translated():
+        si(w_ret, sw('threads'),
+           sw([id(th) for th in s.get_threads()]))
+        si(w_ret, sw('blocked_on'),
+           sw([(id(th),  [id(th) for th in thl])
+               for var, thl in s._blocked_on.items()]))
+        si(w_ret, sw('blocked_byneed'),
+           sw([(id(var), [id(th) for th in thl])
+               for var, thl in s._blocked_byneed.items()]))
+        si(w_ret, sw('traced'),
+           sw([(id(th), [id(var) for var in lvar])
+               for th, lvar in s._traced.items()]))
+        si(w_ret, sw('space_accounting'),
+           sw([(id(spc), count)
+               for spc, count in s._per_space_live_threads.items()]))
+        si(w_ret, sw('asking'),
+           sw([(id(th), id(spc))
+               for th, spc in s._asking.items()]))
+    return w_ret
+app_sched_all = gateway.interp2app(sched_all)        
 
 def schedule(space):
     "useful til we get preemtive scheduling deep into the vm"
