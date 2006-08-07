@@ -814,13 +814,29 @@ class _BZ2Comp(Wrappable):
         self.bzs.next_out = out_buf
         self.bzs.avail_out = out_bufsize
         
+        temp = []
         while True:
             bzerror = libbz2.BZ2_bzCompress(byref(self.bzs), BZ_RUN)
-            if bzerror != BZ_OK:
+            if bzerror != BZ_RUN_OK:
                 _catch_bz2_error(self.space, bzerror)
 
             if self.bzs.avail_in == 0:
                 break
+            elif self.bzs.avail_out == 0:
+                total_out = _bzs_total_out(self.bzs)
+                data = "".join([out_buf[i] for i in range(total_out)])
+                temp.append(data)
+                
+                out_bufsize = _new_buffer_size(out_bufsize)
+                out_buf = create_string_buffer(out_bufsize)
+                self.bzs.next_out = out_buf
+                self.bzs.avail_out = out_bufsize
+
+        if temp:
+            total_out = _bzs_total_out(self.bzs)
+            data = "".join([out_buf[i] for i in range(total_out - len(temp[0]))])
+            temp.append(data)
+            return self.space.wrap("".join(temp))
 
         total_out = _bzs_total_out(self.bzs)
         res = "".join([out_buf[i] for i in range(total_out)])
@@ -835,17 +851,37 @@ class _BZ2Comp(Wrappable):
         
         out_bufsize = SMALLCHUNK
         out_buf = create_string_buffer(out_bufsize)
-
+    
         self.bzs.next_out = out_buf
         self.bzs.avail_out = out_bufsize
         
+        total_out = _bzs_total_out(self.bzs)
+        
+        temp = []
         while True:
             bzerror = libbz2.BZ2_bzCompress(byref(self.bzs), BZ_FINISH)
             if bzerror == BZ_STREAM_END:
                 break
             elif bzerror != BZ_FINISH_OK:
                 _catch_bz2_error(self.space, bzerror)
-
+                
+            if self.bzs.avail_out == 0:
+                data = "".join([out_buf[i] for i in range(_bzs_total_out(self.bzs))])
+                temp.append(data)
+                
+                out_bufsize = _new_buffer_size(out_bufsize)
+                out_buf = create_string_buffer(out_bufsize)
+                self.bzs.next_out = out_buf
+                self.bzs.avail_out = out_bufsize
+        
+        if temp:
+            return self.space.wrap("".join(temp))
+            
+        if self.bzs.avail_out:
+            size = _bzs_total_out(self.bzs) - total_out
+            res = "".join([out_buf[i] for i in range(size)])
+            return self.space.wrap(res)
+    
         total_out = _bzs_total_out(self.bzs)
         res = "".join([out_buf[i] for i in range(total_out)])
         return self.space.wrap(res)
