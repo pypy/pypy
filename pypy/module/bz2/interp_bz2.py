@@ -1023,6 +1023,8 @@ def compress(space, data, compresslevel=9):
     if bzerror != BZ_OK:
         _catch_bz2_error(space, bzerror)
     
+    total_out = _bzs_total_out(bzs)
+    temp = []
     while True:
         bzerror = libbz2.BZ2_bzCompress(byref(bzs), BZ_FINISH)
         if bzerror == BZ_STREAM_END:
