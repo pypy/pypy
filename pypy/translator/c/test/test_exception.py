@@ -1,5 +1,7 @@
 import py
+import sys
 from pypy.translator.c.test import test_typed
+from pypy.rpython.lltypesystem import lltype
 
 getcompiled = test_typed.TestTypedTestCase().getcompiled
 
@@ -75,6 +77,43 @@ def test_raise_outside_testfn():
         assert str(e) == 'MyException'   # which is genc's best effort
     else:
         py.test.fail("f1(1) did not raise anything")
+
+def test_memoryerror():
+    # in rev 30717 this test causes a segfault on some Linux, but usually
+    # only after the test is run.  It is caused by the following sequence
+    # of events in lltype.malloc(S, n): there is an OP_MAX_VARSIZE macro
+    # which figures out that the size asked for is too large and would
+    # cause a wrap-around, so it sets a MemoryError; but execution continues
+    # nevertheless and the next line is an OP_MALLOC instruction, which
+    # because of the wrap-around allocates for 's' an amount of bytes which
+    # falls precisely between 0 and offsetof(s, tail).  It succeeds.  Then
+    # the length field of s.tail is initialized - this overwrites random
+    # memory!  And only then is the exception check performed, and the
+    # MemoryError is noticed.
+    A = lltype.Array(lltype.Signed)
+    S = lltype.GcStruct('S', ('a', lltype.Signed),
+                             ('b', lltype.Signed),
+                             ('c', lltype.Signed),
+                             ('tail', A))
+    def g(n, tag):
+        s = lltype.malloc(S, n)
+        tag.a = 42
+        return s
+    def testfn(n=int):
+        tag = lltype.malloc(S, 0)
+        try:
+            s = g(n, tag)
+            result = s.tail[n//2]
+        except MemoryError:
+            result = 1000
+        return result + tag.a
+    f1 = getcompiled(testfn)
+    assert f1(10) == 42
+    assert f1(sys.maxint) == 1000
+    for i in range(20):
+        assert f1((sys.maxint+1) // 2 - i) == 1000
+    assert f1(sys.maxint // 2 - 16384) == 1000
+    assert f1(sys.maxint // 2 + 16384) == 1000
 
 def test_assert():
     def testfn(n=int):

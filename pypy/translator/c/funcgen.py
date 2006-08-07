@@ -525,12 +525,14 @@ class FunctionCodeGenerator(object):
         eresult = self.expr(op.result)
         if VARPART.OF is Void:    # strange
             esize = 'sizeof(%s)' % (cdecl(typename, ''),)
-            result = ''
+            result = '{\n'
         else:
             itemtype = cdecl(itemtypename, '')
-            result = 'OP_MAX_VARSIZE(%s, %s);\n' % (
+            result = 'IF_VARSIZE_OVERFLOW(%s, %s, %s)\nelse {\n' % (
                 elength,
-                itemtype)
+                itemtype,
+                eresult)
+            tail = '\n}'
             esize = 'sizeof(%s)-sizeof(%s)+%s*sizeof(%s)' % (
                 cdecl(typename, ''),
                 itemtype,
@@ -541,6 +543,7 @@ class FunctionCodeGenerator(object):
         # ctypes Arrays have no length field
         if not VARPART._hints.get('nolength', False):
             result += '\nif(%s) %s->%s = %s;' % (eresult, eresult, lenfld, elength)
+        result += '\n}'
         return result
 
     def OP_RAW_MALLOC(self, op):
