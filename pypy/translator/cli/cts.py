@@ -16,8 +16,7 @@ import py
 log = py.log.Producer("cli") 
 py.log.setconsumer("cli", ansi_log) 
 
-#WEAKREF = '[mscorlib]System.WeakReference'
-WEAKREF = '[pypylib]pypy.runtime.WeakReference'
+WEAKREF = '[mscorlib]System.WeakReference'
 PYPY_LIST = '[pypylib]pypy.runtime.List`1<%s>'
 PYPY_LIST_OF_VOID = '[pypylib]pypy.runtime.ListOfVoid'
 PYPY_DICT = '[pypylib]pypy.runtime.Dict`2<%s, %s>'
