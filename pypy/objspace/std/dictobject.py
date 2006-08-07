@@ -229,8 +229,6 @@ class W_DictIterObject(W_Object):
         w_self.pos = 0
         w_self.setup_iterator()
 
-    def return_entry(w_self, w_key, w_value):
-        raise NotImplementedError
 
 registerimplementation(W_DictIterObject)
 

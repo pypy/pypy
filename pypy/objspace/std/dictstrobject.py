@@ -363,9 +363,6 @@ class W_DictStrIterObject(W_Object):
         w_self.pos = 0
         w_self.setup_iterator()
 
-    def return_entry(w_self, w_key, w_value):
-        raise NotImplementedError
-
     def handleMutation(w_self):
         space = w_self.space
         w_self.len = -1   # Make this error state sticky
