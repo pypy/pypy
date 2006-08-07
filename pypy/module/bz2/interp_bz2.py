@@ -980,7 +980,7 @@ class _BZ2Decomp(Wrappable):
             return self.space.wrap("".join(temp))
 
         total_out = _bzs_total_out(self.bzs)
-        res = "".join([out_buf[i] for i in range(total_out)])
+        res = "".join([out_buf[i] for i in range(total_out) if out_buf[i] != '\x00'])
         return self.space.wrap(res)
     decompress.unwrap_spec = ['self', str]
 
