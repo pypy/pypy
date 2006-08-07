@@ -133,6 +133,8 @@ libbz2.BZ2_bzDecompressInit.argtypes = [POINTER(bz_stream), c_int, c_int]
 libbz2.BZ2_bzDecompressInit.restype = c_int
 libbz2.BZ2_bzDecompressEnd.argtypes = [POINTER(bz_stream)]
 libbz2.BZ2_bzDecompressEnd.restype = c_int
+libbz2.BZ2_bzDecompress.argtypes = [POINTER(bz_stream)]
+libbz2.BZ2_bzDecompress.restype = c_int
 
 libc.strerror.restype = c_char_p
 libc.strerror.argtypes = [c_int]
@@ -922,9 +924,71 @@ class _BZ2Decomp(Wrappable):
     def __del__(self):
         libbz2.BZ2_bzDecompressEnd(byref(self.bzs))
     
+    def decompress(self, data):
+        """"decompress(data) -> string
+
+        Provide more data to the decompressor object. It will return chunks
+        of decompressed data whenever possible. If you try to decompress data
+        after the end of stream is found, EOFError will be raised. If any data
+        was found after the end of stream, it'll be ignored and saved in
+        unused_data attribute."""
+        
+        if not self.running:
+            raise OperationError(self.space.w_EOFError,
+                self.space.wrap("end of stream was already found"))
+        
+        in_bufsize = len(data)
+        in_buf = create_string_buffer(in_bufsize)
+        in_buf.value = data
+
+        out_bufsize = SMALLCHUNK
+        out_buf = create_string_buffer(out_bufsize)
+        
+        self.bzs.next_in = in_buf
+        self.bzs.avail_in = in_bufsize
+        self.bzs.next_out = out_buf
+        self.bzs.avail_out = out_bufsize
+        
+        temp = []
+        while True:
+            bzerror = libbz2.BZ2_bzDecompress(byref(self.bzs))
+            if bzerror == BZ_STREAM_END:
+                if self.bzs.avail_in != 0:
+                    unused = [self.bzs.next_in[i] for i in range(self.bzs.avail_in)]
+                    self.unused_data = "".join(unused)
+                self.running = False
+                break
+            if bzerror != BZ_OK:
+                _catch_bz2_error(self.space, bzerror)
+            
+            if self.bzs.avail_in == 0:
+                break
+            elif self.bzs.avail_out == 0:
+                total_out = _bzs_total_out(self.bzs)
+                data = "".join([out_buf[i] for i in range(total_out)])
+                temp.append(data)
+                
+                out_bufsize = _new_buffer_size(out_bufsize)
+                out_buf = create_string_buffer(out_bufsize)
+                self.bzs.next_out = out_buf
+                self.bzs.avail_out = out_bufsize
+                
+        if temp:
+            total_out = _bzs_total_out(self.bzs)
+            data = "".join([out_buf[i] for i in range(total_out - len(temp[0]))])
+            temp.append(data)
+            return self.space.wrap("".join(temp))
+
+        total_out = _bzs_total_out(self.bzs)
+        res = "".join([out_buf[i] for i in range(total_out)])
+        return self.space.wrap(res)
+    decompress.unwrap_spec = ['self', str]
+
 
 _BZ2Decomp.typedef = TypeDef("_BZ2Decomp",
     unused_data = interp_attrproperty("unused_data", _BZ2Decomp),
+    decompress = interp2app(_BZ2Decomp.decompress,
+        unwrap_spec=_BZ2Decomp.decompress.unwrap_spec),
 )
 
 
