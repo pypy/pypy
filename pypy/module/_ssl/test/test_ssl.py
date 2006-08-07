@@ -1,4 +1,3 @@
-from py.test import raises, skip
 from pypy.conftest import gettestobjspace
 import os
 
