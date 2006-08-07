@@ -58,6 +58,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if self.config.objspace.std.withstrdict:
             from pypy.objspace.std import dictstrobject
             self.DictObjectCls = dictstrobject.W_DictStrObject
+        elif self.config.objspace.std.withmultidict:
+            from pypy.objspace.std import dictmultiobject
+            self.DictObjectCls = dictmultiobject.W_DictMultiObject
         else:
             from pypy.objspace.std import dictobject
             self.DictObjectCls = dictobject.W_DictObject
@@ -469,7 +472,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def finditem(self, w_obj, w_key):
         # performance shortcut to avoid creating the OperationError(KeyError)
         if type(w_obj) is self.DictObjectCls:
-            if not self.config.objspace.std.withstrdict:
+            if not self.config.objspace.std.withstrdict and not self.config.objspace.std.withmultidict:
                 return w_obj.content.get(w_key, None)
             else:
                 return w_obj.get(w_key, None)

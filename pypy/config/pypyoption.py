@@ -65,6 +65,10 @@ pypy_optiondescription = OptionDescription("pypy", [
                        "use dictionaries optimized for string keys",
                        default=False),
 
+            BoolOption("withmultidict",
+                       "use dictionaries optimized for flexibility",
+                       default=False),
+
             BoolOption("oldstyle",
                        "specify whether the default metaclass should be classobj",
                        default=False),

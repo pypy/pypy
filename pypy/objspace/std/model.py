@@ -14,6 +14,8 @@ option_to_typename = {
     "withstrjoin"    : ["strjoinobject.W_StringJoinObject"],
     "withstrdict"    : ["dictstrobject.W_DictStrObject",
                         "dictstrobject.W_DictStrIterObject"],
+    "withmultidict"  : ["dictmultiobject.W_DictMultiObject",
+                        "dictmultiobject.W_DictMultiIterObject"],
 }
 
 class StdTypeModel:
@@ -58,6 +60,7 @@ class StdTypeModel:
         from pypy.objspace.std import listobject
         from pypy.objspace.std import dictobject
         from pypy.objspace.std import dictstrobject
+        from pypy.objspace.std import dictmultiobject
         from pypy.objspace.std import stringobject
         from pypy.objspace.std import strsliceobject
         from pypy.objspace.std import strjoinobject
