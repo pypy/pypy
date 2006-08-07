@@ -227,3 +227,9 @@ def test_varsize_cast():
     for i, c in enumerate(struct.pack("l", 12345678)):
         p.contents[i] = ord(c)
     assert x.value == 12345678
+
+def test_cfunctype_inspection():
+    T = CFUNCTYPE(c_int, c_ubyte)
+    # T.argtypes and T.restype don't work, must use a dummy instance
+    assert list(T().argtypes) == [c_ubyte]
+    assert T().restype == c_int

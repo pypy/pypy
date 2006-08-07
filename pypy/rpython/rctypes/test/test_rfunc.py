@@ -5,6 +5,7 @@ Test external function calls.
 import py
 import sys
 import pypy.rpython.rctypes.implementation
+from pypy.annotation import model as annmodel
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.test.test_llinterp import interpret
@@ -47,6 +48,15 @@ def ll_atoi(p):
         i += 1
     return result
 atoi.llinterp_friendly_version = ll_atoi
+
+atol = mylib.atol
+atol.restype = c_long
+atol.argtypes = [c_char_p]
+atol.llinterp_friendly_version = ll_atoi
+
+strlen = mylib.strlen
+strlen.restype = c_long
+strlen.argtypes = [c_char_p]
 
 time_ = mylib.time
 time_.restype = c_long    # should rather use ctypes_platform.getsimpletype()
@@ -217,6 +227,23 @@ class Test_annotation:
 ##        v2 = graph.getreturnvar()
 ##        assert a.binding(v1).knowntype == int
 ##        assert a.binding(v2).knowntype == int
+
+    def test_annotate_indirect_call(self):
+        s = '442'
+        def f(n):
+            if n > 0:
+                f = strlen
+            else:
+                f = atol
+            return f
+        a = RPythonAnnotator()
+        s = a.build_types(f, [int])
+        if conftest.option.view:
+            a.translator.view()
+        assert isinstance(s, annmodel.SomeCTypesObject)
+        sample = s.knowntype()
+        assert list(sample.argtypes) == [c_char_p]
+        assert sample.restype == c_long
 
 class Test_specialization:
     def test_specialize_labs(self):
@@ -397,3 +424,14 @@ class Test_compile:
         fn = compile(f, [])
         assert fn() == string
 
+    def test_compile_indirect_call(self):
+        s = '442'
+        def f(n):
+            if n > 0:
+                f = strlen
+            else:
+                f = atol
+            return f(s)
+        fn = compile(f, [int])
+        assert fn(1) == 3
+        assert fn(0) == 442

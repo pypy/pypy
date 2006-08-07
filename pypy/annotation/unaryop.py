@@ -701,6 +701,11 @@ class __extend__(SomeCTypesObject):
     def is_true(cto):
         return SomeBool()
 
+    def simple_call(cto, *args_s):
+        # for variables containing ctypes function pointers
+        entry = extregistry.lookup_type(cto.knowntype)
+        return entry.compute_result_annotation(*args_s)
+
 #_________________________________________
 # memory addresses
 

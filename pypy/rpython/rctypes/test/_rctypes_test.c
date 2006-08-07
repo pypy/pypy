@@ -61,6 +61,13 @@ EXPORT(void *) _testfunc_erase_type(void)
     return (void *)&p;
 }
 
+typedef int (*fnptr_t)(point);
+
+EXPORT(fnptr_t) _testfunc_get_func(void)
+{
+    return _testfunc_struct;
+}
+
 DL_EXPORT(void)
 init_rctypes_test(void)
 {

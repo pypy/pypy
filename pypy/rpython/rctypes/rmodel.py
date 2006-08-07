@@ -69,8 +69,11 @@ class CTypesRepr(Repr):
         of this object."""
         return None
 
+    def ctypecheck(self, value):
+        return isinstance(value, self.ctype)
+
     def convert_const(self, value):
-        if isinstance(value, self.ctype):
+        if self.ctypecheck(value):
             key = "by_id", id(value)
             keepalive = value
         else:
@@ -82,6 +85,7 @@ class CTypesRepr(Repr):
         try:
             return self.const_cache[key][0]
         except KeyError:
+            self.setup()
             p = lltype.malloc(self.r_memoryowner.lowleveltype.TO)
             self.initialize_const(p, value)
             if self.ownsmemory:
@@ -229,7 +233,7 @@ class CTypesValueRepr(CTypesRepr):
     get_c_data_or_value = getvalue
 
     def initialize_const(self, p, value):
-        if isinstance(value, self.ctype):
+        if self.ctypecheck(value):
             value = value.value
         p.c_data[0] = value
 

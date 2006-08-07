@@ -4,6 +4,7 @@ from pypy.annotation.model import SomeCTypesObject
 
 from ctypes import c_void_p, c_int, POINTER, cast, c_char, c_char_p
 from pypy.rpython.rctypes.astringbuf import StringBufferType
+from pypy.rpython.rctypes.afunc import CFuncPtrType, SomeCTypesFunc
 
 PointerType = type(POINTER(c_int))
 
@@ -34,7 +35,8 @@ class CastFnEntry(ExtRegistryEntry):
     _about_ = cast
 
     def checkptr(self, ctype):
-        assert isinstance(ctype, PointerType) or ctype == c_void_p, (
+        assert (isinstance(ctype, PointerType) or ctype == c_void_p or
+                isinstance(ctype, CFuncPtrType)), (
             "cast(): can only cast between pointers so far, not %r" % (ctype,))
 
     def compute_result_annotation(self, s_arg, s_type):
@@ -42,7 +44,8 @@ class CastFnEntry(ExtRegistryEntry):
             "cast(p, %r): argument 2 must be constant" % (s_type,))
         type = s_type.const
         self.checkptr(type)
-        if s_arg.knowntype == StringBufferType:
+        if (s_arg.knowntype == StringBufferType or
+            isinstance(s_arg, SomeCTypesFunc)):
             pass
         else:
             self.checkptr(s_arg.knowntype)
@@ -52,16 +55,23 @@ class CastFnEntry(ExtRegistryEntry):
         from pypy.rpython.rctypes.rpointer import PointerRepr
         from pypy.rpython.rctypes.rvoid_p import CVoidPRepr
         from pypy.rpython.rctypes.rstringbuf import StringBufRepr
+        from pypy.rpython.rctypes.rfunc import CFuncPtrRepr
         from pypy.rpython.lltypesystem import lltype, llmemory
-        assert isinstance(hop.args_r[0], (PointerRepr, CVoidPRepr,
-                                          StringBufRepr))
+        r_arg = hop.args_r[0]
+        if isinstance(hop.args_s[0], SomeCTypesFunc):
+            # cast(const_cfuncptr, c_void_p): force the const_cfuncptr
+            # to become a general non-constant SomeCTypesObject
+            s_arg = hop.args_s[0].normalized()
+            r_arg = hop.rtyper.getrepr(s_arg)
+        assert isinstance(r_arg, (PointerRepr, CVoidPRepr,
+                                  StringBufRepr, CFuncPtrRepr))
         targetctype = hop.args_s[1].const
-        v_box, c_targetctype = hop.inputargs(hop.args_r[0], lltype.Void)
-        if isinstance(hop.args_r[0], StringBufRepr):
+        v_box, c_targetctype = hop.inputargs(r_arg, lltype.Void)
+        if isinstance(r_arg, StringBufRepr):
             v_index = hop.inputconst(lltype.Signed, 0)
-            v_adr = hop.args_r[0].get_c_data_of_item(hop.llops, v_box, v_index)
+            v_adr = r_arg.get_c_data_of_item(hop.llops, v_box, v_index)
         else:
-            v_adr = hop.args_r[0].getvalue(hop.llops, v_box)
+            v_adr = r_arg.getvalue(hop.llops, v_box)
         if v_adr.concretetype != llmemory.Address:
             v_adr = hop.genop('cast_ptr_to_adr', [v_adr],
                               resulttype = llmemory.Address)

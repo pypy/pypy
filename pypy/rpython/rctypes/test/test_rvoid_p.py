@@ -11,7 +11,7 @@ from pypy import conftest
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.test.test_llinterp import interpret
 
-from ctypes import c_void_p, c_int, cast, pointer, POINTER
+from ctypes import c_void_p, c_int, c_long, cast, pointer, POINTER
 from ctypes import c_char, c_byte, c_char_p, create_string_buffer, CFUNCTYPE
 
 class Test_annotation:
@@ -92,3 +92,21 @@ class Test_compilation:
 
         fn = compile(func, [])
         assert fn() == 12
+
+    def test_compile_funcptr_as_void_p(self):
+        from pypy.rpython.rctypes.test.test_rfunc import labs
+        UNARYFN = CFUNCTYPE(c_long, c_long)
+        def func(n):
+            if n < -100:
+                p1 = c_void_p()   # NULL void pointer - don't try!
+            else:
+                p1 = cast(labs, c_void_p)
+            p2 = cast(p1, UNARYFN)
+            return p2(n)
+
+        assert func(-41) == 41
+        assert func(72) == 72
+
+        fn = compile(func, [int])
+        assert fn(-42) == 42
+        assert fn(71) == 71

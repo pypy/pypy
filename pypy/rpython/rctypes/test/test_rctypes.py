@@ -17,6 +17,7 @@ thisdir = py.path.local(__file__).dirpath()
 
 from ctypes import cdll
 from ctypes import POINTER, Structure, c_int, byref, pointer, c_void_p
+from ctypes import CFUNCTYPE
 
 # __________ compile and load our local test C file __________
 
@@ -102,6 +103,12 @@ testfunc_erase_type = _rctypes_test._testfunc_erase_type
 testfunc_erase_type.restype = c_void_p
 testfunc_erase_type.argtypes = []
 
+# _testfunc_get_func
+testfunc_get_func = _rctypes_test._testfunc_get_func
+testfunc_get_func.restype = CFUNCTYPE(c_int, tagpoint)
+testfunc_get_func.argtypes = []
+testfunc_get_func.includes = includes
+
 
 def test_testfunc_struct():
     in_point = tagpoint()
@@ -141,6 +148,15 @@ def test_testfunc_swap():
     assert pt.y == 5
     assert pt._z == 100
     return pt.x - pt.y                   # this test function is reused below
+
+def test_testfunc_get_func():
+    in_point = tagpoint()
+    in_point.x = -9171831
+    in_point.y = 9171873
+    fn = testfunc_get_func()
+    res = fn(in_point)
+    assert res == 42
+    return res       # this test function is reused below
 
 class Test_annotation:
     def test_annotate_struct(self):
@@ -195,3 +211,7 @@ class Test_compile:
     def test_compile_swap(self):
         fn = compile(test_testfunc_swap, [])
         assert fn() == 4
+
+    def test_compile_get_func(self):
+        fn = compile(test_testfunc_get_func, [])
+        assert fn() == 42

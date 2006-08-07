@@ -1,5 +1,6 @@
 from pypy.annotation.model import SomeCTypesObject
 from pypy.annotation import model as annmodel
+from pypy.annotation.pairtype import pairtype
 from pypy.rpython.error import TyperError
 from pypy.rpython.rctypes.implementation import CTypesEntry
 from pypy.rpython.lltypesystem import lltype
@@ -10,17 +11,75 @@ import ctypes
 CFuncPtrType = type(ctypes.CFUNCTYPE(None))
 
 
+class SomeCTypesFunc(annmodel.SomeBuiltin):
+    """Stands for a known constant ctypes function.  Variables containing
+    potentially multiple ctypes functions are regular SomeCTypesObjects.
+    This is a separate annotation because some features are only supported
+    for calls to constant functions, like _rctypes_pyerrchecker_ and
+    functions with no declared argtypes.  It also produces better code:
+    a direct_call instead of an indirect_call.
+    """
+    def normalized(self):
+        ctype = normalized_func_ctype(self.const)
+        return cto_union(ctype, ctype)    # -> SomeCTypesObject
+
+class __extend__(pairtype(SomeCTypesFunc, SomeCTypesFunc)):
+    def union((ctf1, ctf2)):
+        ctype1 = normalized_func_ctype(ctf1.const)
+        ctype2 = normalized_func_ctype(ctf2.const)
+        return cto_union(ctype1, ctype2)
+
+class __extend__(pairtype(SomeCTypesFunc, SomeCTypesObject)):
+    def union((ctf1, cto2)):
+        ctype1 = normalized_func_ctype(ctf1.const)
+        return cto_union(ctype1, cto2.knowntype)
+
+class __extend__(pairtype(SomeCTypesObject, SomeCTypesFunc)):
+    def union((cto1, ctf2)):
+        ctype2 = normalized_func_ctype(ctf2.const)
+        return cto_union(cto1.knowntype, ctype2)
+
+
+def normalized_func_ctype(cfuncptr):
+    if getattr(cfuncptr, 'argtypes', None) is None:
+        raise annmodel.UnionError("cannot merge two ctypes functions "
+                                  "without declared argtypes")
+    return ctypes.CFUNCTYPE(cfuncptr.restype,
+                            *cfuncptr.argtypes)
+
+def cto_union(ctype1, ctype2):
+    if ctype1 != ctype2:
+        raise annmodel.UnionError("a ctypes function object can only be "
+                                  "merged with another function with the same "
+                                  "signature")
+    return SomeCTypesObject(ctype1, ownsmemory=True)
+
+
 class CallEntry(CTypesEntry):
     """Annotation and rtyping of calls to external functions
     declared with ctypes.
     """
     _metatype_ = CFuncPtrType
 
+    def compute_annotation(self):
+        #self.ctype_object_discovered()
+        func = self.instance
+        analyser = self.compute_result_annotation
+        methodname = getattr(func, '__name__', None)
+        return SomeCTypesFunc(analyser, methodname=methodname)
+
+    def get_instance_sample(self):
+        if self.instance is not None:
+            return self.instance
+        else:
+            return self.type()    # a sample NULL function object
+
     def compute_result_annotation(self, *args_s):
         """
         Answer the annotation of the external function's result
         """
-        result_ctype = self.instance.restype
+        cfuncptr = self.get_instance_sample()
+        result_ctype = cfuncptr.restype
         if result_ctype is None:
             return None
         if result_ctype is ctypes.py_object:
@@ -61,98 +120,15 @@ class CallEntry(CTypesEntry):
 ##                                                           s_res))
 
     def specialize_call(self, hop):
-        from pypy.rpython.rctypes.rmodel import CTypesValueRepr
+        from pypy.rpython.rctypes.rfunc import get_funcptr_constant
+        from pypy.rpython.rctypes.rfunc import rtype_funcptr_call
         cfuncptr = self.instance
-        fnname = cfuncptr.__name__
+        v_funcptr, args_r, r_res = get_funcptr_constant(hop.rtyper, cfuncptr,
+                                                        hop.args_s)
+        pyerrchecker = getattr(cfuncptr, '_rctypes_pyerrchecker_', None)
+        return rtype_funcptr_call(hop, v_funcptr, args_r, r_res, pyerrchecker)
 
-        def repr_for_ctype(ctype):
-            s = SomeCTypesObject(ctype, ownsmemory=False)
-            r = hop.rtyper.getrepr(s)
-            return r
-
-        args_r = []
-        if getattr(cfuncptr, 'argtypes', None) is not None:
-            for ctype in cfuncptr.argtypes:
-                args_r.append(repr_for_ctype(ctype))
-        else:
-            # unspecified argtypes: use ctypes rules for arguments
-            for s_arg, r_arg in zip(hop.args_s, hop.args_r):
-                if not isinstance(s_arg, SomeCTypesObject):
-                    # accept integers, strings, or None
-                    if isinstance(s_arg, annmodel.SomeInteger):
-                        r_arg = repr_for_ctype(ctypes.c_long)
-                    elif (isinstance(s_arg, annmodel.SomeString)
-                          or s_arg == annmodel.s_None):
-                        r_arg = repr_for_ctype(ctypes.c_char_p)
-                    else:
-                        raise TyperError("call with no argtypes: don't know "
-                                         "how to convert argument %r"%(s_arg,))
-                args_r.append(r_arg)
-
-        hop.rtyper.call_all_setups()
-        vlist = hop.inputargs(*args_r)
-        unwrapped_args_v = []
-        ARGTYPES = []
-        for r_arg, v in zip(args_r, vlist):
-            if isinstance(r_arg, CTypesValueRepr):
-                # ValueRepr case
-                unwrapped_args_v.append(r_arg.getvalue(hop.llops, v))
-                ARGTYPES.append(r_arg.ll_type)
-            else:
-                # RefRepr case -- i.e. the function argument that we pass by
-                # value is e.g. a complete struct; we pass a pointer to it
-                # in the low-level graphs and it's up to the back-end to
-                # generate the correct dereferencing
-                unwrapped_args_v.append(r_arg.get_c_data(hop.llops, v))
-                ARGTYPES.append(r_arg.c_data_type)
-        if cfuncptr.restype is not None:
-            s_res = SomeCTypesObject(cfuncptr.restype, ownsmemory=True)
-            r_res = hop.rtyper.getrepr(s_res)
-            RESTYPE = r_res.ll_type
-        else:
-            RESTYPE = lltype.Void
-
-        kwds = {}
-        if hasattr(cfuncptr, 'llinterp_friendly_version'):
-            kwds['_callable'] = cfuncptr.llinterp_friendly_version
-        suppress_pyerr_occurred = False
-        if (cfuncptr._flags_ & ctypes._FUNCFLAG_PYTHONAPI) == 0:
-            suppress_pyerr_occurred = True
-        if hasattr(cfuncptr, '_rctypes_pyerrchecker_'):
-            suppress_pyerr_occurred = True
-        if suppress_pyerr_occurred:
-            kwds['includes'] = getattr(cfuncptr, 'includes', ())
-            kwds['libraries'] = getattr(cfuncptr, 'libraries', ())
-        #else:
-        #   no 'includes': hack to trigger in GenC a PyErr_Occurred() check
-
-        hop.exception_cannot_occur()
-        v_result = hop.llops.gencapicall(fnname, unwrapped_args_v,
-                                         resulttype = RESTYPE,
-                                         **kwds)
-        # XXX hack! hack! temporary! I promize!
-        FUNCTYPE = lltype.FuncType(ARGTYPES, RESTYPE)
-        last_op = hop.llops[-1]
-        assert last_op.opname == 'direct_call'
-        last_op.args[0].concretetype = lltype.Ptr(FUNCTYPE)
-        last_op.args[0].value._set_TYPE(last_op.args[0].concretetype)
-        last_op.args[0].value._set_T(FUNCTYPE)
-        last_op.args[0].value._obj._TYPE = FUNCTYPE
-
-        if getattr(cfuncptr, '_rctypes_pyerrchecker_', None):
-            # special extension to support the CPyObjSpace
-            # XXX hackish: someone else -- like the annotator policy --
-            # must ensure that this extra function has been annotated
-            from pypy.translator.translator import graphof
-            func = cfuncptr._rctypes_pyerrchecker_
-            graph = graphof(hop.rtyper.annotator.translator, func)
-            hop.llops.record_extra_call(graph)
-            # build the 'direct_call' operation
-            f = hop.rtyper.getcallable(graph)
-            c = hop.inputconst(lltype.typeOf(f), f)
-            hop.genop('direct_call', [c])
-
-        if RESTYPE is lltype.Void:
-            return None
-        else:
-            return r_res.return_value(hop.llops, v_result)
+    def get_repr(self, rtyper, s_funcptr):
+        # for variables containing ctypes function pointers
+        from pypy.rpython.rctypes.rfunc import CFuncPtrRepr
+        return CFuncPtrRepr(rtyper, s_funcptr)
