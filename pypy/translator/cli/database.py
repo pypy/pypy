@@ -168,7 +168,7 @@ class LowLevelDatabase(object):
             self.consts[value] = const
             self.pending_node(const)
 
-        return '%s.%s::%s' % (CONST_NAMESPACE, CONST_CLASS, const.name), const.get_type()
+        return const
 
     def record_delegate(self, TYPE):
         try:
@@ -194,34 +194,31 @@ class LowLevelDatabase(object):
     def gen_constants(self, ilasm):
         self.locked = True # new pending nodes are not allowed here
         ilasm.begin_namespace(CONST_NAMESPACE)
-        ilasm.begin_class(CONST_CLASS)
+        ilasm.begin_class(CONST_CLASS, beforefieldinit=True)
+        
+        const_list = [const for const in self.consts.itervalues() if not const.is_inline()]
+        const_list.sort(key=operator.attrgetter('PRIORITY'))
+        num_const = len(const_list)
 
         # render field definitions
-        for const in self.consts.itervalues():
+        for const in const_list:
+            assert not const.is_null()
             ilasm.field(const.name, const.get_type(), static=True)
 
         # this point we have collected all constant we
         # need. Instantiate&initialize them.
         self.step = 0
-        for i, const in enumerate(self.consts.itervalues()):
+        for i, const in enumerate(const_list):
             if i % MAX_CONST_PER_STEP == 0:
                 self.__new_step(ilasm)
             type_ = const.get_type()
-            if const.is_null():
-                ilasm.opcode('ldnull')
-            else:
-                const.instantiate(ilasm)
+            const.instantiate(ilasm)
             ilasm.store_static_constant(type_, CONST_NAMESPACE, CONST_CLASS, const.name)
 
-        const_list = self.consts.values()
-        num_const = len(const_list)
-        const_list.sort(key=operator.attrgetter('PRIORITY'))
         for i, const in enumerate(const_list):
             if i % MAX_CONST_PER_STEP == 0:
                 self.__new_step(ilasm)
             ilasm.stderr('CONST: initializing #%d' % i, DEBUG_CONST_INIT_VERBOSE)
-            if const.is_null():
-                continue
             type_ = const.get_type()
             ilasm.load_static_constant(type_, CONST_NAMESPACE, CONST_CLASS, const.name)
             const.init(ilasm)
@@ -308,11 +305,11 @@ class AbstractConst(Node):
                 ilasm.opcode("ldstr", string_literal(value._str))
         else:
             assert TYPE not in cls.PRIMITIVE_TYPES
-            cts = CTS(db)
-            name, cts_static_type = db.record_const(value)
-            ilasm.opcode('ldsfld %s %s' % (cts_static_type, name))
-            if cts_static_type != cts.lltype_to_cts(TYPE):
-                ilasm.opcode('castclass', cts.lltype_to_cts(TYPE, include_class=False))
+            const = db.record_const(value)
+            if const.is_null():
+                ilasm.opcode('ldnull')
+            else:
+                const._load(ilasm, TYPE)
     load = classmethod(load)
 
     def __hash__(self):
@@ -335,6 +332,26 @@ class AbstractConst(Node):
 
     def is_null(self):
         return self.value is ootype.null(self.value._TYPE)
+
+    def is_inline(self):
+        """
+        Inline constants are not stored as static fields in the
+        Constant class, but they are newly created on the stack every
+        time they are used. Classes overriding is_inline should
+        override _load too.
+        """
+        return self.is_null() # by default only null constants are inlined
+
+    def _load(self, ilasm, EXPECTED_TYPE):
+        """
+        Load the constant onto the stack.
+        """
+        cts = CTS(self.db)
+        full_name = '%s.%s::%s' % (CONST_NAMESPACE, CONST_CLASS, self.name)
+        cts_static_type = self.get_type()
+        ilasm.opcode('ldsfld %s %s' % (cts_static_type, full_name))
+        if cts_static_type != cts.lltype_to_cts(EXPECTED_TYPE):
+            ilasm.opcode('castclass', cts.lltype_to_cts(EXPECTED_TYPE, include_class=False))
 
     def record_const_maybe(self, TYPE, value):
         if AbstractConst.is_primitive(TYPE):
@@ -444,12 +461,14 @@ class ClassConst(AbstractConst):
     def is_null(self):
         return self.value._INSTANCE is None
 
-    def instantiate(self, ilasm):
+    def is_inline(self):
+        return True
+
+    def _load(self, ilasm, EXPECTED_TYPE):
         assert not self.is_null()
         INSTANCE = self.value._INSTANCE
         ilasm.opcode('ldtoken', self.db.class_name(INSTANCE))
         ilasm.call('class [mscorlib]System.Type class [mscorlib]System.Type::GetTypeFromHandle(valuetype [mscorlib]System.RuntimeTypeHandle)')
-        self.db.const_count.inc('Class')
 
 class ListConst(AbstractConst):
     def __init__(self, db, list_, count):

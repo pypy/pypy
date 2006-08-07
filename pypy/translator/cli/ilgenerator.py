@@ -55,7 +55,8 @@ class IlasmGenerator(object):
     def end_namespace(self):
         self.code.closeblock()
 
-    def begin_class(self, name, base=None, sealed=False, interfaces=(), abstract=False):
+    def begin_class(self, name, base=None, sealed=False, interfaces=(), abstract=False,
+                    beforefieldinit=False):
         if base is None:
             base = '[mscorlib]System.Object'
         s = ''
@@ -63,6 +64,8 @@ class IlasmGenerator(object):
             s += 'abstract '
         if sealed:
             s += 'sealed '
+        if beforefieldinit:
+            s += 'beforefieldinit '
 
         self.code.writeline('.class public %s %s extends %s' % (s, name, base))
         if interfaces:
