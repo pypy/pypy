@@ -44,8 +44,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
     PACKAGE_PATH = 'objspace.std'
 
-    def setoptions(self, oldstyle=False):
-        self.config.objspace.std.oldstyle = oldstyle
+    def setoptions(self, **kwds):
+        if "oldstyle" in kwds:
+            self.config.objspace.std.oldstyle = kwds["oldstyle"]
 
     def initialize(self):
         "NOT_RPYTHON: only for initializing the space."
