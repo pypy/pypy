@@ -223,22 +223,19 @@ def test_inline_exception_guarded():
         try:
             return h(x)
         except:
-            raise
+            return 87
     def g(x):
         try:
-            f(x)
+            return f(x)
         except CustomError1:
             return 2
-        except CustomError2:
-            return 3
-        return 1
     eval_func = check_inline(f, g, [int], inline_guarded_calls=True)
     result = eval_func([0])
     assert result == 1
     result = eval_func([1])
-    assert result == 2
+    assert result == 87
     result = eval_func([2])
-    assert result == 3
+    assert result == 87
 
 def test_inline_var_exception():
     def f(x):
