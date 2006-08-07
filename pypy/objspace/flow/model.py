@@ -613,6 +613,8 @@ def checkgraph(graph):
                     else:
                         assert v.value is not last_exception
                         #assert v.value != last_exc_value
+                if op.opname == 'direct_call':
+                    assert isinstance(op.args[0], Constant)
                 definevar(op.result)
 
             exc_links = {}

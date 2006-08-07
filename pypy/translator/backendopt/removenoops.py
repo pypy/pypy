@@ -23,7 +23,8 @@ def remove_unaryops(graph, opnames):
                 for i in range(len(op.args)):
                     if op.args[i] == op_result:
                         op.args[i] = op_arg
-                if op.opname == "indirect_call" and op.args[0] == op_arg:
+                if (op.opname == "indirect_call"
+                    and isinstance(op.args[0], Constant)):
                     op.opname = "direct_call"
                     op.args = op.args[:-1]
         for link in block.exits:
