@@ -106,6 +106,8 @@ def does_raise_directly(graph, raise_analyzer):
     """ this function checks, whether graph contains operations which can raise
     and which are not exception guarded """
     for block in graph.iterblocks():
+        if block is graph.exceptblock:
+            return True      # the except block is reachable
         if block.exitswitch == c_last_exception:
             consider_ops_to = -1
         else:
@@ -584,7 +586,6 @@ def auto_inlining(translator, multiplier=1, callgraph=None,
         for parentgraph in callers[graph]:
             if parentgraph == graph:
                 continue
-            sys.stdout.flush()
             try:
                 res = bool(inline_function(translator, graph, parentgraph,
                                            lltype_to_classdef, raise_analyzer))
