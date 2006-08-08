@@ -32,7 +32,7 @@ class ClonableCoroutine(InterpClonableCoroutine):
              space.getexecutioncontext().subcontext_new(self)
         self._dead = False
         self._next = self._prev = self
-        self._cspace = None
+        self._cspace = space.w_None
 
     def hello(self):
         if we_are_translated():

@@ -739,5 +739,3 @@ class AppTest_CompSpace(object):
         schedule()
         assert len(sched_all()['threads']) == 1
 
-
-    

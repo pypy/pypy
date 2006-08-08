@@ -34,7 +34,7 @@ def choose(space, w_n):
     assert isinstance(w_n, W_IntObject)
     n = space.int_w(w_n)
     cspace = ClonableCoroutine.w_getcurrent(space)._cspace
-    if cspace != None:
+    if cspace != space.w_None:
         assert isinstance(cspace, W_CSpace)
         return cspace.choose(n)
     raise OperationError(space.w_RuntimeError,
@@ -45,9 +45,9 @@ app_choose = gateway.interp2app(choose)
 
 class W_CSpace(baseobjspace.Wrappable):
 
-    def __init__(self, space, thread, parent=None):
+    def __init__(self, space, thread, parent):
         assert isinstance(thread, ClonableCoroutine)
-        assert (parent is None) or isinstance(parent, W_CSpace)
+        assert (parent is space.w_None) or isinstance(parent, W_CSpace)
         self.space = space # the object space ;-)
         self.parent = parent
         self.main_thread = thread

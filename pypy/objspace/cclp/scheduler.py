@@ -89,7 +89,7 @@ class Scheduler(object):
             self.display_head()
         thread._next = thread._prev = None
         # cspace/threads account mgmt
-        if thread._cspace is not None:
+        if thread._cspace is not self.space.w_None:
             count = self.dec_live_thread_count(thread._cspace)
             if count == 0:
                 del self._per_space_live_threads[thread._cspace]
@@ -208,7 +208,7 @@ class Scheduler(object):
         "insert 'thread' at end of running queue"
         assert isinstance(thread, ClonableCoroutine)
         # cspace account mgmt
-        if thread._cspace != None:
+        if thread._cspace != self.space.w_None:
             self._per_space_live_threads.get(thread._cspace, 0)
             self.inc_live_thread_count(thread._cspace)
         self._chain_insert(thread)
@@ -226,7 +226,7 @@ class Scheduler(object):
         blocked.append(thread)
         self._blocked[thread] = True
         # cspace accounting
-        if thread._cspace is not None:
+        if thread._cspace is not self.space.w_None:
             self.dec_live_thread_count(thread._cspace)
 
     def unblock_on(self, w_var):
@@ -240,7 +240,7 @@ class Scheduler(object):
         for thr in blocked:
             del self._blocked[thr]
             # cspace accounting
-            if thr._cspace is not None:
+            if thr._cspace is not self.space.w_None:
                 self.inc_live_thread_count(thr._cspace)
 
     def add_to_blocked_byneed(self, w_var, thread):
@@ -255,7 +255,7 @@ class Scheduler(object):
         blocked.append(thread)
         self._blocked[thread] = True
         # cspace accounting
-        if thread._cspace is not None:
+        if thread._cspace is not self.space.w_None:
             self.dec_live_thread_count(thread._cspace)
 
     def unblock_byneed_on(self, w_var):
@@ -271,7 +271,7 @@ class Scheduler(object):
         for thr in blocked:
             del self._blocked[thr]
             # cspace accounting
-            if thr._cspace is not None:
+            if thr._cspace is not self.space.w_None:
                 self.inc_live_thread_count(thr._cspace)
             
 
