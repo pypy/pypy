@@ -2,6 +2,7 @@ from pypy.module._stackless.interp_coroutine import AbstractThunk, BaseCoState, 
 from pypy.module._stackless.interp_clonable import InterpClonableCoroutine
 
 from pypy.rpython.objectmodel import we_are_translated
+from pypy.rpython.rgc import gc_swap_pool, gc_clone
 
 from pypy.module._stackless.stackless_flags import StacklessFlags
 from pypy.interpreter.function import StaticMethod
@@ -12,21 +13,26 @@ from pypy.interpreter.error import OperationError
 from pypy.rpython import rstack # for resume points
 from pypy.tool import stdlib_opcode as pythonopcode
 
-class ClonableCoroutine(InterpClonableCoroutine): 
+class ClonableCoroutine(InterpClonableCoroutine):
+    local_pool = None
     #XXX cut'n'pasted from AppCoroutine
     #    so, watch changes in coroutine.py
 
-    def __init__(self, space, is_main=False):
+    def __init__(self, space, is_main=False, costate=None):
+        assert isinstance(is_main, bool)
         self.space = space
         self.is_main = is_main
         state = self._get_state(space)
         Coroutine.__init__(self, state)
+        if costate is not None:
+            self.costate = costate
         self.flags = 0
         self.framestack = None
         if not is_main:
              space.getexecutioncontext().subcontext_new(self)
         self._dead = False
-        self._next = self._prev = self # help the annotator with the scheduling ring
+        self._next = self._prev = self
+        self._cspace = None
 
     def hello(self):
         if we_are_translated():
@@ -42,27 +48,23 @@ class ClonableCoroutine(InterpClonableCoroutine):
             ec = self.space.getexecutioncontext()
             ec.subcontext_leave(self)
 
-    def from_interp(self, interp_coro):
-        assert isinstance(interp_coro, InterpClonableCoroutine)
-        # get parent, frame, local_pool
-        new = ClonableCoroutine(self.space, self.is_main)
-        new.parent = interp_coro.parent
-        new.frame = interp_coro.frame
-        new.local_pool = interp_coro.local_pool
-        return new
-
     def w_clone(self):
-        if self.is_main:
-            raise OperationError(self.space.w_NotImplementedError,
-                                 self.space.wrap("The main coroutine can't be cloned"))
-        try:
-            interp_coro = InterpClonableCoroutine.clone(self)
-            app_coro = self.from_interp(interp_coro)
-            return app_coro
-        except NotImplementedError:
-            raise OperationError(self.space.w_NotImplementedError,
-                                 self.space.wrap("clone() is only available in translated PyPy"))
+        if not we_are_translated():
+            raise NotImplementedError
+        if ClonableCoroutine.w_getcurrent(self.space) is self:
+            raise RuntimeError("clone() cannot clone the current coroutine; "
+                               "use fork() instead")
+        if self.local_pool is None:   # force it now
+            self.local_pool = gc_swap_pool(gc_swap_pool(None))
+        # cannot gc_clone() directly self, because it is not in its own
+        # local_pool.  Moreover, it has a __del__, which cloning doesn't
+        # support properly at the moment.
+        copy = ClonableCoroutine(self.space, costate=self.costate)
+        copy.parent = self.parent
+        copy.frame, copy.local_pool = gc_clone(self.frame, self.local_pool)
+        return copy
 
+        
     def w_getcurrent(space):
         return space.wrap(ClonableCoroutine._get_state(space).current)
     w_getcurrent = staticmethod(w_getcurrent)
@@ -250,3 +252,4 @@ ClonableCoroutine.typedef = TypeDef("clonable",
 )
 
 
+        
