@@ -89,7 +89,7 @@ MAXINT = sys.maxint
 if BZ_CONFIG_ERROR:
     if sizeof(c_long) >= 8 or sizeof(c_longlong) >= 8:
         def _bzs_total_out(bzs):
-            return long(bzs.total_out_hi32 << 32) + bzs.total_out_lo32
+            return (bzs.total_out_hi32 << 32) + bzs.total_out_lo32
     else:
         def _bzs_total_out(bzs):
             return bzs.total_out_lo32
