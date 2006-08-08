@@ -62,6 +62,13 @@ class EmptyDictImplementation(DictImplementation):
     def itervalues(self):
         return RDictImplementation(self.space).itervalues()
 
+    def keys(self):
+        return []
+    def values(self):
+        return []
+    def items(self):
+        return []
+
 class RDictImplementation(DictImplementation):
     def __init__(self, space):
         self.space = space
@@ -98,12 +105,12 @@ class RDictImplementation(DictImplementation):
     def itervalues(self):
         return self.content.itervalues()
 
-##     def keys(self):
-##         return [w_k for w_k in self.iterkeys()]
-##     def values(self):
-##         return [w_v for w_v in self.itervalues()]
-##     def items(self):
-##         return [(w_key, w_value) or w_key, w_value in self.iteritems()]
+    def keys(self):
+        return self.content.keys()
+    def values(self):
+        return self.content.values()
+    def items(self):
+        return self.content.items()
 
 class W_DictMultiObject(W_Object):
     from pypy.objspace.std.dicttype import dict_typedef as typedef
