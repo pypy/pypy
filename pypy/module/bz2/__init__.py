@@ -6,6 +6,7 @@ class Module(MixedModule):
         'BZ2Compressor': 'interp_bz2.BZ2Compressor',
         'BZ2Decompressor': 'interp_bz2.BZ2Decompressor',
         'compress': 'interp_bz2.compress',
+        'decompress': 'interp_bz2.decompress',
     }
 
     appleveldefs = {
