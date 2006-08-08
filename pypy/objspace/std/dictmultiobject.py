@@ -128,9 +128,19 @@ if MEASURE_DICT:
             self.maxcontents = 0
 
             self.reads = 0
+            self.hits = self.misses = 0
             self.writes = 0
             self.iterations = 0
             self.listings = 0
+
+            # very probable stack from here:
+            # 0 - us
+            # 1 - MeasuringDictImplementation.__init__
+            # 2 - W_DictMultiObject.__init__
+            # 3 - space.newdict
+            # 4 - newdict's caller.  let's look at that
+            frame = sys._getframe(4)
+            self.sig = '(%s:%s)%s'%(frame.f_code.co_filename, frame.f_lineno, frame.f_code.co_name)
 
             _dict_infos.append(self)
 
@@ -150,8 +160,8 @@ if MEASURE_DICT:
         def setitem(self, w_key, w_value):
             self.info.setitems += 1
             self.info.writes += 1
-            self.info.maxcontents = max(self.info.maxcontents, len(self.content))
             self.content[w_key] = w_value
+            self.info.maxcontents = max(self.info.maxcontents, len(self.content))
             return self
         def delitem(self, w_key):
             self.info.delitems += 1
@@ -212,7 +222,10 @@ if MEASURE_DICT:
             for attr in info.__dict__:
                 if attr == 'maxcontents':
                     continue
-                d[attr] = d.get(attr, 0) + info.__dict__[attr]
+                v = info.__dict__[attr]
+                if not isinstance(v, int):
+                    continue
+                d[attr] = d.get(attr, 0) + v
             if info.writes:
                 rwratios.append(float(info.reads)/(info.writes))
             elif info.reads:
@@ -222,8 +235,7 @@ if MEASURE_DICT:
             maxcontents.append(info.maxcontents)
         import cPickle
         cPickle.dump(_dict_infos, open('dictinfos.pickle', 'wb'))
-        open('rwratios.txt', 'w').write(repr(rwratios))
-        open('maxcontents.txt', 'w').write(repr(maxcontents))
+        print 'reporting on', len(_dict_infos), 'dictionaries'
         print d
 
     import atexit
