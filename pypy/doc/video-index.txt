@@ -43,7 +43,9 @@ Trailer: PyPy at the PyCon
 --------------------------
 
 130mb: http://codespeak.net/download/pypy/video/pycon-trailer.avi.torrent
+
 71mb: http://codespeak.net/download/pypy/video/pycon-trailer-medium.avi.torrent
+
 50mb: http://codespeak.net/download/pypy/video/pycon-trailer-320x240.avi.torrent
 
 .. image:: image/pycon-trailer.jpg
@@ -61,6 +63,7 @@ Interview with Tim Peters
 -------------------------
 
 440mb: http://codespeak.net/download/pypy/video/interview-timpeters-v2.avi.torrent
+
 138mb: http://codespeak.net/download/pypy/video/interview-timpeters-320x240.avi.torrent
 
 .. image:: image/interview-timpeters.jpg
@@ -80,6 +83,7 @@ Interview with Bob Ippolito
 ---------------------------
 
 155mb: http://codespeak.net/download/pypy/video/interview-bobippolito-v2.avi.torrent
+
 50mb: http://codespeak.net/download/pypy/video/interview-bobippolito-320x240.avi.torrent
 
 .. image:: image/interview-bobippolito.jpg
@@ -99,6 +103,7 @@ Introductory talk on PyPy
 -------------------------
 
 430mb: http://codespeak.net/download/pypy/video/introductory-talk-pycon-v1.avi.torrent
+
 166mb: http://codespeak.net/download/pypy/video/introductory-talk-pycon-320x240.avi.torrent
 
 .. image:: image/introductory-talk-pycon.jpg
@@ -121,6 +126,7 @@ Talk on Agile Open Source Methods in the PyPy project
 -----------------------------------------------------
 
 395mb: http://codespeak.net/download/pypy/video/agile-talk-v1.avi.torrent
+
 153mb: http://codespeak.net/download/pypy/video/agile-talk-320x240.avi.torrent
 
 .. image:: image/agile-talk.jpg
@@ -143,6 +149,7 @@ PyPy Architecture session
 -------------------------
 
 744mb: http://codespeak.net/download/pypy/video/architecture-session-v1.avi.torrent
+
 288mb: http://codespeak.net/download/pypy/video/architecture-session-320x240.avi.torrent
 
 .. image:: image/architecture-session.jpg
@@ -165,6 +172,7 @@ Sprint tutorial
 ---------------
 
 680mb: http://codespeak.net/download/pypy/video/sprint-tutorial-v2.avi.torrent
+
 263mb: http://codespeak.net/download/pypy/video/sprint-tutorial-320x240.avi.torrent
 
 .. image:: image/sprint-tutorial.jpg
@@ -182,7 +190,8 @@ Michael Hudson gives an in-depth, very technical introduction to a PyPy sprint. 
 Scripting .NET with IronPython by Jim Hugunin
 ---------------------------------------------
 
-372mb: http://codespeak.net/download/pypy/video/ironpython-talk-v2.avi.torrent    
+372mb: http://codespeak.net/download/pypy/video/ironpython-talk-v2.avi.torrent
+
 270mb: http://codespeak.net/download/pypy/video/ironpython-talk-320x240.avi.torrent
 
 .. image:: image/ironpython.jpg
@@ -201,7 +210,9 @@ Trailer: PyPy sprint at the University of Palma de Mallorca
 -----------------------------------------------------------
 
 166mb: http://codespeak.net/download/pypy/video/mallorca-trailer-v1.avi.torrent
+
 88mb: http://codespeak.net/download/pypy/video/mallorca-trailer-medium.avi.torrent
+
 64mb: http://codespeak.net/download/pypy/video/mallorca-trailer-320x240.avi.torrent
 
 .. image:: image/mallorca-trailer.jpg
@@ -218,6 +229,7 @@ Coding discussion of core developers Armin Rigo and Samuele Pedroni
 -------------------------------------------------------------------
 
 620mb: http://codespeak.net/download/pypy/video/coding-discussion-v1.avi.torrent
+
 240mb: http://codespeak.net/download/pypy/video/coding-discussion-320x240.avi.torrent
 
 .. image:: image/coding-discussion.jpg
@@ -234,6 +246,7 @@ PyPy technical talk at the University of Palma de Mallorca
 ----------------------------------------------------------
 
 865mb: http://codespeak.net/download/pypy/video/introductory-student-talk-v2.avi.torrent
+
 437mb: http://codespeak.net/download/pypy/video/introductory-student-talk-320x240.avi.torrent
 
 .. image:: image/introductory-student-talk.jpg
