@@ -25,7 +25,7 @@ class Function(Wrappable):
         self.w_func_globals = w_globals  # the globals dictionary
         self.closure   = closure    # normally, list of Cell instances or None
         self.defs_w    = defs_w     # list of w_default's
-        self.w_func_dict = space.newdict([])
+        self.w_func_dict = None # filled out below if needed
         self.w_module = None
 
     def __repr__(self):
@@ -120,6 +120,8 @@ class Function(Wrappable):
             stkargs.valuestack = None
 
     def getdict(self):
+        if self.w_func_dict is None:
+            self.w_func_dict = self.space.newdict([])
         return self.w_func_dict
 
     def setdict(self, space, w_dict):
