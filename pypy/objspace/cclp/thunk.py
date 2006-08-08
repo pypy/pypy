@@ -21,9 +21,7 @@ class ProcedureThunk(_AppThunk):
                 scheduler[0].dirty_traced_vars(self._coro, W_FailedValue(exc))
                 self._coro._dead = True
             else:
-                w(".! clean (valueless) EXIT of", str(id(self._coro)),
-                  "-- setting future result", str(self.w_Result), "to",
-                  str(self.costate.w_tempval))
+                w(".! clean (valueless) EXIT of", str(id(self._coro)))
         finally:
             scheduler[0].remove_thread(self._coro)
             scheduler[0].schedule()
@@ -55,6 +53,35 @@ class FutureThunk(_AppThunk):
         finally:
             scheduler[0].remove_thread(self._coro)
             scheduler[0].schedule()
+
+SPACE_FAILURE = 0
+SPACE_SOLUTION = 1
+
+class CSpaceThunk(_AppThunk):
+    def __init__(self, space, w_callable, args, coro):
+        _AppThunk.__init__(self, space, coro.costate, w_callable, args)
+        self._coro = coro
+
+    def call(self):
+        w(". initial (returnless) thunk CALL in", str(id(self._coro)))
+        scheduler[0].trace_vars(self._coro, logic_args(self.args.unpack()))
+        cspace = self._coro._cspace
+        try:
+            try:
+                _AppThunk.call(self)
+            except Exception, exc:
+                w(".% exceptional EXIT of", str(id(self._coro)), "with", str(exc))
+                scheduler[0].dirty_traced_vars(self._coro, W_FailedValue(exc))
+                self._coro._dead = True
+                self.space.bind(cspace._choice, self.space.wrap(SPACE_FAILURE))
+            else:
+                w(".% clean (valueless) EXIT of", str(id(self._coro)))
+                self.space.bind(cspace._choice, self.space.wrap(SPACE_SOLUTION))
+        finally:
+            scheduler[0].remove_thread(self._coro)
+            scheduler[0].schedule()
+
+
 
 
 def logic_args(args):

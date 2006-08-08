@@ -40,7 +40,6 @@ def stacklet(space, w_callable, __args__):
     #coro.cspace = ClonableCoroutine.w_getcurrent(space).cspace
     thunk = ProcedureThunk(space, w_callable, args, coro)
     coro.bind(thunk)
-    print we_are_translated()
     if not we_are_translated():
         w("STACKLET", str(id(coro)), "for", str(w_callable.name))
     scheduler[0].add_new_thread(coro)

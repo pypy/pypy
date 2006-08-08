@@ -21,7 +21,7 @@ from pypy.objspace.cclp.scheduler import Scheduler,  app_sched_info, \
 
 from pypy.objspace.cclp.global_state import scheduler
 
-from pypy.objspace.cclp.space import app_newspace, W_CSpace
+from pypy.objspace.cclp.space import app_newspace, app_choose, W_CSpace
 
 #-- VARIABLE ------------------------------------------------
 
@@ -269,8 +269,11 @@ def Space(*args, **kwds):
                   space.wrap(app_this_thread))
     space.setitem(space.builtin.w_dict, space.wrap('reset_scheduler'),
                   space.wrap(app_reset_scheduler))
+    #-- comp. spaces --
     space.setitem(space.builtin.w_dict, space.wrap('newspace'),
                   space.wrap(app_newspace))
+    space.setitem(space.builtin.w_dict, space.wrap('choose'),
+                  space.wrap(app_choose))
 
     #-- misc -----
     space.setitem(space.builtin.w_dict, space.wrap('interp_id'),

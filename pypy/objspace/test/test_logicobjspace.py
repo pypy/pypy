@@ -603,11 +603,24 @@ class AppTest_LogicFutures(object):
 
     def test_newspace_ask_noop(self):
 
-        def bar(X): return X + 42
+        def in_space(X): return X + 42
+
+        def asker():
+            ask()
 
         X = newvar()
-        s = newspace(bar, X)
-        s.ask()
+        s = newspace(in_space, X)
+
+        assert sched_all()['space_accounting'][0][1] == 0 # live threads
+        assert len(sched_all()['blocked_on']) == 1
+
+        stacklet(asker)
+
+        unify(X, 42)
+        schedule()
+        assert len(sched_all()['threads']) == 1
+        
+
 
     def test_newspace_ask_wait(self):
 
@@ -628,3 +641,38 @@ class AppTest_LogicFutures(object):
         schedule() # allow quux exit
         schedule() # allow asker exit
         assert len(sched_all()['asking']) == 0
+
+    def test_ask_choose(self):
+
+        def chooser(X):
+            choice = choose(3)
+            unify(X, choice)
+
+        def asker(cspace):
+            choices = cspace.ask()
+            cspace.commit(2)
+
+        X = newvar()
+
+        s = newspace(chooser, X)
+        stacklet(asker, s)
+        schedule()
+        assert X == 2
+
+
+    def test_ask_choose(self):
+
+        def chooser(X):
+            choice = choose(3)
+            unify(X, choice)
+
+        def asker(cspace):
+            choices = cspace.ask()
+            cspace.commit(2)
+
+        X = newvar()
+
+        s = newspace(chooser, X)
+        stacklet(asker, s)
+        schedule()
+        assert X == 2

@@ -445,7 +445,7 @@ class UnicodeEncodeError(UnicodeError):
 class LOError(Exception): pass
 
 class UnificationError(LOError): pass
-class RebindingError(LOError): pass
+class RebindingError(UnificationError): pass
 class FutureBindingError(LOError): pass
 
 class AllBlockedError(LOError): pass
