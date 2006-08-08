@@ -116,6 +116,7 @@ class RDictImplementation(DictImplementation):
 MEASURE_DICT = False
 
 if MEASURE_DICT:
+    import time
     _dict_infos = []
 
     class DictInfo:
@@ -133,6 +134,12 @@ if MEASURE_DICT:
             self.iterations = 0
             self.listings = 0
 
+            self.seen_non_string = 0
+            self.seen_non_string_in_read_first = 0
+
+            self.createtime = time.time()
+            self.lifetime = -1.0
+
             # very probable stack from here:
             # 0 - us
             # 1 - MeasuringDictImplementation.__init__
@@ -143,27 +150,60 @@ if MEASURE_DICT:
             self.sig = '(%s:%s)%s'%(frame.f_code.co_filename, frame.f_lineno, frame.f_code.co_name)
 
             _dict_infos.append(self)
+        def __repr__(self):
+            args = []
+            for k in sorted(self.__dict__):
+                v = self.__dict__[k]
+                if v != 0:
+                    args.append('%s=%r'%(k, v))
+            return '<DictInfo %s>'%(', '.join(args),)
+
+    class OnTheWayOut:
+        def __init__(self, info):
+            self.info = info
+        def __del__(self):
+            self.info.lifetime = time.time() - self.info.createtime
 
     class MeasuringDictImplementation(DictImplementation):
         def __init__(self, space):
             self.space = space
             self.content = r_dict(space.eq_w, space.hash_w)
             self.info = DictInfo()
+            self.thing_with_del = OnTheWayOut(self.info)
 
         def __repr__(self):
             return "%s<%s>" % (self.__class__.__name__, self.content)
 
+        def _is_str(self, w_key):
+            space = self.space
+            return space.is_true(space.isinstance(w_key, space.w_str))
+        def _read(self, w_key):
+            self.info.reads += 1
+            if not self.info.seen_non_string and not self._is_str(w_key):
+                self.info.seen_non_string = True
+                self.info.seen_non_string_in_read_first = True
+            hit = w_key in self.content
+            if hit:
+                self.info.hits += 1
+            else:
+                self.info.misses += 1
+
         def getitem(self, w_key):
             self.info.getitems += 1
-            self.info.reads += 1
+            self._read(w_key)
             return self.content[w_key]
         def setitem(self, w_key, w_value):
+            if not self.info.seen_non_string and not self._is_str(w_key):
+                self.info.seen_non_string = True
             self.info.setitems += 1
             self.info.writes += 1
             self.content[w_key] = w_value
             self.info.maxcontents = max(self.info.maxcontents, len(self.content))
             return self
         def delitem(self, w_key):
+            if not self.info.seen_non_string and not self._is_str(w_key):
+                self.info.seen_non_string_in_read_first = True
+                self.info.seen_non_string = True
             self.info.delitems += 1
             self.info.writes += 1
             del self.content[w_key]
@@ -179,11 +219,11 @@ if MEASURE_DICT:
             return self
         def has_key(self, w_lookup):
             self.info.has_keys += 1
-            self.info.reads += 1
+            self._read(w_lookup)
             return w_lookup in self.content
         def get(self, w_lookup, w_default):
             self.info.gets += 1
-            self.info.reads += 1
+            self._read(w_lookup)
             return self.content.get(w_lookup, w_default)
 
         def iteritems(self):
@@ -216,8 +256,8 @@ if MEASURE_DICT:
         d = {}
         if not _dict_infos:
             return
-        rwratios = []
-        maxcontents = []
+        stillAlive = 0
+        totLifetime = 0.0
         for info in _dict_infos:
             for attr in info.__dict__:
                 if attr == 'maxcontents':
@@ -226,16 +266,16 @@ if MEASURE_DICT:
                 if not isinstance(v, int):
                     continue
                 d[attr] = d.get(attr, 0) + v
-            if info.writes:
-                rwratios.append(float(info.reads)/(info.writes))
-            elif info.reads:
-                rwratios.append('inf')
+            if info.lifetime != -1.0:
+                totLifetime += info.lifetime
             else:
-                rwratios.append('nan')
-            maxcontents.append(info.maxcontents)
+                stillAlive += 1
         import cPickle
         cPickle.dump(_dict_infos, open('dictinfos.pickle', 'wb'))
         print 'reporting on', len(_dict_infos), 'dictionaries'
+        if stillAlive != len(_dict_infos):
+            print 'average lifetime', totLifetime/(len(_dict_infos) - stillAlive),
+            print '('+str(stillAlive), 'still alive)'
         print d
 
     import atexit
