@@ -35,22 +35,36 @@ class DictImplementation(object):
     def items(self):
         return [(w_key, w_value) or w_key, w_value in self.iteritems()]
 
-## class EmptyDictImplementation(DictImplementation):
-##     def getitem(self, w_key, w_value):
-##         raise KeyError
-##     def setitem(self, w_dict, w_key, w_value):
-##         assert False
-##     def delitem(self, w_dict, w_key, w_value):
-##         raise KeyError
-##     def length(self):
-##         return 0
-##     def clear(self, w_dict):
-##         pass
-##     def has_key(self, w_lookup):
-##         return False
+class EmptyDictImplementation(DictImplementation):
+    def __init__(self, space):
+        self.space = space
+
+    def getitem(self, w_key):
+        raise KeyError
+    def setitem(self, w_key, w_value):
+        return RDictImplementation(self.space).setitem(w_key, w_value)
+    def delitem(self, w_key):
+        raise KeyError
+    
+    def length(self):
+        return 0
+    def clear(self):
+        return self
+    def has_key(self, w_lookup):
+        return False
+    def get(self, w_lookup, w_default):
+        return w_default
+
+    def iteritems(self):
+        return RDictImplementation(self.space).iteritems()
+    def iterkeys(self):
+        return RDictImplementation(self.space).iterkeys()
+    def itervalues(self):
+        return RDictImplementation(self.space).itervalues()
 
 class RDictImplementation(DictImplementation):
     def __init__(self, space):
+        self.space = space
         self.content = r_dict(space.eq_w, space.hash_w)
 
     def __repr__(self):
@@ -60,13 +74,18 @@ class RDictImplementation(DictImplementation):
         return self.content[w_key]
     def setitem(self, w_key, w_value):
         self.content[w_key] = w_value
+        return self
     def delitem(self, w_key):
         del self.content[w_key]
+        if self.content:
+            return self
+        else:
+            return EmptyDictImplementation(self.space)
         
     def length(self):
         return len(self.content)
     def clear(self):
-        self.content.clear()
+        return EmptyDictImplementation(self.space)
     def has_key(self, w_lookup):
         return w_lookup in self.content
     def get(self, w_lookup, w_default):
@@ -90,14 +109,16 @@ class W_DictMultiObject(W_Object):
     from pypy.objspace.std.dicttype import dict_typedef as typedef
 
     def __init__(w_self, space, w_otherdict=None):
-        w_self.implementation = RDictImplementation(space)
+        w_self.implementation = EmptyDictImplementation(space)
         if w_otherdict is not None:
             from pypy.objspace.std.dicttype import dict_update__ANY_ANY
             dict_update__ANY_ANY(space, w_self, w_otherdict)
 
     def initialize_content(w_self, list_pairs_w):
+        impl = w_self.implementation
         for w_k, w_v in list_pairs_w:
-            w_self.implementation.setitem(w_k, w_v)
+            impl = impl.setitem(w_k, w_v)
+        w_self.implementation = impl
 
     def __repr__(w_self):
         """ representation for debugging purposes """
@@ -117,7 +138,7 @@ class W_DictMultiObject(W_Object):
         return w_dict.implementation.get(w_key, w_default)
 
     def set_str_keyed_item(w_dict, w_key, w_value):
-        w_dict.implementation.setitem(w_key, w_value)
+        w_dict.implementation = w_dict.implementation.setitem(w_key, w_value)
 
 registerimplementation(W_DictMultiObject)
 
@@ -126,7 +147,7 @@ def init__DictMulti(space, w_dict, __args__):
     w_src, w_kwds = __args__.parse('dict',
                           (['seq_or_map'], None, 'kwargs'), # signature
                           [W_DictMultiObject(space)])            # default argument
-    w_dict.implementation.clear()
+    w_dict.implementation = w_dict.implementation.clear()
     try:
         space.getattr(w_src, space.wrap("keys"))
     except OperationError:
@@ -137,7 +158,7 @@ def init__DictMulti(space, w_dict, __args__):
                 raise OperationError(space.w_ValueError,
                              space.wrap("dict() takes a sequence of pairs"))
             w_k, w_v = pair
-            w_dict.implementation.setitem(w_k, w_v)
+            w_dict.implementation = w_dict.implementation.setitem(w_k, w_v)
     else:
         if space.is_true(w_src):
             from pypy.objspace.std.dicttype import dict_update__ANY_ANY
@@ -153,11 +174,11 @@ def getitem__DictMulti_ANY(space, w_dict, w_lookup):
         raise OperationError(space.w_KeyError, w_lookup)
 
 def setitem__DictMulti_ANY_ANY(space, w_dict, w_newkey, w_newvalue):
-    w_dict.implementation.setitem(w_newkey, w_newvalue)
+    w_dict.implementation = w_dict.implementation.setitem(w_newkey, w_newvalue)
 
 def delitem__DictMulti_ANY(space, w_dict, w_lookup):
     try:
-        w_dict.implementation.delitem(w_lookup)
+        w_dict.implementation = w_dict.implementation.delitem(w_lookup)
     except KeyError:
         raise OperationError(space.w_KeyError, w_lookup)
     
@@ -178,7 +199,7 @@ def eq__DictMulti_DictMulti(space, w_left, w_right):
 
     if w_left.implementation.length() != w_right.implementation.length():
         return space.w_False
-    for w_key, w_val in w_left.implementation.content.iteritems():
+    for w_key, w_val in w_left.implementation.iteritems():
         try:
             w_rightval = w_right.implementation.getitem(w_key)
         except KeyError:
@@ -192,7 +213,7 @@ def characterize(space, aimpl, bimpl):
     returns the smallest key in acontent for which b's value is different or absent and this value """
     w_smallest_diff_a_key = None
     w_its_value = None
-    for w_key, w_val in aimpl.content.iteritems():
+    for w_key, w_val in aimpl.iteritems():
         if w_smallest_diff_a_key is None or space.is_true(space.lt(w_key, w_smallest_diff_a_key)):
             try:
                 w_bvalue = bimpl.getitem(w_key)
@@ -251,7 +272,7 @@ def dict_itervalues__DictMulti(space, w_self):
     return W_DictMultiIter_Values(space, w_self.implementation)
 
 def dict_clear__DictMulti(space, w_self):
-    w_self.implementation.clear()
+    w_self.implementation = w_self.implementation.clear()
 
 def dict_get__DictMulti_ANY_ANY(space, w_dict, w_lookup, w_default):
     return w_dict.implementation.get(w_lookup, w_default)
