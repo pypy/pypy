@@ -112,11 +112,131 @@ class RDictImplementation(DictImplementation):
     def items(self):
         return self.content.items()
 
+# yeah, so this should do something clever with pypy.config
+MEASURE_DICT = False
+
+if MEASURE_DICT:
+    _dict_infos = []
+
+    class DictInfo:
+        def __init__(self):
+            self.getitems = 0;  self.setitems = 0; self.delitems = 0
+            self.lengths = 0;   self.clears = 0;   self.has_keys = 0;  self.gets = 0
+            self.iteritems = 0; self.iterkeys = 0; self.itervalues = 0
+            self.keys = 0;      self.values = 0;   self.items = 0
+
+            self.maxcontents = 0
+
+            self.reads = 0
+            self.writes = 0
+            self.iterations = 0
+            self.listings = 0
+
+            _dict_infos.append(self)
+
+    class MeasuringDictImplementation(DictImplementation):
+        def __init__(self, space):
+            self.space = space
+            self.content = r_dict(space.eq_w, space.hash_w)
+            self.info = DictInfo()
+
+        def __repr__(self):
+            return "%s<%s>" % (self.__class__.__name__, self.content)
+
+        def getitem(self, w_key):
+            self.info.getitems += 1
+            self.info.reads += 1
+            return self.content[w_key]
+        def setitem(self, w_key, w_value):
+            self.info.setitems += 1
+            self.info.writes += 1
+            self.info.maxcontents = max(self.info.maxcontents, len(self.content))
+            self.content[w_key] = w_value
+            return self
+        def delitem(self, w_key):
+            self.info.delitems += 1
+            self.info.writes += 1
+            del self.content[w_key]
+            return self
+
+        def length(self):
+            self.info.lengths += 1
+            return len(self.content)
+        def clear(self):
+            self.info.clears += 1
+            self.info.writes += 1
+            self.content.clear()
+            return self
+        def has_key(self, w_lookup):
+            self.info.has_keys += 1
+            self.info.reads += 1
+            return w_lookup in self.content
+        def get(self, w_lookup, w_default):
+            self.info.gets += 1
+            self.info.reads += 1
+            return self.content.get(w_lookup, w_default)
+
+        def iteritems(self):
+            self.info.iteritems += 1
+            self.info.iterations += 1
+            return self.content.iteritems()
+        def iterkeys(self):
+            self.info.iterkeys += 1
+            self.info.iterations += 1
+            return self.content.iterkeys()
+        def itervalues(self):
+            self.info.itervalues += 1
+            self.info.iterations += 1
+            return self.content.itervalues()
+
+        def keys(self):
+            self.info.keys += 1
+            self.info.listings += 1
+            return self.content.keys()
+        def values(self):
+            self.info.values += 1
+            self.info.listings += 1
+            return self.content.values()
+        def items(self):
+            self.info.items += 1
+            self.info.listings += 1
+            return self.content.items()
+
+    def reportDictInfo():
+        d = {}
+        if not _dict_infos:
+            return
+        rwratios = []
+        maxcontents = []
+        for info in _dict_infos:
+            for attr in info.__dict__:
+                if attr == 'maxcontents':
+                    continue
+                d[attr] = d.get(attr, 0) + info.__dict__[attr]
+            if info.writes:
+                rwratios.append(float(info.reads)/(info.writes))
+            elif info.reads:
+                rwratios.append('inf')
+            else:
+                rwratios.append('nan')
+            maxcontents.append(info.maxcontents)
+        import cPickle
+        cPickle.dump(_dict_infos, open('dictinfos.pickle', 'wb'))
+        open('rwratios.txt', 'w').write(repr(rwratios))
+        open('maxcontents.txt', 'w').write(repr(maxcontents))
+        print d
+
+    import atexit
+    atexit.register(reportDictInfo)
+
 class W_DictMultiObject(W_Object):
     from pypy.objspace.std.dicttype import dict_typedef as typedef
 
     def __init__(w_self, space, w_otherdict=None):
-        w_self.implementation = EmptyDictImplementation(space)
+        if MEASURE_DICT:
+            w_self.implementation = MeasuringDictImplementation(space)
+        else:
+            w_self.implementation = EmptyDictImplementation(space)
         if w_otherdict is not None:
             from pypy.objspace.std.dicttype import dict_update__ANY_ANY
             dict_update__ANY_ANY(space, w_self, w_otherdict)
