@@ -9,8 +9,6 @@ from pypy.objspace.cclp.global_state import scheduler
 
 #-- Singleton scheduler ------------------------------------------------
 
-class FunnyBoat: pass
-
 class Scheduler(object):
 
     def __init__(self, space):
@@ -89,7 +87,7 @@ class Scheduler(object):
                 import traceback
                 traceback.print_exc()
             self.display_head()
-        thread._next = thread._prev = FunnyBoat
+        thread._next = thread._prev = None
         # cspace/threads account mgmt
         if thread._cspace is not None:
             count = self.dec_live_thread_count(thread._cspace)
@@ -99,12 +97,14 @@ class Scheduler(object):
     #-- cspace helper
 
     def is_stable(self, cspace):
-        if not self._per_space_live_threads.has_key(cspace):
+        assert isinstance(cspace, W_CSpace)
+        if cspace not in self._per_space_live_threads.keys():
             #XXX meaning ?
             return True
         return self._per_space_live_threads[cspace] == 0
 
     def wait_stable(self, cspace):
+        assert isinstance(cspace, W_CSpace)
         if self.is_stable(cspace):
             return
         curr = ClonableCoroutine.w_getcurrent(self.space)
@@ -120,11 +120,13 @@ class Scheduler(object):
 
     #-- cspace -> thread_count helpers
     def inc_live_thread_count(self, cspace):
+        assert isinstance(cspace, W_CSpace)
         count = self._per_space_live_threads.get(cspace, 0) + 1
         self._per_space_live_threads[cspace]  = count
         return count
 
     def dec_live_thread_count(self, cspace):
+        assert isinstance(cspace, W_CSpace)
         count = self._per_space_live_threads[cspace] -1
         assert count >= 0
         self._per_space_live_threads[cspace] = count 

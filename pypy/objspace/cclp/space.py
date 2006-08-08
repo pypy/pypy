@@ -47,18 +47,20 @@ class W_CSpace(baseobjspace.Wrappable):
 
     def __init__(self, space, thread, parent=None):
         assert isinstance(thread, ClonableCoroutine)
-        assert (parent is None) or isinstance(parent, CSpace)
+        assert (parent is None) or isinstance(parent, W_CSpace)
         self.space = space # the object space ;-)
         self.parent = parent
         self.main_thread = thread
         # choice mgmt
         self._choice = newvar(space)
         self._committed = newvar(space)
+        # constraint store ...
+        
 
     def w_ask(self):
         scheduler[0].wait_stable(self)
         self.space.wait(self._choice)
-        return self.space.newint(self._choice)
+        return self._choice
 
     def choose(self, n):
         assert n > 1
@@ -74,10 +76,13 @@ class W_CSpace(baseobjspace.Wrappable):
     def w_commit(self, w_n):
         assert self.space.is_true(self.space.is_bound(self._choice))
         assert 0 < self.space.int_w(w_n)
-        assert self.space.int_w(w_n) <= self._choice
+        assert self.space.int_w(w_n) <= self._choice.w_bound_to
         self.space.bind(self._committed, w_n)
         self._choice = newvar(self.space)
-        
+
+
+    def tell(self, w_constraint):
+        pass
 
 W_CSpace.typedef = typedef.TypeDef("W_CSpace",
     ask = gateway.interp2app(W_CSpace.w_ask),
@@ -85,13 +90,6 @@ W_CSpace.typedef = typedef.TypeDef("W_CSpace",
 
 
 
-
-##     def is_top_level(self):
-##         return self.parent is None
-
-##     def current_space():
-##         #XXX return w_getcurrent().cspace
-##         pass
 
 
 ##     def clone(self):
@@ -105,20 +103,3 @@ W_CSpace.typedef = typedef.TypeDef("W_CSpace",
 ##             tclone.cspace = new
 ##             new.threads[tclone] = True
 
-##     def choose(self, n):
-##         if self.is_top_level():
-##             raise OperationError(self.space.w_RuntimeError,
-##                                  self.space.wrap("Choose"+forbidden_boilerplate))
-
-##     def ask(self):
-##         if self.is_top_level():
-##             raise OperationError(self.space.w_RuntimeError,
-##                                  self.space.wrap("Ask"+forbidden_boilerplate))
-##         #XXX basically hang until a call to choose, then return n
-
-##     def commit(self, n):
-##         if self.is_top_level():
-##             raise OperationError(self.space.w_RuntimeError,
-##                                  self.space.wrap("Commit"+forbidden_boilerplate))
-##         # ensure 0 < n < chosen n
-##         # ...

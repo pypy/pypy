@@ -621,6 +621,55 @@ class AppTest_LogicFutures(object):
         assert len(sched_all()['threads']) == 1
         
 
+class AppTest_CompSpace(object):
+
+    def setup_class(cls):
+        cls.space = gettestobjspace('logic', usemodules=("_stackless",))
+
+    def test_cvar(self):
+
+        d = domain([1, 2, 4])
+
+        raises(UnificationError, bind, d, 42)
+        bind(d, 2)
+        assert d == 2
+
+        class Foo(object):
+            pass
+
+        f = Foo()
+        d = domain([Foo(), f, Foo()])
+        raises(UnificationError, bind, d, Foo())
+        bind(d, f)
+        assert d == f
+
+        d1 = domain([1, 2, 3])
+        d2 = domain([2, 3, 4])
+        d3 = domain([5, 6])
+        raises(UnificationError, unify, d1, d3)
+        unify(d1, d2)
+        assert alias_of(d1, d2)
+        assert domain_of(d1) == domain_of(d2) == FiniteDomain([2, 3])
+
+        d1 = domain([1, 2, 3])
+        d4 = domain([3, 4])
+        unify(d1, d4)
+        assert d1 == d4 == 3
+
+        d1 = domain([1, 2])
+        x = newvar()
+        unify(d1, x)
+        assert alias_of(x, d1)
+        raises(UnificationError, unify, x, 42)
+
+        d1 = domain([1, 2])
+        x = newvar()
+        unify(d1, x)
+        assert alias_of(x, d1)
+        unify(x, 2)
+        assert d1 == x == 2
+        #XXX and a bunch of app-level functions
+        #raises(TypeError, domain_of, x)
 
     def test_newspace_ask_wait(self):
 
@@ -660,19 +709,35 @@ class AppTest_LogicFutures(object):
         assert X == 2
 
 
-    def test_ask_choose(self):
+    def test_more_ask_choose(self):
 
-        def chooser(X):
-            choice = choose(3)
-            unify(X, choice)
+        def chooser(vec, X):
+            for v in vec:
+                choice = choose(v)
+                assert choice == v
+            unify(X, 'done')
 
         def asker(cspace):
-            choices = cspace.ask()
-            cspace.commit(2)
+            while 1:
+                choices = cspace.ask()
+                if choices == 1: # success !
+                    break
+                cspace.commit(choices)
 
+        # choices >= 1
+        v = range(2, 9)
         X = newvar()
-
-        s = newspace(chooser, X)
+        s = newspace(chooser, v, X)
         stacklet(asker, s)
+
         schedule()
-        assert X == 2
+
+        assert len(sched_all()['asking']) == 1
+        assert sched_all()['space_accounting'][0][1] == 0 
+
+        assert X == 'done'
+        schedule()
+        assert len(sched_all()['threads']) == 1
+
+
+    

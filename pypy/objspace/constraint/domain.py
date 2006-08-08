@@ -91,6 +91,7 @@ class W_FiniteDomain(W_AbstractDomain):
     def size(self):
         """computes the size of a finite domain"""
         return len(self._values)
+    __len__ = size
     
     def w_get_values(self):
         """return all the values in the domain
@@ -136,9 +137,9 @@ app_intersection = gateway.interp2app(intersection)
 
 def intersection__FiniteDomain_FiniteDomain(space, w_fd1, w_fd2):
     w_v1 = w_fd1._values
-    w_res = [w_v for w_v in w_fd2._values
+    res = [w_v for w_v in w_fd2._values
              if w_v in w_v1]
-    return make_fd(space, space.newlist(w_res))
+    return make_fd(space, space.newlist(res))
 
 intersection_mm = StdObjSpaceMultiMethod('intersection', 2)
 intersection_mm.register(intersection__FiniteDomain_FiniteDomain,

@@ -2,7 +2,6 @@ from pypy.conftest import gettestobjspace
 from py.test import skip
 
 class AppTest_FiniteDomain(object):
-    skip("currently unplugged")
     
     def setup_class(cls):
         cls.space = gettestobjspace('logic', usemodules=('_stackless', ))

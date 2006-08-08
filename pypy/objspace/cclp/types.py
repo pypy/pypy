@@ -1,6 +1,7 @@
-from pypy.interpreter import baseobjspace, typedef
+from pypy.interpreter import baseobjspace, gateway, typedef
 
 from pypy.objspace.cclp.misc import w, ClonableCoroutine
+from pypy.objspace.constraint.domain import W_FiniteDomain
 
 W_Root = baseobjspace.W_Root
 
@@ -20,12 +21,25 @@ class W_Var(W_Root):
                             prettyfy_id(id(w_self)))
     __str__ = __repr__
 
+
 class W_Future(W_Var):
     "a read-only-by-its-consummer variant of logic. var"
     def __init__(w_self, space):
         W_Var.__init__(w_self, space)
         w_self._client = ClonableCoroutine.w_getcurrent(space)
         w("FUT", str(w_self))
+
+
+class W_CVar(W_Var):
+    def __init__(w_self, space, w_dom):
+        assert isinstance(w_dom, W_FiniteDomain)
+        W_Var.__init__(w_self, space)
+        w_self.w_dom = w_dom
+
+def domain_of(space, w_v):
+    assert isinstance(w_v, W_CVar)
+    return w_v.w_dom
+app_domain_of = gateway.interp2app(domain_of)
 
 #-- Exception types ----------------------------------------
 
@@ -35,50 +49,6 @@ class W_FailedValue(W_Root):
     """
     def __init__(w_self, exc):
         w_self.exc = exc
-
-#-- Something to hold the ring of coros --------------------------------
-
-## class Triple(object):
-
-##     def __init__(self, thread):
-##         assert isinstance(thread, ClonableCoroutine)
-##         self._thread = thread
-##         self._prev = self._next = self
-
-##     def get_next(self):
-##         return self._next
-
-##     def get_prev(self):
-##         return self._prev
-
-##     def set_next(self, triple):
-##         assert isinstance(triple, Triple)
-##         self._next = triple
-
-##     def set_prev(self, triple):
-##         assert isinstance(triple, Triple)
-##         self._prev = triple
-
-##     next = property(get_next, set_next)
-##     prev = property(get_prev, set_prev)
-
-##     def insert_before(self, triple):
-##         assert isinstance(triple, Triple)
-##         before = self.prev
-##         # ...
-##         before.next = triple
-##         triple.prev = before
-##         # ...
-##         self.prev = triple
-##         triple.next = self
-
-##     def __str__(self):
-##         curr = self
-##         out = ['[', str(id(self._thread))]
-##         while curr != self:
-##             curr = self.next
-##             out.append(str(id(curr._thread)))
-##         return ''.join(out)
 
 #-- Misc ---------------------------------------------------
 

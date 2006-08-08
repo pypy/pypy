@@ -27,17 +27,19 @@ from pypy.objspace.cclp.space import app_newspace, app_choose, W_CSpace
 
 from pypy.objspace.cclp.variable import app_newvar, wait, app_wait, app_wait_needed, \
      app_is_aliased, app_is_free, app_is_bound, app_alias_of, alias_of, app_bind, \
-     app_unify, W_Var, W_Future, all_mms as variable_mms
+     app_unify, W_Var, W_CVar, W_Future, app_domain, all_mms as variable_mms
+
+from pypy.objspace.cclp.types import app_domain_of
 
 all_mms.update(variable_mms)
 
 #-- CONSTRAINTS ----------------------------------------------
 
 ## #------ domains ------------------
-## from pypy.objspace.constraint import domain 
-## all_mms.update(domain.all_mms)
+from pypy.objspace.constraint import domain 
+all_mms.update(domain.all_mms)
 
-## W_FiniteDomain = domain.W_FiniteDomain
+W_FiniteDomain = domain.W_FiniteDomain
 
 ## #-------- computationspace --------
 ## from pypy.objspace.constraint import computationspace
@@ -192,8 +194,9 @@ def Space(*args, **kwds):
     # multimethods hack
     space.model.typeorder[W_Var] = [(W_Var, None), (W_Root, None)] # None means no conversion
     space.model.typeorder[W_Future] = [(W_Future, None), (W_Var, None)]
+    space.model.typeorder[W_CVar] = [(W_CVar, None), (W_Var, None)]
     space.model.typeorder[W_CSpace] = [(W_CSpace, None), (baseobjspace.Wrappable, None)]
-##     space.model.typeorder[W_FiniteDomain] = [(W_FiniteDomain, None), (W_Root, None)] 
+    space.model.typeorder[W_FiniteDomain] = [(W_FiniteDomain, None), (W_Root, None)] 
 
 
     for name in all_mms.keys():
@@ -211,13 +214,12 @@ def Space(*args, **kwds):
         setattr(space, name, boundmethod)  # store into 'space' instance
     # /multimethods hack
 
-    # XXXprovide a UnificationError exception
-    # patching the table in-place?  
-    #space.ExceptionTable.append('UnificationError')
-    #space.ExceptionTable.sort() # hmmm
-
     space.setitem(space.builtin.w_dict, space.wrap('newvar'),
                   space.wrap(app_newvar))
+    space.setitem(space.builtin.w_dict, space.wrap('domain'),
+                  space.wrap(app_domain))
+    space.setitem(space.builtin.w_dict, space.wrap('domain_of'),
+                  space.wrap(app_domain_of))
     space.setitem(space.builtin.w_dict, space.wrap('is_free'),
                   space.wrap(app_is_free))
     space.setitem(space.builtin.w_dict, space.wrap('is_bound'),
@@ -234,10 +236,10 @@ def Space(*args, **kwds):
 ##     space.setitem(space.builtin.w_dict, space.wrap('newspace'),
 ##                  space.wrap(computationspace.app_newspace))
 ##     #-- domain -------
-##     space.setitem(space.builtin.w_dict, space.wrap('FiniteDomain'),
-##                  space.wrap(domain.app_make_fd))
-##     space.setitem(space.builtin.w_dict, space.wrap('intersection'),
-##                  space.wrap(domain.app_intersection))
+    space.setitem(space.builtin.w_dict, space.wrap('FiniteDomain'),
+                 space.wrap(domain.app_make_fd))
+    space.setitem(space.builtin.w_dict, space.wrap('intersection'),
+                 space.wrap(domain.app_intersection))
 ##     #-- constraint ----
 ##     space.setitem(space.builtin.w_dict, space.wrap('make_expression'),
 ##                  space.wrap(constraint.app_make_expression))

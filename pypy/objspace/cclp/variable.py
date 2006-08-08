@@ -6,8 +6,9 @@ from pypy.objspace.std.dictobject import W_DictObject
 
 from pypy.objspace.cclp.misc import w, v, ClonableCoroutine
 from pypy.objspace.cclp.global_state import scheduler
-from pypy.objspace.cclp.types import deref, W_Var, W_Future, W_FailedValue
+from pypy.objspace.cclp.types import deref, W_Var, W_CVar, W_Future, W_FailedValue
 
+from pypy.objspace.constraint.domain import W_FiniteDomain
 
 W_Root = baseobjspace.W_Root
 all_mms = {}
@@ -18,6 +19,14 @@ def newvar(space):
     return w_v
 app_newvar = gateway.interp2app(newvar)
 
+def domain(space, w_values):
+    assert isinstance(w_values, W_ListObject)
+    w_dom = W_FiniteDomain(space, w_values)
+    w_var = W_CVar(space, w_dom)
+    w("CVAR", str(w_var))
+    return w_var
+app_domain = gateway.interp2app(domain)
+    
 #-- Wait -------------------------------------------------
 
 def wait__Root(space, w_obj):
@@ -110,7 +119,7 @@ is_bound_mm.register(is_bound__Var, W_Var)
 all_mms['is_bound'] = is_bound_mm
 
 
-def alias_of(space, w_var1, w_var2): # FIXME: appears to block
+def alias_of(space, w_var1, w_var2):
     assert isinstance(w_var1, W_Var)
     assert isinstance(w_var2, W_Var)
     assert space.is_true(space.is_free(w_var1))
@@ -118,9 +127,9 @@ def alias_of(space, w_var1, w_var2): # FIXME: appears to block
     w_curr = w_var1
     while 1:
         w_next = w_curr.w_bound_to
-        if space.is_true(space.is_nb_(w_next, w_var2)):
+        if w_next is w_var2:
             return space.newbool(True)
-        if space.is_true(space.is_nb_(w_next, w_var1)):
+        if w_next is w_var1:
             break
         w_curr = w_next
     return space.newbool(False)
@@ -140,11 +149,11 @@ def get_ring_tail(space, w_start):
         w_curr = w_next
 
 
-def raise_unification_failure(space):
+def raise_unification_failure(space, comment="Unification failure"):
     """raises a specific exception for bind/unify
        should fail the current comp. space at some point"""
     raise OperationError(space.w_UnificationError,
-                         space.wrap("Unification failure"))
+                         space.wrap(comment))
 
 # to signal a future binding exception
 def raise_future_binding(space):
@@ -170,18 +179,25 @@ def bind__Var_Root(space, w_var, w_obj):
     #w("var val", str(id(w_var)))
     # 3. var and value
     if space.is_true(space.is_free(w_var)):
-        return _assign(space, w_var, w_obj)
+        return _assign_aliases(space, w_var, w_obj)
     if space.is_true(space.eq(w_var.w_bound_to, w_obj)):
         return
     raise OperationError(space.w_RebindingError,
                          space.wrap("Cannot bind twice but two identical values"))
-
 
 def bind__Future_Root(space, w_fut, w_obj):
     #v("future val", str(id(w_fut)))
     if w_fut._client == ClonableCoroutine.w_getcurrent(space):
         raise_future_binding(space)
     return bind__Var_Root(space, w_fut, w_obj) # call-next-method ?
+
+def bind__CVar_Root(space, w_cvar, w_obj):
+    #XXX we should (want to) be able to test membership
+    #    in a wrapped against wrappeds into a non-wrapped dict
+    if [True for elt in w_cvar.w_dom._values
+        if space.is_true(space.eq(w_obj, elt))]:
+        return bind__Var_Root(space, w_cvar, w_obj)
+    raise_unification_failure(space, "value not in variable domain")
 
 def bind__Var_Var(space, w_v1, w_v2):
     #w("var var")
@@ -192,10 +208,10 @@ def bind__Var_Var(space, w_v1, w_v2):
                          deref(space, w_v1),
                          deref(space, w_v2))
         # 2. a (obj unbound, var bound)
-        return _assign(space, w_v2, deref(space, w_v1))
+        return _assign_aliases(space, w_v2, deref(space, w_v1))
     elif space.is_true(space.is_bound(w_v2)):
         # 2. b (var unbound, obj bound)
-        return _assign(space, w_v1, deref(space, w_v2))
+        return _assign_aliases(space, w_v1, deref(space, w_v2))
     else: # 1. both are unbound
         return _alias(space, w_v1, w_v2)
 
@@ -204,6 +220,24 @@ def bind__Future_Var(space, w_fut, w_var):
     if w_fut._client == ClonableCoroutine.w_getcurrent(space):
         raise_future_binding(space)
     return bind__Var_Var(space, w_fut, w_var)
+
+def bind__CVar_CVar(space, w_cvar1, w_cvar2):
+    w_inter_dom = space.intersection(w_cvar1.w_dom, w_cvar2.w_dom)
+    if w_inter_dom.__len__() > 0:
+        if w_inter_dom.__len__() == 1:
+            w_value = w_inter_dom.get_values()[0]
+            _assign_aliases(space, w_cvar1, w_value)
+            _assign_aliases(space, w_cvar2, w_value)
+        else:
+            w_cvar1.w_dom = w_cvar2.w_dom = w_inter_dom
+            _alias(space, w_cvar1, w_cvar2)
+    else:
+        raise_unification_failure(space, "incompatible domains")
+
+def bind__CVar_Var(space, w_cvar, w_var):
+    if space.is_true(space.is_bound(w_var)):
+        return bind__CVar_Root(space, w_cvar, w_var)
+    return bind__Var_Var(space, w_cvar, w_var)
 
 def bind__Var_Future(space, w_var, w_fut): 
     if space.is_true(space.is_bound(w_fut)): #XXX write a test for me !
@@ -218,16 +252,19 @@ bind_mm.register(bind__Var_Var, W_Var, W_Var)
 bind_mm.register(bind__Future_Root, W_Future, W_Root)
 bind_mm.register(bind__Future_Var, W_Future, W_Var)
 bind_mm.register(bind__Var_Future, W_Var, W_Future)
+bind_mm.register(bind__CVar_CVar, W_CVar, W_CVar)
+bind_mm.register(bind__CVar_Root, W_CVar, W_Root)
+bind_mm.register(bind__CVar_Var, W_CVar, W_Var)
 all_mms['bind'] = bind_mm
 
-def _assign(space, w_var, w_val):
+def _assign_aliases(space, w_var, w_val):
     w("  :assign")
     assert isinstance(w_var, W_Var)
     assert isinstance(w_val, W_Root)
     w_curr = w_var
     while 1:
         w_next = w_curr.w_bound_to
-        w_curr.w_bound_to = w_val
+        _assign(space, w_curr, w_val)
         # notify the blocked threads
         scheduler[0].unblock_on(w_curr)
         if space.is_true(space.is_nb_(w_next, w_var)):
@@ -236,6 +273,14 @@ def _assign(space, w_var, w_val):
         w_curr = w_next
     w("  :assigned")
     return space.w_None
+
+def _assign(space, w_var, w_val):
+    assert isinstance(w_var, W_Var)
+    if isinstance(w_var, W_CVar):
+        if not w_val in w_var.w_dom._values:
+            raise_unification_failure(space, "assignment out of domain")
+    w_var.w_bound_to = w_val
+
     
 def _alias(space, w_v1, w_v2):
     """appends one var to the alias chain of another
