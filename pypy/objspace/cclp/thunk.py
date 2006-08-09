@@ -1,9 +1,22 @@
 from pypy.module._stackless.coroutine import _AppThunk
-from pypy.objspace.cclp.misc import w 
+from pypy.objspace.cclp.misc import w
 from pypy.objspace.cclp.global_state import scheduler
 from pypy.objspace.cclp.types import W_Var, W_Future, W_FailedValue
 
+
+def logic_args(args):
+    "returns logic vars found in unpacked normalized args"
+    assert isinstance(args, tuple)
+    pos = args[0]
+    kwa = args[1]
+    pos_l = [arg for arg in pos
+             if isinstance(arg, W_Var)]
+    kwa_l = [arg for arg in kwa.keys()
+             if isinstance(arg, W_Var)]
+    return pos_l + kwa_l
+
 #-- Thunk -----------------------------------------
+
 
 class ProcedureThunk(_AppThunk):
     def __init__(self, space, w_callable, args, coro):
@@ -82,16 +95,30 @@ class CSpaceThunk(_AppThunk):
             scheduler[0].schedule()
 
 
+from pypy.interpreter.argument import Arguments
+from pypy.module._stackless.interp_coroutine import AbstractThunk
 
+class PropagatorThunk(AbstractThunk):
+    def __init__(self, space, w_constraint, coro, Merged):
+        self.space = space
+        self.coro = coro
+        self.const = w_constraint
+        self.Merged = Merged
 
-def logic_args(args):
-    "returns logic vars found in unpacked normalized args"
-    assert isinstance(args, tuple)
-    pos = args[0]
-    kwa = args[1]
-    pos_l = [arg for arg in pos
-             if isinstance(arg, W_Var)]
-    kwa_l = [arg for arg in kwa.keys()
-             if isinstance(arg, W_Var)]
-    return pos_l + kwa_l
+    def call(self):
+        try:
+            while 1:
+                entailed = self.const.revise()
+                if entailed:
+                    break
+                Obs = W_Var(self.space)
+                self.space.entail(self.Merged, Obs)
+                for Sync in [var.w_dom.give_synchronizer()
+                             for var in self.const._variables]:
+                    self.space.entail(Sync, Obs)
+                self.space.wait(Obs)
+        finally:
+            self.coro._dead = True
+            scheduler[0].remove_thread(self.coro)
+            scheduler[0].schedule()
 

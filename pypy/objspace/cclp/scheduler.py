@@ -76,7 +76,10 @@ class Scheduler(object):
         assert isinstance(thread, ClonableCoroutine)
         w(".. REMOVING", str(id(thread)))
         assert thread not in self._blocked
-        del self._traced[thread]
+        try:
+            del self._traced[thread]
+        except KeyError:
+            w(".. removing non-traced thread")
         l = thread._prev
         r = thread._next
         l._next = r

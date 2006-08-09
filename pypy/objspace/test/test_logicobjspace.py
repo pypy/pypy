@@ -665,7 +665,7 @@ class AppTest_CompSpace(object):
 
     def test_cvar(self):
 
-        d = domain([1, 2, 4])
+        d = domain([1, 2, 4], '')
 
         raises(UnificationError, bind, d, 42)
         bind(d, 2)
@@ -675,31 +675,31 @@ class AppTest_CompSpace(object):
             pass
 
         f = Foo()
-        d = domain([Foo(), f, Foo()])
+        d = domain([Foo(), f, Foo()], '')
         raises(UnificationError, bind, d, Foo())
         bind(d, f)
         assert d == f
 
-        d1 = domain([1, 2, 3])
-        d2 = domain([2, 3, 4])
-        d3 = domain([5, 6])
+        d1 = domain([1, 2, 3], '')
+        d2 = domain([2, 3, 4], '')
+        d3 = domain([5, 6], '')
         raises(UnificationError, unify, d1, d3)
         unify(d1, d2)
         assert alias_of(d1, d2)
         assert domain_of(d1) == domain_of(d2) == FiniteDomain([2, 3])
 
-        d1 = domain([1, 2, 3])
-        d4 = domain([3, 4])
+        d1 = domain([1, 2, 3], '')
+        d4 = domain([3, 4], '')
         unify(d1, d4)
         assert d1 == d4 == 3
 
-        d1 = domain([1, 2])
+        d1 = domain([1, 2], '')
         x = newvar()
         unify(d1, x)
         assert alias_of(x, d1)
         raises(UnificationError, unify, x, 42)
 
-        d1 = domain([1, 2])
+        d1 = domain([1, 2], '')
         x = newvar()
         unify(d1, x)
         assert alias_of(x, d1)
@@ -778,12 +778,9 @@ class AppTest_CompSpace(object):
 
     def test_tell(self):
 
-        skip("not finished ...")
-
         def problem():
             X, Y = domain([1, 2], 'X'), domain([1, 2, 3], 'Y')
             tell(make_expression([X, Y], 'X + Y > 4'))
-
 
         def solve(spc, X):
             while 1:
@@ -791,13 +788,12 @@ class AppTest_CompSpace(object):
                 if status == 1:
                     unify(X, status)
                     break
+            spc.merge()
                 
-        switch_debug_info()
         s = newspace(problem)
         Finished = newvar()
         stacklet(solve, s, Finished)
-
         wait(Finished)
 
-        assert domain_of(X) == FiniteDomain([2])
-        assert domain_of(Y) == FiniteDomain([3])
+        schedule()
+        assert len(sched_all()['threads']) == 1

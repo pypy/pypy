@@ -9,7 +9,7 @@ from pypy.objspace.cclp.misc import w, v, ClonableCoroutine
 from pypy.objspace.cclp.global_state import scheduler
 from pypy.objspace.cclp.types import deref, W_Var, W_CVar, W_Future, W_FailedValue
 
-from pypy.objspace.constraint.domain import W_FiniteDomain
+from pypy.objspace.cclp.constraint.domain import W_FiniteDomain
 
 W_Root = baseobjspace.W_Root
 all_mms = {}
@@ -20,11 +20,11 @@ def newvar(space):
     return w_v
 app_newvar = gateway.interp2app(newvar)
 
-def domain(space, w_values):#, w_name):
+def domain(space, w_values, w_name):
     assert isinstance(w_values, W_ListObject)
-    #assert isinstance(w_name, W_StringObject)
+    assert isinstance(w_name, W_StringObject)
     w_dom = W_FiniteDomain(space, w_values)
-    w_var = W_CVar(space, w_dom)#, w_name)
+    w_var = W_CVar(space, w_dom, w_name)
     w("CVAR", str(w_var))
     return w_var
 app_domain = gateway.interp2app(domain)
@@ -202,7 +202,7 @@ def bind__Future_Root(space, w_fut, w_obj):
 def bind__CVar_Root(space, w_cvar, w_obj):
     #XXX we should (want to) be able to test membership
     #    in a wrapped against wrappeds into a non-wrapped dict
-    if [True for elt in w_cvar.w_dom._values
+    if [True for elt in w_cvar.w_dom._values.content
         if space.is_true(space.eq(w_obj, elt))]:
         return bind__Var_Root(space, w_cvar, w_obj)
     raise_unification_failure(space, "value not in variable domain")
@@ -317,7 +317,7 @@ def _assign_entailed(space, w_var, w_val):
 def _assign(space, w_var, w_val):
     assert isinstance(w_var, W_Var)
     if isinstance(w_var, W_CVar):
-        if not w_val in w_var.w_dom._values:
+        if not w_val in w_var.w_dom._values.content:
             raise_unification_failure(space, "assignment out of domain")
     w_var.w_bound_to = w_val
 

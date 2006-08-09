@@ -29,4 +29,3 @@ def switch_debug_info(space):
     NO_DEBUG_INFO[0] = not NO_DEBUG_INFO[0]
 app_switch_debug_info = gateway.interp2app(switch_debug_info)
 
-

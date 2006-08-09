@@ -23,7 +23,7 @@ from pypy.objspace.cclp.global_state import scheduler
 
 #-- COMP. SPACE --------------------------------------------
 
-from pypy.objspace.cclp.space import app_newspace, app_choose, W_CSpace #app_tell
+from pypy.objspace.cclp.space import app_newspace, app_choose, W_CSpace, app_tell
 
 #-- VARIABLE ------------------------------------------------
 
@@ -37,8 +37,8 @@ all_mms.update(variable_mms)
 
 #-- CONSTRAINTS ----------------------------------------------
 
-## #------ domains ------------------
-from pypy.objspace.constraint import domain 
+## #------ domains ------------------ 
+from pypy.objspace.cclp.constraint import domain 
 all_mms.update(domain.all_mms)
 
 W_FiniteDomain = domain.W_FiniteDomain
@@ -50,8 +50,8 @@ W_FiniteDomain = domain.W_FiniteDomain
 ## W_ComputationSpace = computationspace.W_ComputationSpace
 
 ## # ---- constraints ----------------
-## from pypy.objspace.constraint import constraint
-## all_mms.update(constraint.all_mms)
+from pypy.objspace.cclp.constraint import constraint
+all_mms.update(constraint.all_mms)
 
 ## #----- distributors ---------------
 ## from pypy.objspace.constraint import distributor
@@ -246,8 +246,8 @@ def Space(*args, **kwds):
     space.setitem(space.builtin.w_dict, space.wrap('intersection'),
                  space.wrap(domain.app_intersection))
 ##     #-- constraints ----
-##     space.setitem(space.builtin.w_dict, space.wrap('make_expression'),
-##                  space.wrap(constraint.app_make_expression))
+    space.setitem(space.builtin.w_dict, space.wrap('make_expression'),
+                  space.wrap(constraint.app_make_expression))
 ##     space.setitem(space.builtin.w_dict, space.wrap('AllDistinct'),
 ##                  space.wrap(constraint.app_make_alldistinct))
 ##     #-- distributor --
@@ -281,8 +281,8 @@ def Space(*args, **kwds):
                   space.wrap(app_newspace))
     space.setitem(space.builtin.w_dict, space.wrap('choose'),
                   space.wrap(app_choose))
-##     space.setitem(space.builtin.w_dict, space.wrap('tell'),
-##                   space.wrap(app_tell))
+    space.setitem(space.builtin.w_dict, space.wrap('tell'),
+                  space.wrap(app_tell))
 
     #-- misc -----
     space.setitem(space.builtin.w_dict, space.wrap('interp_id'),

@@ -5,7 +5,7 @@ from pypy.interpreter.error import OperationError
 from pypy.objspace.std.intobject import W_IntObject
 
 from pypy.objspace.cclp.misc import ClonableCoroutine, w
-from pypy.objspace.cclp.thunk import CSpaceThunk
+from pypy.objspace.cclp.thunk import CSpaceThunk, PropagatorThunk
 from pypy.objspace.cclp.global_state import scheduler
 from pypy.objspace.cclp.variable import newvar
 
@@ -42,6 +42,13 @@ def choose(space, w_n):
 app_choose = gateway.interp2app(choose)
 
 
+from pypy.objspace.cclp.constraint import constraint
+
+def tell(space, w_constraint):
+    assert isinstance(w_constraint, constraint.W_AbstractConstraint)
+    ClonableCoroutine.w_getcurrent(space)._cspace.tell(w_constraint)
+app_tell = gateway.interp2app(tell)
+
 
 class W_CSpace(baseobjspace.Wrappable):
 
@@ -54,8 +61,8 @@ class W_CSpace(baseobjspace.Wrappable):
         # choice mgmt
         self._choice = newvar(space)
         self._committed = newvar(space)
-        # constraint store ...
-        
+        # merging
+        self._merged = newvar(space)
 
     def w_ask(self):
         scheduler[0].wait_stable(self)
@@ -82,24 +89,23 @@ class W_CSpace(baseobjspace.Wrappable):
 
 
     def tell(self, w_constraint):
-        pass
+        space = self.space
+        w_coro = ClonableCoroutine(space)
+        thunk = PropagatorThunk(space, w_constraint, w_coro, self._merged)
+        w_coro.bind(thunk)
+        if not we_are_translated():
+            w("PROPAGATOR, thread", str(id(w_coro)))
+        w_coro._cspace = self
+        scheduler[0].add_new_thread(w_coro)
+        scheduler[0].schedule()
+
+    def w_merge(self):
+        self.space.bind(self._merged, self.space.w_True)
+
+
+
 
 W_CSpace.typedef = typedef.TypeDef("W_CSpace",
     ask = gateway.interp2app(W_CSpace.w_ask),
-    commit = gateway.interp2app(W_CSpace.w_commit))
-
-
-
-
-
-##     def clone(self):
-##         if self.is_top_level():
-##             raise OperationError(self.space.w_RuntimeError,
-##                                  self.space.wrap("Clone"+forbidden_boilerplate))
-##         new = CSpace(self.distributor.clone(), parent=self)
-##         new.distributor.cspace = new
-##         for thread in self.threads:
-##             tclone = thread.clone()
-##             tclone.cspace = new
-##             new.threads[tclone] = True
-
+    commit = gateway.interp2app(W_CSpace.w_commit),
+    merge = gateway.interp2app(W_CSpace.w_merge))

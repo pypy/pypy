@@ -1,7 +1,6 @@
 from pypy.interpreter import baseobjspace, gateway, typedef
 
 from pypy.objspace.cclp.misc import w, ClonableCoroutine
-#from pypy.objspace.constraint.domain import W_FiniteDomain
 
 W_Root = baseobjspace.W_Root
 
@@ -32,14 +31,18 @@ class W_Future(W_Var):
 
 
 class W_CVar(W_Var):
-    def __init__(w_self, space, w_dom): #, w_name):
-        assert isinstance(w_dom, W_FiniteDomain)
+    def __init__(w_self, space, w_dom, w_name):
+        assert isinstance(w_dom, W_AbstractDomain)
         W_Var.__init__(w_self, space)
         w_self.w_dom = w_dom
-        #w_self.name = space.str_w(w_name)
+        w_self.name = space.str_w(w_name)
+        w_self.w_nam = w_name
 
     def name_w(w_self):
         return w_self.name
+
+    def w_name(w_self):
+        return w_self.w_nam
 
 def domain_of(space, w_v):
     assert isinstance(w_v, W_CVar)
@@ -57,12 +60,44 @@ class W_FailedValue(W_Root):
 
 #-- Constraint ---------------------------------------------
 
-## class W_Constraint(baseobjspace.Wrappable):
-##     def __init__(self, object_space):
-##         self._space = object_space
+class W_Constraint(baseobjspace.Wrappable):
+    def __init__(self, object_space):
+        self._space = object_space
 
-## W_Constraint.typedef = typedef.TypeDef(
-##     "W_Constraint")
+W_Constraint.typedef = typedef.TypeDef(
+    "W_Constraint")
+
+class W_AbstractDomain(baseobjspace.Wrappable):
+    """Implements the functionnality related to the changed flag.
+    Can be used as a starting point for concrete domains"""
+
+    def __init__(self, space):
+        self._space = space
+        self.__changed = W_Var(self._space)
+
+    def clear_change(self):
+        #XXX called after revise ?
+        assert self._space.is_true(self._space.is_bound(self.__changed))
+        self.__changed = W_Var(self._space)
+
+    def give_synchronizer(self):
+        return self.__changed
+
+    def _value_removed(self):
+        """The implementation of remove_value should call this method"""
+        self._space.bind(self.__changed, self._space.newbool(True))
+        self.clear_change()
+        
+        if self.size() == 0: #        self._space.eq_w(self.w_size(), self._space.newint(0)):
+            raise  OperationError(self._space.w_RuntimeError,
+                             self._space.wrap('ConsistencyFailure'))
+
+    def w__del__(self):
+        self._space.bind(self.__changed, self._space.newbool(False))
+
+W_AbstractDomain.typedef = typedef.TypeDef("W_AbstractDomain")
+##     has_changed = interp2app(W_AbstractDomain.w_has_changed))
+
 
 
 #-- Misc ---------------------------------------------------
