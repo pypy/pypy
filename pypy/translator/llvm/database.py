@@ -15,6 +15,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.objspace.flow.model import Constant, Variable
 from pypy.rpython.memory.lladdress import NULL
 from pypy.rpython.objectmodel import Symbolic, ComputedIntSymbolic
+from pypy.rpython.objectmodel import CDefinedIntSymbolic
 
 log = log.database 
 
@@ -496,8 +497,10 @@ class Primitives(object):
                                                                      r(from_),
                                                                      indices_as_str)
         elif isinstance(value, ComputedIntSymbolic):
-            # XXX what does this do?  Is this safe?
+            # force the ComputedIntSymbolic to become a real integer value now
             repr = '%d' % value.compute_fn()
+        elif isinstance(value, CDefinedIntSymbolic):
+            repr = CDEFINED_VALUE[value.expr]
         else:
             raise NotImplementedError("symbolic: %r" % (value,))
         
@@ -544,3 +547,8 @@ class Primitives(object):
             raise Exception("unsupported offset")
 
         return from_, indices, to    
+
+# reprs for specific CDefinedIntSymbolic constants
+CDEFINED_VALUE = {
+    'MALLOC_ZERO_FILLED': '1',
+    }
