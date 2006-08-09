@@ -193,6 +193,43 @@ class AppTest_Logic(object):
         raises(UnificationError, unify, f1.b, 24)
 
 
+    def test_entail(self):
+        X, Y = newvar(), newvar()
+        entail(X, Y)
+        unify(42, X)
+        assert X == Y == 42
+
+        X, Y = newvar(), newvar()
+        entail(X, Y)
+        unify(42, Y)
+        assert is_free(X)
+        assert Y == 42
+        unify(X, 42)
+        assert X == Y == 42
+
+        X, Y = newvar(), newvar()
+        entail(X, Y)
+        unify(42, Y)
+        assert is_free(X)
+        assert Y == 42
+        raises(UnificationError, unify, X, True)
+
+        X, Y = newvar(), newvar()
+        entail(X, Y)
+        unify(X, Y)
+        assert is_free(X)
+        assert is_free(Y)
+        unify(Y, 42)
+        assert X == Y == 42
+
+        X, Y, O = newvar(), newvar(), newvar()
+        entail(X, O)
+        entail(Y, O)
+        unify(Y, 42)
+        assert is_free(X)
+        assert Y == O == 42
+        
+
 class AppTest_LogicFutures(object):
 
     def setup_class(cls):
@@ -739,3 +776,28 @@ class AppTest_CompSpace(object):
         schedule()
         assert len(sched_all()['threads']) == 1
 
+    def test_tell(self):
+
+        skip("not finished ...")
+
+        def problem():
+            X, Y = domain([1, 2], 'X'), domain([1, 2, 3], 'Y')
+            tell(make_expression([X, Y], 'X + Y > 4'))
+
+
+        def solve(spc, X):
+            while 1:
+                status = spc.ask()
+                if status == 1:
+                    unify(X, status)
+                    break
+                
+        switch_debug_info()
+        s = newspace(problem)
+        Finished = newvar()
+        stacklet(solve, s, Finished)
+
+        wait(Finished)
+
+        assert domain_of(X) == FiniteDomain([2])
+        assert domain_of(Y) == FiniteDomain([3])

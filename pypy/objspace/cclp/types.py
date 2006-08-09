@@ -1,7 +1,7 @@
 from pypy.interpreter import baseobjspace, gateway, typedef
 
 from pypy.objspace.cclp.misc import w, ClonableCoroutine
-from pypy.objspace.constraint.domain import W_FiniteDomain
+#from pypy.objspace.constraint.domain import W_FiniteDomain
 
 W_Root = baseobjspace.W_Root
 
@@ -11,6 +11,7 @@ class W_Var(W_Root):
     def __init__(w_self, space):
         # ring of aliases or bound value
         w_self.w_bound_to = w_self
+        w_self.entails = {}
         # byneed flag
         w_self.needed = False
 
@@ -31,10 +32,14 @@ class W_Future(W_Var):
 
 
 class W_CVar(W_Var):
-    def __init__(w_self, space, w_dom):
+    def __init__(w_self, space, w_dom): #, w_name):
         assert isinstance(w_dom, W_FiniteDomain)
         W_Var.__init__(w_self, space)
         w_self.w_dom = w_dom
+        #w_self.name = space.str_w(w_name)
+
+    def name_w(w_self):
+        return w_self.name
 
 def domain_of(space, w_v):
     assert isinstance(w_v, W_CVar)
@@ -49,6 +54,16 @@ class W_FailedValue(W_Root):
     """
     def __init__(w_self, exc):
         w_self.exc = exc
+
+#-- Constraint ---------------------------------------------
+
+## class W_Constraint(baseobjspace.Wrappable):
+##     def __init__(self, object_space):
+##         self._space = object_space
+
+## W_Constraint.typedef = typedef.TypeDef(
+##     "W_Constraint")
+
 
 #-- Misc ---------------------------------------------------
 

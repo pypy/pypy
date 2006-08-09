@@ -21,13 +21,15 @@ from pypy.objspace.cclp.scheduler import Scheduler,  app_sched_info, \
 
 from pypy.objspace.cclp.global_state import scheduler
 
-from pypy.objspace.cclp.space import app_newspace, app_choose, W_CSpace
+#-- COMP. SPACE --------------------------------------------
+
+from pypy.objspace.cclp.space import app_newspace, app_choose, W_CSpace #app_tell
 
 #-- VARIABLE ------------------------------------------------
 
 from pypy.objspace.cclp.variable import app_newvar, wait, app_wait, app_wait_needed, \
      app_is_aliased, app_is_free, app_is_bound, app_alias_of, alias_of, app_bind, \
-     app_unify, W_Var, W_CVar, W_Future, app_domain, all_mms as variable_mms
+     app_unify, W_Var, W_CVar, W_Future, app_domain, all_mms as variable_mms, app_entail
 
 from pypy.objspace.cclp.types import app_domain_of
 
@@ -214,6 +216,7 @@ def Space(*args, **kwds):
         setattr(space, name, boundmethod)  # store into 'space' instance
     # /multimethods hack
 
+    #-- variable -------
     space.setitem(space.builtin.w_dict, space.wrap('newvar'),
                   space.wrap(app_newvar))
     space.setitem(space.builtin.w_dict, space.wrap('domain'),
@@ -230,6 +233,8 @@ def Space(*args, **kwds):
                   space.wrap(app_is_aliased))
     space.setitem(space.builtin.w_dict, space.wrap('bind'),
                  space.wrap(app_bind))
+    space.setitem(space.builtin.w_dict, space.wrap('entail'),
+                 space.wrap(app_entail))
     space.setitem(space.builtin.w_dict, space.wrap('unify'),
                  space.wrap(app_unify))
 ##     #-- comp space ---
@@ -240,7 +245,7 @@ def Space(*args, **kwds):
                  space.wrap(domain.app_make_fd))
     space.setitem(space.builtin.w_dict, space.wrap('intersection'),
                  space.wrap(domain.app_intersection))
-##     #-- constraint ----
+##     #-- constraints ----
 ##     space.setitem(space.builtin.w_dict, space.wrap('make_expression'),
 ##                  space.wrap(constraint.app_make_expression))
 ##     space.setitem(space.builtin.w_dict, space.wrap('AllDistinct'),
@@ -276,6 +281,8 @@ def Space(*args, **kwds):
                   space.wrap(app_newspace))
     space.setitem(space.builtin.w_dict, space.wrap('choose'),
                   space.wrap(app_choose))
+##     space.setitem(space.builtin.w_dict, space.wrap('tell'),
+##                   space.wrap(app_tell))
 
     #-- misc -----
     space.setitem(space.builtin.w_dict, space.wrap('interp_id'),

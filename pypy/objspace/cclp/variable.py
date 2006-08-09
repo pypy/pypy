@@ -3,6 +3,7 @@ from pypy.interpreter.error import OperationError
 from pypy.objspace.std.model import StdObjSpaceMultiMethod
 from pypy.objspace.std.listobject import W_ListObject, W_TupleObject
 from pypy.objspace.std.dictobject import W_DictObject
+from pypy.objspace.std.stringobject import W_StringObject
 
 from pypy.objspace.cclp.misc import w, v, ClonableCoroutine
 from pypy.objspace.cclp.global_state import scheduler
@@ -19,10 +20,11 @@ def newvar(space):
     return w_v
 app_newvar = gateway.interp2app(newvar)
 
-def domain(space, w_values):
+def domain(space, w_values):#, w_name):
     assert isinstance(w_values, W_ListObject)
+    #assert isinstance(w_name, W_StringObject)
     w_dom = W_FiniteDomain(space, w_values)
-    w_var = W_CVar(space, w_dom)
+    w_var = W_CVar(space, w_dom)#, w_name)
     w("CVAR", str(w_var))
     return w_var
 app_domain = gateway.interp2app(domain)
@@ -161,8 +163,7 @@ def raise_future_binding(space):
                          space.wrap("This future is read-only for you, pal"))
 
 
-#-- BIND -----------------------------
-
+#-- BIND, ENTAIL----------------------------
 
 def bind(space, w_var, w_obj):
     """1. aliasing of unbound variables
@@ -174,6 +175,13 @@ def bind(space, w_var, w_obj):
     assert isinstance(w_obj, W_Root)
     space.bind(w_var, w_obj)
 app_bind = gateway.interp2app(bind)
+
+def entail(space, w_v1, w_v2):
+    "X -> Y"
+    assert isinstance(w_v1, W_Var)
+    assert isinstance(w_v2, W_Var)
+    space.entail(w_v1, w_v2)
+app_entail = gateway.interp2app(entail)
 
 def bind__Var_Root(space, w_var, w_obj):
     #w("var val", str(id(w_var)))
@@ -245,7 +253,8 @@ def bind__Var_Future(space, w_var, w_fut):
     if w_fut._client == ClonableCoroutine.w_getcurrent(space):
         raise_future_binding(space)
     return bind__Var_Var(space, w_var, w_fut) #and for me ...
-    
+
+
 bind_mm = StdObjSpaceMultiMethod('bind', 2)
 bind_mm.register(bind__Var_Root, W_Var, W_Root)
 bind_mm.register(bind__Var_Var, W_Var, W_Var)
@@ -257,6 +266,28 @@ bind_mm.register(bind__CVar_Root, W_CVar, W_Root)
 bind_mm.register(bind__CVar_Var, W_CVar, W_Var)
 all_mms['bind'] = bind_mm
 
+
+def entail__Var_Var(space, w_v1, w_v2):
+    w("  :entail Var Var")
+    if space.is_true(space.is_bound(w_v1)):
+        if space.is_true(space.is_bound(w_v2)):
+            return unify(space,
+                         deref(space, w_v1),
+                         deref(space, w_v2))
+        return _assign_aliases(space, w_v2, deref(space, w_v1))
+    else:
+        return _entail(space, w_v1, w_v2)
+
+entail_mm = StdObjSpaceMultiMethod('entail', 2)
+entail_mm.register(entail__Var_Var, W_Var, W_Var)
+all_mms['entail'] = entail_mm
+
+def _entail(space, w_v1, w_v2):
+    assert isinstance(w_v1, W_Var)
+    assert isinstance(w_v2, W_Var)
+    w_v1.entails[w_v2] = True
+    return space.w_None
+        
 def _assign_aliases(space, w_var, w_val):
     w("  :assign")
     assert isinstance(w_var, W_Var)
@@ -271,8 +302,17 @@ def _assign_aliases(space, w_var, w_val):
             break
         # switch to next
         w_curr = w_next
+    _assign_entailed(space, w_var, w_val)
     w("  :assigned")
     return space.w_None
+
+def _assign_entailed(space, w_var, w_val):
+    w("   :assign entailed")
+    for var in w_var.entails:
+        if space.is_true(space.is_free(var)):
+            _assign_aliases(space, var, w_val)
+        else:
+            unify(space, deref(space, var), w_val)
 
 def _assign(space, w_var, w_val):
     assert isinstance(w_var, W_Var)
