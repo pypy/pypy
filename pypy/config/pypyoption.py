@@ -41,6 +41,9 @@ pypy_optiondescription = OptionDescription("pypy", [
 
         BoolOption("geninterp", "specify whether geninterp should be used"),
 
+        BoolOption("logbytecodes",
+                   "keep track of bytecode usage",
+                   default=False),
        
         OptionDescription("std", [
             BoolOption("withsmallint", "use tagged integers",

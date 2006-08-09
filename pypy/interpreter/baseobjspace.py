@@ -145,6 +145,10 @@ class ObjSpace(object):
         self.config = config
         self.interned_strings = {}
         self.setoptions(**kw)
+
+        if self.config.objspace.logbytecodes:            
+            self.bytecodecounts = {}
+
         self.initialize()
 
     def setoptions(self):
@@ -428,7 +432,7 @@ class ObjSpace(object):
         """
          If w_obj is a wrapped internal interpreter class instance unwrap to it,
          otherwise return None.  (Can be overridden in specific spaces; you
-	 should generally use the helper space.interp_w() instead.)
+     should generally use the helper space.interp_w() instead.)
         """
         if isinstance(w_obj, Wrappable):
             return w_obj
@@ -436,19 +440,19 @@ class ObjSpace(object):
 
     def interp_w(self, RequiredClass, w_obj, can_be_None=False):
         """
-	 Unwrap w_obj, checking that it is an instance of the required internal
-	 interpreter class (a subclass of Wrappable).
-	"""
-	if can_be_None and self.is_w(w_obj, self.w_None):
-	    return None
-	obj = self.interpclass_w(w_obj)
-	if not isinstance(obj, RequiredClass):   # or obj is None
-	    msg = "'%s' object expected, got '%s' instead" % (
-	        RequiredClass.typedef.name,
-		w_obj.getclass(self).getname(self, '?'))
-	    raise OperationError(self.w_TypeError, self.wrap(msg))
-	return obj
-    interp_w._annspecialcase_ = 'specialize:arg(1)'
+        Unwrap w_obj, checking that it is an instance of the required internal
+        interpreter class (a subclass of Wrappable).
+        """
+        if can_be_None and self.is_w(w_obj, self.w_None):
+            return None
+        obj = self.interpclass_w(w_obj)
+        if not isinstance(obj, RequiredClass):   # or obj is None
+            msg = "'%s' object expected, got '%s' instead" % (
+                RequiredClass.typedef.name,
+            w_obj.getclass(self).getname(self, '?'))
+            raise OperationError(self.w_TypeError, self.wrap(msg))
+        return obj
+        interp_w._annspecialcase_ = 'specialize:arg(1)'
 
     def unpackiterable(self, w_iterable, expected_length=-1):
         """Unpack an iterable object into a real (interpreter-level) list.

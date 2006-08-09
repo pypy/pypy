@@ -60,7 +60,7 @@ class TestW_ComplexObject:
 
 class AppTestAppComplexTest:
     def setup_class(cls):
-        cls.w_helper = cls.space.appexec([], "():\n    import sys\n    sys.path.append('%s')\n    import helper\n    return helper" % (py.magic.autopath().dirpath(), ))
+        cls.w_helper = cls.space.appexec([], "():\n    import sys\n    sys.path.append('%s')\n    import helper\n    return helper" % (str(py.magic.autopath().dirpath()).replace('\\', '\\\\'), ))
 
     def test_div(self):
         h = self.helper

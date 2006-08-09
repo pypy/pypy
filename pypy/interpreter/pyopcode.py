@@ -11,6 +11,7 @@ from pypy.interpreter import pyframe, pytraceback
 from pypy.interpreter.miscutils import InitializedClass
 from pypy.interpreter.argument import Arguments, ArgumentsFromValuestack
 from pypy.interpreter.pycode import PyCode
+from pypy.interpreter.opcodeorder import opcodeorder
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython.objectmodel import we_are_translated
 from pypy.rpython.rarithmetic import intmask
@@ -57,6 +58,8 @@ class PyInterpFrame(pyframe.PyFrame):
             ec.bytecode_trace(self)
             self.next_instr = self.last_instr
             opcode = self.nextop()
+            if self.space.config.objspace.logbytecodes:
+                self.space.bytecodecounts[opcode] = self.space.bytecodecounts.get(opcode, 0) + 1
             if opcode >= pythonopcode.HAVE_ARGUMENT:
                 oparg = self.nextarg()
                 while True:
@@ -813,6 +816,8 @@ def dispatch_translated(self, ec):
         ec.bytecode_trace(self)
         self.next_instr = self.last_instr
         opcode = ord(code[self.next_instr])
+        if self.space.config.objspace.logbytecodes:
+            self.space.bytecodecounts[opcode] = self.space.bytecodecounts.get(opcode, 0) + 1
         self.next_instr += 1
         if opcode >= %s:
             oparg = ord(code[self.next_instr]) | ord(code[self.next_instr + 1]) << 8
@@ -828,8 +833,16 @@ def dispatch_translated(self, ec):
 ''' % (pythonopcode.HAVE_ARGUMENT,
         pythonopcode.EXTENDED_ARG,
         pythonopcode.HAVE_ARGUMENT)
+
+        def sortkey(opcode, opcodeorder=opcodeorder, ValueError=ValueError):
+            try:
+                index = opcodeorder.index(opcode)
+            except ValueError:
+                index = 1000000
+            return index, opcode
         opcases = [(i, opname) for opname, i in pythonopcode.opmap.iteritems()]
-        opcases.sort()    # for predictable results
+        opcases.sort(key = sortkey)    # for predictable results
+
         for i, opname in opcases:
             if i == pythonopcode.EXTENDED_ARG or i < pythonopcode.HAVE_ARGUMENT:
                 continue

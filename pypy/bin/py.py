@@ -57,6 +57,7 @@ def make_objspace(conf):
     mod = __import__('pypy.objspace.%s' % conf.objspace.name,
                      None, None, ['Space'])
     Space = mod.Space
+    #conf.objspace.logbytecodes = True
     space = Space(conf) 
     return space 
             
@@ -126,6 +127,13 @@ def main_(argv=None):
         def doit():
             space.finish()
         main.run_toplevel(space, doit, verbose=Options.verbose)
+
+        if space.config.objspace.logbytecodes:
+            import dis
+            counts = space.bytecodecounts.items()
+            counts.sort(key = (lambda x: (-x[1], x[0])))
+            print [(dis.opname[opcode], count) for opcode, count in counts]
+            print [opcode for opcode, count in counts]
 
     return exit_status
 
