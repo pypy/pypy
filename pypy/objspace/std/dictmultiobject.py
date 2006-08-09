@@ -1,7 +1,7 @@
 from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
 
-from pypy.rpython.objectmodel import r_dict
+from pypy.rpython.objectmodel import r_dict, we_are_translated
 
 class DictImplementation(object):
     
@@ -116,10 +116,10 @@ class RDictImplementation(DictImplementation):
 MEASURE_DICT = False
 
 if MEASURE_DICT:
-    import time
+    import time, py
     _dict_infos = []
 
-    class DictInfo:
+    class DictInfo(object):
         def __init__(self):
             self.getitems = 0;  self.setitems = 0; self.delitems = 0
             self.lengths = 0;   self.clears = 0;   self.has_keys = 0;  self.gets = 0
@@ -140,14 +140,19 @@ if MEASURE_DICT:
             self.createtime = time.time()
             self.lifetime = -1.0
 
-            # very probable stack from here:
-            # 0 - us
-            # 1 - MeasuringDictImplementation.__init__
-            # 2 - W_DictMultiObject.__init__
-            # 3 - space.newdict
-            # 4 - newdict's caller.  let's look at that
-            frame = sys._getframe(4)
-            self.sig = '(%s:%s)%s'%(frame.f_code.co_filename, frame.f_lineno, frame.f_code.co_name)
+            if not we_are_translated():
+                # very probable stack from here:
+                # 0 - us
+                # 1 - MeasuringDictImplementation.__init__
+                # 2 - W_DictMultiObject.__init__
+                # 3 - space.newdict
+                # 4 - newdict's caller.  let's look at that
+                try:
+                    frame = sys._getframe(4)
+                except ValueError:
+                    pass # might be at import time
+                else:
+                    self.sig = '(%s:%s)%s'%(frame.f_code.co_filename, frame.f_lineno, frame.f_code.co_name)
 
             _dict_infos.append(self)
         def __repr__(self):
@@ -252,6 +257,31 @@ if MEASURE_DICT:
             self.info.listings += 1
             return self.content.items()
 
+    _example = DictInfo()
+    del _dict_infos[-1]
+    tmpl = '''
+        os.write(fd, "%(attr)s")
+        os.write(fd, ": ")
+        os.write(fd, str(info.%(attr)s))
+        os.write(fd, "\\n")
+    '''
+    bodySrc = []
+    for attr in _example.__dict__:
+        if attr == 'sig':
+            continue
+        bodySrc.append(tmpl%locals())
+    exec py.code.Source('''
+    def _report_one(fd, info):
+        %s
+    '''%''.join(bodySrc)).compile()
+
+    def report():
+        fd = os.open('dictinfo.txt', os.O_CREAT|os.O_WRONLY, 0644)
+        for info in _dict_infos:
+            os.write(fd, '------------------\n')
+            _report_one(fd, info)
+        os.close(fd)
+
     def reportDictInfo():
         d = {}
         if not _dict_infos:
@@ -278,8 +308,8 @@ if MEASURE_DICT:
             print '('+str(stillAlive), 'still alive)'
         print d
 
-    import atexit
-    atexit.register(reportDictInfo)
+    #import atexit
+    #atexit.register(reportDictInfo)
 
 class W_DictMultiObject(W_Object):
     from pypy.objspace.std.dicttype import dict_typedef as typedef

@@ -163,6 +163,10 @@ class ObjSpace(object):
         w_exitfunc = self.sys.getdictvalue_w(self, 'exitfunc')
         if w_exitfunc is not None:
             self.call_function(w_exitfunc)
+        # XXX ugh:
+        from pypy.objspace.std.dictmultiobject import MEASURE_DICT, report
+        if MEASURE_DICT:
+            report()
     
     def __repr__(self):
         try:
