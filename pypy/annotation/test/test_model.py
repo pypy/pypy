@@ -76,8 +76,12 @@ def test_commonbase_simple():
         pass
     class B2(object):
         pass
-    class B3(object, A0):
-        pass
+    try:
+        class B3(object, A0):
+            pass
+    except TypeError:    # if A0 is also a new-style class, e.g. in PyPy
+        class B3(A0, object):
+            pass
     assert commonbase(A1,A2) is A0 
     assert commonbase(A1,A0) is A0
     assert commonbase(A1,A1) is A1
