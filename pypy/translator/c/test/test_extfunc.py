@@ -553,6 +553,20 @@ if hasattr(os, 'link'):
         assert os.path.islink(tmpfile2)
         assert not os.path.islink(tmpfile3)
 
+if hasattr(os, 'fork'):
+    def test_fork():
+        def does_stuff():
+            pid = os.fork()
+            if pid == 0:   # child
+                os._exit(4)
+            pid1, status1 = os.waitpid(pid, 0)
+            assert pid1 == pid
+            return status1
+        f1 = compile(does_stuff, [])
+        status1 = f1()
+        assert os.WIFEXITED(status1)
+        assert os.WEXITSTATUS(status1) == 4
+
 # ____________________________________________________________
 
 def _real_getenv(var):

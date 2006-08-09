@@ -7,6 +7,7 @@ from pypy.rpython.rarithmetic import intmask
 
 STAT_RESULT = rtupletype.TUPLE_TYPE([lltype.Signed]*10).TO
 PIPE_RESULT = rtupletype.TUPLE_TYPE([lltype.Signed]*2).TO
+WAITPID_RESULT = rtupletype.TUPLE_TYPE([lltype.Signed]*2).TO
 
 class Implementation(BaseOS, LLSupport):
     
@@ -57,3 +58,10 @@ class Implementation(BaseOS, LLSupport):
         s = lltype.malloc(STR, n)
         ll_strcpy(s, buffer, n)
         return s
+
+    def ll_waitpid_result(fd1, fd2):
+        tup = lltype.malloc(WAITPID_RESULT)
+        tup.item0 = fd1
+        tup.item1 = fd2
+        return tup
+    ll_waitpid_result = staticmethod(ll_waitpid_result)

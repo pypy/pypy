@@ -43,6 +43,7 @@ corresponding Unix manual entries for more information on calls."""
     'pipe'      : 'interp_posix.pipe',
     'chmod'     : 'interp_posix.chmod',
     'rename'    : 'interp_posix.rename',
+    '_exit'     : 'interp_posix._exit',
     }
     if hasattr(os, 'ftruncate'):
         interpleveldefs['ftruncate'] = 'interp_posix.ftruncate'
@@ -58,6 +59,10 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['symlink'] = 'interp_posix.symlink'
     if hasattr(os, 'readlink'):
         interpleveldefs['readlink'] = 'interp_posix.readlink'
+    if hasattr(os, 'fork'):
+        interpleveldefs['fork'] = 'interp_posix.fork'
+    if hasattr(os, 'waitpid'):
+        interpleveldefs['waitpid'] = 'interp_posix.waitpid'
 
 
 for constant in dir(os):

@@ -76,6 +76,9 @@ long LL_os_getpid(void);
 void LL_os_link(RPyString * path1, RPyString * path2);
 void LL_os_symlink(RPyString * path1, RPyString * path2);
 long LL_readlink_into(RPyString *path, RPyString *buffer);
+long LL_os_fork(void);
+RPyWAITPID_RESULT* LL_os_waitpid(long pid, long options);
+void LL_os__exit(long status);
 void LL_os_putenv(RPyString * name_eq_value);
 void LL_os_unsetenv(RPyString * name);
 RPyString* LL_os_environ(int idx);
@@ -362,6 +365,31 @@ long LL_readlink_into(RPyString *path, RPyString *buffer)
 }
 
 #endif
+
+#ifdef HAVE_FORK
+long LL_os_fork(void) {
+	int pid = fork();
+	if (pid == -1)
+		RPYTHON_RAISE_OSERROR(errno);
+	return pid;
+}
+#endif
+
+#ifdef LL_NEED_OS_WAITPID
+RPyWAITPID_RESULT* LL_os_waitpid(long pid, long options) {
+	int status;
+	pid = waitpid(pid, &status, options);
+	if (pid == -1) {
+		RPYTHON_RAISE_OSERROR(errno);
+		return NULL;
+	}
+	return ll_waitpid_result(pid, status);
+}
+#endif
+
+void LL_os__exit(long status) {
+	_exit((int)status);
+}
 
 #ifdef HAVE_PUTENV
 /* Note that this doesn't map to os.putenv, it is the name=value

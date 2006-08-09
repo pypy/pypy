@@ -95,6 +95,16 @@ class AppTestPosix:
         assert isinstance(self.posix.strerror(0), str)
         assert isinstance(self.posix.strerror(1), str)
 
+    if hasattr(__import__(os.name), "fork"):
+        def test_fork(self):
+            os = self.posix
+            pid = os.fork()
+            if pid == 0:   # child
+                os._exit(4)
+            pid1, status1 = os.waitpid(pid, 0)
+            assert pid1 == pid
+            # XXX check status1
+
 class AppTestEnvironment(object):
     def setup_class(cls): 
         cls.space = space 

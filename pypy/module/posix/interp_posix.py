@@ -367,3 +367,16 @@ def readlink(space, path):
         raise wrap_oserror(space, e) 
     return space.wrap(result)
 readlink.unwrap_spec = [ObjSpace, str]
+
+def fork(space):
+    pid = os.fork()
+    return space.wrap(pid)
+
+def waitpid(space, pid, options):
+    pid, status = os.waitpid(pid, options)
+    return space.newtuple([space.wrap(pid), space.wrap(status)])
+waitpid.unwrap_spec = [ObjSpace, int, int]
+
+def _exit(space, status):
+    os._exit(status)
+_exit.unwrap_spec = [ObjSpace, int]

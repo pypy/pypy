@@ -159,6 +159,19 @@ class BaseOS:
     ll_readlink_into.suggested_primitive = True
     ll_readlink_into = staticmethod(ll_readlink_into)
 
+    def ll_os_fork(cls):
+        return os.fork()
+    ll_os_fork.suggested_primitive = True
+
+    def ll_os_waitpid(cls, pid, options):
+        pid, status = os.waitpid(pid, options)
+        return cls.ll_waitpid_result(pid, status)
+    ll_os_waitpid.suggested_primitive = True
+
+    def ll_os__exit(cls, status):
+        os._exit(status)
+    ll_os__exit.suggested_primitive = True
+
     # ____________________________________________________________
     # opendir/readdir
 

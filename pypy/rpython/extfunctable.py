@@ -166,6 +166,13 @@ def pipeannotation(*args):
     record_call(Implementation.ll_pipe_result, [SomeInteger()]*2, 'OS_PIPE')
     return SomeTuple((SomeInteger(),)*2)
 
+def waitpidannotation(*args):
+    from pypy.rpython.lltypesystem.module.ll_os import Implementation
+    from pypy.annotation.model import SomeInteger, SomeTuple
+    record_call(Implementation.ll_waitpid_result, [SomeInteger()]*2,
+                'OS_WAITPID')
+    return SomeTuple((SomeInteger(),)*2)
+
 def frexpannotation(*args):
     from pypy.annotation.model import SomeInteger, SomeTuple, SomeFloat
     from pypy.rpython.lltypesystem.module.ll_math import ll_frexp_result
@@ -209,6 +216,7 @@ if hasattr(posix, 'unsetenv'):   # note: faked in os
 declare(os.pipe     , pipeannotation, 'll_os/pipe')
 declare(os.chmod    , noneannotation, 'll_os/chmod')
 declare(os.rename   , noneannotation, 'll_os/rename')
+declare(os._exit    , noneannotation, 'll_os/_exit')
 if hasattr(os, 'getpid'):
     declare(os.getpid   , int,            'll_os/getpid')
 if hasattr(os, 'link'):
@@ -217,6 +225,10 @@ if hasattr(os, 'symlink'):
     declare(os.symlink  , noneannotation, 'll_os/symlink')
 if hasattr(os, 'readlink'):
     declare(os.readlink , str,            'll_os/readlink')
+if hasattr(os, 'fork'):
+    declare(os.fork ,     int,            'll_os/fork')
+if hasattr(os, 'waitpid'):
+    declare(os.waitpid ,  waitpidannotation, 'll_os/waitpid')
 
 declare(os.path.exists, bool        , 'll_os_path/exists')
 declare(os.path.isdir, bool         , 'll_os_path/isdir')

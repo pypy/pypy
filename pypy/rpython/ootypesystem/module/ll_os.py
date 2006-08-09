@@ -12,6 +12,7 @@ def _make_tuple(FIELDS):
 
 STAT_RESULT = _make_tuple([ootype.Signed]*10)
 PIPE_RESULT = _make_tuple([ootype.Signed]*2)
+WAITPID_RESULT = _make_tuple([ootype.Signed]*2)
 
 class Implementation(BaseOS, OOSupport):
     
@@ -45,3 +46,10 @@ class Implementation(BaseOS, OOSupport):
     def ll_os_readlink(cls, path):
         return cls.to_rstr(os.readlink(path))
     ll_os_readlink.suggested_primitive = True
+
+    def ll_waitpid_result(fd1, fd2):
+        tup = ootype.new(WAITPID_RESULT)
+        tup.item0 = fd1
+        tup.item1 = fd2
+        return tup
+    ll_waitpid_result = staticmethod(ll_waitpid_result)

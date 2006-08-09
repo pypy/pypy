@@ -8,6 +8,7 @@ from pypy.rpython.lltypesystem import rlist
 from pypy.rpython.module import ll_time, ll_math, ll_strtod
 from pypy.rpython.module import ll_stackless, ll_stack
 from pypy.rpython.lltypesystem.module.ll_os import STAT_RESULT, PIPE_RESULT
+from pypy.rpython.lltypesystem.module.ll_os import WAITPID_RESULT
 from pypy.rpython.lltypesystem.module.ll_os import Implementation as impl
 from pypy.rpython.lltypesystem.module import ll_math as ll_math2
 from pypy.rpython.lltypesystem.module import ll_strtod as ll_strtod2
@@ -54,6 +55,9 @@ EXTERNALS = {
     impl.ll_os_link.im_func:    'LL_os_link',
     impl.ll_os_symlink.im_func: 'LL_os_symlink',
     impl.ll_readlink_into:      'LL_readlink_into',
+    impl.ll_os_fork.im_func:    'LL_os_fork',
+    impl.ll_os_waitpid.im_func: 'LL_os_waitpid',
+    impl.ll_os__exit.im_func:   'LL_os__exit',
     ll_time.ll_time_clock: 'LL_time_clock',
     ll_time.ll_time_sleep: 'LL_time_sleep',
     ll_time.ll_time_time:  'LL_time_time',
@@ -112,6 +116,7 @@ def predeclare_common_types(db, rtyper):
     yield ('RPyMODF_RESULT', ll_math2.MODF_RESULT)
     yield ('RPySTAT_RESULT', STAT_RESULT)
     yield ('RPyPIPE_RESULT', PIPE_RESULT)
+    yield ('RPyWAITPID_RESULT', WAITPID_RESULT)
 
 def predeclare_utility_functions(db, rtyper):
     # Common utility functions
