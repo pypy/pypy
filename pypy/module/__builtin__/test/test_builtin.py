@@ -417,6 +417,16 @@ class AppTestBuiltinApp:
         assert Y().f() == ((Y,), {})
         assert Y().f(42, x=43) == ((Y, 42), {'x': 43})
 
+    def test_hasattr(self):
+        class X(object):
+            def broken(): pass
+            abc = property(broken)
+        x = X()
+        x.foo = 42
+        assert hasattr(x, '__class__')
+        assert hasattr(x, 'foo')
+        assert not hasattr(x, 'bar')
+        assert not hasattr(x, 'abc')    # CPython compliance
 
 class TestInternal:
 

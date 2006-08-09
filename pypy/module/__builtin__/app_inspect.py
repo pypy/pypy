@@ -85,7 +85,9 @@ def hasattr(obj, attr):
     try:
         getattr(obj, attr)
         return True
-    except AttributeError:
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except:
         return False
 
 # Replaced by the interp-level helper space.callable(): 
