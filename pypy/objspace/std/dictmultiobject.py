@@ -134,8 +134,10 @@ if MEASURE_DICT:
             self.iterations = 0
             self.listings = 0
 
-            self.seen_non_string = 0
+            self.seen_non_string_in_write = 0
             self.seen_non_string_in_read_first = 0
+            self.size_on_non_string_seen_in_read = -1
+            self.size_on_non_string_seen_in_write = -1
 
             self.createtime = time.time()
             self.lifetime = -1.0
@@ -184,9 +186,11 @@ if MEASURE_DICT:
             return space.is_true(space.isinstance(w_key, space.w_str))
         def _read(self, w_key):
             self.info.reads += 1
-            if not self.info.seen_non_string and not self._is_str(w_key):
-                self.info.seen_non_string = True
+            if not self.info.seen_non_string_in_write \
+                   and not self.info.seen_non_string_in_read_first \
+                   and not self._is_str(w_key):
                 self.info.seen_non_string_in_read_first = True
+                self.info.size_on_non_string_seen_in_read = len(self.content)
             hit = w_key in self.content
             if hit:
                 self.info.hits += 1
@@ -198,17 +202,20 @@ if MEASURE_DICT:
             self._read(w_key)
             return self.content[w_key]
         def setitem(self, w_key, w_value):
-            if not self.info.seen_non_string and not self._is_str(w_key):
-                self.info.seen_non_string = True
+            if not self.info.seen_non_string_in_write and not self._is_str(w_key):
+                self.info.seen_non_string_in_write = True
+                self.info.size_on_non_string_seen_in_write = len(self.content)
             self.info.setitems += 1
             self.info.writes += 1
             self.content[w_key] = w_value
             self.info.maxcontents = max(self.info.maxcontents, len(self.content))
             return self
         def delitem(self, w_key):
-            if not self.info.seen_non_string and not self._is_str(w_key):
+            if not self.info.seen_non_string_in_write \
+                   and not self.info.seen_non_string_in_read_first \
+                   and not self._is_str(w_key):
                 self.info.seen_non_string_in_read_first = True
-                self.info.seen_non_string = True
+                self.info.size_on_non_string_seen_in_read = len(self.content)
             self.info.delitems += 1
             self.info.writes += 1
             del self.content[w_key]
@@ -266,7 +273,7 @@ if MEASURE_DICT:
         os.write(fd, "\\n")
     '''
     bodySrc = []
-    for attr in _example.__dict__:
+    for attr in sorted(_example.__dict__):
         if attr == 'sig':
             continue
         bodySrc.append(tmpl%locals())
