@@ -456,7 +456,7 @@ class ObjSpace(object):
             w_obj.getclass(self).getname(self, '?'))
             raise OperationError(self.w_TypeError, self.wrap(msg))
         return obj
-        interp_w._annspecialcase_ = 'specialize:arg(1)'
+    interp_w._annspecialcase_ = 'specialize:arg(1)'
 
     def unpackiterable(self, w_iterable, expected_length=-1):
         """Unpack an iterable object into a real (interpreter-level) list.
