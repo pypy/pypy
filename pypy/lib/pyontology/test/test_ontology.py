@@ -646,33 +646,33 @@ def test_class_promotion():
     a_cls = URIRef('a')
     O.type(a_cls, URIRef(namespaces['owl']+'#Class'))
 
-    assert isinstance(O.variables['a_'], ClassDomain)	
+    assert isinstance(O.variables['a_'], ClassDomain)   
     O.type(a_cls, URIRef(namespaces['owl']+'#Restriction'))
-    assert isinstance(O.variables['a_'], Restriction)	
+    assert isinstance(O.variables['a_'], Restriction)   
 
 def test_class_demotion():
     O = Ontology()
     a_cls = URIRef('a')
     O.type(a_cls, URIRef(namespaces['owl']+'#Restriction'))
     O.variables[O.make_var(None, a_cls)].property = "SomeProp"
-    assert isinstance(O.variables['a_'], Restriction)	
+    assert isinstance(O.variables['a_'], Restriction)   
 
     O.type(a_cls, URIRef(namespaces['owl']+'#Class'))
 
-    assert isinstance(O.variables['a_'], Restriction)	
+    assert isinstance(O.variables['a_'], Restriction)   
     assert O.variables[O.make_var(None, a_cls)].property == "SomeProp"
 
 def test_property_to_objectproperty():
     O = Ontology()
     a_cls = URIRef('a')
     O.type(a_cls, URIRef(namespaces['rdf']+'#Property'))
-    assert isinstance(O.variables['a_'], Property)	
+    assert isinstance(O.variables['a_'], Property)      
     O.type(a_cls, URIRef(namespaces['owl']+'#ObjectProperty'))
-    assert isinstance(O.variables['a_'], Property)	
+    assert isinstance(O.variables['a_'], Property)      
 
     O.type(a_cls, URIRef(namespaces['rdf']+'#Property'))
 
-    assert isinstance(O.variables['a_'], ObjectProperty)	
+    assert isinstance(O.variables['a_'], ObjectProperty)        
 
 def test_individual():
     # test comparison (unknown, equal, different)

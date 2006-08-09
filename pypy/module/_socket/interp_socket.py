@@ -133,7 +133,7 @@ def setipaddr(space, name, addr_ret, addr_ret_size, af):
     addr = res.contents.ai_addr
     _c.freeaddrinfo(res)
     return addr
-		
+                
 def w_makesockaddr(space, caddr, caddrlen, proto):
     if caddrlen == 0:
         # No address -- may be recvfrom() from known socket

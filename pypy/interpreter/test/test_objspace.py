@@ -134,14 +134,14 @@ class TestObjSpace:
 
     def test_interp_w(self):
         w = self.space.wrap
-	w_bltinfunction = self.space.builtin.get('len')
-	res = self.space.interp_w(Function, w_bltinfunction)
-	assert res is w_bltinfunction   # with the std objspace only
-	self.space.raises_w(self.space.w_TypeError, self.space.interp_w, PyCode, w_bltinfunction)
-	self.space.raises_w(self.space.w_TypeError, self.space.interp_w, Function, w(42))
-	self.space.raises_w(self.space.w_TypeError, self.space.interp_w, Function, w(None))
-	res = self.space.interp_w(Function, w(None), can_be_None=True)
-	assert res is None
+        w_bltinfunction = self.space.builtin.get('len')
+        res = self.space.interp_w(Function, w_bltinfunction)
+        assert res is w_bltinfunction   # with the std objspace only
+        self.space.raises_w(self.space.w_TypeError, self.space.interp_w, PyCode, w_bltinfunction)
+        self.space.raises_w(self.space.w_TypeError, self.space.interp_w, Function, w(42))
+        self.space.raises_w(self.space.w_TypeError, self.space.interp_w, Function, w(None))
+        res = self.space.interp_w(Function, w(None), can_be_None=True)
+        assert res is None
 
 class TestModuleMinimal: 
     def test_sys_exists(self):

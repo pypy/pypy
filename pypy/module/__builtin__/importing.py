@@ -544,9 +544,9 @@ def find_module(fullname,  path):
     import sys
     meta_path = sys.meta_path
     for hook in meta_path:
-		loader = hook.find_module(fullname,  path)
-		if loader:
-			return loader
+                loader = hook.find_module(fullname,  path)
+                if loader:
+                        return loader
     if path != None and type(path) == str:
        pass
        # XXX Check for frozen modules ?

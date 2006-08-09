@@ -137,8 +137,8 @@ class GrammarSource(TokenSource):
             if npos==end and inp[end-1]!="'":
                 self.RaiseError("Unterminated string")
             self.pos = npos
-	    _endpos = npos - 1
-	    assert _endpos>=0
+            _endpos = npos - 1
+            assert _endpos>=0
             return Token(TOK_STRING,inp[pos+1:_endpos])
         else:
             npos = match_symbol( inp, pos, end)

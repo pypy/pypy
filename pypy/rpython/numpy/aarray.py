@@ -27,8 +27,8 @@ class SomeArray(SomeExternalObject):
     }
     def __init__(self, knowntype, typecode):
         self.knowntype = knowntype
-	self.typecode = typecode
-	self.rank = 1
+        self.typecode = typecode
+        self.rank = 1
 
     def can_be_none(self):
         return True
@@ -83,7 +83,7 @@ class CallEntry(ExtRegistryEntry):
     _about_ = numpy.array
 
     def compute_result_annotation(self, arg_list, *args_s, **kwds_s):
-	if not isinstance(arg_list, SomeList):
+        if not isinstance(arg_list, SomeList):
             raise AnnotatorError("numpy.array expects SomeList")
 
         # First guess type from input list
@@ -93,7 +93,7 @@ class CallEntry(ExtRegistryEntry):
 
         # now see if the dtype arg over-rides the typecode
         dtype = None
-	if len(args_s)>0:
+        if len(args_s)>0:
             dtype = args_s[0]
         if "dtype" in kwds_s:
             dtype = kwds_s["dtype"]

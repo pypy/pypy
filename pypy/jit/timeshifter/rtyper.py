@@ -35,7 +35,7 @@ def originalconcretetype(hs):
 class HintRTyper(RPythonTyper):
 
     def __init__(self, hannotator, timeshifter):
-    	RPythonTyper.__init__(self, hannotator, 
+        RPythonTyper.__init__(self, hannotator, 
                               type_system=HintTypeSystem.instance)
         self.green_reprs = PRECOMPUTED_GREEN_REPRS.copy()
         self.red_reprs = {}

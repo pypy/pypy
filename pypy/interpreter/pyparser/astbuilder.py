@@ -1303,8 +1303,8 @@ def build_import_name(builder, nb):
         names.append((name, as_name))
         # move forward until next ','
         # XXX: what is it supposed to do ?
-	while index<l:
-	    atom = atoms[index]
+        while index<l:
+            atom = atoms[index]
 #        for atom in atoms[index:]:
             if isinstance(atom, TokenObject) and atom.name == tok.COMMA:
                 break

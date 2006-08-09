@@ -21,8 +21,8 @@ class BitmapCreationException(Exception):
 
 
 #proxy messages
-#PMSG_PING          = "ping"	#server wants to hear from client
-#PMSG_PONG          = "pong"	#server responds to client's ping
+#PMSG_PING          = "ping"    #server wants to hear from client
+#PMSG_PONG          = "pong"    #server responds to client's ping
 PMSG_DEF_PLAYFIELD = "def_playfield"
 PMSG_DEF_ICON      = "def_icon"
 PMSG_PLAYER_ICON   = "player_icon"

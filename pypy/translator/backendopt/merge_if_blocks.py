@@ -35,9 +35,9 @@ def merge_chain(chain, checkvar, varmap):
     default.prevblock = firstblock
     default.args = [get_new_arg(arg) for arg in default.args]
     for block, case in chain:
-    	link = block.exits[1]
+        link = block.exits[1]
         links.append(link)
-	link.exitcase = case
+        link.exitcase = case
         link.llexitcase = case.value
         link.prevblock = firstblock
         link.args = [get_new_arg(arg) for arg in link.args]

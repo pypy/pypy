@@ -250,5 +250,5 @@ class PythonAstCompiler(PyCodeCompiler):
 
 def install_compiler_hook(space, w_callable):
 #       if not space.get( w_callable ):
-#	    raise OperationError( space.w_TypeError( space.wrap( "must have a callable" ) )
+#           raise OperationError( space.w_TypeError( space.wrap( "must have a callable" ) )
         space.default_compiler.w_compile_hook = w_callable

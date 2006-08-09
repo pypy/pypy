@@ -96,11 +96,11 @@ class CPyObjSpace(baseobjspace.ObjSpace):
 
     def interp_w(self, RequiredClass, w_obj, can_be_None=False):
         """
-	 Unwrap w_obj, checking that it is an instance of the required internal
-	 interpreter class (a subclass of Wrappable).
-	"""
-	if can_be_None and self.is_w(w_obj, self.w_None):
-	    return None
+         Unwrap w_obj, checking that it is an instance of the required internal
+         interpreter class (a subclass of Wrappable).
+        """
+        if can_be_None and self.is_w(w_obj, self.w_None):
+            return None
         from pypy.objspace.cpy.typedef import cpython2rpython
         return cpython2rpython(self, RequiredClass, w_obj)
     interp_w._annspecialcase_ = 'specialize:arg(1)'

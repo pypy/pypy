@@ -49,7 +49,7 @@ class DISABLEDAppTest_GlobalsAsConsts:
         def change_globals(ast, enc):
             class ChangeGlobalsVisitor:
                 def visitConst(self, node):
-		    pass
+                    pass
 
                 def defaultvisit(self, node):
                     for child in node.getChildNodes():
@@ -66,7 +66,7 @@ class DISABLEDAppTest_GlobalsAsConsts:
         # install the hook
         import parser
         parser.install_compiler_hook(change_globals)
-	# check that the visitor changed all globals
-	# in the code into Consts
-	# TODO
-	# simplest version of the test : dis(code) | grep -v LOAD_GLOBAL == dis(code)
+        # check that the visitor changed all globals
+        # in the code into Consts
+        # TODO
+        # simplest version of the test : dis(code) | grep -v LOAD_GLOBAL == dis(code)

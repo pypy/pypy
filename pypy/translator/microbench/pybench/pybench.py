@@ -409,7 +409,7 @@ class Document(object):
         self.head.append(
             html.link(rel="Stylesheet", type="text/css", href="MochiKit-1.1/examples/sortable_tables/sortable_tables.css"))
         self.head.append(
-	            html.script(rel="JavaScript", type="text/javascript", src="MochiKit-1.1/lib/MochiKit/MochiKit.js"))
+                    html.script(rel="JavaScript", type="text/javascript", src="MochiKit-1.1/lib/MochiKit/MochiKit.js"))
         self.head.append(
             html.script(rel="JavaScript", type="text/javascript", src="MochiKit-1.1/examples/sortable_tables/sortable_tables.js"))
 

@@ -70,17 +70,17 @@ class NameToken(Token):
 
 def ebnf_handle_grammar(self, node):
     for rule in node.nodes:
-	rule.visit(self)
+        rule.visit(self)
     # the rules are registered already
     # we do a pass through the variables to detect
     # terminal symbols from non terminals
     for r in self.items:
-	for i,a in enumerate(r.args):
-	    if a.codename in self.rules:
-		assert isinstance(a,Token)
-		r.args[i] = self.rules[a.codename]
-		if a.codename in self.terminals:
-		    del self.terminals[a.codename]
+        for i,a in enumerate(r.args):
+            if a.codename in self.rules:
+                assert isinstance(a,Token)
+                r.args[i] = self.rules[a.codename]
+                if a.codename in self.terminals:
+                    del self.terminals[a.codename]
     # XXX .keywords also contains punctuations
     self.terminals['NAME'].keywords = self.keywords
 
@@ -91,14 +91,14 @@ def ebnf_handle_rule(self, node):
     alt = node.nodes[1]
     rule = alt.visit(self)
     if not isinstance(rule, Token):
-	rule.codename = self.symbols.add_symbol( symdef )
+        rule.codename = self.symbols.add_symbol( symdef )
     self.rules[rule.codename] = rule
 
 def ebnf_handle_alternative(self, node):
     items = [node.nodes[0].visit(self)]
     items += node.nodes[1].visit(self)        
     if len(items) == 1 and not items[0].is_root():
-	return items[0]
+        return items[0]
     alt = Alternative(self.new_symbol(), items)
     return self.new_item(alt)
 
@@ -106,11 +106,11 @@ def ebnf_handle_sequence( self, node ):
     """ """
     items = []
     for n in node.nodes:
-	items.append( n.visit(self) )
+        items.append( n.visit(self) )
     if len(items)==1:
-	return items[0]
+        return items[0]
     elif len(items)>1:
-	return self.new_item( Sequence( self.new_symbol(), items) )
+        return self.new_item( Sequence( self.new_symbol(), items) )
     raise RuntimeError("Found empty sequence")
 
 def ebnf_handle_sequence_cont( self, node ):
@@ -126,13 +126,13 @@ def ebnf_handle_symbol(self, node):
     sym = node.nodes[0].value
     terminal = self.terminals.get( sym, None )
     if not terminal:
-	tokencode = pytoken.tok_values.get( sym, None )
-	if tokencode is None:
-	    tokencode = self.symbols.add_symbol( sym )
-	    terminal = Token( tokencode )
-	else:
-	    terminal = Token( tokencode )
-	    self.terminals[sym] = terminal
+        tokencode = pytoken.tok_values.get( sym, None )
+        if tokencode is None:
+            tokencode = self.symbols.add_symbol( sym )
+            terminal = Token( tokencode )
+        else:
+            terminal = Token( tokencode )
+            self.terminals[sym] = terminal
 
     return self.repeat( star_opt, terminal )
 
@@ -148,15 +148,15 @@ def ebnf_handle_TOK_STRING( self, node ):
     value = node.value
     tokencode = pytoken.tok_punct.get( value, None )
     if tokencode is None:
-	if not py_name.match( value ):
-	    raise RuntimeError("Unknown STRING value ('%s')" % value )
-	# assume a keyword
-	tok = Token( pytoken.NAME, value )
-	if value not in self.keywords:
-	    self.keywords.append( value )
+        if not py_name.match( value ):
+            raise RuntimeError("Unknown STRING value ('%s')" % value )
+        # assume a keyword
+        tok = Token( pytoken.NAME, value )
+        if value not in self.keywords:
+            self.keywords.append( value )
     else:
-	# punctuation
-	tok = Token( tokencode )
+        # punctuation
+        tok = Token( tokencode )
     return tok
 
 def ebnf_handle_sequence_alt( self, node ):
@@ -169,9 +169,9 @@ def ebnf_handle_sequence_alt( self, node ):
 ebnf_handles = {}
 for name, value in globals().items():
     if name.startswith("ebnf_handle_"):
-	name = name[12:]
-	key = getattr(ebnfgrammar, name )
-	ebnf_handles[key] = value
+        name = name[12:]
+        key = getattr(ebnfgrammar, name )
+        ebnf_handles[key] = value
 
 def handle_unknown( self, node ):
     raise RuntimeError("Unknown Visitor for %r" % node.name)
@@ -200,8 +200,8 @@ class EBNFVisitor(AbstractSyntaxVisitor):
         return itm
 
     def visit_syntaxnode( self, node ):
-	visit_func = ebnf_handles.get( node.name, handle_unknown )
-	return visit_func( self, node )
+        visit_func = ebnf_handles.get( node.name, handle_unknown )
+        return visit_func( self, node )
 
     def visit_tokennode( self, node ):
         return self.visit_syntaxnode( node )

@@ -1007,7 +1007,7 @@ def compress(space, data, compresslevel=9):
     
     in_bufsize = len(data)
     # conforming to bz2 manual, this is large enough to fit compressed
-	# data in one shot. We will check it later anyway.
+        # data in one shot. We will check it later anyway.
     out_bufsize = in_bufsize + (in_bufsize / 100 + 1) + 600
     
     out_buf = create_string_buffer(out_bufsize)        

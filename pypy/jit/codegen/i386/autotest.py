@@ -304,9 +304,9 @@ def complete_tests():
     items.sort()
     for key, value in items:
         if isinstance(value, i386.Instruction):
-	    if key in FORBIDDEN:
-	        print "Skipped", key
-	    else:
+            if key in FORBIDDEN:
+                print "Skipped", key
+            else:
                 complete_test(key,value)
     print "Ok."
 

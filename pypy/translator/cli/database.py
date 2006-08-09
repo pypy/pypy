@@ -40,7 +40,7 @@ BUILTIN_RECORDS = {
 DEFINED_INT_SYMBOLICS = {'MALLOC_ZERO_FILLED':1}
 
 def isnan(v):
-	return v != v*1.0 or (v == 1.0 and v == 2.0)
+        return v != v*1.0 or (v == 1.0 and v == 2.0)
 
 def isinf(v):
     return v!=0 and (v == v*2)

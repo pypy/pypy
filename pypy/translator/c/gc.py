@@ -106,7 +106,7 @@ class RefcountingGcPolicy(BasicGcPolicy):
     def OP_GC_CALL_RTTI_DESTRUCTOR(self, funcgen, op):
         args = [funcgen.expr(v) for v in op.args]
         line = '%s(%s);' % (args[0], ', '.join(args[1:]))
-        return line	
+        return line     
     
     def OP_GC_FREE(self, funcgen, op):
         args = [funcgen.expr(v) for v in op.args]

@@ -28,8 +28,8 @@ def arglist_equal(left,right):
             print "Type mismatch", repr(l), repr(r)
             print "l is str", repr(l), type(l)==str
             print "r is AssName", repr(r), isinstance(r,ast_ast.AssName)
-	    print "left is", repr(left)
-	    print "right is", repr(right)
+            print "left is", repr(left)
+            print "right is", repr(right)
             return False
     return True
 
