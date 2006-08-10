@@ -1,6 +1,6 @@
 from pypy.interpreter.error import OperationError
 
-from pypy.interpreter import typedef, gateway
+from pypy.interpreter import typedef, gateway, baseobjspace
 from pypy.interpreter.gateway import interp2app
 
 from pypy.objspace.std.listobject import W_ListObject, W_TupleObject
@@ -27,6 +27,7 @@ class W_FiniteDomain(W_AbstractDomain):
         no duplicate values"""
         W_AbstractDomain.__init__(self, space)
         #XXX a pure dict used to work there (esp. in revise)
+        assert isinstance(w_values, W_ListObject)
         self._values = space.newdict([])
         self.set_values(w_values)
 
@@ -40,6 +41,7 @@ class W_FiniteDomain(W_AbstractDomain):
         
     def remove_value(self, w_value):
         """Remove value of domain and check for consistency"""
+        assert isinstance(w_value, baseobjspace.W_Root)
         del self._values.content[w_value]
         self._value_removed()
 

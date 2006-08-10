@@ -54,7 +54,7 @@ class AppTest_Expression(object):
         cstr = make_expression([v1], '2*v1==2')
         assert str(cstr).startswith('<W_Expression object at')        
 
-    def test_revise(self):
+    def test_revise2(self):
         v1 = domain([1, 2], 'v1')
         cstr = make_expression([v1], '2*v1==2')
         assert cstr.revise() == 0

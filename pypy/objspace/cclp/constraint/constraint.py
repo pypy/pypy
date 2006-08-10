@@ -16,7 +16,6 @@ from pypy.objspace.std.model import StdObjSpaceMultiMethod
 from pypy.objspace.constraint.btree import BTree
 from pypy.objspace.constraint.util import sort, reverse
 
-import operator
 
 all_mms = {}
 
@@ -61,11 +60,6 @@ class W_AbstractConstraint(W_Constraint):
     def w_revise(self):
         return self._space.newbool(self.revise())
             
-    
-
-##     def __eq__(self, other): #FIXME and parent
-##         if not isinstance(other, self.__class__): return False
-##         return self._variables == other._variables
     
 W_AbstractConstraint.typedef = typedef.TypeDef(
     "W_AbstractConstraint",
@@ -131,42 +125,48 @@ class W_Expression(W_AbstractConstraint):
         for variable in self._variables:
             assert isinstance(variable, W_Variable)
             domain = variable.w_dom
-            values = domain.w_get_values()
-            variables.append((domain.size(),
-                              [variable, values, self._space.newint(0),
-                               self._space.len(values)]))
-            kwargs.content[variable.w_name()] = values.wrappeditems[0]
+            values = domain.get_values()
+            variables.append((domain.size(), [variable.w_name(), values, 0, len(values)]))
+            #kwargs.content[variable.w_name()] = values[0]
         # sort variables to instanciate those with fewer possible values first
         sort(variables)
-        res_kwargs = []
-        go_on = 1
-        while go_on:
-#            res_kwargs.append( kwargs)
-            yield kwargs
-            # try to instanciate the next variable
-            
-            for size, curr in variables:
-                assert isinstance(curr[0], W_Variable)
-                w_name = curr[0].w_name()
-                assert isinstance(w_name, W_StringObject)
-                if self._space.int_w(curr[2]) + 1 < self._space.int_w(curr[-1]):
-                    curr[2] = self._space.add(curr[2], self._space.newint(1))
-                    kwargs.content[w_name] = curr[1].wrappeditems[self._space.int_w(curr[2])]
-                    break
-                else:
-                    curr[2] = self._space.newint(0)
-                    kwargs.content[w_name] = curr[1].wrappeditems[0]
+        self._assign_values_state = variables
+        return kwargs 
+        
+    def _next_value(self, kwargs):
+
+        # try to instanciate the next variable
+        variables = self._assign_values_state
+
+        for _, curr in variables:
+            w_name = curr[0]
+            dom_values = curr[1] 
+            dom_index = curr[2]
+            dom_len = curr[3]
+            if dom_index < dom_len:
+                kwargs.content[w_name] = dom_values[curr[2]]
+                curr[2] = dom_index + 1
+                break
             else:
-                # it's over
-                go_on = 0
-#                return res_kwargs
+                curr[2] = 0
+                kwargs.content[w_name] = dom_values[0]
+        else:
+            # it's over
+            raise StopIteration
+        return kwargs
 
     def revise(self):
         """generic propagation algorithm for n-ary expressions"""
         maybe_entailed = True
         ffunc = self.filter_func
         result_cache = self._init_result_cache()
-        for kwargs in self._assign_values():
+
+        kwargs = self._assign_values()
+        while 1:
+            try:
+                kwargs = self._next_value(kwargs)
+            except StopIteration:
+                break
             if maybe_entailed:
                 for varname, val in kwargs.content.iteritems():
                     if val not in result_cache.content[varname].content:
@@ -186,7 +186,6 @@ class W_Expression(W_AbstractConstraint):
                 domain.remove_values([val
                                       for val in domain._values.content.keys()
                                       if val not in keep.content])
-
         except ConsistencyFailure:
             raise ConsistencyFailure('Inconsistency while applying %s' % \
                                      repr(self))
