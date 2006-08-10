@@ -43,12 +43,6 @@ all_mms.update(domain.all_mms)
 
 W_FiniteDomain = domain.W_FiniteDomain
 
-## #-------- computationspace --------
-## from pypy.objspace.constraint import computationspace
-## all_mms.update(computationspace.all_mms)
-
-## W_ComputationSpace = computationspace.W_ComputationSpace
-
 ## # ---- constraints ----------------
 from pypy.objspace.cclp.constraint import constraint
 all_mms.update(constraint.all_mms)
@@ -237,19 +231,16 @@ def Space(*args, **kwds):
                  space.wrap(app_entail))
     space.setitem(space.builtin.w_dict, space.wrap('unify'),
                  space.wrap(app_unify))
-##     #-- comp space ---
-##     space.setitem(space.builtin.w_dict, space.wrap('newspace'),
-##                  space.wrap(computationspace.app_newspace))
-##     #-- domain -------
+    #-- domain -------
     space.setitem(space.builtin.w_dict, space.wrap('FiniteDomain'),
                  space.wrap(domain.app_make_fd))
     space.setitem(space.builtin.w_dict, space.wrap('intersection'),
                  space.wrap(domain.app_intersection))
-##     #-- constraints ----
+    #-- constraints ----
     space.setitem(space.builtin.w_dict, space.wrap('make_expression'),
                   space.wrap(constraint.app_make_expression))
-##     space.setitem(space.builtin.w_dict, space.wrap('AllDistinct'),
-##                  space.wrap(constraint.app_make_alldistinct))
+    space.setitem(space.builtin.w_dict, space.wrap('all_diff'),
+                 space.wrap(constraint.app_make_alldistinct))
 ##     #-- distributor --
 ##     space.setitem(space.builtin.w_dict, space.wrap('NaiveDistributor'),
 ##                  space.wrap(distributor.app_make_naive_distributor))

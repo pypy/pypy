@@ -1,4 +1,5 @@
 from pypy.interpreter import baseobjspace, gateway, typedef
+from pypy.interpreter.error import OperationError
 
 from pypy.objspace.cclp.misc import w, ClonableCoroutine
 
@@ -19,6 +20,10 @@ class W_Var(W_Root):
             return '<?@%s>' % prettyfy_id(id(w_self))
         return '<%s@%s>' % (w_self.w_bound_to,
                             prettyfy_id(id(w_self)))
+
+    def _same_as(w_self, w_var):
+        assert isinstance(w_var, W_Var)
+        return w_self is w_var
     __str__ = __repr__
 
 
@@ -89,14 +94,14 @@ class W_AbstractDomain(baseobjspace.Wrappable):
         self.clear_change()
         
         if self.size() == 0: #        self._space.eq_w(self.w_size(), self._space.newint(0)):
-            raise  OperationError(self._space.w_RuntimeError,
-                             self._space.wrap('ConsistencyFailure'))
+            raise OperationError(self._space.w_RuntimeError,
+                                 self._space.wrap('ConsistencyFailure'))
 
     def w__del__(self):
         self._space.bind(self.__changed, self._space.newbool(False))
 
-W_AbstractDomain.typedef = typedef.TypeDef("W_AbstractDomain")
-##     has_changed = interp2app(W_AbstractDomain.w_has_changed))
+W_AbstractDomain.typedef = typedef.TypeDef("W_AbstractDomain",
+     give_synchronizer = gateway.interp2app(W_AbstractDomain.give_synchronizer))
 
 
 

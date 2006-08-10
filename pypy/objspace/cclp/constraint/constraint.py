@@ -59,7 +59,8 @@ class W_AbstractConstraint(W_Constraint):
         return self._space.newbool(w_variable in self._variables)
 
     def w_revise(self):
-        return self._space.newbool(self.space.revise())
+        return self._space.newbool(self.revise())
+            
     
 
 ##     def __eq__(self, other): #FIXME and parent
@@ -182,9 +183,9 @@ class W_Expression(W_AbstractConstraint):
         try:
             for varname, keep in result_cache.content.items():
                 domain = self._names_to_vars[self._space.str_w(varname)].w_dom
-                domain.w_remove_values(self._space.newlist([val
-                                                            for val in domain._values.content.keys()
-                                                            if val not in keep.content]))
+                domain.remove_values([val
+                                      for val in domain._values.content.keys()
+                                      if val not in keep.content])
 
         except ConsistencyFailure:
             raise ConsistencyFailure('Inconsistency while applying %s' % \
@@ -200,8 +201,8 @@ class W_Expression(W_AbstractConstraint):
         return '<%s>' % self.formula
 
 W_Expression.typedef = typedef.TypeDef("W_Expression",
-    W_AbstractConstraint.typedef)
-#    revise = interp2app(W_Expression.w_revise))
+    W_AbstractConstraint.typedef,
+    revise = interp2app(W_Expression.w_revise))
     
 
 
@@ -212,3 +213,71 @@ def make_expression(o_space, w_variables, w_formula):
     return W_Expression(o_space, w_variables, w_formula)
 app_make_expression = gateway.interp2app(make_expression)
 
+
+class W_AllDistinct(W_AbstractConstraint):
+    """Contraint: all values must be distinct"""
+
+    def __init__(self, object_space, w_variables):
+        W_AbstractConstraint.__init__(self, object_space, w_variables)
+        # worst case complexity
+        #self.__cost = len(w_variables.wrappeditems) * (len(w_variables.wrappeditems) - 1) / 2
+
+    def revise(self):
+        _spc = self._space
+
+        ord_vars = BTree()
+        for variable in self._variables:
+            ord_vars.add((variable.w_dom).size(),
+                         (variable, variable.w_dom))
+
+        variables = ord_vars.values()
+        
+##         variables = [(_spc.int_w(w_cs.w_dom(variable).w_size()),
+##                       variable, w_cs.w_dom(variable))
+##                      for variable in self._variables]
+##         variables.sort()
+        
+        # if a domain has a size of 1,
+        # then the value must be removed from the other domains
+        for var, dom in variables:
+            if dom.size() == 1:
+                #print "AllDistinct removes values"
+                for _var, _dom in variables:
+                    if not _var._same_as(var):
+                        try:
+                            _dom.remove_value(dom.get_values()[0])
+                        except KeyError, e:
+                            # we ignore errors caused by the removal of
+                            # non existing values
+                            pass
+
+        # if there are less values than variables, the constraint fails
+        values = {}
+        for var, dom in variables:
+            for val in dom.w_get_values().wrappeditems:
+                values[val] = 0
+
+        if len(values) < len(variables):
+            #print "AllDistinct failed"
+            raise OperationError(_spc.w_RuntimeError,
+                                 _spc.wrap("ConsistencyFailure"))
+
+        # the constraint is entailed if all domains have a size of 1
+        for _var, dom in variables:
+            if not dom.size() == 1:
+                return False
+
+        # Question : did we *really* completely check
+        # our own alldistinctness predicate ?
+        #print "All distinct entailed"
+        return True
+
+W_AllDistinct.typedef = typedef.TypeDef(
+    "W_AllDistinct", W_AbstractConstraint.typedef,
+    revise = interp2app(W_AllDistinct.w_revise))
+
+# function bolted into the space to serve as constructor
+def make_alldistinct(object_space, w_variables):
+    assert len(w_variables.wrappeditems) > 0
+    return object_space.wrap(W_AllDistinct(object_space, w_variables))
+app_make_alldistinct = gateway.interp2app(make_alldistinct)

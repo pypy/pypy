@@ -38,26 +38,26 @@ class W_FiniteDomain(W_AbstractDomain):
         for w_v in w_values.wrappeditems:
             self._space.setitem(self._values, w_v, self._space.w_True)
         
-    def w_remove_value(self, w_value):
+    def remove_value(self, w_value):
         """Remove value of domain and check for consistency"""
-        self._space.delitem(self._values, w_value)
+        del self._values.content[w_value]
         self._value_removed()
 
     def w_remove_values(self, w_values):
         """Remove values of domain and check for consistency"""
         assert isinstance(w_values, W_ListObject)
-        self.remove_values(w_values.wrappeditems)
-
-    def remove_values(self, values):
-        assert isinstance(values, list)
         try:
-            if len(values) > 0:
-                for w_val in values:
-                    del self._values.content[w_val]
-                self._value_removed()
+            self.remove_values(w_values.wrappeditems)
         except KeyError:
             raise OperationError(self._space.w_RuntimeError,
                                  self._space.wrap("attempt to remove unkown value from domain"))
+
+    def remove_values(self, values):
+        assert isinstance(values, list)
+        if len(values) > 0:
+            for w_val in values:
+                del self._values.content[w_val]
+            self._value_removed()
 
     def w_size(self):
         return self._space.newint(self.size())
@@ -115,7 +115,7 @@ all_mms['intersection'] = intersection_mm
 W_FiniteDomain.typedef = typedef.TypeDef(
     "W_FiniteDomain",
     W_AbstractDomain.typedef,
-    remove_value = interp2app(W_FiniteDomain.w_remove_value),
+    remove_value = interp2app(W_FiniteDomain.remove_value),
     remove_values = interp2app(W_FiniteDomain.w_remove_values),
     get_values = interp2app(W_FiniteDomain.w_get_values),
     __eq__ = interp2app(W_FiniteDomain.__eq__),

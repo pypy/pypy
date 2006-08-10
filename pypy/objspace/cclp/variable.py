@@ -137,7 +137,6 @@ def alias_of(space, w_var1, w_var2):
     return space.newbool(False)
 app_alias_of = gateway.interp2app(alias_of)
 
-
 #-- HELPERS ----------------------
 
 def get_ring_tail(space, w_start):
