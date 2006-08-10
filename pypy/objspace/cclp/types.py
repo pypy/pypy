@@ -78,30 +78,10 @@ class W_AbstractDomain(baseobjspace.Wrappable):
 
     def __init__(self, space):
         self._space = space
-        self.__changed = W_Var(self._space)
+        self._changed = W_Var(self._space)
 
-    def clear_change(self):
-        #XXX called after revise ?
-        assert self._space.is_true(self._space.is_bound(self.__changed))
-        self.__changed = W_Var(self._space)
 
-    def give_synchronizer(self):
-        return self.__changed
-
-    def _value_removed(self):
-        """The implementation of remove_value should call this method"""
-        self._space.bind(self.__changed, self._space.newbool(True))
-        self.clear_change()
-        
-        if self.size() == 0: #        self._space.eq_w(self.w_size(), self._space.newint(0)):
-            raise OperationError(self._space.w_RuntimeError,
-                                 self._space.wrap('ConsistencyFailure'))
-
-    def w__del__(self):
-        self._space.bind(self.__changed, self._space.newbool(False))
-
-W_AbstractDomain.typedef = typedef.TypeDef("W_AbstractDomain",
-     give_synchronizer = gateway.interp2app(W_AbstractDomain.give_synchronizer))
+W_AbstractDomain.typedef = typedef.TypeDef("W_AbstractDomain")
 
 
 

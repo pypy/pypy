@@ -9,7 +9,6 @@ from pypy.objspace.cclp.misc import w, v, ClonableCoroutine
 from pypy.objspace.cclp.global_state import scheduler
 from pypy.objspace.cclp.types import deref, W_Var, W_CVar, W_Future, W_FailedValue
 
-from pypy.objspace.cclp.constraint.domain import W_FiniteDomain
 
 W_Root = baseobjspace.W_Root
 all_mms = {}
@@ -20,14 +19,6 @@ def newvar(space):
     return w_v
 app_newvar = gateway.interp2app(newvar)
 
-def domain(space, w_values, w_name):
-    assert isinstance(w_values, W_ListObject)
-    assert isinstance(w_name, W_StringObject)
-    w_dom = W_FiniteDomain(space, w_values)
-    w_var = W_CVar(space, w_dom, w_name)
-    w("CVAR", str(w_var))
-    return w_var
-app_domain = gateway.interp2app(domain)
     
 #-- Wait -------------------------------------------------
 
@@ -60,6 +51,7 @@ all_mms['wait'] = wait_mm
 #-- Wait_needed --------------------------------------------
 
 def wait_needed__Var(space, w_var):
+    w(":wait_needed", str(id(ClonableCoroutine.w_getcurrent(space))))
     if space.is_true(space.is_free(w_var)):
         if w_var.needed:
             return
@@ -73,6 +65,7 @@ def wait_needed(space, w_var):
     assert isinstance(w_var, W_Var)
     return space.wait_needed(w_var)
 app_wait_needed = gateway.interp2app(wait_needed)            
+
 
 wait_needed_mm = StdObjSpaceMultiMethod('wait_needed', 1)
 wait_needed_mm.register(wait_needed__Var, W_Var)
@@ -181,6 +174,7 @@ def entail(space, w_v1, w_v2):
     assert isinstance(w_v2, W_Var)
     space.entail(w_v1, w_v2)
 app_entail = gateway.interp2app(entail)
+    
 
 def bind__Var_Root(space, w_var, w_obj):
     #w("var val", str(id(w_var)))
@@ -197,14 +191,6 @@ def bind__Future_Root(space, w_fut, w_obj):
     if w_fut._client == ClonableCoroutine.w_getcurrent(space):
         raise_future_binding(space)
     return bind__Var_Root(space, w_fut, w_obj) # call-next-method ?
-
-def bind__CVar_Root(space, w_cvar, w_obj):
-    #XXX we should (want to) be able to test membership
-    #    in a wrapped against wrappeds into a non-wrapped dict
-    if [True for elt in w_cvar.w_dom._values.content
-        if space.is_true(space.eq(w_obj, elt))]:
-        return bind__Var_Root(space, w_cvar, w_obj)
-    raise_unification_failure(space, "value not in variable domain")
 
 def bind__Var_Var(space, w_v1, w_v2):
     #w("var var")
@@ -228,23 +214,6 @@ def bind__Future_Var(space, w_fut, w_var):
         raise_future_binding(space)
     return bind__Var_Var(space, w_fut, w_var)
 
-def bind__CVar_CVar(space, w_cvar1, w_cvar2):
-    w_inter_dom = space.intersection(w_cvar1.w_dom, w_cvar2.w_dom)
-    if w_inter_dom.__len__() > 0:
-        if w_inter_dom.__len__() == 1:
-            w_value = w_inter_dom.get_values()[0]
-            _assign_aliases(space, w_cvar1, w_value)
-            _assign_aliases(space, w_cvar2, w_value)
-        else:
-            w_cvar1.w_dom = w_cvar2.w_dom = w_inter_dom
-            _alias(space, w_cvar1, w_cvar2)
-    else:
-        raise_unification_failure(space, "incompatible domains")
-
-def bind__CVar_Var(space, w_cvar, w_var):
-    if space.is_true(space.is_bound(w_var)):
-        return bind__CVar_Root(space, w_cvar, w_var)
-    return bind__Var_Var(space, w_cvar, w_var)
 
 def bind__Var_Future(space, w_var, w_fut): 
     if space.is_true(space.is_bound(w_fut)): #XXX write a test for me !
@@ -260,9 +229,6 @@ bind_mm.register(bind__Var_Var, W_Var, W_Var)
 bind_mm.register(bind__Future_Root, W_Future, W_Root)
 bind_mm.register(bind__Future_Var, W_Future, W_Var)
 bind_mm.register(bind__Var_Future, W_Var, W_Future)
-bind_mm.register(bind__CVar_CVar, W_CVar, W_CVar)
-bind_mm.register(bind__CVar_Root, W_CVar, W_Root)
-bind_mm.register(bind__CVar_Var, W_CVar, W_Var)
 all_mms['bind'] = bind_mm
 
 
@@ -290,7 +256,7 @@ def _entail(space, w_v1, w_v2):
 def _assign_aliases(space, w_var, w_val):
     w("  :assign")
     assert isinstance(w_var, W_Var)
-    assert isinstance(w_val, W_Root)
+    #assert isinstance(w_val, W_Root)
     w_curr = w_var
     while 1:
         w_next = w_curr.w_bound_to

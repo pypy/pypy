@@ -7,7 +7,8 @@ from pypy.objspace.std.listobject import W_ListObject, W_TupleObject
 
 from pypy.objspace.std.model import StdObjSpaceMultiMethod
 
-from pypy.objspace.cclp.types import W_AbstractDomain
+from pypy.objspace.cclp.types import W_AbstractDomain, W_Var
+from pypy.objspace.cclp.interp_var import interp_bind
 
 all_mms = {}
 
@@ -30,6 +31,27 @@ class W_FiniteDomain(W_AbstractDomain):
         assert isinstance(w_values, W_ListObject)
         self._values = space.newdict([])
         self.set_values(w_values)
+
+
+    def clear_change(self):
+        assert not isinstance(self._changed.w_bound_to, W_Var)
+        self._changed = W_Var(self._space)
+
+    def give_synchronizer(self):
+        return self._changed
+
+    def _value_removed(self):
+        """The implementation of remove_value should call this method"""
+        interp_bind(self._space, self._changed, True)
+        self.clear_change()
+        
+        if self.size() == 0:
+            raise OperationError(self._space.w_RuntimeError,
+                                 self._space.wrap('ConsistencyFailure'))
+
+##     def w__del__(self):
+##         self._space.bind(self._changed, self._space.newbool(False))
+
 
     def set_values(self, w_values):
         """Objects in the value set can't be unwrapped unless we
@@ -87,6 +109,8 @@ class W_FiniteDomain(W_AbstractDomain):
             
     def __ne__(self, w_other):
         return not self == w_other
+
+
 
 
 # function bolted into the space to serve as constructor

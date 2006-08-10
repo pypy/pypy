@@ -1,7 +1,10 @@
 from pypy.module._stackless.coroutine import _AppThunk
+from pypy.module._stackless.interp_coroutine import AbstractThunk
+
 from pypy.objspace.cclp.misc import w
 from pypy.objspace.cclp.global_state import scheduler
 from pypy.objspace.cclp.types import W_Var, W_Future, W_FailedValue
+from pypy.objspace.cclp.interp_var import interp_wait, interp_entail
 
 
 def logic_args(args):
@@ -95,9 +98,6 @@ class CSpaceThunk(_AppThunk):
             scheduler[0].schedule()
 
 
-from pypy.interpreter.argument import Arguments
-from pypy.module._stackless.interp_coroutine import AbstractThunk
-
 class PropagatorThunk(AbstractThunk):
     def __init__(self, space, w_constraint, coro, Merged):
         self.space = space
@@ -112,13 +112,14 @@ class PropagatorThunk(AbstractThunk):
                 if entailed:
                     break
                 Obs = W_Var(self.space)
-                self.space.entail(self.Merged, Obs)
+                interp_entail(self.space, self.Merged, Obs)
                 for Sync in [var.w_dom.give_synchronizer()
                              for var in self.const._variables]:
-                    self.space.entail(Sync, Obs)
-                self.space.wait(Obs)
+                    interp_entail(self.space, Sync, Obs)
+                interp_wait(self.space, Obs)
         finally:
             self.coro._dead = True
             scheduler[0].remove_thread(self.coro)
             scheduler[0].schedule()
+
 

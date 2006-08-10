@@ -789,7 +789,7 @@ class AppTest_CompSpace(object):
                     unify(X, status)
                     break
             spc.merge()
-                
+
         s = newspace(problem)
         Finished = newvar()
         stacklet(solve, s, Finished)

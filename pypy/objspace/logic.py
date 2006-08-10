@@ -29,7 +29,9 @@ from pypy.objspace.cclp.space import app_newspace, app_choose, W_CSpace, app_tel
 
 from pypy.objspace.cclp.variable import app_newvar, wait, app_wait, app_wait_needed, \
      app_is_aliased, app_is_free, app_is_bound, app_alias_of, alias_of, app_bind, \
-     app_unify, W_Var, W_CVar, W_Future, app_domain, all_mms as variable_mms, app_entail
+     app_unify, W_Var, W_CVar, W_Future, all_mms as variable_mms, app_entail
+
+from pypy.objspace.cclp.constraint.variable import app_domain
 
 from pypy.objspace.cclp.types import app_domain_of
 
