@@ -282,7 +282,7 @@ if MEASURE_DICT:
 
     def report():
         os.write(2, "starting to report!\n")
-        fd = os.open('dictinfo.txt', os.O_CREAT|os.O_WRONLY, 0644)
+        fd = os.open('dictinfo.txt', os.O_CREAT|os.O_WRONLY|os.O_TRUNC, 0644)
         for info in _dict_infos:
             os.write(fd, '------------------\n')
             _report_one(fd, info)
