@@ -26,7 +26,7 @@ def wait__Root(space, w_obj):
     return w_obj
 
 def wait__Var(space, w_var):
-    w(":wait", str(id(ClonableCoroutine.w_getcurrent(space))))
+    #w(":wait", str(id(ClonableCoroutine.w_getcurrent(space))))
     if space.is_true(space.is_free(w_var)):
         scheduler[0].unblock_byneed_on(w_var)
         scheduler[0].add_to_blocked_on(w_var, ClonableCoroutine.w_getcurrent(space))
@@ -51,7 +51,7 @@ all_mms['wait'] = wait_mm
 #-- Wait_needed --------------------------------------------
 
 def wait_needed__Var(space, w_var):
-    w(":wait_needed", str(id(ClonableCoroutine.w_getcurrent(space))))
+    #w(":wait_needed", str(id(ClonableCoroutine.w_getcurrent(space))))
     if space.is_true(space.is_free(w_var)):
         if w_var.needed:
             return

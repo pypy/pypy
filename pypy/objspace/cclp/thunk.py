@@ -4,7 +4,7 @@ from pypy.module._stackless.interp_coroutine import AbstractThunk
 from pypy.objspace.cclp.misc import w
 from pypy.objspace.cclp.global_state import scheduler
 from pypy.objspace.cclp.types import W_Var, W_Future, W_FailedValue
-from pypy.objspace.cclp.interp_var import interp_wait, interp_entail
+from pypy.objspace.cclp.interp_var import interp_wait, interp_entail, interp_bind
 
 
 def logic_args(args):
@@ -92,6 +92,7 @@ class CSpaceThunk(_AppThunk):
                 self.space.bind(cspace._choice, self.space.wrap(SPACE_FAILURE))
             else:
                 w(".% clean (valueless) EXIT of", str(id(self._coro)))
+                self.space.bind(cspace._solution, self.costate.w_tempval)
                 self.space.bind(cspace._choice, self.space.wrap(SPACE_SOLUTION))
         finally:
             scheduler[0].remove_thread(self._coro)
@@ -107,17 +108,25 @@ class PropagatorThunk(AbstractThunk):
 
     def call(self):
         try:
-            while 1:
-                entailed = self.const.revise()
-                if entailed:
-                    break
-                Obs = W_Var(self.space)
-                interp_entail(self.space, self.Merged, Obs)
-                for Sync in [var.w_dom.give_synchronizer()
-                             for var in self.const._variables]:
-                    interp_entail(self.space, Sync, Obs)
-                interp_wait(self.space, Obs)
+            try:
+                while 1:
+                    entailed = self.const.revise()
+                    if entailed:
+                        break
+                    Obs = W_Var(self.space)
+                    interp_entail(self.space, self.Merged, Obs)
+                    for Sync in [var.w_dom.give_synchronizer()
+                                 for var in self.const._variables]:
+                        interp_entail(self.space, Sync, Obs)
+                    interp_wait(self.space, Obs)
+            except:
+                import traceback
+                traceback.print_exc()
         finally:
+            # all values of dom size 1 are bound
+            for var in self.const._variables:
+                if var.w_dom.size() == 1:
+                    interp_bind(self.space, var, var.w_dom.get_values()[0])
             self.coro._dead = True
             scheduler[0].remove_thread(self.coro)
             scheduler[0].schedule()

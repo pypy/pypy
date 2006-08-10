@@ -62,7 +62,9 @@ class W_CSpace(baseobjspace.Wrappable):
         self._choice = newvar(space)
         self._committed = newvar(space)
         # merging
+        self._solution = newvar(space)
         self._merged = newvar(space)
+        
 
     def w_ask(self):
         scheduler[0].wait_stable(self)
@@ -101,7 +103,7 @@ class W_CSpace(baseobjspace.Wrappable):
 
     def w_merge(self):
         self.space.bind(self._merged, self.space.w_True)
-
+        return self._solution
 
 
 

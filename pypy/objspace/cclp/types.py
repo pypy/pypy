@@ -69,8 +69,7 @@ class W_Constraint(baseobjspace.Wrappable):
     def __init__(self, object_space):
         self._space = object_space
 
-W_Constraint.typedef = typedef.TypeDef(
-    "W_Constraint")
+W_Constraint.typedef = typedef.TypeDef("W_Constraint")
 
 class W_AbstractDomain(baseobjspace.Wrappable):
     """Implements the functionnality related to the changed flag.

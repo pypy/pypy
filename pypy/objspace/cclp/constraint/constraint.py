@@ -16,7 +16,6 @@ from pypy.objspace.std.model import StdObjSpaceMultiMethod
 from pypy.objspace.constraint.btree import BTree
 from pypy.objspace.constraint.util import sort, reverse
 
-
 all_mms = {}
 
 
@@ -127,7 +126,7 @@ class W_Expression(W_AbstractConstraint):
             domain = variable.w_dom
             values = domain.get_values()
             variables.append((domain.size(), [variable.w_name(), values, 0, len(values)]))
-            #kwargs.content[variable.w_name()] = values[0]
+            kwargs.content[variable.w_name()] = values[0]
         # sort variables to instanciate those with fewer possible values first
         sort(variables)
         self._assign_values_state = variables

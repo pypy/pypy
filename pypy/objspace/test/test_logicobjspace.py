@@ -781,19 +781,21 @@ class AppTest_CompSpace(object):
         def problem():
             X, Y = domain([1, 2], 'X'), domain([1, 2, 3], 'Y')
             tell(make_expression([X, Y], 'X + Y > 4'))
+            return (X, Y)
 
         def solve(spc, X):
             while 1:
                 status = spc.ask()
                 if status == 1:
-                    unify(X, status)
                     break
-            spc.merge()
+            unify(spc.merge(), X)
 
         s = newspace(problem)
-        Finished = newvar()
-        stacklet(solve, s, Finished)
-        wait(Finished)
+        Solution = newvar()
+        stacklet(solve, s, Solution)
 
         schedule()
+
+        assert Solution == (2, 3)
+
         assert len(sched_all()['threads']) == 1
