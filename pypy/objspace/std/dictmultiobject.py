@@ -121,6 +121,8 @@ if MEASURE_DICT:
 
     class DictInfo(object):
         def __init__(self):
+            self.id = len(_dict_infos)
+
             self.getitems = 0;  self.setitems = 0; self.delitems = 0
             self.lengths = 0;   self.clears = 0;   self.has_keys = 0;  self.gets = 0
             self.iteritems = 0; self.iterkeys = 0; self.itervalues = 0
@@ -266,12 +268,7 @@ if MEASURE_DICT:
 
     _example = DictInfo()
     del _dict_infos[-1]
-    tmpl = '''
-        os.write(fd, "%(attr)s")
-        os.write(fd, ": ")
-        os.write(fd, str(info.%(attr)s))
-        os.write(fd, "\\n")
-    '''
+    tmpl = 'os.write(fd, "%(attr)s" + ": " + str(info.%(attr)s) + "\\n")'
     bodySrc = []
     for attr in sorted(_example.__dict__):
         if attr == 'sig':
@@ -279,15 +276,18 @@ if MEASURE_DICT:
         bodySrc.append(tmpl%locals())
     exec py.code.Source('''
     def _report_one(fd, info):
+        os.write(fd, "_address" + ": " + str(id(info)) + "\\n")
         %s
-    '''%''.join(bodySrc)).compile()
+    '''%'\n        '.join(bodySrc)).compile()
 
     def report():
+        os.write(2, "starting to report!\n")
         fd = os.open('dictinfo.txt', os.O_CREAT|os.O_WRONLY, 0644)
         for info in _dict_infos:
             os.write(fd, '------------------\n')
             _report_one(fd, info)
         os.close(fd)
+        os.write(2, "reporting done!\n")
 
     def reportDictInfo():
         d = {}
