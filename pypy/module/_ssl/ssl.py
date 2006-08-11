@@ -349,6 +349,7 @@ assert alignment(bignum_st) == 4, alignment(bignum_st)
 BIGNUM = bignum_st
 class bignum_ctx(Structure):
     pass
+bignum_ctx._fields_ = []
 BN_CTX = bignum_ctx
 class bn_blinding_st(Structure):
     pass
@@ -519,6 +520,7 @@ assert alignment(dh_method) == 4, alignment(dh_method)
 DH_METHOD = dh_method
 class engine_st(Structure):
     pass
+engine_st._fields_ = []
 ENGINE = engine_st
 dh_st._fields_ = [
     ('pad', c_int),
@@ -1705,6 +1707,7 @@ assert alignment(x509_cert_aux_st) == 4, alignment(x509_cert_aux_st)
 X509_CERT_AUX = x509_cert_aux_st
 class AUTHORITY_KEYID_st(Structure):
     pass
+AUTHORITY_KEYID_st._fields_ = []
 x509_st._fields_ = [
     ('cert_info', POINTER(X509_CINF)),
     ('sig_alg', POINTER(X509_ALGOR)),
