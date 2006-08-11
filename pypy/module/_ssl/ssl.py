@@ -1,20 +1,19 @@
-# generated from openssl/ssl.h with ctypes' codegen
 from ctypes import *
 STRING = c_char_p
 
 
-OSBigEndian = 2
+OSUnknownByteOrder = 0
 UIT_PROMPT = 1
+P_PGID = 2
 P_PID = 1
+UIT_ERROR = 5
 UIT_INFO = 4
+UIT_NONE = 0
+P_ALL = 0
 UIT_VERIFY = 2
+OSBigEndian = 2
 UIT_BOOLEAN = 3
 OSLittleEndian = 1
-P_PGID = 2
-P_ALL = 0
-OSUnknownByteOrder = 0
-UIT_NONE = 0
-UIT_ERROR = 5
 __darwin_nl_item = c_int
 __darwin_wctrans_t = c_int
 __darwin_wctype_t = c_ulong
@@ -165,15 +164,23 @@ assert alignment(asn1_string_table_st) == 4, alignment(asn1_string_table_st)
 ASN1_STRING_TABLE = asn1_string_table_st
 class ASN1_TEMPLATE_st(Structure):
     pass
+ASN1_TEMPLATE_st._fields_ = [
+]
 ASN1_TEMPLATE = ASN1_TEMPLATE_st
 class ASN1_ITEM_st(Structure):
     pass
 ASN1_ITEM = ASN1_ITEM_st
+ASN1_ITEM_st._fields_ = [
+]
 class ASN1_TLC_st(Structure):
     pass
 ASN1_TLC = ASN1_TLC_st
+ASN1_TLC_st._fields_ = [
+]
 class ASN1_VALUE_st(Structure):
     pass
+ASN1_VALUE_st._fields_ = [
+]
 ASN1_VALUE = ASN1_VALUE_st
 ASN1_ITEM_EXP = ASN1_ITEM
 class asn1_type_st(Structure):
@@ -326,6 +333,8 @@ assert alignment(bio_f_buffer_ctx_struct) == 4, alignment(bio_f_buffer_ctx_struc
 BIO_F_BUFFER_CTX = bio_f_buffer_ctx_struct
 class hostent(Structure):
     pass
+hostent._fields_ = [
+]
 class bf_key_st(Structure):
     pass
 bf_key_st._fields_ = [
@@ -349,7 +358,8 @@ assert alignment(bignum_st) == 4, alignment(bignum_st)
 BIGNUM = bignum_st
 class bignum_ctx(Structure):
     pass
-bignum_ctx._fields_ = []
+bignum_ctx._fields_ = [
+]
 BN_CTX = bignum_ctx
 class bn_blinding_st(Structure):
     pass
@@ -437,6 +447,8 @@ assert alignment(comp_ctx_st) == 4, alignment(comp_ctx_st)
 COMP_CTX = comp_ctx_st
 class CRYPTO_dynlock_value(Structure):
     pass
+CRYPTO_dynlock_value._fields_ = [
+]
 class CRYPTO_dynlock(Structure):
     pass
 CRYPTO_dynlock._fields_ = [
@@ -464,6 +476,8 @@ CRYPTO_EX_DATA_FUNCS = crypto_ex_data_func_st
 class st_CRYPTO_EX_DATA_IMPL(Structure):
     pass
 CRYPTO_EX_DATA_IMPL = st_CRYPTO_EX_DATA_IMPL
+st_CRYPTO_EX_DATA_IMPL._fields_ = [
+]
 CRYPTO_MEM_LEAK_CB = CFUNCTYPE(c_void_p, c_ulong, STRING, c_int, c_int, c_void_p)
 DES_cblock = c_ubyte * 8
 const_DES_cblock = c_ubyte * 8
@@ -520,7 +534,6 @@ assert alignment(dh_method) == 4, alignment(dh_method)
 DH_METHOD = dh_method
 class engine_st(Structure):
     pass
-engine_st._fields_ = []
 ENGINE = engine_st
 dh_st._fields_ = [
     ('pad', c_int),
@@ -843,6 +856,8 @@ X509_STORE = x509_store_st
 class x509_store_ctx_st(Structure):
     pass
 X509_STORE_CTX = x509_store_ctx_st
+engine_st._fields_ = [
+]
 class PEM_Encode_Seal_st(Structure):
     pass
 PEM_Encode_Seal_st._fields_ = [
@@ -1169,21 +1184,6 @@ class ssl_method_st(Structure):
     pass
 class ssl3_enc_method(Structure):
     pass
-ssl3_enc_method._fields_ = [
-    ('enc', CFUNCTYPE(POINTER(SSL), c_int)),
-    ('mac', CFUNCTYPE(POINTER(SSL), STRING, c_int)),
-    ('setup_key_block', CFUNCTYPE(POINTER(SSL))),
-    ('generate_master_secret', CFUNCTYPE(POINTER(SSL), STRING, STRING, c_int)),
-    ('change_cipher_state', CFUNCTYPE(POINTER(SSL), c_int)),
-    ('final_finish_mac', CFUNCTYPE(POINTER(SSL), POINTER(EVP_MD_CTX), POINTER(EVP_MD_CTX), STRING, c_int, STRING)),
-    ('finish_mac_length', c_int),
-    ('cert_verify_mac', CFUNCTYPE(POINTER(SSL), POINTER(EVP_MD_CTX), STRING)),
-    ('client_finished_label', STRING),
-    ('client_finished_label_len', c_int),
-    ('server_finished_label', STRING),
-    ('server_finished_label_len', c_int),
-    ('alert_value', CFUNCTYPE(c_int)),
-]
 ssl_method_st._fields_ = [
     ('version', c_int),
     ('ssl_new', CFUNCTYPE(c_int, POINTER(SSL))),
@@ -1213,6 +1213,8 @@ ssl_method_st._fields_ = [
 ]
 assert sizeof(ssl_method_st) == 100, sizeof(ssl_method_st)
 assert alignment(ssl_method_st) == 4, alignment(ssl_method_st)
+ssl3_enc_method._fields_ = [
+]
 SSL_METHOD = ssl_method_st
 class ssl_session_st(Structure):
     pass
@@ -1245,6 +1247,8 @@ ssl_session_st._fields_ = [
 ]
 assert sizeof(ssl_session_st) == 200, sizeof(ssl_session_st)
 assert alignment(ssl_session_st) == 4, alignment(ssl_session_st)
+sess_cert_st._fields_ = [
+]
 SSL_SESSION = ssl_session_st
 GEN_SESSION_CB = CFUNCTYPE(c_int, POINTER(SSL), POINTER(c_ubyte), POINTER(c_uint))
 class ssl_comp_st(Structure):
@@ -1324,6 +1328,8 @@ ssl_ctx_st._fields_ = [
 ]
 assert sizeof(ssl_ctx_st) == 248, sizeof(ssl_ctx_st)
 assert alignment(ssl_ctx_st) == 4, alignment(ssl_ctx_st)
+cert_st._fields_ = [
+]
 class ssl2_state_st(Structure):
     pass
 class ssl3_state_st(Structure):
@@ -1551,12 +1557,18 @@ assert sizeof(stack_st) == 20, sizeof(stack_st)
 assert alignment(stack_st) == 4, alignment(stack_st)
 class ui_st(Structure):
     pass
+ui_st._fields_ = [
+]
 UI = ui_st
 class ui_method_st(Structure):
     pass
+ui_method_st._fields_ = [
+]
 UI_METHOD = ui_method_st
 class ui_string_st(Structure):
     pass
+ui_string_st._fields_ = [
+]
 UI_STRING = ui_string_st
 
 # values for enumeration 'UI_string_types'
@@ -1707,7 +1719,6 @@ assert alignment(x509_cert_aux_st) == 4, alignment(x509_cert_aux_st)
 X509_CERT_AUX = x509_cert_aux_st
 class AUTHORITY_KEYID_st(Structure):
     pass
-AUTHORITY_KEYID_st._fields_ = []
 x509_st._fields_ = [
     ('cert_info', POINTER(X509_CINF)),
     ('sig_alg', POINTER(X509_ALGOR)),
@@ -1728,6 +1739,8 @@ x509_st._fields_ = [
 ]
 assert sizeof(x509_st) == 84, sizeof(x509_st)
 assert alignment(x509_st) == 4, alignment(x509_st)
+AUTHORITY_KEYID_st._fields_ = [
+]
 class x509_trust_st(Structure):
     pass
 x509_trust_st._fields_ = [
@@ -2012,6 +2025,8 @@ assert sizeof(__sbuf) == 8, sizeof(__sbuf)
 assert alignment(__sbuf) == 4, alignment(__sbuf)
 class __sFILEX(Structure):
     pass
+__sFILEX._fields_ = [
+]
 class __sFILE(Structure):
     pass
 __sFILE._pack_ = 4
@@ -2073,8 +2088,12 @@ __darwin_mode_t = __uint16_t
 mode_t = __darwin_mode_t
 class mcontext(Structure):
     pass
+mcontext._fields_ = [
+]
 class mcontext64(Structure):
     pass
+mcontext64._fields_ = [
+]
 class __darwin_pthread_handler_rec(Structure):
     pass
 __darwin_pthread_handler_rec._fields_ = [
