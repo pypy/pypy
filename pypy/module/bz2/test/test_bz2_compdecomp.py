@@ -2,6 +2,7 @@ from pypy.conftest import gettestobjspace
 import os
 
 if os.name == "nt":
+    from py.test import skip
     skip("bz2 module is not available on Windows")
         
 def setup_module(mod):
