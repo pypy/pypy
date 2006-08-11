@@ -117,11 +117,11 @@ MEASURE_DICT = False
 
 if MEASURE_DICT:
     import time, py
-    _dict_infos = []
 
     class DictInfo(object):
+        _dict_infos = []
         def __init__(self):
-            self.id = len(_dict_infos)
+            self.id = len(self._dict_infos)
 
             self.getitems = 0;  self.setitems = 0; self.delitems = 0
             self.lengths = 0;   self.clears = 0;   self.has_keys = 0;  self.gets = 0
@@ -158,7 +158,7 @@ if MEASURE_DICT:
                 else:
                     self.sig = '(%s:%s)%s'%(frame.f_code.co_filename, frame.f_lineno, frame.f_code.co_name)
 
-            _dict_infos.append(self)
+            self._dict_infos.append(self)
         def __repr__(self):
             args = []
             for k in sorted(self.__dict__):
@@ -267,7 +267,7 @@ if MEASURE_DICT:
             return self.content.items()
 
     _example = DictInfo()
-    del _dict_infos[-1]
+    del DictInfo._dict_infos[-1]
     tmpl = 'os.write(fd, "%(attr)s" + ": " + str(info.%(attr)s) + "\\n")'
     bodySrc = []
     for attr in sorted(_example.__dict__):
@@ -283,7 +283,7 @@ if MEASURE_DICT:
     def report():
         os.write(2, "starting to report!\n")
         fd = os.open('dictinfo.txt', os.O_CREAT|os.O_WRONLY|os.O_TRUNC, 0644)
-        for info in _dict_infos:
+        for info in DictInfo._dict_infos:
             os.write(fd, '------------------\n')
             _report_one(fd, info)
         os.close(fd)
@@ -291,11 +291,11 @@ if MEASURE_DICT:
 
     def reportDictInfo():
         d = {}
-        if not _dict_infos:
+        if not DictInfo._dict_infos:
             return
         stillAlive = 0
         totLifetime = 0.0
-        for info in _dict_infos:
+        for info in DictInfo._dict_infos:
             for attr in info.__dict__:
                 if attr == 'maxcontents':
                     continue
@@ -308,10 +308,10 @@ if MEASURE_DICT:
             else:
                 stillAlive += 1
         import cPickle
-        cPickle.dump(_dict_infos, open('dictinfos.pickle', 'wb'))
-        print 'reporting on', len(_dict_infos), 'dictionaries'
-        if stillAlive != len(_dict_infos):
-            print 'average lifetime', totLifetime/(len(_dict_infos) - stillAlive),
+        cPickle.dump(DictInfo._dict_infos, open('dictinfos.pickle', 'wb'))
+        print 'reporting on', len(DictInfo._dict_infos), 'dictionaries'
+        if stillAlive != len(DictInfo._dict_infos):
+            print 'average lifetime', totLifetime/(len(DictInfo._dict_infos) - stillAlive),
             print '('+str(stillAlive), 'still alive)'
         print d
 
