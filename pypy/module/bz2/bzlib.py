@@ -69,6 +69,7 @@ assert sizeof(__sbuf) == 8, sizeof(__sbuf)
 assert alignment(__sbuf) == 4, alignment(__sbuf)
 class __sFILEX(Structure):
     pass
+__sFILEX._fields_ = []
 class __sFILE(Structure):
     pass
 __sFILE._pack_ = 4
