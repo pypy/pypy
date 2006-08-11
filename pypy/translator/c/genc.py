@@ -396,7 +396,7 @@ class SourceGenerator:
         print >> fi, '/***  Structure definitions                              ***/'
         print >> fi
         for node in structdeflist:
-            print >> fi, 'struct %s;' % node.name
+            print >> fi, '%s %s;' % (node.typetag, node.name)
         print >> fi
         for node in structdeflist:
             for line in node.definition():
@@ -513,7 +513,7 @@ def gen_readable_parts_of_main_c_file(f, database, preimplementationlines=[]):
     print >> f
     for node in structdeflist:
         if node.name:
-            print >> f, 'struct %s;' % node.name
+            print >> f, '%s %s;' % (node.typetag, node.name)
     print >> f
     for node in structdeflist:
         for line in node.definition():

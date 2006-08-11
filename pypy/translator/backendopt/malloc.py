@@ -34,10 +34,21 @@ def equivalent_substruct(S, fieldname):
         return False
     FIELDTYPE = S._flds[fieldname]
     if isinstance(FIELDTYPE, lltype.GcStruct):
+        if FIELDTYPE._hints.get('union'):
+            return False
         return True
     if len(S._names) == 1:
         return True
     return False
+
+def union_wrapper(S):
+    # check if 'S' is a GcStruct containing a single inlined *union* Struct
+    if not isinstance(S, lltype.GcStruct):
+        return False
+    assert not S._hints.get('union')    # not supported: "GcUnion"
+    return (len(S._names) == 1 and
+            isinstance(S._flds[S._names[0]], lltype.Struct) and
+            S._flds[S._names[0]]._hints.get('union'))
 
 
 def compute_lifetimes(graph):
@@ -182,6 +193,10 @@ def _try_inline_malloc(info):
             return False
     except (ValueError, AttributeError), e:
         pass
+
+    # must not remove unions inlined as the only field of a GcStruct
+    if union_wrapper(STRUCT):
+        return False
 
     # success: replace each variable with a family of variables (one per field)
 

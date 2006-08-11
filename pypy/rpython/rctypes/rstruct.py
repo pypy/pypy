@@ -7,7 +7,7 @@ from pypy.annotation.model import SomeCTypesObject
 
 
 class StructRepr(CTypesRefRepr):
-    def __init__(self, rtyper, s_struct):
+    def __init__(self, rtyper, s_struct, is_union=False):
         struct_ctype = s_struct.knowntype
         
         # Find the repr and low-level type of the fields from their ctype
@@ -23,6 +23,8 @@ class StructRepr(CTypesRefRepr):
         external = getattr(struct_ctype, '_external_', False)
         extras = {'hints': {'c_name': struct_ctype.__name__,
                             'external': external}}
+        if is_union:
+            extras['hints']['union'] = True
         c_data_type = lltype.Struct(struct_ctype.__name__, *llfields, **extras)
 
         super(StructRepr, self).__init__(rtyper, s_struct, c_data_type)

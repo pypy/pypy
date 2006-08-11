@@ -13,11 +13,16 @@ import sys
 from pypy.rpython.test.test_llinterp import interpret
 
 from ctypes import c_int, c_short, Structure, POINTER, pointer, c_char_p
-from ctypes import c_char, SetPointerType
+from ctypes import c_char, SetPointerType, Union, c_long
 
 class tagpoint(Structure):
     _fields_ = [("x", c_int),
                 ("y", c_int)]
+
+class uvalue(Union):
+    _fields_ = [("c", c_char),
+                ("s", c_short),
+                ("l", c_long)]
 
 def maketest():
     class S1(Structure): _fields_ = [('x', c_int)]
@@ -92,6 +97,17 @@ class Test_annotation:
         if conftest.option.view:
             a.translator.view()
         assert s.knowntype == int
+
+    def test_annotate_union(self):
+        def func(n):
+            u = uvalue(s=n)
+            return u.c
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(func, [int])
+        if conftest.option.view:
+            a.translator.view()
+        assert s.knowntype == str
 
 class Test_specialization:
     def test_specialize_struct(self):
@@ -250,3 +266,12 @@ class Test_compilation:
         func, expected = maketest()
         fn = compile(func, [])
         assert fn() == expected
+
+    def test_compile_union(self):
+        def func(n):
+            u = uvalue(s=n)
+            return u.c
+        fn = compile(func, [int])
+        res      =   fn(0x4567)
+        expected = func(0x4567)
+        assert res == expected

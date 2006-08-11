@@ -1,14 +1,18 @@
-from ctypes import Structure
+from ctypes import Structure, Union
 from pypy.annotation.model import SomeCTypesObject
 from pypy.rpython.rctypes.implementation import CTypesCallEntry, CTypesObjEntry
 from pypy.rpython.lltypesystem import lltype
 
 StructType = type(Structure)
+UnionType = type(Union)
+
+# XXX this also implements Unions, but they are not properly emulated
+#     by the llinterpreter.  They work in the generated C code, though.
 
 
 class CallEntry(CTypesCallEntry):
     "Annotation and rtyping of calls to structure types."
-    _type_ = StructType
+    _type_ = StructType, UnionType
 
     def specialize_call(self, hop, **kwds_i):
         from pypy.rpython.error import TyperError
@@ -48,7 +52,7 @@ class CallEntry(CTypesCallEntry):
 
 class ObjEntry(CTypesObjEntry):
     "Annotation and rtyping of structure instances."
-    _metatype_ = StructType
+    _metatype_ = StructType, UnionType
 
     def get_field_annotation(self, s_struct, fieldname):
         for name, ctype in self.type._fields_:
@@ -59,4 +63,7 @@ class ObjEntry(CTypesObjEntry):
 
     def get_repr(self, rtyper, s_struct):
         from pypy.rpython.rctypes.rstruct import StructRepr
-        return StructRepr(rtyper, s_struct)
+        is_struct = isinstance(self.type, StructType)
+        is_union  = isinstance(self.type, UnionType)
+        assert is_struct ^ is_union
+        return StructRepr(rtyper, s_struct, is_union)

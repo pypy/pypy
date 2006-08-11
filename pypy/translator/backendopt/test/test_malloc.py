@@ -1,5 +1,6 @@
 import py
 from pypy.translator.backendopt.malloc import remove_mallocs_once
+from pypy.translator.backendopt.malloc import union_wrapper
 from pypy.translator.backendopt.inline import inline_function
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.translator import TranslationContext, graphof
@@ -9,6 +10,7 @@ from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.lltypesystem import lltype
 from pypy.conftest import option
 
+
 def check_malloc_removed(graph):
     checkgraph(graph)
     count1 = count2 = 0
@@ -16,7 +18,9 @@ def check_malloc_removed(graph):
         if isinstance(node, Block):
             for op in node.operations:
                 if op.opname == 'malloc':
-                    count1 += 1
+                    S = op.args[0].value
+                    if not union_wrapper(S):   # union wrappers are fine
+                        count1 += 1
                 if op.opname in ('direct_call', 'indirect_call'):
                     count2 += 1
     assert count1 == 0   # number of mallocs left
@@ -36,9 +40,10 @@ def check(fn, signature, args, expected_result, must_be_removed=True):
         simplify.transform_dead_op_vars_in_blocks(list(graph.iterblocks()))
         if progress and option.view:
             t.view()
-        interp = LLInterpreter(t.rtyper)
-        res = interp.eval_graph(graph, args)
-        assert res == expected_result
+        if expected_result is not Ellipsis:
+            interp = LLInterpreter(t.rtyper)
+            res = interp.eval_graph(graph, args)
+            assert res == expected_result
         if not progress:
             break
     if must_be_removed:
@@ -263,3 +268,14 @@ def test_substruct_not_accessed():
             x.z += 3
         return x.z
     check(fn, [], [], 12)
+
+def test_union():
+    UNION = lltype.Struct('UNION', ('a', lltype.Signed), ('b', lltype.Signed),
+                          hints = {'union': True})
+    BIG = lltype.GcStruct('BIG', ('u1', UNION), ('u2', UNION))
+    def fn():
+        x = lltype.malloc(BIG)
+        x.u1.a = 3
+        x.u2.b = 6
+        return x.u1.b * x.u2.a
+    check(fn, [], [], Ellipsis)

@@ -35,6 +35,7 @@ class defaultproperty(object):
 
 
 class StructDefNode:
+    typetag = 'struct'
 
     def __init__(self, db, STRUCT, varlength=1):
         self.db = db
@@ -48,6 +49,9 @@ class StructDefNode:
             basename = db.gettypedefnode(STRUCT).barename
             basename = '%s_len%d' % (basename, varlength)
             with_number = False
+        if STRUCT._hints.get('union'):
+            self.typetag = 'union'
+            assert STRUCT._gckind == 'raw'   # not supported: "GcUnion"
         if STRUCT._hints.get('c_name'):
             self.barename = self.name = STRUCT._hints['c_name']
             self.c_struct_field_name = self.verbatim_field_name
@@ -97,7 +101,7 @@ class StructDefNode:
     gcinfo = defaultproperty(computegcinfo)
 
     def gettype(self):
-        return 'struct %s @' % self.name
+        return '%s %s @' % (self.typetag, self.name)
 
     def c_struct_field_name(self, name):
         # occasionally overridden in __init__():
@@ -141,7 +145,7 @@ class StructDefNode:
     def definition(self):
         if self.fields is None:   # external definition only
             return
-        yield 'struct %s {' % self.name
+        yield '%s %s {' % (self.typetag, self.name)
         is_empty = True
         for name, typename in self.fields:
             line = '%s;' % cdecl(typename, name)
@@ -151,7 +155,7 @@ class StructDefNode:
                 is_empty = False
             yield '\t' + line
         if is_empty:
-            yield '\t' + 'int _dummy; /* this struct is empty */'
+            yield '\t' + 'char _dummy; /* this struct is empty */'
         yield '};'
         for line in self.db.gcpolicy.struct_after_definition(self):
             yield line
@@ -178,10 +182,12 @@ class StructDefNode:
                 except ValueError:
                     yield '-1'
                 else:
-                    yield 'offsetof(struct %s, %s)' % (self.name, cname)
+                    yield 'offsetof(%s %s, %s)' % (self.typetag,
+                                                   self.name, cname)
 
 
 class ArrayDefNode:
+    typetag = 'struct'
 
     def __init__(self, db, ARRAY, varlength=1):
         self.db = db

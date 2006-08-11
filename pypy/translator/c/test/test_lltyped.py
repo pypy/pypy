@@ -238,3 +238,16 @@ class TestLowLevelType(test_typed.CompilationTestCase):
         fn = self.getcompiled(llf)
         res = fn()
         assert res == 27
+
+    def test_union(self):
+        U = Struct('U', ('s', Signed), ('c', Char),
+                   hints={'union': True})
+        u = malloc(U, immortal=True)
+        def llf(c=int):
+            u.s = 0x1020
+            u.c = chr(c)
+            return u.s
+
+        fn = self.getcompiled(llf)
+        res = fn(0x33)
+        assert res in [0x1033, 0x3320]
