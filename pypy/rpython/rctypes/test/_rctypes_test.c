@@ -38,6 +38,14 @@ EXPORT(void) _testfunc_swap(point *p)
     p->_z++;
 }
 
+EXPORT(void) _testfunc_swap2(point *p)
+{
+    int tmp = p->x;
+    p->x = p->y;
+    p->y = tmp;
+    p->_z += 2;
+}
+
 EXPORT(int) _testfunc_struct(point in)
 {
     return in.x + in.y;

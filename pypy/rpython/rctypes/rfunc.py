@@ -32,8 +32,11 @@ class CFuncPtrRepr(CTypesValueRepr):
             r = rtyper.getrepr(SomeCTypesObject(arg_ctype,
                                                 ownsmemory=False))
             args_r.append(r)
-        r_result = rtyper.getrepr(SomeCTypesObject(self.restype,
-                                                   ownsmemory=True))
+        if self.restype is not None:
+            r_result = rtyper.getrepr(SomeCTypesObject(self.restype,
+                                                       ownsmemory=True))
+        else:
+            r_result = None
         if isinstance(self.ll_type.TO, lltype.ForwardReference):
             FUNCTYPE = get_funcptr_type(args_r, r_result)
             self.ll_type.TO.become(FUNCTYPE)

@@ -98,6 +98,17 @@ def ll_testfunc_swap(p):
 testfunc_swap.llinterp_friendly_version = ll_testfunc_swap
 testfunc_swap.includes = includes
 
+# _testfunc_swap2
+testfunc_swap2 = _rctypes_test._testfunc_swap2
+testfunc_swap2.restype = None
+testfunc_swap2.argtypes = [tagpointptr]
+
+def ll_testfunc_swap2(p):
+    p.c_x, p.c_y = p.c_y, p.c_x
+    p.c__z += 2
+testfunc_swap2.llinterp_friendly_version = ll_testfunc_swap2
+testfunc_swap2.includes = includes
+
 # _testfunc_erase_type
 testfunc_erase_type = _rctypes_test._testfunc_erase_type
 testfunc_erase_type.restype = c_void_p
@@ -198,6 +209,25 @@ class Test_specialization:
     def test_specialize_swap(self):
         res = interpret(test_testfunc_swap, [])
         assert res == 4
+
+    def test_specialize_indirect_call(self):
+        def f(n):
+            pt = tagpoint()
+            pt.x = 5
+            pt.y = 9
+            pt._z = 99
+            if n > 0:
+                f = testfunc_swap
+            else:
+                f = testfunc_swap2
+            f(pointer(pt))
+            assert pt.x == 9
+            assert pt.y == 5
+            return pt._z
+        res = interpret(f, [42])
+        assert res == 100
+        res = interpret(f, [-42])
+        assert res == 101
 
 class Test_compile:
     def test_compile_byval(self):
