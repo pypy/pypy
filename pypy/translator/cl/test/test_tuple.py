@@ -8,6 +8,7 @@ def test_tuple_get():
     assert cl_tuple_get(1) == 1
 
 def test_tuple_iter():
+    py.test.skip("CDefinedInt implementation")
     def tuple_double(number):
         tuple = (number,)
         for item in tuple:

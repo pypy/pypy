@@ -21,6 +21,7 @@ def test_handle_exception():
     assert cl_handle_exception(False) == 2
 
 def test_indirect_call():
+    py.test.skip("CDefinedInt implementation")
     def id(n):
         return n
     def square(n):
@@ -40,6 +41,7 @@ def test_indirect_call():
     assert cl_square_sum(5) == 55
 
 def test_iteration():
+    py.test.skip("CDefinedInt implementation")
     def get_last(num):
         last = 0
         for i in range(num):
