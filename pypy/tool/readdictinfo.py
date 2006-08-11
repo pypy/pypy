@@ -84,7 +84,7 @@ def Rify(fname, *attributes):
         print >>output
 
 if __name__ == '__main__':
-    reportDictInfos()
+#    reportDictInfos()
 
     # interactive stuff:
 
@@ -104,4 +104,11 @@ if __name__ == '__main__':
     else:
         import rlcompleter
         readline.parse_and_bind('tab: complete')
+
+    if len(sys.argv) > 2:
+        attrs = sys.argv[2].split(',')
+        if attrs == ['all']:
+            attrs = slots
+        Rify("R.txt", *attrs)
+        
 
