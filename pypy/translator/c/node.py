@@ -292,6 +292,7 @@ class ArrayDefNode:
 class FixedSizeArrayDefNode:
     gcinfo = None
     name = None
+    typetag = 'struct'
 
     def __init__(self, db, FIXEDARRAY):
         self.db = db
@@ -354,6 +355,7 @@ class FixedSizeArrayDefNode:
 
 class ExtTypeOpaqueDefNode:
     "For OpaqueTypes created by pypy.rpython.extfunctable.ExtTypeInfo."
+    typetag = 'struct'
 
     def __init__(self, db, T):
         self.db = db
