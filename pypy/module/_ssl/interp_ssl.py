@@ -158,7 +158,7 @@ libssl.X509_get_subject_name.restype = POINTER(X509_NAME)
 libssl.X509_get_issuer_name.argtypes = [POINTER(X509)]
 libssl.X509_get_issuer_name.restype = POINTER(X509_NAME)
 libssl.X509_NAME_oneline.argtypes = [POINTER(X509_NAME), arr_x509, c_int]
-libssl.X509_NAME_oneline.restype = arr_x509
+libssl.X509_NAME_oneline.restype = c_char_p
 libssl.X509_free.argtypes = [POINTER(X509)]
 libssl.X509_free.restype = c_void
 libssl.SSL_free.argtypes = [POINTER(SSL)]
@@ -409,12 +409,12 @@ def new_sslobject(space, w_sock, w_key_file, w_cert_file):
                 space.wrap("SSL_CTX_use_PrivateKey_file error"))
 
         ret = libssl.SSL_CTX_use_certificate_chain_file(ss.ctx, cert_file)
-        libssl.SSL_CTX_ctrl(ss.ctx, SSL_CTRL_OPTIONS, SSL_OP_ALL, None)
+        libssl.SSL_CTX_ctrl(ss.ctx, SSL_CTRL_OPTIONS, SSL_OP_ALL, c_void_p())
         if ret < 1:
             raise OperationError(space.w_Exception,
                 space.wrap("SSL_CTX_use_certificate_chain_file error"))
 
-    libssl.SSL_CTX_set_verify(ss.ctx, SSL_VERIFY_NONE, None) # set verify level
+    libssl.SSL_CTX_set_verify(ss.ctx, SSL_VERIFY_NONE, c_void_p()) # set verify level
     ss.ssl = libssl.SSL_new(ss.ctx) # new ssl struct
     libssl.SSL_set_fd(ss.ssl, sock_fd) # set the socket for SSL
 
@@ -422,8 +422,8 @@ def new_sslobject(space, w_sock, w_key_file, w_cert_file):
     # to non-blocking mode (blocking is the default)
     if has_timeout:
         # Set both the read and write BIO's to non-blocking mode
-        libssl.BIO_ctrl(libssl.SSL_get_rbio(ss.ssl), BIO_C_SET_NBIO, 1, None)
-        libssl.BIO_ctrl(libssl.SSL_get_wbio(ss.ssl), BIO_C_SET_NBIO, 1, None)
+        libssl.BIO_ctrl(libssl.SSL_get_rbio(ss.ssl), BIO_C_SET_NBIO, 1, c_void_p())
+        libssl.BIO_ctrl(libssl.SSL_get_wbio(ss.ssl), BIO_C_SET_NBIO, 1, c_void_p())
     libssl.SSL_set_connect_state(ss.ssl)
 
     # Actually negotiate SSL connection
@@ -461,8 +461,6 @@ def new_sslobject(space, w_sock, w_key_file, w_cert_file):
         errstr, errval = _ssl_seterror(space, ss, ret)
         raise OperationError(space.w_Exception,
             space.wrap("%s: %d" % (errstr, errval)))
-
-    ss.ssl.debug = 1
     
     ss.server_cert = libssl.SSL_get_peer_certificate(ss.ssl)
     if ss.server_cert:
