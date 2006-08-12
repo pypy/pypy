@@ -758,7 +758,7 @@ else:
         metaclass = "space.w_type"
         name = self.uniquename('gcls_' + cls.__name__)
 
-        if issubclass(cls, Exception):
+        if issubclass(cls, py.builtin.BaseException):
             # if cls.__module__ == 'exceptions':
             # don't rely on this, py.magic redefines AssertionError
             if getattr(__builtin__,cls.__name__,None) is cls:
@@ -893,7 +893,7 @@ else:
             if type(ret) is tuple:
                 ret = ret[0](self, ret[1], ret[2])
             return ret
-        if issubclass(cls, Exception):   # Python 2.5 only
+        if issubclass(cls, py.builtin.BaseException):   # Python 2.5 only
             # if cls.__module__ == 'exceptions':
             # don't rely on this, py.magic redefines AssertionError
             if getattr(__builtin__,cls.__name__,None) is cls:
@@ -1336,7 +1336,7 @@ else:
                 yield "    e.normalize_exception(space)"
                 q = "if"
                 for link in block.exits[1:]:
-                    assert issubclass(link.exitcase, Exception)
+                    assert issubclass(link.exitcase, py.builtin.BaseException)
                     # Exeption classes come unwrapped in link.exitcase
                     yield "    %s space.is_true(space.issubtype(e.w_type, %s)):" % (q,
                                             self.nameof(link.exitcase))
