@@ -250,7 +250,7 @@ def _getline(space, obj, size):
     skipnextlf = obj.f_skipnextlf
     univ_newline = obj.f_univ_newline
     
-    total_v_size = (100, size)[size > 0] # total no. of slots in buffer
+    total_v_size = [100, size][size > 0] # total no. of slots in buffer
     buf_lst = []
     buf_pos = 0
     
@@ -392,7 +392,7 @@ class _BZ2File(Wrappable):
         
         if mode_char == "":
             mode_char = 'r'
-        mode = ('wb', 'rb')[mode_char == 'r']
+        mode = ['wb', 'rb'][mode_char == 'r']
         self.mode_string = mode
         
         # open the file and set the buffer
@@ -409,7 +409,7 @@ class _BZ2File(Wrappable):
         bzerror = c_int()
         if mode_char == 'r':
             self.fp = libbz2.BZ2_bzReadOpen(byref(bzerror), self._file,
-                0, 0, None, 0)
+                0, 0, c_void_p(), 0)
         else:
             self.fp = libbz2.BZ2_bzWriteOpen(byref(bzerror), self._file,
                 compresslevel, 0, 0)
@@ -417,7 +417,7 @@ class _BZ2File(Wrappable):
         if bzerror.value != BZ_OK:
             _catch_bz2_error(self.space, bzerror.value)
         
-        self.mode = (MODE_WRITE, MODE_READ)[mode_char == 'r']
+        self.mode = [MODE_WRITE, MODE_READ][mode_char == 'r']
     
     def __del__(self):
         bzerror = c_int()
@@ -591,7 +591,7 @@ class _BZ2File(Wrappable):
         if size == 0:
             return self.space.wrap("")
         else:
-            size = (size, 0)[size < 0]
+            size = [size, 0][size < 0]
             return self.space.wrap(_getline(self.space, self, size))
     readline.unwrap_spec = ['self', int]
     
@@ -609,7 +609,7 @@ class _BZ2File(Wrappable):
             raise OperationError(self.space.w_IOError,
                 self.space.wrap("file is not ready for reading"))
         
-        bufsize = (size, _new_buffer_size(0))[size < 0]
+        bufsize = [size, _new_buffer_size(0)][size < 0]
         
         if bufsize > MAXINT:
             raise OperationError(self.space.w_OverflowError,
@@ -818,9 +818,9 @@ class _BZ2Comp(Wrappable):
         in_buf = create_string_buffer(in_bufsize)
         in_buf.value = data
         
-        self.bzs.next_in = in_buf
+        self.bzs.next_in = cast(in_buf, POINTER(c_char))
         self.bzs.avail_in = in_bufsize
-        self.bzs.next_out = out_buf
+        self.bzs.next_out = cast(out_buf, POINTER(c_char))
         self.bzs.avail_out = out_bufsize
         
         temp = []
@@ -838,7 +838,7 @@ class _BZ2Comp(Wrappable):
                 
                 out_bufsize = _new_buffer_size(out_bufsize)
                 out_buf = create_string_buffer(out_bufsize)
-                self.bzs.next_out = out_buf
+                self.bzs.next_out = cast(out_buf, POINTER(c_char))
                 self.bzs.avail_out = out_bufsize
 
         if temp:
@@ -861,7 +861,7 @@ class _BZ2Comp(Wrappable):
         out_bufsize = SMALLCHUNK
         out_buf = create_string_buffer(out_bufsize)
     
-        self.bzs.next_out = out_buf
+        self.bzs.next_out = cast(out_buf, POINTER(c_char))
         self.bzs.avail_out = out_bufsize
         
         total_out = _bzs_total_out(self.bzs)
@@ -880,7 +880,7 @@ class _BZ2Comp(Wrappable):
                 
                 out_bufsize = _new_buffer_size(out_bufsize)
                 out_buf = create_string_buffer(out_bufsize)
-                self.bzs.next_out = out_buf
+                self.bzs.next_out = cast(out_buf, POINTER(c_char))
                 self.bzs.avail_out = out_bufsize
         
         if temp:
@@ -944,9 +944,9 @@ class _BZ2Decomp(Wrappable):
         out_bufsize = SMALLCHUNK
         out_buf = create_string_buffer(out_bufsize)
         
-        self.bzs.next_in = in_buf
+        self.bzs.next_in = cast(in_buf, POINTER(c_char))
         self.bzs.avail_in = in_bufsize
-        self.bzs.next_out = out_buf
+        self.bzs.next_out = cast(out_buf, POINTER(c_char))
         self.bzs.avail_out = out_bufsize
         
         temp = []
@@ -970,7 +970,7 @@ class _BZ2Decomp(Wrappable):
                 
                 out_bufsize = _new_buffer_size(out_bufsize)
                 out_buf = create_string_buffer(out_bufsize)
-                self.bzs.next_out = out_buf
+                self.bzs.next_out = cast(out_buf, POINTER(c_char))
                 self.bzs.avail_out = out_bufsize
                 
         if temp:
@@ -1014,9 +1014,9 @@ def compress(space, data, compresslevel=9):
     in_buf = create_string_buffer(in_bufsize)
     in_buf.value = data
     
-    bzs.next_in = in_buf
+    bzs.next_in = cast(in_buf, POINTER(c_char))
     bzs.avail_in = in_bufsize
-    bzs.next_out = out_buf
+    bzs.next_out = cast(out_buf, POINTER(c_char))
     bzs.avail_out = out_bufsize
 
     bzerror = libbz2.BZ2_bzCompressInit(byref(bzs), compresslevel, 0, 0)
@@ -1039,7 +1039,7 @@ def compress(space, data, compresslevel=9):
             
             out_bufsize = _new_buffer_size(out_bufsize)
             out_buf = create_string_buffer(out_bufsize)
-            bzs.next_out = out_buf
+            bzs.next_out = cast(out_buf, POINTER(c_char))
             bzs.avail_out = out_bufsize
     
     if temp:
@@ -1074,9 +1074,9 @@ def decompress(space, data):
     out_bufsize = SMALLCHUNK
     out_buf = create_string_buffer(out_bufsize)
     
-    bzs.next_in = in_buf
+    bzs.next_in = cast(in_buf, POINTER(c_char))
     bzs.avail_in = in_bufsize
-    bzs.next_out = out_buf
+    bzs.next_out = cast(out_buf, POINTER(c_char))
     bzs.avail_out = out_bufsize
     
     bzerror = libbz2.BZ2_bzDecompressInit(byref(bzs), 0, 0)
@@ -1103,7 +1103,7 @@ def decompress(space, data):
             
             out_bufsize = _new_buffer_size(out_bufsize)
             out_buf = create_string_buffer(out_bufsize)
-            bzs.next_out = out_buf
+            bzs.next_out = cast(out_buf, POINTER(c_char))
             bzs.avail_out = out_bufsize
     
     total_out = _bzs_total_out(bzs)

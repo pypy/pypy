@@ -111,6 +111,7 @@ assert sizeof(__sbuf) == 8, sizeof(__sbuf)
 assert alignment(__sbuf) == 4, alignment(__sbuf)
 class __sFILEX(Structure):
     pass
+__sFILEX._fields_ = []
 class __sFILE(Structure):
     pass
 __sFILE._pack_ = 4
@@ -846,10 +847,13 @@ newfunc = CFUNCTYPE(POINTER(PyObject), POINTER(_typeobject), POINTER(PyObject), 
 allocfunc = CFUNCTYPE(POINTER(PyObject), POINTER(_typeobject), c_long)
 class PyMethodDef(Structure):
     pass
+PyMethodDef._fields_ = []
 class PyMemberDef(Structure):
     pass
+PyMemberDef._fields_ = []
 class PyGetSetDef(Structure):
     pass
+PyGetSetDef._fields_ = []
 _typeobject._fields_ = [
     ('ob_refcnt', Py_ssize_t),
     ('ob_type', POINTER(_typeobject)),
