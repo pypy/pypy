@@ -13,14 +13,14 @@ class BaseTestCompiler:
     def eval_string(self, string, kind='eval'):
         space = self.space
         code = self.compiler.compile(string, '<>', kind, 0)
-        return code.exec_code(space, space.newdict([]), space.newdict([]))
+        return code.exec_code(space, space.newdict(), space.newdict())
 
     def test_compile(self):
         code = self.compiler.compile('6*7', '<hello>', 'eval', 0)
         assert isinstance(code, PyCode)
         assert code.co_filename == '<hello>'
         space = self.space
-        w_res = code.exec_code(space, space.newdict([]), space.newdict([]))
+        w_res = code.exec_code(space, space.newdict(), space.newdict())
         assert space.int_w(w_res) == 42
 
     def test_eval_unicode(self):
@@ -71,7 +71,7 @@ class BaseTestCompiler:
         assert isinstance(code, PyCode)
         assert code.co_filename == '<hello>'
         space = self.space
-        w_globals = space.newdict([])
+        w_globals = space.newdict()
         code.exec_code(space, w_globals, w_globals)
         w_a = space.getitem(w_globals, space.wrap('a'))
         assert space.int_w(w_a) == 1
@@ -141,8 +141,8 @@ class BaseTestCompiler:
     def test_toplevel_docstring(self):
         space = self.space
         code = self.compiler.compile('"spam"; "bar"; x=5', '<hello>', 'exec', 0)
-        w_locals = space.newdict([])
-        code.exec_code(space, space.newdict([]), w_locals)
+        w_locals = space.newdict()
+        code.exec_code(space, space.newdict(), w_locals)
         w_x = space.getitem(w_locals, space.wrap('x'))
         assert space.eq_w(w_x, space.wrap(5))
         w_doc = space.getitem(w_locals, space.wrap('__doc__'))
@@ -150,8 +150,8 @@ class BaseTestCompiler:
         #
         code = self.compiler.compile('"spam"; "bar"; x=5',
                                      '<hello>', 'single', 0)
-        w_locals = space.newdict([])
-        code.exec_code(space, space.newdict([]), w_locals)
+        w_locals = space.newdict()
+        code.exec_code(space, space.newdict(), w_locals)
         w_x = space.getitem(w_locals, space.wrap('x'))
         assert space.eq_w(w_x, space.wrap(5))
         w_doc = space.call_method(w_locals, 'get', space.wrap('__doc__'))
@@ -331,7 +331,7 @@ def wrong3():
         '''))
         code = self.compiler.compile(snippet, '<tmp>', 'exec', 0)
         space = self.space
-        w_d = space.newdict([])
+        w_d = space.newdict()
         code.exec_code(space, w_d, w_d)
         w_fline = space.getitem(w_d, space.wrap('fline'))
         w_gline = space.getitem(w_d, space.wrap('gline'))
@@ -365,7 +365,7 @@ def wrong3():
         '''))
         code = self.compiler.compile(snippet, '<tmp>', 'exec', 0)
         space = self.space
-        w_d = space.newdict([])
+        w_d = space.newdict()
         space.exec_(code, w_d, w_d)
 
     def test_ellipsis(self):
@@ -376,7 +376,7 @@ def wrong3():
         '''))
         code = self.compiler.compile(snippet, '<tmp>', 'exec', 0)
         space = self.space
-        w_d = space.newdict([])
+        w_d = space.newdict()
         space.exec_(code, w_d, w_d)
 
     def test_augassign_with_tuple_subscript(self):
@@ -398,7 +398,7 @@ def wrong3():
         '''))
         code = self.compiler.compile(snippet, '<tmp>', 'exec', 0)
         space = self.space
-        w_d = space.newdict([])
+        w_d = space.newdict()
         space.exec_(code, w_d, w_d)
         assert space.int_w(space.getitem(w_d, space.wrap('result'))) == 42
 

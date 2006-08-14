@@ -119,7 +119,7 @@ class Frame(Wrappable):
     def fast2locals(self):
         # Copy values from self.fastlocals_w to self.w_locals
         if self.w_locals is None:
-            self.w_locals = self.space.newdict([])
+            self.w_locals = self.space.newdict()
         varnames = self.getcode().getvarnames()
         fastscope_w = self.getfastscope()
         for i in range(min(len(varnames), len(fastscope_w))):

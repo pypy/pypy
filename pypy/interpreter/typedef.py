@@ -172,7 +172,7 @@ def _buildusercls(cls, hasdict, wants_slots, wants_del, weakrefable):
             def user_setup(self, space, w_subtype, nslots):
                 self.space = space
                 self.w__class__ = w_subtype
-                self.w__dict__ = space.newdict([])
+                self.w__dict__ = space.newdict()
                 self.user_setup_slots(nslots)
     else:
         supercls = cls

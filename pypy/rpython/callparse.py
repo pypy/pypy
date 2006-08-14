@@ -167,7 +167,7 @@ class RPythonCallsSpace:
     def newtuple(self, items):
         return NewTupleHolder(items)
 
-    def newdict(self, stuff):
+    def newdict(self):
         raise CallPatternTooComplex, "'**' argument"
 
     def unpackiterable(self, it, expected_length=None):

@@ -450,7 +450,7 @@ class TestInternal:
 
         w_execfile = self.get_builtin('execfile')
         space = self.space
-        w_dict = space.newdict([])
+        w_dict = space.newdict()
         self.space.call_function(w_execfile,
             space.wrap(fn), w_dict, space.w_None)
         w_value = space.getitem(w_dict, space.wrap('i'))

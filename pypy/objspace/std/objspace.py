@@ -247,7 +247,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def createexecutioncontext(self):
         # add space specific fields to execution context
         ec = ObjSpace.createexecutioncontext(self)
-        ec._py_repr = self.newdict([])
+        ec._py_repr = self.newdict()
         return ec
 
     def gettypefor(self, cls):
@@ -284,7 +284,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return W_UnicodeObject([unichr(ord(u)) for u in x]) # xxx
         if isinstance(x, dict):
             items_w = [(self.wrap(k), self.wrap(v)) for (k, v) in x.iteritems()]
-            return self.newdict(items_w)
+            r = self.newdict()
+            r.initialize_content(items_w)
+            return r
         if isinstance(x, float):
             return W_FloatObject(x)
         if isinstance(x, tuple):
@@ -386,10 +388,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def newlist(self, list_w):
         return W_ListObject(list_w)
 
-    def newdict(self, list_pairs_w):
-        w_result = self.DictObjectCls(self)
-        w_result.initialize_content(list_pairs_w)
-        return w_result
+    def newdict(self):
+        return self.DictObjectCls(self)
 
     def newslice(self, w_start, w_end, w_step):
         return W_SliceObject(w_start, w_end, w_step)

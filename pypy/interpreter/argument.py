@@ -284,7 +284,7 @@ class ArgumentsFromValuestack(AbstractArguments):
                 co_argcount += 1
 
         if has_kwarg:
-            scope_w[co_argcount] = self.space.newdict([])
+            scope_w[co_argcount] = self.space.newdict()
             co_argcount += 1
         return co_argcount
     
@@ -519,7 +519,7 @@ class Arguments(AbstractArguments):
 
         # collect extra keyword arguments into the **kwarg
         if has_kwarg:
-            w_kwds = self.space.newdict([])
+            w_kwds = self.space.newdict()
             if remainingkwds_w:
                 for key, w_value in remainingkwds_w.items():
                     self.space.setitem(w_kwds, self.space.wrap(key), w_value)

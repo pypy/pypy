@@ -330,7 +330,7 @@ def test_prebuilt_instance_inside_pyobj():
 
     w_type = space.gettypefor(W_MyType)
     w_obj = space.call_function(w_type, space.wrap(42))
-    w_mydict = space.newdict([])
+    w_mydict = space.newdict()
     space.setitem(w_mydict, space.wrap('hello'), w_obj)
     def build():
         return w_mydict

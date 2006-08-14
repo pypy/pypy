@@ -17,7 +17,7 @@ class Local(Wrappable):
         self.space = space
         self.initargs = initargs.normalize()
         ident = thread.get_ident()
-        self.dicts = {ident: space.newdict([])}
+        self.dicts = {ident: space.newdict()}
 
     def getdict(self):
         ident = thread.get_ident()
@@ -26,7 +26,7 @@ class Local(Wrappable):
         except KeyError:
             # create a new dict for this thread
             space = self.space
-            w_dict = self.dicts[ident] = space.newdict([])
+            w_dict = self.dicts[ident] = space.newdict()
             # call __init__
             try:
                 w_self = space.wrap(self)

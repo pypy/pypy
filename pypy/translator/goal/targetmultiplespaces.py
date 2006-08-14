@@ -123,11 +123,11 @@ def target(driver, args):
 
     # manually imports app_main.py
     filename = os.path.join(this_dir, 'app_main.py')
-    w_dict = space1.newdict([])
+    w_dict = space1.newdict()
     space1.exec_(open(filename).read(), w_dict, w_dict)
     w_entry_point_1 = space1.getitem(w_dict, space1.wrap('entry_point'))
 
-    w_dict = space2.newdict([])
+    w_dict = space2.newdict()
     space2.exec_(open(filename).read(), w_dict, w_dict)
     w_entry_point_2 = space2.getitem(w_dict, space2.wrap('entry_point'))
 

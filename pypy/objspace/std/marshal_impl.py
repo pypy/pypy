@@ -364,7 +364,7 @@ def unmarshal_Dict(space, u, tc):
     # since primitive lists are not optimized and we don't know
     # the dict size in advance, use the dict's setitem instead
     # of building a list of tuples.
-    w_dic = space.newdict([])
+    w_dic = space.newdict()
     while 1:
         w_key = u.get_w_obj(True)
         if w_key is None:

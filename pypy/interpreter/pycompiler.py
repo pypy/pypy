@@ -156,7 +156,7 @@ class CPythonCompiler(PyCodeCompiler):
                 w_dict = w_mod.getdict() 
                 w_reg = space.call_method(w_dict, 'setdefault', 
                                           space.wrap("__warningregistry__"),     
-                                          space.newdict([]))
+                                          space.newdict())
                 try: 
                     space.call_method(w_mod, 'warn_explicit', 
                                       space.wrap(message), 

@@ -150,8 +150,10 @@ class CPyObjSpace(baseobjspace.ObjSpace):
     def call_args(self, w_callable, args):
         args_w, kwds_w = args.unpack()
         w_args = self.newtuple(args_w)
-        w_kwds = self.newdict([(self.wrap(key), w_value)
-                               for key, w_value in kwds_w.items()])
+        w_kwds = self.newdict()
+        for key, w_value in kwds_w.items():
+            w_key = self.wrap(key)
+            PyDict_SetItem(w_kwds, w_key, w_value)
         return PyObject_Call(w_callable, w_args, w_kwds)
 
     def new_interned_str(self, s):
@@ -176,11 +178,8 @@ class CPyObjSpace(baseobjspace.ObjSpace):
     def newint(self, intval):
         return PyInt_FromLong(intval)
 
-    def newdict(self, items_w):
-        w_dict = PyDict_New()
-        for w_key, w_value in items_w:
-            PyDict_SetItem(w_dict, w_key, w_value)
-        return w_dict
+    def newdict(self):
+        return PyDict_New()
 
     def newlist(self, items_w):
         n = len(items_w)

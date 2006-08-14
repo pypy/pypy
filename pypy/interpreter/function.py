@@ -121,7 +121,7 @@ class Function(Wrappable):
 
     def getdict(self):
         if self.w_func_dict is None:
-            self.w_func_dict = self.space.newdict([])
+            self.w_func_dict = self.space.newdict()
         return self.w_func_dict
 
     def setdict(self, space, w_dict):

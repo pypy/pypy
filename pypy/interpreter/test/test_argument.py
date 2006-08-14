@@ -11,8 +11,8 @@ class DummySpace(object):
     def unpackiterable(self, it):
         return list(it)
 
-    def newdict(self, items):
-        return dict(items)
+    def newdict(self):
+        return {}
 
     def setitem(self, obj, key, value):
         obj[key] = value

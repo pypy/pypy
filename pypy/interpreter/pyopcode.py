@@ -507,7 +507,7 @@ class PyInterpFrame(pyframe.PyFrame):
     def BUILD_MAP(f, zero):
         if zero != 0:
             raise pyframe.BytecodeCorruption
-        w_dict = f.space.newdict([])
+        w_dict = f.space.newdict()
         f.valuestack.push(w_dict)
 
     def LOAD_ATTR(f, nameindex):

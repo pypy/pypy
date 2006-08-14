@@ -705,12 +705,8 @@ class RPythonAnnotator(object):
     def consider_op_newlist(self, *args):
         return self.bookkeeper.newlist(*args)
 
-    def consider_op_newdict(self, *args):
-        assert len(args) % 2 == 0
-        items_s = []
-        for i in range(0, len(args), 2):
-            items_s.append((args[i], args[i+1]))
-        return self.bookkeeper.newdict(*items_s)
+    def consider_op_newdict(self):
+        return self.bookkeeper.newdict()
 
     def consider_op_newslice(self, start, stop, step):
         self.bookkeeper.count('newslice', start, stop, step)

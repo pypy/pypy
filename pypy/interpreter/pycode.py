@@ -292,7 +292,7 @@ class PyCode(eval.Code):
         if flags & CO_OPTIMIZED: 
             return 
         if flags & CO_NEWLOCALS:
-            frame.w_locals = frame.space.newdict([])
+            frame.w_locals = frame.space.newdict()
         else:
             assert frame.w_globals is not None
             frame.w_locals = frame.w_globals 

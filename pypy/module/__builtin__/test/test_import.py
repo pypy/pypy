@@ -315,7 +315,7 @@ class TestPycStuff:
         pycode = space.interpclass_w(w_code)
         os.close(fd)
         assert type(pycode) is pypy.interpreter.pycode.PyCode
-        w_dic = space.newdict([])
+        w_dic = space.newdict()
         pycode.exec_code(space, w_dic, w_dic)
         w_ret = space.getitem(w_dic, space.wrap('x'))
         ret = space.int_w(w_ret)
@@ -352,7 +352,7 @@ class TestPycStuff:
         osfile.close()
         pycode = space.interpclass_w(w_ret)
         assert type(pycode) is pypy.interpreter.pycode.PyCode
-        w_dic = space.newdict([])
+        w_dic = space.newdict()
         pycode.exec_code(space, w_dic, w_dic)
         w_ret = space.getitem(w_dic, space.wrap('x'))
         ret = space.int_w(w_ret)
@@ -428,7 +428,7 @@ class TestPycStuff:
         os.close(fd)
 
         # check value of load
-        w_dic = space.newdict([])
+        w_dic = space.newdict()
         pycode.exec_code(space, w_dic, w_dic)
         w_ret = space.getitem(w_dic, space.wrap('x'))
         ret = space.int_w(w_ret)

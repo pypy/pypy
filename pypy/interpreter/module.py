@@ -10,7 +10,7 @@ class Module(Wrappable):
     def __init__(self, space, w_name, w_dict=None):
         self.space = space
         if w_dict is None: 
-            w_dict = space.newdict([])
+            w_dict = space.newdict()
         self.w_dict = w_dict 
         self.w_name = w_name 
         if w_name is not None:

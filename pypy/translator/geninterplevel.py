@@ -101,7 +101,7 @@ def eval_helper(self, typename, expr):
     unique = self.uniquenameofprebuilt("eval_helper", eval_helper)
     self.initcode.append1(
         'def %s(expr):\n'
-        '    dic = space.newdict([])\n'
+        '    dic = space.newdict()\n'
         '    if "types." in expr:\n'
         '        space.exec_("import types", dic, dic)\n'
         '    else:\n'
@@ -114,7 +114,7 @@ def unpickle_helper(self, name, value):
     unique = self.uniquenameofprebuilt("unpickle_helper", unpickle_helper)
     self.initcode.append1(
         'def %s(value):\n'
-        '    dic = space.newdict([])\n'
+        '    dic = space.newdict()\n'
         '    space.exec_("import cPickle as pickle", dic, dic)\n'
         '    return space.eval("pickle.loads(%%r)" %% value, dic, dic)' % unique)
     self.initcode.append1('%s = %s(%r)' % (
@@ -125,7 +125,7 @@ def long_helper(self, name, value):
     unique = self.uniquenameofprebuilt("long_helper", long_helper)
     self.initcode.append1(
         'def %s(value):\n'
-        '    dic = space.newdict([])\n'
+        '    dic = space.newdict()\n'
         '    space.exec_("", dic, dic) # init __builtins__\n'
         '    return space.eval(value, dic, dic)' % unique)
     self.initcode.append1('%s = %s(%r)' % (
@@ -136,7 +136,7 @@ def bltinmod_helper(self, mod):
     unique = self.uniquenameofprebuilt("bltinmod_helper", bltinmod_helper)
     self.initcode.append1(
         'def %s(name):\n'
-        '    dic = space.newdict([])\n'
+        '    dic = space.newdict()\n'
         '    space.exec_("import %%s" %% name, dic, dic)\n'
         '    return space.eval("%%s" %% name, dic, dic)' % (unique, ))
     self.initcode.append1('%s = %s(%r)' % (name, unique, mod.__name__))
@@ -183,7 +183,7 @@ class GenRpy:
 
         # special constructors:
         self.has_listarg = {}
-        for name in "newtuple newlist newdict newstring".split():
+        for name in "newtuple newlist newstring".split():
             self.has_listarg[name] = name
 
         # catching all builtins in advance, to avoid problems
@@ -798,7 +798,7 @@ else:
                     name, self.nameof(key), self.nameof(value))
 
         baseargs = ", ".join(basenames)
-        initcode.append('_dic = space.newdict([])')
+        initcode.append('_dic = space.newdict()')
         for key, value in cls.__dict__.items():
             if key.startswith('__'):
                 if key in ['__module__', '__metaclass__', '__slots__',
@@ -934,7 +934,7 @@ else:
         assert dic is not __builtins__
         name = self.uniquename('g%ddict' % len(dic))
         self.register_early(dic, name)
-        self.initcode.append('%s = space.newdict([])' % (name,))
+        self.initcode.append('%s = space.newdict()' % (name,))
         for k in dic:
             if k == '__builtins__':
                 continue

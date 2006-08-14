@@ -52,20 +52,27 @@ class TestW_DictObject:
     def test_dict_compare(self):
         w = self.space.wrap
         w0, w1, w2, w3 = map(w, range(4))
-        wd1 = self.space.newdict([(w0, w1), (w2, w3)])
-        wd2 = self.space.newdict([(w2, w3), (w0, w1)])
+        def wd(items):
+            d = self.space.newdict()
+            d.initialize_content(items)
+            return d
+        wd1 = wd([(w0, w1), (w2, w3)])
+        wd2 = wd([(w2, w3), (w0, w1)])
         assert self.space.eq_w(wd1, wd2)
-        wd3 = self.space.newdict([(w2, w2), (w0, w1)])
+        wd3 = wd([(w2, w2), (w0, w1)])
         assert not self.space.eq_w(wd1, wd3)
-        wd4 = self.space.newdict([(w3, w3), (w0, w1)])
+        wd4 = wd([(w3, w3), (w0, w1)])
         assert not self.space.eq_w(wd1, wd4)
-        wd5 = self.space.newdict([(w3, w3)])
+        wd5 = wd([(w3, w3)])
         assert not self.space.eq_w(wd1, wd4)
 
     def test_dict_call(self):
         space = self.space
         w = space.wrap
-        wd = space.newdict
+        def wd(items):
+            d = space.newdict()
+            d.initialize_content(items)
+            return d
         def mydict(w_args=w(()), w_kwds=w({})):
             return space.call(space.w_dict, w_args, w_kwds)
         def deepwrap(lp):
@@ -85,7 +92,6 @@ class TestW_DictObject:
     def test_dict_pop(self):
         space = self.space
         w = space.wrap
-        wd = space.newdict
         def mydict(w_args=w(()), w_kwds=w({})):
             return space.call(space.w_dict, w_args, w_kwds)
         d = mydict(w_kwds=w({"1":2, "3":4}))

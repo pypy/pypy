@@ -284,14 +284,10 @@ class Bookkeeper:
             self.dictdefs[self.position_key] = dictdef
         return dictdef
 
-    def newdict(self, *items_s):
-        """Make a SomeDict associated with the current position, general
-        enough to contain the given (s_key, s_value) as items."""
-        dictdef = self.getdictdef()
-        for s_key, s_value in items_s:
-            dictdef.generalize_key(s_key)
-            dictdef.generalize_value(s_value)
-        return SomeDict(dictdef)
+    def newdict(self):
+        """Make a so-far empty SomeDict associated with the current
+        position."""
+        return SomeDict(self.getdictdef())
 
     def immutableconstant(self, const):
         return self.immutablevalue(const.value)
@@ -801,7 +797,7 @@ class RPythonCallsSpace:
         else:
             return SomeTuple(items_s)
 
-    def newdict(self, stuff):
+    def newdict(self):
         raise CallPatternTooComplex, "'**' argument"
 
     def unpackiterable(self, s_obj, expected_length=None):

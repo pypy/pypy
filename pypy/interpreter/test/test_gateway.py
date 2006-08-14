@@ -39,11 +39,7 @@ class TestBuiltinCode:
                                                    gateway.W_Root,
                                                    'starargs'])
         w = self.space.wrap
-        w_dict = self.space.newdict([
-            (w('x'), w(123)),
-            (w('y'), w(23)),
-            (w('hello'), self.space.newtuple([w(0), w(True)])),
-            ])
+        w_dict = w({'x': 123, 'y': 23, 'hello': (0, True)})
         w_result = code.exec_code(self.space, w_dict, w_dict)
         assert self.space.eq_w(w_result, w(102))
 
@@ -59,12 +55,8 @@ class TestBuiltinCode:
                                                    gateway.W_Root,
                                                    gateway.Arguments])
         w = self.space.wrap
-        w_dict = self.space.newdict([
-            (w('x'), w(123)),
-            (w('y'), w(23)),
-            (w('args'), self.space.newtuple([w(0), w(True)])),
-            (w('keywords'), self.space.newdict([(w('boo'), w(10))])),
-            ])
+        w_dict = w({'x': 123, 'y': 23, 'args': (0, True),
+                    'keywords': {'boo': 10}})
         w_result = code.exec_code(self.space, w_dict, w_dict)
         assert self.space.eq_w(w_result, w(1020))
 
@@ -115,7 +107,7 @@ class TestGateway:
         assert self.space.eq_w(
             space.call(w_app_g3, 
                        space.newtuple([w('foo'), w('bar')]),
-                       space.newdict([])),
+                       space.newdict()),
             w('foobar'))
         assert self.space.eq_w(
             space.call_function(w_app_g3, w('foo'), w('bar')),
@@ -134,7 +126,7 @@ class TestGateway:
         assert self.space.eq_w(
             space.call(w_app_g3, 
                        space.newtuple([w('foo'), w('bar')]),
-                       space.newdict([])),
+                       space.newdict()),
             w('foobar'))
         assert self.space.eq_w(
             space.call_function(w_app_g3, w('foo'), w('bar')),
@@ -152,7 +144,7 @@ class TestGateway:
         assert self.space.eq_w(
             space.call(w_app_g3_args_w, 
                        space.newtuple([w('foo'), w('bar')]),
-                       space.newdict([])),
+                       space.newdict()),
             w('foobar'))
         assert self.space.eq_w(
             space.call_function(w_app_g3_args_w, w('foo'), w('bar')),
@@ -170,7 +162,7 @@ class TestGateway:
         assert self.space.eq_w(
             space.call(w_app_g3_ss, 
                        space.newtuple([w('foo'), w('bar')]),
-                       space.newdict([])),
+                       space.newdict()),
             w('foobar'))
         assert self.space.eq_w(
             space.call_function(w_app_g3_ss, w('foo'), w('bar')),
@@ -188,7 +180,7 @@ class TestGateway:
         assert self.space.eq_w(
             space.call(w_app_g3_if, 
                        space.newtuple([w(1), w(1.0)]),
-                       space.newdict([])),
+                       space.newdict()),
             w(2.0))
         assert self.space.eq_w(
             space.call_function(w_app_g3_if, w(1), w(1.0)),

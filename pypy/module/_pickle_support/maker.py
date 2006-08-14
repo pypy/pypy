@@ -26,7 +26,7 @@ code_new.unwrap_spec = [ObjSpace, Arguments]
 
 def func_new(space):
     fu = instantiate(Function)
-    fu.w_func_dict = space.newdict([])
+    fu.w_func_dict = space.newdict()
     return space.wrap(fu)
 func_new.unwrap_spec = [ObjSpace]
 

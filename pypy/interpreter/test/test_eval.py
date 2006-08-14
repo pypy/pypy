@@ -33,18 +33,15 @@ class TestFrame:
         space = self.space 
         w = space.wrap
         self.f.fast2locals()
-        assert space.eq_w(self.f.w_locals, self.space.newdict([]))
+        assert space.eq_w(self.f.w_locals, self.space.wrap({}))
         
         self.f.fastlocals_w[0] = w(5)
         self.f.fast2locals()
-        assert space.eq_w(self.f.w_locals, self.space.newdict([
-                                               (w('x'), w(5))]))
+        assert space.eq_w(self.f.w_locals, self.space.wrap({'x': 5}))
 
         self.f.fastlocals_w[2] = w(7)
         self.f.fast2locals()
-        assert space.eq_w(self.f.w_locals, self.space.newdict([
-            (w('x'), w(5)),
-            (w('args'), w(7))]))
+        assert space.eq_w(self.f.w_locals, self.space.wrap({'x': 5, 'args': 7}))
 
     def sameList(self, l1, l2):
         assert len(l1) == len(l2) 
@@ -55,18 +52,15 @@ class TestFrame:
 
     def test_locals2fast(self):
         w = self.space.wrap
-        self.f.w_locals = self.space.newdict([])
+        self.f.w_locals = self.space.wrap({})
         self.f.locals2fast()
         self.sameList(self.f.fastlocals_w, [None]*5)
 
-        self.f.w_locals = self.space.newdict([
-            (w('x'), w(5))])
+        self.f.w_locals = self.space.wrap({'x': 5})
         self.f.locals2fast()
         self.sameList(self.f.fastlocals_w, [w(5)] + [None]*4)
 
-        self.f.w_locals = self.space.newdict([
-            (w('x'), w(5)),
-            (w('args'), w(7))])
+        self.f.w_locals = self.space.wrap({'x':5, 'args':7})
         self.f.locals2fast()
         self.sameList(self.f.fastlocals_w, [w(5), None, w(7),
                                             None, None])

@@ -316,5 +316,5 @@ class AppClassCollector(PyPyClassCollector):
         w_class = space.call_function(space.w_type,
                                       space.wrap(clsname),
                                       space.newtuple([]),
-                                      space.newdict([]))
+                                      space.newdict())
         self.w_class = w_class 

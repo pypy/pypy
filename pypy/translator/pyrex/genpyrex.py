@@ -106,10 +106,7 @@ class Op:
             return "%s = []" % self.resultname
 
     def op_newdict(self):
-        pairs = []
-        for i in range(0, len(self.argnames), 2):
-            pairs.append("%s: %s, " % (self.argnames[i], self.argnames[i+1]))
-        return "%s = {%s}" % (self.resultname, "".join(pairs))
+        return "%s = {}" % (self.resultname,)
 
     def op_newslice(self):
         a = self.argnames

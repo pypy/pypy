@@ -80,16 +80,10 @@ class FlowObjSpace(ObjSpace):
         self.executioncontext.recorder = previous_recorder
         self.concrete_mode -= 1
 
-    def newdict(self, items_w):
+    def newdict(self):
         if self.concrete_mode:
-            content = [(self.unwrap(w_key), self.unwrap(w_value))
-                       for w_key, w_value in items_w]
-            return Constant(dict(content))
-        flatlist_w = []
-        for w_key, w_value in items_w:
-            flatlist_w.append(w_key)
-            flatlist_w.append(w_value)
-        return self.do_operation('newdict', *flatlist_w)
+            return Constant({})
+        return self.do_operation('newdict')
 
     def newtuple(self, args_w):
         try:

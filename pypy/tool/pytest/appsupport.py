@@ -132,7 +132,7 @@ def build_pytest_assertion(space):
                                                 unwrap_spec=[gateway.ObjSpace,
                                                              gateway.W_Root,
                                                              gateway.Arguments]))
-    w_dict = space.newdict([])
+    w_dict = space.newdict()
     space.setitem(w_dict, space.wrap('__init__'), w_init)
     return space.call_function(w_metaclass,
                                space.wrap('AssertionError'),

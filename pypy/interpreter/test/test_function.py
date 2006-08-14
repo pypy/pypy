@@ -260,7 +260,7 @@ class TestMethod:
         def c(self, bar):
             return bar
         code = PyCode._from_code(self.space, c.func_code)
-        self.fn = Function(self.space, code, self.space.newdict([]))
+        self.fn = Function(self.space, code, self.space.newdict())
         
     def test_get(self):
         space = self.space
@@ -287,7 +287,7 @@ class TestMethod:
         # Create some function for this test only
         def m(self): return self
         func = Function(space, PyCode._from_code(self.space, m.func_code),
-                        space.newdict([]))
+                        space.newdict())
         # Some shorthands
         obj1 = space.wrap(23)
         obj2 = space.wrap(42)

@@ -305,7 +305,7 @@ app_reset_scheduler = gateway.interp2app(reset_scheduler)
 
 def sched_info(space):
     sched = scheduler[0]
-    w_ret = space.newdict([])
+    w_ret = space.newdict()
     if not we_are_translated(): # XXX and otherwise, WTF ???
         space.setitem(w_ret, space.wrap('switches'), space.wrap(sched._switch_count))
         space.setitem(w_ret, space.wrap('threads'),
@@ -323,7 +323,7 @@ def sched_all(space):
     s = scheduler[0]
     si = space.setitem
     sw = space.wrap
-    w_ret = space.newdict([])
+    w_ret = space.newdict()
     if not we_are_translated():
         si(w_ret, sw('threads'),
            sw([id(th) for th in s.get_threads()]))

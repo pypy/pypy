@@ -97,7 +97,7 @@ def target(driver, args):
 
     # manually imports app_main.py
     filename = os.path.join(this_dir, 'app_main.py')
-    w_dict = space.newdict([])
+    w_dict = space.newdict()
     space.exec_(open(filename).read(), w_dict, w_dict)
     w_entry_point = space.getitem(w_dict, space.wrap('entry_point'))
 

@@ -238,7 +238,7 @@ strerror.unwrap_spec = [ObjSpace, int]
 class State:
     def __init__(self, space): 
         self.posix_putenv_garbage = {}
-        self.w_environ = space.newdict([])
+        self.w_environ = space.newdict()
         _convertenviron(space, self.w_environ)
 def get(space): 
     return space.fromcache(State) 

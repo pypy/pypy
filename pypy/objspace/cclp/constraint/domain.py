@@ -29,7 +29,7 @@ class W_FiniteDomain(W_AbstractDomain):
         W_AbstractDomain.__init__(self, space)
         #XXX a pure dict used to work there (esp. in revise)
         assert isinstance(w_values, W_ListObject)
-        self._values = space.newdict([])
+        self._values = space.newdict()
         self.set_values(w_values)
 
 

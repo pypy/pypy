@@ -73,7 +73,7 @@ class W_TypeObject(W_Object):
                 try:
                     caller = space.getexecutioncontext().framestack.top()
                 except IndexError:
-                    w_globals = w_locals = space.newdict([])
+                    w_globals = w_locals = space.newdict()
                 else:
                     w_globals = caller.w_globals
                     w_str_name = space.wrap('__name__')
@@ -302,7 +302,9 @@ class W_TypeObject(W_Object):
         dictspec = []
         for key, w_value in w_self.dict_w.items():
             dictspec.append((space.wrap(key), w_value))
-        return W_DictProxyObject(space.newdict(dictspec))
+        newdic = space.newdict()
+        newdic.initialize_content(dictspec)
+        return W_DictProxyObject(newdic)
 
     def unwrap(w_self):
         if w_self.instancetypedef.fakedcpytype is not None:

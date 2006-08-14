@@ -88,7 +88,8 @@ class ExecutionContext:
         "Create a new empty 'globals' dictionary."
         w_key = self.space.wrap("__builtins__")
         w_value = self.space.wrap(self.get_builtin())
-        w_globals = self.space.newdict([(w_key, w_value)])
+        w_globals = self.space.newdict()
+        space.setitem(w_globals, w_key, w_value)
         return w_globals
 
     def call_trace(self, frame):

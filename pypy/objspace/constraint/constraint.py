@@ -182,8 +182,8 @@ def make_filter__List_String(object_space, w_variables, w_formula):
                         for var in items]) 
     func_head = 'lambda ' + var_ids + ':'
     expr = func_head + object_space.str_w(w_formula)
-    func_obj = ev(object_space, object_space.wrap(expr), object_space.newdict([]),
-                                 object_space.newdict([]))
+    func_obj = ev(object_space, object_space.wrap(expr), object_space.newdict(),
+                                 object_space.newdict())
     assert isinstance(func_obj, Function)
     return func_obj
 
@@ -213,15 +213,15 @@ class W_Expression(W_AbstractConstraint):
 
     def _init_result_cache(self):
         """key = (variable,value), value = [has_success,has_failure]"""
-        result_cache = self._space.newdict([])
+        result_cache = self._space.newdict()
         for var in self._variables:
             assert isinstance(var, W_Variable)
-            result_cache.content[var.w_name()] = self._space.newdict([])
+            result_cache.content[var.w_name()] = self._space.newdict()
         return result_cache
 
     def _assign_values(self, w_cs):
         variables = []
-        kwargs = self._space.newdict([])
+        kwargs = self._space.newdict()
         for variable in self._variables:
             assert isinstance(variable, W_Variable)
             domain = w_cs.w_dom(variable)

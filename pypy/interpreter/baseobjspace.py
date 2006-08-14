@@ -692,7 +692,7 @@ class AppExecCache(SpaceCache):
         source = source.lstrip()
         assert source.startswith('('), "incorrect header in:\n%s" % (source,)
         source = py.code.Source("def anonymous%s\n" % source)
-        w_glob = space.newdict([])
+        w_glob = space.newdict()
         space.exec_(source.compile(), w_glob, w_glob)
         return space.getitem(w_glob, space.wrap('anonymous'))
 
@@ -833,8 +833,8 @@ ObjSpace.ExceptionTable = [
 #                  newtuple([w_1, w_2,...]) -> w_tuple
 #                   newlist([w_1, w_2,...]) -> w_list
 #                 newstring([w_1, w_2,...]) -> w_string from ascii numbers (bytes)
-#                newunicode([i1, i2,...]) -> w_unicode from integers
-#            newdict([(w_key,w_value),...]) -> w_dict
+#                  newunicode([i1, i2,...]) -> w_unicode from integers
+#                                 newdict() -> empty w_dict
 #           newslice(w_start,w_stop,w_step) -> w_slice
 #              call_args(w_obj,Arguments()) -> w_result
 

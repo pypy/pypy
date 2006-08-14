@@ -31,12 +31,9 @@ class TestObjSpace:
         assert self.space.eq_w(w_l, w(l))
 
     def test_newdict(self):
-        w = self.space.wrap
-        items = [(0, 1), (3, 4)]
-        items_w = [(w(k), w(v)) for (k, v) in items]
-        d = dict(items)
-        w_d = self.space.newdict(items_w)
-        assert self.space.eq_w(w_d, w(d))
+        d = {}
+        w_d = self.space.newdict()
+        assert self.space.eq_w(w_d, self.space.wrap(d))
 
     def test_newtuple(self):
         w = self.space.wrap
