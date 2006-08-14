@@ -170,3 +170,65 @@ def xxx_test_later_along_link():
                               'int_sub': 1}
     check_graph(graph, [-1], 124, t)
     check_graph(graph, [0], 61, t)
+
+
+def test_keepalive_const_substruct():
+    S2 = lltype.Struct('S2', ('x', lltype.Signed))
+    S1 = lltype.GcStruct('S1', ('sub', S2))
+    s1 = lltype.malloc(S1)
+    s1.sub.x = 1234
+    def fn():
+        return s1.sub.x
+    graph, t = get_graph(fn, [])
+
+    # kill all references to 's1'
+    s1 = fn = None
+    del graph.func
+    import gc; gc.collect()
+
+    assert summary(graph) == {'getsubstruct': 1, 'getfield': 1}
+    constant_fold_graph(graph)
+    assert summary(graph) == {'getfield': 1}
+    check_graph(graph, [], 1234, t)
+
+
+def test_keepalive_const_fieldptr():
+    S1 = lltype.GcStruct('S1', ('x', lltype.Signed))
+    s1 = lltype.malloc(S1)
+    s1.x = 1234
+    def fn():
+        p1 = lltype.direct_fieldptr(s1, 'x')
+        return p1[0]
+    graph, t = get_graph(fn, [])
+
+    # kill all references to 's1'
+    s1 = fn = None
+    del graph.func
+    import gc; gc.collect()
+
+    assert summary(graph) == {'direct_fieldptr': 1, 'getarrayitem': 1}
+    constant_fold_graph(graph)
+    assert summary(graph) == {'getarrayitem': 1}
+    check_graph(graph, [], 1234, t)
+
+
+def test_keepalive_const_arrayitems():
+    A1 = lltype.GcArray(lltype.Signed)
+    a1 = lltype.malloc(A1, 10)
+    a1[6] = 1234
+    def fn():
+        p1 = lltype.direct_arrayitems(a1)
+        p2 = lltype.direct_ptradd(p1, 6)
+        return p2[0]
+    graph, t = get_graph(fn, [])
+
+    # kill all references to 'a1'
+    a1 = fn = None
+    del graph.func
+    import gc; gc.collect()
+
+    assert summary(graph) == {'direct_arrayitems': 1, 'direct_ptradd': 1,
+                              'getarrayitem': 1}
+    constant_fold_graph(graph)
+    assert summary(graph) == {'getarrayitem': 1}
+    check_graph(graph, [], 1234, t)

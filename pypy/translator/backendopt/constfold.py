@@ -43,6 +43,8 @@ def fold_op_list(operations, constants, exit_early=False, exc_catch=False):
                     log.WARNING('  %s: %s' % (e.__class__.__name__, e))
                 else:
                     # success in folding this space operation
+                    if spaceop.opname in fixup_op_result:
+                        result = fixup_op_result[spaceop.opname](result)
                     constants[spaceop.result] = Constant(result, RESTYPE)
                     folded_count += 1
                     continue
@@ -95,6 +97,25 @@ def constant_fold_block(block):
             block.recloseblock(*remaining_exits)
         for link in block.exits:
             link.args = [constants.get(v, v) for v in link.args]
+
+
+#
+# Operations returning pointers to inlined parts of a constant object
+# have to be tweaked so that the inlined part keeps the whole object alive.
+# XXX This is done with a hack.  (See test_keepalive_const_*())
+#
+def fixup_solid(p):
+    container = p._obj
+    assert isinstance(container, lltype._parentable)
+    container._keepparent = container._parentstructure()
+    return p
+
+fixup_op_result = {
+    "getsubstruct":      fixup_solid,
+    "getarraysubstruct": fixup_solid,
+    "direct_fieldptr":   fixup_solid,
+    "direct_arrayitems": fixup_solid,
+    }
 
 
 def complete_constants(link, constants):
