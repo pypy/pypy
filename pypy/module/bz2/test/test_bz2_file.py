@@ -362,7 +362,15 @@ class AppTestBZ2File:
         f = open("foo", "rb")
         assert self.decompress(f.read()) == self.TEXT
         f.close()
+        
+    def test_write_methods_on_readonly_file(self):
+        from bz2 import BZ2File
 
+        bz2f = BZ2File("foo", 'r')
+        raises(IOError, bz2f.write, "abc")
+        raises(IOError, bz2f.writelines, ["abc"])
+        bz2f.close()
+        
 # has_cmdline_bunzip2 = sys.platform not in ("win32", "os2emx", "riscos")
 # 
 # if has_cmdline_bunzip2:
