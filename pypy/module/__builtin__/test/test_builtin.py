@@ -419,14 +419,19 @@ class AppTestBuiltinApp:
 
     def test_hasattr(self):
         class X(object):
-            def broken(): pass
+            def broken(): pass   # TypeError
             abc = property(broken)
+            def broken2(): raise IOError
+            bac = property(broken2)
         x = X()
         x.foo = 42
         assert hasattr(x, '__class__')
         assert hasattr(x, 'foo')
         assert not hasattr(x, 'bar')
         assert not hasattr(x, 'abc')    # CPython compliance
+        assert not hasattr(x, 'bac')    # CPython compliance
+        raises(TypeError, hasattr, x, None)
+        raises(TypeError, hasattr, x, 42)
 
 class TestInternal:
 

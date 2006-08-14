@@ -85,6 +85,13 @@ def hasattr(obj, attr):
     try:
         getattr(obj, attr)
         return True
+    except TypeError:
+        # if 'attr' was not a string or unicode, let the TypeError through,
+        # else eat it
+        if isinstance(attr, basestring):
+            return False
+        else:
+            raise
     except (KeyboardInterrupt, SystemExit):
         raise
     except:
