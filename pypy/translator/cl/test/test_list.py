@@ -1,4 +1,5 @@
 from pypy.translator.cl.buildcl import make_cl_func
+from py.test import skip
 
 def sum_(l):
     i = 0
@@ -21,7 +22,7 @@ def test_list_get():
     assert cl_list_get(1985) == 1985
 
 def test_list_iter():
-    py.test.skip("CDefinedInt implementation")
+    skip("CDefinedInt implementation")
     def list_iter():
         a = 0
         for item in [1,2,3,4,5]:
@@ -47,7 +48,7 @@ def test_list_concat():
     assert cl_list_concat() == 8
 
 def test_list_setitem():
-    py.test.skip("CDefinedInt implementation")
+    skip("CDefinedInt implementation")
     def list_setitem(num):
         a = [1,2,3,4]
         a[1] = num

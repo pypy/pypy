@@ -1,4 +1,5 @@
 from pypy.translator.cl.buildcl import make_cl_func
+from py.test import skip
 
 def test_tuple_get():
     def tuple_get(number):
@@ -8,7 +9,7 @@ def test_tuple_get():
     assert cl_tuple_get(1) == 1
 
 def test_tuple_iter():
-    py.test.skip("CDefinedInt implementation")
+    skip("CDefinedInt implementation")
     def tuple_double(number):
         tuple = (number,)
         for item in tuple:
