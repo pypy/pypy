@@ -9,6 +9,7 @@ ext_modules = []
 
 # test options
 run_isolated_only = True
+do_not_isolate = False
 
 def _cleanup(leave=0):
     # no test should ever need more than 5 compiled functions
@@ -39,10 +40,13 @@ def llvm_test():
     return True
 
 def compile_test(function, annotation, isolate=True, **kwds):
-    " returns module and compiled function "
+    " returns module and compiled function "    
     if llvm_test():
         if run_isolated_only and not isolate:
             py.test.skip("skipping not isolated test")
+
+        # turn off isolation?
+        isolate = isolate and not do_not_isolate
             
         # maintain only 3 isolated process (if any)
         _cleanup(leave=3)
