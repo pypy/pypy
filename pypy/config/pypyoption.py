@@ -70,7 +70,12 @@ pypy_optiondescription = OptionDescription("pypy", [
 
             BoolOption("withmultidict",
                        "use dictionaries optimized for flexibility",
-                       default=False),
+                       default=False, requires=[("withstrdict", False)]),
+
+            BoolOption("withdictmeasurement",
+                       "create huge files with masses of information "
+                       "about dictionaries",
+                       default=False, requires=[("withmultidict", True)]),
 
             BoolOption("oldstyle",
                        "specify whether the default metaclass should be classobj",
