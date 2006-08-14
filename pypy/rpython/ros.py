@@ -16,6 +16,20 @@ def environ(idx):
     if idx < len(_initial_items):
         return '%s=%s' % _initial_items[idx]
 
+def getenv(name):
+    # slowish, ok for non-repeated use
+    pattern = name + '='
+    idx = 0
+    while 1:
+        s = environ(idx)
+        if s is None:
+            break
+        if s.startswith(pattern):
+            value = s[len(pattern):]
+            return value
+        idx += 1
+    return None
+
 
 class DIR(object):
     # a simulated DIR structure from C, i.e. a directory opened by

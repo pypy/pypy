@@ -35,6 +35,7 @@ class Module(MixedModule):
         'builtin_module_names'  : 'state.w_None',
         'pypy_getudir'          : 'state.pypy_getudir', 
         'pypy_repr'             : 'state.pypy_repr',
+        'pypy_initial_path'     : 'state.pypy_initial_path',
 
         '_getframe'             : 'vm._getframe', 
         'setrecursionlimit'     : 'vm.setrecursionlimit', 

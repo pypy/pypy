@@ -1,3 +1,4 @@
+#! /usr/bin/env python
 # App-level version of py.py.
 # XXX this is probably still incomplete.
 """
@@ -10,7 +11,7 @@ options:
   --info       print translation information about this PyPy executable
 """
 
-import sys
+import sys, os
 
 originalexcepthook = sys.__excepthook__
 
@@ -126,8 +127,40 @@ def print_error(msg):
 # ____________________________________________________________
 # Main entry point
 
+AUTOSUBPATH = 'share' + os.sep + 'pypy-%d.%d'
+
 def entry_point(executable, argv):
-    sys.executable = executable
+    # find the full path to the executable, assuming that if there is no '/'
+    # in the provided one then we must look along the $PATH
+    if os.sep not in executable:
+        path = os.getenv('PATH')
+        if path:
+            for dir in path.split(os.pathsep):
+                fn = os.path.join(dir, executable)
+                if os.path.isfile(fn):
+                    executable = fn
+                    break
+    sys.executable = os.path.abspath(executable)
+
+    # set up a sys.path that depends on the local machine
+    autosubpath = AUTOSUBPATH % sys.pypy_version_info[:2]
+    search = executable
+    while 1:
+        dirname = resolvedirof(search)
+        if dirname == search:
+            # not found!  let's hope that the compiled-in path is ok
+            print >> sys.stderr, ('debug: WARNING: library path not found, '
+                                  'using compiled-in sys.path')
+            break
+        newpath = sys.pypy_initial_path(dirname)
+        if newpath is None:
+            newpath = sys.pypy_initial_path(os.path.join(dirname, autosubpath))
+            if newpath is None:
+                search = dirname    # walk to the parent directory
+                continue
+        sys.path = newpath      # found!
+        break
+
     go_interactive = False
     i = 0
     while i < len(argv):
@@ -173,9 +206,7 @@ def entry_point(executable, argv):
                     exec cmd in mainmodule.__dict__
                 run_toplevel(run_it)
             else:
-                import os
-                # XXX resolve symlinks
-                scriptdir = os.path.dirname(os.path.abspath(sys.argv[0]))
+                scriptdir = resolvedirof(sys.argv[0])
                 sys.path.insert(0, scriptdir)
                 run_toplevel(execfile, sys.argv[0], mainmodule.__dict__)
         else: 
@@ -190,9 +221,36 @@ def entry_point(executable, argv):
     else:
         return 0
 
+def resolvedirof(filename):
+    try:
+        filename = os.path.abspath(filename)
+    except OSError:
+        pass
+    dirname = os.path.dirname(filename)
+    if os.path.islink(filename):
+        try:
+            link = os.readlink(filename)
+        except OSError:
+            pass
+        else:
+            return resolvedirof(os.path.join(dirname, link))
+    return dirname
+
 if __name__ == '__main__':
     # obscure! try removing the following line, see how it crashes, and
     # guess why...
     ImStillAroundDontForgetMe = sys.modules['__main__']
+
     # debugging only
-    sys.exit(entry_point(sys.argv[0], sys.argv[1:]))
+    def pypy_initial_path(s):
+        from pypy.module.sys.state import getinitialpath
+        try:
+            return getinitialpath(s)
+        except OSError:
+            return None
+
+    from pypy.module.sys.version import PYPY_VERSION
+    sys.pypy_version_info = PYPY_VERSION
+    sys.pypy_initial_path = pypy_initial_path
+    #sys.exit(entry_point(sys.argv[0], sys.argv[1:]))
+    sys.exit(entry_point('app_main.py', sys.argv[1:]))

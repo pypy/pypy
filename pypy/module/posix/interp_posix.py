@@ -249,9 +249,8 @@ def _convertenviron(space, w_env):
         s = ros.environ(idx)
         if s is None:
             break
-        p = s.find('=');
+        p = s.find('=')
         if p >= 0:
-            assert p >= 0
             key = s[:p]
             value = s[p+1:]
             space.setitem(w_env, space.wrap(key), space.wrap(value))
