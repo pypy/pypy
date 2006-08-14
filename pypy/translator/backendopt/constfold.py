@@ -99,16 +99,16 @@ def constant_fold_block(block):
             link.args = [constants.get(v, v) for v in link.args]
 
 
-#
-# Operations returning pointers to inlined parts of a constant object
-# have to be tweaked so that the inlined part keeps the whole object alive.
-# XXX This is done with a hack.  (See test_keepalive_const_*())
-#
 def fixup_solid(p):
+    # Operations returning pointers to inlined parts of a constant object
+    # have to be tweaked so that the inlined part keeps the whole object alive.
+    # XXX This is done with a hack.  (See test_keepalive_const_*())
     container = p._obj
     assert isinstance(container, lltype._parentable)
     container._keepparent = container._parentstructure()
-    return p
+    # Instead of 'p', return a solid pointer, to keep the inlined part
+    # itself alive.
+    return container._as_ptr()
 
 fixup_op_result = {
     "getsubstruct":      fixup_solid,

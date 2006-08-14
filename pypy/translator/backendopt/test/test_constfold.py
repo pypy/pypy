@@ -180,14 +180,14 @@ def test_keepalive_const_substruct():
     def fn():
         return s1.sub.x
     graph, t = get_graph(fn, [])
+    assert summary(graph) == {'getsubstruct': 1, 'getfield': 1}
+    constant_fold_graph(graph)
 
     # kill all references to 's1'
     s1 = fn = None
     del graph.func
     import gc; gc.collect()
 
-    assert summary(graph) == {'getsubstruct': 1, 'getfield': 1}
-    constant_fold_graph(graph)
     assert summary(graph) == {'getfield': 1}
     check_graph(graph, [], 1234, t)
 
@@ -200,14 +200,14 @@ def test_keepalive_const_fieldptr():
         p1 = lltype.direct_fieldptr(s1, 'x')
         return p1[0]
     graph, t = get_graph(fn, [])
+    assert summary(graph) == {'direct_fieldptr': 1, 'getarrayitem': 1}
+    constant_fold_graph(graph)
 
     # kill all references to 's1'
     s1 = fn = None
     del graph.func
     import gc; gc.collect()
 
-    assert summary(graph) == {'direct_fieldptr': 1, 'getarrayitem': 1}
-    constant_fold_graph(graph)
     assert summary(graph) == {'getarrayitem': 1}
     check_graph(graph, [], 1234, t)
 
@@ -221,14 +221,14 @@ def test_keepalive_const_arrayitems():
         p2 = lltype.direct_ptradd(p1, 6)
         return p2[0]
     graph, t = get_graph(fn, [])
+    assert summary(graph) == {'direct_arrayitems': 1, 'direct_ptradd': 1,
+                              'getarrayitem': 1}
+    constant_fold_graph(graph)
 
     # kill all references to 'a1'
     a1 = fn = None
     del graph.func
     import gc; gc.collect()
 
-    assert summary(graph) == {'direct_arrayitems': 1, 'direct_ptradd': 1,
-                              'getarrayitem': 1}
-    constant_fold_graph(graph)
     assert summary(graph) == {'getarrayitem': 1}
     check_graph(graph, [], 1234, t)
