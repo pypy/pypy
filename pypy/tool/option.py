@@ -73,6 +73,7 @@ def process_options(optionlist, input_options, argv=None):
     Options = input_options
     op = optparse.OptionParser()
     op.add_options(optionlist)
+    op.disable_interspersed_args()
     options, args = op.parse_args(argv, input_options)
     return args
 
