@@ -245,7 +245,17 @@ class AppTest_DictObject:
         d = {}
         d.update()
         assert d == {}
-    
+
+    def test_update_kwargs(self):
+        d = {}
+        d.update(foo='bar', baz=1)
+        assert d == {'foo': 'bar', 'baz': 1}
+
+    def test_update_dict_and_kwargs(self):
+        d = {}
+        d.update({'foo': 'bar'}, baz=1)
+        assert d == {'foo': 'bar', 'baz': 1}
+
     def test_values(self):
         d = {1:2, 3:4}
         vals = d.values()

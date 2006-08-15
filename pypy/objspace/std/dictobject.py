@@ -65,11 +65,11 @@ def init__Dict(space, w_dict, __args__):
             w_dict.content[w_k] = w_v
     else:
         if space.is_true(w_src):
-            from pypy.objspace.std.dicttype import dict_update__ANY_ANY
-            dict_update__ANY_ANY(space, w_dict, w_src)
+            from pypy.objspace.std.dicttype import update1
+            update1(space, w_dict, w_src)
     if space.is_true(w_kwds):
-        from pypy.objspace.std.dicttype import dict_update__ANY_ANY
-        dict_update__ANY_ANY(space, w_dict, w_kwds)
+        from pypy.objspace.std.dicttype import update1
+        update1(space, w_dict, w_kwds)
 
 def getitem__Dict_ANY(space, w_dict, w_lookup):
     try:

@@ -327,8 +327,8 @@ class W_DictMultiObject(W_Object):
         else:
             w_self.implementation = EmptyDictImplementation(space)
         if w_otherdict is not None:
-            from pypy.objspace.std.dicttype import dict_update__ANY_ANY
-            dict_update__ANY_ANY(space, w_self, w_otherdict)
+            from pypy.objspace.std.dicttype import update1
+            update1(space, w_self, w_otherdict)
 
     def initialize_content(w_self, list_pairs_w):
         impl = w_self.implementation
@@ -377,11 +377,11 @@ def init__DictMulti(space, w_dict, __args__):
             w_dict.implementation = w_dict.implementation.setitem(w_k, w_v)
     else:
         if space.is_true(w_src):
-            from pypy.objspace.std.dicttype import dict_update__ANY_ANY
-            dict_update__ANY_ANY(space, w_dict, w_src)
+            from pypy.objspace.std.dicttype import update1
+            update1(space, w_dict, w_src)
     if space.is_true(w_kwds):
-        from pypy.objspace.std.dicttype import dict_update__ANY_ANY
-        dict_update__ANY_ANY(space, w_dict, w_kwds)
+        from pypy.objspace.std.dicttype import update1
+        update1(space, w_dict, w_kwds)
 
 def getitem__DictMulti_ANY(space, w_dict, w_lookup):
     try:
