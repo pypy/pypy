@@ -5,6 +5,9 @@ PyPy - talks and related projects
 Talks and Presentations 
 ----------------------------------
 
+* `PyPy Status`_ talk, given by Samuele Pedroni at the Vancouner
+  Python Workshop 2006 (August). 
+
 * `Trouble in Paradise`_: the Open Source Project PyPy, 
   EU-funding and Agile Practices talk, by Bea During at
   Agile 2006 (experience report).
@@ -55,7 +58,7 @@ Talks and Presentations
 .. _`Sprint Driven Development`: http://codespeak.net/pypy/extradoc/talk/during-xp2006-sprints.pdf
 .. _`Kill -1`: http://codespeak.net/pypy/extradoc/talk/kill_1_agiletalk.pdf
 .. _`Open Source, EU-Funding and Agile Methods`: http://codespeak.net/pypy/extradoc/talk/agility.pdf
-
+.. _`PyPy Status`: http://codespeak.net/pypy/extradoc/talk/vancouver/talk.html
 
 Related projects 
 ----------------------------------
