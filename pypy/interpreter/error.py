@@ -1,5 +1,6 @@
 import autopath
 import os, sys
+from pypy.rpython.objectmodel import we_are_translated
 
 AUTO_DEBUG = os.getenv('PYPY_DEBUG')
 RECORD_INTERPLEVEL_TRACEBACK = True
@@ -22,13 +23,16 @@ class OperationError(Exception):
         self.w_type = w_type
         self.w_value = w_value
         self.application_traceback = tb
-        self.debug_excs = []
+        if not we_are_translated():
+            self.debug_excs = []
 
     def clear(self, space):
         # for sys.exc_clear()
         self.w_type = space.w_None
         self.w_value = space.w_None
         self.application_traceback = None
+        if not we_are_translated():
+            del self.debug_excs[:]
 
     def match(self, space, w_check_class):
         "Check if this application-level exception matches 'w_check_class'."
@@ -75,7 +79,6 @@ class OperationError(Exception):
         """Records the current traceback inside the interpreter.
         This traceback is only useful to debug the interpreter, not the
         application."""
-        from pypy.rpython.objectmodel import we_are_translated
         if not we_are_translated():
             if RECORD_INTERPLEVEL_TRACEBACK:
                 self.debug_excs.append(sys.exc_info())
