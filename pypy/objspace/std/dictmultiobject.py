@@ -287,46 +287,14 @@ def report():
     os.close(fd)
     os.write(2, "reporting done!\n")
 
-def reportDictInfo():
-    d = {}
-    if not DictInfo._dict_infos:
-        return
-    stillAlive = 0
-    totLifetime = 0.0
-    for info in DictInfo._dict_infos:
-        for attr in info.__dict__:
-            if attr == 'maxcontents':
-                continue
-            v = info.__dict__[attr]
-            if not isinstance(v, int):
-                continue
-            d[attr] = d.get(attr, 0) + v
-        if info.lifetime != -1.0:
-            totLifetime += info.lifetime
-        else:
-            stillAlive += 1
-    import cPickle
-    cPickle.dump(DictInfo._dict_infos, open('dictinfos.pickle', 'wb'))
-    print 'reporting on', len(DictInfo._dict_infos), 'dictionaries'
-    if stillAlive != len(DictInfo._dict_infos):
-        print 'average lifetime', totLifetime/(len(DictInfo._dict_infos) - stillAlive),
-        print '('+str(stillAlive), 'still alive)'
-    print d
-
-#import atexit
-#atexit.register(reportDictInfo)
-
 class W_DictMultiObject(W_Object):
     from pypy.objspace.std.dicttype import dict_typedef as typedef
 
-    def __init__(w_self, space, w_otherdict=None):
+    def __init__(w_self, space):
         if space.config.objspace.std.withdictmeasurement:
             w_self.implementation = MeasuringDictImplementation(space)
         else:
             w_self.implementation = EmptyDictImplementation(space)
-        if w_otherdict is not None:
-            from pypy.objspace.std.dicttype import update1
-            update1(space, w_self, w_otherdict)
 
     def initialize_content(w_self, list_pairs_w):
         impl = w_self.implementation
@@ -466,7 +434,10 @@ def lt__DictMulti_DictMulti(space, w_left, w_right):
     return w_res
 
 def dict_copy__DictMulti(space, w_self):
-    return W_DictMultiObject(space, w_self)
+    from pypy.objspace.std.dicttype import update1
+    w_new = W_DictMultiObject(space)
+    update1(space, w_new, w_self)
+    return w_new
 
 def dict_items__DictMulti(space, w_self):
     return space.newlist([space.newtuple([w_k, w_v]) for w_k, w_v in w_self.implementation.iteritems()])
