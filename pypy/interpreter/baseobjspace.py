@@ -163,9 +163,7 @@ class ObjSpace(object):
         w_exitfunc = self.sys.getdictvalue_w(self, 'exitfunc')
         if w_exitfunc is not None:
             self.call_function(w_exitfunc)
-        # XXX ugh:
-        from pypy.objspace.std.dictmultiobject import MEASURE_DICT
-        if MEASURE_DICT:
+        if self.config.objspace.std.withdictmeasurement:
             from pypy.objspace.std.dictmultiobject import report
             report()
     

@@ -112,217 +112,215 @@ class RDictImplementation(DictImplementation):
     def items(self):
         return self.content.items()
 
-# yeah, so this should do something clever with pypy.config
-MEASURE_DICT = False
+import time, py
 
-if MEASURE_DICT:
-    import time, py
+class DictInfo(object):
+    _dict_infos = []
+    def __init__(self):
+        self.id = len(self._dict_infos)
 
-    class DictInfo(object):
-        _dict_infos = []
-        def __init__(self):
-            self.id = len(self._dict_infos)
+        self.getitems = 0;  self.setitems = 0; self.delitems = 0
+        self.lengths = 0;   self.clears = 0;   self.has_keys = 0;  self.gets = 0
+        self.iteritems = 0; self.iterkeys = 0; self.itervalues = 0
+        self.keys = 0;      self.values = 0;   self.items = 0
 
-            self.getitems = 0;  self.setitems = 0; self.delitems = 0
-            self.lengths = 0;   self.clears = 0;   self.has_keys = 0;  self.gets = 0
-            self.iteritems = 0; self.iterkeys = 0; self.itervalues = 0
-            self.keys = 0;      self.values = 0;   self.items = 0
+        self.maxcontents = 0
 
-            self.maxcontents = 0
+        self.reads = 0
+        self.hits = self.misses = 0
+        self.writes = 0
+        self.iterations = 0
+        self.listings = 0
 
-            self.reads = 0
-            self.hits = self.misses = 0
-            self.writes = 0
-            self.iterations = 0
-            self.listings = 0
+        self.seen_non_string_in_write = 0
+        self.seen_non_string_in_read_first = 0
+        self.size_on_non_string_seen_in_read = -1
+        self.size_on_non_string_seen_in_write = -1
 
-            self.seen_non_string_in_write = 0
-            self.seen_non_string_in_read_first = 0
-            self.size_on_non_string_seen_in_read = -1
-            self.size_on_non_string_seen_in_write = -1
+        self.createtime = time.time()
+        self.lifetime = -1.0
 
-            self.createtime = time.time()
-            self.lifetime = -1.0
-
-            if not we_are_translated():
-                # very probable stack from here:
-                # 0 - us
-                # 1 - MeasuringDictImplementation.__init__
-                # 2 - W_DictMultiObject.__init__
-                # 3 - space.newdict
-                # 4 - newdict's caller.  let's look at that
-                try:
-                    frame = sys._getframe(4)
-                except ValueError:
-                    pass # might be at import time
-                else:
-                    self.sig = '(%s:%s)%s'%(frame.f_code.co_filename, frame.f_lineno, frame.f_code.co_name)
-
-            self._dict_infos.append(self)
-        def __repr__(self):
-            args = []
-            for k in sorted(self.__dict__):
-                v = self.__dict__[k]
-                if v != 0:
-                    args.append('%s=%r'%(k, v))
-            return '<DictInfo %s>'%(', '.join(args),)
-
-    class OnTheWayOut:
-        def __init__(self, info):
-            self.info = info
-        def __del__(self):
-            self.info.lifetime = time.time() - self.info.createtime
-
-    class MeasuringDictImplementation(DictImplementation):
-        def __init__(self, space):
-            self.space = space
-            self.content = r_dict(space.eq_w, space.hash_w)
-            self.info = DictInfo()
-            self.thing_with_del = OnTheWayOut(self.info)
-
-        def __repr__(self):
-            return "%s<%s>" % (self.__class__.__name__, self.content)
-
-        def _is_str(self, w_key):
-            space = self.space
-            return space.is_true(space.isinstance(w_key, space.w_str))
-        def _read(self, w_key):
-            self.info.reads += 1
-            if not self.info.seen_non_string_in_write \
-                   and not self.info.seen_non_string_in_read_first \
-                   and not self._is_str(w_key):
-                self.info.seen_non_string_in_read_first = True
-                self.info.size_on_non_string_seen_in_read = len(self.content)
-            hit = w_key in self.content
-            if hit:
-                self.info.hits += 1
+        if not we_are_translated():
+            # very probable stack from here:
+            # 0 - us
+            # 1 - MeasuringDictImplementation.__init__
+            # 2 - W_DictMultiObject.__init__
+            # 3 - space.newdict
+            # 4 - newdict's caller.  let's look at that
+            try:
+                frame = sys._getframe(4)
+            except ValueError:
+                pass # might be at import time
             else:
-                self.info.misses += 1
+                self.sig = '(%s:%s)%s'%(frame.f_code.co_filename, frame.f_lineno, frame.f_code.co_name)
 
-        def getitem(self, w_key):
-            self.info.getitems += 1
-            self._read(w_key)
-            return self.content[w_key]
-        def setitem(self, w_key, w_value):
-            if not self.info.seen_non_string_in_write and not self._is_str(w_key):
-                self.info.seen_non_string_in_write = True
-                self.info.size_on_non_string_seen_in_write = len(self.content)
-            self.info.setitems += 1
-            self.info.writes += 1
-            self.content[w_key] = w_value
-            self.info.maxcontents = max(self.info.maxcontents, len(self.content))
-            return self
-        def delitem(self, w_key):
-            if not self.info.seen_non_string_in_write \
-                   and not self.info.seen_non_string_in_read_first \
-                   and not self._is_str(w_key):
-                self.info.seen_non_string_in_read_first = True
-                self.info.size_on_non_string_seen_in_read = len(self.content)
-            self.info.delitems += 1
-            self.info.writes += 1
-            del self.content[w_key]
-            return self
+        self._dict_infos.append(self)
+    def __repr__(self):
+        args = []
+        for k in sorted(self.__dict__):
+            v = self.__dict__[k]
+            if v != 0:
+                args.append('%s=%r'%(k, v))
+        return '<DictInfo %s>'%(', '.join(args),)
 
-        def length(self):
-            self.info.lengths += 1
-            return len(self.content)
-        def clear(self):
-            self.info.clears += 1
-            self.info.writes += 1
-            self.content.clear()
-            return self
-        def has_key(self, w_lookup):
-            self.info.has_keys += 1
-            self._read(w_lookup)
-            return w_lookup in self.content
-        def get(self, w_lookup, w_default):
-            self.info.gets += 1
-            self._read(w_lookup)
-            return self.content.get(w_lookup, w_default)
+class OnTheWayOut:
+    def __init__(self, info):
+        self.info = info
+    def __del__(self):
+        self.info.lifetime = time.time() - self.info.createtime
 
-        def iteritems(self):
-            self.info.iteritems += 1
-            self.info.iterations += 1
-            return self.content.iteritems()
-        def iterkeys(self):
-            self.info.iterkeys += 1
-            self.info.iterations += 1
-            return self.content.iterkeys()
-        def itervalues(self):
-            self.info.itervalues += 1
-            self.info.iterations += 1
-            return self.content.itervalues()
+class MeasuringDictImplementation(DictImplementation):
+    def __init__(self, space):
+        self.space = space
+        self.content = r_dict(space.eq_w, space.hash_w)
+        self.info = DictInfo()
+        self.thing_with_del = OnTheWayOut(self.info)
 
-        def keys(self):
-            self.info.keys += 1
-            self.info.listings += 1
-            return self.content.keys()
-        def values(self):
-            self.info.values += 1
-            self.info.listings += 1
-            return self.content.values()
-        def items(self):
-            self.info.items += 1
-            self.info.listings += 1
-            return self.content.items()
+    def __repr__(self):
+        return "%s<%s>" % (self.__class__.__name__, self.content)
 
-    _example = DictInfo()
-    del DictInfo._dict_infos[-1]
-    tmpl = 'os.write(fd, "%(attr)s" + ": " + str(info.%(attr)s) + "\\n")'
-    bodySrc = []
-    for attr in sorted(_example.__dict__):
-        if attr == 'sig':
-            continue
-        bodySrc.append(tmpl%locals())
-    exec py.code.Source('''
-    def _report_one(fd, info):
-        os.write(fd, "_address" + ": " + str(id(info)) + "\\n")
-        %s
-    '''%'\n        '.join(bodySrc)).compile()
+    def _is_str(self, w_key):
+        space = self.space
+        return space.is_true(space.isinstance(w_key, space.w_str))
+    def _read(self, w_key):
+        self.info.reads += 1
+        if not self.info.seen_non_string_in_write \
+               and not self.info.seen_non_string_in_read_first \
+               and not self._is_str(w_key):
+            self.info.seen_non_string_in_read_first = True
+            self.info.size_on_non_string_seen_in_read = len(self.content)
+        hit = w_key in self.content
+        if hit:
+            self.info.hits += 1
+        else:
+            self.info.misses += 1
 
-    def report():
-        os.write(2, "starting to report!\n")
-        fd = os.open('dictinfo.txt', os.O_CREAT|os.O_WRONLY|os.O_TRUNC, 0644)
-        for info in DictInfo._dict_infos:
-            os.write(fd, '------------------\n')
-            _report_one(fd, info)
-        os.close(fd)
-        os.write(2, "reporting done!\n")
+    def getitem(self, w_key):
+        self.info.getitems += 1
+        self._read(w_key)
+        return self.content[w_key]
+    def setitem(self, w_key, w_value):
+        if not self.info.seen_non_string_in_write and not self._is_str(w_key):
+            self.info.seen_non_string_in_write = True
+            self.info.size_on_non_string_seen_in_write = len(self.content)
+        self.info.setitems += 1
+        self.info.writes += 1
+        self.content[w_key] = w_value
+        self.info.maxcontents = max(self.info.maxcontents, len(self.content))
+        return self
+    def delitem(self, w_key):
+        if not self.info.seen_non_string_in_write \
+               and not self.info.seen_non_string_in_read_first \
+               and not self._is_str(w_key):
+            self.info.seen_non_string_in_read_first = True
+            self.info.size_on_non_string_seen_in_read = len(self.content)
+        self.info.delitems += 1
+        self.info.writes += 1
+        del self.content[w_key]
+        return self
 
-    def reportDictInfo():
-        d = {}
-        if not DictInfo._dict_infos:
-            return
-        stillAlive = 0
-        totLifetime = 0.0
-        for info in DictInfo._dict_infos:
-            for attr in info.__dict__:
-                if attr == 'maxcontents':
-                    continue
-                v = info.__dict__[attr]
-                if not isinstance(v, int):
-                    continue
-                d[attr] = d.get(attr, 0) + v
-            if info.lifetime != -1.0:
-                totLifetime += info.lifetime
-            else:
-                stillAlive += 1
-        import cPickle
-        cPickle.dump(DictInfo._dict_infos, open('dictinfos.pickle', 'wb'))
-        print 'reporting on', len(DictInfo._dict_infos), 'dictionaries'
-        if stillAlive != len(DictInfo._dict_infos):
-            print 'average lifetime', totLifetime/(len(DictInfo._dict_infos) - stillAlive),
-            print '('+str(stillAlive), 'still alive)'
-        print d
+    def length(self):
+        self.info.lengths += 1
+        return len(self.content)
+    def clear(self):
+        self.info.clears += 1
+        self.info.writes += 1
+        self.content.clear()
+        return self
+    def has_key(self, w_lookup):
+        self.info.has_keys += 1
+        self._read(w_lookup)
+        return w_lookup in self.content
+    def get(self, w_lookup, w_default):
+        self.info.gets += 1
+        self._read(w_lookup)
+        return self.content.get(w_lookup, w_default)
 
-    #import atexit
-    #atexit.register(reportDictInfo)
+    def iteritems(self):
+        self.info.iteritems += 1
+        self.info.iterations += 1
+        return self.content.iteritems()
+    def iterkeys(self):
+        self.info.iterkeys += 1
+        self.info.iterations += 1
+        return self.content.iterkeys()
+    def itervalues(self):
+        self.info.itervalues += 1
+        self.info.iterations += 1
+        return self.content.itervalues()
+
+    def keys(self):
+        self.info.keys += 1
+        self.info.listings += 1
+        return self.content.keys()
+    def values(self):
+        self.info.values += 1
+        self.info.listings += 1
+        return self.content.values()
+    def items(self):
+        self.info.items += 1
+        self.info.listings += 1
+        return self.content.items()
+
+_example = DictInfo()
+del DictInfo._dict_infos[-1]
+tmpl = 'os.write(fd, "%(attr)s" + ": " + str(info.%(attr)s) + "\\n")'
+bodySrc = []
+for attr in sorted(_example.__dict__):
+    if attr == 'sig':
+        continue
+    bodySrc.append(tmpl%locals())
+exec py.code.Source('''
+def _report_one(fd, info):
+    os.write(fd, "_address" + ": " + str(id(info)) + "\\n")
+    %s
+'''%'\n    '.join(bodySrc)).compile()
+
+def report():
+    if not DictInfo._dict_infos:
+        return
+    os.write(2, "starting to report!\n")
+    fd = os.open('dictinfo.txt', os.O_CREAT|os.O_WRONLY|os.O_TRUNC, 0644)
+    for info in DictInfo._dict_infos:
+        os.write(fd, '------------------\n')
+        _report_one(fd, info)
+    os.close(fd)
+    os.write(2, "reporting done!\n")
+
+def reportDictInfo():
+    d = {}
+    if not DictInfo._dict_infos:
+        return
+    stillAlive = 0
+    totLifetime = 0.0
+    for info in DictInfo._dict_infos:
+        for attr in info.__dict__:
+            if attr == 'maxcontents':
+                continue
+            v = info.__dict__[attr]
+            if not isinstance(v, int):
+                continue
+            d[attr] = d.get(attr, 0) + v
+        if info.lifetime != -1.0:
+            totLifetime += info.lifetime
+        else:
+            stillAlive += 1
+    import cPickle
+    cPickle.dump(DictInfo._dict_infos, open('dictinfos.pickle', 'wb'))
+    print 'reporting on', len(DictInfo._dict_infos), 'dictionaries'
+    if stillAlive != len(DictInfo._dict_infos):
+        print 'average lifetime', totLifetime/(len(DictInfo._dict_infos) - stillAlive),
+        print '('+str(stillAlive), 'still alive)'
+    print d
+
+#import atexit
+#atexit.register(reportDictInfo)
 
 class W_DictMultiObject(W_Object):
     from pypy.objspace.std.dicttype import dict_typedef as typedef
 
     def __init__(w_self, space, w_otherdict=None):
-        if MEASURE_DICT:
+        if space.config.objspace.std.withdictmeasurement:
             w_self.implementation = MeasuringDictImplementation(space)
         else:
             w_self.implementation = EmptyDictImplementation(space)
