@@ -66,6 +66,28 @@ def run_file(filename, space=None):
     istring = open(filename).read()
     run_string(istring, filename, space)
 
+def run_module(module_name, args, space=None):
+    """Implements PEP 338 'Executing modules as scripts', overwriting
+    sys.argv[1:] using `args` and executing the module `module_name`.
+    sys.argv[0] always is `module_name`.
+
+    Delegates the real work to the runpy module provided as the reference
+    implementation.
+    """
+    if space is None:
+        from pypy.objspace.std import StdObjSpace
+        space = StdObjSpace()
+    w = space.wrap
+    argv = [module_name]
+    if args is not None:
+        argv.extend(args)
+    space.setitem(space.sys.w_dict, w('argv'), w(argv))
+    w_import = space.builtin.get('__import__')
+    runpy = space.call_function(w_import, w('runpy'))
+    w_run_module = space.getitem(runpy.w_dict, w('run_module'))
+    return space.call_function(w_run_module, w(module_name), space.w_None,
+                               w('__main__'), space.w_True)
+
 # ____________________________________________________________
 
 def run_toplevel(space, f, verbose=False):

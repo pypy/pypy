@@ -22,6 +22,8 @@ class Options(option.Options):
     interactive = 0
     command = []
     completer = False
+    module = None
+    module_args = []
 
 def get_main_options():
     options = option.get_standard_options()
@@ -50,6 +52,18 @@ def get_main_options():
         '-c', action="callback",
         callback=command_callback,
         help="program passed in as CMD (terminates option list)"))
+
+    def runmodule_callback(option, opt, value, parser):
+        parser.values.module_args = parser.rargs[:]
+        parser.values.module = value
+        parser.rargs[:] = []
+
+    options.append(make_option(
+        '-m', action="callback", metavar='NAME',
+        callback=runmodule_callback, type="string",
+        help="library module to be run as a script (terminates option list)"))
+
+    
         
     return options
 
@@ -92,6 +106,9 @@ def main_(argv=None):
     if Options.command:
         def doit():
             main.run_string(Options.command[0], space=space)
+    elif Options.module:
+        def doit():
+            main.run_module(Options.module, Options.module_args, space=space)
     elif args:
         scriptdir = os.path.dirname(os.path.abspath(args[0]))
         space.call_method(space.sys.get('path'), 'insert',
