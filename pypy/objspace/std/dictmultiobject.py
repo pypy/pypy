@@ -363,7 +363,8 @@ def init__DictMulti(space, w_dict, __args__):
     w_src, w_kwds = __args__.parse('dict',
                           (['seq_or_map'], None, 'kwargs'), # signature
                           [W_DictMultiObject(space)])            # default argument
-    w_dict.implementation = w_dict.implementation.clear()
+    # w_dict.implementation = w_dict.implementation.clear()
+    #                              ^^^ disabled only for CPython compatibility
     try:
         space.getattr(w_src, space.wrap("keys"))
     except OperationError:

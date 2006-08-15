@@ -51,7 +51,7 @@ def init__Dict(space, w_dict, __args__):
     w_src, w_kwds = __args__.parse('dict',
                           (['seq_or_map'], None, 'kwargs'), # signature
                           [W_DictObject(space)])            # default argument
-    w_dict.content.clear()
+    # w_dict.content.clear() - disabled only for CPython compatibility
     try:
         space.getattr(w_src, space.wrap("keys"))
     except OperationError:

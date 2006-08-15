@@ -103,10 +103,10 @@ def init__DictStr(space, w_dict, __args__):
     w_src, w_kwds = __args__.parse('dict',
                           (['seq_or_map'], None, 'kwargs'), # signature
                           [W_DictStrObject(space)])            # default argument
-    if w_dict.content is None:
-        w_dict.content_str.clear()
-    else:
-        w_dict.content.clear()
+    #if w_dict.content is None:      -
+    #    w_dict.content_str.clear()  - disabled only for CPython compatibility
+    #else:                           -
+    #    w_dict.content.clear()      -
 
     try:
         space.getattr(w_src, space.wrap("keys"))
