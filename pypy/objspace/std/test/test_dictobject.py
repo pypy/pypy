@@ -377,6 +377,14 @@ class FakeSpace:
         return type(w_obj)
     w_str = str
 
+class Config:
+    pass
+
+FakeSpace.config = Config()
+FakeSpace.config.objspace = Config()
+FakeSpace.config.objspace.std = Config()
+FakeSpace.config.objspace.std.withdictmeasurement = False
+
 from pypy.objspace.std.dictobject import getitem__Dict_ANY, setitem__Dict_ANY_ANY
 
 class TestDictImplementation:
