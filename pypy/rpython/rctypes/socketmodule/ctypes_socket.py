@@ -1,9 +1,16 @@
 import os
-import distutils
+
 from pypy.rpython.rctypes.tool import ctypes_platform
 from pypy.rpython.rctypes.tool import util      # ctypes.util from 0.9.9.6
+
+# Not used here, but exported for other code.
 from pypy.rpython.rctypes.aerrno import geterrno
-from ctypes import *
+
+from ctypes import c_ushort, c_int, c_uint, c_char_p, c_void_p
+from ctypes import POINTER, ARRAY, cdll, sizeof, SetPointerType
+
+# Also not used here, but exported for other code.
+from ctypes import cast, pointer, create_string_buffer
 
 includes = ('sys/types.h',
             'sys/socket.h',
