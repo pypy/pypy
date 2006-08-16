@@ -766,7 +766,7 @@ class AppTest_CompSpace(object):
         #assert len(sched_all()['threads']) == 1
 
 
-    def test_tell_ask_choose_commit_success(self):
+    def test_tell_ask_choose_commit(self):
         from problem import conference_scheduling
 
         def solve(spc, commitment, Sol):
@@ -797,3 +797,61 @@ class AppTest_CompSpace(object):
         #XXX who's still stuck there ?
         #assert len(sched_all()['threads']) == 1
 
+    def test_logic_program(self):
+        skip("coming soon")
+        
+        def soft():
+            choice = choose(2)
+            if choice == 1:
+                return 'beige'
+            else:
+                return 'coral'
+
+        def hard():
+            choice = choose(2)
+            if choice == 1:
+                return 'mauve'
+            else:
+                return 'ochre'
+
+        def contrast(C1, C2):
+            choice = choose(2)
+            if choice == 1:
+                unify(C1, soft())
+                unify(C2, hard())
+            else:
+                unify(C1, hard())
+                unify(C2, soft())
+
+        def suit():
+            Shirt, Pants, Socks = newvar(), newvar(), newvar()
+            contrast(Shirt, Pants)
+            contrast(Pants, Socks)
+            print Shirt, Socks, Pants
+            if Shirt == Socks: fail()
+            return (Shirt, Pants, Socks)
+
+        def solve(spc, commitment, Sol):
+            while 1:
+                status = spc.ask()
+                if status > 1:
+                    spc.commit(commitment.next())
+                elif status in (0, 1):
+                    break
+            if status:
+                unify(Sol, spc.merge())
+            else:
+                unify(Sol, False)
+
+        def lazily(lst):
+            def _():
+                for e in lst:
+                    yield e
+            return _
+
+        for commit_to in (lazily([1, 1, 1, 1, 1, 1]),
+                          lazily([1, 1, 1, 2, 1, 2])):
+            s = newspace(suit)
+            Solution = newvar()
+            stacklet(solve, s, commit_to(), Solution)
+            print Solution
