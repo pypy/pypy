@@ -344,11 +344,11 @@ def init__DictMulti(space, w_dict, __args__):
             w_dict.implementation = w_dict.implementation.setitem(w_k, w_v)
     else:
         if space.is_true(w_src):
-            from pypy.objspace.std.dicttype import update1
-            update1(space, w_dict, w_src)
+            from pypy.objspace.std.dicttype import dict_update__ANY_ANY
+            dict_update__ANY_ANY(space, w_dict, w_src)
     if space.is_true(w_kwds):
-        from pypy.objspace.std.dicttype import update1
-        update1(space, w_dict, w_kwds)
+        from pypy.objspace.std.dicttype import dict_update__ANY_ANY
+        dict_update__ANY_ANY(space, w_dict, w_kwds)
 
 def getitem__DictMulti_ANY(space, w_dict, w_lookup):
     try:
@@ -434,9 +434,9 @@ def lt__DictMulti_DictMulti(space, w_left, w_right):
     return w_res
 
 def dict_copy__DictMulti(space, w_self):
-    from pypy.objspace.std.dicttype import update1
+    from pypy.objspace.std.dicttype import dict_update__ANY_ANY
     w_new = W_DictMultiObject(space)
-    update1(space, w_new, w_self)
+    dict_update__ANY_ANY(space, w_new, w_self)
     return w_new
 
 def dict_items__DictMulti(space, w_self):

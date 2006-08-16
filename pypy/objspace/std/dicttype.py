@@ -30,7 +30,7 @@ dict_popitem    = SMM('popitem',       1,
 dict_setdefault = SMM('setdefault',    3, defaults=(None,),
                       doc='D.setdefault(k[,d]) -> D.get(k,d), also set D[k]=d'
                           ' if k not in D')
-dict_update     = SMM('update',        1, general__args__=True,
+dict_update     = SMM('update',        2, defaults=((),),
                       doc='D.update(E, **F) -> None.  Update D from E and F:'
                           ' for k in E: D[k] = E[k]\n(if E has keys else: for'
                           ' (k, v) in E: D[k] = v) then: for k in F: D[k] ='
@@ -55,21 +55,13 @@ def dict_reversed__ANY(space, w_dict):
 # gateway is imported in the stdtypedef module
 app = gateway.applevel('''
 
-    def update1(d, o):
+    def update(d, o):
         if hasattr(o, 'keys'):
             for k in o.keys():
                 d[k] = o[k]
         else:
             for k,v in o:
                 d[k] = v
-
-    def update(d, *args, **kwargs):
-        if len(args) == 1:
-            update1(d, args[0])
-        elif len(args) > 1:
-            raise TypeError("update takes at most 1 (non-keyword) argument")
-        if kwargs:
-            update1(d, kwargs)
 
     def popitem(d):
         k = d.keys()
@@ -118,7 +110,7 @@ app = gateway.applevel('''
 ''', filename=__file__)
 #XXX what about dict.fromkeys()?
 
-dict_update__ANY             = app.interphook("update")
+dict_update__ANY_ANY         = app.interphook("update")
 dict_popitem__ANY            = app.interphook("popitem")
 dict_get__ANY_ANY_ANY        = app.interphook("get")
 dict_setdefault__ANY_ANY_ANY = app.interphook("setdefault")
@@ -126,7 +118,6 @@ dict_pop__ANY_ANY            = app.interphook("pop")
 dict_iteritems__ANY          = app.interphook("iteritems")
 dict_iterkeys__ANY           = app.interphook("iterkeys")
 dict_itervalues__ANY         = app.interphook("itervalues")
-update1                      = app.interphook("update1")
 
 register_all(vars(), globals())
 
