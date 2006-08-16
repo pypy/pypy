@@ -111,14 +111,17 @@ class SmallDictImplementation(DictImplementation):
             self.valid += 1
         entry.w_value = w_value
         return self
+
     def delitem(self, w_key):
         entry = self._lookup(w_key)
-        if entry.w_value:
+        if entry.w_value is not None:
             for i in range(self.entries.index(entry), self.valid):
                 self.entries[i] = self.entries[i+1]
             self.entries[self.valid] = entry
             entry.w_value = None
             self.valid -= 1
+            if self.valid == 0:
+                return self.space.emptydictimpl
             return self
         else:
             raise KeyError        
@@ -236,7 +239,7 @@ class StrDictImplementation(DictImplementation):
 
     def items(self):
         space = self.space
-        return [(space.wrap(key), w_value) for (key, w_value) in self.content.iterkeys()]
+        return [(space.wrap(key), w_value) for (key, w_value) in self.content.iteritems()]
 
     def _is_sane_hash(self, w_lookup_type):
         """ Handles the case of a non string key lookup.
