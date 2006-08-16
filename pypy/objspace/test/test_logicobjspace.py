@@ -768,7 +768,7 @@ class AppTest_CompSpace(object):
 
     def test_tell_ask_choose_commit(self):
         from problem import conference_scheduling
-
+        
         def solve(spc, commitment, Sol):
             while 1:
                 status = spc.ask()
@@ -798,7 +798,6 @@ class AppTest_CompSpace(object):
         #assert len(sched_all()['threads']) == 1
 
     def test_logic_program(self):
-        skip("coming soon")
         
         def soft():
             choice = choose(2)
@@ -827,7 +826,6 @@ class AppTest_CompSpace(object):
             Shirt, Pants, Socks = newvar(), newvar(), newvar()
             contrast(Shirt, Pants)
             contrast(Pants, Socks)
-            print Shirt, Socks, Pants
             if Shirt == Socks: fail()
             return (Shirt, Pants, Socks)
 
@@ -854,4 +852,4 @@ class AppTest_CompSpace(object):
             s = newspace(suit)
             Solution = newvar()
             stacklet(solve, s, commit_to(), Solution)
-            print Solution
+            assert Solution in (False, ('beige', 'mauve', 'coral'))

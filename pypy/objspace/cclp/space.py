@@ -118,6 +118,8 @@ class W_CSpace(baseobjspace.Wrappable):
 
     def fail(self):
         self._failed = True
+        interp_bind(self._finished, True)
+        interp_bind(self._choice, self.space.newint(0))
         self._store = {}
 
     def w_merge(self):

@@ -88,13 +88,14 @@ class CSpaceThunk(_AppThunk):
             try:
                 _AppThunk.call(self)
             except Exception, exc:
+                # maybe app_level sent something ...
                 w("-- exceptional EXIT of cspace", str(id(self._coro)), "with", str(exc))
-                scheduler[0].dirty_traced_vars(self._coro, W_FailedValue(exc))
+                failed_value = W_FailedValue(exc)
+                scheduler[0].dirty_traced_vars(self._coro, failed_value)
                 self._coro._dead = True
                 if self.is_distributor():
                     cspace.fail()
-                import traceback
-                traceback.print_exc()
+                interp_bind(cspace._solution, failed_value)
             else:
                 w("-- clean (valueless) EXIT of cspace", str(id(self._coro)))
                 interp_bind(cspace._solution, self.costate.w_tempval)
