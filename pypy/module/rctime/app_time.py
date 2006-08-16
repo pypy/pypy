@@ -75,9 +75,15 @@ def sleep(secs):
     _float_sleep(secs)
 
     
-def strptime(*args, **kw):
+def strptime(string, format="%a %b %d %H:%M:%S %Y"):
+    """strptime(string, format) -> struct_time
+
+    Parse a string to a time tuple according to a format specification.
+    See the library reference manual for formatting codes
+    (same as strftime())."""
+
     import _strptime
-    return _strptime.strptime(*args, **kw)
+    return _strptime.strptime(string, format)
 
 __doc__ = """This module provides various functions to manipulate time values.
 

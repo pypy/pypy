@@ -247,7 +247,6 @@ class AppTestRCTime:
         raises(ValueError, rctime.strftime, '', (1900, 1, 1, 0, 0, 0, 0, 1, 2))
 
     def test_strptime(self):
-        skip("strptime is not implemented right now")
         import rctime
         
         t = rctime.time()
@@ -256,7 +255,4 @@ class AppTestRCTime:
                           'j', 'm', 'M', 'p', 'S',
                           'U', 'w', 'W', 'x', 'X', 'y', 'Y', 'Z', '%'):
             format = ' %' + directive
-            # try:
             rctime.strptime(rctime.strftime(format, tt), format)
-            # except ValueError:
-            #     raise ValueError, "conversion specifier: %r failed.' % format"
