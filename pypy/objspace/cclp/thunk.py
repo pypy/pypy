@@ -33,11 +33,11 @@ class ProcedureThunk(_AppThunk):
             try:
                 _AppThunk.call(self)
             except Exception, exc:
-                w(".! exceptional EXIT of", str(id(self._coro)), "with", str(exc))
+                w(".! exceptional EXIT of procedure", str(id(self._coro)), "with", str(exc))
                 scheduler[0].dirty_traced_vars(self._coro, W_FailedValue(exc))
                 self._coro._dead = True
             else:
-                w(".! clean (valueless) EXIT of", str(id(self._coro)))
+                w(".! clean EXIT of procedure", str(id(self._coro)))
         finally:
             scheduler[0].remove_thread(self._coro)
             scheduler[0].schedule()
@@ -56,13 +56,13 @@ class FutureThunk(_AppThunk):
             try:
                 _AppThunk.call(self)
             except Exception, exc:
-                w(".! exceptional EXIT of", str(id(self._coro)), "with", str(exc))
+                w(".! exceptional EXIT of future", str(id(self._coro)), "with", str(exc))
                 failed_val = W_FailedValue(exc)
                 self.space.bind(self.w_Result, failed_val)
                 scheduler[0].dirty_traced_vars(self._coro, failed_val)
                 self._coro._dead = True
             else:
-                w(".! clean EXIT of", str(id(self._coro)),
+                w(".! clean EXIT of future", str(id(self._coro)),
                   "-- setting future result", str(self.w_Result), "to",
                   str(self.costate.w_tempval))
                 self.space.unify(self.w_Result, self.costate.w_tempval)
@@ -83,14 +83,14 @@ class CSpaceThunk(_AppThunk):
             try:
                 _AppThunk.call(self)
             except Exception, exc:
-                w("-- exceptional EXIT of", str(id(self._coro)), "with", str(exc))
+                w("-- exceptional EXIT of cspace", str(id(self._coro)), "with", str(exc))
                 import traceback
                 traceback.print_exc()
                 scheduler[0].dirty_traced_vars(self._coro, W_FailedValue(exc))
                 self._coro._dead = True
                 self.space.bind(cspace._choice, self.space.wrap(SPACE_FAILURE))
             else:
-                w("-- clean (valueless) EXIT of", str(id(self._coro)))
+                w("-- clean (valueless) EXIT of cspace", str(id(self._coro)))
                 self.space.bind(cspace._solution, self.costate.w_tempval)
         finally:
             scheduler[0].remove_thread(self._coro)
@@ -120,7 +120,7 @@ class PropagatorThunk(AbstractThunk):
                     if not interp_free(cspace._finished):
                         break
             except ConsistencyError:
-                self.coro._cspace.fail()
+                cspace.fail()
             except:
                 import traceback
                 traceback.print_exc()
@@ -142,18 +142,20 @@ class DistributorThunk(AbstractThunk):
             cspace = coro._cspace
             dist = self.dist
             try:
-                while 1:
+                while dist.distributable():
                     choice = cspace.choose(dist.fanout())
                     dist.distribute(choice)
-            except Solution:
                 w("-- DISTRIBUTOR thunk exited because a solution was found")
                 for var in cspace._solution.w_bound_to.wrappeditems:
                     assert var.w_dom.size() == 1
                     interp_bind(var, var.w_dom.get_values()[0])
+                assert interp_free(cspace._choice)
                 interp_bind(cspace._choice, self.space.newint(1))
             except ConsistencyError, e:
                 w("-- DISTRIBUTOR thunk exited because", str(e))
                 interp_bind(cspace._choice, self.space.newint(0))
+                import traceback
+                traceback.print_exc()
             except:
                 import traceback
                 traceback.print_exc()

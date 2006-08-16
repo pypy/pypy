@@ -39,10 +39,6 @@ class W_AbstractConstraint(W_Constraint):
     def affected_variables(self):
         return self._variables
 
-    def w_knows_var(self, w_variable):
-        assert isinstance(w_variable, W_Variable)
-        return self._space.newbool(w_variable in self._variables)
-
     def w_revise(self):
         return self._space.newbool(self.revise())
             
@@ -51,7 +47,6 @@ W_AbstractConstraint.typedef = typedef.TypeDef(
     "W_AbstractConstraint",
     W_Constraint.typedef,                                           
     affected_variables = interp2app(W_AbstractConstraint.w_affected_variables),
-    knows_var = interp2app(W_AbstractConstraint.w_knows_var),
     revise = interp2app(W_AbstractConstraint.w_revise)) 
 
 
@@ -130,6 +125,7 @@ class W_Expression(W_AbstractConstraint):
         else:
             # it's over
             raise StopIteration
+        #XXX this smells
         return kwargs
 
     def revise(self):

@@ -48,20 +48,24 @@ class W_Distributor(W_AbstractDistributor):
 
     def fanout(self):
         return self._fanout
-
+ 
     def _find_smallest_domain(self):
         """returns the variable having the smallest domain.
         (or one of such variables if there is a tie)
         """
         vars_ = [var for var in self._cspace._store.values()
                  if var.w_dom.size() > 1]
-        if  len(vars_) == 0:
-            raise Solution
         best = vars_[0]
         for var in vars_:
             if var.w_dom.size() < best.w_dom.size():
                 best = var
         return best
+
+    def distributable(self):
+        for var in self._cspace._store.values():
+            if var.w_dom.size() > 1:
+                return True
+        return False
 
     def w_distribute(self, w_choice):
         assert isinstance(w_choice, W_IntObject)

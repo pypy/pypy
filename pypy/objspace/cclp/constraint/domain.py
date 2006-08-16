@@ -8,7 +8,7 @@ from pypy.objspace.std.listobject import W_ListObject, W_TupleObject
 from pypy.objspace.std.model import StdObjSpaceMultiMethod
 
 from pypy.objspace.cclp.types import W_AbstractDomain, W_Var, ConsistencyError
-from pypy.objspace.cclp.interp_var import interp_bind
+from pypy.objspace.cclp.interp_var import interp_bind, interp_free
 
 all_mms = {}
 
@@ -30,23 +30,26 @@ class W_FiniteDomain(W_AbstractDomain):
 
 
     def clear_change(self):
-        assert not isinstance(self._changed.w_bound_to, W_Var)
+        "create a fresh change synchonizer"
+        assert not interp_free(self._changed)
         self._changed = W_Var(self._space)
 
     def give_synchronizer(self):
         return self._changed
 
     def _value_removed(self):
-        """The implementation of remove_value should call this method"""
+        "The implementation of remove_value should call this method"
+        #atomic
         interp_bind(self._changed, True)
         self.clear_change()
+        #/atomic
         
         if self.size() == 0:
             raise ConsistencyError, "tried to make a domain empty"
 
     def set_values(self, w_values):
-        """Objects in the value set can't be unwrapped unless we
-        specialize on specific types - this might need speccialization
+        """XXX Objects in the value set can't be unwrapped unless we
+        specialize on specific types - this will need specialization
         of revise & friends
         """
         for w_v in w_values.wrappeditems:
