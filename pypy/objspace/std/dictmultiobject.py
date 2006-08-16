@@ -3,10 +3,15 @@ from pypy.interpreter import gateway
 
 from pypy.rpython.objectmodel import r_dict, we_are_translated
 
+def _is_str(space, w_key):
+    return space.is_w(space.type(w_key), space.w_str)
+
 class DictImplementation(object):
     
 ##     def get(self, w_lookup):
 ##         return w_value or None
+##     def setitem_str(self,  w_key, w_value):
+##         return implementation
 ##     def setitem(self,  w_key, w_value):
 ##         return implementation
 ##     def delitem(self, w_key):
@@ -36,7 +41,15 @@ class EmptyDictImplementation(DictImplementation):
     def get(self, w_lookup):
         return None
     def setitem(self, w_key, w_value):
-        return SmallDictImplementation(self.space, w_key, w_value)
+        if _is_str(self.space, w_key):
+            return StrDictImplementation(self.space, w_key, w_value)
+            #return SmallStrDictImplementation(self.space, w_key, w_value)
+        else:
+            return RDictImplementation(self.space).setitem(w_key, w_value)
+        #return SmallDictImplementation(self.space, w_key, w_value)
+    def setitem_str(self, w_key, w_value):
+        return StrDictImplementation(self.space, w_key, w_value)
+        #return SmallStrDictImplementation(self.space, w_key, w_value)
     def delitem(self, w_key):
         raise KeyError
     
@@ -77,10 +90,6 @@ class SmallDictImplementation(DictImplementation):
         self.valid = 1
 
     def _lookup(self, w_key):
-##         for i in range(self.valid):
-##             assert self.entries[i].w_value is not None
-##         for i in range(self.valid+1, 5):
-##             assert self.entries[i].w_value is None
         hash = self.space.hash_w(w_key)
         i = 0
         last = self.entries[self.valid]
@@ -145,6 +154,123 @@ class SmallDictImplementation(DictImplementation):
     def items(self):
         return [(e.w_key, e.w_value) for e in [self.entries[i] for i in range(self.valid)]]
 
+class StrEntry(object):
+    def __init__(self):
+        self.hash = 0
+        self.key = None
+        self.w_value = None
+    def __repr__(self):
+        return '<%r, %r, %r>'%(self.hash, self.key, self.w_value)
+
+class SmallStrDictImplementation(DictImplementation):
+    # XXX document the invariants here!
+    
+    def __init__(self, space, w_key, w_value):
+        self.space = space
+        self.entries = [StrEntry(), StrEntry(), StrEntry(), StrEntry(), StrEntry()]
+        key = space.str_w(w_key)
+        self.entries[0].key = key
+        self.entries[0].hash = hash(key)
+        self.entries[0].w_value = w_value
+        self.valid = 1
+
+    def _lookup(self, key):
+        _hash = hash(key)
+        i = 0
+        last = self.entries[self.valid]
+        last.hash = _hash
+        last.key = key
+        while 1:
+            look_entry = self.entries[i]
+            if look_entry.hash == _hash and look_entry.key == key:
+                return look_entry
+            i += 1
+
+    def _convert_to_rdict(self):
+        newimpl = RDictImplementation(self.space)
+        i = 0
+        while 1:
+            entry = self.entries[i]
+            if entry.w_value is None:
+                break
+            newimpl.content[self.space.wrap(entry.key)] = entry.w_value
+            i += 1
+        return newimpl
+
+    def _convert_to_sdict(self, w_key, w_value):
+        newimpl = StrDictImplementation(self.space, w_key, w_value)
+        i = 0
+        while 1:
+            entry = self.entries[i]
+            if entry.w_value is None:
+                break
+            newimpl.content[entry.key] = entry.w_value
+            i += 1
+        return newimpl
+
+    def setitem(self, w_key, w_value):
+        if not _is_str(self.space, w_key):
+            return self._convert_to_rdict().setitem(w_key, w_value)
+        return self.setitem_str(w_key, w_value)
+    
+    def setitem_str(self, w_key, w_value):
+        print w_key, w_value
+        if self.valid == 4:
+            return self._convert_to_sdict(w_key, w_value)
+        entry = self._lookup(self.space.str_w(w_key))
+        if entry.w_value is None:
+            self.valid += 1
+        entry.w_value = w_value
+        return self
+
+    def delitem(self, w_key):
+        space = self.space
+        if space.is_w(space.type(w_key), space.w_str):
+            entry = self._lookup(space.str_w(w_key))
+            if entry.w_value is not None:
+                for i in range(self.entries.index(entry), self.valid):
+                    self.entries[i] = self.entries[i+1]
+                self.entries[self.valid] = entry
+                entry.w_value = None
+                self.valid -= 1
+                if self.valid == 0:
+                    return self.space.emptydictimpl
+                return self
+            else:
+                raise KeyError
+        elif self._is_sane_hash(space.type(w_key)):
+            raise KeyError
+        else:
+            return self._convert_to_rdict().delitem(w_key)
+        
+    def length(self):
+        return self.valid
+    
+    def get(self, w_lookup):
+        space = self.space
+        w_lookup_type = space.type(w_lookup)
+        if space.is_w(w_lookup_type, space.w_str):
+            return self._lookup(w_lookup).w_value
+        elif self._is_sane_hash(w_lookup_type):
+            return None
+        else:
+            return self._convert_to_rdict().get(w_lookup)
+
+    def iteritems(self):
+        return self._convert_to_rdict().iteritems()
+    def iterkeys(self):
+        return self._convert_to_rdict().iterkeys()
+    def itervalues(self):
+        return self._convert_to_rdict().itervalues()
+
+    def keys(self):
+        return [self.space.wrap(self.entries[i].key) for i in range(self.valid)]
+    def values(self):
+        return [self.entries[i].w_value for i in range(self.valid)]
+    def items(self):
+        return [(self.space.wrap(e.key), e.w_value)
+                for e in [self.entries[i] for i in range(self.valid)]]
+
 class RDictImplementation(DictImplementation):
     def __init__(self, space):
         self.space = space
@@ -156,6 +282,7 @@ class RDictImplementation(DictImplementation):
     def setitem(self, w_key, w_value):
         self.content[w_key] = w_value
         return self
+    setitem_str = setitem
     def delitem(self, w_key):
         del self.content[w_key]
         if self.content:
@@ -183,17 +310,22 @@ class RDictImplementation(DictImplementation):
         return self.content.items()
 
 class StrDictImplementation(DictImplementation):
-    def __init__(self, space):
+    def __init__(self, space, w_key, w_value):
         self.space = space
-        self.content = {}
+        self.content = {space.str_w(w_key): w_value}
         
     def setitem(self, w_key, w_value):
+        print 's', w_key, w_value
         space = self.space
         if space.is_w(space.type(w_key), space.w_str):
             self.content[space.str_w(w_key)] = w_value
             return self
         else:
             return self._as_rdict().setitem(w_key, w_value)
+
+    def setitem_str(self, w_key, w_value):
+        self.content[self.space.str_w(w_key)] = w_value
+        return self
 
     def delitem(self, w_key):
         space = self.space
@@ -203,7 +335,7 @@ class StrDictImplementation(DictImplementation):
                 return self
             else:
                 return space.emptydictimpl
-        elif self._is_sane_hash(w_lookup_type):
+        elif self._is_sane_hash(space.type(w_key)):
             raise KeyError
         else:
             return self._as_rdict().delitem(w_key)
@@ -265,7 +397,7 @@ class DictInfo(object):
     def __init__(self):
         self.id = len(self._dict_infos)
 
-        self.setitems = 0; self.delitems = 0
+        self.setitem_strs = 0; self.setitems = 0;  self.delitems = 0
         self.lengths = 0;   self.gets = 0
         self.iteritems = 0; self.iterkeys = 0; self.itervalues = 0
         self.keys = 0;      self.values = 0;   self.items = 0
@@ -350,6 +482,9 @@ class MeasuringDictImplementation(DictImplementation):
         self.content[w_key] = w_value
         self.info.maxcontents = max(self.info.maxcontents, len(self.content))
         return self
+    def setitem(self, w_key, w_value):
+        self.info.setitem_strs += 1
+        return self.setitem(w_key, w_value)
     def delitem(self, w_key):
         if not self.info.seen_non_string_in_write \
                and not self.info.seen_non_string_in_read_first \
@@ -457,7 +592,7 @@ class W_DictMultiObject(W_Object):
             return w_default
 
     def set_str_keyed_item(w_dict, w_key, w_value):
-        w_dict.implementation = w_dict.implementation.setitem(w_key, w_value)
+        w_dict.implementation = w_dict.implementation.setitem_str(w_key, w_value)
 
 registerimplementation(W_DictMultiObject)
 

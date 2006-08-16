@@ -1,7 +1,8 @@
 import autopath
 from pypy.objspace.std.dictmultiobject import \
      W_DictMultiObject, setitem__DictMulti_ANY_ANY, getitem__DictMulti_ANY, \
-     EmptyDictImplementation, RDictImplementation, StrDictImplementation, SmallDictImplementation
+     EmptyDictImplementation, RDictImplementation, StrDictImplementation, \
+     SmallDictImplementation, SmallStrDictImplementation
 from pypy.conftest import gettestobjspace
 from pypy.objspace.std.test import test_dictobject
 
@@ -60,8 +61,10 @@ class TestRDictImplementation:
     def test_delitem(self):
         self.impl.setitem(self.string, 1000)
         self.impl.setitem(self.string2, 2000)
-        assert self.impl.delitem(self.string) is self.impl
-        assert self.impl.delitem(self.string2) is self.space.emptydictimpl
+        newimpl =  self.impl.delitem(self.string)
+        assert newimpl is self.impl
+        newimpl = self.impl.delitem(self.string2)
+        assert newimpl is self.space.emptydictimpl
 
     def test_keys(self):
         self.impl.setitem(self.string, 1000)
@@ -94,8 +97,17 @@ class TestRDictImplementation:
 class TestStrDictImplementation(TestRDictImplementation):
     ImplementionClass = StrDictImplementation
 
+    def get_impl(self):
+        return self.ImplementionClass(self.space, self.string, self.string2)
+
 class TestSmallDictImplementation(TestRDictImplementation):
     ImplementionClass = SmallDictImplementation
+
+    def get_impl(self):
+        return self.ImplementionClass(self.space, self.string, self.string2)
+
+class TestSmallStrDictImplementation(TestRDictImplementation):
+    ImplementionClass = SmallStrDictImplementation
 
     def get_impl(self):
         return self.ImplementionClass(self.space, self.string, self.string2)
