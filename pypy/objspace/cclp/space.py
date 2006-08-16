@@ -40,7 +40,7 @@ def choose(space, w_n):
         try:
             return space.newint(cspace.choose(w_n.intval))
         except ConsistencyError:
-            raise OperationError(space.w_ConsistecyError,
+            raise OperationError(space.w_ConsistencyError,
                                  space.wrap("the space is failed"))
     raise OperationError(space.w_RuntimeError,
                          space.wrap("choose is forbidden from the top-level space"))
@@ -62,7 +62,7 @@ class W_CSpace(baseobjspace.Wrappable):
         assert (parent is None) or isinstance(parent, W_CSpace)
         self.space = space # the object space ;-)
         self.parent = parent
-        self.main_thread = thread
+        self.distributor = thread
         # choice mgmt
         self._choice = newvar(space)
         self._committed = newvar(space)

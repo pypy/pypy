@@ -76,10 +76,14 @@ class CSpaceThunk(_AppThunk):
         _AppThunk.__init__(self, space, coro.costate, w_callable, args)
         self._coro = coro
 
+    def is_distributor(self):
+        return self._coro == self._coro._cspace.distributor
+
     def call(self):
         w("-- initial thunk CALL in", str(id(self._coro)))
         scheduler[0].trace_vars(self._coro, logic_args(self.args.unpack()))
         cspace = self._coro._cspace
+        cspace.distributor = self._coro
         try:
             try:
                 _AppThunk.call(self)
@@ -87,10 +91,15 @@ class CSpaceThunk(_AppThunk):
                 w("-- exceptional EXIT of cspace", str(id(self._coro)), "with", str(exc))
                 scheduler[0].dirty_traced_vars(self._coro, W_FailedValue(exc))
                 self._coro._dead = True
-                self.space.bind(cspace._choice, self.space.wrap(SPACE_FAILURE))
+                if self.is_distributor():
+                    cspace.fail()
+                import traceback
+                traceback.print_exc()
             else:
                 w("-- clean (valueless) EXIT of cspace", str(id(self._coro)))
-                self.space.bind(cspace._solution, self.costate.w_tempval)
+                interp_bind(cspace._solution, self.costate.w_tempval)
+                if self.is_distributor():
+                    interp_bind(cspace._choice, self.space.newint(1))
         finally:
             scheduler[0].remove_thread(self._coro)
             scheduler[0].schedule()
@@ -139,6 +148,7 @@ class DistributorThunk(AbstractThunk):
         coro = self.coro
         try:
             cspace = coro._cspace
+            cspace.distributor = coro
             dist = self.dist
             try:
                 while dist.distributable():
