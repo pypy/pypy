@@ -42,4 +42,5 @@ class Module(MixedModule):
         '_check_float': 'app_time._check_float',
         'struct_time': 'app_time.struct_time',
         '__doc__': 'app_time.__doc__',
+        'strptime': 'app_time.strptime',
     }
