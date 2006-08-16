@@ -250,7 +250,7 @@ class StrDictImplementation(DictImplementation):
 
     def _as_rdict(self):
         newimpl = RDictImplementation(self.space)
-        for k, w_v in w_self.content.items():
+        for k, w_v in self.content.items():
             newimpl.setitem[w_self.space.wrap(k)] = w_v
         return newimpl
 
