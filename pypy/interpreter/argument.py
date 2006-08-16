@@ -63,7 +63,10 @@ class AbstractArguments:
         return ArgumentsPrepended(self, w_firstarg)
 
     def popfirst(self):
-        return None, None
+        """For optimization only: might return (w_firstarg, args_with_rest),
+        or might just raise IndexError.
+        """
+        raise IndexError
 
     def match_signature(self, signature, defaults_w):
         """Parse args and kwargs according to the signature of a code object,
@@ -210,7 +213,7 @@ class ArgumentsFromValuestack(AbstractArguments):
 
     def popfirst(self):
         if self.nargs <= 0:
-            return None, None
+            raise IndexError
         valuestack = self.valuestack
         newnargs = self.nargs-1
         return valuestack.top(newnargs), ArgumentsFromValuestack(self.space, valuestack, newnargs)

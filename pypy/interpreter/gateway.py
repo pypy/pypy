@@ -551,8 +551,11 @@ class BuiltinCodePassThroughArguments1(BuiltinCode):
 
     def funcrun(self, func, args):
         space = func.space
-        w_obj, newargs = args.popfirst()
-        if w_obj is not None:
+        try:
+            w_obj, newargs = args.popfirst()
+        except IndexError:
+            return BuiltinCode.funcrun(self, func, args)
+        else:
             try:
                 w_result = self.func__args__(space, w_obj, newargs)
             except KeyboardInterrupt: 
@@ -565,8 +568,6 @@ class BuiltinCodePassThroughArguments1(BuiltinCode):
             if w_result is None:
                 w_result = space.w_None
             return w_result
-        else:
-            return BuiltinCode.funcrun(self, func, args)
 
 class BuiltinCode0(BuiltinCode):
     def fastcall_0(self, space, w_func):
@@ -789,15 +790,20 @@ class ApplevelClass:
                     if ret_w is not None: # it was RPython
                         return ret_w
             # the last argument can be an Arguments
-            if args_w and isinstance(args_w[-1], AbstractArguments):
-                # ...which is merged with the previous arguments, if any
-                args = args_w[-1]
-                if len(args_w) > 1:
-                    more_args_w, more_kwds_w = args.unpack()
-                    args = Arguments(space, list(args_w[:-1]) + more_args_w,
-                                            more_kwds_w)
+            if not args_w:
+                args = Arguments(space, [])
             else:
-                args = Arguments(space, list(args_w))
+                args = args_w[-1]
+                assert args is not None
+                if not isinstance(args, AbstractArguments):
+                    args = Arguments(space, list(args_w))
+                else:
+                    # ...which is merged with the previous arguments, if any
+                    if len(args_w) > 1:
+                        more_args_w, more_kwds_w = args.unpack()
+                        args = Arguments(space,
+                                         list(args_w[:-1]) + more_args_w,
+                                         more_kwds_w)
             w_func = self.wget(space, name) 
             return space.call_args(w_func, args)
         def get_function(space):
