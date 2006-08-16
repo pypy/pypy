@@ -238,7 +238,7 @@ class StrDictImplementation(DictImplementation):
         space = self.space
         return [(space.wrap(key), w_value) for (key, w_value) in self.content.iterkeys()]
 
-    def _is_sane_hash(w_self, w_lookup_type):
+    def _is_sane_hash(self, w_lookup_type):
         """ Handles the case of a non string key lookup.
         Types that have a sane hash/eq function should allow us to return True
         directly to signal that the key is not in the dict in any case.
@@ -251,7 +251,7 @@ class StrDictImplementation(DictImplementation):
     def _as_rdict(self):
         newimpl = RDictImplementation(self.space)
         for k, w_v in self.content.items():
-            newimpl.setitem[w_self.space.wrap(k)] = w_v
+            newimpl.setitem(self.space.wrap(k), w_v)
         return newimpl
 
 
