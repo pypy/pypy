@@ -42,7 +42,7 @@ class EmptyDictImplementation(DictImplementation):
     def getitem(self, w_key):
         raise KeyError
     def setitem(self, w_key, w_value):
-        return RDictImplementation(self.space).setitem(w_key, w_value)
+        return SmallDictImplementation(self.space).setitem(w_key, w_value)
     def delitem(self, w_key):
         raise KeyError
     
@@ -68,6 +68,103 @@ class EmptyDictImplementation(DictImplementation):
         return []
     def items(self):
         return []
+
+class Entry(object):
+    def __init__(self):
+        self.hash = 0
+        self.w_key = None
+        self.w_value = None
+    def __repr__(self):
+        return '<%r, %r, %r>'%(self.hash, self.w_key, self.w_value)
+
+class SmallDictImplementation(DictImplementation):
+    # XXX document the invariants here!
+    
+    def __init__(self, space):
+        self.space = space
+        self.entries = [Entry(), Entry(), Entry(), Entry(), Entry()]
+        self.valid = 0
+
+    def _lookup(self, w_key):
+        for i in range(self.valid):
+            assert self.entries[i].w_value is not None
+        for i in range(self.valid+1, 5):
+            assert self.entries[i].w_value is None
+        hash = self.space.hash_w(w_key)
+        i = 0
+        last = self.entries[self.valid]
+        last.hash = hash
+        last.w_key = w_key
+        while 1:
+            look_entry = self.entries[i]
+            if look_entry.hash == hash and self.space.eq_w(look_entry.w_key, w_key):
+                return look_entry
+            i += 1
+
+    def _convert_to_rdict(self):
+        newimpl = RDictImplementation(self.space)
+        i = 0
+        while 1:
+            entry = self.entries[i]
+            if entry.w_value is None:
+                break
+            newimpl.setitem(entry.w_key, entry.w_value)
+            i += 1
+        return newimpl
+
+    def getitem(self, w_key):
+        entry = self._lookup(w_key)
+        if entry.w_value:
+            return entry.w_value
+        else:
+            raise KeyError
+    def setitem(self, w_key, w_value):
+        if self.valid == 4:
+            return self._convert_to_rdict().setitem(w_key, w_value)
+        entry = self._lookup(w_key)
+        if entry.w_value is None:
+            self.valid += 1
+        entry.w_value = w_value
+        return self
+    def delitem(self, w_key):
+        entry = self._lookup(w_key)
+        if entry.w_value:
+            for i in range(self.entries.index(entry), self.valid):
+                self.entries[i] = self.entries[i+1]
+            self.entries[self.valid] = entry
+            entry.w_value = None
+            self.valid -= 1
+            return self
+        else:
+            raise KeyError        
+    
+    def length(self):
+        return self.valid
+    def clear(self):
+        return EmptyDictImplementation(self.space)
+    def has_key(self, w_lookup):
+        return self._lookup(w_lookup).w_value is not None
+    def get(self, w_lookup, w_default):
+        entry = self._lookup(w_lookup)
+        w_value = entry.w_value
+        if w_value:
+            return w_value
+        else:
+            return w_default
+
+    def iteritems(self):
+        return self._convert_to_rdict().iteritems()
+    def iterkeys(self):
+        return self._convert_to_rdict().iterkeys()
+    def itervalues(self):
+        return self._convert_to_rdict().itervalues()
+
+    def keys(self):
+        return [self.entries[i].w_key for i in range(self.valid)]
+    def values(self):
+        return [self.entries[i].w_value for i in range(self.valid)]
+    def items(self):
+        return [(e.w_key, e.w_value) for e in [self.entries[i] for i in range(self.valid)]]
 
 class RDictImplementation(DictImplementation):
     def __init__(self, space):
