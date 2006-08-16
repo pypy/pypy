@@ -249,6 +249,21 @@ class BaseTestRtuple(BaseRtypingTest):
             assert res[0] == res[1] == res[2] == []
         self.interpret(f, [])
 
+    def test_slice(self):
+        def g(n):
+            t = (1.5, "hello", n)
+            return t[1:] + t[:-1] + t[12:] + t[0:2]
+        def f(n):
+            res = g(n)
+            assert len(res) == 6
+            assert res[0] == "hello"
+            assert res[1] == n
+            assert res[2] == 1.5
+            assert res[3] == "hello"
+            assert res[4] == 1.5
+            assert res[5] == "hello"
+        self.interpret(f, [9])
+
 class TestLLtype(BaseTestRtuple, LLRtypeMixin):
     pass
 

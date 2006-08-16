@@ -456,6 +456,15 @@ class __extend__(pairtype(SomeTuple, SomeInteger)):
             return unionof(*tup1.items)
     getitem.can_only_throw = [IndexError]
 
+class __extend__(pairtype(SomeTuple, SomeSlice)):
+
+    def getitem((tup, slic)):
+        if not slic.is_immutable_constant():
+            raise Exception("not supported: "
+                            "tuple slicing with non-constant indexes")
+        return SomeTuple(tup.items[slic.const])
+    getitem.can_only_throw = []
+
 
 class __extend__(pairtype(SomeList, SomeInteger)):
     

@@ -231,6 +231,10 @@ class SomeSlice(SomeObject):
         self.start = start
         self.stop = stop
         self.step = step
+        if (start.is_immutable_constant() and
+            stop .is_immutable_constant() and
+            step .is_immutable_constant()):
+            self.const = slice(start.const, stop.const, step.const)
 
     def can_be_none(self):
         return False

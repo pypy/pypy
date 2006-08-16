@@ -6,6 +6,7 @@ from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst
 from pypy.rpython.rmodel import IteratorRepr
 from pypy.rpython.rmodel import externalvsinternal
+from pypy.rpython.rslice import AbstractSliceRepr
 from pypy.rpython.lltypesystem.lltype import Void, Signed 
 from pypy.rpython.rarithmetic import intmask
 
@@ -152,6 +153,21 @@ class __extend__(pairtype(AbstractTupleRepr, IntegerRepr)):
             hop.exception_cannot_occur()
         index = v_index.value
         return r_tup.getitem(hop.llops, v_tuple, index)
+
+class __extend__(pairtype(AbstractTupleRepr, AbstractSliceRepr)):
+
+    def rtype_getitem((r_tup, r_slice), hop):
+        s_slice = hop.args_s[1]
+        if not s_slice.is_immutable_constant():
+            raise TyperError("non-constant tuple slicing index")
+        v_tup = hop.inputarg(r_tup, arg=0)
+
+        indices = range(len(r_tup.items_r))[s_slice.const]
+        assert len(indices) == len(hop.r_result.items_r)
+
+        items_v = [r_tup.getitem_internal(hop.llops, v_tup, i)
+                   for i in indices]
+        return hop.r_result.newtuple(hop.llops, hop.r_result, items_v)
 
 class __extend__(pairtype(AbstractTupleRepr, Repr)): 
     def rtype_contains((r_tup, r_item), hop):
