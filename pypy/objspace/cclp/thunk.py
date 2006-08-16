@@ -3,8 +3,8 @@ from pypy.module._stackless.interp_coroutine import AbstractThunk
 
 from pypy.objspace.cclp.misc import w
 from pypy.objspace.cclp.global_state import scheduler
-from pypy.objspace.cclp.types import W_Var, W_Future, W_FailedValue
-from pypy.objspace.cclp.interp_var import interp_wait, interp_entail, interp_bind
+from pypy.objspace.cclp.types import W_Var, W_Future, W_FailedValue, ConsistencyError, Solution
+from pypy.objspace.cclp.interp_var import interp_wait, interp_entail, interp_bind, interp_free
 
 
 def logic_args(args):
@@ -70,65 +70,96 @@ class FutureThunk(_AppThunk):
             scheduler[0].remove_thread(self._coro)
             scheduler[0].schedule()
 
-SPACE_FAILURE = 0
-SPACE_SOLUTION = 1
-
 class CSpaceThunk(_AppThunk):
     def __init__(self, space, w_callable, args, coro):
         _AppThunk.__init__(self, space, coro.costate, w_callable, args)
         self._coro = coro
 
     def call(self):
-        w(". initial (returnless) thunk CALL in", str(id(self._coro)))
+        w("-- initial thunk CALL in", str(id(self._coro)))
         scheduler[0].trace_vars(self._coro, logic_args(self.args.unpack()))
         cspace = self._coro._cspace
         try:
             try:
                 _AppThunk.call(self)
             except Exception, exc:
-                w(".% exceptional EXIT of", str(id(self._coro)), "with", str(exc))
+                w("-- exceptional EXIT of", str(id(self._coro)), "with", str(exc))
+                import traceback
+                traceback.print_exc()
                 scheduler[0].dirty_traced_vars(self._coro, W_FailedValue(exc))
                 self._coro._dead = True
                 self.space.bind(cspace._choice, self.space.wrap(SPACE_FAILURE))
             else:
-                w(".% clean (valueless) EXIT of", str(id(self._coro)))
+                w("-- clean (valueless) EXIT of", str(id(self._coro)))
                 self.space.bind(cspace._solution, self.costate.w_tempval)
-                self.space.bind(cspace._choice, self.space.wrap(SPACE_SOLUTION))
         finally:
             scheduler[0].remove_thread(self._coro)
             scheduler[0].schedule()
 
 
 class PropagatorThunk(AbstractThunk):
-    def __init__(self, space, w_constraint, coro, Merged):
+    def __init__(self, space, w_constraint, coro):
         self.space = space
         self.coro = coro
         self.const = w_constraint
-        self.Merged = Merged
 
     def call(self):
         try:
+            cspace = self.coro._cspace
             try:
                 while 1:
                     entailed = self.const.revise()
                     if entailed:
                         break
                     Obs = W_Var(self.space)
-                    interp_entail(self.space, self.Merged, Obs)
+                    interp_entail(cspace._finished, Obs)
                     for Sync in [var.w_dom.give_synchronizer()
                                  for var in self.const._variables]:
-                        interp_entail(self.space, Sync, Obs)
+                        interp_entail(Sync, Obs)
                     interp_wait(self.space, Obs)
+                    if not interp_free(cspace._finished):
+                        break
+            except ConsistencyError:
+                self.coro._cspace.fail()
             except:
                 import traceback
                 traceback.print_exc()
         finally:
-            # all values of dom size 1 are bound
-            for var in self.const._variables:
-                if var.w_dom.size() == 1:
-                    interp_bind(self.space, var, var.w_dom.get_values()[0])
             self.coro._dead = True
             scheduler[0].remove_thread(self.coro)
             scheduler[0].schedule()
 
 
+class DistributorThunk(AbstractThunk):
+    def __init__(self, space, w_distributor, coro):
+        self.space = space
+        self.coro = coro
+        self.dist = w_distributor
+
+    def call(self):
+        coro = self.coro
+        try:
+            cspace = coro._cspace
+            dist = self.dist
+            try:
+                while 1:
+                    choice = cspace.choose(dist.fanout())
+                    dist.distribute(choice)
+            except Solution:
+                w("-- DISTRIBUTOR thunk exited because a solution was found")
+                for var in cspace._solution.w_bound_to.wrappeditems:
+                    assert var.w_dom.size() == 1
+                    interp_bind(var, var.w_dom.get_values()[0])
+                interp_bind(cspace._choice, self.space.newint(1))
+            except ConsistencyError, e:
+                w("-- DISTRIBUTOR thunk exited because", str(e))
+                interp_bind(cspace._choice, self.space.newint(0))
+            except:
+                import traceback
+                traceback.print_exc()
+        finally:
+            interp_bind(cspace._finished, True)
+            coro._dead = True
+            scheduler[0].remove_thread(coro)
+            scheduler[0].schedule()
+        

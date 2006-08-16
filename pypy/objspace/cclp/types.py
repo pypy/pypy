@@ -36,18 +36,23 @@ class W_Future(W_Var):
 
 
 class W_CVar(W_Var):
-    def __init__(w_self, space, w_dom, w_name):
+    def __init__(self, space, w_dom, w_name):
         assert isinstance(w_dom, W_AbstractDomain)
-        W_Var.__init__(w_self, space)
-        w_self.w_dom = w_dom
-        w_self.name = space.str_w(w_name)
-        w_self.w_nam = w_name
+        W_Var.__init__(self, space)
+        self.w_dom = w_dom
+        self.name = space.str_w(w_name)
+        self.w_nam = w_name
+        cspace = ClonableCoroutine.w_getcurrent(space)._cspace
+        if cspace is None:
+            w("-- WARNING : you are instanciating a constraint var in the top-level space")
+        else:
+            cspace.register_var(self)
 
-    def name_w(w_self):
-        return w_self.name
+    def name_w(self):
+        return self.name
 
-    def w_name(w_self):
-        return w_self.w_nam
+    def w_name(self):
+        return self.w_nam
 
 def domain_of(space, w_v):
     assert isinstance(w_v, W_CVar)
@@ -62,6 +67,10 @@ class W_FailedValue(W_Root):
     """
     def __init__(w_self, exc):
         w_self.exc = exc
+
+class ConsistencyError(Exception): pass
+
+class Solution(Exception): pass
 
 #-- Constraint ---------------------------------------------
 
@@ -82,6 +91,15 @@ class W_AbstractDomain(baseobjspace.Wrappable):
 
 W_AbstractDomain.typedef = typedef.TypeDef("W_AbstractDomain")
 
+class W_AbstractDistributor(baseobjspace.Wrappable):
+
+    def __init__(self, space, fanout):
+        assert isinstance(fanout, int)
+        self._space = space
+        self._fanout = fanout
+        self._cspace = ClonableCoroutine.w_getcurrent(space)._cspace
+
+W_AbstractDistributor.typedef = typedef.TypeDef("W_AbstractDistributor")
 
 
 #-- Misc ---------------------------------------------------

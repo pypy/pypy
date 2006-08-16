@@ -21,6 +21,7 @@ def future(space, w_callable, __args__):
     w_Future = W_Future(space)
     thunk = FutureThunk(space, w_callable, args, w_Future, coro)
     coro.bind(thunk)
+    coro._cspace = ClonableCoroutine.w_getcurrent(space)._cspace
     if not we_are_translated():
         w("FUTURE", str(id(coro)), "for", str(w_callable.name))
     scheduler[0].add_new_thread(coro)
@@ -40,6 +41,7 @@ def stacklet(space, w_callable, __args__):
     #coro.cspace = ClonableCoroutine.w_getcurrent(space).cspace
     thunk = ProcedureThunk(space, w_callable, args, coro)
     coro.bind(thunk)
+    coro._cspace = ClonableCoroutine.w_getcurrent(space)._cspace
     if not we_are_translated():
         w("STACKLET", str(id(coro)), "for", str(w_callable.name))
     scheduler[0].add_new_thread(coro)
@@ -53,5 +55,3 @@ app_stacklet = gateway.interp2app(stacklet, unwrap_spec=[baseobjspace.ObjSpace,
 def this_thread(space):
     return ClonableCoroutine.w_getcurrent(space)
 app_this_thread = gateway.interp2app(this_thread)
-
-

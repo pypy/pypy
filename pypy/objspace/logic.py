@@ -50,13 +50,7 @@ from pypy.objspace.cclp.constraint import constraint
 all_mms.update(constraint.all_mms)
 
 ## #----- distributors ---------------
-## from pypy.objspace.constraint import distributor
-
-
-#-- THE SPACE ---------------------------------------
-
-#class UnificationError(w_RuntimeError):
-#    pass
+from pypy.objspace.cclp.constraint import distributor
 
 
 #-- SPACE HELPERS -------------------------------------
@@ -243,13 +237,9 @@ def Space(*args, **kwds):
                   space.wrap(constraint.app_make_expression))
     space.setitem(space.builtin.w_dict, space.wrap('all_diff'),
                  space.wrap(constraint.app_make_alldistinct))
-##     #-- distributor --
-##     space.setitem(space.builtin.w_dict, space.wrap('NaiveDistributor'),
-##                  space.wrap(distributor.app_make_naive_distributor))
-##     space.setitem(space.builtin.w_dict, space.wrap('SplitDistributor'),
-##                  space.wrap(distributor.app_make_split_distributor))
-##     space.setitem(space.builtin.w_dict, space.wrap('DichotomyDistributor'),
-##                  space.wrap(distributor.app_make_dichotomy_distributor))
+    #-- distributor --
+    space.setitem(space.builtin.w_dict, space.wrap('distribute'),
+                 space.wrap(distributor.app_distribute))
     #-- threading --
     space.setitem(space.builtin.w_dict, space.wrap('future'),
                  space.wrap(app_future))
@@ -286,8 +276,8 @@ def Space(*args, **kwds):
     #-- path to the applevel modules --
     import pypy.objspace.constraint
     import os
-    dir = os.path.dirname(pypy.objspace.constraint.__file__)
-    dir = os.path.join(dir, 'applevel')
+    dir = os.path.dirname(pypy.objspace.cclp.constraint.__file__)
+    dir = os.path.join(dir, 'test')
     space.call_method(space.sys.get('path'), 'append', space.wrap(dir))
 
     # make sure that _stackless is imported

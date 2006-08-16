@@ -442,10 +442,14 @@ class UnicodeEncodeError(UnicodeError):
 #-- Logic object space specific stuff
 #XXX conditionalize me on '-o logic'
 
-class LOError(Exception): pass
+class LogicError(Exception): pass
 
-class UnificationError(LOError): pass
+class UnificationError(LogicError): pass
 class RebindingError(UnificationError): pass
-class FutureBindingError(LOError): pass
+class FutureBindingError(LogicError): pass
 
-class AllBlockedError(LOError): pass
+class AllBlockedError(LogicError): pass
+
+# constraints
+
+class ConsistencyError(LogicError): pass

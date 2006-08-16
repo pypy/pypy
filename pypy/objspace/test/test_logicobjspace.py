@@ -1,6 +1,7 @@
 from pypy.conftest import gettestobjspace
 from py.test import skip
 
+
 class AppTest_Logic(object):
 
     def setup_class(cls):
@@ -637,25 +638,6 @@ class AppTest_LogicFutures(object):
         schedule()
 
         reset_scheduler() # free all the hanging threads
-
-    def test_newspace_ask_noop(self):
-
-        def in_space(X): return X + 42
-
-        def asker():
-            ask()
-
-        X = newvar()
-        s = newspace(in_space, X)
-
-        assert sched_all()['space_accounting'][0][1] == 0 # live threads
-        assert len(sched_all()['blocked_on']) == 1
-
-        stacklet(asker)
-
-        unify(X, 42)
-        schedule()
-        assert len(sched_all()['threads']) == 1
         
 
 class AppTest_CompSpace(object):
@@ -665,48 +647,55 @@ class AppTest_CompSpace(object):
 
     def test_cvar(self):
 
-        d = domain([1, 2, 4], '')
+        def in_space(X):
+            d = domain([1, 2, 4], '')
 
-        raises(UnificationError, bind, d, 42)
-        bind(d, 2)
-        assert d == 2
+            raises(UnificationError, bind, d, 42)
+            bind(d, 2)
+            assert d == 2
 
-        class Foo(object):
-            pass
+            class Foo(object):
+                pass
 
-        f = Foo()
-        d = domain([Foo(), f, Foo()], '')
-        raises(UnificationError, bind, d, Foo())
-        bind(d, f)
-        assert d == f
+            f = Foo()
+            d = domain([Foo(), f, Foo()], '')
+            raises(UnificationError, bind, d, Foo())
+            bind(d, f)
+            assert d == f
 
-        d1 = domain([1, 2, 3], '')
-        d2 = domain([2, 3, 4], '')
-        d3 = domain([5, 6], '')
-        raises(UnificationError, unify, d1, d3)
-        unify(d1, d2)
-        assert alias_of(d1, d2)
-        assert domain_of(d1) == domain_of(d2) == FiniteDomain([2, 3])
+            d1 = domain([1, 2, 3], '')
+            d2 = domain([2, 3, 4], '')
+            d3 = domain([5, 6], '')
+            raises(UnificationError, unify, d1, d3)
+            unify(d1, d2)
+            assert alias_of(d1, d2)
+            assert domain_of(d1) == domain_of(d2) == FiniteDomain([2, 3])
 
-        d1 = domain([1, 2, 3], '')
-        d4 = domain([3, 4], '')
-        unify(d1, d4)
-        assert d1 == d4 == 3
+            d1 = domain([1, 2, 3], '')
+            d4 = domain([3, 4], '')
+            unify(d1, d4)
+            assert d1 == d4 == 3
 
-        d1 = domain([1, 2], '')
-        x = newvar()
-        unify(d1, x)
-        assert alias_of(x, d1)
-        raises(UnificationError, unify, x, 42)
+            d1 = domain([1, 2], '')
+            x = newvar()
+            unify(d1, x)
+            assert alias_of(x, d1)
+            raises(UnificationError, unify, x, 42)
 
-        d1 = domain([1, 2], '')
-        x = newvar()
-        unify(d1, x)
-        assert alias_of(x, d1)
-        unify(x, 2)
-        assert d1 == x == 2
-        #XXX and a bunch of app-level functions
-        #raises(TypeError, domain_of, x)
+            d1 = domain([1, 2], '')
+            x = newvar()
+            unify(d1, x)
+            assert alias_of(x, d1)
+            unify(x, 2)
+            assert d1 == x == 2
+            #XXX and a bunch of app-level functions
+            #raises(TypeError, domain_of, x)
+
+            bind(X, True)
+
+        X = newvar()
+        newspace(in_space, X)
+        wait(X)
 
     def test_newspace_ask_wait(self):
 
@@ -739,12 +728,11 @@ class AppTest_CompSpace(object):
             cspace.commit(2)
 
         X = newvar()
-
         s = newspace(chooser, X)
         stacklet(asker, s)
         schedule()
+        wait(X)
         assert X == 2
-
 
     def test_more_ask_choose(self):
 
@@ -757,9 +745,9 @@ class AppTest_CompSpace(object):
         def asker(cspace):
             while 1:
                 choices = cspace.ask()
-                if choices == 1: # success !
-                    break
                 cspace.commit(choices)
+                if choices == 8: # success !
+                    break
 
         # choices >= 1
         v = range(2, 9)
@@ -774,28 +762,34 @@ class AppTest_CompSpace(object):
 
         assert X == 'done'
         schedule()
-        assert len(sched_all()['threads']) == 1
+        #XXX
+        #assert len(sched_all()['threads']) == 1
 
-    def test_tell(self):
 
-        def problem():
-            X, Y = domain([1, 2], 'X'), domain([1, 2, 3], 'Y')
-            tell(make_expression([X, Y], 'X + Y > 4'))
-            return (X, Y)
+    def test_tell_ask_choose_commit(self):
+        from problem import conference_scheduling
 
-        def solve(spc, X):
+        def solve(spc, Sol):
             while 1:
                 status = spc.ask()
-                if status == 1:
+                if status > 1:
+                    spc.commit(1)
+                elif status in (0, 1):
                     break
-            unify(spc.merge(), X)
+            if status:
+                unify(Sol, spc.merge())
+            else:
+                unify(Sol, False)
 
-        s = newspace(problem)
+        s = newspace(conference_scheduling)
         Solution = newvar()
         stacklet(solve, s, Solution)
 
-        schedule()
+        assert Solution == [('room B', 'day 1 PM'), ('room A', 'day 1 PM'),
+                            ('room B', 'day 2 AM'), ('room B', 'day 1 AM'),
+                            ('room A', 'day 2 PM'), ('room C', 'day 2 AM'),
+                            ('room C', 'day 2 PM'), ('room C', 'day 1 PM'),
+                            ('room C', 'day 1 AM'), ('room B', 'day 2 PM')]
 
-        assert Solution == (2, 3)
-
-        assert len(sched_all()['threads']) == 1
+        #XXX
+        #assert len(sched_all()['threads']) == 1

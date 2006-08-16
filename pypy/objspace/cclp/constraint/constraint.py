@@ -19,19 +19,6 @@ from pypy.objspace.constraint.util import sort, reverse
 all_mms = {}
 
 
-#-- Exceptions ---------------------------------------
-
-class ConsistencyFailure(Exception):
-    """The repository is not in a consistent state"""
-    pass
-
-class DomainlessVariables(Exception):
-    """A constraint can't be defined on variables
-       without a domain"""
-    pass
-
-#-- Constraints ------------------------------------------
-
 class W_AbstractConstraint(W_Constraint):
     
     def __init__(self, object_space, w_variables):
@@ -185,9 +172,6 @@ class W_Expression(W_AbstractConstraint):
                 domain.remove_values([val
                                       for val in domain._values.content.keys()
                                       if val not in keep.content])
-        except ConsistencyFailure:
-            raise ConsistencyFailure('Inconsistency while applying %s' % \
-                                     repr(self))
         except KeyError:
             # There are no more value in result_cache
             pass
@@ -207,6 +191,8 @@ W_Expression.typedef = typedef.TypeDef("W_Expression",
 def make_expression(o_space, w_variables, w_formula):
     """create a new constraint of type Expression or BinaryExpression
     The chosen class depends on the number of variables in the constraint"""
+    assert isinstance(w_variables, W_ListObject)
+    assert isinstance(w_formula, W_StringObject)
     assert len(w_variables.wrappeditems) > 0
     return W_Expression(o_space, w_variables, w_formula)
 app_make_expression = gateway.interp2app(make_expression)
@@ -276,6 +262,7 @@ W_AllDistinct.typedef = typedef.TypeDef(
 
 # function bolted into the space to serve as constructor
 def make_alldistinct(object_space, w_variables):
+    assert isinstance(w_variables, W_ListObject)
     assert len(w_variables.wrappeditems) > 0
     return object_space.wrap(W_AllDistinct(object_space, w_variables))
 app_make_alldistinct = gateway.interp2app(make_alldistinct)

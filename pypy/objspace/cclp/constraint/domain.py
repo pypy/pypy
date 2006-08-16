@@ -7,14 +7,10 @@ from pypy.objspace.std.listobject import W_ListObject, W_TupleObject
 
 from pypy.objspace.std.model import StdObjSpaceMultiMethod
 
-from pypy.objspace.cclp.types import W_AbstractDomain, W_Var
+from pypy.objspace.cclp.types import W_AbstractDomain, W_Var, ConsistencyError
 from pypy.objspace.cclp.interp_var import interp_bind
 
 all_mms = {}
-
-class ConsistencyFailure(Exception):
-    """The repository is not in a consistent state"""
-    pass
 
 
 class W_FiniteDomain(W_AbstractDomain):
@@ -42,16 +38,11 @@ class W_FiniteDomain(W_AbstractDomain):
 
     def _value_removed(self):
         """The implementation of remove_value should call this method"""
-        interp_bind(self._space, self._changed, True)
+        interp_bind(self._changed, True)
         self.clear_change()
         
         if self.size() == 0:
-            raise OperationError(self._space.w_RuntimeError,
-                                 self._space.wrap('ConsistencyFailure'))
-
-##     def w__del__(self):
-##         self._space.bind(self._changed, self._space.newbool(False))
-
+            raise ConsistencyError, "tried to make a domain empty"
 
     def set_values(self, w_values):
         """Objects in the value set can't be unwrapped unless we

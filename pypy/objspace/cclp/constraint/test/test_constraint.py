@@ -18,31 +18,35 @@ class AppTest_AllDistinct(object):
         assert cstr.knows_var(v2)
 
     def test_revise(self):
-        v1 = domain([1, 2], 'v1')
-        v2 = domain([1, 2], 'v2')
-        cstr = all_diff([v1, v2])
-        assert cstr.revise() == False # not entailed
+        def in_space():
+            v1 = domain([1, 2], 'v1')
+            v2 = domain([1, 2], 'v2')
+            cstr = all_diff([v1, v2])
+            assert cstr.revise() == False # not entailed
 
-        v3 = domain([1], 'v3')
-        v4 = domain([2], 'v4')
-        cstr = all_diff([v3, v4])
-        assert cstr.revise() == True # entailed
+            v3 = domain([1], 'v3')
+            v4 = domain([2], 'v4')
+            cstr = all_diff([v3, v4])
+            assert cstr.revise() == True # entailed
 
-        v5 = domain([1], 'v5')
-        v6 = domain([1], 'v6')
-        cstr = all_diff([v5, v6])
-        raises(Exception, cstr.revise)
+            v5 = domain([1], 'v5')
+            v6 = domain([1], 'v6')
+            cstr = all_diff([v5, v6])
+            raises(Exception, cstr.revise)
 
-        v7 = domain([1, 2], 'v7')
-        v8 = domain([1, 2], 'v8')
-        cstr = all_diff([v2, v7, v8])
-        raises(Exception, cstr.revise)
+            v7 = domain([1, 2], 'v7')
+            v8 = domain([1, 2], 'v8')
+            cstr = all_diff([v2, v7, v8])
+            raises(Exception, cstr.revise)
 
-        v9 = domain([1], 'v9')
-        v10= domain([1, 2], 'v10')
-        cstr = all_diff([v9, v10])
-        assert cstr.revise() == True
-        assert domain_of(v10).get_values() == [2]
+            v9 = domain([1], 'v9')
+            v10= domain([1, 2], 'v10')
+            cstr = all_diff([v9, v10])
+            assert cstr.revise() == True
+            assert domain_of(v10).get_values() == [2]
+
+        s = newspace(in_space)
+    
 
 class AppTest_Expression(object):
 

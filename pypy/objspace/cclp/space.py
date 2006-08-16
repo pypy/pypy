@@ -8,7 +8,8 @@ from pypy.objspace.cclp.misc import ClonableCoroutine, w
 from pypy.objspace.cclp.thunk import CSpaceThunk, PropagatorThunk
 from pypy.objspace.cclp.global_state import scheduler
 from pypy.objspace.cclp.variable import newvar
-
+from pypy.objspace.cclp.types import ConsistencyError, Solution, W_Var
+from pypy.objspace.cclp.interp_var import interp_bind, interp_free
 
 def newspace(space, w_callable, __args__):
     args = __args__.normalize()
@@ -34,9 +35,13 @@ def choose(space, w_n):
     assert isinstance(w_n, W_IntObject)
     n = space.int_w(w_n)
     cspace = ClonableCoroutine.w_getcurrent(space)._cspace
-    if cspace != space.w_None:
+    if cspace != None:
         assert isinstance(cspace, W_CSpace)
-        return cspace.choose(n)
+        try:
+            return space.newint(cspace.choose(w_n.intval))
+        except ConsistencyError:
+            raise OperationError(space.w_ConsistecyError,
+                                 space.wrap("the space is failed"))
     raise OperationError(space.w_RuntimeError,
                          space.wrap("choose is forbidden from the top-level space"))
 app_choose = gateway.interp2app(choose)
@@ -54,55 +59,69 @@ class W_CSpace(baseobjspace.Wrappable):
 
     def __init__(self, space, thread, parent):
         assert isinstance(thread, ClonableCoroutine)
-        assert (parent is space.w_None) or isinstance(parent, W_CSpace)
+        assert (parent is None) or isinstance(parent, W_CSpace)
         self.space = space # the object space ;-)
         self.parent = parent
         self.main_thread = thread
         # choice mgmt
         self._choice = newvar(space)
         self._committed = newvar(space)
-        # merging
+        # status, merging
         self._solution = newvar(space)
-        self._merged = newvar(space)
+        self._finished = newvar(space)
+        self._failed = False
+        # constraint store ...
+        self._store = {} # name -> var
         
+    def register_var(self, cvar):
+        self._store[cvar.name] = cvar
 
     def w_ask(self):
         scheduler[0].wait_stable(self)
         self.space.wait(self._choice)
-        return self._choice
+        choice = self._choice.w_bound_to
+        self._choice = newvar(self.space)
+        self._last_choice = choice.intval
+        return choice
 
     def choose(self, n):
         assert n > 1
         scheduler[0].wait_stable(self)
-        assert self.space.is_true(self.space.is_free(self._choice))
-        assert self.space.is_true(self.space.is_free(self._committed))
-        self.space.bind(self._choice, self.space.wrap(n))
+        if self._failed: #XXX set by any propagator
+            raise ConsistencyError
+        assert interp_free(self._choice)
+        assert interp_free(self._committed)
+        interp_bind(self._choice, self.space.wrap(n))
         self.space.wait(self._committed)
-        committed = self._committed
+        committed = self._committed.w_bound_to
         self._committed = newvar(self.space)
         return committed
 
     def w_commit(self, w_n):
-        assert self.space.is_true(self.space.is_bound(self._choice))
-        assert 0 < self.space.int_w(w_n)
-        assert self.space.int_w(w_n) <= self._choice.w_bound_to
-        self.space.bind(self._committed, w_n)
-        self._choice = newvar(self.space)
-
+        assert isinstance(w_n, W_IntObject)
+        n = w_n.intval
+        assert interp_free(self._committed)
+        assert n > 0
+        assert n <= self._last_choice
+        interp_bind(self._committed, n)
 
     def tell(self, w_constraint):
         space = self.space
         w_coro = ClonableCoroutine(space)
-        thunk = PropagatorThunk(space, w_constraint, w_coro, self._merged)
+        w_coro._cspace = self
+        thunk = PropagatorThunk(space, w_constraint, w_coro)
         w_coro.bind(thunk)
         if not we_are_translated():
-            w("PROPAGATOR, thread", str(id(w_coro)))
-        w_coro._cspace = self
+            w("PROPAGATOR in thread", str(id(w_coro)))
         scheduler[0].add_new_thread(w_coro)
         scheduler[0].schedule()
 
+    def fail(self):
+        self._failed = True
+        self._store = {}
+
     def w_merge(self):
-        self.space.bind(self._merged, self.space.w_True)
+        self._store = {}
         return self._solution
 
 
