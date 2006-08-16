@@ -40,14 +40,6 @@ def distribute(space, w_strategy):
 app_distribute = interp2app(distribute)
 
 
-def arrange_domains(cs, variables):
-    """build a data structure from var to dom
-       that satisfies distribute & friends"""
-    new_doms = {}
-    for var in variables:
-        new_doms[var] = cs.dom(var).copy()
-    return new_doms
-
 class W_Distributor(W_AbstractDistributor):
     """_distribute is left unimplemented."""
 

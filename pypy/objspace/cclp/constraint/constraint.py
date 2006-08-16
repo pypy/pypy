@@ -88,15 +88,6 @@ class W_Expression(W_AbstractConstraint):
         # self.filter_func is a function taking keyword arguments and returning a boolean
         self.filter_func = self._space.make_filter(w_variables, w_formula)
 
-    def test_solution(self, sol_dict):
-        """test a solution against this constraint 
-        accept a mapping of variable names to value"""
-        args = []
-        for var in self._variables:
-            assert isinstance(var, W_Variable)
-            args.append(sol_dict[var.w_name()])
-        return self.filter_func(*args)
-
     def _init_result_cache(self):
         """key = (variable,value), value = [has_success,has_failure]"""
         result_cache = self._space.newdict()
@@ -215,11 +206,6 @@ class W_AllDistinct(W_AbstractConstraint):
                          (variable, variable.w_dom))
 
         variables = ord_vars.values()
-        
-##         variables = [(_spc.int_w(w_cs.w_dom(variable).w_size()),
-##                       variable, w_cs.w_dom(variable))
-##                      for variable in self._variables]
-##         variables.sort()
         
         # if a domain has a size of 1,
         # then the value must be removed from the other domains
