@@ -66,3 +66,11 @@ def _assign(w_var, w_val):
         if not w_val in w_var.w_dom._values.content:
             raise ValueError, "assignment out of domain"
     w_var.w_bound_to = w_val
+
+
+def interp_wait_or(space, lvars):
+    assert isinstance(lvars, list)
+    O = W_Var(space)
+    for V in lvars:
+        interp_entail(V, O)
+    return interp_wait(space, O)

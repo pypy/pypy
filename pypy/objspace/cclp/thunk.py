@@ -4,7 +4,7 @@ from pypy.module._stackless.interp_coroutine import AbstractThunk
 from pypy.objspace.cclp.misc import w
 from pypy.objspace.cclp.global_state import scheduler
 from pypy.objspace.cclp.types import W_Var, W_Future, W_FailedValue, ConsistencyError, Solution
-from pypy.objspace.cclp.interp_var import interp_wait, interp_entail, interp_bind, interp_free
+from pypy.objspace.cclp.interp_var import interp_wait, interp_entail, interp_bind, interp_free, interp_wait_or
 
 
 def logic_args(args):
@@ -71,6 +71,7 @@ class FutureThunk(_AppThunk):
             scheduler[0].schedule()
 
 class CSpaceThunk(_AppThunk):
+    "for a constraint script/logic program"
     def __init__(self, space, w_callable, args, coro):
         _AppThunk.__init__(self, space, coro.costate, w_callable, args)
         self._coro = coro
@@ -84,8 +85,6 @@ class CSpaceThunk(_AppThunk):
                 _AppThunk.call(self)
             except Exception, exc:
                 w("-- exceptional EXIT of cspace", str(id(self._coro)), "with", str(exc))
-                import traceback
-                traceback.print_exc()
                 scheduler[0].dirty_traced_vars(self._coro, W_FailedValue(exc))
                 self._coro._dead = True
                 self.space.bind(cspace._choice, self.space.wrap(SPACE_FAILURE))
@@ -111,12 +110,12 @@ class PropagatorThunk(AbstractThunk):
                     entailed = self.const.revise()
                     if entailed:
                         break
-                    Obs = W_Var(self.space)
-                    interp_entail(cspace._finished, Obs)
-                    for Sync in [var.w_dom.give_synchronizer()
-                                 for var in self.const._variables]:
-                        interp_entail(Sync, Obs)
-                    interp_wait(self.space, Obs)
+                    # we will block on domains being pruned
+                    wait_list = [var.w_dom.give_synchronizer()
+                                 for var in self.const._variables]
+                    #or the cspace being dead
+                    wait_list.append(cspace._finished)
+                    interp_wait_or(self.space, wait_list)
                     if not interp_free(cspace._finished):
                         break
             except ConsistencyError:
@@ -146,6 +145,7 @@ class DistributorThunk(AbstractThunk):
                     choice = cspace.choose(dist.fanout())
                     dist.distribute(choice)
                 w("-- DISTRIBUTOR thunk exited because a solution was found")
+                #XXX assert that all propagators are entailed
                 for var in cspace._solution.w_bound_to.wrappeditems:
                     assert var.w_dom.size() == 1
                     interp_bind(var, var.w_dom.get_values()[0])
