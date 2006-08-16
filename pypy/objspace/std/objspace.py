@@ -62,6 +62,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         elif self.config.objspace.std.withmultidict:
             from pypy.objspace.std import dictmultiobject
             self.DictObjectCls = dictmultiobject.W_DictMultiObject
+            self.emptydictimpl = dictmultiobject.EmptyDictImplementation(self)
         else:
             from pypy.objspace.std import dictobject
             self.DictObjectCls = dictobject.W_DictObject

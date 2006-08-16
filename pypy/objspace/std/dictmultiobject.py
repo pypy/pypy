@@ -158,7 +158,7 @@ class RDictImplementation(DictImplementation):
         if self.content:
             return self
         else:
-            return EmptyDictImplementation(self.space)
+            return self.space.emptydictimpl
         
     def length(self):
         return len(self.content)
@@ -348,7 +348,7 @@ class W_DictMultiObject(W_Object):
         if space.config.objspace.std.withdictmeasurement:
             w_self.implementation = MeasuringDictImplementation(space)
         else:
-            w_self.implementation = EmptyDictImplementation(space)
+            w_self.implementation = space.emptydictimpl
 
     def initialize_content(w_self, list_pairs_w):
         impl = w_self.implementation
@@ -387,7 +387,7 @@ def init__DictMulti(space, w_dict, __args__):
     w_src, w_kwds = __args__.parse('dict',
                           (['seq_or_map'], None, 'kwargs'), # signature
                           [W_DictMultiObject(space)])            # default argument
-    # w_dict.implementation = EmptyDictImplementation(self.space)
+    # w_dict.implementation = space.emptydictimpl
     #                              ^^^ disabled only for CPython compatibility
     try:
         space.getattr(w_src, space.wrap("keys"))
@@ -514,7 +514,7 @@ def dict_itervalues__DictMulti(space, w_self):
     return W_DictMultiIter_Values(space, w_self.implementation)
 
 def dict_clear__DictMulti(space, w_self):
-    w_self.implementation = EmptyDictImplementation(space)
+    w_self.implementation = space.emptydictimpl
 
 def dict_get__DictMulti_ANY_ANY(space, w_dict, w_lookup, w_default):
     return w_dict.get(w_lookup, w_default)

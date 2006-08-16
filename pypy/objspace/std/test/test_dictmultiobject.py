@@ -1,5 +1,7 @@
 import autopath
-from pypy.objspace.std.dictmultiobject import W_DictMultiObject, setitem__DictMulti_ANY_ANY, getitem__DictMulti_ANY
+from pypy.objspace.std.dictmultiobject import \
+     W_DictMultiObject, setitem__DictMulti_ANY_ANY, getitem__DictMulti_ANY, \
+     EmptyDictImplementation
 from pypy.conftest import gettestobjspace
 from pypy.objspace.std.test import test_dictobject
 
@@ -14,6 +16,7 @@ class AppTest_DictObject(test_dictobject.AppTest_DictObject):
 class TestDictImplementation:
     def setup_method(self,method):
         self.space = test_dictobject.FakeSpace()
+        self.space.emptydictimpl = EmptyDictImplementation(self.space)
         self.space.DictObjectCls = W_DictMultiObject
 
     def test_stressdict(self):
