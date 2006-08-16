@@ -1562,7 +1562,8 @@ def getRuntimeTypeInfo(GCSTRUCT):
     if not isinstance(GCSTRUCT, RttiStruct):
         raise TypeError, "expected a RttiStruct: %s" % GCSTRUCT
     if GCSTRUCT._runtime_type_info is None:
-        raise ValueError, "no attached runtime type info for %s" % GCSTRUCT
+        raise ValueError, ("no attached runtime type info for GcStruct %s" % 
+                           GCSTRUCT._name)
     return _ptr(Ptr(RuntimeTypeInfo), GCSTRUCT._runtime_type_info)
 
 def runtime_type_info(p):
