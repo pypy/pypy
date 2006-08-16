@@ -154,8 +154,6 @@ class DistributorThunk(AbstractThunk):
             except ConsistencyError, e:
                 w("-- DISTRIBUTOR thunk exited because", str(e))
                 interp_bind(cspace._choice, self.space.newint(0))
-                import traceback
-                traceback.print_exc()
             except:
                 import traceback
                 traceback.print_exc()

@@ -395,7 +395,7 @@ class AppTest_LogicFutures(object):
             #    outside this thread ... But this can't
             #    happen right now because we keep
             #    references also of this thread in the
-            #    scheduler.
+            #    scheduler. 
             wait_needed(L)
             Tail = newvar()
             bind(L, (n, Tail))
@@ -766,14 +766,14 @@ class AppTest_CompSpace(object):
         #assert len(sched_all()['threads']) == 1
 
 
-    def test_tell_ask_choose_commit(self):
+    def test_tell_ask_choose_commit_success(self):
         from problem import conference_scheduling
 
-        def solve(spc, Sol):
+        def solve(spc, commitment, Sol):
             while 1:
                 status = spc.ask()
                 if status > 1:
-                    spc.commit(1)
+                    spc.commit(commitment)
                 elif status in (0, 1):
                     break
             if status:
@@ -781,15 +781,19 @@ class AppTest_CompSpace(object):
             else:
                 unify(Sol, False)
 
-        s = newspace(conference_scheduling)
-        Solution = newvar()
-        stacklet(solve, s, Solution)
+        for commit_to in (1, 2):
+            s = newspace(conference_scheduling)
+            Solution = newvar()
+            stacklet(solve, s, commit_to, Solution)
+            if commit_to == 1:
+                assert Solution == [('room B', 'day 1 PM'), ('room A', 'day 1 PM'),
+                                    ('room B', 'day 2 AM'), ('room B', 'day 1 AM'),
+                                    ('room A', 'day 2 PM'), ('room C', 'day 2 AM'),
+                                    ('room C', 'day 2 PM'), ('room C', 'day 1 PM'),
+                                    ('room C', 'day 1 AM'), ('room B', 'day 2 PM')]
+            else:
+                assert Solution == False
 
-        assert Solution == [('room B', 'day 1 PM'), ('room A', 'day 1 PM'),
-                            ('room B', 'day 2 AM'), ('room B', 'day 1 AM'),
-                            ('room A', 'day 2 PM'), ('room C', 'day 2 AM'),
-                            ('room C', 'day 2 PM'), ('room C', 'day 1 PM'),
-                            ('room C', 'day 1 AM'), ('room B', 'day 2 PM')]
-
-        #XXX
+        #XXX who's still stuck there ?
         #assert len(sched_all()['threads']) == 1
+
