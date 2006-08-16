@@ -179,6 +179,82 @@ class RDictImplementation(DictImplementation):
     def items(self):
         return self.content.items()
 
+class StrDictImplementation(DictImplementation):
+    def __init__(self, space):
+        self.space = space
+        self.content = {}
+        
+    def setitem(self, w_key, w_value):
+        space = self.space
+        if space.is_w(space.type(w_key), space.w_str):
+            self.content[space.str_w(w_key)] = w_value
+            return self
+        else:
+            return self._as_rdict().setitem(w_key, w_value)
+
+    def delitem(self, w_key):
+        space = self.space
+        if space.is_w(space.type(w_key), space.w_str):
+            del self.content[space.str_w(w_key)]
+            if self.content:
+                return self
+            else:
+                return space.emptydictimpl
+        elif self._is_sane_hash(w_lookup_type):
+            raise KeyError
+        else:
+            return self._as_rdict().delitem(w_key)
+        
+    def length(self):
+        return len(self.content)
+
+    def get(self, w_lookup):
+        space = self.space
+        w_lookup_type = space.type(w_lookup)
+        if space.is_w(w_lookup_type, space.w_str):
+            return self.content.get(space.str_w(w_lookup), None)
+        elif self._is_sane_hash(w_lookup_type):
+            return None
+        else:
+            return self._as_rdict().get(w_lookup)
+
+    def iteritems(self):
+        return self._as_rdict().iteritems()
+
+    def iterkeys(self):
+        return self._as_rdict().iterkeys()
+
+    def itervalues(self):
+        return self._as_rdict().itervalues()
+
+    def keys(self):
+        space = self.space
+        return [space.wrap(key) for key in self.content.iterkeys()]
+
+    def values(self):
+        return self.content.values()
+
+    def items(self):
+        space = self.space
+        return [(space.wrap(key), w_value) for (key, w_value) in self.content.iterkeys()]
+
+    def _is_sane_hash(w_self, w_lookup_type):
+        """ Handles the case of a non string key lookup.
+        Types that have a sane hash/eq function should allow us to return True
+        directly to signal that the key is not in the dict in any case.
+        XXX The types should provide such a flag. """
+    
+        space = self.space
+        # XXX there are much more types
+        return space.is_w(w_lookup_type, space.w_NoneType) or space.is_w(w_lookup_type, space.w_int)
+
+    def _as_rdict(self):
+        newimpl = RDictImplementation(self.space)
+        for k, w_v in w_self.content.items():
+            newimpl.setitem[w_self.space.wrap(k)] = w_v
+        return newimpl
+
+
 import time, py
 
 class DictInfo(object):
