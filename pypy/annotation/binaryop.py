@@ -459,10 +459,8 @@ class __extend__(pairtype(SomeTuple, SomeInteger)):
 class __extend__(pairtype(SomeTuple, SomeSlice)):
 
     def getitem((tup, slic)):
-        if not slic.is_immutable_constant():
-            raise Exception("not supported: "
-                            "tuple slicing with non-constant indexes")
-        return SomeTuple(tup.items[slic.const])
+        start, stop, step = slic.constant_indices()
+        return SomeTuple(tup.items[start:stop:step])
     getitem.can_only_throw = []
 
 

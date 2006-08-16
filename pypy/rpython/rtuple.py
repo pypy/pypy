@@ -157,12 +157,10 @@ class __extend__(pairtype(AbstractTupleRepr, IntegerRepr)):
 class __extend__(pairtype(AbstractTupleRepr, AbstractSliceRepr)):
 
     def rtype_getitem((r_tup, r_slice), hop):
-        s_slice = hop.args_s[1]
-        if not s_slice.is_immutable_constant():
-            raise TyperError("non-constant tuple slicing index")
         v_tup = hop.inputarg(r_tup, arg=0)
-
-        indices = range(len(r_tup.items_r))[s_slice.const]
+        s_slice = hop.args_s[1]
+        start, stop, step = s_slice.constant_indices()
+        indices = range(len(r_tup.items_r))[start:stop:step]
         assert len(indices) == len(hop.r_result.items_r)
 
         items_v = [r_tup.getitem_internal(hop.llops, v_tup, i)

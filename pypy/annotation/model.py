@@ -231,10 +231,14 @@ class SomeSlice(SomeObject):
         self.start = start
         self.stop = stop
         self.step = step
-        if (start.is_immutable_constant() and
-            stop .is_immutable_constant() and
-            step .is_immutable_constant()):
-            self.const = slice(start.const, stop.const, step.const)
+
+    def constant_indices(self):
+        if (self.start.is_immutable_constant() and
+            self.stop .is_immutable_constant() and
+            self.step .is_immutable_constant()):
+            return self.start.const, self.stop.const, self.step.const
+        else:
+            raise Exception("need constant indices for this slice")
 
     def can_be_none(self):
         return False
