@@ -57,22 +57,28 @@ class TestRDictImplementation:
         self.impl = self.get_impl()
 
     def get_impl(self):
+        "Needs to be empty, or one entry with key self.string"
         return self.ImplementionClass(self.space)
 
     def test_setitem(self):
         assert self.impl.setitem(self.string, 1000) is self.impl
+        assert self.impl.length() == 1
         assert self.impl.get(self.string) == 1000
 
     def test_setitem_str(self):
         assert self.impl.setitem_str(self.string, 1000) is self.impl
+        assert self.impl.length() == 1
         assert self.impl.get(self.string) == 1000
 
     def test_delitem(self):
         self.impl.setitem(self.string, 1000)
         self.impl.setitem(self.string2, 2000)
+        assert self.impl.length() == 2
         newimpl =  self.impl.delitem(self.string)
+        assert self.impl.length() == 1
         assert newimpl is self.impl
         newimpl = self.impl.delitem(self.string2)
+        assert self.impl.length() == 0
         assert isinstance(newimpl, self.EmptyClass)
 
     def test_keys(self):
