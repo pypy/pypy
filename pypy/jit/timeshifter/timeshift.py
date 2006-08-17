@@ -10,6 +10,7 @@ from pypy.rpython.lltypesystem import rtuple, rlist, rdict
 from pypy.jit.timeshifter import rtimeshift
 from pypy.jit.timeshifter.rtyper import HintRTyper, originalconcretetype
 from pypy.jit.timeshifter.rtyper import GreenRepr, RedRepr, HintLowLevelOpList
+from pypy.translator.unsimplify import varoftype, copyvar
 from pypy.translator.backendopt import support
 
 # ___________________________________________________________
@@ -91,10 +92,8 @@ class HintTimeshift(object):
 
     def getexitindex(self, link, inputargs, args_r, entering_links):
         self.latestexitindex += 1
-        v_jitstate = flowmodel.Variable('jitstate')
-        v_jitstate.concretetype = self.r_JITState.lowleveltype
-        v_boxes = flowmodel.Variable('boxes')
-        v_boxes.concretetype = self.r_box_accum.lowleveltype
+        v_jitstate = varoftype(self.r_JITState.lowleveltype, 'jitstate')
+        v_boxes = varoftype(self.r_box_accum.lowleveltype, 'boxes')
       
         reentry_block = flowmodel.Block([v_jitstate, v_boxes])
 
@@ -212,8 +211,7 @@ class HintTimeshift(object):
 
     def insert_start_setup(self):
         newstartblock = self.insert_before_block(self.graph.startblock, None, closeblock=True)
-        v_builder = flowmodel.Variable('builder')
-        v_builder.concretetype = self.r_ResidualGraphBuilder.lowleveltype
+        v_builder = varoftype(self.r_ResidualGraphBuilder.lowleveltype, 'builder')
         v_jitstate = newstartblock.inputargs[0]
         newstartblock.inputargs[0] = v_builder
         llops = HintLowLevelOpList(self, None)
@@ -238,15 +236,8 @@ class HintTimeshift(object):
                 #    assert False, "the return block should not be seen"
                     
     def insert_before_block(self, block, entering_links, closeblock=True):
-        newinputargs = []
-        for var in block.inputargs:
-            newvar = flowmodel.Variable(var)
-            newvar.concretetype = var.concretetype
-            try:
-                self.hannotator.bindings[newvar] = hs = self.hannotator.bindings[var]
-            except KeyError:
-                pass
-            newinputargs.append(newvar)
+        newinputargs = [copyvar(self.hannotator, var) for var in block.inputargs]
+
         newblock = flowmodel.Block(newinputargs)
         if block.isstartblock: # xxx
             block.isstartblock = False
@@ -397,18 +388,12 @@ class HintTimeshift(object):
 
         # now read out the possibly modified red boxes out of v_boxes
 
-        v_newjitstate2 = flowmodel.Variable(v_newjitstate)
-        v_newjitstate2.concretetype = self.r_JITState.lowleveltype
-        v_boxes2 = flowmodel.Variable(v_boxes)
-        v_boxes2.concretetype = self.r_box_list.lowleveltype
-
-        
+        v_newjitstate2 = varoftype(self.r_JITState.lowleveltype, v_newjitstate)
+        v_boxes2 = varoftype(self.r_box_list.lowleveltype, v_boxes)
         
         read_boxes_block_vars = [v_newjitstate2, v_boxes2]
         for greenvar in orig_key_v:
-            greenvar2 = flowmodel.Variable(greenvar)
-            greenvar2.concretetype = greenvar.concretetype
-            read_boxes_block_vars.append(greenvar2)
+            read_boxes_block_vars.append(copyvar(None, greenvar))
 
         read_boxes_block = flowmodel.Block(read_boxes_block_vars)
         to_read_boxes_block = flowmodel.Link([v_newjitstate, v_boxes] + orig_key_v, read_boxes_block)
@@ -462,12 +447,7 @@ class HintTimeshift(object):
         def introduce(v):
             if isinstance(v, flowmodel.Variable):
                 if v not in renamemap:
-                    vprime = renamemap[v] = flowmodel.Variable(v)
-                    try:
-                        self.hannotator.bindings[vprime] = self.hannotator.bindings[v]
-                    except KeyError:
-                        pass
-                    vprime.concretetype = v.concretetype
+                    vprime = renamemap[v] = copyvar(self.hannotator, v)
                     inargs.append(v)
 
         orig_v_jitstate = block.inputargs[0]
@@ -475,9 +455,8 @@ class HintTimeshift(object):
 
         newlinks = []
 
-        v_newjitstate = flowmodel.Variable('jitstate')
+        v_newjitstate = varoftype(self.r_JITState.lowleveltype, 'jitstate')
         self.hannotator.bindings[v_newjitstate] = self.s_JITState
-        v_newjitstate.concretetype = self.r_JITState.lowleveltype
 
         def rename_on_link(v):
             if v is orig_v_jitstate:
@@ -562,8 +541,7 @@ class HintTimeshift(object):
         llops = HintLowLevelOpList(self, None)
 
 
-        v_returnbuilder = flowmodel.Variable('builder')
-        v_returnbuilder.concretetype = self.r_ResidualGraphBuilder.lowleveltype
+        v_returnbuilder = varoftype(self.r_ResidualGraphBuilder.lowleveltype, 'builder')
         returnblock = flowmodel.Block([v_returnbuilder])
         returnblock.operations = ()
         self.graph.returnblock = returnblock
@@ -578,8 +556,7 @@ class HintTimeshift(object):
         dispatchblock.operations = list(llops)
 
         dispatch_to = self.dispatch_to
-        v_jitstate2 = flowmodel.Variable('jitstate')
-        v_jitstate2.concretetype = self.r_JITState.lowleveltype
+        v_jitstate2 = varoftype(self.r_JITState.lowleveltype, 'jitstate')
         prepare_return_block = flowmodel.Block([v_jitstate2])
         prepare_return_link = flowmodel.Link([v_jitstate], prepare_return_block)
         dispatch_to.append(('default', prepare_return_link))
@@ -616,8 +593,7 @@ class HintTimeshift(object):
 
     def getjitstate(self, block):
         if block not in self.block2jitstate:
-            v_jitstate = flowmodel.Variable('jitstate')
-            v_jitstate.concretetype = self.r_JITState.lowleveltype
+            v_jitstate = varoftype(self.r_JITState.lowleveltype, 'jitstate')
             self.block2jitstate[block] = v_jitstate
         return self.block2jitstate[block]
 
