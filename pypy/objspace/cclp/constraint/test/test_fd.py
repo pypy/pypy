@@ -19,8 +19,7 @@ class AppTest_FiniteDomain(object):
         
     def test_remove_all_values(self):
         fd = FiniteDomain([3])
-        # FIXME: check this is a ConsistencyFailure
-        raises(Exception, fd.remove_value, 3) 
+        raises(ConsistencyError, fd.remove_value, 3) 
         
     def test_remove_values(self):
         fd = FiniteDomain([1, 2, 3])

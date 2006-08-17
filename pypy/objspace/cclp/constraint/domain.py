@@ -54,6 +54,13 @@ class W_FiniteDomain(W_AbstractDomain):
         """
         for w_v in w_values.wrappeditems:
             self._space.setitem(self._values, w_v, self._space.w_True)
+
+    def w_remove_value(self, w_value):
+        try:
+            self.remove_value(w_value)
+        except ConsistencyError:
+            raise OperationError(self._space.w_ConsistencyError,
+                                 self._space.wrap("tried to empty a domain"))
         
     def remove_value(self, w_value):
         """Remove value of domain and check for consistency"""
@@ -135,7 +142,7 @@ all_mms['intersection'] = intersection_mm
 W_FiniteDomain.typedef = typedef.TypeDef(
     "W_FiniteDomain",
     W_AbstractDomain.typedef,
-    remove_value = interp2app(W_FiniteDomain.remove_value),
+    remove_value = interp2app(W_FiniteDomain.w_remove_value),
     remove_values = interp2app(W_FiniteDomain.w_remove_values),
     get_values = interp2app(W_FiniteDomain.w_get_values),
     __eq__ = interp2app(W_FiniteDomain.__eq__),

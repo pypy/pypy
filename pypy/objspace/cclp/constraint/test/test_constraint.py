@@ -14,8 +14,6 @@ class AppTest_AllDistinct(object):
         variables = cstr.affected_variables()
         assert variables is not None
         assert len(variables) == 2
-        assert cstr.knows_var(v1)
-        assert cstr.knows_var(v2)
 
     def test_revise(self):
         def in_space():
