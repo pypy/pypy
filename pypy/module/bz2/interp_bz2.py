@@ -671,7 +671,7 @@ class _BZ2File(Wrappable):
                 break
             lines.append(line)
         
-        return self.space.newtuple(lines)
+        return self.space.newlist([self.space.wrap(i) for i in lines])
     readlines.unwrap_spec = ['self', int]
     
     def write(self, data):
