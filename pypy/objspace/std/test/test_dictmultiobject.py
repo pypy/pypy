@@ -2,7 +2,7 @@ import autopath
 from pypy.objspace.std.dictmultiobject import \
      W_DictMultiObject, setitem__DictMulti_ANY_ANY, getitem__DictMulti_ANY, \
      EmptyDictImplementation, RDictImplementation, StrDictImplementation, \
-     SmallDictImplementation, SmallStrDictImplementation
+     SmallDictImplementation, SmallStrDictImplementation, MeasuringDictImplementation
 from pypy.conftest import gettestobjspace
 from pypy.objspace.std.test import test_dictobject
 
@@ -21,6 +21,9 @@ class FakeSpace(test_dictobject.FakeSpace):
 
     def wrap(self, obj):
         return obj
+
+    def isinstance(self, obj, klass):
+        return isinstance(obj, klass)
 
 class TestDictImplementation:
     def setup_method(self,method):
@@ -42,11 +45,13 @@ class TestDictImplementation:
 
 class TestRDictImplementation:
     ImplementionClass = RDictImplementation
+    DevolvedClass = RDictImplementation
+    EmptyClass = EmptyDictImplementation
 
     def setup_method(self,method):
         self.space = FakeSpace()
-        self.space.emptydictimpl = EmptyDictImplementation(self.space)
         self.space.DictObjectCls = W_DictMultiObject
+        self.space.emptydictimpl = EmptyDictImplementation(self.space)
         self.string = self.space.str_w("fish")
         self.string2 = self.space.str_w("fish2")
         self.impl = self.get_impl()
@@ -64,7 +69,7 @@ class TestRDictImplementation:
         newimpl =  self.impl.delitem(self.string)
         assert newimpl is self.impl
         newimpl = self.impl.delitem(self.string2)
-        assert newimpl is self.space.emptydictimpl
+        assert isinstance(newimpl, self.EmptyClass)
 
     def test_keys(self):
         self.impl.setitem(self.string, 1000)
@@ -92,7 +97,7 @@ class TestRDictImplementation:
         for x in xrange(100):
             impl = impl.setitem(self.space.str_w(str(x)), x)
             impl = impl.setitem(x, x)
-        assert isinstance(impl, RDictImplementation)
+        assert isinstance(impl, self.DevolvedClass)
 
 class TestStrDictImplementation(TestRDictImplementation):
     ImplementionClass = StrDictImplementation
@@ -106,9 +111,13 @@ class TestSmallDictImplementation(TestRDictImplementation):
     def get_impl(self):
         return self.ImplementionClass(self.space, self.string, self.string2)
 
+class TestMeasuringDictImplementation(TestRDictImplementation):
+    ImplementionClass = MeasuringDictImplementation
+    DevolvedClass = MeasuringDictImplementation
+    EmptyClass = MeasuringDictImplementation
+
 class TestSmallStrDictImplementation(TestRDictImplementation):
     ImplementionClass = SmallStrDictImplementation
 
     def get_impl(self):
         return self.ImplementionClass(self.space, self.string, self.string2)
-

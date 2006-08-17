@@ -214,18 +214,18 @@ class SmallStrDictImplementation(DictImplementation):
         return self.setitem_str(w_key, w_value)
     
     def setitem_str(self, w_key, w_value):
-        print w_key, w_value
-        if self.valid == 4:
-            return self._convert_to_sdict(w_key, w_value)
         entry = self._lookup(self.space.str_w(w_key))
         if entry.w_value is None:
+            if self.valid == 4:
+                return self._convert_to_sdict(w_key, w_value)
             self.valid += 1
         entry.w_value = w_value
         return self
 
     def delitem(self, w_key):
         space = self.space
-        if space.is_w(space.type(w_key), space.w_str):
+        w_key_type = space.type(w_key)
+        if space.is_w(w_key_type, space.w_str):
             entry = self._lookup(space.str_w(w_key))
             if entry.w_value is not None:
                 for i in range(self.entries.index(entry), self.valid):
@@ -238,7 +238,7 @@ class SmallStrDictImplementation(DictImplementation):
                 return self
             else:
                 raise KeyError
-        elif self._is_sane_hash(space.type(w_key)):
+        elif self._is_sane_hash(w_key_type):
             raise KeyError
         else:
             return self._convert_to_rdict().delitem(w_key)
@@ -271,51 +271,12 @@ class SmallStrDictImplementation(DictImplementation):
         return [(self.space.wrap(e.key), e.w_value)
                 for e in [self.entries[i] for i in range(self.valid)]]
 
-class RDictImplementation(DictImplementation):
-    def __init__(self, space):
-        self.space = space
-        self.content = r_dict(space.eq_w, space.hash_w)
-
-    def __repr__(self):
-        return "%s<%s>" % (self.__class__.__name__, self.content)
-        
-    def setitem(self, w_key, w_value):
-        self.content[w_key] = w_value
-        return self
-    setitem_str = setitem
-    def delitem(self, w_key):
-        del self.content[w_key]
-        if self.content:
-            return self
-        else:
-            return self.space.emptydictimpl
-        
-    def length(self):
-        return len(self.content)
-    def get(self, w_lookup):
-        return self.content.get(w_lookup, None)
-
-    def iteritems(self):
-        return self.content.iteritems()
-    def iterkeys(self):
-        return self.content.iterkeys()
-    def itervalues(self):
-        return self.content.itervalues()
-
-    def keys(self):
-        return self.content.keys()
-    def values(self):
-        return self.content.values()
-    def items(self):
-        return self.content.items()
-
 class StrDictImplementation(DictImplementation):
     def __init__(self, space, w_key, w_value):
         self.space = space
         self.content = {space.str_w(w_key): w_value}
         
     def setitem(self, w_key, w_value):
-        print 's', w_key, w_value
         space = self.space
         if space.is_w(space.type(w_key), space.w_str):
             self.content[space.str_w(w_key)] = w_value
@@ -329,13 +290,14 @@ class StrDictImplementation(DictImplementation):
 
     def delitem(self, w_key):
         space = self.space
-        if space.is_w(space.type(w_key), space.w_str):
+        w_key_type = space.type(w_key)
+        if space.is_w(w_key_type, space.w_str):
             del self.content[space.str_w(w_key)]
             if self.content:
                 return self
             else:
                 return space.emptydictimpl
-        elif self._is_sane_hash(space.type(w_key)):
+        elif self._is_sane_hash(w_key_type):
             raise KeyError
         else:
             return self._as_rdict().delitem(w_key)
@@ -389,6 +351,43 @@ class StrDictImplementation(DictImplementation):
             newimpl.setitem(self.space.wrap(k), w_v)
         return newimpl
 
+class RDictImplementation(DictImplementation):
+    def __init__(self, space):
+        self.space = space
+        self.content = r_dict(space.eq_w, space.hash_w)
+
+    def __repr__(self):
+        return "%s<%s>" % (self.__class__.__name__, self.content)
+        
+    def setitem(self, w_key, w_value):
+        self.content[w_key] = w_value
+        return self
+    setitem_str = setitem
+    def delitem(self, w_key):
+        del self.content[w_key]
+        if self.content:
+            return self
+        else:
+            return self.space.emptydictimpl
+        
+    def length(self):
+        return len(self.content)
+    def get(self, w_lookup):
+        return self.content.get(w_lookup, None)
+
+    def iteritems(self):
+        return self.content.iteritems()
+    def iterkeys(self):
+        return self.content.iterkeys()
+    def itervalues(self):
+        return self.content.itervalues()
+
+    def keys(self):
+        return self.content.keys()
+    def values(self):
+        return self.content.values()
+    def items(self):
+        return self.content.items()
 
 import time, py
 
@@ -482,7 +481,7 @@ class MeasuringDictImplementation(DictImplementation):
         self.content[w_key] = w_value
         self.info.maxcontents = max(self.info.maxcontents, len(self.content))
         return self
-    def setitem(self, w_key, w_value):
+    def setitem_str(self, w_key, w_value):
         self.info.setitem_strs += 1
         return self.setitem(w_key, w_value)
     def delitem(self, w_key):
@@ -499,10 +498,10 @@ class MeasuringDictImplementation(DictImplementation):
     def length(self):
         self.info.lengths += 1
         return len(self.content)
-    def get(self, w_lookup, w_default):
+    def get(self, w_lookup):
         self.info.gets += 1
         self._read(w_lookup)
-        return self.content.get(w_lookup, w_default)
+        return self.content.get(w_lookup, None)
 
     def iteritems(self):
         self.info.iteritems += 1
