@@ -36,7 +36,7 @@ def sieve(space, n):
     while 1:
         first = lst[head]
         if first > math.sqrt(n) + 1:
-            lst_w = [space.newint(i) for i in range(n)]
+            lst_w = [space.newint(i) for i in lst]
             return space.newlist(lst_w)
         newlst = []
         for element in lst:
