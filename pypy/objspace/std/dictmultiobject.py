@@ -113,13 +113,15 @@ class SmallDictImplementation(DictImplementation):
         return newimpl
 
     def setitem(self, w_key, w_value):
-        if self.valid == 4:
-            return self._convert_to_rdict().setitem(w_key, w_value)
         entry = self._lookup(w_key)
         if entry.w_value is None:
+            if self.valid == 4:
+                return self._convert_to_rdict().setitem(w_key, w_value)
             self.valid += 1
         entry.w_value = w_value
         return self
+
+    setitem_str = setitem
 
     def delitem(self, w_key):
         entry = self._lookup(w_key)

@@ -63,6 +63,10 @@ class TestRDictImplementation:
         assert self.impl.setitem(self.string, 1000) is self.impl
         assert self.impl.get(self.string) == 1000
 
+    def test_setitem_str(self):
+        assert self.impl.setitem_str(self.string, 1000) is self.impl
+        assert self.impl.get(self.string) == 1000
+
     def test_delitem(self):
         self.impl.setitem(self.string, 1000)
         self.impl.setitem(self.string2, 2000)
@@ -89,6 +93,27 @@ class TestRDictImplementation:
         self.impl.setitem(self.string, 1000)
         self.impl.setitem(self.string2, 2000)
         items = self.impl.items()
+        items.sort()
+        assert items == zip([self.string, self.string2], [1000, 2000])
+
+    def test_iterkeys(self):
+        self.impl.setitem(self.string, 1000)
+        self.impl.setitem(self.string2, 2000)
+        keys = list(self.impl.iterkeys())
+        keys.sort()
+        assert keys == [self.string, self.string2]
+
+    def test_itervalues(self):
+        self.impl.setitem(self.string, 1000)
+        self.impl.setitem(self.string2, 2000)
+        values = list(self.impl.itervalues())
+        values.sort()
+        assert values == [1000, 2000]
+
+    def test_iteritems(self):
+        self.impl.setitem(self.string, 1000)
+        self.impl.setitem(self.string2, 2000)
+        items = list(self.impl.iteritems())
         items.sort()
         assert items == zip([self.string, self.string2], [1000, 2000])
 
