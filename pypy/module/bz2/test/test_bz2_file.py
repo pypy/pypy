@@ -288,7 +288,7 @@ class AppTestBZ2File:
         
         bz2f = BZ2File("foo")
         sio = StringIO(self.TEXT)
-        assert list(bz2f.get_iterator()) == sio.readlines()
+        assert list(bz2f.__iter__()) == sio.readlines()
         bz2f.close()
 
     def test_xreadlines(self):

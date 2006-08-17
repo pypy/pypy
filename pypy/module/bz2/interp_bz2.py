@@ -227,7 +227,7 @@ def _univ_newline_read(bzerror, stream, buf, n, obj):
         
         if shortread:
             # if this is EOF, update type flags.
-            if skipnextlf and (bzerror == BZ_STREAM_END):
+            if skipnextlf and (bzerror.value == BZ_STREAM_END):
                 newlinetypes |= NEWLINE_CR
             break
     
@@ -294,7 +294,7 @@ def _getline(space, obj, size):
                 buf_lst.append(ch.value)
                 buf_pos += 1
                 
-                if not (bzerror == BZ_OK and ch.value != '\n' and buf_pos != end_pos):
+                if not (bzerror.value == BZ_OK and ch.value != '\n' and buf_pos != end_pos):
                     break
         
         obj.f_newlinetypes = newlinetypes
@@ -461,7 +461,7 @@ class _BZ2File(Wrappable):
         if bzerror.value != BZ_OK:
             return _catch_bz2_error(self.space, bzerror.value)
         
-        return ret
+        return self.space.wrap(ret)
     close.unwrap_spec = ['self']
     
     def tell(self):
@@ -687,7 +687,7 @@ class _BZ2File(Wrappable):
         self.pos += bufsize
         
         if bzerror.value != BZ_OK:
-            _catch_bz2_error(self.space, bzerror)
+            _catch_bz2_error(self.space, bzerror.value)
     write.unwrap_spec = ['self', str]
     
     def writelines(self, w_sequence_of_strings):
@@ -709,33 +709,36 @@ class _BZ2File(Wrappable):
         elif self.f_newlinetypes == NEWLINE_LF:
             return space.wrap('\n')
         elif self.f_newlinetypes == NEWLINE_CR|NEWLINE_LF:
-            return space.wrap(('\r', '\n'))
+            return space.newtuple([space.wrap('\r'), space.wrap('\n')])
         elif self.f_newlinetypes == NEWLINE_CRLF:
             return space.wrap("\r\n")
         elif self.f_newlinetypes == NEWLINE_CR|NEWLINE_CRLF:
-            return space.wrap(('\r', "\r\n"))
+            return space.newtuple([space.wrap('\r'), space.wrap("\r\n")])
         elif self.f_newlinetypes == NEWLINE_LF|NEWLINE_CRLF:
-            return space.wrap(('\n', "\r\n"))
+            return space.newtuple([space.wrap('\n'), space.wrap("\r\n")])
         elif self.f_newlinetypes == NEWLINE_CR|NEWLINE_LF|NEWLINE_CRLF:
-            return space.wrap(('\r', '\n', "\r\n"))
+            return space.newtuple([space.wrap('\r'), space.wrap('\n'),
+                                   space.wrap("\r\n")])
         else:
             raise OperationError(space.w_SystemError,
                 space.wrap(
-                    "Unknown newlines value 0x%d\n" % hex(self.f_newlinetypes)))
+                    "Unknown newlines value 0x%s\n" % hex(self.f_newlinetypes)))
     
     def fget_closed(space, self):
         return space.wrap(self.mode == MODE_CLOSED)
     
-    # XXX: I have to hack-in this UGLY thing because there's no support of
-    # special methods outside so I can't use the iterator protocol (no __iter__)
-    # next() method is not implemented, it's useless right now
-    # XXX no 2: unwrap() is the evil itself! XXX
-    def get_iterator(self):
-        w_lines = self.readlines()
-        lines = self.space.unwrap(w_lines)
-        return self.space.wrap(iter(lines))
-    get_iterator.unwrap_spec = ['self']
+    def next(self):
+        space = self.space
+        w_line = self.readline()
+        if space.int_w(space.len(w_line)) == 0: # EOF
+            raise OperationError(space.w_StopIteration, space.w_None)
+        return w_line
+    next.unwrap_spec = ['self']
 
+    def __iter__(self):
+        return self.space.wrap(self)
+    __iter__.unwrap_spec = ['self']
+    
     def xreadlines(self):
         """xreadlines() -> self
 
@@ -743,7 +746,7 @@ class _BZ2File(Wrappable):
         optimizations previously implemented in the xreadlines module."""
         
         # this method should use the iterator protocol one day...
-        return self.get_iterator()
+        return self.space.wrap(self)
     xreadlines.unwrap_spec = ['self']
 
 
@@ -758,8 +761,8 @@ _BZ2File.typedef = TypeDef("_BZ2File",
     readlines = interp2app(_BZ2File.readlines,
         unwrap_spec=_BZ2File.readlines.unwrap_spec),
     read = interp2app(_BZ2File.read, unwrap_spec=_BZ2File.read.unwrap_spec),
-    get_iterator = interp2app(_BZ2File.get_iterator,
-        unwrap_spec=_BZ2File.get_iterator.unwrap_spec),
+    __iter__ = interp2app(_BZ2File.__iter__),
+    next = interp2app(_BZ2File.next),
     xreadlines = interp2app(_BZ2File.xreadlines,
         unwrap_spec=_BZ2File.xreadlines.unwrap_spec),
     write = interp2app(_BZ2File.write, unwrap_spec=_BZ2File.write.unwrap_spec),
@@ -1126,7 +1129,7 @@ def BZ2Compressor(space, compresslevel=9):
     compress() function instead. The compresslevel parameter, if given,
     must be a number between 1 and 9."""
     
-    return _BZ2Comp(space, compresslevel)
+    return space.wrap(_BZ2Comp(space, compresslevel))
 BZ2Compressor.unwrap_spec = [ObjSpace, int]
 
 def BZ2Decompressor(space):
@@ -1136,7 +1139,7 @@ def BZ2Decompressor(space):
     data sequentially. If you want to decompress data in one shot, use the
     decompress() function instead."""
     
-    return _BZ2Decomp(space)
+    return space.wrap(_BZ2Decomp(space))
 BZ2Decompressor.unwrap_spec = [ObjSpace]
 
 def BZ2File(space, filename, mode='r', buffering=-1, compresslevel=9):
@@ -1155,6 +1158,6 @@ def BZ2File(space, filename, mode='r', buffering=-1, compresslevel=9):
     '\\r\\n' or a tuple containing all the newline types seen. Universal
     newlines are available only when reading."""
 
-    return _BZ2File(space, filename, mode, buffering, compresslevel)
+    return space.wrap(_BZ2File(space, filename, mode, buffering, compresslevel))
 BZ2File.unwrap_spec = [ObjSpace, str, str, int, int]
 
