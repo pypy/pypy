@@ -106,8 +106,11 @@ pythonapi.PyFile_AsFile.restype = POINTER(FILE)
 pythonapi.PyMem_Free.argtypes = [c_char_p]
 pythonapi.PyMem_Free.restype = c_void
 
+# the least but one parameter should be c_void_p but it's not used
+# so I trick the compiler to not complaint about constanst pointer passed
+# to void* arg
 libbz2.BZ2_bzReadOpen.argtypes = [POINTER(c_int), POINTER(FILE), c_int,
-    c_int, c_void_p, c_int]
+    c_int, POINTER(c_int), c_int]
 libbz2.BZ2_bzReadOpen.restype = POINTER(BZFILE)
 libbz2.BZ2_bzWriteOpen.argtypes = [POINTER(c_int), POINTER(FILE), c_int,
     c_int, c_int]
@@ -177,7 +180,8 @@ def _univ_newline_read(bzerror, stream, buf, n, obj):
     dst = buf
     
     if not obj.f_univ_newline:
-        nread = libbz2.BZ2_bzRead(byref(bzerror), stream, buf, n)
+        buf_p = cast(buf, POINTER(c_char))
+        nread = libbz2.BZ2_bzRead(byref(bzerror), stream, buf_p, n)
         return nread, buf
         
     newlinetypes = obj.f_newlinetypes
@@ -188,7 +192,8 @@ def _univ_newline_read(bzerror, stream, buf, n, obj):
     while n:
         src = dst
         
-        nread = libbz2.BZ2_bzRead(byref(bzerror), stream, buf, n)
+        buf_p = cast(buf, POINTER(c_char))
+        nread = libbz2.BZ2_bzRead(byref(bzerror), stream, buf_p, n)
         n -= nread # assuming 1 byte out for each in; will adjust
         shortread = n != 0 # True iff EOF or error
         
@@ -327,7 +332,8 @@ def _getline(space, obj, size):
     
     used_v_size = buf_pos
     if used_v_size != total_v_size:
-        return "".join(buf_lst[:used_v_size])
+        assert used_v_size >= 0
+        return "".join(buf_lst[0:used_v_size])
     return "".join(buf_lst)
 
 def _new_buffer_size(current_size):
@@ -410,8 +416,9 @@ class _BZ2File(Wrappable):
         
         bzerror = c_int()
         if mode_char == 'r':
+            x = c_int() # little trick for null former c_void_p argument
             self.fp = libbz2.BZ2_bzReadOpen(byref(bzerror), self._file,
-                0, 0, c_void_p(), 0)
+                0, 0, byref(x), 0)
         else:
             self.fp = libbz2.BZ2_bzWriteOpen(byref(bzerror), self._file,
                 compresslevel, 0, 0)
@@ -641,10 +648,8 @@ class _BZ2File(Wrappable):
         
         buf_lst = [c for c in buf.value]
         if bytesread != bufsize:
-            start = 0
             assert bytesread >= 0
-            assert start >= 0
-            return self.space.wrap("".join(buf_lst[start:bytesread]))
+            return self.space.wrap("".join(buf_lst[0:bytesread]))
         return self.space.wrap("".join(buf_lst))
     read.unwrap_spec = ['self', int]
     
