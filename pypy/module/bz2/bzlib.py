@@ -65,6 +65,7 @@ __sbuf._fields_ = [
     ('_base', POINTER(c_ubyte)),
     ('_size', c_int),
 ]
+__sbuf.__name__ = "__sbuf__"
 assert sizeof(__sbuf) == 8, sizeof(__sbuf)
 assert alignment(__sbuf) == 4, alignment(__sbuf)
 class __sFILEX(Structure):
@@ -95,6 +96,7 @@ __sFILE._fields_ = [
     ('_blksize', c_int),
     ('_offset', fpos_t),
 ]
+__sFILE.__name__ = "__sFILE__"
 assert sizeof(__sFILE) == 88, sizeof(__sFILE)
 assert alignment(__sFILE) == 4, alignment(__sFILE)
 FILE = __sFILE

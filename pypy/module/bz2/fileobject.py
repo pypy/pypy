@@ -107,6 +107,7 @@ __sbuf._fields_ = [
     ('_base', POINTER(c_ubyte)),
     ('_size', c_int),
 ]
+__sbuf.__name__ = "__sbuf_"
 assert sizeof(__sbuf) == 8, sizeof(__sbuf)
 assert alignment(__sbuf) == 4, alignment(__sbuf)
 class __sFILEX(Structure):
@@ -137,6 +138,7 @@ __sFILE._fields_ = [
     ('_blksize', c_int),
     ('_offset', fpos_t),
 ]
+__sFILE.__name__ = "__sFILE_"
 assert sizeof(__sFILE) == 88, sizeof(__sFILE)
 assert alignment(__sFILE) == 4, alignment(__sFILE)
 FILE = __sFILE
@@ -684,6 +686,7 @@ class _typeobject(Structure):
     pass
 class _object(Structure):
     pass
+_object.__name__ = "_object_"
 PyObject = _object
 PyFileObject._fields_ = [
     ('ob_refcnt', Py_ssize_t),
@@ -848,12 +851,15 @@ allocfunc = CFUNCTYPE(POINTER(PyObject), POINTER(_typeobject), c_long)
 class PyMethodDef(Structure):
     pass
 PyMethodDef._fields_ = []
+PyMethodDef.__name__ = "PyMethodDef_"
 class PyMemberDef(Structure):
     pass
 PyMemberDef._fields_ = []
+PyMemberDef.__name__ = "PyMemberDef_"
 class PyGetSetDef(Structure):
     pass
 PyGetSetDef._fields_ = []
+PyGetSetDef.__name__ = "PyGetSetDef_"
 _typeobject._fields_ = [
     ('ob_refcnt', Py_ssize_t),
     ('ob_type', POINTER(_typeobject)),
@@ -904,6 +910,7 @@ _typeobject._fields_ = [
     ('tp_weaklist', POINTER(PyObject)),
     ('tp_del', destructor),
 ]
+_typeobject.__name__ = "_typeobject_"
 assert sizeof(_typeobject) == 192, sizeof(_typeobject)
 assert alignment(_typeobject) == 4, alignment(_typeobject)
 PyTypeObject = _typeobject

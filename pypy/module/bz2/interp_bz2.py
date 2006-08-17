@@ -24,6 +24,9 @@ class CConfig:
     #include <sys/types.h>
     #include <bzlib.h>
     """
+    # XXX: with this it should compile fine but on my machine pypy doesn't
+    # inject this header so it's pretty useless. Kept as a remind.
+    # _includes_ = ["bzlib.h"]
     off_t = ctypes_platform.SimpleType("off_t", c_longlong)
     size_t = ctypes_platform.SimpleType("size_t", c_ulong)
     BUFSIZ = ctypes_platform.ConstantInteger("BUFSIZ")
