@@ -749,9 +749,8 @@ class _BZ2File(Wrappable):
 
         For backward compatibility. BZ2File objects now include the performance
         optimizations previously implemented in the xreadlines module."""
-        
-        # this method should use the iterator protocol one day...
-        return self.space.wrap(self)
+
+        return self.__iter__()
     xreadlines.unwrap_spec = ['self']
 
 

@@ -281,16 +281,15 @@ class AppTestBZ2File:
         bz2f.close()
 
     def test_iterator(self):
-        # XXX: to fix when the actual iterator protocol will be available
         from bz2 import BZ2File
         from cStringIO import StringIO
         self.create_temp_file()
         
         bz2f = BZ2File("foo")
         sio = StringIO(self.TEXT)
-        assert list(bz2f.__iter__()) == sio.readlines()
+        assert list(iter(bz2f)) == sio.readlines()
         bz2f.close()
-
+        
     def test_xreadlines(self):
         from bz2 import BZ2File
         from cStringIO import StringIO
