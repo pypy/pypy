@@ -204,7 +204,14 @@ class AbstractConst(object):
         self.cts = db.type_system_class(db)
         self.depends = set()
         self.depends_on = set()
-    
+
+    def __hash__(self):
+        return hash(self.get_key())
+
+    def __eq__(self, other):
+        return (other.__class__ is self.__class__ and
+                other.get_key() == self.get_key())
+
     def __ne__(self, other):
         return not (self == other)
     
@@ -259,11 +266,8 @@ class InstanceConst(AbstractConst):
             self.static_type = static_type
             self.cts.lltype_to_cts(obj._TYPE) # force scheduling of obj's class
 
-    def __hash__(self):
-        return hash(self.obj)
-
-    def __eq__(self, other):
-        return self.obj == other.obj
+    def get_key(self):
+        return self.obj
 
     def get_name(self):
         return self.obj._TYPE._name.replace('.', '_')
@@ -334,11 +338,8 @@ class RecordConst(AbstractConst):
                 self.depends.add(name)
                 name.depends_on.add(self)
     
-    def __hash__(self):
-        return hash(self.const)
-    
-    def __eq__(self, other):
-        return self.const == other.const
+    def get_key(self):
+        return self.const
 
     def init_fields(self, ilasm, const_var, name):
         if not self.const:
@@ -373,11 +374,8 @@ class ListConst(AbstractConst):
                 self.depends.add(name)
                 name.depends_on.add(self)
         
-    def __hash__(self):
-        return hash(self.const)
-    
-    def __eq__(self, other):
-        return self.const == other.const
+    def get_key(self):
+        return self.const
 
     def init_fields(self, ilasm, const_var, name):
         #import pdb;pdb.set_trace()
@@ -396,11 +394,8 @@ class StringConst(AbstractConst):
     def get_name(self):
         return "const_str"
 
-    def __hash__(self):
-        return hash(self.const._str)
-    
-    def __eq__(self, other):
-        return self.const._str == other.const._str
+    def get_key(self):
+        return self.const._str
 
     def init(self, ilasm):
         s = self.const._str
@@ -416,11 +411,8 @@ class BuiltinConst(AbstractConst):
     def __init__(self, name):
         self.name = name
     
-    def __hash__(self):
-        return hash(self.name)
-    
-    def __eq__(self, other):
-        return self.name == other.name
+    def get_key(self):
+        return self.name
     
     def get_name(self):
         return self.name
@@ -468,11 +460,8 @@ class ExtObject(AbstractConst):
         self.depends = set()
         self.depends_on = set()
     
-    def __eq__(self, other):
-        return self.name == other.name
-    
-    def __hash__(self):
-        return hash(self.name)
+    def get_key(self):
+        return self.name
     
     def get_name(self):
         return self.const._TYPE._name.split('.')[-1][:-2]
