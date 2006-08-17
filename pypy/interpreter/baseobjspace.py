@@ -386,7 +386,6 @@ class ObjSpace(object):
         return self.int_w(self.hash(w_obj))
 
     def set_str_keyed_item(self, w_obj, w_key, w_value):
-        w_strkey = self.wrap(self.str_w(w_key)) # Force the key to a space.w_str
         return self.setitem(w_obj, w_strkey, w_value)
     
     def finditem(self, w_obj, w_key):
