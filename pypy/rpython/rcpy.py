@@ -127,7 +127,15 @@ def attach_cpy_flavor(classdef, cpytype):
 
 
 PyObjPtr = lltype.Ptr(lltype.PyObject)
-
+PyNumberMethods = lltype.Struct('PyNumberMethods',
+    ('data', lltype.FixedSizeArray(lltype.Signed, 38))
+)
+PyMappingMethods = lltype.Struct('PyMappingMethods',
+    ('data', lltype.FixedSizeArray(lltype.Signed, 3))
+)
+PySequenceMethods = lltype.Struct('PySequenceMethods',
+    ('data', lltype.FixedSizeArray(lltype.Signed, 10))
+)
 PY_TYPE_OBJECT = lltype.PyForwardReference()
 PY_TYPE_OBJECT.become(lltype.PyStruct(
     'PyTypeObject',
@@ -143,9 +151,9 @@ PY_TYPE_OBJECT.become(lltype.PyStruct(
     ('c_tp_setattr',   lltype.Signed),   # in
     ('c_tp_compare',   lltype.Signed),
     ('c_tp_repr',      lltype.Signed),   # progress
-    ('c_tp_as_number', lltype.Signed),
-    ('c_tp_as_sequence',lltype.Signed),
-    ('c_tp_as_mapping',lltype.Signed),
+    ('c_tp_as_number', lltype.Ptr(PyNumberMethods)),
+    ('c_tp_as_sequence',lltype.Ptr(PySequenceMethods)),
+    ('c_tp_as_mapping',lltype.Ptr(PyMappingMethods)),
     ('c_tp_hash',      lltype.Signed),
     ('c_tp_call',      lltype.Signed),
     ('c_tp_str',       lltype.Signed),
@@ -234,10 +242,14 @@ def build_pytypeobject(r_inst):
         p[len(name)] = '\x00'
         pytypeobj.c_tp_name = lltype.direct_arrayitems(p)
         pytypeobj.c_tp_basicsize = llmemory.sizeof(r_inst.lowleveltype.TO)
-        pytypeobj.c_tp_flags = CDefinedIntSymbolic('Py_TPFLAGS_DEFAULT')
+        pytypeobj.c_tp_flags = CDefinedIntSymbolic('''(Py_TPFLAGS_DEFAULT |
+            Py_TPFLAGS_CHECKTYPES)''')
         pytypeobj.c_tp_new = rtyper.type_system.getcallable(tp_new_graph)
         pytypeobj.c_tp_dealloc = rtyper.annotate_helper_fn(ll_tp_dealloc,
                                                            [PyObjPtr])
+        pytypeobj.c_tp_as_number = lltype.malloc(PyNumberMethods, immortal=True)
+        pytypeobj.c_tp_as_sequence = lltype.malloc(PySequenceMethods, immortal=True)
+        pytypeobj.c_tp_as_mapping = lltype.malloc(PyMappingMethods, immortal=True)
         result =  lltype.cast_pointer(PyObjPtr, pytypeobj)
 
         # the llsetup function that will store the 'objects' into the

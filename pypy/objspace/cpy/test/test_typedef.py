@@ -27,7 +27,6 @@ class W_MyType(Wrappable):
     def fset_x(space, self, w_value):
         self.x = space.int_w(w_value)
 
-
 def test_direct():
     W_MyType.typedef = TypeDef("MyType")
     space = CPyObjSpace()
@@ -147,6 +146,21 @@ def test_method():
     res = fn(expected_extra_mallocs=1)
     assert type(res).__name__ == 'MyType'
     assert res.multiply(3) == 369
+
+def test_special_method():
+    W_MyType.typedef = TypeDef("MyType",
+                               __mul__ = interp2app(W_MyType.multiply))
+    space = CPyObjSpace()
+    assert space.int_w(W_MyType(space, 6).multiply(space.wrap(7))) == 42
+
+    def make_mytype():
+        return space.wrap(W_MyType(space, 123))
+    fn = compile(make_mytype, [],
+                 annotatorpolicy = CPyAnnotatorPolicy(space))
+
+    res = fn(expected_extra_mallocs=1)
+    assert type(res).__name__ == 'MyType'
+    assert res * 3 == 369
 
 
 def test_interp_attrproperty():
