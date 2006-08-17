@@ -8,7 +8,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import Function
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.rpython.rarithmetic import r_uint, r_longlong, r_ulonglong
-from pypy.rpython.objectmodel import we_are_translated
+from pypy.rpython.objectmodel import we_are_translated, instantiate
 
 
 class CPyObjSpace(baseobjspace.ObjSpace):
@@ -114,6 +114,16 @@ class CPyObjSpace(baseobjspace.ObjSpace):
             return w_res
         else:
             return None
+
+    def allocate_instance(self, cls, w_subtype):
+        if we_are_translated():
+            from pypy.objspace.cpy.typedef import cpython_allocate
+            obj = cpython_allocate(cls, w_subtype)
+        else:
+            assert self.is_w(self.gettypefor(cls), w_subtype)
+            obj = object.__new__(cls)
+        return self.wrap(obj)
+        
 
     # __________ operations with a direct CPython equivalent __________
 

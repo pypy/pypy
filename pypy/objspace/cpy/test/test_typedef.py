@@ -292,6 +292,67 @@ def test_with_new():
     assert type(res).__name__ == 'MyType'
     assert res.x == 42
 
+def test_with_new_with_allocate_instance():
+    def mytype_new(space, w_subtype, x):
+        w_obj = space.allocate_instance(W_MyType, w_subtype)
+        W_MyType.__init__(space.interp_w(W_MyType, w_obj), space, x)
+        return w_obj
+    mytype_new.unwrap_spec = [ObjSpace, W_Root, int]
+
+    W_MyType.typedef = TypeDef("MyType",
+                               __new__ = interp2app(mytype_new),
+                               x = interp_attrproperty("x", W_MyType))
+    space = CPyObjSpace()
+
+    def build():
+        w_type = space.gettypefor(W_MyType)
+        return space.call_function(w_type, space.wrap(42))
+
+    w_obj = build()
+    w_name = space.getattr(space.type(w_obj), space.wrap('__name__'))
+    assert space.unwrap(w_name) == 'MyType'
+    assert space.int_w(space.getattr(w_obj, space.wrap('x'))) == 42
+
+    fn = compile(build, [],
+                 annotatorpolicy = CPyAnnotatorPolicy(space))
+    res = fn(expected_extra_mallocs=1)
+    assert type(res).__name__ == 'MyType'
+    assert res.x == 42
+
+def test_with_new_with_allocate_instance_subclass():
+    py.test.skip("dealloction for now segfaults")
+    def mytype_new(space, w_subtype, x):
+        w_obj = space.allocate_instance(W_MyType, w_subtype)
+        W_MyType.__init__(space.interp_w(W_MyType, w_obj), space, x)
+        return w_obj
+    mytype_new.unwrap_spec = [ObjSpace, W_Root, int]
+
+    W_MyType.typedef = TypeDef("MyType",
+                               __new__ = interp2app(mytype_new),
+                               x = interp_attrproperty("x", W_MyType))
+    space = CPyObjSpace()
+
+    def build():
+        w_type = space.gettypefor(W_MyType)
+        return space.call_function(w_type, space.wrap(42))
+
+    fn = compile(build, [],
+                 annotatorpolicy = CPyAnnotatorPolicy(space))
+    res = fn(expected_extra_mallocs=1)
+    assert type(res).__name__ == 'MyType'
+    assert res.x == 42
+
+    class MyType2(type(res)):
+        pass
+
+    res2 = MyType2(42)
+    assert type(res2) is MyType2
+    assert res2.x == 42
+
+    del res2
+    import gc
+    gc.collect()
+
 def test_prebuilt_type():
     def mytype_new(space, w_subtype, x):
         return space.wrap(W_MyType(space, x))

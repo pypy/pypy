@@ -10,7 +10,7 @@ from pypy.interpreter.function import Function
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.rpython.objectmodel import we_are_translated
 from pypy.rpython.rcpy import CPyTypeInterface, cpy_export, cpy_import
-from pypy.rpython.rcpy import cpy_typeobject, rpython_object
+from pypy.rpython.rcpy import cpy_typeobject, rpython_object, cpy_allocate
 from pypy.rpython.rcpy import init_rpython_data, get_rpython_data
 from pypy.rpython.lltypesystem import lltype
 
@@ -76,6 +76,11 @@ def cpython2rpython(space, RequiredClass, w_obj):
 cpython2rpython._annspecialcase_ = 'specialize:arg(1)'
 cpython2rpython.allow_someobjects = True
 
+def cpython_allocate(cls, w_subtype):
+    return cpy_allocate(cls, w_subtype.value)
+cpython_allocate._annspecialcase_ = 'specialize:arg(0)'
+cpython_allocate.allow_someobjects = True
+
 # ____________________________________________________________
 
 class TypeDefCache(SpaceCache):
@@ -97,7 +102,7 @@ class TypeDefCache(SpaceCache):
             #        typedef.name, name))
             w_value = space.wrap(value)
             objects[name] = lltype.pyobjectptr(w_value.value)
-        typeintf = CPyTypeInterface(typedef.name, objects)
+        typeintf = CPyTypeInterface(typedef.name, objects, typedef.acceptable_as_base_class)
         return typeintf
 
     def wraptypeintf(cache, cls, typeintf):

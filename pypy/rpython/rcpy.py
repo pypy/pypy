@@ -8,7 +8,7 @@ from pypy.objspace.flow.model import FunctionGraph, Block, Link
 
 class CPyTypeInterface(object):
 
-    def __init__(self, name, objects={}):
+    def __init__(self, name, objects={}, subclassable=False):
 
         # the exported name of the type
         self.name = name
@@ -16,6 +16,7 @@ class CPyTypeInterface(object):
         # a dict {name: pyobjectptr()} for general class attributes
         # (not for special methods!)
         self.objects = objects.copy()
+        self.subclassable = subclassable
 
     def _freeze_(self):
         return True
@@ -39,6 +40,9 @@ def cpy_import(rpytype, obj):
     raise NotImplementedError("only works in translated versions")
 
 def cpy_typeobject(cpytype, cls):
+    raise NotImplementedError("only works in translated versions")
+
+def cpy_allocate(cls, cpytype):
     raise NotImplementedError("only works in translated versions")
 
 
@@ -114,6 +118,26 @@ class Entry(ExtRegistryEntry):
         r_inst = getinstancerepr(hop.rtyper, classdef)
         cpytype = build_pytypeobject(r_inst)
         return hop.inputconst(PyObjPtr, cpytype)
+
+class Entry(ExtRegistryEntry):
+    _about_ = cpy_allocate
+
+    def compute_result_annotation(self, s_cls, s_cpytype):
+        from pypy.annotation.model import SomeObject, SomeInstance
+        assert s_cls.is_constant()
+        [classdesc] = s_cls.descriptions
+        classdef = classdesc.getuniqueclassdef()        
+        return SomeInstance(classdef)
+
+    def specialize_call(self, hop):
+        from pypy.rpython.rclass import getinstancerepr
+        s_cls = hop.args_s[0]
+        assert s_cls.is_constant()
+        [classdesc] = s_cls.descriptions
+        classdef = classdesc.getuniqueclassdef()
+        r_inst = getinstancerepr(hop.rtyper, classdef)
+        vinst = r_inst.new_instance(hop.llops, v_cpytype = hop.args_v[1])
+        return vinst
 
 
 def attach_cpy_flavor(classdef, cpytype):
@@ -218,6 +242,7 @@ def build_pytypeobject(r_inst):
         from pypy.rpython.rtyper import LowLevelOpList
         typetype = lltype.pyobjectptr(type)
 
+        # XXX default tp_new should go away
         # make the graph of tp_new manually    
         v1 = Variable('tp');   v1.concretetype = lltype.Ptr(PY_TYPE_OBJECT)
         v2 = Variable('args'); v2.concretetype = PyObjPtr
@@ -242,8 +267,12 @@ def build_pytypeobject(r_inst):
         p[len(name)] = '\x00'
         pytypeobj.c_tp_name = lltype.direct_arrayitems(p)
         pytypeobj.c_tp_basicsize = llmemory.sizeof(r_inst.lowleveltype.TO)
-        pytypeobj.c_tp_flags = CDefinedIntSymbolic('''(Py_TPFLAGS_DEFAULT |
-            Py_TPFLAGS_CHECKTYPES)''')
+        if cpytype.subclassablei and False: # XXX deallocation of subclass object segfaults!
+            pytypeobj.c_tp_flags = CDefinedIntSymbolic('''(Py_TPFLAGS_DEFAULT |
+                Py_TPFLAGS_CHECKTYPES | Py_TPFLAGS_BASETYPE)''')
+        else:
+            pytypeobj.c_tp_flags = CDefinedIntSymbolic('''(Py_TPFLAGS_DEFAULT |
+                Py_TPFLAGS_CHECKTYPES)''')
         pytypeobj.c_tp_new = rtyper.type_system.getcallable(tp_new_graph)
         pytypeobj.c_tp_dealloc = rtyper.annotate_helper_fn(ll_tp_dealloc,
                                                            [PyObjPtr])
