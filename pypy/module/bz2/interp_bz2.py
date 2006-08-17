@@ -117,7 +117,7 @@ libbz2.BZ2_bzReadClose.restype = c_void
 libbz2.BZ2_bzWriteClose.argtypes = [POINTER(c_int), POINTER(BZFILE),
     c_int, POINTER(c_uint), POINTER(c_uint)]
 libbz2.BZ2_bzWriteClose.restype = c_void
-libbz2.BZ2_bzRead.argtypes = [POINTER(c_int), POINTER(BZFILE), c_char_p, c_int]
+libbz2.BZ2_bzRead.argtypes = [POINTER(c_int), POINTER(BZFILE), POINTER(c_char), c_int]
 libbz2.BZ2_bzRead.restype = c_int
 libbz2.BZ2_bzWrite.argtypes = [POINTER(c_int), POINTER(BZFILE), c_char_p, c_int]
 libbz2.BZ2_bzWrite.restype = c_void
@@ -183,6 +183,8 @@ def _univ_newline_read(bzerror, stream, buf, n, obj):
     newlinetypes = obj.f_newlinetypes
     skipnextlf = obj.f_skipnextlf
     
+    dst_lst = []
+    src_pos = dst_pos = 0
     while n:
         src = dst
         
@@ -191,9 +193,9 @@ def _univ_newline_read(bzerror, stream, buf, n, obj):
         shortread = n != 0 # True iff EOF or error
         
         # needed to operate with "pointers"
-        src_lst = list(src.value)
+        src_lst = [c for c in src.value]
         src_pos = 0
-        dst_lst = list(dst.value)
+        dst_lst = [c for c in dst.value]
         dst_pos = 0
         while nread:
             nread -= 1
@@ -236,8 +238,8 @@ def _univ_newline_read(bzerror, stream, buf, n, obj):
     
     data = "".join(dst_lst)
     buf = create_string_buffer(len(data))
-    for i, ch in enumerate(data):
-        buf[i] = ch
+    for i in range(len(data)):
+        buf[i] = data[i]
     
     return dst_pos, buf
     
@@ -637,9 +639,12 @@ class _BZ2File(Wrappable):
             else:
                 break
         
-        buf_lst = list(buf.value)
+        buf_lst = [c for c in buf.value]
         if bytesread != bufsize:
-            return self.space.wrap("".join(buf_lst[:bytesread]))
+            start = 0
+            assert bytesread >= 0
+            assert start >= 0
+            return self.space.wrap("".join(buf_lst[start:bytesread]))
         return self.space.wrap("".join(buf_lst))
     read.unwrap_spec = ['self', int]
     
@@ -703,7 +708,7 @@ class _BZ2File(Wrappable):
     # accessors for properties
     def fget_newlines(space, self):
         if self.f_newlinetypes == NEWLINE_UNKNOWN:
-            return space.wrap(None)
+            return space.w_None
         elif self.f_newlinetypes == NEWLINE_CR:
             return space.wrap('\r')
         elif self.f_newlinetypes == NEWLINE_LF:
