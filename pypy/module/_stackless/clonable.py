@@ -48,22 +48,6 @@ class ClonableCoroutine(InterpClonableCoroutine):
             ec = self.space.getexecutioncontext()
             ec.subcontext_leave(self)
 
-    def w_clone(self):
-        if not we_are_translated():
-            raise NotImplementedError
-        if ClonableCoroutine.w_getcurrent(self.space) is self:
-            raise RuntimeError("clone() cannot clone the current coroutine; "
-                               "use fork() instead")
-        if self.local_pool is None:   # force it now
-            self.local_pool = gc_swap_pool(gc_swap_pool(None))
-        # cannot gc_clone() directly self, because it is not in its own
-        # local_pool.  Moreover, it has a __del__, which cloning doesn't
-        # support properly at the moment.
-        copy = ClonableCoroutine(self.space, costate=self.costate)
-        copy.parent = self.parent
-        copy.frame, copy.local_pool = gc_clone(self.frame, self.local_pool)
-        return copy
-
         
     def w_getcurrent(space):
         return space.wrap(ClonableCoroutine._get_state(space).current)
@@ -243,7 +227,6 @@ ClonableCoroutine.typedef = TypeDef("clonable",
     __new__ = interp2app(ClonableCoroutine.descr_method__new__.im_func),
     _framestack = GetSetProperty(w_descr__framestack),
     getcurrent = interp2app(ClonableCoroutine.w_getcurrent),
-    clone = interp2app(ClonableCoroutine.w_clone),
     __reduce__   = interp2app(ClonableCoroutine.descr__reduce__,
                               unwrap_spec=['self', ObjSpace]),
     __setstate__ = interp2app(ClonableCoroutine.descr__setstate__,
