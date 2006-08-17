@@ -242,15 +242,18 @@ def build_pytypeobject(r_inst):
 
         # the llsetup function that will store the 'objects' into the
         # type's tp_dict
+        Py_TPFLAGS_HEAPTYPE = CDefinedIntSymbolic('Py_TPFLAGS_HEAPTYPE')
         if cpytype.objects:
             objects = [(lltype.pyobjectptr(name), value)
-                       for name, value in cpytype.objects.items()]
+                       for name, value in cpytype.objects.items() if name != '__new__']
 
             def ll_type_setup(p):
                 tp = lltype.cast_pointer(lltype.Ptr(PY_TYPE_OBJECT), p)
-                tp_dict = tp.c_tp_dict
+                old_flags = tp.c_tp_flags
+                tp.c_tp_flags |= Py_TPFLAGS_HEAPTYPE
                 for name, value in objects:
-                    llop.setitem(PyObjPtr, tp_dict, name, value)
+                    llop.setattr(PyObjPtr, tp, name, value)
+                tp.c_tp_flags = old_flags
             result._obj.setup_fnptr = rtyper.annotate_helper_fn(ll_type_setup,
                                                                 [PyObjPtr])
 

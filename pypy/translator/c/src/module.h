@@ -121,7 +121,7 @@ static int setup_globalobjects(globalobjectdef_t* globtable,
 		*def->p = obj;   /* store the object ref in the global var */
 	}
 	/* All objects should be valid at this point.  Loop again and
-	   make sure all types are ready, and call the user-defined setups.
+	   make sure all types are ready.
 	*/
 	for (cpydef = cpyheadtable; cpydef->name != NULL; cpydef++) {
 		obj = cpydef->cpyobj;
@@ -131,6 +131,11 @@ static int setup_globalobjects(globalobjectdef_t* globtable,
 			if (PyType_Ready((PyTypeObject*) obj) < 0)
 				return -1;
 		}
+        }
+        /* call the user-defined setups *after* all types are ready
+         * in case of dependencies */
+	for (cpydef = cpyheadtable; cpydef->name != NULL; cpydef++) {
+		obj = cpydef->cpyobj;
 		if (cpydef->setupfn) {
 			cpydef->setupfn(obj);
 			if (RPyExceptionOccurred()) {
