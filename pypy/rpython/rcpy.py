@@ -152,14 +152,11 @@ def attach_cpy_flavor(classdef, cpytype):
 
 PyObjPtr = lltype.Ptr(lltype.PyObject)
 PyNumberMethods = lltype.Struct('PyNumberMethods',
-    ('data', lltype.FixedSizeArray(lltype.Signed, 38))
-)
+    hints={'c_name': 'PyNumberMethods', 'external': True, 'typedef': True})
 PyMappingMethods = lltype.Struct('PyMappingMethods',
-    ('data', lltype.FixedSizeArray(lltype.Signed, 3))
-)
+    hints={'c_name': 'PyMappingMethods', 'external': True, 'typedef': True})
 PySequenceMethods = lltype.Struct('PySequenceMethods',
-    ('data', lltype.FixedSizeArray(lltype.Signed, 10))
-)
+    hints={'c_name': 'PySequenceMethods', 'external': True, 'typedef': True})
 PY_TYPE_OBJECT = lltype.PyForwardReference()
 PY_TYPE_OBJECT.become(lltype.PyStruct(
     'PyTypeObject',
@@ -213,7 +210,7 @@ PY_TYPE_OBJECT.become(lltype.PyStruct(
                        #lltype.Ptr(lltype.FuncType([llmemory.Address],
                        #                           lltype.Void))),
 
-    hints={'c_name': '_typeobject', 'external': True, 'inline_head': True}))
+    hints={'c_name': 'PyTypeObject', 'external': True, 'typedef': True, 'inline_head': True}))
 # XXX 'c_name' should be 'PyTypeObject' but genc inserts 'struct' :-(
 
 def ll_tp_dealloc(p):

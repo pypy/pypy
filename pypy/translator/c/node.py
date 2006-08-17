@@ -52,6 +52,9 @@ class StructDefNode:
         if STRUCT._hints.get('union'):
             self.typetag = 'union'
             assert STRUCT._gckind == 'raw'   # not supported: "GcUnion"
+        if STRUCT._hints.get('typedef'):
+            self.typetag = ''
+            assert STRUCT._hints.get('external')
         if STRUCT._hints.get('c_name'):
             self.barename = self.name = STRUCT._hints['c_name']
             self.c_struct_field_name = self.verbatim_field_name
