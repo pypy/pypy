@@ -3,7 +3,7 @@ import os
 from pypy.translator.stackless.transform import StacklessTransformer, FrameTyper
 from pypy.translator.c.genc import CStandaloneBuilder
 from pypy.translator.c import gc
-from pypy.rpython.memory.gctransform import varoftype
+from pypy.translator.unsimplify import varoftype
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython import llinterp, rstack
 from pypy.translator.translator import TranslationContext, graphof

@@ -1,3 +1,4 @@
+from pypy.translator.unsimplify import varoftype
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.backendopt.support import \
      needs_conservative_livevar_calculation, split_block_with_keepalive, \
@@ -9,11 +10,6 @@ from pypy.objspace.flow import model
 
 NonGcB = lltype.Struct("B", ('x', lltype.Signed))
 GcA = lltype.GcStruct("A", ('b', NonGcB), ('c', lltype.Ptr(lltype.FuncType([], lltype.Void))))
-
-def varoftype(concretetype):
-    var = model.Variable()
-    var.concretetype = concretetype
-    return var
 
 def test_nclc_should_be_true():
     # this is testing a block like:

@@ -3,6 +3,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop, LL_OPERATIONS
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant, \
      c_last_exception, FunctionGraph, Block, Link, checkgraph
+from pypy.translator.unsimplify import varoftype
 from pypy.translator.unsimplify import insert_empty_block
 from pypy.translator.unsimplify import insert_empty_startblock
 from pypy.translator.unsimplify import starts_with_empty_block
@@ -648,11 +649,6 @@ def ll_deallocator(addr):
         return [SpaceOperation("direct_call", [cdealloc_fptr,
                                                v_addr],
                                varoftype(lltype.Void))]
-
-def varoftype(concretetype):
-    var = Variable()
-    var.concretetype = concretetype
-    return var
 
 def find_gc_ptrs_in_type(TYPE):
     if isinstance(TYPE, lltype.Array):

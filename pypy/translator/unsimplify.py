@@ -10,6 +10,11 @@ def copyvar(annotator, v):
         newvar.concretetype = v.concretetype
     return newvar
 
+def varoftype(concretetype, name=None):
+    var = Variable(name)
+    var.concretetype = concretetype
+    return var
+
 def insert_empty_block(annotator, link, newops=[]):
     """Insert and return a new block along the given link."""
     vars = {}

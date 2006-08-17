@@ -1,12 +1,11 @@
 from pypy.translator.simplify import join_blocks, cleanup_graph
-from pypy.translator.unsimplify import copyvar
+from pypy.translator.unsimplify import copyvar, varoftype
 from pypy.translator.backendopt import canraise, inline, support, removenoops
 from pypy.objspace.flow.model import Block, Constant, Variable, Link, \
     c_last_exception, SpaceOperation, checkgraph, FunctionGraph
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem import lloperation
 from pypy.rpython.memory.lladdress import NULL
-from pypy.rpython.memory.gctransform import varoftype
 from pypy.rpython import rtyper
 from pypy.rpython import rclass
 from pypy.rpython.rarithmetic import r_uint, r_longlong, r_ulonglong

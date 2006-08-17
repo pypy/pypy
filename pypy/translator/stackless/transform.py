@@ -3,8 +3,8 @@ from pypy.rpython.lltypesystem.lloperation import LL_OPERATIONS
 from pypy.rpython import rarithmetic, rclass, rmodel
 from pypy.translator.backendopt import support
 from pypy.objspace.flow import model
-from pypy.rpython.memory.gctransform import varoftype
 from pypy.translator import unsimplify, simplify
+from pypy.translator.unsimplify import varoftype
 from pypy.annotation import model as annmodel
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.translator.stackless import code, frame
