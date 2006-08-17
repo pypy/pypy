@@ -32,7 +32,7 @@ class StringBufRepr(CTypesRefRepr):
     def rtype_setattr(self, hop):
         s_attr = hop.args_s[1]
         assert s_attr.is_constant()
-        assert s_attr.const == 'value'
+        assert s_attr.const in ('value', 'raw')
         v_box, v_attr, v_value = hop.inputargs(self, lltype.Void, string_repr)
         hop.gendirectcall(ll_stringbuf_setvalue_from_string, v_box, v_value)
 

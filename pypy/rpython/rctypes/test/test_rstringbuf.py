@@ -142,6 +142,8 @@ class Test_specialization:
             assert buf.value == 'abcde'
             buf.value = 'x'
             assert buf.value == 'x'
+            buf.raw = 'y'
+            assert buf.value == 'y'
             return ord(buf[2])
 
         res = interpret(func, [12])
