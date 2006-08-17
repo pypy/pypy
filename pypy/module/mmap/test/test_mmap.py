@@ -306,7 +306,7 @@ class AppTestMMap:
         f.flush()
 
         m = mmap(f.fileno(), 6)
-        assert m.get_len() == 6
+        assert len(m) == 6
         m.close()
         f.close()
      
@@ -318,12 +318,12 @@ class AppTestMMap:
         f.flush()
         
         m = mmap(f.fileno(), 6)
-        fn = lambda: m.get_item("foo")
+        fn = lambda: m["foo"]
         raises(TypeError, fn)
-        fn = lambda: m.get_item(-7)
+        fn = lambda: m[-7]
         raises(IndexError, fn)
-        assert m.get_item(0) == 'f'
-        assert m.get_item(-1) == 'r'
+        assert m[0] == 'f'
+        assert m[-1] == 'r'
         # sl = slice(1, 2)
         # assert m.get_item(sl) == 'o'
         m.close()
@@ -337,14 +337,14 @@ class AppTestMMap:
         f.flush()
 
         m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_READ)
-        fn = lambda: m.set_item(1, 'a')
+        def fn(): m[1] = 'a'
         raises(TypeError, fn)
         m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_WRITE)
-        fn = lambda: m.set_item("foo", 'a')
+        def fn(): m["foo"] = 'a'
         raises(TypeError, fn)
-        fn = lambda: m.set_item(-7, 'a')
+        def fn(): m[-7] = 'a'
         raises(IndexError, fn)
-        fn = lambda: m.set_item(0, 'ab')
+        def fn(): m[0] = 'ab'
         raises(IndexError, fn)
         # def f(m): m[1:3] = u'xx'
         # py.test.raises(IndexError, f, m)
@@ -356,9 +356,9 @@ class AppTestMMap:
         # m[1:3] = 'xx'
         # assert m.read(6) == "fxxbar"
         # m.seek(0)
-        m.set_item(0, 'x')
-        assert m.get_item(0) == 'x'
-        m.set_item(-6, 'y')
+        m[0] = 'x'
+        assert m[0] == 'x'
+        m[-6] = 'y'
         data = m.read(6)
         assert data == "yoobar" # yxxbar with slice's stuff
         m.close()
@@ -372,11 +372,11 @@ class AppTestMMap:
         f.flush()
         
         m = mmap(f.fileno(), 6)
-        fn = lambda: m.del_item("foo")
+        def fn(): del m["foo"]
         raises(TypeError, fn)
         # def f(m): del m[1:3]
         # py.test.raises(TypeError, f, m)
-        fn = lambda: m.del_item(1)
+        def fn(): del m[1]
         raises(TypeError, fn)
         m.close()
         f.close()
@@ -389,12 +389,12 @@ class AppTestMMap:
         f.flush()
         
         m = mmap(f.fileno(), 6)
-        fn = lambda: m.add(1)
+        def fn(): m + 1
         raises(SystemError, fn)
-        # def f(m): m += 1
-        # py.test.raises(SystemError, f, m)
-        # f = lambda: 1 + m
-        # py.test.raises(TypeError, f)
+        def fn(m): m += 1
+        raises(SystemError, fn, m)
+        def fn(): 1 + m
+        raises(TypeError, fn)
         m.close()
         f.close()
 
@@ -406,13 +406,12 @@ class AppTestMMap:
         f.flush()
         
         m = mmap(f.fileno(), 6)
-        fn = lambda: m.mul(1)
+        def fn(): m * 1
         raises(SystemError, fn)
-        # def f(m):
-        #     m *= 1
-        # py.test.raises(SystemError, f, m)
-        # f = lambda: 1 * m
-        # py.test.raises(TypeError, f)
+        def fn(m): m *= 1
+        raises(SystemError, fn, m)
+        def fn(): 1 * m
+        raises(TypeError, fn)
         m.close()
         f.close()
 #         
@@ -442,16 +441,16 @@ class AppTestMMap:
     
         # sanity checks
         assert m.find("foo") == PAGESIZE
-        assert m.get_len() == 2 * PAGESIZE
-        assert m.get_item(0) == '\0'
+        assert len(m) == 2 * PAGESIZE
+        assert m[0] == '\0'
         # assert m[0:3] == '\0\0\0'
     
         # modify the file's content
-        m.set_item(0, '3')
+        m[0] = '3'
         # m[PAGESIZE+3:PAGESIZE+3+3] = 'bar'
     
         # check that the modification worked
-        assert m.get_item(0) == '3'
+        assert m[0] == '3'
         # assert m[0:3] == '3\0\0'
         # assert m[PAGESIZE-1:PAGESIZE+7] == '\0foobar\0'
 
@@ -463,17 +462,17 @@ class AppTestMMap:
         m.seek(42, 1)
         assert m.tell() == 42
         m.seek(0, 2)
-        assert m.tell() == m.get_len()
+        assert m.tell() == len(m)
         
         raises(ValueError, m.seek, -1)
         raises(ValueError, m.seek, 1, 2)
-        raises(ValueError, m.seek, -m.get_len() - 1, 2)
+        raises(ValueError, m.seek, -len(m) - 1, 2)
         
         # try resizing map
         if not (("darwin" in sys.platform) or ("freebsd" in sys.platform)):
             m.resize(512)
         
-            assert m.get_len() == 512
+            assert len(m) == 512
             raises(ValueError, m.seek, 513, 0)
             
             # check that the underlying file is truncated too
@@ -494,7 +493,7 @@ class AppTestMMap:
         # assert m[:] == 'a' * mapsize
         # def f(m): m[:] = 'b' * mapsize
         # py.test.raises(TypeError, f, m)
-        fn = lambda: m.set_item(0, 'b')
+        def fn(): m[0] = 'b'
         raises(TypeError, fn)
         def fn(m): m.seek(0, 0); m.write("abc")
         raises(TypeError, fn, m)
@@ -586,7 +585,7 @@ class AppTestMMap:
         f.close()
         f = open(filename, "rb+")
         m = mmap.mmap(f.fileno(), 0)
-        assert m.get_len() == 2**16
+        assert len(m) == 2**16
         assert m.read(2**16) == 2**16 * "m"
         m.close()
         f.close()

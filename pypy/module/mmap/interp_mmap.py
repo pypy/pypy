@@ -511,15 +511,13 @@ class _mmap(Wrappable):
         #     raise WinError(dwErrCode)
     resize.unwrap_spec = ['self', int]
     
-    ## XXX: The following is a series of "special" methods turned into regular
-    # because the ext compiler does not support __xx__ methods right now.
-    def get_len(self):
+    def __len__(self):
         self._check_valid()
         
         return self.space.wrap(self._size)
-    get_len.unwrap_spec = ['self']
+    __len__.unwrap_spec = ['self']
     
-    def get_item(self, index):
+    def __getitem__(self, index):
         self._check_valid()
 
         # XXX this does not support slice() instances
@@ -529,9 +527,9 @@ class _mmap(Wrappable):
         except IndexError:
             raise OperationError(self.space.w_IndexError,
                 self.space.wrap("mmap index out of range"))
-    get_item.unwrap_spec = ['self', int]
+    __getitem__.unwrap_spec = ['self', int]
     
-    def set_item(self, index, value):
+    def __setitem__(self, index, value):
         self._check_valid()
         self._check_writeable()
         
@@ -553,30 +551,30 @@ class _mmap(Wrappable):
         
         p = c_char_p(str_data)
         libc.memcpy(self._data, p, len(str_data))
-    set_item.unwrap_spec = ['self', int, str]
+    __setitem__.unwrap_spec = ['self', int, str]
     
-    def del_item(self, index):
+    def __delitem__(self, index):
         self._check_valid()
         
         # XXX this does not support slice() instances (does it matter?)
         
         raise OperationError(self.space.w_TypeError,
             self.space.wrap("mmap object doesn't support item deletion"))
-    del_item.unwrap_spec = ['self', int]
+    __delitem__.unwrap_spec = ['self', int]
     
-    def add(self, w_other):
+    def __add__(self, w_other):
         self._check_valid()
         
         raise OperationError(self.space.w_SystemError,
             self.space.wrap("mmaps don't support concatenation"))
-    add.unwrap_spec = ['self', W_Root]
+    __add__.unwrap_spec = ['self', W_Root]
     
-    def mul(self, w_other):
+    def __mul__(self, w_other):
         self._check_valid()
         
         raise OperationError(self.space.w_SystemError,
             self.space.wrap("mmaps don't support repeat operation"))
-    mul.unwrap_spec = ['self', W_Root]
+    __mul__.unwrap_spec = ['self', W_Root]
 
 
 _mmap.typedef = TypeDef("_mmap",
@@ -604,12 +602,15 @@ _mmap.typedef = TypeDef("_mmap",
     move = interp2app(_mmap.move, unwrap_spec=_mmap.move.unwrap_spec),
     resize = interp2app(_mmap.resize, unwrap_spec=_mmap.resize.unwrap_spec),
 
-    get_len = interp2app(_mmap.get_len, unwrap_spec=_mmap.get_len.unwrap_spec),
-    get_item = interp2app(_mmap.get_item, unwrap_spec=_mmap.get_item.unwrap_spec),
-    set_item = interp2app(_mmap.set_item, unwrap_spec=_mmap.set_item.unwrap_spec),
-    del_item = interp2app(_mmap.del_item, unwrap_spec=_mmap.del_item.unwrap_spec),
-    add = interp2app(_mmap.add, unwrap_spec=_mmap.add.unwrap_spec),
-    mul = interp2app(_mmap.mul, unwrap_spec=_mmap.mul.unwrap_spec),
+    __len__ = interp2app(_mmap.__len__, unwrap_spec=_mmap.__len__.unwrap_spec),
+    __getitem__ = interp2app(_mmap.__getitem__,
+        unwrap_spec=_mmap.__getitem__.unwrap_spec),
+    __setitem__ = interp2app(_mmap.__setitem__,
+        unwrap_spec=_mmap.__setitem__.unwrap_spec),
+    __delitem__ = interp2app(_mmap.__delitem__,
+        unwrap_spec=_mmap.__delitem__.unwrap_spec),
+    __add__ = interp2app(_mmap.__add__, unwrap_spec=_mmap.__add__.unwrap_spec),
+    __mul__ = interp2app(_mmap.__mul__, unwrap_spec=_mmap.__mul__.unwrap_spec),
     
 )
 
