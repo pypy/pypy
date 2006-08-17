@@ -267,7 +267,7 @@ def build_pytypeobject(r_inst):
         p[len(name)] = '\x00'
         pytypeobj.c_tp_name = lltype.direct_arrayitems(p)
         pytypeobj.c_tp_basicsize = llmemory.sizeof(r_inst.lowleveltype.TO)
-        if cpytype.subclassablei and False: # XXX deallocation of subclass object segfaults!
+        if cpytype.subclassable and False: # XXX deallocation of subclass object segfaults!
             pytypeobj.c_tp_flags = CDefinedIntSymbolic('''(Py_TPFLAGS_DEFAULT |
                 Py_TPFLAGS_CHECKTYPES | Py_TPFLAGS_BASETYPE)''')
         else:
