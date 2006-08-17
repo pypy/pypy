@@ -664,16 +664,14 @@ class _BZ2File(Wrappable):
         
         # it seems size definitely ignored in CPython, so...
         lines = []
-
         while True:
             w_line = self.readline()
             line = self.space.str_w(w_line)
             if not line:
                 break
-            
             lines.append(line)
         
-        return self.space.wrap(lines)
+        return self.space.newtuple(lines)
     readlines.unwrap_spec = ['self', int]
     
     def write(self, data):
@@ -732,7 +730,7 @@ class _BZ2File(Wrappable):
         else:
             raise OperationError(space.w_SystemError,
                 space.wrap(
-                    "Unknown newlines value 0x%s\n" % hex(self.f_newlinetypes)))
+                    "Unknown newlines value 0x%x" % self.f_newlinetypes))
     
     def fget_closed(space, self):
         return space.wrap(self.mode == MODE_CLOSED)
