@@ -258,6 +258,10 @@ def build_pytypeobject(r_inst):
         if cpytype.objects:
             objects = [(lltype.pyobjectptr(name), value)
                        for name, value in cpytype.objects.items() if name != '__new__']
+            if '__new__' in cpytype.objects:
+                new = cpytype.objects['__new__']._obj.value
+                objects.append((lltype.pyobjectptr('__new__'),
+                                lltype.pyobjectptr(staticmethod(new))))
 
             def ll_type_setup(p):
                 tp = lltype.cast_pointer(lltype.Ptr(PY_TYPE_OBJECT), p)
