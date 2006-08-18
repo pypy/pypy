@@ -586,6 +586,6 @@ def _ssl_seterror(space, ss, ret):
 
 def ssl(space, w_socket, w_key_file=None, w_cert_file=None):
     """ssl(socket, [keyfile, certfile]) -> sslobject"""
-    return new_sslobject(space, w_socket, w_key_file, w_cert_file)
+    return space.wrap(new_sslobject(space, w_socket, w_key_file, w_cert_file))
 ssl.unwrap_spec = [ObjSpace, W_Root, W_Root, W_Root]
 
