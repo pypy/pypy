@@ -90,6 +90,17 @@ class HintTimeshift(object):
         r_instance = self.annhelper.getdelayedrepr(s_instance)
         return s_instance, r_instance
 
+    # creates and numbers reentry_block for block reached by link
+    # argument:
+    #
+    # the reentry_block takes a jitstate and a list of boxes
+    # and explodes the content of boxes into variables for each
+    # link argument;
+    # redboxes are preserved, green values are read out of constant
+    # boxes
+    #
+    # then passes the variables to the target of link
+    #
     def getexitindex(self, link, inputargs, args_r, entering_links):
         self.latestexitindex += 1
         v_jitstate = varoftype(self.r_JITState.lowleveltype, 'jitstate')
@@ -326,6 +337,14 @@ class HintTimeshift(object):
         v_boxes = rlist.newlist(llops, self.r_box_list, type_erased_v)
         return v_boxes
 
+    # insert before non-join blocks a block with:
+    #
+    #     newjitstate = rtimeshift.enter_block(jitstate, boxes)
+    #     where boxes = [current-redboxes]
+    #
+    # then pass the newjitstate (XXX modified?) and boxes
+    # to the block original; boxes are modified in place
+    #
     def bookkeeping_enter_simple(self, args_r, newinputargs, before_block,
                                  llops, v_boxes, is_returnblock=False):
         v_newjitstate = llops.genmixlevelhelpercall(rtimeshift.enter_block,
@@ -339,16 +358,36 @@ class HintTimeshift(object):
         before_block.operations[:] = llops
 
         return None
+
     # insert before join blocks a block with:
-    # key = (<tuple-of-green-values>)
-    # boxes = [<rest-of-redboxes>]
-    # jitstate = ll_retrieve_jitstate_for_merge({}, # <- constant dict (key->...)
-    #                  jitstate, key, boxes)
-    # and which passes then to the original block the possibly new jitstate,
-    # and possible changed redbox read back again out of the 'boxes' list.
-    # ll_retrieve_jitstate_for_merge is supposed to use the "constant" dict as cache
+    #
+    #     newjiststate = merge_point(jitstate, key, boxes)
+    #     where
+    #         key = (current-green-values)       
+    #         boxes = [current-redboxes]
+    #         merge_point = (lambda jitstate, key, boxes:
+    #                        rtimeshift.retrieve_jitstate_for_merge(
+    #                            constant {}, jitstate,
+    #                            key, boxes))
+    #     if newjistate is None then go to dispatch_block(jitstate)
+    #     else go to read_boxes_block(newjiststate, boxes)
+    #
+    # and the other block read_boxes_block which reads the redboxes back out boxes
+    # and pass them along to the original block together with the new jitstate
+    #
+    # for the return block case (which is always considered a join block) the
+    # read_boxes_block is special:
+    #
+    #     rtimeshift.save_return(newjitstate, boxes)
+    #     go to dispatch_block(newjitstate)
+    #
+    # retrieve_jitstate_for_merge is supposed to use the "constant" dict as cache
     # mapping green values combinations to frozen states for red boxes values
     # and generated blocks
+    #
+    # if the newjitstate is None, it means an old state/block could be reused
+    # and execution continues to the dispatch_block
+    #
     def bookkeeping_enter_for_join(self, args_r, newinputargs, before_block,
                                    llops, v_boxes, is_returnblock):
         getrepr = self.rtyper.getrepr        
@@ -436,7 +475,30 @@ class HintTimeshift(object):
         read_boxes_block.closeblock(to_target)
 
         return cache
-        
+
+    # insert after blocks the following logic:
+    # if the original block is the returnblock:
+    #
+    #     go to dispatch_block(jitstate)
+    #
+    # if the original block has just one exit or the exitswitch is green:
+    #
+    #     newjitstate = rtimeshift.leave_block(jitstate)
+    #
+    # if the original block has more than one exit (split case):
+    #
+    #     res = rtimeshift.leave_block_split(jitstate, exitswitchredbox, exitindex, boxes)
+    #     where
+    #         boxes =[boxes-for-all-current-red-and-green-values]
+    #         exitindex = number identifying the false branch of the switch
+    #     if res then go to true_exit_block
+    #     else go to false_exit_block
+    #
+    # exitindex is computed by getexitindex, see comment for that method
+    #
+    # leave_block_split if the exitswitchredbox is constant just returns its value as res
+    # otherwise returns True and schedule the false case
+    #
     def insert_bookkeeping_leave_block(self, block, entering_links):
         # XXX wrong with exceptions as much else
         
@@ -535,6 +597,27 @@ class HintTimeshift(object):
             newblock.exitswitch = v_res
         newblock.operations[:] = llops
 
+    # put the following logic in the dispatch block:
+    #
+    #    boxes = []
+    #    next = rtimeshift.dispatch_next(jitstate, boxes)
+    #    switch next:
+    #    <exitindex>:
+    #        go to reentry_block<exitindex>(jitstate, boxes)
+    #    ...
+    #    default:
+    #        go to prepare_return_block(jitstate)
+    #
+    # the prepare_return_block does:
+    #
+    #     builder = prepare_return(jitstate)
+    #     where
+    #         prepare_return = (lambda jitstate:
+    #                           rtimeshift.prepare_return(jitstate, return_cache,
+    #                                constTYPE(RETURN_TYPE)))
+    #         where return_cache is a predefined cache
+    #     return builder 
+    #
     def insert_dispatch_logic(self):
         dispatchblock = self.dispatchblock
         [v_jitstate] = dispatchblock.inputargs
@@ -600,6 +683,7 @@ class HintTimeshift(object):
     def timeshift_block(self, timeshifted_blocks, entering_links, block):
         blocks = [block]
         i = 0
+        # XXX in-progress, split block at direct_calls for call support 
         while i < len(block.operations):
             op = block.operations[i]
             if op.opname == 'direct_call':
