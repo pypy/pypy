@@ -1,13 +1,13 @@
 from pypy.conftest import gettestobjspace
 import os
 
-if os.name == "nt":
-    from py.test import skip
-    skip("Windows is not supported")
-
 def teardown_module(mod):
-    if os.path.exists("foo"):
-        os.unlink("foo")
+    for p in "abcde":
+        if os.path.exists(p):
+            try:
+                os.unlink(p)
+            except OSError:
+                print "Cannot delete '%s'" % p
 
 class AppTestMMap:
     def setup_class(cls):
@@ -21,16 +21,18 @@ class AppTestMMap:
         
     def test_attributes(self):
         import mmap
+        import os
         assert isinstance(mmap.ACCESS_READ, int)
         assert isinstance(mmap.ACCESS_WRITE, int)
         assert isinstance(mmap.ACCESS_COPY, int)
-        assert isinstance(mmap.MAP_ANON, int)
-        assert isinstance(mmap.MAP_ANONYMOUS, int)
-        assert isinstance(mmap.MAP_PRIVATE, int)
-        assert isinstance(mmap.MAP_SHARED, int)
-        assert isinstance(mmap.PROT_EXEC, int)
-        assert isinstance(mmap.PROT_READ, int)
-        assert isinstance(mmap.PROT_WRITE, int)
+        if os.name == "posix":
+            assert isinstance(mmap.MAP_ANON, int)
+            assert isinstance(mmap.MAP_ANONYMOUS, int)
+            assert isinstance(mmap.MAP_PRIVATE, int)
+            assert isinstance(mmap.MAP_SHARED, int)
+            assert isinstance(mmap.PROT_EXEC, int)
+            assert isinstance(mmap.PROT_READ, int)
+            assert isinstance(mmap.PROT_WRITE, int)
         
         assert mmap.error is EnvironmentError
             
@@ -50,17 +52,19 @@ class AppTestMMap:
             raises(OverflowError, mmap, 0, sys.maxint)
             raises(ValueError, mmap, 0, 1, flags=2, access=3)
             raises(ValueError, mmap, 0, 1, access=123)
-        # elif _MS_WINDOWS:
-        #     py.test.raises(TypeError, mmap, 0, 1, 2, 3, 4)
-        #     py.test.raises(TypeError, mmap, 0, 1, tagname=123)
-        #     py.test.raises(TypeError, mmap, 0, 1, access="foo")
-        #     py.test.raises(ValueError, mmap, 0, 1, access=-1)
+        elif os.name == "nt":
+            raises(TypeError, mmap, 0, 1, 2, 3, 4)
+            raises(TypeError, mmap, 0, 1, tagname=123)
+            raises(TypeError, mmap, 0, 1, access="foo")
+            raises(ValueError, mmap, 0, 1, access=-1)
 
     def test_file_size(self):
-        # if _MS_WINDOWS:
-        #     py.test.skip("Only Unix checks file size")
+        import os
+        if os.name == "nt":
+            skip("Only Unix checks file size")
+
         from mmap import mmap
-        f = open("foo", "w+")
+        f = open("a", "w+")
         
         f.write("c")
         f.flush()
@@ -69,7 +73,7 @@ class AppTestMMap:
 
     def test_mmap_creation(self):
         from mmap import mmap
-        f = open("foo", "w+")
+        f = open("b", "w+")
         
         f.write("c")
         f.flush()
@@ -80,7 +84,7 @@ class AppTestMMap:
 
     def test_close(self):
         from mmap import mmap
-        f = open("foo", "w+")
+        f = open("c", "w+")
         
         f.write("c")
         f.flush()
@@ -90,7 +94,7 @@ class AppTestMMap:
 
     def test_read_byte(self):
         from mmap import mmap
-        f = open("foo", "w+")
+        f = open("d", "w+")
 
         f.write("c")
         f.flush()
@@ -103,7 +107,7 @@ class AppTestMMap:
     def test_readline(self):
         from mmap import mmap
         import os
-        f = open("foo", "w+")
+        f = open("e", "w+")
 
         f.write("foo\n")
         f.flush()

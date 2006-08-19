@@ -15,12 +15,14 @@ class Module(MixedModule):
     
     def buildloaders(cls):
         from pypy.module.mmap import interp_mmap
+        import os
 
         Module.interpleveldefs["PAGESIZE"] = 'space.wrap(%r)' %\
             interp_mmap._get_page_size()
-            
-        for constant, value in interp_mmap.constants.iteritems():
-            Module.interpleveldefs[constant] = "space.wrap(%r)" % value
+         
+        if os.name == "posix":
+            for constant, value in interp_mmap.constants.iteritems():
+                Module.interpleveldefs[constant] = "space.wrap(%r)" % value
         
         super(Module, cls).buildloaders()
     buildloaders = classmethod(buildloaders)

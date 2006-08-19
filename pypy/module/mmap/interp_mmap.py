@@ -18,23 +18,33 @@ _LINUX = "linux" in sys.platform
 _64BIT = "64bit" in platform.architecture()[0]
 
 class CConfig:
-    _header_ = """
-    #include <sys/types.h>
-    #include <sys/mman.h>
-    """
+    _header_ = "#include <sys/types.h>"
     size_t = ctypes_platform.SimpleType("size_t", c_long)
     off_t = ctypes_platform.SimpleType("off_t", c_long)
 
-# constants, look in sys/mman.h and platform docs for the meaning
-# some constants are linux only so they will be correctly exposed outside 
-# depending on the OS
 constants = {}
-constant_names = ['MAP_SHARED', 'MAP_PRIVATE', 'MAP_ANON', 'MAP_ANONYMOUS',
-    'PROT_READ', 'PROT_WRITE', 'PROT_EXEC', 'MAP_DENYWRITE', 'MAP_EXECUTABLE',
-    'MS_SYNC']
-for name in constant_names:
-    setattr(CConfig, name, ctypes_platform.DefinedConstantInteger(name))
-
+if _POSIX:
+    CConfig._header_ = """
+    %s
+    #include <sys/mman.h>""" % CConfig._header_
+    # constants, look in sys/mman.h and platform docs for the meaning
+    # some constants are linux only so they will be correctly exposed outside 
+    # depending on the OS
+    constant_names = ['MAP_SHARED', 'MAP_PRIVATE', 'MAP_ANON', 'MAP_ANONYMOUS',
+                      'PROT_READ', 'PROT_WRITE', 'PROT_EXEC', 'MAP_DENYWRITE', 'MAP_EXECUTABLE',
+                      'MS_SYNC']
+    for name in constant_names:
+        setattr(CConfig, name, ctypes_platform.DefinedConstantInteger(name))
+elif _MS_WINDOWS:
+    CConfig._header_ = """
+    %s
+    #include <windows.h>""" % CConfig._header_
+    constant_names = ['PAGE_READONLY', 'PAGE_READWRITE', 'PAGE_WRITECOPY',
+                      'FILE_MAP_READ', 'FILE_MAP_WRITE', 'FILE_MAP_COPY',
+                      'DUPLICATE_SAME_ACCESS']
+    for name in constant_names:
+        setattr(CConfig, name, ctypes_platform.ConstantInteger(name))
+    
 class cConfig:
     pass
 
@@ -46,12 +56,14 @@ for name in constant_names:
     if value is not None:
         constants[name] = value
 
-# MAP_ANONYMOUS is not always present but it's always available at CPython level
-if cConfig.MAP_ANONYMOUS is None:
-    cConfig.MAP_ANONYMOUS = cConfig.MAP_ANON
-    constants["MAP_ANONYMOUS"] = cConfig.MAP_ANON
+if _POSIX:
+    # MAP_ANONYMOUS is not always present but it's always available at CPython level
+    if cConfig.MAP_ANONYMOUS is None:
+        cConfig.MAP_ANONYMOUS = cConfig.MAP_ANON
+        constants["MAP_ANONYMOUS"] = cConfig.MAP_ANON
 
 locals().update(constants)
+    
 
 _ACCESS_DEFAULT, ACCESS_READ, ACCESS_WRITE, ACCESS_COPY = range(4)
 
@@ -61,123 +73,135 @@ libc.strerror.restype = c_char_p
 libc.strerror.argtypes = [c_int]
 libc.memcpy.argtypes = [POINTER(c_char), c_char_p, c_int]
 libc.memcpy.restype = c_void_p
-libc.mmap.argtypes = [c_void_p, size_t, c_int, c_int, c_int, off_t]
-libc.mmap.restype = c_void_p
-libc.close.argtypes = [c_int]
-libc.close.restype = c_int
-libc.munmap.argtypes = [c_void_p, size_t]
-libc.munmap.restype = c_int
-libc.msync.argtypes = [c_char_p, size_t, c_int]
-libc.msync.restype = c_int
-
-## LINUX msync syscall helper stuff
-# you don't have addressof() in rctypes so I looked up the implementation
-# of addressof in ctypes source and come up with this.
-pythonapi.PyLong_FromVoidPtr.argtypes = [c_char_p]
-pythonapi.PyLong_FromVoidPtr.restype = c_int
-# we also need to alias msync to take a c_void_p instead of c_char_p
-linux_msync = libc["msync"]
-linux_msync.argtypes = [c_void_p, size_t, c_int]
-linux_msync.restype = c_int
-
-libc.memmove.argtypes = [c_char_p, c_char_p, size_t]
-libc.memmove.restype = c_void_p
-has_mremap = False
-if hasattr(libc, "mremap"):
-    libc.mremap.argtypes = [POINTER(c_char), size_t, size_t, c_ulong]
-    libc.mremap.restype = c_void_p
-    has_mremap = True
-libc.ftruncate.argtypes = [c_int, off_t]
-libc.ftruncate.restype = c_int
 
 if _POSIX:
+    libc.mmap.argtypes = [c_void_p, size_t, c_int, c_int, c_int, off_t]
+    libc.mmap.restype = c_void_p
+    libc.close.argtypes = [c_int]
+    libc.close.restype = c_int
+    libc.munmap.argtypes = [c_void_p, size_t]
+    libc.munmap.restype = c_int
+    libc.msync.argtypes = [c_char_p, size_t, c_int]
+    libc.msync.restype = c_int
+
+    ## LINUX msync syscall helper stuff
+    # you don't have addressof() in rctypes so I looked up the implementation
+    # of addressof in ctypes source and come up with this.
+    pythonapi.PyLong_FromVoidPtr.argtypes = [c_char_p]
+    pythonapi.PyLong_FromVoidPtr.restype = c_int
+    # we also need to alias msync to take a c_void_p instead of c_char_p
+    linux_msync = libc["msync"]
+    linux_msync.argtypes = [c_void_p, size_t, c_int]
+    linux_msync.restype = c_int
+    
+    libc.memmove.argtypes = [c_char_p, c_char_p, size_t]
+    libc.memmove.restype = c_void_p
+    has_mremap = False
+    if hasattr(libc, "mremap"):
+        libc.mremap.argtypes = [POINTER(c_char), size_t, size_t, c_ulong]
+        libc.mremap.restype = c_void_p
+        has_mremap = True
+    libc.ftruncate.argtypes = [c_int, off_t]
+    libc.ftruncate.restype = c_int
+
     def _get_page_size():
         return libc.getpagesize()
 
     def _get_error_msg():
         errno = geterrno()
         return libc.strerror(errno)   
-# elif _MS_WINDOWS:
-#     from ctypes import wintypes
-#     _LPVOID = c_void_p
-#     _LPCVOID = _LPVOID
-#     _DWORD_PTR = wintypes.DWORD
-#     _INVALID_HANDLE_VALUE = wintypes.HANDLE(-1).value
-# 
-#     _PAGE_READONLY = 0x02
-#     _PAGE_READWRITE = 0x04
-#     _PAGE_WRITECOPY = 0x08
-# 
-#     _FILE_MAP_READ = 0x0004
-#     _FILE_MAP_WRITE = 0x0002
-#     _FILE_MAP_COPY = 0x0001
-# 
-# 
-#     class _STRUCT(Structure):
-#         _fields_ = [("wProcessorArchitecture", wintypes.WORD),
-#                     ("wReserved", wintypes.WORD)]
-# 
-#     class _UNION(Union):
-#         _fields_ = [("dwOemId", wintypes.DWORD),
-#                     ("struct", _STRUCT)]
-# 
-#     class _SYSTEM_INFO(Structure):
-#         _fields_ = [("union", _UNION),
-#                     ("dwPageSize", wintypes.DWORD),
-#                     ("lpMinimumApplicationAddress", _LPVOID),
-#                     ("lpMaximumApplicationAddress", _LPVOID),
-#                     ("dwActiveProcessorMask", _DWORD_PTR),
-#                     ("dwNumberOfProcessors", wintypes.DWORD),
-#                     ("dwProcessorType", wintypes.DWORD),
-#                     ("dwAllocationGranularity", wintypes.DWORD),
-#                     ("wProcessorLevel", wintypes.WORD),
-#                     ("wProcessorRevision", wintypes.WORD)]
-# 
-#     def _get_page_size():
-#         si = _SYSTEM_INFO()
-#         windll.kernel32.GetSystemInfo.argtypes = [POINTER(_SYSTEM_INFO)]
-#         windll.kernel32.GetSystemInfo(byref(si))
-#         return int(si.dwPageSize)
-#     
-#     def _get_file_size(handle):
-#         windll.kernel32.GetFileSize.restype = wintypes.DWORD
-#         low = wintypes.DWORD()
-#         high = wintypes.DWORD()
-#         low = wintypes.DWORD(windll.kernel32.GetFileSize(handle, byref(high)))
-#         # low might just happen to have the value INVALID_FILE_SIZE
-#         # so we need to check the last error also
-#         INVALID_FILE_SIZE = wintypes.DWORD(0xFFFFFFFF).value
-#         NO_ERROR = 0
-#         dwErr = GetLastError()
-#         if low.value == INVALID_FILE_SIZE and dwErr != NO_ERROR:
-#             raise WinError(dwErr)
-#         return low, high
-# 
-#     def _get_error_msg():
-#         cdll.msvcrt.strerror.restype = c_char_p
-#         msg = cdll.msvcrt.strerror(GetLastError())
-#         return msg
-# 
-#     windll.kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
-#     windll.kernel32.CloseHandle.restype = wintypes.BOOL
+elif _MS_WINDOWS:
+    from ctypes import wintypes
+    
+    WORD = wintypes.WORD
+    DWORD = wintypes.DWORD
+    BOOL = wintypes.BOOL
+    LPVOID = c_void_p
+    LPCVOID = LPVOID
+    DWORD_PTR = DWORD
+    HANDLE = wintypes.HANDLE
+    INVALID_HANDLE_VALUE = HANDLE(-1).value
+    
+    class SYSINFO_STRUCT(Structure):
+        _fields_ = [("wProcessorArchitecture", WORD),
+                    ("wReserved", WORD)]
+
+    class SYSINFO_UNION(Union):
+        _fields_ = [("dwOemId", DWORD),
+                    ("struct", SYSINFO_STRUCT)]
+
+    class SYSTEM_INFO(Structure):
+        _fields_ = [("union", SYSINFO_UNION),
+                    ("dwPageSize", DWORD),
+                    ("lpMinimumApplicationAddress", LPVOID),
+                    ("lpMaximumApplicationAddress", LPVOID),
+                    ("dwActiveProcessorMask", DWORD_PTR),
+                    ("dwNumberOfProcessors", DWORD),
+                    ("dwProcessorType", DWORD),
+                    ("dwAllocationGranularity", DWORD),
+                    ("wProcessorLevel", WORD),
+                    ("wProcessorRevision", WORD)]
+    
+    windll.kernel32.GetSystemInfo.argtypes = [POINTER(SYSTEM_INFO)]
+    windll.kernel32.GetFileSize.restype = DWORD
+    GetCurrentProcess = windll.kernel32.GetCurrentProcess
+    GetCurrentProcess.restype = HANDLE
+    DuplicateHandle = windll.kernel32.DuplicateHandle
+    DuplicateHandle.argtypes = [HANDLE, HANDLE, HANDLE, POINTER(HANDLE), DWORD,
+                                BOOL, DWORD]
+    DuplicateHandle.restype = BOOL
+    CreateFileMapping = windll.kernel32.CreateFileMappingA
+    CreateFileMapping.argtypes = [HANDLE, c_void_p, DWORD, DWORD, DWORD,
+                                  c_char_p]
+    CreateFileMapping.restype = HANDLE
+    MapViewOfFile = windll.kernel32.MapViewOfFile
+    MapViewOfFile.argtypes = [HANDLE, DWORD,  DWORD, DWORD, DWORD]
+    MapViewOfFile.restype = c_void_p
+    CloseHandle = windll.kernel32.CloseHandle
+    CloseHandle.argtypes = [HANDLE]
+    CloseHandle.restype = BOOL
+    UnmapViewOfFile = windll.kernel32.UnmapViewOfFile
+    UnmapViewOfFile.argtypes = [LPCVOID]
+    UnmapViewOfFile.restype = BOOL
+    
+    def _get_page_size():
+        si = SYSTEM_INFO()
+        windll.kernel32.GetSystemInfo(byref(si))
+        return int(si.dwPageSize)
+    
+    def _get_file_size(space, handle):
+        low = DWORD()
+        high = DWORD()
+        low = DWORD(windll.kernel32.GetFileSize(handle, byref(high)))
+        # low might just happen to have the value INVALID_FILE_SIZE
+        # so we need to check the last error also
+        INVALID_FILE_SIZE = DWORD(0xFFFFFFFF).value
+        NO_ERROR = 0
+        dwErr = GetLastError()
+        if low.value == INVALID_FILE_SIZE and dwErr != NO_ERROR:
+            raise OperationError(space.wrap(WinError), space.wrap(dwErr))
+        return low, high
+
+    def _get_error_msg():
+        errno = GetLastError()
+        return libc.strerror(GetLastError())
 
 PAGESIZE = _get_page_size()
 
 class _mmap(Wrappable):
     def __init__(self, space):
         self.space = space
-        #self._data = 
         self._size = 0
         self._pos = 0
         self._access = _ACCESS_DEFAULT
-        self._closed = False
 
-        # if _MS_WINDOWS:
-        #     self._map_handle = wintypes.HANDLE()
-        #     self._file_handle = wintypes.HANDLE()
-        #     self._tagname = None
-        if _POSIX:
+        if _MS_WINDOWS:
+            self._map_handle = wintypes.HANDLE()
+            self._file_handle = wintypes.HANDLE()
+            self._tagname = ""
+        elif _POSIX:
             self._fd = 0
+            self._closed = False
     
     def _to_str(self):
         str = "".join([self._data[i] for i in range(self._size)])
@@ -185,12 +209,13 @@ class _mmap(Wrappable):
     _to_str.unwrap_spec = ['self']
     
     def _check_valid(self):
-        # if _MS_WINDOWS:
-        #     if self._map_handle.value == _INVALID_HANDLE_VALUE:
-        #         raise ValueError, "map closed or invalid"
-        if _POSIX:
-            if self._closed:
-                raise OperationError(self.space.w_ValueError, 
+        if _MS_WINDOWS:
+            to_close = self._map_handle.value == INVALID_HANDLE_VALUE
+        elif _POSIX:
+            to_close = self._closed
+
+        if to_close:
+            raise OperationError(self.space.w_ValueError, 
                     self.space.wrap("map closed or invalid"))
     _check_valid.unwrap_spec = ['self']
     
@@ -208,23 +233,27 @@ class _mmap(Wrappable):
     _check_resizeable.unwrap_spec = ['self']
     
     def close(self):
-        # if _MS_WINDOWS:
-        #     if self._data:
-        #         self._unmapview()
-        #         self._data = None
-        #     if self._map_handle.value != _INVALID_HANDLE_VALUE:
-        #         windll.kernel32.CloseHandle(self._map_handle)
-        #         self._map_handle.value = _INVALID_HANDLE_VALUE
-        #     if self._file_handle.value != _INVALID_HANDLE_VALUE:
-        #         windll.kernel32.CloseHandle(self._file_handle)
-        #         self._file_handle.value = _INVALID_HANDLE_VALUE
-        if _POSIX:
+        if _MS_WINDOWS:
+            if self._data:
+                self._unmapview()
+                self._data = None
+            if self._map_handle.value != INVALID_HANDLE_VALUE:
+                CloseHandle(self._map_handle)
+                self._map_handle.value = INVALID_HANDLE_VALUE
+            if self._file_handle.value != INVALID_HANDLE_VALUE:
+                CloseHandle(self._file_handle)
+                self._file_handle.value = INVALID_HANDLE_VALUE
+        elif _POSIX:
             self._closed = True
             libc.close(self._fd)
             self._fd = -1
             if self._data:
                 libc.munmap(self._data, self._size)
     close.unwrap_spec = ['self']
+    
+    def _unmapview(self):
+        self._data = cast(self._data, c_void_p)
+        UnmapViewOfFile(self._data)
     
     def read_byte(self):
         self._check_valid()
@@ -610,8 +639,7 @@ _mmap.typedef = TypeDef("_mmap",
     __delitem__ = interp2app(_mmap.__delitem__,
         unwrap_spec=_mmap.__delitem__.unwrap_spec),
     __add__ = interp2app(_mmap.__add__, unwrap_spec=_mmap.__add__.unwrap_spec),
-    __mul__ = interp2app(_mmap.__mul__, unwrap_spec=_mmap.__mul__.unwrap_spec),
-    
+    __mul__ = interp2app(_mmap.__mul__, unwrap_spec=_mmap.__mul__.unwrap_spec),   
 )
 
 def _check_map_size(space, size):
@@ -694,147 +722,102 @@ if _POSIX:
 
         return space.wrap(m)
     mmap.unwrap_spec = [ObjSpace, int, int, int, int, int]
-# elif _MS_WINDOWS:
-#     def mmap(fileno, length, *args, **kwargs):
-#         size_hi = wintypes.DWORD() # upper 32 bits of m._size
-#         size_lo = wintypes.DWORD() # lower 32 bits of m._size
-#         tagname = ""
-#         dwErr = wintypes.DWORD(0)
-#         fh = wintypes.HANDLE(0)
-#         access = _ACCESS_DEFAULT
-#         flProtect = wintypes.DWORD()
-#         dwDesiredAccess = wintypes.DWORD()
-#         keywords = ["tagname", "access"]
-#         _check_args(fileno, length, 4, keywords, args, kwargs)
-# 
-#         try:
-#             tagname = args[0]
-#         except IndexError:
-#             try:
-#                 tagname = kwargs[keywords[0]]
-#             except KeyError:
-#                 pass
-#         if not _is_str(tagname) or tagname:
-#                 raise TypeError, "tagname must be string or None"
-# 
-#         try:
-#             access = args[1]
-#         except IndexError:
-#             try:
-#                 access = kwargs[keywords[1]]
-#             except KeyError:
-#                 pass
-#         if not _is_int(access):
-#             raise TypeError, "an integer is required"
-# 
-#         if access == ACCESS_READ:
-#             flProtect = wintypes.DWORD(_PAGE_READONLY)
-#             dwDesiredAccess = wintypes.DWORD(_FILE_MAP_READ)
-#         elif access == _ACCESS_DEFAULT or access == ACCESS_WRITE:
-#             flProtect = wintypes.DWORD(_PAGE_READWRITE)
-#             dwDesiredAccess = wintypes.DWORD(_FILE_MAP_WRITE)
-#         elif access == ACCESS_COPY:
-#             flProtect = wintypes.DWORD(_PAGE_WRITECOPY)
-#             dwDesiredAccess = wintypes.DWORD(_FILE_MAP_COPY)
-#         else:
-#             raise ValueError, "mmap invalid access parameter."
-# 
-#         # check size boundaries
-#         _check_map_size(length)
-#         map_size = length
-# 
-#         # assume -1 and 0 both mean invalid filedescriptor
-#         # to 'anonymously' map memory.
-#         if fileno != -1 and fileno != 0:
-#             fh = cdll.msvcr71._get_osfhandle(fileno)
-#             if fh == -1:
-#                 raise error, _get_error_msg()
-#             # Win9x appears to need us seeked to zero
-#             SEEK_SET = 0
-#             cdll.msvcrt._lseek(fileno, 0, SEEK_SET)
-# 
-#         m = _mmap()
-#         m._file_handle = wintypes.HANDLE(_INVALID_HANDLE_VALUE)
-#         m._map_handle = wintypes.HANDLE(_INVALID_HANDLE_VALUE)
-# 
-#         if fh:
-#             # it is necessary to duplicate the handle, so the
-#             # Python code can close it on us
-#             DUPLICATE_SAME_ACCESS = 0x00000002
-#             GetCurrentProcess = windll.kernel32.GetCurrentProcess
-#             GetCurrentProcess.restype = wintypes.HANDLE
-#             DuplicateHandle = windll.kernel32.DuplicateHandle
-#             DuplicateHandle.argtypes = [wintypes.HANDLE,
-#                                         wintypes.HANDLE,
-#                                         wintypes.HANDLE,
-#                                         POINTER(wintypes.HANDLE),
-#                                         wintypes.DWORD,
-#                                         wintypes.BOOL,
-#                                         wintypes.DWORD]
-#             DuplicateHandle.restype = wintypes.BOOL
-# 
-#             res = DuplicateHandle(GetCurrentProcess(), # source process handle
-#                                   fh, # handle to be duplicated
-#                                   GetCurrentProcess(), # target process handle
-#                                   byref(m._file_handle), # result
-#                                   0, # access - ignored due to options value
-#                                   wintypes.BOOL(False), # inherited by child procs?
-#                                   DUPLICATE_SAME_ACCESS) # options
-#             if not res:
-#                 raise WinError()
-# 
-#             if not map_size:
-#                 low, high = _get_file_size(fh)
-#                 if _64BIT:
-#                     m._size = (c_long(low.value).value << 32) + 1
-#                 else:
-#                     if high:
-#                         # file is too large to map completely
-#                         m._size = -1L
-#                     else:
-#                         m._size = low.value
-#             else:
-#                 m._size = map_size
-#         else:
-#             m._size = map_size
-# 
-#         # set the tag name
-#         if tagname:
-#            m._tagname = tagname
-# 
-#         m._access = access
-# 
-#         # DWORD is a 4-byte int. If int > 4-byte it must be divided
-#         if _64BIT:
-#             size_hi = wintypes.DWORD(m._size >> 32)
-#             size_lo = wintypes.DWORD(m._size & 0xFFFFFFFF)
-#         else:
-#             size_hi = wintypes.DWORD(0)
-#             size_lo = wintypes.DWORD(m._size)
-# 
-#         CreateFileMapping = windll.kernel32.CreateFileMappingA
-#         CreateFileMapping.argtypes = [wintypes.HANDLE, c_void_p, wintypes.DWORD,
-#                                       wintypes.DWORD, wintypes.DWORD, c_char_p]
-#         CreateFileMapping.restype = wintypes.HANDLE
-# 
-#         m._map_handle = wintypes.HANDLE(CreateFileMapping(m._file_handle, None, flProtect,
-#                                          size_hi, size_lo, m._tagname))
-# 
-#         if m._map_handle:
-#             MapViewOfFile = windll.kernel32.MapViewOfFile
-#             MapViewOfFile.argtypes = [wintypes.HANDLE, wintypes.DWORD,
-#                                       wintypes.DWORD, wintypes.DWORD,
-#                                       wintypes.DWORD]
-#             MapViewOfFile.restype = c_void_p
-#             m._data = MapViewOfFile(m._map_handle, dwDesiredAccess,
-#                                     0, 0, 0)
-#             if m._data:
-#                 m._data = cast(m._data, POINTER(c_char))
-#                 return m
-#             else:
-#                 dwErr = GetLastError()
-#         else:
-#             dwErr = GetLastError()
-# 
-#         raise WinError(dwErr)
+elif _MS_WINDOWS:
+    def mmap(space, fileno, length, tagname="", access=_ACCESS_DEFAULT):
+        # check size boundaries
+        _check_map_size(space, length)
+        map_size = length
+        
+        WORD = wintypes.WORD
+        DWORD = wintypes.DWORD
+        HANDLE = wintypes.HANDLE
+        
+        flProtect = WORD()
+        dwDesiredAccess = WORD()
+        fh = HANDLE(0)
+        
+        if access == ACCESS_READ:
+            flProtect = DWORD(PAGE_READONLY)
+            dwDesiredAccess = DWORD(FILE_MAP_READ)
+        elif access == _ACCESS_DEFAULT or access == ACCESS_WRITE:
+            flProtect = DWORD(PAGE_READWRITE)
+            dwDesiredAccess = DWORD(FILE_MAP_WRITE)
+        elif access == ACCESS_COPY:
+            flProtect = DWORD(PAGE_WRITECOPY)
+            dwDesiredAccess = DWORD(FILE_MAP_COPY)
+        else:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("mmap invalid access parameter."))
+        
+        # assume -1 and 0 both mean invalid file descriptor
+        # to 'anonymously' map memory.
+        if fileno != -1 and fileno != 0:
+            fh = cdll.msvcr71._get_osfhandle(fileno)
+            if fh == -1:
+                raise OperationError(space.w_EnvironmentError,
+                                     space.wrap(_get_error_msg()))
+            # Win9x appears to need us seeked to zero
+            SEEK_SET = 0
+            libc._lseek(fileno, 0, SEEK_SET)
+        
+        m = _mmap(space)
+        m._file_handle = HANDLE(INVALID_HANDLE_VALUE)
+        m._map_handle = HANDLE(INVALID_HANDLE_VALUE)
+        
+        if fh:
+            res = BOOL()
+            # it is necessary to duplicate the handle, so the
+            # Python code can close it on us        
+            res = DuplicateHandle(GetCurrentProcess(), # source process handle
+                                  fh, # handle to be duplicated
+                                  GetCurrentProcess(), # target process handle
+                                  byref(m._file_handle), # result
+                                  0, # access - ignored due to options value
+                                  wintypes.BOOL(False), # inherited by child procs?
+                                  DUPLICATE_SAME_ACCESS) # options
+            if not res:
+                raise OperationError(space.wrap(WinError), space.wrap(""))
+        
+            if not map_size:
+                low, high = _get_file_size(fh)
+                if _64BIT:
+                    m._size = (c_long(low.value).value << 32) + 1
+                else:
+                    if high:
+                        # file is too large to map completely
+                        m._size = -1L
+                    else:
+                        m._size = low.value
+            else:
+                m._size = map_size
+        else:
+            m._size = map_size
 
+        if tagname:
+            m._tagname = tagname
+        m._access = access
+        
+        # DWORD is a 4-byte int. If int > 4-byte it must be divided
+        if _64BIT:
+            size_hi = DWORD(m._size >> 32)
+            size_lo = DWORD(m._size & 0xFFFFFFFF)
+        else:
+            size_hi = DWORD(0)
+            size_lo = DWORD(m._size)
+
+        m._map_handle = HANDLE(CreateFileMapping(m._file_handle, None, flProtect,
+                                                 size_hi, size_lo, m._tagname))
+
+        if m._map_handle:
+            m._data = MapViewOfFile(m._map_handle, dwDesiredAccess,
+                                    0, 0, 0)
+            if m._data:
+                m._data = cast(m._data, POINTER(c_char))
+                return m
+            else:
+                dwErr = GetLastError()
+        else:
+            dwErr = GetLastError()
+
+        raise OperationError(space.wrap(WinError), space.wrap(dwErr))
+    mmap.unwrap_spec = [ObjSpace, int, int, str, int]
