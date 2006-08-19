@@ -191,7 +191,7 @@ elif _MS_WINDOWS:
 
     def _get_error_msg():
         errno = GetLastError()
-        return libc.strerror(GetLastError())
+        return libc.strerror(errno)
 
 PAGESIZE = _get_page_size()
 
@@ -211,8 +211,8 @@ class _mmap(Wrappable):
             self._closed = False
     
     def _to_str(self):
-        str = "".join([self._data[i] for i in range(self._size)])
-        return self.space.wrap(str)
+        data = "".join([self._data[i] for i in range(self._size)])
+        return self.space.wrap(data)
     _to_str.unwrap_spec = ['self']
     
     def _check_valid(self):
@@ -313,7 +313,7 @@ class _mmap(Wrappable):
         return self.space.wrap(res)
     read.unwrap_spec = ['self', int]
 
-    def find(self, str, start=0):
+    def find(self, tofind, start=0):
         self._check_valid()
         
         # since we don't have to update positions we
@@ -321,7 +321,7 @@ class _mmap(Wrappable):
         w_str_data = self._to_str()
         str_data = self.space.str_w(w_str_data)
         assert start >= 0
-        return self.space.wrap(str_data.find(str, start))
+        return self.space.wrap(str_data.find(tofind, start))
     find.unwrap_spec = ['self', str, int]
 
     def seek(self, pos, whence=0):
@@ -380,17 +380,18 @@ class _mmap(Wrappable):
             return self.space.wrap(st[SIZE_BIT])
     size.unwrap_spec = ['self']
     
-    def write(self, str):
+    def write(self, data):
         self._check_valid()        
         self._check_writeable()
         
-        if self._pos + len(str) > self._size:
+        data_len = len(data)
+        if self._pos + data_len > self._size:
             raise OperationError(self.space.w_ValueError,
                 self.space.wrap("data out of range"))
         
         p = c_char_p(str)
-        libc.memcpy(self._data, p, len(str))
-        self._pos += len(str)
+        libc.memcpy(self._data, p, data_len)
+        self._pos += data_len
     write.unwrap_spec = ['self', str]
     
     def write_byte(self, byte):
@@ -488,42 +489,42 @@ class _mmap(Wrappable):
             libc.mremap(self._data, self._size, newsize, MREMAP_MAYMOVE)
             self._size = newsize
         elif _MS_WINDOWS:
-        # disconnect the mapping
-         self._unmapview()
-         CloseHandle(self._map_handle)
-     
-         # move to the desired EOF position
-         if _64BIT:
-             newsize_high = DWORD(newsize >> 32)
-             newsize_low = DWORD(newsize & 0xFFFFFFFF)
-         else:
-             newsize_high = DWORD(0)
-             newsize_low = DWORD(newsize)
-     
-         FILE_BEGIN = DWORD(0)
-         SetFilePointer(self._file_handle, LONG(newsize_low.value),    
+            # disconnect the mapping
+            self._unmapview()
+            CloseHandle(self._map_handle)
+
+            # move to the desired EOF position
+            if _64BIT:
+                newsize_high = DWORD(newsize >> 32)
+                newsize_low = DWORD(newsize & 0xFFFFFFFF)
+            else:
+                newsize_high = DWORD(0)
+                newsize_low = DWORD(newsize)
+
+            FILE_BEGIN = DWORD(0)
+            SetFilePointer(self._file_handle, LONG(newsize_low.value),    
                         LONG(newsize_high.value), FILE_BEGIN)
-         # resize the file
-         SetEndOfFile(self._file_handle)
-         # create another mapping object and remap the file view
-         res = CreateFileMapping(self._file_handle, None, PAGE_READWRITE,
+            # resize the file
+            SetEndOfFile(self._file_handle)
+            # create another mapping object and remap the file view
+            res = CreateFileMapping(self._file_handle, None, PAGE_READWRITE,
                                  newsize_high, newsize_low, self._tagname)
-         self._map_handle = HANDLE(res)
-     
-         dwErrCode = DWORD(0)
-         if self._map_handle:
-             self._data = MapViewOfFile(self._map_handle, FILE_MAP_WRITE,
-                                        0, 0, 0)
-             if self._data:
-                 self._data = cast(self._data, POINTER(c_char))
-                 self._size = newsize
-                 return
-             else:
-                 dwErrCode = GetLastError()
-         else:
-             dwErrCode = GetLastError()
-     
-         raise OperationError(self.space.wrap(WinError),
+            self._map_handle = HANDLE(res)
+
+            dwErrCode = DWORD(0)
+            if self._map_handle:
+                self._data = MapViewOfFile(self._map_handle, FILE_MAP_WRITE,
+                    0, 0, 0)
+                if self._data:
+                    self._data = cast(self._data, POINTER(c_char))
+                    self._size = newsize
+                    return
+                else:
+                    dwErrCode = GetLastError()
+            else:
+                dwErrCode = GetLastError()
+
+            raise OperationError(self.space.wrap(WinError),
                               self.space.wrap(dwErrCode))
     resize.unwrap_spec = ['self', int]
     
@@ -714,10 +715,6 @@ elif _MS_WINDOWS:
         # check size boundaries
         _check_map_size(space, length)
         map_size = length
-        
-        WORD = wintypes.WORD
-        DWORD = wintypes.DWORD
-        HANDLE = wintypes.HANDLE
         
         flProtect = WORD()
         dwDesiredAccess = WORD()
