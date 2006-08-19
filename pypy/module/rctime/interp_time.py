@@ -178,6 +178,7 @@ if _WIN:
         secs = space.float_w(w_secs)
         _check_float(space, secs)
         space.wrap(_float_sleep(space, secs))
+    sleep.unwrap_spec = [ObjSpace, int]
 
 def _check_float(space, seconds):
     # this call the app level _check_float to check the type of
@@ -267,6 +268,7 @@ def time(space):
     
     secs = _floattime()
     return space.wrap(secs)
+time.unwrap_spec = [ObjSpace]
 
 def clock(space):
     """clock() -> floating point number
@@ -294,6 +296,7 @@ def clock(space):
         windll.kernel32.QueryPerformanceCounter(byref(now))
         diff = float(now.value - ctrStart.value)
         return space.wrap(float(diff / divisor))
+clock.unwrap_spec = [ObjSpace]
 
 def ctime(space, w_seconds=None):
     """ctime([seconds]) -> string
