@@ -21,6 +21,12 @@ class Module(MixedModule):
 
     def buildloaders(cls):
         from pypy.module.rctime import interp_time
+        import os
+        
+        if os.name == "posix":
+            Module.appleveldefs['sleep'] = 'app_time.sleep'
+        elif os.name == "nt":
+            Module.interpleveldefs['sleep'] = 'interp_time.sleep'
 
         # this machinery is needed to expose constants
         # that have to be initialized one time only
@@ -38,7 +44,6 @@ class Module(MixedModule):
     buildloaders = classmethod(buildloaders)
 
     appleveldefs = {
-        'sleep': 'app_time.sleep',
         '_check_float': 'app_time._check_float',
         'struct_time': 'app_time.struct_time',
         '__doc__': 'app_time.__doc__',

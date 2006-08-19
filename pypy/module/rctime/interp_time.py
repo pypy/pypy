@@ -7,6 +7,7 @@ from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 from ctypes import *
 import os
 import math
+import sys
 
 _POSIX = os.name == "posix"
 _WIN = os.name == "nt"
@@ -147,7 +148,6 @@ def _floattime():
             return float(t.tv_sec) + t.tv_usec * 0.000001
     return 0.0
 
-
     # elif hasattr(_libc, "ftime"):
     #     t = _timeb()
     #     _libc.ftime.argtypes = [c_void_p]
@@ -158,6 +158,25 @@ def _floattime():
     #     _libc.time.argtypes = [c_void_p]
     #     _libc.time(byref(t))
     #     return t.value
+
+if _WIN:
+    def _float_sleep(space, secs):
+        msecs = secs * 1000.0
+        if msecs > float(sys.maxint * 2 - 1): # ULONG_MAX
+            raise OperationError(space.w_OverflowError, 
+                                 space.wrap("sleep length is too large"))
+        ul_millis = c_ulong(long(msecs))
+        windll.kernel32.Sleep(ul_millis)
+    
+    def sleep(space, w_secs):
+        """sleep(seconds)
+    
+        Delay execution for a given number of seconds.  The argument may be
+        a floating point number for subsecond precision."""
+        
+        secs = space.float_w(w_secs)
+        _check_float(space, secs)
+        space.wrap(_float_sleep(space, secs))
 
 def _check_float(space, seconds):
     # this call the app level _check_float to check the type of

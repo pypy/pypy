@@ -17,8 +17,10 @@ class AppTestRCTime:
     
     def test_sleep(self):
         import rctime
+        import sys
         raises(TypeError, rctime.sleep, "foo")
         rctime.sleep(1.2345)
+        raises(OverflowError, rctime.sleep, sys.maxint)
         
     def test_clock(self):
         import rctime
