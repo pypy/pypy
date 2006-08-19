@@ -389,7 +389,7 @@ class _mmap(Wrappable):
             raise OperationError(self.space.w_ValueError,
                 self.space.wrap("data out of range"))
         
-        p = c_char_p(str)
+        p = c_char_p(data)
         libc.memcpy(self._data, p, data_len)
         self._pos += data_len
     write.unwrap_spec = ['self', str]
