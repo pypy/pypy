@@ -15,7 +15,6 @@ class Module(MixedModule):
         'gmtime': 'interp_time.gmtime',
         'localtime': 'interp_time.localtime',
         'mktime': 'interp_time.mktime',
-        'tzset': 'interp_time.tzset',
         'strftime': 'interp_time.strftime',
     }
 
@@ -25,6 +24,7 @@ class Module(MixedModule):
         
         if os.name == "posix":
             Module.appleveldefs['sleep'] = 'app_time.sleep'
+            Module.interpleveldefs['tzset'] = 'interp_time.tzset'
         elif os.name == "nt":
             Module.interpleveldefs['sleep'] = 'interp_time.sleep'
 

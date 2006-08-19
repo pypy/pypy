@@ -38,6 +38,10 @@ elif _WIN:
         ("tm_min", c_int), ("tm_hour", c_int), ("tm_mday", c_int),
         ("tm_mon", c_int), ("tm_year", c_int), ("tm_wday", c_int),
         ("tm_yday", c_int), ("tm_isdst", c_int)])
+    
+    LARGE_INTEGER = wintypes.LARGE_INTEGER
+    BOOL = wintypes.BOOL
+    DWORD = wintypes.DWORD
 
 class cConfig:
     pass
@@ -75,6 +79,13 @@ libc.asctime.argtypes = [POINTER(tm)]
 libc.asctime.restype = c_char_p
 if _POSIX:
     libc.tzset.restype = None # tzset() returns void
+elif _WIN:
+    QueryPerformanceCounter = windll.kernel32.QueryPerformanceCounter
+    QueryPerformanceCounter.argtypes = [POINTER(c_int)]
+    QueryPerformanceCounter.restype = BOOL
+    Sleep = windll.kernel32.Sleep
+    Sleep.argtypes = [DWORD]
+    Sleep.restype = None
 libc.strftime.argtypes = [c_char_p, size_t, c_char_p, POINTER(tm)]
 libc.strftime.restype = size_t
 
@@ -166,8 +177,8 @@ if _WIN:
         if msecs > float(sys.maxint * 2 - 1): # ULONG_MAX
             raise OperationError(space.w_OverflowError, 
                                  space.wrap("sleep length is too large"))
-        ul_millis = c_ulong(long(msecs))
-        windll.kernel32.Sleep(ul_millis)
+        ul_millis = c_ulong(int(msecs))
+        Sleep(ul_millis)
     
     def sleep(space, w_secs):
         """sleep(seconds)
@@ -177,8 +188,7 @@ if _WIN:
         
         secs = space.float_w(w_secs)
         _check_float(space, secs)
-        space.wrap(_float_sleep(space, secs))
-    sleep.unwrap_spec = [ObjSpace, int]
+        _float_sleep(space, secs)
 
 def _check_float(space, seconds):
     # this call the app level _check_float to check the type of
@@ -268,7 +278,6 @@ def time(space):
     
     secs = _floattime()
     return space.wrap(secs)
-time.unwrap_spec = [ObjSpace]
 
 def clock(space):
     """clock() -> floating point number
@@ -282,21 +291,20 @@ def clock(space):
         return space.wrap(res)
     elif _WIN:
         divisor = 0.0
-        ctrStart = wintypes.LARGE_INTEGER()
-        now = wintypes.LARGE_INTEGER()
+        ctrStart = c_int()
+        now = c_int()
     
         if divisor == 0.0:
-            freq = wintypes.LARGE_INTEGER()
-            windll.kernel32.QueryPerformanceCounter(byref(ctrStart))
-            res = windll.kernel32.QueryPerformanceCounter(byref(freq))
+            freq = c_int()
+            QueryPerformanceCounter(byref(ctrStart))
+            res = QueryPerformanceCounter(byref(freq))
             if not res or not freq:
-                return space.wrap(float(windll.msvcrt.clock()))
+                return space.wrap(float(libc.clock()))
             divisor = float(freq.value)
     
-        windll.kernel32.QueryPerformanceCounter(byref(now))
+        QueryPerformanceCounter(byref(now))
         diff = float(now.value - ctrStart.value)
         return space.wrap(float(diff / divisor))
-clock.unwrap_spec = [ObjSpace]
 
 def ctime(space, w_seconds=None):
     """ctime([seconds]) -> string
@@ -544,4 +552,3 @@ def strftime(space, w_format, w_tup=None):
 
         i += i
 strftime.unwrap_spec = [ObjSpace, W_Root, W_Root]
-
