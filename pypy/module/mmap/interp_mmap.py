@@ -623,14 +623,10 @@ def _check_map_size(space, size):
             space.wrap("memory mapped size is too large (limited by C int)"))
 
 if _POSIX:
-    def mmap(space, w_fileno, w_length, flags=MAP_SHARED,
+    def mmap(space, fileno, length, flags=MAP_SHARED,
         prot=PROT_WRITE | PROT_READ, access=_ACCESS_DEFAULT):
-        # flags = MAP_SHARED
-        # prot = PROT_WRITE | PROT_READ
-        # access = _ACCESS_DEFAULT
 
-        fd = space.int_w(w_fileno)
-        length = space.int_w(w_length)
+        fd = fileno
 
         # check size boundaries
         _check_map_size(space, length)
@@ -697,7 +693,7 @@ if _POSIX:
         m._access = access
 
         return space.wrap(m)
-    mmap.unwrap_spec = [ObjSpace, W_Root, W_Root, int, int, int]
+    mmap.unwrap_spec = [ObjSpace, int, int, int, int, int]
 # elif _MS_WINDOWS:
 #     def mmap(fileno, length, *args, **kwargs):
 #         size_hi = wintypes.DWORD() # upper 32 bits of m._size
