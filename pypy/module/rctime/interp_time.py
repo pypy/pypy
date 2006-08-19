@@ -33,6 +33,7 @@ if _POSIX:
         ("tm_yday", c_int), ("tm_isdst", c_int), ("tm_gmtoff", c_long),
         ("tm_zone", c_char_p)])
 elif _WIN:
+    from ctypes import wintypes
     CConfig.tm = ctypes_platform.Struct("struct tm", [("tm_sec", c_int),
         ("tm_min", c_int), ("tm_hour", c_int), ("tm_mday", c_int),
         ("tm_mon", c_int), ("tm_year", c_int), ("tm_wday", c_int),
@@ -277,22 +278,22 @@ def clock(space):
     if _POSIX:
         res = float(float(libc.clock()) / CLOCKS_PER_SEC)
         return space.wrap(res)
-    # elif _MS_WINDOWS:
-    #     divisor = 0.0
-    #     ctrStart = _LARGE_INTEGER()
-    #     now = _LARGE_INTEGER()
-    # 
-    #     if divisor == 0.0:
-    #         freq = _LARGE_INTEGER()
-    #         windll.kernel32.QueryPerformanceCounter(byref(ctrStart))
-    #         res = windll.kernel32.QueryPerformanceCounter(byref(freq))
-    #         if not res or freq.QuadPart == 0:
-    #             return float(windll.msvcrt.clock())
-    #         divisor = float(freq.QuadPart)
-    # 
-    #     windll.kernel32.QueryPerformanceCounter(byref(now))
-    #     diff = float(now.QuadPart - ctrStart.QuadPart)
-    #     return float(diff / divisor)
+    elif _WIN:
+        divisor = 0.0
+        ctrStart = wintypes.LARGE_INTEGER()
+        now = wintypes.LARGE_INTEGER()
+    
+        if divisor == 0.0:
+            freq = wintypes.LARGE_INTEGER()
+            windll.kernel32.QueryPerformanceCounter(byref(ctrStart))
+            res = windll.kernel32.QueryPerformanceCounter(byref(freq))
+            if not res or not freq:
+                return space.wrap(float(windll.msvcrt.clock()))
+            divisor = float(freq.value)
+    
+        windll.kernel32.QueryPerformanceCounter(byref(now))
+        diff = float(now.value - ctrStart.value)
+        return space.wrap(float(diff / divisor))
 
 def ctime(space, w_seconds=None):
     """ctime([seconds]) -> string
