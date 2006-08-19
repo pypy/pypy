@@ -18,6 +18,7 @@ class AppTestRCTime:
     def test_sleep(self):
         import rctime
         import sys
+        import os
         raises(TypeError, rctime.sleep, "foo")
         rctime.sleep(1.2345)
         if os.name == "nt":
@@ -134,7 +135,7 @@ class AppTestRCTime:
         import os
         
         if not os.name == "posix":
-            py.test.skip("available only under Unix")
+            skip("tzset available only under Unix")
     
         # epoch time of midnight Dec 25th 2002. Never DST in northern
         # hemisphere.
