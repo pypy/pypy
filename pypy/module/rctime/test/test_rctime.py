@@ -20,7 +20,8 @@ class AppTestRCTime:
         import sys
         raises(TypeError, rctime.sleep, "foo")
         rctime.sleep(1.2345)
-        raises(OverflowError, rctime.sleep, sys.maxint)
+        if os.name == "nt":
+            raises(OverflowError, rctime.sleep, sys.maxint)
         
     def test_clock(self):
         import rctime
