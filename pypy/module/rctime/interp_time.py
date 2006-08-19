@@ -9,37 +9,48 @@ import os
 import math
 
 _POSIX = os.name == "posix"
+_WIN = os.name == "nt"
 
+_include = "#include <time.h>"
+if _POSIX:
+    _include = """%s
+    #include <sys/time.h>""" % _include
+    
 class CConfig:
-    _header_ = """
-    #include <sys/time.h>
-    #include <time.h>
-    """
-    timeval = ctypes_platform.Struct("struct timeval", [("tv_sec", c_int),
-        ("tv_usec", c_int)])
-    tm = ctypes_platform.Struct("struct tm", [("tm_sec", c_int),
-        ("tm_min", c_int), ("tm_hour", c_int), ("tm_mday", c_int),
-        ("tm_mon", c_int), ("tm_year", c_int), ("tm_wday", c_int),
-        ("tm_yday", c_int), ("tm_isdst", c_int), ("tm_gmtoff", c_long),
-        ("tm_zone", c_char_p)])
+    _header_ = _include
     CLOCKS_PER_SEC = ctypes_platform.ConstantInteger("CLOCKS_PER_SEC")
     clock_t = ctypes_platform.SimpleType("clock_t", c_ulong)
     time_t = ctypes_platform.SimpleType("time_t", c_long)
     size_t = ctypes_platform.SimpleType("size_t", c_long)
+    
+if _POSIX:
+    CConfig.timeval = ctypes_platform.Struct("struct timeval", [("tv_sec", c_int),
+                                                                ("tv_usec", c_int)])
+    CConfig.tm = ctypes_platform.Struct("struct tm", [("tm_sec", c_int),
+        ("tm_min", c_int), ("tm_hour", c_int), ("tm_mday", c_int),
+        ("tm_mon", c_int), ("tm_year", c_int), ("tm_wday", c_int),
+        ("tm_yday", c_int), ("tm_isdst", c_int), ("tm_gmtoff", c_long),
+        ("tm_zone", c_char_p)])
+elif _WIN:
+    CConfig.tm = ctypes_platform.Struct("struct tm", [("tm_sec", c_int),
+        ("tm_min", c_int), ("tm_hour", c_int), ("tm_mday", c_int),
+        ("tm_mon", c_int), ("tm_year", c_int), ("tm_wday", c_int),
+        ("tm_yday", c_int), ("tm_isdst", c_int)])
 
 class cConfig:
     pass
 cConfig.__dict__.update(ctypes_platform.configure(CConfig))
-cConfig.timeval.__name__ = "_timeval"
 cConfig.tm.__name__ = "_tm"
+
+if _POSIX:
+    cConfig.timeval.__name__ = "_timeval"
+    timeval = cConfig.timeval
 
 CLOCKS_PER_SEC = cConfig.CLOCKS_PER_SEC
 clock_t = cConfig.clock_t
 time_t = cConfig.time_t
 size_t = cConfig.size_t
-timeval = cConfig.timeval
 tm = cConfig.tm
-
 
 has_gettimeofday = False
 if hasattr(libc, "gettimeofday"):
@@ -60,7 +71,8 @@ libc.mktime.argtypes = [POINTER(tm)]
 libc.mktime.restype = time_t
 libc.asctime.argtypes = [POINTER(tm)]
 libc.asctime.restype = c_char_p
-libc.tzset.restype = None # tzset() returns void
+if _POSIX:
+    libc.tzset.restype = None # tzset() returns void
 libc.strftime.argtypes = [c_char_p, size_t, c_char_p, POINTER(tm)]
 libc.strftime.restype = size_t
 
@@ -68,9 +80,13 @@ def _init_accept2dyear():
     return (1, 0)[bool(os.getenv("PYTHONY2K"))]
 
 def _init_timezone():
-    timezone = daylight = tzname = altzone = None
+    timezone = daylight = altzone = 0
+    tzname = ["", ""]
+    
+    # pypy cant' use in_dll to access global exported variables
+    # so we can't compute these attributes
 
-    # if _MS_WINDOWS:
+    # if _WIN:
     #     cdll.msvcrt._tzset()
     # 
     #     timezone = c_long.in_dll(cdll.msvcrt, "_timezone").value
@@ -123,9 +139,8 @@ def _floattime():
     time() has a resolution in seconds
     """
 
-    # if _MS_WINDOWS:
-    #     return libc.time(None)
-    #
+    if _WIN:
+        return float(libc.time(None))
     if has_gettimeofday:
         t = timeval()
         if libc.gettimeofday(byref(t), c_void_p(None)) == 0:
