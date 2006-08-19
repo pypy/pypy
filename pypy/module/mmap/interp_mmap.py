@@ -116,6 +116,7 @@ elif _MS_WINDOWS:
     WORD = wintypes.WORD
     DWORD = wintypes.DWORD
     BOOL = wintypes.BOOL
+    LONG = wintypes.LONG
     LPVOID = c_void_p
     LPCVOID = LPVOID
     DWORD_PTR = DWORD
@@ -163,6 +164,12 @@ elif _MS_WINDOWS:
     UnmapViewOfFile = windll.kernel32.UnmapViewOfFile
     UnmapViewOfFile.argtypes = [LPCVOID]
     UnmapViewOfFile.restype = BOOL
+    FlushViewOfFile = windll.kernel32.FlushViewOfFile
+    FlushViewOfFile.argtypes = [c_void_p, c_int]
+    SetFilePointer = windll.kernel32.SetFilePointer
+    SetFilePointer.argtypes = [HANDLE, LONG, POINTER(LONG), DWORD]
+    SetEndOfFile = windll.kernel32.SetEndOfFile
+    SetEndOfFile.argtypes = [HANDLE]
     
     def _get_page_size():
         si = SYSTEM_INFO()
@@ -358,16 +365,16 @@ class _mmap(Wrappable):
     def size(self):
         self._check_valid()
         
-        # if _MS_WINDOWS:
-        #     if self._file_handle.value != _INVALID_HANDLE_VALUE:
-        #         low, high = _get_file_size(self._file_handle)
-        #         if not high and low.value < sys.maxint:
-        #             return int(low.value)
-        #         size = (long(high.value) << 32) + low.value
-        #         return long(size)
-        #     else:
-        #         return self._size
-        if _POSIX:
+        if _MS_WINDOWS:
+            if self._file_handle.value != INVALID_HANDLE_VALUE:
+                low, high = _get_file_size(self.space, self._file_handle)
+                if not high and low.value < sys.maxint:
+                    return self.space.wrap(int(low.value))
+                size = (long(high.value) << 32) + low.value
+                return self.space.wrap(long(size))
+            else:
+                return self.space.wrap(self._size)
+        elif _POSIX:
             st = os.fstat(self._fd)
             SIZE_BIT = 6
             return self.space.wrap(st[SIZE_BIT])
@@ -417,12 +424,9 @@ class _mmap(Wrappable):
         else:
             data = c_char_p("".join([self._data[i] for i in range(offset, size)]))
             
-            # if _MS_WINDOWS:
-            #     FlushViewOfFile = windll.kernel32.FlushViewOfFile
-            #     FlushViewOfFile.argtypes = [c_void_p, c_int]
-            #     res = FlushViewOfFile(data, size)
-            #     return res
-            if _POSIX:
+            if _MS_WINDOWS:
+                return self.space.wrap(FlushViewOfFile(data, size))
+            elif _POSIX:
                 if _LINUX:
                     # alignment of the address
                     value = pythonapi.PyLong_FromVoidPtr(data)
@@ -483,61 +487,44 @@ class _mmap(Wrappable):
             MREMAP_MAYMOVE = 1
             libc.mremap(self._data, self._size, newsize, MREMAP_MAYMOVE)
             self._size = newsize
-        # elif _MS_WINDOWS:
-        #     # disconnect the mapping
-        #     self._unmapview()
-        #     windll.kernel32.CloseHandle(self._map_handle)
-        # 
-        #     # move to the desired EOF position
-        #     if _64BIT:
-        #         newsize_high = wintypes.DWORD(newsize >> 32)
-        #         newsize_low = wintypes.DWORD(newsize & 0xFFFFFFFF)
-        #     else:
-        #         newsize_high = wintypes.DWORD(0)
-        #         newsize_low = wintypes.DWORD(newsize)
-        # 
-        #     FILE_BEGIN = wintypes.DWORD(0)
-        #     SetFilePointer = windll.kernel32.SetFilePointer
-        #     SetFilePointer.argtypes = [wintypes.HANDLE, wintypes.LONG,
-        #                                POINTER(wintypes.LONG), wintypes.DWORD]
-        #     SetFilePointer(self._file_handle,
-        #                    wintypes.LONG(newsize_low.value),    
-        #                    byref(wintypes.LONG(newsize_high.value)),
-        #                    FILE_BEGIN)
-        #     # resize the file
-        #     SetEndOfFile = windll.kernel32.SetEndOfFile
-        #     SetEndOfFile.argtypes = [wintypes.HANDLE]
-        #     SetEndOfFile(self._file_handle)
-        #     # create another mapping object and remap the file view
-        #     CreateFileMapping = windll.kernel32.CreateFileMappingA
-        #     CreateFileMapping.argtypes = [wintypes.HANDLE, c_void_p, wintypes.DWORD,
-        #                                   wintypes.DWORD, wintypes.DWORD, c_char_p]
-        #     CreateFileMapping.restype = wintypes.HANDLE
-        # 
-        #     self._map_handle = wintypes.HANDLE(CreateFileMapping(self._file_handle, None,
-        #                                                          _PAGE_READWRITE,
-        #                                                          newsize_high, newsize_low,
-        #                                                          self._tagname))
-        # 
-        #     dwErrCode = wintypes.DWORD(0)
-        #     if self._map_handle:
-        #         MapViewOfFile = windll.kernel32.MapViewOfFile
-        #         MapViewOfFile.argtypes = [wintypes.HANDLE, wintypes.DWORD,
-        #                                   wintypes.DWORD, wintypes.DWORD,
-        #                                   wintypes.DWORD]
-        #         MapViewOfFile.restype = c_void_p
-        #         self._data = MapViewOfFile(self._map_handle, _FILE_MAP_WRITE,
-        #                                    0, 0, 0)
-        #         if self._data:
-        #             self._data = cast(self._data, POINTER(c_char))
-        #             self._size = newsize
-        #             return
-        #         else:
-        #             dwErrCode = GetLastError()
-        #     else:
-        #         dwErrCode = GetLastError()
-        # 
-        #     raise WinError(dwErrCode)
+        elif _MS_WINDOWS:
+        # disconnect the mapping
+         self._unmapview()
+         CloseHandle(self._map_handle)
+     
+         # move to the desired EOF position
+         if _64BIT:
+             newsize_high = DWORD(newsize >> 32)
+             newsize_low = DWORD(newsize & 0xFFFFFFFF)
+         else:
+             newsize_high = DWORD(0)
+             newsize_low = DWORD(newsize)
+     
+         FILE_BEGIN = DWORD(0)
+         SetFilePointer(self._file_handle, LONG(newsize_low.value),    
+                        LONG(newsize_high.value), FILE_BEGIN)
+         # resize the file
+         SetEndOfFile(self._file_handle)
+         # create another mapping object and remap the file view
+         res = CreateFileMapping(self._file_handle, None, PAGE_READWRITE,
+                                 newsize_high, newsize_low, self._tagname)
+         self._map_handle = HANDLE(res)
+     
+         dwErrCode = DWORD(0)
+         if self._map_handle:
+             self._data = MapViewOfFile(self._map_handle, FILE_MAP_WRITE,
+                                        0, 0, 0)
+             if self._data:
+                 self._data = cast(self._data, POINTER(c_char))
+                 self._size = newsize
+                 return
+             else:
+                 dwErrCode = GetLastError()
+         else:
+             dwErrCode = GetLastError()
+     
+         raise OperationError(self.space.wrap(WinError),
+                              self.space.wrap(dwErrCode))
     resize.unwrap_spec = ['self', int]
     
     def __len__(self):
@@ -779,7 +766,7 @@ elif _MS_WINDOWS:
                 raise OperationError(space.wrap(WinError), space.wrap(""))
         
             if not map_size:
-                low, high = _get_file_size(fh)
+                low, high = _get_file_size(space, fh)
                 if _64BIT:
                     m._size = (c_long(low.value).value << 32) + 1
                 else:
