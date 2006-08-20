@@ -65,6 +65,10 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['fork'] = 'interp_posix.fork'
     if hasattr(os, 'waitpid'):
         interpleveldefs['waitpid'] = 'interp_posix.waitpid'
+    if hasattr(os, 'chown'):
+        interpleveldefs['chown'] = 'interp_posix.chown'
+    if hasattr(os, 'chroot'):
+        interpleveldefs['chroot'] = 'interp_posix.chroot'
 
 
 for constant in dir(os):

@@ -411,3 +411,19 @@ def access(space, path, mode):
     return space.wrap(res)
 access.unwrap_spec = [ObjSpace, str, int]
 access.__doc__ = os.access.__doc__
+
+def chown(space, path, uid, gid):
+    try:
+        os.chown(path, uid, gid)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+chown.unwrap_spec = [ObjSpace, str, int, int]
+chown.__doc__ = os.chown.__doc__
+
+def chroot(space, path):
+    try:
+        os.chroot(path)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+chroot.unwrap_spec = [ObjSpace, str]
+chroot.__doc__ = os.chroot.__doc__

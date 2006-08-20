@@ -80,7 +80,9 @@ class AppTestPosix:
         ex(self.posix.chdir, str(UNUSEDFD))
         ex(self.posix.rmdir, str(UNUSEDFD))        
         ex(self.posix.listdir, str(UNUSEDFD))        
-        ex(self.posix.chmod, str(UNUSEDFD), 0777)        
+        ex(self.posix.chmod, str(UNUSEDFD), 0777)
+        ex(self.posix.chown, str(UNUSEDFD), -1, -1)
+        ex(self.posix.chroot, str(UNUSEDFD))
 
     def test_fdopen(self):
         path = self.path 
@@ -211,6 +213,18 @@ class AppTestPosix:
     def test_access(self):
         posix = self.posix
         assert posix.access('.', posix.W_OK)
+    
+    def test_chown(self):
+        posix = self.posix
+        path = self.path
+        stat_info = posix.stat(path)
+        uid, gid = stat_info.st_uid, stat_info.st_gid
+        posix.chown(path, -1, -1)
+        stat_info = posix.stat(path)
+        assert uid == stat_info.st_uid
+        assert gid == stat_info.st_gid
+        raises(OSError, posix.chown, path, 1000, 1000)
+    
         
 class AppTestEnvironment(object):
     def setup_class(cls): 
