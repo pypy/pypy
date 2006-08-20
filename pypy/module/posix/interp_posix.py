@@ -384,12 +384,30 @@ readlink.unwrap_spec = [ObjSpace, str]
 def fork(space):
     pid = os.fork()
     return space.wrap(pid)
+fork.unwrap_spec = [ObjSpace]
+fork.__doc__ = os.fork.__doc__
 
 def waitpid(space, pid, options):
     pid, status = os.waitpid(pid, options)
     return space.newtuple([space.wrap(pid), space.wrap(status)])
 waitpid.unwrap_spec = [ObjSpace, int, int]
+waitpid.__doc__ = os.waitpid.__doc__
 
 def _exit(space, status):
     os._exit(status)
 _exit.unwrap_spec = [ObjSpace, int]
+_exit.__doc__ = os._exit.__doc__
+
+def abort(space):
+    os.abort()
+abort.unwrap_spec = [ObjSpace]
+abort.__doc__ = os.abort.__doc__
+
+def access(space, path, mode):
+    try:
+        res = os.access(path, mode)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.wrap(res)
+access.unwrap_spec = [ObjSpace, str, int]
+access.__doc__ = os.access.__doc__

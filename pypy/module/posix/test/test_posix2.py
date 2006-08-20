@@ -201,7 +201,16 @@ class AppTestPosix:
         assert posix.stat(path)[6] == 2
         posix.close(fd)
         raises(IOError, posix.ftruncate, 123123, 1)
+    
+    def test_abort(self):
+        posix = self.posix
+        pid = posix.fork()
+        if pid == 0:   # child
+            posix.abort()
 
+    def test_access(self):
+        posix = self.posix
+        assert posix.access('.', posix.W_OK)
         
 class AppTestEnvironment(object):
     def setup_class(cls): 

@@ -44,6 +44,8 @@ corresponding Unix manual entries for more information on calls."""
     'chmod'     : 'interp_posix.chmod',
     'rename'    : 'interp_posix.rename',
     '_exit'     : 'interp_posix._exit',
+    'abort'     : 'interp_posix.abort',
+    'access'    : 'interp_posix.access',
     }
     if hasattr(os, 'ftruncate'):
         interpleveldefs['ftruncate'] = 'interp_posix.ftruncate'
