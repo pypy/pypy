@@ -34,6 +34,7 @@ corresponding Unix manual entries for more information on calls."""
     'unlink'    : 'interp_posix.unlink',
     'remove'    : 'interp_posix.remove',
     'getcwd'    : 'interp_posix.getcwd',
+    'getcwdu'    : 'interp_posix.getcwdu',
     'chdir'     : 'interp_posix.chdir',
     'mkdir'     : 'interp_posix.mkdir',
     'rmdir'     : 'interp_posix.rmdir',
@@ -71,6 +72,12 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['chroot'] = 'interp_posix.chroot'
     if hasattr(os, 'confstr'):
         interpleveldefs['confstr'] = 'interp_posix.confstr'
+    if hasattr(os, 'ctermid'):
+        interpleveldefs['ctermid'] = 'interp_posix.ctermid'
+    if hasattr(os, 'fchdir'):
+        interpleveldefs['fchdir'] = 'interp_posix.fchdir'
+    if hasattr(os, 'fpathconf'):
+        interpleveldefs['fpathconf'] = 'interp_posix.fpathconf'
 
 for constant in dir(os):
     value = getattr(os, constant)
@@ -78,3 +85,5 @@ for constant in dir(os):
         Module.interpleveldefs[constant] = "space.wrap(%s)" % value
 if hasattr(os, 'confstr_names'):
     Module.interpleveldefs['confstr_names'] = "space.wrap(%s)" % os.confstr_names
+if hasattr(os, 'pathconf_names'):
+    Module.interpleveldefs['pathconf_names'] = "space.wrap(%s)" % os.pathconf_names

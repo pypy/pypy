@@ -201,7 +201,6 @@ def remove(space, path):
 remove.unwrap_spec = [ObjSpace, str]
 
 def getcwd(space):
-    """Return the current working directory."""
     try:
         cur = os.getcwd()
     except OSError, e: 
@@ -209,6 +208,17 @@ def getcwd(space):
     else: 
         return space.wrap(cur)
 getcwd.unwrap_spec = [ObjSpace]
+getcwd.__doc__ = os.getcwd.__doc__
+
+def getcwdu(space):
+    try:
+        cur = os.getcwdu()
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    else:
+        return space.wrap(cur)
+getcwdu.unwrap_spec = [ObjSpace]
+getcwdu.__doc__ = os.getcwdu.__doc__
 
 def chdir(space, path):
     """Change the current working directory to the specified path."""
@@ -447,7 +457,46 @@ def confstr(space, w_name):
     except ValueError, e:
         raise OperationError(space.w_ValueError,
             space.wrap(e.args[0]))
-    return space.wrap(res)
+    else:
+        return space.wrap(res)
 confstr.unwrap_spec = [ObjSpace, W_Root]
 confstr.__doc__ = os.confstr.__doc__
+
+def ctermid(space):
+    return space.wrap(os.ctermid())
+ctermid.unwrap_spec = [ObjSpace]
+ctermid.__doc__ = os.ctermid.__doc__
+
+def fchdir(space, fd):
+    try:
+        os.fchdir(fd)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+fchdir.unwrap_spec = [ObjSpace, int]
+fchdir.__doc__ = os.fchdir.__doc__
+
+def fpathconf(space, fd, w_name):
+    w_name_type = space.type(w_name)
+    is_str = space.is_w(w_name_type, space.w_str)
+    is_int = space.is_w(w_name_type, space.w_int)
+
+    res = ''
+    try:
+        if is_str:
+            res = os.fpathconf(fd, space.str_w(w_name))
+        elif is_int:
+            res = os.fpathconf(fd, space.int_w(w_name))
+        else:
+            raise OperationError(space.w_TypeError,
+                space.wrap("configuration names must be strings or integers"))
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    except ValueError, e:
+        raise OperationError(space.w_ValueError,
+            space.wrap(e.args[0]))
+    else:
+        return space.wrap(res)
+fpathconf.unwrap_spec = [ObjSpace, int, W_Root]
+fpathconf.__doc__ = os.fpathconf.__doc__
+    
 

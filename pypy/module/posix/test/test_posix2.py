@@ -83,6 +83,7 @@ class AppTestPosix:
         ex(self.posix.chmod, str(UNUSEDFD), 0777)
         ex(self.posix.chown, str(UNUSEDFD), -1, -1)
         ex(self.posix.chroot, str(UNUSEDFD))
+        ex(self.posix.fchdir, UNUSEDFD)
 
     def test_fdopen(self):
         path = self.path 
@@ -195,47 +196,96 @@ class AppTestPosix:
     
     def test_ftruncate(self):
         import os
-        pdir = self.pdir
-        posix = self.posix
-        path = os.path.join(pdir, 'file1')
-        fd = posix.open(path, posix.O_WRONLY)
-        posix.ftruncate(fd, 2)
-        assert posix.stat(path)[6] == 2
-        posix.close(fd)
-        raises(IOError, posix.ftruncate, 123123, 1)
+        if hasattr(__import__(os.name), "ftruncate"):
+            pdir = self.pdir
+            posix = self.posix
+            path = os.path.join(pdir, 'file1')
+            fd = posix.open(path, posix.O_WRONLY)
+            posix.ftruncate(fd, 2)
+            assert posix.stat(path)[6] == 2
+            posix.close(fd)
+            raises(IOError, posix.ftruncate, 123123, 1)
+        else:
+            skip("ftruncate not supported")
     
     def test_abort(self):
-        posix = self.posix
-        pid = posix.fork()
-        if pid == 0:   # child
-            posix.abort()
+        import os
+        if hasattr(__import__(os.name), "fork"):
+            posix = self.posix
+            pid = posix.fork()
+            if pid == 0:   # child
+                posix.abort()
+        else:
+            skip("can't test abort, because fork is missing")
 
     def test_access(self):
         posix = self.posix
         assert posix.access('.', posix.W_OK)
     
     def test_chown(self):
-        posix = self.posix
-        path = self.path
-        stat_info = posix.stat(path)
-        uid, gid = stat_info.st_uid, stat_info.st_gid
-        posix.chown(path, -1, -1)
-        stat_info = posix.stat(path)
-        assert uid == stat_info.st_uid
-        assert gid == stat_info.st_gid
-        raises(OSError, posix.chown, path, 1000, 1000)
+        import os
+        if hasattr(__import__(os.name), "chown"):
+            posix = self.posix
+            path = self.path
+            stat_info = posix.stat(path)
+            uid, gid = stat_info.st_uid, stat_info.st_gid
+            posix.chown(path, -1, -1)
+            stat_info = posix.stat(path)
+            assert uid == stat_info.st_uid
+            assert gid == stat_info.st_gid
+            raises(OSError, posix.chown, path, 1000, 1000)
+        else:
+            skip("chown not supported")
         
     def test_confstr(self):
-        posix = self.posix
-        assert isinstance(posix.confstr_names, dict)
-        name = posix.confstr_names.keys()[0]
-        assert isinstance(posix.confstr(name), str)
-        val = posix.confstr_names.values()[0]
-        assert isinstance(posix.confstr(val), str)
-        raises(ValueError, posix.confstr, 'xYz')
-        raises(TypeError, posix.confstr, None)
-        raises(TypeError, posix.confstr, dict())
-        assert isinstance(posix.confstr(12345), str)
+        import os
+        if hasattr(__import__(os.name), "confstr"):
+            posix = self.posix
+            assert isinstance(posix.confstr_names, dict)
+            name = posix.confstr_names.keys()[0]
+            assert isinstance(posix.confstr(name), str)
+            val = posix.confstr_names.values()[0]
+            assert isinstance(posix.confstr(val), str)
+            raises(ValueError, posix.confstr, 'xYz')
+            raises(TypeError, posix.confstr, None)
+            raises(TypeError, posix.confstr, dict())
+            assert isinstance(posix.confstr(12345), str)
+        else:
+            skip("confstr and confstr_names not supported")
+    
+    def test_ctermid(self):
+        import os
+        if hasattr(__import__(os.name), "ctermid"):
+            assert isinstance(self.posix.ctermid(), str)
+            
+    def test_fchdir(self):
+        import os
+        if hasattr(__import__(os.name), "fchdir"):
+            pdir = self.pdir
+            posix = self.posix
+            whereami = posix.getcwd()
+            fd = posix.open(pdir, posix.O_RDONLY)
+            posix.fchdir(fd)
+            posix.chdir(whereami)
+    
+    def test_fpathconf(self):
+        import os
+        if hasattr(__import__(os.name), "fork"):
+            posix = self.posix
+            fd = posix.open(self.path, posix.O_RDONLY)
+            assert isinstance(posix.pathconf_names, dict)
+            name = posix.pathconf_names.keys()[-1]
+            assert isinstance(posix.fpathconf(fd, name), int)
+            val = posix.pathconf_names.values()[-1]
+            assert isinstance(posix.fpathconf(fd, val), int)
+            raises(ValueError, posix.fpathconf, fd, 'xYz')
+            raises(TypeError, posix.fpathconf, fd, None)
+            raises(TypeError, posix.fpathconf, fd, dict())
+        else:
+            skip("fpathconf nad pathconf_names not supported")
+            
+    def test_getcwdu(self):
+        assert isinstance(self.posix.getcwdu(), unicode)
         
 class AppTestEnvironment(object):
     def setup_class(cls): 
