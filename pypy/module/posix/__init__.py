@@ -47,13 +47,15 @@ corresponding Unix manual entries for more information on calls."""
     '_exit'     : 'interp_posix._exit',
     'abort'     : 'interp_posix.abort',
     'access'    : 'interp_posix.access',
+    'major'     : 'interp_posix.major',
+    'minor'     : 'interp_posix.minor',
     }
     
     for func_name in ['ftruncate', 'putenv', 'unsetenv', 'getpid', 'link',
         'symlink', 'readlink', 'fork', 'waitpid', 'chown', 'chroot',
         'confstr', 'ctermid', 'fchdir', 'fpathconf', 'getegid', 'geteuid',
         'getgid', 'getuid', 'getpgid', 'getpid', 'getppid', 'getpgrp',
-        'getsid', 'getlogin', 'getgroups', 'getloadavg']:
+        'getsid', 'getlogin', 'getgroups', 'getloadavg', 'lchown', 'pathconf']:
         if hasattr(os, func_name):
             interpleveldefs[func_name] = 'interp_posix.%s' % func_name
     

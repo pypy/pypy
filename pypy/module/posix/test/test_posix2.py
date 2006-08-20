@@ -234,6 +234,7 @@ class AppTestPosix:
             stat_info = posix.stat(path)
             uid, gid = stat_info.st_uid, stat_info.st_gid
             posix.chown(path, -1, -1)
+            posix.lchown(path, -1, -1)
             stat_info = posix.stat(path)
             assert uid == stat_info.st_uid
             assert gid == stat_info.st_gid
@@ -286,7 +287,23 @@ class AppTestPosix:
             raises(TypeError, posix.fpathconf, fd, None)
             raises(TypeError, posix.fpathconf, fd, dict())
         else:
-            skip("fpathconf nad pathconf_names not supported")
+            skip("fpathconf and pathconf_names not supported")
+    
+    def test_pathconf(self):
+        import os
+        if hasattr(__import__(os.name), "pathconf"):
+            posix = self.posix
+            path = self.path
+            assert isinstance(posix.pathconf_names, dict)
+            name = posix.pathconf_names.keys()[-1]
+            assert isinstance(posix.pathconf(path, name), int)
+            val = posix.pathconf_names.values()[-1]
+            assert isinstance(posix.pathconf(path, val), int)
+            raises(ValueError, posix.pathconf, path, 'xYz')
+            raises(TypeError, posix.pathconf, path, None)
+            raises(TypeError, posix.pathconf, path, dict())
+        else:
+            skip("pathconf nad pathconf_names not supported")
             
     def test_getcwdu(self):
         assert isinstance(self.posix.getcwdu(), unicode)
@@ -335,6 +352,12 @@ class AppTestPosix:
             hard_link = os.path.join(pdir, 'hard_link')
             posix.link(path, hard_link)
             assert posix.readlink(link) == path
+    
+    def test_major_minor(self):
+        posix = self.posix
+        fd = posix.open("/dev/urandom", posix.O_RDONLY)
+        assert isinstance(posix.major(fd), int)
+        assert isinstance(posix.minor(fd), int)
         
 class AppTestEnvironment(object):
     def setup_class(cls): 

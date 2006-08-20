@@ -430,6 +430,14 @@ def chown(space, path, uid, gid):
 chown.unwrap_spec = [ObjSpace, str, int, int]
 chown.__doc__ = os.chown.__doc__
 
+def lchown(space, path, uid, gid):
+    try:
+        os.lchown(path, uid, gid)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+lchown.unwrap_spec = [ObjSpace, str, int, int]
+lchown.__doc__ = os.lchown.__doc__
+
 def chroot(space, path):
     try:
         os.chroot(path)
@@ -498,6 +506,30 @@ def fpathconf(space, fd, w_name):
         return space.wrap(res)
 fpathconf.unwrap_spec = [ObjSpace, int, W_Root]
 fpathconf.__doc__ = os.fpathconf.__doc__
+
+def pathconf(space, path, w_name):
+    w_name_type = space.type(w_name)
+    is_str = space.is_w(w_name_type, space.w_str)
+    is_int = space.is_w(w_name_type, space.w_int)
+
+    res = ''
+    try:
+        if is_str:
+            res = os.pathconf(path, space.str_w(w_name))
+        elif is_int:
+            res = os.pathconf(path, space.int_w(w_name))
+        else:
+            raise OperationError(space.w_TypeError,
+                space.wrap("configuration names must be strings or integers"))
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    except ValueError, e:
+        raise OperationError(space.w_ValueError,
+            space.wrap(e.args[0]))
+    else:
+        return space.wrap(res)
+pathconf.unwrap_spec = [ObjSpace, str, W_Root]
+pathconf.__doc__ = os.pathconf.__doc__
     
 def getegid(space):
     return space.wrap(os.getegid())
@@ -574,4 +606,13 @@ def getloadavg(space):
 getloadavg.unwrap_spec = [ObjSpace]
 getloadavg.__doc__ = os.getloadavg.__doc__
 
+def major(space, device):
+    return space.wrap(os.major(device))
+major.unwrap_spec = [ObjSpace, int]
+major.__doc__ = os.major.__doc__
+
+def minor(space, device):
+    return space.wrap(os.minor(device))
+minor.unwrap_spec = [ObjSpace, int]
+minor.__doc__ = os.minor.__doc__
 
