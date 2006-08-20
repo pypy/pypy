@@ -72,7 +72,7 @@ class AppTestMMap:
         raises(ValueError, mmap, f.fileno(), 123)
         f.close()
 
-    def test_mmap_creation(self):
+    def test_create(self):
         from mmap import mmap
         f = open("b", "w+")
         

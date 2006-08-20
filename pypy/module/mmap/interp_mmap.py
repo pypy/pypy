@@ -17,6 +17,7 @@ _MS_WINDOWS = os.name == "nt"
 _LINUX = "linux" in sys.platform
 _64BIT = "64bit" in platform.architecture()[0]
 
+
 class CConfig:
     _header_ = "#include <sys/types.h>"
     size_t = ctypes_platform.SimpleType("size_t", c_long)
@@ -73,6 +74,8 @@ libc.strerror.restype = c_char_p
 libc.strerror.argtypes = [c_int]
 libc.memcpy.argtypes = [POINTER(c_char), c_char_p, c_int]
 libc.memcpy.restype = c_void_p
+libc.memmove.argtypes = [c_char_p, c_char_p, size_t]
+libc.memmove.restype = c_void_p
 
 if _POSIX:
     libc.mmap.argtypes = [c_void_p, size_t, c_int, c_int, c_int, off_t]
@@ -94,8 +97,6 @@ if _POSIX:
     linux_msync.argtypes = [c_void_p, size_t, c_int]
     linux_msync.restype = c_int
     
-    libc.memmove.argtypes = [c_char_p, c_char_p, size_t]
-    libc.memmove.restype = c_void_p
     has_mremap = False
     if hasattr(libc, "mremap"):
         libc.mremap.argtypes = [POINTER(c_char), size_t, size_t, c_ulong]
@@ -120,8 +121,8 @@ elif _MS_WINDOWS:
     LPVOID = c_void_p
     LPCVOID = LPVOID
     DWORD_PTR = DWORD
-    HANDLE = wintypes.HANDLE
-    INVALID_HANDLE_VALUE = HANDLE(-1).value
+    c_int = wintypes.c_int
+    INVALID_c_int_VALUE = c_int(-1).value
     
     class SYSINFO_STRUCT(Structure):
         _fields_ = [("wProcessorArchitecture", WORD),
@@ -144,32 +145,41 @@ elif _MS_WINDOWS:
                     ("wProcessorRevision", WORD)]
     
     windll.kernel32.GetSystemInfo.argtypes = [POINTER(SYSTEM_INFO)]
-    windll.kernel32.GetFileSize.restype = DWORD
+    GetFileSize = windll.kernel32.GetFileSize
+    GetFileSize.argtypes = [c_int, POINTER(c_int)]
+    GetFileSize.restype = c_int
     GetCurrentProcess = windll.kernel32.GetCurrentProcess
-    GetCurrentProcess.restype = HANDLE
+    GetCurrentProcess.restype = c_int
     DuplicateHandle = windll.kernel32.DuplicateHandle
-    DuplicateHandle.argtypes = [HANDLE, HANDLE, HANDLE, POINTER(HANDLE), DWORD,
+    DuplicateHandle.argtypes = [c_int, c_int, c_int, POINTER(c_int), DWORD,
                                 BOOL, DWORD]
     DuplicateHandle.restype = BOOL
     CreateFileMapping = windll.kernel32.CreateFileMappingA
-    CreateFileMapping.argtypes = [HANDLE, c_void_p, DWORD, DWORD, DWORD,
+    CreateFileMapping.argtypes = [c_int, c_void_p, c_int, c_int, c_int,
                                   c_char_p]
-    CreateFileMapping.restype = HANDLE
+    CreateFileMapping.restype = c_int
     MapViewOfFile = windll.kernel32.MapViewOfFile
-    MapViewOfFile.argtypes = [HANDLE, DWORD,  DWORD, DWORD, DWORD]
+    MapViewOfFile.argtypes = [c_int, DWORD,  DWORD, DWORD, DWORD]
     MapViewOfFile.restype = c_void_p
     CloseHandle = windll.kernel32.CloseHandle
-    CloseHandle.argtypes = [HANDLE]
+    CloseHandle.argtypes = [c_int]
     CloseHandle.restype = BOOL
     UnmapViewOfFile = windll.kernel32.UnmapViewOfFile
     UnmapViewOfFile.argtypes = [LPCVOID]
     UnmapViewOfFile.restype = BOOL
     FlushViewOfFile = windll.kernel32.FlushViewOfFile
-    FlushViewOfFile.argtypes = [c_void_p, c_int]
+    FlushViewOfFile.argtypes = [c_char_p, c_int]
+    FlushViewOfFile.restype = BOOL
     SetFilePointer = windll.kernel32.SetFilePointer
-    SetFilePointer.argtypes = [HANDLE, LONG, POINTER(LONG), DWORD]
+    SetFilePointer.argtypes = [c_int, c_int, POINTER(c_int), c_int]
     SetEndOfFile = windll.kernel32.SetEndOfFile
-    SetEndOfFile.argtypes = [HANDLE]
+    SetEndOfFile.argtypes = [c_int]
+    msvcr71 = cdll.LoadLibrary("msvcr71.dll")
+    msvcr71._get_osfhandle.argtypes = [c_int]
+    msvcr71._get_osfhandle.restype = c_int
+    # libc._lseek.argtypes = [c_int, c_int, c_int]
+    # libc._lseek.restype = c_int
+    
     
     def _get_page_size():
         si = SYSTEM_INFO()
@@ -177,20 +187,21 @@ elif _MS_WINDOWS:
         return int(si.dwPageSize)
     
     def _get_file_size(space, handle):
-        low = DWORD()
-        high = DWORD()
-        low = DWORD(windll.kernel32.GetFileSize(handle, byref(high)))
+        high = c_int(0)
+        low = c_int(windll.kernel32.GetFileSize(c_int(handle.value), byref(high)))
         # low might just happen to have the value INVALID_FILE_SIZE
         # so we need to check the last error also
-        INVALID_FILE_SIZE = DWORD(0xFFFFFFFF).value
+        INVALID_FILE_SIZE = -1
         NO_ERROR = 0
         dwErr = GetLastError()
         if low.value == INVALID_FILE_SIZE and dwErr != NO_ERROR:
-            raise OperationError(space.wrap(WinError), space.wrap(dwErr))
-        return low, high
+            raise OperationError(space.w_EnvironmentError,
+                                 space.wrap(_get_error_msg(dwErr)))
+        return low.value, high.value
 
-    def _get_error_msg():
-        errno = GetLastError()
+    def _get_error_msg(errno=0):
+        if not errno:
+            errno = GetLastError()
         return libc.strerror(errno)
 
 PAGESIZE = _get_page_size()
@@ -203,8 +214,8 @@ class _mmap(Wrappable):
         self._access = _ACCESS_DEFAULT
 
         if _MS_WINDOWS:
-            self._map_handle = wintypes.HANDLE()
-            self._file_handle = wintypes.HANDLE()
+            self._map_handle = wintypes.c_int()
+            self._file_handle = wintypes.c_int()
             self._tagname = ""
         elif _POSIX:
             self._fd = 0
@@ -217,7 +228,7 @@ class _mmap(Wrappable):
     
     def _check_valid(self):
         if _MS_WINDOWS:
-            to_close = self._map_handle.value == INVALID_HANDLE_VALUE
+            to_close = self._map_handle.value == INVALID_c_int_VALUE
         elif _POSIX:
             to_close = self._closed
 
@@ -243,13 +254,13 @@ class _mmap(Wrappable):
         if _MS_WINDOWS:
             if self._data:
                 self._unmapview()
-                self._data = None
-            if self._map_handle.value != INVALID_HANDLE_VALUE:
+                self._data = POINTER(c_char)()
+            if self._map_handle.value != INVALID_c_int_VALUE:
                 CloseHandle(self._map_handle)
-                self._map_handle.value = INVALID_HANDLE_VALUE
-            if self._file_handle.value != INVALID_HANDLE_VALUE:
+                self._map_handle.value = INVALID_c_int_VALUE
+            if self._file_handle.value != INVALID_c_int_VALUE:
                 CloseHandle(self._file_handle)
-                self._file_handle.value = INVALID_HANDLE_VALUE
+                self._file_handle.value = INVALID_c_int_VALUE
         elif _POSIX:
             self._closed = True
             libc.close(self._fd)
@@ -259,8 +270,8 @@ class _mmap(Wrappable):
     close.unwrap_spec = ['self']
     
     def _unmapview(self):
-        self._data = cast(self._data, c_void_p)
-        UnmapViewOfFile(self._data)
+        data = cast(self._data, c_void_p)
+        UnmapViewOfFile(data)
     
     def read_byte(self):
         self._check_valid()
@@ -301,6 +312,7 @@ class _mmap(Wrappable):
         num_bytes = num
         
         # silently adjust out of range requests
+        assert self._pos >= 0; assert num_bytes >= 0; assert self._size >= 0
         if self._pos + num_bytes > self._size:
             num_bytes -= (self._pos + num_bytes) - self._size
         
@@ -349,6 +361,7 @@ class _mmap(Wrappable):
             raise OperationError(self.space.w_ValueError,
                     self.space.wrap("unknown seek type"))
         
+        assert where >= 0 
         if where > self._size:
             raise OperationError(self.space.w_ValueError,
                     self.space.wrap("seek out of range"))
@@ -366,12 +379,12 @@ class _mmap(Wrappable):
         self._check_valid()
         
         if _MS_WINDOWS:
-            if self._file_handle.value != INVALID_HANDLE_VALUE:
+            if self._file_handle.value != INVALID_c_int_VALUE:
                 low, high = _get_file_size(self.space, self._file_handle)
-                if not high and low.value < sys.maxint:
-                    return self.space.wrap(int(low.value))
-                size = (long(high.value) << 32) + low.value
-                return self.space.wrap(long(size))
+                if not high and low < sys.maxint:
+                    return self.space.wrap(low)
+                size = c_int((high << 32) + low).value
+                return self.space.wrap(size)
             else:
                 return self.space.wrap(self._size)
         elif _POSIX:
@@ -419,6 +432,8 @@ class _mmap(Wrappable):
         if size == 0:
             size = self._size
         
+        assert offset >= 0
+        assert size >= 0
         if offset + size > self._size:
             raise OperationError(self.space.w_ValueError,
                 self.space.wrap("flush values out of range"))
@@ -426,7 +441,8 @@ class _mmap(Wrappable):
             data = c_char_p("".join([self._data[i] for i in range(offset, size)]))
             
             if _MS_WINDOWS:
-                return self.space.wrap(FlushViewOfFile(data, size))
+                res = FlushViewOfFile(data, size)
+                return self.space.wrap(res)
             elif _POSIX:
                 if _LINUX:
                     # alignment of the address
@@ -451,13 +467,14 @@ class _mmap(Wrappable):
         self._check_writeable()
         
         # check boundings
+        assert src >= 0; assert dest >= 0; assert count >= 0; assert self._size >= 0
         if (src + count > self._size) or (dest + count > self._size):
             raise OperationError(self.space.w_ValueError,
                 self.space.wrap("source or destination out of range"))
         
         data_dest = c_char_p("".join([self._data[i] for i in range(dest, self._size)]))
         data_src = c_char_p("".join([self._data[i] for i in range(src, src+count)]))
-        libc.memmove(data_dest, data_src, count)
+        libc.memmove(data_dest, data_src, size_t(count))
         
         assert dest >= 0
         str_left = self.space.str_w(self._to_str())[0:dest]
@@ -498,25 +515,25 @@ class _mmap(Wrappable):
                 newsize_high = DWORD(newsize >> 32)
                 newsize_low = DWORD(newsize & 0xFFFFFFFF)
             else:
-                newsize_high = DWORD(0)
-                newsize_low = DWORD(newsize)
+                newsize_high = c_int(0)
+                newsize_low = c_int(newsize)
 
-            FILE_BEGIN = DWORD(0)
-            SetFilePointer(self._file_handle, LONG(newsize_low.value),    
-                        LONG(newsize_high.value), FILE_BEGIN)
+            FILE_BEGIN = c_int(0)
+            SetFilePointer(self._file_handle, newsize_low, byref(newsize_high),
+                           FILE_BEGIN)
             # resize the file
             SetEndOfFile(self._file_handle)
             # create another mapping object and remap the file view
-            res = CreateFileMapping(self._file_handle, None, PAGE_READWRITE,
+            res = CreateFileMapping(self._file_handle, c_void_p(0), PAGE_READWRITE,
                                  newsize_high, newsize_low, self._tagname)
-            self._map_handle = HANDLE(res)
+            self._map_handle = c_int(res)
 
             dwErrCode = DWORD(0)
             if self._map_handle:
-                self._data = MapViewOfFile(self._map_handle, FILE_MAP_WRITE,
+                data = MapViewOfFile(self._map_handle, FILE_MAP_WRITE,
                     0, 0, 0)
-                if self._data:
-                    self._data = cast(self._data, POINTER(c_char))
+                if data:
+                    self._data = cast(data, POINTER(c_char))
                     self._size = newsize
                     return
                 else:
@@ -524,8 +541,8 @@ class _mmap(Wrappable):
             else:
                 dwErrCode = GetLastError()
 
-            raise OperationError(self.space.wrap(WinError),
-                              self.space.wrap(dwErrCode))
+            raise OperationError(self.space.w_EnvironmentError,
+                                 self.space.wrap(_get_error_msg(dwErrCode)))
     resize.unwrap_spec = ['self', int]
     
     def __len__(self):
@@ -716,18 +733,18 @@ elif _MS_WINDOWS:
         _check_map_size(space, length)
         map_size = length
         
-        flProtect = WORD()
+        flProtect = c_int()
         dwDesiredAccess = WORD()
-        fh = HANDLE(0)
+        fh = 0
         
         if access == ACCESS_READ:
-            flProtect = DWORD(PAGE_READONLY)
+            flProtect = c_int(PAGE_READONLY)
             dwDesiredAccess = DWORD(FILE_MAP_READ)
         elif access == _ACCESS_DEFAULT or access == ACCESS_WRITE:
-            flProtect = DWORD(PAGE_READWRITE)
+            flProtect = c_int(PAGE_READWRITE)
             dwDesiredAccess = DWORD(FILE_MAP_WRITE)
         elif access == ACCESS_COPY:
-            flProtect = DWORD(PAGE_WRITECOPY)
+            flProtect = c_int(PAGE_WRITECOPY)
             dwDesiredAccess = DWORD(FILE_MAP_COPY)
         else:
             raise OperationError(space.w_ValueError,
@@ -736,17 +753,17 @@ elif _MS_WINDOWS:
         # assume -1 and 0 both mean invalid file descriptor
         # to 'anonymously' map memory.
         if fileno != -1 and fileno != 0:
-            fh = cdll.msvcr71._get_osfhandle(fileno)
+            fh = msvcr71._get_osfhandle(fileno)
             if fh == -1:
                 raise OperationError(space.w_EnvironmentError,
                                      space.wrap(_get_error_msg()))
             # Win9x appears to need us seeked to zero
-            SEEK_SET = 0
-            libc._lseek(fileno, 0, SEEK_SET)
+            # SEEK_SET = 0
+            # libc._lseek(fileno, 0, SEEK_SET)
         
         m = _mmap(space)
-        m._file_handle = HANDLE(INVALID_HANDLE_VALUE)
-        m._map_handle = HANDLE(INVALID_HANDLE_VALUE)
+        m._file_handle = c_int(INVALID_c_int_VALUE)
+        m._map_handle = c_int(INVALID_c_int_VALUE)
         
         if fh:
             res = BOOL()
@@ -760,18 +777,19 @@ elif _MS_WINDOWS:
                                   wintypes.BOOL(False), # inherited by child procs?
                                   DUPLICATE_SAME_ACCESS) # options
             if not res:
-                raise OperationError(space.wrap(WinError), space.wrap(""))
+                raise OperationError(space.w_EnvironmentError,
+                                     space.wrap(_get_error_msg()))
         
             if not map_size:
-                low, high = _get_file_size(space, fh)
+                low, high = _get_file_size(space, c_int(fh))
                 if _64BIT:
-                    m._size = (c_long(low.value).value << 32) + 1
+                    m._size = c_int((low << 32) + 1).value
                 else:
                     if high:
                         # file is too large to map completely
-                        m._size = -1L
+                        m._size = -1
                     else:
-                        m._size = low.value
+                        m._size = low
             else:
                 m._size = map_size
         else:
@@ -786,22 +804,23 @@ elif _MS_WINDOWS:
             size_hi = DWORD(m._size >> 32)
             size_lo = DWORD(m._size & 0xFFFFFFFF)
         else:
-            size_hi = DWORD(0)
-            size_lo = DWORD(m._size)
+            size_hi = c_int(0)
+            size_lo = c_int(m._size)
 
-        m._map_handle = HANDLE(CreateFileMapping(m._file_handle, None, flProtect,
+        m._map_handle = c_int(CreateFileMapping(m._file_handle, c_void_p(0), flProtect,
                                                  size_hi, size_lo, m._tagname))
 
         if m._map_handle:
-            m._data = MapViewOfFile(m._map_handle, dwDesiredAccess,
-                                    0, 0, 0)
-            if m._data:
-                m._data = cast(m._data, POINTER(c_char))
-                return m
+            res = MapViewOfFile(m._map_handle, dwDesiredAccess,
+                                0, 0, 0)
+            if res:
+                m._data = cast(res, POINTER(c_char))
+                return space.wrap(m)
             else:
                 dwErr = GetLastError()
         else:
             dwErr = GetLastError()
 
-        raise OperationError(space.wrap(WinError), space.wrap(dwErr))
+        raise OperationError(space.w_EnvironmentError,
+                             space.wrap(_get_error_msg(dwErr)))
     mmap.unwrap_spec = [ObjSpace, int, int, str, int]
