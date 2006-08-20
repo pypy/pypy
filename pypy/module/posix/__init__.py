@@ -49,8 +49,8 @@ corresponding Unix manual entries for more information on calls."""
     'access'    : 'interp_posix.access',
     }
     
-    for func_name in ['ftruncate', 'putenv', 'unsetenv', 'getpid', 'link'
-        'symlink', 'readlink', 'fork', 'fork', 'waitpid', 'chown', 'chroot',
+    for func_name in ['ftruncate', 'putenv', 'unsetenv', 'getpid', 'link',
+        'symlink', 'readlink', 'fork', 'waitpid', 'chown', 'chroot',
         'confstr', 'ctermid', 'fchdir', 'fpathconf', 'getegid', 'geteuid',
         'getgid', 'getuid', 'getpgid', 'getpid', 'getppid', 'getpgrp',
         'getsid', 'getlogin', 'getgroups', 'getloadavg']:

@@ -86,6 +86,8 @@ class AppTestPosix:
         ex(self.posix.fchdir, UNUSEDFD)
         ex(self.posix.getpgid, UNUSEDFD)
         ex(self.posix.getsid, UNUSEDFD)
+        ex(self.posix.link, "foo", "foo")
+        ex(self.posix.readlink, "foo")
 
     def test_fdopen(self):
         path = self.path 
@@ -321,6 +323,18 @@ class AppTestPosix:
             load = posix.getloadavg()
             assert isinstance(load, tuple)
             assert len(load) == 3
+            
+    def test_linking(self):
+        import os
+        if hasattr(__import__(os.name), "symlink"):
+            posix = self.posix
+            pdir = self.pdir
+            path = self.path
+            link = os.path.join(pdir, 'link')
+            posix.symlink(path, link)
+            hard_link = os.path.join(pdir, 'hard_link')
+            posix.link(path, hard_link)
+            assert posix.readlink(link) == path
         
 class AppTestEnvironment(object):
     def setup_class(cls): 
