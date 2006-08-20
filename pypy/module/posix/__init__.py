@@ -78,6 +78,31 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['fchdir'] = 'interp_posix.fchdir'
     if hasattr(os, 'fpathconf'):
         interpleveldefs['fpathconf'] = 'interp_posix.fpathconf'
+    if hasattr(os, 'getegid'):
+        interpleveldefs['getegid'] = 'interp_posix.getegid'
+    if hasattr(os, 'geteuid'):
+        interpleveldefs['geteuid'] = 'interp_posix.geteuid'
+    if hasattr(os, 'getgid'):
+        interpleveldefs['getgid'] = 'interp_posix.getgid'
+    if hasattr(os, 'getuid'):
+        interpleveldefs['getuid'] = 'interp_posix.getuid'    
+    if hasattr(os, 'getpgid'):
+        interpleveldefs['getpgid'] = 'interp_posix.getpgid'
+    if hasattr(os, 'getpid'):
+        interpleveldefs['getpid'] = 'interp_posix.getpid'
+    if hasattr(os, 'getppid'):
+        interpleveldefs['getppid'] = 'interp_posix.getppid'
+    if hasattr(os, 'getpgrp'):
+        interpleveldefs['getpgrp'] = 'interp_posix.getpgrp'
+    if hasattr(os, 'getsid'):
+        interpleveldefs['getsid'] = 'interp_posix.getsid'
+    if hasattr(os, 'getlogin'):
+        interpleveldefs['getlogin'] = 'interp_posix.getlogin'
+    if hasattr(os, 'getgroups'):
+        interpleveldefs['getgroups'] = 'interp_posix.getgroups'
+    if hasattr(os, 'getloadavg'):
+        interpleveldefs['getloadavg'] = 'interp_posix.getloadavg'
+    
 
 for constant in dir(os):
     value = getattr(os, constant)

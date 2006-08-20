@@ -499,4 +499,79 @@ def fpathconf(space, fd, w_name):
 fpathconf.unwrap_spec = [ObjSpace, int, W_Root]
 fpathconf.__doc__ = os.fpathconf.__doc__
     
+def getegid(space):
+    return space.wrap(os.getegid())
+getegid.unwrap_spec = [ObjSpace]
+getegid.__doc__ = os.getegid.__doc__
+
+def geteuid(space):
+    return space.wrap(os.geteuid())
+geteuid.unwrap_spec = [ObjSpace]
+geteuid.__doc__ = os.geteuid.__doc__
+
+def getgid(space):
+    return space.wrap(os.getgid())
+getgid.unwrap_spec = [ObjSpace]
+getgid.__doc__ = os.getgid.__doc__
+
+def getuid(space):
+    return space.wrap(os.getuid())
+getuid.unwrap_spec = [ObjSpace]
+getuid.__doc__ = os.getuid.__doc__
+
+def getpgid(space, pid):
+    try:
+        res = os.getpgid(pid)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    else:
+        return space.wrap(res)
+getpgid.unwrap_spec = [ObjSpace, int]
+getpgid.__doc__ = os.getpgid.__doc__
+
+def getpid(space):
+    return space.wrap(os.getpid())
+getpid.unwrap_spec = [ObjSpace]
+getpid.__doc__ = os.getpid.__doc__
+
+def getppid(space):
+    return space.wrap(os.getppid())
+getppid.unwrap_spec = [ObjSpace]
+getppid.__doc__ = os.getppid.__doc__
+
+def getpgrp(space):
+    return space.wrap(os.getpgrp())
+getpgrp.unwrap_spec = [ObjSpace]
+getpgrp.__doc__ = os.getpgrp.__doc__
+
+def getsid(space, pid):
+    try:
+        res = os.getsid(pid)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    else:
+        return space.wrap(res)
+getsid.unwrap_spec = [ObjSpace, int]
+getsid.__doc__ = os.getsid.__doc__
+
+def getlogin(space):
+    return space.wrap(os.getlogin())
+getlogin.unwrap_spec = [ObjSpace]
+getlogin.__doc__ = os.getlogin.__doc__
+
+def getgroups(space):
+    return space.newlist(os.getgroups())
+getgroups.unwrap_spec = [ObjSpace]
+getgroups.__doc__ = os.getgroups.__doc__
+
+def getloadavg(space):
+    try:
+        res = os.getloadavg()
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    else:
+        return space.wrap(res)
+getloadavg.unwrap_spec = [ObjSpace]
+getloadavg.__doc__ = os.getloadavg.__doc__
+
 

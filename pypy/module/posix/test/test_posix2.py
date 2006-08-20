@@ -84,6 +84,8 @@ class AppTestPosix:
         ex(self.posix.chown, str(UNUSEDFD), -1, -1)
         ex(self.posix.chroot, str(UNUSEDFD))
         ex(self.posix.fchdir, UNUSEDFD)
+        ex(self.posix.getpgid, UNUSEDFD)
+        ex(self.posix.getsid, UNUSEDFD)
 
     def test_fdopen(self):
         path = self.path 
@@ -270,7 +272,7 @@ class AppTestPosix:
     
     def test_fpathconf(self):
         import os
-        if hasattr(__import__(os.name), "fork"):
+        if hasattr(__import__(os.name), "fpathconf"):
             posix = self.posix
             fd = posix.open(self.path, posix.O_RDONLY)
             assert isinstance(posix.pathconf_names, dict)
@@ -286,6 +288,39 @@ class AppTestPosix:
             
     def test_getcwdu(self):
         assert isinstance(self.posix.getcwdu(), unicode)
+    
+    def test_get_ids(self):
+        import os
+        if hasattr(__import__(os.name), "getegid"):
+            posix = self.posix
+            assert isinstance(posix.getegid(), int)
+            assert isinstance(posix.geteuid(), int)
+            assert isinstance(posix.getgid(), int)
+            assert isinstance(posix.getuid(), int)
+            assert posix.getpgid(0) == posix.getpgrp()
+            assert isinstance(posix.getpid(), int)
+            assert isinstance(posix.getppid(), int)
+            assert isinstance(posix.getsid(0), int)
+    
+    def test_getlogin(self):
+        import os
+        if hasattr(__import__(os.name), "getlogin"):
+            posix = self.posix
+            assert isinstance(posix.getlogin(), str)
+            # assert posix.getlogin() == pwd.getpwuid(os.getuid())[0]
+            
+    def test_getgroups(self):
+        import os
+        if hasattr(__import__(os.name), "getgroups"):
+            assert isinstance(self.posix.getgroups(), list)
+            
+    def test_getloadavg(self):
+        import os
+        if hasattr(__import__(os.name), "getloadavg"):
+            posix = self.posix
+            load = posix.getloadavg()
+            assert isinstance(load, tuple)
+            assert len(load) == 3
         
 class AppTestEnvironment(object):
     def setup_class(cls): 
