@@ -17,6 +17,18 @@ def wrap_oserror(space, e):
                                   space.wrap(errno),
                                   space.wrap(msg))
     return OperationError(space.w_OSError, w_error)
+
+def wrap_ioerror(space, e): 
+    assert isinstance(e, IOError) 
+    errno = e.errno
+    try:
+        msg = os.strerror(errno)
+    except ValueError:
+        msg = 'error %d' % errno
+    w_error = space.call_function(space.w_IOError,
+                                  space.wrap(errno),
+                                  space.wrap(msg))
+    return OperationError(space.w_IOError, w_error)
                           
 def open(space, fname, flag, mode=0777):
     """Open a file (for low level IO).
@@ -85,7 +97,9 @@ def ftruncate(space, fd, length):
     try:
         os.ftruncate(fd, length)
     except OSError, e: 
-        raise wrap_oserror(space, e) 
+        raise wrap_oserror(space, e)
+    except IOError, e:
+        raise wrap_ioerror(space, e)
 ftruncate.unwrap_spec = [ObjSpace, int, int]
 
 def build_stat_result(space, st):

@@ -29,13 +29,16 @@ class AppTestPosix:
         fd = posix.open(path, posix.O_RDONLY, 0777)
         fd2 = posix.dup(fd)
         assert not posix.isatty(fd2) 
+        fd3 = 1
+        posix.dup2(fd2, fd3)
+        assert not posix.isatty(fd3)
         s = posix.read(fd, 1)
         assert s == 't'
         posix.lseek(fd, 5, 0)
         s = posix.read(fd, 1)
         assert s == 'i'
         stat = posix.fstat(fd) 
-        assert stat  # XXX 
+        assert stat  # XXX
         posix.close(fd2)
         posix.close(fd)
 
@@ -68,8 +71,16 @@ class AppTestPosix:
         #UMPF cpython raises IOError ex(self.posix.ftruncate, UNUSEDFD, 123)
         ex(self.posix.fstat, UNUSEDFD)
         ex(self.posix.stat, "qweqwehello")
+        ex(self.posix.lstat, "qweqwehello")
         # how can getcwd() raise? 
         ex(self.posix.dup, UNUSEDFD)
+        ex(self.posix.dup2, UNUSEDFD, UNUSEDFD)
+        ex(self.posix.unlink, str(UNUSEDFD))
+        ex(self.posix.remove, str(UNUSEDFD))
+        ex(self.posix.chdir, str(UNUSEDFD))
+        ex(self.posix.rmdir, str(UNUSEDFD))        
+        ex(self.posix.listdir, str(UNUSEDFD))        
+        ex(self.posix.chmod, str(UNUSEDFD), 0777)        
 
     def test_fdopen(self):
         path = self.path 
@@ -122,16 +133,89 @@ class AppTestPosix:
         buf.append(posix.read(fd, 255))
         assert "".join(buf) == "\nfoo is a test"
         posix.close(fd)
+    
+    def test_unlink(self):
+        import os
+        posix = self.posix
+        path = "foo"
+        fd = posix.open(path, posix.O_WRONLY | posix.O_CREAT)
+        assert os.path.exists(path)
+        try:
+            posix.unlink(path)
+        except OSError:
+            print "can't delete '%s'" % path
+        else:
+            assert not os.path.exists(path)
+        posix.close(fd)
+    test_remove = test_unlink
+    
+    def test_getcwd_chdir(self):
+        import os
+        posix = self.posix
+        path = os.path.split(posix.getcwd())[1]
+        posix.chdir('..')
+        posix.chdir(path)
+        posix.getcwd()
+        
+    def test_mkdir_rmdir(self):
+        import os
+        posix = self.posix
+        path = 'foo'
+        try:
+            posix.mkdir(path)
+        except OSError:
+            print "cannot create '%s' directory" % path
+        else:
+            assert os.path.exists(path)
+        try:
+            posix.rmdir(path)
+        except OSError:
+            print "cannot remove '%s' directory" % path
+        else:
+            assert not os.path.exists(path)
+    
+    def test_pipe(self):
+        posix = self.posix
+        r, w = posix.pipe()
+        data = 'foobar'
+        amount = posix.write(w, data)
+        posix.close(w)
+        read_data = posix.read(r, amount)
+        posix.close(r)
+        assert read_data == data
+    
+    def test_rename(self):
+        path = self.path
+        posix = self.posix
+        new_path = "foo"
+        posix.rename(path, new_path)
+        posix.rename(new_path, path)
+    
+    def test_ftruncate(self):
+        import os
+        pdir = self.pdir
+        posix = self.posix
+        path = os.path.join(pdir, 'file1')
+        fd = posix.open(path, posix.O_WRONLY)
+        posix.ftruncate(fd, 2)
+        assert posix.stat(path)[6] == 2
+        posix.close(fd)
+        raises(IOError, posix.ftruncate, 123123, 1)
 
+        
 class AppTestEnvironment(object):
     def setup_class(cls): 
         cls.space = space 
         cls.w_posix = space.appexec([], "(): import %s as m ; return m" % os.name)
         cls.w_os = space.appexec([], "(): import os; return os")
         cls.w_path = space.wrap(str(path))
+
     def test_environ(self):
         posix = self.posix
-        os = self.os
+        assert posix.environ['PATH']
+        del posix.environ['PATH']
+        def fn(): posix.environ['PATH']
+        raises(KeyError, fn)
 
     if hasattr(__import__(os.name), "unsetenv"):
         def test_unsetenv_nonexisting(self):
