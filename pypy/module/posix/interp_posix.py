@@ -1,4 +1,4 @@
-from pypy.interpreter.baseobjspace import ObjSpace
+from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.rpython.rarithmetic import intmask
 from pypy.rpython import ros
 from pypy.interpreter.error import OperationError
@@ -427,3 +427,27 @@ def chroot(space, path):
         raise wrap_oserror(space, e)
 chroot.unwrap_spec = [ObjSpace, str]
 chroot.__doc__ = os.chroot.__doc__
+
+def confstr(space, w_name):
+    w_name_type = space.type(w_name)
+    is_str = space.is_w(w_name_type, space.w_str)
+    is_int = space.is_w(w_name_type, space.w_int)
+
+    res = ''
+    try:
+        if is_str:
+            res = os.confstr(space.str_w(w_name))
+        elif is_int:
+            res = os.confstr(space.int_w(w_name))
+        else:
+            raise OperationError(space.w_TypeError,
+                space.wrap("configuration names must be strings or integers"))
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    except ValueError, e:
+        raise OperationError(space.w_ValueError,
+            space.wrap(e.args[0]))
+    return space.wrap(res)
+confstr.unwrap_spec = [ObjSpace, W_Root]
+confstr.__doc__ = os.confstr.__doc__
+

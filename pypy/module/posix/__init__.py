@@ -69,9 +69,12 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['chown'] = 'interp_posix.chown'
     if hasattr(os, 'chroot'):
         interpleveldefs['chroot'] = 'interp_posix.chroot'
-
+    if hasattr(os, 'confstr'):
+        interpleveldefs['confstr'] = 'interp_posix.confstr'
 
 for constant in dir(os):
     value = getattr(os, constant)
     if constant.isupper() and type(value) is int:
         Module.interpleveldefs[constant] = "space.wrap(%s)" % value
+if hasattr(os, 'confstr_names'):
+    Module.interpleveldefs['confstr_names'] = "space.wrap(%s)" % os.confstr_names

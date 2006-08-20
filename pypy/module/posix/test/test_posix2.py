@@ -224,7 +224,18 @@ class AppTestPosix:
         assert uid == stat_info.st_uid
         assert gid == stat_info.st_gid
         raises(OSError, posix.chown, path, 1000, 1000)
-    
+        
+    def test_confstr(self):
+        posix = self.posix
+        assert isinstance(posix.confstr_names, dict)
+        name = posix.confstr_names.keys()[0]
+        assert isinstance(posix.confstr(name), str)
+        val = posix.confstr_names.values()[0]
+        assert isinstance(posix.confstr(val), str)
+        raises(ValueError, posix.confstr, 'xYz')
+        raises(TypeError, posix.confstr, None)
+        raises(TypeError, posix.confstr, dict())
+        assert isinstance(posix.confstr(12345), str)
         
 class AppTestEnvironment(object):
     def setup_class(cls): 
