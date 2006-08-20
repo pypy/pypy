@@ -302,7 +302,6 @@ def unsetenv(space, name):
         del get(space).posix_putenv_garbage[name]
 unsetenv.unwrap_spec = [ObjSpace, str]
 
-
 def enumeratedir(space, dir):
     result = []
     while True:
@@ -402,6 +401,12 @@ def waitpid(space, pid, options):
     return space.newtuple([space.wrap(pid), space.wrap(status)])
 waitpid.unwrap_spec = [ObjSpace, int, int]
 waitpid.__doc__ = os.waitpid.__doc__
+
+def wait(space):
+    pid, status = os.wait()
+    return space.newtuple([space.wrap(pid), space.wrap(status)])
+wait.unwrap_spec = [ObjSpace]
+wait.__doc__ = os.wait.__doc__
 
 def _exit(space, status):
     os._exit(status)
@@ -616,3 +621,48 @@ def minor(space, device):
 minor.unwrap_spec = [ObjSpace, int]
 minor.__doc__ = os.minor.__doc__
 
+def sysconf(space, w_name):
+    w_name_type = space.type(w_name)
+    is_str = space.is_w(w_name_type, space.w_str)
+    is_int = space.is_w(w_name_type, space.w_int)
+
+    res = ''
+    try:
+        if is_str:
+            res = os.sysconf(space.str_w(w_name))
+        elif is_int:
+            res = os.sysconf(space.int_w(w_name))
+        else:
+            raise OperationError(space.w_TypeError,
+                space.wrap("configuration names must be strings or integers"))
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    except ValueError, e:
+        raise OperationError(space.w_ValueError,
+            space.wrap(e.args[0]))
+    else:
+        return space.wrap(res)
+sysconf.unwrap_spec = [ObjSpace, W_Root]
+sysconf.__doc__ = os.sysconf.__doc__
+
+def uname(space):
+    name = os.uname()
+    name_w = [space.wrap(i) for i in name]
+    return space.newtuple(name_w)
+uname.unwrap_spec = [ObjSpace]
+uname.__doc__ == os.uname.__doc__
+
+def umask(space, mask):
+    return space.wrap(os.umask(mask))
+umask.unwrap_spec = [ObjSpace, int]
+umask.__doc__ == os.umask.__doc__
+
+def ttyname(space, fd):
+    try:
+        res = os.ttyname(fd)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    else:
+        return space.wrap(res)
+ttyname.unwrap_spec = [ObjSpace, int]
+ttyname.__doc__ = os.ttyname.__doc__

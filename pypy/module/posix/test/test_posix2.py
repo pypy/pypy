@@ -88,6 +88,8 @@ class AppTestPosix:
         ex(self.posix.getsid, UNUSEDFD)
         ex(self.posix.link, "foo", "foo")
         ex(self.posix.readlink, "foo")
+        ex(self.posix.sysconf, UNUSEDFD)
+        ex(self.posix.ttyname, UNUSEDFD)
 
     def test_fdopen(self):
         path = self.path 
@@ -358,6 +360,50 @@ class AppTestPosix:
         fd = posix.open("/dev/urandom", posix.O_RDONLY)
         assert isinstance(posix.major(fd), int)
         assert isinstance(posix.minor(fd), int)
+
+    def test_sysconf(self):
+        import os
+        if hasattr(__import__(os.name), "sysconf"):
+            posix = self.posix
+            assert isinstance(posix.sysconf_names, dict)
+            name = posix.sysconf_names.keys()[0]
+            assert isinstance(posix.sysconf(name), int)
+            val = posix.sysconf_names.values()[0]
+            assert isinstance(posix.sysconf(val), int)
+            raises(ValueError, posix.sysconf, 'xYz')
+            raises(TypeError, posix.sysconf, None)
+            raises(TypeError, posix.sysconf, dict())
+        else:
+            skip("confstr and confstr_names not supported")
+            
+    def test_wait(self):
+        import os
+        if hasattr(__import__(os.name), "wait"):
+            posix = self.posix
+            pid = posix.fork()
+            if pid == 0:   # child
+                posix._exit(4)
+            pid1, status1 = os.wait()
+            assert pid1 == pid
+        else:
+            skip("wait not supported")
+            
+    def test_uname(self):
+        import os
+        if hasattr(__import__(os.name), "uname"):
+            uname = self.posix.uname()
+            assert isinstance(uname, tuple)
+            assert len(uname) == 5
+    
+    def test_umask(self):
+        import os
+        if hasattr(__import__(os.name), "umask"):
+            assert isinstance(self.posix.umask(022), int)
+            
+    def test_ttyname(self):
+        import os
+        if hasattr(__import__(os.name), "umask"):
+            assert isinstance(self.posix.ttyname(0), str)
         
 class AppTestEnvironment(object):
     def setup_class(cls): 

@@ -28,7 +28,8 @@ corresponding Unix manual entries for more information on calls."""
         'minor', 'major', 'access', 'abort', '_exit', 'rename', 'chmod',
         'pipe', 'strerror', 'listdir', 'rmdir', 'mkdir', 'chdir', 'getcwdu',
         'getcwd', 'remove', 'unlink', 'system', 'dup2', 'dup', 'lstat',
-        'stat', 'fstat', 'close', 'read', 'write', 'isatty', 'lseek', 'open']:
+        'stat', 'fstat', 'close', 'read', 'write', 'isatty', 'lseek', 'open',
+        'sysconf', 'wait', 'uname', 'umask', 'ttyname']:
         if hasattr(os, func_name):
             interpleveldefs[func_name] = 'interp_posix.%s' % func_name
     
@@ -36,6 +37,6 @@ for constant in dir(os):
     value = getattr(os, constant)
     if constant.isupper() and type(value) is int:
         Module.interpleveldefs[constant] = "space.wrap(%s)" % value
-for const in ['confstr_names', 'pathconf_names']:
+for const in ['confstr_names', 'pathconf_names', 'sysconf_names']:
     if hasattr(os, const):
         Module.interpleveldefs[const] = "space.wrap(%s)" % getattr(os, const)
