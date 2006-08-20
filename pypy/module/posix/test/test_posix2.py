@@ -95,8 +95,9 @@ class AppTestPosix:
         assert isinstance(self.posix.strerror(0), str)
         assert isinstance(self.posix.strerror(1), str)
 
-    if hasattr(__import__(os.name), "fork"):
-        def test_fork(self):
+    def test_fork(self):
+        import os
+        if hasattr(__import__(os.name), "fork"):
             os = self.posix
             pid = os.fork()
             if pid == 0:   # child
@@ -104,6 +105,23 @@ class AppTestPosix:
             pid1, status1 = os.waitpid(pid, 0)
             assert pid1 == pid
             # XXX check status1
+        else:
+            skip("fork not supported")
+
+    def test_read_write(self):
+        path = self.path
+        posix = self.posix
+        fd = posix.open(path, posix.O_WRONLY)
+        posix.write(fd, "\nfoo")
+        posix.close(fd)
+        fd = posix.open(path, posix.O_RDONLY)
+        raises(OSError, posix.write, fd, "foo")
+        buf = []
+        buf.append(posix.read(fd, 4))
+        assert len(buf[0]) == 4
+        buf.append(posix.read(fd, 255))
+        assert "".join(buf) == "\nfoo is a test"
+        posix.close(fd)
 
 class AppTestEnvironment(object):
     def setup_class(cls): 
