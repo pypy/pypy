@@ -1,4 +1,4 @@
-from pypy.interpreter.baseobjspace import ObjSpace, W_Root
+from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.rpython.rarithmetic import intmask
 from pypy.rpython import ros
 from pypy.interpreter.error import OperationError
@@ -17,18 +17,6 @@ def wrap_oserror(space, e):
                                   space.wrap(errno),
                                   space.wrap(msg))
     return OperationError(space.w_OSError, w_error)
-
-def wrap_ioerror(space, e): 
-    assert isinstance(e, IOError) 
-    errno = e.errno
-    try:
-        msg = os.strerror(errno)
-    except ValueError:
-        msg = 'error %d' % errno
-    w_error = space.call_function(space.w_IOError,
-                                  space.wrap(errno),
-                                  space.wrap(msg))
-    return OperationError(space.w_IOError, w_error)
                           
 def open(space, fname, flag, mode=0777):
     """Open a file (for low level IO).
@@ -97,9 +85,7 @@ def ftruncate(space, fd, length):
     try:
         os.ftruncate(fd, length)
     except OSError, e: 
-        raise wrap_oserror(space, e)
-    except IOError, e:
-        raise wrap_ioerror(space, e)
+        raise wrap_oserror(space, e) 
 ftruncate.unwrap_spec = [ObjSpace, int, int]
 
 def build_stat_result(space, st):
@@ -201,6 +187,7 @@ def remove(space, path):
 remove.unwrap_spec = [ObjSpace, str]
 
 def getcwd(space):
+    """Return the current working directory."""
     try:
         cur = os.getcwd()
     except OSError, e: 
@@ -208,17 +195,6 @@ def getcwd(space):
     else: 
         return space.wrap(cur)
 getcwd.unwrap_spec = [ObjSpace]
-getcwd.__doc__ = os.getcwd.__doc__
-
-def getcwdu(space):
-    try:
-        cur = os.getcwdu()
-    except OSError, e:
-        raise wrap_oserror(space, e)
-    else:
-        return space.wrap(cur)
-getcwdu.unwrap_spec = [ObjSpace]
-getcwdu.__doc__ = os.getcwdu.__doc__
 
 def chdir(space, path):
     """Change the current working directory to the specified path."""
@@ -301,6 +277,7 @@ def unsetenv(space, name):
         # old value was still accessible until then.
         del get(space).posix_putenv_garbage[name]
 unsetenv.unwrap_spec = [ObjSpace, str]
+
 
 def enumeratedir(space, dir):
     result = []
@@ -393,276 +370,12 @@ readlink.unwrap_spec = [ObjSpace, str]
 def fork(space):
     pid = os.fork()
     return space.wrap(pid)
-fork.unwrap_spec = [ObjSpace]
-fork.__doc__ = os.fork.__doc__
 
 def waitpid(space, pid, options):
     pid, status = os.waitpid(pid, options)
     return space.newtuple([space.wrap(pid), space.wrap(status)])
 waitpid.unwrap_spec = [ObjSpace, int, int]
-waitpid.__doc__ = os.waitpid.__doc__
-
-def wait(space):
-    pid, status = os.wait()
-    return space.newtuple([space.wrap(pid), space.wrap(status)])
-wait.unwrap_spec = [ObjSpace]
-wait.__doc__ = os.wait.__doc__
 
 def _exit(space, status):
     os._exit(status)
 _exit.unwrap_spec = [ObjSpace, int]
-_exit.__doc__ = os._exit.__doc__
-
-def abort(space):
-    os.abort()
-abort.unwrap_spec = [ObjSpace]
-abort.__doc__ = os.abort.__doc__
-
-def access(space, path, mode):
-    try:
-        res = os.access(path, mode)
-    except OSError, e:
-        raise wrap_oserror(space, e)
-    return space.wrap(res)
-access.unwrap_spec = [ObjSpace, str, int]
-access.__doc__ = os.access.__doc__
-
-def chown(space, path, uid, gid):
-    try:
-        os.chown(path, uid, gid)
-    except OSError, e:
-        raise wrap_oserror(space, e)
-chown.unwrap_spec = [ObjSpace, str, int, int]
-chown.__doc__ = os.chown.__doc__
-
-def lchown(space, path, uid, gid):
-    try:
-        os.lchown(path, uid, gid)
-    except OSError, e:
-        raise wrap_oserror(space, e)
-lchown.unwrap_spec = [ObjSpace, str, int, int]
-lchown.__doc__ = os.lchown.__doc__
-
-def chroot(space, path):
-    try:
-        os.chroot(path)
-    except OSError, e:
-        raise wrap_oserror(space, e)
-chroot.unwrap_spec = [ObjSpace, str]
-chroot.__doc__ = os.chroot.__doc__
-
-def confstr(space, w_name):
-    w_name_type = space.type(w_name)
-    is_str = space.is_w(w_name_type, space.w_str)
-    is_int = space.is_w(w_name_type, space.w_int)
-
-    res = ''
-    try:
-        if is_str:
-            res = os.confstr(space.str_w(w_name))
-        elif is_int:
-            res = os.confstr(space.int_w(w_name))
-        else:
-            raise OperationError(space.w_TypeError,
-                space.wrap("configuration names must be strings or integers"))
-    except OSError, e:
-        raise wrap_oserror(space, e)
-    except ValueError, e:
-        raise OperationError(space.w_ValueError,
-            space.wrap(e.args[0]))
-    else:
-        return space.wrap(res)
-confstr.unwrap_spec = [ObjSpace, W_Root]
-confstr.__doc__ = os.confstr.__doc__
-
-def ctermid(space):
-    return space.wrap(os.ctermid())
-ctermid.unwrap_spec = [ObjSpace]
-ctermid.__doc__ = os.ctermid.__doc__
-
-def fchdir(space, fd):
-    try:
-        os.fchdir(fd)
-    except OSError, e:
-        raise wrap_oserror(space, e)
-fchdir.unwrap_spec = [ObjSpace, int]
-fchdir.__doc__ = os.fchdir.__doc__
-
-def fpathconf(space, fd, w_name):
-    w_name_type = space.type(w_name)
-    is_str = space.is_w(w_name_type, space.w_str)
-    is_int = space.is_w(w_name_type, space.w_int)
-
-    res = ''
-    try:
-        if is_str:
-            res = os.fpathconf(fd, space.str_w(w_name))
-        elif is_int:
-            res = os.fpathconf(fd, space.int_w(w_name))
-        else:
-            raise OperationError(space.w_TypeError,
-                space.wrap("configuration names must be strings or integers"))
-    except OSError, e:
-        raise wrap_oserror(space, e)
-    except ValueError, e:
-        raise OperationError(space.w_ValueError,
-            space.wrap(e.args[0]))
-    else:
-        return space.wrap(res)
-fpathconf.unwrap_spec = [ObjSpace, int, W_Root]
-fpathconf.__doc__ = os.fpathconf.__doc__
-
-def pathconf(space, path, w_name):
-    w_name_type = space.type(w_name)
-    is_str = space.is_w(w_name_type, space.w_str)
-    is_int = space.is_w(w_name_type, space.w_int)
-
-    res = ''
-    try:
-        if is_str:
-            res = os.pathconf(path, space.str_w(w_name))
-        elif is_int:
-            res = os.pathconf(path, space.int_w(w_name))
-        else:
-            raise OperationError(space.w_TypeError,
-                space.wrap("configuration names must be strings or integers"))
-    except OSError, e:
-        raise wrap_oserror(space, e)
-    except ValueError, e:
-        raise OperationError(space.w_ValueError,
-            space.wrap(e.args[0]))
-    else:
-        return space.wrap(res)
-pathconf.unwrap_spec = [ObjSpace, str, W_Root]
-pathconf.__doc__ = os.pathconf.__doc__
-    
-def getegid(space):
-    return space.wrap(os.getegid())
-getegid.unwrap_spec = [ObjSpace]
-getegid.__doc__ = os.getegid.__doc__
-
-def geteuid(space):
-    return space.wrap(os.geteuid())
-geteuid.unwrap_spec = [ObjSpace]
-geteuid.__doc__ = os.geteuid.__doc__
-
-def getgid(space):
-    return space.wrap(os.getgid())
-getgid.unwrap_spec = [ObjSpace]
-getgid.__doc__ = os.getgid.__doc__
-
-def getuid(space):
-    return space.wrap(os.getuid())
-getuid.unwrap_spec = [ObjSpace]
-getuid.__doc__ = os.getuid.__doc__
-
-def getpgid(space, pid):
-    try:
-        res = os.getpgid(pid)
-    except OSError, e:
-        raise wrap_oserror(space, e)
-    else:
-        return space.wrap(res)
-getpgid.unwrap_spec = [ObjSpace, int]
-getpgid.__doc__ = os.getpgid.__doc__
-
-def getpid(space):
-    return space.wrap(os.getpid())
-getpid.unwrap_spec = [ObjSpace]
-getpid.__doc__ = os.getpid.__doc__
-
-def getppid(space):
-    return space.wrap(os.getppid())
-getppid.unwrap_spec = [ObjSpace]
-getppid.__doc__ = os.getppid.__doc__
-
-def getpgrp(space):
-    return space.wrap(os.getpgrp())
-getpgrp.unwrap_spec = [ObjSpace]
-getpgrp.__doc__ = os.getpgrp.__doc__
-
-def getsid(space, pid):
-    try:
-        res = os.getsid(pid)
-    except OSError, e:
-        raise wrap_oserror(space, e)
-    else:
-        return space.wrap(res)
-getsid.unwrap_spec = [ObjSpace, int]
-getsid.__doc__ = os.getsid.__doc__
-
-def getlogin(space):
-    return space.wrap(os.getlogin())
-getlogin.unwrap_spec = [ObjSpace]
-getlogin.__doc__ = os.getlogin.__doc__
-
-def getgroups(space):
-    return space.newlist(os.getgroups())
-getgroups.unwrap_spec = [ObjSpace]
-getgroups.__doc__ = os.getgroups.__doc__
-
-def getloadavg(space):
-    try:
-        res = os.getloadavg()
-    except OSError, e:
-        raise wrap_oserror(space, e)
-    else:
-        return space.wrap(res)
-getloadavg.unwrap_spec = [ObjSpace]
-getloadavg.__doc__ = os.getloadavg.__doc__
-
-def major(space, device):
-    return space.wrap(os.major(device))
-major.unwrap_spec = [ObjSpace, int]
-major.__doc__ = os.major.__doc__
-
-def minor(space, device):
-    return space.wrap(os.minor(device))
-minor.unwrap_spec = [ObjSpace, int]
-minor.__doc__ = os.minor.__doc__
-
-def sysconf(space, w_name):
-    w_name_type = space.type(w_name)
-    is_str = space.is_w(w_name_type, space.w_str)
-    is_int = space.is_w(w_name_type, space.w_int)
-
-    res = ''
-    try:
-        if is_str:
-            res = os.sysconf(space.str_w(w_name))
-        elif is_int:
-            res = os.sysconf(space.int_w(w_name))
-        else:
-            raise OperationError(space.w_TypeError,
-                space.wrap("configuration names must be strings or integers"))
-    except OSError, e:
-        raise wrap_oserror(space, e)
-    except ValueError, e:
-        raise OperationError(space.w_ValueError,
-            space.wrap(e.args[0]))
-    else:
-        return space.wrap(res)
-sysconf.unwrap_spec = [ObjSpace, W_Root]
-sysconf.__doc__ = os.sysconf.__doc__
-
-def uname(space):
-    name = os.uname()
-    name_w = [space.wrap(i) for i in name]
-    return space.newtuple(name_w)
-uname.unwrap_spec = [ObjSpace]
-uname.__doc__ == os.uname.__doc__
-
-def umask(space, mask):
-    return space.wrap(os.umask(mask))
-umask.unwrap_spec = [ObjSpace, int]
-umask.__doc__ == os.umask.__doc__
-
-def ttyname(space, fd):
-    try:
-        res = os.ttyname(fd)
-    except OSError, e:
-        raise wrap_oserror(space, e)
-    else:
-        return space.wrap(res)
-ttyname.unwrap_spec = [ObjSpace, int]
-ttyname.__doc__ = os.ttyname.__doc__
