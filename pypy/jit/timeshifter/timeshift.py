@@ -22,8 +22,6 @@ class HintTimeshift(object):
         self.rtyper = rtyper
         self.hrtyper = HintRTyper(hannotator, self)
         self.latestexitindex = -1
-        self.block2jitstate = {}
-        self.return_cache = None
         self.annhelper = annlowlevel.MixLevelHelperAnnotator(rtyper)
 
         self.s_ResidualGraphBuilder, self.r_ResidualGraphBuilder = self.s_r_instanceof(ResidualGraphBuilder)
@@ -161,9 +159,12 @@ class HintTimeshift(object):
         self.annhelper.finish()
 
     def timeshift_graph(self, graph):
+        #print 'timeshift_graph START', graph
         self.graph = graph
         self.dispatch_to = []
         self.statecaches = []
+        self.block2jitstate = {}
+        self.return_cache = None
         entering_links = flowmodel.mkentrymap(graph)
 
         originalblocks = list(graph.iterblocks())
@@ -219,6 +220,7 @@ class HintTimeshift(object):
                                                              annmodel.s_None)
 
         self.insert_start_setup()
+        #print 'timeshift_graph END', graph
 
     def insert_start_setup(self):
         newstartblock = self.insert_before_block(self.graph.startblock, None, closeblock=True)

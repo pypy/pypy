@@ -219,6 +219,13 @@ class HintRTyper(RPythonTyper):
             return v
         else:
             bk = self.annotator.bookkeeper
+            # first close the current block
+            ts = self.timeshifter
+            v_jitstate = hop.llops.getjitstate()
+            hop.llops.genmixlevelhelpercall(rtimeshift.leave_block,
+                                            [ts.s_JITState],
+                                            [v_jitstate],
+                                            ts.s_JITState)
             hop.r_s_popfirstarg()
             args_hs = hop.args_s[:]
             # fixed is always false here
@@ -227,11 +234,15 @@ class HintRTyper(RPythonTyper):
             args_v = hop.inputargs(*args_r)
             fnptr = self.getcallable(graph)
             self.timeshifter.schedule_graph(graph)
-            v_jitstate = hop.llops.getjitstate()
-            args_v.insert(0, v_jitstate)
+            v_builder = hop.llops.getcurbuilder()
+            args_v.insert(0, v_builder)
             args_v.insert(0, hop.llops.genconst(fnptr))
-            v = hop.genop('direct_call', args_v, hop.r_result.lowleveltype)
-            return v
+            v = hop.genop('direct_call', args_v,
+                          resulttype = ts.r_ResidualGraphBuilder.lowleveltype)
+
+            c_name = inputconst(lltype.Void, 'inst_valuebox')
+            return hop.genop('getfield', [v, c_name],
+                             resulttype = hop.r_result.lowleveltype)
 
     def handle_highlevel_operation(self, fnobj, hop):
         from pypy.jit.timeshifter.oop import OopSpecDesc, Index
@@ -320,12 +331,19 @@ class HintLowLevelOpList(LowLevelOpList):
         assert self.originalblock is not None
         return self.timeshifter.block2jitstate[self.originalblock]
 
+    def getcurbuilder(self):
+        v_jitstate = self.getjitstate()
+        c_name = inputconst(lltype.Void, 'inst_curbuilder')
+        return self.genop('getfield', [v_jitstate, c_name],
+                          self.timeshifter.r_ResidualGraphBuilder.lowleveltype)
+
 # ____________________________________________________________
 
 class __extend__(pairtype(HintTypeSystem, hintmodel.SomeLLAbstractConstant)):
 
     def rtyper_makerepr((ts, hs_c), hrtyper):
-        if hs_c.is_fixed() or hs_c.eager_concrete:
+        if (hs_c.is_fixed() or hs_c.eager_concrete or
+            hs_c.concretetype is lltype.Void):
             return hrtyper.getgreenrepr(hs_c.concretetype)
         else:
             return hrtyper.getredrepr(hs_c.concretetype)
