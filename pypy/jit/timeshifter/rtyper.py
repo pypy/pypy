@@ -234,14 +234,26 @@ class HintRTyper(RPythonTyper):
             args_v = hop.inputargs(*args_r)
             fnptr = self.getcallable(graph)
             self.timeshifter.schedule_graph(graph)
-            args_v.insert(0, v_builder)
-            args_v.insert(0, hop.llops.genconst(fnptr))
+            args_v[:0] = [hop.llops.genconst(fnptr), v_builder, v_jitstate]
             v_newbuilder = hop.genop('direct_call', args_v,
                                      ts.r_ResidualGraphBuilder.lowleveltype)
             return hop.llops.genmixlevelhelpercall(rtimeshift.after_call,
                                    [ts.s_JITState, ts.s_ResidualGraphBuilder],
                                    [v_jitstate,    v_newbuilder],
                                    ts.s_RedBox)
+
+    def translate_op_save_locals(self, hop):
+        ts = self.timeshifter
+        v_jitstate = hop.llops.getjitstate()
+        boxes_v = []
+        for r, v in zip(hop.args_r, hop.args_v):
+            if isinstance(r, RedRepr):
+                boxes_v.append(v)
+        v_boxes = ts.build_box_list(hop.llops, boxes_v)
+        hop.llops.genmixlevelhelpercall(rtimeshift.save_locals,
+                                        [ts.s_JITState, ts.s_box_list],
+                                        [v_jitstate,    v_boxes],
+                                        annmodel.s_None)
 
     def handle_highlevel_operation(self, fnobj, hop):
         from pypy.jit.timeshifter.oop import OopSpecDesc, Index

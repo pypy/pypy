@@ -145,10 +145,13 @@ def ll_generate_getarrayitem(jitstate, fielddesc, argbox, indexbox):
 # ____________________________________________________________
 # other jitstate/graph level operations
 
-def enter_graph(builder):
-    return builder.build_jitstate()
+def enter_graph(builder, backstate=None):
+    return builder.build_jitstate(backstate)
 
 def retrieve_jitstate_for_merge(states_dic, jitstate, key, redboxes):
+    mylocalredboxes = redboxes
+    redboxes = list(redboxes)
+    jitstate.extend_with_parent_locals(redboxes)
     if key not in states_dic:
         memo = rvalue.freeze_memo()
         frozens = [redbox.freeze(memo) for redbox in redboxes]
@@ -196,8 +199,9 @@ def retrieve_jitstate_for_merge(states_dic, jitstate, key, redboxes):
             box = box.copy(replace_memo) # copy to avoid patching the original
         box.genvar = rgenop.geninputarg(newblock, box.gv_type)
     if replace_memo.boxes:
-        for i in range(len(redboxes)):
-            redboxes[i] = redboxes[i].replace(replace_memo)
+        for i in range(len(mylocalredboxes)):
+            newbox = redboxes[i].replace(replace_memo)
+            mylocalredboxes[i] = redboxes[i] = newbox
     jitstate.curbuilder.leave_block()
     jitstate.curbuilder.enter_block(linkargs, newblock)
     memo = rvalue.freeze_memo()
@@ -207,15 +211,25 @@ def retrieve_jitstate_for_merge(states_dic, jitstate, key, redboxes):
 retrieve_jitstate_for_merge._annspecialcase_ = "specialize:arglltype(2)"
     
 def enter_block(jitstate, redboxes):
+    # 'redboxes' is a fixed-size list (s_box_list) of the current red boxes
     newblock = rgenop.newblock()
     incoming = []
     memo = rvalue.enter_block_memo()
-    for i in range(len(redboxes)):
-        redboxes[i].enter_block(newblock, incoming, memo)
+    for redbox in redboxes:
+        redbox.enter_block(newblock, incoming, memo)
+    js = jitstate.backstate
+    while js is not None:
+        lrb = js.localredboxes
+        assert lrb is not None
+        for redbox in lrb:
+            redbox.enter_block(newblock, incoming, memo)
+        js = js.backstate
     jitstate.curbuilder.enter_block(incoming, newblock)
     return jitstate
 
 def dyn_enter_block(jitstate, redboxes):
+    # 'redboxes' is a var-sized list (s_box_accum) of *all* the boxes
+    # including the ones from the callers' locals
     newblock = rgenop.newblock()
     incoming = []
     memo = rvalue.enter_block_memo()
@@ -273,6 +287,9 @@ def ll_gvar_from_redbox(jitstate, redbox):
 def ll_gvar_from_constant(ll_value):
     return rgenop.genconst(ll_value)
 
+def save_locals(jitstate, redboxes):
+    jitstate.localredboxes = redboxes
+
 def before_call(jitstate):
     leave_block(jitstate)
     return jitstate.curbuilder
@@ -289,8 +306,8 @@ class ResidualGraphBuilder(rgenop.LowLevelOpBuilder):
         self.outgoinglink = link
         self.valuebox = None
 
-    def build_jitstate(self):
-        return JITState(self)
+    def build_jitstate(self, backstate=None):
+        return JITState(self, backstate)
 
     def enter_block(self, linkargs, newblock):
         rgenop.closelink(self.outgoinglink, linkargs, newblock)
@@ -343,10 +360,18 @@ def ll_close_builder(builder):
         
 class JITState(object):
     # XXX obscure interface
+    localredboxes = None
 
-    def __init__(self, builder):
+    def __init__(self, builder, backstate=None):
         self.split_queue = []
         self.return_queue = []
         self.curbuilder = builder
+        self.backstate = backstate
 
-
+    def extend_with_parent_locals(self, redboxes):
+        js = self.backstate
+        while js is not None:
+            lrb = js.localredboxes
+            assert lrb is not None
+            redboxes.extend(lrb)
+            js = js.backstate

@@ -225,15 +225,16 @@ class HintTimeshift(object):
     def insert_start_setup(self):
         newstartblock = self.insert_before_block(self.graph.startblock, None, closeblock=True)
         v_builder = varoftype(self.r_ResidualGraphBuilder.lowleveltype, 'builder')
+        v_backstate = varoftype(self.r_JITState.lowleveltype, 'backstate')
         v_jitstate = newstartblock.inputargs[0]
-        newstartblock.inputargs[0] = v_builder
+        newstartblock.inputargs[:1] = [v_builder, v_backstate]
         llops = HintLowLevelOpList(self, None)
 
         llops.genop('direct_call', [self.c_ll_clearcaches_ptr])
         v_jitstate1 = llops.genmixlevelhelpercall(rtimeshift.enter_graph,
-                                                  [self.s_ResidualGraphBuilder],
-                                                  [v_builder],
-                                                  self.s_JITState)
+                               [self.s_ResidualGraphBuilder, self.s_JITState],
+                               [v_builder,                   v_backstate],
+                               self.s_JITState)
         llops.append(flowmodel.SpaceOperation('same_as', [v_jitstate1], v_jitstate))
         newstartblock.operations = list(llops)
         
@@ -691,6 +692,20 @@ class HintTimeshift(object):
             if op.opname == 'direct_call':
                 link = support.split_block_with_keepalive(block, i+1,
                                          annotator=self.hannotator)
+
+                # the 'save_locals' pseudo-operation is used to save all
+                # alive local variables into the current JITState
+                args = list(link.args)
+                while op.result in args:
+                    args.remove(op.result)
+                assert op is block.operations[i]
+                v_dummy = varoftype(lltype.Void)
+                self.hannotator.setbinding(v_dummy, annmodel.s_ImpossibleValue)
+                extraop = flowmodel.SpaceOperation('save_locals',
+                                                   args,
+                                                   v_dummy)
+                block.operations.insert(i, extraop)
+
                 block = link.target
                 entering_links[block] = [link]
                 blocks.append(block)

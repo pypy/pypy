@@ -80,10 +80,10 @@ def timeshift(ll_function, values, opt_consts=[], inline=None, policy=None):
     graph1 = ha.translator.graphs[0]
     llinterp = LLInterpreter(rtyper)
     builder = llinterp.eval_graph(htshift.ll_make_builder_graph, [])
-    graph1args = [builder]
+    graph1args = [builder, lltype.nullptr(htshift.r_JITState.lowleveltype.TO)]
     residual_graph_args = []
-    assert len(graph1.getargs()) == 1 + len(values)
-    for i, (v, llvalue) in enumerate(zip(graph1.getargs()[1:], values)):
+    assert len(graph1.getargs()) == 2 + len(values)
+    for i, (v, llvalue) in enumerate(zip(graph1.getargs()[2:], values)):
         r = htshift.hrtyper.bindingrepr(v)
         residual_v = r.residual_values(llvalue)
         if len(residual_v) == 0:
@@ -569,3 +569,12 @@ def test_call_simple():
     insns, res = timeshift(ll_function, [5], [], policy=P_NOVIRTUAL)
     assert res == 6
     assert insns == {'int_add': 1}
+
+def test_call_2():
+    def ll_add_one(x):
+        return x + 1
+    def ll_function(y):
+        return ll_add_one(y) + y
+    insns, res = timeshift(ll_function, [5], [], policy=P_NOVIRTUAL)
+    assert res == 11
+    assert insns == {'int_add': 2}
