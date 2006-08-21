@@ -399,12 +399,17 @@ class LLFrame(object):
 
     def op_debug_print(self, *ll_args):
         from pypy.rpython.lltypesystem.rstr import STR
+        line = []
         for arg in ll_args:
             T = lltype.typeOf(arg)
             if T == lltype.Ptr(STR):
                 arg = ''.join(arg.chars)
-            print arg,
-        print
+            line.append(str(arg))
+        line = ' '.join(line)
+        print line
+        tracer = self.llinterpreter.tracer
+        if tracer:
+            tracer.dump('\n[debug] %s\n' % (line,))
 
     def op_debug_pdb(self, *ll_args):
         if self.llinterpreter.tracer:
