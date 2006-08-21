@@ -6,6 +6,21 @@ from pypy.rpython.objectmodel import r_dict, we_are_translated
 def _is_str(space, w_key):
     return space.is_w(space.type(w_key), space.w_str)
 
+# DictImplementation lattice
+
+# a dictionary starts with an EmptyDictImplementation, and moves down
+# in this list:
+#
+#              EmptyDictImplementation
+#                /                 \
+#  SmallStrDictImplementation   SmallDictImplementation
+#               |                   |
+#   StrDictImplementation           |
+#                \                 /
+#               RDictImplementation
+#
+# (in addition, any dictionary can go back to EmptyDictImplementation)
+
 class DictImplementation(object):
     
 ##     def get(self, w_lookup):
@@ -42,13 +57,13 @@ class EmptyDictImplementation(DictImplementation):
         return None
     def setitem(self, w_key, w_value):
         if _is_str(self.space, w_key):
-            return StrDictImplementation(self.space, w_key, w_value)
+            return StrDictImplementation(self.space).setitem_str(w_key, w_value)
             #return SmallStrDictImplementation(self.space, w_key, w_value)
         else:
             return RDictImplementation(self.space).setitem(w_key, w_value)
         #return SmallDictImplementation(self.space, w_key, w_value)
     def setitem_str(self, w_key, w_value):
-        return StrDictImplementation(self.space, w_key, w_value)
+        return StrDictImplementation(self.space).setitem_str(w_key, w_value)
         #return SmallStrDictImplementation(self.space, w_key, w_value)
     def delitem(self, w_key):
         raise KeyError
@@ -171,12 +186,23 @@ class SmallStrDictImplementation(DictImplementation):
         self.space = space
         self.entries = [StrEntry(), StrEntry(), StrEntry(), StrEntry(), StrEntry()]
         key = space.str_w(w_key)
-        self.entries[0].key = key
         self.entries[0].hash = hash(key)
+        self.entries[0].key = key
         self.entries[0].w_value = w_value
         self.valid = 1
 
+    def _is_sane_hash(self, w_lookup_type):
+        """ Handles the case of a non string key lookup.
+        Types that have a sane hash/eq function should allow us to return True
+        directly to signal that the key is not in the dict in any case.
+        XXX The types should provide such a flag. """
+    
+        space = self.space
+        # XXX there are many more such types
+        return space.is_w(w_lookup_type, space.w_NoneType) or space.is_w(w_lookup_type, space.w_int)
+
     def _lookup(self, key):
+        assert isinstance(key, str)
         _hash = hash(key)
         i = 0
         last = self.entries[self.valid]
@@ -199,12 +225,15 @@ class SmallStrDictImplementation(DictImplementation):
             i += 1
         return newimpl
 
-    def _convert_to_sdict(self, w_key, w_value):
-        newimpl = StrDictImplementation(self.space, w_key, w_value)
+    def _convert_to_sdict(self, w_value):
+        # this relies on the fact that the new key is in the entries
+        # list already.
+        newimpl = StrDictImplementation(self.space)
         i = 0
         while 1:
             entry = self.entries[i]
             if entry.w_value is None:
+                newimpl.content[entry.key] = w_value
                 break
             newimpl.content[entry.key] = entry.w_value
             i += 1
@@ -219,7 +248,7 @@ class SmallStrDictImplementation(DictImplementation):
         entry = self._lookup(self.space.str_w(w_key))
         if entry.w_value is None:
             if self.valid == 4:
-                return self._convert_to_sdict(w_key, w_value)
+                return self._convert_to_sdict(w_value)
             self.valid += 1
         entry.w_value = w_value
         return self
@@ -252,7 +281,7 @@ class SmallStrDictImplementation(DictImplementation):
         space = self.space
         w_lookup_type = space.type(w_lookup)
         if space.is_w(w_lookup_type, space.w_str):
-            return self._lookup(w_lookup).w_value
+            return self._lookup(space.str_w(w_lookup)).w_value
         elif self._is_sane_hash(w_lookup_type):
             return None
         else:
@@ -274,9 +303,9 @@ class SmallStrDictImplementation(DictImplementation):
                 for e in [self.entries[i] for i in range(self.valid)]]
 
 class StrDictImplementation(DictImplementation):
-    def __init__(self, space, w_key, w_value):
+    def __init__(self, space):
         self.space = space
-        self.content = {space.str_w(w_key): w_value}
+        self.content = {}
         
     def setitem(self, w_key, w_value):
         space = self.space

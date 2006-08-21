@@ -133,9 +133,6 @@ class TestRDictImplementation:
 class TestStrDictImplementation(TestRDictImplementation):
     ImplementionClass = StrDictImplementation
 
-    def get_impl(self):
-        return self.ImplementionClass(self.space, self.string, self.string2)
-
 class TestSmallDictImplementation(TestRDictImplementation):
     ImplementionClass = SmallDictImplementation
 
