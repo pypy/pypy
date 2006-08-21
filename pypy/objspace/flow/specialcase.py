@@ -2,6 +2,7 @@ from pypy.objspace.flow.objspace import UnwrapException
 from pypy.objspace.flow.model import Constant
 from pypy.objspace.flow.operation import OperationName, Arity
 from pypy.interpreter.gateway import ApplevelClass
+from pypy.interpreter.error import OperationError
 from pypy.tool.cache import Cache
 
 def sc_import(space, fn, args):
@@ -13,7 +14,11 @@ def sc_import(space, fn, args):
     if space.do_imports_immediately:
         name, glob, loc, frm = (space.unwrap(w_name), space.unwrap(w_glob),
                                 space.unwrap(w_loc), space.unwrap(w_frm))
-        return space.wrap(__import__(name, glob, loc, frm))
+        try:
+            mod = __import__(name, glob, loc, frm)
+        except ImportError, e:
+            raise OperationError(space.w_ImportError, space.wrap(str(e)))
+        return space.wrap(mod)
     # redirect it, but avoid exposing the globals
     w_glob = Constant({})
     return space.do_operation('simple_call', Constant(__import__),
