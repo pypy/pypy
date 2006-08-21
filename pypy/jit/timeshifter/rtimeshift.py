@@ -273,6 +273,14 @@ def ll_gvar_from_redbox(jitstate, redbox):
 def ll_gvar_from_constant(ll_value):
     return rgenop.genconst(ll_value)
 
+def before_call(jitstate):
+    leave_block(jitstate)
+    return jitstate.curbuilder
+
+def after_call(jitstate, newbuilder):
+    jitstate.curbuilder = newbuilder
+    return newbuilder.valuebox
+
 # ____________________________________________________________
 
 class ResidualGraphBuilder(rgenop.LowLevelOpBuilder):

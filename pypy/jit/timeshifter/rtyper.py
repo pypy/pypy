@@ -222,10 +222,10 @@ class HintRTyper(RPythonTyper):
             # first close the current block
             ts = self.timeshifter
             v_jitstate = hop.llops.getjitstate()
-            hop.llops.genmixlevelhelpercall(rtimeshift.leave_block,
-                                            [ts.s_JITState],
-                                            [v_jitstate],
-                                            ts.s_JITState)
+            v_builder = hop.llops.genmixlevelhelpercall(rtimeshift.before_call,
+                                                        [ts.s_JITState],
+                                                        [v_jitstate],
+                                                     ts.s_ResidualGraphBuilder)
             hop.r_s_popfirstarg()
             args_hs = hop.args_s[:]
             # fixed is always false here
@@ -234,15 +234,14 @@ class HintRTyper(RPythonTyper):
             args_v = hop.inputargs(*args_r)
             fnptr = self.getcallable(graph)
             self.timeshifter.schedule_graph(graph)
-            v_builder = hop.llops.getcurbuilder()
             args_v.insert(0, v_builder)
             args_v.insert(0, hop.llops.genconst(fnptr))
-            v = hop.genop('direct_call', args_v,
-                          resulttype = ts.r_ResidualGraphBuilder.lowleveltype)
-
-            c_name = inputconst(lltype.Void, 'inst_valuebox')
-            return hop.genop('getfield', [v, c_name],
-                             resulttype = hop.r_result.lowleveltype)
+            v_newbuilder = hop.genop('direct_call', args_v,
+                                     ts.r_ResidualGraphBuilder.lowleveltype)
+            return hop.llops.genmixlevelhelpercall(rtimeshift.after_call,
+                                   [ts.s_JITState, ts.s_ResidualGraphBuilder],
+                                   [v_jitstate,    v_newbuilder],
+                                   ts.s_RedBox)
 
     def handle_highlevel_operation(self, fnobj, hop):
         from pypy.jit.timeshifter.oop import OopSpecDesc, Index
