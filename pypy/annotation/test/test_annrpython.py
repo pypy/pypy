@@ -55,11 +55,10 @@ class TestAnnotateTestCase:
         funcgraph.source = inspect.getsource(func)
         return funcgraph
 
-    def reallyshow(self, graph):
-        import os
-        from pypy.translator.tool.make_dot import make_dot
-        dest = make_dot('b', graph)
-        os.system('gv %s' % str(dest))
+    def show(self, a):
+        from pypy import conftest
+        if conftest.option.view:
+            a.translator.view()
 
     def test_simple_func(self):
         """
@@ -2213,6 +2212,49 @@ class TestAnnotateTestCase:
         assert isinstance(s, annmodel.SomeInteger)
         assert s.nonneg
 
+    def test_prebuilt_mutables(self):
+        class A:
+            pass
+        class B:
+            pass
+        a1 = A()
+        a2 = A()
+        a1.d = {}    # this tests confusion between the two '{}', which
+        a2.d = {}    # compare equal
+        a1.l = []
+        a2.l = []
+        b = B()
+        b.d1 = a1.d
+        b.d2 = a2.d
+        b.l1 = a1.l
+        b.l2 = a2.l
+
+        def dmutate(d):
+            d[123] = 321
+
+        def lmutate(l):
+            l.append(42)
+
+        def readout(d, l):
+            return len(d) + len(l)
+
+        def f():
+            dmutate(b.d1)
+            dmutate(b.d2)
+            dmutate(a1.d)
+            dmutate(a2.d)
+            lmutate(b.l1)
+            lmutate(b.l2)
+            lmutate(a1.l)
+            lmutate(a2.l)
+            return readout(a1.d, a1.l) + readout(a2.d, a2.l)
+
+        a = self.RPythonAnnotator()
+        a.build_types(f, [])
+        self.show(a)
+        v1, v2 = graphof(a, readout).getargs()
+        assert not a.bindings[v1].is_constant()
+        assert not a.bindings[v2].is_constant()
 
 
 def g(n):

@@ -330,6 +330,8 @@ class Bookkeeper:
                 self.immutable_cache[key] = result
                 for e in x:
                     result.listdef.generalize(self.immutablevalue(e))
+                result.const_box = key
+                return result
         elif tp is dict or tp is r_dict:
             key = Constant(x)
             try:
@@ -355,6 +357,8 @@ class Bookkeeper:
                         pass
                     else:
                         done = True
+                result.const_box = key
+                return result
                 
         elif ishashable(x) and x in BUILTIN_ANALYZERS:
             _module = getattr(x,"__module__","unknown")
