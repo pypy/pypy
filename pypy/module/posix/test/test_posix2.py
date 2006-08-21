@@ -88,7 +88,6 @@ class AppTestPosix:
         ex(self.posix.getsid, UNUSEDFD)
         ex(self.posix.link, "foo", "foo")
         ex(self.posix.readlink, "foo")
-        ex(self.posix.sysconf, UNUSEDFD)
         ex(self.posix.ttyname, UNUSEDFD)
 
     def test_fdopen(self):
@@ -240,7 +239,6 @@ class AppTestPosix:
             stat_info = posix.stat(path)
             assert uid == stat_info.st_uid
             assert gid == stat_info.st_gid
-            raises(OSError, posix.chown, path, 1000, 1000)
         else:
             skip("chown not supported")
         
