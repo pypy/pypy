@@ -578,3 +578,14 @@ def test_call_2():
     insns, res = timeshift(ll_function, [5], [], policy=P_NOVIRTUAL)
     assert res == 11
     assert insns == {'int_add': 2}
+
+def test_call_3():
+    def ll_add_one(x):
+        return x + 1
+    def ll_two(x):
+        return ll_add_one(ll_add_one(x)) - x
+    def ll_function(y):
+        return ll_two(y) * y
+    insns, res = timeshift(ll_function, [5], [], policy=P_NOVIRTUAL)
+    assert res == 10
+    assert insns == {'int_add': 2, 'int_sub': 1, 'int_mul': 1}
