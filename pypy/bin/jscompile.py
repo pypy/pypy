@@ -29,12 +29,12 @@ def get_args(func_data):
         l.append("NonConstant(%s)" % repr(func_data.func_defaults[i]))
     return "(%s)" % ",".join(l)
 
-def _main(argv):
-    if len(argv) < 3:
+def rpython2javascript(argv):
+    if len(argv) < 2:
         print __doc__
         sys.exit(0)
-    module_name = argv[1]
-    function_names = argv[2:]
+    module_name = argv[0]
+    function_names = argv[1:]
     mod = __import__(module_name, None, None, ["Module"])
     for func_name in function_names:
         if func_name not in mod.__dict__:
@@ -57,4 +57,4 @@ def _main(argv):
         debug(driver)
     
 if __name__ == '__main__':
-    _main(sys.argv)
+    rpython2javascript(sys.argv[1:])
