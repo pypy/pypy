@@ -396,7 +396,7 @@ class SourceGenerator:
         print >> fi, '/***  Structure definitions                              ***/'
         print >> fi
         for node in structdeflist:
-            if node.is_external():
+            if getattr(node, 'is_external', False):
                 continue
             print >> fi, '%s %s;' % (node.typetag, node.name)
         print >> fi
@@ -514,7 +514,7 @@ def gen_readable_parts_of_main_c_file(f, database, preimplementationlines=[]):
     print >> f, '/***  Structure definitions                              ***/'
     print >> f
     for node in structdeflist:
-        if node.name and not node.is_external():
+        if node.name and not getattr(node, 'is_external', False):
             print >> f, '%s %s;' % (node.typetag, node.name)
     print >> f
     for node in structdeflist:

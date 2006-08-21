@@ -36,7 +36,7 @@ class defaultproperty(object):
 
 class StructDefNode:
     typetag = 'struct'
-
+    is_external = False
     def __init__(self, db, STRUCT, varlength=1):
         self.db = db
         self.STRUCT = STRUCT
@@ -55,6 +55,8 @@ class StructDefNode:
         if STRUCT._hints.get('typedef'):
             self.typetag = ''
             assert STRUCT._hints.get('external')
+        if self.STRUCT._hints.get('external'):      # XXX hack
+            self.is_external = True
         if STRUCT._hints.get('c_name'):
             self.barename = self.name = STRUCT._hints['c_name']
             self.c_struct_field_name = self.verbatim_field_name
@@ -144,9 +146,6 @@ class StructDefNode:
                                        baseexpr)
         fldname = self.c_struct_field_name(fldname)
         return '%s->%s' % (baseexpr, fldname)
-
-    def is_external(self):
-        return self.STRUCT._hints.get('external')      # XXX hack
 
     def definition(self):
         if self.fields is None:   # external definition only
@@ -243,9 +242,6 @@ class ArrayDefNode:
     def ptr_access_expr(self, baseexpr, index):
         return '%s->items[%d]' % (baseexpr, index)
 
-    def is_external(self):
-        return False
-
     def definition(self):
         gcpolicy = self.db.gcpolicy
         yield 'struct %s {' % self.name
@@ -328,9 +324,6 @@ class FixedSizeArrayDefNode:
         return '%s[%d]' % (baseexpr, index)
 
     ptr_access_expr = access_expr
-
-    def is_external(self):
-        return False
 
     def definition(self):
         return []    # no declaration is needed
