@@ -69,7 +69,7 @@ def gather_error(annotator, block, graph):
     msg.append('-+' * 30)
     from pypy.annotation import model
     if model.DEBUG:
-        msg.append("Operation cannot succeed")
+        msg.append("Blocked block -- operation cannot succeed")
         _, _, operindex = annotator.why_not_annotated[block][1].break_at
         oper = block.operations[operindex]
         msg.append(" " + str(oper))
