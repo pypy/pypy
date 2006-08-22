@@ -46,6 +46,10 @@ class MODRM(OPERAND):
 class MODRM8(MODRM):
     pass
 
+class REL32(OPERAND):
+    def __init__(self, absolute_target):
+        self.absolute_target = absolute_target
+
 class MISSING(OPERAND):
     pass
 
@@ -78,6 +82,7 @@ bh = BH()
 imm32 = IMM32
 imm8 = IMM8
 imm16 = IMM16
+rel32 = REL32
 
 def memregister(register):
     assert register.width == 4
@@ -157,6 +162,9 @@ missing = MISSING()
 class AbstractCodeBuilder(object):
 
     def write(self, data):
+        raise NotImplementedError
+
+    def tell(self):
         raise NotImplementedError
 
 

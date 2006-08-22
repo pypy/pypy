@@ -9,6 +9,9 @@ class CodeBuilder(AbstractCodeBuilder):
         for c in data:
             self.buffer.append(c)    # extend the list of characters
 
+    def tell(self):
+        return len(self.buffer)
+
     def getvalue(self):
         return ''.join(self.buffer)
 
@@ -47,6 +50,8 @@ def test_basic():
     # mov eax, [8*ecx]
     yield check, '\x89\x04\xcd\x00\x00\x00\x00', \
                                              'MOV', memSIB(None,ecx,3,0), eax
+    # call +17
+    yield check, '\xE8\x11\x00\x00\x00',     'CALL', rel32(22)
 
 
 def test_translate():

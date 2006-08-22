@@ -40,6 +40,8 @@ type_order = {
     IMM16: [(IMM16, None)],      # only for RET
     IMM8:  [(IMM8,  None), (IMM32, None)],
 
+    REL32: [(REL32, None)],
+
     MODRM:  [(MODRM,  None)],
     MODRM8: [(MODRM8, None)],
 
@@ -98,6 +100,15 @@ class immediate(operand):
         else:
             raise AssertionError, "invalid width %r" % (self.width,)
         lines.append('builder.write(%s(arg%d.value))' % (packer, self.op))
+        return False
+
+class relative(operand):
+    def eval(self, lines, has_orbyte):
+        assert not has_orbyte, "malformed bytecode"
+        assert self.width == 'i', "only REL32 supported at the moment"
+        lines.append('offset = arg%d.absolute_target - (builder.tell()+4)' % (
+            self.op,))
+        lines.append('builder.write(packimm32(offset))')
         return False
 
 
@@ -277,16 +288,16 @@ RET = Instruction()
 RET.mode0(['\xC3'])
 RET.mode1(IMM16, ['\xC2', immediate(1,'h')])
 
-#CALL = Instruction()
-#CALL.mode1(REL32, ['\xE8', immediate(1)])
-#CALL.mode1(MODRM, ['\xFF', orbyte(2<<3), modrm(1)])
-#CALL.indirect = 1
+CALL = Instruction()
+CALL.mode1(REL32, ['\xE8', relative(1)])
+CALL.mode1(MODRM, ['\xFF', orbyte(2<<3), modrm(1)])
+CALL.indirect = 1
 
-#JMP = Instruction()
+JMP = Instruction()
 #JMP.mode1(REL8,  ['\xEB', immediate(1,'b')])
-#JMP.mode1(REL32, ['\xE9', immediate(1)])
-#JMP.mode1(MODRM, ['\xFF', orbyte(4<<3), modrm(1)])
-#JMP.indirect = 1
+JMP.mode1(REL32, ['\xE9', relative(1)])
+JMP.mode1(MODRM, ['\xFF', orbyte(4<<3), modrm(1)])
+JMP.indirect = 1
 
 PUSH = Instruction()
 PUSH.mode1(IMM8,  ['\x6A', immediate(1,'b')])
@@ -396,7 +407,7 @@ def define_cond(prefix, indirect, modes, code):
         instr.indirect = indirect
 
 #define_cond('J',   1, (REL8,),   [None,'\x70', immediate(1,'b')])
-#define_cond('J',   1, (REL32,),  ['\x0F', None,'\x80', immediate(1)])
+define_cond('J',   1, (REL32,),  ['\x0F', None,'\x80', relative(1)])
 define_cond('SET', 0, (MODRM8,), ['\x0F', None,'\x90',orbyte(0<<3),modrm(1,'b')])
 define_cond('CMOV',0,(REG,MODRM),['\x0F', None,'\x40', register(1,8), modrm(2)])
 # note: CMOVxx are Pentium-class instructions, unknown to the 386 and 486
