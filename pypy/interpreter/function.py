@@ -345,7 +345,7 @@ class Method(Wrappable):
                 if w_firstarg is None:
                     instdescr = "nothing"
                 else:
-                    instname = self.abstract_getclass(space, w_firstarg).getname(space,"")
+                    instname = space.abstract_getclass(w_firstarg).getname(space,"")
                     if instname:
                         instname += " "
                     instdescr = "%sinstance" %instname
