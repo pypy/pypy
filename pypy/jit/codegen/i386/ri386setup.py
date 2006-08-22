@@ -376,6 +376,12 @@ TEST.mode2(MODRM, REG,   ['\x85', register(2,8), modrm(1)])
 TEST.mode2(EAX,   IMM32, ['\xA9', immediate(2)])
 TEST.mode2(MODRM, IMM32, ['\xF7', orbyte(0<<3), modrm(1), immediate(2)])
 
+INT = Instruction()
+INT.mode1(IMM8, ['\xCD', immediate(1, 'b')])
+
+BREAKPOINT = Instruction()    # INT 3
+BREAKPOINT.mode0(['\xCC'])
+
 
 Conditions = {
      'O':  0,

@@ -1,7 +1,7 @@
 import mmap
 from pypy.module.mmap import interp_mmap
 from ctypes import *
-from ri386 import *
+from ri386 import AbstractCodeBuilder
 
 libcmmap   = interp_mmap.libc.mmap
 libcmunmap = interp_mmap.libc.munmap
@@ -19,7 +19,7 @@ class MachineCodeBlock(AbstractCodeBuilder):
     def __init__(self, map_size):
         flags = mmap.MAP_PRIVATE | mmap.MAP_ANONYMOUS
         prot = mmap.PROT_EXEC | mmap.PROT_READ | mmap.PROT_WRITE
-        res = libcmmap(c_void_p(0), map_size, prot, flags, -1, 0)
+        res = libcmmap(c_void_p(), map_size, prot, flags, -1, 0)
         if not res:
             raise MemoryError
         self._data = cast(res, POINTER(c_char * map_size))
@@ -37,6 +37,10 @@ class MachineCodeBlock(AbstractCodeBuilder):
             self._data.contents[p] = c
             p += 1
         self._pos = p
+
+    def tell(self):
+        baseaddr = cast(self._data, c_void_p).value
+        return baseaddr + self._pos
 
     def execute(self, arg1, arg2):
         fnptr = cast(self._data, binaryfn)
