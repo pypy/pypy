@@ -58,6 +58,18 @@ class ClassFamily(object):
         else:
             self.conditionals.append((cls, cond))
 
+    def match(self, config):
+        if config is not None:
+            matches = [cls for cls, cond in self.conditionals
+                           if cond(config)]
+            if matches:
+                assert len(matches) == 1, (
+                    "multiple extregistry matches: %r" % (matches,))
+                return matches[0]
+        if self.default:
+            return self.default
+        raise KeyError("no default extregistry entry")
+
 
 class ExtRegistryEntry(object):
     __metaclass__ = AutoRegisteringType
@@ -146,24 +158,11 @@ EXT_REGISTRY_BY_METATYPE = weakref.WeakKeyDictionary()
 # ____________________________________________________________
 # Public interface to access the registry
 
-def _lookup_from(dict, key, config):
-    family = dict[key]
-    if config is not None:
-        matches = [cls for cls, cond in family.conditionals
-                       if cond(config)]
-        if matches:
-            assert len(matches) == 1, "multiple extregistry matches: %r" % (
-                matches,)
-            return matches[0]
-    if family.default:
-        return family.default
-    raise KeyError(key)
-
 def _lookup_type_cls(tp, config):
     try:
-        return _lookup_from(EXT_REGISTRY_BY_TYPE, tp, config)
+        return EXT_REGISTRY_BY_TYPE[tp].match(config)
     except (KeyError, TypeError):
-        return _lookup_from(EXT_REGISTRY_BY_METATYPE, type(tp), config)
+        return EXT_REGISTRY_BY_METATYPE[type(tp)].match(config)
 
 def lookup_type(tp, config=None):
     Entry = _lookup_type_cls(tp, config)
@@ -178,7 +177,7 @@ def is_registered_type(tp, config=None):
 
 def _lookup_cls(instance, config):
     try:
-        return _lookup_from(EXT_REGISTRY_BY_VALUE, instance, config)
+        return EXT_REGISTRY_BY_VALUE[instance].match(config)
     except (KeyError, TypeError):
         return _lookup_type_cls(type(instance), config)
 
