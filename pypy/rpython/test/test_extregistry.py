@@ -177,3 +177,26 @@ def test_register_non_weakly_refable():
         _about_ = n1
     assert isinstance(extregistry.lookup(n1), Entry)
     assert isinstance(extregistry.lookup(n2), Entry)
+
+def test_condition():
+    stuff = object()
+    class Entry(ExtRegistryEntry):
+        _about_ = stuff
+        _condition_ = lambda n: n == 'yes'
+    assert isinstance(extregistry.lookup(stuff, 'yes'), Entry)
+    py.test.raises(KeyError, "extregistry.lookup(stuff, 'no')")
+    py.test.raises(KeyError, "extregistry.lookup(stuff)")
+
+    class Entry2(ExtRegistryEntry):
+        _about_ = stuff
+    assert isinstance(extregistry.lookup(stuff, 'yes'), Entry)
+    assert isinstance(extregistry.lookup(stuff, 'no'), Entry2)
+    assert isinstance(extregistry.lookup(stuff), Entry2)
+
+    otherstuff = object()
+    class Entry3(Entry):
+        _about_ = otherstuff
+        # _condition_ is inherited from Entry
+    assert isinstance(extregistry.lookup(otherstuff, 'yes'), Entry3)
+    py.test.raises(KeyError, "extregistry.lookup(otherstuff, 'no')")
+    py.test.raises(KeyError, "extregistry.lookup(otherstuff)")

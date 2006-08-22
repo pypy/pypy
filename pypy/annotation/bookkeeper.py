@@ -156,6 +156,7 @@ class Bookkeeper:
 
     def __init__(self, annotator):
         self.annotator = annotator
+        self.policy = annotator.policy
         self.descs = {}          # map Python objects to their XxxDesc wrappers
         self.methoddescs = {}    # map (funcdesc, classdef) to the MethodDesc
         self.classdefs = []      # list of all ClassDefs
@@ -363,8 +364,9 @@ class Bookkeeper:
         elif ishashable(x) and x in BUILTIN_ANALYZERS:
             _module = getattr(x,"__module__","unknown")
             result = SomeBuiltin(BUILTIN_ANALYZERS[x], methodname="%s.%s" % (_module, x.__name__))
-        elif extregistry.is_registered(x):
-            result = extregistry.lookup(x).compute_annotation()
+        elif extregistry.is_registered(x, self.policy):
+            entry = extregistry.lookup(x, self.policy)
+            result = entry.compute_annotation_bk(self)
 ##        elif hasattr(x, "compute_result_annotation"):
 ##            result = SomeBuiltin(x.compute_result_annotation, methodname=x.__name__)
 ##        elif hasattr(tp, "compute_annotation"):
@@ -473,8 +475,9 @@ class Bookkeeper:
         elif ishashable(x) and x in BUILTIN_ANALYZERS:
             _module = getattr(x,"__module__","unknown")
             result = SomeBuiltin(BUILTIN_ANALYZERS[x], methodname="%s.%s" % (_module, x.__name__))
-        elif extregistry.is_registered(x):
-            result = extregistry.lookup(x).compute_annotation()
+        elif extregistry.is_registered(x, self.policy):
+            entry = extregistry.lookup(x, self.policy)
+            result = entry.compute_annotation_bk(self)
 ##        elif hasattr(x, "compute_result_annotation"):
 ##            result = SomeBuiltin(x.compute_result_annotation, methodname=x.__name__)
 ##        elif hasattr(tp, "compute_annotation"):
@@ -638,8 +641,9 @@ class Bookkeeper:
             return SomeExternalObject(t)
 ##        elif hasattr(t, "compute_annotation"):
 ##            return t.compute_annotation()
-        elif extregistry.is_registered_type(t):
-            return extregistry.lookup_type(t).compute_annotation()
+        elif extregistry.is_registered_type(t, self.policy):
+            entry = extregistry.lookup_type(t, self.policy)
+            return entry.compute_annotation_bk(self)
         elif t.__module__ != '__builtin__' and t not in self.pbctypes:
             classdef = self.getuniqueclassdef(t)
             return SomeInstance(classdef)

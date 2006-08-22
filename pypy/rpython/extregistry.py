@@ -18,29 +18,45 @@ class AutoRegisteringType(type):
             selfcls._register_metatype(dict['_metatype_'])
             del selfcls._metatype_
 
-    def _register_value(selfcls, key):
+    def _register(selfcls, dict, key):
         if isinstance(key, tuple):
             for k in key:
-                selfcls._register_value(k)
+                selfcls._register(dict, k)
         else:
-            assert key not in EXT_REGISTRY_BY_VALUE
-            EXT_REGISTRY_BY_VALUE[key] = selfcls
+            for basecls in selfcls.__mro__:
+                if '_condition_' in basecls.__dict__:
+                    cond = basecls.__dict__['_condition_']
+                    break
+            else:
+                cond = None
+            try:
+                family = dict[key]
+            except KeyError:
+                family = dict[key] = ClassFamily()
+            family.add(selfcls, cond)
+
+    def _register_value(selfcls, key):
+        selfcls._register(EXT_REGISTRY_BY_VALUE, key)
 
     def _register_type(selfcls, key):
-        if isinstance(key, tuple):
-            for k in key:
-                selfcls._register_type(k)
-        else:
-            assert key not in EXT_REGISTRY_BY_TYPE
-            EXT_REGISTRY_BY_TYPE[key] = selfcls
+        selfcls._register(EXT_REGISTRY_BY_TYPE, key)
 
     def _register_metatype(selfcls, key):
-        if isinstance(key, tuple):
-            for k in key:
-                selfcls._register_metatype(k)
+        selfcls._register(EXT_REGISTRY_BY_METATYPE, key)
+
+class ClassFamily(object):
+
+    def __init__(self):
+        self.default = None
+        self.conditionals = []
+
+    def add(self, cls, cond=None):
+        if cond is None:
+            assert self.default is None, (
+                "duplicate extregistry entry %r" % (cls,))
+            self.default = cls
         else:
-            assert key not in EXT_REGISTRY_BY_METATYPE
-            EXT_REGISTRY_BY_METATYPE[key] = selfcls
+            self.conditionals.append((cls, cond))
 
 
 class ExtRegistryEntry(object):
@@ -63,6 +79,9 @@ class ExtRegistryEntry(object):
 
     def __hash__(self):
         return hash((self.__class__, self.type, Hashable(self.instance)))
+
+    def compute_annotation_bk(self, bk):
+        return self.compute_annotation()
 
     def compute_annotation(self):
         # default implementation useful for built-in functions,
@@ -127,36 +146,49 @@ EXT_REGISTRY_BY_METATYPE = weakref.WeakKeyDictionary()
 # ____________________________________________________________
 # Public interface to access the registry
 
-def _lookup_type_cls(tp):
-    try:
-        return EXT_REGISTRY_BY_TYPE[tp]
-    except (KeyError, TypeError):
-        return EXT_REGISTRY_BY_METATYPE[type(tp)]
+def _lookup_from(dict, key, config):
+    family = dict[key]
+    if config is not None:
+        matches = [cls for cls, cond in family.conditionals
+                       if cond(config)]
+        if matches:
+            assert len(matches) == 1, "multiple extregistry matches: %r" % (
+                matches,)
+            return matches[0]
+    if family.default:
+        return family.default
+    raise KeyError(key)
 
-def lookup_type(tp):
-    Entry = _lookup_type_cls(tp)
+def _lookup_type_cls(tp, config):
+    try:
+        return _lookup_from(EXT_REGISTRY_BY_TYPE, tp, config)
+    except (KeyError, TypeError):
+        return _lookup_from(EXT_REGISTRY_BY_METATYPE, type(tp), config)
+
+def lookup_type(tp, config=None):
+    Entry = _lookup_type_cls(tp, config)
     return Entry(tp)
 
-def is_registered_type(tp):
+def is_registered_type(tp, config=None):
     try:
-        _lookup_type_cls(tp)
+        _lookup_type_cls(tp, config)
     except KeyError:
         return False
     return True
 
-def _lookup_cls(instance):
+def _lookup_cls(instance, config):
     try:
-        return EXT_REGISTRY_BY_VALUE[instance]
+        return _lookup_from(EXT_REGISTRY_BY_VALUE, instance, config)
     except (KeyError, TypeError):
-        return _lookup_type_cls(type(instance))
+        return _lookup_type_cls(type(instance), config)
 
-def lookup(instance):
-    Entry = _lookup_cls(instance)
+def lookup(instance, config=None):
+    Entry = _lookup_cls(instance, config)
     return Entry(type(instance), instance)
 
-def is_registered(instance):
+def is_registered(instance, config=None):
     try:
-        _lookup_cls(instance)
+        _lookup_cls(instance, config)
     except KeyError:
         return False
     return True

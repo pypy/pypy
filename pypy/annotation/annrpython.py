@@ -54,16 +54,15 @@ class RPythonAnnotator(object):
         self.reflowcounter = {}
         self.return_bindings = {} # map return Variables to their graphs
         # --- end of debugging information ---
-        if bookkeeper is None:
-            bookkeeper = Bookkeeper(self)
-        self.bookkeeper = bookkeeper
         self.frozen = False
-        # user-supplied annotation logic for functions we don't want to flow into
         if policy is None:
             from pypy.annotation.policy import AnnotatorPolicy
             self.policy = AnnotatorPolicy()
         else:
             self.policy = policy
+        if bookkeeper is None:
+            bookkeeper = Bookkeeper(self)
+        self.bookkeeper = bookkeeper
 
     def __getstate__(self):
         attrs = """translator pendingblocks bindings annotated links_followed
