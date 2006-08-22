@@ -61,8 +61,7 @@ def ll_generate_operation1(opdesc, jitstate, argbox):
         arg = rvalue.ll_getvalue(argbox, ARG0)
         res = opdesc.llop(RESULT, arg)
         return rvalue.ll_fromvalue(res)
-    op_args = lltype.malloc(rgenop.VARLIST.TO, 1)
-    op_args[0] = argbox.getgenvar(jitstate.curbuilder)
+    op_args = [argbox.getgenvar(jitstate.curbuilder)]
     genvar = jitstate.curbuilder.genop(opdesc.opname, op_args,
                                       opdesc.gv_RESULT)
     return opdesc.redboxcls(opdesc.gv_RESULT, genvar)
@@ -78,9 +77,8 @@ def ll_generate_operation2(opdesc, jitstate, argbox0, argbox1):
         arg1 = rvalue.ll_getvalue(argbox1, ARG1)
         res = opdesc.llop(RESULT, arg0, arg1)
         return rvalue.ll_fromvalue(res)
-    op_args = lltype.malloc(rgenop.VARLIST.TO, 2)
-    op_args[0] = argbox0.getgenvar(jitstate.curbuilder)
-    op_args[1] = argbox1.getgenvar(jitstate.curbuilder)
+    op_args = [argbox0.getgenvar(jitstate.curbuilder),
+               argbox1.getgenvar(jitstate.curbuilder)]
     genvar = jitstate.curbuilder.genop(opdesc.opname, op_args,
                                        opdesc.gv_RESULT)
     return opdesc.redboxcls(opdesc.gv_RESULT, genvar)
@@ -92,9 +90,8 @@ def ll_generate_getfield(jitstate, fielddesc, argbox):
         return rvalue.ll_fromvalue(res)
     assert isinstance(argbox, rvalue.PtrRedBox)
     if argbox.content is None:
-        op_args = lltype.malloc(rgenop.VARLIST.TO, 2)
-        op_args[0] = argbox.getgenvar(jitstate.curbuilder)
-        op_args[1] = fielddesc.fieldname_gv[-1]
+        op_args = [argbox.getgenvar(jitstate.curbuilder),
+                   fielddesc.fieldname_gv[-1]]
         genvar = jitstate.curbuilder.genop('getfield', op_args,
                                            fielddesc.gv_resulttype)
         return fielddesc.redboxcls(fielddesc.gv_resulttype, genvar)        
@@ -104,10 +101,9 @@ def ll_generate_getfield(jitstate, fielddesc, argbox):
 def ll_generate_setfield(jitstate, fielddesc, destbox, valuebox):
     assert isinstance(destbox, rvalue.PtrRedBox)
     if destbox.content is None:
-        op_args = lltype.malloc(rgenop.VARLIST.TO, 3)
-        op_args[0] = destbox.getgenvar(jitstate.curbuilder)
-        op_args[1] = fielddesc.fieldname_gv[-1]
-        op_args[2] = valuebox.getgenvar(jitstate.curbuilder)
+        op_args = [destbox.getgenvar(jitstate.curbuilder),
+                   fielddesc.fieldname_gv[-1],
+                   valuebox.getgenvar(jitstate.curbuilder)]
         jitstate.curbuilder.genop('setfield', op_args,
                                   rgenop.gv_Void)       
     else:
@@ -120,9 +116,8 @@ def ll_generate_getsubstruct(jitstate, fielddesc, argbox):
         return rvalue.ll_fromvalue(res)
     assert isinstance(argbox, rvalue.PtrRedBox)
     if argbox.content is None:
-        op_args = lltype.malloc(rgenop.VARLIST.TO, 2)
-        op_args[0] = argbox.getgenvar(jitstate.curbuilder)
-        op_args[1] = fielddesc.gv_fieldname
+        op_args = [argbox.getgenvar(jitstate.curbuilder),
+                   fielddesc.gv_fieldname]
         genvar = jitstate.curbuilder.genop('getsubstruct', op_args,
                                            fielddesc.gv_resulttype)
         return fielddesc.redboxcls(fielddesc.gv_resulttype, genvar)        
@@ -135,9 +130,8 @@ def ll_generate_getarrayitem(jitstate, fielddesc, argbox, indexbox):
         array = rvalue.ll_getvalue(argbox, fielddesc.PTRTYPE)
         res = array[rvalue.ll_getvalue(indexbox, lltype.Signed)]
         return rvalue.ll_fromvalue(res)
-    op_args = lltype.malloc(rgenop.VARLIST.TO, 2)
-    op_args[0] = argbox.getgenvar(jitstate.curbuilder)
-    op_args[1] = indexbox.getgenvar(jitstate.curbuilder)
+    op_args = [argbox.getgenvar(jitstate.curbuilder),
+               indexbox.getgenvar(jitstate.curbuilder)]
     genvar = jitstate.curbuilder.genop('getarrayitem', op_args,
                                        fielddesc.gv_resulttype)
     return fielddesc.redboxcls(fielddesc.gv_resulttype, genvar)
@@ -253,8 +247,6 @@ def leave_block_split(jitstate, switchredbox, exitindex, redboxes):
         redboxcopies = [redbox.copy(memo) for redbox in redboxes]        
         jitstate.split_queue.append((exitindex, later_builder, redboxcopies))
         return True
-
-novars = lltype.malloc(rgenop.VARLIST.TO, 0)
 
 def dispatch_next(jitstate, outredboxes):
     split_queue = jitstate.split_queue

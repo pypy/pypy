@@ -52,17 +52,18 @@ def _inputvars(vars):
         res.append(v)
     return res
 
-# is opname a runtime value?
-def genop(blockcontainer, opname, vars, resulttype):
+def genop(blockcontainer, opname, vars_gv, gv_RESULT_TYPE):
+    # 'opname' is a constant string
+    # gv_RESULT_TYPE comes from constTYPE
     if not isinstance(opname, str):
         opname = LLSupport.from_rstr(opname)
     block = from_opaque_object(blockcontainer.obj)
     assert block.exits == [], "block already closed"
-    if isinstance(resulttype, lltype.LowLevelType):
-        RESULT_TYPE = resulttype
+    if isinstance(gv_RESULT_TYPE, lltype.LowLevelType):
+        RESULT_TYPE = gv_RESULT_TYPE
     else:
-        RESULT_TYPE = from_opaque_object(resulttype).value
-    opvars = _inputvars(vars)    
+        RESULT_TYPE = from_opaque_object(gv_RESULT_TYPE).value
+    opvars = _inputvars(vars_gv)
     v = flowmodel.Variable()
     v.concretetype = RESULT_TYPE
     op = flowmodel.SpaceOperation(opname, opvars, v)
@@ -244,19 +245,6 @@ nullvar = lltype.nullptr(CONSTORVAR.TO)
 nullblock = lltype.nullptr(BLOCK.TO)
 nulllink = lltype.nullptr(LINK.TO)
 gv_Void = constTYPE(lltype.Void)
-
-# VARLIST
-def ll_fixed_items(l):
-    return l
-
-def ll_fixed_length(l):
-    return len(l)
-
-VARLIST = lltype.Ptr(lltype.GcArray(CONSTORVAR,
-                                    adtmeths = {
-                                        "ll_items": ll_fixed_items,
-                                        "ll_length": ll_fixed_length
-                                    }))
 
 
 # helpers

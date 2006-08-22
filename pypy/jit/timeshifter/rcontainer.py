@@ -143,14 +143,12 @@ class StructFieldDesc(object):
         gv_sub = genvar
         genop = builder.genop
         for i in range(len(self.accessptrtype_gv)-1):
-            op_args = lltype.malloc(rgenop.VARLIST.TO, 2)
-            op_args[0] = gv_sub
-            op_args[1] = self.fieldname_gv[i]
+            op_args = [gv_sub,
+                       self.fieldname_gv[i]]
             gv_sub = genop('getsubstruct', op_args, self.accessptrtype_gv[i+1])
-        op_args = lltype.malloc(rgenop.VARLIST.TO, 3)
-        op_args[0] = gv_sub
-        op_args[1] = self.fieldname_gv[-1]
-        op_args[2] = box.getgenvar(builder)
+        op_args = [gv_sub,
+                   self.fieldname_gv[-1],
+                   box.getgenvar(builder)]
         genop('setfield', op_args, rgenop.gv_Void)        
 
 # ____________________________________________________________
@@ -210,14 +208,12 @@ class VirtualStruct(AbstractContainer):
         typedesc = self.typedesc
         boxes = self.content_boxes
         self.content_boxes = None
-        op_args = lltype.malloc(rgenop.VARLIST.TO, 1)
-        op_args[0] = typedesc.gv_type
+        op_args = [typedesc.gv_type]
         genvar = genop('malloc', op_args, typedesc.gv_ptrtype)
         # force all the boxes pointing to this VirtualStruct
         for box in self.substruct_boxes:
             # XXX using getsubstruct would be nicer
-            op_args = lltype.malloc(rgenop.VARLIST.TO, 1)
-            op_args[0] = genvar
+            op_args = [genvar]
             box.genvar = genop('cast_pointer', op_args, box.gv_type)
             box.content = None
         self.substruct_boxes = None
