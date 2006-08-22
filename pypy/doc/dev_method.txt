@@ -31,7 +31,7 @@ Sprint driven development:
 What is a sprint and why are we sprinting?
 
 Originally the sprint methodology used in the Python community grew from
-practices within Zope Corporation. The  definition of a sprint is "two-day or
+practices within Zope3 development. The  definition of a sprint is "two-day or
 three-day focused development session, in which developers pair off together
 in a room and focus on building a particular subsystem". 
 
@@ -41,9 +41,9 @@ Other typical sprint factors:
     noted to have more than that. This is the recommendation and it is
     probably based on the idea of having a critical mass of people who can
     interact/communicate and work without adding the need for more than just
-    the absolute necessary coordination time. The sprints during 2005 have
+    the absolute necessary coordination time. The sprints during 2005 and 2006 have
     been having ca 13-14 people per sprint, the highest number of participants
-    during a PyPy sprint has been 20 developers)
+    during a PyPy sprint has been 24 developers)
 
   * a coach (the coach is the "manager" of the sprint, he/she sets the goals,
     prepares, leads and coordinate the work and track progress and makes this
@@ -94,8 +94,8 @@ projects.
  
 As always with methodologies you have to adapt them to fit your project (and
 not the other way around which is much too common). The PyPy team have been
-sprinting since early 2003 and have done 11 sprints so far, 10 in Europe and 1
-in the USA. Certain practices have proven to be more successful within this
+sprinting since early 2003 and have done 21  sprints so far, 18 in Europe, 2
+in the USA and 1 in Asia. Certain practices have proven to be more successful within this
 team and those are the one we are summarizing here.
 
 
@@ -146,12 +146,12 @@ There are several aspects of a sprint. In the PyPy team we focus on:
    has the venue were the sprint is planned to be weird rules for access to
    their network etc etc?
 
-   Whiteboards are useful tools and good to have. Beamers (1-2) are very
-   useful for the status meetings and should be available, at least 1. The
+   Whiteboards are useful tools and good to have. Beamers (PyPy jargon for a projector)
+   are very useful for the status meetings and should be available, at least 1. The
    project also owns one beamer - specifically for sprint purposes.
 
    The person making sure that the requirements for a good sprint venue is
-   being met should therefore have very good local conncetions or, preferrably
+   being met should therefore have very good local connections or, preferrably
    live there.
 
 3. Information - discussions about content and goals (pre announcements) are
@@ -176,7 +176,7 @@ There are several aspects of a sprint. In the PyPy team we focus on:
    One very important strategy when planning the venue is cost
    efficiency. Keeping accomodation and food/travel costs as low as possible
    makes sure that more people can afford to visit or join the sprint
-   fully. The EU funded parts of the project do have a so called sprint budget
+   fully. The partially EU funded parts of the project do have a so called sprint budget
    which we use to try to help developers to participate in our sprints
    (travel expenses and accomodation) and because most of the funding is so
    called matched funding we pay for most of our expenses in our own
@@ -251,14 +251,26 @@ The PyPy team have been sprinting on the following occasions::
     Amsterdam       Dec     2003
     Europython
     /Gothenburg     June    2004
-    Vilnius         2004-11-15 - 2004-11-23
-    Leysin          2005-01-22 - 2005-01-29
+    Vilnius         November 2004
+    Leysin          January 2005
     PyCon
-    /Washington     2005-03-19 - 2005-03-22
+    /Washington  March 2005     
     Europython
-    /Gothenburg     2005-07-01 - 2005-07-07
-    Hildesheim      2005-07-25 - 2005-07-31
-    Heidelberg      2005-08-22 - 2005-08-29
+    /Gothenburg     June 2005
+    Hildesheim      July 2005
+    Heidelberg      August 2005
+    Paris		October 2005
+    Gothenburg	December 2005
+    Mallorca		January 2006
+    PyCon/Dallas	February 2006
+    LouvainLaNeuve March 2006
+    Leysin              April 2006
+    Tokyo		April 2006
+    Düsseldorf	June 2006
+    Europython/
+    Geneva		July 2006
+    Limerick		August 2006
+    
     
 People who have participated and contributed during our sprints and thus
 contributing to PyPy::
@@ -306,5 +318,40 @@ contributing to PyPy::
     Lutz Paelike
     Michael Chermside
     Beatrice DÃ¼ring
+    Bert Freudenberg     
+    Boris Feigin	     
+    Amaury Forgeot d'Arc 
+    Andrew Thompson      
+    Valentino Volonghi   
+    Aurelien Campeas
+    Stephan Busemann
+    Johan Hahn
+    Gerald Klix
+    Gene Oden
+    Josh Gilbert
+    Geroge Paci
+    Pat Maupin
+    Martin Blais
+    Stuart Williams
+    Jiwon Seo
+    Michael Twomey 
+    Wanja Saatkamp
+    Alexandre Fayolle
+    Raphaël Collet
+    Grégoire Dooms
+    Guido Wesdorp        
+    Maciej Fijalkowski   
+   Antonio Cuni          
+   Lawrence Oluyede    
+   Fabrizio Milo        
+   Alexander Schremmer  
+   David Douard       
+   Michele Frettoli     
+   Simon Burton         
+   Aaron Bingham        
+   Pieter Zieschang     
+   Sad Rejeb 
+   Brian Sutherland
+   
 
 
