@@ -287,7 +287,7 @@ class GraphDisplay(Display):
                     if e.key == K_ESCAPE:
                         return None
                     elif e.key == K_RETURN:
-                        return text
+                        return text.encode('latin-1')   # XXX do better
                     elif e.key == K_BACKSPACE:
                         text = text[:-1]
                     elif e.unicode and ord(e.unicode) >= ord(' '):
