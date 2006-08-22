@@ -111,44 +111,79 @@ def c_char_array_constant(s):
             return '{%s}' % ', '.join(lines)
 
 
+##def gen_assignments(assignments):
+##    # Generate a sequence of assignments that is possibly reordered
+##    # to avoid clashes -- i.e. do the equivalent of a tuple assignment,
+##    # reading all sources first, writing all targets next, but optimized
+
+##    allsources = []
+##    src2dest = {}
+##    types = {}
+##    for typename, dest, src in assignments:
+##        if src != dest:   # ignore 'v=v;'
+##            allsources.append(src)
+##            src2dest.setdefault(src, []).append(dest)
+##            types[dest] = typename
+
+##    for starting in allsources:
+##        # starting from some starting variable, follow a chain of assignments
+##        #     'vn=vn-1; ...; v3=v2; v2=v1; v1=starting;'
+##        v = starting
+##        srcchain = []
+##        while src2dest.get(v):
+##            srcchain.append(v)
+##            v = src2dest[v].pop(0)
+##            if v == starting:
+##                break    # loop
+##        if not srcchain:
+##            continue   # already done in a previous chain
+##        srcchain.reverse()   # ['vn-1', ..., 'v2', 'v1', 'starting']
+##        code = []
+##        for pair in zip([v] + srcchain[:-1], srcchain):
+##            code.append('%s = %s;' % pair)
+##        if v == starting:
+##            # assignment loop 'starting=vn-1; ...; v2=v1; v1=starting;'
+##            typename = types[starting]
+##            tmpdecl = cdecl(typename, 'tmp')
+##            code.insert(0, '{ %s = %s;' % (tmpdecl, starting))
+##            code[-1] = '%s = tmp; }' % (srcchain[-2],)
+##        yield ' '.join(code)
+
 def gen_assignments(assignments):
     # Generate a sequence of assignments that is possibly reordered
     # to avoid clashes -- i.e. do the equivalent of a tuple assignment,
     # reading all sources first, writing all targets next, but optimized
 
-    allsources = []
-    src2dest = {}
-    types = {}
-    assignments = list(assignments)
+    srccount = {}
+    dest2src = {}
     for typename, dest, src in assignments:
         if src != dest:   # ignore 'v=v;'
-            allsources.append(src)
-            src2dest.setdefault(src, []).append(dest)
-            types[dest] = typename
+            srccount[src] = srccount.get(src, 0) + 1
+            dest2src[dest] = src, typename
 
-    for starting in allsources:
-        # starting from some starting variable, follow a chain of assignments
-        #     'vn=vn-1; ...; v3=v2; v2=v1; v1=starting;'
-        v = starting
-        srcchain = []
-        while src2dest.get(v):
-            srcchain.append(v)
-            v = src2dest[v].pop(0)
-            if v == starting:
-                break    # loop
-        if not srcchain:
-            continue   # already done in a previous chain
-        srcchain.reverse()   # ['vn-1', ..., 'v2', 'v1', 'starting']
-        code = []
-        for pair in zip([v] + srcchain[:-1], srcchain):
-            code.append('%s = %s;' % pair)
-        if v == starting:
-            # assignment loop 'starting=vn-1; ...; v2=v1; v1=starting;'
-            typename = types[starting]
-            tmpdecl = cdecl(typename, 'tmp')
-            code.insert(0, '{ %s = %s;' % (tmpdecl, starting))
-            code[-1] = '%s = tmp; }' % (srcchain[-2],)
-        yield ' '.join(code)
+    while dest2src:
+        progress = False
+        for dst in dest2src.keys():
+            if dst not in srccount:
+                src, typename = dest2src.pop(dst)
+                yield '%s = %s;' % (dst, src)
+                srccount[src] -= 1
+                if not srccount[src]:
+                    del srccount[src]
+                progress = True
+        if not progress:
+            # we are left with only pure disjoint cycles; break them
+            while dest2src:
+                dst, (src, typename) = dest2src.popitem()
+                startingpoint = dst
+                tmpdecl = cdecl(typename, 'tmp')
+                code = ['{ %s = %s;' % (tmpdecl, dst)]
+                while src is not startingpoint:
+                    code.append('%s = %s;' % (dst, src))
+                    dst = src
+                    src, typename = dest2src.pop(dst)
+                code.append('%s = tmp; }' % (dst,))
+                yield ' '.join(code)
 
 # logging
 
