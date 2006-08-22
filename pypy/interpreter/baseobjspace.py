@@ -638,7 +638,12 @@ class ObjSpace(object):
             return self.w_True
 
     def abstract_getclass(self, w_obj):
-        return self.getattr(w_obj, self.wrap('__class__'))
+        try:
+            return self.getattr(w_obj, self.wrap('__class__'))
+        except OperationError, e:
+            if e.match(self, self.w_TypeError) or e.match(self, self.w_AttributeError):
+                return self.type(w_obj)
+            raise
 
     def eval(self, expression, w_globals, w_locals):
         "NOT_RPYTHON: For internal debugging."

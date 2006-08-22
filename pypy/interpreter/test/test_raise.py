@@ -123,3 +123,11 @@ class AppTestRaise:
         except B, b:
             assert b.__class__ == B
             assert b.x == 42
+
+    def test_it(self):
+        C = _classobj('C', (), {})
+        # this used to explode in the exception normalization step:
+        try:
+            {}[C]
+        except KeyError:
+            pass

@@ -303,14 +303,6 @@ def descr_function_get(space, w_function, w_obj, w_cls=None):
         return space.wrap(Method(space, w_function, None, w_cls))
 
 
-def _getclass(space, w_obj):
-    try:
-        return space.abstract_getclass(w_obj)
-    except OperationError, e:
-        if e.match(space, space.w_AttributeError):
-            return space.type(w_obj)
-        raise
-
 class Method(Wrappable):
     """A method is a function bound to a specific instance or class."""
 
@@ -353,7 +345,7 @@ class Method(Wrappable):
                 if w_firstarg is None:
                     instdescr = "nothing"
                 else:
-                    instname = _getclass(space, w_firstarg).getname(space,"")
+                    instname = self.abstract_getclass(space, w_firstarg).getname(space,"")
                     if instname:
                         instname += " "
                     instdescr = "%sinstance" %instname
