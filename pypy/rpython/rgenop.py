@@ -69,7 +69,7 @@ def genop(blockcontainer, opname, vars, resulttype):
     block.operations.append(op)
     return to_opaque_object(v)
 
-def gencallableconst(blockcontainer, name, targetcontainer, gv_FUNCTYPE):
+def gencallableconst(name, targetcontainer, gv_FUNCTYPE):
     # is name useful, is it runtime variable?
     target = from_opaque_object(targetcontainer.obj)
     FUNCTYPE = from_opaque_object(gv_FUNCTYPE).value
@@ -297,6 +297,7 @@ s_LinkPair = annmodel.SomePtr(lltype.Ptr(LINKPAIR))
 setannotation(initblock, None)
 setannotation(geninputarg, s_ConstOrVar)
 setannotation(genop, s_ConstOrVar)
+setannotation(gencallableconst, s_ConstOrVar)
 setannotation(genconst, s_ConstOrVar)
 setannotation(revealconst, lambda s_T, s_gv: annmodel.lltype_to_annotation(
                                                   s_T.const))

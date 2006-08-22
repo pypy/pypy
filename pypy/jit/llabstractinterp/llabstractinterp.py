@@ -597,8 +597,7 @@ class BlockBuilder(object):
 
     def residual_direct_call(self, FUNCTYPE, name, target, args_a):
         T = FUNCTYPE.RESULT
-        gen_fn_const = rgenop.gencallableconst(self.newblock,
-                                               name,
+        gen_fn_const = rgenop.gencallableconst(name,
                                                target,
                                                rgenop.constTYPE(FUNCTYPE))
         retvar = self.genop('direct_call', [gen_fn_const] +
