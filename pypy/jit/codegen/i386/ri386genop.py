@@ -46,6 +46,12 @@ class IntConst(VarOrConst):
             return IMM32(self.value)
 
 
+class FnPtrConst(IntConst):
+    def __init__(self, value, mc):
+        self.value = value
+        self.mc = mc    # to keep it alive
+
+
 class Block(object):
     def __init__(self, mc):
         self.argcount = 0
@@ -120,4 +126,10 @@ class RI386GenOp(object):
         for i in range(block.argcount):
             prologue.mc.PUSH(operand)
         prologue.mc.JMP(rel32(block.startaddr))
-        return IntConst(prologue.startaddr)
+        return FnPtrConst(prologue.startaddr, prologue.mc)
+
+    def revealconst(T, gv_const):
+        assert isinstance(gv_const, IntConst)    # for now
+        return lltype.cast_int_to_ptr(T, gv_const.value)
+    revealconst._annspecialcase_ = 'specialize:arg(0)'
+    revealconst = staticmethod(revealconst)

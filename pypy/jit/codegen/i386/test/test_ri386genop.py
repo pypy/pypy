@@ -1,6 +1,7 @@
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython import llinterp
 from pypy.rpython.test.test_llinterp import interpret
+from pypy.rpython.objectmodel import keepalive_until_here
 from pypy.translator.c.test.test_genc import compile
 from pypy.jit.codegen.i386.ri386genop import RI386GenOp
 
@@ -29,7 +30,9 @@ def runner(x, y):
     rgenop = RI386GenOp()
     gv_add_x = make_adder(rgenop, x)
     add_x = rgenop.revealconst(lltype.Ptr(FUNC), gv_add_x)
-    return add_x(y)
+    res = add_x(y)
+    keepalive_until_here(gv_add_x)    # to keep the 'add_x' fnptr alive
+    return res
 
 # ____________________________________________________________
 
@@ -42,7 +45,6 @@ def test_adder_direct():
     assert res == 42
 
 def test_adder_compile():
-    import py; py.test.skip("in-progress")
     fn = compile(runner, [int, int])
     res = fn(9080983, -9080941)
     assert res == 42

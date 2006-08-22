@@ -334,7 +334,11 @@ class __extend__(pairtype(SomeString, SomeString)):
         return SomeString(can_be_None=str1.can_be_None or str2.can_be_None)
 
     def add((str1, str2)):
-        return SomeString()
+        # propagate const-ness to help getattr(obj, 'prefix' + const_name)
+        result = SomeString()
+        if str1.is_immutable_constant() and str2.is_immutable_constant():
+            result.const = str1.const + str2.const
+        return result
 
 class __extend__(pairtype(SomeChar, SomeChar)):
 
