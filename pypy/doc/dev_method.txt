@@ -250,26 +250,26 @@ The PyPy team have been sprinting on the following occasions::
     LovainLaNeuve   	June    2003
     Amsterdam       	Dec     2003
     Europython
-    /Gothenburg     	June    2004
-    Vilnius         		November 2004
-    Leysin          		January 2005
+    /Gothenburg           June    2004
+    Vilnius                   Nov     2004
+    Leysin                   Jan      2005
     PyCon
-    /Washington  		March 2005     
+    /Washington           March  2005     
     Europython
-    /Gothenburg     	June 2005
-    Hildesheim      	July 2005
-    Heidelberg      	August 2005
-    Paris			October 2005
-    Gothenburg		December 2005
-    Mallorca			January 2006
-    PyCon/Dallas		February 2006
-    LouvainLaNeuve 	March 2006
-    Leysin              	April 2006
-    Tokyo			April 2006
-    Düsseldorf		June 2006
+    /Gothenburg           June    2005
+    Hildesheim              July     2005
+    Heidelberg              Aug     2005
+    Paris                     Oct      2005
+    Gothenburg            Dec      2005
+    Mallorca                Jan       2006
+    PyCon/Dallas          Feb      2006
+    LouvainLaNeuve      March   2006
+    Leysin                   April      2006
+    Tokyo                   April      2006
+    Düsseldorf             June      2006
     Europython/
-    Geneva			July 2006
-    Limerick			August 2006
+    Geneva                 July       2006
+    Limerick                Aug       2006
     
     
 People who have participated and contributed during our sprints and thus
@@ -288,7 +288,7 @@ contributing to PyPy::
     Ludovic Aubry
     Adrien DiMascio
     Nicholas Chauvat
-    Niklaus Landemann
+    Niklaus Haldimann
     Anders Lehmann
     Carl Friedrich Bolz
     Eric Van Riet Paap
@@ -318,7 +318,6 @@ contributing to PyPy::
     Lutz Paelike
     Michael Chermside
     Beatrice DÃ¼ring
-    Bert Freudenberg     
     Boris Feigin	     
     Amaury Forgeot d'Arc 
     Andrew Thompson      
@@ -330,7 +329,6 @@ contributing to PyPy::
     Gene Oden
     Josh Gilbert
     Geroge Paci
-    Pat Maupin
     Martin Blais
     Stuart Williams
     Jiwon Seo
@@ -339,6 +337,11 @@ contributing to PyPy::
     Alexandre Fayolle
     Raphaël Collet
     Grégoire Dooms
+    Sanghyeon Seo
+    Yutaka Niibe
+    Yusei Tahara
+    George Toshida
+    Koichi Sasada
     Guido Wesdorp        
     Maciej Fijalkowski   
     Antonio Cuni          
