@@ -15,17 +15,19 @@ cbuild.enable_fast_compilation()
 
 class CompilationTestCase:
 
-    def annotatefunc(self, func):
+    def annotatefunc(self, func, argtypes=None):
         t = TranslationContext(simplifying=True)
-        # builds starting-types from func_defs 
-        argstypelist = []
-        if func.func_defaults:
-            for spec in func.func_defaults:
-                if isinstance(spec, tuple):
-                    spec = spec[0] # use the first type only for the tests
-                argstypelist.append(spec)
+        if argtypes is None:
+            # builds starting-types from func_defs
+            # XXX kill kill kill!
+            argtypes = []
+            if func.func_defaults:
+                for spec in func.func_defaults:
+                    if isinstance(spec, tuple):
+                        spec = spec[0] # use the first type only for the tests
+                    argtypes.append(spec)
         a = t.buildannotator()
-        a.build_types(func, argstypelist)
+        a.build_types(func, argtypes)
         a.simplify()
         return t
 
@@ -37,9 +39,9 @@ class CompilationTestCase:
         builder.import_module()
         return builder.get_entry_point()
 
-    def getcompiled(self, func, view=False):
+    def getcompiled(self, func, argtypes=None, view=False):
         from pypy.translator.transform import insert_ll_stackcheck
-        t = self.annotatefunc(func)
+        t = self.annotatefunc(func, argtypes)
         self.process(t)
         if view or conftest.option.view:
             t.view()
