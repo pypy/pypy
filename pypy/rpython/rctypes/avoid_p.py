@@ -1,6 +1,6 @@
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.rctypes.implementation import CTypesCallEntry, CTypesObjEntry
-from pypy.annotation.model import SomeCTypesObject
+from pypy.annotation.model import SomeInteger, SomeCTypesObject
 
 from ctypes import c_void_p, c_int, POINTER, cast, c_char, c_char_p
 from pypy.rpython.rctypes.astringbuf import StringBufferType
@@ -17,12 +17,23 @@ class CallEntry(CTypesCallEntry):
         r_void_p = hop.r_result
         hop.exception_cannot_occur()
         v_result = r_void_p.allocate_instance(hop.llops)
+        if hop.args_r:
+            raise NotImplementedError("cast_int_to_adr")
+##            from pypy.rpython.lltypesystem import lltype, llmemory
+##            [v_intadr] = hop.inputargs(lltype.Signed)   # xxx id-sized
+##            v_adr = hop.genop('cast_int_to_adr', [v_intadr],
+##                              resulttype = llmemory.Address)
+##            r_void_p.setvalue(hop.llops, v_result, v_adr)
         return v_result
 
 
 class ObjEntry(CTypesObjEntry):
     "Annotation and rtyping of c_void_p instances."
     _type_ = c_void_p
+
+    def get_field_annotation(self, s_void_p, fieldname):
+        assert fieldname == "value"
+        return SomeInteger()      # xxx id-sized
 
     def get_repr(self, rtyper, s_void_p):
         from pypy.rpython.rctypes.rvoid_p import CVoidPRepr

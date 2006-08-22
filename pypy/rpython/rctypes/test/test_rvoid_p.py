@@ -5,6 +5,7 @@ Test the c_void_p implementation.
 import py.test
 import pypy.rpython.rctypes.implementation
 from pypy.annotation.annrpython import RPythonAnnotator
+from pypy.annotation import model as annmodel
 from pypy.translator.translator import TranslationContext
 from pypy.translator.c.test.test_genc import compile
 from pypy import conftest
@@ -31,6 +32,26 @@ class Test_annotation:
 
         if conftest.option.view:
             t.view()
+
+    def test_annotate_addr2int(self):
+        def fn():
+            x = c_int(12)
+            p1 = cast(pointer(x), c_void_p)
+            return p1.value
+
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(fn, [])
+        assert isinstance(s, annmodel.SomeInteger)
+
+    def test_annotate_int2addr(self):
+        def fn():
+            return c_void_p(123)
+
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(fn, [])
+        assert s.knowntype == c_void_p
 
 class Test_specialization:
     def test_specialize_c_void_p(self):
@@ -81,6 +102,20 @@ class Test_specialization:
             assert strlen(buf) == 5
 
         interpret(func, [65])
+
+    def test_specialize_addr2int(self):
+        def fn():
+            x = c_int(12)
+            p1 = cast(pointer(x), c_void_p)
+            return p1.value
+        res = interpret(fn, [])
+        assert lltype.typeOf(res) == lltype.Signed    # xxx
+
+##    def test_annotate_int2addr(self):   XXX cast_int_to_adr() not implemented
+##        def fn(n):
+##            return c_void_p(n)
+##        res = interpret(fn, [123])
+##        assert llmemory.cast_adr_to_int(res.c_data[0]) == 123
 
 class Test_compilation:
     def test_compile_c_char_p(self):

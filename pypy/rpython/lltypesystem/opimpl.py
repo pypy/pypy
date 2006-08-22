@@ -279,6 +279,10 @@ def op_cast_adr_to_int(adr):
     checkadr(adr)
     return llmemory.cast_adr_to_int(adr)
 
+##def op_cast_int_to_adr(x):
+##    assert type(x) is int
+##    return llmemory.cast_int_to_adr(x)
+
 
 def op_unichar_eq(x, y):
     assert isinstance(x, unicode) and len(x) == 1

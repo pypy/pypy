@@ -14,6 +14,16 @@ class CVoidPRepr(CTypesValueRepr):
             return super(CVoidPRepr, self).convert_const(value)
         raise NotImplementedError("XXX constant pointer passed to void* arg")
 
+    def rtype_getattr(self, hop):
+        s_attr = hop.args_s[1]
+        assert s_attr.is_constant()
+        assert s_attr.const == 'value'
+        v_box = hop.inputarg(self, 0)
+        v_c_adr = self.getvalue(hop.llops, v_box)
+        hop.exception_cannot_occur()
+        return hop.genop('cast_adr_to_int', [v_c_adr],
+                         resulttype = lltype.Signed)
+
 
 class __extend__(pairtype(CCharPRepr, CVoidPRepr),
                  pairtype(PointerRepr, CVoidPRepr)):
