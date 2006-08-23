@@ -126,7 +126,7 @@ def closeblock1(blockcontainer):
     block.closeblock(link)
     return to_opaque_object(link)
 
-def closeblock2into(blockcontainer, exitswitch, linkpair):
+def closeblock2(blockcontainer, exitswitch):
     block = from_opaque_object(blockcontainer.obj)
     exitswitch = from_opaque_object(exitswitch)
     assert isinstance(exitswitch, flowmodel.Variable)
@@ -138,13 +138,19 @@ def closeblock2into(blockcontainer, exitswitch, linkpair):
     true_link.exitcase = True
     true_link.llexitcase = True
     block.closeblock(false_link, true_link)
-    linkpair.item0 = to_opaque_object(false_link)
-    linkpair.item1 = to_opaque_object(true_link)
+    return pseudotuple(to_opaque_object(false_link),
+                       to_opaque_object(true_link))
 
-def closeblock2(blockcontainer, exitswitch):
-    linkpair = lltype.malloc(LINKPAIR)
-    closeblock2into(blockcontainer, exitswitch, linkpair) 
-    return linkpair
+class pseudotuple(object):
+    # something that looks both like a hl and a ll tuple
+    def __init__(self, *items):
+        self._TYPE = rtupletype.TUPLE_TYPE(
+            [lltype.typeOf(item) for item in items])
+        for i, item in enumerate(items):
+            setattr(self, 'item%d' % i, item)
+        self._items = items
+    def __iter__(self):
+        return iter(self._items)
 
 def _closelink(link, vars, targetblock):
     if isinstance(link, flowmodel.Link):
@@ -237,7 +243,6 @@ CONSTORVAR = lltype.Ptr(consttypeinfo.get_lltype())
 BLOCKCONTAINERTYPE = blocktypeinfo.get_lltype()
 BLOCK = lltype.Ptr(BLOCKCONTAINERTYPE)
 LINK = lltype.Ptr(linktypeinfo.get_lltype())
-LINKPAIR = rtupletype.TUPLE_TYPE([LINK, LINK]).TO
 
 # support constants and types
 
@@ -280,7 +285,7 @@ from pypy.annotation import model as annmodel
 
 s_ConstOrVar = annmodel.SomePtr(CONSTORVAR)#annmodel.SomeExternalObject(flowmodel.Variable)
 s_Link = annmodel.SomePtr(LINK)#annmodel.SomeExternalObject(flowmodel.Link)
-s_LinkPair = annmodel.SomePtr(lltype.Ptr(LINKPAIR))
+s_LinkPair = annmodel.SomeTuple([s_Link, s_Link])
 
 setannotation(initblock, None)
 setannotation(geninputarg, s_ConstOrVar)

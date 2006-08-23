@@ -530,8 +530,8 @@ class BlockBuilder(object):
 
         assert len(newlinkstates) == 2
 
-        exitspair = rgenop.closeblock2(b, newexitswitch.getgenvar(self))
-        false_link, true_link = exitspair.item0, exitspair.item1
+        v = newexitswitch.getgenvar(self)
+        false_link, true_link = rgenop.closeblock2(b, v)
         
         cases = {False: false_link, True: true_link}
         for ls in newlinkstates:

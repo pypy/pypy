@@ -310,8 +310,7 @@ class ResidualGraphBuilder(rgenop.LowLevelOpBuilder):
         self.outgoinglink = rgenop.closeblock1(self.block)
 
     def leave_block_split(self, exitgvar):
-        linkpair = rgenop.closeblock2(self.block, exitgvar)    
-        false_link, true_link = linkpair.item0, linkpair.item1
+        false_link, true_link = rgenop.closeblock2(self.block, exitgvar)    
         later_builder = ResidualGraphBuilder(link=false_link)
         self.outgoinglink = true_link
         return later_builder

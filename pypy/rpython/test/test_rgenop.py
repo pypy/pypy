@@ -52,8 +52,7 @@ def build_if():
     v0 = geninputarg(block, constTYPE(Signed))
     const0 = genconst(0)
     v1 = genop(block, 'int_lt', [v0, const0], constTYPE(Bool))
-    exitspair = closeblock2(block, v1)
-    false_link, true_link = exitspair.item0, exitspair.item1
+    false_link, true_link = closeblock2(block, v1)
     closereturnlink(true_link, const0)
     closereturnlink(false_link, v0)
     return block
@@ -95,8 +94,7 @@ def build_loop():
     result1 = genop(loopblock, 'int_mul', [result0, i0], constTYPE(Signed))
     i1 = genop(loopblock, 'int_add', [i0, const1], constTYPE(Signed))
     v2 = genop(loopblock, 'int_le', [i1, v1], constTYPE(Bool))
-    exitspair = closeblock2(loopblock, v2)
-    false_link, true_link = exitspair.item0, exitspair.item1
+    false_link, true_link = closeblock2(loopblock, v2)
     closereturnlink(false_link, result1)
     closelink(true_link, [result1, i1, v1], loopblock)
     return block    
