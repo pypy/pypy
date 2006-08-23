@@ -273,7 +273,8 @@ class MarkSweepGC(GCBase):
             typeid = hdr.typeid >> 1
             gc_info = llmemory.cast_ptr_to_adr(hdr)
             obj = gc_info + size_gc_header
-            self.add_reachable_to_stack(obj, objects)
+            if not hdr.typeid & 1:
+                self.add_reachable_to_stack(obj, objects)
             addr = llmemory.cast_ptr_to_adr(hdr)
             size = self.fixed_size(typeid)
             if self.is_varsize(typeid):
@@ -287,11 +288,11 @@ class MarkSweepGC(GCBase):
         # stack until the stack is empty
         while objects.non_empty():  #mark
             curr = objects.pop()
-            self.add_reachable_to_stack(curr, objects)
             gc_info = curr - size_gc_header
             hdr = llmemory.cast_adr_to_ptr(gc_info, self.HDRPTR)
             if hdr.typeid & 1:
                 continue
+            self.add_reachable_to_stack(curr, objects)
             hdr.typeid = hdr.typeid | 1
         objects.delete()
         # also mark self.curpool
@@ -420,8 +421,6 @@ class MarkSweepGC(GCBase):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         gc_info = obj - size_gc_header
         hdr = llmemory.cast_adr_to_ptr(gc_info, self.HDRPTR)
-        if hdr.typeid & 1:
-            return
         typeid = hdr.typeid >> 1
         offsets = self.offsets_to_gc_pointers(typeid)
         i = 0
