@@ -50,7 +50,7 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
     def __init__(pol, rtyper=None):
         pol.rtyper = rtyper
 
-    def default_specialize(pol, funcdesc, args_s):
+    def default_specialize(funcdesc, args_s):
         key = []
         new_args_s = []
         for s_obj in args_s:
@@ -69,6 +69,7 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
         flowgraph = funcdesc.cachedgraph(tuple(key))
         args_s[:] = new_args_s
         return flowgraph
+    default_specialize = staticmethod(default_specialize)
 
     def override__init_opaque_object(pol, s_opaqueptr, s_value):
         assert isinstance(s_opaqueptr, annmodel.SomePtr)
@@ -117,7 +118,8 @@ class MixLevelAnnotatorPolicy(LowLevelAnnotatorPolicy):
     def default_specialize(pol, funcdesc, args_s):
         name = funcdesc.name
         if name.startswith('ll_') or name.startswith('_ll_'): # xxx can we do better?
-            return LowLevelAnnotatorPolicy.default_specialize(pol, funcdesc, args_s)
+            return super(MixLevelAnnotatorPolicy, pol).default_specialize(
+                funcdesc, args_s)
         else:
             return funcdesc.cachedgraph(None)
 

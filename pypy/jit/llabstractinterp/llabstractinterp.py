@@ -10,7 +10,7 @@ from pypy.jit.llabstractinterp.llvalue import FreezeMemo, UnfreezeMemo
 from pypy.jit.llabstractinterp.llcontainer import LLAbstractContainer
 from pypy.jit.llabstractinterp.llcontainer import virtualcontainervalue
 from pypy.jit.llabstractinterp.llcontainer import hasllcontent
-from pypy.rpython import rgenop
+from pypy.jit.codegen.llgraph.rgenop import rgenop
 
 # ____________________________________________________________
 
@@ -264,7 +264,7 @@ class LinkState(object):
         self.target_set = False
 
     def setreturn(self):
-        rgenop.closereturnlink(self.link, self.args_genv[0])
+        self.link.closereturn(self.args_genv[0])
         self.target_set = True
 
     def settarget(self, block, blockargs):
@@ -277,7 +277,7 @@ class LinkState(object):
                 assert v1.value == v2.value
             else:
                 args.append(v1)
-        rgenop.closelink(self.link, args, block)
+        self.link.close(args, block)
         self.target_set = True
 
 class GraphState(object):
@@ -524,14 +524,14 @@ class BlockBuilder(object):
     def buildblock(self, newexitswitch, newlinkstates):
         b = self.newblock
         if newexitswitch is None:
-            link = rgenop.closeblock1(b)
+            link = b.close1()
             newlinkstates[0].link = link
             return b
 
         assert len(newlinkstates) == 2
 
         v = newexitswitch.getgenvar(self)
-        false_link, true_link = rgenop.closeblock2(b, v)
+        false_link, true_link = b.close2(v)
         
         cases = {False: false_link, True: true_link}
         for ls in newlinkstates:
@@ -539,14 +539,17 @@ class BlockBuilder(object):
         return b
 
     def genop(self, opname, args, RESULT_TYPE=lltype.Void):
-        return rgenop.genop(self.newblock, opname, args,
-                            rgenop.constTYPE(RESULT_TYPE))
+        return self.newblock.genop(opname, args,
+                                   rgenop.constTYPE(RESULT_TYPE))
 
     def genconst(self, llvalue):
         return rgenop.genconst(llvalue)
 
     def genvoidconst(self, placeholder):
         return rgenop.placeholder(placeholder)
+
+    def constTYPE(self, T):
+        return T
     
     def binding(self, v):
         assert isinstance(v, (Constant, Variable))

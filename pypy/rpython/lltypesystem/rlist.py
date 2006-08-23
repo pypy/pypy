@@ -122,7 +122,7 @@ class ListBuilder(object):
             c_LIST    = llops.genvoidconst(LIST)
             return llops.genop('direct_call',
                                [c_newlist, c_LIST, c_len],
-                               LISTPTR)
+                               llops.constTYPE(LISTPTR))
 
         def build_setitem(llops, v_list, index, v_item):
             c_setitem_nonneg = llops.genconst(setitem_nonneg_ptr)

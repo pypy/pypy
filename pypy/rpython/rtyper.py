@@ -897,6 +897,9 @@ class LowLevelOpList(list):
     def genvoidconst(self, placeholder):
         return inputconst(Void, placeholder)
 
+    def constTYPE(self, T):
+        return T
+
 # _______________________________________________________________________
 # this has the side-effect of registering the unary and binary operations
 # and the rtyper_chooserepr() methods

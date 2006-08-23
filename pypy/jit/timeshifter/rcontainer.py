@@ -1,6 +1,5 @@
 import operator
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython import rgenop
 from pypy.jit.timeshifter import rvalue
 
 class AbstractContainer(object):
@@ -30,28 +29,29 @@ class StructTypeDesc(object):
     __metaclass__ = cachedtype
     firstsubstructdesc = None
 
-    def __init__(self, TYPE):
+    def __init__(self, RGenOp, TYPE):
         self.TYPE = TYPE
         self.PTRTYPE = lltype.Ptr(TYPE)
-        self.gv_type = rgenop.constTYPE(self.TYPE)
-        self.gv_ptrtype = rgenop.constTYPE(self.PTRTYPE)
+        self.gv_type = RGenOp.constTYPE(self.TYPE)
+        self.gv_ptrtype = RGenOp.constTYPE(self.PTRTYPE)
 
         fielddescs = []
         for name in self.TYPE._names:
             FIELDTYPE = getattr(self.TYPE, name)
             if isinstance(FIELDTYPE, lltype.ContainerType):
-                substructdesc = StructTypeDesc(FIELDTYPE)
+                substructdesc = StructTypeDesc(RGenOp, FIELDTYPE)
                 assert name == self.TYPE._names[0], (
                     "unsupported: inlined substructures not as first field")
                 self.firstsubstructdesc = substructdesc
                 for subfielddesc in substructdesc.fielddescs:
                     dottedname = '%s.%s' % (name, subfielddesc.fieldname)
                     index = len(fielddescs)
-                    fielddescs.append(StructFieldDesc(self.PTRTYPE, dottedname,
-                                                      index))
+                    fielddescs.append(StructFieldDesc(RGenOp, self.PTRTYPE,
+                                                      dottedname, index))
             else:
                 index = len(fielddescs)
-                fielddescs.append(StructFieldDesc(self.PTRTYPE, name, index))
+                fielddescs.append(StructFieldDesc(RGenOp, self.PTRTYPE,
+                                                  name, index))
         self.fielddescs = fielddescs
 
     def getfielddesc(self, name):
@@ -79,12 +79,12 @@ class StructTypeDesc(object):
 class FieldDesc(object):
     __metaclass__ = cachedtype
 
-    def __init__(self, PTRTYPE, RESTYPE):
+    def __init__(self, RGenOp, PTRTYPE, RESTYPE):
         self.PTRTYPE = PTRTYPE
         if isinstance(RESTYPE, lltype.ContainerType):
             RESTYPE = lltype.Ptr(RESTYPE)
         self.RESTYPE = RESTYPE
-        self.gv_resulttype = rgenop.constTYPE(RESTYPE)
+        self.gv_resulttype = RGenOp.constTYPE(RESTYPE)
         self.redboxcls = rvalue.ll_redboxcls(RESTYPE)
         self.immutable = PTRTYPE.TO._hints.get('immutable', False)
 
@@ -93,8 +93,8 @@ class FieldDesc(object):
 
 class NamedFieldDesc(FieldDesc):
 
-    def __init__(self, PTRTYPE, name):
-        FieldDesc.__init__(self, PTRTYPE, getattr(PTRTYPE.TO, name))
+    def __init__(self, RGenOp, PTRTYPE, name):
+        FieldDesc.__init__(self, RGenOp, PTRTYPE, getattr(PTRTYPE.TO, name))
         self.structdepth = 0
         T = self.PTRTYPE.TO
         while (T._names and
@@ -102,33 +102,35 @@ class NamedFieldDesc(FieldDesc):
             self.structdepth += 1
             T = getattr(T, T._names[0])
         self.fieldname = name
-        self.gv_fieldname = rgenop.constFieldName(name)
+        self.gv_fieldname = RGenOp.constFieldName(T, name)
 
 class ArrayFieldDesc(FieldDesc):
-    def __init__(self, PTRTYPE):
+    def __init__(self, RGenOp, PTRTYPE):
         assert isinstance(PTRTYPE.TO, lltype.Array)
-        FieldDesc.__init__(self, PTRTYPE, PTRTYPE.TO.OF)
+        FieldDesc.__init__(self, RGenOp, PTRTYPE, PTRTYPE.TO.OF)
 
 class StructFieldDesc(object):
     __metaclass__ = cachedtype
 
-    def __init__(self, PTRTYPE, fieldname, index):
+    def __init__(self, RGenOp, PTRTYPE, fieldname, index):
         assert isinstance(PTRTYPE.TO, lltype.Struct)
         RES1 = PTRTYPE.TO
         accessptrtype_gv = self.accessptrtype_gv = [] 
+        accessors = []
         for component in fieldname.split('.'):
             LASTSTRUCT = RES1
-            accessptrtype_gv.append(rgenop.constTYPE(lltype.Ptr(LASTSTRUCT)))
+            accessptrtype_gv.append(RGenOp.constTYPE(lltype.Ptr(LASTSTRUCT)))
+            accessors.append((RES1, component))
             RES1 = getattr(RES1, component)
         assert not isinstance(RES1, lltype.ContainerType)
         self.PTRTYPE = PTRTYPE
         self.RESTYPE = RES1
-        self.gv_resulttype = rgenop.constTYPE(RES1)
+        self.gv_resulttype = RGenOp.constTYPE(RES1)
         self.fieldname = fieldname
-        self.fieldname_gv = [rgenop.constFieldName(component)
-                             for component in fieldname.split('.')]
+        self.fieldname_gv = [RGenOp.constFieldName(T, component)
+                             for T, component in accessors]
         self.fieldindex = index
-        self.gv_default = rgenop.genconst(RES1._defl())
+        self.gv_default = RGenOp.constPrebuiltGlobal(RES1._defl())
         self.redboxcls = rvalue.ll_redboxcls(RES1)
         self.immutable = LASTSTRUCT._hints.get('immutable', False)
 
@@ -149,7 +151,7 @@ class StructFieldDesc(object):
         op_args = [gv_sub,
                    self.fieldname_gv[-1],
                    box.getgenvar(builder)]
-        genop('setfield', op_args, rgenop.gv_Void)        
+        genop('setfield', op_args, builder.rgenop.gv_Void)        
 
 # ____________________________________________________________
 

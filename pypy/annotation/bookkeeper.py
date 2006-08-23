@@ -408,18 +408,16 @@ class Bookkeeper:
                     result.knowntype = tp # at least for types this needs to be correct
                 else:
                     result = SomePBC([self.getdesc(x)])
-        elif hasattr(x, '__class__') \
-                 and x.__class__.__module__ != '__builtin__':
+        elif hasattr(x, '_freeze_') and x._freeze_():
             # user-defined classes can define a method _freeze_(), which
             # is called when a prebuilt instance is found.  If the method
             # returns True, the instance is considered immutable and becomes
             # a SomePBC().  Otherwise it's just SomeInstance().
-            frozen = hasattr(x, '_freeze_') and x._freeze_()
-            if frozen:
-                result = SomePBC([self.getdesc(x)])
-            else:
-                self.see_mutable(x)
-                result = SomeInstance(self.getuniqueclassdef(x.__class__))
+            result = SomePBC([self.getdesc(x)])
+        elif hasattr(x, '__class__') \
+                 and x.__class__.__module__ != '__builtin__':
+            self.see_mutable(x)
+            result = SomeInstance(self.getuniqueclassdef(x.__class__))
         elif x is None:
             return s_None
         else:
@@ -512,18 +510,16 @@ class Bookkeeper:
                     result.knowntype = tp # at least for types this needs to be correct
                 else:
                     result = SomePBC([self.getdesc(x)])
-        elif hasattr(x, '__class__') \
-                 and x.__class__.__module__ != '__builtin__':
+        elif hasattr(x, '_freeze_') and x._freeze_():
             # user-defined classes can define a method _freeze_(), which
             # is called when a prebuilt instance is found.  If the method
             # returns True, the instance is considered immutable and becomes
             # a SomePBC().  Otherwise it's just SomeInstance().
-            frozen = hasattr(x, '_freeze_') and x._freeze_()
-            if frozen:
-                result = SomePBC([self.getdesc(x)])
-            else:
-                self.see_mutable(x)
-                result = SomeInstance(self.getuniqueclassdef(x.__class__))
+            result = SomePBC([self.getdesc(x)])
+        elif hasattr(x, '__class__') \
+                 and x.__class__.__module__ != '__builtin__':
+            self.see_mutable(x)
+            result = SomeInstance(self.getuniqueclassdef(x.__class__))
         elif x is None:
             return s_None
         else:

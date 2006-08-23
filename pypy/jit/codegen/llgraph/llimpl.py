@@ -12,6 +12,7 @@ from pypy.rpython.module.support import to_opaque_object, from_opaque_object
 from pypy.rpython.module.support import LLSupport
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.llinterp import LLInterpreter
+from pypy.rpython.lltypesystem.rclass import fishllattr
 
 
 # for debugging, sanity checks in non-RPython code
@@ -42,13 +43,13 @@ def geninputarg(blockcontainer, gv_CONCRETE_TYPE):
 def _inputvars(vars):
     if not isinstance(vars, list):
         n = vars.ll_length()
-        vars = [getattr(llvar, 'inst_v', llvar) for llvar in vars.ll_items()]
+        vars = vars.ll_items()
+        vars = [fishllattr(vars[i], 'v', vars[i]) for i in range(n)]
     else:
-        n = len(vars)
         vars = [getattr(llvar, 'v', llvar) for llvar in vars]
     res = []
-    for i in range(n):
-        v = from_opaque_object(vars[i])
+    for v1 in vars:
+        v = from_opaque_object(v1)
         assert isinstance(v, (flowmodel.Constant, flowmodel.Variable))
         res.append(v)
     return res

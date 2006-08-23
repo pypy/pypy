@@ -1,6 +1,6 @@
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython import rgenop
+from pypy.jit.codegen.llgraph.rgenop import rgenop
 from pypy.tool.uid import Hashable
 
 class AVariable(object):
@@ -202,7 +202,7 @@ class LLFrozenRuntimeValue(LLFrozenValue):
             assert c.concretetype == self.concretetype
             result = LLAbstractValue(c)
         else:
-            gen_v = rgenop.geninputarg(block, rgenop.constTYPE(self.concretetype))
+            gen_v = block.geninputarg(rgenop.constTYPE(self.concretetype))
             result = LLAbstractValue(AVariable(self.concretetype, genvar=gen_v))
         result.origin.append(self)
         return result

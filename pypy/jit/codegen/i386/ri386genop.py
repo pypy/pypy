@@ -1,16 +1,14 @@
 from pypy.rpython.lltypesystem import lltype
 from pypy.jit.codegen.i386.codebuf import MachineCodeBlock
 from pypy.jit.codegen.i386.ri386 import *
+from pypy.jit.codegen.model import AbstractRGenOp, CodeGenBlock, CodeGenLink
+from pypy.jit.codegen.model import GenVar, GenConst
 
 
 WORD = 4
 
 
-class VarOrConst(object):
-    pass
-
-
-class Var(VarOrConst):
+class Var(GenVar):
 
     def __init__(self, stackpos):
         # 'stackpos' is an index relative to the pushed arguments:
@@ -28,19 +26,23 @@ class Var(VarOrConst):
         return block.stack_access(self.stackpos)
 
 
-class TypeConst(VarOrConst):
+class TypeConst(GenConst):
 
     def __init__(self, kind):
         self.kind = kind
 
 
-class IntConst(VarOrConst):
+class IntConst(GenConst):
 
     def __init__(self, value):
         self.value = value
 
     def operand(self, block):
         return imm(self.value)
+
+    def revealconst(self, T):
+        return lltype.cast_int_to_ptr(T, self.value)
+    revealconst._annspecialcase_ = 'specialize:arg(1)'
 
 
 class FnPtrConst(IntConst):
@@ -49,8 +51,9 @@ class FnPtrConst(IntConst):
         self.mc = mc    # to keep it alive
 
 
-class Block(object):
-    def __init__(self, mc):
+class Block(CodeGenBlock):
+    def __init__(self, rgenop, mc):
+        self.rgenop = rgenop
         self.argcount = 0
         self.stackdepth = 0
         self.mc = mc
@@ -61,6 +64,21 @@ class Block(object):
         self.argcount += 1
         self.stackdepth += 1
         return res
+
+    def genop(self, opname, args_gv, gv_RESTYPE=None):
+        genmethod = getattr(self, 'op_' + opname)
+        return genmethod(args_gv, gv_RESTYPE)
+    genop._annspecialcase_ = 'specialize:arg(1)'
+
+    def close1(self):
+        return Link(self)
+
+    def close2(self, gv_condition):
+        false_block = self.rgenop.newblock()
+        false_block.stackdepth = self.stackdepth
+        self.mc.CMP(gv_condition.operand(self), imm8(0))
+        self.mc.JE(rel32(false_block.startaddr))
+        return Link(false_block), Link(self)
 
     def stack_access(self, stackpos):
         return mem(esp, WORD * (self.stackdepth-1 - stackpos))
@@ -89,51 +107,24 @@ class Block(object):
         return self.push(eax)
 
 
-class RI386GenOp(object):
-    gv_IntWord = TypeConst('IntWord')
-    gv_Void = TypeConst('Void')
+class Link(CodeGenLink):
 
-    def __init__(self):
-        self.mcs = []   # machine code blocks where no-one is currently writing
+    def __init__(self, prevblock):
+        self.prevblock = prevblock
 
-    def get_rgenop_for_testing():
-        return RI386GenOp()
-    get_rgenop_for_testing = staticmethod(get_rgenop_for_testing)
+    def closereturn(self, gv_result):
+        block = self.prevblock
+        block.mc.MOV(eax, gv_result.operand(block))
+        block.mc.ADD(esp, imm(WORD * block.stackdepth))
+        block.mc.RET()
+        block.rgenop.close_mc(block.mc)
 
-    def open_mc(self):
-        if self.mcs:
-            # XXX think about inserting NOPS for alignment
-            return self.mcs.pop()
-        else:
-            return MachineCodeBlock(65536)   # XXX supposed infinite for now
-
-    def close_mc(self, mc):
-        self.mcs.append(mc)
-
-    def newblock(self):
-        return Block(self.open_mc())
-
-    def closeblock1(self, block):
-        return block   # NB. links and blocks are the same for us
-
-    def closeblock2(self, block, gv_condition):
-        false_block = self.newblock()
-        false_block.stackdepth = block.stackdepth
-        block.mc.CMP(gv_condition.operand(block), imm8(0))
-        block.mc.JE(rel32(false_block.startaddr))
-        return false_block, block
-
-    def closereturnlink(self, link, gv_result):
-        link.mc.MOV(eax, gv_result.operand(link))
-        link.mc.ADD(esp, imm(WORD * link.stackdepth))
-        link.mc.RET()
-        self.close_mc(link.mc)
-
-    def closelink(self, link, outputargs_gv, targetblock):
+    def close(self, outputargs_gv, targetblock):
+        block = self.prevblock
         N = len(outputargs_gv)
-        if link.stackdepth < N:
-            link.mc.SUB(esp, imm(WORD * (N - link.stackdepth)))
-            link.stackdepth = N
+        if block.stackdepth < N:
+            block.mc.SUB(esp, imm(WORD * (N - block.stackdepth)))
+            block.stackdepth = N
 
         pending_dests = N
         srccount = [0] * N
@@ -155,15 +146,15 @@ class RI386GenOp(object):
                     srccount[i] = -1
                     pending_dests -= 1
                     gv_src = outputargs_gv[i]
-                    link.mc.MOV(eax, gv_src.operand(link))
-                    link.mc.MOV(link.stack_access(i), eax)
+                    block.mc.MOV(eax, gv_src.operand(block))
+                    block.mc.MOV(block.stack_access(i), eax)
                     progress = True
             if not progress:
                 # we are left with only pure disjoint cycles; break them
                 for i in range(N):
                     if srccount[i] >= 0:
                         dst = i
-                        link.mc.MOV(edx, link.stack_access(dst))
+                        block.mc.MOV(edx, block.stack_access(dst))
                         while True:
                             assert srccount[dst] == 1
                             srccount[dst] = -1
@@ -174,20 +165,42 @@ class RI386GenOp(object):
                             assert 0 <= src < N
                             if src == i:
                                 break
-                            link.mc.MOV(eax, link.stack_access(src))
-                            link.mc.MOV(link.stack_access(dst), eax)
+                            block.mc.MOV(eax, block.stack_access(src))
+                            block.mc.MOV(block.stack_access(dst), eax)
                             dst = src
-                        link.mc.MOV(link.stack_access(dst), edx)
+                        block.mc.MOV(block.stack_access(dst), edx)
                 assert pending_dests == 0
 
-        if link.stackdepth > N:
-            link.mc.ADD(esp, imm(WORD * (link.stackdepth - N)))
-            link.stackdepth = N
-        link.mc.JMP(rel32(targetblock.startaddr))
-        self.close_mc(link.mc)
+        if block.stackdepth > N:
+            block.mc.ADD(esp, imm(WORD * (block.stackdepth - N)))
+            block.stackdepth = N
+        block.mc.JMP(rel32(targetblock.startaddr))
+        block.rgenop.close_mc(block.mc)
 
-    def geninputarg(self, block, gv_TYPE):
-        return block.geninputarg(gv_TYPE)
+
+class RI386GenOp(AbstractRGenOp):
+    gv_IntWord = TypeConst('IntWord')
+    gv_Void = TypeConst('Void')
+
+    def __init__(self):
+        self.mcs = []   # machine code blocks where no-one is currently writing
+
+    def get_rgenop_for_testing():
+        return RI386GenOp()
+    get_rgenop_for_testing = staticmethod(get_rgenop_for_testing)
+
+    def open_mc(self):
+        if self.mcs:
+            # XXX think about inserting NOPS for alignment
+            return self.mcs.pop()
+        else:
+            return MachineCodeBlock(65536)   # XXX supposed infinite for now
+
+    def close_mc(self, mc):
+        self.mcs.append(mc)
+
+    def newblock(self):
+        return Block(self, self.open_mc())
 
     def genconst(llvalue):
         T = lltype.typeOf(llvalue)
@@ -204,11 +217,6 @@ class RI386GenOp(object):
     constTYPE._annspecialcase_ = 'specialize:memo'
     constTYPE = staticmethod(constTYPE)
 
-    def genop(self, block, opname, args_gv, gv_RESTYPE):
-        genmethod = getattr(block, 'op_' + opname)
-        return genmethod(args_gv, gv_RESTYPE)
-    genop._annspecialcase_ = 'specialize:arg(2)'
-
     def gencallableconst(self, name, block, gv_FUNCTYPE):
         prologue = self.newblock()
         #prologue.mc.BREAKPOINT()
@@ -220,9 +228,3 @@ class RI386GenOp(object):
         prologue.mc.JMP(rel32(block.startaddr))
         self.close_mc(prologue.mc)
         return FnPtrConst(prologue.startaddr, prologue.mc)
-
-    def revealconst(T, gv_const):
-        assert isinstance(gv_const, IntConst)    # for now
-        return lltype.cast_int_to_ptr(T, gv_const.value)
-    revealconst._annspecialcase_ = 'specialize:arg(0)'
-    revealconst = staticmethod(revealconst)

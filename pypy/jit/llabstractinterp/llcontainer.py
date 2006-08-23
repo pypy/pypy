@@ -1,6 +1,6 @@
 from pypy.rpython.lltypesystem import lltype
 from pypy.jit.llabstractinterp.llvalue import LLAbstractValue, AConstant, const
-from pypy.rpython import rgenop
+from pypy.jit.codegen.llgraph.rgenop import rgenop
 
 class LLAbstractContainer(object):
     """Abstract base class for abstract containers.
@@ -51,7 +51,8 @@ class LLVirtualContainer(LLAbstractContainer):
     def build_runtime_container(self, builder):
         RESULT_TYPE = lltype.Ptr(self.T)
         if self.a_parent is not None:
-            parentindex = rgenop.constFieldName(self.parentindex)
+            PARENT_TYPE = self.a_parent.getconcretetype().TO
+            parentindex = rgenop.constFieldName(PARENT_TYPE, self.parentindex)
             v_parent = self.a_parent.forcegenvarorconst(builder)
             v_result = builder.genop('getsubstruct',
                                      [v_parent, parentindex], RESULT_TYPE)
@@ -75,8 +76,9 @@ class LLVirtualContainer(LLAbstractContainer):
                 T = self.fieldtype(name)
                 if isinstance(T, lltype.ContainerType):
                     # initialize the substructure/subarray
+                    c_name = rgenop.constFieldName(self.T, name)
                     v_subptr = builder.genop('getsubstruct',
-                                             [v_target, rgenop.constFieldName(name)],
+                                             [v_target, c_name],
                                              lltype.Ptr(T))
                     assert isinstance(a_value.content, LLVirtualContainer)
                     a_value.content.buildcontent(builder, v_subptr)
@@ -165,7 +167,8 @@ class LLVirtualStruct(LLVirtualContainer):
         return getattr(self.T, name)
 
     def setop(self, builder, v_target, name, v_value):
-        builder.genop('setfield', [v_target, rgenop.constFieldName(name), v_value],
+        c_name = rgenop.constFieldName(self.T, name)
+        builder.genop('setfield', [v_target, c_name, v_value],
                       lltype.Void)
 
 

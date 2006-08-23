@@ -428,6 +428,21 @@ class BaseTestRPBC(BaseRtypingTest):
         res = self.interpret(f1, [2])
         assert res == 6
 
+    def test_call_memo_with_string(self):
+        def memofn(s):
+            return eval(s)
+        memofn._annspecialcase_ = "specialize:memo"
+
+        def f1(i):
+            if i == 1:
+                return memofn("6*7")
+            else:
+                return memofn("1+2+3+4")
+        res = self.interpret(f1, [1])
+        assert res == 42
+        res = self.interpret(f1, [2])
+        assert res == 10
+
     def test_rpbc_bound_method_static_call(self):
         class R:
             def meth(self):

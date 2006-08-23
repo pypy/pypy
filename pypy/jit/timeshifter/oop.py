@@ -1,5 +1,4 @@
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython import rgenop
 from pypy.jit.timeshifter.rcontainer import cachedtype
 from pypy.jit.timeshifter import rvalue
 
@@ -12,7 +11,7 @@ class Index:
 class OopSpecDesc:
     __metaclass__ = cachedtype
 
-    def __init__(self, fnobj):
+    def __init__(self, RGenOp, fnobj):
         ll_func = fnobj._callable
         FUNCTYPE = lltype.typeOf(fnobj)
         nb_args = len(FUNCTYPE.ARGS)
@@ -37,14 +36,14 @@ class OopSpecDesc:
             ARGTYPE = FUNCTYPE.ARGS[i]
             assert ((i+1) in self.argpositions) == (ARGTYPE is not lltype.Void)
 
-        self.args_gv = [rgenop.placeholder(None)] * nb_args
-        self.args_gv.insert(0, rgenop.genconst(fnobj._as_ptr()))
-        self.gv_result_type = rgenop.constTYPE(FUNCTYPE.RESULT)
+        self.args_gv = [RGenOp.placeholder(None)] * nb_args
+        self.args_gv.insert(0, RGenOp.constPrebuiltGlobal(fnobj._as_ptr()))
+        self.gv_result_type = RGenOp.constTYPE(FUNCTYPE.RESULT)
         self.redboxbuilder = rvalue.ll_redboxbuilder(FUNCTYPE.RESULT)
 
         if operation_name == 'newlist':
             from pypy.jit.timeshifter.vlist import ListTypeDesc, oop_newlist
-            self.typedesc = ListTypeDesc(FUNCTYPE.RESULT.TO)
+            self.typedesc = ListTypeDesc(RGenOp, FUNCTYPE.RESULT.TO)
             self.ll_handler = oop_newlist
         else:
             typename, method = operation_name.split('.')

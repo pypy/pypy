@@ -1,5 +1,4 @@
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython import rgenop
 from pypy.jit.timeshifter.rcontainer import AbstractContainer, cachedtype
 from pypy.jit.timeshifter import rvalue
 
@@ -7,11 +6,11 @@ from pypy.jit.timeshifter import rvalue
 class ListTypeDesc(object):
     __metaclass__ = cachedtype
 
-    def __init__(self, LIST):
+    def __init__(self, RGenOp, LIST):
         self.LIST = LIST
         self.LISTPTR = lltype.Ptr(LIST)
-        self.gv_type = rgenop.constTYPE(self.LIST)
-        self.gv_ptrtype = rgenop.constTYPE(self.LISTPTR)
+        self.gv_type = RGenOp.constTYPE(self.LIST)
+        self.gv_ptrtype = RGenOp.constTYPE(self.LISTPTR)
         self.build_newlist = LIST.list_builder.build_newlist
         self.build_setitem = LIST.list_builder.build_setitem
 

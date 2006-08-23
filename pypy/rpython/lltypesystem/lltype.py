@@ -969,6 +969,8 @@ class _ptr(object):
         if isinstance(self._T, (Array, FixedSizeArray)):
             start, stop = self._obj.getbounds()
             if not (start <= i < stop):
+                if isinstance(i, slice):
+                    raise TypeError("array slicing not supported")
                 raise IndexError("array index out of bounds")
             o = self._obj.getitem(i)
             return _expose(o, self._solid)
@@ -986,6 +988,8 @@ class _ptr(object):
                                     "   got %r" % (self._T, T1, T2))
             start, stop = self._obj.getbounds()
             if not (start <= i < stop):
+                if isinstance(i, slice):
+                    raise TypeError("array slicing not supported")
                 raise IndexError("array index out of bounds")
             self._obj.setitem(i, val)
             return

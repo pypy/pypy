@@ -1,25 +1,27 @@
-import py
+import py, types
 from pypy.rpython.lltypesystem import lltype
 from pypy.objspace.flow import model as flowmodel
 from pypy.annotation import model as annmodel
 from pypy.annotation import listdef, dictdef
 from pypy.jit.timeshifter import rvalue, oop
 from pypy.jit.timeshifter.rtimeshift import JITState, ResidualGraphBuilder
-from pypy.rpython import rmodel, rgenop, annlowlevel
+from pypy.rpython import rmodel, annlowlevel
 from pypy.rpython.lltypesystem import rtuple, rlist, rdict
 from pypy.jit.timeshifter import rtimeshift
 from pypy.jit.timeshifter.rtyper import HintRTyper, originalconcretetype
 from pypy.jit.timeshifter.rtyper import GreenRepr, RedRepr, HintLowLevelOpList
 from pypy.translator.unsimplify import varoftype, copyvar
 from pypy.translator.backendopt import support
+from pypy.jit.codegen import model as cgmodel
 
 # ___________________________________________________________
 
 class HintTimeshift(object):
     
-    def __init__(self, hannotator, rtyper):
+    def __init__(self, hannotator, rtyper, RGenOp):
         self.hannotator = hannotator
         self.rtyper = rtyper
+        self.RGenOp = RGenOp
         self.hrtyper = HintRTyper(hannotator, self)
         self.latestexitindex = -1
         self.annhelper = annlowlevel.MixLevelHelperAnnotator(rtyper)
@@ -29,6 +31,9 @@ class HintTimeshift(object):
         self.s_RedBox, self.r_RedBox = self.s_r_instanceof(rvalue.RedBox)
         self.s_OopSpecDesc, self.r_OopSpecDesc = self.s_r_instanceof(
             oop.OopSpecDesc)
+        self.s_ConstOrVar, self.r_ConstOrVar = self.s_r_instanceof(
+            cgmodel.GenVarOrConst)
+        self.s_Block, self.r_Block = self.s_r_instanceof(cgmodel.CodeGenBlock)
 
         getrepr = self.rtyper.getrepr
 
@@ -46,29 +51,33 @@ class HintTimeshift(object):
         self.r_box_accum = getrepr(self.s_box_accum)
         self.r_box_accum.setup()
 
+        def ll_make_builder():
+            rgenop = RGenOp.get_rgenop_for_testing()
+            return rtimeshift.make_builder(rgenop)
+
         self.ll_make_builder_graph = self.annhelper.getgraph(
-            rtimeshift.ll_make_builder,
+            ll_make_builder,
             [], self.s_ResidualGraphBuilder)
         self.ll_int_box_graph = self.annhelper.getgraph(
             rtimeshift.ll_int_box,
-            [rgenop.s_ConstOrVar, rgenop.s_ConstOrVar],
+            [self.s_ConstOrVar, self.s_ConstOrVar],
             self.s_RedBox)
         self.ll_addr_box_graph = self.annhelper.getgraph(
             rtimeshift.ll_addr_box,
-            [rgenop.s_ConstOrVar, rgenop.s_ConstOrVar],
+            [self.s_ConstOrVar, self.s_ConstOrVar],
             self.s_RedBox)
         self.ll_double_box_graph = self.annhelper.getgraph(
             rtimeshift.ll_int_box,
-            [rgenop.s_ConstOrVar, rgenop.s_ConstOrVar],
+            [self.s_ConstOrVar, self.s_ConstOrVar],
             self.s_RedBox)
         self.ll_geninputarg_graph = self.annhelper.getgraph(
             rtimeshift.ll_geninputarg,
-            [self.s_ResidualGraphBuilder, annmodel.SomePtr(rgenop.CONSTORVAR)],
-            rgenop.s_ConstOrVar)
+            [self.s_ResidualGraphBuilder, self.s_ConstOrVar],
+            self.s_ConstOrVar)
         self.ll_end_setup_builder_graph = self.annhelper.getgraph(
             rtimeshift.ll_end_setup_builder,
             [self.s_ResidualGraphBuilder],
-            annmodel.SomePtr(rgenop.BLOCK))
+            self.s_Block)
 
 ##         self.ll_close_jitstate_graph = self.annhelper.getgraph(
 ##             rtimeshift.ll_close_jitstate,
@@ -266,10 +275,12 @@ class HintTimeshift(object):
             newblock.closeblock(bridge)
         return newblock
 
-    def make_const_box(self, llops, r_green, v_value):
+    def make_const_box(self, llops, r_green, v_value, v_jitstate):
         v_box = llops.genmixlevelhelpercall(
             rvalue.ll_fromvalue,
-            [r_green.annotation()], [v_value], self.s_RedBox)
+            [self.s_JITState, r_green.annotation()],
+            [v_jitstate,      v_value],
+            self.s_RedBox)
         return v_box
         
                                                          
@@ -566,6 +577,7 @@ class HintTimeshift(object):
                                    [v_res],
                                    v_newjitstate))
         else:
+            v_jitstate = rename(orig_v_jitstate)
             args_r = []
             boxes_v = []
             for var in inputargs[1:]:
@@ -574,7 +586,7 @@ class HintTimeshift(object):
                 if isinstance(r, RedRepr):
                     boxes_v.append(var)
                 elif isinstance(r, GreenRepr):
-                    v_box = self.make_const_box(llops, r, var)
+                    v_box = self.make_const_box(llops, r, var, v_jitstate)
                     boxes_v.append(v_box)
                 else:
                     raise RuntimeError('Unsupported boxtype')
@@ -583,7 +595,6 @@ class HintTimeshift(object):
             false_exit = [exit for exit in newblock.exits if exit.exitcase is False][0]
             exitindex = self.getexitindex(false_exit, inputargs[1:], args_r, entering_links)
             c_exitindex = rmodel.inputconst(lltype.Signed, exitindex)
-            v_jitstate = rename(orig_v_jitstate)
             v_res = llops.genmixlevelhelpercall(rtimeshift.leave_block_split,
                                                 [self.s_JITState,
                                                  self.s_RedBox,
@@ -665,9 +676,10 @@ class HintTimeshift(object):
         return_cache = self.return_cache
         assert return_cache is not None
         RETURN_TYPE = self.r_returnvalue.original_concretetype
+        gv_RETURN_TYPE = self.RGenOp.constTYPE(RETURN_TYPE)
         def prepare_return(jitstate):
             return rtimeshift.prepare_return(jitstate, return_cache,
-                                             rgenop.constTYPE(RETURN_TYPE))
+                                             gv_RETURN_TYPE)
         llops = HintLowLevelOpList(self, None)
         v_return_builder = llops.genmixlevelhelpercall(prepare_return,
                           [self.s_JITState], [v_jitstate2],

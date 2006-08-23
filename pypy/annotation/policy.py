@@ -8,7 +8,7 @@ from pypy.annotation import model as annmodel
 from pypy.annotation.bookkeeper import getbookkeeper
 
 
-class BasicAnnotatorPolicy:
+class BasicAnnotatorPolicy(object):
     allow_someobjects = True
 
     def event(pol, bookkeeper, what, *args):
@@ -82,6 +82,10 @@ class AnnotatorPolicy(BasicAnnotatorPolicy):
     specialize__arg = staticmethod(specialize_argvalue) # specialize:arg(N)
     specialize__argtype = staticmethod(specialize_argtype) # specialize:argtype(N)
     specialize__arglistitemtype = staticmethod(specialize_arglistitemtype)
+
+    def specialize__ll(pol, *args):
+        from pypy.rpython.annlowlevel import LowLevelAnnotatorPolicy
+        return LowLevelAnnotatorPolicy.default_specialize(*args)
 
     def override__ignore(pol, *args):
         bk = getbookkeeper()

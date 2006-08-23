@@ -14,12 +14,12 @@ def make_adder(rgenop, n):
     # 'return x+n'
     gv_SIGNED = rgenop.constTYPE(lltype.Signed)
     block = rgenop.newblock()
-    gv_x = rgenop.geninputarg(block, gv_SIGNED)
+    gv_x = block.geninputarg(gv_SIGNED)
     args_gv = [gv_x,
                rgenop.genconst(n)]
-    gv_result = rgenop.genop(block, "int_add", args_gv, gv_SIGNED)
-    link = rgenop.closeblock1(block)
-    rgenop.closereturnlink(link, gv_result)
+    gv_result = block.genop("int_add", args_gv, gv_SIGNED)
+    link = block.close1()
+    link.closereturn(gv_result)
 
     gv_FUNC = rgenop.constTYPE(FUNC)
     gv_add_one = rgenop.gencallableconst("adder", block, gv_FUNC)
@@ -28,15 +28,15 @@ def make_adder(rgenop, n):
 def runner(x, y):
     rgenop = RI386GenOp()
     gv_add_x = make_adder(rgenop, x)
-    add_x = rgenop.revealconst(lltype.Ptr(FUNC), gv_add_x)
+    add_x = gv_add_x.revealconst(lltype.Ptr(FUNC))
     res = add_x(y)
     keepalive_until_here(rgenop)    # to keep the code blocks alive
     return res
 
 def test_adder_interpret():
-    from pypy.rpython import rgenop
+    from pypy.jit.codegen.llgraph.rgenop import rgenop
     gv_add_5 = make_adder(rgenop, 5)
-    add_5 = rgenop.revealconst(lltype.Ptr(FUNC), gv_add_5)
+    add_5 = gv_add_5.revealconst(lltype.Ptr(FUNC))
     llinterp = LLInterpreter(None)
     res = llinterp.eval_graph(add_5._obj.graph, [12])
     assert res == 17
@@ -62,25 +62,25 @@ def make_dummy(rgenop):
     # 'return x - (y - (x-1))'
     gv_SIGNED = rgenop.constTYPE(lltype.Signed)
     block = rgenop.newblock()
-    gv_x = rgenop.geninputarg(block, gv_SIGNED)
-    gv_y = rgenop.geninputarg(block, gv_SIGNED)
+    gv_x = block.geninputarg(gv_SIGNED)
+    gv_y = block.geninputarg(gv_SIGNED)
     args_gv = [gv_x, rgenop.genconst(1)]
-    gv_z = rgenop.genop(block, "int_sub", args_gv, gv_SIGNED)
-    link = rgenop.closeblock1(block)
+    gv_z = block.genop("int_sub", args_gv, gv_SIGNED)
+    link = block.close1()
 
     block2 = rgenop.newblock()
-    gv_y2 = rgenop.geninputarg(block2, gv_SIGNED)
-    gv_z2 = rgenop.geninputarg(block2, gv_SIGNED)
-    gv_x2 = rgenop.geninputarg(block2, gv_SIGNED)
-    rgenop.closelink(link, [gv_y, gv_z, gv_x], block2)
+    gv_y2 = block2.geninputarg(gv_SIGNED)
+    gv_z2 = block2.geninputarg(gv_SIGNED)
+    gv_x2 = block2.geninputarg(gv_SIGNED)
+    link.close([gv_y, gv_z, gv_x], block2)
 
     args_gv = [gv_y2, gv_z2]
-    gv_s2 = rgenop.genop(block2, "int_sub", args_gv, gv_SIGNED)
+    gv_s2 = block2.genop("int_sub", args_gv, gv_SIGNED)
     args_gv = [gv_x2, gv_s2]
-    gv_t2 = rgenop.genop(block2, "int_sub", args_gv, gv_SIGNED)
-    link2 = rgenop.closeblock1(block2)
+    gv_t2 = block2.genop("int_sub", args_gv, gv_SIGNED)
+    link2 = block2.close1()
 
-    rgenop.closereturnlink(link2, gv_t2)
+    link2.closereturn(gv_t2)
     gv_FUNC2 = rgenop.constTYPE(FUNC2)
     gv_dummyfn = rgenop.gencallableconst("dummy", block, gv_FUNC2)
     return gv_dummyfn
@@ -88,15 +88,15 @@ def make_dummy(rgenop):
 def dummy_runner(x, y):
     rgenop = RI386GenOp()
     gv_dummyfn = make_dummy(rgenop)
-    dummyfn = rgenop.revealconst(lltype.Ptr(FUNC2), gv_dummyfn)
+    dummyfn = gv_dummyfn.revealconst(lltype.Ptr(FUNC2))
     res = dummyfn(x, y)
     keepalive_until_here(rgenop)    # to keep the code blocks alive
     return res
 
 def test_dummy_interpret():
-    from pypy.rpython import rgenop
+    from pypy.jit.codegen.llgraph.rgenop import rgenop
     gv_dummyfn = make_dummy(rgenop)
-    dummyfn = rgenop.revealconst(lltype.Ptr(FUNC2), gv_dummyfn)
+    dummyfn = gv_dummyfn.revealconst(lltype.Ptr(FUNC2))
     llinterp = LLInterpreter(None)
     res = llinterp.eval_graph(dummyfn._obj.graph, [30, 17])
     assert res == 42
@@ -122,22 +122,22 @@ def make_branching(rgenop):
     gv_SIGNED = rgenop.constTYPE(lltype.Signed)
     gv_BOOL   = rgenop.constTYPE(lltype.Bool)
     block = rgenop.newblock()
-    gv_x = rgenop.geninputarg(block, gv_SIGNED)
-    gv_y = rgenop.geninputarg(block, gv_SIGNED)
+    gv_x = block.geninputarg(gv_SIGNED)
+    gv_y = block.geninputarg(gv_SIGNED)
     args_gv = [gv_x, rgenop.genconst(5)]
-    gv_cond = rgenop.genop(block, "int_gt", args_gv, gv_BOOL)
-    link_false, link_true = rgenop.closeblock2(block, gv_cond)
+    gv_cond = block.genop("int_gt", args_gv, gv_BOOL)
+    link_false, link_true = block.close2(gv_cond)
 
     block2 = rgenop.newblock()
-    gv_x2 = rgenop.geninputarg(block2, gv_SIGNED)
-    rgenop.closelink(link_true, [gv_x], block2)
+    gv_x2 = block2.geninputarg(gv_SIGNED)
+    link_true.close([gv_x], block2)
 
     args_gv = [gv_x2, rgenop.genconst(1)]
-    gv_s2 = rgenop.genop(block2, "int_sub", args_gv, gv_SIGNED)
-    link2 = rgenop.closeblock1(block2)
-    rgenop.closereturnlink(link2, gv_s2)
+    gv_s2 = block2.genop("int_sub", args_gv, gv_SIGNED)
+    link2 = block2.close1()
+    link2.closereturn(gv_s2)
 
-    rgenop.closereturnlink(link_false, gv_y)
+    link_false.closereturn(gv_y)
 
     gv_FUNC2 = rgenop.constTYPE(FUNC2)
     gv_branchingfn = rgenop.gencallableconst("branching", block, gv_FUNC2)
@@ -146,15 +146,15 @@ def make_branching(rgenop):
 def branching_runner(x, y):
     rgenop = RI386GenOp()
     gv_branchingfn = make_branching(rgenop)
-    branchingfn = rgenop.revealconst(lltype.Ptr(FUNC2), gv_branchingfn)
+    branchingfn = gv_branchingfn.revealconst(lltype.Ptr(FUNC2))
     res = branchingfn(x, y)
     keepalive_until_here(rgenop)    # to keep the code blocks alive
     return res
 
 def test_branching_interpret():
-    from pypy.rpython import rgenop
+    from pypy.jit.codegen.llgraph.rgenop import rgenop
     gv_branchingfn = make_branching(rgenop)
-    branchingfn = rgenop.revealconst(lltype.Ptr(FUNC2), gv_branchingfn)
+    branchingfn = gv_branchingfn.revealconst(lltype.Ptr(FUNC2))
     llinterp = LLInterpreter(None)
     res = llinterp.eval_graph(branchingfn._obj.graph, [30, 17])
     assert res == 29

@@ -1,7 +1,8 @@
 from pypy.rpython.lltypesystem import lltype
-from pypy.jit.codegen.model import AbstractRGenOp, CodeGenBlock
+from pypy.jit.codegen.model import AbstractRGenOp, CodeGenBlock, CodeGenLink
 from pypy.jit.codegen.model import GenVar, GenConst
 from pypy.jit.codegen.llgraph import llimpl
+from pypy.rpython.lltypesystem.rclass import fishllattr
 
 
 class LLVar(GenVar):
@@ -18,6 +19,9 @@ class LLConst(GenConst):
     revealconst._annspecialcase_ = 'specialize:arg(1)'
 
 
+gv_Void = LLConst(llimpl.constTYPE(lltype.Void))
+
+
 class LLBlock(CodeGenBlock):
     def __init__(self, b):
         self.b = b
@@ -25,8 +29,9 @@ class LLBlock(CodeGenBlock):
     def geninputarg(self, gv_TYPE):
         return LLVar(llimpl.geninputarg(self.b, gv_TYPE.v))
 
-    def genop(self, opname, vars_gv, gv_RESULT_TYPE):
-        return LLVar(llimpl.genop(self.b, opname, vars_gv, gv_RESULT_TYPE.v))
+    def genop(self, opname, vars_gv, gv_RESULT_TYPE=None):
+        return LLVar(llimpl.genop(self.b, opname, vars_gv,
+                                  (gv_RESULT_TYPE or gv_Void).v))
     genop._annspecialcase_ = 'specialize:arg(1)'
 
     def close1(self):
@@ -49,6 +54,7 @@ class LLLink(CodeGenLink):
 
 
 class RGenOp(AbstractRGenOp):
+    gv_Void = gv_Void
 
     def newblock(self):
         return LLBlock(llimpl.newblock())
@@ -68,7 +74,7 @@ class RGenOp(AbstractRGenOp):
     constTYPE = staticmethod(constTYPE)
 
     def placeholder(dummy):
-        return LLConst(llimpl.placerholder(dummy))
+        return LLConst(llimpl.placeholder(dummy))
     placeholder._annspecialcase_ = 'specialize:arg(0)'
     placeholder = staticmethod(placeholder)
 
@@ -76,3 +82,31 @@ class RGenOp(AbstractRGenOp):
         return LLConst(llimpl.constFieldName(name))
     constFieldName._annspecialcase_ = 'specialize:memo'
     constFieldName = staticmethod(constFieldName)
+
+    constPrebuiltGlobal = genconst
+
+    # not RPython, just for debugging.  Specific to llgraph.
+    def reveal(gv):
+        return llimpl.reveal(gv.v)
+    reveal = staticmethod(reveal)
+
+    # Builds a real flow.model.FunctionGraph. Specific to llgraph.
+    def buildgraph(block):
+        if hasattr(block, 'b'):
+            b = block.b
+        else:
+            b = fishllattr(block, 'b')
+        return llimpl.buildgraph(b)
+    buildgraph = staticmethod(buildgraph)
+
+    testgengraph = staticmethod(llimpl.testgengraph)
+
+    def get_rgenop_for_testing():
+        return rgenop
+    get_rgenop_for_testing = staticmethod(get_rgenop_for_testing)
+
+    def _freeze_(self):
+        return True    # no real point in using a full class in llgraph
+
+
+rgenop = RGenOp()      # no real point in using a full class in llgraph

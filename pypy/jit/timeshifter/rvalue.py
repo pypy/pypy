@@ -1,4 +1,3 @@
-from pypy.rpython import rgenop
 from pypy.rpython.lltypesystem import lltype, llmemory
 
 class Memo(object):
@@ -14,8 +13,8 @@ def enter_block_memo():
 def freeze_memo():
     return Memo()
 
-def unfreeze_memo():
-    return {} # Memo()
+##def unfreeze_memo():
+##    return {} # Memo()
 
 def exactmatch_memo():
     return Memo()
@@ -26,19 +25,20 @@ def copy_memo():
 
 class RedBox(object):
 
-    def __init__(self, gv_type, genvar=rgenop.nullvar):
-        assert rgenop.isconst(gv_type)   # temporary?
+    def __init__(self, gv_type, genvar=None):
+        assert gv_type.is_const
         self.gv_type = gv_type
-        self.genvar = genvar    # nullvar or a genvar
+        self.genvar = genvar    # None or a genvar
 
     def __repr__(self):
         if not self.genvar:
             return '<dummy>'
         else:
+            from pypy.jit.codegen.llgraph.rgenop import rgenop
             return '<%r>' % (rgenop.reveal(self.genvar),)
 
     def is_constant(self):
-        return bool(self.genvar) and rgenop.isconst(self.genvar)
+        return bool(self.genvar) and self.genvar.is_const
 
     def getgenvar(self, builder):
         return self.genvar
@@ -48,7 +48,7 @@ class RedBox(object):
         if not self.is_constant() and self not in memo:
             incoming.append(self.genvar)
             memo[self] = None
-            self.genvar = rgenop.geninputarg(newblock, self.gv_type)
+            self.genvar = newblock.geninputarg(self.gv_type)
 
     def replace(self, memo):
         memo = memo.boxes
@@ -83,17 +83,25 @@ def ll_redboxbuilder(TYPE):
         # XXX what about long longs?
         return redboxbuilder_int
 
-def ll_fromvalue(value):
+def ll_fromvalue(jitstate, value):
     "Make a constant RedBox from a low-level value."
+    rgenop = jitstate.rgenop
     T = lltype.typeOf(value)
     gv_type = rgenop.constTYPE(T)
     gv = rgenop.genconst(value)
     cls = ll_redboxcls(T)
     return cls(gv_type, gv)
 
+def redbox_from_prebuilt_value(RGenOp, value):
+    T = lltype.typeOf(value)
+    gv_type = RGenOp.constTYPE(T)
+    gv = RGenOp.constPrebuiltGlobal(value)
+    cls = ll_redboxcls(T)
+    return cls(gv_type, gv)
+
 def ll_getvalue(box, T):
     "Return the content of a known-to-be-constant RedBox."
-    return rgenop.revealconst(T, box.genvar)
+    return box.genvar.revealconst(T)
 
 
 class IntRedBox(RedBox):
@@ -216,17 +224,17 @@ class FrozenIntConst(FrozenValue):
     def __init__(self, gv_const):
         self.gv_const = gv_const
 
-    def unfreeze(self, memo, block, gv_type):
-        try:
-            return memo[self]
-        except KeyError:
-            box = memo[self] = IntRedBox(gv_type, self.gv_const)
-            return box
+##    def unfreeze(self, memo, block, gv_type):
+##        try:
+##            return memo[self]
+##        except KeyError:
+##            box = memo[self] = IntRedBox(gv_type, self.gv_const)
+##            return box
 
     def exactmatch(self, box, outgoingvarboxes, memo):
         if (box.is_constant() and
-            rgenop.revealconst(lltype.Signed, self.gv_const) ==
-            rgenop.revealconst(lltype.Signed, box.genvar)):
+            self.gv_const.revealconst(lltype.Signed) ==
+               box.genvar.revealconst(lltype.Signed)):
             return True
         else:
             outgoingvarboxes.append(box)
@@ -235,13 +243,13 @@ class FrozenIntConst(FrozenValue):
 
 class FrozenIntVar(FrozenValue):
 
-    def unfreeze(self, memo, block, gv_type):
-        try:
-            return memo[self]
-        except KeyError:
-            gv_value = rgenop.geninputarg(block, gv_type)
-            box = memo[self] = IntRedBox(gv_type, gv_value)
-            return box
+##    def unfreeze(self, memo, block, gv_type):
+##        try:
+##            return memo[self]
+##        except KeyError:
+##            gv_value = rgenop.geninputarg(block, gv_type)
+##            box = memo[self] = IntRedBox(gv_type, gv_value)
+##            return box
 
     def exactmatch(self, box, outgoingvarboxes, memo):
         memo = memo.boxes
@@ -261,17 +269,17 @@ class FrozenDoubleConst(FrozenValue):
     def __init__(self, gv_const):
         self.gv_const = gv_const
 
-    def unfreeze(self, memo, block, gv_type):
-        try:
-            return memo[self]
-        except KeyError:
-            box = memo[self] = DoubleRedBox(gv_type, self.gv_const)
-            return box
+##    def unfreeze(self, memo, block, gv_type):
+##        try:
+##            return memo[self]
+##        except KeyError:
+##            box = memo[self] = DoubleRedBox(gv_type, self.gv_const)
+##            return box
 
     def exactmatch(self, box, outgoingvarboxes, memo):
         if (box.is_constant() and
-            rgenop.revealconst(lltype.Float, self.gv_const) ==
-            rgenop.revealconst(lltype.Float, box.genvar)):
+            self.gv_const.revealconst(lltype.Float) ==
+               box.genvar.revealconst(lltype.Float)):
             return True
         else:
             outgoingvarboxes.append(box)
@@ -280,13 +288,13 @@ class FrozenDoubleConst(FrozenValue):
 
 class FrozenDoubleVar(FrozenValue):
 
-    def unfreeze(self, memo, block, gv_type):
-        try:
-            return memo[self]
-        except KeyError:
-            gv_value = rgenop.geninputarg(block, gv_type)
-            box = memo[self] = DoubleRedBox(gv_type, gv_value)
-            return box
+##    def unfreeze(self, memo, block, gv_type):
+##        try:
+##            return memo[self]
+##        except KeyError:
+##            gv_value = rgenop.geninputarg(block, gv_type)
+##            box = memo[self] = DoubleRedBox(gv_type, gv_value)
+##            return box
 
     def exactmatch(self, box, outgoingvarboxes, memo):
         memo = memo.boxes
@@ -306,17 +314,17 @@ class FrozenPtrConst(FrozenValue):
     def __init__(self, gv_const):
         self.gv_const = gv_const
 
-    def unfreeze(self, memo, block, gv_type):
-        try:
-            return memo[self]
-        except KeyError:
-            box = memo[self] = PtrRedBox(gv_type, self.gv_const)
-            return box
+##    def unfreeze(self, memo, block, gv_type):
+##        try:
+##            return memo[self]
+##        except KeyError:
+##            box = memo[self] = PtrRedBox(gv_type, self.gv_const)
+##            return box
 
     def exactmatch(self, box, outgoingvarboxes, memo):
         if (box.is_constant() and
-            rgenop.revealconst(llmemory.Address, self.gv_const) ==
-            rgenop.revealconst(llmemory.Address, box.genvar)):
+            self.gv_const.revealconst(llmemory.Address) ==
+               box.genvar.revealconst(llmemory.Address)):
             return True
         else:
             outgoingvarboxes.append(box)
@@ -325,13 +333,13 @@ class FrozenPtrConst(FrozenValue):
 
 class FrozenPtrVar(FrozenValue):
 
-    def unfreeze(self, memo, block, gv_type):
-        try:
-            return memo[self]
-        except KeyError:
-            gv_value = rgenop.geninputarg(block, gv_type)
-            box = memo[self] = PtrRedBox(gv_type, gv_value)
-            return box
+##    def unfreeze(self, memo, block, gv_type):
+##        try:
+##            return memo[self]
+##        except KeyError:
+##            gv_value = rgenop.geninputarg(block, gv_type)
+##            box = memo[self] = PtrRedBox(gv_type, gv_value)
+##            return box
 
     def exactmatch(self, box, outgoingvarboxes, memo):
         memo = memo.boxes
@@ -348,13 +356,13 @@ class FrozenPtrVar(FrozenValue):
 
 class FrozenPtrVirtual(FrozenValue):
 
-    def unfreeze(self, memo, block, gv_type):
-        try:
-            return memo[self]
-        except KeyError:
-            box = memo[self] = PtrRedBox(gv_type)
-            box.content = self.fz_content.unfreeze(memo, block)
-            return box
+##    def unfreeze(self, memo, block, gv_type):
+##        try:
+##            return memo[self]
+##        except KeyError:
+##            box = memo[self] = PtrRedBox(gv_type)
+##            box.content = self.fz_content.unfreeze(memo, block)
+##            return box
 
     def exactmatch(self, box, outgoingvarboxes, memo):
         assert isinstance(box, PtrRedBox)
