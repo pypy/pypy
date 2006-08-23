@@ -64,11 +64,12 @@ steps:
    graphs into low-level operations.
 
 4. After RTyping there are two, rather different, `optional
-   transformations`_ which can be applied -- the "backend optimizations"
-   which are make the resulting program go faster, and the "stackless
-   transform" which transforms the program into a form of continuation
-   passing style which allows the implementation of coroutines and other
-   forms of non-standard control flow.
+   transformations`_ which can be applied -- the "backend
+   optimizations" which are intended to make the resulting program go
+   faster, and the "stackless transform" which transforms the program
+   into a form of continuation passing style which allows the
+   implementation of coroutines and other forms of non-standard
+   control flow.
 
 5. The next step is `preparing the graphs for source generation`_, which
    involves computing the names that the various functions and types in

@@ -16,7 +16,10 @@ including a two-liner to run PyPy on your system.
 
 `coding guide`_ helps you to write code for PyPy. 
 
-`development methodology`_ describe our sprint-driven approach. 
+`development methodology`_ describe our sprint-driven approach.
+
+`sprint reports`_ lists reports written at most of our sprints, from
+2003 to the present.
 
 `talks and related projects`_ lists presentations 
 and related projects. 
@@ -113,6 +116,7 @@ recent compliance test runs against PyPy.
 .. _`PyPy video documentation`: video-index.html
 .. _parser: parser.html
 .. _`development methodology`: dev_method.html
+.. _`sprint reports`: sprint-reports.html
 .. _`talks and related projects`: extradoc.html
 .. _`license`: ../../LICENSE
 .. _`compliance test status`: http://codespeak.net/~hpk/pypy-testresult/
