@@ -96,6 +96,10 @@ class RI386GenOp(object):
     def __init__(self):
         self.mcs = []   # machine code blocks where no-one is currently writing
 
+    def get_rgenop_for_testing():
+        return RI386GenOp()
+    get_rgenop_for_testing = staticmethod(get_rgenop_for_testing)
+
     def open_mc(self):
         if self.mcs:
             # XXX think about inserting NOPS for alignment
@@ -189,7 +193,7 @@ class RI386GenOp(object):
         T = lltype.typeOf(llvalue)
         assert T is lltype.Signed
         return IntConst(llvalue)
-    genconst._annspecialcase_ = 'specialize:argtype(0)'   # XXX arglltype(0)?
+    genconst._annspecialcase_ = 'specialize:ll'
     genconst = staticmethod(genconst)
 
     def constTYPE(T):
