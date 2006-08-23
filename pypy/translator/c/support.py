@@ -175,6 +175,7 @@ def gen_assignments(assignments):
             # we are left with only pure disjoint cycles; break them
             while dest2src:
                 dst, (src, typename) = dest2src.popitem()
+                assert srccount[dst] == 1
                 startingpoint = dst
                 tmpdecl = cdecl(typename, 'tmp')
                 code = ['{ %s = %s;' % (tmpdecl, dst)]
@@ -182,6 +183,7 @@ def gen_assignments(assignments):
                     code.append('%s = %s;' % (dst, src))
                     dst = src
                     src, typename = dest2src.pop(dst)
+                    assert srccount[dst] == 1
                 code.append('%s = tmp; }' % (dst,))
                 yield ' '.join(code)
 
