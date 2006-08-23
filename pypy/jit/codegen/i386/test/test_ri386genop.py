@@ -113,3 +113,67 @@ def test_dummy_compile():
     fn = compile(dummy_runner, [int, int])
     res = fn(40, 37)
     assert res == 42
+
+# ____________________________________________________________
+
+def make_branching(rgenop):
+    # 'if x > 5: return x-1
+    #  else:     return y'
+    gv_SIGNED = rgenop.constTYPE(lltype.Signed)
+    gv_BOOL   = rgenop.constTYPE(lltype.Bool)
+    block = rgenop.newblock()
+    gv_x = rgenop.geninputarg(block, gv_SIGNED)
+    gv_y = rgenop.geninputarg(block, gv_SIGNED)
+    args_gv = [gv_x, rgenop.genconst(5)]
+    gv_cond = rgenop.genop(block, "int_gt", args_gv, gv_BOOL)
+    link_false, link_true = rgenop.closeblock2(block, gv_cond)
+
+    block2 = rgenop.newblock()
+    gv_x2 = rgenop.geninputarg(block2, gv_SIGNED)
+    rgenop.closelink(link_true, [gv_x], block2)
+
+    args_gv = [gv_x2, rgenop.genconst(1)]
+    gv_s2 = rgenop.genop(block2, "int_sub", args_gv, gv_SIGNED)
+    link2 = rgenop.closeblock1(block2)
+    rgenop.closereturnlink(link2, gv_s2)
+
+    rgenop.closereturnlink(link_false, gv_y)
+
+    gv_FUNC2 = rgenop.constTYPE(FUNC2)
+    gv_branchingfn = rgenop.gencallableconst("branching", block, gv_FUNC2)
+    return gv_branchingfn
+
+def branching_runner(x, y):
+    rgenop = RI386GenOp()
+    gv_branchingfn = make_branching(rgenop)
+    branchingfn = rgenop.revealconst(lltype.Ptr(FUNC2), gv_branchingfn)
+    res = branchingfn(x, y)
+    keepalive_until_here(rgenop)    # to keep the code blocks alive
+    return res
+
+def test_branching_interpret():
+    from pypy.rpython import rgenop
+    gv_branchingfn = make_branching(rgenop)
+    branchingfn = rgenop.revealconst(lltype.Ptr(FUNC2), gv_branchingfn)
+    llinterp = LLInterpreter(None)
+    res = llinterp.eval_graph(branchingfn._obj.graph, [30, 17])
+    assert res == 29
+    res = llinterp.eval_graph(branchingfn._obj.graph, [3, 17])
+    assert res == 17
+
+def test_branching_direct():
+    rgenop = RI386GenOp()
+    gv_branchingfn = make_branching(rgenop)
+    print gv_branchingfn.value
+    fnptr = cast(c_void_p(gv_branchingfn.value), CFUNCTYPE(c_int, c_int, c_int))
+    res = fnptr(30, 17)    # <== the segfault is here
+    assert res == 29
+    res = fnptr(3, 17)    # <== or here
+    assert res == 17
+
+def test_branching_compile():
+    fn = compile(branching_runner, [int, int])
+    res = fn(30, 17)
+    assert res == 29
+    res = fn(3, 17)
+    assert res == 17

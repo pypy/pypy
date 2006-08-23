@@ -81,6 +81,13 @@ class Block(object):
         self.mc.SUB(eax, gv_y.operand(self))
         return self.push(eax)
 
+    def op_int_gt(self, (gv_x, gv_y), gv_RESTYPE):
+        self.mc.MOV(eax, gv_x.operand(self))
+        self.mc.CMP(eax, gv_y.operand(self))
+        self.mc.SETG(al)
+        self.mc.MOVZX(eax, al)
+        return self.push(eax)
+
 
 class RI386GenOp(object):
     gv_IntWord = TypeConst('IntWord')
@@ -105,9 +112,16 @@ class RI386GenOp(object):
     def closeblock1(self, block):
         return block   # NB. links and blocks are the same for us
 
+    def closeblock2(self, block, gv_condition):
+        false_block = self.newblock()
+        false_block.stackdepth = block.stackdepth
+        block.mc.CMP(gv_condition.operand(block), imm8(0))
+        block.mc.JE(rel32(false_block.startaddr))
+        return false_block, block
+
     def closereturnlink(self, link, gv_result):
         link.mc.MOV(eax, gv_result.operand(link))
-        link.mc.ADD(esp, imm32(WORD * link.stackdepth))
+        link.mc.ADD(esp, imm(WORD * link.stackdepth))
         link.mc.RET()
         self.close_mc(link.mc)
 
