@@ -25,7 +25,7 @@ class Var(VarOrConst):
         self.stackpos = stackpos
 
     def operand(self, block):
-        return mem(esp, WORD * (block.stackdepth-1 - self.stackpos))
+        return block.stack_access(self.stackpos)
 
 
 class TypeConst(VarOrConst):
@@ -40,10 +40,7 @@ class IntConst(VarOrConst):
         self.value = value
 
     def operand(self, block):
-        if single_byte(self.value):
-            return IMM8(self.value)
-        else:
-            return IMM32(self.value)
+        return imm(self.value)
 
 
 class FnPtrConst(IntConst):
@@ -65,6 +62,9 @@ class Block(object):
         self.stackdepth += 1
         return res
 
+    def stack_access(self, stackpos):
+        return mem(esp, WORD * (self.stackdepth-1 - stackpos))
+
     def push(self, reg):
         self.mc.PUSH(reg)
         res = Var(self.stackdepth)
@@ -76,25 +76,97 @@ class Block(object):
         self.mc.ADD(eax, gv_y.operand(self))
         return self.push(eax)
 
+    def op_int_sub(self, (gv_x, gv_y), gv_RESTYPE):
+        self.mc.MOV(eax, gv_x.operand(self))
+        self.mc.SUB(eax, gv_y.operand(self))
+        return self.push(eax)
+
 
 class RI386GenOp(object):
     gv_IntWord = TypeConst('IntWord')
     gv_Void = TypeConst('Void')
 
     def __init__(self):
-        self.mc = MachineCodeBlock(65536)    # XXX!!!
+        self.mcs = []   # machine code blocks where no-one is currently writing
+
+    def open_mc(self):
+        if self.mcs:
+            # XXX think about inserting NOPS for alignment
+            return self.mcs.pop()
+        else:
+            return MachineCodeBlock(65536)   # XXX supposed infinite for now
+
+    def close_mc(self, mc):
+        self.mcs.append(mc)
 
     def newblock(self):
-        # XXX concurrently-open Blocks cannot use the same mc
-        return Block(self.mc)
+        return Block(self.open_mc())
 
     def closeblock1(self, block):
-        return block
+        return block   # NB. links and blocks are the same for us
 
     def closereturnlink(self, link, gv_result):
         link.mc.MOV(eax, gv_result.operand(link))
-        link.mc.ADD(esp, IMM32(WORD * link.stackdepth))
+        link.mc.ADD(esp, imm32(WORD * link.stackdepth))
         link.mc.RET()
+        self.close_mc(link.mc)
+
+    def closelink(self, link, outputargs_gv, targetblock):
+        N = len(outputargs_gv)
+        if link.stackdepth < N:
+            link.mc.SUB(esp, imm(WORD * (N - link.stackdepth)))
+            link.stackdepth = N
+
+        pending_dests = N
+        srccount = [0] * N
+        for i in range(N):
+            gv = outputargs_gv[i]
+            if isinstance(gv, Var):
+                p = gv.stackpos
+                if 0 <= p < N:
+                    if p == i:
+                        srccount[p] = -N     # ignore 'v=v'
+                        pending_dests -= 1
+                    else:
+                        srccount[p] += 1
+
+        while pending_dests:
+            progress = False
+            for i in range(N):
+                if srccount[i] == 0:
+                    srccount[i] = -1
+                    pending_dests -= 1
+                    gv_src = outputargs_gv[i]
+                    link.mc.MOV(eax, gv_src.operand(link))
+                    link.mc.MOV(link.stack_access(i), eax)
+                    progress = True
+            if not progress:
+                # we are left with only pure disjoint cycles; break them
+                for i in range(N):
+                    if srccount[i] >= 0:
+                        dst = i
+                        link.mc.MOV(edx, link.stack_access(dst))
+                        while True:
+                            assert srccount[dst] == 1
+                            srccount[dst] = -1
+                            pending_dests -= 1
+                            gv_src = outputargs_gv[dst]
+                            assert isinstance(gv_src, Var)
+                            src = gv_src.stackpos
+                            assert 0 <= src < N
+                            if src == i:
+                                break
+                            link.mc.MOV(eax, link.stack_access(src))
+                            link.mc.MOV(link.stack_access(dst), eax)
+                            dst = src
+                        link.mc.MOV(link.stack_access(dst), edx)
+                assert pending_dests == 0
+
+        if link.stackdepth > N:
+            link.mc.ADD(esp, imm(WORD * (link.stackdepth - N)))
+            link.stackdepth = N
+        link.mc.JMP(rel32(targetblock.startaddr))
+        self.close_mc(link.mc)
 
     def geninputarg(self, block, gv_TYPE):
         return block.geninputarg(gv_TYPE)
@@ -122,10 +194,13 @@ class RI386GenOp(object):
     def gencallableconst(self, name, block, gv_FUNCTYPE):
         prologue = self.newblock()
         #prologue.mc.BREAKPOINT()
-        operand = mem(esp, WORD * block.argcount)
+        # re-push the arguments so that they are after the return value
+        # and in the correct order
         for i in range(block.argcount):
+            operand = mem(esp, WORD * (2*i+1))
             prologue.mc.PUSH(operand)
         prologue.mc.JMP(rel32(block.startaddr))
+        self.close_mc(prologue.mc)
         return FnPtrConst(prologue.startaddr, prologue.mc)
 
     def revealconst(T, gv_const):

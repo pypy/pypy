@@ -84,6 +84,12 @@ imm8 = IMM8
 imm16 = IMM16
 rel32 = REL32
 
+def imm(value):
+    if single_byte(value):
+        return imm8(value)
+    else:
+        return imm32(value)
+
 def memregister(register):
     assert register.width == 4
     return MODRM(0xC0 | register.op, '')
