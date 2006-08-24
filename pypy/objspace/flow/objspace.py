@@ -7,6 +7,7 @@ from pypy.interpreter.error import OperationError
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow import flowcontext
 from pypy.objspace.flow.operation import FunctionByName
+from pypy.rpython.unroll import unrolling_iterable, _unroller
 
 debug = 0
 
@@ -343,9 +344,33 @@ class FlowObjSpace(ObjSpace):
         context = self.getexecutioncontext()
         return context.guessbool(w_truthvalue)
 
+    def iter(self, w_iterable):
+        try:
+            iterable = self.unwrap(w_iterable)
+        except UnwrapException:
+            pass
+        else:
+            if isinstance(iterable, unrolling_iterable):
+                return self.wrap(iterable.get_unroller())
+        w_iter = self.do_operation("iter", w_iterable)
+        return w_iter
+
     def next(self, w_iter):
-        w_item = self.do_operation("next", w_iter)
         context = self.getexecutioncontext()
+        try:
+            it = self.unwrap(w_iter)
+        except UnwrapException:
+            pass
+        else:
+            if isinstance(it, _unroller):
+                try:
+                    v, next_unroller = it.step()
+                except IndexError:
+                    raise OperationError(self.w_StopIteration, self.w_None)
+                else:
+                    context.replace_in_stack(it, next_unroller)
+                    return self.wrap(v)
+        w_item = self.do_operation("next", w_iter)
         outcome, w_exc_cls, w_exc_value = context.guessexception(StopIteration)
         if outcome is StopIteration:
             raise OperationError(self.w_StopIteration, w_exc_value)

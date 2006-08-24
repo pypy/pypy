@@ -374,3 +374,13 @@ class FlowExecutionContext(ExecutionContext):
             # re-raising an implicit operation makes it an explicit one
             operr = OperationError(operr.w_type, operr.w_value)
         return operr
+
+    # hack for unrolling iterables, don't use this
+    def replace_in_stack(self, oldvalue, newvalue):
+        w_new = Constant(newvalue)
+        stack_items_w = self.crnt_frame.valuestack.items
+        for i in range(len(stack_items_w)):
+            w_v = stack_items_w[i]
+            if isinstance(w_v, Constant):
+                if w_v.value is oldvalue:
+                    stack_items_w[i] = w_new

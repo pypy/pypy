@@ -29,8 +29,6 @@ class Base:
         if conftest.option.view:
             graph.show()
 
-
-class TestFlowObjSpace(Base):
     def setup_class(cls): 
         cls.space = FlowObjSpace() 
 
@@ -44,7 +42,9 @@ class TestFlowObjSpace(Base):
         traverse(visit, graph)
         return result
 
-    #__________________________________________________________
+
+class TestFlowObjSpace(Base):
+
     def nothing():
         pass
 
