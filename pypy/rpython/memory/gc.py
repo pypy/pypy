@@ -154,6 +154,7 @@ class MarkSweepGC(GCBase):
         #   found via 'poolnodes'.
         self.poolnodes = lltype.nullptr(self.POOLNODE)
         self.collect_in_progress = False
+        self.prev_collect_end_time = 0.0
 
     def malloc(self, typeid, length=0):
         size = self.fixed_size(typeid)
@@ -345,10 +346,33 @@ class MarkSweepGC(GCBase):
         lltype.free(firstpoolnode, flavor='raw')
         #llop.debug_view(lltype.Void, self.malloced_objects, self.malloced_objects_with_finalizer, size_gc_header)
 
+        end_time = time.time()
+        compute_time = start_time - self.prev_collect_end_time
+        collect_time = end_time - start_time
+
+
+
+
+        collect_time_fraction = collect_time / compute_time
+        old_heapsize = self.heap_usage
+        garbage_generated = old_malloced - (curr_heap_size - old_heapsize)
+        garbage_fraction = float(garbage_generated) / float(curr_heap_size)
+
+
+        if collect_time_fraction > 0.02 * garbage_fraction:
+            self.bytes_malloced_threshold += self.bytes_malloced_threshold / 2
+        if collect_time_fraction < 0.005 * garbage_fraction:
+            self.bytes_malloced_threshold /= 2
+
+        # Use atleast as much memory as current live objects.
         if curr_heap_size > self.bytes_malloced_threshold:
             self.bytes_malloced_threshold = curr_heap_size
-        end_time = time.time()
-        self.total_collection_time += end_time - start_time
+
+        # Cap at 1/4 GB
+        self.bytes_malloced_threshold = min(self.bytes_malloced_threshold,
+                                            256 * 1024 * 1024)
+        self.total_collection_time += collect_time
+        self.prev_collect_end_time = end_time
         if DEBUG_PRINT:
             llop.debug_print(lltype.Void,
                              "  malloced since previous collection:",
@@ -365,6 +389,15 @@ class MarkSweepGC(GCBase):
             llop.debug_print(lltype.Void,
                              "  total time spent collecting:       ",
                              self.total_collection_time, "seconds")
+            llop.debug_print(lltype.Void,
+                             "  collecting time fraction:          ",
+                             collect_time_fraction)
+            llop.debug_print(lltype.Void,
+                             "  garbage fraction:                  ",
+                             garbage_fraction)
+            llop.debug_print(lltype.Void,
+                             "  new threshold:                     ",
+                             self.bytes_malloced_threshold)
 ##        llop.debug_view(lltype.Void, self.malloced_objects, self.poolnodes,
 ##                        size_gc_header)
         assert self.heap_usage + old_malloced == curr_heap_size + freed_size
