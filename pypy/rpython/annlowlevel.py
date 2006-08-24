@@ -7,7 +7,7 @@ from pypy.tool.sourcetools import valid_identifier
 from pypy.annotation import model as annmodel
 from pypy.annotation.policy import AnnotatorPolicy
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython import extfunctable
+from pypy.rpython import extfunctable, extregistry
 from pypy.objspace.flow.model import Constant
 
 def not_const(s_obj): # xxx move it somewhere else
@@ -186,6 +186,13 @@ class MixLevelHelperAnnotator:
         self.delayedreprs.append(r)
         return r
 
+    def s_r_instanceof(self, cls, can_be_None=True):
+        classdesc = self.rtyper.annotator.bookkeeper.getdesc(cls)
+        classdef = classdesc.getuniqueclassdef()
+        s_instance = annmodel.SomeInstance(classdef, can_be_None)
+        r_instance = self.getdelayedrepr(s_instance)
+        return s_instance, r_instance
+
     def delayedconst(self, repr, obj):
         if repr.is_setup_delayed():
             # record the existence of this 'obj' for the bookkeeper - e.g.
@@ -250,3 +257,34 @@ class MixLevelHelperAnnotator:
         newgraphs = translator.graphs[self.original_graph_count:]
         self.original_graph_count = len(translator.graphs)
         backend_optimizations(translator, newgraphs, **flags)
+
+# ____________________________________________________________
+
+class PseudoHighLevelCallable(object):
+    """A gateway to a low-level function pointer.  To high-level RPython
+    code it looks like a normal function, taking high-level arguments
+    and returning a high-level result.
+    """
+    def __init__(self, llfnptr, args_s, s_result):
+        self.llfnptr = llfnptr
+        self.args_s = args_s
+        self.s_result = s_result
+
+    def __call__(self, *args):
+        raise Exception("PseudoHighLevelCallable objects are not really "
+                        "callable directly")
+
+class Entry(extregistry.ExtRegistryEntry):
+    _type_ = PseudoHighLevelCallable
+
+    def compute_result_annotation(self, *args_s):
+        return self.instance.s_result
+
+    def specialize_call(self, hop):
+        args_r = [hop.rtyper.getrepr(s) for s in self.instance.args_s]
+        r_res = hop.rtyper.getrepr(self.instance.s_result)
+        vlist = hop.inputargs(*args_r)
+        p = self.instance.llfnptr
+        c_func = Constant(p, lltype.typeOf(p))
+        hop.exception_is_here()
+        return hop.genop('direct_call', [c_func] + vlist, resulttype = r_res)

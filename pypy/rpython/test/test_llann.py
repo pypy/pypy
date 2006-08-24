@@ -1,6 +1,10 @@
 from pypy.rpython.lltypesystem.lltype import *
+from pypy.translator.translator import TranslationContext
 from pypy.annotation import model as annmodel
 from pypy.rpython.annlowlevel import annotate_lowlevel_helper
+from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
+from pypy.rpython.annlowlevel import PseudoHighLevelCallable
+from pypy.rpython.llinterp import LLInterpreter
 from pypy.objspace.flow import FlowObjSpace 
 
 # helpers
@@ -308,3 +312,36 @@ class TestLowLevelAnnotateTestCase:
         assert s.unsigned == True
 
  
+def test_pseudohighlevelcallable():
+    t = TranslationContext()
+    t.buildannotator()
+    rtyper = t.buildrtyper()
+    rtyper.specialize()
+    a = MixLevelHelperAnnotator(rtyper)
+
+    class A:
+        value = 5
+        def double(self):
+            return self.value * 2
+
+    def fn1(a):
+        a2 = A()
+        a2.value = a.double()
+        return a2
+
+    s_A, r_A = a.s_r_instanceof(A)
+    fn1ptr = a.delayedfunction(fn1, [s_A], s_A)
+    pseudo = PseudoHighLevelCallable(fn1ptr, [s_A], s_A)
+
+    def fn2(n):
+        a = A()
+        a.value = n
+        a2 = pseudo(a)
+        return a2.value
+
+    graph = a.getgraph(fn2, [annmodel.SomeInteger()], annmodel.SomeInteger())
+    a.finish()
+
+    llinterp = LLInterpreter(rtyper)
+    res = llinterp.eval_graph(graph, [21])
+    assert res == 42
