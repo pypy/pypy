@@ -77,6 +77,7 @@ class MemoTable:
 
     def finish(self):
         from pypy.annotation.model import unionof
+        assert self.graph is None, "MemoTable already finished"
         # list of which argument positions can take more than one value
         example_args, example_value = self.table.iteritems().next()
         nbargs = len(example_args)
@@ -236,15 +237,12 @@ def memo(funcdesc, arglist_s):
 
         def compute_one_result(args):
             value = func(*args)
-            return MemoTable(funcdesc, args, value)
-
-        def finish():
-            for memotable in memotables.infos():
-                memotable.finish()
+            memotable = MemoTable(funcdesc, args, value)
+            bookkeeper.pending_specializations.append(memotable.finish)
+            return memotable
 
         memotables = UnionFind(compute_one_result)
         bookkeeper.all_specializations[funcdesc] = memotables
-        bookkeeper.pending_specializations.append(finish)
 
     # merge the MemoTables for the individual argument combinations
     firstvalues = possiblevalues.next()

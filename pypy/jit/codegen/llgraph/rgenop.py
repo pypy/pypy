@@ -87,7 +87,11 @@ class RGenOp(AbstractRGenOp):
 
     # not RPython, just for debugging.  Specific to llgraph.
     def reveal(gv):
-        return llimpl.reveal(gv.v)
+        if hasattr(gv, 'v'):
+            v = gv.v
+        else:
+            v = fishllattr(gv, 'v')
+        return llimpl.reveal(v)
     reveal = staticmethod(reveal)
 
     # Builds a real flow.model.FunctionGraph. Specific to llgraph.
@@ -98,8 +102,6 @@ class RGenOp(AbstractRGenOp):
             b = fishllattr(block, 'b')
         return llimpl.buildgraph(b)
     buildgraph = staticmethod(buildgraph)
-
-    testgengraph = staticmethod(llimpl.testgengraph)
 
     def get_rgenop_for_testing():
         return rgenop

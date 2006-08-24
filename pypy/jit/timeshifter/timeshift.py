@@ -55,6 +55,7 @@ class HintTimeshift(object):
             rgenop = RGenOp.get_rgenop_for_testing()
             return rtimeshift.make_builder(rgenop)
 
+        # XXX find a different way to enforce the interface types
         self.ll_make_builder_graph = self.annhelper.getgraph(
             ll_make_builder,
             [], self.s_ResidualGraphBuilder)
@@ -88,14 +89,15 @@ class HintTimeshift(object):
             rtimeshift.ll_close_builder,
             [self.s_ResidualGraphBuilder],
             annmodel.s_None)
+        self.annhelper.getgraph(
+            rtimeshift.ll_gencallableconst,
+            [self.s_ResidualGraphBuilder, annmodel.SomeString(),
+             self.s_Block, self.s_ConstOrVar],
+            self.s_ConstOrVar)
 
     def s_r_instanceof(self, cls, can_be_None=True):
         # Return a SomeInstance / InstanceRepr pair correspnding to the specified class.
-        classdesc = self.rtyper.annotator.bookkeeper.getdesc(cls)
-        classdef = classdesc.getuniqueclassdef()
-        s_instance = annmodel.SomeInstance(classdef, can_be_None)
-        r_instance = self.annhelper.getdelayedrepr(s_instance)
-        return s_instance, r_instance
+        return self.annhelper.s_r_instanceof(cls, can_be_None=can_be_None)
 
     # creates and numbers reentry_block for block reached by link
     # argument:

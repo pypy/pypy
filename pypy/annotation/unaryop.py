@@ -607,8 +607,11 @@ class __extend__(SomePtr):
             v_lltype = annotation_to_lltype(s_value)
             setattr(example, s_attr.const, v_lltype._defl())
 
-    def simple_call(p, *args_s):
-        llargs = [annotation_to_lltype(arg_s)._defl() for arg_s in args_s]
+    def call(p, args):
+        args_s, kwds_s = args.unpack()
+        if kwds_s:
+            raise Exception("keyword arguments to call to a low-level fn ptr")
+        llargs = [annotation_to_lltype(s_arg)._defl() for s_arg in args_s]
         v = p.ll_ptrtype._example()(*llargs)
         return ll_to_annotation(v)
 

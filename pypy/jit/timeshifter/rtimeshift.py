@@ -366,7 +366,10 @@ def ll_end_setup_builder(builder):
     
 def ll_close_builder(builder):
     builder.finish_and_return()
-        
+
+def ll_gencallableconst(builder, name, startblock, gv_functype):
+    return builder.rgenop.gencallableconst(name, startblock, gv_functype)
+
 class JITState(object):
     # XXX obscure interface
     localredboxes = None

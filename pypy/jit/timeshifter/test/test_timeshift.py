@@ -4,12 +4,14 @@ from pypy.jit.hintannotator.annotator import HintAnnotator
 from pypy.jit.hintannotator.bookkeeper import HintBookkeeper
 from pypy.jit.hintannotator.model import *
 from pypy.jit.timeshifter.timeshift import HintTimeshift
-from pypy.jit.timeshifter import rtimeshift, rtyper as hintrtyper
+from pypy.jit.timeshifter import rtimeshift, rvalue, rtyper as hintrtyper
 from pypy.jit.llabstractinterp.test.test_llabstractinterp import annotation
 from pypy.jit.llabstractinterp.test.test_llabstractinterp import summary
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.objectmodel import hint, keepalive_until_here
+from pypy.rpython.unroll import unrolling_iterable
 from pypy.rpython.lltypesystem import rstr
+from pypy.rpython.annlowlevel import PseudoHighLevelCallable
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.objspace.flow.model import checkgraph
@@ -65,6 +67,8 @@ class TimeshiftingTests(object):
             hs, ha, rtyper = hannotate(ll_function, values,
                                        inline=inline, policy=policy)
             htshift = HintTimeshift(ha, rtyper, self.RGenOp)
+            RESTYPE = htshift.originalconcretetype(
+                ha.translator.graphs[0].getreturnvar())
             htshift.timeshift()
             t = rtyper.annotator.translator
             for graph in ha.translator.graphs:
@@ -73,62 +77,101 @@ class TimeshiftingTests(object):
             if conftest.option.view:
                 from pypy.translator.tool.graphpage import FlowGraphPage
                 FlowGraphPage(t, ha.translator.graphs).display()
-            result = hs, ha, rtyper, htshift
+            result = hs, ha, rtyper, htshift, RESTYPE
             self._cache[key] = result, getargtypes(rtyper.annotator, values)
             self._cache_order.append(key)
         else:
-            hs, ha, rtyper, htshift = result
+            hs, ha, rtyper, htshift, RESTYPE = result
             assert argtypes == getargtypes(rtyper.annotator, values)
         return result
 
     def timeshift(self, ll_function, values, opt_consts=[], inline=None,
                   policy=None):
-        hs, ha, rtyper, htshift = self.timeshift_cached(ll_function, values,
-                                                        inline, policy)
-        # run the time-shifted graph-producing graphs
+        hs, ha, rtyper, htshift, RESTYPE = self.timeshift_cached(
+            ll_function, values, inline, policy)
+        # build a runner function
+        original_entrypoint_graph = rtyper.annotator.translator.graphs[0]
         graph1 = ha.translator.graphs[0]
-        llinterp = LLInterpreter(rtyper)
-        builder = llinterp.eval_graph(htshift.ll_make_builder_graph, [])
-        graph1args = [builder, lltype.nullptr(htshift.r_JITState.lowleveltype.TO)]
-        residual_graph_args = []
+        timeshifted_entrypoint_fnptr = rtyper.type_system.getcallable(graph1)
         assert len(graph1.getargs()) == 2 + len(values)
-        for i, (v, llvalue) in enumerate(zip(graph1.getargs()[2:], values)):
+        graph1varargs = graph1.getargs()[2:]
+
+        argdescription = []   # list of: ("green"/"redconst"/"redvar", value)
+        residual_args = []
+        residual_argtypes = []
+        timeshifted_entrypoint_args_s = []
+
+        for i, (v, llvalue) in enumerate(zip(graph1varargs, values)):
             r = htshift.hrtyper.bindingrepr(v)
             residual_v = r.residual_values(llvalue)
             if len(residual_v) == 0:
                 # green
-                graph1args.append(llvalue)
+                color = "green"
+                s_var = annmodel.ll_to_annotation(llvalue)
+                timeshifted_entrypoint_args_s.append(s_var)
             else:
                 # red
                 assert residual_v == [llvalue], "XXX for now"
-                TYPE = htshift.originalconcretetype(v)
-                gv_type = self.RGenOp.constTYPE(TYPE)
-                ll_type = htshift.r_ConstOrVar.convert_const(gv_type)
-                ll_gvar = llinterp.eval_graph(htshift.ll_geninputarg_graph,
-                                              [builder, ll_type])
-                if i in opt_consts: # XXX what should happen here interface wise is unclear
-                    gvar = self.RGenOp.constPrebuiltGlobal(llvalue)
-                    ll_gvar = htshift.r_ConstOrVar.convert_const(gvar)
-                if isinstance(lltype.typeOf(llvalue), lltype.Ptr):
-                    ll_box_graph = htshift.ll_addr_box_graph
-                elif isinstance(llvalue, float):
-                    ll_box_graph = htshift.ll_double_box_graph
+                if i in opt_consts:
+                    color = "redconst"
                 else:
-                    ll_box_graph = htshift.ll_int_box_graph
-                box = llinterp.eval_graph(ll_box_graph, [ll_type, ll_gvar])
-                graph1args.append(box)
-                residual_graph_args.append(llvalue)
-        startblock = llinterp.eval_graph(htshift.ll_end_setup_builder_graph, [builder])
+                    color = "redvar"
+                    ARGTYPE = htshift.originalconcretetype(v)
+                    residual_argtypes.append(ARGTYPE)
+                    residual_args.append(llvalue)
+                timeshifted_entrypoint_args_s.append(htshift.s_RedBox)
+            argdescription.append((color, llvalue))
 
-        builder = llinterp.eval_graph(graph1, graph1args)
-        r = htshift.hrtyper.getrepr(hs)
-        llinterp.eval_graph(htshift.ll_close_builder_graph, [builder])
+        argdescription = unrolling_iterable(argdescription)
+        RGenOp = self.RGenOp
+        timeshifted_entrypoint = PseudoHighLevelCallable(
+            timeshifted_entrypoint_fnptr,
+            [htshift.s_ResidualGraphBuilder, htshift.s_JITState]
+            + timeshifted_entrypoint_args_s,
+            htshift.s_ResidualGraphBuilder)
+        FUNCTYPE = lltype.FuncType(residual_argtypes, RESTYPE)
+        gv_functype = RGenOp.constTYPE(FUNCTYPE)
 
-        # now try to run the blocks produced by the builder
-        residual_graph = self.RGenOp.buildgraph(startblock)
+        def ll_runner():
+            rgenop = RGenOp.get_rgenop_for_testing()
+            builder = rtimeshift.make_builder(rgenop)
+            timeshifted_entrypoint_args = ()
+            for color, llvalue in argdescription:
+                if color == "green":
+                    timeshifted_entrypoint_args += (llvalue,)
+                else:
+                    TYPE = lltype.typeOf(llvalue)
+                    gv_type = rgenop.constTYPE(TYPE)
+                    boxcls = rvalue.ll_redboxcls(TYPE)
+                    if color == "redconst":
+                        gv_arg = rgenop.genconst(llvalue)
+                    else:
+                        gv_arg = rtimeshift.ll_geninputarg(builder, gv_type)
+                    box = boxcls(gv_type, gv_arg)
+                    timeshifted_entrypoint_args += (box,)
+            startblock = rtimeshift.ll_end_setup_builder(builder)
+            endbuilder = timeshifted_entrypoint(builder, None,
+                                                *timeshifted_entrypoint_args)
+            endbuilder.finish_and_return()
+            gv_generated = rgenop.gencallableconst("generated", startblock,
+                                                   gv_functype)
+            return gv_generated
+
+        annhelper = htshift.annhelper
+        runner_graph = annhelper.getgraph(ll_runner, [], htshift.s_ConstOrVar)
+        annhelper.finish()
+
+        # run the runner
+        llinterp = LLInterpreter(rtyper)
+        ll_gv_generated = llinterp.eval_graph(runner_graph, [])
+
+        # now try to run the residual graph generated by the builder
+        c_generatedfn = RGenOp.reveal(ll_gv_generated)
+        residual_graph = c_generatedfn.value._obj.graph
+        if conftest.option.view:
+            residual_graph.show()
         insns = summary(residual_graph)
-        res = self.RGenOp.testgengraph(residual_graph, residual_graph_args,
-                                       viewbefore = conftest.option.view)
+        res = llinterp.eval_graph(residual_graph, residual_args)
         return insns, res
 
 

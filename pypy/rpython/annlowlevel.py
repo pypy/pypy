@@ -285,6 +285,10 @@ class Entry(extregistry.ExtRegistryEntry):
         r_res = hop.rtyper.getrepr(self.instance.s_result)
         vlist = hop.inputargs(*args_r)
         p = self.instance.llfnptr
-        c_func = Constant(p, lltype.typeOf(p))
+        TYPE = lltype.typeOf(p)
+        c_func = Constant(p, TYPE)
+        for r_arg, ARGTYPE in zip(args_r, TYPE.TO.ARGS):
+            assert r_arg.lowleveltype == ARGTYPE
+        assert r_res.lowleveltype == TYPE.TO.RESULT
         hop.exception_is_here()
         return hop.genop('direct_call', [c_func] + vlist, resulttype = r_res)

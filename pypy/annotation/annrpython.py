@@ -169,15 +169,24 @@ class RPythonAnnotator(object):
 
     def addpendingblock(self, graph, block, cells, called_from_graph=None):
         """Register an entry point into block with the given input cells."""
-        assert not self.frozen
-        for a in cells:
-            assert isinstance(a, annmodel.SomeObject)
-        if block not in self.annotated:
-            self.bindinputargs(graph, block, cells, called_from_graph)
+        if graph in self.fixed_graphs:
+            # special case for annotating/rtyping in several phases: calling
+            # a graph that has already been rtyped.  Safety-check the new
+            # annotations that are passed in, and don't annotate the old
+            # graph -- it's already low-level operations!
+            for a, s_newarg in zip(graph.getargs(), cells):
+                s_oldarg = self.binding(a)
+                assert s_oldarg.contains(s_newarg)
         else:
-            self.mergeinputargs(graph, block, cells, called_from_graph)
-        if not self.annotated[block]:
-            self.pendingblocks[block] = graph
+            assert not self.frozen
+            for a in cells:
+                assert isinstance(a, annmodel.SomeObject)
+            if block not in self.annotated:
+                self.bindinputargs(graph, block, cells, called_from_graph)
+            else:
+                self.mergeinputargs(graph, block, cells, called_from_graph)
+            if not self.annotated[block]:
+                self.pendingblocks[block] = graph
 
     def complete(self):
         """Process pending blocks until none is left."""
@@ -348,17 +357,8 @@ class RPythonAnnotator(object):
             callpositions[callback] = True
 
         # generalize the function's input arguments
-        if graph in self.fixed_graphs:
-            # special case for annotating/rtyping in several phases: calling
-            # a graph that has already been rtyped.  Safety-check the new
-            # annotations that are passed in, and don't annotate the old
-            # graph -- it's already low-level operations!
-            for a, s_newarg in zip(graph.getargs(), inputcells):
-                s_oldarg = self.binding(a)
-                assert s_oldarg.contains(s_newarg)
-        else:
-            self.addpendingblock(graph, graph.startblock, inputcells,
-                                 position_key)
+        self.addpendingblock(graph, graph.startblock, inputcells,
+                             position_key)
 
         # get the (current) return value
         v = graph.getreturnvar()
@@ -456,6 +456,7 @@ class RPythonAnnotator(object):
 
     def reflowpendingblock(self, graph, block):
         assert not self.frozen
+        assert graph not in self.fixed_graphs
         self.pendingblocks[block] = graph
         assert block in self.annotated
         self.annotated[block] = False  # must re-flow

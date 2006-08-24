@@ -67,9 +67,9 @@ def ll_redboxcls(TYPE):
         return IntRedBox
 
 def redboxbuilder_void(gv_type, gv_value):return None
-def redboxbuilder_int(gv_ptr, gv_value):  return IntRedBox(gv_ptr, gv_value)
-def redboxbuilder_dbl(gv_ptr, gv_value):  return DoubleRedBox(gv_ptr, gv_value)
-def redboxbuilder_ptr(gv_ptr, gv_value):  return PtrRedBox(gv_ptr, gv_value)
+def redboxbuilder_int(gv_type, gv_value): return IntRedBox(gv_type, gv_value)
+def redboxbuilder_dbl(gv_type, gv_value): return DoubleRedBox(gv_type,gv_value)
+def redboxbuilder_ptr(gv_type, gv_value): return PtrRedBox(gv_type, gv_value)
 
 def ll_redboxbuilder(TYPE):
     if TYPE is lltype.Void:

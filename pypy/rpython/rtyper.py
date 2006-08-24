@@ -67,7 +67,6 @@ class RPythonTyper(object):
         self.cache_dummy_values = {}
         self.typererrors = []
         self.typererror_count = 0
-        self.seen_graphs_count = 0
         # make the primitive_to_repr constant mapping
         self.primitive_to_repr = {}
         if self.type_system.offers_exceptiondata:
@@ -233,12 +232,6 @@ class RPythonTyper(object):
         if self.typererrors: 
             self.dump_typererrors(to_log=True) 
             raise TyperError("there were %d error" % len(self.typererrors))
-        # make sure that the return variables of all graphs are concretetype'd
-        newgraphs = self.annotator.translator.graphs[self.seen_graphs_count:]
-        self.seen_graphs_count += len(newgraphs)
-        for graph in newgraphs:
-            v = graph.getreturnvar()
-            self.setconcretetype(v)
         log.event('-=- specialized %d%s blocks -=-' % (blockcount, newtext))
 
     def dump_typererrors(self, num=None, minimize=True, to_log=False): 
@@ -311,7 +304,11 @@ class RPythonTyper(object):
 
     def specialize_block(self, block):
         graph = self.annotator.annotated[block]
-        self.annotator.fixed_graphs[graph] = True
+        if graph not in self.annotator.fixed_graphs:
+            self.annotator.fixed_graphs[graph] = True
+            # make sure that the return variables of all graphs
+            # are concretetype'd
+            self.setconcretetype(graph.getreturnvar())
 
         # give the best possible types to the input args
         try:
