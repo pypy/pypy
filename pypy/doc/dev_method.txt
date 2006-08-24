@@ -94,7 +94,7 @@ projects.
  
 As always with methodologies you have to adapt them to fit your project (and
 not the other way around which is much too common). The PyPy team have been
-sprinting since early 2003 and have done 21  sprints so far, 18 in Europe, 2
+sprinting since early 2003 and have done 22  sprints so far, 19 in Europe, 2
 in the USA and 1 in Asia. Certain practices have proven to be more successful within this
 team and those are the one we are summarizing here.
 
@@ -245,35 +245,33 @@ Previous sprints?
 
 The PyPy team have been sprinting on the following occasions::
 
-    Hildesheim      	Feb     2003
-    Gothenburg      	May     2003
-    LovainLaNeuve   	June    2003
-    Amsterdam       	Dec     2003
-    Europython
-    /Gothenburg           June    2004
-    Vilnius                   Nov     2004
-    Leysin                   Jan      2005
-    PyCon
-    /Washington           March  2005     
-    Europython
-    /Gothenburg           June    2005
-    Hildesheim              July     2005
-    Heidelberg              Aug     2005
-    Paris                     Oct      2005
-    Gothenburg            Dec      2005
-    Mallorca                Jan       2006
-    PyCon/Dallas          Feb      2006
-    LouvainLaNeuve      March   2006
-    Leysin                   April      2006
-    Tokyo                   April      2006
-    Düsseldorf             June      2006
-    Europython/
-    Geneva                 July       2006
-    Limerick                Aug       2006
+    * Hildesheim      	        Feb     2003
+    * Gothenburg      	        May     2003
+    * LovainLaNeuve   	        June    2003
+    * Berlin 			        Sept    2003
+    * Amsterdam       	        Dec     2003
+    * Europython /Gothenburg  June    2004
+    * Vilnius                   	   Nov     2004
+    * Leysin                            Jan      2005
+    * PyCon/Washington           March  2005     
+    * Europython/Gothenburg    June    2005
+    * Hildesheim                      July     2005
+    * Heidelberg                      Aug     2005
+    * Paris                     	  Oct      2005
+    * Gothenburg            	  Dec      2005
+    * Mallorca                	  Jan       2006
+    * PyCon/Dallas          	  Feb      2006
+    * LouvainLaNeuve              March   2006
+    * Leysin                           April      2006
+    * Tokyo                            April      2006
+    * Düsseldorf                      June      2006
+    * Europython/Geneva          July       2006
+    * Limerick                          Aug       2006
     
     
 People who have participated and contributed during our sprints and thus
-contributing to PyPy::
+contributing to PyPy (if we have missed someone here - please contact us 
+so we can correct it)::
 
     Armin Rigo
     Holger Krekel
