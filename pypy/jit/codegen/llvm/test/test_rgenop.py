@@ -1,3 +1,6 @@
+import py
+py.test.skip("WIP")
+
 from pypy.translator.llvm.buildllvm import llvm_is_on_path
 if not llvm_is_on_path():
     import py
@@ -8,9 +11,6 @@ from pypy.rpython.lltypesystem.lltype import Signed, Bool, malloc
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.module.support import from_opaque_object
 from pypy.objspace.flow import model as flowmodel
-
-import py
-py.test.skip("WIP")
 
 def _runblock(blockcontainer, args, viewbefore=False):
     from pypy.jit.codegen.llvm.jitcode import JITcode
