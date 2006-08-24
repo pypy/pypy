@@ -28,24 +28,24 @@ A good summary of the progress over the years.....enjoy!
   * `Europython/Geneva (July 2006)`_
   * Limerick (Aug 2006)
     
-    .. _Hildesheim (Feb 2003): https://codespeak.net/pypy/extradoc/sprintinfo/HildesheimReport.html
-    .. _Gothenburg (May 2003): https://codespeak.net/pypy/extradoc/sprintinfo/gothenburg-2003-sprintreport.txt
-    .. _LovainLaNeuve (June 2003): https://codespeak.net/pypy/extradoc/sprintinfo/LouvainLaNeuveReport.txt
-    .. _Berlin (Sept 2003): https://codespeak.net/pypy/extradoc/sprintinfo/BerlinReport.txt
-    .. _Amsterdam (Dec 2003): https://codespeak.net/pypy/extradoc/sprintinfo/AmsterdamReport.txt
-    .. _Vilnius (Nov 2004): https://codespeak.net/pypy/extradoc/sprintinfo/vilnius-2004-sprintreport.txt
-    .. _Leysin (Jan 2005): https://codespeak.net/pypy/extradoc/sprintinfo/LeysinReport.txt
-    .. _PyCon/Washington (March  2005): https://codespeak.net/pypy/extradoc/sprintinfo/pycon_sprint_report.txt
-    .. _Europython/Gothenburg (June 2005): https://codespeak.net/pypy/extradoc/sprintinfo/ep2005-sprintreport.txt
-    .. _Hildesheim (July 2005): https://codespeak.net/pypy/extradoc/sprintinfo/hildesheim2005-sprintreport.txt
-    .. _Heidelberg (Aug 2005): https://codespeak.net/pypy/extradoc/sprintinfo/Heidelberg-report.txt
-    .. _Paris (Oct 2005): https://codespeak.net/pypy/extradoc/sprintinfo/paris/paris-report.txt
-    .. _Gothenburg (Dec 2005): https://codespeak.net/pypy/extradoc/sprintinfo/gothenburg-2005/gothenburg-dec2005-sprintreport.txt
-    .. _Mallorca (Jan 2006): https://codespeak.net/pypy/extradoc/sprintinfo/mallorca/mallorca-sprintreport.txt
-    .. _LouvainLaNeuve (March 2006): https://codespeak.net/pypy/extradoc/sprintinfo/louvain-la-neuve-2006/report.txt
-    .. _Leysin (April 2006): https://codespeak.net/pypy/extradoc/sprintinfo/leysin-winter-2006-sprintreport.txt
-    .. _Tokyo (April 2006): https://codespeak.net/pypy/extradoc/sprintinfo/tokyo/sprint-report.txt
-    .. _Düsseldorf (June 2006): https://codespeak.net/pypy/extradoc/sprintinfo/ddorf2006/report1.txt
-    .. _Europython/Geneva (July 2006): https://codespeak.net/pypy/extradoc/sprintinfo/post-ep2006/report.txt
+    .. _Hildesheim (Feb 2003): http://codespeak.net/pypy/extradoc/sprintinfo/HildesheimReport.html
+    .. _Gothenburg (May 2003): http://codespeak.net/pypy/extradoc/sprintinfo/gothenburg-2003-sprintreport.txt
+    .. _LovainLaNeuve (June 2003): http://codespeak.net/pypy/extradoc/sprintinfo/LouvainLaNeuveReport.txt
+    .. _Berlin (Sept 2003): http://codespeak.net/pypy/extradoc/sprintinfo/BerlinReport.txt
+    .. _Amsterdam (Dec 2003): http://codespeak.net/pypy/extradoc/sprintinfo/AmsterdamReport.txt
+    .. _Vilnius (Nov 2004): http://codespeak.net/pypy/extradoc/sprintinfo/vilnius-2004-sprintreport.txt
+    .. _Leysin (Jan 2005): http://codespeak.net/pypy/extradoc/sprintinfo/LeysinReport.txt
+    .. _PyCon/Washington (March  2005): http://codespeak.net/pypy/extradoc/sprintinfo/pycon_sprint_report.txt
+    .. _Europython/Gothenburg (June 2005): http://codespeak.net/pypy/extradoc/sprintinfo/ep2005-sprintreport.txt
+    .. _Hildesheim (July 2005): http://codespeak.net/pypy/extradoc/sprintinfo/hildesheim2005-sprintreport.txt
+    .. _Heidelberg (Aug 2005): http://codespeak.net/pypy/extradoc/sprintinfo/Heidelberg-report.txt
+    .. _Paris (Oct 2005): http://codespeak.net/pypy/extradoc/sprintinfo/paris/paris-report.txt
+    .. _Gothenburg (Dec 2005): http://codespeak.net/pypy/extradoc/sprintinfo/gothenburg-2005/gothenburg-dec2005-sprintreport.txt
+    .. _Mallorca (Jan 2006): http://codespeak.net/pypy/extradoc/sprintinfo/mallorca/mallorca-sprintreport.txt
+    .. _LouvainLaNeuve (March 2006): http://codespeak.net/pypy/extradoc/sprintinfo/louvain-la-neuve-2006/report.txt
+    .. _Leysin (April 2006): http://codespeak.net/pypy/extradoc/sprintinfo/leysin-winter-2006-sprintreport.txt
+    .. _Tokyo (April 2006): http://codespeak.net/pypy/extradoc/sprintinfo/tokyo/sprint-report.txt
+    .. _Düsseldorf (June 2006): http://codespeak.net/pypy/extradoc/sprintinfo/ddorf2006/report1.txt
+    .. _Europython/Geneva (July 2006): http://codespeak.net/pypy/extradoc/sprintinfo/post-ep2006/report.txt
     
     
