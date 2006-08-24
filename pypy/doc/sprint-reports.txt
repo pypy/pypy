@@ -29,7 +29,7 @@ A good summary of the progress over the years.....enjoy!
   * Limerick (Aug 2006)
     
     .. _Hildesheim (Feb 2003): https://codespeak.net/pypy/extradoc/sprintinfo/HildesheimReport.html
-    .. _Gothenburg (May 2003):https://codespeak.net/pypy/extradoc/sprintinfo/gothenburg-2003-sprintreport.txt
+    .. _Gothenburg (May 2003): https://codespeak.net/pypy/extradoc/sprintinfo/gothenburg-2003-sprintreport.txt
     .. _LovainLaNeuve (June 2003): https://codespeak.net/pypy/extradoc/sprintinfo/LouvainLaNeuveReport.txt
     .. _Berlin (Sept 2003): https://codespeak.net/pypy/extradoc/sprintinfo/BerlinReport.txt
     .. _Amsterdam (Dec 2003): https://codespeak.net/pypy/extradoc/sprintinfo/AmsterdamReport.txt
