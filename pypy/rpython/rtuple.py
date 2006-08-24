@@ -9,6 +9,7 @@ from pypy.rpython.rmodel import externalvsinternal
 from pypy.rpython.rslice import AbstractSliceRepr
 from pypy.rpython.lltypesystem.lltype import Void, Signed 
 from pypy.rpython.rarithmetic import intmask
+from pypy.rpython.unroll import unrolling_iterable
 
 class __extend__(annmodel.SomeTuple):
     def rtyper_makerepr(self, rtyper):
@@ -29,20 +30,19 @@ def gen_eq_function(items_r):
     try:
         return _gen_eq_function_cache[key]
     except KeyError:
-        miniglobals = {}
-        source = """
-def ll_eq(t1, t2):
-    %s
-    return True
-"""
-        body = []
-        for i, eq_func in enumerate(eq_funcs):
-            miniglobals['eq%d' % i] = eq_func
-            body.append("if not eq%d(t1.item%d, t2.item%d): return False" % (i, i, i))
-        body = ('\n'+' '*4).join(body)
-        source = source % body
-        exec source in miniglobals
-        ll_eq = miniglobals['ll_eq']
+        autounrolling_funclist = unrolling_iterable(enumerate(eq_funcs))
+
+        def ll_eq(t1, t2):
+            equal_so_far = True
+            for i, eqfn in autounrolling_funclist:
+                if not equal_so_far:
+                    return False
+                attrname = 'item%d' % i
+                item1 = getattr(t1, attrname)
+                item2 = getattr(t2, attrname)
+                equal_so_far = eqfn(item1, item2)
+            return equal_so_far
+
         _gen_eq_function_cache[key] = ll_eq
         return ll_eq
 
@@ -53,24 +53,18 @@ def gen_hash_function(items_r):
     try:
         return _gen_hash_function_cache[key]
     except KeyError:
-        miniglobals = {}
-        source = """
-def ll_hash(t):
-    retval = 0x345678
-    %s
-    return retval
-"""
-        body = []
-        mult = 1000003
-        for i, hash_func in enumerate(hash_funcs):
-            miniglobals['hash%d' % i] = hash_func
-            body.append("retval = (retval ^ hash%d(t.item%d)) * %d" %
-                        (i, i, mult))
-            mult = intmask(mult + 82520 + 2*len(items_r))
-        body = ('\n'+' '*4).join(body)
-        source = source % body
-        exec source in miniglobals
-        ll_hash = miniglobals['ll_hash']
+        autounrolling_funclist = unrolling_iterable(enumerate(hash_funcs))
+
+        def ll_hash(t):
+            retval = 0x345678
+            mult = 1000003
+            for i, hash_func in autounrolling_funclist:
+                attrname = 'item%d' % i
+                item = getattr(t, attrname)
+                retval = intmask((retval ^ hash_func(item)) * intmask(mult))
+                mult = mult + 82520 + 2*len(items_r)
+            return retval
+
         _gen_hash_function_cache[key] = ll_hash
         return ll_hash
 
