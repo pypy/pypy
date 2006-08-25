@@ -448,7 +448,9 @@ class MarkSweepGC(GCBase):
             hdr = next
         self.collect_in_progress = False
 
-    STATISTICS_NUMBERS = 2
+    STAT_HEAP_USAGE     = 0
+    STAT_BYTES_MALLOCED = 1
+    STATISTICS_NUMBERS  = 2
 
     def add_reachable_to_stack(self, obj, objects):
         size_gc_header = self.gcheaderbuilder.size_gc_header
@@ -477,8 +479,13 @@ class MarkSweepGC(GCBase):
                     j += 1
                 i += 1
 
-    def statistics(self):
-        return self.heap_usage, self.bytes_malloced
+    def statistics(self, index):
+        # no memory allocation here!
+        if index == self.STAT_HEAP_USAGE:
+            return self.heap_usage
+        if index == self.STAT_BYTES_MALLOCED:
+            return self.bytes_malloced
+        return -1
 
     def size_gc_header(self, typeid=0):
         return self.gcheaderbuilder.size_gc_header

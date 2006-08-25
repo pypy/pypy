@@ -922,9 +922,9 @@ class FrameworkGCTransformer(GCTransformer):
         self.collect_ptr = getfn(GCClass.collect.im_func,
             [s_gc], annmodel.s_None)
 
-        statics_s = (annmodel.SomeInteger(),)*GCClass.STATISTICS_NUMBERS
         self.statistics_ptr = getfn(GCClass.statistics.im_func,
-                                    [s_gc], annmodel.SomeTuple(statics_s))
+                                    [s_gc, annmodel.SomeInteger()],
+                                    annmodel.SomeInteger())
 
         # experimental gc_x_* operations
         s_x_pool  = annmodel.SomePtr(gc.X_POOL_PTR)

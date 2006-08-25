@@ -219,8 +219,8 @@ class GCTest(object):
         if statistics:
             statisticsgraph = db.gctransformer.statistics_ptr.value._obj.graph
             ll_gc = db.gctransformer.c_const_gc.value
-            def statistics():
-                return llinterp.eval_graph(statisticsgraph, [ll_gc])
+            def statistics(index):
+                return llinterp.eval_graph(statisticsgraph, [ll_gc, index])
             return run, statistics
         else:
             return run
@@ -230,7 +230,11 @@ class TestMarkSweepGC(GCTest):
     class gcpolicy(gc.FrameworkGcPolicy):
         class transformerclass(gctransform.FrameworkGCTransformer):
             GC_PARAMS = {'start_heap_size': 4096 }
-            
+
+    def heap_usage(self, statistics):
+        return statistics(
+            self.gcpolicy.transformerclass.GCClass.STAT_HEAP_USAGE)
+
     def test_llinterp_lists(self):
         def malloc_a_lot():
             i = 0
@@ -244,7 +248,7 @@ class TestMarkSweepGC(GCTest):
             return 0
         run, statistics = self.runner(malloc_a_lot, statistics=True)
         run([])
-        heap_size = statistics().item0
+        heap_size = self.heap_usage(statistics)
         assert heap_size < 16000 * INT_SIZE / 4 # xxx
 
     def test_llinterp_tuples(self):
@@ -261,7 +265,7 @@ class TestMarkSweepGC(GCTest):
             return 0
         run, statistics = self.runner(malloc_a_lot, statistics=True)
         run([])
-        heap_size = statistics().item0
+        heap_size = self.heap_usage(statistics)
         assert heap_size < 16000 * INT_SIZE / 4 # xxx
 
     def test_global_list(self):
@@ -290,7 +294,7 @@ class TestMarkSweepGC(GCTest):
         run, statistics = self.runner(concat, nbargs=2, statistics=True)
         res = run([100, 0])
         assert res == concat(100, 0)
-        heap_size = statistics().item0
+        heap_size = self.heap_usage(statistics)
         assert heap_size < 16000 * INT_SIZE / 4 # xxx
 
     def test_finalizer(self):
