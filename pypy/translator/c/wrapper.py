@@ -144,6 +144,7 @@ def gen_wrapper(func, translator, newname=None, as_method=False):
     translator.graphs.append(wgraph)
     block.operations[:] = newops
     block.closeblock(Link([vresult], wgraph.returnblock))
+    wgraph.getreturnvar().concretetype = PyObjPtr
     checkgraph(wgraph)
 
     if translator.rtyper is not None:
@@ -194,6 +195,7 @@ def new_method_graph(graph, clsdef, newname, translator):
 
     vres = newgraph.getreturnvar()
     ann.setbinding(vres, s_None)
+    vres.concretetype = Void
     checkgraph(newgraph)
     # pretend to be the same function, as we actually
     # will become inlined.
