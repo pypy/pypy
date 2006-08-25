@@ -315,6 +315,9 @@ def llmemory_cast_weakadr_to_ptr(s, s_type):
 def llmemory_cast_adr_to_int(s):
     return SomeInteger() # xxx
 
+def llmemory_cast_int_to_adr(s):
+    return SomeAddress()
+
 def rstack_yield_current_frame_to_caller():
     return SomeExternalObject(pypy.rpython.rstack.frame_stack_top)
     

@@ -1,4 +1,4 @@
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.jit.codegen.i386.codebuf import MachineCodeBlock
 from pypy.jit.codegen.i386.ri386 import *
 from pypy.jit.codegen.model import AbstractRGenOp, CodeGenBlock, CodeGenLink
@@ -32,6 +32,31 @@ class TypeConst(GenConst):
         self.kind = kind
 
 
+##class Const(GenConst):
+
+##    def revealconst(self, TYPE):
+##        if isinstance(self, IntConst):
+##            self.revealconst_int(TYPE)
+##        elif isinstance(self, PtrConst):
+##            self.revealconst_ptr(TYPE)
+        
+##        if isinstance(TYPE, lltype.Ptr):
+##            if isinstance(self, PtrConst):
+##                return self.revealconst_ptr(TYPE)
+##            el
+##                return self.revealconst_ptr(TYPE)
+##        elif TYPE is lltype.Float:
+##            assert isinstance(self, DoubleConst)
+##            return self.revealconst_double()
+##        else:
+##            assert isinstance(TYPE, lltype.Primitive)
+##            assert TYPE is not lltype.Void, "cannot make red boxes of voids"
+##            assert isinstance(self, IntConst)
+##            return self.revealconst_primitive(TYPE)
+##        return self.value
+##    revealconst._annspecialcase_ = 'specialize:arg(1)'
+
+
 class IntConst(GenConst):
 
     def __init__(self, value):
@@ -41,7 +66,12 @@ class IntConst(GenConst):
         return imm(self.value)
 
     def revealconst(self, T):
-        return lltype.cast_int_to_ptr(T, self.value)
+        if isinstance(T, lltype.Ptr):
+            return lltype.cast_int_to_ptr(T, self.value)
+        elif T is llmemory.Address:
+            return llmemory.cast_int_to_adr(self.value)
+        else:
+            return lltype.cast_primitive(T, self.value)
     revealconst._annspecialcase_ = 'specialize:arg(1)'
 
 

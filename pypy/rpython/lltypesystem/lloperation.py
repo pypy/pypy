@@ -340,7 +340,7 @@ LL_OPERATIONS = {
     'cast_weakadr_to_ptr':  LLOp(canfold=True),
     'cast_weakadr_to_int':  LLOp(canfold=True),
     'cast_adr_to_int':      LLOp(canfold=True),
-    #'cast_int_to_adr':      LLOp(canfold=True),
+    'cast_int_to_adr':      LLOp(canfold=True),   # not implemented in llinterp
 
     # __________ GC operations __________
 

@@ -279,6 +279,9 @@ def op_cast_adr_to_int(adr):
     checkadr(adr)
     return llmemory.cast_adr_to_int(adr)
 
+def op_cast_int_to_adr(int):
+    return llmemory.cast_int_to_adr(int)
+
 ##def op_cast_int_to_adr(x):
 ##    assert type(x) is int
 ##    return llmemory.cast_int_to_adr(x)

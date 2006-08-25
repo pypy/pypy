@@ -636,6 +636,13 @@ def rtype_cast_adr_to_int(hop):
     return hop.genop('cast_adr_to_int', [adr],
                      resulttype = lltype.Signed)
 
+def rtype_cast_int_to_adr(hop):
+    assert hop.args_s[0].is_constant()
+    v_input, = hop.inputargs(lltype.Signed)
+    hop.exception_cannot_occur()
+    return hop.genop('cast_int_to_adr', [v_input],
+                     resulttype = llmemory.Address)
+
 def rtype_cast_ptr_to_weakadr(hop):
     vlist = hop.inputargs(hop.args_r[0])
     assert isinstance(vlist[0].concretetype, lltype.Ptr)

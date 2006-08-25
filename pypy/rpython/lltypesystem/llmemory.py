@@ -485,6 +485,10 @@ def cast_adr_to_ptr(adr, EXPECTED_TYPE):
 def cast_adr_to_int(adr):
     return adr._cast_to_int()
 
+def cast_int_to_adr(int):
+    raise NotImplementedError("cast_int_to_adr")
+
+
 # ____________________________________________________________
 
 import weakref
