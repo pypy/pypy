@@ -1,4 +1,3 @@
-import autopath
 import os, sys
 from pypy.rpython.objectmodel import we_are_translated
 
