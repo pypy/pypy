@@ -16,3 +16,13 @@ def test_nonconst():
     s = a.build_types(nonconst_f, [])
     assert s.knowntype is int
     assert not hasattr(s, 'const')
+
+def test_nonconst_list():
+    def nonconst_l():
+        a = NonConstant([1, 2, 3])
+        return a[0]
+    
+    a = RPythonAnnotator()
+    s = a.build_types(nonconst_l, [])
+    assert s.knowntype is int
+    assert not hasattr(s, 'const')

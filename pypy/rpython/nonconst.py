@@ -14,7 +14,10 @@ class EntryNonConstant(ExtRegistryEntry):
     _about_ = NonConstant
     
     def compute_result_annotation(self, arg):
-        return getbookkeeper().annotation_from_example(arg.const)
+        if hasattr(arg, 'const'):
+            return getbookkeeper().annotation_from_example(arg.const)
+        else:
+            return arg
 
     def specialize_call(self, hop):
         v = Variable()
