@@ -350,18 +350,13 @@ class MarkSweepGC(GCBase):
         compute_time = start_time - self.prev_collect_end_time
         collect_time = end_time - start_time
 
+        garbage_collected = old_malloced - (curr_heap_size - self.heap_usage)
 
-
-
-        collect_time_fraction = collect_time / compute_time
-        old_heapsize = self.heap_usage
-        garbage_generated = old_malloced - (curr_heap_size - old_heapsize)
-        garbage_fraction = float(garbage_generated) / float(curr_heap_size)
-
-
-        if collect_time_fraction > 0.02 * garbage_fraction:
+        if (collect_time * curr_heap_size >
+            0.02 * garbage_collected * compute_time): 
             self.bytes_malloced_threshold += self.bytes_malloced_threshold / 2
-        if collect_time_fraction < 0.005 * garbage_fraction:
+        if (collect_time * curr_heap_size <
+            0.005 * garbage_collected * compute_time):
             self.bytes_malloced_threshold /= 2
 
         # Use atleast as much memory as current live objects.
@@ -390,11 +385,11 @@ class MarkSweepGC(GCBase):
                              "  total time spent collecting:       ",
                              self.total_collection_time, "seconds")
             llop.debug_print(lltype.Void,
-                             "  collecting time fraction:          ",
-                             collect_time_fraction)
+                             "  collecting time:                   ",
+                             collect_time)
             llop.debug_print(lltype.Void,
-                             "  garbage fraction:                  ",
-                             garbage_fraction)
+                             "  computing time:                    ",
+                             collect_time)
             llop.debug_print(lltype.Void,
                              "  new threshold:                     ",
                              self.bytes_malloced_threshold)
