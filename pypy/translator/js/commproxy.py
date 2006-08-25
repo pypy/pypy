@@ -4,6 +4,7 @@
 
 
 from pypy.objspace.flow.model import Variable, Constant
+from pypy.rpython.ootypesystem.bltregistry import ArgDesc
 
 METHOD_BODY = """
 %(class)s.prototype.%(method)s = function ( %(args)s ) {
@@ -84,8 +85,10 @@ class XmlHttp(object):
         ilasm.begin_function(self.name, [])
         ilasm.end_function()
     
-    def render_method(self, method_name, method, ilasm):        
+    def render_method(self, method_name, method, ilasm):
         args, retval = method.args, method.retval.name
+        if args[-1].name != 'callback':
+            args.append(ArgDesc('callback', lambda : None))
         real_args = list(arg.name for arg in args)
         # FIXME: dirty JS here
         data = "{%s}" % ",".join(["'%s':%s" % (i,i) for i in real_args if i != 'callback'])
