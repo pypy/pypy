@@ -181,9 +181,15 @@ class TimeshiftingTests(object):
         residual_graph = c_generatedfn.value._obj.graph
         if conftest.option.view:
             residual_graph.show()
-        insns = summary(residual_graph)
+        self.insns = summary(residual_graph)
         res = llinterp.eval_graph(residual_graph, residual_args)
-        return insns, res
+        return res
+
+    def check_insns(self, expected=None, **counts):
+        if expected is not None:
+            assert self.insns == expected
+        for opname, count in counts.items():
+            assert self.insns.get(opname, 0) == count
 
 
 class TestTimeshift(TimeshiftingTests):
@@ -192,16 +198,16 @@ class TestTimeshift(TimeshiftingTests):
         py.test.skip("green return not working")
         def ll_function(x, y):
             return hint(x + y, concrete=True)
-        insns, res = self.timeshift(ll_function, [5, 7])
+        res = self.timeshift(ll_function, [5, 7])
         assert res == 12
-        assert insns == {}
+        self.check_insns({})
 
     def test_very_simple(self):
         def ll_function(x, y):
             return x + y
-        insns, res = self.timeshift(ll_function, [5, 7])
+        res = self.timeshift(ll_function, [5, 7])
         assert res == 12
-        assert insns == {'int_add': 1}
+        self.check_insns({'int_add': 1})
 
     def test_convert_const_to_redbox(self):
         def ll_function(x, y):
@@ -211,23 +217,23 @@ class TestTimeshift(TimeshiftingTests):
                 tot += y
                 x -= 1
             return tot
-        insns, res = self.timeshift(ll_function, [7, 2])
+        res = self.timeshift(ll_function, [7, 2])
         assert res == 14
-        assert insns == {'int_add': 7}
+        self.check_insns({'int_add': 7})
 
     def test_simple_opt_const_propagation2(self):
         def ll_function(x, y):
             return x + y
-        insns, res = self.timeshift(ll_function, [5, 7], [0, 1])
+        res = self.timeshift(ll_function, [5, 7], [0, 1])
         assert res == 12
-        assert insns == {}
+        self.check_insns({})
 
     def test_simple_opt_const_propagation1(self):
         def ll_function(x):
             return -x
-        insns, res = self.timeshift(ll_function, [5], [0])
+        res = self.timeshift(ll_function, [5], [0])
         assert res == -5
-        assert insns == {}
+        self.check_insns({})
 
     def test_loop_folding(self):
         def ll_function(x, y):
@@ -237,9 +243,9 @@ class TestTimeshift(TimeshiftingTests):
                 tot += y
                 x -= 1
             return tot
-        insns, res = self.timeshift(ll_function, [7, 2], [0, 1])
+        res = self.timeshift(ll_function, [7, 2], [0, 1])
         assert res == 14
-        assert insns == {}
+        self.check_insns({})
 
     def test_loop_merging(self):
         def ll_function(x, y):
@@ -248,25 +254,25 @@ class TestTimeshift(TimeshiftingTests):
                 tot += y
                 x -= 1
             return tot
-        insns, res = self.timeshift(ll_function, [7, 2], [])
+        res = self.timeshift(ll_function, [7, 2], [])
         assert res == 14
-        assert insns['int_add'] == 2
-        assert insns['int_is_true'] == 2
+        self.check_insns(int_add = 2,
+                         int_is_true = 2)
 
-        insns, res = self.timeshift(ll_function, [7, 2], [0])
+        res = self.timeshift(ll_function, [7, 2], [0])
         assert res == 14
-        assert insns['int_add'] == 2
-        assert insns['int_is_true'] == 1
+        self.check_insns(int_add = 2,
+                         int_is_true = 1)
 
-        insns, res = self.timeshift(ll_function, [7, 2], [1])
+        res = self.timeshift(ll_function, [7, 2], [1])
         assert res == 14
-        assert insns['int_add'] == 1
-        assert insns['int_is_true'] == 2
+        self.check_insns(int_add = 1,
+                         int_is_true = 2)
 
-        insns, res = self.timeshift(ll_function, [7, 2], [0, 1])
+        res = self.timeshift(ll_function, [7, 2], [0, 1])
         assert res == 14
-        assert insns['int_add'] == 1
-        assert insns['int_is_true'] == 1
+        self.check_insns(int_add = 1,
+                         int_is_true = 1)
 
     def test_two_loops_merging(self):
         def ll_function(x, y):
@@ -278,21 +284,21 @@ class TestTimeshift(TimeshiftingTests):
                 tot += y
                 y -= 1
             return tot
-        insns, res = self.timeshift(ll_function, [7, 3], [])
+        res = self.timeshift(ll_function, [7, 3], [])
         assert res == 27
-        assert insns['int_add'] == 3
-        assert insns['int_is_true'] == 3
+        self.check_insns(int_add = 3,
+                         int_is_true = 3)
 
     def test_convert_greenvar_to_redvar(self):
         def ll_function(x, y):
             hint(x, concrete=True)
             return x - y
-        insns, res = self.timeshift(ll_function, [70, 4], [0])
+        res = self.timeshift(ll_function, [70, 4], [0])
         assert res == 66
-        assert insns['int_sub'] == 1
-        insns, res = self.timeshift(ll_function, [70, 4], [0, 1])
+        self.check_insns(int_sub = 1)
+        res = self.timeshift(ll_function, [70, 4], [0, 1])
         assert res == 66
-        assert insns == {}
+        self.check_insns({})
 
     def test_green_across_split(self):
         def ll_function(x, y):
@@ -302,10 +308,10 @@ class TestTimeshift(TimeshiftingTests):
             else:
                 z = x + y
             return z
-        insns, res = self.timeshift(ll_function, [70, 4], [0])
+        res = self.timeshift(ll_function, [70, 4], [0])
         assert res == 66
-        assert insns['int_add'] == 1
-        assert insns['int_sub'] == 1
+        self.check_insns(int_add = 1,
+                         int_sub = 1)
 
     def test_merge_const_before_return(self):
         def ll_function(x):
@@ -316,9 +322,9 @@ class TestTimeshift(TimeshiftingTests):
             x -= 1
             y += 1
             return y+x
-        insns, res = self.timeshift(ll_function, [-70], [])
+        res = self.timeshift(ll_function, [-70], [])
         assert res == 23-71
-        assert insns == {'int_gt': 1, 'int_add': 2, 'int_sub': 2}
+        self.check_insns({'int_gt': 1, 'int_add': 2, 'int_sub': 2})
 
     def test_merge_3_redconsts_before_return(self):
         def ll_function(x):
@@ -331,11 +337,11 @@ class TestTimeshift(TimeshiftingTests):
             x -= 1
             y += 1
             return y+x
-        insns, res = self.timeshift(ll_function, [-70], [])
+        res = self.timeshift(ll_function, [-70], [])
         assert res == ll_function(-70)
-        insns, res = self.timeshift(ll_function, [1], [])
+        res = self.timeshift(ll_function, [1], [])
         assert res == ll_function(1)
-        insns, res = self.timeshift(ll_function, [-70], [])
+        res = self.timeshift(ll_function, [-70], [])
         assert res == ll_function(-70)
 
     def test_merge_const_at_return(self):
@@ -345,9 +351,9 @@ class TestTimeshift(TimeshiftingTests):
                 return 17
             else:
                 return 22
-        insns, res = self.timeshift(ll_function, [-70], [])
+        res = self.timeshift(ll_function, [-70], [])
         assert res == 22
-        assert insns == {'int_gt': 1}
+        self.check_insns({'int_gt': 1})
 
     def test_arith_plus_minus(self):
         def ll_plus_minus(encoded_insn, nb_insn, x, y):
@@ -363,10 +369,9 @@ class TestTimeshift(TimeshiftingTests):
                 pc += 1
             return acc
         assert ll_plus_minus(0xA5A, 3, 32, 10) == 42
-        insns, res = self.timeshift(ll_plus_minus, [0xA5A, 3, 32, 10], [0, 1])
+        res = self.timeshift(ll_plus_minus, [0xA5A, 3, 32, 10], [0, 1])
         assert res == 42
-        assert insns == {'int_add': 2,
-                         'int_sub': 1}
+        self.check_insns({'int_add': 2, 'int_sub': 1})
 
     def test_simple_struct(self):
         S = lltype.GcStruct('helloworld', ('hello', lltype.Signed),
@@ -377,13 +382,12 @@ class TestTimeshift(TimeshiftingTests):
         s1 = lltype.malloc(S)
         s1.hello = 6
         s1.world = 7
-        insns, res = self.timeshift(ll_function, [s1], [])
+        res = self.timeshift(ll_function, [s1], [])
         assert res == 42
-        assert insns == {'getfield': 2,
-                         'int_mul': 1}
-        insns, res = self.timeshift(ll_function, [s1], [0])
+        self.check_insns({'getfield': 2, 'int_mul': 1})
+        res = self.timeshift(ll_function, [s1], [0])
         assert res == 42
-        assert insns == {}
+        self.check_insns({})
 
     def test_simple_array(self):
         A = lltype.GcArray(lltype.Signed, 
@@ -393,13 +397,12 @@ class TestTimeshift(TimeshiftingTests):
         a1 = lltype.malloc(A, 2)
         a1[0] = 6
         a1[1] = 7
-        insns, res = self.timeshift(ll_function, [a1], [])
+        res = self.timeshift(ll_function, [a1], [])
         assert res == 42
-        assert insns == {'getarrayitem': 2,
-                         'int_mul': 1}
-        insns, res = self.timeshift(ll_function, [a1], [0])
+        self.check_insns({'getarrayitem': 2, 'int_mul': 1})
+        res = self.timeshift(ll_function, [a1], [0])
         assert res == 42
-        assert insns == {}
+        self.check_insns({})
 
     def test_simple_struct_malloc(self):
         py.test.skip("blue containers: to be reimplemented")
@@ -410,13 +413,13 @@ class TestTimeshift(TimeshiftingTests):
             s.hello = x
             return s.hello + s.world
 
-        insns, res = self.timeshift(ll_function, [3], [])
+        res = self.timeshift(ll_function, [3], [])
         assert res == 3
-        assert insns == {'int_add': 1}
+        self.check_insns({'int_add': 1})
 
-        insns, res = self.timeshift(ll_function, [3], [0])
+        res = self.timeshift(ll_function, [3], [0])
         assert res == 3
-        assert insns == {}
+        self.check_insns({})
 
     def test_inlined_substructure(self):
         py.test.skip("blue containers: to be reimplemented")
@@ -427,13 +430,13 @@ class TestTimeshift(TimeshiftingTests):
             t.s.n = k
             l = t.s.n
             return l
-        insns, res = self.timeshift(ll_function, [7], [])
+        res = self.timeshift(ll_function, [7], [])
         assert res == 7
-        assert insns == {}
+        self.check_insns({})
 
-        insns, res = self.timeshift(ll_function, [7], [0])
+        res = self.timeshift(ll_function, [7], [0])
         assert res == 7
-        assert insns == {}    
+        self.check_insns({})
 
     def test_degenerated_before_return(self):
         S = lltype.GcStruct('S', ('n', lltype.Signed))
@@ -448,9 +451,9 @@ class TestTimeshift(TimeshiftingTests):
                 s = t.s
             s.n += 1
             return s.n * t.s.n
-        insns, res = self.timeshift(ll_function, [0], [])
+        res = self.timeshift(ll_function, [0], [])
         assert res == 5 * 3
-        insns, res = self.timeshift(ll_function, [1], [])
+        res = self.timeshift(ll_function, [1], [])
         assert res == 4 * 4
 
     def test_degenerated_before_return_2(self):
@@ -468,9 +471,9 @@ class TestTimeshift(TimeshiftingTests):
                 s = t.s
             s.n += 1
             return s.n * t.s.n
-        insns, res = self.timeshift(ll_function, [1], [])
+        res = self.timeshift(ll_function, [1], [])
         assert res == 5 * 3
-        insns, res = self.timeshift(ll_function, [0], [])
+        res = self.timeshift(ll_function, [0], [])
         assert res == 4 * 4
 
     def test_degenerated_at_return(self):
@@ -486,10 +489,10 @@ class TestTimeshift(TimeshiftingTests):
             if flag:
                 s = t.s
             return s
-        insns, res = self.timeshift(ll_function, [0], [])
+        res = self.timeshift(ll_function, [0], [])
         assert res.n == 4
         assert lltype.parentlink(res._obj) == (None, None)
-        insns, res = self.timeshift(ll_function, [1], [])
+        res = self.timeshift(ll_function, [1], [])
         assert res.n == 3
         parent, parentindex = lltype.parentlink(res._obj)
         assert parentindex == 's'
@@ -510,9 +513,9 @@ class TestTimeshift(TimeshiftingTests):
                 s = t.s
             t.s.n += 1
             return s.n * t.s.n
-        insns, res = self.timeshift(ll_function, [1], [])
+        res = self.timeshift(ll_function, [1], [])
         assert res == 7 * 4
-        insns, res = self.timeshift(ll_function, [0], [])
+        res = self.timeshift(ll_function, [0], [])
         assert res == 4 * 4
 
     def test_plus_minus_all_inlined(self):
@@ -530,9 +533,9 @@ class TestTimeshift(TimeshiftingTests):
                 pc += 1
             return acc
         s = rstr.string_repr.convert_const("+-+")
-        insns, res = self.timeshift(ll_plus_minus, [s, 0, 2], [0], inline=999)
+        res = self.timeshift(ll_plus_minus, [s, 0, 2], [0], inline=999)
         assert res == ll_plus_minus("+-+", 0, 2)
-        assert insns == {'int_add': 2, 'int_sub': 1}
+        self.check_insns({'int_add': 2, 'int_sub': 1})
 
     def test_red_virtual_container(self):
         # this checks that red boxes are able to be virtualized dynamically by
@@ -543,9 +546,9 @@ class TestTimeshift(TimeshiftingTests):
             s = lltype.malloc(S)
             s.n = n
             return s.n
-        insns, res = self.timeshift(ll_function, [42], [], policy=P_NOVIRTUAL)
+        res = self.timeshift(ll_function, [42], [], policy=P_NOVIRTUAL)
         assert res == 42
-        assert insns == {}
+        self.check_insns({})
 
     def test_red_propagate(self):
         S = lltype.GcStruct('S', ('n', lltype.Signed))
@@ -555,9 +558,9 @@ class TestTimeshift(TimeshiftingTests):
             if k < 0:
                 return -123
             return s.n * k
-        insns, res = self.timeshift(ll_function, [3, 8], [], policy=P_NOVIRTUAL)
+        res = self.timeshift(ll_function, [3, 8], [], policy=P_NOVIRTUAL)
         assert res == 24
-        assert insns == {'int_lt': 1, 'int_mul': 1}
+        self.check_insns({'int_lt': 1, 'int_mul': 1})
 
     def test_red_subcontainer(self):
         S = lltype.Struct('S', ('n', lltype.Signed))
@@ -571,9 +574,9 @@ class TestTimeshift(TimeshiftingTests):
             result = s.n * (k-1)
             keepalive_until_here(t)
             return result
-        insns, res = self.timeshift(ll_function, [7], [], policy=P_NOVIRTUAL)
+        res = self.timeshift(ll_function, [7], [], policy=P_NOVIRTUAL)
         assert res == 42
-        assert insns == {'int_lt': 1, 'int_mul': 1, 'int_sub': 1}
+        self.check_insns({'int_lt': 1, 'int_mul': 1, 'int_sub': 1})
 
     def test_merge_structures(self):
         S = lltype.GcStruct('S', ('n', lltype.Signed))
@@ -593,30 +596,30 @@ class TestTimeshift(TimeshiftingTests):
                 t.s = s
                 t.n = 6
             return t.n + t.s.n
-        insns, res = self.timeshift(ll_function, [0], [], policy=P_NOVIRTUAL)
+        res = self.timeshift(ll_function, [0], [], policy=P_NOVIRTUAL)
         assert res == 5 + 6
-        assert insns == {'int_is_true': 1, 'int_add': 1}
-        insns, res = self.timeshift(ll_function, [1], [], policy=P_NOVIRTUAL)
+        self.check_insns({'int_is_true': 1, 'int_add': 1})
+        res = self.timeshift(ll_function, [1], [], policy=P_NOVIRTUAL)
         assert res == 1 + 2
-        assert insns == {'int_is_true': 1, 'int_add': 1}
+        self.check_insns({'int_is_true': 1, 'int_add': 1})
 
     def test_call_simple(self):
         def ll_add_one(x):
             return x + 1
         def ll_function(y):
             return ll_add_one(y)
-        insns, res = self.timeshift(ll_function, [5], [], policy=P_NOVIRTUAL)
+        res = self.timeshift(ll_function, [5], [], policy=P_NOVIRTUAL)
         assert res == 6
-        assert insns == {'int_add': 1}
+        self.check_insns({'int_add': 1})
 
     def test_call_2(self):
         def ll_add_one(x):
             return x + 1
         def ll_function(y):
             return ll_add_one(y) + y
-        insns, res = self.timeshift(ll_function, [5], [], policy=P_NOVIRTUAL)
+        res = self.timeshift(ll_function, [5], [], policy=P_NOVIRTUAL)
         assert res == 11
-        assert insns == {'int_add': 2}
+        self.check_insns({'int_add': 2})
 
     def test_call_3(self):
         def ll_add_one(x):
@@ -625,6 +628,6 @@ class TestTimeshift(TimeshiftingTests):
             return ll_add_one(ll_add_one(x)) - x
         def ll_function(y):
             return ll_two(y) * y
-        insns, res = self.timeshift(ll_function, [5], [], policy=P_NOVIRTUAL)
+        res = self.timeshift(ll_function, [5], [], policy=P_NOVIRTUAL)
         assert res == 10
-        assert insns == {'int_add': 2, 'int_sub': 1, 'int_mul': 1}
+        self.check_insns({'int_add': 2, 'int_sub': 1, 'int_mul': 1})
