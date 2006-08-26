@@ -219,6 +219,8 @@ class Instruction:
 
     def common_modes(self, group):
         base = group * 8
+        self.mode2(EAX,   IMM8,  ['\x83', orbyte(group<<3), '\xC0',
+                                                            immediate(2,'b')])
         self.mode2(MODRM, IMM8,  ['\x83', orbyte(group<<3), modrm(1),
                                                             immediate(2,'b')])
         self.mode2(EAX,   IMM32, [chr(base+5), immediate(2)])
@@ -239,14 +241,15 @@ class Instruction:
 
 
 MOV = Instruction()
-for e in [EAX, ECX, EDX, EBX, ESP, EBP, ESI, EDI, 
-          AL, CL, DL, BL, AH, CH, DH, BH]:
-    MOV.mode2(e, e, [])   # 'MOV <register>, <same register>'
-del e
+##for e in [EAX, ECX, EDX, EBX, ESP, EBP, ESI, EDI, 
+##          AL, CL, DL, BL, AH, CH, DH, BH]:
+##    MOV.mode2(e, e, [])   # 'MOV <register>, <same register>'
+##del e
 #MOV.mode2(EAX,   MEMABS,['\xA1', memabsolute(2)])
 #MOV.mode2(MEMABS,EAX,   ['\xA3', memabsolute(1)])
 MOV.mode2(REG,   IMM32, [register(1), '\xB8', immediate(2)])
 MOV.mode2(MODRM, IMM32, ['\xC7', orbyte(0<<3), modrm(1), immediate(2)])
+MOV.mode2(REG,   REG,   ['\x89', register(2,8), register(1), '\xC0'])
 MOV.mode2(MODRM, REG,   ['\x89', register(2,8), modrm(1)])
 MOV.mode2(REG,   MODRM, ['\x8B', register(1,8), modrm(2)])
 
@@ -254,6 +257,7 @@ MOV.mode2(REG,   MODRM, ['\x8B', register(1,8), modrm(2)])
 #MOV.mode2(MEMABS,AL,    ['\xA2', memabsolute(1,'b')])
 MOV.mode2(REG8,  IMM8,  [register(1,1,'b'), '\xB0', immediate(2,'b')])
 MOV.mode2(MODRM8,IMM8,  ['\xC6', orbyte(0<<3), modrm(1,'b'), immediate(2,'b')])
+MOV.mode2(REG8,  REG8,  ['\x88', register(2,8,'b'), register(1,1,'b'), '\xC0'])
 MOV.mode2(MODRM8,REG8,  ['\x88', register(2,8,'b'), modrm(1,'b')])
 MOV.mode2(REG8,  MODRM8,['\x8A', register(1,8,'b'), modrm(2,'b')])
 
@@ -362,8 +366,10 @@ DEC.mode1(MODRM8,['\xFE', orbyte(1<<3), modrm(1,'b')])
 XCHG = Instruction()
 XCHG.mode2(EAX,    REG,  [register(2), '\x90'])
 XCHG.mode2(REG,    EAX,  [register(1), '\x90'])
+XCHG.mode2(REG,    REG,  ['\x87', register(2,8), register(1), '\xC0'])
 XCHG.mode2(MODRM,  REG,  ['\x87', register(2,8), modrm(1)])
 XCHG.mode2(REG,  MODRM,  ['\x87', register(1,8), modrm(2)])
+XCHG.mode2(REG8,   REG8, ['\x86', register(2,8,'b'), register(1,1,'b'),'\xC0'])
 XCHG.mode2(MODRM8, REG8, ['\x86', register(2,8,'b'), modrm(1,'b')])
 XCHG.mode2(REG8, MODRM8, ['\x86', register(1,8,'b'), modrm(2,'b')])
 
@@ -396,6 +402,7 @@ INT.mode1(IMM8, ['\xCD', immediate(1, 'b')])
 
 BREAKPOINT = Instruction()    # INT 3
 BREAKPOINT.mode0(['\xCC'])
+BREAKPOINT.as_alias = "INT3"
 
 
 Conditions = {

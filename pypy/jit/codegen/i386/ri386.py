@@ -1,13 +1,18 @@
 
 
 class OPERAND(object):
-    pass
+    def __repr__(self):
+        return '<%s %s>' % (self.__class__.__name__, self.assembler())
 
 class REG(OPERAND):
     width = 4
+    def assembler(self):
+        return '%' + self.__class__.__name__.lower()
 
 class REG8(OPERAND):
     width = 1
+    def assembler(self):
+        return '%' + self.__class__.__name__.lower()
 
 class EAX(REG): op=0
 class ECX(REG): op=1
@@ -30,6 +35,8 @@ class BH(REG8): op=7
 class IMM32(OPERAND):
     def __init__(self, value):
         self.value = value
+    def assembler(self):
+        return '$%d' % (self.value,)
 
 class IMM8(IMM32):
     pass
@@ -37,11 +44,57 @@ class IMM8(IMM32):
 class IMM16(OPERAND):  # only for RET
     def __init__(self, value):
         self.value = value
+    def assembler(self):
+        return '$%d' % (self.value,)
 
 class MODRM(OPERAND):
     def __init__(self, byte, extradata):
         self.byte = byte
         self.extradata = extradata
+
+    def assembler(self):
+        mod = self.byte & 0xC0
+        rm  = self.byte & 0x07
+        if mod == 0xC0:
+            return registers[rm].assembler()
+        if self.byte == 0x05:
+            return '%d' % (unpack(self.extradata),)
+        if mod == 0x00:
+            offset_bytes = 0
+        elif mod == 0x40:
+            offset_bytes = 1
+        else:
+            offset_bytes = 4
+        if rm == 4:
+            SIB = ord(self.extradata[0])
+            scale = (SIB & 0xC0) >> 6
+            index = (SIB & 0x38) >> 3
+            base  = (SIB & 0x07)
+            if base == 5 and mod == 0x00:
+                offset_bytes = 4
+                basename = ''
+            else:
+                basename = registers[base].assembler()
+            if index == 4:
+                # no index
+                s = '(%s)' % (basename,)
+            else:
+                indexname = registers[index].assembler()
+                s = '(%s,%s,%d)' % (basename, indexname, 1 << scale)
+            offset = self.extradata[1:]
+        else:
+            s = '(%s)' % (registers[rm].assembler(),)
+            offset = self.extradata
+
+        assert len(offset) == offset_bytes
+        if offset_bytes > 0:
+            s = '%d%s' % (unpack(offset), s)
+        return s
+
+    def is_register(self):
+        mod = self.byte & 0xC0
+        return mod == 0xC0
+
 
 class MODRM8(MODRM):
     pass
@@ -49,9 +102,12 @@ class MODRM8(MODRM):
 class REL32(OPERAND):
     def __init__(self, absolute_target):
         self.absolute_target = absolute_target
+    def assembler(self):
+        return '%d' % (self.absolute_target,)
 
 class MISSING(OPERAND):
-    pass
+    def __repr__(self):
+        return '<MISSING>'
 
 # ____________________________________________________________
 # Public interface: the concrete operands to instructions
@@ -78,6 +134,9 @@ ah = AH()
 ch = CH()
 dh = DH()
 bh = BH()
+
+registers = [eax, ecx, edx, ebx, esp, ebp, esi, edi]
+registers8 = [al, cl, dl, bl, ah, ch, dh, bh]
 
 imm32 = IMM32
 imm8 = IMM8
@@ -159,6 +218,17 @@ def packimm8(i):
 def packimm16(i):
     return (chr(i & 0xFF) +
             chr((i >> 8) & 0xFF))
+
+def unpack(s):
+    assert len(s) in (1, 2, 4)
+    result = 0
+    shift = 0
+    for char in s:
+        result |= ord(char) << shift
+        shift += 8
+    if ord(char) >= 0x80:
+        result -= 1 << shift
+    return result
 
 missing = MISSING()
 

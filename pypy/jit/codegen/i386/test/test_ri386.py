@@ -22,6 +22,27 @@ def test_example():
     s.ADD(eax, eax)
     assert s.getvalue() == '\x90\x01\xC0'
 
+def test_modrm():
+    assert memregister(ecx).assembler() == '%ecx'
+    assert memregister(ebp).assembler() == '%ebp'
+    assert memregister(esp).assembler() == '%esp'
+    assert memSIB(eax, ebx, 0, 2).assembler() == '2(%eax,%ebx,1)'
+    assert memSIB(None, ebx, 1, 2).assembler() == '2(,%ebx,2)'
+    assert memSIB(eax, None, 0, 2).assembler() == '2(%eax)'
+    assert memSIB(None, None, 0, 2).assembler() == '2'
+    assert memSIB(ebp, ebx, 0, 2).assembler() == '2(%ebp,%ebx,1)'
+    assert memSIB(ebp, None, 0, 2).assembler() == '2(%ebp)'
+    assert memSIB(None, ebp, 1, 2).assembler() == '2(,%ebp,2)'
+    assert memSIB(ebp, ebp, 0, 2).assembler() == '2(%ebp,%ebp,1)'
+    assert memSIB(eax, ebx, 0, 0).assembler() == '(%eax,%ebx,1)'
+    assert memSIB(None, ebx, 1, 0).assembler() == '0(,%ebx,2)'
+    assert memSIB(eax, None, 0, 0).assembler() == '(%eax)'
+    assert memSIB(None, None, 0, 0).assembler() == '0'
+    assert memSIB(ebp, ebx, 0, 0).assembler() == '0(%ebp,%ebx,1)'
+    assert memSIB(ebp, None, 0, 0).assembler() == '0(%ebp)'
+    assert memSIB(None, ebp, 1, 0).assembler() == '0(,%ebp,2)'
+    assert memSIB(ebp, ebp, 0, 0).assembler() == '0(%ebp,%ebp,1)'
+
 
 def test_basic():
     def check(expected, insn, *args):
