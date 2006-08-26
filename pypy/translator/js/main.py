@@ -1,7 +1,9 @@
 """Contains high level javascript compilation function
 """
 
-from pypy.translator.js.test.runtest import compile_function
+import autopath
+
+#from pypy.translator.js.test.runtest import compile_function
 #from pypy.translator.translator import TranslationContext
 from pypy.translator.driver import TranslationDriver
 from pypy.translator.js.js import JS
@@ -25,16 +27,21 @@ def get_args(func_data):
     return "(%s)" % ",".join(l)
 
 def rpython2javascript_main(argv):
-    if len(argv) < 2:
-        print __doc__
+    if len(argv) < 1:
+        print "usage: module <function_names>"
+        import sys
         sys.exit(0)
     module_name = argv[0]
+    if module_name.endswith('.py'):
+        module_name = module_name[:-3]
     function_names = argv[1:]
     mod = __import__(module_name, None, None, ["Module"])
     rpython2javascript(mod, function_names)
 
 def rpython2javascript(mod, function_names):
     module_name = mod.__name__
+    if not function_names and 'main' in mod.__dict__:
+        function_names.append('main')
     for func_name in function_names:
         if func_name not in mod.__dict__:
             raise FunctionNotFound("function %r was not found in module %r" % (func_name, module_name))

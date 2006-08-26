@@ -1,5 +1,5 @@
 import cherrypy
-from rpython2javascript import rpython2javascript
+from rpython2javascript.pypy.translator.js.main import rpython2javascript
 
 class TemplatePlugin:
 

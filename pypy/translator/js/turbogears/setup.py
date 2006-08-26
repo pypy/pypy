@@ -30,11 +30,16 @@ setup(
     packages=find_packages(),
     package_data=find_package_data(
                     where='rpython2javascript', package='rpython2javascript',
-                    only_in_packages=False, exclude=('*.pyc', '*~', '.*', '*.bak')),
+                    only_in_packages=False,
+                    exclude='*.pyc *~ .* *.bak *.png *.gif *.jpg *.dot *.pdf *.txt *.html *.log *.graffle *.dump *.rdf *.ttf'.split()),
 
     entry_points="""
+        [turbogears.command]
+        js = rpython2javascript.pypy.translator.js.turbogears.commandjs:JsCommand
+    
         [python.templating.engines]
-        asjavascript = rpython2javascript.pypy.translator.js.turbogears.templateplugin:TemplatePlugin""",
+        asjavascript = rpython2javascript.pypy.translator.js.turbogears.templateplugin:TemplatePlugin
+        """,
         
     #keywords = [
     #    # Use keywords if you'll be adding your package to the
