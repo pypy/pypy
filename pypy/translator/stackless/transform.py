@@ -260,6 +260,8 @@ class StacklessAnalyzer(graphanalyze.GraphAnalyzer):
             return True
         elif op.opname == 'resume_state_invoke':
             return True
+        elif op.opname == 'resume_state_create':
+            return True
         return self.stackless_gc and LL_OPERATIONS[op.opname].canunwindgc
 
     def analyze_external_call(self, op):
