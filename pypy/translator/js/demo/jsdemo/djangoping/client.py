@@ -16,20 +16,13 @@ class PingHandler(BasicExternal):
 
 ping_handler = PingHandler()    
 
-class Pinger(object):
-    """Client side javascript ping code which pings the server"""    
-    def initialise(self):
-        self.log = dom.get_document().getElementById("log")
-    
-    def ping(self):
-        mochikit.logDebug("pinging")
-        ping_handler.ping("PING", callback)
-
-pinger = Pinger()
+def jsping():
+    mochikit.logDebug("pinging")
+    ping_handler.ping("PING", callback)
 
 def callback(data):
     mochikit.logDebug("Got response: " + data["response"])
-    log = pinger.log
+    log = dom.get_document().getElementById("log")
     mochikit.logDebug("got log element")
     try:
         s = "<p>" + data["response"] + "</p>"
@@ -42,11 +35,10 @@ def callback(data):
 
 def doping_onclick(event):
     mochikit.logDebug("calling pinger")
-    pinger.ping()
+    jsping()
 
 def ping_init():
     mochikit.createLoggingPane(True)
-    pinger.initialise()
     button = dom.get_document().getElementById("doping")
     button.onclick = doping_onclick
     mochikit.logDebug("Ping button setup")
