@@ -230,6 +230,12 @@ class Block(CodeGenBlock):
         self.mc.MOVZX(eax, al)
         return self.push(eax)
 
+    def op_getfield(self, (gv_ptr, gv_offset), gv_RESTYPE):
+        assert isinstance(gv_offset, IntConst)
+        offset = gv_offset.value
+        self.mc.MOV(edx, gv_ptr.operand(self))
+        return self.push(mem(edx, offset))
+
 
 class Link(CodeGenLink):
 
@@ -342,6 +348,11 @@ class RI386GenOp(AbstractRGenOp):
     constTYPE = staticmethod(constTYPE)
 
     constPrebuiltGlobal = genconst
+
+    def constFieldName(T, name):
+        return IntConst(llmemory.offsetof(T, name))
+    constFieldName._annspecialcase_ = 'specialize:memo'
+    constFieldName = staticmethod(constFieldName)
 
     def gencallableconst(self, name, block, gv_FUNCTYPE):
         prologue = self.newblock()

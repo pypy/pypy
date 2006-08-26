@@ -19,22 +19,29 @@ class TestTimeshiftI386(test_timeshift.TestTimeshift):
         RGenOp = self.RGenOp
         SEPLINE = self.SEPLINE
         ml_generate_code = self.ml_generate_code
-        argcolors = unrolling_iterable(self.argcolors)
+        argcolors = list(self.argcolors)
+        if hasattr(self.ll_function, 'convert_arguments'):
+            decoders = self.ll_function.convert_arguments
+            assert len(decoders) == len(argcolors)
+        else:
+            decoders = [int] * len(argcolors)
+        argcolors_decoders = zip(argcolors, decoders)
+        argcolors_decoders = unrolling_iterable(argcolors_decoders)
 
         def ll_main(argv):
             i = 1
             mainargs = ()
             residualargs = ()
-            for color in argcolors:
+            for color, decoder in argcolors_decoders:
                 try:
                     if color == 'green':
-                        llvalue = int(argv[i])
+                        llvalue = decoder(argv[i])
                         mainargs += (llvalue,)
                         i = i + 1
                     else:
                         is_const = argv[i] == '-const'
                         i += 1
-                        llvalue = int(argv[i])
+                        llvalue = decoder(argv[i])
                         mainargs += (is_const, llvalue)
                         residualargs += (llvalue,)
                         i += 1 
@@ -69,6 +76,7 @@ class TestTimeshiftI386(test_timeshift.TestTimeshift):
         self.main_cbuilder= cbuilder
         
     def timeshift(self, ll_function, values, opt_consts=[], *args, **kwds):
+        self.ll_function = ll_function
         self.timeshift_cached(ll_function, values, *args, **kwds)
 
         mainargs = []

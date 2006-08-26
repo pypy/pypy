@@ -58,6 +58,12 @@ class TimeshiftingTests(object):
         del cls._cache_order
 
     def timeshift_cached(self, ll_function, values, inline=None, policy=None):
+        # decode the 'values' if they are specified as strings
+        if hasattr(ll_function, 'convert_arguments'):
+            assert len(ll_function.convert_arguments) == len(values)
+            values = [decoder(value) for decoder, value in zip(
+                                        ll_function.convert_arguments, values)]
+
         key = ll_function, inline, policy
         try:
             cache, argtypes = self._cache[key]
@@ -439,16 +445,24 @@ class TestTimeshift(TimeshiftingTests):
         S = lltype.GcStruct('helloworld', ('hello', lltype.Signed),
                                           ('world', lltype.Signed),
                             hints={'immutable': True})
+
         def ll_function(s):
             return s.hello * s.world
-        s1 = lltype.malloc(S)
-        s1.hello = 6
-        s1.world = 7
-        res = self.timeshift(ll_function, [s1], [])
+
+        def build_S(string):
+            items = string.split(',')
+            assert len(items) == 2
+            s1 = lltype.malloc(S)
+            s1.hello = int(items[0])
+            s1.world = int(items[1])
+            return s1
+        ll_function.convert_arguments = [build_S]
+
+        res = self.timeshift(ll_function, ["6,7"], [])
         assert res == 42
         self.check_insns({'getfield': 2, 'int_mul': 1})
-        res = self.timeshift(ll_function, [s1], [0])
-        assert res == 42
+        res = self.timeshift(ll_function, ["8,9"], [0])
+        assert res == 72
         self.check_insns({})
 
     def test_simple_array(self):
