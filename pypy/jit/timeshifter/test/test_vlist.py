@@ -13,9 +13,9 @@ class TestVList(TimeshiftingTests):
             lst = []
             lst.append(12)
             return lst[0]
-        insns, res = self.timeshift(ll_function, [], [], policy=P_OOPSPEC)
+        res = self.timeshift(ll_function, [], [], policy=P_OOPSPEC)
         assert res == 12
-        assert insns == {}
+        self.check_insns({})
 
     def test_enter_block(self):
         def ll_function(flag):
@@ -26,12 +26,12 @@ class TestVList(TimeshiftingTests):
                 return lst[0]
             else:
                 return lst[1]
-        insns, res = self.timeshift(ll_function, [6], [], policy=P_OOPSPEC)
+        res = self.timeshift(ll_function, [6], [], policy=P_OOPSPEC)
         assert res == 6
-        assert insns == {'int_is_true': 1}
-        insns, res = self.timeshift(ll_function, [0], [], policy=P_OOPSPEC)
+        self.check_insns({'int_is_true': 1})
+        res = self.timeshift(ll_function, [0], [], policy=P_OOPSPEC)
         assert res == 131
-        assert insns == {'int_is_true': 1}
+        self.check_insns({'int_is_true': 1})
 
     def test_merge(self):
         def ll_function(flag):
@@ -41,12 +41,12 @@ class TestVList(TimeshiftingTests):
             else:
                 lst.append(131)
             return lst[-1]
-        insns, res = self.timeshift(ll_function, [6], [], policy=P_OOPSPEC)
+        res = self.timeshift(ll_function, [6], [], policy=P_OOPSPEC)
         assert res == 6
-        assert insns == {'int_is_true': 1}
-        insns, res = self.timeshift(ll_function, [0], [], policy=P_OOPSPEC)
+        self.check_insns({'int_is_true': 1})
+        res = self.timeshift(ll_function, [0], [], policy=P_OOPSPEC)
         assert res == 131
-        assert insns == {'int_is_true': 1}
+        self.check_insns({'int_is_true': 1})
 
     def test_replace(self):
         def ll_function(flag):
@@ -56,12 +56,12 @@ class TestVList(TimeshiftingTests):
             else:
                 lst.append(131)
             return lst[-1]
-        insns, res = self.timeshift(ll_function, [6], [], policy=P_OOPSPEC)
+        res = self.timeshift(ll_function, [6], [], policy=P_OOPSPEC)
         assert res == 12
-        assert insns == {'int_is_true': 1}
-        insns, res = self.timeshift(ll_function, [0], [], policy=P_OOPSPEC)
+        self.check_insns({'int_is_true': 1})
+        res = self.timeshift(ll_function, [0], [], policy=P_OOPSPEC)
         assert res == 131
-        assert insns == {'int_is_true': 1}
+        self.check_insns({'int_is_true': 1})
 
     def test_force(self):
         def ll_function(n):
@@ -70,7 +70,7 @@ class TestVList(TimeshiftingTests):
             if n:
                 lst.append(12)
             return lst[-1]
-        insns, res = self.timeshift(ll_function, [6], [], policy=P_OOPSPEC)
+        res = self.timeshift(ll_function, [6], [], policy=P_OOPSPEC)
         assert res == 12
-        insns, res = self.timeshift(ll_function, [0], [], policy=P_OOPSPEC)
+        res = self.timeshift(ll_function, [0], [], policy=P_OOPSPEC)
         assert res == 0

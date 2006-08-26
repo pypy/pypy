@@ -9,6 +9,6 @@ class TestTLR(TimeshiftingTests):
 
     def test_tlr(self):
         bytecode = string_repr.convert_const(tlr.SQUARE)
-        insns, res = self.timeshift(tlr.interpret, [bytecode, 9], [0],
-                                    policy=P_OOPSPEC)
+        res = self.timeshift(tlr.interpret, [bytecode, 9], [0],
+                             policy=P_OOPSPEC)
         assert res == 81
