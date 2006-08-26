@@ -63,6 +63,11 @@ class PtrRepr(Repr):
         if not isinstance(self.lowleveltype.TO, FuncType):
             raise TyperError("calling a non-function %r", self.lowleveltype.TO)
         vlist = hop.inputargs(*hop.args_r)
+        nexpected = len(self.lowleveltype.TO.ARGS)
+        nactual = len(vlist)-1
+        if nactual != nexpected: 
+            raise TyperError("argcount mismatch:  expected %d got %d" %
+                            (nexpected, nactual))
         if isinstance(vlist[0], flowmodel.Constant):
             if hasattr(vlist[0].value, 'graph'):
                 hop.llops.record_extra_call(vlist[0].value.graph)
@@ -74,6 +79,13 @@ class PtrRepr(Repr):
         return hop.genop(opname, vlist,
                          resulttype = self.lowleveltype.TO.RESULT)
 
+    def rtype_call_args(self, hop):
+        from pypy.rpython.rbuiltin import call_args_expand
+        hop, _ = call_args_expand(hop, takes_kwds=False)
+        hop.swap_fst_snd_args()
+        hop.r_s_popfirstarg()
+        return self.rtype_simple_call(hop)
+        
 
 class __extend__(pairtype(PtrRepr, IntegerRepr)):
 

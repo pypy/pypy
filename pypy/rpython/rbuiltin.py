@@ -49,6 +49,42 @@ class __extend__(annmodel.SomeBuiltin):
             # to it.
             return (self.__class__, self.methodname, id(self.s_self))
 
+def call_args_expand(hop, takes_kwds = True):
+    hop = hop.copy()
+    from pypy.interpreter.argument import Arguments
+    arguments = Arguments.fromshape(None, hop.args_s[1].const, # shape
+                                    range(hop.nb_args-2))
+    if arguments.w_starstararg is not None:
+        raise TyperError("**kwds call not implemented")
+    if arguments.w_stararg is not None:
+        # expand the *arg in-place -- it must be a tuple
+        from pypy.rpython.rtuple import AbstractTupleRepr
+        if arguments.w_stararg != hop.nb_args - 3:
+            raise TyperError("call pattern too complex")
+        hop.nb_args -= 1
+        v_tuple = hop.args_v.pop()
+        s_tuple = hop.args_s.pop()
+        r_tuple = hop.args_r.pop()
+        if not isinstance(r_tuple, AbstractTupleRepr):
+            raise TyperError("*arg must be a tuple")
+        for i in range(len(r_tuple.items_r)):
+            v_item = r_tuple.getitem_internal(hop.llops, v_tuple, i)
+            hop.nb_args += 1
+            hop.args_v.append(v_item)
+            hop.args_s.append(s_tuple.items[i])
+            hop.args_r.append(r_tuple.items_r[i])
+
+    kwds = arguments.kwds_w or {}
+    if not takes_kwds and kwds:
+        raise TyperError("kwds args not supported")
+    # prefix keyword arguments with 'i_'
+    kwds_i = {}
+    for key, index in kwds.items():
+        kwds_i['i_'+key] = index
+
+    return hop, kwds_i
+
+
 class BuiltinFunctionRepr(Repr):
     lowleveltype = lltype.Void
 
@@ -81,34 +117,7 @@ class BuiltinFunctionRepr(Repr):
         # calling a built-in function with keyword arguments:
         # mostly for rpython.objectmodel.hint() and for constructing
         # rctypes structures
-        from pypy.interpreter.argument import Arguments
-        arguments = Arguments.fromshape(None, hop.args_s[1].const, # shape
-                                        range(hop.nb_args-2))
-        if arguments.w_starstararg is not None:
-            raise TyperError("**kwds call not implemented")
-        if arguments.w_stararg is not None:
-            # expand the *arg in-place -- it must be a tuple
-            from pypy.rpython.rtuple import AbstractTupleRepr
-            if arguments.w_stararg != hop.nb_args - 3:
-                raise TyperError("call pattern too complex")
-            hop.nb_args -= 1
-            v_tuple = hop.args_v.pop()
-            s_tuple = hop.args_s.pop()
-            r_tuple = hop.args_r.pop()
-            if not isinstance(r_tuple, AbstractTupleRepr):
-                raise TyperError("*arg must be a tuple")
-            for i in range(len(r_tuple.items_r)):
-                v_item = r_tuple.getitem_internal(hop.llops, v_tuple, i)
-                hop.nb_args += 1
-                hop.args_v.append(v_item)
-                hop.args_s.append(s_tuple.items[i])
-                hop.args_r.append(r_tuple.items_r[i])
-
-        kwds = arguments.kwds_w or {}
-        # prefix keyword arguments with 'i_'
-        kwds_i = {}
-        for key, index in kwds.items():
-            kwds_i['i_'+key] = index
+        hop, kwds_i = call_args_expand(hop)
 
         bltintyper = self.findbltintyper(hop.rtyper)
         hop2 = hop.copy()

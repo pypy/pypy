@@ -1,3 +1,4 @@
+import py
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.rpython.annlowlevel import annotate_lowlevel_helper, LowLevelAnnotatorPolicy
 from pypy.rpython.lltypesystem.lltype import *
@@ -181,3 +182,25 @@ def test_flavored_malloc():
 
     res = interpret(fn, [23])
     assert res == 23
+
+
+def test_call_ptr():
+    def f(x,y,z):
+        return x+y+z
+    FTYPE = FuncType([Signed, Signed, Signed], Signed)
+    fptr = functionptr(FTYPE, "f", _callable=f)
+
+    def g(x,y,z):
+        tot = 0
+        tot += fptr(x,y,z)
+        tot += fptr(*(x,y,z))
+        tot += fptr(x, *(x,z))
+        return tot
+
+    res = interpret(g, [1,2,4])
+    assert res == g(1,2,4)
+
+    def wrong(x,y):
+        fptr(*(x,y))
+
+    py.test.raises(TypeError, "interpret(wrong, [1, 2])")
