@@ -211,7 +211,7 @@ class TimeshiftingTests(object):
 ##        ml_call_residual_graph = self.ml_call_residual_graph
 
         def ml_main(*args):
-            rgenop = RGenOp.get_rgenop_for_testing()
+            rgenop = RGenOp()
             return ml_generate_code(rgenop, *args)
 
         ml_main.args_s = ml_generate_code.args_s[1:]

@@ -325,10 +325,6 @@ class RI386GenOp(AbstractRGenOp):
     def __init__(self):
         self.mcs = []   # machine code blocks where no-one is currently writing
 
-    def get_rgenop_for_testing():
-        return RI386GenOp()
-    get_rgenop_for_testing = staticmethod(get_rgenop_for_testing)
-
     def open_mc(self):
         if self.mcs:
             # XXX think about inserting NOPS for alignment

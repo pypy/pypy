@@ -59,7 +59,7 @@ class TestTimeshiftI386(test_timeshift.TestTimeshift):
                     if j == i:
                         os.write(1, '-->\n')
                     return 1
-            rgenop = RGenOp.get_rgenop_for_testing()
+            rgenop = RGenOp()
             generated = ml_generate_code(rgenop, *mainargs)
             os.write(1, SEPLINE)
             res = generated(*residualargs)

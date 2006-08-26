@@ -52,7 +52,7 @@ class HintTimeshift(object):
         self.r_box_accum.setup()
 
         def ll_make_builder():
-            rgenop = RGenOp.get_rgenop_for_testing()
+            rgenop = RGenOp()
             return rtimeshift.make_builder(rgenop)
 
         # XXX find a different way to enforce the interface types

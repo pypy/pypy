@@ -103,10 +103,6 @@ class RGenOp(AbstractRGenOp):
         return llimpl.buildgraph(b)
     buildgraph = staticmethod(buildgraph)
 
-    def get_rgenop_for_testing():
-        return rgenop
-    get_rgenop_for_testing = staticmethod(get_rgenop_for_testing)
-
     def _freeze_(self):
         return True    # no real point in using a full class in llgraph
 
