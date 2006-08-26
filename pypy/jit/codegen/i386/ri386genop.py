@@ -1,5 +1,4 @@
 from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.jit.codegen.i386.codebuf import MachineCodeBlock
 from pypy.jit.codegen.i386.ri386 import *
 from pypy.jit.codegen.model import AbstractRGenOp, CodeGenBlock, CodeGenLink
 from pypy.jit.codegen.model import GenVar, GenConst
@@ -318,7 +317,8 @@ class Link(CodeGenLink):
 
 
 class RI386GenOp(AbstractRGenOp):
-    
+    from pypy.jit.codegen.i386.codebuf import MachineCodeBlock
+
     gv_IntWord = TypeConst('IntWord')
     gv_Void = TypeConst('Void')
 
