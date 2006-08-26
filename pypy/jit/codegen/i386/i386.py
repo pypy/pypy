@@ -402,6 +402,13 @@ IMUL.mode2(REG, IMM8,  ['\x6B', register(1,9), '\xC0', immediate(2,'b')])
 IMUL.mode2(REG, IMM32, ['\x69', register(1,9), '\xC0', immediate(2)])
 IMUL.mode2(REG, MODRM, ['\x0F\xAF', register(1,8), modrm(2)])
 
+IDIV = Instruction()
+IDIV.mode1(MODRM,  ['\xF7', orbyte(7<<3), modrm(1)])
+IDIV.mode1(MODRM8, ['\xF6', orbyte(7<<3), modrm(1)])
+
+CDQ = Instruction()
+CDQ.mode0(['\x99'])
+
 MOVSX = Instruction()
 MOVSX.mode2(REG, MODRM8, ['\x0F\xBE', register(1,8), modrm(2,'b')])
 MOVSX.as_all_suffixes = 1

@@ -106,6 +106,7 @@ class Block(CodeGenBlock):
     def close2(self, gv_condition):
         false_block = self.rgenop.newblock()
         false_block.stackdepth = self.stackdepth
+        # XXX what if gv_condition is a Const?
         self.mc.CMP(gv_condition.operand(self), imm8(0))
         self.mc.JE(rel32(false_block.startaddr))
         return Link(false_block), Link(self)
@@ -129,10 +130,96 @@ class Block(CodeGenBlock):
         self.mc.SUB(eax, gv_y.operand(self))
         return self.push(eax)
 
+    def op_int_mul(self, (gv_x, gv_y), gv_RESTYPE):
+        self.mc.MOV(eax, gv_x.operand(self))
+        self.mc.IMUL(eax, gv_y.operand(self))
+        return self.push(eax)
+
+    def op_int_floordiv(self, (gv_x, gv_y), gv_RESTYPE):
+        self.mc.MOV(eax, gv_x.operand(self))
+        self.mc.CDQ()
+        self.mc.MOV(ecx, gv_y.operand(self))
+        self.mc.IDIV(ecx)
+        return self.push(eax)
+
+    def op_int_and(self, (gv_x, gv_y), gv_RESTYPE):
+        self.mc.MOV(eax, gv_x.operand(self))
+        self.mc.AND(eax, gv_y.operand(self))
+        return self.push(eax)
+
+    def op_int_or(self, (gv_x, gv_y), gv_RESTYPE):
+        self.mc.MOV(eax, gv_x.operand(self))
+        self.mc.OR(eax, gv_y.operand(self))
+        return self.push(eax)
+
+    def op_int_xor(self, (gv_x, gv_y), gv_RESTYPE):
+        self.mc.MOV(eax, gv_x.operand(self))
+        self.mc.XOR(eax, gv_y.operand(self))
+        return self.push(eax)
+
+    def op_int_lt(self, (gv_x, gv_y), gv_RESTYPE):
+        self.mc.MOV(eax, gv_x.operand(self))
+        self.mc.CMP(eax, gv_y.operand(self))
+        self.mc.SETL(al)
+        self.mc.MOVZX(eax, al)
+        return self.push(eax)
+
+    def op_int_le(self, (gv_x, gv_y), gv_RESTYPE):
+        self.mc.MOV(eax, gv_x.operand(self))
+        self.mc.CMP(eax, gv_y.operand(self))
+        self.mc.SETLE(al)
+        self.mc.MOVZX(eax, al)
+        return self.push(eax)
+
+    def op_int_eq(self, (gv_x, gv_y), gv_RESTYPE):
+        self.mc.MOV(eax, gv_x.operand(self))
+        self.mc.CMP(eax, gv_y.operand(self))
+        self.mc.SETE(al)
+        self.mc.MOVZX(eax, al)
+        return self.push(eax)
+
+    def op_int_ne(self, (gv_x, gv_y), gv_RESTYPE):
+        self.mc.MOV(eax, gv_x.operand(self))
+        self.mc.CMP(eax, gv_y.operand(self))
+        self.mc.SETNE(al)
+        self.mc.MOVZX(eax, al)
+        return self.push(eax)
+
     def op_int_gt(self, (gv_x, gv_y), gv_RESTYPE):
         self.mc.MOV(eax, gv_x.operand(self))
         self.mc.CMP(eax, gv_y.operand(self))
         self.mc.SETG(al)
+        self.mc.MOVZX(eax, al)
+        return self.push(eax)
+
+    def op_int_ge(self, (gv_x, gv_y), gv_RESTYPE):
+        self.mc.MOV(eax, gv_x.operand(self))
+        self.mc.CMP(eax, gv_y.operand(self))
+        self.mc.SETGE(al)
+        self.mc.MOVZX(eax, al)
+        return self.push(eax)
+
+    def op_int_neg(self, (gv_x,), gv_RESTYPE):
+        self.mc.MOV(eax, gv_x.operand(self))
+        self.mc.NEG(eax)
+        return self.push(eax)
+
+    def op_int_lshift(self, (gv_x, gv_y), gv_RESTYPE):
+        self.mc.MOV(eax, gv_x.operand(self))
+        self.mc.MOV(ecx, gv_y.operand(self))
+        self.mc.SHL(eax, cl)
+        return self.push(eax)
+
+    def op_int_rshift(self, (gv_x, gv_y), gv_RESTYPE):
+        self.mc.MOV(eax, gv_x.operand(self))
+        self.mc.MOV(ecx, gv_y.operand(self))
+        self.mc.SHR(eax, cl)
+        return self.push(eax)
+
+    def op_bool_not(self, (gv_x,), gv_RESTYPE):
+        # XXX what if gv_x is a Const?
+        self.mc.CMP(gv_x.operand(self), imm8(0))
+        self.mc.SETE(al)
         self.mc.MOVZX(eax, al)
         return self.push(eax)
 
