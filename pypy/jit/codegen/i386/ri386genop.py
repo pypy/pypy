@@ -321,8 +321,8 @@ class RI386GenOp(AbstractRGenOp):
 
     def genconst(llvalue):
         T = lltype.typeOf(llvalue)
-        assert T is lltype.Signed
-        return IntConst(llvalue)
+        assert isinstance(T, lltype.Primitive)
+        return IntConst(lltype.cast_primitive(lltype.Signed, llvalue))
     genconst._annspecialcase_ = 'specialize:genconst(0)'
     genconst = staticmethod(genconst)
 
