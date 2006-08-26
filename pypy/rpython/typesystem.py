@@ -29,6 +29,9 @@ class TypeSystem(object):
 
         raise AttributeError(name)
 
+    def derefType(self, T):
+        raise NotImplementedError()
+
     def deref(self, obj):
         """Dereference `obj' to concrete object."""
         raise NotImplementedError()
@@ -74,6 +77,10 @@ class LowLevelTypeSystem(TypeSystem):
     name = "lltypesystem"
     callable_trait = (lltype.FuncType, lltype.functionptr)
 
+    def derefType(self, T):
+        assert isinstance(T, lltype.Ptr)
+        return T.TO
+
     def deref(self, obj):
         assert isinstance(lltype.typeOf(obj), lltype.Ptr)
         return obj._obj
@@ -110,6 +117,10 @@ class LowLevelTypeSystem(TypeSystem):
 class ObjectOrientedTypeSystem(TypeSystem):
     name = "ootypesystem"
     callable_trait = (ootype.StaticMethod, ootype.static_meth)
+
+    def derefType(self, T):
+        assert isinstance(T, ootype.OOType)
+        return T
 
     def deref(self, obj):
         assert isinstance(ootype.typeOf(obj), ootype.OOType)

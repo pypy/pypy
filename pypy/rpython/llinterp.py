@@ -481,18 +481,30 @@ class LLFrame(object):
                 write_barrier = gc.get_funcptr_write_barrier()
                 self.op_direct_call(write_barrier, *args)
 
-    def op_direct_call(self, f, *args):
-        obj = self.llinterpreter.typer.type_system.deref(f)
-        has_callable = getattr(obj, '_callable', None) is not None
-        if has_callable and getattr(obj._callable, 'suggested_primitive', False):
+
+    def perform_call(self, f, ARGS, args):
+        fobj = self.llinterpreter.typer.type_system.deref(f)
+        has_callable = getattr(fobj, '_callable', None) is not None
+        if has_callable and getattr(fobj._callable, 'suggested_primitive', False):
                 return self.invoke_callable_with_pyexceptions(f, *args)
-        if hasattr(obj, 'graph'):
-            graph = obj.graph
+        if hasattr(fobj, 'graph'):
+            graph = fobj.graph
         else:
             assert has_callable, "don't know how to execute %r" % f
             return self.invoke_callable_with_pyexceptions(f, *args)
+        args_v = graph.getargs()
+        if len(ARGS) != len(args_v):
+            raise TypeError("graph with %d args called with wrong func ptr type: %r" %(len(args_v), ARGS)) 
+        for T, v in zip(ARGS, args_v):
+            if not lltype.isCompatibleType(T, v.concretetype):
+                raise TypeError("graph with %d args called with wrong func ptr type: %r" %
+                                (tuple([v.concretetype for v in args_v]), ARGS)) 
         frame = self.__class__(graph, args, self.llinterpreter, self)
-        return frame.eval()
+        return frame.eval()        
+
+    def op_direct_call(self, f, *args):
+        FTYPE = self.llinterpreter.typer.type_system.derefType(lltype.typeOf(f))
+        return self.perform_call(f, FTYPE.ARGS, args)
 
     op_safe_call = op_direct_call
 
@@ -788,7 +800,7 @@ class LLFrame(object):
         args = m._checkargs(args, check_callable=False)
         if getattr(m, 'abstract', False):
             raise RuntimeError("calling abstract method %r" % (m,))
-        return self.op_direct_call(m, inst, *args)
+        return self.perform_call(m, (lltype.typeOf(inst),)+lltype.typeOf(m).ARGS, [inst]+args)
 
     def op_ooupcast(self, INST, inst):
         return ootype.ooupcast(INST, inst)

@@ -231,11 +231,17 @@ class HintRTyper(RPythonTyper):
             graph = bk.get_graph_for_call(fnobj.graph, False, args_hs)
             args_r = [self.getrepr(hs) for hs in args_hs]
             args_v = hop.inputargs(*args_r)
-            fnptr = self.getcallable(graph)
+            ARGS = [ts.r_ResidualGraphBuilder.lowleveltype,
+                    ts.r_JITState.lowleveltype]
+            ARGS += [r.lowleveltype for r in args_r]
+            RESULT = ts.r_ResidualGraphBuilder.lowleveltype
+            fnptr = lltype.functionptr(lltype.FuncType(ARGS, RESULT),
+                                       graph.name,
+                                       graph=graph,
+                                       _callable = graph.func)
             self.timeshifter.schedule_graph(graph)
             args_v[:0] = [hop.llops.genconst(fnptr), v_builder, v_jitstate]
-            v_newbuilder = hop.genop('direct_call', args_v,
-                                     ts.r_ResidualGraphBuilder.lowleveltype)
+            v_newbuilder = hop.genop('direct_call', args_v, RESULT)
             return hop.llops.genmixlevelhelpercall(rtimeshift.after_call,
                                    [ts.s_JITState, ts.s_ResidualGraphBuilder],
                                    [v_jitstate,    v_newbuilder],

@@ -93,6 +93,7 @@ class ExceptionData(AbstractExceptionData):
         # expects a low-level callable (_meth, _static_meth), so we just
         # fake it here.
         FakeCallableType = ootype.OOType()
+        FakeCallableType.ARGS = ()
         class fake_callable(object):
             def __init__(self, fn):
                 self._TYPE = FakeCallableType

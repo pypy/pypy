@@ -199,7 +199,7 @@ class StaticMethod(SpecializableType):
         return null(self)
 
     def __repr__(self):
-        return "<StaticMethod(%s, %s)>" % (list(self.ARGS), self.RESULT)
+        return "<%s(%s, %s)>" % (self.__class__.__name__, list(self.ARGS), self.RESULT)
 
     def _specialize(self, generic_types):
         ARGS = tuple([self._specialize_type(ARG, generic_types)
