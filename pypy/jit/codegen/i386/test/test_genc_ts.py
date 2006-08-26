@@ -7,7 +7,7 @@ from pypy.translator.c.genc import CStandaloneBuilder
 from pypy.rpython.unroll import unrolling_iterable
 from pypy.jit.codegen.i386.ri386genop import RI386GenOp
 
-#import py; py.test.skip("in-progress")
+import py; py.test.skip("in-progress")
 
 
 class TestTimeshiftI386(test_timeshift.TestTimeshift):

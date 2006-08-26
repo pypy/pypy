@@ -3,7 +3,7 @@ from pypy.annotation import model as annmodel
 from pypy.jit.timeshifter.test import test_timeshift
 from pypy.jit.codegen.i386.ri386genop import RI386GenOp
 
-#import py; py.test.skip("in-progress")
+import py; py.test.skip("in-progress")
 
 class LLTypeRI386GenOp(RI386GenOp):
     from pypy.jit.codegen.i386.codebuf import LLTypeMachineCodeBlock as MachineCodeBlock
