@@ -236,7 +236,7 @@ class RI386GenOp(AbstractRGenOp):
         T = lltype.typeOf(llvalue)
         assert T is lltype.Signed
         return IntConst(llvalue)
-    genconst._annspecialcase_ = 'specialize:ll'
+    genconst._annspecialcase_ = 'specialize:genconst(0)'
     genconst = staticmethod(genconst)
 
     def constTYPE(T):
@@ -246,6 +246,8 @@ class RI386GenOp(AbstractRGenOp):
             return RI386GenOp.gv_IntWord   # XXX for now
     constTYPE._annspecialcase_ = 'specialize:memo'
     constTYPE = staticmethod(constTYPE)
+
+    constPrebuiltGlobal = genconst
 
     def gencallableconst(self, name, block, gv_FUNCTYPE):
         prologue = self.newblock()

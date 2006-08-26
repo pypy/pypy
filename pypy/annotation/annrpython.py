@@ -98,23 +98,32 @@ class RPythonAnnotator(object):
 
         return self.build_graph_types(flowgraph, inputcells, complete_now=complete_now)
 
-    def annotate_helper(self, function, args_s, policy=None, complete_now=True):
-        args_s = args_s[:]
-        saved = self.policy, self.added_blocks
+    def get_call_parameters(self, function, args_s, policy):
+        desc = self.bookkeeper.getdesc(function)
+        args = self.bookkeeper.build_args("simple_call", args_s[:])
+        result = []
+        def schedule(graph, inputcells):
+            result.append((graph, inputcells))
+            return annmodel.s_ImpossibleValue
+
+        prevpolicy = self.policy
+        self.policy = policy
+        self.bookkeeper.enter(None)
+        try:
+            desc.pycall(schedule, args, annmodel.s_ImpossibleValue)
+        finally:
+            self.bookkeeper.leave()
+            self.policy = prevpolicy
+        [(graph, inputcells)] = result
+        return graph, inputcells
+
+    def annotate_helper(self, function, args_s, policy=None):
         if policy is None:
             from pypy.annotation.policy import AnnotatorPolicy
             policy = AnnotatorPolicy()
-        self.policy = policy
-        try:
-            self.added_blocks = {}
-            desc = self.bookkeeper.getdesc(function)
-            graph = desc.specialize(args_s)
-            if complete_now:
-                self.build_graph_types(graph, args_s)
-            # invoke annotation simplifications for the new blocks
-            self.simplify(block_subset=self.added_blocks)
-        finally:
-            self.policy, self.added_blocks = saved
+        graph, inputcells = self.get_call_parameters(function, args_s, policy)
+        self.build_graph_types(graph, inputcells, complete_now=False)
+        self.complete_helpers(policy)
         return graph
 
     def complete_helpers(self, policy):
@@ -123,6 +132,7 @@ class RPythonAnnotator(object):
         try:
             self.added_blocks = {}
             self.complete()
+            # invoke annotation simplifications for the new blocks
             self.simplify(block_subset=self.added_blocks)
         finally:
             self.policy, self.added_blocks = saved

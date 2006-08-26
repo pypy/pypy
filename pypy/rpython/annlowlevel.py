@@ -121,12 +121,19 @@ class MixLevelAnnotatorPolicy(LowLevelAnnotatorPolicy):
             return super(MixLevelAnnotatorPolicy, pol).default_specialize(
                 funcdesc, args_s)
         else:
-            return funcdesc.cachedgraph(None)
+            return AnnotatorPolicy.default_specialize(funcdesc, args_s)
 
     def specialize__arglltype(pol, funcdesc, args_s, i):
         key = pol.rtyper.getrepr(args_s[i]).lowleveltype
         alt_name = funcdesc.name+"__for_%sLlT" % key._short_name()
-        return funcdesc.cachedgraph(key, alt_name=valid_identifier(alt_name))        
+        return funcdesc.cachedgraph(key, alt_name=valid_identifier(alt_name))
+
+    def specialize__genconst(pol, funcdesc, args_s, i):
+        # XXX this is specific to the JIT
+        TYPE = annmodel.annotation_to_lltype(args_s[i], 'genconst')
+        args_s[i] = annmodel.lltype_to_annotation(TYPE)
+        alt_name = funcdesc.name + "__%s" % (TYPE._short_name(),)
+        return funcdesc.cachedgraph(TYPE, alt_name=valid_identifier(alt_name))
 
 
 class MixLevelHelperAnnotator:
@@ -144,12 +151,12 @@ class MixLevelHelperAnnotator:
         # get the graph of the mix-level helper ll_function and prepare it for
         # being annotated.  Annotation and RTyping should be done in a single shot
         # at the end with finish().
-        graph = self.rtyper.annotator.annotate_helper(ll_function, args_s,
-                                                      policy = self.policy,
-                                                      complete_now = False)
+        graph, args_s = self.rtyper.annotator.get_call_parameters(
+            ll_function, args_s, policy = self.policy)
         for v_arg, s_arg in zip(graph.getargs(), args_s):
             self.rtyper.annotator.setbinding(v_arg, s_arg)
         self.rtyper.annotator.setbinding(graph.getreturnvar(), s_result)
+        #self.rtyper.annotator.annotated[graph.returnblock] = graph
         self.pending.append((ll_function, graph, args_s, s_result))
         return graph
 

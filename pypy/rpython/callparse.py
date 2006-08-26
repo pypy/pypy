@@ -125,7 +125,7 @@ class NewTupleHolder(Holder):
                 break
         else:
             if 0 < len(holders) == len(holders[0].holder.items()):
-                return h[0].holder
+                return holders[0].holder
         inst = Holder.__new__(cls)
         inst.holders = tuple(holders)
         return inst

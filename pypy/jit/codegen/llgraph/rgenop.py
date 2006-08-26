@@ -65,7 +65,7 @@ class RGenOp(AbstractRGenOp):
 
     def genconst(llvalue):
         return LLConst(llimpl.genconst(llvalue))
-    genconst._annspecialcase_ = 'specialize:ll'
+    genconst._annspecialcase_ = 'specialize:genconst(0)'
     genconst = staticmethod(genconst)
 
     def constTYPE(T):

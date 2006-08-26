@@ -413,12 +413,12 @@ class HintTimeshift(object):
         for r, newvar in zip(args_r, newinputargs):
             if isinstance(r, GreenRepr):
                 r_from = getrepr(r.annotation())
-                erased_s = r.erased_annotation()
-                r_to = getrepr(erased_s)
-                items_s.append(erased_s)
-                erased_v = llops.convertvar(newvar, r_from, r_to)
+                s_erased = r.erased_annotation()
+                r_to = getrepr(s_erased)
+                items_s.append(s_erased)
+                v_erased = llops.convertvar(newvar, r_from, r_to)
                 orig_key_v.append(newvar)
-                key_v.append(erased_v)
+                key_v.append(v_erased)
 
         s_key_tuple = annmodel.SomeTuple(items_s)
         r_key = getrepr(s_key_tuple)

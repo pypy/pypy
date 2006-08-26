@@ -57,132 +57,194 @@ class TimeshiftingTests(object):
         del cls._cache
         del cls._cache_order
 
-    def timeshift_cached(self, ll_function, values, inline, policy):
+    def timeshift_cached(self, ll_function, values, inline=None, policy=None):
         key = ll_function, inline, policy
         try:
-            result, argtypes = self._cache[key]
+            cache, argtypes = self._cache[key]
         except KeyError:
-            if len(self._cache_order) >= 3:
-                del self._cache[self._cache_order.pop(0)]
-            hs, ha, rtyper = hannotate(ll_function, values,
-                                       inline=inline, policy=policy)
-            htshift = HintTimeshift(ha, rtyper, self.RGenOp)
-            RESTYPE = htshift.originalconcretetype(
-                ha.translator.graphs[0].getreturnvar())
-            htshift.timeshift()
-            t = rtyper.annotator.translator
-            for graph in ha.translator.graphs:
-                checkgraph(graph)
-                t.graphs.append(graph)
-            if conftest.option.view:
-                from pypy.translator.tool.graphpage import FlowGraphPage
-                FlowGraphPage(t, ha.translator.graphs).display()
-            result = hs, ha, rtyper, htshift, RESTYPE
-            self._cache[key] = result, getargtypes(rtyper.annotator, values)
-            self._cache_order.append(key)
+            pass
         else:
-            hs, ha, rtyper, htshift, RESTYPE = result
-            assert argtypes == getargtypes(rtyper.annotator, values)
-        return result
+            self.__dict__.update(cache)
+            assert argtypes == getargtypes(self.rtyper.annotator, values)
+            return
 
-    def timeshift(self, ll_function, values, opt_consts=[], inline=None,
-                  policy=None):
-        hs, ha, rtyper, htshift, RESTYPE = self.timeshift_cached(
-            ll_function, values, inline, policy)
-        # build a runner function
-        original_entrypoint_graph = rtyper.annotator.translator.graphs[0]
-        graph1 = ha.translator.graphs[0]
-        timeshifted_entrypoint_fnptr = rtyper.type_system.getcallable(graph1)
+        if len(self._cache_order) >= 3:
+            del self._cache[self._cache_order.pop(0)]
+        hs, ha, rtyper = hannotate(ll_function, values,
+                                   inline=inline, policy=policy)
+
+        # make the timeshifted graphs
+        htshift = HintTimeshift(ha, rtyper, self.RGenOp)
+        RESTYPE = htshift.originalconcretetype(
+            ha.translator.graphs[0].getreturnvar())
+        htshift.timeshift()
+        t = rtyper.annotator.translator
+        for graph in ha.translator.graphs:
+            checkgraph(graph)
+            t.graphs.append(graph)
+        if conftest.option.view:
+            from pypy.translator.tool.graphpage import FlowGraphPage
+            FlowGraphPage(t, ha.translator.graphs).display()
+
+        # make an interface to the timeshifted graphs:
+        #
+        #  - a green input arg in the timeshifted entry point
+        #    must be provided as a value in 'args'
+        #
+        #  - a redbox input arg in the timeshifted entry point must
+        #    be provided as two entries in 'args': a boolean flag
+        #    (True=constant, False=variable) and a value
+        #
+        graph1 = ha.translator.graphs[0]   # the timeshifted entry point
         assert len(graph1.getargs()) == 2 + len(values)
         graph1varargs = graph1.getargs()[2:]
-
-        argdescription = []   # list of: ("green"/"redconst"/"redvar", value)
-        residual_args = []
-        residual_argtypes = []
         timeshifted_entrypoint_args_s = []
+        residual_argtypes = []
+        argcolors = []
+        generate_code_args_s = []
 
-        for i, (v, llvalue) in enumerate(zip(graph1varargs, values)):
+        for v, llvalue in zip(graph1varargs, values):
+            s_var = annmodel.ll_to_annotation(llvalue)
             r = htshift.hrtyper.bindingrepr(v)
             residual_v = r.residual_values(llvalue)
             if len(residual_v) == 0:
-                # green
                 color = "green"
-                s_var = annmodel.ll_to_annotation(llvalue)
                 timeshifted_entrypoint_args_s.append(s_var)
             else:
-                # red
+                color = "red"
                 assert residual_v == [llvalue], "XXX for now"
-                if i in opt_consts:
-                    color = "redconst"
-                else:
-                    color = "redvar"
-                    ARGTYPE = htshift.originalconcretetype(v)
-                    residual_argtypes.append(ARGTYPE)
-                    residual_args.append(llvalue)
+                ARGTYPE = htshift.originalconcretetype(v)
+                residual_argtypes.append(ARGTYPE)
                 timeshifted_entrypoint_args_s.append(htshift.s_RedBox)
-            argdescription.append((color, llvalue))
+                generate_code_args_s.append(annmodel.SomeBool())
+            argcolors.append(color)
+            generate_code_args_s.append(s_var)
 
-        argdescription = unrolling_iterable(argdescription)
-        RGenOp = self.RGenOp
+        timeshifted_entrypoint_fnptr = rtyper.type_system.getcallable(
+            graph1)
         timeshifted_entrypoint = PseudoHighLevelCallable(
             timeshifted_entrypoint_fnptr,
             [htshift.s_ResidualGraphBuilder, htshift.s_JITState]
             + timeshifted_entrypoint_args_s,
             htshift.s_ResidualGraphBuilder)
-        FUNCTYPE = lltype.FuncType(residual_argtypes, RESTYPE)
-        gv_functype = RGenOp.constTYPE(FUNCTYPE)
+        FUNC = lltype.FuncType(residual_argtypes, RESTYPE)
+        argcolors = unrolling_iterable(argcolors)
+        self.argcolors = argcolors
 
-        def ll_runner(rgenop):
-            builder = rtimeshift.make_builder(rgenop)
+        def ml_generate_code(rgenop, *args):
             timeshifted_entrypoint_args = ()
-            for color, llvalue in argdescription:
+            builder = rtimeshift.make_builder(rgenop)
+            for color in argcolors:
                 if color == "green":
+                    llvalue = args[0]
+                    args = args[1:]
                     timeshifted_entrypoint_args += (llvalue,)
                 else:
+                    is_constant = args[0]
+                    llvalue     = args[1]
+                    args = args[2:]
                     TYPE = lltype.typeOf(llvalue)
                     gv_type = rgenop.constTYPE(TYPE)
                     boxcls = rvalue.ll_redboxcls(TYPE)
-                    if color == "redconst":
+                    gv_arg = rtimeshift.ll_geninputarg(builder, gv_type)
+                    if is_constant:
+                        # ignore the gv_arg above, which is still present
+                        # to give the residual graph a uniform signature
                         gv_arg = rgenop.genconst(llvalue)
-                    else:
-                        gv_arg = rtimeshift.ll_geninputarg(builder, gv_type)
                     box = boxcls(gv_type, gv_arg)
                     timeshifted_entrypoint_args += (box,)
             startblock = rtimeshift.ll_end_setup_builder(builder)
             endbuilder = timeshifted_entrypoint(builder, None,
-                                                *timeshifted_entrypoint_args)
+                                              *timeshifted_entrypoint_args)
             endbuilder.finish_and_return()
+            gv_functype = rgenop.constTYPE(FUNC)
             gv_generated = rgenop.gencallableconst("generated", startblock,
                                                    gv_functype)
-            return gv_generated
+            generated = gv_generated.revealconst(lltype.Ptr(FUNC))
+            return generated
 
+        ml_generate_code.args_s = ["XXX rgenop"] + generate_code_args_s
+        ml_generate_code.s_result = annmodel.lltype_to_annotation(
+            lltype.Ptr(FUNC))
+
+##        def ml_extract_residual_args(*args):
+##            result = ()
+##            for color in argcolors:
+##                if color == "green":
+##                    args = args[1:]
+##                else:
+##                    is_constant = args[0]
+##                    llvalue     = args[1]
+##                    args = args[2:]
+##                    result += (llvalue,)
+##            return result
+
+##        def ml_call_residual_graph(generated, *allargs):
+##            residual_args = ml_extract_residual_args(*allargs)
+##            return generated(*residual_args)
+
+##        ml_call_residual_graph.args_s = (
+##            [ml_generate_code.s_result, ...])
+##        ml_call_residual_graph.s_result = annmodel.lltype_to_annotation(
+##            RESTYPE)
+
+        self.ml_generate_code = ml_generate_code
+##        self.ml_call_residual_graph = ml_call_residual_graph
         self.rtyper = rtyper
         self.htshift = htshift
-        self.FUNCTYPE = FUNCTYPE
-        return self.timeshift_test(ll_runner, residual_args)
+        self.annotate_interface_functions()
 
-    def timeshift_test(self, ll_runner, residual_args):
-        RGenOp = self.RGenOp
-        def ll_main():
-            rgenop = RGenOp.get_rgenop_for_testing()
-            return ll_runner(rgenop)
+        cache = self.__dict__.copy()
+        self._cache[key] = cache, getargtypes(rtyper.annotator, values)
+        self._cache_order.append(key)
 
+    def annotate_interface_functions(self):
         annhelper = self.htshift.annhelper
-        runner_graph = annhelper.getgraph(ll_main, [],
-                                          self.htshift.s_ConstOrVar)
+        RGenOp = self.RGenOp
+        ml_generate_code = self.ml_generate_code
+##        ml_call_residual_graph = self.ml_call_residual_graph
+
+        def ml_main(*args):
+            rgenop = RGenOp.get_rgenop_for_testing()
+            return ml_generate_code(rgenop, *args)
+
+        ml_main.args_s = ml_generate_code.args_s[1:]
+        ml_main.s_result = ml_generate_code.s_result
+
+        self.maingraph = annhelper.getgraph(
+            ml_main,
+            ml_main.args_s,
+            ml_main.s_result)
+##        self.callresidualgraph = annhelper.getgraph(
+##            ml_call_residual_graph,
+##            ml_call_residual_graph.args_s,
+##            ml_call_residual_graph.s_result)
+
         annhelper.finish()
 
-        # run the runner
+    def timeshift(self, ll_function, values, opt_consts=[], *args, **kwds):
+        self.timeshift_cached(ll_function, values, *args, **kwds)
+
+        mainargs = []
+        residualargs = []
+        for i, (color, llvalue) in enumerate(zip(self.argcolors, values)):
+            if color == "green":
+                mainargs.append(llvalue)
+            else:
+                mainargs.append(i in opt_consts)
+                mainargs.append(llvalue)
+                residualargs.append(llvalue)
+
+        # run the graph generator
         llinterp = LLInterpreter(self.rtyper)
-        ll_gv_generated = llinterp.eval_graph(runner_graph, [])
+        ll_generated = llinterp.eval_graph(self.maingraph, mainargs)
 
         # now try to run the residual graph generated by the builder
-        c_generatedfn = RGenOp.reveal(ll_gv_generated)
-        residual_graph = c_generatedfn.value._obj.graph
+        residual_graph = ll_generated._obj.graph
         if conftest.option.view:
             residual_graph.show()
         self.insns = summary(residual_graph)
-        res = llinterp.eval_graph(residual_graph, residual_args)
+        res = llinterp.eval_graph(residual_graph, residualargs)
         return res
 
     def check_insns(self, expected=None, **counts):

@@ -1,10 +1,13 @@
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.objectmodel import keepalive_until_here
+from pypy.rpython.annlowlevel import MixLevelAnnotatorPolicy
 from pypy.translator.c.test.test_genc import compile
 from pypy.jit.codegen.i386.ri386genop import RI386GenOp
 
 from ctypes import c_void_p, cast, CFUNCTYPE, c_int
+
+GENOP_POLICY = MixLevelAnnotatorPolicy(None)    # XXX clean up
 
 # ____________________________________________________________
 
@@ -50,7 +53,7 @@ def test_adder_direct():
     assert res == 42
 
 def test_adder_compile():
-    fn = compile(runner, [int, int])
+    fn = compile(runner, [int, int], annotatorpolicy=GENOP_POLICY)
     res = fn(9080983, -9080941)
     assert res == 42
 
@@ -110,7 +113,7 @@ def test_dummy_direct():
     assert res == 42
 
 def test_dummy_compile():
-    fn = compile(dummy_runner, [int, int])
+    fn = compile(dummy_runner, [int, int], annotatorpolicy=GENOP_POLICY)
     res = fn(40, 37)
     assert res == 42
 
@@ -172,7 +175,7 @@ def test_branching_direct():
     assert res == 17
 
 def test_branching_compile():
-    fn = compile(branching_runner, [int, int])
+    fn = compile(branching_runner, [int, int], annotatorpolicy=GENOP_POLICY)
     res = fn(30, 17)
     assert res == 29
     res = fn(3, 17)
