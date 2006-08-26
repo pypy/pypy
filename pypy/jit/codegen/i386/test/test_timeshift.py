@@ -9,9 +9,42 @@ from pypy.rpython.unroll import unrolling_iterable
 
 import py; py.test.skip("in-progress")
 
+from pypy.jit.codegen.i386.ri386genop import RI386GenOp
+class LLTypeRI386GenOp(RI386GenOp):
+    from pypy.jit.codegen.i386.codebuf import LLTypeMachineCodeBlock as MachineCodeBlock
+    
+    def get_rgenop_for_testing():
+        return LLTypeRI386GenOp()
+    get_rgenop_for_testing = staticmethod(get_rgenop_for_testing)
+
+class TestTimeshiftI386LLInterp(test_timeshift.TestTimeshift):
+    RGenOp = LLTypeRI386GenOp
+
+    
+    def timeshift(self, ll_function, values, opt_consts=[], *args, **kwds):
+        self.timeshift_cached(ll_function, values, *args, **kwds)
+
+        mainargs = []
+        residualargs = []
+        for i, (color, llvalue) in enumerate(zip(self.argcolors, values)):
+            if color == "green":
+                mainargs.append(llvalue)
+            else:
+                mainargs.append(i in opt_consts)
+                mainargs.append(llvalue)
+                residualargs.append(llvalue)
+
+        # run the graph generator
+        from pypy.rpython.llinterp import LLInterpreter
+        llinterp = LLInterpreter(self.rtyper)
+        ll_generated = llinterp.eval_graph(self.maingraph, mainargs)
+
+        # XXX test more
+    
 
 class TestTimeshiftI386(test_timeshift.TestTimeshift):
-    from pypy.jit.codegen.i386.ri386genop import RI386GenOp as RGenOp
+    RGenOp = RI386GenOp
+
     SEPLINE = 'running residual graph...\n'
     
     def annotate_interface_functions(self):

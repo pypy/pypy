@@ -4,7 +4,7 @@ from pypy.jit.codegen.i386.ri386 import *
 from pypy.jit.codegen.model import AbstractRGenOp, CodeGenBlock, CodeGenLink
 from pypy.jit.codegen.model import GenVar, GenConst
 
-
+import os
 WORD = 4
 
 
@@ -286,20 +286,29 @@ class Link(CodeGenLink):
                         dst = i
                         block.mc.MOV(edx, block.stack_access(dst))
                         while True:
-                            assert srccount[dst] == 1
+                            if not srccount[dst] == 1:
+                                os.write(1, 'Bad!\n')
+                                os._exit(99)
                             srccount[dst] = -1
                             pending_dests -= 1
                             gv_src = outputargs_gv[dst]
-                            assert isinstance(gv_src, Var)
+                            if not isinstance(gv_src, Var):
+                                os.write(1, 'Bad2!\n')
+                                os._exit(98)
+                                
                             src = gv_src.stackpos
-                            assert 0 <= src < N
+                            if not 0 <= src < N:
+                                os.write(1, 'Bad3!\n')
+                                os._exit(97)
                             if src == i:
                                 break
                             block.mc.MOV(eax, block.stack_access(src))
                             block.mc.MOV(block.stack_access(dst), eax)
                             dst = src
                         block.mc.MOV(block.stack_access(dst), edx)
-                assert pending_dests == 0
+                if not pending_dests == 0:
+                    os.write(1, 'Bad3!\n')
+                    os._exit(96)
 
         if block.stackdepth > N:
             block.mc.ADD(esp, imm(WORD * (block.stackdepth - N)))
@@ -309,6 +318,7 @@ class Link(CodeGenLink):
 
 
 class RI386GenOp(AbstractRGenOp):
+    
     gv_IntWord = TypeConst('IntWord')
     gv_Void = TypeConst('Void')
 
@@ -324,7 +334,7 @@ class RI386GenOp(AbstractRGenOp):
             # XXX think about inserting NOPS for alignment
             return self.mcs.pop()
         else:
-            return MachineCodeBlock(65536)   # XXX supposed infinite for now
+            return self.MachineCodeBlock(65536)   # XXX supposed infinite for now
 
     def close_mc(self, mc):
         self.mcs.append(mc)

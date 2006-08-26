@@ -13,7 +13,6 @@ binaryfn = CFUNCTYPE(c_int, c_int, c_int)
 class CodeBlockOverflow(Exception):
     pass
 
-
 class MachineCodeBlock(AbstractCodeBuilder):
 
     def __init__(self, map_size):
@@ -26,22 +25,45 @@ class MachineCodeBlock(AbstractCodeBuilder):
         self._size = map_size
         self._pos = 0
 
+    def write(self, data):
+         p = self._pos
+         if p + len(data) > self._size:
+             raise CodeBlockOverflow
+         for c in data:
+             self._data.contents[p] = c
+             p += 1
+         self._pos = p
+
+    def tell(self):
+        baseaddr = cast(self._data, c_void_p).value
+        return baseaddr + self._pos
+
     def __del__(self):
         libcmunmap(cast(self._data, c_void_p), self._size)
+
+    def execute(self, arg1, arg2):
+        fnptr = cast(self._data, binaryfn)
+        return fnptr(arg1, arg2)
+
+from pypy.rpython.lltypesystem import lltype
+
+BUF = lltype.GcArray(lltype.Char)
+
+class LLTypeMachineCodeBlock(AbstractCodeBuilder):
+
+    def __init__(self, map_size):
+        self._size = map_size
+        self._pos = 0
+        self._data = lltype.malloc(BUF, map_size)
 
     def write(self, data):
         p = self._pos
         if p + len(data) > self._size:
             raise CodeBlockOverflow
         for c in data:
-            self._data.contents[p] = c
+            self._data[p] = c
             p += 1
         self._pos = p
 
     def tell(self):
-        baseaddr = cast(self._data, c_void_p).value
-        return baseaddr + self._pos
-
-    def execute(self, arg1, arg2):
-        fnptr = cast(self._data, binaryfn)
-        return fnptr(arg1, arg2)
+        return self._pos
