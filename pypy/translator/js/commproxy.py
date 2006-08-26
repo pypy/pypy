@@ -87,7 +87,7 @@ class XmlHttp(object):
     
     def render_method(self, method_name, method, ilasm):
         args, retval = method.args, method.retval.name
-        if args[-1].name != 'callback':
+        if len(args) == 0 or args[-1].name != 'callback':
             args.append(ArgDesc('callback', lambda : None))
         real_args = list(arg.name for arg in args)
         # FIXME: dirty JS here
