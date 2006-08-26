@@ -120,7 +120,13 @@ class Block(CodeGenBlock):
         self.stackdepth += 1
         return res
 
+    def op_int_is_true(self, (gv_x,), gv_RESTYPE):
+        return gv_x
+
     def op_int_add(self, (gv_x, gv_y), gv_RESTYPE):
+        if isinstance(gv_x, IntConst) and isinstance(gv_y, IntConst):
+            # XXX do this for the other operations too
+            return IntConst(gv_x.value + gv_y.value)
         self.mc.MOV(eax, gv_x.operand(self))
         self.mc.ADD(eax, gv_y.operand(self))
         return self.push(eax)
@@ -217,7 +223,8 @@ class Block(CodeGenBlock):
         return self.push(eax)
 
     def op_bool_not(self, (gv_x,), gv_RESTYPE):
-        # XXX what if gv_x is a Const?
+        if isinstance(gv_x, IntConst):
+            return IntConst(not gv_x.value)
         self.mc.CMP(gv_x.operand(self), imm8(0))
         self.mc.SETE(al)
         self.mc.MOVZX(eax, al)
