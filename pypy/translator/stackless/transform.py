@@ -20,7 +20,7 @@ from pypy.translator.stackless.frame import STORAGE_FIELDS
 from pypy.translator.stackless.frame import STATE_HEADER, null_state
 from pypy.translator.stackless.frame import storage_type
 
-SAVE_STATISTICS = True
+SAVE_STATISTICS = False
 
 # we do this _a lot_:
 def copyvar(var):
