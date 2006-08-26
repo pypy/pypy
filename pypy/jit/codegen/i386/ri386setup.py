@@ -328,6 +328,14 @@ IDIV = Instruction()
 IDIV.mode1(MODRM,  ['\xF7', orbyte(7<<3), modrm(1)])
 IDIV.mode1(MODRM8, ['\xF6', orbyte(7<<3), modrm(1)])
 
+NEG = Instruction()
+NEG.mode1(MODRM,  ['\xF7', orbyte(3<<3), modrm(1)])
+NEG.mode1(MODRM8, ['\xF6', orbyte(3<<3), modrm(1)])
+
+NOT = Instruction()
+NOT.mode1(MODRM,  ['\xF7', orbyte(2<<3), modrm(1)])
+NOT.mode1(MODRM8, ['\xF6', orbyte(2<<3), modrm(1)])
+
 CDQ = Instruction()
 CDQ.mode0(['\x99'])
 
