@@ -116,10 +116,15 @@ class Block(CodeGenBlock):
         return genmethod(args_gv, gv_RESTYPE)
     genop._annspecialcase_ = 'specialize:arg(1)'
 
-    def genop_getfield(self, (T, name), gv_ptr):
-        offset = self.rgenop.offsetscomp.offsetof(T, name)
+    def genop_getfield(self, offset, gv_ptr):
         return self.emit_getfield(gv_ptr, offset)
-    genop_getfield._annspecialcase_ = 'specialize:arg(1)'
+
+    def genop_setfield(self, offset, gv_ptr, gv_value):
+        offset = self.rgenop.offsetscomp.offsetof(T, name)
+        return self.emit_setfield(gv_ptr, offset, gv_value)
+
+    def genop_getsubstruct(self, offset, gv_ptr):
+        return self.emit_getsubstruct(gv_ptr, offset)
 
     def close1(self):
         return Link(self)
@@ -256,17 +261,13 @@ class Block(CodeGenBlock):
         self.mc.MOV(edx, gv_ptr.operand(self))
         return self.push(mem(edx, offset))
 
-    def op_setfield(self, (gv_ptr, gv_offset, gv_value), gv_RESTYPE):
+    def emit_setfield(self, gv_ptr, offset, gv_value):
         # XXX only for ints for now.
-        assert isinstance(gv_offset, IntConst)
-        offset = gv_offset.value
         self.mc.MOV(eax, gv_value.operand(self))
         self.mc.MOV(edx, gv_ptr.operand(self))
         self.mc.MOV(mem(edx, offset), eax)
 
-    def op_getsubstruct(self, (gv_ptr, gv_offset), gv_RESTYPE):
-        assert isinstance(gv_offset, IntConst)
-        offset = gv_offset.value
+    def emit_getsubstruct(self, gv_ptr, offset):
         self.mc.MOV(edx, gv_ptr.operand(self))
         self.mc.LEA(eax, mem(edx, offset))
         return self.push(eax)
@@ -395,7 +396,6 @@ class Link(CodeGenLink):
 
 class RI386GenOp(AbstractRGenOp):
     from pypy.jit.codegen.i386.codebuf import MachineCodeBlock
-    from pypy.rpython.lltypesystem import llmemory as offsetscomp
     
     gv_IntWord = TypeConst('IntWord')
     gv_Void = TypeConst('Void')
@@ -428,6 +428,11 @@ class RI386GenOp(AbstractRGenOp):
             assert 0, "XXX not implemented"
     genconst._annspecialcase_ = 'specialize:genconst(0)'
     genconst = staticmethod(genconst)
+
+    def fieldToken(T, name):
+        return llmemory.offsetof(T, name)
+    fieldToken._annspecialcase_ = 'specialize:memo'
+    fieldToken = staticmethod(fieldToken)
 
     def constTYPE(T):
         if T is lltype.Void:

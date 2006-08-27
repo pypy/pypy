@@ -34,12 +34,20 @@ class LLBlock(CodeGenBlock):
                                   (gv_RESULT_TYPE or gv_Void).v))
     genop._annspecialcase_ = 'specialize:arg(1)'
 
-    def genop_getfield(self, (T, name), gv_ptr):
-        vars_gv = [gv_ptr.v, llimpl.constFieldName(name)]
-        gv_RESULT = llimpl.constTYPE(getattr(T, name))
+    def genop_getfield(self, (gv_name, gv_FIELDTYPE), gv_ptr):
+        vars_gv = [gv_ptr.v, gv_name.v]
         return LLVar(llimpl.genop(self.b, 'getfield', vars_gv,
-                                  gv_RESULT))        
-    genop_getfield._annspecialcase_ = 'specialize:arg(1)'
+                                  gv_FIELDTYPE.v))        
+    
+    def genop_setfield(self, (gv_name, gv_FIELDTYPE), gv_ptr, gv_value):
+        vars_gv = [gv_ptr.v, gv_name.v, gv_value.v]
+        return LLVar(llimpl.genop(self.b, 'setfield', vars_gv,
+                                  gv_Void.v))        
+    
+    def genop_getsubstruct(self, (gv_name, gv_FIELDTYPE), gv_ptr):
+        vars_gv = [gv_ptr.v, gv_name.v]
+        return LLVar(llimpl.genop(self.b, 'getsubstruct', vars_gv,
+                                  gv_FIELDTYPE.v))        
     
     def close1(self):
         return LLLink(llimpl.closeblock1(self.b))
@@ -74,6 +82,16 @@ class RGenOp(AbstractRGenOp):
         return LLConst(llimpl.genconst(llvalue))
     genconst._annspecialcase_ = 'specialize:genconst(0)'
     genconst = staticmethod(genconst)
+
+    def fieldToken(T, name):
+        assert name in T._flds
+        FIELDTYPE = getattr(T, name)
+        if isinstance(FIELDTYPE, lltype.ContainerType):
+            FIELDTYPE = lltype.Ptr(FIELDTYPE)
+        return (LLConst(llimpl.constFieldName(name)), LLConst(llimpl.constTYPE(FIELDTYPE)))
+    fieldToken._annspecialcase_ = 'specialize:memo'
+    fieldToken = staticmethod(fieldToken)
+
 
     def constTYPE(T):
         return LLConst(llimpl.constTYPE(T))

@@ -98,7 +98,7 @@ class NamedFieldDesc(FieldDesc):
         self.structdepth = 0
         T = self.PTRTYPE.TO
         self.fieldname = name
-        self.gv_fieldname = RGenOp.constFieldName(T, name)
+        self.fieldtoken = RGenOp.fieldToken(T, name)
         while (T._names and
                isinstance(getattr(T, T._names[0]), lltype.ContainerType)):
             self.structdepth += 1
@@ -127,9 +127,8 @@ class StructFieldDesc(object):
         self.RESTYPE = RES1
         self.gv_resulttype = RGenOp.constTYPE(RES1)
         self.fieldname = fieldname
-        self.fieldname_gv = [RGenOp.constFieldName(T, component)
-                             for T, component in accessors] # XXX kill me
-        self.accessors = accessors
+        self.fieldtokens = [RGenOp.fieldToken(T, component)
+                             for T, component in accessors]
         self.fieldindex = index
         self.gv_default = RGenOp.constPrebuiltGlobal(RES1._defl())
         self.redboxcls = rvalue.ll_redboxcls(RES1)
@@ -144,15 +143,9 @@ class StructFieldDesc(object):
 
     def generate_set(self, builder, genvar, box):
         gv_sub = genvar
-        genop = builder.genop
-        for i in range(len(self.accessptrtype_gv)-1):
-            op_args = [gv_sub,
-                       self.fieldname_gv[i]]
-            gv_sub = genop('getsubstruct', op_args, self.accessptrtype_gv[i+1])
-        op_args = [gv_sub,
-                   self.fieldname_gv[-1],
-                   box.getgenvar(builder)]
-        genop('setfield', op_args, builder.rgenop.gv_Void)        
+        for i in range(len(self.fieldtokens)-1):
+            gv_sub = builder.genop_getsubstruct(self.fieldtokens[i], gv_sub)
+        builder.genop_setfield(self.fieldtokens[-1], gv_sub, box.getgenvar(builder))        
 
 # ____________________________________________________________
 

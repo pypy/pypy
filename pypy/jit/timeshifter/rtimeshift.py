@@ -90,7 +90,7 @@ def ll_generate_getfield(jitstate, fielddesc, argbox):
         return rvalue.ll_fromvalue(jitstate, res)
     assert isinstance(argbox, rvalue.PtrRedBox)
     if argbox.content is None:
-        genvar = jitstate.curbuilder.genop_getfield(fielddesc.accessors[-1],
+        genvar = jitstate.curbuilder.genop_getfield(fielddesc.fieldtokens[-1],
                                                     argbox.getgenvar(jitstate.curbuilder))
         return fielddesc.redboxcls(fielddesc.gv_resulttype, genvar)        
     else:
@@ -99,11 +99,10 @@ def ll_generate_getfield(jitstate, fielddesc, argbox):
 def ll_generate_setfield(jitstate, fielddesc, destbox, valuebox):
     assert isinstance(destbox, rvalue.PtrRedBox)
     if destbox.content is None:
-        op_args = [destbox.getgenvar(jitstate.curbuilder),
-                   fielddesc.fieldname_gv[-1],
-                   valuebox.getgenvar(jitstate.curbuilder)]
         builder = jitstate.curbuilder
-        builder.genop('setfield', op_args, builder.rgenop.gv_Void)
+        builder.genop_setfield(fielddesc.fieldtokens[-1],
+                                destbox.getgenvar(builder),
+                                valuebox.getgenvar(builder))
     else:
         destbox.content.op_setfield(jitstate, fielddesc, valuebox)
 
@@ -114,10 +113,7 @@ def ll_generate_getsubstruct(jitstate, fielddesc, argbox):
         return rvalue.ll_fromvalue(jitstate, res)
     assert isinstance(argbox, rvalue.PtrRedBox)
     if argbox.content is None:
-        op_args = [argbox.getgenvar(jitstate.curbuilder),
-                   fielddesc.gv_fieldname]
-        genvar = jitstate.curbuilder.genop('getsubstruct', op_args,
-                                           fielddesc.gv_resulttype)
+        genvar = jitstate.curbuilder.genop_getsubstruct(fielddesc.fieldtoken, argbox.getgenvar(jitstate.curbuilder))
         return fielddesc.redboxcls(fielddesc.gv_resulttype, genvar)        
     else:
         return argbox.content.op_getsubstruct(jitstate, fielddesc)
@@ -313,9 +309,14 @@ class ResidualGraphBuilder(object):
         return self.block.genop(opname, args_gv, gv_resulttype)
     genop._annspecialcase_ = 'specialize:arg(1)'
 
-    def genop_getfield(self, accessor, gv_ptr):
-        return self.block.genop_getfield(accessor, gv_ptr)
-    genop_getfield._annspecialcase_ = 'specialize:arg(1)'
+    def genop_getfield(self, fieldtoken, gv_ptr):
+        return self.block.genop_getfield(fieldtoken, gv_ptr)
+
+    def genop_setfield(self, fieldtoken, gv_ptr, gv_value):
+        return self.block.genop_setfield(fieldtoken, gv_ptr, gv_value)
+
+    def genop_getsubstruct(self, fieldtoken, gv_ptr):
+        return self.block.genop_getsubstruct(fieldtoken, gv_ptr)
 
     def constTYPE(self, T):
         return self.rgenop.constTYPE(T)
