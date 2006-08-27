@@ -9,7 +9,7 @@ from pypy.rpython.ootypesystem.bltregistry import ArgDesc
 METHOD_BODY = """
 %(class)s.prototype.%(method)s = function ( %(args)s ) {
     var data,str;
-    x = new XMLHttpRequest();
+    var x = new XMLHttpRequest();
     data = %(data)s;
     str = ""
     for(i in data) {
@@ -25,7 +25,7 @@ METHOD_BODY = """
     //logDebug('%(call)s'+str);
     x.open("GET", '%(call)s' + str, true);
     //x.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
-    x.onreadystatechange = function () { %(real_callback)s(callback) };
+    x.onreadystatechange = function () { %(real_callback)s(x, callback) };
     //x.setRequestHeader("Connection", "close");
     //x.send(data);
     x.send(null);
@@ -33,7 +33,7 @@ METHOD_BODY = """
 """
 
 CALLBACK_BODY = """
-function %(real_callback)s (cb) {
+function %(real_callback)s (x, cb) {
    var d;
    if (x.readyState == 4) {
       if (x.responseText) {
