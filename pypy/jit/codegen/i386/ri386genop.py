@@ -3,7 +3,6 @@ from pypy.jit.codegen.i386.ri386 import *
 from pypy.jit.codegen.model import AbstractRGenOp, CodeGenBlock, CodeGenLink
 from pypy.jit.codegen.model import GenVar, GenConst
 
-import os
 WORD = 4
 
 
@@ -303,29 +302,20 @@ class Link(CodeGenLink):
                         dst = i
                         block.mc.MOV(edx, block.stack_access(dst))
                         while True:
-                            if not srccount[dst] == 1:
-                                os.write(1, 'Bad!\n')
-                                os._exit(99)
+                            assert srccount[dst] == 1
                             srccount[dst] = -1
                             pending_dests -= 1
                             gv_src = outputargs_gv[dst]
-                            if not isinstance(gv_src, Var):
-                                os.write(1, 'Bad2!\n')
-                                os._exit(98)
-                                
+                            assert isinstance(gv_src, Var)
                             src = gv_src.stackpos
-                            if not 0 <= src < N:
-                                os.write(1, 'Bad3!\n')
-                                os._exit(97)
+                            assert 0 <= src < N
                             if src == i:
                                 break
                             block.mc.MOV(eax, block.stack_access(src))
                             block.mc.MOV(block.stack_access(dst), eax)
                             dst = src
                         block.mc.MOV(block.stack_access(dst), edx)
-                if not pending_dests == 0:
-                    os.write(1, 'Bad3!\n')
-                    os._exit(96)
+                assert pending_dests == 0
 
         if block.stackdepth > N:
             block.mc.ADD(esp, imm(WORD * (block.stackdepth - N)))
