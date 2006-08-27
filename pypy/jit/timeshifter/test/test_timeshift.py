@@ -72,7 +72,7 @@ class TimeshiftingTests(object):
         else:
             self.__dict__.update(cache)
             assert argtypes == getargtypes(self.rtyper.annotator, values)
-            return
+            return values
 
         if len(self._cache_order) >= 3:
             del self._cache[self._cache_order.pop(0)]
@@ -203,6 +203,7 @@ class TimeshiftingTests(object):
         cache = self.__dict__.copy()
         self._cache[key] = cache, getargtypes(rtyper.annotator, values)
         self._cache_order.append(key)
+        return values
 
     def annotate_interface_functions(self):
         annhelper = self.htshift.annhelper
@@ -229,7 +230,7 @@ class TimeshiftingTests(object):
         annhelper.finish()
 
     def timeshift(self, ll_function, values, opt_consts=[], *args, **kwds):
-        self.timeshift_cached(ll_function, values, *args, **kwds)
+        values = self.timeshift_cached(ll_function, values, *args, **kwds)
 
         mainargs = []
         residualargs = []

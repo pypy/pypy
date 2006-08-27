@@ -80,6 +80,24 @@ class FnPtrConst(IntConst):
         self.mc = mc    # to keep it alive
 
 
+class AddrConst(GenConst):
+
+    def __init__(self, addr):
+        self.addr = addr
+
+    def operand(self, block):
+        return imm(llmemory.cast_adr_to_int(self.addr))
+
+    def revealconst(self, T):
+        if T is llmemory.Address:
+            return self.addr
+        elif isinstance(T, lltype.Ptr):
+            return llmemory.cast_adr_to_ptr(self.addr, T)
+        else:
+            assert 0, "XXX not implemented"
+    revealconst._annspecialcase_ = 'specialize:arg(1)'
+
+
 class Block(CodeGenBlock):
     def __init__(self, rgenop, mc):
         self.rgenop = rgenop
@@ -340,8 +358,14 @@ class RI386GenOp(AbstractRGenOp):
 
     def genconst(llvalue):
         T = lltype.typeOf(llvalue)
-        assert isinstance(T, lltype.Primitive)
-        return IntConst(lltype.cast_primitive(lltype.Signed, llvalue))
+        if isinstance(T, lltype.Primitive):
+            return IntConst(lltype.cast_primitive(lltype.Signed, llvalue))
+        elif T is llmemory.Address:
+            return AddrConst(llvalue)
+        elif isinstance(T, lltype.Ptr):
+            return AddrConst(llmemory.cast_ptr_to_adr(llvalue))
+        else:
+            assert 0, "XXX not implemented"
     genconst._annspecialcase_ = 'specialize:genconst(0)'
     genconst = staticmethod(genconst)
 

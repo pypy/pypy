@@ -51,49 +51,49 @@ class HintTimeshift(object):
         self.r_box_accum = getrepr(self.s_box_accum)
         self.r_box_accum.setup()
 
-        def ll_make_builder():
-            rgenop = RGenOp()
-            return rtimeshift.make_builder(rgenop)
+##        def ll_make_builder():
+##            rgenop = RGenOp()
+##            return rtimeshift.make_builder(rgenop)
 
-        # XXX find a different way to enforce the interface types
-        self.ll_make_builder_graph = self.annhelper.getgraph(
-            ll_make_builder,
-            [], self.s_ResidualGraphBuilder)
-        self.ll_int_box_graph = self.annhelper.getgraph(
-            rtimeshift.ll_int_box,
-            [self.s_ConstOrVar, self.s_ConstOrVar],
-            self.s_RedBox)
-        self.ll_addr_box_graph = self.annhelper.getgraph(
-            rtimeshift.ll_addr_box,
-            [self.s_ConstOrVar, self.s_ConstOrVar],
-            self.s_RedBox)
-        self.ll_double_box_graph = self.annhelper.getgraph(
-            rtimeshift.ll_int_box,
-            [self.s_ConstOrVar, self.s_ConstOrVar],
-            self.s_RedBox)
-        self.ll_geninputarg_graph = self.annhelper.getgraph(
-            rtimeshift.ll_geninputarg,
-            [self.s_ResidualGraphBuilder, self.s_ConstOrVar],
-            self.s_ConstOrVar)
-        self.ll_end_setup_builder_graph = self.annhelper.getgraph(
-            rtimeshift.ll_end_setup_builder,
-            [self.s_ResidualGraphBuilder],
-            self.s_Block)
+##        # XXX find a different way to enforce the interface types
+##        self.ll_make_builder_graph = self.annhelper.getgraph(
+##            ll_make_builder,
+##            [], self.s_ResidualGraphBuilder)
+##        self.ll_int_box_graph = self.annhelper.getgraph(
+##            rtimeshift.ll_int_box,
+##            [self.s_ConstOrVar, self.s_ConstOrVar],
+##            self.s_RedBox)
+##        self.ll_addr_box_graph = self.annhelper.getgraph(
+##            rtimeshift.ll_addr_box,
+##            [self.s_ConstOrVar, self.s_ConstOrVar],
+##            self.s_RedBox)
+##        self.ll_double_box_graph = self.annhelper.getgraph(
+##            rtimeshift.ll_int_box,
+##            [self.s_ConstOrVar, self.s_ConstOrVar],
+##            self.s_RedBox)
+##        self.ll_geninputarg_graph = self.annhelper.getgraph(
+##            rtimeshift.ll_geninputarg,
+##            [self.s_ResidualGraphBuilder, self.s_ConstOrVar],
+##            self.s_ConstOrVar)
+##        self.ll_end_setup_builder_graph = self.annhelper.getgraph(
+##            rtimeshift.ll_end_setup_builder,
+##            [self.s_ResidualGraphBuilder],
+##            self.s_Block)
 
-##         self.ll_close_jitstate_graph = self.annhelper.getgraph(
-##             rtimeshift.ll_close_jitstate,
-##             [self.s_JITState],
-##             annmodel.s_None)
+####         self.ll_close_jitstate_graph = self.annhelper.getgraph(
+####             rtimeshift.ll_close_jitstate,
+####             [self.s_JITState],
+####             annmodel.s_None)
 
-        self.ll_close_builder_graph = self.annhelper.getgraph(
-            rtimeshift.ll_close_builder,
-            [self.s_ResidualGraphBuilder],
-            annmodel.s_None)
-        self.annhelper.getgraph(
-            rtimeshift.ll_gencallableconst,
-            [self.s_ResidualGraphBuilder, annmodel.SomeString(),
-             self.s_Block, self.s_ConstOrVar],
-            self.s_ConstOrVar)
+##        self.ll_close_builder_graph = self.annhelper.getgraph(
+##            rtimeshift.ll_close_builder,
+##            [self.s_ResidualGraphBuilder],
+##            annmodel.s_None)
+##        self.annhelper.getgraph(
+##            rtimeshift.ll_gencallableconst,
+##            [self.s_ResidualGraphBuilder, annmodel.SomeString(),
+##             self.s_Block, self.s_ConstOrVar],
+##            self.s_ConstOrVar)
 
     def s_r_instanceof(self, cls, can_be_None=True):
         # Return a SomeInstance / InstanceRepr pair correspnding to the specified class.
@@ -167,7 +167,7 @@ class HintTimeshift(object):
             self.timeshift_graph(graph)
         
         # Annotate and rtype the helpers found during timeshifting
-        self.annhelper.finish()
+        # XXX XXX XXX -- self.annhelper.finish() -- XXX XXX XXX
 
     def timeshift_graph(self, graph):
         #print 'timeshift_graph START', graph

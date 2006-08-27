@@ -50,11 +50,19 @@ from pypy.rpython.lltypesystem import lltype
 BUF = lltype.GcArray(lltype.Char)
 
 class LLTypeMachineCodeBlock(AbstractCodeBuilder):
+    # for testing only
+
+    class State:
+        pass
+    state = State()
+    state.base = 1
 
     def __init__(self, map_size):
         self._size = map_size
         self._pos = 0
         self._data = lltype.malloc(BUF, map_size)
+        self._base = LLTypeMachineCodeBlock.state.base
+        LLTypeMachineCodeBlock.state.base += 2 * map_size
 
     def write(self, data):
         p = self._pos
@@ -66,4 +74,4 @@ class LLTypeMachineCodeBlock(AbstractCodeBuilder):
         self._pos = p
 
     def tell(self):
-        return self._pos
+        return self._base + 2 * self._pos

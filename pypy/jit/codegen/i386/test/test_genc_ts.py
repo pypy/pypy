@@ -81,15 +81,15 @@ class TestTimeshiftI386(test_timeshift.TestTimeshift):
         self.timeshift_cached(ll_function, values, *args, **kwds)
 
         mainargs = []
-        for i, (color, llvalue) in enumerate(zip(self.argcolors, values)):
+        for i, (color, strvalue) in enumerate(zip(self.argcolors, values)):
             if color == "green":
-                mainargs.append(llvalue)
+                mainargs.append(strvalue)
             else:
                 if i in opt_consts:
                     mainargs.append('-const')
                 else:
                     mainargs.append('-var')
-                mainargs.append(llvalue)
+                mainargs.append(strvalue)
 
         mainargs = ' '.join([str(arg) for arg in mainargs])
 
