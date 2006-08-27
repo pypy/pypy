@@ -288,5 +288,10 @@ namespace pypy.builtin
             FileStream stream = getfd(fd).GetStream();
             return stream.Seek(offset, origin);
         }
+
+        public static string ll_os_strerror(int errno)
+        {
+            return "error " + errno;     // TODO
+        }
     }
 }

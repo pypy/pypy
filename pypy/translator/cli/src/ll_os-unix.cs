@@ -67,5 +67,10 @@ namespace pypy.builtin
             res.item9 = (int)st.st_ctime;
             return res;
         }
+
+        public static string ll_os_strerror(int errno)
+        {
+            return "error " + errno;     // TODO
+        }
     }
 }

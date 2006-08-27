@@ -1,5 +1,5 @@
 import platform
-import os, stat
+import os, stat, errno
 import py
 from pypy.tool import udir
 from pypy.translator.cli.test.runtest import CliTest
@@ -102,6 +102,12 @@ class TestCliBuiltin(CliTest, BaseTestRbuiltin):
         def fn():
             return os.stat('/directory/unlikely/to/exists')[0]
         self.interpret_raises(OSError, fn, [])
+
+    def test_os_strerror(self):
+        def fn():
+            return os.strerror(errno.ENOTDIR)
+        res = self.ll_to_string(self.interpret(fn, []))
+        # XXX assert something about res
 
     # XXX: remember to test ll_os_readlink and ll_os_pipe as soon as
     # they are implemented
