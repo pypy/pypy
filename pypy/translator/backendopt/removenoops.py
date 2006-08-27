@@ -46,19 +46,6 @@ def remove_unaryops(graph, opnames):
 def remove_same_as(graph):
     remove_unaryops(graph, ["same_as"])
 
-
-def remove_void(translator):
-    for graph in translator.graphs:
-        args = [arg for arg in graph.startblock.inputargs
-                    if arg.concretetype is not Void]
-        graph.startblock.inputargs = args
-        for block in graph.iterblocks():
-            for op in block.operations:
-                if op.opname in ('direct_call', 'indirect_call'):
-                    args = [arg for arg in op.args
-                                if arg.concretetype is not Void]
-                    op.args = args
-
 def remove_duplicate_casts(graph, translator):
     simplify.join_blocks(graph)
     num_removed = 0

@@ -1,4 +1,4 @@
-from pypy.translator.backendopt.removenoops import remove_void, remove_same_as, \
+from pypy.translator.backendopt.removenoops import remove_same_as, \
         remove_unaryops, remove_duplicate_casts, remove_superfluous_keep_alive
 from pypy.translator.backendopt.inline import simple_inline_function
 from pypy.translator.backendopt.test.test_propagate import getops, get_graph, check_graph
@@ -12,39 +12,6 @@ from pypy import conftest
 
 import py
 log = py.log.Producer('test_backendoptimization')
-
-
-def annotate_and_remove_void(f, annotate):
-    t = TranslationContext()
-    t.buildannotator().build_types(f, annotate)
-    t.buildrtyper().specialize()
-    remove_void(t)
-    return t
-
-def test_remove_void_args():
-    def f(i):
-        return [1,2,3,i][i]
-    t = annotate_and_remove_void(f, [int])
-    for graph in t.graphs:
-        assert checkgraph(graph) is None
-        for arg in graph.startblock.inputargs:
-            assert arg.concretetype is not lltype.Void
-    interp = LLInterpreter(t.rtyper)
-    assert interp.eval_graph(graphof(t, f), [0]) == 1 
-
-def test_remove_void_in_struct():
-    t = annotate_and_remove_void(simple_method, [int])
-    #t.view()
-    for graph in t.graphs:
-        log('func : ' + graph.name)
-        log('graph: ' + str(graph))
-        assert checkgraph(graph) is None
-        #for fieldname in self.struct._names:    #XXX helper (in lltype?) should remove these voids
-        #    type_ = getattr(struct, fieldname)
-        #    log('fieldname=%(fieldname)s , type_=%(type_)s' % locals())
-        #    assert _type is not lltype.Void
-    #interp = LLInterpreter(t.flowgraphs, t.rtyper)
-    #assert interp.eval_function(f, [0]) == 1 
 
 def test_remove_same_as():
     def nothing(x):
