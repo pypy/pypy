@@ -1366,6 +1366,19 @@ class BaseTestRPBC(BaseRtypingTest):
         res = self.interpret(f, [])
         assert res == True
 
+    def test_except_class_call(self):
+        class A:
+            pass   # no constructor
+        def f():
+            try:
+                A()
+                IndexError()
+                return 12
+            except ValueError:
+                return 23
+        res = self.interpret(f, [])
+        assert res == 12
+
 
 # We don't care about the following test_hlinvoke tests working on
 # ootype. Maybe later. This kind of thing is only used in rdict

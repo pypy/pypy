@@ -676,6 +676,7 @@ class AbstractClassesPBCRepr(Repr):
                 # and ignore any arguments passed to the contructor.
                 r_instance = rclass.getinstancerepr(hop.rtyper, classdef)
                 example = r_instance.get_reusable_prebuilt_instance()
+                hop.exception_cannot_occur()
                 return hop.inputconst(r_instance.lowleveltype, example)
 
             v_instance = rclass.rtype_new_instance(hop.rtyper, classdef,
@@ -683,6 +684,7 @@ class AbstractClassesPBCRepr(Repr):
             if isinstance(v_instance, tuple):
                 v_instance, must_call_init = v_instance
                 if not must_call_init:
+                    hop.exception_cannot_occur()
                     return v_instance
         else:
             # instantiating a class from multiple possible classes
@@ -700,6 +702,7 @@ class AbstractClassesPBCRepr(Repr):
         if isinstance(s_init, annmodel.SomeImpossibleValue):
             assert hop.nb_args == 1, ("arguments passed to __init__, "
                                       "but no __init__!")
+            hop.exception_cannot_occur()
         else:
             hop2 = self.replace_class_with_inst_arg(
                     hop, v_instance, s_instance, call_args)
