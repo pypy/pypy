@@ -60,6 +60,7 @@ class _Builtins(object):
                 'll_set' : ListSetitem,
                 'll_contains' : ListContains,
                 'll_get_items_iterator' : CallBuiltin('dict_items_iterator'),
+                'll_length' : CallBuiltin('get_dict_len'),
             },
             ootype.Record: {
                 'll_get' : ListGetitem,

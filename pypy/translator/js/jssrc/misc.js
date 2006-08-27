@@ -115,6 +115,15 @@ function dict_items_iterator(d) {
     return d2;
 }
 
+function get_dict_len(d) {
+    var count;
+    count = 0;
+    for (var i in d) {
+        count += 1;
+    }
+    return (count);
+}
+
 function StringBuilder() {
     this.l = [];
 }
