@@ -35,8 +35,8 @@ class ExternalBuiltinRepr(Repr):
     
     def convert_const(self, value):
         from pypy.rpython.ootypesystem.bltregistry import ExternalType,_external_type
-        if value is None:
-            return lltype.Void
+        #if value is None:
+        #    return lltype.Void
         return _external_type(self.knowntype)
     
     def rtype_getattr(self, hop):
@@ -60,6 +60,7 @@ class ExternalBuiltinRepr(Repr):
     
     def call_method(self, name, hop):
         vlist = hop.inputargs(self, *(hop.args_r[1:]))
+        hop.exception_is_here()
         return hop.genop('oosend', [Constant(name)] + vlist, resulttype=hop.r_result)
     
     def __getattr__(self, attr):
