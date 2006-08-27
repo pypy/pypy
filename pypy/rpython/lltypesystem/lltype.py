@@ -1305,7 +1305,7 @@ class _array(_parentable):
             skipped_at = 12
         else:
             skipped_at = None
-        items = [self._str_item(item) for item in self.items]
+        items = [self._str_item(item) for item in items]
         if skipped_at:
             items.insert(skipped_at, '(...)')
         return 'array [ %s ]' % (', '.join(items),)
