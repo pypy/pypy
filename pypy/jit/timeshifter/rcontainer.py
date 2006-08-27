@@ -97,12 +97,12 @@ class NamedFieldDesc(FieldDesc):
         FieldDesc.__init__(self, RGenOp, PTRTYPE, getattr(PTRTYPE.TO, name))
         self.structdepth = 0
         T = self.PTRTYPE.TO
+        self.fieldname = name
+        self.gv_fieldname = RGenOp.constFieldName(T, name)
         while (T._names and
                isinstance(getattr(T, T._names[0]), lltype.ContainerType)):
             self.structdepth += 1
             T = getattr(T, T._names[0])
-        self.fieldname = name
-        self.gv_fieldname = RGenOp.constFieldName(T, name)
 
 class ArrayFieldDesc(FieldDesc):
     def __init__(self, RGenOp, PTRTYPE):

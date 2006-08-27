@@ -79,6 +79,7 @@ class RGenOp(AbstractRGenOp):
     placeholder = staticmethod(placeholder)
 
     def constFieldName(T, name):
+        assert name in T._flds
         return LLConst(llimpl.constFieldName(name))
     constFieldName._annspecialcase_ = 'specialize:memo'
     constFieldName = staticmethod(constFieldName)
