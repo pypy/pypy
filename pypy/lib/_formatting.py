@@ -120,7 +120,7 @@ class Formatter(object):
         # * mwh giggles, falls over
         # still, if we can recognize them, here's the place to do it.
         import math
-        if v < 0 or v == 0 and math.atan2(0, v) != 0:
+        if v < 0 or v == 0 and isinstance(v, float) and math.atan2(0, v) != 0:
             sign = '-'
             v = -v
         else:
