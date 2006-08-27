@@ -90,10 +90,8 @@ def ll_generate_getfield(jitstate, fielddesc, argbox):
         return rvalue.ll_fromvalue(jitstate, res)
     assert isinstance(argbox, rvalue.PtrRedBox)
     if argbox.content is None:
-        op_args = [argbox.getgenvar(jitstate.curbuilder),
-                   fielddesc.fieldname_gv[-1]]
-        genvar = jitstate.curbuilder.genop('getfield', op_args,
-                                           fielddesc.gv_resulttype)
+        genvar = jitstate.curbuilder.genop_getfield(fielddesc.accessors[-1],
+                                                    argbox.getgenvar(jitstate.curbuilder))
         return fielddesc.redboxcls(fielddesc.gv_resulttype, genvar)        
     else:
         return argbox.content.op_getfield(jitstate, fielddesc)
@@ -314,6 +312,10 @@ class ResidualGraphBuilder(object):
     def genop(self, opname, args_gv, gv_resulttype=None):
         return self.block.genop(opname, args_gv, gv_resulttype)
     genop._annspecialcase_ = 'specialize:arg(1)'
+
+    def genop_getfield(self, accessor, gv_ptr):
+        return self.block.genop_getfield(accessor, gv_ptr)
+    genop_getfield._annspecialcase_ = 'specialize:arg(1)'
 
     def constTYPE(self, T):
         return self.rgenop.constTYPE(T)

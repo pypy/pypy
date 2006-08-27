@@ -34,6 +34,13 @@ class LLBlock(CodeGenBlock):
                                   (gv_RESULT_TYPE or gv_Void).v))
     genop._annspecialcase_ = 'specialize:arg(1)'
 
+    def genop_getfield(self, (T, name), gv_ptr):
+        vars_gv = [gv_ptr.v, llimpl.constFieldName(name)]
+        gv_RESULT = llimpl.constTYPE(getattr(T, name))
+        return LLVar(llimpl.genop(self.b, 'getfield', vars_gv,
+                                  gv_RESULT))        
+    genop_getfield._annspecialcase_ = 'specialize:arg(1)'
+    
     def close1(self):
         return LLLink(llimpl.closeblock1(self.b))
 

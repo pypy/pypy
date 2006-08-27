@@ -116,6 +116,11 @@ class Block(CodeGenBlock):
         return genmethod(args_gv, gv_RESTYPE)
     genop._annspecialcase_ = 'specialize:arg(1)'
 
+    def genop_getfield(self, (T, name), gv_ptr):
+        offset = self.rgenop.offsetscomp.offsetof(T, name)
+        return self.emit_getfield(gv_ptr, offset)
+    genop_getfield._annspecialcase_ = 'specialize:arg(1)'
+
     def close1(self):
         return Link(self)
 
@@ -246,10 +251,8 @@ class Block(CodeGenBlock):
         self.mc.MOVZX(eax, al)
         return self.push(eax)
 
-    def op_getfield(self, (gv_ptr, gv_offset), gv_RESTYPE):
+    def emit_getfield(self, gv_ptr, offset):
         # XXX only for int fields
-        assert isinstance(gv_offset, IntConst)
-        offset = gv_offset.value
         self.mc.MOV(edx, gv_ptr.operand(self))
         return self.push(mem(edx, offset))
 
@@ -392,7 +395,8 @@ class Link(CodeGenLink):
 
 class RI386GenOp(AbstractRGenOp):
     from pypy.jit.codegen.i386.codebuf import MachineCodeBlock
-
+    from pypy.rpython.lltypesystem import llmemory as offsetscomp
+    
     gv_IntWord = TypeConst('IntWord')
     gv_Void = TypeConst('Void')
 
@@ -458,3 +462,4 @@ class RI386GenOp(AbstractRGenOp):
         prologue.mc.JMP(rel32(block.startaddr))
         self.close_mc(prologue.mc)
         return FnPtrConst(prologue.startaddr, prologue.mc)
+

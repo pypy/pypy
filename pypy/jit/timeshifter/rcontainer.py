@@ -128,7 +128,8 @@ class StructFieldDesc(object):
         self.gv_resulttype = RGenOp.constTYPE(RES1)
         self.fieldname = fieldname
         self.fieldname_gv = [RGenOp.constFieldName(T, component)
-                             for T, component in accessors]
+                             for T, component in accessors] # XXX kill me
+        self.accessors = accessors
         self.fieldindex = index
         self.gv_default = RGenOp.constPrebuiltGlobal(RES1._defl())
         self.redboxcls = rvalue.ll_redboxcls(RES1)

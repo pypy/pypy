@@ -10,10 +10,23 @@ class Whatever(object):
     def __eq__(self, other):
         return True
 
+class OffsetComp(object):
+
+    def offsetof(T, name):
+        return list(T._names).index(name)
+    offsetof._annspecialcase_ = 'specialize:memo'
+    offsetof = staticmethod(offsetof)
+
+    def _freeze_(self):
+        return True
+
+_RI386GenOp = type('RI386GenOp', RI386GenOp.__bases__, dict(RI386GenOp.__dict__.iteritems()))
+del _RI386GenOp.offsetscomp
 
 class TestTimeshiftI386LLInterp(test_timeshift.TestTimeshift):
-    class RGenOp(RI386GenOp):
+    class RGenOp(_RI386GenOp):
         from pypy.jit.codegen.i386.codebuf import LLTypeMachineCodeBlock as MachineCodeBlock
+        offsetscomp = OffsetComp()
 
         def constFieldName(T, name):
             return IntConst(list(T._names).index(name))
