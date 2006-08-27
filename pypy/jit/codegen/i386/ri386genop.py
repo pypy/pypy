@@ -292,6 +292,10 @@ class Link(CodeGenLink):
                     srccount[i] = -1
                     pending_dests -= 1
                     gv_src = outputargs_gv[i]
+                    if isinstance(gv_src, Var):
+                        p = gv_src.stackpos
+                        if 0 <= p < N:
+                            srccount[p] -= 1
                     block.mc.MOV(eax, gv_src.operand(block))
                     block.mc.MOV(block.stack_access(i), eax)
                     progress = True

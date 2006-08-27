@@ -132,10 +132,12 @@ def make_branching(rgenop):
     link_false, link_true = block.close2(gv_cond)
 
     block2 = rgenop.newblock()
+    gv_one = block2.geninputarg(gv_SIGNED)
     gv_x2 = block2.geninputarg(gv_SIGNED)
-    link_true.close([gv_x], block2)
+    gv_y2 = block2.geninputarg(gv_SIGNED)
+    link_true.close([rgenop.genconst(1), gv_x, gv_y], block2)
 
-    args_gv = [gv_x2, rgenop.genconst(1)]
+    args_gv = [gv_x2, gv_one]
     gv_s2 = block2.genop("int_sub", args_gv, gv_SIGNED)
     link2 = block2.close1()
     link2.closereturn(gv_s2)
