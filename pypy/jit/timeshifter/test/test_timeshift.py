@@ -10,8 +10,8 @@ from pypy.jit.llabstractinterp.test.test_llabstractinterp import summary
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.objectmodel import hint, keepalive_until_here
 from pypy.rpython.unroll import unrolling_iterable
-from pypy.rpython.lltypesystem import rstr
 from pypy.rpython.annlowlevel import PseudoHighLevelCallable
+from pypy.rpython.module.support import LLSupport
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.objspace.flow.model import checkgraph
@@ -450,14 +450,14 @@ class TestTimeshift(TimeshiftingTests):
         def ll_function(s):
             return s.hello * s.world
 
-        def build_S(string):
+        def struct_S(string):
             items = string.split(',')
             assert len(items) == 2
             s1 = lltype.malloc(S)
             s1.hello = int(items[0])
             s1.world = int(items[1])
             return s1
-        ll_function.convert_arguments = [build_S]
+        ll_function.convert_arguments = [struct_S]
 
         res = self.timeshift(ll_function, ["6,7"], [])
         assert res == 42
@@ -471,14 +471,21 @@ class TestTimeshift(TimeshiftingTests):
                             hints={'immutable': True})
         def ll_function(a):
             return a[0] * a[1]
-        a1 = lltype.malloc(A, 2)
-        a1[0] = 6
-        a1[1] = 7
-        res = self.timeshift(ll_function, [a1], [])
+
+        def int_array(string):
+            items = [int(x) for x in string.split(',')]
+            n = len(items)
+            a1 = lltype.malloc(A, n)
+            for i in range(n):
+                a1[i] = items[i]
+            return a1
+        ll_function.convert_arguments = [int_array]
+
+        res = self.timeshift(ll_function, ["6,7"], [])
         assert res == 42
         self.check_insns({'getarrayitem': 2, 'int_mul': 1})
-        res = self.timeshift(ll_function, [a1], [0])
-        assert res == 42
+        res = self.timeshift(ll_function, ["8,3"], [0])
+        assert res == 24
         self.check_insns({})
 
     def test_simple_struct_malloc(self):
@@ -609,8 +616,8 @@ class TestTimeshift(TimeshiftingTests):
                     acc -= y
                 pc += 1
             return acc
-        s = rstr.string_repr.convert_const("+-+")
-        res = self.timeshift(ll_plus_minus, [s, 0, 2], [0], inline=999)
+        ll_plus_minus.convert_arguments = [LLSupport.to_rstr, int, int]
+        res = self.timeshift(ll_plus_minus, ["+-+", 0, 2], [0], inline=999)
         assert res == ll_plus_minus("+-+", 0, 2)
         self.check_insns({'int_add': 2, 'int_sub': 1})
 
