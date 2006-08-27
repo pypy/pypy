@@ -87,7 +87,7 @@ class TestTimeshiftI386(test_timeshift.TestTimeshift):
                            annmodel.SomeInteger())
         annhelper.finish()
         t = self.rtyper.annotator.translator
-        cbuilder = CStandaloneBuilder(t, ll_main)
+        cbuilder = CStandaloneBuilder(t, ll_main, gcpolicy='boehm')
         cbuilder.generate_source()
         cbuilder.compile()
         self.main_cbuilder= cbuilder
