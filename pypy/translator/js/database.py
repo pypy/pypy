@@ -136,7 +136,8 @@ class LowLevelDatabase(object):
             return const
 
     def gen_constants(self, ilasm):
-        ilasm.begin_consts(self.const_var.name)
+        if not self.rendered:
+            ilasm.begin_consts(self.const_var.name)
         
         try:
             while True:
