@@ -293,9 +293,11 @@ class AnnotatingGcWrapper(GcWrapper):
         return [self.gcptr, typeid, size]
 
     def get_funcptr_malloc(self):
-        return self.llinterp.heap.functionptr(gc.gc_interface["malloc"], "malloc",
-                                             _callable=self.gc.malloc,
-                                             graph=self.malloc_graph)
+        FUNC = gc.gc_interface["malloc"]
+        FUNC = lltype.FuncType([lltype.typeOf(self.gcptr)] + list(FUNC.ARGS), FUNC.RESULT)
+        return self.llinterp.heap.functionptr(FUNC, "malloc",
+                                              _callable=self.gc.malloc,
+                                              graph=self.malloc_graph)
 
     def adjust_result_malloc(self, address, TYPE, size=0):
         result = lltypesimulation.init_object_on_address(address, TYPE, size)
@@ -316,7 +318,9 @@ class AnnotatingGcWrapper(GcWrapper):
             return self.gcptr, item._address, addr_to, obj._address
             
     def get_funcptr_write_barrier(self):
-        return self.llinterp.heap.functionptr(gc.gc_interface["write_barrier"],
+        FUNC = gc.gc_interface["write_barrier"]
+        FUNC = lltype.FuncType([lltype.typeOf(self.gcptr)] + list(FUNC.ARGS), FUNC.RESULT)
+        return self.llinterp.heap.functionptr(FUNC,
                                              "write_barrier",
                                              _callable=self.gc.write_barrier,
                                              graph=self.write_barrier_graph)

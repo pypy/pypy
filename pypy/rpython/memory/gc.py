@@ -51,7 +51,7 @@ def get_dummy_annotate(gc, AddressLinkedList):
 
 
 gc_interface = {
-    "malloc": lltype.FuncType((lltype.Signed, lltype.Signed), lltype.Signed),
+    "malloc": lltype.FuncType((lltype.Signed, lltype.Signed), llmemory.Address),
     "collect": lltype.FuncType((), lltype.Void),
     "write_barrier": lltype.FuncType((llmemory.Address, ) * 3, lltype.Void),
     }
