@@ -51,9 +51,9 @@ class GenOO(object):
         # as an external function. Fix this.
         self.fix_names()
         self.gen_entrypoint()
-        self.gen_pendings()
-        self.db.gen_constants(self.ilasm)
-        self.gen_pendings()
+        while self.db._pending_nodes:
+            self.gen_pendings()
+            self.db.gen_constants(self.ilasm)
         out.close()
         return self.tmpfile.strpath
 

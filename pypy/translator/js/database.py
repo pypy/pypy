@@ -39,6 +39,7 @@ class LowLevelDatabase(object):
         self.consts = {}  # value --> const_name
         self.reverse_consts = {}
         self.const_names = set()
+        self.rendered = set()
         self.const_var = Variable("__consts")
         self.name_manager = JavascriptNameManager(self)
         self.pending_consts = []
@@ -147,24 +148,21 @@ class LowLevelDatabase(object):
 
         def generate_constants(consts):
             all_c = [const for const,name in consts.iteritems()]
-            rendered = set()
             dep_ok = set()
             while len(all_c) > 0:
                 const = all_c.pop()
-                if const not in rendered:
+                if const not in self.rendered:
                     to_render = True
-                    #if consts[const] == 'const_str__63':
-                    #    import pdb;pdb.set_trace()
                     if hasattr(const, 'depends_on') and const.depends_on:
                         for i in const.depends_on:
-                            if i not in rendered and i not in dep_ok:
+                            if i not in self.rendered and i not in dep_ok:
                                 assert i.depends is None or const in i.depends
                                 to_render = False
                                 continue
                     
                     if to_render and (not hasattr(const, 'depends')) or (not const.depends) or const in dep_ok:
                         yield const,consts[const]
-                        rendered.add(const)
+                        self.rendered.add(const)
                     else:
                         all_c.append(const)
                         for i in const.depends:
@@ -174,7 +172,6 @@ class LowLevelDatabase(object):
         log("Consts: %r"%self.consts)
         # We need to keep track of fields to make sure
         # our items appear earlier than us
-        #import pdb;pdb.set_trace()
         for const,name in generate_constants(self.consts):
             log("Recording %r %r"%(const,name))
             ilasm.load_local(self.const_var)
@@ -276,7 +273,6 @@ class InstanceConst(AbstractConst):
         return self.cts.lltype_to_cts(self.static_type)
 
     def init(self, ilasm):
-        #import pdb;pdb.set_trace()
         if not self.obj:
             ilasm.load_void()
             return
@@ -378,7 +374,6 @@ class ListConst(AbstractConst):
         return self.const
 
     def init_fields(self, ilasm, const_var, name):
-        #import pdb;pdb.set_trace()
         if not self.const:
             return
         
@@ -425,8 +420,6 @@ class BuiltinConst(AbstractConst):
 
 class DictConst(RecordConst):
     def record_const(self, co):
-        #if isinstance(co, ootype._string) and co._str == 'fire':
-        #    import pdb;pdb.set_trace()
         name = self.db.record_const(co, None, 'const')
         if name is not None:
             self.depends.add(name)
