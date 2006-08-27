@@ -247,6 +247,7 @@ class Block(CodeGenBlock):
         return self.push(eax)
 
     def op_getfield(self, (gv_ptr, gv_offset), gv_RESTYPE):
+        # XXX only for int fields
         assert isinstance(gv_offset, IntConst)
         offset = gv_offset.value
         self.mc.MOV(edx, gv_ptr.operand(self))
@@ -266,6 +267,53 @@ class Block(CodeGenBlock):
         self.mc.MOV(edx, gv_ptr.operand(self))
         self.mc.LEA(eax, mem(edx, offset))
         return self.push(eax)
+
+    def op_getarrayitem(self, (gv_ptr, gv_index), gv_RESTYPE):
+        # XXX! only works for GcArray(Signed) for now!!
+        A = DUMMY_A
+        lengthoffset, startoffset, itemoffset = self.rgenop.access_array(A)
+        self.mc.MOV(edx, gv_ptr.operand(self))
+        if isinstance(gv_index, IntConst):
+            startoffset += itemoffset * gv_index.value
+            op = mem(edx, startoffset)
+        elif itemoffset in SIZE2SHIFT:
+            self.mc.MOV(ecx, gv_index.operand(self))
+            op = memSIB(edx, ecx, SIZE2SHIFT[itemoffset], startoffset)
+        else:
+            self.mc.IMUL(ecx, gv_index.operand(self), imm(itemoffset))
+            op = memSIB(edx, ecx, 0, startoffset)
+        return self.push(op)
+
+    def op_getarraysize(self, (gv_ptr,), gv_RESTYPE):
+        # XXX! only works for GcArray(Signed) for now!!
+        A = DUMMY_A
+        lengthoffset, startoffset, itemoffset = self.rgenop.access_array(A)
+        self.mc.MOV(edx, gv_ptr.operand(self))
+        return self.push(mem(edx, lengthoffset))
+
+    def op_setarrayitem(self, (gv_ptr, gv_index, gv_value), gv_RESTYPE):
+        # XXX! only works for GcArray(Signed) for now!!
+        A = DUMMY_A
+        lengthoffset, startoffset, itemoffset = self.rgenop.access_array(A)
+        self.mc.MOV(eax, gv_value.operand(self))
+        self.mc.MOV(edx, gv_ptr.operand(self))
+        if isinstance(gv_index, IntConst):
+            startoffset += itemoffset * gv_index.value
+            op = mem(edx, startoffset)
+        elif itemoffset in SIZE2SHIFT:
+            self.mc.MOV(ecx, gv_index.operand(self))
+            op = memSIB(edx, ecx, SIZE2SHIFT[itemoffset], startoffset)
+        else:
+            self.mc.IMUL(ecx, gv_index.operand(self), imm(itemoffset))
+            op = memSIB(edx, ecx, 0, startoffset)
+        self.mc.MOV(op, eax)
+
+DUMMY_A = lltype.GcArray(lltype.Signed)
+SIZE2SHIFT = {1: 0,
+              2: 1,
+              4: 2,
+              8: 3}
+
 
 class Link(CodeGenLink):
 
@@ -391,6 +439,13 @@ class RI386GenOp(AbstractRGenOp):
         return IntConst(llmemory.offsetof(T, name))
     constFieldName._annspecialcase_ = 'specialize:memo'
     constFieldName = staticmethod(constFieldName)
+
+    def access_array(A):   # XXX temporary
+        return (llmemory.ArrayLengthOffset(A),
+                llmemory.ArrayItemsOffset(A),
+                llmemory.ItemOffset(A.OF))
+    access_array._annspecialcase_ = 'specialize:memo'
+    access_array = staticmethod(access_array)
 
     def gencallableconst(self, name, block, gv_FUNCTYPE):
         prologue = self.newblock()

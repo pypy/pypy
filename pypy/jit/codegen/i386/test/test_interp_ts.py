@@ -20,6 +20,11 @@ class TestTimeshiftI386LLInterp(test_timeshift.TestTimeshift):
         constFieldName._annspecialcase_ = 'specialize:memo'
         constFieldName = staticmethod(constFieldName)
 
+        def access_array(A):
+            return 0, 1, 1
+        access_array._annspecialcase_ = 'specialize:memo'
+        access_array = staticmethod(access_array)
+
     def timeshift(self, ll_function, values, opt_consts=[], *args, **kwds):
         values = self.timeshift_cached(ll_function, values, *args, **kwds)
 
