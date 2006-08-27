@@ -333,26 +333,14 @@ class LLTransformerOp(object):
     Their calls are replaced by a simple operation of the GC transformer,
     e.g. ll_pop_alive.
     """
-    def __init__(self, transformer_method, see_type=None):
+    def __init__(self, transformer_method):
         self.transformer_method = transformer_method
-        self.see_type = see_type
 
 class LLTransformerOpEntry(ExtRegistryEntry):
     "Annotation and specialization of LLTransformerOp() instances."
     _type_ = LLTransformerOp
 
     def compute_result_annotation(self, s_arg):
-        op = self.instance   # the LLTransformerOp instance
-        if op.see_type is not None:
-            assert isinstance(s_arg, annmodel.SomePtr)
-            PTRTYPE = s_arg.ll_ptrtype
-            if PTRTYPE.TO is not lltype.PyObject:
-                # look for and annotate a dynamic deallocator if necessary;
-                # doing so implicitly in specialize_call() is too late.
-                # XXX this is skating on microscopically thin ice: if
-                # annotation is required, we are already annotating
-                # ---> boom
-                op.see_type(PTRTYPE.TO)
         return annmodel.s_None
 
     def specialize_call(self, hop):
@@ -592,8 +580,7 @@ def ll_deallocator(addr):
             body = '\n'.join(_static_deallocator_body_for_type('v', TYPE))
             src = ('def ll_deallocator(addr):\n    v = cast_adr_to_ptr(addr, PTR_TYPE)\n' +
                    body + '\n    llop.gc_free(lltype.Void, addr)\n')
-        d = {'pop_alive': LLTransformerOp(self.pop_alive,
-                                  self.dynamic_deallocation_funcptr_for_type),
+        d = {'pop_alive': LLTransformerOp(self.pop_alive),
              'llop': llop,
              'lltype': lltype,
              'destrptr': destrptr,
