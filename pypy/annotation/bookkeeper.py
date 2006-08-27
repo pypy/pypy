@@ -187,6 +187,7 @@ class Bookkeeper:
     def enter(self, position_key):
         """Start of an operation.
         The operation is uniquely identified by the given key."""
+        assert not hasattr(self, 'position_key'), "don't call enter() nestedly"
         self.position_key = position_key
         TLS.bookkeeper = self
 
