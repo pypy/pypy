@@ -497,7 +497,7 @@ class LLFrame(object):
             raise TypeError("graph with %d args called with wrong func ptr type: %r" %(len(args_v), ARGS)) 
         for T, v in zip(ARGS, args_v):
             if not lltype.isCompatibleType(T, v.concretetype):
-                raise TypeError("graph with %d args called with wrong func ptr type: %r" %
+                raise TypeError("graph with %r args called with wrong func ptr type: %r" %
                                 (tuple([v.concretetype for v in args_v]), ARGS)) 
         frame = self.__class__(graph, args, self.llinterpreter, self)
         return frame.eval()        
