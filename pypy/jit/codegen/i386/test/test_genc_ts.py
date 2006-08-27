@@ -33,6 +33,17 @@ class TestTimeshiftI386(test_timeshift.TestTimeshift):
             i = 1
             mainargs = ()
             residualargs = ()
+            if len(argv) == 2 and argv[1] == '--help':
+                os.write(1, 'usage: ' + argv[0])
+                for color, decoder in argcolors_decoders:
+                    os.write(1, ' ')
+                    if color == 'green':
+                        os.write(1, decoder.__name__)
+                    else:
+                        os.write(1, "-const|-var "+decoder.__name__)
+                os.write(1, '\n')
+                return 0
+            
             for color, decoder in argcolors_decoders:
                 try:
                     if color == 'green':
@@ -40,7 +51,12 @@ class TestTimeshiftI386(test_timeshift.TestTimeshift):
                         mainargs += (llvalue,)
                         i = i + 1
                     else:
-                        is_const = argv[i] == '-const'
+                        if argv[i] == '-const':
+                            is_const = True
+                        elif argv[i] == '-var':
+                            is_const = False
+                        else:
+                            raise ValueError()
                         i += 1
                         llvalue = decoder(argv[i])
                         mainargs += (is_const, llvalue)
