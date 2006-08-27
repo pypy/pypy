@@ -438,13 +438,18 @@ def test_arraybarrier():
 def make_deallocator(TYPE,
                      attr="static_deallocation_funcptr_for_type",
                      cls=gctransform.RefcountingGCTransformer):
-    def f():
-        pass
+    if TYPE._is_varsize():
+        def f():
+            return lltype.malloc(TYPE, 1)
+    else:
+        def f():
+            return lltype.malloc(TYPE)
     t = TranslationContext()
     t.buildannotator().build_types(f, [])
     t.buildrtyper().specialize()
     transformer = cls(t)
     fptr = getattr(transformer, attr)(TYPE)
+    transformer.transform_graph(graphof(t, f))
     transformer.finish()
     if conftest.option.view:
         t.view()
