@@ -48,7 +48,12 @@ class LLBlock(CodeGenBlock):
         vars_gv = [gv_ptr.v, gv_name.v]
         return LLVar(llimpl.genop(self.b, 'getsubstruct', vars_gv,
                                   gv_FIELDTYPE.v))        
-    
+
+    def genop_getarrayitem(self, gv_ITEMTYPE, gv_ptr, gv_index):
+        vars_gv = [gv_ptr.v, gv_index.v]
+        return LLVar(llimpl.genop(self.b, 'getarrayitem', vars_gv,
+                                  gv_ITEMTYPE.v))        
+        
     def close1(self):
         return LLLink(llimpl.closeblock1(self.b))
 
@@ -92,7 +97,12 @@ class RGenOp(AbstractRGenOp):
     fieldToken._annspecialcase_ = 'specialize:memo'
     fieldToken = staticmethod(fieldToken)
 
+    def arrayToken(A):
+        return LLConst(llimpl.constTYPE(A.OF))
+    arrayToken._annspecialcase_ = 'specialize:memo'
+    arrayToken = staticmethod(arrayToken)
 
+    
     def constTYPE(T):
         return LLConst(llimpl.constTYPE(T))
     constTYPE._annspecialcase_ = 'specialize:memo'

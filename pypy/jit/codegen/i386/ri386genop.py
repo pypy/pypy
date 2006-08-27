@@ -126,6 +126,9 @@ class Block(CodeGenBlock):
     def genop_getsubstruct(self, offset, gv_ptr):
         return self.emit_getsubstruct(gv_ptr, offset)
 
+    def genop_getarrayitem(self, arraytoken, gv_ptr, gv_index):
+        return self.emit_getarrayitem(gv_ptr, arraytoken, gv_index)
+
     def close1(self):
         return Link(self)
 
@@ -272,10 +275,9 @@ class Block(CodeGenBlock):
         self.mc.LEA(eax, mem(edx, offset))
         return self.push(eax)
 
-    def op_getarrayitem(self, (gv_ptr, gv_index), gv_RESTYPE):
+    def emit_getarrayitem(self, gv_ptr, arraytoken, gv_index):
         # XXX! only works for GcArray(Signed) for now!!
-        A = DUMMY_A
-        lengthoffset, startoffset, itemoffset = self.rgenop.access_array(A)
+        lengthoffset, startoffset, itemoffset = arraytoken
         self.mc.MOV(edx, gv_ptr.operand(self))
         if isinstance(gv_index, IntConst):
             startoffset += itemoffset * gv_index.value
@@ -291,14 +293,14 @@ class Block(CodeGenBlock):
     def op_getarraysize(self, (gv_ptr,), gv_RESTYPE):
         # XXX! only works for GcArray(Signed) for now!!
         A = DUMMY_A
-        lengthoffset, startoffset, itemoffset = self.rgenop.access_array(A)
+        lengthoffset, startoffset, itemoffset = self.rgenop.arrayToken(A)
         self.mc.MOV(edx, gv_ptr.operand(self))
         return self.push(mem(edx, lengthoffset))
 
     def op_setarrayitem(self, (gv_ptr, gv_index, gv_value), gv_RESTYPE):
         # XXX! only works for GcArray(Signed) for now!!
         A = DUMMY_A
-        lengthoffset, startoffset, itemoffset = self.rgenop.access_array(A)
+        lengthoffset, startoffset, itemoffset = self.rgenop.arrayToken(A)
         self.mc.MOV(eax, gv_value.operand(self))
         self.mc.MOV(edx, gv_ptr.operand(self))
         if isinstance(gv_index, IntConst):
@@ -434,6 +436,13 @@ class RI386GenOp(AbstractRGenOp):
     fieldToken._annspecialcase_ = 'specialize:memo'
     fieldToken = staticmethod(fieldToken)
 
+    def arrayToken(A):
+        return (llmemory.ArrayLengthOffset(A),
+                llmemory.ArrayItemsOffset(A),
+                llmemory.ItemOffset(A.OF))
+    arrayToken._annspecialcase_ = 'specialize:memo'
+    arrayToken = staticmethod(arrayToken)
+
     def constTYPE(T):
         if T is lltype.Void:
             return RI386GenOp.gv_Void
@@ -449,13 +458,7 @@ class RI386GenOp(AbstractRGenOp):
     constFieldName._annspecialcase_ = 'specialize:memo'
     constFieldName = staticmethod(constFieldName)
 
-    def access_array(A):   # XXX temporary
-        return (llmemory.ArrayLengthOffset(A),
-                llmemory.ArrayItemsOffset(A),
-                llmemory.ItemOffset(A.OF))
-    access_array._annspecialcase_ = 'specialize:memo'
-    access_array = staticmethod(access_array)
-
+ 
     def gencallableconst(self, name, block, gv_FUNCTYPE):
         prologue = self.newblock()
         #prologue.mc.BREAKPOINT()

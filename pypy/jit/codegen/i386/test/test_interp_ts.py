@@ -19,15 +19,15 @@ class TestTimeshiftI386LLInterp(test_timeshift.TestTimeshift):
         fieldToken._annspecialcase_ = 'specialize:memo'
         fieldToken = staticmethod(fieldToken)
 
+        def arrayToken(A):
+            return 0, 1, 1
+        arrayToken._annspecialcase_ = 'specialize:memo'
+        arrayToken = staticmethod(arrayToken)
+
         def constFieldName(T, name):
             return IntConst(list(T._names).index(name))
         constFieldName._annspecialcase_ = 'specialize:memo'
         constFieldName = staticmethod(constFieldName)
-
-        def access_array(A):
-            return 0, 1, 1
-        access_array._annspecialcase_ = 'specialize:memo'
-        access_array = staticmethod(access_array)
 
     def timeshift(self, ll_function, values, opt_consts=[], *args, **kwds):
         values = self.timeshift_cached(ll_function, values, *args, **kwds)

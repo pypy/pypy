@@ -108,6 +108,7 @@ class ArrayFieldDesc(FieldDesc):
     def __init__(self, RGenOp, PTRTYPE):
         assert isinstance(PTRTYPE.TO, lltype.Array)
         FieldDesc.__init__(self, RGenOp, PTRTYPE, PTRTYPE.TO.OF)
+        self.arraytoken = RGenOp.arrayToken(PTRTYPE.TO)
 
 class StructFieldDesc(object):
     __metaclass__ = cachedtype

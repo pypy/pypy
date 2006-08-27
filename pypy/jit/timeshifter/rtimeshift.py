@@ -124,10 +124,11 @@ def ll_generate_getarrayitem(jitstate, fielddesc, argbox, indexbox):
         array = rvalue.ll_getvalue(argbox, fielddesc.PTRTYPE)
         res = array[rvalue.ll_getvalue(indexbox, lltype.Signed)]
         return rvalue.ll_fromvalue(jitstate, res)
-    op_args = [argbox.getgenvar(jitstate.curbuilder),
-               indexbox.getgenvar(jitstate.curbuilder)]
-    genvar = jitstate.curbuilder.genop('getarrayitem', op_args,
-                                       fielddesc.gv_resulttype)
+    genvar = jitstate.curbuilder.genop_getarrayitem(
+        fielddesc.arraytoken,
+        argbox.getgenvar(jitstate.curbuilder),
+        indexbox.getgenvar(jitstate.curbuilder))
+                                                    
     return fielddesc.redboxcls(fielddesc.gv_resulttype, genvar)
 
 # ____________________________________________________________
@@ -317,6 +318,9 @@ class ResidualGraphBuilder(object):
 
     def genop_getsubstruct(self, fieldtoken, gv_ptr):
         return self.block.genop_getsubstruct(fieldtoken, gv_ptr)
+
+    def genop_getarrayitem(self, arraytoken, gv_ptr, gv_index):
+        return self.block.genop_getarrayitem(arraytoken, gv_ptr, gv_index)
 
     def constTYPE(self, T):
         return self.rgenop.constTYPE(T)
