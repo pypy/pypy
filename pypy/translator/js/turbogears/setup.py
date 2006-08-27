@@ -17,9 +17,9 @@ setup(
     download_url="http://codespeak.net/~ericvrp/rpython2javascript/",
     license="MIT",
     
-    #install_requires = [
-    #    "TurboGears >= 1.1a0",
-    #],
+    install_requires = [
+        "TurboGears >= 0.9a6",
+    ],
 
     #scripts = [
     #    "start-topl.py"
@@ -39,6 +39,9 @@ setup(
     
         [python.templating.engines]
         asjavascript = rpython2javascript.pypy.translator.js.turbogears.templateplugin:TemplatePlugin
+
+        [turbogears.widgets]
+        RPyJSSource = rpython2javascript.pypy.translator.js.turbogears.widgets
         """,
         
     #keywords = [

@@ -36,7 +36,7 @@ def rpython2javascript_main(argv):
         module_name = module_name[:-3]
     function_names = argv[1:]
     mod = __import__(module_name, None, None, ["Module"])
-    rpython2javascript(mod, function_names)
+    return rpython2javascript(mod, function_names)
 
 def rpython2javascript(mod, function_names):
     module_name = mod.__name__
