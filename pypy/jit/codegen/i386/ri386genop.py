@@ -252,6 +252,20 @@ class Block(CodeGenBlock):
         self.mc.MOV(edx, gv_ptr.operand(self))
         return self.push(mem(edx, offset))
 
+    def op_setfield(self, (gv_ptr, gv_offset, gv_value), gv_RESTYPE):
+        # XXX only for ints for now.
+        assert isinstance(gv_offset, IntConst)
+        offset = gv_offset.value
+        self.mc.MOV(eax, gv_value.operand(self))
+        self.mc.MOV(edx, gv_ptr.operand(self))
+        self.mc.MOV(mem(edx, offset), eax)
+
+    def op_getsubstruct(self, (gv_ptr, gv_offset), gv_RESTYPE):
+        assert isinstance(gv_offset, IntConst)
+        offset = gv_offset.value
+        self.mc.MOV(edx, gv_ptr.operand(self))
+        self.mc.LEA(eax, mem(edx, offset))
+        return self.push(eax)
 
 class Link(CodeGenLink):
 
