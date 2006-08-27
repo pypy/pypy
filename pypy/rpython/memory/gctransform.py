@@ -349,6 +349,9 @@ class LLTransformerOpEntry(ExtRegistryEntry):
             if PTRTYPE.TO is not lltype.PyObject:
                 # look for and annotate a dynamic deallocator if necessary;
                 # doing so implicitly in specialize_call() is too late.
+                # XXX this is skating on microscopically thin ice: if
+                # annotation is required, we are already annotating
+                # ---> boom
                 op.see_type(PTRTYPE.TO)
         return annmodel.s_None
 
