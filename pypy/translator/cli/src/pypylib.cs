@@ -620,6 +620,10 @@ namespace pypy.builtin
             }
         }
 
+        static public double ll_math_atan2(double y, double x)
+        {
+            return Math.Atan2(y, x);
+        }
 
     }
 }

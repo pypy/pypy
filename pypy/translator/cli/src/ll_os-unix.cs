@@ -68,9 +68,35 @@ namespace pypy.builtin
             return res;
         }
 
+        public static Record_Stat_Result ll_os_lstat(string path)
+        {
+            Record_Stat_Result res = new Record_Stat_Result();
+
+            Stat st = new Stat();
+            int errno = Syscall.lstat(path, out st);
+            // assert errno == 0 // TODO: raise exception if != 0            
+            res.item0 = (int)st.st_mode;
+            res.item1 = (int)st.st_ino;
+            res.item2 = (int)st.st_dev;
+            res.item3 = (int)st.st_nlink;
+            res.item4 = (int)st.st_uid;
+            res.item5 = (int)st.st_gid;
+            res.item6 = (int)st.st_size;
+            res.item7 = (int)st.st_atime;
+            res.item8 = (int)st.st_mtime;
+            res.item9 = (int)st.st_ctime;
+            return res;
+        }
+
         public static string ll_os_strerror(int errno)
         {
             return "error " + errno;     // TODO
         }
+
+        public static string ll_os_environ(int index)
+        {
+            return null;    // TODO
+        }
+
     }
 }

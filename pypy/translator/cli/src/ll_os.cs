@@ -262,7 +262,17 @@ namespace pypy.builtin
         public static Record_Stat_Result ll_os_fstat(int fd)
         {
             FileStream stream = getfd(fd).GetStream();
-            return ll_os_stat(stream.Name);
+            return ll_os_stat(stream.Name);    // TODO: approximate only
+        }
+
+        public static Record_Stat_Result ll_os_lstat(string path)
+        {
+            return ll_os_stat(path);    // TODO
+        }
+
+        public static string ll_os_environ(int index)
+        {
+            return null;    // TODO
         }
 
         public static void ll_os_unlink(string path)

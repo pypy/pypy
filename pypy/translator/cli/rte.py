@@ -91,4 +91,4 @@ def get_pypy_dll():
     return DLL.get()
 
 if __name__ == '__main__':
-    FrameworkDLL.get()
+    get_pypy_dll()
