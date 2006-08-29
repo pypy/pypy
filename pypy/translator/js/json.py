@@ -21,23 +21,23 @@ import types
 
 
 class _StringGenerator(object):
-	def __init__(self, string):
-		self.string = string
-		self.index = -1
-	def peek(self):
-		i = self.index + 1
-		if i < len(self.string):
-			return self.string[i]
-		else:
-			return None
-	def next(self):
-		self.index += 1
-		if self.index < len(self.string):
-			return self.string[self.index]
-		else:
-			raise StopIteration
-	def all(self):
-		return self.string
+        def __init__(self, string):
+                self.string = string
+                self.index = -1
+        def peek(self):
+                i = self.index + 1
+                if i < len(self.string):
+                        return self.string[i]
+                else:
+                        return None
+        def next(self):
+                self.index += 1
+                if self.index < len(self.string):
+                        return self.string[self.index]
+                else:
+                        raise StopIteration
+        def all(self):
+                return self.string
 
 class WriteException(Exception):
     pass
@@ -132,15 +132,15 @@ class JsonReader(object):
                     if ch in 'brnft':
                         ch = self.escapes[ch]
                     elif ch == "u":
-		        ch4096 = self._next()
-			ch256  = self._next()
-			ch16   = self._next()
-			ch1    = self._next()
-			n = 4096 * self._hexDigitToInt(ch4096)
-			n += 256 * self._hexDigitToInt(ch256)
-			n += 16  * self._hexDigitToInt(ch16)
-			n += self._hexDigitToInt(ch1)
-			ch = unichr(n)
+                        ch4096 = self._next()
+                        ch256  = self._next()
+                        ch16   = self._next()
+                        ch1    = self._next()
+                        n = 4096 * self._hexDigitToInt(ch4096)
+                        n += 256 * self._hexDigitToInt(ch256)
+                        n += 16  * self._hexDigitToInt(ch16)
+                        n += self._hexDigitToInt(ch1)
+                        ch = unichr(n)
                     elif ch not in '"/\\':
                         raise ReadException, "Not a valid escaped JSON character: '%s' in %s" % (ch, self._generator.all())
                 result = result + ch
@@ -155,8 +155,8 @@ class JsonReader(object):
         except KeyError:
             try:
                 result = int(ch)
-	    except ValueError:
-	         raise ReadException, "The character %s is not a hex digit." % ch
+            except ValueError:
+                 raise ReadException, "The character %s is not a hex digit." % ch
         return result
 
     def _readComment(self):
@@ -226,7 +226,7 @@ class JsonReader(object):
                 ch = self._next()
                 if ch != ",":
                     raise ReadException, "Not a valid JSON array: '%s' due to: '%s'" % (self._generator.all(), ch)
-	assert self._next() == "}"
+        assert self._next() == "}"
         return result
 
     def _eatWhitespace(self):
@@ -279,15 +279,15 @@ class JsonWriter(object):
             self._append("]")
         elif ty is types.StringType or ty is types.UnicodeType:
             self._append('"')
-	    obj = obj.replace('\\', r'\\')
+            obj = obj.replace('\\', r'\\')
             if self._escaped_forward_slash:
                 obj = obj.replace('/', r'\/')
-	    obj = obj.replace('"', r'\"')
-	    obj = obj.replace('\b', r'\b')
-	    obj = obj.replace('\f', r'\f')
-	    obj = obj.replace('\n', r'\n')
-	    obj = obj.replace('\r', r'\r')
-	    obj = obj.replace('\t', r'\t')
+            obj = obj.replace('"', r'\"')
+            obj = obj.replace('\b', r'\b')
+            obj = obj.replace('\f', r'\f')
+            obj = obj.replace('\n', r'\n')
+            obj = obj.replace('\r', r'\r')
+            obj = obj.replace('\t', r'\t')
             self._append(obj)
             self._append('"')
         elif ty is types.IntType or ty is types.LongType:
