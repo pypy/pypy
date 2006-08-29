@@ -2269,6 +2269,21 @@ class TestAnnotateTestCase:
         a.annotate_helper_method(A, "helper", [])
         assert a.bookkeeper.getdesc(A.helper).getuniquegraph()
 
+    def test_chr_out_of_bounds(self):
+        def g(n, max):
+            if n < max:
+                return chr(n)
+            else:
+                return '?'
+        def fun(max):
+            v = g(1000, max)
+            return g(ord(v), max)
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(fun, [int])
+        self.show(a)
+        assert isinstance(s, annmodel.SomeChar)
+
 def g(n):
     return [0,1,2,n]
 

@@ -33,7 +33,10 @@ def constpropagate(func, args_s, s_result):
         if not s.is_immutable_constant():
             return s_result
         args.append(s.const)
-    realresult = func(*args)
+    try:
+        realresult = func(*args)
+    except (ValueError, OverflowError):
+        return s_ImpossibleValue   # no possible answer for this precise input
     s_realresult = immutablevalue(realresult)
     if not s_result.contains(s_realresult):
         raise Exception("%s%r returned %r, which is not contained in %s" % (
