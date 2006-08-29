@@ -1,4 +1,4 @@
-from pypy.annotation.model import SomeObject, SomeImpossibleValue
+from pypy.annotation.model import SomeObject, s_ImpossibleValue
 from pypy.annotation.model import SomeList, SomeString
 from pypy.annotation.model import unionof, TLS, UnionError, isdegenerated
 
@@ -74,7 +74,7 @@ class ListDef:
     list have to be.  Every list creation makes a new ListDef, and the union
     of two lists merges the ListItems that each ListDef stores."""
 
-    def __init__(self, bookkeeper, s_item=SomeImpossibleValue()):
+    def __init__(self, bookkeeper, s_item=s_ImpossibleValue):
         self.listitem = ListItem(bookkeeper, s_item)
         self.listitem.itemof[self] = True
         self.bookkeeper = bookkeeper

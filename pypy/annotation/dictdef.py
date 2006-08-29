@@ -1,4 +1,4 @@
-from pypy.annotation.model import SomeObject, SomeImpossibleValue
+from pypy.annotation.model import SomeObject, s_ImpossibleValue
 from pypy.annotation.model import SomeInteger, SomeBool, unionof
 from pypy.annotation.model import SomeInstance
 from pypy.annotation.listdef import ListItem
@@ -91,8 +91,8 @@ class DictDef:
     and the union of two dicts merges the DictKeys and DictValues that each
     DictDef stores."""
 
-    def __init__(self, bookkeeper, s_key = SomeImpossibleValue(),
-                                 s_value = SomeImpossibleValue(),
+    def __init__(self, bookkeeper, s_key = s_ImpossibleValue,
+                                 s_value = s_ImpossibleValue,
                                is_r_dict = False):
         self.dictkey = DictKey(bookkeeper, s_key, is_r_dict)
         self.dictkey.itemof[self] = True

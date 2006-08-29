@@ -328,7 +328,7 @@ class Bookkeeper:
             try:
                 return self.immutable_cache[key]
             except KeyError:
-                result = SomeList(ListDef(self, SomeImpossibleValue()))
+                result = SomeList(ListDef(self, s_ImpossibleValue))
                 self.immutable_cache[key] = result
                 for e in x:
                     result.listdef.generalize(self.immutablevalue(e))
@@ -340,8 +340,8 @@ class Bookkeeper:
                 return self.immutable_cache[key]
             except KeyError:
                 result = SomeDict(DictDef(self, 
-                                          SomeImpossibleValue(),
-                                          SomeImpossibleValue(),
+                                          s_ImpossibleValue,
+                                          s_ImpossibleValue,
                                           is_r_dict = tp is r_dict))
                 self.immutable_cache[key] = result
                 if tp is r_dict:
@@ -455,13 +455,13 @@ class Bookkeeper:
         elif tp is float:
             result = SomeFloat()
         elif tp is list:
-            result = SomeList(ListDef(self, SomeImpossibleValue()))
+            result = SomeList(ListDef(self, s_ImpossibleValue))
             for e in x:
                 result.listdef.generalize(self.annotation_from_example(e))
         elif tp is dict or tp is r_dict:
             result = SomeDict(DictDef(self, 
-                SomeImpossibleValue(),
-                SomeImpossibleValue(),
+                s_ImpossibleValue,
+                s_ImpossibleValue,
                 is_r_dict = tp is r_dict))
             if tp is r_dict:
                 s_eqfn = self.immutablevalue(x.key_eq)
@@ -667,7 +667,7 @@ class Bookkeeper:
 
         descs = pbc.descriptions.keys()
         if not descs:
-            return SomeImpossibleValue()
+            return s_ImpossibleValue
         first = descs[0]
         change = first.mergeattrfamilies(descs[1:], attr)
         attrfamily = first.getattrfamily(attr)
@@ -695,7 +695,7 @@ class Bookkeeper:
         """
         descs = pbc.descriptions.keys()
         if not descs:
-            return SomeImpossibleValue()
+            return s_ImpossibleValue
         first = descs[0]
         first.mergecallfamilies(*descs[1:])
 

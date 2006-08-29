@@ -454,7 +454,7 @@ class __extend__(pairtype(SomeTuple, SomeInteger)):
             try:
                 return tup1.items[int2.const]
             except IndexError:
-                return SomeImpossibleValue()
+                return s_ImpossibleValue
         else:
             getbookkeeper().count("tuple_random_getitem", tup1)
             return unionof(*tup1.items)
@@ -638,7 +638,7 @@ _make_none_union('SomeExternalObject', 'obj.knowntype')
 
 class __extend__(pairtype(SomePBC, SomeObject)):
     def getitem((pbc, o)):
-        return SomeImpossibleValue()
+        return s_ImpossibleValue
 
 class __extend__(pairtype(SomeExternalObject, SomeExternalObject)):
     def union((ext1, ext2)):

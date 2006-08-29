@@ -142,7 +142,7 @@ class RPythonAnnotator(object):
         desc = olddesc.bind_self(classdef)
         args = self.bookkeeper.build_args("simple_call", args_s[:])
         desc.consider_call_site(self.bookkeeper, desc.getcallfamily(), [desc],
-            args, annmodel.SomeImpossibleValue())
+            args, annmodel.s_ImpossibleValue)
         result = []
         def schedule(graph, inputcells):
             result.append((graph, inputcells))
@@ -284,7 +284,7 @@ class RPythonAnnotator(object):
         for graph in newgraphs:
             v = graph.getreturnvar()
             if v not in self.bindings:
-                self.setbinding(v, annmodel.SomeImpossibleValue())
+                self.setbinding(v, annmodel.s_ImpossibleValue)
         # policy-dependent computation
         self.bookkeeper.compute_at_fixpoint()
 
@@ -300,7 +300,7 @@ class RPythonAnnotator(object):
                     raise
         elif isinstance(arg, Constant):
             #if arg.value is undefined_value:   # undefined local variables
-            #    return annmodel.SomeImpossibleValue()
+            #    return annmodel.s_ImpossibleValue
             return self.bookkeeper.immutableconstant(arg)
         else:
             raise TypeError, 'Variable or Constant expected, got %r' % (arg,)
@@ -412,7 +412,7 @@ class RPythonAnnotator(object):
         except KeyError: 
             # the function didn't reach any return statement so far.
             # (some functions actually never do, they always raise exceptions)
-            return annmodel.SomeImpossibleValue()
+            return annmodel.s_ImpossibleValue
 
     def reflowfromposition(self, position_key):
         graph, block, index = position_key
@@ -732,8 +732,8 @@ class RPythonAnnotator(object):
         except Exception:
             raise_nicer_exception(op)
         if resultcell is None:
-            resultcell = annmodel.SomeImpossibleValue()  # no return value
-        elif resultcell == annmodel.SomeImpossibleValue():
+            resultcell = annmodel.s_ImpossibleValue  # no return value
+        elif resultcell == annmodel.s_ImpossibleValue:
             raise BlockedInference(self, op) # the operation cannot succeed
         assert isinstance(resultcell, annmodel.SomeObject)
         assert isinstance(op.result, Variable)

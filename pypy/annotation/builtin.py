@@ -524,7 +524,7 @@ def subclassof(class1, class2):
 def runtimenew(c):
     assert isinstance(c, SomeOOClass)
     if c.ootype is None:
-        return SomeImpossibleValue()   # can't call runtimenew(NULL)
+        return s_ImpossibleValue   # can't call runtimenew(NULL)
     else:
         return SomeOOInstance(c.ootype)
 

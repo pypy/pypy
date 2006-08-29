@@ -3,7 +3,7 @@ Type inference for user-defined classes.
 """
 
 from __future__ import generators
-from pypy.annotation.model import SomeImpossibleValue, SomePBC, unionof
+from pypy.annotation.model import SomePBC, s_ImpossibleValue, unionof
 from pypy.annotation.model import SomeInteger, isdegenerated
 from pypy.annotation import description
 
@@ -70,7 +70,7 @@ class Attribute:
         assert name != '__class__'
         self.name = name
         self.bookkeeper = bookkeeper
-        self.s_value = SomeImpossibleValue()
+        self.s_value = s_ImpossibleValue
         self.readonly = True
         self.read_locations = {}
 
@@ -299,7 +299,7 @@ class ClassDef:
         for cdef in self.getmro():
             if name in cdef.attrs:
                 s_result = cdef.attrs[name].s_value
-                if s_result != SomeImpossibleValue():
+                if s_result != s_ImpossibleValue:
                     return s_result
                 else:
                     return None
@@ -345,7 +345,7 @@ class ClassDef:
         if d or pbc.can_be_None:
             return SomePBC(d, can_be_None=pbc.can_be_None)
         else:
-            return SomeImpossibleValue()
+            return s_ImpossibleValue
 
     def check_missing_attribute_update(self, name):
         # haaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaack
