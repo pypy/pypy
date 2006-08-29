@@ -684,7 +684,6 @@ class AbstractClassesPBCRepr(Repr):
             if isinstance(v_instance, tuple):
                 v_instance, must_call_init = v_instance
                 if not must_call_init:
-                    hop.exception_cannot_occur()
                     return v_instance
         else:
             # instantiating a class from multiple possible classes
