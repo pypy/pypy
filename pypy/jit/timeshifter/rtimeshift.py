@@ -322,6 +322,9 @@ class ResidualGraphBuilder(object):
     def genop_getarrayitem(self, arraytoken, gv_ptr, gv_index):
         return self.block.genop_getarrayitem(arraytoken, gv_ptr, gv_index)
 
+    def genop_malloc_fixedsize(self, alloctoken):
+        return self.block.genop_malloc_fixedsize(alloctoken)
+
     def constTYPE(self, T):
         return self.rgenop.constTYPE(T)
     constTYPE._annspecialcase_ = 'specialize:arg(1)'

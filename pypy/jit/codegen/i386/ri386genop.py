@@ -2,6 +2,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.jit.codegen.i386.ri386 import *
 from pypy.jit.codegen.model import AbstractRGenOp, CodeGenBlock, CodeGenLink
 from pypy.jit.codegen.model import GenVar, GenConst
+from pypy.rpython import objectmodel
 
 WORD = 4
 
@@ -23,12 +24,14 @@ class Var(GenVar):
     def operand(self, block):
         return block.stack_access(self.stackpos)
 
+    def __repr__(self):
+        return 'var@%d' % (self.stackpos,)
+
 
 class TypeConst(GenConst):
 
     def __init__(self, kind):
         self.kind = kind
-
 
 ##class Const(GenConst):
 
@@ -72,6 +75,10 @@ class IntConst(GenConst):
             return lltype.cast_primitive(T, self.value)
     revealconst._annspecialcase_ = 'specialize:arg(1)'
 
+    def __repr__(self):
+        return "const=%s" % (imm(self.value).assembler(),)
+        
+
 
 class FnPtrConst(IntConst):
     def __init__(self, value, mc):
@@ -95,6 +102,9 @@ class AddrConst(GenConst):
         else:
             assert 0, "XXX not implemented"
     revealconst._annspecialcase_ = 'specialize:arg(1)'
+
+    def __repr__(self):
+        return "const=%r" % (self.addr,)
 
 
 class Block(CodeGenBlock):
@@ -120,7 +130,6 @@ class Block(CodeGenBlock):
         return self.emit_getfield(gv_ptr, offset)
 
     def genop_setfield(self, offset, gv_ptr, gv_value):
-        offset = self.rgenop.offsetscomp.offsetof(T, name)
         return self.emit_setfield(gv_ptr, offset, gv_value)
 
     def genop_getsubstruct(self, offset, gv_ptr):
@@ -128,6 +137,9 @@ class Block(CodeGenBlock):
 
     def genop_getarrayitem(self, arraytoken, gv_ptr, gv_index):
         return self.emit_getarrayitem(gv_ptr, arraytoken, gv_index)
+
+    def genop_malloc_fixedsize(self, size):
+        return self.emit_malloc_fixedsize(size)
 
     def close1(self):
         return Link(self)
@@ -257,6 +269,18 @@ class Block(CodeGenBlock):
         self.mc.CMP(gv_x.operand(self), imm8(0))
         self.mc.SETE(al)
         self.mc.MOVZX(eax, al)
+        return self.push(eax)
+
+    def op_cast_pointer(self, (gv_x,), gv_RESTYPE):
+        return gv_x
+
+    gc_malloc = objectmodel.CDefinedIntSymbolic("((long)GC_local_malloc)", 13) # XXX XXX
+
+    def emit_malloc_fixedsize(self, size):
+        # XXX boehm only, no atomic/non atomic distinction for now
+        self.mc.PUSH(imm(size))
+        self.mc.CALL(rel32(cast_ptr_to_int(llhelper(gc_malloc, [lltype.Signed], lltype.Address)))
+        self.stackdepth += 1 # maybe?
         return self.push(eax)
 
     def emit_getfield(self, gv_ptr, offset):
@@ -436,6 +460,11 @@ class RI386GenOp(AbstractRGenOp):
     fieldToken._annspecialcase_ = 'specialize:memo'
     fieldToken = staticmethod(fieldToken)
 
+    def allocToken(T):
+        return llmemory.sizeof(T)
+    allocToken._annspecialcase_ = 'specialize:memo'
+    allocToken = staticmethod(allocToken)
+    
     def arrayToken(A):
         return (llmemory.ArrayLengthOffset(A),
                 llmemory.ArrayItemsOffset(A),

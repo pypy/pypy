@@ -9,6 +9,9 @@ class LLVar(GenVar):
     def __init__(self, v):
         self.v = v
 
+    def __repr__(self):
+        return repr(RGenOp.reveal(self))
+
 
 class LLConst(GenConst):
     def __init__(self, v):
@@ -18,6 +21,8 @@ class LLConst(GenConst):
         return llimpl.revealconst(T, self.v)
     revealconst._annspecialcase_ = 'specialize:arg(1)'
 
+    def __repr__(self):
+        return repr(RGenOp.reveal(self))
 
 gv_Void = LLConst(llimpl.constTYPE(lltype.Void))
 
@@ -52,8 +57,13 @@ class LLBlock(CodeGenBlock):
     def genop_getarrayitem(self, gv_ITEMTYPE, gv_ptr, gv_index):
         vars_gv = [gv_ptr.v, gv_index.v]
         return LLVar(llimpl.genop(self.b, 'getarrayitem', vars_gv,
-                                  gv_ITEMTYPE.v))        
-        
+                                  gv_ITEMTYPE.v))
+
+    def genop_malloc_fixedsize(self, (gv_TYPE, gv_PTRTYPE)):
+        vars_gv = [gv_TYPE.v]
+        return LLVar(llimpl.genop(self.b, 'malloc', vars_gv,
+                                  gv_PTRTYPE.v))
+                                  
     def close1(self):
         return LLLink(llimpl.closeblock1(self.b))
 
@@ -96,6 +106,11 @@ class RGenOp(AbstractRGenOp):
         return (LLConst(llimpl.constFieldName(name)), LLConst(llimpl.constTYPE(FIELDTYPE)))
     fieldToken._annspecialcase_ = 'specialize:memo'
     fieldToken = staticmethod(fieldToken)
+
+    def allocToken(TYPE):
+        return (LLConst(llimpl.constTYPE(TYPE)), LLConst(llimpl.constTYPE(lltype.Ptr(TYPE))))
+    allocToken._annspecialcase_ = 'specialize:memo'
+    allocToken = staticmethod(allocToken)
 
     def arrayToken(A):
         return LLConst(llimpl.constTYPE(A.OF))

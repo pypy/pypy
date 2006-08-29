@@ -32,6 +32,9 @@ class StructTypeDesc(object):
     def __init__(self, RGenOp, TYPE):
         self.TYPE = TYPE
         self.PTRTYPE = lltype.Ptr(TYPE)
+        self.alloctoken = RGenOp.allocToken(self.TYPE)
+
+        # XXX
         self.gv_type = RGenOp.constTYPE(self.TYPE)
         self.gv_ptrtype = RGenOp.constTYPE(self.PTRTYPE)
 
@@ -201,17 +204,15 @@ class VirtualStruct(AbstractContainer):
                 box.enter_block(newblock, incoming, memo)
 
     def force_runtime_container(self, builder):
-        genop = builder.genop
         typedesc = self.typedesc
         boxes = self.content_boxes
         self.content_boxes = None
-        op_args = [typedesc.gv_type]
-        genvar = genop('malloc', op_args, typedesc.gv_ptrtype)
+        genvar = builder.genop_malloc_fixedsize(typedesc.alloctoken)
         # force all the boxes pointing to this VirtualStruct
         for box in self.substruct_boxes:
             # XXX using getsubstruct would be nicer
             op_args = [genvar]
-            box.genvar = genop('cast_pointer', op_args, box.gv_type)
+            box.genvar = builder.genop('cast_pointer', op_args, box.gv_type)
             box.content = None
         self.substruct_boxes = None
         fielddescs = typedesc.fielddescs

@@ -24,6 +24,11 @@ class TestTimeshiftI386LLInterp(test_timeshift.TestTimeshift):
         arrayToken._annspecialcase_ = 'specialize:memo'
         arrayToken = staticmethod(arrayToken)
 
+        def allocToken(T):
+            return len(T._names)
+        allocToken._annspecialcase_ = 'specialize:memo'
+        allocToken = staticmethod(allocToken)
+
         def constFieldName(T, name):
             return IntConst(list(T._names).index(name))
         constFieldName._annspecialcase_ = 'specialize:memo'

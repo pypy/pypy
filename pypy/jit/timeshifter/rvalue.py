@@ -34,8 +34,7 @@ class RedBox(object):
         if not self.genvar:
             return '<dummy>'
         else:
-            from pypy.jit.codegen.llgraph.rgenop import rgenop
-            return '<%r>' % (rgenop.reveal(self.genvar),)
+            return '<%r>' % (self.genvar,)
 
     def is_constant(self):
         return bool(self.genvar) and self.genvar.is_const
