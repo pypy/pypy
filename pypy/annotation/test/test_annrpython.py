@@ -2255,7 +2255,19 @@ class TestAnnotateTestCase:
         v1, v2 = graphof(a, readout).getargs()
         assert not a.bindings[v1].is_constant()
         assert not a.bindings[v2].is_constant()
-
+    
+    def test_helper_method_annotator(self):
+        def fun():
+            return 21
+        
+        class A(object):
+            def helper(self):
+                return 42
+        
+        a = self.RPythonAnnotator()
+        a.build_types(fun, [])
+        a.annotate_helper_method(A, "helper", [])
+        assert a.bookkeeper.getdesc(A.helper).getuniquegraph()
 
 def g(n):
     return [0,1,2,n]

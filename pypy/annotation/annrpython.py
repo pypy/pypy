@@ -4,7 +4,7 @@ from types import ClassType, FunctionType
 from pypy.tool.ansi_print import ansi_log, raise_nicer_exception
 from pypy.annotation import model as annmodel
 from pypy.annotation.pairtype import pair
-from pypy.annotation.bookkeeper import Bookkeeper
+from pypy.annotation.bookkeeper import Bookkeeper, getbookkeeper
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.objspace.flow.model import FunctionGraph
 from pypy.objspace.flow.model import c_last_exception, checkgraph
@@ -122,6 +122,41 @@ class RPythonAnnotator(object):
             from pypy.annotation.policy import AnnotatorPolicy
             policy = AnnotatorPolicy()
         graph, inputcells = self.get_call_parameters(function, args_s, policy)
+        self.build_graph_types(graph, inputcells, complete_now=False)
+        self.complete_helpers(policy)
+        return graph
+    
+    def annotate_helper_method(self, _class, attr, args_s, policy=None):
+        if policy is None:
+            from pypy.annotation.policy import AnnotatorPolicy
+            policy = AnnotatorPolicy()
+        
+        assert attr != '__class__'
+        classdef = self.bookkeeper.getuniqueclassdef(_class)
+        attrdef = classdef.find_attribute(attr)
+        s_result = attrdef.getvalue()
+        classdef.add_source_for_attribute(attr, classdef.classdesc)
+        self.bookkeeper
+        assert isinstance(s_result, annmodel.SomePBC)
+        olddesc = s_result.descriptions.iterkeys().next()
+        desc = olddesc.bind_self(classdef)
+        args = self.bookkeeper.build_args("simple_call", args_s[:])
+        desc.consider_call_site(self.bookkeeper, desc.getcallfamily(), [desc],
+            args, annmodel.SomeImpossibleValue())
+        result = []
+        def schedule(graph, inputcells):
+            result.append((graph, inputcells))
+            return annmodel.s_ImpossibleValue
+
+        prevpolicy = self.policy
+        self.policy = policy
+        self.bookkeeper.enter(None)
+        try:
+            desc.pycall(schedule, args, annmodel.s_ImpossibleValue)
+        finally:
+            self.bookkeeper.leave()
+            self.policy = prevpolicy
+        [(graph, inputcells)] = result
         self.build_graph_types(graph, inputcells, complete_now=False)
         self.complete_helpers(policy)
         return graph
