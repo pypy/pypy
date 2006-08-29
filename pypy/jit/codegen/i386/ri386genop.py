@@ -3,6 +3,7 @@ from pypy.jit.codegen.i386.ri386 import *
 from pypy.jit.codegen.model import AbstractRGenOp, CodeGenBlock, CodeGenLink
 from pypy.jit.codegen.model import GenVar, GenConst
 from pypy.rpython import objectmodel
+from pypy.rpython.annlowlevel import llhelper
 
 WORD = 4
 
@@ -274,12 +275,11 @@ class Block(CodeGenBlock):
     def op_cast_pointer(self, (gv_x,), gv_RESTYPE):
         return gv_x
 
-    gc_malloc = objectmodel.CDefinedIntSymbolic("((long)GC_local_malloc)", 13) # XXX XXX
-
     def emit_malloc_fixedsize(self, size):
         # XXX boehm only, no atomic/non atomic distinction for now
         self.mc.PUSH(imm(size))
-        self.mc.CALL(rel32(cast_ptr_to_int(llhelper(gc_malloc, [lltype.Signed], lltype.Address)))
+        gc_malloc_ptr = llhelper(GC_MALLOC, gc_malloc)
+        self.mc.CALL(rel32(lltype.cast_ptr_to_int(gc_malloc_ptr)))
         self.stackdepth += 1 # maybe?
         return self.push(eax)
 
@@ -344,6 +344,13 @@ SIZE2SHIFT = {1: 0,
               4: 2,
               8: 3}
 
+GC_MALLOC = lltype.Ptr(lltype.FuncType([lltype.Signed], llmemory.Address))
+
+def gc_malloc(size):
+    from pypy.rpython.lltypesystem.lloperation import llop
+    return llop.call_boehm_gc_alloc(llmemory.Address, size)
+
+# ____________________________________________________________
 
 class Link(CodeGenLink):
 
