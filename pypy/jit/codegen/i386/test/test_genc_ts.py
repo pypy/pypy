@@ -7,7 +7,7 @@ from pypy.translator.c.genc import CStandaloneBuilder
 from pypy.rpython.unroll import unrolling_iterable
 from pypy.jit.codegen.i386.ri386genop import RI386GenOp
 
-import py; py.test.skip("in-progress")
+#import py; py.test.skip("in-progress")
 
 
 class TestTimeshiftI386(test_timeshift.TestTimeshift):
@@ -28,6 +28,7 @@ class TestTimeshiftI386(test_timeshift.TestTimeshift):
             decoders = [int] * len(argcolors)
         argcolors_decoders = zip(argcolors, decoders)
         argcolors_decoders = unrolling_iterable(argcolors_decoders)
+        convert_result = getattr(self.ll_function, 'convert_result', str)
 
         def ll_main(argv):
             i = 1
@@ -79,7 +80,7 @@ class TestTimeshiftI386(test_timeshift.TestTimeshift):
             generated = ml_generate_code(rgenop, *mainargs)
             os.write(1, SEPLINE)
             res = generated(*residualargs)
-            os.write(1, str(res) + '\n')
+            os.write(1, convert_result(res) + '\n')
             keepalive_until_here(rgenop)    # to keep the code blocks alive
             return 0
             
@@ -112,7 +113,10 @@ class TestTimeshiftI386(test_timeshift.TestTimeshift):
         output = self.main_cbuilder.cmdexec(mainargs)
         assert output.startswith(self.SEPLINE)
         lastline = output[len(self.SEPLINE):].strip()
-        return int(lastline)
+        if hasattr(ll_function, 'convert_result'):
+            return lastline
+        else:
+            return int(lastline)    # assume an int
 
     def check_insns(self, expected=None, **counts):
         "Cannot check instructions in the generated assembler."

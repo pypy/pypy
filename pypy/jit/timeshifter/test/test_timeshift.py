@@ -252,6 +252,8 @@ class TimeshiftingTests(object):
             residual_graph.show()
         self.insns = summary(residual_graph)
         res = llinterp.eval_graph(residual_graph, residualargs)
+        if hasattr(ll_function, 'convert_result'):
+            res = ll_function.convert_result(res)
         return res
 
     def check_insns(self, expected=None, **counts):
@@ -563,6 +565,11 @@ class TestTimeshift(TimeshiftingTests):
     def test_degenerated_at_return(self):
         S = lltype.GcStruct('S', ('n', lltype.Signed))
         T = lltype.GcStruct('T', ('s', S), ('n', lltype.Float))
+        class Result:
+            def convert(self, s):
+                self.s = s
+                return str(s.n)
+        glob_result = Result()
 
         def ll_function(flag):
             t = lltype.malloc(T)
@@ -573,14 +580,18 @@ class TestTimeshift(TimeshiftingTests):
             if flag:
                 s = t.s
             return s
+        ll_function.convert_result = glob_result.convert
+
         res = self.timeshift(ll_function, [0], [])
-        assert res.n == 4
-        assert lltype.parentlink(res._obj) == (None, None)
+        assert res == "4"
+        if self.__class__ is TestTimeshift:
+            assert lltype.parentlink(glob_result.s._obj) == (None, None)
         res = self.timeshift(ll_function, [1], [])
-        assert res.n == 3
-        parent, parentindex = lltype.parentlink(res._obj)
-        assert parentindex == 's'
-        assert parent.n == 3.25
+        assert res == "3"
+        if self.__class__ is TestTimeshift:
+            parent, parentindex = lltype.parentlink(glob_result.s._obj)
+            assert parentindex == 's'
+            assert parent.n == 3.25
 
     def test_degenerated_via_substructure(self):
         S = lltype.GcStruct('S', ('n', lltype.Signed))
