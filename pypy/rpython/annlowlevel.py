@@ -281,7 +281,7 @@ class PseudoHighLevelCallable(object):
         raise Exception("PseudoHighLevelCallable objects are not really "
                         "callable directly")
 
-class Entry(extregistry.ExtRegistryEntry):
+class PseudoHighLevelCallableEntry(extregistry.ExtRegistryEntry):
     _type_ = PseudoHighLevelCallable
 
     def compute_result_annotation(self, *args_s):
@@ -299,3 +299,29 @@ class Entry(extregistry.ExtRegistryEntry):
         assert r_res.lowleveltype == TYPE.TO.RESULT
         hop.exception_is_here()
         return hop.genop('direct_call', [c_func] + vlist, resulttype = r_res)
+
+# ____________________________________________________________
+
+
+def llhelper(F, f):
+    raise NotImplementedError("llhelper")
+
+class LLHelperEntry(extregistry.ExtRegistryEntry):
+    _about_ = llhelper
+
+    def compute_result_annotation(self, s_F, s_callable):
+        assert s_F.is_constant()
+        assert s_callable.is_constant()
+        F = s_F.const
+        if hasattr(self, 'bookkeeper'):
+            args_s = [annmodel.lltype_to_annotation(T) for T in F.TO.ARGS]
+            key = (llhelper, s_callable.const)
+            s_res = self.bookkeeper.emulate_pbc_call(key, s_callable, args_s)
+            assert annmodel.lltype_to_annotation(F.TO.RESULT).contains(s_res)
+        return annmodel.SomePtr(F)
+
+    def specialize_call(self, hop):
+        return hop.args_r[1].get_unique_llfn()
+        
+
+    

@@ -4,7 +4,9 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.annlowlevel import annotate_lowlevel_helper
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.rpython.annlowlevel import PseudoHighLevelCallable
+from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.llinterp import LLInterpreter
+from pypy.rpython.test.test_llinterp import interpret
 from pypy.objspace.flow import FlowObjSpace 
 
 # helpers
@@ -345,3 +347,27 @@ def test_pseudohighlevelcallable():
     llinterp = LLInterpreter(rtyper)
     res = llinterp.eval_graph(graph, [21])
     assert res == 42
+
+
+def test_llhelper():
+    S = GcStruct('S', ('x', Signed), ('y', Signed))
+    def f(s,z):
+        return s.x*s.y+z
+
+    def g(s):
+        return s.x+s.y
+
+    F = Ptr(FuncType([Ptr(S), Signed], Signed))
+    G = Ptr(FuncType([Ptr(S)], Signed))
+        
+    def h(x, y, z):
+        s = malloc(S)
+        s.x = x
+        s.y = y
+        fptr = llhelper(F, f)
+        gptr = llhelper(G, g)
+        assert typeOf(fptr) == F
+        return fptr(s, z)+fptr(s, z*2)+gptr(s)
+
+    res = interpret(h, [8, 5, 2])
+    assert res == 99

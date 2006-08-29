@@ -93,6 +93,7 @@ class ExtRegistryEntry(object):
         return hash((self.__class__, self.type, Hashable(self.instance)))
 
     def compute_annotation_bk(self, bk):
+        self.bookkeeper = bk
         return self.compute_annotation()
 
     def compute_annotation(self):
