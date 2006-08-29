@@ -718,7 +718,7 @@ class StacklessTransformer(object):
         realrettype = op.result.concretetype
         for i, a in enumerate(noexclink.args):
             if a is op.result:
-                noexclink.args[i] = model.Constant(realrettype._defl(example=True), realrettype)
+                noexclink.args[i] = model.Constant(realrettype._defl(), realrettype)
         block.recloseblock(*((noexclink,) + block.exits[1:]))        
 
     def insert_unwind_handling(self, block, i):
