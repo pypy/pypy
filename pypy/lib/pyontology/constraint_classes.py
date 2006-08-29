@@ -5,7 +5,7 @@ from rdflib import URIRef
 import py
 from pypy.tool.ansi_print import ansi_log
 log = py.log.Producer("Constraint")
-py.log.setconsumer("Constraint", ansi_log)
+py.log.setconsumer("Constraint", None)
 
 class OwlConstraint(AbstractConstraint):
 
@@ -110,9 +110,16 @@ class MemberConstraint(AbstractConstraint):
         self.variable = variable
 
     def narrow(self, domains):
-        x_vals = domains[self.object].getValues()
-        if self.variable not in x_vals:
-            raise ConsistencyFailure("%s not in %s"% (self.variable, self.object))
+        dom = domains[self.variable]
+        if domains[self.object].fixed:
+            x_vals = set(domains[self.object].getValues())
+            for indi in dom.getValues():
+                if not indi in x_vals:
+                    dom.removeValue(indi) 
+        else:
+            x_vals = set(domains[self.object].getValues())
+            if dom not in x_vals:
+                raise ConsistencyFailure("%s not in %s"% (self.variable, self.object))
 
 class ComplementOfConstraint(SubClassConstraint):
 
@@ -134,17 +141,18 @@ class RangeConstraint(SubClassConstraint):
     def narrow(self, domains):
         propdom = domains[self.variable]
         rangedom = domains[self.object]
-        newrange = rangedom.getValues()
+        newrange = set(rangedom.getValues())
         res = []
-        oldrange = propdom.range
+        oldrange = set(propdom.range)
         if oldrange:
-            for v in oldrange:
-                if v in newrange:
-                    res.append(v)
+            res = oldrange & newrange 
         else:
             res = newrange
-        propdom.range = res
-        propdom.setValues([(None,i) for i in res])
+        propdom.range = list(res)
+        prop = Linkeddict(propdom.getValues())
+        for pval in prop:
+            if pval not in res:
+                raise ConsistencyFailure("Value %r not in range %r"%(pval, res))
 
 class DomainConstraint(SubClassConstraint):
 
@@ -153,20 +161,18 @@ class DomainConstraint(SubClassConstraint):
     def narrow(self, domains):
         propdom = domains[self.variable]
         domaindom = domains[self.object]
-        newdomain = domaindom.getValues() +[self.object]
+        newdomain = set(domaindom.getValues() +[self.object])
         domain = []
-        olddomain = propdom.domain
+        olddomain = set(propdom.domain)
         if olddomain:
-            for v in olddomain:
-                if v in newdomain:
-                    domain.append(v)
+            domain= olddomain & newdomain
         else:
             domain = newdomain
-        propdom.domain = domain
+        propdom.domain = list(domain)
         prop = Linkeddict(propdom.getValues())
-        for pval in prop.keys():
+        for pval in prop:
             if pval not in domain:
-                raise ConsistencyFailure("Value %r not in range %r"%(pval, domain))
+                raise ConsistencyFailure("Value %r not in domain %r"%(pval, domain))
 
 class SubPropertyConstraint(SubClassConstraint):
 
@@ -187,10 +193,9 @@ class EquivalentPropertyConstraint(SubClassConstraint):
         subdom = domains[self.variable]
         superdom = domains[self.object]
         vals = superdom.getValues()  
-        for val in subdom.getValues():
-            if not val in vals:
-                raise ConsistencyFailure("The Property %s is not equivalent to Property %s" %
-                                         (self.variable, self.object))
+        for value in subdom.getValues():
+            if not value in vals:
+                superdom.addValue(value[0], value[1])
 
 class TypeConstraint(SubClassConstraint):
     cost = 1
@@ -215,7 +220,7 @@ class FunctionalCardinality(OwlConstraint):
                 for item in val:
                     for otheritem in val:
                         if (otheritem == item) == False: 
-                            raise ConsistencyFailure("FunctionalCardinality error")
+                            raise ConsistencyFailure("FunctionalCardinality error: %s for property %s" % (cls, self.variable))
         else:
             return 0
 
@@ -275,17 +280,19 @@ class InverseofConstraint(SubClassConstraint):
     
     def narrow(self, domains):
         """narrowing algorithm for the constraint"""
-        obj_domain = domains[self.object].getValues()
-        sub_domain = domains[self.variable].getValues()
+        obj_domain = domains[self.object].getValuesPrKey()
+        sub_domain = set(domains[self.variable].getValues())
         res = []
         for cls, val in obj_domain:
             for v in val:
                 if not (v,cls) in sub_domain:
                     domains[self.variable].addValue(v, cls)
+        obj_domain = set(domains[self.object].getValues())
+        sub_domain = domains[self.variable].getValuesPrKey()
         for cls, val in sub_domain:
             for v in val:
-                if not (val,cls) in obj_domain:
-                    domains[self.object].addValue(val, cls)
+                if not (v,cls) in obj_domain:
+                    domains[self.object].addValue(v, cls)
 
 class DifferentfromConstraint(SubClassConstraint):
 
@@ -446,7 +453,7 @@ class SomeValueConstraint(OneofPropertyConstraint):
     cost = 100
         
     def narrow(self, domains):
-        val = domains[self.List].getValues()
+        val = set(domains[self.List].getValues())
         dom = domains[self.variable]
         property = dom.property
         indi = dom.getValues()
@@ -473,13 +480,16 @@ class AllValueConstraint(OneofPropertyConstraint):
     cost = 100
         
     def narrow(self, domains):
-        val = domains[self.List].getValues()
+        val = set(domains[self.List].getValues())
         dom = domains[self.variable]
         property = dom.property
         indi = dom.getValues()
-        prop = Linkeddict(domains[property].getValues())
+        prop = domains[property]._dict
+        remove = []
         for v in indi:
-            if not v in prop.keys():
+            if not val:
+                dom.removeValue(v)
+            elif not v in prop:
                 dom.removeValue(v)
             else:
                 prop_val = prop[v]
@@ -498,7 +508,7 @@ class HasvalueConstraint(OneofPropertyConstraint):
         indi = dom.getValues()
         prop = Linkeddict(domains[property].getValues())
         for v in indi:
-            if not v in prop.keys():
+            if not v in prop:
                 dom.removeValue(v)
             else:
                 prop_val = prop[v] 

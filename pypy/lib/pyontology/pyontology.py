@@ -6,15 +6,17 @@ from logilab.constraint.propagation import AbstractDomain, AbstractConstraint,\
 from constraint_classes import *
 import sys, py
 import time
+from urllib2 import URLError
 log = py.log.Producer("Pyontology")
 from pypy.tool.ansi_print import ansi_log
 py.log.setconsumer("Pyontology", None)
-
+#py.log.setconsumer("Pyontology.exception", ansi_log)
 
 namespaces = {
     'rdf' : 'http://www.w3.org/1999/02/22-rdf-syntax-ns',
     'rdfs' : 'http://www.w3.org/2000/01/rdf-schema',
     'xmlns' : 'http://www.w3.org/1999/xhtml',
+    'xmlschema' : 'http://www.w3.org/2001/XMLSchema', 
     'owl' : 'http://www.w3.org/2002/07/owl',
 }
 
@@ -56,7 +58,9 @@ class ClassDomain(AbstractDomain, object):
     # The instances of a class can be represented as a FiniteDomain in values (not always see Disjointwith)
     # Properties of a class is in the dictionary "properties"
     # The bases of a class is in the list "bases"
-    
+
+    fixed = False
+ 
     def __init__(self, name='', uri=None, values = [], bases = []):
         AbstractDomain.__init__(self)
         self.name = name
@@ -100,7 +104,6 @@ class ClassDomain(AbstractDomain, object):
                 cls = variables[cls]
                 dom,constraint = cls.finish(variables, glob_constraints)
 
-                log.finish("DOM %r "%dom)
                 # if the base class is a Restriction we shouldnt add the constraints to the store
                 if not isinstance(cls, Restriction):
                     self.domains.update(dom)
@@ -109,14 +112,12 @@ class ClassDomain(AbstractDomain, object):
                 for constraint in cls.un_constraint:
                     dom, constraints = constraint(self.name, variables[cls.property], cls.value)
                     self.domains.update(dom)
-                    log("Updating constraints %r" % constraints)
                     self.in_constraint.extend(constraints)
-            log("RESULT of finish %r, %r" %(self.domains,self.in_constraint))
             # update the store
             if ('owl_Thing' in variables.keys() and isinstance(self, ClassDomain)
                  and  self.getValues() == []):
                 variables[self.name].setValues(variables['owl_Thing'].getValues())
-                log.finish("setting the domain %s to all individuals %r"%(self.name,variables[self.name]))
+#                log.finish("setting the domain %s to all individuals %r"%(self.name,variables[self.name]))
             variables.update(self.domains)
             glob_constraints.extend(self.in_constraint)
             assert len([x for x in glob_constraints if type(x)==list])==0
@@ -136,8 +137,11 @@ class ClassDomain(AbstractDomain, object):
             self.removeValue(val)
 
     def removeValue(self, value):
-        self.values.pop(value)
+        log.removeValue("Removing %r of %r" % (value ,self.values))
+        if value in self.values:
+            self.values.pop(value)
         if not self.values:
+            log.removeValue("Removed the lastvalue of the Domain")
             raise ConsistencyFailure
  
     def getBases(self):
@@ -160,12 +164,13 @@ class ClassDomain(AbstractDomain, object):
         
     def setValues(self, values):
         for val in values:
-            self.addValue(val) #self.values = dict.fromkeys(values)
+            self.addValue(val) 
 
 class FixedClassDomain(ClassDomain):
 
-    finished = False
-    
+    finished = True 
+    fixed = True
+ 
     def removeValues(self, values):
         pass #raise ConsistencyFailure
 
@@ -178,8 +183,9 @@ class FixedClassDomain(ClassDomain):
 class Thing(ClassDomain):
     pass
 
-class Individual:
+class Individual(Thing):
     def __init__(self, name, uri=None, values=[], bases=[]):
+        Thing.__init__(self, name, uri, values, bases) 
         self.name = name
         self.uri = uri
         self.sameas = set() 
@@ -209,7 +215,7 @@ class List(ClassDomain):
     def __init__(self, name='', values=[], bases = []):
         ClassDomain.__init__(self, name, values, bases)
 
-class Property(fd):
+class Property(ClassDomain):
     # Property contains the relationship between a class instance and a value
     # - a pair. To accomodate global assertions like 'range' and 'domain' attributes
     # for range and domain must be filled in by rdfs:range and rdfs:domain
@@ -226,6 +232,7 @@ class Property(fd):
         self.in_constraint = []
         self.bases = []
         self.finished = True
+
     def finish(self, var, constraints):
         return var, constraints
     
@@ -246,6 +253,8 @@ class Property(fd):
         return self._dict.items()
     
     def addValue(self, key, val):
+        if key == None:
+            raise RuntimeError
         self._dict.setdefault(key, [])
         self._dict[key].append(val)
     
@@ -296,11 +305,6 @@ class FunctionalProperty(Property):
         Property.__init__(self, name, values, bases)
         self.constraint = [FunctionalCardinality(name)]
 
-    def addValue(self, key, val):
-        Property.addValue(self, key, val)
-#        if len(self._dict[key]) > 1:
-#            raise ConsistencyFailure("FunctionalProperties can only have one value")
-        
 class InverseFunctionalProperty(Property):
     
     def __init__(self, name='', values=[], bases = []):
@@ -317,7 +321,7 @@ class InverseFunctionalProperty(Property):
             res = res | vals
 
 class TransitiveProperty(Property):
-    
+   
     def __init__(self, name='', values=[], bases = []):
         Property.__init__(self, name, values, bases)
         #self.constraint = TransitiveConstraint(name)
@@ -376,7 +380,8 @@ builtin_voc = {
                getUriref('owl', 'Restriction') : Restriction,
                getUriref('owl', 'SymmetricProperty') : SymmetricProperty,
                getUriref('owl', 'TransitiveProperty') : TransitiveProperty,
-               getUriref('rdf', 'List') : List
+               getUriref('rdf', 'List') : List,
+#               getUriref('xmlschema', 'string') : str
               }
 
 class Ontology:
@@ -391,6 +396,8 @@ class Ontology:
         self.constraints = []
         self.seen = {}
         self.var2ns ={}
+        self.nr_of_triples = 0
+        self.time = time.time()
     
     def add(self, triple):
         self.graph.add(triple)
@@ -409,18 +416,23 @@ class Ontology:
         self.graph.load(f, format=format)
     
     def attach_fd(self):
-        #while len(list(self.graph.triples((None,)*3))) != len(self.seen.keys()):
-        self.time = time.time()
-        self.nr_of_triples = 0
         for (s, p, o) in (self.graph.triples((None,)*3)):
             self.consider_triple((s, p, o))
         log("=============================")
-#        assert len(list(self.graph.triples((None,)*3))) == len(self.seen.keys())
 
     def finish(self):
-        for key in list(self.variables.keys()):
-            log("FINISHING %s,%r" % (key,self.variables[key].bases))
-            self.variables[key].finish(self.variables, self.constraints)
+        t0 = time.time()
+        for constraint in self.constraints:
+            log.exception("Trying %r" %constraint)
+            for key in constraint.affectedVariables():
+                log.exception("FINISHING %s" % key)
+                if isinstance( self.variables[key], fd):
+                    continue
+                self.variables[key].finish(self.variables, self.constraints)
+                t1 = time.time()
+            constraint.narrow(self.variables)
+            t2 = time.time()
+            t0 = time.time()
     
     def consider_triple(self,(s, p, o)):
         if (s, p, o) in self.seen:
@@ -480,9 +492,9 @@ class Ontology:
                 ns,name = a,''
             if ns not in uris.keys():
                 uris[ns] = ns.split('/')[-1]
-            a = uris[ns] + '_' + name
-            var = str(a.replace('.','_'))
-            var = str(a.replace('-','_'))
+            var = uris[ns] + '_' + name
+            var = str(var.replace('.','_'))
+            var = str(var.replace('-','_'))
         elif type(a) == BNode:
             var = str(a)
         else:
@@ -490,14 +502,14 @@ class Ontology:
         if not cls:
             return var
         if not var in self.variables:
-            cls = self.variables[var] = cls(var)
+            cls = self.variables[var] = cls(var, a)
             if cls.constraint:
                 log("make_var constraint 1 %r,%r" %(cls,a))
                 self.constraints.extend(cls.constraint)
         # XXX needed because of old style classes
         elif not cls == self.variables[var].__class__ and issubclass(cls, self.variables[var].__class__):
             vals = self.variables[var].getValues()
-            tmp = cls(var)
+            tmp = cls(var, a)
             tmp.setValues(vals)
             tmp.property = self.variables[var].property
             if tmp.constraint:
@@ -513,7 +525,6 @@ class Ontology:
     def consistency(self, verbose=0):
         log("BEFORE FINISH %r" % self.variables)
         self.finish()
-        log("DOMAINS %r"% self.variables)
         self.rep = Repository(self.variables.keys(), self.variables, self.constraints)
         self.rep.consistency(verbose)
     
@@ -554,9 +565,9 @@ class Ontology:
         if not var in builtin_voc :
             # var is not one of the builtin classes -> it is a Thing
             self.type(s, Thing_uri)
-            svar = self.make_var(None,s)
+            svar = self.make_var(Individual, s)
             self.variables[svar].type.append(avar) 
-            #self.constraints.append(MemberConstraint(Individual(svar,s), avar))
+            self.constraints.append(MemberConstraint(svar, avar))
         else:
             # var is a builtin class
             cls = builtin_voc[var]
@@ -773,9 +784,12 @@ class Ontology:
         url = var
         # add the triples to the graph
         tmp = Graph()
-        tmp.load(url)
-        for trip in tmp.triples((None,)*3):
-            self.add(trip)
+        try:
+           tmp.load(url)
+           for trip in tmp.triples((None,)*3):
+               self.add(trip)
+        except URLError:
+           pass
 
     def sameAs(self, s, var):
         s_var = self.make_var(Thing, s)

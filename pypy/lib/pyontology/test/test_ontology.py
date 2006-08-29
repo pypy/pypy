@@ -121,7 +121,7 @@ def test_type():
     O.make_var(ClassDomain, obj)
     O.type(sub, obj)
     
-    assert O.variables[O.make_var(None, sub)].__class__  == Thing
+    assert O.variables[O.make_var(None, sub)].__class__  == Individual 
 
 def test_ObjectProperty():
     sub = URIRef('a')
@@ -339,7 +339,7 @@ def test_hasvalue():
     obj = URIRef(namespaces['owl']+'#Thing')
     O.type(cls2, obj)
     O.subClassOf(cls2,restrict)
-    
+    O.variables[O.make_var(None, cls2)].finish(O.variables, O.constraints) 
     O.consistency()
     assert cls in O.variables[O.make_var(None, cls2)].getValues()
 #    py.test.raises(ConsistencyFailure, O.consistency)
@@ -548,6 +548,8 @@ def test_terminology_cardinality():
     O.add((cls, UR(namespaces['rdfs']+'#subClassOf'),restr2 ))
     O.add((restr2, UR(namespaces['rdfs']+'#minCardinality'), 3 ))
     O.attach_fd()
+    for var in O.variables.values():
+        var.finish(O.variables, O.constraints)
     py.test.raises(ConsistencyFailure, O.consistency)
 
 def test_terminology_subclassof_cardinality():
@@ -573,6 +575,8 @@ def test_terminology_subclassof_cardinality():
     O.add((restr2, UR(namespaces['rdfs']+'#minCardinality'), 3 ))
     O.add((cls2, UR(namespaces['rdfs']+'#subClassOf'), cls ))
     O.attach_fd()
+    for var in O.variables.values():
+        var.finish(O.variables, O.constraints)
     py.test.raises(ConsistencyFailure, O.consistency)
     
 def test_add_file():
