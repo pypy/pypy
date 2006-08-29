@@ -102,6 +102,7 @@ def ll_slice_start_stop(sbuf, start, stop):
         start = stop
     newlength = stop - start
     newstr = lltype.malloc(string_repr.lowleveltype.TO, newlength)
+    newstr.hash = 0
     for i in range(newlength):
         newstr.chars[i] = sbuf[start + i]
     return newstr
@@ -122,6 +123,7 @@ def ll_stringbufraw(box):
     p = box.c_data
     length = len(p)
     newstr = lltype.malloc(string_repr.lowleveltype.TO, length)
+    newstr.hash = 0
     for i in range(length):
         newstr.chars[i] = p[i]
     return newstr

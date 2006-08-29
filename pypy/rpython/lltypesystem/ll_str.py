@@ -7,7 +7,7 @@ def ll_int_str(repr, i):
     return ll_int2dec(i)
 
 def ll_int2dec(i):
-    from pypy.rpython.lltypesystem.rstr import STR
+    from pypy.rpython.lltypesystem.rstr import mallocstr
     temp = malloc(CHAR_ARRAY, 20)
     len = 0
     sign = 0
@@ -25,7 +25,8 @@ def ll_int2dec(i):
             i //= 10
             len += 1
     len += sign
-    result = malloc(STR, len)
+    result = mallocstr(len)
+    result.hash = 0
     if sign:
         result.chars[0] = '-'
         j = 1
@@ -42,7 +43,7 @@ for i in range(16):
     hex_chars[i] = "%x"%i
 
 def ll_int2hex(i, addPrefix):
-    from pypy.rpython.lltypesystem.rstr import STR
+    from pypy.rpython.lltypesystem.rstr import mallocstr
     temp = malloc(CHAR_ARRAY, 20)
     len = 0
     sign = 0
@@ -60,7 +61,8 @@ def ll_int2hex(i, addPrefix):
     len += sign
     if addPrefix:
         len += 2
-    result = malloc(STR, len)
+    result = mallocstr(len)
+    result.hash = 0
     j = 0
     if sign:
         result.chars[0] = '-'
@@ -75,9 +77,10 @@ def ll_int2hex(i, addPrefix):
     return result
 
 def ll_int2oct(i, addPrefix):
-    from pypy.rpython.lltypesystem.rstr import STR
+    from pypy.rpython.lltypesystem.rstr import mallocstr
     if i == 0:
-        result = malloc(STR, 1)
+        result = mallocstr(1)
+        result.hash = 0
         result.chars[0] = '0'
         return result
     temp = malloc(CHAR_ARRAY, 25)
@@ -93,7 +96,8 @@ def ll_int2oct(i, addPrefix):
     len += sign
     if addPrefix:
         len += 1
-    result = malloc(STR, len)
+    result = mallocstr(len)
+    result.hash = 0
     j = 0
     if sign:
         result.chars[0] = '-'

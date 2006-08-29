@@ -330,15 +330,19 @@ BUILTIN_TYPER[getattr(OSError.__init__, 'im_func', OSError.__init__)] = (
 BUILTIN_TYPER[object.__init__] = rtype_object__init__
 # annotation of low-level types
 
-def rtype_malloc(hop, i_flavor=None, i_extra_args=None):
+def rtype_malloc(hop, i_flavor=None, i_extra_args=None, i_zero=None):
     assert hop.args_s[0].is_constant()
     vlist = [hop.inputarg(lltype.Void, arg=0)]
     opname = 'malloc'
-    v_flavor, v_extra_args = parse_kwds(hop, (i_flavor, lltype.Void),
-                                             (i_extra_args, None))
+    v_flavor, v_extra_args, v_zero = parse_kwds(hop, (i_flavor, lltype.Void),
+                                                     (i_extra_args, None),
+                                                     (i_zero, None))
     if v_flavor is not None:
         vlist.insert(0, v_flavor)
         opname = 'flavored_' + opname
+    if i_zero is not None:
+        assert i_extra_args is i_flavor is None
+        opname = 'zero_' + opname
     if hop.nb_args == 2:
         vlist.append(hop.inputarg(lltype.Signed, arg=1))
         opname += '_varsize'
@@ -563,9 +567,14 @@ def rtype_raw_memcopy(hop):
     v_list = hop.inputargs(llmemory.Address, llmemory.Address, lltype.Signed)
     return hop.genop('raw_memcopy', v_list)
 
+def rtype_raw_memclear(hop):
+    v_list = hop.inputargs(llmemory.Address, lltype.Signed)
+    return hop.genop('raw_memclear', v_list)
+
 BUILTIN_TYPER[lladdress.raw_malloc] = rtype_raw_malloc
 BUILTIN_TYPER[lladdress.raw_malloc_usage] = rtype_raw_malloc_usage
 BUILTIN_TYPER[lladdress.raw_free] = rtype_raw_free
+BUILTIN_TYPER[lladdress.raw_memclear] = rtype_raw_memclear
 BUILTIN_TYPER[lladdress.raw_memcopy] = rtype_raw_memcopy
 
 def rtype_offsetof(hop):

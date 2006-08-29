@@ -1,4 +1,4 @@
-from pypy.rpython.memory.lladdress import raw_malloc, raw_free, raw_memcopy
+from pypy.rpython.memory.lladdress import raw_malloc, raw_free, raw_memcopy, raw_memclear
 from pypy.rpython.memory.lladdress import NULL, _address, raw_malloc_usage
 from pypy.rpython.memory.support import get_address_linked_list
 from pypy.rpython.memory.gcheader import GCHeaderBuilder
@@ -196,7 +196,66 @@ class MarkSweepGC(GCBase):
         #                 '->', llmemory.cast_adr_to_int(result))
         return llmemory.cast_adr_to_ptr(result, llmemory.GCREF)
 
+    def malloc_fixedsize_clear(self, typeid, size, can_collect, has_finalizer=False):
+        if can_collect and self.bytes_malloced > self.bytes_malloced_threshold:
+            self.collect()
+        size_gc_header = self.gcheaderbuilder.size_gc_header
+        try:
+            tot_size = size_gc_header + size
+            usage = raw_malloc_usage(tot_size)
+            bytes_malloced = ovfcheck(self.bytes_malloced+usage)
+            ovfcheck(self.heap_usage + bytes_malloced)
+        except OverflowError:
+            raise memoryError
+        result = raw_malloc(tot_size)
+        raw_memclear(result, tot_size)
+        hdr = llmemory.cast_adr_to_ptr(result, self.HDRPTR)
+        hdr.typeid = typeid << 1
+        if has_finalizer:
+            hdr.next = self.malloced_objects_with_finalizer
+            self.malloced_objects_with_finalizer = hdr
+        else:
+            hdr.next = self.malloced_objects
+            self.malloced_objects = hdr
+        self.bytes_malloced = bytes_malloced
+        result += size_gc_header
+        #llop.debug_print(lltype.Void, 'malloc typeid', typeid,
+        #                 '->', llmemory.cast_adr_to_int(result))
+        return llmemory.cast_adr_to_ptr(result, llmemory.GCREF)
+
     def malloc_varsize(self, typeid, length, size, itemsize, offset_to_length,
+                       can_collect, has_finalizer=False):
+        if can_collect and self.bytes_malloced > self.bytes_malloced_threshold:
+            self.collect()
+        size_gc_header = self.gcheaderbuilder.size_gc_header
+        try:
+            fixsize = size_gc_header + size
+            varsize = ovfcheck(itemsize * length)
+            tot_size = ovfcheck(fixsize + varsize)
+            usage = raw_malloc_usage(tot_size)
+            bytes_malloced = ovfcheck(self.bytes_malloced+usage)
+            ovfcheck(self.heap_usage + bytes_malloced)
+        except OverflowError:
+            raise memoryError
+        result = raw_malloc(tot_size)
+        (result + size_gc_header + offset_to_length).signed[0] = length
+        hdr = llmemory.cast_adr_to_ptr(result, self.HDRPTR)
+        hdr.typeid = typeid << 1
+        if has_finalizer:
+            hdr.next = self.malloced_objects_with_finalizer
+            self.malloced_objects_with_finalizer = hdr
+        else:
+            hdr.next = self.malloced_objects
+            self.malloced_objects = hdr
+        self.bytes_malloced = bytes_malloced
+            
+        result += size_gc_header
+        #llop.debug_print(lltype.Void, 'malloc_varsize length', length,
+        #                 'typeid', typeid,
+        #                 '->', llmemory.cast_adr_to_int(result))
+        return llmemory.cast_adr_to_ptr(result, llmemory.GCREF)
+
+    def malloc_varsize_clear(self, typeid, length, size, itemsize, offset_to_length,
                        can_collect, has_finalizer=False):
         if can_collect and self.bytes_malloced > self.bytes_malloced_threshold:
             self.collect()

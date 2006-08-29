@@ -14,6 +14,13 @@ log = py.log.Producer('lltype')
 
 TLS = tlsobject()
 
+class _uninitialized(object):
+    def __init__(self, TYPE):
+        self.TYPE = TYPE
+    def __repr__(self):
+        return '<Uninitialized %r'%(self.TYPE,)
+        
+
 def saferecursive(func, defl):
     def safe(*args):
         try:
@@ -114,6 +121,10 @@ class LowLevelType(object):
         return str(self)
 
     def _defl(self, parent=None, parentindex=None):
+        raise NotImplementedError
+
+    def _allocate(self, initialization, parent=None, parentindex=None):
+        assert initialization in ('raw', 'malloc', 'example')
         raise NotImplementedError
 
     def _freeze_(self):
@@ -252,15 +263,19 @@ class Struct(ContainerType):
     def _short_name(self):
         return "%s %s" % (self.__class__.__name__, self._name)
 
-    def _defl(self, parent=None, parentindex=None):
-        return _struct(self, parent=parent, parentindex=parentindex)
+##     def _defl(self, parent=None, parentindex=None):
+##         return _struct(self, parent=parent, parentindex=parentindex)
+
+    def _allocate(self, initialization, parent=None, parentindex=None):
+        return _struct(self, initialization=initialization,
+                       parent=parent, parentindex=parentindex)
 
     def _container_example(self):
         if self._arrayfld is None:
             n = None
         else:
             n = 1
-        return _struct(self, n)
+        return _struct(self, n, initialization='example')
 
 class RttiStruct(Struct):
     _runtime_type_info = None
@@ -356,7 +371,7 @@ class Array(ContainerType):
     _short_name = saferecursive(_short_name, '...')
 
     def _container_example(self):
-        return _array(self, 1)
+        return _array(self, 1, initialization='example')
 
 class GcArray(Array):
     _gckind = 'gc'
@@ -448,6 +463,9 @@ class OpaqueType(ContainerType):
     def _defl(self, parent=None, parentindex=None):
         return _opaque(self, parent=parent, parentindex=parentindex)
 
+    def _allocate(self, initialization, parent=None, parentindex=None):
+        return self._defl(parent=parent, parentindex=parentindex)
+
 RuntimeTypeInfo = OpaqueType("RuntimeTypeInfo")
 
 class GcOpaqueType(OpaqueType):
@@ -468,6 +486,8 @@ class PyObjectType(ContainerType):
         return False
     def _defl(self, parent=None, parentindex=None):
         return _pyobjheader(parent, parentindex)
+    def _allocate(self, initialization, parent=None, parentindex=None):
+        return self._defl(parent=parent, parentindex=parentindex)
 
 PyObject = PyObjectType()
 
@@ -508,10 +528,17 @@ class Primitive(LowLevelType):
     def _defl(self, parent=None, parentindex=None):
         return self._default
 
+    def _allocate(self, initialization, parent=None, parentindex=None):
+        if self is not Void and initialization != 'example':
+            return _uninitialized(self)
+        else:
+            return self._default
+
     def _is_atomic(self):
         return True
 
-    _example = _defl
+    def _example(self, parent=None, parentindex=None):
+        return self._default
 
 class Number(Primitive):
 
@@ -577,6 +604,14 @@ class Ptr(LowLevelType):
     def _defl(self, parent=None, parentindex=None):
         return _ptr(self, None)
 
+    def _allocate(self, initialization, parent=None, parentindex=None):
+        if initialization == 'example':
+            return _ptr(self, None)
+        elif initialization == 'malloc' and self._needsgc():
+            return _ptr(self, None)
+        else:
+            return _uninitialized(self)
+
     def _example(self):
         o = self.TO._container_example()
         return _ptr(self, o, solid=True)
@@ -590,6 +625,8 @@ def typeOf(val):
         return val._TYPE
     except AttributeError:
         tp = type(val)
+        if tp is _uninitialized:
+            raise UninitializedMemoryAccess("typeOf uninitialized value")
         if tp is NoneType:
             return Void   # maybe
         if tp is int:
@@ -826,6 +863,9 @@ def normalizeptr(p):
 class DelayedPointer(Exception):
     pass
 
+class UninitializedMemoryAccess(Exception):
+    pass
+
 class _ptr(object):
     __slots__ = ('_TYPE', '_T', 
                  '_weak', '_solid',
@@ -919,7 +959,7 @@ class _ptr(object):
     def __getattr__(self, field_name): # ! can only return basic or ptr !
         if isinstance(self._T, Struct):
             if field_name in self._T._flds:
-                o = getattr(self._obj, field_name)
+                o = self._obj._getattr(field_name)
                 return _expose(o, self._solid)
         if isinstance(self._T, ContainerType):
             try:
@@ -1197,11 +1237,11 @@ class _struct(_parentable):
 
     __slots__ = ()
 
-    def __new__(self, TYPE, n=None, parent=None, parentindex=None):
+    def __new__(self, TYPE, n=None, initialization=None, parent=None, parentindex=None):
         my_variety = _struct_variety(TYPE._names)
         return object.__new__(my_variety)
 
-    def __init__(self, TYPE, n=None, parent=None, parentindex=None):
+    def __init__(self, TYPE, n=None, initialization=None, parent=None, parentindex=None):
         _parentable.__init__(self, TYPE)
         if n is not None and TYPE._arrayfld is None:
             raise TypeError("%r is not variable-sized" % (TYPE,))
@@ -1210,9 +1250,9 @@ class _struct(_parentable):
         first, FIRSTTYPE = TYPE._first_struct()
         for fld, typ in TYPE._flds.items():
             if fld == TYPE._arrayfld:
-                value = _array(typ, n, parent=self, parentindex=fld)
+                value = _array(typ, n, initialization=initialization, parent=self, parentindex=fld)
             else:
-                value = typ._defl(parent=self, parentindex=fld)
+                value = typ._allocate(initialization=initialization, parent=self, parentindex=fld)
             setattr(self, fld, value)
         if parent is not None:
             self._setparentstructure(parent, parentindex)
@@ -1231,7 +1271,7 @@ class _struct(_parentable):
         for name in names:
             T = self._TYPE._flds[name]
             if isinstance(T, Primitive):
-                reprvalue = repr(getattr(self, name))
+                reprvalue = repr(getattr(self, name, '<uninitialized>'))
             else:
                 reprvalue = '...'
             fields.append('%s=%s' % (name, reprvalue))
@@ -1247,18 +1287,26 @@ class _struct(_parentable):
 
     __setstate__ = setstate_with_slots
 
-    def getlength(self):              # for FixedSizeArray kind of structs
+    def _getattr(self, field_name, uninitialized_ok=False):
+        r = getattr(self, field_name)
+        if isinstance(r, _uninitialized) and not uninitialized_ok:
+            raise UninitializedMemoryAccess("%r.%s"%(self, field_name))
+        return r
+    
+    # for FixedSizeArray kind of structs:
+    
+    def getlength(self):
         assert isinstance(self._TYPE, FixedSizeArray)
         return self._TYPE.length
 
     def getbounds(self):
         return 0, self.getlength()
 
-    def getitem(self, index):         # for FixedSizeArray kind of structs
+    def getitem(self, index, uninitialized_ok=False):
         assert isinstance(self._TYPE, FixedSizeArray)
-        return getattr(self, 'item%d' % index)
+        return self._getattr('item%d' % index, uninitialized_ok)
 
-    def setitem(self, index, value):  # for FixedSizeArray kind of structs
+    def setitem(self, index, value):
         assert isinstance(self._TYPE, FixedSizeArray)
         setattr(self, 'item%d' % index, value)
 
@@ -1274,13 +1322,13 @@ class _array(_parentable):
 
     __slots__ = ('items',)
 
-    def __init__(self, TYPE, n, parent=None, parentindex=None):
+    def __init__(self, TYPE, n, initialization=None, parent=None, parentindex=None):
         if not isinstance(n, int):
             raise TypeError, "array length must be an int"
         if n < 0:
             raise ValueError, "negative array length"
         _parentable.__init__(self, TYPE)
-        self.items = [TYPE.OF._defl(parent=self, parentindex=j)
+        self.items = [TYPE.OF._allocate(initialization=initialization, parent=self, parentindex=j)
                       for j in range(n)]
         if parent is not None:
             self._setparentstructure(parent, parentindex)
@@ -1289,6 +1337,8 @@ class _array(_parentable):
         return '<%s>' % (self,)
 
     def _str_item(self, item):
+        if isinstance(item, _uninitialized):
+            return '#'
         if isinstance(self._TYPE.OF, Struct):
             of = self._TYPE.OF
             if self._TYPE._anonym_struct:
@@ -1321,9 +1371,12 @@ class _array(_parentable):
             stop += 1
         return 0, stop
 
-    def getitem(self, index):
+    def getitem(self, index, uninitialized_ok=False):
         try:
-            return self.items[index]
+            v = self.items[index]
+            if isinstance(v, _uninitialized) and not uninitialized_ok:
+                raise UninitializedMemoryAccess("%r[%s]"%(self, index))
+            return v
         except IndexError:
             if (self._TYPE._hints.get('isrpystring', False) and
                 index == len(self.items)):
@@ -1506,11 +1559,17 @@ class _pyobjheader(_parentable):
         return "pyobjheader of type %r" % (getattr(self, 'ob_type', '???'),)
 
 
-def malloc(T, n=None, flavor='gc', immortal=False, extra_args=()):
+def malloc(T, n=None, flavor='gc', immortal=False, extra_args=(), zero=False):
+    if zero or immortal or flavor == 'cpy':
+        initialization = 'example'
+    elif flavor == 'raw':
+        initialization = 'raw'
+    else:
+        initialization = 'malloc'
     if isinstance(T, Struct):
-        o = _struct(T, n)
+        o = _struct(T, n, initialization=initialization)
     elif isinstance(T, Array):
-        o = _array(T, n)
+        o = _array(T, n, initialization=initialization)
     else:
         raise TypeError, "malloc for Structs and Arrays only"
     if T._gckind != 'gc' and not immortal and flavor.startswith('gc'):

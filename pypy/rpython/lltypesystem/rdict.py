@@ -458,7 +458,7 @@ def ll_dict_resize(d):
     new_size = old_size * 2
     while new_size > DICT_INITSIZE and d.num_items < new_size / 4:
         new_size /= 2
-    d.entries = lltype.malloc(lltype.typeOf(old_entries).TO, new_size)
+    d.entries = lltype.malloc(lltype.typeOf(old_entries).TO, new_size, zero=True)
     d.num_items = 0
     d.num_pristine_entries = new_size
     i = 0
@@ -550,8 +550,8 @@ DICT_INITSIZE = 8
 
 def ll_newdict(DICT):
     d = lltype.malloc(DICT)
-    d.entries = lltype.malloc(DICT.entries.TO, DICT_INITSIZE)
-    #d.num_items = 0    -- defaults
+    d.entries = lltype.malloc(DICT.entries.TO, DICT_INITSIZE, zero=True)
+    d.num_items = 0
     d.num_pristine_entries = DICT_INITSIZE
     return d
 
@@ -561,8 +561,8 @@ def ll_newdict_size(DICT, length_estimate):
     while n < length_estimate:
         n *= 2
     d = lltype.malloc(DICT)
-    d.entries = lltype.malloc(DICT.entries.TO, n)
-    #d.num_items = 0    -- defaults
+    d.entries = lltype.malloc(DICT.entries.TO, n, zero=True)
+    d.num_items = 0
     d.num_pristine_entries = DICT_INITSIZE
     return d
 
@@ -654,7 +654,7 @@ def ll_copy(dict):
     DICT = lltype.typeOf(dict).TO
     dictsize = len(dict.entries)
     d = lltype.malloc(DICT)
-    d.entries = lltype.malloc(DICT.entries.TO, dictsize)
+    d.entries = lltype.malloc(DICT.entries.TO, dictsize, zero=True)
     d.num_items = dict.num_items
     d.num_pristine_entries = dict.num_pristine_entries
     if hasattr(DICT, 'fnkeyeq'):   d.fnkeyeq   = dict.fnkeyeq
@@ -676,7 +676,7 @@ def ll_clear(d):
     if len(d.entries) == d.num_pristine_entries == DICT_INITSIZE:
         return
     DICT = lltype.typeOf(d).TO
-    d.entries = lltype.malloc(DICT.entries.TO, DICT_INITSIZE)
+    d.entries = lltype.malloc(DICT.entries.TO, DICT_INITSIZE, zero=True)
     d.num_items = 0
     d.num_pristine_entries = DICT_INITSIZE
 

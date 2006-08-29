@@ -56,11 +56,11 @@ class ItemOffset(AddressOffset):
         if (isinstance(self.TYPE, lltype.ContainerType)
             and self.TYPE._gckind == 'gc'):
             assert self.repeat == 1
-            p = lltype.malloc(self.TYPE)
+            p = lltype.malloc(self.TYPE, flavor='raw')
             return cast_ptr_to_adr(p)
         else:
             T = lltype.FixedSizeArray(self.TYPE, self.repeat)
-            p = lltype.malloc(T, immortal=True)
+            p = lltype.malloc(T, flavor='raw')
             array_adr = cast_ptr_to_adr(p)
             return array_adr + ArrayItemsOffset(T)
 
@@ -558,6 +558,14 @@ def raw_malloc_usage(size):
         from pypy.rpython.memory.lltypelayout import convert_offset_to_int
         size = convert_offset_to_int(size)
     return size
+
+def raw_memclear(adr, size):
+    # hack hack hack
+    obj = adr.get()
+    TYPE = lltype.typeOf(obj)
+    fresh = lltype.malloc(TYPE.TO, zero=True, flavor='raw')
+    from pypy.rpython.rctypes.rmodel import reccopy
+    reccopy(fresh, obj)
 
 def raw_memcopy(source, dest, size):
     source = source.get()

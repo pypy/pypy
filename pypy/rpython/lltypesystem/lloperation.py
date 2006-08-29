@@ -290,7 +290,9 @@ LL_OPERATIONS = {
     # __________ pointer operations __________
 
     'malloc':               LLOp(canraise=(MemoryError,), canunwindgc=True),
+    'zero_malloc':          LLOp(canraise=(MemoryError,), canunwindgc=True),
     'malloc_varsize':       LLOp(canraise=(MemoryError,), canunwindgc=True),
+    'zero_malloc_varsize':  LLOp(canraise=(MemoryError,), canunwindgc=True),
     'flavored_malloc':      LLOp(canraise=(MemoryError,)),
     'flavored_free':        LLOp(),
     'getfield':             LLOp(sideeffects=False),
@@ -322,6 +324,7 @@ LL_OPERATIONS = {
     'raw_malloc':           LLOp(canraise=(MemoryError,)),
     'raw_malloc_usage':     LLOp(sideeffects=False),
     'raw_free':             LLOp(),
+    'raw_memclear':         LLOp(),
     'raw_memcopy':          LLOp(),
     'raw_load':             LLOp(sideeffects=False),
     'raw_store':            LLOp(),

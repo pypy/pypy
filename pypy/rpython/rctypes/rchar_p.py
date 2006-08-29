@@ -119,6 +119,7 @@ def ll_charp2str(p):
         return lltype.nullptr(string_repr.lowleveltype.TO)
     length = ll_strlen(p)
     newstr = lltype.malloc(string_repr.lowleveltype.TO, length)
+    newstr.hash = 0
     for i in range(length):
         newstr.chars[i] = p[i]
     return newstr
@@ -135,6 +136,7 @@ def ll_getstring(box):
         else:
             length = ll_strlen(p)
         newstr = lltype.malloc(string_repr.lowleveltype.TO, length)
+        newstr.hash = 0
         for i in range(length):
             newstr.chars[i] = p[i]
         return newstr

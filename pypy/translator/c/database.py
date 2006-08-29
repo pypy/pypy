@@ -1,7 +1,7 @@
 from pypy.rpython.lltypesystem.lltype import \
      Primitive, Ptr, typeOf, RuntimeTypeInfo, \
      Struct, Array, FuncType, PyObject, Void, \
-     ContainerType, OpaqueType, FixedSizeArray
+     ContainerType, OpaqueType, FixedSizeArray, _uninitialized
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem.llmemory import Address
 from pypy.rpython.memory.lladdress import NULL
@@ -282,6 +282,8 @@ class LowLevelDatabase(object):
 
         def add_dependencies(newdependencies):
             for value in newdependencies:
+                #if isinstance(value, _uninitialized):
+                #    continue
                 if isinstance(typeOf(value), ContainerType):
                     self.getcontainernode(value)
                 else:

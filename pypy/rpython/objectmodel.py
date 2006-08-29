@@ -52,7 +52,7 @@ class CDefinedIntSymbolic(Symbolic):
         from pypy.rpython.lltypesystem import lltype
         return lltype.Signed
     
-malloc_zero_filled = CDefinedIntSymbolic('MALLOC_ZERO_FILLED', default=1)
+malloc_zero_filled = CDefinedIntSymbolic('MALLOC_ZERO_FILLED', default=0)
 
 def instantiate(cls):
     "Create an empty instance of 'cls'."

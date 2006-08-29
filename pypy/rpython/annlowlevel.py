@@ -100,6 +100,13 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
         funcdesc2 = bk.getdesc(x)
         return pol.default_specialize(funcdesc2, args_s)
 
+    def specialize__semierased(funcdesc, args_s):
+        a2l = annmodel.annotation_to_lltype
+        l2a = annmodel.lltype_to_annotation
+        args_s[:] = [l2a(a2l(s)) for s in args_s]
+        return LowLevelAnnotatorPolicy.default_specialize(funcdesc, args_s)
+    specialize__semierased = staticmethod(specialize__semierased)
+    
     specialize__ll = default_specialize
 
 def annotate_lowlevel_helper(annotator, ll_function, args_s, policy=None):

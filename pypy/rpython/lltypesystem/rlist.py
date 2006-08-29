@@ -277,8 +277,9 @@ def _ll_list_resize_really(l, newsize):
     # XXX consider to have a real realloc
     items = l.items
     newitems = malloc(typeOf(l).TO.items.TO, new_allocated)
-    if allocated < new_allocated:
-        p = allocated - 1
+    before_len = l.length
+    if before_len < new_allocated:
+        p = before_len - 1
     else:
         p = new_allocated - 1
     while p >= 0:

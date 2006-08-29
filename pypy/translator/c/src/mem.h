@@ -2,7 +2,40 @@
 /************************************************************/
  /***  C header subsection: operations on LowLevelTypes    ***/
 
-#define OP_RAW_MALLOC(size,r,restype) OP_ZERO_MALLOC(size, r, restype)
+#define RAW_MALLOC_ZERO_FILLED 1
+
+#if RAW_MALLOC_ZERO_FILLED
+
+#define OP_RAW_MALLOC(size, r, restype)  {				\
+		r = (restype) PyObject_Malloc(size);			\
+		if (r == NULL) {					\
+			FAIL_EXCEPTION(PyExc_MemoryError,		\
+				       "out of memory");		\
+		} 							\
+		else {							\
+			memset((void*)r, 0, size);			\
+			COUNT_MALLOC;					\
+		}							\
+	}
+
+#else
+
+#define OP_RAW_MALLOC(size, r, restype)  {				\
+		r = (restype) PyObject_Malloc(size);			\
+		if (r == NULL) {					\
+			FAIL_EXCEPTION(PyExc_MemoryError,		\
+				       "out of memory");		\
+		} 							\
+		else {							\
+			COUNT_MALLOC;					\
+		}							\
+	}
+
+#endif
+
+#define OP_RAW_FREE(p, r) PyObject_Free(p); COUNT_FREE;
+
+#define OP_RAW_MEMCLEAR(p, size, r) memset((void*)p, 0, size)
 
 #define OP_RAW_MALLOC_USAGE(size, r) r = size
 
@@ -10,14 +43,17 @@
 #define alloca  _alloca
 #endif
 
+#ifdef USING_BOEHM_GC
 #define MALLOC_ZERO_FILLED 1
+#else
+#define MALLOC_ZERO_FILLED 1
+#endif
 
 #define OP_STACK_MALLOC(size,r,restype)                                 \
     r = (restype) alloca(size);                                         \
     if (r == NULL) FAIL_EXCEPTION(PyExc_MemoryError, "out of memory");  \
     memset((void*) r, 0, size);
 
-#define OP_RAW_FREE(x,r)           OP_FREE(x)
 #define OP_RAW_MEMCOPY(x,y,size,r) memcpy(y,x,size);
 
 /************************************************************/
@@ -41,16 +77,20 @@
    other globals, plus one.  This upper bound "approximation" will do... */
 #define REFCOUNT_IMMORTAL  (INT_MAX/2)
 
-#define OP_ZERO_MALLOC(size, r, restype)  {                                      \
-    r = (restype) PyObject_Malloc(size);                                  \
-    if (r == NULL) {FAIL_EXCEPTION(PyExc_MemoryError, "out of memory"); } \
-    else {                                                              \
-        memset((void*) r, 0, size);                                     \
-        COUNT_MALLOC;                                                   \
-    }                                                                   \
-  }
+#if RAW_MALLOC_ZERO_FILLED
 
-#define OP_FREE(p)	{ PyObject_Free(p); COUNT_FREE; }
+#define OP_ZERO_MALLOC OP_RAW_MALLOC
+
+#else
+
+#define OP_ZERO_MALLOC(size, r, restype)  {				\
+		OP_RAW_MALLOC(size, r, restype);			\
+		if (r != NULL) OP_RAW_MEMCLEAR(r, size, /* */);		\
+	}
+
+#endif
+
+#define OP_FREE(p)	OP_RAW_FREE(p, do_not_use)
 
 /*------------------------------------------------------------*/
 #ifndef COUNT_OP_MALLOCS
@@ -106,33 +146,15 @@ if GC integration has happened and this junk is still here, please delete it :)
 
 #endif /* USING_BOEHM_GC */
 
-/* for no GC */
-#ifdef USING_NO_GC
-
-#undef OP_ZERO_MALLOC
-
-#define OP_ZERO_MALLOC(size, r, restype)  {                                 \
-    r = (restype) malloc(size);                                  \
-    if (r == NULL) { FAIL_EXCEPTION(PyExc_MemoryError, "out of memory"); } \
-    else {                                                                  \
-        memset((void*) r, 0, size);                                         \
-        COUNT_MALLOC;                                                       \
-    }                                                                       \
-  }
-
-#undef PUSH_ALIVE
-#define PUSH_ALIVE(obj)
-
-#endif /* USING_NO_GC */
-
 /************************************************************/
 /* rcpy support */
 
-#define OP_CPY_MALLOC(cpytype, r, restype)  {                            \
-    /* XXX add tp_itemsize later */                             \
-    OP_RAW_MALLOC(((PyTypeObject *)cpytype)->tp_basicsize, r, restype);  \
-    if (r) {                                                    \
-        PyObject_Init((PyObject *)r, (PyTypeObject *)cpytype);  \
-    }                                                           \
-  }
+#define OP_CPY_MALLOC(cpytype, r, restype)  {			\
+	/* XXX add tp_itemsize later */				\
+	OP_RAW_MALLOC(((PyTypeObject *)cpytype)->tp_basicsize, r, restype); \
+	if (r) {						\
+	    OP_RAW_MEMCLEAR(r, ((PyTypeObject *)cpytype)->tp_basicsize, /* */); \
+	    PyObject_Init((PyObject *)r, (PyTypeObject *)cpytype); \
+	}							\
+    }
 #define OP_CPY_FREE(x)   OP_RAW_FREE(x, /*nothing*/)

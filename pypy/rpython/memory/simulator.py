@@ -58,6 +58,9 @@ class MemoryBlock(object):
         other.memory[offset2:offset2+size] = self.memory[offset1:offset1+size]
         other.status[offset2:offset2+size] = self.status[offset1:offset1+size]
 
+    def memclear(self, offset, size):
+        self.setbytes(offset, "\x00" * size)
+
 
 # block which stores functions and PyObects
 class ObjectBlock(object):
@@ -149,6 +152,9 @@ class MemorySimulator(object):
         offset1 = address1 - block1.baseaddress
         offset2 = address2 - block2.baseaddress
         block1.memcopy(offset1, block2, offset2, size)
+
+    def memclear(self, offset, size):
+        self.setbytes(offset, "\x00" * size)
 
     def get_py_object(self, address):
         block = self.objectblock

@@ -500,7 +500,7 @@ class FunctionCodeGenerator(object):
                                      self.expr(op.args[0]),
                                      self.expr(op.args[1]))
 
-    def OP_MALLOC(self, op):
+    def OP_ZERO_MALLOC(self, op):
         TYPE = self.lltypemap(op.result).TO
         typename = self.db.gettype(TYPE)
         eresult = self.expr(op.result)
@@ -508,6 +508,16 @@ class FunctionCodeGenerator(object):
 
         return self.gcpolicy.zero_malloc(TYPE, esize, eresult)
 
+    def OP_MALLOC(self, op):
+        TYPE = self.lltypemap(op.result).TO
+        typename = self.db.gettype(TYPE)
+        eresult = self.expr(op.result)
+        esize = 'sizeof(%s)' % cdecl(typename, '')
+
+        return self.gcpolicy.malloc(TYPE, esize, eresult)
+
+    OP_ZERO_MALLOC = OP_MALLOC
+    
     def OP_MALLOC_VARSIZE(self, op):
         TYPE = self.lltypemap(op.result).TO
         typename = self.db.gettype(TYPE)
@@ -546,6 +556,8 @@ class FunctionCodeGenerator(object):
         result += '\n}'
         return result
 
+    OP_ZERO_MALLOC_VARSIZE = OP_MALLOC_VARSIZE
+    
     def OP_RAW_MALLOC(self, op):
         eresult = self.expr(op.result)
         esize = self.expr(op.args[0])

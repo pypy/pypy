@@ -29,7 +29,11 @@ class LLRtypeMixin(object):
         return LLSupport.to_rstr(s)
 
     def ll_to_list(self, l):
-        return map(None, l.ll_items())[:l.ll_length()]
+        r = []
+        items = l.ll_items()
+        for i in range(l.ll_length()):
+            r.append(items[i])
+        return r
 
     def get_callable(self, fnptr):
         return fnptr._obj._callable

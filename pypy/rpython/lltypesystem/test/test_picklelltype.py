@@ -92,6 +92,9 @@ def test_varsizestruct():
     S1 = GcStruct("s1", ('a', Signed), ('rest', Array(('v', Signed))))
     py.test.raises(TypeError, "malloc(S1)")
     s1 = malloc(S1, 4)
+    s1.a = 0
+    for i in range(4):
+        s1.rest[i].v = 0
     p_s1 = pickle.dumps(s1)
     r_s1 = pickle.loads(p_s1)
     assert r_s1.a == 0
@@ -166,6 +169,8 @@ def test_best_effort_gced_parent_detection():
 def test_best_effort_gced_parent_for_arrays():
     A1 = GcArray(('v', Signed))
     p1 = malloc(A1, 10)
+    for i in range(10):
+        p1[i].v = 0
     p1[5].v = 3
     p1_5 = p1[5]
     r_p1_5 = pickle.loads(pickle.dumps(p1_5))

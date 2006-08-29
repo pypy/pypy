@@ -128,6 +128,9 @@ def raw_malloc_usage(size):
 def raw_free(addr):
     simulator.free(addr.intaddress)
 
+def raw_memclear(addr, size):
+    simulator.memclear(addr.intaddress, size)
+
 def raw_memcopy(addr1, addr2, size):
     simulator.memcopy(addr1.intaddress, addr2.intaddress, size)
 

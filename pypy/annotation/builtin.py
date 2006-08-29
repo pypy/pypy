@@ -388,7 +388,7 @@ BUILTIN_ANALYZERS[__import__] = import_func
 from pypy.annotation.model import SomePtr
 from pypy.rpython.lltypesystem import lltype
 
-def malloc(s_T, s_n=None, s_flavor=None, s_extra_args=None):
+def malloc(s_T, s_n=None, s_flavor=None, s_extra_args=None, s_zero=None):
     assert (s_n is None or s_n.knowntype == int
             or issubclass(s_n.knowntype, pypy.rpython.rarithmetic.base_int))
     assert s_T.is_constant()
@@ -396,6 +396,8 @@ def malloc(s_T, s_n=None, s_flavor=None, s_extra_args=None):
         n = 1
     else:
         n = None
+    if s_zero:
+        assert s_zero.is_constant()
     if s_flavor is None:
         p = lltype.malloc(s_T.const, n)
         r = SomePtr(lltype.typeOf(p))
@@ -566,6 +568,11 @@ def raw_free(s_addr):
     assert isinstance(s_addr, SomeAddress)
     assert not s_addr.is_null
 
+def raw_memclear(s_addr, s_int):
+    assert isinstance(s_addr, SomeAddress)
+    assert not s_addr.is_null
+    assert isinstance(s_int, SomeInteger)
+
 def raw_memcopy(s_addr1, s_addr2, s_int):
     assert isinstance(s_addr1, SomeAddress)
     assert not s_addr1.is_null
@@ -576,6 +583,7 @@ def raw_memcopy(s_addr1, s_addr2, s_int):
 BUILTIN_ANALYZERS[lladdress.raw_malloc] = raw_malloc
 BUILTIN_ANALYZERS[lladdress.raw_malloc_usage] = raw_malloc_usage
 BUILTIN_ANALYZERS[lladdress.raw_free] = raw_free
+BUILTIN_ANALYZERS[lladdress.raw_memclear] = raw_memclear
 BUILTIN_ANALYZERS[lladdress.raw_memcopy] = raw_memcopy
 
 #_________________________________

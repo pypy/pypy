@@ -440,8 +440,9 @@ class InstanceRepr(AbstractInstanceRepr):
                         if attrvalue is None:
                             warning("prebuilt instance %r has no attribute %r" % (
                                     value, name))
-                            continue
-                        llattrvalue = r.convert_desc_or_const(attrvalue)
+                            llattrvalue = r.lowleveltype._defl()
+                        else:
+                            llattrvalue = r.convert_desc_or_const(attrvalue)
                     else:
                         llattrvalue = r.convert_const(attrvalue)
                 setattr(result, mangled_name, llattrvalue)
@@ -517,7 +518,10 @@ class InstanceRepr(AbstractInstanceRepr):
                 mangled_name, r = self.allinstancefields[fldname]
                 if r.lowleveltype is Void:
                     continue
-                value = self.classdef.classdesc.read_attribute(fldname, None)
+                if fldname == '_hash_cache_':
+                    value = Constant(0, Signed)
+                else:
+                    value = self.classdef.classdesc.read_attribute(fldname, None)
                 if value is not None:
                     cvalue = inputconst(r.lowleveltype,
                                         r.convert_desc_or_const(value))
@@ -567,7 +571,7 @@ class InstanceRepr(AbstractInstanceRepr):
         instance = cast_pointer(OBJECTPTR, i)
         from pypy.rpython.lltypesystem import rstr
         nameLen = len(instance.typeptr.name)
-        nameString = malloc(rstr.STR, nameLen-1)
+        nameString = rstr.mallocstr(nameLen-1)
         i = 0
         while i < nameLen - 1:
             nameString.chars[i] = instance.typeptr.name[i]

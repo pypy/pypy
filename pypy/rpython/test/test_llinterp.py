@@ -1,4 +1,3 @@
-
 import py
 from pypy.rpython.lltypesystem.lltype import typeOf, pyobjectptr, Ptr, PyObject, Void
 from pypy.rpython.lltypesystem.lloperation import llop

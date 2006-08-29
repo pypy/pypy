@@ -2,7 +2,7 @@ import types
 from pypy.objspace.flow.model import FunctionGraph
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.c.support import cdecl
-from pypy.rpython.lltypesystem.rstr import STR
+from pypy.rpython.lltypesystem.rstr import STR, mallocstr
 from pypy.rpython.lltypesystem import rstr
 from pypy.rpython.lltypesystem import rlist
 from pypy.rpython.module import ll_time, ll_math, ll_strtod
@@ -121,7 +121,7 @@ def predeclare_common_types(db, rtyper):
 def predeclare_utility_functions(db, rtyper):
     # Common utility functions
     def RPyString_New(length=lltype.Signed):
-        return lltype.malloc(STR, length)
+        return mallocstr(length)
 
     # !!!
     # be extremely careful passing a gc tracked object

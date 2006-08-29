@@ -252,12 +252,37 @@ def test_raw_malloc_struct():
     S = lltype.Struct('S', ('x', lltype.Signed), ('y', lltype.Ptr(T)))
     adr = raw_malloc(sizeof(S))
     s = cast_adr_to_ptr(adr, lltype.Ptr(S))
+    py.test.raises(lltype.UninitializedMemoryAccess, "s.x")
+    raw_memclear(adr, sizeof(S))
+    assert s.x == 0
     assert lltype.typeOf(s) == lltype.Ptr(S)
     s.x = 123
     x_adr = adr + offsetof(S, 'x')
     assert x_adr.signed[0] == 123
     x_adr.signed[0] = 124
     assert s.x == 124
+
+def test_llinterp_raw_malloc_struct():
+    T = lltype.GcStruct('T', ('z', lltype.Signed))
+    S = lltype.Struct('S', ('x', lltype.Signed), ('y', lltype.Ptr(T)))
+
+    from pypy.rpython.memory import lladdress # GRUMBLE!
+
+    size = sizeof(S)
+
+    def test_read_uninit():
+        adr = lladdress.raw_malloc(size)
+        s = cast_adr_to_ptr(adr, lltype.Ptr(S))
+        return s.x
+    py.test.raises(lltype.UninitializedMemoryAccess, "interpret(test_read_uninit, [])")
+    def test_read_init():
+        adr = lladdress.raw_malloc(size)
+        lladdress.raw_memclear(adr, size)
+        s = cast_adr_to_ptr(adr, lltype.Ptr(S))
+        return s.x
+    res = interpret(test_read_init, [])
+    assert res == 0
+
 
 def test_raw_malloc_signed():
     adr = raw_malloc(sizeof(lltype.Signed))
@@ -269,6 +294,20 @@ def test_raw_malloc_signed():
     assert p[0] == 124
     py.test.raises(IndexError, "adr.signed[-1]")
     py.test.raises(IndexError, "adr.signed[1]")
+
+def test_raw_malloc_access():
+    S = lltype.GcStruct("S", ('x', lltype.Signed))
+    T = lltype.GcStruct("T", ('y', lltype.Signed), ('s', lltype.Ptr(S)))
+    # regular malloc zeros GC pointers
+    p_t = lltype.malloc(T)
+    assert p_t.s == lltype.nullptr(S)
+    # raw malloc does not
+    p_raw_t = lltype.malloc(T, flavor="raw")
+    py.test.raises(lltype.UninitializedMemoryAccess, "p_raw_t.s")
+    # this sort of raw_malloc too
+    p_raw_t = cast_adr_to_ptr(raw_malloc(sizeof(T)), lltype.Ptr(T))
+    py.test.raises(lltype.UninitializedMemoryAccess, "p_raw_t.s")
+    
 
 def test_raw_malloc_signed_bunch():
     adr = raw_malloc(sizeof(lltype.Signed) * 50)

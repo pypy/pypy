@@ -155,6 +155,7 @@ def ll_chararrayvalue(box):
     p = box.c_data
     length = rchar_p.ll_strnlen(lltype.direct_arrayitems(p), len(p))
     newstr = lltype.malloc(string_repr.lowleveltype.TO, length)
+    newstr.hash = 0
     for i in range(length):
         newstr.chars[i] = p[i]
     return newstr

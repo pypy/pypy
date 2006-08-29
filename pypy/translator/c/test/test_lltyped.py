@@ -97,7 +97,7 @@ class TestLowLevelType(test_typed.CompilationTestCase):
     def test_more_prebuilt_arrays(self):
         A = FixedSizeArray(Struct('s1', ('x', Signed)), 5)
         S = GcStruct('s', ('a1', Ptr(A)), ('a2', A))
-        s = malloc(S)
+        s = malloc(S, zero=True)
         s.a1 = malloc(A, immortal=True)
         s.a1[2].x = 50
         s.a2[2].x = 60
@@ -173,9 +173,9 @@ class TestLowLevelType(test_typed.CompilationTestCase):
         assert res == 34
 
     def test_prebuilt_subarrays(self):
-        a1 = malloc(GcArray(Signed), 5)
+        a1 = malloc(GcArray(Signed), 5, zero=True)
         a2 = malloc(FixedSizeArray(Signed, 5), immortal=True)
-        s  = malloc(GcStruct('S', ('x', Signed), ('y', Signed)))
+        s  = malloc(GcStruct('S', ('x', Signed), ('y', Signed)), zero=True)
         a1[3] = 7000
         a2[1] =  600
         s.x   =   50

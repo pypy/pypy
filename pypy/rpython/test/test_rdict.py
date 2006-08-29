@@ -510,7 +510,7 @@ class TestLLtype(BaseTestRdict, LLRtypeMixin):
 
     def test_deleted_entry_reusage_with_colliding_hashes(self): 
         def lowlevelhash(value): 
-            p = lltype.malloc(rstr.STR, len(value))
+            p = rstr.mallocstr(len(value))
             for i in range(len(value)):
                 p.chars[i] = value[i]
             return rstr.LLHelpers.ll_strhash(p) 

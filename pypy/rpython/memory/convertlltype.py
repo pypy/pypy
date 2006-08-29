@@ -119,7 +119,9 @@ class LLTypeConverter(object):
             if isinstance(FIELD, (lltype.Struct, lltype.Array)):
                 self.convert(getattr(_struct, name), getattr(ptr, name))
             else:
-                setattr(ptr, name, self.convert(getattr(_struct, name)))
+                v = _struct._getattr(name, uninitialized_ok=True)
+                if not isinstance(v, lltype._uninitialized):
+                    setattr(ptr, name, self.convert(v))
         return ptr
 
     def convert_pointer(self, _ptr, inline_to_ptr):

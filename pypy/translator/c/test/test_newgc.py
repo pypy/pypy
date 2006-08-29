@@ -849,6 +849,19 @@ class TestUsingFramework(AbstractTestClass):
         res = fn()
         assert res == 10
 
+    def test_framework_late_filling_pointers(self):
+        A = lltype.GcStruct('A', ('x', lltype.Signed))
+        B = lltype.GcStruct('B', ('a', lltype.Ptr(A)))
+
+        def f():
+            p = lltype.malloc(B)
+            llop.gc__collect(lltype.Void)
+            p.a = lltype.malloc(A)
+            return p.a.x
+        fn = self.getcompiled(f)
+        # the point is just not to segfault
+        res = fn()
+
 class TestUsingStacklessFramework(TestUsingFramework):
     from pypy.translator.c.gc import StacklessFrameworkGcPolicy as gcpolicy
 

@@ -86,14 +86,14 @@ class CTypesRepr(Repr):
             return self.const_cache[key][0]
         except KeyError:
             self.setup()
-            p = lltype.malloc(self.r_memoryowner.lowleveltype.TO)
+            p = lltype.malloc(self.r_memoryowner.lowleveltype.TO, zero=True)
             self.initialize_const(p, value)
             if self.ownsmemory:
                 result = p
             else:
                 # we must return a non-memory-owning box that keeps the
                 # memory-owning box alive
-                result = lltype.malloc(self.lowleveltype.TO)
+                result = lltype.malloc(self.lowleveltype.TO, zero=True)
                 result.c_data = p.c_data    # initialize c_data pointer
                 result.c_data_owner_keepalive = p
             self.const_cache[key] = result, keepalive
@@ -123,14 +123,14 @@ class CTypesRepr(Repr):
         if TYPE._is_varsize():
             raise TyperError("allocating array with unknown length")
         c1 = inputconst(lltype.Void, TYPE)
-        return llops.genop("malloc", [c1], resulttype=self.lowleveltype)
+        return llops.genop("zero_malloc", [c1], resulttype=self.lowleveltype)
 
     def allocate_instance_varsize(self, llops, v_length):
         TYPE = self.lowleveltype.TO
         if not TYPE._is_varsize():
             raise TyperError("allocating non-array with a specified length")
         c1 = inputconst(lltype.Void, TYPE)
-        return llops.genop("malloc_varsize", [c1, v_length],
+        return llops.genop("zero_malloc_varsize", [c1, v_length],
                            resulttype=self.lowleveltype)
 
     def allocate_instance_ref(self, llops, v_c_data, v_c_data_owner=None):
@@ -277,8 +277,9 @@ def reccopy(source, dest):
                 subdst = dest[i]
                 reccopy(subsrc, subdst)
             else:
-                llvalue = source[i]
-                dest[i] = llvalue
+                # this is a hack XXX de-hack this
+                llvalue = source._obj.getitem(i, uninitialized_ok=True)
+                dest._obj.setitem(i, llvalue)
     elif isinstance(T, lltype.Struct):
         for name in T._names:
             FIELDTYPE = getattr(T, name)
@@ -287,8 +288,9 @@ def reccopy(source, dest):
                 subdst = getattr(dest,   name)
                 reccopy(subsrc, subdst)
             else:
-                llvalue = getattr(source, name)
-                setattr(dest, name, llvalue)
+                # this is a hack XXX de-hack this
+                llvalue = source._obj._getattr(name, uninitialized_ok=True)
+                setattr(dest._obj, name, llvalue)
     else:
         raise TypeError(T)
 

@@ -10,10 +10,10 @@ class LLSupport:
     _mixin_ = True
     
     def to_rstr(s):
-        from pypy.rpython.lltypesystem.rstr import STR
+        from pypy.rpython.lltypesystem.rstr import STR, mallocstr
         if s is None:
             return lltype.nullptr(STR)
-        p = malloc(STR, len(s))
+        p = mallocstr(len(s))
         for i in range(len(s)):
             p.chars[i] = s[i]
         return p

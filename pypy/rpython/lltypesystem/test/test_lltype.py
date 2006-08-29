@@ -10,13 +10,12 @@ def test_basics():
     s0 = malloc(S0)
     print s0
     assert typeOf(s0) == Ptr(S0)
-    assert s0.a == 0
-    assert s0.b == 0
-    assert typeOf(s0.a) == Signed
+    py.test.raises(UninitializedMemoryAccess, "s0.a")
     s0.a = 1
     s0.b = s0.a
     assert s0.a == 1
     assert s0.b == 1
+    assert typeOf(s0.a) == Signed
     # simple array
     Ar = GcArray(('v', Signed))
     x = malloc(Ar,0)
@@ -26,11 +25,10 @@ def test_basics():
     print x
     assert typeOf(x) == Ptr(Ar)
     assert isweak(x[0], Ar.OF)
-    assert typeOf(x[0].v) == Signed
-    assert x[0].v == 0
     x[0].v = 1
     x[1].v = 2
     x[2].v = 3
+    assert typeOf(x[0].v) == Signed
     assert [x[z].v for z in range(3)] == [1, 2, 3]
     #
     def define_list(T):
@@ -94,10 +92,12 @@ def test_varsizestruct():
     S1 = GcStruct("s1", ('a', Signed), ('rest', Array(('v', Signed))))
     py.test.raises(TypeError, "malloc(S1)")
     s1 = malloc(S1, 4)
+    s1.a = 0
     assert s1.a == 0
     assert isweak(s1.rest, S1.rest)
     assert len(s1.rest) == 4
     assert isweak(s1.rest[0], S1.rest.OF)
+    s1.rest[0].v = 0
     assert typeOf(s1.rest[0].v) == Signed
     assert s1.rest[0].v == 0
     py.test.raises(IndexError, "s1.rest[4]")
@@ -206,7 +206,6 @@ def test_best_effort_gced_parent_detection():
     S1 = GcStruct("s1", ('sub1', S2), ('sub2', S2), ('tail', Array(('e', Signed))))
     p1 = malloc(S1, 1)
     p2 = p1.sub2
-    assert p2.a == 0
     p3 = p1.tail
     p3[0].e = 1
     assert p3[0].e == 1
@@ -220,8 +219,6 @@ def test_best_effort_gced_parent_for_arrays():
     A1 = GcArray(('v', Signed))
     p1 = malloc(A1, 10)
     p1[5].v=3
-    assert p1[0].v == 0
-    assert p1[9].v == 0
     assert p1[5].v == 3
     p1_5 = p1[5]
     del p1
@@ -327,9 +324,7 @@ def test_array_with_non_container_elements():
     As = GcArray(Signed)
     a = malloc(As, 3)
     assert typeOf(a) == Ptr(As)
-    assert a[0] == 0
-    assert a[1] == 0
-    assert a[2] == 0
+    py.test.raises(UninitializedMemoryAccess, "a[0]")
     a[1] = 3
     assert a[1] == 3
     S = GcStruct('s', ('x', Signed))
@@ -398,10 +393,13 @@ def test_runtime_type_info():
     S = GcStruct('s', ('x', Signed))
     attachRuntimeTypeInfo(S)
     s = malloc(S)
+    s.x = 0
     assert runtime_type_info(s) == getRuntimeTypeInfo(S)
     S1 = GcStruct('s1', ('sub', S), ('x', Signed))
     attachRuntimeTypeInfo(S1)
     s1 = malloc(S1)
+    s1.sub.x = 0
+    s1.x = 0
     assert runtime_type_info(s1) == getRuntimeTypeInfo(S1)
     assert runtime_type_info(s1.sub) == getRuntimeTypeInfo(S1)
     assert runtime_type_info(cast_pointer(Ptr(S), s1)) == getRuntimeTypeInfo(S1)
