@@ -49,7 +49,7 @@ def rpython2javascript(mod, function_names):
         if func_code.func_code.co_argcount > 0 and func_code.func_code.co_argcount != len(func_code.func_defaults):
             raise BadSignature("Function %s does not have default arguments" % func_name)
     source_ssf = "\n".join(["import %s" % module_name, "def some_strange_function_which_will_never_be_called():"] + ["  "+\
-        module_name+"."+fun_name+get_args(mod.__dict__[func_name]) for fun_name in function_names])
+        module_name+"."+fun_name+get_args(mod.__dict__[fun_name]) for fun_name in function_names])
     print source_ssf
     exec(source_ssf) in globals()
     #fn = compile_function([mod.__dict__[f_name] for f_name in function_names], [[] for i in function_names])
