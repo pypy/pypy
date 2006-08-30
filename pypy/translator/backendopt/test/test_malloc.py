@@ -169,6 +169,7 @@ def test_add_keepalives():
         a = A()
         a.big = big
         a.small = big.s
+        a.small.x = 0
         while i > 0:
             a.small.x += i
             i -= 1
