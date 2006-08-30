@@ -11,7 +11,7 @@ class Index:
 class OopSpecDesc:
     __metaclass__ = cachedtype
 
-    def __init__(self, RGenOp, fnobj):
+    def __init__(self, hrtyper, fnobj):
         ll_func = fnobj._callable
         FUNCTYPE = lltype.typeOf(fnobj)
         nb_args = len(FUNCTYPE.ARGS)
@@ -36,14 +36,15 @@ class OopSpecDesc:
             ARGTYPE = FUNCTYPE.ARGS[i]
             assert ((i+1) in self.argpositions) == (ARGTYPE is not lltype.Void)
 
-        self.args_gv = [RGenOp.placeholder(None)] * nb_args
+        RGenOp = hrtyper.RGenOp
+        self.args_gv = [None] * nb_args
         self.args_gv.insert(0, RGenOp.constPrebuiltGlobal(fnobj._as_ptr()))
         self.result_kind = RGenOp.kindToken(FUNCTYPE.RESULT)
         self.redboxbuilder = rvalue.ll_redboxbuilder(FUNCTYPE.RESULT)
 
         if operation_name == 'newlist':
             from pypy.jit.timeshifter.vlist import ListTypeDesc, oop_newlist
-            self.typedesc = ListTypeDesc(RGenOp, FUNCTYPE.RESULT.TO)
+            self.typedesc = ListTypeDesc(hrtyper, FUNCTYPE.RESULT.TO)
             self.ll_handler = oop_newlist
         else:
             typename, method = operation_name.split('.')

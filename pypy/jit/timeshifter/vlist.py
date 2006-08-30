@@ -6,12 +6,22 @@ from pypy.jit.timeshifter import rvalue
 class ListTypeDesc(object):
     __metaclass__ = cachedtype
 
-    def __init__(self, RGenOp, LIST):
+    def __init__(self, hrtyper, LIST):
+        RGenOp = hrtyper.RGenOp
+        rtyper = hrtyper.timeshifter.rtyper
         self.LIST = LIST
         self.LISTPTR = lltype.Ptr(LIST)
         self.ptrkind = RGenOp.kindToken(self.LISTPTR)
-        self.build_newlist = LIST.list_builder.build_newlist
-        self.build_setitem = LIST.list_builder.build_setitem
+
+        argtypes = [lltype.Signed]
+        ll_newlist_ptr = rtyper.annotate_helper_fn(LIST.ll_newlist,
+                                                   argtypes)
+        self.gv_ll_newlist = RGenOp.constPrebuiltGlobal(ll_newlist_ptr)
+
+        argtypes = [self.LISTPTR, lltype.Signed, LIST.ITEM]
+        ll_setitem_fast = rtyper.annotate_helper_fn(LIST.ll_setitem_fast,
+                                                    argtypes)
+        self.gv_ll_setitem_fast = RGenOp.constPrebuiltGlobal(ll_setitem_fast)
 
     def factory(self, length, itembox):
         vlist = VirtualList(self, length, itembox)
@@ -73,12 +83,16 @@ class VirtualList(AbstractContainer):
         typedesc = self.typedesc
         boxes = self.item_boxes
         self.item_boxes = None
-        gv_list = typedesc.build_newlist(builder, len(boxes))
+
+        args_gv = [typedesc.gv_ll_newlist, None, builder.genconst(len(boxes))]
+        gv_list = builder.genop('direct_call', args_gv, typedesc.ptrkind)
         self.ownbox.genvar = gv_list
         self.ownbox.content = None
         for i in range(len(boxes)):
             gv_item = boxes[i].getgenvar(builder)
-            typedesc.build_setitem(builder, gv_list, i, gv_item)
+            args_gv = [typedesc.gv_ll_setitem_fast, gv_list,
+                       builder.genconst(i), gv_item]
+            builder.genop('direct_call', args_gv)
 
     def freeze(self, memo):
         contmemo = memo.containers

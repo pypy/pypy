@@ -302,9 +302,9 @@ class ResidualGraphBuilder(object):
         return self.rgenop.genconst(llvalue)
     genconst._annspecialcase_ = 'specialize:genconst(1)'
 
-    def genvoidconst(self, dummy):
-        return self.rgenop.placeholder(dummy)
-    genvoidconst._annspecialcase_ = 'specialize:arg(1)'
+##    def genvoidconst(self, dummy):
+##        return self.rgenop.placeholder(dummy)
+##    genvoidconst._annspecialcase_ = 'specialize:arg(1)'
 
     def genop(self, opname, args_gv, result_kind=None):
         return self.block.genop(opname, args_gv, result_kind)

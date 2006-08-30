@@ -262,7 +262,7 @@ class HintRTyper(RPythonTyper):
 
     def handle_highlevel_operation(self, fnobj, hop):
         from pypy.jit.timeshifter.oop import OopSpecDesc, Index
-        oopspecdesc = OopSpecDesc(self.RGenOp, fnobj)
+        oopspecdesc = OopSpecDesc(self, fnobj)
 
         args_v = []
         for obj in oopspecdesc.argtuple:
