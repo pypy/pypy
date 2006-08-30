@@ -130,6 +130,18 @@ def track(*objs):
     gc.collect()
     page.display()
 
+def track_server(*objs, **kwds):
+    page = RefTrackerPage([MARKER] + list(objs))
+    del objs
+    gc.collect()
+    gc.collect()
+    try:
+        port = kwds.pop('port')
+    except KeyError:
+        port = 8888
+    from pypy.translator.tool.graphserver import run_server
+    run_server(page, port)
+
 
 class _A(object):
     __slots__ = 'a'
