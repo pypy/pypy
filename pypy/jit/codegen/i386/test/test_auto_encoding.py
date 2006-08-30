@@ -2,9 +2,10 @@ import os, random, string, struct
 import py
 from pypy.jit.codegen.i386 import ri386 as i386
 from pypy.jit.codegen.i386.ri386setup import all_instructions
+from pypy.tool.udir import udir
 
-INPUTNAME = 'checkfile.s'
-FILENAME = 'checkfile.tmp'
+INPUTNAME = str(udir.join('checkfile.s'))
+FILENAME = str(udir.join('checkfile.tmp'))
 BEGIN_TAG = '<<<ri386-test-begin>>>'
 END_TAG =   '<<<ri386-test-end>>>'
 
@@ -150,15 +151,15 @@ def run_test(instrname, instr, args_lists):
         oplist.append(op)
     g.write('\x09.string "%s"\n' % END_TAG)
     g.close()
-    os.system('as %s -o %s' % (INPUTNAME, FILENAME))
+    os.system('as "%s" -o "%s"' % (INPUTNAME, FILENAME))
     try:
         f = open(FILENAME, 'rb')
     except IOError:
         raise "Assembler error"
     data = f.read()
     f.close()
-    os.unlink(FILENAME)
-    os.unlink(INPUTNAME)
+##    os.unlink(FILENAME)
+##    os.unlink(INPUTNAME)
     i = string.find(data, BEGIN_TAG)
     assert i>=0
     j = string.find(data, END_TAG, i)
