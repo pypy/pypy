@@ -118,6 +118,11 @@ class Block(CodeGenBlock):
         self.stackdepth = 0
         self.mc = mc
         self.startaddr = mc.tell()
+        self.fixedposition = False
+
+    def getstartaddr(self):
+        self.fixedposition = True
+        return self.startaddr
 
     def geninputarg(self, gv_TYPE):
         res = Var(self.argcount)
@@ -153,7 +158,7 @@ class Block(CodeGenBlock):
         false_block.stackdepth = self.stackdepth
         # XXX what if gv_condition is a Const?
         self.mc.CMP(gv_condition.operand(self), imm8(0))
-        self.mc.JE(rel32(false_block.startaddr))
+        self.mc.JE(rel32(false_block.getstartaddr()))
         return Link(false_block), Link(self)
 
     def stack_access(self, stackpos):
@@ -283,7 +288,7 @@ class Block(CodeGenBlock):
 
     def emit_malloc_fixedsize(self, size):
         # XXX boehm only, no atomic/non atomic distinction for now
-        self.mc.push(imm(size))
+        self.push(imm(size))
         gc_malloc_ptr = llhelper(GC_MALLOC, gc_malloc)
         self.mc.CALL(rel32(lltype.cast_ptr_to_int(gc_malloc_ptr)))
         return self.returnvar(eax)
@@ -440,8 +445,7 @@ class Link(CodeGenLink):
         if block.stackdepth > N:
             block.mc.ADD(esp, imm(WORD * (block.stackdepth - N)))
             block.stackdepth = N
-        block.mc.JMP(rel32(targetblock.startaddr))
-        block.rgenop.close_mc(block.mc)
+        block.rgenop.close_mc_and_jump(block.mc, targetblock)
 
 
 class RI386GenOp(AbstractRGenOp):
@@ -462,6 +466,18 @@ class RI386GenOp(AbstractRGenOp):
 
     def close_mc(self, mc):
         self.mcs.append(mc)
+
+    def close_mc_and_jump(self, mc, targetblock):
+        if (targetblock.fixedposition
+            or targetblock.mc.tell() != targetblock.startaddr):
+            mc.JMP(rel32(targetblock.getstartaddr()))
+            self.close_mc(mc)
+        else:
+            # bring the targetblock here, instead of jumping to it
+            self.close_mc(targetblock.mc)
+            targetblock.mc = mc
+            targetblock.startaddr = mc.tell()
+            targetblock.fixedposition = True
 
     def newblock(self):
         return Block(self, self.open_mc())
@@ -523,6 +539,5 @@ class RI386GenOp(AbstractRGenOp):
         for i in range(block.argcount):
             operand = mem(esp, WORD * (2*i+1))
             prologue.mc.PUSH(operand)
-        prologue.mc.JMP(rel32(block.startaddr))
-        self.close_mc(prologue.mc)
-        return IntConst(prologue.startaddr)
+        self.close_mc_and_jump(prologue.mc, block)
+        return IntConst(prologue.getstartaddr())
