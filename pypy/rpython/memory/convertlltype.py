@@ -79,7 +79,8 @@ class LLTypeConverter(object):
                 self.convert(item, ptr[i])
         else:
             for i, item in enumerate(_array.items):
-                ptr[i] = self.convert(item)
+                if not isinstance(item, lltype._uninitialized):
+                    ptr[i] = self.convert(item)
         return ptr
 
     def convert_struct(self, _struct, inline_to_ptr):
