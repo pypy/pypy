@@ -1,3 +1,4 @@
+from pypy.rpython.objectmodel import specialize
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.jit.codegen.i386.ri386 import *
 from pypy.jit.codegen.model import AbstractRGenOp, CodeGenBlock, CodeGenLink
@@ -67,6 +68,7 @@ class IntConst(GenConst):
     def operand(self, block):
         return imm(self.value)
 
+    @specialize.arg(1)
     def revealconst(self, T):
         if isinstance(T, lltype.Ptr):
             return lltype.cast_int_to_ptr(T, self.value)
@@ -74,7 +76,6 @@ class IntConst(GenConst):
             return llmemory.cast_int_to_adr(self.value)
         else:
             return lltype.cast_primitive(T, self.value)
-    revealconst._annspecialcase_ = 'specialize:arg(1)'
 
     def __repr__(self):
         return "const=%s" % (imm(self.value).assembler(),)
@@ -95,6 +96,7 @@ class AddrConst(GenConst):
     def operand(self, block):
         return imm(llmemory.cast_adr_to_int(self.addr))
 
+    @specialize.arg(1)
     def revealconst(self, T):
         if T is llmemory.Address:
             return self.addr
@@ -102,7 +104,6 @@ class AddrConst(GenConst):
             return llmemory.cast_adr_to_ptr(self.addr, T)
         else:
             assert 0, "XXX not implemented"
-    revealconst._annspecialcase_ = 'specialize:arg(1)'
 
     def __repr__(self):
         return "const=%r" % (self.addr,)
@@ -122,10 +123,10 @@ class Block(CodeGenBlock):
         self.stackdepth += 1
         return res
 
+    @specialize.arg(1)
     def genop(self, opname, args_gv, gv_RESTYPE=None):
         genmethod = getattr(self, 'op_' + opname)
         return genmethod(args_gv, gv_RESTYPE)
-    genop._annspecialcase_ = 'specialize:arg(1)'
 
     def genop_getfield(self, offset, gv_ptr):
         return self.emit_getfield(gv_ptr, offset)
@@ -449,6 +450,8 @@ class RI386GenOp(AbstractRGenOp):
     def newblock(self):
         return Block(self, self.open_mc())
 
+    @staticmethod
+    @specialize.genconst(0)
     def genconst(llvalue):
         T = lltype.typeOf(llvalue)
         if isinstance(T, lltype.Primitive):
@@ -459,42 +462,40 @@ class RI386GenOp(AbstractRGenOp):
             return AddrConst(llmemory.cast_ptr_to_adr(llvalue))
         else:
             assert 0, "XXX not implemented"
-    genconst._annspecialcase_ = 'specialize:genconst(0)'
-    genconst = staticmethod(genconst)
 
+    @staticmethod
+    @specialize.memo()
     def fieldToken(T, name):
         return llmemory.offsetof(T, name)
-    fieldToken._annspecialcase_ = 'specialize:memo'
-    fieldToken = staticmethod(fieldToken)
 
+    @staticmethod
+    @specialize.memo()
     def allocToken(T):
         return llmemory.sizeof(T)
-    allocToken._annspecialcase_ = 'specialize:memo'
-    allocToken = staticmethod(allocToken)
-    
+
+    @staticmethod
+    @specialize.memo()    
     def arrayToken(A):
         return (llmemory.ArrayLengthOffset(A),
                 llmemory.ArrayItemsOffset(A),
                 llmemory.ItemOffset(A.OF))
-    arrayToken._annspecialcase_ = 'specialize:memo'
-    arrayToken = staticmethod(arrayToken)
 
+    @staticmethod
+    @specialize.memo()
     def constTYPE(T):
         if T is lltype.Void:
             return RI386GenOp.gv_Void
         else:
             return RI386GenOp.gv_IntWord   # XXX for now
-    constTYPE._annspecialcase_ = 'specialize:memo'
-    constTYPE = staticmethod(constTYPE)
 
     constPrebuiltGlobal = genconst
 
+    @staticmethod
+    @specialize.memo()
     def constFieldName(T, name):
         return IntConst(llmemory.offsetof(T, name))
-    constFieldName._annspecialcase_ = 'specialize:memo'
-    constFieldName = staticmethod(constFieldName)
 
- 
+
     def gencallableconst(self, name, block, gv_FUNCTYPE):
         prologue = self.newblock()
         #prologue.mc.BREAKPOINT()

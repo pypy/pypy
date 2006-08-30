@@ -1,4 +1,5 @@
 import os
+from pypy.rpython.objectmodel import specialize
 from pypy.annotation import model as annmodel
 from pypy.jit.timeshifter.test import test_timeshift
 from pypy.jit.codegen.i386.ri386genop import RI386GenOp, IntConst
@@ -12,25 +13,25 @@ class I386LLInterpTimeshiftingTestMixin(object):
     class RGenOp(RI386GenOp):
         from pypy.jit.codegen.i386.codebuf import LLTypeMachineCodeBlock as MachineCodeBlock
 
+        @staticmethod
+        @specialize.memo()
         def fieldToken(T, name):
             return list(T._names).index(name)
-        fieldToken._annspecialcase_ = 'specialize:memo'
-        fieldToken = staticmethod(fieldToken)
 
+        @staticmethod
+        @specialize.memo()
         def arrayToken(A):
             return 0, 1, 1
-        arrayToken._annspecialcase_ = 'specialize:memo'
-        arrayToken = staticmethod(arrayToken)
 
+        @staticmethod
+        @specialize.memo()
         def allocToken(T):
             return len(T._names)
-        allocToken._annspecialcase_ = 'specialize:memo'
-        allocToken = staticmethod(allocToken)
 
+        @staticmethod
+        @specialize.memo()
         def constFieldName(T, name):
             return IntConst(list(T._names).index(name))
-        constFieldName._annspecialcase_ = 'specialize:memo'
-        constFieldName = staticmethod(constFieldName)
 
     def timeshift(self, ll_function, values, opt_consts=[], *args, **kwds):
         values = self.timeshift_cached(ll_function, values, *args, **kwds)
