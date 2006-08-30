@@ -655,7 +655,6 @@ def rtype_cast_adr_to_int(hop):
                      resulttype = lltype.Signed)
 
 def rtype_cast_int_to_adr(hop):
-    assert hop.args_s[0].is_constant()
     v_input, = hop.inputargs(lltype.Signed)
     hop.exception_cannot_occur()
     return hop.genop('cast_int_to_adr', [v_input],
@@ -678,6 +677,7 @@ def rtype_cast_weakadr_to_ptr(hop):
 BUILTIN_TYPER[llmemory.cast_ptr_to_adr] = rtype_cast_ptr_to_adr
 BUILTIN_TYPER[llmemory.cast_adr_to_ptr] = rtype_cast_adr_to_ptr
 BUILTIN_TYPER[llmemory.cast_adr_to_int] = rtype_cast_adr_to_int
+BUILTIN_TYPER[llmemory.cast_int_to_adr] = rtype_cast_int_to_adr
 BUILTIN_TYPER[llmemory.cast_ptr_to_weakadr] = rtype_cast_ptr_to_weakadr
 BUILTIN_TYPER[llmemory.cast_weakadr_to_ptr] = rtype_cast_weakadr_to_ptr
 
