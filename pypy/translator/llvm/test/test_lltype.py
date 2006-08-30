@@ -19,7 +19,7 @@ def test_struct_constant1():
                         ('unichar', UniChar)
                         )
 
-    s = malloc(P)
+    s = malloc(P, zero=True)
     s.signed = 2
     s.unsigned = rarithmetic.r_uint(1)
     def struct_constant():
@@ -31,7 +31,7 @@ def test_struct_constant1():
 def test_struct_constant2():
     S2 = GcStruct("struct2", ('a', Signed), ('s1', S), ('s2', S))
 
-    s = malloc(S2)
+    s = malloc(S2, zero=True)
     s.a = 5
     s.s1.a = 2
     s.s1.b = 4
@@ -205,7 +205,7 @@ def test_struct_array3():
 def test_struct_opaque():
     PRTTI = Ptr(RuntimeTypeInfo)
     S = GcStruct('s', ('a', Signed), ('r', PRTTI))
-    s = malloc(S)
+    s = malloc(S, zero=True)
     s.a = 42
     def struct_opaque():
         return s.a
@@ -315,7 +315,7 @@ def test_call_with_fixedsizearray():
 def test_more_prebuilt_arrays():
     A = FixedSizeArray(Struct('s1', ('x', Signed)), 5)
     S = GcStruct('s', ('a1', Ptr(A)), ('a2', A))
-    s = malloc(S)
+    s = malloc(S, zero=True)
     s.a1 = malloc(A, immortal=True)
     s.a1[2].x = 50
     s.a2[2].x = 60
