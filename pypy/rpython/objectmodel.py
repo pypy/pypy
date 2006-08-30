@@ -5,6 +5,45 @@ RPython-compliant way.
 
 import sys, new
 
+# specialize is a decorator factory for attaching _annspecialcase_
+# attributes to functions: for example
+#
+# f._annspecialcase_ = 'specialize:memo' can be expressed with:
+# @specialize.memo()
+# def f(...
+#
+# f._annspecialcase_ = 'specialize:arg(0)' can be expressed with:
+# @specialize.arg(0)
+# def f(...
+#
+
+class _AttachSpecialization(object):
+
+    def __init__(self, tag):
+        self.tag = tag
+
+    def __call__(self, *args):
+        if not args:
+            args = ""
+        else:
+            args = "("+','.join([repr(arg) for arg in args]) +")"
+        specialcase = "specialize:%s%s" % (self.tag, args)
+        
+        def specialize_decorator(func):
+            func._annspecialcase_ = specialcase
+            return func
+
+        return specialize_decorator
+        
+class _Specialize(object):
+
+    def __getattr__(self, name):
+        return _AttachSpecialization(name)
+        
+specialize = _Specialize()
+
+# ____________________________________________________________
+
 class Symbolic(object):
 
     def annotation(self):
@@ -53,6 +92,8 @@ class CDefinedIntSymbolic(Symbolic):
         return lltype.Signed
     
 malloc_zero_filled = CDefinedIntSymbolic('MALLOC_ZERO_FILLED', default=0)
+
+# ____________________________________________________________
 
 def instantiate(cls):
     "Create an empty instance of 'cls'."

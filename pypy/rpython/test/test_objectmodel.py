@@ -315,3 +315,20 @@ class TestLLtype(BaseTestObjectModel, LLRtypeMixin):
 
 class TestOOtype(BaseTestObjectModel, OORtypeMixin):
     pass
+
+
+def test_specialize_decorator():
+    def f():
+        pass
+
+    specialize.memo()(f)
+    
+    assert f._annspecialcase_ == 'specialize:memo'
+
+    specialize.arg(0)(f)
+
+    assert f._annspecialcase_ == 'specialize:arg(0)'
+
+    specialize.arg(1)(f)
+
+    assert f._annspecialcase_ == 'specialize:arg(1)'
