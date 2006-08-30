@@ -3,14 +3,12 @@ from pypy.annotation import model as annmodel
 from pypy.jit.timeshifter.test import test_timeshift
 from pypy.jit.codegen.i386.ri386genop import RI386GenOp, IntConst
 
-#import py; py.test.skip("in-progress")
-
 
 class Whatever(object):
     def __eq__(self, other):
         return True
 
-class TestTimeshiftI386LLInterp(test_timeshift.TestTimeshift):
+class I386LLInterpTimeshiftingTestMixin(object):
     class RGenOp(RI386GenOp):
         from pypy.jit.codegen.i386.codebuf import LLTypeMachineCodeBlock as MachineCodeBlock
 
@@ -60,5 +58,11 @@ class TestTimeshiftI386LLInterp(test_timeshift.TestTimeshift):
         pass
 
 
+class TestTimeshiftI386LLInterp(I386LLInterpTimeshiftingTestMixin,
+                                test_timeshift.TestTimeshift):
+    
     # for the individual tests see
     # ====> ../../../timeshifter/test/test_timeshift.py
+
+    pass
+

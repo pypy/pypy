@@ -7,10 +7,8 @@ from pypy.translator.c.genc import CStandaloneBuilder
 from pypy.rpython.unroll import unrolling_iterable
 from pypy.jit.codegen.i386.ri386genop import RI386GenOp
 
-#import py; py.test.skip("in-progress")
 
-
-class TestTimeshiftI386(test_timeshift.TestTimeshift):
+class I386TimeshiftingTestMixin(object):
     RGenOp = RI386GenOp
 
     SEPLINE = 'running residual graph...\n'
@@ -121,5 +119,10 @@ class TestTimeshiftI386(test_timeshift.TestTimeshift):
     def check_insns(self, expected=None, **counts):
         "Cannot check instructions in the generated assembler."
 
+class TestTimeshiftI386(I386TimeshiftingTestMixin,
+                        test_timeshift.TestTimeshift):
+
     # for the individual tests see
     # ====> ../../../timeshifter/test/test_timeshift.py
+
+    pass
