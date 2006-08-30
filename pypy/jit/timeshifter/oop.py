@@ -38,7 +38,7 @@ class OopSpecDesc:
 
         self.args_gv = [RGenOp.placeholder(None)] * nb_args
         self.args_gv.insert(0, RGenOp.constPrebuiltGlobal(fnobj._as_ptr()))
-        self.gv_result_type = RGenOp.constTYPE(FUNCTYPE.RESULT)
+        self.result_kind = RGenOp.kindToken(FUNCTYPE.RESULT)
         self.redboxbuilder = rvalue.ll_redboxbuilder(FUNCTYPE.RESULT)
 
         if operation_name == 'newlist':
@@ -62,5 +62,5 @@ class OopSpecDesc:
                 args_gv[pos] = gv_arg
         gv_result = builder.genop('direct_call',
                                   args_gv,
-                                  self.gv_result_type)
-        return self.redboxbuilder(self.gv_result_type, gv_result)
+                                  self.result_kind)
+        return self.redboxbuilder(self.result_kind, gv_result)

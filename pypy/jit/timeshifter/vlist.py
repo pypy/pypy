@@ -9,14 +9,13 @@ class ListTypeDesc(object):
     def __init__(self, RGenOp, LIST):
         self.LIST = LIST
         self.LISTPTR = lltype.Ptr(LIST)
-        self.gv_type = RGenOp.constTYPE(self.LIST)
-        self.gv_ptrtype = RGenOp.constTYPE(self.LISTPTR)
+        self.ptrkind = RGenOp.kindToken(self.LISTPTR)
         self.build_newlist = LIST.list_builder.build_newlist
         self.build_setitem = LIST.list_builder.build_setitem
 
     def factory(self, length, itembox):
         vlist = VirtualList(self, length, itembox)
-        box = rvalue.PtrRedBox(self.gv_ptrtype)
+        box = rvalue.PtrRedBox(self.ptrkind)
         box.content = vlist
         vlist.ownbox = box
         return box

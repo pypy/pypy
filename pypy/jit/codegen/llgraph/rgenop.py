@@ -90,6 +90,7 @@ class RGenOp(AbstractRGenOp):
     def newblock(self):
         return LLBlock(llimpl.newblock())
 
+    # XXX what kind of type/kind information does this need?
     def gencallableconst(self, name, targetblock, gv_FUNCTYPE):
         return LLConst(llimpl.gencallableconst(name, targetblock.b,
                                                gv_FUNCTYPE.v))
@@ -98,6 +99,11 @@ class RGenOp(AbstractRGenOp):
     @specialize.genconst(0)
     def genconst(llvalue):
         return LLConst(llimpl.genconst(llvalue))
+
+    @staticmethod
+    @specialize.memo()
+    def kindToken(T):
+        return LLConst(llimpl.constTYPE(T))        
 
     @staticmethod
     @specialize.memo()

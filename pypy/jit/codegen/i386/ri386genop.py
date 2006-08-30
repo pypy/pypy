@@ -482,13 +482,16 @@ class RI386GenOp(AbstractRGenOp):
 
     @staticmethod
     @specialize.memo()
-    def constTYPE(T):
+    def kindToken(T): # xxx simplify
         if T is lltype.Void:
             return RI386GenOp.gv_Void
         else:
             return RI386GenOp.gv_IntWord   # XXX for now
 
+
     constPrebuiltGlobal = genconst
+
+    constTYPE = kindToken
 
     @staticmethod
     @specialize.memo()

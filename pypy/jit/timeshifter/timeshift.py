@@ -630,7 +630,7 @@ class HintTimeshift(object):
     #     where
     #         prepare_return = (lambda jitstate:
     #                           rtimeshift.prepare_return(jitstate, return_cache,
-    #                                constTYPE(RETURN_TYPE)))
+    #                                None))) # XXX return type info
     #         where return_cache is a predefined cache
     #     return builder 
     #
@@ -678,10 +678,10 @@ class HintTimeshift(object):
         return_cache = self.return_cache
         assert return_cache is not None
         RETURN_TYPE = self.r_returnvalue.original_concretetype
-        gv_RETURN_TYPE = self.RGenOp.constTYPE(RETURN_TYPE)
+
         def prepare_return(jitstate):
             return rtimeshift.prepare_return(jitstate, return_cache,
-                                             gv_RETURN_TYPE)
+                                             None)
         llops = HintLowLevelOpList(self, None)
         v_return_builder = llops.genmixlevelhelpercall(prepare_return,
                           [self.s_JITState], [v_jitstate2],

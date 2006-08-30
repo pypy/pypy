@@ -33,10 +33,7 @@ class StructTypeDesc(object):
         self.TYPE = TYPE
         self.PTRTYPE = lltype.Ptr(TYPE)
         self.alloctoken = RGenOp.allocToken(self.TYPE)
-
-        # XXX
-        self.gv_type = RGenOp.constTYPE(self.TYPE)
-        self.gv_ptrtype = RGenOp.constTYPE(self.PTRTYPE)
+        self.ptrkind = RGenOp.kindToken(self.PTRTYPE)
 
         fielddescs = []
         for name in self.TYPE._names:
@@ -66,7 +63,7 @@ class StructTypeDesc(object):
         vstruct.substruct_boxes = []
         typedesc = self
         while typedesc is not None:
-            box = rvalue.PtrRedBox(typedesc.gv_ptrtype)
+            box = rvalue.PtrRedBox(typedesc.ptrkind)
             box.content = vstruct
             vstruct.substruct_boxes.append(box)
             typedesc = typedesc.firstsubstructdesc
@@ -87,7 +84,7 @@ class FieldDesc(object):
         if isinstance(RESTYPE, lltype.ContainerType):
             RESTYPE = lltype.Ptr(RESTYPE)
         self.RESTYPE = RESTYPE
-        self.gv_resulttype = RGenOp.constTYPE(RESTYPE)
+        self.kind = RGenOp.kindToken(RESTYPE)
         self.redboxcls = rvalue.ll_redboxcls(RESTYPE)
         self.immutable = PTRTYPE.TO._hints.get('immutable', False)
 
@@ -119,17 +116,15 @@ class StructFieldDesc(object):
     def __init__(self, RGenOp, PTRTYPE, fieldname, index):
         assert isinstance(PTRTYPE.TO, lltype.Struct)
         RES1 = PTRTYPE.TO
-        accessptrtype_gv = self.accessptrtype_gv = [] 
         accessors = []
         for component in fieldname.split('.'):
             LASTSTRUCT = RES1
-            accessptrtype_gv.append(RGenOp.constTYPE(lltype.Ptr(LASTSTRUCT)))
             accessors.append((RES1, component))
             RES1 = getattr(RES1, component)
         assert not isinstance(RES1, lltype.ContainerType)
         self.PTRTYPE = PTRTYPE
         self.RESTYPE = RES1
-        self.gv_resulttype = RGenOp.constTYPE(RES1)
+        self.kind = RGenOp.kindToken(RES1)
         self.fieldname = fieldname
         self.fieldtokens = [RGenOp.fieldToken(T, component)
                              for T, component in accessors]
@@ -191,7 +186,7 @@ class VirtualStruct(AbstractContainer):
 
     def __init__(self, typedesc):
         self.typedesc = typedesc
-        self.content_boxes = [desc.redboxcls(desc.gv_resulttype,
+        self.content_boxes = [desc.redboxcls(desc.kind,
                                              desc.gv_default)
                               for desc in typedesc.fielddescs]
         #self.substruct_boxes = ...
@@ -212,7 +207,7 @@ class VirtualStruct(AbstractContainer):
         for box in self.substruct_boxes:
             # XXX using getsubstruct would be nicer
             op_args = [genvar]
-            box.genvar = builder.genop('cast_pointer', op_args, box.gv_type)
+            box.genvar = builder.genop('cast_pointer', op_args, box.kind)
             box.content = None
         self.substruct_boxes = None
         fielddescs = typedesc.fielddescs
