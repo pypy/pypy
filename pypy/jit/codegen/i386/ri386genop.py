@@ -82,10 +82,10 @@ class IntConst(GenConst):
         
 
 
-class FnPtrConst(IntConst):
-    def __init__(self, value, mc):
-        self.value = value
-        self.mc = mc    # to keep it alive
+##class FnPtrConst(IntConst):
+##    def __init__(self, value, mc):
+##        self.value = value
+##        self.mc = mc    # to keep it alive
 
 
 class AddrConst(GenConst):
@@ -102,6 +102,8 @@ class AddrConst(GenConst):
             return self.addr
         elif isinstance(T, lltype.Ptr):
             return llmemory.cast_adr_to_ptr(self.addr, T)
+        elif T is lltype.Signed:
+            return llmemory.cast_adr_to_int(self.addr)
         else:
             assert 0, "XXX not implemented"
 
@@ -157,10 +159,13 @@ class Block(CodeGenBlock):
     def stack_access(self, stackpos):
         return mem(esp, WORD * (self.stackdepth-1 - stackpos))
 
-    def push(self, reg):
-        self.mc.PUSH(reg)
-        res = Var(self.stackdepth)
+    def push(self, op):
+        self.mc.PUSH(op)
         self.stackdepth += 1
+
+    def returnvar(self, op):
+        res = Var(self.stackdepth)
+        self.push(op)
         return res
 
     def op_int_is_true(self, (gv_x,), gv_RESTYPE):
@@ -172,98 +177,98 @@ class Block(CodeGenBlock):
             return IntConst(gv_x.value + gv_y.value)
         self.mc.MOV(eax, gv_x.operand(self))
         self.mc.ADD(eax, gv_y.operand(self))
-        return self.push(eax)
+        return self.returnvar(eax)
 
     def op_int_sub(self, (gv_x, gv_y), gv_RESTYPE):
         self.mc.MOV(eax, gv_x.operand(self))
         self.mc.SUB(eax, gv_y.operand(self))
-        return self.push(eax)
+        return self.returnvar(eax)
 
     def op_int_mul(self, (gv_x, gv_y), gv_RESTYPE):
         self.mc.MOV(eax, gv_x.operand(self))
         self.mc.IMUL(eax, gv_y.operand(self))
-        return self.push(eax)
+        return self.returnvar(eax)
 
     def op_int_floordiv(self, (gv_x, gv_y), gv_RESTYPE):
         self.mc.MOV(eax, gv_x.operand(self))
         self.mc.CDQ()
         self.mc.MOV(ecx, gv_y.operand(self))
         self.mc.IDIV(ecx)
-        return self.push(eax)
+        return self.returnvar(eax)
 
     def op_int_and(self, (gv_x, gv_y), gv_RESTYPE):
         self.mc.MOV(eax, gv_x.operand(self))
         self.mc.AND(eax, gv_y.operand(self))
-        return self.push(eax)
+        return self.returnvar(eax)
 
     def op_int_or(self, (gv_x, gv_y), gv_RESTYPE):
         self.mc.MOV(eax, gv_x.operand(self))
         self.mc.OR(eax, gv_y.operand(self))
-        return self.push(eax)
+        return self.returnvar(eax)
 
     def op_int_xor(self, (gv_x, gv_y), gv_RESTYPE):
         self.mc.MOV(eax, gv_x.operand(self))
         self.mc.XOR(eax, gv_y.operand(self))
-        return self.push(eax)
+        return self.returnvar(eax)
 
     def op_int_lt(self, (gv_x, gv_y), gv_RESTYPE):
         self.mc.MOV(eax, gv_x.operand(self))
         self.mc.CMP(eax, gv_y.operand(self))
         self.mc.SETL(al)
         self.mc.MOVZX(eax, al)
-        return self.push(eax)
+        return self.returnvar(eax)
 
     def op_int_le(self, (gv_x, gv_y), gv_RESTYPE):
         self.mc.MOV(eax, gv_x.operand(self))
         self.mc.CMP(eax, gv_y.operand(self))
         self.mc.SETLE(al)
         self.mc.MOVZX(eax, al)
-        return self.push(eax)
+        return self.returnvar(eax)
 
     def op_int_eq(self, (gv_x, gv_y), gv_RESTYPE):
         self.mc.MOV(eax, gv_x.operand(self))
         self.mc.CMP(eax, gv_y.operand(self))
         self.mc.SETE(al)
         self.mc.MOVZX(eax, al)
-        return self.push(eax)
+        return self.returnvar(eax)
 
     def op_int_ne(self, (gv_x, gv_y), gv_RESTYPE):
         self.mc.MOV(eax, gv_x.operand(self))
         self.mc.CMP(eax, gv_y.operand(self))
         self.mc.SETNE(al)
         self.mc.MOVZX(eax, al)
-        return self.push(eax)
+        return self.returnvar(eax)
 
     def op_int_gt(self, (gv_x, gv_y), gv_RESTYPE):
         self.mc.MOV(eax, gv_x.operand(self))
         self.mc.CMP(eax, gv_y.operand(self))
         self.mc.SETG(al)
         self.mc.MOVZX(eax, al)
-        return self.push(eax)
+        return self.returnvar(eax)
 
     def op_int_ge(self, (gv_x, gv_y), gv_RESTYPE):
         self.mc.MOV(eax, gv_x.operand(self))
         self.mc.CMP(eax, gv_y.operand(self))
         self.mc.SETGE(al)
         self.mc.MOVZX(eax, al)
-        return self.push(eax)
+        return self.returnvar(eax)
 
     def op_int_neg(self, (gv_x,), gv_RESTYPE):
         self.mc.MOV(eax, gv_x.operand(self))
         self.mc.NEG(eax)
-        return self.push(eax)
+        return self.returnvar(eax)
 
     def op_int_lshift(self, (gv_x, gv_y), gv_RESTYPE):
         self.mc.MOV(eax, gv_x.operand(self))
         self.mc.MOV(ecx, gv_y.operand(self))
         self.mc.SHL(eax, cl)
-        return self.push(eax)
+        return self.returnvar(eax)
 
     def op_int_rshift(self, (gv_x, gv_y), gv_RESTYPE):
         self.mc.MOV(eax, gv_x.operand(self))
         self.mc.MOV(ecx, gv_y.operand(self))
         self.mc.SHR(eax, cl)
-        return self.push(eax)
+        return self.returnvar(eax)
 
     def op_bool_not(self, (gv_x,), gv_RESTYPE):
         if isinstance(gv_x, IntConst):
@@ -271,23 +276,22 @@ class Block(CodeGenBlock):
         self.mc.CMP(gv_x.operand(self), imm8(0))
         self.mc.SETE(al)
         self.mc.MOVZX(eax, al)
-        return self.push(eax)
+        return self.returnvar(eax)
 
     def op_cast_pointer(self, (gv_x,), gv_RESTYPE):
         return gv_x
 
     def emit_malloc_fixedsize(self, size):
         # XXX boehm only, no atomic/non atomic distinction for now
-        self.mc.PUSH(imm(size))
+        self.mc.push(imm(size))
         gc_malloc_ptr = llhelper(GC_MALLOC, gc_malloc)
         self.mc.CALL(rel32(lltype.cast_ptr_to_int(gc_malloc_ptr)))
-        self.stackdepth += 1 # maybe?
-        return self.push(eax)
+        return self.returnvar(eax)
 
     def emit_getfield(self, gv_ptr, offset):
         # XXX only for int fields
         self.mc.MOV(edx, gv_ptr.operand(self))
-        return self.push(mem(edx, offset))
+        return self.returnvar(mem(edx, offset))
 
     def emit_setfield(self, gv_ptr, offset, gv_value):
         # XXX only for ints for now.
@@ -298,7 +302,7 @@ class Block(CodeGenBlock):
     def emit_getsubstruct(self, gv_ptr, offset):
         self.mc.MOV(edx, gv_ptr.operand(self))
         self.mc.LEA(eax, mem(edx, offset))
-        return self.push(eax)
+        return self.returnvar(eax)
 
     def emit_getarrayitem(self, gv_ptr, arraytoken, gv_index):
         # XXX! only works for GcArray(Signed) for now!!
@@ -313,14 +317,14 @@ class Block(CodeGenBlock):
         else:
             self.mc.IMUL(ecx, gv_index.operand(self), imm(itemoffset))
             op = memSIB(edx, ecx, 0, startoffset)
-        return self.push(op)
+        return self.returnvar(op)
 
     def op_getarraysize(self, (gv_ptr,), gv_RESTYPE):
         # XXX! only works for GcArray(Signed) for now!!
         A = DUMMY_A
         lengthoffset, startoffset, itemoffset = self.rgenop.arrayToken(A)
         self.mc.MOV(edx, gv_ptr.operand(self))
-        return self.push(mem(edx, lengthoffset))
+        return self.returnvar(mem(edx, lengthoffset))
 
     def op_setarrayitem(self, (gv_ptr, gv_index, gv_value), gv_RESTYPE):
         # XXX! only works for GcArray(Signed) for now!!
@@ -338,6 +342,18 @@ class Block(CodeGenBlock):
             self.mc.IMUL(ecx, gv_index.operand(self), imm(itemoffset))
             op = memSIB(edx, ecx, 0, startoffset)
         self.mc.MOV(op, eax)
+
+    def op_direct_call(self, args_gv, result_kind):
+        for i in range(len(args_gv)-1, 0, -1):
+            gv_arg = args_gv[i]
+            if gv_arg is not None:
+                self.push(gv_arg.operand(self))
+        gv_fnptr = args_gv[0]
+        target = gv_fnptr.revealconst(lltype.Signed)
+        self.mc.CALL(rel32(target))
+        # XXX only for int return_kind
+        return self.returnvar(eax)
+
 
 DUMMY_A = lltype.GcArray(lltype.Signed)
 SIZE2SHIFT = {1: 0,
@@ -509,5 +525,4 @@ class RI386GenOp(AbstractRGenOp):
             prologue.mc.PUSH(operand)
         prologue.mc.JMP(rel32(block.startaddr))
         self.close_mc(prologue.mc)
-        return FnPtrConst(prologue.startaddr, prologue.mc)
-
+        return IntConst(prologue.startaddr)

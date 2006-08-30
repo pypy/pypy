@@ -41,14 +41,26 @@ def geninputarg(blockcontainer, gv_CONCRETE_TYPE):
     return to_opaque_object(v)
 
 def _inputvars(vars):
+    newvars = []
     if not isinstance(vars, list):
         n = vars.ll_length()
         vars = vars.ll_items()
-        vars = [fishllattr(vars[i], 'v', vars[i]) for i in range(n)]
+        for i in range(n):
+            v = vars[i]
+            if not v:
+                v = dummy_placeholder
+            else:
+                v = fishllattr(v, 'v', v)
+            newvars.append(v)
     else:
-        vars = [getattr(llvar, 'v', llvar) for llvar in vars]
+        for v in vars:
+            if not v:
+                v = dummy_placeholder
+            else:
+                v = getattr(v, 'v', v)
+            newvars.append(v)
     res = []
-    for v1 in vars:
+    for v1 in newvars:
         v = from_opaque_object(v1)
         assert isinstance(v, (flowmodel.Constant, flowmodel.Variable))
         res.append(v)
@@ -254,6 +266,8 @@ nullvar = lltype.nullptr(CONSTORVAR.TO)
 nullblock = lltype.nullptr(BLOCK.TO)
 nulllink = lltype.nullptr(LINK.TO)
 gv_Void = constTYPE(lltype.Void)
+
+dummy_placeholder = placeholder("dummy")
 
 
 # helpers

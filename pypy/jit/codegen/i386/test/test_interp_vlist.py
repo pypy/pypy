@@ -2,7 +2,6 @@ import py
 from pypy.jit.timeshifter.test import test_vlist
 from pypy.jit.codegen.i386.test.test_interp_ts import I386LLInterpTimeshiftingTestMixin
 
-py.test.skip("in-progress")
 
 class TestVList(I386LLInterpTimeshiftingTestMixin,
                 test_vlist.TestVList):
