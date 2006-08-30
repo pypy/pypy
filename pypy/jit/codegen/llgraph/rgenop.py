@@ -1,3 +1,4 @@
+from pypy.rpython.objectmodel import specialize
 from pypy.rpython.lltypesystem import lltype
 from pypy.jit.codegen.model import AbstractRGenOp, CodeGenBlock, CodeGenLink
 from pypy.jit.codegen.model import GenVar, GenConst
@@ -17,9 +18,9 @@ class LLConst(GenConst):
     def __init__(self, v):
         self.v = v
 
+    @specialize.arg(1)
     def revealconst(self, T):
         return llimpl.revealconst(T, self.v)
-    revealconst._annspecialcase_ = 'specialize:arg(1)'
 
     def __repr__(self):
         return repr(RGenOp.reveal(self))
@@ -34,10 +35,10 @@ class LLBlock(CodeGenBlock):
     def geninputarg(self, gv_TYPE):
         return LLVar(llimpl.geninputarg(self.b, gv_TYPE.v))
 
+    @specialize.arg(1)
     def genop(self, opname, vars_gv, gv_RESULT_TYPE=None):
         return LLVar(llimpl.genop(self.b, opname, vars_gv,
                                   (gv_RESULT_TYPE or gv_Void).v))
-    genop._annspecialcase_ = 'specialize:arg(1)'
 
     def genop_getfield(self, (gv_name, gv_FIELDTYPE), gv_ptr):
         vars_gv = [gv_ptr.v, gv_name.v]
@@ -93,66 +94,68 @@ class RGenOp(AbstractRGenOp):
         return LLConst(llimpl.gencallableconst(name, targetblock.b,
                                                gv_FUNCTYPE.v))
 
+    @staticmethod
+    @specialize.genconst(0)
     def genconst(llvalue):
         return LLConst(llimpl.genconst(llvalue))
-    genconst._annspecialcase_ = 'specialize:genconst(0)'
-    genconst = staticmethod(genconst)
 
+    @staticmethod
+    @specialize.memo()
     def fieldToken(T, name):
         assert name in T._flds
         FIELDTYPE = getattr(T, name)
         if isinstance(FIELDTYPE, lltype.ContainerType):
             FIELDTYPE = lltype.Ptr(FIELDTYPE)
-        return (LLConst(llimpl.constFieldName(name)), LLConst(llimpl.constTYPE(FIELDTYPE)))
-    fieldToken._annspecialcase_ = 'specialize:memo'
-    fieldToken = staticmethod(fieldToken)
+        return (LLConst(llimpl.constFieldName(name)),
+                LLConst(llimpl.constTYPE(FIELDTYPE)))
 
+    @staticmethod
+    @specialize.memo()
     def allocToken(TYPE):
-        return (LLConst(llimpl.constTYPE(TYPE)), LLConst(llimpl.constTYPE(lltype.Ptr(TYPE))))
-    allocToken._annspecialcase_ = 'specialize:memo'
-    allocToken = staticmethod(allocToken)
+        return (LLConst(llimpl.constTYPE(TYPE)),
+                LLConst(llimpl.constTYPE(lltype.Ptr(TYPE))))
 
+    @staticmethod
+    @specialize.memo()
     def arrayToken(A):
         return LLConst(llimpl.constTYPE(A.OF))
-    arrayToken._annspecialcase_ = 'specialize:memo'
-    arrayToken = staticmethod(arrayToken)
 
-    
+
+    @staticmethod
+    @specialize.memo()
     def constTYPE(T):
         return LLConst(llimpl.constTYPE(T))
-    constTYPE._annspecialcase_ = 'specialize:memo'
-    constTYPE = staticmethod(constTYPE)
 
+    @staticmethod
+    @specialize.arg(0)
     def placeholder(dummy):
         return LLConst(llimpl.placeholder(dummy))
-    placeholder._annspecialcase_ = 'specialize:arg(0)'
-    placeholder = staticmethod(placeholder)
 
+    @staticmethod
+    @specialize.memo()
     def constFieldName(T, name):
         assert name in T._flds
         return LLConst(llimpl.constFieldName(name))
-    constFieldName._annspecialcase_ = 'specialize:memo'
-    constFieldName = staticmethod(constFieldName)
 
     constPrebuiltGlobal = genconst
 
     # not RPython, just for debugging.  Specific to llgraph.
+    @staticmethod
     def reveal(gv):
         if hasattr(gv, 'v'):
             v = gv.v
         else:
             v = fishllattr(gv, 'v')
         return llimpl.reveal(v)
-    reveal = staticmethod(reveal)
 
     # Builds a real flow.model.FunctionGraph. Specific to llgraph.
+    @staticmethod
     def buildgraph(block):
         if hasattr(block, 'b'):
             b = block.b
         else:
             b = fishllattr(block, 'b')
         return llimpl.buildgraph(b)
-    buildgraph = staticmethod(buildgraph)
 
     def _freeze_(self):
         return True    # no real point in using a full class in llgraph
