@@ -17,21 +17,26 @@ option = py.test.Config.addoptions("pypy options",
                dest="benchmark", default=False,
                help="give benchmarks in tests that support it"),
     )
-option._freeze_ = lambda: True
 
 
 class Benchmark(object):
     RUN_TIME = 2.0    # repeat the benchmarked loop for two seconds
 
-    def __init__(self):
-        self.starttime = time.time()
+    class __metaclass__(type):
+        def ENABLED(cls):
+            return option.benchmark
+        ENABLED = property(ENABLED)
+
+    def __init__(self, name=''):
+        self.name = name
         self.iterations = 0
         self.million_iterations = 0
         self.nextcheck = 0
+        self.starttime = time.time()
 
     def stop(self):
         iterations = self.iterations = self.iterations + 1
-        if not option.benchmark:    # only run once if not benchmarking
+        if not Benchmark.ENABLED:    # only run once if not benchmarking
             return True
         if iterations < self.nextcheck:
             return False    # continue, don't call time.time() too often
@@ -52,4 +57,8 @@ class Benchmark(object):
         elapsed = self.endtime - self.starttime
         iterations = float(self.million_iterations) * 1000000.0
         iterations += self.iterations
-        os.write(1, '{%f iterations/second}\n' % (iterations / elapsed))
+        prefix = self.name
+        if prefix:
+            prefix += ': '
+        os.write(1, '{%s%f iterations/second}\n' % (prefix,
+                                                    iterations / elapsed))

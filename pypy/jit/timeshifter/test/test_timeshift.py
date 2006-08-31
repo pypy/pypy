@@ -18,6 +18,7 @@ from pypy.objspace.flow.model import checkgraph
 from pypy.annotation.policy import AnnotatorPolicy
 from pypy.translator.backendopt.inline import auto_inlining
 from pypy import conftest
+from pypy.jit.conftest import Benchmark
 
 P_NOVIRTUAL = AnnotatorPolicy()
 P_NOVIRTUAL.novirtualcontainer = True
@@ -254,6 +255,21 @@ class TimeshiftingTests(object):
         res = llinterp.eval_graph(residual_graph, residualargs)
         if hasattr(ll_function, 'convert_result'):
             res = ll_function.convert_result(res)
+
+        # get some benchmarks with genc
+        if Benchmark.ENABLED:
+            from pypy.translator.interactive import Translation
+            import sys
+            testname = sys._getframe(1).f_code.co_name
+            def ll_main():
+                bench = Benchmark(testname)
+                while True:
+                    ll_generated(*residualargs)
+                    if bench.stop():
+                        break
+            t = Translation(ll_main)
+            main = t.compile_c([])
+            main()
         return res
 
     def check_insns(self, expected=None, **counts):
