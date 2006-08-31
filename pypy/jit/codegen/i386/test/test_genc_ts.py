@@ -1,4 +1,4 @@
-import os
+import os, sys
 from pypy.annotation import model as annmodel
 from pypy.annotation.listdef import s_list_of_strings
 from pypy.rpython.objectmodel import keepalive_until_here
@@ -6,6 +6,7 @@ from pypy.jit.timeshifter.test import test_timeshift
 from pypy.translator.c.genc import CStandaloneBuilder
 from pypy.rpython.unroll import unrolling_iterable
 from pypy.jit.codegen.i386.ri386genop import RI386GenOp
+from pypy.jit.codegen.conftest import Benchmark
 
 
 class I386TimeshiftingTestMixin(object):
@@ -77,7 +78,11 @@ class I386TimeshiftingTestMixin(object):
             rgenop = RGenOp()
             generated = ml_generate_code(rgenop, *mainargs)
             os.write(1, SEPLINE)
-            res = generated(*residualargs)
+            bench = Benchmark()
+            while 1:
+                res = generated(*residualargs)
+                if bench.stop():
+                    break
             os.write(1, convert_result(res) + '\n')
             keepalive_until_here(rgenop)    # to keep the code blocks alive
             return 0
@@ -109,8 +114,14 @@ class I386TimeshiftingTestMixin(object):
         mainargs = ' '.join([str(arg) for arg in mainargs])
 
         output = self.main_cbuilder.cmdexec(mainargs)
-        assert output.startswith(self.SEPLINE)
-        lastline = output[len(self.SEPLINE):].strip()
+        lines = output.splitlines()
+        assert lines[0] == self.SEPLINE[:-1]
+        if (lines[1].startswith('{') and
+            lines[1].endswith('iterations/second}')):
+            testname = sys._getframe(1).f_code.co_name
+            os.write(2, '\n{%s: %s' % (testname, lines.pop(1)[1:]))
+        assert len(lines) == 2
+        lastline = lines[1]
         if hasattr(ll_function, 'convert_result'):
             return lastline
         else:

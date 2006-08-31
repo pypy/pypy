@@ -18,6 +18,6 @@ class TestTLR(TimeshiftingTests):
             return LLSupport.to_rstr(result)
         tlr_interpret.convert_arguments = [build_bytecode, int]
 
-        res = self.timeshift(tlr_interpret, [bytecode, 9], [0],
+        res = self.timeshift(tlr_interpret, [bytecode, 1764], [0],
                              policy=P_OOPSPEC)
-        assert res == 81
+        assert res == 3111696
