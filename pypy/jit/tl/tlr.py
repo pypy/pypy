@@ -71,3 +71,6 @@ SQUARE_LIST = [
     RETURN_A ]
 
 SQUARE = ''.join([chr(n) for n in SQUARE_LIST])
+
+if __name__ == '__main__':
+    print ','.join([str(n) for n in SQUARE_LIST])
