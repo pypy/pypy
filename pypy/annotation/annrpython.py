@@ -127,6 +127,9 @@ class RPythonAnnotator(object):
         return graph
     
     def annotate_helper_method(self, _class, attr, args_s, policy=None):
+        """ Warning! this method is meant to be used between
+        annotation and rtyping
+        """
         if policy is None:
             from pypy.annotation.policy import AnnotatorPolicy
             policy = AnnotatorPolicy()
