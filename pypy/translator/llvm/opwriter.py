@@ -303,7 +303,9 @@ class OpWriter(object):
         self.db.gcpolicy.var_zeromalloc(self.codewriter, opr.retref,
                                         opr.rettype, node, opr.argrefs[1],
                                         atomic=arg_type._is_atomic())
-        
+
+    zero_malloc_varsize = malloc_varsize
+
     def flavored_malloc(self, opr):
         flavor = opr.op.args[0].value
         type_  = opr.rettype[:-1] #XXX stripping of *
