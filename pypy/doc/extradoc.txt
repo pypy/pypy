@@ -46,7 +46,7 @@ Talks in 2005
   22nd Chaos Communication Conference in Berlin, Dec. 2005. 
   
 * `Open Source, EU-Funding and Agile Methods`_ talk, given by Holger Krekel
-   and Bea During at the 22nd Chaos Communication Conference in Berlin, Dec. 2005
+  and Bea During at the 22nd Chaos Communication Conference in Berlin, Dec. 2005
 
 * `PyCon 2005`_ animated slices, mostly reporting on the translator status.
 
