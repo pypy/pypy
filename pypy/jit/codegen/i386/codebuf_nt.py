@@ -1,4 +1,5 @@
 import ctypes
+import pypy.rpython.rctypes.implementation
 from pypy.rpython.rctypes.tool import ctypes_platform
 from pypy.rpython.rctypes.tool.ctypes_platform import ConstantInteger
 from pypy.rpython.rctypes.tool.ctypes_platform import SimpleType
