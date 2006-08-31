@@ -1,0 +1,48 @@
+import ctypes
+from pypy.rpython.rctypes.tool import ctypes_platform
+from pypy.rpython.rctypes.tool.ctypes_platform import ConstantInteger
+from pypy.rpython.rctypes.tool.ctypes_platform import SimpleType
+
+
+class CConfig:
+    _includes_ = ('Windows.h',)
+
+    SIZE_T                 = SimpleType('SIZE_T', c_long)
+    DWORD                  = SimpleType('DWORD', c_long)
+    BOOL                   = SimpleType('BOOL', c_int)
+    MEM_COMMIT             = ConstantInteger('MEM_COMMIT')
+    MEM_RESERVE            = ConstantInteger('MEM_RESERVE')
+    MEM_RELEASE            = ConstantInteger('MEM_RELEASE')
+    PAGE_EXECUTE_READWRITE = ConstantInteger('PAGE_EXECUTE_READWRITE')
+
+globals().update(ctypes_platform.configure(CConfig))
+
+LPVOID = ctypes.c_void_p
+
+
+VirtualAlloc = ctypes.windll.kernel32.VirtualAlloc
+VirtualAlloc.argtypes = [LPVOID, SIZE_T, DWORD, DWORD]
+VirtualAlloc.restype = LPVOID
+
+VirtualProtect = ctypes.windll.kernel32.VirtualProtect
+VirtualProtect.argtypes = [LPVOID, SIZE_T, DWORD, ctypes.POINTER(DWORD)]
+VirtualProtect.restype = BOOL
+
+VirtualFree = ctypes.windll.kernel32.VirtualFree
+VirtualFree.argtypes = [LPVOID, SIZE_T, DWORD]
+VirtualFree.restype = BOOL
+
+# ____________________________________________________________
+
+def alloc(map_size):
+    res = VirtualAlloc(ctypes.c_void_p(), map_size, MEM_COMMIT|MEM_RESERVE,
+                       PAGE_EXECUTE_READWRITE)
+    if not res:
+        raise MemoryError
+    old = DWORD()
+    VirtualProtect(res, map_size, PAGE_EXECUTE_READWRITE, byref(old))
+    # ignore errors, just try
+    return res
+
+def free(ptr, map_size):
+    VirtualFree(ptr, 0, MEM_RELEASE)

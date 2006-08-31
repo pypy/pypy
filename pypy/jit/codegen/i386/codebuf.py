@@ -1,13 +1,10 @@
-import mmap
-from pypy.module.mmap import interp_mmap
+import os
 from ctypes import *
 from ri386 import AbstractCodeBuilder
 
-libcmmap   = interp_mmap.libc.mmap
-libcmunmap = interp_mmap.libc.munmap
-libcmemcpy = interp_mmap.libc.memcpy
 
-binaryfn = CFUNCTYPE(c_int, c_int, c_int)
+modname = 'pypy.jit.codegen.i386.codebuf_' + os.name
+memhandler = __import__(modname, globals(), locals(), ['__doc__'])
 
 
 class CodeBlockOverflow(Exception):
@@ -16,11 +13,7 @@ class CodeBlockOverflow(Exception):
 class MachineCodeBlock(AbstractCodeBuilder):
 
     def __init__(self, map_size):
-        flags = mmap.MAP_PRIVATE | mmap.MAP_ANONYMOUS
-        prot = mmap.PROT_EXEC | mmap.PROT_READ | mmap.PROT_WRITE
-        res = libcmmap(c_void_p(), map_size, prot, flags, -1, 0)
-        if not res:
-            raise MemoryError
+        res = memhandler.alloc(map_size)
         self._data = cast(res, POINTER(c_char * map_size))
         self._size = map_size
         self._pos = 0
@@ -39,11 +32,15 @@ class MachineCodeBlock(AbstractCodeBuilder):
         return baseaddr + self._pos
 
     def __del__(self):
-        libcmunmap(cast(self._data, c_void_p), self._size)
+        memhandler.free(cast(self._data, c_void_p), self._size)
 
     def execute(self, arg1, arg2):
         fnptr = cast(self._data, binaryfn)
         return fnptr(arg1, arg2)
+
+binaryfn = CFUNCTYPE(c_int, c_int, c_int)    # for testing
+
+# ____________________________________________________________
 
 from pypy.rpython.lltypesystem import lltype
 
