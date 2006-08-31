@@ -70,6 +70,12 @@ class Test_specialization:
             assert not c_void_p()
         interpret(func, [])
 
+    def test_None_argument(self):
+        def func():
+            return bool(c_void_p(None))
+        res = interpret(func, [])
+        assert res is False
+
     def test_convert_pointers(self):
         strlen = CFUNCTYPE(c_int, c_void_p)()
         strlen.__name__ = 'strlen'
@@ -111,12 +117,6 @@ class Test_specialization:
         res = interpret(fn, [])
         assert lltype.typeOf(res) == lltype.Signed    # xxx
 
-##    def test_annotate_int2addr(self):   XXX cast_int_to_adr() not implemented
-##        def fn(n):
-##            return c_void_p(n)
-##        res = interpret(fn, [123])
-##        assert llmemory.cast_adr_to_int(res.c_data[0]) == 123
-
 class Test_compilation:
     def test_compile_c_char_p(self):
         def func():
@@ -145,3 +145,9 @@ class Test_compilation:
         fn = compile(func, [int])
         assert fn(-42) == 42
         assert fn(71) == 71
+
+    def test_compile_int2addr(self):
+        def func(n):
+            return c_void_p(n).value
+        fn = compile(func, [int])
+        assert fn(123) == 123

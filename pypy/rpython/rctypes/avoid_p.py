@@ -18,12 +18,14 @@ class CallEntry(CTypesCallEntry):
         hop.exception_cannot_occur()
         v_result = r_void_p.allocate_instance(hop.llops)
         if hop.args_r:
-            raise NotImplementedError("cast_int_to_adr")
-##            from pypy.rpython.lltypesystem import lltype, llmemory
-##            [v_intadr] = hop.inputargs(lltype.Signed)   # xxx id-sized
-##            v_adr = hop.genop('cast_int_to_adr', [v_intadr],
-##                              resulttype = llmemory.Address)
-##            r_void_p.setvalue(hop.llops, v_result, v_adr)
+            if hop.args_s[0].is_constant() and hop.args_s[0].const is None:
+                pass # c_void_p(None) == c_void_p()
+            else:
+                from pypy.rpython.lltypesystem import lltype, llmemory
+                [v_intadr] = hop.inputargs(lltype.Signed)   # xxx id-sized
+                v_adr = hop.genop('cast_int_to_adr', [v_intadr],
+                                  resulttype = llmemory.Address)
+                r_void_p.setvalue(hop.llops, v_result, v_adr)
         return v_result
 
 
