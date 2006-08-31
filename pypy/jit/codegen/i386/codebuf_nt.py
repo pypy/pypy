@@ -5,11 +5,11 @@ from pypy.rpython.rctypes.tool.ctypes_platform import SimpleType
 
 
 class CConfig:
-    _includes_ = ('Windows.h',)
+    _header_ = '#include <Windows.h>'
 
-    SIZE_T                 = SimpleType('SIZE_T', c_long)
-    DWORD                  = SimpleType('DWORD', c_long)
-    BOOL                   = SimpleType('BOOL', c_int)
+    SIZE_T                 = SimpleType('SIZE_T', ctypes.c_long)
+    DWORD                  = SimpleType('DWORD', ctypes.c_long)
+    BOOL                   = SimpleType('BOOL', ctypes.c_int)
     MEM_COMMIT             = ConstantInteger('MEM_COMMIT')
     MEM_RESERVE            = ConstantInteger('MEM_RESERVE')
     MEM_RELEASE            = ConstantInteger('MEM_RELEASE')
@@ -35,12 +35,12 @@ VirtualFree.restype = BOOL
 # ____________________________________________________________
 
 def alloc(map_size):
-    res = VirtualAlloc(ctypes.c_void_p(), map_size, MEM_COMMIT|MEM_RESERVE,
+    res = VirtualAlloc(LPVOID(), map_size, MEM_COMMIT|MEM_RESERVE,
                        PAGE_EXECUTE_READWRITE)
     if not res:
         raise MemoryError
     old = DWORD()
-    VirtualProtect(res, map_size, PAGE_EXECUTE_READWRITE, byref(old))
+    VirtualProtect(res, map_size, PAGE_EXECUTE_READWRITE, ctypes.byref(old))
     # ignore errors, just try
     return res
 
