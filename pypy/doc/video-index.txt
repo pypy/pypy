@@ -209,9 +209,9 @@ Jim Hugunin talks about regression tests, the code generation and the object lay
 Bram Cohen, founder and developer of BitTorrent
 -----------------------------------------------
 
-372mb: http://codespeak.net/download/pypy/video/bram-cohen-interview-v1.avi.torrent
+509mb: http://codespeak.net/download/pypy/video/bram-cohen-interview-v1.avi.torrent
 
-270mb: http://codespeak.net/download/pypy/video/bram-cohen-interview-320x240.avi.torrent
+370mb: http://codespeak.net/download/pypy/video/bram-cohen-interview-320x240.avi.torrent
 
 .. image:: image/bram.jpg
    :scale: 100
@@ -221,6 +221,23 @@ Bram Cohen, founder and developer of BitTorrent
 Bram Cohen is interviewed by Steve Holden at this years PyCon, Dallas, US.
 
 PAL, 60 min, DivX AVI
+
+
+Keynote speech by Guido van Rossum on the new Pyhton 2.5 features
+-----------------------------------------------------------------
+
+695mb: http://codespeak.net/download/pypy/video/keynote-speech_guido-van-rossum_v1.avi.torrent
+
+430mb: http://codespeak.net/download/pypy/video/keynote-speech_guido-van-rossum_320x240.avi.torrent
+
+.. image:: image/guido.jpg
+   :scale: 100
+   :alt: Guido van Rossum on Python 2.5
+   :align: left
+
+Guido van Rossum explains the new Python 2.5 features at this years PyCon, Dallas, US.
+
+PAL, 70 min, DivX AVI
 
 
 Trailer: PyPy sprint at the University of Palma de Mallorca
