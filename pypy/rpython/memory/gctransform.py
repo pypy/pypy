@@ -906,20 +906,20 @@ class FrameworkGCTransformer(GCTransformer):
              annmodel.SomeInteger(nonneg=True),
              annmodel.SomeBool(), annmodel.SomeBool()], s_gcref,
             inline = False)
-##         self.malloc_fixedsize_clear_ptr = getfn(
-##             GCClass.malloc_fixedsize_clear.im_func,
-##             [s_gc, annmodel.SomeInteger(nonneg=True),
-##              annmodel.SomeInteger(nonneg=True),
-##              annmodel.SomeBool(), annmodel.SomeBool()], s_gcref,
-##             inline = False)
-        self.malloc_varsize_ptr = getfn(
-            GCClass.malloc_varsize.im_func,
-            [s_gc] + [annmodel.SomeInteger(nonneg=True) for i in range(5)]
-            + [annmodel.SomeBool(), annmodel.SomeBool()], s_gcref)
-##         self.malloc_varsize_clear_ptr = getfn(
-##             GCClass.malloc_varsize_clear.im_func,
+        self.malloc_fixedsize_clear_ptr = getfn(
+            GCClass.malloc_fixedsize_clear.im_func,
+            [s_gc, annmodel.SomeInteger(nonneg=True),
+             annmodel.SomeInteger(nonneg=True),
+             annmodel.SomeBool(), annmodel.SomeBool()], s_gcref,
+            inline = False)
+##         self.malloc_varsize_ptr = getfn(
+##             GCClass.malloc_varsize.im_func,
 ##             [s_gc] + [annmodel.SomeInteger(nonneg=True) for i in range(5)]
 ##             + [annmodel.SomeBool(), annmodel.SomeBool()], s_gcref)
+        self.malloc_varsize_clear_ptr = getfn(
+            GCClass.malloc_varsize_clear.im_func,
+            [s_gc] + [annmodel.SomeInteger(nonneg=True) for i in range(5)]
+            + [annmodel.SomeBool(), annmodel.SomeBool()], s_gcref)
         self.collect_ptr = getfn(GCClass.collect.im_func,
             [s_gc], annmodel.s_None)
 
@@ -971,7 +971,7 @@ class FrameworkGCTransformer(GCTransformer):
             _alloc_flavor_ = 'raw'
             def setup_root_stack():
                 stackbase = lladdress.raw_malloc(rootstacksize)
-                #lladdress.raw_memclear(stackbase, rootstacksize)
+                lladdress.raw_memclear(stackbase, rootstacksize)
                 gcdata.root_stack_top  = stackbase
                 gcdata.root_stack_base = stackbase
                 i = 0
@@ -1207,21 +1207,21 @@ class FrameworkGCTransformer(GCTransformer):
         info = self.type_info_list[type_id]
         c_size = rmodel.inputconst(lltype.Signed, info["fixedsize"])
         if not op.opname.endswith('_varsize'):
-            malloc_ptr = self.malloc_fixedsize_ptr
-##             if op.opname.startswith('zero'):
-##                 malloc_ptr = self.malloc_fixedsize_clear_ptr
-##             else:
-##                 malloc_ptr = self.malloc_fixedsize_ptr
+            #malloc_ptr = self.malloc_fixedsize_ptr
+            if op.opname.startswith('zero'):
+                malloc_ptr = self.malloc_fixedsize_clear_ptr
+            else:
+                malloc_ptr = self.malloc_fixedsize_ptr
             args = [self.c_const_gc, c_type_id, c_size, c_can_collect]
         else:
             v_length = op.args[-1]
             c_ofstolength = rmodel.inputconst(lltype.Signed, info['ofstolength'])
             c_varitemsize = rmodel.inputconst(lltype.Signed, info['varitemsize'])
-            malloc_ptr = self.malloc_varsize_ptr
+            malloc_ptr = self.malloc_varsize_clear_ptr
 ##             if op.opname.startswith('zero'):
-##                 p = self.malloc_varsize_clear_ptr
+##                 malloc_ptr = self.malloc_varsize_clear_ptr
 ##             else:
-##                 p = self.malloc_varsize_clear_ptr
+##                 malloc_ptr = self.malloc_varsize_clear_ptr
             args = [self.c_const_gc, c_type_id, v_length, c_size,
                     c_varitemsize, c_ofstolength, c_can_collect]
         c_has_finalizer = rmodel.inputconst(

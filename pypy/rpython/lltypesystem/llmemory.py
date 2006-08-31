@@ -561,11 +561,14 @@ def raw_malloc_usage(size):
 
 def raw_memclear(adr, size):
     # hack hack hack
-    obj = adr.get()
-    TYPE = lltype.typeOf(obj)
+    # stab stab stab
+    assert (adr.offset is None or
+            (isinstance(adr.offset, ArrayItemsOffset)
+             and isinstance(lltype.typeOf(adr.ob).TO, lltype.FixedSizeArray)))
+    TYPE = lltype.typeOf(adr.ob)
     fresh = lltype.malloc(TYPE.TO, zero=True, flavor='raw')
     from pypy.rpython.rctypes.rmodel import reccopy
-    reccopy(fresh, obj)
+    reccopy(fresh, adr.ob)
 
 def raw_memcopy(source, dest, size):
     source = source.get()

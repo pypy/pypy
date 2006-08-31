@@ -2,7 +2,7 @@
 /************************************************************/
  /***  C header subsection: operations on LowLevelTypes    ***/
 
-#define RAW_MALLOC_ZERO_FILLED 1
+#define RAW_MALLOC_ZERO_FILLED 0
 
 #if RAW_MALLOC_ZERO_FILLED
 
@@ -43,8 +43,8 @@
 #define alloca  _alloca
 #endif
 
-#ifdef USING_BOEHM_GC
-#define MALLOC_ZERO_FILLED 1
+#ifdef USING_FRAMEWORK_GC
+#define MALLOC_ZERO_FILLED 0
 #else
 #define MALLOC_ZERO_FILLED 1
 #endif

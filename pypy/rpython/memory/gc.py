@@ -270,6 +270,7 @@ class MarkSweepGC(GCBase):
         except OverflowError:
             raise memoryError
         result = raw_malloc(tot_size)
+        raw_memclear(result, tot_size)        
         (result + size_gc_header + offset_to_length).signed[0] = length
         hdr = llmemory.cast_adr_to_ptr(result, self.HDRPTR)
         hdr.typeid = typeid << 1

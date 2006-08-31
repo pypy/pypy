@@ -384,6 +384,9 @@ class FrameworkGcPolicy(BasicGcPolicy):
     def rtti_node_factory(self):
         return BoehmGcRuntimeTypeInfo_OpaqueNode
 
+    def pre_pre_gc_code(self):
+        yield '#define USING_FRAMEWORK_GC'
+
     def gc_startup_code(self):
         fnptr = self.db.gctransformer.frameworkgc_setup_ptr.value
         yield '%s();' % (self.db.get(fnptr),)

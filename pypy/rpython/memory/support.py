@@ -16,7 +16,7 @@ def get_address_linked_list(chunk_size=DEFAULT_CHUNK_SIZE, hackishpop=False):
                                    llmemory.Address, chunk_size))))
     null_chunk = lltype.nullptr(CHUNK)
 
-##     SIZEOF_CHUNK = llmemory.sizeof(CHUNK)
+    SIZEOF_CHUNK = llmemory.sizeof(CHUNK)
 
     class FreeList(object):
         _alloc_flavor_ = "raw"
@@ -26,9 +26,9 @@ def get_address_linked_list(chunk_size=DEFAULT_CHUNK_SIZE, hackishpop=False):
 
         def get(self):
             if not self.free_list:
+                from pypy.rpython.memory.lladdress import raw_memclear
                 r = lltype.malloc(CHUNK, flavor="raw")
-##                 from pypy.rpython.memory.lladdress import raw_memclear
-##                 raw_memclear(llmemory.cast_ptr_to_adr(r), SIZEOF_CHUNK)
+                raw_memclear(llmemory.cast_ptr_to_adr(r), SIZEOF_CHUNK)
                 return r
                 
             result = self.free_list
