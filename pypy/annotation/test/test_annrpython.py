@@ -2284,6 +2284,30 @@ class TestAnnotateTestCase:
         self.show(a)
         assert isinstance(s, annmodel.SomeChar)
 
+    def test_range_nonneg(self):
+        def fun(n, k):
+            for i in range(n):
+                if k == 17:
+                    return i
+            return 0
+        a = self.RPythonAnnotator()
+        s = a.build_types(fun, [int, int])
+        self.show(a)
+        assert isinstance(s, annmodel.SomeInteger)
+        assert s.nonneg
+
+    def test_reverse_range_nonneg(self):
+        def fun(n, k):
+            for i in range(n-1, -1, -1):
+                if k == 17:
+                    return i
+            return 0
+        a = self.RPythonAnnotator()
+        s = a.build_types(fun, [int, int])
+        self.show(a)
+        assert isinstance(s, annmodel.SomeInteger)
+        assert s.nonneg
+
 def g(n):
     return [0,1,2,n]
 
