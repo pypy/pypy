@@ -52,8 +52,8 @@ class TestRDictImplementation:
         self.space = FakeSpace()
         self.space.DictObjectCls = W_DictMultiObject
         self.space.emptydictimpl = EmptyDictImplementation(self.space)
-        self.string = self.space.str_w("fish")
-        self.string2 = self.space.str_w("fish2")
+        self.string = self.space.wrap("fish")
+        self.string2 = self.space.wrap("fish2")
         self.impl = self.get_impl()
 
     def get_impl(self):
@@ -66,7 +66,7 @@ class TestRDictImplementation:
         assert self.impl.get(self.string) == 1000
 
     def test_setitem_str(self):
-        assert self.impl.setitem_str(self.string, 1000) is self.impl
+        assert self.impl.setitem_str(self.space.str_w(self.string), 1000) is self.impl
         assert self.impl.length() == 1
         assert self.impl.get(self.string) == 1000
 

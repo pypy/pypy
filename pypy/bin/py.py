@@ -145,13 +145,6 @@ def main_(argv=None):
             space.finish()
         main.run_toplevel(space, doit, verbose=Options.verbose)
 
-        if space.config.objspace.logbytecodes:
-            import dis
-            counts = space.bytecodecounts.items()
-            counts.sort(key = (lambda x: (-x[1], x[0])))
-            print [(dis.opname[opcode], count) for opcode, count in counts]
-            print [opcode for opcode, count in counts]
-
     return exit_status
 
 ##def main_(argv=None):

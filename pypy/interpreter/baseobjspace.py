@@ -166,7 +166,17 @@ class ObjSpace(object):
         if self.config.objspace.std.withdictmeasurement:
             from pypy.objspace.std.dictmultiobject import report
             report()
+        if self.config.objspace.logbytecodes:
+            self.reportbytecodecounts()
     
+    def reportbytecodecounts(self):
+        os.write(2, "Starting bytecode report.\n")
+        fd = os.open('bytecode.txt', os.O_CREAT|os.O_WRONLY|os.O_TRUNC, 0644)
+        for opcode, count in self.bytecodecounts.items():
+            os.write(fd, str(opcode) + ", " + str(count) + "\n")
+        os.close(fd)
+        os.write(2, "Reporting done.\n")        
+
     def __repr__(self):
         try:
             return self._this_space_repr_

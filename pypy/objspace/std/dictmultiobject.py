@@ -577,13 +577,13 @@ def _report_one(fd, info):
 def report():
     if not DictInfo._dict_infos:
         return
-    os.write(2, "starting to report!\n")
+    os.write(2, "Starting multidict report.\n")
     fd = os.open('dictinfo.txt', os.O_CREAT|os.O_WRONLY|os.O_TRUNC, 0644)
     for info in DictInfo._dict_infos:
         os.write(fd, '------------------\n')
         _report_one(fd, info)
     os.close(fd)
-    os.write(2, "reporting done!\n")
+    os.write(2, "Reporting done.\n")
 
 class W_DictMultiObject(W_Object):
     from pypy.objspace.std.dicttype import dict_typedef as typedef

@@ -417,7 +417,7 @@ class PyInterpFrame(pyframe.PyFrame):
     def STORE_NAME(f, varindex):
         w_varname = f.getname_w(varindex)
         w_newvalue = f.valuestack.pop()
-        f.space.setitem(f.w_locals, w_varname, w_newvalue)
+        f.space.set_str_keyed_item(f.w_locals, w_varname, w_newvalue)
 
     def DELETE_NAME(f, varindex):
         w_varname = f.getname_w(varindex)
@@ -456,7 +456,7 @@ class PyInterpFrame(pyframe.PyFrame):
     def STORE_GLOBAL(f, nameindex):
         w_varname = f.getname_w(nameindex)
         w_newvalue = f.valuestack.pop()
-        f.space.setitem(f.w_globals, w_varname, w_newvalue)
+        f.space.set_str_keyed_item(f.w_globals, w_varname, w_newvalue)
 
     def DELETE_GLOBAL(f, nameindex):
         w_varname = f.getname_w(nameindex)
@@ -535,25 +535,25 @@ class PyInterpFrame(pyframe.PyFrame):
     def cmp_exc_match(f, w_1, w_2):
         return f.space.newbool(f.space.exception_match(w_1, w_2))
 
-    compare_dispatch_table = {
-        0: cmp_lt,   # "<"
-        1: cmp_le,   # "<="
-        2: cmp_eq,   # "=="
-        3: cmp_ne,   # "!="
-        4: cmp_gt,   # ">"
-        5: cmp_ge,   # ">="
-        6: cmp_in,
-        7: cmp_not_in,
-        8: cmp_is,
-        9: cmp_is_not,
-        10: cmp_exc_match,
-        }
+    compare_dispatch_table = [
+        cmp_lt,   # "<"
+        cmp_le,   # "<="
+        cmp_eq,   # "=="
+        cmp_ne,   # "!="
+        cmp_gt,   # ">"
+        cmp_ge,   # ">="
+        cmp_in,
+        cmp_not_in,
+        cmp_is,
+        cmp_is_not,
+        cmp_exc_match,
+        ]
     def COMPARE_OP(f, testnum):
         w_2 = f.valuestack.pop()
         w_1 = f.valuestack.pop()
         try:
             testfn = f.compare_dispatch_table[testnum]
-        except KeyError:
+        except IndexError:
             raise pyframe.BytecodeCorruption, "bad COMPARE_OP oparg"
         w_result = testfn(f, w_1, w_2)
         f.valuestack.push(w_result)
