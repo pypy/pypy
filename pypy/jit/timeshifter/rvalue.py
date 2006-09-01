@@ -45,6 +45,17 @@ class RedBox(object):
             memo[self] = None
             self.genvar = newblock.geninputarg(self.kind)
 
+    def forcevar(self, builder, memo):
+        if self.is_constant():
+            # cannot mutate constant boxes in-place
+            box = self.copy(memo)
+            box.genvar = builder.genop("same_as", [self.genvar], self.kind)
+            return box
+        else:
+            # force virtual containers
+            self.getgenvar(builder)
+            return self
+
     def replace(self, memo):
         memo = memo.boxes
         return memo.setdefault(self, self)

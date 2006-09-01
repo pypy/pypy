@@ -137,27 +137,31 @@ def ll_generate_getarrayitem(jitstate, fielddesc, argbox, indexbox):
 def enter_graph(builder, backstate=None):
     return builder.build_jitstate(backstate)
 
-def retrieve_jitstate_for_merge(states_dic, jitstate, key, redboxes):
+def start_new_block(states_dic, jitstate, key, redboxes):
     rgenop = jitstate.rgenop
+    memo = rvalue.freeze_memo()
+    frozens = [redbox.freeze(memo) for redbox in redboxes]
+    memo = rvalue.exactmatch_memo()
+    outgoingvarboxes = []
+    for i in range(len(redboxes)):
+        res = frozens[i].exactmatch(redboxes[i], outgoingvarboxes, memo)
+        assert res, "exactmatch() failed"
+    newblock = rgenop.newblock()
+    linkargs = []
+    for box in outgoingvarboxes:
+        linkargs.append(box.getgenvar(None))
+        box.genvar = newblock.geninputarg(box.kind)
+    jitstate.curbuilder.enter_block(linkargs, newblock)
+    states_dic[key] = frozens, newblock
+    return jitstate
+start_new_block._annspecialcase_ = "specialize:arglltype(2)"
+
+def retrieve_jitstate_for_merge(states_dic, jitstate, key, redboxes):
     mylocalredboxes = redboxes
     redboxes = list(redboxes)
     jitstate.extend_with_parent_locals(redboxes)
     if key not in states_dic:
-        memo = rvalue.freeze_memo()
-        frozens = [redbox.freeze(memo) for redbox in redboxes]
-        memo = rvalue.exactmatch_memo()
-        outgoingvarboxes = []
-        for i in range(len(redboxes)):
-            res = frozens[i].exactmatch(redboxes[i], outgoingvarboxes, memo)
-            assert res, "exactmatch() failed"
-        newblock = rgenop.newblock()
-        linkargs = []
-        for box in outgoingvarboxes:
-            linkargs.append(box.getgenvar(None))
-            box.genvar = newblock.geninputarg(box.kind)
-        jitstate.curbuilder.enter_block(linkargs, newblock)
-        states_dic[key] = frozens, newblock
-        return jitstate
+        return start_new_block(states_dic, jitstate, key, redboxes)
 
     frozens, oldblock = states_dic[key]
     memo = rvalue.exactmatch_memo()
@@ -176,28 +180,20 @@ def retrieve_jitstate_for_merge(states_dic, jitstate, key, redboxes):
         jitstate.curbuilder.leave_block()
         jitstate.curbuilder.finish_and_goto(linkargs, oldblock)
         return None
-    
-    # Make a more general block
+
+    # We need a more general block.  Do it by generalizing all the
+    # redboxes from outgoingvarboxes, by making them variables.
+    # Then we make a new block based on this new state.
     jitstate = dyn_enter_block(jitstate, outgoingvarboxes)
-    newblock = rgenop.newblock()
-    linkargs = []
     replace_memo = rvalue.copy_memo()
     for box in outgoingvarboxes:
-        linkargs.append(box.getgenvar(jitstate.curbuilder))
-    for box in outgoingvarboxes:
-        if box.is_constant():            # constant boxes considered immutable:
-            box = box.copy(replace_memo) # copy to avoid patching the original
-        box.genvar = newblock.geninputarg(box.kind)
+        box = box.forcevar(jitstate.curbuilder, replace_memo)
     if replace_memo.boxes:
         for i in range(len(mylocalredboxes)):
             newbox = redboxes[i].replace(replace_memo)
             mylocalredboxes[i] = redboxes[i] = newbox
     jitstate.curbuilder.leave_block()
-    jitstate.curbuilder.enter_block(linkargs, newblock)
-    memo = rvalue.freeze_memo()
-    frozens = [redbox.freeze(memo) for redbox in redboxes]
-    states_dic[key] = frozens, newblock
-    return jitstate
+    return start_new_block(states_dic, jitstate, key, redboxes)
 retrieve_jitstate_for_merge._annspecialcase_ = "specialize:arglltype(2)"
     
 def enter_block(jitstate, redboxes):

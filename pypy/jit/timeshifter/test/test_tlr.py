@@ -22,7 +22,6 @@ class TestTLR(TimeshiftingTests):
                              policy=P_OOPSPEC)
         assert res == 3111696
 
-        import py; py.test.skip("XXX the following fails")
         res = self.timeshift(tlr_interpret, [bytecode, 9], [0, 1],
                              policy=P_OOPSPEC)
         assert res == 81
