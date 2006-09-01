@@ -286,6 +286,12 @@ class Block(CodeGenBlock):
     def op_cast_pointer(self, (gv_x,), gv_RESTYPE):
         return gv_x
 
+    def op_same_as(self, (gv_x,), gv_RESTYPE):
+        if gv_x.is_const:    # must always return a var
+            return self.returnvar(gv_x.operand(self))
+        else:
+            return gv_x
+
     def emit_malloc_fixedsize(self, size):
         # XXX boehm only, no atomic/non atomic distinction for now
         self.push(imm(size))
