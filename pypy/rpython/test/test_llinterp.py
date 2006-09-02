@@ -3,7 +3,7 @@ from pypy.rpython.lltypesystem.lltype import typeOf, pyobjectptr, Ptr, PyObject,
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.llinterp import LLInterpreter, LLException, log
 from pypy.rpython.rmodel import inputconst
-from pypy.translator.translator import TranslationContext
+from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.rint import signed_repr
 from pypy.rpython.lltypesystem import rstr
 from pypy.annotation import model as annmodel
@@ -476,3 +476,23 @@ def call_raise_intercept(i):
         return i
     except ValueError:
         raise TypeError
+
+def test_llinterp_fail():
+    py.test.skip("Fails")
+    def aa(i):
+        if i:
+            raise TypeError()
+    
+    def bb(i):
+        try:
+            aa(i)
+        except TypeError:
+            pass
+    
+    t = TranslationContext()
+    annotator = t.buildannotator()
+    annotator.build_types(bb, [int])
+    t.buildrtyper(type_system="ootype").specialize()
+    graph = graphof(t, aa)
+    interp = LLInterpreter(t.rtyper)
+    res = interp.eval_graph(graph, [1])
