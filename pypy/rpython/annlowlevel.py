@@ -5,7 +5,7 @@ The code needed to flow and annotate low-level helpers -- the ll_*() functions
 import types
 from pypy.tool.sourcetools import valid_identifier
 from pypy.annotation import model as annmodel
-from pypy.annotation.policy import AnnotatorPolicy
+from pypy.annotation.policy import AnnotatorPolicy, Sig
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython import extfunctable, extregistry
 from pypy.objspace.flow.model import Constant
@@ -330,5 +330,73 @@ class LLHelperEntry(extregistry.ExtRegistryEntry):
     def specialize_call(self, hop):
         return hop.args_r[1].get_unique_llfn()
         
+# ____________________________________________________________
 
-    
+def placeholder_sigarg(s):
+    if s == "self":
+        def expand(s_self, *args_s):
+            assert isinstance(s_self, annmodel.SomePtr)
+            return s_self
+    elif s == "SELF":
+        raise NotImplementedError
+    else:
+        assert s.islower()
+        def expand(s_self, *args_s):
+            assert isinstance(s_self, annmodel.SomePtr)
+            return getattr(s_self.ll_ptrtype.TO, s.upper()) 
+    return expand
+
+def typemeth_placeholder_sigarg(s):
+    if s == "SELF":
+        def expand(s_TYPE, *args_s):
+            assert isinstance(s_TYPE, annmodel.SomePBC)
+            assert s_TYPE.is_constant()
+            return s_TYPE
+    elif s == "self":
+        def expand(s_TYPE, *args_s):
+            assert isinstance(s_TYPE, annmodel.SomePBC)
+            assert s_TYPE.is_constant()
+            return lltype.Ptr(s_TYPE.const)
+    else:
+        assert s.islower()
+        def expand(s_TYPE, *args_s):
+            assert isinstance(s_TYPE, annmodel.SomePBC)
+            assert s_TYPE.is_constant()
+            return getattr(s_TYPE.const, s.upper()) 
+    return expand
+
+            
+class ADTInterface(object):
+
+    def __init__(self, base, sigtemplates):
+        self.sigtemplates = sigtemplates
+        self.base = base
+        sigs = {}
+        if base is not None:
+            sigs.update(base.sigs)
+        for name, template in sigtemplates.items():
+            args, result = template
+            if args[0] == "self":
+                make_expand = placeholder_sigarg
+            elif args[0] == "SELF":
+                make_expand = typemeth_placeholder_sigarg
+            else:
+                assert False, ("ADTInterface signature should start with"
+                               " 'SELF' or 'self'")
+            sigargs = []
+            for arg in args:
+                if isinstance(arg, str):
+                    arg = make_expand(arg)
+                sigargs.append(arg)
+            sigs[name] = Sig(*sigargs)
+        self.sigs = sigs
+
+    def __call__(self, adtmeths):
+        for name, sig in self.sigs.items():
+            meth = adtmeths[name]
+            prevsig = getattr(meth, '_annenforceargs_', None)
+            if prevsig:
+                assert prevsig is sig
+            else:
+                meth._annenforceargs_ = sig
+        return adtmeths

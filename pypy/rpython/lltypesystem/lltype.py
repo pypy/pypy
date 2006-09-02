@@ -693,6 +693,14 @@ def _cast_whatever(TGT, value):
     raise TypeError("don't know how to cast from %r to %r" % (ORIG, TGT))
 
 
+def erasedType(T):
+    while isinstance(T, Ptr) and isinstance(T.TO, Struct):
+        first, FIRSTTYPE = T.TO._first_struct()
+        if first is None:
+            break
+        T = Ptr(FIRSTTYPE)
+    return T
+
 class InvalidCast(TypeError):
     pass
 

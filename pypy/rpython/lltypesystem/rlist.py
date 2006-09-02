@@ -5,7 +5,7 @@ from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst
 from pypy.rpython.rmodel import externalvsinternal
 from pypy.rpython.rlist import AbstractBaseListRepr, AbstractListRepr, \
         AbstractFixedSizeListRepr, AbstractListIteratorRepr, rtype_newlist, \
-        rtype_alloc_and_set, ll_setitem_nonneg
+        rtype_alloc_and_set, ll_setitem_nonneg, ADTIList, ADTIFixedList
 from pypy.rpython.rlist import dum_nocheck, dum_checkidx
 from pypy.rpython.lltypesystem.rslice import SliceRepr
 from pypy.rpython.lltypesystem.rslice import startstop_slice_repr, startonly_slice_repr
@@ -49,10 +49,10 @@ class BaseListRepr(AbstractBaseListRepr):
         self.listitem = listitem
         self.list_cache = {}
         # setup() needs to be called to finish this initialization
-        self.list_builder = ListBuilder(self)
+##        self.list_builder = ListBuilder(self)
 
-    def _setup_repr_final(self):
-        self.list_builder.setup()
+##    def _setup_repr_final(self):
+##        self.list_builder.setup()
 
     def null_const(self):
         return nullptr(self.LIST)
@@ -81,85 +81,85 @@ class BaseListRepr(AbstractBaseListRepr):
                                            temp),
                               rstr.list_str_close_bracket))
 
-class ListBuilder(object):
-    """Interface to allow lazy list building by the JIT."""
+##class ListBuilder(object):
+##    """Interface to allow lazy list building by the JIT."""
 
-    def __init__(self, list_repr):
-        # This should not keep a reference to the RTyper, even indirectly via
-        # the list_repr.  So tmp_list_repr is replaced by None in setup().
-        self.tmp_list_repr = list_repr
+##    def __init__(self, list_repr):
+##        # This should not keep a reference to the RTyper, even indirectly via
+##        # the list_repr.  So tmp_list_repr is replaced by None in setup().
+##        self.tmp_list_repr = list_repr
 
-    def setup(self):
-        # Precompute the c_newitem and c_setitem_nonneg function pointers,
-        # needed below.
-        list_repr = self.tmp_list_repr
-        if list_repr is None:
-            return     # already set up
-        self.tmp_list_repr = None
-        if list_repr.rtyper is None:
-            return     # only for test_rlist, which doesn't need this anyway
+##    def setup(self):
+##        # Precompute the c_newitem and c_setitem_nonneg function pointers,
+##        # needed below.
+##        list_repr = self.tmp_list_repr
+##        if list_repr is None:
+##            return     # already set up
+##        self.tmp_list_repr = None
+##        if list_repr.rtyper is None:
+##            return     # only for test_rlist, which doesn't need this anyway
         
-        LIST = list_repr.LIST
-        LISTPTR = list_repr.lowleveltype
-        ITEM = list_repr.item_repr.lowleveltype
-        self.LIST = LIST
-        self.LISTPTR = LISTPTR
+##        LIST = list_repr.LIST
+##        LISTPTR = list_repr.lowleveltype
+##        ITEM = list_repr.item_repr.lowleveltype
+##        self.LIST = LIST
+##        self.LISTPTR = LISTPTR
 
-        argtypes = [Signed]
-        newlist_ptr = list_repr.rtyper.annotate_helper_fn(LIST.ll_newlist,
-                                                          argtypes)
+##        argtypes = [Signed]
+##        newlist_ptr = list_repr.rtyper.annotate_helper_fn(LIST.ll_newlist,
+##                                                          argtypes)
 
-        bk = list_repr.rtyper.annotator.bookkeeper
-        argtypes = [bk.immutablevalue(dum_nocheck), LISTPTR, Signed, ITEM]
-        setitem_nonneg_ptr = list_repr.rtyper.annotate_helper_fn(
-            ll_setitem_nonneg, argtypes)
-        #self.c_dum_nocheck = inputconst(Void, dum_nocheck)
-        #self.c_LIST = inputconst(Void, self.LIST)
+##        bk = list_repr.rtyper.annotator.bookkeeper
+##        argtypes = [bk.immutablevalue(dum_nocheck), LISTPTR, Signed, ITEM]
+##        setitem_nonneg_ptr = list_repr.rtyper.annotate_helper_fn(
+##            ll_setitem_nonneg, argtypes)
+##        #self.c_dum_nocheck = inputconst(Void, dum_nocheck)
+##        #self.c_LIST = inputconst(Void, self.LIST)
 
-        def build_newlist(llops, length):
-            c_newlist = llops.genconst(newlist_ptr)
-            c_len     = llops.genconst(length)
-            c_LIST    = llops.genvoidconst(LIST)
-            return llops.genop('direct_call',
-                               [c_newlist, c_LIST, c_len],
-                               llops.constTYPE(LISTPTR))
+##        def build_newlist(llops, length):
+##            c_newlist = llops.genconst(newlist_ptr)
+##            c_len     = llops.genconst(length)
+##            c_LIST    = llops.genvoidconst(LIST)
+##            return llops.genop('direct_call',
+##                               [c_newlist, c_LIST, c_len],
+##                               llops.constTYPE(LISTPTR))
 
-        def build_setitem(llops, v_list, index, v_item):
-            c_setitem_nonneg = llops.genconst(setitem_nonneg_ptr)
-            c_i = llops.genconst(index)
-            llops.genop('direct_call', [c_setitem_nonneg,
-                                        llops.genvoidconst(dum_nocheck),
-                                        v_list, c_i, v_item])
+##        def build_setitem(llops, v_list, index, v_item):
+##            c_setitem_nonneg = llops.genconst(setitem_nonneg_ptr)
+##            c_i = llops.genconst(index)
+##            llops.genop('direct_call', [c_setitem_nonneg,
+##                                        llops.genvoidconst(dum_nocheck),
+##                                        v_list, c_i, v_item])
 
-        self.build_newlist = build_newlist
-        self.build_setitem = build_setitem
+##        self.build_newlist = build_newlist
+##        self.build_setitem = build_setitem
 
-    def build(self, llops, items_v):
-        """Make the operations that would build a list containing the
-        provided items."""
-        v_list = self.build_newlist(llops, len(items_v))
-        for i, v in enumerate(items_v):
-            self.build_setitem(llops, v_list, i, v)
-        return v_list
+##    def build(self, llops, items_v):
+##        """Make the operations that would build a list containing the
+##        provided items."""
+##        v_list = self.build_newlist(llops, len(items_v))
+##        for i, v in enumerate(items_v):
+##            self.build_setitem(llops, v_list, i, v)
+##        return v_list
 
-    def getlistptr(self):
-        list_repr = self.tmp_list_repr
-        if list_repr is not None:
-            list_repr.setup()
-            return list_repr.lowleveltype
-        else:
-            return self.LISTPTR
+##    def getlistptr(self):
+##        list_repr = self.tmp_list_repr
+##        if list_repr is not None:
+##            list_repr.setup()
+##            return list_repr.lowleveltype
+##        else:
+##            return self.LISTPTR
 
-    def __eq__(self, other):
-        if not isinstance(other, ListBuilder):
-            return False
-        return self.getlistptr() == other.getlistptr()
+##    def __eq__(self, other):
+##        if not isinstance(other, ListBuilder):
+##            return False
+##        return self.getlistptr() == other.getlistptr()
 
-    def __ne__(self, other):
-        return not (self == other)
+##    def __ne__(self, other):
+##        return not (self == other)
 
-    def __hash__(self):
-        return 1 # bad but not used alone
+##    def __hash__(self):
+##        return 1 # bad but not used alone
 
 
 class __extend__(pairtype(BaseListRepr, BaseListRepr)):
@@ -183,18 +183,18 @@ class ListRepr(AbstractListRepr, BaseListRepr):
             # XXX we might think of turning length stuff into Unsigned
             self.LIST.become(GcStruct("list", ("length", Signed),
                                               ("items", Ptr(ITEMARRAY)),
-                                      adtmeths = {
+                                      adtmeths = ADTIList({
                                           "ll_newlist": ll_newlist,
                                           "ll_length": ll_length,
                                           "ll_items": ll_items,
-                                          "list_builder": self.list_builder,
+                                          ##"list_builder": self.list_builder,
                                           "ITEM": ITEM,
                                           "ll_getitem_fast": ll_getitem_fast,
                                           "ll_setitem_fast": ll_setitem_fast,
                                           "_ll_resize_ge": _ll_list_resize_ge,
                                           "_ll_resize_le": _ll_list_resize_le,
                                           "_ll_resize": _ll_list_resize,
-                                      })
+                                      }))
                              )
 
     def compact_repr(self):
@@ -215,15 +215,15 @@ class FixedSizeListRepr(AbstractFixedSizeListRepr, BaseListRepr):
         if isinstance(self.LIST, GcForwardReference):
             ITEM = self.item_repr.lowleveltype
             ITEMARRAY = GcArray(ITEM,
-                                adtmeths = {
+                                adtmeths = ADTIFixedList({
                                      "ll_newlist": ll_fixed_newlist,
                                      "ll_length": ll_fixed_length,
                                      "ll_items": ll_fixed_items,
-                                     "list_builder": self.list_builder,
+                                     ##"list_builder": self.list_builder,
                                      "ITEM": ITEM,
                                      "ll_getitem_fast": ll_fixed_getitem_fast,
                                      "ll_setitem_fast": ll_fixed_setitem_fast,
-                                })
+                                }))
 
             self.LIST.become(ITEMARRAY)
 

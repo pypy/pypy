@@ -7,6 +7,20 @@ from pypy.rpython.lltypesystem.lltype import typeOf, Ptr, Void, Signed, Bool
 from pypy.rpython.lltypesystem.lltype import nullptr, Char, UniChar
 from pypy.rpython import robject
 from pypy.rpython.objectmodel import malloc_zero_filled
+from pypy.rpython.annlowlevel import ADTInterface
+
+ADTIFixedList = ADTInterface(None, {
+    'll_newlist':      (['SELF', Signed        ], 'self'),
+    'll_length':       (['self'                ], Signed),
+    'll_getitem_fast': (['self', Signed        ], 'item'),
+    'll_setitem_fast': (['self', Signed, 'item'], Void),
+})
+ADTIList = ADTInterface(ADTIFixedList, {
+    '_ll_resize_ge':   (['self', Signed        ], Void),
+    '_ll_resize_le':   (['self', Signed        ], Void),
+    '_ll_resize':      (['self', Signed        ], Void),
+})
+
 
 def dum_checkidx(): pass
 def dum_nocheck(): pass

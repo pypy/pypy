@@ -2320,6 +2320,20 @@ class TestAnnotateTestCase:
         assert not s.nonneg
         py.test.raises(Exception, a.build_types, fun, [int, int])
 
+    def test_sig_lambda(self):
+        def fun(x, y):
+            return y
+        s_nonneg = annmodel.SomeInteger(nonneg=True)
+        fun._annenforceargs_ = policy.Sig(lambda s1,s2: s1, lambda s1,s2: s1)
+        # means: the 2nd argument's annotation becomes the 1st argument's
+        #        input annotation
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(fun, [int, s_nonneg])
+        assert isinstance(s, annmodel.SomeInteger)
+        assert not s.nonneg
+        py.test.raises(Exception, a.build_types, fun, [s_nonneg, int])
+
 def g(n):
     return [0,1,2,n]
 

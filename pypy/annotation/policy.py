@@ -6,6 +6,7 @@ from pypy.annotation.specialize import memo
 # or we create a cycle.
 from pypy.annotation import model as annmodel
 from pypy.annotation.bookkeeper import getbookkeeper
+import types
 
 
 class BasicAnnotatorPolicy(object):
@@ -99,10 +100,23 @@ class Sig(object):
         self.argtypes = argtypes
         
     def __call__(self, funcdesc, inputcells):
+        from pypy.rpython.lltypesystem import lltype
         args_s = []
-        for argtype in self.argtypes:
+        for i, argtype in enumerate(self.argtypes):
+            if isinstance(argtype, (types.FunctionType, types.MethodType)):
+                argtype = argtype(*inputcells)
             if isinstance(argtype, annmodel.SomeObject):
                 args_s.append(argtype)
+            elif isinstance(argtype, lltype.LowLevelType):
+                if argtype is lltype.Void:
+                    # XXX the mapping between Void and annotation
+                    # is not quite well defined
+                    s_input = inputcells[i]
+                    assert isinstance(s_input, annmodel.SomePBC)
+                    assert s_input.is_constant()
+                    args_s.append(s_input)
+                else:
+                    args_s.append(annmodel.lltype_to_annotation(argtype))
             else:
                 args_s.append(funcdesc.bookkeeper.valueoftype(argtype))
         if len(inputcells) != len(args_s):
