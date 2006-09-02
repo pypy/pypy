@@ -478,7 +478,6 @@ def call_raise_intercept(i):
         raise TypeError
 
 def test_llinterp_fail():
-    py.test.skip("Fails")
     def aa(i):
         if i:
             raise TypeError()
@@ -493,6 +492,6 @@ def test_llinterp_fail():
     annotator = t.buildannotator()
     annotator.build_types(bb, [int])
     t.buildrtyper(type_system="ootype").specialize()
-    graph = graphof(t, aa)
+    graph = graphof(t, bb)
     interp = LLInterpreter(t.rtyper)
     res = interp.eval_graph(graph, [1])
