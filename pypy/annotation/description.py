@@ -250,6 +250,9 @@ class FunctionDesc(Desc):
             tag = getattr(self.pyobj, '_annspecialcase_', None)
             policy = self.bookkeeper.annotator.policy
             self.specializer = policy.get_specializer(tag)
+        enforceargs = getattr(self.pyobj, '_annenforceargs_', None)
+        if enforceargs:
+            enforceargs(self, inputcells) # can modify inputcells in-place
         return self.specializer(self, inputcells)
 
     def pycall(self, schedule, args, s_previous_result):

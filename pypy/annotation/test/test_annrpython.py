@@ -2308,6 +2308,18 @@ class TestAnnotateTestCase:
         assert isinstance(s, annmodel.SomeInteger)
         assert s.nonneg
 
+    def test_sig(self):
+        def fun(x, y):
+            return x+y
+        s_nonneg = annmodel.SomeInteger(nonneg=True)
+        fun._annenforceargs_ = policy.Sig(int, s_nonneg)
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(fun, [s_nonneg, s_nonneg])
+        assert isinstance(s, annmodel.SomeInteger)
+        assert not s.nonneg
+        py.test.raises(Exception, a.build_types, fun, [int, int])
+
 def g(n):
     return [0,1,2,n]
 

@@ -90,3 +90,30 @@ class AnnotatorPolicy(BasicAnnotatorPolicy):
     def override__ignore(pol, *args):
         bk = getbookkeeper()
         return bk.immutablevalue(None)
+
+# ____________________________________________________________
+
+class Sig(object):
+
+    def __init__(self, *argtypes):
+        self.argtypes = argtypes
+        
+    def __call__(self, funcdesc, inputcells):
+        args_s = []
+        for argtype in self.argtypes:
+            if isinstance(argtype, annmodel.SomeObject):
+                args_s.append(argtype)
+            else:
+                args_s.append(funcdesc.bookkeeper.valueoftype(argtype))
+        if len(inputcells) != len(args_s):
+            raise Exception("%r: expected %d args, got %d" % (funcdesc,
+                                                              len(args_s),
+                                                              len(inputcells)))
+        for i, (s_arg, s_input) in enumerate(zip(args_s, inputcells)):
+            if not s_arg.contains(s_input):
+                raise Exception("%r argument %d:\n"
+                                "expected %s,\n"
+                                "     got %s" % (funcdesc, i+1,
+                                             s_arg,
+                                             s_input))
+        inputcells[:] = args_s
