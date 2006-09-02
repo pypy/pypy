@@ -38,6 +38,7 @@ class RPythonAnnotator(object):
         self.links_followed = {} # set of links that have ever been followed
         self.notify = {}        # {block: {positions-to-reflow-from-when-done}}
         self.fixed_graphs = {}  # set of graphs not to annotate again
+        self.blocked_blocks = {} # set of {blocked_block: graph}
         # --- the following information is recorded for debugging only ---
         # --- and only if annotation.model.DEBUG is kept to True
         self.why_not_annotated = {} # {block: (exc_type, exc_value, traceback)}
@@ -256,32 +257,14 @@ class RPythonAnnotator(object):
             newgraphs = self.translator.graphs  #all of them
             got_blocked_blocks = False in self.annotated.values()
         if got_blocked_blocks:
-            if annmodel.DEBUG:
-                for block in self.annotated:
-                    if self.annotated[block] is False:
-                        graph = self.why_not_annotated[block][1].break_at[0]
-                        self.blocked_graphs[graph] = True
-##                        import traceback
-##                        blocked_err = []
-##                        blocked_err.append('-+' * 30 +'\n')
-##                        blocked_err.append('BLOCKED block at :' +
-##                                           self.whereami(self.why_not_annotated[block][1].break_at) +
-##                                           '\n')
-##                        blocked_err.append('because of:\n')
-##                        blocked_err.extend(traceback.format_exception(*self.why_not_annotated[block]))
-##                        from pypy.interpreter.pytraceback import offset2lineno
-##
-##                        offset = block.operations[self.why_not_annotated[block][1].break_at[2]].offset
-##                        lineno = offset2lineno(graph.func.func_code, offset)
-##                        blocked_err.append("Happened at file %s line %d\n" % (graph.filename, lineno))
-##                        blocked_err.append(graph.source.split("\n")[lineno-graph.startline] + "\n")
-##                        blocked_err.append('-+' * 30 +'\n')
-##                        log.ERROR(''.join(blocked_err))
+            for graph in self.blocked_graphs.values():
+                self.blocked_graphs[graph] = True
 
             blocked_blocks = [block for block, done in self.annotated.items()
                                     if done is False]
+            assert len(blocked_blocks) == len(self.blocked_blocks)
 
-            text = format_blocked_annotation_error(self, blocked_blocks, graph)
+            text = format_blocked_annotation_error(self, self.blocked_blocks)
             #raise SystemExit()
             raise AnnotatorError(text)
         for graph in newgraphs:
@@ -486,10 +469,13 @@ class RPythonAnnotator(object):
             self.reflowcounter.setdefault(block, 0)
             self.reflowcounter[block] += 1
         self.annotated[block] = graph
+        if block in self.blocked_blocks:
+            del self.blocked_blocks[block]
         try:
             self.flowin(graph, block)
         except BlockedInference, e:
             self.annotated[block] = False   # failed, hopefully temporarily
+            self.blocked_blocks[block] = graph
         except Exception, e:
             # hack for debug tools only
             if not hasattr(e, '__annotator_block'):
@@ -508,6 +494,7 @@ class RPythonAnnotator(object):
         self.pendingblocks[block] = graph
         assert block in self.annotated
         self.annotated[block] = False  # must re-flow
+        self.blocked_blocks[block] = graph
 
     def bindinputargs(self, graph, block, inputcells, called_from_graph=None):
         # Create the initial bindings for the input args of a block.
@@ -516,6 +503,7 @@ class RPythonAnnotator(object):
         for a, cell in zip(block.inputargs, inputcells):
             self.setbinding(a, cell, called_from_graph, where=where)
         self.annotated[block] = False  # must flowin.
+        self.blocked_blocks[block] = graph
 
     def mergeinputargs(self, graph, block, inputcells, called_from_graph=None):
         # Merge the new 'cells' with each of the block's existing input

@@ -93,9 +93,9 @@ def gather_error(annotator, block, graph):
             msg.extend(traceback.format_exception(*annotator.why_not_annotated[block]))
     return "\n".join(msg)
 
-def format_blocked_annotation_error(annotator, blocked_blocks, graph):
+def format_blocked_annotation_error(annotator, blocked_blocks):
     text = []
-    for block in blocked_blocks:
+    for block, graph in blocked_blocks.items():
         text.append(gather_error(annotator, block, graph))
     return '\n'.join(text)
     
