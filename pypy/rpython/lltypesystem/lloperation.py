@@ -3,6 +3,7 @@ The table of all LL operations.
 """
 
 from pypy.rpython.extregistry import ExtRegistryEntry
+from pypy.objspace.flow.model import roproperty
 
 
 class LLOp(object):
@@ -54,7 +55,7 @@ class LLOp(object):
             val = lltype.enforce(RESULTTYPE, val)
         return val
 
-    def fold(self, RESULTTYPE, *args):
+    def get_fold_impl(self):
         global lltype                 #  <- lazy import hack, worth an XXX
         from pypy.rpython.lltypesystem import lltype
         if self.canfold or self.opname in ('getfield', 'getarrayitem'):
@@ -67,8 +68,8 @@ class LLOp(object):
                 raise error
         # cache the implementation function into 'self'
         self.fold = op_impl
-        return self(RESULTTYPE, *args)
-    fold.need_result_type = True
+        return op_impl
+    fold = roproperty(get_fold_impl)
 
 
 def enum_ops_without_sideeffects(raising_is_ok=False):

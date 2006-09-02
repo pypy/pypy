@@ -151,10 +151,31 @@ class HintRTyper(RPythonTyper):
         c_fielddesc = inputconst(lltype.Void, fielddesc)
         s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
         v_jitstate = hop.llops.getjitstate()
-        return hop.llops.genmixlevelhelpercall(rtimeshift.ll_generate_getarrayitem,
+        return hop.llops.genmixlevelhelpercall(
+            rtimeshift.ll_generate_getarrayitem,
             [ts.s_JITState, s_fielddesc, ts.s_RedBox, ts.s_RedBox],
             [v_jitstate,    c_fielddesc, v_argbox,    v_index    ],
             ts.s_RedBox)
+
+    def translate_op_getarraysize(self, hop):
+        res = self.generic_translate_operation(hop, force=True)
+        if res is not None:
+            return res
+        
+        PTRTYPE = originalconcretetype(hop.args_s[0])
+        ts = self.timeshifter
+        [v_argbox] = hop.inputargs(self.getredrepr(PTRTYPE))
+        
+        fielddesc = rcontainer.ArrayFieldDesc(self.RGenOp, PTRTYPE)
+        c_fielddesc = inputconst(lltype.Void, fielddesc)
+        s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
+        v_jitstate = hop.llops.getjitstate()
+        return hop.llops.genmixlevelhelpercall(
+            rtimeshift.ll_generate_getarraysize,
+            [ts.s_JITState, s_fielddesc, ts.s_RedBox],
+            [v_jitstate,    c_fielddesc, v_argbox   ],
+            ts.s_RedBox)
+
 
     def translate_op_setfield(self, hop):
         if isinstance(hop.args_r[0], BlueRepr):

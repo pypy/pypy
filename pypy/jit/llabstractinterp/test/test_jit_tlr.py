@@ -15,7 +15,7 @@ def test_compile():
     rtyper = t.buildrtyper()
     rtyper.specialize()
 
-    interp = LLAbstractInterp()
+    interp = LLAbstractInterp(rtyper)
     hints = {0: string_repr.convert_const(tlr.SQUARE)}
     graph2 = interp.eval(t.graphs[0], hints)
     #graph2.show()

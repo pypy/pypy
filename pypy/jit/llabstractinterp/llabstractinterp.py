@@ -160,7 +160,8 @@ best_policy = Policy(inlining=True, const_propagate=True, concrete_args=False,
 
 class LLAbstractInterp(object):
 
-    def __init__(self, policy=best_policy):
+    def __init__(self, rtyper, policy=best_policy):
+        self.rtyper = rtyper
         self.graphs = []
         self.graphstates = {}     # {origgraph: {BlockState: GraphState}}
         self.blocks = {}          # {BlockState.key(): list-of-LLBlockStates}
@@ -276,8 +277,11 @@ class LinkState(object):
             assert isinstance(v2, (AVariable, AConstant))
             if isinstance(v2, AConstant):
                 # sanity check violating encapsulation
-                v1 = rgenop.reveal(v1)
-                assert v1.value == v2.value
+                if v2.concretetype is lltype.Void:
+                    assert v1 is None
+                else:
+                    v1 = rgenop.reveal(v1)
+                    assert v1.value == v2.value
             else:
                 args.append(v1)
         self.link.close(args, block)
@@ -541,18 +545,36 @@ class BlockBuilder(object):
             ls.link = cases[ls.exitcase]
         return b
 
-    def genop(self, opname, args, RESULT_TYPE=lltype.Void):
-        return self.newblock.genop(opname, args,
-                                   rgenop.constTYPE(RESULT_TYPE))
+##    def genop(self, opname, args, RESULT_TYPE=lltype.Void):
+##        return self.newblock.genop(opname, args,
+##                                   rgenop.constTYPE(RESULT_TYPE))
+
+    def genop1(self, opname, arg):
+        return self.newblock.genop1(opname, arg)
+
+    def genop2(self, opname, arg1, arg2):
+        return self.newblock.genop2(opname, arg1, arg2)
+
+    def genop_call(self, sigtoken, v_callable, args_v):
+        return self.newblock.genop_call(sigtoken, v_callable, args_v)
+
+    def genop_malloc_fixedsize(self, alloctoken):
+        return self.newblock.genop_malloc_fixedsize(alloctoken)
+
+    def genop_malloc_varsize(self, alloctoken, v_length):
+        return self.newblock.genop_malloc_varsize(alloctoken, v_length)
+
+    def genop_getfield(self, fieldtoken, v_ptr):
+        return self.newblock.genop_getfield(fieldtoken, v_ptr)
+
+    def genop_setfield(self, fieldtoken, v_ptr, v_value):
+        return self.newblock.genop_setfield(fieldtoken, v_ptr, v_value)
+
+    def genop_getsubstruct(self, fieldtoken, v_ptr):
+        return self.newblock.genop_getsubstruct(fieldtoken, v_ptr)
 
     def genconst(self, llvalue):
         return rgenop.genconst(llvalue)
-
-    def genvoidconst(self, placeholder):
-        return rgenop.placeholder(placeholder)
-
-    def constTYPE(self, T):
-        return T
     
     def binding(self, v):
         assert isinstance(v, (Constant, Variable))
@@ -595,20 +617,27 @@ class BlockBuilder(object):
         return a_result
 
     def residual(self, op, args_a):
-        T= op.result.concretetype
-        retvar = self.genop(op.opname,
-                              [a.forcegenvarorconst(self) for a in args_a],
-                              T)
+        T = op.result.concretetype
+        args_v = [a.forcegenvarorconst(self) for a in args_a]
+        if op.opname == 'direct_call':
+            sigtoken = rgenop.sigToken(args_a[0].getconcretetype().TO)
+            retvar = self.genop_call(sigtoken, args_v[0], args_v[1:])
+        elif op.opname == 'getfield':
+            fieldtoken = rgenop.fieldToken(args_a[0].getconcretetype().TO,
+                                           op.args[1].value)
+            retvar = self.genop_getfield(fieldtoken, args_v[0])
+        else:
+            # generic version
+            genopmeth = getattr(self, 'genop%d' % len(args_a))
+            retvar = genopmeth(op.opname, *args_v)
         return LLAbstractValue(AVariable(T, genvar=retvar))
 
     def residual_direct_call(self, FUNCTYPE, name, target, args_a):
         T = FUNCTYPE.RESULT
-        gen_fn_const = rgenop.gencallableconst(name,
-                                               target,
-                                               rgenop.constTYPE(FUNCTYPE))
-        retvar = self.genop('direct_call', [gen_fn_const] +
-                              [a.forcegenvarorconst(self) for a in args_a],
-                              T)
+        sigtoken = rgenop.sigToken(FUNCTYPE)
+        gen_fn_const = rgenop.gencallableconst(sigtoken, name, target)
+        retvar = self.genop_call(sigtoken, gen_fn_const,
+                                 [a.forcegenvarorconst(self) for a in args_a])
         return LLAbstractValue(AVariable(T, genvar=retvar))
         
     

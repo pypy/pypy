@@ -34,7 +34,7 @@ def get_and_residualize_graph(ll_function, argvalues, arghints, policy):
     rtyper = t.buildrtyper()
     rtyper.specialize()
     # build the residual ll graphs by propagating the hints
-    interp = LLAbstractInterp(policy)
+    interp = LLAbstractInterp(rtyper, policy)
     hints = {}
     for hint in arghints:
         hints[hint] = argvalues[hint]

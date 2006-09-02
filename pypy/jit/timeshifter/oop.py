@@ -28,19 +28,20 @@ class OopSpecDesc:
         self.argpositions = []
         for i, obj in enumerate(self.argtuple):
             if isinstance(obj, Index):
-                self.argpositions.append(obj.n + 1)
+                self.argpositions.append(obj.n)
             else:
-                self.argpositions.append(0)
+                self.argpositions.append(-1)
 
         for i in range(nb_args):
             ARGTYPE = FUNCTYPE.ARGS[i]
-            assert ((i+1) in self.argpositions) == (ARGTYPE is not lltype.Void)
+            assert (i in self.argpositions) == (ARGTYPE is not lltype.Void)
 
         RGenOp = hrtyper.RGenOp
         self.args_gv = [None] * nb_args
-        self.args_gv.insert(0, RGenOp.constPrebuiltGlobal(fnobj._as_ptr()))
+        self.gv_fnptr = RGenOp.constPrebuiltGlobal(fnobj._as_ptr())
         self.result_kind = RGenOp.kindToken(FUNCTYPE.RESULT)
         self.redboxbuilder = rvalue.ll_redboxbuilder(FUNCTYPE.RESULT)
+        self.sigtoken = RGenOp.sigToken(FUNCTYPE)
 
         if operation_name == 'newlist':
             from pypy.jit.timeshifter.vlist import ListTypeDesc, oop_newlist
@@ -58,10 +59,8 @@ class OopSpecDesc:
         argpositions = self.argpositions
         for i in range(len(argpositions)):
             pos = argpositions[i]
-            if pos > 0:
+            if pos >= 0:
                 gv_arg = argboxes[i].getgenvar(builder)
                 args_gv[pos] = gv_arg
-        gv_result = builder.genop('direct_call',
-                                  args_gv,
-                                  self.result_kind)
+        gv_result = builder.genop_call(self.sigtoken, self.gv_fnptr, args_gv)
         return self.redboxbuilder(self.result_kind, gv_result)

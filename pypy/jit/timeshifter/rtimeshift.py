@@ -61,9 +61,8 @@ def ll_generate_operation1(opdesc, jitstate, argbox):
         arg = rvalue.ll_getvalue(argbox, ARG0)
         res = opdesc.llop(RESULT, arg)
         return rvalue.ll_fromvalue(jitstate, res)
-    op_args = [argbox.getgenvar(jitstate.curbuilder)]
-    genvar = jitstate.curbuilder.genop(opdesc.opname, op_args,
-                                      opdesc.result_kind)
+    gv_arg = argbox.getgenvar(jitstate.curbuilder)
+    genvar = jitstate.curbuilder.genop1(opdesc.opname, gv_arg)
     return opdesc.redboxcls(opdesc.result_kind, genvar)
 
 def ll_generate_operation2(opdesc, jitstate, argbox0, argbox1):
@@ -77,10 +76,9 @@ def ll_generate_operation2(opdesc, jitstate, argbox0, argbox1):
         arg1 = rvalue.ll_getvalue(argbox1, ARG1)
         res = opdesc.llop(RESULT, arg0, arg1)
         return rvalue.ll_fromvalue(jitstate, res)
-    op_args = [argbox0.getgenvar(jitstate.curbuilder),
-               argbox1.getgenvar(jitstate.curbuilder)]
-    genvar = jitstate.curbuilder.genop(opdesc.opname, op_args,
-                                       opdesc.result_kind)
+    gv_arg0 = argbox0.getgenvar(jitstate.curbuilder)
+    gv_arg1 = argbox1.getgenvar(jitstate.curbuilder)
+    genvar = jitstate.curbuilder.genop2(opdesc.opname, gv_arg0, gv_arg1)
     return opdesc.redboxcls(opdesc.result_kind, genvar)
 
 def ll_generate_getfield(jitstate, fielddesc, argbox):
@@ -127,6 +125,16 @@ def ll_generate_getarrayitem(jitstate, fielddesc, argbox, indexbox):
         indexbox.getgenvar(jitstate.curbuilder))
                                                     
     return fielddesc.redboxcls(fielddesc.kind, genvar)
+
+def ll_generate_getarraysize(jitstate, fielddesc, argbox):
+    if argbox.is_constant():
+        array = rvalue.ll_getvalue(argbox, fielddesc.PTRTYPE)
+        res = len(array)
+        return rvalue.ll_fromvalue(jitstate, res)
+    genvar = jitstate.curbuilder.genop_getarraysize(
+        fielddesc.arraytoken,
+        argbox.getgenvar(jitstate.curbuilder))
+    return rvalue.IntRedBox(fielddesc.indexkind, genvar)
 
 # ____________________________________________________________
 # other jitstate/graph level operations
@@ -299,9 +307,20 @@ class ResidualGraphBuilder(object):
 ##        return self.rgenop.placeholder(dummy)
 ##    genvoidconst._annspecialcase_ = 'specialize:arg(1)'
 
-    def genop(self, opname, args_gv, result_kind=None):
-        return self.block.genop(opname, args_gv, result_kind)
-    genop._annspecialcase_ = 'specialize:arg(1)'
+##    def genop(self, opname, args_gv, result_kind=None):
+##        return self.block.genop(opname, args_gv, result_kind)
+##    genop._annspecialcase_ = 'specialize:arg(1)'
+
+    def genop1(self, opname, gv_arg):
+        return self.block.genop1(opname, gv_arg)
+    genop1._annspecialcase_ = 'specialize:arg(1)'
+
+    def genop2(self, opname, gv_arg1, gv_arg2):
+        return self.block.genop2(opname, gv_arg1, gv_arg2)
+    genop2._annspecialcase_ = 'specialize:arg(1)'
+
+    def genop_call(self, sigtoken, gv_callable, args_gv):
+        return self.block.genop_call(sigtoken, gv_callable, args_gv)
 
     def genop_getfield(self, fieldtoken, gv_ptr):
         return self.block.genop_getfield(fieldtoken, gv_ptr)
@@ -314,9 +333,15 @@ class ResidualGraphBuilder(object):
 
     def genop_getarrayitem(self, arraytoken, gv_ptr, gv_index):
         return self.block.genop_getarrayitem(arraytoken, gv_ptr, gv_index)
+    
+    def genop_getarraysize(self, arraytoken, gv_ptr):
+        return self.block.genop_getarraysize(arraytoken, gv_ptr)
 
     def genop_malloc_fixedsize(self, alloctoken):
         return self.block.genop_malloc_fixedsize(alloctoken)
+
+    def genop_same_as(self, kind, gv_value):
+        return self.block.genop_same_as(kind, gv_value)
 
     def constTYPE(self, T):
         return self.rgenop.constTYPE(T)

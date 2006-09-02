@@ -3,6 +3,7 @@ from pypy.rpython.rtyper import LowLevelOpList
 from pypy.jit.llabstractinterp.llvalue import LLAbstractValue, AConstant
 from pypy.jit.llabstractinterp.llvalue import ll_dummy_value
 from pypy.jit.llabstractinterp.llcontainer import LLAbstractContainer
+from pypy.jit.codegen.llgraph.rgenop import rgenop
 
 
 class LLVirtualList(LLAbstractContainer):
@@ -40,9 +41,29 @@ class LLVirtualList(LLAbstractContainer):
         return LLVirtualList(self.T, items_a)
 
     def build_runtime_container(self, builder):
+        rtyper = builder.interp.rtyper
+        LIST = self.T
+
+        argtypes = [lltype.Signed]
+        ll_newlist_ptr = rtyper.annotate_helper_fn(LIST.ll_newlist,
+                                                   argtypes)
+        c_ll_newlist = rgenop.constPrebuiltGlobal(ll_newlist_ptr)
+        ll_newlist_sig = rgenop.sigToken(lltype.typeOf(ll_newlist_ptr).TO)
+
+        argtypes = [lltype.Ptr(LIST), lltype.Signed, LIST.ITEM]
+        ll_setitem_ptr = rtyper.annotate_helper_fn(LIST.ll_setitem_fast,
+                                                   argtypes)
+        c_ll_setitem = rgenop.constPrebuiltGlobal(ll_setitem_ptr)
+        ll_setitem_sig = rgenop.sigToken(lltype.typeOf(ll_setitem_ptr).TO)
+
         items_v = [a.forcegenvarorconst(builder) for a in self.items_a]
-        v_result = self.T.list_builder.build(builder, items_v)
-        return v_result
+        v_list = builder.genop_call(ll_newlist_sig, c_ll_newlist,
+                                    [None, builder.genconst(len(items_v))])
+
+        for i in range(len(items_v)):
+            builder.genop_call(ll_setitem_sig, c_ll_setitem,
+                               [v_list, builder.genconst(i), items_v[i]])
+        return v_list
 
     # ____________________________________________________________
     # High-level operations

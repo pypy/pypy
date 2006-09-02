@@ -123,6 +123,7 @@ class ArrayFieldDesc(FieldDesc):
         assert isinstance(PTRTYPE.TO, lltype.Array)
         FieldDesc.__init__(self, RGenOp, PTRTYPE, PTRTYPE.TO.OF)
         self.arraytoken = RGenOp.arrayToken(PTRTYPE.TO)
+        self.indexkind = RGenOp.kindToken(lltype.Signed)
 
 # ____________________________________________________________
 

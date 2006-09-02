@@ -135,14 +135,6 @@ def test_rtype_void_constant_construction():
     assert c.concretetype == lltype.Void
     assert c.value == lltype.Signed
 
-    def dummy():
-        return placeholder(None)
-    res = interpret(dummy, [])
-    c = from_opaque_object(res)
-    assert isinstance(c, flowmodel.Constant)
-    assert c.concretetype == lltype.Void
-    assert c.value == None
-
 def test_rtype_revealcosnt():
     def hide_and_reveal(v):
         gv = genconst(v)

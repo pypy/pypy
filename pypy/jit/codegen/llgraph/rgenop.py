@@ -26,6 +26,7 @@ class LLConst(GenConst):
         return repr(RGenOp.reveal(self))
 
 gv_Void = LLConst(llimpl.constTYPE(lltype.Void))
+gv_dummy_placeholder = LLConst(llimpl.dummy_placeholder)
 
 
 class LLBlock(CodeGenBlock):
@@ -35,10 +36,29 @@ class LLBlock(CodeGenBlock):
     def geninputarg(self, gv_TYPE):
         return LLVar(llimpl.geninputarg(self.b, gv_TYPE.v))
 
+##    @specialize.arg(1)
+##    def genop(self, opname, vars_gv, gv_RESULT_TYPE=None):
+##        return LLVar(llimpl.genop(self.b, opname, vars_gv,
+##                                  (gv_RESULT_TYPE or gv_Void).v))
+
     @specialize.arg(1)
-    def genop(self, opname, vars_gv, gv_RESULT_TYPE=None):
-        return LLVar(llimpl.genop(self.b, opname, vars_gv,
-                                  (gv_RESULT_TYPE or gv_Void).v))
+    def genop1(self, opname, gv_arg):
+        return LLVar(llimpl.genop(self.b, opname, [gv_arg], llimpl.guess))
+
+    @specialize.arg(1)
+    def genop2(self, opname, gv_arg1, gv_arg2):
+        return LLVar(llimpl.genop(self.b, opname, [gv_arg1, gv_arg2],
+                                  llimpl.guess))
+
+    def genop_call(self, (ARGS_gv, gv_RESULT, _), gv_callable, args_gv):
+        vars_gv = [gv_callable]
+        for i in range(len(ARGS_gv)):
+            gv_arg = args_gv[i]
+            if gv_arg is not None:
+                gv_arg = LLVar(llimpl.cast(self.b, ARGS_gv[i].v, gv_arg.v))
+            vars_gv.append(gv_arg)
+        # XXX indirect_call later
+        return LLVar(llimpl.genop(self.b, 'direct_call', vars_gv, gv_RESULT.v))
 
     def genop_getfield(self, (gv_name, gv_PTRTYPE, gv_FIELDTYPE), gv_ptr):
         vars_gv = [llimpl.cast(self.b, gv_PTRTYPE.v, gv_ptr.v), gv_name.v]
@@ -63,11 +83,23 @@ class LLBlock(CodeGenBlock):
         return LLVar(llimpl.genop(self.b, 'getarrayitem', vars_gv,
                                   gv_ITEMTYPE.v))
 
+    def genop_getarraysize(self, gv_ITEMTYPE, gv_ptr):
+        return LLVar(llimpl.genop(self.b, 'getarraysize', [gv_ptr.v],
+                                  llimpl.constTYPE(lltype.Signed)))
+
     def genop_malloc_fixedsize(self, (gv_TYPE, gv_PTRTYPE)):
         vars_gv = [gv_TYPE.v]
         return LLVar(llimpl.genop(self.b, 'malloc', vars_gv,
                                   gv_PTRTYPE.v))
-                                  
+
+    def genop_malloc_varsize(self, (gv_TYPE, gv_PTRTYPE), gv_length):
+        vars_gv = [gv_TYPE.v, gv_length.v]
+        return LLVar(llimpl.genop(self.b, 'malloc_varsize', vars_gv,
+                                  gv_PTRTYPE.v))
+
+    def genop_same_as(self, gv_TYPE, gv_value):
+        return LLVar(gv_value.v)
+
     def close1(self):
         return LLLink(llimpl.closeblock1(self.b))
 
@@ -84,7 +116,8 @@ class LLLink(CodeGenLink):
         llimpl.closelink(self.l, vars_gv, targetblock.b)
 
     def closereturn(self, gv_returnvar):
-        llimpl.closereturnlink(self.l, gv_returnvar.v)
+        llimpl.closereturnlink(self.l,
+                               (gv_returnvar or gv_dummy_placeholder).v)
 
 
 class RGenOp(AbstractRGenOp):
@@ -94,7 +127,8 @@ class RGenOp(AbstractRGenOp):
         return LLBlock(llimpl.newblock())
 
     # XXX what kind of type/kind information does this need?
-    def gencallableconst(self, name, targetblock, gv_FUNCTYPE):
+    def gencallableconst(self, (ARGS_gv, gv_RESULT, gv_FUNCTYPE), name,
+                         targetblock):
         return LLConst(llimpl.gencallableconst(name, targetblock.b,
                                                gv_FUNCTYPE.v))
 
@@ -130,22 +164,12 @@ class RGenOp(AbstractRGenOp):
     def arrayToken(A):
         return LLConst(llimpl.constTYPE(A.OF))
 
-
     @staticmethod
     @specialize.memo()
-    def constTYPE(T):
-        return LLConst(llimpl.constTYPE(T))
-
-    @staticmethod
-    @specialize.arg(0)
-    def placeholder(dummy):
-        return LLConst(llimpl.placeholder(dummy))
-
-    @staticmethod
-    @specialize.memo()
-    def constFieldName(T, name):
-        assert name in T._flds
-        return LLConst(llimpl.constFieldName(name))
+    def sigToken(FUNCTYPE):
+        return ([LLConst(llimpl.constTYPE(A)) for A in FUNCTYPE.ARGS],
+                LLConst(llimpl.constTYPE(FUNCTYPE.RESULT)),
+                LLConst(llimpl.constTYPE(FUNCTYPE)))
 
     constPrebuiltGlobal = genconst
 

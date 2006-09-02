@@ -151,22 +151,22 @@ class TimeshiftingTests(object):
                     llvalue     = args[1]
                     args = args[2:]
                     TYPE = lltype.typeOf(llvalue)
-                    gv_type = rgenop.constTYPE(TYPE)
+                    kind = rgenop.kindToken(TYPE)
                     boxcls = rvalue.ll_redboxcls(TYPE)
-                    gv_arg = rtimeshift.ll_geninputarg(builder, gv_type)
+                    gv_arg = rtimeshift.ll_geninputarg(builder, kind)
                     if is_constant:
                         # ignore the gv_arg above, which is still present
                         # to give the residual graph a uniform signature
                         gv_arg = rgenop.genconst(llvalue)
-                    box = boxcls(gv_type, gv_arg)
+                    box = boxcls(kind, gv_arg)
                     timeshifted_entrypoint_args += (box,)
             startblock = rtimeshift.ll_end_setup_builder(builder)
             endbuilder = timeshifted_entrypoint(builder, None,
                                               *timeshifted_entrypoint_args)
             endbuilder.finish_and_return()
-            gv_functype = rgenop.constTYPE(FUNC)
-            gv_generated = rgenop.gencallableconst("generated", startblock,
-                                                   gv_functype)
+            sigtoken = rgenop.sigToken(FUNC)
+            gv_generated = rgenop.gencallableconst(sigtoken, "generated",
+                                                   startblock)
             generated = gv_generated.revealconst(lltype.Ptr(FUNC))
             return generated
 

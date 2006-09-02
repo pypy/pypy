@@ -49,7 +49,7 @@ class RedBox(object):
         if self.is_constant():
             # cannot mutate constant boxes in-place
             box = self.copy(memo)
-            box.genvar = builder.genop("same_as", [self.genvar], self.kind)
+            box.genvar = builder.genop_same_as(self.kind, self.genvar)
             return box
         else:
             # force virtual containers

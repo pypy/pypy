@@ -15,17 +15,15 @@ FUNC = lltype.FuncType([lltype.Signed], lltype.Signed)
 
 def make_adder(rgenop, n):
     # 'return x+n'
-    gv_SIGNED = rgenop.constTYPE(lltype.Signed)
+    signed_kind = rgenop.kindToken(lltype.Signed)
     block = rgenop.newblock()
-    gv_x = block.geninputarg(gv_SIGNED)
-    args_gv = [gv_x,
-               rgenop.genconst(n)]
-    gv_result = block.genop("int_add", args_gv, gv_SIGNED)
+    gv_x = block.geninputarg(signed_kind)
+    gv_result = block.genop2("int_add", gv_x, rgenop.genconst(n))
     link = block.close1()
     link.closereturn(gv_result)
 
-    gv_FUNC = rgenop.constTYPE(FUNC)
-    gv_add_one = rgenop.gencallableconst("adder", block, gv_FUNC)
+    sigtoken = rgenop.sigToken(FUNC)
+    gv_add_one = rgenop.gencallableconst(sigtoken, "adder", block)
     return gv_add_one
 
 def runner(x, y):
@@ -63,29 +61,26 @@ FUNC2 = lltype.FuncType([lltype.Signed, lltype.Signed], lltype.Signed)
 
 def make_dummy(rgenop):
     # 'return x - (y - (x-1))'
-    gv_SIGNED = rgenop.constTYPE(lltype.Signed)
+    signed_kind = rgenop.kindToken(lltype.Signed)
     block = rgenop.newblock()
-    gv_x = block.geninputarg(gv_SIGNED)
-    gv_y = block.geninputarg(gv_SIGNED)
-    args_gv = [gv_x, rgenop.genconst(1)]
-    gv_z = block.genop("int_sub", args_gv, gv_SIGNED)
+    gv_x = block.geninputarg(signed_kind)
+    gv_y = block.geninputarg(signed_kind)
+    gv_z = block.genop2("int_sub", gv_x, rgenop.genconst(1))
     link = block.close1()
 
     block2 = rgenop.newblock()
-    gv_y2 = block2.geninputarg(gv_SIGNED)
-    gv_z2 = block2.geninputarg(gv_SIGNED)
-    gv_x2 = block2.geninputarg(gv_SIGNED)
+    gv_y2 = block2.geninputarg(signed_kind)
+    gv_z2 = block2.geninputarg(signed_kind)
+    gv_x2 = block2.geninputarg(signed_kind)
     link.close([gv_y, gv_z, gv_x], block2)
 
-    args_gv = [gv_y2, gv_z2]
-    gv_s2 = block2.genop("int_sub", args_gv, gv_SIGNED)
-    args_gv = [gv_x2, gv_s2]
-    gv_t2 = block2.genop("int_sub", args_gv, gv_SIGNED)
+    gv_s2 = block2.genop2("int_sub", gv_y2, gv_z2)
+    gv_t2 = block2.genop2("int_sub", gv_x2, gv_s2)
     link2 = block2.close1()
 
     link2.closereturn(gv_t2)
-    gv_FUNC2 = rgenop.constTYPE(FUNC2)
-    gv_dummyfn = rgenop.gencallableconst("dummy", block, gv_FUNC2)
+    sigtoken = rgenop.sigToken(FUNC2)
+    gv_dummyfn = rgenop.gencallableconst(sigtoken, "dummy", block)
     return gv_dummyfn
 
 def dummy_runner(x, y):
@@ -122,30 +117,28 @@ def test_dummy_compile():
 def make_branching(rgenop):
     # 'if x > 5: return x-1
     #  else:     return y'
-    gv_SIGNED = rgenop.constTYPE(lltype.Signed)
-    gv_BOOL   = rgenop.constTYPE(lltype.Bool)
+    signed_kind = rgenop.kindToken(lltype.Signed)
     block = rgenop.newblock()
-    gv_x = block.geninputarg(gv_SIGNED)
-    gv_y = block.geninputarg(gv_SIGNED)
-    args_gv = [gv_x, rgenop.genconst(5)]
-    gv_cond = block.genop("int_gt", args_gv, gv_BOOL)
+    gv_x = block.geninputarg(signed_kind)
+    gv_y = block.geninputarg(signed_kind)
+    gv_cond = block.genop2("int_gt", gv_x, rgenop.genconst(5))
     link_false, link_true = block.close2(gv_cond)
 
     block2 = rgenop.newblock()
-    gv_one = block2.geninputarg(gv_SIGNED)
-    gv_x2 = block2.geninputarg(gv_SIGNED)
-    gv_y2 = block2.geninputarg(gv_SIGNED)
+    gv_one = block2.geninputarg(signed_kind)
+    gv_x2 = block2.geninputarg(signed_kind)
+    gv_y2 = block2.geninputarg(signed_kind)
     link_true.close([rgenop.genconst(1), gv_x, gv_y], block2)
 
-    args_gv = [gv_x2, gv_one]
-    gv_s2 = block2.genop("int_sub", args_gv, gv_SIGNED)
+    gv_s2 = block2.genop2("int_sub", gv_x2, gv_one)
     link2 = block2.close1()
     link2.closereturn(gv_s2)
 
     link_false.closereturn(gv_y)
 
-    gv_FUNC2 = rgenop.constTYPE(FUNC2)
-    gv_branchingfn = rgenop.gencallableconst("branching", block, gv_FUNC2)
+    sigtoken = rgenop.sigToken(FUNC2)
+    gv_branchingfn = rgenop.gencallableconst(sigtoken,
+                                             "branching", block)
     return gv_branchingfn
 
 def branching_runner(x, y):

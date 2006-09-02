@@ -13,6 +13,7 @@ from pypy.rpython.module.support import LLSupport
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.lltypesystem.rclass import fishllattr
+from pypy.rpython.lltypesystem.lloperation import llop
 
 
 # for debugging, sanity checks in non-RPython code
@@ -96,16 +97,33 @@ def genop(blockcontainer, opname, vars_gv, gv_RESULT_TYPE):
         opname = LLSupport.from_rstr(opname)
     block = from_opaque_object(blockcontainer.obj)
     assert block.exits == [], "block already closed"
-    if isinstance(gv_RESULT_TYPE, lltype.LowLevelType):
+    opvars = _inputvars(vars_gv)
+    if gv_RESULT_TYPE is guess:
+        RESULT_TYPE = guess_result_type(opname, opvars)
+    elif isinstance(gv_RESULT_TYPE, lltype.LowLevelType):
         RESULT_TYPE = gv_RESULT_TYPE
     else:
         RESULT_TYPE = from_opaque_object(gv_RESULT_TYPE).value
-    opvars = _inputvars(vars_gv)
     v = flowmodel.Variable()
     v.concretetype = RESULT_TYPE
     op = flowmodel.SpaceOperation(opname, opvars, v)
     block.operations.append(op)
     return to_opaque_object(erasedvar(v, block))
+
+def guess_result_type(opname, opvars):
+    op = getattr(llop, opname)
+    need_result_type = getattr(op.fold, 'need_result_type', False)
+    assert not need_result_type, ("cannot guess the result type of %r"
+                                  % (opname,))
+    examples = []
+    for v in opvars:
+        example = v.concretetype._example()
+        if isinstance(v.concretetype, lltype.Primitive):
+            if example == 0:
+                example = type(example)(1)     # to avoid ZeroDivisionError
+        examples.append(example)
+    result = op.fold(*examples)
+    return lltype.typeOf(result)
 
 def gencallableconst(name, targetcontainer, gv_FUNCTYPE):
     # 'name' is just a way to track things
@@ -327,7 +345,8 @@ nullblock = lltype.nullptr(BLOCK.TO)
 nulllink = lltype.nullptr(LINK.TO)
 gv_Void = constTYPE(lltype.Void)
 
-dummy_placeholder = placeholder("dummy")
+dummy_placeholder = placeholder(None)
+guess = placeholder('guess')
 
 
 # helpers
@@ -384,4 +403,4 @@ setannotation(isptrtype, annmodel.SomeBool())
 # XXX(for now) void constant constructors
 setannotation(constFieldName, s_ConstOrVar, specialize_as_constant=True)
 setannotation(constTYPE,      s_ConstOrVar, specialize_as_constant=True)
-setannotation(placeholder,    s_ConstOrVar, specialize_as_constant=True)
+#setannotation(placeholder,    s_ConstOrVar, specialize_as_constant=True)

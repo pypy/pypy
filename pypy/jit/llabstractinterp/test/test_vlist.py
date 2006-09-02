@@ -16,7 +16,7 @@ def run(fn, argvalues):
     rtyper.specialize()
     graph1 = t.graphs[0]
 
-    interp = LLAbstractInterp(policy)
+    interp = LLAbstractInterp(rtyper, policy)
     hints = {}
     llvalues = []
     for i, value in enumerate(argvalues):

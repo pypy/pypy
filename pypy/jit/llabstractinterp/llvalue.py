@@ -16,11 +16,9 @@ class AConstant(Hashable):
         Hashable.__init__(self, value)   
         self.concretetype = T or lltype.typeOf(value)
         self.genvar = genvar
-        if T is lltype.Void and self.genvar is None:
-            self.genvar = rgenop.placeholder(value)
-        
+
     def getgenvar(self, builder):
-        if self.genvar is None:
+        if self.genvar is None and self.concretetype is not lltype.Void:
             self.genvar = builder.genconst(self.value)
         return self.genvar
 
@@ -202,7 +200,7 @@ class LLFrozenRuntimeValue(LLFrozenValue):
             assert c.concretetype == self.concretetype
             result = LLAbstractValue(c)
         else:
-            gen_v = block.geninputarg(rgenop.constTYPE(self.concretetype))
+            gen_v = block.geninputarg(rgenop.kindToken(self.concretetype))
             result = LLAbstractValue(AVariable(self.concretetype, genvar=gen_v))
         result.origin.append(self)
         return result

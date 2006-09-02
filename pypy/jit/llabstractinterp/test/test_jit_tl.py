@@ -17,11 +17,12 @@ def setup_module(mod):
     #inline.auto_inlining(t, 0.3)
     
     mod.graph1 = t.graphs[0]
+    mod.rtyper = rtyper
     mod.llinterp = LLInterpreter(rtyper)
     
 
 def jit_tl(code):
-    interp = LLAbstractInterp()
+    interp = LLAbstractInterp(rtyper)
     hints = {0: string_repr.convert_const(code),
              1: 0}
     graph2 = interp.eval(graph1, hints)

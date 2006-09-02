@@ -52,19 +52,16 @@ class LLVirtualContainer(LLAbstractContainer):
         RESULT_TYPE = lltype.Ptr(self.T)
         if self.a_parent is not None:
             PARENT_TYPE = self.a_parent.getconcretetype().TO
-            parentindex = rgenop.constFieldName(PARENT_TYPE, self.parentindex)
+            fieldtoken = rgenop.fieldToken(PARENT_TYPE, self.parentindex)
             v_parent = self.a_parent.forcegenvarorconst(builder)
-            v_result = builder.genop('getsubstruct',
-                                     [v_parent, parentindex], RESULT_TYPE)
+            v_result = builder.genop_getsubstruct(fieldtoken, v_parent)
         else:
-            t = rgenop.constTYPE(self.T)
+            t = rgenop.allocToken(self.T)
             if self.T._is_varsize():
-                v_result = builder.genop('malloc_varsize',
-                                         [t,
-                                          builder.genconst(self.length)],
-                                         RESULT_TYPE)
+                c_length = builder.genconst(self.length)
+                v_result = builder.genop_malloc_varsize(t, c_length)
             else:
-                v_result = builder.genop('malloc', [t], RESULT_TYPE)
+                v_result = builder.genop_malloc_fixedsize(t)
             self.buildcontent(builder, v_result)
         return v_result
 
@@ -76,10 +73,8 @@ class LLVirtualContainer(LLAbstractContainer):
                 T = self.fieldtype(name)
                 if isinstance(T, lltype.ContainerType):
                     # initialize the substructure/subarray
-                    c_name = rgenop.constFieldName(self.T, name)
-                    v_subptr = builder.genop('getsubstruct',
-                                             [v_target, c_name],
-                                             lltype.Ptr(T))
+                    fieldtoken = rgenop.fieldToken(self.T, name)
+                    v_subptr = builder.genop_getsubstruct(fieldtoken, v_target)
                     assert isinstance(a_value.content, LLVirtualContainer)
                     a_value.content.buildcontent(builder, v_subptr)
                 else:
@@ -167,9 +162,8 @@ class LLVirtualStruct(LLVirtualContainer):
         return getattr(self.T, name)
 
     def setop(self, builder, v_target, name, v_value):
-        c_name = rgenop.constFieldName(self.T, name)
-        builder.genop('setfield', [v_target, c_name, v_value],
-                      lltype.Void)
+        fieldtoken = rgenop.fieldToken(self.T, name)
+        builder.genop_setfield(fieldtoken, v_target, v_value)
 
 
 class LLVirtualArray(LLVirtualContainer):
