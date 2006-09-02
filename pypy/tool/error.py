@@ -50,12 +50,15 @@ def source_lines(graph, block, operindex=None, offset=None, long=False, \
                 else:
                     linerange = (operline, operline)
                     here = None
-        lines = ["Happened at file %s line %d" % (graph.filename, here or linerange[0])]
+        lines = ["Happened at file %s line %d" % (graph.filename, here or linerange[0]), ""]
         for n in range(max(0, linerange[0]-show_lines_of_code), \
             min(linerange[1]+1+show_lines_of_code, len(graph_lines)+graph.startline)):
-            lines.append(graph_lines[n-graph.startline])
             if n == here:
-                lines.append('^ HERE')
+                prefix = '==> '
+            else:
+                prefix = '    '
+            lines.append(prefix + graph_lines[n-graph.startline])
+        lines.append("")
         return lines
 
 class FlowingError(Exception):
@@ -65,7 +68,7 @@ class AnnotatorError(Exception):
     pass
 
 def gather_error(annotator, block, graph):
-    msg = []
+    msg = [""]
     msg.append('-+' * 30)
     from pypy.annotation import model
     if model.DEBUG:
@@ -73,6 +76,11 @@ def gather_error(annotator, block, graph):
         _, _, operindex = annotator.why_not_annotated[block][1].break_at
         oper = block.operations[operindex]
         msg.append(" " + str(oper))
+    else:
+        msg.append("Blocked block")
+        operindex = None
+    msg += source_lines(graph, block, operindex, long=True)
+    if model.DEBUG:
         if SHOW_ANNOTATIONS:
             msg.append("Known variable annotations:")
             for arg in oper.args + [oper.result]:
@@ -81,20 +89,15 @@ def gather_error(annotator, block, graph):
                         msg.append(" " + str(arg) + " = " + str(annotator.binding(arg)))
                     except KeyError:
                         pass
-            msg.append("")
         if SHOW_TRACEBACK:
             msg.extend(traceback.format_exception(*annotator.why_not_annotated[block]))
-    else:
-        msg.append("Blocked block")
-        operindex = None
-    msg += source_lines(graph, block, operindex, long=True)
     return "\n".join(msg)
 
 def format_blocked_annotation_error(annotator, blocked_blocks, graph):
-    text = ""
+    text = []
     for block in blocked_blocks:
-        text += gather_error(annotator, block, graph)
-    return text
+        text.append(gather_error(annotator, block, graph))
+    return '\n'.join(text)
     
 def format_someobject_error(annotator, position_key, what, s_value, called_from_graph):
     #block = getattr(annotator, 'flowin_block', None) or block
