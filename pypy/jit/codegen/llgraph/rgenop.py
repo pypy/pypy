@@ -40,18 +40,21 @@ class LLBlock(CodeGenBlock):
         return LLVar(llimpl.genop(self.b, opname, vars_gv,
                                   (gv_RESULT_TYPE or gv_Void).v))
 
-    def genop_getfield(self, (gv_name, gv_FIELDTYPE), gv_ptr):
-        vars_gv = [gv_ptr.v, gv_name.v]
+    def genop_getfield(self, (gv_name, gv_PTRTYPE, gv_FIELDTYPE), gv_ptr):
+        vars_gv = [llimpl.cast(self.b, gv_PTRTYPE.v, gv_ptr.v), gv_name.v]
         return LLVar(llimpl.genop(self.b, 'getfield', vars_gv,
                                   gv_FIELDTYPE.v))        
     
-    def genop_setfield(self, (gv_name, gv_FIELDTYPE), gv_ptr, gv_value):
-        vars_gv = [gv_ptr.v, gv_name.v, gv_value.v]
+    def genop_setfield(self, (gv_name, gv_PTRTYPE, gv_FIELDTYPE), gv_ptr,
+                                                                  gv_value):
+        vars_gv = [llimpl.cast(self.b, gv_PTRTYPE.v, gv_ptr.v),
+                   gv_name.v,
+                   llimpl.cast(self.b, gv_FIELDTYPE.v, gv_value.v)]
         return LLVar(llimpl.genop(self.b, 'setfield', vars_gv,
                                   gv_Void.v))        
     
-    def genop_getsubstruct(self, (gv_name, gv_FIELDTYPE), gv_ptr):
-        vars_gv = [gv_ptr.v, gv_name.v]
+    def genop_getsubstruct(self, (gv_name, gv_PTRTYPE, gv_FIELDTYPE), gv_ptr):
+        vars_gv = [llimpl.cast(self.b, gv_PTRTYPE.v, gv_ptr.v), gv_name.v]
         return LLVar(llimpl.genop(self.b, 'getsubstruct', vars_gv,
                                   gv_FIELDTYPE.v))        
 
@@ -113,6 +116,7 @@ class RGenOp(AbstractRGenOp):
         if isinstance(FIELDTYPE, lltype.ContainerType):
             FIELDTYPE = lltype.Ptr(FIELDTYPE)
         return (LLConst(llimpl.constFieldName(name)),
+                LLConst(llimpl.constTYPE(lltype.Ptr(T))),
                 LLConst(llimpl.constTYPE(FIELDTYPE)))
 
     @staticmethod
@@ -156,12 +160,12 @@ class RGenOp(AbstractRGenOp):
 
     # Builds a real flow.model.FunctionGraph. Specific to llgraph.
     @staticmethod
-    def buildgraph(block):
+    def buildgraph(block, FUNCTYPE):
         if hasattr(block, 'b'):
             b = block.b
         else:
             b = fishllattr(block, 'b')
-        return llimpl.buildgraph(b)
+        return llimpl.buildgraph(b, FUNCTYPE)
 
     def _freeze_(self):
         return True    # no real point in using a full class in llgraph

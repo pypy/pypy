@@ -90,19 +90,16 @@ def ll_generate_getfield(jitstate, fielddesc, argbox):
         return rvalue.ll_fromvalue(jitstate, res)
     assert isinstance(argbox, rvalue.PtrRedBox)
     if argbox.content is None:
-        genvar = jitstate.curbuilder.genop_getfield(fielddesc.fieldtokens[-1],
-                                                    argbox.getgenvar(jitstate.curbuilder))
-        return fielddesc.redboxcls(fielddesc.kind, genvar)        
+        gv_ptr = argbox.getgenvar(jitstate.curbuilder)
+        return fielddesc.generate_get(jitstate.curbuilder, gv_ptr)
     else:
         return argbox.content.op_getfield(jitstate, fielddesc)
 
 def ll_generate_setfield(jitstate, fielddesc, destbox, valuebox):
     assert isinstance(destbox, rvalue.PtrRedBox)
     if destbox.content is None:
-        builder = jitstate.curbuilder
-        builder.genop_setfield(fielddesc.fieldtokens[-1],
-                                destbox.getgenvar(builder),
-                                valuebox.getgenvar(builder))
+        gv_ptr = destbox.getgenvar(jitstate.curbuilder)
+        fielddesc.generate_set(jitstate.curbuilder, gv_ptr, valuebox)
     else:
         destbox.content.op_setfield(jitstate, fielddesc, valuebox)
 
@@ -113,8 +110,8 @@ def ll_generate_getsubstruct(jitstate, fielddesc, argbox):
         return rvalue.ll_fromvalue(jitstate, res)
     assert isinstance(argbox, rvalue.PtrRedBox)
     if argbox.content is None:
-        genvar = jitstate.curbuilder.genop_getsubstruct(fielddesc.fieldtoken, argbox.getgenvar(jitstate.curbuilder))
-        return fielddesc.redboxcls(fielddesc.kind, genvar)        
+        gv_ptr = argbox.getgenvar(jitstate.curbuilder)
+        return fielddesc.generate_getsubstruct(jitstate.curbuilder, gv_ptr)
     else:
         return argbox.content.op_getsubstruct(jitstate, fielddesc)
 

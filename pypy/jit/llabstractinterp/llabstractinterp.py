@@ -172,16 +172,19 @@ class LLAbstractInterp(object):
     def eval(self, origgraph, arghints):
         # 'arghints' maps argument index to a given ll value
         args_a = []
+        ARGS = []
         for i, v in enumerate(origgraph.getargs()):
             if i in arghints:
                 a = LLAbstractValue(AConstant(arghints[i]))
                 a.concrete = self.policy.concrete_args
             else:
+                ARGS.append(v.concretetype)
                 a = LLAbstractValue(AVariable(v.concretetype))
             args_a.append(a)
         graphstate = self.schedule_graph(args_a, origgraph)
         graphstate.complete()
-        return rgenop.buildgraph(graphstate.startblock)
+        FUNCTYPE = lltype.FuncType(ARGS, origgraph.getreturnvar().concretetype)
+        return rgenop.buildgraph(graphstate.startblock, FUNCTYPE)
 
     def schedule_graph(self, args_a, origgraph):
         inputstate = LLBlockState(None, args_a, origgraph.startblock)

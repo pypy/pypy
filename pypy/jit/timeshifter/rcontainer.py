@@ -34,40 +34,37 @@ class StructTypeDesc(object):
         self.PTRTYPE = lltype.Ptr(TYPE)
         self.alloctoken = RGenOp.allocToken(self.TYPE)
         self.ptrkind = RGenOp.kindToken(self.PTRTYPE)
+        innermostdesc = self
 
         fielddescs = []
+        fielddesc_by_name = {}
         for name in self.TYPE._names:
             FIELDTYPE = getattr(self.TYPE, name)
             if isinstance(FIELDTYPE, lltype.ContainerType):
                 substructdesc = StructTypeDesc(RGenOp, FIELDTYPE)
                 assert name == self.TYPE._names[0], (
                     "unsupported: inlined substructures not as first field")
+                fielddescs.extend(substructdesc.fielddescs)
                 self.firstsubstructdesc = substructdesc
-                for subfielddesc in substructdesc.fielddescs:
-                    dottedname = '%s.%s' % (name, subfielddesc.fieldname)
-                    index = len(fielddescs)
-                    fielddescs.append(StructFieldDesc(RGenOp, self.PTRTYPE,
-                                                      dottedname, index))
+                innermostdesc = substructdesc.innermostdesc
             else:
                 index = len(fielddescs)
-                fielddescs.append(StructFieldDesc(RGenOp, self.PTRTYPE,
-                                                  name, index))
+                desc = StructFieldDesc(RGenOp, self.PTRTYPE, name, index)
+                fielddescs.append(desc)
+                fielddesc_by_name[name] = desc
         self.fielddescs = fielddescs
+        self.fielddesc_by_name = fielddesc_by_name
+        self.innermostdesc = innermostdesc
 
     def getfielddesc(self, name):
-        index = operator.indexOf(self.TYPE._names, name)
-        return self.fielddescs[index]
+        return self.fielddesc_by_name[name]
 
     def ll_factory(self):
         vstruct = VirtualStruct(self)
-        vstruct.substruct_boxes = []
-        typedesc = self
-        while typedesc is not None:
-            box = rvalue.PtrRedBox(typedesc.ptrkind)
-            box.content = vstruct
-            vstruct.substruct_boxes.append(box)
-            typedesc = typedesc.firstsubstructdesc
-        return vstruct.substruct_boxes[0]
+        box = rvalue.PtrRedBox(self.innermostdesc.ptrkind)
+        box.content = vstruct
+        vstruct.ownbox = box
+        return box
 
     def _freeze_(self):
         return True
@@ -84,6 +81,7 @@ class FieldDesc(object):
         if isinstance(RESTYPE, lltype.ContainerType):
             RESTYPE = lltype.Ptr(RESTYPE)
         self.RESTYPE = RESTYPE
+        self.ptrkind = RGenOp.kindToken(PTRTYPE)
         self.kind = RGenOp.kindToken(RESTYPE)
         self.redboxcls = rvalue.ll_redboxcls(RESTYPE)
         self.immutable = PTRTYPE.TO._hints.get('immutable', False)
@@ -95,56 +93,36 @@ class NamedFieldDesc(FieldDesc):
 
     def __init__(self, RGenOp, PTRTYPE, name):
         FieldDesc.__init__(self, RGenOp, PTRTYPE, getattr(PTRTYPE.TO, name))
-        self.structdepth = 0
         T = self.PTRTYPE.TO
         self.fieldname = name
         self.fieldtoken = RGenOp.fieldToken(T, name)
-        while (T._names and
-               isinstance(getattr(T, T._names[0]), lltype.ContainerType)):
-            self.structdepth += 1
-            T = getattr(T, T._names[0])
+
+    def compact_repr(self): # goes in ll helper names
+        return "Fld_%s_in_%s" % (self.fieldname, self.PTRTYPE._short_name())
+
+    def generate_get(self, builder, genvar):
+        gv_item = builder.genop_getfield(self.fieldtoken, genvar)
+        return self.redboxcls(self.kind, gv_item)
+
+    def generate_set(self, builder, genvar, box):
+        builder.genop_setfield(self.fieldtoken, genvar, box.getgenvar(builder))
+
+    def generate_getsubstruct(self, builder, genvar):
+        gv_sub = builder.genop_getsubstruct(self.fieldtoken, genvar)
+        return self.redboxcls(self.kind, gv_sub)
+
+class StructFieldDesc(NamedFieldDesc):
+
+    def __init__(self, RGenOp, PTRTYPE, name, index):
+        NamedFieldDesc.__init__(self, RGenOp, PTRTYPE, name)
+        self.fieldindex = index
+        self.gv_default = RGenOp.constPrebuiltGlobal(self.RESTYPE._defl())
 
 class ArrayFieldDesc(FieldDesc):
     def __init__(self, RGenOp, PTRTYPE):
         assert isinstance(PTRTYPE.TO, lltype.Array)
         FieldDesc.__init__(self, RGenOp, PTRTYPE, PTRTYPE.TO.OF)
         self.arraytoken = RGenOp.arrayToken(PTRTYPE.TO)
-
-class StructFieldDesc(object):
-    __metaclass__ = cachedtype
-
-    def __init__(self, RGenOp, PTRTYPE, fieldname, index):
-        assert isinstance(PTRTYPE.TO, lltype.Struct)
-        RES1 = PTRTYPE.TO
-        accessors = []
-        for component in fieldname.split('.'):
-            LASTSTRUCT = RES1
-            accessors.append((RES1, component))
-            RES1 = getattr(RES1, component)
-        assert not isinstance(RES1, lltype.ContainerType)
-        self.PTRTYPE = PTRTYPE
-        self.RESTYPE = RES1
-        self.kind = RGenOp.kindToken(RES1)
-        self.fieldname = fieldname
-        self.fieldtokens = [RGenOp.fieldToken(T, component)
-                             for T, component in accessors]
-        self.fieldindex = index
-        self.gv_default = RGenOp.constPrebuiltGlobal(RES1._defl())
-        self.redboxcls = rvalue.ll_redboxcls(RES1)
-        self.immutable = LASTSTRUCT._hints.get('immutable', False)
-
-    def _freeze_(self):
-        return True
-
-    def compact_repr(self): # goes in ll helper names
-        return "Fld_%s_in_%s" % (self.fieldname.replace('.','_'),
-                                 self.PTRTYPE._short_name())
-
-    def generate_set(self, builder, genvar, box):
-        gv_sub = genvar
-        for i in range(len(self.fieldtokens)-1):
-            gv_sub = builder.genop_getsubstruct(self.fieldtokens[i], gv_sub)
-        builder.genop_setfield(self.fieldtokens[-1], gv_sub, box.getgenvar(builder))        
 
 # ____________________________________________________________
 
@@ -159,14 +137,14 @@ class FrozenVirtualStruct(AbstractContainer):
         if self in contmemo:
             ok = vstruct is contmemo[self]
             if not ok:
-                outgoingvarboxes.extend(vstruct.substruct_boxes)
+                outgoingvarboxes.append(vstruct.ownbox)
             return ok
         if vstruct in contmemo:
             assert contmemo[vstruct] is not self
-            outgoingvarboxes.extend(vstruct.substruct_boxes)
+            outgoingvarboxes.append(vstruct.ownbox)
             return False
         if self.typedesc is not vstruct.typedesc:
-            outgoingvarboxes.extend(vstruct.substruct_boxes)
+            outgoingvarboxes.append(vstruct.ownbox)
             return False
         contmemo[self] = vstruct
         contmemo[vstruct] = self
@@ -189,7 +167,7 @@ class VirtualStruct(AbstractContainer):
         self.content_boxes = [desc.redboxcls(desc.kind,
                                              desc.gv_default)
                               for desc in typedesc.fielddescs]
-        #self.substruct_boxes = ...
+        #self.ownbox = ... set in ll_factory()
 
     def enter_block(self, newblock, incoming, memo):
         contmemo = memo.containers
@@ -203,18 +181,13 @@ class VirtualStruct(AbstractContainer):
         boxes = self.content_boxes
         self.content_boxes = None
         genvar = builder.genop_malloc_fixedsize(typedesc.alloctoken)
-        # force all the boxes pointing to this VirtualStruct
-        for box in self.substruct_boxes:
-            # XXX using getsubstruct would be nicer
-            op_args = [genvar]
-            box.genvar = builder.genop('cast_pointer', op_args, box.kind)
-            box.content = None
-        self.substruct_boxes = None
+        # force the box pointing to this VirtualStruct
+        self.ownbox.genvar = genvar
+        self.ownbox.content = None
         fielddescs = typedesc.fielddescs
         for i in range(len(fielddescs)):
             fielddesc = fielddescs[i]
             box = boxes[i]
-            # xxx a bit inefficient
             fielddesc.generate_set(builder, genvar, box)
 
     def freeze(self, memo):
@@ -235,8 +208,7 @@ class VirtualStruct(AbstractContainer):
             result = contmemo[self] = VirtualStruct(self.typedesc)
             result.content_boxes = [box.copy(memo)
                                     for box in self.content_boxes]
-            result.substruct_boxes = [box.copy(memo)
-                                      for box in self.substruct_boxes]
+            result.ownbox = self.ownbox.copy(memo)
             return result
 
     def replace(self, memo):
@@ -245,8 +217,7 @@ class VirtualStruct(AbstractContainer):
             contmemo[self] = None
             for i in range(len(self.content_boxes)):
                 self.content_boxes[i] = self.content_boxes[i].replace(memo)
-            for i in range(len(self.substruct_boxes)):
-                self.substruct_boxes[i] = self.substruct_boxes[i].replace(memo)
+            self.ownbox = self.ownbox.replace(memo)
 
     def op_getfield(self, jitstate, fielddesc):
         return self.content_boxes[fielddesc.fieldindex]
@@ -255,5 +226,4 @@ class VirtualStruct(AbstractContainer):
         self.content_boxes[fielddesc.fieldindex] = valuebox
 
     def op_getsubstruct(self, jitstate, fielddesc):
-        #assert fielddesc.fieldindex == 0
-        return self.substruct_boxes[-fielddesc.structdepth]
+        return self.ownbox

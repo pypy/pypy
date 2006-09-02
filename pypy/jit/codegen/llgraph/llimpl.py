@@ -36,7 +36,7 @@ def geninputarg(blockcontainer, gv_CONCRETE_TYPE):
     assert block.exits == [], "block already closed"
     CONCRETE_TYPE = from_opaque_object(gv_CONCRETE_TYPE).value
     v = flowmodel.Variable()
-    v.concretetype = CONCRETE_TYPE
+    v.concretetype = lltype.erasedType(CONCRETE_TYPE)
     block.inputargs.append(v)
     return to_opaque_object(v)
 
@@ -66,6 +66,29 @@ def _inputvars(vars):
         res.append(v)
     return res
 
+def cast(blockcontainer, gv_TYPE, gv_var):
+    TYPE = from_opaque_object(gv_TYPE).value
+    v = from_opaque_object(gv_var)
+    if TYPE != v.concretetype:
+        assert v.concretetype == lltype.erasedType(TYPE)
+        block = from_opaque_object(blockcontainer.obj)
+        v2 = flowmodel.Variable()
+        v2.concretetype = TYPE
+        op = flowmodel.SpaceOperation('cast_pointer', [v], v2)
+        block.operations.append(op)
+        v = v2
+    return to_opaque_object(v)
+
+def erasedvar(v, block):
+    T = lltype.erasedType(v.concretetype)
+    if T != v.concretetype:
+        v2 = flowmodel.Variable()
+        v2.concretetype = T
+        op = flowmodel.SpaceOperation("cast_pointer", [v], v2)
+        block.operations.append(op)
+        return v2
+    return v
+
 def genop(blockcontainer, opname, vars_gv, gv_RESULT_TYPE):
     # 'opname' is a constant string
     # gv_RESULT_TYPE comes from constTYPE
@@ -82,7 +105,7 @@ def genop(blockcontainer, opname, vars_gv, gv_RESULT_TYPE):
     v.concretetype = RESULT_TYPE
     op = flowmodel.SpaceOperation(opname, opvars, v)
     block.operations.append(op)
-    return to_opaque_object(v)
+    return to_opaque_object(erasedvar(v, block))
 
 def gencallableconst(name, targetcontainer, gv_FUNCTYPE):
     # 'name' is just a way to track things
@@ -91,12 +114,16 @@ def gencallableconst(name, targetcontainer, gv_FUNCTYPE):
     target = from_opaque_object(targetcontainer.obj)
     FUNCTYPE = from_opaque_object(gv_FUNCTYPE).value
     fptr = lltype.functionptr(FUNCTYPE, name,
-                              graph=_buildgraph(target))
+                              graph=_buildgraph(target, FUNCTYPE))
     return genconst(fptr)
 
 def genconst(llvalue):
+    T = lltype.typeOf(llvalue)
+    T1 = lltype.erasedType(T)
+    if T1 != T:
+        llvalue = lltype.cast_pointer(T1, llvalue)
     v = flowmodel.Constant(llvalue)
-    v.concretetype = lltype.typeOf(llvalue)
+    v.concretetype = T1
     if v.concretetype == lltype.Void: # XXX genconst should not really be used for Void constants
         assert not isinstance(llvalue, str) and not isinstance(llvalue, lltype.LowLevelType)
     return to_opaque_object(v)
@@ -202,8 +229,9 @@ def closereturnlink(link, returnvar):
     pseudoreturnblock.operations = ()
     _closelink(link, [returnvar], pseudoreturnblock)
 
-def _patchgraph(graph):
+def _patchgraph(graph, RESULT):
     returntype = None
+    links = []
     for link in graph.iterlinks():
         if link.target.operations == ():
             assert len(link.args) == 1    # for now
@@ -211,28 +239,59 @@ def _patchgraph(graph):
                 returntype = link.target.inputargs[0].concretetype
             else:
                 assert returntype == link.target.inputargs[0].concretetype
-            link.target = graph.returnblock
+            links.append(link)
     if returntype is None:
         returntype = lltype.Void
-    graph.returnblock.inputargs[0].concretetype = returntype
+    graph.returnblock.inputargs[0].concretetype = RESULT
+    targetblock = casting_bridge([returntype], [RESULT], graph.returnblock)
+    for link in links:
+        link.target = targetblock
 
 class PseudoRTyper(object):
     def __init__(self):
         from pypy.rpython.typesystem import LowLevelTypeSystem
         self.type_system = LowLevelTypeSystem.instance
 
-def _buildgraph(block):
-    graph = flowmodel.FunctionGraph('generated', block)
-    _patchgraph(graph)
+def casting_bridge(FROMS, TOS, target):
+    if FROMS != TOS:
+        operations = []
+        inputargs = []
+        linkargs = []
+        for FROM, TO  in zip(FROMS, TOS):
+            v = flowmodel.Variable()
+            v.concretetype = FROM
+            inputargs.append(v)
+            if FROM == TO:
+                linkargs.append(v)
+            else:
+                erasedv = flowmodel.Variable()
+                erasedv.concretetype = TO
+                operations.append(flowmodel.SpaceOperation('cast_pointer',
+                                                           [v],
+                                                           erasedv))
+                linkargs.append(erasedv)
+        bridgeblock = flowmodel.Block(inputargs)
+        bridgeblock.operations = operations
+        bridge = flowmodel.Link(linkargs, target)
+        bridgeblock.closeblock(bridge)
+        return bridgeblock
+    else:
+        return target
+        
+def _buildgraph(block, FUNCTYPE):
+    ARGS = [v.concretetype for v in block.inputargs]
+    startblock =casting_bridge(FUNCTYPE.ARGS, ARGS, block)
+    graph = flowmodel.FunctionGraph('generated', startblock)
+    _patchgraph(graph, FUNCTYPE.RESULT)
     flowmodel.checkgraph(graph)
     eliminate_empty_blocks(graph)
     join_blocks(graph)
     graph.rgenop = True
     return graph
 
-def buildgraph(blockcontainer):
+def buildgraph(blockcontainer, FUNCTYPE):
     block = from_opaque_object(blockcontainer.obj)
-    return _buildgraph(block)
+    return _buildgraph(block, FUNCTYPE)
 
 def testgengraph(gengraph, args, viewbefore=False, executor=LLInterpreter):
     if viewbefore:
@@ -240,8 +299,9 @@ def testgengraph(gengraph, args, viewbefore=False, executor=LLInterpreter):
     llinterp = executor(PseudoRTyper())
     return llinterp.eval_graph(gengraph, args)
     
-def runblock(blockcontainer, args, viewbefore=False, executor=LLInterpreter):
-    graph = buildgraph(blockcontainer)
+def runblock(blockcontainer, FUNCTYPE, args,
+             viewbefore=False, executor=LLInterpreter):
+    graph = buildgraph(blockcontainer, FUNCTYPE)
     return testgengraph(graph, args, viewbefore, executor)
 
 # ____________________________________________________________
@@ -310,6 +370,7 @@ setannotation(geninputarg, s_ConstOrVar)
 setannotation(genop, s_ConstOrVar)
 setannotation(gencallableconst, s_ConstOrVar)
 setannotation(genconst, s_ConstOrVar)
+setannotation(cast, s_ConstOrVar)
 setannotation(revealconst, lambda s_T, s_gv: annmodel.lltype_to_annotation(
                                                   s_T.const))
 setannotation(isconst, annmodel.SomeBool())

@@ -525,7 +525,7 @@ class TestTimeshift(TimeshiftingTests):
 
     def test_inlined_substructure(self):
         py.test.skip("blue containers: to be reimplemented")
-        S = lltype.Struct('S', ('n', lltype.Signed))
+        S = lltype.GcStruct('S', ('n', lltype.Signed))
         T = lltype.GcStruct('T', ('s', S), ('n', lltype.Float))
         def ll_function(k):
             t = lltype.malloc(T)
@@ -674,7 +674,7 @@ class TestTimeshift(TimeshiftingTests):
         self.check_insns({'int_lt': 1, 'int_mul': 1})
 
     def test_red_subcontainer(self):
-        S = lltype.Struct('S', ('n', lltype.Signed))
+        S = lltype.GcStruct('S', ('n', lltype.Signed))
         T = lltype.GcStruct('T', ('s', S), ('n', lltype.Float))
         def ll_function(k):
             t = lltype.malloc(T)

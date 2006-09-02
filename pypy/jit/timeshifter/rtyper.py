@@ -178,15 +178,14 @@ class HintRTyper(RPythonTyper):
             annmodel.s_None)
 
     def translate_op_getsubstruct(self, hop):
-        if isinstance(hop.args_r[0], BlueRepr):        
-            return hop.args_r[0].timeshift_getsubstruct(hop)
-        # non virtual case
+        ##if isinstance(hop.args_r[0], BlueRepr):
+        ##    return hop.args_r[0].timeshift_getsubstruct(hop)
         ts = self.timeshifter
         PTRTYPE = originalconcretetype(hop.args_s[0])
         v_argbox, c_fieldname = hop.inputargs(self.getredrepr(PTRTYPE),
                                               green_void_repr)
         fielddesc = rcontainer.NamedFieldDesc(self.RGenOp, PTRTYPE,
-                                              c_fieldname.value) # XXX
+                                              c_fieldname.value)
         c_fielddesc = inputconst(lltype.Void, fielddesc)
         s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
         v_jitstate = hop.llops.getjitstate()
@@ -194,7 +193,11 @@ class HintRTyper(RPythonTyper):
             [ts.s_JITState, s_fielddesc, ts.s_RedBox],
             [v_jitstate,    c_fielddesc, v_argbox   ],
             ts.s_RedBox)
-        
+
+    def translate_op_cast_pointer(self, hop):
+        FROM_TYPE = originalconcretetype(hop.args_s[0])
+        v_argbox = hop.inputargs(self.getredrepr(FROM_TYPE))
+        return v_argbox
 
     def translate_op_malloc(self, hop):
         r_result = hop.r_result
