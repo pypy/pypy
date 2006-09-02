@@ -1,6 +1,6 @@
 import py, time, os
 
-#  Usage:  py.test --brenchmark
+#  Usage:  py.test --benchmark
 #
 #  This module provides an RPython class to use as follows:
 #
