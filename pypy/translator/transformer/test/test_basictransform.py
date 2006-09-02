@@ -75,6 +75,45 @@ def test_change_startblock():
     res = interp_fun(t, some_fun, [1])
     assert res == 2
 
+class ClassHelper(object):
+    def __init__(self):
+        self.i = 0
+    
+    def method(self):
+        self.i = 8
+
+helper_instance = ClassHelper()
+
+class HelperTransformer(BasicTransformer):
+    def __init__(self, translator):
+        BasicTransformer.__init__(self, translator)
+        self.flow_method(ClassHelper, 'method', [])
+        bk = self.bookkeeper
+        self.instance_const = model.Constant(helper_instance, \
+            concretetype=bk.immutablevalue(helper_instance))
+        
+    def transform_graph(self, graph):
+        if graph.name != 'helper_call_fun':
+            return
+        block = graph.startblock
+        c = self.get_const("method")
+        op, v = self.genop("getattr", [self.instance_const, c])
+        block.operations.insert(0, op)
+        op, v2 = self.genop("simple_call", [v])
+        block.operations.insert(1, op)
+        
+        self.add_block(graph, block)
+
+def test_method_helper():
+    # XXX: retval of method is still wrong
+    def helper_call_fun():
+        return helper_instance.i
+    
+    t = transform_function(HelperTransformer, helper_call_fun)
+    res = interp_fun(t, helper_call_fun)
+    assert res == 8
+
+
 ##def test_transform():
 ##    def fun(i):
 ##        a = 3 + i

@@ -2,9 +2,6 @@
 """ basic transform - some play around graph transformations
 """
 
-# this is RPython code which handles proper base elements for
-# stack tracing
-
 from pypy.translator import unsimplify, simplify
 from pypy.translator.unsimplify import varoftype
 from pypy.annotation import model as annmodel
@@ -66,80 +63,6 @@ class BasicTransformer(object):
             self.transform_graph(graph)
         self.translator.annotator.complete()
 
-##class Transformer(object):
-##    def __init__(self, translator):
-##        self.translator = translator
-##        self.register_helpers()
-##    
-##    def register_helpers(self):
-##        """ Flow necessary additional functions
-##        """
-##        ann = self.translator.annotator
-##        bk = ann.bookkeeper
-##        
-##        for func_name, func_args in [("enter", [3]), ("leave", []), 
-##                ("traceback", [])]:
-##            self.flow_exc_handler_method(func_name, func_args)
-##        self.excdef = bk.getuniqueclassdef(ExceptionHelper)
-##    
-##    def flow_exc_handler_method(self, func_name, args):
-##        ann = self.translator.annotator
-##        example_ann = ann.bookkeeper.annotation_from_example
-##        s_args = [example_ann(arg) for arg in args]
-##        graph = ann.annotate_helper_method(ExceptionHelper, func_name, s_args)
-##        graph.exception_handler_explicit = True
-##    
-##    def transform_graph(self, graph):
-##        # XXX: we do not want to flow low level helpers as well
-##        # but for now I do not see how to see them
-##        ann = self.translator.annotator
-##        if graph.name.startswith("ll_"):
-##            return
-##        if getattr(graph, 'exception_handler_explicit', False):
-##            return
-##        # for each graph block enter operation which calls apropriate functions
-##        old_start_block = graph.startblock
-##        new_start_block = model.Block(old_start_block.inputargs[:])
-##        newoutputargs = [unsimplify.copyvar(ann, v)
-##            for v in old_start_block.inputargs]
-##
-##        mapping = {}
-##        for old, new in zip(old_start_block.inputargs, newoutputargs):
-##            mapping[old] = new
-##        old_start_block.renamevariables(mapping)
-##        new_start_block.closeblock(model.Link( \
-##            new_start_block.inputargs, old_start_block))
-##
-##        old_start_block.isstartblock = False
-##        new_start_block.isstartblock = True
-##        
-##        self.add_start_operations(graph, new_start_block)
-##        
-##        args_s = [ann.bindings[v] for v in new_start_block.inputargs]
-##        ann.addpendingblock(graph, new_start_block, args_s)
-##        graph.startblock = new_start_block
-##        
-##        #simplify.simplify_graph(graph, [simplify.eliminate_empty_blocks,
-##        #                        simplify.join_blocks,
-##        #                        simplify.transform_dead_op_vars])
-##    
-##    #def add_same_as_operations(self, new_block, old_block, old_args, new_args):
-##    #    mapping = {}
-##    #    for old, new in zip(old_args, new_args):
-##    #        new_block.operations.append(model.SpaceOperation("same_as", [old], new))
-##    #        mapping[old] = new
-##    #    old_block.renamevariables(mapping)
-##
-##    def add_start_operations(self, graph, block):
-##        assert len(block.operations) == 0
-##        retval = model.Variable()
-##        bk = self.translator.annotator.bookkeeper
-##        arg = model.Constant(bk.immutablevalue("enter"))
-##        block.operations.append(model.SpaceOperation("getattr", [self.main_instance, arg], retval))
-##    
-##    def transform_all(self):
-##        bk = self.translator.annotator.bookkeeper
-##        self.main_instance = model.Constant(bk.immutablevalue(main_exception_helper))
-##        for graph in self.translator.graphs:
-##            self.transform_graph(graph)
-##        self.translator.annotator.complete()
+    def get_const(self, arg):
+        bk = self.bookkeeper
+        return model.Constant(arg, bk.immutablevalue(arg))
