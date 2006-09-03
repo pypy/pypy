@@ -242,34 +242,24 @@ class HintRTyper(RPythonTyper):
             return v
         else:
             bk = self.annotator.bookkeeper
-            # first close the current block
             ts = self.timeshifter
             v_jitstate = hop.llops.getjitstate()
-            v_builder = hop.llops.genmixlevelhelpercall(rtimeshift.before_call,
-                                                        [ts.s_JITState],
-                                                        [v_jitstate],
-                                                     ts.s_ResidualGraphBuilder)
             hop.r_s_popfirstarg()
             args_hs = hop.args_s[:]
             # fixed is always false here
             graph = bk.get_graph_for_call(fnobj.graph, False, args_hs)
             args_r = [self.getrepr(hs) for hs in args_hs]
             args_v = hop.inputargs(*args_r)
-            ARGS = [ts.r_ResidualGraphBuilder.lowleveltype,
-                    ts.r_JITState.lowleveltype]
+            ARGS = [ts.r_JITState.lowleveltype]
             ARGS += [r.lowleveltype for r in args_r]
-            RESULT = ts.r_ResidualGraphBuilder.lowleveltype
+            RESULT = ts.r_RedBox.lowleveltype
             fnptr = lltype.functionptr(lltype.FuncType(ARGS, RESULT),
                                        graph.name,
                                        graph=graph,
                                        _callable = graph.func)
             self.timeshifter.schedule_graph(graph)
-            args_v[:0] = [hop.llops.genconst(fnptr), v_builder, v_jitstate]
-            v_newbuilder = hop.genop('direct_call', args_v, RESULT)
-            return hop.llops.genmixlevelhelpercall(rtimeshift.after_call,
-                                   [ts.s_JITState, ts.s_ResidualGraphBuilder],
-                                   [v_jitstate,    v_newbuilder],
-                                   ts.s_RedBox)
+            args_v[:0] = [hop.llops.genconst(fnptr), v_jitstate]
+            return hop.genop('direct_call', args_v, RESULT)
 
     def translate_op_save_locals(self, hop):
         ts = self.timeshifter

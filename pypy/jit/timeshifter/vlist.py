@@ -75,19 +75,19 @@ class VirtualList(AbstractContainer):
         self.item_boxes = [itembox] * length
         # self.ownbox = ...    set in factory()
 
-    def enter_block(self, newblock, incoming, memo):
+    def enter_block(self, incoming, memo):
         contmemo = memo.containers
         if self not in contmemo:
             contmemo[self] = None
             for box in self.item_boxes:
-                box.enter_block(newblock, incoming, memo)
+                box.enter_block(incoming, memo)
 
     def force_runtime_container(self, builder):
         typedesc = self.typedesc
         boxes = self.item_boxes
         self.item_boxes = None
 
-        args_gv = [None, builder.genconst(len(boxes))]
+        args_gv = [None, builder.rgenop.genconst(len(boxes))]
         gv_list = builder.genop_call(typedesc.tok_ll_newlist,
                                      typedesc.gv_ll_newlist,
                                      args_gv)
@@ -95,7 +95,7 @@ class VirtualList(AbstractContainer):
         self.ownbox.content = None
         for i in range(len(boxes)):
             gv_item = boxes[i].getgenvar(builder)
-            args_gv = [gv_list, builder.genconst(i), gv_item]
+            args_gv = [gv_list, builder.rgenop.genconst(i), gv_item]
             builder.genop_call(typedesc.tok_ll_setitem_fast,
                                typedesc.gv_ll_setitem_fast,
                                args_gv)

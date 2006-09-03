@@ -4,7 +4,7 @@ from pypy.objspace.flow import model as flowmodel
 from pypy.annotation import model as annmodel
 from pypy.annotation import listdef, dictdef
 from pypy.jit.timeshifter import rvalue, oop
-from pypy.jit.timeshifter.rtimeshift import JITState, ResidualGraphBuilder
+from pypy.jit.timeshifter.rtimeshift import JITState
 from pypy.rpython import rmodel, annlowlevel
 from pypy.rpython.lltypesystem import rtuple, rlist, rdict
 from pypy.jit.timeshifter import rtimeshift
@@ -26,7 +26,8 @@ class HintTimeshift(object):
         self.latestexitindex = -1
         self.annhelper = annlowlevel.MixLevelHelperAnnotator(rtyper)
 
-        self.s_ResidualGraphBuilder, self.r_ResidualGraphBuilder = self.s_r_instanceof(ResidualGraphBuilder)
+        self.s_CodeGenerator, self.r_CodeGenerator = self.s_r_instanceof(
+            cgmodel.CodeGenerator)
         self.s_JITState, self.r_JITState = self.s_r_instanceof(JITState)
         self.s_RedBox, self.r_RedBox = self.s_r_instanceof(rvalue.RedBox)
         self.s_OopSpecDesc, self.r_OopSpecDesc = self.s_r_instanceof(
@@ -38,62 +39,15 @@ class HintTimeshift(object):
         getrepr = self.rtyper.getrepr
 
         bk = rtyper.annotator.bookkeeper
-        box_list_def = listdef.ListDef(None, self.s_RedBox)
-        box_list_def.mutate()
+        box_list_def = listdef.ListDef(None, self.s_RedBox, mutated = True)
         self.s_box_list = annmodel.SomeList(box_list_def)
         self.r_box_list = getrepr(self.s_box_list)
         self.r_box_list.setup()
 
-        box_accum_def = listdef.ListDef(None, self.s_RedBox)
-        box_accum_def.mutate()
-        box_accum_def.resize()
+        box_accum_def = listdef.ListDef(None, self.s_RedBox, resized = True)
         self.s_box_accum = annmodel.SomeList(box_accum_def)
         self.r_box_accum = getrepr(self.s_box_accum)
         self.r_box_accum.setup()
-
-##        def ll_make_builder():
-##            rgenop = RGenOp()
-##            return rtimeshift.make_builder(rgenop)
-
-##        # XXX find a different way to enforce the interface types
-##        self.ll_make_builder_graph = self.annhelper.getgraph(
-##            ll_make_builder,
-##            [], self.s_ResidualGraphBuilder)
-##        self.ll_int_box_graph = self.annhelper.getgraph(
-##            rtimeshift.ll_int_box,
-##            [self.s_ConstOrVar, self.s_ConstOrVar],
-##            self.s_RedBox)
-##        self.ll_addr_box_graph = self.annhelper.getgraph(
-##            rtimeshift.ll_addr_box,
-##            [self.s_ConstOrVar, self.s_ConstOrVar],
-##            self.s_RedBox)
-##        self.ll_double_box_graph = self.annhelper.getgraph(
-##            rtimeshift.ll_int_box,
-##            [self.s_ConstOrVar, self.s_ConstOrVar],
-##            self.s_RedBox)
-##        self.ll_geninputarg_graph = self.annhelper.getgraph(
-##            rtimeshift.ll_geninputarg,
-##            [self.s_ResidualGraphBuilder, self.s_ConstOrVar],
-##            self.s_ConstOrVar)
-##        self.ll_end_setup_builder_graph = self.annhelper.getgraph(
-##            rtimeshift.ll_end_setup_builder,
-##            [self.s_ResidualGraphBuilder],
-##            self.s_Block)
-
-####         self.ll_close_jitstate_graph = self.annhelper.getgraph(
-####             rtimeshift.ll_close_jitstate,
-####             [self.s_JITState],
-####             annmodel.s_None)
-
-##        self.ll_close_builder_graph = self.annhelper.getgraph(
-##            rtimeshift.ll_close_builder,
-##            [self.s_ResidualGraphBuilder],
-##            annmodel.s_None)
-##        self.annhelper.getgraph(
-##            rtimeshift.ll_gencallableconst,
-##            [self.s_ResidualGraphBuilder, annmodel.SomeString(),
-##             self.s_Block, self.s_ConstOrVar],
-##            self.s_ConstOrVar)
 
     def s_r_instanceof(self, cls, can_be_None=True):
         # Return a SomeInstance / InstanceRepr pair correspnding to the specified class.
@@ -110,7 +64,7 @@ class HintTimeshift(object):
     #
     # then passes the variables to the target of link
     #
-    def getexitindex(self, link, inputargs, args_r, entering_links):
+    def getexitindex(self, link, entering_links):
         self.latestexitindex += 1
         v_jitstate = varoftype(self.r_JITState.lowleveltype, 'jitstate')
         v_boxes = varoftype(self.r_box_accum.lowleveltype, 'boxes')
@@ -120,13 +74,14 @@ class HintTimeshift(object):
         llops = HintLowLevelOpList(self, None)
 
         reenter_vars = [v_jitstate]
+        i = 0
         for var in link.args[1:]:
             if isinstance(var, flowmodel.Constant):
                 reenter_vars.append(var)
                 continue
-            i = inputargs.index(var)
-            r = args_r[i]
+            r = self.hrtyper.bindingrepr(var)
             v_box = self.read_out_box(llops, v_boxes, i)
+            i += 1
             if isinstance(r, RedRepr):
                 reenter_vars.append(v_box)
             else:
@@ -184,6 +139,10 @@ class HintTimeshift(object):
             self.timeshift_block(timeshifted_blocks, entering_links,  block)
         originalblocks = timeshifted_blocks
 
+        inputlinkcounters = {}
+        for block in originalblocks:
+            inputlinkcounters[block] = len(entering_links[block])
+
         returnblock = graph.returnblock
         self.r_returnvalue = self.hrtyper.bindingrepr(returnblock.inputargs[0])
         returnblock.operations = []
@@ -205,7 +164,7 @@ class HintTimeshift(object):
             before_block = self.insert_before_block(block,
                                                     block_entering_links)
             self.insert_bookkeeping_enter(block, before_block,
-                                          len(block_entering_links))
+                                          inputlinkcounters[block])
             self.insert_bookkeeping_leave_block(block, entering_links)
 
         #self.hrtyper.insert_link_conversions(before_returnblock)
@@ -235,16 +194,15 @@ class HintTimeshift(object):
 
     def insert_start_setup(self):
         newstartblock = self.insert_before_block(self.graph.startblock, None, closeblock=True)
-        v_builder = varoftype(self.r_ResidualGraphBuilder.lowleveltype, 'builder')
         v_backstate = varoftype(self.r_JITState.lowleveltype, 'backstate')
         v_jitstate = newstartblock.inputargs[0]
-        newstartblock.inputargs[:1] = [v_builder, v_backstate]
+        newstartblock.inputargs[:1] = [v_backstate]
         llops = HintLowLevelOpList(self, None)
 
         llops.genop('direct_call', [self.c_ll_clearcaches_ptr])
         v_jitstate1 = llops.genmixlevelhelpercall(rtimeshift.enter_graph,
-                               [self.s_ResidualGraphBuilder, self.s_JITState],
-                               [v_builder,                   v_backstate],
+                               [self.s_JITState],
+                               [v_backstate],
                                self.s_JITState)
         llops.append(flowmodel.SpaceOperation('same_as', [v_jitstate1], v_jitstate))
         newstartblock.operations = list(llops)
@@ -260,7 +218,7 @@ class HintTimeshift(object):
                 #elif len(link.args) == 1:
                 #    assert False, "the return block should not be seen"
                     
-    def insert_before_block(self, block, entering_links, closeblock=True):
+    def insert_before_block(self, block, block_entering_links, closeblock=True):
         newinputargs = [copyvar(self.hannotator, var) for var in block.inputargs]
 
         newblock = flowmodel.Block(newinputargs)
@@ -269,7 +227,7 @@ class HintTimeshift(object):
             newblock.isstartblock = True
             self.graph.startblock = newblock
         else:
-            for link in entering_links:
+            for link in block_entering_links:
                 link.settarget(newblock)
 
         if closeblock:
@@ -353,26 +311,9 @@ class HintTimeshift(object):
         v_boxes = rlist.newlist(llops, self.r_box_list, type_erased_v)
         return v_boxes
 
-    # insert before non-join blocks a block with:
-    #
-    #     newjitstate = rtimeshift.enter_block(jitstate, boxes)
-    #     where boxes = [current-redboxes]
-    #
-    # then pass the newjitstate (XXX modified?) and boxes
-    # to the block original; boxes are modified in place
-    #
+
     def bookkeeping_enter_simple(self, args_r, newinputargs, before_block,
                                  llops, v_boxes, is_returnblock=False):
-        v_newjitstate = llops.genmixlevelhelpercall(rtimeshift.enter_block,
-                             [self.s_JITState, self.s_box_list],
-                             [newinputargs[0], v_boxes],
-                             self.s_JITState)
-
-        bridge = before_block.exits[0]
-        # not used any more: v_boxes is not modified by enter_block() nowadays
-        #self.insert_read_out_boxes(bridge, llops, v_newjitstate, v_boxes, args_r, newinputargs)
-        before_block.operations[:] = llops
-
         return None
 
     # insert before join blocks a block with:
@@ -492,126 +433,100 @@ class HintTimeshift(object):
 
         return cache
 
-    # insert after blocks the following logic:
-    # if the original block is the returnblock:
+    # insert at the end  of blocks the following logic:
+    # if the block is the returnblock:
     #
     #     go to dispatch_block(jitstate)
     #
-    # if the original block has just one exit or the exitswitch is green:
+    # if the block has just one exit or the exitswitch is green:
     #
-    #     newjitstate = rtimeshift.leave_block(jitstate)
+    #     <nothing>
     #
-    # if the original block has more than one exit (split case):
+    # if the block has more than one exit (split case):
     #
-    #     res = rtimeshift.leave_block_split(jitstate, exitswitchredbox, exitindex, boxes)
+    #     res = rtimeshift.leave_block_split(jitstate,
+    #                                        exitswitchredbox, exitindex,
+    #                                        true_case_boxes,
+    #                                        false_case_boxes)
     #     where
-    #         boxes =[boxes-for-all-current-red-and-green-values]
+    #         true_case_boxes = [redboxes going into the true case link]
+    #         false_case_boxes = [redbox going into the false case link
+    #             + green values going into it wrapped into redboxes,
+    #               all to be saved for later dispatch]
     #         exitindex = number identifying the false branch of the switch
     #     if res then go to true_exit_block
     #     else go to false_exit_block
     #
     # exitindex is computed by getexitindex, see comment for that method
     #
-    # leave_block_split if the exitswitchredbox is constant just returns its value as res
-    # otherwise returns True and schedule the false case
+    # leave_block_split if the exitswitchredbox is constant just
+    # returns its value as res otherwise returns True
+    # and schedule the false case
     #
     def insert_bookkeeping_leave_block(self, block, entering_links):
-        # XXX wrong with exceptions as much else
-        
-        renamemap = {}
-        rename = lambda v: renamemap.get(v, v)
-        inargs = []
+        exits = block.exits
+        exitswitch = block.exitswitch
 
-        def introduce(v):
-            if isinstance(v, flowmodel.Variable):
-                if v not in renamemap:
-                    vprime = renamemap[v] = copyvar(self.hannotator, v)
-                    inargs.append(v)
-
-        orig_v_jitstate = block.inputargs[0]
-        introduce(orig_v_jitstate)
-
-        newlinks = []
-
-        v_newjitstate = varoftype(self.r_JITState.lowleveltype, 'jitstate')
-        self.hannotator.bindings[v_newjitstate] = self.s_JITState
-
-        def rename_on_link(v):
-            if v is orig_v_jitstate:
-                return v_newjitstate
-            else:
-                return rename(v)
-
-        for link in block.exits:
-            for v in link.args:
-                introduce(v)
-            newlink =  link.copy(rename_on_link)
-            newlink.llexitcase = newlink.exitcase # sanitize the link llexitcase
-            newlinks.append(newlink)
-            target = link.target
-            # update entering_links as necessary
-            if target in entering_links:
-                target_entering_links = entering_links[target]
-                target_entering_links.remove(link)
-                target_entering_links.append(newlink)
-        introduce(block.exitswitch)
-
-        inputargs = [rename(v) for v in inargs]
-        newblock = flowmodel.Block(inputargs)
-        newblock.closeblock(*newlinks)
-            
-        inlink = flowmodel.Link(inargs, newblock)
-        oldexitswitch = block.exitswitch
-        block.exitswitch = None
-        block.recloseblock(inlink)
-
-        llops = HintLowLevelOpList(self, None)
-        if len(newblock.exits) == 0: # this is the original returnblock
-            newblock.recloseblock(flowmodel.Link(newblock.inputargs, self.dispatchblock))
-        elif len(newblock.exits) == 1 or isinstance(self.hrtyper.bindingrepr(oldexitswitch), GreenRepr):
-            newblock.exitswitch = rename(oldexitswitch)
-            v_res = llops.genmixlevelhelpercall(rtimeshift.leave_block,
-                                                [self.s_JITState],
-                                                [rename(orig_v_jitstate)],
-                                                self.s_JITState)     
-
-            llops.append(flowmodel.SpaceOperation('same_as',
-                                   [v_res],
-                                   v_newjitstate))
+        if len(exits) == 0: # this is the original returnblock
+            block.recloseblock(flowmodel.Link(block.inputargs[:1],
+                                              self.dispatchblock))
+        elif (len(exits) == 1 or
+              isinstance(self.hrtyper.bindingrepr(exitswitch), GreenRepr)):
+            pass # nothing to do
         else:
-            v_jitstate = rename(orig_v_jitstate)
-            args_r = []
-            boxes_v = []
-            for var in inputargs[1:]:
-                r = self.hrtyper.bindingrepr(var)
-                args_r.append(r)
-                if isinstance(r, RedRepr):
-                    boxes_v.append(var)
-                elif isinstance(r, GreenRepr):
-                    v_box = self.make_const_box(llops, r, var, v_jitstate)
-                    boxes_v.append(v_box)
-                else:
-                    raise RuntimeError('Unsupported boxtype')
-            
-            v_boxes = self.build_box_list(llops, boxes_v)
-            false_exit = [exit for exit in newblock.exits if exit.exitcase is False][0]
-            exitindex = self.getexitindex(false_exit, inputargs[1:], args_r, entering_links)
+            llops = HintLowLevelOpList(self, None)
+            v_jitstate = self.getjitstate(block)
+            assert len(exits) == 2
+            false_exit, true_exit = exits
+            if true_exit.exitcase is False:
+                true_exit, false_exit = false_exit, true_exit
+            assert true_exit.exitcase is True
+            assert false_exit.exitcase is False
+            # sanitize llexitcase
+            true_exit.llexitcase = True
+            false_exit.llexitcase = False
+            v_boxes_true = self.pack_state_into_boxes(llops,
+                                                      true_exit.args[1:],
+                                                      v_jitstate,
+                                                      pack_greens_too=False)
+            v_boxes_false = self.pack_state_into_boxes(llops,
+                                                       false_exit.args[1:],
+                                                       v_jitstate,
+                                                       pack_greens_too=True)
+            exitindex = self.getexitindex(false_exit, entering_links)
             c_exitindex = rmodel.inputconst(lltype.Signed, exitindex)
             v_res = llops.genmixlevelhelpercall(rtimeshift.leave_block_split,
                                                 [self.s_JITState,
                                                  self.s_RedBox,
                                                  annmodel.SomeInteger(),
+                                                 self.s_box_list,
                                                  self.s_box_list],
                                                 [v_jitstate,
-                                                 rename(oldexitswitch),
+                                                 exitswitch,
                                                  c_exitindex,
-                                                 v_boxes],
+                                                 v_boxes_true,
+                                                 v_boxes_false],
                                                 annmodel.SomeBool())
-            llops.append(flowmodel.SpaceOperation('same_as',
-                                                  [inputargs[0]],
-                                                  v_newjitstate))
-            newblock.exitswitch = v_res
-        newblock.operations[:] = llops
+            block.exitswitch = v_res
+            block.operations.extend(llops)
+
+
+    def pack_state_into_boxes(self, llops, statevars, v_jitstate,
+                              pack_greens_too):
+        boxes_v = []
+        for var in statevars:
+            if isinstance(var, flowmodel.Constant):
+                continue    # it's correspondingly skipped in getexitindex()
+            r = self.hrtyper.bindingrepr(var)
+            if isinstance(r, RedRepr):
+                boxes_v.append(var)
+            elif isinstance(r, GreenRepr):
+                if pack_greens_too:
+                    v_box = self.make_const_box(llops, r, var, v_jitstate)
+                    boxes_v.append(v_box)
+            else:
+                raise RuntimeError('Unsupported boxtype')
+        return self.build_box_list(llops, boxes_v)
 
     # put the following logic in the dispatch block:
     #
@@ -626,13 +541,13 @@ class HintTimeshift(object):
     #
     # the prepare_return_block does:
     #
-    #     builder = prepare_return(jitstate)
+    #     returnbox = prepare_return(jitstate)
     #     where
     #         prepare_return = (lambda jitstate:
     #                           rtimeshift.prepare_return(jitstate, return_cache,
     #                                None))) # XXX return type info
     #         where return_cache is a predefined cache
-    #     return builder 
+    #     return returnbox
     #
     def insert_dispatch_logic(self):
         dispatchblock = self.dispatchblock
@@ -640,8 +555,8 @@ class HintTimeshift(object):
         llops = HintLowLevelOpList(self, None)
 
 
-        v_returnbuilder = varoftype(self.r_ResidualGraphBuilder.lowleveltype, 'builder')
-        returnblock = flowmodel.Block([v_returnbuilder])
+        v_returnbox = varoftype(self.r_RedBox.lowleveltype, 'returnbox')
+        returnblock = flowmodel.Block([v_returnbox])
         returnblock.operations = ()
         self.graph.returnblock = returnblock
         
@@ -685,7 +600,7 @@ class HintTimeshift(object):
         llops = HintLowLevelOpList(self, None)
         v_return_builder = llops.genmixlevelhelpercall(prepare_return,
                           [self.s_JITState], [v_jitstate2],
-                          self.s_ResidualGraphBuilder)
+                          self.s_RedBox)
 
         prepare_return_block.operations = list(llops)
         finishedlink = flowmodel.Link([v_return_builder], returnblock)

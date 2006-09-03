@@ -139,11 +139,10 @@ def ll_generate_getarraysize(jitstate, fielddesc, argbox):
 # ____________________________________________________________
 # other jitstate/graph level operations
 
-def enter_graph(builder, backstate=None):
-    return builder.build_jitstate(backstate)
+def enter_graph(backstate):
+    return JITState(backstate.curbuilder, backstate)
 
 def start_new_block(states_dic, jitstate, key, redboxes):
-    rgenop = jitstate.rgenop
     memo = rvalue.freeze_memo()
     frozens = [redbox.freeze(memo) for redbox in redboxes]
     memo = rvalue.exactmatch_memo()
@@ -151,13 +150,16 @@ def start_new_block(states_dic, jitstate, key, redboxes):
     for i in range(len(redboxes)):
         res = frozens[i].exactmatch(redboxes[i], outgoingvarboxes, memo)
         assert res, "exactmatch() failed"
-    newblock = rgenop.newblock()
     linkargs = []
-    for box in outgoingvarboxes:
-        linkargs.append(box.getgenvar(None))
-        box.genvar = newblock.geninputarg(box.kind)
-    jitstate.curbuilder.enter_block(linkargs, newblock)
+    kinds = []
+    for box in outgoingvarboxes: # all variables
+        linkargs.append(box.genvar)
+        kinds.append(box.kind)
+    newblock = jitstate.curbuilder.enter_next_block(kinds, linkargs)
     states_dic[key] = frozens, newblock
+    for i in range(len(outgoingvarboxes)):
+        box = outgoingvarboxes[i]
+        box.genvar = linkargs[i]
     return jitstate
 start_new_block._annspecialcase_ = "specialize:arglltype(2)"
 
@@ -178,18 +180,15 @@ def retrieve_jitstate_for_merge(states_dic, jitstate, key, redboxes):
             exactmatch = False
 
     if exactmatch:
-        jitstate = dyn_enter_block(jitstate, outgoingvarboxes)
         linkargs = []
         for box in outgoingvarboxes:
             linkargs.append(box.getgenvar(jitstate.curbuilder))
-        jitstate.curbuilder.leave_block()
         jitstate.curbuilder.finish_and_goto(linkargs, oldblock)
         return None
 
     # We need a more general block.  Do it by generalizing all the
     # redboxes from outgoingvarboxes, by making them variables.
     # Then we make a new block based on this new state.
-    jitstate = dyn_enter_block(jitstate, outgoingvarboxes)
     replace_memo = rvalue.copy_memo()
     for box in outgoingvarboxes:
         box = box.forcevar(jitstate.curbuilder, replace_memo)
@@ -197,54 +196,45 @@ def retrieve_jitstate_for_merge(states_dic, jitstate, key, redboxes):
         for i in range(len(mylocalredboxes)):
             newbox = redboxes[i].replace(replace_memo)
             mylocalredboxes[i] = redboxes[i] = newbox
-    jitstate.curbuilder.leave_block()
     return start_new_block(states_dic, jitstate, key, redboxes)
 retrieve_jitstate_for_merge._annspecialcase_ = "specialize:arglltype(2)"
     
 def enter_block(jitstate, redboxes):
     # 'redboxes' is a fixed-size list (s_box_list) of the current red boxes
-    rgenop = jitstate.rgenop
-    newblock = rgenop.newblock()
     incoming = []
     memo = rvalue.enter_block_memo()
     for redbox in redboxes:
-        redbox.enter_block(newblock, incoming, memo)
-    js = jitstate.backstate
-    while js is not None:
-        lrb = js.localredboxes
-        assert lrb is not None
-        for redbox in lrb:
-            redbox.enter_block(newblock, incoming, memo)
-        js = js.backstate
-    jitstate.curbuilder.enter_block(incoming, newblock)
-    return jitstate
+        redbox.enter_block(incoming, memo)
+##    XXX
+##    js = jitstate.backstate
+##    while js is not None:
+##        lrb = js.localredboxes
+##        assert lrb is not None
+##        for redbox in lrb:
+##            redbox.enter_block(incoming, memo)
+##        js = js.backstate
+    linkargs = []
+    kinds = []
+    for redbox in incoming: # all variables
+        linkargs.append(redbox.genvar)
+        kinds.append(redbox.kind)
+    jitstate.curbuilder.enter_next_block(kinds, linkargs)
+    for i in range(len(incoming)):
+        incoming[i].genvar = linkargs[i]
 
-def dyn_enter_block(jitstate, redboxes):
-    # 'redboxes' is a var-sized list (s_box_accum) of *all* the boxes
-    # including the ones from the callers' locals
-    rgenop = jitstate.rgenop
-    newblock = rgenop.newblock()
-    incoming = []
-    memo = rvalue.enter_block_memo()
-    for redbox in redboxes:
-        redbox.enter_block(newblock, incoming, memo)
-    jitstate.curbuilder.enter_block(incoming, newblock)
-    return jitstate
-
-def leave_block(jitstate):
-    jitstate.curbuilder.leave_block()
-    return jitstate
-
-def leave_block_split(jitstate, switchredbox, exitindex, redboxes):
+def leave_block_split(jitstate, switchredbox, exitindex,
+                      redboxes_true, redboxes_false):
     if switchredbox.is_constant():
-        jitstate.curbuilder.leave_block()
         return rvalue.ll_getvalue(switchredbox, lltype.Bool)
     else:
         exitgvar = switchredbox.getgenvar(jitstate.curbuilder)
-        later_builder = jitstate.curbuilder.leave_block_split(exitgvar)
+        later_builder = jitstate.curbuilder.jump_if_false(exitgvar)
         memo = rvalue.copy_memo()
-        redboxcopies = [redbox.copy(memo) for redbox in redboxes]        
+        redboxcopies = [None] * len(redboxes_false)
+        for i in range(len(redboxes_false)):
+            redboxcopies[i] = redboxes_false[i].copy(memo)
         jitstate.split_queue.append((exitindex, later_builder, redboxcopies))
+        enter_block(jitstate, redboxes_true)
         return True
 
 def dispatch_next(jitstate, outredboxes):
@@ -252,6 +242,7 @@ def dispatch_next(jitstate, outredboxes):
     if split_queue:
         exitindex, later_builder, redboxes = split_queue.pop()
         jitstate.curbuilder = later_builder
+        enter_block(jitstate, redboxes)
         for box in redboxes:
             outredboxes.append(box)
         return exitindex
@@ -263,15 +254,13 @@ def save_return(jitstate, redboxes):
     
 def prepare_return(jitstate, cache, return_type):
     for builder, retbox in jitstate.return_queue[:-1]:
-        builder.leave_block()
         jitstate.curbuilder = builder
-        retrieve_jitstate_for_merge(cache, jitstate, (), [retbox])
+        res = retrieve_jitstate_for_merge(cache, jitstate, (), [retbox])
+        assert res is None
     frozens, block = cache[()]
-    _, returnbox = jitstate.return_queue[-1]
-    rgenop = jitstate.rgenop
-    builder = ResidualGraphBuilder(rgenop, block)
-    builder.valuebox = returnbox
-    return builder
+    builder, returnbox = jitstate.return_queue[-1]
+    jitstate.backstate.curbuilder = builder 
+    return returnbox
 
 def ll_gvar_from_redbox(jitstate, redbox):
     return redbox.getgenvar(jitstate.curbuilder)
@@ -282,125 +271,11 @@ def ll_gvar_from_constant(jitstate, ll_value):
 def save_locals(jitstate, redboxes):
     jitstate.localredboxes = redboxes
 
-def before_call(jitstate):
-    leave_block(jitstate)
-    return jitstate.curbuilder
-
-def after_call(jitstate, newbuilder):
-    jitstate.curbuilder = newbuilder
-    return newbuilder.valuebox
-
 # ____________________________________________________________
-
-class ResidualGraphBuilder(object):
-    def __init__(self, rgenop, block=None, link=None):
-        self.rgenop = rgenop
-        self.block = block
-        self.outgoinglink = link
-        self.valuebox = None
-
-    def genconst(self, llvalue):
-        return self.rgenop.genconst(llvalue)
-    genconst._annspecialcase_ = 'specialize:genconst(1)'
-
-##    def genvoidconst(self, dummy):
-##        return self.rgenop.placeholder(dummy)
-##    genvoidconst._annspecialcase_ = 'specialize:arg(1)'
-
-##    def genop(self, opname, args_gv, result_kind=None):
-##        return self.block.genop(opname, args_gv, result_kind)
-##    genop._annspecialcase_ = 'specialize:arg(1)'
-
-    def genop1(self, opname, gv_arg):
-        return self.block.genop1(opname, gv_arg)
-    genop1._annspecialcase_ = 'specialize:arg(1)'
-
-    def genop2(self, opname, gv_arg1, gv_arg2):
-        return self.block.genop2(opname, gv_arg1, gv_arg2)
-    genop2._annspecialcase_ = 'specialize:arg(1)'
-
-    def genop_call(self, sigtoken, gv_callable, args_gv):
-        return self.block.genop_call(sigtoken, gv_callable, args_gv)
-
-    def genop_getfield(self, fieldtoken, gv_ptr):
-        return self.block.genop_getfield(fieldtoken, gv_ptr)
-
-    def genop_setfield(self, fieldtoken, gv_ptr, gv_value):
-        return self.block.genop_setfield(fieldtoken, gv_ptr, gv_value)
-
-    def genop_getsubstruct(self, fieldtoken, gv_ptr):
-        return self.block.genop_getsubstruct(fieldtoken, gv_ptr)
-
-    def genop_getarrayitem(self, arraytoken, gv_ptr, gv_index):
-        return self.block.genop_getarrayitem(arraytoken, gv_ptr, gv_index)
-    
-    def genop_getarraysize(self, arraytoken, gv_ptr):
-        return self.block.genop_getarraysize(arraytoken, gv_ptr)
-
-    def genop_malloc_fixedsize(self, alloctoken):
-        return self.block.genop_malloc_fixedsize(alloctoken)
-
-    def genop_same_as(self, kind, gv_value):
-        return self.block.genop_same_as(kind, gv_value)
-
-    def constTYPE(self, T):
-        return self.rgenop.constTYPE(T)
-    constTYPE._annspecialcase_ = 'specialize:arg(1)'
-
-    def build_jitstate(self, backstate=None):
-        return JITState(self, backstate)
-
-    def enter_block(self, linkargs, newblock):
-        self.outgoinglink.close(linkargs, newblock)
-        self.block = newblock
-        self.outgoinglink = None
-   
-    def leave_block(self):
-        self.outgoinglink = self.block.close1()
-
-    def leave_block_split(self, exitgvar):
-        false_link, true_link = self.block.close2(exitgvar)    
-        later_builder = ResidualGraphBuilder(self.rgenop, link=false_link)
-        self.outgoinglink = true_link
-        return later_builder
-
-    def finish_and_goto(self, linkargs, targetblock):
-        self.outgoinglink.close(linkargs, targetblock)
-        self.outgoinglink = None
-        
-    def finish_and_return(self):
-        gv_retval = self.valuebox.getgenvar(self)
-        returnlink = self.block.close1()
-        returnlink.closereturn(gv_retval)
-
-def make_builder(rgenop):
-    return ResidualGraphBuilder(rgenop, rgenop.newblock())
-
-def ll_int_box(kind, gv):
-    return rvalue.IntRedBox(kind, gv)
-
-def ll_double_box(kind, gv):
-    return rvalue.DoubleRedBox(kind, gv)
-
-def ll_addr_box(kind, gv):
-    return rvalue.PtrRedBox(kind, gv)
-
-def ll_geninputarg(builder, kind):
-    return builder.block.geninputarg(kind)
-
-def ll_end_setup_builder(builder):
-    builder.leave_block()
-    return builder.block
-    
-def ll_close_builder(builder):
-    builder.finish_and_return()
-
-def ll_gencallableconst(builder, name, startblock, gv_functype):
-    return builder.rgenop.gencallableconst(name, startblock, gv_functype)
 
 class JITState(object):
     # XXX obscure interface
-    localredboxes = None
+    localredboxes = []
 
     def __init__(self, builder, backstate=None):
         self.split_queue = []

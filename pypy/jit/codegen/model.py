@@ -10,10 +10,10 @@ class GenConst(GenVarOrConst):
     is_const = True
 
 
-class CodeGenBlock(object):
+class CodeGenerator(object):
     pass
 
-class CodeGenLink(object):
+class CodeGenBlock(object):
     pass
 
 

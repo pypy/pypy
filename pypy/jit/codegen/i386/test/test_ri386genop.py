@@ -15,15 +15,11 @@ FUNC = lltype.FuncType([lltype.Signed], lltype.Signed)
 
 def make_adder(rgenop, n):
     # 'return x+n'
-    signed_kind = rgenop.kindToken(lltype.Signed)
-    block = rgenop.newblock()
-    gv_x = block.geninputarg(signed_kind)
-    gv_result = block.genop2("int_add", gv_x, rgenop.genconst(n))
-    link = block.close1()
-    link.closereturn(gv_result)
-
     sigtoken = rgenop.sigToken(FUNC)
-    gv_add_one = rgenop.gencallableconst(sigtoken, "adder", block)
+    builder, entrypoint, [gv_x] = rgenop.newgraph(sigtoken)
+    gv_result = builder.genop2("int_add", gv_x, rgenop.genconst(n))
+    builder.finish_and_return(sigtoken, gv_result)
+    gv_add_one = rgenop.gencallableconst(sigtoken, "adder", entrypoint)
     return gv_add_one
 
 def runner(x, y):
@@ -62,25 +58,19 @@ FUNC2 = lltype.FuncType([lltype.Signed, lltype.Signed], lltype.Signed)
 def make_dummy(rgenop):
     # 'return x - (y - (x-1))'
     signed_kind = rgenop.kindToken(lltype.Signed)
-    block = rgenop.newblock()
-    gv_x = block.geninputarg(signed_kind)
-    gv_y = block.geninputarg(signed_kind)
-    gv_z = block.genop2("int_sub", gv_x, rgenop.genconst(1))
-    link = block.close1()
-
-    block2 = rgenop.newblock()
-    gv_y2 = block2.geninputarg(signed_kind)
-    gv_z2 = block2.geninputarg(signed_kind)
-    gv_x2 = block2.geninputarg(signed_kind)
-    link.close([gv_y, gv_z, gv_x], block2)
-
-    gv_s2 = block2.genop2("int_sub", gv_y2, gv_z2)
-    gv_t2 = block2.genop2("int_sub", gv_x2, gv_s2)
-    link2 = block2.close1()
-
-    link2.closereturn(gv_t2)
     sigtoken = rgenop.sigToken(FUNC2)
-    gv_dummyfn = rgenop.gencallableconst(sigtoken, "dummy", block)
+    builder, entrypoint, [gv_x, gv_y] = rgenop.newgraph(sigtoken)
+    gv_z = builder.genop2("int_sub", gv_x, rgenop.genconst(1))
+
+    args_gv = [gv_y, gv_z, gv_x]
+    builder.enter_next_block([signed_kind, signed_kind, signed_kind], args_gv)
+    [gv_y2, gv_z2, gv_x2] = args_gv
+
+    gv_s2 = builder.genop2("int_sub", gv_y2, gv_z2)
+    gv_t2 = builder.genop2("int_sub", gv_x2, gv_s2)
+    builder.finish_and_return(sigtoken, gv_t2)
+
+    gv_dummyfn = rgenop.gencallableconst(sigtoken, "dummy", entrypoint)
     return gv_dummyfn
 
 def dummy_runner(x, y):
@@ -118,27 +108,25 @@ def make_branching(rgenop):
     # 'if x > 5: return x-1
     #  else:     return y'
     signed_kind = rgenop.kindToken(lltype.Signed)
-    block = rgenop.newblock()
-    gv_x = block.geninputarg(signed_kind)
-    gv_y = block.geninputarg(signed_kind)
-    gv_cond = block.genop2("int_gt", gv_x, rgenop.genconst(5))
-    link_false, link_true = block.close2(gv_cond)
-
-    block2 = rgenop.newblock()
-    gv_one = block2.geninputarg(signed_kind)
-    gv_x2 = block2.geninputarg(signed_kind)
-    gv_y2 = block2.geninputarg(signed_kind)
-    link_true.close([rgenop.genconst(1), gv_x, gv_y], block2)
-
-    gv_s2 = block2.genop2("int_sub", gv_x2, gv_one)
-    link2 = block2.close1()
-    link2.closereturn(gv_s2)
-
-    link_false.closereturn(gv_y)
-
     sigtoken = rgenop.sigToken(FUNC2)
+    builder, entrypoint, [gv_x, gv_y] = rgenop.newgraph(sigtoken)
+    gv_cond = builder.genop2("int_gt", gv_x, rgenop.genconst(5))
+    false_builder = builder.jump_if_false(gv_cond)
+
+    # true path
+    args_gv = [rgenop.genconst(1), gv_x, gv_y]
+    builder.enter_next_block([signed_kind, signed_kind, signed_kind], args_gv)
+    [gv_one, gv_x2, gv_y2] = args_gv
+
+    gv_s2 = builder.genop2("int_sub", gv_x2, gv_one)
+    builder.finish_and_return(sigtoken, gv_s2)
+
+    # false path
+    false_builder.finish_and_return(sigtoken, gv_y)
+
+    # done
     gv_branchingfn = rgenop.gencallableconst(sigtoken,
-                                             "branching", block)
+                                             "branching", entrypoint)
     return gv_branchingfn
 
 def branching_runner(x, y):
@@ -175,3 +163,71 @@ def test_branching_compile():
     assert res == 29
     res = fn(3, 17)
     assert res == 17
+
+# ____________________________________________________________
+
+def make_goto(rgenop):
+    # while x > 0:
+    #     y += x
+    #     x -= 1
+    # return y
+    signed_kind = rgenop.kindToken(lltype.Signed)
+    sigtoken = rgenop.sigToken(FUNC2)
+    builder, entrypoint, [gv_x, gv_y] = rgenop.newgraph(sigtoken)
+
+    # loop start block
+    args_gv = [gv_x, gv_y]
+    loopblock = builder.enter_next_block([signed_kind, signed_kind], args_gv)
+    [gv_x, gv_y] = args_gv
+
+    gv_cond = builder.genop2("int_gt", gv_x, rgenop.genconst(0))
+    bodybuilder = builder.jump_if_true(gv_cond)
+    builder.finish_and_return(sigtoken, gv_y)
+
+    # loop body
+    args_gv = [gv_y, gv_x]
+    bodybuilder.enter_next_block([signed_kind, signed_kind], args_gv)
+    [gv_y, gv_x] = args_gv
+
+    gv_y2 = bodybuilder.genop2("int_add", gv_x, gv_y)
+    gv_x2 = bodybuilder.genop2("int_sub", gv_x, rgenop.genconst(1))
+    bodybuilder.finish_and_goto([gv_x2, gv_y2], loopblock)
+
+    # done
+    gv_gotofn = rgenop.gencallableconst(sigtoken, "goto", entrypoint)
+    return gv_gotofn
+
+def goto_runner(x, y):
+    rgenop = RI386GenOp()
+    gv_gotofn = make_goto(rgenop)
+    gotofn = gv_gotofn.revealconst(lltype.Ptr(FUNC2))
+    res = gotofn(x, y)
+    keepalive_until_here(rgenop)    # to keep the code blocks alive
+    return res
+
+def test_goto_interpret():
+    from pypy.jit.codegen.llgraph.rgenop import rgenop
+    gv_gotofn = make_goto(rgenop)
+    gotofn = gv_gotofn.revealconst(lltype.Ptr(FUNC2))
+    llinterp = LLInterpreter(None)
+    res = llinterp.eval_graph(gotofn._obj.graph, [30, 17])
+    assert res == 31 * 15 + 17
+    res = llinterp.eval_graph(gotofn._obj.graph, [3, 17])
+    assert res == 23
+
+def test_goto_direct():
+    rgenop = RI386GenOp()
+    gv_gotofn = make_goto(rgenop)
+    print gv_gotofn.value
+    fnptr = cast(c_void_p(gv_gotofn.value), CFUNCTYPE(c_int, c_int, c_int))
+    res = fnptr(30, 17)    # <== the segfault is here
+    assert res == 31 * 15 + 17
+    res = fnptr(3, 17)    # <== or here
+    assert res == 23
+
+def test_goto_compile():
+    fn = compile(goto_runner, [int, int], annotatorpolicy=GENOP_POLICY)
+    res = fn(30, 17)
+    assert res == 31 * 15 + 17
+    res = fn(3, 17)
+    assert res == 23

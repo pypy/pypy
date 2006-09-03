@@ -215,6 +215,7 @@ class pseudotuple(object):
 
 def _closelink(link, vars, targetblock):
     if isinstance(link, flowmodel.Link):
+        assert link.target is None     # link already closed
         blockvars = dict.fromkeys(link.prevblock.getvariables())
         for v in vars:
             if isinstance(v, flowmodel.Variable):

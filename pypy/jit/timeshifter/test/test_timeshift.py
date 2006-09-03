@@ -5,9 +5,8 @@ from pypy.jit.hintannotator.bookkeeper import HintBookkeeper
 from pypy.jit.hintannotator.model import *
 from pypy.jit.timeshifter.timeshift import HintTimeshift
 from pypy.jit.timeshifter import rtimeshift, rvalue, rtyper as hintrtyper
-from pypy.jit.llabstractinterp.test.test_llabstractinterp import annotation
-from pypy.jit.llabstractinterp.test.test_llabstractinterp import summary
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.objspace.flow.model import summary
+from pypy.rpython.lltypesystem import lltype, llmemory, rstr
 from pypy.rpython.objectmodel import hint, keepalive_until_here
 from pypy.rpython.unroll import unrolling_iterable
 from pypy.rpython.annlowlevel import PseudoHighLevelCallable
@@ -25,6 +24,14 @@ P_NOVIRTUAL.novirtualcontainer = True
 
 def getargtypes(annotator, values):
     return [annotation(annotator, x) for x in values]
+
+def annotation(a, x):
+    T = lltype.typeOf(x)
+    if T == lltype.Ptr(rstr.STR):
+        t = str
+    else:
+        t = annmodel.lltype_to_annotation(T)
+    return a.typeannotation(t)
 
 def hannotate(func, values, policy=None, inline=None):
     # build the normal ll graphs for ll_function
@@ -103,8 +110,8 @@ class TimeshiftingTests(object):
         #    (True=constant, False=variable) and a value
         #
         graph1 = ha.translator.graphs[0]   # the timeshifted entry point
-        assert len(graph1.getargs()) == 2 + len(values)
-        graph1varargs = graph1.getargs()[2:]
+        assert len(graph1.getargs()) == 1 + len(values)
+        graph1varargs = graph1.getargs()[1:]
         timeshifted_entrypoint_args_s = []
         residual_argtypes = []
         argcolors = []
@@ -131,16 +138,19 @@ class TimeshiftingTests(object):
             graph1)
         timeshifted_entrypoint = PseudoHighLevelCallable(
             timeshifted_entrypoint_fnptr,
-            [htshift.s_ResidualGraphBuilder, htshift.s_JITState]
+            [htshift.s_JITState]
             + timeshifted_entrypoint_args_s,
-            htshift.s_ResidualGraphBuilder)
+            htshift.s_RedBox)
         FUNC = lltype.FuncType(residual_argtypes, RESTYPE)
         argcolors = unrolling_iterable(argcolors)
         self.argcolors = argcolors
 
         def ml_generate_code(rgenop, *args):
             timeshifted_entrypoint_args = ()
-            builder = rtimeshift.make_builder(rgenop)
+
+            sigtoken = rgenop.sigToken(FUNC)
+            builder, entrypoint, inputargs_gv = rgenop.newgraph(sigtoken)
+            i = 0
             for color in argcolors:
                 if color == "green":
                     llvalue = args[0]
@@ -153,20 +163,24 @@ class TimeshiftingTests(object):
                     TYPE = lltype.typeOf(llvalue)
                     kind = rgenop.kindToken(TYPE)
                     boxcls = rvalue.ll_redboxcls(TYPE)
-                    gv_arg = rtimeshift.ll_geninputarg(builder, kind)
                     if is_constant:
-                        # ignore the gv_arg above, which is still present
+                        # ignore the inputargs_gv[i], which is still present
                         # to give the residual graph a uniform signature
                         gv_arg = rgenop.genconst(llvalue)
+                    else:
+                        gv_arg = inputargs_gv[i]
                     box = boxcls(kind, gv_arg)
+                    i += 1
                     timeshifted_entrypoint_args += (box,)
-            startblock = rtimeshift.ll_end_setup_builder(builder)
-            endbuilder = timeshifted_entrypoint(builder, None,
+
+            top_jitstate = rtimeshift.JITState(builder)
+            returnbox = timeshifted_entrypoint(top_jitstate,
                                               *timeshifted_entrypoint_args)
-            endbuilder.finish_and_return()
-            sigtoken = rgenop.sigToken(FUNC)
+            gv_ret = returnbox.getgenvar(top_jitstate.curbuilder)
+            top_jitstate.curbuilder.finish_and_return(sigtoken, gv_ret)
+
             gv_generated = rgenop.gencallableconst(sigtoken, "generated",
-                                                   startblock)
+                                                   entrypoint)
             generated = gv_generated.revealconst(lltype.Ptr(FUNC))
             return generated
 

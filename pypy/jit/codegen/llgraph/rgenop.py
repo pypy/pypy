@@ -1,6 +1,6 @@
 from pypy.rpython.objectmodel import specialize
 from pypy.rpython.lltypesystem import lltype
-from pypy.jit.codegen.model import AbstractRGenOp, CodeGenBlock, CodeGenLink
+from pypy.jit.codegen.model import AbstractRGenOp, CodeGenBlock, CodeGenerator
 from pypy.jit.codegen.model import GenVar, GenConst
 from pypy.jit.codegen.llgraph import llimpl
 from pypy.rpython.lltypesystem.rclass import fishllattr
@@ -33,13 +33,11 @@ class LLBlock(CodeGenBlock):
     def __init__(self, b):
         self.b = b
 
-    def geninputarg(self, gv_TYPE):
-        return LLVar(llimpl.geninputarg(self.b, gv_TYPE.v))
+class LLBuilder(CodeGenerator):
+    lnk = llimpl.nulllink
 
-##    @specialize.arg(1)
-##    def genop(self, opname, vars_gv, gv_RESULT_TYPE=None):
-##        return LLVar(llimpl.genop(self.b, opname, vars_gv,
-##                                  (gv_RESULT_TYPE or gv_Void).v))
+    def __init__(self):
+        self.rgenop = rgenop
 
     @specialize.arg(1)
     def genop1(self, opname, gv_arg):
@@ -100,36 +98,59 @@ class LLBlock(CodeGenBlock):
     def genop_same_as(self, gv_TYPE, gv_value):
         return LLVar(gv_value.v)
 
-    def close1(self):
-        return LLLink(llimpl.closeblock1(self.b))
+    def _newblock(self, kinds):
+        self.b = newb = llimpl.newblock()
+        return [LLVar(llimpl.geninputarg(newb, kind.v)) for kind in kinds]
 
-    def close2(self, gv_exitswitch):
-        l1, l2 = llimpl.closeblock2(self.b, gv_exitswitch.v)
-        return LLLink(l1), LLLink(l2)
+    def enter_next_block(self, kinds, args_gv):
+        lnk = self.lnk or llimpl.closeblock1(self.b)
+        self.lnk = llimpl.nulllink
+        newb_args_gv = self._newblock(kinds) 
+        llimpl.closelink(lnk, args_gv, self.b)
+        for i in range(len(args_gv)):
+            args_gv[i] = newb_args_gv[i]
+        return LLBlock(self.b)
 
+    def finish_and_goto(self, args_gv, targetblock):
+        lnk = self.lnk or llimpl.closeblock1(self.b)
+        self.lnk = llimpl.nulllink
+        llimpl.closelink(lnk, args_gv, targetblock.b)
 
-class LLLink(CodeGenLink):
-    def __init__(self, l):
-        self.l = l
-
-    def close(self, vars_gv, targetblock):
-        llimpl.closelink(self.l, vars_gv, targetblock.b)
-
-    def closereturn(self, gv_returnvar):
-        llimpl.closereturnlink(self.l,
+    def finish_and_return(self, sigtoken, gv_returnvar):
+        lnk = self.lnk or llimpl.closeblock1(self.b)
+        self.lnk = llimpl.nulllink
+        llimpl.closereturnlink(lnk,
                                (gv_returnvar or gv_dummy_placeholder).v)
+
+    def jump_if_true(self, gv_cond):
+        l_false, l_true = llimpl.closeblock2(self.b, gv_cond.v)
+        self.b = llimpl.nullblock
+        later_builder = LLBuilder()
+        later_builder.lnk = l_true
+        self.lnk = l_false
+        return later_builder
+
+    def jump_if_false(self, gv_cond):
+        l_false, l_true = llimpl.closeblock2(self.b, gv_cond.v)
+        self.b = llimpl.nullblock
+        later_builder = LLBuilder()
+        later_builder.lnk = l_false
+        self.lnk = l_true
+        return later_builder
 
 
 class RGenOp(AbstractRGenOp):
     gv_Void = gv_Void
 
-    def newblock(self):
-        return LLBlock(llimpl.newblock())
 
-    # XXX what kind of type/kind information does this need?
+    def newgraph(self, (ARGS_gv, gv_RESULT, gv_FUNCTYPE)):
+        builder = LLBuilder()
+        inputargs_gv = builder._newblock(ARGS_gv)
+        return builder, LLBlock(builder.b), inputargs_gv
+
     def gencallableconst(self, (ARGS_gv, gv_RESULT, gv_FUNCTYPE), name,
-                         targetblock):
-        return LLConst(llimpl.gencallableconst(name, targetblock.b,
+                         entrypoint):
+        return LLConst(llimpl.gencallableconst(name, entrypoint.b,
                                                gv_FUNCTYPE.v))
 
     @staticmethod

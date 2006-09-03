@@ -170,12 +170,12 @@ class VirtualStruct(AbstractContainer):
                               for desc in typedesc.fielddescs]
         #self.ownbox = ... set in ll_factory()
 
-    def enter_block(self, newblock, incoming, memo):
+    def enter_block(self, incoming, memo):
         contmemo = memo.containers
         if self not in contmemo:
             contmemo[self] = None
             for box in self.content_boxes:
-                box.enter_block(newblock, incoming, memo)
+                box.enter_block(incoming, memo)
 
     def force_runtime_container(self, builder):
         typedesc = self.typedesc

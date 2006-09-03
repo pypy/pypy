@@ -1,7 +1,7 @@
 from pypy.rpython.objectmodel import specialize
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.jit.codegen.i386.ri386 import *
-from pypy.jit.codegen.model import AbstractRGenOp, CodeGenBlock, CodeGenLink
+from pypy.jit.codegen.model import AbstractRGenOp, CodeGenBlock, CodeGenerator
 from pypy.jit.codegen.model import GenVar, GenConst
 from pypy.rpython import objectmodel
 from pypy.rpython.annlowlevel import llhelper
@@ -12,19 +12,22 @@ WORD = 4
 class Var(GenVar):
 
     def __init__(self, stackpos):
-        # 'stackpos' is an index relative to the pushed arguments:
-        #   0 = 1st arg,
-        #   1 = 2nd arg,
-        #       ...
-        #       return address,
-        #       local var,       ...
+        # 'stackpos' is an index relative to the pushed arguments
+        # (where N is the number of arguments of the function):
+        #
+        #  0  = last arg
+        #     = ...
+        # N-1 = 1st arg
+        #  N  = return address
+        # N+1 = local var
+        # N+2 = ...
         #       ...              <--- esp+4
         #       local var        <--- esp
         #
         self.stackpos = stackpos
 
-    def operand(self, block):
-        return block.stack_access(self.stackpos)
+    def operand(self, builder):
+        return builder.stack_access(self.stackpos)
 
     def __repr__(self):
         return 'var@%d' % (self.stackpos,)
@@ -60,7 +63,7 @@ class IntConst(GenConst):
     def __init__(self, value):
         self.value = value
 
-    def operand(self, block):
+    def operand(self, builder):
         return imm(self.value)
 
     @specialize.arg(1)
@@ -88,7 +91,7 @@ class AddrConst(GenConst):
     def __init__(self, addr):
         self.addr = addr
 
-    def operand(self, block):
+    def operand(self, builder):
         return imm(llmemory.cast_adr_to_int(self.addr))
 
     @specialize.arg(1)
@@ -107,23 +110,31 @@ class AddrConst(GenConst):
 
 
 class Block(CodeGenBlock):
-    def __init__(self, rgenop, mc):
+
+    def __init__(self, startaddr, arg_positions, stackdepth):
+        self.startaddr = startaddr
+        self.arg_positions = arg_positions
+        self.stackdepth = stackdepth
+
+
+class Builder(CodeGenerator):
+
+    def __init__(self, rgenop, mc, stackdepth):
         self.rgenop = rgenop
-        self.argcount = 0
-        self.stackdepth = 0
+        self.stackdepth = stackdepth
         self.mc = mc
-        self.startaddr = mc.tell()
-        self.fixedposition = False
 
-    def getstartaddr(self):
-        self.fixedposition = True
-        return self.startaddr
+    def _write_prologue(self, sigtoken):
+        numargs = sigtoken     # for now
+        #self.mc.BREAKPOINT()
+        return [Var(pos) for pos in range(numargs-1, -1, -1)]
 
-    def geninputarg(self, kind):
-        res = Var(self.argcount)
-        self.argcount += 1
-        self.stackdepth += 1
-        return res
+    def _close(self):
+        self.rgenop.close_mc(self.mc)
+        self.mc = None
+
+    def _fork(self):
+        return self.rgenop.openbuilder(self.stackdepth)
 
     @specialize.arg(1)
     def genop1(self, opname, gv_arg):
@@ -194,16 +205,44 @@ class Block(CodeGenBlock):
         else:
             return gv_x
 
-    def close1(self):
-        return Link(self)
+    def enter_next_block(self, kinds, args_gv):
+        arg_positions = []
+        seen = {}
+        for i in range(len(args_gv)):
+            gv = args_gv[i]
+            # turn constants into variables; also make copies of vars that
+            # are duplicate in args_gv
+            if not isinstance(gv, Var) or gv.stackpos in seen:
+                gv = args_gv[i] = self.returnvar(gv.operand(self))
+            # remember the var's position in the stack
+            arg_positions.append(gv.stackpos)
+            seen[gv.stackpos] = None
+        return Block(self.mc.tell(), arg_positions, self.stackdepth)
 
-    def close2(self, gv_condition):
-        false_block = self.rgenop.newblock()
-        false_block.stackdepth = self.stackdepth
-        # XXX what if gv_condition is a Const?
+    def jump_if_false(self, gv_condition):
+        targetbuilder = self._fork()
         self.mc.CMP(gv_condition.operand(self), imm8(0))
-        self.mc.JE(rel32(false_block.getstartaddr()))
-        return Link(false_block), Link(self)
+        self.mc.JE(rel32(targetbuilder.mc.tell()))
+        return targetbuilder
+
+    def jump_if_true(self, gv_condition):
+        targetbuilder = self._fork()
+        self.mc.CMP(gv_condition.operand(self), imm8(0))
+        self.mc.JNE(rel32(targetbuilder.mc.tell()))
+        return targetbuilder
+
+    def finish_and_return(self, sigtoken, gv_returnvar):
+        numargs = sigtoken      # for now
+        initialstackdepth = numargs + 1
+        self.mc.MOV(eax, gv_returnvar.operand(self))
+        self.mc.ADD(esp, imm(WORD * (self.stackdepth - initialstackdepth)))
+        self.mc.RET()
+        self._close()
+
+    def finish_and_goto(self, outputargs_gv, targetblock):
+        remap_stack_layout(self, outputargs_gv, targetblock)
+        self.mc.JMP(rel32(targetblock.startaddr))
+        self._close()
 
     # ____________________________________________________________
 
@@ -357,78 +396,74 @@ def gc_malloc(size):
 
 # ____________________________________________________________
 
-class Link(CodeGenLink):
+def remap_stack_layout(builder, outputargs_gv, targetblock):
+    N = targetblock.stackdepth
+    if builder.stackdepth < N:
+        builder.mc.SUB(esp, imm(WORD * (N - builder.stackdepth)))
+        builder.stackdepth = N
 
-    def __init__(self, prevblock):
-        self.prevblock = prevblock
-
-    def closereturn(self, gv_result):
-        block = self.prevblock
-        block.mc.MOV(eax, gv_result.operand(block))
-        block.mc.ADD(esp, imm(WORD * block.stackdepth))
-        block.mc.RET()
-        block.rgenop.close_mc(block.mc)
-
-    def close(self, outputargs_gv, targetblock):
-        block = self.prevblock
-        N = len(outputargs_gv)
-        if block.stackdepth < N:
-            block.mc.SUB(esp, imm(WORD * (N - block.stackdepth)))
-            block.stackdepth = N
-
-        pending_dests = N
-        srccount = [0] * N
-        for i in range(N):
-            gv = outputargs_gv[i]
-            if isinstance(gv, Var):
-                p = gv.stackpos
-                if 0 <= p < N:
-                    if p == i:
-                        srccount[p] = -N     # ignore 'v=v'
-                        pending_dests -= 1
-                    else:
-                        srccount[p] += 1
-
-        while pending_dests:
-            progress = False
-            for i in range(N):
-                if srccount[i] == 0:
-                    srccount[i] = -1
+    M = len(outputargs_gv)
+    arg_positions = targetblock.arg_positions
+    assert M == len(arg_positions)
+    targetlayout = [None] * N
+    srccount = [-N] * N
+    for i in range(M):
+        pos = arg_positions[i]
+        gv = outputargs_gv[i]
+        assert targetlayout[pos] is None
+        targetlayout[pos] = gv
+        srccount[pos] = 0
+    pending_dests = M
+    for i in range(M):
+        gv = outputargs_gv[i]
+        if isinstance(gv, Var):
+            p = gv.stackpos
+            if 0 <= p < N:
+                if p == i:
+                    srccount[p] = -N     # ignore 'v=v'
                     pending_dests -= 1
-                    gv_src = outputargs_gv[i]
-                    if isinstance(gv_src, Var):
-                        p = gv_src.stackpos
-                        if 0 <= p < N:
-                            srccount[p] -= 1
-                    block.mc.MOV(eax, gv_src.operand(block))
-                    block.mc.MOV(block.stack_access(i), eax)
-                    progress = True
-            if not progress:
-                # we are left with only pure disjoint cycles; break them
-                for i in range(N):
-                    if srccount[i] >= 0:
-                        dst = i
-                        block.mc.MOV(edx, block.stack_access(dst))
-                        while True:
-                            assert srccount[dst] == 1
-                            srccount[dst] = -1
-                            pending_dests -= 1
-                            gv_src = outputargs_gv[dst]
-                            assert isinstance(gv_src, Var)
-                            src = gv_src.stackpos
-                            assert 0 <= src < N
-                            if src == i:
-                                break
-                            block.mc.MOV(eax, block.stack_access(src))
-                            block.mc.MOV(block.stack_access(dst), eax)
-                            dst = src
-                        block.mc.MOV(block.stack_access(dst), edx)
-                assert pending_dests == 0
+                else:
+                    srccount[p] += 1
 
-        if block.stackdepth > N:
-            block.mc.ADD(esp, imm(WORD * (block.stackdepth - N)))
-            block.stackdepth = N
-        block.rgenop.close_mc_and_jump(block.mc, targetblock)
+    while pending_dests:
+        progress = False
+        for i in range(N):
+            if srccount[i] == 0:
+                srccount[i] = -1
+                pending_dests -= 1
+                gv_src = targetlayout[i]
+                if isinstance(gv_src, Var):
+                    p = gv_src.stackpos
+                    if 0 <= p < N:
+                        srccount[p] -= 1
+                builder.mc.MOV(eax, gv_src.operand(builder))
+                builder.mc.MOV(builder.stack_access(i), eax)
+                progress = True
+        if not progress:
+            # we are left with only pure disjoint cycles; break them
+            for i in range(N):
+                if srccount[i] >= 0:
+                    dst = i
+                    builder.mc.MOV(edx, builder.stack_access(dst))
+                    while True:
+                        assert srccount[dst] == 1
+                        srccount[dst] = -1
+                        pending_dests -= 1
+                        gv_src = targetlayout[dst]
+                        assert isinstance(gv_src, Var)
+                        src = gv_src.stackpos
+                        assert 0 <= src < N
+                        if src == i:
+                            break
+                        builder.mc.MOV(eax, builder.stack_access(src))
+                        builder.mc.MOV(builder.stack_access(dst), eax)
+                        dst = src
+                    builder.mc.MOV(builder.stack_access(dst), edx)
+            assert pending_dests == 0
+
+    if builder.stackdepth > N:
+        builder.mc.ADD(esp, imm(WORD * (builder.stackdepth - N)))
+        builder.stackdepth = N
 
 
 class RI386GenOp(AbstractRGenOp):
@@ -447,20 +482,16 @@ class RI386GenOp(AbstractRGenOp):
     def close_mc(self, mc):
         self.mcs.append(mc)
 
-    def close_mc_and_jump(self, mc, targetblock):
-        if (targetblock.fixedposition
-            or targetblock.mc.tell() != targetblock.startaddr):
-            mc.JMP(rel32(targetblock.getstartaddr()))
-            self.close_mc(mc)
-        else:
-            # bring the targetblock here, instead of jumping to it
-            self.close_mc(targetblock.mc)
-            targetblock.mc = mc
-            targetblock.startaddr = mc.tell()
-            targetblock.fixedposition = True
+    def openbuilder(self, stackdepth):
+        return Builder(self, self.open_mc(), stackdepth)
 
-    def newblock(self):
-        return Block(self, self.open_mc())
+    def newgraph(self, sigtoken):
+        numargs = sigtoken          # for now
+        initialstackdepth = numargs+1
+        builder = self.openbuilder(initialstackdepth)
+        entrypoint = builder.mc.tell()
+        inputargs_gv = builder._write_prologue(sigtoken)
+        return builder, entrypoint, inputargs_gv
 
     @staticmethod
     @specialize.genconst(0)
@@ -500,18 +531,10 @@ class RI386GenOp(AbstractRGenOp):
     @staticmethod
     @specialize.memo()
     def sigToken(FUNCTYPE):
-        return None     # for now
+        return len(FUNCTYPE.ARGS)     # for now
 
     constPrebuiltGlobal = genconst
 
 
-    def gencallableconst(self, sigtoken, name, block):
-        prologue = self.newblock()
-        #prologue.mc.BREAKPOINT()
-        # re-push the arguments so that they are after the return value
-        # and in the correct order
-        for i in range(block.argcount):
-            operand = mem(esp, WORD * (2*i+1))
-            prologue.mc.PUSH(operand)
-        self.close_mc_and_jump(prologue.mc, block)
-        return IntConst(prologue.getstartaddr())
+    def gencallableconst(self, sigtoken, name, entrypointaddr):
+        return IntConst(entrypointaddr)

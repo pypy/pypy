@@ -38,12 +38,11 @@ class RedBox(object):
     def getgenvar(self, builder):
         return self.genvar
 
-    def enter_block(self, newblock, incoming, memo):
+    def enter_block(self, incoming, memo):
         memo = memo.boxes
         if not self.is_constant() and self not in memo:
-            incoming.append(self.genvar)
+            incoming.append(self)
             memo[self] = None
-            self.genvar = newblock.geninputarg(self.kind)
 
     def forcevar(self, builder, memo):
         if self.is_constant():
@@ -212,11 +211,11 @@ class PtrRedBox(RedBox):
             assert self.genvar
         return self.genvar
 
-    def enter_block(self, newblock, incoming, memo):
+    def enter_block(self, incoming, memo):
         if self.content:
-            self.content.enter_block(newblock, incoming, memo)
+            self.content.enter_block(incoming, memo)
         else:
-            RedBox.enter_block(self, newblock, incoming, memo)
+            RedBox.enter_block(self, incoming, memo)
 
 # ____________________________________________________________
 
