@@ -5,11 +5,12 @@ import autopath
 
 #from pypy.translator.js.test.runtest import compile_function
 #from pypy.translator.translator import TranslationContext
-from pypy.translator.driver import TranslationDriver, _default_options
+from pypy.translator.driver import TranslationDriver, DEFAULT_OPTIONS
 from pypy.translator.js.js import JS
 from pypy.tool.error import AnnotatorError, FlowingError, debug
 from pypy.rpython.nonconst import NonConstant
 from pypy.annotation.policy import AnnotatorPolicy
+import optparse
 
 class FunctionNotFound(Exception):
     pass
@@ -53,7 +54,7 @@ def rpython2javascript(mod, function_names, use_debug=True):
     exec(source_ssf) in globals()
     #fn = compile_function([mod.__dict__[f_name] for f_name in function_names], [[] for i in function_names])
     # now we gonna just cut off not needed function
-    options = _default_options.copy()
+    options = optparse.Values(defaults=DEFAULT_OPTIONS)
     options.debug_transform = use_debug
     driver = TranslationDriver(options=options)
     try:
