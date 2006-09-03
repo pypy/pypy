@@ -32,7 +32,10 @@ class BasicTransformer(object):
             if isinstance(arg, (model.Constant, model.Variable)):
                 real_args.append(arg)
             else:
-                arg_example, is_constant = arg
+                if isinstance(arg, tuple):
+                    arg_example, is_constant = arg
+                else:
+                    arg_example, is_constant = arg, True
                 if is_constant:
                     real_args.append(model.Constant(arg_example, concretetype=bk.immutablevalue(arg_example)))
                 else:

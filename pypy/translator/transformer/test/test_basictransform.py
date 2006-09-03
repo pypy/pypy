@@ -14,12 +14,14 @@ def transform_function(transformerclass, fun, annotation=[], specialize=True,
     t = TranslationContext()
     annotator = t.buildannotator()
     annotator.build_types(fun, annotation)
-    tran = transformerclass(t)
-    tran.transform_all()
     
     if conftest.option.view:
         t.view()
-    
+
+    tran = transformerclass(t)
+    tran.transform_all()
+    annotator.simplify()
+
     t.buildrtyper(type_system=type_system).specialize()
     
     if conftest.option.view:
@@ -77,10 +79,10 @@ def test_change_startblock():
 
 class ClassHelper(object):
     def __init__(self):
-        self.i = 0
+        self.i = 3
     
     def method(self):
-        self.i = 8
+        self.i += 8
 
 helper_instance = ClassHelper()
 
@@ -111,7 +113,7 @@ def test_method_helper():
     
     t = transform_function(HelperTransformer, helper_call_fun)
     res = interp_fun(t, helper_call_fun)
-    assert res == 8
+    assert res == 11
 
 
 ##def test_transform():
