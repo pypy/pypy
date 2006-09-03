@@ -3,6 +3,7 @@ from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.simplify import get_graph, transform_dead_op_vars
 from pypy.objspace.flow.model import traverse, Block
+from pypy import conftest
 
 def translate(func, argtypes, backend_optimize=True):
     t = TranslationContext()
@@ -187,3 +188,26 @@ def test_transform_dead_op_vars_bug():
     interp = LLInterpreter(t.rtyper)
     e = py.test.raises(LLException, 'interp.eval_graph(graph, [])')
     assert 'ValueError' in str(e)
+
+def test_detect_list_comprehension():
+    def f1(l):
+        return [x*17 for x in l]
+
+    t = TranslationContext(list_comprehension_operations=True)
+    graph = t.buildflowgraph(f1)
+    if conftest.option.view:
+        graph.show()
+    insns = {}
+    for block in graph.iterblocks():
+        for op in block.operations:
+            insns[op.opname] = insns.get(op.opname, 0) + 1
+    assert insns == {
+        'iter': 1,
+        'len':  1,
+        'newlistbuilder': 1,
+        'next': 1,
+        'mul':  1,
+        'getattr': 1,
+        'simple_call': 1,
+        'listbuilder_done': 1,
+        }

@@ -706,7 +706,318 @@ def coalesce_is_true(graph):
         newtgts = has_is_true_exitpath(cand)
         if newtgts:
             candidates.append((cand, newtgts))
-            
+
+# ____________________________________________________________
+
+def detect_list_comprehension(graph):
+    """Look for the pattern:             Replace it with marker operations:
+
+         v1 = newlist()                   v0 = newlistbuilder(length)
+         loop start                       loop start
+         ...                              ...
+         exactly one append per loop      v0.append(..)
+         and nothing else done with v1
+         ...                              ...
+         loop end                         v1 = listbuilder_done(v0)
+    """
+    # NB. this assumes RPythonicity: we can only iterate over something
+    # that has a len(), and this len() cannot change as long as we are
+    # using the iterator.
+    from pypy.translator.backendopt.ssa import DataFlowFamilyBuilder
+    builder = DataFlowFamilyBuilder(graph)
+    variable_families = builder.get_variable_families()
+    c_append = Constant('append')
+    newlist_v = {}
+    iter_v = {}
+    append_v = []
+    loopnextblocks = []
+
+    # collect relevant operations based on the family of their result
+    for block in graph.iterblocks():
+        if (len(block.operations) == 1 and
+            block.operations[0].opname == 'next' and
+            block.exitswitch == c_last_exception and
+            len(block.exits) == 2 and
+            block.exits[1].exitcase is StopIteration and
+            block.exits[0].exitcase is None):
+            # it's a straightforward loop start block
+            loopnextblocks.append((block, block.operations[0].args[0]))
+            continue
+        for op in block.operations:
+            if op.opname == 'newlist' and not op.args:
+                vlist = variable_families.find_rep(op.result)
+                newlist_v[vlist] = block
+            if op.opname == 'iter':
+                viter = variable_families.find_rep(op.result)
+                iter_v[viter] = block
+    loops = []
+    for block, viter in loopnextblocks:
+        viterfamily = variable_families.find_rep(viter)
+        if viterfamily in iter_v:
+            # we have a next(viter) operation where viter comes from a
+            # single known iter() operation.  Check that the iter()
+            # operation is in the block just before.
+            iterblock = iter_v[viterfamily]
+            if (len(iterblock.exits) == 1 and iterblock.exitswitch is None
+                and iterblock.exits[0].target is block):
+                # yes - simple case.
+                loops.append((block, iterblock, viterfamily))
+    if not newlist_v or not loops:
+        return
+
+    # XXX works with Python 2.4 only: find calls to append encoded as
+    # getattr/simple_call pairs
+    for block in graph.iterblocks():
+        for i in range(len(block.operations)-1):
+            op = block.operations[i]
+            if op.opname == 'getattr' and op.args[1] == c_append:
+                vlist = variable_families.find_rep(op.args[0])
+                if vlist in newlist_v:
+                    op2 = block.operations[i+1]
+                    if (op2.opname == 'simple_call' and len(op2.args) == 2
+                        and op2.args[0] is op.result):
+                        append_v.append((op.args[0], op.result, block))
+    if not append_v:
+        return
+    detector = ListComprehensionDetector(graph, loops, newlist_v,
+                                         variable_families)
+    for location in append_v:
+        try:
+            detector.run(*location)
+        except DetectorFailed:
+            pass
+
+
+class DetectorFailed(Exception):
+    pass
+
+class ListComprehensionDetector(object):
+
+    def __init__(self, graph, loops, newlist_v, variable_families):
+        self.graph = graph
+        self.loops = loops
+        self.newlist_v = newlist_v
+        self.variable_families = variable_families
+
+    def enum_blocks_from(self, fromblock, avoid):
+        found = {avoid: True}
+        pending = [fromblock]
+        while pending:
+            block = pending.pop()
+            if block in found:
+                continue
+            yield block
+            found[block] = True
+            for exit in block.exits:
+                pending.append(exit.target)
+
+    def enum_reachable_blocks(self, fromblock, stop_at):
+        if fromblock is stop_at:
+            return
+        found = {stop_at: True}
+        pending = [fromblock]
+        while pending:
+            block = pending.pop()
+            if block in found:
+                continue
+            found[block] = True
+            for exit in block.exits:
+                yield exit.target
+                pending.append(exit.target)
+
+    def reachable(self, fromblock, toblock, avoid):
+        if toblock is avoid:
+            return False
+        for block in self.enum_reachable_blocks(fromblock, avoid):
+            if block is toblock:
+                return True
+        return False
+
+    def vlist_alive(self, block):
+        # check if 'block' is in the "cone" of blocks where
+        # the vlistfamily lives
+        try:
+            return self.vlistcone[block]
+        except KeyError:
+            result = bool(self.contains_vlist(block.inputargs))
+            self.vlistcone[block] = result
+            return result
+
+    def vlist_escapes(self, block):
+        # check if the vlist "escapes" to uncontrolled places in that block
+        try:
+            return self.escapes[block]
+        except KeyError:
+            for op in block.operations:
+                if op.result is self.vmeth:
+                    continue       # the single getattr(vlist, 'append') is ok
+                if op.opname == 'getitem':
+                    continue       # why not allow getitem(vlist, index) too
+                if self.contains_vlist(op.args):
+                    result = True
+                    break
+            else:
+                result = False
+            self.escapes[block] = result
+            return result
+
+    def contains_vlist(self, args):
+        for arg in args:
+            if self.variable_families.find_rep(arg) is self.vlistfamily:
+                return arg
+        else:
+            return None
+
+    def remove_vlist(self, args):
+        removed = 0
+        for i in range(len(args)-1, -1, -1):
+            arg = self.variable_families.find_rep(args[i])
+            if arg is self.vlistfamily:
+                del args[i]
+                removed += 1
+        assert removed == 1
+
+    def run(self, vlist, vmeth, appendblock):
+        # first check that the 'append' method object doesn't escape
+        for op in appendblock.operations:
+            if op.opname == 'simple_call' and op.args[0] is vmeth:
+                pass
+            elif vmeth in op.args:
+                raise DetectorFailed      # used in another operation
+        for link in appendblock.exits:
+            if vmeth in link.args:
+                raise DetectorFailed      # escapes to a next block
+
+        self.vmeth = vmeth
+        self.vlistfamily = self.variable_families.find_rep(vlist)
+        newlistblock = self.newlist_v[self.vlistfamily]
+        self.vlistcone = {newlistblock: True}
+        self.escapes = {self.graph.returnblock: True,
+                        self.graph.exceptblock: True}
+
+        # in which loop are we?
+        for loopnextblock, iterblock, viterfamily in self.loops:
+            # check that the vlist is alive across the loop head block,
+            # which ensures that we have a whole loop where the vlist
+            # doesn't change
+            if not self.vlist_alive(loopnextblock):
+                continue      # no - unrelated loop
+
+            # check that we cannot go from 'newlist' to 'append' without
+            # going through the 'iter' of our loop (and the following 'next').
+            # This ensures that the lifetime of vlist is cleanly divided in
+            # "before" and "after" the loop...
+            if self.reachable(newlistblock, appendblock, avoid=iterblock):
+                continue
+
+            # ... with the possible exception of links from the loop
+            # body jumping back to the loop prologue, between 'newlist' and
+            # 'iter', which we must forbid too:
+            if self.reachable(loopnextblock, iterblock, avoid=newlistblock):
+                continue
+
+            # there must not be a larger number of calls to 'append' than
+            # the number of elements that 'next' returns, so we must ensure
+            # that we cannot go from 'append' to 'append' again without
+            # passing 'next'...
+            if self.reachable(appendblock, appendblock, avoid=loopnextblock):
+                continue
+
+            # ... and when the iterator is exhausted, we should no longer
+            # reach 'append' at all.
+            assert loopnextblock.exits[1].exitcase is StopIteration
+            stopblock = loopnextblock.exits[1].target
+            if self.reachable(stopblock, appendblock, avoid=newlistblock):
+                continue
+
+            # now explicitly find the "loop body" blocks: they are the ones
+            # from which we can reach 'append' without going through 'iter'.
+            # (XXX inefficient)
+            loopbody = {}
+            for block in self.graph.iterblocks():
+                if (self.vlist_alive(block) and
+                    self.reachable(block, appendblock, iterblock)):
+                    loopbody[block] = True
+
+            # if the 'append' is actually after a 'break' or on a path that
+            # can only end up in a 'break', then it won't be recorded as part
+            # of the loop body at all.  This is a strange case where we have
+            # basically proved that the list will be of length 1...  too
+            # uncommon to worry about, I suspect
+            if appendblock not in loopbody:
+                continue
+
+            # This candidate loop is acceptable if the list is not escaping
+            # too early, i.e. in the loop header or in the loop body.
+            loopheader = list(self.enum_blocks_from(newlistblock,
+                                                    avoid=loopnextblock))
+            escapes = False
+            for block in loopheader + loopbody.keys():
+                assert self.vlist_alive(block)
+                if self.vlist_escapes(block):
+                    escapes = True
+                    break
+
+            if not escapes:
+                break      # accept this loop!
+
+        else:
+            raise DetectorFailed      # no suitable loop
+
+        # Found a suitable loop, let's patch the graph:
+
+        # - remove newlist()
+        for op in newlistblock.operations:
+            if op.opname == 'newlist':
+                res = self.variable_families.find_rep(op.result)
+                if res is self.vlistfamily:
+                    newlistblock.operations.remove(op)
+                    break
+        else:
+            raise AssertionError("bad newlistblock")
+
+        # - remove the vlist variable from all blocks of the loop header,
+        #   up to the iterblock
+        for block in loopheader:
+            if block is not newlistblock:
+                self.remove_vlist(block.inputargs)
+            if block is not iterblock:
+                for link in block.exits:
+                    self.remove_vlist(link.args)
+
+        # - add a newlistbuilder() in the iterblock, where we can compute
+        #   the known maximum length
+        vlist = self.contains_vlist(iterblock.exits[0].args)
+        assert vlist
+        for op in iterblock.operations:
+            res = self.variable_families.find_rep(op.result)
+            if res is viterfamily:
+                break
+        else:
+            raise AssertionError("lost 'iter' operation")
+        vlength = Variable('maxlength')
+        iterblock.operations += [
+            SpaceOperation('len', [op.args[0]], vlength),
+            SpaceOperation('newlistbuilder', [vlength], vlist)]
+
+        # - wherever the list exits the loop body, add a 'listbuilder_done'
+        from pypy.translator.unsimplify import insert_empty_block
+        for block in loopbody:
+            for link in block.exits:
+                if link.target not in loopbody:
+                    vlist = self.contains_vlist(link.args)
+                    if vlist is None:
+                        continue  # list not passed along this link anyway
+                    newblock = insert_empty_block(None, link)
+                    index = link.args.index(vlist)
+                    vlist2 = newblock.inputargs[index]
+                    vlist3 = Variable('listbuilder')
+                    newblock.inputargs[index] = vlist3
+                    newblock.operations.append(
+                        SpaceOperation('listbuilder_done', [vlist3], vlist2))
+        # done!
+
+
 # ____ all passes & simplify_graph
 
 all_passes = [

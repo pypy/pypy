@@ -7,7 +7,7 @@ translator; see pypy/bin/translatorshell.py.
 import autopath, os, sys, types, copy
 
 from pypy.objspace.flow.model import *
-from pypy.translator.simplify import simplify_graph
+from pypy.translator import simplify
 from pypy.objspace.flow import FlowObjSpace
 from pypy.tool.ansi_print import ansi_log
 from pypy.tool.sourcetools import nice_repr_for_func
@@ -21,6 +21,7 @@ class TranslationContext(object):
         'simplifying': True,
         'do_imports_immediately': True,
         'builtins_can_raise_exceptions': False,
+        'list_comprehension_operations': False,
         }
 
     def __init__(self, **flowing_flags):
@@ -53,7 +54,9 @@ class TranslationContext(object):
                 self.annotator.policy._adjust_space_config(space)
             graph = space.build_flow(func)
             if self.flags.get('simplifying'):
-                simplify_graph(graph)
+                simplify.simplify_graph(graph)
+            if self.flags.get('list_comprehension_operations'):
+                simplify.detect_list_comprehension(graph)
             if self.flags.get('verbose'):
                 log.done(func.__name__)
             self.graphs.append(graph)   # store the graph in our list
