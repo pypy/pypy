@@ -46,6 +46,7 @@ class __extend__(annmodel.SomeList):
                         lambda: rtyper.getrepr(listitem.s_value), listitem)
 
     def rtyper_makekey(self):
+        self.listdef.listitem.dont_change_any_more = True
         return self.__class__, self.listdef.listitem
 
 

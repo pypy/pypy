@@ -39,6 +39,8 @@ class __extend__(annmodel.SomeDict):
                                                      custom_eq_hash)
 
     def rtyper_makekey(self):
+        self.dictdef.dictkey  .dont_change_any_more = True
+        self.dictdef.dictvalue.dont_change_any_more = True
         return (self.__class__, self.dictdef.dictkey, self.dictdef.dictvalue)
 
 
