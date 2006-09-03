@@ -26,6 +26,8 @@ class ListItem:
         self.bookkeeper = bookkeeper
         self.itemof = {}  # set of all ListDefs using this ListItem
         self.read_locations = {}
+        if bookkeeper is None:
+            self.dont_change_any_more = True
 
     def mutate(self):
         if not self.mutated:
@@ -73,8 +75,11 @@ class ListItem:
             s_value = self.s_value
             s_other_value = other.s_value
             s_new_value = unionof(s_value, s_other_value)
-            if isdegenerated(s_new_value) and self.bookkeeper:
-                self.bookkeeper.ondegenerated(self, s_new_value)
+            if isdegenerated(s_new_value):
+                if self.bookkeeper:
+                    self.bookkeeper.ondegenerated(self, s_new_value)
+                elif other.bookkeeper:
+                    other.bookkeeper.ondegenerated(other, s_new_value)
             if s_new_value != s_value:
                 if self.dont_change_any_more:
                     raise TooLateForChange
@@ -85,7 +90,7 @@ class ListItem:
             if s_new_value != s_other_value:
                 # reflow from reading points
                 for position_key in other_read_locations:
-                    self.bookkeeper.annotator.reflowfromposition(position_key) 
+                    other.bookkeeper.annotator.reflowfromposition(position_key)
 
     def patch(self):
         for listdef in self.itemof:
@@ -111,8 +116,11 @@ class ListDef:
     list have to be.  Every list creation makes a new ListDef, and the union
     of two lists merges the ListItems that each ListDef stores."""
 
-    def __init__(self, bookkeeper, s_item=s_ImpossibleValue):
+    def __init__(self, bookkeeper, s_item=s_ImpossibleValue,
+                 mutated=False, resized=False):
         self.listitem = ListItem(bookkeeper, s_item)
+        self.listitem.mutated = mutated | resized
+        self.listitem.resized = resized
         self.listitem.itemof[self] = True
         self.bookkeeper = bookkeeper
 
@@ -174,5 +182,4 @@ class ListDef:
 
 MOST_GENERAL_LISTDEF = ListDef(None, SomeObject())
 
-s_list_of_strings = SomeList(ListDef(None, SomeString()))
-s_list_of_strings.listdef.resize()
+s_list_of_strings = SomeList(ListDef(None, SomeString(), resized = True))
