@@ -60,5 +60,13 @@ class Benchmark(object):
         prefix = self.name
         if prefix:
             prefix += ': '
-        os.write(1, '{%s%f iterations/second}\n' % (prefix,
-                                                    iterations / elapsed))
+        result = iterations / elapsed
+        if result <= 1000:
+            s = '%f' % result
+        else:
+            s = '%d' % int(result)
+            i = len(s)-3
+            while i > 0:
+                s = s[:i] + "'" + s[i:]
+                i -= 3
+        os.write(1, '{%s%s iterations/second}\n' % (prefix, s))
