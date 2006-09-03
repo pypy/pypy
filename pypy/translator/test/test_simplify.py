@@ -2,7 +2,7 @@ import py
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.simplify import get_graph, transform_dead_op_vars
-from pypy.objspace.flow.model import traverse, Block
+from pypy.objspace.flow.model import traverse, Block, summary
 from pypy import conftest
 
 def translate(func, argtypes, backend_optimize=True):
@@ -197,11 +197,7 @@ def test_detect_list_comprehension():
     graph = t.buildflowgraph(f1)
     if conftest.option.view:
         graph.show()
-    insns = {}
-    for block in graph.iterblocks():
-        for op in block.operations:
-            insns[op.opname] = insns.get(op.opname, 0) + 1
-    assert insns == {
+    assert summary(graph) == {
         'iter': 1,
         'len':  1,
         'newlistbuilder': 1,
