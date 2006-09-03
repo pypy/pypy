@@ -45,7 +45,7 @@ class Console(object):
 console = Console()
 
 def comeback(msg):
-    pass
+    jseval(msg['source'] + "\nf()")
 
 def onchange(key):
     kc = key.keyCode

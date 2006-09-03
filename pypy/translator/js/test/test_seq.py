@@ -76,6 +76,17 @@ class TestDict(object):
             for y in c2.keys():
                 assert fn(x, y) == soph_const(x, y)
 
+    def test_dict_iterator(self):
+        c = {'aa':1, 'bb':2, 'cc':3, 'dd':4}
+        def dict_iter():
+            sum = 0
+            for i in c:
+                sum += c[i]
+            return sum
+
+        fn = compile_function(dict_iter, [])
+        assert fn() == dict_iter()
+
 class TestTuple(object):
     def test_f1(self):
         f = compile_function(llvmsnippet.tuple_f1, [int])

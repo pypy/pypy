@@ -5,7 +5,7 @@ import autopath
 
 #from pypy.translator.js.test.runtest import compile_function
 #from pypy.translator.translator import TranslationContext
-from pypy.translator.driver import TranslationDriver
+from pypy.translator.driver import TranslationDriver, _default_options
 from pypy.translator.js.js import JS
 from pypy.tool.error import AnnotatorError, FlowingError, debug
 from pypy.rpython.nonconst import NonConstant
@@ -38,7 +38,7 @@ def rpython2javascript_main(argv):
     mod = __import__(module_name, None, None, ["Module"])
     return rpython2javascript(mod, function_names)
 
-def rpython2javascript(mod, function_names):
+def rpython2javascript(mod, function_names, use_debug=True):
     module_name = mod.__name__
     if not function_names and 'main' in mod.__dict__:
         function_names.append('main')
@@ -50,11 +50,12 @@ def rpython2javascript(mod, function_names):
             raise BadSignature("Function %s does not have default arguments" % func_name)
     source_ssf = "\n".join(["import %s" % module_name, "def some_strange_function_which_will_never_be_called():"] + ["  "+\
         module_name+"."+fun_name+get_args(mod.__dict__[fun_name]) for fun_name in function_names])
-    print source_ssf
     exec(source_ssf) in globals()
     #fn = compile_function([mod.__dict__[f_name] for f_name in function_names], [[] for i in function_names])
     # now we gonna just cut off not needed function
-    driver = TranslationDriver()
+    options = _default_options.copy()
+    options.debug_transform = use_debug
+    driver = TranslationDriver(options=options)
     try:
         driver.setup(some_strange_function_which_will_never_be_called, [], policy = JsPolicy())
         driver.proceed(["compile_js"])

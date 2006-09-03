@@ -34,7 +34,8 @@ def _path_join(root_path, *paths):
     return path
 
 class JS(GenOO):
-    def __init__(self, translator, functions=[], stackless=False, compress=False, logging=False):
+    def __init__(self, translator, functions=[], stackless=False, compress=False, \
+            logging=False, use_debug=False):
         backend_mapping = {
             'type_system_class' : JTS,
             'opcode_dict' : opcodes,
@@ -49,6 +50,7 @@ class JS(GenOO):
             translator.annotator.bookkeeper.getdesc(f).cachedgraph(None) for f in functions ])
         self.translator = translator
         self.db.translator = translator
+        self.use_debug = use_debug
     
     def gen_pendings(self):
         while self.db._pending_nodes:

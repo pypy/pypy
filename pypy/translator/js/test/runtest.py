@@ -12,6 +12,7 @@ from pypy.translator.js import conftest
 from pypy.translator.js.log import log
 from pypy.conftest import option
 from pypy.rpython.test.tool import BaseRtypingTest, OORtypeMixin
+from pypy.translator.transformer.debug import DebugTransformer
 
 log = log.runtest
 use_browsertest = conftest.option.browser
@@ -27,16 +28,18 @@ def _CLI_is_on_path():
     return True
 
 class compile_function(object):
-    def __init__(self, functions, annotations, stackless=False, view=False, html=None, is_interactive=False, root = None, run_browser = True):
+    def __init__(self, functions, annotations, stackless=False, view=False, html=None, is_interactive=False, root = None, run_browser = True, debug_transform = False):
         if not use_browsertest and not _CLI_is_on_path():
             py.test.skip('Javascript CLI (js) not found')
 
         self.html = html
         self.is_interactive = is_interactive
         t = TranslationContext()
-        t.buildannotator().build_types(functions, annotations)
+        ann = t.buildannotator()
+        ann.build_types(functions, annotations)
+        if debug_transform:
+            DebugTransformer(t).transform_all()
         t.buildrtyper(type_system="ootype").specialize()
-        #print t.rtyper
 
         #backend_optimizations(t, raisingop2direct_call_all=True, inline_threshold=0, mallocs=False)
         #backend_optimizations(t)

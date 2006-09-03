@@ -36,12 +36,11 @@ class ConsoleRoot(BasicExternal, Root):
     def run_command(self, str_to_eval = "aa"):
         # we need what has changed
         # we try to run it...
-        
         lines = str_to_eval.split("<br>")
         for num, line in enumerate(lines):
             if not line.startswith(" "):
                 lines[num] = "    " + line
-        all_text = "\n".join(["def f():"] + lines[:-1])
+        all_text = "\n".join(["def f():"] + lines)
         print all_text
         try:
             exec(all_text)
