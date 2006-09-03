@@ -9,6 +9,9 @@ from pypy.jit.llabstractinterp.llabstractinterp import LLAbstractInterp, Policy
 from pypy.objspace.flow import model as flowmodel
 from pypy.rpython import objectmodel
 
+# one day maybe
+py.test.skip("XXX need to be ported to the newer rgenop interface")
+
 def annotation(a, x):
     T = lltype.typeOf(x)
     if T == lltype.Ptr(rstr.STR):
