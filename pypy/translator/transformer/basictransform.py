@@ -6,7 +6,7 @@ from pypy.translator import unsimplify, simplify
 from pypy.translator.unsimplify import varoftype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow import model
-from pypy.translator.js.helper import main_exception_helper, ExceptionHelper
+#from pypy.translator.js.helper import main_exception_helper, ExceptionHelper
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem import rclass
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
