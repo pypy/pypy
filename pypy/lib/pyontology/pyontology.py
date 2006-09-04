@@ -5,7 +5,7 @@ from logilab.constraint.propagation import AbstractDomain, AbstractConstraint,\
        ConsistencyFailure
 from constraint_classes import *
 import sys, py
-import time
+import datetime, time
 from urllib2 import URLError
 log = py.log.Producer("Pyontology")
 from pypy.tool.ansi_print import ansi_log
@@ -114,9 +114,11 @@ class ClassDomain(AbstractDomain, object):
                     self.domains.update(dom)
                     self.in_constraint.extend(constraints)
             # update the store
-            if ('owl_Thing' in variables.keys() and isinstance(self, ClassDomain)
-                 and  self.getValues() == []):
-                variables[self.name].setValues(variables['owl_Thing'].getValues())
+            if prop:
+                variables[self.name].setValues([v[0] for v in prop.getValues()])
+            elif ('owl_Thing' in variables.keys() and isinstance(self, ClassDomain)
+                 and  self.size() == 0):
+                variables[self.name].setValues(list(variables['owl_Thing'].getValues()))
 #                log.finish("setting the domain %s to all individuals %r"%(self.name,variables[self.name]))
             variables.update(self.domains)
             glob_constraints.extend(self.in_constraint)
@@ -124,13 +126,16 @@ class ClassDomain(AbstractDomain, object):
         return self.domains, self.un_constraint
             
     def __repr__(self):
-        return "<%s %s %r>" % (self.__class__, str(self.name), self.getValues())
-    
+        return "<%s %s>" % (self.__class__, str(self.name))
+
+    def __contains__(self,  item): 
+        return item in self.values
+
     def copy(self):
         return self
     
     def size(self):
-        return len(self.getValues())
+        return len(self.values)
     
     def removeValues(self, values):
         for val in values:
@@ -142,7 +147,7 @@ class ClassDomain(AbstractDomain, object):
             self.values.pop(value)
         if not self.values:
             log.removeValue("Removed the lastvalue of the Domain")
-            raise ConsistencyFailure
+            raise ConsistencyFailure("Removed the lastvalue of the Domain")
  
     def getBases(self):
         return self._bases
@@ -157,7 +162,8 @@ class ClassDomain(AbstractDomain, object):
         self.values[value] = True
 
     def getValues(self):
-        return self.values.keys()
+        for key in self.values:
+            yield key
         
     def __iter__(self):
         return iter(self.values.keys())
@@ -172,7 +178,10 @@ class FixedClassDomain(ClassDomain):
     fixed = True
  
     def removeValues(self, values):
-        pass #raise ConsistencyFailure
+        raise ConsistencyFailure("Cannot remove values from a FixedClassDomain")
+
+    def removeValue(self, value):
+        raise ConsistencyFailure("Cannot remove values from a FixedClassDomain")
 
     def setValues(self, values):
         if not self.values:
@@ -215,17 +224,15 @@ class List(ClassDomain):
     def __init__(self, name='', values=[], bases = []):
         ClassDomain.__init__(self, name, values, bases)
 
-class Property(ClassDomain):
+class Property(Individual): #ClassDomain):
     # Property contains the relationship between a class instance and a value
     # - a pair. To accomodate global assertions like 'range' and 'domain' attributes
     # for range and domain must be filled in by rdfs:range and rdfs:domain
     
-    def __init__(self, name='', values=[], bases = []):
-        AbstractDomain.__init__(self)
+    def __init__(self, name='', uri='', values=[], bases = []):
+        Individual.__init__(self, name, uri, values, bases)
         self.name = name
         self._dict = {}
-        self.range = []
-        self.domain = []
         self.property = None
         self.constraint = []
         self.un_constraint = []
@@ -237,15 +244,14 @@ class Property(ClassDomain):
         return var, constraints
     
     def size(self):
-        return len(self.getValues())
+        return len(self._dict)
             
     def getValues(self):
         items = self._dict.items()
         res = []
         for k,vals in items:
             for v in vals:
-                res.append((k,v))
-        return res
+                yield (k,v)
 
     def getValuesPrKey(self, key= None):
         if key:
@@ -360,6 +366,16 @@ class Restriction(ClassDomain):
         ClassDomain.__init__(self, name, values, bases)
         self.property = None
 
+def Types(typ):
+    class Type(ClassDomain):
+ 
+        def __contains__(self, item):
+            #assert isinstance(item, Literal)
+            return item.datatype is None or item.datatype == self.Type
+
+    datatype = Type
+    datatype.Type = typ
+    return datatype
 
 builtin_voc = {
                getUriref('owl', 'Thing') : Thing,
@@ -381,8 +397,13 @@ builtin_voc = {
                getUriref('owl', 'SymmetricProperty') : SymmetricProperty,
                getUriref('owl', 'TransitiveProperty') : TransitiveProperty,
                getUriref('rdf', 'List') : List,
-#               getUriref('xmlschema', 'string') : str
               }
+
+XMLTypes = ['string', 'float', 'integer', 'date']
+
+for typ in XMLTypes:
+    uri = getUriref('xmlschema', typ)
+    builtin_voc[uri] = Types(uri)
 
 class Ontology:
     
@@ -421,7 +442,6 @@ class Ontology:
         log("=============================")
 
     def finish(self):
-        t0 = time.time()
         for constraint in self.constraints:
             log.exception("Trying %r" %constraint)
             for key in constraint.affectedVariables():
@@ -429,10 +449,7 @@ class Ontology:
                 if isinstance( self.variables[key], fd):
                     continue
                 self.variables[key].finish(self.variables, self.constraints)
-                t1 = time.time()
             constraint.narrow(self.variables)
-            t2 = time.time()
-            t0 = time.time()
     
     def consider_triple(self,(s, p, o)):
         if (s, p, o) in self.seen:
@@ -510,7 +527,7 @@ class Ontology:
         elif not cls == self.variables[var].__class__ and issubclass(cls, self.variables[var].__class__):
             vals = self.variables[var].getValues()
             tmp = cls(var, a)
-            tmp.setValues(vals)
+            tmp.setValues(list(vals))
             tmp.property = self.variables[var].property
             if tmp.constraint:
                 log("make_var constraint 2 %r,%r" %(cls,a))
@@ -642,7 +659,7 @@ class Ontology:
         # The memebers of the list can be Urirefs (Individuals) or Literals
         var = self.flatten_rdf_list(var)
         svar = self.make_var(FixedClassDomain, s)
-        res = self.variables[var].getValues()
+        res = list(self.variables[var].getValues())
         if type(res[0]) == URIRef:
             self.variables[svar].setValues([
                 Individual(self.make_var(Thing, x), x) for x in res])
@@ -653,16 +670,15 @@ class Ontology:
 
     def unionOf(self,s, var):
         var = self.flatten_rdf_list(var)
-        vals = self.variables[var].getValues()
         
         res = []
-        for val in vals:
+        for val in self.variables[var].getValues():
             self.get_individuals_of(val)
             var_name = self.make_var(ClassDomain, val)
             val = self.variables[var_name].getValues()
             res.extend([x for x in val])
         svar = self.make_var(ClassDomain, s)
-        vals = self.variables[svar].getValues()
+        vals = list(self.variables[svar].getValues())
         res.extend(vals)
         self.variables[svar].setValues(res)
     
@@ -701,7 +717,7 @@ class Ontology:
         self.resolve_predicate(s)
         avar = self.make_var(Property, var)
         svar = self.make_var(Property, s)
-        avals = self.variables[avar].getValues()
+        avals = self.variables[avar]
         for pair in self.variables[svar].getValues():
             if not pair in avals:
                 self.variables[avar].addValue(pair[0], pair[1])
