@@ -41,12 +41,15 @@ Talks in 2005
 +++++++++++++
 
 
-* `PyPy - the new Python implementation on the block`_ talk, 
+* `PyPy - the new Python implementation on the block`_, 
   given by Carl Friedrich Bolz and Holger Krekel at the 
   22nd Chaos Communication Conference in Berlin, Dec. 2005. 
   
-* `Open Source, EU-Funding and Agile Methods`_ talk, given by Holger Krekel
+* `Open Source, EU-Funding and Agile Methods`_, given by Holger Krekel
   and Bea During at the 22nd Chaos Communication Conference in Berlin, Dec. 2005
+
+* `Sprinting the PyPy way`_, an overview about our sprint methodology, given by
+  Bea During during EuroPython 2005
 
 * `PyCon 2005`_ animated slices, mostly reporting on the translator status.
 
@@ -84,6 +87,7 @@ Talks in 2004
 .. _`Kill -1`: http://codespeak.net/pypy/extradoc/talk/ep2006/kill_1_agiletalk.pdf
 .. _`Open Source, EU-Funding and Agile Methods`: http://codespeak.net/pypy/extradoc/talk/22c3/agility.pdf
 .. _`PyPy Status`: http://codespeak.net/pypy/extradoc/talk/vancouver/talk.html
+.. _`Sprinting the PyPy way`: http://codespeak.net/svn/pypy/extradoc/talk/ep2005/pypy_sprinttalk_ep2005bd.pdf
 
 Related projects 
 ----------------------------------
