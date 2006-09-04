@@ -53,7 +53,7 @@ def make_opdesc(hop):
         _opdesc_cache[op_key] = opdesc
         return opdesc
 
-def ll_generate_operation1(opdesc, jitstate, argbox):
+def ll_gen1(opdesc, jitstate, argbox):
     ARG0 = opdesc.ARG0
     RESULT = opdesc.RESULT
     opname = opdesc.name
@@ -65,7 +65,7 @@ def ll_generate_operation1(opdesc, jitstate, argbox):
     genvar = jitstate.curbuilder.genop1(opdesc.opname, gv_arg)
     return opdesc.redboxcls(opdesc.result_kind, genvar)
 
-def ll_generate_operation2(opdesc, jitstate, argbox0, argbox1):
+def ll_gen2(opdesc, jitstate, argbox0, argbox1):
     ARG0 = opdesc.ARG0
     ARG1 = opdesc.ARG1
     RESULT = opdesc.RESULT
@@ -81,7 +81,7 @@ def ll_generate_operation2(opdesc, jitstate, argbox0, argbox1):
     genvar = jitstate.curbuilder.genop2(opdesc.opname, gv_arg0, gv_arg1)
     return opdesc.redboxcls(opdesc.result_kind, genvar)
 
-def ll_generate_getfield(jitstate, fielddesc, argbox):
+def ll_gengetfield(jitstate, fielddesc, argbox):
     if fielddesc.immutable and argbox.is_constant():
         res = getattr(rvalue.ll_getvalue(argbox, fielddesc.PTRTYPE),
                       fielddesc.fieldname)
@@ -93,7 +93,7 @@ def ll_generate_getfield(jitstate, fielddesc, argbox):
     else:
         return argbox.content.op_getfield(jitstate, fielddesc)
 
-def ll_generate_setfield(jitstate, fielddesc, destbox, valuebox):
+def ll_gensetfield(jitstate, fielddesc, destbox, valuebox):
     assert isinstance(destbox, rvalue.PtrRedBox)
     if destbox.content is None:
         gv_ptr = destbox.getgenvar(jitstate.curbuilder)
@@ -101,7 +101,7 @@ def ll_generate_setfield(jitstate, fielddesc, destbox, valuebox):
     else:
         destbox.content.op_setfield(jitstate, fielddesc, valuebox)
 
-def ll_generate_getsubstruct(jitstate, fielddesc, argbox):
+def ll_gengetsubstruct(jitstate, fielddesc, argbox):
     if argbox.is_constant():
         res = getattr(rvalue.ll_getvalue(argbox, fielddesc.PTRTYPE),
                       fielddesc.fieldname)
@@ -114,7 +114,7 @@ def ll_generate_getsubstruct(jitstate, fielddesc, argbox):
         return argbox.content.op_getsubstruct(jitstate, fielddesc)
 
 
-def ll_generate_getarrayitem(jitstate, fielddesc, argbox, indexbox):
+def ll_gengetarrayitem(jitstate, fielddesc, argbox, indexbox):
     if fielddesc.immutable and argbox.is_constant() and indexbox.is_constant():
         array = rvalue.ll_getvalue(argbox, fielddesc.PTRTYPE)
         res = array[rvalue.ll_getvalue(indexbox, lltype.Signed)]
@@ -126,7 +126,7 @@ def ll_generate_getarrayitem(jitstate, fielddesc, argbox, indexbox):
                                                     
     return fielddesc.redboxcls(fielddesc.kind, genvar)
 
-def ll_generate_getarraysize(jitstate, fielddesc, argbox):
+def ll_gengetarraysize(jitstate, fielddesc, argbox):
     if argbox.is_constant():
         array = rvalue.ll_getvalue(argbox, fielddesc.PTRTYPE)
         res = len(array)
@@ -139,52 +139,44 @@ def ll_generate_getarraysize(jitstate, fielddesc, argbox):
 # ____________________________________________________________
 # other jitstate/graph level operations
 
-def enter_graph(backstate):
-    return JITState(backstate.curbuilder, backstate)
-
-def start_new_block(states_dic, jitstate, key, redboxes):
-    memo = rvalue.freeze_memo()
-    frozens = [redbox.freeze(memo) for redbox in redboxes]
-    memo = rvalue.exactmatch_memo()
-    outgoingvarboxes = []
-    for i in range(len(redboxes)):
-        res = frozens[i].exactmatch(redboxes[i], outgoingvarboxes, memo)
-        assert res, "exactmatch() failed"
+def enter_next_block(jitstate, incoming):
     linkargs = []
     kinds = []
-    for box in outgoingvarboxes: # all variables
-        linkargs.append(box.genvar)
-        kinds.append(box.kind)
+    for redbox in incoming:
+        linkargs.append(redbox.genvar)
+        kinds.append(redbox.kind)
     newblock = jitstate.curbuilder.enter_next_block(kinds, linkargs)
-    states_dic[key] = frozens, newblock
-    for i in range(len(outgoingvarboxes)):
-        box = outgoingvarboxes[i]
-        box.genvar = linkargs[i]
-    return jitstate
+    for i in range(len(incoming)):
+        incoming[i].genvar = linkargs[i]
+    return newblock
+
+def start_new_block(states_dic, jitstate, key):
+    memo = rvalue.freeze_memo()
+    frozen = jitstate.freeze(memo)
+    memo = rvalue.exactmatch_memo()
+    outgoingvarboxes = []
+    res = frozen.exactmatch(jitstate, outgoingvarboxes, memo)
+    assert res, "exactmatch() failed"
+    newblock = enter_next_block(jitstate, outgoingvarboxes)
+    states_dic[key] = frozen, newblock
 start_new_block._annspecialcase_ = "specialize:arglltype(2)"
 
 def retrieve_jitstate_for_merge(states_dic, jitstate, key, redboxes):
-    mylocalredboxes = redboxes
-    redboxes = list(redboxes)
-    jitstate.extend_with_parent_locals(redboxes)
+    jitstate.local_boxes = redboxes
     if key not in states_dic:
-        return start_new_block(states_dic, jitstate, key, redboxes)
+        start_new_block(states_dic, jitstate, key)
+        return False   # continue
 
-    frozens, oldblock = states_dic[key]
+    frozen, oldblock = states_dic[key]
     memo = rvalue.exactmatch_memo()
     outgoingvarboxes = []
-    exactmatch = True
-    for i in range(len(redboxes)):
-        frozen = frozens[i]
-        if not frozen.exactmatch(redboxes[i], outgoingvarboxes, memo):
-            exactmatch = False
 
-    if exactmatch:
+    if frozen.exactmatch(jitstate, outgoingvarboxes, memo):
         linkargs = []
         for box in outgoingvarboxes:
             linkargs.append(box.getgenvar(jitstate.curbuilder))
         jitstate.curbuilder.finish_and_goto(linkargs, oldblock)
-        return None
+        return True    # finished
 
     # We need a more general block.  Do it by generalizing all the
     # redboxes from outgoingvarboxes, by making them variables.
@@ -193,34 +185,16 @@ def retrieve_jitstate_for_merge(states_dic, jitstate, key, redboxes):
     for box in outgoingvarboxes:
         box = box.forcevar(jitstate.curbuilder, replace_memo)
     if replace_memo.boxes:
-        for i in range(len(mylocalredboxes)):
-            newbox = redboxes[i].replace(replace_memo)
-            mylocalredboxes[i] = redboxes[i] = newbox
-    return start_new_block(states_dic, jitstate, key, redboxes)
+        jitstate.replace(replace_memo)
+    start_new_block(states_dic, jitstate, key)
+    return False       # continue
 retrieve_jitstate_for_merge._annspecialcase_ = "specialize:arglltype(2)"
-    
-def enter_block(jitstate, redboxes):
-    # 'redboxes' is a fixed-size list (s_box_list) of the current red boxes
+
+def enter_block(jitstate):
     incoming = []
     memo = rvalue.enter_block_memo()
-    for redbox in redboxes:
-        redbox.enter_block(incoming, memo)
-##    XXX
-##    js = jitstate.backstate
-##    while js is not None:
-##        lrb = js.localredboxes
-##        assert lrb is not None
-##        for redbox in lrb:
-##            redbox.enter_block(incoming, memo)
-##        js = js.backstate
-    linkargs = []
-    kinds = []
-    for redbox in incoming: # all variables
-        linkargs.append(redbox.genvar)
-        kinds.append(redbox.kind)
-    jitstate.curbuilder.enter_next_block(kinds, linkargs)
-    for i in range(len(incoming)):
-        incoming[i].genvar = linkargs[i]
+    jitstate.enter_block(incoming, memo)
+    enter_next_block(jitstate, incoming)
 
 def leave_block_split(jitstate, switchredbox, exitindex,
                       redboxes_true, redboxes_false):
@@ -230,64 +204,131 @@ def leave_block_split(jitstate, switchredbox, exitindex,
         exitgvar = switchredbox.getgenvar(jitstate.curbuilder)
         later_builder = jitstate.curbuilder.jump_if_false(exitgvar)
         memo = rvalue.copy_memo()
-        redboxcopies = [None] * len(redboxes_false)
-        for i in range(len(redboxes_false)):
-            redboxcopies[i] = redboxes_false[i].copy(memo)
-        jitstate.split_queue.append((exitindex, later_builder, redboxcopies))
-        enter_block(jitstate, redboxes_true)
+        jitstate.local_boxes = redboxes_false
+        later_jitstate = jitstate.copy(memo)
+        later_jitstate.curbuilder = later_builder
+        later_jitstate.exitindex = exitindex
+        jitstate.split_queue.append(later_jitstate)
+        jitstate.local_boxes = redboxes_true
+        enter_block(jitstate)
         return True
 
-def dispatch_next(jitstate, outredboxes):
-    split_queue = jitstate.split_queue
+def dispatch_next(oldjitstate, return_cache):
+    split_queue = oldjitstate.split_queue
     if split_queue:
-        exitindex, later_builder, redboxes = split_queue.pop()
-        jitstate.curbuilder = later_builder
-        enter_block(jitstate, redboxes)
-        for box in redboxes:
-            outredboxes.append(box)
-        return exitindex
-    return -1
+        jitstate = split_queue.pop()
+        enter_block(jitstate)
+        return jitstate
+    else:
+        return_queue = oldjitstate.return_queue
+        for jitstate in return_queue[:-1]:
+            res = retrieve_jitstate_for_merge(return_cache, jitstate, (),
+                                              jitstate.local_boxes)
+            assert res is True   # finished
+        frozen, block = return_cache[()]
+        jitstate = return_queue[-1]
+        retbox = jitstate.local_boxes[0]
+        backstate = jitstate.backstate
+        backstate.curbuilder = jitstate.curbuilder
+        backstate.local_boxes.append(retbox)
+        backstate.exitindex = -1
+        # XXX for now the return value box is put in the parent's local_boxes,
+        # where a 'restore_local' operation will fetch it
+        return backstate
 
-def save_return(jitstate, redboxes):
-    returnbox = redboxes[0]
-    jitstate.return_queue.append((jitstate.curbuilder, returnbox))
-    
-def prepare_return(jitstate, cache, return_type):
-    for builder, retbox in jitstate.return_queue[:-1]:
-        jitstate.curbuilder = builder
-        res = retrieve_jitstate_for_merge(cache, jitstate, (), [retbox])
-        assert res is None
-    frozens, block = cache[()]
-    builder, returnbox = jitstate.return_queue[-1]
-    jitstate.backstate.curbuilder = builder 
-    return returnbox
+def getexitindex(jitstate):
+    return jitstate.exitindex
+
+def getlocalbox(jitstate, i):
+    return jitstate.local_boxes[i]
+
+def save_return(jitstate):
+    jitstate.return_queue.append(jitstate)
 
 def ll_gvar_from_redbox(jitstate, redbox):
     return redbox.getgenvar(jitstate.curbuilder)
 
 def ll_gvar_from_constant(jitstate, ll_value):
-    return jitstate.rgenop.genconst(ll_value)
+    return jitstate.curbuilder.rgenop.genconst(ll_value)
 
 def save_locals(jitstate, redboxes):
-    jitstate.localredboxes = redboxes
+    jitstate.local_boxes = redboxes
 
 # ____________________________________________________________
 
+
+class FrozenJITState(object):
+    fz_backstate = None
+    #fz_local_boxes = ... set by freeze()
+
+    def exactmatch(self, jitstate, outgoingvarboxes, memo):
+        self_boxes = self.fz_local_boxes
+        live_boxes = jitstate.local_boxes
+        fullmatch = True
+        for i in range(len(self_boxes)):
+            if not self_boxes[i].exactmatch(live_boxes[i],
+                                            outgoingvarboxes,
+                                            memo):
+                fullmatch = False
+        if self.fz_backstate is not None:
+            assert jitstate.backstate is not None
+            if not self.fz_backstate.exactmatch(jitstate.backstate,
+                                                outgoingvarboxes,
+                                                memo):
+                fullmatch = False
+        else:
+            assert jitstate.backstate is None
+        return fullmatch
+
+
 class JITState(object):
-    # XXX obscure interface
-    localredboxes = []
+    exitindex = -1
 
-    def __init__(self, builder, backstate=None):
-        self.split_queue = []
-        self.return_queue = []
+    def __init__(self, split_queue, return_queue, builder, backstate):
+        self.split_queue = split_queue
+        self.return_queue = return_queue
         self.curbuilder = builder
-        self.rgenop = builder.rgenop
         self.backstate = backstate
+        #self.local_boxes = ... set by callers
 
-    def extend_with_parent_locals(self, redboxes):
-        js = self.backstate
-        while js is not None:
-            lrb = js.localredboxes
-            assert lrb is not None
-            redboxes.extend(lrb)
-            js = js.backstate
+    def enter_block(self, incoming, memo):
+        for box in self.local_boxes:
+            box.enter_block(incoming, memo)
+        if self.backstate is not None:
+            self.backstate.enter_block(incoming, memo)
+
+    def freeze(self, memo):
+        result = FrozenJITState()
+        frozens = [box.freeze(memo) for box in self.local_boxes]
+        result.fz_local_boxes = frozens
+        if self.backstate is not None:
+            result.fz_backstate = self.backstate.freeze(memo)
+        return result
+
+    def copy(self, memo):
+        if self.backstate is None:
+            newbackstate = None
+        else:
+            newbackstate = self.backstate.copy(memo)
+        result = JITState(self.split_queue,
+                          self.return_queue,
+                          None,
+                          newbackstate)
+        result.local_boxes = [box.copy(memo) for box in self.local_boxes]
+        return result
+
+    def replace(self, memo):
+        local_boxes = self.local_boxes
+        for i in range(len(local_boxes)):
+            local_boxes[i] = local_boxes[i].replace(memo)
+        if self.backstate is not None:
+            self.backstate.replace(memo)
+
+
+def enter_graph(backstate):
+    return JITState([], [], backstate.curbuilder, backstate)
+
+def fresh_jitstate(builder):
+    jitstate = JITState([], [], builder, None)
+    jitstate.local_boxes = []
+    return jitstate

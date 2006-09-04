@@ -96,9 +96,6 @@ class TimeshiftingTests(object):
         for graph in ha.translator.graphs:
             checkgraph(graph)
             t.graphs.append(graph)
-        if conftest.option.view:
-            from pypy.translator.tool.graphpage import FlowGraphPage
-            FlowGraphPage(t, ha.translator.graphs).display()
 
         # make an interface to the timeshifted graphs:
         #
@@ -140,7 +137,7 @@ class TimeshiftingTests(object):
             timeshifted_entrypoint_fnptr,
             [htshift.s_JITState]
             + timeshifted_entrypoint_args_s,
-            htshift.s_RedBox)
+            htshift.s_JITState)
         FUNC = lltype.FuncType(residual_argtypes, RESTYPE)
         argcolors = unrolling_iterable(argcolors)
         self.argcolors = argcolors
@@ -173,9 +170,10 @@ class TimeshiftingTests(object):
                     i += 1
                     timeshifted_entrypoint_args += (box,)
 
-            top_jitstate = rtimeshift.JITState(builder)
-            returnbox = timeshifted_entrypoint(top_jitstate,
-                                              *timeshifted_entrypoint_args)
+            top_jitstate = rtimeshift.fresh_jitstate(builder)
+            top_jitstate = timeshifted_entrypoint(top_jitstate,
+                                                  *timeshifted_entrypoint_args)
+            returnbox = top_jitstate.local_boxes[0]
             gv_ret = returnbox.getgenvar(top_jitstate.curbuilder)
             top_jitstate.curbuilder.finish_and_return(sigtoken, gv_ret)
 
@@ -214,6 +212,9 @@ class TimeshiftingTests(object):
         self.rtyper = rtyper
         self.htshift = htshift
         self.annotate_interface_functions()
+        if conftest.option.view:
+            from pypy.translator.tool.graphpage import FlowGraphPage
+            FlowGraphPage(t, ha.translator.graphs).display()
 
         cache = self.__dict__.copy()
         self._cache[key] = cache, getargtypes(rtyper.annotator, values)
@@ -756,3 +757,22 @@ class TestTimeshift(TimeshiftingTests):
         res = self.timeshift(ll_function, [5], [], policy=P_NOVIRTUAL)
         assert res == 10
         self.check_insns({'int_add': 2, 'int_sub': 1, 'int_mul': 1})
+
+    def test_call_4(self):
+        def ll_two(x):
+            if x > 0:
+                return x + 5
+            else:
+                return x - 4
+        def ll_function(y):
+            return ll_two(y) * y
+
+        res = self.timeshift(ll_function, [3], [], policy=P_NOVIRTUAL)
+        assert res == 24
+        self.check_insns({'int_gt': 1, 'int_add': 1,
+                          'int_sub': 1, 'int_mul': 1})
+
+        res = self.timeshift(ll_function, [-3], [], policy=P_NOVIRTUAL)
+        assert res == 21
+        self.check_insns({'int_gt': 1, 'int_add': 1,
+                          'int_sub': 1, 'int_mul': 1})

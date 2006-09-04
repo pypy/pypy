@@ -44,7 +44,7 @@ class HintRTyper(RPythonTyper):
     originalconcretetype = staticmethod(originalconcretetype)
 
     def make_new_lloplist(self, block):
-        return HintLowLevelOpList(self.timeshifter, block)
+        return HintLowLevelOpList(self.timeshifter)
 
     def getgreenrepr(self, lowleveltype):
         try:
@@ -88,9 +88,9 @@ class HintRTyper(RPythonTyper):
         # the same operation at run-time
         opdesc = rtimeshift.make_opdesc(hop)
         if opdesc.nb_args == 1:
-            ll_generate = rtimeshift.ll_generate_operation1
+            ll_generate = rtimeshift.ll_gen1
         elif opdesc.nb_args == 2:
-            ll_generate = rtimeshift.ll_generate_operation2
+            ll_generate = rtimeshift.ll_gen2
         ts = self.timeshifter
         c_opdesc = inputconst(lltype.Void, opdesc)
         s_opdesc = ts.rtyper.annotator.bookkeeper.immutablevalue(opdesc)
@@ -132,7 +132,7 @@ class HintRTyper(RPythonTyper):
         c_fielddesc = inputconst(lltype.Void, fielddesc)
         s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
         v_jitstate = hop.llops.getjitstate()
-        return hop.llops.genmixlevelhelpercall(rtimeshift.ll_generate_getfield,
+        return hop.llops.genmixlevelhelpercall(rtimeshift.ll_gengetfield,
             [ts.s_JITState, s_fielddesc, ts.s_RedBox],
             [v_jitstate,    c_fielddesc, v_argbox   ],
             ts.s_RedBox)
@@ -152,7 +152,7 @@ class HintRTyper(RPythonTyper):
         s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
         v_jitstate = hop.llops.getjitstate()
         return hop.llops.genmixlevelhelpercall(
-            rtimeshift.ll_generate_getarrayitem,
+            rtimeshift.ll_gengetarrayitem,
             [ts.s_JITState, s_fielddesc, ts.s_RedBox, ts.s_RedBox],
             [v_jitstate,    c_fielddesc, v_argbox,    v_index    ],
             ts.s_RedBox)
@@ -171,7 +171,7 @@ class HintRTyper(RPythonTyper):
         s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
         v_jitstate = hop.llops.getjitstate()
         return hop.llops.genmixlevelhelpercall(
-            rtimeshift.ll_generate_getarraysize,
+            rtimeshift.ll_gengetarraysize,
             [ts.s_JITState, s_fielddesc, ts.s_RedBox],
             [v_jitstate,    c_fielddesc, v_argbox   ],
             ts.s_RedBox)
@@ -193,7 +193,7 @@ class HintRTyper(RPythonTyper):
         c_fielddesc = inputconst(lltype.Void, fielddesc)
         s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
         v_jitstate = hop.llops.getjitstate()
-        return hop.llops.genmixlevelhelpercall(rtimeshift.ll_generate_setfield,
+        return hop.llops.genmixlevelhelpercall(rtimeshift.ll_gensetfield,
             [ts.s_JITState, s_fielddesc, ts.s_RedBox, ts.s_RedBox],
             [v_jitstate,    c_fielddesc, v_destbox,   v_valuebox],
             annmodel.s_None)
@@ -210,7 +210,7 @@ class HintRTyper(RPythonTyper):
         c_fielddesc = inputconst(lltype.Void, fielddesc)
         s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
         v_jitstate = hop.llops.getjitstate()
-        return hop.llops.genmixlevelhelpercall(rtimeshift.ll_generate_getsubstruct,
+        return hop.llops.genmixlevelhelpercall(rtimeshift.ll_gengetsubstruct,
             [ts.s_JITState, s_fielddesc, ts.s_RedBox],
             [v_jitstate,    c_fielddesc, v_argbox   ],
             ts.s_RedBox)
@@ -224,59 +224,50 @@ class HintRTyper(RPythonTyper):
         r_result = hop.r_result
         return r_result.create(hop)
 
-    def translate_op_direct_call(self, hop):
-        c_func = hop.args_v[0]
-        assert isinstance(c_func, flowmodel.Constant)
+    def guess_call_kind(self, spaceop):
+        assert spaceop.opname == 'direct_call'
+        c_func = spaceop.args[0]
         fnobj = c_func.value._obj
+        s_result = self.annotator.binding(spaceop.result)
+        r_result = self.getrepr(s_result)
         if hasattr(fnobj._callable, 'oopspec'):
-            # special-cased call, for things like list methods
-            hop.r_s_popfirstarg()
-            return self.handle_highlevel_operation(fnobj, hop)
-        elif (originalconcretetype(hop.s_result) is not lltype.Void and
-              isinstance(hop.r_result, GreenRepr)):
-            # green-returning call, for now (XXX) we assume it's an
-            # all-green function that we can just call
-            for r_arg in hop.args_r:
-                assert isinstance(r_arg, GreenRepr)
-            v = hop.genop('direct_call', hop.args_v, hop.r_result.lowleveltype)
-            return v
+            return 'oopspec'
+        elif (originalconcretetype(s_result) is not lltype.Void and
+              isinstance(r_result, GreenRepr)):
+            return 'green'
         else:
-            bk = self.annotator.bookkeeper
-            ts = self.timeshifter
-            v_jitstate = hop.llops.getjitstate()
-            hop.r_s_popfirstarg()
-            args_hs = hop.args_s[:]
-            # fixed is always false here
-            graph = bk.get_graph_for_call(fnobj.graph, False, args_hs)
-            args_r = [self.getrepr(hs) for hs in args_hs]
-            args_v = hop.inputargs(*args_r)
-            ARGS = [ts.r_JITState.lowleveltype]
-            ARGS += [r.lowleveltype for r in args_r]
-            RESULT = ts.r_RedBox.lowleveltype
-            fnptr = lltype.functionptr(lltype.FuncType(ARGS, RESULT),
-                                       graph.name,
-                                       graph=graph,
-                                       _callable = graph.func)
-            self.timeshifter.schedule_graph(graph)
-            args_v[:0] = [hop.llops.genconst(fnptr), v_jitstate]
-            return hop.genop('direct_call', args_v, RESULT)
+            return 'red'
+
+    def translate_op_direct_call(self, hop):
+        kind = self.guess_call_kind(hop.spaceop)
+        meth = getattr(self, 'handle_%s_call' % (kind,))
+        return meth(hop)
 
     def translate_op_save_locals(self, hop):
         ts = self.timeshifter
         v_jitstate = hop.llops.getjitstate()
-        boxes_v = []
-        for r, v in zip(hop.args_r, hop.args_v):
-            if isinstance(r, RedRepr):
-                boxes_v.append(v)
-        v_boxes = ts.build_box_list(hop.llops, boxes_v)
+        v_boxes = ts.build_box_list(hop.llops, hop.args_v)
         hop.llops.genmixlevelhelpercall(rtimeshift.save_locals,
                                         [ts.s_JITState, ts.s_box_list],
                                         [v_jitstate,    v_boxes],
                                         annmodel.s_None)
 
-    def handle_highlevel_operation(self, fnobj, hop):
+    def translate_op_restore_local(self, hop):
+        ts = self.timeshifter
+        assert isinstance(hop.args_v[0], flowmodel.Constant)
+        index = hop.args_v[0].value
+        v_jitstate = hop.llops.getjitstate()
+        return ts.read_out_box(hop.llops, v_jitstate, index)
+
+
+    def handle_oopspec_call(self, hop):
+        # special-cased call, for things like list methods
         from pypy.jit.timeshifter.oop import OopSpecDesc, Index
+
+        c_func = hop.args_v[0]
+        fnobj = c_func.value._obj
         oopspecdesc = OopSpecDesc(self, fnobj)
+        hop.r_s_popfirstarg()
 
         args_v = []
         for obj in oopspecdesc.argtuple:
@@ -318,13 +309,45 @@ class HintRTyper(RPythonTyper):
                                       [v_jitstate,    c_oopspecdesc] + args_v,
                                       s_result)
 
+    def handle_green_call(self, hop):
+        # green-returning call, for now (XXX) we assume it's an
+        # all-green function that we can just call
+        for r_arg in hop.args_r:
+            assert isinstance(r_arg, GreenRepr)
+        v = hop.genop('direct_call', hop.args_v, hop.r_result.lowleveltype)
+        return v
+
+    def handle_red_call(self, hop):
+        bk = self.annotator.bookkeeper
+        ts = self.timeshifter
+        v_jitstate = hop.llops.getjitstate()
+        c_func = hop.args_v[0]
+        fnobj = c_func.value._obj
+        hop.r_s_popfirstarg()
+        args_hs = hop.args_s[:]
+        # fixed is always false here
+        graph = bk.get_graph_for_call(fnobj.graph, False, args_hs)
+        args_r = [self.getrepr(hs) for hs in args_hs]
+        args_v = hop.inputargs(*args_r)
+        ARGS = [ts.r_JITState.lowleveltype]
+        ARGS += [r.lowleveltype for r in args_r]
+        RESULT = ts.r_JITState.lowleveltype
+        fnptr = lltype.functionptr(lltype.FuncType(ARGS, RESULT),
+                                   graph.name,
+                                   graph=graph,
+                                   _callable = graph.func)
+        self.timeshifter.schedule_graph(graph)
+        args_v[:0] = [hop.llops.genconst(fnptr), v_jitstate]
+        v_newjitstate = hop.genop('direct_call', args_v, RESULT)
+        hop.llops.setjitstate(v_newjitstate)
+
 
 class HintLowLevelOpList(LowLevelOpList):
     """Warning: the HintLowLevelOpList's rtyper is the *original*
     rtyper, while the HighLevelOp's rtyper is actually our HintRTyper...
     """
-    def __init__(self, timeshifter, originalblock):
-        LowLevelOpList.__init__(self, timeshifter.rtyper, originalblock)
+    def __init__(self, timeshifter):
+        LowLevelOpList.__init__(self, timeshifter.rtyper)
         self.timeshifter = timeshifter
 
     def hasparentgraph(self):
@@ -358,8 +381,11 @@ class HintLowLevelOpList(LowLevelOpList):
                           resulttype = RESULT)
 
     def getjitstate(self):
-        assert self.originalblock is not None
-        return self.timeshifter.block2jitstate[self.originalblock]
+        return self.genop('getjitstate', [],
+                          resulttype = self.timeshifter.r_JITState)
+
+    def setjitstate(self, v_newjitstate):
+        self.genop('setjitstate', [v_newjitstate])
 
 # ____________________________________________________________
 

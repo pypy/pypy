@@ -216,8 +216,9 @@ class VirtualStruct(AbstractContainer):
         contmemo = memo.containers
         if self not in contmemo:
             contmemo[self] = None
-            for i in range(len(self.content_boxes)):
-                self.content_boxes[i] = self.content_boxes[i].replace(memo)
+            content_boxes = self.content_boxes
+            for i in range(len(content_boxes)):
+                content_boxes[i] = content_boxes[i].replace(memo)
             self.ownbox = self.ownbox.replace(memo)
 
     def op_getfield(self, jitstate, fielddesc):

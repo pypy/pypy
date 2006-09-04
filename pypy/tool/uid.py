@@ -69,5 +69,5 @@ class Hashable(object):
             hasattr(self.value, '__name__')):
             r = '%s %s' % (type(self.value).__name__, self.value.__name__)
         elif len(r) > 60 or (len(r) > 30 and type(self.value) is not str):
-            r = r[:20] + '...' + r[-8:]
+            r = r[:22] + '...' + r[-7:]
         return r

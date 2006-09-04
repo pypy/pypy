@@ -90,7 +90,7 @@ def ll_redboxbuilder(TYPE):
 
 def ll_fromvalue(jitstate, value):
     "Make a constant RedBox from a low-level value."
-    rgenop = jitstate.rgenop
+    rgenop = jitstate.curbuilder.rgenop
     T = lltype.typeOf(value)
     kind = rgenop.kindToken(T)
     gv = rgenop.genconst(value)
