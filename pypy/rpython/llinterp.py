@@ -190,7 +190,7 @@ class LLFrame(object):
             try:
                 val = lltype.enforce(var.concretetype, val)
             except TypeError:
-                assert False, "type error: %r val -> %r var" % (lltype.typeOf(val), var.concretetype)
+                assert False, "type error: input value of type:\n\n\t%r\n\n===> variable of type:\n\n\t%r\n" % (lltype.typeOf(val), var.concretetype)
         assert isinstance(var, Variable)
         self.bindings[var] = val
 
