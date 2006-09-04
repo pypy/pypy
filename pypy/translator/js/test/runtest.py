@@ -28,7 +28,7 @@ def _CLI_is_on_path():
     return True
 
 class compile_function(object):
-    def __init__(self, functions, annotations, stackless=False, view=False, html=None, is_interactive=False, root = None, run_browser = True, debug_transform = False):
+    def __init__(self, function, annotations, stackless=False, view=False, html=None, is_interactive=False, root = None, run_browser = True, debug_transform = False):
         if not use_browsertest and not _CLI_is_on_path():
             py.test.skip('Javascript CLI (js) not found')
 
@@ -36,7 +36,7 @@ class compile_function(object):
         self.is_interactive = is_interactive
         t = TranslationContext()
         ann = t.buildannotator()
-        ann.build_types(functions, annotations)
+        ann.build_types(function, annotations)
         if debug_transform:
             DebugTransformer(t).transform_all()
         t.buildrtyper(type_system="ootype").specialize()
@@ -46,7 +46,7 @@ class compile_function(object):
         if view or option.view:
             t.view()
         #self.js = JS(t, [function, callback_function], stackless)
-        self.js = JS(t, functions, stackless)
+        self.js = JS(t, function, stackless)
         self.js.write_source()
         if root is None and use_tg:
             from pypy.translator.js.demo.jsdemo.controllers import Root

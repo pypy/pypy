@@ -10,6 +10,7 @@ from pypy.objspace.flow import model
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem import rclass
 from pypy.translator.transformer.basictransform import BasicTransformer
+from pypy.interpreter.pytraceback import offset2lineno
 
 from types import FunctionType, MethodType
 
@@ -19,8 +20,8 @@ class TracebackHandler(object):
     def __init__(self):
         self.tb = []
     
-    def enter(self, tb_str, data):
-        self.tb.append((tb_str, data))
+    def enter(self, tb_str, data, filename, lineno):
+        self.tb.append((tb_str, data, filename, lineno))
     
     def leave(self, tb_str):
         num = len(self.tb) - 1
@@ -46,7 +47,7 @@ class DebugTransformer(BasicTransformer):
     def register_helpers(self):
         return None
         for func_name, func_args in [("traceback", []), 
-                ("enter", ["aa", "aa"]), ("leave", ["aa"])]:
+                ("enter", ["aa", "aa", "aa", 3]), ("leave", ["aa"])]:
             graph = self.flow_method(TracebackHandler, func_name, func_args)
             graph.explicit_traceback = True
     
@@ -62,8 +63,9 @@ class DebugTransformer(BasicTransformer):
                 # XXX or any other call
                 opg, v1 = self.genop("getattr", [self.instance_const, 'enter'])
                 fun_name = op.args[0].value.func_name
-                data = self.get_info(block, graph, op)
-                opc, v2 = self.genop("simple_call", [v1, fun_name, data])
+                data, filename, lineno = self.get_info(block, graph, op)
+                opc, v2 = self.genop("simple_call", [v1, fun_name, data, \
+                    filename, lineno])
                 opgl, v3 = self.genop("getattr", [self.instance_const, 'leave'])
                 oplc, v4 = self.genop("simple_call", [v3, fun_name])
                 next += [opg, opc, op, opgl, oplc]
@@ -81,10 +83,13 @@ class DebugTransformer(BasicTransformer):
         arglist = []
         for arg in op.args[1:]:
             if isinstance(arg, model.Constant):
-                arglist.append(str(arg.value))
+                arglist.append(repr(arg.value))
             else:
                 arglist.append(str(arg))
-        return "(%s)" % ", ".join(arglist)
+        call_str = "(%s)" % ", ".join(arglist)
+        filename = getattr(graph, 'filename', '<unknown>')
+        lineno = offset2lineno(graph.func.func_code, op.offset)
+        return call_str, filename, lineno
         
     def transform_graph(self, graph):
         if getattr(graph, 'explicit_traceback', None):

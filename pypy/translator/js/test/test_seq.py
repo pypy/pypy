@@ -112,3 +112,15 @@ class TestString(object):
         
         fn = compile_function(upperlower, [])
         assert fn() == "ABAFabaf"
+
+def test_simple_seq():
+    def fun(i):
+        if i:
+            a = [("ab", "cd"), ("ef", "xy")]
+        else:
+            a = [("xz", "pr"), ("as", "fg")]
+        return ",".join(["%s : %s" % (i, j) for i,j in a])
+    
+    fn = compile_function(fun, [int])
+    assert fn(0) == fun(0)
+    assert fn(1) == fun(1)
