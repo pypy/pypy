@@ -6,7 +6,6 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 from ctypes import *
 import os
-import math
 import sys
 
 _POSIX = os.name == "posix"
@@ -88,6 +87,8 @@ elif _WIN:
     Sleep.restype = None
 libc.strftime.argtypes = [c_char_p, size_t, c_char_p, POINTER(tm)]
 libc.strftime.restype = size_t
+libc.fmod.argtypes = [c_double, c_double]
+libc.fmod.restype = c_double
 
 def _init_accept2dyear():
     return (1, 0)[bool(os.getenv("PYTHONY2K"))]
@@ -265,7 +266,7 @@ def _gettmarg(space, w_tup, buf):
 
     buf.tm_year = y - 1900
     buf.tm_mon = buf.tm_mon - 1
-    buf.tm_wday = int(math.fmod((buf.tm_wday + 1), 7))
+    buf.tm_wday = int(libc.fmod((buf.tm_wday + 1), 7))
     buf.tm_yday = buf.tm_yday - 1
 
     return buf
