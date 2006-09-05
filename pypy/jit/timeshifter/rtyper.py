@@ -217,7 +217,7 @@ class HintRTyper(RPythonTyper):
 
     def translate_op_cast_pointer(self, hop):
         FROM_TYPE = originalconcretetype(hop.args_s[0])
-        v_argbox = hop.inputargs(self.getredrepr(FROM_TYPE))
+        [v_argbox] = hop.inputargs(self.getredrepr(FROM_TYPE))
         return v_argbox
 
     def translate_op_malloc(self, hop):
