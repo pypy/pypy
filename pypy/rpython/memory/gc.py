@@ -109,7 +109,7 @@ class DummyGC(GCBase):
         return
     init_gc_object_immortal = init_gc_object
 
-DEBUG_PRINT = True
+DEBUG_PRINT = False
 memoryError = MemoryError()
 class MarkSweepGC(GCBase):
     _alloc_flavor_ = "raw"
