@@ -1,4 +1,4 @@
-**The PyPy project aims at producing a flexible and fast Python_
+The PyPy project aims at producing a flexible and fast Python_
 implementation.  The guiding idea is to translate a Python-level
 description of the Python language itself to lower level languages.
 Rumors have it that the secret goal is being faster-than-C which is
