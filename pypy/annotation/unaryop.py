@@ -24,7 +24,7 @@ UNARY_OPERATIONS = set(['len', 'is_true', 'getattr', 'setattr', 'delattr', 'hash
                         'iter', 'next', 'invert', 'type', 'issubtype',
                         'pos', 'neg', 'nonzero', 'abs', 'hex', 'oct',
                         'ord', 'int', 'float', 'long', 'id',
-                        'neg_ovf', 'abs_ovf'])
+                        'neg_ovf', 'abs_ovf', 'hint'])
 
 for opname in UNARY_OPERATIONS:
     missing_operation(SomeObject, opname)
@@ -177,6 +177,9 @@ class __extend__(SomeObject):
     def op_contains(obj, s_element):
         return SomeBool()
 
+    def hint(self, *args_s):
+        return self
+
 class __extend__(SomeFloat):
 
     def pos(flt):
@@ -313,6 +316,20 @@ class __extend__(SomeList):
     def op_contains(lst, s_element):
         lst.listdef.generalize(s_element)
         return SomeBool()
+
+    def hint(lst, *args_s):
+        hints = args_s[-1].const
+        if 'maxlength' in hints:
+            # only for iteration over lists or dicts at the moment,
+            # not over an iterator object (because it has no known length)
+            s_iterable = args_s[0]
+            if isinstance(s_iterable, (SomeList, SomeDict)):
+                lst.listdef.resize()
+                lst.listdef.listitem.hint_maxlength = True
+        elif 'fence' in hints:
+            lst = lst.listdef.offspring()
+        return lst
+
 
 class __extend__(SomeDict):
 

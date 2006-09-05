@@ -282,6 +282,9 @@ class GenRpy:
                           "shape": repr(shape),
                           "data_w": self.arglist(op.args[2:], localscope),
                           'Arg': self.nameof(Arguments) }
+        if op.opname == "hint":
+            return "%s = %s" % (self.expr(op.result, localscope),
+                                self.expr(op.args[0], localscope))
         if op.opname in self.has_listarg:
             fmt = "%s = %s([%s])"
         else:
@@ -1486,7 +1489,8 @@ def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
         entrypoint = dic
         t = TranslationContext(verbose=False, simplifying=needed_passes,
                                do_imports_immediately=do_imports_immediately,
-                               builtins_can_raise_exceptions=True)
+                               builtins_can_raise_exceptions=True,
+                               list_comprehension_operations=False)
         gen = GenRpy(t, entrypoint, modname, dic)
 
     finally:

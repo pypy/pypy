@@ -116,7 +116,7 @@ def _is_frozenset_exact(w_obj):
 def _is_eq(w_left, w_right):
     if len(w_left.setdata) != len(w_right.setdata):
         return False
-    for w_key in w_left.setdata.iterkeys():
+    for w_key in w_left.setdata:
         if w_key not in w_right.setdata:
             return False
     return True
@@ -135,7 +135,7 @@ def _difference_dict(ldict, rdict, isupdate):
     else:
         ld = ldict.copy()
     del_list_w = []
-    for w_key in ld.iterkeys():
+    for w_key in ld:
         if w_key in rdict:
             del_list_w.append(w_key)
     for w_key in del_list_w:
@@ -149,7 +149,7 @@ def _intersection_dict(ldict, rdict, isupdate):
     else:
         ld = ldict.copy()
     del_list_w = []
-    for w_key in ld.iterkeys():
+    for w_key in ld:
         if w_key not in rdict:
             del_list_w.append(w_key)
 
@@ -166,11 +166,11 @@ def _symmetric_difference_dict(ldict, rdict, isupdate):
         ld = ldict.copy()
     del_list_w = []
     add_list_w = []
-    for w_key in ld.iterkeys():
+    for w_key in ld:
         if w_key in rdict:
             del_list_w.append(w_key)
 
-    for w_key in rdict.iterkeys():
+    for w_key in rdict:
         if w_key not in ld:
             add_list_w.append(w_key)
 
@@ -387,7 +387,7 @@ def hash__Frozenset(space, w_set):
         return space.wrap(w_set.hash)
     hash = 1927868237
     hash *= (len(w_set.setdata) + 1)
-    for w_item in w_set.setdata.iterkeys():
+    for w_item in w_set.setdata:
         h = space.hash_w(w_item)
         value = ((h ^ (h << 16) ^ 89869747)  * multi)
         hash = intmask(hash ^ value)

@@ -710,15 +710,16 @@ def coalesce_is_true(graph):
 # ____________________________________________________________
 
 def detect_list_comprehension(graph):
-    """Look for the pattern:             Replace it with marker operations:
+    """Look for the pattern:            Replace it with marker operations:
 
-         v1 = newlist()                   v0 = newlistbuilder(length)
-         loop start                       loop start
-         ...                              ...
-         exactly one append per loop      v0.append(..)
-         and nothing else done with v1
-         ...                              ...
-         loop end                         v1 = listbuilder_done(v0)
+                                         v0 = newlist()
+        v2 = newlist()                   v1 = hint(v0, iterable, {'maxlength'})
+        loop start                       loop start
+        ...                              ...
+        exactly one append per loop      v1.append(..)
+        and nothing else done with v2
+        ...                              ...
+        loop end                         v2 = hint(v1, {'fence'})
     """
     # NB. this assumes RPythonicity: we can only iterate over something
     # that has a len(), and this len() cannot change as long as we are
@@ -781,12 +782,17 @@ def detect_list_comprehension(graph):
         return
     detector = ListComprehensionDetector(graph, loops, newlist_v,
                                          variable_families)
+    graphmutated = False
     for location in append_v:
+        if graphmutated:
+            # new variables introduced, must restart the whole process
+            return detect_list_comprehension(graph)
         try:
             detector.run(*location)
         except DetectorFailed:
             pass
-
+        else:
+            graphmutated = True
 
 class DetectorFailed(Exception):
     pass
@@ -798,6 +804,7 @@ class ListComprehensionDetector(object):
         self.loops = loops
         self.newlist_v = newlist_v
         self.variable_families = variable_families
+        self.reachable_cache = {}
 
     def enum_blocks_from(self, fromblock, avoid):
         found = {avoid: True}
@@ -811,7 +818,7 @@ class ListComprehensionDetector(object):
             for exit in block.exits:
                 pending.append(exit.target)
 
-    def enum_reachable_blocks(self, fromblock, stop_at):
+    def enum_reachable_blocks(self, fromblock, stop_at, stay_within=None):
         if fromblock is stop_at:
             return
         found = {stop_at: True}
@@ -822,15 +829,35 @@ class ListComprehensionDetector(object):
                 continue
             found[block] = True
             for exit in block.exits:
-                yield exit.target
-                pending.append(exit.target)
+                if stay_within is None or exit.target in stay_within:
+                    yield exit.target
+                    pending.append(exit.target)
+
+    def reachable_within(self, fromblock, toblock, avoid, stay_within):
+        if toblock is avoid:
+            return False
+        for block in self.enum_reachable_blocks(fromblock, avoid, stay_within):
+            if block is toblock:
+                return True
+        return False
 
     def reachable(self, fromblock, toblock, avoid):
         if toblock is avoid:
             return False
+        try:
+            return self.reachable_cache[fromblock, toblock, avoid]
+        except KeyError:
+            pass
+        future = [fromblock]
         for block in self.enum_reachable_blocks(fromblock, avoid):
+            self.reachable_cache[fromblock, block, avoid] = True
             if block is toblock:
                 return True
+            future.append(block)
+        # 'toblock' is unreachable from 'fromblock', so it is also
+        # unreachable from any of the 'future' blocks
+        for block in future:
+            self.reachable_cache[block, toblock, avoid] = False
         return False
 
     def vlist_alive(self, block):
@@ -965,29 +992,21 @@ class ListComprehensionDetector(object):
             raise DetectorFailed      # no suitable loop
 
         # Found a suitable loop, let's patch the graph:
+        assert iterblock not in loopbody
+        assert loopnextblock in loopbody
+        assert stopblock not in loopbody
 
-        # - remove newlist()
-        for op in newlistblock.operations:
-            if op.opname == 'newlist':
-                res = self.variable_families.find_rep(op.result)
-                if res is self.vlistfamily:
-                    newlistblock.operations.remove(op)
-                    break
-        else:
-            raise AssertionError("bad newlistblock")
+        # at StopIteration, the new list is exactly of the same length as
+        # the one we iterate over if it's not possible to skip the appendblock
+        # in the body:
+        exactlength = not self.reachable_within(loopnextblock, loopnextblock,
+                                                avoid = appendblock,
+                                                stay_within = loopbody)
 
-        # - remove the vlist variable from all blocks of the loop header,
-        #   up to the iterblock
-        for block in loopheader:
-            if block is not newlistblock:
-                self.remove_vlist(block.inputargs)
-            if block is not iterblock:
-                for link in block.exits:
-                    self.remove_vlist(link.args)
-
-        # - add a newlistbuilder() in the iterblock, where we can compute
-        #   the known maximum length
-        vlist = self.contains_vlist(iterblock.exits[0].args)
+        # - add a hint(vlist, iterable, {'maxlength'}) in the iterblock,
+        #   where we can compute the known maximum length
+        link = iterblock.exits[0]
+        vlist = self.contains_vlist(link.args)
         assert vlist
         for op in iterblock.operations:
             res = self.variable_families.find_rep(op.result)
@@ -996,11 +1015,16 @@ class ListComprehensionDetector(object):
         else:
             raise AssertionError("lost 'iter' operation")
         vlength = Variable('maxlength')
+        vlist2 = Variable(vlist)
+        chint = Constant({'maxlength': True})
         iterblock.operations += [
-            SpaceOperation('len', [op.args[0]], vlength),
-            SpaceOperation('newlistbuilder', [vlength], vlist)]
+            SpaceOperation('hint', [vlist, op.args[0], chint], vlist2)]
+        link.args = list(link.args)
+        for i in range(len(link.args)):
+            if link.args[i] is vlist:
+                link.args[i] = vlist2
 
-        # - wherever the list exits the loop body, add a 'listbuilder_done'
+        # - wherever the list exits the loop body, add a 'hint({fence})'
         from pypy.translator.unsimplify import insert_empty_block
         for block in loopbody:
             for link in block.exits:
@@ -1008,13 +1032,18 @@ class ListComprehensionDetector(object):
                     vlist = self.contains_vlist(link.args)
                     if vlist is None:
                         continue  # list not passed along this link anyway
+                    hints = {'fence': True}
+                    if (exactlength and block is loopnextblock and
+                        link.target is stopblock):
+                        hints['exactlength'] = True
+                    chints = Constant(hints)
                     newblock = insert_empty_block(None, link)
                     index = link.args.index(vlist)
                     vlist2 = newblock.inputargs[index]
-                    vlist3 = Variable('listbuilder')
+                    vlist3 = Variable(vlist2)
                     newblock.inputargs[index] = vlist3
                     newblock.operations.append(
-                        SpaceOperation('listbuilder_done', [vlist3], vlist2))
+                        SpaceOperation('hint', [vlist3, chints], vlist2))
         # done!
 
 

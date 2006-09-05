@@ -170,7 +170,9 @@ class ListDef:
         self.listitem.generalize(s_value)
 
     def __repr__(self):
-        return '<[%r]>' % (self.listitem.s_value,)
+        return '<[%r]%s%s>' % (self.listitem.s_value,
+                               self.listitem.mutated and 'm' or '',
+                               self.listitem.resized and 'r' or '')
 
     def mutate(self):
         self.listitem.mutate()

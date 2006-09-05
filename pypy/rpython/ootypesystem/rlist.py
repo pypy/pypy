@@ -76,6 +76,16 @@ class BaseListRepr(AbstractBaseListRepr):
         buf.ll_append_char(']')
         return buf.ll_build()
 
+    def rtype_hint(self, hop):
+        hints = hop.args_s[-1].const
+        if 'maxlength' in hints:
+            v_list = hop.inputarg(self, arg=0)
+            # XXX give a hint to pre-allocate the list (see lltypesystem/rlist)
+            return v_list
+        if 'fence' in hints:
+            return hop.inputarg(self, arg=0)
+        return AbstractBaseListRepr.rtype_hint(self, hop)
+
 
 class ListRepr(AbstractListRepr, BaseListRepr):
 

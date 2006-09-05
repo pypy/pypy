@@ -21,7 +21,7 @@ class TranslationContext(object):
         'simplifying': True,
         'do_imports_immediately': True,
         'builtins_can_raise_exceptions': False,
-        'list_comprehension_operations': False,
+        'list_comprehension_operations': False,   # True, - not super-tested
         }
 
     def __init__(self, **flowing_flags):

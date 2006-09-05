@@ -232,6 +232,9 @@ class Repr:
     def make_iterator_repr(self, *variant):
         raise TyperError("%s is not iterable" % (self,))
 
+    def rtype_hint(self, hop):
+        return hop.inputarg(hop.r_result, arg=0)
+
     # hlinvoke helpers
 
     def get_r_implfunc(self):

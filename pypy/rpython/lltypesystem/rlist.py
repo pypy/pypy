@@ -81,6 +81,20 @@ class BaseListRepr(AbstractBaseListRepr):
                                            temp),
                               rstr.list_str_close_bracket))
 
+    def get_itemarray_lowleveltype(self):
+        ITEM = self.item_repr.lowleveltype
+        ITEMARRAY = GcArray(ITEM,
+                            adtmeths = ADTIFixedList({
+                                 "ll_newlist": ll_fixed_newlist,
+                                 "ll_length": ll_fixed_length,
+                                 "ll_items": ll_fixed_items,
+                                 ##"list_builder": self.list_builder,
+                                 "ITEM": ITEM,
+                                 "ll_getitem_fast": ll_fixed_getitem_fast,
+                                 "ll_setitem_fast": ll_fixed_setitem_fast,
+                            }))
+        return ITEMARRAY
+
 ##class ListBuilder(object):
 ##    """Interface to allow lazy list building by the JIT."""
 
@@ -179,7 +193,7 @@ class ListRepr(AbstractListRepr, BaseListRepr):
             self.external_item_repr, self.item_repr = externalvsinternal(self.rtyper, self._item_repr_computer())
         if isinstance(self.LIST, GcForwardReference):
             ITEM = self.item_repr.lowleveltype
-            ITEMARRAY = GcArray(ITEM)
+            ITEMARRAY = self.get_itemarray_lowleveltype()
             # XXX we might think of turning length stuff into Unsigned
             self.LIST.become(GcStruct("list", ("length", Signed),
                                               ("items", Ptr(ITEMARRAY)),
@@ -206,6 +220,41 @@ class ListRepr(AbstractListRepr, BaseListRepr):
         result.items = malloc(self.LIST.items.TO, n)
         return result
 
+    def rtype_method_append(self, hop):
+        if getattr(self.listitem, 'hint_maxlength', False):
+            v_lst, v_value = hop.inputargs(self, self.item_repr)
+            hop.exception_cannot_occur()
+            hop.gendirectcall(ll_append_noresize, v_lst, v_value)
+        else:
+            AbstractListRepr.rtype_method_append(self, hop)
+
+    def rtype_hint(self, hop):
+        optimized = getattr(self.listitem, 'hint_maxlength', False)
+        hints = hop.args_s[-1].const
+        if 'maxlength' in hints:
+            if optimized:
+                s_iterable = hop.args_s[1]
+                r_iterable = hop.args_r[1]
+                v_list = hop.inputarg(self, arg=0)
+                v_iterable = hop.inputarg(r_iterable, arg=1)
+                hop2 = hop.copy()
+                while hop2.nb_args > 0:
+                    hop2.r_s_popfirstarg()
+                hop2.v_s_insertfirstarg(v_iterable, s_iterable)
+                v_maxlength = r_iterable.rtype_len(hop2)
+                hop.llops.gendirectcall(ll_set_maxlength, v_list, v_maxlength)
+                return v_list
+        if 'fence' in hints:
+            v_list = hop.inputarg(self, arg=0)
+            if isinstance(hop.r_result, FixedSizeListRepr):
+                if optimized and 'exactlength' in hints:
+                    llfn = ll_list2fixed_exact
+                else:
+                    llfn = ll_list2fixed
+                v_list = hop.llops.gendirectcall(llfn, v_list)
+            return v_list
+        return AbstractListRepr.rtype_hint(self, hop)
+
 
 class FixedSizeListRepr(AbstractFixedSizeListRepr, BaseListRepr):
 
@@ -214,17 +263,7 @@ class FixedSizeListRepr(AbstractFixedSizeListRepr, BaseListRepr):
             self.external_item_repr, self.item_repr = externalvsinternal(self.rtyper, self._item_repr_computer())
         if isinstance(self.LIST, GcForwardReference):
             ITEM = self.item_repr.lowleveltype
-            ITEMARRAY = GcArray(ITEM,
-                                adtmeths = ADTIFixedList({
-                                     "ll_newlist": ll_fixed_newlist,
-                                     "ll_length": ll_fixed_length,
-                                     "ll_items": ll_fixed_items,
-                                     ##"list_builder": self.list_builder,
-                                     "ITEM": ITEM,
-                                     "ll_getitem_fast": ll_fixed_getitem_fast,
-                                     "ll_setitem_fast": ll_fixed_setitem_fast,
-                                }))
-
+            ITEMARRAY = self.get_itemarray_lowleveltype()
             self.LIST.become(ITEMARRAY)
 
     def compact_repr(self):
@@ -317,6 +356,12 @@ def _ll_list_resize_le(l, newsize):
         _ll_list_resize_really(l, newsize)
 
 
+def ll_append_noresize(l, newitem):
+    length = l.length
+    l.length = length + 1
+    l.ll_setitem_fast(length, newitem)
+ll_append_noresize.oopspec = 'list.append(l, newitem)'
+
 
 TEMP = GcArray(Ptr(rstr.STR))
 
@@ -378,6 +423,25 @@ def newlist(llops, r_list, items_v):
         llops.gendirectcall(ll_setitem_nonneg, v_func, v_result, ci, v_item)
     return v_result
 
+# special operations for list comprehension optimization
+def ll_set_maxlength(l, n):
+    LIST = typeOf(l).TO
+    l.items = malloc(LIST.items.TO, n)
+
+def ll_list2fixed(l):
+    n = l.length
+    olditems = l.items
+    if n == len(olditems):
+        return olditems
+    else:
+        LIST = typeOf(l).TO
+        newitems = malloc(LIST.items.TO, n)
+        for i in range(n):
+            newitems[i] = olditems[i]
+        return newitems
+
+def ll_list2fixed_exact(l):
+    return l.items
 
 # ____________________________________________________________
 #

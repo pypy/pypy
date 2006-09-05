@@ -198,12 +198,91 @@ def test_detect_list_comprehension():
     if conftest.option.view:
         graph.show()
     assert summary(graph) == {
+        'newlist': 1,
         'iter': 1,
-        'len':  1,
-        'newlistbuilder': 1,
         'next': 1,
         'mul':  1,
         'getattr': 1,
         'simple_call': 1,
-        'listbuilder_done': 1,
+        'hint': 2,
         }
+
+class TestLLSpecializeListComprehension:
+    typesystem = 'lltype'
+
+    def specialize(self, func, argtypes):
+        from pypy.rpython.llinterp import LLInterpreter
+        t = TranslationContext(list_comprehension_operations=True)
+        t.buildannotator().build_types(func, argtypes)
+        if conftest.option.view:
+            t.view()
+        t.buildrtyper(self.typesystem).specialize()
+        if self.typesystem == 'lltype':
+            backend_optimizations(t)
+        if conftest.option.view:
+            t.view()
+        graph = graphof(t, func)
+        interp = LLInterpreter(t.rtyper)
+        return interp, graph
+
+    def test_simple(self):
+        def main(n):
+            lst = [x*17 for x in range(n)]
+            return lst[5]
+        interp, graph = self.specialize(main, [int])
+        res = interp.eval_graph(graph, [10])
+        assert res == 5 * 17
+
+    def test_mutated_after_listcomp(self):
+        def main(n):
+            lst = [x*17 for x in range(n)]
+            lst.append(-42)
+            return lst[5]
+        interp, graph = self.specialize(main, [int])
+        res = interp.eval_graph(graph, [10])
+        assert res == 5 * 17
+        res = interp.eval_graph(graph, [5])
+        assert res == -42
+
+    def test_two_loops(self):
+        def main(n, m):
+            lst1 = []
+            lst2 = []
+            for i in range(n):
+                lst1.append(i)
+            for i in range(m):
+                lst2.append(i)
+            sum = 0
+            for i in lst1:
+                sum += i
+            for i in lst2:
+                sum -= i
+            return sum
+        interp, graph = self.specialize(main, [int, int])
+        res = interp.eval_graph(graph, [8, 3])
+        assert res == 28 - 3
+
+    def test_list_iterator(self):
+        # for now, this is not optimized as a list comp
+        def main(n):
+            r = range(n)
+            lst = [i*17 for i in iter(r)]
+            return lst[5]
+        interp, graph = self.specialize(main, [int])
+        res = interp.eval_graph(graph, [8])
+        assert res == 5 * 17
+
+    def test_dict_iterator(self):
+        # for now, this is not optimized as a list comp
+        def main(n, m):
+            d = {n: m, m: n}
+            lst = [i*17 for i in d.iterkeys()]
+            return len(lst) + lst[0] + lst[-1]
+        interp, graph = self.specialize(main, [int, int])
+        res = interp.eval_graph(graph, [8, 5])
+        assert res == 2 + 8 * 17 + 5 * 17
+        res = interp.eval_graph(graph, [4, 4])
+        assert res == 1 + 4 * 17 + 4 * 17
+
+class TestOOSpecializeListComprehension(TestLLSpecializeListComprehension):
+    typesystem = 'ootype'
