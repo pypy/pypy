@@ -432,10 +432,11 @@ class RPythonAnnotator(object):
             else:
                 raise CannotSimplify
 
-    def simplify(self, block_subset=None):
+    def simplify(self, block_subset=None, extra_passes=None):
         # Generic simplifications
         from pypy.translator import transform
-        transform.transform_graph(self, block_subset=block_subset)
+        transform.transform_graph(self, block_subset=block_subset,
+                                  extra_passes=extra_passes)
         from pypy.translator import simplify 
         if block_subset is None:
             graphs = self.translator.graphs
