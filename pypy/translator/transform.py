@@ -218,10 +218,12 @@ default_extra_passes = [
     transform_allocate,
     ]
 
-def transform_graph(ann, extra_passes=default_extra_passes, block_subset=None):
+def transform_graph(ann, extra_passes=None, block_subset=None):
     """Apply set of transformations available."""
     # WARNING: this produces incorrect results if the graph has been
     #          modified by t.simplify() after it had been annotated.
+    if extra_passes is None:
+        extra_passes = default_extra_passes
     if block_subset is None:
         block_subset = fully_annotated_blocks(ann)
     if not isinstance(block_subset, dict):
