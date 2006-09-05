@@ -21,6 +21,8 @@ from pypy.jit.conftest import Benchmark
 
 P_NOVIRTUAL = AnnotatorPolicy()
 P_NOVIRTUAL.novirtualcontainer = True
+P_NOVIRTUAL.exceptiontransform = False # XXX for now, needs to make ptr_ne/eq
+                                       # not force things
 
 def getargtypes(annotator, values):
     return [annotation(annotator, x) for x in values]
@@ -45,11 +47,11 @@ def hannotate(func, values, policy=None, inline=None):
         auto_inlining(t, inline)
     graph1 = graphof(t, func)
     # build hint annotator types
-    hannotator = HintAnnotator(policy=policy)
-    hannotator.base_translator = t
+    hannotator = HintAnnotator(base_translator=t, policy=policy)
     hs = hannotator.build_types(graph1, [SomeLLAbstractConstant(v.concretetype,
                                                                 {OriginFlags(): True})
                                          for v in graph1.getargs()])
+    hannotator.simplify()
     if conftest.option.view:
         hannotator.translator.view()
     return hs, hannotator, rtyper

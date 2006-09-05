@@ -19,7 +19,8 @@ BINARY_OPERATIONS = """int_add int_sub int_mul int_mod int_and int_rshift int_fl
                        char_gt char_lt char_le char_ge char_eq char_ne
                        int_gt int_lt int_le int_ge int_eq int_ne
                        uint_gt uint_lt uint_le uint_ge uint_eq uint_ne
-                       getarrayitem""".split()
+                       getarrayitem
+                       ptr_eq ptr_ne""".split()
 
 class HintError(Exception):
     pass
@@ -360,12 +361,27 @@ class __extend__(pairtype(SomeLLAbstractValue, SomeLLAbstractContainer)):
         return pair(hs_cont2, hs_val1).union()
 
 
+
+
 class __extend__(pairtype(SomeLLAbstractContainer, SomeLLAbstractConstant)):
 
     def getarrayitem((hs_a1, hs_index)):
         hs_res = hs_a1.contentdef.read_item()
         return reorigin(hs_res, hs_res, hs_index)
 
+    def ptr_eq((hs_cont1, hs_ptr2)):
+        return getbookkeeper().immutablevalue(False)
+
+    def ptr_ne((hs_cont1, hs_ptr2)):
+        return getbookkeeper().immutablevalue(True)    
+
+class __extend__(pairtype(SomeLLAbstractConstant, SomeLLAbstractContainer)):
+
+    def ptr_eq((hs_ptr1, hs_cont2)):
+        return getbookkeeper().immutablevalue(False)
+
+    def ptr_ne((hs_ptr1, hs_cont2)):
+        return getbookkeeper().immutablevalue(True)    
 
 # ____________________________________________________________
 

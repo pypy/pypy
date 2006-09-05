@@ -1,6 +1,7 @@
 from pypy.tool.tls import tlsobject
 from pypy.objspace.flow.model import copygraph
 from pypy.annotation import model as annmodel
+from pypy.rpython.lltypesystem import lltype
 
 TLS = tlsobject()
 
@@ -31,7 +32,15 @@ class GraphDesc(object):
         try:
             return self._cache[key]
         except KeyError:
+            bk = self.bookkeeper
             graph = copygraph(self.origgraph)
+            try:
+                exceptiontransformer = bk.annotator.exceptiontransformer
+            except AttributeError:
+                pass
+            else:
+                # except transform the copied graph before its hint-annotation
+                exceptiontransformer.create_exception_handling(graph)
             if alt_name is not None:
                 graph.name = alt_name
             self._cache[key] = graph
@@ -89,6 +98,12 @@ class HintBookkeeper(object):
         res.const = const.value
         return res
 
+    def immutablevalue(self, value):        
+        from pypy.jit.hintannotator import model as hintmodel
+        res = hintmodel.SomeLLAbstractConstant(lltype.typeOf(value), {})
+        res.const = value
+        return res
+    
     def current_op_concretetype(self):
         _, block, i = self.position_key
         op = block.operations[i]

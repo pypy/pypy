@@ -107,6 +107,9 @@ class HintRTyper(RPythonTyper):
         # don't try to generate hint operations, just discard them
         return hop.inputarg(hop.r_result, arg=0)
 
+    def translate_op_debug_log_exc(self, hop): # don't timeshift debug_log_exc
+        pass
+
     def translate_op_keepalive(self,hop):
         pass
 

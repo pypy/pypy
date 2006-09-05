@@ -3,7 +3,16 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.jit.timeshifter import rvalue
 
 class AbstractContainer(object):
-    pass
+
+    def op_getfield(self, jitstate, fielddesc):
+        raise NotImplementedError
+
+    def op_setfield(self, jitstate, fielddesc, valuebox):
+        raise NotImplementedError
+
+    def op_getsubstruct(self, jitstate, fielddesc):
+        raise NotImplementedError
+
 
 # ____________________________________________________________
 

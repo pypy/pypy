@@ -28,11 +28,11 @@ def hannotate(func, argtypes, policy=None, annotator=False, inline=None):
         auto_inlining(t, inline)
     graph1 = graphof(t, func)
     # build hint annotator types
-    hannotator = HintAnnotator(policy=policy)
-    hannotator.base_translator = t
+    hannotator = HintAnnotator(base_translator=t, policy=policy)
     hs = hannotator.build_types(graph1, [SomeLLAbstractConstant(v.concretetype,
                                                                 {OriginFlags(): True})
                                          for v in graph1.getargs()])
+    hannotator.simplify()
     t = hannotator.translator
     if conftest.option.view:
         t.view()
@@ -258,6 +258,12 @@ def test_some_more_list_operations():
     assert hs.concretetype == lltype.Signed
     assert len(hs.origins) == 4
 
+def test_make_a_list():
+    def ll_function(x, y):
+        return [x, y]
+    hs = hannotate(ll_function, [int, int], policy=P_OOPSPEC)
+    assert isinstance(hs, SomeLLAbstractContainer)
+
 def test_simple_cast_pointer():
     GCS1 = lltype.GcStruct('s1', ('x', lltype.Signed))
     GCS2 = lltype.GcStruct('s2', ('sub', GCS1), ('y', lltype.Signed))
@@ -473,7 +479,6 @@ def undecided_relevance_test_invalid_hint_2():
 
 
 def test_raise_exc():
-    py.test.skip("work in-progress")
     class E(Exception):
         pass
     def f1():
@@ -488,7 +493,6 @@ def test_raise_exc():
     
 
 def test_raise_and_catch_exc():
-    py.test.skip("work in-progress")    
     class E(Exception):
         pass
     def f(flag):
@@ -502,7 +506,11 @@ def test_raise_and_catch_exc():
             return -1
         return 0
             
-    hannotate(g, [bool], policy=P_OOPSPEC_NOVIRTUAL)
+    hs = hannotate(g, [bool], policy=P_OOPSPEC_NOVIRTUAL)
+    # xxx this has a green return but the function has side effects
+    # we need to proper notice that for correct timeshifting
+    assert isinstance(hs, SomeLLAbstractConstant)
+    assert hs.concretetype == lltype.Signed
 
     def f(flag):
         if flag:
@@ -510,5 +518,8 @@ def test_raise_and_catch_exc():
             e.a = 3
             raise e
         
-    hannotate(g, [bool], policy=P_OOPSPEC_NOVIRTUAL)    
-    
+    hs = hannotate(g, [bool], policy=P_OOPSPEC_NOVIRTUAL)    
+    # xxx this has a green return but the function has side effects
+    # we need to proper notice that for correct timeshifting
+    assert isinstance(hs, SomeLLAbstractConstant)
+    assert hs.concretetype == lltype.Signed    

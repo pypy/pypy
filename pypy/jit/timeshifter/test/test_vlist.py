@@ -4,6 +4,8 @@ from pypy.jit.timeshifter.test.test_timeshift import TimeshiftingTests
 P_OOPSPEC = AnnotatorPolicy()
 P_OOPSPEC.novirtualcontainer = True
 P_OOPSPEC.oopspec = True
+P_OOPSPEC.exceptiontransform = False # XXX for now, needs to make ptr_ne/eq
+                                     # not force things
 
 
 class TestVList(TimeshiftingTests):

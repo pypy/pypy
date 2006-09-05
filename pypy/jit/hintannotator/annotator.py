@@ -3,13 +3,19 @@ from pypy.jit.hintannotator import model as hintmodel
 from pypy.jit.hintannotator.bookkeeper import HintBookkeeper
 from pypy.rpython.lltypesystem import lltype
 
+from pypy.translator.c.exceptiontransform import ExceptionTransformer
+
 
 class HintAnnotator(RPythonAnnotator):
 
-    def __init__(self, translator=None, policy=None):
-        bookkeeper = HintBookkeeper(self)
+    def __init__(self, translator=None, base_translator=None, policy=None):        
+        bookkeeper = HintBookkeeper(self)        
         RPythonAnnotator.__init__(self, translator, policy=policy,
                                   bookkeeper=bookkeeper)
+
+        self.base_translator = base_translator
+        if getattr(policy, 'exceptiontransform', True) and base_translator is not None:
+            self.exceptiontransformer = ExceptionTransformer(base_translator)
 
     def build_types(self, origgraph, input_args_hs):
         desc = self.bookkeeper.getdesc(origgraph)
@@ -38,5 +44,10 @@ class HintAnnotator(RPythonAnnotator):
     def consider_op_keepalive(self, hs_v):
         pass
 
+    def consider_op_debug_log_exc(self, hs_v):
+        pass
+
+    def simplify(self):
+        RPythonAnnotator.simplify(self, extra_passes=[])
 
 HintAnnotator._registeroperations(hintmodel)
