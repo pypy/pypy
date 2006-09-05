@@ -111,6 +111,7 @@ class TestUsingBoehm(AbstractTestClass):
                 a = A()
                 # this should not keep a alive
                 s.a = cast_object_to_weakgcaddress(a)
+                a = None
             llop.gc__collect(lltype.Void)
             llop.gc__collect(lltype.Void)
             llop.gc__collect(lltype.Void)

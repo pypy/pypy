@@ -299,9 +299,28 @@ class ExceptionTransformer(object):
         #block.operations.append(SpaceOperation("safe_call", [self.rpyexc_occured_ptr], var_exc_occured))
 
         llops = rtyper.LowLevelOpList(None)
-        v_exc_type = self.ExcData_repr.getfield(self.cexcdata, 'exc_type', llops)
-        llops.genop('debug_log_exc', [v_exc_type], lltype.Void)
-        var_exc_occured = llops.genop('ptr_ne', [v_exc_type, self.cnulltype], lltype.Bool)
+        alloc_shortcut = False
+
+        spaceop = block.operations[-1]
+        if spaceop.opname in ('malloc', 'malloc_varsize'):
+            alloc_shortcut = True
+        elif spaceop.opname == 'direct_call':
+            fnobj = spaceop.args[0].value._obj
+            if hasattr(fnobj, '_callable'):
+                oopspec = getattr(fnobj._callable, 'oopspec', None)
+                if oopspec and oopspec == 'newlist(length)':
+                    alloc_shortcut = True
+                    
+        if alloc_shortcut:
+            T = spaceop.result.concretetype
+            var_exc_occured = llops.genop('ptr_eq', [spaceop.result,
+                                                     Constant(lltype.nullptr(T.TO), T)],
+                                          lltype.Bool)            
+        else:
+            v_exc_type = self.ExcData_repr.getfield(self.cexcdata, 'exc_type', llops)
+            llops.genop('debug_log_exc', [v_exc_type], lltype.Void)
+            var_exc_occured = llops.genop('ptr_ne', [v_exc_type, self.cnulltype], lltype.Bool)
+
         block.operations.extend(llops)
         
         block.exitswitch = var_exc_occured
