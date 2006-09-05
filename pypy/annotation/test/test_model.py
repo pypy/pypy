@@ -89,8 +89,8 @@ def test_commonbase_simple():
     assert commonbase(A2,B3) is A0
 
 def test_list_union():
-    listdef1 = ListDef(None, SomeInteger(nonneg=True))
-    listdef2 = ListDef(None, SomeInteger(nonneg=False))
+    listdef1 = ListDef('dummy', SomeInteger(nonneg=True))
+    listdef2 = ListDef('dummy', SomeInteger(nonneg=False))
     s1 = SomeList(listdef1)
     s2 = SomeList(listdef2)
     assert s1 != s2
