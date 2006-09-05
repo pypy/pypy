@@ -31,7 +31,7 @@ See the full call for details:
 Ireland sprint 21st-27th August 
 ==================================================================
 
-``The last PyPy sprint happened in the nice city of 
+The last PyPy sprint happened in the nice city of 
 Limerick in Ireland from 21st till 27th August.  
 The main focus of the sprint was on JIT compiler works, 
 various optimization works, porting extension modules, 
