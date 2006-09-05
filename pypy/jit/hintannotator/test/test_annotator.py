@@ -470,3 +470,45 @@ def undecided_relevance_test_invalid_hint_2():
     py.test.skip("in-progress: I think we expect a HintError here, do we?")
     py.test.raises(HintError, hannotate,
                    ll_getitem_switch, [annmodel.SomePtr(lltype.Ptr(S))])
+
+
+def test_raise_exc():
+    py.test.skip("work in-progress")
+    class E(Exception):
+        pass
+    def f1():
+        raise E
+    hannotate(f1, [], policy=P_OOPSPEC_NOVIRTUAL)
+
+    def f2():
+        e = E()
+        e.a = 3
+        raise e
+    hannotate(f2, [], policy=P_OOPSPEC_NOVIRTUAL)    
+    
+
+def test_raise_and_catch_exc():
+    py.test.skip("work in-progress")    
+    class E(Exception):
+        pass
+    def f(flag):
+        if flag:
+            raise E
+
+    def g(flag):
+        try:
+            f(flag)
+        except E:
+            return -1
+        return 0
+            
+    hannotate(g, [bool], policy=P_OOPSPEC_NOVIRTUAL)
+
+    def f(flag):
+        if flag:
+            e = E()
+            e.a = 3
+            raise e
+        
+    hannotate(g, [bool], policy=P_OOPSPEC_NOVIRTUAL)    
+    
