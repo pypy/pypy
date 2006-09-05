@@ -31,12 +31,12 @@ See the full call for details:
 Ireland sprint 21st-27th August 
 ==================================================================
 
-The next PyPy sprint will happen in the nice city of 
+``The last PyPy sprint happened in the nice city of 
 Limerick in Ireland from 21st till 27th August.  
-The main focus of the sprint will be on JIT compiler works, 
+The main focus of the sprint was on JIT compiler works, 
 various optimization works, porting extension modules, 
-infrastructure works like a build tool for PyPy, or 
-extended (distributed) testing.  It's also open to new topics.  
+infrastructure works like a build tool for PyPy and
+extended (distributed) testing. 
 Read the full `announcement`_ for more details. 
 
 .. _`announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/ireland-2006/announce.html
