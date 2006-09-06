@@ -101,15 +101,12 @@ def split_block(annotator, block, index):
     #from block the old block
     newblock = Block(varmap.values())
     newblock.operations = moved_operations
-    newblock.exits = links
+    newblock.recloseblock(*links)
     newblock.exitswitch = exitswitch
     newblock.exc_handler = block.exc_handler
-    for link in newblock.exits:
-        link.prevblock = newblock
     link = Link(varmap.keys(), newblock)
-    link.prevblock = block
     block.operations = block.operations[:index]
-    block.exits = [link]
+    block.recloseblock(link)
     block.exitswitch = None
     block.exc_handler = False
     return link

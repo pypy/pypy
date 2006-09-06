@@ -278,6 +278,8 @@ class LLFrame(object):
                 evalue = self.getval(evaluevar)
                 # watch out, these are _ptr's
                 raise LLException(etype, evalue)
+            resultvar, = block.getvariables()
+            result = self.getval(resultvar)
             if hasattr(self.graph, 'exceptiontransformed'):
                 # re-raise the exception set by this graph, if any
                 exc_data = self.graph.exceptiontransformed
@@ -286,11 +288,15 @@ class LLFrame(object):
                     evalue = rclass.fishllattr(exc_data, 'exc_value')
                     if tracer:
                         tracer.dump('raise')
+                    from pypy.translator.c import exceptiontransform
+                    T = resultvar.concretetype
+                    errvalue = exceptiontransform.error_value(T)
+                    # check that the exc-transformed graph returns the error
+                    # value when it returns with an exception set
+                    assert result == errvalue
                     raise LLException(etype, evalue)
             if tracer:
                 tracer.dump('return')
-            resultvar, = block.getvariables()
-            result = self.getval(resultvar)
             return None, result
         elif block.exitswitch is None:
             # single-exit block
@@ -524,8 +530,8 @@ class LLFrame(object):
                 evalue = e.args[1]
                 rclass.feedllattr(exc_data, 'exc_type', etype)
                 rclass.feedllattr(exc_data, 'exc_value', evalue)
-                from pypy.translator.c.exceptiontransform import error_value
-                return error_value(FTYPE.RESULT).value
+                from pypy.translator.c import exceptiontransform
+                return exceptiontransform.error_value(FTYPE.RESULT)
             raise
 
     op_safe_call = op_direct_call

@@ -14,8 +14,8 @@ class HintAnnotator(RPythonAnnotator):
                                   bookkeeper=bookkeeper)
 
         self.base_translator = base_translator
-        if getattr(policy, 'exceptiontransform', True) and base_translator is not None:
-            self.exceptiontransformer = ExceptionTransformer(base_translator)
+        assert base_translator is not None      # None not supported any more
+        self.exceptiontransformer = ExceptionTransformer(base_translator)
 
     def build_types(self, origgraph, input_args_hs):
         desc = self.bookkeeper.getdesc(origgraph)

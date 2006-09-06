@@ -187,7 +187,7 @@ def rewire_links(splitblocks, graph):
             else:
                 # split the block at the given position
                 splitlink = split_block_with_keepalive(block, position)
-                assert block.exits == [splitlink]
+                assert list(block.exits) == [splitlink]
             assert link.target is block
             assert splitlink.prevblock is block
             complete_constants(link, constants)

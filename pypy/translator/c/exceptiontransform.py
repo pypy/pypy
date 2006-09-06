@@ -1,5 +1,6 @@
 from pypy.translator.simplify import join_blocks, cleanup_graph
 from pypy.translator.unsimplify import copyvar, varoftype
+from pypy.translator.unsimplify import insert_empty_block
 from pypy.translator.backendopt import canraise, inline, support, removenoops
 from pypy.objspace.flow.model import Block, Constant, Variable, Link, \
     c_last_exception, SpaceOperation, checkgraph, FunctionGraph
@@ -26,10 +27,13 @@ PrimitiveErrorValue = {lltype.Signed: -1,
 
 def error_value(T):
     if isinstance(T, lltype.Primitive):
-        return Constant(PrimitiveErrorValue[T], T)
+        return PrimitiveErrorValue[T]
     elif isinstance(T, lltype.Ptr):
-        return Constant(lltype.nullptr(T.TO), T)
+        return lltype.nullptr(T.TO)
     assert 0, "not implemented yet"
+
+def error_constant(T):
+    return Constant(error_value(T), T)
 
 class ExceptionTransformer(object):
     def __init__(self, translator):
@@ -142,12 +146,16 @@ class ExceptionTransformer(object):
                                  self.ExcData_repr.lowleveltype)
         
         self.lltype_to_classdef = translator.rtyper.lltype_to_classdef_mapping()
+        p = lltype.nullptr(self.lltype_of_exception_type.TO)
+        self.c_null_etype = Constant(p, self.lltype_of_exception_type)
+        p = lltype.nullptr(self.lltype_of_exception_value.TO)
+        self.c_null_evalue = Constant(p, self.lltype_of_exception_value)
 
     def transform_completely(self):
         for graph in self.translator.graphs:
             self.create_exception_handling(graph)
 
-    def create_exception_handling(self, graph):
+    def create_exception_handling(self, graph, always_exc_clear=False):
         """After an exception in a direct_call (or indirect_call), that is not caught
         by an explicit
         except statement, we need to reraise the exception. So after this
@@ -161,6 +169,7 @@ class ExceptionTransformer(object):
         else:
             graph.exceptiontransformed = self.exc_data_ptr
 
+        self.always_exc_clear = always_exc_clear
         join_blocks(graph)
         # collect the blocks before changing them
         n_need_exc_matching_blocks = 0
@@ -202,11 +211,8 @@ class ExceptionTransformer(object):
             if lastblock is block:
                 lastblock = afterblock
 
-            self.gen_exc_check(block, graph.returnblock)                
+            self.gen_exc_check(block, graph.returnblock, afterblock)
             n_gen_exc_checks += 1
-
-            #non-exception case
-            block.exits[0].exitcase = block.exits[0].llexitcase = False
         if need_exc_matching:
             assert lastblock.exitswitch == c_last_exception
             if not self.raise_analyzer.can_raise(lastblock.operations[-1]):
@@ -228,9 +234,8 @@ class ExceptionTransformer(object):
         result.concretetype = lltype.Void
         block.operations = [SpaceOperation(
            "direct_call", [self.rpyexc_raise_ptr] + block.inputargs, result)]
-        l = Link([error_value(graph.returnblock.inputargs[0].concretetype)], graph.returnblock)
-        l.prevblock  = block
-        block.exits = [l]
+        l = Link([error_constant(graph.returnblock.inputargs[0].concretetype)], graph.returnblock)
+        block.recloseblock(l)
 
     def insert_matching(self, block, graph):
         proxygraph, op = self.create_proxy_graph(block.operations[-1])
@@ -271,31 +276,28 @@ class ExceptionTransformer(object):
         startblock.operations.append(newop) 
         newgraph = FunctionGraph("dummy_exc1", startblock)
         startblock.closeblock(Link([result], newgraph.returnblock))
-        startblock.exits = list(startblock.exits)
         newgraph.returnblock.inputargs[0].concretetype = op.result.concretetype
         self.gen_exc_check(startblock, newgraph.returnblock)
-        startblock.exits[0].exitcase = startblock.exits[0].llexitcase = False
         excblock = Block([])
-        var_value = varoftype(self.lltype_of_exception_value)
-        var_type = varoftype(self.lltype_of_exception_type)
-        var_void = varoftype(lltype.Void)
-        excblock.operations.append(SpaceOperation(
-            "direct_call", [self.rpyexc_fetch_value_ptr], var_value))
-        excblock.operations.append(SpaceOperation(
-            "direct_call", [self.rpyexc_fetch_type_ptr], var_type))
-        excblock.operations.append(SpaceOperation(
-            "direct_call", [self.rpyexc_clear_ptr], var_void))
+
+        llops = rtyper.LowLevelOpList(None)
+        r = self.ExcData_repr
+        var_value = r.getfield(self.cexcdata, 'exc_value', llops)
+        var_type  = r.getfield(self.cexcdata, 'exc_type',  llops)
+        r.setfield(self.cexcdata, 'exc_value', self.c_null_evalue, llops)
+        r.setfield(self.cexcdata, 'exc_type',  self.c_null_etype,  llops)
+        excblock.operations[:] = llops
         newgraph.exceptblock.inputargs[0].concretetype = self.lltype_of_exception_type
         newgraph.exceptblock.inputargs[1].concretetype = self.lltype_of_exception_value
         excblock.closeblock(Link([var_type, var_value], newgraph.exceptblock))
         startblock.exits[True].target = excblock
         startblock.exits[True].args = []
         FUNCTYPE = lltype.FuncType(ARGTYPES, op.result.concretetype)
-        fptr = Constant(lltype.functionptr(FUNCTYPE, "dummy_exc2", graph=newgraph),
+        fptr = Constant(lltype.functionptr(FUNCTYPE, "dummy_exc1", graph=newgraph),
                         lltype.Ptr(FUNCTYPE))
         return newgraph, SpaceOperation("direct_call", [fptr] + callargs, op.result) 
 
-    def gen_exc_check(self, block, returnblock):
+    def gen_exc_check(self, block, returnblock, normalafterblock=None):
         #var_exc_occured = Variable()
         #var_exc_occured.concretetype = lltype.Bool
         #block.operations.append(SpaceOperation("safe_call", [self.rpyexc_occured_ptr], var_exc_occured))
@@ -327,9 +329,22 @@ class ExceptionTransformer(object):
         
         block.exitswitch = var_exc_occured
         #exception occurred case
-        l = Link([error_value(returnblock.inputargs[0].concretetype)], returnblock)
-        l.prevblock  = block
+        l = Link([error_constant(returnblock.inputargs[0].concretetype)], returnblock)
         l.exitcase = l.llexitcase = True
 
-        block.exits.append(l)
+        #non-exception case
+        l0 = block.exits[0]
+        l0.exitcase = l0.llexitcase = False
 
+        block.recloseblock(l0, l)
+
+        if self.always_exc_clear:
+            # insert code that clears the exception even in the non-exceptional
+            # case...  this is a hint for the JIT, but pointless otherwise
+            if normalafterblock is None:
+                normalafterblock = insert_empty_block(None, l0)
+            llops = rtyper.LowLevelOpList(None)
+            r = self.ExcData_repr
+            r.setfield(self.cexcdata, 'exc_value', self.c_null_evalue, llops)
+            r.setfield(self.cexcdata, 'exc_type',  self.c_null_etype,  llops)
+            normalafterblock.operations[:0] = llops

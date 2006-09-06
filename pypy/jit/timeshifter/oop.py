@@ -54,7 +54,14 @@ class OopSpecDesc:
                                  None, None, [method])
             self.ll_handler = getattr(vmodule, method)
 
-    def residual_call(self, builder, argboxes):
+        # exception handling
+        ts = hrtyper.timeshifter
+        graph = fnobj.graph
+        self.can_raise = ts.etrafo.raise_analyzer.analyze_direct_call(graph)
+        self.fetch_global_excdata = ts.fetch_global_excdata
+
+    def residual_call(self, jitstate, argboxes):
+        builder = jitstate.curbuilder
         args_gv = self.args_gv[:]
         argpositions = self.argpositions
         for i in range(len(argpositions)):
@@ -63,4 +70,6 @@ class OopSpecDesc:
                 gv_arg = argboxes[i].getgenvar(builder)
                 args_gv[pos] = gv_arg
         gv_result = builder.genop_call(self.sigtoken, self.gv_fnptr, args_gv)
+        if self.can_raise:
+            self.fetch_global_excdata(jitstate)
         return self.redboxbuilder(self.result_kind, gv_result)

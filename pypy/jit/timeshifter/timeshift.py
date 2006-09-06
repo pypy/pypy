@@ -49,14 +49,43 @@ class HintTimeshift(object):
 ##        self.r_box_accum = getrepr(self.s_box_accum)
 ##        self.r_box_accum.setup()
 
-        self.cexcdata = hannotator.exceptiontransformer.cexcdata
-        gv_excdata = RGenOp.constPrebuiltGlobal(self.cexcdata.value)
+        self.etrafo = hannotator.exceptiontransformer
+        self.cexcdata = self.etrafo.cexcdata
+        self.exc_data_ptr = self.cexcdata.value
+        gv_excdata = RGenOp.constPrebuiltGlobal(self.exc_data_ptr)
         LL_EXC_TYPE  = rtyper.exceptiondata.lltype_of_exception_type
         LL_EXC_VALUE = rtyper.exceptiondata.lltype_of_exception_value
         null_exc_type_box = rvalue.redbox_from_prebuilt_value(RGenOp,
                                          lltype.nullptr(LL_EXC_TYPE.TO))
         null_exc_value_box = rvalue.redbox_from_prebuilt_value(RGenOp,
                                          lltype.nullptr(LL_EXC_VALUE.TO))
+
+        p = self.etrafo.rpyexc_fetch_type_ptr.value
+        gv_rpyexc_fetch_type = RGenOp.constPrebuiltGlobal(p)
+        tok_fetch_type = RGenOp.sigToken(lltype.typeOf(p).TO)
+        kind_etype = RGenOp.kindToken(LL_EXC_TYPE)
+
+        p = self.etrafo.rpyexc_fetch_value_ptr.value
+        gv_rpyexc_fetch_value = RGenOp.constPrebuiltGlobal(p)
+        tok_fetch_value = RGenOp.sigToken(lltype.typeOf(p).TO)
+        kind_evalue = RGenOp.kindToken(LL_EXC_VALUE)
+
+        p = self.etrafo.rpyexc_clear_ptr.value
+        gv_rpyexc_clear = RGenOp.constPrebuiltGlobal(p)
+        tok_clear = RGenOp.sigToken(lltype.typeOf(p).TO)
+
+        def fetch_global_excdata(jitstate):
+            builder = jitstate.curbuilder
+            gv_etype = builder.genop_call(tok_fetch_type,
+                                          gv_rpyexc_fetch_type, [])
+            gv_evalue = builder.genop_call(tok_fetch_value,
+                                           gv_rpyexc_fetch_value, [])
+            builder.genop_call(tok_clear, gv_rpyexc_clear, [])
+            etypebox  = rvalue.PtrRedBox(kind_etype,  gv_etype)
+            evaluebox = rvalue.PtrRedBox(kind_evalue, gv_evalue)
+            rtimeshift.setexctypebox (jitstate, etypebox)
+            rtimeshift.setexcvaluebox(jitstate, evaluebox)
+        self.fetch_global_excdata = fetch_global_excdata
 
         def ll_fresh_jitstate(builder):
             return JITState(builder, None,
@@ -192,6 +221,10 @@ class HintTimeshift(object):
 
         self.insert_start_setup()
         self.insert_v_jitstate_everywhere()
+
+        # and now... the graph is timeshifted, so it is *itself* no longer
+        # exception-transformed...
+        del graph.exceptiontransformed
         #print 'timeshift_graph END', graph
 
     def insert_v_jitstate_everywhere(self):

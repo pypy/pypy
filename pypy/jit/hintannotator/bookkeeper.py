@@ -35,12 +35,12 @@ class GraphDesc(object):
             bk = self.bookkeeper
             graph = copygraph(self.origgraph)
             try:
-                exceptiontransformer = bk.annotator.exceptiontransformer
+                etrafo = bk.annotator.exceptiontransformer
             except AttributeError:
                 pass
             else:
                 # except transform the copied graph before its hint-annotation
-                exceptiontransformer.create_exception_handling(graph)
+                etrafo.create_exception_handling(graph, always_exc_clear=True)
             if alt_name is not None:
                 graph.name = alt_name
             self._cache[key] = graph

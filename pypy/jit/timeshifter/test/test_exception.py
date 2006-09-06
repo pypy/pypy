@@ -3,6 +3,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.llinterp import LLException
 from pypy.jit.timeshifter.test.test_timeshift import TimeshiftingTests
 from pypy.jit.timeshifter.test.test_timeshift import P_NOVIRTUAL
+from pypy.jit.timeshifter.test.test_vlist import P_OOPSPEC
 
 
 class TestException(TimeshiftingTests):
@@ -67,3 +68,43 @@ class TestException(TimeshiftingTests):
         res = self.timeshift(ll_function, [17], [0], policy=P_NOVIRTUAL)
         assert res == 24
         self.check_insns({})
+
+    def test_catch_from_outside(self):
+        def ll_function(x):
+            lst = [5]
+            if x:
+                lst.append(x)
+            # 'lst' is forced at this point
+            try:
+                return lst[1] * 2   # direct_call to ll_getitem
+            except IndexError:
+                return -11
+
+        res = self.timeshift(ll_function, [0], [], policy=P_OOPSPEC)
+        assert res == -11
+
+        res = self.timeshift(ll_function, [0], [0], policy=P_OOPSPEC)
+        assert res == -11
+
+        res = self.timeshift(ll_function, [17], [0], policy=P_OOPSPEC)
+        assert res == 34
+
+    def test_exception_from_virtual(self):
+        py.test.skip("in-progress... regress... sidewaysgress")
+        def ll_function(n):
+            lst = []
+            lst.append(5)
+            try:
+                return lst[n]   # direct_call to ll_getitem
+            except IndexError:
+                return -11
+
+        res = self.timeshift(ll_function, [2], [0], policy=P_OOPSPEC)
+        assert res == -11
+
+        res = self.timeshift(ll_function, [0], [0], policy=P_OOPSPEC)
+        assert res == 5
+
+        # the next case degenerates anyway
+        res = self.timeshift(ll_function, [2], [], policy=P_OOPSPEC)
+        assert res == -11
