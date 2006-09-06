@@ -49,6 +49,21 @@ class HintTimeshift(object):
 ##        self.r_box_accum = getrepr(self.s_box_accum)
 ##        self.r_box_accum.setup()
 
+        self.cexcdata = hannotator.exceptiontransformer.cexcdata
+        gv_excdata = RGenOp.constPrebuiltGlobal(self.cexcdata.value)
+        LL_EXC_TYPE  = rtyper.exceptiondata.lltype_of_exception_type
+        LL_EXC_VALUE = rtyper.exceptiondata.lltype_of_exception_value
+        null_exc_type_box = rvalue.redbox_from_prebuilt_value(RGenOp,
+                                         lltype.nullptr(LL_EXC_TYPE.TO))
+        null_exc_value_box = rvalue.redbox_from_prebuilt_value(RGenOp,
+                                         lltype.nullptr(LL_EXC_VALUE.TO))
+
+        def ll_fresh_jitstate(builder):
+            return JITState(builder, None,
+                            null_exc_type_box,
+                            null_exc_value_box)
+        self.ll_fresh_jitstate = ll_fresh_jitstate
+
     def s_r_instanceof(self, cls, can_be_None=True):
         # Return a SomeInstance / InstanceRepr pair correspnding to the specified class.
         return self.annhelper.s_r_instanceof(cls, can_be_None=can_be_None)
@@ -199,14 +214,13 @@ class HintTimeshift(object):
         newstartblock = self.insert_before_block(self.graph.startblock, None,
                                                  closeblock=True)
         llops = HintLowLevelOpList(self)
-        v_backstate = llops.getjitstate()
+        v_jitstate = llops.getjitstate()
 
         llops.genop('direct_call', [self.c_ll_clearcaches_ptr])
-        v_jitstate1 = llops.genmixlevelhelpercall(rtimeshift.enter_graph,
-                               [self.s_JITState],
-                               [v_backstate],
-                               self.s_JITState)
-        llops.setjitstate(v_jitstate1)
+        llops.genmixlevelhelpercall(rtimeshift.enter_graph,
+                                    [self.s_JITState],
+                                    [v_jitstate     ],
+                                    annmodel.s_None)
         newstartblock.operations = list(llops)
                     
     def insert_before_block(self, block, block_entering_links,
@@ -313,7 +327,7 @@ class HintTimeshift(object):
         orig_key_v = []
         for newvar in newinputargs:
             r = self.hrtyper.bindingrepr(newvar)
-            if isinstance(r, GreenRepr):
+            if isinstance(r, GreenRepr) and r.lowleveltype is not lltype.Void:
                 r_from = getrepr(r.annotation())
                 s_erased = r.erased_annotation()
                 r_to = getrepr(s_erased)
@@ -585,14 +599,20 @@ class HintTimeshift(object):
                 block.operations.insert(i, extraop)
 
                 replacement = {}
-                # XXX for now, the call appends the return value box to
-                # the local_boxes of our jitstate, from where we can fish
-                # it using a 'restore_local' ----------vvvvvvvvvvv
-                for i, var in enumerate(vars_to_save + [op.result]):
+                for i, var in enumerate(vars_to_save):
                     newvar = copyvar(self.hannotator, var)
                     c_index = flowmodel.Constant(i, concretetype=lltype.Signed)
                     extraop = flowmodel.SpaceOperation('restore_local',
                                                        [c_index],
+                                                       newvar)
+                    block.operations.append(extraop)
+                    replacement[var] = newvar
+
+                if isinstance(hrtyper.bindingrepr(op.result), RedRepr):
+                    var = op.result
+                    newvar = copyvar(self.hannotator, var)
+                    extraop = flowmodel.SpaceOperation('fetch_return',
+                                                       [],
                                                        newvar)
                     block.operations.append(extraop)
                     replacement[var] = newvar

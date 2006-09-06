@@ -12,7 +12,9 @@ UNARY_OPERATIONS = """same_as hint getfield setfield getsubstruct getarraysize s
                       cast_int_to_uint
                       cast_uint_to_int
                       cast_char_to_int
-                      cast_bool_to_int""".split()
+                      cast_bool_to_int
+                      ptr_nonzero
+                      ptr_iszero""".split()
 
 BINARY_OPERATIONS = """int_add int_sub int_mul int_mod int_and int_rshift int_floordiv
                        uint_add uint_sub uint_mul uint_mod uint_and uint_rshift uint_floordiv
@@ -302,6 +304,13 @@ class __extend__(SomeLLAbstractContainer):
         res_vstruct =hs_s1.contentdef.cast(TO)
         return SomeLLAbstractContainer(res_vstruct)
 
+    def ptr_nonzero(hs_s1):
+        return getbookkeeper().immutablevalue(True)
+
+    def ptr_iszero(hs_s1):
+        return getbookkeeper().immutablevalue(False)
+
+
 # ____________________________________________________________
 # binary
 
@@ -348,6 +357,12 @@ class __extend__(pairtype(SomeLLAbstractContainer, SomeLLAbstractContainer)):
         contentdef = hs_cont1.contentdef.union(hs_cont2.contentdef)
         return SomeLLAbstractContainer(contentdef)
 
+    def ptr_eq((hs_cont1, hs_cont2)):
+        return SomeLLAbstractConstant(lltype.Bool, {})
+
+    def ptr_ne((hs_cont1, hs_cont2)):
+        return SomeLLAbstractConstant(lltype.Bool, {})
+
 
 class __extend__(pairtype(SomeLLAbstractContainer, SomeLLAbstractValue)):
     def union((hs_cont1, hs_val2)):
@@ -361,6 +376,14 @@ class __extend__(pairtype(SomeLLAbstractValue, SomeLLAbstractContainer)):
         return pair(hs_cont2, hs_val1).union()
 
 
+class __extend__(pairtype(SomeLLAbstractContainer, SomeLLAbstractValue),
+                 pairtype(SomeLLAbstractValue, SomeLLAbstractContainer)):
+
+    def ptr_eq(_):
+        return getbookkeeper().immutablevalue(False)
+
+    def ptr_ne(_):
+        return getbookkeeper().immutablevalue(True)
 
 
 class __extend__(pairtype(SomeLLAbstractContainer, SomeLLAbstractConstant)):
@@ -368,20 +391,6 @@ class __extend__(pairtype(SomeLLAbstractContainer, SomeLLAbstractConstant)):
     def getarrayitem((hs_a1, hs_index)):
         hs_res = hs_a1.contentdef.read_item()
         return reorigin(hs_res, hs_res, hs_index)
-
-    def ptr_eq((hs_cont1, hs_ptr2)):
-        return getbookkeeper().immutablevalue(False)
-
-    def ptr_ne((hs_cont1, hs_ptr2)):
-        return getbookkeeper().immutablevalue(True)    
-
-class __extend__(pairtype(SomeLLAbstractConstant, SomeLLAbstractContainer)):
-
-    def ptr_eq((hs_ptr1, hs_cont2)):
-        return getbookkeeper().immutablevalue(False)
-
-    def ptr_ne((hs_ptr1, hs_cont2)):
-        return getbookkeeper().immutablevalue(True)    
 
 # ____________________________________________________________
 

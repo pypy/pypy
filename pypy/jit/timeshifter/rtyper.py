@@ -120,6 +120,21 @@ class HintRTyper(RPythonTyper):
     def translate_op_getfield(self, hop):
         if isinstance(hop.args_r[0], BlueRepr):
             return hop.args_r[0].timeshift_getfield(hop)
+        ts = self.timeshifter
+        if hop.args_v[0] == ts.cexcdata:
+            # reading one of the exception boxes (exc_type or exc_value)
+            fieldname = hop.args_v[1].value
+            if fieldname.endswith('exc_type'):
+                reader = rtimeshift.getexctypebox
+            elif fieldname.endswith('exc_value'):
+                reader = rtimeshift.getexcvaluebox
+            else:
+                raise Exception("getfield(exc_data, %r)" % (fieldname,))
+            v_jitstate = hop.llops.getjitstate()
+            return hop.llops.genmixlevelhelpercall(reader,
+                                                   [ts.s_JITState],
+                                                   [v_jitstate   ],
+                                                   ts.s_RedBox)
         # non virtual case        
         PTRTYPE = originalconcretetype(hop.args_s[0])
         if PTRTYPE.TO._hints.get('immutable', False): # foldable if all green
@@ -127,7 +142,6 @@ class HintRTyper(RPythonTyper):
             if res is not None:
                 return res
             
-        ts = self.timeshifter
         v_argbox, c_fieldname = hop.inputargs(self.getredrepr(PTRTYPE),
                                               green_void_repr)
         structdesc = rcontainer.StructTypeDesc(self.RGenOp, PTRTYPE.TO)
@@ -183,10 +197,26 @@ class HintRTyper(RPythonTyper):
     def translate_op_setfield(self, hop):
         if isinstance(hop.args_r[0], BlueRepr):
             return hop.args_r[0].timeshift_setfield(hop)
-        # non virtual case ...
         ts = self.timeshifter        
         PTRTYPE = originalconcretetype(hop.args_s[0])
         VALUETYPE = originalconcretetype(hop.args_s[2])
+        if hop.args_v[0] == ts.cexcdata:
+            # reading one of the exception boxes (exc_type or exc_value)
+            fieldname = hop.args_v[1].value
+            if fieldname.endswith('exc_type'):
+                writer = rtimeshift.setexctypebox
+            elif fieldname.endswith('exc_value'):
+                writer = rtimeshift.setexcvaluebox
+            else:
+                raise Exception("setfield(exc_data, %r)" % (fieldname,))
+            v_valuebox = hop.inputarg(self.getredrepr(VALUETYPE), arg=2)
+            v_jitstate = hop.llops.getjitstate()
+            hop.llops.genmixlevelhelpercall(writer,
+                                            [ts.s_JITState, ts.s_RedBox],
+                                            [v_jitstate,    v_valuebox ],
+                                            annmodel.s_None)
+            return
+        # non virtual case ...
         v_destbox, c_fieldname, v_valuebox = hop.inputargs(self.getredrepr(PTRTYPE),
                                                            green_void_repr,
                                                            self.getredrepr(VALUETYPE)
@@ -227,6 +257,21 @@ class HintRTyper(RPythonTyper):
         r_result = hop.r_result
         return r_result.create(hop)
 
+    def translate_op_ptr_nonzero(self, hop, reverse=False):
+        ts = self.timeshifter
+        PTRTYPE = originalconcretetype(hop.args_s[0])
+        v_argbox, = hop.inputargs(self.getredrepr(PTRTYPE))
+        v_jitstate = hop.llops.getjitstate()
+        c_reverse = hop.inputconst(lltype.Bool, reverse)
+        return hop.llops.genmixlevelhelpercall(rtimeshift.ll_genptrnonzero,
+            [ts.s_JITState, ts.s_RedBox, annmodel.SomeBool()],
+            [v_jitstate,    v_argbox,    c_reverse          ],
+            ts.s_RedBox)
+
+    def translate_op_ptr_iszero(self, hop):
+        return self.translate_op_ptr_nonzero(hop, reverse=True)
+
+
     def guess_call_kind(self, spaceop):
         assert spaceop.opname == 'direct_call'
         c_func = spaceop.args[0]
@@ -262,6 +307,13 @@ class HintRTyper(RPythonTyper):
         v_jitstate = hop.llops.getjitstate()
         return ts.read_out_box(hop.llops, v_jitstate, index)
 
+    def translate_op_fetch_return(self, hop):
+        ts = self.timeshifter
+        v_jitstate = hop.llops.getjitstate()
+        return hop.llops.genmixlevelhelpercall(rtimeshift.getreturnbox,
+                                               [ts.s_JITState],
+                                               [v_jitstate   ],
+                                               ts.s_RedBox)
 
     def handle_oopspec_call(self, hop):
         # special-cased call, for things like list methods

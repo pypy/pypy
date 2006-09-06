@@ -363,7 +363,7 @@ class Builder(CodeGenerator):
         self.mc.MOVZX(eax, al)
         return self.returnvar(eax)
 
-    def op_setarrayitem(self, (gv_ptr, gv_index, gv_value), gv_RESTYPE):
+    def op_setarrayitem(self, hello_world):
         # XXX! only works for GcArray(Signed) for now!!
         XXX-fixme
         A = DUMMY_A
@@ -380,6 +380,9 @@ class Builder(CodeGenerator):
             self.mc.IMUL(ecx, gv_index.operand(self), imm(itemoffset))
             op = memSIB(edx, ecx, 0, startoffset)
         self.mc.MOV(op, eax)
+
+    op_ptr_nonzero = op_int_is_true
+    op_ptr_iszero  = op_bool_not        # for now
 
 
 DUMMY_A = lltype.GcArray(lltype.Signed)

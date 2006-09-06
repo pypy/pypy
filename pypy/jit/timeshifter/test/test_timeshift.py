@@ -21,8 +21,6 @@ from pypy.jit.conftest import Benchmark
 
 P_NOVIRTUAL = AnnotatorPolicy()
 P_NOVIRTUAL.novirtualcontainer = True
-P_NOVIRTUAL.exceptiontransform = False # XXX for now, needs to make ptr_ne/eq
-                                       # not force things
 
 def getargtypes(annotator, values):
     return [annotation(annotator, x) for x in values]
@@ -91,6 +89,7 @@ class TimeshiftingTests(object):
 
         # make the timeshifted graphs
         htshift = HintTimeshift(ha, rtyper, self.RGenOp)
+        fresh_jitstate = htshift.ll_fresh_jitstate
         RESTYPE = htshift.originalconcretetype(
             ha.translator.graphs[0].getreturnvar())
         htshift.timeshift()
@@ -172,10 +171,10 @@ class TimeshiftingTests(object):
                     i += 1
                     timeshifted_entrypoint_args += (box,)
 
-            top_jitstate = rtimeshift.fresh_jitstate(builder)
+            top_jitstate = fresh_jitstate(builder)
             top_jitstate = timeshifted_entrypoint(top_jitstate,
                                                   *timeshifted_entrypoint_args)
-            returnbox = top_jitstate.local_boxes[0]
+            returnbox = rtimeshift.getreturnbox(top_jitstate)
             gv_ret = returnbox.getgenvar(top_jitstate.curbuilder)
             top_jitstate.curbuilder.finish_and_return(sigtoken, gv_ret)
 
@@ -796,3 +795,13 @@ class TestTimeshift(TimeshiftingTests):
         assert res == 21
         self.check_insns({'int_gt': 1, 'int_add': 1,
                           'int_sub': 1, 'int_mul': 1})
+
+    def test_void_call(self):
+        def ll_do_nothing(x):
+            pass
+        def ll_function(y):
+            ll_do_nothing(y)
+            return y
+
+        res = self.timeshift(ll_function, [3], [], policy=P_NOVIRTUAL)
+        assert res == 3

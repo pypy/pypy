@@ -507,8 +507,6 @@ def test_raise_and_catch_exc():
         return 0
             
     hs = hannotate(g, [bool], policy=P_OOPSPEC_NOVIRTUAL)
-    # xxx this has a green return but the function has side effects
-    # we need to proper notice that for correct timeshifting
     assert isinstance(hs, SomeLLAbstractConstant)
     assert hs.concretetype == lltype.Signed
 
@@ -519,7 +517,5 @@ def test_raise_and_catch_exc():
             raise e
         
     hs = hannotate(g, [bool], policy=P_OOPSPEC_NOVIRTUAL)    
-    # xxx this has a green return but the function has side effects
-    # we need to proper notice that for correct timeshifting
     assert isinstance(hs, SomeLLAbstractConstant)
     assert hs.concretetype == lltype.Signed    

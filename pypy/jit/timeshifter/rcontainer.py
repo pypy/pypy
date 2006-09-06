@@ -126,6 +126,7 @@ class StructFieldDesc(NamedFieldDesc):
         NamedFieldDesc.__init__(self, RGenOp, PTRTYPE, name)
         self.fieldindex = index
         self.gv_default = RGenOp.constPrebuiltGlobal(self.RESTYPE._defl())
+        self.defaultbox = self.redboxcls(self.kind, self.gv_default)
 
 class ArrayFieldDesc(FieldDesc):
     def __init__(self, RGenOp, PTRTYPE):
