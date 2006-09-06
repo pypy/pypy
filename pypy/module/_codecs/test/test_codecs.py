@@ -254,3 +254,7 @@ class AppTestPartialEvaluation:
         assert '\\100'.decode('string_escape') == '@'
         assert '\\253'.decode('string_escape') == chr(0253)
         assert '\\312'.decode('string_escape') == chr(0312)
+
+    def test_decode_utf8_different_case(self):
+        constant = u"a"
+        assert constant.encode("utf-8") == constant.encode("UTF-8")

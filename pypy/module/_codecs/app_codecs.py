@@ -65,26 +65,26 @@ def codec_lookup(encoding):
     Looks up a codec tuple in the Python codec registry and returns
     a tuple of functions.
     """
-    
-    result = codec_search_cache.get(encoding, None)
+    if not isinstance(encoding, str):
+        raise TypeError("Encoding must be a string")
+    normalized_encoding = encoding.replace(" ", "-").lower()    
+    result = codec_search_cache.get(normalized_encoding, None)
     if not result:
         if codec_need_encodings:
             import encodings
             if len(codec_search_path) == 0:
                 raise LookupError("no codec search functions registered: can't find encoding")
             del codec_need_encodings[:]
-        if not isinstance(encoding, str):
-            raise TypeError("Encoding must be a string")
         for search in codec_search_path:
-            result = search(encoding)
-            if result :
-                if not( type(result) == tuple and len(result) == 4):
+            result = search(normalized_encoding)
+            if result:
+                if not (type(result) == tuple and len(result) == 4):
                     raise TypeError("codec search functions must return 4-tuples")
                 else:
-                    codec_search_cache[encoding] = result 
+                    codec_search_cache[normalized_encoding] = result 
                     return result
         if not result:
-            raise LookupError( "unknown encoding: %s" % encoding)
+            raise LookupError("unknown encoding: %s" % encoding)
     return result
     
 
