@@ -139,7 +139,6 @@ class ExceptionTransformer(object):
         self.ExcData_repr = rclass.getinstancerepr(translator.rtyper, ExcDataDef)
         exc_data_ptr = self.ExcData_repr.convert_const(exc_data)
         self.cexcdata = Constant(exc_data_ptr, self.ExcData_repr.lowleveltype)
-        self.cnulltype = Constant(null_type, self.lltype_of_exception_type)
         
         self.lltype_to_classdef = translator.rtyper.lltype_to_classdef_mapping()
 
@@ -313,13 +312,13 @@ class ExceptionTransformer(object):
                     
         if alloc_shortcut:
             T = spaceop.result.concretetype
-            var_exc_occured = llops.genop('ptr_eq', [spaceop.result,
-                                                     Constant(lltype.nullptr(T.TO), T)],
+            var_exc_occured = llops.genop('ptr_iszero', [spaceop.result],
                                           lltype.Bool)            
         else:
             v_exc_type = self.ExcData_repr.getfield(self.cexcdata, 'exc_type', llops)
             llops.genop('debug_log_exc', [v_exc_type], lltype.Void)
-            var_exc_occured = llops.genop('ptr_ne', [v_exc_type, self.cnulltype], lltype.Bool)
+            var_exc_occured = llops.genop('ptr_nonzero', [v_exc_type],
+                                          lltype.Bool)
 
         block.operations.extend(llops)
         
