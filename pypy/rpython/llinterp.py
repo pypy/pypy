@@ -288,6 +288,10 @@ class LLFrame(object):
                     evalue = rclass.fishllattr(exc_data, 'exc_value')
                     if tracer:
                         tracer.dump('raise')
+                    rclass.feedllattr(exc_data, 'exc_type',
+                                      lltype.typeOf(etype)._defl())
+                    rclass.feedllattr(exc_data, 'exc_value',
+                                      lltype.typeOf(evalue)._defl())
                     from pypy.translator.c import exceptiontransform
                     T = resultvar.concretetype
                     errvalue = exceptiontransform.error_value(T)
