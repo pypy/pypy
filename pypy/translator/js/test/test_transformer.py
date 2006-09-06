@@ -86,3 +86,5 @@ def test_args():
     lst = retval.split("|")
     check_tb(lst[1], "g", "()", wrapper, 3)
     check_tb(lst[2], "f", "(3, 'dupa'", g, 1)
+
+# XXX: indirect call test as well

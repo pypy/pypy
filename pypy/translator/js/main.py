@@ -11,6 +11,7 @@ from pypy.tool.error import AnnotatorError, FlowingError, debug
 from pypy.rpython.nonconst import NonConstant
 from pypy.annotation.policy import AnnotatorPolicy
 import optparse
+import py
 
 class FunctionNotFound(Exception):
     pass
@@ -25,7 +26,11 @@ def get_args(func_data):
     l = []
     for i in xrange(func_data.func_code.co_argcount):
         l.append("NonConstant(%s)" % repr(func_data.func_defaults[i]))
-    return "(%s)" % ",".join(l)
+    return ",".join(l)
+
+def get_arg_names(func_data):
+    return ",".join(func_data.func_code.co_varnames\
+        [:func_data.func_code.co_argcount])
 
 def rpython2javascript_main(argv):
     if len(argv) < 1:
@@ -39,6 +44,56 @@ def rpython2javascript_main(argv):
     mod = __import__(module_name, None, None, ["Module"])
     return rpython2javascript(mod, function_names)
 
+# some strange function source
+source_ssf_base = """
+
+import %(module_name)s
+from pypy.translator.js.helper import show_traceback
+from pypy.translator.transformer.debug import traceback_handler
+from pypy.rpython.nonconst import NonConstant as NonConst
+
+%(function_defs)s
+
+def some_strange_function_which_will_never_be_called():
+    
+%(functions)s
+"""
+
+wrapped_function_def_base = """
+def %(fun_name)s(%(arg_names)s):
+    try:
+        traceback_handler.enter(NonConst("entrypoint"), NonConst("()"), NonConst(""), NonConst(0))
+        %(module_name)s.%(fun_name)s(%(arg_names)s)
+        traceback_handler.leave(NonConst("entrypoint"))
+    except:
+        new_tb = traceback_handler.tb[:]
+        show_traceback(new_tb)
+"""
+
+function_base = "%(module)s.%(fun_name)s(%(args)s)"
+wrapped_function_base = "%(fun_name)s(%(args)s)"
+
+def get_source_ssf(mod, module_name, function_names, use_debug=True):
+    #source_ssf = "\n".join(["import %s" % module_name, "def some_strange_function_which_will_never_be_called():"] + ["  "+\
+    #    module_name+"."+fun_name+get_args(mod.__dict__[fun_name]) for fun_name in function_names])
+    function_list = []
+    function_def_list = []
+    for fun_name in function_names:
+        args = get_args(mod.__dict__[fun_name])
+        arg_names = get_arg_names(mod.__dict__[fun_name])
+        if not use_debug:
+            base = function_base
+        else:
+            base = wrapped_function_base
+            function_def_list.append(py.code.Source(wrapped_function_def_base %
+                locals()))
+        function_list.append(py.code.Source(base % locals()))
+    function_defs = "\n\n".join([str(i) for i in function_def_list])
+    functions = "\n".join([str(i.indent()) for i in function_list])
+    retval = source_ssf_base % locals()
+    print retval
+    return retval
+
 def rpython2javascript(mod, function_names, use_debug=True):
     module_name = mod.__name__
     if not function_names and 'main' in mod.__dict__:
@@ -47,13 +102,13 @@ def rpython2javascript(mod, function_names, use_debug=True):
         if func_name not in mod.__dict__:
             raise FunctionNotFound("function %r was not found in module %r" % (func_name, module_name))
         func_code = mod.__dict__[func_name]
-        if func_code.func_code.co_argcount > 0 and func_code.func_code.co_argcount != len(func_code.func_defaults):
+        if func_code.func_code.co_argcount > 0 and func_code.func_code. \
+                co_argcount != len(func_code.func_defaults):
             raise BadSignature("Function %s does not have default arguments" % func_name)
-    source_ssf = "\n".join(["import %s" % module_name, "def some_strange_function_which_will_never_be_called():"] + ["  "+\
-        module_name+"."+fun_name+get_args(mod.__dict__[fun_name]) for fun_name in function_names])
+    source_ssf = get_source_ssf(mod, module_name, function_names, use_debug)
     exec(source_ssf) in globals()
-    #fn = compile_function([mod.__dict__[f_name] for f_name in function_names], [[] for i in function_names])
     # now we gonna just cut off not needed function
+    # XXX: Really do that
     options = optparse.Values(defaults=DEFAULT_OPTIONS)
     options.debug_transform = use_debug
     driver = TranslationDriver(options=options)
@@ -61,6 +116,7 @@ def rpython2javascript(mod, function_names, use_debug=True):
         driver.setup(some_strange_function_which_will_never_be_called, [], policy = JsPolicy())
         driver.proceed(["compile_js"])
         return driver.gen.tmpfile.open().read()
+        # XXX: Add some possibility to write down selected file
     except Exception, e:
         # do something nice with it
         debug(driver)

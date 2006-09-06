@@ -237,7 +237,7 @@ Element._methods = {
         'getAttributeNS' : MethodDesc(["aa", "aa"], "aa"),
         'getAttributeNode' : MethodDesc(["aa"], Element()),
         'getAttributeNodeNS' : MethodDesc(["aa", "aa"], Element()),
-        'getElementsByTagName' : MethodDesc(["aa"], [Element()]),
+        'getElementsByTagName' : MethodDesc(["aa"], [Element(), Element()]),
         'hasAttribute' : MethodDesc(["aa"], True),
         'hasAttributeNS' : MethodDesc(["aa", "aa"], True),
         'hasAttributes' : MethodDesc([], True),
