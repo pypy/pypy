@@ -185,4 +185,5 @@ def test_no_multiple_transform():
     g = graphof(t, f)
     etrafo = exceptiontransform.ExceptionTransformer(t)
     etrafo.create_exception_handling(g)
-    py.test.raises(AssertionError, etrafo.create_exception_handling, g)
+    etrafo2 = exceptiontransform.ExceptionTransformer(t)
+    py.test.raises(AssertionError, etrafo2.create_exception_handling, g)

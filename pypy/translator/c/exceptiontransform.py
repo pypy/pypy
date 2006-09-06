@@ -137,13 +137,12 @@ class ExceptionTransformer(object):
 
         ExcDataDef = translator.annotator.bookkeeper.getuniqueclassdef(ExcData)
         self.ExcData_repr = rclass.getinstancerepr(translator.rtyper, ExcDataDef)
-        exc_data_ptr = self.ExcData_repr.convert_const(exc_data)
-        self.cexcdata = Constant(exc_data_ptr, self.ExcData_repr.lowleveltype)
+        self.exc_data_ptr = self.ExcData_repr.convert_const(exc_data)
+        self.cexcdata = Constant(self.exc_data_ptr,
+                                 self.ExcData_repr.lowleveltype)
         
         self.lltype_to_classdef = translator.rtyper.lltype_to_classdef_mapping()
 
-        self.seen_graphs = {}
-    
     def transform_completely(self):
         for graph in self.translator.graphs:
             self.create_exception_handling(graph)
@@ -156,8 +155,12 @@ class ExceptionTransformer(object):
         from the current graph with a special value (False/-1/-1.0/null).
         Because of the added exitswitch we need an additional block.
         """
-        assert graph not in self.seen_graphs
-        self.seen_graphs[graph] = True
+        if hasattr(graph, 'exceptiontransformed'):
+            assert self.exc_data_ptr._same_obj(graph.exceptiontransformed)
+            return
+        else:
+            graph.exceptiontransformed = self.exc_data_ptr
+
         join_blocks(graph)
         # collect the blocks before changing them
         n_need_exc_matching_blocks = 0

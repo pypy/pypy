@@ -1,6 +1,7 @@
 from pypy.objspace.flow.model import FunctionGraph, Constant, Variable, c_last_exception
 from pypy.rpython.rarithmetic import intmask, r_uint, ovfcheck, r_longlong, r_ulonglong
 from pypy.rpython.lltypesystem import lltype, llmemory, lloperation, llheap
+from pypy.rpython.lltypesystem import rclass
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.objectmodel import ComputedIntSymbolic
 
@@ -14,7 +15,7 @@ log = py.log.Producer('llinterp')
 class LLException(Exception):
     def __str__(self):
         etype = self.args[0]
-        evalue = self.args[0]
+        #evalue = self.args[1]
         if len(self.args) > 2:
             f = cStringIO.StringIO()
             original_type, original_value, original_tb = self.args[2]
@@ -277,6 +278,15 @@ class LLFrame(object):
                 evalue = self.getval(evaluevar)
                 # watch out, these are _ptr's
                 raise LLException(etype, evalue)
+            if hasattr(self.graph, 'exceptiontransformed'):
+                # re-raise the exception set by this graph, if any
+                exc_data = self.graph.exceptiontransformed
+                etype = rclass.fishllattr(exc_data, 'exc_type')
+                if etype:
+                    evalue = rclass.fishllattr(exc_data, 'exc_value')
+                    if tracer:
+                        tracer.dump('raise')
+                    raise LLException(etype, evalue)
             if tracer:
                 tracer.dump('return')
             resultvar, = block.getvariables()
@@ -504,7 +514,19 @@ class LLFrame(object):
 
     def op_direct_call(self, f, *args):
         FTYPE = self.llinterpreter.typer.type_system.derefType(lltype.typeOf(f))
-        return self.perform_call(f, FTYPE.ARGS, args)
+        try:
+            return self.perform_call(f, FTYPE.ARGS, args)
+        except LLException, e:
+            if hasattr(self.graph, 'exceptiontransformed'):
+                # store the LLException into the exc_data used by this graph
+                exc_data = self.graph.exceptiontransformed
+                etype = e.args[0]
+                evalue = e.args[1]
+                rclass.feedllattr(exc_data, 'exc_type', etype)
+                rclass.feedllattr(exc_data, 'exc_value', evalue)
+                from pypy.translator.c.exceptiontransform import error_value
+                return error_value(FTYPE.RESULT).value
+            raise
 
     op_safe_call = op_direct_call
 

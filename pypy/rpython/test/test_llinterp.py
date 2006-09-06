@@ -5,7 +5,7 @@ from pypy.rpython.llinterp import LLInterpreter, LLException, log
 from pypy.rpython.rmodel import inputconst
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.rint import signed_repr
-from pypy.rpython.lltypesystem import rstr
+from pypy.rpython.lltypesystem import rstr, lltype
 from pypy.annotation import model as annmodel
 from pypy.annotation.model import lltype_to_annotation
 from pypy.rpython.rarithmetic import r_uint, ovfcheck
@@ -495,3 +495,53 @@ def test_llinterp_fail():
     graph = graphof(t, bb)
     interp = LLInterpreter(t.rtyper)
     res = interp.eval_graph(graph, [1])
+
+def test_half_exceptiontransformed_graphs():
+    from pypy.translator.c import exceptiontransform
+    def f1(x):
+        if x < 0:
+            raise ValueError
+        return 754
+    def g1(x):
+        try:
+            return f1(x)
+        except ValueError:
+            return 5
+    def f2(x):
+        if x < 0:
+            raise ValueError
+        return 21
+    def g2(x):
+        try:
+            return f2(x)
+        except ValueError:
+            return 6
+    f3 = lltype.functionptr(lltype.FuncType([lltype.Signed], lltype.Signed),
+                            'f3', _callable = f1)
+    def g3(x):
+        try:
+            return f3(x)
+        except ValueError:
+            return 7
+    def f(flag, x):
+        if flag == 1:
+            return g1(x)
+        elif flag == 2:
+            return g2(x)
+        else:
+            return g3(x)
+    t = TranslationContext()
+    t.buildannotator().build_types(f, [int, int])
+    t.buildrtyper().specialize()
+    etrafo = exceptiontransform.ExceptionTransformer(t)
+    etrafo.create_exception_handling(graphof(t, f1))
+    etrafo.create_exception_handling(graphof(t, g2))
+    etrafo.create_exception_handling(graphof(t, g3))
+    graph = graphof(t, f)
+    interp = LLInterpreter(t.rtyper)
+    res = interp.eval_graph(graph, [1, -64])
+    assert res == 5
+    res = interp.eval_graph(graph, [2, -897])
+    assert res == 6
+    res = interp.eval_graph(graph, [3, -9831])
+    assert res == 7
