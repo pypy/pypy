@@ -25,7 +25,7 @@ def show_traceback(tb):
     pre_div = get_document().createElement("pre")
     pre_div.style.color = "#FF0000"
     debug_div.appendChild(pre_div)
-    for tb_entry in tb:
+    for tb_entry in tb[1:]:
         # list of tuples...
         fun_name, args, filename, lineno = tb_entry
         # some source maybe? or so?
