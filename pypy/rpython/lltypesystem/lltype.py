@@ -18,7 +18,7 @@ class _uninitialized(object):
     def __init__(self, TYPE):
         self.TYPE = TYPE
     def __repr__(self):
-        return '<Uninitialized %r'%(self.TYPE,)
+        return '<Uninitialized %r>'%(self.TYPE,)
         
 
 def saferecursive(func, defl):
