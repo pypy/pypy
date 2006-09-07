@@ -90,6 +90,7 @@ class TimeshiftingTests(object):
         # make the timeshifted graphs
         htshift = HintTimeshift(ha, rtyper, self.RGenOp)
         fresh_jitstate = htshift.ll_fresh_jitstate
+        finish_jitstate = htshift.ll_finish_jitstate
         RESTYPE = htshift.originalconcretetype(
             ha.translator.graphs[0].getreturnvar())
         htshift.timeshift()
@@ -174,9 +175,7 @@ class TimeshiftingTests(object):
             top_jitstate = fresh_jitstate(builder)
             top_jitstate = timeshifted_entrypoint(top_jitstate,
                                                   *timeshifted_entrypoint_args)
-            returnbox = rtimeshift.getreturnbox(top_jitstate)
-            gv_ret = returnbox.getgenvar(top_jitstate.curbuilder)
-            top_jitstate.curbuilder.finish_and_return(sigtoken, gv_ret)
+            finish_jitstate(top_jitstate, sigtoken)
 
             gv_generated = rgenop.gencallableconst(sigtoken, "generated",
                                                    entrypoint)

@@ -107,3 +107,18 @@ class TestException(TimeshiftingTests):
         # the next case degenerates anyway
         res = self.timeshift(ll_function, [2], [], policy=P_OOPSPEC)
         assert res == -11
+
+    def test_exception_escapes(self):
+        def ll_function(n):
+            if n < 0:
+                raise ValueError
+            return n * 3
+
+        res = self.timeshift(ll_function, [2], [], policy=P_OOPSPEC)
+        assert res == 6
+
+        py.test.raises(LLException,
+             "self.timeshift(ll_function, [-3], [], policy=P_OOPSPEC)")
+
+        py.test.raises(LLException,
+             "self.timeshift(ll_function, [-3], [0], policy=P_OOPSPEC)")

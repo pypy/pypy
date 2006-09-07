@@ -1,5 +1,5 @@
 import py, types
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.objspace.flow import model as flowmodel
 from pypy.annotation import model as annmodel
 from pypy.annotation import listdef, dictdef
@@ -75,6 +75,10 @@ class HintTimeshift(object):
         gv_rpyexc_clear = RGenOp.constPrebuiltGlobal(p)
         tok_clear = RGenOp.sigToken(lltype.typeOf(p).TO)
 
+        p = self.etrafo.rpyexc_raise_ptr.value
+        gv_rpyexc_raise = RGenOp.constPrebuiltGlobal(p)
+        tok_raise = RGenOp.sigToken(lltype.typeOf(p).TO)
+
         def fetch_global_excdata(jitstate):
             builder = jitstate.curbuilder
             gv_etype = builder.genop_call(tok_fetch_type,
@@ -88,11 +92,33 @@ class HintTimeshift(object):
             rtimeshift.setexcvaluebox(jitstate, evaluebox)
         self.fetch_global_excdata = fetch_global_excdata
 
+        def store_global_excdata(jitstate):
+            builder = jitstate.curbuilder
+            etypebox = jitstate.exc_type_box
+            if etypebox.is_constant():
+                ll_etype = rvalue.ll_getvalue(etypebox, llmemory.Address)
+                if not ll_etype:
+                    return       # we known there is no exception set
+            evaluebox = jitstate.exc_value_box
+            gv_etype  = etypebox .getgenvar(builder)
+            gv_evalue = evaluebox.getgenvar(builder)
+            builder.genop_call(tok_raise,
+                               gv_rpyexc_raise, [gv_etype, gv_evalue])
+        self.store_global_excdata = store_global_excdata
+
         def ll_fresh_jitstate(builder):
             return JITState(builder, None,
                             null_exc_type_box,
                             null_exc_value_box)
         self.ll_fresh_jitstate = ll_fresh_jitstate
+
+        def ll_finish_jitstate(jitstate, graphsigtoken):
+            returnbox = rtimeshift.getreturnbox(jitstate)
+            gv_ret = returnbox.getgenvar(jitstate.curbuilder)
+            store_global_excdata(jitstate)
+            jitstate.curbuilder.finish_and_return(graphsigtoken, gv_ret)
+        self.ll_finish_jitstate = ll_finish_jitstate
+
 
     def s_r_instanceof(self, cls, can_be_None=True):
         # Return a SomeInstance / InstanceRepr pair correspnding to the specified class.

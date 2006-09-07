@@ -1,7 +1,11 @@
+from pypy.rpython.objectmodel import specialize
 
 
 class GenVarOrConst(object):
-    pass
+
+    @specialize.arg(1)
+    def revealconst(self, T):
+        raise NotImplementedError
 
 class GenVar(GenVarOrConst):
     is_const = False
