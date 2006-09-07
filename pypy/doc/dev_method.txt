@@ -245,28 +245,28 @@ Previous sprints?
 
 The PyPy team have been sprinting on the following occasions::
 
-    * Hildesheim      	        Feb     2003
-    * Gothenburg      	        May     2003
-    * LovainLaNeuve   	        June    2003
-    * Berlin 			        Sept    2003
-    * Amsterdam       	        Dec     2003
-    * Europython /Gothenburg  June    2004
-    * Vilnius                   	   Nov     2004
-    * Leysin                            Jan      2005
-    * PyCon/Washington           March  2005     
-    * Europython/Gothenburg    June    2005
-    * Hildesheim                      July     2005
+    * Hildesheim                      Feb     2003
+    * Gothenburg                      May     2003
+    * Europython/Louvain-La-Neuve     June    2003
+    * Berlin                          Sept    2003
+    * Amsterdam                       Dec     2003
+    * Europython/Gothenburg           June    2004
+    * Vilnius                         Nov     2004
+    * Leysin                          Jan     2005
+    * PyCon/Washington                March   2005     
+    * Europython/Gothenburg           June    2005
+    * Hildesheim                      July    2005
     * Heidelberg                      Aug     2005
-    * Paris                     	  Oct      2005
-    * Gothenburg            	  Dec      2005
-    * Mallorca                	  Jan       2006
-    * PyCon/Dallas          	  Feb      2006
-    * LouvainLaNeuve              March   2006
-    * Leysin                           April      2006
-    * Tokyo                            April      2006
-    * Düsseldorf                      June      2006
-    * Europython/Geneva          July       2006
-    * Limerick                          Aug       2006
+    * Paris                           Oct     2005
+    * Gothenburg                      Dec     2005
+    * Mallorca                        Jan     2006
+    * PyCon/Dallas                    Feb     2006
+    * Louvain-La-Neuve                March   2006
+    * Leysin                          April   2006
+    * Tokyo                           April   2006
+    * Düsseldorf                      June    2006
+    * Europython/Geneva               July    2006
+    * Limerick                        Aug     2006
     
     
 People who have participated and contributed during our sprints and thus
@@ -278,10 +278,10 @@ so we can correct it)::
     Samuele Pedroni
     Christian Tismer
     Laura Creighton
-    Jacob HallÃ©n
+    Jacob Hallén
     Michael Hudson
     Richard Emslie
-    Anders ChrigstrÃ¶m
+    Anders Chrigström
     Alex Martelli
     Ludovic Aubry
     Adrien DiMascio
@@ -315,8 +315,8 @@ so we can correct it)::
     Alan McIntyre
     Lutz Paelike
     Michael Chermside
-    Beatrice DÃ¼ring
-    Boris Feigin	     
+    Beatrice Düring
+    Boris Feigin
     Amaury Forgeot d'Arc 
     Andrew Thompson      
     Valentino Volonghi   
