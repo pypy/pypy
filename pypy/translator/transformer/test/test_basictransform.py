@@ -8,6 +8,7 @@ from pypy import conftest
 from pypy.rpython import llinterp
 from pypy.objspace.flow import model
 from pypy.translator.unsimplify import copyvar
+from pypy.rpython.nonconst import NonConstant
 
 def transform_function(transformerclass, fun, annotation=[], specialize=True,
     type_system="ootype"):
@@ -115,6 +116,31 @@ def test_method_helper():
     res = interp_fun(t, helper_call_fun)
     assert res == 11
 
+class A(object):
+    def __init__(self):
+        self.l = []
+    
+    def add(self, item):
+        self.l.append(item)
+
+a = A()
+
+class EmptyTransformer(BasicTransformer):
+    def transform_graph(self, graph):
+        pass
+
+def test_list_buildup():
+    def f():
+        a.add(NonConstant("item2"))
+    
+    def wrapper():
+        a.add("item")
+        f()
+        return a.l[2:]
+    
+    t = transform_function(EmptyTransformer, wrapper)
+    #res = interp_fun(t, wrapper)
+    #assert res._list == []
 
 ##def test_transform():
 ##    def fun(i):
