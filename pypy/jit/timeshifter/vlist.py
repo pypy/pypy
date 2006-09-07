@@ -146,13 +146,19 @@ def oop_list_append(jitstate, oopspecdesc, selfbox, itembox):
 def oop_list_getitem(jitstate, oopspecdesc, selfbox, indexbox):
     if isinstance(selfbox.content, VirtualList) and indexbox.is_constant():
         index = rvalue.ll_getvalue(indexbox, lltype.Signed)
-        return selfbox.content.item_boxes[index]
+        try:
+            return selfbox.content.item_boxes[index]
+        except IndexError:
+            return oopspecdesc.residual_exception(jitstate, IndexError)
     else:
         return oopspecdesc.residual_call(jitstate, [selfbox, indexbox])
 
 def oop_list_setitem(jitstate, oopspecdesc, selfbox, indexbox, itembox):
     if isinstance(selfbox.content, VirtualList) and indexbox.is_constant():
         index = rvalue.ll_getvalue(indexbox, lltype.Signed)
-        selfbox.content.item_boxes[index] = itembox
+        try:
+            selfbox.content.item_boxes[index] = itembox
+        except IndexError:
+            oopspecdesc.residual_exception(jitstate, IndexError)
     else:
         oopspecdesc.residual_call(jitstate, [selfbox, indexbox, itembox])

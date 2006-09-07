@@ -49,9 +49,7 @@ class ExceptionData(AbstractExceptionData):
                     is_standard = (cls.__module__ == 'exceptions'
                                    and not clsdef.attrs)
                 if is_standard:
-                    r_inst = rclass.getinstancerepr(rtyper, clsdef)
-                    example = r_inst.get_reusable_prebuilt_instance()
-                    example = rclass.ll_cast_to_object(example)
+                    example = self.get_standard_ll_exc_instance(rtyper, clsdef)
                     table[cls] = example
                 #else:
                 #    assert cls.__module__ != 'exceptions', (
@@ -106,3 +104,9 @@ class ExceptionData(AbstractExceptionData):
         s_pyobj = annmodel.SomePtr(Ptr(PyObject))
         helper_fn = rtyper.annotate_helper_fn(ll_pyexcclass2exc, [s_pyobj])
         return helper_fn
+
+    def get_standard_ll_exc_instance(self, rtyper, clsdef):
+        r_inst = rclass.getinstancerepr(rtyper, clsdef)
+        example = r_inst.get_reusable_prebuilt_instance()
+        example = rclass.ll_cast_to_object(example)
+        return example

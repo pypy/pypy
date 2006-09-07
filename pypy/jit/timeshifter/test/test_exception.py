@@ -90,7 +90,6 @@ class TestException(TimeshiftingTests):
         assert res == 34
 
     def test_exception_from_virtual(self):
-        py.test.skip("in-progress... regress... sidewaysgress")
         def ll_function(n):
             lst = []
             lst.append(5)

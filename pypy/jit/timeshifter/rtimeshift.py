@@ -238,6 +238,7 @@ def getexitindex(jitstate):
     return jitstate.exitindex
 
 def save_locals(jitstate, redboxes):
+    assert None not in redboxes
     jitstate.frame.local_boxes = redboxes
 
 def getlocalbox(jitstate, i):

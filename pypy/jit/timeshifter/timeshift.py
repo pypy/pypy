@@ -12,6 +12,7 @@ from pypy.jit.timeshifter.rtyper import HintRTyper, originalconcretetype
 from pypy.jit.timeshifter.rtyper import GreenRepr, RedRepr, HintLowLevelOpList
 from pypy.translator.unsimplify import varoftype, copyvar
 from pypy.translator.backendopt import support
+from pypy.translator.c import exceptiontransform
 from pypy.jit.codegen import model as cgmodel
 
 # ___________________________________________________________
@@ -96,6 +97,9 @@ class HintTimeshift(object):
     def s_r_instanceof(self, cls, can_be_None=True):
         # Return a SomeInstance / InstanceRepr pair correspnding to the specified class.
         return self.annhelper.s_r_instanceof(cls, can_be_None=can_be_None)
+
+    def error_value(self, TYPE):
+        return exceptiontransform.error_value(TYPE)
 
     # creates and numbers reentry_block for block reached by link
     # argument:

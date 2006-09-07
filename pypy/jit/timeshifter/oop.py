@@ -1,6 +1,7 @@
 from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.jit.timeshifter.rcontainer import cachedtype
-from pypy.jit.timeshifter import rvalue
+from pypy.jit.timeshifter import rvalue, rtimeshift
 
 
 class Index:
@@ -12,6 +13,7 @@ class OopSpecDesc:
     __metaclass__ = cachedtype
 
     def __init__(self, hrtyper, fnobj):
+        ts = hrtyper.timeshifter
         ll_func = fnobj._callable
         FUNCTYPE = lltype.typeOf(fnobj)
         nb_args = len(FUNCTYPE.ARGS)
@@ -40,6 +42,12 @@ class OopSpecDesc:
         self.args_gv = [None] * nb_args
         self.gv_fnptr = RGenOp.constPrebuiltGlobal(fnobj._as_ptr())
         self.result_kind = RGenOp.kindToken(FUNCTYPE.RESULT)
+        if FUNCTYPE.RESULT is lltype.Void:
+            self.errorbox = None
+        else:
+            error_value = ts.error_value(FUNCTYPE.RESULT)
+            self.errorbox = rvalue.redbox_from_prebuilt_value(RGenOp,
+                                                              error_value)
         self.redboxbuilder = rvalue.ll_redboxbuilder(FUNCTYPE.RESULT)
         self.sigtoken = RGenOp.sigToken(FUNCTYPE)
 
@@ -55,7 +63,6 @@ class OopSpecDesc:
             self.ll_handler = getattr(vmodule, method)
 
         # exception handling
-        ts = hrtyper.timeshifter
         graph = fnobj.graph
         self.can_raise = ts.etrafo.raise_analyzer.analyze_direct_call(graph)
         self.fetch_global_excdata = ts.fetch_global_excdata
@@ -73,3 +80,36 @@ class OopSpecDesc:
         if self.can_raise:
             self.fetch_global_excdata(jitstate)
         return self.redboxbuilder(self.result_kind, gv_result)
+
+    def residual_exception(self, jitstate, ExcCls):
+        ll_evalue = get_ll_instance_for_exccls(ExcCls)
+        ll_etype  = ll_evalue.typeptr
+        etypebox  = rvalue.ll_fromvalue(jitstate, ll_etype)
+        evaluebox = rvalue.ll_fromvalue(jitstate, ll_evalue)
+        rtimeshift.setexctypebox (jitstate, etypebox )
+        rtimeshift.setexcvaluebox(jitstate, evaluebox)
+        return self.errorbox
+    residual_exception._annspecialcase_ = 'specialize:arg(2)'
+
+
+def get_ll_instance_for_exccls(ExcCls):
+    raise NotImplementedError
+
+class Entry(ExtRegistryEntry):
+    _about_ = get_ll_instance_for_exccls
+
+    def compute_result_annotation(self, s_exccls):
+        from pypy.annotation import model as annmodel
+        assert s_exccls.is_constant()
+        bk = self.bookkeeper
+        excdata = bk.annotator.policy.rtyper.exceptiondata
+        return annmodel.lltype_to_annotation(excdata.lltype_of_exception_value)
+
+    def specialize_call(self, hop):
+        ExcCls = hop.args_s[0].const
+        rtyper = hop.rtyper
+        bk = rtyper.annotator.bookkeeper
+        clsdef = bk.getuniqueclassdef(ExcCls)
+        excdata = rtyper.exceptiondata
+        ll_evalue = excdata.get_standard_ll_exc_instance(rtyper, clsdef)
+        return hop.inputconst(hop.r_result, ll_evalue)
