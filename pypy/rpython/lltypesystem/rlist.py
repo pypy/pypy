@@ -387,10 +387,14 @@ def ll_length(l):
 def ll_items(l):
     return l.items
 
+from pypy.rpython.lltypesystem.lloperation import llop
+
 def ll_getitem_fast(l, index):
+    llop.debug_assert(Void, "%s < %s.length # getitem out of bounds", index, l)
     return l.ll_items()[index]
 
 def ll_setitem_fast(l, index, item):
+    llop.debug_assert(Void, "%s < %s.length # setitem out of bounds", index, l)
     l.ll_items()[index] = item
 
 # fixed size versions

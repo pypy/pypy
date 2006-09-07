@@ -720,4 +720,7 @@ class FunctionCodeGenerator(object):
         exc_type = self.expr(op.args[0])
         return 'RPY_LOG_EXC(%s);' % exc_type
 
+    def OP_DEBUG_ASSERT(self, op):
+        return '/* debug_assert removed */'
+
 assert not USESLOTS or '__dict__' not in dir(FunctionCodeGenerator)

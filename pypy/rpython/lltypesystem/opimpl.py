@@ -355,6 +355,15 @@ def op_getarrayitem(p, index):
         raise TypeError("cannot fold getfield on mutable array")
     return p[index]
 
+
+def op_debug_assert(expr, *ll_args):
+    if not isinstance(expr, str):
+        expr = ''.join(expr.chars)
+    names = ['v%d' % i for i in range(len(ll_args))]
+    d = dict(zip(names, ll_args))
+    names = tuple(names)
+    assert eval(expr % names, d)
+
 # ____________________________________________________________
 
 def get_op_impl(opname):
