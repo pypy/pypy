@@ -126,6 +126,16 @@ def ll_gengetarrayitem(jitstate, fielddesc, argbox, indexbox):
                                                     
     return fielddesc.redboxcls(fielddesc.kind, genvar)
 
+def ll_gensetarrayitem(jitstate, fielddesc, destbox, indexbox, valuebox):
+    genvar = jitstate.curbuilder.genop_setarrayitem(
+        fielddesc.arraytoken,
+        destbox.getgenvar(jitstate.curbuilder),
+        indexbox.getgenvar(jitstate.curbuilder),
+        valuebox.getgenvar(jitstate.curbuilder)
+        )
+                                                    
+    return fielddesc.redboxcls(fielddesc.kind, genvar)
+
 def ll_gengetarraysize(jitstate, fielddesc, argbox):
     if argbox.is_constant():
         array = rvalue.ll_getvalue(argbox, fielddesc.PTRTYPE)

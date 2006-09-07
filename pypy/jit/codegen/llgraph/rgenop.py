@@ -81,6 +81,11 @@ class LLBuilder(CodeGenerator):
         return LLVar(llimpl.genop(self.b, 'getarrayitem', vars_gv,
                                   gv_ITEMTYPE.v))
 
+    def genop_setarrayitem(self, gv_ITEMTYPE, gv_ptr, gv_index, gv_value):
+        vars_gv = [gv_ptr.v, gv_index.v, gv_value.v]
+        return LLVar(llimpl.genop(self.b, 'setarrayitem', vars_gv,
+                                  gv_Void.v))
+
     def genop_getarraysize(self, gv_ITEMTYPE, gv_ptr):
         return LLVar(llimpl.genop(self.b, 'getarraysize', [gv_ptr.v],
                                   llimpl.constTYPE(lltype.Signed)))

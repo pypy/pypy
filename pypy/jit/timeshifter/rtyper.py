@@ -105,6 +105,20 @@ class HintRTyper(RPythonTyper):
 
     def translate_op_hint(self, hop):
         # don't try to generate hint operations, just discard them
+        hints = hop.args_v[-1].value
+        if hints.get('forget', False):
+            T = originalconcretetype(hop.args_s[0])
+            v_redbox = hop.inputarg(self.getredrepr(T), arg=0)
+            assert isinstance(hop.r_result, GreenRepr)
+            ts = self.timeshifter
+            c_T = hop.inputconst(lltype.Void, T)
+            s_T = ts.rtyper.annotator.bookkeeper.immutablevalue(T)
+            s_res = annmodel.lltype_to_annotation(T)
+            return hop.llops.genmixlevelhelpercall(rvalue.ll_getvalue,
+                                                   [ts.s_RedBox, s_T],
+                                                   [v_redbox,    c_T],
+                                                   s_res)
+                                                   
         return hop.inputarg(hop.r_result, arg=0)
 
     def translate_op_debug_log_exc(self, hop): # don't timeshift debug_log_exc
@@ -230,6 +244,22 @@ class HintRTyper(RPythonTyper):
             [ts.s_JITState, s_fielddesc, ts.s_RedBox, ts.s_RedBox],
             [v_jitstate,    c_fielddesc, v_destbox,   v_valuebox],
             annmodel.s_None)
+
+    def translate_op_setarrayitem(self, hop):
+        PTRTYPE = originalconcretetype(hop.args_s[0])
+        VALUETYPE = PTRTYPE.TO.OF
+        ts = self.timeshifter
+        v_argbox, v_index, v_valuebox= hop.inputargs(self.getredrepr(PTRTYPE),
+                                                     self.getredrepr(lltype.Signed),
+                                                     self.getredrepr(VALUETYPE))
+        fielddesc = rcontainer.ArrayFieldDesc(self.RGenOp, PTRTYPE)
+        c_fielddesc = inputconst(lltype.Void, fielddesc)
+        s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
+        v_jitstate = hop.llops.getjitstate()
+        hop.llops.genmixlevelhelpercall(rtimeshift.ll_gensetarrayitem,
+            [ts.s_JITState, s_fielddesc, ts.s_RedBox, ts.s_RedBox, ts.s_RedBox],
+            [v_jitstate,    c_fielddesc, v_argbox,    v_index    , v_valuebox ],
+            ts.s_RedBox)
 
     def translate_op_getsubstruct(self, hop):
         ##if isinstance(hop.args_r[0], BlueRepr):

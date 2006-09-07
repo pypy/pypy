@@ -541,6 +541,8 @@ class TestTimeshift(TimeshiftingTests):
         assert res == 24
         self.check_insns({})
 
+
+
     def test_simple_struct_malloc(self):
         py.test.skip("blue containers: to be reimplemented")
         S = lltype.GcStruct('helloworld', ('hello', lltype.Signed),
@@ -695,6 +697,33 @@ class TestTimeshift(TimeshiftingTests):
         res = self.timeshift(ll_function, [42], [], policy=P_NOVIRTUAL)
         assert res == 42
         self.check_insns({})
+
+
+    def test_setarrayitem(self):
+        A = lltype.GcArray(lltype.Signed)
+        a = lltype.malloc(A, 2, immortal=True)
+        def ll_function():
+            a[0] = 1
+            a[1] = 2
+            return a[0]+a[1]
+        
+        res = self.timeshift(ll_function, [], [], policy=P_NOVIRTUAL)
+        assert res == 3
+
+##     def test_red_array(self):
+##          A = lltype.GcArray(lltype.Signed)
+##          def ll_function(x, y, n):
+##              a = lltype.malloc(A, 2)
+##              a[0] = x
+##              a[1] = y
+##              return a[n]
+
+##          res = self.timeshift(ll_function, [42, -42, 0], [], policy=P_NOVIRTUAL)
+##          assert res == 42
+
+##          res = self.timeshift(ll_function, [42, -42, 1], [], policy=P_NOVIRTUAL)
+##          assert res == -42
+
 
     def test_red_propagate(self):
         S = lltype.GcStruct('S', ('n', lltype.Signed))

@@ -182,6 +182,22 @@ class Builder(CodeGenerator):
         self.mc.MOV(edx, gv_ptr.operand(self))
         return self.returnvar(mem(edx, lengthoffset))
 
+    def genop_setarrayitem(self, arraytoken, gv_ptr, gv_index, gv_value):
+        # XXX! only works for GcArray(Signed) for now!!
+        lengthoffset, startoffset, itemoffset = arraytoken
+        self.mc.MOV(eax, gv_value.operand(self))
+        self.mc.MOV(edx, gv_ptr.operand(self))
+        if isinstance(gv_index, IntConst):
+            startoffset += itemoffset * gv_index.value
+            op = mem(edx, startoffset)
+        elif itemoffset in SIZE2SHIFT:
+            self.mc.MOV(ecx, gv_index.operand(self))
+            op = memSIB(edx, ecx, SIZE2SHIFT[itemoffset], startoffset)
+        else:
+            self.mc.IMUL(ecx, gv_index.operand(self), imm(itemoffset))
+            op = memSIB(edx, ecx, 0, startoffset)
+        self.mc.MOV(op, eax)
+
     def genop_malloc_fixedsize(self, size):
         # XXX boehm only, no atomic/non atomic distinction for now
         self.push(imm(size))
@@ -363,29 +379,10 @@ class Builder(CodeGenerator):
         self.mc.MOVZX(eax, al)
         return self.returnvar(eax)
 
-    def op_setarrayitem(self, hello_world):
-        # XXX! only works for GcArray(Signed) for now!!
-        XXX-fixme
-        A = DUMMY_A
-        lengthoffset, startoffset, itemoffset = self.rgenop.arrayToken(A)
-        self.mc.MOV(eax, gv_value.operand(self))
-        self.mc.MOV(edx, gv_ptr.operand(self))
-        if isinstance(gv_index, IntConst):
-            startoffset += itemoffset * gv_index.value
-            op = mem(edx, startoffset)
-        elif itemoffset in SIZE2SHIFT:
-            self.mc.MOV(ecx, gv_index.operand(self))
-            op = memSIB(edx, ecx, SIZE2SHIFT[itemoffset], startoffset)
-        else:
-            self.mc.IMUL(ecx, gv_index.operand(self), imm(itemoffset))
-            op = memSIB(edx, ecx, 0, startoffset)
-        self.mc.MOV(op, eax)
-
     op_ptr_nonzero = op_int_is_true
     op_ptr_iszero  = op_bool_not        # for now
 
 
-DUMMY_A = lltype.GcArray(lltype.Signed)
 SIZE2SHIFT = {1: 0,
               2: 1,
               4: 2,
