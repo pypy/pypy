@@ -379,6 +379,12 @@ class Builder(CodeGenerator):
         self.mc.MOVZX(eax, al)
         return self.returnvar(eax)
 
+    def op_cast_bool_to_int(self, gv_x):
+        self.mc.CMP(gv_x.operand(self), imm8(0))
+        self.mc.SETNE(al)
+        self.mc.MOVZX(eax, al)
+        return self.returnvar(eax)
+
     op_ptr_nonzero = op_int_is_true
     op_ptr_iszero  = op_bool_not        # for now
 
