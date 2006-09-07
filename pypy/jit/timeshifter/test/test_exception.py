@@ -1,6 +1,5 @@
 import py
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.llinterp import LLException
 from pypy.jit.timeshifter.test.test_timeshift import TimeshiftingTests
 from pypy.jit.timeshifter.test.test_timeshift import P_NOVIRTUAL
 from pypy.jit.timeshifter.test.test_vlist import P_OOPSPEC
@@ -33,19 +32,20 @@ class TestException(TimeshiftingTests):
             return res
 
         s.flag = 0
-        res = self.timeshift(ll_function, [0], [], policy=P_NOVIRTUAL)
-        assert res == -1
+        self.timeshift_raises(ValueError,
+                              ll_function, [0], [], policy=P_NOVIRTUAL)
         assert s.flag == 0
 
         s.flag = 0
-        res = self.timeshift(ll_function, [0], [0], policy=P_NOVIRTUAL)
-        assert res == -1
+        self.timeshift_raises(ValueError,
+                              ll_function, [0], [0], policy=P_NOVIRTUAL)
         assert s.flag == 0
 
         s.flag = 0
         res = self.timeshift(ll_function, [17], [0], policy=P_NOVIRTUAL)
         assert res == 24
-        assert s.flag == 1
+        if self.__class__ is TestException:   # no chance to work with genc
+            assert s.flag == 1
         self.check_insns({'setfield': 1})
 
     def test_catch(self):
@@ -117,8 +117,8 @@ class TestException(TimeshiftingTests):
         res = self.timeshift(ll_function, [2], [], policy=P_OOPSPEC)
         assert res == 6
 
-        py.test.raises(LLException,
-             "self.timeshift(ll_function, [-3], [], policy=P_OOPSPEC)")
+        self.timeshift_raises(ValueError,
+                              ll_function, [-3], [], policy=P_OOPSPEC)
 
-        py.test.raises(LLException,
-             "self.timeshift(ll_function, [-3], [0], policy=P_OOPSPEC)")
+        self.timeshift_raises(ValueError,
+                              ll_function, [-3], [0], policy=P_OOPSPEC)

@@ -12,7 +12,7 @@ from pypy.rpython.unroll import unrolling_iterable
 from pypy.rpython.annlowlevel import PseudoHighLevelCallable
 from pypy.rpython.module.support import LLSupport
 from pypy.annotation import model as annmodel
-from pypy.rpython.llinterp import LLInterpreter
+from pypy.rpython.llinterp import LLInterpreter, LLException
 from pypy.objspace.flow.model import checkgraph
 from pypy.annotation.policy import AnnotatorPolicy
 from pypy.translator.backendopt.inline import auto_inlining
@@ -65,7 +65,8 @@ class TimeshiftingTests(object):
         del cls._cache
         del cls._cache_order
 
-    def timeshift_cached(self, ll_function, values, inline=None, policy=None):
+    def timeshift_cached(self, ll_function, values, inline=None, policy=None,
+                         check_raises='ignored anyway'):
         # decode the 'values' if they are specified as strings
         if hasattr(ll_function, 'convert_arguments'):
             assert len(ll_function.convert_arguments) == len(values)
@@ -268,7 +269,20 @@ class TimeshiftingTests(object):
         if conftest.option.view:
             residual_graph.show()
         self.insns = summary(residual_graph)
-        res = llinterp.eval_graph(residual_graph, residualargs)
+
+        if 'check_raises' not in kwds:
+            res = llinterp.eval_graph(residual_graph, residualargs)
+        else:
+            try:
+                llinterp.eval_graph(residual_graph, residualargs)
+            except LLException, e:
+                exc = kwds['check_raises']
+                assert llinterp.find_exception(e) is exc, (
+                    "wrong exception type")
+            else:
+                raise AssertionError("DID NOT RAISE")
+            return True
+
         if hasattr(ll_function, 'convert_result'):
             res = ll_function.convert_result(res)
 
@@ -287,6 +301,11 @@ class TimeshiftingTests(object):
             main = t.compile_c([])
             main()
         return res
+
+    def timeshift_raises(self, ExcCls, ll_function, values, opt_consts=[],
+                         *args, **kwds):
+        kwds['check_raises'] = ExcCls
+        return self.timeshift(ll_function, values, opt_consts, *args, **kwds)
 
     def check_insns(self, expected=None, **counts):
         if expected is not None:

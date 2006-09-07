@@ -31,6 +31,7 @@ class TranslationContext(object):
             raise TypeError("unexpected keyword argument")
         self.annotator = None
         self.rtyper = None
+        self.exceptiontransformer = None
         self.graphs = []      # [graph]
         self.callgraph = {}   # {opaque_tag: (caller-graph, callee-graph)}
         self._prebuilt_graphs = {}   # only used by the pygame viewer
@@ -83,6 +84,15 @@ class TranslationContext(object):
         self.rtyper = RPythonTyper(self.annotator,
                                    type_system = type_system)
         return self.rtyper
+
+    def getexceptiontransformer(self):
+        if self.rtyper is None:
+            raise ValueError("no rtyper")
+        if self.exceptiontransformer is not None:
+            return self.exceptiontransformer
+        from pypy.translator.c.exceptiontransform import ExceptionTransformer
+        self.exceptiontransformer = ExceptionTransformer(self)
+        return self.exceptiontransformer
 
     def checkgraphs(self):
         for graph in self.graphs:

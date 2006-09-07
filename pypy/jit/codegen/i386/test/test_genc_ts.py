@@ -80,7 +80,11 @@ class I386TimeshiftingTestMixin(object):
             os.write(1, SEPLINE)
             bench = Benchmark()
             while 1:
-                res = generated(*residualargs)
+                try:
+                    res = generated(*residualargs)
+                except Exception, e:
+                    os.write(1, 'EXCEPTION: %s\n' % (e,))
+                    return 0
                 if bench.stop():
                     break
             os.write(1, convert_result(res) + '\n')
@@ -122,6 +126,11 @@ class I386TimeshiftingTestMixin(object):
             os.write(2, '{%s: %s\n' % (testname, lines.pop(1)[1:]))
         assert len(lines) == 2
         lastline = lines[1]
+        if 'check_raises' in kwds:
+            exc_name = kwds['check_raises'].__name__
+            assert lastline.startswith('EXCEPTION: ')    # else DID NOT RAISE
+            assert exc_name in lastline
+            return True
         if hasattr(ll_function, 'convert_result'):
             return lastline
         else:

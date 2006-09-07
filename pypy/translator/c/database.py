@@ -14,7 +14,6 @@ from pypy.translator.c.node import ContainerNodeFactory, ExtTypeOpaqueDefNode
 from pypy.translator.c.support import cdecl, CNameManager, ErrorValue
 from pypy.translator.c.support import log
 from pypy.translator.c.extfunc import do_the_getting
-from pypy.translator.c.exceptiontransform import ExceptionTransformer
 from pypy import conftest
 
 # ____________________________________________________________
@@ -68,7 +67,7 @@ class LowLevelDatabase(object):
         if translator is None or translator.rtyper is None:
             self.exctransformer = None
         else:
-            self.exctransformer = ExceptionTransformer(translator)
+            self.exctransformer = translator.getexceptiontransformer()
         self.gcpolicy = gcpolicy(self, thread_enabled)
         if translator is not None:
             self.gctransformer = gcpolicy.transformerclass(translator)
