@@ -137,11 +137,43 @@ def oop_newlist(jitstate, oopspecdesc, lengthbox, itembox=None):
             return oopspecdesc.typedesc.factory(length, itembox)
     return oopspecdesc.residual_call(jitstate, [lengthbox, itembox])
 
+def oop_list_len(jitstate, oopspecdesc, selfbox):
+    if isinstance(selfbox.content, VirtualList):
+        return rvalue.ll_fromvalue(jitstate, len(selfbox.content.item_boxes))
+    else:
+        return oopspecdesc.residual_call(jitstate, [selfbox])
+
 def oop_list_append(jitstate, oopspecdesc, selfbox, itembox):
     if isinstance(selfbox.content, VirtualList):
         selfbox.content.item_boxes.append(itembox)
     else:
         oopspecdesc.residual_call(jitstate, [selfbox, itembox])
+
+def oop_list_insert(jitstate, oopspecdesc, selfbox, indexbox, itembox):
+    if isinstance(selfbox.content, VirtualList) and indexbox.is_constant():
+        index = rvalue.ll_getvalue(indexbox, lltype.Signed)
+        selfbox.content.item_boxes[index].insert(index, itembox)
+    else:
+        oopspecdesc.residual_call(jitstate, [selfbox, indexbox, itembox])
+
+def oop_list_pop(jitstate, oopspecdesc, selfbox, indexbox=None):
+    if indexbox is None:
+        if isinstance(selfbox.content, VirtualList):
+            try:
+                return selfbox.content.item_boxes.pop()
+            except IndexError:
+                return oopspecdesc.residual_exception(jitstate, IndexError)
+        else:
+            return oopspecdesc.residual_call(jitstate, [selfbox])
+
+    if (isinstance(selfbox.content, VirtualList) and
+        indexbox.is_constant()):
+        index = rvalue.ll_getvalue(indexbox, lltype.Signed)
+        try:
+            return selfbox.content.item_boxes.pop(index)
+        except IndexError:
+            return oopspecdesc.residual_exception(jitstate, IndexError)
+    return oopspecdesc.residual_call(jitstate, [selfbox, indexbox])
 
 def oop_list_getitem(jitstate, oopspecdesc, selfbox, indexbox):
     if isinstance(selfbox.content, VirtualList) and indexbox.is_constant():
