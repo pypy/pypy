@@ -176,6 +176,9 @@ class OpWriter(object):
         # XXX tmp
         pass
 
+    def debug_assert(self, opr):
+        pass
+
     def int_pow(self, opr):
         self._generic_pow(opr, "1") 
     uint_pow = int_pow

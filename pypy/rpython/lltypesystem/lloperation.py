@@ -9,7 +9,7 @@ from pypy.objspace.flow.model import roproperty
 class LLOp(object):
 
     def __init__(self, sideeffects=True, canfold=False, canraise=(),
-                 pyobj=False, canunwindgc=False):
+                 pyobj=False, canunwindgc=False, canrun=False):
         # self.opname = ... (set afterwards)
 
         if canfold:
@@ -39,6 +39,9 @@ class LLOp(object):
                 Exception not in self.canraise):
                 self.canraise += (StackException,)
 
+        # The operation can be run directly with __call__
+        self.canrun = canrun or canfold
+
     # __________ make the LLOp instances callable from LL helpers __________
 
     __name__ = property(lambda self: 'llop_'+self.opname)
@@ -58,7 +61,7 @@ class LLOp(object):
     def get_fold_impl(self):
         global lltype                 #  <- lazy import hack, worth an XXX
         from pypy.rpython.lltypesystem import lltype
-        if self.canfold or self.opname in ('getfield', 'getarrayitem'):
+        if self.canrun:
             from pypy.rpython.lltypesystem.opimpl import get_op_impl
             op_impl = get_op_impl(self.opname)
         else:
@@ -296,8 +299,8 @@ LL_OPERATIONS = {
     'zero_malloc_varsize':  LLOp(canraise=(MemoryError,), canunwindgc=True),
     'flavored_malloc':      LLOp(canraise=(MemoryError,)),
     'flavored_free':        LLOp(),
-    'getfield':             LLOp(sideeffects=False),
-    'getarrayitem':         LLOp(sideeffects=False),
+    'getfield':             LLOp(sideeffects=False, canrun=True),
+    'getarrayitem':         LLOp(sideeffects=False, canrun=True),
     'getarraysize':         LLOp(canfold=True),
     'getsubstruct':         LLOp(canfold=True),
     'getarraysubstruct':    LLOp(canfold=True),
@@ -398,7 +401,7 @@ LL_OPERATIONS = {
     'debug_print':          LLOp(),
     'debug_pdb':            LLOp(),
     'debug_log_exc':        LLOp(),
-    'debug_assert':         LLOp(canfold=True),
+    'debug_assert':         LLOp(canrun=True),
 }
 
     # __________ operations on PyObjects __________
