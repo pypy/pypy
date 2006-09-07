@@ -701,6 +701,16 @@ class TestFlowObjSpace(Base):
             from pypy import this_does_not_exist
         py.test.raises(ImportError, 'self.codetest(f)')
 
+    def test_mergeable(self):
+        def myfunc(x):
+            if x:
+                from pypy.interpreter.error import OperationError
+                s = 12
+            else:
+                s = x.abc
+            return x[s]
+        graph = self.codetest(myfunc)
+
 
 class TestFlowObjSpaceDelay(Base):
     def setup_class(cls): 
