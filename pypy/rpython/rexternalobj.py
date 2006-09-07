@@ -63,6 +63,11 @@ class ExternalBuiltinRepr(Repr):
         hop.exception_is_here()
         return hop.genop('oosend', [Constant(name)] + vlist, resulttype=hop.r_result)
     
+    def rtype_is_true(self, hop):
+        vlist = hop.inputargs(self)
+        return hop.genop('is_true', vlist, resulttype=lltype.Bool)
+
+    
     def __getattr__(self, attr):
         if attr.startswith("rtype_method_"):
             name = attr[len("rtype_method_"):]
