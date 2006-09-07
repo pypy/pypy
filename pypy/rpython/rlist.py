@@ -242,7 +242,7 @@ class __extend__(pairtype(AbstractBaseListRepr, AbstractBaseListRepr)):
     def convert_from_to((r_lst1, r_lst2), v, llops):
         if r_lst1.listitem is None or r_lst2.listitem is None:
             return NotImplemented
-        if r_lst1.listitem is not r_lst2.listitem:
+        if r_lst1.listitem != r_lst2.listitem:
             return NotImplemented
         return v
 

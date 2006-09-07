@@ -109,6 +109,15 @@ class ListItem:
             for position_key in self.read_locations:
                 self.bookkeeper.annotator.reflowfromposition(position_key)
         return updated
+    
+    def __eq__(self, other):
+        return self.s_value is other.s_value or self.s_value == other.s_value
+    
+    def __ne__(self, other):
+        return self.s_value is not other.s_value and self.s_value != other.s_value
+    
+    def __hash__(self):
+        return hash(self.s_value)
 
 
 class ListDef:
@@ -138,7 +147,7 @@ class ListDef:
         return self.listitem.s_value
 
     def same_as(self, other):
-        return self.listitem is other.listitem
+        return self.listitem == other.listitem
 
     def union(self, other):
         if (self.same_as(MOST_GENERAL_LISTDEF) or
