@@ -41,8 +41,6 @@ class compile_function(object):
             DebugTransformer(t).transform_all()
         t.buildrtyper(type_system="ootype").specialize()
 
-        #backend_optimizations(t, raisingop2direct_call_all=True, inline_threshold=0, mallocs=False)
-        #backend_optimizations(t)
         if view or option.view:
             t.view()
         #self.js = JS(t, [function, callback_function], stackless)
@@ -59,8 +57,6 @@ class compile_function(object):
         return self.js.tmpfile.open().read()
 
     def _conv(self, v):
-        #if isinstance(v, str):
-        #    return "{hash:0, chars:'%s'}" % v
         if isinstance(v, str):
             return repr(v)
         return str(v).lower()

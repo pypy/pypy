@@ -140,7 +140,7 @@ def test_instance_str():
 
 def test_instance_ret():
     def instance_ret():
-        return C()
+        return str(C())
     
     fn = compile_function(instance_ret, [])
     assert fn() == '<pypy_translator_js_test_test_class_C instance>'

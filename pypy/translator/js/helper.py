@@ -16,7 +16,7 @@ def create_debug_div():
     get_document().childNodes[0].childNodes[1].appendChild(debug_div)
     return debug_div
 
-def show_traceback(tb):
+def show_traceback(tb, exc):
     debug_div = get_document().getElementById("debug_div")
     if not debug_div:
         # create div here
@@ -25,10 +25,14 @@ def show_traceback(tb):
     pre_div = get_document().createElement("pre")
     pre_div.style.color = "#FF0000"
     debug_div.appendChild(pre_div)
+    txt = get_document().createTextNode("")
+    pre_div.appendChild(txt)
     for tb_entry in tb[1:]:
         # list of tuples...
         fun_name, args, filename, lineno = tb_entry
         # some source maybe? or so?
         line1 = escape("%s %s" % (fun_name, args))
         line2 = escape("  %s: %s\n" % (filename, lineno))
-        pre_div.innerHTML += line1 + '\n' + line2
+        txt.nodeValue += line1 + '\n' + line2
+
+    txt.nodeValue += str(exc)

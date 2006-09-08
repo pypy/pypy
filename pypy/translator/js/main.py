@@ -12,6 +12,7 @@ from pypy.rpython.nonconst import NonConstant
 from pypy.annotation.policy import AnnotatorPolicy
 import optparse
 import py
+from pypy.tool.option import Options
 
 class FunctionNotFound(Exception):
     pass
@@ -32,7 +33,7 @@ def get_arg_names(func_data):
     return ",".join(func_data.func_code.co_varnames\
         [:func_data.func_code.co_argcount])
 
-def rpython2javascript_main(argv):
+def rpython2javascript_main(argv, opts):
     if len(argv) < 1:
         print "usage: module <function_names>"
         import sys
@@ -42,7 +43,10 @@ def rpython2javascript_main(argv):
         module_name = module_name[:-3]
     function_names = argv[1:]
     mod = __import__(module_name, None, None, ["Module"])
-    return rpython2javascript(mod, function_names)
+    source = rpython2javascript(mod, function_names, opts=opts)
+    if opts.output != '':
+        open(opts.output, "w").write(source)
+        print "Written file %s" % opts.output
 
 # some strange function source
 source_ssf_base = """
@@ -65,9 +69,9 @@ def %(fun_name)s(%(arg_names)s):
         traceback_handler.enter(NonConst("entrypoint"), NonConst("()"), NonConst(""), NonConst(0))
         %(module_name)s.%(fun_name)s(%(arg_names)s)
         traceback_handler.leave(NonConst("entrypoint"))
-    except:
+    except Exception, e:
         new_tb = traceback_handler.tb[:]
-        show_traceback(new_tb)
+        show_traceback(new_tb, str(e))
 """
 
 function_base = "%(module)s.%(fun_name)s(%(args)s)"
@@ -94,7 +98,7 @@ def get_source_ssf(mod, module_name, function_names, use_debug=True):
     print retval
     return retval
 
-def rpython2javascript(mod, function_names, use_debug=True):
+def rpython2javascript(mod, function_names, use_debug=True, opts=Options):
     module_name = mod.__name__
     if not function_names and 'main' in mod.__dict__:
         function_names.append('main')
@@ -115,6 +119,8 @@ def rpython2javascript(mod, function_names, use_debug=True):
     try:
         driver.setup(some_strange_function_which_will_never_be_called, [], policy = JsPolicy())
         driver.proceed(["compile_js"])
+        if getattr(opts, 'view', False):
+            driver.translator.view()
         return driver.gen.tmpfile.open().read()
         # XXX: Add some possibility to write down selected file
     except Exception, e:

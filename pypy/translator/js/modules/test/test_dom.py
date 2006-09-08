@@ -37,6 +37,8 @@ class Mover(object):
 movers = [Mover("anim_img"), Mover("anim_img2")]
 movers[1].x = 20
 
+xml = XMLHttpRequest()
+
 def move_it():
     movers[0].move_it()
     #movers[1].move_it()
@@ -52,7 +54,8 @@ class TestReal(object):
             #document.getElementById("dupa").setInnerHTML("<h1>Fire!</h1>")
             #return document.getElementById("dupa")
         
-        fn = compile_function(f, [], html = 'html/test.html')
+        fn = compile_function(f, [], html = str(py.path.local(__file__).\
+            dirpath('html').join('test.html')))
         assert fn() == '[object HTMLHeadingElement]'
     
     def test_anim_f(self):  
@@ -71,13 +74,11 @@ class TestReal(object):
         fn = compile_function(anim_fun, [], html = 'html/anim.html')
         assert fn() == '3px'
     
-    xml = XMLHttpRequest()
-    
     def t_xml_fun(self):
         if xml.readyState == 4:
             alert('Wow!')
             
-    def test_xmlhttp(self):
+    def DONTtest_xmlhttp(self):
         """ Low level XMLHttpRequest test
         """
         def xml_fun():
