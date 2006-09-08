@@ -5,6 +5,7 @@
 from pypy.translator.js.main import rpython2javascript
 from pypy.translator.js.test.runtest import compile_function
 from pypy.translator.transformer.debug import traceback_handler
+from pypy.rpython.nonconst import NonConstant as NonConst
 
 def check_tb(tb_entry_str, callname, args, func, relline):
     tb_entry = tb_entry_str.split(":")
@@ -88,3 +89,19 @@ def test_args():
     check_tb(lst[2], "f", "(3, 'dupa'", g, 1)
 
 # XXX: indirect call test as well
+
+def test_annotation():
+    def f():
+        raise TypeError()
+
+    def wrapper():
+        try:
+            traceback_handler.enter(NonConst("entrypoint"), NonConst("()"), NonConst(""), NonConst(0))
+            f()
+        except:
+            return "|".join(["%s:%s:%s:%s" % k for k in traceback_handler.tb[1:]])
+
+    fn = compile_function(wrapper, [], debug_transform=True)
+    retval = fn()
+    lst = retval.split("|")
+    check_tb(lst[0], "f", "()", wrapper, 3)
