@@ -162,19 +162,24 @@ class Builder(CodeGenerator):
         self.mc.LEA(eax, mem(edx, offset))
         return self.returnvar(eax)
 
-    def genop_getarrayitem(self, arraytoken, gv_ptr, gv_index):
-        # XXX! only works for GcArray(Signed) for now!!
+    def itemaddr(self, base, arraytoken, gv_index):
+        # uses ecx
         lengthoffset, startoffset, itemoffset = arraytoken
-        self.mc.MOV(edx, gv_ptr.operand(self))
         if isinstance(gv_index, IntConst):
             startoffset += itemoffset * gv_index.value
-            op = mem(edx, startoffset)
+            op = mem(base, startoffset)
         elif itemoffset in SIZE2SHIFT:
             self.mc.MOV(ecx, gv_index.operand(self))
-            op = memSIB(edx, ecx, SIZE2SHIFT[itemoffset], startoffset)
+            op = memSIB(base, ecx, SIZE2SHIFT[itemoffset], startoffset)
         else:
             self.mc.IMUL(ecx, gv_index.operand(self), imm(itemoffset))
-            op = memSIB(edx, ecx, 0, startoffset)
+            op = memSIB(base, ecx, 0, startoffset)
+        return op
+
+    def genop_getarrayitem(self, arraytoken, gv_ptr, gv_index):
+        # XXX! only works for GcArray(Signed) for now!!
+        self.mc.MOV(edx, gv_ptr.operand(self))
+        op = self.itemaddr(edx, arraytoken, gv_index)
         return self.returnvar(op)
 
     def genop_getarraysize(self, arraytoken, gv_ptr):
@@ -184,19 +189,10 @@ class Builder(CodeGenerator):
 
     def genop_setarrayitem(self, arraytoken, gv_ptr, gv_index, gv_value):
         # XXX! only works for GcArray(Signed) for now!!
-        lengthoffset, startoffset, itemoffset = arraytoken
         self.mc.MOV(eax, gv_value.operand(self))
         self.mc.MOV(edx, gv_ptr.operand(self))
-        if isinstance(gv_index, IntConst):
-            startoffset += itemoffset * gv_index.value
-            op = mem(edx, startoffset)
-        elif itemoffset in SIZE2SHIFT:
-            self.mc.MOV(ecx, gv_index.operand(self))
-            op = memSIB(edx, ecx, SIZE2SHIFT[itemoffset], startoffset)
-        else:
-            self.mc.IMUL(ecx, gv_index.operand(self), imm(itemoffset))
-            op = memSIB(edx, ecx, 0, startoffset)
-        self.mc.MOV(op, eax)
+        destop = self.itemaddr(edx, arraytoken, gv_index)
+        self.mc.MOV(destop, eax)
 
     def genop_malloc_fixedsize(self, size):
         # XXX boehm only, no atomic/non atomic distinction for now
@@ -205,6 +201,19 @@ class Builder(CodeGenerator):
         self.mc.CALL(rel32(lltype.cast_ptr_to_int(gc_malloc_ptr)))
         return self.returnvar(eax)
 
+    def genop_malloc_varsize(self, varsizealloctoken, gv_size):
+        # XXX boehm only, no atomic/non atomic distinction for now
+        # XXX no overflow checking for now
+        op_size = self.itemaddr(None, varsizealloctoken, gv_size)
+        self.mc.LEA(edx, op_size)
+        self.push(edx)
+        gc_malloc_ptr = llhelper(GC_MALLOC, gc_malloc)
+        self.mc.CALL(rel32(lltype.cast_ptr_to_int(gc_malloc_ptr)))
+        lengthoffset, _, _ = varsizealloctoken
+        self.mc.MOV(ecx, gv_size.operand(self))
+        self.mc.MOV(mem(eax, lengthoffset), ecx)
+        return self.returnvar(eax)
+        
     def genop_call(self, sigtoken, gv_fnptr, args_gv):
         for i in range(len(args_gv)-1, -1, -1):
             gv_arg = args_gv[i]
@@ -521,6 +530,20 @@ class RI386GenOp(AbstractRGenOp):
     @specialize.memo()
     def allocToken(T):
         return llmemory.sizeof(T)
+
+    @staticmethod
+    @specialize.memo()
+    def varsizeAllocToken(T):
+        if isinstance(T, lltype.Array):
+            return RI386GenOp.arrayToken(T)
+        subfield = T._arrayfld
+        SUBFIELD = getattr(T, subfield)
+        subtoken = RI386GenOp.varsizeAllocToken(SUBFIELD)
+        length_offset, items_offset, item_size = subtoken
+        subfield_offset = llmemory.offsetof(T, subfield)
+        return (subfield_offset+length_offset,
+                subfield_offset+items_offset,
+                item_size)
 
     @staticmethod
     @specialize.memo()    

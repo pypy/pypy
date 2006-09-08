@@ -81,6 +81,12 @@ def ll_gen2(opdesc, jitstate, argbox0, argbox1):
     genvar = jitstate.curbuilder.genop2(opdesc.opname, gv_arg0, gv_arg1)
     return opdesc.redboxcls(opdesc.result_kind, genvar)
 
+def ll_genmalloc_varsize(jitstate, contdesc, sizebox):
+    gv_size = sizebox.getgenvar(jitstate.curbuilder)
+    alloctoken = contdesc.varsizealloctoken
+    genvar = jitstate.curbuilder.genop_malloc_varsize(alloctoken, gv_size)
+    return rvalue.PtrRedBox(contdesc.ptrkind, genvar)
+
 def ll_gengetfield(jitstate, fielddesc, argbox):
     if fielddesc.immutable and argbox.is_constant():
         res = getattr(rvalue.ll_getvalue(argbox, fielddesc.PTRTYPE),

@@ -178,7 +178,7 @@ class HintRTyper(RPythonTyper):
         ts = self.timeshifter
         v_argbox, v_index = hop.inputargs(self.getredrepr(PTRTYPE),
                                           self.getredrepr(lltype.Signed))
-        fielddesc = rcontainer.ArrayFieldDesc(self.RGenOp, PTRTYPE)
+        fielddesc = rcontainer.ArrayFieldDesc(self.RGenOp, PTRTYPE.TO)
         c_fielddesc = inputconst(lltype.Void, fielddesc)
         s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
         v_jitstate = hop.llops.getjitstate()
@@ -197,7 +197,7 @@ class HintRTyper(RPythonTyper):
         ts = self.timeshifter
         [v_argbox] = hop.inputargs(self.getredrepr(PTRTYPE))
         
-        fielddesc = rcontainer.ArrayFieldDesc(self.RGenOp, PTRTYPE)
+        fielddesc = rcontainer.ArrayFieldDesc(self.RGenOp, PTRTYPE.TO)
         c_fielddesc = inputconst(lltype.Void, fielddesc)
         s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
         v_jitstate = hop.llops.getjitstate()
@@ -252,7 +252,7 @@ class HintRTyper(RPythonTyper):
         v_argbox, v_index, v_valuebox= hop.inputargs(self.getredrepr(PTRTYPE),
                                                      self.getredrepr(lltype.Signed),
                                                      self.getredrepr(VALUETYPE))
-        fielddesc = rcontainer.ArrayFieldDesc(self.RGenOp, PTRTYPE)
+        fielddesc = rcontainer.ArrayFieldDesc(self.RGenOp, PTRTYPE.TO)
         c_fielddesc = inputconst(lltype.Void, fielddesc)
         s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
         v_jitstate = hop.llops.getjitstate()
@@ -287,6 +287,25 @@ class HintRTyper(RPythonTyper):
         r_result = hop.r_result
         return r_result.create(hop)
 
+    def translate_op_malloc_varsize(self, hop):
+        # XXX no array support for now
+        ts = self.timeshifter
+        assert isinstance(hop.r_result, RedRepr)
+        PTRTYPE = originalconcretetype(hop.s_result)
+        TYPE = PTRTYPE.TO
+        if isinstance(TYPE, lltype.Struct):
+            contdesc = rcontainer.StructTypeDesc(self.RGenOp, TYPE)
+        else:
+            contdesc = rcontainer.ArrayFieldDesc(self.RGenOp, TYPE)
+        c_contdesc = inputconst(lltype.Void, contdesc)
+        s_contdesc = ts.rtyper.annotator.bookkeeper.immutablevalue(contdesc)
+        v_jitstate = hop.llops.getjitstate()
+        v_size = hop.inputarg(self.getredrepr(lltype.Signed), arg=1)
+        return hop.llops.genmixlevelhelpercall(rtimeshift.ll_genmalloc_varsize,
+                   [ts.s_JITState, s_contdesc, ts.s_RedBox],
+                   [v_jitstate,    c_contdesc, v_size     ], ts.s_RedBox)
+        
+        
     def translate_op_ptr_nonzero(self, hop, reverse=False):
         ts = self.timeshifter
         PTRTYPE = originalconcretetype(hop.args_s[0])

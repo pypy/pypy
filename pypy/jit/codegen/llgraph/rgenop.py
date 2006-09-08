@@ -185,6 +185,8 @@ class RGenOp(AbstractRGenOp):
         return (LLConst(llimpl.constTYPE(TYPE)),
                 LLConst(llimpl.constTYPE(lltype.Ptr(TYPE))))
 
+    varsizeAllocToken = allocToken
+
     @staticmethod
     @specialize.memo()
     def arrayToken(A):

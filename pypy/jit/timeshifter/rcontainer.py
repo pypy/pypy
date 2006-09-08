@@ -37,7 +37,9 @@ class cachedtype(type):
 class StructTypeDesc(object):
     __metaclass__ = cachedtype
     firstsubstructdesc = None
-
+    arrayfielddesc = None
+    varsizealloctoken = None
+    
     def __init__(self, RGenOp, TYPE):
         self.TYPE = TYPE
         self.PTRTYPE = lltype.Ptr(TYPE)
@@ -50,6 +52,10 @@ class StructTypeDesc(object):
         for name in self.TYPE._names:
             FIELDTYPE = getattr(self.TYPE, name)
             if isinstance(FIELDTYPE, lltype.ContainerType):
+                if isinstance(FIELDTYPE, lltype.Array):
+                    self.arrayfielddesc = ArrayFieldDesc(RGenOp, FIELDTYPE)
+                    self.varsizealloctoken = RGenOp.varsizeAllocToken(TYPE)
+                    continue
                 substructdesc = StructTypeDesc(RGenOp, FIELDTYPE)
                 assert name == self.TYPE._names[0], (
                     "unsupported: inlined substructures not as first field")
@@ -129,10 +135,11 @@ class StructFieldDesc(NamedFieldDesc):
         self.defaultbox = self.redboxcls(self.kind, self.gv_default)
 
 class ArrayFieldDesc(FieldDesc):
-    def __init__(self, RGenOp, PTRTYPE):
-        assert isinstance(PTRTYPE.TO, lltype.Array)
-        FieldDesc.__init__(self, RGenOp, PTRTYPE, PTRTYPE.TO.OF)
-        self.arraytoken = RGenOp.arrayToken(PTRTYPE.TO)
+    def __init__(self, RGenOp, TYPE):
+        assert isinstance(TYPE, lltype.Array)
+        FieldDesc.__init__(self, RGenOp, lltype.Ptr(TYPE), TYPE.OF)
+        self.arraytoken = RGenOp.arrayToken(TYPE)
+        self.varsizealloctoken = RGenOp.varsizeAllocToken(TYPE)
         self.indexkind = RGenOp.kindToken(lltype.Signed)
 
 # ____________________________________________________________

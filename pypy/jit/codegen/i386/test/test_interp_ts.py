@@ -28,6 +28,8 @@ class I386LLInterpTimeshiftingTestMixin(object):
         def allocToken(T):
             return len(T._names)
 
+        varsizeAllocToken = arrayToken
+
         @staticmethod
         @specialize.memo()
         def constFieldName(T, name):
