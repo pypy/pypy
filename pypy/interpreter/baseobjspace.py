@@ -13,6 +13,8 @@ __all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'W_Root']
 class W_Root(object):
     """This is the abstract root class of all wrapped objects that live
     in a 'normal' object space like StdObjSpace."""
+    __slots__ = ()
+
     def getdict(self):
         return None
 

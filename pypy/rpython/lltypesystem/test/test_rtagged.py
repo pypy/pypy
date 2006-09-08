@@ -9,6 +9,7 @@ from pypy import conftest
 
 
 class A(object):
+    __slots__ = ()
     def meth(self, x):
         raise NotImplementedError
 

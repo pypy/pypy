@@ -118,7 +118,7 @@ def test_annotate_r_dict_bm():
 
 def test_unboxed_value():
     class Base(object):
-        pass
+        __slots__ = ()
     class C(Base, UnboxedValue):
         __slots__ = 'smallint'
 

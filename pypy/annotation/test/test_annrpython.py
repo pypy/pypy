@@ -2118,9 +2118,9 @@ class TestAnnotateTestCase:
 
     def test_unboxed_value(self):
         class A(object):
-            pass
+            __slots__ = ()
         class C(A, objectmodel.UnboxedValue):
-            __slots__ = 'smallint'
+            __slots__ = unboxedattrname = 'smallint'
         def f(n):
             return C(n).smallint
 
@@ -2333,6 +2333,33 @@ class TestAnnotateTestCase:
         assert isinstance(s, annmodel.SomeInteger)
         assert not s.nonneg
         py.test.raises(Exception, a.build_types, fun, [s_nonneg, int])
+
+    def test_slots_check(self):
+        class Base(object):
+            __slots__ = 'x'
+        class A(Base):
+            __slots__ = 'y'
+            def m(self):
+                return 65
+        class C(Base):
+            __slots__ = 'z'
+            def m(self):
+                return 67
+        for attrname, works in [('x', True),
+                                ('y', False),
+                                ('z', False),
+                                ('t', False)]:
+            def fun(n):
+                if n: o = A()
+                else: o = C()
+                setattr(o, attrname, 12)
+                return o.m()
+            a = self.RPythonAnnotator()
+            if works:
+                a.build_types(fun, [int])
+            else:
+                from pypy.annotation.classdef import NoSuchSlotError
+                py.test.raises(NoSuchSlotError, a.build_types, fun, [int])
 
 def g(n):
     return [0,1,2,n]

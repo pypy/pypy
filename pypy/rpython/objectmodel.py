@@ -211,10 +211,10 @@ class UnboxedValue(object):
         # this funtion is annotated but not included in the translated program
         int_as_pointer = value * 2 + 1   # XXX for now
         if -sys.maxint-1 <= int_as_pointer <= sys.maxint:
-            if isinstance(self.__slots__, str):
-                setattr(self, self.__slots__, value)
+            if isinstance(self.__class__.__slots__, str):
+                setattr(self, self.__class__.__slots__, value)
             else:
-                setattr(self, self.__slots__[0], value)
+                setattr(self, self.__class__.__slots__[0], value)
         else:
             raise OverflowError("UnboxedValue: argument out of range")
 
@@ -222,10 +222,10 @@ class UnboxedValue(object):
         return '<unboxed %d>' % (self.getvalue(),)
 
     def getvalue(self):   # helper, equivalent to reading the custom field
-        if isinstance(self.__slots__, str):
-            return getattr(self, self.__slots__)
+        if isinstance(self.__class__.__slots__, str):
+            return getattr(self, self.__class__.__slots__)
         else:
-            return getattr(self, self.__slots__[0])
+            return getattr(self, self.__class__.__slots__[0])
 
 # ____________________________________________________________
 

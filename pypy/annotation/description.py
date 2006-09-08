@@ -344,6 +344,7 @@ NODEFAULT = object()
 class ClassDesc(Desc):
     knowntype = type
     instance_level = False
+    allslots = None   # or a set
 
     def __init__(self, bookkeeper, pyobj=None,
                  name=None, basedesc=None, classdict=None,
@@ -392,6 +393,18 @@ class ClassDesc(Desc):
             self.add_sources_for_class(cls)
             if base is not object:
                 self.basedesc = bookkeeper.getdesc(base)
+
+            if '__slots__' in cls.__dict__:
+                slots = cls.__dict__['__slots__']
+                if isinstance(slots, str):
+                    slots = (slots,)
+                slots = dict.fromkeys(slots)
+                if self.basedesc is not None:
+                    if self.basedesc.allslots is None:
+                        raise Exception("%r has slots, but not its base class"
+                                        % (pyobj,))
+                    slots.update(self.basedesc.allslots)
+                self.allslots = slots
 
     def add_source_attribute(self, name, value, mixin=False):
         if isinstance(value, types.FunctionType):
@@ -451,7 +464,7 @@ class ClassDesc(Desc):
                 if cls in FORCE_ATTRIBUTES_INTO_CLASSES:
                     for name, s_value in FORCE_ATTRIBUTES_INTO_CLASSES[cls].items():
                         classdef.generalize_attr(name, s_value)
-                        classdef.find_attribute(name).readonly = False
+                        classdef.find_attribute(name).modified(classdef)
 
             # register all class attributes as coming from this ClassDesc
             # (as opposed to prebuilt instances)

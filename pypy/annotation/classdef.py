@@ -72,13 +72,14 @@ class Attribute:
         self.bookkeeper = bookkeeper
         self.s_value = s_ImpossibleValue
         self.readonly = True
+        self.slot_allowed = True
         self.read_locations = {}
 
     def add_constant_source(self, classdef, source):
         s_value = source.s_get_value(classdef, self.name)
         if source.instance_level:
             # a prebuilt instance source forces readonly=False, see above
-            self.readonly = False
+            self.modified(classdef)
         s_new_value = unionof(self.s_value, s_value)       
         if isdegenerated(s_new_value):            
             self.bookkeeper.ondegenerated("source %r attr %s" % (source, self.name),
@@ -90,18 +91,16 @@ class Attribute:
         # Same as 'self.s_value' for historical reasons.
         return self.s_value
 
-    def merge(self, other, classdef=None):
+    def merge(self, other, classdef='?'):
         assert self.name == other.name
         s_new_value = unionof(self.s_value, other.s_value)
         if isdegenerated(s_new_value):
-            if classdef is None:
-                what = "? attr %s" % self.name
-            else:
-                what = "%r attr %s" % (classdef, self.name)
+            what = "%s attr %s" % (classdef, self.name)
             self.bookkeeper.ondegenerated(what, s_new_value)
 
-        self.s_value = s_new_value        
-        self.readonly = self.readonly and other.readonly
+        self.s_value = s_new_value
+        if not other.readonly:
+            self.modified(classdef)
         self.read_locations.update(other.read_locations)
 
     def mutated(self, homedef): # reflow from attr read positions
@@ -119,6 +118,17 @@ class Attribute:
                         self.bookkeeper.warning("demoting method %s to base class %s" % 
                                                 (self.name, homedef))
 
+        # check for attributes forbidden by slots
+        if homedef.classdesc.allslots is not None:
+            if self.name not in homedef.classdesc.allslots:
+                self.slot_allowed = False
+                if not self.readonly:
+                    raise NoSuchSlotError(homedef, self.name)
+
+    def modified(self, classdef='?'):
+        self.readonly = False
+        if not self.slot_allowed:
+            raise NoSuchSlotError(classdef, self.name)
 
 
 class ClassDef:
@@ -400,6 +410,9 @@ class InstanceSource:
         s_value = self.bookkeeper.immutablevalue(
             self.obj.__dict__[name])
         return s_value
+
+class NoSuchSlotError(Exception):
+    "Raised when an attribute is found on a class where __slots__ forbits it."
 
 # ____________________________________________________________
 

@@ -523,7 +523,7 @@ class __extend__(SomeInstance):
             # find the (possibly parent) class where this attr is defined
             clsdef = ins.classdef.locate_attribute(attr)
             attrdef = clsdef.attrs[attr]
-            attrdef.readonly = False
+            attrdef.modified(clsdef)
 
             # if the attrdef is new, this must fail
             if attrdef.getvalue().contains(s_value):

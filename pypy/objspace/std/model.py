@@ -212,6 +212,7 @@ class W_Object(W_Root):
     "Parent base class for wrapped objects provided by the StdObjSpace."
     # Note that not all wrapped objects in the interpreter inherit from
     # W_Object.  (They inherit from W_Root.)
+    __slots__ = ()
 
     def __repr__(self):
         s = '%s(%s)' % (

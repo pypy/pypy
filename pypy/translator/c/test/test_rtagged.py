@@ -3,6 +3,7 @@ from pypy.rpython.objectmodel import UnboxedValue
 
 
 class A(object):
+    __slots__ = ()
     def meth(self, x):
         raise NotImplementedError
 
