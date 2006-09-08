@@ -76,6 +76,9 @@ garbage collection in PyPy.
 to write modules in PyPy's style and compile them into regular CPython
 extension modules.
 
+`JavaScript backend`_ describes how to use JavaScript backend to create
+AJAX-based web pages.
+
 `EU reports`_ is a page that contains links to the
 preliminary reports that we submitted to the European Union.
 
@@ -128,6 +131,7 @@ recent compliance test runs against PyPy.
 .. _`translation aspects`: translation-aspects.html
 .. _`coding guide`: coding-guide.html 
 .. _`architecture`: architecture.html 
+.. _`JavaScript backend` : js/using.html
 .. _`getting started`: getting-started.html 
 .. _`theory`: theory.html
 .. _`bytecode interpreter`: interpreter.html 
