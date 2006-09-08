@@ -350,6 +350,8 @@ MOVSX.as_alias = "MOVS"
 
 MOVZX = Instruction()
 MOVZX.mode2(REG, MODRM8, ['\x0F\xB6', register(1,8), modrm(2,'b')])
+MOVZX.mode2(REG, MODRM,  ['\x0F\xB7', register(1,8), modrm(2)])
+#                ^^^ but this only reads the 16 lower bits of the source
 MOVZX.as_all_suffixes = 1
 MOVZX.as_alias = "MOVZ"
 
@@ -403,6 +405,9 @@ INT.mode1(IMM8, ['\xCD', immediate(1, 'b')])
 BREAKPOINT = Instruction()    # INT 3
 BREAKPOINT.mode0(['\xCC'])
 BREAKPOINT.as_alias = "INT3"
+
+o16 = Instruction()      # 16-bits instruction prefix (name from 'nasm')
+o16.mode0(['\x66'])
 
 
 Conditions = {

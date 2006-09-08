@@ -1,0 +1,118 @@
+import py
+from pypy.rpython.objectmodel import specialize
+from pypy.annotation import model as annmodel
+from pypy.rpython.lltypesystem import lltype
+from pypy.translator.translator import TranslationContext, graphof
+from pypy.jit.codegen import graph2rgenop
+from pypy.jit.codegen.i386.ri386genop import RI386GenOp
+from pypy.rpython.memory.lltypelayout import convert_offset_to_int
+from ctypes import cast, c_void_p, CFUNCTYPE, c_int
+
+
+class RGenOpPacked(RI386GenOp):
+    """Like RI386GenOp, but produces concrete offsets in the tokens
+    instead of llmemory.offsets.  These numbers may not agree with
+    your C compiler's.
+    """
+
+    @staticmethod
+    @specialize.memo()
+    def fieldToken(T, name):
+        return convert_offset_to_int(RI386GenOp.fieldToken(T, name))
+
+    @staticmethod
+    @specialize.memo()
+    def arrayToken(A):
+        return tuple(map(convert_offset_to_int, RI386GenOp.arrayToken(A)))
+
+    @staticmethod
+    @specialize.memo()
+    def allocToken(T):
+        return convert_offset_to_int(RI386GenOp.allocToken(T))
+
+    @staticmethod
+    @specialize.memo()
+    def varsizeAllocToken(A):
+        return tuple(map(convert_offset_to_int,
+                         RI386GenOp.varsizeAllocToken(A)))
+
+
+class TestBasic:
+
+    def rgen(self, ll_function, argtypes):
+        t = TranslationContext()
+        t.buildannotator().build_types(ll_function, argtypes)
+        t.buildrtyper().specialize()
+        graph = graphof(t, ll_function)
+        rgenop = RGenOpPacked()
+        self.rgenop = rgenop      # keep this alive!
+        gv_generated = graph2rgenop.compile_graph(rgenop, graph)
+        ctypestypes = [c_int] * len(argtypes)   # for now
+        fp = cast(c_void_p(gv_generated.value), CFUNCTYPE(c_int, *ctypestypes))
+        return fp
+
+    def test_arithmetic(self):
+        for fn in [lambda x, y: x + y,
+                   lambda x, y: x - y,
+                   lambda x, y: x * y,
+                   lambda x, y: x // y,
+                   lambda x, y: x << y,
+                   lambda x, y: x >> y,
+                   lambda x, y: x ^ y,
+                   lambda x, y: x & y,
+                   lambda x, y: x | y,
+                   lambda x, y: -y,
+                   lambda x, y: ~y,
+                   ]:
+            fp = self.rgen(fn, [int, int])
+            assert fp(40, 2) == fn(40, 2)
+
+    def test_comparison(self):
+        for fn in [lambda x, y: int(x <  y),
+                   lambda x, y: int(x <= y),
+                   lambda x, y: int(x == y),
+                   lambda x, y: int(x != y),
+                   lambda x, y: int(x >  y),
+                   lambda x, y: int(x >= y)
+                   ]:
+            fp = self.rgen(fn, [int, int])
+            assert fp(12, 11) == fn(12, 11)
+            assert fp(12, 12) == fn(12, 12)
+            assert fp(12, 13) == fn(12, 13)
+            assert fp(-12, 11) == fn(-12, 11)
+            assert fp(-12, 12) == fn(-12, 12)
+            assert fp(-12, 13) == fn(-12, 13)
+            assert fp(12, -11) == fn(12, -11)
+            assert fp(12, -12) == fn(12, -12)
+            assert fp(12, -13) == fn(12, -13)
+            assert fp(-12, -11) == fn(-12, -11)
+            assert fp(-12, -12) == fn(-12, -12)
+            assert fp(-12, -13) == fn(-12, -13)
+
+    def test_char_array(self):
+        A = lltype.GcArray(lltype.Char)
+        def fn(n):
+            a = lltype.malloc(A, 5)
+            a[4] = 'H'
+            a[3] = 'e'
+            a[2] = 'l'
+            a[1] = 'l'
+            a[0] = 'o'
+            return ord(a[n])
+        fp = self.rgen(fn, [int])
+        for i in range(5):
+            assert fp(i) == fn(i)
+
+    def test_unichar_array(self):
+        A = lltype.GcArray(lltype.UniChar)
+        def fn(n):
+            a = lltype.malloc(A, 5)
+            a[4] = u'H'
+            a[3] = u'e'
+            a[2] = u'l'
+            a[1] = u'l'
+            a[0] = u'o'
+            return ord(a[n])
+        fp = self.rgen(fn, [int])
+        for i in range(5):
+            assert fp(i) == fn(i)

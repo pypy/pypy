@@ -5,6 +5,7 @@ import struct
 primitive_to_fmt = {lltype.Signed:          "l",
                     lltype.Unsigned:        "L",
                     lltype.Char:            "c",
+                    lltype.UniChar:         "H",     # maybe
                     lltype.Bool:            "B",
                     lltype.Float:           "d",
                     llmemory.Address:       "P",
@@ -103,6 +104,8 @@ def convert_offset_to_int(offset):
         return get_fixed_size(lltype.Signed)
     elif isinstance(offset, llmemory.GCHeaderOffset):
         return sizeof(offset.gcheaderbuilder.HDR)
+    elif isinstance(offset, llmemory.ArrayLengthOffset):
+        return 0
     else:
         raise Exception("unknown offset type %r"%offset)
         

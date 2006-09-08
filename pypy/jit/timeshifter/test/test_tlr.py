@@ -1,4 +1,3 @@
-from pypy.rpython.lltypesystem.rstr import string_repr
 from pypy.rpython.module.support import LLSupport
 from pypy.jit.timeshifter.test.test_timeshift import TimeshiftingTests
 from pypy.jit.timeshifter.test.test_vlist import P_OOPSPEC

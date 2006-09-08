@@ -288,7 +288,6 @@ class HintRTyper(RPythonTyper):
         return r_result.create(hop)
 
     def translate_op_malloc_varsize(self, hop):
-        # XXX no array support for now
         ts = self.timeshifter
         assert isinstance(hop.r_result, RedRepr)
         PTRTYPE = originalconcretetype(hop.s_result)

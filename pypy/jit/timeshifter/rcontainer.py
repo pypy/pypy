@@ -38,15 +38,16 @@ class StructTypeDesc(object):
     __metaclass__ = cachedtype
     firstsubstructdesc = None
     arrayfielddesc = None
+    alloctoken = None
     varsizealloctoken = None
     
     def __init__(self, RGenOp, TYPE):
         self.TYPE = TYPE
         self.PTRTYPE = lltype.Ptr(TYPE)
-        self.alloctoken = RGenOp.allocToken(self.TYPE)
         self.ptrkind = RGenOp.kindToken(self.PTRTYPE)
         innermostdesc = self
-
+        if not TYPE._is_varsize():
+            self.alloctoken = RGenOp.allocToken(TYPE)
         fielddescs = []
         fielddesc_by_name = {}
         for name in self.TYPE._names:

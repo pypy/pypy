@@ -76,8 +76,10 @@ class IntConst(GenConst):
             return lltype.cast_primitive(T, self.value)
 
     def __repr__(self):
-        return "const=%s" % (imm(self.value).assembler(),)
-        
+        try:
+            return "const=%s" % (imm(self.value).assembler(),)
+        except TypeError:   # from Symbolics
+            return "const=%r" % (self.value,)
 
 
 ##class FnPtrConst(IntConst):
@@ -165,21 +167,29 @@ class Builder(CodeGenerator):
     def itemaddr(self, base, arraytoken, gv_index):
         # uses ecx
         lengthoffset, startoffset, itemoffset = arraytoken
+        if itemoffset == 1:
+            memSIBx = memSIB8
+        else:
+            memSIBx = memSIB
         if isinstance(gv_index, IntConst):
             startoffset += itemoffset * gv_index.value
-            op = mem(base, startoffset)
+            op = memSIBx(base, None, 0, startoffset)
         elif itemoffset in SIZE2SHIFT:
             self.mc.MOV(ecx, gv_index.operand(self))
-            op = memSIB(base, ecx, SIZE2SHIFT[itemoffset], startoffset)
+            op = memSIBx(base, ecx, SIZE2SHIFT[itemoffset], startoffset)
         else:
             self.mc.IMUL(ecx, gv_index.operand(self), imm(itemoffset))
-            op = memSIB(base, ecx, 0, startoffset)
+            op = memSIBx(base, ecx, 0, startoffset)
         return op
 
     def genop_getarrayitem(self, arraytoken, gv_ptr, gv_index):
-        # XXX! only works for GcArray(Signed) for now!!
         self.mc.MOV(edx, gv_ptr.operand(self))
         op = self.itemaddr(edx, arraytoken, gv_index)
+        _, _, itemsize = arraytoken
+        if itemsize != WORD:
+            assert itemsize == 1 or itemsize == 2
+            self.mc.MOVZX(eax, op)
+            op = eax
         return self.returnvar(op)
 
     def genop_getarraysize(self, arraytoken, gv_ptr):
@@ -188,17 +198,24 @@ class Builder(CodeGenerator):
         return self.returnvar(mem(edx, lengthoffset))
 
     def genop_setarrayitem(self, arraytoken, gv_ptr, gv_index, gv_value):
-        # XXX! only works for GcArray(Signed) for now!!
         self.mc.MOV(eax, gv_value.operand(self))
         self.mc.MOV(edx, gv_ptr.operand(self))
         destop = self.itemaddr(edx, arraytoken, gv_index)
+        _, _, itemsize = arraytoken
+        if itemsize != WORD:
+            if itemsize == 1:
+                self.mc.MOV(destop, al)
+                return
+            elif itemsize == 2:
+                self.mc.o16()    # followed by the MOV below
+            else:
+                raise AssertionError
         self.mc.MOV(destop, eax)
 
     def genop_malloc_fixedsize(self, size):
         # XXX boehm only, no atomic/non atomic distinction for now
         self.push(imm(size))
-        gc_malloc_ptr = llhelper(GC_MALLOC, gc_malloc)
-        self.mc.CALL(rel32(lltype.cast_ptr_to_int(gc_malloc_ptr)))
+        self.mc.CALL(rel32(gc_malloc_fnaddr()))
         return self.returnvar(eax)
 
     def genop_malloc_varsize(self, varsizealloctoken, gv_size):
@@ -207,8 +224,7 @@ class Builder(CodeGenerator):
         op_size = self.itemaddr(None, varsizealloctoken, gv_size)
         self.mc.LEA(edx, op_size)
         self.push(edx)
-        gc_malloc_ptr = llhelper(GC_MALLOC, gc_malloc)
-        self.mc.CALL(rel32(lltype.cast_ptr_to_int(gc_malloc_ptr)))
+        self.mc.CALL(rel32(gc_malloc_fnaddr()))
         lengthoffset, _, _ = varsizealloctoken
         self.mc.MOV(ecx, gv_size.operand(self))
         self.mc.MOV(mem(eax, lengthoffset), ecx)
@@ -283,8 +299,11 @@ class Builder(CodeGenerator):
         self.push(op)
         return res
 
-    def op_int_is_true(self, gv_x):
+    @staticmethod
+    def identity(gv_x):
         return gv_x
+
+    op_int_is_true = identity
 
     def op_int_add(self, gv_x, gv_y):
         self.mc.MOV(eax, gv_x.operand(self))
@@ -370,6 +389,11 @@ class Builder(CodeGenerator):
         self.mc.NEG(eax)
         return self.returnvar(eax)
 
+    def op_int_invert(self, gv_x):
+        self.mc.MOV(eax, gv_x.operand(self))
+        self.mc.NOT(eax)
+        return self.returnvar(eax)
+
     def op_int_lshift(self, gv_x, gv_y):
         self.mc.MOV(eax, gv_x.operand(self))
         self.mc.MOV(ecx, gv_y.operand(self))
@@ -394,6 +418,9 @@ class Builder(CodeGenerator):
         self.mc.MOVZX(eax, al)
         return self.returnvar(eax)
 
+    op_cast_char_to_int = identity
+    op_cast_unichar_to_int = identity
+
     op_ptr_nonzero = op_int_is_true
     op_ptr_iszero  = op_bool_not        # for now
 
@@ -408,6 +435,27 @@ GC_MALLOC = lltype.Ptr(lltype.FuncType([lltype.Signed], llmemory.Address))
 def gc_malloc(size):
     from pypy.rpython.lltypesystem.lloperation import llop
     return llop.call_boehm_gc_alloc(llmemory.Address, size)
+
+def gc_malloc_fnaddr():
+    """Returns the address of the Boehm 'malloc' function."""
+    if objectmodel.we_are_translated():
+        gc_malloc_ptr = llhelper(GC_MALLOC, gc_malloc)
+        return lltype.cast_ptr_to_int(gc_malloc_ptr)
+    else:
+        # <pedronis> don't do this at home
+        try:
+            from ctypes import cast, c_void_p
+            from pypy.rpython.rctypes.tool import util
+            path = util.find_library('gc')
+            if path is None:
+                raise ImportError("Boehm (libgc) not found")
+            boehmlib = util.load_library(path)
+        except ImportError, e:
+            import py
+            py.test.skip(str(e))
+        else:
+            GC_malloc = boehmlib.GC_malloc
+            return cast(GC_malloc, c_void_p).value
 
 # ____________________________________________________________
 
@@ -536,14 +584,16 @@ class RI386GenOp(AbstractRGenOp):
     def varsizeAllocToken(T):
         if isinstance(T, lltype.Array):
             return RI386GenOp.arrayToken(T)
-        subfield = T._arrayfld
-        SUBFIELD = getattr(T, subfield)
-        subtoken = RI386GenOp.varsizeAllocToken(SUBFIELD)
-        length_offset, items_offset, item_size = subtoken
-        subfield_offset = llmemory.offsetof(T, subfield)
-        return (subfield_offset+length_offset,
-                subfield_offset+items_offset,
-                item_size)
+        else:
+            # var-sized structs
+            arrayfield = T._arrayfld
+            ARRAYFIELD = getattr(T, arrayfield)
+            arraytoken = RI386GenOp.arrayToken(ARRAYFIELD)
+            length_offset, items_offset, item_size = arraytoken
+            arrayfield_offset = llmemory.offsetof(T, arrayfield)
+            return (arrayfield_offset+length_offset,
+                    arrayfield_offset+items_offset,
+                    item_size)
 
     @staticmethod
     @specialize.memo()    

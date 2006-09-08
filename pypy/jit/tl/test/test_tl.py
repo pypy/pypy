@@ -2,6 +2,7 @@ import py
 import operator
 from pypy.jit.tl.tl import interp, compile
 from pypy.jit.tl.opcode import *
+from pypy.jit.conftest import Benchmark
 
 from pypy.translator.translator import TranslationContext
 from pypy.annotation import policy
@@ -255,3 +256,18 @@ def test_factorial_with_arg():
     code = compile(FACTORIAL_SOURCE)
     res = interp(code, 0, 6)
     assert res == 720
+
+def test_translate_factorial():
+    # use py.test --benchmark to do the benchmarking
+    code = compile(FACTORIAL_SOURCE)
+    def driver():
+        bench = Benchmark()
+        while 1:
+            res = interp(code, 0, 2500)
+            if bench.stop():
+                break
+        return res
+
+    fn = translate(driver, [])
+    res = fn()
+    assert res == 0       # too many powers of 2 to be anything else
