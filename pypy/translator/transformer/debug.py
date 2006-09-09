@@ -51,7 +51,6 @@ class DebugTransformer(BasicTransformer):
             graph.explicit_traceback = True
     
     def transform_block(self, graph, block):
-        self.clear_block(graph, block)
         next = []
         changed = False
         for num, op in enumerate(block.operations):
@@ -77,6 +76,13 @@ class DebugTransformer(BasicTransformer):
                 listdef = bk.listdefs[(graph, block, num)]
                 del bk.listdefs[(graph, block, num)]
                 bk.listdefs[(graph, block, len(next))] = listdef
+                next.append(op)
+            elif op.opname == 'newdict':
+                # move listdef position key
+                bk = self.bookkeeper
+                dictdef = bk.dictdefs[(graph, block, num)]
+                del bk.dictdefs[(graph, block, num)]
+                bk.dictdefs[(graph, block, len(next))] = dictdef
                 next.append(op)
             else:
                 next.append(op)

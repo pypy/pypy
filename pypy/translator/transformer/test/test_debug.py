@@ -14,7 +14,7 @@ from pypy.objspace.flow import model
 from pypy.translator.unsimplify import copyvar
 
 import py
-py.test.skip("llinterp does not like my transformations")
+#py.test.skip("llinterp does not like my transformations")
 
 def g():
     pass
@@ -56,7 +56,7 @@ def test_debug_raising():
     assert len(real_res) == 3
 
 def test_debug_double_raising():
-    py.test.skip("strange llinterp stuff")
+    py.test.skip("llinterp does not like my graph transformations")
     def aaa(i):
         if i:
             raise TypeError()

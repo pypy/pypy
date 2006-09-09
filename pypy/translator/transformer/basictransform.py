@@ -43,12 +43,14 @@ class BasicTransformer(object):
         retval = model.Variable()
         return model.SpaceOperation(name, real_args, retval), retval
     
-    def clear_block(self, graph, block):
-        pass
-    
     def add_block(self, graph, block):
-        assert self.annotator.annotated[block]
-        self.annotator.reflowpendingblock(graph, block)
+        #assert self.annotator.annotated[block]
+        try:
+            self.annotator.reflowpendingblock(graph, block)
+        except:
+            ann = self.annotator
+            args_s = [ann.bindings[v] for v in block.inputargs]
+            ann.addpendingblock(graph, block, args_s)
     
     def flow_method(self, _class, func_name, args):
         ann = self.annotator

@@ -131,3 +131,30 @@ def test_list_ann():
     lst = retval.split("|")
     assert len(lst) == 1
     assert lst[0] == ''
+
+def test_dict_ann():
+    def z():
+        return 3
+    
+    def f(i,x):
+        b = z()
+        l = {x:b, i:z()}
+        return l
+    
+    def g(i, x):
+        l = f(i, x)
+        l[x] = 3
+    
+    def wrapper(a, b):
+        try:
+            traceback_handler.enter(NonConst("entrypoint"), NonConst("()"), NonConst(""), NonConst(0))
+            g(a, b)
+        except:
+            return "|".join(["%s:%s:%s:%s" % k for k in traceback_handler.tb[1:]])
+        return ""
+    
+    fn = compile_function(wrapper, [int, int], debug_transform=True)
+    retval = fn()
+    lst = retval.split("|")
+    assert len(lst) == 1
+    assert lst[0] == ''
