@@ -29,6 +29,9 @@ class Var(GenVar):
     def operand(self, builder):
         return builder.stack_access(self.stackpos)
 
+    def nonimmoperand(self, builder, tmpregister):
+        return self.operand(builder)
+
     def __repr__(self):
         return 'var@%d' % (self.stackpos,)
 
@@ -66,6 +69,10 @@ class IntConst(GenConst):
     def operand(self, builder):
         return imm(self.value)
 
+    def nonimmoperand(self, builder, tmpregister):
+        builder.mc.MOV(tmpregister, self.operand(builder))
+        return tmpregister
+
     @specialize.arg(1)
     def revealconst(self, T):
         if isinstance(T, lltype.Ptr):
@@ -95,6 +102,10 @@ class AddrConst(GenConst):
 
     def operand(self, builder):
         return imm(llmemory.cast_adr_to_int(self.addr))
+
+    def nonimmoperand(self, builder, tmpregister):
+        builder.mc.MOV(tmpregister, self.operand(builder))
+        return tmpregister
 
     @specialize.arg(1)
     def revealconst(self, T):
@@ -246,6 +257,9 @@ class Builder(CodeGenerator):
         else:
             return gv_x
 
+    def genop_debug_pdb(self):    # may take an args_gv later
+        self.mc.BREAKPOINT()
+
     def enter_next_block(self, kinds, args_gv):
         arg_positions = []
         seen = {}
@@ -323,9 +337,14 @@ class Builder(CodeGenerator):
     def op_int_floordiv(self, gv_x, gv_y):
         self.mc.MOV(eax, gv_x.operand(self))
         self.mc.CDQ()
-        self.mc.MOV(ecx, gv_y.operand(self))
-        self.mc.IDIV(ecx)
+        self.mc.IDIV(gv_y.nonimmoperand(self, ecx))
         return self.returnvar(eax)
+
+    def op_int_mod(self, gv_x, gv_y):
+        self.mc.MOV(eax, gv_x.operand(self))
+        self.mc.CDQ()
+        self.mc.IDIV(gv_y.nonimmoperand(self, ecx))
+        return self.returnvar(edx)
 
     def op_int_and(self, gv_x, gv_y):
         self.mc.MOV(eax, gv_x.operand(self))
@@ -389,6 +408,16 @@ class Builder(CodeGenerator):
         self.mc.NEG(eax)
         return self.returnvar(eax)
 
+    def op_int_abs(self, gv_x):
+        self.mc.MOV(eax, gv_x.operand(self))
+        # ABS-computing code from Psyco, found by exhaustive search
+        # on *all* short sequences of operations :-)
+        self.mc.ADD(eax, eax)
+        self.mc.SBB(eax, gv_x.operand(self))
+        self.mc.SBB(edx, edx)
+        self.mc.XOR(eax, edx)
+        return self.returnvar(eax)
+
     def op_int_invert(self, gv_x):
         self.mc.MOV(eax, gv_x.operand(self))
         self.mc.NOT(eax)
@@ -401,6 +430,72 @@ class Builder(CodeGenerator):
         return self.returnvar(eax)
 
     def op_int_rshift(self, gv_x, gv_y):
+        self.mc.MOV(eax, gv_x.operand(self))
+        self.mc.MOV(ecx, gv_y.operand(self))
+        self.mc.SAR(eax, cl)
+        return self.returnvar(eax)
+
+    op_uint_is_true = op_int_is_true
+    op_uint_neg     = op_int_neg
+    op_uint_abs     = identity
+    op_uint_invert  = op_int_invert
+    op_uint_add     = op_int_add
+    op_uint_sub     = op_int_sub
+
+    def op_uint_mul(self, gv_x, gv_y):
+        self.mc.MOV(eax, gv_x.operand(self))
+        self.mc.MUL(gv_y.nonimmoperand(self, edx))
+        return self.returnvar(eax)
+
+    def op_uint_floordiv(self, gv_x, gv_y):
+        self.mc.MOV(eax, gv_x.operand(self))
+        self.mc.XOR(edx, edx)
+        self.mc.DIV(gv_y.nonimmoperand(self, ecx))
+        return self.returnvar(eax)
+
+    def op_uint_mod(self, gv_x, gv_y):
+        self.mc.MOV(eax, gv_x.operand(self))
+        self.mc.XOR(edx, edx)
+        self.mc.DIV(gv_y.nonimmoperand(self, ecx))
+        return self.returnvar(edx)
+
+    def op_uint_lt(self, gv_x, gv_y):
+        self.mc.MOV(eax, gv_x.operand(self))
+        self.mc.CMP(eax, gv_y.operand(self))
+        self.mc.SETB(al)
+        self.mc.MOVZX(eax, al)
+        return self.returnvar(eax)
+
+    def op_uint_le(self, gv_x, gv_y):
+        self.mc.MOV(eax, gv_x.operand(self))
+        self.mc.CMP(eax, gv_y.operand(self))
+        self.mc.SETBE(al)
+        self.mc.MOVZX(eax, al)
+        return self.returnvar(eax)
+
+    op_uint_eq = op_int_eq
+    op_uint_ne = op_int_ne
+
+    def op_uint_gt(self, gv_x, gv_y):
+        self.mc.MOV(eax, gv_x.operand(self))
+        self.mc.CMP(eax, gv_y.operand(self))
+        self.mc.SETA(al)
+        self.mc.MOVZX(eax, al)
+        return self.returnvar(eax)
+
+    def op_uint_ge(self, gv_x, gv_y):
+        self.mc.MOV(eax, gv_x.operand(self))
+        self.mc.CMP(eax, gv_y.operand(self))
+        self.mc.SETAE(al)
+        self.mc.MOVZX(eax, al)
+        return self.returnvar(eax)
+
+    op_uint_and    = op_int_and
+    op_uint_or     = op_int_or
+    op_uint_xor    = op_int_xor
+    op_uint_lshift = op_int_lshift
+
+    def op_uint_rshift(self, gv_x, gv_y):
         self.mc.MOV(eax, gv_x.operand(self))
         self.mc.MOV(ecx, gv_y.operand(self))
         self.mc.SHR(eax, cl)
@@ -418,11 +513,31 @@ class Builder(CodeGenerator):
         self.mc.MOVZX(eax, al)
         return self.returnvar(eax)
 
-    op_cast_char_to_int = identity
+    op_cast_bool_to_uint   = op_cast_bool_to_int
+
+    op_cast_char_to_int    = identity
     op_cast_unichar_to_int = identity
+    op_cast_int_to_char    = identity
+    op_cast_int_to_unichar = identity
+    op_cast_int_to_uint    = identity
+    op_cast_uint_to_int    = identity
+    op_cast_ptr_to_int     = identity
+    op_cast_int_to_ptr     = identity
+
+    op_char_lt = op_int_lt
+    op_char_le = op_int_le
+    op_char_eq = op_int_eq
+    op_char_ne = op_int_ne
+    op_char_gt = op_int_gt
+    op_char_ge = op_int_ge
+
+    op_unichar_eq = op_int_eq
+    op_unichar_ne = op_int_ne
 
     op_ptr_nonzero = op_int_is_true
     op_ptr_iszero  = op_bool_not        # for now
+    op_ptr_eq      = op_int_eq
+    op_ptr_ne      = op_int_ne
 
 
 SIZE2SHIFT = {1: 0,

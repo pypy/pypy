@@ -56,6 +56,7 @@ class TestBasic:
                    lambda x, y: x - y,
                    lambda x, y: x * y,
                    lambda x, y: x // y,
+                   lambda x, y: x % y,
                    lambda x, y: x << y,
                    lambda x, y: x >> y,
                    lambda x, y: x ^ y,
@@ -63,9 +64,12 @@ class TestBasic:
                    lambda x, y: x | y,
                    lambda x, y: -y,
                    lambda x, y: ~y,
+                   lambda x, y: abs(y),
+                   lambda x, y: abs(-x),
                    ]:
             fp = self.rgen(fn, [int, int])
             assert fp(40, 2) == fn(40, 2)
+            assert fp(25, 3) == fn(25, 3)
 
     def test_comparison(self):
         for fn in [lambda x, y: int(x <  y),
@@ -73,7 +77,7 @@ class TestBasic:
                    lambda x, y: int(x == y),
                    lambda x, y: int(x != y),
                    lambda x, y: int(x >  y),
-                   lambda x, y: int(x >= y)
+                   lambda x, y: int(x >= y),
                    ]:
             fp = self.rgen(fn, [int, int])
             assert fp(12, 11) == fn(12, 11)
@@ -88,6 +92,46 @@ class TestBasic:
             assert fp(-12, -11) == fn(-12, -11)
             assert fp(-12, -12) == fn(-12, -12)
             assert fp(-12, -13) == fn(-12, -13)
+
+    def test_char_comparison(self):
+        for fn in [lambda x, y: int(chr(x) <  chr(y)),
+                   lambda x, y: int(chr(x) <= chr(y)),
+                   lambda x, y: int(chr(x) == chr(y)),
+                   lambda x, y: int(chr(x) != chr(y)),
+                   lambda x, y: int(chr(x) >  chr(y)),
+                   lambda x, y: int(chr(x) >= chr(y)),
+                   ]:
+            fp = self.rgen(fn, [int, int])
+            assert fp(12, 11) == fn(12, 11)
+            assert fp(12, 12) == fn(12, 12)
+            assert fp(12, 13) == fn(12, 13)
+            assert fp(182, 11) == fn(182, 11)
+            assert fp(182, 12) == fn(182, 12)
+            assert fp(182, 13) == fn(182, 13)
+            assert fp(12, 181) == fn(12, 181)
+            assert fp(12, 182) == fn(12, 182)
+            assert fp(12, 183) == fn(12, 183)
+            assert fp(182, 181) == fn(182, 181)
+            assert fp(182, 182) == fn(182, 182)
+            assert fp(182, 183) == fn(182, 183)
+
+    def test_unichar_comparison(self):
+        for fn in [lambda x, y: int(unichr(x) == unichr(y)),
+                   lambda x, y: int(unichr(x) != unichr(y)),
+                   ]:
+            fp = self.rgen(fn, [int, int])
+            assert fp(12, 11) == fn(12, 11)
+            assert fp(12, 12) == fn(12, 12)
+            assert fp(12, 13) == fn(12, 13)
+            assert fp(53182, 11) == fn(53182, 11)
+            assert fp(53182, 12) == fn(53182, 12)
+            assert fp(53182, 13) == fn(53182, 13)
+            assert fp(12, 53181) == fn(12, 53181)
+            assert fp(12, 53182) == fn(12, 53182)
+            assert fp(12, 53183) == fn(12, 53183)
+            assert fp(53182, 53181) == fn(53182, 53181)
+            assert fp(53182, 53182) == fn(53182, 53182)
+            assert fp(53182, 53183) == fn(53182, 53183)
 
     def test_char_array(self):
         A = lltype.GcArray(lltype.Char)
