@@ -45,16 +45,16 @@ class DebugTransformer(BasicTransformer):
             concretetype=bk.immutablevalue(traceback_handler))
         
     def register_helpers(self):
-        return None
         for func_name, func_args in [("traceback", []), 
                 ("enter", ["aa", "aa", "aa", 3]), ("leave", ["aa"])]:
             graph = self.flow_method(TracebackHandler, func_name, func_args)
             graph.explicit_traceback = True
     
     def transform_block(self, graph, block):
+        self.clear_block(graph, block)
         next = []
         changed = False
-        for op in block.operations:
+        for num, op in enumerate(block.operations):
             # XXX: We need to support indirect calls as well, but
             # just need to do it somehow differently
             if op.opname == 'simple_call' and \
@@ -71,6 +71,13 @@ class DebugTransformer(BasicTransformer):
                 next += [opg, opc, op, opgl, oplc]
                 changed = True
                 #next.append(op)
+            elif op.opname == 'newlist':
+                # move listdef position key
+                bk = self.bookkeeper
+                listdef = bk.listdefs[(graph, block, num)]
+                del bk.listdefs[(graph, block, num)]
+                bk.listdefs[(graph, block, len(next))] = listdef
+                next.append(op)
             else:
                 next.append(op)
         block.operations = next
@@ -92,7 +99,8 @@ class DebugTransformer(BasicTransformer):
         return call_str, filename, lineno
         
     def transform_graph(self, graph):
-        if getattr(graph, 'explicit_traceback', None):
+        if getattr(graph, 'explicit_traceback', None) or\
+            getattr(graph.func, 'explicit_traceback', None):
             return
         
         for block in graph.iterblocks():

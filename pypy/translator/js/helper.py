@@ -16,7 +16,7 @@ def create_debug_div():
     get_document().childNodes[0].childNodes[1].appendChild(debug_div)
     return debug_div
 
-def show_traceback(tb, exc):
+def __show_traceback(tb, exc):
     debug_div = get_document().getElementById("debug_div")
     if not debug_div:
         # create div here
@@ -36,3 +36,5 @@ def show_traceback(tb, exc):
         txt.nodeValue += line1 + '\n' + line2
 
     txt.nodeValue += str(exc)
+
+__show_traceback.explicit_traceback = True

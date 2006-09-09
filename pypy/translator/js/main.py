@@ -12,7 +12,12 @@ from pypy.rpython.nonconst import NonConstant
 from pypy.annotation.policy import AnnotatorPolicy
 import optparse
 import py
-from pypy.tool.option import Options
+from pypy.tool import option
+
+class Options(option.Options):
+    view = False
+    output = 'output.js'
+    debug_transform = False
 
 class FunctionNotFound(Exception):
     pass
@@ -52,7 +57,7 @@ def rpython2javascript_main(argv, opts):
 source_ssf_base = """
 
 import %(module_name)s
-from pypy.translator.js.helper import show_traceback
+from pypy.translator.js.helper import __show_traceback
 from pypy.translator.transformer.debug import traceback_handler
 from pypy.rpython.nonconst import NonConstant as NonConst
 
@@ -71,10 +76,12 @@ def %(fun_name)s(%(arg_names)s):
         traceback_handler.leave(NonConst("entrypoint"))
     except Exception, e:
         new_tb = traceback_handler.tb[:]
-        show_traceback(new_tb, str(e))
+        __show_traceback(new_tb, str(e))
+
+%(fun_name)s.explicit_traceback = True
 """
 
-function_base = "%(module)s.%(fun_name)s(%(args)s)"
+function_base = "%(module_name)s.%(fun_name)s(%(args)s)"
 wrapped_function_base = "%(fun_name)s(%(args)s)"
 
 def get_source_ssf(mod, module_name, function_names, use_debug=True):
@@ -98,7 +105,7 @@ def get_source_ssf(mod, module_name, function_names, use_debug=True):
     print retval
     return retval
 
-def rpython2javascript(mod, function_names, use_debug=True, opts=Options):
+def rpython2javascript(mod, function_names, opts=Options):
     module_name = mod.__name__
     if not function_names and 'main' in mod.__dict__:
         function_names.append('main')
@@ -109,17 +116,18 @@ def rpython2javascript(mod, function_names, use_debug=True, opts=Options):
         if func_code.func_code.co_argcount > 0 and func_code.func_code. \
                 co_argcount != len(func_code.func_defaults):
             raise BadSignature("Function %s does not have default arguments" % func_name)
-    source_ssf = get_source_ssf(mod, module_name, function_names, use_debug)
+    source_ssf = get_source_ssf(mod, module_name, function_names, opts.debug_transform)
     exec(source_ssf) in globals()
     # now we gonna just cut off not needed function
     # XXX: Really do that
     options = optparse.Values(defaults=DEFAULT_OPTIONS)
-    options.debug_transform = use_debug
+    options.debug_transform = opts.debug_transform
+    # XXX: This makes no sense (copying options)
     driver = TranslationDriver(options=options)
     try:
         driver.setup(some_strange_function_which_will_never_be_called, [], policy = JsPolicy())
         driver.proceed(["compile_js"])
-        if getattr(opts, 'view', False):
+        if opts.view:
             driver.translator.view()
         return driver.gen.tmpfile.open().read()
         # XXX: Add some possibility to write down selected file

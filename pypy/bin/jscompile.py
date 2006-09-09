@@ -9,14 +9,11 @@ jscompiler --help to show list of options
 import autopath
 import sys
 
-from pypy.translator.js.main import rpython2javascript_main
+from pypy.translator.js.main import rpython2javascript_main, Options
 
 from pypy.tool import option
 import optparse
 make_option = optparse.make_option
-
-class Options(option.Options):
-    pass
 
 def get_options():
     options = []
@@ -27,13 +24,17 @@ def get_options():
     
     options.append(make_option(
         '-o', '--output', action='store', type='string', dest='output',
-        default='output.js', help='File to save results (default output.js)'))
+        help='File to save results (default output.js)'))
+    
+    options.append(make_option(
+        '-d', '--debug', action='store_true', dest='debug_transform',
+        help="Use !EXPERIMENTAL! debug transform to produce tracebacks"
+    ))
     
     return options
     
 def process_options(argv):
     return option.process_options(get_options(), Options, argv)
-    
 
 if __name__ == '__main__':
     argv = process_options(sys.argv[1:])
