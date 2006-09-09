@@ -22,7 +22,7 @@ class BasicTransformer(object):
         self.annotator = translator.annotator
         self.bookkeeper = self.annotator.bookkeeper
         
-    def genop(self, name, args):
+    def genop(self, name, args, retval_example=None):
         """ Pass here (example, is_constant) list as args, you'll
         get retval
         """
@@ -39,11 +39,26 @@ class BasicTransformer(object):
                 if is_constant:
                     real_args.append(model.Constant(arg_example, concretetype=bk.immutablevalue(arg_example)))
                 else:
-                    real_args.append(model.Variable(bk.annotation_from_example(arg_example)))
+                    v = model.Variable()
+                    v.concretetype = bk.annotation_from_example(arg_example)
+                    real_args.append(v)
+
         retval = model.Variable()
+        if isinstance(retval_example, annmodel.SomeObject):
+            retval.concretetype = retval_example
+        elif retval_example is not None:
+            retval.concretetype = bk.annotation_from_example(retval_example)
+        else:
+            retval.concretetype = annmodel.s_ImpossibleValue
         return model.SpaceOperation(name, real_args, retval), retval
     
+    def add_bindings(self, vars):
+        bindings = self.annotator.bindings
+        for v in vars:
+            bindings[v] = v.concretetype
+    
     def add_block(self, graph, block):
+        assert False
         #assert self.annotator.annotated[block]
         try:
             self.annotator.reflowpendingblock(graph, block)
@@ -61,11 +76,12 @@ class BasicTransformer(object):
         return graph
 
     def transform_all(self):
+        self.annotator.simplify()
         bk = self.translator.annotator.bookkeeper
         for graph in self.translator.graphs:
             self.transform_graph(graph)
             checkgraph(graph)
-        self.translator.annotator.complete()
+        #self.translator.annotator.complete()
 
     def get_const(self, arg):
         bk = self.bookkeeper

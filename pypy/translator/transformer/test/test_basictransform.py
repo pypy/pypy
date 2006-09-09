@@ -10,6 +10,9 @@ from pypy.objspace.flow import model
 from pypy.translator.unsimplify import copyvar
 from pypy.rpython.nonconst import NonConstant
 
+import py
+py.test.skip("Needs refactoring")
+
 def transform_function(transformerclass, fun, annotation=[], specialize=True,
     type_system="ootype"):
     t = TranslationContext()

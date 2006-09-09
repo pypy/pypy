@@ -52,43 +52,53 @@ class DebugTransformer(BasicTransformer):
     
     def transform_block(self, graph, block):
         next = []
-        changed = False
+        ann = self.annotator
+        classdef = self.instance_const.concretetype.classdef
         for num, op in enumerate(block.operations):
             # XXX: We need to support indirect calls as well, but
             # just need to do it somehow differently
-            if op.opname == 'simple_call' and \
+            if op.opname == 'simple_call' and\
                     isinstance(op.args[0], model.Constant) and \
                     isinstance(op.args[0].value, (FunctionType, MethodType)):
                 # XXX or any other call
-                opg, v1 = self.genop("getattr", [self.instance_const, 'enter'])
+                retval = classdef.find_attribute('enter').s_value
+                retval = classdef.lookup_filter(retval)
+                opg, v1 = self.genop("getattr", [self.instance_const, 'enter'], 
+                    retval)
                 fun_name = op.args[0].value.func_name
                 data, filename, lineno = self.get_info(block, graph, op)
                 opc, v2 = self.genop("simple_call", [v1, fun_name, data, \
                     filename, lineno])
-                opgl, v3 = self.genop("getattr", [self.instance_const, 'leave'])
+                retval = classdef.find_attribute('leave').s_value
+                retval = classdef.lookup_filter(retval)
+                opgl, v3 = self.genop("getattr", [self.instance_const, 'leave'],
+                    retval)
                 oplc, v4 = self.genop("simple_call", [v3, fun_name])
                 next += [opg, opc, op, opgl, oplc]
                 changed = True
+                # add to annotator
+                self.add_bindings([v1, v2, v3, v4])
+                #ann.bindings[v2] = 
                 #next.append(op)
-            elif op.opname == 'newlist':
-                # move listdef position key
-                bk = self.bookkeeper
-                listdef = bk.listdefs[(graph, block, num)]
-                del bk.listdefs[(graph, block, num)]
-                bk.listdefs[(graph, block, len(next))] = listdef
-                next.append(op)
-            elif op.opname == 'newdict':
-                # move listdef position key
-                bk = self.bookkeeper
-                dictdef = bk.dictdefs[(graph, block, num)]
-                del bk.dictdefs[(graph, block, num)]
-                bk.dictdefs[(graph, block, len(next))] = dictdef
-                next.append(op)
+##            elif op.opname == 'newlist':
+##                # move listdef position key
+##                bk = self.bookkeeper
+##                listdef = bk.listdefs[(graph, block, num)]
+##                del bk.listdefs[(graph, block, num)]
+##                bk.listdefs[(graph, block, len(next))] = listdef
+##                next.append(op)
+##            elif op.opname == 'newdict':
+##                # move listdef position key
+##                bk = self.bookkeeper
+##                dictdef = bk.dictdefs[(graph, block, num)]
+##                del bk.dictdefs[(graph, block, num)]
+##                bk.dictdefs[(graph, block, len(next))] = dictdef
+##                next.append(op)
             else:
                 next.append(op)
         block.operations = next
-        if changed:
-            self.add_block(graph, block)
+#        if changed:
+#            self.add_block(graph, block)
     
     def get_info(self, block, graph, op):
         """ Returns as much data as we can from our position
