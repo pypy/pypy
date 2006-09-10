@@ -19,11 +19,11 @@ def interpret(bytecode, a):
         opcode = hint(ord(bytecode[pc]), concrete=True)
         pc += 1
         if opcode == MOV_A_R:
-            n = ord(bytecode[pc]); hint(n, concrete=True)
+            n = ord(bytecode[pc])
             pc += 1
             regs[n] = a
         elif opcode == MOV_R_A:
-            n = ord(bytecode[pc]); hint(n, concrete=True)
+            n = ord(bytecode[pc])
             pc += 1
             a = regs[n]
         elif opcode == JUMP_IF_A:
@@ -32,16 +32,16 @@ def interpret(bytecode, a):
             if a:
                 pc = target
         elif opcode == SET_A:
-            a = ord(bytecode[pc]); hint(a, concrete=True)
+            a = ord(bytecode[pc])
             pc += 1
         elif opcode == ADD_R_TO_A:
-            n = ord(bytecode[pc]); hint(n, concrete=True)
+            n = ord(bytecode[pc])
             pc += 1
             a += regs[n]
         elif opcode == RETURN_A:
             return a
         elif opcode == ALLOCATE:
-            n = ord(bytecode[pc]); hint(n, concrete=True)
+            n = ord(bytecode[pc])
             pc += 1
             regs = [0] * n
         elif opcode == NEG_A:

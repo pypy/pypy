@@ -6,6 +6,7 @@ from pypy.jit.hintannotator.model import *
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.objectmodel import hint
 from pypy.annotation import model as annmodel
+from pypy.objspace.flow import model as flowmodel
 from pypy.annotation.policy import AnnotatorPolicy
 from pypy.translator.backendopt.inline import auto_inlining
 from pypy import conftest
@@ -145,7 +146,10 @@ def test_union():
 def test_op_meet():
     def meet(hs1, hs2):
         bk = HintBookkeeper(None)
-        bk.enter(None)
+        block = flowmodel.Block([])
+        block.operations.append(flowmodel.SpaceOperation('x', [],
+                                                         flowmodel.Variable()))
+        bk.enter(("graph", block, 0))
         bk.current_op_concretetype = lambda: lltype.Signed     # hack
         return pair(hs1, hs2).int_add()
     av1, av2 = SomeLLAbstractVariable(lltype.Signed), SomeLLAbstractVariable(lltype.Signed)
@@ -439,6 +443,10 @@ def test_hannotate_tl_novirtual():
     from pypy.jit.tl import tl
     hannotate(tl.interp, [str, int, int], policy=P_OOPSPEC_NOVIRTUAL)
 
+def test_hannotate_tlr_novirtual():
+    from pypy.jit.tl import tlr
+    hannotate(tlr.interpret, [str, int], policy=P_OOPSPEC_NOVIRTUAL)
+
 def test_hannotate_plus_minus():
     def ll_plus_minus(s, x, y):
         acc = x
@@ -519,3 +527,15 @@ def test_raise_and_catch_exc():
     hs = hannotate(g, [bool], policy=P_OOPSPEC_NOVIRTUAL)    
     assert isinstance(hs, SomeLLAbstractConstant)
     assert hs.concretetype == lltype.Signed    
+
+
+def test_more_green():
+    def f(x):
+        z = x + 1
+        x2 = hint(x, concrete=True)
+        return z
+
+    hs = hannotate(f, [int])
+    assert isinstance(hs, SomeLLAbstractConstant)
+    assert hs.is_green()
+    assert not hs.is_fixed()

@@ -85,7 +85,12 @@ class HintBookkeeper(object):
             origin = self.originflags[self.position_key]
         except KeyError:
             from pypy.jit.hintannotator import model as hintmodel
-            origin = hintmodel.OriginFlags()
+            if len(self.position_key) == 3:
+                graph, block, i = self.position_key
+                spaceop = block.operations[i]
+            else:
+                spaceop = None
+            origin = hintmodel.OriginFlags(self, spaceop)
             self.originflags[self.position_key] = origin
         return origin
 

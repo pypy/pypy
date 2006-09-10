@@ -32,6 +32,10 @@ class OriginFlags(object):
     fixed = False
     read_positions = None
 
+    def __init__(self, bookkeeper=None, spaceop=None):
+        self.bookkeeper = bookkeeper
+        self.spaceop = spaceop
+
     def __repr__(self):
         if self.fixed:
             s = "fixed "
@@ -53,6 +57,58 @@ class OriginFlags(object):
                 for p in self.read_positions:
                     annotator.reflowfromposition(p)
 
+    def greenargs(self, frame=None):
+        annotator = self.bookkeeper.annotator
+        if frame is None:
+            frame = GreenHandlerFrame(annotator)
+        if self.spaceop.opname == 'direct_call':     # ah haa
+            return frame.greencallresult(self.spaceop)
+        else:
+            for v in self.spaceop.args:
+                if not frame.greenvar(v):
+                    return False
+            return True
+
+
+class GreenHandlerFrame(object):
+
+    def __init__(self, annotator, parentframe=None):
+        self.annotator = annotator
+        self.parentframe = parentframe
+        self.inputarg2actualarg = {}    # {origin: annotation}
+
+    def greenvar(self, v):
+        hs = self.annotator.binding(v)
+        if isinstance(hs, SomeLLAbstractConstant) and len(hs.origins) == 1:
+            [o] = hs.origins.keys()
+            if o in self.inputarg2actualarg:
+                hs_actual = self.inputarg2actualarg[o]
+                return hs_actual.is_green(self.parentframe)
+        return hs.is_green(self)
+
+    def greencallresult(self, spaceop):
+##        print spaceop
+##        if str(spaceop.result) == 'v58':
+##            import pdb; pdb.set_trace()
+        args_hs = [self.annotator.binding(v) for v in spaceop.args]
+        hs_result = self.annotator.binding(spaceop.result)
+        hs_f1 = args_hs.pop(0)
+        fnobj = hs_f1.const._obj
+        input_args_hs = list(args_hs)
+        bk = self.annotator.bookkeeper
+        graph = bk.get_graph_for_call(fnobj.graph,
+                                      hs_result.is_fixed(),
+                                      input_args_hs)
+        newframe = GreenHandlerFrame(self.annotator, parentframe=self)
+        for hs_inp_arg, hs_arg in zip(input_args_hs, args_hs):
+            if isinstance(hs_arg, SomeLLAbstractConstant):
+                assert len(hs_inp_arg.origins) == 1
+                [o] = hs_inp_arg.origins.keys()
+                newframe.inputarg2actualarg[o] = hs_arg
+        return newframe.greenvar(graph.getreturnvar())
+
+# ____________________________________________________________
+
 
 class SomeLLAbstractValue(annmodel.SomeObject):
 
@@ -60,13 +116,18 @@ class SomeLLAbstractValue(annmodel.SomeObject):
         self.concretetype = T
         assert self.__class__ != SomeLLAbstractValue
 
+    def is_green(self, frame=None):
+        return False
+
 
 class SomeLLAbstractConstant(SomeLLAbstractValue):
 
-    def __init__(self, T, origins, eager_concrete=False):
+    def __init__(self, T, origins, eager_concrete=False, myorigin=None):
         SomeLLAbstractValue.__init__(self, T)
         self.origins = origins
         self.eager_concrete = eager_concrete
+        self.myorigin = myorigin
+        assert myorigin is None or myorigin.spaceop is not None
 
     def fmt_origins(self, origins):
         counts = {}
@@ -84,11 +145,23 @@ class SomeLLAbstractConstant(SomeLLAbstractValue):
             lst.append(s)
         return '<%s>' % (', '.join(lst),)
 
+    def fmt_myorigin(self, myorigin):
+        if myorigin is None:
+            return None
+        else:
+            return str(myorigin.spaceop.result)
+
     def is_fixed(self):
         for o in self.origins:
             if not o.fixed:
                 return False
         return True
+
+    def is_green(self, frame=None):
+        return (self.is_fixed() or self.eager_concrete or
+                self.concretetype is lltype.Void or
+                (self.myorigin is not None and
+                 self.myorigin.greenargs(frame)))
 
     def annotationcolor(self):
         """Compute the color of the variables with this annotation
@@ -96,7 +169,7 @@ class SomeLLAbstractConstant(SomeLLAbstractValue):
         """
         if self.eager_concrete:
             return (0,100,0)     # green
-        elif self.is_fixed():
+        elif self.is_green():
             return (50,140,0)    # green-dark-cyan
         else:
             return None
@@ -260,6 +333,7 @@ class __extend__(SomeLLAbstractConstant):
             if fixed:
                 deps_hs.append(hs_res)
             hs_res = reorigin(hs_res, *deps_hs)
+            hs_res.myorigin = bookkeeper.myorigin()
 
         # we need to make sure that hs_res does not become temporarily less
         # general as a result of calling another specialized version of the
@@ -270,16 +344,20 @@ class __extend__(SomeLLAbstractConstant):
         S = hs_c1.concretetype.TO
         FIELD_TYPE = getattr(S, hs_fieldname.const)
         if S._hints.get('immutable', False):
-            d = setadd(hs_c1.origins, getbookkeeper().myorigin())
-            return SomeLLAbstractConstant(FIELD_TYPE, d)
+            origin = getbookkeeper().myorigin()
+            d = setadd(hs_c1.origins, origin)
+            return SomeLLAbstractConstant(FIELD_TYPE, d,
+                                          eager_concrete=hs_c1.eager_concrete,
+                                          myorigin=origin)
         else:
             return SomeLLAbstractVariable(FIELD_TYPE)
 
     def getsubstruct(hs_c1, hs_fieldname):
         S = hs_c1.concretetype.TO
         SUB_TYPE = getattr(S, hs_fieldname.const)
-        d = setadd(hs_c1.origins, getbookkeeper().myorigin())
-        return SomeLLAbstractConstant(lltype.Ptr(SUB_TYPE), d)
+        origin = getbookkeeper().myorigin()
+        d = setadd(hs_c1.origins, origin)
+        return SomeLLAbstractConstant(lltype.Ptr(SUB_TYPE), d, myorigin=origin)
 
 
 class __extend__(SomeLLAbstractContainer):
@@ -338,15 +416,24 @@ class __extend__(pairtype(SomeLLAbstractConstant, SomeLLAbstractConstant)):
     def union((hs_c1, hs_c2)):
         assert hs_c1.concretetype == hs_c2.concretetype
         d = newset(hs_c1.origins, hs_c2.origins)
-        return SomeLLAbstractConstant(hs_c1.concretetype, d, eager_concrete=hs_c1.eager_concrete and hs_c2.eager_concrete)
+        if hs_c1.myorigin is hs_c2.myorigin:
+            myorigin = hs_c1.myorigin
+        else:
+            myorigin = None
+        return SomeLLAbstractConstant(hs_c1.concretetype, d,
+                                      eager_concrete = hs_c1.eager_concrete and
+                                                       hs_c2.eager_concrete,
+                                      myorigin = myorigin)
 
     def getarrayitem((hs_c1, hs_index)):
         A = hs_c1.concretetype.TO
         READ_TYPE = A.OF
         if A._hints.get('immutable', False):
-            d = newset(hs_c1.origins, hs_index.origins,
-                       {getbookkeeper().myorigin(): True})
-            return SomeLLAbstractConstant(READ_TYPE, d, eager_concrete=hs_c1.eager_concrete)
+            origin = getbookkeeper().myorigin()
+            d = newset(hs_c1.origins, hs_index.origins, {origin: True})
+            return SomeLLAbstractConstant(READ_TYPE, d,
+                                          eager_concrete=hs_c1.eager_concrete,
+                                          myorigin=origin)
         else:
             return SomeLLAbstractVariable(READ_TYPE)
 
@@ -452,18 +539,22 @@ def var_binary((hs_v1, hs_v2), *rest_hs):
 
 def const_unary(hs_c1):
     bk = getbookkeeper()
-    d = setadd(hs_c1.origins, bk.myorigin())
+    origin = bk.myorigin()
+    d = setadd(hs_c1.origins, origin)
     RESTYPE = bk.current_op_concretetype()
     return SomeLLAbstractConstant(RESTYPE, d,
-                                  eager_concrete = hs_c1.eager_concrete)
+                                  eager_concrete = hs_c1.eager_concrete,
+                                  myorigin = origin)
 
 def const_binary((hs_c1, hs_c2)):
     bk = getbookkeeper()
-    d = newset(hs_c1.origins, hs_c2.origins, {bk.myorigin(): True})
+    origin = bk.myorigin()
+    d = newset(hs_c1.origins, hs_c2.origins, {origin: True})
     RESTYPE = bk.current_op_concretetype()
     return SomeLLAbstractConstant(RESTYPE, d,
                                   eager_concrete = hs_c1.eager_concrete or
-                                                   hs_c2.eager_concrete)
+                                                   hs_c2.eager_concrete,
+                                  myorigin = origin)
 
 def setup(oplist, ValueCls, var_fn, ConstantCls, const_fn):
     for name in oplist:
