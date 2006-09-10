@@ -2,7 +2,6 @@
 
 import py
 from pypy.jit.tl.opcode import *
-from pypy.jit.tl import opcode as tlopcode
 from pypy.rpython.objectmodel import hint
 
 def char2int(c):
@@ -134,29 +133,3 @@ def make_interp(supports_call):
 
 interp              = make_interp(supports_call = True)
 interp_without_call = make_interp(supports_call = False)
-
-
-def compile(code=''):
-    bytecode = []
-    labels   = {}       #[key] = pc
-    label_usage = []    #(name, pc)
-    for s in code.split('\n'):
-        for comment in '; # //'.split():
-            s = s.split(comment, 1)[0]
-        s = s.strip()
-        if not s:
-            continue
-        t = s.split()
-        if t[0].endswith(':'):
-            labels[ t[0][:-1] ] = len(bytecode)
-            continue
-        bytecode.append( tlopcode.names[ t[0] ] )
-        if len(t) > 1:
-            try:
-                bytecode.append( int(t[1]) )
-            except ValueError:
-                label_usage.append( (t[1], len(bytecode)) )
-                bytecode.append( 0 )
-    for label, pc in label_usage:
-        bytecode[pc] = labels[label] - pc - 1
-    return ''.join([chr(i & 0xff) for i in bytecode])  
