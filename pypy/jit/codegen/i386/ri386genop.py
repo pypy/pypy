@@ -558,6 +558,10 @@ def gc_malloc_fnaddr():
         return lltype.cast_ptr_to_int(gc_malloc_ptr)
     else:
         # <pedronis> don't do this at home
+        import threading
+        if not isinstance(threading.currentThread(), threading._MainThread):
+            import py
+            py.test.skip("must run in the main thread")
         try:
             from ctypes import cast, c_void_p
             from pypy.rpython.rctypes.tool import util

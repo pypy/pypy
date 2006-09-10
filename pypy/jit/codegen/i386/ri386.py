@@ -33,21 +33,27 @@ class DH(REG8): op=6
 class BH(REG8): op=7
 
 class IMM32(OPERAND):
+    width = 4
+
     def __init__(self, value):
         self.value = value
     def assembler(self):
         return '$%d' % (self.value,)
 
 class IMM8(IMM32):
-    pass
+    width = 1
 
 class IMM16(OPERAND):  # only for RET
+    width = 2
+
     def __init__(self, value):
         self.value = value
     def assembler(self):
         return '$%d' % (self.value,)
 
 class MODRM(OPERAND):
+    width = 4
+
     def __init__(self, byte, extradata):
         self.byte = byte
         self.extradata = extradata
@@ -97,9 +103,10 @@ class MODRM(OPERAND):
 
 
 class MODRM8(MODRM):
-    pass
+    width = 1
 
 class REL32(OPERAND):
+    width = 4
     def __init__(self, absolute_target):
         self.absolute_target = absolute_target
     def assembler(self):
