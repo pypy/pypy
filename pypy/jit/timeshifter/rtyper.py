@@ -38,6 +38,7 @@ class HintRTyper(RPythonTyper):
                               type_system=HintTypeSystem.instance)
         self.green_reprs = PRECOMPUTED_GREEN_REPRS.copy()
         self.red_reprs = {}
+        self.color_cache = {}
         self.timeshifter = timeshifter
         self.RGenOp = timeshifter.RGenOp
 
@@ -66,6 +67,17 @@ class HintRTyper(RPythonTyper):
             r = redreprcls(lowleveltype, self.timeshifter)
             self.red_reprs[lowleveltype] = r
             return r
+
+    def gethscolor(self, hs):
+        try:
+            return self.color_cache[id(hs)]
+        except KeyError:
+            if hs.is_green():
+                color = "green"
+            else:
+                color = "red"
+            self.color_cache[id(hs)] = color
+            return color
 
     def generic_translate_operation(self, hop, force=False):
         # detect constant-foldable all-green operations
@@ -492,28 +504,17 @@ class HintLowLevelOpList(LowLevelOpList):
 
 # ____________________________________________________________
 
-class __extend__(pairtype(HintTypeSystem, hintmodel.SomeLLAbstractConstant)):
+class __extend__(pairtype(HintTypeSystem, hintmodel.SomeLLAbstractValue)):
 
     def rtyper_makerepr((ts, hs_c), hrtyper):
-        if (hs_c.is_fixed() or hs_c.eager_concrete or
-            hs_c.concretetype is lltype.Void):
+        if hrtyper.gethscolor(hs_c) == 'green':
             return hrtyper.getgreenrepr(hs_c.concretetype)
         else:
             return hrtyper.getredrepr(hs_c.concretetype)
 
     def rtyper_makekey((ts, hs_c), hrtyper):
-        if hs_c.is_fixed() or hs_c.eager_concrete:
-            return hs_c.__class__, "green", hs_c.concretetype
-        else:
-            return hs_c.__class__, "red", hs_c.concretetype
-
-class __extend__(pairtype(HintTypeSystem, hintmodel.SomeLLAbstractVariable)):
-
-    def rtyper_makerepr((ts, hs_v), hrtyper):
-        return hrtyper.getredrepr(hs_v.concretetype)
-
-    def rtyper_makekey((ts, hs_v), hrtyper):
-        return hs_v.__class__, "red", hs_v.concretetype
+        color = hrtyper.gethscolor(hs_c)
+        return hs_c.__class__, color, hs_c.concretetype
 
 class __extend__(pairtype(HintTypeSystem, hintmodel.SomeLLAbstractContainer)):
 

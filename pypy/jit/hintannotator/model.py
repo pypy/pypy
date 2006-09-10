@@ -94,6 +94,10 @@ class GreenHandlerFrame(object):
         hs_result = self.annotator.binding(spaceop.result)
         hs_f1 = args_hs.pop(0)
         fnobj = hs_f1.const._obj
+        if (getattr(self.annotator.policy, 'oopspec', False) and
+            hasattr(fnobj._callable, 'oopspec')):
+            assert False     # XXX?
+
         input_args_hs = list(args_hs)
         bk = self.annotator.bookkeeper
         graph = bk.get_graph_for_call(fnobj.graph,

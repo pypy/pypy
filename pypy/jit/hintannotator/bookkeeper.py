@@ -1,5 +1,5 @@
 from pypy.tool.tls import tlsobject
-from pypy.objspace.flow.model import copygraph
+from pypy.objspace.flow.model import copygraph, SpaceOperation
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype
 
@@ -88,6 +88,9 @@ class HintBookkeeper(object):
             if len(self.position_key) == 3:
                 graph, block, i = self.position_key
                 spaceop = block.operations[i]
+                spaceop = SpaceOperation(spaceop.opname,
+                                         list(spaceop.args),
+                                         spaceop.result)
             else:
                 spaceop = None
             origin = hintmodel.OriginFlags(self, spaceop)
