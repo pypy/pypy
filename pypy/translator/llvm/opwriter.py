@@ -359,6 +359,8 @@ class OpWriter(object):
             self.codewriter.store(opr.argtypes[2], opr.argrefs[2], tmpvar)
         else:
             self._skipped(opr)
+
+    bare_setfield = setfield
             
     def getarrayitem(self, opr):        
         if opr.rettype == "void":
@@ -451,12 +453,20 @@ class OpWriter(object):
         self.codewriter.call(opr.retref, opr.rettype, "%raw_malloc",
                              opr.argtypes, opr.argrefs)
 
+    def raw_malloc_usage(self, opr):
+        self.codewriter.cast(opr.retref, opr.argtypes[0], opr.argrefs[0],
+                             opr.rettype)
+
     def raw_free(self, opr):
         self.codewriter.call(opr.retref, opr.rettype, "%raw_free",
                              opr.argtypes, opr.argrefs)
 
     def raw_memcopy(self, opr):
         self.codewriter.call(opr.retref, opr.rettype, "%raw_memcopy",
+                             opr.argtypes, opr.argrefs)
+
+    def raw_memclear(self, opr):
+        self.codewriter.call(opr.retref, opr.rettype, "%raw_memclear",
                              opr.argtypes, opr.argrefs)
 
     def raw_store(self, opr):
@@ -503,3 +513,6 @@ class OpWriter(object):
             cast_addr = incr_addr
 
         self.codewriter.load(opr.retref, opr.rettype, cast_addr) 
+
+    def debug_print(self, opr):
+        pass     # XXX

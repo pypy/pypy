@@ -259,6 +259,7 @@ class StructVarsizeNode(StructNode):
                 found = True
                 break
             pos += 1
+        assert found
 
         ref = "getelementptr(%s* %s, int 0, uint %s)" %(
             self.get_typerepr(),

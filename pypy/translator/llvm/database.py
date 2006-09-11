@@ -144,6 +144,11 @@ class Database(object):
     def prepare_constant(self, type_, value):
         if isinstance(type_, lltype.Primitive):
             #log.prepareconstant(value, "(is primitive)")
+            if type_ is llmemory.Address:
+                # prepare the constant data which this address references
+                assert isinstance(value, llmemory.fakeaddress)
+                if value.ob is not None:
+                    self.prepare_constant(lltype.typeOf(value.ob), value.ob)
             return
         
         if isinstance(type_, lltype.Ptr):
@@ -229,10 +234,10 @@ class Database(object):
                 return self.primitives.repr(arg.concretetype, arg.value)
             else:
                 assert isinstance(arg.value, lltype._ptr)
-                node = self.obj2node.get(arg.value._obj)
-                if node is None:
+                if not arg.value:
                     return 'null'
                 else:
+                    node = self.obj2node[arg.value._obj]
                     return node.get_ref()
         else:
             assert isinstance(arg, Variable)
@@ -405,9 +410,11 @@ class Primitives(object):
         
     def repr(self, type_, value):
         try:
-            return self.reprs[type_](type_, value)
+            reprfn = self.reprs[type_]
         except KeyError:
             raise Exception, "unsupported primitive type %r, value %r" % (type_, value)
+        else:
+            return reprfn(type_, value)
         
     def repr_default(self, type_, value):
         return str(value)
@@ -461,14 +468,22 @@ class Primitives(object):
             from_, indices, to = self.get_offset(value.offset)
             indices_as_str = ", ".join("%s %s" % (w, i) for w, i in indices)
 
-            original_typename = self.database.repr_type(from_)
-            orignal_ref = self.database.repr_name(value.ob._obj)
+            #original_typename = self.database.repr_type(from_)
+            #orignal_ref = self.database.repr_name(value.ob._obj)
+            #
+            #typename = self.database.repr_type(to)
+            #ref = "getelementptr(%s* %s, %s)" % (original_typename,
+            #                                     orignal_ref,
+            #                                     indices_as_str)
+
+            ptrtype = self.database.repr_type(lltype.Ptr(from_))
+            node = self.database.obj2node[value.ob._obj]
+            parentref = node.get_pbcref(ptrtype)
 
             typename = self.database.repr_type(to)
-            ref = "getelementptr(%s* %s, %s)" % (original_typename,
-                                                 orignal_ref,
-                                                 indices_as_str)
-            
+            ref = "getelementptr(%s %s, %s)" % (ptrtype, parentref,
+                                                indices_as_str)
+
         res = "cast(%s* %s to sbyte*)" % (typename, ref)
         return res    
     
@@ -506,42 +521,46 @@ class Primitives(object):
         
         return repr
     
-    def get_offset(self, value, fromoffset=False):
+    def get_offset(self, value, initialindices=None):
         " return (from_type, (indices, ...), to_type) "        
         word = self.database.get_machine_word()
         uword = self.database.get_machine_uword()
-        indices = []
+        indices = initialindices or [(word, 0)]
 
         if isinstance(value, llmemory.ItemOffset):
             # skips over a fixed size item (eg array access)
             from_ = value.TYPE
-            indices.append((word, value.repeat))
+            lasttype, lastvalue = indices[-1]
+            assert lasttype == word
+            indices[-1] = (word, lastvalue + value.repeat)
             to = value.TYPE
         
         elif isinstance(value, llmemory.FieldOffset):
             # jumps to a field position in a struct
             from_ = value.TYPE
             pos = getindexhelper(value.fldname, value.TYPE)
-            if not fromoffset:
-                indices.append((word, 0))
             indices.append((uword, pos))
             to = getattr(value.TYPE, value.fldname)            
-                
+
+        elif isinstance(value, llmemory.ArrayLengthOffset):
+            # jumps to the place where the array length is stored
+            from_ = value.TYPE     # <Array of T> or <GcArray of T>
+            assert isinstance(value.TYPE, lltype.Array)
+            indices.append((uword, 0))
+            to = lltype.Signed
+
         elif isinstance(value, llmemory.ArrayItemsOffset):
             # jumps to the beginning of array area
             from_ = value.TYPE
-            if not fromoffset:
-                indices.append((word, 0))
             if not isinstance(value.TYPE, lltype.FixedSizeArray):
                 indices.append((uword, 1))
+            indices.append((word, 0))    # go to the 1st item
             to = value.TYPE.OF
 
         elif isinstance(value, llmemory.CompositeOffset):
-            from_, indices, to = self.get_offset(value.offsets[0])
-            indices = list(indices)
+            from_, indices, to = self.get_offset(value.offsets[0], indices)
             for item in value.offsets[1:]:
-                _, more, to = self.get_offset(item, fromoffset=True)
-                indices.extend(more)
+                _, indices, to = self.get_offset(item, indices)
 
         else:
             raise Exception("unsupported offset")

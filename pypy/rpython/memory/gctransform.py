@@ -947,7 +947,7 @@ class FrameworkGCTransformer(GCTransformer):
             annmodel.s_None)
 
         annhelper.finish()   # at this point, annotate all mix-level helpers
-        annhelper.backend_optimize()
+        annhelper.backend_optimize(raisingop2direct_call_all=True)
 
         self.collect_analyzer = CollectAnalyzer(self.translator)
         self.collect_analyzer.analyze_all()

@@ -119,6 +119,8 @@ class GcPolicy:
             gcpolicy = RefcountingGcPolicy(db)
         elif gcpolicy in ('none', 'raw'):
             gcpolicy = RawGcPolicy(db)
+        elif gcpolicy == 'framework':
+            gcpolicy = FrameworkGcPolicy(db)
         else:
             raise Exception, 'unknown gcpolicy: ' + str(gcpolicy)
         return gcpolicy
@@ -186,10 +188,14 @@ def GC_get_heap_size_wrapper():
         uword = self.db.get_machine_uword()
 
         fnname = '%pypy_malloc' + (atomic and '_atomic' or '')
-        if self.exc_useringbuf and exc_flag:
-            fnname += '_ringbuffer'
-            # dont clear the ringbuffer data
-            atomic = False 
+
+##        XXX (arigo) disabled the ring buffer for comparison purposes
+##        XXX until we know if it's a valid optimization or not
+
+##        if self.exc_useringbuf and exc_flag:
+##            fnname += '_ringbuffer'
+##            # dont clear the ringbuffer data
+##            atomic = False 
 
         # malloc_size is unsigned right now
         sizei = '%malloc_sizei' + self.get_count()        
@@ -218,3 +224,19 @@ class RefcountingGcPolicy(RawGcPolicy):
     def op_free(self, codewriter, opr):
         assert opr.rettype == 'void' and len(opr.argtypes) == 1
         codewriter.free(opr.argtypes[0], opr.argrefs[0])
+
+class FrameworkGcPolicy(GcPolicy):
+
+    def __init__(self, db):
+        self.db = db
+
+    def genextern_code(self):
+        # XXX
+        # This is not finished: we must call the gc init function!
+        r  = ''
+        r += '#define __GC_STARTUP_CODE__\n'
+        r += '#define __GC_SETUP_CODE__\n'
+        return r
+
+    def gc_libraries(self):
+        return ['pthread']

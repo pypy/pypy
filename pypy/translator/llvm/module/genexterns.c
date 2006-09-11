@@ -37,6 +37,10 @@ void raw_memcopy(char *ptr1, char *ptr2, long size) {
   memcpy((void *) ptr2, (void *) ptr1, size);
 }
 
+void raw_memclear(void* ptr, long size) {
+  memset(ptr, 0, size);
+}
+
 char *LLVM_RPython_StartupCode();
 
 char *RPython_StartupCode() {
