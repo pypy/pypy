@@ -29,7 +29,8 @@ DEFAULT_OPTIONS = {
   'lowmem': False,
   'fork_before': None,
   'raisingop2direct_call' : False,
-  'merge_if_blocks': True
+  'merge_if_blocks': True,
+  'debug_transform' : False,
 }
 
 _default_options = optparse.Values(defaults=DEFAULT_OPTIONS)
@@ -207,7 +208,14 @@ class TranslationDriver(SimpleTaskEngine):
 
         annmodel.DEBUG = self.options.debug
         annotator = translator.buildannotator(policy=policy)
+        
         s = annotator.build_types(self.entry_point, self.inputtypes)
+        
+        if self.options.debug_transform:
+            from pypy.translator.transformer.debug import DebugTransformer
+            dt = DebugTransformer(translator)
+            dt.transform_all()
+        
         self.sanity_check_annotation()
         if self.standalone and s.knowntype != int:
             raise Exception("stand-alone program entry point must return an "
@@ -452,7 +460,7 @@ class TranslationDriver(SimpleTaskEngine):
     def task_source_js(self):
         from pypy.translator.js.js import JS
         self.gen = JS(self.translator, functions=[self.entry_point],
-                      stackless=self.options.stackless)
+                      stackless=self.options.stackless, use_debug=self.options.debug_transform)
         filename = self.gen.write_source()
         self.log.info("Wrote %s" % (filename,))
     task_source_js = taskdef(task_source_js, 
