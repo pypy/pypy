@@ -433,7 +433,7 @@ class SomeExternalBuiltin(SomeExternalObject):
     attributes as well as methods
     """
     def can_be_none(self):
-        return False
+        return True
 
 class SomeCTypesObject(SomeExternalObject):
     """Stands for an object of the ctypes module."""
