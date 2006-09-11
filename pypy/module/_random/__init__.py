@@ -1,3 +1,7 @@
+import py             # FINISHME
+py.test.skip("The _random module is not ready: it misses the post-2.2 parts of "
+             "the interface and it needs to use new Mersenne Twister algorithm.")
+
 from pypy.interpreter.mixedmodule import MixedModule
 
 class Module(MixedModule):

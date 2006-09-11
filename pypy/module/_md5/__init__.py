@@ -1,3 +1,7 @@
+import py         # FINISHME - well, STARTME
+py.test.skip("The _md5 module is not implemented at all. "
+             "Only the app-level md5 module works so far.")
+
 from pypy.interpreter.mixedmodule import MixedModule
 
 class Module(MixedModule):

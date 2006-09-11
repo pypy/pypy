@@ -14,6 +14,11 @@ class Module(MixedModule):
     }
     
     def buildloaders(cls):
+        import py            # REVIEWME
+        py.test.skip("The mmap module is not ready: many methods do far too "
+                     "much copying, and it uses 'pythonapi', which makes it "
+                     "not translatable.")
+
         from pypy.module.mmap import interp_mmap
         import os
 

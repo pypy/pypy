@@ -19,6 +19,12 @@ class Module(MixedModule):
     }
 
     def buildloaders(cls):
+        import py              # REVIEWME
+        py.test.skip("The rctime module is not ready: the checks on the input "
+                     "arguments are incomplete; strftime() can eat all your "
+                     "memory in error conditions; the use of math.fmod() "
+                     "should be removed.")
+
         from pypy.module.rctime import interp_time
         import os
         
