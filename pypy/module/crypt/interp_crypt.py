@@ -6,10 +6,13 @@ from pypy.rpython.rctypes.tool.util import find_library, load_library
 import sys
 from ctypes import *
 
-cryptfn = find_library("crypt")
-cryptdll = load_library(cryptfn)
+class CConfig:
+    _includes_ = ('unistd.h',)
+    cryptlib = ctypes_platform.Library('crypt')
 
-c_crypt = cryptdll.crypt 
+globals().update(ctypes_platform.configure(CConfig))
+
+c_crypt = cryptlib.crypt 
 c_crypt.argtypes = [c_char_p, c_char_p]
 c_crypt.restype = c_char_p 
 
