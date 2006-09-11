@@ -39,6 +39,8 @@ class compile_function(object):
         ann.build_types(function, annotations)
         if debug_transform:
             DebugTransformer(t).transform_all()
+            if view or option.view:
+                t.view()
         t.buildrtyper(type_system="ootype").specialize()
 
         if view or option.view:
