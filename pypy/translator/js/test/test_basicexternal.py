@@ -34,7 +34,7 @@ def test_basicexternal_element():
     check_source_contains(fun, "\.some_code")
 
 def test_basicexternal_raise():
-    py.test.skip("Raises")
+    py.test.skip("Constant BasicExternals not implemented")
     def raising_fun():
         try:
             b = B()
@@ -46,7 +46,7 @@ def test_basicexternal_raise():
     fun = compile_function(raising_fun, [])
     assert fun() == 3
 
-class C(object):
+class C(BasicExternal):
     @described(retval=3)
     def f(self):
         pass
@@ -61,3 +61,5 @@ def test_basicexternal_raise_method_call():
             pass
 
     fun = compile_function(raising_method_call, [])
+    assert len(C._methods) == 1
+    assert 'f' in C._methods
