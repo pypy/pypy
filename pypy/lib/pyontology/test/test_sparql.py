@@ -1,8 +1,14 @@
+try:
+    import pyparsing
+except ImportError:
+    from py.test import skip
+    skip("Pyparsing not installed")
+
 from pypy.lib.pyontology.sparql_grammar import SPARQLGrammar as SP
 
-
 qt = """
-         PREFIX ns : <http://example.org/ns#>
+         PREFIX ns: <http://example.org/ns#>
+
          SELECT ?x ?y
          WHERE {
                  ?x ns:p 123 .
@@ -15,7 +21,6 @@ def test_simple():
     query = SP.Query.parseString(qt)[0]
     assert query.PrefixDecl[0].ns == 'http://example.org/ns#'
     where = query.SelectQuery[0].WhereClause[0]
-
     assert len(where) == 1
     triples = where.GroupGraphPattern[0].Triples
     assert len(triples) == 2
