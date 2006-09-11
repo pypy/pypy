@@ -231,38 +231,15 @@ class TestTL(object):
         assert res == 5040
 
 
-    FACTORIAL_SOURCE = '''
-                PUSH 1   #  accumulator
-                PUSHARG
-
-            start:
-                PICK 0
-                PUSH 1
-                LE
-                BR_COND exit
-
-                SWAP
-                PICK 1
-                MUL
-                SWAP
-                PUSH 1
-                SUB
-                PUSH 1
-                BR_COND start
-
-            exit:
-                POP
-                RETURN
-        '''
 
     def test_factorial_with_arg(self):
-        code = compile(self.FACTORIAL_SOURCE)
+        code = compile(FACTORIAL_SOURCE) # see below
         res = self.interp(code, 0, 6)
         assert res == 720
 
     def test_translate_factorial(self):
         # use py.test --benchmark to do the benchmarking
-        code = compile(self.FACTORIAL_SOURCE)
+        code = compile(FACTORIAL_SOURCE)
         interp = self.interp
         def driver():
             bench = Benchmark()
@@ -275,3 +252,28 @@ class TestTL(object):
         fn = translate(driver, [])
         res = fn()
         assert res == 0       # too many powers of 2 to be anything else
+
+
+FACTORIAL_SOURCE = '''
+            PUSH 1   #  accumulator
+            PUSHARG
+
+        start:
+            PICK 0
+            PUSH 1
+            LE
+            BR_COND exit
+
+            SWAP
+            PICK 1
+            MUL
+            SWAP
+            PUSH 1
+            SUB
+            PUSH 1
+            BR_COND start
+
+        exit:
+            POP
+            RETURN
+    '''
