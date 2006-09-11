@@ -16,6 +16,9 @@ class ArgDesc(object):
     def __init__(self, name, ex_value):
         self.name = name
         self.example = ex_value
+    
+    def __repr__(self):
+        return "<ArgDesc %s: %s>" % (self.name, self.example)
 
 class MethodDesc(object):
     def __init__(self, args, retval = None):
@@ -32,6 +35,9 @@ class MethodDesc(object):
         else:
             self.num += 1
             return ArgDesc('v%d' % (self.num-1), val)
+    
+    def __repr__(self):
+        return "<MethodDesc (%r)>" % (self.args,)
 
 class CallableEntry(ExtRegistryEntry):
     _type_ = MethodDesc
@@ -50,6 +56,16 @@ class CallableEntry(ExtRegistryEntry):
 class BasicMetaExternal(type):
     def _is_compatible(type2):
         return type(type2) is BasicMetaExternal
+        
+    def __new__(self, _name, _type, _vars):
+        retval = type.__new__(self, _name, _type, _vars)
+        if not retval._methods:
+            retval._methods = {}
+        for name, var in _vars.iteritems():
+            if hasattr(var, '_method'):
+                meth_name, desc = var._method
+                retval._methods[meth_name] = desc
+        return retval
     
     _is_compatible = staticmethod(_is_compatible)
 
@@ -60,14 +76,13 @@ class BasicExternal(object):
     _fields = {}
     _methods = {}
     
-    def described(cls, retval=None, args={}):
+    def described(retval=None, args={}):
         def decorator(func):
             code = func.func_code
             if not func.func_defaults:
                 defs = []
             else:
                 defs = func.func_defaults
-            
             
             assert(code.co_argcount < len(defs) + len(args), "Not enough information for describing method")
             
@@ -82,11 +97,11 @@ class BasicExternal(object):
                     arg_pass.append((varname, args[varname]))
                 else:
                     arg_pass.append((varname, defs[arg - start_pos]))
-            cls._methods[func.__name__] = MethodDesc(arg_pass, retval)
+            func._method = (func.__name__, MethodDesc(arg_pass, retval))
             return func
         return decorator
     
-    described = classmethod(described)
+    described = staticmethod(described)
 
 described = BasicExternal.described
 
