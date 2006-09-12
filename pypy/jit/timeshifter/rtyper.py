@@ -333,6 +333,8 @@ class HintRTyper(RPythonTyper):
 
 
     def guess_call_kind(self, spaceop):
+        if spaceop.opname == 'indirect_call':
+            return 'red'  # for now
         assert spaceop.opname == 'direct_call'
         c_func = spaceop.args[0]
         fnobj = c_func.value._obj
@@ -350,6 +352,34 @@ class HintRTyper(RPythonTyper):
         kind = self.guess_call_kind(hop.spaceop)
         meth = getattr(self, 'handle_%s_call' % (kind,))
         return meth(hop)
+
+    def translate_op_indirect_call(self, hop):
+        bk = self.annotator.bookkeeper
+        ts = self.timeshifter
+        v_jitstate = hop.llops.getjitstate()
+        v_funcbox = hop.args_v[0]
+        graph_list = hop.args_v[-1].value
+        hop.r_s_pop(0)
+        hop.r_s_pop()
+        args_hs = hop.args_s[:]
+        # fixed is always false here
+        specialization_key = bk.specialization_key(False, args_hs)
+        FUNC = ts.originalconcretetype(v_funcbox)
+
+        mapper, TS_FUNC, args_r, tsgraphs = ts.get_timeshift_mapper(
+            FUNC, specialization_key, graph_list)
+        args_v = hop.inputargs(*args_r)
+
+        v_tsfunc = hop.llops.genmixlevelhelpercall(mapper,
+                                                   [ts.s_RedBox],
+                                                   [v_funcbox],
+                                                   annmodel.SomePtr(TS_FUNC))
+        args_v[:0] = [v_tsfunc, v_jitstate]
+        RESULT = v_tsfunc.concretetype.TO.RESULT
+        args_v.append(hop.inputconst(lltype.Void, tsgraphs))
+        v_newjitstate = hop.genop('indirect_call', args_v, RESULT)
+        hop.llops.setjitstate(v_newjitstate)
+
 
     def translate_op_save_locals(self, hop):
         ts = self.timeshifter
@@ -441,18 +471,12 @@ class HintRTyper(RPythonTyper):
         hop.r_s_popfirstarg()
         args_hs = hop.args_s[:]
         # fixed is always false here
-        graph = bk.get_graph_for_call(fnobj.graph, False, args_hs)
-        args_r = [self.getrepr(hs) for hs in args_hs]
+        specialization_key = bk.specialization_key(False, args_hs)
+        fnptr, args_r = ts.get_timeshifted_fnptr(fnobj.graph,
+                                                 specialization_key)
         args_v = hop.inputargs(*args_r)
-        ARGS = [ts.r_JITState.lowleveltype]
-        ARGS += [r.lowleveltype for r in args_r]
-        RESULT = ts.r_JITState.lowleveltype
-        fnptr = lltype.functionptr(lltype.FuncType(ARGS, RESULT),
-                                   graph.name,
-                                   graph=graph,
-                                   _callable = graph.func)
-        self.timeshifter.schedule_graph(graph)
         args_v[:0] = [hop.llops.genconst(fnptr), v_jitstate]
+        RESULT = lltype.typeOf(fnptr).TO.RESULT
         v_newjitstate = hop.genop('direct_call', args_v, RESULT)
         hop.llops.setjitstate(v_newjitstate)
 
@@ -491,7 +515,10 @@ class HintLowLevelOpList(LowLevelOpList):
 
         # build the 'direct_call' operation
         rtyper = self.timeshifter.rtyper
-        RESULT = rtyper.getrepr(s_result).lowleveltype
+        try:
+            RESULT = annmodel.annotation_to_lltype(s_result)
+        except ValueError:
+            RESULT = rtyper.getrepr(s_result).lowleveltype
         return self.genop('direct_call', [c]+args_v,
                           resulttype = RESULT)
 

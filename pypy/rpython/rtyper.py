@@ -721,11 +721,15 @@ class HighLevelOp(object):
     def gendirectcall(self, ll_function, *args_v):
         return self.llops.gendirectcall(ll_function, *args_v)
 
+    def r_s_pop(self, index=-1):
+        "Return and discard the argument with index position."        
+        self.nb_args -= 1
+        self.args_v.pop(index)
+        return self.args_r.pop(index), self.args_s.pop(index)
+    
     def r_s_popfirstarg(self):
         "Return and discard the first argument."
-        self.nb_args -= 1
-        self.args_v.pop(0)
-        return self.args_r.pop(0), self.args_s.pop(0)
+        return self.r_s_pop(0)
 
     def v_s_insertfirstarg(self, v_newfirstarg, s_newfirstarg):
         r_newfirstarg = self.rtyper.getrepr(s_newfirstarg)

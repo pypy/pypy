@@ -18,7 +18,8 @@ P_OOPSPEC_NOVIRTUAL = AnnotatorPolicy()
 P_OOPSPEC_NOVIRTUAL.oopspec = True
 P_OOPSPEC_NOVIRTUAL.novirtualcontainer = True
 
-def hannotate(func, argtypes, policy=None, annotator=False, inline=None):
+def hannotate(func, argtypes, policy=None, annotator=False, inline=None,
+              backendoptimize=False):
     # build the normal ll graphs for ll_function
     t = TranslationContext()
     a = t.buildannotator()
@@ -27,6 +28,9 @@ def hannotate(func, argtypes, policy=None, annotator=False, inline=None):
     rtyper.specialize()
     if inline:
         auto_inlining(t, inline)
+    if backendoptimize:
+        from pypy.translator.backendopt.all import backend_optimizations
+        backend_optimizations(t)
     graph1 = graphof(t, func)
     # build hint annotator types
     hannotator = HintAnnotator(base_translator=t, policy=policy)

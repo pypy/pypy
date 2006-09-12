@@ -137,30 +137,36 @@ class HintBookkeeper(object):
     def warning(self, msg):
         return self.annotator.warning(msg)
 
-    def get_graph_for_call(self, graph, fixed, args_hs):
-        # this can modify args_hs in-place!
-        from pypy.jit.hintannotator.model import SomeLLAbstractConstant
-        desc = self.getdesc(graph)
-        key = None
-        alt_name = None
+    def specialization_key(self, fixed, args_hs):
         if fixed:
-            key = 'fixed'
-            alt_name = graph.name + '_HFixed'
+            return 'fixed'
         else:
             key = []
             specialize = False
             for i, arg_hs in enumerate(args_hs):
-                if isinstance(arg_hs, SomeLLAbstractConstant) and arg_hs.eager_concrete:
+                if (isinstance(arg_hs, hintmodel.SomeLLAbstractConstant)
+                    and arg_hs.eager_concrete):
                     key.append('E')
                     specialize = True
                 else:
                     key.append('x')
             if specialize:
-                key = ''.join(key)
-                alt_name = graph.name + '_H'+key
+                return ''.join(key)
             else:
-                key = None
+                return None
 
+    def get_graph_by_key(self, graph, specialization_key):
+        desc = self.getdesc(graph)
+        return desc._cache[specialization_key]
+
+    def get_graph_for_call(self, graph, fixed, args_hs):
+        # this can modify args_hs in-place!
+        key = self.specialization_key(fixed, args_hs)
+        if key is None:
+            alt_name = None
+        else:
+            alt_name = graph.name + '_H'+key
+        desc = self.getdesc(graph)
         graph = desc.specialize(args_hs, key=key, alt_name=alt_name)
         return graph
 

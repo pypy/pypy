@@ -24,8 +24,9 @@ class HintTimeshift(object):
         self.rtyper = rtyper
         self.RGenOp = RGenOp
         self.hrtyper = HintRTyper(hannotator, self)
-        self.latestexitindex = -1
         self.annhelper = annlowlevel.MixLevelHelperAnnotator(rtyper)
+        self.timeshift_mapping = {}
+        self.sigs = {}
 
         self.s_CodeGenerator, self.r_CodeGenerator = self.s_r_instanceof(
             cgmodel.CodeGenerator)
@@ -124,8 +125,83 @@ class HintTimeshift(object):
         # Return a SomeInstance / InstanceRepr pair correspnding to the specified class.
         return self.annhelper.s_r_instanceof(cls, can_be_None=can_be_None)
 
+    def get_sig_hs(self, tsgraph):
+        # the signature annotations are cached here because
+        # the graph is going to be modified
+        try:
+            return self.sigs[tsgraph]
+        except KeyError:
+            ha = self.hannotator
+            sig_hs = ([ha.binding(v) for v in tsgraph.getargs()],
+                      ha.binding(tsgraph.getreturnvar()))
+            self.sigs[tsgraph] = sig_hs
+            return sig_hs
+
+    def get_timeshifted_fnptr(self, graph, specialization_key):
+        bk = self.hannotator.bookkeeper
+        tsgraph = bk.get_graph_by_key(graph, specialization_key)
+        args_hs, hs_res = self.get_sig_hs(tsgraph)
+        args_r = [self.hrtyper.getrepr(hs_arg) for hs_arg in args_hs]
+        ARGS = [self.r_JITState.lowleveltype]
+        ARGS += [r.lowleveltype for r in args_r]
+        RESULT = self.r_JITState.lowleveltype
+        fnptr = lltype.functionptr(lltype.FuncType(ARGS, RESULT),
+                                   tsgraph.name,
+                                   graph=tsgraph,
+                                   _callable = graph.func)
+        self.schedule_graph(tsgraph)
+        return fnptr, args_r
+
     def error_value(self, TYPE):
         return exceptiontransform.error_value(TYPE)
+
+    def get_timeshift_mapper(self, FUNC, specialization_key, graphs):
+        key = FUNC, specialization_key
+        try:
+            timeshift_mapper, values, keys = self.timeshift_mapping[key]
+        except KeyError:
+            values = []
+            keys = []
+            fnptrmap = {}
+
+            def getter(fnptrmap, fnptr):
+                # indirection needed to defeat the flow object space
+                return fnptrmap[fnptr]
+
+            def fill_dict(fnptrmap, values, keys):
+                for i in range(len(values)):
+                    fnptrmap[values[i]] = keys[i]
+
+            def timeshift_mapper(fnptrbox):
+                fnptr = rvalue.ll_getvalue(fnptrbox, FUNC)
+                try:
+                    return getter(fnptrmap, fnptr)
+                except KeyError:
+                    fill_dict(fnptrmap, values, keys)
+                    return getter(fnptrmap, fnptr)   # try again
+
+            self.timeshift_mapping[key] = timeshift_mapper, values, keys
+
+        bk = self.hannotator.bookkeeper
+        common_args_r = None
+        COMMON_TS_FUNC = None
+        tsgraphs = []
+        for graph in graphs:
+            fnptr = self.rtyper.getcallable(graph)
+            ts_fnptr, args_r = self.get_timeshifted_fnptr(graph,
+                                   specialization_key)
+            tsgraphs.append(ts_fnptr._obj.graph)
+            TS_FUNC = lltype.typeOf(ts_fnptr)
+            if common_args_r is None:
+                common_args_r = args_r
+                COMMON_TS_FUNC = TS_FUNC
+            else:
+                # XXX for now
+                assert COMMON_TS_FUNC == TS_FUNC
+                assert common_args_r == args_r
+            keys.append(fnptr)
+            values.append(ts_fnptr)
+        return timeshift_mapper, COMMON_TS_FUNC, common_args_r, tsgraphs
 
     # creates and numbers reentry_block for block reached by link
     # argument:
@@ -199,21 +275,29 @@ class HintTimeshift(object):
 
     def timeshift_graph(self, graph):
         #print 'timeshift_graph START', graph
+        assert graph.startblock in self.hannotator.annotated
         self.graph = graph
         self.dispatch_to = []
         self.statecaches = []
         self.return_cache = None
-        entering_links = flowmodel.mkentrymap(graph)
+        self.latestexitindex = -1
+
+        # cache the annotation signature before changing the graph
+        args_hs, hs_res = self.get_sig_hs(graph)
+        assert (originalconcretetype(hs_res) is lltype.Void
+                or not hs_res.is_green())      # XXX not supported yet
 
         originalblocks = list(graph.iterblocks())
         timeshifted_blocks = []
         for block in originalblocks:
-            self.timeshift_block(timeshifted_blocks, entering_links,  block)
+            self.timeshift_block(timeshifted_blocks, block)
         originalblocks = timeshifted_blocks
 
+        entering_links = flowmodel.mkentrymap(graph)
         inputlinkcounters = {}
         for block in originalblocks:
             inputlinkcounters[block] = len(entering_links[block])
+        # XXX try to not use entering_links in the sequel
 
         returnblock = graph.returnblock
         self.r_returnvalue = self.hrtyper.bindingrepr(returnblock.inputargs[0])
@@ -296,8 +380,9 @@ class HintTimeshift(object):
             block.isstartblock = False
             newblock.isstartblock = True
             self.graph.startblock = newblock
-        else:
+        if block_entering_links:
             for link in block_entering_links:
+                assert link.target is block
                 link.settarget(newblock)
 
         if closeblock:
@@ -629,14 +714,14 @@ class HintTimeshift(object):
             dispatchblock.closeblock(*exitlinks)
 
 
-    def timeshift_block(self, timeshifted_blocks, entering_links, block):
+    def timeshift_block(self, timeshifted_blocks, block):
         hrtyper = self.hrtyper
         blocks = [block]
         i = 0
         # XXX in-progress, split block at direct_calls for call support 
         while i < len(block.operations):
             op = block.operations[i]
-            if (op.opname == 'direct_call'
+            if (op.opname in ('direct_call', 'indirect_call')
                 and hrtyper.guess_call_kind(op) == 'red'):
 
                 link = support.split_block_with_keepalive(block, i+1,
@@ -682,7 +767,6 @@ class HintTimeshift(object):
 
                 link.args = [replacement.get(var, var) for var in link.args]
                 block = link.target
-                entering_links[block] = [link]
                 blocks.append(block)
                 self.hannotator.annotated[block] = self.graph
                 # for now the call doesn't return its redbox result, but only

@@ -17,4 +17,4 @@ def test_hannotate_tlr_novirtual():
 def test_hannotate_tlc_novirtual():
     from pypy.jit.tl import tlc
     hannotate(tlc.interp_without_call, [str, int, int],
-              policy=P_OOPSPEC_NOVIRTUAL)
+              policy=P_OOPSPEC_NOVIRTUAL, backendoptimize=True)

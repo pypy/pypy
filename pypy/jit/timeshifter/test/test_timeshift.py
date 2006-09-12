@@ -33,7 +33,7 @@ def annotation(a, x):
         t = annmodel.lltype_to_annotation(T)
     return a.typeannotation(t)
 
-def hannotate(func, values, policy=None, inline=None):
+def hannotate(func, values, policy=None, inline=None, backendoptimize=False):
     # build the normal ll graphs for ll_function
     t = TranslationContext()
     a = t.buildannotator()
@@ -43,6 +43,9 @@ def hannotate(func, values, policy=None, inline=None):
     rtyper.specialize()
     if inline:
         auto_inlining(t, inline)
+    if backendoptimize:
+        from pypy.translator.backendopt.all import backend_optimizations
+        backend_optimizations(t)
     graph1 = graphof(t, func)
     # build hint annotator types
     hannotator = HintAnnotator(base_translator=t, policy=policy)
@@ -66,7 +69,8 @@ class TimeshiftingTests(object):
         del cls._cache_order
 
     def timeshift_cached(self, ll_function, values, inline=None, policy=None,
-                         check_raises='ignored anyway'):
+                         check_raises='ignored anyway',
+                         backendoptimize=False):
         # decode the 'values' if they are specified as strings
         if hasattr(ll_function, 'convert_arguments'):
             assert len(ll_function.convert_arguments) == len(values)
@@ -86,7 +90,8 @@ class TimeshiftingTests(object):
         if len(self._cache_order) >= 3:
             del self._cache[self._cache_order.pop(0)]
         hs, ha, rtyper = hannotate(ll_function, values,
-                                   inline=inline, policy=policy)
+                                   inline=inline, policy=policy,
+                                   backendoptimize=backendoptimize)
 
         # make the timeshifted graphs
         htshift = HintTimeshift(ha, rtyper, self.RGenOp)
