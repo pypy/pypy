@@ -434,18 +434,6 @@ def test_propagate_fixing_across_func_arguments():
     _, x_v, y_v = gdesc._cache[None].getargs()
     assert ha.binding(x_v).is_fixed()
     assert ha.binding(y_v).is_fixed()
-    
-def test_hannotate_tl():
-    from pypy.jit.tl import tl
-    hannotate(tl.interp, [str, int, int], policy=P_OOPSPEC)
-
-def test_hannotate_tl_novirtual():
-    from pypy.jit.tl import tl
-    hannotate(tl.interp, [str, int, int], policy=P_OOPSPEC_NOVIRTUAL)
-
-def test_hannotate_tlr_novirtual():
-    from pypy.jit.tl import tlr
-    hannotate(tlr.interpret, [str, int], policy=P_OOPSPEC_NOVIRTUAL)
 
 def test_hannotate_plus_minus():
     def ll_plus_minus(s, x, y):

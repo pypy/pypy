@@ -14,7 +14,6 @@ class GraphDesc(object):
         self._cache = {}
 
     def specialize(self, input_args_hs, key=None, alt_name=None):
-        from pypy.jit.hintannotator import model as hintmodel
         # get the specialized graph -- for now, no specialization
         graph = self.cachedgraph(key, alt_name)
 
@@ -56,6 +55,9 @@ class HintBookkeeper(object):
         self.virtual_containers = {}
         self.descs = {}
         self.annotator = hannotator
+        # circular imports hack
+        global hintmodel
+        from pypy.jit.hintannotator import model as hintmodel
 
     def getdesc(self, graph):
         try:
@@ -84,7 +86,6 @@ class HintBookkeeper(object):
         try:
             origin = self.originflags[self.position_key]
         except KeyError:
-            from pypy.jit.hintannotator import model as hintmodel
             if len(self.position_key) == 3:
                 graph, block, i = self.position_key
                 spaceop = block.operations[i]
@@ -101,13 +102,11 @@ class HintBookkeeper(object):
         pass
 
     def immutableconstant(self, const):
-        from pypy.jit.hintannotator import model as hintmodel
         res = hintmodel.SomeLLAbstractConstant(const.concretetype, {})
         res.const = const.value
         return res
 
     def immutablevalue(self, value):        
-        from pypy.jit.hintannotator import model as hintmodel
         res = hintmodel.SomeLLAbstractConstant(lltype.typeOf(value), {})
         res.const = value
         return res
@@ -164,6 +163,36 @@ class HintBookkeeper(object):
 
         graph = desc.specialize(args_hs, key=key, alt_name=alt_name)
         return graph
+
+    def graph_call(self, graph, fixed, args_hs):
+        input_args_hs = list(args_hs)
+        graph = self.get_graph_for_call(graph, fixed, input_args_hs)
+
+        # propagate fixing of arguments in the function to the caller
+        for inp_arg_hs, arg_hs in zip(input_args_hs, args_hs):
+            if isinstance(arg_hs, hintmodel.SomeLLAbstractConstant):
+                assert len(inp_arg_hs.origins) == 1
+                [o] = inp_arg_hs.origins.keys()
+                if o.read_fixed():
+                    for o in arg_hs.origins:
+                        o.set_fixed()
+        
+        hs_res = self.annotator.recursivecall(graph,
+                                              self.position_key,
+                                              input_args_hs)
+        # look on which input args the hs_res result depends on
+        if isinstance(hs_res, hintmodel.SomeLLAbstractConstant):
+            deps_hs = []
+            for hs_inputarg, hs_arg in zip(input_args_hs, args_hs):
+                if isinstance(hs_inputarg, hintmodel.SomeLLAbstractConstant):
+                    assert len(hs_inputarg.origins) == 1
+                    [o] = hs_inputarg.origins.keys()
+                    if o in hs_res.origins:
+                        deps_hs.append(hs_arg)
+            if fixed:
+                deps_hs.append(hs_res)
+            hs_res = hintmodel.reorigin(hs_res, *deps_hs)
+        return hs_res
 
 # get current bookkeeper
 

@@ -6,6 +6,7 @@ from pypy.rpython.lltypesystem import lltype, lloperation
 UNARY_OPERATIONS = """same_as hint getfield setfield getsubstruct getarraysize setarrayitem
                       cast_pointer
                       direct_call
+                      indirect_call
                       int_is_true int_neg
                       uint_is_true
                       cast_int_to_char
@@ -270,6 +271,27 @@ class __extend__(SomeLLAbstractValue):
         ARRAY = hs_v1.concretetype.TO
         return SomeLLAbstractVariable(lltype.Ptr(ARRAY.OF))
 
+    def indirect_call(hs_v1, *args_hs):
+        hs_graph_list = args_hs[-1]
+        args_hs = args_hs[:-1]
+        assert hs_graph_list.is_constant()
+        graph_list = hs_graph_list.const
+        assert graph_list      # XXX for now
+
+        bookkeeper = getbookkeeper()
+        fixed = bookkeeper.myorigin().read_fixed()
+        results_hs = [bookkeeper.graph_call(graph, fixed, args_hs)
+                      for graph in graph_list]
+        hs_res = annmodel.unionof(*results_hs)
+
+        if isinstance(hs_res, SomeLLAbstractConstant):
+            hs_res.myorigin = bookkeeper.myorigin()
+
+        # we need to make sure that hs_res does not become temporarily less
+        # general as a result of calling another specialized version of the
+        # function
+        return annmodel.unionof(hs_res, bookkeeper.current_op_binding())
+
 
 class __extend__(SomeLLAbstractConstant):
 
@@ -309,34 +331,10 @@ class __extend__(SomeLLAbstractConstant):
         if not hasattr(fnobj, 'graph'):
             raise NotImplementedError("XXX call to externals or primitives")
 
-        input_args_hs = list(args_hs)
         fixed = bookkeeper.myorigin().read_fixed()
-        graph = bookkeeper.get_graph_for_call(fnobj.graph, fixed, input_args_hs)
+        hs_res = bookkeeper.graph_call(fnobj.graph, fixed, args_hs)
 
-        # propagate fixing of arguments in the function to the caller
-        for inp_arg_hs, arg_hs in zip(input_args_hs, args_hs):
-            if isinstance(arg_hs, SomeLLAbstractConstant):
-                assert len(inp_arg_hs.origins) == 1
-                [o] = inp_arg_hs.origins.keys()
-                if o.read_fixed():
-                    for o in arg_hs.origins:
-                        o.set_fixed()
-        
-        hs_res = bookkeeper.annotator.recursivecall(graph,
-                                                    bookkeeper.position_key,
-                                                    input_args_hs)
-        # look on which input args the hs_res result depends on
         if isinstance(hs_res, SomeLLAbstractConstant):
-            deps_hs = []
-            for hs_inputarg, hs_arg in zip(input_args_hs, args_hs):
-                if isinstance(hs_inputarg, SomeLLAbstractConstant):
-                    assert len(hs_inputarg.origins) == 1
-                    [o] = hs_inputarg.origins.keys()
-                    if o in hs_res.origins:
-                        deps_hs.append(hs_arg)
-            if fixed:
-                deps_hs.append(hs_res)
-            hs_res = reorigin(hs_res, *deps_hs)
             hs_res.myorigin = bookkeeper.myorigin()
 
         # we need to make sure that hs_res does not become temporarily less
