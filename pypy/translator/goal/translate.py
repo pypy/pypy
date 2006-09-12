@@ -120,6 +120,7 @@ defaults = {
 
     'fork_before': None,
     'profile': False,
+    'debug_transform': False,
 }
 
 import py
