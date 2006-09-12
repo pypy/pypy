@@ -56,11 +56,12 @@ def remove_empty_startblock(graph):
     graph.startblock = graph.startblock.exits[0].target
     graph.startblock.isstartblock = True
 
-def split_block(annotator, block, index):
+def split_block(annotator, block, index, dontshuffle=False):
     """return a link where prevblock is the block leading up but excluding the
     index'th operation and target is a new block with the neccessary variables 
     passed on.  NOTE: if you call this after rtyping, you WILL need to worry
-    about keepalives, you may use backendopt.support.split_block_with_keepalive."""
+    about keepalives, you may use backendopt.support.split_block_with_keepalive.
+    """
     assert 0 <= index <= len(block.operations)
     if block.exitswitch == c_last_exception:
         assert index < len(block.operations)
@@ -99,12 +100,19 @@ def split_block(annotator, block, index):
     exitswitch = get_new_name(block.exitswitch)
     #the new block gets all the attributes relevant to outgoing links
     #from block the old block
-    newblock = Block(varmap.values())
+    if not dontshuffle:
+        linkargs = varmap.keys()
+        newinputargs = varmap.values()
+    else:
+        assert index == 0
+        linkargs = list(block.inputargs)
+        newinputargs = [get_new_name(v) for v in linkargs]
+    newblock = Block(newinputargs)
     newblock.operations = moved_operations
     newblock.recloseblock(*links)
     newblock.exitswitch = exitswitch
     newblock.exc_handler = block.exc_handler
-    link = Link(varmap.keys(), newblock)
+    link = Link(linkargs, newblock)
     block.operations = block.operations[:index]
     block.recloseblock(link)
     block.exitswitch = None

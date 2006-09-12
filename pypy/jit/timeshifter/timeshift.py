@@ -214,7 +214,7 @@ class HintTimeshift(object):
     #
     # then passes the variables to the target of link
     #
-    def getexitindex(self, link, entering_links):
+    def getexitindex(self, link):
         self.latestexitindex += 1
       
         reentry_block = flowmodel.Block([])
@@ -245,8 +245,6 @@ class HintTimeshift(object):
                 reenter_vars.append(v_value)
 
         reenter_link = flowmodel.Link(reenter_vars, link.target)
-        if link.target in entering_links: # update entering_links
-            entering_links[link.target].append(reenter_link)
         
         reentry_block.operations[:] = llops
         reentry_block.closeblock(reenter_link)
@@ -294,26 +292,19 @@ class HintTimeshift(object):
         originalblocks = timeshifted_blocks
 
         entering_links = flowmodel.mkentrymap(graph)
-        inputlinkcounters = {}
-        for block in originalblocks:
-            inputlinkcounters[block] = len(entering_links[block])
-        # XXX try to not use entering_links in the sequel
 
         returnblock = graph.returnblock
         self.r_returnvalue = self.hrtyper.bindingrepr(returnblock.inputargs[0])
         returnblock.operations = []
         graph.returnblock = None
-        # we need to get the jitstate to the before block of the return block
+
         self.dispatchblock = flowmodel.Block([])
-##        self.insert_jitstate_arg(self.dispatchblock)
-##        for block in originalblocks:
-##            self.insert_jitstate_arg(block)            
 
         for block in originalblocks:
-            block_entering_links = entering_links.pop(block)
-            self.insert_bookkeeping_enter(block, inputlinkcounters[block],
-                                          block_entering_links)
-            self.insert_bookkeeping_leave_block(block, entering_links)
+            is_returnblock = len(block.exits) == 0
+            nentrylinks = len(entering_links[block])
+            self.insert_bookkeeping_leave_block(block)
+            self.insert_bookkeeping_enter(block, nentrylinks, is_returnblock)
 
         # fix its concretetypes
         self.insert_dispatch_logic()
@@ -358,7 +349,7 @@ class HintTimeshift(object):
                 link.args = [v_jitstate] + link.args
 
     def insert_start_setup(self):
-        newstartblock = self.insert_before_block(self.graph.startblock, None,
+        newstartblock = self.insert_before_block(self.graph.startblock,
                                                  closeblock=True)
         llops = HintLowLevelOpList(self)
         v_jitstate = llops.getjitstate()
@@ -370,8 +361,7 @@ class HintTimeshift(object):
                                     annmodel.s_None)
         newstartblock.operations = list(llops)
                     
-    def insert_before_block(self, block, block_entering_links,
-                            closeblock=True):
+    def insert_before_block(self, block, closeblock=True):
         newinputargs = [copyvar(self.hannotator, var)
                         for var in block.inputargs]
 
@@ -380,10 +370,6 @@ class HintTimeshift(object):
             block.isstartblock = False
             newblock.isstartblock = True
             self.graph.startblock = newblock
-        if block_entering_links:
-            for link in block_entering_links:
-                assert link.target is block
-                link.settarget(newblock)
 
         if closeblock:
             bridge = flowmodel.Link(newinputargs, block)
@@ -415,14 +401,15 @@ class HintTimeshift(object):
         return v_box
 
  
-    def insert_bookkeeping_enter(self, block, nentrylinks,
-                                 block_entering_links):
-        is_returnblock = len(block.exits) == 0
+    def insert_bookkeeping_enter(self, block, nentrylinks, is_returnblock):
         if nentrylinks == 1 and not is_returnblock:
             # simple non-merging and non-returning case: nothing to do 
             return
 
-        before_block = self.insert_before_block(block, block_entering_links)
+        support.split_block_with_keepalive(block, 0,
+                                           annotator=self.hannotator,
+                                           dontshuffle=True)
+        before_block = block
         newinputargs = before_block.inputargs
         llops = HintLowLevelOpList(self)
         v_boxes = self.pack_state_into_boxes(llops, newinputargs)
@@ -436,6 +423,7 @@ class HintTimeshift(object):
         if is_returnblock:
             assert self.return_cache is None
             self.return_cache = cache
+        
 
     # insert before join blocks a block with:
     #
@@ -585,7 +573,7 @@ class HintTimeshift(object):
     # returns its value as res otherwise returns True
     # and schedule the false case
     #
-    def insert_bookkeeping_leave_block(self, block, entering_links):
+    def insert_bookkeeping_leave_block(self, block):
         exits = block.exits
         exitswitch = block.exitswitch
 
@@ -611,7 +599,7 @@ class HintTimeshift(object):
             v_boxes_false = self.pack_state_into_boxes(llops,
                                                        false_exit.args,
                                                        pack_greens_too = True)
-            exitindex = self.getexitindex(false_exit, entering_links)
+            exitindex = self.getexitindex(false_exit)
             c_exitindex = rmodel.inputconst(lltype.Signed, exitindex)
             v_res = llops.genmixlevelhelpercall(rtimeshift.leave_block_split,
                                                 [self.s_JITState,
