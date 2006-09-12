@@ -75,7 +75,7 @@ def configure(CConfig):
     print >> f
     for path in getattr(CConfig, '_includes_', ()):   # optional
         print >> f, '#include <%s>' % (path,)
-    print >> f, CConfig._header_                      # mandatory
+    print >> f, getattr(CConfig, '_header_', '')      # optional
     print >> f
     for key, entry in entries:
         print >> f, 'void dump_section_%s(void) {' % (key,)
