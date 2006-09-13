@@ -158,4 +158,8 @@ function clock() {
         return 0;
     }
 }
+
+function substring(s, l, c) {
+    return (s.substring(l, l+c));
+}
 // ends hand written code

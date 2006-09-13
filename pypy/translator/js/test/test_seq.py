@@ -112,6 +112,18 @@ class TestString(object):
         
         fn = compile_function(upperlower, [])
         assert fn() == "ABAFabaf"
+    
+    def test_slice(self):
+        def one_slice(s):
+            return s[1:]
+            
+        def two_slice(s):
+            return s[2:]
+        
+        fn = compile_function(one_slice, [str])
+        assert fn("dupa") == "upa"
+        fn = compile_function(two_slice, [str])
+        assert fn("kupa") == "pa"
 
 def test_simple_seq():
     def fun(i):

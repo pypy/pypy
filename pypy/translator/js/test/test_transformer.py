@@ -158,3 +158,4 @@ def test_dict_ann():
     lst = retval.split("|")
     assert len(lst) == 1
     assert lst[0] == ''
+

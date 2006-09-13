@@ -11,6 +11,7 @@ def escape(s):
 
 def create_debug_div():
     debug_div = get_document().createElement("div")
+    debug_div.setAttribute("id", "debug_div")
     # XXX attach it somewhere...
     #body = get_document().getElementsByTagName('body')[0]
     get_document().childNodes[0].childNodes[1].appendChild(debug_div)
