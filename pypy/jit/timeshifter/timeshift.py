@@ -10,7 +10,7 @@ from pypy.rpython.lltypesystem import rtuple, rlist, rdict
 from pypy.jit.timeshifter import rtimeshift
 from pypy.jit.timeshifter.rtyper import HintRTyper, originalconcretetype
 from pypy.jit.timeshifter.rtyper import GreenRepr, RedRepr, HintLowLevelOpList
-from pypy.translator.unsimplify import varoftype, copyvar
+from pypy.translator.unsimplify import varoftype, copyvar, split_block_at_start
 from pypy.translator.backendopt import support
 from pypy.translator.c import exceptiontransform
 from pypy.jit.codegen import model as cgmodel
@@ -406,9 +406,7 @@ class HintTimeshift(object):
             # simple non-merging and non-returning case: nothing to do 
             return
 
-        support.split_block_with_keepalive(block, 0,
-                                           annotator=self.hannotator,
-                                           dontshuffle=True)
+        split_block_at_start(self.hannotator, block)
         before_block = block
         newinputargs = before_block.inputargs
         llops = HintLowLevelOpList(self)

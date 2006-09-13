@@ -56,7 +56,7 @@ def remove_empty_startblock(graph):
     graph.startblock = graph.startblock.exits[0].target
     graph.startblock.isstartblock = True
 
-def split_block(annotator, block, index, dontshuffle=False):
+def split_block(annotator, block, index, _forcelink=None):
     """return a link where prevblock is the block leading up but excluding the
     index'th operation and target is a new block with the neccessary variables 
     passed on.  NOTE: if you call this after rtyping, you WILL need to worry
@@ -100,14 +100,12 @@ def split_block(annotator, block, index, dontshuffle=False):
     exitswitch = get_new_name(block.exitswitch)
     #the new block gets all the attributes relevant to outgoing links
     #from block the old block
-    if not dontshuffle:
-        linkargs = varmap.keys()
-        newinputargs = varmap.values()
-    else:
+    if _forcelink is not None:
         assert index == 0
-        linkargs = list(block.inputargs)
-        newinputargs = [get_new_name(v) for v in linkargs]
-    newblock = Block(newinputargs)
+        linkargs = list(_forcelink)
+    else:
+        linkargs = varmap.keys()
+    newblock = Block([get_new_name(v) for v in linkargs])
     newblock.operations = moved_operations
     newblock.recloseblock(*links)
     newblock.exitswitch = exitswitch
@@ -118,6 +116,11 @@ def split_block(annotator, block, index, dontshuffle=False):
     block.exitswitch = None
     block.exc_handler = False
     return link
+
+def split_block_at_start(annotator, block):
+    # split before the first op, preserve order and inputargs
+    # in the second block!
+    return split_block(annotator, block, 0, _forcelink=block.inputargs)
 
 def remove_direct_loops(annotator, graph):
     """This is useful for code generators: it ensures that no link has
