@@ -1,6 +1,7 @@
 from ctypes import ARRAY, c_int
 from pypy.rpython.lltypesystem.rstr import string_repr
 from pypy.rpython.rmodel import IntegerRepr, inputconst
+from pypy.rpython.rslice import AbstractSliceRepr
 from pypy.rpython.lltypesystem import lltype
 from pypy.annotation.pairtype import pairtype
 from pypy.rpython.rctypes.rmodel import CTypesRefRepr, CTypesValueRepr
@@ -140,6 +141,17 @@ class __extend__(pairtype(ArrayRepr, IntegerRepr)):
         r_array.setitem(hop.llops, v_array, v_index, v_item)
 
 
+class __extend__(pairtype(ArrayRepr, AbstractSliceRepr)):
+    def rtype_getitem((r_array, r_slic), hop):
+        rs = hop.rtyper.type_system.rslice
+        if r_slic == rs.startstop_slice_repr:
+            # slicing: char array only
+            assert r_array.r_item.ll_type == lltype.Char
+            v_array, v_slice = hop.inputargs(r_array, rs.startstop_slice_repr)
+            return hop.gendirectcall(ll_chararrayslice, v_array, v_slice)
+        raise TyperError('getitem does not support slices with %r' % (r_slic,))
+
+
 class __extend__(pairtype(ArrayRepr, PointerRepr)):
     def convert_from_to((r_from, r_to), v, llops):
         # XXX keepalives
@@ -158,4 +170,17 @@ def ll_chararrayvalue(box):
     newstr.hash = 0
     for i in range(length):
         newstr.chars[i] = p[i]
+    return newstr
+
+def ll_chararrayslice(box, slice):
+    from pypy.rpython.rctypes import rchar_p
+    p = box.c_data
+    start = slice.start
+    stop = slice.stop
+    length = stop - start
+    assert length >= 0
+    newstr = lltype.malloc(string_repr.lowleveltype.TO, length)
+    newstr.hash = 0
+    for i in range(length):
+        newstr.chars[i] = p[start+i]
     return newstr

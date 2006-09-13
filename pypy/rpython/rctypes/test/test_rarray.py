@@ -163,6 +163,21 @@ class Test_annotation:
             a.translator.view()
         assert s == annmodel.SomeString()
 
+    def test_annotate_char_array_slice(self):
+        A = c_char * 3
+        def func():
+            a = A()
+            a[0] = 'x'
+            a[1] = 'y'
+            a[2] = 'z'
+            return a[0:2]
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(func, [])
+        if conftest.option.view:
+            a.translator.view()
+        assert s == annmodel.SomeString()
+
     def test_annotate_varsize_array(self):
         def func(n):
             a = (c_int * n)()
@@ -228,6 +243,20 @@ class Test_specialization:
             return a.value
         res = interpret(func, [])
         assert ''.join(res.chars) == "xy"
+
+    def test_specialize_char_array_slice(self):
+        A = c_char * 3
+        def func(n):
+            a = A()
+            a[0] = 'x'
+            a[1] = 'y'
+            a[2] = 'z'
+            assert n >= 0
+            return a[0:n]
+        res = interpret(func, [1])
+        assert ''.join(res.chars) == "x"
+        res = interpret(func, [3])
+        assert ''.join(res.chars) == "xyz"
 
     def test_automatic_cast_array_to_pointer(self):
         A = c_int * 10
