@@ -146,6 +146,8 @@ def Proc0(loops=LOOPS):
         i += 1
 
     benchtime = clock() - starttime - nulltime
+    if benchtime < 1E-8:
+        benchtime = 1E-8   # time too short, meaningless results anyway
     return benchtime, (loops / benchtime)
 
 def Proc1(PtrParIn):
