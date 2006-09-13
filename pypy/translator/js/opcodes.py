@@ -34,6 +34,7 @@ opcodes = {'int_mul': '*',
     'int_sub': '-',
     'int_floordiv': '/',
     'int_mod': '%',
+    'int_mod_zer': '%', # XXX: fix zero stuff
     'int_and': '&',
     'int_or': '|',
     'int_xor': '^',
