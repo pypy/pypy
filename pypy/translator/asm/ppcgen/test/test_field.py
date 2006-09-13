@@ -4,23 +4,24 @@ from pypy.translator.asm.ppcgen.field import Field
 from py.test import raises
 
 import random
-import sys
+
+maxppcint = 0x7fffffff
 
 class TestFields(object):
     def test_decode(self):
         # this test is crappy
         field = Field("test", 0, 31)
         for i in range(100):
-            j = random.randrange(sys.maxint)
+            j = random.randrange(maxppcint)
             assert field.decode(j) == j
         field = Field("test", 0, 31-4)
         for i in range(100):
-            j = random.randrange(sys.maxint)
+            j = random.randrange(maxppcint)
             assert field.decode(j) == j>>4
             assert field.decode(j) == j>>4
         field = Field("test", 3, 31-4)
         for i in range(100):
-            j = random.randrange(sys.maxint>>3)
+            j = random.randrange(maxppcint>>3)
             assert field.decode(j) == j>>4
 
 
