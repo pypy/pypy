@@ -3,7 +3,7 @@ from pypy.interpreter.function import Function, BuiltinFunction
 from pypy.interpreter import gateway 
 from pypy.interpreter.error import OperationError 
 from pypy.interpreter.baseobjspace import W_Root
-import os
+import os, sys
 
 import inspect
 
@@ -131,8 +131,14 @@ def getinterpevalloader(pkgroot, spec):
                     raise   # propagate the NameError
                 try: 
                     d[name] = __import__(pkgroot+'.'+name, None, None, [name])
-                except ImportError: 
-                    d[name] = __import__(name, None, None, [name])
+                except ImportError:
+                    etype, evalue, etb = sys.exc_info()
+                    try:
+                        d[name] = __import__(name, None, None, [name])
+                    except ImportError:
+                        # didn't help, re-raise the original exception for
+                        # clarity
+                        raise etype, evalue, etb
             else: 
                 #print spec, "->", value
                 if hasattr(value, 'func_code'):  # semi-evil 
