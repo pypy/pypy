@@ -206,7 +206,14 @@ class Function(Node, Generator):
                 self.ilasm.catch()
                 first = False
                 for link in [i for i in block.exits if i.exitcase is not None]:
-                    s = "isinstanceof(exc, %s)"%basename(link.exitcase)
+                    # XXX: Fix for 2.5
+                    class_name = str(link.exitcase)
+                    m = re.search("'(.*?)'", class_name)
+                    if not m:
+                        real_name = class_name
+                    else:
+                        real_name = m.group(1)
+                    s = "isinstanceof(exc, %s)"%basename(real_name)
                     if not first:
                         first = True
                         self.ilasm.branch_if_string(s)
