@@ -32,6 +32,7 @@ class ExternalBuiltinRepr(Repr):
     def __init__(self, knowntype):
         self.knowntype = knowntype
         self.lowleveltype = knowntype
+        self.name = "<class '%s'>" % self.knowntype._class_.__name__
     
     def convert_const(self, value):
         from pypy.rpython.ootypesystem.bltregistry import ExternalType,_external_type
@@ -66,7 +67,9 @@ class ExternalBuiltinRepr(Repr):
     def rtype_is_true(self, hop):
         vlist = hop.inputargs(self)
         return hop.genop('is_true', vlist, resulttype=lltype.Bool)
-
+    
+    def ll_str(self, val):
+        return ootype.oostring(self.name, -1)
     
     def __getattr__(self, attr):
         if attr.startswith("rtype_method_"):
