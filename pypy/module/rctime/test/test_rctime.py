@@ -108,6 +108,9 @@ class AppTestRCTime:
         import rctime
         rctime.asctime()
         # raises(TypeError, rctime.asctime, None)
+        raises(TypeError, rctime.asctime, ())
+        raises(TypeError, rctime.asctime, (1,))
+        raises(TypeError, rctime.asctime, range(8))
         raises(TypeError, rctime.asctime, (1, 2))
         raises(TypeError, rctime.asctime, (1, 2, 3, 4, 5, 6, 'f', 8, 9))
         raises(TypeError, rctime.asctime, "foo")
@@ -205,6 +208,10 @@ class AppTestRCTime:
                           'U', 'w', 'W', 'x', 'X', 'y', 'Y', 'Z', '%'):
             format = ' %' + directive
             rctime.strftime(format, tt)
+        
+        raises(TypeError, rctime.strftime, ())
+        raises(TypeError, rctime.strftime, (1,))
+        raises(TypeError, rctime.strftime, range(8))
 
     def test_strftime_bounds_checking(self):
         import rctime

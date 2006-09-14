@@ -342,8 +342,7 @@ def asctime(space, w_tup=None):
     if not space.is_w(w_tup, space.w_None):
         tuple_len = space.int_w(space.len(w_tup))
         
-        # if space.is_w(w_tup, space.w_None) or 1 < tuple_len < 9:
-        if 1 < tuple_len < 9:
+        if tuple_len < 9:
             raise OperationError(space.w_TypeError, 
                 space.wrap("argument must be 9-item sequence"))
     
@@ -483,8 +482,7 @@ def strftime(space, w_format, w_tup=None):
     if not space.is_w(w_tup, space.w_None):
         tuple_len = space.int_w(space.len(w_tup))
         
-        #if space.is_w(w_tup, space.w_None) or 1 < tuple_len < 9:
-        if 1 < tuple_len < 9:
+        if tuple_len < 9:
             raise OperationError(space.w_TypeError, 
                 space.wrap("argument must be 9-item sequence"))
 
