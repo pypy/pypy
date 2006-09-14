@@ -106,7 +106,7 @@ class BasicExternal(object):
 described = BasicExternal.described
 
 class Analyzer(object):
-    def __init__(self, name, value):
+    def __init__(self, name, value, s_retval, s_args):
         self.name = name
         # dirty hack
         # FIXME: to replace in future
@@ -114,24 +114,17 @@ class Analyzer(object):
         #    itervalues = value.args[:-1]
         #else:
         #    itervalues = value.args
-        self.args, self.retval = [i.example for i in value.args], value.retval.example
+        self.args, self.retval = value.args, value.retval
+        self.s_retval = s_retval
+        self.s_args = s_args
         self.value = value
     
     def __call__(self, *args):
-        #for i in xrange(len(args)):
-        #    assert getbookkeeper().valueoftype(self.args[i]).contains(args[i])
-        #if self.retval is None:
-        #    return None
-        ann_retval = getbookkeeper().annotation_from_example(self.retval)
-        
         for i in args:
             if isinstance(i, annmodel.SomePBC):
                 bookkeeper = getbookkeeper()
-                #import pdb;pdb.set_trace()
-                #bookkeeper.pbc_call(i, bookkeeper.build_args("simple_call", [bookkeeper.annotation_from_example(arg) for arg in self.args]))
-        
-                bookkeeper.pbc_call(i, bookkeeper.build_args("simple_call", (ann_retval,)))
-        return ann_retval
+                bookkeeper.pbc_call(i, bookkeeper.build_args("simple_call", (self.s_retval,)))
+        return self.s_retval
 
 class ExternalType(ootype.OOType):
     class_dict = {}
@@ -165,8 +158,9 @@ class ExternalType(ootype.OOType):
         for i, val in _methods.iteritems():
             retval = getbookkeeper().annotation_from_example(val.retval.example)
             values = [arg.example for arg in val.args]
-            _signs[i] = MethodDesc(tuple([getbookkeeper().annotation_from_example(j) for j in values]), retval)
-            next = annmodel.SomeBuiltin(Analyzer(i, val), s_self = annmodel.SomeExternalBuiltin(self), methodname = i)
+            s_args = [getbookkeeper().annotation_from_example(j) for j in values]
+            _signs[i] = MethodDesc(tuple(s_args), retval)
+            next = annmodel.SomeBuiltin(Analyzer(i, val, retval, s_args), s_self = annmodel.SomeExternalBuiltin(self), methodname = i)
             next.const = True
             self._fields[i] = next
         self._methods = frozendict(_signs)
