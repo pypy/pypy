@@ -39,7 +39,8 @@ def normalize_calltable(annotator, callfamily):
         progress = False
         for shape, table in callfamily.calltables.items():
             for row in table:
-                progress |= normalize_calltable_row_annotation(annotator, row)
+                progress |= normalize_calltable_row_annotation(annotator,
+                                                               row.values())
         if not progress:
             return   # done
         assert not callfamily.normalized, "change in call family normalisation"
@@ -126,10 +127,9 @@ def normalize_calltable_row_signature(annotator, shape, row):
             did_something = True
     return did_something
 
-def normalize_calltable_row_annotation(annotator, row):
-    if len(row) <= 1:
+def normalize_calltable_row_annotation(annotator, graphs):
+    if len(graphs) <= 1:
         return False   # nothing to do
-    graphs = row.values()
     graph_bindings = {}
     for graph in graphs:
         graph_bindings[graph] = [annotator.binding(v)

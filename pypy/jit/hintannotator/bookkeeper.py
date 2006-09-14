@@ -2,6 +2,7 @@ from pypy.tool.tls import tlsobject
 from pypy.objspace.flow.model import copygraph, SpaceOperation
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype
+from pypy.tool.algo.unionfind import UnionFind
 
 TLS = tlsobject()
 
@@ -47,6 +48,14 @@ class GraphDesc(object):
             return graph
 
 
+class TsGraphCallFamily:
+    def __init__(self, tsgraph):
+        self.tsgraphs = {tsgraph: True}
+
+    def update(self, other):
+        self.tsgraphs.update(other.tsgraphs)
+
+
 class HintBookkeeper(object):
 
     def __init__(self, hannotator):
@@ -54,6 +63,7 @@ class HintBookkeeper(object):
         self.originflags = {}
         self.virtual_containers = {}
         self.descs = {}
+        self.tsgraph_maximal_call_families = UnionFind(TsGraphCallFamily)
         self.annotator = hannotator
         # circular imports hack
         global hintmodel
@@ -170,9 +180,11 @@ class HintBookkeeper(object):
         graph = desc.specialize(args_hs, key=key, alt_name=alt_name)
         return graph
 
-    def graph_call(self, graph, fixed, args_hs):
+    def graph_call(self, graph, fixed, args_hs, tsgraph_accum=None):
         input_args_hs = list(args_hs)
         graph = self.get_graph_for_call(graph, fixed, input_args_hs)
+        if tsgraph_accum is not None:
+            tsgraph_accum.append(graph)     # save this if the caller cares
 
         # propagate fixing of arguments in the function to the caller
         for inp_arg_hs, arg_hs in zip(input_args_hs, args_hs):
@@ -199,6 +211,18 @@ class HintBookkeeper(object):
                 deps_hs.append(hs_res)
             hs_res = hintmodel.reorigin(hs_res, *deps_hs)
         return hs_res
+
+    def graph_family_call(self, graph, fixed, args_hs):
+        tsgraphs = []
+        results_hs = []
+        for graph in graph_list:
+            results_hs.append(self.graph_call(graph, fixed, args_hs, tsgraphs))
+        # put the tsgraphs in the same call family
+        call_families = self.tsgraph_maximal_call_families
+        _, rep, callfamily = call_families.find(tsgraphs[0])
+        for tsgraph in tsgraphs[1:]:
+            _, rep, callfamily = call_families.union(rep, tsgraph)
+        return annmodel.unionof(*results_hs)
 
 # get current bookkeeper
 

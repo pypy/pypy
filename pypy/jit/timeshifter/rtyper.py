@@ -17,8 +17,19 @@ class HintTypeSystem(LowLevelTypeSystem):
 
     offers_exceptiondata = False
     
-    def perform_normalizations(self, rtyper):
-        pass   # for now
+    def perform_normalizations(self, hrtyper):
+        from pypy.rpython import normalizecalls
+        hannotator = hrtyper.annotator
+        call_families = hannotator.bookkeeper.tsgraph_maximal_call_families
+        while True:
+            progress = False
+            for callfamily in call_families.infos():
+                graphs = callfamily.tsgraphs.keys()
+                progress |= normalizecalls.normalize_calltable_row_annotation(
+                    hannotator,
+                    graphs)
+            if not progress:
+                break   # done
 
 HintTypeSystem.instance = HintTypeSystem()
 

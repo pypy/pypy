@@ -280,9 +280,7 @@ class __extend__(SomeLLAbstractValue):
 
         bookkeeper = getbookkeeper()
         fixed = bookkeeper.myorigin().read_fixed()
-        results_hs = [bookkeeper.graph_call(graph, fixed, args_hs)
-                      for graph in graph_list]
-        hs_res = annmodel.unionof(*results_hs)
+        hs_res = bookkeeper.graph_family_call(graph_list, fixed, args_hs)
 
         if isinstance(hs_res, SomeLLAbstractConstant):
             hs_res.myorigin = bookkeeper.myorigin()
