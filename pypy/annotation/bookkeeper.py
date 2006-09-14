@@ -455,31 +455,24 @@ class Bookkeeper:
         elif tp is float:
             result = SomeFloat()
         elif tp is list:
-            # try to get listdef
-            try:
-                listdef = self.listdefs[self.position_key]
-            except KeyError:
-                listdef = ListDef(self, s_ImpossibleValue)
-                for e in x:
-                    listdef.generalize(self.annotation_from_example(e))
-                self.listdefs[self.position_key] = listdef
+            listdef = ListDef(self, s_ImpossibleValue)
+            for e in x:
+                listdef.generalize(self.annotation_from_example(e))
+            self.listdefs[self.position_key] = listdef
             result = SomeList(listdef)
         elif tp is dict or tp is r_dict:
-            try:
-                dictdef = self.dictdefs[self.position_key]
-            except KeyError:
-                dictdef = DictDef(self, 
-                    s_ImpossibleValue,
-                    s_ImpossibleValue,
-                    is_r_dict = tp is r_dict)
-                if tp is r_dict:
-                    s_eqfn = self.immutablevalue(x.key_eq)
-                    s_hashfn = self.immutablevalue(x.key_hash)
-                    dictdef.dictkey.update_rdict_annotations(s_eqfn,
-                                                                s_hashfn)
-                for ek, ev in x.iteritems():
-                    dictdef.generalize_key(self.annotation_from_example(ek))
-                    dictdef.generalize_value(self.annotation_from_example(ev))
+            dictdef = DictDef(self, 
+                s_ImpossibleValue,
+                s_ImpossibleValue,
+                is_r_dict = tp is r_dict)
+            if tp is r_dict:
+                s_eqfn = self.immutablevalue(x.key_eq)
+                s_hashfn = self.immutablevalue(x.key_hash)
+                dictdef.dictkey.update_rdict_annotations(s_eqfn,
+                    s_hashfn)
+            for ek, ev in x.iteritems():
+                dictdef.generalize_key(self.annotation_from_example(ek))
+                dictdef.generalize_value(self.annotation_from_example(ev))
             result = SomeDict(dictdef)
         elif ishashable(x) and x in BUILTIN_ANALYZERS:
             _module = getattr(x,"__module__","unknown")
