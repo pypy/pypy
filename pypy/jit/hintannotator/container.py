@@ -104,6 +104,7 @@ class VirtualStructDef(AbstractContainerDef):
         else:
             for n in range(-down_or_up):
                 vstruct = vstruct.vparent
+        assert vstruct
         return vstruct
 
     def fieldtype(self, name):

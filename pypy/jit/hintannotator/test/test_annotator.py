@@ -531,3 +531,45 @@ def test_more_green():
     assert isinstance(hs, SomeLLAbstractConstant)
     assert hs.is_green()
     assert not hs.is_fixed()
+
+def test_blue_simple_meth():
+    py.test.skip("with abstract containers this test explode in the cast_pointer annotation logic")
+    class Base(object):
+
+        def m(self):
+            raise NotImplementedError
+
+    class Concrete(Base):
+
+        def m(self):
+            return 42
+
+    def f(flag):
+        if flag:
+            o = Base()
+        else:
+            o = Concrete()
+        return o.m()
+
+    hs = hannotate(f, [bool], policy=P_OOPSPEC)
+
+
+def test_simple_meth():
+    class Base(object):
+
+        def m(self):
+            raise NotImplementedError
+
+    class Concrete(Base):
+
+        def m(self):
+            return 42
+
+    def f(flag):
+        if flag:
+            o = Base()
+        else:
+            o = Concrete()
+        return o.m()
+
+    hs = hannotate(f, [bool], policy=P_OOPSPEC_NOVIRTUAL)

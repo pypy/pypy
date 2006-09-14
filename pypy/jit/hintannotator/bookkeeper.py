@@ -212,7 +212,7 @@ class HintBookkeeper(object):
             hs_res = hintmodel.reorigin(hs_res, *deps_hs)
         return hs_res
 
-    def graph_family_call(self, graph, fixed, args_hs):
+    def graph_family_call(self, graph_list, fixed, args_hs):
         tsgraphs = []
         results_hs = []
         for graph in graph_list:
