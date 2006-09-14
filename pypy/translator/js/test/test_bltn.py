@@ -50,3 +50,22 @@ def test_callback():
     
     fn = compile_function(callback_stuff, [])
     assert check_source_contains(fn, "\.some_callback = callback")
+
+def test_get_elements():
+    from pypy.translator.js.modules import _dom as dom
+    
+    def getaa(tname):
+        return dom.get_document().getElementsByTagName(tname)[0].nodeValue
+    
+    def some_stuff():
+        one = getaa("some")
+        if one:
+            two = getaa("other")
+            return two
+        #    if two:
+        #        return one + two
+        #    else:
+        #        return one
+        return one
+    
+    fn = compile_function(some_stuff, [])

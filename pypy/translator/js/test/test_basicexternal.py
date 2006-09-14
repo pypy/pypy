@@ -70,15 +70,25 @@ class D(BasicExternal):
         'b': ["aa"],
     }
 
+D._fields['c'] = [D(),D()]
+
 d = D()
 
 def test_basicexternal_list():
+    def getaa(item):
+        return d.c[item]
+    
+    def return_list(i):
+        one = getaa(i)
+        if one:
+            two = getaa(i + 3)
+            return two
+        return one
+
+    fun2 = compile_function(return_list, [int])
+
+def test_basicextenal_dict():
     def return_dict():
         return d.a
 
-    def return_list():
-        return d.b
-
     fun1 = compile_function(return_dict, [])
-    fun2 = compile_function(return_list, [])
-

@@ -6,7 +6,7 @@
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.rpython.ootypesystem.bltregistry import ArgDesc
 
-METHOD_BODY = """
+GET_METHOD_BODY = """
 %(class)s.prototype.%(method)s = function ( %(args)s ) {
     var data,str;
     var x = new XMLHttpRequest();
@@ -28,6 +28,32 @@ METHOD_BODY = """
     x.onreadystatechange = function () { %(real_callback)s(x, callback) };
     //x.setRequestHeader("Connection", "close");
     //x.send(data);
+    x.send(null);
+}
+"""
+
+POST_METHOD_BODY = """
+%(class)s.prototype.%(method)s = function ( %(args)s ) {
+    var data,str;
+    var x = new XMLHttpRequest();
+    data = %(data)s;
+    str = ""
+    for(i in data) {
+        if (data[i]) {
+            if (str.length == 0) {
+                str += "?";
+            } else {
+                str += "&";
+            }
+            str += i + "=" + data[i].toString();
+        }
+    }
+    //logDebug('%(call)s'+str);
+    x.open("POST", '%(call)s', true);
+    //x.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+    x.onreadystatechange = function () { %(real_callback)s(x, callback) };
+    //x.setRequestHeader("Connection", "close");
+    x.send(str);
     x.send(null);
 }
 """
@@ -84,11 +110,12 @@ class XmlHttp(object):
     """ Class for rendering xmlhttp request communication
     over normal js code
     """
-    def __init__(self, ext_obj, name, use_xml=False, base_url=""):
+    def __init__(self, ext_obj, name, use_xml=False, base_url="", method="GET"):
         self.ext_obj = ext_obj
         self.name = name
         self.use_xml = use_xml
         self.base_url = base_url
+        self.method = method
     
     def render(self, ilasm):
         self.render_body(ilasm)
@@ -112,6 +139,7 @@ class XmlHttp(object):
         else:
             url = self.base_url + method_name
         
+        METHOD_BODY = globals()[self.method + "_METHOD_BODY"]
         if USE_MOCHIKIT and self.use_xml:
             assert 0, "Cannot use mochikit and xml requests at the same time"
         if USE_MOCHIKIT:
