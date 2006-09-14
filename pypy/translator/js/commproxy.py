@@ -46,6 +46,18 @@ function %(real_callback)s (x, cb) {
 }
 """
 
+CALLBACK_XML_BODY = """
+function %(real_callback)s (x, cb) {
+   if (x.readyState == 4) {
+     if (x.responseXML) {
+       cb(x.responseXML.documentElement);
+     } else {
+       cb(null);
+     }
+   }
+}
+"""
+
 MOCHIKIT_BODY = """
 %(class)s.prototype.%(method)s = function ( %(args)s ) {
     var data,str;
@@ -72,9 +84,11 @@ class XmlHttp(object):
     """ Class for rendering xmlhttp request communication
     over normal js code
     """
-    def __init__(self, ext_obj, name):
+    def __init__(self, ext_obj, name, use_xml=False, base_url=""):
         self.ext_obj = ext_obj
         self.name = name
+        self.use_xml = use_xml
+        self.base_url = base_url
     
     def render(self, ilasm):
         self.render_body(ilasm)
@@ -93,11 +107,22 @@ class XmlHttp(object):
         # FIXME: dirty JS here
         data = "{%s}" % ",".join(["'%s':%s" % (i,i) for i in real_args if i != 'callback'])
         real_callback = Variable("callback").name
+        if len(self.base_url) > 0 and not self.base_url.endswith("/"):
+            url = self.base_url + "/" +method_name
+        else:
+            url = self.base_url + method_name
+        
+        if USE_MOCHIKIT and self.use_xml:
+            assert 0, "Cannot use mochikit and xml requests at the same time"
         if USE_MOCHIKIT:
-            ilasm.codegenerator.write(MOCHIKIT_BODY % {'class':self.name, 'method':method_name,\
+            ilasm.codegenerator.write(MOCHIKIT_BODY % {'class':self.name, 'method':url,\
                 'args':','.join(real_args), 'data':data, 'call':method_name})
         else:
-            ilasm.codegenerator.write(CALLBACK_BODY % {'real_callback':real_callback})
+            if not self.use_xml:
+                callback_body = CALLBACK_BODY
+            else:
+                callback_body = CALLBACK_XML_BODY
+            ilasm.codegenerator.write(callback_body % {'real_callback':real_callback})
             ilasm.codegenerator.write(METHOD_BODY % {'class':self.name, 'method':method_name,\
-                'args':",".join(real_args), 'data':data, 'call':method_name,\
+                'args':",".join(real_args), 'data':data, 'call':url,\
                 'real_callback':real_callback})

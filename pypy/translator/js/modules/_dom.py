@@ -7,7 +7,7 @@ http://www.w3schools.com/dhtml/dhtml_dom.asp - more informal stuff
 import time
 from pypy.rpython.ootypesystem.bltregistry import BasicExternal, MethodDesc
 
-#from pypy.translator.stackless.test.test_transform import one
+from pypy.translator.stackless.test.test_transform import one
 
 class Attribute(BasicExternal):
     pass

@@ -95,11 +95,11 @@ class LowLevelDatabase(object):
     def record_class(self, classdef, name):
         self.classes[classdef] = name
     
-    def register_comm_proxy(self, proxy_const, name):
+    def register_comm_proxy(self, proxy_const, name, use_xml, base_url):
         """ Register external object which should be rendered as
         method call
         """
-        self.proxies.append(XmlHttp(proxy_const, name))
+        self.proxies.append(XmlHttp(proxy_const, name, use_xml, base_url))
 
     def graph_name(self, graph):
         return self.functions.get(graph, None)
@@ -461,8 +461,12 @@ class ExtObject(AbstractConst):
         return self.const._TYPE._name.split('.')[-1][:-2]
     
     def init(self, ilasm):
-        if getattr(self.const._TYPE._class_, '_render_xmlhttp', False):
-            self.db.register_comm_proxy(self.const, self.name)
+        _class = self.const._TYPE._class_
+        if getattr(_class, '_render_xmlhttp', False):
+            use_xml = getattr(_class, '_use_xml', False)
+            base_url = getattr(_class, '_base_url', "") # XXX: should be
+                # on per-method basis
+            self.db.register_comm_proxy(self.const, self.name, use_xml, base_url)
             ilasm.new(self.get_name())
         else:
             # Otherwise they just exist, or it's not implemented
