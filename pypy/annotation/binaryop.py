@@ -810,9 +810,8 @@ class __extend__(pairtype(SomeCTypesObject, SomeInteger)):
         return s_result.return_annotation()
 
 class __extend__(pairtype(SomeCTypesObject, SomeSlice)):
-    # XXX ctypes array slicing not really supported for now
     def setitem((s_cto, s_slice), s_iterable):
-        pass
+        raise NotImplementedError("ctypes array slice assignment")
 
     def getitem((s_cto, s_slice)):
         result_ctype = s_cto.knowntype._type_
@@ -820,8 +819,8 @@ class __extend__(pairtype(SomeCTypesObject, SomeSlice)):
         list_item = s_result.return_annotation()
         if isinstance(list_item, SomeChar):
             return SomeString()
-        listdef = ListDef(None, list_item)
-        return SomeList(listdef)
+        raise NotImplementedError("ctypes array slicing: "
+                                  "only for arrays of char")
 
 class __extend__(pairtype(SomeCTypesObject, SomeCTypesObject)):
     def union((s_cto1, s_cto2)):
