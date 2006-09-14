@@ -458,7 +458,6 @@ class Bookkeeper:
             listdef = ListDef(self, s_ImpossibleValue)
             for e in x:
                 listdef.generalize(self.annotation_from_example(e))
-            self.listdefs[self.position_key] = listdef
             result = SomeList(listdef)
         elif tp is dict or tp is r_dict:
             dictdef = DictDef(self, 
