@@ -1,10 +1,12 @@
 import os
-from ctypes import *
+from ctypes import POINTER, cast, c_char, c_void_p, CFUNCTYPE, c_int
 from ri386 import AbstractCodeBuilder
 
 
 modname = 'pypy.jit.codegen.i386.codebuf_' + os.name
 memhandler = __import__(modname, globals(), locals(), ['__doc__'])
+
+PTR = memhandler.PTR
 
 
 class CodeBlockOverflow(Exception):
@@ -32,7 +34,7 @@ class MachineCodeBlock(AbstractCodeBuilder):
         return baseaddr + self._pos
 
     def __del__(self):
-        memhandler.free(cast(self._data, c_void_p), self._size)
+        memhandler.free(cast(self._data, PTR), self._size)
 
     def execute(self, arg1, arg2):
         fnptr = cast(self._data, binaryfn)

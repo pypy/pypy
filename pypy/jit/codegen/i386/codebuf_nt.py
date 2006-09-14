@@ -18,8 +18,8 @@ class CConfig:
 
 globals().update(ctypes_platform.configure(CConfig))
 
-LPVOID = ctypes.c_void_p
-
+# cannot use c_void_p as return value of functions :-(
+LPVOID = ctypes.POINTER(ctypes.c_char)
 
 VirtualAlloc = ctypes.windll.kernel32.VirtualAlloc
 VirtualAlloc.argtypes = [LPVOID, SIZE_T, DWORD, DWORD]
