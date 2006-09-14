@@ -63,3 +63,22 @@ def test_basicexternal_raise_method_call():
     fun = compile_function(raising_method_call, [])
     assert len(C._methods) == 1
     assert 'f' in C._methods
+
+class D(BasicExternal):
+    _fields = {
+        'a': {"aa":"aa"},
+        'b': ["aa"],
+    }
+
+d = D()
+
+def test_basicexternal_list():
+    def return_dict():
+        return d.a
+
+    def return_list():
+        return d.b
+
+    fun1 = compile_function(return_dict, [])
+    fun2 = compile_function(return_list, [])
+
