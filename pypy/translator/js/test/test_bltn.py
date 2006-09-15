@@ -3,8 +3,12 @@
 
 import py
 
-from pypy.rpython.ootypesystem.bltregistry import BasicExternal, MethodDesc
+from pypy.rpython.ootypesystem.bltregistry import BasicExternal, MethodDesc,\
+    rebuild_basic_external
 from pypy.translator.js.test.runtest import compile_function, check_source_contains
+
+def setup_function(fun):
+    rebuild_basic_external()
 
 # check rendering _dom.get_document()
 def test_simple_builtin():
@@ -52,7 +56,6 @@ def test_callback():
     assert check_source_contains(fn, "\.some_callback = callback")
 
 def test_get_elements():
-    py.test.skip('"Should be working" - will investigate later')
     from pypy.translator.js.modules import _dom as dom
     
     def getaa(tname):

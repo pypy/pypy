@@ -250,3 +250,6 @@ class Entry_basicexternal(ExtRegistryEntry):
         _class = hop.r_result.lowleveltype._class_
         return hop.genop('new', [Constant(ExternalType.get(_class), concretetype=ootype.Void)], \
             resulttype = ExternalType.get(_class))
+
+def rebuild_basic_external():
+    ExternalType.class_dict = {}
