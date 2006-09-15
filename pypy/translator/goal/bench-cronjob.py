@@ -113,7 +113,7 @@ def compile(backend):
 
     os.chdir(homedir + '/projects/pypy-dist')
     try:
-        revision = os.popen('svn info 2>&1').readlines()[3].split()[1]
+        revision = '%d' % (py.path.svnwc('.').info().rev,)
     except:
         revision = 'unknown'
     basename = homedir + '/projects/pypy-dist/pypy/translator/goal/' + 'pypy-' + backend
