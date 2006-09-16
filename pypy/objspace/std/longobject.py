@@ -625,12 +625,18 @@ def digits_from_nonneg_long(l):
 digits_from_nonneg_long._annspecialcase_ = "specialize:argtype(0)"
 
 def digits_for_most_neg_long(l):
+    # This helper only works if 'l' is the most negative integer of its
+    # type, which in base 2 looks like: 1000000..0000
     digits = []
     while (intmask(l) & MASK) == 0:
         digits.append(0)
         l = l >> SHIFT
-    l = intmask(l)
-    digits.append(((l^(l-1))+1) >> 1)
+    # now 'l' looks like: ...111100000
+    # turn it into:       ...000100000
+    # to drop the extra unwanted 1's introduced by the signed right shift
+    l = -intmask(l)
+    assert l >= 0
+    digits.append(l)
     return digits
 digits_for_most_neg_long._annspecialcase_ = "specialize:argtype(0)"
 
