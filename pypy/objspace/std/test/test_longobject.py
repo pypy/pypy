@@ -18,6 +18,20 @@ def gen_signs(l):
 
 class TestW_LongObject:
 
+    def test_args_from_long(self):
+        BASE = 1 << lobj.SHIFT
+        assert lobj.args_from_long(0) == ([0], 0)
+        assert lobj.args_from_long(17) == ([17], 1)
+        assert lobj.args_from_long(BASE-1) == ([BASE-1], 1)
+        assert lobj.args_from_long(BASE) == ([0, 1], 1)
+        assert lobj.args_from_long(BASE**2) == ([0, 0, 1], 1)
+        assert lobj.args_from_long(-17) == ([17], -1)
+        assert lobj.args_from_long(-(BASE-1)) == ([BASE-1], -1)
+        assert lobj.args_from_long(-BASE) == ([0, 1], -1)
+        assert lobj.args_from_long(-(BASE**2)) == ([0, 0, 1], -1)
+        assert lobj.args_from_long(-sys.maxint-1) == (
+            lobj.digits_for_most_neg_long(-sys.maxint-1), -1)
+
     def test_add(self):
         x = 123456789123456789000000L
         y = 123858582373821923936744221L

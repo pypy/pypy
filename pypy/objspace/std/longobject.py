@@ -615,22 +615,39 @@ StdObjSpace.MM.pow.register(pow_ovr__Int_Int_Long, W_IntObject, W_IntObject, W_L
 #_________________________________________________________________
 
 # Helper Functions
-def args_from_long(l):
-    if l < 0:
-        sign = -1
-    elif l > 0:
-        sign = 1
-    else:
-        sign = 0
-    l = abs(l)
+def digits_from_nonneg_long(l):
     digits = []
-    i = 0
-    while l:
-        digits.append(intmask(l & MASK))
+    while True:
+        digits.append(intmask(l) & MASK)
         l = l >> SHIFT
-    if sign == 0:
-        digits = [0]
-    return digits, sign
+        if not l:
+            return digits
+digits_from_nonneg_long._annspecialcase_ = "specialize:argtype(0)"
+
+def digits_for_most_neg_long(l):
+    digits = []
+    while (intmask(l) & MASK) == 0:
+        digits.append(0)
+        l = l >> SHIFT
+    l = intmask(l)
+    digits.append(((l^(l-1))+1) >> 1)
+    return digits
+digits_for_most_neg_long._annspecialcase_ = "specialize:argtype(0)"
+
+def args_from_long(l):
+    if l > 0:
+        return digits_from_nonneg_long(l), 1
+    elif l == 0:
+        return [0], 0
+    else:
+        l = -l
+        if l >= 0:
+            # normal case
+            return digits_from_nonneg_long(l), -1
+        else:
+            # the most negative integer! hacks needed...
+            # Note that this case is only reachable when translated
+            return digits_for_most_neg_long(l), -1
 args_from_long._annspecialcase_ = "specialize:argtype(0)"
 # ^^^ specialized by the precise type of 'l', which is typically a r_xxx
 #     instance from rpython.rarithmetic
