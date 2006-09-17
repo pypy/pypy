@@ -1051,6 +1051,13 @@ class _ptr(object):
             return self._obj.getlength()
         raise TypeError("%r instance is not an array" % (self._T,))
 
+    def _fixedlength(self):
+        length = len(self)      # always do this, for the checking
+        if isinstance(self._T, FixedSizeArray):
+            return length
+        else:
+            return None
+
     def __iter__(self):
         # this is a work-around for the 'isrpystring' hack in __getitem__,
         # which otherwise causes list(p) to include the extra \x00 character.

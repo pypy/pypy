@@ -614,8 +614,11 @@ class __extend__(SomePtr):
     getattr.can_only_throw = []
 
     def len(p):
-        len(p.ll_ptrtype._example())   # just doing checking
-        return SomeObject.len(p)
+        length = p.ll_ptrtype._example()._fixedlength()
+        if length is None:
+            return SomeObject.len(p)
+        else:
+            return immutablevalue(length)
 
     def setattr(p, s_attr, s_value): # just doing checking
         assert s_attr.is_constant(), "setattr on ptr %r with non-constant field-name" % p.ll_ptrtype

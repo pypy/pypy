@@ -661,7 +661,11 @@ class __extend__(pairtype(SomePtr, SomePtr)):
 class __extend__(pairtype(SomePtr, SomeInteger)):
 
     def getitem((p, int1)):
-        v = p.ll_ptrtype._example()[0]
+        example = p.ll_ptrtype._example()
+        try:
+            v = example[0]
+        except IndexError:
+            return None       # impossible value, e.g. FixedSizeArray(0)
         return ll_to_annotation(v)
     getitem.can_only_throw = []
 
@@ -784,24 +788,6 @@ class __extend__(pairtype(SomeCTypesObject, SomeInteger)):
         pass
 
     def getitem((s_cto, s_index)):
-        if s_index.is_immutable_constant():
-            # check that the constant index is valid, just because we
-            # are nice (users should really catch such errors by
-            # testing their programs!)
-            idx = s_index.const
-            knowntype = s_cto.knowntype
-            try:
-                length = knowntype._length_
-            except AttributeError:
-                pass
-            else:
-                if idx < 0:
-                    idx += length
-                if idx >= length:
-                    raise IndexError( "invalid index" )
-                elif idx < 0:
-                    raise IndexError( "invalid index" )
-
         # Note: The following works for index either pointers and arrays,
         # because both have a _type_ attribute that contains the type of the
         # object pointed to or in the case of an array the element type.
