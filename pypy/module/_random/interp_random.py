@@ -87,7 +87,7 @@ class W_Random(Wrappable):
             k -= 32
             r = self._rnd.genrand32()
             if k < 0:
-                r >>= (32 - k)
+                k >>= (32 - k)
             bytesarray[i + 0] = r & r_uint(0xff)
             bytesarray[i + 1] = (r >> 8) & r_uint(0xff)
             bytesarray[i + 2] = (r >> 16) & r_uint(0xff)
@@ -98,7 +98,7 @@ class W_Random(Wrappable):
         w_eight = space.newlong(8)
         for byte in bytesarray:
             w_result = space.lshift(
-                    space.and_(w_result, space.newlong(int(byte))), w_eight)
+                    space.or_(w_result, space.newlong(int(byte))), w_eight)
         return w_result
     getrandbits.unwrap_spec = ['self', ObjSpace, int]
 

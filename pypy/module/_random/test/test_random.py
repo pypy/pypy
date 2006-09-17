@@ -39,11 +39,19 @@ class AppTestRandom:
         import _random
         rnd = _random.Random()
         rnd.seed()
-        obj = "spam and eggs"
-        nums = []
-        for o in [obj, hash(obj), -hash(obj)]:
-            rnd.seed(o)
-            nums.append([rnd.random() for i in range(100)])
-        n1 = nums[0]
-        for n2 in nums[1:]:
-            assert n1 == n2
+        for obj in ["spam and eggs", 3.14, 1+2j, 'a', tuple('abc')]:
+            nums = []
+            for o in [obj, hash(obj), -hash(obj)]:
+                rnd.seed(o)
+                nums.append([rnd.random() for i in range(100)])
+            n1 = nums[0]
+            for n2 in nums[1:]:
+                assert n1 == n2
+
+    def test_randbits(self):
+        import math
+        import _random
+        rnd = _random.Random()
+        for n in range(10, 200, 10):
+            n = rnd.getrandbits(n)
+            assert int(math.log(n) / math.log(2)) <= n
