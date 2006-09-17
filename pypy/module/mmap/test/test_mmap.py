@@ -486,7 +486,9 @@ class AppTestMMap:
         
         # test access=ACCESS_READ
         mapsize = 10
-        open(filename, "wb").write("a" * mapsize)
+        f = open(filename, "wb")
+        f.write("a" * mapsize)
+        f.close()
         f = open(filename, "rb")
         m = mmap.mmap(f.fileno(), mapsize, access=mmap.ACCESS_READ)
         # assert m[:] == 'a' * mapsize
