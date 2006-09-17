@@ -29,11 +29,22 @@ if _POSIX:
     # constants, look in sys/mman.h and platform docs for the meaning
     # some constants are linux only so they will be correctly exposed outside 
     # depending on the OS
-    constant_names = ['MAP_SHARED', 'MAP_PRIVATE', 'MAP_ANON', 'MAP_ANONYMOUS',
-                      'PROT_READ', 'PROT_WRITE', 'PROT_EXEC', 'MAP_DENYWRITE', 'MAP_EXECUTABLE',
+    constant_names = ['MAP_SHARED', 'MAP_PRIVATE',
+                      'PROT_READ', 'PROT_WRITE',
                       'MS_SYNC']
+    opt_constant_names = ['MAP_ANON', 'MAP_ANONYMOUS',
+                          'PROT_EXEC',
+                          'MAP_DENYWRITE', 'MAP_EXECUTABLE']
     for name in constant_names:
+        setattr(CConfig, name, ctypes_platform.ConstantInteger(name))
+    for name in opt_constant_names:
         setattr(CConfig, name, ctypes_platform.DefinedConstantInteger(name))
+
+    has_mremap = hasattr(libc, "mremap")
+    if has_mremap:
+        CConfig.MREMAP_MAYMOVE = (
+            ctypes_platform.DefinedConstantInteger("MREMAP_MAYMOVE"))
+
 elif _MS_WINDOWS:
     CConfig._includes_ += ("windows.h",)
     constant_names = ['PAGE_READONLY', 'PAGE_READWRITE', 'PAGE_WRITECOPY',
@@ -41,23 +52,16 @@ elif _MS_WINDOWS:
                       'DUPLICATE_SAME_ACCESS']
     for name in constant_names:
         setattr(CConfig, name, ctypes_platform.ConstantInteger(name))
-    
-class cConfig:
-    pass
 
-cConfig.__dict__.update(ctypes_platform.configure(CConfig))
-
-# needed to export the constants inside and outside. see __init__.py
-for name in constant_names:
-    value = getattr(cConfig, name)
-    if value is not None:
-        constants[name] = value
+# export the constants inside and outside. see __init__.py
+constants.update(ctypes_platform.configure(CConfig))
 
 if _POSIX:
     # MAP_ANONYMOUS is not always present but it's always available at CPython level
-    if cConfig.MAP_ANONYMOUS is None:
-        cConfig.MAP_ANONYMOUS = cConfig.MAP_ANON
-        constants["MAP_ANONYMOUS"] = cConfig.MAP_ANON
+    if constants["MAP_ANONYMOUS"] is None:
+        constants["MAP_ANONYMOUS"] = constants["MAP_ANON"]
+    assert constants["MAP_ANONYMOUS"] is not None
+    constants["MAP_ANON"] = constants["MAP_ANONYMOUS"]
 
 locals().update(constants)
     
@@ -66,17 +70,13 @@ _ACCESS_DEFAULT, ACCESS_READ, ACCESS_WRITE, ACCESS_COPY = range(4)
 
 PTR = POINTER(c_char)    # cannot use c_void_p as return value of functions :-(
 
-size_t = cConfig.size_t
-off_t = cConfig.off_t
-libc.strerror.restype = c_char_p
-libc.strerror.argtypes = [c_int]
+memmove_ = libc.memmove
+memmove_.argtypes = [PTR, PTR, size_t]
 
 if _POSIX:
     libc.mmap.argtypes = [PTR, size_t, c_int, c_int, c_int, off_t]
     libc.mmap.restype = PTR
     libc.mmap.includes = ("sys/mman.h",)
-    libc.close.argtypes = [c_int]
-    libc.close.restype = c_int
     libc.munmap.argtypes = [PTR, size_t]
     libc.munmap.restype = c_int
     libc.munmap.includes = ("sys/mman.h",)
@@ -84,21 +84,17 @@ if _POSIX:
     libc.msync.restype = c_int
     libc.msync.includes = ("sys/mman.h",)
     
-    has_mremap = False
-    if hasattr(libc, "mremap"):
+    if has_mremap:
         libc.mremap.argtypes = [PTR, size_t, size_t, c_ulong]
         libc.mremap.restype = PTR
         libc.mremap.includes = ("sys/mman.h",)
-        has_mremap = True
-    libc.ftruncate.argtypes = [c_int, off_t]
-    libc.ftruncate.restype = c_int
 
     def _get_page_size():
         return libc.getpagesize()
 
     def _get_error_msg():
         errno = geterrno()
-        return libc.strerror(errno)   
+        return os.strerror(errno)   
 elif _MS_WINDOWS:
     from ctypes import wintypes
     
@@ -188,15 +184,18 @@ elif _MS_WINDOWS:
                                  space.wrap(_get_error_msg(dwErr)))
         return low.value, high.value
 
-    def _get_error_msg(errno=0):
-        if not errno:
-            errno = GetLastError()
-        return libc.strerror(errno)
+    def _get_error_msg():
+        errno = GetLastError()
+        return os.strerror(errno)
 
 PAGESIZE = _get_page_size()
 NULL = PTR()
+EMPTY_DATA = (c_char * 0)()
+NODATA = cast(pointer(EMPTY_DATA), PTR)
 
 # ____________________________________________________________
+
+# XXX the methods should take unsigned int arguments instead of int
 
 class W_MMap(Wrappable):
     def __init__(self, space, access):
@@ -212,9 +211,6 @@ class W_MMap(Wrappable):
         elif _POSIX:
             self.fd = -1
             self.closed = False
-    
-##    def to_str(self):
-##        return "".join([self.data[i] for i in range(self.size)])
     
     def check_valid(self):
         if _MS_WINDOWS:
@@ -239,15 +235,16 @@ class W_MMap(Wrappable):
 
     def setdata(self, data, size):
         """Set the internal data and map size from a PTR."""
+        assert size >= 0
         arraytype = c_char * size
-        self.data = cast(data, POINTER(arraytype))
+        self.data = cast(data, POINTER(arraytype)).contents
         self.size = size
     
     def close(self):
         if _MS_WINDOWS:
-            if self.data:
+            if self.size > 0:
                 self.unmapview()
-                self.setdata(NULL, 0)
+                self.setdata(NODATA, 0)
             if self.map_handle.value != INVALID_c_int_VALUE:
                 CloseHandle(self.map_handle)
                 self.map_handle.value = INVALID_c_int_VALUE
@@ -257,16 +254,15 @@ class W_MMap(Wrappable):
         elif _POSIX:
             self.closed = True
             if self.fd != -1:
-                libc.close(self.fd)
+                os.close(self.fd)
                 self.fd = -1
-            if self.data:
-                libc.munmap(self.data, self.size)
-                self.setdata(NULL, 0)
+            if self.size > 0:
+                libc.munmap(self.getptr(0), self.size)
+                self.setdata(NODATA, 0)
     close.unwrap_spec = ['self']
     
     def unmapview(self):
-        data = cast(self.data, PTR)
-        UnmapViewOfFile(data)
+        UnmapViewOfFile(self.getptr(0))
     
     def read_byte(self):
         self.check_valid()
@@ -283,14 +279,15 @@ class W_MMap(Wrappable):
     def readline(self):
         self.check_valid()
 
+        data = self.data
         for pos in xrange(self.pos, self.size):
-            if self.data[pos] == '\n':
+            if data[pos] == '\n':
                 eol = pos + 1 # we're interested in the position after new line
                 break
         else: # no '\n' found
             eol = self.size
 
-        res = self.data[self.pos:eol]
+        res = data[self.pos:eol]
         self.pos += len(res)
         return self.space.wrap(res)
     readline.unwrap_spec = ['self']
@@ -321,7 +318,7 @@ class W_MMap(Wrappable):
             if start < 0:
                 start = 0
         data = self.data
-        for p in xrange(start, self.size):
+        for p in xrange(start, self.size - len(tofind) + 1):
             for q in range(len(tofind)):
                 if data[p+q] != tofind[q]:
                     break     # position 'p' is not a match
@@ -361,7 +358,7 @@ class W_MMap(Wrappable):
         return self.space.wrap(self.pos)
     tell.unwrap_spec = ['self']
     
-    def size(self):
+    def descr_size(self):
         self.check_valid()
         
         size = self.size
@@ -374,8 +371,12 @@ class W_MMap(Wrappable):
         elif _POSIX:
             st = os.fstat(self.fd)
             size = st[stat.ST_SIZE]
+            if size > sys.maxint:
+                size = sys.maxint
+            else:
+                size = int(size)
         return self.space.wrap(size)
-    size.unwrap_spec = ['self']
+    descr_size.unwrap_spec = ['self']
     
     def write(self, data):
         self.check_valid()        
@@ -396,15 +397,24 @@ class W_MMap(Wrappable):
     def write_byte(self, byte):
         self.check_valid()
         
-        if len(byte) > 1:
+        if len(byte) != 1:
             raise OperationError(self.space.w_TypeError,
                 self.space.wrap("write_byte() argument must be char"))
         
         self.check_writeable()
-        self.data[self.pos] = byte
+        self.data[self.pos] = byte[0]
         self.pos += 1
     write_byte.unwrap_spec = ['self', str]
-    
+
+    def getptr(self, offset):
+        if offset > 0:
+            # XXX 64-bit support for pointer arithmetic!
+            dataptr = cast(pointer(self.data), c_void_p)
+            dataptr = c_void_p(dataptr.value + offset)
+            return cast(dataptr, PTR)
+        else:
+            return cast(pointer(self.data), PTR)
+
     def flush(self, offset=0, size=0):
         self.check_valid()
 
@@ -414,11 +424,7 @@ class W_MMap(Wrappable):
             raise OperationError(self.space.w_ValueError,
                 self.space.wrap("flush values out of range"))
         else:
-            # XXX 64-bit support for pointer arithmetic!
-            start = cast(self.data, c_void_p)
-            if offset > 0:
-                start = c_void_p(start.value + offset)
-            start = cast(start, PTR)
+            start = self.getptr(offset)
             if _MS_WINDOWS:
                 res = FlushViewOfFile(start, size)
                 return self.space.wrap(res)
@@ -445,22 +451,14 @@ class W_MMap(Wrappable):
         self.check_writeable()
         
         # check boundings
-        assert src >= 0; assert dest >= 0; assert count >= 0; assert self.size >= 0
-        if (src + count > self.size) or (dest + count > self.size):
+        if (src < 0 or dest < 0 or count < 0 or
+            src + count > self.size or dest + count > self.size):
             raise OperationError(self.space.w_ValueError,
                 self.space.wrap("source or destination out of range"))
 
-        XXXXXXX
-        data_dest = c_char_p("".join([self.data[i] for i in range(dest, self.size)]))
-        data_src = c_char_p("".join([self.data[i] for i in range(src, src+count)]))
-        libc.memmove XXX (data_dest, data_src, size_t(count))
-        
-        assert dest >= 0
-        str_left = self.space.str_w(self.to_str())[0:dest]
-        final_str = "%s%s" % (str_left, data_dest.value)
-        
-        p = c_char_p(final_str)
-        libc.memcpy(self.data, p, len(final_str))
+        datasrc = self.getptr(src)
+        datadest = self.getptr(dest)
+        memmove_(datadest, datasrc, count)
     move.unwrap_spec = ['self', int, int, int]
     
     def resize(self, newsize):
@@ -475,15 +473,16 @@ class W_MMap(Wrappable):
                     self.space.wrap(msg))
             
             # resize the underlying file first
-            res = libc.ftruncate(self.fd, newsize)
-            if res == -1:
+            try:
+                os.ftruncate(self.fd, newsize)
+            except OSError, e:
                 raise OperationError(self.space.w_EnvironmentError,
-                    self.space.wrap(_get_error_msg()))
+                    self.space.wrap(os.strerror(e.errno)))
                 
             # now resize the mmap
-            MREMAP_MAYMOVE = 1
-            libc.mremap(self.data, self.size, newsize, MREMAP_MAYMOVE)
-            self.size = newsize
+            newdata = libc.mremap(self.getptr(0), self.size, newsize,
+                                  MREMAP_MAYMOVE or 0)
+            self.setdata(newdata, newsize)
         elif _MS_WINDOWS:
             # disconnect the mapping
             self.unmapview()
@@ -520,7 +519,7 @@ class W_MMap(Wrappable):
                 dwErrCode = GetLastError()
 
             raise OperationError(self.space.w_EnvironmentError,
-                                 self.space.wrap(_get_error_msg(dwErrCode)))
+                                 self.space.wrap(os.strerror(dwErrCode)))
     resize.unwrap_spec = ['self', int]
     
     def __len__(self):
@@ -529,65 +528,50 @@ class W_MMap(Wrappable):
         return self.space.wrap(self.size)
     __len__.unwrap_spec = ['self']
     
-    def __getitem__(self, index):
+    def descr_getitem(self, w_index):
         self.check_valid()
 
-        # XXX this does not support slice() instances
+        space = self.space
+        start, stop, step = space.decode_index(w_index, self.size)
+        if step == 0:  # index only
+            return space.wrap(self.data[start])
+        elif step == 1:
+            if 0 <= start <= stop:
+                res = self.data[start:stop]
+            else:
+                res = ''
+            return space.wrap(res)
+        else:
+            raise OperationError(space.w_ValueError,
+                space.wrap("mmap object does not support slicing with a step"))
+    descr_getitem.unwrap_spec = ['self', W_Root]
 
-        try:
-            return self.space.wrap(self.space.str_w(self.to_str())[index])
-        except IndexError:
-            raise OperationError(self.space.w_IndexError,
-                self.space.wrap("mmap index out of range"))
-    __getitem__.unwrap_spec = ['self', int]
-    
-    def __setitem__(self, index, value):
+    def descr_setitem(self, w_index, value):
         self.check_valid()
+
         self.check_writeable()
-        
-        # XXX this does not support slice() instances
-        
-        if len(value) != 1:
-            raise OperationError(self.space.w_IndexError,
-                self.space.wrap("mmap assignment must be single-character string"))
 
-        str_data = ""
-        try:
-            str_data = self.space.str_w(self.to_str())
-            str_data_lst = [i for i in str_data] 
-            str_data_lst[index] = value
-            str_data = "".join(str_data_lst)
-        except IndexError:
-            raise OperationError(self.space.w_IndexError,
-                self.space.wrap("mmap index out of range"))
-
-        XXXXXXXXXX
-        p = c_char_p(str_data)
-        libc.memcpy(self.data, p, len(str_data))
-    __setitem__.unwrap_spec = ['self', int, str]
-    
-    def __delitem__(self, index):
-        self.check_valid()
-        
-        # XXX this does not support slice() instances (does it matter?)
-        
-        raise OperationError(self.space.w_TypeError,
-            self.space.wrap("mmap object doesn't support item deletion"))
-    __delitem__.unwrap_spec = ['self', int]
-    
-    def __add__(self, w_other):
-        self.check_valid()
-        
-        raise OperationError(self.space.w_SystemError,
-            self.space.wrap("mmaps don't support concatenation"))
-    __add__.unwrap_spec = ['self', W_Root]
-    
-    def __mul__(self, w_other):
-        self.check_valid()
-        
-        raise OperationError(self.space.w_SystemError,
-            self.space.wrap("mmaps don't support repeat operation"))
-    __mul__.unwrap_spec = ['self', W_Root]
+        space = self.space
+        start, stop, step = space.decode_index(w_index, self.size)
+        if step == 0:  # index only
+            if len(value) != 1:
+                raise OperationError(space.w_ValueError,
+                                     space.wrap("mmap assignment must be "
+                                                "single-character string"))
+            self.data[start] = value[0]
+        elif step == 1:
+            length = stop - start
+            if start < 0 or length < 0:
+                length = 0
+            if len(value) != length:
+                raise OperationError(space.w_ValueError,
+                          space.wrap("mmap slice assignment is wrong size"))
+            for i in range(length):
+                self.data[start + i] = value[i]
+        else:
+            raise OperationError(space.w_ValueError,
+                space.wrap("mmap object does not support slicing with a step"))
+    descr_setitem.unwrap_spec = ['self', W_Root, str]
 
 
 W_MMap.typedef = TypeDef("mmap",
@@ -598,7 +582,7 @@ W_MMap.typedef = TypeDef("mmap",
     find = interp2app(W_MMap.find),
     seek = interp2app(W_MMap.seek),
     tell = interp2app(W_MMap.tell),
-    size = interp2app(W_MMap.size),
+    size = interp2app(W_MMap.descr_size),
     write = interp2app(W_MMap.write),
     write_byte = interp2app(W_MMap.write_byte),
     flush = interp2app(W_MMap.flush),
@@ -606,11 +590,8 @@ W_MMap.typedef = TypeDef("mmap",
     resize = interp2app(W_MMap.resize),
 
     __len__ = interp2app(W_MMap.__len__),
-    __getitem__ = interp2app(W_MMap.__getitem__),
-    __setitem__ = interp2app(W_MMap.__setitem__),
-    __delitem__ = interp2app(W_MMap.__delitem__),
-    __add__ = interp2app(W_MMap.__add__),
-    __mul__ = interp2app(W_MMap.__mul__),   
+    __getitem__ = interp2app(W_MMap.descr_getitem),
+    __setitem__ = interp2app(W_MMap.descr_setitem),
 )
 
 def _check_map_size(space, size):
@@ -660,6 +641,10 @@ if _POSIX:
         else:
             mode = st[stat.ST_MODE]
             size = st[stat.ST_SIZE]
+            if size > sys.maxint:
+                size = sys.maxint
+            else:
+                size = int(size)
             if stat.S_ISREG(mode):
                 if map_size == 0:
                     map_size = size
@@ -677,7 +662,11 @@ if _POSIX:
             flags |= MAP_ANONYMOUS
 
         else:
-            m.fd = os.dup(fd)
+            try:
+                m.fd = os.dup(fd)
+            except OSError, e:
+                raise OperationError(space.w_EnvironmentError,
+                                     space.wrap(os.strerror(e.errno)))
 
         res = libc.mmap(NULL, map_size, prot, flags, fd, 0)
         if cast(res, c_void_p).value == -1:
@@ -778,5 +767,5 @@ elif _MS_WINDOWS:
             dwErr = GetLastError()
 
         raise OperationError(space.w_EnvironmentError,
-                             space.wrap(_get_error_msg(dwErr)))
+                             space.wrap(os.strerror(dwErr)))
     mmap.unwrap_spec = [ObjSpace, int, int, str, int]

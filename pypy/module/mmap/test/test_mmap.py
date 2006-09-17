@@ -43,7 +43,7 @@ class AppTestMMap:
             raises(TypeError, mmap, 0, 1, 2, 3, "foo", 5)
             raises(TypeError, mmap, 0, 1, foo="foo")
             raises(TypeError, mmap, 0, -1)
-            raises(OverflowError, mmap, 0, sys.maxint)
+            raises(OverflowError, mmap, 0, sys.maxint ** 3)
             raises(ValueError, mmap, 0, 1, flags=2, access=3)
             raises(ValueError, mmap, 0, 1, access=123)
         elif os.name == "nt":
@@ -72,7 +72,7 @@ class AppTestMMap:
         f.write("c")
         f.flush()
         m = mmap(f.fileno(), 1)
-        assert m._to_str() == "c"
+        assert m.read(99) == "c"
         
         f.close()
 
@@ -84,7 +84,7 @@ class AppTestMMap:
         f.flush()
         m = mmap(f.fileno(), 1)
         m.close()
-        raises(ValueError, m._check_valid)
+        raises(ValueError, m.read, 1)
 
     def test_read_byte(self):
         from mmap import mmap
@@ -153,8 +153,8 @@ class AppTestMMap:
         f.write("foobar")
         f.flush()
         m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_READ)
-        raises(TypeError, m._check_writeable)
-        raises(TypeError, m._check_resizeable)
+        raises(TypeError, m.write, 'x')
+        raises(TypeError, m.resize, 7)
         m.close()
         f.close()
 
@@ -343,7 +343,8 @@ class AppTestMMap:
         def fn(): m[-7] = 'a'
         raises(IndexError, fn)
         def fn(): m[0] = 'ab'
-        raises(IndexError, fn)
+        raises((IndexError, ValueError), fn)     # IndexError is in CPython,
+                                                 # but doesn't make much sense
         # def f(m): m[1:3] = u'xx'
         # py.test.raises(IndexError, f, m)
         # def f(m): m[1:4] = "zz"
@@ -388,9 +389,9 @@ class AppTestMMap:
         
         m = mmap(f.fileno(), 6)
         def fn(): m + 1
-        raises(SystemError, fn)
-        def fn(m): m += 1
-        raises(SystemError, fn, m)
+        raises((SystemError, TypeError), fn)     # SystemError is in CPython,
+        def fn(m): m += 1                        # but it doesn't make much
+        raises((SystemError, TypeError), fn, m)  # sense
         def fn(): 1 + m
         raises(TypeError, fn)
         m.close()
@@ -405,10 +406,10 @@ class AppTestMMap:
         
         m = mmap(f.fileno(), 6)
         def fn(): m * 1
-        raises(SystemError, fn)
-        def fn(m): m *= 1
-        raises(SystemError, fn, m)
-        def fn(): 1 * m
+        raises((SystemError, TypeError), fn)      # SystemError is in CPython,
+        def fn(m): m *= 1                         # but it
+        raises((SystemError, TypeError), fn, m)   # doesn't
+        def fn(): 1 * m                           # make much sense
         raises(TypeError, fn)
         m.close()
         f.close()
