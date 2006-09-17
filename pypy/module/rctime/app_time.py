@@ -4,10 +4,8 @@ _POSIX = os.name == "posix"
 
 class struct_time(object):
     def __init__(self, tup):
-        if tup and len(tup) < 9:
+        if len(tup) != 9:
             raise TypeError, "time.struct_time() takes a 9-sequence"
-        if not tup:
-            raise TypeError, "time.struct_time() takes at least 1 argument (0 given)"
 
         self._tup = tup
         self.tm_year = self._tup[0]
@@ -40,26 +38,17 @@ class struct_time(object):
         return cmp(self._tup, other)
 
 
-def _check_float(arg):
-    try:
-        float(arg)
-    except ValueError:
-        raise TypeError, "a float is required"
-
 if _POSIX:
-    def _float_sleep(secs):
-        import select
-        select.select([], [], [], secs)
-    
+    from select import select
+
     def sleep(secs):
         """sleep(seconds)
     
         Delay execution for a given number of seconds.  The argument may be
         a floating point number for subsecond precision."""
-        _check_float(secs)
-        _float_sleep(secs)
+        select([], [], [], secs)
 
-    
+
 def strptime(string, format="%a %b %d %H:%M:%S %Y"):
     """strptime(string, format) -> struct_time
 
@@ -67,7 +56,7 @@ def strptime(string, format="%a %b %d %H:%M:%S %Y"):
     See the library reference manual for formatting codes
     (same as strftime())."""
 
-    import _strptime
+    import _strptime     # from the CPython standard library
     return _strptime.strptime(string, format)
 
 __doc__ = """This module provides various functions to manipulate time values.

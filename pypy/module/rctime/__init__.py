@@ -2,6 +2,8 @@
 from pypy.interpreter.mixedmodule import MixedModule
 
 class Module(MixedModule):
+    applevel_name = 'time'
+
     interpleveldefs = {
         'accept2dyear': 'interp_time.accept2dyear',
         'timezone': 'interp_time.timezone',
@@ -19,12 +21,6 @@ class Module(MixedModule):
     }
 
     def buildloaders(cls):
-        import py              # REVIEWME
-        py.test.skip("The rctime module is not ready: the checks on the input "
-                     "arguments are incomplete; strftime() can eat all your "
-                     "memory in error conditions; the use of math.fmod() "
-                     "should be removed.")
-
         from pypy.module.rctime import interp_time
         import os
         
@@ -50,7 +46,6 @@ class Module(MixedModule):
     buildloaders = classmethod(buildloaders)
 
     appleveldefs = {
-        '_check_float': 'app_time._check_float',
         'struct_time': 'app_time.struct_time',
         '__doc__': 'app_time.__doc__',
         'strptime': 'app_time.strptime',

@@ -7,7 +7,7 @@ class AppTestRCTime:
         cls.space = space
 
     def test_attributes(self):
-        import rctime
+        import time as rctime
         assert isinstance(rctime.accept2dyear, int)
         assert isinstance(rctime.altzone, int)
         assert isinstance(rctime.daylight, int)
@@ -16,7 +16,7 @@ class AppTestRCTime:
         assert isinstance(rctime.__doc__, str)
     
     def test_sleep(self):
-        import rctime
+        import time as rctime
         import sys
         import os
         raises(TypeError, rctime.sleep, "foo")
@@ -25,18 +25,18 @@ class AppTestRCTime:
             raises(OverflowError, rctime.sleep, sys.maxint)
         
     def test_clock(self):
-        import rctime
+        import time as rctime
         rctime.clock()
         assert isinstance(rctime.clock(), float)
 
     def test_time(self):
-        import rctime
+        import time as rctime
         rctime.time()
         assert isinstance(rctime.time(), float)
         assert rctime.time() != 0.0 # 0.0 means failure
 
     def test_ctime(self):
-        import rctime
+        import time as rctime
         raises(TypeError, rctime.ctime, "foo")
         rctime.ctime(None)
         rctime.ctime()
@@ -45,7 +45,7 @@ class AppTestRCTime:
         rctime.ctime(rctime.time())
     
     def test_gmtime(self):
-        import rctime
+        import time as rctime
         raises(TypeError, rctime.gmtime, "foo")
         rctime.gmtime()
         rctime.gmtime(None)
@@ -60,7 +60,7 @@ class AppTestRCTime:
         assert rctime.gmtime(t) == rctime.gmtime(t)
 
     def test_localtime(self):
-        import rctime
+        import time as rctime
         raises(TypeError, rctime.localtime, "foo")
         rctime.localtime()
         rctime.localtime(None)
@@ -74,7 +74,7 @@ class AppTestRCTime:
         assert rctime.localtime(t) == rctime.localtime(t)
     
     def test_mktime(self):
-        import rctime
+        import time as rctime
         raises(TypeError, rctime.mktime, "foo")
         raises(TypeError, rctime.mktime, None)
         raises(TypeError, rctime.mktime, (1, 2))
@@ -105,7 +105,7 @@ class AppTestRCTime:
         assert rctime.mktime(tuple(ltime)) == rctime.mktime(ltime)
     
     def test_asctime(self):
-        import rctime
+        import time as rctime
         rctime.asctime()
         # raises(TypeError, rctime.asctime, None)
         raises(TypeError, rctime.asctime, ())
@@ -124,7 +124,7 @@ class AppTestRCTime:
         assert rctime.asctime(tuple(ltime)) == rctime.asctime(ltime)
 
     def test_struct_time(self):
-        import rctime
+        import time as rctime
         raises(TypeError, rctime.struct_time)
         raises(TypeError, rctime.struct_time, "foo")
         raises(TypeError, rctime.struct_time, (1, 2, 3))
@@ -134,7 +134,7 @@ class AppTestRCTime:
         assert len(st_time) == len(tup)
     
     def test_tzset(self):
-        import rctime
+        import time as rctime
         import os
         
         if not os.name == "posix":
@@ -199,7 +199,7 @@ class AppTestRCTime:
             rctime.tzset()
             
     def test_strftime(self):
-        import rctime
+        import time as rctime
         
         t = rctime.time()
         tt = rctime.gmtime(t)
@@ -214,7 +214,7 @@ class AppTestRCTime:
         raises(TypeError, rctime.strftime, range(8))
 
     def test_strftime_bounds_checking(self):
-        import rctime
+        import time as rctime
         
         # make sure that strftime() checks the bounds of the various parts
         # of the time tuple.
@@ -254,7 +254,7 @@ class AppTestRCTime:
         raises(ValueError, rctime.strftime, '', (1900, 1, 1, 0, 0, 0, 0, 1, 2))
 
     def test_strptime(self):
-        import rctime
+        import time as rctime
         
         t = rctime.time()
         tt = rctime.gmtime(t)
