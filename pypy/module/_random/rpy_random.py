@@ -29,7 +29,7 @@ class Random(object):
             # In the previous versions, MSBs of the seed affect
             # only MSBs of the array mt[].
             # for >32 bit machines 
-            mt[mti] &= r_uint(0xffffffff);
+            mt[mti] &= r_uint(0xffffffff)
         self.index = mti + 1
 
     def init_by_array(self, init_key):
@@ -95,13 +95,14 @@ def main():
     import sys
     rnd = Random()
     rnd.init_genrand(1000)
+    rnd.init_by_array([1, 2, 3, 4])
     print rnd.index
 
-#    for j in range(100):
-#        print rnd.state[j],
-#        if j % 7 == 6:
-#            print
-#    print "\n"
+    for j in range(100):
+        print rnd.state[j],
+        if j % 7 == 6:
+            print
+    print "\n"
     for j in range(5):
         print rnd.genrand32(),
         if j % 7 == 6:
