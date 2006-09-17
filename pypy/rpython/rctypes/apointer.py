@@ -68,7 +68,9 @@ class POINTERFnEntry(ExtRegistryEntry):
             # POINTER(varsized_array_type): given that rctypes performs
             # no index checking, this pointer-to-array type is equivalent
             # to a pointer to an array of whatever size.
-            RESTYPE = POINTER(s_arg.ctype_array._type_ * 0)
+            # ('0' is a bad idea, though, as FixedSizeArrays of length 0
+            # tend to say they have impossible items.)
+            RESTYPE = POINTER(s_arg.ctype_array._type_ * 1)
         else:
             # POINTER(constant_ctype) returns the constant annotation
             # corresponding to the POINTER(ctype).

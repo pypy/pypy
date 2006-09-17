@@ -37,8 +37,8 @@ class PointerRepr(CTypesValueRepr):
         llops.genop('setfield', inputargs)
 
     def initialize_const(self, p, ptr):
-        if ptr is None:   # passed as argument to functions expecting pointers
-            return
+        if not ptr:   # NULL pointer, or literal None passed as argument to
+            return    #  functions expecting pointers
         llcontents = self.r_contents.convert_const(ptr.contents)
         p.c_data[0] = llcontents.c_data
         # the following line is probably pointless, as 'llcontents' will be

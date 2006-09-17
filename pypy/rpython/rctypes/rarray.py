@@ -1,5 +1,6 @@
 from ctypes import ARRAY, c_int
-from pypy.rpython.lltypesystem.rstr import string_repr
+from pypy.rpython.error import TyperError
+from pypy.rpython.lltypesystem.rstr import string_repr, emptystr
 from pypy.rpython.rmodel import IntegerRepr, inputconst
 from pypy.rpython.rslice import AbstractSliceRepr
 from pypy.rpython.lltypesystem import lltype
@@ -65,9 +66,12 @@ class ArrayRepr(CTypesRefRepr):
         assert s_attr.is_constant()
         assert s_attr.const == 'value'
         assert self.r_item.ll_type == lltype.Char  # .value: char arrays only
-        v_box = hop.inputarg(self, 0)
         hop.exception_cannot_occur()
-        return hop.gendirectcall(ll_chararrayvalue, v_box)
+        if self.length == 0:
+            return hop.inputconst(lltype.typeOf(emptystr), emptystr)
+        else:
+            v_box = hop.inputarg(self, 0)
+            return hop.gendirectcall(ll_chararrayvalue, v_box)
 
     def get_c_data_of_item(self, llops, v_array, v_index):
         v_c_array = self.get_c_data(llops, v_array)
@@ -144,9 +148,12 @@ class __extend__(pairtype(ArrayRepr, IntegerRepr)):
 class __extend__(pairtype(ArrayRepr, AbstractSliceRepr)):
     def rtype_getitem((r_array, r_slic), hop):
         rs = hop.rtyper.type_system.rslice
+        hop.exception_cannot_occur()
         if r_slic == rs.startstop_slice_repr:
             # slicing: char array only
             assert r_array.r_item.ll_type == lltype.Char
+            if r_array.length == 0:
+                return hop.inputconst(lltype.typeOf(emptystr), emptystr)
             v_array, v_slice = hop.inputargs(r_array, rs.startstop_slice_repr)
             return hop.gendirectcall(ll_chararrayslice, v_array, v_slice)
         raise TyperError('getitem does not support slices with %r' % (r_slic,))
