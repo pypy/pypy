@@ -23,6 +23,10 @@ def entrypoint3(space, w_x, args_w):
     return space.wrap(result)
 entrypoint3.unwrap_spec = [ObjSpace, W_Root, 'args_w']
 
+def entrypoint4(space, x=21):
+    return space.wrap(x*2)
+entrypoint4.unwrap_spec = [ObjSpace, int]
+
 
 def test_builtin_function():
     space = CPyObjSpace()
@@ -99,3 +103,15 @@ def test_compile_star_args():
 
     res = fn()
     assert res == -400
+
+def test_default_arg():
+    space = CPyObjSpace()
+    func = interp2app(entrypoint4).__spacebind__(space)
+    bltin = BuiltinFunction(func)
+    w_entrypoint = space.wrap(bltin)
+    w_result = space.call_function(w_entrypoint)
+    result = space.int_w(w_result)
+    assert result == 42
+    w_result = space.call_function(w_entrypoint, space.wrap(10))
+    result = space.int_w(w_result)
+    assert result == 20

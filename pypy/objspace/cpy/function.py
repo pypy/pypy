@@ -146,6 +146,9 @@ class FunctionCache(SpaceCache):
         trampoline.star_arg = tramp.star_arg
         trampoline.allow_someobjects = True    # annotator hint
         trampoline._annspecialcase_ = "specialize:all_someobjects"
+        if func.defs_w:
+            trampoline.func_defaults = tuple([space.unwrap(w_x)
+                                              for w_x in func.defs_w])
         w_result = W_Object(trampoline)
         space.wrap_cache[id(w_result)] = w_result, func, follow_annotations
         return w_result
