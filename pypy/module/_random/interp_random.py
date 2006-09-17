@@ -69,7 +69,7 @@ class W_Random(Wrappable):
         for i in range(rpy_random.N):
             w_item = space.getitem(w_state, space.newint(i))
             self._rnd.state[i] = r_uint(space.int_w(w_item))
-        w_item = space.getitem(w_state, space.newint(i))
+        w_item = space.getitem(w_state, space.newint(rpy_random.N))
         self._rnd.index = r_uint(space.int_w(w_item))
     setstate.unwrap_spec = ['self', ObjSpace, W_Root]
 
