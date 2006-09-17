@@ -28,6 +28,7 @@ class CPyObjSpace(baseobjspace.ObjSpace):
     w_unicode        = W_Object(unicode)
     w_type           = W_Object(type)
     w_instance       = W_Object(types.InstanceType)
+    w_slice          = W_Object(slice)
 
     w_hex            = W_Object(hex) # no C API function to do that :-(
     w_oct            = W_Object(oct)

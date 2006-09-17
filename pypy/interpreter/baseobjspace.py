@@ -697,6 +697,32 @@ class ObjSpace(object):
         args = Arguments(self, list(posargs_w))
         return self.call_args(w_func, args)
 
+    def decode_index(self, w_index_or_slice, seqlength):
+        """Helper for custom sequence implementations
+             -> (index, 0, 0) or
+                (start, stop, step)
+        """
+        if self.is_true(self.isinstance(w_index_or_slice, self.w_slice)):
+            w_indices = self.call_method(w_index_or_slice, "indices",
+                                         self.wrap(seqlength))
+            w_start, w_stop, w_step = self.unpackiterable(w_indices, 3)
+            start = self.int_w(w_start)
+            stop  = self.int_w(w_stop)
+            step  = self.int_w(w_step)
+            if step == 0:
+                raise OperationError(self.w_ValueError,
+                                     self.wrap("slice step cannot be zero"))
+        else:
+            start = self.int_w(w_index_or_slice)
+            if start < 0:
+                start += seqlength
+            if not (0 <= start < seqlength):
+                raise OperationError(self.w_IndexError,
+                                     self.wrap("index out of range"))
+            stop  = 0
+            step  = 0
+        return start, stop, step
+
 class AppExecCache(SpaceCache):
     def build(cache, source):
         """ NOT_RPYTHON """
