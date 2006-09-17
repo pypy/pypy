@@ -1,19 +1,12 @@
 from pypy.conftest import gettestobjspace
+from pypy.tool.udir import udir
 import os
-
-def teardown_module(mod):
-    import string
-    for p in string.ascii_lowercase:
-        if os.path.exists(p):
-            try:
-                os.unlink(p)
-            except OSError:
-                print "Cannot delete '%s'" % p
 
 class AppTestMMap:
     def setup_class(cls):
         space = gettestobjspace(usemodules=('mmap',))
         cls.space = space
+        cls.w_tmpname = space.wrap(str(udir.join('mmap-')))
     
     def test_page_size(self):
         import mmap
@@ -65,7 +58,7 @@ class AppTestMMap:
             skip("Only Unix checks file size")
 
         from mmap import mmap
-        f = open("a", "w+")
+        f = open(self.tmpname + "a", "w+")
         
         f.write("c")
         f.flush()
@@ -74,7 +67,7 @@ class AppTestMMap:
 
     def test_create(self):
         from mmap import mmap
-        f = open("b", "w+")
+        f = open(self.tmpname + "b", "w+")
         
         f.write("c")
         f.flush()
@@ -85,7 +78,7 @@ class AppTestMMap:
 
     def test_close(self):
         from mmap import mmap
-        f = open("c", "w+")
+        f = open(self.tmpname + "c", "w+")
         
         f.write("c")
         f.flush()
@@ -95,7 +88,7 @@ class AppTestMMap:
 
     def test_read_byte(self):
         from mmap import mmap
-        f = open("d", "w+")
+        f = open(self.tmpname + "d", "w+")
 
         f.write("c")
         f.flush()
@@ -108,7 +101,7 @@ class AppTestMMap:
     def test_readline(self):
         from mmap import mmap
         import os
-        f = open("e", "w+")
+        f = open(self.tmpname + "e", "w+")
 
         f.write("foo\n")
         f.flush()
@@ -124,7 +117,7 @@ class AppTestMMap:
 
     def test_read(self):
         from mmap import mmap
-        f = open("f", "w+")
+        f = open(self.tmpname + "f", "w+")
         
         f.write("foobar")
         f.flush()
@@ -138,7 +131,7 @@ class AppTestMMap:
 
     def test_find(self):
         from mmap import mmap
-        f = open("g", "w+")
+        f = open(self.tmpname + "g", "w+")
 
         f.write("foobar\0")
         f.flush()
@@ -155,7 +148,7 @@ class AppTestMMap:
 
     def test_is_modifiable(self):
         import mmap
-        f = open("h", "w+")
+        f = open(self.tmpname + "h", "w+")
         
         f.write("foobar")
         f.flush()
@@ -167,7 +160,7 @@ class AppTestMMap:
 
     def test_seek(self):
         from mmap import mmap
-        f = open("i", "w+")
+        f = open(self.tmpname + "i", "w+")
         
         f.write("foobar")
         f.flush()
@@ -192,7 +185,7 @@ class AppTestMMap:
 
     def test_write(self):
         import mmap
-        f = open("j", "w+")
+        f = open(self.tmpname + "j", "w+")
 
         f.write("foobar")
         f.flush()
@@ -208,7 +201,7 @@ class AppTestMMap:
 
     def test_write_byte(self):
         import mmap
-        f = open("k", "w+")
+        f = open(self.tmpname + "k", "w+")
         
         f.write("foobar")
         f.flush()
@@ -224,7 +217,7 @@ class AppTestMMap:
 
     def test_size(self):
         from mmap import mmap
-        f = open("l", "w+")
+        f = open(self.tmpname + "l", "w+")
         
         f.write("foobar")
         f.flush()
@@ -235,7 +228,7 @@ class AppTestMMap:
 
     def test_tell(self):
         from mmap import mmap
-        f = open("m", "w+")
+        f = open(self.tmpname + "m", "w+")
         
         f.write("c")
         f.flush()
@@ -246,7 +239,7 @@ class AppTestMMap:
 
     def test_flush(self):
         from mmap import mmap
-        f = open("n", "w+")
+        f = open(self.tmpname + "n", "w+")
         
         f.write("foobar")
         f.flush()
@@ -260,7 +253,7 @@ class AppTestMMap:
 
     def test_move(self):
         import mmap
-        f = open("o", "w+")
+        f = open(self.tmpname + "o", "w+")
         
         f.write("foobar")
         f.flush()
@@ -287,7 +280,7 @@ class AppTestMMap:
         import mmap
         import os
         
-        f = open("p", "w+")
+        f = open(self.tmpname + "p", "w+")
         f.write("foobar")
         f.flush()
         m = mmap.mmap(f.fileno(), 6, access=mmap.ACCESS_READ)
@@ -306,7 +299,7 @@ class AppTestMMap:
     def test_len(self):
         from mmap import mmap
         
-        f = open("q", "w+")
+        f = open(self.tmpname + "q", "w+")
         f.write("foobar")
         f.flush()
 
@@ -318,7 +311,7 @@ class AppTestMMap:
     def test_get_item(self):
         from mmap import mmap
         
-        f = open("r", "w+")
+        f = open(self.tmpname + "r", "w+")
         f.write("foobar")
         f.flush()
         
@@ -337,7 +330,7 @@ class AppTestMMap:
     def test_set_item(self):
         import mmap
         
-        f = open("s", "w+")
+        f = open(self.tmpname + "s", "w+")
         f.write("foobar")
         f.flush()
 
@@ -372,7 +365,7 @@ class AppTestMMap:
     def test_del_item(self):
         from mmap import mmap
         
-        f = open("t", "w+")
+        f = open(self.tmpname + "t", "w+")
         f.write("foobar")
         f.flush()
         
@@ -389,7 +382,7 @@ class AppTestMMap:
     def test_concatenation(self):
         from mmap import mmap
         
-        f = open("u", "w+")
+        f = open(self.tmpname + "u", "w+")
         f.write("foobar")
         f.flush()
         
@@ -406,7 +399,7 @@ class AppTestMMap:
     def test_repeatition(self):
         from mmap import mmap
         
-        f = open("v", "w+")
+        f = open(self.tmpname + "v", "w+")
         f.write("foobar")
         f.flush()
         
@@ -432,7 +425,7 @@ class AppTestMMap:
         import sys
         import os
         
-        filename = "w"
+        filename = self.tmpname + "w"
     
         f = open(filename, "w+")
     
