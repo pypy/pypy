@@ -91,3 +91,11 @@ class Random(object):
         b = self.genrand32() >> 6
         return (a * 67108864.0 + b) * (1.0 / 9007199254740992.0)
 
+    def jumpahead(self, n):
+        mt = self.state
+        for i in range(N - 1, 0, -1):
+            j = n % i
+            mt[i], mt[j] = mt[j], mt[i]
+        for i in range(N):
+            mt[i] += i + 1
+        self.index = N

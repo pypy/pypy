@@ -1,4 +1,5 @@
-from pypy.module._random.rpy_random import Random
+from pypy.module._random.rpy_random import Random, N, r_uint
+import _random
 
 # the numbers were created by using CPython's _randommodule.c
 
@@ -21,3 +22,13 @@ def test_init_by_array():
     assert rnd.state[:14] == [2147483648, 1269538435, 699006892, 381364451,
             172015551, 3237099449, 3609464087, 2187366456, 654585064,
             2665903765, 3735624613, 1241943673, 2038528247, 3774211972]
+
+def test_jumpahead():
+    rnd = Random()
+    rnd.state = [r_uint(0)] * N
+    rnd.state[0] = r_uint(1)
+    cpyrandom = _random.Random()
+    cpyrandom.setstate(tuple([int(s) for s in rnd.state] + [rnd.index]))
+    rnd.jumpahead(100)
+    cpyrandom.jumpahead(100)
+    assert tuple(rnd.state) + (rnd.index, ) == cpyrandom.getstate()
