@@ -501,7 +501,12 @@ class SymbolVisitor(ast.ASTVisitor):
             if scope.firstReturnWithArgument is None:
                 scope.firstReturnWithArgument = node
             node.value.accept(self)
-            
+
+    def visitCondExpr(self, node):
+        issue_warning(self.space, "conditional expression",
+                      node.filename, node.lineno)
+        ast.ASTVisitor.visitCondExpr(self, node)
+
 def sort(l):
     l = l[:]
     l.sort()
