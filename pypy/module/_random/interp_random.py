@@ -35,15 +35,18 @@ class W_Random(Wrappable):
                 w_n = space.abs(space.hash(w_n))
         key = []
         w_one = space.newlong(1)
+        w_two = space.newlong(2)
         w_thirtytwo = space.newlong(32)
         # 0xffffffff
-        w_masklower = space.sub(space.pow(w_one, w_thirtytwo, space.w_None),
+        w_masklower = space.sub(space.pow(w_two, w_thirtytwo, space.w_None),
                                 w_one)
         while space.is_true(w_n):
             w_chunk = space.and_(w_n, w_masklower)
             chunk = r_uint(space.int_w(w_chunk))
             key.append(chunk)
             w_n = space.rshift(w_n, w_thirtytwo)
+        if not key:
+            key = [r_uint(0)]
         self._rnd.init_by_array(key)
     seed.unwrap_spec = ['self', ObjSpace, W_Root]
 

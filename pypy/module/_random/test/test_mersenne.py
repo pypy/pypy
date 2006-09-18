@@ -22,6 +22,9 @@ def test_init_by_array():
     assert rnd.state[:14] == [2147483648, 1269538435, 699006892, 381364451,
             172015551, 3237099449, 3609464087, 2187366456, 654585064,
             2665903765, 3735624613, 1241943673, 2038528247, 3774211972]
+    # try arrays of various sizes to test for corner cases
+    for size in [N, N - 1, N + 1, N // 2, 2 * N]:
+        rnd.init_by_array(range(N))
 
 def test_jumpahead():
     rnd = Random()

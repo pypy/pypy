@@ -39,14 +39,30 @@ class AppTestRandom:
         import _random
         rnd = _random.Random()
         rnd.seed()
+        different_nums = []
         for obj in ["spam and eggs", 3.14, 1+2j, 'a', tuple('abc')]:
             nums = []
             for o in [obj, hash(obj), -hash(obj)]:
                 rnd.seed(o)
                 nums.append([rnd.random() for i in range(100)])
             n1 = nums[0]
+            different_nums.append(n1)
             for n2 in nums[1:]:
                 assert n1 == n2
+        n1 = different_nums[0]
+        for n2 in different_nums[1:]:
+            assert n1 != n2
+
+    def test_seedargs(self):
+        import _random
+        rnd = _random.Random()
+        for arg in [None, 0, 0L, 1, 1L, -1, -1L, 10**20, -(10**20),
+                    3.14, 1+2j, 'a', tuple('abc')]:
+            rnd.seed(arg)
+        for arg in [range(3), dict(one=1)]:
+            raises(TypeError, rnd.seed, arg)
+        raises(TypeError, rnd.seed, 1, 2)
+        raises(TypeError, type(rnd), [])
 
     def test_randbits(self):
         import math
