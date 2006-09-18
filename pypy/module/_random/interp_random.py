@@ -5,10 +5,6 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.rpython.rarithmetic import r_uint
 from pypy.module._random import rpy_random
 
-from math import log as _log, exp as _exp, pi as _pi, e as _e
-from math import sqrt as _sqrt, acos as _acos, cos as _cos, sin as _sin
-from math import floor as _floor
-
 import time
 
 def descr_new__(space, w_subtype, w_anything=NoneNotWrapped):
