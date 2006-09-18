@@ -4,6 +4,7 @@ import pypy.rpython.rctypes.implementation # this defines rctypes magic
 from pypy.rpython.rctypes.aerrno import geterrno
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace
+from pypy.rpython.rarithmetic import ovfcheck_float_to_int
 from ctypes import *
 import math
 import os
@@ -182,7 +183,7 @@ if _WIN:
             secs = 0.0
         msecs = secs * 1000.0
         try:
-            msecs = int(msecs)
+            msecs = ovfcheck_float_to_int(msecs)
         except OverflowError:
             raise OperationError(space.w_OverflowError, 
                                  space.wrap("sleep length is too large"))
