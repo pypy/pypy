@@ -885,3 +885,17 @@ class TestTimeshift(TimeshiftingTests):
 
         res = self.timeshift(ll_function, [3], [], policy=P_NOVIRTUAL)
         assert res == 3
+
+    def test_split_on_green_return(self):
+        py.test.skip("in-progress")
+        def ll_two(x):
+            if x > 0:
+                return 17
+            else:
+                return 22
+        def ll_function(x):
+            n = ll_two(x)
+            return n+1
+        res = self.timeshift(ll_function, [-70], [])
+        assert res == 23
+        self.check_insns({'int_gt': 1})

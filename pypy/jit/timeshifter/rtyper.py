@@ -355,6 +355,11 @@ class HintRTyper(RPythonTyper):
             return 'oopspec'
         elif (originalconcretetype(s_result) is not lltype.Void and
               isinstance(r_result, GreenRepr)):
+            for v in spaceop.args:
+                s_arg = self.annotator.binding(v)
+                r_arg = self.getrepr(s_arg)
+                if not isinstance(r_arg, GreenRepr):
+                    return 'yellow'
             return 'green'
         else:
             return 'red'

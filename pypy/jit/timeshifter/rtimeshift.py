@@ -426,7 +426,7 @@ def leave_graph(return_queue, return_cache):
     myframe = jitstate.frame
     if myframe.local_boxes:             # else it's a green Void return
         jitstate.returnbox = myframe.local_boxes[0]
-        # ^^^ fetched by an 'fetch_return' operation
+        # ^^^ fetched by a 'fetch_return' operation
     jitstate.frame = myframe.backframe
     jitstate.exitindex = -1
     return jitstate
