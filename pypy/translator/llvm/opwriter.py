@@ -197,6 +197,8 @@ class OpWriter(object):
     # XXX rxe: Surely that cant be right?
     uint_neg = int_neg
 
+    llong_neg = int_neg
+
     def float_neg(self, opr):
         self._generic_neg(opr, "0.0") 
 
