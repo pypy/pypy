@@ -42,14 +42,7 @@ class W_Random(Wrappable):
                                 w_one)
         while space.is_true(w_n):
             w_chunk = space.and_(w_n, w_masklower)
-            try:
-                chunk = r_uint(space.int_w(w_chunk))
-            except OperationError, e:
-                # XXX just assuming that it is an OverflowError
-                # should only happen on 32 bit machines, so the following is
-                # correct
-                w_neg = space.sub(space.sub(w_chunk, w_masklower), w_one)
-                chunk = r_uint(space.int_w(w_neg))
+            chunk = space.uint_w(w_chunk)
             key.append(chunk)
             w_n = space.rshift(w_n, w_thirtytwo)
         if not key:
@@ -74,9 +67,9 @@ class W_Random(Wrappable):
             raise OperationError(space.w_TypeError, errstring)
         for i in range(rpy_random.N):
             w_item = space.getitem(w_state, space.newint(i))
-            self._rnd.state[i] = r_uint(space.int_w(w_item))
+            self._rnd.state[i] = space.uint_w(w_item)
         w_item = space.getitem(w_state, space.newint(rpy_random.N))
-        self._rnd.index = r_uint(space.int_w(w_item))
+        self._rnd.index = space.uint_w(w_item)
     setstate.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def jumpahead(self, n):
