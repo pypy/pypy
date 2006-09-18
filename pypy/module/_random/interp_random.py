@@ -42,7 +42,14 @@ class W_Random(Wrappable):
                                 w_one)
         while space.is_true(w_n):
             w_chunk = space.and_(w_n, w_masklower)
-            chunk = r_uint(space.int_w(w_chunk))
+            try:
+                chunk = r_uint(space.int_w(w_chunk))
+            except OperationError, e:
+                # XXX just assuming that it is an OverflowError
+                # should only happen on 32 bit machines, so the following is
+                # correct
+                w_neg = space.sub(space.sub(w_chunk, w_masklower), w_one)
+                chunk = r_uint(space.int_w(w_neg))
             key.append(chunk)
             w_n = space.rshift(w_n, w_thirtytwo)
         if not key:

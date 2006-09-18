@@ -57,7 +57,7 @@ class AppTestRandom:
         import _random
         rnd = _random.Random()
         for arg in [None, 0, 0L, 1, 1L, -1, -1L, 10**20, -(10**20),
-                    3.14, 1+2j, 'a', tuple('abc')]:
+                    3.14, 1+2j, 'a', tuple('abc'), 0xffffffffffL]:
             rnd.seed(arg)
         for arg in [range(3), dict(one=1)]:
             raises(TypeError, rnd.seed, arg)
