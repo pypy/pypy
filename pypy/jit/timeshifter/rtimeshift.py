@@ -215,7 +215,7 @@ def retrieve_jitstate_for_merge(states_dic, jitstate, key, redboxes):
     # Then we make a new block based on this new state.
     replace_memo = rvalue.copy_memo()
     for box in outgoingvarboxes:
-        box = box.forcevar(jitstate.curbuilder, replace_memo)
+        box.forcevar(jitstate.curbuilder, replace_memo)
     if replace_memo.boxes:
         jitstate.replace(replace_memo)
     start_new_block(states_dic, jitstate, key)
