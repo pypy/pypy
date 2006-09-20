@@ -252,6 +252,10 @@ PyFloat_AsDouble = cpyapi.PyFloat_AsDouble
 PyFloat_AsDouble.argtypes = [W_Object]
 PyFloat_AsDouble.restype = c_double 
 
+PyLong_FromLong = cpyapi.PyLong_FromLong
+PyLong_FromLong.argtypes = [c_long]
+PyLong_FromLong.restype = W_Object
+
 PyLong_FromUnsignedLong = cpyapi.PyLong_FromUnsignedLong
 PyLong_FromUnsignedLong.argtypes = [c_ulong]
 PyLong_FromUnsignedLong.restype = W_Object

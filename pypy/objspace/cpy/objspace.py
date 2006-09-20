@@ -69,7 +69,7 @@ class CPyObjSpace(baseobjspace.ObjSpace):
             return PyInt_FromLong(x)
         if isinstance(x, str):
             return PyString_FromStringAndSize(x, len(x))
-        if isinstance(x, float): 
+        if isinstance(x, float):
             return PyFloat_FromDouble(x)
         if isinstance(x, r_uint):
             return PyLong_FromUnsignedLong(x)
@@ -188,6 +188,12 @@ class CPyObjSpace(baseobjspace.ObjSpace):
 
     def newint(self, intval):
         return PyInt_FromLong(intval)
+
+    def newlong(self, intval):
+        return PyLong_FromLong(intval)
+
+    def newfloat(self, floatval):
+        return PyFloat_FromDouble(floatval)
 
     def newdict(self):
         return PyDict_New()

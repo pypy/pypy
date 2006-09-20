@@ -134,3 +134,16 @@ def test_callable():
     space = CPyObjSpace()
     assert space.is_true(space.callable(space.w_int))
     assert not space.is_true(space.callable(space.w_Ellipsis))
+
+def test_newfloat():
+    space = CPyObjSpace()
+    fl1 = space.wrap(1.4)
+    fl2 = space.newfloat(1.4)
+    assert space.is_true(space.eq(fl1, fl2))
+
+def test_newlong():
+    space = CPyObjSpace()
+    i1 = space.newlong(42)
+    i2 = space.newint(42)
+    assert space.is_true(space.eq(i1, i2))
+    assert space.is_true(space.ne(space.type(i1), space.type(i2)))
