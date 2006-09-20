@@ -1,8 +1,16 @@
 
 import autopath
 from pypy.interpreter import gateway
+from pypy.interpreter import argument
 import py
 import sys
+
+class FakeFunc(object):
+
+    def __init__(self, space, name):
+        self.space = space
+        self.name = name
+        self.defs_w = []
 
 class TestBuiltinCode: 
     def test_signature(self):
@@ -39,8 +47,8 @@ class TestBuiltinCode:
                                                    gateway.W_Root,
                                                    'starargs'])
         w = self.space.wrap
-        w_dict = w({'x': 123, 'y': 23, 'hello': (0, True)})
-        w_result = code.exec_code(self.space, w_dict, w_dict)
+        args = argument.Arguments(self.space, [w(123), w(23), w(0), w(True)])
+        w_result = code.funcrun(FakeFunc(self.space, "c"), args)
         assert self.space.eq_w(w_result, w(102))
 
     def test_call_args(self):
@@ -55,9 +63,10 @@ class TestBuiltinCode:
                                                    gateway.W_Root,
                                                    gateway.Arguments])
         w = self.space.wrap
-        w_dict = w({'x': 123, 'y': 23, 'args': (0, True),
-                    'keywords': {'boo': 10}})
-        w_result = code.exec_code(self.space, w_dict, w_dict)
+        args = argument.Arguments(self.space, [w(123), w(23)], {},
+                                  w_stararg = w((0, True)),
+                                  w_starstararg = w({'boo': 10}))
+        w_result = code.funcrun(FakeFunc(self.space, "c"), args)
         assert self.space.eq_w(w_result, w(1020))
 
 class TestGateway: 

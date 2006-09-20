@@ -95,9 +95,8 @@ class FunctionCache(SpaceCache):
         space = cache.space
         # make a built-in function
         assert isinstance(func.code, BuiltinCode)   # XXX
-        factory = func.code.framefactory
-        bltin = factory.behavior
-        unwrap_spec = factory.unwrap_spec
+        bltin = func.code._bltin
+        unwrap_spec = func.code._unwrap_spec
         from pypy.interpreter import pycode
         argnames, varargname, kwargname = pycode.cpython_code_signature(
             bltin.func_code)

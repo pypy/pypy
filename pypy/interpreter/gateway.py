@@ -158,61 +158,61 @@ class UnwrapSpec_Emit(UnwrapSpecRecipe):
             "obj = %s(scope_w[%d])" % (name, cur))
         emit_sig.miniglobals[name] = func
         emit_sig.setfastscope.append(
-            "self.%s_arg%d = obj" % (name,cur))
+            "%s_arg%d = obj" % (name,cur))
         emit_sig.through_scope_w += 1
-        emit_sig.run_args.append("self.%s_arg%d" % (name,cur))
+        emit_sig.run_args.append("%s_arg%d" % (name,cur))
 
     def visit__Wrappable(self, el, orig_sig, emit_sig):
         name = el.__name__
         cur = emit_sig.through_scope_w
         emit_sig.setfastscope.append(
-            "obj = self.space.interp_w(%s, scope_w[%d])" % (name, cur))
+            "obj = space.interp_w(%s, scope_w[%d])" % (name, cur))
         emit_sig.miniglobals[name] = el
         emit_sig.setfastscope.append(
-            "self.%s_arg%d = obj" % (name,cur))
+            "%s_arg%d = obj" % (name,cur))
         emit_sig.through_scope_w += 1
-        emit_sig.run_args.append("self.%s_arg%d" % (name,cur))
+        emit_sig.run_args.append("%s_arg%d" % (name,cur))
 
     def visit__ObjSpace(self, el, orig_sig, emit_sig):
-        emit_sig.run_args.append('self.space')
+        emit_sig.run_args.append('space')
 
     def visit__W_Root(self, el, orig_sig, emit_sig):
         cur = emit_sig.through_scope_w
         emit_sig.setfastscope.append(
-            "self.w_arg%d = scope_w[%d]" % (cur,cur))
+            "w_arg%d = scope_w[%d]" % (cur,cur))
         emit_sig.through_scope_w += 1
-        emit_sig.run_args.append("self.w_arg%d" % cur)
+        emit_sig.run_args.append("w_arg%d" % cur)
 
     def visit__Arguments(self, el, orig_sig, emit_sig):
         cur = emit_sig.through_scope_w
         emit_sig.through_scope_w += 2
         emit_sig.miniglobals['Arguments'] = Arguments
         emit_sig.setfastscope.append(
-            "self.arguments_arg = "
-            "Arguments.frompacked(self.space,scope_w[%d],scope_w[%d])"
+            "arguments_arg = "
+            "Arguments.frompacked(space,scope_w[%d],scope_w[%d])"
                 % (cur, cur+1))
-        emit_sig.run_args.append("self.arguments_arg")
+        emit_sig.run_args.append("arguments_arg")
 
     def visit_starargs(self, el, orig_sig, emit_sig):
         emit_sig.setfastscope.append(
-            "self.starargs_arg_w = self.space.unpacktuple(scope_w[%d])" %
+            "starargs_arg_w = space.unpacktuple(scope_w[%d])" %
                 (emit_sig.through_scope_w))
         emit_sig.through_scope_w += 1
-        emit_sig.run_args.append("*self.starargs_arg_w")
+        emit_sig.run_args.append("*starargs_arg_w")
 
     def visit_args_w(self, el, orig_sig, emit_sig):
         emit_sig.setfastscope.append(
-            "self.args_w = self.space.unpacktuple(scope_w[%d])" %
+            "args_w = space.unpacktuple(scope_w[%d])" %
                  (emit_sig.through_scope_w))
         emit_sig.through_scope_w += 1
-        emit_sig.run_args.append("self.args_w")
+        emit_sig.run_args.append("args_w")
 
     def visit_w_args(self, el, orig_sig, emit_sig):
         cur = emit_sig.through_scope_w
         emit_sig.setfastscope.append(
-            "self.w_args = scope_w[%d]" % cur)
+            "w_args = scope_w[%d]" % cur)
         emit_sig.through_scope_w += 1
-        emit_sig.run_args.append("self.w_args")
+        emit_sig.run_args.append("w_args")
 
     def visit__object(self, el, orig_sig, emit_sig):
         if el not in (int, str, float):
@@ -220,10 +220,10 @@ class UnwrapSpec_Emit(UnwrapSpecRecipe):
         name = el.__name__
         cur = emit_sig.through_scope_w
         emit_sig.setfastscope.append(
-            "self.%s_arg%d = self.space.%s_w(scope_w[%d])" %
+            "%s_arg%d = space.%s_w(scope_w[%d])" %
                 (name,cur,name,cur))
         emit_sig.through_scope_w += 1
-        emit_sig.run_args.append("self.%s_arg%d" % (name,cur))
+        emit_sig.run_args.append("%s_arg%d" % (name,cur))
 
 
 class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecRecipe):
@@ -269,49 +269,14 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecRecipe):
         info.narg +=1 
 
 
-class BuiltinFrame(eval.Frame):
-    "Frame emulation for BuiltinCode."
-    # Subclasses of this are defined with the function to delegate to attached through miniglobals.
-    # Initialization of locals is already done by the time run() is called,
-    # via the interface defined in eval.Frame.
+class BuiltinActivation(object):
 
-    def __init__(self, space, code, w_globals=None, numlocals=-1):
-        self.bltn_code = code
-        eval.Frame.__init__(self, space, w_globals, numlocals)
+    def __init__(self, behavior):
+        """NOT_RPYTHON"""
+        self.behavior = behavior
 
-    def getcode(self):
-        return self.bltn_code
-
-    def setfastscope(self, scope_w):
+    def _run(self, space, scope_w):
         """Subclasses with behavior specific for an unwrap spec are generated"""
-        raise TypeError, "abstract"
-
-    def getfastscope(self):
-        raise OperationError(self.space.w_TypeError,
-            self.space.wrap("cannot get fastscope of a BuiltinFrame"))
-
-    def run(self):
-        try:
-            w_result = self._run()
-        except KeyboardInterrupt: 
-            raise OperationError(self.space.w_KeyboardInterrupt, self.space.w_None) 
-        except MemoryError: 
-            raise OperationError(self.space.w_MemoryError, self.space.w_None) 
-        except RuntimeError, e: 
-            raise OperationError(self.space.w_RuntimeError, 
-                                 self.space.wrap("internal error: " + str(e))) 
-        if w_result is None:
-            w_result = self.space.w_None
-        return w_result
-
-    def _run(self):
-        """Subclasses with behavior specific for an unwrap spec are generated"""
-        raise TypeError, "abstract"
-
-class BuiltinFrameFactory(object):
-    """Subclasses can create builtin frames for a associated  builtin"""
-    
-    def create(self, space, code, w_globals):
         raise TypeError, "abstract"
 
 class BuiltinCodeSignature(Signature):
@@ -326,12 +291,12 @@ class BuiltinCodeSignature(Signature):
         self.through_scope_w = 0
         self.miniglobals = {}
 
-    def _make_unwrap_frame_factory_class(self, cache={}):
+    def _make_unwrap_activation_class(self, cache={}):
         try:
             key = tuple(self.unwrap_spec)
-            frame_factory_cls, run_args = cache[key]
+            activation_factory_cls, run_args = cache[key]
             assert run_args == self.run_args,"unexpected: same spec, different run_args"
-            return frame_factory_cls
+            return activation_factory_cls
         except KeyError:
             parts = []          
             for el in self.unwrap_spec:
@@ -341,68 +306,39 @@ class BuiltinCodeSignature(Signature):
                     parts.append(getattr(el, '__name__', el))
             label = '_'.join(parts)
             #print label
+
             setfastscope = self.setfastscope
             if not setfastscope:
                 setfastscope = ["pass"]
-            setfastscope = ["def setfastscope_UWS_%s(self, scope_w):" % label,
-                            #"print 'ENTER',self.code.func.__name__",
-                            #"print scope_w"
-                            ] + setfastscope
-            setfastscope = '\n  '.join(setfastscope)
-            # Python 2.2 SyntaxError without newline: Bug #501622
-            setfastscope += '\n'
-            d = {}
-            exec compile2(setfastscope) in self.miniglobals, d
-            d['setfastscope'] = d['setfastscope_UWS_%s' % label]
-            del d['setfastscope_UWS_%s' % label]
+            setfastscope = '\n                    '.join(setfastscope) # xxx indentation below
 
-            self.miniglobals['OperationError'] = OperationError
-            self.miniglobals['os'] = os
+            d = {}
             source = """if 1: 
-                def _run_UWS_%s(self):
-                    try:
-                        return self.behavior(%s)
-                    except MemoryError:
-                        os.write(2, 'Fail in _run() of ' + self.b_name + '\\n')
-                        raise
-                \n""" % (label, ','.join(self.run_args))
+                def _run_UWS_%s(self, space, scope_w):
+                    %s
+                    return self.behavior(%s)
+                \n""" % (label, setfastscope, ','.join(self.run_args))
             exec compile2(source) in self.miniglobals, d
             d['_run'] = d['_run_UWS_%s' % label]
             del d['_run_UWS_%s' % label]
 
-            frame_cls = type("BuiltinFrame_UwS_%s" % label, (BuiltinFrame,), d)
+            activation_cls = type("BuiltinActivation_UwS_%s" % label,
+                             (BuiltinActivation,), d)
 
-            class MyBuiltinFrameFactory(BuiltinFrameFactory):
-                # export 'unwrap_spec' for inspection from outside gateway.py
-                unwrap_spec = self.unwrap_spec
+            cache[key] = activation_cls, self.run_args
+            return activation_cls
 
-                def create(self, space, code, w_globals):
-                    newframe = frame_cls(space, code, w_globals)
-                    newframe.behavior = self.behavior
-                    newframe.b_name = self.b_name
-                    return newframe
-
-            MyBuiltinFrameFactory.__name__ = 'BuiltinFrameFactory_UwS_%s' % label
-
-            cache[key] = MyBuiltinFrameFactory, self.run_args
-            return MyBuiltinFrameFactory
-
-    def make_frame_factory(self, func):
-        frame_uw_factory_cls = self._make_unwrap_frame_factory_class()
+    def make_activation(self, func):
+        activation_uw_cls = self._make_unwrap_activation_class()        
+        return activation_uw_cls(func)
         
-        factory = frame_uw_factory_cls()
-        factory.behavior = func
-        factory.b_name = func.__name__
-
-        return factory
-        
-def make_builtin_frame_factory(func, orig_sig, unwrap_spec):
+def make_builtin_activation(func, orig_sig, unwrap_spec):
     "NOT_RPYTHON"
     name = (getattr(func, '__module__', None) or '')+'_'+func.__name__
     emit_sig = BuiltinCodeSignature(name=name, unwrap_spec=unwrap_spec)
     orig_sig.apply_unwrap_spec(unwrap_spec, UnwrapSpec_Emit(),
                                dest_sig = emit_sig)
-    return emit_sig.make_frame_factory(func)
+    return emit_sig.make_activation(func)
 
 class FastFuncNotSupported(Exception):
     pass
@@ -450,6 +386,8 @@ class BuiltinCode(eval.Code):
 
     # When a BuiltinCode is stored in a Function object,
     # you get the functionality of CPython's built-in function type.
+
+    NOT_RPYTHON_ATTRIBUTES = ['_bltin', '_unwrap_spec']
 
     def __init__(self, func, unwrap_spec = None, self_type = None):
         "NOT_RPYTHON"
@@ -502,7 +440,9 @@ class BuiltinCode(eval.Code):
         else:
             self.maxargs = self.minargs
 
-        self.framefactory = make_builtin_frame_factory(func, orig_sig, unwrap_spec)
+        self.activation = make_builtin_activation(func, orig_sig, unwrap_spec)
+        self._bltin = func
+        self._unwrap_spec = unwrap_spec
 
         # speed hack
         if 0 <= len(unwrap_spec) <= 5:
@@ -519,9 +459,8 @@ class BuiltinCode(eval.Code):
                 self.__class__ = globals()['BuiltinCode%d' % arity]
                 setattr(self, 'fastfunc_%d' % arity, fastfunc)
 
-
     def create_frame(self, space, w_globals, closure=None):
-        return self.framefactory.create(space, self, w_globals)
+        raise NotImplementedError
 
     def signature(self):
         return self.sig
@@ -529,6 +468,23 @@ class BuiltinCode(eval.Code):
     def getdocstring(self):
         return self.docstring
 
+    def funcrun(self, func, args):
+        space = func.space
+        activation = self.activation
+        scope_w = args.parse(func.name, self.sig, func.defs_w)
+        try:
+            w_result = activation._run(space, scope_w)
+        except KeyboardInterrupt: 
+            raise OperationError(space.w_KeyboardInterrupt,
+                                 space.w_None) 
+        except MemoryError: 
+            raise OperationError(space.w_MemoryError, space.w_None) 
+        except RuntimeError, e: 
+            raise OperationError(space.w_RuntimeError, 
+                                 space.wrap("internal error: " + str(e))) 
+        if w_result is None:
+            w_result = space.w_None
+        return w_result
 
 # (verbose) performance hack below
 
