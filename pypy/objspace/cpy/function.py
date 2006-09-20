@@ -98,6 +98,10 @@ class FunctionCache(SpaceCache):
         factory = func.code.framefactory
         bltin = factory.behavior
         unwrap_spec = factory.unwrap_spec
+        from pypy.interpreter import pycode
+        argnames, varargname, kwargname = pycode.cpython_code_signature(
+            bltin.func_code)
+        orig_sig = Signature(bltin, argnames, varargname, kwargname)
 
         tramp = TrampolineSignature()
         tramp.miniglobals = {
@@ -107,15 +111,9 @@ class FunctionCache(SpaceCache):
             '___OperationError':  OperationError,
             '___reraise':         reraise,
             }
-
-        from pypy.interpreter import pycode
-        argnames, varargname, kwargname = pycode.cpython_code_signature(
-            bltin.func_code)
-        orig_sig = Signature(bltin, argnames, varargname, kwargname)
-
         orig_sig.apply_unwrap_spec(unwrap_spec,
-                                   UnwrapSpec_Trampoline().dispatch,
-                                   tramp)
+                                   UnwrapSpec_Trampoline(),
+                                   dest_sig = tramp)
 
         sourcelines = ['def trampoline(%s):' % (', '.join(tramp.inputargs),)]
         # this description is to aid viewing in graphviewer

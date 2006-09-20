@@ -47,11 +47,11 @@ class Signature:
     def signature(self):
         return self.argnames, self.varargname, self.kwargname
 
-    def apply_unwrap_spec(self, unwrap_spec, recipe, new_sig):
+    def apply_unwrap_spec(self, unwrap_spec, recipe, dest_sig):
         self._argiter = iter(self.argnames)
+        dispatch = recipe.dispatch
         for el in unwrap_spec:
-            recipe(el, self, new_sig)
-        return new_sig
+            dispatch(el, self, dest_sig)
 
 
 class UnwrapSpecRecipe:
@@ -399,8 +399,9 @@ class BuiltinCodeSignature(Signature):
 def make_builtin_frame_factory(func, orig_sig, unwrap_spec):
     "NOT_RPYTHON"
     name = (getattr(func, '__module__', None) or '')+'_'+func.__name__
-    emit_sig = orig_sig.apply_unwrap_spec(unwrap_spec, UnwrapSpec_Emit().dispatch,
-                                              BuiltinCodeSignature(name=name, unwrap_spec=unwrap_spec))
+    emit_sig = BuiltinCodeSignature(name=name, unwrap_spec=unwrap_spec)
+    orig_sig.apply_unwrap_spec(unwrap_spec, UnwrapSpec_Emit(),
+                               dest_sig = emit_sig)
     return emit_sig.make_frame_factory(func)
 
 class FastFuncNotSupported(Exception):
@@ -489,8 +490,9 @@ class BuiltinCode(eval.Code):
 
         orig_sig = Signature(func, argnames, varargname, kwargname)
 
-        app_sig = orig_sig.apply_unwrap_spec(unwrap_spec, UnwrapSpec_Check().dispatch,
-                                             Signature(func))
+        app_sig = Signature(func)
+        orig_sig.apply_unwrap_spec(unwrap_spec, UnwrapSpec_Check(),
+                                   dest_sig = app_sig)
 
         self.sig = argnames, varargname, kwargname = app_sig.signature()
 
