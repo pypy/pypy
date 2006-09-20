@@ -31,7 +31,8 @@ class AppTestRandom:
         rnd1.random()
         rnd2 = _random.Random()
         assert rnd1.getstate() != rnd2.getstate()
-        rnd1.setstate(rnd2.getstate())
+        state = rnd2.getstate()
+        rnd1.setstate(state)
         assert [rnd1.random() for i in range(100)] == [
                     rnd2.random() for i in range(100)]
 

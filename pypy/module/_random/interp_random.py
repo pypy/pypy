@@ -53,7 +53,7 @@ class W_Random(Wrappable):
     def getstate(self, space):
         state = [None] * (rpy_random.N + 1)
         for i in range(rpy_random.N):
-            state[i] = space.newint(int(self._rnd.state[i]))
+            state[i] = space.newlong(self._rnd.state[i])
         state[rpy_random.N] = space.newint(self._rnd.index)
         return space.newtuple(state)
     getstate.unwrap_spec = ['self', ObjSpace]
@@ -69,7 +69,7 @@ class W_Random(Wrappable):
             w_item = space.getitem(w_state, space.newint(i))
             self._rnd.state[i] = space.uint_w(w_item)
         w_item = space.getitem(w_state, space.newint(rpy_random.N))
-        self._rnd.index = space.uint_w(w_item)
+        self._rnd.index = space.int_w(w_item)
     setstate.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def jumpahead(self, n):
