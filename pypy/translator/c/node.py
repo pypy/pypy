@@ -460,6 +460,11 @@ class StructNode(ContainerNode):
         for name in self.T._names:
             data.append((name, getattr(self.obj, name)))
         
+        # You can only initialise the first field of a union in c
+        # XXX what if later fields have some initialisation?
+        if hasattr(self.T, "_hints") and self.T._hints.get('union'):
+            data = data[0:1]
+
         for name, value in data:
             if isinstance(value, _pyobjheader):   # hack
                 node = self.db.getcontainernode(value)
