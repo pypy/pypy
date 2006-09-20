@@ -247,7 +247,7 @@ class AppTestMMap:
         raises(TypeError, m.flush, 1, 2, 3)
         raises(TypeError, m.flush, 1, "a")
         raises(ValueError, m.flush, 0, 99)
-        assert m.flush() == 0
+        m.flush()    # return value is a bit meaningless, platform-dependent
         m.close()
         f.close()
 

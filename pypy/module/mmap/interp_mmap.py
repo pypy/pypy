@@ -181,7 +181,7 @@ elif _MS_WINDOWS:
         dwErr = GetLastError()
         if low.value == INVALID_FILE_SIZE and dwErr != NO_ERROR:
             raise OperationError(space.w_EnvironmentError,
-                                 space.wrap(_get_error_msg(dwErr)))
+                                 space.wrap(os.strerror(dwErr)))
         return low.value, high.value
 
     def _get_error_msg():
@@ -427,6 +427,8 @@ class W_MMap(Wrappable):
             start = self.getptr(offset)
             if _MS_WINDOWS:
                 res = FlushViewOfFile(start, size)
+                # XXX res == 0 means that an error occurred, but in CPython
+                # this is not checked
                 return self.space.wrap(res)
             elif _POSIX:
 ##                XXX why is this code here?  There is no equivalent in CPython
