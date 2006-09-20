@@ -2,13 +2,14 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped, interp2app
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.rpython.rarithmetic import r_uint
+from pypy.rpython.rarithmetic import r_uint, intmask
 from pypy.module._random import rpy_random
 
 import time
 
 def descr_new__(space, w_subtype, w_anything=None):
     x = space.allocate_instance(W_Random, w_subtype)
+    x = space.interp_w(W_Random, x)
     W_Random.__init__(x, space, w_anything)
     return space.wrap(x)
 
@@ -34,9 +35,9 @@ class W_Random(Wrappable):
                 # XXX not perfectly like CPython
                 w_n = space.abs(space.hash(w_n))
         key = []
-        w_one = space.newlong(1)
-        w_two = space.newlong(2)
-        w_thirtytwo = space.newlong(32)
+        w_one = space.newint(1)
+        w_two = space.newint(2)
+        w_thirtytwo = space.newint(32)
         # 0xffffffff
         w_masklower = space.sub(space.pow(w_two, w_thirtytwo, space.w_None),
                                 w_one)
@@ -53,7 +54,7 @@ class W_Random(Wrappable):
     def getstate(self, space):
         state = [None] * (rpy_random.N + 1)
         for i in range(rpy_random.N):
-            state[i] = space.newlong(int(self._rnd.state[i]))
+            state[i] = space.newint(intmask(self._rnd.state[i]))
         state[rpy_random.N] = space.newint(self._rnd.index)
         return space.newtuple(state)
     getstate.unwrap_spec = ['self', ObjSpace]
@@ -99,12 +100,12 @@ class W_Random(Wrappable):
             k -= 32
 
         # XXX so far this is quadratic
-        w_result = space.newlong(0)
-        w_eight = space.newlong(8)
+        w_result = space.newint(0)
+        w_eight = space.newint(8)
         for i in range(len(bytesarray) - 1, -1, -1):
             byte = bytesarray[i]
             w_result = space.or_(space.lshift(w_result, w_eight),
-                                 space.newlong(int(byte)))
+                                 space.newint(intmask(byte)))
         return w_result
     getrandbits.unwrap_spec = ['self', ObjSpace, int]
 
