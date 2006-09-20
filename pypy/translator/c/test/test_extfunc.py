@@ -496,13 +496,20 @@ def test_os_chmod():
     tmpfile = str(udir.join('test_os_chmod.txt'))
     f = open(tmpfile, 'w')
     f.close()
+    # use a witness for the permissions we should expect -
+    # on Windows it is not possible to change all the bits with chmod()
+    tmpfile2 = str(udir.join('test_os_chmod_witness.txt'))
+    f = open(tmpfile2, 'w')
+    f.close()
     def does_stuff(mode):
         os.chmod(tmpfile, mode)
     f1 = compile(does_stuff, [int])
     f1(0000)
-    assert os.stat(tmpfile).st_mode & 0777 == 0000
+    os.chmod(tmpfile2, 0000)
+    assert os.stat(tmpfile).st_mode & 0777 == os.stat(tmpfile2).st_mode & 0777
     f1(0644)
-    assert os.stat(tmpfile).st_mode & 0777 == 0644
+    os.chmod(tmpfile2, 0644)
+    assert os.stat(tmpfile).st_mode & 0777 == os.stat(tmpfile2).st_mode & 0777
 
 def test_os_rename():
     tmpfile1 = str(udir.join('test_os_rename_1.txt'))
