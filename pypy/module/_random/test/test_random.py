@@ -36,6 +36,13 @@ class AppTestRandom:
         assert [rnd1.random() for i in range(100)] == [
                     rnd2.random() for i in range(100)]
 
+    def test_setstate_negative(self):
+        # XXX does only make sense on a 32 bit platform
+        import _random
+        rnd1 = _random.Random()
+        # does not crash
+        rnd1.setstate((-1, ) * 624 + (0, ))
+
     def test_seed(self):
         import _random
         rnd = _random.Random()
@@ -69,6 +76,6 @@ class AppTestRandom:
         import math
         import _random
         rnd = _random.Random()
-        for n in range(10, 200, 10):
-            n = rnd.getrandbits(n)
-            assert int(math.log(n) / math.log(2)) <= n
+        for n in range(1, 10) + range(10, 1000, 15):
+            k = rnd.getrandbits(n)
+            assert 0 <= k < 2 ** n

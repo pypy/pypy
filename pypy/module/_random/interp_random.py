@@ -7,7 +7,7 @@ from pypy.module._random import rpy_random
 
 import time
 
-def descr_new__(space, w_subtype, w_anything=NoneNotWrapped):
+def descr_new__(space, w_subtype, w_anything=None):
     x = space.allocate_instance(W_Random, w_subtype)
     W_Random.__init__(x, space, w_anything)
     return space.wrap(x)
@@ -22,7 +22,7 @@ class W_Random(Wrappable):
         return space.newfloat(self._rnd.random())
     random.unwrap_spec = ['self', ObjSpace]
 
-    def seed(self, space, w_n=NoneNotWrapped):
+    def seed(self, space, w_n=None):
         if w_n is None:
             w_n = space.newint(int(time.time()))
         else:
@@ -53,7 +53,7 @@ class W_Random(Wrappable):
     def getstate(self, space):
         state = [None] * (rpy_random.N + 1)
         for i in range(rpy_random.N):
-            state[i] = space.newlong(self._rnd.state[i])
+            state[i] = space.newlong(int(self._rnd.state[i]))
         state[rpy_random.N] = space.newint(self._rnd.index)
         return space.newtuple(state)
     getstate.unwrap_spec = ['self', ObjSpace]
@@ -65,8 +65,14 @@ class W_Random(Wrappable):
         if space.int_w(space.len(w_state)) != rpy_random.N + 1:
             errstring = space.wrap("state vector is the wrong size")
             raise OperationError(space.w_TypeError, errstring)
+        w_zero = space.newint(0)
+        # independent of platfrom, since the below condition is only
+        # true on 32 bit platforms anyway
+        w_add = space.pow(space.newint(2), space.newint(32), space.w_None)
         for i in range(rpy_random.N):
             w_item = space.getitem(w_state, space.newint(i))
+            if space.is_true(space.lt(w_item, w_zero)):
+                w_item = space.add(w_item, w_add)
             self._rnd.state[i] = space.uint_w(w_item)
         w_item = space.getitem(w_state, space.newint(rpy_random.N))
         self._rnd.index = space.int_w(w_item)
@@ -83,21 +89,23 @@ class W_Random(Wrappable):
         bytes = ((k - 1) // 32 + 1) * 4
         bytesarray = [0] * bytes
         for i in range(0, bytes, 4):
-            k -= 32
             r = self._rnd.genrand32()
-            if k < 0:
-                k >>= (32 - k)
+            if k < 32:
+                r >>= (32 - k)
             bytesarray[i + 0] = r & r_uint(0xff)
             bytesarray[i + 1] = (r >> 8) & r_uint(0xff)
             bytesarray[i + 2] = (r >> 16) & r_uint(0xff)
             bytesarray[i + 3] = (r >> 24) & r_uint(0xff)
+            k -= 32
+        print bytesarray
 
         # XXX so far this is quadratic
         w_result = space.newlong(0)
         w_eight = space.newlong(8)
-        for byte in bytesarray:
-            w_result = space.lshift(
-                    space.or_(w_result, space.newlong(int(byte))), w_eight)
+        for i in range(len(bytesarray) - 1, -1, -1):
+            byte = bytesarray[i]
+            w_result = space.or_(space.lshift(w_result, w_eight),
+                                 space.newlong(int(byte)))
         return w_result
     getrandbits.unwrap_spec = ['self', ObjSpace, int]
 
