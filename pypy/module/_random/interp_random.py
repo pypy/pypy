@@ -97,7 +97,6 @@ class W_Random(Wrappable):
             bytesarray[i + 2] = (r >> 16) & r_uint(0xff)
             bytesarray[i + 3] = (r >> 24) & r_uint(0xff)
             k -= 32
-        print bytesarray
 
         # XXX so far this is quadratic
         w_result = space.newlong(0)
