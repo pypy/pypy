@@ -38,53 +38,43 @@ def checkoutput(space, expected_output,f,*args):
     capturefile.close() 
     assert capturefn.read(mode='rU') == expected_output
 
-testfn = 'tmp_hello_world.py'
+testfn = udir.join('tmp_hello_world.py')
 testmodule = 'tmp_hello_module'
 testpackage = 'tmp_package'
 
 class TestMain: 
     def setup_class(cls):
-        ofile = open(testfn, 'w')
-        ofile.write(testcode)
-        ofile.close()
-        omodulefile = open(testmodule + '.py', 'w')
-        omodulefile.write(testmodulecode)
-        omodulefile.close()
-        import os
-        os.mkdir(testpackage)
-        open(os.path.join(testpackage, '__init__.py'), 'w').close()
-        file_name = os.path.join(testpackage, testmodule) + '.py'
-        omodulefile = open(file_name,'w')
-        omodulefile.write(testmodulecode)
-        omodulefile.close()
-        
+        testfn.write(testcode, 'w')
+        udir.join(testmodule + '.py').write(testmodulecode, 'w')
+        udir.ensure(testpackage, '__init__.py')
+        udir.join(testpackage, testmodule + '.py').write(testmodulecode, 'w')
+        space = cls.space
+        cls.w_oldsyspath = space.appexec([space.wrap(str(udir))], """(udir):
+            import sys
+            old = sys.path[:]
+            sys.path.insert(0, udir)
+            return old
+        """)
 
     def teardown_class(cls):
-        import os
-        def remove_if_exists(fn):
-            if os.path.exists(fn):
-                os.remove(fn)
-        remove_if_exists(testfn)
-        remove_if_exists(testmodule + '.py')
-        remove_if_exists(os.path.join(testpackage, '__init__.py'))
-        remove_if_exists(os.path.join(testpackage, '__init__.pyc'))
-        remove_if_exists(os.path.join(testpackage, testmodule) + '.py')
-        os.rmdir(testpackage) 
-                  
+        cls.space.appexec([cls.w_oldsyspath], """(old):
+            import sys
+            sys.path[:] = old
+        """)
 
     def test_run_file(self):
-        checkoutput(self.space, testresultoutput,main.run_file,testfn)
+        checkoutput(self.space, testresultoutput, main.run_file, str(testfn))
 
     def test_run_string(self):
         checkoutput(self.space, testresultoutput,
-                                 main.run_string,testcode,testfn)
+                                main.run_string, testcode, str(testfn))
 
     def test_eval_string(self):
         w_x = main.eval_string('2+2', space=self.space)
         assert self.space.eq_w(w_x, self.space.wrap(4))
 
     def test_run_module(self):
-         checkoutput(self.space, testresultoutput, main.run_module,
-                     testmodule, ['hello world'])
-         checkoutput(self.space, testresultoutput, main.run_module,
-                     testpackage + '.' + testmodule, ['hello world'])
+        checkoutput(self.space, testresultoutput, main.run_module,
+                    testmodule, ['hello world'])
+        checkoutput(self.space, testresultoutput, main.run_module,
+                    testpackage + '.' + testmodule, ['hello world'])
