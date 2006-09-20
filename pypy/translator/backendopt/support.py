@@ -146,17 +146,20 @@ def find_backedges(graph, block=None, seen=None, seeing=None):
 
 def compute_reachability(graph):
     reachable = {}
-    for block in graph.iterblocks():
+    blocks = list(graph.iterblocks())
+    for block in reversed(blocks): # this order should make the reuse path more likely
         reach = {}
         scheduled = [block]
         while scheduled:
             current = scheduled.pop()
             for link in current.exits:
                 if link.target in reachable:
+                    reach[link.target] = True
                     reach = setunion(reach, reachable[link.target])
                     continue
                 if link.target not in reach:
                     reach[link.target] = True
+                    scheduled.append(link.target)
         reachable[block] = reach
     return reachable
 

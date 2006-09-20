@@ -2,7 +2,7 @@ from pypy.translator.unsimplify import varoftype
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.backendopt.support import \
      needs_conservative_livevar_calculation, split_block_with_keepalive, \
-     find_loop_blocks, find_backedges
+     find_loop_blocks, find_backedges, compute_reachability
 
 from pypy.rpython.rtyper import LowLevelOpList
 from pypy.rpython.lltypesystem import lltype
@@ -89,6 +89,27 @@ def test_sbwk_should_insert_keepalives_2():
     link = split_block_with_keepalive(block, 1)
     assert 'keepalive' in [op.opname for op in link.target.operations]
 
+#__________________________________________________________
+# test compute_reachability
+
+def test_simple_compute_reachability():
+    def f(x):
+        if x < 0:
+            if x == -1:
+                return x+1
+            else:
+                return x+2
+        else:
+            if x == 1:
+                return x-1
+            else:
+                return x-2
+    t = TranslationContext()
+    g = t.buildflowgraph(f)
+    reach = compute_reachability(g)
+    assert len(reach[g.startblock]) == 7
+    assert len(reach[g.startblock.exits[0].target]) == 3
+    assert len(reach[g.startblock.exits[1].target]) == 3
 #__________________________________________________________
 # test loop detection
 
