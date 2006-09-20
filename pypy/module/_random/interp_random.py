@@ -64,7 +64,7 @@ class W_Random(Wrappable):
             raise OperationError(space.w_TypeError, errstring)
         if space.int_w(space.len(w_state)) != rpy_random.N + 1:
             errstring = space.wrap("state vector is the wrong size")
-            raise OperationError(space.w_TypeError, errstring)
+            raise OperationError(space.w_ValueError, errstring)
         w_zero = space.newint(0)
         # independent of platfrom, since the below condition is only
         # true on 32 bit platforms anyway
