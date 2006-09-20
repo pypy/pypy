@@ -35,3 +35,14 @@ def test_jumpahead():
     rnd.jumpahead(100)
     cpyrandom.jumpahead(100)
     assert tuple(rnd.state) + (rnd.index, ) == cpyrandom.getstate()
+
+def test_translate():
+    from pypy.translator.interactive import Translation
+    def f(x, y):
+        rnd = Random(x)
+        rnd.init_by_array([x, y])
+        rnd.jumpahead(y)
+        return rnd.genrand32(), rnd.random()
+    t = Translation(f)
+    fc = t.compile_c([int, int])
+    assert fc(1, 2) == f(1, 2)

@@ -11,6 +11,14 @@ M = 397
 MATRIX_A = r_uint(0x9908b0df) # constant vector a
 UPPER_MASK  = r_uint(0x80000000) # most significant w-r bits
 LOWER_MASK = r_uint(0x7fffffff) # least significant r bits
+MASK_32 = r_uint(0xffffffff)
+TEMPERING_MASK_A = r_uint(0x9d2c5680)
+TEMPERING_MASK_B = r_uint(0xefc60000)
+MAGIC_CONSTANT_A = r_uint(1812433253)
+MAGIC_CONSTANT_B = r_uint(19650218)
+MAGIC_CONSTANT_C = r_uint(1664525)
+MAGIC_CONSTANT_D = r_uint(1566083941)
+
 
 class Random(object):
     def __init__(self, seed=r_uint(0)):
@@ -21,21 +29,21 @@ class Random(object):
 
     def init_genrand(self, s):
         mt = self.state
-        mt[0]= s & r_uint(0xffffffff)
+        mt[0]= s & MASK_32
         for mti in range(1, N):
-            mt[mti] = (r_uint(1812433253) *
+            mt[mti] = (MAGIC_CONSTANT_A *
                            (mt[mti - 1] ^ (mt[mti - 1] >> 30)) + mti)
             # See Knuth TAOCP Vol2. 3rd Ed. P.106 for multiplier.
             # In the previous versions, MSBs of the seed affect
             # only MSBs of the array mt[].
             # for >32 bit machines 
-            mt[mti] &= r_uint(0xffffffff)
-        self.index = mti + 1
+            mt[mti] &= MASK_32
+        self.index = N
 
     def init_by_array(self, init_key):
         key_length = len(init_key)
         mt = self.state
-        self.init_genrand(r_uint(19650218))
+        self.init_genrand(MAGIC_CONSTANT_B)
         i = 1
         j = 0
         if N > key_length:
@@ -44,9 +52,9 @@ class Random(object):
             max_k = key_length
         for k in range(max_k, 0, -1):
             mt[i] = ((mt[i] ^
-                         ((mt[i - 1] ^ (mt[i - 1] >> 30)) * r_uint(1664525)))
+                         ((mt[i - 1] ^ (mt[i - 1] >> 30)) * MAGIC_CONSTANT_C))
                      + init_key[j] + j) # non linear
-            mt[i] &= r_uint(0xffffffff) # for WORDSIZE > 32 machines
+            mt[i] &= MASK_32 # for WORDSIZE > 32 machines
             i += 1
             j += 1
             if i >= N:
@@ -56,14 +64,14 @@ class Random(object):
                 j = 0
         for k in range(N - 1, 0, -1):
             mt[i] = ((mt[i] ^
-                        ((mt[i - 1] ^ (mt[i - 1] >> 30)) * r_uint(1566083941)))
+                        ((mt[i - 1] ^ (mt[i - 1] >> 30)) * MAGIC_CONSTANT_D))
                      - i) # non linear
-            mt[i] &= r_uint(0xffffffff) # for WORDSIZE > 32 machines
+            mt[i] &= MASK_32 # for WORDSIZE > 32 machines
             i += 1
             if (i>=N):
                 mt[0] = mt[N - 1]
                 i = 1
-        mt[0] = r_uint(0x80000000)
+        mt[0] = UPPER_MASK
 
     def genrand32(self):
         mag01 = [0, MATRIX_A]
@@ -81,8 +89,8 @@ class Random(object):
         y = mt[self.index]
         self.index += 1
         y ^= y >> 11
-        y ^= (y << 7) & r_uint(0x9d2c5680)
-        y ^= (y << 15) & r_uint(0xefc60000)
+        y ^= (y << 7) & TEMPERING_MASK_A
+        y ^= (y << 15) & TEMPERING_MASK_B
         y ^= (y >> 18)
         return y
 
