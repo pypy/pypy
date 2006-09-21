@@ -1379,6 +1379,28 @@ class BaseTestRPBC(BaseRtypingTest):
         res = self.interpret(f, [])
         assert res == 12
 
+    def test_exception_with_non_empty_baseclass(self):
+        class BE(Exception):
+            pass
+        class E1(BE):
+            pass
+        class E2(BE):
+            pass
+        def f(x):
+            if x:
+                e = E1()
+            else:
+                e = E2()
+            witness = E1()
+            witness.x = 42
+            e.x = 3
+            return witness.x
+
+        res = self.interpret(f, [0])
+        assert res == 42
+        res = self.interpret(f, [1])
+        assert res == 42
+
 
 # We don't care about the following test_hlinvoke tests working on
 # ootype. Maybe later. This kind of thing is only used in rdict

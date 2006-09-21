@@ -670,7 +670,7 @@ class AbstractClassesPBCRepr(Repr):
 
             if (isinstance(s_init, annmodel.SomeImpossibleValue) and 
                 classdef.classdesc.is_exception_class() and
-                not classdef.attrs):
+                classdef.has_no_attrs()):
                 # special case for instanciating simple built-in
                 # exceptions: always return the same prebuilt instance,
                 # and ignore any arguments passed to the contructor.

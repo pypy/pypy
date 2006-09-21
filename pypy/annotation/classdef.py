@@ -208,6 +208,12 @@ class ClassDef:
     def __repr__(self):
         return "<ClassDef '%s'>" % (self.name,)
 
+    def has_no_attrs(self):
+        for clsdef in self.getmro():
+            if clsdef.attrs:
+                return False
+        return True
+
     def commonbase(self, other):
         other1 = other
         while other is not None and not self.issubclass(other):
