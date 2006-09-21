@@ -257,8 +257,12 @@ class Struct(ContainerType):
     _str_fields = saferecursive(_str_fields, '...')
 
     def __str__(self):
-        return "%s %s { %s }" % (self.__class__.__name__,
-                                 self._name, self._str_fields())
+        # -- long version --
+        #return "%s %s { %s }" % (self.__class__.__name__,
+        #                         self._name, self._str_fields())
+        # -- short version --
+        return "%s %s { %s }" % (self.__class__.__name__, self._name,
+                                 ', '.join(self._names))
 
     def _short_name(self):
         return "%s %s" % (self.__class__.__name__, self._name)
