@@ -87,6 +87,8 @@ class W_Root(object):
 class Wrappable(W_Root):
     """A subclass of Wrappable is an internal, interpreter-level class
     that can nevertheless be exposed at application-level by space.wrap()."""
+    __slots__ = ()
+
     def __spacebind__(self, space):
         return self
 
