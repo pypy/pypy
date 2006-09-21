@@ -210,6 +210,7 @@ def entry_point(executable, argv):
                 sys.path.insert(0, scriptdir)
                 run_toplevel(execfile, sys.argv[0], mainmodule.__dict__)
         else: 
+            sys.argv.append('')
             go_interactive = True
         if go_interactive:
             print >> sys.stderr, "debug: importing code" 
