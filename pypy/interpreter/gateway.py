@@ -97,7 +97,6 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
     def __init__(self, original_sig):
         self.func = original_sig.func
         self.orig_arg = iter(original_sig.argnames).next
-        self._varargname = original_sig.varargname # XXX
 
     def visit_function(self, (func, cls), app_sig):
         self.dispatch(cls, app_sig)
