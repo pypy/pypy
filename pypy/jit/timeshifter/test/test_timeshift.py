@@ -911,3 +911,25 @@ class TestTimeshift(TimeshiftingTests):
         res = self.timeshift(ll_function, [-70], [])
         assert res == 23
         self.check_insns({'int_gt': 1})
+
+
+    def test_recursive_call(self):
+        def ll_pseudo_factorial(n, fudge):
+            k = hint(n, concrete=True)
+            if n <= 0:
+                return 1
+            return n * ll_pseudo_factorial(n - 1, fudge + n) - fudge
+        res = self.timeshift(ll_pseudo_factorial, [4, 2], [0])
+        expected = ll_pseudo_factorial(4, 2)
+        assert res == expected
+        
+    def test_recursive_with_red_termination_condition(self):
+        py.test.skip('Does not terminate')
+        def ll_factorial(n):
+            if n <= 0:
+                return 1
+            return n * ll_factorial(n - 1)
+
+        res = self.timeshift(ll_factorial, [5], [])
+        assert res == 120
+        
