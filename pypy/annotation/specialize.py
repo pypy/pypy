@@ -373,8 +373,8 @@ def cartesian_product(lstlst):
 ##    return funcdesc.cachedgraph(s1_type, alt_name='memo_%s' % funcdesc.name, 
 ##                                         builder=builder)
 
-def specialize_argvalue(funcdesc, args_s, i):
-    key = args_s[i].const
+def specialize_argvalue(funcdesc, args_s, *argindices):
+    key = tuple([args_s[i].const for i in argindices])
     return funcdesc.cachedgraph(key)
 
 def specialize_argtype(funcdesc, args_s, i):
