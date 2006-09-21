@@ -110,8 +110,11 @@ class HintBookkeeper(object):
         return origin
 
     def compute_at_fixpoint(self):
+        pass
+
+    def compute_after_normalization(self):
         # compute and cache the green-ness of OriginFlags objects
-        # while we can do so (i.e. before the graphs are modified)
+        # while we can do so (i.e. before the graphs are modified).
         for origin in self.originflags.values():
             if origin.spaceop is not None:
                 origin.greenargs_cached = origin.greenargs()

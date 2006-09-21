@@ -485,7 +485,7 @@ def leave_graph_red(jitstate):
     jitstate.frame = myframe.backframe
     return jitstate
 
-def leave_graph_void(jitstate):
+def leave_graph_gray(jitstate):
     jitstate = merge_returning_jitstates(jitstate)
     myframe = jitstate.frame
     jitstate.frame = myframe.backframe

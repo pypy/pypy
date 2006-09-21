@@ -142,20 +142,20 @@ class HintRTyper(RPythonTyper):
         Driver for running the timeshifter.
         """
         self.type_system.perform_normalizations(self)
-        graphs = self.annotator.translator.graphs
+        self.annotator.bookkeeper.compute_after_normalization()
+        entrygraph = self.annotator.translator.graphs[0]
+        pending = [entrygraph]
+        seen = {entrygraph: True}
+        while pending:
+            graph = pending.pop()
+            for nextgraph in self.transform_graph(graph):
+                if nextgraph not in seen:
+                    pending.append(nextgraph)
+                    seen[nextgraph] = True
         if view:
-            for graph in graphs:
-                self.transform_graph(graph)
             self.annotator.translator.view()     # in the middle
-            for graph in graphs:
-                self.timeshift_graph(graph)
-
-        else:
-            # do the whole transformation graph-by-graph if there is no
-            # need to view the intermediate result
-            for graph in graphs:
-                self.transform_graph(graph)
-                self.timeshift_graph(graph)
+        for graph in seen:
+            self.timeshift_graph(graph)
 
     def transform_graph(self, graph):
         # prepare the graphs by inserting all bookkeeping/dispatching logic
@@ -164,6 +164,7 @@ class HintRTyper(RPythonTyper):
         transformer = HintGraphTransformer(self.annotator, graph)
         transformer.transform()
         flowmodel.checkgraph(graph)    # for now
+        return transformer.tsgraphs_seen
 
     def timeshift_graph(self, graph):
         # specialize all blocks of this graph
@@ -232,66 +233,69 @@ class HintRTyper(RPythonTyper):
             self.dispatchsubclasses[mergepointfamily] = subclass
             return subclass
 
-    def get_timeshifted_fnptr(self, graph, specialization_key):
-        bk = self.annotator.bookkeeper
-        tsgraph = bk.get_graph_by_key(graph, specialization_key)
+    def get_args_r(self, tsgraph):
         args_hs, hs_res = self.get_sig_hs(tsgraph)
-        args_r = [self.getrepr(hs_arg) for hs_arg in args_hs]
+        return [self.getrepr(hs_arg) for hs_arg in args_hs]
+
+    def gettscallable(self, tsgraph):
+        args_r = self.get_args_r(tsgraph)
         ARGS = [self.r_JITState.lowleveltype]
         ARGS += [r.lowleveltype for r in args_r]
         RESULT = self.r_JITState.lowleveltype
-        fnptr = lltype.functionptr(lltype.FuncType(ARGS, RESULT),
-                                   tsgraph.name,
-                                   graph=tsgraph,
-                                   _callable = graph.func)
-        return fnptr, args_r
+        return lltype.functionptr(lltype.FuncType(ARGS, RESULT),
+                                  tsgraph.name,
+                                  graph=tsgraph)
 
-    def get_timeshift_mapper(self, FUNC, specialization_key, graphs):
-        key = FUNC, specialization_key
+    def get_timeshift_mapper(self, graph2ts):
+        # XXX try to share the results between "similar enough" graph2ts'es
+        key = graph2ts.items()
+        key.sort()
+        key = tuple(key)
         try:
-            timeshift_mapper, values, keys = self.timeshift_mapping[key]
+            return self.timeshift_mapping[key]
         except KeyError:
-            values = []
-            keys = []
-            fnptrmap = {}
-
-            def getter(fnptrmap, fnptr):
-                # indirection needed to defeat the flow object space
-                return fnptrmap[llmemory.cast_ptr_to_adr(fnptr)]
-
-            def fill_dict(fnptrmap, values, keys):
-                for i in range(len(values)):
-                    fnptrmap[llmemory.cast_ptr_to_adr(keys[i])] = values[i]
-
-            def timeshift_mapper(fnptr):
-                try:
-                    return getter(fnptrmap, fnptr)
-                except KeyError:
-                    fill_dict(fnptrmap, values, keys)
-                    return getter(fnptrmap, fnptr)   # try again
-
-            self.timeshift_mapping[key] = timeshift_mapper, values, keys
+            pass
 
         bk = self.annotator.bookkeeper
+        keys = []
+        values = []
         common_args_r = None
         COMMON_TS_FUNC = None
-        tsgraphs = []
-        for graph in graphs:
-            fnptr = self.rtyper.getcallable(graph)
-            ts_fnptr, args_r = self.get_timeshifted_fnptr(graph,
-                                                          specialization_key)
-            tsgraphs.append(ts_fnptr._obj.graph)
-            TS_FUNC = lltype.typeOf(ts_fnptr)
+        for graph, tsgraph in graph2ts.items():
+            fnptr    = self.rtyper.getcallable(graph)
+            ts_fnptr = self.gettscallable(tsgraph)
+            args_r   = self.get_args_r(tsgraph)
+            TS_FUNC  = lltype.typeOf(ts_fnptr)
             if common_args_r is None:
                 common_args_r = args_r
                 COMMON_TS_FUNC = TS_FUNC
             else:
-                # XXX for now
+                # should be ensured by normalization
                 assert COMMON_TS_FUNC == TS_FUNC
                 assert common_args_r == args_r
             keys.append(fnptr)
             values.append(ts_fnptr)
-        return timeshift_mapper, COMMON_TS_FUNC, common_args_r, tsgraphs
+
+        fnptrmap = {}
+
+        def getter(fnptrmap, fnptr):
+            # indirection needed to defeat the flow object space
+            return fnptrmap[llmemory.cast_ptr_to_adr(fnptr)]
+
+        def fill_dict(fnptrmap, values, keys):
+            for i in range(len(values)):
+                fnptrmap[llmemory.cast_ptr_to_adr(keys[i])] = values[i]
+
+        def timeshift_mapper(fnptr):
+            try:
+                return getter(fnptrmap, fnptr)
+            except KeyError:
+                fill_dict(fnptrmap, values, keys)
+                return getter(fnptrmap, fnptr)   # try again
+
+        result = timeshift_mapper, COMMON_TS_FUNC, common_args_r
+        self.timeshift_mapping[key] = result
+        return result
 
     def insert_v_jitstate_everywhere(self, graph):
         from pypy.translator.unsimplify import varoftype
@@ -589,9 +593,9 @@ class HintRTyper(RPythonTyper):
                                                   self.s_JITState)
         hop.llops.setjitstate(v_newjs)
 
-    def translate_op_leave_graph_void(self, hop):
+    def translate_op_leave_graph_gray(self, hop):
         v_jitstate = hop.llops.getjitstate()
-        v_newjs = hop.llops.genmixlevelhelpercall(rtimeshift.leave_graph_void,
+        v_newjs = hop.llops.genmixlevelhelpercall(rtimeshift.leave_graph_gray,
                                                   [self.s_JITState],
                                                   [v_jitstate     ],
                                                   self.s_JITState)
@@ -840,48 +844,39 @@ class HintRTyper(RPythonTyper):
     def translate_op_red_call(self, hop):
         bk = self.annotator.bookkeeper
         v_jitstate = hop.llops.getjitstate()
-        c_func = hop.args_v[0]
-        fnobj = c_func.value._obj
+        tsgraph = hop.args_v[0].value
         hop.r_s_popfirstarg()
-        args_hs = hop.args_s[:]
-        # fixed is always false here
-        specialization_key = bk.specialization_key(False, args_hs)
-        fnptr, args_r = self.get_timeshifted_fnptr(fnobj.graph,
-                                                   specialization_key)
-        args_v = hop.inputargs(*args_r)
+        args_v = hop.inputargs(*self.get_args_r(tsgraph))
+        fnptr = self.gettscallable(tsgraph)
         args_v[:0] = [hop.llops.genconst(fnptr), v_jitstate]
         RESULT = lltype.typeOf(fnptr).TO.RESULT
         v_newjitstate = hop.genop('direct_call', args_v, RESULT)
         hop.llops.setjitstate(v_newjitstate)
 
-    translate_op_yellow_call = translate_op_red_call
-
-    def translate_op_red_indirect_call(self, hop):
+    def translate_op_indirect_red_call(self, hop):
         bk = self.annotator.bookkeeper
         v_jitstate = hop.llops.getjitstate()
-
         FUNC = originalconcretetype(hop.args_s[0])
         v_func = hop.inputarg(self.getgreenrepr(FUNC), arg=0)
-        graph_list = hop.args_v[-1].value
+        graph2ts = hop.args_v[-1].value
         hop.r_s_pop(0)
         hop.r_s_pop()
-        args_hs = hop.args_s[:]
-        # fixed is always false here
-        specialization_key = bk.specialization_key(False, args_hs)
-
-        mapper, TS_FUNC, args_r, tsgraphs = self.get_timeshift_mapper(
-            FUNC, specialization_key, graph_list)
-        args_v = hop.inputargs(*args_r)
-
+        mapper, TS_FUNC, args_r = self.get_timeshift_mapper(graph2ts)
         v_tsfunc = hop.llops.genmixlevelhelpercall(mapper,
                                                    [annmodel.SomePtr(FUNC)],
                                                    [v_func                ],
                                                    annmodel.SomePtr(TS_FUNC))
-        args_v[:0] = [v_tsfunc, v_jitstate]
+        args_v = [v_tsfunc, v_jitstate] + hop.inputargs(*args_r)
         RESULT = v_tsfunc.concretetype.TO.RESULT
-        args_v.append(hop.inputconst(lltype.Void, tsgraphs))
+        args_v.append(hop.inputconst(lltype.Void, graph2ts.values()))
         v_newjitstate = hop.genop('indirect_call', args_v, RESULT)
         hop.llops.setjitstate(v_newjitstate)
+
+    translate_op_gray_call            = translate_op_red_call
+    translate_op_indirect_gray_call   = translate_op_indirect_red_call
+
+    translate_op_yellow_call          = translate_op_red_call
+    translate_op_indirect_yellow_call = translate_op_indirect_red_call
 
 
 class HintLowLevelOpList(LowLevelOpList):
