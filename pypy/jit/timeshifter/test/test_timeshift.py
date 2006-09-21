@@ -950,3 +950,25 @@ class TestTimeshift(TimeshiftingTests):
         res = self.timeshift(f, [False, 40], [0])
         assert res == 42
         self.check_insns({'int_add': 1})
+
+    def test_normalize_indirect_call(self):
+        def g1(v):
+            return -17
+
+        def g2(v):
+            return v + 2
+
+        def f(flag, v):
+            if hint(flag, concrete=True):
+                g = g1
+            else:
+                g = g2
+            return g(v)
+
+        res = self.timeshift(f, [False, 40], [0])
+        assert res == 42
+        self.check_insns({'int_add': 1})
+
+        res = self.timeshift(f, [True, 40], [0])
+        assert res == -17
+        self.check_insns()

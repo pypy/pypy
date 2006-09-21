@@ -141,6 +141,7 @@ class HintRTyper(RPythonTyper):
         """
         Driver for running the timeshifter.
         """
+        self.type_system.perform_normalizations(self)
         graphs = self.annotator.translator.graphs
         if view:
             for graph in graphs:
