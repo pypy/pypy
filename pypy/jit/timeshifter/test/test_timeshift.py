@@ -934,7 +934,6 @@ class TestTimeshift(TimeshiftingTests):
         assert res == 120
         
     def test_simple_indirect_call(self):
-        py.test.skip('In-progress')
         def g1(v):
             return v * 2
 
@@ -950,3 +949,4 @@ class TestTimeshift(TimeshiftingTests):
 
         res = self.timeshift(f, [False, 40], [0])
         assert res == 42
+        self.check_insns({'int_add': 1})

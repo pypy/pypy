@@ -256,14 +256,13 @@ class HintRTyper(RPythonTyper):
 
             def getter(fnptrmap, fnptr):
                 # indirection needed to defeat the flow object space
-                return fnptrmap[fnptr]
+                return fnptrmap[llmemory.cast_ptr_to_adr(fnptr)]
 
             def fill_dict(fnptrmap, values, keys):
                 for i in range(len(values)):
-                    fnptrmap[values[i]] = keys[i]
+                    fnptrmap[llmemory.cast_ptr_to_adr(keys[i])] = values[i]
 
-            def timeshift_mapper(fnptrbox):
-                fnptr = rvalue.ll_getvalue(fnptrbox, FUNC)
+            def timeshift_mapper(fnptr):
                 try:
                     return getter(fnptrmap, fnptr)
                 except KeyError:
@@ -272,14 +271,14 @@ class HintRTyper(RPythonTyper):
 
             self.timeshift_mapping[key] = timeshift_mapper, values, keys
 
-        bk = self.hannotator.bookkeeper
+        bk = self.annotator.bookkeeper
         common_args_r = None
         COMMON_TS_FUNC = None
         tsgraphs = []
         for graph in graphs:
             fnptr = self.rtyper.getcallable(graph)
             ts_fnptr, args_r = self.get_timeshifted_fnptr(graph,
-                                   specialization_key)
+                                                          specialization_key)
             tsgraphs.append(ts_fnptr._obj.graph)
             TS_FUNC = lltype.typeOf(ts_fnptr)
             if common_args_r is None:
@@ -568,34 +567,6 @@ class HintRTyper(RPythonTyper):
         return self.translate_op_ptr_nonzero(hop, reverse=True)
 
 
-    def translate_op_indirect_call(self, hop):
-        XXX
-        bk = self.annotator.bookkeeper
-        ts = self
-        v_jitstate = hop.llops.getjitstate()
-        v_funcbox = hop.args_v[0]
-        graph_list = hop.args_v[-1].value
-        hop.r_s_pop(0)
-        hop.r_s_pop()
-        args_hs = hop.args_s[:]
-        # fixed is always false here
-        specialization_key = bk.specialization_key(False, args_hs)
-        FUNC = ts.originalconcretetype(v_funcbox)
-
-        mapper, TS_FUNC, args_r, tsgraphs = ts.get_timeshift_mapper(
-            FUNC, specialization_key, graph_list)
-        args_v = hop.inputargs(*args_r)
-
-        v_tsfunc = hop.llops.genmixlevelhelpercall(mapper,
-                                                   [ts.s_RedBox],
-                                                   [v_funcbox],
-                                                   annmodel.SomePtr(TS_FUNC))
-        args_v[:0] = [v_tsfunc, v_jitstate]
-        RESULT = v_tsfunc.concretetype.TO.RESULT
-        args_v.append(hop.inputconst(lltype.Void, tsgraphs))
-        v_newjitstate = hop.genop('indirect_call', args_v, RESULT)
-        hop.llops.setjitstate(v_newjitstate)
-
     # special operations inserted by the HintGraphTransformer
 
     def translate_op_enter_graph(self, hop):
@@ -867,7 +838,6 @@ class HintRTyper(RPythonTyper):
 
     def translate_op_red_call(self, hop):
         bk = self.annotator.bookkeeper
-        ts = self
         v_jitstate = hop.llops.getjitstate()
         c_func = hop.args_v[0]
         fnobj = c_func.value._obj
@@ -875,8 +845,8 @@ class HintRTyper(RPythonTyper):
         args_hs = hop.args_s[:]
         # fixed is always false here
         specialization_key = bk.specialization_key(False, args_hs)
-        fnptr, args_r = ts.get_timeshifted_fnptr(fnobj.graph,
-                                                 specialization_key)
+        fnptr, args_r = self.get_timeshifted_fnptr(fnobj.graph,
+                                                   specialization_key)
         args_v = hop.inputargs(*args_r)
         args_v[:0] = [hop.llops.genconst(fnptr), v_jitstate]
         RESULT = lltype.typeOf(fnptr).TO.RESULT
@@ -884,6 +854,33 @@ class HintRTyper(RPythonTyper):
         hop.llops.setjitstate(v_newjitstate)
 
     translate_op_yellow_call = translate_op_red_call
+
+    def translate_op_red_indirect_call(self, hop):
+        bk = self.annotator.bookkeeper
+        v_jitstate = hop.llops.getjitstate()
+
+        FUNC = originalconcretetype(hop.args_s[0])
+        v_func = hop.inputarg(self.getgreenrepr(FUNC), arg=0)
+        graph_list = hop.args_v[-1].value
+        hop.r_s_pop(0)
+        hop.r_s_pop()
+        args_hs = hop.args_s[:]
+        # fixed is always false here
+        specialization_key = bk.specialization_key(False, args_hs)
+
+        mapper, TS_FUNC, args_r, tsgraphs = self.get_timeshift_mapper(
+            FUNC, specialization_key, graph_list)
+        args_v = hop.inputargs(*args_r)
+
+        v_tsfunc = hop.llops.genmixlevelhelpercall(mapper,
+                                                   [annmodel.SomePtr(FUNC)],
+                                                   [v_func                ],
+                                                   annmodel.SomePtr(TS_FUNC))
+        args_v[:0] = [v_tsfunc, v_jitstate]
+        RESULT = v_tsfunc.concretetype.TO.RESULT
+        args_v.append(hop.inputconst(lltype.Void, tsgraphs))
+        v_newjitstate = hop.genop('indirect_call', args_v, RESULT)
+        hop.llops.setjitstate(v_newjitstate)
 
 
 class HintLowLevelOpList(LowLevelOpList):

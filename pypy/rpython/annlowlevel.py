@@ -253,8 +253,10 @@ class MixLevelHelperAnnotator:
         rtyper.type_system.perform_normalizations(rtyper)
         for r in self.delayedreprs:
             r.set_setup_delayed(False)
+        rtyper.call_all_setups()
         for p, repr, obj in self.delayedconsts:
             p._become(repr.convert_const(obj))
+        rtyper.call_all_setups()
         for p, graph in self.delayedfuncs:
             real_p = rtyper.getcallable(graph)
             lltype.typeOf(p).TO.become(lltype.typeOf(real_p).TO)

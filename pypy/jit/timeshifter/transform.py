@@ -331,9 +331,12 @@ class HintGraphTransformer(object):
             uses_retval = False
         reds, greens = self.sort_by_color(varsalive)
 
+        newopname = {'direct_call'  : 'red_call',
+                     'indirect_call': 'red_indirect_call'}[op.opname]
+
         newops = []
         self.genop(newops, 'save_locals', reds)
-        self.genop(newops, 'red_call', op.args)    # Void result,
+        self.genop(newops, newopname, op.args)    # Void result,
         # because the call doesn't return its redbox result, but only
         # has the hidden side-effect of putting it in the jitstate
         mapping = {}
