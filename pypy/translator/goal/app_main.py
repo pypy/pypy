@@ -212,7 +212,7 @@ def entry_point(executable, argv):
         else: 
             sys.argv.append('')
             go_interactive = True
-        if go_interactive:
+        if go_interactive or os.environ.get('PYTHONINSPECT'):
             print >> sys.stderr, "debug: importing code" 
             import code
             print >> sys.stderr, "debug: calling code.interact()"
