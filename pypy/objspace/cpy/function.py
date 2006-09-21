@@ -16,66 +16,63 @@ from pypy.tool.sourcetools import func_with_new_name
 
 class UnwrapSpec_Trampoline(UnwrapSpecRecipe):
 
-    def visit__ObjSpace(self, el, orig_sig, tramp):
-        argname = orig_sig.next_arg()
-        assert argname == 'space'
-        tramp.passedargs.append('___space')
-
-    def visit__W_Root(self, el, orig_sig, tramp):
-        argname = orig_sig.next_arg()
-        assert argname.startswith('w_')
-        basename = argname[2:]
-        tramp.inputargs.append(basename)
-        tramp.wrappings.append('%s = ___W_Object(%s)' % (argname, basename))
-        tramp.passedargs.append(argname)
-
-    def visit__Wrappable(self, el, orig_sig, tramp):
-        clsname = el.__name__     # XXX name clashes, but in gateway.py too
-        tramp.miniglobals[clsname] = el
-        argname = orig_sig.next_arg()
-        assert not argname.startswith('w_')
-        tramp.inputargs.append(argname)
-        tramp.wrappings.append('%s = ___space.interp_w(%s, ___W_Object(%s))'
-                               % (argname,
-                                  clsname,
-                                  argname))
-        tramp.passedargs.append(argname)
-
-    def visit__object(self, el, orig_sig, tramp):
-        convertermap = {int: 'int_w',
-                        str: 'str_w',
-                        float: 'float_w'}
-        argname = orig_sig.next_arg()
-        assert not argname.startswith('w_')
-        tramp.inputargs.append(argname)
-        tramp.wrappings.append('%s = ___space.%s(___W_Object(%s))' %
-                               (argname,
-                                convertermap[el],
-                                argname))
-        tramp.passedargs.append(argname)
-
-    def visit_args_w(self, el, orig_sig, tramp):
-        argname = orig_sig.next_arg()
-        assert argname.endswith('_w')
-        basename = argname[:-2]
-        tramp.inputargs.append('*' + basename)
-        tramp.wrappings.append('%s = []' % (argname,))
-        tramp.wrappings.append('for ___i in range(len(%s)):' % (basename,))
-        tramp.wrappings.append('    %s.append(___W_Object(%s[___i]))' % (
-            argname, basename))
-        tramp.passedargs.append(argname)
-        tramp.star_arg = True
-
-
-class TrampolineSignature(object):
-
-    def __init__(self):
+    def __init__(self, original_sig):
+        self.orig_arg = iter(original_sig.argnames).next
         self.inputargs = []
         self.wrappings = []
         self.passedargs = []
         self.miniglobals = {}
         self.star_arg = False
 
+    def visit__ObjSpace(self, el):
+        argname = self.orig_arg()
+        assert argname == 'space'
+        self.passedargs.append('___space')
+
+    def visit__W_Root(self, el):
+        argname = self.orig_arg()
+        assert argname.startswith('w_')
+        basename = argname[2:]
+        self.inputargs.append(basename)
+        self.wrappings.append('%s = ___W_Object(%s)' % (argname, basename))
+        self.passedargs.append(argname)
+
+    def visit__Wrappable(self, el):
+        clsname = el.__name__     # XXX name clashes, but in gateway.py too
+        self.miniglobals[clsname] = el
+        argname = self.orig_arg()
+        assert not argname.startswith('w_')
+        self.inputargs.append(argname)
+        self.wrappings.append('%s = ___space.interp_w(%s, ___W_Object(%s))'
+                               % (argname,
+                                  clsname,
+                                  argname))
+        self.passedargs.append(argname)
+
+    def visit__object(self, el):
+        convertermap = {int: 'int_w',
+                        str: 'str_w',
+                        float: 'float_w'}
+        argname = self.orig_arg()
+        assert not argname.startswith('w_')
+        self.inputargs.append(argname)
+        self.wrappings.append('%s = ___space.%s(___W_Object(%s))' %
+                               (argname,
+                                convertermap[el],
+                                argname))
+        self.passedargs.append(argname)
+
+    def visit_args_w(self, el):
+        argname = self.orig_arg()
+        assert argname.endswith('_w')
+        basename = argname[:-2]
+        self.inputargs.append('*' + basename)
+        self.wrappings.append('%s = []' % (argname,))
+        self.wrappings.append('for ___i in range(len(%s)):' % (basename,))
+        self.wrappings.append('    %s.append(___W_Object(%s[___i]))' % (
+            argname, basename))
+        self.passedargs.append(argname)
+        self.star_arg = True
 
 def reraise(e):
     w_type      = e.w_type
@@ -102,7 +99,7 @@ class FunctionCache(SpaceCache):
             bltin.func_code)
         orig_sig = Signature(bltin, argnames, varargname, kwargname)
 
-        tramp = TrampolineSignature()
+        tramp = UnwrapSpec_Trampoline(orig_sig)
         tramp.miniglobals = {
             '___space':           space,
             '___W_Object':        CPyObjSpace.W_Object,
@@ -110,9 +107,7 @@ class FunctionCache(SpaceCache):
             '___OperationError':  OperationError,
             '___reraise':         reraise,
             }
-        orig_sig.apply_unwrap_spec(unwrap_spec,
-                                   UnwrapSpec_Trampoline(),
-                                   dest_sig = tramp)
+        tramp.apply_over(unwrap_spec)
 
         sourcelines = ['def trampoline(%s):' % (', '.join(tramp.inputargs),)]
         # this description is to aid viewing in graphviewer

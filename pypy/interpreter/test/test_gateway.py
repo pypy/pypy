@@ -14,12 +14,12 @@ class FakeFunc(object):
 
 class TestBuiltinCode: 
     def test_signature(self):
-        def c(space, w_x, w_y, *hello_w):
+        def c(space, w_x, w_y, hello_w):
             pass
         code = gateway.BuiltinCode(c, unwrap_spec=[gateway.ObjSpace,
                                                    gateway.W_Root,
                                                    gateway.W_Root,
-                                                   'starargs'])
+                                                   'args_w'])
         assert code.signature() == (['x', 'y'], 'hello', None)
         def d(self, w_boo):
             pass
@@ -35,7 +35,7 @@ class TestBuiltinCode:
         assert code.signature() == (['x', 'y'], 'args', 'keywords')
 
     def test_call(self):
-        def c(space, w_x, w_y, *hello_w):
+        def c(space, w_x, w_y, hello_w):
             u = space.unwrap
             w = space.wrap
             assert len(hello_w) == 2
@@ -45,7 +45,7 @@ class TestBuiltinCode:
         code = gateway.BuiltinCode(c, unwrap_spec=[gateway.ObjSpace,
                                                    gateway.W_Root,
                                                    gateway.W_Root,
-                                                   'starargs'])
+                                                   'args_w'])
         w = self.space.wrap
         args = argument.Arguments(self.space, [w(123), w(23), w(0), w(True)])
         w_result = code.funcrun(FakeFunc(self.space, "c"), args)
