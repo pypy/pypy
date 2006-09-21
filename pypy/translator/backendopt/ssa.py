@@ -16,9 +16,7 @@ class DataFlowFamilyBuilder:
         # [Block, blockvar, linkvar, linkvar, linkvar...]
         opportunities = []
         opportunities_with_const = []
-        for block, links in mkentrymap(graph).items():
-            if block is graph.startblock:
-                continue
+        for block, links in mkinsideentrymap(graph).items():
             assert links
             for n, inputvar in enumerate(block.inputargs):
                 vars = [block, inputvar]
@@ -124,3 +122,95 @@ def SSI_to_SSA(graph):
         vct = [getattr(v, 'concretetype', None) for v in vlist]
         assert vct == vct[:1] * len(vct), (
             "variables called %s have mixed concretetypes: %r" % (vname, vct))
+
+# ____________________________________________________________
+
+def mkinsideentrymap(graph_or_blocks):
+    # graph_or_blocks can be a full FunctionGraph, or a mapping
+    # {block: reachable-from-outside-flag}.
+    if isinstance(graph_or_blocks, dict):
+        blocks = graph_or_blocks
+        entrymap = {}
+        for block in blocks:
+            for link in block.exits:
+                if link.target in blocks and not blocks[link.target]:
+                    entrymap.setdefault(link.target, []).append(link)
+        return entrymap
+    else:
+        graph = graph_or_blocks
+        entrymap = mkentrymap(graph)
+        del entrymap[graph.startblock]
+        return entrymap
+
+def variables_created_in(block):
+    result = {}
+    for v in block.inputargs:
+        result[v] = True
+    for op in block.operations:
+        result[op.result] = True
+    return result
+
+
+def SSA_to_SSI(graph_or_blocks, annotator=None):
+    """Turn a number of blocks belonging to a flow graph into valid (i.e. SSI)
+    form, assuming that they are only in SSA form (i.e. they can use each
+    other's variables directly, without having to pass and rename them along
+    links).
+
+    'graph_or_blocks' can be a graph, or just a dict that lists some blocks
+    from a graph, as follows: {block: reachable-from-outside-flag}.
+    """
+    from pypy.translator.unsimplify import copyvar
+
+    entrymap = mkinsideentrymap(graph_or_blocks)
+    builder = DataFlowFamilyBuilder(graph_or_blocks)
+    variable_families = builder.get_variable_families()
+    del builder
+
+    pending = []     # list of (block, var-used-but-not-defined)
+
+    for block in entrymap:
+        variables_created = variables_created_in(block)
+        variables_used = {}
+        for op in block.operations:
+            for v in op.args:
+                if isinstance(v, Variable):
+                    variables_used[v] = True
+        if isinstance(block.exitswitch, Variable):
+            variables_used[v] = True
+        for link in block.exits:
+            for v in link.args:
+                if isinstance(v, Variable):
+                    variables_used[v] = True
+
+        for v in variables_used:
+            if v not in variables_created:
+                pending.append((block, v))
+
+    while pending:
+        block, v = pending.pop()
+        v_rep = variable_families.find_rep(v)
+        variables_created = variables_created_in(block)
+        if v in variables_created:
+            continue     # already ok
+        for w in variables_created:
+            w_rep = variable_families.find_rep(w)
+            if v_rep is w_rep:
+                # 'w' is in the same family as 'v', so we can simply
+                # reuse its value for 'v'
+                block.renamevariables({v: w})
+                break
+        else:
+            # didn't find it.  Add it to all incoming links.
+            try:
+                links = entrymap[block]
+            except KeyError:
+                raise Exception("SSA_to_SSI failed: no way to give a value to"
+                                " %r in %r" % (v, block))
+            w = copyvar(annotator, v)
+            variable_families.union(v, w)
+            block.renamevariables({v: w})
+            block.inputargs.append(w)
+            for link in links:
+                link.args.append(v)
+                pending.append((link.prevblock, v))

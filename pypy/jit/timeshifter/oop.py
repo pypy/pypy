@@ -2,6 +2,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.jit.timeshifter.rcontainer import cachedtype
 from pypy.jit.timeshifter import rvalue, rtimeshift
+from pypy.translator.c import exceptiontransform
 
 
 class Index:
@@ -13,7 +14,6 @@ class OopSpecDesc:
     __metaclass__ = cachedtype
 
     def __init__(self, hrtyper, fnobj):
-        ts = hrtyper.timeshifter
         ll_func = fnobj._callable
         FUNCTYPE = lltype.typeOf(fnobj)
         nb_args = len(FUNCTYPE.ARGS)
@@ -45,7 +45,7 @@ class OopSpecDesc:
         if FUNCTYPE.RESULT is lltype.Void:
             self.errorbox = None
         else:
-            error_value = ts.error_value(FUNCTYPE.RESULT)
+            error_value = exceptiontransform.error_value(FUNCTYPE.RESULT)
             self.errorbox = rvalue.redbox_from_prebuilt_value(RGenOp,
                                                               error_value)
         self.redboxbuilder = rvalue.ll_redboxbuilder(FUNCTYPE.RESULT)
@@ -64,8 +64,9 @@ class OopSpecDesc:
 
         # exception handling
         graph = fnobj.graph
-        self.can_raise = ts.etrafo.raise_analyzer.analyze_direct_call(graph)
-        self.fetch_global_excdata = ts.fetch_global_excdata
+        etrafo = hrtyper.etrafo
+        self.can_raise = etrafo.raise_analyzer.analyze_direct_call(graph)
+        self.fetch_global_excdata = hrtyper.fetch_global_excdata
 
     def residual_call(self, jitstate, argboxes):
         builder = jitstate.curbuilder

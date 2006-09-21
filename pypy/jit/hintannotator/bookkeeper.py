@@ -65,6 +65,7 @@ class HintBookkeeper(object):
         self.descs = {}
         self.tsgraph_maximal_call_families = UnionFind(TsGraphCallFamily)
         self.annotator = hannotator
+        self.tsgraphsigs = {}
         # circular imports hack
         global hintmodel
         from pypy.jit.hintannotator import model as hintmodel
@@ -109,7 +110,18 @@ class HintBookkeeper(object):
         return origin
 
     def compute_at_fixpoint(self):
-        pass
+        # compute and cache the green-ness of OriginFlags objects
+        # while we can do so (i.e. before the graphs are modified)
+        for origin in self.originflags.values():
+            if origin.spaceop is not None:
+                origin.greenargs_cached = origin.greenargs()
+        # compute and cache the signature of the graphs before they are
+        # modified by further code
+        ha = self.annotator
+        for tsgraph in ha.translator.graphs:
+            sig_hs = ([ha.binding(v) for v in tsgraph.getargs()],
+                      ha.binding(tsgraph.getreturnvar()))
+            self.tsgraphsigs[tsgraph] = sig_hs
 
     def immutableconstant(self, const):
         res = hintmodel.SomeLLAbstractConstant(const.concretetype, {})

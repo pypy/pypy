@@ -1,6 +1,8 @@
 import operator, weakref
 from pypy.rpython.lltypesystem import lltype, lloperation, llmemory
+from pypy.jit.hintannotator.model import originalconcretetype
 from pypy.jit.timeshifter import rvalue
+from pypy.rpython.unroll import unrolling_iterable
 
 FOLDABLE_OPS = dict.fromkeys(lloperation.enum_foldable_ops())
 
@@ -44,8 +46,8 @@ _opdesc_cache = {}
 def make_opdesc(hop):
     hrtyper = hop.rtyper
     op_key = (hrtyper.RGenOp, hop.spaceop.opname,
-              tuple([hrtyper.originalconcretetype(s_arg) for s_arg in hop.args_s]),
-              hrtyper.originalconcretetype(hop.s_result))
+              tuple([originalconcretetype(s_arg) for s_arg in hop.args_s]),
+              originalconcretetype(hop.s_result))
     try:
         return _opdesc_cache[op_key]
     except KeyError:
@@ -193,8 +195,7 @@ def start_new_block(states_dic, jitstate, key):
     states_dic[key] = frozen, newblock
 start_new_block._annspecialcase_ = "specialize:arglltype(2)"
 
-def retrieve_jitstate_for_merge(states_dic, jitstate, key, redboxes):
-    save_locals(jitstate, redboxes)
+def retrieve_jitstate_for_merge(states_dic, jitstate, key):
     if key not in states_dic:
         start_new_block(states_dic, jitstate, key)
         return False   # continue
@@ -228,37 +229,53 @@ def enter_block(jitstate):
     jitstate.enter_block(incoming, memo)
     enter_next_block(jitstate, incoming)
 
-def leave_block_split(jitstate, switchredbox, exitindex,
-                      redboxes_true, redboxes_false):
-    if switchredbox.is_constant():
-        return rvalue.ll_getvalue(switchredbox, lltype.Bool)
-    else:
-        exitgvar = switchredbox.getgenvar(jitstate.curbuilder)
-        later_builder = jitstate.curbuilder.jump_if_false(exitgvar)
-        save_locals(jitstate, redboxes_false)
-        jitstate.split(later_builder, exitindex)
-        save_locals(jitstate, redboxes_true)
-        enter_block(jitstate)
-        return True
+def split(jitstate, switchredbox, resumepoint, *greens_gv):
+    exitgvar = switchredbox.getgenvar(jitstate.curbuilder)
+    later_builder = jitstate.curbuilder.jump_if_false(exitgvar)
+    jitstate.split(later_builder, resumepoint, list(greens_gv))
 
-def dispatch_next(oldjitstate, return_cache):
-    split_queue = oldjitstate.frame.split_queue
-    if split_queue:
-        jitstate = split_queue.pop()
+def collect_split(jitstate_chain, resumepoint, *greens_gv):
+    greens_gv = list(greens_gv)
+    pending = jitstate_chain
+    while True:
+        jitstate = pending
+        pending = pending.next
+        jitstate.greens.extend(greens_gv)   # item 0 is the return value
+        jitstate.resumepoint = resumepoint
+        if pending is None:
+            break
+    dispatch_queue = jitstate_chain.frame.dispatch_queue
+    jitstate.next = dispatch_queue.split_chain
+    dispatch_queue.split_chain = jitstate_chain.next
+    # XXX obscurity++ above
+
+def dispatch_next(oldjitstate):
+    dispatch_queue = oldjitstate.frame.dispatch_queue
+    if dispatch_queue.split_chain is not None:
+        jitstate = dispatch_queue.split_chain
+        dispatch_queue.split_chain = jitstate.next
         enter_block(jitstate)
         return jitstate
     else:
-        return leave_graph(oldjitstate.frame.return_queue, return_cache)
+        oldjitstate.resumepoint = -1
+        return oldjitstate
 
-def getexitindex(jitstate):
-    return jitstate.exitindex
+def getresumepoint(jitstate):
+    return jitstate.resumepoint
 
-def save_locals(jitstate, redboxes):
+def save_locals(jitstate, *redboxes):
+    redboxes = list(redboxes)
     assert None not in redboxes
     jitstate.frame.local_boxes = redboxes
 
+def save_greens(jitstate, *greens_gv):
+    jitstate.greens = list(greens_gv)
+
 def getlocalbox(jitstate, i):
     return jitstate.frame.local_boxes[i]
+
+def ll_getgreenbox(jitstate, i, T):
+    return jitstate.greens[i].revealconst(T)
 
 def getreturnbox(jitstate):
     return jitstate.returnbox
@@ -276,15 +293,34 @@ def setexcvaluebox(jitstate, box):
     jitstate.exc_value_box = box
 
 def save_return(jitstate):
-    jitstate.frame.return_queue.append(jitstate)
+    # add 'jitstate' to the chain of return-jitstates
+    dispatch_queue = jitstate.frame.dispatch_queue
+    jitstate.next = dispatch_queue.return_chain
+    dispatch_queue.return_chain = jitstate
 
-def ll_gvar_from_redbox(jitstate, redbox):
-    return redbox.getgenvar(jitstate.curbuilder)
+##def ll_gvar_from_redbox(jitstate, redbox):
+##    return redbox.getgenvar(jitstate.curbuilder)
 
-def ll_gvar_from_constant(jitstate, ll_value):
-    return jitstate.curbuilder.rgenop.genconst(ll_value)
+##def ll_gvar_from_constant(jitstate, ll_value):
+##    return jitstate.curbuilder.rgenop.genconst(ll_value)
 
 # ____________________________________________________________
+
+class BaseDispatchQueue(object):
+    def __init__(self):
+        self.split_chain = None
+        self.return_chain = None
+
+def build_dispatch_subclass(attrnames):
+    if len(attrnames) == 0:
+        return BaseDispatchQueue
+    attrnames = unrolling_iterable(attrnames)
+    class DispatchQueue(BaseDispatchQueue):
+        def __init__(self):
+            BaseDispatchQueue.__init__(self)
+            for name in attrnames:
+                setattr(self, name, {})     # the new dicts have various types!
+    return DispatchQueue
 
 
 class FrozenVirtualFrame(object):
@@ -335,10 +371,9 @@ class FrozenJITState(object):
 
 class VirtualFrame(object):
 
-    def __init__(self, backframe, split_queue, return_queue):
+    def __init__(self, backframe, dispatch_queue):
         self.backframe = backframe
-        self.split_queue = split_queue
-        self.return_queue = return_queue
+        self.dispatch_queue = dispatch_queue
         #self.local_boxes = ... set by callers
 
     def enter_block(self, incoming, memo):
@@ -360,9 +395,7 @@ class VirtualFrame(object):
             newbackframe = None
         else:
             newbackframe = self.backframe.copy(memo)
-        result = VirtualFrame(newbackframe,
-                              self.split_queue,
-                              self.return_queue)
+        result = VirtualFrame(newbackframe, self.dispatch_queue)
         result.local_boxes = [box.copy(memo) for box in self.local_boxes]
         return result
 
@@ -376,23 +409,29 @@ class VirtualFrame(object):
 
 class JITState(object):
     returnbox = None
+    next      = None   # for linked lists
 
     def __init__(self, builder, frame, exc_type_box, exc_value_box,
-                 exitindex=-1):
+                 resumepoint=-1, newgreens=[]):
         self.curbuilder = builder
         self.frame = frame
         self.exc_type_box = exc_type_box
         self.exc_value_box = exc_value_box
-        self.exitindex = exitindex
+        self.resumepoint = resumepoint
+        self.greens = newgreens
 
-    def split(self, newbuilder, newexitindex):
+    def split(self, newbuilder, newresumepoint, newgreens):
         memo = rvalue.copy_memo()
         later_jitstate = JITState(newbuilder,
                                   self.frame.copy(memo),
                                   self.exc_type_box .copy(memo),
                                   self.exc_value_box.copy(memo),
-                                  newexitindex)
-        self.frame.split_queue.append(later_jitstate)
+                                  newresumepoint,
+                                  newgreens)
+        # add the later_jitstate to the chain of pending-for-dispatch_next()
+        dispatch_queue = self.frame.dispatch_queue
+        later_jitstate.next = dispatch_queue.split_chain
+        dispatch_queue.split_chain = later_jitstate
 
     def enter_block(self, incoming, memo):
         self.frame.enter_block(incoming, memo)
@@ -412,21 +451,50 @@ class JITState(object):
         self.exc_value_box = self.exc_value_box.replace(memo)
 
 
-def enter_graph(jitstate):
-    jitstate.frame = VirtualFrame(jitstate.frame, [], [])
+def enter_graph(jitstate, DispatchQueueClass):
+    jitstate.frame = VirtualFrame(jitstate.frame, DispatchQueueClass())
+enter_graph._annspecialcase_ = 'specialize:arg(1)'
+# XXX is that too many specializations? ^^^
 
-def leave_graph(return_queue, return_cache):
-    for jitstate in return_queue[:-1]:
-        res = retrieve_jitstate_for_merge(return_cache, jitstate, (),
-                                          # XXX strange next argument
-                                          jitstate.frame.local_boxes)
+def merge_returning_jitstates(jitstate):
+    return_chain = jitstate.frame.dispatch_queue.return_chain
+    return_cache = {}
+    still_pending = None
+    while return_chain is not None:
+        jitstate = return_chain
+        return_chain = return_chain.next
+        res = retrieve_jitstate_for_merge(return_cache, jitstate, ())
+        if res is False:    # not finished
+            jitstate.next = still_pending
+            still_pending = jitstate
+    assert still_pending is not None
+    most_general_jitstate = still_pending
+    still_pending = still_pending.next
+    while still_pending is not None:
+        jitstate = still_pending
+        still_pending = still_pending.next
+        res = retrieve_jitstate_for_merge(return_cache, jitstate, ())
         assert res is True   # finished
-    frozen, block = return_cache[()]
-    jitstate = return_queue[-1]
+    return most_general_jitstate
+
+def leave_graph_red(jitstate):
+    jitstate = merge_returning_jitstates(jitstate)
     myframe = jitstate.frame
-    if myframe.local_boxes:             # else it's a green Void return
-        jitstate.returnbox = myframe.local_boxes[0]
-        # ^^^ fetched by a 'fetch_return' operation
+    jitstate.returnbox = myframe.local_boxes[0]
+    # ^^^ fetched by a 'fetch_return' operation
     jitstate.frame = myframe.backframe
-    jitstate.exitindex = -1
     return jitstate
+
+def leave_graph_void(jitstate):
+    jitstate = merge_returning_jitstates(jitstate)
+    myframe = jitstate.frame
+    jitstate.frame = myframe.backframe
+    return jitstate
+
+def leave_graph_yellow(jitstate):
+    return_chain = jitstate.frame.dispatch_queue.return_chain
+    jitstate = return_chain
+    while jitstate is not None:
+        jitstate.frame = jitstate.frame.backframe
+        jitstate = jitstate.next
+    return return_chain    # a jitstate, which is the head of the chain

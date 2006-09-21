@@ -32,6 +32,8 @@ class OriginFlags(object):
 
     fixed = False
     read_positions = None
+    greenargs_cached = None
+    is_call_result = False
 
     def __init__(self, bookkeeper=None, spaceop=None):
         self.bookkeeper = bookkeeper
@@ -61,8 +63,10 @@ class OriginFlags(object):
     def greenargs(self, frame=None):
         annotator = self.bookkeeper.annotator
         if frame is None:
+            if self.greenargs_cached is not None:
+                return self.greenargs_cached
             frame = GreenHandlerFrame(annotator)
-        if self.spaceop.opname == 'direct_call':     # ah haa
+        if self.is_call_result:
             return frame.greencallresult(self.spaceop)
         else:
             for v in self.spaceop.args:
@@ -93,6 +97,8 @@ class GreenHandlerFrame(object):
 ##            import pdb; pdb.set_trace()
         args_hs = [self.annotator.binding(v) for v in spaceop.args]
         hs_result = self.annotator.binding(spaceop.result)
+        if not isinstance(hs_result, SomeLLAbstractConstant):
+            return False     # was generalized, e.g. to SomeLLAbstractVariable
         hs_f1 = args_hs.pop(0)
         fnobj = hs_f1.const._obj
         if (getattr(self.annotator.policy, 'oopspec', False) and
@@ -229,6 +235,12 @@ def reorigin(hs_v1, *deps_hs):
     else:
         return hs_v1
 
+def originalconcretetype(hs):
+    if isinstance(hs, annmodel.SomeImpossibleValue):
+        return lltype.Void
+    else:
+        return hs.concretetype
+
 # ____________________________________________________________
 # operations
 
@@ -334,6 +346,7 @@ class __extend__(SomeLLAbstractConstant):
 
         if isinstance(hs_res, SomeLLAbstractConstant):
             hs_res.myorigin = bookkeeper.myorigin()
+            hs_res.myorigin.is_call_result = True
 
         # we need to make sure that hs_res does not become temporarily less
         # general as a result of calling another specialized version of the

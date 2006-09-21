@@ -375,7 +375,7 @@ class RPythonTyper(object):
             self.insert_link_conversions(extrablock)
 
     def _convert_link(self, block, link):  
-        if link.exitcase is not None:
+        if link.exitcase is not None and link.exitcase != 'default':
             if isinstance(block.exitswitch, Variable):
                 r_case = self.bindingrepr(block.exitswitch)
             else:

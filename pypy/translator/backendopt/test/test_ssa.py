@@ -1,6 +1,7 @@
 from pypy.translator.backendopt.ssa import *
 from pypy.translator.translator import TranslationContext
-from pypy.objspace.flow.model import flatten, Block
+from pypy.objspace.flow.model import flatten, Block, Link, Variable, Constant
+from pypy.objspace.flow.model import SpaceOperation
 
 
 def test_data_flow_families():
@@ -49,3 +50,63 @@ def test_SSI_to_SSA():
             allvars += [v.name for v in block.getvariables()]
     # see comments above for where the 8 remaining variables are expected to be
     assert len(dict.fromkeys(allvars)) == 8
+
+
+def test_SSA_to_SSI():
+    c = Variable('c')
+    x = Variable('x')
+    y = Variable('y')
+    b1 = Block([c])
+    b2 = Block([x])
+    b3 = Block([])
+
+    b2.operations.append(SpaceOperation('add', [x, c], y))
+    b2.exitswitch = y
+
+    b1.closeblock(Link([Constant(0)], b2))
+    b2.closeblock(Link([y], b2), Link([], b3))
+    b3.closeblock(Link([y, c], None))
+
+    SSA_to_SSI({b1: True,     # reachable from outside
+                b2: False,
+                b3: False})
+
+    assert len(b1.inputargs) == 1
+    assert len(b2.inputargs) == 2
+    assert len(b3.inputargs) == 2
+
+    assert b2.inputargs == b2.operations[0].args
+    assert len(b1.exits[0].args) == 2
+    assert b1.exits[0].args[1] is c
+    assert len(b2.exits[0].args) == 2
+    assert b2.exits[0].args == [y, b2.inputargs[1]]
+    assert len(b2.exits[1].args) == 2
+    assert len(b3.exits[0].args) == 2
+
+    index = b3.inputargs.index(b3.exits[0].args[0])
+    assert b2.exits[1].args[index] is b2.operations[0].result
+
+    index = b3.inputargs.index(b3.exits[0].args[1])
+    assert b2.exits[1].args[index] is b2.inputargs[1]
+
+
+def test_SSA_to_SSI_2():
+    x = Variable('x')
+    y = Variable('y')
+    z = Variable('z')
+    b1 = Block([x])
+    b2 = Block([y])
+    b3 = Block([])
+
+    b3.operations.append(SpaceOperation('hello', [y], z))
+    b1.closeblock(Link([x], b2), Link([], b3))
+
+    SSA_to_SSI({b1: True,     # reachable from outside
+                b2: False,
+                b3: False})
+
+    assert b1.inputargs == [x]
+    assert b2.inputargs == [y]
+    assert b3.inputargs == [b3.operations[0].args[0]]
+    assert b1.exits[0].args == [x]
+    assert b1.exits[1].args == [x]

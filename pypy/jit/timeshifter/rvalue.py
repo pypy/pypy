@@ -90,10 +90,9 @@ def ll_redboxbuilder(TYPE):
 
 def ll_fromvalue(jitstate, value):
     "Make a constant RedBox from a low-level value."
-    rgenop = jitstate.curbuilder.rgenop
+    gv = ll_gv_fromvalue(jitstate, value)
     T = lltype.typeOf(value)
-    kind = rgenop.kindToken(T)
-    gv = rgenop.genconst(value)
+    kind = jitstate.curbuilder.rgenop.kindToken(T)
     cls = ll_redboxcls(T)
     return cls(kind, gv)
 
@@ -104,9 +103,18 @@ def redbox_from_prebuilt_value(RGenOp, value):
     cls = ll_redboxcls(T)
     return cls(kind, gv)
 
+def ll_gv_fromvalue(jitstate, value):
+    rgenop = jitstate.curbuilder.rgenop
+    gv = rgenop.genconst(value)
+    return gv
+
 def ll_getvalue(box, T):
     "Return the content of a known-to-be-constant RedBox."
     return box.genvar.revealconst(T)
+
+def ll_is_constant(box):
+    "Check if a red box is known to be constant."
+    return box.is_constant()
 
 
 class IntRedBox(RedBox):

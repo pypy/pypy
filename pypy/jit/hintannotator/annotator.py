@@ -20,9 +20,6 @@ class HintAnnotator(RPythonAnnotator):
         flowgraph = desc.specialize(input_args_hs)
         return self.build_graph_types(flowgraph, input_args_hs)
 
-    def simplify(self):
-        pass
-
     def consider_op_malloc(self, hs_TYPE):
         TYPE = hs_TYPE.const
         if getattr(self.policy, 'novirtualcontainer', False):

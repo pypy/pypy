@@ -8,7 +8,7 @@ class ListTypeDesc(object):
 
     def __init__(self, hrtyper, LIST):
         RGenOp = hrtyper.RGenOp
-        rtyper = hrtyper.timeshifter.rtyper
+        rtyper = hrtyper.rtyper
         self.LIST = LIST
         self.LISTPTR = lltype.Ptr(LIST)
         self.ptrkind = RGenOp.kindToken(self.LISTPTR)

@@ -63,10 +63,10 @@ def eliminate_empty_blocks(graph):
                 if (len(link.target.exits) != 1 and
                     link.target.exitswitch != c_last_exception):
                     break
-                assert link.target is not link.prevblock, (
-                    "the graph contains an empty infinite loop")
                 block1 = link.target
                 exit = block1.exits[0]
+                assert block1 is not exit.target, (
+                    "the graph contains an empty infinite loop")
                 outputargs = []
                 for v in exit.args:
                     if isinstance(v, Variable):

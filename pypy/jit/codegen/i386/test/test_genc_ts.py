@@ -15,7 +15,7 @@ class I386TimeshiftingTestMixin(object):
     SEPLINE = 'running residual graph...\n'
     
     def annotate_interface_functions(self):
-        annhelper = self.htshift.annhelper
+        annhelper = self.hrtyper.annhelper
         RGenOp = self.RGenOp
         SEPLINE = self.SEPLINE
         ml_generate_code = self.ml_generate_code
