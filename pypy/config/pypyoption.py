@@ -9,7 +9,7 @@ all_modules = [p.basename for p in modulepath.listdir()
 default_modules = dict.fromkeys(
     ["unicodedata", "_codecs", "gc", "_weakref", "array", "marshal", "errno",
      "math", "_sre", "_pickle_support", "sys", "exceptions", "__builtins__",
-     "recparser", "symbol"])
+     "recparser", "symbol", "_random"])
                               
 pypy_optiondescription = OptionDescription("pypy", [
     OptionDescription("objspace", [
