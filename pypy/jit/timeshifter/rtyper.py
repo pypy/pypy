@@ -166,7 +166,7 @@ class HintRTyper(RPythonTyper):
 
     def timeshift_graph(self, graph):
         # specialize all blocks of this graph
-        for block in graph.iterblocks():
+        for block in list(graph.iterblocks()):
             self.annotator.annotated[block] = graph
             self.specialize_block(block)
         # "normalize" the graphs by putting an explicit v_jitstate variable
@@ -244,6 +244,54 @@ class HintRTyper(RPythonTyper):
                                    graph=tsgraph,
                                    _callable = graph.func)
         return fnptr, args_r
+
+    def get_timeshift_mapper(self, FUNC, specialization_key, graphs):
+        key = FUNC, specialization_key
+        try:
+            timeshift_mapper, values, keys = self.timeshift_mapping[key]
+        except KeyError:
+            values = []
+            keys = []
+            fnptrmap = {}
+
+            def getter(fnptrmap, fnptr):
+                # indirection needed to defeat the flow object space
+                return fnptrmap[fnptr]
+
+            def fill_dict(fnptrmap, values, keys):
+                for i in range(len(values)):
+                    fnptrmap[values[i]] = keys[i]
+
+            def timeshift_mapper(fnptrbox):
+                fnptr = rvalue.ll_getvalue(fnptrbox, FUNC)
+                try:
+                    return getter(fnptrmap, fnptr)
+                except KeyError:
+                    fill_dict(fnptrmap, values, keys)
+                    return getter(fnptrmap, fnptr)   # try again
+
+            self.timeshift_mapping[key] = timeshift_mapper, values, keys
+
+        bk = self.hannotator.bookkeeper
+        common_args_r = None
+        COMMON_TS_FUNC = None
+        tsgraphs = []
+        for graph in graphs:
+            fnptr = self.rtyper.getcallable(graph)
+            ts_fnptr, args_r = self.get_timeshifted_fnptr(graph,
+                                   specialization_key)
+            tsgraphs.append(ts_fnptr._obj.graph)
+            TS_FUNC = lltype.typeOf(ts_fnptr)
+            if common_args_r is None:
+                common_args_r = args_r
+                COMMON_TS_FUNC = TS_FUNC
+            else:
+                # XXX for now
+                assert COMMON_TS_FUNC == TS_FUNC
+                assert common_args_r == args_r
+            keys.append(fnptr)
+            values.append(ts_fnptr)
+        return timeshift_mapper, COMMON_TS_FUNC, common_args_r, tsgraphs
 
     def insert_v_jitstate_everywhere(self, graph):
         from pypy.translator.unsimplify import varoftype

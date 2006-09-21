@@ -933,3 +933,20 @@ class TestTimeshift(TimeshiftingTests):
         res = self.timeshift(ll_factorial, [5], [])
         assert res == 120
         
+    def test_simple_indirect_call(self):
+        py.test.skip('In-progress')
+        def g1(v):
+            return v * 2
+
+        def g2(v):
+            return v + 2
+
+        def f(flag, v):
+            if hint(flag, concrete=True):
+                g = g1
+            else:
+                g = g2
+            return g(v)
+
+        res = self.timeshift(f, [False, 40], [0])
+        assert res == 42
