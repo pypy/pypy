@@ -153,6 +153,7 @@ class FrozenVirtualStruct(AbstractContainer):
         #self.fz_content_boxes initialized later
 
     def exactmatch(self, vstruct, outgoingvarboxes, memo):
+        assert isinstance(vstruct, VirtualStruct)
         contmemo = memo.containers
         if self in contmemo:
             ok = vstruct is contmemo[self]

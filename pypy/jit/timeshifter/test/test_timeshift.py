@@ -915,6 +915,7 @@ class TestTimeshift(TimeshiftingTests):
     def test_green_with_side_effects(self):
         S = lltype.GcStruct('S', ('flag', lltype.Bool))
         s = lltype.malloc(S)
+        s.flag = False
         def ll_set_flag(s):
             s.flag = True
         def ll_function():
@@ -922,7 +923,7 @@ class TestTimeshift(TimeshiftingTests):
             ll_set_flag(s)
             return s.flag
         res = self.timeshift(ll_function, [], [])
-        assert res is True
+        assert res == True
         self.check_insns({'setfield': 2, 'getfield': 1})
 
     def test_recursive_call(self):
@@ -959,7 +960,7 @@ class TestTimeshift(TimeshiftingTests):
                 g = g2
             return g(v)
 
-        res = self.timeshift(f, [False, 40], [0])
+        res = self.timeshift(f, [0, 40], [0])
         assert res == 42
         self.check_insns({'int_add': 1})
 
@@ -977,11 +978,11 @@ class TestTimeshift(TimeshiftingTests):
                 g = g2
             return g(v)
 
-        res = self.timeshift(f, [False, 40], [0])
+        res = self.timeshift(f, [0, 40], [0])
         assert res == 42
         self.check_insns({'int_add': 1})
 
-        res = self.timeshift(f, [True, 40], [0])
+        res = self.timeshift(f, [1, 40], [0])
         assert res == -17
         self.check_insns({})
 
@@ -1003,19 +1004,19 @@ class TestTimeshift(TimeshiftingTests):
                 g = g2
             return g(v) + w
 
-        res = self.timeshift(f, [False, 40], [0])
+        res = self.timeshift(f, [0, 40], [0])
         assert res == 25
         self.check_insns({'int_add': 2, 'int_ge': 1})
 
-        res = self.timeshift(f, [True, 40], [0])
+        res = self.timeshift(f, [1, 40], [0])
         assert res == -34
         self.check_insns({'int_ge': 2, 'int_add': 1})
 
-        res = self.timeshift(f, [False, -1000], [0])
+        res = self.timeshift(f, [0, -1000], [0])
         assert res == f(False, -1000)
         self.check_insns({'int_add': 2, 'int_ge': 1})
 
-        res = self.timeshift(f, [True, -1000], [0])
+        res = self.timeshift(f, [1, -1000], [0])
         assert res == f(True, -1000)
         self.check_insns({'int_ge': 2, 'int_add': 1})
 
@@ -1037,6 +1038,6 @@ class TestTimeshift(TimeshiftingTests):
                 o = Concrete()
             return o.m()
 
-        res = self.timeshift(f, [False], [0], policy=P_NOVIRTUAL)
+        res = self.timeshift(f, [0], [0], policy=P_NOVIRTUAL)
         assert res == 42
         self.check_insns({})

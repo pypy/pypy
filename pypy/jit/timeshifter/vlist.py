@@ -43,6 +43,7 @@ class FrozenVirtualList(AbstractContainer):
         #self.fz_item_boxes initialized later
 
     def exactmatch(self, vlist, outgoingvarboxes, memo):
+        assert isinstance(vlist, VirtualList)
         contmemo = memo.containers
         if self in contmemo:
             ok = vlist is contmemo[self]
