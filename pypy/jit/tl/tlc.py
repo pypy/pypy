@@ -49,10 +49,9 @@ class LispObj(Obj):
 
     def div(self, n):
         n = n.int_o()
-        cur = self
-        for i in range(n):
-            cur = cur.cdr()
-        return cur.car()
+        if n < 0:
+            raise IndexError
+        return self._nth(n)
 
     def add(self, other):
         if not isinstance(other, LispObj):
@@ -67,11 +66,11 @@ class NilObj(LispObj):
     def eq(self, other):
         return self is other
 
-    def car(self): raise IndexError
-    def cdr(self): raise IndexError    
-
     def _concat(self, other):
         return other
+
+    def _nth(self, n):
+        raise IndexError
 
 nil = NilObj()
 
@@ -95,6 +94,12 @@ class ConsObj(LispObj):
 
     def _concat(self, other):
         return ConsObj(self._car, self._cdr._concat(other))
+
+    def _nth(self, n):
+        if n == 0:
+            return self._car
+        else:
+            return self._cdr._nth(n-1)
 
 def char2int(c):
     t = ord(c)
