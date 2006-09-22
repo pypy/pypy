@@ -12,13 +12,15 @@ from py.compat import optparse
 
 usage = '''
         %s filename.dot
+        %s filename.plain
         %s hostname:port
         %s :port
 
 In the first form, show the graph contained in a .dot file.
+In the second form, the graph was already compiled to a .plain file.
 In the other forms, connect to a graph server like
 goal/translate.py.
-''' % (sys.argv[0], sys.argv[0], sys.argv[0])
+''' % (sys.argv[0], sys.argv[0], sys.argv[0], sys.argv[0])
 
 parser = optparse.OptionParser(usage=usage)
 parser.add_option("--reload", action="store_true", dest="reload",

@@ -18,7 +18,11 @@ DOT_FILE   = udir.join('graph.dot')
 PLAIN_FILE = udir.join('graph.plain')
 
 def dot2plain(dotfile, plainfile, use_codespeak=False):
-    if not use_codespeak:
+    if str(dotfile).lower().endswith('.plain'):
+        # already a .plain file
+        plainfile = py.path.local(plainfile) 
+        plainfile.write(py.path.local(dotfile).read())
+    elif not use_codespeak:
         py.process.cmdexec('dot -Tplain %s>%s' % (dotfile, plainfile))
     elif 0: 
         gw = py.execnet.SshGateway('codespeak.net')
