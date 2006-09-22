@@ -715,6 +715,22 @@ def preserve_pbc_attr_on_instance(cond):
     return x.answer 
 
 
+class APBCS(object):
+    __slots__ = ['answer']
+    def __init__(self): 
+        self.answer = 42
+
+apbcs = APBCS()
+apbcs.answer = 7
+
+def preserve_pbc_attr_on_instance_with_slots(cond):
+    if cond: 
+        x = APBCS()
+    else: 
+        x = apbcs
+    return x.answer 
+
+
 def is_and_knowntype(x): 
     if x is None: 
         return x 

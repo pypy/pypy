@@ -614,7 +614,7 @@ class Bookkeeper:
         self.seen_mutable[x] = True
         self.event('mutable', x)
         source = InstanceSource(self, x)
-        for attr in x.__dict__:
+        for attr in source.all_instance_attributes():
             clsdef.add_source_for_attribute(attr, source) # can trigger reflowing
 
     def valueoftype(self, t):

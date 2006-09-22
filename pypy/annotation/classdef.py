@@ -413,9 +413,21 @@ class InstanceSource:
         self.obj = obj
  
     def s_get_value(self, classdef, name):
-        s_value = self.bookkeeper.immutablevalue(
-            self.obj.__dict__[name])
+        s_value = self.bookkeeper.immutablevalue(getattr(self.obj, name))
         return s_value
+
+    def all_instance_attributes(self):
+        result = getattr(self.obj, '__dict__', {}).keys()
+        tp = self.obj.__class__
+        if isinstance(tp, type):
+            for basetype in tp.__mro__:
+                slots = basetype.__dict__.get('__slots__')
+                if slots:
+                    if isinstance(slots, str):
+                        result.append(slots)
+                    else:
+                        result.extend(slots)
+        return result
 
 class NoSuchSlotError(Exception):
     "Raised when an attribute is found on a class where __slots__ forbits it."

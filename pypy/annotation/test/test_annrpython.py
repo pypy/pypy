@@ -373,6 +373,12 @@ class TestAnnotateTestCase:
         assert s == annmodel.SomeInteger(nonneg=True) 
         #self.assertEquals(s.__class__, annmodel.SomeInteger) 
 
+    def test_pbc_attr_preserved_on_instance_with_slots(self):
+        a = self.RPythonAnnotator()
+        s = a.build_types(snippet.preserve_pbc_attr_on_instance_with_slots,
+                          [bool])
+        assert s == annmodel.SomeInteger(nonneg=True) 
+
     def test_is_and_knowntype_data(self): 
         a = self.RPythonAnnotator()
         s = a.build_types(snippet.is_and_knowntype, [str])
