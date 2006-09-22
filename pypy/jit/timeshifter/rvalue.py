@@ -21,6 +21,7 @@ def copy_memo():
 
 
 class RedBox(object):
+    __slots__ = ['kind', 'genvar']
 
     def __init__(self, kind, genvar=None):
         self.kind = kind
@@ -177,23 +178,26 @@ class PtrRedBox(RedBox):
     def copy(self, memo):
         boxmemo = memo.boxes
         try:
-            return boxmemo[self]
+            result = boxmemo[self]
         except KeyError:
             result = PtrRedBox(self.kind, self.genvar)
             boxmemo[self] = result
             if self.content:
                 result.content = self.content.copy(memo)
-            return result
+        assert isinstance(result, PtrRedBox)
+        return result
 
     def replace(self, memo):
         boxmemo = memo.boxes
         try:
-            return boxmemo[self]
+            result = boxmemo[self]
         except KeyError:
             boxmemo[self] = self
             if self.content:
                 self.content.replace(memo)
-            return self
+            result = self
+        assert isinstance(result, PtrRedBox)
+        return result
 
     def freeze(self, memo):
         boxmemo = memo.boxes

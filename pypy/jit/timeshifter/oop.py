@@ -52,15 +52,19 @@ class OopSpecDesc:
         self.sigtoken = RGenOp.sigToken(FUNCTYPE)
 
         if operation_name == 'newlist':
-            from pypy.jit.timeshifter.vlist import ListTypeDesc, oop_newlist
-            self.typedesc = ListTypeDesc(hrtyper, FUNCTYPE.RESULT.TO)
-            self.ll_handler = oop_newlist
+            typename, method = 'list', 'oop_newlist'
+            SELFTYPE = FUNCTYPE.RESULT.TO
+            self.is_method = False
         else:
             typename, method = operation_name.split('.')
             method = 'oop_%s_%s' % (typename, method)
-            vmodule = __import__('pypy.jit.timeshifter.v%s' % (typename,),
-                                 None, None, [method])
-            self.ll_handler = getattr(vmodule, method)
+            SELFTYPE = FUNCTYPE.ARGS[self.argpositions[0]].TO
+            self.is_method = True
+
+        vmodule = __import__('pypy.jit.timeshifter.v%s' % (typename,),
+                             None, None, [method])
+        self.typedesc = vmodule.TypeDesc(hrtyper, SELFTYPE)
+        self.ll_handler = getattr(vmodule, method)
 
         # exception handling
         graph = fnobj.graph

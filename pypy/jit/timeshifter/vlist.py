@@ -33,6 +33,8 @@ class ListTypeDesc(object):
         vlist.ownbox = box
         return box
 
+TypeDesc = ListTypeDesc
+
 
 class FrozenVirtualList(AbstractContainer):
 
@@ -137,101 +139,116 @@ def oop_newlist(jitstate, oopspecdesc, lengthbox, itembox=None):
     return oopspecdesc.residual_call(jitstate, [lengthbox, itembox])
 
 def oop_list_copy(jitstate, oopspecdesc, selfbox):
-    if isinstance(selfbox.content, VirtualList):
+    content = selfbox.content
+    if isinstance(content, VirtualList):
         copybox = oopspecdesc.typedesc.factory(0, None)
-        copybox.content.item_boxes.extend(selfbox.content.item_boxes)
+        copycontent = copybox.content
+        assert isinstance(copycontent, VirtualList)
+        copycontent.item_boxes.extend(content.item_boxes)
         return copybox
     else:
         return oopspecdesc.residual_call(jitstate, [selfbox])
 
 def oop_list_len(jitstate, oopspecdesc, selfbox):
-    if isinstance(selfbox.content, VirtualList):
-        return rvalue.ll_fromvalue(jitstate, len(selfbox.content.item_boxes))
+    content = selfbox.content
+    if isinstance(content, VirtualList):
+        return rvalue.ll_fromvalue(jitstate, len(content.item_boxes))
     else:
         return oopspecdesc.residual_call(jitstate, [selfbox])
 
 def oop_list_nonzero(jitstate, oopspecdesc, selfbox):
-    if isinstance(selfbox.content, VirtualList):
-        return rvalue.ll_fromvalue(jitstate, bool(selfbox.content.item_boxes))
+    content = selfbox.content
+    if isinstance(content, VirtualList):
+        return rvalue.ll_fromvalue(jitstate, bool(content.item_boxes))
     else:
         return oopspecdesc.residual_call(jitstate, [selfbox])
 
 def oop_list_append(jitstate, oopspecdesc, selfbox, itembox):
-    if isinstance(selfbox.content, VirtualList):
-        selfbox.content.item_boxes.append(itembox)
+    content = selfbox.content
+    if isinstance(content, VirtualList):
+        content.item_boxes.append(itembox)
     else:
         oopspecdesc.residual_call(jitstate, [selfbox, itembox])
 
 def oop_list_insert(jitstate, oopspecdesc, selfbox, indexbox, itembox):
-    if isinstance(selfbox.content, VirtualList) and indexbox.is_constant():
+    content = selfbox.content
+    if isinstance(content, VirtualList) and indexbox.is_constant():
         index = rvalue.ll_getvalue(indexbox, lltype.Signed)
         # XXX what if the assert fails?
-        assert 0 <= index <= len(selfbox.content.item_boxes)
-        selfbox.content.item_boxes.insert(index, itembox)
+        assert 0 <= index <= len(content.item_boxes)
+        content.item_boxes.insert(index, itembox)
     else:
         oopspecdesc.residual_call(jitstate, [selfbox, indexbox, itembox])
 
 def oop_list_concat(jitstate, oopspecdesc, selfbox, otherbox):
-    if isinstance(selfbox.content, VirtualList):
+    content = selfbox.content
+    if isinstance(content, VirtualList):
         assert isinstance(otherbox, rvalue.PtrRedBox)
-        if (otherbox.content is not None and
-            isinstance(otherbox.content, VirtualList)):
+        othercontent = otherbox.content
+        if othercontent is not None and isinstance(othercontent, VirtualList):
             newbox = oopspecdesc.typedesc.factory(0, None)
-            newbox.content.item_boxes.extend(selfbox.content.item_boxes)
-            newbox.content.item_boxes.extend(otherbox.content.item_boxes)
+            newcontent = newbox.content
+            assert isinstance(newcontent, VirtualList)
+            newcontent.item_boxes.extend(content.item_boxes)
+            newcontent.item_boxes.extend(othercontent.item_boxes)
             return newbox
     return oopspecdesc.residual_call(jitstate, [selfbox, otherbox])
 
 def oop_list_pop(jitstate, oopspecdesc, selfbox, indexbox=None):
+    content = selfbox.content
     if indexbox is None:
-        if isinstance(selfbox.content, VirtualList):
+        if isinstance(content, VirtualList):
             try:
-                return selfbox.content.item_boxes.pop()
+                return content.item_boxes.pop()
             except IndexError:
                 return oopspecdesc.residual_exception(jitstate, IndexError)
         else:
             return oopspecdesc.residual_call(jitstate, [selfbox])
 
-    if (isinstance(selfbox.content, VirtualList) and
+    if (isinstance(content, VirtualList) and
         indexbox.is_constant()):
         index = rvalue.ll_getvalue(indexbox, lltype.Signed)
         try:
-            return selfbox.content.item_boxes.pop(index)
+            return content.item_boxes.pop(index)
         except IndexError:
             return oopspecdesc.residual_exception(jitstate, IndexError)
     return oopspecdesc.residual_call(jitstate, [selfbox, indexbox])
 
 def oop_list_reverse(jitstate, oopspecdesc, selfbox):
-    if isinstance(selfbox.content, VirtualList):
-        selfbox.content.item_boxes.reverse()
+    content = selfbox.content
+    if isinstance(content, VirtualList):
+        content.item_boxes.reverse()
     else:
         oopspecdesc.residual_call(jitstate, [selfbox])
 
 def oop_list_getitem(jitstate, oopspecdesc, selfbox, indexbox):
-    if isinstance(selfbox.content, VirtualList) and indexbox.is_constant():
+    content = selfbox.content
+    if isinstance(content, VirtualList) and indexbox.is_constant():
         index = rvalue.ll_getvalue(indexbox, lltype.Signed)
         try:
-            return selfbox.content.item_boxes[index]
+            return content.item_boxes[index]
         except IndexError:
             return oopspecdesc.residual_exception(jitstate, IndexError)
     else:
         return oopspecdesc.residual_call(jitstate, [selfbox, indexbox])
 
 def oop_list_setitem(jitstate, oopspecdesc, selfbox, indexbox, itembox):
-    if isinstance(selfbox.content, VirtualList) and indexbox.is_constant():
+    content = selfbox.content
+    if isinstance(content, VirtualList) and indexbox.is_constant():
         index = rvalue.ll_getvalue(indexbox, lltype.Signed)
         try:
-            selfbox.content.item_boxes[index] = itembox
+            content.item_boxes[index] = itembox
         except IndexError:
             oopspecdesc.residual_exception(jitstate, IndexError)
     else:
         oopspecdesc.residual_call(jitstate, [selfbox, indexbox, itembox])
 
 def oop_list_delitem(jitstate, oopspecdesc, selfbox, indexbox):
-    if isinstance(selfbox.content, VirtualList) and indexbox.is_constant():
+    content = selfbox.content
+    if isinstance(content, VirtualList) and indexbox.is_constant():
         index = rvalue.ll_getvalue(indexbox, lltype.Signed)
         try:
-            del selfbox.content.item_boxes[index]
+            del content.item_boxes[index]
         except IndexError:
             oopspecdesc.residual_exception(jitstate, IndexError)
     else:

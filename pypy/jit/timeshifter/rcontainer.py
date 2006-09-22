@@ -3,6 +3,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.jit.timeshifter import rvalue
 
 class AbstractContainer(object):
+    __slots__ = []
 
     def op_getfield(self, jitstate, fielddesc):
         raise NotImplementedError

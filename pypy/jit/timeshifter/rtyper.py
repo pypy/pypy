@@ -61,6 +61,8 @@ class HintRTyper(RPythonTyper):
          self.r_JITState)      = self.s_r_instanceof(rtimeshift.JITState)
         (self.s_RedBox,
          self.r_RedBox)        = self.s_r_instanceof(rvalue.RedBox)
+        (self.s_PtrRedBox,
+         self.r_PtrRedBox)     = self.s_r_instanceof(rvalue.PtrRedBox)
         (self.s_OopSpecDesc,
          self.r_OopSpecDesc)   = self.s_r_instanceof(oop.OopSpecDesc)
         (self.s_ConstOrVar,
@@ -819,6 +821,10 @@ class HintRTyper(RPythonTyper):
             args_v.extend([hop.llops.genconst(ll_None)] * missing_args)
 
         args_s = [ts.s_RedBox] * len(args_v)
+        if oopspecdesc.is_method:
+            args_s[0] = ts.s_PtrRedBox    # for more precise annotations
+            args_v[0] = hop.llops.genop('cast_pointer', [args_v[0]],
+                               resulttype = ts.r_PtrRedBox.lowleveltype)
         RESULT = originalconcretetype(hop.s_result)
         if RESULT is lltype.Void:
             s_result = annmodel.s_None

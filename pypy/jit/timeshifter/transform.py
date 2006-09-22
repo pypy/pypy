@@ -72,12 +72,12 @@ class HintGraphTransformer(object):
 
     # __________ helpers __________
 
-    def genop(self, block, opname, args, result_type=None, result_like=None):
-        # 'result_type' can be a LowLevelType (for green returns)
-        # or a template variable whose hintannotation is copied
-        if result_type is not None:
-            v_res = varoftype(result_type)
-            hs = hintmodel.SomeLLAbstractConstant(result_type, {})
+    def genop(self, block, opname, args, resulttype=None, result_like=None):
+        # 'result_like' can be a template variable whose hintannotation is
+        # copied
+        if resulttype is not None:
+            v_res = varoftype(resulttype)
+            hs = hintmodel.SomeLLAbstractConstant(resulttype, {})
             self.hannotator.setbinding(v_res, hs)
         elif result_like is not None:
             v_res = copyvar(self.hannotator, result_like)
@@ -182,13 +182,13 @@ class HintGraphTransformer(object):
         nonconstant_block = Block([])
 
         v_flag = self.genop(block, 'is_constant', [v_redswitch],
-                            result_type = lltype.Bool)
+                            resulttype = lltype.Bool)
         self.genswitch(block, v_flag, true  = constant_block,
                                       false = nonconstant_block)
 
         v_greenswitch = self.genop(constant_block, 'revealconst',
                                    [v_redswitch],
-                                   result_type = lltype.Bool)
+                                   resulttype = lltype.Bool)
         constant_block.exitswitch = v_greenswitch
         constant_block.closeblock(link_f, link_t)
 
@@ -248,7 +248,7 @@ class HintGraphTransformer(object):
         c_mp = inputconst(lltype.Void, mp)
         v_finished_flag = self.genop(block, 'merge_point',
                                      [self.c_mpfamily, c_mp] + greens,
-                                     result_type = lltype.Bool)
+                                     resulttype = lltype.Bool)
         block.exitswitch = v_finished_flag
         [link_f] = block.exits
         link_t = Link([self.c_dummy], self.graph.returnblock)
@@ -273,7 +273,7 @@ class HintGraphTransformer(object):
         if self.resumepoints:
             block = self.before_return_block()
             v_switchcase = self.genop(block, 'dispatch_next', [],
-                                      result_type = lltype.Signed)
+                                      resulttype = lltype.Signed)
             block.exitswitch = v_switchcase
             defaultlink = block.exits[0]
             defaultlink.exitcase = 'default'
@@ -376,7 +376,7 @@ class HintGraphTransformer(object):
             if not hs_func.is_green():
                 # XXX for now, assume that it will be a constant red box
                 v_greenfunc = self.genop(block, 'revealconst', [args_v[0]],
-                                  result_type = originalconcretetype(hs_func))
+                                  resulttype = originalconcretetype(hs_func))
                 args_v[0] = v_greenfunc
             self.genop(block, 'indirect_%s_call' % (color,), args_v)
 
