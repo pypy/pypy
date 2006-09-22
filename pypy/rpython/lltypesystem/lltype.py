@@ -1132,7 +1132,7 @@ class _ptr(object):
         if isinstance(obj, int):
             return obj     # special case for cast_int_to_ptr() results
         obj = normalizeptr(self)._obj
-        result = intmask(id(obj))
+        result = intmask(obj._getid())
         # assume that id() returns an addressish value which is
         # not zero and aligned to at least a multiple of 4
         assert result != 0 and (result & 3) == 0
@@ -1170,6 +1170,8 @@ class _container(object):
         return self
     def _normalizedcontainer(self):
         return self
+    def _getid(self):
+        return id(self)
 
 class _parentable(_container):
     _kind = "?"
@@ -1467,6 +1469,9 @@ class _subarray(_parentable):     # only for cast_subarray_pointer()
         return _ptr(Ptr(subarray._TYPE), subarray, solid)
     _makeptr = staticmethod(_makeptr)
 
+    def _getid(self):
+        raise NotImplementedError('_subarray._getid()')
+
 
 class _func(_container):
     def __init__(self, TYPE, **attrs):
@@ -1490,6 +1495,14 @@ class _func(_container):
 
     def __hash__(self):
         return hash(frozendict(self.__dict__))
+
+    def _getid(self):
+        if hasattr(self, 'graph'):
+            return id(self.graph)
+        elif self._callable:
+            return id(self._callable)
+        else:
+            return id(self)
 
     def __getstate__(self):
         import pickle, types
@@ -1557,6 +1570,9 @@ class _pyobject(Hashable, _container):
 
     def __str__(self):
         return "pyobject %s" % (Hashable.__str__(self),)
+
+    def _getid(self):
+        return id(self.value)
 
 class _pyobjheader(_parentable):
     def __init__(self, parent=None, parentindex=None):
