@@ -391,6 +391,12 @@ def fixup_ctype(fieldtype, fieldname, expected_size_and_sign):
             for ctype in typeclass:
                 if size_and_sign(ctype) == expected_size_and_sign:
                     return ctype
+    if (hasattr(fieldtype, '_length_')
+        and getattr(fieldtype, '_type_', None) == ctypes.c_char):
+        # for now, assume it is an array of chars; otherwise we'd also
+        # have to check the exact integer type of the elements of the array
+        size, sign = expected_size_and_sign
+        return ctypes.c_char * size
     raise TypeError("conflicting field type %r for %r" % (fieldtype,
                                                           fieldname))
 

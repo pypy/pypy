@@ -4,6 +4,7 @@ Test the Structure implementation.
 
 import py.test
 import pypy.rpython.rctypes.implementation
+from pypy.rpython.rctypes.astruct import offsetof
 from pypy.rpython.error import TyperError
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.translator.translator import TranslationContext
@@ -234,6 +235,12 @@ class Test_specialization:
         def f2(x):
             S(x, x=5)
         py.test.raises(TyperError, "interpret(f2, [4])")
+
+    def test_specialize_offsetof(self):
+        def f1():
+            return offsetof(tagpoint, 'y')
+        res = interpret(f1, [])
+        assert res == tagpoint.y.offset
 
 class Test_compilation:
     def test_compile_struct_access(self):

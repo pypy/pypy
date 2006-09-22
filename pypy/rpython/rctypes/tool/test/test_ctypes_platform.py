@@ -147,3 +147,17 @@ struct y {
     assert issubclass(c_x , ctypes.Structure)
     assert issubclass(c_y, ctypes.Structure)
     assert c_y_fields["x"] is c_x
+
+def test_array():
+    dirent = ctypes_platform.getstruct("struct dirent",
+                                       """
+           struct dirent  /* for this example only, not the exact dirent */
+           {
+               long d_ino;
+               int d_off;
+               unsigned short d_reclen;
+               char d_name[32];
+           };
+                                       """,
+                                       [("d_name", ctypes.c_char * 0)])
+    assert dirent.d_name.size == 32

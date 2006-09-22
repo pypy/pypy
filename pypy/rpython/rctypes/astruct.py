@@ -1,5 +1,6 @@
 from ctypes import Structure, Union
-from pypy.annotation.model import SomeCTypesObject
+from pypy.annotation.model import SomeCTypesObject, SomeInteger
+from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.rctypes.implementation import CTypesCallEntry, CTypesObjEntry
 from pypy.rpython.lltypesystem import lltype
 
@@ -9,6 +10,30 @@ UnionType = type(Union)
 # XXX this also implements Unions, but they are not properly emulated
 #     by the llinterpreter.  They work in the generated C code, though.
 
+
+def offsetof(Struct, fieldname):
+    "Utility function that returns the offset of a field in a structure."
+    return getattr(Struct, fieldname).offset
+
+
+class OffsetOfFnEntry(ExtRegistryEntry):
+    "Annotation and rtyping of calls to offsetof()"
+    _about_ = offsetof
+
+    def compute_result_annotation(self, s_Struct, s_fieldname):
+        assert s_Struct.is_constant()
+        assert s_fieldname.is_constant()
+        ofs = offsetof(s_Struct.const, s_fieldname.const)
+        assert ofs >= 0
+        s_result = SomeInteger(nonneg=True)
+        s_result.const = ofs
+        return s_result
+
+    def specialize_call(self, hop):
+        ofs = hop.s_result.const
+        return hop.inputconst(lltype.Signed, ofs)
+
+# ____________________________________________________________
 
 class CallEntry(CTypesCallEntry):
     "Annotation and rtyping of calls to structure types."
