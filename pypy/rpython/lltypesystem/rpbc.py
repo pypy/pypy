@@ -44,7 +44,8 @@ class MultipleFrozenPBCRepr(AbstractMultipleFrozenPBCRepr):
 
     def _setup_repr(self):
         llfields = self._setup_repr_fields()
-        self.pbc_type.become(Struct('pbc', *llfields))
+        kwds = {'hints': {'immutable': True}}
+        self.pbc_type.become(Struct('pbc', *llfields, **kwds))
 
     def create_instance(self):
         return malloc(self.pbc_type, immortal=True)
@@ -64,7 +65,7 @@ class MultipleUnrelatedFrozenPBCRepr(AbstractMultipleUnrelatedFrozenPBCRepr):
     with no common access set."""
 
     lowleveltype = llmemory.Address
-    EMPTY = Struct('pbc')
+    EMPTY = Struct('pbc', hints={'immutable': True})
 
     def convert_pbc(self, pbcptr):
         return llmemory.fakeaddress(pbcptr)
@@ -103,7 +104,8 @@ class FunctionsPBCRepr(AbstractFunctionsPBCRepr):
         fields = []
         for row in self.uniquerows:
             fields.append((row.attrname, row.fntype))
-        return Ptr(Struct('specfunc', *fields))
+        kwds = {'hints': {'immutable': True}}
+        return Ptr(Struct('specfunc', *fields, **kwds))
         
     def create_specfunc(self):
         return malloc(self.lowleveltype.TO, immortal=True)

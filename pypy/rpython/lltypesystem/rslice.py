@@ -18,8 +18,8 @@ from pypy.rpython.rmodel import inputconst, PyObjPtr, IntegerRepr
 #          //     step is always 1
 #      }
 
-SLICE = GcStruct("slice", ("start", Signed), ("stop", Signed))
-
+SLICE = GcStruct("slice", ("start", Signed), ("stop", Signed),
+                 hints = {'immutable': True})
 
 class SliceRepr(AbstractSliceRepr):
     pass

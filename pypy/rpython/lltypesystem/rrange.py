@@ -35,7 +35,8 @@ RANGEST = GcStruct("range", ("start", Signed), ("stop", Signed), ("step", Signed
                     adtmeths = {
                         "ll_length":ll_length,
                         "ll_getitem_fast":ll_getitem_fast,
-                    })
+                    },
+                    hints = {'immutable': True})
 RANGESTITER = GcStruct("range", ("next", Signed), ("stop", Signed), ("step", Signed))
 
 class RangeRepr(AbstractRangeRepr):
@@ -51,7 +52,8 @@ class RangeRepr(AbstractRangeRepr):
                     "ll_length":ll_length,
                     "ll_getitem_fast":ll_getitem_fast,
                     "step":step,
-                }))
+                },
+                hints = {'immutable': True}))
         self.RANGEITER = Ptr(GcStruct("range", ("next", Signed), ("stop", Signed)))
         AbstractRangeRepr.__init__(self, step, *args)
         self.ll_newrange = ll_newrange
