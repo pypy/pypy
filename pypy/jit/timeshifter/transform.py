@@ -7,6 +7,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.rmodel import inputconst
 from pypy.translator.unsimplify import varoftype, copyvar
 from pypy.translator.unsimplify import split_block, split_block_at_start
+from pypy.translator.simplify import rec_op_has_side_effects
 from pypy.translator.backendopt.ssa import SSA_to_SSI
 from pypy.translator.backendopt import support
 
@@ -338,8 +339,11 @@ class HintGraphTransformer(object):
         else:
             hs_res = self.hannotator.binding(spaceop.result)
             if hs_res.is_green():
-                # all-green arguments and result
-                return 'green'
+                # all-green arguments and result.
+                # Does the function have side-effects?
+                t = self.hannotator.base_translator
+                if not rec_op_has_side_effects(t, spaceop):
+                    return 'green'
         colors = {}
         for graph, tsgraph in self.graphs_from(spaceop):
             color = self.graph_calling_color(tsgraph)
@@ -367,8 +371,14 @@ class HintGraphTransformer(object):
             # but only has the hidden side-effect of putting it in the jitstate
         else:
             c_targets = inputconst(lltype.Void, targets)
-            self.genop(block, 'indirect_%s_call' % (color,),
-                       op.args[:-1] + [c_targets])
+            args_v = op.args[:-1] + [c_targets]
+            hs_func = self.hannotator.binding(args_v[0])
+            if not hs_func.is_green():
+                # XXX for now, assume that it will be a constant red box
+                v_greenfunc = self.genop(block, 'revealconst', [args_v[0]],
+                                  result_type = originalconcretetype(hs_func))
+                args_v[0] = v_greenfunc
+            self.genop(block, 'indirect_%s_call' % (color,), args_v)
 
     def handle_red_call(self, block, pos, color='red'):
         # the 'save_locals' pseudo-operation is used to save all
@@ -425,9 +435,25 @@ class HintGraphTransformer(object):
         op.opname = 'green_call'
 
     def handle_yellow_call(self, block, pos):
+        op = block.operations[pos]
+        hs_result = self.hannotator.binding(op.result)
+        if not hs_result.is_green():
+            # yellow calls are supposed to return greens,
+            # add an indirection if it's not the case
+            # XXX a bit strange
+            RESULT = originalconcretetype(hs_result)
+            v_tmp = varoftype(RESULT)
+            hs = hintmodel.SomeLLAbstractConstant(RESULT, {})
+            self.hannotator.setbinding(v_tmp, hs)
+            v_real_result = op.result
+            op.result = v_tmp
+            newop = SpaceOperation('same_as', [v_tmp], v_real_result)
+            block.operations.insert(pos+1, newop)
+
         link = support.split_block_with_keepalive(block, pos+1,
                                                   annotator=self.hannotator)
-        op = block.operations.pop(pos)
+        op1 = block.operations.pop(pos)
+        assert op1 is op
         assert len(block.operations) == pos
         nextblock = link.target
         varsalive = link.args

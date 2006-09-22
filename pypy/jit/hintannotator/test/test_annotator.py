@@ -556,14 +556,14 @@ def test_blue_simple_meth():
 
 def test_simple_meth():
     class Base(object):
-
         def m(self):
             raise NotImplementedError
+        pass  # for inspect.getsource() bugs
 
     class Concrete(Base):
-
         def m(self):
             return 42
+        pass  # for inspect.getsource() bugs
 
     def f(flag):
         if flag:

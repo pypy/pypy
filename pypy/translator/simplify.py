@@ -406,22 +406,26 @@ def has_no_side_effects(translator, graph, seen=None):
         if block is graph.exceptblock:
             return False     # graphs explicitly raising have side-effects
         for op in block.operations:
-            if op.opname == "direct_call":
-                g = get_graph(op.args[0], translator)
-                if g is None:
-                    return False
-                if not has_no_side_effects(translator, g, newseen):
-                    return False
-            elif op.opname == "indirect_call":
-                graphs = op.args[-1].value
-                if graphs is None:
-                    return False
-                for g in graphs:
-                    if not has_no_side_effects(translator, g, newseen):
-                        return False
-            elif op_has_side_effects(op):
+            if rec_op_has_side_effects(translator, op, newseen):
                 return False
     return True
+
+def rec_op_has_side_effects(translator, op, seen=None):
+    if op.opname == "direct_call":
+        g = get_graph(op.args[0], translator)
+        if g is None:
+            return True
+        if not has_no_side_effects(translator, g, seen):
+            return True
+    elif op.opname == "indirect_call":
+        graphs = op.args[-1].value
+        if graphs is None:
+            return True
+        for g in graphs:
+            if not has_no_side_effects(translator, g, seen):
+                return True
+    else:
+        return op_has_side_effects(op)
 
 # ___________________________________________________________________________
 # remove operations if their result is not used and they have no side effects

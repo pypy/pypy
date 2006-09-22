@@ -57,7 +57,8 @@ from pypy.rpython.rarithmetic import intmask
 
 OBJECT_VTABLE = lltype.ForwardReference()
 CLASSTYPE = Ptr(OBJECT_VTABLE)
-OBJECT = GcStruct('object', ('typeptr', CLASSTYPE))
+OBJECT = GcStruct('object', ('typeptr', CLASSTYPE),
+                            hints = {'immutable': True})
 OBJECTPTR = Ptr(OBJECT)
 OBJECT_VTABLE.become(Struct('object_vtable',
                             ('parenttypeptr', CLASSTYPE),

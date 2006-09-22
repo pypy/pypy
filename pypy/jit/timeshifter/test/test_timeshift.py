@@ -912,6 +912,18 @@ class TestTimeshift(TimeshiftingTests):
         assert res == 23
         self.check_insns({'int_gt': 1})
 
+    def test_green_with_side_effects(self):
+        S = lltype.GcStruct('S', ('flag', lltype.Bool))
+        s = lltype.malloc(S)
+        def ll_set_flag(s):
+            s.flag = True
+        def ll_function():
+            s.flag = False
+            ll_set_flag(s)
+            return s.flag
+        res = self.timeshift(ll_function, [], [])
+        assert res is True
+        self.check_insns({'setfield': 2, 'getfield': 1})
 
     def test_recursive_call(self):
         def ll_pseudo_factorial(n, fudge):
@@ -1006,3 +1018,25 @@ class TestTimeshift(TimeshiftingTests):
         res = self.timeshift(f, [True, -1000], [0])
         assert res == f(True, -1000)
         self.check_insns({'int_ge': 2, 'int_add': 1})
+
+    def test_simple_meth(self):
+        class Base(object):
+            def m(self):
+                raise NotImplementedError
+            pass  # for inspect.getsource() bugs
+
+        class Concrete(Base):
+            def m(self):
+                return 42
+            pass  # for inspect.getsource() bugs
+
+        def f(flag):
+            if flag:
+                o = Base()
+            else:
+                o = Concrete()
+            return o.m()
+
+        res = self.timeshift(f, [False], [0], policy=P_NOVIRTUAL)
+        assert res == 42
+        self.check_insns({})
