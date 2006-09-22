@@ -7,6 +7,9 @@ a drop-in replacement for the 'socket' module.
 #                ------------ IN - PROGRESS -----------
 
 from pypy.rpython.objectmodel import instantiate
+from pypy.rpython.rctypes.socketmodule import ctypes_socket as _c   # MOVE ME
+from ctypes import cast, POINTER, c_char, c_char_p, pointer, byref
+from ctypes import create_string_buffer, sizeof
 
 
 class Address(object):
@@ -28,7 +31,7 @@ class Address(object):
         # If we don't know the address family, don't raise an
         # exception -- return it as a tuple.
         family = self.addr.sa_family
-        buf = copy_buffer(cast(pointer(self.addr.sa_data), POINTER(char)),
+        buf = copy_buffer(cast(pointer(self.addr.sa_data), POINTER(c_char)),
                           self.addrlen - offsetof(_c.sockaddr_un, 'sa_data'))
         return space.newtuple([space.wrap(family),
                                space.wrap(buf.raw)])
@@ -66,7 +69,7 @@ class IPAddress(Address):
                 if info.ai_next:
                     raise SocketError("wildcard resolved to "
                                       "multiple addresses")
-                self.raw_to_addr(cast(info.ai_addr, POINTER(char)),
+                self.raw_to_addr(cast(info.ai_addr, POINTER(c_char)),
                                  info.ai_addrlen)
             finally:
                 _c.freeaddrinfo(res)
@@ -105,7 +108,7 @@ class IPAddress(Address):
             raise GAIError(error)
         try:
             info = res.contents
-            self.raw_to_addr(cast(info.ai_addr, POINTER(char)),
+            self.raw_to_addr(cast(info.ai_addr, POINTER(c_char)),
                              info.ai_addrlen)
         finally:
             _c.freeaddrinfo(res)
@@ -116,7 +119,7 @@ class IPAddress(Address):
         # (with variable size numbers).
         buf = create_string_buffer(_c.NI_MAXHOST)
         error = _c.getnameinfo(byref(self.addr), self.addrlen,
-                               byref(buf), _c.NI_MAXHOST,
+                               buf, _c.NI_MAXHOST,
                                None, 0, _c.NI_NUMERICHOST)
         if error:
             raise GAIError(error)
@@ -247,7 +250,7 @@ class UNIXAddress(Address):
         a = self.as_sockaddr_un()
         if _c.linux and a.sun_path[0] == '\x00':
             # Linux abstract namespace
-            buf = copy_buffer(cast(pointer(a.sun_path), POINTER(char)),
+            buf = copy_buffer(cast(pointer(a.sun_path), POINTER(c_char)),
                            self.addrlen - offsetof(_c.sockaddr_un, 'sun_path'))
             return buf.raw
         else:
@@ -293,7 +296,7 @@ make_null_address._annspecialcase_ = 'specialize:arg(0)'
 def copy_buffer(ptr, size):
     buf = create_string_buffer(size)
     for i in range(size):
-        buf[i] = ptr.contents[i]
+        buf[i] = ptr[i]
     return buf
 
 # ____________________________________________________________
@@ -306,12 +309,15 @@ class RSocket(object):
         """Create a new socket."""
         fd = _c.socket(family, type, proto)
         if _c.invalid_socket(fd):
-            raise last_error()
+            raise self.error_handler()
         # PLAT RISCOS
         self.fd = fd
         self.family = family
         self.type = type
         self.proto = proto
+
+    def error_handler(self):
+        return CSocketError(_c.errno())
 
     # convert an Address into an app-level object
     def addr_as_object(self, space, address):
@@ -353,8 +359,16 @@ class RSocket(object):
     def connect(self, address):
         """Connect the socket to a remote address."""
         res = _c.socketconnect(self.fd, byref(address.addr), address.addrlen)
-        if res < 0:
+        if res != 0:
             raise self.error_handler()
+
+    def connect_ex(self, address):
+        """This is like connect(address), but returns an error code (the errno
+        value) instead of raising an exception when an error occurs."""
+        return _c.socketconnect(self.fd, byref(address.addr), address.addrlen)
+
+    def fileno(self):
+        return self.fd
 
     def getsockname(self):
         """Return the address of the local endpoint."""
@@ -388,13 +402,65 @@ class RSocket(object):
         if res < 0:
             raise self.error_handler()
 
-    def recv(self, nbytes, flags=0):
+    def recv(self, buffersize, flags=0):
         """Receive up to buffersize bytes from the socket.  For the optional
         flags argument, see the Unix manual.  When no data is available, block
         until at least one byte is available or until the remote end is closed.
         When the remote end is closed and all data is read, return the empty
         string."""
-        IN-PROGRESS
+        buf = create_string_buffer(buffersize)
+        read_bytes = _c.socketrecv(self.fd, buf, buffersize, flags)
+        if read_bytes < 0:
+            raise self.error_handler()
+        return buf[:read_bytes]
+
+    def recvfrom(self, buffersize, flags=0):
+        """Like recv(buffersize, flags) but also return the sender's
+        address."""
+        buf = create_string_buffer(buffersize)
+        address = self.null_addr()
+        addrlen = _c.socklen_t()
+        read_bytes = _c.socketrecvfrom(self.fd, buf, buffersize, flags,
+                                       byref(address.addr), byref(addrlen))
+        if read_bytes < 0:
+            raise self.error_handler()
+        address.addrlen = addrlen.value
+        return (buf[:read_bytes], address)
+
+    def send(self, data, flags=0):
+        """Send a data string to the socket.  For the optional flags
+        argument, see the Unix manual.  Return the number of bytes
+        sent; this may be less than len(data) if the network is busy."""
+        res = _c.socketsend(self.fd, data, len(data), flags)
+        if res < 0:
+            raise self.error_handler()
+        return res
+
+    def sendall(self, data, flags=0):
+        """Send a data string to the socket.  For the optional flags
+        argument, see the Unix manual.  This calls send() repeatedly
+        until all data is sent.  If an error occurs, it's impossible
+        to tell how much data has been sent."""
+        while data:
+            res = self.send(data, flags)
+            data = data[res:]
+
+    def sendto(self, data, flags, address):
+        """Like send(data, flags) but allows specifying the destination
+        address.  (Note that 'flags' is mandatory here.)"""
+        res = _c.socketsendto(self.fd, data, len(data), flags,
+                              byref(address.addr), address.addrlen)
+        if res < 0:
+            raise self.error_handler()
+        return res
+
+    def shutdown(self, how):
+        """Shut down the reading side of the socket (flag == SHUT_RD), the
+        writing side of the socket (flag == SHUT_WR), or both ends
+        (flag == SHUT_RDWR)."""
+        res = _c.socketshutdown(self.fd, how)
+        if res < 0:
+            raise self.error_handler()
 
 # ____________________________________________________________
 
@@ -405,3 +471,24 @@ def make_socket(fd, family, type, proto):
     result.type = type
     result.proto = proto
     return result
+
+class BaseSocketError(Exception):
+    pass
+
+class SocketError(BaseSocketError):
+    def __init__(self, message):
+        self.message = message
+    def __str__(self):
+        return self.message
+
+class CSocketError(BaseSocketError):
+    def __init__(self, errno):
+        self.errno = errno
+    def __str__(self):
+        return _c.socket_strerror(self.errno)
+
+class GAIError(BaseSocketError):
+    def __init__(self, errno):
+        self.errno = errno
+    def __str__(self):
+        return _c.gai_strerror(self.errno)

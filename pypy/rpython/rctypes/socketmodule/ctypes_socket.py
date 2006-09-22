@@ -6,7 +6,7 @@ from pypy.rpython.rctypes.tool import util      # ctypes.util from 0.9.9.6
 # Not used here, but exported for other code.
 from pypy.rpython.rctypes.aerrno import geterrno
 
-from ctypes import c_ushort, c_int, c_uint, c_char_p, c_void_p
+from ctypes import c_ushort, c_int, c_uint, c_char_p, c_void_p, c_char
 from ctypes import POINTER, ARRAY, cdll, sizeof, SetPointerType
 
 # Also not used here, but exported for other code.
@@ -14,6 +14,7 @@ from ctypes import cast, pointer, create_string_buffer
 
 includes = ('sys/types.h',
             'sys/socket.h',
+            'sys/un.h',
             'netinet/in.h',
             'netinet/tcp.h',
             'unistd.h',
@@ -32,7 +33,11 @@ class CConfig:
     O_NONBLOCK = ctypes_platform.ConstantInteger('O_NONBLOCK')
     F_GETFL = ctypes_platform.ConstantInteger('F_GETFL')
     F_SETFL = ctypes_platform.ConstantInteger('F_SETFL')
-    
+
+    linux      = ctypes_platform.Defined('linux')
+    MS_WINDOWS = ctypes_platform.Defined('MS_WINDOWS')
+    INVALID_SOCKET = ctypes_platform.DefinedConstantInteger('INVALID_SOCKET')
+
 constant_names = ['AF_APPLETALK', 'AF_ASH', 'AF_ATMPVC', 'AF_ATMSVC', 'AF_AX25',
                   'AF_BLUETOOTH', 'AF_BRIDGE', 'AF_ECONET', 'AF_INET', 'AF_INET6',
                   'AF_IPX', 'AF_IRDA', 'AF_KEY', 'AF_NETBEUI', 'AF_NETLINK',
@@ -107,7 +112,7 @@ CConfig.socklen_t = ctypes_platform.SimpleType('socklen_t', c_int)
 # struct types
 CConfig.sockaddr = ctypes_platform.Struct('struct sockaddr',
                                              [('sa_family', c_int),
-                                              ])
+                                              ('sa_data', c_char * 0)])
 sockaddr_ptr = POINTER('sockaddr')
 CConfig.in_addr = ctypes_platform.Struct('struct in_addr',
                                          [('s_addr', c_uint)])
@@ -116,10 +121,15 @@ CConfig.sockaddr_in = ctypes_platform.Struct('struct sockaddr_in',
                                          ('sin_port',   c_ushort),
                                          ('sin_addr',   CConfig.in_addr)])
 
-CConfig.sockaddr_in6  = ctypes_platform.Struct('struct sockaddr_in6',
-                                               [('sin6_flowinfo', c_int),
-                                                ('sin6_scope_id', c_int),
-                                                ])
+CConfig.sockaddr_in6 = ctypes_platform.Struct('struct sockaddr_in6',
+                                              [('sin6_family', c_int),
+                                               ('sin6_flowinfo', c_int),
+                                               ('sin6_scope_id', c_int)])
+
+CConfig.sockaddr_un = ctypes_platform.Struct('struct sockaddr_un',
+                                             [('sun_family', c_int),
+                                              ('sun_path', c_char * 0)])
+
 addrinfo_ptr = POINTER("addrinfo")
 CConfig.addrinfo = ctypes_platform.Struct('struct addrinfo',
                                      [('ai_flags', c_int),
@@ -171,6 +181,17 @@ O_NONBLOCK = cConfig.O_NONBLOCK
 F_GETFL = cConfig.F_GETFL
 F_SETFL = cConfig.F_SETFL
 
+linux = cConfig.linux
+MS_WINDOWS = cConfig.MS_WINDOWS
+if MS_WINDOWS:
+    def invalid_socket(fd):
+        return fd == INVALID_SOCKET
+    INVALID_SOCKET = cConfig.INVALID_SOCKET
+else:
+    def invalid_socket(fd):
+        return fd < 0
+    INVALID_SOCKET = -1
+
 uint16_t = cConfig.uint16_t
 uint32_t = cConfig.uint32_t
 size_t = cConfig.size_t
@@ -180,6 +201,7 @@ sockaddr = cConfig.sockaddr
 sockaddr_size = sizeof(sockaddr)
 sockaddr_in = cConfig.sockaddr_in
 sockaddr_in6 = cConfig.sockaddr_in6
+sockaddr_un = cConfig.sockaddr_un
 in_addr = cConfig.in_addr
 in_addr_size = sizeof(in_addr)
 addrinfo = cConfig.addrinfo
@@ -217,7 +239,12 @@ socket = socketdll.socket
 socket.argtypes = [c_int, c_int, c_int]
 socket.restype = c_int
 
-socketclose = os.close
+if MS_WINDOWS:
+    socketclose = socketdll.closesocket
+    socketclose.argtypes = [c_int]
+    socketclose.restype = c_int
+else:
+    socketclose = os.close
 
 socketconnect = socketdll.connect
 socketconnect.argtypes = [c_int, sockaddr_ptr, socklen_t]
@@ -261,10 +288,6 @@ inet_aton.restype = c_int
 inet_ntoa = socketdll.inet_ntoa
 inet_ntoa.argtypes = [in_addr]
 inet_ntoa.restype = c_char_p
-
-close = socketdll.close
-close.argtypes = [c_int]
-close.restype = c_int
 
 socketaccept = socketdll.accept
 socketaccept.argtypes = [c_int, sockaddr_ptr, POINTER(socklen_t)]
@@ -367,3 +390,70 @@ socketpair.restype = c_int
 shutdown = socketdll.shutdown
 shutdown.argtypes = [c_int, c_int]
 shutdown.restype = c_int
+
+
+if MS_WINDOWS:
+    WIN32_ERROR_MESSAGES = {
+        errno.WSAEINTR:  "Interrupted system call",
+        errno.WSAEBADF:  "Bad file descriptor",
+        errno.WSAEACCES: "Permission denied",
+        errno.WSAEFAULT: "Bad address",
+        errno.WSAEINVAL: "Invalid argument",
+        errno.WSAEMFILE: "Too many open files",
+        errno.WSAEWOULDBLOCK:
+          "The socket operation could not complete without blocking",
+        errno.WSAEINPROGRESS: "Operation now in progress",
+        errno.WSAEALREADY: "Operation already in progress",
+        errno.WSAENOTSOCK: "Socket operation on non-socket",
+        errno.WSAEDESTADDRREQ: "Destination address required",
+        errno.WSAEMSGSIZE: "Message too long",
+        errno.WSAEPROTOTYPE: "Protocol wrong type for socket",
+        errno.WSAENOPROTOOPT: "Protocol not available",
+        errno.WSAEPROTONOSUPPORT: "Protocol not supported",
+        errno.WSAESOCKTNOSUPPORT: "Socket type not supported",
+        errno.WSAEOPNOTSUPP: "Operation not supported",
+        errno.WSAEPFNOSUPPORT: "Protocol family not supported",
+        errno.WSAEAFNOSUPPORT: "Address family not supported",
+        errno.WSAEADDRINUSE: "Address already in use",
+        errno.WSAEADDRNOTAVAIL: "Can't assign requested address",
+        errno.WSAENETDOWN: "Network is down",
+        errno.WSAENETUNREACH: "Network is unreachable",
+        errno.WSAENETRESET: "Network dropped connection on reset",
+        errno.WSAECONNABORTED: "Software caused connection abort",
+        errno.WSAECONNRESET: "Connection reset by peer",
+        errno.WSAENOBUFS: "No buffer space available",
+        errno.WSAEISCONN: "Socket is already connected",
+        errno.WSAENOTCONN: "Socket is not connected",
+        errno.WSAESHUTDOWN: "Can't send after socket shutdown",
+        errno.WSAETOOMANYREFS: "Too many references: can't splice",
+        errno.WSAETIMEDOUT: "Operation timed out",
+        errno.WSAECONNREFUSED: "Connection refused",
+        errno.WSAELOOP: "Too many levels of symbolic links",
+        errno.WSAENAMETOOLONG: "File name too long",
+        errno.WSAEHOSTDOWN: "Host is down",
+        errno.WSAEHOSTUNREACH: "No route to host",
+        errno.WSAENOTEMPTY: "Directory not empty",
+        errno.WSAEPROCLIM: "Too many processes",
+        errno.WSAEUSERS: "Too many users",
+        errno.WSAEDQUOT: "Disc quota exceeded",
+        errno.WSAESTALE: "Stale NFS file handle",
+        errno.WSAEREMOTE: "Too many levels of remote in path",
+        errno.WSASYSNOTREADY: "Network subsystem is unvailable",
+        errno.WSAVERNOTSUPPORTED: "WinSock version is not supported",
+        errno.WSANOTINITIALISED: "Successful WSAStartup() not yet performed",
+        errno.WSAEDISCON: "Graceful shutdown in progress",
+
+        # Resolver errors
+        # XXX Not exported by errno. Replace by the values in winsock.h
+        # errno.WSAHOST_NOT_FOUND: "No such host is known",
+        # errno.WSATRY_AGAIN: "Host not found, or server failed",
+        # errno.WSANO_RECOVERY: "Unexpected server error encountered",
+        # errno.WSANO_DATA: "Valid name without requested data",
+        # errno.WSANO_ADDRESS: "No address, look for MX record",
+        }
+
+    def socket_strerror(errno):
+        return WIN32_ERROR_MESSAGES.get(errno, "winsock error")
+else:
+    def socket_strerror(errno):
+        return strerror(errno)
