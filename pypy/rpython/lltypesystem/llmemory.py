@@ -24,6 +24,8 @@ class AddressOffset(Symbolic):
     def raw_malloc(self, rest):
         raise NotImplementedError("raw_malloc(%r, %r)" % (self, rest))
 
+    def raw_memclear(self, adr):
+        raise NotImplementedError("raw_memclear(%r, %r)" % (self, adr))
 
 class ItemOffset(AddressOffset):
 
@@ -64,6 +66,25 @@ class ItemOffset(AddressOffset):
             array_adr = cast_ptr_to_adr(p)
             return array_adr + ArrayItemsOffset(T)
 
+    def raw_memclear(self, adr):
+        if (isinstance(self.TYPE, lltype.ContainerType) and self.repeat == 1):
+            from pypy.rpython.rctypes.rmodel import reccopy
+            fresh = lltype.malloc(self.TYPE, flavor='raw', zero=True)
+            reccopy(fresh, adr.get())
+        else:
+            assert adr.offset is not None
+            if isinstance(adr.offset, ArrayItemsOffset):
+                array = adr.ob
+            elif isinstance(adr.offset, CompositeOffset):
+                array = (adr + -adr.offset.offsets[-1]).get()
+            if isinstance(self.TYPE, lltype.ContainerType):
+                fresh = lltype.malloc(self.TYPE, flavor='raw', zero=True)
+                for i in range(self.repeat):
+                    reccopy(fresh, array[i])
+            else:
+                for i in range(self.repeat):
+                    array[i] = self.TYPE._defl()
+        
 
 class FieldOffset(AddressOffset):
 
@@ -85,6 +106,22 @@ class FieldOffset(AddressOffset):
             return AddressOffset.raw_malloc(self, rest)   # for the error msg
         assert rest
         return rest[0].raw_malloc(rest[1:], parenttype=parenttype or self.TYPE)
+
+    def raw_memclear(self, adr):
+        if self.fldname != self.TYPE._arrayfld:
+            return AddressOffset.raw_memclear(adr)   # for the error msg
+        structptr = adr.get()
+        for name in self.TYPE._names[:-1]:
+            FIELDTYPE = getattr(self.TYPE, name) 
+            if isinstance(FIELDTYPE, lltype.ContainerType):
+                fresh = lltype.malloc(FIELDTYPE, raw=True, zero=True)
+                from pypy.rpython.rctypes.rmodel import reccopy
+                fresh = lltype.malloc(self.TYPE, flavor='raw', zero=True)
+                reccopy(fresh, getattr(structptr, name)._obj)
+            else:
+                setattr(structptr, name, FIELDTYPE._defl())
+
+    
 
 
 class CompositeOffset(AddressOffset):
@@ -125,6 +162,12 @@ class CompositeOffset(AddressOffset):
     def raw_malloc(self, rest):
         return self.offsets[0].raw_malloc(self.offsets[1:] + rest)
 
+    def raw_memclear(self, adr):
+        for o in self.offsets[:-1]:
+            o.raw_memclear(adr)
+            adr += o
+        o.raw_memclear(adr)
+
 
 class ArrayItemsOffset(AddressOffset):
 
@@ -152,6 +195,10 @@ class ArrayItemsOffset(AddressOffset):
         p = lltype.malloc(parenttype or self.TYPE, count,
                           immortal = self.TYPE._gckind == 'raw')
         return cast_ptr_to_adr(p)
+
+    def raw_memclear(self, adr):
+        # should really zero out the length field, but we can't
+        pass
 
 
 class ArrayLengthOffset(AddressOffset):
@@ -191,6 +238,9 @@ class GCHeaderOffset(AddressOffset):
         headerptr = self.gcheaderbuilder.new_header(gcobjadr.get())
         return cast_ptr_to_adr(headerptr)
 
+    def raw_memclear(self, adr):
+        headerptr = adr.get()
+        sizeof(lltype.typeOf(headerptr).TO).raw_memclear(cast_ptr_to_adr(headerptr))
 
 class GCHeaderAntiOffset(AddressOffset):
     def __init__(self, gcheaderbuilder):
@@ -560,15 +610,10 @@ def raw_malloc_usage(size):
     return size
 
 def raw_memclear(adr, size):
-    # hack hack hack
-    # stab stab stab
-    assert (adr.offset is None or
-            (isinstance(adr.offset, ArrayItemsOffset)
-             and isinstance(lltype.typeOf(adr.ob).TO, lltype.FixedSizeArray)))
-    TYPE = lltype.typeOf(adr.ob)
-    fresh = lltype.malloc(TYPE.TO, zero=True, flavor='raw')
-    from pypy.rpython.rctypes.rmodel import reccopy
-    reccopy(fresh, adr.ob)
+    if not isinstance(size, AddressOffset):
+        raise NotImplementedError(size)
+    assert lltype.typeOf(adr) == Address
+    size.raw_memclear(adr)
 
 def raw_memcopy(source, dest, size):
     source = source.get()

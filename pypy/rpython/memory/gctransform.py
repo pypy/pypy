@@ -21,7 +21,9 @@ from pypy.rpython.memory.gcheader import GCHeaderBuilder
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.rtyper import LowLevelOpList
-import sets, os
+from pypy.rpython.rbuiltin import gen_cast
+from pypy.rpython.rarithmetic import ovfcheck
+import sets, os, sys
 
 def var_ispyobj(var):
     if hasattr(var, 'concretetype'):
@@ -425,27 +427,51 @@ class RefcountingGCTransformer(GCTransformer):
         gc_header_offset = self.gcheaderbuilder.size_gc_header
         self.deallocator_graphs_needing_transforming = []
         # create incref graph
+        HDRPTR = lltype.Ptr(self.HDR)
         def ll_incref(adr):
             if adr:
-                gcheader = adr - gc_header_offset
-                gcheader.signed[0] = gcheader.signed[0] + 1
+                gcheader = llmemory.cast_adr_to_ptr(adr - gc_header_offset, HDRPTR)
+                gcheader.refcount = gcheader.refcount + 1
         def ll_decref(adr, dealloc):
             if adr:
-                gcheader = adr - gc_header_offset
-                refcount = gcheader.signed[0] - 1
-                gcheader.signed[0] = refcount
+                gcheader = llmemory.cast_adr_to_ptr(adr - gc_header_offset, HDRPTR)
+                refcount = gcheader.refcount - 1
+                gcheader.refcount = refcount
                 if refcount == 0:
                     dealloc(adr)
         def ll_decref_simple(adr):
             if adr:
-                gcheader = adr - gc_header_offset
-                refcount = gcheader.signed[0] - 1
+                gcheader = llmemory.cast_adr_to_ptr(adr - gc_header_offset, HDRPTR)
+                refcount = gcheader.refcount - 1
                 if refcount == 0:
                     llop.gc_free(lltype.Void, adr)
                 else:
-                    gcheader.signed[0] = refcount
+                    gcheader.refcount = refcount
         def ll_no_pointer_dealloc(adr):
             llop.gc_free(lltype.Void, adr)
+
+        def ll_malloc_fixedsize(size):
+            size = gc_header_offset + size
+            result = lladdress.raw_malloc(size)
+            lladdress.raw_memclear(result, size)
+            result += gc_header_offset
+            return result
+        def ll_malloc_varsize_no_length(length, size, itemsize):
+            try:
+                fixsize = gc_header_offset + size
+                varsize = ovfcheck(itemsize * length)
+                tot_size = ovfcheck(fixsize + varsize)
+            except OverflowError:
+                raise MemoryError
+            result = lladdress.raw_malloc(tot_size)
+            lladdress.raw_memclear(result, tot_size)
+            result += gc_header_offset
+            return result
+        def ll_malloc_varsize(length, size, itemsize, lengthoffset):
+            result = ll_malloc_varsize_no_length(length, size, itemsize)
+            (result + lengthoffset).signed[0] = length
+            return result
+
         if self.translator:
             self.increfptr = self.inittime_helper(
                 ll_incref, [llmemory.Address], lltype.Void)
@@ -456,6 +482,12 @@ class RefcountingGCTransformer(GCTransformer):
                 ll_decref_simple, [llmemory.Address], lltype.Void)
             self.no_pointer_dealloc_ptr = self.inittime_helper(
                 ll_no_pointer_dealloc, [llmemory.Address], lltype.Void)
+            self.malloc_fixedsize_ptr = self.inittime_helper(
+                ll_malloc_fixedsize, [lltype.Signed], llmemory.Address)
+            self.malloc_varsize_no_length_ptr = self.inittime_helper(
+                ll_malloc_varsize_no_length, [lltype.Signed]*3, llmemory.Address)
+            self.malloc_varsize_ptr = self.inittime_helper(
+                ll_malloc_varsize, [lltype.Signed]*4, llmemory.Address)
             self.mixlevelannotator.finish()   # for now
         # cache graphs:
         self.decref_funcptrs = {}
@@ -526,12 +558,63 @@ class RefcountingGCTransformer(GCTransformer):
         result.extend(self.pop_alive(oldval))
         return result
 
-##    -- maybe add this for tests and for consistency --
-##    def consider_constant(self, TYPE, value):
-##        p = value._as_ptr()
-##        if not self.gcheaderbuilder.get_header(p):
-##            hdr = new_header(p)
-##            hdr.refcount = sys.maxint // 2
+    def replace_malloc(self, op, livevars, block):
+        TYPE = op.result.concretetype.TO
+        assert not TYPE._is_varsize()
+        c_size = Constant(llmemory.sizeof(TYPE), lltype.Signed)
+        ops = []
+        v_raw = varoftype(llmemory.Address)
+        return [SpaceOperation("direct_call",
+                               [self.malloc_fixedsize_ptr, c_size],
+                               v_raw),
+                SpaceOperation("cast_adr_to_ptr",
+                               [v_raw],
+                               op.result)]
+
+    def replace_malloc_varsize(self, op, livevars, block):
+        def intconst(c): return Constant(c, lltype.Signed)
+
+        TYPE = op.result.concretetype.TO
+        assert TYPE._is_varsize()
+
+        c_const_size = intconst(llmemory.sizeof(TYPE, 0))
+        if isinstance(TYPE, lltype.Struct):
+            ARRAY = TYPE._flds[TYPE._arrayfld]
+        else:
+            ARRAY = TYPE
+        assert isinstance(ARRAY, lltype.Array)
+        c_item_size = intconst(llmemory.sizeof(ARRAY.OF))
+
+        ops = []
+        v_raw = varoftype(llmemory.Address)
+        if ARRAY._hints.get("nolength", False):
+            ops.append(
+                SpaceOperation("direct_call",
+                               [self.malloc_varsize_no_length_ptr, op.args[-1],
+                                c_const_size, c_item_size],
+                               v_raw))
+        else:
+            if isinstance(TYPE, lltype.Struct):
+                offset_to_length = llmemory.FieldOffset(TYPE, TYPE._arrayfld) + llmemory.ArrayLengthOffset(ARRAY)
+            else:
+                offset_to_length = llmemory.ArrayLengthOffset(ARRAY)
+            ops.append(
+                SpaceOperation("direct_call",
+                               [self.malloc_varsize_ptr, op.args[-1],
+                                c_const_size, c_item_size, intconst(offset_to_length)],
+                               v_raw))
+
+        ops.append(SpaceOperation("cast_adr_to_ptr", [v_raw], op.result))
+        return ops
+
+    def consider_constant(self, TYPE, value):
+        if value is not lltype.top_container(value):
+            return
+        if isinstance(TYPE, (lltype.GcStruct, lltype.GcArray)):
+            p = value._as_ptr()
+            if not self.gcheaderbuilder.get_header(p):
+                hdr = self.gcheaderbuilder.new_header(p)
+                hdr.refcount = sys.maxint // 2
 
     def static_deallocation_funcptr_for_type(self, TYPE):
         if TYPE in self.static_deallocator_funcptrs:
@@ -559,13 +642,13 @@ def ll_deallocator(addr):
     exc_instance = llop.gc_fetch_exception(EXC_INSTANCE_TYPE)
     try:
         v = cast_adr_to_ptr(addr, PTR_TYPE)
-        gcheader = addr - gc_header_offset
+        gcheader = cast_adr_to_ptr(addr - gc_header_offset, HDRPTR)
         # refcount is at zero, temporarily bump it to 1:
-        gcheader.signed[0] = 1
+        gcheader.refcount = 1
         destr_v = cast_pointer(DESTR_ARG, v)
         ll_call_destructor(destrptr, destr_v)
-        refcount = gcheader.signed[0] - 1
-        gcheader.signed[0] = refcount
+        refcount = gcheader.refcount - 1
+        gcheader.refcount = refcount
         if refcount == 0:
 %s
             llop.gc_free(lltype.Void, addr)
@@ -591,7 +674,8 @@ def ll_deallocator(addr):
              'PTR_TYPE': lltype.Ptr(TYPE),
              'DESTR_ARG': DESTR_ARG,
              'EXC_INSTANCE_TYPE': self.translator.rtyper.exceptiondata.lltype_of_exception_value,
-             'll_call_destructor': ll_call_destructor}
+             'll_call_destructor': ll_call_destructor,
+             'HDRPTR':lltype.Ptr(self.HDR)}
         exec src in d
         this = d['ll_deallocator']
         fptr = self.annotate_helper(this, [llmemory.Address], lltype.Void)
@@ -620,11 +704,11 @@ def ll_deallocator(addr):
         gc_header_offset = self.gcheaderbuilder.size_gc_header
         def ll_dealloc(addr):
             # bump refcount to 1
-            gcheader = addr - gc_header_offset
-            gcheader.signed[0] = 1
+            gcheader = llmemory.cast_adr_to_ptr(addr - gc_header_offset, lltype.Ptr(self.HDR))
+            gcheader.refcount = 1
             v = llmemory.cast_adr_to_ptr(addr, QUERY_ARG_TYPE)
             rtti = queryptr(v)
-            gcheader.signed[0] = 0
+            gcheader.refcount = 0
             llop.gc_call_rtti_destructor(lltype.Void, rtti, addr)
         fptr = self.annotate_helper(ll_dealloc, [llmemory.Address], lltype.Void)
         self.dynamic_deallocator_funcptrs[TYPE] = fptr

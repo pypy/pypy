@@ -632,7 +632,9 @@ class LLFrame(object):
         gc.collect()
 
     def op_gc_free(self, addr):
-        raise NotImplementedError("gc_free")
+        # what can you do?
+        pass
+        #raise NotImplementedError("gc_free")
 
     def op_gc_fetch_exception(self):
         raise NotImplementedError("gc_fetch_exception")
@@ -641,7 +643,10 @@ class LLFrame(object):
         raise NotImplementedError("gc_restore_exception")
 
     def op_gc_call_rtti_destructor(self, rtti, addr):
-        raise NotImplementedError("gc_call_rtti_destructor")
+        if hasattr(rtti._obj, 'destructor_funcptr'):
+            d = rtti._obj.destructor_funcptr
+            ob = addr.get()
+            return self.op_direct_call(d, ob)
 
     def op_gc_deallocate(self, TYPE, addr):
         raise NotImplementedError("gc_deallocate")
