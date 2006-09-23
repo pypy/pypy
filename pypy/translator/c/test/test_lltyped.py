@@ -251,3 +251,18 @@ class TestLowLevelType(test_typed.CompilationTestCase):
         fn = self.getcompiled(llf)
         res = fn(0x33)
         assert res in [0x1033, 0x3320]
+
+    def test_sizeof_void_array(self):
+        from pypy.rpython.lltypesystem import llmemory
+        A = Array(Void)
+        size1 = llmemory.sizeof(A, 1)
+	size2 = llmemory.sizeof(A, 14)
+        def f(x=int):
+	    if x:
+	        return size1
+	    else:
+	        return size2
+	fn = self.getcompiled(f)
+	res1 = fn(1)
+	res2 = fn(0)
+	assert res1 == res2
