@@ -427,21 +427,21 @@ class RefcountingGCTransformer(GCTransformer):
         gc_header_offset = self.gcheaderbuilder.size_gc_header
         self.deallocator_graphs_needing_transforming = []
         # create incref graph
-        #HDRPTR = lltype.Ptr(self.HDR)
+        HDRPTR = lltype.Ptr(self.HDR)
         def ll_incref(adr):
             if adr:
-                gcheader = llmemory.cast_adr_to_ptr(adr - gc_header_offset, lltype.Ptr(self.HDR))
+                gcheader = llmemory.cast_adr_to_ptr(adr - gc_header_offset, HDRPTR)
                 gcheader.refcount = gcheader.refcount + 1
         def ll_decref(adr, dealloc):
             if adr:
-                gcheader = llmemory.cast_adr_to_ptr(adr - gc_header_offset, lltype.Ptr(self.HDR))
+                gcheader = llmemory.cast_adr_to_ptr(adr - gc_header_offset, HDRPTR)
                 refcount = gcheader.refcount - 1
                 gcheader.refcount = refcount
                 if refcount == 0:
                     dealloc(adr)
         def ll_decref_simple(adr):
             if adr:
-                gcheader = llmemory.cast_adr_to_ptr(adr - gc_header_offset,lltype.Ptr(self.HDR))
+                gcheader = llmemory.cast_adr_to_ptr(adr - gc_header_offset, HDRPTR)
                 refcount = gcheader.refcount - 1
                 if refcount == 0:
                     llop.gc_free(lltype.Void, adr)
@@ -698,13 +698,14 @@ def ll_deallocator(addr):
         queryptr = rtti._obj.query_funcptr
         if queryptr._obj in self.queryptr2dynamic_deallocator_funcptr:
             return self.queryptr2dynamic_deallocator_funcptr[queryptr._obj]
-        
+
         RTTI_PTR = lltype.Ptr(lltype.RuntimeTypeInfo)
         QUERY_ARG_TYPE = lltype.typeOf(queryptr).TO.ARGS[0]
         gc_header_offset = self.gcheaderbuilder.size_gc_header
+        HDRPTR = lltype.Ptr(self.HDR)
         def ll_dealloc(addr):
             # bump refcount to 1
-            gcheader = llmemory.cast_adr_to_ptr(addr - gc_header_offset, lltype.Ptr(self.HDR))
+            gcheader = llmemory.cast_adr_to_ptr(addr - gc_header_offset, HDRPTR)
             gcheader.refcount = 1
             v = llmemory.cast_adr_to_ptr(addr, QUERY_ARG_TYPE)
             rtti = queryptr(v)
