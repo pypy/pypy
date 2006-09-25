@@ -1687,7 +1687,7 @@ class AstBuilder(BaseGrammarBuilder):
         if self.with_enabled:
             return
         self.with_enabled = True
-        self.keywords.update({'with':None, }) #  'as': None})
+        self.keywords.update({'with':None, 'as': None})
 
     def context(self):
         return AstBuilderContext(self.rule_stack)
