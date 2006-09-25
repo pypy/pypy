@@ -44,16 +44,17 @@ class NameToken(Token):
         else:
             # error unknown or negative integer
         """
+        
         ctx = source.context()
         tk = source.next()
         if tk.codename==self.codename:
-            if tk.value not in self.keywords:
+            if tk.value not in builder.keywords:
                 ret = builder.token( tk.codename, tk.value, source )
                 return self.debug_return( ret, tk.codename, tk.value )
         source.restore( ctx )
         return 0
         
-    def match_token(self, other):
+    def match_token(self, builder, other):
         """special case of match token for tokens which are really keywords
         """
         if not isinstance(other, Token):
@@ -62,7 +63,7 @@ class NameToken(Token):
             return False
         if other.codename != self.codename:
             return False
-        if other.value in self.keywords:
+        if other.value in builder.keywords:
             return False
         return True
 

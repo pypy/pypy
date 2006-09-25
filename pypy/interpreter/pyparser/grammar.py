@@ -142,6 +142,7 @@ class BaseGrammarBuilderContext(AbstractContext):
 
 class BaseGrammarBuilder(AbstractBuilder):
     """Base/default class for a builder"""
+    keywords = None
     def __init__(self, rules=None, debug=0, symbols={} ):
         AbstractBuilder.__init__(self, rules, debug, symbols )
         # stacks contain different objects depending on the builder class
@@ -246,7 +247,7 @@ class GrammarElement(Wrappable):
         token = source.peek()
         if self._trace:
             pos1 = source.get_pos()
-        in_first_set = self.match_first_set(token)
+        in_first_set = self.match_first_set(builder, token)
         if not in_first_set: # and not EmptyToken in self.first_set:
             if EmptyToken in self.first_set:
                 ret = builder.sequence(self, source, 0 )
@@ -331,12 +332,12 @@ class GrammarElement(Wrappable):
         # XXX: first_set could probably be implemented with sets
         return []
 
-    def match_first_set(self, other):
+    def match_first_set(self, builder, other):
         """matching is not equality:
         token('NAME','x') matches token('NAME',None)
         """
         for tk in self.first_set:
-            if tk.match_token( other ):
+            if tk.match_token( builder, other ):
                 return True
         return False
 
@@ -377,7 +378,7 @@ class Alternative(GrammarElement):
         # to see if this solve our problems with infinite recursion
         for rule in self.args:
             if USE_LOOKAHEAD:
-                if not rule.match_first_set(tok) and EmptyToken not in rule.first_set:
+                if not rule.match_first_set(builder, tok) and EmptyToken not in rule.first_set:
                     if self._trace:
                         print "Skipping impossible rule: %s" % (rule,)
                     continue
@@ -642,6 +643,10 @@ class Token(GrammarElement):
         else:
             # error unknown or negative integer
         """
+        if (self.value is not None and builder.keywords is not None
+            and self.value not in builder.keywords):
+            return 0
+        
         ctx = source.context()
         tk = source.next()
         if tk.codename == self.codename:
@@ -664,7 +669,7 @@ class Token(GrammarElement):
             return "<%s>=='%s'" % (name, self.value)
     
 
-    def match_token(self, other):
+    def match_token(self, builder, other):
         """convenience '==' implementation, this is *not* a *real* equality test
         a Token instance can be compared to:
          - another Token instance in which case all fields (name and value)
@@ -676,7 +681,10 @@ class Token(GrammarElement):
             raise RuntimeError("Unexpected token type %r" % other)
         if other is EmptyToken:
             return False
-        res = other.codename == self.codename and self.value in [None, other.value]
+        if (self.value is not None and builder.keywords is not None
+            and self.value not in builder.keywords):
+            return False
+        res = other.codename == self.codename and self.value in [None, other.value] 
         #print "matching", self, other, res
         return res
     

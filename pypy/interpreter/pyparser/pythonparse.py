@@ -31,7 +31,11 @@ class PythonParser(object):
         grammar.build_first_sets(self.items)
         self.symbols = grammar_builder.symbols
         self.with_grammar = None
-
+        self.keywords = dict.fromkeys(grammar_builder.keywords)
+        # Only when with_statement is enabled
+        self.keywords.pop('with', None)
+        self.keywords.pop('as', None)
+        
     def parse_source(self, textsrc, goal, builder, flags=0):
         """Parse a python source according to goal"""
         # Detect source encoding.
@@ -52,22 +56,14 @@ class PythonParser(object):
 
 
     def parse_lines(self, lines, goal, builder, flags=0):
-        if (self.with_grammar is not None and # don't recurse into ourself
-            flags & CO_FUTURE_WITH_STATEMENT):
+        builder.keywords = self.keywords.copy()
+        if flags & CO_FUTURE_WITH_STATEMENT:
             builder.enable_with()
-            return self.with_grammar.parse_lines(lines, goal, builder, flags)
         goalnumber = self.symbols.sym_values[goal]
         target = self.rules[goalnumber]
         src = Source(lines, flags)
         
-        result = None
-        try:
-            result = target.match(src, builder)
-        except AlternateGrammarException: # handle from __future__ import with_statement
-            if self.with_grammar is not None:
-                builder.enable_with()
-                return self.with_grammar.parse_lines(lines, goal, builder, flags)
-        if not result:
+        if not target.match(src, builder):
             line, lineno = src.debug()
             # XXX needs better error messages
             raise SyntaxError("invalid syntax", lineno, -1, line)
@@ -148,8 +144,8 @@ def python_grammar(fname):
     return parser
 
 debug_print( "Loading grammar %s" % PYTHON_GRAMMAR )
-PYTHON_PARSER = python_grammar( PYTHON_GRAMMAR )
-PYTHON_PARSER.with_grammar = python_grammar( PYTHON_GRAMMAR + '_with' )
+PYTHON_PARSER = python_grammar( PYTHON_GRAMMAR)
+#PYTHON_PARSER.with_grammar = python_grammar( PYTHON_GRAMMAR + '_with' )
 
 def reload_grammar(version):
     """helper function to test with pypy different grammars"""

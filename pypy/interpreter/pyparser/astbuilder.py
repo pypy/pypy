@@ -11,7 +11,6 @@ from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.interpreter.pyparser.parsestring import parsestr
 
 sym      = pythonparse.PYTHON_PARSER.symbols
-sym_with = pythonparse.PYTHON_PARSER.with_grammar.symbols
 
 DEBUG_MODE = 0
 
@@ -1362,7 +1361,8 @@ def build_import_from(builder, nb):
             if name == 'with_statement':
                 # found from __future__ import with_statement
                 if not builder.with_enabled:
-                    raise pythonparse.AlternateGrammarException()
+                    builder.enable_with()
+                    #raise pythonparse.AlternateGrammarException()
     builder.push(ast.From(from_name, names, atoms[0].lineno))
 
 
@@ -1537,15 +1537,12 @@ ASTRULES_Template = {
     'exprlist' : build_exprlist,
     'decorator' : build_decorator,
     'eval_input' : build_eval_input,
+    'with_stmt' : build_with_stmt,
     }
 
 # Build two almost identical ASTRULES dictionaries
 ASTRULES      = dict([(sym[key], value) for (key, value) in
                       ASTRULES_Template.iteritems()])
-
-ASTRULES_Template['with_stmt'] = build_with_stmt
-ASTRULES_with = dict([(sym_with[key], value) for (key, value) in
-                      (ASTRULES_Template).iteritems()])
 del ASTRULES_Template
 
 ## Stack elements definitions ###################################
@@ -1684,12 +1681,13 @@ class AstBuilder(BaseGrammarBuilder):
         self.rule_stack = []
         self.space = space
         self.source_encoding = None
-        self.ASTRULES = ASTRULES
         self.with_enabled = False
 
     def enable_with(self):
-        self.ASTRULES = ASTRULES_with
+        if self.with_enabled:
+            return
         self.with_enabled = True
+        self.keywords.update({'with':None, }) #  'as': None})
 
     def context(self):
         return AstBuilderContext(self.rule_stack)
@@ -1729,7 +1727,7 @@ class AstBuilder(BaseGrammarBuilder):
         if rule.is_root():
 ##             if DEBUG_MODE:
 ##                 print "ALT:", sym.sym_name[rule.codename], self.rule_stack
-            builder_func = self.ASTRULES.get(rule.codename, None)
+            builder_func = ASTRULES.get(rule.codename, None)
             if builder_func:
                 builder_func(self, 1)
             else:
@@ -1750,7 +1748,7 @@ class AstBuilder(BaseGrammarBuilder):
         if rule.is_root():
 ##             if DEBUG_MODE:
 ##                 print "SEQ:", sym.sym_name[rule.codename]
-            builder_func = self.ASTRULES.get(rule.codename, None)
+            builder_func = ASTRULES.get(rule.codename, None)
             if builder_func:
                 # print "REDUCING SEQUENCE %s" % sym.sym_name[rule.codename]
                 builder_func(self, elts_number)
