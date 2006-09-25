@@ -635,9 +635,12 @@ class TextSnippet:
         while i < len(parts):
             part = parts[i]
             word = part[0]
-            antialias = not re_nonword.match(word)  # SDL bug with anti-aliasing
             try:
-                img = font.render(word, antialias, *part[1:])
+                try:
+                    img = font.render(word, False, *part[1:])
+                except pygame.error, e:
+                    # Try *with* anti-aliasing to work around a bug in SDL
+                    img = font.render(word, True, *part[1:])
             except pygame.error:
                 del parts[i]   # Text has zero width
             else:
