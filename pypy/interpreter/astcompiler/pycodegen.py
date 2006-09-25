@@ -504,6 +504,9 @@ class CodeGenerator(ast.ASTVisitor):
                 kind, loop_block = self.setups[top]
                 if kind == LOOP:
                     break
+                elif kind == END_FINALLY:
+                    msg = "'continue' not supported inside 'finally' clause"
+                    raise SyntaxError( msg, node.lineno )
             if kind != LOOP:
                 raise SyntaxError( "'continue' not properly in loop", node.lineno)
             self.emitop_block('CONTINUE_LOOP', loop_block)

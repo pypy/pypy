@@ -402,6 +402,34 @@ def wrong3():
         space.exec_(code, w_d, w_d)
         assert space.int_w(space.getitem(w_d, space.wrap('result'))) == 42
 
+    def test_continue_in_finally(self):
+        space = self.space
+        snippet = str(py.code.Source(r'''
+def test():
+    for abc in range(10):
+        try: pass
+        finally:
+            continue       # 'continue' inside 'finally'
+
+        '''))
+        space.raises_w(space.w_SyntaxError, self.compiler.compile,
+                       snippet, '<tmp>', 'exec', 0)
+
+    def test_continue_in_nested_finally(self):
+        space = self.space
+        snippet = str(py.code.Source(r'''
+def test():
+    for abc in range(10):
+        try: pass
+        finally:
+            try:
+                continue       # 'continue' inside 'finally'
+            except:
+                pass
+        '''))
+        space.raises_w(space.w_SyntaxError, self.compiler.compile,
+                       snippet, '<tmp>', 'exec', 0)
+
 class TestECCompiler(BaseTestCompiler):
     def setup_method(self, method):
         self.compiler = self.space.getexecutioncontext().compiler
@@ -416,6 +444,10 @@ class TestPyCCompiler(BaseTestCompiler):
         test_unicodeliterals = skip_on_2_3
         test_none_assignment = skip_on_2_3
         test_import = skip_on_2_3
+    elif sys.version_info < (2, 5):
+        def skip_on_2_4(self):
+            py.test.skip("syntax not supported by the CPython 2.4 compiler")
+        test_continue_in_nested_finally = skip_on_2_4
 
 class TestPythonAstCompiler(BaseTestCompiler):
     def setup_method(self, method):
