@@ -109,7 +109,9 @@ class W_FiniteDomain(W_AbstractDomain):
         return self._space.newbool(self._space.eq_w(self._values, w_other._values))
             
     def __ne__(self, w_other):
-        return not self == w_other
+        if not isinstance(w_other, W_FiniteDomain):
+            return self._space.newbool(True)
+        return self._space.newbool(self._space.ne_w(self._values, w_other._values))
 
 
 
@@ -117,7 +119,7 @@ class W_FiniteDomain(W_AbstractDomain):
 # function bolted into the space to serve as constructor
 def make_fd(space, w_values):
     assert isinstance(w_values, W_ListObject)
-    return space.wrap(W_FiniteDomain(space, w_values))
+    return W_FiniteDomain(space, w_values)
 app_make_fd = gateway.interp2app(make_fd)
 
 
