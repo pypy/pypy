@@ -174,18 +174,16 @@ def SSA_to_SSI(graph_or_blocks, annotator=None):
         variables_used = {}
         for op in block.operations:
             for v in op.args:
-                if isinstance(v, Variable):
-                    variables_used[v] = True
-        if isinstance(block.exitswitch, Variable):
-            variables_used[v] = True
+                variables_used[v] = True
+        variables_used[block.exitswitch] = True
         for link in block.exits:
             for v in link.args:
-                if isinstance(v, Variable):
-                    variables_used[v] = True
+                variables_used[v] = True
 
         for v in variables_used:
-            if v not in variables_created:
-                pending.append((block, v))
+            if isinstance(v, Variable):
+                if v not in variables_created:
+                    pending.append((block, v))
 
     while pending:
         block, v = pending.pop()
