@@ -10,7 +10,7 @@ from pypy.objspace.flow.model import FunctionGraph
 from pypy.objspace.flow.model import c_last_exception, checkgraph
 import py
 log = py.log.Producer("annrpython") 
-py.log.setconsumer("annrpython", None) 
+py.log.setconsumer("annrpython", ansi_log) 
 
 from pypy.tool.error import format_blocked_annotation_error, format_someobject_error, AnnotatorError
 
