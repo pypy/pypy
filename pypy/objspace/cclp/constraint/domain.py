@@ -4,6 +4,7 @@ from pypy.interpreter import typedef, gateway, baseobjspace
 from pypy.interpreter.gateway import interp2app
 
 from pypy.objspace.std.listobject import W_ListObject, W_TupleObject
+from pypy.objspace.std.intobject import W_IntObject
 
 from pypy.objspace.std.model import StdObjSpaceMultiMethod
 
@@ -89,7 +90,9 @@ class W_FiniteDomain(W_AbstractDomain):
 
     def size(self):
         """computes the size of a finite domain"""
-        return self._space.len(self._values).intval
+        l = self._space.len(self._values)
+        assert isinstance(l, W_IntObject)
+        return l.intval
     __len__ = size
     
     def w_get_values(self):

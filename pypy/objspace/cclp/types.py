@@ -42,7 +42,9 @@ class W_CVar(W_Var):
         self.w_dom = w_dom
         self.name = space.str_w(w_name)
         self.w_nam = w_name
-        cspace = ClonableCoroutine.w_getcurrent(space)._cspace
+        current = ClonableCoroutine.w_getcurrent(space)
+        assert hasattr(current, '_cspace')
+        cspace = current._cspace
         if cspace is None:
             w("-- WARNING : you are instanciating a constraint var in the top-level space")
         else:

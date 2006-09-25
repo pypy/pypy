@@ -18,7 +18,9 @@ from pypy.objspace.cclp.interp_var import interp_free
 
 def spawn_distributor(space, distributor):
     thread = ClonableCoroutine(space)
-    thread._cspace = ClonableCoroutine.w_getcurrent(space)._cspace
+    current = ClonableCoroutine.w_getcurrent(space)
+    assert hasattr(current, '_cspace')
+    thread._cspace = current._cspace
     thunk = DistributorThunk(space, distributor, thread)
     thread.bind(thunk)
     if not we_are_translated():
@@ -112,7 +114,7 @@ def make_naive_distributor(object_space, fanout=2):
     if not isinstance(fanout, int):
         raise OperationError(object_space.w_RuntimeError,
                              object_space.wrap("fanout must be a positive integer"))
-    return object_space.wrap(W_NaiveDistributor(object_space, fanout))
+    return W_NaiveDistributor(object_space, fanout)
 app_make_naive_distributor = interp2app(make_naive_distributor,
                                         unwrap_spec = [baseobjspace.ObjSpace, int])
 
