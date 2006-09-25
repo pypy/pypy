@@ -82,9 +82,6 @@ def target(driver, args):
     wrapstr = 'space.wrap(%r)' % (options.__dict__)
     pypy.module.sys.Module.interpleveldefs['pypy_translation_info'] = wrapstr
 
-    # disable translation of the whole of classobjinterp.py
-    Space.setup_old_style_classes = lambda self: None
-
     config.objspace.nofaking = True
     config.objspace.compiler = "ast"
     config.translating = True

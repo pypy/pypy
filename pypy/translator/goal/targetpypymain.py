@@ -82,9 +82,6 @@ def target(driver, args):
     if getattr(options, "lowmem", False):
         config.objspace.geninterp = False
 
-    # disable translation of the whole of classobjinterp.py
-    StdObjSpace.setup_old_style_classes = lambda self: None
-
     usemodules = []
     if tgt_options.usemodules:
         for modname in tgt_options.usemodules.split(","):

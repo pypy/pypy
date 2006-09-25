@@ -79,9 +79,6 @@ def target(driver, args):
     wrapstr = 'space.wrap(%r)' % (options.__dict__)
     pypy.module.sys.Module.interpleveldefs['pypy_translation_info'] = wrapstr
 
-    # disable translation of the whole of classobjinterp.py
-    Space.setup_old_style_classes = lambda self: None
-    
     if tgt_options.usemodules:
         for modname in tgt_options.usemodules.split(','):
             setattr(config.objspace.usemodules, modname, True)
