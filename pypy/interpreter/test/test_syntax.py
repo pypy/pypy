@@ -472,6 +472,21 @@ if 1:
             pass
         else:
             assert False, 'Assignment to with did not raise SyntaxError'
+        
+    def test_as_as_identifier(self):
+        exec "as = 9"
+        exec "import sys as foo"
+        
+    def test_as_as_keyword(self):
+        try:
+            exec "from __future__ import with_statement\nas = 9"
+        except SyntaxError:
+            pass
+        else:
+            assert False, 'Assignment to as did not raise SyntaxError'
+
+        exec "from __future__ import with_statement\nimport sys as foo"
+
 
     def test_with_propagate_compileflag(self):
         s = """from __future__ import with_statement

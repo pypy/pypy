@@ -1262,8 +1262,6 @@ def build_with_stmt(builder, nb):
     else:
         token = atoms[2]
         assert isinstance(token, TokenObject)
-        if token.get_value() != 'as':
-            raise SyntaxError("invalid syntax", token.lineno, token.col)
         varexpr = atoms[3]
         var = to_lvalue(varexpr, consts.OP_ASSIGN)
         body = atoms[5]
