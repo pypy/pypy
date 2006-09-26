@@ -198,6 +198,7 @@ class W_AllDistinct(W_AbstractConstraint):
 
         ord_vars = BTree()
         for variable in self._variables:
+            assert isinstance(variable, W_Variable)
             ord_vars.add((variable.w_dom).size(),
                          (variable, variable.w_dom))
 

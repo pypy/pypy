@@ -8,7 +8,7 @@ from pypy.objspace.std.intobject import W_IntObject
 
 from pypy.objspace.std.model import StdObjSpaceMultiMethod
 
-from pypy.objspace.cclp.types import W_AbstractDomain, W_Var, ConsistencyError
+from pypy.objspace.cclp.types import W_AbstractDomain, W_Var, W_Root, ConsistencyError
 from pypy.objspace.cclp.interp_var import interp_bind, interp_free
 
 all_mms = {}
@@ -38,10 +38,17 @@ class W_FiniteDomain(W_AbstractDomain):
     def give_synchronizer(self):
         return self._changed
 
+
+    def contains(self, w_val):
+        sp = self._space
+        assert isinstance(w_val, W_Root)
+        return sp.is_true(sp.contains(self._values, w_val))
+    __contains__ = contains
+
     def _value_removed(self):
         "The implementation of remove_value should call this method"
         #atomic
-        interp_bind(self._changed, True)
+        interp_bind(self._changed, self._space.w_True)
         self.clear_change()
         #/atomic
         

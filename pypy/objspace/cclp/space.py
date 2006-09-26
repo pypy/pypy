@@ -38,7 +38,7 @@ def choose(space, w_n):
     if cspace != None:
         assert isinstance(cspace, W_CSpace)
         try:
-            return space.newint(cspace.choose(w_n.intval))
+            return cspace.choose(w_n.intval)
         except ConsistencyError:
             raise OperationError(space.w_ConsistencyError,
                                  space.wrap("the space is failed"))
@@ -103,7 +103,7 @@ class W_CSpace(baseobjspace.Wrappable):
         assert interp_free(self._committed)
         assert n > 0
         assert n <= self._last_choice
-        interp_bind(self._committed, n)
+        interp_bind(self._committed, w_n)
 
     def tell(self, w_constraint):
         space = self.space
@@ -118,7 +118,7 @@ class W_CSpace(baseobjspace.Wrappable):
 
     def fail(self):
         self._failed = True
-        interp_bind(self._finished, True)
+        interp_bind(self._finished, self.space.w_True)
         interp_bind(self._choice, self.space.newint(0))
         self._store = {}
 
