@@ -3,9 +3,12 @@ from pypy.module._stackless.interp_coroutine import AbstractThunk
 
 from pypy.objspace.cclp.misc import w
 from pypy.objspace.cclp.global_state import scheduler
-from pypy.objspace.cclp.types import W_Var, W_Future, W_FailedValue, ConsistencyError, Solution
-from pypy.objspace.cclp.interp_var import interp_wait, interp_entail, interp_bind, interp_free, interp_wait_or
+from pypy.objspace.cclp.types import W_Var, W_CVar, W_Future, W_FailedValue, \
+     ConsistencyError, Solution, W_AbstractDomain
+from pypy.objspace.cclp.interp_var import interp_wait, interp_entail, \
+     interp_bind, interp_free, interp_wait_or
 
+from pypy.objspace.std.listobject import W_ListObject
 from pypy.rpython.objectmodel import we_are_translated
 
 def logic_args(args):
@@ -123,8 +126,14 @@ class PropagatorThunk(AbstractThunk):
                     if entailed:
                         break
                     # we will block on domains being pruned
-                    wait_list = [var.w_dom.give_synchronizer()
-                                 for var in self.const._variables]
+                    wait_list = []
+                    _vars = self.const._variables
+                    assert isinstance(_vars, list)
+                    for var in _vars:
+                        assert isinstance(var, W_CVar)
+                        dom = var.w_dom
+                        assert isinstance(dom, W_AbstractDomain)
+                        wait_list.append(dom.give_synchronizer())
                     #or the cspace being dead
                     wait_list.append(cspace._finished)
                     interp_wait_or(self.space, wait_list)
@@ -160,7 +169,11 @@ class DistributorThunk(AbstractThunk):
                     dist.w_distribute(choice)
                 w("-- DISTRIBUTOR thunk exited because a solution was found")
                 #XXX assert that all propagators are entailed
-                for var in cspace._solution.w_bound_to.wrappeditems:
+                sol = cspace._solution
+                assert isinstance(sol, W_Var)
+                varset = sol.w_bound_to
+                assert isinstance(varset, W_ListObject)
+                for var in varset.wrappeditems:
                     assert var.w_dom.size() == 1
                     interp_bind(var, var.w_dom.get_values()[0])
                 assert interp_free(cspace._choice)

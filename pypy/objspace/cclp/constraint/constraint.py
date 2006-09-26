@@ -9,7 +9,8 @@ from pypy.objspace.std.stringobject import W_StringObject
 
 from pypy.objspace.constraint.computationspace import W_ComputationSpace
 
-from pypy.objspace.cclp.types import W_Constraint, W_CVar as W_Variable
+from pypy.objspace.cclp.types import W_Constraint, W_AbstractDomain, W_Root, \
+     W_CVar as W_Variable
 
 from pypy.objspace.std.model import StdObjSpaceMultiMethod
 
@@ -97,9 +98,13 @@ class W_Expression(W_AbstractConstraint):
         for variable in self._variables:
             assert isinstance(variable, W_Variable)
             domain = variable.w_dom
+            assert isinstance(domain, W_AbstractDomain)
             values = domain.get_values()
+            assert isinstance(values, list)
             variables.append((domain.size(), [variable.w_name(), values, 0, len(values)]))
-            kwargs.content[variable.w_name()] = values[0]
+            first_value = values[0]
+            assert isinstance(first_value, W_Root)
+            kwargs.content[variable.w_name()] = first_value
         # sort variables to instanciate those with fewer possible values first
         sort(variables)
         self._assign_values_state = variables

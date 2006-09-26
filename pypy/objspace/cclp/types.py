@@ -88,6 +88,11 @@ class W_AbstractDomain(baseobjspace.Wrappable):
         self._space = space
         self._changed = W_Var(self._space)
 
+    def give_synchronizer(self):
+        pass
+
+    def get_values(self):
+        pass
 
 W_AbstractDomain.typedef = typedef.TypeDef("W_AbstractDomain")
 
