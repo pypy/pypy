@@ -733,6 +733,7 @@ Node.typedef = TypeDef('ASTNode',
                        filename = interp_attrproperty('filename', cls=Node),
                        )
 
+Node.typedef.acceptable_as_base_class = False
         
 class EmptyNode(Node):
     def accept(self, visitor):
@@ -794,8 +795,8 @@ Expression.typedef = TypeDef('Expression', Node.typedef,
                      mutate=interp2app(descr_expression_mutate, unwrap_spec=[ObjSpace, W_Root, W_Root] ),
                      node=GetSetProperty(Expression.fget_node, Expression.fset_node ),
                     )
-                    
 
+Expression.typedef.acceptable_as_base_class = False
 '''
 
 epilogue = '''
