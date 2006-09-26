@@ -117,6 +117,7 @@ def aliases(space, w_var):
     w_curr = w_var
     while 1:
         w_next = w_curr.w_bound_to
+        assert isinstance(w_next, W_Var)
         al.append(w_curr)
         if space.is_true(space.is_nb_(w_next, w_var)):
             break

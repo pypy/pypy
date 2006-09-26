@@ -122,6 +122,7 @@ def alias_of(space, w_var1, w_var2):
     w_curr = w_var1
     while 1:
         w_next = w_curr.w_bound_to
+        assert isinstance(w_next, W_Var)
         if w_next is w_var2:
             return space.newbool(True)
         if w_next is w_var1:
@@ -138,6 +139,7 @@ def get_ring_tail(space, w_start):
     w_curr = w_start
     while 1:
         w_next = w_curr.w_bound_to
+        assert isinstance(w_next, W_Var)
         if space.is_true(space.is_nb_(w_next, w_start)):
             return w_curr
         w_curr = w_next
@@ -260,6 +262,7 @@ def _assign_aliases(space, w_var, w_val):
     w_curr = w_var
     while 1:
         w_next = w_curr.w_bound_to
+        assert isinstance(w_next, W_Var)
         _assign(space, w_curr, w_val)
         # notify the blocked threads
         scheduler[0].unblock_on(w_curr)

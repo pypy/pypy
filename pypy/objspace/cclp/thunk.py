@@ -150,8 +150,8 @@ class DistributorThunk(AbstractThunk):
 
     def call(self):
         coro = self.coro
+        cspace = coro._cspace
         try:
-            cspace = coro._cspace
             cspace.distributor = coro
             dist = self.dist
             try:
