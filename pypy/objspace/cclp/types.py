@@ -94,6 +94,9 @@ class W_AbstractDomain(baseobjspace.Wrappable):
     def get_values(self):
         pass
 
+    def size(self):
+        pass
+
 W_AbstractDomain.typedef = typedef.TypeDef("W_AbstractDomain")
 
 class W_AbstractDistributor(baseobjspace.Wrappable):

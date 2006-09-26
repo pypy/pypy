@@ -141,7 +141,7 @@ class PropagatorThunk(AbstractThunk):
                         break
             except ConsistencyError:
                 cspace.fail()
-            except:
+            except Exception: # rpython doesn't like just except:\n ...
                 if not we_are_translated():
                     import traceback
                     traceback.print_exc()
@@ -174,8 +174,11 @@ class DistributorThunk(AbstractThunk):
                 varset = sol.w_bound_to
                 assert isinstance(varset, W_ListObject)
                 for var in varset.wrappeditems:
-                    assert var.w_dom.size() == 1
-                    interp_bind(var, var.w_dom.get_values()[0])
+                    assert isinstance(var, W_CVar)
+                    dom = var.w_dom
+                    assert isinstance(dom, W_AbstractDomain)
+                    assert dom.size() == 1
+                    interp_bind(var, dom.get_values()[0])
                 assert interp_free(cspace._choice)
                 interp_bind(cspace._choice, self.space.newint(1))
             except ConsistencyError, e:

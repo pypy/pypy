@@ -14,6 +14,7 @@ class Scheduler(object):
     def __init__(self, space):
         self.space = space
         self._main = ClonableCoroutine.w_getcurrent(space)
+        assert isinstance(self._main, ClonableCoroutine)
         self._init_head(self._main)
         self._init_blocked()
         self._switch_count = 0
@@ -86,6 +87,7 @@ class Scheduler(object):
         if self.is_stable(cspace):
             return
         curr = ClonableCoroutine.w_getcurrent(self.space)
+        assert isinstance(curr, ClonableCoroutine)
         self._asking[curr] = cspace
         self._blocked[curr] = True
         # either we choose() from inside
@@ -136,6 +138,7 @@ class Scheduler(object):
         to_be_run = self._head
         sentinel = to_be_run
         current = ClonableCoroutine.w_getcurrent(self.space)
+        assert isinstance(current, ClonableCoroutine)
         while (to_be_run in self._blocked) \
                   or to_be_run.is_dead() \
                   or (to_be_run == current):
@@ -150,7 +153,7 @@ class Scheduler(object):
                     break
             if to_be_run == sentinel:
                 if not dont_pass:
-                    return ClonableCoroutine.w_getcurrent(self.space)
+                    return current
                 w(str(sched_all(self.space)))
                 ## we RESET sched state so as to keep being usable beyond that
                 self._init_head(self._main)

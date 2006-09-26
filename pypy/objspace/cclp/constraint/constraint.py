@@ -101,7 +101,8 @@ class W_Expression(W_AbstractConstraint):
             assert isinstance(domain, W_AbstractDomain)
             values = domain.get_values()
             assert isinstance(values, list)
-            variables.append((domain.size(), [variable.w_name(), values, 0, len(values)]))
+            variables.append((domain.size(),
+                              [variable.w_name(), values, 0, len(values)]))
             first_value = values[0]
             assert isinstance(first_value, W_Root)
             kwargs.content[variable.w_name()] = first_value

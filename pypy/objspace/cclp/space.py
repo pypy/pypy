@@ -81,7 +81,8 @@ class W_CSpace(baseobjspace.Wrappable):
         self.space.wait(self._choice)
         choice = self._choice.w_bound_to
         self._choice = newvar(self.space)
-        self._last_choice = choice.intval
+        assert isinstance(choice, W_IntObject)
+        self._last_choice = self.space.int_w(choice)
         return choice
 
     def choose(self, n):
