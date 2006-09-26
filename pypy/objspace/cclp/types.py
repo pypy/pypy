@@ -1,7 +1,7 @@
 from pypy.interpreter import baseobjspace, gateway, typedef
 from pypy.interpreter.error import OperationError
 
-from pypy.objspace.cclp.misc import w, ClonableCoroutine
+from pypy.objspace.cclp.misc import w, ClonableCoroutine, get_current_cspace
 
 W_Root = baseobjspace.W_Root
 
@@ -42,9 +42,7 @@ class W_CVar(W_Var):
         self.w_dom = w_dom
         self.name = space.str_w(w_name)
         self.w_nam = w_name
-        current = ClonableCoroutine.w_getcurrent(space)
-        assert hasattr(current, '_cspace')
-        cspace = current._cspace
+        cspace = get_current_cspace(space)
         if cspace is None:
             w("-- WARNING : you are instanciating a constraint var in the top-level space")
         else:
@@ -99,7 +97,7 @@ class W_AbstractDistributor(baseobjspace.Wrappable):
         assert isinstance(fanout, int)
         self._space = space
         self._fanout = fanout
-        self._cspace = ClonableCoroutine.w_getcurrent(space)._cspace
+        self._cspace = get_current_cspace(space)
 
 W_AbstractDistributor.typedef = typedef.TypeDef("W_AbstractDistributor")
 

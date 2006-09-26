@@ -19,6 +19,13 @@ def v(*msgs):
         os.write(1, msg)
         os.write(1, ' ')
 
+def get_current_cspace(space):
+    curr = ClonableCoroutine.w_getcurrent(space)
+    assert isinstance(curr, ClonableCoroutine)
+    assert hasattr(curr, '_cspace')
+    return curr._cspace
+
+
 def interp_id(space, w_obj):
     "debugging purposes only"
     assert isinstance(w_obj, baseobjspace.W_Root) 

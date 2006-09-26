@@ -12,15 +12,13 @@ from pypy.objspace.std.stringobject import W_StringObject
 
 from pypy.objspace.cclp.types import W_AbstractDistributor, Solution
 from pypy.objspace.cclp.thunk import DistributorThunk
-from pypy.objspace.cclp.misc import w, ClonableCoroutine
+from pypy.objspace.cclp.misc import w, ClonableCoroutine, get_current_cspace
 from pypy.objspace.cclp.global_state import scheduler
 from pypy.objspace.cclp.interp_var import interp_free
 
 def spawn_distributor(space, distributor):
     thread = ClonableCoroutine(space)
-    current = ClonableCoroutine.w_getcurrent(space)
-    assert hasattr(current, '_cspace')
-    thread._cspace = current._cspace
+    thread._cspace = get_current_cspace(space)
     thunk = DistributorThunk(space, distributor, thread)
     thread.bind(thunk)
     if not we_are_translated():

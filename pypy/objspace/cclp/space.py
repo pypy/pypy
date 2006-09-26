@@ -4,7 +4,7 @@ from pypy.interpreter.error import OperationError
 
 from pypy.objspace.std.intobject import W_IntObject
 
-from pypy.objspace.cclp.misc import ClonableCoroutine, w
+from pypy.objspace.cclp.misc import ClonableCoroutine, get_current_cspace, w
 from pypy.objspace.cclp.thunk import CSpaceThunk, PropagatorThunk
 from pypy.objspace.cclp.global_state import scheduler
 from pypy.objspace.cclp.variable import newvar
@@ -34,7 +34,7 @@ app_newspace = gateway.interp2app(newspace, unwrap_spec=[baseobjspace.ObjSpace,
 def choose(space, w_n):
     assert isinstance(w_n, W_IntObject)
     n = space.int_w(w_n)
-    cspace = ClonableCoroutine.w_getcurrent(space)._cspace
+    cspace = get_current_cspace(space)
     if cspace != None:
         assert isinstance(cspace, W_CSpace)
         try:
@@ -51,7 +51,7 @@ from pypy.objspace.cclp.constraint import constraint
 
 def tell(space, w_constraint):
     assert isinstance(w_constraint, constraint.W_AbstractConstraint)
-    ClonableCoroutine.w_getcurrent(space)._cspace.tell(w_constraint)
+    get_current_cspace(space).tell(w_constraint)
 app_tell = gateway.interp2app(tell)
 
 
