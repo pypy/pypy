@@ -448,26 +448,17 @@ class AppTest_LogicFutures(object):
         assert len(sched_info()['threads']) == 1
         
     def test_fib(self):
-        skip("recursion limits breakage")
         def fib(X):
             if X<2:
                 return 1
             else:
                 return future(fib, X-1) + fib(X-2)
-
+                
         X = newvar()
         F = future(fib, X)
+        # values > 11 triggers exhaustion of the cpython stack
         unify(11, X)
         assert F == 144
-
-        X = newvar()
-        F = future(fib, X)
-
-        try:
-            unify(50, X)
-            print F
-        except Exception, e:
-            print e
 
     def test_stacklet(self):
 
@@ -786,13 +777,27 @@ class AppTest_CompSpace(object):
             Solution = newvar()
             stacklet(solve, s, commit_to, Solution)
             if commit_to == 1:
-                assert Solution == [('room B', 'day 1 PM'), ('room A', 'day 1 PM'),
-                                    ('room B', 'day 2 AM'), ('room B', 'day 1 AM'),
-                                    ('room A', 'day 2 PM'), ('room C', 'day 2 AM'),
-                                    ('room C', 'day 2 PM'), ('room C', 'day 1 PM'),
-                                    ('room C', 'day 1 AM'), ('room B', 'day 2 PM')]
+                assert set(Solution) == set([('room B', 'day 2 PM'),
+                                             ('room C', 'day 2 PM'),
+                                             ('room A', 'day 1 PM'),
+                                             ('room C', 'day 1 AM'),
+                                             ('room A', 'day 2 AM'),
+                                             ('room A', 'day 1 AM'),
+                                             ('room C', 'day 2 AM'),
+                                             ('room B', 'day 1 AM'),
+                                             ('room B', 'day 2 AM'),
+                                             ('room C', 'day 1 PM')])
             else:
-                assert Solution == False
+                assert set(Solution) == set([('room B', 'day 1 PM'),
+                                             ('room A', 'day 1 PM'),
+                                             ('room B', 'day 2 AM'),
+                                             ('room B', 'day 1 AM'),
+                                             ('room A', 'day 2 PM'),
+                                             ('room C', 'day 2 AM'),
+                                             ('room C', 'day 2 PM'),
+                                             ('room C', 'day 1 PM'),
+                                             ('room C', 'day 1 AM'),
+                                             ('room B', 'day 2 PM')])
 
         #XXX who's still stuck there ?
         #assert len(sched_all()['threads']) == 1
