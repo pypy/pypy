@@ -6,6 +6,7 @@ from pypy.objspace.cclp.global_state import scheduler
 from pypy.objspace.cclp.types import W_Var, W_Future, W_FailedValue, ConsistencyError, Solution
 from pypy.objspace.cclp.interp_var import interp_wait, interp_entail, interp_bind, interp_free, interp_wait_or
 
+from pypy.rpython.objectmodel import we_are_translated
 
 def logic_args(args):
     "returns logic vars found in unpacked normalized args"
@@ -84,6 +85,7 @@ class CSpaceThunk(_AppThunk):
         scheduler[0].trace_vars(self._coro, logic_args(self.args.unpack()))
         cspace = self._coro._cspace
         cspace.distributor = self._coro
+        space = self.space
         try:
             try:
                 _AppThunk.call(self)
@@ -100,7 +102,7 @@ class CSpaceThunk(_AppThunk):
                 w("-- clean (valueless) EXIT of cspace", str(id(self._coro)))
                 interp_bind(cspace._solution, self.costate.w_tempval)
                 if self.is_distributor():
-                    interp_bind(cspace._choice, self.space.newint(1))
+                    interp_bind(cspace._choice, space.newint(1))
         finally:
             scheduler[0].remove_thread(self._coro)
             scheduler[0].schedule()
@@ -131,8 +133,9 @@ class PropagatorThunk(AbstractThunk):
             except ConsistencyError:
                 cspace.fail()
             except:
-                import traceback
-                traceback.print_exc()
+                if not we_are_translated():
+                    import traceback
+                    traceback.print_exc()
         finally:
             self.coro._dead = True
             scheduler[0].remove_thread(self.coro)
@@ -154,7 +157,7 @@ class DistributorThunk(AbstractThunk):
             try:
                 while dist.distributable():
                     choice = cspace.choose(dist.fanout())
-                    dist.distribute(choice)
+                    dist.w_distribute(choice)
                 w("-- DISTRIBUTOR thunk exited because a solution was found")
                 #XXX assert that all propagators are entailed
                 for var in cspace._solution.w_bound_to.wrappeditems:
@@ -166,10 +169,11 @@ class DistributorThunk(AbstractThunk):
                 w("-- DISTRIBUTOR thunk exited because", str(e))
                 interp_bind(cspace._choice, self.space.newint(0))
             except:
-                import traceback
-                traceback.print_exc()
+                if not we_are_translated():
+                    import traceback
+                    traceback.print_exc()
         finally:
-            interp_bind(cspace._finished, True)
+            interp_bind(cspace._finished, self.space.w_True)
             coro._dead = True
             scheduler[0].remove_thread(coro)
             scheduler[0].schedule()
