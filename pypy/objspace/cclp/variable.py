@@ -339,9 +339,9 @@ def unify__Root_Root(space, w_x, w_y):
         w_d1 = w_x.getdict() #returns wrapped dict or unwrapped None ...
         w_d2 = w_y.getdict()
         if None in [w_d1, w_d2]:
-            raise_unification_failure(space)
+            raise_unification_failure(space, str(w_x) + " != " + str(w_y))
         else:
-            return space.unify(w_d1, w_d2)
+            return unify__Dict_Dict(space, w_d1, w_d2)
     return space.w_None
     
 def unify__Var_Var(space, w_x, w_y):
@@ -366,7 +366,7 @@ def unify__Root_Var(space, w_x, w_y):
 
 def unify__Tuple_Tuple(space, w_i1, w_i2):
     if len(w_i1.wrappeditems) != len(w_i2.wrappeditems):
-        raise_unification_failure(space)
+        raise_unification_failure(space, "tuples of different lengths.")
     idx, top = (-1, space.int_w(space.len(w_i1))-1)
     while idx < top:
         idx += 1
@@ -379,7 +379,7 @@ def unify__Tuple_Tuple(space, w_i1, w_i2):
 
 def unify__List_List(space, w_i1, w_i2):
     if len(w_i1.wrappeditems) != len(w_i2.wrappeditems):
-        raise_unification_failure(space)
+        raise_unification_failure(space, "lists of different lengths.")
     idx, top = (-1, space.int_w(space.len(w_i1))-1)
     while idx < top:
         idx += 1
