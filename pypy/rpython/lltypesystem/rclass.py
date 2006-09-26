@@ -27,7 +27,7 @@ from pypy.rpython.rarithmetic import intmask
 #  A root class "object" has:
 #
 #      struct object_vtable {
-#          struct object_vtable* parenttypeptr;
+#          // struct object_vtable* parenttypeptr;  not used any more
 #          RuntimeTypeInfo * rtti;
 #          Signed subclassrange_min;  //this is also the id of the class itself
 #          Signed subclassrange_max;
@@ -61,7 +61,7 @@ OBJECT = GcStruct('object', ('typeptr', CLASSTYPE),
                             hints = {'immutable': True})
 OBJECTPTR = Ptr(OBJECT)
 OBJECT_VTABLE.become(Struct('object_vtable',
-                            ('parenttypeptr', CLASSTYPE),
+                            #('parenttypeptr', CLASSTYPE),
                             ('subclassrange_min', Signed),
                             ('subclassrange_max', Signed),
                             ('rtti', Ptr(RuntimeTypeInfo)),
@@ -180,9 +180,9 @@ class ClassRepr(AbstractClassRepr):
         """Initialize the 'self' portion of the 'vtable' belonging to the
         given subclass."""
         if self.classdef is None:
-            # initialize the 'parenttypeptr' and 'name' fields
+            # initialize the 'subclassrange_*' and 'name' fields
             if rsubcls.classdef is not None:
-                vtable.parenttypeptr = rsubcls.rbase.getvtable()
+                #vtable.parenttypeptr = rsubcls.rbase.getvtable()
                 vtable.subclassrange_min = rsubcls.classdef.minid
                 vtable.subclassrange_max = rsubcls.classdef.maxid
             else: #for the root class
