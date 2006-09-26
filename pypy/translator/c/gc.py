@@ -67,10 +67,14 @@ class RefcountingGcPolicy(BasicGcPolicy):
     transformerclass = gctransform.RefcountingGCTransformer
 
     def common_gcheader_definition(self, defnode):
-        return [('refcount', lltype.Signed)]
+        HDR = defnode.db.gctransformer.HDR
+        return [(name, HDR._flds[name]) for name in HDR._names]
 
     def common_gcheader_initdata(self, defnode):
-        return [CDefinedIntSymbolic('REFCOUNT_IMMORTAL')]
+        gct = defnode.db.gctransformer
+        hdr = gct.gcheaderbuilder.header_of_object(top_container(defnode.obj))
+        HDR = gct.HDR
+        return [getattr(hdr, fldname) for fldname in HDR._names]
 
     # for structs
 
