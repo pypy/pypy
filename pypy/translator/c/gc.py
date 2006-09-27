@@ -67,14 +67,20 @@ class RefcountingGcPolicy(BasicGcPolicy):
     transformerclass = gctransform.RefcountingGCTransformer
 
     def common_gcheader_definition(self, defnode):
-        HDR = defnode.db.gctransformer.HDR
-        return [(name, HDR._flds[name]) for name in HDR._names]
+        if defnode.db.gctransformer is not None:
+            HDR = defnode.db.gctransformer.HDR
+            return [(name, HDR._flds[name]) for name in HDR._names]
+        else:
+            return []
 
     def common_gcheader_initdata(self, defnode):
-        gct = defnode.db.gctransformer
-        hdr = gct.gcheaderbuilder.header_of_object(top_container(defnode.obj))
-        HDR = gct.HDR
-        return [getattr(hdr, fldname) for fldname in HDR._names]
+        if defnode.db.gctransformer is not None:
+            gct = defnode.db.gctransformer
+            hdr = gct.gcheaderbuilder.header_of_object(top_container(defnode.obj))
+            HDR = gct.HDR
+            return [getattr(hdr, fldname) for fldname in HDR._names]
+        else:
+            return []
 
     # for structs
 
