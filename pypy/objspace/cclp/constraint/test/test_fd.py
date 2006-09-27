@@ -20,6 +20,15 @@ class AppTest_FiniteDomain(object):
     def test_remove_all_values(self):
         fd = FiniteDomain([3])
         raises(ConsistencyError, fd.remove_value, 3) 
+
+
+    def test_predicates(self):
+        fd1 = FiniteDomain([3])
+        fd2 = FiniteDomain([3, 4]) 
+        assert fd1 != fd2
+        assert not (fd1 == fd2)
+        assert fd1 == FiniteDomain([3])
+        assert not (fd1 != FiniteDomain([3]))
         
     def test_remove_values(self):
         fd = FiniteDomain([1, 2, 3])
