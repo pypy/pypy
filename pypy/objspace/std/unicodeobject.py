@@ -79,12 +79,13 @@ def cmp__Unicode_Unicode(space, w_left, w_right):
         return space.wrap(1)
     return space.wrap(0)
 
-def cmp__Unicode_ANY(space, w_left, w_right):
-    try:
-        w_right = space.call_function(space.w_unicode, w_right)
-    except:
-        return space.wrap(1)
-    return space.cmp(w_left, w_right)
+## XXX what?? the following seems unnecessary
+##def cmp__Unicode_ANY(space, w_left, w_right):
+##    try:
+##        w_right = space.call_function(space.w_unicode, w_right)
+##    except:
+##        return space.wrap(1)
+##    return space.cmp(w_left, w_right)
 
 def ord__Unicode(space, w_uni):
     if len(w_uni._value) != 1:
