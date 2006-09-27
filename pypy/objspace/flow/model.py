@@ -644,7 +644,17 @@ def checkgraph(graph):
             else:
                 assert isinstance(block.exitswitch, Variable)
                 assert block.exitswitch in vars
-                assert len(block.exits) > 1
+                if (len(block.exits) == 2 and block.exits[0].exitcase is False
+                                          and block.exits[1].exitcase is True):
+                    # a boolean switch
+                    pass
+                else:
+                    # a multiple-cases switch (or else the False and True
+                    # branches are in the wrong order)
+                    assert len(block.exits) >= 1
+                    assert block.exits[-1].exitcase == "default"
+                    cases = [Constant(link.exitcase) for link in block.exits]
+                    assert len(dict.fromkeys(cases)) == len(cases)
 
             allexitcases = {}
             for link in block.exits:
