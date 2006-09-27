@@ -168,7 +168,7 @@ class Scheduler(object):
         "insert 'thread' at end of running queue"
         assert isinstance(thread, ClonableCoroutine)
         # cspace account mgmt
-        if thread._cspace != None:
+        if thread._cspace is not None:
             self._per_space_live_threads.get(thread._cspace, 0)
             self.inc_live_thread_count(thread._cspace)
         self._chain_insert(thread)

@@ -127,6 +127,10 @@ class W_CSpace(baseobjspace.Wrappable):
         self._store = {}
         return self._solution
 
+    def __ne__(self, other):
+        if other is self:
+            return False
+        return True
 
 
 W_CSpace.typedef = typedef.TypeDef("W_CSpace",

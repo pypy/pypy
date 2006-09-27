@@ -121,7 +121,9 @@ class W_FiniteDomain(W_AbstractDomain):
     def __ne__(self, w_other):
         if not isinstance(w_other, W_FiniteDomain):
             return self._space.newbool(True)
-        return self._space.newbool(self._space.ne_w(self._values, w_other._values))
+        if self._space.eq_w(self._values, w_other._values):
+            return self._space.newbool(False)
+        return self._space.newbool(True)
 
 
 

@@ -6,6 +6,7 @@ from pypy.interpreter.function import Function
 
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.stringobject import W_StringObject
+from pypy.objspace.std.dictobject import W_DictObject
 
 from pypy.objspace.constraint.computationspace import W_ComputationSpace
 
@@ -14,8 +15,8 @@ from pypy.objspace.cclp.types import W_Constraint, W_AbstractDomain, W_Root, \
 
 from pypy.objspace.std.model import StdObjSpaceMultiMethod
 
-from pypy.objspace.constraint.btree import BTree
-from pypy.objspace.constraint.util import sort, reverse
+#from pypy.objspace.constraint.btree import BTree
+#from pypy.objspace.constraint.util import sort
 
 all_mms = {}
 
@@ -73,6 +74,13 @@ make_filter_mm = StdObjSpaceMultiMethod('make_filter', 2)
 make_filter_mm.register(make_filter__List_String, W_ListObject, W_StringObject)
 all_mms['make_filter'] = make_filter_mm
 
+class Quadruple(object):
+    def __init__(self, zero, one, two, three):
+        self.zero = zero
+        self.one = one
+        self.two = two
+        self.three = three
+
 class W_Expression(W_AbstractConstraint):
     """A constraint represented as a python expression."""
 
@@ -101,13 +109,19 @@ class W_Expression(W_AbstractConstraint):
             assert isinstance(domain, W_AbstractDomain)
             values = domain.get_values()
             assert isinstance(values, list)
-            variables.append((domain.size(),
-                              [variable.w_name(), values, 0, len(values)]))
+            ds = domain.size()
+	    w_name = variable.w_name()
+            lval = len(values)
+            vstruct = (ds, Quadruple(w_name, values, 0, lval))
+            variables.append(vstruct)
+            # was meant to be:
+            #variables.append((domain.size(),
+            #                  [w_name, values, 0, len(values)]))
             first_value = values[0]
             assert isinstance(first_value, W_Root)
             kwargs.content[variable.w_name()] = first_value
         # sort variables to instanciate those with fewer possible values first
-        sort(variables)
+        variables.sort()
         self._assign_values_state = variables
         return kwargs 
         
@@ -117,51 +131,62 @@ class W_Expression(W_AbstractConstraint):
         variables = self._assign_values_state
 
         for _, curr in variables:
-            w_name = curr[0]
-            dom_values = curr[1] 
-            dom_index = curr[2]
-            dom_len = curr[3]
+            w_name = curr.zero
+            dom_values = curr.one
+            dom_index = curr.two
+            dom_len = curr.three
             if dom_index < dom_len:
-                kwargs.content[w_name] = dom_values[curr[2]]
-                curr[2] = dom_index + 1
+                kwargs.content[w_name] = dom_values[curr.two]
+                curr.two = dom_index + 1
                 break
             else:
-                curr[2] = 0
+                curr.two = 0
                 kwargs.content[w_name] = dom_values[0]
         else:
             # it's over
             raise StopIteration
-        #XXX this smells
         return kwargs
 
     def revise(self):
         """generic propagation algorithm for n-ary expressions"""
+        sp = self._space
         maybe_entailed = True
         ffunc = self.filter_func
         result_cache = self._init_result_cache()
+        assert isinstance(result_cache, W_DictObject)
 
         kwargs = self._assign_values()
+        assert isinstance(kwargs, W_DictObject)
         while 1:
             try:
                 kwargs = self._next_value(kwargs)
+                assert isinstance(kwargs, W_DictObject)
             except StopIteration:
                 break
             if maybe_entailed:
                 for varname, val in kwargs.content.iteritems():
-                    if val not in result_cache.content[varname].content:
+                    val_dict = result_cache.content[varname]
+                    assert isinstance(val_dict, W_DictObject)
+                    if val not in val_dict.content:
                         break
                 else:
                     continue
-            if self._space.is_true(self._space.call(self._space.wrap(ffunc),
-                                                    self._space.newlist([]), kwargs)):
+            if sp.is_true(sp.call(sp.wrap(ffunc),
+                                  sp.newlist([]), kwargs)):
                 for var, val in kwargs.content.items():
-                    result_cache.content[var].content[val] = self._space.w_True
+                    var_dict = result_cache.content[var]
+                    assert isinstance(var_dict, W_DictObject)
+                    var_dict.content[val] = sp.w_True
             else:
                 maybe_entailed = False
 
         try:
             for varname, keep in result_cache.content.items():
-                domain = self._names_to_vars[self._space.str_w(varname)].w_dom
+                var = self._names_to_vars[sp.str_w(varname)]
+                assert isinstance(var, W_Variable)
+                assert isinstance(keep, W_DictObject)
+                domain = var.w_dom
+                assert isinstance(domain, W_AbstractDomain)
                 domain.remove_values([val
                                       for val in domain._values.content.keys()
                                       if val not in keep.content])
@@ -202,20 +227,25 @@ class W_AllDistinct(W_AbstractConstraint):
     def revise(self):
         _spc = self._space
 
-        ord_vars = BTree()
+        #ord_vars = BTree()
+        variables = []
         for variable in self._variables:
             assert isinstance(variable, W_Variable)
-            ord_vars.add((variable.w_dom).size(),
-                         (variable, variable.w_dom))
+            dom = variable.w_dom
+            assert isinstance(dom, W_AbstractDomain)
+            variables.append((dom.size(), variable))
 
-        variables = ord_vars.values()
+        variables.sort()
+        # variable = ord_vars.values()
         
         # if a domain has a size of 1,
         # then the value must be removed from the other domains
-        for var, dom in variables:
+        for _, var in variables:
+            dom = var.w_dom
             if dom.size() == 1:
                 #print "AllDistinct removes values"
-                for _var, _dom in variables:
+                for _, _var in variables:
+                    _dom = _var.w_dom
                     if not _var._same_as(var):
                         try:
                             _dom.remove_value(dom.get_values()[0])
@@ -226,7 +256,8 @@ class W_AllDistinct(W_AbstractConstraint):
 
         # if there are less values than variables, the constraint fails
         values = {}
-        for var, dom in variables:
+        for _, var in variables:
+            dom = var.w_dom
             for val in dom.w_get_values().wrappeditems:
                 values[val] = 0
 
@@ -236,7 +267,8 @@ class W_AllDistinct(W_AbstractConstraint):
                                  _spc.wrap("ConsistencyFailure"))
 
         # the constraint is entailed if all domains have a size of 1
-        for _var, dom in variables:
+        for _, var in variables:
+            dom = var.w_dom
             if not dom.size() == 1:
                 return False
 
@@ -249,7 +281,7 @@ W_AllDistinct.typedef = typedef.TypeDef(
     "W_AllDistinct", W_AbstractConstraint.typedef,
     revise = interp2app(W_AllDistinct.w_revise))
 
-# function bolted into the space to serve as constructor
+#function bolted into the space to serve as constructor
 def make_alldistinct(object_space, w_variables):
     assert isinstance(w_variables, W_ListObject)
     assert len(w_variables.wrappeditems) > 0

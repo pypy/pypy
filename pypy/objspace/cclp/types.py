@@ -94,6 +94,9 @@ class W_AbstractDomain(baseobjspace.Wrappable):
     def get_values(self):
         pass
 
+    def remove_values(self, values):
+        assert isinstance(values, list)
+        
     def size(self):
         pass
 
