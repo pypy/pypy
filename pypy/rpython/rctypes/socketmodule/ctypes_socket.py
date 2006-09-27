@@ -384,7 +384,7 @@ memcpy.restype = c_void_p
 
 socketpair_t = ARRAY(c_int, 2)
 socketpair = socketdll.socketpair
-socketpair.argtypes = [c_int, c_int, c_int, POINTER(c_int)]
+socketpair.argtypes = [c_int, c_int, c_int, POINTER(socketpair_t)]
 socketpair.restype = c_int
 
 shutdown = socketdll.shutdown

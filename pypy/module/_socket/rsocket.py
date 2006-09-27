@@ -317,7 +317,7 @@ class RSocket(object):
         self.proto = proto
 
     def error_handler(self):
-        return CSocketError(_c.errno())
+        return last_error()
 
     # convert an Address into an app-level object
     def addr_as_object(self, space, address):
@@ -487,8 +487,53 @@ class CSocketError(BaseSocketError):
     def __str__(self):
         return _c.socket_strerror(self.errno)
 
+def last_error():
+    return CSocketError(_c.errno())
+
 class GAIError(BaseSocketError):
     def __init__(self, errno):
         self.errno = errno
     def __str__(self):
         return _c.gai_strerror(self.errno)
+
+# ____________________________________________________________
+
+if _c.AF_UNIX is None:
+    socketpair_default_family = _c.AF_INET
+else:
+    socketpair_default_family = _c.AF_UNIX
+
+def socketpair(family=socketpair_default_family, type=_c.SOCK_STREAM, proto=0):
+    """socketpair([family[, type[, proto]]]) -> (socket object, socket object)
+
+    Create a pair of socket objects from the sockets returned by the platform
+    socketpair() function.
+    The arguments are the same as for socket() except the default family is
+    AF_UNIX if defined on the platform; otherwise, the default is AF_INET.
+    """
+    result = _c.socketpair_t()
+    res = _c.socketpair(family, type, proto, byref(result))
+    if res < 0:
+        raise last_error()
+    return (make_socket(result[0], family, type, proto),
+            make_socket(result[1], family, type, proto))
+
+def fromfd(fd, family, type, proto=0):
+    # Dup the fd so it and the socket can be closed independently
+    fd = _c.dup(fd)
+    if fd < 0:
+        raise last_error()
+    return make_socket(fd, family, type, proto)
+
+def gethostname():
+    buf = create_string_buffer(1024)
+    res = _c.gethostname(buf, sizeof(buf)-1)
+    if res < 0:
+        raise last_error()
+    buf[sizeof(buf)-1] = '\x00'
+    return buf.value
+
+def gethostbyname(name):
+    address = INETAddress.from_null()
+    address.makeipaddr(name)
+    return address
