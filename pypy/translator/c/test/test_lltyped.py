@@ -244,13 +244,13 @@ class TestLowLevelType(test_typed.CompilationTestCase):
                    hints={'union': True})
         u = malloc(U, immortal=True)
         def llf(c=int):
-            u.s = 0x1020
+            u.s = 0x10203040
             u.c = chr(c)
             return u.s
 
         fn = self.getcompiled(llf)
         res = fn(0x33)
-        assert res in [0x1033, 0x3320]
+        assert res in [0x10203033, 0x33203040]
 
     def test_sizeof_void_array(self):
         from pypy.rpython.lltypesystem import llmemory
