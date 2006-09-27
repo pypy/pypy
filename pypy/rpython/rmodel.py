@@ -90,6 +90,11 @@ class Repr:
         else:
             self._initialized = setupstate.NOTINITIALIZED
 
+    def set_setup_maybe_delayed(self):
+        if self._initialized == setupstate.NOTINITIALIZED:
+            self._initialized = setupstate.DELAYED
+        return self._initialized == setupstate.DELAYED
+
     def __getattr__(self, name):
         # Assume that when an attribute is missing, it's because setup() needs
         # to be called

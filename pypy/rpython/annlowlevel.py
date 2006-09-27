@@ -119,8 +119,9 @@ def annotate_lowlevel_helper(annotator, ll_function, args_s, policy=None):
 
 class MixLevelAnnotatorPolicy(LowLevelAnnotatorPolicy):
 
-    def __init__(pol, rtyper):
-        pol.rtyper = rtyper
+    def __init__(pol, annhelper):
+        pol.annhelper = annhelper
+        pol.rtyper = annhelper.rtyper
 
     def default_specialize(pol, funcdesc, args_s):
         name = funcdesc.name
@@ -147,9 +148,9 @@ class MixLevelHelperAnnotator:
 
     def __init__(self, rtyper):
         self.rtyper = rtyper
-        self.policy = MixLevelAnnotatorPolicy(rtyper)
+        self.policy = MixLevelAnnotatorPolicy(self)
         self.pending = []     # list of (ll_function, graph, args_s, s_result)
-        self.delayedreprs = []
+        self.delayedreprs = {}
         self.delayedconsts = []
         self.delayedfuncs = []
         self.original_graph_count = len(rtyper.annotator.translator.graphs)
@@ -167,18 +168,26 @@ class MixLevelHelperAnnotator:
         self.pending.append((ll_function, graph, args_s, s_result))
         return graph
 
-    def delayedfunction(self, ll_function, args_s, s_result):
+    def delayedfunction(self, ll_function, args_s, s_result, needtype=False):
         # get a delayed pointer to the low-level function, annotated as
         # specified.  The pointer is only valid after finish() was called.
         graph = self.getgraph(ll_function, args_s, s_result)
-        return self.graph2delayed(graph)
+        if needtype:
+            ARGS = [self.getdelayedrepr(s_arg, False).lowleveltype
+                    for s_arg in args_s]
+            RESULT = self.getdelayedrepr(s_result, False).lowleveltype
+            FUNCTYPE = lltype.FuncType(ARGS, RESULT)
+        else:
+            FUNCTYPE = None
+        return self.graph2delayed(graph, FUNCTYPE)
 
     def constfunc(self, ll_function, args_s, s_result):
         p = self.delayedfunction(ll_function, args_s, s_result)
         return Constant(p, lltype.typeOf(p))
 
-    def graph2delayed(self, graph):
-        FUNCTYPE = lltype.ForwardReference()
+    def graph2delayed(self, graph, FUNCTYPE=None):
+        if FUNCTYPE is None:
+            FUNCTYPE = lltype.ForwardReference()
         # obscure hack: embed the name of the function in the string, so
         # that the genc database can get it even before the delayedptr
         # is really computed
@@ -191,20 +200,25 @@ class MixLevelHelperAnnotator:
         p = self.graph2delayed(graph)
         return Constant(p, lltype.typeOf(p))
 
-    def getdelayedrepr(self, s_value):
+    def getdelayedrepr(self, s_value, check_never_seen=True):
         """Like rtyper.getrepr(), but the resulting repr will not be setup() at
         all before finish() is called.
         """
         r = self.rtyper.getrepr(s_value)
-        r.set_setup_delayed(True)
-        self.delayedreprs.append(r)
+        if check_never_seen:
+            r.set_setup_delayed(True)
+            delayed = True
+        else:
+            delayed = r.set_setup_maybe_delayed()
+        if delayed:
+            self.delayedreprs[r] = True
         return r
 
-    def s_r_instanceof(self, cls, can_be_None=True):
+    def s_r_instanceof(self, cls, can_be_None=True, check_never_seen=True):
         classdesc = self.rtyper.annotator.bookkeeper.getdesc(cls)
         classdef = classdesc.getuniqueclassdef()
         s_instance = annmodel.SomeInstance(classdef, can_be_None)
-        r_instance = self.getdelayedrepr(s_instance)
+        r_instance = self.getdelayedrepr(s_instance, check_never_seen)
         return s_instance, r_instance
 
     def delayedconst(self, repr, obj):
@@ -259,10 +273,14 @@ class MixLevelHelperAnnotator:
         rtyper.call_all_setups()
         for p, graph in self.delayedfuncs:
             real_p = rtyper.getcallable(graph)
-            lltype.typeOf(p).TO.become(lltype.typeOf(real_p).TO)
+            REAL = lltype.typeOf(real_p).TO
+            FUNCTYPE = lltype.typeOf(p).TO
+            if isinstance(FUNCTYPE, lltype.ForwardReference):
+                FUNCTYPE.become(REAL)
+            assert FUNCTYPE == REAL
             p._become(real_p)
         rtyper.specialize_more_blocks()
-        del self.delayedreprs[:]
+        self.delayedreprs.clear()
         del self.delayedconsts[:]
         del self.delayedfuncs[:]
 
@@ -330,7 +348,73 @@ class LLHelperEntry(extregistry.ExtRegistryEntry):
 
     def specialize_call(self, hop):
         return hop.args_r[1].get_unique_llfn()
-        
+
+# ____________________________________________________________
+
+def cast_object_to_ptr(PTR, object):
+    raise NotImplementedError("cast_object_to_ptr")
+
+def cast_instance_to_base_ptr(instance):
+    return cast_object_to_ptr(base_ptr_lltype(), instance)
+
+def base_ptr_lltype():
+    from pypy.rpython.lltypesystem.rclass import OBJECTPTR
+    return OBJECTPTR
+
+class CastObjectToPtrEntry(extregistry.ExtRegistryEntry):
+    _about_ = cast_object_to_ptr
+
+    def compute_result_annotation(self, s_PTR, s_object):
+        assert s_PTR.is_constant()
+        assert isinstance(s_PTR.const, lltype.Ptr)
+        return annmodel.SomePtr(s_PTR.const)
+
+    def specialize_call(self, hop):
+        v_arg = hop.inputarg(hop.args_r[1], arg=1)
+        assert isinstance(v_arg.concretetype, lltype.Ptr)
+        return hop.genop('cast_pointer', [v_arg],
+                         resulttype = hop.r_result.lowleveltype)
+
+# ____________________________________________________________
+
+def cast_base_ptr_to_instance(Class, ptr):
+    raise NotImplementedError("cast_base_ptr_to_instance")
+
+class CastBasePtrToInstanceEntry(extregistry.ExtRegistryEntry):
+    _about_ = cast_base_ptr_to_instance
+
+    def compute_result_annotation(self, s_Class, s_ptr):
+        assert s_Class.is_constant()
+        classdef = self.bookkeeper.getuniqueclassdef(s_Class.const)
+        return annmodel.SomeInstance(classdef, can_be_None=True)
+
+    def specialize_call(self, hop):
+        v_arg = hop.inputarg(hop.args_r[1], arg=1)
+        assert isinstance(v_arg.concretetype, lltype.Ptr)
+        return hop.genop('cast_pointer', [v_arg],
+                         resulttype = hop.r_result.lowleveltype)
+
+# ____________________________________________________________
+
+## XXX finish me
+##def cast_instance_to_ptr(Class, instance):
+##    raise NotImplementedError("cast_instance_to_ptr")
+
+##class CastInstanceToPtrEntry(extregistry.ExtRegistryEntry):
+##    _about_ = cast_instance_to_ptr
+
+##    def compute_result_annotation(self, s_Class, s_instance):
+##        assert s_Class.is_constant()
+##        pol = self.bookkeeper.annotator.policy
+##        s_Instance, r_Instance = pol.annhelper.s_r_instanceof(s_Class.const)
+##        return annmodel.SomePtr(r_Instance.lowleveltype)
+
+##    def specialize_call(self, hop):
+##        v_arg = hop.inputarg(hop.args_r[1], arg=1)
+##        assert isinstance(v_arg.concretetype, lltype.Ptr)
+##        return hop.genop('cast_pointer', [v_arg],
+##                         resulttype = hop.r_result.lowleveltype)
+
 # ____________________________________________________________
 
 def placeholder_sigarg(s):
@@ -401,3 +485,22 @@ class ADTInterface(object):
             else:
                 meth._annenforceargs_ = sig
         return adtmeths
+
+# ____________________________________________________________
+
+class cachedtype(type):
+    """Metaclass for classes that should only have one instance per
+    tuple of arguments given to the constructor."""
+
+    def __init__(selfcls, name, bases, dict):
+        super(cachedtype, selfcls).__init__(name, bases, dict)
+        selfcls._instancecache = {}
+
+    def __call__(selfcls, *args):
+        d = selfcls._instancecache
+        try:
+            return d[args]
+        except KeyError:
+            instance = d[args] = selfcls.__new__(selfcls, *args)
+            instance.__init__(*args)
+            return instance

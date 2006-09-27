@@ -1,10 +1,12 @@
 from pypy.rpython.lltypesystem.lltype import *
+from pypy.rpython.lltypesystem.rclass import OBJECTPTR, fishllattr
 from pypy.translator.translator import TranslationContext
 from pypy.annotation import model as annmodel
 from pypy.rpython.annlowlevel import annotate_lowlevel_helper
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.rpython.annlowlevel import PseudoHighLevelCallable
-from pypy.rpython.annlowlevel import llhelper
+from pypy.rpython.annlowlevel import llhelper, cast_instance_to_base_ptr
+from pypy.rpython.annlowlevel import base_ptr_lltype
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.objspace.flow import FlowObjSpace 
@@ -371,3 +373,20 @@ def test_llhelper():
 
     res = interpret(h, [8, 5, 2])
     assert res == 99
+
+
+def test_cast_instance_to_base_ptr():
+    class A:
+        def __init__(self, x, y):
+            self.x = x
+            self.y = y
+
+    def f(x, y):
+        a = A(x, y)
+        a1 = cast_instance_to_base_ptr(a)
+        return a1
+
+    res = interpret(f, [5, 10])
+    assert typeOf(res) == base_ptr_lltype()
+    assert fishllattr(res, 'x') == 5
+    assert fishllattr(res, 'y') == 10
