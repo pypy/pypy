@@ -1401,6 +1401,23 @@ class BaseTestRPBC(BaseRtypingTest):
         res = self.interpret(f, [1])
         assert res == 42
 
+    def test_funcornone_to_func(self):
+        def g(y):
+            return y*2
+        def f(x):
+            if x > 0:
+                g1 = g
+            else:
+                g1 = None
+            x += 1
+            if g1:
+                return g1(x)
+            else:
+                return -1
+
+        res = self.interpret(f, [20])
+        assert res == 42
+
 
 # We don't care about the following test_hlinvoke tests working on
 # ootype. Maybe later. This kind of thing is only used in rdict

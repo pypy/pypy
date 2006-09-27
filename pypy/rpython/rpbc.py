@@ -324,6 +324,9 @@ class __extend__(pairtype(AbstractFunctionsPBCRepr, AbstractFunctionsPBCRepr)):
                 return v
             if r_fpbc1.lowleveltype is Void:
                 return inputconst(r_fpbc2, r_fpbc1.s_pbc.const)
+            if r_fpbc2.lowleveltype is Void:
+                wrapper = HalfConcreteWrapper(r_fpbc2.get_unique_llfn)
+                return inputconst(Void, wrapper)
             return NotImplemented
 
 class OverriddenFunctionPBCRepr(Repr):
