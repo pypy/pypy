@@ -256,16 +256,16 @@ class TestLowLevelType(test_typed.CompilationTestCase):
         from pypy.rpython.lltypesystem import llmemory
         A = Array(Void)
         size1 = llmemory.sizeof(A, 1)
-	size2 = llmemory.sizeof(A, 14)
+        size2 = llmemory.sizeof(A, 14)
         def f(x=int):
-	    if x:
-	        return size1
-	    else:
-	        return size2
-	fn = self.getcompiled(f)
-	res1 = fn(1)
-	res2 = fn(0)
-	assert res1 == res2
+            if x:
+                return size1
+            else:
+                return size2
+        fn = self.getcompiled(f)
+        res1 = fn(1)
+        res2 = fn(0)
+        assert res1 == res2
 
     def test_null_padding(self):
         from pypy.rpython.lltypesystem import llmemory
@@ -284,6 +284,6 @@ class TestLowLevelType(test_typed.CompilationTestCase):
             for i in range(x):
                 r += ord(trailing_byte(' '*(100-x*x)))
             return r
-	fn = self.getcompiled(f)
-	res = fn(10)
+        fn = self.getcompiled(f)
+        res = fn(10)
         assert res == 0
