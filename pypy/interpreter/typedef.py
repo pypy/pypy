@@ -87,9 +87,18 @@ def descr__hash__unhashable(space, w_obj):
 no_hash_descr = interp2app(descr__hash__unhashable)
 
 # ____________________________________________________________
-
 def get_unique_interplevel_subclass(cls, hasdict, wants_slots, needsdel=False,
                                     weakrefable=False):
+    if needsdel:
+        hasdict = wants_slots = weakrefable = True
+    if hasdict:
+        weakrefable = True
+    else:
+        wants_slots = True
+    return  _get_unique_interplevel_subclass(cls, hasdict, wants_slots, needsdel, weakrefable)
+get_unique_interplevel_subclass._annspecialcase_ = "specialize:memo"
+
+def _get_unique_interplevel_subclass(cls, hasdict, wants_slots, needsdel, weakrefable):
     key = cls, hasdict, wants_slots, needsdel, weakrefable
     try:
         return _subclass_cache[key]
@@ -97,7 +106,6 @@ def get_unique_interplevel_subclass(cls, hasdict, wants_slots, needsdel=False,
         subcls = _buildusercls(cls, hasdict, wants_slots, needsdel, weakrefable)
         _subclass_cache[key] = subcls
         return subcls
-get_unique_interplevel_subclass._annspecialcase_ = "specialize:memo"
 _subclass_cache = {}
 
 def _buildusercls(cls, hasdict, wants_slots, wants_del, weakrefable):
@@ -123,7 +131,7 @@ def _buildusercls(cls, hasdict, wants_slots, wants_del, weakrefable):
     
     name = ''.join(name)
     if weakrefable:
-        supercls = get_unique_interplevel_subclass(cls, hasdict, wants_slots,
+        supercls = _get_unique_interplevel_subclass(cls, hasdict, wants_slots,
                                                    wants_del, False)
         class Proto(object):
             _lifeline_ = None
@@ -132,7 +140,7 @@ def _buildusercls(cls, hasdict, wants_slots, wants_del, weakrefable):
             def setweakref(self, space, weakreflifeline):
                 self._lifeline_ = weakreflifeline
     elif wants_del:
-        supercls = get_unique_interplevel_subclass(cls, hasdict, wants_slots,
+        supercls = _get_unique_interplevel_subclass(cls, hasdict, wants_slots,
                                                    False, False)
         parent_destructor = getattr(cls, '__del__', None)
         class Proto(object):
@@ -145,11 +153,13 @@ def _buildusercls(cls, hasdict, wants_slots, wants_del, weakrefable):
                 if parent_destructor is not None:
                     parent_destructor(self)
     elif wants_slots:
-        supercls = get_unique_interplevel_subclass(cls, hasdict, False, False, False)
+        supercls = _get_unique_interplevel_subclass(cls, hasdict, False, False, False)
         
         class Proto(object):
+            slots_w = None
             def user_setup_slots(self, nslots):
-                self.slots_w = [None] * nslots
+                if nslots > 0:
+                    self.slots_w = [None] * nslots
             
             def setslotvalue(self, index, w_value):
                 self.slots_w[index] = w_value
@@ -157,7 +167,7 @@ def _buildusercls(cls, hasdict, wants_slots, wants_del, weakrefable):
             def getslotvalue(self, index):
                 return self.slots_w[index]
     elif hasdict:
-        supercls = get_unique_interplevel_subclass(cls, False, False, False, False)
+        supercls = _get_unique_interplevel_subclass(cls, False, False, False, False)
         
         class Proto(object):
             def getdict(self):
@@ -169,11 +179,11 @@ def _buildusercls(cls, hasdict, wants_slots, wants_del, weakrefable):
                             space.wrap("setting dictionary to a non-dict"))
                 self.w__dict__ = w_dict
             
-            def user_setup(self, space, w_subtype, nslots):
+            def user_setup(self, space, w_subtype):
                 self.space = space
                 self.w__class__ = w_subtype
                 self.w__dict__ = space.newdict()
-                self.user_setup_slots(nslots)
+                self.user_setup_slots(w_subtype.nslots)
     else:
         supercls = cls
         
@@ -187,10 +197,10 @@ def _buildusercls(cls, hasdict, wants_slots, wants_del, weakrefable):
                 self.w__class__ = w_subtype
             
             
-            def user_setup(self, space, w_subtype, nslots):
+            def user_setup(self, space, w_subtype):
                 self.space = space
                 self.w__class__ = w_subtype
-                self.user_setup_slots(nslots)
+                self.user_setup_slots(w_subtype.nslots)
             
             def user_setup_slots(self, nslots):
                 assert nslots == 0
