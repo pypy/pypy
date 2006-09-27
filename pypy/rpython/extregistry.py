@@ -97,8 +97,9 @@ class ExtRegistryEntry(object):
         return self.compute_annotation()
 
     def compute_annotation(self):
+        # callers should always use compute_annotation_bk()!
         # default implementation useful for built-in functions,
-        # can be overriden
+        # can be overriden.
         func = self.instance
         assert func is not None
         from pypy.annotation import model as annmodel

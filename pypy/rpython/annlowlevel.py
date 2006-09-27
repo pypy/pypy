@@ -322,11 +322,10 @@ class LLHelperEntry(extregistry.ExtRegistryEntry):
         assert s_F.is_constant()
         assert s_callable.is_constant()
         F = s_F.const
-        if hasattr(self, 'bookkeeper'):
-            args_s = [annmodel.lltype_to_annotation(T) for T in F.TO.ARGS]
-            key = (llhelper, s_callable.const)
-            s_res = self.bookkeeper.emulate_pbc_call(key, s_callable, args_s)
-            assert annmodel.lltype_to_annotation(F.TO.RESULT).contains(s_res)
+        args_s = [annmodel.lltype_to_annotation(T) for T in F.TO.ARGS]
+        key = (llhelper, s_callable.const)
+        s_res = self.bookkeeper.emulate_pbc_call(key, s_callable, args_s)
+        assert annmodel.lltype_to_annotation(F.TO.RESULT).contains(s_res)
         return annmodel.SomePtr(F)
 
     def specialize_call(self, hop):

@@ -36,9 +36,7 @@ class Entry(ExtRegistryEntry):
     _type_ = W_AppLevel
 
     def compute_annotation(self):
-        from pypy.annotation.bookkeeper import getbookkeeper
-        bk = getbookkeeper()
-        return lookup_type(W_Object).compute_annotation()
+        return lookup_type(W_Object).compute_annotation_bk(self.bookkeeper)
 
     def genc_pyobj(self, pyobjmaker):
         dictname = pyobjmaker.nameof(self.instance.w_moddict)
@@ -51,9 +49,7 @@ class Entry(ExtRegistryEntry):
     _type_ = W_AppLevelModDict
 
     def compute_annotation(self):
-        from pypy.annotation.bookkeeper import getbookkeeper
-        bk = getbookkeeper()
-        return lookup_type(W_Object).compute_annotation()
+        return lookup_type(W_Object).compute_annotation_bk(self.bookkeeper)
 
     def genc_pyobj(self, pyobjmaker):
         import marshal
