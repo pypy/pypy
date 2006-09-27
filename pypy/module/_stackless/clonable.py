@@ -14,7 +14,6 @@ from pypy.rpython import rstack # for resume points
 from pypy.tool import stdlib_opcode as pythonopcode
 
 class ClonableCoroutine(InterpClonableCoroutine):
-    local_pool = None
     #XXX cut'n'pasted from AppCoroutine
     #    so, watch changes in coroutine.py
 
@@ -183,6 +182,25 @@ class ClonableCoroutine(InterpClonableCoroutine):
         self.frame = switch_frame
 
 
+    def w_clone(self):
+        if not we_are_translated():
+            raise NotImplementedError
+        if self.getcurrent() is self:
+            raise RuntimeError("clone() cannot clone the current coroutine; "
+                               "use fork() instead")
+        if self.local_pool is None:   # force it now
+            self.local_pool = gc_swap_pool(gc_swap_pool(None))
+        # cannot gc_clone() directly self, because it is not in its own
+        # local_pool.  Moreover, it has a __del__, which cloning doesn't
+        # support properly at the moment.
+        copy = ClonableCoroutine(self.space)
+        copy.costate = self.costate # or clone thereof
+        #copy = InterpClonableCoroutine(self.costate)
+        copy.parent = self.parent
+        copy.frame, copy.local_pool = gc_clone(self.frame, self.local_pool)
+        return copy
+
+
 def makeStaticMethod(module, classname, funcname):
     space = module.space
     space.appexec(map(space.wrap, (module, classname, funcname)), """
@@ -227,6 +245,7 @@ ClonableCoroutine.typedef = TypeDef("clonable",
     __new__ = interp2app(ClonableCoroutine.descr_method__new__.im_func),
     _framestack = GetSetProperty(w_descr__framestack),
     getcurrent = interp2app(ClonableCoroutine.w_getcurrent),
+    clone = interp2app(ClonableCoroutine.w_clone),
     __reduce__   = interp2app(ClonableCoroutine.descr__reduce__,
                               unwrap_spec=['self', ObjSpace]),
     __setstate__ = interp2app(ClonableCoroutine.descr__setstate__,
