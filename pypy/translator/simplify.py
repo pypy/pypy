@@ -60,10 +60,11 @@ def eliminate_empty_blocks(graph):
     def visit(link):
         if isinstance(link, Link):
             while not link.target.operations:
-                if (len(link.target.exits) != 1 and
-                    link.target.exitswitch != c_last_exception):
-                    break
                 block1 = link.target
+                if block1.exitswitch is not None:
+                    break
+                if not block1.exits:
+                    break
                 exit = block1.exits[0]
                 assert block1 is not exit.target, (
                     "the graph contains an empty infinite loop")
@@ -321,9 +322,10 @@ def join_blocks(graph):
     stack = list(block.exits)
     while stack:
         link = stack.pop()
-        if (len(link.prevblock.exits) == 1 and
+        if (link.prevblock.exitswitch is None and
             len(entrymap[link.target]) == 1 and
             link.target.exits):  # stop at the returnblock
+            assert len(link.prevblock.exits) == 1
             renaming = {}
             for vprev, vtarg in zip(link.args, link.target.inputargs):
                 renaming[vtarg] = vprev
