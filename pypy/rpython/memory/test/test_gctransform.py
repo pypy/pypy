@@ -785,6 +785,23 @@ def test_llinterp_refcounted_graph_varsize():
     res = llinterp.eval_graph(graph, [10])
     assert res == f(10)
 
+def test_llinterp_refcounted_graph_str():
+    from pypy.annotation.model import SomeString
+    from pypy.rpython.lltypesystem.rstr import string_repr
+    
+    def f(x):
+        return len(x + 'a')
+
+
+    llinterp, graph = llinterpreter_for_refcounted_graph(f, [SomeString()])
+
+    cc = string_repr.convert_const
+
+    res = llinterp.eval_graph(graph, [cc('a')])
+    assert res == f('a')
+    res = llinterp.eval_graph(graph, [cc('brrrrrr')])
+    assert res == f('brrrrrr')
+
 def test_llinterp_refcounted_graph_with_del():
     from pypy.annotation.model import SomeInteger
 

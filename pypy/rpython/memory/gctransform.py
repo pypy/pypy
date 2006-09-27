@@ -577,12 +577,15 @@ class RefcountingGCTransformer(GCTransformer):
         TYPE = op.result.concretetype.TO
         assert TYPE._is_varsize()
 
-        c_const_size = intconst(llmemory.sizeof(TYPE, 0))
         if isinstance(TYPE, lltype.Struct):
             ARRAY = TYPE._flds[TYPE._arrayfld]
         else:
             ARRAY = TYPE
         assert isinstance(ARRAY, lltype.Array)
+        if ARRAY._hints.get('isrpystring', False):
+            c_const_size = intconst(llmemory.sizeof(TYPE, 1))
+        else:
+            c_const_size = intconst(llmemory.sizeof(TYPE, 0))
         c_item_size = intconst(llmemory.sizeof(ARRAY.OF))
 
         ops = []

@@ -266,3 +266,24 @@ class TestLowLevelType(test_typed.CompilationTestCase):
 	res1 = fn(1)
 	res2 = fn(0)
 	assert res1 == res2
+
+    def test_null_padding(self):
+        from pypy.rpython.lltypesystem import llmemory
+        from pypy.rpython.lltypesystem import rstr
+        chars_offset = llmemory.FieldOffset(rstr.STR, 'chars') + \
+                       llmemory.ArrayItemsOffset(rstr.STR.chars)
+        # sadly, there's no way of forcing this to fail if the strings
+        # are allocated in a region of memory such that they just
+        # happen to get a NUL byte anyway :/ (a debug build will
+        # always fail though)
+        def trailing_byte(s):
+            adr_s = llmemory.cast_ptr_to_adr(s)
+            return (adr_s + chars_offset).char[len(s)]
+        def f(x=int):
+            r = 0
+            for i in range(x):
+                r += ord(trailing_byte(' '*(100-x*x)))
+            return r
+	fn = self.getcompiled(f)
+	res = fn(10)
+        assert res == 0
