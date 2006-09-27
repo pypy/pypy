@@ -777,16 +777,16 @@ class AppTest_CompSpace(object):
             Solution = newvar()
             stacklet(solve, s, commit_to, Solution)
             if commit_to == 1:
-                assert set(Solution) == set([('room B', 'day 2 PM'),
-                                             ('room C', 'day 2 PM'),
-                                             ('room A', 'day 1 PM'),
-                                             ('room C', 'day 1 AM'),
-                                             ('room A', 'day 2 AM'),
-                                             ('room A', 'day 1 AM'),
-                                             ('room C', 'day 2 AM'),
-                                             ('room B', 'day 1 AM'),
-                                             ('room B', 'day 2 AM'),
-                                             ('room C', 'day 1 PM')])
+                assert set(Solution) == set([('room A', 'day 1 AM'),
+                                            ('room B', 'day 1 AM'),
+                                            ('room B', 'day 2 PM'),
+                                            ('room A', 'day 1 PM'),
+                                            ('room A', 'day 2 AM'),
+                                            ('room C', 'day 2 PM'),
+                                            ('room C', 'day 2 AM'),
+                                            ('room C', 'day 1 AM'),
+                                            ('room C', 'day 1 PM'),
+                                            ('room B', 'day 2 AM')])
             else:
                 assert set(Solution) == set([('room B', 'day 1 PM'),
                                              ('room A', 'day 1 PM'),
