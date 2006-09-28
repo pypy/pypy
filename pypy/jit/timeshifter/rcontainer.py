@@ -1,5 +1,6 @@
 import operator
 from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.annlowlevel import cachedtype
 from pypy.jit.timeshifter import rvalue
 
 class AbstractContainer(object):
@@ -14,26 +15,7 @@ class AbstractContainer(object):
     def op_getsubstruct(self, jitstate, fielddesc):
         raise NotImplementedError
 
-
 # ____________________________________________________________
-
-class cachedtype(type):
-    """Metaclass for classes that should only have one instance per
-    tuple of arguments given to the constructor."""
-
-    def __init__(selfcls, name, bases, dict):
-        super(cachedtype, selfcls).__init__(name, bases, dict)
-        selfcls._instancecache = {}
-
-    def __call__(selfcls, *args):
-        d = selfcls._instancecache
-        try:
-            return d[args]
-        except KeyError:
-            instance = d[args] = selfcls.__new__(selfcls, *args)
-            instance.__init__(*args)
-            return instance
-
 
 class StructTypeDesc(object):
     __metaclass__ = cachedtype

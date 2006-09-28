@@ -23,3 +23,7 @@ class CodeGenBlock(object):
 
 class AbstractRGenOp(object):
     pass
+
+
+class CodeGenSwitch(object):
+    pass

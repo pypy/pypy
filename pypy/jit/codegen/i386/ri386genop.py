@@ -436,8 +436,6 @@ class Builder(CodeGenerator):
         return self.returnvar(eax)
 
     op_uint_is_true = op_int_is_true
-    op_uint_neg     = op_int_neg
-    op_uint_abs     = identity
     op_uint_invert  = op_int_invert
     op_uint_add     = op_int_add
     op_uint_sub     = op_int_sub

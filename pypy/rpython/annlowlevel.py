@@ -347,6 +347,7 @@ class LLHelperEntry(extregistry.ExtRegistryEntry):
         return annmodel.SomePtr(F)
 
     def specialize_call(self, hop):
+        hop.exception_cannot_occur()
         return hop.args_r[1].get_unique_llfn()
 
 # ____________________________________________________________
@@ -372,6 +373,7 @@ class CastObjectToPtrEntry(extregistry.ExtRegistryEntry):
     def specialize_call(self, hop):
         v_arg = hop.inputarg(hop.args_r[1], arg=1)
         assert isinstance(v_arg.concretetype, lltype.Ptr)
+        hop.exception_cannot_occur()
         return hop.genop('cast_pointer', [v_arg],
                          resulttype = hop.r_result.lowleveltype)
 
@@ -391,6 +393,7 @@ class CastBasePtrToInstanceEntry(extregistry.ExtRegistryEntry):
     def specialize_call(self, hop):
         v_arg = hop.inputarg(hop.args_r[1], arg=1)
         assert isinstance(v_arg.concretetype, lltype.Ptr)
+        hop.exception_cannot_occur()
         return hop.genop('cast_pointer', [v_arg],
                          resulttype = hop.r_result.lowleveltype)
 
@@ -409,11 +412,7 @@ class CastBasePtrToInstanceEntry(extregistry.ExtRegistryEntry):
 ##        s_Instance, r_Instance = pol.annhelper.s_r_instanceof(s_Class.const)
 ##        return annmodel.SomePtr(r_Instance.lowleveltype)
 
-##    def specialize_call(self, hop):
-##        v_arg = hop.inputarg(hop.args_r[1], arg=1)
-##        assert isinstance(v_arg.concretetype, lltype.Ptr)
-##        return hop.genop('cast_pointer', [v_arg],
-##                         resulttype = hop.r_result.lowleveltype)
+##    ...
 
 # ____________________________________________________________
 

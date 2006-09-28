@@ -191,6 +191,14 @@ class HintRTyper(RPythonTyper):
         # the graph is transformed already
         return self.annotator.bookkeeper.tsgraphsigs[tsgraph]
 
+    def get_residual_functype(self, tsgraph):
+        ha = self.annotator
+        args_hs, hs_res = self.get_sig_hs(ha.translator.graphs[0])
+        RESTYPE = originalconcretetype(hs_res)
+        ARGS = [originalconcretetype(hs_arg) for hs_arg in args_hs
+                                             if not hs_arg.is_green()]
+        return lltype.FuncType(ARGS, RESTYPE)
+
     def make_new_lloplist(self, block):
         return HintLowLevelOpList(self)
 
@@ -230,8 +238,11 @@ class HintRTyper(RPythonTyper):
         try:
             return self.dispatchsubclasses[mergepointfamily]
         except KeyError:
-            attrnames = mergepointfamily.getattrnames()
-            subclass = rtimeshift.build_dispatch_subclass(attrnames)
+            if mergepointfamily.is_global:
+                subclass = rtimeshift.BaseDispatchQueue
+            else:
+                attrnames = mergepointfamily.getattrnames()
+                subclass = rtimeshift.build_dispatch_subclass(attrnames)
             self.dispatchsubclasses[mergepointfamily] = subclass
             return subclass
 
@@ -356,24 +367,6 @@ class HintRTyper(RPythonTyper):
                                                [s_opdesc, ts.s_JITState] + args_s,
                                                [c_opdesc, v_jitstate]    + args_v,
                                                ts.s_RedBox)
-
-    def translate_op_hint(self, hop):
-        # don't try to generate hint operations, just discard them
-        hints = hop.args_v[-1].value
-        if hints.get('forget', False):
-            T = originalconcretetype(hop.args_s[0])
-            v_redbox = hop.inputarg(self.getredrepr(T), arg=0)
-            assert isinstance(hop.r_result, GreenRepr)
-            ts = self
-            c_T = hop.inputconst(lltype.Void, T)
-            s_T = ts.rtyper.annotator.bookkeeper.immutablevalue(T)
-            s_res = annmodel.lltype_to_annotation(T)
-            return hop.llops.genmixlevelhelpercall(rvalue.ll_getvalue,
-                                                   [ts.s_RedBox, s_T],
-                                                   [v_redbox,    c_T],
-                                                   s_res)
-                                                   
-        return hop.inputarg(hop.r_result, arg=0)
 
     def translate_op_debug_log_exc(self, hop): # don't timeshift debug_log_exc
         pass
@@ -717,8 +710,9 @@ class HintRTyper(RPythonTyper):
         args_s += [self.s_ConstOrVar] * len(greens_v)
         args_v = [v_jitstate, v_switch, c_resumepoint]
         args_v += greens_v
-        hop.llops.genmixlevelhelpercall(rtimeshift.split, args_s, args_v,
-                                        annmodel.s_None)
+        return hop.llops.genmixlevelhelpercall(rtimeshift.split,
+                                               args_s, args_v,
+                                               annmodel.SomeBool())
 
     def translate_op_collect_split(self, hop):
         GREENS = [v.concretetype for v in hop.args_v[1:]]
@@ -738,17 +732,25 @@ class HintRTyper(RPythonTyper):
                                         args_s, args_v,
                                         annmodel.s_None)
 
-    def translate_op_merge_point(self, hop):
+    def translate_op_merge_point(self, hop, global_resumer=None):
         mpfamily = hop.args_v[0].value
         attrname = hop.args_v[1].value
         DispatchQueueSubclass = self.get_dispatch_subclass(mpfamily)
 
-        def merge_point(jitstate, *key):
-            dispatch_queue = jitstate.frame.dispatch_queue
-            assert isinstance(dispatch_queue, DispatchQueueSubclass)
-            states_dic = getattr(dispatch_queue, attrname)
-            return rtimeshift.retrieve_jitstate_for_merge(states_dic,
-                                                          jitstate, key)
+        if mpfamily.is_global:
+            states_dic = {}
+            def merge_point(jitstate, *key):
+                return rtimeshift.retrieve_jitstate_for_merge(states_dic,
+                                                              jitstate, key,
+                                                              global_resumer)
+        else:
+            def merge_point(jitstate, *key):
+                dispatch_queue = jitstate.frame.dispatch_queue
+                assert isinstance(dispatch_queue, DispatchQueueSubclass)
+                states_dic = getattr(dispatch_queue, attrname)
+                return rtimeshift.retrieve_jitstate_for_merge(states_dic,
+                                                              jitstate, key,
+                                                              global_resumer)
 
         greens_v = []
         greens_s = []
@@ -767,6 +769,37 @@ class HintRTyper(RPythonTyper):
                              [v_jitstate     ] + greens_v,
                              annmodel.SomeBool())
 
+    def translate_op_global_merge_point(self, hop):
+        mpfamily = hop.args_v[0].value
+        attrname = hop.args_v[1].value
+        N = mpfamily.resumepoint_after_mergepoint[attrname]
+        tsgraph = mpfamily.tsgraph
+        ts_fnptr = self.gettscallable(tsgraph)
+        TS_FUNC = lltype.typeOf(ts_fnptr)
+        dummy_args = [ARG._defl() for ARG in TS_FUNC.TO.ARGS[1:]]
+        dummy_args = tuple(dummy_args)
+        JITSTATE = self.r_JITState.lowleveltype
+        RESIDUAL_FUNCTYPE = self.get_residual_functype(tsgraph)
+        residualSigToken = self.RGenOp.sigToken(RESIDUAL_FUNCTYPE)
+        ll_finish_jitstate = self.ll_finish_jitstate
+
+        args_s = [self.s_JITState] + [annmodel.lltype_to_annotation(ARG)
+                                      for ARG in TS_FUNC.TO.ARGS[1:]]
+        s_res = self.s_JITState
+        tsfn = annlowlevel.PseudoHighLevelCallable(ts_fnptr, args_s, s_res)
+
+        def call_for_global_resuming(jitstate):
+            jitstate.resumepoint = N
+            try:
+                finaljitstate = tsfn(jitstate, *dummy_args)
+            except rtimeshift.CompilationInterrupted:
+                pass
+            else:
+                ll_finish_jitstate(finaljitstate, residualSigToken)
+
+        return self.translate_op_merge_point(hop,
+                        global_resumer = call_for_global_resuming)
+
     def translate_op_save_return(self, hop):
         v_jitstate = hop.llops.getjitstate()
         return hop.llops.genmixlevelhelpercall(rtimeshift.save_return,
@@ -781,10 +814,28 @@ class HintRTyper(RPythonTyper):
                                                   [v_jitstate     ],
                                                   self.s_JITState)
         hop.llops.setjitstate(v_newjs)
+
+    def translate_op_getresumepoint(self, hop):
+        v_jitstate = hop.llops.getjitstate()
         return hop.llops.genmixlevelhelpercall(rtimeshift.getresumepoint,
                                                [self.s_JITState],
-                                               [v_newjs        ],
+                                               [v_jitstate     ],
                                                annmodel.SomeInteger())
+
+    def translate_op_promote(self, hop):
+        TYPE = originalconcretetype(hop.args_s[0])
+        r_arg = self.getredrepr(TYPE)
+        [v_box] = hop.inputargs(r_arg)
+        r_result = self.getgreenrepr(TYPE)
+        ERASED = annmodel.annotation_to_lltype(r_result.erased_annotation())
+        desc = rtimeshift.PromotionDesc(ERASED, self)
+        s_desc = self.rtyper.annotator.bookkeeper.immutablevalue(desc)
+        c_desc = hop.inputconst(lltype.Void, desc)
+        v_jitstate = hop.llops.getjitstate()
+        return hop.llops.genmixlevelhelpercall(rtimeshift.ll_promote,
+                                    [self.s_JITState, self.s_RedBox, s_desc],
+                                    [v_jitstate     , v_box        , c_desc],
+                                    annmodel.SomeBool())
 
     # handling of the various kinds of calls
 

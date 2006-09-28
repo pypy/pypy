@@ -1,8 +1,12 @@
 import operator, weakref
+from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype, lloperation, llmemory
 from pypy.jit.hintannotator.model import originalconcretetype
 from pypy.jit.timeshifter import rvalue
 from pypy.rpython.unroll import unrolling_iterable
+from pypy.rpython.annlowlevel import cachedtype, base_ptr_lltype
+from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
+from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 
 FOLDABLE_OPS = dict.fromkeys(lloperation.enum_foldable_ops())
 
@@ -184,7 +188,7 @@ def enter_next_block(jitstate, incoming):
         incoming[i].genvar = linkargs[i]
     return newblock
 
-def start_new_block(states_dic, jitstate, key):
+def start_new_block(states_dic, jitstate, key, global_resumer):
     memo = rvalue.freeze_memo()
     frozen = jitstate.freeze(memo)
     memo = rvalue.exactmatch_memo()
@@ -193,11 +197,17 @@ def start_new_block(states_dic, jitstate, key):
     assert res, "exactmatch() failed"
     newblock = enter_next_block(jitstate, outgoingvarboxes)
     states_dic[key] = frozen, newblock
+    if global_resumer:
+        greens_gv = jitstate.greens
+        rgenop = jitstate.curbuilder.rgenop
+        jitstate.promotion_path = PromotionPathRoot(greens_gv, rgenop,
+                                                    frozen, newblock,
+                                                    global_resumer)
 start_new_block._annspecialcase_ = "specialize:arglltype(2)"
 
-def retrieve_jitstate_for_merge(states_dic, jitstate, key):
+def retrieve_jitstate_for_merge(states_dic, jitstate, key, global_resumer):
     if key not in states_dic:
-        start_new_block(states_dic, jitstate, key)
+        start_new_block(states_dic, jitstate, key, global_resumer)
         return False   # continue
 
     frozen, oldblock = states_dic[key]
@@ -219,7 +229,7 @@ def retrieve_jitstate_for_merge(states_dic, jitstate, key):
         box.forcevar(jitstate.curbuilder, replace_memo)
     if replace_memo.boxes:
         jitstate.replace(replace_memo)
-    start_new_block(states_dic, jitstate, key)
+    start_new_block(states_dic, jitstate, key, global_resumer)
     return False       # continue
 retrieve_jitstate_for_merge._annspecialcase_ = "specialize:arglltype(2)"
 
@@ -231,8 +241,15 @@ def enter_block(jitstate):
 
 def split(jitstate, switchredbox, resumepoint, *greens_gv):
     exitgvar = switchredbox.getgenvar(jitstate.curbuilder)
-    later_builder = jitstate.curbuilder.jump_if_false(exitgvar)
-    jitstate.split(later_builder, resumepoint, list(greens_gv))
+    if exitgvar.is_const:
+        return exitgvar.revealconst(lltype.Bool)
+    else:
+        if jitstate.resuming is None:
+            later_builder = jitstate.curbuilder.jump_if_false(exitgvar)
+            jitstate.split(later_builder, resumepoint, list(greens_gv))
+            return True
+        else:
+            return jitstate.resuming.path.pop()
 
 def collect_split(jitstate_chain, resumepoint, *greens_gv):
     greens_gv = list(greens_gv)
@@ -304,6 +321,145 @@ def save_return(jitstate):
 ##def ll_gvar_from_constant(jitstate, ll_value):
 ##    return jitstate.curbuilder.rgenop.genconst(ll_value)
 
+
+
+class ResumingInfo(object):
+    def __init__(self, promotion_point, gv_value, path):
+        self.promotion_point = promotion_point
+        self.gv_value = gv_value
+        self.path = path
+
+class PromotionPoint(object):
+    def __init__(self, flexswitch, switchblock, promotion_path):
+        assert promotion_path is not None
+        self.flexswitch = flexswitch
+        self.switchblock = switchblock
+        self.promotion_path = promotion_path
+
+class AbstractPromotionPath(object):
+    pass
+
+class PromotionPathRoot(AbstractPromotionPath):
+    def __init__(self, greens_gv, rgenop, frozen, portalblock, global_resumer):
+        self.greens_gv = greens_gv
+        self.rgenop = rgenop
+        self.frozen = frozen
+        self.portalblock = portalblock
+        self.global_resumer = global_resumer
+
+    def follow_path(self, path):
+        return self
+
+    def continue_compilation(self, resuminginfo):
+        incoming = []
+        memo = rvalue.unfreeze_memo()
+        jitstate = self.frozen.unfreeze(incoming, memo)
+        kinds = [box.kind for box in incoming]
+        builder, vars_gv = self.rgenop.replay(self.portalblock, kinds)
+        for i in range(len(incoming)):
+            incoming[i].genvar = vars_gv[i]
+        jitstate.curbuilder = builder
+        jitstate.greens = self.greens_gv
+        jitstate.resuming = resuminginfo
+        assert jitstate.frame.backframe is None
+        self.global_resumer(jitstate)
+        builder.show_incremental_progress()
+
+class PromotionPathNode(AbstractPromotionPath):
+    def __init__(self, next):
+        self.next = next
+    def follow_path(self, path):
+        path.append(self.direct)
+        return self.next.follow_path(path)
+
+class PromotionPathDirect(PromotionPathNode):
+    direct = True
+
+class PromotionPathIndirect(PromotionPathNode):
+    direct = False
+
+def ll_continue_compilation(promotion_point_ptr, value):
+    try:
+        promotion_point = cast_base_ptr_to_instance(PromotionPoint,
+                                                    promotion_point_ptr)
+        path = []
+        root = promotion_point.promotion_path.follow_path(path)
+        gv_value = root.rgenop.genconst(value)
+        resuminginfo = ResumingInfo(promotion_point, gv_value, path)
+        root.continue_compilation(resuminginfo)
+    except Exception, e:
+        lloperation.llop.debug_fatalerror(lltype.Void,
+                                          "compilation-time error", e)
+
+class PromotionDesc:
+    __metatype__ = cachedtype
+
+    def __init__(self, ERASED, hrtyper):
+##        (s_PromotionPoint,
+##         r_PromotionPoint) = hrtyper.s_r_instanceof(PromotionPoint)
+        fnptr = hrtyper.annhelper.delayedfunction(
+            ll_continue_compilation,
+            [annmodel.SomePtr(base_ptr_lltype()),
+             annmodel.lltype_to_annotation(ERASED)],
+            annmodel.s_None, needtype=True)
+        RGenOp = hrtyper.RGenOp
+        self.gv_continue_compilation = RGenOp.constPrebuiltGlobal(fnptr)
+        self.sigtoken = RGenOp.sigToken(lltype.typeOf(fnptr).TO)
+##        self.PROMOTION_POINT = r_PromotionPoint.lowleveltype
+
+    def _freeze_(self):
+        return True
+
+def ll_promote(jitstate, box, promotiondesc):
+    builder = jitstate.curbuilder
+    gv_switchvar = box.getgenvar(builder)
+    if gv_switchvar.is_const:
+        return False
+    else:
+        incoming = []
+        memo = rvalue.enter_block_memo()
+        jitstate.enter_block(incoming, memo)
+        switchblock = enter_next_block(jitstate, incoming)
+
+        if jitstate.resuming is None:
+            gv_switchvar = box.genvar
+            flexswitch = builder.flexswitch(gv_switchvar)
+            # default case of the switch:
+            enter_block(jitstate)
+            pm = PromotionPoint(flexswitch, switchblock,
+                                jitstate.promotion_path)
+            ll_pm = cast_instance_to_base_ptr(pm)
+            gv_pm = builder.rgenop.genconst(ll_pm)
+            gv_switchvar = box.genvar
+            builder.genop_call(promotiondesc.sigtoken,
+                               promotiondesc.gv_continue_compilation,
+                               [gv_pm, gv_switchvar])
+            linkargs = []
+            for box in incoming:
+                linkargs.append(box.getgenvar(builder))
+            builder.finish_and_goto(linkargs, switchblock)
+            return True
+        else:
+            assert jitstate.promotion_path is None
+            resuming = jitstate.resuming
+            assert len(resuming.path) == 0
+            pm = resuming.promotion_point
+
+            kinds = [box.kind for box in incoming]
+            vars_gv = jitstate.curbuilder.rgenop.stop_replay(pm.switchblock,
+                                                             kinds)
+            for i in range(len(incoming)):
+                incoming[i].genvar = vars_gv[i]
+            box.genvar = resuming.gv_value
+
+            newbuilder = pm.flexswitch.add_case(resuming.gv_value)
+
+            jitstate.resuming = None
+            jitstate.promotion_path = pm.promotion_path
+            jitstate.curbuilder = newbuilder
+            enter_block(jitstate)
+            return False
+
 # ____________________________________________________________
 
 class BaseDispatchQueue(object):
@@ -346,6 +502,18 @@ class FrozenVirtualFrame(object):
             assert vframe.backframe is None
         return fullmatch
 
+    def unfreeze(self, incomingvarboxes, memo):
+        local_boxes = []
+        for fzbox in self.fz_local_boxes:
+            local_boxes.append(fzbox.unfreeze(incomingvarboxes, memo))
+        if self.fz_backframe is not None:
+            backframe = self.fz_backframe.unfreeze(incomingvarboxes, memo)
+        else:
+            backframe = None
+        vframe = VirtualFrame(backframe, BaseDispatchQueue())
+        vframe.local_boxes = local_boxes
+        return vframe
+
 
 class FrozenJITState(object):
     #fz_frame = ...           set by freeze()
@@ -367,6 +535,12 @@ class FrozenJITState(object):
                                                 memo):
             fullmatch = False
         return fullmatch
+
+    def unfreeze(self, incomingvarboxes, memo):
+        frame         = self.fz_frame        .unfreeze(incomingvarboxes, memo)
+        exc_type_box  = self.fz_exc_type_box .unfreeze(incomingvarboxes, memo)
+        exc_value_box = self.fz_exc_value_box.unfreeze(incomingvarboxes, memo)
+        return JITState(None, frame, exc_type_box, exc_value_box)
 
 
 class VirtualFrame(object):
@@ -410,15 +584,17 @@ class VirtualFrame(object):
 class JITState(object):
     returnbox = None
     next      = None   # for linked lists
+    resuming  = None   # or a ResumingInfo
 
     def __init__(self, builder, frame, exc_type_box, exc_value_box,
-                 resumepoint=-1, newgreens=[]):
+                 resumepoint=-1, newgreens=[], promotion_path=None):
         self.curbuilder = builder
         self.frame = frame
         self.exc_type_box = exc_type_box
         self.exc_value_box = exc_value_box
         self.resumepoint = resumepoint
         self.greens = newgreens
+        self.promotion_path = promotion_path
 
     def split(self, newbuilder, newresumepoint, newgreens):
         memo = rvalue.copy_memo()
@@ -427,7 +603,9 @@ class JITState(object):
                                   self.exc_type_box .copy(memo),
                                   self.exc_value_box.copy(memo),
                                   newresumepoint,
-                                  newgreens)
+                                  newgreens,
+                                  PromotionPathIndirect(self.promotion_path))
+        self.promotion_path = PromotionPathDirect(self.promotion_path)
         # add the later_jitstate to the chain of pending-for-dispatch_next()
         dispatch_queue = self.frame.dispatch_queue
         later_jitstate.next = dispatch_queue.split_chain
@@ -456,6 +634,9 @@ def enter_graph(jitstate, DispatchQueueClass):
 enter_graph._annspecialcase_ = 'specialize:arg(1)'
 # XXX is that too many specializations? ^^^
 
+class CompilationInterrupted(Exception):
+    pass
+
 def merge_returning_jitstates(jitstate):
     return_chain = jitstate.frame.dispatch_queue.return_chain
     return_cache = {}
@@ -463,17 +644,18 @@ def merge_returning_jitstates(jitstate):
     while return_chain is not None:
         jitstate = return_chain
         return_chain = return_chain.next
-        res = retrieve_jitstate_for_merge(return_cache, jitstate, ())
+        res = retrieve_jitstate_for_merge(return_cache, jitstate, (), None)
         if res is False:    # not finished
             jitstate.next = still_pending
             still_pending = jitstate
-    assert still_pending is not None
+    if still_pending is None:
+        raise CompilationInterrupted
     most_general_jitstate = still_pending
     still_pending = still_pending.next
     while still_pending is not None:
         jitstate = still_pending
         still_pending = still_pending.next
-        res = retrieve_jitstate_for_merge(return_cache, jitstate, ())
+        res = retrieve_jitstate_for_merge(return_cache, jitstate, (), None)
         assert res is True   # finished
     return most_general_jitstate
 

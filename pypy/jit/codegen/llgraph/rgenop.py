@@ -1,7 +1,7 @@
 from pypy.rpython.objectmodel import specialize
 from pypy.rpython.lltypesystem import lltype
 from pypy.jit.codegen.model import AbstractRGenOp, CodeGenBlock, CodeGenerator
-from pypy.jit.codegen.model import GenVar, GenConst
+from pypy.jit.codegen.model import GenVar, GenConst, CodeGenSwitch
 from pypy.jit.codegen.llgraph import llimpl
 from pypy.rpython.lltypesystem.rclass import fishllattr
 
@@ -30,14 +30,29 @@ gv_dummy_placeholder = LLConst(llimpl.dummy_placeholder)
 
 
 class LLBlock(CodeGenBlock):
-    def __init__(self, b):
+    def __init__(self, b, g):
         self.b = b
+        self.g = g
+
+class LLFlexSwitch(CodeGenSwitch):
+    
+    def __init__(self, b, g):
+        self.b = b
+        self.g = g
+
+    def add_case(self, gv_case):
+        l_case = llimpl.add_case(self.b, gv_case.v)
+        builder = LLBuilder(self.g)
+        builder.lnk = l_case
+        return builder
+
 
 class LLBuilder(CodeGenerator):
     lnk = llimpl.nulllink
 
-    def __init__(self):
+    def __init__(self, g):
         self.rgenop = rgenop
+        self.g = g
 
     @specialize.arg(1)
     def genop1(self, opname, gv_arg):
@@ -114,7 +129,7 @@ class LLBuilder(CodeGenerator):
         llimpl.closelink(lnk, args_gv, self.b)
         for i in range(len(args_gv)):
             args_gv[i] = newb_args_gv[i]
-        return LLBlock(self.b)
+        return LLBlock(self.b, self.g)
 
     def finish_and_goto(self, args_gv, targetblock):
         lnk = self.lnk or llimpl.closeblock1(self.b)
@@ -122,15 +137,15 @@ class LLBuilder(CodeGenerator):
         llimpl.closelink(lnk, args_gv, targetblock.b)
 
     def finish_and_return(self, sigtoken, gv_returnvar):
+        gv_returnvar = gv_returnvar or gv_dummy_placeholder
         lnk = self.lnk or llimpl.closeblock1(self.b)
         self.lnk = llimpl.nulllink
-        llimpl.closereturnlink(lnk,
-                               (gv_returnvar or gv_dummy_placeholder).v)
+        llimpl.closereturnlink(lnk, gv_returnvar.v, self.g)
 
     def jump_if_true(self, gv_cond):
         l_false, l_true = llimpl.closeblock2(self.b, gv_cond.v)
         self.b = llimpl.nullblock
-        later_builder = LLBuilder()
+        later_builder = LLBuilder(self.g)
         later_builder.lnk = l_true
         self.lnk = l_false
         return later_builder
@@ -138,10 +153,20 @@ class LLBuilder(CodeGenerator):
     def jump_if_false(self, gv_cond):
         l_false, l_true = llimpl.closeblock2(self.b, gv_cond.v)
         self.b = llimpl.nullblock
-        later_builder = LLBuilder()
+        later_builder = LLBuilder(self.g)
         later_builder.lnk = l_false
         self.lnk = l_true
         return later_builder
+
+    def flexswitch(self, gv_switchvar):
+        l_default = llimpl.closeblockswitch(self.b, gv_switchvar.v)
+        flexswitch = LLFlexSwitch(self.b, self.g)
+        self.b = llimpl.nullblock
+        self.lnk = l_default
+        return flexswitch
+
+    def show_incremental_progress(self):
+        llimpl.show_incremental_progress(self.g)
 
 
 class RGenOp(AbstractRGenOp):
@@ -149,13 +174,15 @@ class RGenOp(AbstractRGenOp):
 
 
     def newgraph(self, (ARGS_gv, gv_RESULT, gv_FUNCTYPE)):
-        builder = LLBuilder()
-        inputargs_gv = builder._newblock(ARGS_gv)
-        return builder, LLBlock(builder.b), inputargs_gv
+        graph = llimpl.newgraph(gv_FUNCTYPE.v)
+        builder = LLBuilder(graph)
+        builder.b = llimpl.getstartblock(graph)
+        inputargs_gv = [LLVar(llimpl.getinputarg(builder.b, i))
+                        for i in range(len(ARGS_gv))]
+        return builder, graph, inputargs_gv
 
-    def gencallableconst(self, (ARGS_gv, gv_RESULT, gv_FUNCTYPE), name,
-                         entrypoint):
-        return LLConst(llimpl.gencallableconst(name, entrypoint.b,
+    def gencallableconst(self, (ARGS_gv, gv_RESULT, gv_FUNCTYPE), name, graph):
+        return LLConst(llimpl.gencallableconst(name, graph,
                                                gv_FUNCTYPE.v))
 
     @staticmethod
@@ -201,6 +228,15 @@ class RGenOp(AbstractRGenOp):
 
     constPrebuiltGlobal = genconst
 
+    def replay(self, block, kinds):
+        builder = LLBuilder(block.g)
+        args_gv = builder._newblock(kinds)
+        return builder, args_gv
+
+    def stop_replay(self, endblock, kinds):
+        return [LLVar(llimpl.getinputarg(endblock.b, i))
+                for i in range(len(kinds))]
+
     # not RPython, just for debugging.  Specific to llgraph.
     @staticmethod
     def reveal(gv):
@@ -209,15 +245,6 @@ class RGenOp(AbstractRGenOp):
         else:
             v = fishllattr(gv, 'v')
         return llimpl.reveal(v)
-
-    # Builds a real flow.model.FunctionGraph. Specific to llgraph.
-    @staticmethod
-    def buildgraph(block, FUNCTYPE):
-        if hasattr(block, 'b'):
-            b = block.b
-        else:
-            b = fishllattr(block, 'b')
-        return llimpl.buildgraph(b, FUNCTYPE)
 
     def _freeze_(self):
         return True    # no real point in using a full class in llgraph

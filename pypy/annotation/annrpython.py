@@ -722,7 +722,8 @@ class RPythonAnnotator(object):
         try:
             resultcell = consider_meth(*argcells)
         except Exception:
-            raise_nicer_exception(op)
+            graph = self.bookkeeper.position_key[0]
+            raise_nicer_exception(op, str(graph))
         if resultcell is None:
             resultcell = annmodel.s_ImpossibleValue  # no return value
         elif resultcell == annmodel.s_ImpossibleValue:

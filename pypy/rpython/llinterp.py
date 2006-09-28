@@ -27,6 +27,10 @@ class LLException(Exception):
             extra = ''
         return '<LLException %r%s>' % (type_name(etype), extra)
 
+class LLFatalError(Exception):
+    def __str__(self):
+        return ': '.join([str(x) for x in self.args])
+
 def type_name(etype):
     if isinstance(lltype.typeOf(etype), lltype.Ptr):
         return ''.join(etype.name).rstrip('\x00')
@@ -441,6 +445,14 @@ class LLFrame(object):
     def op_debug_log_exc(self, exc_type):
         # do nothing, this is useful in compiled code
         pass
+
+    def op_debug_fatalerror(self, ll_msg, ll_exc=None):
+        msg = ''.join(ll_msg.chars)
+        if ll_exc is None:
+            raise LLFatalError(msg)
+        else:
+            ll_exc_type = lltype.cast_pointer(rclass.OBJECTPTR, ll_exc).typeptr
+            raise LLFatalError(msg, LLException(ll_exc_type, ll_exc))
 
     def op_keepalive(self, value):
         pass

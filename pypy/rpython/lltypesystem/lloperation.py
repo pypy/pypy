@@ -394,6 +394,7 @@ LL_OPERATIONS = {
     'debug_pdb':            LLOp(),
     'debug_log_exc':        LLOp(),
     'debug_assert':         LLOp(canfold=True),
+    'debug_fatalerror':     LLOp(),
 }
 
     # __________ operations on PyObjects __________

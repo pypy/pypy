@@ -258,6 +258,10 @@ class __extend__(SomeLLAbstractValue):
             # turn a variable to a constant
             origin = getbookkeeper().myorigin()
             return SomeLLAbstractConstant(hs_v1.concretetype, {origin: True})
+        if hs_flags.const.get('promote', False):
+            hs_concrete = SomeLLAbstractConstant(hs_v1.concretetype, {})
+            hs_concrete.eager_concrete = True
+            return hs_concrete 
 
     def getfield(hs_v1, hs_fieldname):
         S = hs_v1.concretetype.TO
@@ -311,8 +315,6 @@ class __extend__(SomeLLAbstractConstant):
         return hs_c1
 
     def hint(hs_c1, hs_flags):
-        if hs_flags.const.get('variable', False): # only for testing purposes!!!
-            return SomeLLAbstractVariable(hs_c1.concretetype)
         if hs_flags.const.get('concrete', False):
             for o in hs_c1.origins:
                 o.set_fixed()
@@ -322,6 +324,7 @@ class __extend__(SomeLLAbstractConstant):
         if hs_flags.const.get('forget', False):
             assert isinstance(hs_c1, SomeLLAbstractConstant)
             return reorigin(hs_c1)
+        return SomeLLAbstractValue.hint(hs_c1, hs_flags)
 
     def direct_call(hs_f1, *args_hs):
         bookkeeper = getbookkeeper()

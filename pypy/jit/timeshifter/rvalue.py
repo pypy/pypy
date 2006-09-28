@@ -19,6 +19,9 @@ def exactmatch_memo():
 def copy_memo():
     return Memo()
 
+def unfreeze_memo():
+    return Memo()
+
 
 class RedBox(object):
     __slots__ = ['kind', 'genvar']
@@ -135,9 +138,9 @@ class IntRedBox(RedBox):
             return memo[self]
         except KeyError:
             if self.is_constant():
-                result = FrozenIntConst(self.genvar)
+                result = FrozenIntConst(self.kind, self.genvar)
             else:
-                result = FrozenIntVar()
+                result = FrozenIntVar(self.kind)
             memo[self] = result
             return result
 
@@ -159,9 +162,9 @@ class DoubleRedBox(RedBox):
             return memo[self]
         except KeyError:
             if self.is_constant():
-                result = FrozenDoubleConst(self.genvar)
+                result = FrozenDoubleConst(self.kind, self.genvar)
             else:
-                result = FrozenDoubleVar()
+                result = FrozenDoubleVar(self.kind)
             memo[self] = result
             return result
 
@@ -205,14 +208,14 @@ class PtrRedBox(RedBox):
             return boxmemo[self]
         except KeyError:
             if self.content:
-                result = FrozenPtrVirtual()
+                result = FrozenPtrVirtual(self.kind)
                 boxmemo[self] = result
                 result.fz_content = self.content.freeze(memo)
             else:
                 if self.is_constant():
-                    result = FrozenPtrConst(self.genvar)
+                    result = FrozenPtrConst(self.kind, self.genvar)
                 else:
-                    result = FrozenPtrVar()
+                    result = FrozenPtrVar(self.kind)
                 boxmemo[self] = result
             return result
 
@@ -234,11 +237,14 @@ class PtrRedBox(RedBox):
 class FrozenValue(object):
     """An abstract value frozen in a saved state.
     """
+    def __init__(self, kind):
+        self.kind = kind
 
 
 class FrozenIntConst(FrozenValue):
 
-    def __init__(self, gv_const):
+    def __init__(self, kind, gv_const):
+        self.kind = kind
         self.gv_const = gv_const
 
     def exactmatch(self, box, outgoingvarboxes, memo):
@@ -249,6 +255,10 @@ class FrozenIntConst(FrozenValue):
         else:
             outgoingvarboxes.append(box)
             return False
+
+    def unfreeze(self, incomingvarboxes, memo):
+        # XXX could return directly the original IntRedBox
+        return IntRedBox(self.kind, self.gv_const)
 
 
 class FrozenIntVar(FrozenValue):
@@ -265,10 +275,21 @@ class FrozenIntVar(FrozenValue):
             outgoingvarboxes.append(box)
             return False
 
+    def unfreeze(self, incomingvarboxes, memo):
+        memo = memo.boxes
+        if self not in memo:
+            newbox = IntRedBox(self.kind, None)
+            incomingvarboxes.append(newbox)
+            memo[self] = newbox
+            return newbox
+        else:
+            return memo[self]
+
 
 class FrozenDoubleConst(FrozenValue):
 
-    def __init__(self, gv_const):
+    def __init__(self, kind, gv_const):
+        self.kind = kind
         self.gv_const = gv_const
 
     def exactmatch(self, box, outgoingvarboxes, memo):
@@ -279,6 +300,9 @@ class FrozenDoubleConst(FrozenValue):
         else:
             outgoingvarboxes.append(box)
             return False
+
+    def unfreeze(self, incomingvarboxes, memo):
+        return DoubleRedBox(self.kind, self.gv_const)
 
 
 class FrozenDoubleVar(FrozenValue):
@@ -295,10 +319,21 @@ class FrozenDoubleVar(FrozenValue):
             outgoingvarboxes.append(box)
             return False
 
+    def unfreeze(self, incomingvarboxes, memo):
+        memo = memo.boxes
+        if self not in memo:
+            newbox = DoubleRedBox(self.kind, None)
+            incomingvarboxes.append(newbox)
+            memo[self] = newbox
+            return newbox
+        else:
+            return memo[self]
+
 
 class FrozenPtrConst(FrozenValue):
 
-    def __init__(self, gv_const):
+    def __init__(self, kind, gv_const):
+        self.kind = kind
         self.gv_const = gv_const
 
     def exactmatch(self, box, outgoingvarboxes, memo):
@@ -309,6 +344,9 @@ class FrozenPtrConst(FrozenValue):
         else:
             outgoingvarboxes.append(box)
             return False
+
+    def unfreeze(self, incomingvarboxes, memo):
+        return PtrRedBox(self.kind, self.gv_const)
 
 
 class FrozenPtrVar(FrozenValue):
@@ -325,6 +363,16 @@ class FrozenPtrVar(FrozenValue):
             outgoingvarboxes.append(box)
             return False
 
+    def unfreeze(self, incomingvarboxes, memo):
+        memo = memo.boxes
+        if self not in memo:
+            newbox = PtrRedBox(self.kind, None)
+            incomingvarboxes.append(newbox)
+            memo[self] = newbox
+            return newbox
+        else:
+            return memo[self]
+
 
 class FrozenPtrVirtual(FrozenValue):
 
@@ -336,3 +384,7 @@ class FrozenPtrVirtual(FrozenValue):
         else:
             return self.fz_content.exactmatch(box.content, outgoingvarboxes,
                                               memo)
+
+    def unfreeze(self, incomingvarboxes, memo):
+        #return self.fz_content.unfreeze(self.kind, incomingvarboxes, memo)
+        raise NotImplementedError
