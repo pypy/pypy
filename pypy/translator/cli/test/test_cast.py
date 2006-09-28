@@ -44,3 +44,6 @@ def test_uint_to_int():
 
 def test_float_to_int():
     check(to_int, [float], (42.5,))
+
+def test_uint_to_float():
+    check(to_float, [r_uint], (sys.maxint+1,))
