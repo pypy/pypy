@@ -16,6 +16,24 @@ for a list of past events.
 .. _eventhistory: eventhistory.html
 
 
+Dynamic Languages Symposium (OOPSLA, 23rd October)
+==================================================================
+
+We will present a paper at the `Dynamic Languages Symposium`_ describing
+`PyPy's approach to virtual machine construction`_.  The DLS is a
+one-day forum within OOPSLA'06 (Portland, Oregon, USA).  The paper is a
+motivated overview of the annotation/rtyping translation tool-chain,
+with experimental results.
+
+As usual, terminology with PyPy is delicate :-)  Indeed, the title is
+both correct and misleading - it does not describe "the" PyPy virtual
+machine, since we have never hand-written one.  This paper focuses on
+how we are generating such VMs, not what they do.
+
+.. _`Dynamic Languages Symposium`: http://www.oopsla.org/2006/submission/tracks/dynamic_languages_symposium.html
+.. _`PyPy's approach to virtual machine construction`: http://codespeak.net/svn/pypy/extradoc/talk/dls2006/pypy-vm-construction.pdf
+
+
 Duesseldorf sprint #2, 30th October - 5th November
 ==================================================================
 
