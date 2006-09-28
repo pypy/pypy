@@ -4,7 +4,7 @@ from random import random, randint
 from pypy.objspace.std import longobject as lobj
 from pypy.objspace.std.objspace import FailedToImplement
 from pypy.interpreter.error import OperationError
-from pypy.rpython.rarithmetic import r_uint # will go away
+from pypy.rpython.rarithmetic import r_uint
 
 
 def gen_signs(l):
@@ -31,6 +31,34 @@ class TestW_LongObject:
         assert lobj.args_from_long(-(BASE**2)) == ([0, 0, 1], -1)
         assert lobj.args_from_long(-sys.maxint-1) == (
             lobj.digits_for_most_neg_long(-sys.maxint-1), -1)
+
+    def test_args_from_int(self):
+        BASE = 1 << lobj.SHIFT
+        assert lobj.args_from_rarith_int(0) == ([0], 0)
+        assert lobj.args_from_rarith_int(17) == ([17], 1)
+        assert lobj.args_from_rarith_int(BASE-1) == ([BASE-1], 1)
+        assert lobj.args_from_rarith_int(BASE) == ([0, 1], 1)
+        assert lobj.args_from_rarith_int(BASE**2) == ([0, 0, 1], 1)
+        assert lobj.args_from_rarith_int(-17) == ([17], -1)
+        assert lobj.args_from_rarith_int(-(BASE-1)) == ([BASE-1], -1)
+        assert lobj.args_from_rarith_int(-BASE) == ([0, 1], -1)
+        assert lobj.args_from_rarith_int(-(BASE**2)) == ([0, 0, 1], -1)
+        assert lobj.args_from_rarith_int(-sys.maxint-1) == (
+            lobj.digits_for_most_neg_long(-sys.maxint-1), -1)
+
+    def test_args_from_uint(self):
+        BASE = 1 << lobj.SHIFT
+        assert lobj.args_from_rarith_int(r_uint(0)) == ([0], 0)
+        assert lobj.args_from_rarith_int(r_uint(17)) == ([17], 1)
+        assert lobj.args_from_rarith_int(r_uint(BASE-1)) == ([BASE-1], 1)
+        assert lobj.args_from_rarith_int(r_uint(BASE)) == ([0, 1], 1)
+        assert lobj.args_from_rarith_int(r_uint(BASE**2)) == ([0, 0, 1], 1)
+        assert lobj.args_from_rarith_int(r_uint(sys.maxint)) == (
+            lobj.args_from_long(sys.maxint))
+        assert lobj.args_from_rarith_int(r_uint(sys.maxint+1)) == (
+            lobj.args_from_long(sys.maxint+1))
+        assert lobj.args_from_rarith_int(r_uint(2*sys.maxint+1)) == (
+            lobj.args_from_long(2*sys.maxint+1))
 
     def test_add(self):
         x = 123456789123456789000000L

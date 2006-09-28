@@ -2,7 +2,7 @@ import sys
 from pypy.objspace.std.objspace import *
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.noneobject import W_NoneObject
-from pypy.rpython.rarithmetic import LONG_BIT, intmask, r_uint
+from pypy.rpython.rarithmetic import LONG_BIT, intmask, r_uint, ovfcheck
 
 import math
 
@@ -640,23 +640,38 @@ def digits_for_most_neg_long(l):
     return digits
 digits_for_most_neg_long._annspecialcase_ = "specialize:argtype(0)"
 
-def args_from_long(l):
-    if l > 0:
-        return digits_from_nonneg_long(l), 1
-    elif l == 0:
-        return [0], 0
+def args_from_rarith_int(x):
+    if x >= 0:
+        if x == 0:
+            return [0], 0
+        else:
+            return digits_from_nonneg_long(x), 1
     else:
-        l = -l
-        if l >= 0:
+        try:
+            y = ovfcheck(-x)
+        except OverflowError:
+            y = -1
+        # be conservative and check again if the result is >= 0, even
+        # if no OverflowError was raised (e.g. broken CPython/GCC4.2)
+        if y >= 0:
             # normal case
-            return digits_from_nonneg_long(l), -1
+            return digits_from_nonneg_long(y), -1
         else:
             # the most negative integer! hacks needed...
-            # Note that this case is only reachable when translated
-            return digits_for_most_neg_long(l), -1
-args_from_long._annspecialcase_ = "specialize:argtype(0)"
-# ^^^ specialized by the precise type of 'l', which is typically a r_xxx
+            return digits_for_most_neg_long(x), -1
+args_from_rarith_int._annspecialcase_ = "specialize:argtype(0)"
+# ^^^ specialized by the precise type of 'x', which is typically a r_xxx
 #     instance from rpython.rarithmetic
+
+def args_from_long(x):
+    "NOT_RPYTHON"
+    if x >= 0:
+        if x == 0:
+            return [0], 0
+        else:
+            return digits_from_nonneg_long(x), 1
+    else:
+        return digits_from_nonneg_long(-long(x)), -1
 
 def _x_add(a, b):
     """ Add the absolute values of two long integers. """

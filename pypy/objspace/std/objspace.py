@@ -301,8 +301,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
             #print 'wrapping', x, '->', w_result
             return w_result
         if isinstance(x, base_int):
-            from pypy.objspace.std.longobject import args_from_long
-            return W_LongObject(*args_from_long(x))
+            from pypy.objspace.std.longobject import args_from_rarith_int
+            return W_LongObject(*args_from_rarith_int(x))
 
         # _____ below here is where the annotator should not get _____
         
