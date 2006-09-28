@@ -21,11 +21,11 @@ def name_signed(value, db):
                 cdecl(db.gettype(value.TYPE), ''),
                 structnode.c_struct_field_name(value.fldname))
         elif isinstance(value, ItemOffset):
-	    if value.TYPE != Void:
+            if value.TYPE != Void:
                 return '(sizeof(%s) * %s)'%(
                     cdecl(db.gettype(value.TYPE), ''), value.repeat)
             else:
-	    	return '0'
+                return '0'
         elif isinstance(value, ArrayItemsOffset):
             if isinstance(value.TYPE, FixedSizeArray):
                 return '0'

@@ -398,7 +398,7 @@ class RSocket(object):
         that the system will allow before refusing new connections."""
         if backlog < 1:
             backlog = 1
-	res = _c.socketlisten(self.fd, backlog)
+        res = _c.socketlisten(self.fd, backlog)
         if res < 0:
             raise self.error_handler()
 

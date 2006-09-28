@@ -111,7 +111,7 @@ class W_Expression(W_AbstractConstraint):
             assert isinstance(values, list)
             ds = domain.size()
             assert isinstance(ds, int)
-	    w_name = variable.w_name()
+            w_name = variable.w_name()
             lval = len(values)
             variables.add(ds, Quadruple(w_name, values, 0, lval))
             # was meant to be:
