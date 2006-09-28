@@ -15,7 +15,7 @@ from pypy.objspace.cclp.types import W_Constraint, W_AbstractDomain, W_Root, \
 
 from pypy.objspace.std.model import StdObjSpaceMultiMethod
 
-#from pypy.objspace.constraint.btree import BTree
+from pypy.objspace.cclp.constraint.btree import BTree
 #from pypy.objspace.constraint.util import sort
 
 all_mms = {}
@@ -74,7 +74,7 @@ make_filter_mm = StdObjSpaceMultiMethod('make_filter', 2)
 make_filter_mm.register(make_filter__List_String, W_ListObject, W_StringObject)
 all_mms['make_filter'] = make_filter_mm
 
-class Quadruple(object):
+class Quadruple(W_Root):
     def __init__(self, zero, one, two, three):
         self.zero = zero
         self.one = one
@@ -101,8 +101,8 @@ class W_Expression(W_AbstractConstraint):
         return result_cache
 
     def _assign_values(self):
-        variables = []
         kwargs = self._space.newdict()
+        variables = BTree()
         for variable in self._variables:
             assert isinstance(variable, W_Variable)
             domain = variable.w_dom
@@ -110,18 +110,18 @@ class W_Expression(W_AbstractConstraint):
             values = domain.get_values()
             assert isinstance(values, list)
             ds = domain.size()
+            assert isinstance(ds, int)
 	    w_name = variable.w_name()
             lval = len(values)
-            vstruct = (ds, Quadruple(w_name, values, 0, lval))
-            variables.append(vstruct)
+            variables.add(ds, Quadruple(w_name, values, 0, lval))
             # was meant to be:
             #variables.append((domain.size(),
             #                  [w_name, values, 0, len(values)]))
             first_value = values[0]
             assert isinstance(first_value, W_Root)
             kwargs.content[variable.w_name()] = first_value
-        # sort variables to instanciate those with fewer possible values first
-        variables.sort()
+        # get sorted variables to instanciate those with fewer possible values first
+        variables = variables.values()
         self._assign_values_state = variables
         return kwargs 
         
@@ -130,13 +130,18 @@ class W_Expression(W_AbstractConstraint):
         # try to instanciate the next variable
         variables = self._assign_values_state
 
-        for _, curr in variables:
+        for curr in variables:
+            assert isinstance(curr, Quadruple)
             w_name = curr.zero
             dom_values = curr.one
             dom_index = curr.two
             dom_len = curr.three
+            assert isinstance(w_name, W_StringObject)
+            assert isinstance(dom_values, list)
+            assert isinstance(dom_index, int)
+            assert isinstance(dom_len, int)
             if dom_index < dom_len:
-                kwargs.content[w_name] = dom_values[curr.two]
+                kwargs.content[w_name] = dom_values[dom_index]
                 curr.two = dom_index + 1
                 break
             else:
@@ -227,25 +232,27 @@ class W_AllDistinct(W_AbstractConstraint):
     def revise(self):
         _spc = self._space
 
-        #ord_vars = BTree()
-        variables = []
-        for variable in self._variables:
-            assert isinstance(variable, W_Variable)
-            dom = variable.w_dom
+        ord_vars = BTree()
+        for var in self._variables:
+            assert isinstance(var, W_Variable)
+            dom = var.w_dom
             assert isinstance(dom, W_AbstractDomain)
-            variables.append((dom.size(), variable))
-
-        variables.sort()
-        # variable = ord_vars.values()
+            sz = dom.size()
+            ord_vars.add(sz, var)
+        variables = ord_vars.values()
         
         # if a domain has a size of 1,
         # then the value must be removed from the other domains
-        for _, var in variables:
+        for var in variables:
+            assert isinstance(var, W_Variable)
             dom = var.w_dom
+            assert isinstance(dom, W_AbstractDomain)
             if dom.size() == 1:
                 #print "AllDistinct removes values"
-                for _, _var in variables:
+                for _var in variables:
+                    assert isinstance(_var, W_Variable)
                     _dom = _var.w_dom
+                    assert isinstance(_dom, W_AbstractDomain)
                     if not _var._same_as(var):
                         try:
                             _dom.remove_value(dom.get_values()[0])
@@ -256,8 +263,10 @@ class W_AllDistinct(W_AbstractConstraint):
 
         # if there are less values than variables, the constraint fails
         values = {}
-        for _, var in variables:
+        for var in variables:
+            assert isinstance(var, W_Variable)
             dom = var.w_dom
+            assert isinstance(dom, W_AbstractDomain)
             for val in dom.w_get_values().wrappeditems:
                 values[val] = 0
 
@@ -267,8 +276,10 @@ class W_AllDistinct(W_AbstractConstraint):
                                  _spc.wrap("ConsistencyFailure"))
 
         # the constraint is entailed if all domains have a size of 1
-        for _, var in variables:
+        for var in variables:
+            assert isinstance(var, W_Variable)
             dom = var.w_dom
+            assert isinstance(dom, W_AbstractDomain)
             if not dom.size() == 1:
                 return False
 

@@ -134,7 +134,8 @@ class W_SplitDistributor(W_Distributor):
 
     def _do_distribute(self, domain, choice):
         values = domain.get_values()
-        nb_elts = max(1, len(values)*1./self._subdomains())
+        subdoms = self._subdomains()
+        nb_elts = max(subdoms, len(values))  / float(subdoms)
         start, end = (int(math.floor(choice * nb_elts)),
                       int(math.floor((choice + 1) * nb_elts)))
         domain.remove_values(values[:start])

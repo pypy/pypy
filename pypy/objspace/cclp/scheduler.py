@@ -44,10 +44,6 @@ class Scheduler(object):
         # for the reset case
         self._head._next = self._head._prev = self._head
 
-    def _set_head(self, thread):
-        assert isinstance(thread, ClonableCoroutine)
-        self._head = thread
-
     def _check_initial_conditions(self):
         try:
             assert self._head._next == self._head._prev == self._head
