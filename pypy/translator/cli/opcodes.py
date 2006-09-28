@@ -117,7 +117,7 @@ opcodes = {
     'int_mod_ovf_zer':          _check_zer('rem'),
 
     'uint_is_true':             [PushAllArgs, 'ldc.i4.0', 'cgt.un'],
-    'uint_neg':                 None,      # What's the meaning?
+    'uint_neg':                 'neg',
     'uint_abs':                 _abs('unsigned int32'), # TODO: ?
     'uint_invert':              'not',
 
