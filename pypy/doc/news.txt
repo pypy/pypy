@@ -15,6 +15,20 @@ for a list of past events.
 .. _`iCalendar format`: webcal://pypycal.sabi.net///calendars/PyPy.ics
 .. _eventhistory: eventhistory.html
 
+
+Duesseldorf sprint #2, 30th October - 5th November
+==================================================================
+
+The next PyPy sprint will be held in Duesseldorf in Germany, where we
+already met in June.  This is a "non-core-people" friendly sprint; we
+will work on any topic of interest, be it from areas we are currently
+focusing on (JIT, optimizations, py.test, build tools...) or from areas
+that other people would like to consider (new back-ends, distribution,
+security...).  Read the `full announcement`_ for more details.
+
+.. _`full announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/ddorf2006b/announce.html
+
+
 Summer of PyPy: Calls for proposals open now! 
 ==================================================================
 
