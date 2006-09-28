@@ -179,8 +179,6 @@ LL_OPERATIONS = {
     'int_lshift_ovf_val':   LLOp(canraise=(OverflowError, ValueError,)),
 
     'uint_is_true':         LLOp(canfold=True),
-    'uint_neg':             LLOp(canfold=True),
-    'uint_abs':             LLOp(canfold=True),
     'uint_invert':          LLOp(canfold=True),
 
     'uint_add':             LLOp(canfold=True),
@@ -250,8 +248,6 @@ LL_OPERATIONS = {
     'llong_xor':            LLOp(canfold=True),
 
     'ullong_is_true':       LLOp(canfold=True),
-    'ullong_neg':           LLOp(canfold=True),
-    'ullong_abs':           LLOp(canfold=True),
     'ullong_invert':        LLOp(canfold=True),
 
     'ullong_add':           LLOp(canfold=True),

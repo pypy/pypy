@@ -193,10 +193,6 @@ class OpWriter(object):
     def int_neg(self, opr):
         self._generic_neg(opr, "0")
 
-    # this is really generated, don't know why
-    # XXX rxe: Surely that cant be right?
-    uint_neg = int_neg
-
     llong_neg = int_neg
 
     def float_neg(self, opr):

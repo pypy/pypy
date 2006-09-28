@@ -117,8 +117,6 @@ opcodes = {
     'int_mod_ovf_zer':          _check_zer('rem'),
 
     'uint_is_true':             [PushAllArgs, 'ldc.i4.0', 'cgt.un'],
-    'uint_neg':                 'neg',
-    'uint_abs':                 _abs('unsigned int32'), # TODO: ?
     'uint_invert':              'not',
 
     'uint_add':                 'add',
@@ -183,8 +181,6 @@ opcodes = {
     'llong_xor':                'xor',
 
     'ullong_is_true':            [PushAllArgs, 'ldc.i8 0', 'cgt.un'],
-    'ullong_neg':                None,
-    'ullong_abs':                _abs('unsigned int64'),
     'ullong_invert':             'not',
 
     'ullong_add':               'add',

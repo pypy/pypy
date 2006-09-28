@@ -246,11 +246,10 @@ class __extend__(IntegerRepr):
     
     def rtype_abs(self, hop):
         self = self.as_int
+        vlist = hop.inputargs(self)
         if hop.s_result.unsigned:
-            vlist = hop.inputargs(self)
             return vlist[0]
         else:
-            vlist = hop.inputargs(self)
             return hop.genop(self.opprefix + 'abs', vlist, resulttype=self)
 
     def rtype_abs_ovf(self, hop):
@@ -271,7 +270,12 @@ class __extend__(IntegerRepr):
     def rtype_neg(self, hop):
         self = self.as_int
         vlist = hop.inputargs(self)
-        return hop.genop(self.opprefix + 'neg', vlist, resulttype=self)
+        if hop.s_result.unsigned:
+            zero = self.lowleveltype._defl()
+            vlist.insert(0, hop.inputconst(self.lowleveltype, zero))
+            return hop.genop(self.opprefix + 'sub', vlist, resulttype=self)
+        else:
+            return hop.genop(self.opprefix + 'neg', vlist, resulttype=self)
 
     def rtype_neg_ovf(self, hop):
         self = self.as_int
