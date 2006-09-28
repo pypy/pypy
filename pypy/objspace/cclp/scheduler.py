@@ -51,7 +51,7 @@ class Scheduler(object):
             assert self._head not in self._blocked_on
             assert self._head not in self._blocked_byneed
             assert self._head not in self._asking
-        except:
+        except Exception:
             #XXX give sched_info maybe
             raise OperationError(self.space.w_RuntimeError,
                                  self.space.wrap("scheduler is in an incoherent state"))

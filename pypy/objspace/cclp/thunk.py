@@ -167,6 +167,10 @@ class DistributorThunk(AbstractThunk):
                 while dist.distributable():
                     choice = cspace.choose(dist.fanout())
                     dist.w_distribute(choice)
+            except ConsistencyError, e:
+                w("-- DISTRIBUTOR thunk exited because", str(e))
+                interp_bind(cspace._choice, self.space.newint(0))
+            else:
                 w("-- DISTRIBUTOR thunk exited because a solution was found")
                 #XXX assert that all propagators are entailed
                 sol = cspace._solution
@@ -181,13 +185,6 @@ class DistributorThunk(AbstractThunk):
                     interp_bind(var, dom.get_values()[0])
                 assert interp_free(cspace._choice)
                 interp_bind(cspace._choice, self.space.newint(1))
-            except ConsistencyError, e:
-                w("-- DISTRIBUTOR thunk exited because", str(e))
-                interp_bind(cspace._choice, self.space.newint(0))
-            except:
-                if not we_are_translated():
-                    import traceback
-                    traceback.print_exc()
         finally:
             interp_bind(cspace._finished, self.space.w_True)
             coro._dead = True

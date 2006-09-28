@@ -35,7 +35,7 @@ def choose(space, w_n):
     assert isinstance(w_n, W_IntObject)
     n = space.int_w(w_n)
     cspace = get_current_cspace(space)
-    if cspace != None:
+    if cspace is not None:
         assert isinstance(cspace, W_CSpace)
         try:
             return cspace.choose(w_n.intval)

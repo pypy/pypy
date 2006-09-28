@@ -138,7 +138,12 @@ class W_SplitDistributor(W_Distributor):
         nb_elts = max(subdoms, len(values))  / float(subdoms)
         start, end = (int(math.floor(choice * nb_elts)),
                       int(math.floor((choice + 1) * nb_elts)))
+        lv = len(values)
+        assert start >= 0
+        assert start <= lv
         domain.remove_values(values[:start])
+        assert end >= 0
+        assert end <= lv
         domain.remove_values(values[end:])
 
 def make_split_distributor(space, w_fanout):
