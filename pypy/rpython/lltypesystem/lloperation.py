@@ -319,10 +319,6 @@ LL_OPERATIONS = {
     'direct_ptradd':        LLOp(canfold=True),
     'cast_opaque_ptr':      LLOp(canfold=True),
 
-    # _________ XXX l3interp hacks ___________
-
-    'call_boehm_gc_alloc':  LLOp(canraise=(MemoryError,)),
-
     # __________ address operations __________
 
     'raw_malloc':           LLOp(canraise=(MemoryError,)),

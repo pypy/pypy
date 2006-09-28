@@ -516,9 +516,13 @@ class GcForwardReference(ForwardReference):
 class PyForwardReference(ForwardReference):
     _gckind = 'cpy'
 
+class FuncForwardReference(ForwardReference):
+    _gckind = 'prebuilt'
+
 FORWARDREF_BY_FLAVOR = {'raw': ForwardReference,
                         'gc':  GcForwardReference,
-                        'cpy': PyForwardReference}
+                        'cpy': PyForwardReference,
+                        'prebuilt': FuncForwardReference}
 
 
 class Primitive(LowLevelType):
@@ -594,7 +598,7 @@ class Ptr(LowLevelType):
 
     def _needsgc(self):
         # XXX deprecated interface
-        return self.TO._gckind != 'raw'
+        return self.TO._gckind not in ('raw', 'prebuilt')
 
     def __str__(self):
         return '* %s' % (self.TO, )

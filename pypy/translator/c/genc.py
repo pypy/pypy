@@ -142,6 +142,8 @@ class CBuilder(object):
         # actually generating the source.
         if db is None:
             db = self.build_database()
+        from pypy.translator.backendopt.all import backend_optimizations
+        backend_optimizations(self.translator, raisingop2direct_call_all=True)
         for node in db.containerlist:
             if isinstance(node, FuncNode):
                 for funcgen in node.funcgens:

@@ -560,7 +560,12 @@ class Primitives(object):
         elif isinstance(value, llmemory.CompositeOffset):
             from_, indices, to = self.get_offset(value.offsets[0], indices)
             for item in value.offsets[1:]:
-                _, indices, to = self.get_offset(item, indices)
+                if not isinstance(item, llmemory.GCHeaderOffset):
+                    _, indices, to = self.get_offset(item, indices)
+
+        elif isinstance(value, llmemory.GCHeaderOffset):
+            from_ = lltype.Ptr(value.gcheaderbuilder.HDR)
+            to = "BBB" # better not use this!
 
         else:
             raise Exception("unsupported offset")
