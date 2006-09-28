@@ -652,8 +652,9 @@ def checkgraph(graph):
                     # a multiple-cases switch (or else the False and True
                     # branches are in the wrong order)
                     assert len(block.exits) >= 1
-                    assert block.exits[-1].exitcase == "default"
                     cases = [Constant(link.exitcase) for link in block.exits]
+                    if 'default' in cases:
+                        assert 'default' == cases[-1]
                     assert len(dict.fromkeys(cases)) == len(cases)
 
             allexitcases = {}
