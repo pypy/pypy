@@ -134,14 +134,29 @@ def compile(backend):
         os.chmod(realname, stat.S_IRWXU)
         os.unlink(basename)
 
+def get_load():
+    g = os.popen('uptime', 'r')
+    buf = g.read().strip()
+    g.close()
+    return buf
+
 def benchmark():
     #run('cat /proc/cpuinfo')
     #run('free')
     os.chdir(homedir + '/projects/pypy-dist/pypy/translator/goal')
-    run('/usr/local/bin/python bench-unix.py 2>&1 | tee benchmark.txt' % locals())
-    run('echo "<html><body><pre>"    >  benchmark.html')
-    run('cat benchmark.txt           >> benchmark.html')
-    run('echo "</pre></body></html>" >> benchmark.html')
+    startload = get_load()
+    run('/usr/local/bin/withlock /tmp/cpu_cycles_lock /usr/local/bin/python bench-unix.py 2>&1 | tee benchmark.txt' % locals())
+    endload = get_load()
+    f = open('benchmark.html', 'w')
+    print >> f, "<html><body>"
+    print >> f, "<pre>"
+    print >> f, "Benchmark started:", startload
+    print >> f, "            ended:", endload
+    print >> f
+    f.write(open('benchmark.txt').read())
+    print >> f, "</pre>"
+    print >> f, "</body></html>"
+    f.close()
     #run('scp benchmark.html ericvrp@codespeak.net:public_html/benchmark/index.html')
 
 def main(backends=[]):
@@ -167,4 +182,7 @@ def main(backends=[]):
     print 80*'-'
 
 if __name__ == '__main__':
-    main(sys.argv[1:])
+    if sys.argv[1:] == ['--benchmark-only']:
+        benchmark()
+    else:
+        main(sys.argv[1:])
