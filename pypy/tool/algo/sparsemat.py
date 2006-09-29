@@ -1,6 +1,6 @@
 from __future__ import division
 
-EPSILON = 1E-6
+EPSILON = 1E-12
 
 
 class SparseMatrix:
@@ -42,17 +42,17 @@ class SparseMatrix:
             currentcolumn = columns[ncol]
             lst = [(abs(a), i) for (i, a) in currentcolumn.items()
                                if i in lines_left]
-            _, nrow = min(lst)    # ValueError -> no solution
+            _, nrow = max(lst)    # ValueError -> no solution
             nrows.append(nrow)
             del lines_left[nrow]
             line1 = lines[nrow]
-            mina = line1[ncol]
+            maxa = line1[ncol]
             for _, i in lst:
                 if i != nrow:
                     line2 = lines[i]
                     a = line2.pop(ncol)
                     #del currentcolumn[i]  -- but currentcolumn no longer used
-                    factor = a / mina
+                    factor = a / maxa
                     vector[i] -= factor*vector[nrow]
                     for col in line1:
                         if col > ncol:
@@ -60,7 +60,8 @@ class SparseMatrix:
                             if abs(value) > EPSILON:
                                 line2[col] = columns[col][i] = value
                             else:
-                                del line2[col]
+                                if col in line2:
+                                    del line2[col]
                                 del columns[col][i]
         solution = [None] * len(vector)
         for i in range(len(vector)-1, -1, -1):
