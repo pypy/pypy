@@ -122,7 +122,11 @@ def compile(backend):
         realname += "-" + features
 
     if backend == 'llvm':   #create llvm exectutable from the current source
-        compile_llvm_variants(revision)
+        if features:
+            revname = revision + "-" + features
+        else:
+            revname = revision
+        compile_llvm_variants(revname)
     elif os.path.exists(basename):                   #copy executable
         pypy = open(basename, 'rb').read()
         if len(pypy) > 0:
@@ -143,7 +147,7 @@ def benchmark():
 def main(backends=[]):
     if backends == []:  #_ prefix means target specific option
         #backends = """llvm@c@c--gc=framework@c--_thread@c--stackless@c--gc=framework--cc=c++@c--cc=c++""".split('@')
-        backends = """llvm@c@c--gc=framework@c--_thread@c--stackless@c--gc=framework--cc=c++@c--cc=c++@c--profopt='-c "from richards import *;main(iterations=1)"'""".split('@')
+        backends = """llvm@llvm--objspace-std-withstrdict@c@c--gc=framework@c--_thread@c--stackless@c--gc=framework--cc=c++@c--cc=c++@c--objspace-std-withstrdict@c--profopt='-c "from richards import *;main(iterations=1)"'""".split('@')
         #backends = 'llvm c c--gc=framework c--_thread c--stackless'.split()
         #backends = 'llvm c c--gc=framework c--new-stackless c--_thread'.split()
         #backends = 'llvm c c--stackless c--_thread c--stackless--_thread'.split()
