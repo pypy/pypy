@@ -60,7 +60,7 @@ class TestOperations(CliTest):
     def test_uint_neg(self):
         def fn(x):
             return -x
-        check(fn, [r_uint], [r_uint(42)])
+        check(fn, [r_uint], [r_uint(sys.maxint+1)])
 
 def test_op():
     yield check, op_any_ge, [int, int], (42, 42)
