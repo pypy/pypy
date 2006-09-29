@@ -29,6 +29,8 @@ class W_FiniteDomain(W_AbstractDomain):
         self._values = space.newdict()
         self.set_values(w_values)
 
+    def copy(self):
+        return W_FiniteDomain(self._space, self.w_get_values())
 
     def clear_change(self):
         "create a fresh change synchonizer"

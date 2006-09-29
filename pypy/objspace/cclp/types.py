@@ -48,6 +48,9 @@ class W_CVar(W_Var):
         else:
             cspace.register_var(self)
 
+    def copy(self, space):
+        return W_CVar(space, self.w_dom.copy(), self.w_nam)
+
     def name_w(self):
         return self.name
 
