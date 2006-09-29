@@ -1629,6 +1629,7 @@ def _bitwise(space, a, op, b): # '&', '|', '^'
     if negz == 0:
         return z
     return invert__Long(space, z)
+_bitwise._annspecialcase_ = "specialize:arg(2)"
 
 def _AsLong(v):
     """
