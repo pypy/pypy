@@ -9,6 +9,7 @@ from pypy.objspace.cclp.misc import w, v, ClonableCoroutine
 from pypy.objspace.cclp.global_state import scheduler
 from pypy.objspace.cclp.types import deref, W_Var, W_CVar, W_Future, W_FailedValue
 
+from pypy.rpython.objectmodel import we_are_translated
 
 W_Root = baseobjspace.W_Root
 all_mms = {}
@@ -39,7 +40,8 @@ def wait__Var(space, w_var):
     return w_ret
 
 def wait(space, w_obj):
-    assert isinstance(w_obj, W_Root)
+    if not we_are_translated():
+        assert isinstance(w_obj, W_Root)
     return space.wait(w_obj)
 app_wait = gateway.interp2app(wait)
 
