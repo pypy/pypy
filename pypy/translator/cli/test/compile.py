@@ -31,12 +31,13 @@ class Foo:
 def foo(a, b):
     pass
 
+mylist = [1,2,3]
+
 def bar(x, y):
     if x:
-        return 1
+        return mylist
     else:
-        return None
-    
+        return []
 
 f = compile_function(bar, [int, int])
 
