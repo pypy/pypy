@@ -1,12 +1,13 @@
 
-import optparse
+from py.compat import optparse
 
 class Config(object):
     _frozen = False
     
-    def __init__(self, descr, **overrides):
+    def __init__(self, descr, parent=None, **overrides):
         self._descr = descr
         self._value_owners = {}
+        self._parent = parent
         self._build(overrides)
 
     def _build(self, overrides):
@@ -15,7 +16,7 @@ class Config(object):
                 self.__dict__[child._name] = child.default
                 self._value_owners[child._name] = 'default'
             elif isinstance(child, OptionDescription):
-                self.__dict__[child._name] = Config(child)
+                self.__dict__[child._name] = Config(child, parent=self)
         for name, value in overrides.iteritems():
             subconfig, name = self._get_by_path(name)
             setattr(subconfig, name, value)
@@ -52,6 +53,11 @@ class Config(object):
             self = getattr(self, step)
         return self, path[-1]
 
+    def _get_toplevel(self):
+        while self._parent is not None:
+            self = self._parent
+        return self
+
     def _freeze_(self):
         self.__dict__['_frozen'] = True
         return True
@@ -87,7 +93,7 @@ class Config(object):
                 result += substr
         return result
 
-    def getpaths(self, currpath=None):
+    def getpaths(self, include_groups=False, currpath=None):
         """returns a list of all paths in self, recursively
         
             currpath should not be provided (helps with recursion)
@@ -95,19 +101,28 @@ class Config(object):
         if currpath is None:
             currpath = []
         paths = []
-        for attr, value in self.__dict__.iteritems():
+        for option in self._descr._children:
+            attr = option._name
             if attr.startswith('_'):
                 continue
+            value = getattr(self, attr)
             if isinstance(value, Config):
+                if include_groups:
+                    paths.append('.'.join(currpath + [attr]))
                 currpath.append(attr)
-                paths += value.getpaths(currpath)
+                paths += value.getpaths(include_groups=include_groups,
+                                        currpath=currpath)
                 currpath.pop()
             else:
                 paths.append('.'.join(currpath + [attr]))
         return paths
 
+
+DEFAULT_OPTION_NAME = object()
+
+
 class Option(object):
-    def __init__(self, name, doc, cmdline=None):
+    def __init__(self, name, doc, cmdline=DEFAULT_OPTION_NAME):
         self._name = name
         self.doc = doc
         self.cmdline = cmdline
@@ -131,10 +146,21 @@ class Option(object):
         raise NotImplemented('abstract base class')
 
 class ChoiceOption(Option):
-    def __init__(self, name, doc, values, default, cmdline=None):
+    def __init__(self, name, doc, values, default, requires=None,
+                 cmdline=DEFAULT_OPTION_NAME):
         super(ChoiceOption, self).__init__(name, doc, cmdline)
         self.values = values
         self.default = default
+        if requires is None:
+            requires = {}
+        self._requires = requires
+
+    def setoption(self, config, value):
+        name = self._name
+        for path, reqvalue in self._requires.get(value, []):
+            subconfig, name = config._get_toplevel()._get_by_path(path)
+            subconfig.require(name, reqvalue)
+        super(ChoiceOption, self).setoption(config, value)
 
     def validate(self, value):
         return value in self.values
@@ -146,21 +172,17 @@ class ChoiceOption(Option):
             except ValueError, e:
                 raise optparse.OptionValueError(e.args[0])
         parser.add_option(help=self.doc,
-                            action='callback', type='string', 
+                            action='callback', type='string',
                             callback=_callback, *argnames)
 
 class BoolOption(ChoiceOption):
-    def __init__(self, name, doc, default=True, requires=None, cmdline=None):
+    def __init__(self, name, doc, default=True, requires=None,
+                 cmdline=DEFAULT_OPTION_NAME):
+        if requires is not None:
+            requires = {True: requires}
         super(BoolOption, self).__init__(name, doc, [True, False], default,
-                                            cmdline=cmdline)
-        self._requires = requires or []
-
-    def setoption(self, config, value):
-        name = self._name
-        for path, reqvalue in self._requires:
-            subconfig, name = config._get_by_path(path)
-            subconfig.require(name, reqvalue)
-        super(BoolOption, self).setoption(config, value)
+                                         requires=requires,
+                                         cmdline=cmdline)
 
     def add_optparse_option(self, argnames, parser, config):
         def _callback(option, opt_str, value, parser, *args, **kwargs):
@@ -169,11 +191,11 @@ class BoolOption(ChoiceOption):
             except ValueError, e:
                 raise optparse.OptionValueError(e.args[0])
         parser.add_option(help=self.doc,
-                            action='callback', 
+                            action='callback',
                             callback=_callback, *argnames)
 
 class IntOption(Option):
-    def __init__(self, name, doc, default=0, cmdline=None):
+    def __init__(self, name, doc, default=0, cmdline=DEFAULT_OPTION_NAME):
         super(IntOption, self).__init__(name, doc, cmdline)
         self.default = default
 
@@ -194,11 +216,11 @@ class IntOption(Option):
         def _callback(option, opt_str, value, parser, *args, **kwargs):
             config.setoption(self._name, value, who='cmdline')
         parser.add_option(help=self.doc,
-                            action='callback', type='int', 
+                            action='callback', type='int',
                             callback=_callback, *argnames)
 
 class FloatOption(Option):
-    def __init__(self, name, doc, default=0.0, cmdline=None):
+    def __init__(self, name, doc, default=0.0, cmdline=DEFAULT_OPTION_NAME):
         super(FloatOption, self).__init__(name, doc, cmdline)
         self.default = default
 
@@ -219,12 +241,13 @@ class FloatOption(Option):
         def _callback(option, opt_str, value, parser, *args, **kwargs):
             config.setoption(self._name, value, who='cmdline')
         parser.add_option(help=self.doc,
-                            action='callback', type='float', 
-                            callback=_callback, *argnames)
+                          action='callback', type='float',
+                          callback=_callback, *argnames)
 
 class OptionDescription(object):
-    def __init__(self, name, children, cmdline=None):
+    def __init__(self, name, doc, children, cmdline=DEFAULT_OPTION_NAME):
         self._name = name
+        self.doc = doc
         self._children = children
         self._build()
         self.cmdline = cmdline
@@ -259,12 +282,24 @@ class OptionDescription(object):
                           callback=_callback, *argnames)
 
 
-def to_optparse(config, useoptions, parser=None):
+def to_optparse(config, useoptions=None, parser=None):
+    grps = {}
+    def get_group(name, doc):
+        steps = name.split('.')
+        if len(steps) < 2:
+            return parser
+        grpname = steps[-2]
+        grp = grps.get(grpname, None)
+        if grp is None:
+            grp = grps[grpname] = parser.add_option_group(doc)
+        return grp
+
     if parser is None:
         parser = optparse.OptionParser()
+    if useoptions is None:
+        useoptions = config.getpaths(include_groups=True)
     for path in useoptions:
-        if path.endswith("*"):
-            assert path.endswith("*")
+        if path.endswith(".*"):
             path = path[:-2]
             subconf, name = config._get_by_path(path)
             children = [
@@ -274,10 +309,17 @@ def to_optparse(config, useoptions, parser=None):
         else:
             subconf, name = config._get_by_path(path)
             option = getattr(subconf._descr, name)
-            if option.cmdline is None:
+            if option.cmdline is DEFAULT_OPTION_NAME:
                 chunks = ('--%s' % (path.replace('.', '-'),),)
+            elif option.cmdline is None:
+                continue
             else:
                 chunks = option.cmdline.split(' ')
-            option.add_optparse_option(chunks, parser, subconf)
+            try:
+                grp = get_group(path, subconf._descr.doc)
+                option.add_optparse_option(chunks, grp, subconf)
+            except ValueError:
+                # an option group that does not only contain bool values
+                pass
     return parser
 

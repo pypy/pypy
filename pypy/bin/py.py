@@ -12,7 +12,7 @@ except ImportError:
     pass
 
 from pypy.tool import option
-from optparse import make_option
+from py.compat.optparse import make_option
 from pypy.interpreter import main, interactive, error
 import os, sys
 import time
@@ -26,8 +26,9 @@ class Options(option.Options):
     module_args = []
 
 def get_main_options():
-    options = option.get_standard_options()
+    config, parser = option.get_standard_options()
 
+    options = []
     options.append(make_option(
         '-v', action='store_true', dest='verbose',
         help='show verbose interpreter-level traceback'))
@@ -63,28 +64,20 @@ def get_main_options():
         callback=runmodule_callback, type="string",
         help="library module to be run as a script (terminates option list)"))
 
-    
+    parser.add_options(options)
         
-    return options
+    return config, parser
 
-def make_objspace(conf):
-    mod = __import__('pypy.objspace.%s' % conf.objspace.name,
-                     None, None, ['Space'])
-    Space = mod.Space
-    #conf.objspace.logbytecodes = True
-    space = Space(conf) 
-    return space 
-            
 def main_(argv=None):
-    starttime = time.time() 
-    args = option.process_options(get_main_options(), Options, argv[1:])
+    starttime = time.time()
+    config, parser = get_main_options()
+    args = option.process_options(parser, Options, argv[1:])
     if Options.verbose:
         error.RECORD_INTERPLEVEL_TRACEBACK = True
 
     # create the object space
 
-    config = option.make_config(Options)
-    space = make_objspace(config)
+    space = option.make_objspace(config)
 
     space._starttime = starttime
     #assert 'pypy.tool.udir' not in sys.modules, (
@@ -147,66 +140,6 @@ def main_(argv=None):
 
     return exit_status
 
-##def main_(argv=None):
-##    starttime = time.time() 
-##    from pypy.tool import tb_server
-##    args = option.process_options(get_main_options(), Options, argv[1:])
-##    space = None
-##    exit_status = 1   # until proven otherwise
-##                      # XXX should review what CPython's policy is for
-##                      # the exit status code
-##    try:
-##        space = option.objspace()
-##        space._starttime = starttime
-##        assert 'pypy.tool.udir' not in sys.modules, (
-##            "running py.py should not import pypy.tool.udir, which is\n"
-##            "only for testing or translating purposes.")
-##        go_interactive = Options.interactive
-##        if Options.verbose:
-##            error.RECORD_INTERPLEVEL_TRACEBACK = True
-##        banner = ''
-##        space.setitem(space.sys.w_dict,space.wrap('executable'),space.wrap(argv[0]))
-##        if Options.command:
-##            args = ['-c'] + Options.command[1:]
-##        for arg in args:
-##            space.call_method(space.sys.get('argv'), 'append', space.wrap(arg))
-##        try:
-##            if Options.command:
-##                main.run_string(Options.command[0], '<string>', space)
-##            elif args:
-##                main.run_file(args[0], space)
-##            else:
-##                space.call_method(space.sys.get('argv'), 'append', space.wrap(''))
-##                go_interactive = 1
-##                banner = None
-##            exit_status = 0
-##        except error.OperationError, operationerr:
-##            if Options.verbose:
-##                operationerr.print_detailed_traceback(space)
-##            else:
-##                operationerr.print_application_traceback(space)
-##        if go_interactive:
-##            con = interactive.PyPyConsole(space, verbose=Options.verbose, completer=Options.completer)
-##            if banner == '':
-##                banner = '%s / %s'%(con.__class__.__name__,
-##                                    repr(space))
-##            con.interact(banner)
-##    except:
-##        exc_type, value, tb = sys.exc_info()
-##        sys.last_type = exc_type
-##        sys.last_value = value
-##        sys.last_traceback = tb
-##        if issubclass(exc_type, SystemExit):
-##            pass   # don't print tracebacks for SystemExit
-##        elif isinstance(value, error.OperationError):
-##            value.print_detailed_traceback(space=space)
-##        else:
-##            sys.excepthook(exc_type, value, tb)
-##        tb_server.wait_until_interrupt()
-##        exit_status = 1
-            
-##    tb_server.stop()
-##    return exit_status
 
 if __name__ == '__main__':
     try:

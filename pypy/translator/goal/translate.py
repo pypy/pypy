@@ -268,6 +268,10 @@ def log_options(options, header="options in effect"):
         optvalue = getattr(options, name)
         log('%25s: %s' %(name, optvalue))
    
+def log_config(config, header="config used"):
+    log('%s:' % header)
+    log(str(config))
+
 def main():
     targetspec_dic, options, args = parse_options_and_load_target()
 

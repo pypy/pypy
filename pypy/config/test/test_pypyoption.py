@@ -16,3 +16,11 @@ def test_required():
     assert not conf.objspace.std.withprebuiltint
     conf.objspace.std.withprebuiltint = True
     assert not conf.objspace.std.withsmallint
+
+def test_objspace_incopatibilities():
+    conf = Config(pypy_optiondescription)
+    conf.objspace.name = "thunk"
+    assert not conf.objspace.geninterp
+    conf = Config(pypy_optiondescription)
+    conf.objspace.name = "logic"
+    assert not conf.objspace.geninterp

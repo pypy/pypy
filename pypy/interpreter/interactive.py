@@ -225,16 +225,3 @@ class PyPyConsole(code.InteractiveConsole):
 class IncompleteInput(Exception):
     pass
 
-if __name__ == '__main__':
-    try:
-        import readline
-    except ImportError:
-        pass
-
-    from pypy.tool import option
-    from pypy.tool import testit
-    args = option.process_options(option.get_standard_options(),
-                                  option.Options)
-    objspace = option.objspace()
-    con = PyPyConsole(objspace)
-    con.interact()
