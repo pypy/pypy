@@ -468,3 +468,16 @@ class AppTestLong:
         n = -sys.maxint-1
         assert long(n) == n
         assert str(long(n)) == str(n)
+
+
+class TestTranslatable:
+
+    def test_args_from_rarith_int(self):
+        from pypy.rpython.test.test_llinterp import interpret
+        def fn():
+            return (lobj.args_from_rarith_int(0),
+                    lobj.args_from_rarith_int(17),
+                    lobj.args_from_rarith_int(-17),
+                    lobj.args_from_rarith_int(r_uint(0)),
+                    lobj.args_from_rarith_int(r_uint(17)))
+        interpret(fn, [])

@@ -95,6 +95,12 @@ def compute_restype(self_type, other_type):
         return other_type
     return build_int(None, self_type.SIGNED and other_type.SIGNED, max(self_type.BITS, other_type.BITS))
 
+def signedtype(t):
+    if t in (bool, int, long):
+        return True
+    else:
+        return t.SIGNED
+
 def normalizedinttype(t):
     if t is int:
         return int

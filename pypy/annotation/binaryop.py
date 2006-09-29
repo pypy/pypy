@@ -272,7 +272,13 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
         if int1.is_immutable_constant() and int2.is_immutable_constant():
             r = immutablevalue(operation(int1.const, int2.const))
         else:
-            r = SomeBool()
+            # XXX VERY temporary hack
+            if (opname == 'ge' and int2.is_immutable_constant() and
+                int2.const == 0 and
+                not rarithmetic.signedtype(int1.knowntype)):
+                r = immutablevalue(True)
+            else:
+                r = SomeBool()
         knowntypedata = {}
         # XXX HACK HACK HACK
         # propagate nonneg information between the two arguments
