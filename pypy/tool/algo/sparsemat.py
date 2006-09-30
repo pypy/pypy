@@ -60,9 +60,8 @@ class SparseMatrix:
                             if abs(value) > EPSILON:
                                 line2[col] = columns[col][i] = value
                             else:
-                                if col in line2:
-                                    del line2[col]
-                                del columns[col][i]
+                                line2.pop(col, 0)
+                                columns[col].pop(i, 0)
         solution = [None] * len(vector)
         for i in range(len(vector)-1, -1, -1):
             row = nrows[i]
