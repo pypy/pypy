@@ -36,7 +36,6 @@ class LowLevelDatabase(object):
         self.containerstats = {}
         self.externalfuncs = {}
         self.helper2ptr = {}
-        self.raisingop2direct = True
 
         # late_initializations is for when the value you want to
         # assign to a constant object is something C doesn't think is

@@ -46,10 +46,6 @@ class FunctionCodeGenerator(object):
         if db.stacklesstransformer:
             db.stacklesstransformer.transform_graph(graph)
         # apply the exception transformation
-        if self.db.raisingop2direct:
-            from pypy.translator.backendopt.raisingop2direct_call import raisingop2direct_call
-            raisingop2direct_call(db.translator, [graph])
-            
         if self.db.exctransformer:
             self.db.exctransformer.create_exception_handling(self.graph)
         # apply the gc transformation
