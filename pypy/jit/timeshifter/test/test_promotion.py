@@ -63,7 +63,6 @@ class TestPromotion(TimeshiftingTests):
         self.check_insns(int_floordiv=1, int_mul=0)
 
     def test_promote_after_call(self):
-        py.test.skip("the next problem to fix")
         S = lltype.GcStruct('S', ('x', lltype.Signed))
         def ll_two(k, s):
             if k > 5:

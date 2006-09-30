@@ -387,14 +387,25 @@ class PromotionPathNode(AbstractPromotionPath):
     def __init__(self, next):
         self.next = next
     def follow_path(self, path):
-        path.append(self.direct)
+        path.append(self.answer)
         return self.next.follow_path(path)
 
-class PromotionPathDirect(PromotionPathNode):
-    direct = True
+class PromotionPathYes(PromotionPathNode):
+    answer = True
 
-class PromotionPathIndirect(PromotionPathNode):
-    direct = False
+class PromotionPathNo(PromotionPathNode):
+    answer = False
+
+class PromotionPathNoWithArg(PromotionPathNo):
+
+    def __init__(self, next, arg):
+        self.next = next
+        self.arg = arg
+
+    def follow_path(self, path):
+        path.append(self.arg)
+        return PromotionPathNo.follow_path(self, path)
+        
 
 def ll_continue_compilation(promotion_point_ptr, value):
     try:
@@ -481,6 +492,9 @@ def ll_promote(jitstate, box, promotiondesc):
 # ____________________________________________________________
 
 class BaseDispatchQueue(object):
+    parent_promotion_path = None
+    parent_resuming = None
+    
     def __init__(self):
         self.split_chain = None
         self.return_chain = None
@@ -622,8 +636,8 @@ class JITState(object):
                                   self.exc_value_box.copy(memo),
                                   newresumepoint,
                                   newgreens,
-                                  PromotionPathIndirect(self.promotion_path))
-        self.promotion_path = PromotionPathDirect(self.promotion_path)
+                                  PromotionPathNo(self.promotion_path))
+        self.promotion_path = PromotionPathYes(self.promotion_path)
         # add the later_jitstate to the chain of pending-for-dispatch_next()
         dispatch_queue = self.frame.dispatch_queue
         later_jitstate.next = dispatch_queue.split_chain
@@ -648,10 +662,22 @@ class JITState(object):
 
 
 def enter_graph(jitstate, DispatchQueueClass):
-    jitstate.frame = VirtualFrame(jitstate.frame, DispatchQueueClass())
+    dispatchqueue = DispatchQueueClass()
+    enter_frame(jitstate, dispatchqueue)
 enter_graph._annspecialcase_ = 'specialize:arg(1)'
-# XXX is that too many specializations? ^^^
 
+def enter_frame(jitstate, dispatchqueue):
+    resuming = jitstate.resuming
+    if resuming is None:
+        dispatchqueue.parent_promotion_path = jitstate.promotion_path
+        jitstate.promotion_path = PromotionPathYes(jitstate.promotion_path)
+    else:
+        dispatchqueue.parent_resuming = resuming
+        taking = resuming.path.pop()
+        if not taking:
+            jitstate.resuming = None
+    jitstate.frame = VirtualFrame(jitstate.frame, dispatchqueue)
+                
 class CompilationInterrupted(Exception):
     pass
 
@@ -680,21 +706,52 @@ def merge_returning_jitstates(jitstate):
 def leave_graph_red(jitstate):
     jitstate = merge_returning_jitstates(jitstate)
     myframe = jitstate.frame
+    leave_frame(jitstate)
     jitstate.returnbox = myframe.local_boxes[0]
     # ^^^ fetched by a 'fetch_return' operation
-    jitstate.frame = myframe.backframe
     return jitstate
 
 def leave_graph_gray(jitstate):
     jitstate = merge_returning_jitstates(jitstate)
-    myframe = jitstate.frame
-    jitstate.frame = myframe.backframe
+    leave_frame(jitstate)
     return jitstate
 
+def leave_frame(jitstate):
+    myframe = jitstate.frame
+    jitstate.frame = myframe.backframe
+    assert jitstate.resuming is None
+    mydispatchqueue = myframe.dispatch_queue
+    resuming = mydispatchqueue.parent_resuming
+    if resuming is None:
+        parent_promotion_path = mydispatchqueue.parent_promotion_path
+        jitstate.promotion_path = PromotionPathNo(parent_promotion_path)
+    else:
+        jitstate.resuming = resuming
+        jitstate.promotion_path = None
+    
 def leave_graph_yellow(jitstate):
-    return_chain = jitstate.frame.dispatch_queue.return_chain
+    mydispatchqueue = jitstate.frame.dispatch_queue
+    return_chain = mydispatchqueue.return_chain
     jitstate = return_chain
-    while jitstate is not None:
+    resuming = mydispatchqueue.parent_resuming
+    if resuming is None:
+        n = 0
+        parent_promotion_path = mydispatchqueue.parent_promotion_path
+        while jitstate is not None:
+            assert jitstate.resuming is None
+            node = PromotionPathNoWithArg(parent_promotion_path, n)
+            jitstate.promotion_path = node
+            n += 1
+            jitstate.frame = jitstate.frame.backframe
+            jitstate = jitstate.next
+        return return_chain    # a jitstate, which is the head of the chain
+    else:
+        n = resuming.path.pop()
+        for i in range(n):
+            assert jitstate.resuming is None
+            jitstate = jitstate.next
+        jitstate.resuming = resuming
+        jitstate.promotion_path = None
         jitstate.frame = jitstate.frame.backframe
-        jitstate = jitstate.next
-    return return_chain    # a jitstate, which is the head of the chain
+        jitstate.next = None
+        return jitstate
