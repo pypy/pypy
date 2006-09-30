@@ -417,6 +417,8 @@ class HintGraphTransformer(object):
                     handler(block, i)
 
     def make_call(self, block, op, save_locals_vars, color='red'):
+        # the 'save_locals' pseudo-operation is used to save all
+        # alive local variables into the current JITState
         self.genop(block, 'save_locals', save_locals_vars)
         targets = dict(self.graphs_from(op))
         for tsgraph in targets.values():
@@ -424,15 +426,18 @@ class HintGraphTransformer(object):
                 # make sure jitstate.resumepoint is set to zero
                 self.genop(block, 'resetresumepoint', [])
                 break
+        args_v = op.args[1:]
+        if op.opname == 'indirect_call':
+            del args_v[-1]
         if len(targets) == 1:
             [tsgraph] = targets.values()
             c_tsgraph = inputconst(lltype.Void, tsgraph)
-            self.genop(block, '%s_call' % (color,), [c_tsgraph] + op.args[1:])
+            self.genop(block, '%s_call' % (color,), [c_tsgraph] + args_v)
             # Void result, because the call doesn't return its redbox result,
             # but only has the hidden side-effect of putting it in the jitstate
         else:
             c_targets = inputconst(lltype.Void, targets)
-            args_v = op.args[:-1] + [c_targets]
+            args_v = op.args[:1] + args_v + [c_targets]
             hs_func = self.hannotator.binding(args_v[0])
             if not hs_func.is_green():
                 # XXX for now, assume that it will be a constant red box
@@ -442,13 +447,8 @@ class HintGraphTransformer(object):
             self.genop(block, 'indirect_%s_call' % (color,), args_v)
 
     def handle_red_call(self, block, pos, color='red'):
-        # the 'save_locals' pseudo-operation is used to save all
-        # alive local variables into the current JITState
-        beforeops = block.operations[:pos]
-        op        = block.operations[pos]
-        afterops  = block.operations[pos+1:]
-
         varsalive = self.variables_alive(block, pos+1)
+        op = block.operations.pop(pos)
         try:
             varsalive.remove(op.result)
             uses_retval = True      # it will be restored by 'fetch_return'
@@ -456,29 +456,69 @@ class HintGraphTransformer(object):
             uses_retval = False
         reds, greens = self.sort_by_color(varsalive)
 
-        newops = []
-        self.make_call(newops, op, reds, color)
+        nextblock = self.naive_split_block(block, pos)
+
+        v_func = op.args[0]
+        hs_func = self.hannotator.binding(v_func)
+        if hs_func.is_green():
+            constantblock = block
+            nonconstantblock = None
+            blockset = {}
+        else:
+            constantblock = Block([])
+            nonconstantblock = Block([])
+            blockset = {constantblock: False,
+                        nonconstantblock: False}
+            v_is_constant = self.genop(block, 'is_constant', [v_func],
+                                       resulttype = lltype.Bool)
+            self.genswitch(block, v_is_constant, true  = constantblock,
+                                                 false = nonconstantblock)
+            constantblock.closeblock(Link([], nextblock))
+            nonconstantblock.closeblock(Link([], nextblock))
+
+        self.make_call(constantblock, op, reds, color)
 
         mapping = {}
         for i, var in enumerate(reds):
             c_index = Constant(i, concretetype=lltype.Signed)
-            newvar = self.genop(newops, 'restore_local', [c_index],
+            newvar = self.genop(constantblock, 'restore_local', [c_index],
                                 result_like = var)
             mapping[var] = newvar
 
         if uses_retval:
             assert not self.hannotator.binding(op.result).is_green()
             var = op.result
-            newvar = self.genop(newops, 'fetch_return', [],
+            newvar = self.genop(constantblock, 'fetch_return', [],
                                 result_like = var)
             mapping[var] = newvar
 
-        saved = block.inputargs
-        block.inputargs = []     # don't rename these!
-        block.operations = afterops
-        block.renamevariables(mapping)
-        block.inputargs = saved
-        block.operations[:0] = beforeops + newops
+        nextblock.renamevariables(mapping)
+
+        if nonconstantblock is not None:
+            args_v = op.args[1:]
+            if op.opname == 'indirect_call':
+                del args_v[-1]
+            # pseudo-obscure: the arguments for the call go in save_locals
+            self.genop(nonconstantblock, 'save_locals', args_v)
+            v_res = self.genop(nonconstantblock, 'residual_%s_call' % (color,),
+                               [op.args[0]], result_like = op.result)
+
+            oldvars = mapping.keys()
+            newvars = [mapping[v] for v in oldvars]
+            constantblock.exits[0].args = newvars
+            nextblock.inputargs = newvars
+
+            mapping2 = dict([(v, copyvar(self.hannotator, v))
+                             for v in newvars])
+            nextblock.renamevariables(mapping2)
+
+            mapping3 = {op.result: v_res}
+            nonconstantblock.exits[0].args = [mapping3.get(v, v)
+                                              for v in oldvars]
+
+        blockset[block] = True    # reachable from outside
+        blockset[nextblock] = False
+        SSA_to_SSI(blockset, self.hannotator)
 
     def handle_gray_call(self, block, pos):
         self.handle_red_call(block, pos, color='gray')

@@ -1,11 +1,15 @@
 from pypy.rpython.objectmodel import specialize
 
 
+class NotConstant(Exception):
+    pass
+
+
 class GenVarOrConst(object):
 
     @specialize.arg(1)
     def revealconst(self, T):
-        raise NotImplementedError
+        raise NotConstant(self)
 
 class GenVar(GenVarOrConst):
     is_const = False

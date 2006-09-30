@@ -911,7 +911,6 @@ class HintRTyper(RPythonTyper):
         hop.llops.setjitstate(v_newjitstate)
 
     def translate_op_indirect_red_call(self, hop):
-        bk = self.annotator.bookkeeper
         v_jitstate = hop.llops.getjitstate()
         FUNC = originalconcretetype(hop.args_s[0])
         v_func = hop.inputarg(self.getgreenrepr(FUNC), arg=0)
@@ -934,6 +933,25 @@ class HintRTyper(RPythonTyper):
 
     translate_op_yellow_call          = translate_op_red_call
     translate_op_indirect_yellow_call = translate_op_indirect_red_call
+
+    def translate_op_residual_red_call(self, hop, color='red'):
+        FUNC = originalconcretetype(hop.args_s[0])
+        [v_funcbox] = hop.inputargs(self.getredrepr(FUNC))
+        calldesc = rtimeshift.CallDesc(self.RGenOp, FUNC.TO)
+        c_calldesc = inputconst(lltype.Void, calldesc)
+        s_calldesc = self.rtyper.annotator.bookkeeper.immutablevalue(calldesc)
+        v_jitstate = hop.llops.getjitstate()
+        if color == 'red':
+            s_result = self.s_RedBox
+        else:
+            s_result = annmodel.s_None
+        return hop.llops.genmixlevelhelpercall(rtimeshift.ll_gen_residual_call,
+                                 [self.s_JITState, s_calldesc, self.s_RedBox],
+                                 [v_jitstate,      c_calldesc, v_funcbox    ],
+                                 s_result)
+
+    def translate_op_residual_gray_call(self, hop):
+        self.translate_op_residual_red_call(hop, color='gray')
 
 
 class HintLowLevelOpList(LowLevelOpList):

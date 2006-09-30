@@ -321,6 +321,24 @@ def save_return(jitstate):
 ##def ll_gvar_from_constant(jitstate, ll_value):
 ##    return jitstate.curbuilder.rgenop.genconst(ll_value)
 
+class CallDesc:
+    __metaclass__ = cachedtype
+
+    def __init__(self, RGenOp, FUNCTYPE):
+        self.sigtoken = RGenOp.sigToken(FUNCTYPE)
+        self.result_kind = RGenOp.kindToken(FUNCTYPE.RESULT)
+        self.redboxbuilder = rvalue.ll_redboxbuilder(FUNCTYPE.RESULT)
+
+    def _freeze_(self):
+        return True
+
+def ll_gen_residual_call(jitstate, calldesc, funcbox):
+    builder = jitstate.curbuilder
+    gv_funcbox = funcbox.getgenvar(builder)
+    argboxes = jitstate.frame.local_boxes
+    args_gv = [argbox.getgenvar(builder) for argbox in argboxes]
+    gv_result = builder.genop_call(calldesc.sigtoken, gv_funcbox, args_gv)
+    return calldesc.redboxbuilder(calldesc.result_kind, gv_result)
 
 
 class ResumingInfo(object):

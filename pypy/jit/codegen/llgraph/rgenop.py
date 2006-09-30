@@ -70,8 +70,12 @@ class LLBuilder(CodeGenerator):
             if gv_arg is not None:
                 gv_arg = LLVar(llimpl.cast(self.b, ARGS_gv[i].v, gv_arg.v))
             vars_gv.append(gv_arg)
-        # XXX indirect_call later
-        return LLVar(llimpl.genop(self.b, 'direct_call', vars_gv, gv_RESULT.v))
+        if gv_callable.is_const:
+            v = llimpl.genop(self.b, 'direct_call', vars_gv, gv_RESULT.v)
+        else:
+            vars_gv.append(gv_dummy_placeholder)
+            v = llimpl.genop(self.b, 'indirect_call', vars_gv, gv_RESULT.v)
+        return LLVar(v)
 
     def genop_getfield(self, (gv_name, gv_PTRTYPE, gv_FIELDTYPE), gv_ptr):
         vars_gv = [llimpl.cast(self.b, gv_PTRTYPE.v, gv_ptr.v), gv_name.v]
