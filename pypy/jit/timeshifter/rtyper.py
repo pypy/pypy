@@ -133,6 +133,7 @@ class HintRTyper(RPythonTyper):
         self.ll_fresh_jitstate = ll_fresh_jitstate
 
         def ll_finish_jitstate(jitstate, graphsigtoken):
+            assert jitstate.resuming is None
             returnbox = rtimeshift.getreturnbox(jitstate)
             gv_ret = returnbox.getgenvar(jitstate.curbuilder)
             store_global_excdata(jitstate)
@@ -826,8 +827,7 @@ class HintRTyper(RPythonTyper):
         TYPE = originalconcretetype(hop.args_s[0])
         r_arg = self.getredrepr(TYPE)
         [v_box] = hop.inputargs(r_arg)
-        r_result = self.getgreenrepr(TYPE)
-        ERASED = annmodel.annotation_to_lltype(r_result.erased_annotation())
+        ERASED = self.RGenOp.erasedType(TYPE)
         desc = rtimeshift.PromotionDesc(ERASED, self)
         s_desc = self.rtyper.annotator.bookkeeper.immutablevalue(desc)
         c_desc = hop.inputconst(lltype.Void, desc)

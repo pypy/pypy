@@ -195,6 +195,10 @@ class RGenOp(AbstractRGenOp):
         return LLConst(llimpl.genconst(llvalue))
 
     @staticmethod
+    def erasedType(T):
+        return lltype.erasedType(T)
+
+    @staticmethod
     @specialize.memo()
     def kindToken(T):
         return LLConst(llimpl.constTYPE(T))        
