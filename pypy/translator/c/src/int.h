@@ -2,6 +2,18 @@
 /************************************************************/
  /***  C header subsection: operations between ints        ***/
 
+#ifndef LLONG_MAX
+# if SIZEOF_LONG_LONG == 8
+#  define LLONG_MAX 0X7FFFFFFFFFFFFFFFLL
+# else
+#  error "fix LLONG_MAX"
+# endif
+#endif
+
+#ifndef LLONG_MIN
+# define LLONG_MIN (-LLONG_MAX-1)
+#endif
+
 /*** unary operations ***/
 
 #define OP_INT_IS_TRUE(x,r)   OP_INT_NE(x,0,r)
@@ -11,16 +23,20 @@
 #define OP_INT_NEG(x,r)    r = -(x)
 
 #define OP_INT_NEG_OVF(x,r) \
-	OP_INT_NEG(x,r); \
-	if ((x) >= 0 || (x) != -(x)); \
-	else FAIL_OVF("integer negate")
+    if ((x) == LONG_MIN) FAIL_OVF("integer negate"); \
+	OP_INT_NEG(x,r)
+#define OP_LLONG_NEG_OVF(x,r) \
+    if ((x) == LLONG_MIN) FAIL_OVF("integer negate"); \
+	OP_LLONG_NEG(x,r)
 
 #define OP_INT_ABS(x,r)    r = (x) >= 0 ? x : -(x)
 
 #define OP_INT_ABS_OVF(x,r) \
-	OP_INT_ABS(x,r); \
-	if ((x) >= 0 || (x) != -(x)); \
-	else FAIL_OVF("integer absolute")
+    if ((x) == LONG_MIN) FAIL_OVF("integer absolute"); \
+	OP_INT_ABS(x,r)
+#define OP_LLONG_ABS_OVF(x,r) \
+    if ((x) == LLONG_MIN) FAIL_OVF("integer absolute"); \
+	OP_LLONG_ABS(x,r)
 
 /***  binary operations ***/
 
