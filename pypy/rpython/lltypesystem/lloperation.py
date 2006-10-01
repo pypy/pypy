@@ -342,6 +342,10 @@ LL_OPERATIONS = {
     'cast_adr_to_int':      LLOp(canfold=True),
     'cast_int_to_adr':      LLOp(canfold=True),   # not implemented in llinterp
 
+    # __________ used by the JIT ________
+
+    'call_boehm_gc_alloc':  LLOp(canraise=(MemoryError,)),
+
     # __________ GC operations __________
 
     'gc__collect':          LLOp(canunwindgc=True),

@@ -739,6 +739,10 @@ class LLFrame(object):
         assert lltype.typeOf(value) == typ
         getattr(addr, str(typ).lower())[offset] = value
 
+    # ______ for the JIT ____________
+    def op_call_boehm_gc_alloc(self):
+        raise NotImplementedError("call_boehm_gc_alloc")
+
     # ____________________________________________________________
     # Overflow-detecting variants
 
