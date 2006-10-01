@@ -658,8 +658,8 @@ class TestStacklessMarkSweepGC(TestMarkSweepGC):
 
 class TestSemiSpaceGC(TestMarkSweepGC):
 
-    #def setup_class(cls):
-    #    py.test.skip("in-progress")
+    def setup_class(cls):
+        py.test.skip("in-progress")
 
     class gcpolicy(gc.StacklessFrameworkGcPolicy):
         class transformerclass(gctransform.FrameworkGCTransformer):
