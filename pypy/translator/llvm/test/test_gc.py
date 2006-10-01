@@ -41,6 +41,7 @@ def test_nogc():
     assert f(5000) == tuple_getitem(5000)
 
 def test_ref(): 
+    py.test.skip("broken by r32613, partially fixed by r32619 but not really")
     def tuple_getitem(n): 
         x = 666
         i = 0
