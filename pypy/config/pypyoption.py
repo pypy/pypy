@@ -1,5 +1,5 @@
 import py
-print py.magic.autopath().dirpath().dirpath().dirpath()
+#print py.magic.autopath().dirpath().dirpath().dirpath()
 py.std.sys.path.insert(0, py.magic.autopath().dirpath().dirpath().dirpath())
 from pypy.config.config import OptionDescription, BoolOption, IntOption
 from pypy.config.config import ChoiceOption, to_optparse, Config
