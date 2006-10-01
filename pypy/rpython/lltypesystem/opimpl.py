@@ -179,6 +179,10 @@ def op_cast_int_to_float(i):
     assert type(i) is int
     return float(i)
 
+def op_cast_uint_to_float(u):
+    assert type(u) is r_uint
+    return float(u)
+
 def op_cast_int_to_char(b):
     assert type(b) is int
     return chr(b)
