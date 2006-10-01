@@ -328,16 +328,22 @@ class LLFrame(object):
                     raise e
         else:
             llexitvalue = self.getval(block.exitswitch)
-            for link in block.exits:
+            if block.exits[-1].exitcase == "default":
+                defaultexit = block.exits[-1]
+                nondefaultexits = block.exits[:-1]
+                assert defaultexit.llexitcase is None
+            else:
+                defaultexit = None
+                nondefaultexits = block.exits
+            for link in nondefaultexits:
                 if link.llexitcase == llexitvalue:
                     break   # found -- the result is in 'link'
             else:
-                if block.exits[-1].exitcase == "default":
-                    assert block.exits[-1].llexitcase is None
-                    link = block.exits[-1]
-                else:
+                if defaultexit is None:
                     raise ValueError("exit case %r not found in the exit links "
                                      "of %r" % (llexitvalue, block))
+                else:
+                    link = defaultexit
         return link.target, [self.getval(x) for x in link.args]
 
     def eval_operation(self, operation):
