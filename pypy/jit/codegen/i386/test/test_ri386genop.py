@@ -7,7 +7,10 @@ from pypy.jit.codegen.i386.ri386genop import RI386GenOp
 
 from ctypes import c_void_p, cast, CFUNCTYPE, c_int
 
-GENOP_POLICY = MixLevelAnnotatorPolicy(None)    # XXX clean up
+# XXX clean up
+class PseudoAnnhelper(object):
+    rtyper = None
+GENOP_POLICY = MixLevelAnnotatorPolicy(PseudoAnnhelper())
 
 # ____________________________________________________________
 
