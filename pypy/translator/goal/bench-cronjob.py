@@ -122,7 +122,7 @@ def compile(backend):
         realname += "-" + features
 
     if backend == 'llvm':   #create llvm exectutable from the current source
-        compile_llvm_variants(revname)
+        compile_llvm_variants(revision)
     elif os.path.exists(basename):                   #copy executable
         pypy = open(basename, 'rb').read()
         if len(pypy) > 0:
