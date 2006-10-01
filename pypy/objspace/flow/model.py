@@ -653,9 +653,12 @@ def checkgraph(graph):
                     # branches are in the wrong order)
                     assert len(block.exits) >= 1
                     cases = [Constant(link.exitcase) for link in block.exits]
-                    if 'default' in cases:
-                        assert 'default' == cases[-1]
+                    if Constant('default') in cases:
+                        assert Constant('default') == cases[-1]
                     assert len(dict.fromkeys(cases)) == len(cases)
+                    assert cases != [Constant(None)], (
+                        "exitswitch Variable followed by a normal-looking link"
+                        " is probably not intended")
 
             allexitcases = {}
             for link in block.exits:
