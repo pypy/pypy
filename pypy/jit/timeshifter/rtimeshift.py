@@ -10,6 +10,9 @@ from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 
 FOLDABLE_OPS = dict.fromkeys(lloperation.enum_foldable_ops())
 
+def debug_view(*ll_objects):
+    lloperation.llop.debug_view(lltype.Void, *ll_objects)
+
 # ____________________________________________________________
 # emit ops
 
@@ -249,7 +252,7 @@ def split(jitstate, switchredbox, resumepoint, *greens_gv):
             jitstate.split(later_builder, resumepoint, list(greens_gv))
             return True
         else:
-            return jitstate.resuming.path.pop()
+            return jitstate.resuming.path.pop().answer
 
 def collect_split(jitstate_chain, resumepoint, *greens_gv):
     greens_gv = list(greens_gv)
@@ -343,8 +346,10 @@ def ll_gen_residual_call(jitstate, calldesc, funcbox):
 
 class ResumingInfo(object):
     def __init__(self, promotion_point, gv_value, path):
+        node = PromotionPathPromote(promotion_point.promotion_path,
+                                    promotion_point, gv_value)
+        path[0] = node
         self.promotion_point = promotion_point
-        self.gv_value = gv_value
         self.path = path
 
 class PromotionPoint(object):
@@ -387,7 +392,7 @@ class PromotionPathNode(AbstractPromotionPath):
     def __init__(self, next):
         self.next = next
     def follow_path(self, path):
-        path.append(self.answer)
+        path.append(self)
         return self.next.follow_path(path)
 
 class PromotionPathYes(PromotionPathNode):
@@ -403,15 +408,21 @@ class PromotionPathNoWithArg(PromotionPathNo):
         self.arg = arg
 
     def follow_path(self, path):
-        path.append(self.arg)
+        path.append(self)
         return PromotionPathNo.follow_path(self, path)
-        
+
+class PromotionPathPromote(PromotionPathNode):
+    def __init__(self, next, promotion_point, gv_value):
+        self.next = next
+        self.promotion_point = promotion_point
+        self.gv_value = gv_value
+
 
 def ll_continue_compilation(promotion_point_ptr, value):
     try:
         promotion_point = cast_base_ptr_to_instance(PromotionPoint,
                                                     promotion_point_ptr)
-        path = []
+        path = [None]
         root = promotion_point.promotion_path.follow_path(path)
         gv_value = root.rgenop.genconst(value)
         resuminginfo = ResumingInfo(promotion_point, gv_value, path)
@@ -471,21 +482,27 @@ def ll_promote(jitstate, box, promotiondesc):
         else:
             assert jitstate.promotion_path is None
             resuming = jitstate.resuming
-            assert len(resuming.path) == 0
-            pm = resuming.promotion_point
+            node = resuming.path.pop()
+            #debug_view(node, resuming, incoming)
+            assert isinstance(node, PromotionPathPromote)
+            pm = node.promotion_point
+            assert pm.promotion_path is node.next
 
-            kinds = [box.kind for box in incoming]
-            vars_gv = jitstate.curbuilder.rgenop.stop_replay(pm.switchblock,
-                                                             kinds)
-            for i in range(len(incoming)):
-                incoming[i].genvar = vars_gv[i]
-            box.genvar = resuming.gv_value
+            if len(resuming.path) == 0:
+                # XXX we need to do something around the switch in the 'else'
+                # case too
+                kinds = [box.kind for box in incoming]
+                vars_gv = jitstate.curbuilder.rgenop.stop_replay(
+                    pm.switchblock,
+                    kinds)
+                for i in range(len(incoming)):
+                    incoming[i].genvar = vars_gv[i]
+                newbuilder = pm.flexswitch.add_case(node.gv_value)
+                jitstate.resuming = None
+                jitstate.promotion_path = node
+                jitstate.curbuilder = newbuilder
 
-            newbuilder = pm.flexswitch.add_case(resuming.gv_value)
-
-            jitstate.resuming = None
-            jitstate.promotion_path = pm.promotion_path
-            jitstate.curbuilder = newbuilder
+            box.genvar = node.gv_value
             enter_block(jitstate)
             return False
 
@@ -672,9 +689,9 @@ def enter_frame(jitstate, dispatchqueue):
         dispatchqueue.parent_promotion_path = jitstate.promotion_path
         jitstate.promotion_path = PromotionPathYes(jitstate.promotion_path)
     else:
-        dispatchqueue.parent_resuming = resuming
-        taking = resuming.path.pop()
+        taking = resuming.path.pop().answer
         if not taking:
+            dispatchqueue.parent_resuming = resuming
             jitstate.resuming = None
     jitstate.frame = VirtualFrame(jitstate.frame, dispatchqueue)
                 
@@ -746,7 +763,9 @@ def leave_graph_yellow(jitstate):
             jitstate = jitstate.next
         return return_chain    # a jitstate, which is the head of the chain
     else:
-        n = resuming.path.pop()
+        node = resuming.path.pop()
+        assert isinstance(node, PromotionPathNoWithArg)
+        n = node.arg
         for i in range(n):
             assert jitstate.resuming is None
             jitstate = jitstate.next

@@ -81,6 +81,31 @@ class TestPromotion(TimeshiftingTests):
         assert res == 4*17 + 10
         self.check_insns(int_mul=0, int_add=1)
 
+    def test_promote_inside_call(self):
+        def ll_two(n):
+            k = hint(n, promote=True)
+            k *= 17
+            return hint(k, variable=True)
+        def ll_function(n):
+            return ll_two(n + 1) - 1
+        ll_function._global_merge_points_ = True
+
+        res = self.timeshift(ll_function, [10], [], policy=P_NOVIRTUAL)
+        assert res == 186
+        self.check_insns(int_add=1, int_mul=0, int_sub=0)
+
+    def test_two_promotions(self):
+        def ll_function(n, m):
+            n1 = hint(n, promote=True)
+            m1 = hint(m, promote=True)
+            s1 = n1 + m1
+            return hint(s1, variable=True)
+        ll_function._global_merge_points_ = True
+
+        res = self.timeshift(ll_function, [40, 2], [], policy=P_NOVIRTUAL)
+        assert res == 42
+        self.check_insns(int_add=0)
+
 
     def test_method_call_nonpromote(self):
         class Base(object):
