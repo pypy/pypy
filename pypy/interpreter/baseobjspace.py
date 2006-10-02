@@ -211,8 +211,6 @@ class ObjSpace(object):
         w_modules = self.sys.get('modules')
         return self.getitem(w_modules, w_name)
 
-    # change this to influence which of our own
-    # mixed modules should be used 
     def get_builtinmodule_to_install(self):
         """NOT_RPYTHON"""
         try:
@@ -220,16 +218,15 @@ class ObjSpace(object):
         except AttributeError:
             pass
 
-        modules = ['sys', '__builtin__', 'exceptions',  # 'unicodedata',
-                   '_codecs', 'gc', '_weakref', 'array', 'marshal', 'errno',
-                   'math', '_sre', '_pickle_support']
+        modules = []
 
         # You can enable more modules by specifying --usemodules=xxx,yyy
         for name, value in self.config.objspace.usemodules:
             if value and name not in modules:
-                modules.append(name) 
+                modules.append(name)
 
         # a bit of custom logic: time2 or rctime take precedence over time
+        # XXX this could probably be done as a "requires" in the config
         if ('time2' in modules or 'rctime' in modules) and 'time' in modules:
             modules.remove('time')
 
