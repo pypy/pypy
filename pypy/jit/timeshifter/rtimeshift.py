@@ -191,6 +191,9 @@ def enter_next_block(jitstate, incoming):
         incoming[i].genvar = linkargs[i]
     return newblock
 
+def return_marker(jitstate):
+    raise AssertionError("shouldn't get here")
+
 def start_new_block(states_dic, jitstate, key, global_resumer):
     memo = rvalue.freeze_memo()
     frozen = jitstate.freeze(memo)
@@ -199,13 +202,15 @@ def start_new_block(states_dic, jitstate, key, global_resumer):
     res = frozen.exactmatch(jitstate, outgoingvarboxes, memo)
     assert res, "exactmatch() failed"
     newblock = enter_next_block(jitstate, outgoingvarboxes)
+    # XXX don't save newblock, or have rgenop produce None, when resuming
     states_dic[key] = frozen, newblock
-    if global_resumer:
+    if global_resumer is not None and global_resumer is not return_marker:
         greens_gv = jitstate.greens
         rgenop = jitstate.curbuilder.rgenop
         jitstate.promotion_path = PromotionPathRoot(greens_gv, rgenop,
                                                     frozen, newblock,
                                                     global_resumer)
+        # XXX put a PromotionPathMergesToSee too
 start_new_block._annspecialcase_ = "specialize:arglltype(2)"
 
 def retrieve_jitstate_for_merge(states_dic, jitstate, key, global_resumer):
@@ -233,8 +238,27 @@ def retrieve_jitstate_for_merge(states_dic, jitstate, key, global_resumer):
     if replace_memo.boxes:
         jitstate.replace(replace_memo)
     start_new_block(states_dic, jitstate, key, global_resumer)
+    if global_resumer is None:
+        merge_generalized(jitstate)
     return False       # continue
 retrieve_jitstate_for_merge._annspecialcase_ = "specialize:arglltype(2)"
+
+def merge_generalized(jitstate):
+    resuming = jitstate.resuming
+    if resuming is None:
+        node = jitstate.promotion_path
+        while not node.cut_limit:
+            node = node.next
+        dispatch_queue = jitstate.frame.dispatch_queue
+        count = dispatch_queue.mergecounter + 1
+        dispatch_queue.mergecounter = count
+        node = PromotionPathMergesToSee(node, count)
+        jitstate.promotion_path = node
+    else:
+        if resuming.mergesleft != MC_IGNORE_UNTIL_RETURN:
+            assert resuming.mergesleft > 0
+            resuming.mergesleft -= 1
+
 
 def enter_block(jitstate):
     incoming = []
@@ -247,12 +271,18 @@ def split(jitstate, switchredbox, resumepoint, *greens_gv):
     if exitgvar.is_const:
         return exitgvar.revealconst(lltype.Bool)
     else:
-        if jitstate.resuming is None:
-            later_builder = jitstate.curbuilder.jump_if_false(exitgvar)
-            jitstate.split(later_builder, resumepoint, list(greens_gv))
-            return True
-        else:
-            return jitstate.resuming.path.pop().answer
+        resuming = jitstate.resuming
+        if resuming is not None and resuming.mergesleft == 0:
+            node = resuming.path.pop()
+            assert isinstance(node, PromotionPathSplit)
+            return node.answer
+        later_builder = jitstate.curbuilder.jump_if_false(exitgvar)
+        jitstate2 = jitstate.split(later_builder, resumepoint, list(greens_gv))
+        if resuming is None:
+            node = jitstate.promotion_path
+            jitstate2.promotion_path = PromotionPathNo(node)
+            jitstate .promotion_path = PromotionPathYes(node)
+        return True
 
 def collect_split(jitstate_chain, resumepoint, *greens_gv):
     greens_gv = list(greens_gv)
@@ -351,6 +381,16 @@ class ResumingInfo(object):
         path[0] = node
         self.promotion_point = promotion_point
         self.path = path
+        self.mergesleft = 0
+
+    def merges_to_see(self):
+        node = self.path[-1]
+        if isinstance(node, PromotionPathMergesToSee):
+            self.mergesleft = node.count
+            del self.path[-1]
+        else:
+            self.mergesleft = MC_IGNORE_UNTIL_RETURN
+
 
 class PromotionPoint(object):
     def __init__(self, flexswitch, switchblock, promotion_path):
@@ -360,9 +400,11 @@ class PromotionPoint(object):
         self.promotion_path = promotion_path
 
 class AbstractPromotionPath(object):
-    pass
+    cut_limit = False
 
 class PromotionPathRoot(AbstractPromotionPath):
+    cut_limit = True
+
     def __init__(self, greens_gv, rgenop, frozen, portalblock, global_resumer):
         self.greens_gv = greens_gv
         self.rgenop = rgenop
@@ -395,27 +437,39 @@ class PromotionPathNode(AbstractPromotionPath):
         path.append(self)
         return self.next.follow_path(path)
 
-class PromotionPathYes(PromotionPathNode):
+class PromotionPathSplit(PromotionPathNode):
+    pass
+
+class PromotionPathYes(PromotionPathSplit):
     answer = True
 
-class PromotionPathNo(PromotionPathNode):
+class PromotionPathNo(PromotionPathSplit):
     answer = False
 
-class PromotionPathNoWithArg(PromotionPathNo):
-
-    def __init__(self, next, arg):
-        self.next = next
-        self.arg = arg
-
-    def follow_path(self, path):
-        path.append(self)
-        return PromotionPathNo.follow_path(self, path)
+class PromotionPathCallNotTaken(PromotionPathNode):
+    pass
 
 class PromotionPathPromote(PromotionPathNode):
+    cut_limit = True
+
     def __init__(self, next, promotion_point, gv_value):
         self.next = next
         self.promotion_point = promotion_point
         self.gv_value = gv_value
+
+class PromotionPathCall(PromotionPathNode):
+    cut_limit = True
+
+class PromotionPathBackFromReturn(PromotionPathNode):
+    cut_limit = True
+
+class PromotionPathMergesToSee(PromotionPathNode):
+    def __init__(self, next, count):
+        self.next = next
+        self.count = count
+
+MC_IGNORE_UNTIL_RETURN = -1
+MC_CALL_NOT_TAKEN      = -2
 
 
 def ll_continue_compilation(promotion_point_ptr, value):
@@ -450,9 +504,9 @@ class PromotionDesc:
     def _freeze_(self):
         return True
 
-def ll_promote(jitstate, box, promotiondesc):
+def ll_promote(jitstate, promotebox, promotiondesc):
     builder = jitstate.curbuilder
-    gv_switchvar = box.getgenvar(builder)
+    gv_switchvar = promotebox.getgenvar(builder)
     if gv_switchvar.is_const:
         return False
     else:
@@ -462,7 +516,7 @@ def ll_promote(jitstate, box, promotiondesc):
         switchblock = enter_next_block(jitstate, incoming)
 
         if jitstate.resuming is None:
-            gv_switchvar = box.genvar
+            gv_switchvar = promotebox.genvar
             flexswitch = builder.flexswitch(gv_switchvar)
             # default case of the switch:
             enter_block(jitstate)
@@ -470,7 +524,7 @@ def ll_promote(jitstate, box, promotiondesc):
                                 jitstate.promotion_path)
             ll_pm = cast_instance_to_base_ptr(pm)
             gv_pm = builder.rgenop.genconst(ll_pm)
-            gv_switchvar = box.genvar
+            gv_switchvar = promotebox.genvar
             builder.genop_call(promotiondesc.sigtoken,
                                promotiondesc.gv_continue_compilation,
                                [gv_pm, gv_switchvar])
@@ -482,11 +536,20 @@ def ll_promote(jitstate, box, promotiondesc):
         else:
             assert jitstate.promotion_path is None
             resuming = jitstate.resuming
-            node = resuming.path.pop()
-            #debug_view(node, resuming, incoming)
-            assert isinstance(node, PromotionPathPromote)
-            pm = node.promotion_point
-            assert pm.promotion_path is node.next
+            if resuming.mergesleft != 0:
+                return True
+
+            promotenode = resuming.path.pop()
+            assert isinstance(promotenode, PromotionPathPromote)
+            #debug_view(promotenode, resuming, incoming)
+            pm = promotenode.promotion_point
+            assert pm.promotion_path is promotenode.next
+
+            # clear the complete state of dispatch queues
+            f = jitstate.frame
+            while f is not None:
+                f.dispatch_queue.clear()
+                f = f.backframe
 
             if len(resuming.path) == 0:
                 # XXX we need to do something around the switch in the 'else'
@@ -497,24 +560,30 @@ def ll_promote(jitstate, box, promotiondesc):
                     kinds)
                 for i in range(len(incoming)):
                     incoming[i].genvar = vars_gv[i]
-                newbuilder = pm.flexswitch.add_case(node.gv_value)
+                promotebox.genvar = promotenode.gv_value
+                newbuilder = pm.flexswitch.add_case(promotenode.gv_value)
                 jitstate.resuming = None
+                node = PromotionPathMergesToSee(promotenode, 0)
                 jitstate.promotion_path = node
                 jitstate.curbuilder = newbuilder
+            else:
+                resuming.merges_to_see()
+                promotebox.genvar = promotenode.gv_value
 
-            box.genvar = node.gv_value
             enter_block(jitstate)
             return False
 
 # ____________________________________________________________
 
 class BaseDispatchQueue(object):
-    parent_promotion_path = None
-    parent_resuming = None
-    
+
     def __init__(self):
         self.split_chain = None
         self.return_chain = None
+        self.mergecounter = 0
+
+    def clear(self):
+        self.__init__()
 
 def build_dispatch_subclass(attrnames):
     if len(attrnames) == 0:
@@ -633,17 +702,17 @@ class VirtualFrame(object):
 class JITState(object):
     returnbox = None
     next      = None   # for linked lists
-    resuming  = None   # or a ResumingInfo
+    promotion_path = None
 
     def __init__(self, builder, frame, exc_type_box, exc_value_box,
-                 resumepoint=-1, newgreens=[], promotion_path=None):
+                 resumepoint=-1, newgreens=[], resuming=None):
         self.curbuilder = builder
         self.frame = frame
         self.exc_type_box = exc_type_box
         self.exc_value_box = exc_value_box
         self.resumepoint = resumepoint
         self.greens = newgreens
-        self.promotion_path = promotion_path
+        self.resuming = resuming   # None or a ResumingInfo
 
     def split(self, newbuilder, newresumepoint, newgreens):
         memo = rvalue.copy_memo()
@@ -653,12 +722,12 @@ class JITState(object):
                                   self.exc_value_box.copy(memo),
                                   newresumepoint,
                                   newgreens,
-                                  PromotionPathNo(self.promotion_path))
-        self.promotion_path = PromotionPathYes(self.promotion_path)
+                                  self.resuming)
         # add the later_jitstate to the chain of pending-for-dispatch_next()
         dispatch_queue = self.frame.dispatch_queue
         later_jitstate.next = dispatch_queue.split_chain
         dispatch_queue.split_chain = later_jitstate
+        return later_jitstate
 
     def enter_block(self, incoming, memo):
         self.frame.enter_block(incoming, memo)
@@ -684,17 +753,25 @@ def enter_graph(jitstate, DispatchQueueClass):
 enter_graph._annspecialcase_ = 'specialize:arg(1)'
 
 def enter_frame(jitstate, dispatchqueue):
+    jitstate.frame = VirtualFrame(jitstate.frame, dispatchqueue)
     resuming = jitstate.resuming
     if resuming is None:
-        dispatchqueue.parent_promotion_path = jitstate.promotion_path
-        jitstate.promotion_path = PromotionPathYes(jitstate.promotion_path)
+        node = PromotionPathCall(jitstate.promotion_path)
+        node = PromotionPathMergesToSee(node, 0)
+        jitstate.promotion_path = node
     else:
-        taking = resuming.path.pop().answer
-        if not taking:
-            dispatchqueue.parent_resuming = resuming
-            jitstate.resuming = None
-    jitstate.frame = VirtualFrame(jitstate.frame, dispatchqueue)
-                
+        parent_mergesleft = resuming.mergesleft
+        resuming.mergesleft = MC_IGNORE_UNTIL_RETURN
+        if parent_mergesleft == 0:
+            node = resuming.path.pop()
+            if isinstance(node, PromotionPathCall):
+                resuming.merges_to_see()
+            else:
+                assert isinstance(node, PromotionPathCallNotTaken)
+                parent_mergesleft = MC_CALL_NOT_TAKEN
+        dispatchqueue.mergecounter = parent_mergesleft
+
+
 class CompilationInterrupted(Exception):
     pass
 
@@ -705,7 +782,8 @@ def merge_returning_jitstates(jitstate):
     while return_chain is not None:
         jitstate = return_chain
         return_chain = return_chain.next
-        res = retrieve_jitstate_for_merge(return_cache, jitstate, (), None)
+        res = retrieve_jitstate_for_merge(return_cache, jitstate, (),
+                                          return_marker)
         if res is False:    # not finished
             jitstate.next = still_pending
             still_pending = jitstate
@@ -716,7 +794,8 @@ def merge_returning_jitstates(jitstate):
     while still_pending is not None:
         jitstate = still_pending
         still_pending = still_pending.next
-        res = retrieve_jitstate_for_merge(return_cache, jitstate, (), None)
+        res = retrieve_jitstate_for_merge(return_cache, jitstate, (),
+                                          return_marker)
         assert res is True   # finished
     return most_general_jitstate
 
@@ -735,17 +814,32 @@ def leave_graph_gray(jitstate):
 
 def leave_frame(jitstate):
     myframe = jitstate.frame
-    jitstate.frame = myframe.backframe
-    assert jitstate.resuming is None
+    backframe = myframe.backframe
+    jitstate.frame = backframe
     mydispatchqueue = myframe.dispatch_queue
-    resuming = mydispatchqueue.parent_resuming
+    resuming = jitstate.resuming
     if resuming is None:
-        parent_promotion_path = mydispatchqueue.parent_promotion_path
-        jitstate.promotion_path = PromotionPathNo(parent_promotion_path)
+        #debug_view(jitstate)
+        node = jitstate.promotion_path
+        while not node.cut_limit:
+            node = node.next
+        if isinstance(node, PromotionPathCall):
+            node = PromotionPathCallNotTaken(node.next)
+        else:
+            node = PromotionPathBackFromReturn(node)
+            node = PromotionPathMergesToSee(node, 0)
+        jitstate.promotion_path = node
     else:
-        jitstate.resuming = resuming
-        jitstate.promotion_path = None
-    
+        parent_mergesleft = mydispatchqueue.mergecounter
+        if parent_mergesleft == 0:
+            node = resuming.path.pop()
+            assert isinstance(node, PromotionPathBackFromReturn)
+            resuming.merges_to_see()
+        elif parent_mergesleft == MC_CALL_NOT_TAKEN:
+            resuming.mergesleft = 0
+        else:
+            resuming.mergesleft = parent_mergesleft
+
 def leave_graph_yellow(jitstate):
     mydispatchqueue = jitstate.frame.dispatch_queue
     return_chain = mydispatchqueue.return_chain

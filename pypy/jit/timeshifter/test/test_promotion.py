@@ -106,6 +106,25 @@ class TestPromotion(TimeshiftingTests):
         assert res == 42
         self.check_insns(int_add=0)
 
+    def test_merge_then_promote(self):
+        S = lltype.GcStruct('S', ('x', lltype.Signed))
+        def ll_two(n):
+            s = lltype.malloc(S)
+            if n < 0:
+                s.x = 10
+            else:
+                s.x = 20
+            k = hint(s.x, promote=True)
+            k *= 17
+            return hint(k, variable=True)
+        def ll_function(n):
+            return ll_two(n)
+        ll_function._global_merge_points_ = True
+
+        res = self.timeshift(ll_function, [3], [], policy=P_NOVIRTUAL)
+        assert res == 340
+        self.check_insns(int_lt=1, int_mul=0)
+
 
     def test_method_call_nonpromote(self):
         class Base(object):
