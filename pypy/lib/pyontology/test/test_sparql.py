@@ -108,7 +108,6 @@ def test_case_1():
     O = Ontology()
     O.add_file(StringIO(Onto))
     O.attach_fd()
-    print "Attached"
     O.sparql(query)
     assert list(O.variables['query_x_'].getValues())[0].uri == u'#sub' 
 
@@ -151,7 +150,7 @@ def test_case_4():
 
 def test_case_5():
     """ for all p's return p[0] if p[1]==o """
-    py.test.skip("Doesn't work yet")
+    #py.test.skip("Doesn't work yet")
 
     query = qt_proto % ('?x ?y', '?x ns:p ?y .')
     O = Ontology()
@@ -160,6 +159,7 @@ def test_case_5():
 
     O.sparql(query)
     assert list(O.variables['query_x_'].getValues())[0].uri == u'#sub' 
+    assert list(O.variables['query_y_'].getValues())[0] == u'123' 
 
 def test_case_6():
     """ return the values of p """

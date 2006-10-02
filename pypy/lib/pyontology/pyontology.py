@@ -470,8 +470,6 @@ class Ontology:
         where = qe.SelectQuery[0].WhereClause[0]
 
         triples = where.GroupGraphPattern[0].Triples
-#        import pdb
-#        pdb.set_trace()
         new = []
         for trip in triples:
             case = 1
@@ -480,7 +478,6 @@ class Ontology:
             trip = list(trip)
             for item in trip:
                 if isinstance(item, Literal):
-                    print "!!!!!!!",item
                     newtrip.append(item)
                 elif item.NCNAME_PREFIX:
                     uri = prefixes[item.NCNAME_PREFIX[0]] + item.NCNAME[0]
@@ -488,7 +485,6 @@ class Ontology:
                 elif item.getName() == 'VAR1':
                     newtrip.append(URIRef('query_'+item[0]))
                     case += trip.index(item) + inc
-                    print "Case calc", case, inc, list(trip).index(item),item
                     if inc:
                         inc = 1
                     else:
@@ -534,7 +530,6 @@ class Ontology:
                 #  search for s in p
                 prop = self.make_var(None, trip[1])
                 p_vals = self.variables[prop].getValuesPrKey(self.make_var(trip[0]))
-                print "========",p_vals
                 p_vals = p_vals[0][1]
                 var = self.make_var(Thing, trip[2])
                 self.variables[var].setValues((p_vals))
@@ -543,7 +538,13 @@ class Ontology:
                 pass
             elif case == 5:
                 #  return the values of p
-                pass
+                prop = self.make_var(Property, URIRef(trip[1]))
+                p_vals = self.variables[prop].getValues()
+                var = self.make_var(Thing, trip[0])
+                self.variables[var].setValues([v[0] for v in p_vals])
+                p_vals = self.variables[prop].getValues()
+                var = self.make_var(Thing, trip[2])
+                self.variables[var].setValues([v[1] for v in p_vals])
             elif case == 6:
                 #  for all p's return p[1] if p[0]==s  
                 pass
