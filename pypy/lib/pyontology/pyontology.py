@@ -3,6 +3,7 @@ from logilab.constraint import  Repository, Solver
 from logilab.constraint.fd import  Expression, FiniteDomain as fd
 from logilab.constraint.propagation import AbstractDomain, AbstractConstraint,\
        ConsistencyFailure
+from pypy.lib.pyontology.sparql_grammar import SPARQLGrammar as SP
 from constraint_classes import *
 import sys, py
 import datetime, time
@@ -40,10 +41,12 @@ def getUriref(ns, obj):
 def check_format(f):
     if type(f) == str:
         tmp = file(f, "r")
-    else:
+    elif hasattr(f, 'open'):
         tmp = f.open()
+    else:
+        tmp = f
     start = tmp.read(10)
-    tmp.close()
+    tmp.seek(0)
     if "<" in start:
         format = "xml"
     else:
@@ -430,6 +433,7 @@ class Ontology:
         tmp.load(f, format=format)
         for triple in tmp.triples((None,)*3):
             self.add(triple)
+#            self.consider_triple(triple)
             
     def load_file(self, f, format=None):
         if not format:
@@ -449,7 +453,106 @@ class Ontology:
                 if isinstance( self.variables[key], fd):
                     continue
                 self.variables[key].finish(self.variables, self.constraints)
+#            try:
             constraint.narrow(self.variables)
+#            except ConsistencyFailure, e:
+#                print "FAilure", e
+
+    def _sparql(self, query):
+        qe = SP.Query.parseString(query)[0]
+
+        prefixes = qe.PrefixDecl[0]
+
+        resvars = []
+        for v in qe.SelectQuery[0].VARNAME:
+            resvars.append(v[0])
+                                                                            
+        where = qe.SelectQuery[0].WhereClause[0]
+
+        triples = where.GroupGraphPattern[0].Triples
+#        import pdb
+#        pdb.set_trace()
+        new = []
+        for trip in triples:
+            case = 1
+            inc = 0
+            newtrip = []
+            trip = list(trip)
+            for item in trip:
+                if isinstance(item, Literal):
+                    print "!!!!!!!",item
+                    newtrip.append(item)
+                elif item.NCNAME_PREFIX:
+                    uri = prefixes[item.NCNAME_PREFIX[0]] + item.NCNAME[0]
+                    newtrip.append(URIRef(uri))
+                elif item.getName() == 'VAR1':
+                    newtrip.append(URIRef('query_'+item[0]))
+                    case += trip.index(item) + inc
+                    print "Case calc", case, inc, list(trip).index(item),item
+                    if inc:
+                        inc = 1
+                    else:
+                        inc = 2
+                else:
+                    newtrip.append(item[0])
+            newtrip.append(case)
+            new.append(newtrip)
+        constrain = where.GroupGraphPattern[0].Constraint
+        return new, prefixes, resvars, constrain
+
+# There are 8 ways of having the triples in the query, if predicate is not a builtin owl predicate
+#
+# case  s               p               o
+#
+# 0     bound           bound           bound  ; Check if this triple entails
+# 1     var             bound           bound  ; add a hasvalue constraint
+# 2     bound           var             bound  ; for all p's return p if p[0]==s and p[1]==o 
+# 3     bound           bound           var    ; search for s in p
+# 4     var             var             bound  ; for all p's return p[0] if p[1]==o 
+# 5     var             bound           var    ; return the values of p
+# 6     bound           var             var    ; for all p's return p[1] if p[0]==s
+# 7     var             var             var    ; for all p's return p.getvalues
+#
+
+    def sparql(self, query):
+        new, prefixes, resvars, constrain = self._sparql(query)
+        for trip in new:
+            case = trip.pop(-1)
+            if case == 0:
+                # Check if this triple entails
+                self.consider_triple(trip)
+            elif case == 1:
+                # Add a HasValue constraint
+                var = self.make_var(Restriction, URIRef(trip[0]))
+                self.onProperty(var, URIRef(trip[1]))
+                self.hasValue(var, trip[2])
+            elif case == 2:
+                #  for all p's return p if p[0]==s and p[1]==o 
+                prop = self.make_var(Property, URIRef(trip[1]))
+                self.type(URIRef(trip[1]), namespaces['owl']+'Property')
+            elif case == 3:
+                #  search for s in p
+                prop = self.make_var(None, trip[1])
+                p_vals = self.variables[prop].getValuesPrKey(self.make_var(trip[0]))
+                print "========",p_vals
+                p_vals = p_vals[0][1]
+                var = self.make_var(Thing, trip[2])
+                self.variables[var].setValues((p_vals))
+            elif case == 4:
+                #  for all p's return p[0] if p[1]==o 
+                pass
+            elif case == 5:
+                #  return the values of p
+                pass
+            elif case == 6:
+                #  for all p's return p[1] if p[0]==s  
+                pass
+            elif case == 7:
+                #  for all p's return p.getvalues 
+                pass
+
+        self.consistency()
+
     
     def consider_triple(self,(s, p, o)):
         if (s, p, o) in self.seen:
@@ -621,8 +724,6 @@ class Ontology:
         # class extension of var, ie if a indiviual is in
         # the extension of s it must be in the extension of
         # var
-        
-        # what I really  want is to just say s.bases.append(var)
         
         log("%r subClassOf %r "%(s, var))
         avar = self.make_var(ClassDomain, var)

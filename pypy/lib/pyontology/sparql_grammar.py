@@ -5,7 +5,7 @@ from pyparsing import CaselessLiteral, Word, Upcase, delimitedList, Optional, \
      TokenConverter, Empty, Suppress, NoMatch, CharsNotIn, ParseResults
 
 from pyparsing import Literal as ppLiteral  # name Literal assigned by grammar
-
+from rdflib import Literal as rdfliteral
 DEBUG = 0
 
 def punctuation(lit, d=False):
@@ -23,6 +23,15 @@ def production(lit, d=False):
     if DEBUG or d: o.setDebug()
     return o
 
+def replace_int(s, loc, toks):
+    return [rdfliteral(int(toks[0]), datatype="http://www.w3.org/2001/XMLSchema#int")]
+
+
+def replace_string(s, loc, toks):
+    return [rdfliteral((toks[0]), datatype="http://www.w3.org/2001/XMLSchema#String")]
+
+def replace_float(s, loc, toks):
+    return [rdfliteral(float(toks[0]), datatype="http://www.w3.org/2001/XMLSchema#float")]
 
 class SPARQLGrammar(object):
 
@@ -166,7 +175,7 @@ class SPARQLGrammar(object):
     NumericLiteral = production('NumericLiteral')
     RDFLiteral = production('RDFLiteral')
     BooleanLiteral = production('BooleanLiteral')
-    String = production('String')
+    String = production('String').setParseAction(replace_string)
     IRIref = production('IRIref')
     QName = production('QName')
     BlankNode = production('BlankNode')
@@ -177,10 +186,10 @@ class SPARQLGrammar(object):
     VAR1 = production('VAR1')
     VAR2 = production('VAR2')
     LANGTAG = production('LANGTAG')
-    INTEGER = production('INTEGER')
-    DECIMAL = production('DECIMAL')
-    FLOATING_POINT = production('FLOATING_POINT')
-    EXPONENT = production('EXPONENT')
+    INTEGER = production('INTEGER').setParseAction(replace_int)
+    DECIMAL = production('DECIMAL').setParseAction(replace_float)
+    FLOATING_POINT = production('FLOATING_POINT').setParseAction(replace_float)
+    EXPONENT = production('EXPONENT').setParseAction(replace_float)
     STRING_LITERAL1 = production('STRING_LITERAL1')
     STRING_LITERAL2 = production('STRING_LITERAL2')
     STRING_LITERAL_LONG1 = production('STRING_LITERAL_LONG1')
@@ -324,7 +333,7 @@ class SPARQLGrammar(object):
 
     # ObjectList ::= Object ( ',' ObjectList )?
 
-    ObjectList << Group(Object + Optional(comma + ObjectList))
+    ObjectList << (Object + Optional(comma + ObjectList))
 
     # Verb ::= VarOrBlankNodeOrIRIref | 'a'
 
@@ -364,7 +373,7 @@ class SPARQLGrammar(object):
 
     # Var ::= VAR1 | VAR2
 
-    Var << (VAR1 | VAR2)
+    Var << (VAR1 | VAR2) 
 
     # GraphTerm ::= RDFTerm | '(' ')'
 

@@ -199,7 +199,7 @@ class FunctionalCardinality(OwlConstraint):
                 for item in val:
                     for otheritem in val:
                         if (otheritem == item) == False: 
-                            raise ConsistencyFailure("FunctionalCardinality error: %s for property %s" % (cls, self.variable))
+                            raise ConsistencyFailure("FunctionalCardinality error: %s for property %s with %r" % (cls, self.variable, val))
         else:
             return 0
 
