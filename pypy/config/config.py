@@ -193,7 +193,20 @@ class BoolOption(ChoiceOption):
         parser.add_option(help=self.doc,
                             action='callback',
                             callback=_callback, *argnames)
-
+        no_argnames = ["--no-" + argname.lstrip("-") for argname in argnames
+                           if argname.startswith("--")]
+        if len(no_argnames) == 0:
+            no_argnames = ["--no-" + argname.lstrip("-")
+                               for argname in argnames]
+        def _callback(option, opt_str, value, parser, *args, **kwargs):
+            try:
+                config.setoption(self._name, False, who='cmdline')
+            except ValueError, e:
+                raise optparse.OptionValueError(e.args[0])
+        parser.add_option(help="unset option set by %s" % (argnames[0], ),
+                            action='callback',
+                            callback=_callback, *no_argnames)
+        
 class IntOption(Option):
     def __init__(self, name, doc, default=0, cmdline=DEFAULT_OPTION_NAME):
         super(IntOption, self).__init__(name, doc, cmdline)

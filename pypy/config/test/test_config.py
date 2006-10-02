@@ -131,24 +131,28 @@ def test_to_optparse_number():
     assert config.int == 2
     assert config.float == 0.1
     
-    py.test.raises(SystemExit, 
+    py.test.raises(SystemExit,
         "(options, args) = parser.parse_args(args=['--int=foo', '-f bar'])")
     
 def test_to_optparse_bool():
-    booloption = BoolOption('bool', 'Boolean option test', default=False,
-                            cmdline='--bool -b')
-    descr = OptionDescription('test', '', [booloption])
+    booloption1 = BoolOption('bool1', 'Boolean option test', default=False,
+                             cmdline='--bool1 -b')
+    booloption2 = BoolOption('bool2', 'Boolean option test', default=True,
+                             cmdline='--bool2 -c')
+    descr = OptionDescription('test', '', [booloption1, booloption2])
     config = Config(descr)
 
-    parser = to_optparse(config, ['bool'])
+    parser = to_optparse(config, ['bool1', 'bool2'])
     (options, args) = parser.parse_args(args=['-b'])
 
-    assert config.bool
+    assert config.bool1
+    assert config.bool2
 
     config = Config(descr)
-    parser = to_optparse(config, ['bool'])
-    (options, args) = parser.parse_args(args=[])
-    assert not config.bool
+    parser = to_optparse(config, ['bool1', 'bool2'])
+    (options, args) = parser.parse_args(args=['--no-bool2'])
+    assert not config.bool1
+    assert not config.bool2
 
     py.test.raises(SystemExit,
             "(options, args) = parser.parse_args(args=['-bfoo'])")
