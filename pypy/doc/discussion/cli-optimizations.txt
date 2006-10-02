@@ -204,3 +204,22 @@ Optimize StaticMethod
            I think I don't know how to detect them
 <pedronis> antocuni: you should try to render them just as static methods not as instances when possible
            you need to track what appears only in direct_calls vs other places
+
+
+Optimize Unicode
+----------------
+
+We should try to use native .NET unicode facilities instead of our
+own. These should save both time (especially startup time) and memory.
+
+On 2006-10-02 I got these benchmarks:
+
+Pypy.NET             Startup time   Memory used
+with unicodedata          ~12 sec     112508 Kb
+without unicodedata        ~6 sec      79004 Kb
+
+The version without unicodedata is buggy, of course.
+
+Unfortunately it seems that .NET doesn't expose all the things we
+need, so we will still need some data. For example there is no way to
+get the unicode name of a char.
