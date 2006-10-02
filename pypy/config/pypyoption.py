@@ -8,7 +8,8 @@ all_modules = [p.basename for p in modulepath.listdir()
                    if p.check(dir=True, dotfile=False)]
 
 default_modules = dict.fromkeys(
-    ["unicodedata", "_codecs", "gc", "_weakref", "array", "marshal", "errno",
+    [#"unicodedata",
+     "_codecs", "gc", "_weakref", "array", "marshal", "errno",
      "math", "_sre", "_pickle_support", "sys", "exceptions", "__builtins__",
      "recparser", "symbol", "_random"])
                               

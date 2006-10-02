@@ -220,7 +220,7 @@ class ObjSpace(object):
         except AttributeError:
             pass
 
-        modules = ['sys', '__builtin__', 'exceptions', 'unicodedata',
+        modules = ['sys', '__builtin__', 'exceptions',  # 'unicodedata',
                    '_codecs', 'gc', '_weakref', 'array', 'marshal', 'errno',
                    'math', '_sre', '_pickle_support']
 
