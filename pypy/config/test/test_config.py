@@ -167,6 +167,8 @@ def test_optparse_boolgroup():
                    default=False),
         BoolOption("strdict", "use dictionaries optimized for string keys",
                    default=False),
+        BoolOption("normal", "do nothing special",
+                   default=True),
     ], cmdline="--test")
     descr = OptionDescription("all", '', [group])
     config = Config(descr)
@@ -177,6 +179,7 @@ def test_optparse_boolgroup():
     assert config.test.smallint
     assert config.test.strjoin
     assert config.test.strdict
+    assert config.test.normal
 
     config = Config(descr)
     parser = to_optparse(config, ['test'])
@@ -186,6 +189,17 @@ def test_optparse_boolgroup():
     assert config.test.smallint
     assert not config.test.strjoin
     assert not config.test.strdict
+    assert config.test.normal
+
+    config = Config(descr)
+    parser = to_optparse(config, ['test'])
+    (options, args) = parser.parse_args(
+        args=['--test=-normal,smallint'])
+    
+    assert config.test.smallint
+    assert not config.test.strjoin
+    assert not config.test.strdict
+    assert not config.test.normal
 
 def test_config_start():
     descr = make_description()

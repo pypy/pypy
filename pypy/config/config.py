@@ -284,11 +284,16 @@ class OptionDescription(object):
                 values = value.split(",")
                 for value in values:
                     value = value.strip()
+                    if value.startswith("-"):
+                        value = value[1:]
+                        set_to = False
+                    else:
+                        set_to = True
                     option = getattr(self, value, None)
                     if option is None:
                         raise ValueError("did not find option %s" % (value, ))
                     getattr(config, self._name).setoption(
-                        value, True, who='cmdline')
+                        value, set_to, who='cmdline')
             except ValueError, e:
                 raise optparse.OptionValueError(e.args[0])
         parser.add_option(help=self._name, action='callback', type='string',
