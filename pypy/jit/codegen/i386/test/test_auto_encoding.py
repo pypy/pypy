@@ -262,7 +262,7 @@ def complete_tests():
 
 def test_auto():
     import os
-    g = os.popen('as --version')
+    g = os.popen('as -version </dev/null -o /dev/null 2>&1')
     data = g.read()
     g.close()
     if not data.startswith('GNU assembler'):
