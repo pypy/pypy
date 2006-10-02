@@ -158,6 +158,7 @@ opcodes = {
 
     'llong_is_true':            [PushAllArgs, 'ldc.i8 0', 'cgt.un'],
     'llong_neg':                'neg',
+    'llong_neg_ovf':            _check_ovf(['ldc.i8 0', PushAllArgs, 'sub.ovf', StoreResult]),
     'llong_abs':                _abs('int64'),
     'llong_invert':             'not',
 
