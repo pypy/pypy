@@ -276,6 +276,9 @@ class BoehmGcRuntimeTypeInfo_OpaqueNode(ContainerNode):
     def implementation(self):
         yield 'char %s  /* uninitialized */;' % self.name
 
+class FrameworkGcRuntimeTypeInfo_OpaqueNode(BoehmGcRuntimeTypeInfo_OpaqueNode):
+    nodekind = 'framework rtti'
+
 
 class MoreExactBoehmGcPolicy(BoehmGcPolicy):
     """ policy to experiment with giving some layout information to boehm. Use
@@ -389,10 +392,10 @@ class FrameworkGcPolicy(BasicGcPolicy):
         pass
 
     def rtti_type(self):
-        return BoehmGcRuntimeTypeInfo_OpaqueNode.typename
+        return FrameworkGcRuntimeTypeInfo_OpaqueNode.typename
 
     def rtti_node_factory(self):
-        return BoehmGcRuntimeTypeInfo_OpaqueNode
+        return FrameworkGcRuntimeTypeInfo_OpaqueNode
 
     def pre_pre_gc_code(self):
         yield '#define USING_FRAMEWORK_GC'
