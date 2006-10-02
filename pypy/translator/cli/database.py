@@ -679,16 +679,35 @@ class InstanceConst(AbstractConst):
         INSTANCE = self.value._TYPE
         if INSTANCE is not self.static_type:
             ilasm.opcode('castclass', self.cts.lltype_to_cts(INSTANCE, include_class=False))
+
+        # XXX, horrible hack: first collect all consts, then render
+        # CustomDicts at last because their ll_set could need other
+        # fields already initialized. We should really think a more
+        # general way to handle such things.
+        const_list = []
         while INSTANCE is not None:
             for name, (TYPE, default) in INSTANCE._fields.iteritems():
                 if TYPE is ootype.Void:
                     continue
                 value = getattr(self.value, name)
-                type_ = self.cts.lltype_to_cts(TYPE)
-                ilasm.opcode('dup')
-                AbstractConst.load(self.db, TYPE, value, ilasm)
-                ilasm.opcode('stfld %s %s::%s' % (type_, self.db.class_name(INSTANCE), name))
+                const_list.append((TYPE, INSTANCE, name, value))
             INSTANCE = INSTANCE._superclass
+
+        def mycmp(x, y):
+            if isinstance(x[0], ootype.CustomDict) and not isinstance(y[0], ootype.CustomDict):
+                return 1 # a CustomDict is always greater than non-CustomDicts
+            elif isinstance(y[0], ootype.CustomDict) and not isinstance(x[0], ootype.CustomDict):
+                return -1 # a non-CustomDict is always less than CustomDicts
+            else:
+                return cmp(x, y)
+        const_list.sort(mycmp)
+        
+        for TYPE, INSTANCE, name, value in const_list:
+            type_ = self.cts.lltype_to_cts(TYPE)
+            ilasm.opcode('dup')
+            AbstractConst.load(self.db, TYPE, value, ilasm)
+            ilasm.opcode('stfld %s %s::%s' % (type_, self.db.class_name(INSTANCE), name))
+
         ilasm.opcode('pop')
 
 class WeakRefConst(AbstractConst):
