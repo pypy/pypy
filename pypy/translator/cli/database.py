@@ -23,7 +23,7 @@ except NameError:
 DEBUG_CONST_INIT = False
 DEBUG_CONST_INIT_VERBOSE = False
 MAX_CONST_PER_STEP = 100
-LAZYNESS = True
+LAZYNESS = False
 
 CONST_NAMESPACE = 'pypy.runtime'
 CONST_CLASS = 'Constants'
