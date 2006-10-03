@@ -1,5 +1,6 @@
 import pdb
 import types
+import code
 from pypy.objspace.flow.model import FunctionGraph
 
 class _EnableGraphic:
@@ -396,6 +397,12 @@ start serving graphs on <port>
             print "*** display already there"
             return
         raise _EnableGraphic(int(arg))
+
+    def do_interact(self, arg):
+        """invoke a code.py sub prompt"""
+        ns = self.curframe.f_globals.copy()
+        ns.update(self.curframe.f_locals)
+        code.interact("*interactive*", local=ns)
 
     def help_graphs(self):
         print "graph commands are: showg, flowg, callg, classhier, enable_graphic"
