@@ -702,3 +702,31 @@ def summary(graph):
             if op.opname != 'same_as':
                 insns[op.opname] = insns.get(op.opname, 0) + 1
     return insns
+
+def safe_iterblocks(graph):
+    # for debugging or displaying broken graphs.
+    # You still have to check that the yielded blocks are really Blocks.
+    block = getattr(graph, 'startblock', None)
+    yield block
+    seen = {block: True}
+    stack = list(getattr(block, 'exits', [])[::-1])
+    while stack:
+        block = stack.pop().target
+        if block not in seen:
+            yield block
+            seen[block] = True
+            stack += getattr(block, 'exits', [])[::-1]
+
+def safe_iterlinks(graph):
+    # for debugging or displaying broken graphs.
+    # You still have to check that the yielded links are really Links.
+    block = getattr(graph, 'startblock', None)
+    seen = {block: True}
+    stack = list(getattr(block, 'exits', [])[::-1])
+    while stack:
+        link = stack.pop()
+        yield link
+        block = getattr(link, 'target', None)
+        if block not in seen:
+            seen[block] = True
+            stack += getattr(block, 'exits', [])[::-1]

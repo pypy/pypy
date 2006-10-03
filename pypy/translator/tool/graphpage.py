@@ -1,5 +1,6 @@
 import inspect, types
-from pypy.objspace.flow.model import traverse, Block, Link, FunctionGraph
+from pypy.objspace.flow.model import Block, Link, FunctionGraph
+from pypy.objspace.flow.model import safe_iterblocks, safe_iterlinks
 from pypy.translator.tool.make_dot import DotGen, make_dot, make_dot_graphs
 from pypy.annotation.model import SomePBC
 from pypy.annotation.description import MethodDesc
@@ -150,24 +151,23 @@ class FlowGraphPage(GraphPage):
         if isinstance(self.annotator, HintAnnotator):
             return
 
-        def visit(node):
-            if isinstance(node, Block):
-                vars = node.getvariables()
-            elif isinstance(node, Link):
-                vars = node.getextravars()
-            else:
-                return
-            for var in vars:
-                if hasattr(var, 'concretetype'):
-                    #info = self.links.get(var.name, var.name)
-                    #info = '(%s) %s' % (var.concretetype, info)
-                    info = str(var.concretetype)
-                    if info == 'Void':     # gray out Void variables
-                        info = info, (160,160,160)
-                    self.links[var.name] = info
-
-        for graph in graphs:
-            traverse(visit, graph)
+        vars = {}
+        for block in safe_iterblocks(graph):
+            if isinstance(block, Block):
+                for v in block.getvariables():
+                    vars[v] = True
+        for link in safe_iterlinks(graph):
+            if isinstance(link, Link):
+                for v in link.getextravars():
+                    vars[v] = True
+        for var in vars:
+            if hasattr(var, 'concretetype'):
+                #info = self.links.get(var.name, var.name)
+                #info = '(%s) %s' % (var.concretetype, info)
+                info = str(var.concretetype)
+                if info == 'Void':     # gray out Void variables
+                    info = info, (160,160,160)
+                self.links[var.name] = info
 
     def followlink(self, varname):
         # clicking on a variable name shows its binding history

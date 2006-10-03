@@ -87,7 +87,7 @@ class FlowGraphDotGen(DotGen):
         self.prefix = name
         self.enter_subgraph(name)
         self.visit_FunctionGraph(node)
-        for block in node.iterblocks():
+        for block in safe_iterblocks(node):
             self.visit_Block(block)
         self.leave_subgraph()
 
@@ -121,6 +121,11 @@ class FlowGraphDotGen(DotGen):
     def visit_Block(self, block):
         # do the block itself
         name = self.blockname(block)
+        if not isinstance(block, Block):
+            data = "BROKEN BLOCK\\n%r" % (block,)
+            self.emit_node(name, label=data)
+            return
+            
         lines = []
         for op in block.operations:
             lines.extend(repr(op).split('\n'))
