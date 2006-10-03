@@ -10,8 +10,8 @@ from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 
 FOLDABLE_OPS = dict.fromkeys(lloperation.enum_foldable_ops())
 
-def debug_view(*ll_objects):
-    lloperation.llop.debug_view(lltype.Void, *ll_objects)
+debug_view = lloperation.llop.debug_view
+debug_print = lloperation.llop.debug_print
 
 # ____________________________________________________________
 # emit ops
@@ -576,7 +576,7 @@ def ll_promote(jitstate, promotebox, promotiondesc):
 
             promotenode = resuming.path.pop()
             assert isinstance(promotenode, PromotionPathPromote)
-            #debug_view(promotenode, resuming, incoming)
+            #debug_view(lltype.Void, promotenode, resuming, incoming)
             pm = promotenode.promotion_point
             assert pm.promotion_path is promotenode.next
 
@@ -813,6 +813,7 @@ class CompilationInterrupted(Exception):
 def merge_returning_jitstates(jitstate):
     dispatchqueue = jitstate.frame.dispatchqueue
     return_chain = dispatchqueue.return_chain
+    resuming = jitstate.resuming
     return_cache = {}
     still_pending = None
     while return_chain is not None:
@@ -824,6 +825,7 @@ def merge_returning_jitstates(jitstate):
             jitstate.next = still_pending
             still_pending = jitstate
     if still_pending is None:
+        assert resuming is None
         raise CompilationInterrupted
     most_general_jitstate = still_pending
     still_pending = still_pending.next
@@ -834,7 +836,6 @@ def merge_returning_jitstates(jitstate):
                                           return_marker)
         assert res is True   # finished
 
-    resuming = most_general_jitstate.resuming
     if resuming is not None:
         resuming.leave_call(dispatchqueue)
         
@@ -873,8 +874,13 @@ def leave_frame(jitstate):
 def leave_graph_yellow(jitstate):
     mydispatchqueue = jitstate.frame.dispatchqueue
     return_chain = mydispatchqueue.return_chain
-    jitstate = return_chain
     resuming = jitstate.resuming
+    if return_chain is None:
+        assert resuming is None
+        raise CompilationInterrupted
+    if resuming is not None:
+        resuming.leave_call(mydispatchqueue)
+    jitstate = return_chain
     if resuming is not None:
         resuming.leave_call(mydispatchqueue)
     while jitstate is not None:
