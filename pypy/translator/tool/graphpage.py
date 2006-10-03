@@ -152,14 +152,15 @@ class FlowGraphPage(GraphPage):
             return
 
         vars = {}
-        for block in safe_iterblocks(graph):
-            if isinstance(block, Block):
-                for v in block.getvariables():
-                    vars[v] = True
-        for link in safe_iterlinks(graph):
-            if isinstance(link, Link):
-                for v in link.getextravars():
-                    vars[v] = True
+        for graph in graphs:
+            for block in safe_iterblocks(graph):
+                if isinstance(block, Block):
+                    for v in block.getvariables():
+                        vars[v] = True
+            for link in safe_iterlinks(graph):
+                if isinstance(link, Link):
+                    for v in link.getextravars():
+                        vars[v] = True
         for var in vars:
             if hasattr(var, 'concretetype'):
                 #info = self.links.get(var.name, var.name)
