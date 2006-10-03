@@ -1,6 +1,11 @@
 from py.test import raises
+from pypy.conftest import gettestobjspace
 
 class AppTestUnicodeData:
+    def setup_class(cls):
+        space = gettestobjspace(usemodules=('unicodedata',))
+        cls.space = space
+
     def test_hangul_syllables(self):
         import unicodedata
         # Test all leading, vowel and trailing jamo

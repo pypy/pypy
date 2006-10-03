@@ -158,6 +158,26 @@ def read_unicodedata(unicodedata_file, exclusions_file, east_asian_width_file):
 
     return table
 
+def read_unihan(unihan_file):
+    if unihan_file is None:
+        return {}
+    extra_numeric = {}
+    for line in unihan_file:
+        if not line.startswith('U+'):
+            continue
+        code, tag, value = line.split(None, 3)[:3]
+        if tag not in ('kAccountingNumeric', 'kPrimaryNumeric', 'kOtherNumeric'):
+            continue
+        value = value.strip().replace(',', '')
+        if '/' in value:
+            numerator, denomenator = value.split('/')
+            numeric = Fraction(float(numerator), float(denomenator))
+        else:
+            numeric = float(value)
+        code = int(code[2:], 16)
+        extra_numeric[code] = numeric
+    return extra_numeric
+
 def writeDict(outfile, name, dictionary):
     print >> outfile, '%s = {' % name
     keys = dictionary.keys()
@@ -276,7 +296,7 @@ def _get_record(code):
     print >> outfile, 'def mirrored(code): return _get_record(code)[3] & %d != 0'% IS_MIRRORED
     print >> outfile, 'def combining(code): return _get_record(code)[4]'
 
-def writeUnicodedata(version, table, outfile):
+def writeUnicodedata(version, table, outfile, extra_numeric):
     # Version
     print >> outfile, 'version = %r' % version
     print >> outfile
@@ -389,6 +409,8 @@ def name(code):
             digit[code] = table[code].digit
         if table[code].numeric is not None:
             numeric[code] = table[code].numeric
+    if extra_numeric:
+        numeric.update(extra_numeric)
             
     writeDict(outfile, '_decimal', decimal)
     writeDict(outfile, '_digit', digit)
@@ -490,13 +512,17 @@ if __name__ == '__main__':
         if opt in ('-v', '--version'):
             unidata_version = val
 
-    if len(args) != 3:
-        raise RuntimeError('Usage: %s [-o outfile] [-v version] UnicodeDataFile CompositionExclutionsFile EastAsianWidthFile')
+    if len(args) < 3 or len(args) > 4:
+        raise RuntimeError('Usage: %s [-o outfile] [-v version] UnicodeDataFile CompositionExclutionsFile EastAsianWidthFile [UnihanFile]')
     
     infilename = args[0]
     infile = open(infilename, 'r')
     exclusions = open(args[1])
     east_asian_width = file(args[2])
+    if len(args) > 3:
+        unihan = file(args[3])
+    else:
+        unihan = None
     if unidata_version is None:
         m = re.search(r'-([0-9]+\.)+', infilename)
         if m:
@@ -506,8 +532,9 @@ if __name__ == '__main__':
         raise ValueError('No version specified')
 
     table = read_unicodedata(infile, exclusions, east_asian_width)
+    extra_numeric = read_unihan(unihan)
     print >> outfile, '# UNICODE CHARACTER DATABASE'
     print >> outfile, '# This file was generated with the command:'
     print >> outfile, '#    ', ' '.join(sys.argv)
     print >> outfile
-    writeUnicodedata(unidata_version, table, outfile)
+    writeUnicodedata(unidata_version, table, outfile, extra_numeric)
