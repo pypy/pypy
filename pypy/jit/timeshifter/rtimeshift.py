@@ -202,15 +202,14 @@ def start_new_block(states_dic, jitstate, key, global_resumer):
     res = frozen.exactmatch(jitstate, outgoingvarboxes, memo)
     assert res, "exactmatch() failed"
     newblock = enter_next_block(jitstate, outgoingvarboxes)
-    # XXX don't save newblock, or have rgenop produce None, when resuming
     states_dic[key] = frozen, newblock
     if global_resumer is not None and global_resumer is not return_marker:
         greens_gv = jitstate.greens
         rgenop = jitstate.curbuilder.rgenop
-        jitstate.promotion_path = PromotionPathRoot(greens_gv, rgenop,
-                                                    frozen, newblock,
-                                                    global_resumer)
-        # XXX put a PromotionPathMergesToSee too
+        node = PromotionPathRoot(greens_gv, rgenop,
+                                 frozen, newblock,
+                                 global_resumer)
+        jitstate.promotion_path = PromotionPathMergesToSee(node, 0)
 start_new_block._annspecialcase_ = "specialize:arglltype(2)"
 
 def retrieve_jitstate_for_merge(states_dic, jitstate, key, global_resumer):
@@ -456,6 +455,7 @@ class PromotionPathRoot(AbstractPromotionPath):
         jitstate.greens = self.greens_gv
         jitstate.resuming = resuminginfo
         assert jitstate.frame.backframe is None
+        resuminginfo.merges_to_see()
         self.global_resumer(jitstate)
         builder.show_incremental_progress()
 
