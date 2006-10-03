@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Runtime.Serialization.Formatters.Binary;
+using System.Runtime.Serialization;
+using System.IO;
 using pypy.runtime;
 
 namespace pypy.test
@@ -115,8 +118,46 @@ namespace pypy.runtime
         {
             return obj.GetHashCode();
         }
+
+        public static void Serialize(object obj, string filename)
+        {
+            FileStream fs = new FileStream(filename, FileMode.Create);
+            BinaryFormatter formatter = new BinaryFormatter();
+            try {
+                formatter.Serialize(fs, obj);
+            }
+            catch (SerializationException e) {
+                Console.Error.WriteLine("Failed to serialize. Reason: " + e.Message);
+                throw;
+            }
+            finally {
+                fs.Close();
+            }
+        }
+
+        public static object Deserialize(string filename)
+        {
+            FileStream fs = null;
+            try {
+                fs = new FileStream(filename, FileMode.Open);
+                BinaryFormatter formatter = new BinaryFormatter();
+                return formatter.Deserialize(fs);
+            }
+            catch (FileNotFoundException e) {
+                return null;
+            }
+            catch (SerializationException e) {
+                Console.Error.WriteLine("Failed to deserialize. Reason: " + e.Message);
+                return null;
+            }
+            finally {
+                if (fs != null)
+                    fs.Close();
+            }
+        }
     }
 
+    [Serializable()]
     public class StringBuilder
     {
         System.Text.StringBuilder builder = new System.Text.StringBuilder();
@@ -250,6 +291,7 @@ namespace pypy.runtime
 
     //The public interface List must implement is defined in
     // rpython.ootypesystem.ootype.List.GENERIC_METHODS
+    [Serializable()]
     public class List<T>: System.Collections.Generic.List<T>
     {
         public List(): base()
@@ -319,6 +361,7 @@ namespace pypy.runtime
         }
     }
 
+    [Serializable()]
     public class ListOfVoid
     {
         int Count = 0;
@@ -344,6 +387,7 @@ namespace pypy.runtime
         public void _ll_resize_le(int length) { this.Count = length; }
     }
 
+    [Serializable()]
     public class Dict<TKey, TValue>: System.Collections.Generic.Dictionary<TKey, TValue>
     {
         IEqualityComparer<TKey> comparer = null;
@@ -376,6 +420,7 @@ namespace pypy.runtime
     }
 
     // it assumes TValue is a placeholder, it's not really used
+    [Serializable()]
     public class DictOfVoid<TKey, TValue>: System.Collections.Generic.Dictionary<TKey, TValue>
     {
         public int ll_length() { return this.Count; }
@@ -391,6 +436,7 @@ namespace pypy.runtime
         }
     }
 
+    [Serializable()]
     public class DictVoidVoid
     {
         public int ll_length() { return 0; }
@@ -409,6 +455,7 @@ namespace pypy.runtime
         */
     }
 
+    [Serializable()]
     public class DictItemsIterator<TKey, TValue>
     {
         IEnumerator<KeyValuePair<TKey, TValue>> it;
@@ -423,6 +470,7 @@ namespace pypy.runtime
         public TValue ll_current_value() { return it.Current.Value; }
     }
 
+    [Serializable()]
     public class Record_Float_Signed {
         public double item0;
         public int item1;
@@ -435,6 +483,7 @@ namespace pypy.runtime
         public override int GetHashCode() { return item0.GetHashCode(); }
     }
 
+    [Serializable()]
     public class Record_Float_Float {
         public double item0;
         public double item1;
@@ -447,6 +496,7 @@ namespace pypy.runtime
         public override int GetHashCode() { return item0.GetHashCode(); }
     }
 
+    [Serializable()]
     public class Record_Stat_Result {
         public int item0, item1, item2, item3, item4, item5, item6, item7, item8, item9;
         public override string ToString() 

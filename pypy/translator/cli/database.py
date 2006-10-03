@@ -8,7 +8,7 @@ from pypy.translator.cli.delegate import Delegate
 from pypy.translator.cli.comparer import EqualityComparer
 from pypy.translator.cli.node import Node
 from pypy.translator.cli.support import string_literal, Counter
-from pypy.translator.cli.constgenerator import StaticFieldConstGenerator, LazyConstGenerator
+from pypy.translator.cli.constgenerator import StaticFieldConstGenerator, InstanceFieldConstGenerator, LazyConstGenerator
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem.module import ll_os
 from pypy.rpython.lltypesystem import lltype
@@ -21,6 +21,7 @@ try:
 except NameError:
     from sets import Set as set
 
+#CONST_GENERATOR = InstanceFieldConstGenerator
 CONST_GENERATOR = StaticFieldConstGenerator
 #CONST_GENERATOR = LazyConstGenerator
 

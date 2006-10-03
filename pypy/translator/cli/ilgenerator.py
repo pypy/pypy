@@ -56,7 +56,7 @@ class IlasmGenerator(object):
         self.code.closeblock()
 
     def begin_class(self, name, base=None, sealed=False, interfaces=(), abstract=False,
-                    beforefieldinit=False):
+                    beforefieldinit=False, serializable=True):
         if base is None:
             base = '[mscorlib]System.Object'
         s = ''
@@ -66,6 +66,8 @@ class IlasmGenerator(object):
             s += 'sealed '
         if beforefieldinit:
             s += 'beforefieldinit '
+        if serializable:
+            s += 'serializable '
 
         self.code.writeline('.class public %s %s extends %s' % (s, name, base))
         if interfaces:
