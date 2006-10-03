@@ -13,17 +13,25 @@ from pypy.translator.backendopt import support
 
 
 class MergePointFamily(object):
-    def __init__(self, tsgraph, is_global=False):
+    def __init__(self, tsgraph):
         self.tsgraph = tsgraph
-        self.is_global = is_global
         self.count = 0
         self.resumepoint_after_mergepoint = {}
-    def add(self):
+        self.localmergepoints = []
+        
+    def add(self, kind):
         result = self.count
         self.count += 1
-        return 'mp%d' % result
-    def getattrnames(self):
-        return ['mp%d' % i for i in range(self.count)]
+        attrname = 'mp%d' % result
+        if kind == 'local':
+            self.localmergepoints.append(attrname)
+        return attrname
+
+    def getlocalattrnames(self):
+        return self.localmergepoints
+
+    def has_global_mergepoints(self):
+        return bool(self.resumepoint_after_mergepoint)
 
 
 class HintGraphTransformer(object):
@@ -33,11 +41,9 @@ class HintGraphTransformer(object):
         self.hannotator = hannotator
         self.graph = graph
         self.graphcolor = self.graph_calling_color(graph)
-        self.global_merge_points = self.graph_global_mps(self.graph)
         self.resumepoints = {}
         self.mergepoint_set = {}    # set of blocks
-        self.mergepointfamily = MergePointFamily(graph,
-                                                 self.global_merge_points)
+        self.mergepointfamily = MergePointFamily(graph)
         self.c_mpfamily = inputconst(lltype.Void, self.mergepointfamily)
         self.tsgraphs_seen = []
 
@@ -54,11 +60,15 @@ class HintGraphTransformer(object):
 
     def compute_merge_points(self):
         entrymap = mkentrymap(self.graph)
+        if self.graph_global_mps(self.graph):
+            kind = 'global'
+        else:
+            kind = 'local'
         for block, links in entrymap.items():
             if len(links) > 1 and block is not self.graph.returnblock:
-                self.mergepoint_set[block] = True
-        if self.global_merge_points:
-            self.mergepoint_set[self.graph.startblock] = True
+                self.mergepoint_set[block] = kind
+        if kind == 'global':
+            self.mergepoint_set[self.graph.startblock] = 'global'
 
     def graph_calling_color(self, tsgraph):
         args_hs, hs_res = self.hannotator.bookkeeper.tsgraphsigs[tsgraph]
@@ -280,17 +290,17 @@ class HintGraphTransformer(object):
         self.go_to_if(block, self.graph.returnblock, v_finished_flag)
 
     def insert_merge_points(self):
-        for block in self.mergepoint_set:
-            self.insert_merge(block)
+        for block, kind in self.mergepoint_set.items():
+            self.insert_merge(block, kind)
 
-    def insert_merge(self, block):
+    def insert_merge(self, block, kind):
         reds, greens = self.sort_by_color(block.inputargs)
         nextblock = self.naive_split_block(block, 0)
 
         self.genop(block, 'save_locals', reds)
-        mp   = self.mergepointfamily.add()
+        mp   = self.mergepointfamily.add(kind)
         c_mp = inputconst(lltype.Void, mp)
-        if self.global_merge_points:
+        if kind == 'global':
             self.genop(block, 'save_greens', greens)
             prefix = 'global_'
         else:
@@ -313,15 +323,15 @@ class HintGraphTransformer(object):
         SSA_to_SSI({block    : True,    # reachable from outside
                     nextblock: False}, self.hannotator)
 
-        if self.global_merge_points:
+        if kind == 'global':
             N = self.get_resume_point(nextblock)
             self.mergepointfamily.resumepoint_after_mergepoint[mp] = N
 
     def insert_dispatcher(self):
-        if self.global_merge_points or self.resumepoints:
+        if self.resumepoints:
             block = self.before_return_block()
             self.genop(block, 'dispatch_next', [])
-            if self.global_merge_points:
+            if self.mergepointfamily.has_global_mergepoints():
                 block = self.before_return_block()
                 entryblock = self.before_start_block()
                 v_rp = self.genop(entryblock, 'getresumepoint', [],
@@ -576,8 +586,9 @@ class HintGraphTransformer(object):
         link.args = []
         link.target = self.get_resume_point_link(nextblock).target
 
-        self.mergepoint_set[nextblock] = True  # to merge some of the possibly
-                                               # many return jitstates
+        # to merge some of the possibly many return jitstates
+        self.mergepoint_set[nextblock] = 'local'  
+        
 
     # __________ hints __________
 

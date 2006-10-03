@@ -239,11 +239,8 @@ class HintRTyper(RPythonTyper):
         try:
             return self.dispatchsubclasses[mergepointfamily]
         except KeyError:
-            if mergepointfamily.is_global:
-                subclass = rtimeshift.BaseDispatchQueue
-            else:
-                attrnames = mergepointfamily.getattrnames()
-                subclass = rtimeshift.build_dispatch_subclass(attrnames)
+            attrnames = mergepointfamily.getlocalattrnames()
+            subclass = rtimeshift.build_dispatch_subclass(attrnames)
             self.dispatchsubclasses[mergepointfamily] = subclass
             return subclass
 
@@ -729,16 +726,17 @@ class HintRTyper(RPythonTyper):
         args_s += [self.s_ConstOrVar] * len(greens_v)
         args_v = [v_jitstate, c_resumepoint]
         args_v += greens_v
-        hop.llops.genmixlevelhelpercall(rtimeshift.collect_split,
-                                        args_s, args_v,
-                                        annmodel.s_None)
+        v_newjs = hop.llops.genmixlevelhelpercall(rtimeshift.collect_split,
+                                                  args_s, args_v,
+                                                  self.s_JITState)
+        hop.llops.setjitstate(v_newjs)
 
     def translate_op_merge_point(self, hop, global_resumer=None):
         mpfamily = hop.args_v[0].value
         attrname = hop.args_v[1].value
         DispatchQueueSubclass = self.get_dispatch_subclass(mpfamily)
 
-        if mpfamily.is_global:
+        if global_resumer is not None:
             states_dic = {}
             def merge_point(jitstate, *key):
                 return rtimeshift.retrieve_jitstate_for_merge(states_dic,
@@ -746,9 +744,9 @@ class HintRTyper(RPythonTyper):
                                                               global_resumer)
         else:
             def merge_point(jitstate, *key):
-                dispatch_queue = jitstate.frame.dispatch_queue
-                assert isinstance(dispatch_queue, DispatchQueueSubclass)
-                states_dic = getattr(dispatch_queue, attrname)
+                dispatchqueue = jitstate.frame.dispatchqueue
+                assert isinstance(dispatchqueue, DispatchQueueSubclass)
+                states_dic = getattr(dispatchqueue, attrname)
                 return rtimeshift.retrieve_jitstate_for_merge(states_dic,
                                                               jitstate, key,
                                                               global_resumer)
@@ -789,7 +787,10 @@ class HintRTyper(RPythonTyper):
         s_res = self.s_JITState
         tsfn = annlowlevel.PseudoHighLevelCallable(ts_fnptr, args_s, s_res)
 
+        DispatchQueueSubclass = self.get_dispatch_subclass(mpfamily)
+
         def call_for_global_resuming(jitstate):
+            jitstate.frame.dispatchqueue = DispatchQueueSubclass()
             jitstate.resumepoint = N
             try:
                 finaljitstate = tsfn(jitstate, *dummy_args)
