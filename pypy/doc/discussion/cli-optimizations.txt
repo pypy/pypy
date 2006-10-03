@@ -197,13 +197,15 @@ lookup.
 Optimize StaticMethod
 ---------------------
 
-2006-10-02, 13:41
+::
 
-<pedronis> antocuni: do you try to not wrap static methods that are just called and not passed around
-<antocuni> no
-           I think I don't know how to detect them
-<pedronis> antocuni: you should try to render them just as static methods not as instances when possible
-           you need to track what appears only in direct_calls vs other places
+  2006-10-02, 13:41
+
+  <pedronis> antocuni: do you try to not wrap static methods that are just called and not passed around
+  <antocuni> no
+             I think I don't know how to detect them
+  <pedronis> antocuni: you should try to render them just as static methods not as instances when possible
+             you need to track what appears only in direct_calls vs other places
 
 
 Optimize Unicode
