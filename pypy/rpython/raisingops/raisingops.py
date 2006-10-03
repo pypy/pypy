@@ -1,8 +1,15 @@
+import sys
 from pypy.rpython.rarithmetic import r_longlong, r_uint, intmask
 
 #XXX original SIGNED_RIGHT_SHIFT_ZERO_FILLS not taken into account
 #XXX assuming HAVE_LONG_LONG (int_mul_ovf)
 #XXX should int_mod and int_floordiv return an intmask(...) instead?
+
+LONG_MAX = sys.maxint
+LONG_MIN = -sys.maxint-1
+
+LLONG_MAX = r_longlong(2 ** (r_longlong.BITS-1) - 1)
+LLONG_MIN = -LLONG_MAX-1
 
 def int_floordiv_zer(x, y):
     '''#define OP_INT_FLOORDIV_ZER(x,y,r,err) \
@@ -25,31 +32,30 @@ def uint_floordiv_zer(x, y):
         raise ZeroDivisionError("unsigned integer division")
 
 def int_neg_ovf(x):
-    '''#define OP_INT_NEG_OVF(x,r,err) \
-        OP_INT_NEG(x,r,err); \
-        if ((x) >= 0 || (x) != -(x)); \
-        else FAIL_OVF(err, "integer negate")
-    '''
-    r = -x
-    if x >= 0 or x != r:
-        return r
-    else:
+    if x == LONG_MIN:
         raise OverflowError("integer negate")
+    return -x
+
+def llong_neg_ovf(x):
+    if x == LLONG_MIN:
+        raise OverflowError("integer negate")
+    return -x
 
 def int_abs_ovf(x):
-    '''#define OP_INT_ABS_OVF(x,r,err) \
-        OP_INT_ABS(x,r,err); \
-        if ((x) >= 0 || (x) != -(x)); \
-        else FAIL_OVF(err, "integer absolute")
-    '''
-    if x >= 0:
-        r = x
-    else:
-        r = -x
-    if x >= 0 or x != r:
-        return r
-    else:
+    if x == LONG_MIN:
         raise OverflowError("integer absolute")
+    if x < 0:
+        return -x
+    else:
+        return x
+
+def llong_abs_ovf(x):
+    if x == LLONG_MIN:
+        raise OverflowError("integer absolute")
+    if x < 0:
+        return -x
+    else:
+        return x
 
 def int_add_ovf(x, y):
     '''#define OP_INT_ADD_OVF(x,y,r,err) \
