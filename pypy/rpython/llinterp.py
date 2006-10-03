@@ -635,6 +635,7 @@ class LLFrame(object):
         assert not isinstance(getattr(lltype.typeOf(obj).TO, field),
                               lltype.ContainerType)
         return getattr(obj, field)
+    op_bare_getfield = op_getfield
 
     def op_cast_int_to_ptr(self, RESTYPE, int1):
         return lltype.cast_int_to_ptr(RESTYPE, int1)
