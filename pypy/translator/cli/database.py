@@ -8,6 +8,7 @@ from pypy.translator.cli.delegate import Delegate
 from pypy.translator.cli.comparer import EqualityComparer
 from pypy.translator.cli.node import Node
 from pypy.translator.cli.support import string_literal, Counter
+from pypy.translator.cli.constgenerator import StaticFieldConstGenerator, LazyConstGenerator
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem.module import ll_os
 from pypy.rpython.lltypesystem import lltype
@@ -20,13 +21,9 @@ try:
 except NameError:
     from sets import Set as set
 
-DEBUG_CONST_INIT = False
-DEBUG_CONST_INIT_VERBOSE = False
-MAX_CONST_PER_STEP = 100
-LAZYNESS = False
+CONST_GENERATOR = StaticFieldConstGenerator
+#CONST_GENERATOR = LazyConstGenerator
 
-CONST_NAMESPACE = 'pypy.runtime'
-CONST_CLASS = 'Constants'
 
 BUILTIN_RECORDS = {
     ootype.Record({"item0": ootype.Float, "item1": ootype.Signed}):
@@ -180,22 +177,11 @@ class LowLevelDatabase(object):
             self.pending_node(Delegate(self, TYPE, name))
             return name
 
-    def __new_step(self, ilasm):
-        if self.step > 0:
-            self.__end_step(ilasm) # close the previous step
-        # open the new step
-        ilasm.begin_function('step%d' % self.step, [], 'void', False, 'static')
-        self.step += 1
-
-    def __end_step(self, ilasm):
-        if self.step > 0:
-            ilasm.ret()
-            ilasm.end_function()
 
     def gen_constants(self, ilasm):
         self.locked = True # new pending nodes are not allowed here
-        ilasm.begin_namespace(CONST_NAMESPACE)
-        ilasm.begin_class(CONST_CLASS, beforefieldinit=True)
+        generator = CONST_GENERATOR(ilasm)
+        generator.begin_class()
         
         const_list = [const for const in self.consts.itervalues() if not const.is_inline()]
         const_list.sort(key=operator.attrgetter('PRIORITY'))
@@ -204,63 +190,14 @@ class LowLevelDatabase(object):
         # render field definitions
         for const in const_list:
             assert not const.is_null()
-            ilasm.field(const.name, const.get_type(), static=True)
+            generator.declare_const(const)
 
-        if LAZYNESS:
-            for const in const_list:
-                getter_name = 'get_%s' % const.name
-                type_ = const.get_type()
-                ilasm.begin_function(getter_name, [], type_, False, 'static')
-                ilasm.load_static_constant(type_, CONST_NAMESPACE, CONST_CLASS, const.name)
-                # if it's already initialized, just return it
-                ilasm.opcode('dup')
-                ilasm.opcode('brfalse', 'initialize')
-                ilasm.opcode('ret')
-                # else, initialize!
-                ilasm.label('initialize')
-                ilasm.opcode('pop') # discard the null value we know is on the stack
-                const.instantiate(ilasm)
-                ilasm.opcode('dup') # two dups because const.init pops the value at the end
-                ilasm.opcode('dup')
-                ilasm.store_static_constant(type_, CONST_NAMESPACE, CONST_CLASS, const.name)
-                const.init(ilasm)
-                ilasm.opcode('ret')
-                ilasm.end_function()
-        else:
-            # this point we have collected all constant we
-            # need. Instantiate&initialize them.
-            self.step = 0
-            for i, const in enumerate(const_list):
-                if i % MAX_CONST_PER_STEP == 0:
-                    self.__new_step(ilasm)
-                type_ = const.get_type()
-                const.instantiate(ilasm)
-                ilasm.store_static_constant(type_, CONST_NAMESPACE, CONST_CLASS, const.name)
-
-            for i, const in enumerate(const_list):
-                if i % MAX_CONST_PER_STEP == 0:
-                    self.__new_step(ilasm)
-                ilasm.stderr('CONST: initializing #%d' % i, DEBUG_CONST_INIT_VERBOSE)
-                type_ = const.get_type()
-                ilasm.load_static_constant(type_, CONST_NAMESPACE, CONST_CLASS, const.name)
-                const.init(ilasm)
-            self.__end_step(ilasm) # close the pending step
-
-            ilasm.begin_function('.cctor', [], 'void', False, 'static',
-                'specialname', 'rtspecialname', 'default')
-            ilasm.stderr('CONST: initialization starts', DEBUG_CONST_INIT)
-            for i in range(self.step):
-                ilasm.stderr('CONST: step %d of %d' % (i, self.step), DEBUG_CONST_INIT)
-                step_name = 'step%d' % i
-                ilasm.call('void %s.%s::%s()' % (CONST_NAMESPACE, CONST_CLASS, step_name))
-            ilasm.stderr('CONST: initialization completed', DEBUG_CONST_INIT)
-            ilasm.ret()
-            ilasm.end_function()
-
-        ilasm.end_class()
-        ilasm.end_namespace()
+        generator.generate_consts(const_list)
+        generator.end_class()
         log.INFO("%d constants rendered" % num_const)
         self.locked = False
+
+
 
 class AbstractConst(Node):
     PRIORITY = 0
@@ -370,12 +307,7 @@ class AbstractConst(Node):
         """
         cts = CTS(self.db)
         cts_static_type = self.get_type()
-        if LAZYNESS:
-            getter_name = '%s.%s::%s' % (CONST_NAMESPACE, CONST_CLASS, 'get_%s' % self.name)
-            ilasm.call('%s %s()' % (cts_static_type, getter_name))
-        else:
-            full_name = '%s.%s::%s' % (CONST_NAMESPACE, CONST_CLASS, self.name)
-            ilasm.opcode('ldsfld %s %s' % (cts_static_type, full_name))
+        CONST_GENERATOR.load_const(ilasm, self)
 
         if cts_static_type != cts.lltype_to_cts(EXPECTED_TYPE):
             ilasm.opcode('castclass', cts.lltype_to_cts(EXPECTED_TYPE, include_class=False))
