@@ -154,7 +154,6 @@ class GCTransformer(object):
         # seem to run into all the same problems as the ones we already
         # had to solve there.
         for i, op in enumerate(block.operations):
-            num_ops_after_exc_raising = 0
             ops, index = self.replacement_operations(op, livevars, block)
             if not ops:
                 continue # may happen when we eat gc_protect/gc_unprotect.
