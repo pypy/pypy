@@ -10,33 +10,34 @@ from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.stringobject import W_StringObject
 
-from pypy.objspace.cclp.types import W_AbstractDistributor, Solution
-from pypy.objspace.cclp.thunk import DistributorThunk
+from pypy.objspace.cclp.types import W_AbstractDistributor, Solution, W_Var
 from pypy.objspace.cclp.misc import w, ClonableCoroutine, get_current_cspace
 from pypy.objspace.cclp.global_state import scheduler
-from pypy.objspace.cclp.interp_var import interp_free
-
-def spawn_distributor(space, distributor):
-    thread = ClonableCoroutine(space)
-    thread._cspace = get_current_cspace(space)
-    thunk = DistributorThunk(space, distributor, thread)
-    thread.bind(thunk)
-    if not we_are_translated():
-        w("DISTRIBUTOR THREAD", str(id(thread)))
-    scheduler[0].add_new_thread(thread)
-    scheduler[0].schedule()
+from pypy.objspace.cclp.interp_var import interp_free, interp_bind
 
 def distribute(space, w_strategy):
     assert isinstance(w_strategy, W_StringObject)
     strat = space.str_w(w_strategy)
-    if strat == 'naive':
-        pass
-    elif strat == 'dichotomy':
-        dist = make_split_distributor(space, space.newint(2))
-        spawn_distributor(space, dist)
+    cspace = get_current_cspace(space)
+    if strat == 'dichotomy':
+         cspace.distributor = make_split_distributor(space, space.newint(2))
     else:
         raise OperationError(space.w_RuntimeError,
                              space.wrap("please pick a strategy in (naive, dichotomy)"))
+
+    dist = cspace.distributor
+    # constraint distributor thread main loop
+    try:
+        while dist.distributable():
+            choice = cspace.choose(dist.fanout())
+            dist.w_distribute(choice)
+    except ConsistencyError, e:
+        w("-- DISTRIBUTOR thunk exited because", str(e))
+        cspace.fail()
+    except Exception, eek:
+        if not we_are_translated():
+            import traceback
+            traceback.print_exc()
 app_distribute = interp2app(distribute)
 
 
