@@ -209,7 +209,7 @@ class GCTransformer(object):
                     self.push_alive(var, llops)
             if llops:
                 if link.prevblock.exitswitch is None:
-                    link.prevblock.operations.extend(self.llops)
+                    link.prevblock.operations.extend(llops)
                 else:
                     insert_empty_block(self.translator.annotator, link, llops)
 

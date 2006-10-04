@@ -11,11 +11,11 @@ from pypy import conftest
 
 class _TestGCTransformer(GCTransformer):
 
-    def push_alive_nopyobj(self, var):
-        self.llops.genop("gc_push_alive", [var])
+    def push_alive_nopyobj(self, var, llops):
+        llops.genop("gc_push_alive", [var])
 
-    def pop_alive_nopyobj(self, var):
-        self.llops.genop("gc_pop_alive", [var])
+    def pop_alive_nopyobj(self, var, llops):
+        llops.genop("gc_pop_alive", [var])
 
 
 def checkblock(block, is_borrowed):
