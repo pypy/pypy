@@ -27,17 +27,10 @@ def distribute(space, w_strategy):
 
     dist = cspace.distributor
     # constraint distributor thread main loop
-    try:
-        while dist.distributable():
-            choice = cspace.choose(dist.fanout())
-            dist.w_distribute(choice)
-    except ConsistencyError, e:
-        w("-- DISTRIBUTOR thunk exited because", str(e))
-        cspace.fail()
-    except Exception, eek:
-        if not we_are_translated():
-            import traceback
-            traceback.print_exc()
+    while dist.distributable():
+        choice = cspace.choose(dist.fanout())
+        dist.w_distribute(choice)
+            
 app_distribute = interp2app(distribute)
 
 

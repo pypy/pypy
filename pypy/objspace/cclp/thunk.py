@@ -40,7 +40,6 @@ class ProcedureThunk(_AppThunk):
             except Exception, exc:
                 w(".! exceptional EXIT of procedure", str(id(self._coro)), "with", str(exc))
                 scheduler[0].dirty_traced_vars(self._coro, W_FailedValue(exc))
-                self._coro._dead = True
             else:
                 w(".! clean EXIT of procedure", str(id(self._coro)))
         finally:
@@ -65,7 +64,6 @@ class FutureThunk(_AppThunk):
                 failed_val = W_FailedValue(exc)
                 self.space.bind(self.w_Result, failed_val)
                 scheduler[0].dirty_traced_vars(self._coro, failed_val)
-                self._coro._dead = True
             else:
                 w(".! clean EXIT of future", str(id(self._coro)),
                   "-- setting future result", str(self.w_Result), "to",
@@ -92,29 +90,24 @@ class CSpaceThunk(_AppThunk):
                 _AppThunk.call(self)
             except Exception, exc:
                 # maybe app_level let something buble up ...
-                w("-- exceptional EXIT of cspace DISTRIBUTOR", str(id(self._coro)), "with", str(exc))
+                w("-- exceptional EXIT of DISTRIBUTOR", str(id(self._coro)), "with", str(exc))
                 failed_value = W_FailedValue(exc)
                 scheduler[0].dirty_traced_vars(self._coro, failed_value)
                 interp_bind(cspace._solution, failed_value)
                 cspace.fail()
             else:
                 w("-- clean EXIT of DISTRIBUTOR (success)", str(id(self._coro)))
-                try:
-                    sol = cspace._solution
-                    assert isinstance(sol, W_Var)
-                    interp_bind(sol, self.costate.w_tempval)
-                    outcome = sol.w_bound_to
-                    if not (isinstance(outcome, W_ListObject) or \
-                            isinstance(outcome, W_TupleObject)):
-                        w("WARINING: return value type of the script was not a list or tuple, we do nothing ...")
-                        return
-                    assert interp_free(cspace._choice)
-                    interp_bind(cspace._choice, self.space.newint(1))
-                except Exception, foo:
-                    print "WE DIED BECAUSE", str(foo)
-                    import pdb
-                    pdb.set_trace()
-                
+                sol = cspace._solution
+                assert isinstance(sol, W_Var)
+                interp_bind(sol, self.costate.w_tempval)
+                outcome = sol.w_bound_to
+                if not (isinstance(outcome, W_ListObject) or \
+                        isinstance(outcome, W_TupleObject)):
+                    w("WARNING: return value type of the script was not a list or tuple, we fail ...")
+                    cspace.fail()
+                    return
+                assert interp_free(cspace._choice)
+                interp_bind(cspace._choice, self.space.newint(1))
         finally:
             interp_bind(cspace._finished, self.space.w_True)
             scheduler[0].remove_thread(self._coro)
@@ -156,7 +149,6 @@ class PropagatorThunk(AbstractThunk):
                     import traceback
                     traceback.print_exc()
         finally:
-            self.coro._dead = True
             scheduler[0].remove_thread(self.coro)
             scheduler[0].schedule()
 

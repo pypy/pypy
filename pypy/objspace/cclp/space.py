@@ -3,6 +3,7 @@ from pypy.interpreter import baseobjspace, gateway, argument, typedef
 from pypy.interpreter.error import OperationError
 
 from pypy.objspace.std.intobject import W_IntObject
+from pypy.objspace.std.listobject import W_ListObject, W_TupleObject
 
 from pypy.objspace.cclp.misc import ClonableCoroutine, get_current_cspace, w
 from pypy.objspace.cclp.thunk import CSpaceThunk, PropagatorThunk
@@ -85,8 +86,6 @@ class W_CSpace(baseobjspace.Wrappable):
         self._store = {} # name -> var
         if not we_are_translated():
             self._constraints = []
-            self._choose_count = 0
-            self._commit_count = 0
         
     def register_var(self, cvar):
         self._store[cvar.name] = cvar
@@ -148,14 +147,9 @@ class W_CSpace(baseobjspace.Wrappable):
         return committed
 
     def w_commit(self, w_n):
-        self._commit_count += 1
-        #scheduler[0].wait_stable(self)
-        self._commit_count += 1
         assert isinstance(w_n, W_IntObject)
         n = w_n.intval
-        if not interp_free(self._committed):
-            import pdb
-            pdb.set_trace()
+        assert interp_free(self._committed)
         assert n > 0
         assert n <= self._last_choice
         interp_bind(self._committed, w_n)
@@ -182,19 +176,26 @@ class W_CSpace(baseobjspace.Wrappable):
         self._store = {}
         # let's bind the solution variables
         sol = self._solution.w_bound_to
-        if contains_cvar(sol.wrappeditems):
-            for var in sol.wrappeditems:
-                assert isinstance(var, W_CVar)
-                dom = var.w_dom
-                assert isinstance(dom, W_AbstractDomain)
-                assert dom.size() == 1
-                interp_bind(var, dom.get_values()[0])
+        if isinstance(sol, W_ListObject):
+            bind_solution_variables(sol.wrappeditems)
+        elif isinstance(sol, W_TupleObject):
+            bind_solution_variables(sol.wrappeditems)
         return self._solution
 
     def __ne__(self, other):
         if other is self:
             return False
         return True
+
+
+def bind_solution_variables(solution):
+    if contains_cvar(solution): # was a constraint script
+        for var in solution:
+            assert isinstance(var, W_CVar)
+            dom = var.w_dom
+            assert isinstance(dom, W_AbstractDomain)
+            assert dom.size() == 1
+            interp_bind(var, dom.get_values()[0])
 
 
 def contains_cvar(lst):
