@@ -154,7 +154,7 @@ W_State.typedef = TypeDef("W_State",
     create_regs = interp2app(W_State.w_create_regs),
 )
 
-class MatchContext:
+class MatchContext(object):
 
     UNDECIDED = 0
     MATCHED = 1
@@ -176,7 +176,6 @@ class MatchContext:
         start interpreting from."""
         offset = self.code_position + pattern_offset
         assert offset >= 0
-        #pattern_codes = self.pattern_codes[offset:]
         child_context = MatchContext(self.space, self.state, self.pattern_codes, offset)
         self.state.context_stack.append(child_context)
         self.child_context = child_context
@@ -213,8 +212,8 @@ class MatchContext:
     def skip_code(self, skip_count):
         self.code_position = self.code_position + skip_count
 
-    def remaining_codes(self):
-        return len(self.pattern_codes) - self.code_position
+    def has_remaining_codes(self):
+        return len(self.pattern_codes) != self.code_position
 
     def at_beginning(self):
         return self.string_position == 0
@@ -246,7 +245,6 @@ class RepeatContext(MatchContext):
         self.previous = context.state.repeat
         self.last_position = -1
         self.repeat_stack = []
-
 
 #### Main opcode dispatch loop
 
@@ -347,11 +345,28 @@ def match(space, state, pattern_codes):
             state.context_stack.pop()
     return has_matched == MatchContext.MATCHED
 
+def match(space, state, pattern_codes):
+    if pattern_codes[0] == OPCODE_INFO and pattern_codes[3] > 0:
+        if state.end - state.string_position < pattern_codes[3]:
+            return False
+    
+    state.context_stack.append(MatchContext(space, state, pattern_codes))
+    has_matched = MatchContext.UNDECIDED
+    while len(state.context_stack) > 0:
+        context = state.context_stack[-1]
+        if context.has_matched == context.UNDECIDED:
+            has_matched = dispatch_loop(space, context)
+        else:
+            has_matched = context.has_matched
+        if has_matched != context.UNDECIDED: # don't pop if context isn't done
+            state.context_stack.pop()
+    return has_matched == MatchContext.MATCHED
+
 def dispatch_loop(space, context):
     """Returns MATCHED if the current context matches, NOT_MATCHED if it doesn't
     and UNDECIDED if matching is not finished, ie must be resumed after child
     contexts have been matched."""
-    while context.remaining_codes() > 0 and context.has_matched == context.UNDECIDED:
+    while context.has_remaining_codes() and context.has_matched == context.UNDECIDED:
         if context.is_resumed():
             opcode = context.resume_at_opcode
         else:
