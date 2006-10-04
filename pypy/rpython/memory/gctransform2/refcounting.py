@@ -8,7 +8,6 @@ from pypy.translator.backendopt.support import var_needsgc
 from pypy.rpython import rmodel
 from pypy.rpython.memory import lladdress
 from pypy.rpython.memory.gcheader import GCHeaderBuilder
-#from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.rarithmetic import ovfcheck
 from pypy.rpython.rbuiltin import gen_cast
 import sys
