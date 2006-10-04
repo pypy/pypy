@@ -258,12 +258,13 @@ class GCTransformer(object):
         self.finish_tables()
 
     def transform_generic_set(self, hop):
+        opname = hop.spaceop.opname
         v_new = hop.spaceop.args[-1]
-        v_old = hop.genop('bare_g' + hop.spaceop.opname[1:],
+        v_old = hop.genop('bare_g' + opname[1:],
                           hop.inputargs()[:-1],
                           resulttype=v_new.concretetype)
         self.push_alive(v_new)
-        hop.llops.append(hop.spaceop)
+        hop.rename('bare_' + opname)
         self.pop_alive(v_old)
 
 

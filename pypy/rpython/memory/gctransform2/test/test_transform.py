@@ -190,7 +190,7 @@ def test_getfield_pyobj():
         for op in b.operations:
             if op.opname == 'bare_getfield' and var_ispyobj(op.result):
                 pyobj_getfields += 1
-            elif op.opname == 'setfield' and var_ispyobj(op.args[2]):
+            elif op.opname == 'bare_setfield' and var_ispyobj(op.args[2]):
                 pyobj_setfields += 1
     # although there's only one explicit getfield in the code, a
     # setfield on a pyobj must get the old value out and decref it
