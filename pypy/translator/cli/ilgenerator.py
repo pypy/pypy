@@ -55,6 +55,12 @@ class IlasmGenerator(object):
     def end_namespace(self):
         self.code.closeblock()
 
+    def write(self, s, indent=0):
+        self.code.write(s, indent)
+
+    def writeline(self, s=''):
+        self.code.writeline(s)
+
     def begin_class(self, name, base=None, sealed=False, interfaces=(), abstract=False,
                     beforefieldinit=False, serializable=True):
         if base is None:
@@ -87,7 +93,6 @@ class IlasmGenerator(object):
 
     def begin_function(self, name, arglist, returntype, is_entrypoint = False, *args, **kwds):
         # TODO: .maxstack
-
         runtime = kwds.get('runtime', False)
         if runtime:
             method_type = 'runtime'
@@ -106,6 +111,7 @@ class IlasmGenerator(object):
                     and method_type!='runtime')
 
     def end_function(self):
+        self.render()
         self.code.closeblock()
 
     def begin_try(self):
@@ -113,6 +119,7 @@ class IlasmGenerator(object):
         self.code.openblock()
 
     def end_try(self):
+        self.render()
         self.code.closeblock()
 
     def begin_catch(self, type_):
@@ -120,50 +127,51 @@ class IlasmGenerator(object):
         self.code.openblock()
 
     def end_catch(self):
+        self.render()
         self.code.closeblock()
 
     def locals(self, vars):
         varlist = ', '.join(['%s %s' % var for var in vars])        
-        self.code.write('.locals init (')
-        self.code.write(varlist)
-        self.code.writeline(')')
+        self.write('.locals init (')
+        self.write(varlist)
+        self.writeline(')')
 
     def label(self, lbl):
-        self.code.writeline()
-        self.code.write(lbl + ':', indent=-1)
-        self.code.writeline()
+        self.writeline()
+        self.write(lbl + ':', indent=-1)
+        self.writeline()
 
     def leave(self, lbl):
-        self.code.writeline('leave ' + lbl)
+        self.opcode('leave', lbl)
 
     def branch(self, lbl):
-        self.code.writeline('br ' + lbl)
+        self.opcode('br', lbl)
 
     def branch_if(self, cond, lbl):
         if cond:
-            opcode = 'brtrue '
+            opcode = 'brtrue'
         else:
-            opcode = 'brfalse '
+            opcode = 'brfalse'
 
-        self.code.writeline(opcode + lbl)
+        self.opcode(opcode, lbl)
 
     def call(self, func):
-        self.code.writeline('call ' + func)
+        self.opcode('call ', func)
 
     def call_method(self, meth, virtual):
         if virtual:
-            self.code.writeline('callvirt instance ' + meth)
+            self.opcode('callvirt instance', meth)
         else:
-            self.code.writeline('call instance ' + meth)
+            self.opcode('call instance', meth)
 
     def new(self, class_):
-        self.code.writeline('newobj ' + class_)
+        self.opcode('newobj', class_)
 
     def set_field(self, field_data ):
-        self.opcode('stfld %s %s::%s' % field_data )
+        self.opcode('stfld', '%s %s::%s' % field_data )
 
     def get_field(self, field_data):
-        self.opcode('ldfld %s %s::%s' % field_data )
+        self.opcode('ldfld', '%s %s::%s' % field_data )
     
     def throw(self):
         self.opcode('throw')
@@ -198,22 +206,22 @@ class IlasmGenerator(object):
         elif type_ in (SignedLongLong, UnsignedLongLong):
             self.opcode('ldc.i8', str(v))
 
-    def store_local ( self , v ):
+    def store_local (self, v):
         self.opcode('stloc', repr(v.name))
 
     def store_static_constant(self, cts_type, CONST_NAMESPACE, CONST_CLASS, name):
-        self.opcode('stsfld %s %s.%s::%s' % (cts_type, CONST_NAMESPACE, CONST_CLASS, name))
+        self.opcode('stsfld', '%s %s.%s::%s' % (cts_type, CONST_NAMESPACE, CONST_CLASS, name))
 
     def load_static_constant(self, cts_type, CONST_NAMESPACE, CONST_CLASS, name):
-        self.opcode('ldsfld %s %s.%s::%s' % (cts_type, CONST_NAMESPACE, CONST_CLASS, name))
+        self.opcode('ldsfld', '%s %s.%s::%s' % (cts_type, CONST_NAMESPACE, CONST_CLASS, name))
 
     def load_static_field(self, cts_type, name):
-        self.opcode('ldsfld %s %s' % (cts_type, name))
+        self.opcode('ldsfld', '%s %s' % (cts_type, name))
 
-    def emit ( self , opcode , *args ):
-        self.opcode ( opcode , *args )
+    def emit(self, opcode, *args):
+        self.opcode(opcode,*args)
 
-    def begin_link ( self ):
+    def begin_link(self):
         pass
 
     def opcode(self, opcode, *args):
@@ -226,3 +234,6 @@ class IlasmGenerator(object):
             self.call('class [mscorlib]System.IO.TextWriter class [mscorlib]System.Console::get_Error()')
             self.opcode('ldstr', string_literal(msg))
             self.call_method('void class [mscorlib]System.IO.TextWriter::WriteLine(string)', virtual=True)
+
+    def render(self):
+        pass
