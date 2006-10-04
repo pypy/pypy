@@ -88,19 +88,7 @@ MOCHIKIT_BODY = """
 %(class)s.prototype.%(method)s = function ( %(args)s ) {
     var data,str;
     data = %(data)s;
-    str = ""
-    for(i in data) {
-        if (!(data[i] == undefined)) {
-            if (str.length == 0) {
-                str += "?";
-            } else {
-                str += "&";
-            }
-            str += i + "=" + data[i].toString();
-        }
-    }
-    //logDebug('%(call)s'+str);
-    loadJSONDoc('%(call)s' + str).addCallback(callback);
+    loadJSONDoc('%(call)s', data).addCallback(callback);
 }
 """
 
