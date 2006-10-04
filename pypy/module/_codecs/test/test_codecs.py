@@ -1,7 +1,10 @@
 import autopath
-from pypy.objspace.std import StdObjSpace
+from pypy.conftest import gettestobjspace
 
 class AppTestCodecs:
+    def setup_class(cls):
+        space = gettestobjspace(usemodules=('unicodedata',))
+        cls.space = space
 
     def test_bigU_codecs(self):
         import sys
