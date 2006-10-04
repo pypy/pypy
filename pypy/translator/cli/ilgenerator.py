@@ -111,7 +111,7 @@ class IlasmGenerator(object):
                     and method_type!='runtime')
 
     def end_function(self):
-        self.render()
+        self.flush()
         self.code.closeblock()
 
     def begin_try(self):
@@ -119,7 +119,7 @@ class IlasmGenerator(object):
         self.code.openblock()
 
     def end_try(self):
-        self.render()
+        self.flush()
         self.code.closeblock()
 
     def begin_catch(self, type_):
@@ -127,7 +127,7 @@ class IlasmGenerator(object):
         self.code.openblock()
 
     def end_catch(self):
-        self.render()
+        self.flush()
         self.code.closeblock()
 
     def locals(self, vars):
@@ -235,5 +235,5 @@ class IlasmGenerator(object):
             self.opcode('ldstr', string_literal(msg))
             self.call_method('void class [mscorlib]System.IO.TextWriter::WriteLine(string)', virtual=True)
 
-    def render(self):
+    def flush(self):
         pass

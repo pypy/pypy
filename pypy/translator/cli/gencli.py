@@ -14,6 +14,9 @@ from pypy.translator.cli.sdk import SDK
 from pypy.translator.cli.rte import get_pypy_dll
 from pypy.translator.cli.support import Tee
 from pypy.translator.cli.prebuiltnodes import get_prebuilt_nodes
+from pypy.translator.cli.stackopt import StackOptGenerator
+
+USE_STACKOPT = True
 
 class GenCli(object):
     def __init__(self, tmpdir, translator, entrypoint=None, type_system_class=CTS,
@@ -42,8 +45,11 @@ class GenCli(object):
         if getoption('stdout'):
             out = Tee(sys.stdout, out)
 
-        self.ilasm = asm_class(out, self.assembly_name )
-        
+        if USE_STACKOPT:
+            self.ilasm = StackOptGenerator(out, self.assembly_name)
+        else:
+            self.ilasm = asm_class(out, self.assembly_name)
+
         # TODO: instance methods that are also called as unbound
         # methods are rendered twice, once within the class and once
         # as an external function. Fix this.

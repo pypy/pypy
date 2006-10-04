@@ -28,16 +28,13 @@ class Foo:
     def __init__(self, x):
         self.x = x
 
-def foo(a, b):
-    pass
+def foo(a, b, c):
+    return c,b,a
 
 mylist = [1,2,3]
 
 def bar(x, y):
-    if x:
-        return mylist
-    else:
-        return []
+    return foo(x+y, x-y, x*y)
 
 f = compile_function(bar, [int, int])
 

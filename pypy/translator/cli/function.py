@@ -306,11 +306,11 @@ class Function(Node, Generator):
             if v.name in self.argset:
                 selftype, selfname = self.args[0]
                 if self.is_method and v.name == selfname:
-                    self.ilasm.opcode('ldarg.0') # special case for 'self'
+                    self.ilasm.load_self() # special case for 'self'
                 else:
-                    self.ilasm.opcode('ldarg', repr(v.name))
+                    self.ilasm.load_arg(v)
             else:
-                self.ilasm.opcode('ldloc', repr(v.name))
+                self.ilasm.load_local(v)
 
         elif isinstance(v, flowmodel.Constant):
             self._load_const(v)
@@ -324,7 +324,7 @@ class Function(Node, Generator):
     def store(self, v):
         if isinstance(v, flowmodel.Variable):
             if v.concretetype is not Void:
-                self.ilasm.opcode('stloc', repr(v.name))
+                self.ilasm.store_local(v)
         else:
             assert False
 
