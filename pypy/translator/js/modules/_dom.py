@@ -190,7 +190,7 @@ Element._fields = {
         'namespaceURI' : "aa",
         'nextSibling' : Element(),
         'nodeName' : "aa",
-        'nodeType' : "aa",
+        'nodeType' : 1,
         'nodeValue' : "aa",
         'offsetHeight' : 12,
         'offsetLeft' : 12,

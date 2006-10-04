@@ -18,6 +18,7 @@ class Options(option.Options):
     view = False
     output = 'output.js'
     debug_transform = False
+    use_pdb = True
 
 class FunctionNotFound(Exception):
     pass

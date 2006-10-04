@@ -128,9 +128,16 @@ function StringBuilder() {
     this.l = [];
 }
 
-StringBuilder.prototype.ll_append = function(s) {
+StringBuilder.prototype.ll_append_char = function(s) {
     this.l.length += 1;
     this.l[this.l.length - 1] = s;
+}
+
+StringBuilder.prototype.ll_append = function(s) {
+    this.l += s;
+}
+
+StringBuilder.prototype.ll_allocate = function(t) {
 }
 
 StringBuilder.prototype.ll_build = function() {

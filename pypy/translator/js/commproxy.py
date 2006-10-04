@@ -53,8 +53,9 @@ POST_METHOD_BODY = """
     //x.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
     x.onreadystatechange = function () { %(real_callback)s(x, callback) };
     //x.setRequestHeader("Connection", "close");
+    //logDebug(str);
     x.send(str);
-    x.send(null);
+    //x.send(null);
 }
 """
 
