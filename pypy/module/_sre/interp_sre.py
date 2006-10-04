@@ -345,23 +345,6 @@ def match(space, state, pattern_codes):
             state.context_stack.pop()
     return has_matched == MatchContext.MATCHED
 
-def match(space, state, pattern_codes):
-    if pattern_codes[0] == OPCODE_INFO and pattern_codes[3] > 0:
-        if state.end - state.string_position < pattern_codes[3]:
-            return False
-    
-    state.context_stack.append(MatchContext(space, state, pattern_codes))
-    has_matched = MatchContext.UNDECIDED
-    while len(state.context_stack) > 0:
-        context = state.context_stack[-1]
-        if context.has_matched == context.UNDECIDED:
-            has_matched = dispatch_loop(space, context)
-        else:
-            has_matched = context.has_matched
-        if has_matched != context.UNDECIDED: # don't pop if context isn't done
-            state.context_stack.pop()
-    return has_matched == MatchContext.MATCHED
-
 def dispatch_loop(space, context):
     """Returns MATCHED if the current context matches, NOT_MATCHED if it doesn't
     and UNDECIDED if matching is not finished, ie must be resumed after child
