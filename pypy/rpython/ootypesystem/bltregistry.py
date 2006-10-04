@@ -168,14 +168,6 @@ class ExternalType(ootype.OOType):
     def __hash__(self):
         # FIXME: for now
         return hash(self._name)
-
-    def get(class_):
-        try:
-            return ExternalType.class_dict[class_]
-        except KeyError:
-            next = ExternalType(class_)
-            ExternalType.class_dict[class_] = next
-            return next
     
     def set_field(self, attr, knowntype):
         self.check_update()
@@ -210,7 +202,6 @@ class ExternalType(ootype.OOType):
 ##    def _example(self):
 ##        raise AttributeError()return new(self)
 ##    
-    get = staticmethod(get)
     
 class _external_type(object):
     
@@ -221,7 +212,9 @@ class Entry_basicexternalmeta(ExtRegistryEntry):
     _metatype_ = BasicMetaExternal
     
     def compute_annotation(self):
-        return annmodel.SomeExternalBuiltin(ExternalType.get(self.instance.__class__))
+        return annmodel.SomeExternalBuiltin(self.bookkeeper.getexternaldesc\
+            (self.instance.__class__))
+        #return annmodel.SomeExternalBuiltin(ExternalType.get(self.instance.__class__))
     
     def get_field_annotation(self, ext_obj, attr):
         return ext_obj.get_field(attr)
@@ -241,15 +234,16 @@ class Entry_basicexternal(ExtRegistryEntry):
     #    return annmodel.SomeOOInstance(ootype=BasicExternal)
     
     def compute_result_annotation(self):
-        return annmodel.SomeExternalBuiltin(ExternalType.get(self.instance))
+        #return annmodel.SomeExternalBuiltin(ExternalType.get(self.instance))
+        return annmodel.SomeExternalBuiltin(self.bookkeeper.getexternaldesc(self.instance))
         #Ereturn annmodel.SomeOOInstance(ExternalType.get(self.instance))
     
     def specialize_call(self, hop):
         #assert isinstance(hop.args_s[0], annmodel.SomeOOInstance)\
         #       and hop.args_s[0].ootype is Externaltype
-        _class = hop.r_result.lowleveltype._class_
-        return hop.genop('new', [Constant(ExternalType.get(_class), concretetype=ootype.Void)], \
-            resulttype = ExternalType.get(_class))
+        value = hop.r_result.lowleveltype
+        return hop.genop('new', [Constant(value, concretetype=ootype.Void)], \
+            resulttype = value)
 
 def rebuild_basic_external():
     ExternalType.class_dict = {}

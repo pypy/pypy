@@ -173,6 +173,7 @@ class Bookkeeper:
         self.emulated_pbc_calls = {}
         self.all_specializations = {}       # {FuncDesc: specialization-info}
         self.pending_specializations = []   # list of callbacks
+        self.external_class_cache = {}      # cache of ExternalType classes
 
         self.needs_hash_support = {}
         self.needs_generic_instantiate = {}
@@ -687,6 +688,15 @@ class Bookkeeper:
         except KeyError:
             access_sets = map[attrname] = UnionFind(description.ClassAttrFamily)
         return access_sets
+    
+    def getexternaldesc(self, class_):
+        try:
+            return self.external_class_cache[class_]
+        except KeyError:
+            from pypy.rpython.ootypesystem.bltregistry import ExternalType
+            next = ExternalType(class_)
+            self.external_class_cache[class_] = next
+            return next
 
     def pbc_getattr(self, pbc, s_attr):
         assert s_attr.is_constant()

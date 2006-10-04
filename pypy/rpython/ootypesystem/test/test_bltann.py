@@ -86,7 +86,7 @@ def some_int():
     return 3
     
 def test_flowin():
-    import py; py.test.skip("something is missing somewhere")
+    import py; py.test.skip("Indirect call is missing")
     def set_callback():
         a = CB()
         a.m = some_int
