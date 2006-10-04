@@ -10,7 +10,7 @@ from pypy.translator.js.js import JS
 from pypy.tool.error import AnnotatorError, FlowingError, debug
 from pypy.rpython.nonconst import NonConstant
 from pypy.annotation.policy import AnnotatorPolicy
-import optparse
+from py.compat import optparse
 import py
 from pypy.tool import option
 

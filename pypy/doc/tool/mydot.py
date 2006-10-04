@@ -62,7 +62,7 @@ def process_dot(dot):
 
 
 if __name__ == '__main__':
-    import optparse
+    from py.compat import optparse
     parser = optparse.OptionParser()
     parser.add_option("-T", dest="format",
                       help="output format")

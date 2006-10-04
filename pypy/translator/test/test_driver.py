@@ -1,7 +1,7 @@
 import py
 
 from pypy.translator.driver import TranslationDriver, DEFAULT_OPTIONS
-import optparse
+from py.compat import optparse
 
 def cmpl(l1, l2):
     l1 = list(l1)

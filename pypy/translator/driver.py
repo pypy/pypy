@@ -6,7 +6,7 @@ from pypy.translator.goal import query
 from pypy.annotation import model as annmodel
 from pypy.annotation.listdef import s_list_of_strings
 from pypy.annotation import policy as annpolicy
-import optparse
+from py.compat import optparse
 
 import py
 from pypy.tool.ansi_print import ansi_log
