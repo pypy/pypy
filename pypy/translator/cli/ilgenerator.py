@@ -61,6 +61,12 @@ class IlasmGenerator(object):
     def writeline(self, s=''):
         self.code.writeline(s)
 
+    def openblock(self):
+        self.code.openblock()
+
+    def closeblock(self):
+        self.code.closeblock()
+
     def begin_class(self, name, base=None, sealed=False, interfaces=(), abstract=False,
                     beforefieldinit=False, serializable=True):
         if base is None:
@@ -115,20 +121,18 @@ class IlasmGenerator(object):
         self.code.closeblock()
 
     def begin_try(self):
-        self.code.writeline('.try')
-        self.code.openblock()
+        self.writeline('.try')
+        self.openblock()
 
     def end_try(self):
-        self.flush()
-        self.code.closeblock()
+        self.closeblock()
 
     def begin_catch(self, type_):
-        self.code.writeline('catch ' + type_)
-        self.code.openblock()
+        self.writeline('catch ' + type_)
+        self.openblock()
 
     def end_catch(self):
-        self.flush()
-        self.code.closeblock()
+        self.closeblock()
 
     def locals(self, vars):
         varlist = ', '.join(['%s %s' % var for var in vars])        

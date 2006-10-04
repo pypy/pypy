@@ -23,7 +23,6 @@ class FakeGenerator(object):
 class TestStackOpt(StackOptMixin, FakeGenerator):
     pass
 
-
 def test_code_generation():
     ilasm = TestStackOpt()
     ilasm.write('.method public static void foo()')
@@ -48,3 +47,55 @@ def test_opcodes():
     ilasm.opcode('ldloc', 'y')
     ilasm.flush()
     assert ilasm.opcodes == [('ldloc', ('x',)), ('ldloc', ('y',))]
+
+def test_renaming():
+    ilasm = TestStackOpt()
+    ilasm.opcode('ldloc', 'x')
+    ilasm.opcode('stloc', 'x0')
+    ilasm.opcode('ldloc', 'x0')
+    ilasm.flush()
+    assert ilasm.opcodes[0] == ('ldloc', ('x',))
+
+def test_renaming_arg():
+    ilasm = TestStackOpt()
+    ilasm.opcode('ldarg', 'x')
+    ilasm.opcode('stloc', 'x0')
+    ilasm.opcode('ldloc', 'x0')
+    ilasm.flush()
+    assert ilasm.opcodes[0] == ('ldarg', ('x',))
+
+def test_renaming_twice():
+    ilasm = TestStackOpt()
+    ilasm.opcode('ldarg', 'x')
+    ilasm.opcode('stloc', 'x0')
+    ilasm.opcode('ldloc', 'x0')
+    ilasm.opcode('stloc', 'x1')
+    ilasm.opcode('ldloc', 'x1')
+    ilasm.flush()
+    assert ilasm.opcodes[0] == ('ldarg', ('x',))
+
+def test_not_renaming():
+    ilasm = TestStackOpt()
+    ilasm.opcode('ldloc', 'x')
+    ilasm.opcode('stloc', 'x0')
+    ilasm.opcode('ldc.i4.0')
+    ilasm.opcode('stloc', 'x0')
+    ilasm.opcode('nop')
+    ilasm.opcode('ldloc', 'x0')
+    ilasm.flush()
+    assert ilasm.opcodes[-1] == ('ldloc', ('x0',))
+
+def test_remove_tmp():
+    ilasm = TestStackOpt()
+    ilasm.opcode('stloc', 'x')
+    ilasm.opcode('ldloc', 'x')
+    ilasm.flush()
+    assert not ilasm.opcodes
+
+def test_dont_remove_tmp():
+    ilasm = TestStackOpt()
+    ilasm.opcode('stloc', 'x')
+    ilasm.opcode('ldloc', 'x')
+    ilasm.opcode('ldloc', 'x')
+    ilasm.flush()
+    assert ilasm.opcodes[0] == ('stloc', ('x',))

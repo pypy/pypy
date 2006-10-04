@@ -25,6 +25,9 @@ option = py.test.Config.addoptions\
 
           Option('--norun', action='store_true', dest="norun", default=False,
                  help="don't run the compiled executable"),
+
+          Option('--nostackopt', action='store_true', dest='nostackopt', default=False,
+                 help="don't optimize stack load/store operations"),
           )
 
 
