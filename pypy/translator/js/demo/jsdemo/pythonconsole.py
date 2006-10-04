@@ -175,7 +175,7 @@ def _main(server_class=Server,
           handler_class=RequestHandler):
     global httpd
 
-    server_address = ('', 8000)
+    server_address = ('127.0.0.1', 8000)
     httpd = server_class(server_address, handler_class)
     print 'http://127.0.0.1:%d' % (server_address[1],)
     httpd.serve_forever()
