@@ -46,6 +46,7 @@ class Server(HTTPServer, BasicExternal):
     
     def __init__(self, *args, **kwargs):
         HTTPServer.__init__(self, *args, **kwargs)
+        self.source = ""
         self.counter = 0
 
 class RequestHandler(BaseHTTPRequestHandler):
@@ -77,8 +78,14 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.serve_data("text/json", "{'counter':%d}" % self.server.counter)
     
     def run_jssource(self):
-        fn = compile_function(runjs, [])
-        self.serve_data("text/javascript", fn.source())
+        if self.server.source:
+            source = self.server.source
+        else:
+            fn = compile_function(runjs, [])
+            source = fn.source()
+            self.server.source = source
+        
+        self.serve_data("text/javascript", source)
     
     def serve_data(self, content_type, data):
         self.send_response(200)
