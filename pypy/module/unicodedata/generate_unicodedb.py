@@ -14,7 +14,9 @@ class Fraction:
         return repr(self)
 
 class Unicodechar:
-    def __init__(self, data):
+    def __init__(self, data=None):
+        if data is None:
+            return
         if not data[1] or data[1][0] == '<' and data[1][-1] == '>':
             self.name = None
         else:
@@ -64,7 +66,11 @@ class Unicodechar:
         if data[14]:
             self.title = int(data[14], 16)
         
-
+    def copy(self):
+        uc = Unicodechar()
+        uc.__dict__.update(self.__dict__)
+        return uc
+        
 def get_compat_decomposition(table, code):
     if not table[code].decomposition:
         return [code]
@@ -85,7 +91,8 @@ def get_canonical_decomposition(table, code):
         table[code].canonical_decomp = result
     return table[code].canonical_decomp
 
-def read_unicodedata(unicodedata_file, exclusions_file, east_asian_width_file):
+def read_unicodedata(unicodedata_file, exclusions_file, east_asian_width_file,
+                     unihan_file=None):
     rangeFirst = {}
     rangeLast = {}
     table = [None] * (MAXUNICODE + 1)
@@ -151,6 +158,12 @@ def read_unicodedata(unicodedata_file, exclusions_file, east_asian_width_file):
         if table[code] is None:
             table[code] = defaultChar
             
+    extra_numeric = read_unihan(unihan_file)
+    for code, value in extra_numeric.iteritems():
+        uc = table[code].copy()
+        uc.numeric = value
+        table[code] = uc
+        
     # Compute full decompositions.
     for code in range(len(table)):
         get_canonical_decomposition(table, code)
@@ -296,7 +309,7 @@ def _get_record(code):
     print >> outfile, 'def mirrored(code): return _get_record(code)[3] & %d != 0'% IS_MIRRORED
     print >> outfile, 'def combining(code): return _get_record(code)[4]'
 
-def writeUnicodedata(version, table, outfile, extra_numeric):
+def writeUnicodedata(version, table, outfile):
     # Version
     print >> outfile, 'version = %r' % version
     print >> outfile
@@ -409,8 +422,6 @@ def name(code):
             digit[code] = table[code].digit
         if table[code].numeric is not None:
             numeric[code] = table[code].numeric
-    if extra_numeric:
-        numeric.update(extra_numeric)
             
     writeDict(outfile, '_decimal', decimal)
     writeDict(outfile, '_digit', digit)
@@ -531,10 +542,9 @@ if __name__ == '__main__':
     if unidata_version is None:
         raise ValueError('No version specified')
 
-    table = read_unicodedata(infile, exclusions, east_asian_width)
-    extra_numeric = read_unihan(unihan)
+    table = read_unicodedata(infile, exclusions, east_asian_width, unihan)
     print >> outfile, '# UNICODE CHARACTER DATABASE'
     print >> outfile, '# This file was generated with the command:'
     print >> outfile, '#    ', ' '.join(sys.argv)
     print >> outfile
-    writeUnicodedata(unidata_version, table, outfile, extra_numeric)
+    writeUnicodedata(unidata_version, table, outfile)
