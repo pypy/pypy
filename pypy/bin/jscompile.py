@@ -7,12 +7,12 @@ jscompiler --help to show list of options
 """
 
 import autopath
-import sys
+import sys, os
 
 from pypy.translator.js.main import rpython2javascript_main, Options
 
 from pypy.tool import option
-import optparse
+from py.compat import optparse
 make_option = optparse.make_option
 
 def get_options():
@@ -38,4 +38,7 @@ def process_options(argv):
 
 if __name__ == '__main__':
     argv = process_options(sys.argv[1:])
+    curdir = os.getcwd()
+    if curdir not in sys.path:
+        sys.path.insert(0, curdir)
     rpython2javascript_main(argv, Options)

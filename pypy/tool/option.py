@@ -3,7 +3,7 @@
 
 import os
 from pypy.config.pypyoption import pypy_optiondescription
-from pypy.config.config import Config, to_optparse
+from pypy.config.config import Config, OptionDescription, to_optparse
 from py.compat import optparse
 make_option = optparse.make_option
 
@@ -36,6 +36,14 @@ def get_standard_options():
 def process_options(op, input_options, argv=None):
     global Options
     Options = input_options
+    # backward compatilibity
+    if isinstance(op, list):
+        import sys, os
+        basename = os.path.basename(sys.argv[0])
+        config = Config(OptionDescription(basename, basename, []))
+        parser = to_optparse(config)
+        parser.add_options(op)
+        op = parser
     op.disable_interspersed_args()
     options, args = op.parse_args(argv, input_options)
     return args
