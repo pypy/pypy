@@ -1,4 +1,3 @@
-import test_logicobjspace as tlo
 import inspect
 
 def raises(exception, call, *args):
@@ -10,23 +9,19 @@ def raises(exception, call, *args):
         pass
     return False
 
-
 class Skip(Exception): pass
 
 def skip(desc):
     print "skipping because", desc
     raise Skip
 
-tlo.raises = raises
-tlo.skip = skip
+def run_tests(tm):
+    classes = [obj for name, obj in inspect.getmembers(tm)
+               if isinstance(obj, type)]
 
+    tm.raises = raises
+    tm.skip = skip
 
-classes = [tlo.AppTest_Logic,
-           tlo.AppTest_LogicFutures,
-           tlo.AppTest_CompSpace]
-
-
-def run_tests():
     successes = []
     failures = []
     skipped = []
@@ -46,7 +41,7 @@ def run_tests():
             else:
                 successes.append(name)
 
-    if len(successes):
+    if successes:
         print "Successes :"
         print '', '\n '.join(successes)
         print
@@ -59,5 +54,7 @@ def run_tests():
         print "Skipped"
         print '', '\n '.join(skipped)
         
-if __name__ == '__main__':
-    run_tests()
+if __name__ == __name__:
+    import sys
+    tm = __import__(sys.argv[1])
+    run_tests(tm)
