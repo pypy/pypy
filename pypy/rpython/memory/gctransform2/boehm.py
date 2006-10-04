@@ -19,7 +19,7 @@ class BoehmGCTransformer(GCTransformer):
         """ for boehm it is enough to do nothing"""
         pass
 
-    def gct_gc_unprotect(self, op, livevars, block):
+    def gct_gc_unprotect(self, hop):
         """ for boehm it is enough to do nothing"""
         pass
 
