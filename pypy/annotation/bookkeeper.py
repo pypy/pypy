@@ -294,10 +294,10 @@ class Bookkeeper:
     def immutableconstant(self, const):
         return self.immutablevalue(const.value)
 
-    def immutablevalue(self, x):
+    def immutablevalue(self, x, need_const=True):
         """The most precise SomeValue instance that contains the
         immutable value x."""
-         # convert unbound methods to the underlying function
+        # convert unbound methods to the underlying function
         if hasattr(x, 'im_self') and x.im_self is None:
             x = x.im_func
             assert not hasattr(x, 'im_self')
@@ -320,48 +320,68 @@ class Bookkeeper:
         elif tp is unicode and len(x) == 1:
             result = SomeUnicodeCodePoint()
         elif tp is tuple:
-            result = SomeTuple(items = [self.immutablevalue(e) for e in x])
+            result = SomeTuple(items = [self.immutablevalue(e, need_const) for e in x])
         elif tp is float:
             result = SomeFloat()
         elif tp is list:
-            key = Constant(x)
-            try:
-                return self.immutable_cache[key]
-            except KeyError:
-                result = SomeList(ListDef(self, s_ImpossibleValue))
-                self.immutable_cache[key] = result
+            if need_const:
+                key = Constant(x)
+                try:
+                    return self.immutable_cache[key]
+                except KeyError:
+                    result = SomeList(ListDef(self, s_ImpossibleValue))
+                    self.immutable_cache[key] = result
+                    for e in x:
+                        result.listdef.generalize(self.immutablevalue(e))
+                    result.const_box = key
+                    return result
+            else:
+                listdef = ListDef(self, s_ImpossibleValue)
                 for e in x:
-                    result.listdef.generalize(self.immutablevalue(e))
-                result.const_box = key
-                return result
+                    listdef.generalize(self.annotation_from_example(e))
+                result = SomeList(listdef)    
         elif tp is dict or tp is r_dict:
-            key = Constant(x)
-            try:
-                return self.immutable_cache[key]
-            except KeyError:
-                result = SomeDict(DictDef(self, 
-                                          s_ImpossibleValue,
-                                          s_ImpossibleValue,
-                                          is_r_dict = tp is r_dict))
-                self.immutable_cache[key] = result
+            if need_const:
+                key = Constant(x)
+                try:
+                    return self.immutable_cache[key]
+                except KeyError:
+                    result = SomeDict(DictDef(self, 
+                                              s_ImpossibleValue,
+                                              s_ImpossibleValue,
+                                              is_r_dict = tp is r_dict))
+                    self.immutable_cache[key] = result
+                    if tp is r_dict:
+                        s_eqfn = self.immutablevalue(x.key_eq)
+                        s_hashfn = self.immutablevalue(x.key_hash)
+                        result.dictdef.dictkey.update_rdict_annotations(s_eqfn,
+                                                                        s_hashfn)
+                    done = False
+                    while not done:
+                        try:
+                            for ek, ev in x.iteritems():
+                                result.dictdef.generalize_key(self.immutablevalue(ek))
+                                result.dictdef.generalize_value(self.immutablevalue(ev))
+                        except RuntimeError, r:
+                            pass
+                        else:
+                            done = True
+                    result.const_box = key
+                    return result
+            else:
+                dictdef = DictDef(self, 
+                s_ImpossibleValue,
+                s_ImpossibleValue,
+                is_r_dict = tp is r_dict)
                 if tp is r_dict:
                     s_eqfn = self.immutablevalue(x.key_eq)
                     s_hashfn = self.immutablevalue(x.key_hash)
-                    result.dictdef.dictkey.update_rdict_annotations(s_eqfn,
-                                                                    s_hashfn)
-                done = False
-                while not done:
-                    try:
-                        for ek, ev in x.iteritems():
-                            result.dictdef.generalize_key(self.immutablevalue(ek))
-                            result.dictdef.generalize_value(self.immutablevalue(ev))
-                    except RuntimeError, r:
-                        pass
-                    else:
-                        done = True
-                result.const_box = key
-                return result
-                
+                    dictdef.dictkey.update_rdict_annotations(s_eqfn,
+                        s_hashfn)
+                for ek, ev in x.iteritems():
+                    dictdef.generalize_key(self.annotation_from_example(ek))
+                    dictdef.generalize_value(self.annotation_from_example(ev))
+                result = SomeDict(dictdef)
         elif ishashable(x) and x in BUILTIN_ANALYZERS:
             _module = getattr(x,"__module__","unknown")
             result = SomeBuiltin(BUILTIN_ANALYZERS[x], methodname="%s.%s" % (_module, x.__name__))
@@ -389,14 +409,14 @@ class Bookkeeper:
         elif callable(x):
             if hasattr(x, '__self__') and x.__self__ is not None:
                 # for cases like 'l.append' where 'l' is a global constant list
-                s_self = self.immutablevalue(x.__self__)
+                s_self = self.immutablevalue(x.__self__, need_const)
                 result = s_self.find_method(x.__name__)
                 if result is None:
                     result = SomeObject()
             elif hasattr(x, 'im_self') and hasattr(x, 'im_func'):
                 # on top of PyPy, for cases like 'l.append' where 'l' is a
                 # global constant list, the find_method() returns non-None
-                s_self = self.immutablevalue(x.im_self)
+                s_self = self.immutablevalue(x.im_self, need_const)
                 result = s_self.find_method(x.im_func.__name__)
             else:
                 result = None
@@ -423,112 +443,117 @@ class Bookkeeper:
             return s_None
         else:
             result = SomeObject()
-        result.const = x
+        if need_const:
+            result.const = x
         return result
     
     def annotation_from_example(self, x):
-        """The most precise SomeValue instance that contains the
-        mutable value x."""
-         # convert unbound methods to the underlying function
-        if hasattr(x, 'im_self') and x.im_self is None:
-            x = x.im_func
-            assert not hasattr(x, 'im_self')
-        if x is sys: # special case constant sys to someobject
-            return SomeObject()
-        tp = type(x)
-        if issubclass(tp, Symbolic): # symbolic constants support
-            result = x.annotation()
-            return result
-        if tp is bool:
-            result = SomeBool()
-        elif tp is int:
-            result = SomeInteger(nonneg = x>=0)
-        elif issubclass(tp, str): # py.lib uses annotated str subclasses
-            if len(x) == 1:
-                result = SomeChar()
-            else:
-                result = SomeString()
-        elif tp is unicode and len(x) == 1:
-            result = SomeUnicodeCodePoint()
-        elif tp is tuple:
-            result = SomeTuple(items = [self.annotation_from_example(e) for e in x])
-        elif tp is float:
-            result = SomeFloat()
-        elif tp is list:
-            listdef = ListDef(self, s_ImpossibleValue)
-            for e in x:
-                listdef.generalize(self.annotation_from_example(e))
-            result = SomeList(listdef)
-        elif tp is dict or tp is r_dict:
-            dictdef = DictDef(self, 
-                s_ImpossibleValue,
-                s_ImpossibleValue,
-                is_r_dict = tp is r_dict)
-            if tp is r_dict:
-                s_eqfn = self.immutablevalue(x.key_eq)
-                s_hashfn = self.immutablevalue(x.key_hash)
-                dictdef.dictkey.update_rdict_annotations(s_eqfn,
-                    s_hashfn)
-            for ek, ev in x.iteritems():
-                dictdef.generalize_key(self.annotation_from_example(ek))
-                dictdef.generalize_value(self.annotation_from_example(ev))
-            result = SomeDict(dictdef)
-        elif ishashable(x) and x in BUILTIN_ANALYZERS:
-            _module = getattr(x,"__module__","unknown")
-            result = SomeBuiltin(BUILTIN_ANALYZERS[x], methodname="%s.%s" % (_module, x.__name__))
-        elif extregistry.is_registered(x, self.policy):
-            entry = extregistry.lookup(x, self.policy)
-            result = entry.compute_annotation_bk(self)
-##        elif hasattr(x, "compute_result_annotation"):
-##            result = SomeBuiltin(x.compute_result_annotation, methodname=x.__name__)
-##        elif hasattr(tp, "compute_annotation"):
-##            result = tp.compute_annotation()
-        elif tp in EXTERNAL_TYPE_ANALYZERS:
-            result = SomeExternalObject(tp)
-        elif isinstance(x, lltype._ptr):
-            result = SomePtr(lltype.typeOf(x))
-        elif isinstance(x, llmemory.fakeaddress):
-            result = SomeAddress(is_null=not x)
-        elif isinstance(x, llmemory.fakeweakaddress):
-            result = SomeWeakGcAddress()
-        elif isinstance(x, ootype._static_meth):
-            result = SomeOOStaticMeth(ootype.typeOf(x))
-        elif isinstance(x, ootype._class):
-            result = SomeOOClass(x._INSTANCE)   # NB. can be None
-        elif isinstance(x, ootype.instance_impl): # XXX
-            result = SomeOOInstance(ootype.typeOf(x))
-        elif callable(x):
-            if hasattr(x, '__self__') and x.__self__ is not None:
-                # for cases like 'l.append' where 'l' is a global constant list
-                s_self = self.annotation_from_example(x.__self__)
-                result = s_self.find_method(x.__name__)
-                if result is None:
-                    result = SomeObject()
-            else:
-                if (self.annotator.policy.allow_someobjects
-                    and getattr(x, '__module__', None) == '__builtin__'
-                    # XXX note that the print support functions are __builtin__
-                    and tp not in (types.FunctionType, types.MethodType)):
-                    result = SomeObject()
-                    result.knowntype = tp # at least for types this needs to be correct
-                else:
-                    result = SomePBC([self.getdesc(x)])
-        elif hasattr(x, '_freeze_') and x._freeze_():
-            # user-defined classes can define a method _freeze_(), which
-            # is called when a prebuilt instance is found.  If the method
-            # returns True, the instance is considered immutable and becomes
-            # a SomePBC().  Otherwise it's just SomeInstance().
-            result = SomePBC([self.getdesc(x)])
-        elif hasattr(x, '__class__') \
-                 and x.__class__.__module__ != '__builtin__':
-            self.see_mutable(x)
-            result = SomeInstance(self.getuniqueclassdef(x.__class__))
-        elif x is None:
-            return s_None
-        else:
-            result = SomeObject()
-        return result
+        # XXX to kill at some point
+        return self.immutablevalue(x, False)
 
+##    def annotation_from_example(self, x):
+##        """The most precise SomeValue instance that contains the
+##        mutable value x."""
+##         # convert unbound methods to the underlying function
+##        if hasattr(x, 'im_self') and x.im_self is None:
+##            x = x.im_func
+##            assert not hasattr(x, 'im_self')
+##        if x is sys: # special case constant sys to someobject
+##            return SomeObject()
+##        tp = type(x)
+##        if issubclass(tp, Symbolic): # symbolic constants support
+##            result = x.annotation()
+##            return result
+##        if tp is bool:
+##            result = SomeBool()
+##        elif tp is int:
+##            result = SomeInteger(nonneg = x>=0)
+##        elif issubclass(tp, str): # py.lib uses annotated str subclasses
+##            if len(x) == 1:
+##                result = SomeChar()
+##            else:
+##                result = SomeString()
+##        elif tp is unicode and len(x) == 1:
+##            result = SomeUnicodeCodePoint()
+##        elif tp is tuple:
+##            result = SomeTuple(items = [self.annotation_from_example(e) for e in x])
+##        elif tp is float:
+##            result = SomeFloat()
+##        elif tp is list:
+##            listdef = ListDef(self, s_ImpossibleValue)
+##            for e in x:
+##                listdef.generalize(self.annotation_from_example(e))
+##            result = SomeList(listdef)
+##        elif tp is dict or tp is r_dict:
+##            dictdef = DictDef(self, 
+##                s_ImpossibleValue,
+##                s_ImpossibleValue,
+##                is_r_dict = tp is r_dict)
+##            if tp is r_dict:
+##                s_eqfn = self.immutablevalue(x.key_eq)
+##                s_hashfn = self.immutablevalue(x.key_hash)
+##                dictdef.dictkey.update_rdict_annotations(s_eqfn,
+##                    s_hashfn)
+##            for ek, ev in x.iteritems():
+##                dictdef.generalize_key(self.annotation_from_example(ek))
+##                dictdef.generalize_value(self.annotation_from_example(ev))
+##            result = SomeDict(dictdef)
+##        elif ishashable(x) and x in BUILTIN_ANALYZERS:
+##            _module = getattr(x,"__module__","unknown")
+##            result = SomeBuiltin(BUILTIN_ANALYZERS[x], methodname="%s.%s" % (_module, x.__name__))
+##        elif extregistry.is_registered(x, self.policy):
+##            entry = extregistry.lookup(x, self.policy)
+##            result = entry.compute_annotation_bk(self)
+####        elif hasattr(x, "compute_result_annotation"):
+####            result = SomeBuiltin(x.compute_result_annotation, methodname=x.__name__)
+####        elif hasattr(tp, "compute_annotation"):
+####            result = tp.compute_annotation()
+##        elif tp in EXTERNAL_TYPE_ANALYZERS:
+##            result = SomeExternalObject(tp)
+##        elif isinstance(x, lltype._ptr):
+##            result = SomePtr(lltype.typeOf(x))
+##        elif isinstance(x, llmemory.fakeaddress):
+##            result = SomeAddress(is_null=not x)
+##        elif isinstance(x, llmemory.fakeweakaddress):
+##            result = SomeWeakGcAddress()
+##        elif isinstance(x, ootype._static_meth):
+##            result = SomeOOStaticMeth(ootype.typeOf(x))
+##        elif isinstance(x, ootype._class):
+##            result = SomeOOClass(x._INSTANCE)   # NB. can be None
+##        elif isinstance(x, ootype.instance_impl): # XXX
+##            result = SomeOOInstance(ootype.typeOf(x))
+##        elif callable(x):
+##            if hasattr(x, '__self__') and x.__self__ is not None:
+##                # for cases like 'l.append' where 'l' is a global constant list
+##                s_self = self.annotation_from_example(x.__self__)
+##                result = s_self.find_method(x.__name__)
+##                if result is None:
+##                    result = SomeObject()
+##            else:
+##                if (self.annotator.policy.allow_someobjects
+##                    and getattr(x, '__module__', None) == '__builtin__'
+##                    # XXX note that the print support functions are __builtin__
+##                    and tp not in (types.FunctionType, types.MethodType)):
+##                    result = SomeObject()
+##                    result.knowntype = tp # at least for types this needs to be correct
+##                else:
+##                    result = SomePBC([self.getdesc(x)])
+##        elif hasattr(x, '_freeze_') and x._freeze_():
+##            # user-defined classes can define a method _freeze_(), which
+##            # is called when a prebuilt instance is found.  If the method
+##            # returns True, the instance is considered immutable and becomes
+##            # a SomePBC().  Otherwise it's just SomeInstance().
+##            result = SomePBC([self.getdesc(x)])
+##        elif hasattr(x, '__class__') \
+##                 and x.__class__.__module__ != '__builtin__':
+##            self.see_mutable(x)
+##            result = SomeInstance(self.getuniqueclassdef(x.__class__))
+##        elif x is None:
+##            return s_None
+##        else:
+##            result = SomeObject()
+##        return result
+    
     def getdesc(self, pyobj):
         # get the XxxDesc wrapper for the given Python object, which must be
         # one of:
