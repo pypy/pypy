@@ -62,6 +62,18 @@ class TestOperations(CliTest):
             return -x
         check(fn, [r_uint], [r_uint(sys.maxint+1)])
 
+    def test_unichar_eq(self):
+        def fn(x, y):
+            const = [u'\u03b1', u'\u03b2']
+            return const[x] == const[y]
+        check(fn, [int, int], (0, 0))
+
+    def test_unichar_ne(self):
+        def fn(x, y):
+            const = [u'\u03b1', u'\u03b2']
+            return const[x] != const[y]
+        check(fn, [int, int], (0, 1))
+
 def test_op():
     yield check, op_any_ge, [int, int], (42, 42)
     yield check, op_any_ge, [int, int], (13, 42)
@@ -74,9 +86,6 @@ def test_op():
     yield check, op_any_ge, [char, char], ('b', 'a')
     yield check, op_any_le, [char, char], ('a', 'b')
     yield check, op_any_le, [char, char], ('b', 'a')
-
-    yield check, op_unichar_eq, [int, int], (0, 0)
-    yield check, op_unichar_ne, [int, int], (0, 1)
 
     for name, func in globals().iteritems():
         if not name.startswith('op_'):
@@ -97,15 +106,6 @@ def test_op():
 
         if any or '_float_' in name:
             yield check, func, [float, float], (42.0, (10.0/3))
-
-def op_unichar_eq(x, y):
-    const = [u'\u03b1', u'\u03b2']
-    return const[x] == const[y]
-
-def op_unichar_ne(x, y):
-    const = [u'\u03b1', u'\u03b2']
-    return const[x] != const[y]
-
 
 def op_any_eq(x, y):
     return x == y
