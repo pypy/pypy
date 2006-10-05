@@ -99,6 +99,7 @@ class IlasmGenerator(object):
 
     def begin_function(self, name, arglist, returntype, is_entrypoint = False, *args, **kwds):
         # TODO: .maxstack
+        self.func_name = name
         runtime = kwds.get('runtime', False)
         if runtime:
             method_type = 'runtime'
@@ -141,9 +142,9 @@ class IlasmGenerator(object):
         self.writeline(')')
 
     def label(self, lbl):
-        self.writeline()
-        self.write(lbl + ':', indent=-1)
-        self.writeline()
+        self.code.writeline()
+        self.code.write(lbl + ':', indent=-1)
+        self.code.writeline()
 
     def leave(self, lbl):
         self.opcode('leave', lbl)
@@ -160,7 +161,7 @@ class IlasmGenerator(object):
         self.opcode(opcode, lbl)
 
     def call(self, func):
-        self.opcode('call ', func)
+        self.opcode('call', func)
 
     def call_method(self, meth, virtual):
         if virtual:

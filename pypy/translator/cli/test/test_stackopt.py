@@ -99,3 +99,12 @@ def test_dont_remove_tmp():
     ilasm.opcode('ldloc', 'x')
     ilasm.flush()
     assert ilasm.opcodes[0] == ('stloc', ('x',))
+
+def test_ldarg0():
+    ilasm = TestStackOpt()
+    ilasm.opcode('ldarg.0')
+    ilasm.opcode('stloc', 'x')
+    ilasm.opcode('ldloc', 'x')
+    ilasm.flush()
+    assert ilasm.opcodes == [('ldarg.0', ())]
+
