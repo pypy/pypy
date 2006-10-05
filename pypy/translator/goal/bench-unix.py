@@ -94,20 +94,27 @@ def main():
     print 'date                           size codesize    executable                        richards             pystone'
     sys.stdout.flush()
 
-    v = 'python ' + sys.version.split()[0]
-    r = v + '_richards'
-    if not benchmark_result.is_stable(r):
-        benchmark_result.update(r, run_richards(), RICHARDS_ASCENDING_GOOD)
-    ref_rich = benchmark_result.get_best_result(r)
+    ref_rich, ref_stone = None, None
 
-    p = v + '_pystone'
-    if not benchmark_result.is_stable(p):
-        benchmark_result.update(p, run_pystone(), PYSTONE_ASCENDING_GOOD)
-    ref_stone = benchmark_result.get_best_result(p)
+    for exe in 'python2.5 python2.4 python2.3'.split():
+        v = os.popen(exe + ' -c "import sys;print sys.version.split()[0]"').read().strip()
+        r = v + '_richards'
+        if not benchmark_result.is_stable(r):
+            benchmark_result.update(r, run_richards(exe), RICHARDS_ASCENDING_GOOD)
+        rich = benchmark_result.get_best_result(r)
+        if not ref_rich:
+            ref_rich = rich
 
-    fmt = '%-26s %8s %8s    %-30s   %6dms (%6.1fx)   %6d (%6.1fx)'
-    print fmt % (time.ctime(), '-', '-', v, ref_rich, 1.0, ref_stone, 1.0)
-    sys.stdout.flush()
+        p = v + '_pystone'
+        if not benchmark_result.is_stable(p):
+            benchmark_result.update(p, run_pystone(exe), PYSTONE_ASCENDING_GOOD)
+        stone = benchmark_result.get_best_result(p)
+        if not ref_stone:
+            ref_stone = stone
+
+        fmt = '%-26s %8s %8s    %-30s   %6dms (%6.1fx)   %6d (%6.1fx)'
+        print fmt % (time.ctime(), '-', '-', 'CPython ' + v, rich, rich / ref_rich, stone, stone / ref_stone)
+        sys.stdout.flush()
 
     for exe in get_executables():
         exename = os.path.splitext(exe)[0].lstrip('./')
