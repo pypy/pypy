@@ -1,6 +1,8 @@
 # Package initialisation
 from pypy.interpreter.mixedmodule import MixedModule
 
+from pypy.module.posix import ctypes_posix
+
 import os
 exec 'import %s as posix' % os.name
 
@@ -44,6 +46,8 @@ corresponding Unix manual entries for more information on calls."""
     'chmod'     : 'interp_posix.chmod',
     'rename'    : 'interp_posix.rename',
     '_exit'     : 'interp_posix._exit',
+    'getuid'    : 'interp_posix.getuid',
+    'geteuid'   : 'interp_posix.geteuid',
     }
     if hasattr(os, 'ftruncate'):
         interpleveldefs['ftruncate'] = 'interp_posix.ftruncate'
@@ -63,6 +67,8 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['fork'] = 'interp_posix.fork'
     if hasattr(os, 'waitpid'):
         interpleveldefs['waitpid'] = 'interp_posix.waitpid'
+    if hasattr(ctypes_posix, 'uname'):
+        interpleveldefs['uname'] = 'interp_posix.uname'
 
 
 for constant in dir(os):

@@ -4,7 +4,8 @@ from pypy.rpython import ros
 from pypy.interpreter.error import OperationError
 
 import os
-from os import *
+
+from pypy.module.posix import ctypes_posix as _c
 
 def wrap_oserror(space, e): 
     assert isinstance(e, OSError) 
@@ -379,3 +380,20 @@ waitpid.unwrap_spec = [ObjSpace, int, int]
 def _exit(space, status):
     os._exit(status)
 _exit.unwrap_spec = [ObjSpace, int]
+
+def getuid(space):
+    return space.wrap(intmask(_c.getuid()))
+getuid.unwrap_spec = [ObjSpace]
+
+def geteuid(space):
+    return space.wrap(intmask(_c.geteuid()))
+geteuid.unwrap_spec = [ObjSpace]
+
+def uname(space):
+    try:
+        result = _c.uname()
+    except OSError, e: 
+        raise wrap_oserror(space, e) 
+    return space.newtuple([space.wrap(ob) for ob in result])
+uname.unwrap_spec = [ObjSpace]
+
