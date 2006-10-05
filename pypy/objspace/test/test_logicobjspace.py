@@ -1,5 +1,10 @@
-from pypy.conftest import gettestobjspace
-from py.test import skip
+try:
+    from pypy.conftest import gettestobjspace
+    from py.test import skip
+except ImportError:
+    pass
+    # we might be called from _test_logic_build
+    # if not, check your paths
 
 
 class AppTest_Logic(object):
@@ -703,10 +708,10 @@ class AppTest_CompSpace(object):
         s = newspace(quux, X)
         stacklet(asker, s)
         unify(X, 42)
-        assert len(sched_all()['asking']) == 1
+        assert len(sched_info()['asking']) == 1
         schedule() # allow quux exit
         schedule() # allow asker exit
-        assert len(sched_all()['asking']) == 0
+        assert len(sched_info()['asking']) == 0
 
     def test_ask_choose(self):
 
@@ -747,14 +752,14 @@ class AppTest_CompSpace(object):
         stacklet(asker, s)
 
         schedule()
-
-        assert len(sched_all()['asking']) == 1
-        assert sched_all()['space_accounting'][0][1] == 0 
+        assert len(sched_info()['asking']) == 1
+        mainspace = sched_info()['space_accounting'].keys()[0]
+        assert sched_info()['space_accounting'][mainspace] == 0 
 
         assert X == 'done'
         schedule()
         #XXX
-        #assert len(sched_all()['threads']) == 1
+        #assert len(sched_info()['threads']) == 1
 
 
     def test_tell_ask_choose_commit(self):
@@ -800,7 +805,23 @@ class AppTest_CompSpace(object):
                                              ('room B', 'day 2 PM')])
 
         #XXX who's still stuck there ?
-        #assert len(sched_all()['threads']) == 1
+        #assert len(sched_info()['threads']) == 1
+
+    def test_recomputing_tell_ask_choose_commit(self):
+        skip("interpreted clone support still missing")
+        if is_interpreted():
+            skip("interpreted clone support still missing")
+        from problem import conference_scheduling
+        from constraint import solver
+        import sys
+
+        s = newspace(conference_scheduling)
+
+        sols = set()
+        for sol in solver.solve_recomputing(s, sys.maxint):
+            sols.add(tuple(sol))
+            print sol
+        assert len(sols) == 64
 
     def test_logic_program(self):
         

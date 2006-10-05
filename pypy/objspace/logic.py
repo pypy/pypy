@@ -10,14 +10,14 @@ W_Root = baseobjspace.W_Root
 
 #-- MISC ----------------------------------------------------
 
-from pypy.objspace.cclp.misc import app_interp_id, app_switch_debug_info
+from pypy.objspace.cclp.misc import app_interp_id, app_switch_debug_info, app_is_interpreted
 
 #-- THREADING/COROUTINING -----------------------------------
 
 from pypy.objspace.cclp.thread import app_future, app_stacklet, app_this_thread
 
 from pypy.objspace.cclp.scheduler import Scheduler,  app_sched_info, \
-     app_schedule, app_reset_scheduler, app_sched_all
+     app_schedule, app_reset_scheduler
 
 from pypy.objspace.cclp.global_state import scheduler
 
@@ -251,8 +251,6 @@ def Space(*args, **kwds):
                   space.wrap(app_wait_needed))
     space.setitem(space.builtin.w_dict, space.wrap('sched_info'),
                   space.wrap(app_sched_info))
-    space.setitem(space.builtin.w_dict, space.wrap('sched_all'),
-                  space.wrap(app_sched_all))
     space.setitem(space.builtin.w_dict, space.wrap('schedule'),
                   space.wrap(app_schedule))
     space.setitem(space.builtin.w_dict, space.wrap('this_thread'),
@@ -272,6 +270,8 @@ def Space(*args, **kwds):
                   space.wrap(app_interp_id))
     space.setitem(space.builtin.w_dict, space.wrap('switch_debug_info'),
                   space.wrap(app_switch_debug_info))
+    space.setitem(space.builtin.w_dict, space.wrap('is_interpreted'),
+                  space.wrap(app_is_interpreted))
 
     #-- path to the applevel modules --
     import pypy.objspace.constraint

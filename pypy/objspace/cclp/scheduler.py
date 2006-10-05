@@ -1,6 +1,7 @@
 from pypy.rpython.objectmodel import we_are_translated
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import gateway
+from pypy.objspace.std.listobject import W_ListObject
 
 from pypy.objspace.cclp.types import W_Var, W_FailedValue, aliases
 from pypy.objspace.cclp.misc import w, v, ClonableCoroutine
@@ -22,14 +23,6 @@ class Scheduler(object):
         self._per_space_live_threads = {} # space -> nb runnable threads
         self._traced = {} # thread -> vars
         w("MAIN THREAD = ", str(id(self._main)))
-
-    def get_threads(self):
-        threads = [self._head]
-        curr = self._head._next
-        while curr != self._head:
-            threads.append(curr)
-            curr = curr._next
-        return threads
 
     def _init_blocked(self):
         self._blocked = {} # thread set
@@ -136,7 +129,6 @@ class Scheduler(object):
         current = ClonableCoroutine.w_getcurrent(self.space)
         assert isinstance(current, ClonableCoroutine)
         while (to_be_run in self._blocked) \
-                  or to_be_run.is_dead() \
                   or (to_be_run == current):
             
             to_be_run = to_be_run._next
@@ -150,7 +142,7 @@ class Scheduler(object):
             if to_be_run == sentinel:
                 if not dont_pass:
                     return current
-                w(str(sched_all(self.space)))
+                w(str(sched_info(self.space)))
                 ## we RESET sched state so as to keep being usable beyond that
                 self._init_head(self._main)
                 self._init_blocked()
@@ -273,7 +265,61 @@ class Scheduler(object):
             if self.space.is_true(self.space.is_free(w_var)):
                 self.space.bind(w_var, failed_value)
 
+    def w_threads(self):
+        s = self.space
+        thl = [s.newint(id(self._head))]
+        assert isinstance(self._head, ClonableCoroutine)
+        curr = self._head._next
+        while curr != self._head:
+            assert isinstance(curr, ClonableCoroutine)
+            thl.append(s.newint(id(curr)))
+            curr = curr._next
+        w_t = W_ListObject(thl)
+        return w_t
 
+    def w_blocked(self):
+        s = self.space
+        w_b = W_ListObject([s.newint(id(th))
+                            for th in self._blocked.keys()])
+        return w_b
+
+    def w_blocked_on(self):
+        s = self.space
+        si = s.setitem
+        w_bo = s.newdict()
+        for var, thl in self._blocked_on.items():
+            w_l = W_ListObject([s.newint(id(th))
+                                for th in thl])
+            si(w_bo, s.wrap(str(var)), w_l)
+        return w_bo
+
+    def w_blocked_byneed(self):
+        s = self.space
+        si = s.setitem
+        w_bb = s.newdict()
+        for var, thl in self._blocked_byneed.items():
+            w_l = W_ListObject([s.newint(id(th))
+                                for th in thl])
+            si(w_bb, s.wrap(str(var)), w_l)
+        return w_bb
+
+    def w_space_accounting(self):
+        s = self.space
+        si = s.setitem
+        w_a = s.newdict()
+        for sp, thc in self._per_space_live_threads.items():
+            si(w_a, s.newint(id(sp)), s.newint(thc))
+        return w_a
+
+    def w_asking(self):
+        s = self.space
+        si = s.setitem
+        w_a = s.newdict()
+        for th, sp in self._asking.items():
+            si(w_a, s.newint(id(th)), s.newint(id(sp)))
+        return w_a
+
+        
 #-- Misc --------------------------------------------------
 def reset_scheduler(space):
     "garbage collection of threads might pose some problems"
@@ -282,46 +328,19 @@ def reset_scheduler(space):
 app_reset_scheduler = gateway.interp2app(reset_scheduler)
 
 def sched_info(space):
-    sched = scheduler[0]
-    w_ret = space.newdict()
-    if not we_are_translated(): # XXX and otherwise, WTF ???
-        space.setitem(w_ret, space.wrap('switches'), space.wrap(sched._switch_count))
-        space.setitem(w_ret, space.wrap('threads'),
-                      space.wrap([id(th) for th in sched.get_threads()]))
-        space.setitem(w_ret, space.wrap('blocked'),
-                      space.wrap([id(th) for th in sched._blocked.keys()]))
-        space.setitem(w_ret, space.wrap('blocked_on'),
-                      space.wrap([id(th) for th in sched._blocked_on.keys()]))
-        space.setitem(w_ret, space.wrap('blocked_byneed'),
-                      space.wrap([id(th) for th in sched._blocked_byneed.keys()]))
-    return w_ret
-app_sched_info = gateway.interp2app(sched_info)
-
-def sched_all(space):
     s = scheduler[0]
     si = space.setitem
     sw = space.wrap
     w_ret = space.newdict()
-    if not we_are_translated():
-        si(w_ret, sw('threads'),
-           sw([id(th) for th in s.get_threads()]))
-        si(w_ret, sw('blocked_on'),
-           sw([(id(var),  [id(th) for th in thl])
-               for var, thl in s._blocked_on.items()]))
-        si(w_ret, sw('blocked_byneed'),
-           sw([(id(var), [id(th) for th in thl])
-               for var, thl in s._blocked_byneed.items()]))
-        si(w_ret, sw('traced'),
-           sw([(id(th), [id(var) for var in lvar])
-               for th, lvar in s._traced.items()]))
-        si(w_ret, sw('space_accounting'),
-           sw([(id(spc), count)
-               for spc, count in s._per_space_live_threads.items()]))
-        si(w_ret, sw('asking'),
-           sw([(id(th), id(spc))
-               for th, spc in s._asking.items()]))
+    si(w_ret, sw('switches'), space.newint(s._switch_count))
+    si(w_ret, sw('threads'), s.w_threads())
+    si(w_ret, sw('blocked'), s.w_blocked())
+    si(w_ret, sw('blocked_on'), s.w_blocked_on())
+    si(w_ret, sw('blocked_byneed'), s.w_blocked_byneed())
+    si(w_ret, sw('space_accounting'), s.w_space_accounting())
+    si(w_ret, sw('asking'), s.w_asking())
     return w_ret
-app_sched_all = gateway.interp2app(sched_all)        
+app_sched_info = gateway.interp2app(sched_info)        
 
 def schedule(space):
     "useful til we get preemtive scheduling deep into the vm"
