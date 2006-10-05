@@ -473,6 +473,7 @@ class FunctionCodeGenerator(object):
             items += '->items'
         return self.generic_set(op, '%s[%s]' % (items,
                                                 self.expr(op.args[1])))
+    OP_BARE_SETARRAYITEM = OP_SETARRAYITEM
 
     def OP_GETARRAYSUBSTRUCT(self, op):
         ARRAY = self.lltypemap(op.args[0]).TO
