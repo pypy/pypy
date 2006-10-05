@@ -193,6 +193,12 @@ lookup. Btw, we need some profiling before choosing the best way. Or
 we could directly refactor ootypesystem.rdict for doing a single
 lookup.
 
+XXX
+I tried it on revision 32917 and performance are slower! I don't know
+why, but pypy.net pystone.py is slower by 17%, and pypy.net
+richards.py is slower by 71% (!!!). I don't know why, need to be
+investigated further.
+
 
 Optimize StaticMethod
 ---------------------
