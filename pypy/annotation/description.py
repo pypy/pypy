@@ -4,7 +4,7 @@ from pypy.interpreter.pycode import cpython_code_signature
 from pypy.interpreter.argument import rawshape
 from pypy.interpreter.argument import ArgErr
 from pypy.tool.sourcetools import valid_identifier
-
+from pypy.annotation.pairtype import extendabletype
 
 class CallFamily:
     """A family of Desc objects that could be called from common call sites.
@@ -110,6 +110,8 @@ class ClassAttrFamily:
 # ____________________________________________________________
 
 class Desc(object):
+    __metaclass__ = extendabletype
+
     def __init__(self, bookkeeper, pyobj=None):
         self.bookkeeper = bookkeeper
         # 'pyobj' is non-None if there is an associated underlying Python obj
