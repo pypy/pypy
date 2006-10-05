@@ -501,7 +501,6 @@ class LLFrame(object):
                 args = gc.get_arg_write_barrier(obj, fieldname, fieldvalue)
                 write_barrier = gc.get_funcptr_write_barrier()
                 result = self.op_direct_call(write_barrier, *args)
-
     op_bare_setfield = op_setfield
 
     def op_getarrayitem(self, array, index):
@@ -518,6 +517,7 @@ class LLFrame(object):
                 args = gc.get_arg_write_barrier(array, index, item)
                 write_barrier = gc.get_funcptr_write_barrier()
                 self.op_direct_call(write_barrier, *args)
+    op_bare_setarrayitem = op_setarrayitem
 
 
     def perform_call(self, f, ARGS, args):
@@ -635,7 +635,6 @@ class LLFrame(object):
         assert not isinstance(getattr(lltype.typeOf(obj).TO, field),
                               lltype.ContainerType)
         return getattr(obj, field)
-    op_bare_getfield = op_getfield
 
     def op_cast_int_to_ptr(self, RESTYPE, int1):
         return lltype.cast_int_to_ptr(RESTYPE, int1)

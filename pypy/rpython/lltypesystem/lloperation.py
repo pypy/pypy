@@ -304,6 +304,7 @@ LL_OPERATIONS = {
     'setfield':             LLOp(),
     'bare_setfield':        LLOp(),
     'setarrayitem':         LLOp(),
+    'bare_setarrayitem':    LLOp(),
     'cast_pointer':         LLOp(canfold=True),
     'ptr_eq':               LLOp(canfold=True),
     'ptr_ne':               LLOp(canfold=True),

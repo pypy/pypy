@@ -1,7 +1,7 @@
 # calculate some statistics about the number of variables that need
 # to be cared for across a call
 
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import lltype
 
 
 relevant_ops = ["direct_call", "indirect_call", "malloc", "malloc_varsize"]
@@ -31,7 +31,6 @@ def relevant_gcvars_block(block, filter=filter_for_ptr):
             return result
         op = block.operations[index + 1]
         result = live_vars_after(index + 1).union(filter_ptr(op.args + [op.result]))
-        
         return result
     for i, op in enumerate(block.operations):
         if op.opname not in relevant_ops:

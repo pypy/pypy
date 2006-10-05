@@ -136,7 +136,7 @@ def test_simple_barrier():
                                          check=False)
     graph = graphof(t, f)
     ops = getops(graph)
-    assert len(ops['bare_getfield']) == 2
+    assert len(ops['getfield']) == 2
     assert len(ops['bare_setfield']) == 4
 
 def test_arraybarrier():
@@ -154,7 +154,7 @@ def test_arraybarrier():
                                          check=False)
     graph = graphof(t, f)
     ops = getops(graph)
-    assert len(ops['bare_getarrayitem']) == 2
+    assert len(ops['getarrayitem']) == 2
     assert len(ops['bare_setarrayitem']) == 2
     assert len(ops['bare_setfield']) == 2
 

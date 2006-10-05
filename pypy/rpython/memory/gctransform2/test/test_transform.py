@@ -37,7 +37,7 @@ def checkblock(block, is_borrowed):
     # implicit_pyobj_pushalives included calls to things that return pyobject*
     implicit_pyobj_pushalives = len([op for op in block.operations
                                      if var_ispyobj(op.result)
-                                     and op.opname not in ('bare_getfield', 'bare_getarrayitem', 'same_as')])
+                                     and op.opname not in ('getfield', 'getarrayitem', 'same_as')])
     nonpyobj_gc_returning_calls = len([op for op in block.operations
                                        if op.opname in ('direct_call', 'indirect_call')
                                        and var_needsgc(op.result)
@@ -188,7 +188,7 @@ def test_getfield_pyobj():
     pyobj_setfields = 0
     for b in fgraph.iterblocks():
         for op in b.operations:
-            if op.opname == 'bare_getfield' and var_ispyobj(op.result):
+            if op.opname == 'getfield' and var_ispyobj(op.result):
                 pyobj_getfields += 1
             elif op.opname == 'bare_setfield' and var_ispyobj(op.args[2]):
                 pyobj_setfields += 1
@@ -248,3 +248,17 @@ def test_no_livevars_with_exception():
             return 0
         return 1
     t, transformer = rtype_and_transform(f, [], _TestGCTransformer)
+
+def test_bare_setfield():
+    from pypy.rpython.lltypesystem.lloperation import llop
+    class A:
+        def __init__(self, obj): self.x = obj
+    def f(v):
+        inst = A(v)
+        llop.setfield(lltype.Void, inst, 'x', v)
+        llop.bare_setfield(lltype.Void, inst, 'x', v)
+
+    t, transformer = rtype_and_transform(f, [object], _TestGCTransformer,
+                                         check=False)
+    ops = getops(graphof(t, f))
+    assert len(ops.get('getfield', [])) == 1

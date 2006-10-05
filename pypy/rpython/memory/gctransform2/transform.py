@@ -260,7 +260,7 @@ class GCTransformer(object):
     def transform_generic_set(self, hop):
         opname = hop.spaceop.opname
         v_new = hop.spaceop.args[-1]
-        v_old = hop.genop('bare_g' + opname[1:],
+        v_old = hop.genop('g' + opname[1:],
                           hop.inputargs()[:-1],
                           resulttype=v_new.concretetype)
         self.push_alive(v_new)
@@ -305,9 +305,6 @@ class GCTransformer(object):
 
     def default(self, hop):
         hop.llops.append(hop.spaceop)
-
-    def gct_getfield(self, hop):
-        hop.rename('bare_' + hop.spaceop.opname)
 
     def gct_setfield(self, hop):
         if self.var_needs_set_transform(hop.spaceop.args[-1]):
