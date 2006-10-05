@@ -5,9 +5,11 @@ How to use the Logic Object space features of PyPy 0.9
 Outline
 =======
 
-This document gives some information about the content and usage of an
-extension of PyPy known as the Logic Objectspace (LO). The LO, when
-finished, will provide additional builtins that will allow to write:
+This document gives some (outdated wrt what sits in the repository, a
+much better document to read would be the `EU Interim Report`_)
+information about the content and usage of an extension of PyPy known
+as the Logic Objectspace (LO). The LO, when finished, will provide
+additional builtins that will allow to write:
 
 * concurrent programs based on coroutines scheduled by dataflow logic
   variables,
@@ -544,8 +546,8 @@ For distributor writers
  choose
 
 
-.. _`solver`: ../objspace/constraint/applevel/solver.py
-.. _`sample problems`: ../objspace/constraint/applevel/problems.py
+.. _`solver`: ../lib/constraint/solver.py
+.. _`sample problem`: ../objspace/test/problem.py
 .. _`Oz programming language`: http://www.mozart-oz.org
-
+.. _`EU Interim Report`: //http://codespeak.net/pypy/extradoc/eu-report/D09.1_Constraint_Solving_and_Semantic_Web-interim-2006-07-28.pdf
 
