@@ -25,19 +25,15 @@ def update_llvm():
     run('cvs -q up 2>&1')
     run('make -k -j3 tools-only 2>&1')
 
-def compile_llvm_variants(revision):
-    ll2bc(revision)
+def compile_llvm_variants(revision, features):
+    ll2bc(revision, features)
+    bc2c_exe(revision, features, 'from richards import *;main(iterations=1)')
+    bc2x86_exe(revision, features, 'x86')
 
-    bc2c_exe(revision, 'from richards import *;main(iterations=1)')
-
-    bc2x86_exe(revision, 'x86', '-relocation-model=static')
-    #bc2x86_exe(revision, 'x86A', '-enable-x86-fastcc -relocation-model=static -join-liveintervals')
-    #bc2x86_exe(revision, 'x86B', '-relocation-model=static')
-    #bc2x86_exe(revision, 'x86C', '')
-
-
-def ll2bc(revision):
-    cmd = 'cp %spypy.ll pypy/translator/goal/archive/pypy-%s.ll' % (tmpdir, revision)
+def ll2bc(revision, features):
+    if features:
+        features = '-' + features
+    cmd = 'cp %spypy.ll pypy/translator/goal/archive/pypy%s-%s.ll' % (tmpdir, features, revision)
     run(cmd)
 
     opts = optimizations(simple=False, use_gcc=False)
@@ -45,12 +41,14 @@ def ll2bc(revision):
         tmpdir, opts, tmpdir)
     run(cmd)
 
-    cmd = 'cp %spypy.bc pypy/translator/goal/archive/pypy-%s.bc' % (tmpdir, revision)
+    cmd = 'cp %spypy.bc pypy/translator/goal/archive/pypy%s-%s.bc' % (tmpdir, features, revision)
     run(cmd)
 
 
-def bc2c_exe(revision, profile_command=None):
-    filename = "pypy-llvm-%s-c" % revision
+def bc2c_exe(revision, features, profile_command=None):
+    if features:
+        features = '-' + features
+    filename = "pypy-llvm%s-%s-c" % (features, revision)
     b = tmpdir + filename
 
     run("~/bin/llc %spypy.bc -march=c -f -o %s.c" % (tmpdir, b))
@@ -69,8 +67,10 @@ def bc2c_exe(revision, profile_command=None):
         run("gcc %s.s -fprofile-use %s -o %s" % (b, lflags, b))
         run("cp %s pypy/translator/goal/%s-prof" % (b, filename))
 
-def bc2x86_exe(revision, name_extra, llc_extra_options):
-    b   = "%spypy-llvm-%s-%s" % (tmpdir, revision, name_extra)
+def bc2x86_exe(revision, features, name_extra, llc_extra_options=''):
+    if features:
+        features = '-' + features
+    b   = "%spypy-llvm%s-%s-%s" % (tmpdir, features, revision, name_extra)
     cmd = "~/bin/llc %spypy.bc %s -f -o %s.s" % (tmpdir, llc_extra_options, b)
     run(cmd)
 
@@ -122,7 +122,7 @@ def compile(backend):
         realname += "-" + features
 
     if backend == 'llvm':   #create llvm exectutable from the current source
-        compile_llvm_variants(revision)
+        compile_llvm_variants(revision, features)
     elif os.path.exists(basename):                   #copy executable
         pypy = open(basename, 'rb').read()
         if len(pypy) > 0:
@@ -156,16 +156,25 @@ def benchmark():
     #run('scp benchmark.html ericvrp@codespeak.net:public_html/benchmark/index.html')
 
 def main(backends=[]):
-    if backends == []:  #_ prefix means target specific option
-        #backends = """llvm@c@c--gc=framework@c--_thread@c--stackless@c--gc=framework--cc=c++@c--cc=c++""".split('@')
-        backends = """llvm@c@c--gc=framework@c--_thread@c--stackless@c--gc=framework--cc=c++@c--cc=c++@c--_objspace-std-withstrdict@c--profopt='-c "from richards import *;main(iterations=1)"'""".split('@')
-        #backends = 'llvm c c--gc=framework c--_thread c--stackless'.split()
-        #backends = 'llvm c c--gc=framework c--new-stackless c--_thread'.split()
-        #backends = 'llvm c c--stackless c--_thread c--stackless--_thread'.split()
-        #backends = 'llvm c c--stackless c--gc=ref c--gc=ref--stackless c--_thread c--gc=ref--_thread'.split()
+    if backends == []:  #_ prefix means target specific option, # prefix to outcomment
+        backends = [backend.strip() for backend in """
+            llvm
+            llvm--_objspace-std-withstrdict
+            c
+            c--gc=framework
+            c--_thread
+            c--stackless
+            c--gc=framework--cc=c++
+            c--cc=c++
+            c--_objspace-std-withstrdict
+            c--profopt='-c "from richards import *;main(iterations=1)"'
+            c--_objspace-std-withstrdict--profopt='-c "from richards import *;main(iterations=1)"'
+            """.split('\n') if backend.strip() and not backend.strip().startswith('#')]
     print time.ctime()
-    if 'llvm' in backends:
-        update_llvm()
+    for backend in backends:
+        if backend.startswith('llvm'):
+            update_llvm()
+            break
     update_pypy()
     for backend in backends:
         try:

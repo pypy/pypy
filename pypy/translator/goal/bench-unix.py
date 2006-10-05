@@ -86,7 +86,7 @@ def get_executables():  #sorted by revision number (highest first)
     exes.sort()
     exes.reverse()
     exes = [s[1] for s in exes]
-    return exes
+    return exes[:100]
 
 def main():
     benchmark_result = BenchmarkResult('bench-unix.benchmark_result')
