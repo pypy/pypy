@@ -313,7 +313,7 @@ class GCTransformer(object):
         if self.var_needs_set_transform(hop.spaceop.args[-1]):
             self.transform_generic_set(hop)
         else:
-            self.default(hop)
+            hop.rename('bare_' + hop.spaceop.opname)
     gct_setarrayitem = gct_setfield
 
     def gct_safe_call(self, hop):

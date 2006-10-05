@@ -207,3 +207,44 @@ def test_pass_gc_pointer():
         return s.x
     t, transformer = rtype_and_transform(g, [], _TestGCTransformer)
 
+def test_except_block():
+    S = lltype.GcStruct("S", ('x', lltype.Signed))
+    def f(a, n):
+        if n == 0:
+            raise ValueError
+        a.x = 1
+        return a
+    def g(n):
+        a = lltype.malloc(S)
+        try:
+            return f(a, n).x
+        except ValueError:
+            return 0
+    t, transformer = rtype_and_transform(g, [int], _TestGCTransformer)
+
+def test_except_block2():
+    # the difference here is that f() returns Void, not a GcStruct
+    S = lltype.GcStruct("S", ('x', lltype.Signed))
+    def f(a, n):
+        if n == 0:
+            raise ValueError
+        a.x = 1
+    def g(n):
+        a = lltype.malloc(S)
+        try:
+            f(a, n)
+            return a.x
+        except ValueError:
+            return 0
+    t, transformer = rtype_and_transform(g, [int], _TestGCTransformer)
+    
+def test_no_livevars_with_exception():
+    def g():
+        raise TypeError
+    def f():
+        try:
+            g()
+        except TypeError:
+            return 0
+        return 1
+    t, transformer = rtype_and_transform(f, [], _TestGCTransformer)

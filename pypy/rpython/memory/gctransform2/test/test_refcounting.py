@@ -120,6 +120,44 @@ def test_llinterp_refcounted_graph_with_del():
     res = llinterp.eval_graph(graph, [0])
     assert res == 3
 
+def test_simple_barrier():
+    S = lltype.GcStruct("S", ('x', lltype.Signed))
+    T = lltype.GcStruct("T", ('s', lltype.Ptr(S)))
+    def f():
+        s1 = lltype.malloc(S)
+        s1.x = 1
+        s2 = lltype.malloc(S)
+        s2.x = 2
+        t = lltype.malloc(T)
+        t.s = s1
+        t.s = s2
+        return t
+    t, transformer = rtype_and_transform(f, [], RefcountingGCTransformer,
+                                         check=False)
+    graph = graphof(t, f)
+    ops = getops(graph)
+    assert len(ops['bare_getfield']) == 2
+    assert len(ops['bare_setfield']) == 4
+
+def test_arraybarrier():
+    S = lltype.GcStruct("S", ('x', lltype.Signed))
+    A = lltype.GcArray(lltype.Ptr(S))
+    def f():
+        s1 = lltype.malloc(S)
+        s1.x = 1
+        s2 = lltype.malloc(S)
+        s2.x = 2
+        a = lltype.malloc(A, 1)
+        a[0] = s1
+        a[0] = s2
+    t, transformer = rtype_and_transform(f, [], RefcountingGCTransformer,
+                                         check=False)
+    graph = graphof(t, f)
+    ops = getops(graph)
+    assert len(ops['bare_getarrayitem']) == 2
+    assert len(ops['bare_setarrayitem']) == 2
+    assert len(ops['bare_setfield']) == 2
+
 def make_deallocator(TYPE,
                      attr="static_deallocation_funcptr_for_type",
                      cls=RefcountingGCTransformer):
@@ -189,11 +227,11 @@ def test_deallocator_with_destructor():
         return lltype.getRuntimeTypeInfo(S)
     qp = lltype.functionptr(lltype.FuncType([lltype.Ptr(S)],
                                             lltype.Ptr(lltype.RuntimeTypeInfo)),
-                            "type_info_S", 
+                            "type_info_S",
                             _callable=type_info_S)
     dp = lltype.functionptr(lltype.FuncType([lltype.Ptr(S)],
-                                            lltype.Void), 
-                            "destructor_funcptr", 
+                                            lltype.Void),
+                            "destructor_funcptr",
                             _callable=f)
     pinf = lltype.attachRuntimeTypeInfo(S, qp, destrptr=dp)
     graph, t = make_deallocator(S)
@@ -215,25 +253,25 @@ def test_caching_dynamic_deallocator():
         return lltype.getRuntimeTypeInfo(T)
     qp = lltype.functionptr(lltype.FuncType([lltype.Ptr(S)],
                                             lltype.Ptr(lltype.RuntimeTypeInfo)),
-                            "type_info_S", 
+                            "type_info_S",
                             _callable=type_info_S)
     dp = lltype.functionptr(lltype.FuncType([lltype.Ptr(S)],
-                                            lltype.Void), 
-                            "destructor_funcptr", 
+                                            lltype.Void),
+                            "destructor_funcptr",
                             _callable=f_S)
     pinf = lltype.attachRuntimeTypeInfo(S, qp, destrptr=dp)
     dp = lltype.functionptr(lltype.FuncType([lltype.Ptr(S)],
-                                            lltype.Void), 
-                            "destructor_funcptr", 
+                                            lltype.Void),
+                            "destructor_funcptr",
                             _callable=f_S1)
     pinf = lltype.attachRuntimeTypeInfo(S1, qp, destrptr=dp)
     qp = lltype.functionptr(lltype.FuncType([lltype.Ptr(T)],
                                             lltype.Ptr(lltype.RuntimeTypeInfo)),
-                            "type_info_S", 
+                            "type_info_S",
                             _callable=type_info_T)
     dp = lltype.functionptr(lltype.FuncType([lltype.Ptr(T)],
-                                            lltype.Void), 
-                            "destructor_funcptr", 
+                                            lltype.Void),
+                            "destructor_funcptr",
                             _callable=f_T)
     pinf = lltype.attachRuntimeTypeInfo(T, qp, destrptr=dp)
     def f():
@@ -270,7 +308,7 @@ def test_dynamic_deallocator():
     s_instance = t.annotator.bookkeeper.valueoftype(A)
     TYPE = t.rtyper.getrepr(s_instance).lowleveltype.TO
     p = transformer.dynamic_deallocation_funcptr_for_type(TYPE)
-    t.rtyper.specialize_more_blocks() 
+    t.rtyper.specialize_more_blocks()
 
 def test_recursive_structure():
     F = lltype.GcForwardReference()
