@@ -29,7 +29,6 @@ class ClonableCoroutine(InterpClonableCoroutine):
         self.framestack = None
         if not is_main:
              space.getexecutioncontext().subcontext_new(self)
-        self._dead = False
         self._next = self._prev = self
         self._cspace = None
 
@@ -56,9 +55,6 @@ class ClonableCoroutine(InterpClonableCoroutine):
         """called by AppCoroutine.finish"""
         pass
         
-    def is_dead(self):
-        return self._dead
-
     def w_switch(self):
         space = self.space
         if self.frame is None:
