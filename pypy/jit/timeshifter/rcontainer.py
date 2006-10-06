@@ -161,6 +161,20 @@ class FrozenVirtualStruct(AbstractContainer):
                 fullmatch = False
         return fullmatch
 
+    def unfreeze(self, incomingvarboxes, memo):
+        contmemo = memo.containers
+        if self in contmemo:
+            return contmemo[self]
+        typedesc = self.typedesc
+        ownbox = typedesc.ll_factory()
+        contmemo[self] = ownbox
+        vstruct = ownbox.content
+        self_boxes = self.fz_content_boxes
+        for i in range(len(self_boxes)):
+            fz_box = self_boxes[i]
+            vstruct.content_boxes[i] = fz_box.unfreeze(incomingvarboxes,
+                                                       memo)
+        return ownbox
         
 
 class VirtualStruct(AbstractContainer):

@@ -386,5 +386,4 @@ class FrozenPtrVirtual(FrozenValue):
                                               memo)
 
     def unfreeze(self, incomingvarboxes, memo):
-        #return self.fz_content.unfreeze(self.kind, incomingvarboxes, memo)
-        raise NotImplementedError
+        return self.fz_content.unfreeze(incomingvarboxes, memo)

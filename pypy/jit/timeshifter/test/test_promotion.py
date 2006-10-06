@@ -147,6 +147,28 @@ class TestPromotion(TimeshiftingTests):
         assert res == 340
         self.check_insns(int_lt=1, int_mul=0)
 
+    def test_vstruct_unfreeze(self):
+        S = lltype.GcStruct('S', ('x', lltype.Signed))
+        def ll_two(k):
+            return (k+1)*2
+        def ll_function(n):
+            s = lltype.malloc(S)
+            s.x = n
+            k = hint(n, promote=True)
+            k = ll_two(k)
+            return hint(k, variable=True) + s.x
+        ll_function._global_merge_points_ = True
+
+        # easy case: no promotion needed
+        res = self.timeshift(ll_function, [20], [0], policy=P_NOVIRTUAL)
+        assert res == 62
+        self.check_insns({})
+
+        # the real test: with promotion
+        res = self.timeshift(ll_function, [20], [], policy=P_NOVIRTUAL)
+        assert res == 62
+        self.check_insns(int_add=0, int_mul=0)
+
     def test_more_promotes(self):
         py.test.skip("in-progress")
         S = lltype.GcStruct('S', ('x', lltype.Signed), ('y', lltype.Signed))

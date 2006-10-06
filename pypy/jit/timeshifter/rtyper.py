@@ -1118,8 +1118,10 @@ class RedStructRepr(RedRepr):
         if self.typedesc is None:
             T = self.original_concretetype.TO
             self.typedesc = rcontainer.StructTypeDesc(ts.RGenOp, T)
-        return hop.llops.genmixlevelhelpercall(self.typedesc.ll_factory,
-            [], [], ts.s_RedBox)
+        v_ptrbox = hop.llops.genmixlevelhelpercall(self.typedesc.ll_factory,
+            [], [], ts.s_PtrRedBox)
+        return hop.llops.genop('cast_pointer', [v_ptrbox], resulttype=
+                               ts.r_RedBox)
 
 
 class BlueRepr(Repr):
