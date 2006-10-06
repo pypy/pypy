@@ -191,7 +191,6 @@ class FlowObjSpace(ObjSpace):
         specialcase.setup(self)
 
     def exception_match(self, w_exc_type, w_check_class):
-        self.executioncontext.recorder.crnt_block.exc_handler = True
         try:
             check_class = self.unwrap(w_check_class)
         except UnwrapException:

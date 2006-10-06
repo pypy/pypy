@@ -228,7 +228,6 @@ class BaseInliner(object):
         newblock.operations = [self.copy_operation(op) for op in block.operations]
         newblock.exits = [self.copy_link(link, block) for link in block.exits]
         newblock.exitswitch = self.get_new_name(block.exitswitch)
-        newblock.exc_handler = block.exc_handler
         self.search_for_calls(newblock)
         return newblock
 

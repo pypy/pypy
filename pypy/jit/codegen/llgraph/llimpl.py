@@ -233,8 +233,22 @@ def closeblock2(block, exitswitch):
     return pseudotuple(to_opaque_object(false_link),
                        to_opaque_object(true_link))
 
+_color_num = 1
+_color_den = 2
+def getcolor():
+    global _color_den, _color_num
+    import colorsys
+    hue = _color_num/float(_color_den)
+    _color_num +=2
+    if _color_num > _color_den:
+        _color_num = 1
+        _color_den *= 2
+    rgb = list(colorsys.hsv_to_rgb(hue, 0.10, 1.0))
+    return '#'+''.join(['%02x' % int(p*255) for p in rgb])
+    
 def closeblockswitch(block, exitswitch):
     block = from_opaque_object(block)
+    block.blockcolor = getcolor()
     exitswitch = from_opaque_object(exitswitch)
     assert isinstance(exitswitch, flowmodel.Variable)
     block.exitswitch = exitswitch

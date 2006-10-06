@@ -109,12 +109,10 @@ def split_block(annotator, block, index, _forcelink=None):
     newblock.operations = moved_operations
     newblock.recloseblock(*links)
     newblock.exitswitch = exitswitch
-    newblock.exc_handler = block.exc_handler
     link = Link(linkargs, newblock)
     block.operations = block.operations[:index]
     block.recloseblock(link)
     block.exitswitch = None
-    block.exc_handler = False
     return link
 
 def split_block_at_start(annotator, block):

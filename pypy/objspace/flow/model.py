@@ -183,7 +183,7 @@ class Link(object):
 
 class Block(object):
     __slots__ = """isstartblock inputargs operations exitswitch
-                exits exc_handler""".split()
+                exits blockcolor""".split()
     
     def __init__(self, inputargs):
         self.isstartblock = False
@@ -192,8 +192,6 @@ class Block(object):
         self.exitswitch = None            # a variable or
                                           #  Constant(last_exception), see below
         self.exits      = []              # list of Link(s)
-
-        self.exc_handler = False          # block at the start of exception handling code
 
     def at(self):
         if self.operations and self.operations[0].offset >= 0:
@@ -206,8 +204,6 @@ class Block(object):
             txt = "block@%d" % self.operations[0].offset
         else:
             txt = "codeless block"
-        if self.exc_handler:
-            txt = txt +" EH"
         return txt
     
     def __repr__(self):
@@ -547,7 +543,6 @@ def copygraph(graph, shallow=False):
                 return result
             newblock.operations = copyoplist(block.operations)
         newblock.exitswitch = copyvar(block.exitswitch)
-        newblock.exc_handler = block.exc_handler
         return newblock
 
     for block in graph.iterblocks():

@@ -124,7 +124,7 @@ class FlowGraphPage(GraphPage):
         if self.annotator and self.annotator.blocked_graphs:
             for block, was_annotated in self.annotator.annotated.items():
                 if not was_annotated:
-                    block.fillcolor = "red"
+                    block.blockcolor = "red"
         if graphs:
             name = graphs[0].name+"_graph"
         else:
