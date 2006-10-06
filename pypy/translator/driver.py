@@ -285,7 +285,7 @@ class TranslationDriver(SimpleTaskEngine):
                               raisingop2direct_call_all=False,
                               inline_threshold=0,
                               mallocs=False,
-                              merge_if_blocks_to_switch=False
+                              merge_if_blocks_to_switch=False,
                               propagate=False,
                               constfold=True,
                               heap2stack=False,
