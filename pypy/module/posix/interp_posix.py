@@ -5,7 +5,8 @@ from pypy.interpreter.error import OperationError
 
 import os
 
-from pypy.module.posix import ctypes_posix as _c
+# Turned off for now. posix must support targets without ctypes
+#from pypy.module.posix import ctypes_posix as _c
 
 def wrap_oserror(space, e): 
     assert isinstance(e, OSError) 
