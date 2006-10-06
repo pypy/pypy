@@ -31,7 +31,7 @@ class FrameworkGCTransformer(GCTransformer):
 
     def __init__(self, translator):
         from pypy.rpython.memory.support import get_address_linked_list
-        super(FrameworkGCTransformer, self).__init__(translator, inline=False)
+        super(FrameworkGCTransformer, self).__init__(translator, inline=True)
         AddressLinkedList = get_address_linked_list()
         GCClass = self.GCClass
         self.finalizer_funcptrs = {}
