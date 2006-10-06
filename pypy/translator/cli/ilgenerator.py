@@ -68,7 +68,7 @@ class IlasmGenerator(object):
         self.code.closeblock()
 
     def begin_class(self, name, base=None, sealed=False, interfaces=(), abstract=False,
-                    beforefieldinit=False, serializable=True):
+                    beforefieldinit=False, serializable=False):
         if base is None:
             base = '[mscorlib]System.Object'
         s = ''
