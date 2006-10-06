@@ -70,14 +70,14 @@ class MainStub(Target):
     COMPILER = SDK.ilasm()
 
 class FrameworkDLL(Target):
-    SOURCES = ['pypylib.cs', 'll_os.cs']
+    SOURCES = ['pypylib.cs', 'll_os.cs', 'll_math.cs']
     OUTPUT = 'pypylib.dll'
     ALIAS = 'pypylib-framework.dll'
     FLAGS = ['/t:library', '/unsafe', '/r:main.exe']
     DEPENDENCIES = [MainStub]
 
 class UnixDLL(Target):
-    SOURCES = ['pypylib.cs', 'll_os-unix.cs']
+    SOURCES = ['pypylib.cs', 'll_os-unix.cs', 'll_math.cs']
     OUTPUT = 'pypylib.dll'
     ALIAS = 'pypylib-unix.dll'
     FLAGS = ['/t:library', '/unsafe', '/r:Mono.Posix', '/r:main.exe']
