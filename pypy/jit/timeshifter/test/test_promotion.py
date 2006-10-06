@@ -170,10 +170,9 @@ class TestPromotion(TimeshiftingTests):
         self.check_insns(int_add=0, int_mul=0)
 
     def test_more_promotes(self):
-        py.test.skip("in-progress")
         S = lltype.GcStruct('S', ('x', lltype.Signed), ('y', lltype.Signed))
         def ll_two(s, i, m):
-            if i < 4:
+            if i > 4:
                 s.x += i
                 return 10
             else:
