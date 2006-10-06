@@ -76,10 +76,10 @@ class GenCli(object):
             self.db._rendered_nodes.add(node)
 
             n+=1
-            total = len(self.db._pending_nodes) + n
-            log.graphs('Rendered %d/%d (approx. %.2f%%)' %\
-                     (n, total, n*100.0/total))
-
+            if (n%100) == 0:
+                total = len(self.db._pending_nodes) + n
+                log.graphs('Rendered %d/%d (approx. %.2f%%)' %\
+                           (n, total, n*100.0/total))
 
     def fix_names(self):
         # it could happen that two distinct graph have the same name;
