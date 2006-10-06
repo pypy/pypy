@@ -36,7 +36,7 @@ def format_object(TYPE, cts, ilasm):
     if TYPE is ootype.Void:
         ilasm.opcode('ldstr "None"')
     else:
-        if isinstance(TYPE, (ootype.BuiltinType, ootype.Instance)) and TYPE is not ootype.String:
+        if isinstance(TYPE, (ootype.BuiltinType, ootype.Instance, ootype.StaticMethod)) and TYPE is not ootype.String:
             type_ = 'object'
         else:
             type_ = cts.lltype_to_cts(TYPE)
