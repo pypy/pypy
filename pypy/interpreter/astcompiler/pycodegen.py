@@ -1483,7 +1483,7 @@ class AugLoadVisitor(ast.ASTVisitor):
         self.main.loadName(node.varname, node.lineno)
 
     def visitGetattr(self, node):
-        node.expr.accept( self )
+        node.expr.accept( self.main )
         self.main.emit('DUP_TOP')
         self.main.emitop('LOAD_ATTR', self.main.mangle(node.attrname))
 

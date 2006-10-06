@@ -379,6 +379,41 @@ def wrong3():
         w_d = space.newdict()
         space.exec_(code, w_d, w_d)
 
+    def test_chained_access_augassign(self):
+        snippet = str(py.code.Source(r'''
+            class R:
+               count = 0
+            c = 0
+            for i in [0,1,2]:
+                c += 1
+            r = R()
+            for i in [0,1,2]:
+                r.count += 1
+            c += r.count
+            l = [0]
+            for i in [0,1,2]:
+                l[0] += 1
+            c += l[0]
+            l = [R()]
+            for i in [0]:
+                l[0].count += 1
+            c += l[0].count
+            r.counters = [0]
+            for i in [0,1,2]:
+                r.counters[0] += 1
+            c += r.counters[0]
+            r = R()
+            f = lambda : r
+            for i in [0,1,2]:
+                f().count += 1
+            c += f().count
+        '''))
+        code = self.compiler.compile(snippet, '<tmp>', 'exec', 0)
+        space = self.space
+        w_d = space.newdict()
+        space.exec_(code, w_d, w_d)
+        assert space.int_w(space.getitem(w_d, space.wrap('c'))) == 16
+
     def test_augassign_with_tuple_subscript(self):
         snippet = str(py.code.Source(r'''
             class D(object):
