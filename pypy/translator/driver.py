@@ -275,8 +275,26 @@ class TranslationDriver(SimpleTaskEngine):
                               merge_if_blocks_to_switch=opt.merge_if_blocks)
     #
     task_backendopt_lltype = taskdef(task_backendopt_lltype, 
-                                        [RTYPE], "Back-end optimisations")
+                                        [RTYPE], "lltype back-end optimisations")
     BACKENDOPT = 'backendopt_lltype'
+
+    def task_backendopt_ootype(self):
+        from pypy.translator.backendopt.all import backend_optimizations
+        opt = self.options
+        backend_optimizations(self.translator,
+                              raisingop2direct_call_all=False,
+                              inline_threshold=0,
+                              mallocs=False,
+                              merge_if_blocks_to_switch=False
+                              propagate=False,
+                              constfold=True,
+                              heap2stack=False,
+                              clever_malloc_removal=False)
+    #
+    task_backendopt_ootype = taskdef(task_backendopt_ootype, 
+                                        [OOTYPE], "ootype back-end optimisations")
+    OOBACKENDOPT = 'backendopt_ootype'
+
 
     def task_stackcheckinsertion_lltype(self):
         from pypy.translator.transform import insert_ll_stackcheck
@@ -486,7 +504,7 @@ class TranslationDriver(SimpleTaskEngine):
         self.gen = GenCli(udir, self.translator, get_entrypoint(entry_point_graph))
         filename = self.gen.generate_source()
         self.log.info("Wrote %s" % (filename,))
-    task_source_cli = taskdef(task_source_cli, [OOTYPE],
+    task_source_cli = taskdef(task_source_cli, [OOBACKENDOPT, OOTYPE],
                              'Generating CLI source')
 
     def task_compile_cli(self):
