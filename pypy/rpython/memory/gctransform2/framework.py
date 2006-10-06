@@ -509,7 +509,6 @@ class FrameworkGCTransformer(GCTransformer):
         hop.genop("direct_call", [self.collect_ptr, self.c_const_gc],
                   resultvar=op.result)
         self.pop_roots(hop)
-        return ops
 
     def gct_gc_x_swap_pool(self, hop):
         op = hop.spaceop
