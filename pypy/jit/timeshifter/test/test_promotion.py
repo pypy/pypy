@@ -147,6 +147,43 @@ class TestPromotion(TimeshiftingTests):
         assert res == 340
         self.check_insns(int_lt=1, int_mul=0)
 
+    def test_more_promotes(self):
+        py.test.skip("in-progress")
+        S = lltype.GcStruct('S', ('x', lltype.Signed), ('y', lltype.Signed))
+        def ll_two(s, i, m):
+            if i < 4:
+                s.x += i
+                return 10
+            else:
+                s.y = i
+                return s.x + m
+        def ll_three(s, k):
+            k = hint(k, promote=True)
+            if s.x > 6:
+                k *= hint(s.y, promote=True)
+                return k
+            else:
+                return hint(1, concrete=True)
+        def ll_function(n, m):
+            s = lltype.malloc(S)
+            s.x = 0
+            s.y = 0
+            i = 0
+            while i < n:
+                k = ll_two(s, i, m)
+                if m & 1:
+                    k *= 3
+                else:
+                    s.y += 1
+                j = ll_three(s, k)
+                j = hint(j, variable=True)
+                i += j
+            return s.x + s.y * 17
+        ll_function._global_merge_points_ = True
+
+        res = self.timeshift(ll_function, [100, 2], [], policy=P_NOVIRTUAL)
+        assert res == ll_function(100, 2)
+
 
     def test_method_call_nonpromote(self):
         class Base(object):

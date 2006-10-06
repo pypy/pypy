@@ -316,8 +316,7 @@ def collect_split(jitstate_chain, resumepoint, *greens_gv):
     return jitstate_chain
     # XXX obscurity++ above
 
-def dispatch_next(oldjitstate):
-    dispatchqueue = oldjitstate.frame.dispatchqueue
+def dispatch_next(oldjitstate, dispatchqueue):
     if dispatchqueue.split_chain is not None:
         jitstate = dispatchqueue.split_chain
         dispatchqueue.split_chain = jitstate.next
@@ -329,6 +328,12 @@ def dispatch_next(oldjitstate):
 
 def getresumepoint(jitstate):
     return jitstate.resumepoint
+
+def pickjitstate(oldjitstate, newjitstate):
+    if newjitstate is not None:
+        return newjitstate
+    else:
+        return oldjitstate
 
 def save_locals(jitstate, *redboxes):
     redboxes = list(redboxes)
@@ -782,10 +787,19 @@ class JITState(object):
         self.exc_value_box = self.exc_value_box.replace(memo)
 
 
-def enter_graph(jitstate, DispatchQueueClass):
-    dispatchqueue = DispatchQueueClass()
-    enter_frame(jitstate, dispatchqueue)
-enter_graph._annspecialcase_ = 'specialize:arg(1)'
+def ensure_queue(jitstate, DispatchQueueClass):
+    return DispatchQueueClass()
+ensure_queue._annspecialcase_ = 'specialize:arg(1)'
+
+def portal_ensure_queue(jitstate, DispatchQueueClass):
+    resuming = jitstate.resuming
+    if resuming is None:
+        return DispatchQueueClass()
+    else:
+        dispatchqueue = jitstate.frame.dispatchqueue
+        assert isinstance(dispatchqueue, DispatchQueueClass)
+        return dispatchqueue
+portal_ensure_queue._annspecialcase_ = 'specialize:arg(1)'
 
 def enter_frame(jitstate, dispatchqueue):
     jitstate.frame = VirtualFrame(jitstate.frame, dispatchqueue)
@@ -806,12 +820,7 @@ def enter_frame(jitstate, dispatchqueue):
                 parent_mergesleft = MC_CALL_NOT_TAKEN
         dispatchqueue.mergecounter = parent_mergesleft
 
-
-class CompilationInterrupted(Exception):
-    pass
-
-def merge_returning_jitstates(jitstate):
-    dispatchqueue = jitstate.frame.dispatchqueue
+def merge_returning_jitstates(jitstate, dispatchqueue):
     return_chain = dispatchqueue.return_chain
     resuming = jitstate.resuming
     return_cache = {}
@@ -824,34 +833,35 @@ def merge_returning_jitstates(jitstate):
         if res is False:    # not finished
             jitstate.next = still_pending
             still_pending = jitstate
-    if still_pending is None:
-        assert resuming is None
-        raise CompilationInterrupted
     most_general_jitstate = still_pending
-    still_pending = still_pending.next
-    while still_pending is not None:
-        jitstate = still_pending
+    # if there are more than one jitstate still left, merge them forcefully
+    if still_pending is not None:
         still_pending = still_pending.next
-        res = retrieve_jitstate_for_merge(return_cache, jitstate, (),
-                                          return_marker)
-        assert res is True   # finished
+        while still_pending is not None:
+            jitstate = still_pending
+            still_pending = still_pending.next
+            res = retrieve_jitstate_for_merge(return_cache, jitstate, (),
+                                              return_marker)
+            assert res is True   # finished
 
     if resuming is not None:
         resuming.leave_call(dispatchqueue)
         
     return most_general_jitstate
 
-def leave_graph_red(jitstate):
-    jitstate = merge_returning_jitstates(jitstate)
-    myframe = jitstate.frame
-    leave_frame(jitstate)
-    jitstate.returnbox = myframe.local_boxes[0]
-    # ^^^ fetched by a 'fetch_return' operation
+def leave_graph_red(jitstate, dispatchqueue):
+    jitstate = merge_returning_jitstates(jitstate, dispatchqueue)
+    if jitstate is not None:
+        myframe = jitstate.frame
+        leave_frame(jitstate)
+        jitstate.returnbox = myframe.local_boxes[0]
+        # ^^^ fetched by a 'fetch_return' operation
     return jitstate
 
-def leave_graph_gray(jitstate):
-    jitstate = merge_returning_jitstates(jitstate)
-    leave_frame(jitstate)
+def leave_graph_gray(jitstate, dispatchqueue):
+    jitstate = merge_returning_jitstates(jitstate, dispatchqueue)
+    if jitstate is not None:
+        leave_frame(jitstate)
     return jitstate
 
 def leave_frame(jitstate):
@@ -871,18 +881,12 @@ def leave_frame(jitstate):
         jitstate.promotion_path = node
 
 
-def leave_graph_yellow(jitstate):
-    mydispatchqueue = jitstate.frame.dispatchqueue
-    return_chain = mydispatchqueue.return_chain
+def leave_graph_yellow(jitstate, mydispatchqueue):
     resuming = jitstate.resuming
-    if return_chain is None:
-        assert resuming is None
-        raise CompilationInterrupted
     if resuming is not None:
         resuming.leave_call(mydispatchqueue)
+    return_chain = mydispatchqueue.return_chain
     jitstate = return_chain
-    if resuming is not None:
-        resuming.leave_call(mydispatchqueue)
     while jitstate is not None:
         leave_frame(jitstate)
         jitstate = jitstate.next

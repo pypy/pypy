@@ -54,8 +54,9 @@ class HintGraphTransformer(object):
         self.split_after_calls()
         self.handle_hints()
         self.insert_merge_points()
-        self.insert_enter_graph()
+        self.insert_enter_frame()
         self.insert_dispatcher()
+        self.insert_ensure_queue()
         self.insert_leave_graph()
 
     def compute_merge_points(self):
@@ -366,9 +367,17 @@ class HintGraphTransformer(object):
             raise AssertionError(self.graph, self.graphcolor)
         self.genop(block, 'save_return', [])
 
-    def insert_enter_graph(self):
+    def insert_ensure_queue(self):
         entryblock = self.before_start_block()
-        self.genop(entryblock, 'enter_graph', [self.c_mpfamily])
+        if self.mergepointfamily.has_global_mergepoints():
+            prefix = 'portal_'
+        else:
+            prefix = ''
+        self.genop(entryblock, prefix+'ensure_queue', [self.c_mpfamily])
+
+    def insert_enter_frame(self):
+        entryblock = self.before_start_block()
+        self.genop(entryblock, 'enter_frame', [])
 
     def insert_leave_graph(self):
         block = self.before_return_block()
@@ -442,7 +451,9 @@ class HintGraphTransformer(object):
         if len(targets) == 1:
             [tsgraph] = targets.values()
             c_tsgraph = inputconst(lltype.Void, tsgraph)
-            self.genop(block, '%s_call' % (color,), [c_tsgraph] + args_v)
+            v_finished = self.genop(block, '%s_call' % (color,),
+                                    [c_tsgraph] + args_v,
+                                    resulttype = lltype.Bool)
             # Void result, because the call doesn't return its redbox result,
             # but only has the hidden side-effect of putting it in the jitstate
         else:
@@ -454,7 +465,10 @@ class HintGraphTransformer(object):
                 v_greenfunc = self.genop(block, 'revealconst', [args_v[0]],
                                   resulttype = originalconcretetype(hs_func))
                 args_v[0] = v_greenfunc
-            self.genop(block, 'indirect_%s_call' % (color,), args_v)
+            v_finished = self.genop(block, 'indirect_%s_call' % (color,),
+                                    args_v,
+                                    resulttype = lltype.Bool)
+        self.go_to_dispatcher_if(block, v_finished)
 
     def handle_red_call(self, block, pos, color='red'):
         varsalive = self.variables_alive(block, pos+1)
@@ -486,19 +500,22 @@ class HintGraphTransformer(object):
             constantblock.closeblock(Link([], nextblock))
             nonconstantblock.closeblock(Link([], nextblock))
 
+        postconstantblock = self.naive_split_block(constantblock,
+                                                 len(constantblock.operations))
+        blockset[postconstantblock] = False
         self.make_call(constantblock, op, reds, color)
 
         mapping = {}
         for i, var in enumerate(reds):
             c_index = Constant(i, concretetype=lltype.Signed)
-            newvar = self.genop(constantblock, 'restore_local', [c_index],
+            newvar = self.genop(postconstantblock, 'restore_local', [c_index],
                                 result_like = var)
             mapping[var] = newvar
 
         if uses_retval:
             assert not self.hannotator.binding(op.result).is_green()
             var = op.result
-            newvar = self.genop(constantblock, 'fetch_return', [],
+            newvar = self.genop(postconstantblock, 'fetch_return', [],
                                 result_like = var)
             mapping[var] = newvar
 
@@ -515,7 +532,7 @@ class HintGraphTransformer(object):
 
             oldvars = mapping.keys()
             newvars = [mapping[v] for v in oldvars]
-            constantblock.exits[0].args = newvars
+            postconstantblock.exits[0].args = newvars
             nextblock.inputargs = newvars
 
             mapping2 = dict([(v, copyvar(self.hannotator, v))
@@ -578,17 +595,20 @@ class HintGraphTransformer(object):
         nextblock.inputargs.insert(0, v_result)
 
         reds, greens = self.sort_by_color(varsalive)
+        postblock = self.naive_split_block(block, len(block.operations))
         self.make_call(block, op, reds, 'yellow')
 
         resumepoint = self.get_resume_point(nextblock)
         c_resumepoint = inputconst(lltype.Signed, resumepoint)
-        self.genop(block, 'collect_split', [c_resumepoint] + greens)
+        self.genop(postblock, 'collect_split', [c_resumepoint] + greens)
         link.args = []
         link.target = self.get_resume_point_link(nextblock).target
 
         # to merge some of the possibly many return jitstates
         self.mergepoint_set[nextblock] = 'local'  
-        
+
+        SSA_to_SSI({block: True,
+                    postblock: False}, self.hannotator)
 
     # __________ hints __________
 

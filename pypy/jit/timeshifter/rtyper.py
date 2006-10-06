@@ -1,5 +1,7 @@
 import types
 from pypy.objspace.flow import model as flowmodel
+from pypy.translator.unsimplify import varoftype
+from pypy.translator.backendopt.ssa import SSA_to_SSI
 from pypy.annotation import model as annmodel
 from pypy.annotation.pairtype import pair, pairtype
 from pypy.rpython import annlowlevel
@@ -69,6 +71,8 @@ class HintRTyper(RPythonTyper):
          self.r_ConstOrVar)    = self.s_r_instanceof(cgmodel.GenVarOrConst)
         (self.s_Block,
          self.r_Block)         = self.s_r_instanceof(cgmodel.CodeGenBlock)
+        (self.s_Queue,
+         self.r_Queue)       = self.s_r_instanceof(rtimeshift.BaseDispatchQueue)
 
         self.etrafo = hannotator.exceptiontransformer
         self.cexcdata = self.etrafo.cexcdata
@@ -140,6 +144,8 @@ class HintRTyper(RPythonTyper):
             jitstate.curbuilder.finish_and_return(graphsigtoken, gv_ret)
         self.ll_finish_jitstate = ll_finish_jitstate
 
+        self.v_queue = varoftype(self.r_Queue.lowleveltype, 'queue')
+
     def specialize(self, view=False):
         """
         Driver for running the timeshifter.
@@ -177,6 +183,7 @@ class HintRTyper(RPythonTyper):
         # "normalize" the graphs by putting an explicit v_jitstate variable
         # everywhere
         self.insert_v_jitstate_everywhere(graph)
+        SSA_to_SSI(graph, annotator=self.annotator)
         # the graph is now timeshifted, so it is *itself* no longer
         # exception-transformed...
         del graph.exceptiontransformed
@@ -309,7 +316,6 @@ class HintRTyper(RPythonTyper):
         return result
 
     def insert_v_jitstate_everywhere(self, graph):
-        from pypy.translator.unsimplify import varoftype
         for block in graph.iterblocks():
             v_jitstate = varoftype(self.r_JITState.lowleveltype, 'jitstate')
             if block is graph.returnblock:
@@ -567,40 +573,56 @@ class HintRTyper(RPythonTyper):
 
     # special operations inserted by the HintGraphTransformer
 
-    def translate_op_enter_graph(self, hop):
+
+    def translate_op_ensure_queue(self, hop, prefix=''):
         mpfamily = hop.args_v[0].value
         subclass = self.get_dispatch_subclass(mpfamily)
         s_subclass = self.rtyper.annotator.bookkeeper.immutablevalue(subclass)
         c_subclass = inputconst(lltype.Void, subclass)
         v_jitstate = hop.llops.getjitstate()
-        hop.llops.genmixlevelhelpercall(rtimeshift.enter_graph,
-                                        [self.s_JITState, s_subclass],
-                                        [v_jitstate     , c_subclass],
+        ensure_queue = getattr(rtimeshift, prefix+'ensure_queue')
+        v_queue =  hop.llops.genmixlevelhelpercall(ensure_queue,
+                             [self.s_JITState, s_subclass],
+                             [v_jitstate     , c_subclass],
+                             self.s_Queue)
+        hop.llops.append(flowmodel.SpaceOperation('same_as', [v_queue],
+                                                  self.v_queue))
+
+
+    def translate_op_portal_ensure_queue(self, hop):
+        return self.translate_op_ensure_queue(hop, prefix='portal_')
+
+        
+    def translate_op_enter_frame(self, hop):
+        v_jitstate = hop.llops.getjitstate()
+        hop.llops.genmixlevelhelpercall(rtimeshift.enter_frame,
+                                        [self.s_JITState, self.s_Queue],
+                                        [v_jitstate     , self.v_queue],
                                         annmodel.s_None)
 
     def translate_op_leave_graph_red(self, hop):
         v_jitstate = hop.llops.getjitstate()
         v_newjs = hop.llops.genmixlevelhelpercall(rtimeshift.leave_graph_red,
-                                                  [self.s_JITState],
-                                                  [v_jitstate     ],
-                                                  self.s_JITState)
+                            [self.s_JITState, self.s_Queue],
+                            [v_jitstate     , self.v_queue],
+                            self.s_JITState)
         hop.llops.setjitstate(v_newjs)
 
     def translate_op_leave_graph_gray(self, hop):
         v_jitstate = hop.llops.getjitstate()
         v_newjs = hop.llops.genmixlevelhelpercall(rtimeshift.leave_graph_gray,
-                                                  [self.s_JITState],
-                                                  [v_jitstate     ],
-                                                  self.s_JITState)
+                            [self.s_JITState, self.s_Queue],
+                            [v_jitstate     , self.v_queue],
+                            self.s_JITState)
         hop.llops.setjitstate(v_newjs)
 
     def translate_op_leave_graph_yellow(self, hop):
         v_jitstate = hop.llops.getjitstate()
-        v_njs = hop.llops.genmixlevelhelpercall(rtimeshift.leave_graph_yellow,
-                                                [self.s_JITState],
-                                                [v_jitstate     ],
-                                                self.s_JITState)
-        hop.llops.setjitstate(v_njs)
+        v_newjs = hop.llops.genmixlevelhelpercall(rtimeshift.leave_graph_yellow,
+                            [self.s_JITState, self.s_Queue],
+                            [v_jitstate     , self.v_queue],
+                            self.s_JITState)
+        hop.llops.setjitstate(v_newjs)
 
     def translate_op_save_locals(self, hop):
         v_jitstate = hop.llops.getjitstate()
@@ -792,11 +814,8 @@ class HintRTyper(RPythonTyper):
         def call_for_global_resuming(jitstate):
             jitstate.frame.dispatchqueue = DispatchQueueSubclass()
             jitstate.resumepoint = N
-            try:
-                finaljitstate = tsfn(jitstate, *dummy_args)
-            except rtimeshift.CompilationInterrupted:
-                pass
-            else:
+            finaljitstate = tsfn(jitstate, *dummy_args)
+            if finaljitstate is not None:
                 ll_finish_jitstate(finaljitstate, residualSigToken)
 
         return self.translate_op_merge_point(hop,
@@ -812,9 +831,9 @@ class HintRTyper(RPythonTyper):
     def translate_op_dispatch_next(self, hop):
         v_jitstate = hop.llops.getjitstate()
         v_newjs = hop.llops.genmixlevelhelpercall(rtimeshift.dispatch_next,
-                                                  [self.s_JITState],
-                                                  [v_jitstate     ],
-                                                  self.s_JITState)
+                            [self.s_JITState, self.s_Queue],
+                            [v_jitstate     , self.v_queue],
+                            self.s_JITState)
         hop.llops.setjitstate(v_newjs)
 
     def translate_op_getresumepoint(self, hop):
@@ -909,7 +928,13 @@ class HintRTyper(RPythonTyper):
         args_v[:0] = [hop.llops.genconst(fnptr), v_jitstate]
         RESULT = lltype.typeOf(fnptr).TO.RESULT
         v_newjitstate = hop.genop('direct_call', args_v, RESULT)
-        hop.llops.setjitstate(v_newjitstate)
+        v_pickedjs = hop.llops.genmixlevelhelpercall(rtimeshift.pickjitstate,
+                                            [self.s_JITState, self.s_JITState],
+                                            [v_jitstate     , v_newjitstate  ],
+                                            self.s_JITState)
+        hop.llops.setjitstate(v_pickedjs)
+        return hop.genop('ptr_iszero', [v_newjitstate],
+                         resulttype = lltype.Bool)
 
     def translate_op_indirect_red_call(self, hop):
         v_jitstate = hop.llops.getjitstate()
@@ -927,7 +952,13 @@ class HintRTyper(RPythonTyper):
         RESULT = v_tsfunc.concretetype.TO.RESULT
         args_v.append(hop.inputconst(lltype.Void, graph2ts.values()))
         v_newjitstate = hop.genop('indirect_call', args_v, RESULT)
-        hop.llops.setjitstate(v_newjitstate)
+        v_pickedjs = hop.llops.genmixlevelhelpercall(rtimeshift.pickjitstate,
+                                            [self.s_JITState, self.s_JITState],
+                                            [v_jitstate     , v_newjitstate  ],
+                                            self.s_JITState)
+        hop.llops.setjitstate(v_pickedjs)
+        return hop.genop('ptr_iszero', [v_newjitstate],
+                         resulttype = lltype.Bool)
 
     translate_op_gray_call            = translate_op_red_call
     translate_op_indirect_gray_call   = translate_op_indirect_red_call

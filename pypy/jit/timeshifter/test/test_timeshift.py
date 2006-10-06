@@ -175,12 +175,9 @@ class TimeshiftingTests(object):
                     timeshifted_entrypoint_args += (box,)
 
             top_jitstate = fresh_jitstate(builder)
-            try:
-                top_jitstate = timeshifted_entrypoint(top_jitstate,
+            top_jitstate = timeshifted_entrypoint(top_jitstate,
                                                   *timeshifted_entrypoint_args)
-            except rtimeshift.CompilationInterrupted:
-                pass
-            else:
+            if top_jitstate is not None:
                 finish_jitstate(top_jitstate, sigtoken)
 
             gv_generated = rgenop.gencallableconst(sigtoken, "generated",
