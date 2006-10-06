@@ -134,5 +134,89 @@ namespace pypy.builtin
             return Math.Atan2(y, x);
         }
 
+        static public double ll_math_acos(double x)
+        {
+            return Math.Acos(x);
+        }
+
+        static public double ll_math_asin(double x)
+        {
+            return Math.Asin(x);
+        }
+
+        static public double ll_math_atan(double x)
+        {
+            return Math.Atan(x);
+        }
+
+        static public double ll_math_ceil(double x)
+        {
+            return Math.Ceiling(x);
+        }
+
+        static public double ll_math_cos(double x)
+        {
+            return Math.Cos(x);
+        }
+
+        static public double ll_math_cosh(double x)
+        {
+            return Math.Cosh(x);
+        }
+
+        static public double ll_math_exp(double x)
+        {
+            return Math.Exp(x);
+        }
+
+        static public double ll_math_fabs(double x)
+        {
+            return Math.Abs(x);
+        }
+
+        static public double ll_math_hypot(double x, double y)
+        {
+            return Math.Sqrt(x*x+y*y); // XXX: is it numerically correct?
+        }
+
+        static public double ll_math_log(double x)
+        {
+            return Math.Log(x);
+        }
+
+        static public double ll_math_log10(double x)
+        {
+            return Math.Log10(x);
+        }
+
+        static public double ll_math_pow(double x, double y)
+        {
+            return Math.Pow(x, y);
+        }
+
+        static public double ll_math_sin(double x)
+        {
+            return Math.Sin(x);
+        }
+
+        static public double ll_math_sinh(double x)
+        {
+            return Math.Sinh(x);
+        }
+
+        static public double ll_math_sqrt(double x)
+        {
+            return Math.Sqrt(x);
+        }
+
+        static public double ll_math_tan(double x)
+        {
+            return Math.Tan(x);
+        }
+
+        static public double ll_math_tanh(double x)
+        {
+            return Math.Tanh(x);
+        }
     }
 }
