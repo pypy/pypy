@@ -29,6 +29,24 @@ class StackOptMixin(object):
     def label(self, lbl):
         self.pending_ops.append(('LABEL', (lbl,)))            
 
+    def locals(self, vars):
+        self.pending_ops.append(('LOCALS', ()))
+        self.pending_locals = dict([(varname, vartype) for (vartype, varname) in vars])
+
+    def emit_locals(self):
+        # takes only locals used by at least one stloc
+        locals = {}
+        for item in self.pending_ops:
+            if item is None:
+                continue
+            if item[0] == 'stloc':
+                op, (varname,) = item
+                if varname[0] == "'" == varname[-1] == "'":
+                    varname = varname[1:-1]
+                locals[varname] = self.pending_locals[varname]
+        vars = [(vartype, varname) for (varname, vartype) in locals.iteritems()]
+        self.super.locals(vars)
+
     def _varname(self, op, args):
         if op in ('ldloc', 'ldarg', 'stloc'):
             return args[0]
@@ -104,6 +122,8 @@ class StackOptMixin(object):
                 getattr(self.super, method)(*args[1:])
             elif opcode == 'LABEL':
                 self.super.label(*args)
+            elif opcode == 'LOCALS':
+                self.emit_locals()
             else:
                 self.super.opcode(opcode, *args)
         self._reset()

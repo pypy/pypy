@@ -137,9 +137,9 @@ class IlasmGenerator(object):
 
     def locals(self, vars):
         varlist = ', '.join(['%s %s' % var for var in vars])        
-        self.write('.locals init (')
-        self.write(varlist)
-        self.writeline(')')
+        self.code.write('.locals init (')
+        self.code.write(varlist)
+        self.code.writeline(')')
 
     def label(self, lbl):
         self.code.writeline()
