@@ -11,6 +11,16 @@ def skip_r_dict(self):
 class TestCliObjectModel(CliTest, BaseTestObjectModel):
     test_rtype_r_dict_bm = skip_r_dict
 
+    def test_rdict_of_void_copy(self):
+        from pypy.rpython.test.test_objectmodel import r_dict, strange_key_eq, strange_key_hash
+        def fn():
+            d = r_dict(strange_key_eq, strange_key_hash)
+            d['hello'] = None
+            d['world'] = None
+            d1 = d.copy()
+            return len(d1)
+        assert self.interpret(fn, []) == 2
+
     # this test is copied from TestLLtype in
     # rpython/test_objectmodel.py. It is not in TestOOtype because at
     # the moment llinterpret can't handle cast_*weakadr*

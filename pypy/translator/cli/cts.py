@@ -219,6 +219,7 @@ class CTS(object):
                 METH = oopspec.get_method(TYPE, name)                
             class_name = self.lltype_to_cts(TYPE)
             ret_type = self.lltype_to_cts(METH.RESULT)
+            ret_type = dict_of_void_ll_copy_hack(TYPE, ret_type)
             generic_types = getattr(TYPE, '_generic_types', {})
             arg_types = [self.lltype_to_cts(arg) for arg in METH.ARGS if
                          arg is not ootype.Void and \
@@ -228,3 +229,11 @@ class CTS(object):
 
         else:
             assert False
+
+def dict_of_void_ll_copy_hack(TYPE, ret_type):
+    # XXX: ugly hack to make the ll_copy signature correct when
+    # CustomDict is special-cased to DictOfVoid.
+    if isinstance(TYPE, ootype.CustomDict) and TYPE._VALUETYPE is ootype.Void:
+        return ret_type.replace('Dict`2', 'DictOfVoid`2')
+    else:
+        return ret_type

@@ -417,6 +417,14 @@ namespace pypy.runtime
     // it assumes TValue is a placeholder, it's not really used
     public class DictOfVoid<TKey, TValue>: System.Collections.Generic.Dictionary<TKey, TValue>
     {
+        IEqualityComparer<TKey> comparer = null;
+
+        public DictOfVoid() {}
+        public DictOfVoid(IEqualityComparer<TKey> comparer): base(comparer)
+        {
+            this.comparer = comparer;
+        }
+
         public int ll_length() { return this.Count; }
         public void ll_get(TKey key) { }
         public void ll_set(TKey key) { this[key] = default(TValue); }
@@ -427,6 +435,14 @@ namespace pypy.runtime
         public DictItemsIterator<TKey, TValue> ll_get_items_iterator()
         {
             return new DictItemsIterator<TKey, TValue>(this.GetEnumerator());
+        }
+
+        public DictOfVoid<TKey, TValue> ll_copy() // XXX: why it should return a Dict?
+        {
+            DictOfVoid<TKey, TValue> res = new DictOfVoid<TKey, TValue>(comparer);
+            foreach(KeyValuePair<TKey, TValue> item in this)
+                res[item.Key] = item.Value;
+            return res;            
         }
     }
 
