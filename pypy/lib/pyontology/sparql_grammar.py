@@ -146,6 +146,7 @@ class SPARQLGrammar(object):
     PropertyListNotEmpty = production('PropertyListNotEmpty')
     ObjectList = production('ObjectList')
     Verb = production('Verb')
+    Subject= production('Subject')
     Object = production('Object')
     TriplesNode = production('TriplesNode')
     BlankNodePropertyList = production('BlankNodePropertyList')
@@ -319,9 +320,10 @@ class SPARQLGrammar(object):
 
     Triples << Triples1 + Optional(dot.suppress() + Triples)
 
+    Subject << Group(VarOrTerm)
     # Triples1 ::= VarOrTerm PropertyListNotEmpty | TriplesNode PropertyList
 
-    Triples1 << Group(VarOrTerm + PropertyListNotEmpty | TriplesNode + PropertyList).setResultsName('Triple', True)
+    Triples1 << Group(Subject + PropertyListNotEmpty | TriplesNode + PropertyList).setResultsName('Triple', True)
 
     # PropertyList ::= PropertyListNotEmpty?
 
@@ -329,7 +331,7 @@ class SPARQLGrammar(object):
 
     # PropertyListNotEmpty ::= Verb ObjectList ( ';' PropertyList )?
 
-    PropertyListNotEmpty << Verb + ObjectList + Optional(semi + PropertyList)
+    PropertyListNotEmpty << (Verb + ObjectList + Optional(semi + PropertyList))
 
     # ObjectList ::= Object ( ',' ObjectList )?
 
@@ -337,11 +339,11 @@ class SPARQLGrammar(object):
 
     # Verb ::= VarOrBlankNodeOrIRIref | 'a'
 
-    Verb << VarOrBlankNodeOrIRIref | _a
+    Verb << Group(VarOrBlankNodeOrIRIref | _a)
 
     # Object ::= VarOrTerm | TriplesNode
 
-    Object << (VarOrTerm | TriplesNode)
+    Object << Group(VarOrTerm | TriplesNode)
 
     # TriplesNode ::= Collection | BlankNodePropertyList
 

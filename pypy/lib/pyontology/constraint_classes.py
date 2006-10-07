@@ -101,6 +101,25 @@ class DisjointClassConstraint(SubClassConstraint):
 
 Thing_uri = URIRef(u'http://www.w3.org/2002/07/owl#Thing')
 
+class PropertyConstrain(AbstractConstraint):
+
+    def __init__(self, prop, variable, cls_or_restriction):
+        AbstractConstraint.__init__(self, [ prop])
+        self.object = cls_or_restriction
+        self.variable = variable
+        self.prop = prop
+
+    def narrow(self, domains):
+        # Narrow the list of properties (instances of some property type)
+        # to those who has a pair (self.variable, self.object)
+        dom = domains[self.prop]
+        vals = list(dom.getValues())
+        for p in vals:
+#            objs = domains[p].getValuesPrKey(self.variable)
+            if not ((self.variable, self.object) in domains[p]):
+                dom.removeValue(p)
+
+ 
 class MemberConstraint(AbstractConstraint):
 
     def __init__(self, variable, cls_or_restriction):
@@ -151,7 +170,7 @@ class DomainConstraint(SubClassConstraint):
     def narrow(self, domains):
         propdom = domains[self.variable]
         domaindom = domains[self.object]
-        for cls in propdom:
+        for cls,val in propdom.getValues():
             if cls not in domaindom:
                 raise ConsistencyFailure("Value %r of property %r not in domain %r"%(pval, self.variable, self.object))
 
