@@ -48,7 +48,7 @@ def ll2bc(revision, features):
 def bc2c_exe(revision, features, profile_command=None):
     if features:
         features = '-' + features
-    filename = "pypy-llvm%s-%s-c" % (features, revision)
+    filename = "pypy-llvm-%s%s-c" % (revision, features)
     b = tmpdir + filename
 
     run("~/bin/llc %spypy.bc -march=c -f -o %s.c" % (tmpdir, b))
@@ -66,11 +66,12 @@ def bc2c_exe(revision, features, profile_command=None):
         run("cp %s.s pypy/translator/goal/archive/%s-prof.s" % (b, filename))
         run("gcc %s.s -fprofile-use %s -o %s" % (b, lflags, b))
         run("cp %s pypy/translator/goal/%s-prof" % (b, filename))
-
+        
 def bc2x86_exe(revision, features, name_extra, llc_extra_options=''):
     if features:
         features = '-' + features
-    b   = "%spypy-llvm%s-%s-%s" % (tmpdir, features, revision, name_extra)
+    b   = "%spypy-llvm-%s%s-%s" % (tmpdir, revision, features, name_extra)
+
     cmd = "~/bin/llc %spypy.bc %s -f -o %s.s" % (tmpdir, llc_extra_options, b)
     run(cmd)
 

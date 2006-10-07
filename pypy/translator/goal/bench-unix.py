@@ -91,13 +91,15 @@ def get_executables():  #sorted by revision number (highest first)
 def main():
     benchmark_result = BenchmarkResult('bench-unix.benchmark_result')
 
-    print 'date                           size codesize    executable                        richards             pystone'
+    print 'date                           size codesize    executable                                          richards            pystone'
     sys.stdout.flush()
 
     ref_rich, ref_stone = None, None
 
-    for exe in 'python2.5 python2.4 python2.3'.split():
+    for exe in 'python2.4 python2.3'.split():
         v = os.popen(exe + ' -c "import sys;print sys.version.split()[0]"').read().strip()
+        if not v:
+            continue
         r = v + '_richards'
         if not benchmark_result.is_stable(r):
             benchmark_result.update(r, run_richards(exe), RICHARDS_ASCENDING_GOOD)
@@ -112,7 +114,7 @@ def main():
         if not ref_stone:
             ref_stone = stone
 
-        fmt = '%-26s %8s %8s    %-30s   %6dms (%6.1fx)   %6d (%6.1fx)'
+        fmt = '%-26s %8s %8s    %-48s   %6dms (%6.1fx)   %6d (%6.1fx)'
         print fmt % (time.ctime(), '-', '-', 'CPython ' + v, rich, rich / ref_rich, stone, stone / ref_stone)
         sys.stdout.flush()
 
