@@ -1,0 +1,72 @@
+Distribution:
+=============
+
+Some random thoughts about automatic (or not) distribution layer.
+
+What I want to achieve is to make clean approach to perform
+distribution mechanism with virtually any distribution heuristic.
+
+First step - RPython level:
+---------------------------
+
+First (simplest) step is to allow user to write RPython programs with
+some kind of remote control over program execution. For start I would
+suggest using RMI (Remote Method Invocation) and remote object access
+(in case of low level it would be struct access). For the simplicity
+it will make some sense to target high-level platform at the beggining
+(CLI platform seems like obvious choice), which provides more primitives
+for performing such operations. To make attempt easier, I'll provide
+some subset of type system to be serializable which can go as parameters
+to such a call.
+
+I take advantage of several assumptions:
+
+* globals are constants - this allows us to just run multiple instances
+  of the same program on multiple machines and perform RMI.
+
+* I/O is explicit - this makes GIL problem not that important. XXX: I've got
+  to read more about GIL to notice if this is true.
+
+Second step - doing it a little bit more automatically:
+-------------------------------------------------------
+
+The second step is to allow some heuristic to live and change
+calls to RMI calls. This should follow some assumptions (which may vary,
+regarding implementation):
+
+* Not to move I/O to different machine (we can track I/O and side-effects
+  in RPython code).
+
+* Make sure all C calls are safe to transfer if we want to do that (this
+  depends on probably static API declaration from programmer "I'm sure this
+  C call has no side-effects", we don't want to check it in C) or not transfer
+  them at all.
+
+* Perform it all statically, at the time of program compilation.
+
+* We have to generate serialization methods for some classes, which 
+  we want to transfer (Same engine might be used to allow JSON calls in JS
+  backend to transfer arbitrary python object).
+
+Third step - Just-in-time distribution:
+---------------------------------------
+
+The biggest step here is to provide JIT integration into distribution
+system. This should allow to make it really usefull (probably compile-time
+distribution will not work for example for whole Python interpreter, because
+of too huge granularity). This is quite unclear for me how to do that
+(JIT is not complete and I don't know too much about it). Probably we
+take JIT information about graphs and try to feed it to heuristic in some way
+to change the calls into RMI.
+
+Problems to fight with:
+-----------------------
+
+Most problems are to make mechanism working efficiently, so:
+
+* Avoid too much granularity (copying a lot of objects in both directions
+  all the time)
+
+* Make heuristic not eat too much CPU time/memory and all of that.
+
+* ...
