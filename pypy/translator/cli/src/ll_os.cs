@@ -343,9 +343,10 @@ namespace pypy.builtin
             Helpers.raise_OSError(Errno.EPERM); // this is only a stub
         }
 
-        public static void ll_os_dup(int x)
+        public static int ll_os_dup(int x)
         {
             Helpers.raise_OSError(Errno.EPERM); // this is only a stub
+            return -1;
         }
 
         public static void ll_os_dup2(int x, int y)
