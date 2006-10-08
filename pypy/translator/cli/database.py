@@ -27,6 +27,9 @@ CONST_GENERATOR = StaticFieldConstGenerator
 
 
 BUILTIN_RECORDS = {
+    ootype.Record({"item0": ootype.Signed, "item1": ootype.Signed}):
+    '[pypylib]pypy.runtime.Record_Signed_Signed',
+    
     ootype.Record({"item0": ootype.Float, "item1": ootype.Signed}):
     '[pypylib]pypy.runtime.Record_Float_Signed',
     

@@ -478,6 +478,18 @@ namespace pypy.runtime
         public TValue ll_current_value() { return it.Current.Value; }
     }
 
+    public class Record_Signed_Signed {
+        public int item0;
+        public int item1;
+        public override string ToString() { return string.Format("({0}, {1},)", item0, item1); }
+        public override bool Equals(object obj)
+        {
+            Record_Signed_Signed x = (Record_Signed_Signed)obj;
+            return item0 == x.item0 && item1 == x.item1;
+        }
+        public override int GetHashCode() { return item0.GetHashCode(); }
+    }    
+
     public class Record_Float_Signed {
         public double item0;
         public int item1;
@@ -547,6 +559,11 @@ namespace pypy.builtin
         public static double ll_time_clock()
         {
             return (DateTime.UtcNow - ClockStart).TotalSeconds;
+        }
+
+        public static void ll_time_sleep(double seconds)
+        {
+            System.Threading.Thread.Sleep((int)(seconds*1000));
         }
     }
 }

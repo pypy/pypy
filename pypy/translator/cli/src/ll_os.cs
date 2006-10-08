@@ -322,5 +322,129 @@ namespace pypy.builtin
         {
             return "error " + errno;     // TODO
         }
+
+        public static void ll_os__exit(int x)
+        {
+            Helpers.raise_OSError(Errno.EPERM); // this is only a stub
+        }
+
+        public static void ll_os_chdir(string s)
+        {
+            Helpers.raise_OSError(Errno.EPERM); // this is only a stub
+        }
+
+        public static void ll_os_chmod(string s, int x)
+        {
+            Helpers.raise_OSError(Errno.EPERM); // this is only a stub
+        }
+
+        public static void ll_os_closedir(object o)
+        {
+            Helpers.raise_OSError(Errno.EPERM); // this is only a stub
+        }
+
+        public static void ll_os_dup(int x)
+        {
+            Helpers.raise_OSError(Errno.EPERM); // this is only a stub
+        }
+
+        public static void ll_os_dup2(int x, int y)
+        {
+            Helpers.raise_OSError(Errno.EPERM); // this is only a stub
+        }
+
+        public static int ll_os_fork()
+        {
+            Helpers.raise_OSError(Errno.EPERM); // this is only a stub
+            return -1;
+        }
+
+        public static void ll_os_ftruncate(int x, int y)
+        {
+            Helpers.raise_OSError(Errno.EPERM); // this is only a stub
+        }
+
+        public static int ll_os_getpid()
+        {
+            Helpers.raise_OSError(Errno.EPERM); // this is only a stub
+            return -1;
+        }
+
+        public static bool ll_os_isatty(int x)
+        {
+            Helpers.raise_OSError(Errno.EPERM); // this is only a stub
+            return false;
+        }
+
+        public static void ll_os_link(string s1, string s2)
+        {
+            Helpers.raise_OSError(Errno.EPERM); // this is only a stub
+        }
+
+        public static void ll_os_mkdir(string s, int x)
+        {
+            Helpers.raise_OSError(Errno.EPERM); // this is only a stub
+        }
+
+        public static object ll_os_opendir(string s)
+        {
+            Helpers.raise_OSError(Errno.EPERM); // this is only a stub
+            return null;
+        }
+
+        public static Record_Signed_Signed ll_os_pipe()
+        {
+            Helpers.raise_OSError(Errno.EPERM); // this is only a stub
+            return null;
+        }
+
+        public static void ll_os_putenv(string s)
+        {
+            Helpers.raise_OSError(Errno.EPERM); // this is only a stub
+        }
+
+        public static string ll_os_readdir(object o)
+        {
+            Helpers.raise_OSError(Errno.EPERM); // this is only a stub
+            return null;
+        }
+
+        public static string ll_os_readlink(string s)
+        {
+            Helpers.raise_OSError(Errno.EPERM); // this is only a stub
+            return null;
+        }
+
+        public static void ll_os_rename(string s1, string s2)
+        {
+            Helpers.raise_OSError(Errno.EPERM); // this is only a stub
+        }
+
+        public static void ll_os_rmdir(string s)
+        {
+            Helpers.raise_OSError(Errno.EPERM); // this is only a stub
+        }
+
+        public static void ll_os_symlink(string s1, string s2)
+        {
+            Helpers.raise_OSError(Errno.EPERM); // this is only a stub
+        }
+
+        public static int ll_os_system(string s)
+        {
+            Helpers.raise_OSError(Errno.EPERM); // this is only a stub
+            return -1;
+        }
+
+        public static void ll_os_unsetenv(string s)
+        {
+            Helpers.raise_OSError(Errno.EPERM); // this is only a stub
+        }
+
+        public static Record_Signed_Signed ll_os_waitpid(int x, int y)
+        {
+            Helpers.raise_OSError(Errno.EPERM); // this is only a stub
+            return null;
+        }
     }
 }
