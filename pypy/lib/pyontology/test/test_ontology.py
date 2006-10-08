@@ -143,8 +143,12 @@ def test_type():
     O = Ontology()
     O.make_var(ClassDomain, obj)
     O.type(sub, obj)
+    O.type(obj, namespaces['owl']+"#Class")
     
     assert O.variables[O.make_var(None, sub)].__class__  == Individual 
+
+# test for multiple types
+# test for type hierarchy
 
 def test_ObjectProperty():
     sub = URIRef('a')
@@ -626,8 +630,8 @@ def test_more_cardinality():
 
 def test_allvalues_file():
     O = Ontology()
-    O.add_file('approved/allValuesfrom/premises002.rdf')
-    O.add_file('approved/allValuesfrom/nonconclusions002.rdf')
+    O.add_file('approved/allValuesFrom/premises002.rdf')
+    O.add_file('approved/allValuesFrom/nonconclusions002.rdf')
     
 def test_import():
     O = Ontology()
@@ -714,4 +718,4 @@ def test_recording_of_properties():
     O.consider_triple((first, URIRef(namespaces['rdf']+'#type'), URIRef(namespaces['owl']+'#SymmetricProperty')))
     assert isinstance(O.variables['first_'], SymmetricProperty)
     assert 'first_' in O.variables['rdf_Property_type'].getValues()
-
+    assert 'first_' in O.variables['owl_ObjectProperty_type'].getValues()

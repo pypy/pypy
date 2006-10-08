@@ -85,12 +85,20 @@ class ClassDomain(AbstractDomain, object):
         self.bases = [] 
         self.finished = False
         self.value = None
+        self.type = []
 
     def finish(self, variables, glob_constraints):
         # The finish method constructs the constraints
         if not self.finished:
             log.finish("%s" % self.name)
             # Try to initialise constraints for this class
+            if len(self.type) > 1:
+                #try to merge the domains of the types 
+                expr = []
+                for typ in self.type:
+                    expr +=[ "%s == %s" % (self.name, typ)]
+                expr = ' and '.join(expr)
+                self.in_constraint.append(Expression([self.name]+self.type, expr))            
             prop = getattr(self, 'property')
             val = getattr(self, 'value')
             if prop:
@@ -433,7 +441,7 @@ class Ontology:
         self.nr_of_triples = 0
         self.time = time.time()
         for pr in builtin_voc:
-            name = self.make_var(ClassDomain, pr)
+            name = self.mangle_name(pr)
             # Instantiate ClassDomains to record instances of the types
             name = name + "_type"
             self.variables[name] = ClassDomain(name, pr)
@@ -488,8 +496,8 @@ class Ontology:
         new = []
 
         for trip in triples:
-            case = 1
-            inc = 0
+            case = 0
+            inc = 1
             newtrip = []
             trip_ = [trip.Subject[0], trip.Verb[0], trip.Object[0]]
             for item in trip_:
@@ -501,10 +509,7 @@ class Ontology:
                 elif item.VAR1:
                     newtrip.append(URIRef('query_'+item.VAR1[0][0]))
                     case += trip_.index(item) + inc
-                    if inc:
-                        inc = 1
-                    else:
-                        inc = 2
+                    inc = 2
                 else:
                     newtrip.append(item[0][0])
             newtrip.append(case)
@@ -532,14 +537,19 @@ class Ontology:
             case = trip.pop(-1)
             if case == 0:
                 # Check if this triple entails
-                self.consider_triple(trip)
+                sub = self.mangle_name(trip[0])
+                prop = self.mangle_name(trip[1])
+                obj = self.mangle_name(trip[2])
+                if not obj in self.variables[prop].getValuesPrKey(sub):
+                    raise ConsistencyFailure
             elif case == 1:
                 # Add a HasValue constraint
                 var = self.make_var(Restriction, URIRef(trip[0]))
                 self.onProperty(var, URIRef(trip[1]))
                 self.hasValue(var, trip[2])
             elif case == 2:
-                #  for all p's return p if p[0]==s and p[1]==o 
+                #  for all p's return p if p[0]==s and p[1]==o
+
                 prop_name = self.make_var(ClassDomain, URIRef(trip[1]))
                 indi_name = self.mangle_name(trip[0])
                 indi = Individual(indi_name, trip[0])
@@ -548,9 +558,7 @@ class Ontology:
                     obj = self.variables[self.mangle_name(trip[2])]
                 else:
                     obj = trip[2]
-                self.type(URIRef(trip[1]), URIRef(namespaces['rdf']+'#Property'))
                 prop = self.variables[prop_name]
-            
                 prop.setValues(list(self.variables['rdf_Property_type'].getValues()))
                 # Get all properties by looking at 'rdf_Property_type'
                 # add a constraint trip[0] in domains[prop] and trip[2] in domains[prop].getValuesPrKey(trip[0])
@@ -565,7 +573,19 @@ class Ontology:
                 self.variables[var].setValues((p_vals))
             elif case == 4:
                 #  for all p's return p[0] if p[1]==o 
-                pass
+                 
+                sub_name = self.make_var(ClassDomain, URIRef(trip[0]))
+                prop_name = self.make_var(ClassDomain, URIRef(trip[1]))
+                sub = self.variables[sub_name]
+                sub.setValues(list(self.variables['owl_Thing'].getValues()))
+                prop = self.variables[prop_name]
+                prop.setValues(list(self.variables['rdf_Property_type'].getValues()))
+                obj_name = self.mangle_name(trip[2])
+                if  obj_name in self.variables:
+                    obj = self.variables[self.mangle_name(trip[2])]
+                else:
+                    obj = trip[2]
+                self.constraints.append(PropertyConstrain2(prop_name, sub_name, obj))
             elif case == 5:
                 #  return the values of p
                 prop = self.make_var(Property, URIRef(trip[1]))
@@ -722,7 +742,7 @@ class Ontology:
             # var is not one of the builtin classes -> it is a Thing
             self.type(s, Thing_uri)
             svar = self.make_var(Individual, s)
-#            self.variables[svar].type.append(avar) 
+            self.variables[svar].type.append(avar) 
             self.constraints.append(MemberConstraint(svar, avar))
         else:
             # var is a builtin class

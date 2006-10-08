@@ -74,7 +74,7 @@ Onto = """<rdf:RDF
 
 <owl:Class rdf:about="http://www.w3.org/2002/07/owl#Thing">
         <owl:oneOf rdf:parseType="Collection">
-            <owl:Thing rdf:about="#s"/>
+            <owl:Thing rdf:about="http://example.org/ns#s"/>
        </owl:oneOf>
       </owl:Class>
     <owl:Thing rdf:about="http://example.org/ns#sub">
@@ -96,11 +96,11 @@ from StringIO import StringIO
 
 def test_case_0():
     """ Check if the triple is entailed """
-    py.test.skip("Doesn't work yet")
 
-    query = qt_proto % ('?x', 'ns:sub ns:p 123 .')
+    query = qt_proto % ('?x', 'ns:sub ns:p "a123" .')
     O = Ontology()
     O.add_file(StringIO(Onto))
+    O.attach_fd()
     raises(ConsistencyFailure, O.sparql, query)
 
 def test_case_1():
@@ -138,7 +138,6 @@ def test_case_3():
 
 def test_case_4():
     """ search for s in p """
-    py.test.skip("Doesn't work yet")
 
     query = qt_proto % ('?x ?y', '?x ?y 123 .')
     O = Ontology()
@@ -147,6 +146,7 @@ def test_case_4():
 
     O.sparql(query)
     assert list(O.variables['query_x_'].getValues())[0].uri == u'http://example.org/ns#sub' 
+    assert list(O.variables['query_y_'].getValues())[0] == 'ns_p' #u'http://example.org/ns#p' 
 
 def test_case_5():
     """ for all p's return p[0] if p[1]==o """

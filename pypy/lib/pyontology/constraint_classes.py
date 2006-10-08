@@ -115,11 +115,32 @@ class PropertyConstrain(AbstractConstraint):
         dom = domains[self.prop]
         vals = list(dom.getValues())
         for p in vals:
-#            objs = domains[p].getValuesPrKey(self.variable)
             if not ((self.variable, self.object) in domains[p]):
                 dom.removeValue(p)
 
- 
+class PropertyConstrain2(AbstractConstraint):
+    def __init__(self, prop, variable, cls_or_restriction):
+        AbstractConstraint.__init__(self, [ prop])
+        self.object = cls_or_restriction
+        self.variable = variable
+        self.prop = prop
+
+    def narrow(self, domains):
+        # Narrow the list of properties (instances of some property type)
+        # to those who has a pair (self.variable, self.object)
+        dom = domains[self.prop]
+        sub = domains[self.variable]
+        vals = list(dom.getValues())
+        keep = []
+        for p in vals:
+            items = domains[p].getValuesPrKey()
+            for key, obj_list in items:
+                if not self.object in obj_list:
+                    dom.removeValue(p)
+                else:
+                    keep.append(key)
+        sub.removeValues([v for v in sub.getValues() if not v in keep])
+
 class MemberConstraint(AbstractConstraint):
 
     def __init__(self, variable, cls_or_restriction):
