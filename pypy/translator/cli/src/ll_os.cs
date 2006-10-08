@@ -35,7 +35,6 @@ namespace pypy.builtin
         {
             Debug.Assert(writer != null); // XXX: raise OSError?
             writer.Write(buffer);
-            writer.Flush();
         }
         
         public string Read(int count)
@@ -67,7 +66,6 @@ namespace pypy.builtin
                     stream.WriteByte((byte)'\r');
                 stream.WriteByte((byte)ch);
             }
-            stream.Flush(); // XXX: should we flush every time or not?
         }
 
         public string Read(int count)
@@ -108,7 +106,6 @@ namespace pypy.builtin
         {
             foreach(char ch in buffer)
                 stream.WriteByte((byte)ch);
-            stream.Flush();
         }
 
         public string Read(int count)
