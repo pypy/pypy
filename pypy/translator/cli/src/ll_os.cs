@@ -33,23 +33,29 @@ namespace pypy.builtin
 
         public void Write(string buffer)
         {
-            Debug.Assert(writer != null); // XXX: raise OSError?
+            if (writer == null)
+                Helpers.raise_OSError(Errno.EBADF);
             writer.Write(buffer);
         }
         
         public string Read(int count)
         {
-            Debug.Assert(reader != null); // XXX: raise OSError?
+            if (reader == null)
+                Helpers.raise_OSError(Errno.EBADF);
             char[] buf = new char[count];
             int n = reader.Read(buf, 0, count);
             return new string(buf, 0, n);
         }
     }
 
-    class CRLFTextFile: IFile
+    abstract class AbstractFile: IFile
     {
-        private FileStream stream;
-        public CRLFTextFile(FileStream stream)
+        protected FileStream stream;
+
+        protected abstract string _Read(int count);
+        protected abstract void _Write(string buffer);
+
+        public AbstractFile(FileStream stream)
         {
             this.stream = stream;
         }
@@ -58,8 +64,29 @@ namespace pypy.builtin
         {
             return stream;
         }
-        
+
         public void Write(string buffer)
+        {
+            if (!stream.CanWrite)
+                Helpers.raise_OSError(Errno.EBADF);
+            _Write(buffer);
+        }
+
+        public string Read(int count)
+        {
+            if (!stream.CanRead)
+                Helpers.raise_OSError(Errno.EBADF);
+            return _Read(count);
+        }
+    }
+
+    class CRLFTextFile: AbstractFile
+    {
+        public CRLFTextFile(FileStream stream): base(stream)
+        {
+        }
+        
+        protected override void _Write(string buffer)
         {
             foreach(char ch in buffer) {
                 if (ch == '\n')
@@ -68,7 +95,7 @@ namespace pypy.builtin
             }
         }
 
-        public string Read(int count)
+        protected override string _Read(int count)
         {
             System.Text.StringBuilder builder = new System.Text.StringBuilder(count);
             bool pending_CR = false;
@@ -89,26 +116,19 @@ namespace pypy.builtin
         }
     }
 
-    class BinaryFile: IFile
+    class BinaryFile: AbstractFile
     {
-        private FileStream stream;
-        public BinaryFile(FileStream stream)
+        public BinaryFile(FileStream stream): base(stream)
         {
-            this.stream = stream;
-        }
-
-        public FileStream GetStream()
-        {
-            return stream;
         }
         
-        public void Write(string buffer)
+        protected override void _Write(string buffer)
         {
             foreach(char ch in buffer)
                 stream.WriteByte((byte)ch);
         }
 
-        public string Read(int count)
+        protected override string _Read(int count)
         {
              byte[] rawbuf = new byte[count];
              int n = stream.Read(rawbuf, 0, count);
@@ -145,9 +165,11 @@ namespace pypy.builtin
         {
             FileDescriptors = new Dictionary<int, IFile>();
             // XXX: what about CRLF conversion for stdin, stdout and stderr?
+            // It seems that Posix let you read from stdout and
+            // stderr, so pass Console.In to them, too.
             FileDescriptors[0] = new TextFile(null, Console.In, null);
-            FileDescriptors[1] = new TextFile(null, null, Console.Out);
-            FileDescriptors[2] = new TextFile(null, null, Console.Error);
+            FileDescriptors[1] = new TextFile(null, Console.In, Console.Out);
+            FileDescriptors[2] = new TextFile(null, Console.In, Console.Error);
             fdcount = 2; // 0, 1 and 2 are already used by stdin, stdout and stderr
         }
 
@@ -252,7 +274,7 @@ namespace pypy.builtin
                 return res;
             }
             // path is not a file nor a dir, raise OSError
-            Helpers.raise_OSError(2); // ENOENT
+            Helpers.raise_OSError(Errno.ENOENT);
             return null; // never reached
         }
 

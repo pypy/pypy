@@ -70,7 +70,7 @@ class MainStub(Target):
     COMPILER = SDK.ilasm()
 
 class FrameworkDLL(Target):
-    SOURCES = ['pypylib.cs', 'll_os.cs', 'll_math.cs']
+    SOURCES = ['pypylib.cs', 'll_os.cs', 'errno.cs', 'll_math.cs']
     OUTPUT = 'pypylib.dll'
     ALIAS = 'pypylib-framework.dll'
     FLAGS = ['/t:library', '/unsafe', '/r:main.exe']
