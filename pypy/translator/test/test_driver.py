@@ -36,7 +36,9 @@ def test_ctr():
 
 
     assert cmpl(td.exposed,
-                ['annotate', 'backendopt_lltype', 'llinterpret_lltype',
+                ['annotate', 'backendopt_lltype',
+                 'backendopt_ootype',
+                 'llinterpret_lltype',
                  'rtype_ootype', 'rtype_lltype',
                  'source_cl', 'source_js', 'source_squeak', 'source_cli', 'source_c',
                  'source_llvm', 'compile_cl', 'compile_cli', 'compile_c', 'compile_squeak',
