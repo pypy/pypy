@@ -67,19 +67,25 @@ def ll_isinstance(inst, meta):
 
 def rtype_instantiate(hop):
     if hop.args_s[0].is_constant():
-        INSTANCE = hop.s_result.rtyper_makerepr(hop.rtyper).lowleveltype
-        v_instance = hop.inputconst(ootype.Void, INSTANCE)
-        hop2 = hop.copy()
-        hop2.r_s_popfirstarg()
-        s_instance = hop.rtyper.annotator.bookkeeper.immutablevalue(INSTANCE)
-        hop2.v_s_insertfirstarg(v_instance, s_instance)
-        return rtype_new(hop2)
+##        INSTANCE = hop.s_result.rtyper_makerepr(hop.rtyper).lowleveltype
+##        v_instance = hop.inputconst(ootype.Void, INSTANCE)
+##        hop2 = hop.copy()
+##        hop2.r_s_popfirstarg()
+##        s_instance = hop.rtyper.annotator.bookkeeper.immutablevalue(INSTANCE)
+##        hop2.v_s_insertfirstarg(v_instance, s_instance)
+##        return rtype_new(hop2)
+        r_instance = hop.s_result.rtyper_makerepr(hop.rtyper)
+        return r_instance.new_instance(hop.llops)
     else:
-        INSTANCE = hop.s_result.rtyper_makerepr(hop.rtyper).lowleveltype
+        r_instance = hop.s_result.rtyper_makerepr(hop.rtyper)
+        INSTANCE = r_instance.lowleveltype
         c_instance = hop.inputconst(ootype.Void, INSTANCE)
         v_cls = hop.inputarg(hop.args_r[0], arg=0)
         v_obj = hop.gendirectcall(ll_instantiate, c_instance, v_cls)
-        return hop.genop('oodowncast', [v_obj], resulttype=hop.r_result.lowleveltype)
+        v_instance = hop.genop('oodowncast', [v_obj], resulttype=hop.r_result.lowleveltype)
+        c_meta = hop.inputconst(ootype.Void, "meta")
+        hop.genop("oosetfield", [v_instance, c_meta, v_cls], resulttype=ootype.Void)
+        return v_instance
 
 def ll_instantiate(INST, C):
     return ootype.runtimenew(C.class_)
