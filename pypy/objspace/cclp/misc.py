@@ -6,16 +6,20 @@ from pypy.module._stackless.clonable import ClonableCoroutine
 
 import os
 
-NO_DEBUG_INFO = [True]
+class State: pass
+
+NO_DEBUG_INFO = State()
+NO_DEBUG_INFO.state = True
+
 def w(*msgs):
     """writeln"""
-    if NO_DEBUG_INFO[0]: return
+    if NO_DEBUG_INFO.state: return
     v(*msgs)
     os.write(1, ' \n')
 
 def v(*msgs):
     """write"""
-    if NO_DEBUG_INFO[0]: return
+    if NO_DEBUG_INFO.state: return
     for msg in list(msgs):
         os.write(1, msg)
         os.write(1, ' ')
@@ -32,7 +36,7 @@ def interp_id(space, w_obj):
 app_interp_id = gateway.interp2app(interp_id)
 
 def switch_debug_info(space):
-    NO_DEBUG_INFO[0] = not NO_DEBUG_INFO[0]
+    NO_DEBUG_INFO.state = not NO_DEBUG_INFO.state
 app_switch_debug_info = gateway.interp2app(switch_debug_info)
 
 
