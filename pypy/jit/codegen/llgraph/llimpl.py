@@ -7,6 +7,7 @@ that can be used to produce any other kind of graph.
 from pypy.rpython.lltypesystem import lltype, llmemory, rtupletype
 from pypy.objspace.flow import model as flowmodel
 from pypy.translator.simplify import eliminate_empty_blocks, join_blocks
+from pypy.translator.unsimplify import varoftype
 from pypy.rpython.module.support import init_opaque_object
 from pypy.rpython.module.support import to_opaque_object, from_opaque_object
 from pypy.rpython.module.support import LLSupport
@@ -251,6 +252,13 @@ def closeblockswitch(block, exitswitch):
     block.blockcolor = getcolor()
     exitswitch = from_opaque_object(exitswitch)
     assert isinstance(exitswitch, flowmodel.Variable)
+    TYPE = exitswitch.concretetype
+    if isinstance(TYPE, lltype.Ptr):
+        # XXX hack!
+        v1 = varoftype(lltype.Signed)
+        block.operations.append(flowmodel.SpaceOperation(
+            'cast_ptr_to_int', [exitswitch], v1))
+        exitswitch = v1
     block.exitswitch = exitswitch
     default_link = flowmodel.Link([], None)
     default_link.exitcase = "default"
@@ -264,8 +272,12 @@ def add_case(block, exitcase):
     assert isinstance(exitcase, flowmodel.Constant)
     assert isinstance(block.exitswitch, flowmodel.Variable)
     case_link = flowmodel.Link([], None)
-    case_link.exitcase = exitcase.value
-    case_link.llexitcase = exitcase.value
+    exitvalue = exitcase.value
+    if isinstance(lltype.typeOf(exitvalue), lltype.Ptr):
+        # XXX hack!
+        exitvalue = lltype.cast_ptr_to_int(exitvalue)
+    case_link.exitcase = exitvalue
+    case_link.llexitcase = exitvalue
     exits = block.exits[:-1] + (case_link,) + block.exits[-1:]
     block.recloseblock(*exits)
     return to_opaque_object(case_link)

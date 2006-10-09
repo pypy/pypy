@@ -39,8 +39,10 @@ class LLFlexSwitch(CodeGenSwitch):
     def __init__(self, b, g):
         self.b = b
         self.g = g
+        self.cases_gv = []
 
     def add_case(self, gv_case):
+        self.cases_gv.append(gv_case)  # not used so far, but keeps ptrs alive
         l_case = llimpl.add_case(self.b, gv_case.v)
         builder = LLBuilder(self.g)
         builder.lnk = l_case

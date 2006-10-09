@@ -80,6 +80,10 @@ class TimeshiftingTests(object):
         key = ll_function, inline, policy
         try:
             cache, argtypes = self._cache[key]
+            # XXX TEMPORARY: for now, caching doesn't work in the presence
+            # of global caches
+            if getattr(ll_function, '_global_merge_points_', False):
+                raise KeyError
         except KeyError:
             pass
         else:

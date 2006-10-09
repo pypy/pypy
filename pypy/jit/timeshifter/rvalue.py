@@ -178,6 +178,41 @@ class PtrRedBox(RedBox):
         else:
             return RedBox.__repr__(self)
 
+    def op_getfield(self, jitstate, fielddesc):
+        if self.content is not None:
+            box = self.content.op_getfield(jitstate, fielddesc)
+            if box is not None:
+                return box
+        gv_ptr = self.getgenvar(jitstate.curbuilder)
+        box = fielddesc.generate_get(jitstate.curbuilder, gv_ptr)
+        if fielddesc.immutable:
+            self.remember_field(fielddesc, box)
+        return box
+
+    def op_setfield(self, jitstate, fielddesc, valuebox):
+        gv_ptr = self.genvar
+        if gv_ptr:
+            fielddesc.generate_set(jitstate.curbuilder, gv_ptr, valuebox)
+        else:
+            assert self.content is not None
+            self.content.op_setfield(jitstate, fielddesc, valuebox)
+
+    def op_getsubstruct(self, jitstate, fielddesc):
+        gv_ptr = self.genvar
+        if gv_ptr:
+            return fielddesc.generate_getsubstruct(jitstate.curbuilder, gv_ptr)
+        else:
+            assert self.content is not None
+            return self.content.op_getsubstruct(jitstate, fielddesc)
+
+    def remember_field(self, fielddesc, box):
+        if self.genvar.is_const:
+            return      # no point in remembering field then
+        if self.content is None:
+            from pypy.jit.timeshifter import rcontainer
+            self.content = rcontainer.PartialDataStruct()
+        self.content.remember_field(fielddesc, box)
+
     def copy(self, memo):
         boxmemo = memo.boxes
         try:
@@ -207,7 +242,8 @@ class PtrRedBox(RedBox):
         try:
             return boxmemo[self]
         except KeyError:
-            if self.content:
+            if not self.genvar:
+                assert self.content is not None
                 result = FrozenPtrVirtual(self.kind)
                 boxmemo[self] = result
                 result.fz_content = self.content.freeze(memo)
@@ -216,6 +252,12 @@ class PtrRedBox(RedBox):
                     result = FrozenPtrConst(self.kind, self.genvar)
                 else:
                     result = FrozenPtrVar(self.kind)
+                    # if self.content is not None, it's a PartialDataStruct
+                    # - for now, we always remove it while freezing so that
+                    #   we exactly match our frozen version
+                    # XXX unsure if it's the correct place to do that.
+                    # XXX maybe in exactmatch??
+                    self.content = None
                 boxmemo[self] = result
             return result
 
@@ -226,11 +268,17 @@ class PtrRedBox(RedBox):
             assert self.genvar
         return self.genvar
 
+##    def forcevar(self, builder, memo):
+##        RedBox.forcevar(self, builder, memo)
+##        # if self.content is still there, it's a PartialDataStruct
+##        # - for now, we always remove it in this situation
+##        self.content = None
+
     def enter_block(self, incoming, memo):
+        if self.genvar:
+            RedBox.enter_block(self, incoming, memo)
         if self.content:
             self.content.enter_block(incoming, memo)
-        else:
-            RedBox.enter_block(self, incoming, memo)
 
 # ____________________________________________________________
 
@@ -378,12 +426,28 @@ class FrozenPtrVirtual(FrozenValue):
 
     def exactmatch(self, box, outgoingvarboxes, memo):
         assert isinstance(box, PtrRedBox)
-        if box.content is None:
+        if box.genvar:
             outgoingvarboxes.append(box)
             return False
         else:
+            assert box.content is not None
             return self.fz_content.exactmatch(box.content, outgoingvarboxes,
                                               memo)
 
     def unfreeze(self, incomingvarboxes, memo):
         return self.fz_content.unfreeze(incomingvarboxes, memo)
+
+
+##class FrozenPtrVarWithData(FrozenValue):
+
+##    def exactmatch(self, box, outgoingvarboxes, memo):
+##        memo = memo.boxes
+##        if self not in memo:
+##            memo[self] = box
+##            outgoingvarboxes.append(box)
+##            return True
+##        elif memo[self] is box:
+##            return True
+##        else:
+##            outgoingvarboxes.append(box)
+##            return False

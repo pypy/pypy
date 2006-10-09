@@ -60,6 +60,8 @@ class StructTypeDesc(object):
 
     def factory(self):
         vstruct = VirtualStruct(self)
+        vstruct.content_boxes = [desc.redboxcls(desc.kind, desc.gv_default)
+                                 for desc in self.fielddescs]
         box = rvalue.PtrRedBox(self.innermostdesc.ptrkind)
         box.content = vstruct
         vstruct.ownbox = box
@@ -179,15 +181,17 @@ class FrozenVirtualStruct(AbstractContainer):
             vstruct.content_boxes[i] = fz_box.unfreeze(incomingvarboxes,
                                                        memo)
         return ownbox
-        
 
-class VirtualStruct(AbstractContainer):
+
+class AbstractStruct(AbstractContainer):
+    pass
+
+
+class VirtualStruct(AbstractStruct):
 
     def __init__(self, typedesc):
         self.typedesc = typedesc
-        self.content_boxes = [desc.redboxcls(desc.kind,
-                                             desc.gv_default)
-                              for desc in typedesc.fielddescs]
+        #self.content_boxes = ... set in factory()
         #self.ownbox = ... set in factory()
 
     def enter_block(self, incoming, memo):
@@ -213,33 +217,29 @@ class VirtualStruct(AbstractContainer):
 
     def freeze(self, memo):
         contmemo = memo.containers
-        try:
-            return contmemo[self]
-        except KeyError:
-            result = contmemo[self] = FrozenVirtualStruct(self.typedesc)
-            frozens = [box.freeze(memo) for box in self.content_boxes]
-            result.fz_content_boxes = frozens
-            return result
+        assert self not in contmemo     # contmemo no longer used
+        result = contmemo[self] = FrozenVirtualStruct(self.typedesc)
+        frozens = [box.freeze(memo) for box in self.content_boxes]
+        result.fz_content_boxes = frozens
+        return result
         
     def copy(self, memo):
         contmemo = memo.containers
-        try:
-            return contmemo[self]
-        except KeyError:
-            result = contmemo[self] = VirtualStruct(self.typedesc)
-            result.content_boxes = [box.copy(memo)
-                                    for box in self.content_boxes]
-            result.ownbox = self.ownbox.copy(memo)
-            return result
+        assert self not in contmemo     # contmemo no longer used
+        result = contmemo[self] = VirtualStruct(self.typedesc)
+        result.content_boxes = [box.copy(memo)
+                                for box in self.content_boxes]
+        result.ownbox = self.ownbox.copy(memo)
+        return result
 
     def replace(self, memo):
         contmemo = memo.containers
-        if self not in contmemo:
-            contmemo[self] = None
-            content_boxes = self.content_boxes
-            for i in range(len(content_boxes)):
-                content_boxes[i] = content_boxes[i].replace(memo)
-            self.ownbox = self.ownbox.replace(memo)
+        assert self not in contmemo     # contmemo no longer used
+        contmemo[self] = None
+        content_boxes = self.content_boxes
+        for i in range(len(content_boxes)):
+            content_boxes[i] = content_boxes[i].replace(memo)
+        self.ownbox = self.ownbox.replace(memo)
 
     def op_getfield(self, jitstate, fielddesc):
         return self.content_boxes[fielddesc.fieldindex]
@@ -249,3 +249,45 @@ class VirtualStruct(AbstractContainer):
 
     def op_getsubstruct(self, jitstate, fielddesc):
         return self.ownbox
+
+
+class PartialDataStruct(AbstractStruct):
+
+    def __init__(self):
+        self.data = []
+
+    def op_getfield(self, jitstate, fielddesc):
+        searchindex = fielddesc.fieldindex
+        for index, box in self.data:
+            if index == searchindex:
+                return box
+        else:
+            return None
+
+    def remember_field(self, fielddesc, box):
+        searchindex = fielddesc.fieldindex
+        for i in range(len(self.data)):
+            if self.data[i][0] == searchindex:
+                self.data[i] = searchindex, box
+                return
+        else:
+            self.data.append((searchindex, box))
+
+    def copy(self, memo):
+        result = PartialDataStruct()
+        for index, box in self.data:
+            result.data.append((index, box.copy(memo)))
+        return result
+
+    def replace(self, memo):
+        for i in range(len(self.data)):
+            index, box = self.data[i]
+            box = box.replace(memo)
+            self.data[i] = index, box
+
+    def enter_block(self, incoming, memo):
+        contmemo = memo.containers
+        if self not in contmemo:
+            contmemo[self] = None
+            for index, box in self.data:
+                box.enter_block(incoming, memo)

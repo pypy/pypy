@@ -101,33 +101,17 @@ def ll_gengetfield(jitstate, fielddesc, argbox):
         res = getattr(rvalue.ll_getvalue(argbox, fielddesc.PTRTYPE),
                       fielddesc.fieldname)
         return rvalue.ll_fromvalue(jitstate, res)
-    assert isinstance(argbox, rvalue.PtrRedBox)
-    if argbox.content is None:
-        gv_ptr = argbox.getgenvar(jitstate.curbuilder)
-        return fielddesc.generate_get(jitstate.curbuilder, gv_ptr)
-    else:
-        return argbox.content.op_getfield(jitstate, fielddesc)
+    return argbox.op_getfield(jitstate, fielddesc)
 
 def ll_gensetfield(jitstate, fielddesc, destbox, valuebox):
-    assert isinstance(destbox, rvalue.PtrRedBox)
-    if destbox.content is None:
-        gv_ptr = destbox.getgenvar(jitstate.curbuilder)
-        fielddesc.generate_set(jitstate.curbuilder, gv_ptr, valuebox)
-    else:
-        destbox.content.op_setfield(jitstate, fielddesc, valuebox)
+    return destbox.op_setfield(jitstate, fielddesc, valuebox)
 
 def ll_gengetsubstruct(jitstate, fielddesc, argbox):
     if argbox.is_constant():
         res = getattr(rvalue.ll_getvalue(argbox, fielddesc.PTRTYPE),
                       fielddesc.fieldname)
         return rvalue.ll_fromvalue(jitstate, res)
-    assert isinstance(argbox, rvalue.PtrRedBox)
-    if argbox.content is None:
-        gv_ptr = argbox.getgenvar(jitstate.curbuilder)
-        return fielddesc.generate_getsubstruct(jitstate.curbuilder, gv_ptr)
-    else:
-        return argbox.content.op_getsubstruct(jitstate, fielddesc)
-
+    return argbox.op_getsubstruct(jitstate, fielddesc)
 
 def ll_gengetarrayitem(jitstate, fielddesc, argbox, indexbox):
     if fielddesc.immutable and argbox.is_constant() and indexbox.is_constant():

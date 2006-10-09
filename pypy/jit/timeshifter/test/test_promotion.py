@@ -43,8 +43,6 @@ class TestPromotion(TimeshiftingTests):
         self.check_insns(int_add=10, int_mul=0)
 
     def test_multiple_portal_calls(self):
-        # so far, crashes when we call timeshift() multiple times
-        py.test.skip("in-progress")
         def ll_function(n):
             k = n
             if k > 5:
@@ -244,7 +242,6 @@ class TestPromotion(TimeshiftingTests):
 
 
     def test_method_call_promote(self):
-        py.test.skip("in-progress")
         class Base(object):
             pass
         class Int(Base):
@@ -276,8 +273,8 @@ class TestPromotion(TimeshiftingTests):
 
         res = self.timeshift(ll_function, [5], [], policy=P_NOVIRTUAL)
         assert res == 10
-        self.check_insns(indirect_call=0, direct_call=1)
+        self.check_insns(indirect_call=0)
 
         res = self.timeshift(ll_function, [0], [], policy=P_NOVIRTUAL)
         assert res == ord('2')
-        self.check_insns(indirect_call=0, direct_call=1)
+        self.check_insns(indirect_call=0)

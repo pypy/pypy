@@ -409,14 +409,15 @@ class HintRTyper(RPythonTyper):
             
         v_argbox, c_fieldname = hop.inputargs(self.getredrepr(PTRTYPE),
                                               green_void_repr)
+        v_argbox = hop.llops.as_ptrredbox(v_argbox)
         structdesc = rcontainer.StructTypeDesc(self.RGenOp, PTRTYPE.TO)
         fielddesc = structdesc.getfielddesc(c_fieldname.value)
         c_fielddesc = inputconst(lltype.Void, fielddesc)
         s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
         v_jitstate = hop.llops.getjitstate()
         return hop.llops.genmixlevelhelpercall(rtimeshift.ll_gengetfield,
-            [ts.s_JITState, s_fielddesc, ts.s_RedBox],
-            [v_jitstate,    c_fielddesc, v_argbox   ],
+            [ts.s_JITState, s_fielddesc, ts.s_PtrRedBox],
+            [v_jitstate,    c_fielddesc, v_argbox      ],
             ts.s_RedBox)
 
     def translate_op_getarrayitem(self, hop):
@@ -486,14 +487,15 @@ class HintRTyper(RPythonTyper):
                                                            green_void_repr,
                                                            self.getredrepr(VALUETYPE)
                                                            )
+        v_destbox = hop.llops.as_ptrredbox(v_destbox)
         structdesc = rcontainer.StructTypeDesc(self.RGenOp, PTRTYPE.TO)
         fielddesc = structdesc.getfielddesc(c_fieldname.value)
         c_fielddesc = inputconst(lltype.Void, fielddesc)
         s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
         v_jitstate = hop.llops.getjitstate()
         return hop.llops.genmixlevelhelpercall(rtimeshift.ll_gensetfield,
-            [ts.s_JITState, s_fielddesc, ts.s_RedBox, ts.s_RedBox],
-            [v_jitstate,    c_fielddesc, v_destbox,   v_valuebox],
+            [ts.s_JITState, s_fielddesc, ts.s_PtrRedBox, ts.s_RedBox],
+            [v_jitstate,    c_fielddesc, v_destbox,      v_valuebox],
             annmodel.s_None)
 
     def translate_op_setarrayitem(self, hop):
@@ -519,14 +521,15 @@ class HintRTyper(RPythonTyper):
         PTRTYPE = originalconcretetype(hop.args_s[0])
         v_argbox, c_fieldname = hop.inputargs(self.getredrepr(PTRTYPE),
                                               green_void_repr)
+        v_argbox = hop.llops.as_ptrredbox(v_argbox)
         fielddesc = rcontainer.NamedFieldDesc(self.RGenOp, PTRTYPE,
                                               c_fieldname.value)
         c_fielddesc = inputconst(lltype.Void, fielddesc)
         s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
         v_jitstate = hop.llops.getjitstate()
         return hop.llops.genmixlevelhelpercall(rtimeshift.ll_gengetsubstruct,
-            [ts.s_JITState, s_fielddesc, ts.s_RedBox],
-            [v_jitstate,    c_fielddesc, v_argbox   ],
+            [ts.s_JITState, s_fielddesc, ts.s_PtrRedBox],
+            [v_jitstate,    c_fielddesc, v_argbox      ],
             ts.s_RedBox)
 
     def translate_op_cast_pointer(self, hop):
@@ -894,8 +897,7 @@ class HintRTyper(RPythonTyper):
         args_s = [ts.s_RedBox] * len(args_v)
         if oopspecdesc.is_method:
             args_s[0] = ts.s_PtrRedBox    # for more precise annotations
-            args_v[0] = hop.llops.genop('cast_pointer', [args_v[0]],
-                               resulttype = ts.r_PtrRedBox.lowleveltype)
+            args_v[0] = hop.llops.as_ptrredbox(args_v[0])
         RESULT = originalconcretetype(hop.s_result)
         if RESULT is lltype.Void:
             s_result = annmodel.s_None
@@ -1033,6 +1035,14 @@ class HintLowLevelOpList(LowLevelOpList):
     def setjitstate(self, v_newjitstate):
         self.genop('setjitstate', [v_newjitstate])
 
+    def as_redbox(self, v_ptrredbox):
+        return self.genop('cast_pointer', [v_ptrredbox],
+                          resulttype = self.hrtyper.r_RedBox)
+
+    def as_ptrredbox(self, v_redbox):
+        return self.genop('cast_pointer', [v_redbox],
+                          resulttype = self.hrtyper.r_PtrRedBox)
+
 # ____________________________________________________________
 
 class __extend__(pairtype(HintTypeSystem, hintmodel.SomeLLAbstractValue)):
@@ -1120,8 +1130,7 @@ class RedStructRepr(RedRepr):
             self.typedesc = rcontainer.StructTypeDesc(ts.RGenOp, T)
         v_ptrbox = hop.llops.genmixlevelhelpercall(self.typedesc.ll_factory,
             [], [], ts.s_PtrRedBox)
-        return hop.llops.genop('cast_pointer', [v_ptrbox], resulttype=
-                               ts.r_RedBox)
+        return hop.llops.as_redbox(v_ptrbox)
 
 
 class BlueRepr(Repr):
