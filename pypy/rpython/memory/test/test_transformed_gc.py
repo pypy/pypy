@@ -157,7 +157,8 @@ import sys
 from pypy.translator.c import gc
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rpython.memory import gctransform
+from pypy.rpython.memory.gctransform import framework
+from pypy.rpython.memory.gctransform import stacklessframework
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.memory.support import INT_SIZE
@@ -228,7 +229,7 @@ class GCTest(object):
 class TestMarkSweepGC(GCTest):
 
     class gcpolicy(gc.FrameworkGcPolicy):
-        class transformerclass(gctransform.FrameworkGCTransformer):
+        class transformerclass(framework.FrameworkGCTransformer):
             GC_PARAMS = {'start_heap_size': 4096 }
 
     def heap_usage(self, statistics):
@@ -636,7 +637,7 @@ class TestMarkSweepGC(GCTest):
 class TestStacklessMarkSweepGC(TestMarkSweepGC):
 
     class gcpolicy(gc.StacklessFrameworkGcPolicy):
-        class transformerclass(gctransform.StacklessFrameworkGCTransformer):
+        class transformerclass(stacklessframework.StacklessFrameworkGCTransformer):
             GC_PARAMS = {'start_heap_size': 4096 }
 
     def test_x_become(self):
@@ -662,6 +663,6 @@ class TestSemiSpaceGC(TestMarkSweepGC):
         py.test.skip("in-progress")
 
     class gcpolicy(gc.StacklessFrameworkGcPolicy):
-        class transformerclass(gctransform.FrameworkGCTransformer):
+        class transformerclass(framework.FrameworkGCTransformer):
             from pypy.rpython.memory.gc import SemiSpaceGC as GCClass
             GC_PARAMS = {'space_size': 4096 }

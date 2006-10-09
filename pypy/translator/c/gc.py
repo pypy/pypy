@@ -4,7 +4,8 @@ from pypy.translator.c.node import ContainerNode
 from pypy.rpython.lltypesystem.lltype import \
      typeOf, Ptr, ContainerType, RttiStruct, \
      RuntimeTypeInfo, getRuntimeTypeInfo, top_container
-from pypy.rpython.memory import gctransform
+from pypy.rpython.memory.gctransform import \
+     refcounting, boehm, framework, stacklessframework
 from pypy.rpython.lltypesystem import lltype, llmemory
 
 class BasicGcPolicy(object):
@@ -64,7 +65,7 @@ class RefcountingInfo:
 from pypy.rpython.objectmodel import CDefinedIntSymbolic
 
 class RefcountingGcPolicy(BasicGcPolicy):
-    transformerclass = gctransform.RefcountingGCTransformer
+    transformerclass = refcounting.RefcountingGCTransformer
 
     def common_gcheader_definition(self, defnode):
         if defnode.db.gctransformer is not None:
@@ -168,7 +169,7 @@ class BoehmInfo:
     malloc_exact = False
 
 class BoehmGcPolicy(BasicGcPolicy):
-    transformerclass = gctransform.BoehmGCTransformer
+    transformerclass = boehm.BoehmGCTransformer
 
     def setup_gcinfo(self, defnode):
         transformer = defnode.db.gctransformer
@@ -372,7 +373,7 @@ class NoneGcPolicy(BoehmGcPolicy):
 
 
 class FrameworkGcPolicy(BasicGcPolicy):
-    transformerclass = gctransform.FrameworkGCTransformer
+    transformerclass = framework.FrameworkGCTransformer
 
     def struct_setup(self, structdefnode, rtti):
         if rtti is not None and hasattr(rtti._obj, 'destructor_funcptr'):
@@ -424,5 +425,5 @@ class FrameworkGcPolicy(BasicGcPolicy):
     malloc = zero_malloc
 
 class StacklessFrameworkGcPolicy(FrameworkGcPolicy):
-    transformerclass = gctransform.StacklessFrameworkGCTransformer
+    transformerclass = stacklessframework.StacklessFrameworkGCTransformer
     requires_stackless = True

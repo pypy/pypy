@@ -4,7 +4,7 @@ from pypy.translator.backendopt.propagate import *
 from pypy.rpython.rarithmetic import ovfcheck
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.rpython.llinterp import LLInterpreter
-from pypy.rpython.memory.test.test_gctransform import getops
+from pypy.rpython.memory.gctransform.test.test_transform import getops
 from pypy import conftest
 
 def get_graph(fn, signature, inline_threshold=True, all_opts=True):
