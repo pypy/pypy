@@ -15,21 +15,25 @@ def skip(desc):
     print "skipping because", desc
     raise Skip
 
-def run_tests(tm):
-    classes = [obj for name, obj in inspect.getmembers(tm)
-               if isinstance(obj, type)]
+def get_test_classes():
+    return [obj for name, obj in inspect.getmembers(tm)
+            if isinstance(obj, type)]
 
+def get_test_methods(klass):
+    return [(name, meth)
+            for name, meth in inspect.getmembers(klass())
+            if not name.startswith('_')]
+
+def run_tests(tm):
+    
     tm.raises = raises
     tm.skip = skip
-
+    
     successes = []
     failures = []
     skipped = []
 
-
-    for klass in classes:
-        tests = [(name, meth) for name, meth in inspect.getmembers(klass())
-                 if not name.startswith('_')]
+    for tests in [get_test_methods(cl) for cl in get_test_classes()] :
         for name, meth in tests:
             if name == 'setup_class': continue
             try:
@@ -37,7 +41,7 @@ def run_tests(tm):
             except Skip:
                 skipped.append(name)
             except Exception, e:
-                failures.append((name, e))
+                failures.append((name, meth, e))
             else:
                 successes.append(name)
 
@@ -47,12 +51,17 @@ def run_tests(tm):
         print
     if failures:
         print "Failures :"
-        for name, exc in failures:
+        for name, _, exc in failures:
             print '', name, "failed because", str(exc)
         print
     if skipped:
         print "Skipped"
         print '', '\n '.join(skipped)
+
+    # replay failures with more info
+    switch_debug_info()
+    for name, meth, _ in failures:
+        meth()
         
 if __name__ == __name__:
     import sys
