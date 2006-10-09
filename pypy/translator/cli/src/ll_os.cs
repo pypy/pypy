@@ -203,8 +203,16 @@ namespace pypy.builtin
         {
             FileAccess f_access = get_file_access(flags);
             FileMode f_mode = get_file_mode(flags);
-            FileStream stream = new FileStream(name, f_mode, f_access);
+            FileStream stream;
             IFile f;
+
+            try {
+                stream = new FileStream(name, f_mode, f_access);
+            }
+            catch(FileNotFoundException e) {
+                Helpers.raise_OSError(Errno.ENOENT);
+                return -1;
+            }
 
             // - on Unix there is no difference between text and binary modes
             // - on Windows text mode means that we should convert '\n' from and to '\r\n'
