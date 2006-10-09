@@ -469,7 +469,7 @@ class FrameworkGCTransformer(GCTransformer):
         c_size = rmodel.inputconst(lltype.Signed, info["fixedsize"])
         if not op.opname.endswith('_varsize'):
             #malloc_ptr = self.malloc_fixedsize_ptr
-            if 1 or op.opname.startswith('zero'):
+            if op.opname.startswith('zero'):
                 malloc_ptr = self.malloc_fixedsize_clear_ptr
             else:
                 malloc_ptr = self.malloc_fixedsize_ptr
@@ -488,14 +488,12 @@ class FrameworkGCTransformer(GCTransformer):
         c_has_finalizer = rmodel.inputconst(
             lltype.Bool, bool(self.finalizer_funcptr_for_type(TYPE)))
         args.append(c_has_finalizer)
-        
+
         self.push_roots(hop)
         v_result = hop.genop("direct_call", [malloc_ptr] + args,
                              resulttype=llmemory.GCREF)
         self.pop_roots(hop)
         hop.cast_result(v_result)
-        if malloc_ptr == self.malloc_fixedsize_ptr:
-            gen_zero_gc_pointers(TYPE, op.result, hop.llops)
 
     gct_zero_malloc = gct_malloc
     gct_malloc_varsize = gct_malloc
@@ -540,6 +538,11 @@ class FrameworkGCTransformer(GCTransformer):
                   [self.x_become_ptr, self.c_const_gc, v_target, v_source],
                   resultvar=op.result)
         self.pop_roots(hop)
+
+    def gct_zero_gc_pointers_inside(self, hop):
+        v_ob = hop.spaceop.args[0]
+        TYPE = v_ob.concretetype.TO
+        gen_zero_gc_pointers(TYPE, v_ob, hop.llops)
 
     def push_alive_nopyobj(self, var, llops):
         pass
