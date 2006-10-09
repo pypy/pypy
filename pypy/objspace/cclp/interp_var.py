@@ -1,6 +1,6 @@
 from pypy.objspace.cclp.variable import wait__Var, _assign_aliases, _entail
 from pypy.objspace.cclp.types import W_Root, W_Var, W_CVar
-from pypy.objspace.cclp.global_state import scheduler
+from pypy.objspace.cclp.global_state import sched
 from pypy.objspace.cclp.misc import w
 
 
@@ -48,7 +48,7 @@ def interp_assign_aliases(w_var, w_val):
         assert isinstance(w_next, W_Var)
         _assign(w_curr, w_val)
         # notify the blocked threads
-        scheduler[0].unblock_on(w_curr)
+        sched.uler.unblock_on(w_curr)
         if w_next is w_var:
             break
         # switch to next

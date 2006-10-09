@@ -1,3 +1,5 @@
 
-scheduler = []
+class State: pass
+
+sched = State()
 

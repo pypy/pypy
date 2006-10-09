@@ -10,7 +10,7 @@ W_Root = baseobjspace.W_Root
 
 #-- MISC ----------------------------------------------------
 
-from pypy.objspace.cclp.misc import app_interp_id, app_switch_debug_info, app_is_interpreted
+from pypy.objspace.cclp.misc import app_interp_id, app_switch_debug_info, app_is_interpreted, w
 
 #-- THREADING/COROUTINING -----------------------------------
 
@@ -19,7 +19,7 @@ from pypy.objspace.cclp.thread import app_future, app_stacklet, app_this_thread
 from pypy.objspace.cclp.scheduler import Scheduler,  app_sched_info, \
      app_schedule, app_reset_scheduler
 
-from pypy.objspace.cclp.global_state import scheduler
+from pypy.objspace.cclp.global_state import sched
 
 #-- COMP. SPACE --------------------------------------------
 
@@ -95,14 +95,15 @@ def eqproxy(space, parentfn):
     def eq(w_obj1, w_obj2):
         assert isinstance(w_obj1, W_Root)
         assert isinstance(w_obj2, W_Root)
-        # check identity
+        w("#> check identity")
         if space.is_true(space.is_nb_(w_obj1, w_obj2)):
             return space.newbool(True)
-        # check aliasing
+        w("#> check aliasing")
         if space.is_true(space.is_free(w_obj1)):
             if space.is_true(space.is_free(w_obj2)):
                 if space.is_true(alias_of(space, w_obj1, w_obj2)):
                     return space.newbool(True) # and just go on ...
+        w("#> using parent eq")
         return parentfn(wait(space, w_obj1), wait(space, w_obj2))
     return eq
 
@@ -294,7 +295,7 @@ def Space(*args, **kwds):
 
     # do the magic
     patch_space_in_place(space, 'logic', proxymaker)
-
     # instantiate singleton scheduler
-    scheduler.append(Scheduler(space))
+    sched.uler = Scheduler(space)
+    
     return space

@@ -1,19 +1,14 @@
 import math
-from pypy.rpython.objectmodel import we_are_translated
 
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter import baseobjspace, typedef, gateway
+from pypy.interpreter import baseobjspace, typedef
 from pypy.interpreter.gateway import interp2app
 
 from pypy.objspace.std.intobject import W_IntObject
-from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.stringobject import W_StringObject
 
-from pypy.objspace.cclp.types import W_AbstractDistributor, Solution, W_Var
-from pypy.objspace.cclp.misc import w, ClonableCoroutine, get_current_cspace
-from pypy.objspace.cclp.global_state import scheduler
-from pypy.objspace.cclp.interp_var import interp_free, interp_bind
+from pypy.objspace.cclp.types import W_AbstractDistributor
+from pypy.objspace.cclp.misc import w, get_current_cspace
 
 def distribute(space, w_strategy):
     assert isinstance(w_strategy, W_StringObject)

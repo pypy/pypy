@@ -1,5 +1,8 @@
 from pypy.rpython.objectmodel import we_are_translated
 from pypy.interpreter import baseobjspace, gateway, argument, typedef
+from pypy.interpreter.function import Function
+from pypy.interpreter.eval import Code
+
 from pypy.interpreter.error import OperationError
 
 from pypy.objspace.std.intobject import W_IntObject
@@ -7,18 +10,12 @@ from pypy.objspace.std.listobject import W_ListObject, W_TupleObject
 
 from pypy.objspace.cclp.misc import ClonableCoroutine, get_current_cspace, w
 from pypy.objspace.cclp.thunk import CSpaceThunk, PropagatorThunk
-from pypy.objspace.cclp.global_state import scheduler
+from pypy.objspace.cclp.global_state import sched
 from pypy.objspace.cclp.variable import newvar
 from pypy.objspace.cclp.types import ConsistencyError, Solution, W_Var, \
      W_CVar, W_AbstractDomain
 from pypy.objspace.cclp.interp_var import interp_bind, interp_free
 
-
-class DummyCallable(baseobjspace.W_Root):
-    def __call__(self): pass
-
-dummy_function = DummyCallable()
-dummy_args = argument.Arguments([])
 
 def newspace(space, w_callable, __args__):
     args = __args__.normalize()
@@ -29,11 +26,11 @@ def newspace(space, w_callable, __args__):
     w_coro.bind(thunk)
     if not we_are_translated():
         w("NEWSPACE, thread", str(id(w_coro)), "for", str(w_callable.name))
-    w_space = W_CSpace(space, w_coro, parent=w_coro._cspace)
+    w_space = W_CSpace(space)
     w_coro._cspace = w_space
 
-    scheduler[0].add_new_thread(w_coro)
-    scheduler[0].schedule()
+    sched.uler.add_new_thread(w_coro)
+    sched.uler.schedule()
 
     return w_space
 app_newspace = gateway.interp2app(newspace, unwrap_spec=[baseobjspace.ObjSpace,
@@ -67,14 +64,9 @@ app_tell = gateway.interp2app(tell)
 
 class W_CSpace(baseobjspace.Wrappable):
 
-    def __init__(self, space, thread, parent):
-        assert isinstance(thread, ClonableCoroutine)
-        assert (parent is None) or isinstance(parent, W_CSpace)
+    def __init__(self, space):
         self.space = space # the object space ;-)
-        self.parent = parent
-        self.dist_thread = thread
         self.distributor = None
-        self.distributor_is_logic_script = True
         # choice mgmt
         self._choice = newvar(space)
         self._committed = newvar(space)
@@ -89,43 +81,49 @@ class W_CSpace(baseobjspace.Wrappable):
         
     def register_var(self, cvar):
         self._store[cvar.name] = cvar
-        self.distributor_is_logic_script = False
 
     def clone(self):
         if not we_are_translated():
-            print "<-CLONE !! -----------------------------------------------------------------------"            
+            print "<-CLONE !! -----------------------------------------------------------------------"
             # build fresh cspace & distributor thread
             thread = ClonableCoroutine(self.space)
-            new_cspace = W_CSpace(self.space, thread, None)
+            new_cspace = W_CSpace(self.space)
             thread._cspace = new_cspace
-            # new distributor
-            old_dist = self.dist_thread.thunk.dist
+            # new distributor instance
+            old_dist = self.distributor
             new_dist = old_dist.__class__(self.space, old_dist._fanout)
             new_dist._cspace = new_cspace
             # new distributor thunk
-            thunk = CSpaceThunk(self.space, self.space.wrap(dummy_function), dummy_args, thread)
+            thunk = CSpaceThunk(self.space,
+                                Function(self.space, Code('nocode')),
+                                argument.Arguments([]),
+                                thread)
             thread.bind(thunk)
-            scheduler[0].add_new_thread(thread)
+            sched.uler.add_new_thread(thread)
             # copy the store
             for var in self._store.values():
                 new_cspace.register_var(var.copy(self.space))
-            assert self.dist_thread.thunk.dist.distributable()
             # rebuild propagators
-            for const in self._constraints:
-                new_cspace.tell(const)
-            # other attrs
+            new_cspace._last_choice = self._last_choice
             new_cspace._solution = newvar(self.space)
             self.space.unify(new_cspace._solution, self.space.newlist(self._store.values()))
-            if hasattr(self, '_last_choice'):
-                new_cspace._last_choice = self._last_choice
-            print "LOOOOK at that : ", new_cspace._committed, self._committed
+            try:
+                for const in self._constraints:
+                    new_cspace.tell(const)
+                # other attrs
+                #if hasattr(self, '_last_choice'):
+                
+            except Exception, e:
+                print "DUH ?"
+                import traceback
+                traceback.print_exc()
             return new_cspace
         else:
             raise NotImplementedError
 
 
     def w_ask(self):
-        scheduler[0].wait_stable(self)
+        sched.uler.wait_stable(self)
         self.space.wait(self._choice)
         choice = self._choice.w_bound_to
         self._choice = newvar(self.space)
@@ -135,7 +133,7 @@ class W_CSpace(baseobjspace.Wrappable):
 
     def choose(self, n):
         assert n > 1
-        scheduler[0].wait_stable(self)
+        sched.uler.wait_stable(self)
         if self._failed: #XXX set by any propagator
             raise ConsistencyError
         assert interp_free(self._choice)
@@ -163,8 +161,8 @@ class W_CSpace(baseobjspace.Wrappable):
         if not we_are_translated():
             w("PROPAGATOR in thread", str(id(w_coro)))
             self._constraints.append(w_constraint)
-        scheduler[0].add_new_thread(w_coro)
-        scheduler[0].schedule()
+        sched.uler.add_new_thread(w_coro)
+        sched.uler.schedule()
 
     def fail(self):
         self._failed = True

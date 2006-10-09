@@ -2,7 +2,7 @@ from pypy.module._stackless.coroutine import _AppThunk
 from pypy.module._stackless.interp_coroutine import AbstractThunk
 
 from pypy.objspace.cclp.misc import w
-from pypy.objspace.cclp.global_state import scheduler
+from pypy.objspace.cclp.global_state import sched
 from pypy.objspace.cclp.types import W_Var, W_CVar, W_Future, W_FailedValue, \
      ConsistencyError, Solution, W_AbstractDomain
 from pypy.objspace.cclp.interp_var import interp_wait, interp_entail, \
@@ -33,18 +33,18 @@ class ProcedureThunk(_AppThunk):
 
     def call(self):
         w(".! initial (returnless) thunk CALL in", str(id(self._coro)))
-        scheduler[0].trace_vars(self._coro, logic_args(self.args.unpack()))
+        sched.uler.trace_vars(self._coro, logic_args(self.args.unpack()))
         try:
             try:
                 _AppThunk.call(self)
             except Exception, exc:
                 w(".! exceptional EXIT of procedure", str(id(self._coro)), "with", str(exc))
-                scheduler[0].dirty_traced_vars(self._coro, W_FailedValue(exc))
+                sched.uler.dirty_traced_vars(self._coro, W_FailedValue(exc))
             else:
                 w(".! clean EXIT of procedure", str(id(self._coro)))
         finally:
-            scheduler[0].remove_thread(self._coro)
-            scheduler[0].schedule()
+            sched.uler.remove_thread(self._coro)
+            sched.uler.schedule()
 
 
 class FutureThunk(_AppThunk):
@@ -55,7 +55,7 @@ class FutureThunk(_AppThunk):
 
     def call(self):
         w(".! initial thunk CALL in", str(id(self._coro)))
-        scheduler[0].trace_vars(self._coro, logic_args(self.args.unpack()))
+        sched.uler.trace_vars(self._coro, logic_args(self.args.unpack()))
         try:
             try:
                 _AppThunk.call(self)
@@ -63,15 +63,15 @@ class FutureThunk(_AppThunk):
                 w(".! exceptional EXIT of future", str(id(self._coro)), "with", str(exc))
                 failed_val = W_FailedValue(exc)
                 self.space.bind(self.w_Result, failed_val)
-                scheduler[0].dirty_traced_vars(self._coro, failed_val)
+                sched.uler.dirty_traced_vars(self._coro, failed_val)
             else:
                 w(".! clean EXIT of future", str(id(self._coro)),
                   "-- setting future result", str(self.w_Result), "to",
                   str(self.costate.w_tempval))
                 self.space.unify(self.w_Result, self.costate.w_tempval)
         finally:
-            scheduler[0].remove_thread(self._coro)
-            scheduler[0].schedule()
+            sched.uler.remove_thread(self._coro)
+            sched.uler.schedule()
 
 class CSpaceThunk(_AppThunk):
     "for a constraint script/logic program"
@@ -81,18 +81,17 @@ class CSpaceThunk(_AppThunk):
 
     def call(self):
         w("-- initial thunk CALL in", str(id(self._coro)))
-        scheduler[0].trace_vars(self._coro, logic_args(self.args.unpack()))
+        sched.uler.trace_vars(self._coro, logic_args(self.args.unpack()))
         cspace = self._coro._cspace
         space = self.space
         try:
             try:
-                #if self.runs_a_logic_script():
                 _AppThunk.call(self)
             except Exception, exc:
                 # maybe app_level let something buble up ...
                 w("-- exceptional EXIT of DISTRIBUTOR", str(id(self._coro)), "with", str(exc))
                 failed_value = W_FailedValue(exc)
-                scheduler[0].dirty_traced_vars(self._coro, failed_value)
+                sched.uler.dirty_traced_vars(self._coro, failed_value)
                 interp_bind(cspace._solution, failed_value)
                 cspace.fail()
             else:
@@ -110,8 +109,8 @@ class CSpaceThunk(_AppThunk):
                 interp_bind(cspace._choice, self.space.newint(1))
         finally:
             interp_bind(cspace._finished, self.space.w_True)
-            scheduler[0].remove_thread(self._coro)
-            scheduler[0].schedule()
+            sched.uler.remove_thread(self._coro)
+            sched.uler.schedule()
 
 
 class PropagatorThunk(AbstractThunk):
@@ -149,6 +148,6 @@ class PropagatorThunk(AbstractThunk):
                     import traceback
                     traceback.print_exc()
         finally:
-            scheduler[0].remove_thread(self.coro)
-            scheduler[0].schedule()
+            sched.uler.remove_thread(self.coro)
+            sched.uler.schedule()
 

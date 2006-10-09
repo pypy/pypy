@@ -6,7 +6,7 @@ from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.cclp.types import W_Var, W_FailedValue, aliases
 from pypy.objspace.cclp.misc import w, v, ClonableCoroutine
 from pypy.objspace.cclp.space import W_CSpace
-from pypy.objspace.cclp.global_state import scheduler
+from pypy.objspace.cclp.global_state import sched
 
 #-- Singleton scheduler ------------------------------------------------
 
@@ -17,37 +17,22 @@ class Scheduler(object):
         self._main = ClonableCoroutine.w_getcurrent(space)
         assert isinstance(self._main, ClonableCoroutine)
         self._init_head(self._main)
-        self._init_blocked()
+        self._blocked = {} # thread set
+        # variables suspension lists
+        self._blocked_on = {} # var -> threads
+        self._blocked_byneed = {} # var -> threads
+        self._asking = {} # thread -> cspace
         self._switch_count = 0
         # more accounting
         self._per_space_live_threads = {} # space -> nb runnable threads
         self._traced = {} # thread -> vars
         w("MAIN THREAD = ", str(id(self._main)))
 
-    def _init_blocked(self):
-        self._blocked = {} # thread set
-        # variables suspension lists
-        self._blocked_on = {} # var -> threads
-        self._blocked_byneed = {} # var -> threads
-        self._asking = {} # thread -> cspace
-
     def _init_head(self, thread):
         assert isinstance(thread, ClonableCoroutine)
         self._head = thread
         # for the reset case
         self._head._next = self._head._prev = self._head
-
-    def _check_initial_conditions(self):
-        try:
-            assert self._head._next == self._head._prev == self._head
-            assert self._head not in self._blocked
-            assert self._head not in self._blocked_on
-            assert self._head not in self._blocked_byneed
-            assert self._head not in self._asking
-        except Exception:
-            #XXX give sched_info maybe
-            raise OperationError(self.space.w_RuntimeError,
-                                 self.space.wrap("scheduler is in an incoherent state"))
             
     def _chain_insert(self, thread):
         assert thread._next is thread
@@ -144,8 +129,8 @@ class Scheduler(object):
                     return current
                 w(str(sched_info(self.space)))
                 ## we RESET sched state so as to keep being usable beyond that
-                self._init_head(self._main)
-                self._init_blocked()
+                reset_scheduler(self.space)
+                sched.uler._main = sched.uler._head = self._head
                 w(".. SCHEDULER reinitialized")
                 raise OperationError(self.space.w_AllBlockedError,
                                      self.space.wrap("can't schedule, possible deadlock in sight"))
@@ -175,7 +160,7 @@ class Scheduler(object):
         r._prev = l
         self._head = r
         if r == thread: #XXX write a test for me !
-            if not we_are_translated(): 
+            if not we_are_translated():
                 import traceback
                 traceback.print_exc()
         thread._next = thread._prev = None
@@ -322,13 +307,11 @@ class Scheduler(object):
         
 #-- Misc --------------------------------------------------
 def reset_scheduler(space):
-    "garbage collection of threads might pose some problems"
-    scheduler[0] = Scheduler(space)
-    scheduler[0]._check_initial_conditions()
+    sched.uler = Scheduler(space)
 app_reset_scheduler = gateway.interp2app(reset_scheduler)
 
 def sched_info(space):
-    s = scheduler[0]
+    s = sched.uler
     si = space.setitem
     sw = space.wrap
     w_ret = space.newdict()
@@ -344,5 +327,5 @@ app_sched_info = gateway.interp2app(sched_info)
 
 def schedule(space):
     "useful til we get preemtive scheduling deep into the vm"
-    scheduler[0].schedule_or_pass()
+    sched.uler.schedule_or_pass()
 app_schedule = gateway.interp2app(schedule)

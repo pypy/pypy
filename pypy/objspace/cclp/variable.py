@@ -6,7 +6,7 @@ from pypy.objspace.std.dictobject import W_DictObject
 from pypy.objspace.std.stringobject import W_StringObject
 
 from pypy.objspace.cclp.misc import w, v, ClonableCoroutine
-from pypy.objspace.cclp.global_state import scheduler
+from pypy.objspace.cclp.global_state import sched
 from pypy.objspace.cclp.types import deref, W_Var, W_CVar, W_Future, W_FailedValue
 
 from pypy.rpython.objectmodel import we_are_translated
@@ -27,11 +27,11 @@ def wait__Root(space, w_obj):
     return w_obj
 
 def wait__Var(space, w_var):
-    #w(":wait", str(id(ClonableCoroutine.w_getcurrent(space))))
+    w("###:wait", str(id(ClonableCoroutine.w_getcurrent(space))))
     if space.is_true(space.is_free(w_var)):
-        scheduler[0].unblock_byneed_on(w_var)
-        scheduler[0].add_to_blocked_on(w_var, ClonableCoroutine.w_getcurrent(space))
-        scheduler[0].schedule()
+        sched.uler.unblock_byneed_on(w_var)
+        sched.uler.add_to_blocked_on(w_var, ClonableCoroutine.w_getcurrent(space))
+        sched.uler.schedule()
         assert space.is_true(space.is_bound(w_var))
     w_ret = w_var.w_bound_to
     if isinstance(w_ret, W_FailedValue):
@@ -57,8 +57,8 @@ def wait_needed__Var(space, w_var):
     if space.is_true(space.is_free(w_var)):
         if w_var.needed:
             return
-        scheduler[0].add_to_blocked_byneed(w_var, ClonableCoroutine.w_getcurrent(space))
-        scheduler[0].schedule()
+        sched.uler.add_to_blocked_byneed(w_var, ClonableCoroutine.w_getcurrent(space))
+        sched.uler.schedule()
     else:
         raise OperationError(space.w_TypeError,
                              space.wrap("wait_needed only supported on unbound variables"))
@@ -119,8 +119,10 @@ all_mms['is_bound'] = is_bound_mm
 def alias_of(space, w_var1, w_var2):
     assert isinstance(w_var1, W_Var)
     assert isinstance(w_var2, W_Var)
-    assert space.is_true(space.is_free(w_var1))
-    assert space.is_true(space.is_free(w_var2))
+    if not (space.is_true(space.is_free(w_var1)) and \
+            space.is_true(space.is_free(w_var2))):
+        raise OperationError(space.w_LogicError,
+                             space.wrap("don't call alias_of on bound variables"))
     w_curr = w_var1
     while 1:
         w_next = w_curr.w_bound_to
@@ -267,7 +269,7 @@ def _assign_aliases(space, w_var, w_val):
         assert isinstance(w_next, W_Var)
         _assign(space, w_curr, w_val)
         # notify the blocked threads
-        scheduler[0].unblock_on(w_curr)
+        sched.uler.unblock_on(w_curr)
         if space.is_true(space.is_nb_(w_next, w_var)):
             break
         # switch to next
