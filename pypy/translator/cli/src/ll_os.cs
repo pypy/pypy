@@ -265,6 +265,9 @@ namespace pypy.builtin
 
         public static Record_Stat_Result ll_os_stat(string path)
         {
+            if (path == "")
+                Helpers.raise_OSError(Errno.ENOENT);
+
             FileInfo f = new FileInfo(path);
             if (f.Exists) {
                 Record_Stat_Result res = new Record_Stat_Result();
