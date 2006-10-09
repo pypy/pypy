@@ -349,11 +349,6 @@ namespace pypy.builtin
             Helpers.raise_OSError(Errno.EPERM); // this is only a stub
         }
 
-        public static void ll_os_closedir(object o)
-        {
-            Helpers.raise_OSError(Errno.EPERM); // this is only a stub
-        }
-
         public static int ll_os_dup(int x)
         {
             Helpers.raise_OSError(Errno.EPERM); // this is only a stub
@@ -398,10 +393,35 @@ namespace pypy.builtin
             Helpers.raise_OSError(Errno.EPERM); // this is only a stub
         }
 
-        public static object ll_os_opendir(string s)
+        public static object ll_os_opendir(string path)
         {
-            Helpers.raise_OSError(Errno.EPERM); // this is only a stub
-            return null;
+            if (path == "")
+                Helpers.raise_OSError(Errno.ENOENT);
+
+            DirectoryInfo dir = new DirectoryInfo(path);
+            if (!dir.Exists)
+                Helpers.raise_OSError(Errno.ENOENT);
+
+            System.Collections.Generic.List<string> names = new System.Collections.Generic.List<string>();
+            foreach(DirectoryInfo d in dir.GetDirectories())
+                names.Add(d.Name);
+            foreach(FileInfo f in dir.GetFiles())
+                names.Add(f.Name);
+
+            return names.GetEnumerator();
+        }
+
+        public static string ll_os_readdir(object obj)
+        {
+            IEnumerator<string> names = (IEnumerator<string>)obj;
+            if (names.MoveNext())
+                return names.Current;
+            else
+                return null;
+        }
+
+        public static void ll_os_closedir(object obj)
+        {
         }
 
         public static Record_Signed_Signed ll_os_pipe()
@@ -413,12 +433,6 @@ namespace pypy.builtin
         public static void ll_os_putenv(string s)
         {
             Helpers.raise_OSError(Errno.EPERM); // this is only a stub
-        }
-
-        public static string ll_os_readdir(object o)
-        {
-            Helpers.raise_OSError(Errno.EPERM); // this is only a stub
-            return null;
         }
 
         public static string ll_os_readlink(string s)

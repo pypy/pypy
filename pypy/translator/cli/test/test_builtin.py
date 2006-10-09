@@ -109,5 +109,22 @@ class TestCliBuiltin(CliTest, BaseTestRbuiltin):
         res = self.ll_to_string(self.interpret(fn, []))
         # XXX assert something about res
 
+    def test_os_opendir(self):
+        from pypy.rpython import ros
+        def fn():
+            d = ros.opendir('.')
+            res = []
+            while True:
+                current = d.readdir()
+                if current is None:
+                    break
+                res.append(current)
+            d.closedir()
+            return res
+        res = self.ll_to_list(self.interpret(fn, []))
+        res = [self.ll_to_string(s) for s in res]
+        res.sort()
+        assert res == sorted(os.listdir('.'))
+
     # XXX: remember to test ll_os_readlink and ll_os_pipe as soon as
     # they are implemented
