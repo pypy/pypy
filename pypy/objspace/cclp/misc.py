@@ -1,4 +1,5 @@
 from pypy.interpreter import gateway, baseobjspace
+from pypy.rpython.objectmodel import we_are_translated
 
 # commonly imported there, used from types, variable, thread
 from pypy.module._stackless.clonable import ClonableCoroutine
@@ -34,3 +35,10 @@ def switch_debug_info(space):
     NO_DEBUG_INFO[0] = not NO_DEBUG_INFO[0]
 app_switch_debug_info = gateway.interp2app(switch_debug_info)
 
+
+def is_interpreted(space):
+    if we_are_translated():
+        return space.w_False
+    else:
+        return  space.w_True
+app_is_interpreted = gateway.interp2app(is_interpreted)
