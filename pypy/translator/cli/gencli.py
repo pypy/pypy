@@ -16,7 +16,8 @@ from pypy.translator.cli.support import Tee
 from pypy.translator.cli.prebuiltnodes import get_prebuilt_nodes
 from pypy.translator.cli.stackopt import StackOptGenerator
 
-USE_STACKOPT = True and not getoption('nostackopt')
+#USE_STACKOPT = True and not getoption('nostackopt')
+USE_STACKOPT = False
 
 class GenCli(object):
     def __init__(self, tmpdir, translator, entrypoint=None, type_system_class=CTS,
