@@ -342,7 +342,7 @@ class ExceptionTransformer(object):
         if spaceop.opname == 'malloc':
             insert_zeroing_op = True
         elif spaceop.opname == 'flavored_malloc':
-            flavor = op.args[0].value
+            flavor = spaceop.args[0].value
             if flavor.startswith('gc'):
                 insert_zeroing_op = True
 
