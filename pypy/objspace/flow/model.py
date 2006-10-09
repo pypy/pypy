@@ -647,13 +647,20 @@ def checkgraph(graph):
                     # a multiple-cases switch (or else the False and True
                     # branches are in the wrong order)
                     assert len(block.exits) >= 1
-                    cases = [Constant(link.exitcase) for link in block.exits]
-                    if Constant('default') in cases:
-                        assert Constant('default') == cases[-1]
-                    assert len(dict.fromkeys(cases)) == len(cases)
-                    assert cases != [Constant(None)], (
-                        "exitswitch Variable followed by a normal-looking link"
-                        " is probably not intended")
+                    cases = [link.exitcase for link in block.exits]
+                    has_default = cases[-1] == 'default'
+                    for n in cases[:len(cases)-has_default]:
+                        if isinstance(n, (int, long)):
+                            continue
+                        if isinstance(n, (str, unicode)) and len(n) == 1:
+                            continue
+                        assert n != 'default', (
+                            "'default' branch of a switch is not the last exit"
+                            )
+                        assert n is not None, (
+                            "exitswitch Variable followed by a None exitcase")
+                        raise AssertionError(
+                            "switch on a non-primitive value %r" % (n,))
 
             allexitcases = {}
             for link in block.exits:
