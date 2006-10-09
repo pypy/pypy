@@ -338,6 +338,30 @@ class ExceptionTransformer(object):
 
         block.recloseblock(l0, l)
 
+        insert_zeroing_op = False
+        if spaceop.opname == 'malloc':
+            insert_zeroing_op = True
+        elif spaceop.opname == 'flavored_malloc':
+            flavor = op.args[0].value
+            if flavor.startswith('gc'):
+                insert_zeroing_op = True
+
+        if insert_zeroing_op:
+            if normalafterblock is None:
+                normalafterblock = insert_empty_block(None, l0)
+            v_result = spaceop.result
+            if v_result in l0.args:
+                result_i = l0.args.index(v_result)
+                v_result_after = normalafterblock.inputargs[result_i]
+            else:
+                v_result_after = copyvar(None, v_result)
+                l0.args.append(v_result)
+                normalafterblock.inputargs.append(v_result_after)
+            normalafterblock.operations.insert(
+                0, SpaceOperation('zero_gc_pointers_inside',
+                                  [v_result_after],
+                                  varoftype(lltype.Void)))
+
         if self.always_exc_clear:
             # insert code that clears the exception even in the non-exceptional
             # case...  this is a hint for the JIT, but pointless otherwise

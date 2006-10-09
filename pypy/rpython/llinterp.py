@@ -629,6 +629,9 @@ class LLFrame(object):
         assert isinstance(flavor, str)
         self.heap.free(obj, flavor=flavor)
 
+    def op_zero_gc_pointers_inside(self, obj):
+        pass
+
     def op_getfield(self, obj, field):
         checkptr(obj)
         # check the difference between op_getfield and op_getsubstruct:

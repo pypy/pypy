@@ -316,6 +316,9 @@ class GCTransformer(object):
     def gct_safe_call(self, hop):
         hop.rename("direct_call")
 
+    def gct_zero_gc_pointers_inside(self, hop):
+        pass
+
 class MinimalGCTransformer(GCTransformer):
     def __init__(self, parenttransformer):
         GCTransformer.__init__(self, parenttransformer.translator)

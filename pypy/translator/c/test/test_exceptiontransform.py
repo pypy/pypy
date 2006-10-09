@@ -187,3 +187,19 @@ def test_no_multiple_transform():
     etrafo.create_exception_handling(g)
     etrafo2 = exceptiontransform.ExceptionTransformer(t)
     py.test.raises(AssertionError, etrafo2.create_exception_handling, g)
+
+def test_inserting_zeroing_op():
+    from pypy.rpython.lltypesystem import lltype
+    S = lltype.GcStruct("S", ('x', lltype.Signed))
+    def f(x):
+        s = lltype.malloc(S)
+        s.x = 0
+        return s.x
+    t = TranslationContext()
+    t.buildannotator().build_types(f, [int])
+    t.buildrtyper().specialize()
+    g = graphof(t, f)
+    etrafo = exceptiontransform.ExceptionTransformer(t)
+    etrafo.create_exception_handling(g)
+    ops = dict.fromkeys([o.opname for b, o in g.iterblockops()])
+    assert 'zero_gc_pointers_inside' in ops
