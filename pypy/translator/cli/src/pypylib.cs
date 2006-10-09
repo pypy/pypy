@@ -307,8 +307,14 @@ namespace pypy.runtime
         {
             // TODO: use StringBuilder instead
             string res = "[";
-            foreach(T item in this)
-                res += item.ToString() + ","; // XXX: doesn't work for chars
+            foreach(T item in this) {
+                if (item.GetType() == typeof(string)) {
+                    object tmp = (object)item;
+                    res += pypy.test.Result.ToPython((string)tmp) + ",";
+                }
+                else
+                    res += item.ToString() + ","; // XXX: doesn't work for chars
+            }
             res += "]";
             return res;
         }
