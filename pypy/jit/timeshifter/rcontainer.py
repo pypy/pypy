@@ -58,12 +58,16 @@ class StructTypeDesc(object):
     def getfielddesc(self, name):
         return self.fielddesc_by_name[name]
 
-    def ll_factory(self):
+    def factory(self):
         vstruct = VirtualStruct(self)
         box = rvalue.PtrRedBox(self.innermostdesc.ptrkind)
         box.content = vstruct
         vstruct.ownbox = box
         return box
+
+    def ll_factory(self):
+        # interface for rtyper.py, specialized for each 'self'
+        return self.factory()
 
     def _freeze_(self):
         return True
@@ -166,7 +170,7 @@ class FrozenVirtualStruct(AbstractContainer):
         if self in contmemo:
             return contmemo[self]
         typedesc = self.typedesc
-        ownbox = typedesc.ll_factory()
+        ownbox = typedesc.factory()
         contmemo[self] = ownbox
         vstruct = ownbox.content
         self_boxes = self.fz_content_boxes
@@ -184,7 +188,7 @@ class VirtualStruct(AbstractContainer):
         self.content_boxes = [desc.redboxcls(desc.kind,
                                              desc.gv_default)
                               for desc in typedesc.fielddescs]
-        #self.ownbox = ... set in ll_factory()
+        #self.ownbox = ... set in factory()
 
     def enter_block(self, incoming, memo):
         contmemo = memo.containers
