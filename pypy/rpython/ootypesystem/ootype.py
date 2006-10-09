@@ -1169,7 +1169,7 @@ class _record(object):
         return hash(key)
 
     def __eq__(self, other):
-        return self._items == other._items
+        return self._TYPE == other._TYPE and self._items == other._items
 
     def __ne__(self, other):
         return not (self == other)

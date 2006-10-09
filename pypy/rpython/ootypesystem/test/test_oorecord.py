@@ -9,6 +9,19 @@ def test_type_comparison():
     assert T2 != T3
     assert hash(T) == hash(T2)
 
+def test_value_comparison():
+    T = Record({"a": Signed, "b": Signed})
+    T2 = Record({"a": Signed, "b": Float})
+
+    t = new(T)
+    t.a = 0
+    t.b = 0
+    t2 = new(T2)
+    t.a = 0
+    t.b = 0.0
+    assert T != T2
+    assert t != t2
+
 def test_new():
     T = Record({"a": Signed, "b": Signed})
     t = new(T)
