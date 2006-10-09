@@ -459,3 +459,15 @@ start serving graphs on <port>
         debugger.start()
         start()
         debugger.join()
+
+
+def pdbcatch(f):
+    "A decorator that throws you in a pdbplus if the given function raises."
+    def wrapper(*args, **kwds):
+        try:
+            return f(*args, **kwds)
+        except:
+            import sys
+            PdbPlusShow(None).post_mortem(sys.exc_info()[2])
+            raise
+    return wrapper
