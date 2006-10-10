@@ -1,6 +1,6 @@
 import os
 from ctypes import POINTER, cast, c_char, c_void_p, CFUNCTYPE, c_int
-from ri386 import AbstractCodeBuilder
+from ri386 import I386CodeBuilder
 
 
 modname = 'pypy.jit.codegen.i386.codebuf_' + os.name
@@ -12,7 +12,7 @@ PTR = memhandler.PTR
 class CodeBlockOverflow(Exception):
     pass
 
-class MachineCodeBlock(AbstractCodeBuilder):
+class MachineCodeBlock(I386CodeBuilder):
 
     def __init__(self, map_size):
         res = memhandler.alloc(map_size)
@@ -48,7 +48,7 @@ from pypy.rpython.lltypesystem import lltype
 
 BUF = lltype.GcArray(lltype.Char)
 
-class LLTypeMachineCodeBlock(AbstractCodeBuilder):
+class LLTypeMachineCodeBlock(I386CodeBuilder):
     # for testing only
 
     class State:

@@ -1,7 +1,7 @@
 import py
 from pypy.jit.codegen.i386.ri386 import *
 
-class CodeBuilder(AbstractCodeBuilder):
+class CodeBuilder(I386CodeBuilder):
     def __init__(self):
         self.buffer = []
 

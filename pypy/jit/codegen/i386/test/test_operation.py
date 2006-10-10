@@ -4,7 +4,7 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.jit.codegen import graph2rgenop
-from pypy.jit.codegen.i386.ri386genop import RI386GenOp
+from pypy.jit.codegen.i386.rgenop import RI386GenOp
 from pypy.rpython.memory.lltypelayout import convert_offset_to_int
 from ctypes import cast, c_void_p, CFUNCTYPE, c_int
 

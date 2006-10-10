@@ -1,7 +1,7 @@
 import os
 from pypy.annotation import model as annmodel
 from pypy.jit.timeshifter.test import test_timeshift
-from pypy.jit.codegen.i386.ri386genop import RI386GenOp, IntConst
+from pypy.jit.codegen.i386.rgenop import RI386GenOp, IntConst
 from pypy.jit.codegen.i386.test.test_operation import RGenOpPacked
 
 

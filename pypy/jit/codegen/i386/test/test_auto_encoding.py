@@ -216,7 +216,7 @@ def hexdump(s):
     return string.join(["%02X" % ord(c) for c in s], " ")
 
 
-class CodeChecker(i386.AbstractCodeBuilder):
+class CodeChecker(i386.I386CodeBuilder):
     
     def __init__(self, expected):
         self.expected = expected

@@ -3,7 +3,7 @@ from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.objectmodel import keepalive_until_here
 from pypy.rpython.annlowlevel import MixLevelAnnotatorPolicy
 from pypy.translator.c.test.test_genc import compile
-from pypy.jit.codegen.i386.ri386genop import RI386GenOp
+from pypy.jit.codegen.i386.rgenop import RI386GenOp
 
 from ctypes import c_void_p, cast, CFUNCTYPE, c_int
 

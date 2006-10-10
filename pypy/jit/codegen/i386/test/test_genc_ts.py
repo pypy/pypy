@@ -5,7 +5,7 @@ from pypy.rpython.objectmodel import keepalive_until_here
 from pypy.jit.timeshifter.test import test_timeshift
 from pypy.translator.c.genc import CStandaloneBuilder
 from pypy.rpython.unroll import unrolling_iterable
-from pypy.jit.codegen.i386.ri386genop import RI386GenOp
+from pypy.jit.codegen.i386.rgenop import RI386GenOp
 from pypy.jit.conftest import Benchmark
 
 

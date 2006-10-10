@@ -1,6 +1,6 @@
 """
 List of i386 instructions.
-This module contains the logic to set up the AbstractCodeBuilder multimethods.
+This module contains the logic to set up the I386CodeBuilder multimethods.
 Not for direct importing.
 """
 from ri386 import *
@@ -197,7 +197,7 @@ class Instruction:
             mmmin = min([len(mm) for mm in self.modes])
             if mmmin < arity:
                 encoder.func_defaults = (missing,) * (arity - mmmin)
-        setattr(AbstractCodeBuilder, name, encoder)
+        setattr(I386CodeBuilder, name, encoder)
 
     def __repr__(self):
         return '<%s>' % self.name

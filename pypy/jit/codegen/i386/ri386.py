@@ -242,7 +242,7 @@ missing = MISSING()
 # __________________________________________________________
 # Abstract base class, with methods like NOP(), ADD(x, y), etc.
 
-class AbstractCodeBuilder(object):
+class I386CodeBuilder(object):
 
     def write(self, data):
         raise NotImplementedError
@@ -251,4 +251,4 @@ class AbstractCodeBuilder(object):
         raise NotImplementedError
 
 
-import ri386setup  # side-effect: add methods to AbstractCodeBuilder
+import ri386setup  # side-effect: add methods to I386CodeBuilder
