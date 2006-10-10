@@ -36,6 +36,9 @@ class HintAnnotator(RPythonAnnotator):
             vcontainerdef = self.bookkeeper.getvirtualcontainerdef(TYPE)
             return hintmodel.SomeLLAbstractContainer(vcontainerdef)
 
+    def consider_op_zero_gc_pointers_inside(self, hs_v):
+        pass
+
     def consider_op_keepalive(self, hs_v):
         pass
 

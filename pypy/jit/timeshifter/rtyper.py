@@ -558,7 +558,9 @@ class HintRTyper(RPythonTyper):
                    [ts.s_JITState, s_contdesc, ts.s_RedBox],
                    [v_jitstate,    c_contdesc, v_size     ], ts.s_RedBox)
         
-        
+    def translate_op_zero_gc_pointers_inside(self, hop):
+        pass
+
     def translate_op_ptr_nonzero(self, hop, reverse=False):
         ts = self
         PTRTYPE = originalconcretetype(hop.args_s[0])
