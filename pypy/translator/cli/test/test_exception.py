@@ -19,3 +19,16 @@ class TestCliException(CliTest, BaseTestException):
                  raise
         
         self.interpret_raises(ValueError, fn, [0])
+
+    def test_exception_not_last(self):
+        def helper(x):
+            if x == 0:
+                raise ValueError
+        def fn(x):
+            helper(x)
+            try:
+                helper(1)
+            finally:
+                return -1
+            return x
+        self.interpret_raises(ValueError, fn, [0])

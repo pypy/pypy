@@ -82,12 +82,16 @@ class Function(Node, Generator):
             self.ilasm.label(self._get_block_name(block))
 
             handle_exc = (block.exitswitch == flowmodel.c_last_exception)
-            if handle_exc:
-                self.ilasm.begin_try()
 
-            for op in block.operations:
-                #self._search_for_classes(op)
+            # renders all ops but the last one
+            for op in block.operations[:-1]:
                 self._render_op(op)
+
+            # render the last one (if any!) and prepend a .try if it's needed
+            if block.operations:
+                if handle_exc:
+                    self.ilasm.begin_try()
+                self._render_op(block.operations[-1])
 
             if self._is_raise_block(block):
                 exc = block.inputargs[1]
