@@ -392,6 +392,7 @@ class OpWriter(object):
         indices = arrayindices(opr.op.args[0]) + [(indextype, index)]
         self.codewriter.getelementptr(tmpvar, arraytype, array, indices)            
         self.codewriter.store(valuetype, valuevar, tmpvar) 
+    bare_setarrayitem = setarrayitem
             
     def getarraysize(self, opr):
         ARRAYTYPE = opr.op.args[0].concretetype.TO
