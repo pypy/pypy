@@ -795,3 +795,15 @@ class RI386GenOp(AbstractRGenOp):
 
     def gencallableconst(self, sigtoken, name, entrypointaddr):
         return IntConst(entrypointaddr)
+
+    @staticmethod
+    def erasedType(T):
+        if isinstance(T, lltype.Primitive):
+            return lltype.Signed
+        elif T is llmemory.Address:
+            return llmemory.Address
+        elif isinstance(T, lltype.Ptr):
+            return llmemory.Address
+        else:
+            assert 0, "XXX not implemented"
+

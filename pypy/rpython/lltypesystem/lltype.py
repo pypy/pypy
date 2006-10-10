@@ -1144,7 +1144,9 @@ class _ptr(object):
 
     def _cast_to_adr(self):
         from pypy.rpython.lltypesystem import llmemory
-        if isinstance(self._obj, _subarray):
+        if isinstance(self._T, FuncType):
+            return llmemory.fakeaddress(self)
+        elif isinstance(self._obj, _subarray):
             # return an address built as an offset in the whole array
             parent, parentindex = parentlink(self._obj)
             T = typeOf(parent)
