@@ -547,7 +547,7 @@ For distributor writers
 
 
 .. _`solver`: http://codespeak.net/svn/pypy/dist/pypy/lib/constraint/solver.py
-.. _`sample problem`: http://codespeak.net/svn/pypy/dist/pypy/objspace/test/problem.py
+.. _`sample problems`: http://codespeak.net/svn/pypy/dist/pypy/objspace/test/problem.py
 .. _`Oz programming language`: http://www.mozart-oz.org
 .. _`EU Interim Report`: http://codespeak.net/pypy/extradoc/eu-report/D09.1_Constraint_Solving_and_Semantic_Web-interim-2006-07-28.pdf
 
