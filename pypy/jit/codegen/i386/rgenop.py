@@ -1,8 +1,9 @@
 from pypy.rpython.objectmodel import specialize
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.jit.codegen.i386.ri386 import *
+from pypy.jit.codegen.i386.codebuf import InMemoryCodeBuilder
 from pypy.jit.codegen.model import AbstractRGenOp, CodeGenBlock, CodeGenerator
-from pypy.jit.codegen.model import GenVar, GenConst
+from pypy.jit.codegen.model import GenVar, GenConst, CodeGenSwitch
 from pypy.rpython import objectmodel
 from pypy.rpython.annlowlevel import llhelper
 
@@ -130,6 +131,50 @@ class Block(CodeGenBlock):
         self.stackdepth = stackdepth
 
 
+class FlexSwitch(CodeGenSwitch):
+
+    def __init__(self, rgenop):
+        self.rgenop = rgenop
+        self.default_case_addr = 0
+
+    def initialize(self, builder, gv_exitswitch):
+        RESERVED = 11*8+5      # XXX quite a lot for now :-/
+        mc = builder.mc
+        mc.MOV(eax, gv_exitswitch.operand(builder))
+        self.saved_state = builder._save_state()
+        pos = mc.tell()
+        mc.UD2()
+        mc.write('\x00' * (RESERVED-1))
+        self.nextfreepos = pos
+        self.endfreepos = pos + RESERVED
+
+    def add_case(self, gv_case):
+        rgenop = self.rgenop
+        targetbuilder = Builder._new_from_state(rgenop, self.saved_state)
+        start = self.nextfreepos
+        end   = self.endfreepos
+        mc = InMemoryCodeBuilder(start, end)
+        mc.CMP(eax, gv_case.operand(None))
+        mc.JE(rel32(targetbuilder.mc.tell()))
+        pos = mc.tell()
+        if self.default_case_addr:
+            mc.JMP(rel32(self.default_case_addr))
+        else:
+            mc.UD2()
+        self.nextfreepos = pos
+        return targetbuilder
+
+    def add_default(self):
+        rgenop = self.rgenop
+        targetbuilder = Builder._new_from_state(rgenop, self.saved_state)
+        self.default_case_addr = targetbuilder.mc.tell()
+        start = self.nextfreepos
+        end   = self.endfreepos
+        mc = InMemoryCodeBuilder(start, end)
+        mc.JMP(rel32(self.default_case_addr))
+        return targetbuilder
+
+
 class Builder(CodeGenerator):
 
     def __init__(self, rgenop, mc, stackdepth):
@@ -148,6 +193,13 @@ class Builder(CodeGenerator):
 
     def _fork(self):
         return self.rgenop.openbuilder(self.stackdepth)
+
+    def _save_state(self):
+        return self.stackdepth
+
+    @staticmethod
+    def _new_from_state(rgenop, stackdepth):
+        return rgenop.openbuilder(stackdepth)
 
     @specialize.arg(1)
     def genop1(self, opname, gv_arg):
@@ -298,6 +350,12 @@ class Builder(CodeGenerator):
         remap_stack_layout(self, outputargs_gv, targetblock)
         self.mc.JMP(rel32(targetblock.startaddr))
         self._close()
+
+    def flexswitch(self, gv_exitswitch):
+        result = FlexSwitch(self.rgenop)
+        result.initialize(self, gv_exitswitch)
+        self._close()
+        return result
 
     # ____________________________________________________________
 
@@ -660,6 +718,9 @@ class RI386GenOp(AbstractRGenOp):
             return self.MachineCodeBlock(65536)   # XXX supposed infinite for now
 
     def close_mc(self, mc):
+        # an open 'mc' is ready for receiving code... but it's also ready
+        # for being garbage collected, so be sure to close it if you
+        # want the generated code to stay around :-)
         self.mcs.append(mc)
 
     def openbuilder(self, stackdepth):

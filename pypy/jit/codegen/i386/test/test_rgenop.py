@@ -2,7 +2,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.objectmodel import keepalive_until_here
 from pypy.rpython.annlowlevel import MixLevelAnnotatorPolicy
-from pypy.translator.c.test.test_genc import compile
+from pypy.translator.c.test import test_genc
 from pypy.jit.codegen.i386.rgenop import RI386GenOp
 
 from ctypes import c_void_p, cast, CFUNCTYPE, c_int
@@ -11,6 +11,11 @@ from ctypes import c_void_p, cast, CFUNCTYPE, c_int
 class PseudoAnnhelper(object):
     rtyper = None
 GENOP_POLICY = MixLevelAnnotatorPolicy(PseudoAnnhelper())
+
+def compile(runner, argtypes):
+    return test_genc.compile(runner, [int, int],
+                             gcpolicy        = 'boehm',
+                             annotatorpolicy = GENOP_POLICY)
 
 # ____________________________________________________________
 
@@ -50,7 +55,7 @@ def test_adder_direct():
     assert res == 42
 
 def test_adder_compile():
-    fn = compile(runner, [int, int], annotatorpolicy=GENOP_POLICY)
+    fn = compile(runner, [int, int])
     res = fn(9080983, -9080941)
     assert res == 42
 
@@ -101,7 +106,7 @@ def test_dummy_direct():
     assert res == 42
 
 def test_dummy_compile():
-    fn = compile(dummy_runner, [int, int], annotatorpolicy=GENOP_POLICY)
+    fn = compile(dummy_runner, [int, int])
     res = fn(40, 37)
     assert res == 42
 
@@ -161,7 +166,7 @@ def test_branching_direct():
     assert res == 17
 
 def test_branching_compile():
-    fn = compile(branching_runner, [int, int], annotatorpolicy=GENOP_POLICY)
+    fn = compile(branching_runner, [int, int])
     res = fn(30, 17)
     assert res == 29
     res = fn(3, 17)
@@ -229,8 +234,82 @@ def test_goto_direct():
     assert res == 23
 
 def test_goto_compile():
-    fn = compile(goto_runner, [int, int], annotatorpolicy=GENOP_POLICY)
+    fn = compile(goto_runner, [int, int])
     res = fn(30, 17)
     assert res == 31 * 15 + 17
     res = fn(3, 17)
     assert res == 23
+
+# ____________________________________________________________
+
+def build_switch(rgenop):
+    """
+    def f(v0, v1):
+        if v0 == 0: # switch
+            return 21*v1
+        elif v0 == 1:
+            return 21+v1
+        else:
+            return v1
+    """
+    signed_tok = rgenop.kindToken(lltype.Signed)
+    f2_token = rgenop.sigToken(FUNC2)
+    builder, graph, (gv0, gv1) = rgenop.newgraph(f2_token)
+
+    flexswitch = builder.flexswitch(gv0)
+    const21 = rgenop.genconst(21)
+
+    # case == 0
+    const0 = rgenop.genconst(0)
+    case_builder = flexswitch.add_case(const0)
+    case_args_gv = [gv1]
+    case_builder.enter_next_block([signed_tok], case_args_gv)
+    [gv1_case0] = case_args_gv
+    gv_res_case0 = case_builder.genop2('int_mul', const21, gv1_case0)
+    case_builder.finish_and_return(f2_token, gv_res_case0)
+    # default
+    default_builder = flexswitch.add_default()
+    default_args_gv = [gv1]
+    default_builder.enter_next_block([signed_tok], default_args_gv)
+    [gv1_default] = default_args_gv
+    default_builder.finish_and_return(f2_token, gv1_default)
+    # case == 1
+    const1 = rgenop.genconst(1)
+    case_builder = flexswitch.add_case(const1)
+    case_args_gv = [gv1]
+    case_builder.enter_next_block([signed_tok], case_args_gv)
+    [gv1_case1] = case_args_gv
+    gv_res_case1 = case_builder.genop2('int_add', const21, gv1_case1)
+    case_builder.finish_and_return(f2_token, gv_res_case1)
+
+    gv_switch = rgenop.gencallableconst(f2_token, "switch", graph)
+    return gv_switch
+
+def switch_runner(x, y):
+    rgenop = RI386GenOp()
+    gv_switchfn = build_switch(rgenop)
+    switchfn = gv_switchfn.revealconst(lltype.Ptr(FUNC2))
+    res = switchfn(x, y)
+    keepalive_until_here(rgenop)    # to keep the code blocks alive
+    return res
+
+def test_switch_direct():
+    rgenop = RI386GenOp()
+    gv_switchfn = build_switch(rgenop)
+    print gv_switchfn.value
+    fnptr = cast(c_void_p(gv_switchfn.value), CFUNCTYPE(c_int, c_int, c_int))
+    res = fnptr(0, 2)
+    assert res == 42
+    res = fnptr(1, 16)
+    assert res == 37
+    res = fnptr(42, 16)
+    assert res == 16
+
+def test_switch_compile():
+    fn = compile(switch_runner, [int, int])
+    res = fn(0, 2)
+    assert res == 42
+    res = fn(1, 17)
+    assert res == 38
+    res = fn(42, 18)
+    assert res == 18

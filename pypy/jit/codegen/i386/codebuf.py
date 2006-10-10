@@ -12,11 +12,16 @@ PTR = memhandler.PTR
 class CodeBlockOverflow(Exception):
     pass
 
-class MachineCodeBlock(I386CodeBuilder):
+class InMemoryCodeBuilder(I386CodeBuilder):
 
-    def __init__(self, map_size):
-        res = memhandler.alloc(map_size)
-        self._data = cast(res, POINTER(c_char * map_size))
+    def __init__(self, start, end):
+        map_size = end - start
+        res = c_void_p(start)
+        data = cast(res, POINTER(c_char * map_size))
+        self._init(data, map_size)
+
+    def _init(self, data, map_size):
+        self._data = data
         self._size = map_size
         self._pos = 0
 
@@ -33,12 +38,20 @@ class MachineCodeBlock(I386CodeBuilder):
         baseaddr = cast(self._data, c_void_p).value
         return baseaddr + self._pos
 
-    def __del__(self):
-        memhandler.free(cast(self._data, PTR), self._size)
-
     def execute(self, arg1, arg2):
         fnptr = cast(self._data, binaryfn)
         return fnptr(arg1, arg2)
+
+
+class MachineCodeBlock(InMemoryCodeBuilder):
+
+    def __init__(self, map_size):
+        res = memhandler.alloc(map_size)
+        data = cast(res, POINTER(c_char * map_size))
+        self._init(data, map_size)
+
+    def __del__(self):
+        memhandler.free(cast(self._data, PTR), self._size)
 
 binaryfn = CFUNCTYPE(c_int, c_int, c_int)    # for testing
 

@@ -406,6 +406,9 @@ BREAKPOINT = Instruction()    # INT 3
 BREAKPOINT.mode0(['\xCC'])
 BREAKPOINT.as_alias = "INT3"
 
+UD2 = Instruction()      # reserved as an illegal instruction
+UD2.mode0(['\x0F\x0B'])
+
 o16 = Instruction()      # 16-bits instruction prefix (name from 'nasm')
 o16.mode0(['\x66'])
 
