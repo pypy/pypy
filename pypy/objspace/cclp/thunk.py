@@ -15,7 +15,7 @@ from pypy.rpython.objectmodel import we_are_translated
 def logic_args(args):
     "returns logic vars found in unpacked normalized args"
     assert isinstance(args, tuple)
-    pos = args[0]
+    pos = args[0] or [] # pos is not an empty tuple but None
     kwa = args[1]
     pos_l = [arg for arg in pos
              if isinstance(arg, W_Var)]
@@ -80,7 +80,7 @@ class CSpaceThunk(_AppThunk):
         self._coro = coro
 
     def call(self):
-        w("-- initial thunk CALL in", str(id(self._coro)))
+        w("-- initial DISTRIBUTOR thunk CALL in", str(id(self._coro)))
         sched.uler.trace_vars(self._coro, logic_args(self.args.unpack()))
         cspace = self._coro._cspace
         space = self.space
@@ -98,7 +98,8 @@ class CSpaceThunk(_AppThunk):
                 w("-- clean EXIT of DISTRIBUTOR (success)", str(id(self._coro)))
                 sol = cspace._solution
                 assert isinstance(sol, W_Var)
-                interp_bind(sol, self.costate.w_tempval)
+                if interp_free(sol): # returning from a constraint/logic script
+                    interp_bind(sol, self.costate.w_tempval)
                 outcome = sol.w_bound_to
                 if not (isinstance(outcome, W_ListObject) or \
                         isinstance(outcome, W_TupleObject)):
@@ -107,6 +108,7 @@ class CSpaceThunk(_AppThunk):
                     return
                 assert interp_free(cspace._choice)
                 interp_bind(cspace._choice, self.space.newint(1))
+                assert sched.uler._per_space_live_threads[cspace] == 0, "there are still threads living in this space"
         finally:
             interp_bind(cspace._finished, self.space.w_True)
             sched.uler.remove_thread(self._coro)

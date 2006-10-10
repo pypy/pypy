@@ -14,18 +14,18 @@ def distribute(space, w_strategy):
     assert isinstance(w_strategy, W_StringObject)
     strat = space.str_w(w_strategy)
     cspace = get_current_cspace(space)
+    dist = None
     if strat == 'dichotomy':
-         cspace.distributor = make_split_distributor(space, space.newint(2))
+         dist = make_split_distributor(space, space.newint(2))
     else:
         raise OperationError(space.w_RuntimeError,
                              space.wrap("please pick a strategy in (naive, dichotomy)"))
 
-    dist = cspace.distributor
+    cspace.distributor = dist
     # constraint distributor thread main loop
     while dist.distributable():
         choice = cspace.choose(dist.fanout())
         dist.w_distribute(choice)
-            
 app_distribute = interp2app(distribute)
 
 

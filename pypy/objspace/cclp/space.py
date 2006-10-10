@@ -1,7 +1,7 @@
 from pypy.rpython.objectmodel import we_are_translated
 from pypy.interpreter import baseobjspace, gateway, argument, typedef
 from pypy.interpreter.function import Function
-from pypy.interpreter.eval import Code
+from pypy.interpreter.pycode import PyCode
 
 from pypy.interpreter.error import OperationError
 
@@ -13,9 +13,9 @@ from pypy.objspace.cclp.thunk import CSpaceThunk, PropagatorThunk
 from pypy.objspace.cclp.global_state import sched
 from pypy.objspace.cclp.variable import newvar
 from pypy.objspace.cclp.types import ConsistencyError, Solution, W_Var, \
-     W_CVar, W_AbstractDomain
+     W_CVar, W_AbstractDomain, W_AbstractDistributor
 from pypy.objspace.cclp.interp_var import interp_bind, interp_free
-
+from pypy.objspace.cclp.constraint.distributor import distribute
 
 def newspace(space, w_callable, __args__):
     args = __args__.normalize()
@@ -61,12 +61,20 @@ def tell(space, w_constraint):
     get_current_cspace(space).tell(w_constraint)
 app_tell = gateway.interp2app(tell)
 
+if not we_are_translated():
+    def fresh_distributor(space, w_dist):
+        cspace = w_dist._cspace
+        while w_dist.distributable():
+            choice = cspace.choose(w_dist.fanout())
+            w_dist.w_distribute(choice)
+    app_fresh_distributor = gateway.interp2app(fresh_distributor)
 
 class W_CSpace(baseobjspace.Wrappable):
 
     def __init__(self, space):
         self.space = space # the object space ;-)
         self.distributor = None
+        self.threads = []
         # choice mgmt
         self._choice = newvar(space)
         self._committed = newvar(space)
@@ -84,7 +92,6 @@ class W_CSpace(baseobjspace.Wrappable):
 
     def clone(self):
         if not we_are_translated():
-            print "<-CLONE !! -----------------------------------------------------------------------"
             # build fresh cspace & distributor thread
             thread = ClonableCoroutine(self.space)
             new_cspace = W_CSpace(self.space)
@@ -93,34 +100,39 @@ class W_CSpace(baseobjspace.Wrappable):
             old_dist = self.distributor
             new_dist = old_dist.__class__(self.space, old_dist._fanout)
             new_dist._cspace = new_cspace
-            # new distributor thunk
-            thunk = CSpaceThunk(self.space,
-                                Function(self.space, Code('nocode')),
-                                argument.Arguments([]),
-                                thread)
-            thread.bind(thunk)
-            sched.uler.add_new_thread(thread)
+            new_cspace.distributor = new_dist
             # copy the store
             for var in self._store.values():
                 new_cspace.register_var(var.copy(self.space))
+            # new distributor thunk & thread
+            f = Function(self.space,
+                         app_fresh_distributor._code,
+                         self.space.newdict())
+            thunk = CSpaceThunk(self.space, f,
+                                argument.Arguments(self.space, [new_dist]),
+                                thread)
+            thread.bind(thunk)
+            sched.uler.add_new_thread(thread)
             # rebuild propagators
             new_cspace._last_choice = self._last_choice
             new_cspace._solution = newvar(self.space)
-            self.space.unify(new_cspace._solution, self.space.newlist(self._store.values()))
-            try:
-                for const in self._constraints:
-                    new_cspace.tell(const)
-                # other attrs
-                #if hasattr(self, '_last_choice'):
-                
-            except Exception, e:
-                print "DUH ?"
-                import traceback
-                traceback.print_exc()
+            # copy solution variables
+            self.space.unify(new_cspace._solution,
+                             self.space.newlist([var.copy(self.space)
+                                                 for var in self._store.values()]))
+            # constraints
+            for const in self._constraints:
+                ccopy = const.copy()
+                new_cspace.tell(ccopy)
+            sched.uler.wait_stable(new_cspace)
             return new_cspace
         else:
+            # need to copy distributor & propagator threads???
+            # but, where are we going to find them ?
             raise NotImplementedError
-
+            #new_cspace = W_CSpace(self.space)
+            #for th in self.threads:
+            #    new_cspace.threads.append(th.clone())
 
     def w_ask(self):
         sched.uler.wait_stable(self)
@@ -171,13 +183,12 @@ class W_CSpace(baseobjspace.Wrappable):
         self._store = {}
 
     def w_merge(self):
-        self._store = {}
         # let's bind the solution variables
         sol = self._solution.w_bound_to
         if isinstance(sol, W_ListObject):
-            bind_solution_variables(sol.wrappeditems)
+            self._bind_solution_variables(sol.wrappeditems)
         elif isinstance(sol, W_TupleObject):
-            bind_solution_variables(sol.wrappeditems)
+            self._bind_solution_variables(sol.wrappeditems)
         return self._solution
 
     def __ne__(self, other):
@@ -186,14 +197,15 @@ class W_CSpace(baseobjspace.Wrappable):
         return True
 
 
-def bind_solution_variables(solution):
-    if contains_cvar(solution): # was a constraint script
-        for var in solution:
-            assert isinstance(var, W_CVar)
-            dom = var.w_dom
-            assert isinstance(dom, W_AbstractDomain)
-            assert dom.size() == 1
-            interp_bind(var, dom.get_values()[0])
+    def _bind_solution_variables(self, solution):
+        if contains_cvar(solution): # was a constraint script
+            for var in solution:
+                assert isinstance(var, W_CVar)
+                realvar = self._store[var.name]
+                dom = realvar.w_dom
+                assert isinstance(dom, W_AbstractDomain)
+                assert dom.size() == 1
+                interp_bind(var, dom.get_values()[0])
 
 
 def contains_cvar(lst):

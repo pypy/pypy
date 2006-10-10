@@ -1,3 +1,4 @@
+from pypy.rpython.objectmodel import we_are_translated
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter import baseobjspace, typedef, gateway
@@ -43,8 +44,7 @@ class W_AbstractConstraint(W_Constraint):
 
     def w_revise(self):
         return self._space.newbool(self.revise())
-            
-    
+                
 W_AbstractConstraint.typedef = typedef.TypeDef(
     "W_AbstractConstraint",
     W_Constraint.typedef,                                           
@@ -91,6 +91,14 @@ class W_Expression(W_AbstractConstraint):
         self.formula = self._space.str_w(w_formula)
         # self.filter_func is a function taking keyword arguments and returning a boolean
         self.filter_func = self._space.make_filter(w_variables, w_formula)
+
+    def copy(self):
+        if we_are_translated():
+            raise NotImplementedError
+        else:
+            newvars = [var.copy(self._space) for var in self._variables]
+            const = W_Expression(self._space, self._space.newlist(newvars), self._space.wrap(self.formula))
+            return const
 
     def _init_result_cache(self):
         """key = (variable,value), value = [has_success,has_failure]"""
@@ -228,6 +236,14 @@ class W_AllDistinct(W_AbstractConstraint):
         W_AbstractConstraint.__init__(self, object_space, w_variables)
         # worst case complexity
         #self.__cost = len(w_variables.wrappeditems) * (len(w_variables.wrappeditems) - 1) / 2
+
+    def copy(self):
+        if we_are_translated():
+            raise NotImplementedError
+        else:
+            newvars = [var.copy(self._space) for var in self._variables]
+            const = W_AllDistinct(self._space, self._space.newlist(newvars))
+            return const
 
     def revise(self):
         _spc = self._space

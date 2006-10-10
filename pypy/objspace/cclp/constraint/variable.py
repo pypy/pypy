@@ -16,7 +16,7 @@ def domain(space, w_values, w_name):
     assert isinstance(w_name, W_StringObject)
     w_dom = W_FiniteDomain(space, w_values)
     w_var = W_CVar(space, w_dom, w_name)
-    w("CVAR", str(w_var))
+    #w("CVAR", str(w_var))
     return w_var
 app_domain = gateway.interp2app(domain)
 

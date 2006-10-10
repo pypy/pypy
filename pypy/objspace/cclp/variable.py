@@ -27,7 +27,7 @@ def wait__Root(space, w_obj):
     return w_obj
 
 def wait__Var(space, w_var):
-    w("###:wait", str(id(ClonableCoroutine.w_getcurrent(space))))
+    #w("###:wait", str(id(ClonableCoroutine.w_getcurrent(space))))
     if space.is_true(space.is_free(w_var)):
         sched.uler.unblock_byneed_on(w_var)
         sched.uler.add_to_blocked_on(w_var, ClonableCoroutine.w_getcurrent(space))
@@ -239,7 +239,7 @@ all_mms['bind'] = bind_mm
 
 
 def entail__Var_Var(space, w_v1, w_v2):
-    w("  :entail Var Var")
+    #w("  :entail Var Var")
     if space.is_true(space.is_bound(w_v1)):
         if space.is_true(space.is_bound(w_v2)):
             return unify(space,
@@ -260,7 +260,7 @@ def _entail(space, w_v1, w_v2):
     return space.w_None
         
 def _assign_aliases(space, w_var, w_val):
-    w("  :assign")
+    #w("  :assign")
     assert isinstance(w_var, W_Var)
     #assert isinstance(w_val, W_Root)
     w_curr = w_var
@@ -275,11 +275,11 @@ def _assign_aliases(space, w_var, w_val):
         # switch to next
         w_curr = w_next
     _assign_entailed(space, w_var, w_val)
-    w("  :assigned")
+    #w("  :assigned")
     return space.w_None
 
 def _assign_entailed(space, w_var, w_val):
-    w("   :assign entailed")
+    #w("   :assign entailed")
     for var in w_var.entails:
         if space.is_true(space.is_free(var)):
             _assign_aliases(space, var, w_val)
@@ -299,7 +299,7 @@ def _alias(space, w_v1, w_v2):
        user must ensure freeness of both vars"""
     assert isinstance(w_v1, W_Var)
     assert isinstance(w_v2, W_Var)
-    w("  :alias", str(id(w_v1)), str(id(w_v2)))
+    #w("  :alias", str(id(w_v1)), str(id(w_v2)))
     if space.is_true(space.is_nb_(w_v1, w_v2)):
         return space.w_None
     if space.is_true(is_aliased(space, w_v1)):
@@ -316,7 +316,7 @@ def _alias(space, w_v1, w_v2):
 def _add_to_aliases(space, w_v1, w_v2):
     assert isinstance(w_v1, W_Var)
     assert isinstance(w_v2, W_Var)
-    w("   :add to aliases")
+    #w("   :add to aliases")
     w_tail = w_v1.w_bound_to
     w_v1.w_bound_to = w_v2
     w_v2.w_bound_to = w_tail
@@ -325,7 +325,7 @@ def _add_to_aliases(space, w_v1, w_v2):
 def _merge_aliases(space, w_v1, w_v2):
     assert isinstance(w_v1, W_Var)
     assert isinstance(w_v2, W_Var)
-    w("   :merge aliases")
+    #w("   :merge aliases")
     w_tail1 = get_ring_tail(space, w_v1)
     w_tail2 = get_ring_tail(space, w_v2)
     w_tail1.w_bound_to = w_v2

@@ -40,7 +40,7 @@ def interp_entail(w_v1, w_v2):
 
 
 def interp_assign_aliases(w_var, w_val):
-    w("  :assign")
+    #w("  :assign")
     assert isinstance(w_var, W_Var)
     w_curr = w_var
     while 1:
@@ -54,10 +54,10 @@ def interp_assign_aliases(w_var, w_val):
         # switch to next
         w_curr = w_next
     _assign_entailed(w_var, w_val)
-    w("  :assigned")
+    #w("  :assigned")
 
 def _assign_entailed(w_var, w_val):
-    w("   :assign entailed")
+    #w("   :assign entailed")
     for var in w_var.entails:
         assert isinstance(var, W_Var)
         if interp_free(var):

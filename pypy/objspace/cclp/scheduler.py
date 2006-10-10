@@ -16,13 +16,13 @@ class Scheduler(object):
         self.space = space
         self._main = ClonableCoroutine.w_getcurrent(space)
         assert isinstance(self._main, ClonableCoroutine)
+        self._switch_count = 0
         self._init_head(self._main)
         self._blocked = {} # thread set
         # variables suspension lists
         self._blocked_on = {} # var -> threads
         self._blocked_byneed = {} # var -> threads
         self._asking = {} # thread -> cspace
-        self._switch_count = 0
         # more accounting
         self._per_space_live_threads = {} # space -> nb runnable threads
         self._traced = {} # thread -> vars
@@ -69,7 +69,7 @@ class Scheduler(object):
             self.dec_live_thread_count(cspace)
             self.schedule()
             self.inc_live_thread_count(cspace)
-        else: # or we ask() from outside
+        else: # or we ask(), or clone() from outside
             self.schedule()
 
     #-- cspace -> thread_count helpers
@@ -93,7 +93,7 @@ class Scheduler(object):
     def schedule(self):
         to_be_run = self._select_next()
         assert isinstance(to_be_run, ClonableCoroutine)
-        w(".. SWITCHING", str(id(ClonableCoroutine.w_getcurrent(self.space))), "=>", str(id(to_be_run)))
+        #w(".. SWITCHING", str(id(ClonableCoroutine.w_getcurrent(self.space))), "=>", str(id(to_be_run)))
         self._switch_count += 1
         to_be_run.w_switch() 
 
@@ -104,7 +104,7 @@ class Scheduler(object):
         if to_be_run == curr:
             w(".. PASS")
             return
-        w(".. SWITCHING", str(id(curr)), "=>", str(id(to_be_run)))
+        #w(".. SWITCHING", str(id(curr)), "=>", str(id(to_be_run)))
         self._switch_count += 1
         to_be_run.w_switch() 
         
@@ -133,7 +133,7 @@ class Scheduler(object):
                 sched.uler._main = sched.uler._head = self._head
                 w(".. SCHEDULER reinitialized")
                 raise OperationError(self.space.w_AllBlockedError,
-                                     self.space.wrap("can't schedule, possible deadlock in sight"))
+                                     self.space.wrap("can't schedule, probable deadlock in sight"))
         self._head = to_be_run
         return to_be_run
 
@@ -153,7 +153,8 @@ class Scheduler(object):
         try:
             del self._traced[thread]
         except KeyError:
-            w(".. removing non-traced thread")
+            pass
+            #w(".. removing non-traced thread")
         l = thread._prev
         r = thread._next
         l._next = r
@@ -172,7 +173,7 @@ class Scheduler(object):
                 del self._per_space_live_threads[cspace]
 
     def add_to_blocked_on(self, w_var, thread):
-        w(".. we BLOCK thread", str(id(thread)), "on var", str(w_var))
+        #w(".. we BLOCK thread", str(id(thread)), "on var", str(w_var))
         assert isinstance(w_var, W_Var)
         assert isinstance(thread, ClonableCoroutine)
         assert thread not in self._blocked
@@ -188,13 +189,13 @@ class Scheduler(object):
             self.dec_live_thread_count(thread._cspace)
 
     def unblock_on(self, w_var):
-        v(".. we UNBLOCK threads dependants of var", str(w_var))
+        #v(".. we UNBLOCK threads dependants of var", str(w_var))
         assert isinstance(w_var, W_Var)
         blocked = []
         if w_var in self._blocked_on:
             blocked = self._blocked_on[w_var]
             del self._blocked_on[w_var]
-        w(str([id(thr) for thr in blocked]))
+        #w(str([id(thr) for thr in blocked]))
         for thr in blocked:
             del self._blocked[thr]
             # cspace accounting
@@ -202,7 +203,7 @@ class Scheduler(object):
                 self.inc_live_thread_count(thr._cspace)
 
     def add_to_blocked_byneed(self, w_var, thread):
-        w(".. we BLOCK BYNEED thread", str(id(thread)), "on var", str(w_var))
+        #w(".. we BLOCK BYNEED thread", str(id(thread)), "on var", str(w_var))
         assert isinstance(w_var, W_Var)
         assert isinstance(thread, ClonableCoroutine)
         if w_var in self._blocked_byneed:
@@ -217,7 +218,7 @@ class Scheduler(object):
             self.dec_live_thread_count(thread._cspace)
 
     def unblock_byneed_on(self, w_var):
-        v(".. we UNBLOCK BYNEED dependants of var", str(w_var))
+        #v(".. we UNBLOCK BYNEED dependants of var", str(w_var))
         assert isinstance(w_var, W_Var)
         blocked = []
         for w_alias in aliases(self.space, w_var):
@@ -225,7 +226,7 @@ class Scheduler(object):
                 blocked += self._blocked_byneed[w_alias]
                 del self._blocked_byneed[w_alias]
             w_alias.needed = True
-        w(str([id(thr) for thr in blocked]))
+        #w(str([id(thr) for thr in blocked]))
         for thr in blocked:
             del self._blocked[thr]
             # cspace accounting
@@ -238,14 +239,14 @@ class Scheduler(object):
     def trace_vars(self, thread, lvars):
         assert isinstance(thread, ClonableCoroutine)
         assert isinstance(lvars, list)
-        w(".. TRACING logic vars.", str(lvars), "for", str(id(thread)))
+        #w(".. TRACING logic vars.", str(lvars), "for", str(id(thread)))
         #assert not self._traced.has_key(thread) doesn't translate 
         self._traced[thread] = lvars
 
     def dirty_traced_vars(self, thread, failed_value):
         assert isinstance(thread, ClonableCoroutine)
         assert isinstance(failed_value, W_FailedValue)
-        w(".. DIRTYING traced vars")
+        #w(".. DIRTYING traced vars")
         for w_var in self._traced[thread]:
             if self.space.is_true(self.space.is_free(w_var)):
                 self.space.bind(w_var, failed_value)

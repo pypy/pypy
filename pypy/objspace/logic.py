@@ -95,15 +95,15 @@ def eqproxy(space, parentfn):
     def eq(w_obj1, w_obj2):
         assert isinstance(w_obj1, W_Root)
         assert isinstance(w_obj2, W_Root)
-        w("#> check identity")
+        #w("#> check identity")
         if space.is_true(space.is_nb_(w_obj1, w_obj2)):
             return space.newbool(True)
-        w("#> check aliasing")
+        #w("#> check aliasing")
         if space.is_true(space.is_free(w_obj1)):
             if space.is_true(space.is_free(w_obj2)):
                 if space.is_true(alias_of(space, w_obj1, w_obj2)):
                     return space.newbool(True) # and just go on ...
-        w("#> using parent eq")
+        #w("#> using parent eq")
         return parentfn(wait(space, w_obj1), wait(space, w_obj2))
     return eq
 
