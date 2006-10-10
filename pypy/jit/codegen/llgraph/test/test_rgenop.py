@@ -18,13 +18,21 @@ def interpret(fn, args):
     return _interpret(fn, args, policy=genconst_policy)
 
 F1 = lltype.FuncType([lltype.Signed], lltype.Signed)
+F2 = lltype.FuncType([lltype.Signed, lltype.Signed], lltype.Signed)
 f1_token = rgenop.sigToken(F1)
+f2_token = rgenop.sigToken(F2)
 signed_tok = rgenop.kindToken(lltype.Signed)
 
 def runner(build):
     def run(x):
         fptr = build()
         return fptr(x)
+    return run
+
+def runner2(build):
+    def run(x, y):
+        fptr = build()
+        return fptr(x, y)
     return run
 
 
@@ -145,3 +153,65 @@ def test_interpret_revealcosnt():
     s = lltype.malloc(S)
     res = interpret(hide_and_reveal_p, [s])
     assert res == s
+
+
+def build_switch():
+    """
+    def f(v0, v1):
+        if v0 == 0: # switch
+            return 21*v1
+        elif v0 == 1:
+            return 21+v1
+        else:
+            return v1
+    """
+    builder, graph, (gv0, gv1) = rgenop.newgraph(f2_token)
+
+    flexswitch = builder.flexswitch(gv0)
+    const21 = rgenop.genconst(21)
+
+    # case == 0
+    const0 = rgenop.genconst(0)
+    case_builder = flexswitch.add_case(const0)
+    case_args_gv = [gv1]
+    case_builder.enter_next_block([signed_tok], case_args_gv)
+    [gv1_case0] = case_args_gv
+    gv_res_case0 = case_builder.genop2('int_mul', const21, gv1_case0)
+    case_builder.finish_and_return(f2_token, gv_res_case0)
+    # case == 1
+    const1 = rgenop.genconst(1)
+    case_builder = flexswitch.add_case(const1)
+    case_args_gv = [gv1]
+    case_builder.enter_next_block([signed_tok], case_args_gv)
+    [gv1_case1] = case_args_gv
+    gv_res_case1 = case_builder.genop2('int_add', const21, gv1_case1)
+    case_builder.finish_and_return(f2_token, gv_res_case1)
+    # default
+    default_builder = flexswitch.add_default()
+    default_args_gv = [gv1]
+    default_builder.enter_next_block([signed_tok], default_args_gv)
+    [gv1_default] = default_args_gv
+    default_builder.finish_and_return(f2_token, gv1_default)
+
+    gv_switch = rgenop.gencallableconst(f2_token, "switch", graph)
+    switch_ptr = gv_switch.revealconst(lltype.Ptr(F2))
+    return switch_ptr
+
+def test_switch():
+    switch_ptr = build_switch()
+    switch_graph = switch_ptr._obj.graph
+    res = testgengraph(switch_graph, [0, 2])
+    assert res == 42
+    res = testgengraph(switch_graph, [1, 16])
+    assert res == 37
+    res = testgengraph(switch_graph, [42, 16])
+    assert res == 16
+
+def test_interpret_switch():
+    run_switch = runner2(build_switch)
+    res = interpret(run_switch, [0, 2])
+    assert res == 42
+    res = interpret(run_switch, [1, 15])
+    assert res == 36
+    res = interpret(run_switch, [42, 5])
+    assert res == 5

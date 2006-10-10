@@ -48,6 +48,11 @@ class LLFlexSwitch(CodeGenSwitch):
         builder.lnk = l_case
         return builder
 
+    def add_default(self):
+        l_default = llimpl.add_default(self.b)
+        builder = LLBuilder(self.g)
+        builder.lnk = l_default
+        return builder
 
 class LLBuilder(CodeGenerator):
     lnk = llimpl.nulllink
@@ -165,10 +170,10 @@ class LLBuilder(CodeGenerator):
         return later_builder
 
     def flexswitch(self, gv_switchvar):
-        l_default = llimpl.closeblockswitch(self.b, gv_switchvar.v)
+        llimpl.closeblockswitch(self.b, gv_switchvar.v)
         flexswitch = LLFlexSwitch(self.b, self.g)
         self.b = llimpl.nullblock
-        self.lnk = l_default
+        self.lnk = llimpl.nulllink
         return flexswitch
 
     def show_incremental_progress(self):
@@ -243,9 +248,9 @@ class RGenOp(AbstractRGenOp):
         args_gv = builder._newblock(kinds)
         return builder, args_gv
 
-    def stop_replay(self, endblock, kinds):
-        return [LLVar(llimpl.getinputarg(endblock.b, i))
-                for i in range(len(kinds))]
+    #def stop_replay(self, endblock, kinds):
+    #    return [LLVar(llimpl.getinputarg(endblock.b, i))
+    #            for i in range(len(kinds))]
 
     # not RPython, just for debugging.  Specific to llgraph.
     @staticmethod

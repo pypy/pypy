@@ -410,10 +410,10 @@ class ResumingInfo(object):
 
 
 class PromotionPoint(object):
-    def __init__(self, flexswitch, switchblock, promotion_path):
+    def __init__(self, flexswitch, incoming_gv, promotion_path):
         assert promotion_path is not None
         self.flexswitch = flexswitch
-        self.switchblock = switchblock
+        self.incoming_gv = incoming_gv
         self.promotion_path = promotion_path
 
 class AbstractPromotionPath(object):
@@ -538,24 +538,27 @@ def ll_promote(jitstate, promotebox, promotiondesc):
         memo = rvalue.enter_block_memo()
         jitstate.enter_block(incoming, memo)
         switchblock = enter_next_block(jitstate, incoming)
-
+        gv_switchvar = promotebox.genvar
+        flexswitch = builder.flexswitch(gv_switchvar)
+        
         if jitstate.resuming is None:
-            gv_switchvar = promotebox.genvar
-            flexswitch = builder.flexswitch(gv_switchvar)
+            incoming_gv = [box.genvar for box in incoming]
+            default_builder = flexswitch.add_default()
+            jitstate.curbuilder = default_builder
             # default case of the switch:
             enter_block(jitstate)
-            pm = PromotionPoint(flexswitch, switchblock,
+            pm = PromotionPoint(flexswitch, incoming_gv,
                                 jitstate.promotion_path)
             ll_pm = cast_instance_to_base_ptr(pm)
-            gv_pm = builder.rgenop.genconst(ll_pm)
+            gv_pm = default_builder.rgenop.genconst(ll_pm)
             gv_switchvar = promotebox.genvar
-            builder.genop_call(promotiondesc.sigtoken,
+            default_builder.genop_call(promotiondesc.sigtoken,
                                promotiondesc.gv_continue_compilation,
                                [gv_pm, gv_switchvar])
             linkargs = []
             for box in incoming:
-                linkargs.append(box.getgenvar(builder))
-            builder.finish_and_goto(linkargs, switchblock)
+                linkargs.append(box.getgenvar(default_builder))
+            default_builder.finish_and_goto(linkargs, switchblock)
             return True
         else:
             assert jitstate.promotion_path is None
@@ -576,23 +579,20 @@ def ll_promote(jitstate, promotebox, promotiondesc):
                 f = f.backframe
 
             if len(resuming.path) == 0:
-                # XXX we need to do something around the switch in the 'else'
-                # case too
-                kinds = [box.kind for box in incoming]
-                vars_gv = jitstate.curbuilder.rgenop.stop_replay(
-                    pm.switchblock,
-                    kinds)
+                incoming_gv = pm.incoming_gv
                 for i in range(len(incoming)):
-                    incoming[i].genvar = vars_gv[i]
+                    incoming[i].genvar = incoming_gv[i]
+                flexswitch = pm.flexswitch
                 promotebox.genvar = promotenode.gv_value
-                newbuilder = pm.flexswitch.add_case(promotenode.gv_value)
                 jitstate.resuming = None
                 node = PromotionPathMergesToSee(promotenode, 0)
                 jitstate.promotion_path = node
-                jitstate.curbuilder = newbuilder
             else:
                 resuming.merges_to_see()
                 promotebox.genvar = promotenode.gv_value
+                
+            newbuilder = flexswitch.add_case(promotenode.gv_value)
+            jitstate.curbuilder = newbuilder
 
             enter_block(jitstate)
             return False

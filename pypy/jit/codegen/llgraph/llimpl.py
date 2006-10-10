@@ -260,11 +260,8 @@ def closeblockswitch(block, exitswitch):
             'cast_ptr_to_int', [exitswitch], v1))
         exitswitch = v1
     block.exitswitch = exitswitch
-    default_link = flowmodel.Link([], None)
-    default_link.exitcase = "default"
-    default_link.llexitcase = None
-    block.closeblock(default_link)
-    return to_opaque_object(default_link)
+    block.closeblock()
+    return
 
 def add_case(block, exitcase):
     block = from_opaque_object(block)
@@ -278,9 +275,25 @@ def add_case(block, exitcase):
         exitvalue = lltype.cast_ptr_to_int(exitvalue)
     case_link.exitcase = exitvalue
     case_link.llexitcase = exitvalue
-    exits = block.exits[:-1] + (case_link,) + block.exits[-1:]
+    if block.exits and block.exits[-1].exitcase == 'default':
+        exits = block.exits[:-1] + (case_link,) + block.exits[-1:]
+    else:
+        exits = block.exits + (case_link,)
     block.recloseblock(*exits)
     return to_opaque_object(case_link)
+
+def add_default(block):
+    block = from_opaque_object(block)
+    assert isinstance(block.exitswitch, flowmodel.Variable)
+    default_link = flowmodel.Link([], None)
+    default_link.exitcase = 'default'
+    default_link.llexitcase = None
+    if block.exits and block.exits[-1].exitcase == 'default':
+        raise ValueError
+    else:
+        exits = block.exits + (default_link,)
+    block.recloseblock(*exits)
+    return to_opaque_object(default_link)
 
 class pseudotuple(object):
     # something that looks both like a hl and a ll tuple
@@ -460,8 +473,9 @@ setannotation(revealconst, lambda s_T, s_gv: annmodel.lltype_to_annotation(
 setannotation(isconst, annmodel.SomeBool())
 setannotation(closeblock1, s_Link)
 setannotation(closeblock2, s_LinkPair)
-setannotation(closeblockswitch, s_Link)
+setannotation(closeblockswitch, None)
 setannotation(add_case, s_Link)
+setannotation(add_default, s_Link)
 setannotation(closelink, None)
 setannotation(closereturnlink, None)
 
