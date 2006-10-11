@@ -27,21 +27,24 @@ class CodeGenBlock(object):
 
 class AbstractRGenOp(object):
 
-    def newgraph(self, sigtoken):
-        """ """
-        raise NotImplementedError
+    # all commented out for the sake of the annotator
+    pass
 
-    @staticmethod
-    @specialize.genconst(0)
-    def genconst(llvalue):
-        """ """
-        raise NotImplementedError
+    #def newgraph(self, sigtoken):
+    #    """ """
+    #    raise NotImplementedError
 
-    constPrebuiltGlobal = genconst
+    #@staticmethod
+    #@specialize.genconst(0)
+    #def genconst(llvalue):
+    #    """ """
+    #    raise NotImplementedError
 
-    def gencallableconst(self, sigtoken, name, entrypointaddr):
-        """ """
-        raise NotImplementedError
+    #constPrebuiltGlobal = genconst
+
+    #def gencallableconst(self, sigtoken, name, entrypointaddr):
+    #    """ """
+    #    raise NotImplementedError
 
     # the "token" methods render non-RPython data structures
     # (instances of LowLevelType) into RPython data structures.  they
@@ -50,41 +53,41 @@ class AbstractRGenOp(object):
     # store the results in a list, for example (each backend can
     # decide what this type is independently, though)
 
-    @staticmethod
-    @specialize.memo()
-    def fieldToken(T, name):
-        """ """
-        raise NotImplementedError
+    #@staticmethod
+    #@specialize.memo()
+    #def fieldToken(T, name):
+    #    """ """
+    #    raise NotImplementedError
 
-    @staticmethod
-    @specialize.memo()
-    def allocToken(T):
-        """ """
-        raise NotImplementedError
+    #@staticmethod
+    #@specialize.memo()
+    #def allocToken(T):
+    #    """ """
+    #    raise NotImplementedError
 
-    @staticmethod
-    @specialize.memo()
-    def varsizeAllocToken(T):
-        """ """
-        raise NotImplementedError
+    #@staticmethod
+    #@specialize.memo()
+    #def varsizeAllocToken(T):
+    #    """ """
+    #    raise NotImplementedError
 
-    @staticmethod
-    @specialize.memo()
-    def arrayToken(A):
-        """ """
-        raise NotImplementedError
+    #@staticmethod
+    #@specialize.memo()
+    #def arrayToken(A):
+    #    """ """
+    #    raise NotImplementedError
 
-    @staticmethod
-    @specialize.memo()
-    def kindToken(T):
-        """ """
-        raise NotImplementedError
+    #@staticmethod
+    #@specialize.memo()
+    #def kindToken(T):
+    #    """ """
+    #    raise NotImplementedError
 
-    @staticmethod
-    @specialize.memo()
-    def sigToken(FUNCTYPE):
-        """ """
-        raise NotImplementedError
+    #@staticmethod
+    #@specialize.memo()
+    #def sigToken(FUNCTYPE):
+    #    """ """
+    #    raise NotImplementedError
 
 
 class CodeGenSwitch(object):
