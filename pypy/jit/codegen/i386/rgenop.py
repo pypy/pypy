@@ -175,6 +175,7 @@ class FlexSwitch(CodeGenSwitch):
             mc.JMP(rel32(self.default_case_addr))
         else:
             mc.UD2()
+        mc.done()
         self.nextfreepos = pos
         return targetbuilder
 
@@ -186,6 +187,7 @@ class FlexSwitch(CodeGenSwitch):
         end   = self.endfreepos
         mc = InMemoryCodeBuilder(start, end)
         mc.JMP(rel32(self.default_case_addr))
+        mc.done()
         return targetbuilder
 
 
@@ -202,6 +204,7 @@ class Builder(CodeGenerator):
         return [Var(pos) for pos in range(numargs-1, -1, -1)]
 
     def _close(self):
+        self.mc.done()
         self.rgenop.close_mc(self.mc)
         self.mc = None
 

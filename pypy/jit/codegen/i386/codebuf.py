@@ -2,6 +2,11 @@ import os
 from ctypes import POINTER, cast, c_char, c_void_p, CFUNCTYPE, c_int
 from ri386 import I386CodeBuilder
 
+# Set this to enable/disable the CODE_DUMP stdout lines
+CODE_DUMP = True
+
+# ____________________________________________________________
+
 
 modname = 'pypy.jit.codegen.i386.codebuf_' + os.name
 memhandler = __import__(modname, globals(), locals(), ['__doc__'])
@@ -13,6 +18,7 @@ class CodeBlockOverflow(Exception):
     pass
 
 class InMemoryCodeBuilder(I386CodeBuilder):
+    _last_dump_start = 0
 
     def __init__(self, start, end):
         map_size = end - start
@@ -26,21 +32,40 @@ class InMemoryCodeBuilder(I386CodeBuilder):
         self._pos = 0
 
     def write(self, data):
-         p = self._pos
-         if p + len(data) > self._size:
-             raise CodeBlockOverflow
-         for c in data:
-             self._data.contents[p] = c
-             p += 1
-         self._pos = p
+        p = self._pos
+        if p + len(data) > self._size:
+            raise CodeBlockOverflow
+        for c in data:
+            self._data.contents[p] = c
+            p += 1
+        self._pos = p
 
     def tell(self):
         baseaddr = cast(self._data, c_void_p).value
         return baseaddr + self._pos
 
     def execute(self, arg1, arg2):
+        # XXX old testing stuff
         fnptr = cast(self._data, binaryfn)
         return fnptr(arg1, arg2)
+
+    def done(self):
+        # normally, no special action is needed here
+        if CODE_DUMP:
+            self.dump_range(self._last_dump_start, self._pos)
+            self._last_dump_start = self._pos
+
+    def dump_range(self, start, end):
+        HEX = '0123456789ABCDEF'
+        dump = []
+        for p in range(start, end):
+            o = ord(self._data.contents[p])
+            dump.append(HEX[o >> 4])
+            dump.append(HEX[o & 15])
+            if (p & 3) == 3:
+                dump.append(':')
+        os.write(2, 'CODE_DUMP @%x +%d  %s\n' % (self.tell() - self._pos,
+                                                 start, ''.join(dump)))
 
 
 class MachineCodeBlock(InMemoryCodeBuilder):
