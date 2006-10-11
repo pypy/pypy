@@ -1,6 +1,6 @@
 from pypy.tool.sourcetools import compile2
 
-from pypy.translator.asm.ppcgen.form import IDesc
+from pypy.translator.asm.ppcgen.form import IDesc, IDupDesc
 
 ##     "opcode": ( 0,  5),
 ##     "rA":     (11, 15, 'unsigned', regname._R),
@@ -29,6 +29,9 @@ def make_func(name, desc):
         else:
             sig.append(field.name)
             fieldvalues.append((field, field.name))
+    if isinstance(desc, IDupDesc):
+        for destfield, srcfield in desc.dupfields.iteritems():
+            fieldvalues.append((destfield, srcfield.name))
     body = ['v = 0']
     assert 'v' not in sig # that wouldn't be funny
     #body.append('print %r'%name + ', ' + ', '.join(["'%s:', %s"%(s, s) for s in sig]))
