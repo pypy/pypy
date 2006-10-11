@@ -298,8 +298,11 @@ class Builder(CodeGenerator):
             gv_arg = args_gv[i]
             if gv_arg is not None:
                 self.push(gv_arg.operand(self))
-        target = gv_fnptr.revealconst(lltype.Signed)
-        self.mc.CALL(rel32(target))
+        if gv_fnptr.is_const:
+            target = gv_fnptr.revealconst(lltype.Signed)
+            self.mc.CALL(rel32(target))
+        else:
+            self.mc.CALL(gv_fnptr.operand(self))
         # XXX only for int return_kind
         return self.returnvar(eax)
 
@@ -356,6 +359,9 @@ class Builder(CodeGenerator):
         result.initialize(self, gv_exitswitch)
         self._close()
         return result
+
+    def show_incremental_progress(self):
+        pass
 
     # ____________________________________________________________
 
@@ -704,11 +710,94 @@ def remap_stack_layout(builder, outputargs_gv, targetblock):
         builder.stackdepth = N
 
 
+#
+
+dummy_var = Var(0)
+
+class ReplayFlexSwitch(CodeGenSwitch):
+
+    def __init__(self, replay_builder):
+        self.replay_builder = replay_builder
+
+    def add_case(self, gv_case):
+        return self.replay_builder
+
+    def add_default(self):
+        return self.replay_builder
+
+class ReplayBuilder(CodeGenerator):
+
+    def __init__(self, rgenop):
+        self.rgenop = rgenop
+
+    @specialize.arg(1)
+    def genop1(self, opname, gv_arg):
+        return dummy_var
+
+    @specialize.arg(1)
+    def genop2(self, opname, gv_arg1, gv_arg2):
+        return dummy_var
+
+    def genop_getfield(self, offset, gv_ptr):
+        return dummy_var
+
+    def genop_setfield(self, offset, gv_ptr, gv_value):
+        return dummy_var
+
+    def genop_getsubstruct(self, offset, gv_ptr):
+        return dummy_var
+
+    def genop_getarrayitem(self, arraytoken, gv_ptr, gv_index):
+        return dummy_var
+
+    def genop_getarraysize(self, arraytoken, gv_ptr):
+        return dummy_var
+
+    def genop_setarrayitem(self, arraytoken, gv_ptr, gv_index, gv_value):
+        return dummy_var
+
+    def genop_malloc_fixedsize(self, size):
+        return dummy_var
+
+    def genop_malloc_varsize(self, varsizealloctoken, gv_size):
+        return dummy_var
+        
+    def genop_call(self, sigtoken, gv_fnptr, args_gv):
+        return dummy_var
+
+    def genop_same_as(self, kind, gv_x):
+        return dummy_var
+
+    def genop_debug_pdb(self):    # may take an args_gv later
+        pass
+
+    def enter_next_block(self, kinds, args_gv):
+        return None
+
+    def jump_if_false(self, gv_condition):
+        return self
+
+    def jump_if_true(self, gv_condition):
+        return self
+
+    def finish_and_return(self, sigtoken, gv_returnvar):
+        pass
+
+    def finish_and_goto(self, outputargs_gv, targetblock):
+        pass
+
+    def flexswitch(self, gv_exitswitch):
+        return ReplayFlexSwitch(self)
+
+    def show_incremental_progress(self):
+        pass
+
 class RI386GenOp(AbstractRGenOp):
     from pypy.jit.codegen.i386.codebuf import MachineCodeBlock
 
     def __init__(self):
         self.mcs = []   # machine code blocks where no-one is currently writing
+        self.keepalive_addrs = []
 
     def open_mc(self):
         if self.mcs:
@@ -734,18 +823,25 @@ class RI386GenOp(AbstractRGenOp):
         inputargs_gv = builder._write_prologue(sigtoken)
         return builder, entrypoint, inputargs_gv
 
-    @staticmethod
-    @specialize.genconst(0)
-    def genconst(llvalue):
+    def replay(self, block, kinds):
+        return ReplayBuilder(self), [dummy_var] * len(kinds)
+
+    @specialize.genconst(1)
+    def genconst(self, llvalue):
         T = lltype.typeOf(llvalue)
-        if isinstance(T, lltype.Primitive):
-            return IntConst(lltype.cast_primitive(lltype.Signed, llvalue))
-        elif T is llmemory.Address:
+        if T is llmemory.Address:
+            self.keepalive_addrs.append(llvalue)
             return AddrConst(llvalue)
+        elif isinstance(T, lltype.Primitive):
+            return IntConst(lltype.cast_primitive(lltype.Signed, llvalue))
         elif isinstance(T, lltype.Ptr):
-            return AddrConst(llmemory.cast_ptr_to_adr(llvalue))
+            lladdr = llmemory.cast_ptr_to_adr(llvalue)
+            self.keepalive_addrs.append(lladdr)
+            return AddrConst(lladdr)
         else:
             assert 0, "XXX not implemented"
+    
+    # attached later constPrebuiltGlobal = global_rgenop.genconst
 
     @staticmethod
     @specialize.memo()
@@ -790,20 +886,19 @@ class RI386GenOp(AbstractRGenOp):
     def sigToken(FUNCTYPE):
         return len(FUNCTYPE.ARGS)     # for now
 
-    constPrebuiltGlobal = genconst
-
-
     def gencallableconst(self, sigtoken, name, entrypointaddr):
         return IntConst(entrypointaddr)
 
     @staticmethod
     def erasedType(T):
+        if T is llmemory.Address:
+            return llmemory.Address
         if isinstance(T, lltype.Primitive):
             return lltype.Signed
-        elif T is llmemory.Address:
-            return llmemory.Address
         elif isinstance(T, lltype.Ptr):
             return llmemory.Address
         else:
             assert 0, "XXX not implemented"
 
+global_rgenop = RI386GenOp()
+RI386GenOp.constPrebuiltGlobal = global_rgenop.genconst
