@@ -242,6 +242,83 @@ def test_goto_compile():
 
 # ____________________________________________________________
 
+def make_if(rgenop):
+    # a = x
+    # if x > 5:
+    #     x //= 2
+    # return x + a
+    signed_kind = rgenop.kindToken(lltype.Signed)
+    sigtoken = rgenop.sigToken(FUNC2)
+    builder, entrypoint, [gv_x1, gv_unused] = rgenop.newgraph(sigtoken)
+
+    # check
+    args_gv = [gv_x1, gv_unused]
+    builder.enter_next_block([signed_kind, signed_kind], args_gv)
+    [gv_x1, gv_unused] = args_gv
+
+    gv_cond = builder.genop2("int_gt", gv_x1, rgenop.genconst(5))
+    elsebuilder = builder.jump_if_false(gv_cond)
+    elseargs_gv = [gv_x1]
+
+    # 'then' block
+    args_gv = [gv_x1]
+    builder.enter_next_block([signed_kind], args_gv)
+    [gv_x1] = args_gv
+    gv_x2 = builder.genop2("int_floordiv", gv_x1, rgenop.genconst(2))
+
+    # end block
+    args_gv = [gv_x2, gv_x1]
+    label = builder.enter_next_block([signed_kind, signed_kind], args_gv)
+    [gv_x2, gv_a] = args_gv
+    gv_res = builder.genop2("int_add", gv_x2, gv_a)
+    builder.finish_and_return(sigtoken, gv_res)
+
+    # now the else branch
+    elsebuilder.enter_next_block([signed_kind], elseargs_gv)
+    [gv_x3] = elseargs_gv
+    elsebuilder.finish_and_goto([gv_x3, gv_x3], label)
+
+    # done
+    gv_gotofn = rgenop.gencallableconst(sigtoken, "goto", entrypoint)
+    return gv_gotofn
+
+def if_runner(x, y):
+    rgenop = RI386GenOp()
+    gv_iffn = make_if(rgenop)
+    iffn = gv_iffn.revealconst(lltype.Ptr(FUNC2))
+    res = iffn(x, y)
+    keepalive_until_here(rgenop)    # to keep the code blocks alive
+    return res
+
+def test_if_interpret():
+    from pypy.jit.codegen.llgraph.rgenop import rgenop
+    gv_iffn = make_if(rgenop)
+    iffn = gv_iffn.revealconst(lltype.Ptr(FUNC2))
+    llinterp = LLInterpreter(None)
+    res = llinterp.eval_graph(iffn._obj.graph, [30, 0])
+    assert res == 45
+    res = llinterp.eval_graph(iffn._obj.graph, [3, 0])
+    assert res == 6
+
+def test_if_direct():
+    rgenop = RI386GenOp()
+    gv_iffn = make_if(rgenop)
+    print gv_iffn.value
+    fnptr = cast(c_void_p(gv_iffn.value), CFUNCTYPE(c_int, c_int, c_int))
+    res = fnptr(30, 0)
+    assert res == 45
+    res = fnptr(3, 0)
+    assert res == 6
+
+def test_if_compile():
+    fn = compile(if_runner, [int, int])
+    res = fn(30, 0)
+    assert res == 45
+    res = fn(3, 0)
+    assert res == 6
+
+# ____________________________________________________________
+
 def build_switch(rgenop):
     """
     def f(v0, v1):
