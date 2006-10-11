@@ -274,7 +274,12 @@ def next__DictIterObject(space, w_dictiter):
             raise OperationError(space.w_RuntimeError,
                      space.wrap("dictionary changed size during iteration"))
         # look for the next entry
-        w_result = w_dictiter.next_entry()
+        try:
+            w_result = w_dictiter.next_entry()
+        except RuntimeError:
+            # it's very likely the underlying dict changed during iteration
+            raise OperationError(space.w_RuntimeError,
+                     space.wrap("dictionary changed during iteration"))
         if w_result is not None:
             w_dictiter.pos += 1
             return w_result
