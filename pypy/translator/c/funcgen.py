@@ -724,4 +724,18 @@ class FunctionCodeGenerator(object):
     def OP_DEBUG_ASSERT(self, op):
         return '/* debug_assert removed */'
 
+    def OP_DEBUG_FATALERROR(self, op):
+        # XXX
+        from pypy.rpython.lltypesystem.rstr import STR
+        msg = op.args[0]
+        assert msg.concretetype == Ptr(STR)
+        argv = []
+        if isinstance(msg, Constant):
+            msg = c_string_constant(''.join(msg.value.chars))
+        else:
+            msg = 'RPyString_AsString(%s)' % self.expr(msg)
+
+        return 'fprintf(stderr, "%%s\\n", %s); abort();' % msg
+            
+
 assert not USESLOTS or '__dict__' not in dir(FunctionCodeGenerator)
