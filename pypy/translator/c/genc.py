@@ -834,10 +834,10 @@ clean:
 \trm -f $(OBJECTS) $(TARGET)
 
 debug:
-\tmake CFLAGS="-g $(CFLAGS)"
+\tmake CFLAGS="-g"
 
 debug_exc:
-\tmake CFLAGS="-g -DDO_LOG_EXC $(CFLAGS)"
+\tmake CFLAGS="-g -DDO_LOG_EXC"
 
 profile:
 \tmake CFLAGS="-pg $(CFLAGS)" LDFLAGS="-pg $(LDFLAGS)"
