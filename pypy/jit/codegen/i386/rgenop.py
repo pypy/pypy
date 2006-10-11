@@ -36,6 +36,8 @@ class Var(GenVar):
     def __repr__(self):
         return 'var@%d' % (self.stackpos,)
 
+    repr = __repr__
+
 
 ##class Const(GenConst):
 
@@ -84,10 +86,14 @@ class IntConst(GenConst):
             return lltype.cast_primitive(T, self.value)
 
     def __repr__(self):
+        "NOT_RPYTHON"
         try:
             return "const=%s" % (imm(self.value).assembler(),)
         except TypeError:   # from Symbolics
             return "const=%r" % (self.value,)
+
+    def repr(self):
+        return "const=$%s" % (self.value,)
 
 
 ##class FnPtrConst(IntConst):
@@ -120,7 +126,11 @@ class AddrConst(GenConst):
             assert 0, "XXX not implemented"
 
     def __repr__(self):
+        "NOT_RPYTHON"
         return "const=%r" % (self.addr,)
+
+    def repr(self):
+        return "const=<0x%x>" % (llmemory.cast_adr_to_int(self.addr),)
 
 
 class Block(CodeGenBlock):
@@ -641,6 +651,16 @@ def gc_malloc_fnaddr():
 # ____________________________________________________________
 
 def remap_stack_layout(builder, outputargs_gv, targetblock):
+##    import os
+##    s = ', '.join([gv.repr() for gv in outputargs_gv])
+##    os.write(2, "writing at %d (stack=%d, [%s])\n  --> %d (stack=%d, %s)\n"
+##     % (builder.mc.tell(),
+##        builder.stackdepth,
+##        s,
+##        targetblock.startaddr,
+##        targetblock.stackdepth,
+##        targetblock.arg_positions))
+
     N = targetblock.stackdepth
     if builder.stackdepth < N:
         builder.mc.SUB(esp, imm(WORD * (N - builder.stackdepth)))
@@ -659,11 +679,12 @@ def remap_stack_layout(builder, outputargs_gv, targetblock):
         srccount[pos] = 0
     pending_dests = M
     for i in range(M):
+        targetpos = arg_positions[i]
         gv = outputargs_gv[i]
         if isinstance(gv, Var):
             p = gv.stackpos
             if 0 <= p < N:
-                if p == i:
+                if p == targetpos:
                     srccount[p] = -N     # ignore 'v=v'
                     pending_dests -= 1
                 else:
