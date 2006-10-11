@@ -1,10 +1,10 @@
 import py
 from pypy.translator.cli.test.runtest import CliTest
-from pypy.rpython.test.test_rdict import BaseTestRdict
+from pypy.rpython.test.test_rdict import TestOOtype as _TestOOtype
 from pypy.rpython.test.test_remptydict import BaseTestRemptydict
 from pypy.rpython.test.test_rconstantdict import BaseTestRconstantdict
 
-class TestCliDict(CliTest, BaseTestRdict):
+class TestCliDict(CliTest, _TestOOtype):
     def test_dict_of_void(self):
         class A: pass
         def f():

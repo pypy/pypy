@@ -479,7 +479,16 @@ namespace pypy.runtime
             this.it = it;
         }
 
-        public bool ll_go_next() { return it.MoveNext(); }
+        public bool ll_go_next() { 
+            try {
+                return it.MoveNext();
+            }
+            catch(InvalidOperationException e) {
+                Helpers.raise_RuntimeError();
+                return false;
+            }
+        }
+
         public TKey ll_current_key() { return it.Current.Key; }
         public TValue ll_current_value() { return it.Current.Value; }
     }

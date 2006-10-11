@@ -34,5 +34,13 @@
             throw
             ret
         }
+
+        .method public static void raise_RuntimeError() il managed
+        {
+            ldstr "This is only a stub, it should not be called"
+            newobj instance void class [mscorlib]System.ApplicationException::.ctor(string)
+            throw
+            ret
+        }
     }
 }

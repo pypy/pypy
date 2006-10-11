@@ -8,6 +8,28 @@ class Helper(Function):
         ilasm.end_class()
         ilasm.end_namespace()
 
+def raise_RuntimeError():
+    raise RuntimeError
+
+HELPERS = [(raise_RuntimeError, [])]
+
+def _build_helpers(translator, db):
+    functions = set()
+    for fn, annotation in HELPERS:
+        functions.add(fn)
+        translator.annotator.build_types(fn, annotation)
+    translator.rtyper.specialize_more_blocks()
+
+    res = []
+    for graph in translator.graphs:
+        func = getattr(graph, 'func', None)
+        if func in functions:
+            res.append(Helper(db, graph, func.func_name))
+    return res
+
+
 def get_prebuilt_nodes(translator, db):
+    prebuilt_nodes = _build_helpers(translator, db)
     raise_OSError_graph = translator.rtyper.exceptiondata.fn_raise_OSError.graph
-    return [Helper(db, raise_OSError_graph, 'raise_OSError')]
+    prebuilt_nodes.append(Helper(db, raise_OSError_graph, 'raise_OSError'))
+    return prebuilt_nodes
