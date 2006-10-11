@@ -31,21 +31,19 @@ def make_func(name, desc):
             fieldvalues.append((field, field.name))
     body = ['v = 0']
     assert 'v' not in sig # that wouldn't be funny
+    #body.append('print %r'%name + ', ' + ', '.join(["'%s:', %s"%(s, s) for s in sig]))
     for field, value in fieldvalues:
         body.append('v |= (%3s & %#05x) << %d'%(value,
                                            field.mask,
                                            (32 - field.right - 1)))
-    body.append('self.insts.append(v)')
+    body.append('self.emit(v)')
     src = 'def %s(self, %s):\n    %s'%(name, ', '.join(sig), '\n    '.join(body))
     d = {}
+    #print src
     exec compile2(src) in d
     return d[name]
 
-_rassembler_cache = {}
-
 def make_rassembler(cls):
-    if cls in _rassembler_cache:
-        return _rassembler_cache[cls]
     bases = [make_rassembler(b) for b in cls.__bases__]
     ns = {}
     for k, v in cls.__dict__.iteritems():
@@ -53,4 +51,7 @@ def make_rassembler(cls):
             v = make_func(k, v)
         ns[k] = v
     rcls = type('R' + cls.__name__, tuple(bases), ns)
+    def emit(self, value):
+        self.insts.append(value)
+    rcls.emit = emit
     return rcls
