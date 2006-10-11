@@ -160,3 +160,26 @@ def test_two_constants():
     merge_if_blocks(graph)
     assert blocknum == len(list(graph.iterblocks()))
 
+def test_same_cases():
+    def fn(x):
+        if x == 42:
+            r = 1
+        elif x == 42:
+            r = 2
+        else:
+            r = 3
+        return r
+    t = TranslationContext()
+    a = t.buildannotator()
+    a.build_types(fn, [int])
+    rtyper = t.buildrtyper()
+    rtyper.specialize()
+    backend_optimizations(t, merge_if_blocks_to_switch=True)
+    graph = tgraphof(t, fn)
+    assert len(graph.startblock.exits) == 2
+    interp = LLInterpreter(rtyper)
+    for i in [42, 43]:
+        expected = fn(i)
+        actual = interp.eval_graph(graph, [i])
+        assert actual == expected
+

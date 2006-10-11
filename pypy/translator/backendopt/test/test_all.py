@@ -6,11 +6,15 @@ from pypy.translator.translator import TranslationContext, graphof
 from pypy.objspace.flow.model import Constant
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLInterpreter
+from pypy.rpython.rarithmetic import intmask
+from pypy import conftest
 
 def translateopt(func, sig, **optflags):
     t = TranslationContext()
     t.buildannotator().build_types(func, sig)
     t.buildrtyper().specialize()
+    if conftest.option.view:
+        t.view()
     backend_optimizations(t, **optflags)
     return t
 
@@ -166,3 +170,23 @@ def test_bug_inlined_if():
     interp = LLInterpreter(t.rtyper)
     res = interp.eval_graph(graphof(t, myfunc), [10])
     assert res == 5
+
+def test_range_iter():
+    def fn(start, stop, step):
+        res = 0
+        if step == 0:
+            if stop >= start:
+                r = range(start, stop, 1)
+            else:
+                r = range(start, stop, -1)
+        else:
+            r = range(start, stop, step)
+        for i in r:
+            res = res * 51 + i
+        return res
+    t = translateopt(fn, [int, int, int], merge_if_blocks_to_switch=True)
+    interp = LLInterpreter(t.rtyper)
+    for args in [2, 7, 0], [7, 2, 0], [10, 50, 7], [50, -10, -3]:
+        assert interp.eval_graph(graphof(t, fn), args) == intmask(fn(*args))
+
+

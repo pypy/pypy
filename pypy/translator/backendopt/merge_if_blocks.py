@@ -20,7 +20,7 @@ def is_chain_block(block, first=False):
         return False
     return True
 
-def merge_chain(chain, checkvar, varmap):
+def merge_chain(chain, checkvar, varmap, graph):
     def get_new_arg(var_or_const):
         if isinstance(var_or_const, Constant):
             return var_or_const
@@ -28,6 +28,7 @@ def merge_chain(chain, checkvar, varmap):
     firstblock, case = chain[0]
     firstblock.operations = firstblock.operations[:-1]
     firstblock.exitswitch = checkvar 
+    values = {}
     links = []
     default = chain[-1][0].exits[0]
     default.exitcase = "default"
@@ -35,6 +36,11 @@ def merge_chain(chain, checkvar, varmap):
     default.prevblock = firstblock
     default.args = [get_new_arg(arg) for arg in default.args]
     for block, case in chain:
+        if case.value in values:
+            log.WARNING("unreachable code with value %s in graph %s" % (
+                        case.value, graph))
+            continue
+        values[case.value] = True
         link = block.exits[1]
         links.append(link)
         link.exitcase = case.value
@@ -97,11 +103,13 @@ def merge_if_blocks_once(graph):
             break
     else:
         return False
-    log("merging blocks in %s" % (graph.name, ))
-    merge_chain(chain, checkvars[0], varmap)
+    merge_chain(chain, checkvars[0], varmap, graph)
     checkgraph(graph)
     return True
 
 def merge_if_blocks(graph):
+    merge = False
     while merge_if_blocks_once(graph):
-        pass
+        merge = True
+    if merge:
+        log("merging blocks in %s" % (graph.name, ))
