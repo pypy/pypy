@@ -53,7 +53,8 @@ class FlowObjSpace(ObjSpace):
         self.w_tuple    = Constant(tuple)
         self.concrete_mode = 0
         for exc in [KeyError, ValueError, IndexError, StopIteration,
-                    AssertionError, TypeError, AttributeError, ImportError]:
+                    AssertionError, TypeError, AttributeError, ImportError,
+                    RuntimeError]:
             clsname = exc.__name__
             setattr(self, 'w_'+clsname, Constant(exc))
         # the following exceptions are the ones that should not show up
@@ -370,9 +371,13 @@ class FlowObjSpace(ObjSpace):
                     context.replace_in_stack(it, next_unroller)
                     return self.wrap(v)
         w_item = self.do_operation("next", w_iter)
-        outcome, w_exc_cls, w_exc_value = context.guessexception(StopIteration)
+        outcome, w_exc_cls, w_exc_value = context.guessexception(StopIteration,
+                                                                 RuntimeError)
         if outcome is StopIteration:
             raise OperationError(self.w_StopIteration, w_exc_value)
+        elif outcome is RuntimeError:
+            raise flowcontext.ImplicitOperationError(self.w_RuntimeError,
+                                                     w_exc_value)
         else:
             return w_item
 

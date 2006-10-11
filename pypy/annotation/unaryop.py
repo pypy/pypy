@@ -491,8 +491,15 @@ class __extend__(SomeIterator):
         return itr
     iter.can_only_throw = []
 
+    def _can_only_throw(itr):
+        can_throw = [StopIteration]
+        if isinstance(itr.s_container, SomeDict):
+            can_throw.append(RuntimeError)
+        return can_throw
+
     def next(itr):
         return itr.s_container.getanyitem(*itr.variant)
+    next.can_only_throw = _can_only_throw
 
 
 class __extend__(SomeInstance):
