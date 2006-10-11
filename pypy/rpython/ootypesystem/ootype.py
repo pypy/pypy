@@ -552,17 +552,9 @@ class DictItemsIterator(BuiltinADTType):
             self.VALUETYPE_T: VALUETYPE
             }
 
-        # some words about the interface of the iterator: we can't
-        # write the next() method directly in the backend because of
-        # two reasons:
-        #  1) tuples aren't BuiltinType, yet, so we can't make them
-        #     generic; moreover, they are constructed on-the-fly, so the
-        #     two-item tuple type that an hypotetic next() would return
-        #     isn't available at this time.
-        #  2) StopIteration is generated at translation time too, so
-        #     this would prevent backends to do a precompilation of
-        #     support code.
-
+        # Dictionaries are not allowed to be changed during an
+        # iteration. The ll_go_next method should check this condition
+        # and raise RuntimeError in that case.
         self._GENERIC_METHODS = frozendict({
             "ll_go_next": Meth([], Bool), # move forward; return False is there is no more data available
             "ll_current_key": Meth([], self.KEYTYPE_T),
@@ -1043,6 +1035,7 @@ class _dict(_builtin_type):
     def __init__(self, DICT):
         self._TYPE = DICT
         self._dict = {}
+        self._stamp = 0
 
     def ll_length(self):
         # NOT_RPYTHON
@@ -1059,12 +1052,14 @@ class _dict(_builtin_type):
         assert typeOf(key) == self._TYPE._KEYTYPE
         assert typeOf(value) == self._TYPE._VALUETYPE
         self._dict[key] = value
+        self._stamp += 1
 
     def ll_remove(self, key):
         # NOT_RPYTHON
         assert typeOf(key) == self._TYPE._KEYTYPE
         try:
             del self._dict[key]
+            self._stamp += 1
             return True
         except KeyError:
             return False
@@ -1076,12 +1071,14 @@ class _dict(_builtin_type):
 
     def ll_clear(self):
         self._dict.clear()
+        self._stamp += 1
 
     def ll_get_items_iterator(self):
         # NOT_RPYTHON
         ITER = DictItemsIterator(self._TYPE._KEYTYPE, self._TYPE._VALUETYPE)
         iter = _dict_items_iterator(ITER)
-        iter._items = self._dict.items()
+        iter._set_dict(self)
+        #print 'ITERATOR created with stamp', self._stamp
         return iter
 
 class _null_dict(_null_mixin(_dict), _dict):
@@ -1112,11 +1109,20 @@ class _null_custom_dict(_null_mixin(_custom_dict), _custom_dict):
 class _dict_items_iterator(_builtin_type):
     def __init__(self, ITER):
         self._TYPE = ITER
-        self._items = []
         self._index = -1
+
+    def _set_dict(self, d):
+        self._dict = d
+        self._items = d._dict.items()
+        self._stamp = d._stamp
+
+    def _check_stamp(self):
+        if self._stamp != self._dict._stamp:
+            raise RuntimeError, 'Dictionary changed during iteration'
 
     def ll_go_next(self):
         # NOT_RPYTHON
+        self._check_stamp()
         self._index += 1        
         if self._index >= len(self._items):
             return False
@@ -1125,11 +1131,13 @@ class _dict_items_iterator(_builtin_type):
 
     def ll_current_key(self):
         # NOT_RPYTHON
+        self._check_stamp()
         assert 0 <= self._index < len(self._items)
         return self._items[self._index][0]
     
     def ll_current_value(self):
         # NOT_RPYTHON
+        self._check_stamp()
         assert 0 <= self._index < len(self._items)
         return self._items[self._index][1]
 

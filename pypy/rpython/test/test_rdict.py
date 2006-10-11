@@ -749,6 +749,13 @@ class TestOOtype(BaseTestRdict, OORtypeMixin):
         res = self.interpret(func, [5])
         assert res.ll_get(5) is res
 
-
-
-
+    def test_invalid_iterator(self):
+        def func():
+            try:
+                d = {'a': 1, 'b': 2}
+                for key in d:
+                    d[key] = 0
+                return True
+            except RuntimeError:
+                return False
+        assert self.interpret(func, []) == False

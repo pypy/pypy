@@ -362,6 +362,9 @@ class DictIteratorRepr(AbstractDictIteratorRepr):
         ITER = ootype.DictItemsIterator(KEYTYPE, VALUETYPE)
         return ootype.Record({"iterator": ITER})
 
+    def _next_implicit_exceptions(self, hop):
+        hop.has_implicit_exception(StopIteration)
+        hop.has_implicit_exception(RuntimeError)
 
 def ll_dictiter(ITER, d):
     iter = ootype.new(ITER)
