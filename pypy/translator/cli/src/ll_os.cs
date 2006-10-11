@@ -207,7 +207,7 @@ namespace pypy.builtin
             IFile f;
 
             try {
-                stream = new FileStream(name, f_mode, f_access);
+                stream = new FileStream(name, f_mode, f_access, FileShare.ReadWrite);
             }
             catch(FileNotFoundException e) {
                 Helpers.raise_OSError(Errno.ENOENT);
