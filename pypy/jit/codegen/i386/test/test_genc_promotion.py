@@ -7,6 +7,4 @@ class TestPromotion(I386TimeshiftingTestMixin,
 
     # for the individual tests see
     # ====> ../../../timeshifter/test/test_promotion.py
-
-    def test_many_promotions(self):
-        py.test.skip("in-progress")
+    pass

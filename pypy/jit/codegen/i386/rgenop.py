@@ -2,7 +2,7 @@ import sys
 from pypy.rpython.objectmodel import specialize
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.jit.codegen.i386.ri386 import *
-from pypy.jit.codegen.i386.codebuf import InMemoryCodeBuilder
+from pypy.jit.codegen.i386.codebuf import InMemoryCodeBuilder, CodeBlockOverflow
 from pypy.jit.codegen.model import AbstractRGenOp, CodeGenBlock, CodeGenerator
 from pypy.jit.codegen.model import GenVar, GenConst, CodeGenSwitch
 from pypy.rpython import objectmodel
@@ -152,32 +152,58 @@ class FlexSwitch(CodeGenSwitch):
         self.default_case_addr = 0
 
     def initialize(self, builder, gv_exitswitch):
-        RESERVED = 11*8+5      # XXX quite a lot for now :-/
         mc = builder.mc
         mc.MOV(eax, gv_exitswitch.operand(builder))
         self.saved_state = builder._save_state()
+        self._reserve(mc)
+
+    def _reserve(self, mc):
+        RESERVED = 11*4+5      # XXX quite a lot for now :-/
         pos = mc.tell()
         mc.UD2()
         mc.write('\x00' * (RESERVED-1))
         self.nextfreepos = pos
         self.endfreepos = pos + RESERVED
 
+    def _reserve_more(self):
+        start = self.nextfreepos
+        end   = self.endfreepos
+        newmc = self.rgenop.open_mc()
+        self._reserve(newmc)
+        self.rgenop.close_mc(newmc)
+        fullmc = InMemoryCodeBuilder(start, end)
+        fullmc.JMP(rel32(self.nextfreepos))
+        fullmc.done()
+        
     def add_case(self, gv_case):
         rgenop = self.rgenop
         targetbuilder = Builder._new_from_state(rgenop, self.saved_state)
+        target_addr = targetbuilder.mc.tell()
+        try:
+            self._add_case(gv_case, target_addr)
+        except CodeBlockOverflow:
+            self._reserve_more()
+            self._add_case(gv_case, target_addr)
+        return targetbuilder
+    
+    def _add_case(self, gv_case, target_addr):
         start = self.nextfreepos
         end   = self.endfreepos
         mc = InMemoryCodeBuilder(start, end)
         mc.CMP(eax, gv_case.operand(None))
-        mc.JE(rel32(targetbuilder.mc.tell()))
+        mc.JE(rel32(target_addr))
         pos = mc.tell()
         if self.default_case_addr:
             mc.JMP(rel32(self.default_case_addr))
         else:
+            illegal_start = mc.tell()
+            mc.JMP(rel32(0))
+            ud2_addr = mc.tell()
             mc.UD2()
+            illegal_mc = InMemoryCodeBuilder(illegal_start, end)
+            illegal_mc.JMP(rel32(ud2_addr))
         mc.done()
         self.nextfreepos = pos
-        return targetbuilder
 
     def add_default(self):
         rgenop = self.rgenop
@@ -189,7 +215,6 @@ class FlexSwitch(CodeGenSwitch):
         mc.JMP(rel32(self.default_case_addr))
         mc.done()
         return targetbuilder
-
 
 class Builder(CodeGenerator):
 
