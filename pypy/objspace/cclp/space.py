@@ -8,6 +8,8 @@ from pypy.interpreter.error import OperationError
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.listobject import W_ListObject, W_TupleObject
 
+from pypy.module._stackless.interp_coroutine import AbstractThunk
+
 from pypy.objspace.cclp.misc import ClonableCoroutine, get_current_cspace, w
 from pypy.objspace.cclp.thunk import CSpaceThunk, PropagatorThunk
 from pypy.objspace.cclp.global_state import sched
@@ -17,22 +19,45 @@ from pypy.objspace.cclp.types import ConsistencyError, Solution, W_Var, \
 from pypy.objspace.cclp.interp_var import interp_bind, interp_free
 from pypy.objspace.cclp.constraint.distributor import distribute
 
-def newspace(space, w_callable, __args__):
+def _newspace(space, w_callable, __args__):
     args = __args__.normalize()
-    # coro init
     w_coro = ClonableCoroutine(space)
-    #w_callable : a logic or constraint script ????
+    #w_callable : a logic or constraint script
     thunk = CSpaceThunk(space, w_callable, args, w_coro)
     w_coro.bind(thunk)
     if not we_are_translated():
-        w("NEWSPACE, thread", str(id(w_coro)), "for", str(w_callable.name))
+        w("NEWSPACE, (distributor) thread", str(id(w_coro)), "for", str(w_callable.name))
     w_space = W_CSpace(space)
     w_coro._cspace = w_space
-
     sched.uler.add_new_thread(w_coro)
-    sched.uler.schedule()
-
     return w_space
+
+class NewSpaceThunk(AbstractThunk):
+    def __init__(self, space, w_callable, __args__, thread):
+        self.space = space
+        self.thread = thread
+        self.cspace = None
+        self._init_data = [w_callable, __args__]
+
+    def call(self):
+        try:
+            self.cspace = _newspace(self.space,
+                                    self._init_data[0],
+                                    self._init_data[1])
+            self.space.wait(self.cspace._finished)
+        finally:
+            sched.uler.remove_thread(self.thread)
+            sched.uler.schedule()
+
+def newspace(space, w_callable, __args__):
+    thread = ClonableCoroutine(space)
+    thunk = NewSpaceThunk(space, w_callable, __args__, thread)
+    thread.bind(thunk)
+    sched.uler.add_new_thread(thread)
+    sched.uler.schedule() # XXX assumption: thread will be executed before we get back there
+    cspace = thunk.cspace
+    cspace._container = thread
+    return cspace
 app_newspace = gateway.interp2app(newspace, unwrap_spec=[baseobjspace.ObjSpace,
                                                          baseobjspace.W_Root,
                                                          argument.Arguments])
@@ -74,7 +99,7 @@ class W_CSpace(baseobjspace.Wrappable):
     def __init__(self, space):
         self.space = space # the object space ;-)
         self.distributor = None
-        self.threads = []
+        self._container = None # thread that 'contains' us
         # choice mgmt
         self._choice = newvar(space)
         self._committed = newvar(space)
@@ -90,7 +115,7 @@ class W_CSpace(baseobjspace.Wrappable):
     def register_var(self, cvar):
         self._store[cvar.name] = cvar
 
-    def clone(self):
+    def w_clone(self):
         if not we_are_translated():
             # build fresh cspace & distributor thread
             thread = ClonableCoroutine(self.space)
@@ -127,12 +152,18 @@ class W_CSpace(baseobjspace.Wrappable):
             sched.uler.wait_stable(new_cspace)
             return new_cspace
         else:
-            # need to copy distributor & propagator threads???
-            # but, where are we going to find them ?
-            raise NotImplementedError
-            #new_cspace = W_CSpace(self.space)
-            #for th in self.threads:
-            #    new_cspace.threads.append(th.clone())
+            # the theory is that
+            # a) we create a (clonable) container thread for any 'newspace'
+            # b) at clone-time, we clone that container, hoping that
+            # indeed everything will come with it
+            everything = self._container.w_clone()
+            new_cspace = everything.cspace
+            sched.uler.add_new_thread(everything)
+            sched.uler.add_to_blocked_on(cspace._finished, everything)
+            # however, we need to keep track of all threads created
+            # from 'within' the space (propagators, or even app-level threads)
+            # -> cspaces as thread groups
+            return everything.cspace
 
     def w_ask(self):
         sched.uler.wait_stable(self)
@@ -196,7 +227,6 @@ class W_CSpace(baseobjspace.Wrappable):
             return False
         return True
 
-
     def _bind_solution_variables(self, solution):
         if contains_cvar(solution): # was a constraint script
             for var in solution:
@@ -218,5 +248,5 @@ def contains_cvar(lst):
 W_CSpace.typedef = typedef.TypeDef("W_CSpace",
     ask = gateway.interp2app(W_CSpace.w_ask),
     commit = gateway.interp2app(W_CSpace.w_commit),
-    clone = gateway.interp2app(W_CSpace.clone),
+    clone = gateway.interp2app(W_CSpace.w_clone),
     merge = gateway.interp2app(W_CSpace.w_merge))
