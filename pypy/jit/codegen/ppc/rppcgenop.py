@@ -130,8 +130,7 @@ class Builder(CodeGenerator):
         return genmethod(gv_arg1, gv_arg2)
 
     def finish_and_return(self, sigtoken, gv_returnvar):
-        src = gv_returnvar.load(self)
-        self.asm.or_(3, src, src)
+        self.asm.mr(3, gv_returnvar.load(self))
         self.asm.blr()
         self._close()
 
