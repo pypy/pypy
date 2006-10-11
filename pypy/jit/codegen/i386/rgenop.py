@@ -1,3 +1,4 @@
+import sys
 from pypy.rpython.objectmodel import specialize
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.jit.codegen.i386.ri386 import *
@@ -8,7 +9,10 @@ from pypy.rpython import objectmodel
 from pypy.rpython.annlowlevel import llhelper
 
 WORD = 4
-
+if sys.platform == 'darwin':
+    CALL_ALIGN = 4
+else:
+    CALL_ALIGN = 1
 
 class Var(GenVar):
 
@@ -304,6 +308,12 @@ class Builder(CodeGenerator):
         return self.returnvar(eax)
         
     def genop_call(self, sigtoken, gv_fnptr, args_gv):
+        MASK = CALL_ALIGN-1
+        final_depth = self.stackdepth + len(args_gv)
+        delta = (final_depth+MASK)&~MASK-final_depth
+        if delta:
+            self.mc.SUB(esp, imm(delta*WORD))
+            self.stackdepth += delta
         for i in range(len(args_gv)-1, -1, -1):
             gv_arg = args_gv[i]
             if gv_arg is not None:
@@ -813,12 +823,13 @@ class ReplayBuilder(CodeGenerator):
     def show_incremental_progress(self):
         pass
 
+
 class RI386GenOp(AbstractRGenOp):
     from pypy.jit.codegen.i386.codebuf import MachineCodeBlock
 
     def __init__(self):
         self.mcs = []   # machine code blocks where no-one is currently writing
-        self.keepalive_addrs = []
+        self.keepalive_gc_refs = [] 
 
     def open_mc(self):
         if self.mcs:
@@ -851,13 +862,13 @@ class RI386GenOp(AbstractRGenOp):
     def genconst(self, llvalue):
         T = lltype.typeOf(llvalue)
         if T is llmemory.Address:
-            self.keepalive_addrs.append(llvalue)
             return AddrConst(llvalue)
         elif isinstance(T, lltype.Primitive):
             return IntConst(lltype.cast_primitive(lltype.Signed, llvalue))
         elif isinstance(T, lltype.Ptr):
             lladdr = llmemory.cast_ptr_to_adr(llvalue)
-            self.keepalive_addrs.append(lladdr)
+            if T.TO._gckind == 'gc':
+                self.keepalive_gc_refs.append(lltype.cast_opaque_ptr(llmemory.GCREF, llvalue))
             return AddrConst(lladdr)
         else:
             assert 0, "XXX not implemented"
@@ -917,7 +928,7 @@ class RI386GenOp(AbstractRGenOp):
         if isinstance(T, lltype.Primitive):
             return lltype.Signed
         elif isinstance(T, lltype.Ptr):
-            return llmemory.Address
+            return llmemory.GCREF
         else:
             assert 0, "XXX not implemented"
 

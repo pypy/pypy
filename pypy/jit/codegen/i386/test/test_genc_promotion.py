@@ -10,6 +10,3 @@ class TestPromotion(I386TimeshiftingTestMixin,
 
     def test_many_promotions(self):
         py.test.skip("in-progress")
-
-    def test_more_promotes(self):
-        py.test.skip("in-progress :(")
