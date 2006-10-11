@@ -507,7 +507,7 @@ def ll_continue_compilation(promotion_point_ptr, value):
         root.continue_compilation(resuminginfo)
     except Exception, e:
         lloperation.llop.debug_fatalerror(lltype.Void,
-                                          "compilation-time error", e)
+                                          "compilation-time error %s" % e)
 
 class PromotionDesc:
     __metatype__ = cachedtype
