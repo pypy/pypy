@@ -3,7 +3,7 @@ from ctypes import POINTER, cast, c_char, c_void_p, CFUNCTYPE, c_int
 from ri386 import I386CodeBuilder
 
 # Set this to enable/disable the CODE_DUMP stdout lines
-CODE_DUMP = True
+CODE_DUMP = False
 
 # ____________________________________________________________
 
