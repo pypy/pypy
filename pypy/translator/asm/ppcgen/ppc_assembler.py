@@ -500,8 +500,6 @@ class PPCAssembler(BasicPPCAssembler):
     cmpw   = BA.cmp(L=0)
     cmplw  = BA.cmpl(L=0)
 
-    # what's the point?
-
     # F.4 Simplified Mnemonics for Rotate and Shift Instructions
 
     def slwi(self, rA, rS, n):
@@ -699,7 +697,36 @@ class PPCAssembler(BasicPPCAssembler):
 
     # F.7 Simplified Mnemonics for Trap Instructions
 
-    # these can wait!
+    trap = BA.tw(TO=31, rA=0, rB=0)
+    twlt = BA.tw(TO=16)
+    twle = BA.tw(TO=20)
+    tweq = BA.tw(TO=4)
+    twge = BA.tw(TO=12)
+    twgt = BA.tw(TO=8)
+    twnl = BA.tw(TO=12)
+    twng = BA.tw(TO=24)
+    twllt = BA.tw(TO=2)
+    twlle = BA.tw(TO=6)
+    twlge = BA.tw(TO=5)
+    twlgt = BA.tw(TO=1)
+    twlnl = BA.tw(TO=5)
+    twlng = BA.tw(TO=6)
+
+    twlti = BA.twi(TO=16)
+    twlei = BA.twi(TO=20)
+    tweqi = BA.twi(TO=4)
+    twgei = BA.twi(TO=12)
+    twgti = BA.twi(TO=8)
+    twnli = BA.twi(TO=12)
+    twngi = BA.twi(TO=24)
+    twllti = BA.twi(TO=2)
+    twllei = BA.twi(TO=6)
+    twlgei = BA.twi(TO=5)
+    twlgti = BA.twi(TO=1)
+    twlnli = BA.twi(TO=5)
+    twlngi = BA.twi(TO=6)
+
+    
 
     # F.8 Simplified Mnemonics for Special-Purpose
     #     Registers
