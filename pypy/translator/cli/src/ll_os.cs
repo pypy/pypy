@@ -143,6 +143,7 @@ namespace pypy.builtin
     {
         private static Dictionary<int, IFile> FileDescriptors;
         private static int fdcount;
+        private static Dictionary<int, string> ErrorMessages;
         
         // NB: these values are those used by Windows and they differs
         // from the Unix ones; the os module is patched with these
@@ -163,6 +164,7 @@ namespace pypy.builtin
 
         static ll_os()
         {
+            ErrorMessages = new Dictionary<int, string>();
             FileDescriptors = new Dictionary<int, IFile>();
             // XXX: what about CRLF conversion for stdin, stdout and stderr?
             // It seems that Posix let you read from stdout and
@@ -173,6 +175,23 @@ namespace pypy.builtin
             fdcount = 2; // 0, 1 and 2 are already used by stdin, stdout and stderr
         }
 
+        private static void raise_OSError(int errno, string msg)
+        {
+            ErrorMessages[errno] = msg;
+            Helpers.raise_OSError(errno);
+        }
+
+        public static string ll_os_strerror(int errno)
+        {
+            string msg = ErrorMessages[errno];
+            if (msg != null) {
+                ErrorMessages.Remove(errno);
+                return msg;
+            }
+            else
+                return "error " + errno;
+        }
+
         public static string ll_os_getcwd()
         {
             return System.IO.Directory.GetCurrentDirectory();
@@ -181,7 +200,9 @@ namespace pypy.builtin
         private static IFile getfd(int fd)
         {
             IFile f = FileDescriptors[fd];
-            Debug.Assert(f != null, string.Format("Invalid file descriptor: {0}", fd));
+            if (f == null)
+                raise_OSError(Errno.EBADF, string.Format("Invalid file descriptor: {0}", fd));
+
             return f;
         }
 
@@ -210,7 +231,11 @@ namespace pypy.builtin
                 stream = new FileStream(name, f_mode, f_access, FileShare.ReadWrite);
             }
             catch(FileNotFoundException e) {
-                Helpers.raise_OSError(Errno.ENOENT);
+                raise_OSError(Errno.ENOENT, e.Message);
+                return -1;
+            }
+            catch(IOException e) {
+                raise_OSError(Errno.EIO, e.Message);
                 return -1;
             }
 
@@ -266,7 +291,7 @@ namespace pypy.builtin
         public static Record_Stat_Result ll_os_stat(string path)
         {
             if (path == "")
-                Helpers.raise_OSError(Errno.ENOENT);
+                raise_OSError(Errno.ENOENT, "No such file or directory: ''");
 
             FileInfo f = new FileInfo(path);
             if (f.Exists) {
@@ -285,7 +310,7 @@ namespace pypy.builtin
                 return res;
             }
             // path is not a file nor a dir, raise OSError
-            Helpers.raise_OSError(Errno.ENOENT);
+            raise_OSError(Errno.ENOENT, string.Format("No such file or directory: '{0}'", path));
             return null; // never reached
         }
 
@@ -327,11 +352,6 @@ namespace pypy.builtin
                 }
             FileStream stream = getfd(fd).GetStream();
             return stream.Seek(offset, origin);
-        }
-
-        public static string ll_os_strerror(int errno)
-        {
-            return "error " + errno;     // TODO
         }
 
         public static void ll_os__exit(int x)
