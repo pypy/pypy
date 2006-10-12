@@ -187,13 +187,14 @@ namespace pypy.builtin
 
         public static string ll_os_strerror(int errno)
         {
-            string msg = ErrorMessages[errno];
-            if (msg != null) {
+            try {
+                string msg = ErrorMessages[errno];
                 ErrorMessages.Remove(errno);
                 return msg;
             }
-            else
+            catch(KeyNotFoundException e) {
                 return "error " + errno;
+            }
         }
 
         public static string ll_os_getcwd()
