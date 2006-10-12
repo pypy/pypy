@@ -1078,7 +1078,6 @@ class _dict(_builtin_type):
         ITER = DictItemsIterator(self._TYPE._KEYTYPE, self._TYPE._VALUETYPE)
         iter = _dict_items_iterator(ITER)
         iter._set_dict(self)
-        #print 'ITERATOR created with stamp', self._stamp
         return iter
 
 class _null_dict(_null_mixin(_dict), _dict):
@@ -1088,6 +1087,7 @@ class _null_dict(_null_mixin(_dict), _dict):
 class _custom_dict(_dict):
     def __init__(self, DICT):
         self._TYPE = DICT
+        self._stamp = 0
         self._dict = 'DICT_NOT_CREATED_YET' # it's created inside ll_set_functions
 
     def ll_set_functions(self, sm_eq, sm_hash):
