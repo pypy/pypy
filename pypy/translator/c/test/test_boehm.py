@@ -8,8 +8,9 @@ def setup_module(mod):
     if not check_boehm_presence():
         py.test.skip("Boehm GC not present")
 
-class AbstractTestClass:
-    
+class AbstractTestBoehmClass:
+    from pypy.translator.c.gc import BoehmGcPolicy as gcpolicy
+   
     # deal with cleanups
     def setup_method(self, meth):
         self._cleanups = []
@@ -18,17 +19,12 @@ class AbstractTestClass:
             #print "CLEANUP"
             self._cleanups.pop()()
 
-    def getcompiled(self, func):
+    def getcompiled(self, func, argstypelist = [],
+                    annotatorpolicy=None):
         t = TranslationContext(simplifying=True)
         self.t = t
-        # builds starting-types from func_defs 
-        argstypelist = []
-        if func.func_defaults:
-            for spec in func.func_defaults:
-                if isinstance(spec, tuple):
-                    spec = spec[0] # use the first type only for the tests
-                argstypelist.append(spec)
-        a = t.buildannotator().build_types(func, argstypelist)
+        a = t.buildannotator(policy=annotatorpolicy)
+        a.build_types(func, argstypelist)
         t.buildrtyper().specialize()
         t.checkgraphs()
         def compile():
@@ -43,8 +39,7 @@ class AbstractTestClass:
         return compile()
 
 
-class TestUsingBoehm(AbstractTestClass):
-    from pypy.translator.c.gc import BoehmGcPolicy as gcpolicy
+class TestUsingBoehm(AbstractTestBoehmClass):
 
     def test_malloc_a_lot(self):
         def malloc_a_lot():
@@ -105,7 +100,7 @@ class TestUsingBoehm(AbstractTestClass):
         class A(object):
             def __del__(self):
                 s.a_dels += 1
-        def f(i=int):
+        def f(i):
             if i:
                 s.a_dels = 0
                 a = A()
@@ -116,7 +111,7 @@ class TestUsingBoehm(AbstractTestClass):
             llop.gc__collect(lltype.Void)
             llop.gc__collect(lltype.Void)
             return s.a_dels
-        fn = self.getcompiled(f)
+        fn = self.getcompiled(f, [int])
         # we can't demand that boehm has collected all of the objects,
         # even with the gc__collect call.  calling the compiled
         # function twice seems to help, though.
