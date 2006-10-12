@@ -3,38 +3,46 @@ from pypy.jit.codegen.model import GenVar, GenConst
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.objectmodel import specialize
 
-class GPRVar(GenVar):
+class VarLocation(object):
+    pass
 
-    def __init__(self, number):
-        self.number = number
-
+class RegisterLocation(VarLocation):
+    def __init__(self, reg):
+        self.reg = reg
     def load(self, builder):
-        return self.number
-
+        return self.reg
+    def spill(self, builder):
+        XXX
     def __repr__(self):
-        return 'r%d' % (self.number,)
+        return '$r%s'%(self.reg,)
 
-class FPRVar(GenVar):
-
-    def __init__(self, number):
-        self.number = number
-
+class StackLocation(VarLocation):
+    def __init__(self, offset):
+        self.offset = offset
     def load(self, builder):
-        return self.number
-
+        XXX
+    def spill(self, builder):
+        XXX
     def __repr__(self):
-        return 'fr%d' % (self.number,)
+        return 'stack+%s'%(self.offset,)
 
-class StackVar(GenVar):
+class Var(GenVar):
 
     def __init__(self, location):
         self.location = location
 
     def load(self, builder):
-        XXX
+        return self.location.load(builder)
+
+    def spill(self, builder):
+        return self.location.spill(builder)
+
+    def reg(self):
+        assert isinstance(self.location, RegisterLocation)
+        return self.location.reg
 
     def __repr__(self):
-        return 'stackvar %d' % (self.location,)
+        return 'var@%r' % (self.location,)
 
 class IntConst(GenConst):
 
@@ -42,9 +50,9 @@ class IntConst(GenConst):
         self.value = value
 
     def load(self, builder):
-        r = builder.newvar()
-        builder.asm.load_word(r.number, self.value)
-        return r.number
+        reg = builder.newvar().reg()
+        builder.asm.load_word(reg, self.value)
+        return reg
 
     @specialize.arg(1)
     def revealconst(self, T):
@@ -61,8 +69,6 @@ class IntConst(GenConst):
 
 from pypy.jit.codegen.ppc import codebuf_posix as memhandler
 from ctypes import POINTER, cast, c_char, c_void_p, CFUNCTYPE, c_int
-
-PTR = memhandler.PTR
 
 class CodeBlockOverflow(Exception):
     pass
@@ -97,13 +103,19 @@ class MachineCodeBlock:
         return baseaddr + self._pos * 4
 
     def __del__(self):
-        memhandler.free(cast(self._data, PTR), self._size)
+        memhandler.free(cast(self._data, memhandler.PTR), self._size)
 
-    def execute(self, arg1, arg2):
-        fnptr = cast(self._data, binaryfn)
-        return fnptr(arg1, arg2)
+##     def execute(self, arg1, arg2):
+##         fnptr = cast(self._data, binaryfn)
+##         return fnptr(arg1, arg2)
 
-binaryfn = CFUNCTYPE(c_int, c_int, c_int)    # for testing
+## binaryfn = CFUNCTYPE(c_int, c_int, c_int)    # for testing
+
+class Block(CodeGenBlock):
+
+    def __init__(self, startaddr, arg_locations):
+        self.startaddr = startaddr
+        self.arg_locations = arg_locations
 
 class Builder(CodeGenerator):
 
@@ -117,8 +129,8 @@ class Builder(CodeGenerator):
     def _write_prologue(self, sigtoken):
         numargs = sigtoken     # for now
         self.curreg += numargs
-        #self.asm.tw(31, 0, 0) # "trap"
-        return [GPRVar(pos) for pos in range(3, 3+numargs)]
+        #self.asm.trap()
+        return [Var(RegisterLocation(pos)) for pos in range(3, 3+numargs)]
 
     def _close(self):
         self.rgenop.close_mc(self.asm.mc)
@@ -134,15 +146,44 @@ class Builder(CodeGenerator):
         self.asm.blr()
         self._close()
 
+    def enter_next_block(self, kinds, args_gv):
+        arg_locations = []
+        seen = {}
+        for i in range(len(args_gv)):
+            gv = args_gv[i]
+            # turn constants into variables; also make copies of vars that
+            # are duplicate in args_gv
+            if not isinstance(gv, Var):
+                gv = args_gv[i] = gv.load(self)
+            elif gv.location in seen:
+                if isinstance(gv.location, RegisterLocation):
+                    new_gv = args_gv[i] = self.newvar()
+                    assert isinstance(gv.location, RegisterLocation)
+                    self.asm.mr(new_gv.reg(), gv.reg())
+                    gv = new_gv
+                else:
+                    gv = args_gv[i] = gv.load(self)
+            # remember the var's location
+            arg_locations.append(gv.location)
+            seen[gv.location] = None
+        return Block(self.asm.mc.tell(), arg_locations)
+
     def newvar(self):
         d = self.curreg
         self.curreg += 1
         assert d < 12
-        return GPRVar(d)
+        return Var(RegisterLocation(d))
 
     def op_int_add(self, gv_x, gv_y):
         gv_result = self.newvar()
         self.asm.add(gv_result.load(self),
+                     gv_x.load(self),
+                     gv_y.load(self))
+        return gv_result
+
+    def op_int_sub(self, gv_x, gv_y):
+        gv_result = self.newvar()
+        self.asm.sub(gv_result.load(self),
                      gv_x.load(self),
                      gv_y.load(self))
         return gv_result
@@ -171,6 +212,11 @@ class RPPCGenOp(AbstractRGenOp):
     @specialize.memo()
     def sigToken(FUNCTYPE):
         return len(FUNCTYPE.ARGS)     # for now
+
+    @staticmethod
+    @specialize.memo()
+    def kindToken(T):
+        return None     # for now
 
     def openbuilder(self, stackdepth):
         return Builder(self, self.open_mc(), stackdepth)
