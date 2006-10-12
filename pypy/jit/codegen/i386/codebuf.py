@@ -112,3 +112,6 @@ class LLTypeMachineCodeBlock(I386CodeBuilder):
 
     def tell(self):
         return self._base + 2 * self._pos
+
+    def done(self):
+        pass
