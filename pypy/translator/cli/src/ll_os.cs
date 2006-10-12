@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using pypy.runtime;
@@ -144,6 +145,7 @@ namespace pypy.builtin
         private static Dictionary<int, IFile> FileDescriptors;
         private static int fdcount;
         private static Dictionary<int, string> ErrorMessages;
+        private static SortedList MyEnviron;
         
         // NB: these values are those used by Windows and they differs
         // from the Unix ones; the os module is patched with these
@@ -165,6 +167,8 @@ namespace pypy.builtin
         static ll_os()
         {
             ErrorMessages = new Dictionary<int, string>();
+            MyEnviron = new SortedList(Environment.GetEnvironmentVariables());
+
             FileDescriptors = new Dictionary<int, IFile>();
             // XXX: what about CRLF conversion for stdin, stdout and stderr?
             // It seems that Posix let you read from stdout and
@@ -325,14 +329,28 @@ namespace pypy.builtin
             return ll_os_stat(path);    // TODO
         }
 
-        public static string ll_os_environ(int index)
-        {
-            return null;    // TODO
-        }
-
         public static void ll_os_unlink(string path)
         {
             File.Delete(path);
+        }
+
+        public static string ll_os_environ(int index)
+        {
+            string key = (string)MyEnviron.GetKey(index);
+            string value = (string)MyEnviron.GetByIndex(index);
+            return string.Format("{0}={1}", key, value);
+        }
+
+        public static void ll_os_putenv(string s)
+        {
+            char[] delim = {'='};
+            string[] parts = s.Split(delim, 2);
+            Environment.SetEnvironmentVariable(parts[0], parts[1]);
+        }
+
+        public static void ll_os_unsetenv(string s)
+        {
+            Environment.SetEnvironmentVariable(s, null);
         }
      
         public static long ll_os_lseek(int fd, int offset, int whence)
@@ -450,11 +468,6 @@ namespace pypy.builtin
             return null;
         }
 
-        public static void ll_os_putenv(string s)
-        {
-            Helpers.raise_OSError(Errno.EPERM); // this is only a stub
-        }
-
         public static string ll_os_readlink(string s)
         {
             Helpers.raise_OSError(Errno.EPERM); // this is only a stub
@@ -480,11 +493,6 @@ namespace pypy.builtin
         {
             Helpers.raise_OSError(Errno.EPERM); // this is only a stub
             return -1;
-        }
-
-        public static void ll_os_unsetenv(string s)
-        {
-            Helpers.raise_OSError(Errno.EPERM); // this is only a stub
         }
 
         public static Record_Signed_Signed ll_os_waitpid(int x, int y)
