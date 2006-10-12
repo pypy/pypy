@@ -2,20 +2,10 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.objectmodel import keepalive_until_here
 from pypy.rpython.annlowlevel import MixLevelAnnotatorPolicy
-from pypy.translator.c.test import test_genc
+from pypy.translator.c.test import test_boehm
 from pypy.jit.codegen.i386.rgenop import RI386GenOp
 
 from ctypes import c_void_p, cast, CFUNCTYPE, c_int
-
-# XXX clean up
-class PseudoAnnhelper(object):
-    rtyper = None
-GENOP_POLICY = MixLevelAnnotatorPolicy(PseudoAnnhelper())
-
-def compile(runner, argtypes):
-    return test_genc.compile(runner, [int, int],
-                             gcpolicy        = 'boehm',
-                             annotatorpolicy = GENOP_POLICY)
 
 # ____________________________________________________________
 
@@ -54,10 +44,6 @@ def test_adder_direct():
     res = fnptr(37)    # <== the segfault is here
     assert res == 42
 
-def test_adder_compile():
-    fn = compile(runner, [int, int])
-    res = fn(9080983, -9080941)
-    assert res == 42
 
 # ____________________________________________________________
 
@@ -103,11 +89,6 @@ def test_dummy_direct():
     print gv_dummyfn.value
     fnptr = cast(c_void_p(gv_dummyfn.value), CFUNCTYPE(c_int, c_int, c_int))
     res = fnptr(30, 17)    # <== the segfault is here
-    assert res == 42
-
-def test_dummy_compile():
-    fn = compile(dummy_runner, [int, int])
-    res = fn(40, 37)
     assert res == 42
 
 # ____________________________________________________________
@@ -163,13 +144,6 @@ def test_branching_direct():
     res = fnptr(30, 17)    # <== the segfault is here
     assert res == 29
     res = fnptr(3, 17)    # <== or here
-    assert res == 17
-
-def test_branching_compile():
-    fn = compile(branching_runner, [int, int])
-    res = fn(30, 17)
-    assert res == 29
-    res = fn(3, 17)
     assert res == 17
 
 # ____________________________________________________________
@@ -231,13 +205,6 @@ def test_goto_direct():
     res = fnptr(30, 17)    # <== the segfault is here
     assert res == 31 * 15 + 17
     res = fnptr(3, 17)    # <== or here
-    assert res == 23
-
-def test_goto_compile():
-    fn = compile(goto_runner, [int, int])
-    res = fn(30, 17)
-    assert res == 31 * 15 + 17
-    res = fn(3, 17)
     assert res == 23
 
 # ____________________________________________________________
@@ -310,13 +277,6 @@ def test_if_direct():
     res = fnptr(3, 0)
     assert res == 6
 
-def test_if_compile():
-    fn = compile(if_runner, [int, int])
-    res = fn(30, 0)
-    assert res == 45
-    res = fn(3, 0)
-    assert res == 6
-
 # ____________________________________________________________
 
 def build_switch(rgenop):
@@ -381,15 +341,6 @@ def test_switch_direct():
     assert res == 37
     res = fnptr(42, 16)
     assert res == 16
-
-def test_switch_compile():
-    fn = compile(switch_runner, [int, int])
-    res = fn(0, 2)
-    assert res == 42
-    res = fn(1, 17)
-    assert res == 38
-    res = fn(42, 18)
-    assert res == 18
 
 def build_large_switch(rgenop):
     """
@@ -462,12 +413,67 @@ def test_large_switch_direct():
     res = fnptr(42, 16)
     assert res == 16
 
-def test_large_switch_compile():
-    fn = compile(large_switch_runner, [int, int])
-    res = fn(0, 2)
-    assert res == 42
-    for x in range(1,11):
-        res = fn(x, 7)
-        assert res == 2**x+7 
-    res = fn(42, 18)
-    assert res == 18
+# ____________________________________________________________
+
+# XXX clean up
+class PseudoAnnhelper(object):
+    rtyper = None
+GENOP_POLICY = MixLevelAnnotatorPolicy(PseudoAnnhelper())
+
+class TestCompile(test_boehm.AbstractTestBoehmClass):
+
+    def compile(self, runner, argtypes):
+        return self.getcompiled(runner, argtypes,
+                                annotatorpolicy = GENOP_POLICY)
+
+    def test_adder_compile(self):
+        fn = self.compile(runner, [int, int])
+        res = fn(9080983, -9080941)
+        assert res == 42
+
+
+    def test_dummy_compile(self):
+        fn = self.compile(dummy_runner, [int, int])
+        res = fn(40, 37)
+        assert res == 42
+
+    def test_branching_compile(self):
+        fn = self.compile(branching_runner, [int, int])
+        res = fn(30, 17)
+        assert res == 29
+        res = fn(3, 17)
+        assert res == 17
+
+    def test_goto_compile(self):
+        fn = self.compile(goto_runner, [int, int])
+        res = fn(30, 17)
+        assert res == 31 * 15 + 17
+        res = fn(3, 17)
+        assert res == 23
+
+    def test_if_compile(self):
+        fn = self.compile(if_runner, [int, int])
+        res = fn(30, 0)
+        assert res == 45
+        res = fn(3, 0)
+        assert res == 6
+
+    def test_switch_compile(self):
+        fn = self.compile(switch_runner, [int, int])
+        res = fn(0, 2)
+        assert res == 42
+        res = fn(1, 17)
+        assert res == 38
+        res = fn(42, 18)
+        assert res == 18
+
+    def test_large_switch_compile(self):
+        fn = self.compile(large_switch_runner, [int, int])
+        res = fn(0, 2)
+        assert res == 42
+        for x in range(1,11):
+            res = fn(x, 7)
+            assert res == 2**x+7 
+        res = fn(42, 18)
+        assert res == 18
+
