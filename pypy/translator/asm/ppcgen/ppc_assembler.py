@@ -743,10 +743,10 @@ def lo(w):
 
 class MyPPCAssembler(PPCAssembler):
     def load_word(self, rD, word):
-        self.addis(rD, r0, hi(word))
+        self.addis(rD, 0, hi(word))
         self.ori(rD, rD, lo(word))
     def load_from(self, rD, addr):
-        self.addis(rD, r0, ha(addr))
+        self.addis(rD, 0, ha(addr))
         self.lwz(rD, rD, lo(addr))
 
 def b(n):
