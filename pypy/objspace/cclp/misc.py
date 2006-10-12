@@ -27,6 +27,10 @@ def v(*msgs):
 def get_current_cspace(space):
     curr = ClonableCoroutine.w_getcurrent(space)
     assert isinstance(curr, ClonableCoroutine)
+    if curr._cspace is None:
+        if not we_are_translated():
+            import pdb
+            pdb.set_trace()
     return curr._cspace
 
 def interp_id(space, w_obj):

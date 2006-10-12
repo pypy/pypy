@@ -27,6 +27,7 @@ def logic_args(args):
 
 
 class ProcedureThunk(_AppThunk):
+    "used by thread.stacklet"
     def __init__(self, space, w_callable, args, coro):
         _AppThunk.__init__(self, space, coro.costate, w_callable, args)
         self._coro = coro
@@ -108,7 +109,6 @@ class CSpaceThunk(_AppThunk):
                     return
                 assert interp_free(cspace._choice)
                 interp_bind(cspace._choice, self.space.newint(1))
-                assert sched.uler._per_space_live_threads[cspace] == 0, "there are still threads living in this space"
         finally:
             interp_bind(cspace._finished, self.space.w_True)
             sched.uler.remove_thread(self._coro)

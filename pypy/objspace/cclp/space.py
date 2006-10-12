@@ -18,21 +18,11 @@ from pypy.objspace.cclp.types import ConsistencyError, Solution, W_Var, \
      W_CVar, W_AbstractDomain, W_AbstractDistributor
 from pypy.objspace.cclp.interp_var import interp_bind, interp_free
 from pypy.objspace.cclp.constraint.distributor import distribute
+from pypy.objspace.cclp.scheduler import W_ThreadGroupScheduler
 
-def _newspace(space, w_callable, __args__):
-    args = __args__.normalize()
-    w_coro = ClonableCoroutine(space)
-    #w_callable : a logic or constraint script
-    thunk = CSpaceThunk(space, w_callable, args, w_coro)
-    w_coro.bind(thunk)
-    if not we_are_translated():
-        w("NEWSPACE, (distributor) thread", str(id(w_coro)), "for", str(w_callable.name))
-    w_space = W_CSpace(space)
-    w_coro._cspace = w_space
-    sched.uler.add_new_thread(w_coro)
-    return w_space
 
 class NewSpaceThunk(AbstractThunk):
+    "container thread for one comp. space"
     def __init__(self, space, w_callable, __args__, thread):
         self.space = space
         self.thread = thread
@@ -49,14 +39,26 @@ class NewSpaceThunk(AbstractThunk):
             sched.uler.remove_thread(self.thread)
             sched.uler.schedule()
 
+def _newspace(space, w_callable, __args__):
+    args = __args__.normalize()
+    dist_thread = ClonableCoroutine(space)
+    thunk = CSpaceThunk(space, w_callable, args, dist_thread)
+    dist_thread.bind(thunk)
+    if not we_are_translated():
+        w("NEWSPACE, (distributor) thread", str(id(dist_thread)), "for", str(w_callable.name))
+    w_space = W_CSpace(space, dist_thread)
+    return w_space
+
 def newspace(space, w_callable, __args__):
-    thread = ClonableCoroutine(space)
-    thunk = NewSpaceThunk(space, w_callable, __args__, thread)
-    thread.bind(thunk)
-    sched.uler.add_new_thread(thread)
+    "application level creation of a new computation space"
+    outer_thread = ClonableCoroutine(space)
+    outer_thread._cspace = get_current_cspace(space)
+    thunk = NewSpaceThunk(space, w_callable, __args__, outer_thread)
+    outer_thread.bind(thunk)
+    sched.uler.add_new_thread(outer_thread)
     sched.uler.schedule() # XXX assumption: thread will be executed before we get back there
     cspace = thunk.cspace
-    cspace._container = thread
+    cspace._container = outer_thread
     return cspace
 app_newspace = gateway.interp2app(newspace, unwrap_spec=[baseobjspace.ObjSpace,
                                                          baseobjspace.W_Root,
@@ -94,11 +96,17 @@ if not we_are_translated():
             w_dist.w_distribute(choice)
     app_fresh_distributor = gateway.interp2app(fresh_distributor)
 
-class W_CSpace(baseobjspace.Wrappable):
 
-    def __init__(self, space):
-        self.space = space # the object space ;-)
-        self.distributor = None
+class W_CSpace(W_ThreadGroupScheduler):
+
+    def __init__(self, space, dist_thread):
+        W_ThreadGroupScheduler.__init__(self, space)
+        dist_thread._cspace = self
+        self._init_head(dist_thread)
+        self._next = self._prev = self
+        sched.uler.add_new_group(self)
+
+        self.distributor = None # dist instance != thread
         self._container = None # thread that 'contains' us
         # choice mgmt
         self._choice = newvar(space)
@@ -149,7 +157,7 @@ class W_CSpace(baseobjspace.Wrappable):
             for const in self._constraints:
                 ccopy = const.copy()
                 new_cspace.tell(ccopy)
-            sched.uler.wait_stable(new_cspace)
+            new_cspace.wait_stable()
             return new_cspace
         else:
             # the theory is that
@@ -166,7 +174,7 @@ class W_CSpace(baseobjspace.Wrappable):
             return everything.cspace
 
     def w_ask(self):
-        sched.uler.wait_stable(self)
+        self.wait_stable()
         self.space.wait(self._choice)
         choice = self._choice.w_bound_to
         self._choice = newvar(self.space)
@@ -176,7 +184,7 @@ class W_CSpace(baseobjspace.Wrappable):
 
     def choose(self, n):
         assert n > 1
-        sched.uler.wait_stable(self)
+        self.wait_stable()
         if self._failed: #XXX set by any propagator
             raise ConsistencyError
         assert interp_free(self._choice)

@@ -16,14 +16,15 @@ from pypy.objspace.cclp.misc import app_interp_id, app_switch_debug_info, app_is
 
 from pypy.objspace.cclp.thread import app_future, app_stacklet, app_this_thread
 
-from pypy.objspace.cclp.scheduler import Scheduler,  app_sched_info, \
+from pypy.objspace.cclp.scheduler import TopLevelScheduler,  app_sched_info, \
      app_schedule, app_reset_scheduler
 
 from pypy.objspace.cclp.global_state import sched
 
 #-- COMP. SPACE --------------------------------------------
 
-from pypy.objspace.cclp.space import app_newspace, app_choose, W_CSpace, app_tell
+from pypy.objspace.cclp.space import app_newspace, app_choose, W_ThreadGroupScheduler, \
+     W_CSpace, app_tell
 
 #-- VARIABLE ------------------------------------------------
 
@@ -33,7 +34,7 @@ from pypy.objspace.cclp.variable import app_newvar, wait, app_wait, app_wait_nee
 
 from pypy.objspace.cclp.constraint.variable import app_domain
 
-from pypy.objspace.cclp.types import app_domain_of
+from pypy.objspace.cclp.types import app_domain_of, ClonableCoroutine
 
 all_mms.update(variable_mms)
 
@@ -189,6 +190,7 @@ def Space(*args, **kwds):
     space.model.typeorder[W_Future] = [(W_Future, None), (W_Var, None)]
     space.model.typeorder[W_CVar] = [(W_CVar, None), (W_Var, None)]
     space.model.typeorder[W_CSpace] = [(W_CSpace, None), (baseobjspace.Wrappable, None)]
+    space.model.typeorder[W_ThreadGroupScheduler] = [(W_ThreadGroupScheduler, None), (W_CSpace, None)]
     space.model.typeorder[W_FiniteDomain] = [(W_FiniteDomain, None), (W_Root, None)] 
 
 
@@ -296,6 +298,9 @@ def Space(*args, **kwds):
     # do the magic
     patch_space_in_place(space, 'logic', proxymaker)
     # instantiate singleton scheduler
-    sched.uler = Scheduler(space)
+    sched.main_thread = ClonableCoroutine.w_getcurrent(space)
+    tg = W_ThreadGroupScheduler(space)
+    tg._init_head(sched.main_thread)
+    sched.uler = TopLevelScheduler(space, tg)
     
     return space
