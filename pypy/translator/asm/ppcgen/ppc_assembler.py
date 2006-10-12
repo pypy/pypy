@@ -464,7 +464,7 @@ class PPCAssembler(BasicPPCAssembler):
     # awkward mnemonics:
     # mftb
     # most of the branch mnemonics...
-    
+
     # F.2 Simplified Mnemonics for Subtract Instructions
 
     def subi(self, rD, rA, value):
@@ -726,8 +726,6 @@ class PPCAssembler(BasicPPCAssembler):
     twlnli = BA.twi(TO=5)
     twlngi = BA.twi(TO=6)
 
-    
-
     # F.8 Simplified Mnemonics for Special-Purpose
     #     Registers
 
@@ -741,8 +739,8 @@ class PPCAssembler(BasicPPCAssembler):
     mtlr  = BA.mtspr(spr=8)
     mtxer = BA.mtspr(spr=1)
 
-
     # F.9 Recommended Simplified Mnemonics
+
     nop = BA.ori(rS=0, rA=0, UIMM=0)
 
     li = BA.addi(rA=0)
@@ -787,7 +785,7 @@ def b(n):
 from pypy.translator.asm.ppcgen.regname import *
 
 def main():
-    
+
     a = MyPPCAssembler()
 
     a.lwz(r5, r4, 12)
