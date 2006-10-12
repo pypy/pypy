@@ -103,7 +103,7 @@ class MachineCodeBlock:
         return baseaddr + self._pos * 4
 
     def __del__(self):
-        memhandler.free(cast(self._data, memhandler.PTR), self._size)
+        memhandler.free(cast(self._data, memhandler.PTR), self._size * 4)
 
 ##     def execute(self, arg1, arg2):
 ##         fnptr = cast(self._data, binaryfn)
