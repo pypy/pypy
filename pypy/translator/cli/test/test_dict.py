@@ -25,6 +25,8 @@ class TestCliDict(CliTest, _TestOOtype):
     def test_dict_of_dict(self):
         py.test.skip("CLI doesn't support recursive dicts")
 
+    def test_recursive(self):
+        py.test.skip("CLI doesn't support recursive dicts")
 
 class TestCliEmptyDict(CliTest, BaseTestRemptydict):
     def test_iterate_over_empty_dict(self):
