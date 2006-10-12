@@ -190,10 +190,10 @@ class RPPCGenOp(AbstractRGenOp):
         T = lltype.typeOf(llvalue)
         if isinstance(T, lltype.Primitive):
             return IntConst(lltype.cast_primitive(lltype.Signed, llvalue))
-        elif T is llmemory.Address:
-            return AddrConst(llvalue)
-        elif isinstance(T, lltype.Ptr):
-            return AddrConst(llmemory.cast_ptr_to_adr(llvalue))
+##         elif T is llmemory.Address:
+##             return AddrConst(llvalue)
+##         elif isinstance(T, lltype.Ptr):
+##             return AddrConst(llmemory.cast_ptr_to_adr(llvalue))
         else:
             assert 0, "XXX not implemented"
 
