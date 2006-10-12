@@ -14,7 +14,7 @@ namespace pypy.builtin
 
         public static double ll_math_fmod(double x, double y)
         {
-            return Math.IEEERemainder(x, y);
+            return x % y;
         }
 
         public static Record_Float_Float ll_math_modf(double x)
@@ -166,7 +166,10 @@ namespace pypy.builtin
 
         static public double ll_math_exp(double x)
         {
-            return Math.Exp(x);
+            double res = Math.Exp(x);
+            if (double.IsPositiveInfinity(res))
+                Helpers.raise_OverflowError();
+            return res;
         }
 
         static public double ll_math_fabs(double x)
@@ -206,7 +209,10 @@ namespace pypy.builtin
 
         static public double ll_math_sqrt(double x)
         {
-            return Math.Sqrt(x);
+            double res = Math.Sqrt(x);
+            if (double.IsNaN(res))
+                Helpers.raise_ValueError();
+            return res;
         }
 
         static public double ll_math_tan(double x)

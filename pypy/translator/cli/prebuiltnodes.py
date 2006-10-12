@@ -11,7 +11,16 @@ class Helper(Function):
 def raise_RuntimeError():
     raise RuntimeError
 
-HELPERS = [(raise_RuntimeError, [])]
+def raise_OverflowError():
+    raise OverflowError
+
+def raise_ValueError():
+    raise ValueError
+
+HELPERS = [(raise_RuntimeError, []),
+           (raise_OverflowError, []),
+           (raise_ValueError, []),
+           ]
 
 def _build_helpers(translator, db):
     functions = set()
