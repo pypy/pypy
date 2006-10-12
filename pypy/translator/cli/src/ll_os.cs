@@ -337,9 +337,14 @@ namespace pypy.builtin
 
         public static string ll_os_environ(int index)
         {
-            string key = (string)MyEnviron.GetKey(index);
-            string value = (string)MyEnviron.GetByIndex(index);
-            return string.Format("{0}={1}", key, value);
+            try {
+                string key = (string)MyEnviron.GetKey(index);
+                string value = (string)MyEnviron.GetByIndex(index);
+                return string.Format("{0}={1}", key, value);
+            }
+            catch(ArgumentOutOfRangeException) {
+                return null;
+            }
         }
 
         public static void ll_os_putenv(string s)
