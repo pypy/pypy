@@ -282,6 +282,36 @@ class DefinedConstantInteger(CConfigEntry):
         return None
 
 
+class DefinedConstantString(CConfigEntry):
+    """
+    """
+    def __init__(self, macro):
+        self.macro = macro
+        self.name = macro
+
+    def prepare_code(self):
+        yield '#ifdef %s' % self.macro
+        yield 'int i;'
+        yield 'char *p = %s;' % self.macro
+        yield 'dump("defined", 1);'
+        yield 'for (i = 0; p[i] != 0; i++ ) {'
+        yield '  printf("value_%d: %d\\n", i, (int)(unsigned char)p[i]);'
+        yield '}'
+        yield '#else'
+        yield 'dump("defined", 0);'
+        yield '#endif'
+
+    def build_result(self, info, config_result):
+        if info["defined"]:
+            string = ''
+            d = 0
+            while info.has_key('value_%d' % d):
+                string += chr(info['value_%d' % d])
+                d += 1
+            return string
+        return None
+
+
 class Defined(CConfigEntry):
     """A boolean, corresponding to an #ifdef.
     """
