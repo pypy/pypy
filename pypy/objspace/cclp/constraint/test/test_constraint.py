@@ -24,6 +24,9 @@ class AppTest_AllDistinct(object):
             v1 = domain([1, 2], 'v1')
             v2 = domain([1, 2], 'v2')
             cstr = all_diff([v1, v2])
+            assert name_of(v1) == 'v1'
+            assert name_of(v2) == 'v2'
+            raises(TypeError, name_of, 42)
             assert cstr.revise() == False # not entailed
 
             v3 = domain([1], 'v3')
