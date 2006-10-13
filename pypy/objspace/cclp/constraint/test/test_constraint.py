@@ -8,12 +8,16 @@ class AppTest_AllDistinct(object):
 
         
     def test_instantiate(self):
-        v1 = domain([1, 2], 'v1')
-        v2 = domain([1, 2], 'v2')
-        cstr = all_diff([v1, v2])
-        variables = cstr.affected_variables()
-        assert variables is not None
-        assert len(variables) == 2
+
+        def in_space():
+            v1 = domain([1, 2], 'v1')
+            v2 = domain([1, 2], 'v2')
+            cstr = all_diff([v1, v2])
+            variables = cstr.affected_variables()
+            assert variables is not None
+            assert len(variables) == 2
+
+        newspace(in_space)
 
     def test_revise(self):
         def in_space():
@@ -43,7 +47,7 @@ class AppTest_AllDistinct(object):
             assert cstr.revise() == True
             assert domain_of(v10).get_values() == [2]
 
-        s = newspace(in_space)
+        newspace(in_space)
     
 
 class AppTest_Expression(object):
@@ -52,13 +56,21 @@ class AppTest_Expression(object):
         cls.space = gettestobjspace('logic', usemodules=('_stackless', ))
 
     def test_instantiate(self):
-        v1 = domain([1, 2], 'v1')
-        cstr = make_expression([v1], '2*v1==2')
-        assert str(cstr).startswith('<W_Expression object at')        
+
+        def in_space():
+            v1 = domain([1, 2], 'v1')
+            cstr = make_expression([v1], '2*v1==2')
+            assert str(cstr).startswith('<W_Expression object at')
+
+        newspace(in_space)
 
     def test_revise2(self):
-        v1 = domain([1, 2], 'v1')
-        cstr = make_expression([v1], '2*v1==2')
-        assert cstr.revise() == 0
-        assert domain_of(v1).get_values() == [1]
+
+        def in_space():
+            v1 = domain([1, 2], 'v1')
+            cstr = make_expression([v1], '2*v1==2')
+            assert cstr.revise() == 0
+            assert domain_of(v1).get_values() == [1]
+
+        newspace(in_space)
 
