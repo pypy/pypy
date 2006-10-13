@@ -225,6 +225,9 @@ class W_CSpace(W_ThreadGroupScheduler):
         interp_bind(self._finished, self.space.w_True)
         interp_bind(self._choice, self.space.newint(0))
 
+    def is_failed(self):
+        return self._failed
+
     def w_merge(self):
         # let's bind the solution variables
         sol = self._solution.w_bound_to

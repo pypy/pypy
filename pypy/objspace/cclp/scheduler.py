@@ -262,9 +262,12 @@ class W_ThreadGroupScheduler(baseobjspace.Wrappable):
     def is_blocked(self):
         return self.thread_count == self.blocked_count
 
+    def is_failed(self):
+        return False
+    
     def is_stable(self):
-        # first approx.
-        return self.is_blocked()
+        # second approx.
+        return self.is_blocked() or self.is_failed()
 
     def is_runnable(self):
         if not self.is_stable():
