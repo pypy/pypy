@@ -95,8 +95,8 @@ class CSpaceThunk(_AppThunk):
             except Exception, exc:
                 # maybe app_level let something buble up ...
                 w("-- exceptional EXIT of DISTRIBUTOR", str(id(self._coro)), "with", str(exc))
-                sched.uler.dirty_traced_vars(self._coro, failed_value)
                 failed_value = W_FailedValue(exc)
+                sched.uler.dirty_traced_vars(self._coro, failed_value)
                 interp_bind(cspace._solution, failed_value)
                 cspace.fail()
             else:
