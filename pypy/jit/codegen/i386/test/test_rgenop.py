@@ -420,7 +420,7 @@ class PseudoAnnhelper(object):
     rtyper = None
 GENOP_POLICY = MixLevelAnnotatorPolicy(PseudoAnnhelper())
 
-class TestCompile(test_boehm.AbstractTestBoehmClass):
+class TestCompile(test_boehm.AbstractGCTestClass):
 
     def compile(self, runner, argtypes):
         return self.getcompiled(runner, argtypes,

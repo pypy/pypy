@@ -8,7 +8,7 @@ def setup_module(mod):
     if not check_boehm_presence():
         py.test.skip("Boehm GC not present")
 
-class AbstractTestBoehmClass:
+class AbstractGCTestClass:
     from pypy.translator.c.gc import BoehmGcPolicy as gcpolicy
    
     # deal with cleanups
@@ -39,7 +39,7 @@ class AbstractTestBoehmClass:
         return compile()
 
 
-class TestUsingBoehm(AbstractTestBoehmClass):
+class TestUsingBoehm(AbstractGCTestClass):
 
     def test_malloc_a_lot(self):
         def malloc_a_lot():

@@ -396,9 +396,9 @@ def test_gc_x_operations():
 # _______________________________________________________________
 # test framework
 
-from pypy.translator.c.test.test_boehm import AbstractTestClass
+from pypy.translator.c.test.test_boehm import AbstractGCTestClass
 
-class TestUsingFramework(AbstractTestClass):
+class TestUsingFramework(AbstractGCTestClass):
     from pypy.translator.c.gc import FrameworkGcPolicy as gcpolicy
 
     def test_empty_collect(self):
