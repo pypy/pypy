@@ -1,27 +1,75 @@
 
 """
 Varius microopcodes for different ootypesystem based backends
+
+These microopcodes are used to translate from the ootype operations to
+the operations of a particular backend.  For an example, see
+cli/opcodes.py which maps from ootype opcodes to sets of metavm
+instructions.
+
+See the MicroInstruction class for discussion on the methods of a
+micro-op.
 """
 
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem.bltregistry import ExternalType
 
 class Generator(object):
-    def function_signature(self, graph):
-        pass
 
     def emit(self, instr, *args):
-        pass
-
-    def call(self, func_name):
+        """
+        Invoked by InstructionList.render() when we encounter a
+        non-MicroInstruction in the list of instructions.  This is
+        typically used to encode small single operands as strings.
+        """
         pass
 
     def load(self, v):
+        """
+        Loads an item 'v' onto the stack
+        
+        Stack: ... -> v, ...
+        """
         pass
 
     def store(self, v):
+        """
+        Stores an item from the stack into 'v'
+        
+        Stack: value, ... -> ...
+        """
         pass
 
+    def set_field(self, concretetype, value):
+        """
+        Stores a value into a field.
+        
+        'concretetype' should be the type of the class that has the field
+        'value' is the value of field.value (where field comes from the op)
+        
+        Stack: value, item, ... -> ...
+        """
+        pass
+
+    def get_field(self, concretetype, value):
+        """
+        Gets a value from a specified field.
+
+        'concretetype' should be the type of the class that has the field
+        'value' is the value of field.value (where field comes from the op)
+
+        Stack: item, ... -> ...
+        """
+        pass
+
+    def downcast(self, type):
+        """
+        Casts the object on the top of the stack to be of the specified
+        type.  Assumed to raise an exception on failure.
+        
+        Stack: obj, ... -> obj, ...
+        """
+        pass
 
 class InstructionList(list):
     def render(self, generator, op):
@@ -37,6 +85,12 @@ class InstructionList(list):
 
 class MicroInstruction(object):
     def render(self, generator, op):
+        """
+        Generic method which emits code to perform this microinstruction.
+        
+        'generator' -> the class which generates actual code emitted
+        'op' -> the instruction from the FlowIR
+        """
         pass
 
     def __str__(self):
@@ -46,6 +100,7 @@ class MicroInstruction(object):
         return self.render(*args)
         
 class PushArg(MicroInstruction):
+    """ Pushes a given operand onto the stack. """
     def __init__(self, n):
         self.n = n
 
@@ -53,6 +108,7 @@ class PushArg(MicroInstruction):
         generator.load(op.args[self.n])
 
 class _PushAllArgs(MicroInstruction):
+    """ Pushes all arguments of the instruction onto the stack in order. """
     def render(self, generator, op):
         for arg in op.args:
             generator.load(arg)
@@ -67,16 +123,29 @@ class _SetField(MicroInstruction):
 ##        if field.value == 'meta':
 ##            return # TODO
         
+        if value.concretetype is ootype.Void:
+            return
         generator.load(this)
         generator.load(value)
         generator.set_field(this.concretetype, field.value)
 
 class _GetField(MicroInstruction):
     def render(self, generator, op):
+        # OOType produces void values on occassion that can safely be ignored
+        if op.result.concretetype is ootype.Void:
+            return
         this, field = op.args
         generator.load(this)
         generator.get_field(this.concretetype, field.value)
 
+class _DownCast(MicroInstruction):
+    """ Push the argument op.args[0] and cast it to the desired type, leaving
+    result on top of the stack. """
+    def render(self, generator, op):
+        RESULTTYPE = op.result.concretetype
+        resulttype = generator.cts.lltype_to_cts(RESULTTYPE)
+        generator.load(op.args[0])
+        generator.downcast(resulttype)
 
 # There are three distinct possibilities where we need to map call differently:
 # 1. Object is marked with rpython_hints as a builtin, so every attribut access
@@ -157,3 +226,4 @@ PushAllArgs = _PushAllArgs()
 StoreResult = _StoreResult()
 SetField = _SetField()
 GetField = _GetField()
+DownCast = _DownCast()

@@ -1,7 +1,7 @@
 from pypy.translator.cli import oopspec
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.oosupport.metavm import Generator, InstructionList, MicroInstruction,\
-     PushAllArgs, StoreResult
+     PushAllArgs, StoreResult, GetField, SetField, DownCast
 from pypy.translator.cli.comparer import EqualityComparer
 from pypy.translator.cli.cts import WEAKREF
 
@@ -75,24 +75,6 @@ class _RuntimeNew(MicroInstruction):
         generator.call_signature('object [pypylib]pypy.runtime.Utils::RuntimeNew(class [mscorlib]System.Type)')
         generator.cast_to(op.result.concretetype)
 
-class _GetField(MicroInstruction):
-    def render(self, generator, op):
-        if op.result.concretetype is ootype.Void:
-            return
-        this, field = op.args
-        generator.load(this)
-        generator.get_field(this.concretetype, field.value)
-
-class _SetField(MicroInstruction):
-    def render(self, generator, op):
-        this, field, value = op.args
-        if value.concretetype is ootype.Void:
-            return
-        generator.load(this)
-        generator.load(value)
-        generator.set_field(this.concretetype, field.value)
-
-
 class _CastTo(MicroInstruction):
     def render(self, generator, op):
         generator.load(op.args[0])
@@ -110,13 +92,6 @@ class _OOString(MicroInstruction):
         generator.load(op.args[0])
         generator.load(op.args[1])
         generator.call_signature('string [pypylib]pypy.runtime.Utils::OOString(%s, int32)' % argtype)
-
-class _DownCast(MicroInstruction):
-    def render(self, generator, op):
-        RESULTTYPE = op.result.concretetype
-        resulttype = generator.cts.lltype_to_cts(RESULTTYPE)
-        generator.load(op.args[0])
-        generator.ilasm.opcode('castclass', resulttype)
 
 class _NewCustomDict(MicroInstruction):
     def render(self, generator, op):
@@ -170,10 +145,7 @@ Call = _Call()
 CallMethod = _CallMethod()
 IndirectCall = _IndirectCall()
 RuntimeNew = _RuntimeNew()
-GetField = _GetField()
-SetField = _SetField()
 CastTo = _CastTo()
 OOString = _OOString()
-DownCast = _DownCast()
 NewCustomDict = _NewCustomDict()
 CastWeakAdrToPtr = _CastWeakAdrToPtr()

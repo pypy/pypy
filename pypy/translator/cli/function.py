@@ -305,6 +305,9 @@ class Function(Node, Generator):
         signature, virtual = self.cts.method_signature(obj, name)
         self.ilasm.call_method(signature, virtual)
 
+    def downcast(self, type):
+        return self.ilasm.opcode('castclass', type)
+
     def load(self, v):
         if isinstance(v, flowmodel.Variable):
             if v.name in self.argset:
