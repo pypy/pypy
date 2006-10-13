@@ -34,7 +34,7 @@ from pypy.objspace.cclp.variable import app_newvar, wait, app_wait, app_wait_nee
 
 from pypy.objspace.cclp.constraint.variable import app_domain
 
-from pypy.objspace.cclp.types import app_domain_of, ClonableCoroutine
+from pypy.objspace.cclp.types import app_domain_of, app_name_of, ClonableCoroutine
 
 all_mms.update(variable_mms)
 
@@ -216,6 +216,8 @@ def Space(*args, **kwds):
                   space.wrap(app_domain))
     space.setitem(space.builtin.w_dict, space.wrap('domain_of'),
                   space.wrap(app_domain_of))
+    space.setitem(space.builtin.w_dict, space.wrap('name_of'),
+                  space.wrap(app_name_of))
     space.setitem(space.builtin.w_dict, space.wrap('is_free'),
                   space.wrap(app_is_free))
     space.setitem(space.builtin.w_dict, space.wrap('is_bound'),
