@@ -27,13 +27,14 @@ class NewSpaceThunk(AbstractThunk):
         self.space = space
         self.thread = thread
         self.cspace = None
-        self._init_data = [w_callable, __args__]
+        self.callable = w_callable
+        self.args = __args__
 
     def call(self):
         try:
             self.cspace = _newspace(self.space,
-                                    self._init_data[0],
-                                    self._init_data[1])
+                                    self.callable,
+                                    self.args)
             self.space.wait(self.cspace._finished)
         finally:
             sched.uler.remove_thread(self.thread)
@@ -125,53 +126,56 @@ class W_CSpace(W_ThreadGroupScheduler):
 
     def w_clone(self):
         if not we_are_translated():
+            raise NotImplementedError
             # build fresh cspace & distributor thread
-            thread = ClonableCoroutine(self.space)
-            new_cspace = W_CSpace(self.space)
-            thread._cspace = new_cspace
+            #dist_thread = ClonableCoroutine(self.space)
+            #new_cspace = W_CSpace(self.space, dist_thread)
+            #dist_thread._cspace = new_cspace
             # new distributor instance
-            old_dist = self.distributor
-            new_dist = old_dist.__class__(self.space, old_dist._fanout)
-            new_dist._cspace = new_cspace
-            new_cspace.distributor = new_dist
+            #old_dist = self.distributor
+            #new_dist = old_dist.__class__(self.space, old_dist._fanout)
+            #new_dist._cspace = new_cspace
+            #new_cspace.distributor = new_dist
             # copy the store
-            for var in self._store.values():
-                new_cspace.register_var(var.copy(self.space))
-            # new distributor thunk & thread
-            f = Function(self.space,
-                         app_fresh_distributor._code,
-                         self.space.newdict())
-            thunk = CSpaceThunk(self.space, f,
-                                argument.Arguments(self.space, [new_dist]),
-                                thread)
-            thread.bind(thunk)
-            sched.uler.add_new_thread(thread)
+            #for var in self._store.values():
+            #    new_cspace.register_var(var.copy(self.space))
+            # new distributor thunk, binding
+            #f = Function(self.space,
+            #             app_fresh_distributor._code,
+            #             self.space.newdict())
+            #thunk = CSpaceThunk(self.space, f,
+            #                    argument.Arguments(self.space, [new_dist]),
+            #                    dist_thread)
+            #dist_thread.bind(thunk)
+            # relinking to scheduler
+            #sched.uler.add_new_group(new_cspace)
+            #self.add_new_thread(dist_thread)
             # rebuild propagators
-            new_cspace._last_choice = self._last_choice
-            new_cspace._solution = newvar(self.space)
+            #for const in self._constraints:
+            #    ccopy = const.copy(self.space)
+            #    ccopy._cspace = new_cspace
+            #    new_cspace.tell(const)
+            # duh 
+            #new_cspace._last_choice = self._last_choice
             # copy solution variables
-            self.space.unify(new_cspace._solution,
-                             self.space.newlist([var.copy(self.space)
-                                                 for var in self._store.values()]))
-            # constraints
-            for const in self._constraints:
-                ccopy = const.copy()
-                new_cspace.tell(ccopy)
-            new_cspace.wait_stable()
-            return new_cspace
+            #self.space.unify(new_cspace._solution,
+            #                 self.space.newlist([var for var in new_cspace._store.values()]))
+            #new_cspace.wait_stable()
+            #return new_cspace
         else:
             # the theory is that
             # a) we create a (clonable) container thread for any 'newspace'
             # b) at clone-time, we clone that container, hoping that
             # indeed everything will come with it
             everything = self._container.w_clone()
-            new_cspace = everything.cspace
+            new_cspace = everything._cspace
             sched.uler.add_new_thread(everything)
-            sched.uler.add_to_blocked_on(cspace._finished, everything)
+            sched.uler.add_to_blocked_on(new_cspace._finished, everything)
             # however, we need to keep track of all threads created
             # from 'within' the space (propagators, or even app-level threads)
             # -> cspaces as thread groups
-            return everything.cspace
+            sched.uler.add_new_group(new_cspace)
+            return new_cspace
 
     def w_ask(self):
         self.wait_stable()
@@ -183,13 +187,15 @@ class W_CSpace(W_ThreadGroupScheduler):
         return choice
 
     def choose(self, n):
+        # solver probably asks
         assert n > 1
         self.wait_stable()
         if self._failed: #XXX set by any propagator
             raise ConsistencyError
-        assert interp_free(self._choice)
+        assert interp_free(self._choice) 
         assert interp_free(self._committed)
-        interp_bind(self._choice, self.space.wrap(n))
+        interp_bind(self._choice, self.space.wrap(n)) # unblock the solver
+        # now we wait on a solver commit
         self.space.wait(self._committed)
         committed = self._committed.w_bound_to
         self._committed = newvar(self.space)
@@ -212,14 +218,12 @@ class W_CSpace(W_ThreadGroupScheduler):
         if not we_are_translated():
             w("PROPAGATOR in thread", str(id(w_coro)))
             self._constraints.append(w_constraint)
-        sched.uler.add_new_thread(w_coro)
-        sched.uler.schedule()
+        self.add_new_thread(w_coro)
 
     def fail(self):
         self._failed = True
         interp_bind(self._finished, self.space.w_True)
         interp_bind(self._choice, self.space.newint(0))
-        self._store = {}
 
     def w_merge(self):
         # let's bind the solution variables
