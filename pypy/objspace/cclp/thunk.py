@@ -88,11 +88,15 @@ class CSpaceThunk(_AppThunk):
         try:
             try:
                 _AppThunk.call(self)
+            except ConsistencyError, exc:
+                w("-- EXIT of DISTRIBUTOR, space is FAILED", str(id(self._coro)), "with", str(exc))
+                failed_value = W_FailedValue(exc)
+                interp_bind(cspace._solution, failed_value)
             except Exception, exc:
                 # maybe app_level let something buble up ...
                 w("-- exceptional EXIT of DISTRIBUTOR", str(id(self._coro)), "with", str(exc))
-                failed_value = W_FailedValue(exc)
                 sched.uler.dirty_traced_vars(self._coro, failed_value)
+                failed_value = W_FailedValue(exc)
                 interp_bind(cspace._solution, failed_value)
                 cspace.fail()
             else:
