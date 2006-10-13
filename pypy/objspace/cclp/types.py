@@ -58,9 +58,18 @@ class W_CVar(W_Var):
         return self.w_nam
 
 def domain_of(space, w_v):
-    assert isinstance(w_v, W_CVar)
+    if not isinstance(w_v, W_CVar):
+        raise OperationError(space.w_TypeError,
+                             space.wrap("domain_of takes a constraint variable"))
     return w_v.w_dom
 app_domain_of = gateway.interp2app(domain_of)
+
+def name_of(space, w_v):
+    if not isinstance(w_v, W_CVar):
+        raise OperationError(space.w_TypeError,
+                             space.wrap("name_of takes a constraint variable"))
+    return w_v.w_name()
+app_name_of = gateway.interp2app(name_of)
 
 #-- Exception types ----------------------------------------
 
