@@ -7,7 +7,7 @@ from pypy.interpreter.gateway import interp2app
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.stringobject import W_StringObject
 
-from pypy.objspace.cclp.types import W_AbstractDistributor
+from pypy.objspace.cclp.types import W_AbstractDistributor, ConsistencyError
 from pypy.objspace.cclp.misc import w, get_current_cspace
 
 def distribute(space, w_strategy):
@@ -23,9 +23,18 @@ def distribute(space, w_strategy):
 
     cspace.distributor = dist
     # constraint distributor thread main loop
-    while dist.distributable():
+    cspace.wait_stable()
+    if not dist.distributable():
+        return
+    while 1:
         choice = cspace.choose(dist.fanout())
-        dist.w_distribute(choice)
+        if dist.distributable():
+            dist.w_distribute(choice)
+            # propagators laucnhed
+        else:
+            if cspace._failed:
+                raise ConsistencyError
+            break
 app_distribute = interp2app(distribute)
 
 
