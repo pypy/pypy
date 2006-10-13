@@ -44,7 +44,7 @@ class TopLevelScheduler(object):
     def schedule(self):
         to_be_run = self._select_next()
         assert isinstance(to_be_run, W_ThreadGroupScheduler)
-        w(".. SWITCHING (spaces)", str(id(get_current_cspace(self.space))), "=>", str(id(to_be_run)))
+        #w(".. SWITCHING (spaces)", str(id(get_current_cspace(self.space))), "=>", str(id(to_be_run)))
         self._switch_count += 1
         to_be_run.schedule() 
 
@@ -159,7 +159,7 @@ class TopLevelScheduler(object):
             for th in sched.uler._asking[home].keys():
                 # these asking threads must be unblocked, in their
                 # respective home spaces
-                del sched.uler._blocked[th] 
+                del sched.uler._blocked[th]
                 th._cspace.blocked_count -= 1
             sched.uler._asking[home] = {}
 
@@ -274,14 +274,14 @@ class W_ThreadGroupScheduler(baseobjspace.Wrappable):
         return len(asking_from_within)
 
     def wait_stable(self):
-        w("WAIT_STABLE on space", id(self), "from space",
-          id(str(get_current_cspace(self.space))))
+        w("WAIT_STABLE on space", str(id(self)), "from space",
+          str(id(get_current_cspace(self.space))))
         if self.is_stable():
             return
         curr = ClonableCoroutine.w_getcurrent(self.space)
         assert isinstance(curr, ClonableCoroutine)
         asking = sched.uler._asking
-        if asking.has_key(self):
+        if self in asking:
             asking[self][curr] = True
         else:
             asking[self] = {curr:True}
@@ -297,7 +297,7 @@ class W_ThreadGroupScheduler(baseobjspace.Wrappable):
         if to_be_run == ClonableCoroutine.w_getcurrent(self.space):
             return
         assert isinstance(to_be_run, ClonableCoroutine)
-        w(".. SWITCHING (treads)", str(id(ClonableCoroutine.w_getcurrent(self.space))), "=>", str(id(to_be_run)))
+        #w(".. SWITCHING (treads)", str(id(ClonableCoroutine.w_getcurrent(self.space))), "=>", str(id(to_be_run)))
         self._switch_count += 1
         to_be_run.w_switch() 
         
@@ -305,7 +305,7 @@ class W_ThreadGroupScheduler(baseobjspace.Wrappable):
         to_be_run = self._head._next
         sentinel = to_be_run
         while to_be_run in sched.uler._blocked:
-            if to_be_run in sched.uler._asking[self]:
+            if self.is_stable() and to_be_run in sched.uler._asking[self]:
                 for th in sched.uler._asking[self]:
                     del sched.uler._blocked[th]
                     th._cspace.blocked_count -= 1
