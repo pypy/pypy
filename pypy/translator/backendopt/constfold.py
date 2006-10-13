@@ -1,5 +1,6 @@
 from pypy.objspace.flow.model import Constant, Variable, SpaceOperation
 from pypy.objspace.flow.model import c_last_exception
+from pypy.objspace.flow.model import mkentrymap
 from pypy.translator.backendopt.support import split_block_with_keepalive
 from pypy.translator.backendopt.support import log
 from pypy.translator.simplify import eliminate_empty_blocks
@@ -196,6 +197,41 @@ def rewire_links(splitblocks, graph):
             link.target = splitlink.target
 
 
+def constant_diffuse(graph):
+    # if the same constants appear at the same positions in all links
+    # into a block remove them from the links, remove the corresponding
+    # input variables and introduce equivalent same_as at the beginning
+    # of the block then try to fold the block further
+    count = 0
+    for block, links in mkentrymap(graph).iteritems():
+        if block is graph.startblock:
+            continue
+        if block.exits == ():
+            continue
+        firstlink = links[0]
+        rest = links[1:]
+        diffuse = []
+        for i, c in enumerate(firstlink.args):
+            if not isinstance(c, Constant):
+                continue
+            for lnk in rest:
+                if lnk.args[i] != c:
+                    break
+            else:
+                diffuse.append((i, c))
+        diffuse.reverse()
+        same_as = []
+        for i, c in diffuse:
+            for lnk in links:
+                del lnk.args[i]
+            v = block.inputargs.pop(i)
+            same_as.append(SpaceOperation('same_as', [c], v))
+            count += 1
+        block.operations = same_as + block.operations
+        if same_as:
+            constant_fold_block(block)
+    return count
+                
 def constant_fold_graph(graph):
     # first fold inside the blocks
     for block in graph.iterblocks():
@@ -205,15 +241,20 @@ def constant_fold_graph(graph):
     # with new constants show up, even though we can probably prove that
     # a single iteration is enough under some conditions, like the graph
     # is in a join_blocks() form.
+    first = True
     while 1:
+        diffused = constant_diffuse(graph)
         splitblocks = {}
-        for link in list(graph.iterlinks()):
-            constants = {}
-            for v1, v2 in zip(link.args, link.target.inputargs):
-                if isinstance(v1, Constant):
-                    constants[v2] = v1
-            if constants:
-                prepare_constant_fold_link(link, constants, splitblocks)
-        if not splitblocks:
-            break   # finished
-        rewire_links(splitblocks, graph)
+        if first or diffused:
+            first = False
+            for link in list(graph.iterlinks()):
+                constants = {}
+                for v1, v2 in zip(link.args, link.target.inputargs):
+                    if isinstance(v1, Constant):
+                        constants[v2] = v1
+                if constants:
+                    prepare_constant_fold_link(link, constants, splitblocks)
+            if  splitblocks:
+                rewire_links(splitblocks, graph)
+        if not diffused and not splitblocks:
+            break # finished

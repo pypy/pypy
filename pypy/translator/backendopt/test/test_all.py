@@ -189,4 +189,19 @@ def test_range_iter():
     for args in [2, 7, 0], [7, 2, 0], [10, 50, 7], [50, -10, -3]:
         assert interp.eval_graph(graphof(t, fn), args) == intmask(fn(*args))
 
+def test_constant_diffuse():
+    def g(x,y):
+        if x < 0:
+            return 0
+        return x + y
 
+    def f(x):
+        return g(x,7)+g(x,11)
+    
+    t = translateopt(f, [int])
+    fgraph = graphof(t, f)
+
+    for link in fgraph.iterlinks():
+        assert Constant(7) not in link.args
+        assert Constant(11) not in link.args
+    
