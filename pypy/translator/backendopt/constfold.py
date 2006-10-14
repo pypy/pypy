@@ -241,20 +241,17 @@ def constant_fold_graph(graph):
     # with new constants show up, even though we can probably prove that
     # a single iteration is enough under some conditions, like the graph
     # is in a join_blocks() form.
-    first = True
     while 1:
         diffused = constant_diffuse(graph)
         splitblocks = {}
-        if first or diffused:
-            first = False
-            for link in list(graph.iterlinks()):
-                constants = {}
-                for v1, v2 in zip(link.args, link.target.inputargs):
-                    if isinstance(v1, Constant):
-                        constants[v2] = v1
-                if constants:
-                    prepare_constant_fold_link(link, constants, splitblocks)
-            if  splitblocks:
-                rewire_links(splitblocks, graph)
+        for link in list(graph.iterlinks()):
+            constants = {}
+            for v1, v2 in zip(link.args, link.target.inputargs):
+                if isinstance(v1, Constant):
+                    constants[v2] = v1
+            if constants:
+                prepare_constant_fold_link(link, constants, splitblocks)
+        if  splitblocks:
+            rewire_links(splitblocks, graph)
         if not diffused and not splitblocks:
             break # finished
