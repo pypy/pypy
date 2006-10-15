@@ -33,8 +33,8 @@ code or references to local objects).
 
 So the basic scheme would look like::
 
-remote_ref = remote("Object reference")
-remote_ref.any_method()
+    remote_ref = remote("Object reference")
+    remote_ref.any_method()
 
 ``remote_ref`` in above example looks like normal python object to user,
 but is implemented differently (W_RemoteXXX), and uses app-level proxy
