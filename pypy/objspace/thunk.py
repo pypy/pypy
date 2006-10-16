@@ -26,6 +26,11 @@ from pypy.interpreter.error import OperationError
 # 'w_obj.w_thunkalias' points to another object that 'w_obj' has turned into
 baseobjspace.W_Root.w_thunkalias = None
 
+# adding a name in __slots__ after class creation doesn't "work" in Python,
+# but in this case it has the effect of telling the annotator that this
+# attribute is allowed to be moved up to this class.
+baseobjspace.W_Root.__slots__ += ('w_thunkalias',)
+
 class W_Thunk(baseobjspace.W_Root, object):
     def __init__(w_self, w_callable, args):
         w_self.w_callable = w_callable
