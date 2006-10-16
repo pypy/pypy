@@ -101,9 +101,29 @@ class JVMGenerator(Generator):
     """ Base class for all JVM generators.  Invokes a small set of '_'
     methods which indicate which opcodes to emit; these can be
     translated by a subclass into Jasmin assembly, binary output, etc."""
-    
+
     # __________________________________________________________________
     # JVM specific methods to be overloaded by a subclass
+
+    def begin_class(self, classnm):
+        """
+        classnm --- full Java name of the class (i.e., "java.lang.String")
+        """
+        unimplemented
+
+    def end_class(self):
+        unimplemented
+
+    def begin_function(self, funcname, argtypes, static=False):
+        """
+        funcname --- name of the function
+        argtypes --- types of each argument (in what format??)
+        static --- keyword, if true then a static func is generated
+        """
+        unimplemented
+
+    def end_function(self):
+        unimplemented
 
     def _unique_label(self, desc):
         """ Returns an opaque, unique label object that can be passed an
@@ -250,3 +270,5 @@ class JVMGenerator(Generator):
     ulong_less_equals = lambda self: self._ulong_compare_op(IFLE)
     ulong_greater_equals = lambda self: self._ulong_compare_op(IFGE)
         
+class JasminGenerator(JVMGenerator):
+    pass
