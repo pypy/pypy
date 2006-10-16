@@ -4,17 +4,32 @@ from pypy.translator.oosupport.metavm import Generator, InstructionList, MicroIn
      PushAllArgs, StoreResult, GetField, SetField, DownCast
 from pypy.translator.cli.comparer import EqualityComparer
 from pypy.translator.cli.cts import WEAKREF
+from pypy.translator.cli.dotnet import StaticMethodDesc
 
 STRING_HELPER_CLASS = '[pypylib]pypy.runtime.String'
 
 class _Call(MicroInstruction):
     def render(self, generator, op):
-        graph = op.args[0].value.graph
-        method_name = oopspec.get_method_name(graph, op)
-        if method_name is None:
-            self._render_function(generator, graph, op.args)
+        callee = op.args[0].value
+        if isinstance(callee, StaticMethodDesc):
+            self._render_native_function(generator, callee, op.args)
         else:
-            self._render_method(generator, method_name, op.args[1:])
+            graph = callee.graph
+            method_name = oopspec.get_method_name(graph, op)
+            if method_name is None:
+                self._render_function(generator, graph, op.args)
+            else:
+                self._render_method(generator, method_name, op.args[1:])
+
+    def _render_native_function(self, generator, funcdesc, args):
+        for func_arg in args[1:]: # push parameters
+            generator.load(func_arg)
+        cts = generator.cts
+        ret_type = cts.lltype_to_cts(funcdesc.resulttype)
+        arg_types = [cts.lltype_to_cts(arg) for arg in funcdesc.argtypes if arg is not ootype.Void]
+        arg_list = ', '.join(arg_types)
+        signature = '%s [mscorlib]%s::%s(%s)' % (ret_type, funcdesc.class_name, funcdesc.method_name, arg_list)
+        generator.call_signature(signature)
 
     def _render_function(self, generator, graph, args):
         primitive = getattr(graph.func, 'suggested_primitive', False)
