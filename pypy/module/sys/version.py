@@ -64,13 +64,27 @@ def svn_revision():
     # to depend on an external 'svn' executable in the path.
     rev = 0
     try:
-        f = open(os.path.join(autopath.pypydir, '.svn', 'entries'), 'r')
-        for line in f:
-            line = line.strip()
-            if line.startswith('committed-rev="') and line.endswith('"'):
-                rev = int(line[15:-1])
-                break
+        f = open(os.path.join(autopath.pypydir, '.svn', 'format'), 'r')
+        format = int(f.readline().strip())
         f.close()
+        if format <= 6: # Old XML-format
+            f = open(os.path.join(autopath.pypydir, '.svn', 'entries'), 'r')
+            for line in f:
+                line = line.strip()
+                if line.startswith('committed-rev="') and line.endswith('"'):
+                    rev = int(line[15:-1])
+                    break
+            f.close()
+        else: # New format
+            f = open(os.path.join(autopath.pypydir, '.svn', 'entries'), 'r')
+            format = int(f.readline().strip())
+            for entry in f.read().split('\f'):
+                lines = entry.split('\n')
+                name, kind, revstr = lines[:3]
+                if name == '' and kind == 'dir': # The current directory
+                    rev = int(revstr)
+                    break
+            f.close()
     except (IOError, OSError):
         pass
     return rev
