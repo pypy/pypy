@@ -598,7 +598,7 @@ It is also possible to experimentally translate a PyPy version using
 the "thunk" object space::
 
     cd pypy/translator/goal
-    python translate.py --run targetthunkstandalone
+    python translate.py targetpypystandalone.py --objspace=thunk
 
 the examples in `lazily computed objects`_ should work in the translated
 result.
