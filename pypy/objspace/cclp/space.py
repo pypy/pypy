@@ -167,13 +167,19 @@ class W_CSpace(W_ThreadGroupScheduler):
             # a) we create a (clonable) container thread for any 'newspace'
             # b) at clone-time, we clone that container, hoping that
             # indeed everything will come with it
+            w("cloning the container thread")
             everything = self._container.w_clone()
+            w("getting the fresh cspace from it")
             new_cspace = everything._cspace
-            sched.uler.add_new_thread(everything)
+            w("registering the container clone to top level cspace scheduler")
+            sched.main_thread._cspace.add_new_thread(everything)
+            w("add container clone to blocked on cspace clone variable _finished")
+            # we crash below
             sched.uler.add_to_blocked_on(new_cspace._finished, everything)
             # however, we need to keep track of all threads created
             # from 'within' the space (propagators, or even app-level threads)
             # -> cspaces as thread groups
+            w("add cloned cspace to new group")
             sched.uler.add_new_group(new_cspace)
             return new_cspace
 
