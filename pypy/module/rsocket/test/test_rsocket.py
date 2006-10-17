@@ -34,8 +34,9 @@ def test_socketpair():
     s1.send('?')
     buf = s2.recv(100)
     assert buf == '?'
-    count = s2.send('x'*50000)
-    buf = s1.recv(50000)
+    count = s2.send('x'*99)
+    assert 1 <= count <= 99
+    buf = s1.recv(100)
     assert buf == 'x'*count
     s1.close()
     s2.close()
@@ -101,8 +102,9 @@ def test_simple_udp():
     s1.sendto('?', 0, addr2)
     buf = s2.recv(100)
     assert buf == '?'
-    count = s2.send('x'*50000)
-    buf, addr3 = s1.recvfrom(50000)
+    count = s2.send('x'*99)
+    assert 1 <= count <= 99
+    buf, addr3 = s1.recvfrom(100)
     assert buf == 'x'*count
     assert addr3.eq(addr2)
     s1.close()
@@ -140,28 +142,30 @@ def test_nonblocking():
     assert addr2.eq(s2.getsockname())
     assert addr2.eq(s1.getpeername())
 
-    s2.connect(addr)   # should now work
+    err = s2.connect_ex(addr)   # should now work
+    assert err in (0, errno.EISCONN)
 
     s1.send('?')
     buf = s2.recv(100)
     assert buf == '?'
     err = py.test.raises(CSocketError, s1.recv, 5000)
     assert err.value.errno == errno.EAGAIN
-    count = s2.send('x'*50000)
-    buf = s1.recv(50000)
+    count = s2.send('x'*500000)
+    assert 1 <= count <= 500000
+    buf = s1.recv(500100)
     assert buf == 'x'*count
     s1.close()
     s2.close()
 
 def test_getaddrinfo():
     lst = getaddrinfo('localhost', 'http')
-    print lst
     assert len(lst) >= 1
     (family, type, proto, canonname, addr) = lst[0]
     assert family == _c.AF_INET
     assert type   == _c.SOCK_STREAM
     assert addr.get_host() == '127.0.0.1'
     assert addr.get_port() == 80
+    print lst
 
 def test_getaddrinfo_snake():
     lst = getaddrinfo('snake.cs.uni-duesseldorf.de', None)
