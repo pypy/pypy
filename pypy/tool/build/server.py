@@ -147,7 +147,7 @@ class BuildPath(LocalPath):
 class PPBServer(object):
     retry_interval = 10
     
-    def __init__(self, projname, channel, builddir, mailhost=None, 
+    def __init__(self, projname, channel, builddir, mailhost=None,
                     mailport=None, mailfrom=None):
         self._projname = projname
         self._channel = channel
@@ -196,24 +196,23 @@ class PPBServer(object):
             return (True, pathstr)
         for client in self._clients:
             if client.busy_on == info:
-                self._channel.send('build for %r currently in progress' % 
+                self._channel.send('build for %r currently in progress' %
                                     (info,))
                 return (False, 'this build is already in progress')
         # we don't have a build for this yet, find a client to compile it
         if self.run(info):
             return (False, 'found a suitable client, going to build')
-        else:
-            self._queuelock.acquire()
-            try:
-                self._queued.append(info)
-            finally:
-                self._queuelock.release()
-            return (False, 'no suitable client found; your request is queued')
+        self._queuelock.acquire()
+        try:
+            self._queued.append(info)
+        finally:
+            self._queuelock.release()
+        return (False, 'no suitable client found; your request is queued')
     
     def run(self, info):
         """find a suitable client and run the job if possible"""
-        # XXX shuffle should be replaced by something smarter obviously ;)
         clients = self._clients[:]
+        # XXX shuffle should be replaced by something smarter obviously ;)
         random.shuffle(clients)
         for client in clients:
             if client.busy_on or not issubdict(info[0], client.sysinfo):

@@ -8,7 +8,7 @@ port = 12321
 path = [str(packageparent)]
 
 # configuration of options for client and startcompile
-from pypy.config.config import Config, to_optparse
+from pypy.config.config import Config
 
 # system config, on the client everything is set by scanning the system, when
 # calling startcompile defaults are taken from the system, overrides are
@@ -29,5 +29,5 @@ mailport = 25
 mailfrom = 'johnny@johnnydebris.net'
 
 # settings for the tests
-testpath = [str(py.magic.autopath().dirpath().dirpath())] 
+testpath = [str(py.magic.autopath().dirpath().dirpath())]
 
