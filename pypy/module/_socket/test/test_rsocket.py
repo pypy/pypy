@@ -148,3 +148,12 @@ def test_nonblocking():
     assert buf == 'x'*count
     s1.close()
     s2.close()
+
+def test_getaddrinfo():
+    lst = getaddrinfo('localhost', 'http')
+    assert len(lst) == 1
+    [(family, type, proto, canonname, addr)] = lst
+    assert family == _c.AF_INET
+    assert type   == _c.SOCK_STREAM
+    assert addr.get_host() == '127.0.0.1'
+    assert addr.get_port() == 80

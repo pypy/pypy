@@ -584,3 +584,35 @@ def gethostname():
 def gethostbyname(name):
     # XXX this works with IPv6 too, but the docs say it shouldn't...
     return makeipaddr(name)
+
+def getaddrinfo(host, port_or_service,
+                family=_c.AF_UNSPEC, socktype=0, proto=0, flags=0):
+    # port_or_service is a string, not an int (but try str(port_number)).
+    assert port_or_service is None or isinstance(port_or_service, str)
+    hints = _c.addrinfo(ai_family   = family,
+                        ai_socktype = socktype,
+                        ai_protocol = proto,
+                        ai_flags    = flags)
+    # XXX need to lock around getaddrinfo() calls?
+    res = _c.addrinfo_ptr()
+    error = _c.getaddrinfo(host, port_or_service, byref(hints), byref(res))
+    if error:
+        raise GAIError(error)
+    try:
+        result = []
+        p = res
+        while p:
+            info = p.contents
+            addr = make_address(info.ai_addr, info.ai_addrlen)
+            canonname = info.ai_canonname
+            if canonname is None:
+                canonname = ""
+            result.append((info.ai_family,
+                           info.ai_socktype,
+                           info.ai_protocol,
+                           canonname,
+                           addr))
+            p = info.ai_next
+    finally:
+        _c.freeaddrinfo(res)
+    return result
