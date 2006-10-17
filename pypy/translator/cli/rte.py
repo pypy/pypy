@@ -6,13 +6,12 @@ The source of the RTE is in the src/ directory.
 import os
 import os.path
 import platform
-import subprocess
 import shutil
 
-from pypy.translator.cli.sdk import SDK
-
-from pypy.tool.ansi_print import ansi_log
 import py
+from py.compat import subprocess
+from pypy.translator.cli.sdk import SDK
+from pypy.tool.ansi_print import ansi_log
 log = py.log.Producer("cli") 
 py.log.setconsumer("cli", ansi_log) 
 

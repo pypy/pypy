@@ -1,8 +1,8 @@
 import os
-import subprocess
 import platform
 
 import py
+from py.compat import subprocess
 from pypy.tool.udir import udir
 from pypy.translator.translator import TranslationContext
 from pypy.rpython.test.tool import BaseRtypingTest, OORtypeMixin
