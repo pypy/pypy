@@ -1,4 +1,4 @@
-import py
+import py, errno
 from pypy.module._socket.rsocket import *
 from pypy.module._socket.rsocket import _c
 
@@ -50,7 +50,7 @@ def test_simple_tcp():
             sock.bind(INETAddress('127.0.0.1', port))
             print 'works'
             break
-        except CSocketError, e:   # should get a "Permission denied"
+        except SocketError, e:   # should get a "Permission denied"
             print e
     else:
         raise e
@@ -83,7 +83,7 @@ def test_simple_udp():
             s1.bind(INETAddress('127.0.0.1', port))
             print 'works'
             break
-        except CSocketError, e:   # should get a "Permission denied"
+        except SocketError, e:   # should get a "Permission denied"
             print e
     else:
         raise e
@@ -101,5 +101,50 @@ def test_simple_udp():
     buf, addr3 = s1.recvfrom(50000)
     assert buf == 'x'*count
     assert addr3.eq(addr2)
+    s1.close()
+    s2.close()
+
+def test_nonblocking():
+    sock = RSocket()
+    sock.setblocking(False)
+    try_ports = [1023] + range(20000, 30000, 437)
+    for port in try_ports:
+        print 'binding to port %d:' % (port,),
+        try:
+            sock.bind(INETAddress('127.0.0.1', port))
+            print 'works'
+            break
+        except SocketError, e:   # should get a "Permission denied"
+            print e
+    else:
+        raise e
+
+    addr = INETAddress('127.0.0.1', port)
+    assert addr.eq(sock.getsockname())
+    sock.listen(1)
+    err = py.test.raises(CSocketError, sock.accept)
+    assert err.value.errno in (errno.EAGAIN, errno.EWOULDBLOCK)
+
+    s2 = RSocket(_c.AF_INET, _c.SOCK_STREAM)
+    s2.setblocking(False)
+    err = py.test.raises(CSocketError, s2.connect, addr)
+    assert err.value.errno == errno.EINPROGRESS
+
+    s1, addr2 = sock.accept()
+    s1.setblocking(False)
+    assert addr.eq(s2.getpeername())
+    assert addr2.eq(s2.getsockname())
+    assert addr2.eq(s1.getpeername())
+
+    s2.connect(addr)   # should now work
+
+    s1.send('?')
+    buf = s2.recv(100)
+    assert buf == '?'
+    err = py.test.raises(CSocketError, s1.recv, 5000)
+    assert err.value.errno == errno.EAGAIN
+    count = s2.send('x'*50000)
+    buf = s1.recv(50000)
+    assert buf == 'x'*count
     s1.close()
     s2.close()

@@ -36,7 +36,7 @@ class Address(object):
         """Convert an app-level object to an Address."""
         # It's a static method but it's overridden and must be called
         # on the correct subclass.
-        raise SocketError("unknown address family")
+        raise RSocketError("unknown address family")
     from_object = staticmethod(from_object)
 
     def eq(self, other):   # __eq__() is not called by RPython :-/
@@ -73,8 +73,8 @@ def makeipaddr(name, result=None):
         try:
             info = res.contents
             if info.ai_next:
-                raise SocketError("wildcard resolved to "
-                                  "multiple addresses")
+                raise RSocketError("wildcard resolved to "
+                                   "multiple addresses")
             return make_address(info.ai_addr, info.ai_addrlen, result)
         finally:
             _c.freeaddrinfo(res)
@@ -218,8 +218,8 @@ class INET6Address(IPAddress):
     def from_object(space, w_address):
         pieces_w = space.unpackiterable(w_address)
         if not (2 <= len(pieces_w) <= 4):
-            raise SocketError("AF_INET6 address must be a tuple of length 2 "
-                              "to 4, not %d" % len(pieces))
+            raise RSocketError("AF_INET6 address must be a tuple of length 2 "
+                               "to 4, not %d" % len(pieces))
         host = space.str_w(pieces_w[0])
         port = space.int_w(pieces_w[1])
         if len(pieces_w) > 2: flowinfo = space.int_w(pieces_w[2])
@@ -241,11 +241,11 @@ class UNIXAddress(Address):
         if _c.linux and path.startswith('\x00'):
             # Linux abstract namespace extension
             if len(path) > sizeof(addr.sun_path):
-                raise SocketError("AF_UNIX path too long")
+                raise RSocketError("AF_UNIX path too long")
         else:
             # regular NULL-terminated string
             if len(path) >= sizeof(addr.sun_path):
-                raise SocketError("AF_UNIX path too long")
+                raise RSocketError("AF_UNIX path too long")
             addr.sun_path[len(path)] = 0
         for i in range(len(path)):
             addr.sun_path[i] = ord(path[i])
@@ -298,7 +298,7 @@ def make_address(addrptr, addrlen, result=None):
     if result is None:
         result = instantiate(familyclass(family))
     elif result.family != family:
-        raise SocketError("address family mismatched")
+        raise RSocketError("address family mismatched")
     paddr = copy_buffer(cast(addrptr, POINTER(c_char)), addrlen)
     result.addr = cast(paddr, _c.sockaddr_ptr).contents
     result.addrlen = addrlen
@@ -308,7 +308,7 @@ def makeipv4addr(s_addr, result=None):
     if result is None:
         result = instantiate(INETAddress)
     elif result.family != _c.AF_INET:
-        raise SocketError("address family mismatched")
+        raise RSocketError("address family mismatched")
     sin = _c.sockaddr_in(sin_family = _c.AF_INET)   # PLAT sin_len
     sin.sin_addr.s_addr = s_addr
     paddr = cast(pointer(sin), _c.sockaddr_ptr)
@@ -491,6 +491,16 @@ class RSocket(object):
             raise self.error_handler()
         return res
 
+    def setblocking(self, block):
+        # PLAT various methods on other platforms
+        # XXX Windows missing
+        delay_flag = _c.fcntl(self.fd, _c.F_GETFL, 0)
+        if block:
+            delay_flag &= ~_c.O_NONBLOCK
+	else:
+            delay_flag |= _c.O_NONBLOCK
+        _c.fcntl(self.fd, _c.F_SETFL, delay_flag)
+
     def shutdown(self, how):
         """Shut down the reading side of the socket (flag == SHUT_RD), the
         writing side of the socket (flag == SHUT_WR), or both ends
@@ -509,16 +519,17 @@ def make_socket(fd, family, type, proto):
     result.proto = proto
     return result
 
-class BaseSocketError(Exception):
-    pass
+class SocketError(Exception):
+    def __init__(self):
+        pass
 
-class SocketError(BaseSocketError):
+class RSocketError(SocketError):
     def __init__(self, message):
         self.message = message
     def __str__(self):
         return self.message
 
-class CSocketError(BaseSocketError):
+class CSocketError(SocketError):
     def __init__(self, errno):
         self.errno = errno
     def __str__(self):
@@ -527,7 +538,7 @@ class CSocketError(BaseSocketError):
 def last_error():
     return CSocketError(_c.geterrno())
 
-class GAIError(BaseSocketError):
+class GAIError(SocketError):
     def __init__(self, errno):
         self.errno = errno
     def __str__(self):
