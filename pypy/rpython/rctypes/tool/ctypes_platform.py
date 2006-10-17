@@ -427,6 +427,13 @@ def fixup_ctype(fieldtype, fieldname, expected_size_and_sign):
         # have to check the exact integer type of the elements of the array
         size, sign = expected_size_and_sign
         return ctypes.c_char * size
+    if (hasattr(fieldtype, '_length_')
+        and getattr(fieldtype, '_type_', None) == ctypes.c_ubyte):
+        # grumble, fields of type 'c_char array' have automatic cast-to-
+        # Python-string behavior in ctypes, which may not be what you
+        # want, so here is the same with c_ubytes instead...
+        size, sign = expected_size_and_sign
+        return ctypes.c_ubyte * size
     raise TypeError("conflicting field type %r for %r" % (fieldtype,
                                                           fieldname))
 

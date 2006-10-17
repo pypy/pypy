@@ -6,7 +6,7 @@ from pypy.rpython.rctypes.tool import util      # ctypes.util from 0.9.9.6
 # Not used here, but exported for other code.
 from pypy.rpython.rctypes.aerrno import geterrno
 
-from ctypes import c_ushort, c_int, c_uint, c_char_p, c_void_p, c_char
+from ctypes import c_ushort, c_int, c_uint, c_char_p, c_void_p, c_char, c_ubyte
 from ctypes import POINTER, ARRAY, cdll, sizeof, SetPointerType
 
 # Also not used here, but exported for other code.
@@ -128,7 +128,7 @@ CConfig.sockaddr_in6 = ctypes_platform.Struct('struct sockaddr_in6',
 
 CConfig.sockaddr_un = ctypes_platform.Struct('struct sockaddr_un',
                                              [('sun_family', c_int),
-                                              ('sun_path', c_char * 0)])
+                                              ('sun_path', c_ubyte * 0)])
 
 addrinfo_ptr = POINTER("addrinfo")
 CConfig.addrinfo = ctypes_platform.Struct('struct addrinfo',

@@ -10,6 +10,7 @@ from pypy.rpython.objectmodel import instantiate
 from pypy.rpython.rctypes.socketmodule import ctypes_socket as _c   # MOVE ME
 from ctypes import cast, POINTER, c_char, c_char_p, pointer, byref
 from ctypes import create_string_buffer, sizeof
+from pypy.rpython.rctypes.astruct import offsetof
 
 
 class Address(object):
@@ -20,11 +21,6 @@ class Address(object):
     def __init__(self, addr, addrlen):
         self.addr = addr
         self.addrlen = addrlen
-
-    def raw_to_addr(self, ptr, size):
-        paddr = copy_buffer(ptr, size)
-        self.addr = cast(paddr, POINTER(_c.sockaddr)).contents
-        self.addrlen = size
 
     def as_object(self, space):
         """Convert the address to an app-level object."""
@@ -43,75 +39,84 @@ class Address(object):
         raise SocketError("unknown address family")
     from_object = staticmethod(from_object)
 
-    def from_null():
-        raise SocketError("unknown address family")
-    from_null = staticmethod(from_null)
+    def eq(self, other):   # __eq__() is not called by RPython :-/
+        if self.family != other.family:
+            return False
+        elif self.addrlen != other.addrlen:
+            return False
+        else:
+            return equal_buffers(cast(pointer(self.addr),  POINTER(c_char)),
+                                 cast(pointer(other.addr), POINTER(c_char)),
+                                 self.addrlen)
 
 # ____________________________________________________________
 
-class IPAddress(Address):
-    """AF_INET and AF_INET6 addresses"""
+def makeipaddr(name, result=None):
+    # Convert a string specifying a host name or one of a few symbolic
+    # names to an IPAddress instance.  This usually calls getaddrinfo()
+    # to do the work; the names "" and "<broadcast>" are special.
+    # If 'result' is specified it must be a prebuilt INETAddress or
+    # INET6Address that is filled; otherwise a new INETXAddress is returned.
+    if result is None:
+        family = _c.AF_UNSPEC
+    else:
+        family = result.family
 
-    def makeipaddr(self, name):
-        # Convert a string specifying a host name or one of a few symbolic
-        # names to a numeric IP address.  This usually calls gethostbyname()
-        # to do the work; the names "" and "<broadcast>" are special.
-        if len(name) == 0:
-            hints = _c.addrinfo(ai_family   = self.family,
-                                ai_socktype = _c.SOCK_DGRAM,   # dummy
-                                ai_flags    = _c.AI_PASSIVE)
-            res = _c.addrinfo_ptr()
-            error = _c.getaddrinfo(None, "0", byref(hints), byref(res))
-            if error:
-                raise GAIError(error)
-            try:
-                info = res.contents
-                if info.ai_next:
-                    raise SocketError("wildcard resolved to "
-                                      "multiple addresses")
-                self.raw_to_addr(cast(info.ai_addr, POINTER(c_char)),
-                                 info.ai_addrlen)
-            finally:
-                _c.freeaddrinfo(res)
-            return
-
-        # IPv4 also supports the special name "<broadcast>".
-        if name == '<broadcast>':
-            self.makeipv4addr(_c.INADDR_BROADCAST)
-            return
-
-        # "dd.dd.dd.dd" format.
-        digits = name.split('.')
-        if len(digits) == 4:
-            try:
-                d0 = int(digits[0])
-                d1 = int(digits[1])
-                d2 = int(digits[2])
-                d3 = int(digits[3])
-            except ValueError:
-                pass
-            else:
-                if (0 <= d0 <= 255 and
-                    0 <= d1 <= 255 and
-                    0 <= d2 <= 255 and
-                    0 <= d3 <= 255):
-                    self.makeipv4addr(_c.htonl(
-                        (d0 << 24) | (d1 << 16) | (d2 << 8) | (d3 << 0)))
-                    return
-
-        # generic host name to IP conversion
-        hints = _c.addrinfo(ai_family = self.family)
+    if len(name) == 0:
+        hints = _c.addrinfo(ai_family   = family,
+                            ai_socktype = _c.SOCK_DGRAM,   # dummy
+                            ai_flags    = _c.AI_PASSIVE)
         res = _c.addrinfo_ptr()
-        error = _c.getaddrinfo(name, None, byref(hints), byref(res))
-        # PLAT EAI_NONAME
+        error = _c.getaddrinfo(None, "0", byref(hints), byref(res))
         if error:
             raise GAIError(error)
         try:
             info = res.contents
-            self.raw_to_addr(cast(info.ai_addr, POINTER(c_char)),
-                             info.ai_addrlen)
+            if info.ai_next:
+                raise SocketError("wildcard resolved to "
+                                  "multiple addresses")
+            return make_address(info.ai_addr, info.ai_addrlen, result)
         finally:
             _c.freeaddrinfo(res)
+
+    # IPv4 also supports the special name "<broadcast>".
+    if name == '<broadcast>':
+        return makeipv4addr(_c.INADDR_BROADCAST, result)
+
+    # "dd.dd.dd.dd" format.
+    digits = name.split('.')
+    if len(digits) == 4:
+        try:
+            d0 = int(digits[0])
+            d1 = int(digits[1])
+            d2 = int(digits[2])
+            d3 = int(digits[3])
+        except ValueError:
+            pass
+        else:
+            if (0 <= d0 <= 255 and
+                0 <= d1 <= 255 and
+                0 <= d2 <= 255 and
+                0 <= d3 <= 255):
+                return makeipv4addr(_c.htonl(
+                    (d0 << 24) | (d1 << 16) | (d2 << 8) | (d3 << 0)),
+                                    result)
+
+    # generic host name to IP conversion
+    hints = _c.addrinfo(ai_family = family)
+    res = _c.addrinfo_ptr()
+    error = _c.getaddrinfo(name, None, byref(hints), byref(res))
+    # PLAT EAI_NONAME
+    if error:
+        raise GAIError(error)
+    try:
+        info = res.contents
+        return make_address(info.ai_addr, info.ai_addrlen, result)
+    finally:
+        _c.freeaddrinfo(res)
+
+class IPAddress(Address):
+    """AF_INET and AF_INET6 addresses"""
 
     def get_host(self):
         # Create a string object representing an IP address.
@@ -125,29 +130,28 @@ class IPAddress(Address):
             raise GAIError(error)
         return buf.value
 
-    def makeipv4addr(self, s_addr):
-        raise SocketError("address family mismatched")
-
 # ____________________________________________________________
 
 class INETAddress(IPAddress):
     family = _c.AF_INET
     struct = _c.sockaddr_in
+    maxlen = sizeof(struct)
 
     def __init__(self, host, port):
-        self.makeipaddr(host)
+        makeipaddr(host, self)
         a = self.as_sockaddr_in()
         a.sin_port = _c.htons(port)
 
-    def makeipv4addr(self, s_addr):
-        sin = _c.sockaddr_in(sin_family = _c.AF_INET)   # PLAT sin_len
-        sin.sin_addr.s_addr = s_addr
-        paddr = cast(pointer(sin), POINTER(_c.sockaddr))
-        self.addr = paddr.contents
-        self.addrlen = sizeof(_c.sockaddr_in)
-
     def as_sockaddr_in(self):
+        if self.addrlen != INETAddress.maxlen:
+            raise ValueError("invalid address")
         return cast(pointer(self.addr), POINTER(_c.sockaddr_in)).contents
+
+    def __repr__(self):
+        try:
+            return '<INETAddress %s:%d>' % (self.get_host(), self.get_port())
+        except (ValueError, GAIError):
+            return '<INETAddress ?>'
 
     def get_port(self):
         a = self.as_sockaddr_in()
@@ -165,25 +169,33 @@ class INETAddress(IPAddress):
         return INETAddress(host, port)
     from_object = staticmethod(from_object)
 
-    def from_null():
-        return make_null_address(INETAddress)
-    from_null = staticmethod(from_null)
-
 # ____________________________________________________________
 
 class INET6Address(IPAddress):
     family = _c.AF_INET6
     struct = _c.sockaddr_in6
+    maxlen = sizeof(struct)
 
     def __init__(self, host, port, flowinfo=0, scope_id=0):
-        self.makeipaddr(host)
+        makeipaddr(host, self)
         a = self.as_sockaddr_in6()
         a.sin6_port = _c.htons(port)
         a.sin6_flowinfo = flowinfo
         a.sin6_scope_id = scope_id
 
     def as_sockaddr_in6(self):
+        if self.addrlen != INET6Address.maxlen:
+            raise ValueError("invalid address")
         return cast(pointer(self.addr), POINTER(_c.sockaddr_in6)).contents
+
+    def __repr__(self):
+        try:
+            return '<INET6Address %s:%d %d %d>' % (self.get_host(),
+                                                   self.get_port(),
+                                                   self.get_flowinfo(),
+                                                   self.get_scope_id())
+        except (ValueError, GAIError):
+            return '<INET6Address ?>'
 
     def get_port(self):
         a = self.as_sockaddr_in6()
@@ -217,15 +229,12 @@ class INET6Address(IPAddress):
         return INET6Address(host, port, flowinfo, scope_id)
     from_object = staticmethod(from_object)
 
-    def from_null():
-        return make_null_address(INET6Address)
-    from_null = staticmethod(from_null)
-
 # ____________________________________________________________
 
 class UNIXAddress(Address):
     family = _c.AF_UNIX
     struct = _c.sockaddr_un
+    maxlen = sizeof(struct)
 
     def __init__(self, path):
         addr = _c.sockaddr_un(sun_family = _c.AF_UNIX)
@@ -237,18 +246,26 @@ class UNIXAddress(Address):
             # regular NULL-terminated string
             if len(path) >= sizeof(addr.sun_path):
                 raise SocketError("AF_UNIX path too long")
-            addr.sun_path[len(path)] = '\x00'
+            addr.sun_path[len(path)] = 0
         for i in range(len(path)):
-            addr.sun_path[i] = path[i]
-        self.addr = cast(pointer(addr), POINTER(sockaddr)).contents
-        self.addrlen = offsetof(sockaddr_un, 'sun_path') + len(path)
+            addr.sun_path[i] = ord(path[i])
+        self.addr = cast(pointer(addr), _c.sockaddr_ptr).contents
+        self.addrlen = offsetof(_c.sockaddr_un, 'sun_path') + len(path)
 
     def as_sockaddr_un(self):
+        if self.addrlen <= offsetof(_c.sockaddr_un, 'sun_path'):
+            raise ValueError("invalid address")
         return cast(pointer(self.addr), POINTER(_c.sockaddr_un)).contents
+
+    def __repr__(self):
+        try:
+            return '<UNIXAddress %r>' % (self.get_path(),)
+        except ValueError:
+            return '<UNIXAddress ?>'
 
     def get_path(self):
         a = self.as_sockaddr_un()
-        if _c.linux and a.sun_path[0] == '\x00':
+        if _c.linux and a.sun_path[0] == 0:
             # Linux abstract namespace
             buf = copy_buffer(cast(pointer(a.sun_path), POINTER(c_char)),
                            self.addrlen - offsetof(_c.sockaddr_un, 'sun_path'))
@@ -264,10 +281,6 @@ class UNIXAddress(Address):
         return UNIXAddress(space.str_w(w_address))
     from_object = staticmethod(from_object)
 
-    def from_null():
-        return make_null_address(UNIXAddress)
-    from_null = staticmethod(from_null)
-
 # ____________________________________________________________
 
 _FAMILIES = {}
@@ -278,26 +291,49 @@ for klass in [INETAddress,
         _FAMILIES[klass.family] = klass
 
 def familyclass(family):
-    return _FAMILIES.get(addr.sa_family, Address)
+    return _FAMILIES.get(family, Address)
 
-def make_address(addr, addrlen):
-    result = instantiate(familyclass(addr.sa_family))
-    result.addr = addr
+def make_address(addrptr, addrlen, result=None):
+    family = addrptr.contents.sa_family
+    if result is None:
+        result = instantiate(familyclass(family))
+    elif result.family != family:
+        raise SocketError("address family mismatched")
+    paddr = copy_buffer(cast(addrptr, POINTER(c_char)), addrlen)
+    result.addr = cast(paddr, _c.sockaddr_ptr).contents
     result.addrlen = addrlen
     return result
 
-def make_null_address(klass):
-    result = instantiate(klass)
-    result.addr = cast(pointer(klass.struct()), POINTER(_c.sockaddr)).contents
-    result.addrlen = 0
+def makeipv4addr(s_addr, result=None):
+    if result is None:
+        result = instantiate(INETAddress)
+    elif result.family != _c.AF_INET:
+        raise SocketError("address family mismatched")
+    sin = _c.sockaddr_in(sin_family = _c.AF_INET)   # PLAT sin_len
+    sin.sin_addr.s_addr = s_addr
+    paddr = cast(pointer(sin), _c.sockaddr_ptr)
+    result.addr = paddr.contents
+    result.addrlen = sizeof(_c.sockaddr_in)
     return result
-make_null_address._annspecialcase_ = 'specialize:arg(0)'
+
+##def make_null_address(klass):
+##    result = instantiate(klass)
+##    result.addr = cast(pointer(klass.struct()), _c.sockaddr_ptr).contents
+##    result.addrlen = 0
+##    return result
+##make_null_address._annspecialcase_ = 'specialize:arg(0)'
 
 def copy_buffer(ptr, size):
     buf = create_string_buffer(size)
     for i in range(size):
         buf[i] = ptr[i]
     return buf
+
+def equal_buffers(ptr1, ptr2, size):
+    for i in range(size):
+        if ptr1[i] != ptr2[i]:
+            return False
+    return True
 
 # ____________________________________________________________
 
@@ -328,14 +364,18 @@ class RSocket(object):
     def addr_from_object(self, space, w_address):
         return af_get(self.family).from_object(space, w_address)
 
-    def null_addr(self):
-        return familyclass(self.family).from_null()
+    def _addrbuf(self):
+        klass = familyclass(self.family)
+        buf = create_string_buffer(klass.maxlen)
+        result = instantiate(klass)
+        result.addr = cast(buf, _c.sockaddr_ptr).contents
+        result.addrlen = 0
+        return result, _c.socklen_t(len(buf))
 
     def accept(self):
         """Wait for an incoming connection.
         Return (new socket object, client address)."""
-        address = self.null_addr()
-        addrlen = _c.socklen_t()
+        address, addrlen = self._addrbuf()
         newfd = _c.socketaccept(self.fd, byref(address.addr), byref(addrlen))
         if _c.invalid_socket(newfd):
             raise self.error_handler()
@@ -372,8 +412,7 @@ class RSocket(object):
 
     def getsockname(self):
         """Return the address of the local endpoint."""
-        address = self.null_addr()
-        addrlen = _c.socklen_t()
+        address, addrlen = self._addrbuf()
         res = _c.socketgetsockname(self.fd, byref(address.addr),
                                             byref(addrlen))
         if res < 0:
@@ -383,8 +422,7 @@ class RSocket(object):
 
     def getpeername(self):
         """Return the address of the remote endpoint."""
-        address = self.null_addr()
-        addrlen = _c.socklen_t()
+        address, addrlen = self._addrbuf()
         res = _c.socketgetpeername(self.fd, byref(address.addr),
                                             byref(addrlen))
         if res < 0:
@@ -418,10 +456,9 @@ class RSocket(object):
         """Like recv(buffersize, flags) but also return the sender's
         address."""
         buf = create_string_buffer(buffersize)
-        address = self.null_addr()
-        addrlen = _c.socklen_t()
-        read_bytes = _c.socketrecvfrom(self.fd, buf, buffersize, flags,
-                                       byref(address.addr), byref(addrlen))
+        address, addrlen = self._addrbuf()
+        read_bytes = _c.recvfrom(self.fd, buf, buffersize, flags,
+                                 byref(address.addr), byref(addrlen))
         if read_bytes < 0:
             raise self.error_handler()
         address.addrlen = addrlen.value
@@ -431,7 +468,7 @@ class RSocket(object):
         """Send a data string to the socket.  For the optional flags
         argument, see the Unix manual.  Return the number of bytes
         sent; this may be less than len(data) if the network is busy."""
-        res = _c.socketsend(self.fd, data, len(data), flags)
+        res = _c.send(self.fd, data, len(data), flags)
         if res < 0:
             raise self.error_handler()
         return res
@@ -448,8 +485,8 @@ class RSocket(object):
     def sendto(self, data, flags, address):
         """Like send(data, flags) but allows specifying the destination
         address.  (Note that 'flags' is mandatory here.)"""
-        res = _c.socketsendto(self.fd, data, len(data), flags,
-                              byref(address.addr), address.addrlen)
+        res = _c.sendto(self.fd, data, len(data), flags,
+                        byref(address.addr), address.addrlen)
         if res < 0:
             raise self.error_handler()
         return res
@@ -488,7 +525,7 @@ class CSocketError(BaseSocketError):
         return _c.socket_strerror(self.errno)
 
 def last_error():
-    return CSocketError(_c.errno())
+    return CSocketError(_c.geterrno())
 
 class GAIError(BaseSocketError):
     def __init__(self, errno):
@@ -534,6 +571,5 @@ def gethostname():
     return buf.value
 
 def gethostbyname(name):
-    address = INETAddress.from_null()
-    address.makeipaddr(name)
-    return address
+    # XXX this works with IPv6 too, but the docs say it shouldn't...
+    return makeipaddr(name)
