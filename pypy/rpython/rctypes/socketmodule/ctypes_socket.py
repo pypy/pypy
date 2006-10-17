@@ -289,6 +289,14 @@ inet_ntoa = socketdll.inet_ntoa
 inet_ntoa.argtypes = [in_addr]
 inet_ntoa.restype = c_char_p
 
+inet_pton = socketdll.inet_pton
+inet_pton.argtypes = [c_int, c_char_p, sockaddr_ptr]
+inet_pton.restype = c_int
+
+inet_ntop = socketdll.inet_ntop
+inet_ntop.argtypes = [c_int, sockaddr_ptr, c_char_p, socklen_t]
+inet_ntop.restype = c_char_p
+
 socketaccept = socketdll.accept
 socketaccept.argtypes = [c_int, sockaddr_ptr, POINTER(socklen_t)]
 socketaccept.restype = c_int

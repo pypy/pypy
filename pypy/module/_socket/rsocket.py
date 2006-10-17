@@ -4,7 +4,15 @@ Note that the interface has to be slightly different - this is not
 a drop-in replacement for the 'socket' module.
 """
 
-#                ------------ IN - PROGRESS -----------
+# Known missing features:
+#
+#   - support for non-Linux platforms
+#   - address families other than AF_INET, AF_INET6, AF_UNIX
+#   - methods getsockopt(), setsockopt(), makefile(), gettimeout(), settimeout()
+#   - functions gethostbyaddr(), gethostbyname_ex(), getnameinfo(),
+#     getprotobyname(), getservbyname(), getservbyport(),
+#     getdefaulttimeout(), setdefaulttimeout()
+#   - SSL
 
 from pypy.rpython.objectmodel import instantiate
 from pypy.rpython.rctypes.socketmodule import ctypes_socket as _c   # MOVE ME
@@ -582,8 +590,9 @@ def gethostname():
     return buf.value
 
 def gethostbyname(name):
-    # XXX this works with IPv6 too, but the docs say it shouldn't...
-    return makeipaddr(name)
+    # this is explicitly not working with IPv6, because the docs say it
+    # should not.  Just use makeipaddr(name) for an IPv6-friendly version...
+    return makeipaddr(name, INETAddress())
 
 def getaddrinfo(host, port_or_service,
                 family=_c.AF_UNSPEC, socktype=0, proto=0, flags=0):
