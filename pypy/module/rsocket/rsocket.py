@@ -47,16 +47,6 @@ class Address(object):
         raise RSocketError("unknown address family")
     from_object = staticmethod(from_object)
 
-    def eq(self, other):   # __eq__() is not called by RPython :-/
-        if self.family != other.family:
-            return False
-        elif self.addrlen != other.addrlen:
-            return False
-        else:
-            return equal_buffers(cast(pointer(self.addr),  POINTER(c_char)),
-                                 cast(pointer(other.addr), POINTER(c_char)),
-                                 self.addrlen)
-
 # ____________________________________________________________
 
 def makeipaddr(name, result=None):
@@ -165,6 +155,11 @@ class INETAddress(IPAddress):
         a = self.as_sockaddr_in()
         return _c.ntohs(a.sin_port)
 
+    def eq(self, other):   # __eq__() is not called by RPython :-/
+        return (isinstance(other, INETAddress) and
+                self.get_host() == other.get_host() and
+                self.get_port() == other.get_port())
+
     def as_object(self, space):
         return space.newtuple([space.wrap(self.get_host()),
                                space.wrap(self.get_port())])
@@ -216,6 +211,13 @@ class INET6Address(IPAddress):
     def get_scope_id(self):
         a = self.as_sockaddr_in6()
         return a.sin6_scope_id
+
+    def eq(self, other):   # __eq__() is not called by RPython :-/
+        return (isinstance(other, INET6Address) and
+                self.get_host() == other.get_host() and
+                self.get_port() == other.get_port() and
+                self.get_flowinfo() == other.get_flowinfo() and
+                self.get_scope_id() == other.get_scope_id())
 
     def as_object(self, space):
         return space.newtuple([space.wrap(self.get_host()),
@@ -282,6 +284,10 @@ class UNIXAddress(Address):
             # regular NULL-terminated string
             return cast(pointer(a.sun_path), c_char_p).value
 
+    def eq(self, other):   # __eq__() is not called by RPython :-/
+        return (isinstance(other, UNIXAddress) and
+                self.get_path() == other.get_path())
+
     def as_object(self, space):
         return space.wrap(self.get_path())
 
@@ -336,12 +342,6 @@ def copy_buffer(ptr, size):
     for i in range(size):
         buf[i] = ptr[i]
     return buf
-
-def equal_buffers(ptr1, ptr2, size):
-    for i in range(size):
-        if ptr1[i] != ptr2[i]:
-            return False
-    return True
 
 # ____________________________________________________________
 

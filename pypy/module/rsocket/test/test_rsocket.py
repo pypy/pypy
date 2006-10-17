@@ -155,8 +155,9 @@ def test_nonblocking():
 
 def test_getaddrinfo():
     lst = getaddrinfo('localhost', 'http')
-    assert len(lst) == 1
-    [(family, type, proto, canonname, addr)] = lst
+    print lst
+    assert len(lst) >= 1
+    (family, type, proto, canonname, addr) = lst[0]
     assert family == _c.AF_INET
     assert type   == _c.SOCK_STREAM
     assert addr.get_host() == '127.0.0.1'
