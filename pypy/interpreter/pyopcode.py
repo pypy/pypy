@@ -840,10 +840,11 @@ def dispatch_translated(self, ec):
             except ValueError:
                 index = 1000000
             return index, opcode
-        opcases = [(i, opname) for opname, i in pythonopcode.opmap.iteritems()]
-        opcases.sort(key = sortkey)    # for predictable results
+        opcases = [(sortkey(i), i, opname)
+                   for opname, i in pythonopcode.opmap.iteritems()]
+        opcases.sort()    # for predictable results
 
-        for i, opname in opcases:
+        for _, i, opname in opcases:
             if i == pythonopcode.EXTENDED_ARG or i < pythonopcode.HAVE_ARGUMENT:
                 continue
             opname         = opname.replace('+', '_')
@@ -855,7 +856,7 @@ def dispatch_translated(self, ec):
         dispatch_code +=     '                    self.MISSING_OPCODE_W_ARG(oparg)\n'
         dispatch_code +=     '                break\n'
 
-        for i, opname in opcases:
+        for _, i, opname in opcases:
             if i >= pythonopcode.HAVE_ARGUMENT:
                 continue
             opname         = opname.replace('+', '_')
