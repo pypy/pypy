@@ -8,7 +8,8 @@ a drop-in replacement for the 'socket' module.
 #
 #   - support for non-Linux platforms
 #   - address families other than AF_INET, AF_INET6, AF_UNIX
-#   - methods getsockopt(), setsockopt(), makefile(), gettimeout(), settimeout()
+#   - methods dup(), getsockopt(), setsockopt(), makefile(),
+#     gettimeout(), settimeout()
 #   - functions gethostbyaddr(), gethostbyname_ex(), getnameinfo(),
 #     getprotobyname(), getservbyname(), getservbyport(),
 #     getdefaulttimeout(), setdefaulttimeout()
@@ -16,7 +17,7 @@ a drop-in replacement for the 'socket' module.
 
 from pypy.rpython.objectmodel import instantiate
 from pypy.module.rsocket import ctypes_socket as _c
-from ctypes import cast, POINTER, c_char, c_char_p, pointer, byref
+from ctypes import cast, POINTER, c_char, c_char_p, pointer, byref, c_void_p
 from ctypes import create_string_buffer, sizeof
 from pypy.rpython.rctypes.astruct import offsetof
 
@@ -142,13 +143,13 @@ class INETAddress(IPAddress):
 
     def as_sockaddr_in(self):
         if self.addrlen != INETAddress.maxlen:
-            raise ValueError("invalid address")
+            raise RSocketError("invalid address")
         return cast(pointer(self.addr), POINTER(_c.sockaddr_in)).contents
 
     def __repr__(self):
         try:
             return '<INETAddress %s:%d>' % (self.get_host(), self.get_port())
-        except (ValueError, GAIError):
+        except SocketError:
             return '<INETAddress ?>'
 
     def get_port(self):
@@ -188,7 +189,7 @@ class INET6Address(IPAddress):
 
     def as_sockaddr_in6(self):
         if self.addrlen != INET6Address.maxlen:
-            raise ValueError("invalid address")
+            raise RSocketError("invalid address")
         return cast(pointer(self.addr), POINTER(_c.sockaddr_in6)).contents
 
     def __repr__(self):
@@ -197,7 +198,7 @@ class INET6Address(IPAddress):
                                                    self.get_port(),
                                                    self.get_flowinfo(),
                                                    self.get_scope_id())
-        except (ValueError, GAIError):
+        except SocketError:
             return '<INET6Address ?>'
 
     def get_port(self):
@@ -264,13 +265,13 @@ class UNIXAddress(Address):
 
     def as_sockaddr_un(self):
         if self.addrlen <= offsetof(_c.sockaddr_un, 'sun_path'):
-            raise ValueError("invalid address")
+            raise RSocketError("invalid address")
         return cast(pointer(self.addr), POINTER(_c.sockaddr_un)).contents
 
     def __repr__(self):
         try:
             return '<UNIXAddress %r>' % (self.get_path(),)
-        except ValueError:
+        except SocketError:
             return '<UNIXAddress ?>'
 
     def get_path(self):
@@ -330,12 +331,13 @@ def makeipv4addr(s_addr, result=None):
     result.addrlen = sizeof(_c.sockaddr_in)
     return result
 
-##def make_null_address(klass):
-##    result = instantiate(klass)
-##    result.addr = cast(pointer(klass.struct()), _c.sockaddr_ptr).contents
-##    result.addrlen = 0
-##    return result
-##make_null_address._annspecialcase_ = 'specialize:arg(0)'
+def make_null_address(family):
+    klass = familyclass(family)
+    buf = create_string_buffer(klass.maxlen)
+    result = instantiate(klass)
+    result.addr = cast(buf, _c.sockaddr_ptr).contents
+    result.addrlen = 0
+    return result, len(buf)
 
 def copy_buffer(ptr, size):
     buf = create_string_buffer(size)
@@ -378,12 +380,8 @@ class RSocket(object):
         return af_get(self.family).from_object(space, w_address)
 
     def _addrbuf(self):
-        klass = familyclass(self.family)
-        buf = create_string_buffer(klass.maxlen)
-        result = instantiate(klass)
-        result.addr = cast(buf, _c.sockaddr_ptr).contents
-        result.addrlen = 0
-        return result, _c.socklen_t(len(buf))
+        addr, maxlen = make_null_address(self.family)
+        return addr, _c.socklen_t(maxlen)
 
     def accept(self):
         """Wait for an incoming connection.
@@ -425,7 +423,10 @@ class RSocket(object):
         return res
 
     def fileno(self):
-        return self.fd
+        fd = self.fd
+        if _c.invalid_socket(fd):
+            raise RSocketError("socket already closed")
+        return fd
 
     def getsockname(self):
         """Return the address of the local endpoint."""
@@ -602,7 +603,9 @@ def gethostname():
 def gethostbyname(name):
     # this is explicitly not working with IPv6, because the docs say it
     # should not.  Just use makeipaddr(name) for an IPv6-friendly version...
-    return makeipaddr(name, instantiate(INETAddress))
+    result = instantiate(INETAddress)
+    makeipaddr(name, result)
+    return result
 
 def getaddrinfo(host, port_or_service,
                 family=_c.AF_UNSPEC, socktype=0, proto=0, flags=0):
@@ -635,3 +638,56 @@ def getaddrinfo(host, port_or_service,
     finally:
         _c.freeaddrinfo(res)
     return result
+
+def inet_aton(ip):
+    "IPv4 dotted string -> packed 32-bits string"
+    buf = create_string_buffer(sizeof(_c.in_addr))
+    if inet_aton(ip, cast(buf, POINTER(_c.in_addr))):
+        return buf.raw
+    else:
+        raise RSocketError("illegal IP address string passed to inet_aton")
+
+def inet_ntoa(packed):
+    "packet 32-bits string -> IPv4 dotted string"
+    if len(packed) != sizeof(_c.in_addr):
+        raise RSocketError("packed IP wrong length for inet_ntoa")
+    buf = create_string_buffer(sizeof(_c.in_addr))
+    buf.raw = packed
+    return inet_ntoa(cast(buf, POINTER(_c.in_addr)).contents)
+
+def inet_pton(family, ip):
+    "human-readable string -> packed string"
+    if family == _c.AF_INET:
+        size = sizeof(_c.in_addr)
+    elif _c.AF_INET6 is not None and family == _c.AF_INET6:
+        size = sizeof(_c.in6_addr)
+    else:
+        raise RSocketError("unknown address family")
+    buf = create_string_buffer(size)
+    res = _c.inet_pton(family, ip, cast(buf, c_void_p))
+    if res < 0:
+        raise last_error()
+    elif res == 0:
+        raise RSocketError("illegal IP address string passed to inet_pton")
+    else:
+        return buf.raw
+
+def inet_ntop(family, packed):
+    "packed string -> human-readable string"
+    if family == _c.AF_INET:
+        srcsize = sizeof(_c.in_addr)
+        dstsize = _c.INET_ADDRSTRLEN
+    elif _c.AF_INET6 is not None and family == _c.AF_INET6:
+        srcsize = sizeof(_c.in6_addr)
+        dstsize = _c.INET6_ADDRSTRLEN
+    else:
+        raise RSocketError("unknown address family")
+    if len(packed) != srcsize:
+        raise RSocketError("packed IP wrong length for inet_ntop")
+    srcbuf = create_string_buffer(srcsize)
+    srcbuf.raw = packed
+    dstbuf = create_string_buffer(dstsize)
+    res = _c.inet_ntop(family, cast(srcbuf, c_void_p), dstbuf, dstsize)
+    if res is None:
+        raise last_error()
+    return res

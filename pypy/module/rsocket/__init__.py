@@ -28,7 +28,7 @@ class Module(MixedModule):
             getdefaulttimeout setdefaulttimeout 
             """.split():
             
-            Module.interpleveldefs[name] = 'interp_socket.%s' % (name, )
+            Module.interpleveldefs[name] = 'interp_func.%s' % (name, )
 
         for constant, value in _c.constants.iteritems():
             Module.interpleveldefs[constant] = "space.wrap(%r)" % value

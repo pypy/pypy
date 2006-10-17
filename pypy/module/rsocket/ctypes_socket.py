@@ -37,6 +37,8 @@ class CConfig:
     linux      = ctypes_platform.Defined('linux')
     MS_WINDOWS = ctypes_platform.Defined('MS_WINDOWS')
     INVALID_SOCKET = ctypes_platform.DefinedConstantInteger('INVALID_SOCKET')
+    INET_ADDRSTRLEN = ctypes_platform.DefinedConstantInteger('INET_ADDRSTRLEN')
+    INET6_ADDRSTRLEN= ctypes_platform.DefinedConstantInteger('INET6_ADDRSTRLEN')
 
 constant_names = ['AF_APPLETALK', 'AF_ASH', 'AF_ATMPVC', 'AF_ATMSVC', 'AF_AX25',
                   'AF_BLUETOOTH', 'AF_BRIDGE', 'AF_ECONET', 'AF_INET', 'AF_INET6',
@@ -116,6 +118,8 @@ CConfig.sockaddr = ctypes_platform.Struct('struct sockaddr',
 sockaddr_ptr = POINTER('sockaddr')
 CConfig.in_addr = ctypes_platform.Struct('struct in_addr',
                                          [('s_addr', c_uint)])
+CConfig.in6_addr = ctypes_platform.Struct('struct in6_addr',
+                                          [])
 CConfig.sockaddr_in = ctypes_platform.Struct('struct sockaddr_in',
                                         [('sin_family', c_int),
                                          ('sin_port',   c_ushort),
@@ -180,6 +184,8 @@ locals().update(constants)
 O_NONBLOCK = cConfig.O_NONBLOCK
 F_GETFL = cConfig.F_GETFL
 F_SETFL = cConfig.F_SETFL
+INET_ADDRSTRLEN = cConfig.INET_ADDRSTRLEN or 16
+INET6_ADDRSTRLEN = cConfig.INET6_ADDRSTRLEN
 
 linux = cConfig.linux
 MS_WINDOWS = cConfig.MS_WINDOWS
@@ -204,6 +210,7 @@ sockaddr_in6 = cConfig.sockaddr_in6
 sockaddr_un = cConfig.sockaddr_un
 in_addr = cConfig.in_addr
 in_addr_size = sizeof(in_addr)
+in6_addr = cConfig.in6_addr
 addrinfo = cConfig.addrinfo
 
 c_int_size = sizeof(c_int)
@@ -290,11 +297,11 @@ inet_ntoa.argtypes = [in_addr]
 inet_ntoa.restype = c_char_p
 
 inet_pton = socketdll.inet_pton
-inet_pton.argtypes = [c_int, c_char_p, sockaddr_ptr]
+inet_pton.argtypes = [c_int, c_char_p, c_void_p]
 inet_pton.restype = c_int
 
 inet_ntop = socketdll.inet_ntop
-inet_ntop.argtypes = [c_int, sockaddr_ptr, c_char_p, socklen_t]
+inet_ntop.argtypes = [c_int, c_void_p, c_char_p, socklen_t]
 inet_ntop.restype = c_char_p
 
 socketaccept = socketdll.accept
