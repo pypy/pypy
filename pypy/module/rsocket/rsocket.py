@@ -349,6 +349,7 @@ class RSocket(object):
     """RPython-level socket object.
     """
     _mixin_ = True        # for interp_socket.py
+    fd = _c.INVALID_SOCKET
 
     def __init__(self, family=_c.AF_INET, type=_c.SOCK_STREAM, proto=0):
         """Create a new socket."""
@@ -360,6 +361,9 @@ class RSocket(object):
         self.family = family
         self.type = type
         self.proto = proto
+
+    def __del__(self):
+        self.close()
 
     def error_handler(self):
         return last_error()
@@ -389,7 +393,8 @@ class RSocket(object):
         if _c.invalid_socket(newfd):
             raise self.error_handler()
         address.addrlen = addrlen.value
-        sock = make_socket(newfd, self.family, self.type, self.proto)
+        sock = make_socket(newfd, self.family, self.type, self.proto,
+                           self.__class__)
         return (sock, address)
 
     def bind(self, address):
@@ -523,8 +528,8 @@ class RSocket(object):
 
 # ____________________________________________________________
 
-def make_socket(fd, family, type, proto):
-    result = instantiate(RSocket)
+def make_socket(fd, family, type, proto, SocketClass=RSocket):
+    result = instantiate(SocketClass)
     result.fd = fd
     result.family = family
     result.type = type
@@ -563,7 +568,8 @@ if _c.AF_UNIX is None:
 else:
     socketpair_default_family = _c.AF_UNIX
 
-def socketpair(family=socketpair_default_family, type=_c.SOCK_STREAM, proto=0):
+def socketpair(family=socketpair_default_family, type=_c.SOCK_STREAM, proto=0,
+               SocketClass=RSocket):
     """socketpair([family[, type[, proto]]]) -> (socket object, socket object)
 
     Create a pair of socket objects from the sockets returned by the platform
@@ -575,15 +581,15 @@ def socketpair(family=socketpair_default_family, type=_c.SOCK_STREAM, proto=0):
     res = _c.socketpair(family, type, proto, byref(result))
     if res < 0:
         raise last_error()
-    return (make_socket(result[0], family, type, proto),
-            make_socket(result[1], family, type, proto))
+    return (make_socket(result[0], family, type, proto, SocketClass),
+            make_socket(result[1], family, type, proto, SocketClass))
 
-def fromfd(fd, family, type, proto=0):
+def fromfd(fd, family, type, proto=0, SocketClass=RSocket):
     # Dup the fd so it and the socket can be closed independently
     fd = _c.dup(fd)
     if fd < 0:
         raise last_error()
-    return make_socket(fd, family, type, proto)
+    return make_socket(fd, family, type, proto, SocketClass)
 
 def gethostname():
     buf = create_string_buffer(1024)
