@@ -1,6 +1,6 @@
 import py, errno
-from pypy.module._socket.rsocket import *
-from pypy.module._socket.rsocket import _c
+from pypy.module.rsocket.rsocket import *
+from pypy.module.rsocket.rsocket import _c
 
 def test_ipv4_addr():
     a = INETAddress("localhost", 4000)
@@ -68,9 +68,13 @@ def test_simple_tcp():
     s1.send('?')
     buf = s2.recv(100)
     assert buf == '?'
-    count = s2.send('x'*50000)
-    buf = s1.recv(50000)
-    assert buf == 'x'*count
+    thread.start_new_thread(s2.sendall, ('x'*500000,))
+    buf = ''
+    while len(buf) < 500000:
+        data = s1.recv(500100)
+        assert data
+        buf += data
+    assert buf == 'x'*500000
     s1.close()
     s2.close()
 
@@ -157,3 +161,12 @@ def test_getaddrinfo():
     assert type   == _c.SOCK_STREAM
     assert addr.get_host() == '127.0.0.1'
     assert addr.get_port() == 80
+
+def test_getaddrinfo_snake():
+    lst = getaddrinfo('snake.cs.uni-duesseldorf.de', None)
+    assert isinstance(lst, list)
+    found = False
+    for family, socktype, protocol, canonname, addr in lst:
+        if addr.get_host() == '134.99.112.214':
+            found = True
+    assert found, lst

@@ -5,7 +5,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import W_Root, NoneNotWrapped
 from pypy.interpreter.gateway import ObjSpace, interp2app
 from pypy.interpreter import gateway
-from pypy.rpython.rctypes.socketmodule import ctypes_socket as _c
+from pypy.module.rsocket import ctypes_socket as _c
 import ctypes
 from pypy.rpython.rctypes import implementation as rctypes_implemetation
 from pypy.rpython.rarithmetic import intmask

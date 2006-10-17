@@ -3,12 +3,13 @@ from pypy.interpreter.mixedmodule import MixedModule
 import sys
 
 class Module(MixedModule):
+    applevel_name = '_socket'
+
     appleveldefs = {
         'error'      : 'app_socket.error',
         'herror'     : 'app_socket.herror',
         'gaierror'   : 'app_socket.gaierror',
         'timeout'    : 'app_socket.timeout',
-        'gethostbyname': 'app_socket.gethostbyname',
     }
 
     interpleveldefs = {
@@ -17,7 +18,7 @@ class Module(MixedModule):
     }
 
     def buildloaders(cls):
-        from pypy.module.rsocket import ctypes_socket as _c
+        from pypy.module.rsocket import ctypes_socket as _c 
         for name in """
             gethostbyname_ex gethostbyaddr gethostname
             getservbyname getservbyport getprotobyname

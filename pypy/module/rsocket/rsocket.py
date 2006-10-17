@@ -15,7 +15,7 @@ a drop-in replacement for the 'socket' module.
 #   - SSL
 
 from pypy.rpython.objectmodel import instantiate
-from pypy.rpython.rctypes.socketmodule import ctypes_socket as _c   # MOVE ME
+from pypy.module.rsocket import ctypes_socket as _c
 from ctypes import cast, POINTER, c_char, c_char_p, pointer, byref
 from ctypes import create_string_buffer, sizeof
 from pypy.rpython.rctypes.astruct import offsetof
@@ -592,7 +592,7 @@ def gethostname():
 def gethostbyname(name):
     # this is explicitly not working with IPv6, because the docs say it
     # should not.  Just use makeipaddr(name) for an IPv6-friendly version...
-    return makeipaddr(name, INETAddress())
+    return makeipaddr(name, instantiate(INETAddress))
 
 def getaddrinfo(host, port_or_service,
                 family=_c.AF_UNSPEC, socktype=0, proto=0, flags=0):
