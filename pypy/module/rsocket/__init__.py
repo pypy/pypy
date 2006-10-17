@@ -13,14 +13,14 @@ class Module(MixedModule):
     }
 
     interpleveldefs = {
-        'SocketType':  'interp_socket.Socket',
-        'socket'    :  'interp_socket.Socket',
+        'SocketType':  'interp_socket.W_RSocket',
+        'socket'    :  'interp_socket.W_RSocket',
     }
 
     def buildloaders(cls):
         from pypy.module.rsocket import ctypes_socket as _c 
         for name in """
-            gethostbyname_ex gethostbyaddr gethostname
+            gethostbyname gethostbyname_ex gethostbyaddr gethostname
             getservbyname getservbyport getprotobyname
             fromfd socketpair
             ntohs ntohl htons htonl inet_aton inet_ntoa inet_pton inet_ntop

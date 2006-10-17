@@ -3,9 +3,7 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
 from pypy.interpreter.gateway import interp2app
 from pypy.module.rsocket.rsocket import RSocket, _c
-from pypy.module.rsocket.rsocket import SocketError, RSocketError
-from pypy.module.rsocket.rsocket import CSocketError, GAIError
-from pypy.module.rsocket.socketerror import socket_strerror
+from pypy.module.rsocket.rsocket import SocketError, SocketErrorWithErrno
 
 
 class W_RSocket(Wrappable, RSocket):
@@ -237,24 +235,14 @@ descr_socket_new = interp2app(newsocket,
 # ____________________________________________________________
 # Error handling
 
-def operror(space, classname, *args_w):
-    w_module = space.getbuiltinmodule('_socket')
-    w_exception_class = space.getattr(w_module, space.wrap(classname))
-    w_exception = space.call_function(w_exception_class, *args_w)
-    return OperationError(w_exception_class, w_exception)
-
 def converted_error(space, e):
-    if isinstance(e, RSocketError):
-        return operror(space, 'error', space.wrap(e.message))
-    elif isinstance(e, CSocketError):
-        message = socket_strerror(e.errno)
-        return operror(space, 'error', space.wrap(message))
-    elif isinstance(e, GAIError):
-        message = _c.gai_strerror(e.errno)
-        return operror(space, 'gaierror', space.wrap(message))
-    else:
-        # fall-back, should not occur
-        return operror(space, 'error')
+    message = e.__str__()
+    w_module = space.getbuiltinmodule('_socket')
+    w_exception_class = space.getattr(w_module, space.wrap(e.applevelerrcls))
+    w_exception = space.call_function(w_exception_class, space.wrap(message))
+    if isinstance(e, SocketErrorWithErrno):
+        space.setattr(w_exception, space.wrap('errno'), space.wrap(e.errno))
+    return OperationError(w_exception_class, w_exception)
 
 # ____________________________________________________________
 

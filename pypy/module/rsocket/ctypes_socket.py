@@ -128,6 +128,7 @@ CConfig.sockaddr_in = ctypes_platform.Struct('struct sockaddr_in',
 CConfig.sockaddr_in6 = ctypes_platform.Struct('struct sockaddr_in6',
                                               [('sin6_family', c_int),
                                                ('sin6_flowinfo', c_int),
+                                               ('sin6_addr', CConfig.in6_addr),
                                                ('sin6_scope_id', c_int)])
 
 CConfig.sockaddr_un = ctypes_platform.Struct('struct sockaddr_un',
@@ -150,7 +151,7 @@ CConfig.hostent = ctypes_platform.Struct('struct hostent',
                                       ('h_aliases', POINTER(c_char_p)),
                                       ('h_addrtype', c_int),
                                       ('h_length', c_int),
-                                      ('h_addr_list', POINTER(c_char_p))
+                                      ('h_addr_list', POINTER(c_void_p)),
                                       ])
 
 
@@ -165,6 +166,11 @@ CConfig.protoent = ctypes_platform.Struct('struct protoent',
 class cConfig:
     pass
 cConfig.__dict__.update(ctypes_platform.configure(CConfig))
+
+# fill in missing constants with reasonable defaults
+cConfig.NI_MAXHOST = cConfig.NI_MAXHOST or 1025
+cConfig.NI_MAXSERV = cConfig.NI_MAXSERV or 32
+cConfig.INET_ADDRSTRLEN = cConfig.INET_ADDRSTRLEN or 16
 
 for name in constant_names:
     value = getattr(cConfig, name)
@@ -184,7 +190,7 @@ locals().update(constants)
 O_NONBLOCK = cConfig.O_NONBLOCK
 F_GETFL = cConfig.F_GETFL
 F_SETFL = cConfig.F_SETFL
-INET_ADDRSTRLEN = cConfig.INET_ADDRSTRLEN or 16
+INET_ADDRSTRLEN = cConfig.INET_ADDRSTRLEN
 INET6_ADDRSTRLEN = cConfig.INET6_ADDRSTRLEN
 
 linux = cConfig.linux
@@ -374,7 +380,7 @@ gethostbyname.argtypes = [c_char_p]
 gethostbyname.restype = POINTER(cConfig.hostent)
 
 gethostbyaddr = socketdll.gethostbyaddr
-gethostbyaddr.argtypes = [c_char_p, c_int, c_int]
+gethostbyaddr.argtypes = [c_void_p, c_int, c_int]
 gethostbyaddr.restype = POINTER(cConfig.hostent)
 
 getservbyname = socketdll.getservbyname

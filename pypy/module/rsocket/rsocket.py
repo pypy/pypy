@@ -10,9 +10,7 @@ a drop-in replacement for the 'socket' module.
 #   - address families other than AF_INET, AF_INET6, AF_UNIX
 #   - methods dup(), getsockopt(), setsockopt(), makefile(),
 #     gettimeout(), settimeout()
-#   - functions gethostbyaddr(), gethostbyname_ex(), getnameinfo(),
-#     getprotobyname(), getservbyname(), getservbyport(),
-#     getdefaulttimeout(), setdefaulttimeout()
+#   - functions getnameinfo(), getdefaulttimeout(), setdefaulttimeout()
 #   - SSL
 
 from pypy.rpython.objectmodel import instantiate
@@ -20,6 +18,7 @@ from pypy.module.rsocket import ctypes_socket as _c
 from ctypes import cast, POINTER, c_char, c_char_p, pointer, byref, c_void_p
 from ctypes import create_string_buffer, sizeof
 from pypy.rpython.rctypes.astruct import offsetof
+from pypy.module.rsocket.socketerror import socket_strerror
 
 
 class Address(object):
@@ -173,6 +172,27 @@ class INETAddress(IPAddress):
         return INETAddress(host, port)
     from_object = staticmethod(from_object)
 
+    def fill_from_object(self, space, w_address):
+        # XXX a bit of code duplication
+        _, w_port = space.unpackiterable(w_address, 2)
+        port = space.int_w(w_port)
+        a = self.as_sockaddr_in()
+        a.sin_port = _c.htons(port)
+
+    def from_in_addr(in_addr):
+        sin = _c.sockaddr_in(sin_family = _c.AF_INET)   # PLAT sin_len
+        sin.sin_addr = in_addr
+        paddr = cast(pointer(sin), _c.sockaddr_ptr)
+        result = instantiate(INETAddress)
+        result.addr = paddr.contents
+        result.addrlen = sizeof(_c.sockaddr_in)
+        return result
+    from_in_addr = staticmethod(from_in_addr)
+
+    def extract_in_addr(self):
+        p = cast(pointer(self.as_sockaddr_in().sin_addr), c_void_p)
+        return p, sizeof(_c.in_addr)
+
 # ____________________________________________________________
 
 class INET6Address(IPAddress):
@@ -239,6 +259,36 @@ class INET6Address(IPAddress):
         else:                 scope_id = 0
         return INET6Address(host, port, flowinfo, scope_id)
     from_object = staticmethod(from_object)
+
+    def fill_from_object(self, space, w_address):
+        # XXX a bit of code duplication
+        pieces_w = space.unpackiterable(w_address)
+        if not (2 <= len(pieces_w) <= 4):
+            raise RSocketError("AF_INET6 address must be a tuple of length 2 "
+                               "to 4, not %d" % len(pieces))
+        port = space.int_w(pieces_w[1])
+        if len(pieces_w) > 2: flowinfo = space.int_w(pieces_w[2])
+        else:                 flowinfo = 0
+        if len(pieces_w) > 3: scope_id = space.int_w(pieces_w[3])
+        else:                 scope_id = 0
+        a = self.as_sockaddr_in6()
+        a.sin6_port = _c.htons(port)
+        a.sin6_flowinfo = flowinfo
+        a.sin6_scope_id = scope_id
+
+    def from_in6_addr(in6_addr):
+        sin = _c.sockaddr_in6(sin6_family = _c.AF_INET)   # PLAT sin_len
+        sin.sin6_addr = in6_addr
+        paddr = cast(pointer(sin), _c.sockaddr_ptr)
+        result = instantiate(INET6Address)
+        result.addr = paddr.contents
+        result.addrlen = sizeof(_c.sockaddr_in6)
+        return result
+    from_in6_addr = staticmethod(from_in6_addr)
+
+    def extract_in_addr(self):
+        p = cast(pointer(self.as_sockaddr_in6().sin6_addr), c_void_p)
+        return p, sizeof(_c.in6_addr)
 
 # ____________________________________________________________
 
@@ -344,6 +394,12 @@ def copy_buffer(ptr, size):
     for i in range(size):
         buf[i] = ptr[i]
     return buf
+
+def ipaddr_from_object(space, w_sockaddr):
+    host = space.str_w(space.getitem(w_sockaddr, space.wrap(0)))
+    addr = makeipaddr(host)
+    addr.fill_from_object(space, w_sockaddr)
+    return addr
 
 # ____________________________________________________________
 
@@ -538,8 +594,13 @@ def make_socket(fd, family, type, proto, SocketClass=RSocket):
     return result
 
 class SocketError(Exception):
+    applevelerrcls = 'error'
     def __init__(self):
         pass
+
+class SocketErrorWithErrno(SocketError):
+    def __init__(self, errno):
+        self.errno = errno
 
 class RSocketError(SocketError):
     def __init__(self, message):
@@ -547,20 +608,26 @@ class RSocketError(SocketError):
     def __str__(self):
         return self.message
 
-class CSocketError(SocketError):
-    def __init__(self, errno):
-        self.errno = errno
+class CSocketError(SocketErrorWithErrno):
     def __str__(self):
-        return _c.socket_strerror(self.errno)
+        return socket_strerror(self.errno)
 
 def last_error():
     return CSocketError(_c.geterrno())
 
-class GAIError(SocketError):
-    def __init__(self, errno):
-        self.errno = errno
+class GAIError(SocketErrorWithErrno):
+    applevelerrcls = 'gaierror'
     def __str__(self):
         return _c.gai_strerror(self.errno)
+
+class HSocketError(SocketError):
+    applevelerrcls = 'herror'
+    def __init__(self, host):
+        self.host = host
+        # XXX h_errno is not easily available, and hstrerror() is
+        # marked as deprecated in the Linux man pages
+    def __str__(self):
+        return "host lookup failed: '%s'" % (self.host,)
 
 # ____________________________________________________________
 
@@ -607,6 +674,54 @@ def gethostbyname(name):
     makeipaddr(name, result)
     return result
 
+def gethost_common(hostname, hostent, addr):
+    if not hostent:
+        raise HSocketError(hostname)
+    family = addr.family
+    if hostent.contents.h_addrtype != family:
+        raise CSocketError(errno.EAFNOSUPPORT)
+
+    aliases = []
+    h_aliases = hostent.contents.h_aliases
+    if h_aliases:   # h_aliases can be NULL, according to SF #1511317
+        i = 0
+        alias = h_aliases[0]
+        while alias is not None:
+            aliases.append(alias)
+            i += 1
+            alias = h_aliases[i]
+
+    address_list = []
+    h_addr_list = hostent.contents.h_addr_list
+    i = 0
+    paddr = h_addr_list[0]
+    while paddr:
+        if family == _c.AF_INET:
+            p = cast(paddr, POINTER(_c.in_addr))
+            addr = INETAddress.from_in_addr(p.contents)
+        elif _c.AF_INET6 is not None and family == _c.AF_INET6:
+            p = cast(paddr, POINTER(_c.in6_addr))
+            addr = INET6Address.from_in6_addr(p.contents)
+        else:
+            raise RSocketError("unknown address family")
+        address_list.append(addr)
+        i += 1
+        paddr = h_addr_list[i]
+    return (hostent.contents.h_name, aliases, address_list)
+
+def gethostbyname_ex(name):
+    # XXX use gethostbyname_r() if available, and/or use locks if not
+    addr = gethostbyname(name)
+    hostent = _c.gethostbyname(name)
+    return gethost_common(name, hostent, addr)
+
+def gethostbyaddr(ip):
+    # XXX use gethostbyaddr_r() if available, and/or use locks if not
+    addr = makeipaddr(ip)
+    p, size = addr.extract_in_addr()
+    hostent =_c.gethostbyaddr(p, size, addr.family)
+    return gethost_common(ip, hostent, addr)
+
 def getaddrinfo(host, port_or_service,
                 family=_c.AF_UNSPEC, socktype=0, proto=0, flags=0):
     # port_or_service is a string, not an int (but try str(port_number)).
@@ -639,10 +754,38 @@ def getaddrinfo(host, port_or_service,
         _c.freeaddrinfo(res)
     return result
 
+def getservbyname(name, proto=None):
+    servent = _c.getservbyname(name, proto)
+    if not servent:
+        raise RSocketError("service/proto not found")
+    return _c.ntohs(servent.contents.s_port)
+
+def getservbyport(port, proto=None):
+    servent = _c.getservbyport(_c.htons(port), proto)
+    if not servent:
+        raise RSocketError("port/proto not found")
+    return servent.contents.s_name
+
+def getprotobyname(name):
+    protoent = _c.getprotobyname(name)
+    if not protoent:
+        raise RSocketError("protocol not found")
+    return protoent.contents.p_proto
+
+def getnameinfo(addr, flags):
+    host = create_string_buffer(_c.NI_MAXHOST)
+    serv = create_string_buffer(_c.NI_MAXSERV)
+    error =_c.getnameinfo(pointer(addr.addr), addr.addrlen,
+                          host, len(host),
+                          serv, len(serv), flags)
+    if error:
+        raise GAIError(error)
+    return host.value, serv.value
+
 def inet_aton(ip):
     "IPv4 dotted string -> packed 32-bits string"
     buf = create_string_buffer(sizeof(_c.in_addr))
-    if inet_aton(ip, cast(buf, POINTER(_c.in_addr))):
+    if _c.inet_aton(ip, cast(buf, POINTER(_c.in_addr))):
         return buf.raw
     else:
         raise RSocketError("illegal IP address string passed to inet_aton")
@@ -653,7 +796,7 @@ def inet_ntoa(packed):
         raise RSocketError("packed IP wrong length for inet_ntoa")
     buf = create_string_buffer(sizeof(_c.in_addr))
     buf.raw = packed
-    return inet_ntoa(cast(buf, POINTER(_c.in_addr)).contents)
+    return _c.inet_ntoa(cast(buf, POINTER(_c.in_addr)).contents)
 
 def inet_pton(family, ip):
     "human-readable string -> packed string"
