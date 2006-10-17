@@ -17,6 +17,11 @@ from pypy.translator.cli.support import Tee
 from pypy.translator.cli.prebuiltnodes import get_prebuilt_nodes
 from pypy.translator.cli.stackopt import StackOptGenerator
 
+try:
+    set
+except NameError:
+    from sets import Set as set
+
 #USE_STACKOPT = True and not getoption('nostackopt')
 USE_STACKOPT = False
 

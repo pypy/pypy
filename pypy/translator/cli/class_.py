@@ -2,6 +2,11 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.translator.cli.node import Node
 from pypy.translator.cli.cts import CTS
 
+try:
+    set
+except NameError:
+    from sets import Set as set
+
 class Class(Node):
     def __init__(self, db, INSTANCE, namespace, name):
         self.db = db

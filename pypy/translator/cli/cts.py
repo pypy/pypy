@@ -11,6 +11,11 @@ from pypy.rpython.lltypesystem.llmemory import WeakGcAddress
 from pypy.translator.cli.option import getoption
 from pypy.translator.cli import oopspec
 
+try:
+    set
+except NameError:
+    from sets import Set as set
+
 from pypy.tool.ansi_print import ansi_log
 import py
 log = py.log.Producer("cli") 
