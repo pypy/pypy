@@ -348,6 +348,7 @@ def copy_buffer(ptr, size):
 class RSocket(object):
     """RPython-level socket object.
     """
+    _mixin_ = True        # for interp_socket.py
 
     def __init__(self, family=_c.AF_INET, type=_c.SOCK_STREAM, proto=0):
         """Create a new socket."""
@@ -413,7 +414,10 @@ class RSocket(object):
     def connect_ex(self, address):
         """This is like connect(address), but returns an error code (the errno
         value) instead of raising an exception when an error occurs."""
-        return _c.socketconnect(self.fd, byref(address.addr), address.addrlen)
+        res = _c.socketconnect(self.fd, byref(address.addr), address.addrlen)
+        if res != 0:
+            res = _c.geterrno()
+        return res
 
     def fileno(self):
         return self.fd

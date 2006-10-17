@@ -175,3 +175,8 @@ def test_getaddrinfo_snake():
         if addr.get_host() == '134.99.112.214':
             found = True
     assert found, lst
+
+def test_connect_ex():
+    s = RSocket()
+    err = s.connect_ex(s.getsockname())   # should not work
+    assert err == errno.ECONNREFUSED
