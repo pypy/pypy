@@ -157,15 +157,17 @@ def test_nonblocking():
     s1.close()
     s2.close()
 
-def test_getaddrinfo():
+def test_getaddrinfo_http():
     lst = getaddrinfo('localhost', 'http')
-    assert len(lst) >= 1
-    (family, type, proto, canonname, addr) = lst[0]
-    assert family == _c.AF_INET
-    assert type   == _c.SOCK_STREAM
-    assert addr.get_host() == '127.0.0.1'
-    assert addr.get_port() == 80
-    print lst
+    assert isinstance(lst, list)
+    found = False
+    for family, socktype, protocol, canonname, addr in lst:
+        if (family          == _c.AF_INET and
+            socktype        == _c.SOCK_STREAM and
+            addr.get_host() == '127.0.0.1' and
+            addr.get_port() == 80):
+            found = True
+    assert found, lst
 
 def test_getaddrinfo_snake():
     lst = getaddrinfo('snake.cs.uni-duesseldorf.de', None)
