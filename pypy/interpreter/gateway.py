@@ -230,12 +230,12 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
             cache[key] = activation_cls, self.run_args
             return activation_cls
 
-    @staticmethod
     def make_activation(unwrap_spec, func):
         emit = UnwrapSpec_EmitRun()
         emit.apply_over(unwrap_spec)
         activation_uw_cls = emit._make_unwrap_activation_class(unwrap_spec)
         return activation_uw_cls(func)
+    make_activation = staticmethod(make_activation)
 
 
 class BuiltinActivation(object):
@@ -302,7 +302,6 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
         self.unwrap.append("space.%s_w(%s)" % (typ.__name__,
                                                self.nextarg()))
 
-    @staticmethod
     def make_fastfunc(unwrap_spec, func):
         unwrap_info = UnwrapSpec_FastFunc_Unwrap()
         unwrap_info.apply_over(unwrap_spec)
@@ -330,6 +329,7 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
             exec compile2(source) in unwrap_info.miniglobals, d
             fastfunc = d['fastfunc_%s_%d' % (func.__name__, narg)]
         return narg, fastfunc
+    make_fastfunc = staticmethod(make_fastfunc)
         
 class BuiltinCode(eval.Code):
     "The code object implementing a built-in (interpreter-level) hook."

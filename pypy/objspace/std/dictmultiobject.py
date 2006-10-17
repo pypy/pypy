@@ -1,3 +1,4 @@
+import py
 from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
 
@@ -564,7 +565,7 @@ _example = DictInfo()
 del DictInfo._dict_infos[-1]
 tmpl = 'os.write(fd, "%(attr)s" + ": " + str(info.%(attr)s) + "\\n")'
 bodySrc = []
-for attr in sorted(_example.__dict__):
+for attr in py.builtin.sorted(_example.__dict__):
     if attr == 'sig':
         continue
     bodySrc.append(tmpl%locals())
