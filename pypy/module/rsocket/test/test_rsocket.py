@@ -181,4 +181,4 @@ def test_getaddrinfo_snake():
 def test_connect_ex():
     s = RSocket()
     err = s.connect_ex(s.getsockname())   # should not work
-    assert err == errno.ECONNREFUSED
+    assert err in (errno.ECONNREFUSED, errno.EADDRNOTAVAIL)
