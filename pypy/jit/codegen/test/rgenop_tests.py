@@ -29,6 +29,36 @@ def get_adder_runner(RGenOp):
         return res
     return runner
 
+FUNC2 = lltype.FuncType([lltype.Signed, lltype.Signed], lltype.Signed)
+
+def make_dummy(rgenop):
+    # 'return x - (y - (x-1))'
+    signed_kind = rgenop.kindToken(lltype.Signed)
+    sigtoken = rgenop.sigToken(FUNC2)
+    builder, entrypoint, [gv_x, gv_y] = rgenop.newgraph(sigtoken)
+    gv_z = builder.genop2("int_sub", gv_x, rgenop.genconst(1))
+
+    args_gv = [gv_y, gv_z, gv_x]
+    builder.enter_next_block([signed_kind, signed_kind, signed_kind], args_gv)
+    [gv_y2, gv_z2, gv_x2] = args_gv
+
+    gv_s2 = builder.genop2("int_sub", gv_y2, gv_z2)
+    gv_t2 = builder.genop2("int_sub", gv_x2, gv_s2)
+    builder.finish_and_return(sigtoken, gv_t2)
+
+    gv_dummyfn = rgenop.gencallableconst(sigtoken, "dummy", entrypoint)
+    return gv_dummyfn
+
+def get_dummy_runner(RGenOp):
+    def dummy_runner(x, y):
+        rgenop = RGenOp()
+        gv_dummyfn = make_dummy(rgenop)
+        dummyfn = gv_dummyfn.revealconst(lltype.Ptr(FUNC2))
+        res = dummyfn(x, y)
+        keepalive_until_here(rgenop)    # to keep the code blocks alive
+        return res
+    return dummy_runner
+
 class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
     RGenOp = None
 
@@ -48,3 +78,16 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         res = fn(9080983, -9080941)
         assert res == 42
 
+    def test_dummy_direct(self):
+        rgenop = self.RGenOp()
+        gv_dummyfn = make_dummy(rgenop)
+        print gv_dummyfn.value
+        fnptr = cast(c_void_p(gv_dummyfn.value), CFUNCTYPE(c_int, c_int, c_int))
+        res = fnptr(30, 17)
+        assert res == 42
+
+    def test_dummy_compile(self):
+        fn = self.compile(get_dummy_runner(self.RGenOp), [int, int])
+        res = fn(40, 37)
+        assert res == 42
+        
