@@ -387,8 +387,8 @@ class BasicPPCAssembler(Assembler):
     rlwimi  = MI(20, Rc=0)
     rlwimix = MI(20, Rc=1)
 
-    rlwinm  = MI(20, Rc=0)
-    rlwinmx = MI(20, Rc=1)
+    rlwinm  = MI(21, Rc=0)
+    rlwinmx = MI(21, Rc=1)
 
     rlwnm   = MB(23, Rc=0)
     rlwnmx  = MB(23, Rc=1)
@@ -502,14 +502,33 @@ class PPCAssembler(BasicPPCAssembler):
 
     # F.4 Simplified Mnemonics for Rotate and Shift Instructions
 
+    def extlwi(self, rA, rS, n, b):
+        self.rlwinm(rA, rS, b, 0, n-1)
+
+    def extrwi(self, rA, rS, n, b):
+        self.rlwinm(rA, rS, b+n, 32-n, 31)
+
+    def inslwi(self, rA, rS, n, b):
+        self.rwlimi(rA, rS, 32-b, b, b + n -1)
+
+    def insrwi(self, rA, rS, n, b):
+        self.rwlimi(rA, rS, 32-(b+n), b, b + n -1)
+
+    def rotlwi(self, rA, rS, n):
+        self.rlwinm(rA, rS, n, 0, 31)
+
+    def rotrwi(self, rA, rS, n):
+        self.rlwinm(rA, rS, 32-n, 0, 31)
+
+    def rotlw(self, rA, rS, rB):
+        self.rlwnm(rA, rS, rB, 0, 31)
+
     def slwi(self, rA, rS, n):
         self.rlwinm(rA, rS, n, 0, 31-n)
 
     def srwi(self, rA, rS, n):
         self.rlwinm(rA, rS, 32-n, n, 31)
 
-    def inslwi(self, rA, rS, n, b):
-        self.rwlimi(rA, rS, 32-b, b, b + n -1)
 
     # F.5 Simplified Mnemonics for Branch Instructions
 
