@@ -254,10 +254,10 @@ socket.restype = c_int
 
 if MS_WINDOWS:
     socketclose = socketdll.closesocket
-    socketclose.argtypes = [c_int]
-    socketclose.restype = c_int
 else:
-    socketclose = os.close
+    socketclose = socketdll.close
+socketclose.argtypes = [c_int]
+socketclose.restype = c_int
 
 socketconnect = socketdll.connect
 socketconnect.argtypes = [c_int, sockaddr_ptr, socklen_t]

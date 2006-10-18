@@ -2,6 +2,7 @@ from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
 from pypy.module.rsocket.interp_socket import converted_error, W_RSocket
 from pypy.module.rsocket import rsocket
 from pypy.module.rsocket.rsocket import _c, SocketError
+from pypy.interpreter.error import OperationError
 
 
 def gethostname(space):
@@ -249,6 +250,9 @@ def inet_ntop(space, family, packed):
         ip = rsocket.inet_ntop(family, packed)
     except SocketError, e:
         raise converted_error(space, e)
+    except ValueError, e:
+        raise OperationError(space.w_ValueError,
+                  space.wrap(str(e))
     return space.wrap(ip)
 inet_ntop.unwrap_spec = [ObjSpace, int, str]
 

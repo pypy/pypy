@@ -4,6 +4,7 @@ from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
 from pypy.interpreter.gateway import interp2app
 from pypy.module.rsocket.rsocket import RSocket, _c
 from pypy.module.rsocket.rsocket import SocketError, SocketErrorWithErrno
+from pypy.interpreter.error import OperationError
 
 
 class W_RSocket(Wrappable, RSocket):
@@ -56,6 +57,9 @@ class W_RSocket(Wrappable, RSocket):
             self.connect(self.addr_from_object(space, w_addr))
         except SocketError, e:
             raise converted_error(space, e)
+        except TypeError, e:
+            raise OperationError(space.w_TypeError,
+                                 space.wrap(str(e)))
     connect_w.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def connect_ex_w(self, space, w_addr):
@@ -227,7 +231,10 @@ def newsocket(space, w_subtype, family=_c.AF_INET,
     # on the standard object space, so this is not really correct.
     #sock = space.allocate_instance(W_RSocket, w_subtype)
     #Socket.__init__(sock, space, fd, family, type, proto)
-    sock = W_RSocket(family, type, proto)
+    try:
+        sock = W_RSocket(family, type, proto)
+    except SocketError, e:
+        raise converted_error(space, e)
     return space.wrap(sock)
 descr_socket_new = interp2app(newsocket,
                                unwrap_spec=[ObjSpace, W_Root, int, int, int])

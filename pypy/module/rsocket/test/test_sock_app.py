@@ -240,18 +240,16 @@ class AppTestSocket:
         raises(_socket.error, _socket.inet_ntoa, "ab")
 
     def test_aton_exceptions(self):
-        skip('In-progress')
         import _socket
         tests = ["127.0.0.256", "127.0.0.255555555555555555", "127.2b.0.0",
-            "127.2.0.0.1", "127.2..0", "255.255.255.255"]
+            "127.2.0.0.1", "127.2..0"]
         for ip in tests:
             raises(_socket.error, _socket.inet_aton, ip)
 
     def test_ntop_exceptions(self):
-        skip('In-progress')
         import _socket
         for family, packed, exception in \
-                    [(_socket.AF_INET + _socket.AF_INET6, "", ValueError),
+                    [(_socket.AF_INET + _socket.AF_INET6, "", _socket.error),
                      (_socket.AF_INET, "a", ValueError),
                      (_socket.AF_INET6, "a", ValueError),
                      (_socket.AF_INET, u"aa\u2222a", UnicodeEncodeError)]:
@@ -278,7 +276,6 @@ class AppTestSocket:
             raises(_socket.error, _socket.inet_pton, family, ip)
 
     def test_newsocket_error(self):
-        skip('In-progress')
         import _socket
         raises(_socket.error, _socket.socket, 10001, _socket.SOCK_STREAM, 0)
 
@@ -302,14 +299,12 @@ class AppTestSocket:
             assert 0
 
     def test_socket_close_error(self):
-        skip('In-progress')
         import _socket, os
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
         os.close(s.fileno())
         raises(_socket.error, s.close)
 
     def test_socket_connect(self):
-        skip('In-progress')
         import _socket, os
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
         # XXX temporarily we use codespeak to test, will have more robust tests in
@@ -321,7 +316,6 @@ class AppTestSocket:
         s.close()
 
     def test_socket_connect_typeerrors(self):
-        skip('In-progress')
         tests = [
             "",
             ("80"),

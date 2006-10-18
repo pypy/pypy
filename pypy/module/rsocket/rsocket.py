@@ -20,7 +20,6 @@ from ctypes import create_string_buffer, sizeof
 from pypy.rpython.rctypes.astruct import offsetof
 from pypy.module.rsocket.socketerror import socket_strerror
 
-
 class Address(object):
     """The base class for RPython-level objects representing addresses.
     Fields:  addr    - a _c.sockaddr structure
@@ -166,7 +165,10 @@ class INETAddress(IPAddress):
 
     def from_object(space, w_address):
         # Parse an app-level object representing an AF_INET address
-        w_host, w_port = space.unpackiterable(w_address, 2)
+        try:
+            w_host, w_port = space.unpackiterable(w_address, 2)
+        except ValueError:
+            raise TypeError("AF_INET address must be a tuple of length 2")
         host = space.str_w(w_host)
         port = space.int_w(w_port)
         return INETAddress(host, port)
@@ -249,8 +251,8 @@ class INET6Address(IPAddress):
     def from_object(space, w_address):
         pieces_w = space.unpackiterable(w_address)
         if not (2 <= len(pieces_w) <= 4):
-            raise RSocketError("AF_INET6 address must be a tuple of length 2 "
-                               "to 4, not %d" % len(pieces))
+            raise TypeError("AF_INET6 address must be a tuple of length 2 "
+                               "to 4, not %d" % len(pieces_w))
         host = space.str_w(pieces_w[0])
         port = space.int_w(pieces_w[1])
         if len(pieces_w) > 2: flowinfo = space.int_w(pieces_w[2])
@@ -357,6 +359,7 @@ for klass in [INETAddress,
 
 def familyclass(family):
     return _FAMILIES.get(family, Address)
+af_get = familyclass
 
 def make_address(addrptr, addrlen, result=None):
     family = addrptr.contents.sa_family
@@ -462,7 +465,9 @@ class RSocket(object):
         fd = self.fd
         if fd != _c.INVALID_SOCKET:
             self.fd = _c.INVALID_SOCKET
-            _c.socketclose(fd)
+            res = _c.socketclose(fd)
+            if res != 0:
+                raise self.error_handler()
 
     def connect(self, address):
         """Connect the socket to a remote address."""
@@ -826,7 +831,7 @@ def inet_ntop(family, packed):
     else:
         raise RSocketError("unknown address family")
     if len(packed) != srcsize:
-        raise RSocketError("packed IP wrong length for inet_ntop")
+        raise ValueError("packed IP wrong length for inet_ntop")
     srcbuf = create_string_buffer(srcsize)
     srcbuf.raw = packed
     dstbuf = create_string_buffer(dstsize)
