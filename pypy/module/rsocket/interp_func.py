@@ -252,7 +252,7 @@ def inet_ntop(space, family, packed):
         raise converted_error(space, e)
     except ValueError, e:
         raise OperationError(space.w_ValueError,
-                  space.wrap(str(e))
+                  space.wrap(str(e)))
     return space.wrap(ip)
 inet_ntop.unwrap_spec = [ObjSpace, int, str]
 
