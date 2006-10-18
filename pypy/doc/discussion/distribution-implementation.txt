@@ -40,6 +40,46 @@ So the basic scheme would look like::
 but is implemented differently (W_RemoteXXX), and uses app-level proxy
 to forward each interp-level method call.
 
+Abstraction layers:
+-------------------
+
+In this section we define remote side as a side on which calls are
+executed and local side is the one on which calls are run.
+
+* Looking from the local side, first thing that we see is object
+  which looks like normal object (has got the same interp-level typedef)
+  but has got different implementation. Basically this is the shallow copy
+  of remote object (however you define shallow, it's up to the code which
+  makes the copy. Basically the copy which can be marshalled or send over
+  the wire or saved for future purpose). This is W_RemoteXXX where XXX is
+  real object name. Some operations on that object requires accessing remote
+  side of the object, some might not need such (for example remote int
+  is totally the same int as local one, it could not even be implemented
+  differently).
+
+* For every interp-level operation, which accesses internals that are not
+  accessible at the local side, (basically all attribute accesses which
+  are accessing things that are subclasses of W_Object) we provide special
+  W_Remote version, which downloads necessary object when needed
+  (if accessed). This is the same as normal W_RemoteXXX (we know the type!)
+  but not needed yet.
+
+* From the remote point of view, every exported object which needs such
+  has got a local apropriate storage W_LocalXXX where XXX is a type 
+  by which it could be accessed from a wire.
+
+The real pain:
+--------------
+
+For every attribute access when we get W_RemoteXXX, we need to check
+the download flag - which sucks a bit. (And we have to support it somehow
+in annotator, which sucks a lot). The (some) idea is to wrap all the methods
+with additional checks, but that's both unclear and probably not necessary.
+
+XXX If we can easily change underlaying implementation of an object, than
+this might become way easier. Right now I'll try to have it working and
+thing about RPython later.
+
 App-level remote tool:
 ----------------------
 
