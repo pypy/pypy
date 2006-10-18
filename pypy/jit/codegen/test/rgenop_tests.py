@@ -59,6 +59,42 @@ def get_dummy_runner(RGenOp):
         return res
     return dummy_runner
 
+def make_branching(rgenop):
+    # 'if x > 5: return x-1
+    #  else:     return y'
+    signed_kind = rgenop.kindToken(lltype.Signed)
+    sigtoken = rgenop.sigToken(FUNC2)
+    builder, entrypoint, [gv_x, gv_y] = rgenop.newgraph(sigtoken)
+    gv_cond = builder.genop2("int_gt", gv_x, rgenop.genconst(5))
+    false_builder = builder.jump_if_false(gv_cond)
+
+    # true path
+    args_gv = [rgenop.genconst(1), gv_x, gv_y]
+    builder.enter_next_block([signed_kind, signed_kind, signed_kind], args_gv)
+    [gv_one, gv_x2, gv_y2] = args_gv
+
+    gv_s2 = builder.genop2("int_sub", gv_x2, gv_one)
+    builder.finish_and_return(sigtoken, gv_s2)
+
+    # false path
+    false_builder.finish_and_return(sigtoken, gv_y)
+
+    # done
+    gv_branchingfn = rgenop.gencallableconst(sigtoken,
+                                             "branching", entrypoint)
+    return gv_branchingfn
+
+def get_branching_runner(RGenOp):
+    def branching_runner(x, y):
+        rgenop = RGenOp()
+        gv_branchingfn = make_branching(rgenop)
+        branchingfn = gv_branchingfn.revealconst(lltype.Ptr(FUNC2))
+        res = branchingfn(x, y)
+        keepalive_until_here(rgenop)    # to keep the code blocks alive
+        return res
+    return branching_runner
+
+
 class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
     RGenOp = None
 
@@ -90,4 +126,20 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         fn = self.compile(get_dummy_runner(self.RGenOp), [int, int])
         res = fn(40, 37)
         assert res == 42
-        
+
+    def test_branching_direct(self):
+        rgenop = self.RGenOp()
+        gv_branchingfn = make_branching(rgenop)
+        fnptr = cast(c_void_p(gv_branchingfn.value),
+                     CFUNCTYPE(c_int, c_int, c_int))
+        res = fnptr(30, 17)
+        assert res == 29
+        res = fnptr(3, 17)
+        assert res == 17
+
+    def test_branching_compile(self):
+        fn = self.compile(get_branching_runner(self.RGenOp), [int, int])
+        res = fn(30, 17)
+        assert res == 29
+        res = fn(3, 17)
+        assert res == 17

@@ -154,7 +154,7 @@ class Builder(CodeGenerator):
             # turn constants into variables; also make copies of vars that
             # are duplicate in args_gv
             if not isinstance(gv, Var):
-                gv = args_gv[i] = gv.load(self)
+                gv = args_gv[i] = Var(RegisterLocation(gv.load(self)))
             elif gv.location in seen:
                 if isinstance(gv.location, RegisterLocation):
                     new_gv = args_gv[i] = self.newvar()
@@ -162,7 +162,7 @@ class Builder(CodeGenerator):
                     self.asm.mr(new_gv.reg(), gv.reg())
                     gv = new_gv
                 else:
-                    gv = args_gv[i] = gv.load(self)
+                    gv = args_gv[i] = Var(RegisterLocation(gv.load(self)))
             # remember the var's location
             arg_locations.append(gv.location)
             seen[gv.location] = None
@@ -174,19 +174,40 @@ class Builder(CodeGenerator):
         assert d < 12
         return Var(RegisterLocation(d))
 
-    def op_int_add(self, gv_x, gv_y):
+    def new_and_load_2(self, gv_x, gv_y):
         gv_result = self.newvar()
-        self.asm.add(gv_result.load(self),
-                     gv_x.load(self),
-                     gv_y.load(self))
+        return (gv_result, gv_x.load(self), gv_y.load(self))
+
+    def op_int_add(self, gv_x, gv_y):
+        gv_result, r_x, r_y = self.new_and_load_2(gv_x, gv_y)
+        self.asm.add(gv_result.reg(), r_x, r_y)
         return gv_result
 
     def op_int_sub(self, gv_x, gv_y):
-        gv_result = self.newvar()
-        self.asm.sub(gv_result.load(self),
-                     gv_x.load(self),
-                     gv_y.load(self))
+        gv_result, r_x, r_y = self.new_and_load_2(gv_x, gv_y)
+        self.asm.sub(gv_result.reg(), r_x, r_y)
         return gv_result
+
+    def op_int_gt(self, gv_x, gv_y):
+        gv_result, r_x, r_y = self.new_and_load_2(gv_x, gv_y)
+        r_result = gv_result.reg()
+        self.asm.cmpw(0, r_x, r_y)
+        self.asm.mfcr(r_result)
+        self.asm.extrwi(r_result, r_result, 1, 1)
+        return gv_result
+
+    def jump_if_false(self, gv_condition):
+        targetbuilder = self._fork()
+        gv = self.newvar()
+        self.asm.load_word(gv.reg(), targetbuilder.asm.mc.tell())
+        self.asm.mtctr(gv.reg())
+        self.asm.cmpwi(0, gv_condition.load(self), 0)
+        self.asm.beqctr()
+        return targetbuilder
+
+    def _fork(self):
+        return self.rgenop.openbuilder(self.stackdepth)
+
 
 class RPPCGenOp(AbstractRGenOp):
     from pypy.jit.codegen.i386.codebuf import MachineCodeBlock
