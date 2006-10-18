@@ -1,5 +1,10 @@
 from pypy.translator.cli.function import Function
 
+try:
+    set
+except NameError:
+    from sets import Set as set
+
 class Helper(Function):
     def render(self, ilasm):
         ilasm.begin_namespace('pypy.runtime')
