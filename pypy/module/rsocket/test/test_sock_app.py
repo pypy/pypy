@@ -188,54 +188,6 @@ def test_pton_ipv6():
             "(_socket, ip): return _socket.inet_pton(_socket.AF_INET6, ip)")
         assert space.unwrap(w_packed) == packed
 
-def app_test_ntoa_exception():
-    import _socket
-    if "pypy" not in _socket.__file__:
-        skip("needs _socket module enabled")
-    raises(_socket.error, _socket.inet_ntoa, "ab")
-
-def app_test_aton_exceptions():
-    import _socket
-    if "pypy" not in _socket.__file__:
-        skip("needs _socket module enabled")
-    tests = ["127.0.0.256", "127.0.0.255555555555555555", "127.2b.0.0",
-        "127.2.0.0.1", "127.2..0", "255.255.255.255"]
-    for ip in tests:
-        raises(_socket.error, _socket.inet_aton, ip)
-
-def app_test_ntop_exceptions():
-    import _socket
-    if "pypy" not in _socket.__file__:
-        skip("needs _socket module enabled")
-    for family, packed, exception in \
-                [(_socket.AF_INET + _socket.AF_INET6, "", ValueError),
-                 (_socket.AF_INET, "a", ValueError),
-                 (_socket.AF_INET6, "a", ValueError),
-                 (_socket.AF_INET, u"aa\u2222a", UnicodeEncodeError)]:
-        raises(exception, _socket.inet_ntop, family, packed)
-
-def app_test_pton_exceptions():
-    import _socket
-    if "pypy" not in _socket.__file__:
-        skip("needs _socket module enabled")
-    tests = [
-        (_socket.AF_INET + _socket.AF_INET6, ""),
-        (_socket.AF_INET, "127.0.0.256"),
-        (_socket.AF_INET, "127.0.0.255555555555555555"),
-        (_socket.AF_INET, "127.2b.0.0"),
-        (_socket.AF_INET, "127.2.0.0.1"),
-        (_socket.AF_INET, "127.2..0"),
-        (_socket.AF_INET6, "127.0.0.1"),
-        (_socket.AF_INET6, "1::2::3"),
-        (_socket.AF_INET6, "1:1:1:1:1:1:1:1:1"),
-        (_socket.AF_INET6, "1:1:1:1:1:1:1:1::"),
-        (_socket.AF_INET6, "1:1:1::1:1:1:1:1"),
-        (_socket.AF_INET6, "1::22222:1"),
-        (_socket.AF_INET6, "1::eg"),
-    ]
-    for family, ip in tests:
-        raises(_socket.error, _socket.inet_pton, family, ip)
-
 def test_has_ipv6():
     py.test.skip("has_ipv6 is always True on PyPy for now")
     res = space.appexec([w_socket], "(_socket): return _socket.has_ipv6")
@@ -275,64 +227,6 @@ def test_timeout():
                   "(_socket): return _socket.getdefaulttimeout()")
     assert space.unwrap(w_t) is None
 
-def app_test_newsocket_error():
-    import _socket
-    if "pypy" not in _socket.__file__:
-        skip("needs _socket module enabled")
-    raises(_socket.error, _socket.socket, 10001, _socket.SOCK_STREAM, 0)
-
-def app_test_socket_fileno():
-    import _socket
-    s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
-    assert s.fileno() > -1
-    assert isinstance(s.fileno(), int)
-
-def app_test_socket_close():
-    import _socket, errno
-    if "pypy" not in _socket.__file__:
-        skip("needs _socket module enabled")
-    s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
-    fileno = s.fileno()
-    s.close()
-    s.close()
-    try:
-        s.fileno()
-    except _socket.error, ex:
-        assert ex.args[0], errno.EBADF
-    else:
-        assert 0
-
-def app_test_socket_close_error():
-    import _socket, os
-    if "pypy" not in _socket.__file__:
-        skip("needs _socket module enabled")
-    s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
-    os.close(s.fileno())
-    raises(_socket.error, s.close)
-
-def app_test_socket_connect():
-    import _socket, os
-    s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
-    # XXX temporarily we use codespeak to test, will have more robust tests in
-    # the absence of a network connection later when mroe parts of the socket
-    # API are implemented.
-    s.connect(("codespeak.net", 80))
-    name = s.getpeername() # Will raise socket.error if not connected
-    assert name[1] == 80
-    s.close()
-
-def app_test_socket_connect_typeerrors():
-    tests = [
-        "",
-        ("80"),
-        ("80", "80"),
-        (80, 80),
-    ]
-    import _socket
-    s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
-    for args in tests:
-        raises(TypeError, s.connect, args)
-    s.close()
 
 # XXX also need tests for other connection and timeout errors
 
@@ -340,6 +234,105 @@ def app_test_socket_connect_typeerrors():
 class AppTestSocket:
     def setup_class(cls):
         cls.space = space
+
+    def test_ntoa_exception(self):
+        import _socket
+        raises(_socket.error, _socket.inet_ntoa, "ab")
+
+    def test_aton_exceptions(self):
+        skip('In-progress')
+        import _socket
+        tests = ["127.0.0.256", "127.0.0.255555555555555555", "127.2b.0.0",
+            "127.2.0.0.1", "127.2..0", "255.255.255.255"]
+        for ip in tests:
+            raises(_socket.error, _socket.inet_aton, ip)
+
+    def test_ntop_exceptions(self):
+        skip('In-progress')
+        import _socket
+        for family, packed, exception in \
+                    [(_socket.AF_INET + _socket.AF_INET6, "", ValueError),
+                     (_socket.AF_INET, "a", ValueError),
+                     (_socket.AF_INET6, "a", ValueError),
+                     (_socket.AF_INET, u"aa\u2222a", UnicodeEncodeError)]:
+            raises(exception, _socket.inet_ntop, family, packed)
+
+    def test_pton_exceptions(self):
+        import _socket
+        tests = [
+            (_socket.AF_INET + _socket.AF_INET6, ""),
+            (_socket.AF_INET, "127.0.0.256"),
+            (_socket.AF_INET, "127.0.0.255555555555555555"),
+            (_socket.AF_INET, "127.2b.0.0"),
+            (_socket.AF_INET, "127.2.0.0.1"),
+            (_socket.AF_INET, "127.2..0"),
+            (_socket.AF_INET6, "127.0.0.1"),
+            (_socket.AF_INET6, "1::2::3"),
+            (_socket.AF_INET6, "1:1:1:1:1:1:1:1:1"),
+            (_socket.AF_INET6, "1:1:1:1:1:1:1:1::"),
+            (_socket.AF_INET6, "1:1:1::1:1:1:1:1"),
+            (_socket.AF_INET6, "1::22222:1"),
+            (_socket.AF_INET6, "1::eg"),
+        ]
+        for family, ip in tests:
+            raises(_socket.error, _socket.inet_pton, family, ip)
+
+    def test_newsocket_error(self):
+        skip('In-progress')
+        import _socket
+        raises(_socket.error, _socket.socket, 10001, _socket.SOCK_STREAM, 0)
+
+    def test_socket_fileno(self):
+        import _socket
+        s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
+        assert s.fileno() > -1
+        assert isinstance(s.fileno(), int)
+
+    def test_socket_close(self):
+        import _socket, errno
+        s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
+        fileno = s.fileno()
+        s.close()
+        s.close()
+        try:
+            s.fileno()
+        except _socket.error, ex:
+            assert ex.args[0], errno.EBADF
+        else:
+            assert 0
+
+    def test_socket_close_error(self):
+        skip('In-progress')
+        import _socket, os
+        s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
+        os.close(s.fileno())
+        raises(_socket.error, s.close)
+
+    def test_socket_connect(self):
+        skip('In-progress')
+        import _socket, os
+        s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
+        # XXX temporarily we use codespeak to test, will have more robust tests in
+        # the absence of a network connection later when mroe parts of the socket
+        # API are implemented.
+        s.connect(("codespeak.net", 80))
+        name = s.getpeername() # Will raise socket.error if not connected
+        assert name[1] == 80
+        s.close()
+
+    def test_socket_connect_typeerrors(self):
+        skip('In-progress')
+        tests = [
+            "",
+            ("80"),
+            ("80", "80"),
+            (80, 80),
+        ]
+        import _socket
+        s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
+        for args in tests:
+            raises(TypeError, s.connect, args)
+        s.close()
 
     def test_NtoH(self):
         import _socket as socket
