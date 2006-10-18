@@ -36,6 +36,9 @@ def make_func(name, desc):
     assert 'v' not in sig # that wouldn't be funny
     #body.append('print %r'%name + ', ' + ', '.join(["'%s:', %s"%(s, s) for s in sig]))
     for field, value in fieldvalues:
+        if field.name == 'spr':
+            body.append('spr = (%s&31) << 5 | (%s >> 5 & 31)'%(value, value))
+            value = 'spr'
         body.append('v |= (%3s & %#05x) << %d'%(value,
                                            field.mask,
                                            (32 - field.right - 1)))

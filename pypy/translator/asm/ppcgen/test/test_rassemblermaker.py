@@ -20,7 +20,7 @@ def test_rtyped():
         return ra.insts[0]
     res = interpret(f, [])
     assert res == add_r3_r3_r4
-    
+
 def test_mnemonic():
     mrs = []
     for A in PPCAssembler, RPPCAssembler:
@@ -28,4 +28,12 @@ def test_mnemonic():
         a.mr(3, 4)
         mrs.append(a.insts[0])
     assert mrs[0].assemble() == mrs[1]
-    
+
+def test_spr_coding():
+    mrs = []
+    for A in PPCAssembler, RPPCAssembler:
+        a = A()
+        a.mtctr(3)
+        mrs.append(a.insts[0])
+    assert mrs[0].assemble() == mrs[1]
+
