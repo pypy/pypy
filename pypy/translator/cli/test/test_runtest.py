@@ -7,6 +7,23 @@ def ident(x):
 
 class TestRunTest(CliTest):
 
+    def test_patch_os(self):
+        import os
+        from pypy.translator.cli.support import patch, unpatch, NT_OS
+        original_O_CREAT = os.O_CREAT
+        olddefs = patch()
+        assert os.O_CREAT == NT_OS['O_CREAT']
+        unpatch(*olddefs)
+        assert os.O_CREAT == original_O_CREAT
+
+    def test_patch_ROOT(self):
+        from pypy.translator.cli.support import patch, unpatch
+        from pypy.rpython.ootypesystem import ootype
+        olddefs = patch()
+        assert 'ToString' in ootype.ROOT._methods
+        unpatch(*olddefs)
+        assert 'ToString' not in ootype.ROOT._methods
+
     def test_int(self):
         assert self.interpret(ident, [42]) == 42
     

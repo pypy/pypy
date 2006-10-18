@@ -14,6 +14,7 @@ from pypy.rpython.ootypesystem.module import ll_os
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem import llmemory
 from pypy.translator.cli.opcodes import opcodes
+from pypy.translator.cli import dotnet
 from pypy.rpython.objectmodel import CDefinedIntSymbolic
 
 try:
@@ -102,16 +103,21 @@ class LowLevelDatabase(object):
             return self.classes[INSTANCE]
         except KeyError:
             pass
-        namespace, name = self._default_class_name(INSTANCE)
-        name = self.get_unique_class_name(namespace, name)
-        if namespace is None:
-            full_name = name
+        
+        if isinstance(INSTANCE, dotnet.NativeInstance):
+            self.classes[INSTANCE] = INSTANCE._name
+            return INSTANCE._name
         else:
-            full_name = '%s.%s' % (namespace, name)
-        self.classes[INSTANCE] = full_name
-        cls = Class(self, INSTANCE, namespace, name)
-        self.pending_node(cls)
-        return full_name
+            namespace, name = self._default_class_name(INSTANCE)
+            name = self.get_unique_class_name(namespace, name)
+            if namespace is None:
+                full_name = name
+            else:
+                full_name = '%s.%s' % (namespace, name)
+            self.classes[INSTANCE] = full_name
+            cls = Class(self, INSTANCE, namespace, name)
+            self.pending_node(cls)
+            return full_name
 
     def pending_record(self, RECORD):
         try:

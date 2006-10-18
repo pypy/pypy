@@ -28,7 +28,7 @@ class _Call(MicroInstruction):
         ret_type = cts.lltype_to_cts(funcdesc.resulttype)
         arg_types = [cts.lltype_to_cts(arg) for arg in funcdesc.argtypes if arg is not ootype.Void]
         arg_list = ', '.join(arg_types)
-        signature = '%s [mscorlib]%s::%s(%s)' % (ret_type, funcdesc.class_name, funcdesc.method_name, arg_list)
+        signature = '%s %s::%s(%s)' % (ret_type, funcdesc.class_name, funcdesc.method_name, arg_list)
         generator.call_signature(signature)
 
     def _render_function(self, generator, graph, args):

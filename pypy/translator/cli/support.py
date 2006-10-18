@@ -1,3 +1,5 @@
+from pypy.rpython.ootypesystem import ootype
+
 # some code has been stolen from genc
 def string_literal(s):
     def char_repr(c):
@@ -58,7 +60,7 @@ NT_OS = dict(
     O_BINARY = 0x8000
     )
 
-def patch_os(defs=None):
+def _patch_os(defs=None):
     """
     Modify the value of some attributes of the os module to be sure
     they are the same on every platform pypy is compiled on. Returns a
@@ -77,3 +79,24 @@ def patch_os(defs=None):
             pass
         setattr(os, name, value)
     return olddefs
+
+def _patch_ROOT():
+    """
+    In gencli ootype.ROOT corresponds to System.Object: make the
+    annotator aware of its native methods such as ToString().
+    """
+    oldmeths = ootype.ROOT._methods.copy()
+    ootype.ROOT._add_methods({'ToString': ootype.meth(ootype.Meth([], ootype.String))})
+    return oldmeths
+
+def _unpatch_ROOT(oldmeths):
+    ootype.ROOT._methods = oldmeths
+
+def patch():
+    olddefs = _patch_os()
+    oldmeths = _patch_ROOT()
+    return olddefs, oldmeths
+
+def unpatch(olddefs, oldmeths):
+    _patch_os(olddefs)
+    _unpatch_ROOT(oldmeths)

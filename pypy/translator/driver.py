@@ -508,12 +508,12 @@ class TranslationDriver(SimpleTaskEngine):
                              'Generating CLI source')
 
     def task_compile_cli(self):
-        from pypy.translator.cli.support import patch_os
+        from pypy.translator.cli.support import unpatch
         from pypy.translator.cli.test.runtest import CliFunctionWrapper
         filename = self.gen.build_exe()
         self.c_entryp = CliFunctionWrapper(filename)
         # restore original os values
-        patch_os(self.old_os_defs)
+        unpatch(*self.old_cli_defs)
         
         self.log.info("Compiled %s" % filename)
     task_compile_cli = taskdef(task_compile_cli, ['source_cli'],
@@ -550,8 +550,8 @@ class TranslationDriver(SimpleTaskEngine):
         # have the same value on every platform.
         backend, ts = driver.get_backend_and_type_system()
         if backend == 'cli':
-            from pypy.translator.cli.support import patch_os
-            driver.old_os_defs = patch_os()
+            from pypy.translator.cli.support import patch
+            driver.old_cli_defs = patch()
         
         target = targetspec_dic['target']
         spec = target(driver, args)

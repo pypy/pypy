@@ -17,14 +17,6 @@ class TestCliBuiltin(CliTest, BaseTestRbuiltin):
     test_os_path_exists = skip_os
     test_os_isdir = skip_os
 
-    def test_patch_os(self):
-        from pypy.translator.cli.support import patch_os, NT_OS
-        original_O_CREAT = os.O_CREAT
-        olddefs = patch_os()
-        assert os.O_CREAT == NT_OS['O_CREAT']
-        patch_os(olddefs)
-        assert os.O_CREAT == original_O_CREAT
-
     def test_os_flags(self):
         from pypy.translator.cli.support import NT_OS
         def fn():

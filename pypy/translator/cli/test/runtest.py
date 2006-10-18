@@ -18,7 +18,7 @@ from pypy.translator.cli.cts import CTS
 from pypy.translator.cli.database import LowLevelDatabase
 from pypy.translator.cli.sdk import SDK
 from pypy.translator.cli.entrypoint import BaseEntryPoint
-from pypy.translator.cli.support import patch_os
+from pypy.translator.cli.support import patch, unpatch
 
 FLOAT_PRECISION = 8
 
@@ -113,11 +113,11 @@ class TestEntryPoint(BaseEntryPoint):
 
 
 def compile_function(func, annotation=[], graph=None):
-    olddefs = patch_os() # patch the values of some attributes of the os module
+    olddefs = patch()
     gen = _build_gen(func, annotation, graph)
     gen.generate_source()
     exe_name = gen.build_exe()
-    patch_os(olddefs) # restore original values
+    unpatch(*olddefs) # restore original values
     return CliFunctionWrapper(exe_name)
 
 def _build_gen(func, annotation, graph=None):
@@ -135,6 +135,9 @@ def _build_gen(func, annotation, graph=None):
     else:
         ann = t.buildannotator()
         ann.build_types(func, annotation)
+
+    if getoption('view'):
+       t.view()
 
     t.buildrtyper(type_system="ootype").specialize()
     main_graph = t.graphs[0]
