@@ -298,7 +298,15 @@ namespace pypy.builtin
             if (path == "")
                 raise_OSError(Errno.ENOENT, "No such file or directory: ''");
 
-            FileInfo f = new FileInfo(path);
+            FileInfo f;
+            try {
+                f = new FileInfo(path);
+            }
+            catch(System.ArgumentException e) {
+                raise_OSError(Errno.EINVAL, e.Message);
+                return null;
+            }
+
             if (f.Exists) {
                 Record_Stat_Result res = new Record_Stat_Result();
                 TimeSpan t = File.GetLastWriteTime(path) - new DateTime(1970, 1, 1);
