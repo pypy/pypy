@@ -33,11 +33,11 @@ class CRLocation(VarLocation):
         self.bit = bit
         self.negated = negated
     def load(self, builder):
-        XXX
+        #XXX
         # probably:
         r = builder.newvar().reg()
-        self.asm.mfcr(r)
-        self.asm.extrwi(r, r, 1, self.bit)
+        builder.asm.mfcr(r)
+        builder.asm.extrwi(r, r, 1, self.bit)
         return r
         # though most of the time, if we know the result is going to
         # be put in a register there are better ways of doing it...
@@ -232,21 +232,44 @@ class Builder(CodeGenerator):
         gv_result = self.newvar()
         return (gv_result, gv_x.load(self), gv_y.load(self))
 
+    def new_and_load_1(self, gv_x):
+        gv_result = self.newvar()
+        return (gv_result, gv_x.load(self))
+
     def op_int_add(self, gv_x, gv_y):
-        gv_result, r_x, r_y = self.new_and_load_2(gv_x, gv_y)
-        self.asm.add(gv_result.reg(), r_x, r_y)
-        return gv_result
+        if isinstance(gv_y, IntConst) and abs(gv_y.value) < 2*16:
+            gv_result, r_x = self.new_and_load_1(gv_x)
+            self.asm.addi(gv_result.reg(), r_x, gv_y.value)
+            return gv_result
+        elif isinstance(gv_x, IntConst):
+            return self.op_int_add(gv_y, gv_x)
+        else:
+            gv_result, r_x, r_y = self.new_and_load_2(gv_x, gv_y)
+            self.asm.add(gv_result.reg(), r_x, r_y)
+            return gv_result
 
     def op_int_sub(self, gv_x, gv_y):
         gv_result, r_x, r_y = self.new_and_load_2(gv_x, gv_y)
         self.asm.sub(gv_result.reg(), r_x, r_y)
         return gv_result
 
+    def _compare(self, gv_x, gv_y):
+        if isinstance(gv_y, IntConst) and abs(gv_y.value) < 2*16:
+            r_x = gv_x.load(self)
+            self.asm.cmpwi(0, r_x, gv_y.value)
+            return False
+        elif isinstance(gv_x, IntConst) and abs(gv_x.value) < 2*16:
+            r_y = gv_y.load(self)
+            self.asm.cmpwi(0, r_y, gv_x.value)
+            return True
+        else:
+            r_x, r_y = gv_x.load(self), gv_y.load(self)
+            self.asm.cmpw(0, r_x, r_y)
+            return False
+
     def op_int_gt(self, gv_x, gv_y):
-        r_x, r_y = gv_x.load(self), gv_y.load(self)
-        gv_result = Var(CRLocation(1, False))
-        self.asm.cmpw(0, r_x, r_y)
-        return gv_result
+        flipped = self._compare(gv_x, gv_y)
+        return Var(CRLocation(1, flipped))
 
     def _jump(self, gv_condition, if_true):
         targetbuilder = self._fork()
