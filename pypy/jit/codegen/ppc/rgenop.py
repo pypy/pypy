@@ -253,6 +253,11 @@ class Builder(CodeGenerator):
         self.asm.sub(gv_result.reg(), r_x, r_y)
         return gv_result
 
+    def op_int_floordiv(self, gv_x, gv_y):
+        gv_result, r_x, r_y = self.new_and_load_2(gv_x, gv_y)
+        self.asm.divw(gv_result.reg(), r_x, r_y)
+        return gv_result
+
     def _compare(self, gv_x, gv_y):
         if isinstance(gv_y, IntConst) and abs(gv_y.value) < 2*16:
             r_x = gv_x.load(self)
