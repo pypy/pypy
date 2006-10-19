@@ -1,7 +1,7 @@
 from pypy.interpreter import baseobjspace, gateway, typedef
 from pypy.interpreter.error import OperationError
 
-from pypy.objspace.cclp.misc import w, ClonableCoroutine, get_current_cspace
+from pypy.objspace.cclp.misc import w, AppCoroutine, get_current_cspace
 
 W_Root = baseobjspace.W_Root
 
@@ -31,7 +31,7 @@ class W_Future(W_Var):
     "a read-only-by-its-consummer variant of logic. var"
     def __init__(w_self, space):
         W_Var.__init__(w_self, space)
-        w_self._client = ClonableCoroutine.w_getcurrent(space)
+        w_self._client = AppCoroutine.w_getcurrent(space)
         w("FUT", str(w_self))
 
 

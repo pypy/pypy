@@ -10,7 +10,7 @@ from pypy.objspace.std.listobject import W_ListObject, W_TupleObject
 
 from pypy.module._stackless.interp_coroutine import AbstractThunk
 
-from pypy.objspace.cclp.misc import ClonableCoroutine, get_current_cspace, w
+from pypy.objspace.cclp.misc import AppCoroutine, get_current_cspace, w
 from pypy.objspace.cclp.thunk import CSpaceThunk, PropagatorThunk
 from pypy.objspace.cclp.global_state import sched
 from pypy.objspace.cclp.variable import newvar
@@ -20,47 +20,19 @@ from pypy.objspace.cclp.interp_var import interp_bind, interp_free
 from pypy.objspace.cclp.constraint.distributor import distribute
 from pypy.objspace.cclp.scheduler import W_ThreadGroupScheduler
 
+from pypy.rpython.rgc import gc_swap_pool, gc_clone
 
-class NewSpaceThunk(AbstractThunk):
-    "container thread for one comp. space"
-    def __init__(self, space, w_callable, __args__, thread):
-        self.space = space
-        self.thread = thread
-        self.cspace = None
-        self.callable = w_callable
-        self.args = __args__
-
-    def call(self):
-        try:
-            self.cspace = _newspace(self.space,
-                                    self.callable,
-                                    self.args)
-            self.space.wait(self.cspace._finished)
-        finally:
-            sched.uler.remove_thread(self.thread)
-            sched.uler.schedule()
-
-def _newspace(space, w_callable, __args__):
+def newspace(space, w_callable, __args__):
+    "application level creation of a new computation space"
     args = __args__.normalize()
-    dist_thread = ClonableCoroutine(space)
+    dist_thread = AppCoroutine(space)
+    dist_thread._next = dist_thread._prev = dist_thread
     thunk = CSpaceThunk(space, w_callable, args, dist_thread)
     dist_thread.bind(thunk)
     if not we_are_translated():
         w("NEWSPACE, (distributor) thread", str(id(dist_thread)), "for", str(w_callable.name))
     w_space = W_CSpace(space, dist_thread)
     return w_space
-
-def newspace(space, w_callable, __args__):
-    "application level creation of a new computation space"
-    outer_thread = ClonableCoroutine(space)
-    outer_thread._cspace = get_current_cspace(space)
-    thunk = NewSpaceThunk(space, w_callable, __args__, outer_thread)
-    outer_thread.bind(thunk)
-    sched.uler.add_new_thread(outer_thread)
-    sched.uler.schedule() # XXX assumption: thread will be executed before we get back there
-    cspace = thunk.cspace
-    cspace._container = outer_thread
-    return cspace
 app_newspace = gateway.interp2app(newspace, unwrap_spec=[baseobjspace.ObjSpace,
                                                          baseobjspace.W_Root,
                                                          argument.Arguments])
@@ -99,6 +71,7 @@ if not we_are_translated():
 
 
 class W_CSpace(W_ThreadGroupScheduler):
+    local_pool = None
 
     def __init__(self, space, dist_thread):
         W_ThreadGroupScheduler.__init__(self, space)
@@ -125,63 +98,20 @@ class W_CSpace(W_ThreadGroupScheduler):
         self._store[cvar.name] = cvar
 
     def w_clone(self):
-        if not we_are_translated():
-            raise NotImplementedError
-            # build fresh cspace & distributor thread
-            #dist_thread = ClonableCoroutine(self.space)
-            #new_cspace = W_CSpace(self.space, dist_thread)
-            #dist_thread._cspace = new_cspace
-            # new distributor instance
-            #old_dist = self.distributor
-            #new_dist = old_dist.__class__(self.space, old_dist._fanout)
-            #new_dist._cspace = new_cspace
-            #new_cspace.distributor = new_dist
-            # copy the store
-            #for var in self._store.values():
-            #    new_cspace.register_var(var.copy(self.space))
-            # new distributor thunk, binding
-            #f = Function(self.space,
-            #             app_fresh_distributor._code,
-            #             self.space.newdict())
-            #thunk = CSpaceThunk(self.space, f,
-            #                    argument.Arguments(self.space, [new_dist]),
-            #                    dist_thread)
-            #dist_thread.bind(thunk)
-            # relinking to scheduler
-            #sched.uler.add_new_group(new_cspace)
-            #self.add_new_thread(dist_thread)
-            # rebuild propagators
-            #for const in self._constraints:
-            #    ccopy = const.copy(self.space)
-            #    ccopy._cspace = new_cspace
-            #    new_cspace.tell(const)
-            # duh 
-            #new_cspace._last_choice = self._last_choice
-            # copy solution variables
-            #self.space.unify(new_cspace._solution,
-            #                 self.space.newlist([var for var in new_cspace._store.values()]))
-            #new_cspace.wait_stable()
-            #return new_cspace
-        else:
-            # the theory is that
-            # a) we create a (clonable) container thread for any 'newspace'
-            # b) at clone-time, we clone that container, hoping that
-            # indeed everything will come with it
-            w("cloning the container thread")
-            everything = self._container.w_clone()
-            w("getting the fresh cspace from it")
-            new_cspace = everything._cspace
-            w("registering the container clone to top level cspace scheduler")
-            sched.main_thread._cspace.add_new_thread(everything)
-            w("add container clone to blocked on cspace clone variable _finished")
-            # we crash below
-            sched.uler.add_to_blocked_on(new_cspace._finished, everything)
-            # however, we need to keep track of all threads created
-            # from 'within' the space (propagators, or even app-level threads)
-            # -> cspaces as thread groups
-            w("add cloned cspace to new group")
+        if we_are_translated():
+            w("<> cloning the space")
+            if self.local_pool is None:
+                self.local_pool = gc_swap_pool(gc_swap_pool(None))
+            new_cspace, new_cspace.local_pool = gc_clone(self, self.local_pool)
+            w("<> add cloned cspace to new group")
+            assert isinstance(new_cspace, W_CSpace)
+            new_cspace._next = new_cspace._prev = new_cspace
             sched.uler.add_new_group(new_cspace)
+            w("<> returning clone ")
             return new_cspace
+        else:
+            raise NotImplementedError
+
 
     def w_ask(self):
         self.wait_stable()
@@ -217,7 +147,8 @@ class W_CSpace(W_ThreadGroupScheduler):
 
     def tell(self, w_constraint):
         space = self.space
-        w_coro = ClonableCoroutine(space)
+        w_coro = AppCoroutine(space)
+        w_coro._next = w_coro._prev = w_coro
         w_coro._cspace = self
         thunk = PropagatorThunk(space, w_constraint, w_coro)
         w_coro.bind(thunk)

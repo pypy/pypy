@@ -3,6 +3,7 @@ from pypy.rpython.objectmodel import we_are_translated
 
 # commonly imported there, used from types, variable, thread
 from pypy.module._stackless.clonable import ClonableCoroutine
+from pypy.module._stackless.coroutine import AppCoroutine
 
 import os
 
@@ -25,8 +26,8 @@ def v(*msgs):
         os.write(1, ' ')
 
 def get_current_cspace(space):
-    curr = ClonableCoroutine.w_getcurrent(space)
-    assert isinstance(curr, ClonableCoroutine)
+    curr = AppCoroutine.w_getcurrent(space)
+    assert isinstance(curr, AppCoroutine)
     if curr._cspace is None:
         if not we_are_translated():
             import pdb

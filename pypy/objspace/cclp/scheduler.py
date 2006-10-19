@@ -4,7 +4,7 @@ from pypy.interpreter import gateway, baseobjspace
 from pypy.objspace.std.listobject import W_ListObject
 
 from pypy.objspace.cclp.types import W_Var, W_FailedValue, aliases
-from pypy.objspace.cclp.misc import w, v, ClonableCoroutine, get_current_cspace
+from pypy.objspace.cclp.misc import w, v, AppCoroutine, get_current_cspace
 from pypy.objspace.cclp.global_state import sched
 
 #-- Singleton scheduler ------------------------------------------------
@@ -22,18 +22,18 @@ class TopLevelScheduler(object):
         self._head._next = self._head._prev = self._head
         # asking for stability
         self._asking = {} # cspace -> thread set
-        self._asking[top_level_space] = {}
+        self._asking[top_level_space] = {} # XXX
         # variables suspension lists
         self._blocked = {}
         self._blocked_on = {} # var -> threads
         self._blocked_byneed = {} # var -> threads
         
     def _chain_insert(self, group):
-        assert group._next is group
-        assert group._prev is group
-        assert isinstance(group, W_ThreadGroupScheduler)
-        assert isinstance(group._next, W_ThreadGroupScheduler)
-        assert isinstance(group._prev, W_ThreadGroupScheduler)
+        assert group._next is group, "group._next not correctly linked"
+        assert group._prev is group, "group._prev not correctly linked"
+        assert isinstance(group, W_ThreadGroupScheduler), "type error"
+        assert isinstance(group._next, W_ThreadGroupScheduler), "type error"
+        assert isinstance(group._prev, W_ThreadGroupScheduler), "type error"
         r = self._head
         l = r._prev
         l._next = group
@@ -43,7 +43,7 @@ class TopLevelScheduler(object):
 
     def schedule(self):
         to_be_run = self._select_next()
-        assert isinstance(to_be_run, W_ThreadGroupScheduler)
+        assert isinstance(to_be_run, W_ThreadGroupScheduler), "type error"
         #w(".. SWITCHING (spaces)", str(id(get_current_cspace(self.space))), "=>", str(id(to_be_run)))
         self._switch_count += 1
         to_be_run.schedule() 
@@ -56,7 +56,7 @@ class TopLevelScheduler(object):
             if to_be_run.is_runnable():
                 break
             to_be_run = to_be_run._next
-            assert isinstance(to_be_run, W_ThreadGroupScheduler)
+            assert isinstance(to_be_run, W_ThreadGroupScheduler), "type error"
             if to_be_run == sentinel:
                 reset_scheduler(self.space)
                 w(".. SCHEDULER reinitialized")
@@ -68,13 +68,13 @@ class TopLevelScheduler(object):
 
     def add_new_group(self, group):
         "insert 'group' at end of running queue"
-        assert isinstance(group, W_ThreadGroupScheduler)
+        assert isinstance(group, W_ThreadGroupScheduler), "type error"
         w(".. ADDING group", str(id(group)))
         self._asking[group] = {}
         self._chain_insert(group)
 
     def remove_group(self, group):
-        assert isinstance(group, W_ThreadGroupScheduler)
+        assert isinstance(group, W_ThreadGroupScheduler), "type error"
         w(".. REMOVING group", str(id(group)))
         l = group._prev
         r = group._next
@@ -96,8 +96,8 @@ class TopLevelScheduler(object):
 
     def add_to_blocked_on(self, w_var, thread):
         w(".. we BLOCK thread", str(id(thread)), "on var", str(w_var))
-        assert isinstance(w_var, W_Var)
-        assert isinstance(thread, ClonableCoroutine)
+        assert isinstance(w_var, W_Var), "type error"
+        assert isinstance(thread, AppCoroutine), "type error"
         assert thread not in self._blocked
         if w_var in self._blocked_on:
             blocked = self._blocked_on[w_var]
@@ -112,7 +112,7 @@ class TopLevelScheduler(object):
             
     def unblock_on(self, w_var):
         v(".. we UNBLOCK threads dependants of var", str(w_var))
-        assert isinstance(w_var, W_Var)
+        assert isinstance(w_var, W_Var), "type error"
         blocked = []
         if w_var in self._blocked_on:
             blocked = self._blocked_on[w_var]
@@ -125,8 +125,8 @@ class TopLevelScheduler(object):
     #XXX sync the un/block byneed stuff with above, later
     def add_to_blocked_byneed(self, w_var, thread):
         w(".. we BLOCK BYNEED thread", str(id(thread)), "on var", str(w_var))
-        assert isinstance(w_var, W_Var)
-        assert isinstance(thread, ClonableCoroutine)
+        assert isinstance(w_var, W_Var), "type error"
+        assert isinstance(thread, AppCoroutine), "type error"
         if w_var in self._blocked_byneed:
             blocked = self._blocked_byneed[w_var]
         else:
@@ -138,7 +138,7 @@ class TopLevelScheduler(object):
 
     def unblock_byneed_on(self, w_var):
         v(".. we UNBLOCK BYNEED dependants of var", str(w_var))
-        assert isinstance(w_var, W_Var)
+        assert isinstance(w_var, W_Var), "type error"
         blocked = []
         for w_alias in aliases(self.space, w_var):
             if w_alias in self._blocked_byneed:
@@ -190,10 +190,10 @@ class TopLevelScheduler(object):
         si = self.space.setitem
         w_all = s.newdict()
         si(w_all, s.newint(id(self._head)), self._head.group_info())
-        assert isinstance(self._head, W_ThreadGroupScheduler)
+        assert isinstance(self._head, W_ThreadGroupScheduler), "type error"
         curr = self._head._next
         while curr != self._head:
-            assert isinstance(curr, W_ThreadGroupScheduler)
+            assert isinstance(curr, W_ThreadGroupScheduler), "type error"
             si(w_all, s.newint(id(curr)), curr.group_info())
             curr = curr._next
         si(w_all, s.wrap('blocked'), self.w_blocked())
@@ -240,18 +240,18 @@ class W_ThreadGroupScheduler(baseobjspace.Wrappable):
         self.blocked_count = 0
 
     def _init_head(self, thread):
-        assert isinstance(thread, ClonableCoroutine)
+        assert isinstance(thread, AppCoroutine), "type error"
         self._head = thread
         thread._next = thread._prev = thread
         assert self._head._next == self._head
         w("HEAD (main) THREAD = ", str(id(self._head)))
             
     def _chain_insert(self, thread):
-        assert thread._next is thread
-        assert thread._prev is thread
-        assert isinstance(thread, ClonableCoroutine)
-        assert isinstance(thread._next, ClonableCoroutine)
-        assert isinstance(thread._prev, ClonableCoroutine)
+        assert thread._next is thread, "thread._next not correctly linked"
+        assert thread._prev is thread, "thread._prev not correctly linked"
+        assert isinstance(thread, AppCoroutine), "type error"
+        assert isinstance(thread._next, AppCoroutine), "type error"
+        assert isinstance(thread._prev, AppCoroutine), "type error"
         r = self._head
         l = r._prev
         l._next = thread
@@ -281,8 +281,8 @@ class W_ThreadGroupScheduler(baseobjspace.Wrappable):
           str(id(get_current_cspace(self.space))))
         if self.is_stable():
             return
-        curr = ClonableCoroutine.w_getcurrent(self.space)
-        assert isinstance(curr, ClonableCoroutine)
+        curr = AppCoroutine.w_getcurrent(self.space)
+        assert isinstance(curr, AppCoroutine), "type error"
         asking = sched.uler._asking
         if self in asking:
             asking[self][curr] = True
@@ -297,10 +297,10 @@ class W_ThreadGroupScheduler(baseobjspace.Wrappable):
             raise OperationError(self.space.w_AllBlockedError,
                                  self.space.wrap("ouch, that's a BUG"))
         to_be_run = self._select_next()
-        if to_be_run == ClonableCoroutine.w_getcurrent(self.space):
+        if to_be_run == AppCoroutine.w_getcurrent(self.space):
             return
-        assert isinstance(to_be_run, ClonableCoroutine)
-        #w(".. SWITCHING (treads)", str(id(ClonableCoroutine.w_getcurrent(self.space))), "=>", str(id(to_be_run)))
+        assert isinstance(to_be_run, AppCoroutine), "type error"
+        #w(".. SWITCHING (treads)", str(id(AppCoroutine.w_getcurrent(self.space))), "=>", str(id(to_be_run)))
         self._switch_count += 1
         to_be_run.w_switch() 
         
@@ -314,7 +314,7 @@ class W_ThreadGroupScheduler(baseobjspace.Wrappable):
                     th._cspace.blocked_count -= 1
                 sched.uler._asking[self] = {}
                 break
-            assert isinstance(to_be_run, ClonableCoroutine)
+            assert isinstance(to_be_run, AppCoroutine), "type error"
             to_be_run = to_be_run._next
             if to_be_run == sentinel:
                 if not we_are_translated():
@@ -325,13 +325,13 @@ class W_ThreadGroupScheduler(baseobjspace.Wrappable):
 
     def add_new_thread(self, thread):
         "insert 'thread' at end of running queue"
-        w(".. ADDING thread", str(id(thread)), "to group", str(id(self)), "count ==", str(self.thread_count))
-        assert isinstance(thread, ClonableCoroutine)
+        w(".. ADDING thread", str(id(thread)), "to group", str(id(self)))
+        assert isinstance(thread, AppCoroutine), "type error"
         self._chain_insert(thread)
         self.thread_count += 1
 
     def remove_thread(self, thread):
-        assert isinstance(thread, ClonableCoroutine)
+        assert isinstance(thread, AppCoroutine)
         w(".. REMOVING thread", str(id(thread)))
         assert thread not in sched.uler._blocked
         try:
@@ -355,14 +355,14 @@ class W_ThreadGroupScheduler(baseobjspace.Wrappable):
     # Logic Variables tracing, "accelerates" exception propagation
     # amongst threads
     def trace_vars(self, thread, lvars):
-        assert isinstance(thread, ClonableCoroutine)
-        assert isinstance(lvars, list)
+        assert isinstance(thread, AppCoroutine), "type error"
+        assert isinstance(lvars, list), "type error"
         #w(".. TRACING logic vars.", str(lvars), "for", str(id(thread)))
         #assert not self._traced.has_key(thread) doesn't translate 
         self._traced[thread] = lvars
 
     def dirty_traced_vars(self, thread, failed_value):
-        assert isinstance(thread, ClonableCoroutine)
+        assert isinstance(thread, AppCoroutine)
         assert isinstance(failed_value, W_FailedValue)
         #w(".. DIRTYING traced vars")
         for w_var in self._traced[thread]:
@@ -372,10 +372,10 @@ class W_ThreadGroupScheduler(baseobjspace.Wrappable):
     def w_threads(self):
         s = self.space
         thl = [s.newint(id(self._head))]
-        assert isinstance(self._head, ClonableCoroutine)
+        assert isinstance(self._head, AppCoroutine)
         curr = self._head._next
         while curr != self._head:
-            assert isinstance(curr, ClonableCoroutine)
+            assert isinstance(curr, AppCoroutine)
             thl.append(s.newint(id(curr)))
             curr = curr._next
         w_t = W_ListObject(thl)

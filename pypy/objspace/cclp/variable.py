@@ -5,7 +5,7 @@ from pypy.objspace.std.listobject import W_ListObject, W_TupleObject
 from pypy.objspace.std.dictobject import W_DictObject
 from pypy.objspace.std.stringobject import W_StringObject
 
-from pypy.objspace.cclp.misc import w, v, ClonableCoroutine
+from pypy.objspace.cclp.misc import w, v, AppCoroutine
 from pypy.objspace.cclp.global_state import sched
 from pypy.objspace.cclp.types import deref, W_Var, W_CVar, W_Future, W_FailedValue
 
@@ -27,10 +27,10 @@ def wait__Root(space, w_obj):
     return w_obj
 
 def wait__Var(space, w_var):
-    #w("###:wait", str(id(ClonableCoroutine.w_getcurrent(space))))
+    #w("###:wait", str(id(AppCoroutine.w_getcurrent(space))))
     if space.is_true(space.is_free(w_var)):
         sched.uler.unblock_byneed_on(w_var)
-        sched.uler.add_to_blocked_on(w_var, ClonableCoroutine.w_getcurrent(space))
+        sched.uler.add_to_blocked_on(w_var, AppCoroutine.w_getcurrent(space))
         sched.uler.schedule()
         assert space.is_true(space.is_bound(w_var))
     w_ret = w_var.w_bound_to
@@ -53,11 +53,11 @@ all_mms['wait'] = wait_mm
 #-- Wait_needed --------------------------------------------
 
 def wait_needed__Var(space, w_var):
-    #w(":wait_needed", str(id(ClonableCoroutine.w_getcurrent(space))))
+    #w(":wait_needed", str(id(AppCoroutine.w_getcurrent(space))))
     if space.is_true(space.is_free(w_var)):
         if w_var.needed:
             return
-        sched.uler.add_to_blocked_byneed(w_var, ClonableCoroutine.w_getcurrent(space))
+        sched.uler.add_to_blocked_byneed(w_var, AppCoroutine.w_getcurrent(space))
         sched.uler.schedule()
     else:
         raise OperationError(space.w_TypeError,
@@ -194,7 +194,7 @@ def bind__Var_Root(space, w_var, w_obj):
 
 def bind__Future_Root(space, w_fut, w_obj):
     #v("future val", str(id(w_fut)))
-    if w_fut._client == ClonableCoroutine.w_getcurrent(space):
+    if w_fut._client == AppCoroutine.w_getcurrent(space):
         raise_future_binding(space)
     return bind__Var_Root(space, w_fut, w_obj) # call-next-method ?
 
@@ -216,7 +216,7 @@ def bind__Var_Var(space, w_v1, w_v2):
 
 def bind__Future_Var(space, w_fut, w_var):
     #v("future var")
-    if w_fut._client == ClonableCoroutine.w_getcurrent(space):
+    if w_fut._client == AppCoroutine.w_getcurrent(space):
         raise_future_binding(space)
     return bind__Var_Var(space, w_fut, w_var)
 
@@ -224,7 +224,7 @@ def bind__Future_Var(space, w_fut, w_var):
 def bind__Var_Future(space, w_var, w_fut): 
     if space.is_true(space.is_bound(w_fut)): #XXX write a test for me !
         return bind__Var_Root(space, w_var, deref(space, w_fut))
-    if w_fut._client == ClonableCoroutine.w_getcurrent(space):
+    if w_fut._client == AppCoroutine.w_getcurrent(space):
         raise_future_binding(space)
     return bind__Var_Var(space, w_var, w_fut) #and for me ...
 
