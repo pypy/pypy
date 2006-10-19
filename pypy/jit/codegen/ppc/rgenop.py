@@ -1,7 +1,8 @@
 from pypy.jit.codegen.model import AbstractRGenOp, CodeGenBlock, CodeGenerator
 from pypy.jit.codegen.model import GenVar, GenConst
 from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rpython.objectmodel import specialize
+from pypy.rpython.objectmodel import specialize, we_are_translated
+from pypy.jit.codegen.ppc.conftest import option
 
 class VarLocation(object):
     pass
@@ -82,6 +83,33 @@ def emit(self, value):
     self.mc.write(value)
 RPPCAssembler.emit = emit
 
+def prepare_for_jump(builder, outputargs_gv, targetblock):
+    assert len(targetblock.arg_locations) == len(outputargs_gv)
+    outregs = []
+    targetregs = []
+    for gv in outputargs_gv:
+        assert isinstance(gv, Var)
+        assert isinstance(gv.location, RegisterLocation)
+        outregs.append(gv.location.reg)
+    for loc in targetblock.arg_locations:
+        assert isinstance(loc, RegisterLocation)
+        targetregs.append(loc.reg)
+    for i in range(len(outregs)):
+        treg = targetregs[i]
+        oreg = outregs[i]
+        if oreg == treg:
+            continue
+        if treg in outregs:
+            outi = outregs.index(treg)
+            assert outi > i
+            builder.asm.xor(treg, treg, oreg)
+            builder.asm.xor(oreg, treg, oreg)
+            builder.asm.xor(treg, treg, oreg)
+            outregs[outi] = oreg
+            outregs[i] == treg
+        else:
+            builder.asm.mr(treg, oreg)
+
 class MachineCodeBlock:
 
     def __init__(self, map_size):
@@ -119,17 +147,20 @@ class Block(CodeGenBlock):
 
 class Builder(CodeGenerator):
 
-    def __init__(self, rgenop, mc, stackdepth):
+    def __init__(self, rgenop, mc, parent):
         self.rgenop = rgenop
-        self.stackdepth = stackdepth
         self.asm = RPPCAssembler()
         self.asm.mc = mc
-        self.curreg = 3
+        if parent is None:
+            self.curreg = 3
+        else:
+            self.curreg = parent.curreg
 
     def _write_prologue(self, sigtoken):
         numargs = sigtoken     # for now
         self.curreg += numargs
-        #self.asm.trap()
+        if not we_are_translated() and option.trap:
+            self.asm.trap()
         return [Var(RegisterLocation(pos)) for pos in range(3, 3+numargs)]
 
     def _close(self):
@@ -144,6 +175,14 @@ class Builder(CodeGenerator):
     def finish_and_return(self, sigtoken, gv_returnvar):
         self.asm.mr(3, gv_returnvar.load(self))
         self.asm.blr()
+        self._close()
+
+    def finish_and_goto(self, outputargs_gv, targetblock):
+        prepare_for_jump(self, outputargs_gv, targetblock)
+        gv = self.newvar()
+        self.asm.load_word(gv.reg(), targetblock.startaddr)
+        self.asm.mtctr(gv.reg())
+        self.asm.bctr()
         self._close()
 
     def enter_next_block(self, kinds, args_gv):
@@ -205,8 +244,17 @@ class Builder(CodeGenerator):
         self.asm.beqctr()
         return targetbuilder
 
+    def jump_if_true(self, gv_condition):
+        targetbuilder = self._fork()
+        gv = self.newvar()
+        self.asm.load_word(gv.reg(), targetbuilder.asm.mc.tell())
+        self.asm.mtctr(gv.reg())
+        self.asm.cmpwi(0, gv_condition.load(self), 0)
+        self.asm.bnectr()
+        return targetbuilder
+
     def _fork(self):
-        return self.rgenop.openbuilder(self.stackdepth)
+        return self.rgenop.openbuilder(self)
 
 
 class RPPCGenOp(AbstractRGenOp):
@@ -215,13 +263,8 @@ class RPPCGenOp(AbstractRGenOp):
     def __init__(self):
         self.mcs = []   # machine code blocks where no-one is currently writing
 
-
-    def __init__(self):
-        self.mcs = []   # machine code blocks where no-one is currently writing
-
     def open_mc(self):
         if self.mcs:
-            # XXX think about inserting NOPS for alignment
             return self.mcs.pop()
         else:
             return MachineCodeBlock(65536)   # XXX supposed infinite for now
@@ -239,13 +282,13 @@ class RPPCGenOp(AbstractRGenOp):
     def kindToken(T):
         return None     # for now
 
-    def openbuilder(self, stackdepth):
-        return Builder(self, self.open_mc(), stackdepth)
+    def openbuilder(self, parent):
+        return Builder(self, self.open_mc(), parent)
 
     def newgraph(self, sigtoken):
         numargs = sigtoken          # for now
         initialstackdepth = numargs+1
-        builder = self.openbuilder(initialstackdepth)
+        builder = self.openbuilder(None)
         entrypoint = builder.asm.mc.tell()
         inputargs_gv = builder._write_prologue(sigtoken)
         return builder, entrypoint, inputargs_gv

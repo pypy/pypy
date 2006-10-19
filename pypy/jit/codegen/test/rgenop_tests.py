@@ -95,6 +95,47 @@ def get_branching_runner(RGenOp):
     return branching_runner
 
 
+def make_goto(rgenop):
+    # while x > 0:
+    #     y += x
+    #     x -= 1
+    # return y
+    signed_kind = rgenop.kindToken(lltype.Signed)
+    sigtoken = rgenop.sigToken(FUNC2)
+    builder, entrypoint, [gv_x, gv_y] = rgenop.newgraph(sigtoken)
+
+    # loop start block
+    args_gv = [gv_x, gv_y]
+    loopblock = builder.enter_next_block([signed_kind, signed_kind], args_gv)
+    [gv_x, gv_y] = args_gv
+
+    gv_cond = builder.genop2("int_gt", gv_x, rgenop.genconst(0))
+    bodybuilder = builder.jump_if_true(gv_cond)
+    builder.finish_and_return(sigtoken, gv_y)
+
+    # loop body
+    args_gv = [gv_y, gv_x]
+    bodybuilder.enter_next_block([signed_kind, signed_kind], args_gv)
+    [gv_y, gv_x] = args_gv
+
+    gv_y2 = bodybuilder.genop2("int_add", gv_x, gv_y)
+    gv_x2 = bodybuilder.genop2("int_sub", gv_x, rgenop.genconst(1))
+    bodybuilder.finish_and_goto([gv_x2, gv_y2], loopblock)
+
+    # done
+    gv_gotofn = rgenop.gencallableconst(sigtoken, "goto", entrypoint)
+    return gv_gotofn
+
+def get_goto_runner(RGenOp):
+    def goto_runner(x, y):
+        rgenop = RGenOp()
+        gv_gotofn = make_goto(rgenop)
+        gotofn = gv_gotofn.revealconst(lltype.Ptr(FUNC2))
+        res = gotofn(x, y)
+        keepalive_until_here(rgenop)    # to keep the code blocks alive
+        return res
+    return goto_runner
+
 class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
     RGenOp = None
 
@@ -143,3 +184,21 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         assert res == 29
         res = fn(3, 17)
         assert res == 17
+
+    def test_goto_direct(self):
+        rgenop = self.RGenOp()
+        gv_gotofn = make_goto(rgenop)
+        print gv_gotofn.value
+        fnptr = cast(c_void_p(gv_gotofn.value), CFUNCTYPE(c_int, c_int, c_int))
+        res = fnptr(30, 17)    # <== the segfault is here
+        assert res == 31 * 15 + 17
+        res = fnptr(3, 17)    # <== or here
+        assert res == 23
+
+    def test_goto_compile(self):
+        fn = self.compile(get_goto_runner(self.RGenOp), [int, int])
+        res = fn(30, 17)
+        assert res == 31 * 15 + 17
+        res = fn(3, 17)
+        assert res == 23
+

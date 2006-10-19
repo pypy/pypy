@@ -14,3 +14,10 @@ class Directory(py.test.collect.Directory):
                 py.test.skip('detected a %r CPU' % (processor,))
 
         return super(Directory, self).run()
+
+Option = py.test.Config.Option
+
+option = py.test.Config.addoptions("ppc options", 
+        Option('--trap', action="store_true", default=False, 
+               dest="trap", 
+               help=""))
