@@ -1,0 +1,161 @@
+from pypy.objspace.std.objspace import *
+from pypy.objspace.std.inttype import wrapint
+from pypy.objspace.std.sliceobject import W_SliceObject
+from pypy.objspace.std.listobject import W_ListObject
+
+from pypy.objspace.std import slicetype
+from pypy.interpreter import gateway, baseobjspace
+
+def length(start, stop, step):
+    if step > 0:
+        if stop <= start:
+            return 0
+        return (stop - start + step - 1)/step
+
+    else:  # step must be < 0
+        if stop >= start:
+            return 0
+        return (start - stop - step  - 1)/-step
+
+
+class W_RangeListObject(W_Object):
+    from pypy.objspace.std.listtype import list_typedef as typedef
+    
+    def __init__(w_self, start, step, length):
+        assert step != 0
+        w_self.start = start
+        w_self.step = step
+        w_self.length = length
+        w_self.w_list = None
+
+    def force(w_self, space):
+        if w_self.w_list is not None:
+            return w_self.w_list
+        start = w_self.start
+        step = w_self.step
+        length = w_self.length
+        if not length:
+            w_self.w_list = space.newlist()
+            return w_self.w_list
+        
+        arr = [0] * length  # this is to avoid using append.
+
+        i = start
+        n = 0
+        while n < length:
+            arr[n] = i
+            i += step
+            n += 1
+
+        w_self.w_list = space.newlist([wrapint(space, element)
+                                           for element in arr])
+        return w_self.w_list
+
+    def getitem(w_self, i):
+        if i < 0:
+            i += w_self.length
+        if i >= w_self.length or i < 0:
+            raise IndexError
+        return w_self.start + i * w_self.step
+
+    def __repr__(w_self):
+        if w_self.w_list is None:
+            return "W_RangeListObject(%s, %s, %s)" % (
+                w_self.start, w_self.step, w_self.length)
+        else:
+            return "W_RangeListObject(%r)" % (w_self.w_list, )
+
+def delegate_range2list(space, w_rangelist):
+    return w_rangelist.force(space)
+
+def len__RangeList(space, w_rangelist):
+    if w_rangelist.w_list is not None:
+        return space.len(w_rangelist.w_list)
+    return wrapint(space, w_rangelist.length)
+
+
+def getitem__RangeList_ANY(space, w_rangelist, w_index):
+    if w_rangelist.w_list is not None:
+        return space.getitem(w_rangelist.w_list, w_index)
+    idx = space.int_w(w_index)
+    try:
+        return w_rangelist.getitem(idx)
+    except IndexError:
+        raise OperationError(space.w_IndexError,
+                             space.wrap("list index out of range"))
+
+def getitem__RangeList_Slice(space, w_rangelist, w_slice):
+    if w_rangelist.w_list is not None:
+        return space.getitem(w_rangelist.w_list, w_slice)
+    length = w_rangelist.length
+    start, stop, step, slicelength = w_slice.indices4(space, length)
+    assert slicelength >= 0
+    rangestart = w_rangelist.getitem(start)
+    rangestep = w_rangelist.step * step
+    return W_RangeListObject(rangestart, rangestep, slicelength)
+
+def iter__RangeList(space, w_rangelist):
+    from pypy.objspace.std import iterobject
+    return W_RangeIterObject(w_rangelist)
+
+def repr__RangeList(space, w_rangelist):
+    if w_rangelist.w_list is not None:
+        return space.repr(w_rangelist.w_list)
+    if w_rangelist.length == 0:
+        return space.wrap('[]')
+    result = [''] * w_rangelist.length
+    i = w_rangelist.start
+    n = 0
+    while n < w_rangelist.length:
+        result[n] = str(i)
+        i += w_rangelist.step
+        n += 1
+    return space.wrap("[" + ", ".join(result) + "]")
+
+class W_RangeIterObject(W_Object):
+    from pypy.objspace.std.itertype import iter_typedef as typedef
+
+    def __init__(w_self, w_rangelist, index=0):
+        w_self.w_rangelist = w_rangelist
+        w_self.index = index
+
+def iter__RangeIter(space, w_rangeiter):
+    return w_rangeiter
+
+def next__RangeIter(space, w_rangeiter):
+    if w_rangeiter.w_rangelist is None:
+        raise OperationError(space.w_StopIteration, space.w_None)
+    if w_rangeiter.w_rangelist.w_list is not None:
+        try:
+            w_item = space.getitem(w_rangeiter.w_rangelist.w_list,
+                                   wrapint(space, w_rangeiter.index))
+        except OperationError, e:
+            w_rangeiter.w_rangelist = None
+            if not e.match(space, space.w_IndexError):
+                raise
+            raise OperationError(space.w_StopIteration, space.w_None)
+    else:
+        try:
+            w_item = wrapint(
+                space,
+                w_rangeiter.w_rangelist.getitem(w_rangeiter.index))
+        except IndexError:
+            w_rangeiter.w_rangelist = None
+            raise OperationError(space.w_StopIteration, space.w_None)
+    w_rangeiter.index += 1
+    return w_item
+
+def len__RangeIter(space,  w_rangeiter):
+    if w_rangeiter.w_rangelist is None:
+        return wrapint(space, 0)
+    index = w_rangeiter.index
+    w_length = space.len(w_rangeiter.w_rangelist)
+    w_len = space.sub(w_length, wrapint(space, index))
+    if space.is_true(space.lt(w_len, wrapint(space, 0))):
+        w_len = wrapint(space, 0)
+    return w_len
+
+registerimplementation(W_RangeListObject)
+registerimplementation(W_RangeIterObject)
+
+register_all(vars())

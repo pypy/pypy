@@ -91,6 +91,12 @@ pypy_optiondescription = OptionDescription("pypy", "All PyPy Options", [
                        default=False,
                        requires=[("objspace.std.withmultidict", True)]),
 
+            BoolOption("withrangelist",
+                       "enable special range list implementation that does not "
+                       "actually create the full list until the resulting "
+                       "list is mutaged",
+                       default=False),
+
             BoolOption("oldstyle",
                        "specify whether the default metaclass should be classobj",
                        default=False, cmdline="--oldstyle"),

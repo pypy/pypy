@@ -56,6 +56,10 @@ def add__StringJoin_String(space, w_self, w_other):
     w_self.joined_strs.append(other)
     return W_StringJoinObject(w_self.joined_strs)
 
+#def add__String_StringJoin(space, w_other, w_self):
+#    other = space.str_w(w_other)
+#    return W_StringObject([other] + w_self.joined_strs)
+
 def str__StringJoin(space, w_str):
     if type(w_str) is W_StringJoinObject:
         return w_str

@@ -16,6 +16,8 @@ option_to_typename = {
                         "dictstrobject.W_DictStrIterObject"],
     "withmultidict"  : ["dictmultiobject.W_DictMultiObject",
                         "dictmultiobject.W_DictMultiIterObject"],
+    "withrangelist"  : ["rangeobject.W_RangeListObject",
+                        "rangeobject.W_RangeIterObject"],
 }
 
 class StdTypeModel:
@@ -71,6 +73,7 @@ class StdTypeModel:
         from pypy.objspace.std import iterobject
         from pypy.objspace.std import unicodeobject
         from pypy.objspace.std import dictproxyobject
+        from pypy.objspace.std import rangeobject
         from pypy.objspace.std import fake
         import pypy.objspace.std.default # register a few catch-all multimethods
 
@@ -182,6 +185,11 @@ class StdTypeModel:
                                        strjoinobject.delegate_join2str),
                 (unicodeobject.W_UnicodeObject,
                                        strjoinobject.delegate_join2unicode)
+                ]
+        if config.objspace.std.withrangelist:
+            self.typeorder[rangeobject.W_RangeListObject] += [
+                (listobject.W_ListObject,
+                                       rangeobject.delegate_range2list),
                 ]
 
         # put W_Root everywhere
