@@ -27,6 +27,21 @@ class StackLocation(VarLocation):
     def __repr__(self):
         return 'stack+%s'%(self.offset,)
 
+class CRLocation(VarLocation):
+    # for variables that are in a bit of the condition register
+    def __init__(self, bit, negated):
+        self.bit = bit
+        self.negated = negated
+    def load(self, builder):
+        XXX
+        # probably:
+        r = builder.newvar().reg()
+        self.asm.mfcr(r)
+        self.asm.extrwi(r, r, 1, self.bit)
+        return r
+        # though most of the time, if we know the result is going to
+        # be put in a register there are better ways of doing it...
+
 class Var(GenVar):
 
     def __init__(self, location):
@@ -228,30 +243,38 @@ class Builder(CodeGenerator):
         return gv_result
 
     def op_int_gt(self, gv_x, gv_y):
-        gv_result, r_x, r_y = self.new_and_load_2(gv_x, gv_y)
-        r_result = gv_result.reg()
+        r_x, r_y = gv_x.load(self), gv_y.load(self)
+        gv_result = Var(CRLocation(1, False))
         self.asm.cmpw(0, r_x, r_y)
-        self.asm.mfcr(r_result)
-        self.asm.extrwi(r_result, r_result, 1, 1)
         return gv_result
 
-    def jump_if_false(self, gv_condition):
+    def _jump(self, gv_condition, if_true):
         targetbuilder = self._fork()
         gv = self.newvar()
         self.asm.load_word(gv.reg(), targetbuilder.asm.mc.tell())
         self.asm.mtctr(gv.reg())
-        self.asm.cmpwi(0, gv_condition.load(self), 0)
-        self.asm.beqctr()
+        if isinstance(gv_condition.location, CRLocation):
+            loc = gv_condition.location
+            # scribbling on paper advised for understanding next
+            # lines:
+            if loc.negated ^ if_true:
+                BO = 12 # jump if relavent bit is set in the CR
+            else:
+                BO = 4  # jump if relavent bit is NOT set in the CR
+            self.asm.bcctr(BO, loc.bit)
+        else:
+            self.asm.cmpwi(0, gv_condition.load(self), 0)
+            if if_true:
+                self.asm.bnectr()
+            else:
+                self.asm.beqctr()
         return targetbuilder
 
+    def jump_if_false(self, gv_condition):
+        return self._jump(gv_condition, False)
+
     def jump_if_true(self, gv_condition):
-        targetbuilder = self._fork()
-        gv = self.newvar()
-        self.asm.load_word(gv.reg(), targetbuilder.asm.mc.tell())
-        self.asm.mtctr(gv.reg())
-        self.asm.cmpwi(0, gv_condition.load(self), 0)
-        self.asm.bnectr()
-        return targetbuilder
+        return self._jump(gv_condition, True)
 
     def _fork(self):
         return self.rgenop.openbuilder(self)
