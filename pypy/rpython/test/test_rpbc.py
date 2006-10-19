@@ -1418,6 +1418,21 @@ class BaseTestRPBC(BaseRtypingTest):
         res = self.interpret(f, [20])
         assert res == 42
 
+    def test_specialize_functionarg(self):
+        self._skip_oo("crashes in funny ways")
+        def f(x, y):
+            return x + y
+        def g(x, y, z):
+            return x + y + z
+        def functionarg(func, *extraargs):
+            return func(42, *extraargs)
+        functionarg._annspecialcase_ = "specialize:arg(0)"
+        def call_functionarg():
+            return functionarg(f, 1) + functionarg(g, 1, 2)
+        assert call_functionarg() == 2 * 42 + 4
+        res = self.interpret(call_functionarg, [])
+        assert res == 2 * 42 + 4
+
 
 # We don't care about the following test_hlinvoke tests working on
 # ootype. Maybe later. This kind of thing is only used in rdict
