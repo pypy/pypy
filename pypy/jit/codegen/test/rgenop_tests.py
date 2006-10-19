@@ -262,7 +262,7 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         res = fnptr(3, 0)
         assert res == 6
 
-    def test_goto_compile(self):
+    def test_if_compile(self):
         fn = self.compile(get_if_runner(self.RGenOp), [int, int])
         res = fn(30, 0)
         assert res == 45
