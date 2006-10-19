@@ -51,6 +51,7 @@ class Target:
 
     def compile(cls, sources, out):
         log.red("Compiling %s" % (cls.ALIAS or cls.OUTPUT))
+        oldcwd = os.getcwd()
         os.chdir(SRC_DIR)
         compiler = subprocess.Popen([cls.COMPILER] + cls.FLAGS + ['/out:%s' % out] + sources,
                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -60,6 +61,7 @@ class Target:
         if cls.ALIAS is not None:
             alias = _filename(cls.ALIAS)
             shutil.copy(out, alias)
+        os.chdir(oldcwd)
 
     compile = classmethod(compile)
 
