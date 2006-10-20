@@ -272,3 +272,33 @@ def test_bad_overload():
                                       meth(Meth([Signed], Signed)))})
     py.test.raises(TypeError, fn)
 
+
+def test_overload_reannotate():
+    C = Instance("test", ROOT, {},
+                 {'foo': overload(meth(Meth([Signed], Signed)),
+                                  meth(Meth([Float], Float)))})
+    def f():
+        c = new(C)
+        mylist = [42]
+        a = c.foo(mylist[0])
+        mylist.append(42.5)
+        return a
+    a = RPythonAnnotator()
+    assert isinstance(a.build_types(f, []), annmodel.SomeFloat)
+    
+def test_overload_reannotate_unrelated():
+    py.test.skip("Maybe we want this to work")
+    # this test fails because the result type of c.foo(mylist[0])
+    # changes completely after the list has been modified. We should
+    # handle this case, but it's far from trival.
+    C = Instance("test", ROOT, {},
+                 {'foo': overload(meth(Meth([Signed], Void)),
+                                  meth(Meth([Float], Float)))})
+    def f():
+        c = new(C)
+        mylist = [42]
+        a = c.foo(mylist[0])
+        mylist.append(42.5)
+        return a
+    a = RPythonAnnotator()
+    assert isinstance(a.build_types(f, []), annmodel.SomeFloat)
