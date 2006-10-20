@@ -1,7 +1,9 @@
 from pypy.objspace.std.objspace import *
+from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.listobject import W_ListObject
+from pypy.objspace.std import listtype
 
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway, baseobjspace
@@ -19,7 +21,7 @@ def length(start, stop, step):
 
 
 class W_RangeListObject(W_Object):
-    from pypy.objspace.std.listtype import list_typedef as typedef
+    typedef = listtype.list_typedef
     
     def __init__(w_self, start, step, length):
         assert step != 0
@@ -35,7 +37,7 @@ class W_RangeListObject(W_Object):
         step = w_self.step
         length = w_self.length
         if not length:
-            w_self.w_list = space.newlist()
+            w_self.w_list = space.newlist([])
             return w_self.w_list
         
         arr = [0] * length  # this is to avoid using append.
@@ -79,7 +81,7 @@ def getitem__RangeList_ANY(space, w_rangelist, w_index):
         return space.getitem(w_rangelist.w_list, w_index)
     idx = space.int_w(w_index)
     try:
-        return w_rangelist.getitem(idx)
+        return wrapint(space, w_rangelist.getitem(idx))
     except IndexError:
         raise OperationError(space.w_IndexError,
                              space.wrap("list index out of range"))
@@ -111,6 +113,32 @@ def repr__RangeList(space, w_rangelist):
         i += w_rangelist.step
         n += 1
     return space.wrap("[" + ", ".join(result) + "]")
+
+def list_reverse__RangeList(space, w_rangelist):
+    # probably somewhat useless, but well...
+    if w_rangelist.w_list is not None:
+        w_boundmethod = space.getattr(w_rangelist.w_list,
+                                      space.wrap("reverse"))
+        return space.call_function(w_boundmethod)
+    w_rangelist.start = w_rangelist.getitem(-1)
+    w_rangelist.step = -w_rangelist.step
+
+def list_sort__RangeList_None_None_ANY(space, w_rangelist, w_cmp,
+                                       w_keyfunc, w_reverse):
+    # even more useless but fun
+    has_reverse = space.is_true(w_reverse)
+    if w_rangelist.w_list is not None:
+        w_sort = space.getattr(w_rangelist.w_list, space.wrap("sort"))
+        return space.call_function(w_sort, w_cmd, w_keyfunc, w_reverse)
+    if has_reverse:
+        factor = -1
+    else:
+        factor = 1
+    reverse = w_rangelist.step * factor < 0
+    if reverse:
+        w_rangelist.start = w_rangelist.getitem(-1)
+        w_rangelist.step = -w_rangelist.step
+    return space.w_None
 
 class W_RangeIterObject(W_Object):
     from pypy.objspace.std.itertype import iter_typedef as typedef
@@ -158,4 +186,4 @@ def len__RangeIter(space,  w_rangeiter):
 registerimplementation(W_RangeListObject)
 registerimplementation(W_RangeIterObject)
 
-register_all(vars())
+register_all(vars(), listtype)
