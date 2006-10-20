@@ -75,15 +75,21 @@ class __extend__(pairtype(OOInstanceRepr, OOInstanceRepr)):
         v = rpair.rtype_eq(hop)
         return hop.genop("bool_not", [v], resulttype=ootype.Bool)
 
-
 class OOBoundMethRepr(Repr):
     def __init__(self, ootype, name):
         self.lowleveltype = ootype
         self.name = name
 
     def rtype_simple_call(self, hop):
+        TYPE = hop.args_r[0].lowleveltype
+        _, meth = TYPE._lookup(self.name)
+        if isinstance(meth, ootype._overloaded_meth):
+            ARGS = tuple([repr.lowleveltype for repr in hop.args_r[1:]])
+            desc = meth._get_desc(self.name, ARGS)
+            cname = hop.inputconst(Void, desc)
+        else:
+            cname = hop.inputconst(Void, self.name)
         vlist = hop.inputargs(self, *hop.args_r[1:])
-        cname = hop.inputconst(Void, self.name)
         hop.exception_is_here()
         return hop.genop("oosend", [cname]+vlist,
                          resulttype = hop.r_result.lowleveltype)

@@ -1,3 +1,4 @@
+import py
 from pypy.rpython.ootypesystem.ootype import *
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow import FlowObjSpace
@@ -235,3 +236,39 @@ def test_ooparse_int():
     a = RPythonAnnotator()
     s = a.build_types(oof, [int, int])
     assert isinstance(s, annmodel.SomeInteger)
+
+def test_overloaded_meth():
+    C = Instance("test", ROOT, {},
+                 {'foo': overload(meth(Meth([Float], Void)),
+                                  meth(Meth([Signed], Signed)),
+                                  meth(Meth([], Float)))})
+    def fn1():
+        return new(C).foo(42.5)
+    def fn2():
+        return new(C).foo(42)
+    def fn3():
+        return new(C).foo()
+    a = RPythonAnnotator()
+    assert a.build_types(fn1, []) is annmodel.s_None
+    assert isinstance(a.build_types(fn2, []), annmodel.SomeInteger)
+    assert isinstance(a.build_types(fn3, []), annmodel.SomeFloat)
+
+def test_overloaded_meth_string():
+    C = Instance("test", ROOT, {},
+                 {'foo': overload(meth(Meth([Char], Signed)),
+                                  meth(Meth([String], Float)))})
+    def fn1():
+        return new(C).foo('a')
+    def fn2():
+        return new(C).foo('aa')
+    a = RPythonAnnotator()
+    assert isinstance(a.build_types(fn1, []), annmodel.SomeInteger)
+    assert isinstance(a.build_types(fn2, []), annmodel.SomeFloat)
+
+def test_bad_overload():
+    def fn():
+        C = Instance("test", ROOT, {},
+                     {'foo': overload(meth(Meth([Signed], Void)),
+                                      meth(Meth([Signed], Signed)))})
+    py.test.raises(TypeError, fn)
+

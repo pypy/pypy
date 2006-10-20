@@ -6,6 +6,11 @@ from pypy.rpython.rarithmetic import intmask
 from pypy.rpython import objectmodel
 from pypy.tool.uid import uid
 
+try:
+    set
+except NameError:
+    from sets import Set as set
+
 STATICNESS = True
 
 class OOType(LowLevelType):
@@ -732,7 +737,7 @@ class _view(object):
         res = getattr(self._inst, name)
         if meth:
             assert isinstance(res, _bound_meth)
-            return _bound_meth(res.DEFINST, _view(res.DEFINST, res.inst), res.meth)
+            return res.__class__(res.DEFINST, _view(res.DEFINST, res.inst), res.meth)
         return res
 
     def _instanceof(self, INSTANCE):
@@ -826,15 +831,6 @@ class _static_meth(_callable):
    def __repr__(self):
        return 'sm %s' % self._name
 
-class _meth(_callable):
-   
-    def __init__(self, METHOD, **attrs):
-        assert isinstance(METHOD, Meth)
-        _callable.__init__(self, METHOD, **attrs)
-
-    def _bound(self, DEFINST, inst):
-        assert isinstance(inst, _instance) or isinstance(inst, _builtin_type)
-        return _bound_meth(DEFINST, inst, self)
 
 class _bound_meth(object):
     def __init__(self, DEFINST, inst, meth):
@@ -843,8 +839,76 @@ class _bound_meth(object):
         self.meth = meth
 
     def __call__(self, *args):
-       callb, checked_args = self.meth._checkargs(args)
-       return callb(self.inst, *checked_args)
+        callb, checked_args = self.meth._checkargs(args)
+        return callb(self.inst, *checked_args)
+
+
+class _meth(_callable):
+    _bound_class = _bound_meth
+    
+    def __init__(self, METHOD, **attrs):
+        assert isinstance(METHOD, Meth)
+        _callable.__init__(self, METHOD, **attrs)
+
+    def _bound(self, DEFINST, inst):
+        TYPE = typeOf(inst)
+        assert isinstance(TYPE, (Instance, BuiltinType))
+        return self._bound_class(DEFINST, inst, self)
+
+
+class _overloaded_meth_desc:
+    def __init__(self, name, TYPE):
+        self.name = name
+        self.TYPE = TYPE
+
+
+class _overloaded_bound_meth(_bound_meth):
+    def __init__(self, DEFINST, inst, meth):
+        self.DEFINST = DEFINST
+        self.inst = inst
+        self.meth = meth
+
+    def _get_bound_meth(self, *args):
+        ARGS = tuple([typeOf(arg) for arg in args])
+        meth = self.meth._resolve_overloading(ARGS)
+        assert isinstance(meth, _meth)
+        return meth._bound(self.DEFINST, self.inst)
+
+    def __call__(self, *args):
+        bound_meth = self._get_bound_meth(*args)
+        return bound_meth(*args)
+
+
+class _overloaded_meth(_meth):
+    _bound_class = _overloaded_bound_meth
+    
+    def __init__(self, *overloadings, **attrs):
+        assert '_callable' not in attrs
+        _meth.__init__(self, Meth([], Void), _callable=None, **attrs) # use a fake method type
+        self._overloadings = overloadings
+        self._check_overloadings()
+
+    def _check_overloadings(self):
+        signatures = set()
+        for meth in self._overloadings:
+            ARGS = meth._TYPE.ARGS
+            if ARGS in signatures:
+                raise TypeError, 'Bad overloading'
+            signatures.add(ARGS)
+
+    def _resolve_overloading(self, ARGS):
+        for meth in self._overloadings:
+            # check if one of the overloadings has the correct signature
+            # TODO: this algorithm is quite naive, it doesn't handle
+            # automatic conversions
+            METH = meth._TYPE
+            if METH.ARGS == ARGS:
+                return meth
+        raise TypeError, 'No suitable overloading found for method'
+
+    def _get_desc(self, name, ARGS):
+        meth = self._resolve_overloading(ARGS)
+        return _overloaded_meth_desc(name, meth._TYPE)
 
 
 class _builtin_type(object):
@@ -1209,6 +1273,9 @@ def static_meth(FUNCTION, name,  **attrs):
 
 def meth(METHOD, **attrs):
     return _meth(METHOD, **attrs)
+
+def overload(*overloadings, **attrs):
+    return _overloaded_meth(*overloadings, **attrs)
 
 def null(INSTANCE_OR_FUNCTION):
     return INSTANCE_OR_FUNCTION._null

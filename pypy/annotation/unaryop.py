@@ -11,7 +11,6 @@ from pypy.annotation.model import \
      unionof, set, missing_operation, add_knowntypedata
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation import builtin
-
 from pypy.annotation.binaryop import _clone ## XXX where to put this?
 from pypy.rpython import extregistry
 
@@ -705,8 +704,22 @@ class __extend__(SomeOOInstance):
 class __extend__(SomeOOBoundMeth):
     def simple_call(m, *args_s):
         inst = m.ootype._example()
-        RESULT = ootype.typeOf(m.ootype._lookup(m.name)[1]).RESULT
+        _, meth = m.ootype._lookup(m.name)
+        if isinstance(meth, ootype._overloaded_meth):
+            ARGS = tuple([m._annotation_to_lltype(arg_s) for arg_s in args_s])
+            METH = meth._resolve_overloading(ARGS)._TYPE
+        else:
+            METH = ootype.typeOf(meth)
+        RESULT = METH.RESULT
         return lltype_to_annotation(RESULT)
+
+    def _annotation_to_lltype(self, ann):
+        if isinstance(ann, SomeChar):
+            return ootype.Char
+        elif isinstance(ann, SomeString):
+            return ootype.String
+        else:
+            return annotation_to_lltype(ann)
 
 class __extend__(SomeOOStaticMeth):
     def simple_call(m, *args_s):

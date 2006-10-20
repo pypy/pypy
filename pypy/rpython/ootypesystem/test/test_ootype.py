@@ -174,6 +174,23 @@ def test_simple_recursive_meth():
 
     assert c.m(c) == 6
 
+def test_overloaded_method():
+    C = Instance("test", ROOT, {'a': (Signed, 3)})
+    def m1(self, x):
+        return self.a+x
+    def m2(self, x, y):
+        return self.a+x+y
+    def m3(self, x):
+        return self.a*x
+    m = overload(meth(Meth([Signed], Signed), _callable=m1, _name='m'),
+                 meth(Meth([Signed, Signed], Signed), _callable=m2, _name='m'),
+                 meth(Meth([Float], Float), _callable=m3, _name='m'))
+    addMethods(C, {"m": m})
+    c = new(C)
+    assert c.m(1) == 4
+    assert c.m(2, 3) == 8
+    assert c.m(2.0) == 6
+
 def test_explicit_name_clash():
     C = Instance("test", ROOT, {})
 
