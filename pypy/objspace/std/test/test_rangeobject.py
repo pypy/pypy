@@ -56,3 +56,8 @@ class AppTestRangeListObject(object):
         r.sort(reverse=True)
         assert self.not_forced(r)
         assert r == range(10, -1, -1)
+        r = range(100)
+        r[0] = 999
+        assert not self.not_forced(r)
+        r.sort()
+        assert r == range(1, 100) + [999]

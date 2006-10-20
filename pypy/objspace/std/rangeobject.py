@@ -129,7 +129,7 @@ def list_sort__RangeList_None_None_ANY(space, w_rangelist, w_cmp,
     has_reverse = space.is_true(w_reverse)
     if w_rangelist.w_list is not None:
         w_sort = space.getattr(w_rangelist.w_list, space.wrap("sort"))
-        return space.call_function(w_sort, w_cmd, w_keyfunc, w_reverse)
+        return space.call_function(w_sort, w_cmp, w_keyfunc, w_reverse)
     if has_reverse:
         factor = -1
     else:
