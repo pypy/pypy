@@ -34,7 +34,7 @@ from pypy.objspace.cclp.variable import app_newvar, wait, app_wait, app_wait_nee
 
 from pypy.objspace.cclp.constraint.variable import app_domain
 
-from pypy.objspace.cclp.types import app_domain_of, app_name_of, ClonableCoroutine
+from pypy.objspace.cclp.types import app_domain_of, app_name_of, AppCoroutine
 
 all_mms.update(variable_mms)
 
@@ -300,7 +300,7 @@ def Space(*args, **kwds):
     # do the magic
     patch_space_in_place(space, 'logic', proxymaker)
     # instantiate singleton scheduler
-    sched.main_thread = ClonableCoroutine.w_getcurrent(space)
+    sched.main_thread = AppCoroutine.w_getcurrent(space)
     tg = W_ThreadGroupScheduler(space)
     tg._init_head(sched.main_thread)
     sched.uler = TopLevelScheduler(space, tg)
