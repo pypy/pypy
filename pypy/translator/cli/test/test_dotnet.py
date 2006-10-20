@@ -23,6 +23,15 @@ class TestDotnet(CliTest):
         assert s.cli_class is Math
         assert s.meth_name == 'Abs'
 
+    def test_staticmeth_call_ann(self):
+        def fn1():
+            return Math.Abs(42)
+        def fn2():
+            return Math.Abs(42.5)
+        a = RPythonAnnotator()
+        assert type(a.build_types(fn1, [])) is annmodel.SomeInteger
+        assert type(a.build_types(fn2, [])) is annmodel.SomeFloat
+
     def test_new_instance_ann(self):
         def fn():
             return ArrayList()
@@ -32,12 +41,12 @@ class TestDotnet(CliTest):
         assert isinstance(s.ootype, NativeInstance)
         assert s.ootype._name == '[mscorlib]System.Collections.ArrayList'
 
-    def test_static_method_call(self):
+    def test_staticmeth_call(self):
         def fn(x):
             return Math.Abs(x)
         assert self.interpret(fn, [-42]) == 42
 
-    def test_static_method_overload(self):
+    def test_staticmeth_overload(self):
         def fn(x, y):
             return Math.Abs(x), Math.Abs(y)
         res = self.interpret(fn, [-42, -42.5])

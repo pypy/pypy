@@ -1,6 +1,6 @@
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.ootypesystem.ootype import meth, overload, Meth
+from pypy.rpython.ootypesystem.ootype import meth, overload, Meth, StaticMethod
 from pypy.annotation import model as annmodel
 from pypy.rpython.rmodel import Repr
 
@@ -28,14 +28,14 @@ class SomeCliStaticMethod(annmodel.SomeObject):
         self.cli_class = cli_class
         self.meth_name = meth_name
 
+    def simple_call(self, *args_s):
+        return self.cli_class._ann_static_method(self.meth_name, args_s)
+
     def rtyper_makerepr(self, rtyper):
         return CliStaticMethodRepr(self.cli_class, self.meth_name)
 
     def rtyper_makekey(self):
         return self.__class__, self.cli_class, self.meth_name
-
-    def simple_call(self, *args_s):
-        return self.cli_class._ann_static_method(self.meth_name, args_s)
 
 
 
@@ -64,36 +64,59 @@ class CliStaticMethodRepr(Repr):
         self.cli_class = cli_class
         self.meth_name = meth_name
 
-    def _build_desc(self, args_v, resulttype):
-        argtypes = [v.concretetype for v in args_v]
-        return StaticMethodDesc(self.cli_class._INSTANCE._name, self.meth_name, argtypes, resulttype)
+    def _build_desc(self, args_v):
+        ARGS = tuple([v.concretetype for v in args_v])
+        return self.cli_class._lookup(self.meth_name, ARGS)
 
     def rtype_simple_call(self, hop):
         vlist = []
         for i, repr in enumerate(hop.args_r[1:]):
             vlist.append(hop.inputarg(repr, i+1))
         resulttype = hop.r_result.lowleveltype
-        desc = self._build_desc(vlist, resulttype)
-        v_desc = hop.inputconst(ootype.Void, desc)
-        return hop.genop("direct_call", [v_desc] + vlist, resulttype=resulttype)
+        desc = self._build_desc(vlist)
+        cDesc = hop.inputconst(ootype.Void, desc)
+        return hop.genop("direct_call", [cDesc] + vlist, resulttype=resulttype)
 
 
 
 ## RPython interface definition
 
-class StaticMethodDesc(object):
-    def __init__(self, class_name, method_name, argtypes, resulttype):
-        # TODO: maybe use ootype.StaticMeth for describing signature?
-        self.class_name = class_name
-        self.method_name = method_name
-        self.argtypes = argtypes
-        self.resulttype = resulttype
+
+class _static_meth(object):
+    def __init__(self, TYPE):
+        self._TYPE = TYPE
+
+    def _set_attrs(self, cls, name):
+        self._cls = cls
+        self._name = name
+
+    def _get_desc(self, ARGS):
+        assert ARGS == self._TYPE.ARGS
+        return self
+
+
+class _overloaded_static_meth(ootype._overloaded_mixin):
+    def __init__(self, *overloadings):
+        self._overloadings = overloadings
+        self._check_overloadings()
+
+    def _set_attrs(self, cls, name):
+        for meth in self._overloadings:
+            meth._set_attrs(cls, name)
+
+    def _get_desc(self, ARGS):
+        meth = self._resolve_overloading(ARGS)
+        assert isinstance(meth, _static_meth)
+        return meth._get_desc(ARGS)
 
 
 class CliClass(object):
     def __init__(self, INSTANCE, static_methods):
+        self._name = INSTANCE._name
         self._INSTANCE = INSTANCE
         self._static_methods = static_methods
+        for name, meth in static_methods.iteritems():
+            meth._set_attrs(self, name)
 
     def __repr__(self):
         return '<%s>' % (self,)
@@ -101,15 +124,15 @@ class CliClass(object):
     def __str__(self):
         return '%s(%s)' % (self.__class__.__name__, self._INSTANCE._name)
 
-    def _lookup(self, meth_name, args_s):
-        # TODO: handle conversion
-        overloads = self._static_methods[meth_name]
-        argtypes = tuple([annmodel.annotation_to_lltype(arg_s) for arg_s in args_s])
-        return argtypes, overloads[argtypes]
+    def _lookup(self, meth_name, ARGS):
+        meth = self._static_methods[meth_name]
+        return meth._get_desc(ARGS)
 
     def _ann_static_method(self, meth_name, args_s):
-        argtypes, rettype = self._lookup(meth_name, args_s)
-        return annmodel.lltype_to_annotation(rettype)
+        ARGS = tuple([annmodel.annotation_to_lltype(arg_s) for arg_s in args_s])
+        desc = self._lookup(meth_name, ARGS)
+        RESULT = desc._TYPE.RESULT        
+        return annmodel.lltype_to_annotation(RESULT)
 
 
 class Entry(ExtRegistryEntry):
@@ -135,12 +158,17 @@ STRING_BUILDER._add_methods({'Append': meth(Meth([ootype.String], STRING_BUILDER
                              })
 StringBuilder = CliClass(STRING_BUILDER, {})
 
-CONSOLE = NativeInstance('[mscorlib]', 'System', 'Console', ootype.ROOT, {}, {})
-Console = CliClass(CONSOLE, {'WriteLine': {(ootype.String,): ootype.Void,
-                                          (ootype.Signed,): ootype.Void}})
+##CONSOLE = NativeInstance('[mscorlib]', 'System', 'Console', ootype.ROOT, {}, {})
+##Console = CliClass(CONSOLE, {'WriteLine': {(ootype.String,): ootype.Void,
+##                                           (ootype.Signed,): ootype.Void}})
+
 MATH = NativeInstance('[mscorlib]', 'System', 'Math', ootype.ROOT, {}, {})
-Math = CliClass(MATH, {'Abs': {(ootype.Signed,): ootype.Signed,
-                               (ootype.Float,): ootype.Float}})
+Math = CliClass(MATH,
+                {'Abs': _overloaded_static_meth(_static_meth(StaticMethod([ootype.Signed], ootype.Signed)),
+                                                _static_meth(StaticMethod([ootype.Float], ootype.Float)))
+                 })
+
+
 
 ARRAY_LIST = NativeInstance('[mscorlib]', 'System.Collections', 'ArrayList', ootype.ROOT, {},
                             {'Add': meth(Meth([ootype.ROOT], ootype.Signed)),

@@ -879,15 +879,7 @@ class _overloaded_bound_meth(_bound_meth):
         return bound_meth(*args)
 
 
-class _overloaded_meth(_meth):
-    _bound_class = _overloaded_bound_meth
-    
-    def __init__(self, *overloadings, **attrs):
-        assert '_callable' not in attrs
-        _meth.__init__(self, Meth([], Void), _callable=None, **attrs) # use a fake method type
-        self._overloadings = overloadings
-        self._check_overloadings()
-
+class _overloaded_mixin(object):
     def _check_overloadings(self):
         signatures = set()
         for meth in self._overloadings:
@@ -905,6 +897,17 @@ class _overloaded_meth(_meth):
             if METH.ARGS == ARGS:
                 return meth
         raise TypeError, 'No suitable overloading found for method'
+
+
+class _overloaded_meth(_meth, _overloaded_mixin):
+    _bound_class = _overloaded_bound_meth
+    _desc_class = _overloaded_meth_desc
+
+    def __init__(self, *overloadings, **attrs):
+        assert '_callable' not in attrs
+        _meth.__init__(self, Meth([], Void), _callable=None, **attrs) # use a fake method type
+        self._overloadings = overloadings
+        self._check_overloadings()
 
     def _get_desc(self, name, ARGS):
         meth = self._resolve_overloading(ARGS)

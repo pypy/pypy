@@ -4,14 +4,14 @@ from pypy.translator.oosupport.metavm import Generator, InstructionList, MicroIn
      PushAllArgs, StoreResult, GetField, SetField, DownCast
 from pypy.translator.cli.comparer import EqualityComparer
 from pypy.translator.cli.cts import WEAKREF
-from pypy.translator.cli.dotnet import StaticMethodDesc
+from pypy.translator.cli.dotnet import _static_meth
 
 STRING_HELPER_CLASS = '[pypylib]pypy.runtime.String'
 
 class _Call(MicroInstruction):
     def render(self, generator, op):
         callee = op.args[0].value
-        if isinstance(callee, StaticMethodDesc):
+        if isinstance(callee, _static_meth):
             self._render_native_function(generator, callee, op.args)
         else:
             graph = callee.graph
@@ -25,10 +25,10 @@ class _Call(MicroInstruction):
         for func_arg in args[1:]: # push parameters
             generator.load(func_arg)
         cts = generator.cts
-        ret_type = cts.lltype_to_cts(funcdesc.resulttype)
-        arg_types = [cts.lltype_to_cts(arg) for arg in funcdesc.argtypes if arg is not ootype.Void]
+        ret_type = cts.lltype_to_cts(funcdesc._TYPE.RESULT)
+        arg_types = [cts.lltype_to_cts(arg) for arg in funcdesc._TYPE.ARGS if arg is not ootype.Void]
         arg_list = ', '.join(arg_types)
-        signature = '%s %s::%s(%s)' % (ret_type, funcdesc.class_name, funcdesc.method_name, arg_list)
+        signature = '%s %s::%s(%s)' % (ret_type, funcdesc._cls._name, funcdesc._name, arg_list)
         generator.call_signature(signature)
 
     def _render_function(self, generator, graph, args):
