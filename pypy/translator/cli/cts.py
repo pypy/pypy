@@ -204,14 +204,18 @@ class CTS(object):
 
         return '%s %s(%s)' % (ret_type, func_name, arg_list)
 
-    def method_signature(self, TYPE, name):
+    def method_signature(self, TYPE, name_or_desc):
         # TODO: use callvirt only when strictly necessary
         if isinstance(TYPE, ootype.Instance):
-            owner, meth = TYPE._lookup(name)
+            if isinstance(name_or_desc, ootype._overloaded_meth_desc):
+                name = name_or_desc.name
+                METH = name_or_desc.TYPE
+            else:
+                name = name_or_desc
+                owner, meth = TYPE._lookup(name)
+                METH = meth._TYPE
             class_name = self.db.class_name(TYPE)
             full_name = 'class %s::%s' % (class_name, name)
-
-            METH = meth._TYPE
             returntype = self.lltype_to_cts(METH.RESULT)
             arg_types = [self.lltype_to_cts(ARG) for ARG in METH.ARGS if ARG is not ootype.Void]
             arg_list = ', '.join(arg_types)

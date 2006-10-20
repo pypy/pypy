@@ -1,5 +1,6 @@
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.ootypesystem.ootype import meth, overload, Meth
 from pypy.annotation import model as annmodel
 from pypy.rpython.rmodel import Repr
 
@@ -126,8 +127,12 @@ class NativeInstance(ootype.Instance):
         fullname = '%s%s.%s' % (assembly, namespace, name)
         ootype.Instance.__init__(self, fullname, superclass, fields, methods, _is_root, _hints)
 
+
 STRING_BUILDER = NativeInstance('[mscorlib]', 'System.Text', 'StringBuilder', ootype.ROOT, {}, {})
-STRING_BUILDER._add_methods({'Append': ootype.meth(ootype.Meth([ootype.String], STRING_BUILDER))})
+STRING_BUILDER._add_methods({'Append': meth(Meth([ootype.String], STRING_BUILDER)),
+                             'AppendLine': overload(meth(Meth([ootype.String], STRING_BUILDER)),
+                                                    meth(Meth([], STRING_BUILDER)))
+                             })
 StringBuilder = CliClass(STRING_BUILDER, {})
 
 CONSOLE = NativeInstance('[mscorlib]', 'System', 'Console', ootype.ROOT, {}, {})
@@ -138,6 +143,6 @@ Math = CliClass(MATH, {'Abs': {(ootype.Signed,): ootype.Signed,
                                (ootype.Float,): ootype.Float}})
 
 ARRAY_LIST = NativeInstance('[mscorlib]', 'System.Collections', 'ArrayList', ootype.ROOT, {},
-                            {'Add': ootype.meth(ootype.Meth([ootype.ROOT], ootype.Signed)),
-                             'get_Count': ootype.meth(ootype.Meth([], ootype.Signed))})
+                            {'Add': meth(Meth([ootype.ROOT], ootype.Signed)),
+                             'get_Count': meth(Meth([], ootype.Signed))})
 ArrayList = CliClass(ARRAY_LIST, {})
