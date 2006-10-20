@@ -110,6 +110,44 @@ class W_RSocket(Wrappable, RSocket):
         return addr.as_object(space)
     getsockname_w.unwrap_spec = ['self', ObjSpace]
 
+    def getsockopt_w(self, space, level, optname, w_buflen=NoneNotWrapped):
+        """getsockopt(level, option[, buffersize]) -> value
+
+        Get a socket option.  See the Unix manual for level and option.
+        If a nonzero buffersize argument is given, the return value is a
+        string of that length; otherwise it is an integer.
+        """
+        if w_buflen is None:
+            try:
+                return space.wrap(self.getsockopt_int(level, optname))
+            except SocketError, e:
+                raise converted_error(space, e)
+        buflen = space.int_w(w_buflen)
+        return space.wrap(self.getsockopt(level, optname, buflen))
+    getsockopt_w.unwrap_spec = ['self', ObjSpace, int, int, W_Root]
+    
+    def setsockopt_w(self, space, level, optname, w_optval):
+        """setsockopt(level, option, value)
+
+        Set a socket option.  See the Unix manual for level and option.
+        The value argument can either be an integer or a string.
+        """
+        try:
+            optval = space.int_w(w_optval)
+        except:
+            optval = space.str_w(w_optval)
+            try:
+                self.setsockopt(level, optname, optval)
+            except SocketError, e:
+                raise converted_error(space, e)
+            return
+        try:
+            self.setsockopt_int(level, optname, optval)
+        except SocketError, e:
+            raise converted_error(space, e)
+            
+    setsockopt_w.unwrap_spec = ['self', ObjSpace, int, int, W_Root]
+    
     def listen_w(self, space, backlog):
         """listen(backlog)
 
@@ -255,10 +293,10 @@ def converted_error(space, e):
 
 socketmethodnames = """
 accept bind close connect connect_ex fileno
-getpeername getsockname listen recv
+getpeername getsockname getsockopt listen recv
 recvfrom send sendall sendto setblocking
-shutdown
-""".split()          # dup makefile gettimeout settimeout getsockopt setsockopt
+setsockopt shutdown
+""".split()          # dup makefile gettimeout settimeout
 socketmethods = {}
 for methodname in socketmethodnames:
     method = getattr(W_RSocket, methodname + '_w')

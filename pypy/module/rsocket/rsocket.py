@@ -588,6 +588,36 @@ class RSocket(object):
         if res < 0:
             raise self.error_handler()
 
+    def getsockopt_int(self, level, option):
+        flag = _c.c_int()
+        flagsize = _c.socklen_t()
+        flagsize.value = _c.sizeof(flag)
+        res = _c.socketgetsockopt(self.fd, level, option,
+                            byref(flag), byref(flagsize))
+        if res < 0:
+            raise self.error_handler()
+        return flag.value
+
+    def getsockopt(self, level, option, maxlen):
+        buf = _c.create_string_buffer(maxlen)
+        bufsize = _c.socklen_t()
+        bufsize.value = maxlen
+        res = _c.socketgetsockopt(self.fd, level, option, byref(buf), byref(bufsize))
+        if res < 0:
+            raise self.error_handler()
+        return buf.raw[:bufsize.value]
+
+    def setsockopt_int(self, level, option, value):
+        flag = _c.c_int(value)
+        res = _c.socketsetsockopt(self.fd, level, option,
+                            byref(flag), _c.sizeof(flag))
+        if res < 0:
+            raise self.error_handler()
+
+    def setsockopt(self, level, option, value):
+        res = _c.socketsetsockopt(self.fd, level, option, value, len(value))
+        if res < 0:
+            raise self.error_handler()
 # ____________________________________________________________
 
 def make_socket(fd, family, type, proto, SocketClass=RSocket):

@@ -182,3 +182,25 @@ def test_connect_ex():
     s = RSocket()
     err = s.connect_ex(s.getsockname())   # should not work
     assert err in (errno.ECONNREFUSED, errno.EADDRNOTAVAIL)
+
+
+def test_getsetsockopt():
+    # A socket sould start with reuse == 0
+    s = RSocket(_c.AF_INET, _c.SOCK_STREAM)
+    reuse = s.getsockopt_int(_c.SOL_SOCKET, _c.SO_REUSEADDR)
+    assert reuse == 0
+    s.setsockopt_int(_c.SOL_SOCKET, _c.SO_REUSEADDR, 1)
+    reuse = s.getsockopt_int(_c.SOL_SOCKET, _c.SO_REUSEADDR)
+    assert reuse != 0
+    # Test string case
+    s = RSocket(_c.AF_INET, _c.SOCK_STREAM)
+    reusestr = s.getsockopt(_c.SOL_SOCKET, _c.SO_REUSEADDR, sizeof(_c.c_int))
+    reuseptr = _c.cast(_c.c_char_p(reusestr), _c.POINTER(_c.c_int))
+    assert reuseptr[0] == 0
+    optval = _c.c_int(1)
+    optvalp = _c.cast(_c.pointer(optval), _c.POINTER(_c.c_char))
+    optstr = optvalp[:sizeof(_c.c_int)]
+    s.setsockopt(_c.SOL_SOCKET, _c.SO_REUSEADDR, optstr)
+    reusestr = s.getsockopt(_c.SOL_SOCKET, _c.SO_REUSEADDR, sizeof(_c.c_int))
+    reuseptr = _c.cast(_c.c_char_p(reusestr), _c.POINTER(_c.c_int))
+    assert reuseptr[0] != 0

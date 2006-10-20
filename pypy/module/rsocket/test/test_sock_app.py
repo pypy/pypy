@@ -353,3 +353,27 @@ class AppTestSocket:
         import socket
         s = socket.socket()
 
+
+    def test_getsetsockopt(self):
+        import _socket as socket
+        import struct
+        # A socket sould start with reuse == 0
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        reuse = s.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR)
+        assert reuse == 0
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        reuse = s.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR)
+        assert reuse != 0
+        # String case
+        intsize = struct.calcsize('i')
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        reusestr = s.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,
+                                intsize)
+        (reuse,) = struct.unpack('i', reusestr)
+        assert reuse == 0
+        reusestr = struct.pack('i', 1)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, reusestr)
+        reusestr = s.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,
+                                intsize)
+        (reuse,) = struct.unpack('i', reusestr)
+        assert reuse != 0
