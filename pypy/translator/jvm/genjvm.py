@@ -11,7 +11,9 @@ from pypy.translator.translator import TranslationContext
 from pypy.translator.jvm.generator import JasminGenerator
 from pypy.translator.jvm.option import getoption
 from pypy.translator.jvm.database import Database
+from pypy.translator.jvm.typesystem import JvmTypeSystem
 from pypy.translator.jvm.log import log
+from pypy.translator.jvm.node import EntryPoint
 
 class JvmError(Exception):
     """ Indicates an error occurred in the JVM runtime """
@@ -26,9 +28,13 @@ class JvmGeneratedSource(object):
 
     For those interested in the location of the files, the following
     attributes exist:
-    tmpdir --- root directory from which all files can be found
-    javadir --- the directory containing *.java
-    classdir --- the directory where *.class will be generated
+    tmpdir --- root directory from which all files can be found (py.path obj)
+    javadir --- the directory containing *.java (py.path obj)
+    classdir --- the directory where *.class will be generated (py.path obj)
+    package --- a string with the name of the package (i.e., 'java.util')
+
+    The following attributes also exist to find the state of the sources:
+    compiled --- True once the sources have been compiled successfully
     """
 
     def __init__(self, tmpdir, package):
@@ -39,11 +45,12 @@ class JvmGeneratedSource(object):
         """
         self.tmpdir = tmpdir
         self.package = package
+        self.compiled = False
 
         # Compute directory where .java files are
         self.javadir = self.tmpdir
         for subpkg in package.split('.'):
-            self.srcdir = os.path.join(self.srcdir, subpkg)
+            self.javadir = self.javadir.join(subpkg)
 
         # Compute directory where .class files should go
         self.classdir = self.javadir
@@ -51,12 +58,14 @@ class JvmGeneratedSource(object):
     def compile(self):
         """
         Compiles the .java sources into .class files, ready for execution.
+        Raises a JvmError if compilation fails.
         """
         javac = getoption('javac')
-        javafiles = [f for f in os.listdir(self.javadir)
+        javafiles = [f for f in self.javadir.listdir()
                      if f.endswith('.java')]
         res = subprocess.call([javac] + javafiles)
         if res: raise JvmError('Failed to compile!')
+        else: self.compiled = True
 
     def execute(self, args):
         """
@@ -64,6 +73,7 @@ class JvmGeneratedSource(object):
         output as a string.  The 'args' are provided as arguments,
         and will be converted to strings.
         """
+        assert self.compiled
         strargs = [str(a) for a in args]
         cmd = [getoption('java'), '%s.Main' % self.package]
         pipe = subprocess.Popen(cmd, stdout=subprocess.PIPE).stdout
@@ -81,12 +91,12 @@ def generate_source_for_function(func, annotation):
     t = TranslationContext()
     ann = t.buildannotator()
     ann.build_types(func, annotation)
-    t.buildrtype(type_system="ootype").specialize()
+    t.buildrtyper(type_system="ootype").specialize()
     main_graph = t.graphs[0]
     if getoption('view'): t.view()
     if getoption('wd'): tmpdir = py.path.local('.')
     else: tmpdir = udir
-    jvm = GenJvm(tmpdir, t)
+    jvm = GenJvm(tmpdir, t, entrypoint=EntryPoint(main_graph, True))
     return jvm.generate_source()
 
 class GenJvm(object):
@@ -104,18 +114,17 @@ class GenJvm(object):
         'entrypoint' --- if supplied, an object with a render method
         """
         self.jvmsrc = JvmGeneratedSource(tmpdir, getoption('package'))
-        self.db = Database()
+        self.type_system = JvmTypeSystem()
+        self.db = Database(self.type_system)
         if entrypoint:
             self.db.pending_node(entrypoint)
+        else:
+            self.db.pending_node(EntryPoint(translator.graphs[0], False))
 
     def generate_source(self):
         """ Creates the sources, and returns a JvmGeneratedSource object
         for manipulating them """
         generator = self._create_generator()
-
-        # Deal with entry point
-        if not self.db.len_pending():
-            # XXX default entry point
 
         # Drain worklist
         n = 0
@@ -129,13 +138,12 @@ class GenJvm(object):
                            (n, total, n*100.0/total))
 
         # Return the source object once we have finished
-        generator.all_done()
         return self.jvmsrc
 
     def _create_generator(self):
         """ Creates and returns a Generator object according to the
         configuration.  Right now, however, there is only one kind of
         generator: JasminGenerator """
-        return JasminGenerator(self.jvmsrc.javadir)
+        return JasminGenerator(self.jvmsrc.javadir, self.jvmsrc.package)
         
         

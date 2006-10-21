@@ -13,6 +13,10 @@ option = py.test.Config.addoptions(
 ##           help='View the graphs before they are generated'),
     Option('--wd', action='store_true', dest='wd', default=False,
            help='Output to current directory instead of /tmp'),
+    Option('--noassemble', action='store_true', dest="noasm", default=False,
+           help="don't assemble jasmin files"),
+    Option('--norun', action='store_true', dest="norun", default=False,
+           help="don't run the compiled executable"),
     Option('--package', action='store', dest='package', default='pypy',
            help='Package to output generated classes into')
     #Option('--opt', action='XXX', dest='YYY', default=DEF, help='HELP')

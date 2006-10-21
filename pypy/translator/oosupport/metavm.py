@@ -98,6 +98,10 @@ class MicroInstruction(object):
     
     def __call__(self, *args):
         return self.render(*args)
+
+class _DoNothing(MicroInstruction):
+    def render(self, generator, op):
+        pass
         
 class PushArg(MicroInstruction):
     """ Pushes a given operand onto the stack. """
@@ -227,3 +231,4 @@ StoreResult = _StoreResult()
 SetField = _SetField()
 GetField = _GetField()
 DownCast = _DownCast()
+DoNothing = _DoNothing()
