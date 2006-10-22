@@ -127,8 +127,8 @@ class _SetField(MicroInstruction):
 ##        if field.value == 'meta':
 ##            return # TODO
         
-        if value.concretetype is ootype.Void:
-            return
+        #if value.concretetype is ootype.Void:
+        #    return
         generator.load(this)
         generator.load(value)
         generator.set_field(this.concretetype, field.value)
@@ -136,8 +136,9 @@ class _SetField(MicroInstruction):
 class _GetField(MicroInstruction):
     def render(self, generator, op):
         # OOType produces void values on occassion that can safely be ignored
-        if op.result.concretetype is ootype.Void:
-            return
+        # XXX: That's not true
+        #if op.result.concretetype is ootype.Void:
+        #    return
         this, field = op.args
         generator.load(this)
         generator.get_field(this.concretetype, field.value)
