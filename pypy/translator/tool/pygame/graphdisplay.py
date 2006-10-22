@@ -58,7 +58,6 @@ class Display(object):
         self.height = h
         self.screen = pygame.display.set_mode((w, h), HWSURFACE|RESIZABLE, 32)
 
-
 class GraphDisplay(Display):
     STATUSBARFONT = os.path.join(autopath.this_dir, 'VeraMoBd.ttf')
     ANIM_STEP = 0.07
@@ -633,6 +632,10 @@ class GraphDisplay(Display):
     def process_VideoResize(self, event):
         # short-circuit if there are more resize events pending
         if self.peek(VIDEORESIZE):
+            return
+        # XXX sometimes some jerk are trying to minimise our window,
+        # discard such event
+        if event.size[1] == 5:
             return
         self.resize(event.size)
         self.must_redraw = True
