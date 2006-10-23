@@ -898,6 +898,11 @@ class _overloaded_mixin(object):
                 return meth
         raise TypeError, 'No suitable overloading found for method'
 
+    def _annotate_overloading(self, args_s):
+        ARGS = tuple([self._annotation_to_lltype(arg_s) for arg_s in args_s])
+        METH = self._resolve_overloading(ARGS)._TYPE
+        return self._lltype_to_annotation(METH.RESULT)
+
     def _annotation_to_lltype(self, ann):
         from pypy.annotation import model as annmodel
         if isinstance(ann, annmodel.SomeChar):
