@@ -576,7 +576,7 @@ class RSocket(object):
         delay_flag = _c.fcntl(self.fd, _c.F_GETFL, 0)
         if block:
             delay_flag &= ~_c.O_NONBLOCK
-	else:
+        else:
             delay_flag |= _c.O_NONBLOCK
         _c.fcntl(self.fd, _c.F_SETFL, delay_flag)
 
