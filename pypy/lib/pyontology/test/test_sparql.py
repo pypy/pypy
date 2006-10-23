@@ -66,24 +66,6 @@ def test_sparql():
 #   var             var             var    ; for all p's return p.getvalues
 #
 # If p is a builtin owl property
-Onto = """<rdf:RDF
-      xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-      xmlns:owl="http://www.w3.org/2002/07/owl#"
-      xmlns:ns="http://example.org/ns#"
-      xmlns:base="http://example.org/ns#">
-
-<owl:Class rdf:about="http://www.w3.org/2002/07/owl#Thing">
-        <owl:oneOf rdf:parseType="Collection">
-            <owl:Thing rdf:about="http://example.org/ns#s"/>
-       </owl:oneOf>
-      </owl:Class>
-    <owl:Thing rdf:about="http://example.org/ns#sub">
-        <ns:p rdf:datatype=
-        "http://www.w3.org/2001/XMLSchema#int">123</ns:p>
-    </owl:Thing>
-    <owl:ObjectProperty rdf:about="http://example.org/ns#p" />
-  </rdf:RDF>
-    """
 
 qt_proto = """
         PREFIX ns: <http://example.org/ns#>
@@ -99,7 +81,7 @@ def test_case_0():
 
     query = qt_proto % ('?x', 'ns:sub ns:p "a123" .')
     O = Ontology()
-    O.add_file(StringIO(Onto))
+    O.add_file("testont.rdf")
     O.attach_fd()
     raises(ConsistencyFailure, O.sparql, query)
 
@@ -108,9 +90,9 @@ def test_case_1():
 
     query = qt_proto % ('?x', '?x ns:p 123 .')
     O = Ontology()
-    O.add_file(StringIO(Onto))
+    O.add_file("testont.rdf")
     O.attach_fd()
-    O.sparql(query)
+    res = O.sparql(query)
     assert list(O.variables['query_x_'].getValues())[0].uri == u'http://example.org/ns#sub' 
 
 def test_case_2():
@@ -118,47 +100,52 @@ def test_case_2():
 
     query = qt_proto % ('?x', 'ns:sub  ?x 123 .')
     O = Ontology()
-    O.add_file(StringIO(Onto))
+    O.add_file("testont.rdf")
     O.attach_fd()
 
-    O.sparql(query)
+    res = O.sparql(query)
     assert list(O.variables['query_x_'].getValues())[0] == 'ns_p' 
+    assert res[0]['query_x_'] == 'ns_p'
 
 def test_case_3():
     """search for s in p"""
 
     query = qt_proto % ('?x', 'ns:sub ns:p ?x .')
     O = Ontology()
-    O.add_file(StringIO(Onto))
+    O.add_file("testont.rdf")
 
     O.attach_fd()
-
-    O.sparql(query)
-    assert list(O.variables['query_x_'].getValues())[0] == '123' 
+#    import pdb
+#    pdb.set_trace()
+    res = O.sparql(query)
+    assert list(O.variables['query_x_'].getValues())[0] == '123'
+    assert res[0]['query_x_'] == '123'
 
 def test_case_4():
     """ search for s in p """
 
     query = qt_proto % ('?x ?y', '?x ?y 123 .')
     O = Ontology()
-    O.add_file(StringIO(Onto))
+    O.add_file("testont.rdf")
     O.attach_fd()
 
-    O.sparql(query)
+    res = O.sparql(query)
     assert list(O.variables['query_x_'].getValues())[0].uri == u'http://example.org/ns#sub' 
     assert list(O.variables['query_y_'].getValues())[0] == 'ns_p' #u'http://example.org/ns#p' 
+    assert res[0]['query_x_'] == u'http://example.org/ns#sub' 
 
 def test_case_5():
     """ for all p's return p[0] if p[1]==o """
 
     query = qt_proto % ('?x ?y', '?x ns:p ?y .')
     O = Ontology()
-    O.add_file(StringIO(Onto))
+    O.add_file("testont.rdf")
     O.attach_fd()
 
-    O.sparql(query)
+    res = O.sparql(query)
     assert list(O.variables['query_x_'].getValues())[0].uri == u'http://example.org/ns#sub' 
     assert list(O.variables['query_y_'].getValues())[0] == u'123' 
+    assert res[0]['query_x_'] == u'http://example.org/ns#sub' 
 
 def test_case_6():
     """ return the values of p """
@@ -166,11 +153,12 @@ def test_case_6():
 
     query = qt_proto % ('?x ?y', 'ns:sub ?x ?y .')
     O = Ontology()
-    O.add_file(StringIO(Onto))
+    O.add_file("testont.rdf")
     O.attach_fd()
 
-    O.sparql(query)
+    res = O.sparql(query)
     assert list(O.variables['query_x_'].getValues())[0].uri == u'http://example.org/ns#sub' 
+    assert res[0]['query_x_'] == u'http://example.org/ns#sub' 
 
 def test_case_7():
     """ for all p's return p[1] if p[0]==s """
@@ -178,11 +166,38 @@ def test_case_7():
 
     query = qt_proto % ('?x ?y ?z', '?x ?y ?z .')
     O = Ontology()
-    O.add_file(StringIO(Onto))
+    O.add_file("testont.rdf")
     O.attach_fd()
 
-    O.sparql(query)
+    res = O.sparql(query)
     assert list(O.variables['query_x_'].getValues())[0].uri == u'http://example.org/ns#sub' 
+    assert res[0]['query_x_'] == u'http://example.org/ns#sub' 
+ 
 
+import xmlrpclib, socket, os, signal
 
+class TestXMLRPC:
+    
+    def setup_class(self):
+        from subprocess import Popen 
+        self.shell = Popen("python ../pyontology.py testont.rdf", shell=True)
+        server = xmlrpclib.ServerProxy("http://localhost:9000")
+        print "setup"
 
+        while 1:
+            try:
+                server.ok()
+            except socket.error:
+                pass
+            else:
+                break
+    def teardown_class(self):
+        print " teardown", self.shell.pid
+        os.kill(self.shell.pid, signal.SIGTERM)
+
+    def test_xmlrpc(self):
+        py.test.skip("WIP")
+        print "test_xmlrpc"
+        server = xmlrpclib.ServerProxy("http://localhost:9000", allow_none=True)
+        result = server.sparql(qt_proto % ('?x', 'ns:sub ns:p ?x .'))
+        assert result == [u'http://example.org/ns#sub']

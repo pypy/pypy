@@ -1,3 +1,4 @@
+import autopath
 from rdflib import Graph, URIRef, BNode, Literal
 from logilab.constraint import  Repository, Solver
 from logilab.constraint.fd import  Expression, FiniteDomain as fd
@@ -86,7 +87,8 @@ class ClassDomain(AbstractDomain, object):
         self.finished = False
         self.value = None
         self.type = []
-
+        self.setValues(values)
+        
     def finish(self, variables, glob_constraints):
         # The finish method constructs the constraints
         if not self.finished:
@@ -117,7 +119,7 @@ class ClassDomain(AbstractDomain, object):
                 # if the base class is a Restriction we shouldnt add the constraints to the store
                 if not isinstance(cls, Restriction):
                     self.domains.update(dom)
-                    self.constraint.extend(constraint)
+                self.constraint.extend(constraint)
                 # initialise the constraint with this class as the first argument
                 for constraint in cls.un_constraint:
                     dom, constraints = constraint(self.name, variables[cls.property], cls.value)
@@ -142,7 +144,7 @@ class ClassDomain(AbstractDomain, object):
         return item in self.values
 
     def copy(self):
-        return self
+        return self.__class__(self.name, self.uri, self.getValues())
     
     def size(self):
         return len(self.values)
@@ -171,8 +173,9 @@ class ClassDomain(AbstractDomain, object):
         self.values[value] = True
 
     def getValues(self):
-        for key in self.values:
-            yield key
+        #for key in self.values:
+        #    yield key
+        return self.values.keys()
         
     def __iter__(self):
         return iter(self.values.keys())
@@ -184,17 +187,26 @@ class ClassDomain(AbstractDomain, object):
 class FixedClassDomain(ClassDomain):
 
     finished = True 
-    fixed = True
- 
-    def removeValues(self, values):
-        raise ConsistencyFailure("Cannot remove values from a FixedClassDomain")
 
-    def removeValue(self, value):
-        raise ConsistencyFailure("Cannot remove values from a FixedClassDomain")
+    def __init__(self, name='', uri=None, values = [], bases = []):
+        ClassDomain.__init__(self, name, uri, values, bases)
+        self.fixed = True
 
-    def setValues(self, values):
-        if not self.values:
-            self.values = dict.fromkeys(values)
+    def addValue(self, value):
+        if self.fixed :
+            raise ValueError("Fixed classes can only add vulues during initialisation")
+        else:
+            ClassDomain.addValue(self, value)
+
+#    def removeValues(self, values):
+#        raise ConsistencyFailure("Cannot remove values from a FixedClassDomain")
+
+#    def removeValue(self, value):
+#        raise ConsistencyFailure("Cannot remove values from a FixedClassDomain")
+
+#    def setValues(self, values):
+#        if not self.values:
+#            self.values = dict.fromkeys(values)
         #else:
             #raise ConsistencyFailure
 
@@ -250,7 +262,12 @@ class Property(AbstractDomain, object):
         self.un_constraint = []
         self.in_constraint = []
         self.bases = []
+        self.name_uri = uri
         self.finished = True
+        self.setValues(values)
+
+    def copy(self):
+        return Property(self.name, self.uri, list(self.getValues()))
 
     def finish(self, var, constraints):
         return var, constraints
@@ -263,7 +280,9 @@ class Property(AbstractDomain, object):
         res = []
         for k,vals in items:
             for v in vals:
-                yield (k,v)
+                #yield (k,v)
+                res.append((k,v))
+        return res
 
     def getValuesPrKey(self, key= None):
         if key:
@@ -287,6 +306,10 @@ class Property(AbstractDomain, object):
                 self._dict.pop(k)
             else:
                 self._dict[k] = [ x for x in vals if x != v]
+                if not self._dict[k]:
+                    self._dict.pop(k)
+        if not self._dict:
+            raise ConsistencyFailure
 
     def __contains__(self, (cls, val)):
         if not cls in self._dict:
@@ -383,9 +406,14 @@ class Restriction(ClassDomain):
                 The class is saved in the restrictions cls attribute
         """
     uri = URIRef(namespaces['owl'] + "#Restriction")
-    def __init__(self, name='', values=[], bases = []):
-        ClassDomain.__init__(self, name, values, bases)
+    def __init__(self, name='', uri='', values=[], bases = []):
+        ClassDomain.__init__(self, name, uri, values, bases)
         self.property = None
+
+    def copy(self):
+        cc = ClassDomain.copy(self)
+        cc.property = self.property
+        return cc
 
 def Types(typ):
     class Type(ClassDomain):
@@ -440,11 +468,11 @@ class Ontology:
         self.var2ns ={}
         self.nr_of_triples = 0
         self.time = time.time()
-        for pr in builtin_voc:
-            name = self.mangle_name(pr)
+#        for pr in builtin_voc:
+#            name = self.mangle_name(pr)
             # Instantiate ClassDomains to record instances of the types
-            name = name + "_type"
-            self.variables[name] = ClassDomain(name, pr)
+#            name = name + "_type"
+#            self.variables[name] = ClassDomain(name, pr)
 
     def add(self, triple):
         self.graph.add(triple)
@@ -494,7 +522,7 @@ class Ontology:
 
         triples = where.GroupGraphPattern[0].Triples
         new = []
-
+        vars = []
         for trip in triples:
             case = 0
             inc = 1
@@ -507,7 +535,9 @@ class Ontology:
                     uri = prefixes[item[0].NCNAME_PREFIX[0]] + item[0].NCNAME[0]
                     newtrip.append(URIRef(uri))
                 elif item.VAR1:
-                    newtrip.append(URIRef('query_'+item.VAR1[0][0]))
+                    var_uri = URIRef('query_'+item.VAR1[0][0])
+                    newtrip.append(var_uri)
+                    vars.append(var_uri)
                     case += trip_.index(item) + inc
                     inc = 2
                 else:
@@ -515,7 +545,7 @@ class Ontology:
             newtrip.append(case)
             new.append(newtrip)
         constrain = where.GroupGraphPattern[0].Constraint
-        return new, prefixes, resvars, constrain
+        return new, prefixes, resvars, constrain, vars
 
 # There are 8 ways of having the triples in the query, if predicate is not a builtin owl predicate
 #
@@ -532,7 +562,9 @@ class Ontology:
 #
 
     def sparql(self, query):
-        new, prefixes, resvars, constrain = self._sparql(query)
+        new, prefixes, resvars, constrain, vars = self._sparql(query)
+        query_dom = {}
+        query_constr = []
         for trip in new:
             case = trip.pop(-1)
             if case == 0:
@@ -559,18 +591,22 @@ class Ontology:
                 else:
                     obj = trip[2]
                 prop = self.variables[prop_name]
-                prop.setValues(list(self.variables['rdf_Property_type'].getValues()))
-                # Get all properties by looking at 'rdf_Property_type'
+                prop.setValues(list(self.variables['rdf_Property'].getValues()))
+                # Get all properties by looking at 'rdf_Property'
                 # add a constraint trip[0] in domains[prop] and trip[2] in domains[prop].getValuesPrKey(trip[0])
                 self.constraints.append(PropertyConstrain(prop_name, indi, obj))
 
             elif case == 3:
                 #  search for s in p
                 prop = self.make_var(None, trip[1])
-                indi = self.variables[self.make_var(Individual, trip[0])]
+                #indi = self.variables[self.make_var(
+                indi = Individual( self.mangle_name(trip[0]), trip[0])
                 p_vals = self.variables[prop].getValuesPrKey(indi)
                 var = self.make_var(Thing, trip[2])
                 self.variables[var].setValues((p_vals))
+                if [dom for dom in self.variables.values() if isinstance(dom, Individual)]: 
+                    import pdb
+                    pdb.set_trace()
             elif case == 4:
                 #  for all p's return p[0] if p[1]==o 
                  
@@ -579,7 +615,7 @@ class Ontology:
                 sub = self.variables[sub_name]
                 sub.setValues(list(self.variables['owl_Thing'].getValues()))
                 prop = self.variables[prop_name]
-                prop.setValues(list(self.variables['rdf_Property_type'].getValues()))
+                prop.setValues(list(self.variables['rdf_Property'].getValues()))
                 obj_name = self.mangle_name(trip[2])
                 if  obj_name in self.variables:
                     obj = self.variables[self.mangle_name(trip[2])]
@@ -601,9 +637,17 @@ class Ontology:
             elif case == 7:
                 #  for all p's return p.getvalues 
                 pass
+        # call finish on the variables in the query
+        for v in vars:
+            query_dom, query_constr = self.variables[self.mangle_name(v)].finish(self.variables, self.constraints) #query_dom, query_constr)
+        # Build a repository with the variables in the query
+        #dom = dict([(self.mangle_name(v),self.variables[self.mangle_name(v))
+        #             for v in vars])
+        # solve the repository and return the solution
+#        rep = Repository(query_dom.keys(), query_dom, query_constr)
+#        return Solver().solve(rep)
 
-        self.consistency()
-
+        return self.solve(verbose=6)
     
     def consider_triple(self,(s, p, o)):
         if (s, p, o) in self.seen:
@@ -623,15 +667,18 @@ class Ontology:
             #predicate is one of builtin OWL or rdf predicates
             pred = getattr(self, func)
             res = pred(s, o)
-            #avar = self.make_var(ClassDomain, s)
+        #avar = self.make_var(ClassDomain, s)
         #else:
         avar = self.make_var(Property, p)
         # Set the values of the property p to o
-        self.type(s, Thing_uri)
-        sub = self.make_var(Thing, s)
+#        self.type(s, Thing_uri)
+        sub = self.mangle_name(s)
         if type(o) == URIRef:
-            obj = self.make_var(Thing, o)
-            val = Individual(obj,o)
+            obj = self.mangle_name(o)
+            if obj in self.variables:
+                val = self.variables[obj]
+            else:
+                val = Individual(obj, o)
         else:
             val = o
         propdom = self.variables[avar]
@@ -672,17 +719,16 @@ class Ontology:
  
     def make_var(self, cls=fd, a=''):
         log("make_var %r,%r" %(cls,a))
-        if a in builtin_voc:
-           cls = builtin_voc[a]
         var = self.mangle_name(a)
         if not cls:
             return var
         if not var in self.variables:
+            if a in builtin_voc and issubclass(builtin_voc[a], ClassDomain):
+                cls = builtin_voc[a]
             cls = self.variables[var] = cls(var, a)
             if cls.constraint:
                 log("make_var constraint 1 %r,%r" %(cls,a))
                 self.constraints.extend(cls.constraint)
-        # XXX needed because of old style classes
         elif not cls == self.variables[var].__class__ and issubclass(cls, self.variables[var].__class__):
             vals = self.variables[var].getValues()
             tmp = cls(var, a)
@@ -737,32 +783,40 @@ class Ontology:
 
     def type(self, s, var):
         log("type %r %r"%(s, var))
-        avar = self.make_var(ClassDomain, var)
         if not var in builtin_voc :
-            # var is not one of the builtin classes -> it is a Thing
-            self.type(s, Thing_uri)
-            svar = self.make_var(Individual, s)
-            self.variables[svar].type.append(avar) 
+            # var is not one of the builtin classes -> it is a Class 
+            avar = self.make_var(ClassDomain, var)
+            #self.type(s, Thing_uri)
+            svar = self.mangle_name(s)
+            s_type = Individual(svar, s)
+            self.variables[svar] = s_type
+            if type(self.variables[avar]) != FixedClassDomain:
+                self.variables[avar].addValue(s_type)
             self.constraints.append(MemberConstraint(svar, avar))
         else:
             # var is a builtin class
             cls = builtin_voc[var]
+            avar = self.make_var(ClassDomain, var)
+            if cls in [Thing]:
+                svar = self.mangle_name(s)
+                self.variables[avar].addValue(Individual(svar, s))
+                return
             svar = self.make_var(cls, s)
-            for parent in cls.__mro__:
+            for parent in cls.__mro__[1:]:
                 if not hasattr(parent, 'uri'):
                     break
-                typ_name = self.mangle_name(parent.uri) + "_type"
+                typ_name = self.make_var(ClassDomain, parent.uri)
                 self.variables[typ_name].addValue(svar)
             if cls == List:
                 return
             cls = self.variables[svar]
             if cls.constraint:
                 self.constraints.extend(cls.constraint)
-            if not isinstance(self.variables[avar], Property):
-                if isinstance(self.variables[avar], Thing):
-                    self.variables[avar].addValue(Individual(svar, s))
-                else:
-                    self.variables[avar].addValue(svar)
+#            if not isinstance(self.variables[avar], Property):
+            if isinstance(self.variables[avar], Thing):
+                self.variables[avar].addValue(Individual(svar, s))
+            else:
+                self.variables[avar].addValue(svar)
     
     def first(self, s, var):
         pass
@@ -820,15 +874,11 @@ class Ontology:
         # Can be used to define an enumerated datatype as well.
         # The memebers of the list can be Urirefs (Individuals) or Literals
         var = self.flatten_rdf_list(var)
-        svar = self.make_var(FixedClassDomain, s)
+        svar = self.mangle_name(s)
         res = list(self.variables[var].getValues())
-        if type(res[0]) == URIRef:
-            self.variables[svar].setValues([
-                Individual(self.make_var(Thing, x), x) for x in res])
-            for i in res:
-                self.type(i, Thing_uri)
-        else: 
-            self.variables[svar].setValues(res)
+        # For Individuals (datatypes handled differently ?) XXX
+        s_cls = FixedClassDomain(svar, s, [Individual(self.mangle_name(x), x) for x in res])
+        self.variables[svar] = s_cls
 
     def unionOf(self,s, var):
         var = self.flatten_rdf_list(var)
@@ -989,3 +1039,22 @@ class Ontology:
            indx = diff_list.index(v)
            for other in diff_list[indx+1:]:
                self.differentFrom(v, other)
+
+if __name__ == "__main__":
+    import SimpleXMLRPCServer
+
+    import sys
+
+    def ok():
+        return "ok"
+
+    rdffile = sys.argv[-1]
+    O = Ontology()
+    O.add_file(rdffile)
+    O.attach_fd()
+    O.consistency()
+    server = SimpleXMLRPCServer.SimpleXMLRPCServer(("localhost", 9000))
+    server.register_instance(O)
+    server.register_function(ok)
+    server.serve_forever()
+

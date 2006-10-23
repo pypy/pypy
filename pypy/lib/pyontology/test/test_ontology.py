@@ -145,7 +145,7 @@ def test_type():
     O.type(sub, obj)
     O.type(obj, namespaces['owl']+"#Class")
     
-    assert O.variables[O.make_var(None, sub)].__class__  == Individual 
+    assert O.variables[O.make_var(None, obj)].getValues()[0].__class__  == Individual 
 
 # test for multiple types
 # test for type hierarchy
@@ -276,24 +276,26 @@ def test_inversefunctionalproperty():
 def test_Transitiveproperty():
     O = Ontology()
     #Make functional property
-    sub = URIRef('subRegionOf')
+    subreg = URIRef('subRegionOf')
     obj = URIRef(namespaces['owl']+'#TransitiveProperty')
-    O.type(sub, obj)
+    O.type(subreg, obj)
     #Make class
     sub = URIRef('c')
     obj = URIRef(namespaces['owl']+'#Class')
     O.type(sub, obj)
     #Make individual with a value of the property
-    sub = URIRef('Italy')
+    it = URIRef('Italy')
     obj = URIRef('c')
-    O.type(sub, obj)
-    sub = URIRef('Tuscanny')
-    O.type(sub, obj)
-    sub = URIRef('Chianti')
-    O.type(sub, obj)
-    O.variables['subRegionOf_'].setValues([('Italy_','Tuscanny_'),('Tuscanny_','Chianti_')])
+    O.type(it, obj)
+    tus = URIRef('Tuscanny')
+    O.type(tus, obj)
+    chi = URIRef('Chianti')
+    O.type(chi, obj)
+#    O.variables['subRegionOf_'].setValues([('Italy_','Tuscanny_'),('Tuscanny_','Chianti_')])
+    O.consider_triple((tus, subreg, it))
+    O.consider_triple((chi, subreg, tus))
     O.consistency()
-    assert 'Chianti_' in O.variables['subRegionOf_']._dict['Italy_']
+    assert Individual('Italy_', it) in O.variables['subRegionOf_'].getValuesPrKey(Individual('Chianti',chi))
     
 def test_symmetricproperty():    
     O = Ontology()
@@ -717,5 +719,5 @@ def test_recording_of_properties():
 #    O.type(first, URIRef(namespaces['owl']+'#SymmetricProperty'))
     O.consider_triple((first, URIRef(namespaces['rdf']+'#type'), URIRef(namespaces['owl']+'#SymmetricProperty')))
     assert isinstance(O.variables['first_'], SymmetricProperty)
-    assert 'first_' in O.variables['rdf_Property_type'].getValues()
-    assert 'first_' in O.variables['owl_ObjectProperty_type'].getValues()
+    assert 'first_' in O.variables['owl_ObjectProperty'] #.getValues()
+    assert 'first_' in O.variables['rdf_Property'] # .getValues()
