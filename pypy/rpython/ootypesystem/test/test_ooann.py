@@ -256,14 +256,20 @@ def test_overloaded_meth():
 def test_overloaded_meth_string():
     C = Instance("test", ROOT, {},
                  {'foo': overload(meth(Meth([Char], Signed)),
-                                  meth(Meth([String], Float)))})
+                                  meth(Meth([String], Float))),
+                  'bar': overload(meth(Meth([Signed], Char)),
+                                  meth(Meth([Float], String)))})
     def fn1():
         return new(C).foo('a')
     def fn2():
         return new(C).foo('aa')
+    def fn3(x):
+        return new(C).bar(x)
     a = RPythonAnnotator()
     assert isinstance(a.build_types(fn1, []), annmodel.SomeInteger)
     assert isinstance(a.build_types(fn2, []), annmodel.SomeFloat)
+    assert isinstance(a.build_types(fn3, [int]), annmodel.SomeChar)
+    assert isinstance(a.build_types(fn3, [float]), annmodel.SomeString)
 
 def test_bad_overload():
     def fn():

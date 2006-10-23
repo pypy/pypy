@@ -706,20 +706,12 @@ class __extend__(SomeOOBoundMeth):
         inst = m.ootype._example()
         _, meth = m.ootype._lookup(m.name)
         if isinstance(meth, ootype._overloaded_meth):
-            ARGS = tuple([m._annotation_to_lltype(arg_s) for arg_s in args_s])
+            ARGS = tuple([meth._annotation_to_lltype(arg_s) for arg_s in args_s])
             METH = meth._resolve_overloading(ARGS)._TYPE
+            return meth._lltype_to_annotation(METH.RESULT)
         else:
             METH = ootype.typeOf(meth)
-        RESULT = METH.RESULT
-        return lltype_to_annotation(RESULT)
-
-    def _annotation_to_lltype(self, ann):
-        if isinstance(ann, SomeChar):
-            return ootype.Char
-        elif isinstance(ann, SomeString):
-            return ootype.String
-        else:
-            return annotation_to_lltype(ann)
+            return lltype_to_annotation(METH.RESULT)
 
 class __extend__(SomeOOStaticMeth):
     def simple_call(m, *args_s):
