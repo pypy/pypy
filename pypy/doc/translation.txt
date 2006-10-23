@@ -908,7 +908,7 @@ some of its small helper functions to improve performance.  The
 following picture attempts to summarize the components involved in
 perfoming each step of the default translation process:
 
-.. image:: image/translation-detail-0.9.png
+.. imge:: image/translation-detail-0.9.png
    :align: center
 
 .. _`low-level helpers`: glossary.html#low-level-helper
