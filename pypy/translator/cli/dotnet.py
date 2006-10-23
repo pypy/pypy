@@ -3,6 +3,7 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem.ootype import meth, overload, Meth, StaticMethod
 from pypy.annotation import model as annmodel
 from pypy.rpython.rmodel import Repr
+from pypy.translator.cli.support import CLR
 
 ## Annotation model
 
@@ -78,9 +79,7 @@ class CliStaticMethodRepr(Repr):
         return hop.genop("direct_call", [cDesc] + vlist, resulttype=resulttype)
 
 
-
-## RPython interface definition
-
+## OOType model
 
 class _static_meth(object):
     def __init__(self, TYPE):
@@ -110,6 +109,17 @@ class _overloaded_static_meth(ootype._overloaded_mixin):
         return meth._get_desc(ARGS)
 
 
+class NativeInstance(ootype.Instance):
+    def __init__(self, assembly, namespace, name, superclass,
+                 fields={}, methods={}, _is_root=False, _hints = {}):
+        fullname = '%s%s.%s' % (assembly, namespace, name)
+        self._namespace = namespace
+        self._classname = name
+        ootype.Instance.__init__(self, fullname, superclass, fields, methods, _is_root, _hints)
+
+
+## RPython interface definition
+
 class CliClass(object):
     def __init__(self, INSTANCE, static_methods):
         self._name = INSTANCE._name
@@ -129,10 +139,27 @@ class CliClass(object):
         return meth._get_desc(ARGS)
 
     def _ann_static_method(self, meth_name, args_s):
-        ARGS = tuple([annmodel.annotation_to_lltype(arg_s) for arg_s in args_s])
-        desc = self._lookup(meth_name, ARGS)
-        RESULT = desc._TYPE.RESULT        
-        return annmodel.lltype_to_annotation(RESULT)
+        meth = self._static_methods[meth_name]
+        return meth._annotate_overloading(args_s)
+
+    def _load_class(self):
+        names = self._INSTANCE._namespace.split('.')
+        names.append(self._INSTANCE._classname)
+        obj = CLR
+        for name in names:
+            obj = getattr(obj, name)
+        self._CLR_class = obj
+
+    def __getattr__(self, attr):
+        if attr in self._static_methods:
+            self._load_class()
+            return getattr(self._CLR_class, attr)
+        else:
+            raise AttributeError
+
+    def __call__(self, *args):
+        self._load_class()
+        return self._CLR_class(*args)
 
 
 class Entry(ExtRegistryEntry):
@@ -142,40 +169,9 @@ class Entry(ExtRegistryEntry):
         return SomeCliClass()
 
 
-## OOType model
 
-class NativeInstance(ootype.Instance):
-    def __init__(self, assembly, namespace, name, superclass,
-                 fields={}, methods={}, _is_root=False, _hints = {}):
-        fullname = '%s%s.%s' % (assembly, namespace, name)
-        ootype.Instance.__init__(self, fullname, superclass, fields, methods, _is_root, _hints)
+class CliNamespace(object):
+    def __init__(self, name):
+        self._name = name
 
 
-OBJECT = NativeInstance('[mscorlib]', 'System', 'Object', ootype.ROOT, {},
-                        {'ToString': ootype.meth(ootype.Meth([], ootype.String)),
-                         })
-Object = CliClass(OBJECT, {})
-
-STRING_BUILDER = NativeInstance('[mscorlib]', 'System.Text', 'StringBuilder', OBJECT, {}, {})
-STRING_BUILDER._add_methods({'Append': meth(Meth([ootype.String], STRING_BUILDER)),
-                             'AppendLine': overload(meth(Meth([ootype.String], STRING_BUILDER)),
-                                                    meth(Meth([], STRING_BUILDER)))
-                             })
-StringBuilder = CliClass(STRING_BUILDER, {})
-
-##CONSOLE = NativeInstance('[mscorlib]', 'System', 'Console', ootype.ROOT, {}, {})
-##Console = CliClass(CONSOLE, {'WriteLine': {(ootype.String,): ootype.Void,
-##                                           (ootype.Signed,): ootype.Void}})
-
-MATH = NativeInstance('[mscorlib]', 'System', 'Math', OBJECT, {}, {})
-Math = CliClass(MATH,
-                {'Abs': _overloaded_static_meth(_static_meth(StaticMethod([ootype.Signed], ootype.Signed)),
-                                                _static_meth(StaticMethod([ootype.Float], ootype.Float)))
-                 })
-
-
-
-ARRAY_LIST = NativeInstance('[mscorlib]', 'System.Collections', 'ArrayList', OBJECT, {},
-                            {'Add': meth(Meth([OBJECT], ootype.Signed)),
-                             'get_Count': meth(Meth([], ootype.Signed))})
-ArrayList = CliClass(ARRAY_LIST, {})

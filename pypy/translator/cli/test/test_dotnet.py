@@ -2,7 +2,11 @@ from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.annotation import model as annmodel
 from pypy.translator.cli.test.runtest import CliTest
 from pypy.translator.cli.dotnet import SomeCliClass, SomeCliStaticMethod,\
-     NativeInstance, Math, ArrayList, StringBuilder
+     NativeInstance
+from pypy.translator.cli.dotnetdb import System
+Math = System.Math
+ArrayList = System.Collections.ArrayList
+StringBuilder = System.Text.StringBuilder
 
 class TestDotnet(CliTest):
 
@@ -68,3 +72,12 @@ class TestDotnet(CliTest):
             return x.ToString()
         res = self.ll_to_string(self.interpret(fn, []))
         assert res == 'foobar'
+
+    def test_pythonnet(self):
+        # this test must be executed with pythonnet
+        assert Math.Abs(-42) == 42 
+        mylist = ArrayList()
+        mylist.Add(1)
+        mylist.Add('foo')
+        assert mylist.Count == 2
+    

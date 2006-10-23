@@ -1,4 +1,14 @@
+import py
 from pypy.rpython.ootypesystem import ootype
+
+try:
+    import CLR
+except ImportError:
+    class _CLR:
+        def __getattr__(self, attr):
+            py.test.skip('Must use pythonnet for being able to access .NET libraries')
+    CLR = _CLR()
+    del _CLR
 
 # some code has been stolen from genc
 def string_literal(s):
