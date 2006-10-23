@@ -44,8 +44,7 @@ class Queue(object):
         self.subst_table = subst_table
     
     def pop(self):
-        if len(self.l) == 0:
-            return "sth"
+        #if len(self.l) == 0:
         el = self.l.pop()
         return self.subst_table.get(el, el)
     
@@ -218,6 +217,8 @@ class AsmGen(object):
         self.right_hand.append("this")
     
     def store_void(self):
+        if len(self.right_hand) == 0:
+            return
         v = self.right_hand.pop()
         if v is not None:
             self.codegenerator.writeline(v+";")
