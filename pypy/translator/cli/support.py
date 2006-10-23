@@ -80,23 +80,9 @@ def _patch_os(defs=None):
         setattr(os, name, value)
     return olddefs
 
-def _patch_ROOT():
-    """
-    In gencli ootype.ROOT corresponds to System.Object: make the
-    annotator aware of its native methods such as ToString().
-    """
-    oldmeths = ootype.ROOT._methods.copy()
-    ootype.ROOT._add_methods({'ToString': ootype.meth(ootype.Meth([], ootype.String))})
-    return oldmeths
-
-def _unpatch_ROOT(oldmeths):
-    ootype.ROOT._methods = oldmeths
-
 def patch():
     olddefs = _patch_os()
-    oldmeths = _patch_ROOT()
-    return olddefs, oldmeths
+    return olddefs,
 
-def unpatch(olddefs, oldmeths):
+def unpatch(olddefs):
     _patch_os(olddefs)
-    _unpatch_ROOT(oldmeths)

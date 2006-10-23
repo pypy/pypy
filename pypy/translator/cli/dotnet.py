@@ -151,7 +151,12 @@ class NativeInstance(ootype.Instance):
         ootype.Instance.__init__(self, fullname, superclass, fields, methods, _is_root, _hints)
 
 
-STRING_BUILDER = NativeInstance('[mscorlib]', 'System.Text', 'StringBuilder', ootype.ROOT, {}, {})
+OBJECT = NativeInstance('[mscorlib]', 'System', 'Object', ootype.ROOT, {},
+                        {'ToString': ootype.meth(ootype.Meth([], ootype.String)),
+                         })
+Object = CliClass(OBJECT, {})
+
+STRING_BUILDER = NativeInstance('[mscorlib]', 'System.Text', 'StringBuilder', OBJECT, {}, {})
 STRING_BUILDER._add_methods({'Append': meth(Meth([ootype.String], STRING_BUILDER)),
                              'AppendLine': overload(meth(Meth([ootype.String], STRING_BUILDER)),
                                                     meth(Meth([], STRING_BUILDER)))
@@ -162,7 +167,7 @@ StringBuilder = CliClass(STRING_BUILDER, {})
 ##Console = CliClass(CONSOLE, {'WriteLine': {(ootype.String,): ootype.Void,
 ##                                           (ootype.Signed,): ootype.Void}})
 
-MATH = NativeInstance('[mscorlib]', 'System', 'Math', ootype.ROOT, {}, {})
+MATH = NativeInstance('[mscorlib]', 'System', 'Math', OBJECT, {}, {})
 Math = CliClass(MATH,
                 {'Abs': _overloaded_static_meth(_static_meth(StaticMethod([ootype.Signed], ootype.Signed)),
                                                 _static_meth(StaticMethod([ootype.Float], ootype.Float)))
@@ -170,7 +175,7 @@ Math = CliClass(MATH,
 
 
 
-ARRAY_LIST = NativeInstance('[mscorlib]', 'System.Collections', 'ArrayList', ootype.ROOT, {},
-                            {'Add': meth(Meth([ootype.ROOT], ootype.Signed)),
+ARRAY_LIST = NativeInstance('[mscorlib]', 'System.Collections', 'ArrayList', OBJECT, {},
+                            {'Add': meth(Meth([OBJECT], ootype.Signed)),
                              'get_Count': meth(Meth([], ootype.Signed))})
 ArrayList = CliClass(ARRAY_LIST, {})
