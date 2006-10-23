@@ -222,6 +222,8 @@ class CTS(object):
             return '%s %s(%s)' % (returntype, full_name, arg_list), True
 
         elif isinstance(TYPE, (ootype.BuiltinType, ootype.StaticMethod)):
+            assert isinstance(name_or_desc, str)
+            name = name_or_desc
             if isinstance(TYPE, ootype.StaticMethod):
                 METH = TYPE
             else:
