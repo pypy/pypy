@@ -16,7 +16,15 @@ from pypy.module.rsocket import ctypes_socket as _c
 from ctypes import cast, POINTER, c_char, c_char_p, pointer, byref, c_void_p
 from ctypes import create_string_buffer, sizeof
 from pypy.rpython.rctypes.astruct import offsetof
-from pypy.module.rsocket.socketerror import socket_strerror
+
+
+constants = _c.constants
+locals().update(constants) # Define constants from _c
+
+ntohs = _c.ntohs
+ntohl = _c.ntohl
+htons = _c.htons
+htonl = _c.htonl
 
 
 class Address(object):
@@ -54,14 +62,14 @@ def makeipaddr(name, result=None):
     # If 'result' is specified it must be a prebuilt INETAddress or
     # INET6Address that is filled; otherwise a new INETXAddress is returned.
     if result is None:
-        family = _c.AF_UNSPEC
+        family = AF_UNSPEC
     else:
         family = result.family
 
     if len(name) == 0:
         hints = _c.addrinfo(ai_family   = family,
-                            ai_socktype = _c.SOCK_DGRAM,   # dummy
-                            ai_flags    = _c.AI_PASSIVE)
+                            ai_socktype = SOCK_DGRAM,   # dummy
+                            ai_flags    = AI_PASSIVE)
         res = _c.addrinfo_ptr()
         error = _c.getaddrinfo(None, "0", byref(hints), byref(res))
         if error:
@@ -77,7 +85,7 @@ def makeipaddr(name, result=None):
 
     # IPv4 also supports the special name "<broadcast>".
     if name == '<broadcast>':
-        return makeipv4addr(_c.INADDR_BROADCAST, result)
+        return makeipv4addr(INADDR_BROADCAST, result)
 
     # "dd.dd.dd.dd" format.
     digits = name.split('.')
@@ -94,7 +102,7 @@ def makeipaddr(name, result=None):
                 0 <= d1 <= 255 and
                 0 <= d2 <= 255 and
                 0 <= d3 <= 255):
-                return makeipv4addr(_c.htonl(
+                return makeipv4addr(htonl(
                     (d0 << 24) | (d1 << 16) | (d2 << 8) | (d3 << 0)),
                                     result)
 
@@ -118,10 +126,10 @@ class IPAddress(Address):
         # Create a string object representing an IP address.
         # For IPv4 this is always a string of the form 'dd.dd.dd.dd'
         # (with variable size numbers).
-        buf = create_string_buffer(_c.NI_MAXHOST)
+        buf = create_string_buffer(NI_MAXHOST)
         error = _c.getnameinfo(byref(self.addr), self.addrlen,
-                               buf, _c.NI_MAXHOST,
-                               None, 0, _c.NI_NUMERICHOST)
+                               buf, NI_MAXHOST,
+                               None, 0, NI_NUMERICHOST)
         if error:
             raise GAIError(error)
         return buf.value
@@ -129,14 +137,14 @@ class IPAddress(Address):
 # ____________________________________________________________
 
 class INETAddress(IPAddress):
-    family = _c.AF_INET
+    family = AF_INET
     struct = _c.sockaddr_in
     maxlen = sizeof(struct)
 
     def __init__(self, host, port):
         makeipaddr(host, self)
         a = self.as_sockaddr_in()
-        a.sin_port = _c.htons(port)
+        a.sin_port = htons(port)
 
     def as_sockaddr_in(self):
         if self.addrlen != INETAddress.maxlen:
@@ -151,7 +159,7 @@ class INETAddress(IPAddress):
 
     def get_port(self):
         a = self.as_sockaddr_in()
-        return _c.ntohs(a.sin_port)
+        return ntohs(a.sin_port)
 
     def eq(self, other):   # __eq__() is not called by RPython :-/
         return (isinstance(other, INETAddress) and
@@ -178,10 +186,10 @@ class INETAddress(IPAddress):
         _, w_port = space.unpackiterable(w_address, 2)
         port = space.int_w(w_port)
         a = self.as_sockaddr_in()
-        a.sin_port = _c.htons(port)
+        a.sin_port = htons(port)
 
     def from_in_addr(in_addr):
-        sin = _c.sockaddr_in(sin_family = _c.AF_INET)   # PLAT sin_len
+        sin = _c.sockaddr_in(sin_family = AF_INET)   # PLAT sin_len
         sin.sin_addr = in_addr
         paddr = cast(pointer(sin), _c.sockaddr_ptr)
         result = instantiate(INETAddress)
@@ -197,14 +205,14 @@ class INETAddress(IPAddress):
 # ____________________________________________________________
 
 class INET6Address(IPAddress):
-    family = _c.AF_INET6
+    family = AF_INET6
     struct = _c.sockaddr_in6
     maxlen = sizeof(struct)
 
     def __init__(self, host, port, flowinfo=0, scope_id=0):
         makeipaddr(host, self)
         a = self.as_sockaddr_in6()
-        a.sin6_port = _c.htons(port)
+        a.sin6_port = htons(port)
         a.sin6_flowinfo = flowinfo
         a.sin6_scope_id = scope_id
 
@@ -224,7 +232,7 @@ class INET6Address(IPAddress):
 
     def get_port(self):
         a = self.as_sockaddr_in6()
-        return _c.ntohs(a.sin6_port)
+        return ntohs(a.sin6_port)
 
     def get_flowinfo(self):
         a = self.as_sockaddr_in6()
@@ -273,12 +281,12 @@ class INET6Address(IPAddress):
         if len(pieces_w) > 3: scope_id = space.int_w(pieces_w[3])
         else:                 scope_id = 0
         a = self.as_sockaddr_in6()
-        a.sin6_port = _c.htons(port)
+        a.sin6_port = htons(port)
         a.sin6_flowinfo = flowinfo
         a.sin6_scope_id = scope_id
 
     def from_in6_addr(in6_addr):
-        sin = _c.sockaddr_in6(sin6_family = _c.AF_INET)   # PLAT sin_len
+        sin = _c.sockaddr_in6(sin6_family = AF_INET)   # PLAT sin_len
         sin.sin6_addr = in6_addr
         paddr = cast(pointer(sin), _c.sockaddr_ptr)
         result = instantiate(INET6Address)
@@ -294,12 +302,12 @@ class INET6Address(IPAddress):
 # ____________________________________________________________
 
 class UNIXAddress(Address):
-    family = _c.AF_UNIX
+    family = AF_UNIX
     struct = _c.sockaddr_un
     maxlen = sizeof(struct)
 
     def __init__(self, path):
-        addr = _c.sockaddr_un(sun_family = _c.AF_UNIX)
+        addr = _c.sockaddr_un(sun_family = AF_UNIX)
         if _c.linux and path.startswith('\x00'):
             # Linux abstract namespace extension
             if len(path) > sizeof(addr.sun_path):
@@ -374,9 +382,9 @@ def make_address(addrptr, addrlen, result=None):
 def makeipv4addr(s_addr, result=None):
     if result is None:
         result = instantiate(INETAddress)
-    elif result.family != _c.AF_INET:
+    elif result.family != AF_INET:
         raise RSocketError("address family mismatched")
-    sin = _c.sockaddr_in(sin_family = _c.AF_INET)   # PLAT sin_len
+    sin = _c.sockaddr_in(sin_family = AF_INET)   # PLAT sin_len
     sin.sin_addr.s_addr = s_addr
     paddr = cast(pointer(sin), _c.sockaddr_ptr)
     result.addr = paddr.contents
@@ -410,7 +418,7 @@ class RSocket(object):
     """
     _mixin_ = True        # for interp_socket.py
     fd = _c.INVALID_SOCKET
-    def __init__(self, family=_c.AF_INET, type=_c.SOCK_STREAM, proto=0):
+    def __init__(self, family=AF_INET, type=SOCK_STREAM, proto=0):
         """Create a new socket."""
         fd = _c.socket(family, type, proto)
         if _c.invalid_socket(fd):
@@ -742,7 +750,7 @@ class RSocketError(SocketError):
 
 class CSocketError(SocketErrorWithErrno):
     def __str__(self):
-        return socket_strerror(self.errno)
+        return _c.socket_strerror(self.errno)
 
 def last_error():
     return CSocketError(_c.geterrno())
@@ -772,13 +780,12 @@ defaults = Defaults()
 
 
 # ____________________________________________________________
-
-if _c.AF_UNIX is None:
-    socketpair_default_family = _c.AF_INET
+if AF_UNIX is None:
+    socketpair_default_family = AF_INET
 else:
-    socketpair_default_family = _c.AF_UNIX
+    socketpair_default_family = AF_UNIX
 
-def socketpair(family=socketpair_default_family, type=_c.SOCK_STREAM, proto=0,
+def socketpair(family=socketpair_default_family, type=SOCK_STREAM, proto=0,
                SocketClass=RSocket):
     """socketpair([family[, type[, proto]]]) -> (socket object, socket object)
 
@@ -841,10 +848,10 @@ def gethost_common(hostname, hostent, addr):
     i = 0
     paddr = h_addr_list[0]
     while paddr:
-        if family == _c.AF_INET:
+        if family == AF_INET:
             p = cast(paddr, POINTER(_c.in_addr))
             addr = INETAddress.from_in_addr(p.contents)
-        elif _c.AF_INET6 is not None and family == _c.AF_INET6:
+        elif AF_INET6 is not None and family == AF_INET6:
             p = cast(paddr, POINTER(_c.in6_addr))
             addr = INET6Address.from_in6_addr(p.contents)
         else:
@@ -868,7 +875,7 @@ def gethostbyaddr(ip):
     return gethost_common(ip, hostent, addr)
 
 def getaddrinfo(host, port_or_service,
-                family=_c.AF_UNSPEC, socktype=0, proto=0, flags=0):
+                family=AF_UNSPEC, socktype=0, proto=0, flags=0):
     # port_or_service is a string, not an int (but try str(port_number)).
     assert port_or_service is None or isinstance(port_or_service, str)
     hints = _c.addrinfo(ai_family   = family,
@@ -906,7 +913,7 @@ def getservbyname(name, proto=None):
     return _c.ntohs(servent.contents.s_port)
 
 def getservbyport(port, proto=None):
-    servent = _c.getservbyport(_c.htons(port), proto)
+    servent = _c.getservbyport(htons(port), proto)
     if not servent:
         raise RSocketError("port/proto not found")
     return servent.contents.s_name
@@ -918,8 +925,8 @@ def getprotobyname(name):
     return protoent.contents.p_proto
 
 def getnameinfo(addr, flags):
-    host = create_string_buffer(_c.NI_MAXHOST)
-    serv = create_string_buffer(_c.NI_MAXSERV)
+    host = create_string_buffer(NI_MAXHOST)
+    serv = create_string_buffer(NI_MAXSERV)
     error =_c.getnameinfo(pointer(addr.addr), addr.addrlen,
                           host, len(host),
                           serv, len(serv), flags)
@@ -945,9 +952,9 @@ def inet_ntoa(packed):
 
 def inet_pton(family, ip):
     "human-readable string -> packed string"
-    if family == _c.AF_INET:
+    if family == AF_INET:
         size = sizeof(_c.in_addr)
-    elif _c.AF_INET6 is not None and family == _c.AF_INET6:
+    elif AF_INET6 is not None and family == AF_INET6:
         size = sizeof(_c.in6_addr)
     else:
         raise RSocketError("unknown address family")
@@ -962,10 +969,10 @@ def inet_pton(family, ip):
 
 def inet_ntop(family, packed):
     "packed string -> human-readable string"
-    if family == _c.AF_INET:
+    if family == AF_INET:
         srcsize = sizeof(_c.in_addr)
         dstsize = _c.INET_ADDRSTRLEN
-    elif _c.AF_INET6 is not None and family == _c.AF_INET6:
+    elif AF_INET6 is not None and family == AF_INET6:
         srcsize = sizeof(_c.in6_addr)
         dstsize = _c.INET6_ADDRSTRLEN
     else:

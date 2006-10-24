@@ -18,7 +18,7 @@ class Module(MixedModule):
     }
 
     def buildloaders(cls):
-        from pypy.module.rsocket import ctypes_socket as _c 
+        from pypy.module.rsocket import rsocket
         for name in """
             gethostbyname gethostbyname_ex gethostbyaddr gethostname
             getservbyname getservbyport getprotobyname
@@ -30,7 +30,7 @@ class Module(MixedModule):
             
             Module.interpleveldefs[name] = 'interp_func.%s' % (name, )
 
-        for constant, value in _c.constants.iteritems():
+        for constant, value in rsocket.constants.iteritems():
             Module.interpleveldefs[constant] = "space.wrap(%r)" % value
         super(Module, cls).buildloaders()
     buildloaders = classmethod(buildloaders)

@@ -1,9 +1,8 @@
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
 from pypy.module.rsocket.interp_socket import converted_error, W_RSocket
 from pypy.module.rsocket import rsocket
-from pypy.module.rsocket.rsocket import _c, SocketError
+from pypy.module.rsocket.rsocket import SocketError
 from pypy.interpreter.error import OperationError
-
 
 def gethostname(space):
     """gethostname() -> string
@@ -137,7 +136,7 @@ def fromfd(space, fd, family, type, proto=0):
 fromfd.unwrap_spec = [ObjSpace, int, int, int, int]
 
 def socketpair(space, family = rsocket.socketpair_default_family,
-                      type   = _c.SOCK_STREAM,
+                      type   = rsocket.SOCK_STREAM,
                       proto  = 0):
     """socketpair([family[, type[, proto]]]) -> (socket object, socket object)
 
@@ -158,7 +157,7 @@ def ntohs(space, x):
 
     Convert a 16-bit integer from network to host byte order.
     """
-    return space.wrap(_c.ntohs(x))
+    return space.wrap(rsocket.ntohs(x))
 ntohs.unwrap_spec = [ObjSpace, int]
 
 def ntohl(space, w_x):
@@ -175,7 +174,7 @@ def ntohl(space, w_x):
                              space.wrap("expected int/long, %s found" %
                                         (space.type(w_x).getname(space, "?"))))
 
-    return space.wrap(_c.ntohl(x))
+    return space.wrap(rsocket.ntohl(x))
 ntohl.unwrap_spec = [ObjSpace, W_Root]
 
 def htons(space, x):
@@ -183,7 +182,7 @@ def htons(space, x):
 
     Convert a 16-bit integer from host to network byte order.
     """
-    return space.wrap(_c.htons(x))
+    return space.wrap(rsocket.htons(x))
 htons.unwrap_spec = [ObjSpace, int]
 
 def htonl(space, w_x):
@@ -200,7 +199,7 @@ def htonl(space, w_x):
                              space.wrap("expected int/long, %s found" %
                                         (space.type(w_x).getname(space, "?"))))
 
-    return space.wrap(_c.htonl(x))
+    return space.wrap(rsocket.htonl(x))
 htonl.unwrap_spec = [ObjSpace, W_Root]
 
 def inet_aton(space, ip):
@@ -257,7 +256,7 @@ def inet_ntop(space, family, packed):
 inet_ntop.unwrap_spec = [ObjSpace, int, str]
 
 def getaddrinfo(space, w_host, w_port,
-                family=_c.AF_UNSPEC, socktype=0, proto=0, flags=0):
+                family=rsocket.AF_UNSPEC, socktype=0, proto=0, flags=0):
     """getaddrinfo(host, port [, family, socktype, proto, flags])
         -> list of (family, socktype, proto, canonname, sockaddr)
 

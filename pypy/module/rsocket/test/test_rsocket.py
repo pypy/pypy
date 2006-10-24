@@ -1,6 +1,5 @@
 import py, errno
 from pypy.module.rsocket.rsocket import *
-from pypy.module.rsocket.rsocket import _c
 
 def test_ipv4_addr():
     a = INETAddress("localhost", 4000)
@@ -59,7 +58,7 @@ def test_simple_tcp():
     addr = INETAddress('127.0.0.1', port)
     assert addr.eq(sock.getsockname())
     sock.listen(1)
-    s2 = RSocket(_c.AF_INET, _c.SOCK_STREAM)
+    s2 = RSocket(AF_INET, SOCK_STREAM)
     thread.start_new_thread(s2.connect, (addr,))
     s1, addr2 = sock.accept()
     assert addr.eq(s2.getpeername())
@@ -80,7 +79,7 @@ def test_simple_tcp():
     s2.close()
 
 def test_simple_udp():
-    s1 = RSocket(_c.AF_INET, _c.SOCK_DGRAM)
+    s1 = RSocket(AF_INET, SOCK_DGRAM)
     try_ports = [1023] + range(20000, 30000, 437)
     for port in try_ports:
         print 'binding to port %d:' % (port,),
@@ -95,7 +94,7 @@ def test_simple_udp():
 
     addr = INETAddress('127.0.0.1', port)
     assert addr.eq(s1.getsockname())
-    s2 = RSocket(_c.AF_INET, _c.SOCK_DGRAM)
+    s2 = RSocket(AF_INET, SOCK_DGRAM)
     s2.connect(addr)
     addr2 = s2.getsockname()
 
@@ -131,7 +130,7 @@ def test_nonblocking():
     err = py.test.raises(CSocketError, sock.accept)
     assert err.value.errno in (errno.EAGAIN, errno.EWOULDBLOCK)
 
-    s2 = RSocket(_c.AF_INET, _c.SOCK_STREAM)
+    s2 = RSocket(AF_INET, SOCK_STREAM)
     s2.setblocking(False)
     err = py.test.raises(CSocketError, s2.connect, addr)
     assert err.value.errno == errno.EINPROGRESS
@@ -162,8 +161,8 @@ def test_getaddrinfo_http():
     assert isinstance(lst, list)
     found = False
     for family, socktype, protocol, canonname, addr in lst:
-        if (family          == _c.AF_INET and
-            socktype        == _c.SOCK_STREAM and
+        if (family          == AF_INET and
+            socktype        == SOCK_STREAM and
             addr.get_host() == '127.0.0.1' and
             addr.get_port() == 80):
             found = True
@@ -185,29 +184,30 @@ def test_connect_ex():
 
 
 def test_getsetsockopt():
+    from ctypes import c_int, c_char, c_char_p, POINTER, cast, pointer, sizeof
     # A socket sould start with reuse == 0
-    s = RSocket(_c.AF_INET, _c.SOCK_STREAM)
-    reuse = s.getsockopt_int(_c.SOL_SOCKET, _c.SO_REUSEADDR)
+    s = RSocket(AF_INET, SOCK_STREAM)
+    reuse = s.getsockopt_int(SOL_SOCKET, SO_REUSEADDR)
     assert reuse == 0
-    s.setsockopt_int(_c.SOL_SOCKET, _c.SO_REUSEADDR, 1)
-    reuse = s.getsockopt_int(_c.SOL_SOCKET, _c.SO_REUSEADDR)
+    s.setsockopt_int(SOL_SOCKET, SO_REUSEADDR, 1)
+    reuse = s.getsockopt_int(SOL_SOCKET, SO_REUSEADDR)
     assert reuse != 0
     # Test string case
-    s = RSocket(_c.AF_INET, _c.SOCK_STREAM)
-    reusestr = s.getsockopt(_c.SOL_SOCKET, _c.SO_REUSEADDR, sizeof(_c.c_int))
-    reuseptr = _c.cast(_c.c_char_p(reusestr), _c.POINTER(_c.c_int))
+    s = RSocket(AF_INET, SOCK_STREAM)
+    reusestr = s.getsockopt(SOL_SOCKET, SO_REUSEADDR, sizeof(c_int))
+    reuseptr = cast(c_char_p(reusestr), POINTER(c_int))
     assert reuseptr[0] == 0
-    optval = _c.c_int(1)
-    optvalp = _c.cast(_c.pointer(optval), _c.POINTER(_c.c_char))
-    optstr = optvalp[:sizeof(_c.c_int)]
-    s.setsockopt(_c.SOL_SOCKET, _c.SO_REUSEADDR, optstr)
-    reusestr = s.getsockopt(_c.SOL_SOCKET, _c.SO_REUSEADDR, sizeof(_c.c_int))
-    reuseptr = _c.cast(_c.c_char_p(reusestr), _c.POINTER(_c.c_int))
+    optval = c_int(1)
+    optvalp = cast(pointer(optval), POINTER(c_char))
+    optstr = optvalp[:sizeof(c_int)]
+    s.setsockopt(SOL_SOCKET, SO_REUSEADDR, optstr)
+    reusestr = s.getsockopt(SOL_SOCKET, SO_REUSEADDR, sizeof(c_int))
+    reuseptr = cast(c_char_p(reusestr), POINTER(c_int))
     assert reuseptr[0] != 0
 
 def test_dup():
-    s = RSocket(_c.AF_INET, _c.SOCK_STREAM)
-    s.setsockopt_int(_c.SOL_SOCKET, _c.SO_REUSEADDR, 1)
+    s = RSocket(AF_INET, SOCK_STREAM)
+    s.setsockopt_int(SOL_SOCKET, SO_REUSEADDR, 1)
     s.bind(INETAddress('localhost', 50007))
     s2 = s.dup()
     assert s.fileno() != s2.fileno()
@@ -218,8 +218,8 @@ class TestTCP:
     HOST = 'localhost'
 
     def setup_method(self, method):
-        self.serv = RSocket(_c.AF_INET, _c.SOCK_STREAM)
-        self.serv.setsockopt_int(_c.SOL_SOCKET, _c.SO_REUSEADDR, 1)
+        self.serv = RSocket(AF_INET, SOCK_STREAM)
+        self.serv.setsockopt_int(SOL_SOCKET, SO_REUSEADDR, 1)
         self.serv.bind(INETAddress(self.HOST, self.PORT))
         self.serv.listen(1)
 

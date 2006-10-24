@@ -2,7 +2,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
 from pypy.interpreter.gateway import interp2app
-from pypy.module.rsocket.rsocket import RSocket, _c
+from pypy.module.rsocket.rsocket import RSocket, AF_INET, SOCK_STREAM
 from pypy.module.rsocket.rsocket import SocketError, SocketErrorWithErrno
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import gateway
@@ -320,8 +320,8 @@ def makefile(self, mode="r", buffersize=-1):
     return os.fdopen(newfd, mode, buffersize)
 ''', filename =__file__).interphook('makefile')
 
-def newsocket(space, w_subtype, family=_c.AF_INET,
-              type=_c.SOCK_STREAM, proto=0):
+def newsocket(space, w_subtype, family=AF_INET,
+              type=SOCK_STREAM, proto=0):
     # XXX If we want to support subclassing the socket type we will need
     # something along these lines. But allocate_instance is only defined
     # on the standard object space, so this is not really correct.
