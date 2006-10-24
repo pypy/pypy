@@ -44,6 +44,9 @@ LONG_BIT = _bits+1
 LONG_MASK = _Ltest*2-1
 LONG_TEST = _Ltest
 
+def isinf(x):
+    return x != 0.0 and x / 2 == x
+
 def intmask(n):
     if isinstance(n, int):
         return int(n)   # possibly bool->int

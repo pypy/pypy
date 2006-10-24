@@ -1,9 +1,8 @@
 from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
 from pypy.objspace.std.noneobject import W_NoneObject
-from pypy.objspace.std.longobject import W_LongObject, _AsDouble, _FromDouble
-from pypy.objspace.std.longobject import isinf
-from pypy.rpython.rarithmetic import ovfcheck_float_to_int, intmask
+from pypy.objspace.std.longobject import W_LongObject
+from pypy.rpython.rarithmetic import ovfcheck_float_to_int, intmask, isinf
 
 ##############################################################
 # for the time being, all calls that are made to some external
@@ -42,7 +41,7 @@ def delegate_Int2Float(space, w_intobj):
 # long-to-float delegation
 def delegate_Long2Float(space, w_longobj):
     try:
-        return W_FloatObject(_AsDouble(w_longobj))
+        return W_FloatObject(w_longobj.tofloat())
     except OverflowError:
         raise OperationError(space.w_OverflowError,
                              space.wrap("long int too large to convert to float"))
@@ -67,7 +66,7 @@ def int__Float(space, w_value):
 
 def long__Float(space, w_floatobj):
     try:
-        return _FromDouble(space, w_floatobj.floatval)
+        return W_LongObject.fromfloat(w_floatobj.floatval)
     except OverflowError:
         raise OperationError(space.w_OverflowError,
                              space.wrap("cannot convert float infinity to long"))
@@ -134,7 +133,7 @@ def eq__Float_Long(space, w_float1, w_long2):
     if isinf(x) or math.floor(x) != x:
         return space.w_False
     try:
-        w_long1 = _FromDouble(space, x)
+        w_long1 = W_LongObject.fromfloat(x)
     except OverflowError:
         return space.w_False
     return space.eq(w_long1, w_long2)
@@ -155,7 +154,7 @@ def lt__Float_Long(space, w_float1, w_long2):
         return space.newbool(x < 0.0)
     x_floor = math.floor(x)
     try:
-        w_long1 = _FromDouble(space, x_floor)
+        w_long1 = W_LongObject.fromfloat(x_floor)
     except OverflowError:
         return space.newbool(x < 0.0)
     return space.lt(w_long1, w_long2)
@@ -190,7 +189,7 @@ def hash__Float(space, w_value):
     return space.wrap(_hash_float(space, w_value.floatval))
 
 def _hash_float(space, v):
-    from pypy.objspace.std.longobject import _FromDouble, _hash as _hashlong
+    from pypy.objspace.std.longobject import hash__Long
 
     # This is designed so that Python numbers of different types
     # that compare equal hash to the same value; otherwise comparisons
@@ -206,14 +205,14 @@ def _hash_float(space, v):
         except OverflowError:
             # Convert to long and use its hash.
             try:
-                w_lval = _FromDouble(space, v)
+                w_lval = W_LongObject.fromfloat(v)
             except OverflowError:
                 # can't convert to long int -- arbitrary
                 if v < 0:
                     return -271828
                 else:
                     return 314159
-            return _hashlong(w_lval)
+            return space.int_w(hash__Long(space, w_lval))
 
     # The fractional part is non-zero, so we don't have to worry about
     # making this match the hash of some other type.

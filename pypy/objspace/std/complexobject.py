@@ -3,7 +3,6 @@ from pypy.objspace.std.objspace import W_Object, OperationError
 from pypy.objspace.std.objspace import registerimplementation, register_all
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.floatobject import W_FloatObject, _hash_float
-from pypy.objspace.std.longobject import _AsDouble
 
 import math
 
@@ -118,7 +117,7 @@ def delegate_Int2Complex(space, w_int):
 
 def delegate_Long2Complex(space, w_long):
     try:
-        dval =  _AsDouble(w_long)
+        dval =  w_long.tofloat()
     except OverflowError, e:
         raise OperationError(space.w_OverflowError, space.wrap(str(e)))
     return W_ComplexObject(dval, 0.0)

@@ -35,14 +35,7 @@ def descr__new__(space, w_longtype, w_x=0, w_base=NoneNotWrapped):
                 w_value = w_obj
             elif space.is_true(space.isinstance(w_obj, space.w_int)):
                 intval = space.int_w(w_obj)
-                # xxx this logic needs to be put in 1 place                
-                if intval < 0:
-                    sign = -1
-                elif intval > 0:
-                    sign = 1
-                else:
-                    sign = 0
-                w_value = W_LongObject([abs(intval)], sign) 
+                w_value = W_LongObject.fromint(space, intval)
             else:
                 raise OperationError(space.w_ValueError,
                                     space.wrap("value can't be converted to long"))
@@ -66,7 +59,7 @@ def descr__new__(space, w_longtype, w_x=0, w_base=NoneNotWrapped):
                                  space.wrap(e.msg))
 
     w_obj = space.allocate_instance(W_LongObject, w_longtype)
-    W_LongObject.__init__(w_obj, w_value.digits, w_value.sign)
+    W_LongObject.__init__(w_obj, w_value.num)
     return w_obj
 
 # ____________________________________________________________

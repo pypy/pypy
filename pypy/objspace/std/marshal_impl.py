@@ -243,15 +243,17 @@ def marshal_w__Long(space, w_long, m):
     typecode and have our own magic number for pickling"""
 
     m.start(TYPE_LONG)
-    lng = len(w_long.digits)
-    if w_long.sign < 0:
+    # XXX access internals
+    lng = len(w_long.num.digits)
+    if w_long.num.sign < 0:
         m.put_int(-lng)
     else:
         m.put_int(lng)
-    for digit in w_long.digits:
+    for digit in w_long.num.digits:
         m.put_short(digit)
 
 def unmarshal_Long(space, u, tc):
+    from pypy.rpython import rlong
     lng = u.get_int()
     if lng < 0:
         sign = -1
@@ -268,8 +270,9 @@ def unmarshal_Long(space, u, tc):
             raise_exception(space, 'bad marshal data')
         digits[i] = digit
         i += 1
-    w_long = W_LongObject(digits, sign)
-    w_long._normalize()
+    # XXX poking at internals
+    w_long = W_LongObject(rlong.rlong(digits, sign))
+    w_long.num._normalize()
     return w_long
 register(TYPE_LONG, unmarshal_Long)
 

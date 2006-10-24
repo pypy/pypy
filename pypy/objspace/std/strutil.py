@@ -413,39 +413,36 @@ def interp_string_to_float(space, s):
     # a few abbreviations
     from pypy.objspace.std import longobject
     mklong = longobject.W_LongObject.fromint
-    d2long = longobject._decimalstr_to_long
+    d2long = longobject.W_LongObject.fromdecimalstr
     adlong = longobject.add__Long_Long
-    long2i = longobject._AsLong
-    double = longobject._AsDouble
-    longup = longobject._impl_long_long_pow
+    longup = longobject.pow__Long_Long_None
     multip = longobject.mul__Long_Long
     divide = longobject.div__Long_Long
-    bitlen = longobject._count_bits
     lshift = longobject.lshift__Long_Long
     rshift = longobject.rshift__Long_Long
-    getodd = longobject._get_odd
 
     # 4) compute the exponent and truncate to +-400
     if not exponent:
         exponent = '0'
-    w_le = d2long(space, exponent)
+    w_le = d2long(exponent)
     w_le = adlong(space, w_le, mklong(space, dexp))
     try:
-        e = long2i(w_le)
+        e = w_le.toint()
     except OverflowError:
-        e = w_le.sign * 400
+        # XXX poking at internals
+        e = w_le.num.sign * 400
     if e >= 400:
         e = 400
     elif e <= -400:
         e = -400
 
     # 5) compute the value using long math and proper rounding.
-    w_lr = d2long(space, digits)
+    w_lr = d2long(digits)
     w_10 = mklong(space, 10)
     w_1 = mklong(space, 1)
     if e >= 0:
         bits = 0
-        w_pten = longup(space, w_10, mklong(space, e), None)
+        w_pten = longup(space, w_10, mklong(space, e), space.w_None)
         w_m = multip(space, w_lr, w_pten)
     else:
         # compute a sufficiently large scale
@@ -460,7 +457,7 @@ def interp_string_to_float(space, s):
     # Shift it and round the last bit.
 
     # first estimate the bits and do a big shift
-    mbits = bitlen(w_m)
+    mbits = w_m._count_bits()
     needed = MANTISSA_BITS
     if mbits > needed:
         if mbits > needed+1:
@@ -469,12 +466,12 @@ def interp_string_to_float(space, s):
             bits += shifted
         # do the rounding
         bits += 1
-        round = getodd(w_m)
+        round = w_m.is_odd()
         w_m = rshift(space, w_m, w_1)
         w_m = adlong(space, w_m, mklong(space, round))
 
     try:
-        r = math.ldexp(double(w_m), bits)
+        r = math.ldexp(w_m.tofloat(), bits)
         # XXX I guess we do not check for overflow in ldexp as we agreed to!
         if r == 2*r and r != 0.0:
             raise OverflowError
