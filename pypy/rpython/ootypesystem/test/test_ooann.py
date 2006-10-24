@@ -308,3 +308,25 @@ def test_overload_reannotate_unrelated():
         return a
     a = RPythonAnnotator()
     assert isinstance(a.build_types(f, []), annmodel.SomeFloat)
+
+def test_overload_upcast():
+    C = Instance("base", ROOT, {}, {
+        'foo': overload(meth(Meth([], Void)),
+                        meth(Meth([ROOT], String)))})
+    def f():
+        c = new(C)
+        return c.foo(c)
+    a = RPythonAnnotator()
+    assert isinstance(a.build_types(f, []), annmodel.SomeString)
+
+def test_overload_upcast_fail():
+    C = Instance("base", ROOT, {}, {})
+    C._add_methods({
+        'foo': overload(meth(Meth([], Signed)),
+                        meth(Meth([ROOT, C], String)),
+                        meth(Meth([C, ROOT], String)))})
+    def f():
+        c = new(C)
+        return c.foo(c)
+    a = RPythonAnnotator()
+    py.test.raises(TypeError, a.build_types, f, [])

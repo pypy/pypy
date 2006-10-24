@@ -191,6 +191,15 @@ def test_overloaded_method():
     assert c.m(2, 3) == 8
     assert c.m(2.0) == 6
 
+def test_overloaded_method_upcast():
+    def m(self, dummy):
+        return 42
+    C = Instance("base", ROOT, {}, {
+        'foo': overload(meth(Meth([ROOT], String), _callable=m))})
+    c = new(C)
+    assert c.foo(c) == 42
+
+
 def test_explicit_name_clash():
     C = Instance("test", ROOT, {})
 

@@ -889,14 +889,34 @@ class _overloaded_mixin(object):
             signatures.add(ARGS)
 
     def _resolve_overloading(self, ARGS):
+        # this overloading resolution algorithm is quite simple:
+        # 1) if there is an exact match between ARGS and meth.ARGS, return meth
+        # 2) if there is *only one* meth such as ARGS can be converted
+        #    to meth.ARGS with one or more upcasts, return meth
+        # 3) otherwise, fail
+        matches = []
         for meth in self._overloadings:
-            # check if one of the overloadings has the correct signature
-            # TODO: this algorithm is quite naive, it doesn't handle
-            # automatic conversions
             METH = meth._TYPE
             if METH.ARGS == ARGS:
-                return meth
-        raise TypeError, 'No suitable overloading found for method'
+                return meth # case 1
+            elif self._check_upcast(ARGS, METH.ARGS):
+                matches.append(meth)
+        if len(matches) == 1:
+            return matches[0]
+        elif len(matches) > 1:
+            raise TypeError, 'More than one method match, please use explicit casts'
+        else:
+            raise TypeError, 'No suitable overloading found for method'
+
+    def _check_upcast(self, ARGS1, ARGS2):
+        if len(ARGS1) != len(ARGS2):
+            return False
+        for ARG1, ARG2 in zip(ARGS1, ARGS2):
+            if not (isinstance(ARG1, Instance) and isinstance(ARG2, Instance)):
+                return False
+            if not isSubclass(ARG1, ARG2):
+                return False
+        return True
 
     def _annotate_overloading(self, args_s):
         ARGS = tuple([self._annotation_to_lltype(arg_s) for arg_s in args_s])
