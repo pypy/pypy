@@ -9,7 +9,6 @@ a drop-in replacement for the 'socket' module.
 #   - support for non-Linux platforms
 #   - address families other than AF_INET, AF_INET6, AF_UNIX
 #   - methods makefile(),
-#   - functions getnameinfo()
 #   - SSL
 
 from pypy.rpython.objectmodel import instantiate
@@ -18,6 +17,7 @@ from ctypes import cast, POINTER, c_char, c_char_p, pointer, byref, c_void_p
 from ctypes import create_string_buffer, sizeof
 from pypy.rpython.rctypes.astruct import offsetof
 from pypy.module.rsocket.socketerror import socket_strerror
+
 
 class Address(object):
     """The base class for RPython-level objects representing addresses.
