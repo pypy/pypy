@@ -16,14 +16,6 @@ class TestRunTest(CliTest):
         unpatch(*olddefs)
         assert os.O_CREAT == original_O_CREAT
 
-    def test_patch_ROOT(self):
-        from pypy.translator.cli.support import patch, unpatch
-        from pypy.rpython.ootypesystem import ootype
-        olddefs = patch()
-        assert 'ToString' in ootype.ROOT._methods
-        unpatch(*olddefs)
-        assert 'ToString' not in ootype.ROOT._methods
-
     def test_int(self):
         assert self.interpret(ident, [42]) == 42
     
