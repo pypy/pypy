@@ -845,6 +845,7 @@ class Ontology:
         svar = self.make_var(ClassDomain, s)
         self.variables[svar].bases.append(avar)
         self.variables[svar].bases.extend(self.variables[avar].bases)
+        self.constraints.append(SubClassConstraint(svar, avar))
 
     def equivalentClass(self, s, var):
         self.subClassOf(s, var)

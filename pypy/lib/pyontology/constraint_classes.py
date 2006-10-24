@@ -193,7 +193,7 @@ class DomainConstraint(SubClassConstraint):
         domaindom = domains[self.object]
         for cls,val in propdom.getValues():
             if cls not in domaindom:
-                raise ConsistencyFailure("Value %r of property %r not in domain %r"%(pval, self.variable, self.object))
+                raise ConsistencyFailure("Value %r of property %r not in domain %r : %r"%(cls, self.variable, self.object, domaindom.getValues()))
 
 class SubPropertyConstraint(SubClassConstraint):
 

@@ -73,6 +73,23 @@ def test_subClassof():
     O.subClassOf(c, a)
     O.consistency()
 
+def test_subClassof2():
+    O = Ontology()
+    a = URIRef(u'A')
+    b = URIRef(u'B')
+    c = URIRef(u'C')
+    d = URIRef(u'D')
+    O.subClassOf(b, a)
+    O.subClassOf(c, b)
+    obj = URIRef(namespaces['owl']+'#Class')
+    O.type(a,obj)
+    O.type(d,c)
+    O.consistency()
+    d_indi = O.mangle_name(d)
+    assert Individual(d_indi, d) in O.variables[O.mangle_name(a)].getValues()
+    O.subClassOf(c, a)
+    O.consistency()
+
 def test_addvalue():
     O = Ontology()
     a = O.make_var(Property, URIRef('a'))
