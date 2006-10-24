@@ -68,6 +68,9 @@ def range(space, w_x, w_y=None, w_step=1):
 to zero) to stop - 1 by step (defaults to 1).  Use a negative step to
 get a list in decending order."""
 
+    if (space.config.objspace.name == "std" and
+        space.config.objspace.std.withrangelist):
+        return range_withrangelist(space, w_x, w_y, w_step)
     try:
         # save duplication by redirecting every error to applevel
         x = space.int_w(w_x)
@@ -93,10 +96,7 @@ del range # don't hide the builtin one
 range_fallback = applevel(getsource(app_range), getfile(app_range)
                           ).interphook('range')
 
-def range_withrangelist(space, w_x, w_y=None, w_step=1):
-    """Return a list of integers in arithmetic position from start (defaults
-to zero) to stop - 1 by step (defaults to 1).  Use a negative step to
-get a list in decending order."""
+def range_withrangelist(space, w_x, w_y, w_step):
     # XXX object space dependant
     from pypy.objspace.std.rangeobject import W_RangeListObject
     try:
@@ -111,5 +111,4 @@ get a list in decending order."""
     except (OperationError, ValueError, OverflowError):
         return range_fallback(space, w_x, w_y, w_step)
     return W_RangeListObject(start, step, howmany)
-range_withrangelist.unwrap_spec = [ObjSpace, W_Root, W_Root, W_Root]
 

@@ -140,14 +140,6 @@ class Module(MixedModule):
        space.setitem(builtin.w_dict, space.wrap('None'), space.w_None)
        return builtin
 
-    def __init__(self, space, *args):
-        "NOT_RPYTHON: patches range if option withrangelist is set."
-        #XXX slightly strange that the __init__ changes a class attribute...
-        if (space.config.objspace.std.withrangelist and
-            space.config.objspace.name == "std"):
-            self.interpleveldefs["range"] = "functional.range_withrangelist"
-        MixedModule.__init__(self, space, *args)
-
     def setup_after_space_initialization(self):
         """NOT_RPYTHON"""
         space = self.space
