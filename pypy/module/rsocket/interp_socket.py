@@ -5,7 +5,7 @@ from pypy.interpreter.gateway import interp2app
 from pypy.module.rsocket.rsocket import RSocket, _c
 from pypy.module.rsocket.rsocket import SocketError, SocketErrorWithErrno
 from pypy.interpreter.error import OperationError
-
+from pypy.interpreter import gateway
 
 class W_RSocket(Wrappable, RSocket):
     def accept_w(self, space):
@@ -157,6 +157,17 @@ class W_RSocket(Wrappable, RSocket):
             raise converted_error(space, e)
     listen_w.unwrap_spec = ['self', ObjSpace, int]
 
+    def makefile_w(self, space, w_mode="r", w_buffsize=-1):
+        """makefile([mode[, buffersize]]) -> file object
+
+        Return a regular file object corresponding to the socket.
+        The mode and buffersize arguments are as for the built-in open() function.
+        """
+        return app_makefile(space, self, w_mode, w_buffsize)
+    makefile_w.unwrap_spec = ['self', ObjSpace, W_Root, W_Root]
+        
+        
+                   
     def recv_w(self, space, buffersize, flags=0):
         """recv(buffersize[, flags]) -> data
 
@@ -297,6 +308,18 @@ class W_RSocket(Wrappable, RSocket):
             raise converted_error(space, e)
     shutdown_w.unwrap_spec = ['self', ObjSpace, int]
 
+app_makefile = gateway.applevel(r'''
+def makefile(self, mode="r", buffersize=-1):
+    """makefile([mode[, buffersize]]) -> file object
+
+    Return a regular file object corresponding to the socket.
+    The mode and buffersize arguments are as for the built-in open() function.
+    """
+    import os
+    newfd = os.dup(self.fileno())
+    return os.fdopen(newfd, mode, buffersize)
+''', filename =__file__).interphook('makefile')
+
 def newsocket(space, w_subtype, family=_c.AF_INET,
               type=_c.SOCK_STREAM, proto=0):
     # XXX If we want to support subclassing the socket type we will need
@@ -328,10 +351,10 @@ def converted_error(space, e):
 
 socketmethodnames = """
 accept bind close connect connect_ex dup fileno
-getpeername getsockname getsockopt gettimeout listen recv
-recvfrom send sendall sendto setblocking
+getpeername getsockname getsockopt gettimeout listen makefile
+recv recvfrom send sendall sendto setblocking
 setsockopt settimeout shutdown
-""".split()          # dup makefile gettimeout settimeout
+""".split()
 socketmethods = {}
 for methodname in socketmethodnames:
     method = getattr(W_RSocket, methodname + '_w')
