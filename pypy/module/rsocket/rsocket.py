@@ -27,11 +27,20 @@ htons = _c.htons
 htonl = _c.htonl
 
 
+_FAMILIES = {}
 class Address(object):
     """The base class for RPython-level objects representing addresses.
     Fields:  addr    - a _c.sockaddr structure
              addrlen - size used within 'addr'
     """
+    class __metaclass__(type):
+        def __new__(cls, name, bases, dict):
+            family = dict.get('family')
+            A = type.__new__(cls, name, bases, dict)
+            if family is not None:
+                _FAMILIES[family] = A
+            return A
+
     def __init__(self, addr, addrlen):
         self.addr = addr
         self.addrlen = addrlen
@@ -355,14 +364,45 @@ class UNIXAddress(Address):
         return UNIXAddress(space.str_w(w_address))
     from_object = staticmethod(from_object)
 
-# ____________________________________________________________
+if 'AF_NETLINK' in constants:
+    class NETLINKAddress(Address):
+        family = AF_NETLINK
+        struct = _c.sockaddr_nl
+        maxlen = sizeof(struct)
 
-_FAMILIES = {}
-for klass in [INETAddress,
-              INET6Address,
-              UNIXAddress]:
-    if klass.family is not None:
-        _FAMILIES[klass.family] = klass
+        def __init__(self, pid, groups):
+            addr = _c.sockaddr_nl(nl_family = AF_NETLINK)
+            addr.nl_pid = pid
+            addr.nl_groups = groups
+            self.addr = cast(pointer(addr), _c.sockaddr_ptr).contents
+            self.addrlen = sizeof(addr)
+
+        def as_sockaddr_nl(self):
+            if self.addrlen != NETLINKAddress.maxlen:
+                raise RSocketError("invalid address")
+            return cast(pointer(self.addr), POINTER(_c.sockaddr_nl)).contents
+
+        def get_pid(self):
+            return self.as_sockaddr_nl().nl_pid
+
+        def get_groups(self):
+            return self.as_sockaddr_nl().nl_groups
+
+        def __repr__(self):
+            return '<NETLINKAddress %r>' % (self.get_pid(), self.get_groups())
+        
+        def as_object(self, space):
+            return space.wrap(self.get_pid(), self.get_groups())
+
+        def from_object(space, w_address):
+            try:
+                w_pid, w_groups = space.unpackiterable(w_address, 2)
+            except ValueError:
+                raise TypeError("AF_NETLINK address must be a tuple of length 2")
+            return NETLINKAddress(space.int_w(w_pid), space.int_w(w_group))
+        from_object = staticmethod(from_object)
+
+# ____________________________________________________________
 
 def familyclass(family):
     return _FAMILIES.get(family, Address)

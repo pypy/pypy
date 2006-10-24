@@ -1,4 +1,5 @@
 import py, errno
+from pypy.module.rsocket import rsocket
 from pypy.module.rsocket.rsocket import *
 
 def test_ipv4_addr():
@@ -19,6 +20,15 @@ def test_unix_addr():
     a = UNIXAddress("/tmp/socketname")
     assert a.get_path() == "/tmp/socketname"
 
+def test_netlink_addr():
+    if getattr(rsocket, 'AF_NETLINK', None) is None:
+        py.test.skip('AF_NETLINK not supported.')
+    pid = 1
+    group_mask = 64 + 32
+    a = NETLINKAddress(pid, group_mask)
+    assert a.get_pid() == pid
+    assert a.get_groups() == group_mask
+    
 def test_gethostname():
     s = gethostname()
     assert isinstance(s, str)

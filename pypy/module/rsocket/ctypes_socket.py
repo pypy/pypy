@@ -25,11 +25,14 @@ includes = ('sys/types.h',
             'arpa/inet.h',
             'stdint.h', 
             )
+cond_includes = [('AF_NETLINK', 'linux/netlink.h')]
 HEADER = ''.join(['#include <%s>\n' % filename for filename in includes])
+COND_HEADER = ''.join(['#ifdef %s\n#include <%s>\n#endif\n' % cond_include
+                      for cond_include in cond_includes])
 constants = {}
 
 class CConfig:
-    _header_ = HEADER
+    _header_ = HEADER + COND_HEADER
     # constants
     O_NONBLOCK = ctypes_platform.ConstantInteger('O_NONBLOCK')
     F_GETFL = ctypes_platform.ConstantInteger('F_GETFL')
@@ -167,7 +170,15 @@ CConfig.sockaddr_in6 = ctypes_platform.Struct('struct sockaddr_in6',
 
 CConfig.sockaddr_un = ctypes_platform.Struct('struct sockaddr_un',
                                              [('sun_family', c_int),
-                                              ('sun_path', c_ubyte * 0)])
+                                              ('sun_path', c_ubyte * 0)],
+                                             ifdef='AF_UNIX')
+
+CConfig.sockaddr_nl = ctypes_platform.Struct('struct sockaddr_nl',
+                                             [('nl_family', c_int),
+                                              ('nl_pid', c_int),
+                                              ('nl_groups', c_int)],
+                                             ifdef='AF_NETLINK')
+                                             
 
 addrinfo_ptr = POINTER("addrinfo")
 CConfig.addrinfo = ctypes_platform.Struct('struct addrinfo',
@@ -258,6 +269,8 @@ sockaddr_size = sizeof(sockaddr)
 sockaddr_in = cConfig.sockaddr_in
 sockaddr_in6 = cConfig.sockaddr_in6
 sockaddr_un = cConfig.sockaddr_un
+if cConfig.sockaddr_nl is not None:
+    sockaddr_nl = cConfig.sockaddr_nl
 in_addr = cConfig.in_addr
 in_addr_size = sizeof(in_addr)
 in6_addr = cConfig.in6_addr
