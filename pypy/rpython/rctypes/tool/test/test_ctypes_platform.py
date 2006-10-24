@@ -125,6 +125,31 @@ def test_configure():
                    'ushort': ctypes.c_ushort,
                    'XYZZY': 42}
 
+def test_ifdef():
+    class CConfig:
+        _header_ = """ /* a C comment */
+#define XYZZY 42
+typedef int foo;
+struct s {
+    int i;
+    double f;
+};
+"""
+
+        s = ctypes_platform.Struct('struct s', [('i', ctypes.c_int)],
+                                   ifdef='XYZZY')
+        z = ctypes_platform.Struct('struct z', [('i', ctypes.c_int)],
+                                   ifdef='FOOBAR')
+
+        foo = ctypes_platform.SimpleType('foo', ifdef='XYZZY')
+        bar = ctypes_platform.SimpleType('bar', ifdef='FOOBAR')
+
+    res = ctypes_platform.configure(CConfig)
+    assert res['s'] is not None
+    assert res['z'] is None
+    assert res['foo'] is not None
+    assert res['bar'] is None
+
 def test_nested_structs():
     class CConfig:
         _header_ = """

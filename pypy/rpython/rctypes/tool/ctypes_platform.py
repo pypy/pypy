@@ -121,11 +121,15 @@ class Struct(CConfigEntry):
     """An entry in a CConfig class that stands for an externally
     defined structure.
     """
-    def __init__(self, name, interesting_fields):
+    def __init__(self, name, interesting_fields, ifdef=None):
         self.name = name
         self.interesting_fields = interesting_fields
+        self.ifdef = ifdef
 
     def prepare_code(self):
+        if self.ifdef is not None:
+            yield '#ifdef %s' % (self.ifdef,)
+            yield 'dump("defined", 1);'
         yield 'typedef %s ctypesplatcheck_t;' % (self.name,)
         yield 'typedef struct {'
         yield '    char c;'
@@ -146,8 +150,15 @@ class Struct(CConfigEntry):
                                                    fieldname)
                 yield 'dump("fldunsigned %s", s.%s > 0);' % (fieldname,
                                                              fieldname)
+        if self.ifdef is not None:
+            yield '#else'
+            yield 'dump("defined", 0);'
+            yield '#endif'
 
     def build_result(self, info, config_result):
+        if self.ifdef is not None:
+            if not info['defined']:
+                return None
         alignment = 1
         layout = [None] * info['size']
         for fieldname, fieldtype in self.interesting_fields:
@@ -212,11 +223,15 @@ class SimpleType(CConfigEntry):
     """An entry in a CConfig class that stands for an externally
     defined simple numeric type.
     """
-    def __init__(self, name, ctype_hint=ctypes.c_int):
+    def __init__(self, name, ctype_hint=ctypes.c_int, ifdef=None):
         self.name = name
         self.ctype_hint = ctype_hint
-
+        self.ifdef = ifdef
+        
     def prepare_code(self):
+        if self.ifdef is not None:
+            yield '#ifdef %s' % (self.ifdef,)
+            yield 'dump("defined", 1);'
         yield 'typedef %s ctypesplatcheck_t;' % (self.name,)
         yield ''
         yield 'ctypesplatcheck_t x;'
@@ -224,8 +239,14 @@ class SimpleType(CConfigEntry):
         if self.ctype_hint in integer_class:
             yield 'x = 0; x = ~x;'
             yield 'dump("unsigned", x > 0);'
+        if self.ifdef is not None:
+            yield '#else'
+            yield 'dump("defined", 0);'
+            yield '#endif'
 
     def build_result(self, info, config_result):
+        if self.ifdef is not None and not info['defined']:
+            return None
         size = info['size']
         sign = info.get('unsigned', False)
         ctype = self.ctype_hint
