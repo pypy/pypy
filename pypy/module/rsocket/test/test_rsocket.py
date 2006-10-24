@@ -205,6 +205,14 @@ def test_getsetsockopt():
     reuseptr = _c.cast(_c.c_char_p(reusestr), _c.POINTER(_c.c_int))
     assert reuseptr[0] != 0
 
+def test_dup():
+    s = RSocket(_c.AF_INET, _c.SOCK_STREAM)
+    s.setsockopt_int(_c.SOL_SOCKET, _c.SO_REUSEADDR, 1)
+    s.bind(INETAddress('localhost', 50007))
+    s2 = s.dup()
+    assert s.fileno() != s2.fileno()
+    assert s.getsockname().eq(s2.getsockname())
+    
 class TestTCP:
     PORT = 50007
     HOST = 'localhost'

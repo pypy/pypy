@@ -71,6 +71,13 @@ class W_RSocket(Wrappable, RSocket):
         return space.wrap(error)
     connect_ex_w.unwrap_spec = ['self', ObjSpace, W_Root]
 
+    def dup_w(self, space):
+        try:
+            return self.dup(W_RSocket)
+        except SocketError, e:
+            raise converted_error(space, e)
+    dup_w.unwrap_spec = ['self', ObjSpace]
+    
     def fileno_w(self, space):
         """fileno() -> integer
 
@@ -320,7 +327,7 @@ def converted_error(space, e):
 # ____________________________________________________________
 
 socketmethodnames = """
-accept bind close connect connect_ex fileno
+accept bind close connect connect_ex dup fileno
 getpeername getsockname getsockopt gettimeout listen recv
 recvfrom send sendall sendto setblocking
 setsockopt settimeout shutdown

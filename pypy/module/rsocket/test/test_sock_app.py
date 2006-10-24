@@ -376,6 +376,15 @@ class AppTestSocket:
         (reuse,) = struct.unpack('i', reusestr)
         assert reuse != 0
 
+    def test_dup(self):
+        import _socket as socket
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.bind(('localhost', 50007))
+        s2 = s.dup()
+        assert s.fileno() != s2.fileno()
+        assert s.getsockname() == s2.getsockname()
+    
 
 class AppTestSocketTCP:
     def setup_class(cls):

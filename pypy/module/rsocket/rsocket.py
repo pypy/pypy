@@ -8,7 +8,7 @@ a drop-in replacement for the 'socket' module.
 #
 #   - support for non-Linux platforms
 #   - address families other than AF_INET, AF_INET6, AF_UNIX
-#   - methods dup(), makefile(),
+#   - methods makefile(),
 #   - functions getnameinfo()
 #   - SSL
 
@@ -538,26 +538,35 @@ class RSocket(object):
             return _c.geterrno()
         return res
 
+    def dup(self, SocketClass=None):
+        if SocketClass is None:
+            SocketClass = RSocket
+        fd = _c.dup(self.fd)
+        if fd < 0:
+            raise self.error_handler()
+        return make_socket(fd, self.family, self.type, self.proto,
+                           SocketClass=SocketClass)
+        
     def fileno(self):
         fd = self.fd
         if _c.invalid_socket(fd):
             raise RSocketError("socket already closed")
         return fd
 
-    def getsockname(self):
-        """Return the address of the local endpoint."""
+    def getpeername(self):
+        """Return the address of the remote endpoint."""
         address, addrlen = self._addrbuf()
-        res = _c.socketgetsockname(self.fd, byref(address.addr),
+        res = _c.socketgetpeername(self.fd, byref(address.addr),
                                             byref(addrlen))
         if res < 0:
             raise self.error_handler()
         address.addrlen = addrlen.value
         return address
 
-    def getpeername(self):
-        """Return the address of the remote endpoint."""
+    def getsockname(self):
+        """Return the address of the local endpoint."""
         address, addrlen = self._addrbuf()
-        res = _c.socketgetpeername(self.fd, byref(address.addr),
+        res = _c.socketgetsockname(self.fd, byref(address.addr),
                                             byref(addrlen))
         if res < 0:
             raise self.error_handler()
