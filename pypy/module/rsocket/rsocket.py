@@ -410,7 +410,6 @@ class RSocket(object):
     """
     _mixin_ = True        # for interp_socket.py
     fd = _c.INVALID_SOCKET
-    timeout = -1.0 # Default is blocking
     def __init__(self, family=_c.AF_INET, type=_c.SOCK_STREAM, proto=0):
         """Create a new socket."""
         fd = _c.socket(family, type, proto)
@@ -421,6 +420,7 @@ class RSocket(object):
         self.family = family
         self.type = type
         self.proto = proto
+        self.timeout = defaults.timeout
         
     def __del__(self):
         self.close()
@@ -713,6 +713,7 @@ def make_socket(fd, family, type, proto, SocketClass=RSocket):
     result.family = family
     result.type = type
     result.proto = proto
+    result.timeout = defaults.timeout
     return result
 
 class SocketError(Exception):
@@ -755,6 +756,12 @@ class SocketTimeout(SocketError):
     applevelerrcls = 'timeout'
     def __str__(self):
         return 'timed out'
+
+class Defaults:
+    timeout = -1.0 # Blocking
+defaults = Defaults()
+
+
 # ____________________________________________________________
 
 if _c.AF_UNIX is None:
@@ -784,6 +791,9 @@ def fromfd(fd, family, type, proto=0, SocketClass=RSocket):
     if fd < 0:
         raise last_error()
     return make_socket(fd, family, type, proto, SocketClass)
+
+def getdefaulttimeout():
+    return defaults.timeout
 
 def gethostname():
     buf = create_string_buffer(1024)
@@ -960,3 +970,8 @@ def inet_ntop(family, packed):
     if res is None:
         raise last_error()
     return res
+
+def setdefaulttimeout(timeout):
+    if timeout < 0.0:
+        timeout = -1.0
+    defaults.timeout = timeout

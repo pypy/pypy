@@ -298,3 +298,26 @@ def getaddrinfo(space, w_host, w_port,
             for (family, socktype, protocol, canonname, addr) in lst]
     return space.newlist(lst1)
 getaddrinfo.unwrap_spec = [ObjSpace, W_Root, W_Root, int, int, int, int]
+
+def getdefaulttimeout(space):
+    """getdefaulttimeout() -> timeout
+
+    Returns the default timeout in floating seconds for new socket objects.
+    A value of None indicates that new socket objects have no timeout.
+    When the socket module is first imported, the default is None.
+    """
+    timeout = rsocket.getdefaulttimeout()
+    if timeout < 0.0:
+        return space.w_None
+    return space.wrap(timeout)
+getdefaulttimeout.unwrap_spec = [ObjSpace]
+
+def setdefaulttimeout(space, w_timeout):
+    if space.is_w(w_timeout, space.w_None):
+        timeout = -1.0
+    else:
+        timeout = space.float_w(w_timeout)
+        if timeout < 0.0:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap('Timeout value out of range'))
+    rsocket.setdefaulttimeout(timeout)

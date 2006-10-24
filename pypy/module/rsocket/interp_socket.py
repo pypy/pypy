@@ -8,10 +8,6 @@ from pypy.interpreter.error import OperationError
 
 
 class W_RSocket(Wrappable, RSocket):
-    def __init__(self, space, family, type, proto):
-        RSocket.__init__(self, family, type, proto)
-        self.settimeout(space.fromcache(State).defaulttimeout)
-        
     def accept_w(self, space):
         """accept() -> (socket object, address info)
 
@@ -294,34 +290,6 @@ class W_RSocket(Wrappable, RSocket):
             raise converted_error(space, e)
     shutdown_w.unwrap_spec = ['self', ObjSpace, int]
 
-class State:
-    defaulttimeout = -1.0 # Default is blocking
-    def __init__(self, space):
-        pass
-    
-def getdefaulttimeout(space):
-    """getdefaulttimeout() -> timeout
-
-    Returns the default timeout in floating seconds for new socket objects.
-    A value of None indicates that new socket objects have no timeout.
-    When the socket module is first imported, the default is None.
-    """
-    timeout = space.fromcache(State).defaulttimeout
-    if timeout < 0.0:
-        return space.w_None
-    return space.wrap(timeout)
-getdefaulttimeout.unwrap_spec = [ObjSpace]
-
-def setdefaulttimeout(space, w_timeout):
-    if space.is_w(w_timeout, space.w_None):
-        timeout = -1.0
-    else:
-        timeout = space.float_w(w_timeout)
-        if timeout < 0.0:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap('Timeout value out of range'))
-    space.fromcache(State).defaulttimeout = timeout
-    
 def newsocket(space, w_subtype, family=_c.AF_INET,
               type=_c.SOCK_STREAM, proto=0):
     # XXX If we want to support subclassing the socket type we will need
@@ -330,7 +298,7 @@ def newsocket(space, w_subtype, family=_c.AF_INET,
     #sock = space.allocate_instance(W_RSocket, w_subtype)
     #Socket.__init__(sock, space, fd, family, type, proto)
     try:
-        sock = W_RSocket(space, family, type, proto)
+        sock = W_RSocket(family, type, proto)
     except SocketError, e:
         raise converted_error(space, e)
     return space.wrap(sock)
