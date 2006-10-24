@@ -8,7 +8,10 @@ from pypy.interpreter.error import OperationError
 
 
 class W_RSocket(Wrappable, RSocket):
-
+    def __init__(self, space, family, type, proto):
+        RSocket.__init__(self, family, type, proto)
+        self.settimeout(space.fromcache(State).defaulttimeout)
+        
     def accept_w(self, space):
         """accept() -> (socket object, address info)
 
@@ -125,28 +128,18 @@ class W_RSocket(Wrappable, RSocket):
         buflen = space.int_w(w_buflen)
         return space.wrap(self.getsockopt(level, optname, buflen))
     getsockopt_w.unwrap_spec = ['self', ObjSpace, int, int, W_Root]
-    
-    def setsockopt_w(self, space, level, optname, w_optval):
-        """setsockopt(level, option, value)
 
-        Set a socket option.  See the Unix manual for level and option.
-        The value argument can either be an integer or a string.
+    def gettimeout_w(self, space):
+        """gettimeout() -> timeout
+
+        Returns the timeout in floating seconds associated with socket
+        operations. A timeout of None indicates that timeouts on socket
         """
-        try:
-            optval = space.int_w(w_optval)
-        except:
-            optval = space.str_w(w_optval)
-            try:
-                self.setsockopt(level, optname, optval)
-            except SocketError, e:
-                raise converted_error(space, e)
-            return
-        try:
-            self.setsockopt_int(level, optname, optval)
-        except SocketError, e:
-            raise converted_error(space, e)
-            
-    setsockopt_w.unwrap_spec = ['self', ObjSpace, int, int, W_Root]
+        timeout = self.gettimeout()
+        if timeout < 0.0:
+            return space.w_None
+        return space.wrap(timeout)
+    gettimeout_w.unwrap_spec = ['self', ObjSpace]
     
     def listen_w(self, space, backlog):
         """listen(backlog)
@@ -248,6 +241,46 @@ class W_RSocket(Wrappable, RSocket):
         self.setblocking(bool(flag))
     setblocking_w.unwrap_spec = ['self', ObjSpace, int]
 
+    def setsockopt_w(self, space, level, optname, w_optval):
+        """setsockopt(level, option, value)
+
+        Set a socket option.  See the Unix manual for level and option.
+        The value argument can either be an integer or a string.
+        """
+        try:
+            optval = space.int_w(w_optval)
+        except:
+            optval = space.str_w(w_optval)
+            try:
+                self.setsockopt(level, optname, optval)
+            except SocketError, e:
+                raise converted_error(space, e)
+            return
+        try:
+            self.setsockopt_int(level, optname, optval)
+        except SocketError, e:
+            raise converted_error(space, e)
+            
+    setsockopt_w.unwrap_spec = ['self', ObjSpace, int, int, W_Root]
+    
+    def settimeout_w(self, space, w_timeout):
+        """settimeout(timeout)
+
+        Set a timeout on socket operations.  'timeout' can be a float,
+        giving in seconds, or None.  Setting a timeout of None disables
+        the timeout feature and is equivalent to setblocking(1).
+        Setting a timeout of zero is the same as setblocking(0).
+        """
+        if space.is_w(w_timeout, space.w_None):
+            timeout = -1.0
+        else:
+            timeout = space.float_w(w_timeout)
+            if timeout < 0.0:
+                raise OperationError(space.w_ValueError,
+                                     space.wrap('Timeout value out of range'))
+        self.settimeout(timeout)
+    settimeout_w.unwrap_spec = ['self', ObjSpace, W_Root]
+    
     def shutdown_w(self, space, how):
         """shutdown(flag)
 
@@ -261,7 +294,34 @@ class W_RSocket(Wrappable, RSocket):
             raise converted_error(space, e)
     shutdown_w.unwrap_spec = ['self', ObjSpace, int]
 
+class State:
+    defaulttimeout = -1.0 # Default is blocking
+    def __init__(self, space):
+        pass
+    
+def getdefaulttimeout(space):
+    """getdefaulttimeout() -> timeout
 
+    Returns the default timeout in floating seconds for new socket objects.
+    A value of None indicates that new socket objects have no timeout.
+    When the socket module is first imported, the default is None.
+    """
+    timeout = space.fromcache(State).defaulttimeout
+    if timeout < 0.0:
+        return space.w_None
+    return space.wrap(timeout)
+getdefaulttimeout.unwrap_spec = [ObjSpace]
+
+def setdefaulttimeout(space, w_timeout):
+    if space.is_w(w_timeout, space.w_None):
+        timeout = -1.0
+    else:
+        timeout = space.float_w(w_timeout)
+        if timeout < 0.0:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap('Timeout value out of range'))
+    space.fromcache(State).defaulttimeout = timeout
+    
 def newsocket(space, w_subtype, family=_c.AF_INET,
               type=_c.SOCK_STREAM, proto=0):
     # XXX If we want to support subclassing the socket type we will need
@@ -270,7 +330,7 @@ def newsocket(space, w_subtype, family=_c.AF_INET,
     #sock = space.allocate_instance(W_RSocket, w_subtype)
     #Socket.__init__(sock, space, fd, family, type, proto)
     try:
-        sock = W_RSocket(family, type, proto)
+        sock = W_RSocket(space, family, type, proto)
     except SocketError, e:
         raise converted_error(space, e)
     return space.wrap(sock)
@@ -293,9 +353,9 @@ def converted_error(space, e):
 
 socketmethodnames = """
 accept bind close connect connect_ex fileno
-getpeername getsockname getsockopt listen recv
+getpeername getsockname getsockopt gettimeout listen recv
 recvfrom send sendall sendto setblocking
-setsockopt shutdown
+setsockopt settimeout shutdown
 """.split()          # dup makefile gettimeout settimeout
 socketmethods = {}
 for methodname in socketmethodnames:

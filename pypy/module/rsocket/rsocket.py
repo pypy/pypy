@@ -8,9 +8,8 @@ a drop-in replacement for the 'socket' module.
 #
 #   - support for non-Linux platforms
 #   - address families other than AF_INET, AF_INET6, AF_UNIX
-#   - methods dup(), getsockopt(), setsockopt(), makefile(),
-#     gettimeout(), settimeout()
-#   - functions getnameinfo(), getdefaulttimeout(), setdefaulttimeout()
+#   - methods dup(), makefile(),
+#   - functions getnameinfo()
 #   - SSL
 
 from pypy.rpython.objectmodel import instantiate
@@ -411,7 +410,7 @@ class RSocket(object):
     """
     _mixin_ = True        # for interp_socket.py
     fd = _c.INVALID_SOCKET
-
+    timeout = -1.0 # Default is blocking
     def __init__(self, family=_c.AF_INET, type=_c.SOCK_STREAM, proto=0):
         """Create a new socket."""
         fd = _c.socket(family, type, proto)
@@ -422,10 +421,40 @@ class RSocket(object):
         self.family = family
         self.type = type
         self.proto = proto
-
+        
     def __del__(self):
         self.close()
 
+    def _setblocking(self, block):
+        # PLAT various methods on other platforms
+        # XXX Windows missing
+        delay_flag = _c.fcntl(self.fd, _c.F_GETFL, 0)
+        if block:
+            delay_flag &= ~_c.O_NONBLOCK
+        else:
+            delay_flag |= _c.O_NONBLOCK
+        _c.fcntl(self.fd, _c.F_SETFL, delay_flag)
+
+    def _select(self, for_writing):
+        """Returns 0 when reading/writing is possible,
+        1 when timing out and -1 on error."""
+        if self.timeout <= 0.0 or self.fd < 0:
+            # blocking I/O or no socket.
+            return 0
+        pollfd = _c.pollfd()
+        pollfd.fd = self.fd
+        if for_writing:
+            pollfd.events = _c.POLLOUT
+        else:
+            pollfd.events = _c.POLLIN
+        timeout = int(self.timeout * 1000.0 + 0.5)
+        n = _c.poll(byref(pollfd), 1, timeout)
+        if n < 0:
+            return -1
+        if n == 0:
+            return 1
+        return 0
+        
     def error_handler(self):
         return last_error()
 
@@ -445,6 +474,8 @@ class RSocket(object):
     def accept(self):
         """Wait for an incoming connection.
         Return (new socket object, client address)."""
+        if self._select(False) == 1:
+            raise SocketTimeout
         address, addrlen = self._addrbuf()
         newfd = _c.socketaccept(self.fd, byref(address.addr), byref(addrlen))
         if _c.invalid_socket(newfd):
@@ -472,6 +503,18 @@ class RSocket(object):
     def connect(self, address):
         """Connect the socket to a remote address."""
         res = _c.socketconnect(self.fd, byref(address.addr), address.addrlen)
+        if self.timeout > 0.0:
+            errno = _c.geterrno()
+            if res < 0 and errno == _c.EINPROGRESS:
+                timeout = self._select(True)
+                if timeout == 0:
+                    res = _c.socketconnect(self.fd, byref(address.addr),
+                                           address.addrlen)
+                elif timeout == -1:
+                    raise self.error_handler()
+                else:
+                    raise SocketTimeout
+                
         if res != 0:
             raise self.error_handler()
 
@@ -479,8 +522,20 @@ class RSocket(object):
         """This is like connect(address), but returns an error code (the errno
         value) instead of raising an exception when an error occurs."""
         res = _c.socketconnect(self.fd, byref(address.addr), address.addrlen)
+        if self.timeout > 0.0:
+            errno = _c.geterrno()
+            if res < 0 and errno == _c.EINPROGRESS:
+                timeout = self._select(True)
+                if timeout == 0:
+                    res = _c.socketconnect(self.fd, byref(address.addr),
+                                           address.addrlen)
+                elif timeout == -1:
+                    return _c.geterrno()
+                else:
+                    return _c.EWOULDBLOCK
+                
         if res != 0:
-            res = _c.geterrno()
+            return _c.geterrno()
         return res
 
     def fileno(self):
@@ -509,6 +564,30 @@ class RSocket(object):
         address.addrlen = addrlen.value
         return address
 
+    def getsockopt(self, level, option, maxlen):
+        buf = _c.create_string_buffer(maxlen)
+        bufsize = _c.socklen_t()
+        bufsize.value = maxlen
+        res = _c.socketgetsockopt(self.fd, level, option, byref(buf), byref(bufsize))
+        if res < 0:
+            raise self.error_handler()
+        return buf.raw[:bufsize.value]
+
+    def getsockopt_int(self, level, option):
+        flag = _c.c_int()
+        flagsize = _c.socklen_t()
+        flagsize.value = _c.sizeof(flag)
+        res = _c.socketgetsockopt(self.fd, level, option,
+                            byref(flag), byref(flagsize))
+        if res < 0:
+            raise self.error_handler()
+        return flag.value
+
+    def gettimeout(self):
+        """Return the timeout of the socket. A timeout < 0 means that
+        timeouts are dissabled in the socket."""
+        return self.timeout
+    
     def listen(self, backlog):
         """Enable a server to accept connections.  The backlog argument
         must be at least 1; it specifies the number of unaccepted connections
@@ -525,8 +604,13 @@ class RSocket(object):
         until at least one byte is available or until the remote end is closed.
         When the remote end is closed and all data is read, return the empty
         string."""
-        buf = create_string_buffer(buffersize)
-        read_bytes = _c.socketrecv(self.fd, buf, buffersize, flags)
+        read_bytes = -1
+        timeout = self._select(False)
+        if timeout == 1:
+            raise SocketTimeout
+        elif timeout == 0:
+            buf = create_string_buffer(buffersize)
+            read_bytes = _c.socketrecv(self.fd, buf, buffersize, flags)
         if read_bytes < 0:
             raise self.error_handler()
         return buf[:read_bytes]
@@ -534,10 +618,15 @@ class RSocket(object):
     def recvfrom(self, buffersize, flags=0):
         """Like recv(buffersize, flags) but also return the sender's
         address."""
-        buf = create_string_buffer(buffersize)
-        address, addrlen = self._addrbuf()
-        read_bytes = _c.recvfrom(self.fd, buf, buffersize, flags,
-                                 byref(address.addr), byref(addrlen))
+        read_bytes = -1
+        timeout = self._select(False)
+        if timeout == 1:
+            raise SocketTimeout
+        elif timeout == 0:
+            buf = create_string_buffer(buffersize)
+            address, addrlen = self._addrbuf()
+            read_bytes = _c.recvfrom(self.fd, buf, buffersize, flags,
+                                     byref(address.addr), byref(addrlen))
         if read_bytes < 0:
             raise self.error_handler()
         address.addrlen = addrlen.value
@@ -547,7 +636,12 @@ class RSocket(object):
         """Send a data string to the socket.  For the optional flags
         argument, see the Unix manual.  Return the number of bytes
         sent; this may be less than len(data) if the network is busy."""
-        res = _c.send(self.fd, data, len(data), flags)
+        res = -1
+        timeout = self._select(False)
+        if timeout == 1:
+            raise SocketTimeout
+        elif timeout == 0:
+            res = _c.send(self.fd, data, len(data), flags)
         if res < 0:
             raise self.error_handler()
         return res
@@ -564,48 +658,28 @@ class RSocket(object):
     def sendto(self, data, flags, address):
         """Like send(data, flags) but allows specifying the destination
         address.  (Note that 'flags' is mandatory here.)"""
-        res = _c.sendto(self.fd, data, len(data), flags,
-                        byref(address.addr), address.addrlen)
+        res = -1
+        timeout = self._select(False)
+        if timeout == 1:
+            raise SocketTimeout
+        elif timeout == 0:
+            res = _c.sendto(self.fd, data, len(data), flags,
+                            byref(address.addr), address.addrlen)
         if res < 0:
             raise self.error_handler()
         return res
 
     def setblocking(self, block):
-        # PLAT various methods on other platforms
-        # XXX Windows missing
-        delay_flag = _c.fcntl(self.fd, _c.F_GETFL, 0)
         if block:
-            delay_flag &= ~_c.O_NONBLOCK
+            timeout = -1.0
         else:
-            delay_flag |= _c.O_NONBLOCK
-        _c.fcntl(self.fd, _c.F_SETFL, delay_flag)
+            timeout = 0.0
+        self.settimeout(timeout)
 
-    def shutdown(self, how):
-        """Shut down the reading side of the socket (flag == SHUT_RD), the
-        writing side of the socket (flag == SHUT_WR), or both ends
-        (flag == SHUT_RDWR)."""
-        res = _c.socketshutdown(self.fd, how)
+    def setsockopt(self, level, option, value):
+        res = _c.socketsetsockopt(self.fd, level, option, value, len(value))
         if res < 0:
             raise self.error_handler()
-
-    def getsockopt_int(self, level, option):
-        flag = _c.c_int()
-        flagsize = _c.socklen_t()
-        flagsize.value = _c.sizeof(flag)
-        res = _c.socketgetsockopt(self.fd, level, option,
-                            byref(flag), byref(flagsize))
-        if res < 0:
-            raise self.error_handler()
-        return flag.value
-
-    def getsockopt(self, level, option, maxlen):
-        buf = _c.create_string_buffer(maxlen)
-        bufsize = _c.socklen_t()
-        bufsize.value = maxlen
-        res = _c.socketgetsockopt(self.fd, level, option, byref(buf), byref(bufsize))
-        if res < 0:
-            raise self.error_handler()
-        return buf.raw[:bufsize.value]
 
     def setsockopt_int(self, level, option, value):
         flag = _c.c_int(value)
@@ -614,10 +688,23 @@ class RSocket(object):
         if res < 0:
             raise self.error_handler()
 
-    def setsockopt(self, level, option, value):
-        res = _c.socketsetsockopt(self.fd, level, option, value, len(value))
+    def settimeout(self, timeout):
+        """Set the timeout of the socket. A timeout < 0 means that
+        timeouts are dissabled in the socket."""
+        if timeout < 0.0:
+            self.timeout = -1.0
+        else:
+            self.timeout = timeout
+        self._setblocking(self.timeout < 0.0)
+            
+    def shutdown(self, how):
+        """Shut down the reading side of the socket (flag == SHUT_RD), the
+        writing side of the socket (flag == SHUT_WR), or both ends
+        (flag == SHUT_RDWR)."""
+        res = _c.socketshutdown(self.fd, how)
         if res < 0:
             raise self.error_handler()
+
 # ____________________________________________________________
 
 def make_socket(fd, family, type, proto, SocketClass=RSocket):
@@ -664,6 +751,10 @@ class HSocketError(SocketError):
     def __str__(self):
         return "host lookup failed: '%s'" % (self.host,)
 
+class SocketTimeout(SocketError):
+    applevelerrcls = 'timeout'
+    def __str__(self):
+        return 'timed out'
 # ____________________________________________________________
 
 if _c.AF_UNIX is None:

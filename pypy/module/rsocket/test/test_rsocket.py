@@ -204,3 +204,30 @@ def test_getsetsockopt():
     reusestr = s.getsockopt(_c.SOL_SOCKET, _c.SO_REUSEADDR, sizeof(_c.c_int))
     reuseptr = _c.cast(_c.c_char_p(reusestr), _c.POINTER(_c.c_int))
     assert reuseptr[0] != 0
+
+class TestTCP:
+    PORT = 50007
+    HOST = 'localhost'
+
+    def setup_method(self, method):
+        self.serv = RSocket(_c.AF_INET, _c.SOCK_STREAM)
+        self.serv.setsockopt_int(_c.SOL_SOCKET, _c.SO_REUSEADDR, 1)
+        self.serv.bind(INETAddress(self.HOST, self.PORT))
+        self.serv.listen(1)
+
+    def teardown_method(self, method):
+        self.serv.close()
+        self.serv = None
+
+    def test_timeout(self):
+        def raise_timeout():
+            self.serv.settimeout(1.0)
+            self.serv.accept()
+        py.test.raises(SocketTimeout, raise_timeout)
+
+    def test_timeout_zero(self):
+        def raise_error():
+            self.serv.settimeout(0.0)
+            foo = self.serv.accept()
+        py.test.raises(SocketError, raise_error)
+

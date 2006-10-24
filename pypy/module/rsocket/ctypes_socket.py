@@ -7,7 +7,7 @@ from pypy.rpython.rctypes.tool import util      # ctypes.util from 0.9.9.6
 from pypy.rpython.rctypes.aerrno import geterrno
 
 from ctypes import c_ushort, c_int, c_uint, c_char_p, c_void_p, c_char, c_ubyte
-from ctypes import POINTER, ARRAY, cdll, sizeof, SetPointerType
+from ctypes import c_short, POINTER, ARRAY, cdll, sizeof, SetPointerType
 
 # Also not used here, but exported for other code.
 from ctypes import cast, pointer, create_string_buffer
@@ -15,6 +15,7 @@ from ctypes import cast, pointer, create_string_buffer
 includes = ('sys/types.h',
             'sys/socket.h',
             'sys/un.h',
+            'sys/poll.h',
             'netinet/in.h',
             'netinet/tcp.h',
             'unistd.h',
@@ -39,7 +40,11 @@ class CConfig:
     INVALID_SOCKET = ctypes_platform.DefinedConstantInteger('INVALID_SOCKET')
     INET_ADDRSTRLEN = ctypes_platform.DefinedConstantInteger('INET_ADDRSTRLEN')
     INET6_ADDRSTRLEN= ctypes_platform.DefinedConstantInteger('INET6_ADDRSTRLEN')
-
+    POLLIN = ctypes_platform.DefinedConstantInteger('POLLIN')
+    POLLOUT = ctypes_platform.DefinedConstantInteger('POLLOUT')
+    EINPROGRESS = ctypes_platform.DefinedConstantInteger('EINPROGRESS')
+    EWOULDBLOCK = ctypes_platform.DefinedConstantInteger('EWOULDBLOCK')
+    
 constant_names = ['AF_APPLETALK', 'AF_ASH', 'AF_ATMPVC', 'AF_ATMSVC', 'AF_AX25',
                   'AF_BLUETOOTH', 'AF_BRIDGE', 'AF_ECONET', 'AF_INET', 'AF_INET6',
                   'AF_IPX', 'AF_IRDA', 'AF_KEY', 'AF_NETBEUI', 'AF_NETLINK',
@@ -163,6 +168,12 @@ CConfig.protoent = ctypes_platform.Struct('struct protoent',
                                           [('p_proto', c_int),
                                            ])
 
+CConfig.nfds_t = ctypes_platform.SimpleType('nfds_t')
+CConfig.pollfd = ctypes_platform.Struct('struct pollfd',
+                                        [('fd', c_int),
+                                         ('events', c_short),
+                                         ('revents', c_short)])
+
 class cConfig:
     pass
 cConfig.__dict__.update(ctypes_platform.configure(CConfig))
@@ -192,6 +203,10 @@ F_GETFL = cConfig.F_GETFL
 F_SETFL = cConfig.F_SETFL
 INET_ADDRSTRLEN = cConfig.INET_ADDRSTRLEN
 INET6_ADDRSTRLEN = cConfig.INET6_ADDRSTRLEN
+POLLIN = cConfig.POLLIN
+POLLOUT = cConfig.POLLOUT
+EINPROGRESS = cConfig.EINPROGRESS
+EWOULDBLOCK = cConfig.EWOULDBLOCK
 
 linux = cConfig.linux
 MS_WINDOWS = cConfig.MS_WINDOWS
@@ -218,10 +233,13 @@ in_addr = cConfig.in_addr
 in_addr_size = sizeof(in_addr)
 in6_addr = cConfig.in6_addr
 addrinfo = cConfig.addrinfo
+nfds_t = cConfig.nfds_t
+pollfd = cConfig.pollfd
 
 c_int_size = sizeof(c_int)
 SetPointerType(addrinfo_ptr, addrinfo)
 SetPointerType(sockaddr_ptr, sockaddr)
+
 
 # functions
 dllname = util.find_library('c')
@@ -412,6 +430,9 @@ shutdown = socketdll.shutdown
 shutdown.argtypes = [c_int, c_int]
 shutdown.restype = c_int
 
+poll = socketdll.poll
+poll.argtypes = [POINTER(pollfd), nfds_t, c_int]
+poll.restype = c_int
 
 if MS_WINDOWS:
     WIN32_ERROR_MESSAGES = {

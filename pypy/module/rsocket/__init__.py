@@ -25,10 +25,12 @@ class Module(MixedModule):
             fromfd socketpair
             ntohs ntohl htons htonl inet_aton inet_ntoa inet_pton inet_ntop
             getaddrinfo getnameinfo
-            getdefaulttimeout setdefaulttimeout 
             """.split():
             
             Module.interpleveldefs[name] = 'interp_func.%s' % (name, )
+        for name in """getdefaulttimeout setdefaulttimeout""".split():
+            Module.interpleveldefs[name] = 'interp_socket.%s' % (name, )
+
 
         for constant, value in _c.constants.iteritems():
             Module.interpleveldefs[constant] = "space.wrap(%r)" % value

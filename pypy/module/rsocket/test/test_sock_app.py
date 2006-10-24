@@ -214,7 +214,6 @@ def test_getnameinfo():
     assert space.unwrap(w_l) == info
 
 def test_timeout():
-    skip("not implemented yet")
     space.appexec([w_socket, space.wrap(25.4)],
                   "(_socket, timeout): _socket.setdefaulttimeout(timeout)")
     w_t = space.appexec([w_socket],
@@ -349,7 +348,6 @@ class AppTestSocket:
                 assert False
 
     def test_newsocket(self):
-        skip("in progress - importing socket doesn't work so far")
         import socket
         s = socket.socket()
 
@@ -377,3 +375,42 @@ class AppTestSocket:
                                 intsize)
         (reuse,) = struct.unpack('i', reusestr)
         assert reuse != 0
+
+
+class AppTestSocketTCP:
+    def setup_class(cls):
+        cls.space = space
+
+    PORT = 50007
+    HOST = 'localhost'
+        
+    def setup_method(self, method):
+        w_HOST = space.wrap(self.HOST)
+        w_PORT = space.wrap(self.PORT)
+        self.w_serv = space.appexec([w_socket, w_HOST, w_PORT],
+            '''(_socket, HOST, PORT):
+            serv = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+            serv.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEADDR, 1)
+            serv.bind((HOST, PORT))
+            serv.listen(1)
+            return serv
+            ''')
+    def teardown_method(self, method):
+        space.appexec([self.w_serv], '(serv): serv.close()')
+        self.w_serv = None
+            
+
+    def test_timeout(self):
+        from _socket import timeout
+        def raise_timeout():
+            self.serv.settimeout(1.0)
+            self.serv.accept()
+        raises(timeout, raise_timeout)
+
+    def test_timeout_zero(self):
+        from _socket import error
+        def raise_error():
+            self.serv.settimeout(0.0)
+            foo = self.serv.accept()
+        raises(error, raise_error)
+    
