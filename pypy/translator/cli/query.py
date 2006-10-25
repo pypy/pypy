@@ -123,20 +123,20 @@ class ClassDesc(Desc):
 
         # add both static and instance methods
         static_meths = self.group_methods(self.StaticMethods, _overloaded_static_meth,
-                                          _static_meth, ootype.StaticMethod)
+                                          _static_meth, ootype.StaticMethod, always_group=True)
         meths = self.group_methods(self.Methods, ootype.overload, ootype.meth, ootype.Meth)
         Class._add_methods(static_meths)
         TYPE._add_methods(meths)
         return Class
 
-    def group_methods(self, methods, overload, meth, Meth):
+    def group_methods(self, methods, overload, meth, Meth, always_group=False):
         groups = {}
         for name, args, result in methods:
             groups.setdefault(name, []).append((args, result))
 
         res = {}
         for name, methlist in groups.iteritems():
-            if len(methlist) == 1:
+            if len(methlist) == 1 and not always_group:
                 args, result = methlist[0]
                 TYPE = self.get_method_type(Meth, args, result)
                 res[name] = meth(TYPE)

@@ -117,13 +117,15 @@ public class Query
 
     private static bool IgnoreType(Type t)
     {
-        return !t.IsPrimitive && (t == typeof(System.ValueType) ||
-                                  t == typeof(System.Array) ||
-                                  t.IsValueType ||
-                                  t.IsByRef ||
-                                  t.IsPointer ||
-                                  t.IsGenericType ||
-                                  t.IsGenericTypeDefinition);
+        return !t.IsPrimitive 
+            && t != typeof(void)
+            &&(t == typeof(System.ValueType) ||
+               t == typeof(System.Array) ||
+               t.IsValueType ||
+               t.IsByRef ||
+               t.IsPointer ||
+               t.IsGenericType ||
+               t.IsGenericTypeDefinition);
     }
 
     private static void PrintDepend()
