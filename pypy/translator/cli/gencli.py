@@ -16,6 +16,7 @@ from pypy.translator.cli.rte import get_pypy_dll
 from pypy.translator.cli.support import Tee
 from pypy.translator.cli.prebuiltnodes import get_prebuilt_nodes
 from pypy.translator.cli.stackopt import StackOptGenerator
+from pypy.translator.cli import query
 
 try:
     set
@@ -66,6 +67,7 @@ class GenCli(object):
         self.db.gen_constants(self.ilasm)
         out.close()
         self.db.const_count.dump(self.const_stat)
+        query.savedesc()
         return self.tmpfile.strpath
 
     def gen_entrypoint(self):

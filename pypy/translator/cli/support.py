@@ -1,14 +1,18 @@
 import py
 from pypy.rpython.ootypesystem import ootype
 
+from pypy.tool.ansi_print import ansi_log
+log = py.log.Producer("cli") 
+py.log.setconsumer("cli", ansi_log) 
+
 try:
-    import CLR
+    import CLR as PythonNet
 except ImportError:
-    class _CLR:
+    class _PythonNet:
         def __getattr__(self, attr):
             py.test.skip('Must use pythonnet for being able to access .NET libraries')
-    CLR = _CLR()
-    del _CLR
+    PythonNet = _PythonNet()
+    del _PythonNet
 
 # some code has been stolen from genc
 def string_literal(s):

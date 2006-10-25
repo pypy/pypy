@@ -2,11 +2,11 @@ from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.annotation import model as annmodel
 from pypy.translator.cli.test.runtest import CliTest
 from pypy.translator.cli.dotnet import SomeCliClass, SomeCliStaticMethod,\
-     NativeInstance
-from pypy.translator.cli.dotnetdb import System
-Math = System.Math
-ArrayList = System.Collections.ArrayList
-StringBuilder = System.Text.StringBuilder
+     NativeInstance, CLR
+
+Math = CLR.System.Math
+ArrayList = CLR.System.Collections.ArrayList
+StringBuilder = CLR.System.Text.StringBuilder
 
 class TestDotnet(CliTest):
 

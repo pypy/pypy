@@ -13,11 +13,7 @@ from pypy.translator.cli.opcodes import opcodes
 from pypy.translator.cli.metavm import InstructionList, Generator
 from pypy.translator.cli.node import Node
 from pypy.translator.cli.class_ import Class
-
-from pypy.tool.ansi_print import ansi_log
-import py
-log = py.log.Producer("cli") 
-py.log.setconsumer("cli", ansi_log) 
+from pypy.translator.cli.support import log
 
 class Function(Node, Generator):
     def __init__(self, db, graph, name = None, is_method = False, is_entrypoint = False):

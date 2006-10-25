@@ -84,12 +84,17 @@ class UnixDLL(Target):
     FLAGS = ['/t:library', '/unsafe', '/r:Mono.Posix', '/r:main.exe']
     DEPENDENCIES = [MainStub]
 
+class Query(Target):
+    SOURCES = ['query.cs']
+    OUTPUT = 'query.exe'
+
 def get_pypy_dll():
     if os.environ.get('PYPYLIB', '').lower() == 'unix':
         DLL = UnixDLL
     else:
         DLL = FrameworkDLL
     return DLL.get()
+
 
 if __name__ == '__main__':
     get_pypy_dll()

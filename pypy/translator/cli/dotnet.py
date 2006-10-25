@@ -3,7 +3,7 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem.ootype import meth, overload, Meth, StaticMethod
 from pypy.annotation import model as annmodel
 from pypy.rpython.rmodel import Repr
-from pypy.translator.cli.support import CLR
+from pypy.translator.cli.support import PythonNet
 
 ## Annotation model
 
@@ -124,15 +124,19 @@ class CliClass(object):
     def __init__(self, INSTANCE, static_methods):
         self._name = INSTANCE._name
         self._INSTANCE = INSTANCE
-        self._static_methods = static_methods
-        for name, meth in static_methods.iteritems():
-            meth._set_attrs(self, name)
+        self._static_methods = {}
+        self._add_methods(static_methods)
 
     def __repr__(self):
         return '<%s>' % (self,)
 
     def __str__(self):
         return '%s(%s)' % (self.__class__.__name__, self._INSTANCE._name)
+
+    def _add_methods(self, methods):
+        self._static_methods.update(methods)
+        for name, meth in methods.iteritems():
+            meth._set_attrs(self, name)
 
     def _lookup(self, meth_name, ARGS):
         meth = self._static_methods[meth_name]
@@ -145,21 +149,21 @@ class CliClass(object):
     def _load_class(self):
         names = self._INSTANCE._namespace.split('.')
         names.append(self._INSTANCE._classname)
-        obj = CLR
+        obj = PythonNet
         for name in names:
             obj = getattr(obj, name)
-        self._CLR_class = obj
+        self._PythonNet_class = obj
 
     def __getattr__(self, attr):
         if attr in self._static_methods:
             self._load_class()
-            return getattr(self._CLR_class, attr)
+            return getattr(self._PythonNet_class, attr)
         else:
             raise AttributeError
 
     def __call__(self, *args):
         self._load_class()
-        return self._CLR_class(*args)
+        return self._PythonNet_class(*args)
 
 
 class Entry(ExtRegistryEntry):
@@ -169,9 +173,21 @@ class Entry(ExtRegistryEntry):
         return SomeCliClass()
 
 
-
 class CliNamespace(object):
     def __init__(self, name):
         self._name = name
 
+    def __fullname(self, name):
+        if self._name is None:
+            return name
+        else:
+            return '%s.%s' % (self._name, name)
 
+    def __getattr__(self, attr):
+        from pypy.translator.cli.query import load_class_or_namespace
+        name = self.__fullname(attr)
+        load_class_or_namespace(name)
+        assert attr in self.__dict__
+        return getattr(self, attr)
+
+CLR = CliNamespace(None)
