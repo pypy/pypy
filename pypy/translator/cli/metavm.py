@@ -156,6 +156,13 @@ class MapException(MicroInstruction):
         ilasm.label(label)
         ilasm.opcode('nop')
 
+class _Box(MicroInstruction): 
+    def render(self, generator, op):
+        generator.load(op.args[0])
+        TYPE = op.args[0].concretetype
+        boxtype = generator.cts.lltype_to_box(TYPE)
+        generator.ilasm.opcode('box', boxtype)
+
 Call = _Call()
 CallMethod = _CallMethod()
 IndirectCall = _IndirectCall()
@@ -164,3 +171,4 @@ CastTo = _CastTo()
 OOString = _OOString()
 NewCustomDict = _NewCustomDict()
 CastWeakAdrToPtr = _CastWeakAdrToPtr()
+Box = _Box()

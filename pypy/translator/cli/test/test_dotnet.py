@@ -2,7 +2,7 @@ from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.annotation import model as annmodel
 from pypy.translator.cli.test.runtest import CliTest
 from pypy.translator.cli.dotnet import SomeCliClass, SomeCliStaticMethod,\
-     NativeInstance, CLR
+     NativeInstance, CLR, box
 
 Math = CLR.System.Math
 ArrayList = CLR.System.Collections.ArrayList
@@ -81,3 +81,10 @@ class TestDotnet(CliTest):
         mylist.Add('foo')
         assert mylist.Count == 2
     
+    def test_box(self):
+        def fn():
+            x = ArrayList()
+            x.Add(box(42))
+            x.Add(box('Foo'))
+            return x.get_Count()
+        assert self.interpret(fn, []) == 2

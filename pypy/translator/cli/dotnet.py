@@ -1,3 +1,4 @@
+from pypy.rpython.error import TyperError
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem.ootype import meth, overload, Meth, StaticMethod
@@ -37,7 +38,6 @@ class SomeCliStaticMethod(annmodel.SomeObject):
 
     def rtyper_makekey(self):
         return self.__class__, self.cli_class, self.meth_name
-
 
 
 ## Rtyper model
@@ -90,7 +90,7 @@ class _static_meth(object):
         self._name = name
 
     def _get_desc(self, ARGS):
-        assert ARGS == self._TYPE.ARGS
+        #assert ARGS == self._TYPE.ARGS
         return self
 
 
@@ -116,7 +116,6 @@ class NativeInstance(ootype.Instance):
         self._namespace = namespace
         self._classname = name
         ootype.Instance.__init__(self, fullname, superclass, fields, methods, _is_root, _hints)
-
 
 ## RPython interface definition
 
@@ -172,6 +171,27 @@ class Entry(ExtRegistryEntry):
     def compute_annotation(self):
         return SomeCliClass()
 
+
+def box(x):
+    return x
+
+class Entry(ExtRegistryEntry):
+    _about_ = box
+
+    boxable_types = [ootype.Signed, ootype.String]
+
+    def compute_result_annotation(self, x_s):
+        return annmodel.SomeOOInstance(CLR.System.Object._INSTANCE)
+
+    def specialize_call(self, hop):
+        v_obj, = hop.inputargs(*hop.args_r)
+        if v_obj.concretetype not in self.boxable_types:
+            raise TyperError, "Can't box values of type %s" % v_obj.concretetype
+        
+        if (v_obj.concretetype is ootype.String):
+            return hop.genop('ooupcast', [v_obj], hop.r_result.lowleveltype)
+        else:
+            return hop.genop('clibox', [v_obj], hop.r_result.lowleveltype)
 
 class CliNamespace(object):
     def __init__(self, name):
