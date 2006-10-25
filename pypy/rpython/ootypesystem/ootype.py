@@ -1,6 +1,6 @@
 from pypy.rpython.lltypesystem.lltype import LowLevelType, Signed, Unsigned, Float, Char
 from pypy.rpython.lltypesystem.lltype import Bool, Void, UniChar, typeOf, \
-        Primitive, isCompatibleType, enforce, saferecursive
+        Primitive, isCompatibleType, enforce, saferecursive, SignedLongLong, UnsignedLongLong
 from pypy.rpython.lltypesystem.lltype import frozendict, isCompatibleType
 from pypy.rpython.rarithmetic import intmask
 from pypy.rpython import objectmodel
