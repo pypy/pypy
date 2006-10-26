@@ -1,3 +1,4 @@
+import py
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.annotation import model as annmodel
 from pypy.translator.cli.test.runtest import CliTest
@@ -8,7 +9,7 @@ Math = CLR.System.Math
 ArrayList = CLR.System.Collections.ArrayList
 StringBuilder = CLR.System.Text.StringBuilder
 
-class TestDotnet(CliTest):
+class TestDotnetAnnotation(object):
 
     def test_class_ann(self):
         def fn():
@@ -45,17 +46,23 @@ class TestDotnet(CliTest):
         assert isinstance(s.ootype, NativeInstance)
         assert s.ootype._name == '[mscorlib]System.Collections.ArrayList'
 
+class TestDotnetRtyping(TestDotnetAnnotation, CliTest):
+    def _skip_pythonnet(self):
+        pass
+
     def test_staticmeth_call(self):
         def fn(x):
             return Math.Abs(x)
         assert self.interpret(fn, [-42]) == 42
 
     def test_staticmeth_overload(self):
+        self._skip_pythonnet()
         def fn(x, y):
             return Math.Abs(x), Math.Abs(y)
         res = self.interpret(fn, [-42, -42.5])
-        assert res.item0 == 42
-        assert res.item1 == 42.5
+        item0, item1 = self.ll_to_tuple(res)
+        assert item0 == 42
+        assert item1 == 42.5
 
     def test_method_call(self):
         def fn():
@@ -72,14 +79,6 @@ class TestDotnet(CliTest):
             return x.ToString()
         res = self.ll_to_string(self.interpret(fn, []))
         assert res == 'foobar'
-
-    def test_pythonnet(self):
-        # this test must be executed with pythonnet
-        assert Math.Abs(-42) == 42 
-        mylist = ArrayList()
-        mylist.Add(1)
-        mylist.Add('foo')
-        assert mylist.Count == 2
     
     def test_box(self):
         def fn():
@@ -88,3 +87,13 @@ class TestDotnet(CliTest):
             x.Add(box('Foo'))
             return x.get_Count()
         assert self.interpret(fn, []) == 2
+
+
+class TestPythonnet(TestDotnetRtyping):
+    # don't interpreter functions but execute them directly through pythonnet
+    def interpret(self, f, args):
+        return f(*args)
+
+    def _skip_pythonnet(self):
+        py.test.skip('Pythonnet bug!')
+

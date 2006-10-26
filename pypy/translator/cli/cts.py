@@ -57,10 +57,6 @@ _lltype_to_cts = {
     ootype.DictItemsIterator.VALUETYPE_T: '!1',
     }
 
-_lltype_to_box = {
-    ootype.Signed: '[mscorlib]System.Int32'
-    }
-
 _pyexception_to_cts = {
     exceptions.Exception: '[mscorlib]System.Exception',
     exceptions.OverflowError: '[mscorlib]System.OverflowException'
@@ -190,9 +186,6 @@ class CTS(object):
 
     def llconst_to_cts(self, const):
         return self.lltype_to_cts(const.concretetype), const.value
-
-    def lltype_to_box(self, TYPE):
-        return _get_from_dict(_lltype_to_box, TYPE, "Don't know how to box type %s" % TYPE)
 
     def ctor_name(self, t):
         return 'instance void %s::.ctor()' % self.lltype_to_cts(t)

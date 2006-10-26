@@ -160,7 +160,7 @@ class _Box(MicroInstruction):
     def render(self, generator, op):
         generator.load(op.args[0])
         TYPE = op.args[0].concretetype
-        boxtype = generator.cts.lltype_to_box(TYPE)
+        boxtype = generator.cts.lltype_to_cts(TYPE)
         generator.ilasm.opcode('box', boxtype)
 
 Call = _Call()

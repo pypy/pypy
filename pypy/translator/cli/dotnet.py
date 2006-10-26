@@ -178,7 +178,9 @@ def box(x):
 class Entry(ExtRegistryEntry):
     _about_ = box
 
-    boxable_types = [ootype.Signed, ootype.String]
+    boxable_types = [ootype.Signed, ootype.Unsigned, ootype.SignedLongLong,
+                     ootype.UnsignedLongLong, ootype.Bool, ootype.Float,
+                     ootype.Char, ootype.String]
 
     def compute_result_annotation(self, x_s):
         return annmodel.SomeOOInstance(CLR.System.Object._INSTANCE)
