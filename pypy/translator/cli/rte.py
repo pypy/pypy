@@ -88,6 +88,15 @@ class Query(Target):
     SOURCES = ['query.cs']
     OUTPUT = 'query.exe'
 
+    def compile(cls, sources, out):
+        # assume that if query.exe need to be recompiled the descriptions cache is invalid        
+        from pypy.translator.cli.query import _descfilename
+        filename = _descfilename(None)
+        if os.path.exists(filename):
+            os.remove(filename)
+        Target.compile.im_func(cls, sources, out)
+    compile = classmethod(compile)
+
 def get_pypy_dll():
     if os.environ.get('PYPYLIB', '').lower() == 'unix':
         DLL = UnixDLL
