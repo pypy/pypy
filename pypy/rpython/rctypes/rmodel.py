@@ -248,19 +248,12 @@ class CTypesValueRepr(CTypesRepr):
     def rtype_is_true(self, hop):
         [v_box] = hop.inputargs(self)
         v_value = self.getvalue(hop.llops, v_box)
-        if v_value.concretetype == llmemory.Address:
-            llfn = ll_address_is_true
-        else:
-            llfn = ll_is_true
-        return hop.gendirectcall(llfn, v_value)
+        return hop.gendirectcall(ll_is_true, v_value)
 
 # ____________________________________________________________
 
 def ll_is_true(x):
     return bool(x)
-
-def ll_address_is_true(x):
-    return x != llmemory.NULL
 
 C_ZERO = inputconst(lltype.Signed, 0)
 
@@ -269,9 +262,9 @@ def reccopy(source, dest):
     T = lltype.typeOf(source).TO
     assert T == lltype.typeOf(dest).TO
     if isinstance(T, (lltype.Array, lltype.FixedSizeArray)):
-        assert len(source) == len(dest)
+        assert source._obj.getlength() == dest._obj.getlength()
         ITEMTYPE = T.OF
-        for i in range(len(source)):
+        for i in range(source._obj.getlength()):
             if isinstance(ITEMTYPE, lltype.ContainerType):
                 subsrc = source[i]
                 subdst = dest[i]
