@@ -923,7 +923,7 @@ class _overloaded_mixin(object):
         METH = self._resolve_overloading(ARGS)._TYPE
         return self._lltype_to_annotation(METH.RESULT)
 
-    def _annotation_to_lltype(self, ann):
+    def _annotation_to_lltype(cls, ann):
         from pypy.annotation import model as annmodel
         if isinstance(ann, annmodel.SomeChar):
             return Char
@@ -931,8 +931,9 @@ class _overloaded_mixin(object):
             return String
         else:
             return annmodel.annotation_to_lltype(ann)
+    _annotation_to_lltype = classmethod(_annotation_to_lltype)
 
-    def _lltype_to_annotation(self, TYPE):
+    def _lltype_to_annotation(cls, TYPE):
         from pypy.annotation import model as annmodel
         if TYPE is Char:
             return annmodel.SomeChar()
@@ -940,6 +941,7 @@ class _overloaded_mixin(object):
             return annmodel.SomeString()
         else:
             return annmodel.lltype_to_annotation(TYPE)
+    _lltype_to_annotation = classmethod(_lltype_to_annotation)
 
 
 class _overloaded_meth(_meth, _overloaded_mixin):
