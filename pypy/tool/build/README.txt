@@ -68,14 +68,18 @@ the compiling clients the system values are used by default, but may be
 overridden (so a compiling client running an x86 can still request PPC builds,
 for instance). The server finds a matching participant client for a certain
 compilation request by determining if the provided compilation system
-configuration is a subset of that provided by participating clients.
+configuration is a subset of that provided by participating clients. Note that
+the version of the source code (either the release number or SVN revision)
+is a special part of this configuration, the participating clients tell what
+PyPy versions they can provide, the compiling clients give a range of versions
+that it doesn't mind getting (XXX not sure if I agree here, I think having the
+participating clients 'svn switch' for each compilation makes more sense...)
 
 Compilation configuration
 -------------------------
 
 The third form of configuration is that of the to-be-built application itself,
-its command-line compilation arguments (configuration is assumed to all be
-done from the command line). This configuration is only provided by the
+its compilation arguments. This configuration is only provided by the
 compiling clients, assumed is that participating clients can deal with any
 application configuration. (XXX oops, this is not by default true, is it?
 For instance, not all modules can be built on all systems, depending on which
