@@ -15,12 +15,12 @@ class TestTypedOptimizedTestCase(_TestTypedTestCase):
             t.view()
 
     def test_remove_same_as(self):
-        def f(n=bool):
+        def f(n):
             if bool(bool(bool(n))):
                 return 123
             else:
                 return 456
-        fn = self.getcompiled(f)
+        fn = self.getcompiled(f, [bool])
         assert f(True) == 123
         assert f(False) == 456
 
@@ -39,13 +39,13 @@ class TestTypedOptimizedTestCase(_TestTypedTestCase):
             def __del__(self):
                 b.num_deleted += 1
 
-        def f(x=int):
+        def f(x):
             a = A()
             for i in range(x):
                 a = A()
             return b.num_deleted
 
-        fn = self.getcompiled(f)
+        fn = self.getcompiled(f, [int])
         res = f(5)
         assert res == 5
         res = fn(5)
@@ -66,7 +66,7 @@ class TestTypedOptimizedTestCase(_TestTypedTestCase):
                 s.b_dels += 1
         class C(A):
             pass
-        def f(x=int):
+        def f(x):
             A()
             B()
             C()
@@ -77,7 +77,7 @@ class TestTypedOptimizedTestCase(_TestTypedTestCase):
                 return s.a_dels * 10 + s.b_dels
             else:
                 return -1
-        fn = self.getcompiled(f)
+        fn = self.getcompiled(f, [int])
         res = f(1)
         assert res == 42
         res = fn(1)
@@ -92,7 +92,7 @@ class TestTypedOptimizedSwitchTestCase:
             backend_optimizations(t, merge_if_blocks_to_switch=True)
 
     def test_int_switch(self):
-        def f(x=int):
+        def f(x):
             if x == 3:
                 return 9
             elif x == 9:
@@ -101,12 +101,12 @@ class TestTypedOptimizedSwitchTestCase:
                 return 3
             return 0
         codegenerator = self.CodeGenerator()
-        fn = codegenerator.getcompiled(f)
+        fn = codegenerator.getcompiled(f, [int])
         for x in (0,1,2,3,9,27,48, -9):
             assert fn(x) == f(x)
 
     def test_uint_switch(self):
-        def f(x=r_uint):
+        def f(x):
             if x == r_uint(3):
                 return 9
             elif x == r_uint(9):
@@ -115,12 +115,12 @@ class TestTypedOptimizedSwitchTestCase:
                 return 3
             return 0
         codegenerator = self.CodeGenerator()
-        fn = codegenerator.getcompiled(f)
+        fn = codegenerator.getcompiled(f, [r_uint])
         for x in (0,1,2,3,9,27,48):
             assert fn(x) == f(x)
 
     def test_longlong_switch(self):
-        def f(x=r_longlong):
+        def f(x):
             if x == r_longlong(3):
                 return 9
             elif x == r_longlong(9):
@@ -129,12 +129,12 @@ class TestTypedOptimizedSwitchTestCase:
                 return 3
             return 0
         codegenerator = self.CodeGenerator()
-        fn = codegenerator.getcompiled(f)
+        fn = codegenerator.getcompiled(f, [r_longlong])
         for x in (0,1,2,3,9,27,48, -9):
             assert fn(x) == f(x)
 
     def test_ulonglong_switch(self):
-        def f(x=r_ulonglong):
+        def f(x):
             if x == r_ulonglong(3):
                 return 9
             elif x == r_ulonglong(9):
@@ -143,12 +143,12 @@ class TestTypedOptimizedSwitchTestCase:
                 return 3
             return 0
         codegenerator = self.CodeGenerator()
-        fn = codegenerator.getcompiled(f)
+        fn = codegenerator.getcompiled(f, [r_ulonglong])
         for x in (0,1,2,3,9,27,48, -9):
             assert fn(x) == f(x)
 
     def test_chr_switch(self):
-        def f(y=int):
+        def f(y):
             x = chr(y)
             if x == 'a':
                 return 'b'
@@ -158,13 +158,13 @@ class TestTypedOptimizedSwitchTestCase:
                 return 'd'
             return '@'
         codegenerator = self.CodeGenerator()
-        fn = codegenerator.getcompiled(f)
+        fn = codegenerator.getcompiled(f, [int])
         for x in 'ABCabc@':
             y = ord(x)
             assert fn(y) == f(y)
 
     def test_unichr_switch(self):
-        def f(y=int):
+        def f(y):
             x = unichr(y)
             if x == u'a':
                 return 'b'
@@ -174,7 +174,7 @@ class TestTypedOptimizedSwitchTestCase:
                 return 'd'
             return '@'
         codegenerator = self.CodeGenerator()
-        fn = codegenerator.getcompiled(f)
+        fn = codegenerator.getcompiled(f, [int])
         for x in u'ABCabc@':
             y = ord(x)
             assert fn(y) == f(y)
@@ -219,13 +219,13 @@ class TestTypedOptimizedRaisingOps:
             backend_optimizations(t, raisingop2direct_call_all=True)
 
     def test_int_floordiv_zer(self):
-        def f(x=int):
+        def f(x):
             try:
                 y = 123 / x
             except:
                 y = 456
             return y
         codegenerator = self.CodeGenerator()
-        fn = codegenerator.getcompiled(f)
+        fn = codegenerator.getcompiled(f, [int])
         for x in (0,1,2,3,9,27,48, -9):
             assert fn(x) == f(x)

@@ -38,7 +38,7 @@ def entry_point(argv):
 
 # _____ Define and setup target ___
 
-def target(driver, args):
+def target(driver, args, config):
     global modules, functions
     if len(args) == 0:
         N = DEFAULT_CODE_SIZE_FACTOR

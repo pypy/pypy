@@ -20,7 +20,7 @@ def test_simple1():
             raise MyException()
         else:
             return 3
-    def fn(i=int):
+    def fn(i):
         try:
             a = raise_(i) + 11
             b = raise_(i) + 12
@@ -33,19 +33,19 @@ def test_simple1():
         except:
             return 22
         return 66
-    f = getcompiled(fn)
+    f = getcompiled(fn, [int])
     assert f(0) == fn(0)
     assert f(1) == fn(1)
     assert f(2) == fn(2)
 
 def test_implicit_index_error_lists():
-    def fn(n=int):
+    def fn(n):
         lst = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         try:
             return lst[n]
         except:
             return 2
-    f = getcompiled(fn)
+    f = getcompiled(fn, [int])
     assert f(-1) == fn(-1)
     assert f( 0) == fn( 0)
     assert f(10) == fn(10)
@@ -64,12 +64,12 @@ def test_myexception():
     assert f1() == 5
 
 def test_raise_outside_testfn():
-    def testfn(n=int):
+    def testfn(n):
         if n < 0:
             raise ValueError("hello")
         else:
             raise MyException("world")
-    f1 = getcompiled(testfn)
+    f1 = getcompiled(testfn, [int])
     assert py.test.raises(ValueError, f1, -1)
     try:
         f1(1)
@@ -99,7 +99,7 @@ def test_memoryerror():
         s = lltype.malloc(S, n)
         tag.a = 42
         return s
-    def testfn(n=int):
+    def testfn(n):
         tag = lltype.malloc(S, 0)
         try:
             s = g(n, tag)
@@ -107,7 +107,7 @@ def test_memoryerror():
         except MemoryError:
             result = 1000
         return result + tag.a
-    f1 = getcompiled(testfn)
+    f1 = getcompiled(testfn, [int])
     assert f1(10) == 42
     assert f1(sys.maxint) == 1000
     for i in range(20):
@@ -116,14 +116,14 @@ def test_memoryerror():
     assert f1(sys.maxint // 2 + 16384) == 1000
 
 def test_assert():
-    def testfn(n=int):
+    def testfn(n):
         assert n >= 0
 
     # big confusion with py.test's AssertionError handling here...
     # some hacks to try to disable it for the current test.
     saved = no_magic()
     try:
-        f1 = getcompiled(testfn)
+        f1 = getcompiled(testfn, [int])
         res = f1(0)
         assert res is None, repr(res)
         res = f1(42)

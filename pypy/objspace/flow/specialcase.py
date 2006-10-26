@@ -11,7 +11,7 @@ def sc_import(space, fn, args):
         # import * in a function gives us the locals as Variable
         # we always forbid it as a SyntaxError
         raise SyntaxError, "RPython: import * is not allowed in functions"
-    if space.do_imports_immediately:
+    if space.config.translation.do_imports_immediately:
         name, glob, loc, frm = (space.unwrap(w_name), space.unwrap(w_glob),
                                 space.unwrap(w_loc), space.unwrap(w_frm))
         try:
@@ -36,7 +36,7 @@ def sc_operator(space, fn, args):
         else:
             raise Exception, "should call %r with exactly %d arguments" % (
                 fn, Arity[opname])
-    if space.builtins_can_raise_exceptions:
+    if space.config.translation.builtins_can_raise_exceptions:
         # in this mode, avoid constant folding and raise an implicit Exception
         w_result = space.do_operation(opname, *args_w)
         space.handle_implicit_exceptions([Exception])

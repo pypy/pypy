@@ -64,13 +64,6 @@ from pypy.translator.gensupp import ordered_blocks, UniqueList, builtin_base, \
      uniquemodulename, C_IDENTIFIER, NameManager
 
 
-# list of simplifcation passes needed by geninterp
-from pypy.translator.simplify import transform_ovfcheck, all_passes as needed_passes
-
-needed_passes = needed_passes[:]
-needed_passes.remove(transform_ovfcheck)
-
-
 import pypy # __path__
 import py.path
 from pypy.tool.ansi_print import ansi_log
@@ -1487,7 +1480,7 @@ def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
                 sys.path.remove(libdir)
 
         entrypoint = dic
-        t = TranslationContext(verbose=False, simplifying=needed_passes,
+        t = TranslationContext(verbose=False, simplifying=True,
                                do_imports_immediately=do_imports_immediately,
                                builtins_can_raise_exceptions=True,
                                list_comprehension_operations=False)

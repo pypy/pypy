@@ -14,20 +14,27 @@ from pypy.tool import isolate
 from pypy.translator.locality.calltree import CallTree
 from pypy.translator.c.support import log, c_string_constant
 from pypy.rpython.typesystem import getfunctionptr
+from pypy.translator.c import gc
 
 class CBuilder(object):
     c_source_filename = None
     _compiled = False
     symboltable = None
-    stackless = False
     modulename = None
     
-    def __init__(self, translator, entrypoint, gcpolicy=None, libraries=None, thread_enabled=False):
+    def __init__(self, translator, entrypoint, config=None, libraries=None,
+                 gcpolicy=None):
         self.translator = translator
         self.entrypoint = entrypoint
         self.originalentrypoint = entrypoint
         self.gcpolicy = gcpolicy
-        self.thread_enabled = thread_enabled
+        if config is None:
+            from pypy.config.config import Config
+            from pypy.config.pypyoption import pypy_optiondescription
+            config = Config(pypy_optiondescription)
+        if gcpolicy is not None and gcpolicy.requires_stackless:
+            config.translation.stackless = True
+        self.config = config
 
         if libraries is None:
             libraries = []
@@ -36,23 +43,25 @@ class CBuilder(object):
 
     def build_database(self, exports=[], pyobj_options=None):
         translator = self.translator
-        db = LowLevelDatabase(translator, standalone=self.standalone, 
-                              gcpolicy=self.gcpolicy, thread_enabled=self.thread_enabled)
 
-        assert self.stackless in (False, 'old', True)
-        if db.gcpolicy.requires_stackless:
-            assert self.stackless != 'old'    # incompatible
-            self.stackless = True
-        if self.stackless:
+        gcpolicyclass = self.get_gcpolicyclass()
+
+        if self.config.translation.stackless:
             if not self.standalone:
                 raise Exception("stackless: only for stand-alone builds")
-
+            
             from pypy.translator.stackless.transform import StacklessTransformer
-            db.stacklesstransformer = StacklessTransformer(translator,
-                                                           self.originalentrypoint,
-                                                           db.gcpolicy.requires_stackless)
-            self.entrypoint = db.stacklesstransformer.slp_entry_point
+            stacklesstransformer = StacklessTransformer(
+                translator, self.originalentrypoint,
+                stackless_gc=gcpolicyclass.requires_stackless)
+            self.entrypoint = stacklesstransformer.slp_entry_point
+        else:
+            stacklesstransformer = None
 
+        db = LowLevelDatabase(translator, standalone=self.standalone,
+                              gcpolicyclass=gcpolicyclass,
+                              stacklesstransformer=stacklesstransformer,
+                              thread_enabled=self.config.translation.thread)
         # pass extra options into pyobjmaker
         if pyobj_options:
             for key, value in pyobj_options.items():
@@ -97,6 +106,12 @@ class CBuilder(object):
 
     have___thread = None
 
+
+    def get_gcpolicyclass(self):
+        if self.gcpolicy is None:
+            return gc.name_to_gcpolicy[self.config.translation.gc]
+        return self.gcpolicy
+
     def generate_source(self, db=None, defines={}):
         assert self.c_source_filename is None
         translator = self.translator
@@ -112,12 +127,14 @@ class CBuilder(object):
         targetdir = udir.ensure(modulename, dir=1)
         self.targetdir = targetdir
         defines = defines.copy()
-        # defines={'COUNT_OP_MALLOCS': 1}
+        if self.config.translation.countmallocs:
+            defines['COUNT_OP_MALLOCS'] = 1
         if CBuilder.have___thread is None:
             CBuilder.have___thread = check_under_under_thread()
         if not self.standalone:
             from pypy.translator.c.symboltable import SymbolTable
-            self.symboltable = SymbolTable()
+            # XXX fix symboltable
+            #self.symboltable = SymbolTable()
             cfile, extra = gen_source(db, modulename, targetdir,
                                       defines = defines,
                                       exports = self.exports,
@@ -125,9 +142,6 @@ class CBuilder(object):
         else:
             if CBuilder.have___thread:
                 defines['HAVE___THREAD'] = 1
-            if self.stackless == 'old':
-                defines['USE_STACKLESS'] = '1'
-                defines['USE_OPTIMIZED_STACKLESS_UNWIND'] = '1'
             cfile, extra = gen_source_standalone(db, modulename, targetdir,
                                                  entrypointname = pfname,
                                                  defines = defines)
@@ -135,7 +149,7 @@ class CBuilder(object):
         self.extrafiles = extra
         if self.standalone:
             self.gen_makefile(targetdir)
-        return cfile 
+        return cfile
 
     def generate_graphs_for_llinterp(self, db=None):
         # prepare the graphs as when the source is generated, but without
@@ -282,7 +296,10 @@ class CStandaloneBuilder(CBuilder):
         print >> f
         print >> f, 'CFLAGS  =', ' '.join(compiler.compile_extra)
         print >> f, 'LDFLAGS =', ' '.join(compiler.link_extra)
-        print >> f, 'TFLAGS  = ' + ('', '-pthread')[self.thread_enabled]
+        if self.config.translation.thread:
+            print >> f, 'TFLAGS  = ' + '-pthread'
+        else:
+            print >> f, 'TFLAGS  = ' + ''
         print >> f, 'PROFOPT = ' + profopt
         print >> f, 'CC      = ' + cc
         print >> f
@@ -623,10 +640,6 @@ def gen_source_standalone(database, modulename, targetdir,
     sg = SourceGenerator(database, preimplementationlines)
     sg.set_strategy(targetdir)
     sg.gen_readable_parts_of_source(f)
-
-    # 2bis) old-style stackless data
-    if hasattr(database, 'stacklessdata'):
-        database.stacklessdata.writefiles(sg)
 
     # 3) start-up code
     print >> f

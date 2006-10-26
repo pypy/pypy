@@ -65,86 +65,93 @@ def create_entry_point(space, w_dict):
         return exitcode
     return entry_point
 
-# _____ Define and setup target ___
-
-# for now this will do for option handling
-
-take_options = True
-
-def opt_parser_config():
-    parser = py.compat.optparse.OptionParser(usage="target PyPy standalone",
-                                                add_help_option=False)
-    parser.set_defaults(thread=False)
-    parser.add_option("--thread", action="store_true", dest="thread",
-                      help="enable threading")
-    config = Config(pypy_optiondescription)
-    opt_parser = py.compat.optparse.OptionParser(usage="target PyPy standalone",
-                                                 add_help_option=False)
-    to_optparse(config, parser=parser)
-    return config, parser
-
-def print_help():
-    opt_parser_config()[1].print_help()
-
 def call_finish(space):
     space.finish()
 
 def call_startup(space):
     space.startup()
 
+# _____ Define and setup target ___
 
-def target(driver, args):
-    global config, opt_parser
-    driver.exe_name = 'pypy-%(backend)s'
-    options = driver.options
+# for now this will do for option handling
 
-    config, opt_parser = opt_parser_config()
+class PyPyTarget(object):
 
-    tgt_options, _ = opt_parser.parse_args(args)
+    usage = "taget PyPy standalone"
 
-    # expose the following variables to ease debugging
-    global space, entry_point
+    take_options = True
 
-    if getattr(options, "lowmem", False):
-        config.objspace.geninterp = False
-    
-    # obscure hack to stuff the translation options into the translated PyPy
-    import pypy.module.sys
-    wrapstr = 'space.wrap(%r)' % (options.__dict__)
-    pypy.module.sys.Module.interpleveldefs['pypy_translation_info'] = wrapstr
+    def opt_parser(self, config):
+        parser = to_optparse(config, useoptions=["objspace.*"],
+                             parserkwargs={'usage': self.usage})
+        return parser
 
-    if tgt_options.thread:
-        config.objspace.usemodules.thread = True
-    elif config.objspace.usemodules.thread:
-        tgt_options.thread = True
+    def handle_config(self, config):
+        pass
 
-    if options.stackless:
-        config.objspace.usemodules._stackless = True
-    elif config.objspace.usemodules._stackless:
-        options.stackless = True
+    def print_help(self, config):
+        self.opt_parser(config).print_help()
 
-    config.objspace.nofaking = True
-    config.objspace.compiler = "ast"
-    config.translating = True
+    def target(self, driver, args):
+        driver.exe_name = 'pypy-%(backend)s'
 
-    translate.log_options(tgt_options, "target PyPy options in effect")
-    translate.log_config(config, "PyPy config object")
-        
-    space = make_objspace(config)
+        config = driver.config
+        parser = self.opt_parser(config)
 
-    # disable translation of the whole of classobjinterp.py
-    StdObjSpace.setup_old_style_classes = lambda self: None
+        parser.parse_args(args)
+
+        # expose the following variables to ease debugging
+        global space, entry_point
+
+        # obscure hack to stuff the translation options into the translated PyPy
+        import pypy.module.sys
+        paths = config.getpaths()
+        options = dict([(path, getattr(config, path)) for path in paths])
+        wrapstr = 'space.wrap(%r)' % (options)
+        pypy.module.sys.Module.interpleveldefs['pypy_translation_info'] = wrapstr
+
+        if config.translation.thread:
+            config.objspace.usemodules.thread = True
+        elif config.objspace.usemodules.thread:
+            config.translation.thread = True
+
+        if config.translation.stackless:
+            config.objspace.usemodules._stackless = True
+        elif config.objspace.usemodules._stackless:
+            config.translation.stackless = True
+
+        config.objspace.nofaking = True
+        config.objspace.compiler = "ast"
+        config.translating = True
+
+        import translate
+        translate.log_config(config.objspace, "PyPy config object")
+ 
+        return self.get_entry_point(config)
+
+    def get_entry_point(self, config):
+        space = make_objspace(config)
+
+        # disable translation of the whole of classobjinterp.py
+        StdObjSpace.setup_old_style_classes = lambda self: None
 
 
-    # manually imports app_main.py
-    filename = os.path.join(this_dir, 'app_main.py')
-    w_dict = space.newdict()
-    space.exec_(open(filename).read(), w_dict, w_dict)
-    entry_point = create_entry_point(space, w_dict)
+        # manually imports app_main.py
+        filename = os.path.join(this_dir, 'app_main.py')
+        w_dict = space.newdict()
+        space.exec_(open(filename).read(), w_dict, w_dict)
+        entry_point = create_entry_point(space, w_dict)
 
-    # sanity-check: call the entry point
-    res = entry_point(["pypy", "app_basic_example.py"])
-    assert res == 0
+        # sanity-check: call the entry point
+        res = entry_point(["pypy", "app_basic_example.py"])
+        assert res == 0
 
-    return entry_point, None, PyPyAnnotatorPolicy(single_space = space)
+        return entry_point, None, PyPyAnnotatorPolicy(single_space = space)
+
+    def interface(self, ns):
+        for name in ['take_options', 'handle_config', 'print_help', 'target']:
+            ns[name] = getattr(self, name)
+
+
+PyPyTarget().interface(globals())
 

@@ -3,11 +3,13 @@ from py.compat import optparse
 import autopath
 from pypy.translator.translator import TranslationContext
 from pypy.translator import driver
+from pypy.config.config import Config
+from pypy.config.pypyoption import pypy_optiondescription
 
-DEFAULT_OPTIONS = driver.DEFAULT_OPTIONS.copy()
-DEFAULT_OPTIONS.update({
-  'backend': None,
-})
+DEFAULTS = {
+  'translation.backend': None,
+  'translation.type_system': None,
+}
 
 class Translation(object):
 
@@ -18,9 +20,9 @@ class Translation(object):
         graph = self.context.buildflowgraph(entry_point)
         self.context._prebuilt_graphs[entry_point] = graph
 
-        self.driver = driver.TranslationDriver(
-            optparse.Values(defaults=DEFAULT_OPTIONS))
-         
+        self.driver = driver.TranslationDriver(overrides=DEFAULTS)
+        self.config = self.driver.config
+
         # hook into driver events
         driver_own_event = self.driver._event
         def _event(kind, goal, func):
@@ -29,26 +31,7 @@ class Translation(object):
         self.driver._event = _event
         self.driver_setup = False
 
-        self.frozen_options = {}
-
         self.update_options(argtypes, kwds)
-
-    GOAL_USES_OPTS = {
-        'annotate': ['debug'],
-        'rtype_lltype': ['insist'],
-        'rtype_ootype': ['insist'],
-        'backendopt_lltype': ['raisingop2direct_call', 'merge_if_blocks'],
-        'stackcheckinsertion_lltype': [],
-        'database_c': ['gc', 'stackless'],
-        'source_llvm': [],
-        'source_js': [],
-        'source_c': [],
-        'compile_c': [],
-        'compile_llvm': [],
-        'source_cl': [],
-        'source_cli': [],
-        'compile_cli': [],
-    }
 
     def view(self):
         self.context.view()
@@ -61,9 +44,8 @@ class Translation(object):
              #print goal
              self.ensure_setup()
         elif kind == 'post':
-            used_opts = dict.fromkeys(self.GOAL_USES_OPTS[goal], True)
-            self.frozen_options.update(used_opts)
-
+            pass
+            
     def ensure_setup(self, argtypes=None, policy=None, standalone=False):
         if not self.driver_setup:
             if standalone:
@@ -89,40 +71,31 @@ class Translation(object):
         if argtypes or kwds.get('policy') or kwds.get('standalone'):
             self.ensure_setup(argtypes, kwds.get('policy'),
                                         kwds.get('standalone'))
-        for optname, value in kwds.iteritems():
-            if optname in ('policy', 'standalone'):
-                continue
-            if optname in self.frozen_options:
-                if getattr(self.driver.options, optname) != value:
-                     raise Exception("inconsistent option supplied: %s" % optname)
-            else:
-                if not hasattr(self.driver.options, optname):
-                    raise TypeError('driver has no option %r' % (optname,))
-                setattr(self.driver.options, optname, value)
-                self.frozen_options[optname] = True
+        kwds.pop('policy', None)
+        kwds.pop('standalone', None)
+        self.config.translation.set(**kwds)
 
     def ensure_opt(self, name, value=None, fallback=None):
         if value is not None:
             self.update_options(None, {name: value})
-        elif fallback is not None and name not in self.frozen_options:
+            return value
+        val = getattr(self.config.translation, name, None)
+        if fallback is not None and val is None:
             self.update_options(None, {name: fallback})
-        val =  getattr(self.driver.options, name)
-        if val is None:
-            raise Exception("the %r option should have been specified at this point" % name)
-        return val
+            return fallback
+        if val is not None:
+            return val
+        raise Exception(
+                    "the %r option should have been specified at this point" %name)
 
     def ensure_type_system(self, type_system=None):
-        if type_system is None:
-            backend = self.driver.options.backend
-            if backend is not None:
-                type_system = driver.backend_to_typesystem(backend)
+        if self.config.translation.backend is not None:
+            return self.ensure_opt('type_system')
         return self.ensure_opt('type_system', type_system, 'lltype')
         
     def ensure_backend(self, backend=None):
         backend = self.ensure_opt('backend', backend)
         self.ensure_type_system()
-        if backend == 'llvm':
-            self.update_options(None, {'gc': 'boehm'})
         return backend
 
     # disable some goals (steps)

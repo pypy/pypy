@@ -281,7 +281,7 @@ class FlowExecutionContext(ExecutionContext):
 
             except OperationError, e:
                 #print "OE", e.w_type, e.w_value
-                if (self.space.do_imports_immediately and
+                if (self.space.config.translation.do_imports_immediately and
                     e.w_type is self.space.w_ImportError):
                     raise ImportError('import statement always raises %s' % (
                         e,))

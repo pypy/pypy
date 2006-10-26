@@ -34,9 +34,6 @@ class FlowObjSpace(ObjSpace):
     
     full_exceptions = False
 
-    builtins_can_raise_exceptions = False
-    do_imports_immediately = True
-
     def initialize(self):
         import __builtin__
         self.concrete_mode = 1
@@ -428,7 +425,7 @@ class FlowObjSpace(ObjSpace):
         exceptions = [Exception]   # *any* exception by default
         if isinstance(w_callable, Constant):
             c = w_callable.value
-            if not self.builtins_can_raise_exceptions:
+            if not self.config.translation.builtins_can_raise_exceptions:
                 if (isinstance(c, (types.BuiltinFunctionType,
                                    types.BuiltinMethodType,
                                    types.ClassType,

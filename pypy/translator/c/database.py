@@ -15,17 +15,25 @@ from pypy.translator.c.support import cdecl, CNameManager, ErrorValue
 from pypy.translator.c.support import log
 from pypy.translator.c.extfunc import do_the_getting
 from pypy import conftest
+from pypy.translator.c import gc
+
 
 # ____________________________________________________________
 
 class LowLevelDatabase(object):
-    stacklesstransformer = None
     gctransformer = None
 
-    def __init__(self, translator=None, standalone=False, gcpolicy=None, thread_enabled=False):
+    def __init__(self, translator=None, standalone=False,
+                 gcpolicyclass=None,
+                 stacklesstransformer=None,
+                 thread_enabled=False):
         self.translator = translator
         self.standalone = standalone
-        self.thread_enabled = thread_enabled
+        self.stacklesstransformer = stacklesstransformer
+        if gcpolicyclass is None:
+            gcpolicyclass = gc.RefcountingGcPolicy
+        self.gcpolicy = gcpolicyclass(self, thread_enabled)
+
         self.structdefnodes = {}
         self.pendingsetupnodes = []
         self.containernodes = {}
@@ -46,31 +54,12 @@ class LowLevelDatabase(object):
             from pypy.translator.c.pyobj import PyObjMaker
             self.pyobjmaker = PyObjMaker(self.namespace, self, translator)
 
-        gcpolicy = gcpolicy or conftest.option.gcpolicy or 'ref'
-        if isinstance(gcpolicy, str):
-            from pypy.translator.c import gc
-            polname = gcpolicy
-            if polname == 'boehm':
-                gcpolicy = gc.BoehmGcPolicy
-            elif polname == 'exact_boehm':
-                gcpolicy = gc.MoreExactBoehmGcPolicy
-            elif polname == 'ref':
-                gcpolicy = gc.RefcountingGcPolicy
-            elif polname == 'none':
-                gcpolicy = gc.NoneGcPolicy
-            elif polname == 'framework':
-                gcpolicy = gc.FrameworkGcPolicy
-            elif polname == 'stacklessgc':
-                gcpolicy = gc.StacklessFrameworkGcPolicy
-            else:
-                assert False, "unknown gc policy %r"%polname
         if translator is None or translator.rtyper is None:
             self.exctransformer = None
         else:
             self.exctransformer = translator.getexceptiontransformer()
-        self.gcpolicy = gcpolicy(self, thread_enabled)
         if translator is not None:
-            self.gctransformer = gcpolicy.transformerclass(translator)
+            self.gctransformer = self.gcpolicy.transformerclass(translator)
         self.completed = False
 
     def gettypedefnode(self, T, varlength=1):

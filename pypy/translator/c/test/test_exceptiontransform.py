@@ -4,6 +4,7 @@ from pypy.translator.simplify import join_blocks
 from pypy.translator.c import exceptiontransform, genc, gc
 from pypy.objspace.flow.model import c_last_exception
 from pypy.rpython.test.test_llinterp import get_interpreter
+from pypy.translator.c.test.test_genc import compile
 from pypy import conftest
 import sys
 
@@ -39,20 +40,6 @@ def interpret(func, values):
         _already_transformed[t] = True
     return interp.eval_graph(graph, values)
 
-def compile_func(fn, inputtypes):
-    t = TranslationContext()
-    t.buildannotator().build_types(fn, inputtypes)
-    t.buildrtyper().specialize()
-##     etrafo = exceptiontransform.ExceptionTransformer(t)
-##     etrafo.transform_completely()
-    builder = genc.CExtModuleBuilder(t, fn, gcpolicy=gc.RefcountingGcPolicy)
-    builder.generate_source()
-    builder.compile()
-    builder.import_module()
-    if conftest.option.view:
-        t.view()
-    return builder.get_entry_point()
- 
 def test_simple():
     def one():
         return 1
@@ -65,7 +52,7 @@ def test_simple():
     assert len(list(g.iterblocks())) == 2 # graph does not change 
     result = interpret(foo, [])
     assert result == 1
-    f = compile_func(foo, [])
+    f = compile(foo, [])
     assert f() == 1
     
 def test_passthrough():
@@ -77,7 +64,7 @@ def test_passthrough():
         one(0)
         one(1)
     t, g = transform_func(foo, [])
-    f = compile_func(foo, [])
+    f = compile(foo, [])
     py.test.raises(ValueError, f)
 
 def test_catches():
@@ -101,7 +88,7 @@ def test_catches():
         return 4 + x
     t, g = transform_func(foo, [int])
     assert len(list(g.iterblocks())) == 9
-    f = compile_func(foo, [int])
+    f = compile(foo, [int])
     result = interpret(foo, [6])
     assert result == 2
     result = f(6)
@@ -132,7 +119,7 @@ def test_bare_except():
         return 4 + x
     t, g = transform_func(foo, [int])
     assert len(list(g.iterblocks())) == 5
-    f = compile_func(foo, [int])
+    f = compile(foo, [int])
     result = interpret(foo, [6])
     assert result == 2
     result = f(6)
@@ -152,7 +139,7 @@ def test_raises():
             raise ValueError()
     t, g = transform_func(foo, [int])
     assert len(list(g.iterblocks())) == 3
-    f = compile_func(foo, [int])
+    f = compile(foo, [int])
     f(0)
     py.test.raises(ValueError, f, 1)
 
@@ -172,7 +159,7 @@ def test_needs_keepalive():
         y.z = 42
         r = can_raise(n)
         return r + y.z
-    f = compile_func(foo, [int])
+    f = compile(foo, [int])
     res = f(0)
     assert res == 43
 

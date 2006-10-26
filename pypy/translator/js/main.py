@@ -5,7 +5,7 @@ import autopath
 
 #from pypy.translator.js.test.runtest import compile_function
 #from pypy.translator.translator import TranslationContext
-from pypy.translator.driver import TranslationDriver, DEFAULT_OPTIONS
+from pypy.translator.driver import TranslationDriver
 from pypy.translator.js.js import JS
 from pypy.tool.error import AnnotatorError, FlowingError, debug
 from pypy.rpython.nonconst import NonConstant
@@ -121,10 +121,13 @@ def rpython2javascript(mod, function_names, opts=Options):
     exec(source_ssf) in globals()
     # now we gonna just cut off not needed function
     # XXX: Really do that
-    options = optparse.Values(defaults=DEFAULT_OPTIONS)
-    options.debug_transform = opts.debug_transform
-    # XXX: This makes no sense (copying options)
-    driver = TranslationDriver(options=options)
+    #options = optparse.Values(defaults=DEFAULT_OPTIONS)
+    #options.debug_transform = opts.debug_transform
+    from pypy.config.config import Config
+    from pypy.config.pypyoption import pypy_optiondescription
+    config = Config(pypy_optiondescription)
+    config.translation.debug_transform = opts.debug_transform
+    driver = TranslationDriver(config=config)
     try:
         driver.setup(some_strange_function_which_will_never_be_called, [], policy = JsPolicy())
         driver.proceed(["compile_js"])

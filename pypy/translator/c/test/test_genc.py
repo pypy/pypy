@@ -12,13 +12,13 @@ from pypy.translator.tool.cbuild import make_module_from_c
 from pypy.translator.tool.cbuild import enable_fast_compilation
 from pypy.translator.gensupp import uniquemodulename
 from pypy.translator.backendopt.all import backend_optimizations
+from pypy.translator.interactive import Translation
 from pypy import conftest
 
 # XXX this tries to make compiling faster for full-scale testing
 # XXX tcc leaves some errors undetected! Bad!
 #from pypy.translator.tool import cbuild
 #cbuild.enable_fast_compilation()
-
 
 def compile_db(db):
     enable_fast_compilation()  # for testing
@@ -30,21 +30,18 @@ def compile_db(db):
                            libraries = db.gcpolicy.gc_libraries())
     return m
 
-def compile(fn, argtypes, view=False, gcpolicy=None, backendopt=True,
+def compile(fn, argtypes, view=False, gcpolicy="ref", backendopt=True,
             annotatorpolicy=None):
-    t = TranslationContext()
-    a = t.buildannotator(policy=annotatorpolicy)
-    a.build_types(fn, argtypes)
-    t.buildrtyper().specialize()
-    if backendopt:
-        backend_optimizations(t)
-    db = LowLevelDatabase(t, gcpolicy=gcpolicy)
-    entrypoint = db.get(pyobjectptr(fn))
-    db.complete()
-    module = compile_db(db)
-    if view or conftest.option.view:
-        t.view()
-    compiled_fn = getattr(module, entrypoint)
+    t = Translation(fn, argtypes, gc=gcpolicy, backend="c",
+                    policy=annotatorpolicy)
+    if not backendopt:
+        t.disable(["backendopt_lltype"])
+    t.annotate()
+    # XXX fish
+    t.driver.config.translation.countmallocs = True
+    compiled_fn = t.compile_c()
+    # XXX fish fish fish some more
+    module = t.driver.cbuilder.c_ext_module
     def checking_fn(*args, **kwds):
         if 'expected_extra_mallocs' in kwds:
             expected_extra_mallocs = kwds.pop('expected_extra_mallocs')

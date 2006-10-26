@@ -12,9 +12,9 @@ from pypy.objspace.flow import FlowObjSpace
 from pypy.tool.ansi_print import ansi_log
 from pypy.tool.sourcetools import nice_repr_for_func
 import py
-log = py.log.Producer("flowgraph") 
-py.log.setconsumer("flowgraph", ansi_log) 
-
+log = py.log.Producer("flowgraph")
+py.log.setconsumer("flowgraph", ansi_log)
+ 
 class TranslationContext(object):
     FLOWING_FLAGS = {
         'verbose': False,
@@ -24,11 +24,18 @@ class TranslationContext(object):
         'list_comprehension_operations': False,   # True, - not super-tested
         }
 
-    def __init__(self, **flowing_flags):
-        self.flags = self.FLOWING_FLAGS.copy()
-        self.flags.update(flowing_flags)
-        if len(self.flags) > len(self.FLOWING_FLAGS):
-            raise TypeError("unexpected keyword argument")
+    def __init__(self, config=None, **flowing_flags):
+        if config is None:
+            from pypy.config.config import Config
+            from pypy.config.pypyoption import pypy_optiondescription
+            config = Config(pypy_optiondescription)
+        # ZZZ should go away in the end
+        for attr in ['verbose', 'simplifying', 'do_imports_immediately',
+                     'builtins_can_raise_exceptions',
+                     'list_comprehension_operations']:
+            if attr in flowing_flags:
+                setattr(config.translation, attr, flowing_flags[attr])
+        self.config = config
         self.annotator = None
         self.rtyper = None
         self.exceptiontransformer = None
@@ -47,18 +54,18 @@ class TranslationContext(object):
         if func in self._prebuilt_graphs:
             graph = self._prebuilt_graphs.pop(func)
         else:
-            if self.flags.get('verbose'):
+            if self.config.translation.verbose:
                 log.start(nice_repr_for_func(func))
-            space = FlowObjSpace()
-            space.__dict__.update(self.flags)   # xxx push flags there
+            space = FlowObjSpace(self.config)
             if self.annotator:
+                # ZZZ
                 self.annotator.policy._adjust_space_config(space)
             graph = space.build_flow(func)
-            if self.flags.get('simplifying'):
+            if self.config.translation.simplifying:
                 simplify.simplify_graph(graph)
-            if self.flags.get('list_comprehension_operations'):
+            if self.config.translation.list_comprehension_operations:
                 simplify.detect_list_comprehension(graph)
-            if self.flags.get('verbose'):
+            if self.config.translation.verbose:
                 log.done(func.__name__)
             self.graphs.append(graph)   # store the graph in our list
         return graph

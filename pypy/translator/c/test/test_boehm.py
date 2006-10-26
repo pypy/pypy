@@ -3,13 +3,15 @@ from pypy.translator.translator import TranslationContext
 from pypy.translator.tool.cbuild import check_boehm_presence
 from pypy.translator.c.genc import CExtModuleBuilder
 from pypy import conftest
+from pypy.config.config import Config
+from pypy.config.pypyoption import pypy_optiondescription
 
 def setup_module(mod):
     if not check_boehm_presence():
         py.test.skip("Boehm GC not present")
 
 class AbstractGCTestClass:
-    from pypy.translator.c.gc import BoehmGcPolicy as gcpolicy
+    gcpolicy = "boehm"
    
     # deal with cleanups
     def setup_method(self, meth):
@@ -21,14 +23,17 @@ class AbstractGCTestClass:
 
     def getcompiled(self, func, argstypelist = [],
                     annotatorpolicy=None):
-        t = TranslationContext(simplifying=True)
+        config = Config(pypy_optiondescription)
+        config.translation.gc = self.gcpolicy
+        config.translation.simplifying = True
+        t = TranslationContext(config=config)
         self.t = t
         a = t.buildannotator(policy=annotatorpolicy)
         a.build_types(func, argstypelist)
         t.buildrtyper().specialize()
         t.checkgraphs()
         def compile():
-            cbuilder = CExtModuleBuilder(t, func, gcpolicy=self.gcpolicy)
+            cbuilder = CExtModuleBuilder(t, func, config=config)
             c_source_filename = cbuilder.generate_source()
             if conftest.option.view:
                 t.view()
@@ -40,6 +45,7 @@ class AbstractGCTestClass:
 
 
 class TestUsingBoehm(AbstractGCTestClass):
+    gcpolicy = "boehm"
 
     def test_malloc_a_lot(self):
         def malloc_a_lot():
@@ -135,7 +141,7 @@ class TestUsingBoehm(AbstractGCTestClass):
         s = State()
         s.dels = 0
         def g():
-            a = A()            
+            a = A()
         def f():
             s.dels = 0
             for i in range(10):
@@ -173,6 +179,6 @@ class TestUsingBoehm(AbstractGCTestClass):
         
 
 class TestUsingExactBoehm(TestUsingBoehm):
-    from pypy.translator.c.gc import MoreExactBoehmGcPolicy as gcpolicy
+    gcpolicy = "exact_boehm"
 
 

@@ -182,7 +182,8 @@ def test_optimize_method():
     interp, graph = get_interpreter(fn, [-1000])
 
     t = interp.typer.annotator.translator
-    backend_optimizations(t, constfold=True)
+    t.config.translation.backendopt.constfold = True
+    backend_optimizations(t)
     if conftest.option.view:
         t.view()
 

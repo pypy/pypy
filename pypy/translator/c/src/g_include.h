@@ -40,7 +40,6 @@
 #  ifdef RPyExc_thread_error
 #    include "src/ll_thread.h"
 #  endif
-#  include "src/ll_stackless.h"
 #  include "src/ll__socket.h"
 #endif
 

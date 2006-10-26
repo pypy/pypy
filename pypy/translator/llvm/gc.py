@@ -1,5 +1,6 @@
 import sys
 from pypy.rpython.lltypesystem.rstr import STR
+from pypy.translator.c import gc
 
 from pypy.translator.llvm.log import log
 log = log.gc
@@ -110,7 +111,7 @@ class GcPolicy:
         raise Exception, 'GcPolicy should not be used directly'
 
     def new(db, gcpolicy=None):
-        """ factory """
+    #    """ factory """
         if gcpolicy == 'boehm':
             # XXX would be nice to localise this sort of thing?
             assert have_boehm(), 'warning: Boehm GC libary not found in /usr/lib'

@@ -1,8 +1,6 @@
 from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Void, Bool, Float
 from pypy.rpython.lltypesystem.lltype import SignedLongLong, UnsignedLongLong
 
-TRACE_CALL = False
-
 class CodeGenerator(object):
     def __init__(self, out, indentstep = 4, startblock = '{', endblock = '}'):
         self._out = out
@@ -38,8 +36,9 @@ class IlasmGenerator(object):
     """
     Generate IL code by writing to a file and compiling it with ilasm
     """
-    def __init__(self, outfile, name):
+    def __init__(self, outfile, name, config):
         self.out = outfile
+        self.config = config
         self.code = CodeGenerator(self.out)
         self.code.writeline('.assembly extern mscorlib {}')
         self.code.writeline('.assembly extern pypylib {}')
@@ -114,8 +113,8 @@ class IlasmGenerator(object):
         if is_entrypoint:
             self.code.writeline('.entrypoint')
         self.code.writeline('.maxstack 32')
-        self.stderr('start %s' % name, TRACE_CALL and name!='.ctor'
-                    and method_type!='runtime')
+        self.stderr('start %s' % name, self.config.translation.cli.trace_calls
+                    and name!='.ctor' and method_type!='runtime')
 
     def end_function(self):
         self.flush()

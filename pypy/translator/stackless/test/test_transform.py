@@ -246,6 +246,7 @@ def test_void_around():
 
 def rtype_stackless_function(fn):
     t = TranslationContext()
+    t.config.translation.stackless = True
     annotator = t.buildannotator()
     annotator.policy.allow_someobjects = False
 
@@ -269,8 +270,8 @@ def run_stackless_function(fn):
 
     t = rtype_stackless_function(entry_point)
 
-    cbuilder = CStandaloneBuilder(t, entry_point, gcpolicy=gc.BoehmGcPolicy)
-    cbuilder.stackless = True
+    cbuilder = CStandaloneBuilder(t, entry_point, config=t.config,
+                                  gcpolicy=gc.BoehmGcPolicy)
     cbuilder.generate_source()
     if conftest.option.view:
         t.view()

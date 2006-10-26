@@ -427,3 +427,15 @@ class FrameworkGcPolicy(BasicGcPolicy):
 class StacklessFrameworkGcPolicy(FrameworkGcPolicy):
     transformerclass = stacklessframework.StacklessFrameworkGCTransformer
     requires_stackless = True
+
+
+name_to_gcpolicy = {
+    'boehm': BoehmGcPolicy,
+    'exact_boehm': MoreExactBoehmGcPolicy,
+    'ref': RefcountingGcPolicy,
+    'none': NoneGcPolicy,
+    'framework': FrameworkGcPolicy,
+    'stacklessgc': StacklessFrameworkGcPolicy,
+}
+
+

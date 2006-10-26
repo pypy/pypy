@@ -198,7 +198,7 @@ class GCTest(object):
         ARGS = lltype.FixedSizeArray(lltype.Signed, nbargs)
         s_args = annmodel.SomePtr(lltype.Ptr(ARGS))
         t = rtype(entrypoint, [s_args])
-        cbuild = CStandaloneBuilder(t, entrypoint, self.gcpolicy)
+        cbuild = CStandaloneBuilder(t, entrypoint, gcpolicy=self.gcpolicy)
         db = cbuild.generate_graphs_for_llinterp()
         entrypointptr = cbuild.getentrypointptr()
         entrygraph = entrypointptr._obj.graph

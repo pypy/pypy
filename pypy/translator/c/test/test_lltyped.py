@@ -101,13 +101,13 @@ class TestLowLevelType(test_typed.CompilationTestCase):
         s.a1 = malloc(A, immortal=True)
         s.a1[2].x = 50
         s.a2[2].x = 60
-        def llf(n=int):
+        def llf(n):
             if n == 1:
                 a = s.a1
             else:
                 a = s.a2
             return a[2].x
-        fn = self.getcompiled(llf)
+        fn = self.getcompiled(llf, [int])
         res = fn(1)
         assert res == 50
         res = fn(2)
@@ -119,12 +119,12 @@ class TestLowLevelType(test_typed.CompilationTestCase):
         A.become(FixedSizeArray(Struct('s1', ('f', Ptr(F)), ('n', Signed)), 5))
         a = malloc(A, immortal=True)
         a[3].n = 42
-        def llf(n=int):
+        def llf(n):
             if a[n].f:
                 return a[n].f(a)
             else:
                 return -1
-        fn = self.getcompiled(llf)
+        fn = self.getcompiled(llf, [int])
         res = fn(4)
         assert res == -1
 
@@ -139,7 +139,7 @@ class TestLowLevelType(test_typed.CompilationTestCase):
             b0 = direct_arrayitems(a)
             b1 = direct_ptradd(b0, 1)
             b2 = direct_ptradd(b1, 1)
-            def llf(n=int):
+            def llf(n):
                 b0 = direct_arrayitems(a)
                 b3 = direct_ptradd(direct_ptradd(b0, 5), -2)
                 saved = a[n]
@@ -148,7 +148,7 @@ class TestLowLevelType(test_typed.CompilationTestCase):
                     return b0[0] + b3[-2] + b2[1] + b1[3]
                 finally:
                     a[n] = saved
-            fn = self.getcompiled(llf)
+            fn = self.getcompiled(llf, [int])
             res = fn(0)
             assert res == 1000 + 10 + 30 + 40
             res = fn(1)
@@ -162,13 +162,13 @@ class TestLowLevelType(test_typed.CompilationTestCase):
 
     def test_direct_fieldptr(self):
         S = GcStruct('S', ('x', Signed), ('y', Signed))
-        def llf(n=int):
+        def llf(n):
             s = malloc(S)
             a = direct_fieldptr(s, 'y')
             a[0] = n
             return s.y
 
-        fn = self.getcompiled(llf)
+        fn = self.getcompiled(llf, [int])
         res = fn(34)
         assert res == 34
 
@@ -238,17 +238,18 @@ class TestLowLevelType(test_typed.CompilationTestCase):
         fn = self.getcompiled(llf)
         res = fn()
         assert res == 27
+        del self.process
 
     def test_union(self):
         U = Struct('U', ('s', Signed), ('c', Char),
                    hints={'union': True})
         u = malloc(U, immortal=True)
-        def llf(c=int):
+        def llf(c):
             u.s = 0x10203040
             u.c = chr(c)
             return u.s
 
-        fn = self.getcompiled(llf)
+        fn = self.getcompiled(llf, [int])
         res = fn(0x33)
         assert res in [0x10203033, 0x33203040]
 
@@ -257,12 +258,12 @@ class TestLowLevelType(test_typed.CompilationTestCase):
         A = Array(Void)
         size1 = llmemory.sizeof(A, 1)
         size2 = llmemory.sizeof(A, 14)
-        def f(x=int):
+        def f(x):
             if x:
                 return size1
             else:
                 return size2
-        fn = self.getcompiled(f)
+        fn = self.getcompiled(f, [int])
         res1 = fn(1)
         res2 = fn(0)
         assert res1 == res2
@@ -279,11 +280,11 @@ class TestLowLevelType(test_typed.CompilationTestCase):
         def trailing_byte(s):
             adr_s = llmemory.cast_ptr_to_adr(s)
             return (adr_s + chars_offset).char[len(s)]
-        def f(x=int):
+        def f(x):
             r = 0
             for i in range(x):
                 r += ord(trailing_byte(' '*(100-x*x)))
             return r
-        fn = self.getcompiled(f)
+        fn = self.getcompiled(f, [int])
         res = fn(10)
         assert res == 0

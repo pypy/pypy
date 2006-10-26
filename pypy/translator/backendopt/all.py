@@ -12,8 +12,6 @@ from pypy.translator.backendopt.mallocprediction import clever_inlining_and_mall
 from pypy.translator.backendopt.support import log
 from pypy.objspace.flow.model import checkgraph
 
-PRINT_STATISTICS = False
-
 def backend_optimizations(translator, graphs=None,
                                       raisingop2direct_call_all=False,
                                       inline_threshold=1,
@@ -24,10 +22,22 @@ def backend_optimizations(translator, graphs=None,
                                       heap2stack=False,
                                       clever_malloc_removal=False):
 
+    config = translator.config.translation.backendopt
+    # ZZZ the arguments here should disappear
+    raisingop2direct_call_all = (config.raisingop2direct_call or
+        raisingop2direct_call_all)
+    mallocs = config.mallocs or mallocs
+    merge_if_blocks_to_switch = (config.merge_if_blocks or
+        merge_if_blocks_to_switch)
+    propagate = config.propagate or propagate
+    constfold = config.constfold or constfold
+    heap2stack = config.heap2stack or heap2stack
+    clever_malloc_removal = config.clever_malloc_removal or clever_malloc_removal
+
     if graphs is None:
         graphs = translator.graphs
 
-    if PRINT_STATISTICS:
+    if config.print_statistics:
         print "before optimizations:"
         print_statistics(translator.graphs[0], translator, "per-graph.txt")
 
@@ -41,7 +51,7 @@ def backend_optimizations(translator, graphs=None,
         simplify.transform_dead_op_vars(graph, translator)
         removenoops.remove_duplicate_casts(graph, translator)
 
-    if PRINT_STATISTICS:
+    if config.print_statistics:
         print "after no-op removal:"
         print_statistics(translator.graphs[0], translator)
 
@@ -60,7 +70,7 @@ def backend_optimizations(translator, graphs=None,
                 removenoops.remove_superfluous_keep_alive(graph)
                 removenoops.remove_duplicate_casts(graph, translator)
 
-        if PRINT_STATISTICS:
+        if config.print_statistics:
             print "after inlining:"
             print_statistics(translator.graphs[0], translator)
 
@@ -77,14 +87,14 @@ def backend_optimizations(translator, graphs=None,
                     tot += count
             log.malloc("removed %d simple mallocs in total" % tot)
 
-        if PRINT_STATISTICS:
+        if config.print_statistics:
             print "after malloc removal:"
             print_statistics(translator.graphs[0], translator)
     else:
         assert graphs is translator.graphs  # XXX for now
         clever_inlining_and_malloc_removal(translator)
 
-        if PRINT_STATISTICS:
+        if config.print_statistics:
             print "after clever inlining and malloc removal"
             print_statistics(translator.graphs[0], translator)
 
@@ -104,7 +114,7 @@ def backend_optimizations(translator, graphs=None,
         for graph in graphs:
             merge_if_blocks(graph)
 
-    if PRINT_STATISTICS:
+    if config.print_statistics:
         print "after if-to-switch:"
         print_statistics(translator.graphs[0], translator)
 

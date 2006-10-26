@@ -41,10 +41,6 @@ def test_simple_rtype():
 
     assert 'rtype_lltype' in t.driver.done        
 
-    t = Translation(f, [int, int])
-    t.annotate()
-    py.test.raises(Exception, "t.rtype([int, int],debug=False)")
-
 def test_simple_backendopt():
     def f(x, y):
         return x,y

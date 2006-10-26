@@ -26,7 +26,7 @@ def run_tb_server(option, opt, value, parser):
  
 def get_standard_options():
     config = Config(pypy_optiondescription)
-    parser = to_optparse(config)
+    parser = to_optparse(config, useoptions=["objspace.*"])
     parser.add_option(
         '-H', action="callback",
         callback=run_tb_server,

@@ -3,6 +3,8 @@ import shutil
 
 import py
 from py.compat import subprocess
+from pypy.config.config import Config
+from pypy.config.pypyoption import pypy_optiondescription
 from pypy.translator.cli import conftest
 from pypy.translator.cli.ilgenerator import IlasmGenerator
 from pypy.translator.cli.function import Function, log
@@ -29,7 +31,7 @@ USE_STACKOPT = False
 class GenCli(object):
     def __init__(self, tmpdir, translator, entrypoint=None, type_system_class=CTS,
                  opcode_dict=opcodes, name_suffix='.il', function_class=Function,
-                 database_class = LowLevelDatabase, pending_graphs=()):
+                 database_class = LowLevelDatabase, pending_graphs=(), config=None):
         self.tmpdir = tmpdir
         self.translator = translator
         self.entrypoint = entrypoint
@@ -47,6 +49,9 @@ class GenCli(object):
 
         self.tmpfile = tmpdir.join(self.assembly_name + name_suffix)
         self.const_stat = str(tmpdir.join('const_stat'))
+        if config is None:
+            config = Config(pypy_optiondescription)
+        self.config = config
 
     def generate_source(self , asm_class = IlasmGenerator ):
         out = self.tmpfile.open('w')
@@ -54,9 +59,9 @@ class GenCli(object):
             out = Tee(sys.stdout, out)
 
         if USE_STACKOPT:
-            self.ilasm = StackOptGenerator(out, self.assembly_name)
+            self.ilasm = StackOptGenerator(out, self.assembly_name, self.config)
         else:
-            self.ilasm = asm_class(out, self.assembly_name)
+            self.ilasm = asm_class(out, self.assembly_name, self.config)
 
         # TODO: instance methods that are also called as unbound
         # methods are rendered twice, once within the class and once

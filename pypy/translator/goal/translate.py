@@ -8,119 +8,76 @@ import sys, os
 
 import autopath 
 
+from pypy.config.config import to_optparse, OptionDescription, BoolOption, \
+                               ArbitraryOption, StrOption, IntOption, Config, \
+                               ChoiceOption, OptHelpFormatter
+from pypy.config.pypyoption import pypy_optiondescription
 
-# dict are not ordered, cheat with #_xyz keys and bunchiter
-def OPT(*args):
-    return args
 
-def bunchiter(d):
-    purify = lambda name: name.split('_',1)[1]
-    items = d.items()
-    items.sort()
-    for name, val in items:
-        yield purify(name), val
+GOALS= [
+        ("annotate", "do type inference", "-a --annotate", ""),
+        ("rtype", "do rtyping", "-t --rtype", ""),
+        ("backendopt", "do backend optimizations", "--backendopt", ""),
+        ("source", "create source", "-s --source", ""),
+        ("compile", "compile", "-c --compile", " (default goal)"),
+        ("run", "run the resulting binary", "--run", ""),
+        ("llinterpret", "interpret the rtyped flow graphs", "--llinterpret", ""),
+       ]
 
-GOAL = object()
-SKIP_GOAL = object()
+def goal_options():
+    result = []
+    for name, doc, cmdline, extra in GOALS:
+        yesdoc = doc[0].upper()+doc[1:]+extra
+        result.append(BoolOption(name, yesdoc, default=False, cmdline=cmdline,
+                                 negation=False))
+        result.append(BoolOption("no_%s" % name, "Don't "+doc, default=False,
+                                 cmdline="--no-"+name, negation=False))
+    return result
 
-opts = {
+translate_optiondescr = OptionDescription("translate", "XXX", [
+    IntOption("graphserve", """Serve analysis graphs on port number
+(see pypy/translator/tool/pygame/graphclient.py)""",
+              cmdline="--graphserve"),
+    StrOption("targetspec", "XXX", default='targetpypystandalone',
+              cmdline=None),
+    BoolOption("profile",
+               "cProfile (to debug the speed of the translation process)",
+               default=False,
+               cmdline="--profile"),
+    BoolOption("batch", "Don't run interactive helpers", default=False,
+               cmdline="--batch", negation=False),
+    IntOption("huge", "Threshold in the number of functions after which"
+                      "a local call graph and not a full one is displayed",
+              default=100, cmdline="--huge"),
+    BoolOption("text", "Don't start the pygame viewer", default=False,
+               cmdline="--text", negation=False),
+    BoolOption("help", "show this help message and exit", default=False,
+               cmdline="-h --help", negation=False),
+    ArbitraryOption("goals", "XXX",
+                    defaultfactory=list),
+    # xxx default goals ['annotate', 'rtype', 'backendopt', 'source', 'compile']
+    ArbitraryOption("skipped_goals", "XXX",
+                    defaultfactory=lambda: ['run']),
+    OptionDescription("goal_options",
+                      "Goals that should be reached during translation", 
+                      goal_options()),        
+])
 
-    '0_Annotation': {
-    '0_annotate': [OPT(('-a', '--annotate'), "Annotate", GOAL),
-                 OPT(('--no-annotate',), "Don't annotate", SKIP_GOAL)],
-    '1_debug': [OPT(('-d', '--debug'), "Record annotation debug info", True)]
-    },
-
-    '1_RTyping': {
-    '0_rtype':  [OPT(('-t', '--rtype'), "RType", GOAL),
-               OPT(('--no-rtype',), "Don't rtype", SKIP_GOAL)],
-    '1_insist': [OPT(('--insist',), "Dont' stop on first rtyper error", True)]
-    },
     
-    '2_Backend optimisations': {
-    '_backendopt':  [OPT(('-o', '--backendopt'), "Do backend optimisations", GOAL),
-                 OPT(('--no-backendopt',), "Don't do backend optimisations", SKIP_GOAL)],
-    },
+OVERRIDES = {
+    'translation.debug': False,
+    'translation.insist': False,
 
-    '3_Code generation options': {
-    '0_source': [OPT(('-s', '--source'), "Generate source code", GOAL),
-               OPT(('--no-source',), "Don't generate source code", SKIP_GOAL)],
+    'translation.gc': 'boehm',
+    'translation.backend': 'c',
+    'translation.stackless': False,
+    'translation.backendopt.raisingop2direct_call' : False,
+    'translation.backendopt.merge_if_blocks': True,
 
-    '1_backend': [OPT(('-b', '--backend'), "Backend", ['c', 'llvm', 'cl', 'squeak', 'js', 'cli'])],
+    'translation.cc': None,
+    'translation.profopt': None,
 
-    '2_gc': [OPT(('--gc',), "Garbage collector", ['boehm', 'ref', 'framework', 'none', 'exact_boehm', 'stacklessgc'])],
-    '4_stackless': [OPT(('--stackless',), "Stackless code generation (graph transformer)", True)],
-    '5_merge_if_blocks': [OPT(('--no-if-blocks-merge',), "Do not merge if ... elif ... chains and use a switch statement for them.", False)],
-    '6_raisingop2direct_call': [OPT(('--raisingop2direct_call',), "Convert possible exception raising operations to direct calls.", True)],
-    },
-
-
-    '4_Compilation options':{
-    '_compile': [OPT(('-c', '--compile'), "Compile generated source", GOAL),
-                OPT(('--no-compile',), "Don't compile", SKIP_GOAL)],
-    '2_cc': [OPT(('--cc',), "Set compiler", str)],
-    '3_profopt': [OPT(('--profopt',), "Set profile based optimization script", str)],
-    },
-               
-    '5_Run options': {
-    '_run': [OPT(('-r', '--run'), "Run compiled code", GOAL),
-            OPT(('--no-run',), "Don't run compiled code", SKIP_GOAL)],
-    },
-    
-    '6_General&other options': {
-    '0_batch': [OPT(('--batch',), "Don't run interactive helpers", True)],
-    '1_lowmem': [OPT(('--lowmem',), "Target should try to save memory", True)],
-
-    '2_huge': [OPT(('--huge',), "Threshold in the number of functions after which only a local call graph and not a full one is displayed", int)],
-
-    '3_text': [OPT(('--text',), "Don't start the pygame viewer", True)], 
-
-    '4_graphserve': [OPT(('--graphserve',), """Serve analysis graphs on port number
-(see pypy/translator/tool/pygame/graphclient.py)""", int)],
-
-    '5_fork_before':  [OPT(('--fork-before',), """(UNIX) Create restartable checkpoint before step""", 
-                           ['annotate', 'rtype', 'backendopt', 'database', 'source'])],
-  
-    '6_llinterpret':  [OPT(('--llinterpret',), "Interpret the rtyped flow graphs", GOAL)],
-
-    '7_profile':  [OPT(('--profile',), "cProfile (to debug the speed of the translation process)", True)],
-    },
-
-            
-}
-
-defaults = {
-    'help': False,
-
-    'targetspec': 'targetpypystandalone',
-    
-    'goals': [],
-
-    'default_goals': ['annotate', 'rtype', 'backendopt', 'source', 'compile'],
-    'skipped_goals': ['run'],
-    
-    'lowmem': False,
-    
-    'debug': False,
-    'insist': False,
-
-    'gc': 'boehm',
-    'backend': 'c',
-    'type_system': None,
-    'stackless': False,
-    'raisingop2direct_call' : False,
-    'merge_if_blocks': True,
-    
-    'batch': False,
-    'text': False,
-    'graphserve': None,
-    'huge': 100,
-    'cc': None,
-    'profopt': None,
-
-    'fork_before': None,
-    'profile': False,
-    'debug_transform': False,
+    'translation.debug_transform': False,
 }
 
 import py
@@ -130,45 +87,15 @@ from pypy.tool.ansi_print import ansi_log
 log = py.log.Producer("translation")
 py.log.setconsumer("translation", ansi_log)
 
-class OptHelpFormatter(optparse.IndentedHelpFormatter):
-
-    def expand_default(self, option):
-        assert self.parser
-        dfls = self.parser.defaults
-        defl = ""
-        if option.action == 'callback' and option.callback == goal_cb:
-            enable, goal = option.callback_args
-            if enable == (goal in dfls['default_goals']):
-                defl = "[default]"
-        else:
-            val = dfls.get(option.dest)
-            if val is None:
-                pass
-            elif isinstance(val, bool):
-                if val is True and option.action=="store_true":
-                    defl = "[default]"
-            else:
-                defl = "[default: %s]" % val
-
-        return option.help.replace("%defl", defl)
-        
-def goal_cb(option, opt, value, parser, enable, goal):
-    if enable:
-        if goal not in parser.values.ensure_value('goals', []):
-            parser.values.goals = parser.values.goals + [goal]
-    else:
-        if goal not in parser.values.ensure_value('skipped_goals', []):
-            parser.values.skipped_goals = parser.values.skipped_goals + [goal]
-
 def load_target(targetspec):
     log.info("Translating target as defined by %s" % targetspec)
     if not targetspec.endswith('.py'):
         targetspec += '.py'
     thismod = sys.modules[__name__]
+    sys.modules['translate'] = thismod
     targetspec_dic = {
         '__name__': os.path.splitext(os.path.basename(targetspec))[0],
-        '__file__': targetspec,
-        'translate': thismod}
+        '__file__': targetspec}
     sys.path.insert(0, os.path.dirname(targetspec))
     execfile(targetspec, targetspec_dic)
     return targetspec_dic
@@ -181,83 +108,53 @@ def parse_options_and_load_target():
 
     opt_parser.disable_interspersed_args()
 
-    for group_name, grp_opts in bunchiter(opts):
-        grp = opt_parser.add_option_group(group_name)
-        for dest, dest_opts in bunchiter(grp_opts):
-            for names, descr, choice in dest_opts:
-                opt_setup = {'action': 'store',
-                             'dest': dest,
-                             'help': descr+" %defl"}
-                if choice in (GOAL, SKIP_GOAL):
-                    del opt_setup['dest']
-                    opt_setup['action'] = 'callback'
-                    opt_setup['nargs'] = 0
-                    opt_setup['callback'] = goal_cb
-                    opt_setup['callback_args'] = (choice is GOAL, dest,)                    
-                elif isinstance(choice, list):
-                    opt_setup['type'] = 'choice'
-                    opt_setup['choices'] = choice
-                    opt_setup['metavar'] = "[%s]" % '|'.join(choice)
-                elif isinstance(choice, bool):
-                    opt_setup['action'] = ['store_false', 'store_true'][choice]
-                elif choice is int:
-                    opt_setup['type'] = 'int'
-                elif choice is str:
-                    opt_setup['type'] = 'string'
-                else:
-                    opt_setup['action'] = 'store_const'
-                    opt_setup['const'] = choice
-
-                grp.add_option(*names, **opt_setup)
-
-    # add help back as a flag
-    opt_parser.add_option("-h", "--help",
-                          action="store_true", dest="help",
-                          help="show this help message and exit")
+    config = Config(pypy_optiondescription,
+                    **OVERRIDES)
+    to_optparse(config, parser=opt_parser, useoptions=['translation.*'])
+    translateconfig = Config(translate_optiondescr)
+    to_optparse(translateconfig, parser=opt_parser)
 
     options, args = opt_parser.parse_args()
 
+    # set goals and skipped_goals
+    for name, _, _, _ in GOALS:
+        if getattr(translateconfig.goal_options, name):
+            if name not in translateconfig.goals:
+                translateconfig.goals.append(name)
+        if getattr(translateconfig.goal_options, 'no_'+name):
+            if name not in translateconfig.skipped_goals:
+                translateconfig.skipped_goals.append(name)
+        
     if args:
         arg = args[0]
         args = args[1:]
         if os.path.isfile(arg+'.py'):
             assert not os.path.isfile(arg), (
                 "ambiguous file naming, please rename %s" % arg)
-            options.targetspec = arg
+            translateconfig.targetspec = arg
         elif os.path.isfile(arg) and arg.endswith('.py'):
-            options.targetspec = arg[:-3]
+            translateconfig.targetspec = arg[:-3]
         else:
             args = [arg] + args
 
-    # for help, applied later
-    opt_parser.set_defaults(**defaults)
-
-    targetspec = options.ensure_value('targetspec', opt_parser.defaults['targetspec'])
+    targetspec = translateconfig.targetspec
     targetspec_dic = load_target(targetspec)
 
     if args and not targetspec_dic.get('take_options', False):
         log.WARNING("target specific arguments supplied but will be ignored: %s" % ' '.join(args))
 
-    # target specific defaults taking over
-    if 'opt_defaults' in targetspec_dic:
-        opt_parser.set_defaults(**targetspec_dic['opt_defaults'])
+    # let the target modify or prepare itself
+    # based on the config
+    if 'handle_config' in targetspec_dic:
+        targetspec_dic['handle_config'](config)
 
-    if options.help:
+    if translateconfig.help: 
         opt_parser.print_help()
         if 'print_help' in targetspec_dic:
-            print
-            targetspec_dic['print_help']()
+            targetspec_dic['print_help'](config)
         sys.exit(0)
-
-    # apply defaults
-    for name, val in opt_parser.defaults.iteritems():
-        options.ensure_value(name, val)
-
-    # tweak: default_goals into default_goal
-    del options.default_goals
-    options.default_goal = 'compile'
     
-    return targetspec_dic, options, args
+    return targetspec_dic, translateconfig, config, args
 
 def log_options(options, header="options in effect"):
     # list options (xxx filter, filter for target)
@@ -273,20 +170,19 @@ def log_config(config, header="config used"):
     log(str(config))
 
 def main():
-    targetspec_dic, options, args = parse_options_and_load_target()
+    targetspec_dic, translateconfig, config, args = parse_options_and_load_target()
 
     from pypy.translator import translator
     from pypy.translator import driver
     from pypy.translator.tool.pdbplus import PdbPlusShow
-    if options.profile:
+    if translateconfig.profile:
         from cProfile import Profile
         prof = Profile()
         prof.enable()
     else:
         prof = None
 
-    t = translator.TranslationContext()
-    t.driver_options = options
+    t = translator.TranslationContext(config=config)
 
     class ServerSetup:
         async_server = None
@@ -296,14 +192,14 @@ def main():
                 return self.async_server
             elif port is not None:
                 from pypy.translator.tool.graphserver import run_async_server
-                serv_start, serv_show, serv_stop = self.async_server = run_async_server(t, options, port)
+                serv_start, serv_show, serv_stop = self.async_server = run_async_server(t, translateconfig, port)
                 return serv_start, serv_show, serv_stop
             elif not async_only:
                 from pypy.translator.tool.graphserver import run_server_for_inprocess_client
-                return run_server_for_inprocess_client(t, options)
+                return run_server_for_inprocess_client(t, translateconfig)
 
     server_setup = ServerSetup()
-    server_setup(options.graphserve, async_only=True)
+    server_setup(translateconfig.graphserve, async_only=True)
 
     pdb_plus_show = PdbPlusShow(t) # need a translator to support extended commands
 
@@ -330,27 +226,28 @@ def main():
         else:
             log.event('Done.')
 
-        if options.batch:
+        if translateconfig.batch:
             log.event("batch mode, not calling interactive helpers")
             return
         
         log.event("start debugger...")
 
-        pdb_plus_show.start(tb, server_setup, graphic=not options.text)
+        pdb_plus_show.start(tb, server_setup, graphic=not translateconfig.text)
 
-    log_options(options)
+    log_config(translateconfig, "translate.py configuration")
 
     try:
-        drv = driver.TranslationDriver.from_targetspec(targetspec_dic, options, args,
-                                                      empty_translator=t,
-                                                      disable=options.skipped_goals,
-                                                      default_goal='compile')
+        drv = driver.TranslationDriver.from_targetspec(targetspec_dic, config, args,
+                                                       empty_translator=t,
+                                                       disable=translateconfig.skipped_goals,
+                                                       default_goal='compile')
+        log_config(config.translation, "translation configuration")
         pdb_plus_show.expose({'drv': drv, 'prof': prof})
 
         if drv.exe_name is None and '__name__' in targetspec_dic:
             drv.exe_name = targetspec_dic['__name__'] + '-%(backend)s'
 
-        goals = options.goals
+        goals = translateconfig.goals
         drv.proceed(goals)
         
     except SystemExit:
