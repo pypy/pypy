@@ -35,6 +35,9 @@ public class Query
         Console.WriteLine("FullName = '{0}'", t.FullName);
         Console.WriteLine("BaseType = '{0}'", GetBaseType(t));
         Console.WriteLine("OOType = '{0}'", GetOOType(t));
+        Console.WriteLine("IsArray = {0}", t.IsArray);
+        if (t.IsArray)
+            Console.WriteLine("ElementType = '{0}'", t.GetElementType().FullName);
         PrintMethods("StaticMethods", t.GetMethods(BindingFlags.Static|BindingFlags.Public|BindingFlags.DeclaredOnly));
         PrintMethods("Methods", t.GetMethods(BindingFlags.Instance|BindingFlags.Public|BindingFlags.DeclaredOnly));
         PendingTypes.Remove(t);
@@ -53,7 +56,9 @@ public class Query
 
     private static string GetOOType(Type t)
     {
-        if (t == typeof(void))
+        if (t == null)
+            return "";
+        else if (t == typeof(void))
             return "ootype.Void";
         else if (t == typeof(int))
             return "ootype.Signed";

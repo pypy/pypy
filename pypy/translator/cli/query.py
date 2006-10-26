@@ -113,6 +113,10 @@ class ClassDesc(Desc):
         load_class_maybe(self.BaseType)
         BASETYPE = ClassCache[self.BaseType]._INSTANCE
         TYPE = NativeInstance('[mscorlib]', namespace, name, BASETYPE, {}, {})
+        TYPE._isArray = self.IsArray
+        if self.IsArray:
+            load_class_maybe(self.ElementType)
+            TYPE._ELEMENT = ClassCache[self.ElementType]._INSTANCE
         Class = CliClass(TYPE, {})
         OOTypeCache[self.OOType] = TYPE
         ClassCache[self.FullName] = Class

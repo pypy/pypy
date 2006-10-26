@@ -1,14 +1,17 @@
+from pypy.annotation.pairtype import pair, pairtype
+from pypy.annotation.model import SomeObject, SomeOOInstance, SomeInteger, s_ImpossibleValue
 from pypy.rpython.error import TyperError
 from pypy.rpython.extregistry import ExtRegistryEntry
+from pypy.rpython.rmodel import Repr
+from pypy.rpython.rint import IntegerRepr
+from pypy.rpython.ootypesystem.rootype import OOInstanceRepr
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem.ootype import meth, overload, Meth, StaticMethod
-from pypy.annotation import model as annmodel
-from pypy.rpython.rmodel import Repr
 from pypy.translator.cli.support import PythonNet
 
 ## Annotation model
 
-class SomeCliClass(annmodel.SomeObject):
+class SomeCliClass(SomeObject):
     def getattr(self, s_attr):
         assert self.is_constant()
         assert s_attr.is_constant()
@@ -16,7 +19,7 @@ class SomeCliClass(annmodel.SomeObject):
 
     def simple_call(self, *s_args):
         assert self.is_constant()
-        return annmodel.SomeOOInstance(self.const._INSTANCE)
+        return SomeOOInstance(self.const._INSTANCE)
 
     def rtyper_makerepr(self, rtyper):
         return CliClassRepr(self.const)
@@ -25,7 +28,7 @@ class SomeCliClass(annmodel.SomeObject):
         return self.__class__, self.const
 
 
-class SomeCliStaticMethod(annmodel.SomeObject):
+class SomeCliStaticMethod(SomeObject):
     def __init__(self, cli_class, meth_name):
         self.cli_class = cli_class
         self.meth_name = meth_name
@@ -39,6 +42,12 @@ class SomeCliStaticMethod(annmodel.SomeObject):
     def rtyper_makekey(self):
         return self.__class__, self.cli_class, self.meth_name
 
+class __extend__(pairtype(SomeOOInstance, SomeInteger)):
+    def getitem((ooinst, index)):
+        if ooinst.ootype._isArray:
+            return SomeOOInstance(ooinst.ootype._ELEMENT)
+        return s_ImpossibleValue
+    
 
 ## Rtyper model
 
@@ -77,6 +86,15 @@ class CliStaticMethodRepr(Repr):
         desc = self._build_desc(vlist)
         cDesc = hop.inputconst(ootype.Void, desc)
         return hop.genop("direct_call", [cDesc] + vlist, resulttype=resulttype)
+
+class __extend__(pairtype(OOInstanceRepr, IntegerRepr)):
+
+    def rtype_getitem((r_inst, r_int), hop):
+        if not r_inst.lowleveltype._isArray:
+            raise TyperError("getitem() on a non-array instance")
+        v_array, v_index = hop.inputargs(r_inst, ootype.Signed)
+        hop.exception_is_here()
+        return hop.genop('cli_getelem', [v_array, v_index], hop.r_result.lowleveltype)
 
 
 ## OOType model
@@ -219,7 +237,7 @@ class Entry(ExtRegistryEntry):
     _about_ = box
 
     def compute_result_annotation(self, x_s):
-        return annmodel.SomeOOInstance(CLR.System.Object._INSTANCE)
+        return SomeOOInstance(CLR.System.Object._INSTANCE)
 
     def specialize_call(self, hop):
         v_obj, = hop.inputargs(*hop.args_r)
@@ -235,7 +253,7 @@ class Entry(ExtRegistryEntry):
     _about_ = unbox
 
     def compute_result_annotation(self, x_s, type_s):
-        assert isinstance(x_s, annmodel.SomeOOInstance)
+        assert isinstance(x_s, SomeOOInstance)
         assert x_s.ootype == CLR.System.Object._INSTANCE
         assert type_s.is_constant()
         TYPE = type_s.const

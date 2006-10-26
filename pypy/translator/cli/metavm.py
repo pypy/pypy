@@ -172,6 +172,13 @@ class _Unbox(MicroInstruction):
         generator.load(v_obj)
         generator.ilasm.opcode('unbox.any', boxtype)
 
+class _GetArrayElem(MicroInstruction):
+    def render(self, generator, op):
+        generator.load(op.args[0])
+        generator.load(op.args[1])
+        rettype = generator.cts.lltype_to_cts(op.result.concretetype)
+        generator.ilasm.opcode('ldelem', rettype)
+
 Call = _Call()
 CallMethod = _CallMethod()
 IndirectCall = _IndirectCall()
@@ -182,3 +189,4 @@ NewCustomDict = _NewCustomDict()
 CastWeakAdrToPtr = _CastWeakAdrToPtr()
 Box = _Box()
 Unbox = _Unbox()
+GetArrayElem = _GetArrayElem()

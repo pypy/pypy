@@ -24,6 +24,12 @@ def test_System_Object():
     assert 'Equals' in Object._static_methods
     assert 'ToString' in Object._INSTANCE._methods
 
+def test_array():
+    query.load_class_or_namespace('System.Object[]')
+    cls = query.ClassCache['System.Object[]']
+    assert cls._INSTANCE._isArray
+    assert cls._INSTANCE._ELEMENT is CLR.System.Object._INSTANCE
+
 def test_savedesc():
     from pypy.tool.udir import udir
     CLR.System.Object # force System.Object to be loaded

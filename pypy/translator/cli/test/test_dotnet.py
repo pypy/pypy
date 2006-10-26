@@ -9,7 +9,6 @@ from pypy.translator.cli.dotnet import SomeCliClass, SomeCliStaticMethod,\
 System = CLR.System
 Math = CLR.System.Math
 ArrayList = CLR.System.Collections.ArrayList
-StringBuilder = CLR.System.Text.StringBuilder
 
 class TestDotnetAnnotation(object):
 
@@ -72,6 +71,25 @@ class TestDotnetAnnotation(object):
         s = a.build_types(fn, [])
         assert isinstance(s, annmodel.SomeInteger)
 
+    def test_array(self):
+        def fn():
+            x = ArrayList()
+            return x.ToArray()
+        a = RPythonAnnotator()
+        s = a.build_types(fn, [])
+        assert isinstance(s, annmodel.SomeOOInstance)
+        assert s.ootype._isArray
+        assert s.ootype._ELEMENT._name == '[mscorlib]System.Object'
+
+    def test_array_getitem(self):
+        def fn():
+            x = ArrayList().ToArray()
+            return x[0]
+        a = RPythonAnnotator()
+        s = a.build_types(fn, [])
+        assert isinstance(s, annmodel.SomeOOInstance)
+        assert s.ootype._name == '[mscorlib]System.Object'
+
 class TestDotnetRtyping(CliTest):
     def _skip_pythonnet(self):
         pass
@@ -99,6 +117,7 @@ class TestDotnetRtyping(CliTest):
         assert self.interpret(fn, []) == 2
 
     def test_tostring(self):
+        StringBuilder = CLR.System.Text.StringBuilder
         def fn():
             x = StringBuilder()
             x.Append("foo").Append("bar")
@@ -138,6 +157,14 @@ class TestDotnetRtyping(CliTest):
                 return 42
             else:
                 return 43
+        assert self.interpret(fn, []) == 42
+
+    def test_array(self):
+        def fn():
+            x = ArrayList()
+            x.Add(box(42))
+            array = x.ToArray()
+            return unbox(array[0], ootype.Signed)
         assert self.interpret(fn, []) == 42
 
 
