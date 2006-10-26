@@ -111,36 +111,41 @@ def test_subClassconstraint():
     c = ClassDomain('C')
     con = SubClassConstraint('b','a')
     con2 = SubClassConstraint('c','b')
+    indi = URIRef('indi')
+    c.setValues([Individual('indi_',indi)])
     con.narrow({'a': a, 'b': b, 'c': c}) 
     con2.narrow({'a': a, 'b': b, 'c': c})
     con.narrow({'a': a, 'b': b, 'c': c}) 
-    assert 'b' in a
-    assert 'c' in a
+    assert Individual('indi_', indi) in a
 
 def test_subClassconstraintMulti():
     a = ClassDomain('A')
     b = ClassDomain('B')
     c = ClassDomain('C')
+    indi = URIRef('indi')
+    c.setValues([Individual('indi_',indi)])
     con = SubClassConstraint('c','a')
     con2 = SubClassConstraint('c','b')
     con.narrow({'a': a, 'b': b, 'c': c}) 
     con2.narrow({'a': a, 'b': b, 'c': c})
-    assert 'c' in a
-    assert 'c' in b
+    assert Individual('indi_', indi) in a
+    assert Individual('indi_', indi) in b
 
 def test_subClassconstraintMulti2():
     a = ClassDomain('A')
     b = ClassDomain('B')
     c = ClassDomain('C')
+    indi = URIRef('indi')
+    c.setValues([Individual('indi_',indi)])
     con = SubClassConstraint('c','a')
     con2 = SubClassConstraint('c','b')
     con3 = SubClassConstraint('a','c')
     con.narrow({'a': a, 'b': b, 'c': c}) 
     con2.narrow({'a': a, 'b': b, 'c': c})
     con3.narrow({'a': a, 'b': b, 'c': c})
-    assert 'c' in a
-    assert 'c' in b
-    assert 'a' in c
+    assert Individual('indi_', indi) in a
+    assert Individual('indi_', indi) in b
+    assert Individual('indi_', indi) in c
 
 def test_equivalentClass():
     O = Ontology()

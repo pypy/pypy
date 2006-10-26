@@ -53,6 +53,7 @@ class CardinalityConstraint(AbstractConstraint):
                     raise ConsistencyFailure
 
 class NothingConstraint(AbstractConstraint):
+    cost = 1
 
     def __init__(self, variable):
         AbstractConstraint.__init__(self, [variable])
@@ -82,7 +83,7 @@ class SubClassConstraint(AbstractConstraint):
         superdom = domains[self.object]
         vals = []
         vals += list(superdom.getValues())
-        vals += list(subdom.getValues()) +[self.variable]
+        vals += list(subdom.getValues()) #+[self.variable]
         superdom.setValues(vals)
             
         return 0
@@ -102,6 +103,7 @@ class DisjointClassConstraint(SubClassConstraint):
 Thing_uri = URIRef(u'http://www.w3.org/2002/07/owl#Thing')
 
 class PropertyConstrain(AbstractConstraint):
+    cost = 1
 
     def __init__(self, prop, variable, cls_or_restriction):
         AbstractConstraint.__init__(self, [ prop])
@@ -119,6 +121,7 @@ class PropertyConstrain(AbstractConstraint):
                 dom.removeValue(p)
 
 class PropertyConstrain2(AbstractConstraint):
+    cost = 1
     def __init__(self, prop, variable, cls_or_restriction):
         AbstractConstraint.__init__(self, [ prop])
         self.object = cls_or_restriction
@@ -142,6 +145,7 @@ class PropertyConstrain2(AbstractConstraint):
         sub.removeValues([v for v in sub.getValues() if not v in keep])
 
 class MemberConstraint(AbstractConstraint):
+    cost = 1
 
     def __init__(self, variable, cls_or_restriction):
         AbstractConstraint.__init__(self, [ cls_or_restriction])
@@ -182,7 +186,7 @@ class RangeConstraint(SubClassConstraint):
         rangedom = domains[self.object]
         for cls,pval in propdom.getValues():
             if pval not in rangedom:
-                raise ConsistencyFailure("Value %r of property %r not in range %r"%(pval, self.variable, self.object))
+                raise ConsistencyFailure("Value %r of property %r not in range %r : %r"%(pval, self.variable, self.object, rangedom.size()))
 
 class DomainConstraint(SubClassConstraint):
 
@@ -193,7 +197,7 @@ class DomainConstraint(SubClassConstraint):
         domaindom = domains[self.object]
         for cls,val in propdom.getValues():
             if cls not in domaindom:
-                raise ConsistencyFailure("Value %r of property %r not in domain %r : %r"%(cls, self.variable, self.object, domaindom.getValues()))
+                raise ConsistencyFailure("Value %r of property %r not in domain %r : %r"%(cls, self.variable, self.object, domaindom.size()))
 
 class SubPropertyConstraint(SubClassConstraint):
 
@@ -434,16 +438,11 @@ class IntersectionofConstraint(OneofPropertyConstraint):
 
     def narrow(self, domains):
         val = list(domains[self.List].getValues())
-        intersection = domains[val[0]].getValues()
+        inter = set(domains[val[0]].getValues())
         for v in val[1:]:
-            vals= domains[v]
-            remove = []
-            for u in intersection:
-                if not u in vals:
-                    remove.append(u)
-            for u in remove:
-                intersection.remove(u)
-        cls = domains[self.variable].setValues(intersection)
+            inter = inter.intersection(set(domains[v].getValues()))
+        assert len(inter) > 0
+        cls = domains[self.variable].setValues(inter)
         term = {}
         for l in [domains[x] for x in val]:
             if hasattr(l,'TBox'):

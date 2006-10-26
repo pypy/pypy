@@ -12,7 +12,7 @@ from urllib2 import URLError
 log = py.log.Producer("Pyontology")
 from pypy.tool.ansi_print import ansi_log
 py.log.setconsumer("Pyontology", None)
-#py.log.setconsumer("Pyontology.exception", ansi_log)
+#py.log.setconsumer("Pyontology.ontfinish", ansi_log)
 
 namespaces = {
     'rdf' : 'http://www.w3.org/1999/02/22-rdf-syntax-ns',
@@ -131,7 +131,6 @@ class ClassDomain(AbstractDomain, object):
             elif ('owl_Thing' in variables.keys() and isinstance(self, ClassDomain)
                  and  self.size() == 0):
                 variables[self.name].setValues(list(variables['owl_Thing'].getValues()))
-#                log.finish("setting the domain %s to all individuals %r"%(self.name,variables[self.name]))
             variables.update(self.domains)
             glob_constraints.extend(self.in_constraint)
             assert len([x for x in glob_constraints if type(x)==list])==0
@@ -154,12 +153,11 @@ class ClassDomain(AbstractDomain, object):
             self.removeValue(val)
 
     def removeValue(self, value):
-        log.removeValue("Removing %r of %r" % (value ,self.values))
         if value in self.values:
             self.values.pop(value)
         if not self.values:
             log.removeValue("Removed the lastvalue of the Domain")
-            raise ConsistencyFailure("Removed the lastvalue of the Domain")
+            raise ConsistencyFailure("Removed the lastvalue of the Domain %r" % self)
  
     def getBases(self):
         return self._bases
@@ -234,7 +232,7 @@ class Individual(Thing):
             (not hasattr(other,'uri') and self.uri == other) or
               other in self.sameas):
             return True
-        if other in self.differentfrom:
+        if not other or other in self.differentfrom:
             return False
         else:
             return None
@@ -290,8 +288,6 @@ class Property(AbstractDomain, object):
         return self._dict.items()
     
     def addValue(self, key, val):
-        if key == None:
-            raise RuntimeError
         self._dict.setdefault(key, [])
         self._dict[key].append(val)
     
@@ -309,7 +305,7 @@ class Property(AbstractDomain, object):
                 if not self._dict[k]:
                     self._dict.pop(k)
         if not self._dict:
-            raise ConsistencyFailure
+            raise ConsistencyFailure("Removed the last value of %s" % self.name)
 
     def __contains__(self, (cls, val)):
         if not cls in self._dict:
@@ -497,17 +493,22 @@ class Ontology:
         log("=============================")
 
     def finish(self):
-        for constraint in self.constraints:
-            log.exception("Trying %r" %constraint)
+        cons = [(c.cost,c) for c in self.constraints if hasattr(c, 'cost')]
+        cons.sort()
+        for i,constraint in cons: 
+            log.ontfinish("Trying %r of %d/%d " %(constraint,cons.index((i, constraint)),len(cons)))
             for key in constraint.affectedVariables():
-                log.exception("FINISHING %s" % key)
+                log.ontfinish("FINISHING %s" % key)
+                if not ( self.variables.get(key)):
+                    break
                 if isinstance( self.variables[key], fd):
                     continue
                 self.variables[key].finish(self.variables, self.constraints)
-#            try:
-            constraint.narrow(self.variables)
-#            except ConsistencyFailure, e:
-#                print "FAilure", e
+            else:
+#                try:
+                constraint.narrow(self.variables)
+#                except ConsistencyFailure, e:
+#                    print "FAilure", e
 
     def _sparql(self, query):
         qe = SP.Query.parseString(query)[0]
@@ -669,9 +670,9 @@ class Ontology:
             res = pred(s, o)
         #avar = self.make_var(ClassDomain, s)
         #else:
-        avar = self.make_var(Property, p)
+        pvar = self.make_var(Property, p)
         # Set the values of the property p to o
-#        self.type(s, Thing_uri)
+        self.type(s, Thing_uri)
         sub = self.mangle_name(s)
         if type(o) == URIRef:
             obj = self.mangle_name(o)
@@ -681,7 +682,7 @@ class Ontology:
                 val = Individual(obj, o)
         else:
             val = o
-        propdom = self.variables[avar]
+        propdom = self.variables[pvar]
         res = propdom.addValue(Individual(sub,s), val)
 
     def resolve_item(self, item):
@@ -896,18 +897,12 @@ class Ontology:
         self.variables[svar].setValues(res)
     
     def intersectionOf(self, s, var):
-        var_list = self.flatten_rdf_list(var)
-        vals = [self.make_var(ClassDomain, x) for x in self.variables[var_list].getValues()]
-        
-        res = vals[0]
-        for l in vals[1:]:
-            result = []
-            for v in res:
-                if v in self.variables[l].getValues() :
-                    result.append(v)
-            res = result
+        avar = self.flatten_rdf_list(var)
+        res = [self.mangle_name(x) for x in self.variables[avar]]
+        self.variables[avar] = ClassDomain(avar, var, res)
         svar = self.make_var(ClassDomain, s)
-        self.variables[svar].setValues(res)
+        cons = IntersectionofConstraint(svar, avar)
+        self.constraints.append(cons)
 
 #---Property Axioms---#000000#FFFFFF--------------------------------------------
     
