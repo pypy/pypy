@@ -883,18 +883,12 @@ class Ontology:
         self.variables[svar] = s_cls
 
     def unionOf(self,s, var):
-        var = self.flatten_rdf_list(var)
-        
-        res = []
-        for val in self.variables[var].getValues():
-            self.get_individuals_of(val)
-            var_name = self.make_var(ClassDomain, val)
-            val = self.variables[var_name].getValues()
-            res.extend([x for x in val])
+        avar = self.flatten_rdf_list(var)
+        res = [self.mangle_name(x) for x in self.variables[avar]]
+        self.variables[avar] = ClassDomain(avar, var, res)
         svar = self.make_var(ClassDomain, s)
-        vals = list(self.variables[svar].getValues())
-        res.extend(vals)
-        self.variables[svar].setValues(res)
+        cons = UnionofConstraint(svar, avar)
+        self.constraints.append(cons)
     
     def intersectionOf(self, s, var):
         avar = self.flatten_rdf_list(var)

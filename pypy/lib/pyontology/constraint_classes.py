@@ -443,28 +443,6 @@ class IntersectionofConstraint(OneofPropertyConstraint):
             inter = inter.intersection(set(domains[v].getValues()))
         assert len(inter) > 0
         cls = domains[self.variable].setValues(inter)
-        term = {}
-        for l in [domains[x] for x in val]:
-            if hasattr(l,'TBox'):
-                TBox = l.TBox
-                prop = l.property
-                for item in TBox.values():
-                    term.setdefault(prop,[])
-                    term[prop].append(item)
-        for prop in term:
-            axioms = term[prop]
-            ranges = [ax[0] for ax in axioms]
-            res = []
-            while axioms:
-                r, comp = axioms.pop(0)
-                if res:
-                    res = [x for x in res if eval('x %s r' % comp)]
-                else:
-                    res = [x for x in r if eval('x %s r' % comp)]
-                if not res:
-                    axioms.append((r,comp))
-        if not res:
-            raise ConsistencyFailure("Inconsistent use of intersectionOf")
 
 class SomeValueConstraint(OneofPropertyConstraint):
 

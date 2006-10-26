@@ -492,14 +492,14 @@ def test_allvaluesfrom_datarange():
     assert cls in O.variables[O.make_var(None, cls)]
 
 def test_unionof():
-    py.test.skip("Rewrite the test")
+    #py.test.skip("Rewrite the test")
     O = Ontology()
     cls = BNode('anon')
     own1 = BNode('liist1')
     own2 = BNode('liist2')
     list1 =  ['1', '2', '3'] 
     list2 =  ['3', '4', '5'] 
-    own = [list1, list2] 
+    own = [own1, own2] 
     O.oneOf( own1, list1)
     O.oneOf( own2, list2)
     O.unionOf(cls, own)
@@ -507,7 +507,7 @@ def test_unionof():
     O.consistency()
     res = list(O.rep._domains[cls].getValues())
     res.sort()
-    assert res == ['1', '2', '3', '4', '5']
+    assert set(res) == set([Individual(x,x) for x in ['1', '2', '3', '4', '5']])
 
 def test_intersectionof():
     py.test.skip("Rewrite the test")
