@@ -1,6 +1,6 @@
 from pypy.translator.cli.metavm import  Call, CallMethod, RuntimeNew, \
      IndirectCall, GetField, SetField, CastTo, OOString, DownCast, NewCustomDict,\
-     CastWeakAdrToPtr, MapException, Box
+     CastWeakAdrToPtr, MapException, Box, Unbox
 from pypy.translator.oosupport.metavm import PushArg, PushAllArgs, StoreResult, InstructionList,\
     New
 from pypy.translator.cli.cts import WEAKREF
@@ -35,6 +35,7 @@ opcodes = {
     'ooupcast':                 DoNothing,
     'oodowncast':               [DownCast],
     'clibox':                   [Box],
+    'cliunbox':                 [Unbox],
     'oois':                     'ceq',
     'oononnull':                [PushAllArgs, 'ldnull', 'ceq']+Not,
     'instanceof':               [CastTo, 'ldnull', 'cgt.un'],

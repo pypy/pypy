@@ -163,6 +163,15 @@ class _Box(MicroInstruction):
         boxtype = generator.cts.lltype_to_cts(TYPE)
         generator.ilasm.opcode('box', boxtype)
 
+class _Unbox(MicroInstruction):
+    def render(self, generator, op):
+        v_obj, v_type = op.args
+        assert v_type.concretetype is ootype.Void
+        TYPE = v_type.value
+        boxtype = generator.cts.lltype_to_cts(TYPE)
+        generator.load(v_obj)
+        generator.ilasm.opcode('unbox.any', boxtype)
+
 Call = _Call()
 CallMethod = _CallMethod()
 IndirectCall = _IndirectCall()
@@ -172,3 +181,4 @@ OOString = _OOString()
 NewCustomDict = _NewCustomDict()
 CastWeakAdrToPtr = _CastWeakAdrToPtr()
 Box = _Box()
+Unbox = _Unbox()

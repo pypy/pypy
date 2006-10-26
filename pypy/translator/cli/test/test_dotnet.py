@@ -1,9 +1,10 @@
 import py
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.annotation import model as annmodel
+from pypy.rpython.ootypesystem import ootype
 from pypy.translator.cli.test.runtest import CliTest
 from pypy.translator.cli.dotnet import SomeCliClass, SomeCliStaticMethod,\
-     NativeInstance, CLR, box
+     NativeInstance, CLR, box, unbox
 
 Math = CLR.System.Math
 ArrayList = CLR.System.Collections.ArrayList
@@ -11,7 +12,7 @@ StringBuilder = CLR.System.Text.StringBuilder
 
 class TestDotnetAnnotation(object):
 
-    def test_class_ann(self):
+    def test_class(self):
         def fn():
             return Math
         a = RPythonAnnotator()
@@ -19,7 +20,7 @@ class TestDotnetAnnotation(object):
         assert isinstance(s, SomeCliClass)
         assert s.const is Math
 
-    def test_staticmeth_ann(self):
+    def test_staticmeth(self):
         def fn():
             return Math.Abs
         a = RPythonAnnotator()
@@ -28,7 +29,7 @@ class TestDotnetAnnotation(object):
         assert s.cli_class is Math
         assert s.meth_name == 'Abs'
 
-    def test_staticmeth_call_ann(self):
+    def test_staticmeth_call(self):
         def fn1():
             return Math.Abs(42)
         def fn2():
@@ -37,7 +38,7 @@ class TestDotnetAnnotation(object):
         assert type(a.build_types(fn1, [])) is annmodel.SomeInteger
         assert type(a.build_types(fn2, [])) is annmodel.SomeFloat
 
-    def test_new_instance_ann(self):
+    def test_new_instance(self):
         def fn():
             return ArrayList()
         a = RPythonAnnotator()
@@ -46,7 +47,23 @@ class TestDotnetAnnotation(object):
         assert isinstance(s.ootype, NativeInstance)
         assert s.ootype._name == '[mscorlib]System.Collections.ArrayList'
 
-class TestDotnetRtyping(TestDotnetAnnotation, CliTest):
+    def test_box(self):
+        def fn():
+            return box(42)
+        a = RPythonAnnotator()
+        s = a.build_types(fn, [])
+        assert isinstance(s, annmodel.SomeOOInstance)
+        assert s.ootype._name == '[mscorlib]System.Object'
+
+    def test_unbox(self):
+        def fn():
+            x = box(42)
+            return unbox(x, ootype.Signed)
+        a = RPythonAnnotator()
+        s = a.build_types(fn, [])
+        assert isinstance(s, annmodel.SomeInteger)
+
+class TestDotnetRtyping(CliTest):
     def _skip_pythonnet(self):
         pass
 
@@ -87,6 +104,20 @@ class TestDotnetRtyping(TestDotnetAnnotation, CliTest):
             x.Add(box('Foo'))
             return x.get_Count()
         assert self.interpret(fn, []) == 2
+
+    def test_unbox(self):
+        def fn():
+            x = ArrayList()
+            x.Add(box(42))
+            return unbox(x.get_Item(0), ootype.Signed)
+        assert self.interpret(fn, []) == 42
+
+    def test_unbox_string(self):
+        def fn():
+            x = ArrayList()
+            x.Add(box('foo'))
+            return unbox(x.get_Item(0), ootype.String)
+        assert self.interpret(fn, []) == 'foo'
 
 
 class TestPythonnet(TestDotnetRtyping):

@@ -172,29 +172,6 @@ class Entry(ExtRegistryEntry):
         return SomeCliClass()
 
 
-def box(x):
-    return x
-
-class Entry(ExtRegistryEntry):
-    _about_ = box
-
-    boxable_types = [ootype.Signed, ootype.Unsigned, ootype.SignedLongLong,
-                     ootype.UnsignedLongLong, ootype.Bool, ootype.Float,
-                     ootype.Char, ootype.String]
-
-    def compute_result_annotation(self, x_s):
-        return annmodel.SomeOOInstance(CLR.System.Object._INSTANCE)
-
-    def specialize_call(self, hop):
-        v_obj, = hop.inputargs(*hop.args_r)
-        if v_obj.concretetype not in self.boxable_types:
-            raise TyperError, "Can't box values of type %s" % v_obj.concretetype
-        
-        if (v_obj.concretetype is ootype.String):
-            return hop.genop('ooupcast', [v_obj], hop.r_result.lowleveltype)
-        else:
-            return hop.genop('clibox', [v_obj], hop.r_result.lowleveltype)
-
 class CliNamespace(object):
     def __init__(self, name):
         self._name = name
@@ -213,3 +190,49 @@ class CliNamespace(object):
         return getattr(self, attr)
 
 CLR = CliNamespace(None)
+
+
+BOXABLE_TYPES = [ootype.Signed, ootype.Unsigned, ootype.SignedLongLong,
+                 ootype.UnsignedLongLong, ootype.Bool, ootype.Float,
+                 ootype.Char, ootype.String]
+
+def box(x):
+    return x
+
+def unbox(x, TYPE):
+    # TODO: check that x is really of type TYPE
+    return x
+
+class Entry(ExtRegistryEntry):
+    _about_ = box
+
+    def compute_result_annotation(self, x_s):
+        return annmodel.SomeOOInstance(CLR.System.Object._INSTANCE)
+
+    def specialize_call(self, hop):
+        v_obj, = hop.inputargs(*hop.args_r)
+        if v_obj.concretetype not in BOXABLE_TYPES:
+            raise TyperError, "Can't box values of type %s" % v_obj.concretetype
+        
+        if (v_obj.concretetype is ootype.String):
+            return hop.genop('ooupcast', [v_obj], hop.r_result.lowleveltype)
+        else:
+            return hop.genop('clibox', [v_obj], hop.r_result.lowleveltype)
+
+class Entry(ExtRegistryEntry):
+    _about_ = unbox
+
+    def compute_result_annotation(self, x_s, type_s):
+        assert isinstance(x_s, annmodel.SomeOOInstance)
+        assert x_s.ootype == CLR.System.Object._INSTANCE
+        assert type_s.is_constant()
+        TYPE = type_s.const
+        assert TYPE in BOXABLE_TYPES
+        return ootype._overloaded_mixin._lltype_to_annotation(TYPE)
+
+    def specialize_call(self, hop):
+        v_obj, v_type = hop.inputargs(*hop.args_r)
+        if v_type.value is ootype.String:
+            return hop.genop('oodowncast', [v_obj], hop.r_result.lowleveltype)
+        else:
+            return hop.genop('cliunbox', [v_obj, v_type], hop.r_result.lowleveltype)
