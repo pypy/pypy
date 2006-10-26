@@ -184,10 +184,22 @@ class CliNamespace(object):
 
     def __getattr__(self, attr):
         from pypy.translator.cli.query import load_class_or_namespace
-        name = self.__fullname(attr)
-        load_class_or_namespace(name)
-        assert attr in self.__dict__
-        return getattr(self, attr)
+        # .NET namespace are not self-entities but just parts of the
+        # FullName of a class. This imply that there is no way ask
+        # .NET if a particular name is a namespace; there are many
+        # names that are clearly not namespaces such as im_self and
+        # _freeze_, but there is no general rule and we have to guess.
+        # For now, the heuristic simply check is the first char of the
+        # name is a UPPERCASE letter.
+        
+        if attr[0].isalpha() and attr[0] == attr[0].upper():
+            # we assume it's a class or namespace
+            name = self.__fullname(attr)
+            load_class_or_namespace(name)
+            assert attr in self.__dict__
+            return getattr(self, attr)
+        else:
+            raise AttributeError
 
 CLR = CliNamespace(None)
 

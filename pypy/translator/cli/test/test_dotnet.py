@@ -20,6 +20,14 @@ class TestDotnetAnnotation(object):
         assert isinstance(s, SomeCliClass)
         assert s.const is Math
 
+    def test_fullname(self):
+        def fn():
+            return CLR.System.Math
+        a = RPythonAnnotator()
+        s = a.build_types(fn, [])
+        assert isinstance(s, SomeCliClass)
+        assert s.const is Math
+
     def test_staticmeth(self):
         def fn():
             return Math.Abs
