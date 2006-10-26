@@ -6,6 +6,7 @@ from pypy.translator.cli.test.runtest import CliTest
 from pypy.translator.cli.dotnet import SomeCliClass, SomeCliStaticMethod,\
      NativeInstance, CLR, box, unbox
 
+System = CLR.System
 Math = CLR.System.Math
 ArrayList = CLR.System.Collections.ArrayList
 StringBuilder = CLR.System.Text.StringBuilder
@@ -126,6 +127,18 @@ class TestDotnetRtyping(CliTest):
             x.Add(box('foo'))
             return unbox(x.get_Item(0), ootype.String)
         assert self.interpret(fn, []) == 'foo'
+
+    def test_exception(self):
+        py.test.skip("It doesn't work so far")
+        def fn():
+            x = ArrayList()
+            try:
+                x.get_Item(0)
+            except System.ArgumentOutOfRangeException:
+                return 42
+            else:
+                return 43
+        assert self.interpret(fn, []) == 42
 
 
 class TestPythonnet(TestDotnetRtyping):
