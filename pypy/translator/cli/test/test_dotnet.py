@@ -91,7 +91,7 @@ class TestDotnetAnnotation(object):
         assert s.ootype._name == '[mscorlib]System.Object'
 
 class TestDotnetRtyping(CliTest):
-    def _skip_pythonnet(self):
+    def _skip_pythonnet(self, msg):
         pass
 
     def test_staticmeth_call(self):
@@ -100,7 +100,7 @@ class TestDotnetRtyping(CliTest):
         assert self.interpret(fn, [-42]) == 42
 
     def test_staticmeth_overload(self):
-        self._skip_pythonnet()
+        self._skip_pythonnet('Pythonnet bug!')
         def fn(x, y):
             return Math.Abs(x), Math.Abs(y)
         res = self.interpret(fn, [-42, -42.5])
@@ -108,19 +108,11 @@ class TestDotnetRtyping(CliTest):
         assert item0 == 42
         assert item1 == 42.5
 
-    def test_method_call(self):
-        def fn():
-            x = ArrayList()
-            x.Add("foo")
-            x.Add("bar")
-            return x.get_Count()
-        assert self.interpret(fn, []) == 2
-
     def test_tostring(self):
         StringBuilder = CLR.System.Text.StringBuilder
         def fn():
             x = StringBuilder()
-            x.Append("foo").Append("bar")
+            x.Append(box("foo")).Append(box("bar"))
             return x.ToString()
         res = self.ll_to_string(self.interpret(fn, []))
         assert res == 'foobar'
@@ -132,6 +124,12 @@ class TestDotnetRtyping(CliTest):
             x.Add(box('Foo'))
             return x.get_Count()
         assert self.interpret(fn, []) == 2
+
+    def test_whitout_box(self):
+        def fn():
+            x = ArrayList()
+            x.Add(42) # note we have forgot box()
+        py.test.raises(TypeError, self.interpret, fn, [])
 
     def test_unbox(self):
         def fn():
@@ -173,6 +171,9 @@ class TestPythonnet(TestDotnetRtyping):
     def interpret(self, f, args):
         return f(*args)
 
-    def _skip_pythonnet(self):
-        py.test.skip('Pythonnet bug!')
+    def _skip_pythonnet(self, msg):
+        py.test.skip(msg)
 
+    def test_whitout_box(self):
+        pass # it makes sense only during translation
+    
