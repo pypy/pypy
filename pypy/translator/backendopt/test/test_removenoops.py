@@ -1,9 +1,10 @@
 from pypy.translator.backendopt.removenoops import remove_same_as, \
         remove_unaryops, remove_duplicate_casts, remove_superfluous_keep_alive
 from pypy.translator.backendopt.inline import simple_inline_function
-from pypy.translator.backendopt.test.test_propagate import getops, get_graph, check_graph
 from pypy.translator.translator import TranslationContext, graphof
+from pypy.rpython.memory.gctransform.test.test_transform import getops
 from pypy.translator.test.snippet import simple_method
+from pypy.translator.backendopt.all import backend_optimizations
 from pypy.objspace.flow.model import checkgraph, flatten, Block
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem.lloperation import llop
@@ -12,6 +13,30 @@ from pypy import conftest
 
 import py
 log = py.log.Producer('test_backendoptimization')
+
+def get_graph(fn, signature, inline_threshold=True, all_opts=True):
+    t = TranslationContext()
+    t.buildannotator().build_types(fn, signature)
+    t.buildrtyper().specialize()
+    if all_opts:
+        backend_optimizations(t, inline_threshold=inline_threshold,
+                              constfold=False,
+                              raisingop2direct_call_all=False)
+    graph = graphof(t, fn)
+    if conftest.option.view:
+        t.view()
+    return graph, t
+
+def check_graph(graph, args, expected_result, t):
+    interp = LLInterpreter(t.rtyper)
+    res = interp.eval_graph(graph, args)
+    assert res == expected_result
+
+def check_get_graph(fn, signature, args, expected_result):
+    graph, t = get_graph(fn, signature)
+    check_graph(graph, args, expected_result, t)
+    return graph
+
 
 def test_remove_same_as():
     def nothing(x):

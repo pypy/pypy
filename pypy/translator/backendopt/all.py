@@ -2,7 +2,6 @@ from pypy.translator.backendopt.raisingop2direct_call import raisingop2direct_ca
 from pypy.translator.backendopt import removenoops
 from pypy.translator.backendopt import inline
 from pypy.translator.backendopt.malloc import remove_simple_mallocs
-from pypy.translator.backendopt.propagate import propagate_all
 from pypy.translator.backendopt.constfold import constant_fold_graph
 from pypy.translator.backendopt.stat import print_statistics
 from pypy.translator.backendopt.merge_if_blocks import merge_if_blocks
@@ -17,7 +16,6 @@ def backend_optimizations(translator, graphs=None,
                                       inline_threshold=1,
                                       mallocs=True,
                                       merge_if_blocks_to_switch=True,
-                                      propagate=False,
                                       constfold=True,
                                       heap2stack=False,
                                       clever_malloc_removal=False):
@@ -29,7 +27,6 @@ def backend_optimizations(translator, graphs=None,
     mallocs = config.mallocs or mallocs
     merge_if_blocks_to_switch = (config.merge_if_blocks or
         merge_if_blocks_to_switch)
-    propagate = config.propagate or propagate
     constfold = config.constfold or constfold
     heap2stack = config.heap2stack or heap2stack
     clever_malloc_removal = config.clever_malloc_removal or clever_malloc_removal
@@ -54,11 +51,6 @@ def backend_optimizations(translator, graphs=None,
     if config.print_statistics:
         print "after no-op removal:"
         print_statistics(translator.graphs[0], translator)
-
-    # ...
-    if propagate:
-        assert graphs is translator.graphs  # XXX for now
-        propagate_all(translator)
 
     if not clever_malloc_removal:
         # inline functions in each other
@@ -101,10 +93,6 @@ def backend_optimizations(translator, graphs=None,
     if constfold:
         for graph in graphs:
             constant_fold_graph(graph)
-
-    if propagate:
-        assert graphs is translator.graphs  # XXX for now
-        propagate_all(translator)
 
     if heap2stack:
         assert graphs is translator.graphs  # XXX for now
