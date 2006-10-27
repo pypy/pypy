@@ -253,24 +253,6 @@ def test_overloaded_meth():
     assert isinstance(a.build_types(fn2, []), annmodel.SomeInteger)
     assert isinstance(a.build_types(fn3, []), annmodel.SomeFloat)
 
-def test_overloaded_meth_string():
-    C = Instance("test", ROOT, {},
-                 {'foo': overload(meth(Meth([Char], Signed)),
-                                  meth(Meth([String], Float))),
-                  'bar': overload(meth(Meth([Signed], Char)),
-                                  meth(Meth([Float], String)))})
-    def fn1():
-        return new(C).foo('a')
-    def fn2():
-        return new(C).foo('aa')
-    def fn3(x):
-        return new(C).bar(x)
-    a = RPythonAnnotator()
-    assert isinstance(a.build_types(fn1, []), annmodel.SomeInteger)
-    assert isinstance(a.build_types(fn2, []), annmodel.SomeFloat)
-    assert isinstance(a.build_types(fn3, [int]), annmodel.SomeChar)
-    assert isinstance(a.build_types(fn3, [float]), annmodel.SomeString)
-
 def test_bad_overload():
     def fn():
         C = Instance("test", ROOT, {},
@@ -312,19 +294,19 @@ def test_overload_reannotate_unrelated():
 def test_overload_upcast():
     C = Instance("base", ROOT, {}, {
         'foo': overload(meth(Meth([], Void)),
-                        meth(Meth([ROOT], String)))})
+                        meth(Meth([ROOT], Signed)))})
     def f():
         c = new(C)
         return c.foo(c)
     a = RPythonAnnotator()
-    assert isinstance(a.build_types(f, []), annmodel.SomeString)
+    assert isinstance(a.build_types(f, []), annmodel.SomeInteger)
 
 def test_overload_upcast_fail():
     C = Instance("base", ROOT, {}, {})
     C._add_methods({
         'foo': overload(meth(Meth([], Signed)),
-                        meth(Meth([ROOT, C], String)),
-                        meth(Meth([C, ROOT], String)))})
+                        meth(Meth([ROOT, C], Signed)),
+                        meth(Meth([C, ROOT], Signed)))})
     def f():
         c = new(C)
         return c.foo(c)

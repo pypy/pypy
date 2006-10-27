@@ -898,7 +898,6 @@ class OverloadingResolver(object):
         METH = self.resolve(ARGS)._TYPE
         return self.lltype_to_annotation(METH.RESULT)
 
-
     def resolve(self, ARGS):
         # this overloading resolution algorithm is quite simple:
         # 1) if there is an exact match between ARGS and meth.ARGS, return meth
@@ -935,22 +934,12 @@ class OverloadingResolver(object):
     
     def annotation_to_lltype(cls, ann):
         from pypy.annotation import model as annmodel
-        if isinstance(ann, annmodel.SomeChar):
-            return Char
-        elif isinstance(ann, annmodel.SomeString):
-            return String
-        else:
-            return annmodel.annotation_to_lltype(ann)
+        return annmodel.annotation_to_lltype(ann)
     annotation_to_lltype = classmethod(annotation_to_lltype)
 
     def lltype_to_annotation(cls, TYPE):
         from pypy.annotation import model as annmodel
-        if TYPE is Char:
-            return annmodel.SomeChar()
-        elif TYPE is String:
-            return annmodel.SomeString()
-        else:
-            return annmodel.lltype_to_annotation(TYPE)
+        return annmodel.lltype_to_annotation(TYPE)
     lltype_to_annotation = classmethod(lltype_to_annotation)
 
 
