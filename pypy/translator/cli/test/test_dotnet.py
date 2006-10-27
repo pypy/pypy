@@ -2,15 +2,37 @@ import py
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.annotation import model as annmodel
 from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.ootypesystem.ootype import meth, Meth, Char, Signed, Float, String,\
+     ROOT, overload, Instance, new
 from pypy.translator.cli.test.runtest import CliTest
 from pypy.translator.cli.dotnet import SomeCliClass, SomeCliStaticMethod,\
-     NativeInstance, CLR, box, unbox
+     NativeInstance, CLR, box, unbox, OverloadingResolver
 
 System = CLR.System
 Math = CLR.System.Math
 ArrayList = CLR.System.Collections.ArrayList
 
 class TestDotnetAnnotation(object):
+
+    def test_overloaded_meth_string(self):
+        C = Instance("test", ROOT, {},
+                     {'foo': overload(meth(Meth([Char], Signed)),
+                                      meth(Meth([String], Float)),
+                                      resolver=OverloadingResolver),
+                      'bar': overload(meth(Meth([Signed], Char)),
+                                      meth(Meth([Float], String)),
+                                      resolver=OverloadingResolver)})
+        def fn1():
+            return new(C).foo('a')
+        def fn2():
+            return new(C).foo('aa')
+        def fn3(x):
+            return new(C).bar(x)
+        a = RPythonAnnotator()
+        assert isinstance(a.build_types(fn1, []), annmodel.SomeInteger)
+        assert isinstance(a.build_types(fn2, []), annmodel.SomeFloat)
+        assert isinstance(a.build_types(fn3, [int]), annmodel.SomeChar)
+        assert isinstance(a.build_types(fn3, [float]), annmodel.SomeString)
 
     def test_class(self):
         def fn():
@@ -89,6 +111,7 @@ class TestDotnetAnnotation(object):
         s = a.build_types(fn, [])
         assert isinstance(s, annmodel.SomeOOInstance)
         assert s.ootype._name == '[mscorlib]System.Object'
+
 
 class TestDotnetRtyping(CliTest):
     def _skip_pythonnet(self, msg):

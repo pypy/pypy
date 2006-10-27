@@ -1,5 +1,6 @@
 from pypy.annotation.pairtype import pair, pairtype
-from pypy.annotation.model import SomeObject, SomeOOInstance, SomeInteger, s_ImpossibleValue
+from pypy.annotation.model import SomeObject, SomeOOInstance, SomeInteger,\
+     s_ImpossibleValue, lltype_to_annotation, annotation_to_lltype, SomeChar, SomeString
 from pypy.rpython.error import TyperError
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.rmodel import Repr
@@ -99,7 +100,30 @@ class __extend__(pairtype(OOInstanceRepr, IntegerRepr)):
 
 ## OOType model
 
+class OverloadingResolver(ootype.OverloadingResolver):
+
+    def annotation_to_lltype(cls, ann):
+        if isinstance(ann, SomeChar):
+            return ootype.Char
+        elif isinstance(ann, SomeString):
+            return ootype.String
+        else:
+            return annotation_to_lltype(ann)
+    annotation_to_lltype = classmethod(annotation_to_lltype)
+
+    def lltype_to_annotation(cls, TYPE):
+        if TYPE is ootype.Char:
+            return SomeChar()
+        elif TYPE is ootype.String:
+            return SomeString()
+        else:
+            return lltype_to_annotation(TYPE)
+    lltype_to_annotation = classmethod(lltype_to_annotation)
+
+
+
 class _static_meth(object):
+
     def __init__(self, TYPE):
         self._TYPE = TYPE
 
@@ -112,17 +136,16 @@ class _static_meth(object):
         return self
 
 
-class _overloaded_static_meth(ootype._overloaded_mixin):
+class _overloaded_static_meth(object):
     def __init__(self, *overloadings):
-        self._overloadings = overloadings
-        self._check_overloadings()
+        self._resolver = ootype.OverloadingResolver(overloadings)
 
     def _set_attrs(self, cls, name):
-        for meth in self._overloadings:
+        for meth in self._resolver.overloadings:
             meth._set_attrs(cls, name)
 
     def _get_desc(self, ARGS):
-        meth = self._resolve_overloading(ARGS)
+        meth = self._resolver.resolve(ARGS)
         assert isinstance(meth, _static_meth)
         return meth._get_desc(ARGS)
 
@@ -161,7 +184,7 @@ class CliClass(object):
 
     def _ann_static_method(self, meth_name, args_s):
         meth = self._static_methods[meth_name]
-        return meth._annotate_overloading(args_s)
+        return meth._resolver.annotate(args_s)
 
     def _load_class(self):
         names = self._INSTANCE._namespace.split('.')
@@ -258,7 +281,7 @@ class Entry(ExtRegistryEntry):
         assert type_s.is_constant()
         TYPE = type_s.const
         assert TYPE in BOXABLE_TYPES
-        return ootype._overloaded_mixin._lltype_to_annotation(TYPE)
+        return ootype.OverloadingResolver.lltype_to_annotation(TYPE)
 
     def specialize_call(self, hop):
         v_obj, v_type = hop.inputargs(*hop.args_r)
