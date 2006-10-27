@@ -177,8 +177,6 @@ pypy_optiondescription = OptionDescription("pypy", "All PyPy Options", [
                        "Transform exception raising operations",
                        default=False, cmdline="--raisingop2direct_call"),
             BoolOption("mallocs", "Remove mallocs", default=True),
-            BoolOption("propagate", "Constant propagation, deprecated",
-                       default=False),
             BoolOption("constfold", "Constant propagation",
                        default=True),
             BoolOption("heap2stack", "Escape analysis and stack allocation",
