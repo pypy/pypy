@@ -44,7 +44,6 @@ class TranslationContext(object):
         self._prebuilt_graphs = {}   # only used by the pygame viewer
 
         self._implicitly_called_by_externals = []
-        self.driver_options = None
 
     def buildflowgraph(self, func):
         """Get the flow graph for a function."""

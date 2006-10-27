@@ -222,14 +222,8 @@ class CStandaloneBuilder(CBuilder):
         # XXX for now, we always include Python.h
         from distutils import sysconfig
         python_inc = sysconfig.get_python_inc()
-        if self.translator.driver_options:
-            cc = self.translator.driver_options.cc
-        else:
-            cc = None
-        if self.translator.driver_options:
-            profopt = self.translator.driver_options.profopt
-        else:
-            profopt = None
+        cc = self.config.translation.cc
+        profopt = self.config.translation.profopt
         return CCompiler(
             [self.c_source_filename] + self.extrafiles,
             include_dirs = [autopath.this_dir, python_inc] + extra_includes,
@@ -268,13 +262,13 @@ class CStandaloneBuilder(CBuilder):
             cfiles.append(fn)
             ofiles.append(fn[:-2] + '.o')
 
-        if self.translator.driver_options and self.translator.driver_options.cc:
-            cc = self.translator.driver_options.cc
+        if self.config.translation.cc:
+            cc = self.config.translation.cc
         else:
             cc = 'gcc'
 
-        if self.translator.driver_options and self.translator.driver_options.profopt:
-            profopt = self.translator.driver_options.profopt
+        if self.config.translation.profopt:
+            profopt = self.config.translation.profopt
         else:
             profopt = ''
 
