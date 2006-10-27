@@ -166,9 +166,11 @@ from pypy.rpython.memory.gc import X_CLONE, X_POOL, X_POOL_PTR
 from pypy import conftest
 
 
-def rtype(func, inputtypes, specialize=True):
+def rtype(func, inputtypes, specialize=True, gcname='ref'):
     from pypy.translator.translator import TranslationContext
     t = TranslationContext()
+    # XXX XXX XXX mess
+    t.config.translation.gc = gcname
     t.buildannotator().build_types(func, inputtypes)
     if specialize:
         t.buildrtyper().specialize()
@@ -197,7 +199,7 @@ class GCTest(object):
 
         ARGS = lltype.FixedSizeArray(lltype.Signed, nbargs)
         s_args = annmodel.SomePtr(lltype.Ptr(ARGS))
-        t = rtype(entrypoint, [s_args])
+        t = rtype(entrypoint, [s_args], gcname=self.gcname)
         cbuild = CStandaloneBuilder(t, entrypoint, gcpolicy=self.gcpolicy)
         db = cbuild.generate_graphs_for_llinterp()
         entrypointptr = cbuild.getentrypointptr()
@@ -231,6 +233,7 @@ class TestMarkSweepGC(GCTest):
     class gcpolicy(gc.FrameworkGcPolicy):
         class transformerclass(framework.FrameworkGCTransformer):
             GC_PARAMS = {'start_heap_size': 4096 }
+    gcname = "framework"
 
     def heap_usage(self, statistics):
         return statistics(
@@ -636,6 +639,7 @@ class TestMarkSweepGC(GCTest):
 
 class TestStacklessMarkSweepGC(TestMarkSweepGC):
 
+    gcname = "stacklessgc"
     class gcpolicy(gc.StacklessFrameworkGcPolicy):
         class transformerclass(stacklessframework.StacklessFrameworkGCTransformer):
             GC_PARAMS = {'start_heap_size': 4096 }
@@ -659,6 +663,7 @@ class TestStacklessMarkSweepGC(TestMarkSweepGC):
 
 class TestSemiSpaceGC(TestMarkSweepGC):
 
+    gcname = "semispace"
     def setup_class(cls):
         py.test.skip("in-progress")
 
