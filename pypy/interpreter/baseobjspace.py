@@ -275,7 +275,7 @@ class ObjSpace(object):
                 #print "setitem: space instance %-20s into builtins" % name
                 self.setitem(self.builtin.w_dict, self.wrap(name), value)
 
-        # install midex and faked modules and set builtin_module_names on sys
+        # install mixed and faked modules and set builtin_module_names on sys
         for mixedname in self.get_builtinmodule_to_install():
             if (mixedname not in bootstrap_modules
                 and not mixedname.startswith('faked+')):
