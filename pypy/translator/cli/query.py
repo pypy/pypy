@@ -6,7 +6,7 @@ from pypy.translator.cli.rte import Query
 from pypy.translator.cli.sdk import SDK
 from pypy.translator.cli.support import log
 from pypy.translator.cli.dotnet import CLR, CliNamespace, CliClass,\
-     NativeInstance, _overloaded_static_meth, _static_meth
+     NativeInstance, _overloaded_static_meth, _static_meth, OverloadingResolver
     
 ClassCache = {}
 OOTypeCache = {}
@@ -139,10 +139,11 @@ class ClassDesc(Desc):
             groups.setdefault(name, []).append((args, result))
 
         res = {}
+        attrs = dict(resolver=OverloadingResolver)
         for name, methlist in groups.iteritems():
             TYPES = [self.get_method_type(Meth, args, result) for (args, result) in methlist]
             meths = [meth(TYPE) for TYPE in TYPES]
-            res[name] = overload(*meths)
+            res[name] = overload(*meths, **attrs)
         return res
 
     def get_method_type(self, Meth, args, result):

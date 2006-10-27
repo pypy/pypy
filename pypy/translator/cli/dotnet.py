@@ -1,5 +1,5 @@
 from pypy.annotation.pairtype import pair, pairtype
-from pypy.annotation.model import SomeObject, SomeOOInstance, SomeInteger,\
+from pypy.annotation.model import SomeObject, SomeOOInstance, SomeInteger, s_None,\
      s_ImpossibleValue, lltype_to_annotation, annotation_to_lltype, SomeChar, SomeString
 from pypy.rpython.error import TyperError
 from pypy.rpython.extregistry import ExtRegistryEntry
@@ -102,6 +102,12 @@ class __extend__(pairtype(OOInstanceRepr, IntegerRepr)):
 
 class OverloadingResolver(ootype.OverloadingResolver):
 
+    def _can_convert_from_to(self, ARG1, ARG2):
+        if ARG1 is NullType and isinstance(ARG2, NativeInstance):
+            return True # Null is always convertible to a NativeInstance
+        else:
+            return ootype.OverloadingResolver._can_convert_from_to(self, ARG1, ARG2)
+
     def annotation_to_lltype(cls, ann):
         if isinstance(ann, SomeChar):
             return ootype.Char
@@ -137,8 +143,10 @@ class _static_meth(object):
 
 
 class _overloaded_static_meth(object):
-    def __init__(self, *overloadings):
-        self._resolver = ootype.OverloadingResolver(overloadings)
+    def __init__(self, *overloadings, **attrs):
+        resolver = attrs.pop('resolver', OverloadingResolver)
+        assert not attrs
+        self._resolver = resolver(overloadings)
 
     def _set_attrs(self, cls, name):
         for meth in self._resolver.overloadings:
@@ -158,7 +166,24 @@ class NativeInstance(ootype.Instance):
         self._classname = name
         ootype.Instance.__init__(self, fullname, superclass, fields, methods, _is_root, _hints)
 
+class NullType(ootype.OOType):
+    pass
+NullType = NullType()
+
+
 ## RPython interface definition
+
+class NullValue:
+    _TYPE = NullType
+Null = NullValue()
+del NullValue
+
+class Entry(ExtRegistryEntry):
+    _about_ = Null
+
+    def compute_annotation(self):
+        return SomeOOInstance(ootype=NullType)
+
 
 class CliClass(object):
     def __init__(self, INSTANCE, static_methods):
@@ -281,7 +306,7 @@ class Entry(ExtRegistryEntry):
         assert type_s.is_constant()
         TYPE = type_s.const
         assert TYPE in BOXABLE_TYPES
-        return ootype.OverloadingResolver.lltype_to_annotation(TYPE)
+        return OverloadingResolver.lltype_to_annotation(TYPE)
 
     def specialize_call(self, hop):
         v_obj, v_type = hop.inputargs(*hop.args_r)
