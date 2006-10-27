@@ -227,8 +227,9 @@ class SPARQLGrammar(object):
 
     # SelectQuery ::= 'SELECT' 'DISTINCT'? ( Var+ | '*' ) DatasetClause* WhereClause SolutionModifier
 
-    SelectQuery << Group(_select + Optional(_distinct) + (OneOrMore(Var) | star) +
-                    ZeroOrMore(DatasetClause) + WhereClause + SolutionModifier)
+    SelectQuery << Group(_select + Optional(_distinct) + 
+                    (OneOrMore(Var) | star) + ZeroOrMore(DatasetClause) + 
+                    WhereClause + Optional(SolutionModifier))
 
     # ConstructQuery ::= 'CONSTRUCT' ConstructTemplate DatasetClause* WhereClause SolutionModifier
 
