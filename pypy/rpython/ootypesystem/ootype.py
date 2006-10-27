@@ -870,7 +870,7 @@ class _overloaded_bound_meth(_bound_meth):
 
     def _get_bound_meth(self, *args):
         ARGS = tuple([typeOf(arg) for arg in args])
-        meth = self.meth._resolve_overloading(ARGS)
+        meth = self.meth._resolver.resolve(ARGS)
         assert isinstance(meth, _meth)
         return meth._bound(self.DEFINST, self.inst)
 
@@ -879,27 +879,38 @@ class _overloaded_bound_meth(_bound_meth):
         return bound_meth(*args)
 
 
-class _overloaded_mixin(object):
+class OverloadingResolver(object):
+
+    def __init__(self, overloadings):
+        self.overloadings = overloadings
+        self._check_overloadings()
+
     def _check_overloadings(self):
         signatures = set()
-        for meth in self._overloadings:
+        for meth in self.overloadings:
             ARGS = meth._TYPE.ARGS
             if ARGS in signatures:
                 raise TypeError, 'Bad overloading'
             signatures.add(ARGS)
 
-    def _resolve_overloading(self, ARGS):
+    def annotate(self, args_s):
+        ARGS = tuple([self.annotation_to_lltype(arg_s) for arg_s in args_s])
+        METH = self.resolve(ARGS)._TYPE
+        return self.lltype_to_annotation(METH.RESULT)
+
+
+    def resolve(self, ARGS):
         # this overloading resolution algorithm is quite simple:
         # 1) if there is an exact match between ARGS and meth.ARGS, return meth
         # 2) if there is *only one* meth such as ARGS can be converted
         #    to meth.ARGS with one or more upcasts, return meth
         # 3) otherwise, fail
         matches = []
-        for meth in self._overloadings:
+        for meth in self.overloadings:
             METH = meth._TYPE
             if METH.ARGS == ARGS:
                 return meth # case 1
-            elif self._check_upcast(ARGS, METH.ARGS):
+            elif self._check_signature(ARGS, METH.ARGS):
                 matches.append(meth)
         if len(matches) == 1:
             return matches[0]
@@ -908,22 +919,21 @@ class _overloaded_mixin(object):
         else:
             raise TypeError, 'No suitable overloading found for method'
 
-    def _check_upcast(self, ARGS1, ARGS2):
+    def _check_signature(self, ARGS1, ARGS2):
         if len(ARGS1) != len(ARGS2):
             return False
         for ARG1, ARG2 in zip(ARGS1, ARGS2):
-            if not (isinstance(ARG1, Instance) and isinstance(ARG2, Instance)):
-                return False
-            if not isSubclass(ARG1, ARG2):
+            if not self._can_convert_from_to(ARG1, ARG2):
                 return False
         return True
 
-    def _annotate_overloading(self, args_s):
-        ARGS = tuple([self._annotation_to_lltype(arg_s) for arg_s in args_s])
-        METH = self._resolve_overloading(ARGS)._TYPE
-        return self._lltype_to_annotation(METH.RESULT)
-
-    def _annotation_to_lltype(cls, ann):
+    def _can_convert_from_to(self, ARG1, ARG2):
+        if isinstance(ARG1, Instance) and isinstance(ARG2, Instance) and isSubclass(ARG1, ARG2):
+            return True
+        else:
+            return False
+    
+    def annotation_to_lltype(cls, ann):
         from pypy.annotation import model as annmodel
         if isinstance(ann, annmodel.SomeChar):
             return Char
@@ -931,9 +941,9 @@ class _overloaded_mixin(object):
             return String
         else:
             return annmodel.annotation_to_lltype(ann)
-    _annotation_to_lltype = classmethod(_annotation_to_lltype)
+    annotation_to_lltype = classmethod(annotation_to_lltype)
 
-    def _lltype_to_annotation(cls, TYPE):
+    def lltype_to_annotation(cls, TYPE):
         from pypy.annotation import model as annmodel
         if TYPE is Char:
             return annmodel.SomeChar()
@@ -941,21 +951,21 @@ class _overloaded_mixin(object):
             return annmodel.SomeString()
         else:
             return annmodel.lltype_to_annotation(TYPE)
-    _lltype_to_annotation = classmethod(_lltype_to_annotation)
+    lltype_to_annotation = classmethod(lltype_to_annotation)
 
 
-class _overloaded_meth(_meth, _overloaded_mixin):
+class _overloaded_meth(_meth):
     _bound_class = _overloaded_bound_meth
     _desc_class = _overloaded_meth_desc
 
     def __init__(self, *overloadings, **attrs):
         assert '_callable' not in attrs
+        resolver = attrs.pop('resolver', OverloadingResolver)
         _meth.__init__(self, Meth([], Void), _callable=None, **attrs) # use a fake method type
-        self._overloadings = overloadings
-        self._check_overloadings()
+        self._resolver = resolver(overloadings)
 
     def _get_desc(self, name, ARGS):
-        meth = self._resolve_overloading(ARGS)
+        meth = self._resolver.resolve(ARGS)
         return _overloaded_meth_desc(name, meth._TYPE)
 
 

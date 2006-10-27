@@ -706,7 +706,7 @@ class __extend__(SomeOOBoundMeth):
         inst = m.ootype._example()
         _, meth = m.ootype._lookup(m.name)
         if isinstance(meth, ootype._overloaded_meth):
-            return meth._annotate_overloading(args_s)
+            return meth._resolver.annotate(args_s)
         else:
             METH = ootype.typeOf(meth)
             return lltype_to_annotation(METH.RESULT)
