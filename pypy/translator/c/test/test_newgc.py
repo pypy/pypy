@@ -376,11 +376,7 @@ def test_weakref_dont_always_callback():
     assert f()
 
 def test_gc_x_operations():
-    class FakeOptions:
-        pass
     t = TranslationContext()
-    t.driver_options = FakeOptions()
-    t.driver_options.gc = 'ref'
     from pypy.rpython.rgc import gc_clone, gc_swap_pool
     S = lltype.GcStruct("S", ('x', lltype.Signed))
     def f():

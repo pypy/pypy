@@ -28,10 +28,10 @@ class GcPoolEntry(ExtRegistryEntry):
     _type_ = GcPool
 
     def get_repr(self, rtyper, s_pool):
-        opt = rtyper.getdriveroptions()
+        config = rtyper.getconfig()
         # if the gc policy doesn't support allocation pools, lltype
         # pools as Void.
-        if opt and opt.gc not in ['framework', 'stacklessgc']:
+        if config.translation.gc not in ['framework', 'stacklessgc']:
             from pypy.annotation.model import s_None
             return rtyper.getrepr(s_None)
         else:
@@ -54,8 +54,8 @@ class SwapPoolFnEntry(ExtRegistryEntry):
         r_pool_ptr = hop.rtyper.getrepr(s_pool_ptr)
 
         opname = 'gc_x_swap_pool'
-        opt = hop.rtyper.getdriveroptions()
-        if opt and opt.gc not in ['framework', 'stacklessgc']:
+        config = hop.rtyper.getconfig()
+        if config.translation.gc not in ['framework', 'stacklessgc']:
             # when the gc policy doesn't support pools, just return
             # the argument (which is lltyped as Void anyway)
             opname = 'same_as'
@@ -83,8 +83,8 @@ class CloneFnEntry(ExtRegistryEntry):
         from pypy.annotation import model as annmodel
         from pypy.rpython.memory.gc import X_CLONE, X_CLONE_PTR
 
-        opt = hop.rtyper.getdriveroptions()
-        if opt and opt.gc not in ['framework', 'stacklessgc']:
+        config = hop.rtyper.getconfig()
+        if config.translation.gc not in ['framework', 'stacklessgc']:
             # if the gc policy does not support allocation pools,
             # gc_clone always raises RuntimeError
             hop.exception_is_here()
