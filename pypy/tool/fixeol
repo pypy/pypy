@@ -61,7 +61,7 @@ def fixdirectory(path):
             if x not in l: 
                 l.append(x) 
         newignores = "\n".join(l) 
-        print "setting ignores", newignores  
+        print ", setting ignores", newignores  
         path.propset('svn:ignore', newignores) 
     else: 
         print  
@@ -69,6 +69,8 @@ def fixdirectory(path):
         fixfile(fn) 
 
     for x in path.listdir(lambda x: x.check(dir=1, versioned=True)): 
+        if x.check(link=1):
+            continue
         fixdirectory(x) 
 
 def fixfile(path): 
@@ -96,9 +98,11 @@ if __name__ == '__main__':
         paths = [py.path.svnwc()]
 
     for path in paths: 
-        if path.check(dir=1): 
+        if path.check(link=1):
+            print 'ignoring link', path
+        elif path.check(dir=1): 
             fixdirectory(path) 
-        elif path.check(file=1): 
+        elif path.check(file=1):
             fixfile(path) 
         else: 
             print "ignoring", path 
