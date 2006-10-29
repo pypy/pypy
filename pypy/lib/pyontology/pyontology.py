@@ -11,8 +11,8 @@ import datetime, time
 from urllib2 import URLError
 log = py.log.Producer("Pyontology")
 from pypy.tool.ansi_print import ansi_log
-py.log.setconsumer("Pyontology", None)
-#py.log.setconsumer("Pyontology.ontfinish", ansi_log)
+#py.log.setconsumer("Pyontology", None)
+py.log.setconsumer("Pyontology", ansi_log)
 
 namespaces = {
     'rdf' : 'http://www.w3.org/1999/02/22-rdf-syntax-ns',
@@ -133,6 +133,7 @@ class ClassDomain(AbstractDomain, object):
                 variables[self.name].setValues(list(variables['owl_Thing'].getValues()))
             variables.update(self.domains)
             glob_constraints.extend(self.in_constraint)
+#            assert self.size() != 0
             assert len([x for x in glob_constraints if type(x)==list])==0
         return self.domains, self.un_constraint
             
@@ -156,14 +157,12 @@ class ClassDomain(AbstractDomain, object):
         if value in self.values:
             self.values.pop(value)
         if not self.values:
-            log.removeValue("Removed the lastvalue of the Domain")
             raise ConsistencyFailure("Removed the lastvalue of the Domain %r" % self)
  
     def getBases(self):
         return self._bases
 
     def setBases(self, bases):
-        log(">>>>>>>>>>>>>>>>>>>>>>>  %r" %self.name)
         assert self.name != 'owl_Class'
         self._bases = bases
     
@@ -227,7 +226,8 @@ class Individual(Thing):
         return hash(self.uri)
  
     def __eq__(self, other):
-        log("CMP %r,%r %i"%(self.name,other, len(self.differentfrom)))
+        #log("CMP %r,%r %i"%(self.name,other, len(self.differentfrom)))
+        #assert isinstance(other, ClassDomain)
         if ((hasattr(other,'uri') and self.uri == other.uri) or
             (not hasattr(other,'uri') and self.uri == other) or
               other in self.sameas):
@@ -490,7 +490,6 @@ class Ontology:
     def attach_fd(self):
         for (s, p, o) in (self.graph.triples((None,)*3)):
             self.consider_triple((s, p, o))
-        log("=============================")
 
     def finish(self):
         cons = [(c.cost,c) for c in self.constraints if hasattr(c, 'cost')]
@@ -498,17 +497,16 @@ class Ontology:
         for i,constraint in cons: 
             log.ontfinish("Trying %r of %d/%d " %(constraint,cons.index((i, constraint)),len(cons)))
             for key in constraint.affectedVariables():
-                log.ontfinish("FINISHING %s" % key)
                 if not ( self.variables.get(key)):
                     break
                 if isinstance( self.variables[key], fd):
                     continue
                 self.variables[key].finish(self.variables, self.constraints)
             else:
-#                try:
-                constraint.narrow(self.variables)
-#                except ConsistencyFailure, e:
-#                    print "FAilure", e
+                try:
+                    constraint.narrow(self.variables)
+                except ConsistencyFailure, e:
+                    print "FAilure", e
 
     def _sparql(self, query):
         qe = SP.Query.parseString(query)[0]
@@ -647,8 +645,17 @@ class Ontology:
         # solve the repository and return the solution
 #        rep = Repository(query_dom.keys(), query_dom, query_constr)
 #        return Solver().solve(rep)
-
-        return self.solve(verbose=6)
+        res_s = self.solve()
+        res = []
+        for d in res_s:
+           for k,v in d.items():
+               if hasattr(v,'uri'):
+                   val = v.uri
+               else:
+                   val = v 
+               d[k] = unicode(val)
+           res.append(d)
+        return res
     
     def consider_triple(self,(s, p, o)):
         if (s, p, o) in self.seen:
@@ -719,7 +726,6 @@ class Ontology:
         return var
  
     def make_var(self, cls=fd, a=''):
-        log("make_var %r,%r" %(cls,a))
         var = self.mangle_name(a)
         if not cls:
             return var
@@ -728,7 +734,6 @@ class Ontology:
                 cls = builtin_voc[a]
             cls = self.variables[var] = cls(var, a)
             if cls.constraint:
-                log("make_var constraint 1 %r,%r" %(cls,a))
                 self.constraints.extend(cls.constraint)
         elif not cls == self.variables[var].__class__ and issubclass(cls, self.variables[var].__class__):
             vals = self.variables[var].getValues()
@@ -736,7 +741,6 @@ class Ontology:
             tmp.setValues(list(vals))
             tmp.property = self.variables[var].property
             if tmp.constraint:
-                log("make_var constraint 2 %r,%r" %(cls,a))
                 self.constraints.extend(tmp.constraint)
             self.variables[var] = tmp
         return var
@@ -783,7 +787,6 @@ class Ontology:
         pass
 
     def type(self, s, var):
-        log("type %r %r"%(s, var))
         if not var in builtin_voc :
             # var is not one of the builtin classes -> it is a Class 
             avar = self.make_var(ClassDomain, var)
@@ -826,7 +829,6 @@ class Ontology:
         pass
     
     def onProperty(self, s, var):
-        log("%r onProperty %r "%(s, var))
         svar =self.make_var(Restriction, s)
         avar =self.make_var(Property, var)
         restr = self.variables[svar]
@@ -841,7 +843,6 @@ class Ontology:
         # the extension of s it must be in the extension of
         # var
         
-        log("%r subClassOf %r "%(s, var))
         avar = self.make_var(ClassDomain, var)
         svar = self.make_var(ClassDomain, s)
         self.variables[svar].bases.append(avar)
@@ -940,7 +941,6 @@ class Ontology:
         
     def cardinality_helper(self, s, var, card):
         
-        log("%r %sCardinality %r "%(s, card, var))
         svar =self.make_var(Restriction, s)
         scls = self.variables[svar]
         scls.un_constraint.append(card)

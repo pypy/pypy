@@ -1,4 +1,4 @@
-
+import py
 try:
     import pyparsing
     import rdflib
@@ -8,7 +8,6 @@ except ImportError:
 
 from pypy.lib.pyontology.sparql_grammar import SPARQLGrammar as SP
 from pypy.lib.pyontology.pyontology import Ontology, ConsistencyFailure
-import py
 
 qt = """
          PREFIX ns: <http://example.org/ns#>
@@ -180,7 +179,10 @@ class TestXMLRPC:
     
     def setup_class(self):
         from subprocess import Popen 
-        self.shell = Popen("python ../pyontology.py testont.rdf", shell=True)
+        import sys
+        exe = sys.executable
+        print exe
+        self.shell = Popen("%s ../pyontology.py testont.rdf" % exe, shell=True)
         server = xmlrpclib.ServerProxy("http://localhost:9000")
         print "setup"
 
@@ -196,8 +198,8 @@ class TestXMLRPC:
         os.kill(self.shell.pid, signal.SIGTERM)
 
     def test_xmlrpc(self):
-        py.test.skip("WIP")
+        #py.test.skip("WIP")
         print "test_xmlrpc"
         server = xmlrpclib.ServerProxy("http://localhost:9000", allow_none=True)
         result = server.sparql(qt_proto % ('?x', 'ns:sub ns:p ?x .'))
-        assert result == [u'http://example.org/ns#sub']
+        assert result[0]['query_x_'] == '123'

@@ -231,8 +231,6 @@ class SPARQLGrammar(object):
                     (OneOrMore(Var) | star) + ZeroOrMore(DatasetClause) + 
                     WhereClause + Optional(SolutionModifier))
 
-    # ConstructQuery ::= 'CONSTRUCT' ConstructTemplate DatasetClause* WhereClause SolutionModifier
-
     ConstructQuery << _construct + ConstructTemplate + ZeroOrMore(DatasetClause) + WhereClause + SolutionModifier
 
     # DescribeQuery ::= 'DESCRIBE' ( VarOrIRIref+ | '*' ) DatasetClause* WhereClause? SolutionModifier

@@ -424,13 +424,12 @@ class UnionofConstraint(OneofPropertyConstraint):
     cost = 200
 
     def narrow(self, domains):
+        # val is a list of mangled  URIRefs
         val = domains[self.List].getValues()
-        union = []
+        union = set() 
         for v in val:
-            for u in domains[v].getValues():
-                if not u in union:
-                    union.append(u)
-        cls = domains[self.variable].setValues(union)
+            union = union.union(domains[v].getValues())
+        domains[self.variable].setValues(union)
         
 class IntersectionofConstraint(OneofPropertyConstraint):
 
