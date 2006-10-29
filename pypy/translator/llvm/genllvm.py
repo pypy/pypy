@@ -342,7 +342,6 @@ def genllvm_compile(function,
                               inline_threshold=0,
                               mallocs=False,
                               merge_if_blocks_to_switch=False,
-                              propagate=False,
                               constfold=False)
 
     # note: this is without stackless and policy transforms
