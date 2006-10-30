@@ -8,4 +8,6 @@ system_optiondescription = OptionDescription('system', '', [
                     sys.maxint, '-i --maxint'),
     ChoiceOption('byteorder', 'endianness, byte order (little/big)',
                     sys.byteorder, ['little', 'big'], '-b --byteorder'),
+    ChoiceOption('os', 'operating system', ['win32', 'linux'], default=None),
 ])
+
