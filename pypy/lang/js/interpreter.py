@@ -17,3 +17,12 @@ class __extend__(Script):
     def call(self):
         for node in self.nodes:
             node.call()
+
+class __extend__(Call):
+    def call(self):
+        assert self.identifier.name == 'print'
+        print ",".join([str(i) for i in self.arglist.call()])
+
+class __extend__(List):
+    def call(self):
+        return [node.call() for node in self.nodes]

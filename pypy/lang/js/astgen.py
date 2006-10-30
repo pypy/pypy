@@ -35,6 +35,19 @@ class Number(Node):
     def __init__(self, num):
         self.num = num
 
+class Call(Node):
+    def __init__(self, identifier, arglist):
+        self.identifier = identifier
+        self.arglist = arglist
+
+class Identifier(Node):
+    def __init__(self, name):
+        self.name = name
+
+class List(Node):
+    def __init__(self, nodes):
+        self.nodes = nodes
+
 #class Print(Node):
 #    def __init__(self, expr):
 #        
