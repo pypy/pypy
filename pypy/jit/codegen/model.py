@@ -208,7 +208,9 @@ class AbstractRGenOp(object):
     #@staticmethod
     #@specialize.memo()
     #def kindToken(T):
-    #    """Return a token that identifies (but no more?) the low-level type T."""
+    #    """Return a token that describes how to store the low-level
+    #    type T.  For example, on PowerPC this might just indicate
+    #    whether values of type T live in the FPU or not."""
     #    raise NotImplementedError
 
     #@staticmethod
