@@ -56,7 +56,7 @@ try:
             driver = TranslationDriver.from_targetspec(
                         targetpypystandalone.__dict__, config=config,
                         default_goal='compile')
-            driver.proceed()
+            driver.proceed(['compile'])
 
             channelwrapper = ChannelWrapper(channel)
             zip = ZipFile(channelwrapper, 'w')
