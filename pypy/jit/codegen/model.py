@@ -206,7 +206,7 @@ class AbstractRGenOp(object):
     #@staticmethod
     #@specialize.memo()
     #def fieldToken(T, name):
-    #    """Return a token describing the location of the field 'name'
+    #    """Return a token describing the location and type of the field 'name'
     #    within the Struct T."""
     #    raise NotImplementedError
 
