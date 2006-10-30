@@ -454,6 +454,15 @@ class FlowObjSpace(ObjSpace):
                  raise flowcontext.ImplicitOperationError(w_exc_cls,
                                                          w_exc_value)
 
+    def w_KeyboardInterrupt(self):
+        # XXX XXX Ha Ha
+        # the reason to do this is: if you interrupt the flowing of a function
+        # with <Ctrl-C> the bytecode interpreter will raise an applevel
+        # KeyboardInterrup and you will get an AttributeError: space does not
+        # have w_KeyboardInterrupt, which is not very helpful
+        raise KeyboardInterrupt
+    w_KeyboardInterrupt = property(w_KeyboardInterrupt)
+
 # the following gives us easy access to declare more for applications:
 NOT_REALLY_CONST = {
     Constant(sys): {
