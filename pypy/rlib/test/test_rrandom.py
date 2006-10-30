@@ -1,4 +1,4 @@
-from pypy.module._random.rpy_random import Random, N, r_uint
+from pypy.rlib.rrandom import Random, N, r_uint
 import _random
 
 # the numbers were created by using CPython's _randommodule.c

@@ -3,7 +3,7 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped, interp2app
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.rpython.rarithmetic import r_uint, intmask
-from pypy.module._random import rpy_random
+from pypy.rlib import rrandom
 
 import time
 
@@ -15,7 +15,7 @@ def descr_new__(space, w_subtype, w_anything=None):
 
 class W_Random(Wrappable):
     def __init__(self, space, w_anything):
-        self._rnd = rpy_random.Random()
+        self._rnd = rrandom.Random()
         self.seed(space, w_anything)
     __init__.unwrap_spec = ['self', ObjSpace, W_Root]
 
@@ -52,10 +52,10 @@ class W_Random(Wrappable):
     seed.unwrap_spec = ['self', ObjSpace, W_Root]
 
     def getstate(self, space):
-        state = [None] * (rpy_random.N + 1)
-        for i in range(rpy_random.N):
+        state = [None] * (rrandom.N + 1)
+        for i in range(rrandom.N):
             state[i] = space.newint(intmask(self._rnd.state[i]))
-        state[rpy_random.N] = space.newint(self._rnd.index)
+        state[rrandom.N] = space.newint(self._rnd.index)
         return space.newtuple(state)
     getstate.unwrap_spec = ['self', ObjSpace]
 
@@ -63,19 +63,19 @@ class W_Random(Wrappable):
         if not space.is_true(space.isinstance(w_state, space.w_tuple)):
             errstring = space.wrap("state vector must be tuple")
             raise OperationError(space.w_TypeError, errstring)
-        if space.int_w(space.len(w_state)) != rpy_random.N + 1:
+        if space.int_w(space.len(w_state)) != rrandom.N + 1:
             errstring = space.wrap("state vector is the wrong size")
             raise OperationError(space.w_ValueError, errstring)
         w_zero = space.newint(0)
         # independent of platfrom, since the below condition is only
         # true on 32 bit platforms anyway
         w_add = space.pow(space.newint(2), space.newint(32), space.w_None)
-        for i in range(rpy_random.N):
+        for i in range(rrandom.N):
             w_item = space.getitem(w_state, space.newint(i))
             if space.is_true(space.lt(w_item, w_zero)):
                 w_item = space.add(w_item, w_add)
             self._rnd.state[i] = space.uint_w(w_item)
-        w_item = space.getitem(w_state, space.newint(rpy_random.N))
+        w_item = space.getitem(w_state, space.newint(rrandom.N))
         self._rnd.index = space.int_w(w_item)
     setstate.unwrap_spec = ['self', ObjSpace, W_Root]
 
