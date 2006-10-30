@@ -4,6 +4,8 @@ from pypy.translator.unsimplify import varoftype
 from pypy.translator.backendopt.ssa import SSA_to_SSI
 from pypy.annotation import model as annmodel
 from pypy.annotation.pairtype import pair, pairtype
+from pypy.rpython.annlowlevel import PseudoHighLevelCallable
+from pypy.rpython.unroll import unrolling_iterable
 from pypy.rpython import annlowlevel
 from pypy.rpython.rtyper import RPythonTyper, LowLevelOpList, TyperError
 from pypy.rpython.rmodel import Repr, inputconst
@@ -142,12 +144,13 @@ class HintRTyper(RPythonTyper):
 
         self.v_queue = varoftype(self.r_Queue.lowleveltype, 'queue')
 
-    def specialize(self, view=False):
+    def specialize(self, origportalgraph=None, view=False):
         """
         Driver for running the timeshifter.
         """
         self.type_system.perform_normalizations(self)
-        self.annotator.bookkeeper.compute_after_normalization()
+        bk = self.annotator.bookkeeper
+        bk.compute_after_normalization()
         entrygraph = self.annotator.translator.graphs[0]
         pending = [entrygraph]
         seen = {entrygraph: True}
@@ -161,6 +164,97 @@ class HintRTyper(RPythonTyper):
             self.annotator.translator.view()     # in the middle
         for graph in seen:
             self.timeshift_graph(graph)
+
+        if origportalgraph:
+            portalgraph = bk.get_graph_by_key(origportalgraph, None)
+            self.rewire_portal(origportalgraph, portalgraph)
+        
+    def rewire_portal(self, origportalgraph, portalgraph):
+        annhelper = self.annhelper
+
+        argcolors = []
+        portal_args_s = []
+        for v in portalgraph.getargs()[1:]:
+            r = self.bindingrepr(v)
+            if isinstance(r, GreenRepr):
+                color = "green"
+                portal_args_s.append(annmodel.lltype_to_annotation(
+                    r.lowleveltype))
+            else:
+                color = "red"
+                portal_args_s.append(self.s_RedBox)
+            argcolors.append(color)
+
+        portal_fnptr = self.rtyper.type_system.getcallable(portalgraph)
+        portal_fn = PseudoHighLevelCallable(
+            portal_fnptr,
+            [self.s_JITState] + portal_args_s,
+            self.s_JITState)
+        FUNC = self.get_residual_functype(portalgraph)
+        argcolors = unrolling_iterable(argcolors)
+        fresh_jitstate = self.ll_fresh_jitstate
+        finish_jitstate = self.ll_finish_jitstate
+
+        cache = {}
+        rgenop = self.RGenOp()
+        def portalentry(*args):
+            i = 0
+            key = ()
+            residualargs = ()
+            for color in argcolors:
+                if color == "green":
+                    key = key + (args[i],)
+                else:
+                    residualargs = residualargs + (args[i],)
+                i = i + 1
+            try:
+                fn = cache[key]
+            except KeyError:
+                portal_ts_args = ()
+                sigtoken = rgenop.sigToken(FUNC)
+                builder, entrypoint, inputargs_gv = rgenop.newgraph(sigtoken)
+                i = 0
+                for color in argcolors:
+                    if color == "green":
+                        llvalue = args[0]
+                        args = args[1:]
+                        portal_ts_args += (llvalue,)
+                    else:
+                        llvalue = args[0]
+                        args = args[1:]
+                        TYPE = lltype.typeOf(llvalue)
+                        kind = rgenop.kindToken(TYPE)
+                        boxcls = rvalue.ll_redboxcls(TYPE)
+                        gv_arg = inputargs_gv[i]
+                        box = boxcls(kind, gv_arg)
+                        i += 1
+                        portal_ts_args += (box,)
+
+                top_jitstate = fresh_jitstate(builder)
+                top_jitstate = portal_fn(top_jitstate, *portal_ts_args)
+                if top_jitstate is not None:
+                    finish_jitstate(top_jitstate, sigtoken)
+
+                gv_generated = rgenop.gencallableconst(sigtoken,
+                                                       "generated",
+                                                       entrypoint)
+                fn = gv_generated.revealconst(lltype.Ptr(FUNC))
+                builder.show_incremental_progress()
+                cache[key] = fn
+            return fn(*residualargs)
+
+        args_s = [annmodel.lltype_to_annotation(v.concretetype) for
+                  v in origportalgraph.getargs()]
+        s_result = annmodel.lltype_to_annotation(
+                    origportalgraph.getreturnvar().concretetype)
+        portalentrygraph = annhelper.getgraph(portalentry, args_s, s_result)
+
+        annhelper.finish()
+
+        origportalgraph.startblock = portalentrygraph.startblock
+        origportalgraph.returnblock = portalentrygraph.returnblock
+        origportalgraph.exceptblock = portalentrygraph.exceptblock
+        # name, func?
 
     def transform_graph(self, graph):
         # prepare the graphs by inserting all bookkeeping/dispatching logic
@@ -590,8 +684,8 @@ class HintRTyper(RPythonTyper):
                                                   self.v_queue))
 
 
-    def translate_op_portal_ensure_queue(self, hop):
-        return self.translate_op_ensure_queue(hop, prefix='portal_')
+    def translate_op_replayable_ensure_queue(self, hop):
+        return self.translate_op_ensure_queue(hop, prefix='replayable_')
 
         
     def translate_op_enter_frame(self, hop):

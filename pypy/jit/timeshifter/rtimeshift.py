@@ -422,11 +422,11 @@ class AbstractPromotionPath(object):
 class PromotionPathRoot(AbstractPromotionPath):
     cut_limit = True
 
-    def __init__(self, greens_gv, rgenop, frozen, portalblock, global_resumer):
+    def __init__(self, greens_gv, rgenop, frozen, replayableblock, global_resumer):
         self.greens_gv = greens_gv
         self.rgenop = rgenop
         self.frozen = frozen
-        self.portalblock = portalblock
+        self.replayableblock = replayableblock
         self.global_resumer = global_resumer
 
     def follow_path(self, path):
@@ -437,7 +437,7 @@ class PromotionPathRoot(AbstractPromotionPath):
         memo = rvalue.unfreeze_memo()
         jitstate = self.frozen.unfreeze(incoming, memo)
         kinds = [box.kind for box in incoming]
-        builder, vars_gv = self.rgenop.replay(self.portalblock, kinds)
+        builder, vars_gv = self.rgenop.replay(self.replayableblock, kinds)
         for i in range(len(incoming)):
             incoming[i].genvar = vars_gv[i]
         jitstate.curbuilder = builder
@@ -775,7 +775,7 @@ def ensure_queue(jitstate, DispatchQueueClass):
     return DispatchQueueClass()
 ensure_queue._annspecialcase_ = 'specialize:arg(1)'
 
-def portal_ensure_queue(jitstate, DispatchQueueClass):
+def replayable_ensure_queue(jitstate, DispatchQueueClass):
     resuming = jitstate.resuming
     if resuming is None:
         return DispatchQueueClass()
@@ -783,7 +783,7 @@ def portal_ensure_queue(jitstate, DispatchQueueClass):
         dispatchqueue = jitstate.frame.dispatchqueue
         assert isinstance(dispatchqueue, DispatchQueueClass)
         return dispatchqueue
-portal_ensure_queue._annspecialcase_ = 'specialize:arg(1)'
+replayable_ensure_queue._annspecialcase_ = 'specialize:arg(1)'
 
 def enter_frame(jitstate, dispatchqueue):
     jitstate.frame = VirtualFrame(jitstate.frame, dispatchqueue)

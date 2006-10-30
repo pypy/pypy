@@ -33,7 +33,8 @@ def annotation(a, x):
         t = annmodel.lltype_to_annotation(T)
     return a.typeannotation(t)
 
-def hannotate(func, values, policy=None, inline=None, backendoptimize=False):
+def hannotate(func, values, policy=None, inline=None, backendoptimize=False,
+              portal=None):
     # build the normal ll graphs for ll_function
     t = TranslationContext()
     a = t.buildannotator()
@@ -46,7 +47,9 @@ def hannotate(func, values, policy=None, inline=None, backendoptimize=False):
     if backendoptimize:
         from pypy.translator.backendopt.all import backend_optimizations
         backend_optimizations(t)
-    graph1 = graphof(t, func)
+    if portal is None:
+        portal = func
+    graph1 = graphof(t, portal)
     # build hint annotator types
     hannotator = HintAnnotator(base_translator=t, policy=policy)
     hs = hannotator.build_types(graph1, [SomeLLAbstractConstant(v.concretetype,

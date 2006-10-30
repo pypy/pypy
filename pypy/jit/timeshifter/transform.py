@@ -370,7 +370,7 @@ class HintGraphTransformer(object):
     def insert_ensure_queue(self):
         entryblock = self.before_start_block()
         if self.mergepointfamily.has_global_mergepoints():
-            prefix = 'portal_'
+            prefix = 'replayable_'
         else:
             prefix = ''
         self.genop(entryblock, prefix+'ensure_queue', [self.c_mpfamily])
