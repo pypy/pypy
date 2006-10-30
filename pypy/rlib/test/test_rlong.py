@@ -1,8 +1,8 @@
 from __future__ import division
 import py
 from random import random, randint
-from pypy.rpython.rlong import rlong, SHIFT, MASK
-from pypy.rpython import rlong as lobj
+from pypy.rlib.rlong import rlong, SHIFT, MASK
+from pypy.rlib import rlong as lobj
 from pypy.rpython.rarithmetic import r_uint
 import operator, sys
 

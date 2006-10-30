@@ -2,7 +2,7 @@ import sys
 from pypy.objspace.std.objspace import *
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.noneobject import W_NoneObject
-from pypy.rpython.rlong import rlong, SHIFT
+from pypy.rlib.rlong import rlong, SHIFT
 
 class W_LongObject(W_Object):
     """This is a wrapper of rlong."""
