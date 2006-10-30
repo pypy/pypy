@@ -248,7 +248,6 @@ def test_optparse_path_options():
 
     assert config.gc.name == 'framework'
 
-
 def test_getpaths():
     descr = make_description()
     config = Config(descr)
@@ -377,6 +376,17 @@ def test_dwim_set():
     py.test.raises(AmbigousOptionError, "c.set(d1=True)")
     py.test.raises(NoMatchingOptionFound, "c.set(unknown='foo')")
 
+def test_more_set():
+    descr = OptionDescription("opt", "", [
+        OptionDescription("s1", "", [
+            BoolOption("a", "", default=False)]),
+        IntOption("int", "", default=42)])
+    d = {'s1.a': True, 'int': 23}
+    config = Config(descr)
+    config.set(**d)
+    assert config.s1.a
+    assert config.int == 23
+
 def test_optparse_help():
     import cStringIO
     descr = OptionDescription("opt", "", [
@@ -413,3 +423,4 @@ def test_make_dict():
     config.s1.a = True
     d = make_dict(config)
     assert d == {"s1.a": True, "int": 43}
+
