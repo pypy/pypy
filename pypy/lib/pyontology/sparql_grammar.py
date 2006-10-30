@@ -208,12 +208,12 @@ class SPARQLGrammar(object):
     # Query ::= Prolog
     #      ( SelectQuery | ConstructQuery | DescribeQuery | AskQuery )
 
-    Query << Group(Prolog + (SelectQuery | ConstructQuery | DescribeQuery | AskQuery)).ignore(_comment)
+    Query << (Prolog + (SelectQuery | ConstructQuery | DescribeQuery | AskQuery)).ignore(_comment)
 
 
     # Prolog ::= BaseDecl? PrefixDecl*
 
-    Prolog << ( Optional(BaseDecl) + ZeroOrMore(PrefixDecl))
+    Prolog << ( Optional(BaseDecl) + Dict(ZeroOrMore(PrefixDecl)).setResultsName('Prefix'))
 
     # BaseDecl ::= 'BASE' QuotedIRIref
 
@@ -223,13 +223,15 @@ class SPARQLGrammar(object):
     member << Group(Optional(NCNAME_PREFIX) + Suppress(':') + QuotedIRIref)
     # PrefixDecl ::= 'PREFIX' QNAME_NS QuotedIRIref
 
-    PrefixDecl <<  (_prefix.suppress() + Dict(delimitedList(member,':'))).setResultsName('PrefixDecl')
+    PrefixDecl <<  Group(_prefix.suppress() +Optional(NCNAME_PREFIX) + Suppress(':') + QuotedIRIref ).setResultsName('PrefixDecl')
 
     # SelectQuery ::= 'SELECT' 'DISTINCT'? ( Var+ | '*' ) DatasetClause* WhereClause SolutionModifier
 
     SelectQuery << Group(_select + Optional(_distinct) + 
                     (OneOrMore(Var) | star) + ZeroOrMore(DatasetClause) + 
                     WhereClause + Optional(SolutionModifier))
+
+    # ConstructQuery ::= 'CONSTRUCT' ConstructTemplate DatasetClause* WhereClause SolutionModifier
 
     ConstructQuery << _construct + ConstructTemplate + ZeroOrMore(DatasetClause) + WhereClause + SolutionModifier
 
@@ -572,7 +574,7 @@ class SPARQLGrammar(object):
     #      | [#xFDF0-#xFFFD]
     #      | [#x10000-#xEFFFF]
 
-    NCCHAR1 << Word(alphas)
+    NCCHAR1 << Word(alphas+"_")
 
     # VARNAME ::= ( NCCHAR1 | [0-9] ) ( NCCHAR1 | "_" | [0-9] | #x00B7 | [#x0300-#x036F] | [#x203F-#x2040] )*
 

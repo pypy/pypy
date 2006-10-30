@@ -509,9 +509,9 @@ class Ontology:
                     print "FAilure", e
 
     def _sparql(self, query):
-        qe = SP.Query.parseString(query)[0]
+        qe = SP.Query.parseString(query)
 
-        prefixes = qe.PrefixDecl[0]
+        prefixes = qe.Prefix[0]
 
         resvars = []
         for v in qe.SelectQuery[0].VARNAME:
@@ -958,7 +958,7 @@ class Ontology:
         def minCard(cls , prop, val):
             var = "%s_%s_card" %(cls, prop.name)
             con = Expression([var], "%s >= %i" % (var, val))
-            return {},[con, CardinalityConstraint(prop.name, cls, val , '>')]
+            return {},[ CardinalityConstraint(prop.name, cls, val , '>')]
         self.cardinality_helper(s, int(var), minCard)
     
     def cardinality(self, s, var):
