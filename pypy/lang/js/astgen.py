@@ -48,6 +48,26 @@ class List(Node):
     def __init__(self, nodes):
         self.nodes = nodes
 
-#class Print(Node):
-#    def __init__(self, expr):
-#        
+def getlist(d):
+    lgt = int(d['length'])
+    output = [from_dict(d[str(i)]) for i in range(lgt)]
+    return output
+
+def from_dict(d):
+    if d['type'] == 'SCRIPT':
+        # XXX: Cannot parse it right now
+        return Script(getlist(d), [], [])
+    elif d['type'] == 'SEMICOLON':
+        return Semicolon(from_dict(d['expression']))
+    elif d['type'] == 'NUMBER':
+        return Number(int(d['value']))
+    elif d['type'] == 'IDENTIFIER':
+        return Identifier(d['value'])
+    elif d['type'] == 'LIST':
+        return List(getlist(d))
+    elif d['type'] == 'CALL':
+        return Call(from_dict(d['0']), from_dict(d['1']))
+    elif d['type'] == 'PLUS':
+        return Plus(from_dict(d['0']), from_dict(d['1']))
+    else:
+        raise NotImplementedError("Dont know how to handler %s" % d['type'])
