@@ -1,6 +1,7 @@
 
 from pypy.lang.js.astgen import *
 from pypy.lang.js.context import ExecutionContext
+from pypy.lang.js.jsobj import W_Number, W_String
 
 def writer(x):
     print x
@@ -13,11 +14,25 @@ class __extend__(Assign):
 
 class __extend__(Number):
     def call(self, context):
-        return self.num
+        return W_Number(self.num)
 
 class __extend__(Plus):
     def call(self, context=None):
-        return self.left.call(context) + self.right.call(context)
+        left = self.left.call(context).GetValue()
+        right = self.right.call(context).GetValue()
+        prim_left = left.ToPrimitive()
+        prim_right = right.ToPrimitive()
+        # INSANE
+        if isinstance(prim_left, W_String) or isinstance(prim_right, W_String):
+            str_left = prim_left.ToString()
+            str_right = prim_right.ToString()
+            return W_String(str_left + str_right)
+        else:
+            num_left = prim_left.ToNumber()
+            num_right = prim_right.ToNumber()
+            # XXX: obey all the rules
+            return W_Number(num_left + num_right)
+        #return self.left.call(context).add(self.right.call(context))
 
 class __extend__(Semicolon):
     def call(self, context=None):

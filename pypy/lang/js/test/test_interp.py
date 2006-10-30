@@ -11,7 +11,7 @@ def parse_d(code):
 
 class TestInterp(object):
     def test_simple(self):
-        assert Plus(Number(3), Number(4)).call() == 7
+        assert Plus(Number(3), Number(4)).call().floatval == 7
         #    s = Script([Semicolon(Plus(Number(3), Number(4)))], [], [])
         #    s.call()
         l = []
@@ -32,3 +32,5 @@ class TestInterp(object):
 
     def test_var_assign(self):
         self.assert_prints(parse_d("x=3;print(x);"), ["3"])
+        self.assert_prints(parse_d("x=3;y=4;print(x+y);"), ["7"])
+

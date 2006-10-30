@@ -66,7 +66,7 @@ def from_dict(d):
     elif tp == 'SEMICOLON':
         return Semicolon(from_dict(d['expression']))
     elif tp == 'NUMBER':
-        return Number(int(d['value']))
+        return Number(float(d['value']))
     elif tp == 'IDENTIFIER':
         return Identifier(d['value'])
     elif tp == 'LIST':
