@@ -17,6 +17,8 @@ from pypy.config.pypyoption import pypy_optiondescription
 from pypy.config.config import Config, to_optparse, make_dict
 from pypy.tool.option import make_objspace
 
+thisdir = py.magic.autopath().dirpath()
+app_basic_example_path = str(thisdir.join("app_basic_example.py"))
 
 try:
     this_dir = os.path.dirname(__file__)
@@ -142,7 +144,7 @@ class PyPyTarget(object):
         entry_point = create_entry_point(space, w_dict)
 
         # sanity-check: call the entry point
-        res = entry_point(["pypy", "app_basic_example.py"])
+        res = entry_point(["pypy", app_basic_example_path])
         assert res == 0
 
         return entry_point, None, PyPyAnnotatorPolicy(single_space = space)
