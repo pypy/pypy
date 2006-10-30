@@ -43,6 +43,10 @@ class Config(object):
         if '.' in name:
             homeconfig, name = self._cfgimpl_get_home_by_path(name)
             return getattr(homeconfig, name)
+        if name.startswith('_cfgimpl_'):
+            # if it were in __dict__ it would have been found already
+            raise AttributeError("%s object has no attribute %s" %
+                                 (self.__class__, name))
         if name not in self._cfgimpl_values:
             raise AttributeError("%s object has no attribute %s" %
                                  (self.__class__, name))
@@ -487,4 +491,9 @@ def to_optparse(config, useoptions=None, parser=None,
             grp = get_group(path, homeconf._cfgimpl_descr.doc)
             option.add_optparse_option(chunks, grp, homeconf)
     return parser
+
+def make_dict(config):
+    paths = config.getpaths()
+    options = dict([(path, getattr(config, path)) for path in paths])
+    return options
 

@@ -400,3 +400,16 @@ def test_optparse_help():
     assert "choose! [CHOICE=a|b|c, default: a]" in help
     assert "choose2! [CHOICE2=x|y|z]" in help
     assert "specify xyz [default: hello]" in help
+
+def test_make_dict():
+    descr = OptionDescription("opt", "", [
+        OptionDescription("s1", "", [
+            BoolOption("a", "", default=False)]),
+        IntOption("int", "", default=42)])
+    config = Config(descr)
+    d = make_dict(config)
+    assert d == {"s1.a": False, "int": 42}
+    config.int = 43
+    config.s1.a = True
+    d = make_dict(config)
+    assert d == {"s1.a": True, "int": 43}

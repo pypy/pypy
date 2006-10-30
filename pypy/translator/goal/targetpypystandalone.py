@@ -14,7 +14,7 @@ from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.translator.goal.ann_override import PyPyAnnotatorPolicy
 from pypy.config.pypyoption import pypy_optiondescription
-from pypy.config.config import Config, to_optparse
+from pypy.config.config import Config, to_optparse, make_dict
 from pypy.tool.option import make_objspace
 
 
@@ -105,8 +105,7 @@ class PyPyTarget(object):
 
         # obscure hack to stuff the translation options into the translated PyPy
         import pypy.module.sys
-        paths = config.getpaths()
-        options = dict([(path, getattr(config, path)) for path in paths])
+        options = make_dict(config)
         wrapstr = 'space.wrap(%r)' % (options)
         pypy.module.sys.Module.interpleveldefs['pypy_translation_info'] = wrapstr
 
