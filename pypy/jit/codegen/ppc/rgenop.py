@@ -1,5 +1,5 @@
 from pypy.jit.codegen.model import AbstractRGenOp, CodeGenBlock, CodeGenerator
-from pypy.jit.codegen.model import GenVar, GenConst
+from pypy.jit.codegen.model import GenVar, GenConst, CodeGenSwitch
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.objectmodel import specialize, we_are_translated
 from pypy.jit.codegen.ppc.conftest import option
@@ -159,6 +159,41 @@ class Block(CodeGenBlock):
     def __init__(self, startaddr, arg_locations):
         self.startaddr = startaddr
         self.arg_locations = arg_locations
+
+## class FlexSwitch(CodeGenSwitch):
+
+##     def __init__(self, rgenop):
+##         self.rgenop = rgenop
+##         self.default_case_addr = 0
+
+##     def initialize(self, builder, gv_exitswitch):
+##         self.switch_reg = gv_exitswitch.load(builder)
+##         self.saved_state = builder._save_state()
+##         self._reserve(mc)
+
+##     def _reserve(self, mc):
+##         RESERVED = 11 # enough for 5 cases and a default
+##         pos = mc.tell()
+##         for i in range(RESERVED):
+##             mc.write(0)
+##         self.nextfreepos = pos
+##         self.endfreepos = pos + RESERVED * 4
+
+##     def _reserve_more(self):
+##         XXX
+##         start = self.nextfreepos
+##         end   = self.endfreepos
+##         newmc = self.rgenop.open_mc()
+##         self._reserve(newmc)
+##         self.rgenop.close_mc(newmc)
+##         fullmc = InMemoryCodeBuilder(start, end)
+##         a = RPPCAssembler()
+##         a.mc = newmc
+##         fullmc.ba(rel32(self.nextfreepos))
+##         fullmc.done()
+
+##     def add_case(self, gv_case):
+##     def add_default(self):
 
 class Builder(CodeGenerator):
 
