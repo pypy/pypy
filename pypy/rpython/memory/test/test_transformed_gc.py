@@ -492,7 +492,7 @@ class TestMarkSweepGC(GCTest):
         assert res == 22220221
 
     def test_cloning_highlevel(self):
-        from pypy.rpython import rgc
+        from pypy.rlib import rgc
         class A:
             pass
         class B(A):
@@ -526,7 +526,7 @@ class TestMarkSweepGC(GCTest):
         assert res == 1
 
     def test_cloning_highlevel_varsize(self):
-        from pypy.rpython import rgc
+        from pypy.rlib import rgc
         class A:
             pass
         def func(n, dummy):

@@ -20,7 +20,7 @@ from pypy.objspace.cclp.interp_var import interp_bind, interp_free
 from pypy.objspace.cclp.constraint.distributor import distribute
 from pypy.objspace.cclp.scheduler import W_ThreadGroupScheduler
 
-from pypy.rpython.rgc import gc_swap_pool, gc_clone
+from pypy.rlib.rgc import gc_swap_pool, gc_clone
 
 def newspace(space, w_callable, __args__):
     "application level creation of a new computation space"

@@ -1,5 +1,5 @@
 from pypy.interpreter.gateway import ObjSpace
-from pypy.rpython import rgc # Force registration of gc.collect
+from pypy.rlib import rgc # Force registration of gc.collect
 import gc
 
 def collect(space):

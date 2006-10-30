@@ -1,5 +1,5 @@
 from pypy.rpython.test.test_llinterp import gengraph, interpret
-from pypy.rpython import rgc # Force registration of gc.collect
+from pypy.rlib import rgc # Force registration of gc.collect
 import gc
 
 def test_collect():

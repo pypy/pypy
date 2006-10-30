@@ -377,7 +377,7 @@ def test_weakref_dont_always_callback():
 
 def test_gc_x_operations():
     t = TranslationContext()
-    from pypy.rpython.rgc import gc_clone, gc_swap_pool
+    from pypy.rlib.rgc import gc_clone, gc_swap_pool
     S = lltype.GcStruct("S", ('x', lltype.Signed))
     def f():
         s = lltype.malloc(S)
@@ -799,7 +799,7 @@ class TestUsingFramework(AbstractGCTestClass):
     def test_memory_error_varsize(self):
         py.test.skip("Needs lots (>2GB) of memory.")
         import gc
-        import pypy.rpython.rgc
+        import pypy.rlib.rgc
         from pypy.rpython.lltypesystem import lltype
         N = sys.maxint / 4 + 4
         A = lltype.GcArray(lltype.Signed)
