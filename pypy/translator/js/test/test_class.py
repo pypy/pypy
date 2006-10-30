@@ -67,7 +67,7 @@ class TestClass(object):
         assert f(True) == 1
         assert f(False) == 2
 
-    def DONTtest_global_instance(self): #issue we restart every test with a fresh set of globals
+    def test_global_instance(self): #issue we restart every test with a fresh set of globals
         f = compile_function(llvmsnippet.global_instance, [int])
         assert f(-1) == llvmsnippet.global_instance(-1)
         for i in range(20):
@@ -125,8 +125,8 @@ def test_init_list():
         return b.a[2]
     
     fn = compile_function(init_list, [int])
-    assert fn(8) == 1
     assert fn(3) == INIT_VAL
+    assert fn(8) == 1
 
 class C(object):
     pass

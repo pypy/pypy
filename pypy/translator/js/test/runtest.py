@@ -3,7 +3,7 @@
     Sests with DONT in front of them will probably not be fixed for the time being.
 '''
 
-import py, os, re
+import py, os, re, subprocess
 from pypy.translator.translator import TranslationContext
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.js.js import JS
@@ -54,6 +54,7 @@ class compile_function(object):
         else:
             self.root = root
         self.run_browser = run_browser
+        self.function_calls = []
     
     def source(self):
         return self.js.tmpfile.open().read()
@@ -74,6 +75,7 @@ class compile_function(object):
         else:
             entry_function = self.js.translator.annotator.bookkeeper.getdesc(entry_function).cached_graph(None)
         function_call = "%s(%s)" % (entry_function, args)
+        self.function_calls.append(function_call)
         #if self.js.stackless:
         #    function_call = "slp_entry_point('%s')" % function_call
 
@@ -89,9 +91,20 @@ class compile_function(object):
                 output = out[0]
                 port += 1
         else:
-            cmd = 'echo "load(\'%s\'); print(%s)" | js 2>&1' % (self.js.filename, function_call)
-            log(cmd)
-            output = os.popen(cmd).read().strip()
+#            cmd = 'echo "load(\'%s\'); print(%s)" | js 2>&1' % (self.js.filename, function_call)
+#            log(cmd)
+#            output = os.popen(cmd).read().strip()
+            js = subprocess.Popen(["js"], 
+                                  stdin=subprocess.PIPE,
+                                  stdout=subprocess.PIPE,
+                                  stderr=subprocess.PIPE)
+            input = "load(%r);\n" % self.js.filename.strpath
+            for call in self.function_calls[:-1]:
+                input += "%s;\n" % call
+            input += "print(%s);\n" % self.function_calls[-1]
+            js.stdin.write(input)
+            stdout, stderr = js.communicate()
+            output = (stderr + stdout).strip()
         for s in output.split('\n'):
             log(s)
 
