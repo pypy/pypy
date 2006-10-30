@@ -61,13 +61,45 @@ class HintGraphTransformer(object):
 
     def compute_merge_points(self):
         entrymap = mkentrymap(self.graph)
+        global_merge_blocks = {}
+        for block in self.graph.iterblocks():
+            if not block.operations:
+                continue
+            op = block.operations[0]
+            hashint = False
+            cand = 0
+            if (op.opname == 'hint' and
+                op.args[1].value == {'global_merge_point': True}):
+                hashint = True
+                if len(entrymap[block]) > 1:
+                    global_merge_blocks[block] = True
+                    cand += 1
+                else:
+                    prevblock = entrymap[block][0].prevblock
+                    if len(entrymap[prevblock]) > 1:
+                        global_merge_blocks[prevblock] = True
+                        cand += 1
+            op = block.operations[-1]
+            if (op.opname == 'hint' and
+                op.args[1].value == {'global_merge_point': True}):
+                hashint = True
+                for link in block.exits:
+                    if len(entrymap[link.target]) > 1:
+                        global_merge_blocks[link.target] = True
+                        cand += 1
+            assert not hashint or cand==1, (
+                "ambigous global merge point hint: %r" % block)
+                
         if self.graph_global_mps(self.graph):
             kind = 'global'
         else:
             kind = 'local'
         for block, links in entrymap.items():
             if len(links) > 1 and block is not self.graph.returnblock:
-                self.mergepoint_set[block] = kind
+                if block in global_merge_blocks:
+                    self.mergepoint_set[block] = 'global'
+                else:
+                    self.mergepoint_set[block] = kind
         if kind == 'global':
             self.mergepoint_set[self.graph.startblock] = 'global'
 

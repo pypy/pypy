@@ -278,3 +278,19 @@ class TestPromotion(TimeshiftingTests):
         res = self.timeshift(ll_function, [0], [], policy=P_NOVIRTUAL)
         assert res == ord('2')
         self.check_insns(indirect_call=0)
+
+    def test_explicit_global_merge(self):
+        def ll_two(k):
+            return k*k
+        def ll_function(n, total):
+            while n > 0:
+                hint(None, global_merge_point=True)
+                k = hint(n, promote=True)
+                k = ll_two(k)
+                total += hint(k, variable=True)
+                n -= 1
+            return total
+
+        res = self.timeshift(ll_function, [10, 0], [], policy=P_NOVIRTUAL)
+        assert res == ll_function(10, 0)
+        self.check_insns(int_add=10, int_mul=0)
