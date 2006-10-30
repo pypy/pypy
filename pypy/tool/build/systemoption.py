@@ -4,10 +4,10 @@ from pypy.config.config import ChoiceOption, to_optparse, Config
 
 import sys
 system_optiondescription = OptionDescription('system', '', [
-    ChoiceOption('maxint', 'maximum int value in bytes (32/64)', ['32', '64'],
-                    sys.maxint, '-i --maxint'),
+    IntOption('maxint', 'maximum int value', default=sys.maxint),
     ChoiceOption('byteorder', 'endianness, byte order (little/big)',
-                    sys.byteorder, ['little', 'big'], '-b --byteorder'),
-    ChoiceOption('os', 'operating system', ['win32', 'linux'], default=None),
+                 ['little', 'big'], default=sys.byteorder),
+    ChoiceOption('os', 'operating system', ['win32', 'linux2'],
+                 default=sys.platform),
 ])
 

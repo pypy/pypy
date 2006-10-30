@@ -7,21 +7,12 @@ from pypy.tool.build import config
 
 def parse_options(config):
     # merge system + compile options into one optionparser
-    from optparse import OptionParser, OptionGroup
+    from py.compat.optparse import OptionParser, OptionGroup
     from pypy.config.config import to_optparse
 
-    optparser = OptionParser()
-    sog = OptionGroup(optparser, 'system', 'System options')
-    system_options = to_optparse(config.system_config, 
-                                    config.system_config.getpaths())
-    [sog.add_option(o) for o in system_options.option_list[1:]]
-    optparser.add_option_group(sog)
+    optparser = to_optparse(config.system_config)
     
-    cog = OptionGroup(optparser, 'compile', 'Compile options')
-    compile_options = to_optparse(config.compile_config, 
-                                    config.compile_config.getpaths())
-    [cog.add_option(o) for o in compile_options.option_list[1:]]
-    optparser.add_option_group(cog)
+    to_optparse(config.compile_config, parser=optparser)
 
     (options, args) = optparser.parse_args()
 
@@ -57,12 +48,12 @@ def init(gw, sysinfo, compileinfo, path, email, port=12321):
 
 if __name__ == '__main__':
     from py.execnet import SshGateway, PopenGateway
-    from pypy.tool.build.server import config_to_dict
+    from pypy.config.config import make_dict
 
     optparser, options, args = parse_options(config)
 
-    sysinfo = config_to_dict(config.system_config)
-    compileinfo = config_to_dict(config.compile_config)
+    sysinfo = make_dict(config.system_config)
+    compileinfo = make_dict(config.compile_config)
 
     print 'going to start compile job with info:'
     for k, v in sysinfo.items():

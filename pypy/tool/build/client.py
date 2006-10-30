@@ -77,11 +77,12 @@ initcode = """
 def init(gw, sysconfig, path=None, port=12321, testing=False):
     from pypy.tool.build import execnetconference
     from pypy.tool.build import server
+    from pypy.config.config import make_dict
     
     if path is None:
         path = []
 
-    sysinfo = server.config_to_dict(sysconfig)
+    sysinfo = make_dict(sysconfig)
     conference = execnetconference.conference(gw, port, False)
     channel = conference.remote_exec(initcode % (path, sysinfo, testing))
     return channel

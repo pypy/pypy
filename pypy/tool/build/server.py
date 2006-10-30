@@ -24,18 +24,6 @@ def issubdict(d1, d2):
             return False
     return True
 
-def config_to_dict(config, is_optiondescription=False):
-    from pypy.config.config import OptionDescription
-    ret = {}
-    children = config._descr._children
-    for child in children:
-        value = getattr(config, child._name)
-        if isinstance(child, OptionDescription):
-            ret[child._name] = config_to_dict(value, True)
-        else:
-            ret[child._name] = value
-    return ret
-
 class RequestStorage(object):
     """simple registry that manages information"""
     def __init__(self, info_to_path=[]):
