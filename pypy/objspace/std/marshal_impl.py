@@ -1,4 +1,4 @@
-# implementation of marshalling by multimethods
+/ implementation of marshalling by multimethods
 
 """
 The idea is to have an effective but flexible
@@ -253,7 +253,7 @@ def marshal_w__Long(space, w_long, m):
         m.put_short(digit)
 
 def unmarshal_Long(space, u, tc):
-    from pypy.rpython import rlong
+    from pypy.rlib import rlong
     lng = u.get_int()
     if lng < 0:
         sign = -1
