@@ -39,12 +39,17 @@ class GenConst(GenVarOrConst):
 # allocToken, varsizeAllocToken, kindToken and sigToken.  See their
 # docstrings for more.
 
-class CodeGenerator(object):
+# as they are memo-specialized, these methods can be full Python
+# inside, but each method must always return the same type so the jit
+# can store the results in a list, for example (each backend can
+# decide what this type is independently, though)
 
-    '''Instances of CodeGenerator are responsible for actually
-    generating machine code.  One instance is responsible for one
-    chunk of memory, and when it is filled or the generated code jumps
-    away the code generator is thrown away.'''
+class GenBuilder(object):
+    '''Instances of GenBuilder -- generally referred to as "builders"
+    -- are responsible for actually generating machine code.  One
+    instance is responsible for one chunk of memory, and when it is
+    filled or the generated code jumps away the builder is
+    thrown away.'''
 
     # the genop methods should emit the machine code for a single llop.
     # for most llops, the genop1 and genop2 methods suffice, but some
@@ -87,33 +92,32 @@ class CodeGenerator(object):
         different locations (registers, places on the stack) in
         different basic blocks.
 
-        Returns an instance of CodeGenBlock that serves as a label
-        that can later be jumped to.
+        Returns an instance of GenLabel that can later be jumped to.
         '''
 
     def jump_if_false(self, gv_condition):
-        '''Make a fresh CodeGenerator, insert in the current block a
+        '''Make a fresh builder, insert in the current block a
         check of gv_condition and a conditional jump to the new block
         that is taken if gv_condition is false and return the new
-        CodeGenerator.'''
+        builder.'''
 
     def jump_if_true(self, gv_condition):
         '''See above, with the obvious difference :)'''
 
     def finish_and_return(self, sigtoken, gv_returnvar):
         '''Emit the epilogue code for the function, and the code to
-        return gv_returnvar.  This "closes" the current CodeGenerator.'''
+        return gv_returnvar.  This "closes" the current builder.'''
 
-    def finish_and_goto(self, outputargs_gv, targetblock):
-        '''Insert an unconditional jump to targetblock.
+    def finish_and_goto(self, outputargs_gv, target):
+        '''Insert an unconditional jump to target.
 
         outputargs_gv is a list of GenVarOrConsts which corresponds to Link.args
-        targetblock is an instance of CodeGenBlock.
+        target is an instance of GenLabel.
 
         This must insert code to make sure that the values in
-        outputargs_gv go where the targetblock expects them to be.
+        outputargs_gv go where the target block expects them to be.
 
-        This "closes" the current CodeGenerator.
+        This "closes" the current builder.
         '''
 
     def flexswitch(self, gv_exitswitch):
@@ -125,7 +129,7 @@ class CodeGenerator(object):
 
         Returns an instance of CodeGenSwitch, see below.
 
-        This "closes" the current CodeGenerator.
+        This "closes" the current builder.
         '''
 
     def show_incremental_progress(self):
@@ -134,7 +138,7 @@ class CodeGenerator(object):
         So far, the machine code backends don\'t actually do anything for this.
         '''
 
-class CodeGenBlock(object):
+class GenLabel(object):
     '''A "smart" label.  Represents an address of the start of a basic
     block and the location of the inputargs on entry to that block.'''
 
@@ -150,31 +154,54 @@ class AbstractRGenOp(object):
 
     def newgraph(self, sigtoken):
         """Begin code generation for a new function, which signature
-        described by sigtoken.  Returns builder, entrypoint,
-        inputargs_gv where builder is an instance of CodeGenerator,
+        described by sigtoken.  Returns a new builder, entrypoint,
+        inputargs_gv where the new builder is for the startblock,
         entrypoint is the address of the new function and inputargs_gv
         is the location of each argument on entry to the function."""
 
     # all staticmethods commented out for the sake of the annotator
 
-   #@staticmethod
     #@specialize.genconst(0)
-    #def genconst(llvalue):
-    #    """Convert an llvalue to an instance of (a subclass of) GenConst."""
+    #def genconst(self, llvalue):
+    #    """Convert an llvalue to an instance of (a subclass of)
+    #    GenConst.  The difference between this and
+    #    constPrebuiltGlobal is that this method can use storage
+    #    associated with the current RGenOp, i.e. self.  If self is
+    #    thrown away, it's safe for anything that this method has
+    #    returned to disappear too."""
     #    raise NotImplementedError
 
-    #constPrebuiltGlobal = genconst
-
-    #def gencallableconst(self, sigtoken, name, entrypointaddr):
-    #    """"""
+    #@staticmethod
+    #@specialize.genconst(0)
+    #def constPrebuiltGlobal(llvalue):
+    #    """Convert an llvalue to an instance of (a subclass of) GenConst.
+    #    This is for immortal prebuilt data."""
     #    raise NotImplementedError
 
-    # the "token" methods render non-RPython data structures
-    # (instances of LowLevelType) into RPython data structures.  they
-    # are memo-specialized, so they can be full Python inside, but
-    # each method must always return the same type, so the jit can
-    # store the results in a list, for example (each backend can
-    # decide what this type is independently, though)
+    #def gencallableconst(self, sigtoken, name, entrypoint):
+    #    """Returns a GenConst that contains a function pointer.  This
+    #    might be the time to do some further optimization of the
+    #    generated code.
+    #
+    #    sigtoken describes the signature, name is for debugging
+    #    purposes and entrypoint is what was returned from
+    #    newgraph."""
+    #    raise NotImplementedError
+
+    def replay(self, label, kinds):
+        '''Return a builder that will "generate" exactly the same code
+        as was already generated, starting from label.  kinds is a
+        list of kindTokens for the inputargs associated with label.
+
+        The purpose of this is to reconstruct the knowledge of the
+        locations of the GenVars at some later point in the code, any
+        code actually generated during replaying is thrown away.'''
+
+    #@staticmethod
+    #def erasedType(T):
+    #    '''Return the canonical type T2 such that kindToken(T) == kindToken(T2).
+    #    For example, it\'s common to erase all Ptrs to llmemory.GCREF.
+    #    '''
 
     #@staticmethod
     #@specialize.memo()
@@ -225,10 +252,10 @@ class CodeGenSwitch(object):
     to it "later", i.e. after it has been executed a few times.'''
 
     def add_case(self, gv_case):
-        '''Make a new CodeGenerator that will be jumped to when the
+        '''Make a new builder that will be jumped to when the
         switched-on GenVar takes the value of the GenConst gv_case.'''
 
     def add_default(self):
-        '''Make a new CodeGenerator that will be jumped to when the
+        '''Make a new builder that will be jumped to when the
         switched-on GenVar does not take the value of any case.'''
 

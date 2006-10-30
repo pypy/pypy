@@ -1,6 +1,6 @@
 from pypy.rpython.objectmodel import specialize
 from pypy.rpython.lltypesystem import lltype
-from pypy.jit.codegen.model import AbstractRGenOp, CodeGenBlock, CodeGenerator
+from pypy.jit.codegen.model import AbstractRGenOp, GenLabel, GenBuilder
 from pypy.jit.codegen.model import GenVar, GenConst, CodeGenSwitch
 from pypy.jit.codegen.llgraph import llimpl
 from pypy.rpython.lltypesystem.rclass import fishllattr
@@ -29,7 +29,7 @@ gv_Void = LLConst(llimpl.constTYPE(lltype.Void))
 gv_dummy_placeholder = LLConst(llimpl.dummy_placeholder)
 
 
-class LLBlock(CodeGenBlock):
+class LLLabel(GenLabel):
     def __init__(self, b, g):
         self.b = b
         self.g = g
@@ -54,7 +54,7 @@ class LLFlexSwitch(CodeGenSwitch):
         builder.lnk = l_default
         return builder
 
-class LLBuilder(CodeGenerator):
+class LLBuilder(GenBuilder):
     lnk = llimpl.nulllink
 
     def __init__(self, g):
@@ -140,12 +140,12 @@ class LLBuilder(CodeGenerator):
         llimpl.closelink(lnk, args_gv, self.b)
         for i in range(len(args_gv)):
             args_gv[i] = newb_args_gv[i]
-        return LLBlock(self.b, self.g)
+        return LLLabel(self.b, self.g)
 
-    def finish_and_goto(self, args_gv, targetblock):
+    def finish_and_goto(self, args_gv, target):
         lnk = self.lnk or llimpl.closeblock1(self.b)
         self.lnk = llimpl.nulllink
-        llimpl.closelink(lnk, args_gv, targetblock.b)
+        llimpl.closelink(lnk, args_gv, target.b)
 
     def finish_and_return(self, sigtoken, gv_returnvar):
         gv_returnvar = gv_returnvar or gv_dummy_placeholder
@@ -243,8 +243,8 @@ class RGenOp(AbstractRGenOp):
 
     constPrebuiltGlobal = genconst
 
-    def replay(self, block, kinds):
-        builder = LLBuilder(block.g)
+    def replay(self, label, kinds):
+        builder = LLBuilder(label.g)
         args_gv = builder._newblock(kinds)
         return builder, args_gv
 

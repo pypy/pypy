@@ -3,7 +3,7 @@ from pypy.rpython.objectmodel import specialize
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.jit.codegen.i386.ri386 import *
 from pypy.jit.codegen.i386.codebuf import InMemoryCodeBuilder, CodeBlockOverflow
-from pypy.jit.codegen.model import AbstractRGenOp, CodeGenBlock, CodeGenerator
+from pypy.jit.codegen.model import AbstractRGenOp, GenLabel, GenBuilder
 from pypy.jit.codegen.model import GenVar, GenConst, CodeGenSwitch
 from pypy.rpython import objectmodel
 from pypy.rpython.annlowlevel import llhelper
@@ -137,7 +137,7 @@ class AddrConst(GenConst):
         return "const=<0x%x>" % (llmemory.cast_adr_to_int(self.addr),)
 
 
-class Block(CodeGenBlock):
+class Label(GenLabel):
 
     def __init__(self, startaddr, arg_positions, stackdepth):
         self.startaddr = startaddr
@@ -216,7 +216,7 @@ class FlexSwitch(CodeGenSwitch):
         mc.done()
         return targetbuilder
 
-class Builder(CodeGenerator):
+class Builder(GenBuilder):
 
     def __init__(self, rgenop, mc, stackdepth):
         self.rgenop = rgenop
@@ -375,7 +375,7 @@ class Builder(CodeGenerator):
             # remember the var's position in the stack
             arg_positions.append(gv.stackpos)
             seen[gv.stackpos] = None
-        return Block(self.mc.tell(), arg_positions, self.stackdepth)
+        return Label(self.mc.tell(), arg_positions, self.stackdepth)
 
     def jump_if_false(self, gv_condition):
         targetbuilder = self._fork()
@@ -397,9 +397,9 @@ class Builder(CodeGenerator):
         self.mc.RET()
         self._close()
 
-    def finish_and_goto(self, outputargs_gv, targetblock):
-        remap_stack_layout(self, outputargs_gv, targetblock)
-        self.mc.JMP(rel32(targetblock.startaddr))
+    def finish_and_goto(self, outputargs_gv, target):
+        remap_stack_layout(self, outputargs_gv, target)
+        self.mc.JMP(rel32(target.startaddr))
         self._close()
 
     def flexswitch(self, gv_exitswitch):
@@ -688,24 +688,24 @@ def gc_malloc_fnaddr():
 
 # ____________________________________________________________
 
-def remap_stack_layout(builder, outputargs_gv, targetblock):
+def remap_stack_layout(builder, outputargs_gv, target):
 ##    import os
 ##    s = ', '.join([gv.repr() for gv in outputargs_gv])
 ##    os.write(2, "writing at %d (stack=%d, [%s])\n  --> %d (stack=%d, %s)\n"
 ##     % (builder.mc.tell(),
 ##        builder.stackdepth,
 ##        s,
-##        targetblock.startaddr,
-##        targetblock.stackdepth,
-##        targetblock.arg_positions))
+##        target.startaddr,
+##        target.stackdepth,
+##        target.arg_positions))
 
-    N = targetblock.stackdepth
+    N = target.stackdepth
     if builder.stackdepth < N:
         builder.mc.SUB(esp, imm(WORD * (N - builder.stackdepth)))
         builder.stackdepth = N
 
     M = len(outputargs_gv)
-    arg_positions = targetblock.arg_positions
+    arg_positions = target.arg_positions
     assert M == len(arg_positions)
     targetlayout = [None] * N
     srccount = [-N] * N
@@ -784,7 +784,7 @@ class ReplayFlexSwitch(CodeGenSwitch):
     def add_default(self):
         return self.replay_builder
 
-class ReplayBuilder(CodeGenerator):
+class ReplayBuilder(GenBuilder):
 
     def __init__(self, rgenop):
         self.rgenop = rgenop
@@ -842,7 +842,7 @@ class ReplayBuilder(CodeGenerator):
     def finish_and_return(self, sigtoken, gv_returnvar):
         pass
 
-    def finish_and_goto(self, outputargs_gv, targetblock):
+    def finish_and_goto(self, outputargs_gv, target):
         pass
 
     def flexswitch(self, gv_exitswitch):
@@ -883,7 +883,7 @@ class RI386GenOp(AbstractRGenOp):
         inputargs_gv = builder._write_prologue(sigtoken)
         return builder, entrypoint, inputargs_gv
 
-    def replay(self, block, kinds):
+    def replay(self, label, kinds):
         return ReplayBuilder(self), [dummy_var] * len(kinds)
 
     @specialize.genconst(1)

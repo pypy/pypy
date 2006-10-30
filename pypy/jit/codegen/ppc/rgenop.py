@@ -1,4 +1,4 @@
-from pypy.jit.codegen.model import AbstractRGenOp, CodeGenBlock, CodeGenerator
+from pypy.jit.codegen.model import AbstractRGenOp, GenLabel, GenBuilder
 from pypy.jit.codegen.model import GenVar, GenConst, CodeGenSwitch
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.objectmodel import specialize, we_are_translated
@@ -98,15 +98,15 @@ def emit(self, value):
     self.mc.write(value)
 RPPCAssembler.emit = emit
 
-def prepare_for_jump(builder, outputargs_gv, targetblock):
-    assert len(targetblock.arg_locations) == len(outputargs_gv)
+def prepare_for_jump(builder, outputargs_gv, target):
+    assert len(target.arg_locations) == len(outputargs_gv)
     outregs = []
     targetregs = []
     for gv in outputargs_gv:
         assert isinstance(gv, Var)
         assert isinstance(gv.location, RegisterLocation)
         outregs.append(gv.location.reg)
-    for loc in targetblock.arg_locations:
+    for loc in target.arg_locations:
         assert isinstance(loc, RegisterLocation)
         targetregs.append(loc.reg)
     for i in range(len(outregs)):
@@ -154,7 +154,7 @@ class MachineCodeBlock:
 
 ## binaryfn = CFUNCTYPE(c_int, c_int, c_int)    # for testing
 
-class Block(CodeGenBlock):
+class Label(GenLabel):
 
     def __init__(self, startaddr, arg_locations):
         self.startaddr = startaddr
@@ -195,7 +195,7 @@ class Block(CodeGenBlock):
 ##     def add_case(self, gv_case):
 ##     def add_default(self):
 
-class Builder(CodeGenerator):
+class Builder(GenBuilder):
 
     def __init__(self, rgenop, mc, parent):
         self.rgenop = rgenop
@@ -227,10 +227,10 @@ class Builder(CodeGenerator):
         self.asm.blr()
         self._close()
 
-    def finish_and_goto(self, outputargs_gv, targetblock):
-        prepare_for_jump(self, outputargs_gv, targetblock)
+    def finish_and_goto(self, outputargs_gv, target):
+        prepare_for_jump(self, outputargs_gv, target)
         gv = self.newvar()
-        self.asm.load_word(gv.reg(), targetblock.startaddr)
+        self.asm.load_word(gv.reg(), target.startaddr)
         self.asm.mtctr(gv.reg())
         self.asm.bctr()
         self._close()
@@ -255,7 +255,7 @@ class Builder(CodeGenerator):
             # remember the var's location
             arg_locations.append(gv.location)
             seen[gv.location] = None
-        return Block(self.asm.mc.tell(), arg_locations)
+        return Label(self.asm.mc.tell(), arg_locations)
 
     def newvar(self):
         d = self.curreg
