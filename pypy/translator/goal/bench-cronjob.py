@@ -12,9 +12,13 @@ tmpdir  = py.std.tempfile.gettempdir() + '/usession-' + os.environ['USER'] + '/'
 cflags  = "-march=pentium4 -O3 -fomit-frame-pointer"
 lflags  = "-lgc -lm -lpthread"
 
+dry_run = False
+
 def run(cmd):
     print 'RUN:', cmd
-    os.system(cmd)
+    sys.stdout.flush()
+    if not dry_run:
+        os.system(cmd)
 
 def update_pypy():
     os.chdir(homedir + '/projects/pypy-dist')
@@ -110,7 +114,8 @@ def compile(backend):
 
     os.chdir(homedir + '/projects/pypy-dist/pypy/translator/goal')
     run('/usr/local/bin/python translate.py --backend=%(backend)s%(featureoptions)s%(translateoptions)s --text --batch targetpypystandalone.py %(targetoptions)s 2>&1' % locals())
-    run('mv %s/entry_point.ll %s/pypy.ll' % (tmpdir, tmpdir))
+    if backend == 'llvm':
+        run('mv %s/entry_point.ll %s/pypy.ll' % (tmpdir, tmpdir))
 
     os.chdir(homedir + '/projects/pypy-dist')
     try:
@@ -125,11 +130,12 @@ def compile(backend):
     if backend == 'llvm':   #create llvm exectutable from the current source
         compile_llvm_variants(revision, features)
     elif os.path.exists(basename):                   #copy executable
-        pypy = open(basename, 'rb').read()
-        if len(pypy) > 0:
-            open(realname, 'wb').write(pypy)
-        os.chmod(realname, stat.S_IRWXU)
-        os.unlink(basename)
+        run("mv %s %s" % (basename, realname))
+        #pypy = open(basename, 'rb').read()
+        #if len(pypy) > 0:
+        #    open(realname, 'wb').write(pypy)
+        #os.chmod(realname, stat.S_IRWXU)
+        #os.unlink(basename)
 
 def get_load():
     g = os.popen('uptime', 'r')
@@ -144,32 +150,34 @@ def benchmark():
     startload = get_load()
     run('/usr/local/bin/withlock /tmp/cpu_cycles_lock /usr/local/bin/python bench-unix.py 2>&1 | tee benchmark.txt' % locals())
     endload = get_load()
-    f = open('benchmark.html', 'w')
-    print >> f, "<html><body>"
-    print >> f, "<pre>"
-    print >> f, "Benchmark started:", startload
-    print >> f, "            ended:", endload
-    print >> f
-    f.write(open('benchmark.txt').read())
-    print >> f, "</pre>"
-    print >> f, "</body></html>"
-    f.close()
+    if not dry_run:
+        f = open('benchmark.html', 'w')
+        print >> f, "<html><body>"
+        print >> f, "<pre>"
+        print >> f, "Benchmark started:", startload
+        print >> f, "            ended:", endload
+        print >> f
+        f.write(open('benchmark.txt').read())
+        print >> f, "</pre>"
+        print >> f, "</body></html>"
+        f.close()
     #run('scp benchmark.html ericvrp@codespeak.net:public_html/benchmark/index.html')
 
 def main(backends=[]):
     if backends == []:  #_ prefix means target specific option, # prefix to outcomment
         backends = [backend.strip() for backend in """
-            llvm
+            #llvm
             llvm--_objspace-std-withstrdict
             c
             c--gc=framework
             c--_thread
             c--stackless
-            c--gc=framework--cc=c++
-            c--cc=c++
-            c--_objspace-std-withstrdict
+            #c--gc=framework--cc=c++
+            #c--cc=c++
+            #c--_objspace-std-withstrdict
             c--profopt='-c "from richards import *;main(iterations=1)"'
             c--_objspace-std-withstrdict--profopt='-c "from richards import *;main(iterations=1)"'
+            c--gc=framework--_objspace-std-withstrdict--profopt='-c "from richards import *;main(iterations=1)"'
             """.split('\n') if backend.strip() and not backend.strip().startswith('#')]
     print time.ctime()
     for backend in backends:
@@ -188,7 +196,11 @@ def main(backends=[]):
     print 80*'-'
 
 if __name__ == '__main__':
-    if sys.argv[1:] == ['--benchmark-only']:
+    args = sys.argv[1:]
+    if args and args[0] == '--benchmark-only':
         benchmark()
     else:
-        main(sys.argv[1:])
+        if args and args[0] == '--dry-run':
+            del args[0]
+            dry_run = True
+        main(*args)

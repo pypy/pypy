@@ -17,12 +17,15 @@ class BenchmarkResult(object):
     def __init__(self, filename, max_results=10):
         self.filename    = filename
         self.max_results = max_results
-        try:
+        if os.path.exists(filename):
             f = open(filename, 'r')
             self.n_results   = pickle.load(f)
             self.best_result = pickle.load(f)
             f.close()
-        except:
+            # any exception while loading the file is best reported
+            # as a crash, instead of as a silent loss of all the
+            # data :-/
+        else:
             self.n_results   = {}
             self.best_result = {}
 
@@ -86,7 +89,7 @@ def get_executables():  #sorted by revision number (highest first)
     exes.sort()
     exes.reverse()
     exes = [s[1] for s in exes]
-    return exes[:100]
+    return exes
 
 def main():
     benchmark_result = BenchmarkResult('bench-unix.benchmark_result')
