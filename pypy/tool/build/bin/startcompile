@@ -11,7 +11,6 @@ def parse_options(config):
     from pypy.config.config import to_optparse
 
     optparser = to_optparse(config.system_config)
-    
     to_optparse(config.compile_config, parser=optparser)
 
     (options, args) = optparser.parse_args()

@@ -14,6 +14,7 @@ from pypy.config import pypyoption
 
 from pypy.translator.goal import targetpypystandalone
 from pypy.translator.driver import TranslationDriver
+from pypy.tool.udir import udir
 
 if config.server in ['localhost', '127.0.0.1']:
     gw = PopenGateway()
@@ -21,6 +22,16 @@ else:
     gw = SshGateway(config.server)
 channel = init(gw, config.system_config, path=config.path,
                 port=config.port)
+
+class ChannelWrapper(object):
+    def __init__(self, channel):
+        self.channel = channel
+        
+    def write(self, data):
+        self.channel.send(data)
+
+    def close(self):
+        self.channel.send(None)
 
 print channel.receive() # welcome message
 try:
@@ -47,15 +58,12 @@ try:
                         default_goal='compile')
             driver.proceed()
 
-            # write the zip to the server in chunks to server
-            # XXX we're still faking this
-            zipfp = (path.packagedir / 'test/test.zip').open()
-            while True:
-                chunk = zipfp.read(BUFSIZE)
-                if not chunk:
-                    break
-                channel.send(chunk)
-            channel.send(None) # tell the server we're done
+            channelwrapper = ChannelWrapper(channel)
+            zip = ZipFile(channelwrapper, 'w')
+            for fpath in udir.visit():
+                zip.writestr(fpath.relto(outdir), fpath.read())
+            zip.close()
+
             print 'done with compilation, waiting for next'
     except EOFError:
         sys.exit()
