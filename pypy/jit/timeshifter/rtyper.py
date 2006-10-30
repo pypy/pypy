@@ -57,8 +57,6 @@ class HintRTyper(RPythonTyper):
         self.sigs = {}
         self.dispatchsubclasses = {}
 
-        (self.s_CodeGenerator,
-         self.r_CodeGenerator) = self.s_r_instanceof(cgmodel.CodeGenerator)
         (self.s_JITState,
          self.r_JITState)      = self.s_r_instanceof(rtimeshift.JITState)
         (self.s_RedBox,
@@ -69,8 +67,6 @@ class HintRTyper(RPythonTyper):
          self.r_OopSpecDesc)   = self.s_r_instanceof(oop.OopSpecDesc)
         (self.s_ConstOrVar,
          self.r_ConstOrVar)    = self.s_r_instanceof(cgmodel.GenVarOrConst)
-        (self.s_Block,
-         self.r_Block)         = self.s_r_instanceof(cgmodel.CodeGenBlock)
         (self.s_Queue,
          self.r_Queue)       = self.s_r_instanceof(rtimeshift.BaseDispatchQueue)
 
