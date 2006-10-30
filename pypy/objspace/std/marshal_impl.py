@@ -1,4 +1,4 @@
-/ implementation of marshalling by multimethods
+# implementation of marshalling by multimethods
 
 """
 The idea is to have an effective but flexible
