@@ -58,7 +58,7 @@ class LoopFinder(object):
 class Function(Node, Generator):
     def __init__(self, db, graph, name=None, is_method=False, is_entrypoint=False, _class = None):
         self.db = db
-        self.cts = db.type_system_class(db)
+        self.cts = db.genoo.TypeSystem(db)
         self.graph = graph
         self.name = name or self.db.get_uniquename(self.graph, graph.name)
         self.is_method = is_method
@@ -347,7 +347,7 @@ class Function(Node, Generator):
 
     def _render_op(self, op):
         # FIXME: what to do here?
-        instr_list = self.db.opcode_dict.get(op.opname, None)
+        instr_list = self.db.genoo.opcodes.get(op.opname, None)
         if instr_list is not None:
             #assert isinstance(instr_list, InstructionList)
             instr_list.render(self, op)

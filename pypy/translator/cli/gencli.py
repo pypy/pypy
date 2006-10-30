@@ -5,6 +5,7 @@ import py
 from py.compat import subprocess
 from pypy.config.config import Config
 from pypy.config.pypyoption import pypy_optiondescription
+from pypy.translator.oosupport.genoo import GenOO
 from pypy.translator.cli import conftest
 from pypy.translator.cli.ilgenerator import IlasmGenerator
 from pypy.translator.cli.function import Function, log
@@ -28,84 +29,37 @@ except NameError:
 #USE_STACKOPT = True and not getoption('nostackopt')
 USE_STACKOPT = False
 
-class GenCli(object):
-    def __init__(self, tmpdir, translator, entrypoint=None, type_system_class=CTS,
-                 opcode_dict=opcodes, name_suffix='.il', function_class=Function,
-                 database_class = LowLevelDatabase, pending_graphs=(), config=None):
-        self.tmpdir = tmpdir
-        self.translator = translator
-        self.entrypoint = entrypoint
-        self.db = database_class(type_system_class = type_system_class, opcode_dict = opcode_dict,
-            function_class = function_class)
 
+class GenCli(GenOO):
+    TypeSystem = CTS
+    Function = Function
+    opcodes = opcodes
+    Database = LowLevelDatabase
+    log = log
+
+    def __init__(self, tmpdir, translator, entrypoint, config=None):
+        GenOO.__init__(self, tmpdir, translator, entrypoint, config)
         for node in get_prebuilt_nodes(translator, self.db):
             self.db.pending_node(node)
-
-        if entrypoint is None:
-            self.assembly_name = self.translator.graphs[0].name
-        else:
-            entrypoint.set_db(self.db)
-            self.assembly_name = entrypoint.get_name()
-
-        self.tmpfile = tmpdir.join(self.assembly_name + name_suffix)
+        self.assembly_name = entrypoint.get_name()
+        self.tmpfile = tmpdir.join(self.assembly_name + '.il')
         self.const_stat = str(tmpdir.join('const_stat'))
-        if config is None:
-            config = Config(pypy_optiondescription)
-        self.config = config
 
-    def generate_source(self , asm_class = IlasmGenerator ):
+    def generate_source(self):
+        GenOO.generate_source(self)
+        self.db.const_count.dump(self.const_stat)
+        query.savedesc()
+        return self.tmpfile.strpath
+
+    def create_assembler(self):
         out = self.tmpfile.open('w')
         if getoption('stdout'):
             out = Tee(sys.stdout, out)
 
         if USE_STACKOPT:
-            self.ilasm = StackOptGenerator(out, self.assembly_name, self.config)
+            return StackOptGenerator(out, self.assembly_name, self.config)
         else:
-            self.ilasm = asm_class(out, self.assembly_name, self.config)
-
-        # TODO: instance methods that are also called as unbound
-        # methods are rendered twice, once within the class and once
-        # as an external function. Fix this.
-        self.fix_names()
-        self.gen_entrypoint()
-        self.gen_pendings()
-        self.db.gen_constants(self.ilasm)
-        out.close()
-        self.db.const_count.dump(self.const_stat)
-        query.savedesc()
-        return self.tmpfile.strpath
-
-    def gen_entrypoint(self):
-        if self.entrypoint:
-            self.entrypoint.db = self.db
-            self.db.pending_node(self.entrypoint)
-        else:
-            self.db.pending_function(self.translator.graphs[0])
-
-    def gen_pendings(self):
-        n = 0
-        while self.db._pending_nodes:
-            node = self.db._pending_nodes.pop()
-            node.render(self.ilasm)
-            self.db._rendered_nodes.add(node)
-
-            n+=1
-            if (n%100) == 0:
-                total = len(self.db._pending_nodes) + n
-                log.graphs('Rendered %d/%d (approx. %.2f%%)' %\
-                           (n, total, n*100.0/total))
-
-    def fix_names(self):
-        # it could happen that two distinct graph have the same name;
-        # here we assign an unique name to each graph.
-        names = set()
-        for graph in self.translator.graphs:
-            base_name = graph.name
-            i = 0
-            while graph.name in names:
-                graph.name = '%s_%d' % (base_name, i)
-                i+=1
-            names.add(graph.name)
+            return IlasmGenerator(out, self.assembly_name, self.config)
 
     def build_exe(self):        
         if getoption('source'):

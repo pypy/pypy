@@ -49,13 +49,11 @@ def isinf(v):
     return v!=0 and (v == v*2)
 
 class LowLevelDatabase(object):
-    def __init__(self, type_system_class = CTS, opcode_dict = opcodes, function_class = Function):
+    def __init__(self, genoo):
         self._pending_nodes = set()
-        self.opcode_dict = opcode_dict
         self._rendered_nodes = set()
-        self.function_class = function_class
-        self.type_system_class = type_system_class
-        self.cts = type_system_class(self)
+        self.genoo = genoo
+        self.cts = genoo.TypeSystem(self)
         self.classes = {} # INSTANCE --> class_name
         self.classnames = set() # (namespace, name)
         self.recordnames = {} # RECORD --> name
@@ -92,7 +90,7 @@ class LowLevelDatabase(object):
 
     def pending_function(self, graph, functype=None):
         if functype is None:
-            function = self.function_class(self, graph)
+            function = self.genoo.Function(self, graph)
         else:
             function = functype(self, graph)
         self.pending_node(function)

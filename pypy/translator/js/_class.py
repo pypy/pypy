@@ -8,7 +8,7 @@ from pypy.translator.cli.cts import CTS
 class Class(Node):
     def __init__(self, db, classdef):
         self.db = db
-        self.cts = db.type_system_class(db)
+        self.cts = db.genoo.TypeSystem(db)
         self.classdef = classdef
         self.name = classdef._name.replace('.', '_')#[-1]
 
@@ -63,7 +63,7 @@ class Class(Node):
                 ilasm.inherits(self.name, basename)
         
         for m_name, m_meth in self.classdef._methods.iteritems():
-            f = self.db.function_class(self.db, m_meth.graph, m_name, is_method = True, _class = self.name)
+            f = self.db.genoo.Function(self.db, m_meth.graph, m_name, is_method = True, _class = self.name)
             f.render(ilasm)
         
         

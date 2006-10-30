@@ -26,12 +26,10 @@ except NameError:
     from sets import Set as set
 
 class LowLevelDatabase(object):
-    def __init__(self, backend_mapping = None):
+    def __init__(self, genoo):
         self._pending_nodes = set()
-        self.opcode_dict = backend_mapping['opcode_dict']
+        self.genoo = genoo
         self._rendered_nodes = set()
-        self.function_class = backend_mapping['function_class']
-        self.type_system_class = backend_mapping['type_system_class']
         self.classes = {} # classdef --> class_name
         self.functions = {} # graph --> function_name
         self.function_names = {} # graph --> real_name
@@ -43,8 +41,7 @@ class LowLevelDatabase(object):
         self.const_var = Variable("__consts")
         self.name_manager = JavascriptNameManager(self)
         self.pending_consts = []
-        self.backend_mapping = backend_mapping
-        self.cts = self.type_system_class(self)
+        self.cts = self.genoo.TypeSystem(self)
         self.prepare_builtins()
         self.proxies = []
     
@@ -64,7 +61,7 @@ class LowLevelDatabase(object):
         return False
 
     def pending_function(self, graph):
-        self.pending_node(self.function_class(self, graph))
+        self.pending_node(self.genoo.Function(self, graph))
 
     def pending_class(self, classdef):
         c = Class(self, classdef)
@@ -199,7 +196,7 @@ class AbstractConst(object):
     def __init__(self, db, const):
         self.db = db
         self.const = const
-        self.cts = db.type_system_class(db)
+        self.cts = db.genoo.TypeSystem(db)
         self.depends = set()
         self.depends_on = set()
 
@@ -256,7 +253,7 @@ class InstanceConst(AbstractConst):
         self.depends = set()
         self.depends_on = set()
         self.db = db
-        self.cts = db.type_system_class(db)
+        self.cts = db.genoo.TypeSystem(db)
         self.obj = obj
         if static_type is None:
             self.static_type = obj._TYPE

@@ -33,24 +33,39 @@ def _path_join(root_path, *paths):
         path = os.path.join(path, p)
     return path
 
+class Tee(object):
+    def __init__(self, *args):
+        self.outfiles = args
+
+    def write(self, s):
+        for outfile in self.outfiles:
+            outfile.write(s)
+
+    def close(self):
+        for outfile in self.outfiles:
+            if outfile is not sys.stdout:
+                outfile.close()
+
 class JS(GenOO):
+    TypeSystem = JTS
+    opcodes = opcodes
+    Function = Function
+    Database = LowLevelDatabase
+    
     def __init__(self, translator, functions=[], stackless=False, compress=False, \
             logging=False, use_debug=False):
-        backend_mapping = {
-            'type_system_class' : JTS,
-            'opcode_dict' : opcodes,
-            'name_suffix' : '.js',
-            'function_class' : Function,
-            'database_class' : LowLevelDatabase,
-            'asm_class' : AsmGen,
-        }
         if not isinstance(functions, list):
             functions = [functions]
-        GenOO.__init__(self, udir, translator, backend_mapping = backend_mapping, pending_graphs = [
-            translator.annotator.bookkeeper.getdesc(f).cachedgraph(None) for f in functions ])
-        self.translator = translator
+        GenOO.__init__(self, udir, translator, None)
+
+        pending_graphs = [translator.annotator.bookkeeper.getdesc(f).cachedgraph(None) for f in functions ]
+        for graph in pending_graphs:
+            self.db.pending_function(graph)
+
         self.db.translator = translator
         self.use_debug = use_debug
+        self.assembly_name = self.translator.graphs[0].name        
+        self.tmpfile = udir.join(self.assembly_name + '.js')
     
     def gen_pendings(self):
         while self.db._pending_nodes:
@@ -72,6 +87,21 @@ class JS(GenOO):
         """
         for proxy in self.db.proxies:
             proxy.render(self.ilasm)
+
+
+    def create_assembler(self):
+        out = self.tmpfile.open('w')        
+        return AsmGen(out, self.assembly_name)
+
+    def generate_source(self):
+        self.ilasm = self.create_assembler()
+        self.fix_names()
+        self.gen_entrypoint()
+        while self.db._pending_nodes:
+            self.gen_pendings()
+            self.db.gen_constants(self.ilasm)
+        self.ilasm.close()
+        return self.tmpfile.strpath
         
     def write_source(self):
         
@@ -87,7 +117,7 @@ class JS(GenOO):
         f = self.tmpfile.open("w")
         s = open(src_filename).read()
         f.write(s)
-        self.ilasm = self.backend_mapping['asm_class'](f, self.assembly_name )
+        self.ilasm = AsmGen(f, self.assembly_name )
         self.generate_communication_proxy()
         f.write(data)
         f.close()

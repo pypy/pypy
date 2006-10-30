@@ -63,6 +63,9 @@ class AsmGen(object):
         self.subst_table = {}
         self.right_hand = Queue([], self.subst_table)
         self.codegenerator = CodeGenerator(outfile)
+
+    def close(self):
+        self.outfile.close()
     
     def begin_function(self, name, arglist):
         args = ",".join([i[1] for i in arglist])

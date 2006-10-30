@@ -10,7 +10,7 @@ except NameError:
 class Class(Node):
     def __init__(self, db, INSTANCE, namespace, name):
         self.db = db
-        self.cts = db.type_system_class(db)
+        self.cts = db.genoo.TypeSystem(db)
         self.INSTANCE = INSTANCE
         self.namespace = namespace
         self.name = name
@@ -96,7 +96,7 @@ class Class(Node):
                 SELF = args[0].concretetype
                 if not ootype.isSubclass(self.INSTANCE, SELF):
                     continue
-                f = self.db.function_class(self.db, m_meth.graph, m_name, is_method = True)
+                f = self.db.genoo.Function(self.db, m_meth.graph, m_name, is_method = True)
                 f.render(ilasm)
             else:
                 # abstract method
