@@ -3,7 +3,7 @@ import py
 packageparent = py.magic.autopath().dirpath().dirpath().dirpath().dirpath()
 
 # general settings, used by both server and client
-server = 'localhost'
+server = '134.99.66.245'
 port = 12321
 path = [str(packageparent)]
 
@@ -20,6 +20,7 @@ system_config = Config(system_optiondescription)
 # cmdline args, defaults are taken from the optiondescription
 from pypy.config.pypyoption import pypy_optiondescription
 compile_config = Config(pypy_optiondescription)
+compile_config.override({'translation.backend': 'c'})
 
 # settings for the server
 projectname = 'pypy'

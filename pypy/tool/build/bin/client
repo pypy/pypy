@@ -12,6 +12,9 @@ from pypy.tool.build.client import init
 from pypy.config.config import to_optparse, Config
 from pypy.config import pypyoption
 
+from pypy.translator.goal import targetpypystandalone
+from pypy.translator.driver import TranslationDriver
+
 if config.server in ['localhost', '127.0.0.1']:
     gw = PopenGateway()
 else:
@@ -39,6 +42,10 @@ try:
             config.override(compileinfo)
 
             # XXX compile here...
+            driver = TranslationDriver.from_targetspec(
+                        targetpypystandalone.__dict__, config=config,
+                        default_goal='compile')
+            driver.proceed()
 
             # write the zip to the server in chunks to server
             # XXX we're still faking this
