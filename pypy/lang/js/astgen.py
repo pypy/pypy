@@ -22,6 +22,11 @@ class Script(Node):
 #        return Script(self.getlist(d), d['varDecl'], d['funcDecl'])
 #    from_dict = staticmethod(from_dict)
 
+class Assign(Node):
+    def __init__(self, identifier, expr):
+        self.identifier = identifier
+        self.expr = expr
+
 class Semicolon(Node):
     def __init__(self, expr):
         self.expr = expr
@@ -54,20 +59,23 @@ def getlist(d):
     return output
 
 def from_dict(d):
-    if d['type'] == 'SCRIPT':
+    tp = d['type']
+    if tp == 'SCRIPT':
         # XXX: Cannot parse it right now
         return Script(getlist(d), [], [])
-    elif d['type'] == 'SEMICOLON':
+    elif tp == 'SEMICOLON':
         return Semicolon(from_dict(d['expression']))
-    elif d['type'] == 'NUMBER':
+    elif tp == 'NUMBER':
         return Number(int(d['value']))
-    elif d['type'] == 'IDENTIFIER':
+    elif tp == 'IDENTIFIER':
         return Identifier(d['value'])
-    elif d['type'] == 'LIST':
+    elif tp == 'LIST':
         return List(getlist(d))
-    elif d['type'] == 'CALL':
+    elif tp == 'CALL':
         return Call(from_dict(d['0']), from_dict(d['1']))
-    elif d['type'] == 'PLUS':
+    elif tp == 'PLUS':
         return Plus(from_dict(d['0']), from_dict(d['1']))
+    elif tp == 'ASSIGN':
+        return Assign(from_dict(d['0']), from_dict(d['1']))
     else:
-        raise NotImplementedError("Dont know how to handler %s" % d['type'])
+        raise NotImplementedError("Dont know how to handler %s" % tp)

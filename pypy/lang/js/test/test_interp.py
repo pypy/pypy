@@ -6,29 +6,29 @@ from pypy.lang.js.parser import parse
 import sys
 from StringIO import StringIO
 
-def test_simple():
-    assert Plus(Number(3), Number(4)).call() == 7
-#    s = Script([Semicolon(Plus(Number(3), Number(4)))], [], [])
-#    s.call()
-    s = StringIO()
-    oldstdout = sys.stdout
-    sys.stdout = s
-
-    Script([Semicolon(Call(Identifier('print'), List([Number(1), Number(2)])))],[],[]).call()
-    assert s.getvalue() == '1,2\n'
-    sys.stdout = oldstdout
+def parse_d(code):
+    return from_dict(parse(code))
 
 class TestInterp(object):
+    def test_simple(self):
+        assert Plus(Number(3), Number(4)).call() == 7
+        #    s = Script([Semicolon(Plus(Number(3), Number(4)))], [], [])
+        #    s.call()
+        l = []
+        interpreter.writer = l.append
+        Script([Semicolon(Call(Identifier('print'), List([Number(1), Number(2)])))],[],[]).call()
+        assert l == ['1,2']
+
     def assert_prints(self, code, assval):
-        s = StringIO()
-        oldstdout = sys.stdout
-        sys.stdout = s
+        l = []
+        interpreter.writer = l.append
         code.call()
-        assert s.getvalue() == assval
-        sys.stdout = oldstdout
+        assert l == assval
     
     def test_interp_parse(self):
-        self.assert_prints(from_dict(parse("print(1+1)")), "2\n")
-        self.assert_prints(from_dict(parse("print(1+2+3); print(1)")), "6\n1\n")
-        self.assert_prints(from_dict(parse("print(1,2,3);\n")), "1,2,3\n")
+        self.assert_prints(parse_d("print(1+1)"), ["2"])
+        self.assert_prints(parse_d("print(1+2+3); print(1)"), ["6", "1"])
+        self.assert_prints(parse_d("print(1,2,3);\n"), ["1,2,3"])
 
+    def test_var_assign(self):
+        self.assert_prints(parse_d("x=3;print(x);"), ["3"])
