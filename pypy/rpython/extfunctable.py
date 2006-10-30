@@ -277,7 +277,7 @@ declare(rarithmetic.formatd, str, 'll_strtod/formatd')
 
 # ___________________________________________________________
 # special helpers for os with no equivalent
-from pypy.rpython import ros
+from pypy.rlib import ros
 declare(ros.putenv, noneannotation, 'll_os/putenv')
 declare(ros.environ, strnullannotation, 'll_os/environ')
 declare(ros.opendir, ros.DIR, 'll_os/opendir')

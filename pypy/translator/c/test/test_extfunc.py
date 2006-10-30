@@ -4,7 +4,7 @@ import os, time, sys
 from pypy.tool.udir import udir
 from pypy.translator.c.test.test_genc import compile
 from pypy.translator.c.extfunc import EXTERNALS
-from pypy.rpython import ros
+from pypy.rlib import ros
 
 def test_all_suggested_primitives():
     for modulename in ['ll_math', 'll_os', 'll_os_path', 'll_time']:

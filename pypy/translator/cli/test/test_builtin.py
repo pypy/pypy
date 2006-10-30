@@ -102,7 +102,7 @@ class TestCliBuiltin(CliTest, BaseTestRbuiltin):
         # XXX assert something about res
 
     def test_os_opendir(self):
-        from pypy.rpython import ros
+        from pypy.rlib import ros
         def fn():
             d = ros.opendir('.')
             res = []

@@ -6,7 +6,7 @@ import sys
 import py
 from pypy.tool.udir import udir
 from pypy.rpython.rarithmetic import r_uint
-from pypy.rpython import ros
+from pypy.rlib import ros
 
 from pypy.translator.llvm.test.runtest import *
 

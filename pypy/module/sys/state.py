@@ -36,7 +36,7 @@ def getinitialpath(srcdir):
     # build the initial path from the srcdir, which is the path of
     # the "dist" directory of a PyPy checkout.
     from pypy.module.sys.version import CPYTHON_VERSION
-    from pypy.rpython import ros
+    from pypy.rlib import ros
 
     dirname = '%d.%d.%d' % (CPYTHON_VERSION[0],
                             CPYTHON_VERSION[1],
