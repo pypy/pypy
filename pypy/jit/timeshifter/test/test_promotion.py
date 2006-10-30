@@ -11,10 +11,10 @@ class TestPromotion(TimeshiftingTests):
         def ll_two(k):
             return (k+1)*2
         def ll_function(n):
+            hint(None, global_merge_point=True)
             k = hint(n, promote=True)
             k = ll_two(k)
             return hint(k, variable=True)
-        ll_function._global_merge_points_ = True
 
         # easy case: no promotion needed
         res = self.timeshift(ll_function, [20], [0])
@@ -31,12 +31,12 @@ class TestPromotion(TimeshiftingTests):
             return k*k
         def ll_function(n, total):
             while n > 0:
+                hint(None, global_merge_point=True)
                 k = hint(n, promote=True)
                 k = ll_two(k)
                 total += hint(k, variable=True)
                 n -= 1
             return total
-        ll_function._global_merge_points_ = True
 
         res = self.timeshift(ll_function, [10, 0], [], policy=P_NOVIRTUAL)
         assert res == ll_function(10, 0)
@@ -44,13 +44,14 @@ class TestPromotion(TimeshiftingTests):
 
     def test_multiple_portal_calls(self):
         def ll_function(n):
+            hint(None, global_merge_point=True)
             k = n
             if k > 5:
                 k //= 2
             k = hint(k, promote=True)
             k *= 17
             return hint(k, variable=True)
-        ll_function._global_merge_points_ = True
+        ll_function._dont_cache_ = True
 
         res = self.timeshift(ll_function, [4], [], policy=P_NOVIRTUAL)
         assert res == 68
@@ -68,12 +69,12 @@ class TestPromotion(TimeshiftingTests):
             else:
                 s.x = 10
         def ll_function(n):
+            hint(None, global_merge_point=True)
             s = lltype.malloc(S)
             ll_two(n, s)
             k = hint(n, promote=True)
             k *= 17
             return hint(k, variable=True) + s.x
-        ll_function._global_merge_points_ = True
 
         res = self.timeshift(ll_function, [4], [], policy=P_NOVIRTUAL)
         assert res == 4*17 + 10
@@ -90,12 +91,12 @@ class TestPromotion(TimeshiftingTests):
                 return 9
             
         def ll_function(n):
+            hint(None, global_merge_point=True)
             s = lltype.malloc(S)
             c = ll_two(n, s)
             k = hint(s.x, promote=True)
             k += c
             return hint(k, variable=True)
-        ll_function._global_merge_points_ = True
 
         res = self.timeshift(ll_function, [4], [], policy=P_NOVIRTUAL)
         assert res == 49
@@ -107,8 +108,8 @@ class TestPromotion(TimeshiftingTests):
             k *= 17
             return hint(k, variable=True)
         def ll_function(n):
+            hint(None, global_merge_point=True)
             return ll_two(n + 1) - 1
-        ll_function._global_merge_points_ = True
 
         res = self.timeshift(ll_function, [10], [], policy=P_NOVIRTUAL)
         assert res == 186
@@ -116,11 +117,11 @@ class TestPromotion(TimeshiftingTests):
 
     def test_two_promotions(self):
         def ll_function(n, m):
+            hint(None, global_merge_point=True)
             n1 = hint(n, promote=True)
             m1 = hint(m, promote=True)
             s1 = n1 + m1
             return hint(s1, variable=True)
-        ll_function._global_merge_points_ = True
 
         res = self.timeshift(ll_function, [40, 2], [], policy=P_NOVIRTUAL)
         assert res == 42
@@ -138,8 +139,8 @@ class TestPromotion(TimeshiftingTests):
             k *= 17
             return hint(k, variable=True)
         def ll_function(n):
+            hint(None, global_merge_point=True)
             return ll_two(n)
-        ll_function._global_merge_points_ = True
 
         res = self.timeshift(ll_function, [3], [], policy=P_NOVIRTUAL)
         assert res == 340
@@ -150,12 +151,12 @@ class TestPromotion(TimeshiftingTests):
         def ll_two(k):
             return (k+1)*2
         def ll_function(n):
+            hint(None, global_merge_point=True)
             s = lltype.malloc(S)
             s.x = n
             k = hint(n, promote=True)
             k = ll_two(k)
             return hint(k, variable=True) + s.x
-        ll_function._global_merge_points_ = True
 
         # easy case: no promotion needed
         res = self.timeshift(ll_function, [20], [0], policy=P_NOVIRTUAL)
@@ -189,6 +190,7 @@ class TestPromotion(TimeshiftingTests):
             s.y = 0
             i = 0
             while i < n:
+                hint(None, global_merge_point=True)
                 k = ll_two(s, i, m)
                 if m & 1:
                     k *= 3
@@ -198,7 +200,6 @@ class TestPromotion(TimeshiftingTests):
                 j = hint(j, variable=True)
                 i += j
             return s.x + s.y * 17
-        ll_function._global_merge_points_ = True
 
         res = self.timeshift(ll_function, [100, 2], [], policy=P_NOVIRTUAL)
         assert res == ll_function(100, 2)
@@ -266,10 +267,11 @@ class TestPromotion(TimeshiftingTests):
                 return Str('123')
 
         def ll_function(n):
+            hint(None, global_merge_point=True)
             o = ll_make(n)
             hint(o.__class__, promote=True)
             return o.double().get()
-        ll_function._global_merge_points_ = True
+        ll_function._dont_cache_ = True
 
         res = self.timeshift(ll_function, [5], [], policy=P_NOVIRTUAL)
         assert res == 10
@@ -279,18 +281,3 @@ class TestPromotion(TimeshiftingTests):
         assert res == ord('2')
         self.check_insns(indirect_call=0)
 
-    def test_explicit_global_merge(self):
-        def ll_two(k):
-            return k*k
-        def ll_function(n, total):
-            while n > 0:
-                hint(None, global_merge_point=True)
-                k = hint(n, promote=True)
-                k = ll_two(k)
-                total += hint(k, variable=True)
-                n -= 1
-            return total
-
-        res = self.timeshift(ll_function, [10, 0], [], policy=P_NOVIRTUAL)
-        assert res == ll_function(10, 0)
-        self.check_insns(int_add=10, int_mul=0)

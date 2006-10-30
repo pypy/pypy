@@ -61,6 +61,7 @@ class HintGraphTransformer(object):
 
     def compute_merge_points(self):
         entrymap = mkentrymap(self.graph)
+        startblock = self.graph.startblock
         global_merge_blocks = {}
         for block in self.graph.iterblocks():
             if not block.operations:
@@ -71,7 +72,7 @@ class HintGraphTransformer(object):
             if (op.opname == 'hint' and
                 op.args[1].value == {'global_merge_point': True}):
                 hashint = True
-                if len(entrymap[block]) > 1:
+                if block is startblock or len(entrymap[block]) > 1:
                     global_merge_blocks[block] = True
                     cand += 1
                 else:
@@ -90,18 +91,14 @@ class HintGraphTransformer(object):
             assert not hashint or cand==1, (
                 "ambigous global merge point hint: %r" % block)
                 
-        if self.graph_global_mps(self.graph):
-            kind = 'global'
-        else:
-            kind = 'local'
         for block, links in entrymap.items():
             if len(links) > 1 and block is not self.graph.returnblock:
                 if block in global_merge_blocks:
                     self.mergepoint_set[block] = 'global'
                 else:
-                    self.mergepoint_set[block] = kind
-        if kind == 'global':
-            self.mergepoint_set[self.graph.startblock] = 'global'
+                    self.mergepoint_set[block] = 'local'
+        if startblock in global_merge_blocks:
+            self.mergepoint_set[startblock] = 'global'
 
     def graph_calling_color(self, tsgraph):
         args_hs, hs_res = self.hannotator.bookkeeper.tsgraphsigs[tsgraph]
@@ -111,12 +108,6 @@ class HintGraphTransformer(object):
             return 'yellow'
         else:
             return 'red'
-
-    def graph_global_mps(self, tsgraph):
-        try:
-            return tsgraph.func._global_merge_points_
-        except AttributeError:
-            return False
 
     def timeshifted_graph_of(self, graph, args_v):
         bk = self.hannotator.bookkeeper
@@ -472,11 +463,13 @@ class HintGraphTransformer(object):
         # alive local variables into the current JITState
         self.genop(block, 'save_locals', save_locals_vars)
         targets = dict(self.graphs_from(op))
-        for tsgraph in targets.values():
-            if self.graph_global_mps(tsgraph):
-                # make sure jitstate.resumepoint is set to zero
-                self.genop(block, 'resetresumepoint', [])
-                break
+        #for tsgraph in targets.values():
+        #    if self.graph_global_mps(tsgraph):
+        #        # make sure jitstate.resumepoint is set to zero
+        #        self.genop(block, 'resetresumepoint', [])
+        #        break
+        #  XXX do the right thing for call to portals
+        #
         args_v = op.args[1:]
         if op.opname == 'indirect_call':
             del args_v[-1]

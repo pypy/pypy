@@ -222,7 +222,7 @@ class TimeshiftingTests(object):
             from pypy.translator.tool.graphpage import FlowGraphPage
             FlowGraphPage(t, ha.translator.graphs).display()
 
-        if getattr(ll_function, '_global_merge_points_', False):
+        if getattr(ll_function, '_dont_cache_', False):
             # XXX TEMPORARY: for now, caching doesn't work in the presence
             # of global caches
             pass
