@@ -15,6 +15,7 @@ from pypy.config import pypyoption
 from pypy.translator.goal import targetpypystandalone
 from pypy.translator.driver import TranslationDriver
 from pypy.tool.udir import udir
+from zipfile import ZipFile
 
 if config.server in ['localhost', '127.0.0.1']:
     gw = PopenGateway()
