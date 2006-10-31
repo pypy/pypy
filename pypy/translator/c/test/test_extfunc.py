@@ -573,6 +573,27 @@ if hasattr(os, 'fork'):
         status1 = f1()
         assert os.WIFEXITED(status1)
         assert os.WEXITSTATUS(status1) == 4
+elif hasattr(os, 'waitpid'):
+    # windows has no fork but some waitpid to be emulated
+    def test_waitpid():
+        def does_stuff():
+            prog = sys.executable
+            prog = str(prog)
+            args = [prog]
+            args += [] # uaah, become var-sized
+#            args = [prog, '-c', 'print 7*7']
+            args.append('-c')
+            args.append('"import os;os._exit(4)"')
+            pid = os.spawnv(os.P_NOWAIT, prog, args)
+            #if pid == 0:   # child
+            #    os._exit(4)
+            pid1, status1 = os.waitpid(pid, 0)
+            assert pid1 == pid
+            return status1
+        f1 = compile(does_stuff, [])
+        status1 = f1()
+        # for what reason do they want us to shift by 8? See the doc
+        assert status1 >> 8 == 4
 
 # ____________________________________________________________
 

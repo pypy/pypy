@@ -227,6 +227,8 @@ if hasattr(os, 'readlink'):
     declare(os.readlink , str,            'll_os/readlink')
 if hasattr(os, 'fork'):
     declare(os.fork ,     int,            'll_os/fork')
+if hasattr(os, 'spawnv'):
+    declare(os.spawnv,    int,            'll_os/spawnv')
 if hasattr(os, 'waitpid'):
     declare(os.waitpid ,  waitpidannotation, 'll_os/waitpid')
 

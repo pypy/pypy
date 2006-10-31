@@ -56,6 +56,7 @@ EXTERNALS = {
     impl.ll_os_symlink.im_func: 'LL_os_symlink',
     impl.ll_readlink_into:      'LL_readlink_into',
     impl.ll_os_fork.im_func:    'LL_os_fork',
+    impl.ll_os_spawnv.im_func:  'LL_os_spawnv',
     impl.ll_os_waitpid.im_func: 'LL_os_waitpid',
     impl.ll_os__exit.im_func:   'LL_os__exit',
     ll_time.ll_time_clock: 'LL_time_clock',
@@ -183,7 +184,7 @@ def predeclare_extfuncs(db, rtyper):
 
     for func, funcobj in db.externalfuncs.items():
         c_name = EXTERNALS[func]
-        # construct a define LL_NEED_<modname> to make it possible to isolate in-develpoment externals and headers
+        # construct a define LL_NEED_<modname> to make it possible to isolate in-development externals and headers
         modname = module_name(c_name)
         if modname not in modules:
             modules[modname] = True

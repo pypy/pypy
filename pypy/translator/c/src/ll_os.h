@@ -77,6 +77,7 @@ void LL_os_link(RPyString * path1, RPyString * path2);
 void LL_os_symlink(RPyString * path1, RPyString * path2);
 long LL_readlink_into(RPyString *path, RPyString *buffer);
 long LL_os_fork(void);
+long LL_os_spawnv(int mode, RPyString *path, RPyListOfString *args);
 RPyWAITPID_RESULT* LL_os_waitpid(long pid, long options);
 void LL_os__exit(long status);
 void LL_os_putenv(RPyString * name_eq_value);
@@ -375,7 +376,28 @@ long LL_os_fork(void) {
 }
 #endif
 
+#ifdef HAVE_SPAWNV
+long LL_os_spawnv(int mode, RPyString *path, RPyListOfString *args) {
+	int pid, i, nargs = args->l_length;
+	char **slist = malloc((nargs+1) * sizeof(char*));
+	pid = -1;
+	if (slist) {
+		for (i=0; i<nargs; i++)
+			slist[i] = RPyString_AsString(args->l_items->items[i]);
+		slist[nargs] = NULL;
+		pid = spawnv(mode, RPyString_AsString(path), slist);
+		free(slist);
+	}
+	if (pid == -1)
+		RPYTHON_RAISE_OSERROR(errno);
+	return pid;
+}
+#endif
+
 #ifdef LL_NEED_OS_WAITPID
+/* note: LL_NEED_ is computed in extfunc.py, can't grep */
+
+#ifdef HAVE_WAITPID
 RPyWAITPID_RESULT* LL_os_waitpid(long pid, long options) {
 	int status;
 	pid = waitpid(pid, &status, options);
@@ -385,6 +407,21 @@ RPyWAITPID_RESULT* LL_os_waitpid(long pid, long options) {
 	}
 	return ll_waitpid_result(pid, status);
 }
+
+#elif defined(HAVE_CWAIT)
+
+RPyWAITPID_RESULT* LL_os_waitpid(long pid, long options) {
+	int status;
+	pid = _cwait(&status, pid, options);
+	if (pid == -1) {
+		RPYTHON_RAISE_OSERROR(errno);
+		return NULL;
+	}
+		/* shift the status left a byte so this is more like the
+		   POSIX waitpid */
+	return ll_waitpid_result(pid, status << 8);
+}
+#endif /* HAVE_WAITPID || HAVE_CWAIT */
 #endif
 
 void LL_os__exit(long status) {

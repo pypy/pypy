@@ -163,6 +163,10 @@ class BaseOS:
         return os.fork()
     ll_os_fork.suggested_primitive = True
 
+    def ll_os_spawnv(cls, mode, path, args):
+        return os.spawnv(mode, path, args)
+    ll_os_spawnv.suggested_primitive = True
+
     def ll_os_waitpid(cls, pid, options):
         pid, status = os.waitpid(pid, options)
         return cls.ll_waitpid_result(pid, status)
