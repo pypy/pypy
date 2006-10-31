@@ -1,5 +1,5 @@
 from pypy.objspace.flow.test.test_objspace import Base
-from pypy.rpython.unroll import unrolling_zero, unrolling_iterable
+from pypy.rlib.unroll import unrolling_zero, unrolling_iterable
 
 class TestUnroll(Base):
 

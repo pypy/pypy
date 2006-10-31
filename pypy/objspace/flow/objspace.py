@@ -7,7 +7,7 @@ from pypy.interpreter.error import OperationError
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow import flowcontext
 from pypy.objspace.flow.operation import FunctionByName
-from pypy.rpython.unroll import unrolling_iterable, _unroller
+from pypy.rlib.unroll import unrolling_iterable, _unroller
 
 debug = 0
 

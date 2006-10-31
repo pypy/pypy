@@ -3,7 +3,7 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype, lloperation, llmemory
 from pypy.jit.hintannotator.model import originalconcretetype
 from pypy.jit.timeshifter import rvalue
-from pypy.rpython.unroll import unrolling_iterable
+from pypy.rlib.unroll import unrolling_iterable
 from pypy.rpython.annlowlevel import cachedtype, base_ptr_lltype
 from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
 from pypy.rpython.annlowlevel import cast_base_ptr_to_instance

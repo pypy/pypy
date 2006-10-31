@@ -4,7 +4,7 @@ from pypy.annotation.listdef import s_list_of_strings
 from pypy.rpython.objectmodel import keepalive_until_here
 from pypy.jit.timeshifter.test import test_timeshift
 from pypy.translator.c.genc import CStandaloneBuilder
-from pypy.rpython.unroll import unrolling_iterable
+from pypy.rlib.unroll import unrolling_iterable
 from pypy.jit.codegen.i386.rgenop import RI386GenOp
 from pypy.jit.conftest import Benchmark
 

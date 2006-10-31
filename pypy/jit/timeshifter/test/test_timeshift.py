@@ -8,7 +8,7 @@ from pypy.jit.timeshifter import rtimeshift, rvalue
 from pypy.objspace.flow.model import summary
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr
 from pypy.rpython.objectmodel import hint, keepalive_until_here
-from pypy.rpython.unroll import unrolling_iterable
+from pypy.rlib.unroll import unrolling_iterable
 from pypy.rpython.annlowlevel import PseudoHighLevelCallable
 from pypy.rpython.module.support import LLSupport
 from pypy.annotation import model as annmodel

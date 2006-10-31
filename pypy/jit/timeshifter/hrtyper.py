@@ -5,7 +5,7 @@ from pypy.translator.backendopt.ssa import SSA_to_SSI
 from pypy.annotation import model as annmodel
 from pypy.annotation.pairtype import pair, pairtype
 from pypy.rpython.annlowlevel import PseudoHighLevelCallable
-from pypy.rpython.unroll import unrolling_iterable
+from pypy.rlib.unroll import unrolling_iterable
 from pypy.rpython import annlowlevel
 from pypy.rpython.rtyper import RPythonTyper, LowLevelOpList, TyperError
 from pypy.rpython.rmodel import Repr, inputconst
