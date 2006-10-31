@@ -90,6 +90,10 @@ class HintGraphTransformer(object):
                         cand += 1
             assert not hashint or cand==1, (
                 "ambigous global merge point hint: %r" % block)
+            for op in block.operations[1:-1]:
+                assert not (op.opname == 'hint' and
+                    op.args[1].value == {'global_merge_point': True}), (
+                    "stranded global merge point hint: %r" % block)
                 
         for block, links in entrymap.items():
             if len(links) > 1 and block is not self.graph.returnblock:
