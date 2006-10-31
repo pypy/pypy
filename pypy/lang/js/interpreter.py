@@ -1,7 +1,7 @@
 
 from pypy.lang.js.astgen import *
 from pypy.lang.js.context import ExecutionContext
-from pypy.lang.js.jsobj import W_Number, W_String
+from pypy.lang.js.jsobj import W_Number, W_String, W_Object
 
 def writer(x):
     print x
@@ -15,6 +15,10 @@ class __extend__(Assign):
 class __extend__(Number):
     def call(self, context):
         return W_Number(self.num)
+    
+    def get_literal(self):
+        # XXX Think about a shortcut later
+        return str(W_Number(self.num))
 
 class __extend__(Plus):
     def call(self, context=None):
@@ -41,6 +45,9 @@ class __extend__(Semicolon):
 class __extend__(Identifier):
     def call(self, context=None):
         return context.access(self.name)
+    
+    def get_literal(self):
+        return self.name
 
 class __extend__(Script):
     def call(self, context=None):
@@ -60,3 +67,18 @@ class __extend__(List):
 class __extend__(String):
     def call(self, context=None):
         return W_String(self.strval)
+    
+    def get_literal(self):
+        return self.strval
+
+class __extend__(ObjectInit):
+    def call(self, context=None):
+        w_obj = W_Object({})
+        for property in self.properties:
+            name = property.name.get_literal()
+            w_expr = property.value.call(context).GetValue()
+            w_obj.Put(name, w_expr)
+        return w_obj
+        #dict_w = {}
+        #for property in self.properties:
+        #    dict_w[property.name

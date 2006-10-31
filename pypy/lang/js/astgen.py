@@ -57,7 +57,18 @@ class String(Node):
     def __init__(self, strval):
         self.strval = strval
 
+class ObjectInit(Node):
+    def __init__(self, properties):
+        self.properties = properties
+
+class PropertyInit(Node):
+    def __init__(self, name, value):
+        self.name = name
+        self.value = value
+
 def getlist(d):
+    if 'length' not in d:
+        return []
     lgt = int(d['length'])
     output = [from_dict(d[str(i)]) for i in range(lgt)]
     return output
@@ -83,5 +94,9 @@ def from_dict(d):
         return Assign(from_dict(d['0']), from_dict(d['1']))
     elif tp == 'STRING':
         return String(d['value'])
+    elif tp == 'PROPERTY_INIT':
+        return PropertyInit(from_dict(d['0']), from_dict(d['1']))
+    elif tp == 'OBJECT_INIT':
+        return ObjectInit(getlist(d))
     else:
         raise NotImplementedError("Dont know how to handler %s" % tp)

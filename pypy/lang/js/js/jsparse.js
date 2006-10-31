@@ -14,7 +14,7 @@
  *
  * The Original Code is the Narcissus JavaScript engine.
  *
- * The Initial Developer of the Original Code is
+ * The Initial veloper of the Original Code is
  * Brendan Eich <brendan@mozilla.org>.
  * Portions created by the Initial Developer are Copyright (C) 2004
  * the Initial Developer. All Rights Reserved.
@@ -22,7 +22,7 @@
  * Contributor(s):
  *
  * Alternatively, the contents of this file may be used under the terms of
- * either the GNU General Public License Version 2 or later (the "GPL"), or
+ * either the GNU General zzzPublic License Version 2 or later (the "GPL"), or
  * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
  * in which case the provisions of the GPL or the LGPL are applicable instead
  * of those above. If you wish to allow use of your version of this file only
@@ -281,9 +281,15 @@ Np.toString = function () {
     a.sort(function (a,b) { return (a.id < b.id) ? -1 : 1; });
     const INDENTATION = "    ";
     var n = ++Node.indentLevel;
-    var s = "{\n" + INDENTATION.repeat(n) + "type: " + tokenstr(this.type);
-    for (i = 0; i < a.length; i++)
-        s += ",\n" + INDENTATION.repeat(n) + a[i].id + ": " + a[i].value;
+    var s = "{\n" + INDENTATION.repeat(n) + "'type': '" + tokenstr(this.type) + "'";
+    for (i = 0; i < a.length; i++) {
+        val = a[i].value + ""
+        if (val.search("\n") != -1) {
+            s += ",\n" + INDENTATION.repeat(n) + "'" + a[i].id + "': " + val + " ";
+        } else {
+            s += ",\n" + INDENTATION.repeat(n) + "'" + a[i].id + "': '" + val + "'";
+        }
+    }
     n = --Node.indentLevel;
     s += "\n" + INDENTATION.repeat(n) + "}";
     return s;

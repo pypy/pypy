@@ -42,3 +42,6 @@ class TestInterp(object):
     
     def test_string_num_concat(self):
         self.assert_prints(parse_d('x=4; y="x"; print(x+y, y+x);'), ["4x,x4"])
+
+    def test_to_string(self):
+        self.assert_prints(parse_d("x={}; print(x);"), ["[object Object]"])
