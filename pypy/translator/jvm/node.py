@@ -7,13 +7,14 @@ made to be common between CLR and JVM.
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.jvm.typesystem import jStringArray, jVoid, jThrowable
-from pypy.translator.jvm.typesystem import jvm_for_class
-import pypy.translator.jvm.generator as jvmgen
+from pypy.translator.jvm.typesystem import jvm_for_class, jvm_method_desc
 from pypy.translator.jvm.opcodes import opcodes
+from pypy.translator.oosupport.function import Function as OOFunction
+import pypy.translator.jvm.generator as jvmgen
 
 class Node(object):
-    def render(self, db, generator):
-        unimplemented
+    def set_db(self, db):
+        self.db = db
 
 class EntryPoint(Node):
 
@@ -57,9 +58,10 @@ class EntryPoint(Node):
         ootype.Char:jvmgen.PYPYSTRTOCHAR
         }
 
-    def render(self, db, gen):
+    def render(self, gen):
         gen.begin_class('pypy.Main')
-        gen.begin_function('main', (), [jStringArray], jVoid, static=True)
+        gen.begin_function(
+            'main', (), [jStringArray], jVoid, static=True)
 
         # Handle arguments:
         if self.expand_arguments:
@@ -78,20 +80,17 @@ class EntryPoint(Node):
             gen.emit(jvmgen.PYPYARRAYTOLIST)
 
         # Generate a call to this method
-        gen.emit(db.method_for_graph(self.graph, static=True))
+        gen.emit(self.db.pending_function(self.graph))
         
         gen.end_function()
         gen.end_class()
 
-class Function(object):
+class Function(OOFunction):
     
-    """ Represents a function to be emitted.  *Note* that it is not a
-    descendant of Node: it cannot be entered into the database
-    worklist.  This is because in Java, all functions occur w/in a
-    class: therefore classes as a whole must be placed on the
-    worklist. """
+    """ Represents a function to be emitted. """
     
-    def __init__(self, classobj, name, jargtypes, jrettype, graph, is_static):
+    def __init__(self, db, classobj, name, jargtypes,
+                 jrettype, graph, is_static):
         """
         classobj: the Class object this is a part of (even static
         functions have a class)
@@ -101,134 +100,84 @@ class Function(object):
         graph: the graph representing the body of the function
         is_static: boolean flag indicate whether func is static (!)
         """
-        self.classnm = classnm
-        self.name = name
-        self.graph = graph
+        OOFunction.__init__(self, db, graph, name, not is_static)
+        self.classnm = classobj.name
         self.jargtypes = jargtypes
         self.jrettype = jrettype
-        self.is_static = is_static
+        self._block_labels = {}
 
     def method(self):
         """ Returns a jvmgen.Method that can invoke this function """
-        if self.is_static: opcode = jvmgen.INVOKESTATIC
+        if not self.is_method: opcode = jvmgen.INVOKESTATIC
         else: opcode = jvmgen.INVOKEVIRTUAL
         mdesc = jvm_method_desc(self.jargtypes, self.jrettype)
-        return jvmgen.Method(classnm, self.func_name, mdesc, opcode=opcode)
+        return jvmgen.Method(self.classnm, self.name, mdesc, opcode=opcode)
 
-    def render_func(self, db, gen):
-        if getattr(self.graph.func, 'suggested_primitive', False):
-            assert False, 'Cannot render a suggested_primitive'
-
+    def begin_render(self):
         # Prepare argument lists for begin_function call
+        lltype_to_cts = self.db.lltype_to_cts
         jargvars = []
         jargtypes = []
         for arg in self.graph.getargs():
             if arg.concretetype is ootype.Void: continue
             jargvars.append(arg)
-            jargtypes.append(db.type_system.ootype_to_jvm(arg.concretetype))
+            jargtypes.append(lltype_to_cts(arg.concretetype))
 
         # Determine return type
-        jrettype = db.type_system.ootype_to_jvm(
-            self.graph.getreturnvar().concretetype)
+        jrettype = lltype_to_cts(self.graph.getreturnvar().concretetype)
+        self.ilasm.begin_function(
+            self.name, jargvars, jargtypes, jrettype, static=not self.is_method)
 
-        # Start the function definition
-        gen.begin_function(self.name, jargvars, jargtypes, jrettype,
-                           static=self.is_static)
+    def end_render(self):
+        self.ilasm.end_function()
 
-        # Go through each block and create a label for it; if the
-        # block will be used to catch an exception, add a second label
-        # to catch_labels
-        block_labels = {}
-        #catch_labels = {}
-        for ctr, block in enumerate(graph.iterblocks()):
-            blbl = gen.unique_label('Block_'+ctr)
-            block_labels[block] = blbl
+    def _create_generator(self, ilasm):
+        # JVM doesn't distinguish
+        return ilasm
 
-            ## Go through the blocks we may toss exceptions to
-            #if block.exitswitch == flowmodel.c_last_exception:
-            #    for link in block.exits:
-            #        if link.exitcase is None: continue # return
-            #        if link.target not in catch_labels:
-            #            catch_labels[link.target] = gen.unique_label('catch')
+    def _get_block_name(self, block):
+        if block in self._block_labels:
+            return self._block_labels[block]
+        blocklbl = self.ilasm.unique_label('BasicBlock')
+        self._block_labels[block] = blocklbl
+        return blocklbl
 
-        # Iterate through the blocks and generate code for them
-        return_blocks = []
-        for block in graph.iterblocks():
-            
-            # Mark the beginning of the block, render all the ops, and
-            # then mark the end.
-            gen.mark(block_labels[block][0])
+    def set_label(self, blocklbl):
+        self.ilasm.mark(blocklbl)
 
-            # Determine whether the last oper in this block may raise an exc
-            handle_exc = (block.exitswitch == flowmodel.c_last_exception)
+    def begin_try(self):
+        self.ilasm.begin_try()
 
-            # Render the operations; create labels for a try/catch
-            # region around the last operation
-            if block.operations:
-                for op in block.operations[:-1]:
-                    self._render_op(op)
-                if handle_exc: trybeglbl = gen.unique_label('try', mark=True)
-                self._render_op(block.operations[-1])
-                if handle_exc: tryendlbl = gen.unique_label('try', mark=True)
+    def end_try(self):
+        self.ilasm.end_try()
 
-            # Handle 'return' blocks: in this case, we return the
-            # variable specified
-            if self._is_return_block(block):
-                return_var = block.inputargs[0]
-                return_ty = ootype_to_jvm(return_var.concretetype)
-                if return_var.concretetype is not Void:
-                    self.load(return_var)
-                gen.return_val(return_ty)
+    def begin_catch(self, llexitcase):
+        unimplemented
 
-            # Handle 'raise' blocks: in this case, we just throw the
-            # variable specified
-            if self._is_raise_block(block):
-                exc = block.inputargs[1]
-                self.load(exc)
-                gen.throw()
+    def end_catch(self, llexitcase):
+        unimplemented
 
-            if handle_exc:
-                # search for the "default" block to be executed when
-                # no exception is raised
-                for link in block.exits:
-                    if link.exitcase is None:
-                        self._copy_link_vars(gen, link)
-                        gen.goto(block_labels[link.target])
+    def store_exception_and_link(self, link):
+        unimplemented
 
-                # TODO: proper exception handling; we may not want to
-                # use the same model as CLR
-            else:
-                # no exception handling, determine correct link to follow
-                for link in block.exits:
-                    self._copy_link_vars(gen, link)
-                    target_label = block_labels[link.target]
-                    if link.exitcase is None or link is block.exits[-1]:
-                        gen.goto(target_label)
-                    else:
-                        assert type(link.exitcase is bool)
-                        assert block.exitswitch is not None
-                        gen.load(block.exitswitch)
-                        gen.goto_if_true(target_label)
+    def render_return_block(self, block):
+        return_var = block.inputargs[0]
+        return_ty = self.db.lltype_to_cts(return_var.concretetype)
+        if return_var.concretetype is not ootype.Void:
+            self.ilasm.load(return_var)
+        self.ilasm.return_val(return_ty)
 
-        gen.end_function()
+    def render_raise_block(self, block):
+        exc = block.inputargs[1]
+        self.ilasm.load(exc)
+        self.ilasm.throw()
 
-    def _render_op(self, op):
-        instr_list = opcodes.get(op.opname, None)
-        assert getoption('nostop') or instr_list is not None
-        if instr_list: instr_list.render(self, op)
-
-    def _copy_link_vars(self, gen, link):
+    def _setup_link(self, link):
         target = link.target
         for to_load, to_store in zip(link.args, target.inputargs):
-            if to_load.concretetype is not Void:
-                gen.load(to_load)
-                gen.store(to_store)
-                
-    def _is_return_block(self, block):
-        return (not block.exits) and len(block.inputargs) == 1
-
-    def _is_raise_block(self, block):
-        return (not block.exits) and len(block.inputargs) == 2        
+            if to_load.concretetype is not ootype.Void:
+                self.ilasm.load(to_load)
+                self.ilasm.store(to_store)
 
 class Class(Node):
 
@@ -240,9 +189,9 @@ class Class(Node):
         'name' should be a fully qualified Java class name like
         "java.lang.String"
         """
-        self.name = name
+        self.name = name        # public attribute
         self.fields = []
-        self.methods = {}      # Maps graph -> Function
+        self.methods = []
         self.rendered = False
 
     def jvm_type(self):
@@ -255,24 +204,21 @@ class Class(Node):
         assert not self.rendered
         self.fields.append((fieldty, fieldnm))
 
-    def has_method_for(self, graph):
-        return graph in self.methods
-        
     def add_method(self, func):
         """ Creates a new method in this class, represented by the
         Function object 'func'.  Must be called before render();
-        intended to be invoked by the database."""
-        assert not self.rendered
-        self.methods[func.graph] = func
+        intended to be invoked by the database.  Note that some of these
+        'methods' may actually represent static functions. """
+        self.methods.append(func)
 
-    def render(self, db, gen):
+    def render(self, gen):
         self.rendered = True
         gen.begin_class(self.name)
 
         for fieldty, fieldnm in self.fields:
             gen.add_field(fieldty, fieldnm)
 
-        for method in self.methods.values():
-            method.render_func(db, gen)
+        for method in self.methods:
+            method.render(gen)
         
-        gen.end_class(self.name)
+        gen.end_class()

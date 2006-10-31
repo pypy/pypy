@@ -1,5 +1,6 @@
 """
-Translation between PyPy ootypesystem and JVM type system.
+Definition and some basic translations between PyPy ootypesystem and
+JVM type system.
 
 Here are some tentative non-obvious decisions:
 
@@ -94,12 +95,13 @@ jClass = jvm_for_class('java.lang.Class')
 jStringBuilder = jvm_for_class('java.lang.StringBuilder')
 
 # Map from OOType to an internal JVM type descriptor
-_lltype_to_jvm = {
+#  only handles the simple cases
+ootype_to_jvm = {
     ootype.Void:             jVoid,
     ootype.Signed:           jInt,
     ootype.Unsigned:         jInt,
-    lltype.SignedLongLong:   jLong,
-    lltype.UnsignedLongLong: jLong,
+    ootype.SignedLongLong:   jLong,
+    ootype.UnsignedLongLong: jLong,
     ootype.Bool:             jBool,
     ootype.Float:            jDouble,
     ootype.Char:             jByte,
@@ -123,35 +125,4 @@ def jvm_method_desc(argtypes, rettype):
     argument types (JvmTypes) and the return type (also a JvmType),
     into one of these descriptor strings. """
     return "(%s)%s" % ("".join(argtypes), rettype)
-
-class JvmTypeSystem(object):
-
-    """ This object translates between the OOTypeSystem and JVM type
-    descriptors. """
-
-    def enforce_jvm(self, typ):
-        if isinstance(typ, JvmType):
-            return typ
-        return self.ootype_to_jvm(typ)
-
-    def ootype_to_jvm(self, oot):
-        """ Returns an instance of JvmType corresponding to the given
-        OOType """
-
-        # Check the easy cases
-        if oot in _lltype_to_jvm:
-            return _lltype_to_jvm[oot]
-
-        # Now handle the harder ones
-        if isinstance(oot, lltype.Ptr) and isinstance(t.TO, lltype.OpaqueType):
-            return jObject
-        if isinstance(oot, ootype.Instance):
-            return XXX
-        if isinstance(oot, ootype.Record):
-            return XXX
-        if isinstance(oot, ootype.StaticMethod):
-            return XXX
-
-        # Uh-oh
-        unhandled_case
 

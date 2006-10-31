@@ -7,13 +7,14 @@ import os, os.path, subprocess
 import py
 from pypy.tool.udir import udir
 from pypy.translator.translator import TranslationContext
+from pypy.translator.oosupport.genoo import GenOO
 
 from pypy.translator.jvm.generator import JasminGenerator
 from pypy.translator.jvm.option import getoption
 from pypy.translator.jvm.database import Database
-from pypy.translator.jvm.typesystem import JvmTypeSystem
 from pypy.translator.jvm.log import log
-from pypy.translator.jvm.node import EntryPoint
+from pypy.translator.jvm.node import EntryPoint, Function
+from pypy.translator.jvm.opcodes import opcodes
 
 class JvmError(Exception):
     """ Indicates an error occurred in the JVM runtime """
@@ -96,54 +97,43 @@ def generate_source_for_function(func, annotation):
     if getoption('view'): t.view()
     if getoption('wd'): tmpdir = py.path.local('.')
     else: tmpdir = udir
-    jvm = GenJvm(tmpdir, t, entrypoint=EntryPoint(main_graph, True))
+    jvm = GenJvm(tmpdir, t, EntryPoint(main_graph, True))
     return jvm.generate_source()
 
-class GenJvm(object):
+class GenJvm(GenOO):
 
     """ Master object which guides the JVM backend along.  To use,
     create with appropriate parameters and then invoke
     generate_source().  *You can not use one of these objects more than
     once.* """
+
+    TypeSystem = lambda X, db: db # TypeSystem and Database are the same object 
+    Function = Function
+    Database = Database
+    opcodes = opcodes
+    log = log
     
-    def __init__(self, tmpdir, translator, entrypoint=None):
+    def __init__(self, tmpdir, translator, entrypoint):
         """
         'tmpdir' --- where the generated files will go.  In fact, we will
         put our binaries into the directory pypy/jvm
         'translator' --- a TranslationContext object
         'entrypoint' --- if supplied, an object with a render method
         """
+        GenOO.__init__(self, tmpdir, translator, entrypoint)
         self.jvmsrc = JvmGeneratedSource(tmpdir, getoption('package'))
-        self.type_system = JvmTypeSystem()
-        self.db = Database(self.type_system)
-        if entrypoint:
-            self.db.pending_node(entrypoint)
-        else:
-            self.db.pending_node(EntryPoint(translator.graphs[0], False))
 
     def generate_source(self):
         """ Creates the sources, and returns a JvmGeneratedSource object
         for manipulating them """
-        generator = self._create_generator()
-
-        # Drain worklist
-        n = 0
-        while self.db.len_pending():
-            node = self.db.pop()
-            node.render(self.db, generator)
-            n+=1
-            if (n%100) == 0:
-                total = len(self.db.len_pending()) + n
-                log.graphs('Rendered %d/%d (approx. %.2f%%)' %\
-                           (n, total, n*100.0/total))
-
-        # Return the source object once we have finished
+        GenOO.generate_source(self)
         return self.jvmsrc
 
-    def _create_generator(self):
+    def create_assembler(self):
         """ Creates and returns a Generator object according to the
         configuration.  Right now, however, there is only one kind of
         generator: JasminGenerator """
-        return JasminGenerator(self.jvmsrc.javadir, self.jvmsrc.package)
+        return JasminGenerator(
+            self.db, self.jvmsrc.javadir, self.jvmsrc.package)
         
         

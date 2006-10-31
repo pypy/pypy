@@ -71,6 +71,35 @@ class Generator(object):
         """
         pass
 
+    def branch_unconditionally(self, target_label):
+        """ Branches to target_label unconditionally """
+        raise NotImplementedError
+
+    def branch_conditionally(self, iftrue, target_label):
+        """ Branches to target_label depending on the value on the top of
+        the stack.  If iftrue is True, then the branch occurs if the value
+        on top of the stack is true; if iftrue is false, then the branch
+        occurs if the value on the top of the stack is false
+
+        Stack: cond, ... -> ... """
+        raise NotImplementedError
+
+    def call_graph(self, graph):
+        """ Invokes the method corresponding to the given graph.  The
+        arguments to the graph have already been pushed in order
+        (i.e., first argument pushed first, etc).  Pushes the return
+        value.
+
+        Stack: argN...arg2, arg1, arg0, ... -> ret, ... """
+        raise NotImplementedError        
+
+    def call_primitive(self, graph):
+        """ Like call_graph, but it has been suggested that the method be
+        rendered as a primitive.
+
+        Stack: argN...arg2, arg1, arg0, ... -> ret, ... """
+        raise NotImplementedError        
+
 class InstructionList(list):
     def render(self, generator, op):
         for instr in self:
@@ -224,6 +253,71 @@ class _New(MicroInstruction):
         except (KeyError, AttributeError):
             generator.new(op.args[0].value)
 
+class BranchUnconditionally(MicroInstruction):
+    def __init__(self, label):
+        self.label = label
+    def render(self, generator, op):
+        generator.branch_unconditionally(self.label)
+
+class BranchIfTrue(MicroInstruction):
+    def __init__(self, label):
+        self.label = label
+    def render(self, generator, op):
+        generator.branch_conditionally(True, self.label)
+
+class BranchIfFalse(MicroInstruction):
+    def __init__(self, label):
+        self.label = label
+    def render(self, generator, op):
+        generator.branch_conditionally(False, self.label)
+
+class _Call(MicroInstruction):
+    def render(self, generator, op):
+        callee = op.args[0].value
+        graph = callee.graph
+        method_name = None # XXX oopspec.get_method_name(graph, op)
+
+        for arg in op.args[1:]:
+            generator.load(arg)
+        
+        if method_name is None:
+            if getattr(graph.func, 'suggested_primitive', False):
+                generator.call_primitive(graph)
+            else:
+                generator.call_graph(graph)
+        else:
+            self._render_method(generator, method_name, op.args[1:])
+
+    def _render_method(self, generator, method_name, args):
+        this = args[0]
+        for arg in args: # push parameters
+            generator.load(arg)
+
+        # XXX: very hackish, need refactoring
+        if this.concretetype is ootype.String:
+            # special case for string: don't use methods, but plain functions
+            METH = this.concretetype._METHODS[method_name]
+            cts = generator.cts
+            ret_type = cts.lltype_to_cts(METH.RESULT)
+            arg_types = [cts.lltype_to_cts(arg) for arg in METH.ARGS if arg is not ootype.Void]
+            arg_types.insert(0, cts.lltype_to_cts(ootype.String))
+            arg_list = ', '.join(arg_types)
+            signature = '%s %s::%s(%s)' % (ret_type, STRING_HELPER_CLASS, method_name, arg_list)
+            generator.call_signature(signature)
+        else:
+            generator.call_method(this.concretetype, method_name)
+            
+            # special case: DictItemsIterator(XXX,
+            # Void).ll_current_value needs to return an int32 because
+            # we can't use 'void' as a parameter of a Generic. This
+            # means that after the call to ll_current_value there will
+            # be a value on the stack, and we need to explicitly pop
+            # it.
+            if isinstance(this.concretetype, ootype.DictItemsIterator) and \
+               this.concretetype._VALUETYPE is ootype.Void and \
+               method_name == 'll_current_value':
+                generator.ilasm.pop()
+
 New = _New()
 
 PushAllArgs = _PushAllArgs()
@@ -232,3 +326,4 @@ SetField = _SetField()
 GetField = _GetField()
 DownCast = _DownCast()
 DoNothing = _DoNothing()
+Call = _Call()

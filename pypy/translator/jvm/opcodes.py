@@ -6,7 +6,7 @@ come from the oosupport directory.
 """
 
 from pypy.translator.oosupport.metavm import \
-     PushArg, PushAllArgs, StoreResult, InstructionList, New, DoNothing
+     PushArg, PushAllArgs, StoreResult, InstructionList, New, DoNothing, Call
 import pypy.translator.jvm.generator as jvmgen
 
 def _check_zer(op):
@@ -38,9 +38,9 @@ opcodes = {
     #'ooparse_int':              [PushAllArgs, 'call int32 [pypylib]pypy.runtime.Utils::OOParseInt(string, int32)'],
     #'oonewcustomdict':          [NewCustomDict],
     #
-    #'same_as':                  DoNothing,
+    'same_as':                  DoNothing,
     #'hint':                     [PushArg(0), StoreResult],
-    #'direct_call':              [Call],
+    'direct_call':              [Call],
     #'indirect_call':            [IndirectCall],
     #
     #'cast_ptr_to_weakadr':      [PushAllArgs, 'newobj instance void class %s::.ctor(object)' % WEAKREF],
@@ -222,4 +222,7 @@ opcodes = {
 for opc in opcodes:
     val = opcodes[opc]
     if not isinstance(val, list):
-        val = [PushAllArgs, val]
+        val = InstructionList((PushAllArgs, val))
+    else:
+        val = InstructionList(val)
+    opcodes[opc] = val

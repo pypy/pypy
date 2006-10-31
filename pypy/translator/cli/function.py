@@ -17,13 +17,20 @@ from pypy.translator.cli.class_ import Class
 from pypy.translator.cli.support import log
 
 class Function(OOFunction, Node, Generator):
-    def _create_generator(self):
+
+    def __init__(self, *args, **kwargs):
+        OOFunction.__init__(self, *args, **kwargs)
+        self._set_args()
+        self._set_locals()
+                 
+    def _create_generator(self, ilasm):
         return self # Function implements the Generator interface
 
     def begin_try(self):
         self.ilasm.begin_try()
 
-    def end_try(self):
+    def end_try(self, target_label):
+        self.ilasm.leave(target_label)
         self.ilasm.end_try()
 
     def begin_catch(self, llexitcase):
@@ -165,3 +172,9 @@ class Function(OOFunction, Node, Generator):
 
     def isinstance(self, class_name):
         self.ilasm.opcode('isinst', class_name)
+
+    def branch_unconditionally(self, target_label):
+        self.ilasm.branch(target_label)
+
+    def branch_conditionally(self, cond, target_label):
+        self.ilasm.branch_if(cond, target_label)

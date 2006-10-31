@@ -2,6 +2,7 @@ import os #
 from pypy.objspace.flow import model as flowmodel
 from pypy.translator.oosupport.metavm import Generator
 from pypy.translator.jvm.typesystem import JvmType
+from pypy.rpython.ootypesystem import ootype
 
 # ___________________________________________________________________________
 # JVM Opcode Flags:
@@ -10,10 +11,10 @@ from pypy.translator.jvm.typesystem import JvmType
 #   assertions
 
 NOFLAGS   = 0
-BRANCH    = 1   # Opcode is a branching opcode (implies a label argument)
-INTARG    = 2   # Opcode has an integer argument
-CONSTSPEC = 6   # Opcode has specialized variants (implies INTARG)
-INVOKE    = 8   # Opcode is some kind of method invocation
+BRANCH    = 1          # Opcode is a branching opcode (implies a label argument)
+INVOKE    = 2          # Opcode is some kind of method invocation
+CONST5    = 4          # Opcode is specialized for int arguments from -1 to 5
+CONST3    = 4          # Opcode is specialized for int arguments from 0 to 3
 
 # ___________________________________________________________________________
 # JVM Opcodes:
@@ -28,6 +29,25 @@ class Opcode(object):
         """
         self.flags = flags
         self.jvmstr = jvmstr
+        
+    def specialize_opcode(self, args):
+        """ Process the argument list according to the various flags.
+        Returns a tuple (OPCODE, ARGS) where OPCODE is a string representing
+        the new opcode, and ARGS is a list of arguments or empty tuple """
+
+        if self.flags & CONST5: 
+            assert len(args) == 1
+            if args[0] == -1:
+                return self.jvmstr + "_m1", ()
+            elif args[0] >= 0 and args[0] <= 5:
+                return self.jvmstr + "_" + str(args[0]), ()
+
+        if self.flags & CONST3: 
+            assert len(args) == 1
+            if args[0] >= 0 and args[0] <= 3:
+                return self.jvmstr + "_" + str(args[0]), ()
+
+        return self.jvmstr, args
         
 class OpcodeFamily(object):
     """
@@ -59,17 +79,32 @@ class OpcodeFamily(object):
         'argtype', a JvmType object. """
 
         # These are always true:
-        if self[0] == 'L': return self._o("A")   # Objects
-        if self[0] == '[': return self._o("A")   # Arrays
-        if self == 'I':    return self._o("I")   # Integers
-        if self == 'J':    return self._o("L")   # Integers
-        if self == 'D':    return self._o("D")   # Doubles
-        if self == 'C':    return self._o("C")   # Characters
-        if self == 'B':    return self._o("B")   # Bytes
-        if self == 'V':    return self._o("")    # Void [used by RETURN]
+        if argtype[0] == 'L': return self._o("a")   # Objects
+        if argtype[0] == '[': return self._o("a")   # Arrays
+        if argtype == 'I':    return self._o("i")   # Integers
+        if argtype == 'J':    return self._o("l")   # Integers
+        if argtype == 'D':    return self._o("d")   # Doubles
+        if argtype == 'V':    return self._o("")    # Void [used by RETURN]
 
-        # TODO --- extend?  etc
-        unimplemented
+        # Chars/Bytes/Booleans are normally represented as ints
+        # in the JVM, but some opcodes are different.  They use a
+        # different OpcodeFamily (see ArrayOpcodeFamily for ex)
+        if argtype == 'C':    return self._o("i")   # Characters
+        if argtype == 'B':    return self._o("i")   # Bytes
+        if argtype == 'Z':    return self._o("i")   # Boolean
+
+        assert False, "Unknown argtype=%s" % repr(argtype)
+        raise NotImplementedError
+
+class ArrayOpcodeFamily(OpcodeFamily):
+    """ Opcode family specialized for array access instr """
+    def for_type(self, argtype):
+        if argtype == 'J':    return self._o("l")   # Integers
+        if argtype == 'D':    return self._o("d")   # Doubles
+        if argtype == 'C':    return self._o("c")   # Characters
+        if argtype == 'B':    return self._o("b")   # Bytes
+        if argtype == 'Z':    return self._o("b")   # Boolean (access as bytes)
+        return OpcodeFamily.for_type(self, argtype)
 
 # Define the opcodes for IFNE, IFEQ, IFLT, IF_ICMPLT, etc.  The IFxx
 # variants compare a single integer arg against 0, and the IF_ICMPxx
@@ -91,10 +126,10 @@ INVOKESTATIC = Opcode(INVOKE, 'invokestatic')
 
 # Other opcodes
 GOTO =      Opcode(BRANCH, 'goto')
-ICONST =    Opcode(CONSTSPEC, 'iconst')
+ICONST =    Opcode(CONST5, 'iconst')
 DCONST_0 =  Opcode(NOFLAGS, 'dconst_0')
-DCONST_1 =  Opcode(NOFLAGS, 'dconst_1')
-LCONST_0 =  Opcode(NOFLAGS, 'lconst_0')
+DCONST_1 =  Opcode(NOFLAGS, 'dconst_0')
+LCONST_0 =  Opcode(NOFLAGS, 'lconst_1')
 LCONST_1 =  Opcode(NOFLAGS, 'lconst_1')
 GETFIELD =  Opcode(NOFLAGS, 'getfield')
 PUTFIELD =  Opcode(NOFLAGS, 'putfield')
@@ -139,10 +174,9 @@ LXOR =      Opcode(NOFLAGS, 'lxor')
 LSHL =      Opcode(NOFLAGS, 'lshl')
 LSHR =      Opcode(NOFLAGS, 'lshr')
 LUSHR =     Opcode(NOFLAGS, 'lushr')
-
 # Loading/storing local variables
-LOAD =      OpcodeFamily(INTARG, "load")
-STORE =     OpcodeFamily(INTARG, "store")
+LOAD =      OpcodeFamily(CONST3, "load")
+STORE =     OpcodeFamily(CONST3, "store")
 RETURN =    OpcodeFamily(NOFLAGS, "return")
 
 # Loading/storing from arrays
@@ -152,8 +186,8 @@ RETURN =    OpcodeFamily(NOFLAGS, "return")
 #   Also: here I break from convention by naming the objects ARRLOAD
 #   rather than ALOAD, even though the suffix is 'aload'.  This is to
 #   avoid confusion with the ALOAD opcode.
-ARRLOAD =      OpcodeFamily(NOFLAGS, "aload")
-ARRSTORE =     OpcodeFamily(NOFLAGS, "astore")
+ARRLOAD =      ArrayOpcodeFamily(NOFLAGS, "aload")
+ARRSTORE =     ArrayOpcodeFamily(NOFLAGS, "astore")
 
 # ___________________________________________________________________________
 # Helper Method Information
@@ -181,19 +215,19 @@ PYPYLONGBITWISENEGATE = Method('pypy.PyPy', 'long_bitwise_negate', '(L)L')
 PYPYARRAYTOLIST =       Method('pypy.PyPy', 'array_to_list',
                                '([Ljava/lang/Object;)Ljava/util/List;')
 PYPYSTRTOINT =          Method('pypy.PyPy', 'str_to_int',
-                               '([Ljava/lang/String;)I')
+                               '(Ljava/lang/String;)I')
 PYPYSTRTOUINT =         Method('pypy.PyPy', 'str_to_uint',
-                               '([Ljava/lang/String;)I')
+                               '(Ljava/lang/String;)I')
 PYPYSTRTOLONG =         Method('pypy.PyPy', 'str_to_long',
-                               '([Ljava/lang/String;)J')
+                               '(Ljava/lang/String;)J')
 PYPYSTRTOULONG =        Method('pypy.PyPy', 'str_to_ulong',
-                               '([Ljava/lang/String;)J')
+                               '(Ljava/lang/String;)J')
 PYPYSTRTOBOOL =         Method('pypy.PyPy', 'str_to_bool',
-                               '([Ljava/lang/String;)B')
+                               '(Ljava/lang/String;)B')
 PYPYSTRTODOUBLE =       Method('pypy.PyPy', 'str_to_double',
-                               '([Ljava/lang/String;)D')
+                               '(Ljava/lang/String;)D')
 PYPYSTRTOCHAR =         Method('pypy.PyPy', 'str_to_char',
-                               '([Ljava/lang/String;)C')
+                               '(Ljava/lang/String;)C')
 
 class JVMGenerator(Generator):
 
@@ -204,8 +238,9 @@ class JVMGenerator(Generator):
     search for the string 'unimplemented' to find the methods that
     must be overloaded. """
 
-    def __init__(self, type_system):
-        self.type_system = type_system
+    def __init__(self, db):
+        self.db = db
+        self.label_counter = 0
 
     # __________________________________________________________________
     # JVM specific methods to be overloaded by a subclass
@@ -318,9 +353,9 @@ class JVMGenerator(Generator):
         identifier.
 
         'mark' --- if True, then also calls self.mark() with the new lbl """
-        labelnum = len(self._labels)
-        self._labels.append(desc)
-        res = ('Label', labelnum)
+        labelnum = self.label_counter
+        self.label_counter += 1
+        res = ('Label', labelnum, desc)
         if mark:
             self.mark(res)
         return res
@@ -394,7 +429,7 @@ class JVMGenerator(Generator):
 
     def _var_data(self, v):
         # Determine java type:
-        jty = self.type_system.ootype_to_jvm(v.concretetype)
+        jty = self.db.lltype_to_cts(v.concretetype)
         # Determine index in stack frame slots:
         #   note that arguments and locals can be treated the same here
         if v in self.local_vars:
@@ -404,29 +439,30 @@ class JVMGenerator(Generator):
             self.next_offset += jty.type_width()
         return jty, idx
         
-    def load(self, v):
-        if isinstance(v, flowmodel.Variable):
-            jty, idx = _var_data(v)
+    def load(self, value):
+        if isinstance(value, flowmodel.Variable):
+            jty, idx = self._var_data(value)
             return self.load_jvm_var(jty, idx)
 
-        if isinstance(v, flowmodel.Constant):
+        if isinstance(value, flowmodel.Constant):
             # TODO: Refactor and complete this code?  Maybe more like cli code?
+            # Knowledge of ootype SHOULD be constrainted to type system
+            TYPE = value.concretetype
             if TYPE is ootype.Void:
-                pass
+                return
             elif TYPE is ootype.Bool:
-                self._instr(ICONST, int(value))
+                return self._instr(ICONST, int(value.value))
             elif TYPE is ootype.Char or TYPE is ootype.UniChar:
-                self._instr(ICONST, ord(value))
-            elif isinstance(value, CDefinedIntSymbolic):
-                self._instr(ICONST, DEFINED_INT_SYMBOLICS[value.expr])
+                return self._instr(ICONST, ord(value.value))
             elif TYPE in (ootype.Signed, ootype.Unsigned):
-                self._instr(ICONST, value) # handle Unsigned better!
+                return self._instr(ICONST, value.value) # handle Unsigned better
             
-        raise Exception('Unexpected type for v in load(): '+v)
+        raise Exception('Unexpected type for v in load(): '+
+                        repr(value.concretetype) + " v=" + repr(value))
 
     def store(self, v):
         if isinstance(v, flowmodel.Variable):
-            jty, idx = _var_data(v)
+            jty, idx = self._var_data(v)
             return self.store_jvm_var(jty, idx)
         raise Exception('Unexpected type for v in store(): '+v)
 
@@ -439,11 +475,24 @@ class JVMGenerator(Generator):
     def downcast(self, type):
         self._instr(CHECKCAST, type)
 
+    def branch_unconditionally(self, target_label):
+        self._instr(GOTO, target_label)
+
+    def branch_conditionally(self, cond, target_label):
+        if cond:
+            self._instr(IFNE, target_label)
+        else:
+            self._instr(IFEQ, target_label)
+
+    def call_graph(self, graph):
+        mthd = self.db.pending_function(graph)
+        mthd.invoke(self)
+
+    def call_primitive(self, graph):
+        raise NotImplementedError
+
     # __________________________________________________________________
     # Methods invoked directly by strings in jvm/opcode.py
-
-    def goto(self, lbl):
-        self._instr(GOTO, lbl)
 
     def throw(self):
         """ Throw the object from top of the stack as an exception """
@@ -540,7 +589,8 @@ class JVMGenerator(Generator):
         
 class JasminGenerator(JVMGenerator):
 
-    def __init__(self, outdir, package):
+    def __init__(self, db, outdir, package):
+        JVMGenerator.__init__(self, db)
         self.outdir = outdir
 
     def begin_class(self, classnm):
@@ -587,20 +637,16 @@ class JasminGenerator(JVMGenerator):
 
     def mark(self, lbl):
         """ Marks the point that a label indicates. """
-        _, lblnm = lbl
+        _, lblnum, lbldesc = lbl
         assert _ == "Label"
-        self.out.write('  %s:\n' % lblnm)
+        self.out.write('  %s_%s:\n' % (lbldesc, lblnum))
 
     def _instr(self, opcode, *args):
-        jvmstr = opcode.jvmstr
-        
-        # Hack: this should be somewhere else, just not sure where yet
-        if opcode.flags & CONSTSPEC:
-            if args[0] == -1:
-                jvmstr += "_m1"
-            elif args[0] >= 0 and args[0] <= 5:
-                jvmstr += "_%d" % args[0]
-            
+        jvmstr, args = opcode.specialize_opcode(args)
+        if opcode.flags & BRANCH:
+            assert len(args) == 1
+            _, lblnum, lbldesc = args[0]
+            args = ('%s_%s' % (lbldesc, lblnum),)
         self.out.write('    %s %s\n' % (
             jvmstr, " ".join([str(s) for s in args])))
 

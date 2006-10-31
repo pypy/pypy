@@ -1,4 +1,15 @@
 from pypy.translator.jvm.conftest import option
 
+# Not sure why this is needed.  Sure that it shouldn't be, even.
+_default_values = {
+    'javac':'javac',
+    'java':'java',
+    'noasm':False,
+    'package':'pypy',
+    'wd':False
+    }
+
 def getoption(name):
-    return getattr(option, name)
+    if hasattr(option, name):
+        return getattr(option, name)
+    return _default_values[name]

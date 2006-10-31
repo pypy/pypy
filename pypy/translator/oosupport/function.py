@@ -10,10 +10,12 @@ class Function(object):
         self.name = self.cts.escape_name(name or graph.name)
         self.is_method = is_method
         self.is_entrypoint = is_entrypoint
-        self.blocknum = {}
-        self._set_args()
-        self._set_locals()
-        self.generator = self._create_generator()
+        self.generator = None # set in render()
+        
+        # If you want to enumerate args/locals before processing, then
+        # add these functions into your __init__() [they are defined below]
+        #   self._set_args()
+        #   self._set_locals()
 
     def get_name(self):
         return self.name
@@ -49,17 +51,25 @@ class Function(object):
         raise NotImplementedError
 
     def begin_try(self):
+        """ Begins a try block; end_try will be called exactly once, then
+        some number of begin_ and end_catch pairs """
         raise NotImplementedError
 
-    def end_try(self):
+    def end_try(self, target_label):
+        """ Ends the try block, and branchs to the given target_label if
+        no exception occurred """
         raise NotImplementedError
 
     def begin_catch(self, llexitcase):
+        """ Begins a catch block for the exception type specified in
+        llexitcase"""
         raise NotImplementedError
     
     def end_catch(self, target_label):
+        """ Ends the catch block, and branchs to the given target_label as the
+        last item in the catch block """
         raise NotImplementedError
-    
+
     def render(self, ilasm):
         if self.db.graph_name(self.graph) is not None and not self.is_method:
             return # already rendered
@@ -68,6 +78,7 @@ class Function(object):
             assert False, 'Cannot render a suggested_primitive'
 
         self.ilasm = ilasm
+        self.generator = self._create_generator(self.ilasm)
         graph = self.graph
         self.begin_render()
 
@@ -104,15 +115,15 @@ class Function(object):
             self.begin_try()
             self._render_op(block.operations[-1])
 
-        # search for the "default" block to be executed when no exception is raised
+        # search for the "default" block to be executed when no
+        # exception is raised
         for link in block.exits:
             if link.exitcase is None:
                 self._setup_link(link)
-                target_label = self._get_block_name(link.target)
-                self.ilasm.leave(target_label)
-
-        if block.operations:
-            self.end_try()
+                self.end_try(self._get_block_name(link.target))
+                break
+        else:
+            assert False, "No non-exceptional case from exc_handling block"
 
         # catch the exception and dispatch to the appropriate block
         for link in block.exits:
@@ -140,12 +151,12 @@ class Function(object):
             self._setup_link(link)
             target_label = self._get_block_name(link.target)
             if link.exitcase is None or link is block.exits[-1]:
-                self.ilasm.branch(target_label)
+                self.generator.branch_unconditionally(target_label)
             else:
                 assert type(link.exitcase is bool)
                 assert block.exitswitch is not None
-                self.load(block.exitswitch)
-                self.ilasm.branch_if(link.exitcase, target_label)
+                self.generator.load(block.exitswitch)
+                self.generator.branch_conditionally(link.exitcase, target_label)
 
     def _setup_link(self, link):
         target = link.target
@@ -154,9 +165,32 @@ class Function(object):
                 self.generator.load(to_load)
                 self.generator.store(to_store)
 
+    def _render_op(self, op):
+        instr_list = self.db.genoo.opcodes.get(op.opname, None)
+        assert instr_list is not None, 'Unknown opcode: %s ' % op
+        assert isinstance(instr_list, InstructionList)
+        instr_list.render(self.generator, op)
+
+    def field_name(self, obj, field):
+        raise NotImplementedError
+
+    # ---------------------------------------------------------#
+    # These methods are quite backend independent, but not     #
+    # used in all backends. Invoke them from your __init__ if  #
+    # desired.                                                 #
+    # ---------------------------------------------------------#
+
+    def _get_block_name(self, block):
+        # Note: this implementation requires that self._set_locals() be
+        # called to gather the blocknum's
+        return 'block%s' % self.blocknum[block]
+    
     def _set_locals(self):
-        # this code is partly borrowed from pypy.translator.c.funcgen.FunctionCodeGenerator
+        # this code is partly borrowed from
+        # pypy.translator.c.funcgen.FunctionCodeGenerator
         # TODO: refactoring to avoid code duplication
+
+        self.blocknum = {}
 
         graph = self.graph
         mix = [graph.getreturnvar()]
@@ -200,15 +234,3 @@ class Function(object):
         args = [arg for arg in self.graph.getargs() if arg.concretetype is not Void]
         self.args = map(self.cts.llvar_to_cts, args)
         self.argset = set([argname for argtype, argname in self.args])
-
-    def _get_block_name(self, block):
-        return 'block%s' % self.blocknum[block]
-
-    def _render_op(self, op):
-        instr_list = self.db.genoo.opcodes.get(op.opname, None)
-        assert instr_list is not None, 'Unknown opcode: %s ' % op
-        assert isinstance(instr_list, InstructionList)
-        instr_list.render(self, op)
-
-    def field_name(self, obj, field):
-        raise NotImplementedError

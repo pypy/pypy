@@ -5,20 +5,25 @@ into every node for generation along with the generator.
 """
 from cStringIO import StringIO
 from pypy.rpython.ootypesystem import ootype
-from pypy.translator.jvm.typesystem import jvm_method_desc
+from pypy.translator.jvm.typesystem import jvm_method_desc, ootype_to_jvm
 from pypy.translator.jvm import node
 import pypy.translator.jvm.generator as jvmgen
 import pypy.translator.jvm.typesystem as jvmtypes
 
 class Database:
-    def __init__(self, ts):
+    def __init__(self, genoo):
         # Public attributes:
-        self.type_system = ts
-
+        self.genoo = genoo
+        
         # Private attributes:
         self._classes = {} # Maps ootype class objects to node.Class objects
         self._counter = 0  # Used to create unique names
-        self._pending = [] # Worklist
+        self._functions = {}     # graph -> jvmgen.Method
+
+        self._function_names = {} # graph --> function_name
+
+        self._pending_nodes = set()  # Worklist
+        self._rendered_nodes = set()
 
     def _make_unique_name(self, nm):
         cnt = self._counter
@@ -40,7 +45,7 @@ class Database:
         for fieldnm, (fieldty, fielddef) in ooclass._fields.iteritems():
             if ftype is ootype.Void: continue
             fieldnm = self._make_unique_name(fieldnm)
-            fieldty = self.type_system.ootype_to_jvm(ftype)
+            fieldty = self.lltype_to_cts(ftype)
             clobj.add_field(fieldty, fieldnm) # TODO --- fielddef??
             
         # Add methods:
@@ -56,35 +61,92 @@ class Database:
                 args =  m_meth.graph.getargs()
                 SELF = args[0].concretetype
                 if not ootype.isSubclass(ooclass, SELF): continue
-                mobj = _method_for_graph(clobj, False, mimpl.graph)
+                mobj = _function_for_graph(
+                    clobj, mimpl.name, False, mimpl.graph)
                 clobj.add_method(mobj)
 
         return clobj
-    
-    def _method_for_graph(self, classobj, is_static, graph):
+
+    def _function_for_graph(self, classobj, funcnm, is_static, graph):
         
         """
-        Creates a node.Function object for a particular graph.  Adds the
-        method to 'classobj', which should be a node.Class object.
+        Creates a node.Function object for a particular graph.  Adds
+        the method to 'classobj', which should be a node.Class object.
         """
-
-        # Build up a func object 
-        func_name = self._make_unique_name(graph.name)
         argtypes = [arg.concretetype for arg in graph.getargs()
                     if arg.concretetype is not ootype.Void]
-        jargtypes = [self.type_system.ootype_to_jvm(argty)
-                     for argty in argtypes]
+        jargtypes = [self.lltype_to_cts(argty) for argty in argtypes]
         rettype = graph.getreturnvar().concretetype
-        jrettype = self.type_system.ootype_to_jvm(rettype)
-        funcobj = self._translated[cachekey] = node.Function(
-            classobj, func_name, jargtypes, jrettype, graph, is_static)
+        jrettype = self.lltype_to_cts(rettype)
+        funcobj = node.Function(
+            self, classobj, funcnm, jargtypes, jrettype, graph, is_static)
         return funcobj
 
     def pending_node(self, node):
-        self._pending.append(node)
+        self._pending_nodes.add(node)
+        
+    def pending_function(self, graph):
+        """
+        This is invoked when a standalone function is to be compiled.
+        It creates a class named after the function with a single
+        method, invoke().  This class is added to the worklist.
+        Returns a jvmgen.Method object that allows this function to be
+        invoked.
+        """
+        if graph in self._functions:
+            return self._functions[graph]
+        classnm = self._make_unique_name(graph.name)
+        classobj = node.Class(classnm)
+        funcobj = self._function_for_graph(classobj, "invoke", True, graph)
+        classobj.add_method(funcobj)
+        self.pending_node(classobj)
+        res = self._functions[graph] = funcobj.method()
+        return res
 
     def len_pending(self):
-        return len(self._pending)
+        return len(self._pending_nodes)
 
     def pop(self):
-        return self._pending.pop()
+        return self._pending_nodes.pop()
+
+    # Type translation functions
+
+    def escape_name(self, nm):
+        # invoked by oosupport/function.py; our names don't need escaping?
+        return nm
+
+    def llvar_to_cts(self, llv):
+        """ Returns a tuple (JvmType, str) with the translated type
+        and name of the given variable"""
+        return self.lltype_to_cts(llv.concretetype), llv.name
+
+    def lltype_to_cts(self, oot):
+        """ Returns an instance of JvmType corresponding to
+        the given OOType"""
+
+        # Check the easy cases
+        if oot in ootype_to_jvm:
+            return ootype_to_jvm[oot]
+
+        # Now handle the harder ones
+        if isinstance(oot, ootype.Ptr) and isinstance(t.TO, ootype.OpaqueType):
+            return jObject
+        if isinstance(oot, ootype.Instance):
+            return XXX
+        if isinstance(oot, ootype.Record):
+            return XXX
+        if isinstance(oot, ootype.StaticMethod):
+            return XXX
+
+        # Uh-oh
+        unhandled_case    
+
+    # Invoked by genoo:
+    #   I am not sure that we need them
+    
+    def record_function(self, graph, name):
+        self._function_names[graph] = name
+
+    def graph_name(self, graph):
+        # XXX: graph name are not guaranteed to be unique
+        return self._function_names.get(graph, None)
