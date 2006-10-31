@@ -42,25 +42,6 @@ class TestPromotion(TimeshiftingTests):
         assert res == ll_function(10, 0)
         self.check_insns(int_add=10, int_mul=0)
 
-    def test_multiple_portal_calls(self):
-        def ll_function(n):
-            hint(None, global_merge_point=True)
-            k = n
-            if k > 5:
-                k //= 2
-            k = hint(k, promote=True)
-            k *= 17
-            return hint(k, variable=True)
-        ll_function._dont_cache_ = True
-
-        res = self.timeshift(ll_function, [4], [], policy=P_NOVIRTUAL)
-        assert res == 68
-        self.check_insns(int_floordiv=1, int_mul=0)
-
-        res = self.timeshift(ll_function, [4], [], policy=P_NOVIRTUAL)
-        assert res == 68
-        self.check_insns(int_floordiv=1, int_mul=0)
-
     def test_promote_after_call(self):
         S = lltype.GcStruct('S', ('x', lltype.Signed))
         def ll_two(k, s):

@@ -4,7 +4,7 @@ from pypy.jit.timeshifter.test.test_timeshift import hannotate
 from pypy.jit.timeshifter.rtyper import HintRTyper
 from pypy.jit.timeshifter.test.test_timeshift import P_NOVIRTUAL
 from pypy.rpython.llinterp import LLInterpreter
-from pypy.objspace.flow.model import checkgraph
+from pypy.objspace.flow.model import checkgraph, summary
 from pypy.rpython.objectmodel import hint
 
 from pypy.rpython.objectmodel import hint
@@ -27,7 +27,7 @@ class TestPortal(object):
 
         key = main, portal, inline, policy, backendoptimize
         try:
-            maingraph, rtyper = self._cache[key]
+            maingraph, readportalgraph, rtyper = self._cache[key]
         except KeyError:
             if len(self._cache_order) >= 3:
                 del self._cache[self._cache_order.pop(0)]
@@ -51,12 +51,25 @@ class TestPortal(object):
             if conftest.option.view:
                 t.view()
 
-            self._cache[key] = maingraph, rtyper
+            readportalgraph = hrtyper.readportalgraph
+            self._cache[key] = maingraph, readportalgraph, rtyper
             self._cache_order.append(key)
 
         llinterp = LLInterpreter(rtyper)
-        return llinterp.eval_graph(maingraph, main_args)
+        res = llinterp.eval_graph(maingraph, main_args)
 
+        self._residual_graph = llinterp.eval_graph(readportalgraph,
+                                                   main_args)._obj.graph
+
+        return res
+
+    def check_insns(self, expected=None, **counts):
+        self.insns = summary(self._residual_graph)
+        if expected is not None:
+            assert self.insns == expected
+        for opname, count in counts.items():
+            assert self.insns.get(opname, 0) == count
+            
     def test_simple(self):
 
         def main(code, x):
@@ -96,9 +109,9 @@ class TestPortal(object):
         res = self.timeshift_from_portal(ll_function, ll_function, [4],
                                          policy=P_NOVIRTUAL)
         assert res == 68
-        #self.check_insns(int_floordiv=1, int_mul=0)
+        self.check_insns(int_floordiv=1, int_mul=0)
 
         res = self.timeshift_from_portal(ll_function, ll_function, [4],
                                          policy=P_NOVIRTUAL)
         assert res == 68
-        #self.check_insns(int_floordiv=1, int_mul=0)
+        self.check_insns(int_floordiv=1, int_mul=0)

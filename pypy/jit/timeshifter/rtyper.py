@@ -201,6 +201,21 @@ class HintRTyper(RPythonTyper):
 
         state = PortalState()
         rgenop = self.RGenOp()
+
+        # debug helper
+        def readportal(*args):
+            i = 0
+            key = ()
+            for color in argcolors:
+                if color == "green":
+                    key = key + (args[i],)
+                i = i + 1
+            cache = state.cache
+            try:
+                return cache[key]
+            except KeyError:
+                return lltype.nullptr(FUNC)
+        
         def portalentry(*args):
             i = 0
             key = ()
@@ -253,6 +268,9 @@ class HintRTyper(RPythonTyper):
         s_result = annmodel.lltype_to_annotation(
                     origportalgraph.getreturnvar().concretetype)
         portalentrygraph = annhelper.getgraph(portalentry, args_s, s_result)
+
+        self.readportalgraph = annhelper.getgraph(readportal, args_s,
+                                   annmodel.SomePtr(lltype.Ptr(FUNC)))
 
         annhelper.finish()
 
