@@ -6,7 +6,8 @@ come from the oosupport directory.
 """
 
 from pypy.translator.oosupport.metavm import \
-     PushArg, PushAllArgs, StoreResult, InstructionList, New, DoNothing, Call
+     PushArg, PushAllArgs, StoreResult, InstructionList, New, DoNothing, Call,\
+     SetField, GetField
 import pypy.translator.jvm.generator as jvmgen
 
 def _check_zer(op):
@@ -21,10 +22,10 @@ def _check_ovf(op):
 # It is post-processed by a function to be found below.
 opcodes = {
     # __________ object oriented operations __________
-    #'new':                      [New],
+    'new':                      [New, StoreResult],
     #'runtimenew':               [RuntimeNew],
-    #'oosetfield':               [SetField],
-    #'oogetfield':               [GetField],
+    'oosetfield':               [SetField],
+    'oogetfield':               [GetField, StoreResult],
     #'oosend':                   [CallMethod],
     #'ooupcast':                 DoNothing,
     #'oodowncast':               [DownCast],

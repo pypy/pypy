@@ -171,7 +171,8 @@ class Function(OOFunction):
     def begin_try(self):
         self.ilasm.begin_try()
 
-    def end_try(self):
+    def end_try(self, exit_label):
+        self.ilasm.branch_unconditionally(exit_label)
         self.ilasm.end_try()
 
     def begin_catch(self, llexitcase):
@@ -202,6 +203,10 @@ class Function(OOFunction):
                 self.ilasm.load(to_load)
                 self.ilasm.store(to_store)
 
+    def _render_op(self, op):
+        self.generator.add_comment(str(op))
+        OOFunction._render_op(self, op)
+
 class Class(Node):
 
     """ Represents a class to be emitted.  Note that currently, classes
@@ -220,12 +225,16 @@ class Class(Node):
     def jvm_type(self):
         return jvm_for_class(self.name)
 
-    def add_field(self, fieldty, fieldnm):
-        """ Creates a new field in this with type 'fieldty' (a
-        JvmType) and with the name ;fieldnm; (a String).  Must be called
-        before render()."""
-        assert not self.rendered
-        self.fields.append((fieldty, fieldnm))
+    def add_field(self, fieldobj):
+        """ Creates a new field accessed via the jvmgen.Field
+        descriptor 'fieldobj'.  Must be called before render()."""
+        assert not self.rendered and isinstance(fieldobj, jvmgen.Field)
+        self.fields.append(fieldobj)
+
+    def lookup_field(self, fieldnm):
+        for f in self.fields:
+            if f.field_name == fieldnm: return f
+        assert False, "No field named '%s' found" % fieldnm
 
     def add_method(self, func):
         """ Creates a new method in this class, represented by the
@@ -238,10 +247,11 @@ class Class(Node):
         self.rendered = True
         gen.begin_class(self.name)
 
-        for fieldty, fieldnm in self.fields:
-            gen.add_field(fieldty, fieldnm)
+        for field in self.fields:
+            gen.add_field(field)
 
         for method in self.methods:
             method.render(gen)
         
         gen.end_class()
+

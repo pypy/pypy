@@ -40,23 +40,23 @@ class Generator(object):
         """
         pass
 
-    def set_field(self, concretetype, value):
+    def set_field(self, CONCRETETYPE, fieldname):
         """
         Stores a value into a field.
         
-        'concretetype' should be the type of the class that has the field
-        'value' is the value of field.value (where field comes from the op)
+        'CONCRETETYPE' should be the type of the class that has the field
+        'fieldname' is a string with the name of the field
         
         Stack: value, item, ... -> ...
         """
         pass
 
-    def get_field(self, concretetype, value):
+    def get_field(self, CONCRETETYPE, fieldname):
         """
         Gets a value from a specified field.
 
-        'concretetype' should be the type of the class that has the field
-        'value' is the value of field.value (where field comes from the op)
+        'CONCRETETYPE' should be the type of the class that has the field
+        'fieldname' is the name of the field
 
         Stack: item, ... -> ...
         """
@@ -98,7 +98,13 @@ class Generator(object):
         rendered as a primitive.
 
         Stack: argN...arg2, arg1, arg0, ... -> ret, ... """
-        raise NotImplementedError        
+        raise NotImplementedError
+
+    def new(self, TYPE):
+        """ Creates a new object of the given type.
+
+        Stack: ... -> newobj, ... """
+        raise NotImplementedError
 
 class InstructionList(list):
     def render(self, generator, op):

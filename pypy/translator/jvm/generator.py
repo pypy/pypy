@@ -12,9 +12,11 @@ from pypy.rpython.ootypesystem import ootype
 
 NOFLAGS   = 0
 BRANCH    = 1          # Opcode is a branching opcode (implies a label argument)
-INVOKE    = 2          # Opcode is some kind of method invocation
+INVOKE    = 2          # Opcode is a Method object
 CONST5    = 4          # Opcode is specialized for int arguments from -1 to 5
 CONST3    = 8          # Opcode is specialized for int arguments from 0 to 3
+CLASSINM  = 16         # Argument is an internal class name
+FIELD     = 32         # Opcode is a Field object
 
 # ___________________________________________________________________________
 # JVM Opcodes:
@@ -49,6 +51,10 @@ class Opcode(object):
             assert len(args) == 1
             if args[0] >= 0 and args[0] <= 3:
                 return self.jvmstr + "_" + str(args[0]), ()
+
+        if self.flags & CLASSINM:
+            assert len(args) == 1
+            args = [args[0].int_class_name()]
 
         return self.jvmstr, args
         
@@ -126,18 +132,22 @@ IF_ACMPNE = Opcode(BRANCH, 'if_acmpne')
 
 # Method invocation
 INVOKESTATIC = Opcode(INVOKE, 'invokestatic')
+INVOKESPECIAL = Opcode(INVOKE, 'invokespecial')
 
 # Other opcodes
-GOTO =      Opcode(BRANCH, 'goto')
-ICONST =    Opcode(CONST5, 'iconst')
+LDC =       Opcode(NOFLAGS, 'ldc')       # single-word types
+LDC2 =      Opcode(NOFLAGS, 'ldc2_w')    # double-word types: doubles and longs
+GOTO =      Opcode(BRANCH,  'goto')
+ICONST =    Opcode(CONST5,  'iconst')
+ACONST_NULL=Opcode(NOFLAGS, 'aconst_null')
 DCONST_0 =  Opcode(NOFLAGS, 'dconst_0')
 DCONST_1 =  Opcode(NOFLAGS, 'dconst_0')
 LCONST_0 =  Opcode(NOFLAGS, 'lconst_1')
 LCONST_1 =  Opcode(NOFLAGS, 'lconst_1')
-GETFIELD =  Opcode(NOFLAGS, 'getfield')
-PUTFIELD =  Opcode(NOFLAGS, 'putfield')
-GETSTATIC = Opcode(NOFLAGS, 'getstatic')
-PUTSTATIC = Opcode(NOFLAGS, 'putstatic')
+GETFIELD =  Opcode(FIELD, 'getfield')
+PUTFIELD =  Opcode(FIELD, 'putfield')
+GETSTATIC = Opcode(FIELD, 'getstatic')
+PUTSTATIC = Opcode(FIELD, 'putstatic')
 CHECKCAST = Opcode(NOFLAGS, 'checkcast')
 INEG =      Opcode(NOFLAGS, 'ineg')
 IXOR =      Opcode(NOFLAGS, 'ixor')
@@ -177,6 +187,9 @@ LXOR =      Opcode(NOFLAGS, 'lxor')
 LSHL =      Opcode(NOFLAGS, 'lshl')
 LSHR =      Opcode(NOFLAGS, 'lshr')
 LUSHR =     Opcode(NOFLAGS, 'lushr')
+NEW =       Opcode(CLASSINM, 'new')
+DUP =       Opcode(NOFLAGS, 'dup')
+POP =       Opcode(NOFLAGS, 'pop')
 # Loading/storing local variables
 LOAD =      OpcodeFamily(CONST3, "load")
 STORE =     OpcodeFamily(CONST3, "store")
@@ -193,9 +206,13 @@ ARRLOAD =      ArrayOpcodeFamily(NOFLAGS, "aload")
 ARRSTORE =     ArrayOpcodeFamily(NOFLAGS, "astore")
 
 # ___________________________________________________________________________
-# Helper Method Information
+# Methods
 #
-# These are used by code outside of this module as well.
+# "Method" objects describe all the information needed to invoke a
+# method.  We create one for each node.Function object, as well as for
+# various helper methods (defined below).  To invoke a method, you
+# push its arguments and then use generator.emit(methobj) where
+# methobj is its Method instance.
 
 class Method(object):
     def __init__(self, classnm, methnm, desc, opcode=INVOKESTATIC):
@@ -230,7 +247,7 @@ PYPYSTRTOLONG =         Method('pypy.PyPy', 'str_to_long',
 PYPYSTRTOULONG =        Method('pypy.PyPy', 'str_to_ulong',
                                '(Ljava/lang/String;)J')
 PYPYSTRTOBOOL =         Method('pypy.PyPy', 'str_to_bool',
-                               '(Ljava/lang/String;)B')
+                               '(Ljava/lang/String;)Z')
 PYPYSTRTODOUBLE =       Method('pypy.PyPy', 'str_to_double',
                                '(Ljava/lang/String;)D')
 PYPYSTRTOCHAR =         Method('pypy.PyPy', 'str_to_char',
@@ -241,6 +258,145 @@ PYPYDUMPLONG  =         Method('pypy.PyPy', 'dump_long', '(L)V')
 PYPYDUMPDOUBLE  =       Method('pypy.PyPy', 'dump_double', '(D)V')
 PYPYDUMPSTRING  =       Method('pypy.PyPy', 'dump_string', '([B)V')
 PYPYDUMPBOOLEAN =       Method('pypy.PyPy', 'dump_boolean', '(Z)V')
+
+# ___________________________________________________________________________
+# Fields
+#
+# Field objects encode information about fields.
+
+class Field(object):
+    def __init__(self, classnm, fieldnm, jtype, static):
+        # All fields are public
+        self.class_name = classnm  # String, ie. "java.lang.Math"
+        self.field_name = fieldnm  # String "someField"
+        self.jtype = jtype         # JvmType
+        self.is_static = static    # True or False
+    def load(self, gen):
+        if self.is_static:
+            gen._instr(GETSTATIC, self)
+        else:
+            gen._instr(GETFIELD, self)
+    def store(self, gen):
+        if self.is_static:
+            gen._instr(PUTSTATIC, self)
+        else:
+            gen._instr(PUTFIELD, self)
+    def jasmin_syntax(self):
+        return "%s/%s %s" % (
+            self.class_name.replace('.','/'), self.field_name, self.jtype)
+
+# ___________________________________________________________________________
+# Constants
+#
+# Constant objects record constants of various types, and can be used
+# to emit the required instructions to load their value.
+
+class Const(object):
+    def load(self, gen):
+        """ Emits code required to reference a constant.  Usually invoked
+        by generator.emit() """
+        raise NotImplementedError
+    def initialize(self, gen):
+        """ Emits code required to DEFINE a constant (if any).  Default
+        version does nothing. """
+        pass
+
+class VoidConst(object):
+    def load(self, gen):
+        pass
+
+class SignedIntConst(Const):
+    def __init__(self, value):
+        self.value = value
+    def load(self, gen):
+        # In theory, we could get rid of CONST5 flag and do optimization
+        # here, but then all code would have to use SignedIntConst, and
+        # that seems uglier
+        gen.emit(ICONST, self.value)
+
+class UnsignedIntConst(SignedIntConst):
+    def __init__(self, value):
+        assert value >= 0
+        if value <= 0x7FFFFFFF:
+            SignedIntConst.__init__(self, value)
+        else:
+            # Find the negative version of the value that will
+            # represent this constant, and treat it like a signed
+            # integer:
+            value = value ^ 0xFFFFFFFF
+            value += 1
+            value *= -1
+            assert value < 0
+            value = int(value)
+            SignedIntConst.__init__(self, value)
+
+class DoubleConst(Const):
+    def __init__(self, value):
+        self.value = value
+    def load(self, gen):
+        if value == 0.0:
+            gen.emit(DCONST_0)
+        elif value == 1.0:
+            gen.emit(DCONST_1)
+        else:
+            gen.emit(LDC2, self.value)
+
+class SignedLongConst(Const):
+    def __init__(self, value):
+        self.value = value
+    def load(self, gen):
+        if value == 0:
+            gen.emit(LCONST_0)
+        elif value == 1:
+            gen.emit(LCONST_1)
+        else:
+            gen.emit(LDC2, self.value)
+
+class UnsignedLongConst(SignedLongConst):
+    def __init__(self, value):
+        assert value >= 0
+        if value <= 0x7FFFFFFFFFFFFFFFL:
+            SignedIntConst.__init__(self, value)
+        else:
+            # Find the negative version of the value that will
+            # represent this constant, and treat it like a signed
+            # integer:
+            value = value ^ 0xFFFFFFFFFFFFFFFF
+            value += 1
+            value *= -1
+            assert value < 0
+            SignedLongConst.__init__(self, value)
+
+class UnicodeConst(Const):
+    def __init__(self, value):
+        self.value = value
+    def load(self, gen):
+        assert isinstance(self.value, unicode)
+        res = '"' + self.value.encode('utf-8').replace('"', r'\"') + '"'
+        gen.emit(LDC, res)
+
+class ComplexConst(Const):
+    def __init__(self, fieldinfo, methodinfo):
+        """
+        Stores information about "complex" constants.  These are constants
+        that we cannot embed in the Java file and which require a method
+        to initialize.  They are stored in static fields, and initialized
+        with static methods that should be embedded in a class's static{}
+        section.
+        
+        fieldinfo --- the static field that will hold the value
+        methodinfo --- a static method that initializes the value.  Should
+        have no arguments.
+        """
+        self.fieldinfo = fieldinfo
+        self.methodinfo = methodinfo
+    def load(self, gen):
+        self.fieldinfo.load(gen)
+    def initialize(self, gen):
+        gen.emit(self.methodinfo)
+
+# ___________________________________________________________________________
+# Generator
 
 class JVMGenerator(Generator):
 
@@ -270,12 +426,10 @@ class JVMGenerator(Generator):
     def end_class(self):
         unimplemented
 
-    def add_field(self, fname, ftype):
+    def add_field(self, fobj):
         """
-        fname --- name of the field (a string)
-        ftype --- JvmType for the field
+        fobj: a Field object
         """
-        # TODO --- should fdesc be an ootype??
         unimplemented
 
     def begin_function(self, funcname, argvars, argtypes, rettype,
@@ -464,17 +618,7 @@ class JVMGenerator(Generator):
             return self.load_jvm_var(jty, idx)
 
         if isinstance(value, flowmodel.Constant):
-            # TODO: Refactor and complete this code?  Maybe more like cli code?
-            # Knowledge of ootype SHOULD be constrainted to type system
-            TYPE = value.concretetype
-            if TYPE is ootype.Void:
-                return
-            elif TYPE is ootype.Bool:
-                return self._instr(ICONST, int(value.value))
-            elif TYPE is ootype.Char or TYPE is ootype.UniChar:
-                return self._instr(ICONST, ord(value.value))
-            elif TYPE in (ootype.Signed, ootype.Unsigned):
-                return self._instr(ICONST, value.value) # handle Unsigned better
+            return self.db.record_const(value).load(self)
             
         raise Exception('Unexpected type for v in load(): '+
                         repr(value.concretetype) + " v=" + repr(value))
@@ -485,11 +629,22 @@ class JVMGenerator(Generator):
             return self.store_jvm_var(jty, idx)
         raise Exception('Unexpected type for v in store(): '+v)
 
-    def set_field(self, concretetype, value):
-        self._instr(SETFIELD, concretetype, value)
+    def set_field(self, CONCRETETYPE, fieldname):
+        if fieldname == "meta":
+            self.emit(POP)
+        else:
+            clsobj = self.db.pending_class(CONCRETETYPE)
+            fieldobj = clsobj.lookup_field(fieldname)
+            fieldobj.store(self)
 
-    def get_field(self, concretetype, value):
-        self._instr(GETFIELD, concretetype, value)
+    def get_field(self, CONCRETETYPE, fieldname):
+        if fieldname == 'meta':
+            self.emit(POP)
+            self.emit(ACONST_NULL)
+        else:
+            clsobj = self.db.pending_class(CONCRETETYPE)
+            fieldobj = clsobj.lookup_field(fieldname)
+            fieldobj.load(self)
 
     def downcast(self, type):
         self._instr(CHECKCAST, type)
@@ -509,6 +664,13 @@ class JVMGenerator(Generator):
 
     def call_primitive(self, graph):
         raise NotImplementedError
+
+    def new(self, TYPE):
+        clsobj = self.db.pending_class(TYPE)
+        ctor = Method(clsobj.name, "<init>", "()V", opcode=INVOKESPECIAL)
+        self.emit(NEW, clsobj.jvm_type())
+        self.emit(DUP)
+        self.emit(ctor)
 
     # __________________________________________________________________
     # Methods invoked directly by strings in jvm/opcode.py
@@ -612,6 +774,9 @@ class JasminGenerator(JVMGenerator):
         JVMGenerator.__init__(self, db)
         self.outdir = outdir
 
+    def add_comment(self, comment):
+        self.out.write("  ; %s\n" % comment)
+
     def begin_class(self, classnm):
         """
         classnm --- full Java name of the class (i.e., "java.lang.String")
@@ -630,23 +795,36 @@ class JasminGenerator(JVMGenerator):
         #self.out.write(".bytecode XX\n")
         #self.out.write(".source \n")
         self.out.write(".class public %s\n" % iclassnm)
-        self.out.write(".super java/lang/Object\n") # ?
+
+        # FIX: custom super class
+        self.out.write(".super java/lang/Object\n")
+        self.constructor_emitted = False
         
     def end_class(self):
+        self._emit_constructor()
         self.out.close()
         self.out = None
 
     def close(self):
         assert self.out is None, "Unended class"
 
-    def add_field(self, fname, fdesc):
-        # TODO --- Signature for generics?
-        # TODO --- these must appear before methods, do we want to buffer
-        # them up to allow out of order calls to add_field()?
-        assert isinstance(fdesc, JvmType)
-        self.out.write('.field public %s %s\n' % (fname, fdesc))
+    def add_field(self, fobj):
+        self.out.write('.field public %s %s\n' % (
+            fobj.field_name, fobj.jtype))
 
+    def _emit_constructor(self):
+        if not self.constructor_emitted:
+            self.out.write(".method public <init>()V\n")
+            self.out.write("    aload_0\n")
+            self.out.write("    invokespecial java/lang/Object/<init>()V\n")
+            self.out.write("    return\n")
+            self.out.write(".end method\n")
+            self.constructor_emitted = True
+            
     def _begin_function(self, funcname, argtypes, rettype, static):
+
+        self._emit_constructor()
+
         # Throws clause?  Only use RuntimeExceptions?
         kw = ['public']
         if static: kw.append('static')
@@ -672,7 +850,7 @@ class JasminGenerator(JVMGenerator):
             assert len(args) == 1
             _, lblnum, lbldesc = args[0]
             args = ('%s_%s' % (lbldesc, lblnum),)
-        if opcode.flags & INVOKE:
+        if opcode.flags & (INVOKE|FIELD):
             assert len(args) == 1
             args = (args[0].jasmin_syntax(),)
         self.out.write('    %s %s\n' % (

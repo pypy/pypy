@@ -193,7 +193,10 @@ public class PyPy {
         if (i >= 0)
             System.out.println(i);
         else {
-            throw new RuntimeException("TODO");
+            int loword = i & 0xFFFF;
+            int hiword = i >>> 16;
+            long res = loword + (hiword*0xFFFF);
+            System.out.println(res);
         }
     }
 
@@ -221,5 +224,42 @@ public class PyPy {
         }
         System.out.print('"');
         System.out.println();
+    }
+
+    // ----------------------------------------------------------------------
+    // Self Test
+
+    public static int __counter = 0, __failures = 0;
+    public static void ensure(boolean f) {
+        if (f) {
+            System.out.println("Test #"+__counter+": OK");
+        }
+        else {
+            System.out.println("Test #"+__counter+": FAILED");
+            __failures++;
+        }
+        __counter++;
+    }
+
+    public static void main(String args[]) {
+        // Small self test:
+
+        ensure(uint_cmp(0xFFFFFFFF, 0) > 0);
+        ensure(uint_cmp(0, 0xFFFFFFFF) < 0);
+        ensure(uint_cmp(0x80000000, 0) > 0);
+        ensure(uint_cmp(0, 0x80000000) < 0);
+        ensure(uint_cmp(0xFFFF, 0) > 0);
+        ensure(uint_cmp(0, 0xFFFF) < 0);
+        ensure(uint_cmp(0xFFFFFFFF, 0xFFFF) > 0);
+        ensure(uint_cmp(0xFFFF, 0xFFFFFFFF) < 0);
+
+        ensure(ulong_cmp(0xFFFFFFFFFFFFFFFFL, 0) > 0);
+        ensure(ulong_cmp(0, 0xFFFFFFFFFFFFFFFFL) < 0);
+        ensure(ulong_cmp(0xFFFFFFFFFFFFFFFFL, 0xFFFF) > 0);
+        ensure(ulong_cmp(0xFFFF, 0xFFFFFFFFFFFFFFFFL) < 0);
+        ensure(ulong_cmp(0x8000000000000000L, 0xFFFF) > 0);
+        ensure(ulong_cmp(0xFFFF, 0x8000000000000000L) < 0);
+        
+        System.out.println("Total Failures: "+__failures);
     }
 }
