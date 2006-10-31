@@ -226,6 +226,10 @@ class CliTest(BaseRtypingTest, OORtypeMixin):
         if platform.system() == 'Windows':
             py.test.skip('Windows --> %s' % reason)
 
+    def _skip_powerpc(self, reason):
+        if platform.processor() == 'powerpc':
+            py.test.skip('PowerPC --> %s' % reason)
+
     def interpret(self, fn, args, annotation=None):
         f = self._compile(fn, args, annotation)
         res = f(*args)

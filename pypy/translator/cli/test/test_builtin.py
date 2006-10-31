@@ -17,6 +17,10 @@ class TestCliBuiltin(CliTest, BaseTestRbuiltin):
     test_os_path_exists = skip_os
     test_os_isdir = skip_os
 
+    def test_builtin_math_frexp(self):
+        self._skip_powerpc("Mono math floating point problem")
+        BaseTestRbuiltin.test_builtin_math_frexp(self)
+    
     def test_os_flags(self):
         from pypy.translator.cli.support import NT_OS
         def fn():

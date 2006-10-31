@@ -89,6 +89,8 @@ class TestConstant(CliTest):
 
     def test_float_special(self):
         self._skip_win('inf & nan')
+        self._skip_powerpc('Suspected endian issue with '+
+                           'representation of INF and NAN')
         c = [float("inf"), float("nan")]
         def fn(i):
             return c[i]*2 == c[i]
