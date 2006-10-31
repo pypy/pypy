@@ -580,8 +580,8 @@ elif hasattr(os, 'waitpid'):
             prog = sys.executable
             prog = str(prog)
             args = [prog]
-            args += [] # uaah, become var-sized
 #            args = [prog, '-c', 'print 7*7']
+#           note that the above variant creates a bad array
             args.append('-c')
             args.append('"import os;os._exit(4)"')
             pid = os.spawnv(os.P_NOWAIT, prog, args)
