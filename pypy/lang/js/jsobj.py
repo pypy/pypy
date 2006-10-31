@@ -80,17 +80,19 @@ class W_Reference(W_Root):
         raise NotImplementedError("W_Reference.GetValue")
 
 class W_Object(W_Root):
-    def __init__(self, dict_w, body=None):
+    def __init__(self, dict_w, function=None):
         # string --> W_Root
         self.dict_w = dict_w
         # XXX: more stuff
         self.dict_w['toString'] = W_Builtin({}, self.w_string)
-        self.body = body
+        # XXX A bit hairy here, we store here a Function, and Script
+        #     is a self.function.body
+        self.function = function
         #self.class_ = None
 
     def Call(self, this=None):
-        if self.body:
-            return self.body.call()
+        if self.function:
+            return self.function.body.call()
         else:
             raise SeePage(33)
     

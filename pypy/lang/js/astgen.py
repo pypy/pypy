@@ -36,7 +36,7 @@ class Function(Node):
         self.params = params
         self.body = body
         self.scope = scope
-        w_obj = W_Object({}, body=self)
+        #w_obj = W_Object({}, function=self)
         #self.scope = Scope(copy(scope.dict))
     
 class Identifier(Node):

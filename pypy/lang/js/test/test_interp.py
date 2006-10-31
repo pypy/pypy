@@ -62,3 +62,17 @@ class TestInterp(object):
     
     def test_var_declartion(self):
         self.assert_prints(parse_d('var x = 3; print(x+x);'), ["6"])
+    
+    def test_var_scoping(self):
+        self.assert_prints(parse_d("""
+        var y;
+        var p;
+        p = 0;
+        x = function() {
+            var p;
+            p = 1;
+            y = 3; return y + z;
+        };
+        var z = 2;
+        print(x(), y, p);
+        """), ["5,3,0"])

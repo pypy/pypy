@@ -31,13 +31,14 @@ class __extend__(Dot):
         name = self.right.get_literal()
         return w_obj.Get(name)
 
-class __extend__(Function):
-    def call(self, context=None):
-        backup_scope = scope_manager.current_scope
-        scope_manager.current_scope = self.scope
-        retval = self.body.call()
-        scope_manager.current_scope = backup_scope
-        return retval
+#class __extend__(Function):
+#    def call(self, context=None):
+#        #import pdb;pdb.set_trace()
+#        #backup_scope = scope_manager.current_scope
+#        #scope_manager.current_scope = self.scope
+#        retval = self.body.call()
+#        #scope_manager.current_scope = backup_scope
+#        return retval
 
 class __extend__(Plus):
     def call(self, context=None):
@@ -86,8 +87,18 @@ class __extend__(Call):
         if name == 'print':
             writer(",".join([i.ToString() for i in self.arglist.call(context)]))
         else:
+            #        #import pdb;pdb.set_trace()
+        
+#        #
+#        retval = self.body.call()
+#        #scope_manager.current_scope = backup_scope
+#        return retval
+            backup_scope = scope_manager.current_scope
             w_obj = scope_manager.get_variable(name)
-            return w_obj.Call()
+            scope_manager.current_scope = w_obj.function.scope
+            retval = w_obj.Call()
+            scope_manager.current_scope = backup_scope
+            return retval
 
 class __extend__(List):
     def call(self, context=None):
@@ -122,9 +133,8 @@ class __extend__(Index):
 
 class __extend__(Function):
     def call(self, context=None):
-        w_obj = W_Object({})
-        w_obj.body = self.body
-        return w_obj
+       w_obj = W_Object({}, function=self)
+       return w_obj
 
 class __extend__(Return):
     def call(self, context=None):
