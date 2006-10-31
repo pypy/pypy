@@ -44,6 +44,7 @@ class W_String(W_Root):
 #        return self.strval
 
     def __str__(self):
+        # INSANE - should be like 'str' or so
         return self.strval
 
 class W_Number(W_Root):

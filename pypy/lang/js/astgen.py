@@ -52,6 +52,10 @@ class Identifier(Node):
 class List(Node):
     def __init__(self, nodes):
         self.nodes = nodes
+        
+class String(Node):
+    def __init__(self, strval):
+        self.strval = strval
 
 def getlist(d):
     lgt = int(d['length'])
@@ -77,5 +81,7 @@ def from_dict(d):
         return Plus(from_dict(d['0']), from_dict(d['1']))
     elif tp == 'ASSIGN':
         return Assign(from_dict(d['0']), from_dict(d['1']))
+    elif tp == 'STRING':
+        return String(d['value'])
     else:
         raise NotImplementedError("Dont know how to handler %s" % tp)

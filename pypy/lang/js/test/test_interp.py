@@ -34,3 +34,11 @@ class TestInterp(object):
         self.assert_prints(parse_d("x=3;print(x);"), ["3"])
         self.assert_prints(parse_d("x=3;y=4;print(x+y);"), ["7"])
 
+    def test_string_var(self):
+        self.assert_prints(parse_d("print(\"sss\");"), ["sss"])
+    
+    def test_string_concat(self):
+        self.assert_prints(parse_d('x="xxx"; y="yyy"; print(x+y);'), ["xxxyyy"])
+    
+    def test_string_num_concat(self):
+        self.assert_prints(parse_d('x=4; y="x"; print(x+y, y+x);'), ["4x,x4"])

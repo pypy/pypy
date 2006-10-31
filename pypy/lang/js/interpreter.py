@@ -56,3 +56,7 @@ class __extend__(Call):
 class __extend__(List):
     def call(self, context=None):
         return [node.call(context) for node in self.nodes]
+
+class __extend__(String):
+    def call(self, context=None):
+        return W_String(self.strval)
