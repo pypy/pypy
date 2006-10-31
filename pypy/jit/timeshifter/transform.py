@@ -325,18 +325,30 @@ class HintGraphTransformer(object):
         reds, greens = self.sort_by_color(block.inputargs)
         nextblock = self.naive_split_block(block, 0)
 
+        d = {block: True, # reachable from outside
+             nextblock: False} 
         self.genop(block, 'save_locals', reds)
         mp   = self.mergepointfamily.add(kind)
         c_mp = inputconst(lltype.Void, mp)
         if kind == 'global':
             self.genop(block, 'save_greens', greens)
             prefix = 'global_'
+            mergeblock = self.naive_split_block(block, 2)
+            d[mergeblock] = False
+            N = len(self.resumepoints)
+            reenter_link = Link([], mergeblock)
+            self.resumepoints[mergeblock] = reenter_link
+            reenter_link.exitcase = N
+            c_resumeindex = inputconst(lltype.Signed, N)
+            self.genop(block, 'guard_global_merge', [c_resumeindex])
+            block.recloseblock(Link([self.c_dummy], self.graph.returnblock))
         else:
+            mergeblock = block
             prefix = ''
-        v_finished_flag = self.genop(block, '%smerge_point' % (prefix,),
+        v_finished_flag = self.genop(mergeblock, '%smerge_point' % (prefix,),
                                      [self.c_mpfamily, c_mp] + greens,
                                      resulttype = lltype.Bool)
-        self.go_to_dispatcher_if(block, v_finished_flag)
+        self.go_to_dispatcher_if(mergeblock, v_finished_flag)
 
         restoreops = []
         mapping = {}
@@ -348,8 +360,7 @@ class HintGraphTransformer(object):
         nextblock.renamevariables(mapping)
         nextblock.operations[:0] = restoreops
 
-        SSA_to_SSI({block    : True,    # reachable from outside
-                    nextblock: False}, self.hannotator)
+        SSA_to_SSI(d, self.hannotator)
 
         if kind == 'global':
             N = self.get_resume_point(nextblock)

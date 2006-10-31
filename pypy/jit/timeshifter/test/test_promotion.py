@@ -263,7 +263,6 @@ class TestPromotion(TimeshiftingTests):
         self.check_insns(indirect_call=0)
 
     def test_mixed_merges(self):
-        py.test.skip("in-progress")
         def ll_function(x, y, z, k):
             if x:
                while x > 0:

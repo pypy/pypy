@@ -914,6 +914,16 @@ class HintRTyper(RPythonTyper):
                              [v_jitstate     ] + greens_v,
                              annmodel.SomeBool())
 
+    def translate_op_guard_global_merge(self, hop):
+        [c_resumepoint] = hop.inputargs(lltype.Signed)
+        v_jitstate = hop.llops.getjitstate()
+
+        s_Int = annmodel.SomeInteger(nonneg=True)
+        return hop.llops.genmixlevelhelpercall(rtimeshift.guard_global_merge,
+                                               [self.s_JITState, s_Int],
+                                               [v_jitstate     , c_resumepoint],
+                                               annmodel.s_None)
+        
     def translate_op_global_merge_point(self, hop):
         mpfamily = hop.args_v[0].value
         attrname = hop.args_v[1].value

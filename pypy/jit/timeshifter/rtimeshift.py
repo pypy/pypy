@@ -193,6 +193,7 @@ def start_new_block(states_dic, jitstate, key, global_resumer):
         node = PromotionPathRoot(greens_gv, rgenop,
                                  frozen, newblock,
                                  global_resumer)
+        jitstate.frame.dispatchqueue.mergecounter = 0
         jitstate.promotion_path = PromotionPathMergesToSee(node, 0)
         #debug_print(lltype.Void, "PROMOTION ROOT")
 start_new_block._annspecialcase_ = "specialize:arglltype(2)"
@@ -244,6 +245,11 @@ def merge_generalized(jitstate):
             assert resuming.mergesleft > 0
             resuming.mergesleft -= 1
 
+def guard_global_merge(jitstate, resumepoint):
+    dispatchqueue = jitstate.frame.dispatchqueue
+    jitstate.next = dispatchqueue.global_merge_chain
+    dispatchqueue.global_merge_chain = jitstate
+    jitstate.resumepoint = resumepoint
 
 def enter_block(jitstate):
     incoming = []
@@ -316,6 +322,10 @@ def dispatch_next(oldjitstate, dispatchqueue):
         jitstate = dispatchqueue.split_chain
         dispatchqueue.split_chain = jitstate.next
         enter_block(jitstate)
+        return jitstate
+    elif dispatchqueue.global_merge_chain is not None:
+        jitstate = dispatchqueue.global_merge_chain
+        dispatchqueue.global_merge_chain = jitstate.next
         return jitstate
     else:
         oldjitstate.resumepoint = -1
@@ -615,6 +625,7 @@ class BaseDispatchQueue(object):
 
     def __init__(self):
         self.split_chain = None
+        self.global_merge_chain = None
         self.return_chain = None
         self.mergecounter = 0
 
