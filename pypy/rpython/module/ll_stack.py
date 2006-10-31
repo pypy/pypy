@@ -1,4 +1,4 @@
-from pypy.rpython import rstack
+from pypy.rlib import rstack
 
 def ll_stack_too_big():
     return rstack.stack_too_big()

@@ -2,7 +2,7 @@ import py
 import os
 
 from pypy.rpython.memory.lladdress import NULL
-from pypy.rpython.rstack import yield_current_frame_to_caller
+from pypy.rlib.rstack import yield_current_frame_to_caller
 
 # ____________________________________________________________
 # For testing

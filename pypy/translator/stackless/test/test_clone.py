@@ -1,6 +1,6 @@
 from pypy.translator.stackless.test.test_transform import \
      llinterp_stackless_function, run_stackless_function
-from pypy.rpython import rstack
+from pypy.rlib import rstack
 
 
 def test_simple():

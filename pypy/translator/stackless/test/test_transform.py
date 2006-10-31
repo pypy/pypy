@@ -5,7 +5,8 @@ from pypy.translator.c.genc import CStandaloneBuilder
 from pypy.translator.c import gc
 from pypy.translator.unsimplify import varoftype
 from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rpython import llinterp, rstack
+from pypy.rpython import llinterp
+from pypy.rlib import rstack
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.objspace.flow.model import checkgraph
 from pypy.annotation import model as annmodel

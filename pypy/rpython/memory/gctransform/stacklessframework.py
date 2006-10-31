@@ -50,7 +50,7 @@ class StacklessFrameworkGCTransformer(FrameworkGCTransformer):
 ##                 self.inline_helpers(graph)
 
     def build_stack_root_iterator(self):
-        from pypy.rpython.rstack import stack_capture
+        from pypy.rlib.rstack import stack_capture
         sizeofaddr = llmemory.sizeof(llmemory.Address)
         gcdata = self.gcdata
 

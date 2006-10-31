@@ -26,7 +26,7 @@ from pypy.interpreter.function import StaticMethod
 from pypy.module._stackless.stackless_flags import StacklessFlags
 from pypy.module._stackless.interp_coroutine import Coroutine, BaseCoState, AbstractThunk
 
-from pypy.rpython import rstack # for resume points
+from pypy.rlib import rstack # for resume points
 from pypy.tool import stdlib_opcode as pythonopcode
 
 class _AppThunk(AbstractThunk):
@@ -169,7 +169,7 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         
     def reconstruct_framechain(self):
         from pypy.interpreter.pyframe import PyFrame
-        from pypy.rpython.rstack import resume_state_create
+        from pypy.rlib.rstack import resume_state_create
         if self.framestack.empty():
             self.frame = None
             return

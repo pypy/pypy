@@ -30,7 +30,7 @@ The type of a switch is determined by the target's costate.
 """
 
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.rpython.rstack import yield_current_frame_to_caller, resume_point
+from pypy.rlib.rstack import yield_current_frame_to_caller, resume_point
 from pypy.rpython.objectmodel import we_are_translated
 
 try:

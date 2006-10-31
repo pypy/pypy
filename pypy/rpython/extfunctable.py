@@ -289,7 +289,7 @@ declareptrtype(ros.DIR, "DIR",
 
 # ___________________________________________________________
 # stackless
-from pypy.rpython import rstack
+from pypy.rlib import rstack
 declare(rstack.stack_frames_depth, int, 'll_stackless/stack_frames_depth')
 declare(rstack.stack_too_big, bool, 'll_stack/too_big')
 declare(rstack.stack_check, noneannotation, 'll_stack/check')

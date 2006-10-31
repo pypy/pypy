@@ -2,7 +2,7 @@ from pypy.translator.stackless.transform import StacklessTransformer
 from pypy.translator.stackless.test.test_transform import llinterp_stackless_function, rtype_stackless_function, one, run_stackless_function
 from pypy import conftest
 import py
-from pypy.rpython import rstack
+from pypy.rlib import rstack
 
 def do_inline(t):
     from pypy.translator.backendopt import inline, removenoops

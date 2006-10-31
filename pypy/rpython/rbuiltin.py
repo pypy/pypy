@@ -2,8 +2,8 @@ from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.lltypesystem import lltype, rclass, llmemory
-from pypy.rpython import objectmodel, rstack, rint, raddress
-from pypy.rlib import rarithmetic
+from pypy.rpython import objectmodel, rint, raddress
+from pypy.rlib import rarithmetic, rstack
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst
 from pypy.rpython.rrange import rtype_builtin_range, rtype_builtin_xrange

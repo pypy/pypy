@@ -12,7 +12,7 @@ from pypy.objspace.flow.model import SpaceOperation
 from pypy.objspace.flow.model import Variable, Constant, Link
 from pypy.objspace.flow.model import c_last_exception, checkgraph
 from pypy.annotation import model as annmodel
-from pypy.rpython.rstack import stack_check
+from pypy.rlib.rstack import stack_check
 from pypy.rpython.lltypesystem import lltype
 
 def checkgraphs(self, blocks):

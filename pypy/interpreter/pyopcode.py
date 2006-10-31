@@ -16,7 +16,7 @@ from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython.objectmodel import we_are_translated
 from pypy.rlib.rarithmetic import intmask
 from pypy.tool import stdlib_opcode as pythonopcode
-from pypy.rpython import rstack # for resume points
+from pypy.rlib import rstack # for resume points
 
 def unaryoperation(operationname):
     """NOT_RPYTHON"""

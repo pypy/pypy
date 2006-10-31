@@ -1,5 +1,5 @@
 from pypy.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong, ovfcheck
-from pypy.rpython import rstack
+from pypy.rlib import rstack
 from pypy.annotation import model as annmodel
 import sys
 
