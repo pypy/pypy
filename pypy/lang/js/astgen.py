@@ -1,5 +1,7 @@
 
 from pypy.annotation.pairtype import extendabletype
+from pypy.lang.js.context import ExecutionContext
+from pypy.lang.js.jsobj import W_Object
 
 class Node(object):
     __metaclass__ = extendabletype
@@ -28,6 +30,13 @@ class Dot(Node):
         self.left = left
         self.right = right
 
+class Function(Node):
+    def __init__(self, params, body):
+        self.params = params
+        self.body = body
+        w_obj = W_Object({}, body=self)
+        #self.scope = Scope(copy(scope.dict))
+    
 class Identifier(Node):
     def __init__(self, name):
         self.name = name
@@ -59,6 +68,10 @@ class PropertyInit(Node):
         self.name = name
         self.value = value
 
+class Scope(Node):
+    def __init__(self, dict):
+        self.dict = self.dicts
+    
 class Script(Node):
     def __init__(self, nodes, var_decl, func_decl):
         self.nodes = nodes
@@ -113,5 +126,7 @@ def from_dict(d):
         return Dot(from_dict(d['0']), from_dict(d['1']))
     elif tp == 'INDEX':
         return Index(from_dict(d['0']), from_dict(d['1']))
+    elif tp == 'FUNCTION':        
+        return Function(d['params'], from_dict(d['body']))
     else:
         raise NotImplementedError("Dont know how to handler %s" % tp)

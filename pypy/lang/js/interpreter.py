@@ -25,6 +25,10 @@ class __extend__(Dot):
         w_obj = self.left.call(context).GetValue().ToObject()
         name = self.right.get_literal()
         return w_obj.Get(name)
+
+class __extend__(Function):
+    def call(self, context=None):
+        return self.body.call()
     
 class __extend__(Plus):
     def call(self, context=None):
@@ -63,8 +67,12 @@ class __extend__(Script):
 
 class __extend__(Call):
     def call(self, context=None):
-        assert self.identifier.name == 'print'
-        writer(",".join([str(i) for i in self.arglist.call(context)]))
+        name = self.identifier.get_literal()
+        if name == 'print':
+            writer(",".join([i.ToString() for i in self.arglist.call(context)]))
+        else:
+            w_obj = context.access(name)
+            return w_obj.Call()
 
 class __extend__(List):
     def call(self, context=None):
@@ -96,3 +104,10 @@ class __extend__(Index):
         w_obj = w_obj.ToObject()
         name = w_member.ToString()
         return w_obj.Get(name)
+
+class __extend__(Function):
+    def call(self, context=None):
+        w_obj = W_Object({})
+        w_obj.body = self.body
+        return w_obj
+    

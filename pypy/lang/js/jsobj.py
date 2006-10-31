@@ -71,19 +71,25 @@ class W_Reference(W_Root):
         raise NotImplementedError("W_Reference.GetValue")
 
 class W_Object(W_Root):
-    def __init__(self, dict_w):
+    def __init__(self, dict_w, body=None):
         # string --> W_Root
         self.dict_w = dict_w
         # XXX: more stuff
         self.dict_w['toString'] = W_Builtin({}, self.w_string)
+        self.body = body
+        #self.class_ = None
 
-    def Call(self, **kwargs):
-        raise SeePage(33)
+    def Call(self, this=None):
+        if self.body:
+            return self.body.call()
+        else:
+            raise SeePage(33)
     
     def w_string(self):
-        return W_String(self.ToString())
+        return W_String(str(self))
     
     def DefaultValue(self, hint):
+        assert hint == "string"
         tostring_meth = self.Get("toString")
         if isinstance(tostring_meth, W_Object):
             return tostring_meth.Call(this=self)
@@ -92,6 +98,9 @@ class W_Object(W_Root):
             retval = valueof_meth.Call(this=self)
             # XXX: check primitiveness of retval
             return retval
+    
+    def ToString(self):
+        return str(self.DefaultValue(hint="string"))
     
     def Get(self, name):
         if name in self.dict_w:
@@ -123,8 +132,8 @@ class W_Builtin(W_Object):
         self.dict_w = {}
         self.internalfunction = internalfunction
     
-    def Call(self, *args):
-        return self.internalfunction(*args)
+    def Call(self, this=None):
+        return self.internalfunction()
 
 class W_List(W_Root):
     def __init__(self, list_w):

@@ -53,3 +53,9 @@ class TestInterp(object):
 
     def test_object_access_index(self):
         self.assert_prints(parse_d('x={d:"x"}; print(x["d"]);'), ["x"])
+    
+    def test_function_prints(self):
+        self.assert_prints(parse_d('x=function(){print(3);}; x();'), ["3"])
+    
+    #def test_call_print(self):
+    #    parse_d("print({});")

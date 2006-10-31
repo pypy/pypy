@@ -1,12 +1,17 @@
 
 class ExecutionContext(object):
-    def __init__(self, parent = None):
-        self.parent = parent
-        if parent is None:
-            self.globals = {}
-        else:
-            self.globals = parent.globals
-        #self.locals = {}
+    globals = {}
+    
+    def __init__(self, parent=None):
+        pass
+    
+##    def __init__(self, parent = None):
+##        self.parent = parent
+##        if parent is None:
+##            self.globals = {}
+##        else:
+##            self.globals = parent.globals
+##        #self.locals = {}
 
     def assign(self, name, value):
         #if name in self.locals:
