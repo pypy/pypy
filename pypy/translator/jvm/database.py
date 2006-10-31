@@ -95,7 +95,7 @@ class Database:
         """
         if graph in self._functions:
             return self._functions[graph]
-        classnm = self._make_unique_name(graph.name)
+        classnm = "pypy."+self._make_unique_name(graph.name)
         classobj = node.Class(classnm)
         funcobj = self._function_for_graph(classobj, "invoke", True, graph)
         classobj.add_method(funcobj)
@@ -108,6 +108,9 @@ class Database:
 
     def pop(self):
         return self._pending_nodes.pop()
+
+    def gen_constants(self, gen):
+        pass
 
     # Type translation functions
 
@@ -139,7 +142,7 @@ class Database:
             return XXX
 
         # Uh-oh
-        unhandled_case    
+        unhandled_case
 
     # Invoked by genoo:
     #   I am not sure that we need them

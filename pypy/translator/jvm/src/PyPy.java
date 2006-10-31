@@ -98,10 +98,10 @@ public class PyPy {
 
     public static int double_to_uint(double value) {
         if (value <= Integer.MAX_VALUE)
-            return value;
+            return (int)value;
 
-        int loword = value % BITS16;
-        int hiword = Math.floor(value / BITS16);
+        int loword = (int)(value % BITS16);
+        int hiword = (int)(Math.floor(value / BITS16));
         assert (loword & 0xFFFF0000) == 0;
         assert (hiword & 0xFFFF0000) == 0;
         return (hiword << 16) + loword;
@@ -112,7 +112,7 @@ public class PyPy {
     }
 
     public static List<?> array_to_list(Object[] array) {
-        List<?> l = new ArrayList();
+        List l = new ArrayList();
         for (Object o : array) {
             l.add(o);
         }
@@ -131,9 +131,9 @@ public class PyPy {
         try {
             long l = Long.parseLong(s);
             if (l < Integer.MAX_VALUE)
-                return l;
-            int lowerword = l & 0xFFFF;
-            int upperword = l >> 16;
+                return (int)l;
+            int lowerword = (int)(l & 0xFFFF);
+            int upperword = (int)(l >> 16);
             return lowerword + (upperword << 16);
         } catch (NumberFormatException fe) {
             throw new RuntimeException(fe);
@@ -181,5 +181,45 @@ public class PyPy {
         if (s.length() != 1)
             throw new RuntimeException("String not single character: '"+s+"'");
         return s.charAt(0);
+    }
+
+    // Used in testing:
+
+    public static void dump_int(int i) {
+        System.out.println(i);
+    }
+
+    public static void dump_uint(int i) {
+        if (i >= 0)
+            System.out.println(i);
+        else {
+            throw new RuntimeException("TODO");
+        }
+    }
+
+    public static void dump_boolean(boolean l) {
+        if (l)
+            System.out.println("True");
+        else
+            System.out.println("False");
+    }
+
+    public static void dump_long(long l) {
+        System.out.println(l);
+    }
+
+    public static void dump_double(double d) {
+        System.out.println(d);
+    }
+
+    public static void dump_string(char[] b) {
+        System.out.print('"');
+        for (char c : b) {
+            if (c == '"') 
+                System.out.print("\\\"");
+            System.out.print(c);
+        }
+        System.out.print('"');
+        System.out.println();
     }
 }

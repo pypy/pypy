@@ -222,7 +222,7 @@ opcodes = {
 for opc in opcodes:
     val = opcodes[opc]
     if not isinstance(val, list):
-        val = InstructionList((PushAllArgs, val))
+        val = InstructionList((PushAllArgs, val, StoreResult))
     else:
         val = InstructionList(val)
     opcodes[opc] = val

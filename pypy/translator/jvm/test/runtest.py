@@ -9,7 +9,7 @@ from pypy.rpython.lltypesystem.lltype import typeOf
 from pypy.rpython.ootypesystem import ootype
 from pypy.annotation.model import lltype_to_annotation
 from pypy.translator.translator import TranslationContext
-from pypy.translator.jvm.genjvm import generate_source_for_function
+from pypy.translator.jvm.genjvm import generate_source_for_function, JvmError
 from pypy.translator.jvm.option import getoption
 
 FLOAT_PRECISION = 8
@@ -53,12 +53,13 @@ class JvmGeneratedSourceWrapper(object):
             py.test.skip("Execution disabled")
 
         resstr = self.gensrc.execute(args)
+        print "resstr=%s" % repr(resstr)
         res = eval(resstr)
         if isinstance(res, tuple):
             res = StructTuple(res) # so tests can access tuple elements with .item0, .item1, etc.
         elif isinstance(res, list):
             res = OOList(res)
-        return res        
+        return res
 
 class JvmTest(BaseRtypingTest, OORtypeMixin):
     def __init__(self):
@@ -84,12 +85,15 @@ class JvmTest(BaseRtypingTest, OORtypeMixin):
             py.test.skip('Windows --> %s' % reason)
 
     def interpret(self, fn, args, annotation=None):
-        py.test.skip("jvm tests don't work yet")
-        src = self._compile(fn, args, annotation)
-        res = src(*args)
-        if isinstance(res, ExceptionWrapper):
-            raise res
-        return res
+        try:
+            src = self._compile(fn, args, annotation)
+            res = src(*args)
+            if isinstance(res, ExceptionWrapper):
+                raise res
+            return res
+        except JvmError, e:
+            e.pretty_print()
+            raise
 
     def interpret_raises(self, exception, fn, args):
         import exceptions # needed by eval

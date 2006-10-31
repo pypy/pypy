@@ -86,17 +86,20 @@ class Function(object):
         for block in graph.iterblocks():
             if self._is_return_block(block):
                 return_blocks.append(block)
-            elif self._is_raise_block(block):
-                self.render_raise_block(block)
-            elif self._is_exc_handling_block(block):
-                self.render_exc_handling_block(block)
             else:
-                self.render_normal_block(block)
+                self.set_label(self._get_block_name(block))
+                if self._is_raise_block(block):
+                    self.render_raise_block(block)
+                elif self._is_exc_handling_block(block):
+                    self.render_exc_handling_block(block)
+                else:
+                    self.render_normal_block(block)
 
         # render return blocks at the end just to please the .NET
         # runtime that seems to need a return statement at the end of
         # the function
         for block in return_blocks:
+            self.set_label(self._get_block_name(block))
             self.render_return_block(block)
 
         self.end_render()
@@ -104,8 +107,6 @@ class Function(object):
             self.db.record_function(self.graph, self.name)
 
     def render_exc_handling_block(self, block):
-        self.set_label(self._get_block_name(block))
-
         # renders all ops but the last one
         for op in block.operations[:-1]:
             self._render_op(op)
@@ -141,8 +142,6 @@ class Function(object):
         raise NotImplementedError
             
     def render_normal_block(self, block):
-        self.set_label(self._get_block_name(block))
-
         # renders all ops but the last one
         for op in block.operations:
             self._render_op(op)

@@ -2,7 +2,7 @@
 Backend for the JVM.
 """
 
-import os, os.path, subprocess
+import os, os.path, subprocess, sys
 
 import py
 from pypy.tool.udir import udir
@@ -17,7 +17,30 @@ from pypy.translator.jvm.node import EntryPoint, Function
 from pypy.translator.jvm.opcodes import opcodes
 
 class JvmError(Exception):
-    """ Indicates an error occurred in the JVM runtime """
+    """ Indicates an error occurred in JVM backend """
+
+    def pretty_print(self):
+        print str(self)
+    pass
+
+class JvmSubprogramError(JvmError):
+    """ Indicates an error occurred running some program """
+    def __init__(self, res, args, stdout, stderr):
+        self.res = res
+        self.args = args
+        self.stdout = stdout
+        self.stderr = stderr
+
+    def __str__(self):
+        return "Error code %d running %s" % (self.res, repr(self.args))
+        
+    def pretty_print(self):
+        JvmError.pretty_print(self)
+        print "vvv Stdout vvv\n"
+        print self.stdout
+        print "vvv Stderr vvv\n"
+        print self.stderr
+        
     pass
 
 class JvmGeneratedSource(object):
@@ -56,17 +79,35 @@ class JvmGeneratedSource(object):
         # Compute directory where .class files should go
         self.classdir = self.javadir
 
+    def _invoke(self, args, allow_stderr):
+        subp = subprocess.Popen(
+            args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = subp.communicate()
+        res = subp.wait()
+        if res or (not allow_stderr and stderr):
+            raise JvmSubprogramError(res, args, stdout, stderr)
+        return stdout
+
     def compile(self):
         """
         Compiles the .java sources into .class files, ready for execution.
-        Raises a JvmError if compilation fails.
         """
-        javac = getoption('javac')
-        javafiles = [f for f in self.javadir.listdir()
-                     if f.endswith('.java')]
-        res = subprocess.call([javac] + javafiles)
-        if res: raise JvmError('Failed to compile!')
-        else: self.compiled = True
+        javacmd = [getoption('jasmin'), '-d', str(self.javadir)]
+        pypydir = self.javadir.join("pypy") # HACK; should do recursive
+        javafiles = [str(f) for f in pypydir.listdir()
+                     if str(f).endswith('.j')]
+
+        for javafile in javafiles:
+            print "Invoking jasmin on %s" % javafile
+            self._invoke(javacmd+[javafile], False)
+
+        # HACK: compile the Java helper class.  Should eventually
+        # use rte.py
+        sl = __file__.rindex('/')
+        javasrc = __file__[:sl]+"/src/PyPy.java"
+        self._invoke(['javac', '-nowarn', '-d', str(self.javadir), javasrc], True)
+                           
+        self.compiled = True
 
     def execute(self, args):
         """
@@ -76,15 +117,18 @@ class JvmGeneratedSource(object):
         """
         assert self.compiled
         strargs = [str(a) for a in args]
-        cmd = [getoption('java'), '%s.Main' % self.package]
-        pipe = subprocess.Popen(cmd, stdout=subprocess.PIPE).stdout
-        return pipe.read()
+        cmd = [getoption('java'),
+               '-cp',
+               str(self.javadir),
+               self.package+".Main"] + strargs
+        return self._invoke(cmd, True)
         
 def generate_source_for_function(func, annotation):
     
     """
     Given a Python function and some hints about its argument types,
-    generates JVM sources.  Returns the JvmGeneratedSource object.
+    generates JVM sources that call it and print the result.  Returns
+    the JvmGeneratedSource object.
     """
     
     if hasattr(func, 'im_func'):
@@ -97,7 +141,7 @@ def generate_source_for_function(func, annotation):
     if getoption('view'): t.view()
     if getoption('wd'): tmpdir = py.path.local('.')
     else: tmpdir = udir
-    jvm = GenJvm(tmpdir, t, EntryPoint(main_graph, True))
+    jvm = GenJvm(tmpdir, t, EntryPoint(main_graph, True, True))
     return jvm.generate_source()
 
 class GenJvm(GenOO):

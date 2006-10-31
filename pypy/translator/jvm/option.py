@@ -4,9 +4,11 @@ from pypy.translator.jvm.conftest import option
 _default_values = {
     'javac':'javac',
     'java':'java',
+    'jasmin':'jasmin',
     'noasm':False,
     'package':'pypy',
-    'wd':False
+    'wd':False,
+    'norun':False
     }
 
 def getoption(name):

@@ -14,7 +14,7 @@ NOFLAGS   = 0
 BRANCH    = 1          # Opcode is a branching opcode (implies a label argument)
 INVOKE    = 2          # Opcode is some kind of method invocation
 CONST5    = 4          # Opcode is specialized for int arguments from -1 to 5
-CONST3    = 4          # Opcode is specialized for int arguments from 0 to 3
+CONST3    = 8          # Opcode is specialized for int arguments from 0 to 3
 
 # ___________________________________________________________________________
 # JVM Opcodes:
@@ -29,6 +29,9 @@ class Opcode(object):
         """
         self.flags = flags
         self.jvmstr = jvmstr
+
+    def __repr__(self):
+        return "<Opcode %s:%x>" % (self.jvmstr, self.flags)
         
     def specialize_opcode(self, args):
         """ Process the argument list according to the various flags.
@@ -197,11 +200,15 @@ ARRSTORE =     ArrayOpcodeFamily(NOFLAGS, "astore")
 class Method(object):
     def __init__(self, classnm, methnm, desc, opcode=INVOKESTATIC):
         self.opcode = opcode
-        self.class_name = classnm
-        self.method_name = methnm
-        self.descriptor = desc
+        self.class_name = classnm  # String, ie. "java.lang.Math"
+        self.method_name = methnm  # String "abs"
+        self.descriptor = desc     # String, (I)I
     def invoke(self, gen):
         gen._instr(self.opcode, self)
+    def jasmin_syntax(self):
+        return "%s/%s%s" % (self.class_name.replace('.','/'),
+                            self.method_name,
+                            self.descriptor)
 
 MATHIABS =              Method('java.lang.Math', 'abs', '(I)I')
 MATHLABS =              Method('java.lang.Math', 'abs', '(L)L')
@@ -228,6 +235,12 @@ PYPYSTRTODOUBLE =       Method('pypy.PyPy', 'str_to_double',
                                '(Ljava/lang/String;)D')
 PYPYSTRTOCHAR =         Method('pypy.PyPy', 'str_to_char',
                                '(Ljava/lang/String;)C')
+PYPYDUMPINT  =          Method('pypy.PyPy', 'dump_int', '(I)V')
+PYPYDUMPUINT  =         Method('pypy.PyPy', 'dump_uint', '(I)V')
+PYPYDUMPLONG  =         Method('pypy.PyPy', 'dump_long', '(L)V')
+PYPYDUMPDOUBLE  =       Method('pypy.PyPy', 'dump_double', '(D)V')
+PYPYDUMPSTRING  =       Method('pypy.PyPy', 'dump_string', '([B)V')
+PYPYDUMPBOOLEAN =       Method('pypy.PyPy', 'dump_boolean', '(Z)V')
 
 class JVMGenerator(Generator):
 
@@ -283,9 +296,11 @@ class JVMGenerator(Generator):
         # depending on their type [this is compute by type_width()]
         self.next_offset = 0
         self.local_vars = {}
-        for idx, var in enumerate(argvars):
-            self.local_vars[var] = self.next_offset
-            self.next_offset += argtypes[idx].type_width()
+        for idx, ty in enumerate(argtypes):
+            if idx < len(argvars):
+                var = argvars[idx]
+                self.local_vars[var] = self.next_offset
+            self.next_offset += ty.type_width()
         # Prepare a map for the local variable indices we will add
         # Let the subclass do the rest of the work; note that it does
         # not need to know the argvars parameter, so don't pass it
@@ -299,9 +314,9 @@ class JVMGenerator(Generator):
         unimplemented        
 
     def end_function(self):
+        self._end_function()
         del self.next_offset
         del self.local_vars
-        self._end_function()
 
     def _end_function(self):
         unimplemented
@@ -322,7 +337,10 @@ class JVMGenerator(Generator):
     def load_jvm_var(self, vartype, varidx):
         """ Loads from jvm slot #varidx, which is expected to hold a value of
         type vartype """
-        self._instr(LOAD.for_type(vartype), varidx)
+        opc = LOAD.for_type(vartype)
+        print "load_jvm_jar: vartype=%s varidx=%s opc=%s" % (
+            repr(vartype), repr(varidx), repr(opc))
+        self._instr(opc, varidx)
 
     def store_jvm_var(self, vartype, varidx):
         """ Loads from jvm slot #varidx, which is expected to hold a value of
@@ -442,6 +460,7 @@ class JVMGenerator(Generator):
     def load(self, value):
         if isinstance(value, flowmodel.Variable):
             jty, idx = self._var_data(value)
+            print "load_jvm_var: jty=%s idx=%s" % (repr(jty), repr(idx))
             return self.load_jvm_var(jty, idx)
 
         if isinstance(value, flowmodel.Constant):
@@ -608,7 +627,7 @@ class JasminGenerator(JVMGenerator):
         self.out = open(jfile, 'w')
 
         # Write the JasminXT header
-        self.out.write(".bytecode XX\n")
+        #self.out.write(".bytecode XX\n")
         #self.out.write(".source \n")
         self.out.write(".class public %s\n" % iclassnm)
         self.out.write(".super java/lang/Object\n") # ?
@@ -616,6 +635,9 @@ class JasminGenerator(JVMGenerator):
     def end_class(self):
         self.out.close()
         self.out = None
+
+    def close(self):
+        assert self.out is None, "Unended class"
 
     def add_field(self, fname, fdesc):
         # TODO --- Signature for generics?
@@ -628,11 +650,13 @@ class JasminGenerator(JVMGenerator):
         # Throws clause?  Only use RuntimeExceptions?
         kw = ['public']
         if static: kw.append('static')
-        self.out.write('.method %s %s (%s)%s\n' % (
-            funcname, " ".join(kw),
+        self.out.write('.method %s %s(%s)%s\n' % (
+            " ".join(kw), funcname,
             "".join(argtypes), rettype))
 
     def _end_function(self):
+        self.out.write('.limit stack 100\n') # HACK, track max offset
+        self.out.write('.limit locals %d\n' % self.next_offset)
         self.out.write('.end method\n')
 
     def mark(self, lbl):
@@ -643,10 +667,14 @@ class JasminGenerator(JVMGenerator):
 
     def _instr(self, opcode, *args):
         jvmstr, args = opcode.specialize_opcode(args)
+        # XXX this whole opcode flag things is stupid, redo to be class based
         if opcode.flags & BRANCH:
             assert len(args) == 1
             _, lblnum, lbldesc = args[0]
             args = ('%s_%s' % (lbldesc, lblnum),)
+        if opcode.flags & INVOKE:
+            assert len(args) == 1
+            args = (args[0].jasmin_syntax(),)
         self.out.write('    %s %s\n' % (
             jvmstr, " ".join([str(s) for s in args])))
 

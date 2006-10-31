@@ -87,14 +87,12 @@ class Function(OOFunction, Node, Generator):
         self.ilasm.label(label)
 
     def render_return_block(self, block):
-        self.set_label(self._get_block_name(block))
         return_var = block.inputargs[0]
         if return_var.concretetype is not Void:
             self.load(return_var)
         self.ilasm.opcode('ret')
 
     def render_raise_block(self, block):
-        self.set_label(self._get_block_name(block))        
         exc = block.inputargs[1]
         self.load(exc)
         self.ilasm.opcode('throw')

@@ -6,7 +6,8 @@ made to be common between CLR and JVM.
 
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
-from pypy.translator.jvm.typesystem import jStringArray, jVoid, jThrowable
+from pypy.translator.jvm.typesystem import \
+     jString, jStringArray, jVoid, jThrowable
 from pypy.translator.jvm.typesystem import jvm_for_class, jvm_method_desc
 from pypy.translator.jvm.opcodes import opcodes
 from pypy.translator.oosupport.function import Function as OOFunction
@@ -24,7 +25,7 @@ class EntryPoint(Node):
     testing (see __init__)
     """
 
-    def __init__(self, graph, expandargs):
+    def __init__(self, graph, expandargs, printresult):
         """
         'graph' --- The initial graph to invoke from main()
         'expandargs' --- controls whether the arguments passed to main()
@@ -44,6 +45,7 @@ class EntryPoint(Node):
         """
         self.graph = graph
         self.expand_arguments = expandargs
+        self.print_result = printresult
         pass
 
     # XXX --- perhaps this table would be better placed in typesystem.py
@@ -58,6 +60,14 @@ class EntryPoint(Node):
         ootype.Char:jvmgen.PYPYSTRTOCHAR
         }
 
+    _type_printing_methods = {
+        ootype.Signed:jvmgen.PYPYDUMPINT,
+        ootype.Unsigned:jvmgen.PYPYDUMPUINT,
+        ootype.SignedLongLong:jvmgen.PYPYDUMPLONG,
+        ootype.Float:jvmgen.PYPYDUMPDOUBLE,
+        ootype.Bool:jvmgen.PYPYDUMPBOOLEAN,
+        }
+
     def render(self, gen):
         gen.begin_class('pypy.Main')
         gen.begin_function(
@@ -68,7 +78,10 @@ class EntryPoint(Node):
             # Convert each entry into the array to the desired type by
             # invoking an appropriate helper function on each one
             for i, arg in enumerate(self.graph.getargs()):
+                jty = self.db.lltype_to_cts(arg.concretetype)
+                gen.load_jvm_var(jStringArray, 0)
                 gen.emit(jvmgen.ICONST, i)
+                gen.load_from_array(jString)
                 gen.emit(self._type_conversion_methods[arg.concretetype])
         else:
             # Convert the array of strings to a List<String> as the
@@ -81,6 +94,16 @@ class EntryPoint(Node):
 
         # Generate a call to this method
         gen.emit(self.db.pending_function(self.graph))
+
+        # Print result?
+        if self.print_result:
+            resootype = self.graph.getreturnvar().concretetype
+            resjtype = self.db.lltype_to_cts(resootype)
+            meth = self._type_printing_methods[resootype]
+            gen.emit(meth)
+
+        # And finish up
+        gen.return_val(jVoid)
         
         gen.end_function()
         gen.end_class()
