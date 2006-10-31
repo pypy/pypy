@@ -9,6 +9,7 @@ from pypy.rpython.objectmodel import hint
 
 from pypy.rpython.objectmodel import hint
 
+import py.test
 
 class TestPortal(object):
     from pypy.jit.codegen.llgraph.rgenop import RGenOp
@@ -115,3 +116,15 @@ class TestPortal(object):
                                          policy=P_NOVIRTUAL)
         assert res == 68
         self.check_insns(int_floordiv=1, int_mul=0)
+
+    def test_dfa_compile(self):
+        py.test.skip("fails with debug_fatalerror() for some unknown reason")
+        from pypy.lang.automata.dfa import getautomaton, convertdfa, recognizetable
+        def main(gets):
+            a = getautomaton()
+            dfatable = convertdfa(a)
+            s = ["aaaaaaaaaab", "aaaa"][gets]
+            return recognizetable(dfatable, s)
+
+        res = self.timeshift_from_portal(main, recognizetable, [0], policy=P_NOVIRTUAL)
+        assert res >= 0
