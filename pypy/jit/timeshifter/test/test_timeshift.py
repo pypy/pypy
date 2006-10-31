@@ -3,8 +3,8 @@ from pypy.translator.translator import TranslationContext, graphof
 from pypy.jit.hintannotator.annotator import HintAnnotator
 from pypy.jit.hintannotator.bookkeeper import HintBookkeeper
 from pypy.jit.hintannotator.model import *
-from pypy.jit.timeshifter.rtyper import HintRTyper, originalconcretetype
-from pypy.jit.timeshifter import rtimeshift, rvalue, rtyper as hintrtyper
+from pypy.jit.timeshifter.hrtyper import HintRTyper, originalconcretetype
+from pypy.jit.timeshifter import rtimeshift, rvalue
 from pypy.objspace.flow.model import summary
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr
 from pypy.rpython.objectmodel import hint, keepalive_until_here
