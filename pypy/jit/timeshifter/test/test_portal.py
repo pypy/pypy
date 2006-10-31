@@ -56,16 +56,19 @@ class TestPortal(object):
             self._cache[key] = maingraph, readportalgraph, rtyper
             self._cache_order.append(key)
 
+        self.readportalgraph = readportalgraph
+        self.main_args = main_args
+        self.rtyper = rtyper
         llinterp = LLInterpreter(rtyper)
         res = llinterp.eval_graph(maingraph, main_args)
-
-        self._residual_graph = llinterp.eval_graph(readportalgraph,
-                                                   main_args)._obj.graph
-
         return res
 
     def check_insns(self, expected=None, **counts):
-        self.insns = summary(self._residual_graph)
+        # XXX only works if the portal is the same as the main
+        llinterp = LLInterpreter(self.rtyper)
+        residual_graph = llinterp.eval_graph(self.readportalgraph,
+                                             self.main_args)._obj.graph
+        self.insns = summary(residual_graph)
         if expected is not None:
             assert self.insns == expected
         for opname, count in counts.items():
@@ -118,7 +121,6 @@ class TestPortal(object):
         self.check_insns(int_floordiv=1, int_mul=0)
 
     def test_dfa_compile(self):
-        py.test.skip("fails with debug_fatalerror() for some unknown reason")
         from pypy.lang.automata.dfa import getautomaton, convertdfa, recognizetable
         def main(gets):
             a = getautomaton()

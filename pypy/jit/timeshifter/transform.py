@@ -322,45 +322,47 @@ class HintGraphTransformer(object):
             self.insert_merge(block, kind)
 
     def insert_merge(self, block, kind):
-        reds, greens = self.sort_by_color(block.inputargs)
+        allvars = block.inputargs[:]
+        block.inputargs[:] = [copyvar(self.hannotator, v) for v in allvars]
+        reds1, greens1 = self.sort_by_color(block.inputargs)
+        reds3, greens3 = self.sort_by_color(allvars)
         nextblock = self.naive_split_block(block, 0)
+        self.genop(block, 'save_locals', reds1)
 
-        d = {block: True, # reachable from outside
-             nextblock: False} 
-        self.genop(block, 'save_locals', reds)
         mp   = self.mergepointfamily.add(kind)
         c_mp = inputconst(lltype.Void, mp)
         if kind == 'global':
-            self.genop(block, 'save_greens', greens)
             prefix = 'global_'
+
+            greens2 = [copyvar(self.hannotator, v) for v in greens1]
             mergeblock = self.naive_split_block(block, len(block.operations))
-            d[mergeblock] = False
+            mergeblock.inputargs[:] = greens2
+
+            self.genop(block, 'save_greens', greens1)
+            block.recloseblock(Link([self.c_dummy], self.graph.returnblock))
+
+            N = self.get_resume_point(mergeblock)
+            c_resumeindex = inputconst(lltype.Signed, N)
+            self.genop(block, 'guard_global_merge', [c_resumeindex])
         else:
             mergeblock = block
+            greens2 = greens1
             prefix = ''
+        mergeblock.exits[0].args[:] = greens2
+        nextblock.inputargs[:] = greens3
+
         v_finished_flag = self.genop(mergeblock, '%smerge_point' % (prefix,),
-                                     [self.c_mpfamily, c_mp] + greens,
+                                     [self.c_mpfamily, c_mp] + greens2,
                                      resulttype = lltype.Bool)
         self.go_to_dispatcher_if(mergeblock, v_finished_flag)
 
         restoreops = []
-        mapping = {}
-        for i, v in enumerate(reds):
+        for i, v in enumerate(reds3):
             c = inputconst(lltype.Signed, i)
-            v1 = self.genop(restoreops, 'restore_local', [c],
-                            result_like = v)
-            mapping[v] = v1
-        nextblock.renamevariables(mapping)
+            restoreops.append(SpaceOperation('restore_local', [c], v))
         nextblock.operations[:0] = restoreops
 
-        SSA_to_SSI(d, self.hannotator)
-
         if kind == 'global':
-            N = self.get_resume_point(mergeblock)
-            c_resumeindex = inputconst(lltype.Signed, N)
-            self.genop(block, 'guard_global_merge', [c_resumeindex])
-            block.recloseblock(Link([self.c_dummy], self.graph.returnblock))
-
             N = self.get_resume_point(nextblock)
             self.mergepointfamily.resumepoint_after_mergepoint[mp] = N
 
