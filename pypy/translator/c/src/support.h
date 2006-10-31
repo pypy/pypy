@@ -25,6 +25,10 @@
 		memcpy(itemsarray->items, PyString_AS_STRING(s),        \
                        itemsarray->length)
 
+#ifdef __RPyListOfString_New     /*  :-(  */
+#  define HAVE_RPY_LIST_OF_STRING
+#endif
+
 #ifndef PYPY_STANDALONE
 
 /* prototypes */

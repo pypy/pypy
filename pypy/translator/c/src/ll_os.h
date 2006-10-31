@@ -77,7 +77,9 @@ void LL_os_link(RPyString * path1, RPyString * path2);
 void LL_os_symlink(RPyString * path1, RPyString * path2);
 long LL_readlink_into(RPyString *path, RPyString *buffer);
 long LL_os_fork(void);
+#ifdef HAVE_RPY_LIST_OF_STRING     /* argh */
 long LL_os_spawnv(int mode, RPyString *path, RPyListOfString *args);
+#endif
 RPyWAITPID_RESULT* LL_os_waitpid(long pid, long options);
 void LL_os__exit(long status);
 void LL_os_putenv(RPyString * name_eq_value);
@@ -376,7 +378,7 @@ long LL_os_fork(void) {
 }
 #endif
 
-#ifdef HAVE_SPAWNV
+#if defined(HAVE_SPAWNV) && defined(HAVE_RPY_LIST_OF_STRING)
 long LL_os_spawnv(int mode, RPyString *path, RPyListOfString *args) {
 	int pid, i, nargs = args->l_length;
 	char **slist = malloc((nargs+1) * sizeof(char*));
