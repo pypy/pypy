@@ -21,8 +21,8 @@ qt = """
          """
 
 def test_simple():
-    query = SP.Query.parseString(qt)[0]
-    assert query.PrefixDecl[0].ns == 'http://example.org/ns#'
+    query = SP.Query.parseString(qt)
+    assert query.Prefix[0]['ns'] == 'http://example.org/ns#'
     where = query.SelectQuery[0].WhereClause[0]
     assert len(where) == 1
     triples = where.GroupGraphPattern[0].Triples
@@ -161,7 +161,7 @@ def test_case_6():
 
 def test_case_7():
     """ for all p's return p[1] if p[0]==s """
-    py.test.skip("Doesn't work yet")
+    #py.test.skip("Doesn't work yet")
 
     query = qt_proto % ('?x ?y ?z', '?x ?y ?z .')
     O = Ontology()

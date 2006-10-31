@@ -1,5 +1,5 @@
 import autopath
-from rdflib import Graph, URIRef, BNode, Literal
+from rdflib import Graph, URIRef, BNode, Literal as rdflib_literal
 from logilab.constraint import  Repository, Solver
 from logilab.constraint.fd import  Expression, FiniteDomain as fd
 from logilab.constraint.propagation import AbstractDomain, AbstractConstraint,\
@@ -11,8 +11,8 @@ import datetime, time
 from urllib2 import URLError
 log = py.log.Producer("Pyontology")
 from pypy.tool.ansi_print import ansi_log
-#py.log.setconsumer("Pyontology", None)
-py.log.setconsumer("Pyontology", ansi_log)
+py.log.setconsumer("Pyontology", None)
+#py.log.setconsumer("Pyontology", ansi_log)
 
 namespaces = {
     'rdf' : 'http://www.w3.org/1999/02/22-rdf-syntax-ns',
@@ -307,6 +307,9 @@ class Property(AbstractDomain, object):
         if not self._dict:
             raise ConsistencyFailure("Removed the last value of %s" % self.name)
 
+    def __iter__(self):
+        return iter(self.getValues())
+        
     def __contains__(self, (cls, val)):
         if not cls in self._dict:
             return False
@@ -411,10 +414,13 @@ class Restriction(ClassDomain):
         cc.property = self.property
         return cc
 
+class Literal(ClassDomain):
+    pass
+
 def Types(typ):
-    class Type(ClassDomain):
+    class Type(Literal):
         def __contains__(self, item):
-            #assert isinstance(item, Literal)
+            #assert isinstance(item, rdflib_literal)
             return item.datatype is None or item.datatype == self.Type
 
     datatype = Type
@@ -441,6 +447,7 @@ builtin_voc = {
                getUriref('owl', 'SymmetricProperty') : SymmetricProperty,
                getUriref('owl', 'TransitiveProperty') : TransitiveProperty,
                getUriref('rdf', 'List') : List,
+               getUriref('rdf', 'Literal') : Literal,
 #               getUriref('rdf', 'type') : Property,
               }
 
@@ -503,10 +510,10 @@ class Ontology:
                     continue
                 self.variables[key].finish(self.variables, self.constraints)
             else:
-                try:
-                    constraint.narrow(self.variables)
-                except ConsistencyFailure, e:
-                    print "FAilure", e
+#                try:
+                constraint.narrow(self.variables)
+#                except ConsistencyFailure, e:
+#                    print "FAilure", e
 
     def _sparql(self, query):
         qe = SP.Query.parseString(query)
@@ -528,7 +535,7 @@ class Ontology:
             newtrip = []
             trip_ = [trip.Subject[0], trip.Verb[0], trip.Object[0]]
             for item in trip_:
-                if isinstance(item[0], Literal):
+                if isinstance(item[0], rdflib_literal):
                     newtrip.append(item[0])
                 elif item[0].NCNAME_PREFIX:
                     uri = prefixes[item[0].NCNAME_PREFIX[0]] + item[0].NCNAME[0]
@@ -538,7 +545,10 @@ class Ontology:
                     newtrip.append(var_uri)
                     vars.append(var_uri)
                     case += trip_.index(item) + inc
-                    inc = 2
+                    if inc == 2:
+                        inc = 1
+                    else:
+                        inc = 2
                 else:
                     newtrip.append(item[0][0])
             newtrip.append(case)
@@ -634,8 +644,21 @@ class Ontology:
                 #  for all p's return p[1] if p[0]==s  
                 pass
             elif case == 7:
-                #  for all p's return p.getvalues 
-                pass
+                #  for all p's return p.getvalues
+                p_vals = []
+                for p in self.variables['rdf_Property'].getValues():
+                    p_vals += self.variables[p].getValues()
+                
+                things = self.variables['owl_Thing'].getValues()
+                things += self.variables['owl_Literal'].getValues()
+                prop = self.make_var(Property, URIRef(trip[1]))
+                self.variables[prop].setValues(p_vals)
+                sub = self.make_var(Thing, trip[0])
+                self.variables[sub].setValues(things)
+                obj = self.make_var(Thing, trip[2])
+                self.variables[obj].setValues(things)
+                con = Expression([sub,prop,obj], "%s[0] == %s and %s[1] == %s" %(prop, sub, prop, obj))
+                self.constraints.append(con)
         # call finish on the variables in the query
         for v in vars:
             query_dom, query_constr = self.variables[self.mangle_name(v)].finish(self.variables, self.constraints) #query_dom, query_constr)
@@ -687,6 +710,10 @@ class Ontology:
                 val = self.variables[obj]
             else:
                 val = Individual(obj, o)
+        elif type(o) == rdflib_literal:
+            self.variables.setdefault('owl_Literal', ClassDomain('owl_Literal',u''))
+            self.variables['owl_Literal'].addValue(o)
+            val = o
         else:
             val = o
         propdom = self.variables[pvar]
@@ -958,7 +985,7 @@ class Ontology:
         def minCard(cls , prop, val):
             var = "%s_%s_card" %(cls, prop.name)
             con = Expression([var], "%s >= %i" % (var, val))
-            return {},[ CardinalityConstraint(prop.name, cls, val , '>')]
+            return {},[con, CardinalityConstraint(prop.name, cls, val , '>')]
         self.cardinality_helper(s, int(var), minCard)
     
     def cardinality(self, s, var):

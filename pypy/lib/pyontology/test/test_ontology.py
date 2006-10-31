@@ -35,7 +35,7 @@ def test_XMLSchema_string():
     prop = URIRef(namespaces['rdf']+'#Property')
     xml_string_uri = URIRef(namespaces['xmlschema']+"#string")
     O.type(p, prop)
-    O.consider_triple((a, p, Literal("ddd", datatype=xml_string_uri)))
+    O.consider_triple((a, p, rdflib_literal("ddd", datatype=xml_string_uri)))
     O.range(p, xml_string_uri) 
     O.consistency()
 
@@ -47,7 +47,7 @@ def test_XMLSchema_string_fail():
     xml_string_uri = URIRef(namespaces['xmlschema']+"#string")
     xml_int_uri= URIRef(namespaces['xmlschema']+"#integer")
     O.type(p, prop)
-    O.consider_triple((a, p, Literal(2, datatype = xml_int_uri)))
+    O.consider_triple((a, p, rdflib_literal(2, datatype = xml_int_uri)))
     O.range(p, xml_string_uri)
     raises(ConsistencyFailure, O.consistency)
  
