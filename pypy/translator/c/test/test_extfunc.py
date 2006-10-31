@@ -580,7 +580,7 @@ elif hasattr(os, 'waitpid'):
             prog = sys.executable
             prog = str(prog)
             args = [prog]
-#            args = [prog, '-c', 'print 7*7']
+#            args = [prog, '-c', '"import os;os._exit(4)"']
 #           note that the above variant creates a bad array
             args.append('-c')
             args.append('"import os;os._exit(4)"')
