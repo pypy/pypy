@@ -1,10 +1,14 @@
 
 from pypy.lang.js.astgen import *
 from pypy.lang.js.context import ExecutionContext
-from pypy.lang.js.jsobj import W_Number, W_String, W_Object
+from pypy.lang.js.jsobj import W_Number, W_String, W_Object, w_Undefined
 
 def writer(x):
     print x
+
+class ExecutionReturned(Exception):
+    def __init__(self, value):
+        self.value = value
 
 class __extend__(Assign):
     def call(self, context):
@@ -62,8 +66,12 @@ class __extend__(Identifier):
 class __extend__(Script):
     def call(self, context=None):
         new_context = ExecutionContext(context)
-        for node in self.nodes:
-            node.call(new_context)
+        try:
+            for node in self.nodes:
+                node.call(new_context)
+        except ExecutionReturned, e:
+            return e.value
+        return w_Undefined
 
 class __extend__(Call):
     def call(self, context=None):
@@ -110,4 +118,7 @@ class __extend__(Function):
         w_obj = W_Object({})
         w_obj.body = self.body
         return w_obj
-    
+
+class __extend__(Return):
+    def call(self, context=None):
+        raise ExecutionReturned(self.expr.call(context))

@@ -68,6 +68,10 @@ class PropertyInit(Node):
         self.name = name
         self.value = value
 
+class Return(Node):
+    def __init__(self, expr):
+        self.expr = expr
+
 class Scope(Node):
     def __init__(self, dict):
         self.dict = self.dicts
@@ -128,5 +132,7 @@ def from_dict(d):
         return Index(from_dict(d['0']), from_dict(d['1']))
     elif tp == 'FUNCTION':        
         return Function(d['params'], from_dict(d['body']))
+    elif tp == 'RETURN':
+        return Return(from_dict(d['value']))
     else:
         raise NotImplementedError("Dont know how to handler %s" % tp)
