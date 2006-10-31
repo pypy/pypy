@@ -99,7 +99,7 @@ def main():
 
     ref_rich, ref_stone = None, None
 
-    for exe in 'python2.4 python2.3'.split():
+    for exe in '/usr/local/bin/python2.5 python2.4 python2.3'.split():
         v = os.popen(exe + ' -c "import sys;print sys.version.split()[0]"').read().strip()
         if not v:
             continue
@@ -117,16 +117,24 @@ def main():
         if not ref_stone:
             ref_stone = stone
 
-        fmt = '%-26s %8s %8s    %-48s   %6dms (%6.1fx)   %6d (%6.1fx)'
-        print fmt % (time.ctime(), '-', '-', 'CPython ' + v, rich, rich / ref_rich, stone, stone / ref_stone)
+        fmt = '%-26s %8s %8s    <a href="microbench-archive/%s.txt">%-48s</a>   %6dms (%6.1fx)   %6d (%6.1fx)'
+        print fmt % (time.ctime(), '-', '-', 'python', 'CPython ' + v, rich, rich / ref_rich, stone, stone / ref_stone)
         sys.stdout.flush()
 
     for exe in get_executables():
         exename = os.path.splitext(exe)[0].lstrip('./')
         ctime   = time.ctime( os.path.getmtime(exename) )
 
+        #compute microbenchmark results (only once)
+        f = '../microbench/archive/%s.txt' % exe
+        if not os.path.exists(f) or os.stat(f).st_size < 100:
+            os.chdir('../microbench')
+            run_cmd('./microbench.py python "../goal/%s" > "archive/%s.txt"' % (exe, exe))
+            os.chdir('../goal')
+            
         r = exe + '_richards'
         if not benchmark_result.is_stable(r):
+            #continue with our regular benchmarks
             benchmark_result.update(r, run_richards(exe, 1), RICHARDS_ASCENDING_GOOD)
         rich = benchmark_result.get_best_result(r)
 
@@ -137,7 +145,7 @@ def main():
 
         codesize = os.popen('size "%s" | tail -n1 | cut -f1'%(exename,)).read().strip()
 
-        print fmt % (ctime, os.path.getsize(exe), codesize, exename, rich, rich / ref_rich, stone, ref_stone / stone)
+        print fmt % (ctime, os.path.getsize(exe), codesize, exename, exename, rich, rich / ref_rich, stone, ref_stone / stone)
         sys.stdout.flush()
 
 if __name__ == '__main__':

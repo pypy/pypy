@@ -17,8 +17,10 @@ dry_run = False
 def run(cmd):
     print 'RUN:', cmd
     sys.stdout.flush()
+    result = 0  #OK
     if not dry_run:
-        os.system(cmd)
+        result = os.system(cmd) #note: result is system dependent but works on Linux the way we want
+    return result
 
 def update_pypy():
     os.chdir(homedir + '/projects/pypy-dist')
@@ -144,13 +146,11 @@ def get_load():
     return buf
 
 def benchmark():
-    #run('cat /proc/cpuinfo')
-    #run('free')
     os.chdir(homedir + '/projects/pypy-dist/pypy/translator/goal')
     startload = get_load()
-    run('/usr/local/bin/withlock /tmp/cpu_cycles_lock /usr/local/bin/python bench-unix.py 2>&1 | tee benchmark.txt' % locals())
+    result = run('/usr/local/bin/withlock /tmp/cpu_cycles_lock /usr/local/bin/python bench-unix.py 2>&1 | tee benchmark.txt' % locals())
     endload = get_load()
-    if not dry_run:
+    if not dry_run and result == 0:
         f = open('benchmark.html', 'w')
         print >> f, "<html><body>"
         print >> f, "<pre>"
@@ -161,20 +161,16 @@ def benchmark():
         print >> f, "</pre>"
         print >> f, "</body></html>"
         f.close()
-    #run('scp benchmark.html ericvrp@codespeak.net:public_html/benchmark/index.html')
 
 def main(backends=[]):
     if backends == []:  #_ prefix means target specific option, # prefix to outcomment
         backends = [backend.strip() for backend in """
-            #llvm
             llvm--_objspace-std-withstrdict
             c
             c--gc=framework
             c--_thread
             c--stackless
-            #c--gc=framework--cc=c++
-            #c--cc=c++
-            #c--_objspace-std-withstrdict
+            c--stackless--_objspace-std-withstrdict--profopt='-c "from richards import *;main(iterations=1)"'
             c--profopt='-c "from richards import *;main(iterations=1)"'
             c--_objspace-std-withstrdict--profopt='-c "from richards import *;main(iterations=1)"'
             c--gc=framework--_objspace-std-withstrdict--profopt='-c "from richards import *;main(iterations=1)"'
