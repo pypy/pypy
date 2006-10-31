@@ -1,4 +1,4 @@
-from pypy.rpython import rjs
+from pypy.rlib import rjs
 
 def ll_js_jseval(s):
     return rjs.jseval(s)

@@ -301,7 +301,7 @@ frametop_type_info = declaregcptrtype(rstack.frame_stack_top,'frame_stack_top',
 
 # ___________________________________________________________
 # javascript
-from pypy.rpython import rjs
+from pypy.rlib import rjs
 declare(rjs.jseval, str, 'll_js/jseval')
 
 # ___________________________________________________________

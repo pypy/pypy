@@ -18,7 +18,7 @@ from pypy.translator.js.modules.mochikit import logDebug, createLoggingPane, log
 from pypy.translator.js.modules.bltns import date
 
 from pypy.translator.js.demo.jsdemo.consserv import ConsoleRootInstance, ConsoleRoot
-from pypy.rpython.rjs import jseval
+from pypy.rlib.rjs import jseval
 
 class Console(object):
     def __init__(self):

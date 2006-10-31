@@ -3,7 +3,7 @@ import py
 
 from pypy.translator.js.test.runtest import compile_function
 from pypy.rpython.lltypesystem import lltype 
-from pypy.rpython.rjs import jseval
+from pypy.rlib.rjs import jseval
 from pypy.translator.js import conftest
 
 def jsnative(cmd):
