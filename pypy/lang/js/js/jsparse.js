@@ -283,11 +283,15 @@ Np.toString = function () {
     var n = ++Node.indentLevel;
     var s = "{\n" + INDENTATION.repeat(n) + "'type': '" + tokenstr(this.type) + "'";
     for (i = 0; i < a.length; i++) {
-        val = a[i].value + ""
-        if (val.search("\n") != -1) {
-            s += ",\n" + INDENTATION.repeat(n) + "'" + a[i].id + "': " + val + " ";
+        val = a[i].value + "";
+        if (val.search("},{") != -1) {
+            s += ",\n" + INDENTATION.repeat(n) + "'" + a[i].id + "': [" + val + "]";
         } else {
-            s += ",\n" + INDENTATION.repeat(n) + "'" + a[i].id + "': '" + val + "'";
+            if (val.search("\n") != -1) {
+                s += ",\n" + INDENTATION.repeat(n) + "'" + a[i].id + "': " + val + " ";
+            } else {
+                s += ",\n" + INDENTATION.repeat(n) + "'" + a[i].id + "': '" + val + "'";
+            }
         }
     }
     n = --Node.indentLevel;

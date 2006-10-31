@@ -16,7 +16,7 @@ class TestInterp(object):
         #    s.call()
         l = []
         interpreter.writer = l.append
-        Script([Semicolon(Call(Identifier('print'), List([Number(1), Number(2)])))],[],[]).call()
+        Script([Semicolon(Call(Identifier('print', None), List([Number(1), Number(2)])))],[],[]).call()
         assert l == ['1,2']
 
     def assert_prints(self, code, assval):
@@ -59,3 +59,6 @@ class TestInterp(object):
     
     def test_function_returns(self):
         self.assert_prints(parse_d('x=function(){return 1;}; print(x()+x());'), ["2"])
+    
+    def test_var_declartion(self):
+        self.assert_prints(parse_d('var x = 3; print(x+x);'), ["6"])

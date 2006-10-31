@@ -50,4 +50,3 @@ def parse(code_string):
         open("/tmp/out", "w").write("\n".join(output))
         raise
     return d['code']
-

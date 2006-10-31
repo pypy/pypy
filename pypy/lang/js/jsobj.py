@@ -6,11 +6,11 @@ class W_Root(object):
     def GetValue(self):
         return self
 
-    def ToPrimitive(self):
+    def ToPrimitive(self, hint=""):
         return self
 
-    def ToNumber(self):
-        raise SeePage(37)
+    #def ToNumber(self):
+    #    return int(self.ToPrimitive(hint="number"))
 
     def ToString(self):
         return str(self)
@@ -24,6 +24,10 @@ class W_Root(object):
 class W_Undefined(W_Root):
     def __str__(self):
         return ""
+    
+    def ToNumber(self):
+        # XXX make NaN
+        return 0
 
 class W_Null(W_Root):
     def __str__(self):
@@ -37,7 +41,12 @@ class W_Boolean(W_Root):
         if self.boolval:
             return "true"
         return "false"
-
+    
+    def ToNumber(self):
+        if self.boolval:
+            return 1
+        return 0
+    
 class W_String(W_Root):
     def __init__(self, strval):
         # XXX: Should be unicode object
@@ -89,7 +98,7 @@ class W_Object(W_Root):
         return W_String(str(self))
     
     def DefaultValue(self, hint):
-        assert hint == "string"
+        #if hint == "string":
         tostring_meth = self.Get("toString")
         if isinstance(tostring_meth, W_Object):
             return tostring_meth.Call(this=self)
@@ -98,6 +107,21 @@ class W_Object(W_Root):
             retval = valueof_meth.Call(this=self)
             # XXX: check primitiveness of retval
             return retval
+##    else:
+##            if isinstance(valueof_meth, W_Object):
+##                retval = valueof_meth.Call(this=self)
+##                # XXX: check primitiveness of retval
+##                return retval
+##            tostring_meth = self.Get("toString")
+##            if isinstance(tostring_meth, W_Object):
+##                return tostring_meth.Call(this=self)
+        return w_Undefined
+    
+    def ToPrimitive(self, hint=""):
+        return self.DefaultValue(hint)
+    
+    def ToNumber(self):
+        return self.ToPrimitive("number").ToNumber(hint="number")
     
     def ToString(self):
         return str(self.DefaultValue(hint="string"))
@@ -108,8 +132,8 @@ class W_Object(W_Root):
         
         return w_Undefined
 
-    def ToPrimitive(self):
-        raise SeePage(37)
+    #def ToPrimitive(self, hint=""):
+    #    return DefaultValue(hint)
 
     #def ToString(self):
     #    raise SeePage(42)

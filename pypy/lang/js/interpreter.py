@@ -2,6 +2,7 @@
 from pypy.lang.js.astgen import *
 from pypy.lang.js.context import ExecutionContext
 from pypy.lang.js.jsobj import W_Number, W_String, W_Object, w_Undefined
+from pypy.lang.js.scope import scope_manager
 
 def writer(x):
     print x
@@ -13,7 +14,7 @@ class ExecutionReturned(Exception):
 class __extend__(Assign):
     def call(self, context):
         val = self.expr.call(context)
-        context.assign(self.identifier.name, val)
+        scope_manager.set_variable(self.identifier.name, val)
         return val
 
 class __extend__(Number):
@@ -32,8 +33,12 @@ class __extend__(Dot):
 
 class __extend__(Function):
     def call(self, context=None):
-        return self.body.call()
-    
+        backup_scope = scope_manager.current_scope
+        scope_manager.current_scope = self.scope
+        retval = self.body.call()
+        scope_manager.current_scope = backup_scope
+        return retval
+
 class __extend__(Plus):
     def call(self, context=None):
         left = self.left.call(context).GetValue()
@@ -58,7 +63,9 @@ class __extend__(Semicolon):
 
 class __extend__(Identifier):
     def call(self, context=None):
-        return context.access(self.name)
+        if self.initialiser is not None:
+            scope_manager.set_variable(self.name, self.initialiser.call(context))
+        return scope_manager.get_variable(self.name)
     
     def get_literal(self):
         return self.name
@@ -79,7 +86,7 @@ class __extend__(Call):
         if name == 'print':
             writer(",".join([i.ToString() for i in self.arglist.call(context)]))
         else:
-            w_obj = context.access(name)
+            w_obj = scope_manager.get_variable(name)
             return w_obj.Call()
 
 class __extend__(List):
@@ -122,3 +129,8 @@ class __extend__(Function):
 class __extend__(Return):
     def call(self, context=None):
         raise ExecutionReturned(self.expr.call(context))
+
+class __extend__(Vars):
+    def call(self, context=None):
+        for var in self.nodes:
+            var.call(context)
