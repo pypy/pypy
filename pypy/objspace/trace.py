@@ -4,7 +4,7 @@
 """
 
 from pypy.tool import pydis
-from pypy.rpython.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask
 # __________________________________________________________________________
 #
 # Tracing Events 

@@ -5,7 +5,7 @@ import os
 import time
 import math
 import types
-from pypy.rpython.rarithmetic import r_longlong
+from pypy.rlib.rarithmetic import r_longlong
 
 class ExtFuncInfo:
     def __init__(self, func, annotation, ll_function_path, ll_annotable, backend_functiontemplate):
@@ -272,7 +272,7 @@ ntpath.isabs = isabs
 
 # ___________________________________________________________
 # string->float helper
-from pypy.rpython import rarithmetic
+from pypy.rlib import rarithmetic
 declare(rarithmetic.parts_to_float, float, 'll_strtod/parts_to_float')
 # float->string helper
 declare(rarithmetic.formatd, str, 'll_strtod/formatd')

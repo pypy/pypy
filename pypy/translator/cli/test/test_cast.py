@@ -1,7 +1,7 @@
 import sys
 
 from pypy.translator.cli.test.runtest import check
-from pypy.rpython.rarithmetic import r_uint, r_ulonglong, r_longlong, intmask
+from pypy.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong, intmask
 
 def to_int(x):
     return int(x)

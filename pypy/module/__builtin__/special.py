@@ -1,6 +1,6 @@
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
-from pypy.rpython import rarithmetic
+from pypy.rlib import rarithmetic
 
 def _isfake(space, w_obj): 
     return space.wrap(bool(w_obj.typedef.fakedcpytype))

@@ -3,7 +3,7 @@ import sys
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 
 class EmptyBase(object):

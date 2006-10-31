@@ -3,7 +3,7 @@ import py
 from random import random, randint
 from pypy.rlib.rlong import rlong, SHIFT, MASK
 from pypy.rlib import rlong as lobj
-from pypy.rpython.rarithmetic import r_uint
+from pypy.rlib.rarithmetic import r_uint
 import operator, sys
 
 class TestRLong(object):
@@ -55,7 +55,7 @@ class TestRLong(object):
 
     def test_touint(self):
         import sys
-        from pypy.rpython.rarithmetic import r_uint
+        from pypy.rlib.rarithmetic import r_uint
         result = r_uint(sys.maxint + 42)
         rl = rlong.fromint(sys.maxint).add(rlong.fromint(42))
         assert rl.touint() == result

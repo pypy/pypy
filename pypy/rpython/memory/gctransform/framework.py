@@ -5,7 +5,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython import rmodel
 from pypy.rpython.memory import gc, lladdress
 from pypy.rpython.memory.gcheader import GCHeaderBuilder
-from pypy.rpython.rarithmetic import ovfcheck
+from pypy.rlib.rarithmetic import ovfcheck
 from pypy.translator.backendopt import graphanalyze
 from pypy.annotation import model as annmodel
 from pypy.rpython import annlowlevel

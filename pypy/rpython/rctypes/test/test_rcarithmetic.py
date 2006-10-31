@@ -1,7 +1,7 @@
 import py.test
 from pypy.rpython.rctypes.rcarithmetic import *
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython import rarithmetic
+from pypy.rlib import rarithmetic
 from pypy.annotation import model as annmodel
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.rpython.test.test_llinterp import interpret

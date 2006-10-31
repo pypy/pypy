@@ -1,7 +1,7 @@
 from pypy.objspace.std.objspace import W_Object, OperationError
 from pypy.objspace.std.objspace import registerimplementation, register_all
 from pypy.rpython.objectmodel import r_dict
-from pypy.rpython.rarithmetic import intmask, r_uint
+from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.interpreter import gateway
 
 class W_BaseSetObject(W_Object):

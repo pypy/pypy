@@ -1,6 +1,6 @@
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.error import OperationError
-from pypy.rpython.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask
 import sys
 
 # Py_MARSHAL_VERSION = 2

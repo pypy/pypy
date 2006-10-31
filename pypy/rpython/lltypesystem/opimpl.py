@@ -16,8 +16,8 @@ ops_returning_a_bool = {'gt': True, 'ge': True,
 ops_unary = {'is_true': True, 'neg': True, 'abs': True, 'invert': True}
 
 # global synonyms for some types
-from pypy.rpython.rarithmetic import intmask
-from pypy.rpython.rarithmetic import r_uint, r_longlong, r_ulonglong
+from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 
 type_by_name = {
     'int': int,

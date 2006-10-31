@@ -3,7 +3,7 @@ import sys
 import py
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.translator.llvm import database, codewriter
-from pypy.rpython import rarithmetic 
+from pypy.rlib import rarithmetic
 
 from pypy.translator.llvm.test.runtest import *
 

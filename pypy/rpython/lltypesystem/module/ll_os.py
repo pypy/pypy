@@ -3,7 +3,7 @@ from pypy.rpython.module.support import LLSupport
 from pypy.rpython.module.support import ll_strcpy
 from pypy.rpython.module.ll_os import BaseOS
 from pypy.rpython.lltypesystem import lltype, rtupletype
-from pypy.rpython.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask
 
 STAT_RESULT = rtupletype.TUPLE_TYPE([lltype.Signed]*10).TO
 PIPE_RESULT = rtupletype.TUPLE_TYPE([lltype.Signed]*2).TO

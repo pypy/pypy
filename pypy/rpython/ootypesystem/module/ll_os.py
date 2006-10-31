@@ -2,7 +2,7 @@ import os
 from pypy.rpython.module.support import OOSupport
 from pypy.rpython.module.ll_os import BaseOS
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask
 
 def _make_tuple(FIELDS):
     n = len(FIELDS)

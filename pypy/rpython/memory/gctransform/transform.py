@@ -17,7 +17,7 @@ from pypy.rpython.memory import gc, lladdress
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.rpython.rtyper import LowLevelOpList
 from pypy.rpython.rbuiltin import gen_cast
-from pypy.rpython.rarithmetic import ovfcheck
+from pypy.rlib.rarithmetic import ovfcheck
 import sets, os, sys
 
 def var_ispyobj(var):

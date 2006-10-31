@@ -4,7 +4,7 @@ import sys
 from pypy.objspace.std import longobject as lobj
 from pypy.objspace.std.objspace import FailedToImplement
 from pypy.interpreter.error import OperationError
-from pypy.rpython.rarithmetic import r_uint
+from pypy.rlib.rarithmetic import r_uint
 
 class AppTestLong:
     def test_add(self):

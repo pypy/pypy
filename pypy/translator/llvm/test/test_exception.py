@@ -2,7 +2,7 @@ import sys
 
 import py
 from pypy.translator.test.snippet import try_raise_choose
-from pypy.rpython.rarithmetic import r_uint, ovfcheck, ovfcheck_lshift
+from pypy.rlib.rarithmetic import r_uint, ovfcheck, ovfcheck_lshift
 
 from pypy.translator.llvm.test.runtest import *
 

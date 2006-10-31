@@ -4,7 +4,7 @@ Miscellaneous utilities.
 
 import types
 
-from pypy.rpython.rarithmetic import r_uint
+from pypy.rlib.rarithmetic import r_uint
 
 class RootStack:
     pass

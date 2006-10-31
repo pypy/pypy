@@ -5,7 +5,7 @@ import sys
 
 import py
 from pypy.tool.udir import udir
-from pypy.rpython.rarithmetic import r_uint
+from pypy.rlib.rarithmetic import r_uint
 from pypy.rlib import ros
 
 from pypy.translator.llvm.test.runtest import *
@@ -245,7 +245,7 @@ def test_os_isatty():
 def test_rarith_parts_to_float():
     if sys.maxint != 2**31-1:
         py.test.skip("WIP on 64 bit architectures") 
-    from pypy.rpython.rarithmetic import parts_to_float
+    from pypy.rlib.rarithmetic import parts_to_float
     parts = [
      ["" ,"1","" ,""],
      ["-","1","" ,""],
@@ -265,7 +265,7 @@ def test_rarith_parts_to_float():
 def test_rarith_formatd():
     if sys.maxint != 2**31-1:
         py.test.skip("WIP on 64 bit architectures") 
-    from pypy.rpython.rarithmetic import formatd
+    from pypy.rlib.rarithmetic import formatd
     as_float  = [ 0.0  ,  1.5  ,  2.0  ]
     as_string = ["0.00", "1.50", "2.00"]
     def fn(i):

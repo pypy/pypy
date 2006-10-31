@@ -9,7 +9,7 @@ from pypy.rpython.lltypesystem import lloperation
 from pypy.rpython.memory.lladdress import NULL
 from pypy.rpython import rtyper
 from pypy.rpython import rclass
-from pypy.rpython.rarithmetic import r_uint, r_longlong, r_ulonglong
+from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 from pypy.annotation import model as annmodel
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 

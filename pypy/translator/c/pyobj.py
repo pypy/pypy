@@ -10,7 +10,7 @@ from pypy.translator.c.support import log
 from pypy.translator.c.wrapper import gen_wrapper, new_method_graph
 from pypy.translator.tool.raymond import should_expose
 
-from pypy.rpython.rarithmetic import r_int, r_uint
+from pypy.rlib.rarithmetic import r_int, r_uint
 from pypy.rpython.lltypesystem.lltype import pyobjectptr, LowLevelType
 from pypy.rpython import extregistry
 

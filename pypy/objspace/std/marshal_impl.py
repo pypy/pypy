@@ -10,7 +10,7 @@ a callback and a state variable.
 
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.register_all import register_all
-from pypy.rpython.rarithmetic import LONG_BIT
+from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.floatobject import repr__Float as repr_float
 from pypy.objspace.std.longobject import SHIFT as long_bits

@@ -1,4 +1,4 @@
-from pypy.rpython.rarithmetic import r_longlong
+from pypy.rlib.rarithmetic import r_longlong
 from pypy.interpreter.gateway import interp2app, W_Root
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty, GetSetProperty

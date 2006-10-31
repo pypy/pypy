@@ -17,7 +17,7 @@ import os, errno
 from pypy.rpython.module.support import ll_strcpy, _ll_strfill
 from pypy.rpython.module.support import to_opaque_object, from_opaque_object
 from pypy.rlib import ros
-from pypy.rpython.rarithmetic import r_longlong
+from pypy.rlib.rarithmetic import r_longlong
 from pypy.tool.staticmethods import ClassMethods
 import stat
 

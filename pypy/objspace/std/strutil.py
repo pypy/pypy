@@ -2,7 +2,7 @@
 Pure Python implementation of string utilities.
 """
 
-from pypy.rpython.rarithmetic import ovfcheck, parts_to_float
+from pypy.rlib.rarithmetic import ovfcheck, parts_to_float
 from pypy.interpreter.error import OperationError
 import math
 

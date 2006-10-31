@@ -8,7 +8,7 @@ from pypy.rpython.rmodel import IteratorRepr
 from pypy.rpython.rmodel import externalvsinternal
 from pypy.rpython.rslice import AbstractSliceRepr
 from pypy.rpython.lltypesystem.lltype import Void, Signed 
-from pypy.rpython.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask
 from pypy.rpython.unroll import unrolling_iterable
 
 class __extend__(annmodel.SomeTuple):

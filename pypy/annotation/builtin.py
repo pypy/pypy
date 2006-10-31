@@ -15,7 +15,7 @@ from pypy.annotation.model import s_ImpossibleValue
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation import description
 from pypy.objspace.flow.model import Constant
-import pypy.rpython.rarithmetic
+import pypy.rlib.rarithmetic
 import pypy.rpython.objectmodel
 import pypy.rpython.rstack
 
@@ -130,7 +130,7 @@ def builtin_isinstance(s_obj, s_type, variables=None):
     r = SomeBool() 
     if s_type.is_constant():
         typ = s_type.const
-        if issubclass(typ, pypy.rpython.rarithmetic.base_int):
+        if issubclass(typ, pypy.rlib.rarithmetic.base_int):
             r.const = issubclass(s_obj.knowntype, typ)
         else:
             if typ == long:
@@ -353,9 +353,9 @@ for name, value in globals().items():
         original = getattr(__builtin__, name[8:])
         BUILTIN_ANALYZERS[original] = value
 
-##BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.ovfcheck] = rarith_ovfcheck
-##BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.ovfcheck_lshift] = rarith_ovfcheck_lshift
-BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.intmask] = rarith_intmask
+##BUILTIN_ANALYZERS[pypy.rlib.rarithmetic.ovfcheck] = rarith_ovfcheck
+##BUILTIN_ANALYZERS[pypy.rlib.rarithmetic.ovfcheck_lshift] = rarith_ovfcheck_lshift
+BUILTIN_ANALYZERS[pypy.rlib.rarithmetic.intmask] = rarith_intmask
 BUILTIN_ANALYZERS[pypy.rpython.objectmodel.instantiate] = robjmodel_instantiate
 BUILTIN_ANALYZERS[pypy.rpython.objectmodel.we_are_translated] = (
     robjmodel_we_are_translated)
@@ -391,7 +391,7 @@ from pypy.rpython.lltypesystem import lltype
 
 def malloc(s_T, s_n=None, s_flavor=None, s_extra_args=None, s_zero=None):
     assert (s_n is None or s_n.knowntype == int
-            or issubclass(s_n.knowntype, pypy.rpython.rarithmetic.base_int))
+            or issubclass(s_n.knowntype, pypy.rlib.rarithmetic.base_int))
     assert s_T.is_constant()
     if s_n is not None:
         n = 1

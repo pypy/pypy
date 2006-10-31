@@ -5,7 +5,7 @@ built-in functions (or type constructors) implementing them.
 from pypy.interpreter.baseobjspace import ObjSpace
 import operator, types, __future__
 from pypy.tool.sourcetools import compile2
-from pypy.rpython.rarithmetic import ovfcheck, ovfcheck_lshift
+from pypy.rlib.rarithmetic import ovfcheck, ovfcheck_lshift
 
 FunctionByName = {}   # dict {"operation_name": <built-in function>}
 OperationName  = {}   # dict {<built-in function>: "operation_name"}

@@ -7,7 +7,7 @@ from pypy.interpreter import baseobjspace
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import Function
 from pypy.interpreter.typedef import GetSetProperty
-from pypy.rpython.rarithmetic import r_uint, r_longlong, r_ulonglong
+from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 from pypy.rpython.objectmodel import we_are_translated, instantiate
 
 

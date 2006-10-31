@@ -3,7 +3,7 @@ from __future__ import division
 import sys
 
 import py
-from pypy.rpython.rarithmetic import r_uint
+from pypy.rlib.rarithmetic import r_uint
 
 from pypy.translator.llvm.test.runtest import *
 

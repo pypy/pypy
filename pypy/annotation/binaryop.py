@@ -21,7 +21,8 @@ from pypy.annotation.model import lltype_to_annotation
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.objspace.flow.model import Variable
 from pypy.annotation.listdef import ListDef
-from pypy.rpython import extregistry, rarithmetic
+from pypy.rlib import rarithmetic
+from pypy.rpython import extregistry
 
 # convenience only!
 def immutablevalue(x):

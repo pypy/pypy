@@ -2,7 +2,7 @@
 
 from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
-from pypy.rpython.rarithmetic import ovfcheck, _hash_string
+from pypy.rlib.rarithmetic import ovfcheck, _hash_string
 from pypy.rpython.objectmodel import we_are_translated
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.sliceobject import W_SliceObject

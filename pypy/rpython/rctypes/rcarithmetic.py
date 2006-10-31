@@ -1,4 +1,4 @@
-from pypy.rpython import rarithmetic
+from pypy.rlib import rarithmetic
 from pypy.rpython.lltypesystem import lltype
 import ctypes
 

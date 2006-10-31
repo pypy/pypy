@@ -1,6 +1,6 @@
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.lloperation import LL_OPERATIONS
-from pypy.rpython import rarithmetic, rclass, rmodel
+from pypy.rlib import rarithmetic, rclass, rmodel
 from pypy.translator.backendopt import support
 from pypy.objspace.flow import model
 from pypy.translator import unsimplify, simplify

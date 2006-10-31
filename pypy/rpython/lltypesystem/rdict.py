@@ -4,7 +4,7 @@ from pypy.objspace.flow.model import Constant
 from pypy.rpython.rdict import AbstractDictRepr, AbstractDictIteratorRepr,\
      rtype_newdict, dum_variant, dum_keys, dum_values, dum_items
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.rarithmetic import r_uint
+from pypy.rlib.rarithmetic import r_uint
 from pypy.rpython.objectmodel import hlinvoke
 from pypy.rpython import robject
 from pypy.rpython import objectmodel

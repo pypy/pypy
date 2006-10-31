@@ -1,6 +1,6 @@
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.backendopt.all import backend_optimizations
-from pypy.rpython.rarithmetic import ovfcheck
+from pypy.rlib.rarithmetic import ovfcheck
 from pypy.translator.asm import genasm
 from pypy import conftest
 import py

@@ -294,7 +294,7 @@ def test_time_time():
 
 
 def test_rarith_parts_to_float():
-    from pypy.rpython.rarithmetic import parts_to_float
+    from pypy.rlib.rarithmetic import parts_to_float
     def fn(sign, beforept, afterpt, exponent):
         return parts_to_float(sign, beforept, afterpt, exponent)
 
@@ -313,7 +313,7 @@ def test_rarith_parts_to_float():
         assert f(*parts) == val
 
 def test_rarith_formatd():
-    from pypy.rpython.rarithmetic import formatd
+    from pypy.rlib.rarithmetic import formatd
     def fn(x):
         return formatd("%.2f", x)
 

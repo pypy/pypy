@@ -1,5 +1,5 @@
 from pypy.interpreter.baseobjspace import ObjSpace
-from pypy.rpython.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask
 from pypy.rlib import ros
 from pypy.interpreter.error import OperationError
 

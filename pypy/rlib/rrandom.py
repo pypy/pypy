@@ -4,7 +4,7 @@
 
 # this is stolen from CPython's _randommodule.c
 
-from pypy.rpython.rarithmetic import r_uint
+from pypy.rlib.rarithmetic import r_uint
 
 N = 624
 M = 397

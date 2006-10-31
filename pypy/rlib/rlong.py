@@ -1,4 +1,4 @@
-from pypy.rpython.rarithmetic import LONG_BIT, intmask, r_uint, ovfcheck
+from pypy.rlib.rarithmetic import LONG_BIT, intmask, r_uint, ovfcheck
 
 import math, sys
 
@@ -618,7 +618,7 @@ def args_from_rarith_int(x):
             return digits_for_most_neg_long(x), -1
 args_from_rarith_int._annspecialcase_ = "specialize:argtype(0)"
 # ^^^ specialized by the precise type of 'x', which is typically a r_xxx
-#     instance from rpython.rarithmetic
+#     instance from rlib.rarithmetic
 
 def args_from_long(x):
     "NOT_RPYTHON"

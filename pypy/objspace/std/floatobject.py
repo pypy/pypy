@@ -2,7 +2,7 @@ from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.longobject import W_LongObject
-from pypy.rpython.rarithmetic import ovfcheck_float_to_int, intmask, isinf
+from pypy.rlib.rarithmetic import ovfcheck_float_to_int, intmask, isinf
 
 ##############################################################
 # for the time being, all calls that are made to some external

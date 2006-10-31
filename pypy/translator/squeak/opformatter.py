@@ -1,4 +1,4 @@
-from pypy.rpython.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
+from pypy.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
 from pypy.translator.squeak.codeformatter import CodeFormatter
 from pypy.translator.squeak.codeformatter import Message, Self, Assignment, Field
 

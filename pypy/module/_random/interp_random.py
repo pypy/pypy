@@ -2,7 +2,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped, interp2app
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.rpython.rarithmetic import r_uint, intmask
+from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib import rrandom
 
 import time

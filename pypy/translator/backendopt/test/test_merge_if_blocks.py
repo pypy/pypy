@@ -5,7 +5,7 @@ from pypy.translator.translator import TranslationContext, graphof as tgraphof
 from pypy.objspace.flow.model import flatten, Block
 from pypy.translator.backendopt.removenoops import remove_same_as
 from pypy.rpython.llinterp import LLInterpreter
-from pypy.rpython.rarithmetic import r_uint, r_ulonglong, r_longlong
+from pypy.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong
 from pypy.annotation.model import SomeChar, SomeUnicodeCodePoint
 
 def do_test_merge(fn, testvalues):

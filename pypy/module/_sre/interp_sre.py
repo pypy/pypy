@@ -3,7 +3,7 @@ from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root
 from pypy.interpreter.error import OperationError
-from pypy.rpython.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask
 import sys
 
 #### Constants and exposed functions

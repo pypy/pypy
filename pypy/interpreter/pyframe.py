@@ -5,7 +5,7 @@ from pypy.interpreter import eval, baseobjspace
 from pypy.interpreter.miscutils import Stack, FixedStack
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import pytraceback
-from pypy.rpython.rarithmetic import r_uint, intmask
+from pypy.rlib.rarithmetic import r_uint, intmask
 import opcode
 from pypy.rpython.objectmodel import we_are_translated, instantiate
 from pypy.rpython import rstack # for resume points

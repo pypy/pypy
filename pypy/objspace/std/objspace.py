@@ -11,7 +11,7 @@ from pypy.objspace.std.model import W_ANY, StdObjSpaceMultiMethod, StdTypeModel
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.descroperation import DescrOperation
 from pypy.objspace.std import stdtypedef
-from pypy.rpython.rarithmetic import base_int
+from pypy.rlib.rarithmetic import base_int
 import sys
 import os
 import __builtin__

@@ -1,4 +1,4 @@
-from pypy.rpython import rarithmetic
+from pypy.rlib import rarithmetic
 from pypy.rpython.module.support import LLSupport
 from pypy.tool.staticmethods import ClassMethods
 

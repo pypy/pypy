@@ -2,7 +2,7 @@ import py
 from pypy.translator.c.test.test_typed import TestTypedTestCase as _TestTypedTestCase
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.rpython import objectmodel
-from pypy.rpython.rarithmetic import r_uint, r_longlong, r_ulonglong
+from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 from pypy import conftest
 
 class TestTypedOptimizedTestCase(_TestTypedTestCase):

@@ -1,7 +1,7 @@
 import py
 import sys
 from pypy.translator.js.test.runtest import compile_function
-from pypy.rpython.rarithmetic import r_uint, ovfcheck, ovfcheck_lshift
+from pypy.rlib.rarithmetic import r_uint, ovfcheck, ovfcheck_lshift
 from pypy.translator.test import snippet 
 
 py.test.skip("Exception work in progress")

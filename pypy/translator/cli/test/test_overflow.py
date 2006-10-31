@@ -1,5 +1,5 @@
 from pypy.translator.cli.test.runtest import check
-from pypy.rpython.rarithmetic import ovfcheck
+from pypy.rlib.rarithmetic import ovfcheck
 
 import sys
 

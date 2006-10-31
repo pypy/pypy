@@ -1,5 +1,5 @@
 from pypy.rpython.lltypesystem.lltype import GcArray, Array, Char, malloc
-from pypy.rpython.rarithmetic import r_uint
+from pypy.rlib.rarithmetic import r_uint
 
 CHAR_ARRAY = GcArray(Char)
 

@@ -1,6 +1,6 @@
 from pypy.rpython.rrange import *
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
-from pypy.rpython.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask
 
 
 class BaseTestRrange(BaseRtypingTest):

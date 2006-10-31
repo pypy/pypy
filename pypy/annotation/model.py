@@ -32,7 +32,7 @@ from types import BuiltinFunctionType, MethodType, FunctionType
 import pypy.tool.instancemethod
 from pypy.annotation.pairtype import pair, extendabletype
 from pypy.tool.tls import tlsobject
-from pypy.rpython.rarithmetic import r_uint, r_longlong, r_ulonglong, base_int
+from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, base_int
 import inspect
 from sys import maxint
 
@@ -171,7 +171,7 @@ class SomeInteger(SomeFloat):
         self.knowntype = knowntype
         unsigned = self.knowntype(-1) > 0
         self.nonneg = unsigned or nonneg
-        self.unsigned = unsigned  # pypy.rpython.rarithmetic.r_uint
+        self.unsigned = unsigned  # pypy.rlib.rarithmetic.r_uint
 
 class SomeBool(SomeInteger):
     "Stands for true or false."

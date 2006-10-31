@@ -1147,7 +1147,7 @@ def class_spec():
     return istk.top(), sstk.top()
 
 
-from pypy.rpython.rarithmetic import ovfcheck, ovfcheck_lshift
+from pypy.rlib.rarithmetic import ovfcheck, ovfcheck_lshift
 
 def add_func(i=numtype):
     try:

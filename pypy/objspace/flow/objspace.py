@@ -124,7 +124,7 @@ class FlowObjSpace(ObjSpace):
 
     def uint_w(self, w_obj):
         if isinstance(w_obj, Constant):
-            from pypy.rpython.rarithmetic import r_uint
+            from pypy.rlib.rarithmetic import r_uint
             val = w_obj.value
             if type(val) is not r_uint:
                 raise TypeError("expected unsigned: " + repr(w_obj))

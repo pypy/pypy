@@ -2,7 +2,7 @@ import sys
 import py
 from py.test import raises
 from pypy.translator.test import snippet 
-from pypy.rpython.rarithmetic import r_uint, ovfcheck, ovfcheck_lshift
+from pypy.rlib.rarithmetic import r_uint, ovfcheck, ovfcheck_lshift
 
 from pypy.translator.js.test.runtest import compile_function
 

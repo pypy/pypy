@@ -6,7 +6,7 @@ from pypy.rpython.llinterp import LLInterpreter, LLException,log
 from pypy.rpython.rint import signed_repr
 from pypy.rpython.lltypesystem import rstr
 from pypy.annotation.model import lltype_to_annotation
-from pypy.rpython.rarithmetic import r_uint, ovfcheck
+from pypy.rlib.rarithmetic import r_uint, ovfcheck
 from pypy.rpython.memory.lltypesimulation import pyobjectptr
 from pypy.rpython.memory import gclltype
 

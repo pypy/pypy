@@ -62,7 +62,7 @@ class TestLowLevelAnnotateTestCase:
         assert s.knowntype == int
 
     def test_array_longlong(self):
-        from pypy.rpython.rarithmetic import r_longlong
+        from pypy.rlib.rarithmetic import r_longlong
         A = GcArray(('v', Signed))
         one = r_longlong(1)
         def llf():

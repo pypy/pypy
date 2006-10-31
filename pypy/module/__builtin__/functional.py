@@ -14,7 +14,7 @@ Candidates      implemented
 
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped, applevel
-from pypy.rpython.rarithmetic import r_uint, intmask
+from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.module.__builtin__.app_functional import range as app_range
 from inspect import getsource, getfile
 

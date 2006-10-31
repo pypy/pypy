@@ -6,7 +6,7 @@ from pypy.translator.translator import TranslationContext, graphof
 from pypy.objspace.flow.model import Constant
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLInterpreter
-from pypy.rpython.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask
 from pypy import conftest
 
 def translateopt(func, sig, **optflags):

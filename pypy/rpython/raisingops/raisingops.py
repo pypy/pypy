@@ -1,5 +1,5 @@
 import sys
-from pypy.rpython.rarithmetic import r_longlong, r_uint, intmask
+from pypy.rlib.rarithmetic import r_longlong, r_uint, intmask
 
 #XXX original SIGNED_RIGHT_SHIFT_ZERO_FILLS not taken into account
 #XXX assuming HAVE_LONG_LONG (int_mul_ovf)

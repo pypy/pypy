@@ -7,7 +7,7 @@ import autopath
 
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.objspace import FailedToImplement
-from pypy.rpython.rarithmetic import r_uint
+from pypy.rlib.rarithmetic import r_uint
 
 from pypy.conftest import gettestobjspace
 

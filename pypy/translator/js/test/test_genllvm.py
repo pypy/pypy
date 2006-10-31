@@ -3,7 +3,7 @@ from __future__ import division
 import sys
 import py
 
-from pypy.rpython.rarithmetic import r_uint
+from pypy.rlib.rarithmetic import r_uint
 from pypy.translator.js.test.runtest import compile_function
 
 def test_simple_function_pointer(): 

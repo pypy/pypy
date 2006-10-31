@@ -20,7 +20,7 @@ from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.annotation import model as annmodel
 from pypy.rpython.objectmodel import UnboxedValue
-from pypy.rpython.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask
 
 #
 #  There is one "vtable" per user class, with the following structure:

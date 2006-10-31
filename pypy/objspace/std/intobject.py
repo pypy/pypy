@@ -1,6 +1,6 @@
 from pypy.objspace.std.objspace import *
 from pypy.objspace.std.noneobject import W_NoneObject
-from pypy.rpython.rarithmetic import ovfcheck, ovfcheck_lshift, LONG_BIT, r_uint
+from pypy.rlib.rarithmetic import ovfcheck, ovfcheck_lshift, LONG_BIT, r_uint
 from pypy.objspace.std.inttype import wrapint
 
 """

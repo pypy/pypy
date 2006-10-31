@@ -1,4 +1,4 @@
-from pypy.rpython.rarithmetic import ovfcheck, ovfcheck_lshift
+from pypy.rlib.rarithmetic import ovfcheck, ovfcheck_lshift
 
 
 ## ------------------------------------------------------------------------

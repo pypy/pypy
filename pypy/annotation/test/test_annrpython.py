@@ -10,7 +10,7 @@ from pypy.annotation import specialize
 from pypy.annotation.listdef import ListDef
 from pypy.annotation.dictdef import DictDef
 from pypy.objspace.flow.model import *
-from pypy.rpython.rarithmetic import r_uint, base_int, r_longlong, r_ulonglong
+from pypy.rlib.rarithmetic import r_uint, base_int, r_longlong, r_ulonglong
 from pypy.rpython import objectmodel
 from pypy.objspace.flow import FlowObjSpace
 

@@ -10,7 +10,7 @@ from pypy.interpreter import eval
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import NoneNotWrapped 
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root 
-from pypy.rpython.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask
 
 # helper
 

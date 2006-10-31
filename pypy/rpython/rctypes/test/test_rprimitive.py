@@ -10,7 +10,7 @@ from pypy.annotation.model import SomeCTypesObject, SomeObject
 from pypy import conftest
 import sys
 from pypy.rpython.test.test_llinterp import interpret
-from pypy.rpython.rarithmetic import r_longlong, r_ulonglong
+from pypy.rlib.rarithmetic import r_longlong, r_ulonglong
 from pypy.rpython.lltypesystem import lltype
 from ctypes import c_char, c_byte, c_ubyte, c_short, c_ushort, c_int, c_uint
 from ctypes import c_long, c_ulong, c_longlong, c_ulonglong, c_float

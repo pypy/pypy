@@ -26,7 +26,7 @@ Try dir(snippet) for list of current snippets.
 import autopath, os, sys
 from pypy.translator.interactive import Translation
 from pypy.rpython.rtyper import *
-from pypy.rpython.rarithmetic import *
+from pypy.rlib.rarithmetic import *
 
 import py
 

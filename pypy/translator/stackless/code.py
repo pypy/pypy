@@ -1,5 +1,5 @@
 from pypy.rpython.lltypesystem import lltype, llmemory, lloperation
-from pypy.rpython import rarithmetic
+from pypy.rlib import rarithmetic
 from pypy.rpython import extfunctable
 from pypy.translator.stackless import frame
 from pypy.translator.stackless.frame import STATE_HEADER, SAVED_REFERENCE, STORAGE_TYPES_AND_FIELDS

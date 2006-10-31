@@ -1,5 +1,5 @@
 # string -> float helper
-from pypy.rpython import rarithmetic
+from pypy.rlib import rarithmetic
 from pypy.rpython.module.support import LLSupport, ll_strcpy
 
 

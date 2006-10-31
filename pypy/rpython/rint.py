@@ -7,7 +7,7 @@ from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Bool, Float, \
      SignedLongLong, build_number, Number, cast_primitive, typeOf
 from pypy.rpython.rmodel import IntegerRepr, inputconst
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
-from pypy.rpython.rarithmetic import intmask, r_int, r_uint, r_ulonglong, r_longlong
+from pypy.rlib.rarithmetic import intmask, r_int, r_uint, r_ulonglong, r_longlong
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import log
 from pypy.rpython import objectmodel

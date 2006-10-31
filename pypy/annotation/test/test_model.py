@@ -128,7 +128,7 @@ def test_ll_to_annotation():
     assert isinstance(s_p, SomeOOInstance) and s_p.ootype == C
 
 def test_annotation_to_lltype():
-    from pypy.rpython.rarithmetic import r_uint
+    from pypy.rlib.rarithmetic import r_uint
     s_i = SomeInteger()
     s_pos = SomeInteger(nonneg=True)
     s_1 = SomeInteger(nonneg=True); s_1.const = 1

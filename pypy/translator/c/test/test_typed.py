@@ -7,7 +7,7 @@ from py.test import raises
 from pypy import conftest
 from pypy.translator.test import snippet
 from pypy.translator.translator import TranslationContext
-from pypy.rpython.rarithmetic import r_uint, r_ulonglong, r_longlong, intmask
+from pypy.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong, intmask
 from pypy.config.config import Config
 from pypy.config.pypyoption import pypy_optiondescription
 
@@ -590,8 +590,6 @@ class TestTypedTestCase(CompilationTestCase):
 
         res = f()
 
-        from pypy.rpython.rarithmetic import intmask
-        
         assert res[0] == True
         assert res[1] == intmask(hash(c)+hash(d))
 

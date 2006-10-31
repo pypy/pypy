@@ -67,7 +67,7 @@ typedef struct _tasklet_flags {
 } PyTaskletFlagStruc;
 """
 
-from pypy.rpython.rarithmetic import LONG_BIT, intmask
+from pypy.rlib.rarithmetic import LONG_BIT, intmask
 
 class BitSetDef(object):
     __slots__ = "_names __dict__ _attrname".split()
