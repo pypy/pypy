@@ -12,6 +12,53 @@ class Node(object):
 #        return output
 #    getlist = staticmethod(getlist)
 
+
+class Assign(Node):
+    def __init__(self, identifier, expr):
+        self.identifier = identifier
+        self.expr = expr
+
+class Call(Node):
+    def __init__(self, identifier, arglist):
+        self.identifier = identifier
+        self.arglist = arglist
+
+class Dot(Node):
+    def __init__(self, left, right):
+        self.left = left
+        self.right = right
+
+class Identifier(Node):
+    def __init__(self, name):
+        self.name = name
+        
+class Index(Node):
+    def __init__(self, left, expr):
+        self.left = left
+        self.expr = expr
+
+class List(Node):
+    def __init__(self, nodes):
+        self.nodes = nodes
+
+class Number(Node):
+    def __init__(self, num):
+        self.num = num
+
+class ObjectInit(Node):
+    def __init__(self, properties):
+        self.properties = properties
+
+class Plus(Node):
+    def __init__(self, left, right):
+        self.left = left
+        self.right = right
+
+class PropertyInit(Node):
+    def __init__(self, name, value):
+        self.name = name
+        self.value = value
+
 class Script(Node):
     def __init__(self, nodes, var_decl, func_decl):
         self.nodes = nodes
@@ -22,49 +69,13 @@ class Script(Node):
 #        return Script(self.getlist(d), d['varDecl'], d['funcDecl'])
 #    from_dict = staticmethod(from_dict)
 
-class Assign(Node):
-    def __init__(self, identifier, expr):
-        self.identifier = identifier
-        self.expr = expr
-
 class Semicolon(Node):
     def __init__(self, expr):
         self.expr = expr
 
-class Plus(Node):
-    def __init__(self, left, right):
-        self.left = left
-        self.right = right
-
-class Number(Node):
-    def __init__(self, num):
-        self.num = num
-
-class Call(Node):
-    def __init__(self, identifier, arglist):
-        self.identifier = identifier
-        self.arglist = arglist
-
-class Identifier(Node):
-    def __init__(self, name):
-        self.name = name
-
-class List(Node):
-    def __init__(self, nodes):
-        self.nodes = nodes
-        
 class String(Node):
     def __init__(self, strval):
         self.strval = strval
-
-class ObjectInit(Node):
-    def __init__(self, properties):
-        self.properties = properties
-
-class PropertyInit(Node):
-    def __init__(self, name, value):
-        self.name = name
-        self.value = value
 
 def getlist(d):
     if 'length' not in d:
@@ -98,5 +109,9 @@ def from_dict(d):
         return PropertyInit(from_dict(d['0']), from_dict(d['1']))
     elif tp == 'OBJECT_INIT':
         return ObjectInit(getlist(d))
+    elif tp == 'DOT':
+        return Dot(from_dict(d['0']), from_dict(d['1']))
+    elif tp == 'INDEX':
+        return Index(from_dict(d['0']), from_dict(d['1']))
     else:
         raise NotImplementedError("Dont know how to handler %s" % tp)

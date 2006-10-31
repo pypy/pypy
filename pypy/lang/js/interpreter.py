@@ -20,6 +20,12 @@ class __extend__(Number):
         # XXX Think about a shortcut later
         return str(W_Number(self.num))
 
+class __extend__(Dot):
+    def call(self, context=None):
+        w_obj = self.left.call(context).GetValue().ToObject()
+        name = self.right.get_literal()
+        return w_obj.Get(name)
+    
 class __extend__(Plus):
     def call(self, context=None):
         left = self.left.call(context).GetValue()
@@ -82,3 +88,11 @@ class __extend__(ObjectInit):
         #dict_w = {}
         #for property in self.properties:
         #    dict_w[property.name
+
+class __extend__(Index):
+    def call(self, context=None):
+        w_obj = self.left.call(context).GetValue()
+        w_member = self.expr.call(context).GetValue()
+        w_obj = w_obj.ToObject()
+        name = w_member.ToString()
+        return w_obj.Get(name)

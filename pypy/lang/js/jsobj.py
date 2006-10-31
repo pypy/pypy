@@ -14,13 +14,16 @@ class W_Root(object):
 
     def ToString(self):
         return str(self)
+    
+    def ToObject(self):
+        return self
 
     def __repr__(self):
         return "<%s(%s)>" % (self.__class__.__name__, str(self))
 
 class W_Undefined(W_Root):
     def __str__(self):
-        return "undefined"
+        return ""
 
 class W_Null(W_Root):
     def __str__(self):
@@ -56,6 +59,9 @@ class W_Number(W_Root):
         if float(int(self.floatval)) == self.floatval:
             return str(int(self.floatval))
         return str(self.floatval)
+    
+    def Get(self, name):
+        return w_Undefined
 
     def ToNumber(self):
         return self.floatval
@@ -96,8 +102,8 @@ class W_Object(W_Root):
     def ToPrimitive(self):
         raise SeePage(37)
 
-    def ToString(self):
-        raise SeePage(42)
+    #def ToString(self):
+    #    raise SeePage(42)
     
     def CanPut(self, name):
         return True

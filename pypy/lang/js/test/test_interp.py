@@ -45,3 +45,11 @@ class TestInterp(object):
 
     def test_to_string(self):
         self.assert_prints(parse_d("x={}; print(x);"), ["[object Object]"])
+
+    def test_object_access(self):
+        self.assert_prints(parse_d("x={d:3}; print(x.d);"), ["3"])
+        self.assert_prints(parse_d("x={d:3}; print(x.d.d);"), [""])
+        self.assert_prints(parse_d("x={d:3, z:4}; print(x.d+x.z);"), ["7"])
+
+    def test_object_access_index(self):
+        self.assert_prints(parse_d('x={d:"x"}; print(x["d"]);'), ["x"])
