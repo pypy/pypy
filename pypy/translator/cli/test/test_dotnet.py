@@ -6,7 +6,7 @@ from pypy.rpython.ootypesystem.ootype import meth, Meth, Char, Signed, Float, St
      ROOT, overload, Instance, new
 from pypy.translator.cli.test.runtest import CliTest
 from pypy.translator.cli.dotnet import SomeCliClass, SomeCliStaticMethod,\
-     NativeInstance, CLR, box, unbox, OverloadingResolver, Null, NullType
+     NativeInstance, CLR, box, unbox, OverloadingResolver
 
 System = CLR.System
 Math = CLR.System.Math
@@ -112,13 +112,6 @@ class TestDotnetAnnotation(object):
         assert isinstance(s, annmodel.SomeOOInstance)
         assert s.ootype._name == '[mscorlib]System.Object'
 
-    def test_Null(self):
-        def fn():
-            return Null
-        a = RPythonAnnotator()
-        s = a.build_types(fn, [])
-        assert s.ootype is NullType
-
 class TestDotnetRtyping(CliTest):
     def _skip_pythonnet(self, msg):
         pass
@@ -194,22 +187,16 @@ class TestDotnetRtyping(CliTest):
             return unbox(array[0], ootype.Signed)
         assert self.interpret(fn, []) == 42
 
-    def test_Null(self):
-        self._skip_pythonnet("Null support not yet completed'")
+    def test_null(self):
         def fn():
-            return System.Object.Equals(Null, Null)
+            return System.Object.Equals(None, None)
         assert self.interpret(fn, []) == True
 
-    def test_Null_bound_method(self):
-        self._skip_pythonnet("Null support not yet completed'")
+    def test_null_bound_method(self):
         def fn():
             x = ArrayList()
-            x.Add(Null)
+            x.Add(None)
             return x.get_Item(0)
-        # a bit of explanation for the result: after IL has been
-        # generated there is no distinction between dotnet.Null and
-        # None, because both are rendered as the CLI 'null' value. So
-        # interpret returns 'None', as it has always done.
         assert self.interpret(fn, []) is None
 
 class TestPythonnet(TestDotnetRtyping):
@@ -222,4 +209,3 @@ class TestPythonnet(TestDotnetRtyping):
 
     def test_whitout_box(self):
         pass # it makes sense only during translation
-    

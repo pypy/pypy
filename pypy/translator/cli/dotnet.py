@@ -103,8 +103,8 @@ class __extend__(pairtype(OOInstanceRepr, IntegerRepr)):
 class OverloadingResolver(ootype.OverloadingResolver):
 
     def _can_convert_from_to(self, ARG1, ARG2):
-        if ARG1 is NullType and isinstance(ARG2, NativeInstance):
-            return True # Null is always convertible to a NativeInstance
+        if ARG1 is ootype.Void and isinstance(ARG2, NativeInstance):
+            return True # ARG1 could be None, that is always convertible to a NativeInstance
         else:
             return ootype.OverloadingResolver._can_convert_from_to(self, ARG1, ARG2)
 
@@ -166,24 +166,8 @@ class NativeInstance(ootype.Instance):
         self._classname = name
         ootype.Instance.__init__(self, fullname, superclass, fields, methods, _is_root, _hints)
 
-class NullType(ootype.OOType):
-    pass
-NullType = NullType()
-
 
 ## RPython interface definition
-
-class NullValue:
-    _TYPE = NullType
-Null = NullValue()
-del NullValue
-
-class Entry(ExtRegistryEntry):
-    _about_ = Null
-
-    def compute_annotation(self):
-        return SomeOOInstance(ootype=NullType)
-
 
 class CliClass(object):
     def __init__(self, INSTANCE, static_methods):

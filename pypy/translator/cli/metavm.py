@@ -4,7 +4,7 @@ from pypy.translator.oosupport.metavm import Generator, InstructionList, MicroIn
      PushAllArgs, StoreResult, GetField, SetField, DownCast
 from pypy.translator.cli.comparer import EqualityComparer
 from pypy.translator.cli.cts import WEAKREF
-from pypy.translator.cli.dotnet import _static_meth
+from pypy.translator.cli.dotnet import _static_meth, NativeInstance
 
 STRING_HELPER_CLASS = '[pypylib]pypy.runtime.String'
 
@@ -21,9 +21,18 @@ class _Call(MicroInstruction):
             else:
                 self._render_method(generator, method_name, op.args[1:])
 
+    def _load_arg_or_null(self, generator, arg):
+        if arg.concretetype is ootype.Void:
+            if arg.value is None:
+                generator.ilasm.opcode('ldnull') # special-case: use None as a null value
+            else:
+                assert False, "Don't know how to load this arg"
+        else:
+            generator.load(arg)
+
     def _render_native_function(self, generator, funcdesc, args):
         for func_arg in args[1:]: # push parameters
-            generator.load(func_arg)
+            self._load_arg_or_null(generator, func_arg)
         cts = generator.cts
         ret_type = cts.lltype_to_cts(funcdesc._TYPE.RESULT)
         arg_types = [cts.lltype_to_cts(arg) for arg in funcdesc._TYPE.ARGS if arg is not ootype.Void]
@@ -45,8 +54,12 @@ class _Call(MicroInstruction):
 
     def _render_method(self, generator, method_name, args):
         this = args[0]
+        native = isinstance(this.concretetype, NativeInstance)
         for arg in args: # push parametes
-            generator.load(arg)
+            if native:
+                self._load_arg_or_null(generator, arg)
+            else:
+                generator.load(arg)
 
         # XXX: very hackish, need refactoring
         if this.concretetype is ootype.String:

@@ -239,7 +239,7 @@ class AbstractConst(Node):
 
     PRIMITIVE_TYPES = set([ootype.Void, ootype.Bool, ootype.Char, ootype.UniChar,
                            ootype.Float, ootype.Signed, ootype.Unsigned, ootype.String,
-                           lltype.SignedLongLong, lltype.UnsignedLongLong, dotnet.NullType])
+                           lltype.SignedLongLong, lltype.UnsignedLongLong])
 
     def is_primitive(cls, TYPE):
         return TYPE in cls.PRIMITIVE_TYPES
@@ -270,9 +270,6 @@ class AbstractConst(Node):
                 ilasm.opcode('ldnull')
             else:
                 ilasm.opcode("ldstr", string_literal(value._str))
-        elif TYPE is dotnet.NullType:
-            assert value is dotnet.Null
-            ilasm.opcode('ldnull')
         else:
             assert TYPE not in cls.PRIMITIVE_TYPES
             const = db.record_const(value)
