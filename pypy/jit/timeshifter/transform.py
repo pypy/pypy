@@ -333,15 +333,8 @@ class HintGraphTransformer(object):
         if kind == 'global':
             self.genop(block, 'save_greens', greens)
             prefix = 'global_'
-            mergeblock = self.naive_split_block(block, 2)
+            mergeblock = self.naive_split_block(block, len(block.operations))
             d[mergeblock] = False
-            N = len(self.resumepoints)
-            reenter_link = Link([], mergeblock)
-            self.resumepoints[mergeblock] = reenter_link
-            reenter_link.exitcase = N
-            c_resumeindex = inputconst(lltype.Signed, N)
-            self.genop(block, 'guard_global_merge', [c_resumeindex])
-            block.recloseblock(Link([self.c_dummy], self.graph.returnblock))
         else:
             mergeblock = block
             prefix = ''
@@ -363,6 +356,11 @@ class HintGraphTransformer(object):
         SSA_to_SSI(d, self.hannotator)
 
         if kind == 'global':
+            N = self.get_resume_point(mergeblock)
+            c_resumeindex = inputconst(lltype.Signed, N)
+            self.genop(block, 'guard_global_merge', [c_resumeindex])
+            block.recloseblock(Link([self.c_dummy], self.graph.returnblock))
+
             N = self.get_resume_point(nextblock)
             self.mergepointfamily.resumepoint_after_mergepoint[mp] = N
 

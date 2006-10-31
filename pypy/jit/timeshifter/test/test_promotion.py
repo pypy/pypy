@@ -290,3 +290,15 @@ class TestPromotion(TimeshiftingTests):
         res = self.timeshift(ll_function, [6, 3, 2, 2], [3], policy=P_NOVIRTUAL)
 
         assert res == ll_function(6, 3, 2, 2)
+
+    def test_green_across_global_mp(self):
+        def ll_function(n, total):
+            while n:
+                hint(None, global_merge_point=True)
+                total += n
+                hint(n, concrete=True)
+                n -= 1
+            return total
+
+        res = self.timeshift(ll_function, [5, 100], [0], policy=P_NOVIRTUAL)
+        assert res == 115
