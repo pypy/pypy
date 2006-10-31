@@ -195,7 +195,11 @@ class HintRTyper(RPythonTyper):
         fresh_jitstate = self.ll_fresh_jitstate
         finish_jitstate = self.ll_finish_jitstate
 
-        cache = {}
+        class PortalState(object):
+            def __init__(self):
+                self.cache = {}
+
+        state = PortalState()
         rgenop = self.RGenOp()
         def portalentry(*args):
             i = 0
@@ -207,6 +211,7 @@ class HintRTyper(RPythonTyper):
                 else:
                     residualargs = residualargs + (args[i],)
                 i = i + 1
+            cache = state.cache
             try:
                 fn = cache[key]
             except KeyError:
