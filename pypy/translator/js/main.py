@@ -8,7 +8,7 @@ import autopath
 from pypy.translator.driver import TranslationDriver
 from pypy.translator.js.js import JS
 from pypy.tool.error import AnnotatorError, FlowingError, debug
-from pypy.rpython.nonconst import NonConstant
+from pypy.rlib.nonconst import NonConstant
 from pypy.annotation.policy import AnnotatorPolicy
 from py.compat import optparse
 import py
@@ -60,7 +60,7 @@ source_ssf_base = """
 import %(module_name)s
 from pypy.translator.js.helper import __show_traceback
 from pypy.translator.transformer.debug import traceback_handler
-from pypy.rpython.nonconst import NonConstant as NonConst
+from pypy.rlib.nonconst import NonConstant as NonConst
 
 %(function_defs)s
 

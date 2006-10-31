@@ -8,7 +8,7 @@ from pypy import conftest
 from pypy.rpython import llinterp
 from pypy.objspace.flow import model
 from pypy.translator.unsimplify import copyvar
-from pypy.rpython.nonconst import NonConstant
+from pypy.rlib.nonconst import NonConstant
 
 import py
 def setup_module(mod):

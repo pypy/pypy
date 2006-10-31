@@ -2,7 +2,7 @@
 """ Test of non-constant constant.
 """
 
-from pypy.rpython.nonconst import NonConstant
+from pypy.rlib.nonconst import NonConstant
 
 from pypy.objspace.flow import FlowObjSpace
 from pypy.annotation.annrpython import RPythonAnnotator

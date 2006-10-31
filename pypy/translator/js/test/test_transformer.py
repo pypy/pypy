@@ -5,7 +5,7 @@
 from pypy.translator.js.main import rpython2javascript
 from pypy.translator.js.test.runtest import compile_function
 from pypy.translator.transformer.debug import traceback_handler
-from pypy.rpython.nonconst import NonConstant as NonConst
+from pypy.rlib.nonconst import NonConstant as NonConst
 
 def check_tb(tb_entry_str, callname, args, func, relline):
     tb_entry = tb_entry_str.split(":")
