@@ -7,6 +7,8 @@ option = py.test.Config.addoptions(
 
     Option('--java', action='store', dest='java', default='java',
            help='Define the java executable to use'),
+    Option('--javac', action='store', dest='javac', default='javac',
+           help='Define the javac executable to use'),
     Option('--jasmin', action='store', dest='java', default='java',
            help='Define the jasmin script to use'),
     Option('--noassemble', action='store_true', dest="noasm", default=False,

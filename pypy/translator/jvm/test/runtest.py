@@ -9,7 +9,8 @@ from pypy.rpython.lltypesystem.lltype import typeOf
 from pypy.rpython.ootypesystem import ootype
 from pypy.annotation.model import lltype_to_annotation
 from pypy.translator.translator import TranslationContext
-from pypy.translator.jvm.genjvm import generate_source_for_function, JvmError
+from pypy.translator.jvm.genjvm import \
+     generate_source_for_function, JvmError, detect_missing_support_programs
 from pypy.translator.jvm.option import getoption
 
 FLOAT_PRECISION = 8
@@ -85,6 +86,7 @@ class JvmTest(BaseRtypingTest, OORtypeMixin):
             py.test.skip('Windows --> %s' % reason)
 
     def interpret(self, fn, args, annotation=None):
+        detect_missing_support_programs()
         try:
             src = self._compile(fn, args, annotation)
             res = src(*args)

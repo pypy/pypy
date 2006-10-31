@@ -105,7 +105,11 @@ class JvmGeneratedSource(object):
         # use rte.py
         sl = __file__.rindex('/')
         javasrc = __file__[:sl]+"/src/PyPy.java"
-        self._invoke(['javac', '-nowarn', '-d', str(self.javadir), javasrc], True)
+        self._invoke([getoption('javac'),
+                      '-nowarn',
+                      '-d', str(self.javadir),
+                      javasrc],
+                     True)
                            
         self.compiled = True
 
@@ -143,6 +147,16 @@ def generate_source_for_function(func, annotation):
     else: tmpdir = udir
     jvm = GenJvm(tmpdir, t, EntryPoint(main_graph, True, True))
     return jvm.generate_source()
+
+def detect_missing_support_programs():
+    def check(exechelper):
+        try:
+            py.path.local.sysfind(exechelper)
+        except py.error.ENOENT:
+            py.test.skip("%s is not on your path" % exechelper)
+    check(getoption('jasmin'))
+    check(getoption('javac'))
+    check(getoption('java'))
 
 class GenJvm(GenOO):
 
