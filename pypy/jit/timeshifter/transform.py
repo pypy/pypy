@@ -663,6 +663,11 @@ class HintGraphTransformer(object):
         newop = SpaceOperation('same_as', [op.args[0]], op.result)
         block.operations[i] = newop
 
+    def handle_reverse_split_queue_hint(self, block, i):
+        op = block.operations[i]
+        newop = SpaceOperation('reverse_split_queue', [], op.result)
+        block.operations[i] = newop
+
     def handle_forget_hint(self, block, i):
         # a hint for testing only
         op = block.operations[i]

@@ -262,3 +262,32 @@ class TestPromotion(TimeshiftingTests):
         assert res == ord('2')
         self.check_insns(indirect_call=0)
 
+    def test_mixed_merges(self):
+        py.test.skip("in-progress")
+        def ll_function(x, y, z, k):
+            if x:
+               while x > 0:
+                   hint(None, global_merge_point=True)
+                   if y < 0:
+                       y = -y
+                       hint(None, reverse_split_queue=True)
+                       return y
+                   else:
+                       n = 10
+                       while n:
+                           n -= 1
+                       y = hint(y, promote=True)
+                       y *= 2
+                       y = hint(y, variable=True)
+                   x -= 1
+            else:
+                if z < 0:
+                    z = -z
+                else:
+                    k = 3
+                y = y + z*k
+            return y
+
+        res = self.timeshift(ll_function, [6, 3, 2, 2], [3], policy=P_NOVIRTUAL)
+
+        assert res == ll_function(6, 3, 2, 2)

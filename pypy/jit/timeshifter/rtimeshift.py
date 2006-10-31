@@ -194,6 +194,7 @@ def start_new_block(states_dic, jitstate, key, global_resumer):
                                  frozen, newblock,
                                  global_resumer)
         jitstate.promotion_path = PromotionPathMergesToSee(node, 0)
+        #debug_print(lltype.Void, "PROMOTION ROOT")
 start_new_block._annspecialcase_ = "specialize:arglltype(2)"
 
 def retrieve_jitstate_for_merge(states_dic, jitstate, key, global_resumer):
@@ -236,6 +237,7 @@ def merge_generalized(jitstate):
         count = dispatchqueue.mergecounter + 1
         dispatchqueue.mergecounter = count
         node = PromotionPathMergesToSee(node, count)
+        #debug_print(lltype.Void, "MERGE", count)
         jitstate.promotion_path = node
     else:
         if resuming.mergesleft != MC_IGNORE_UNTIL_RETURN:
@@ -299,6 +301,15 @@ def collect_split(jitstate_chain, resumepoint, *greens_gv):
     jitstate_chain.next = None
     return jitstate_chain
     # XXX obscurity++ above
+
+def reverse_split_queue(dispatchqueue):
+    newchain = None
+    while dispatchqueue.split_chain:
+        jitstate = dispatchqueue.split_chain
+        dispatchqueue.split_chain = jitstate.next
+        jitstate.next = newchain
+        newchain = jitstate
+    dispatchqueue.split_chain = newchain
 
 def dispatch_next(oldjitstate, dispatchqueue):
     if dispatchqueue.split_chain is not None:
@@ -549,6 +560,7 @@ def ll_promote(jitstate, promotebox, promotiondesc):
             enter_block(jitstate)
             pm = PromotionPoint(flexswitch, incoming_gv,
                                 jitstate.promotion_path)
+            #debug_print(lltype.Void, "PROMOTE")
             ll_pm = cast_instance_to_base_ptr(pm)
             gv_pm = default_builder.rgenop.genconst(ll_pm)
             gv_switchvar = promotebox.genvar

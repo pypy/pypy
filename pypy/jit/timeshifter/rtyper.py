@@ -1108,6 +1108,12 @@ class HintRTyper(RPythonTyper):
     def translate_op_residual_gray_call(self, hop):
         self.translate_op_residual_red_call(hop, color='gray')
 
+    def translate_op_reverse_split_queue(self, hop):
+        hop.llops.genmixlevelhelpercall(rtimeshift.reverse_split_queue,
+                                        [self.s_Queue],
+                                        [self.v_queue],
+                                        annmodel.s_None)
+
 
 class HintLowLevelOpList(LowLevelOpList):
     """Warning: the HintLowLevelOpList's rtyper is the *original*
