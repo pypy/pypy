@@ -208,7 +208,10 @@ class HintRTyper(RPythonTyper):
             key = ()
             for color in argcolors:
                 if color == "green":
-                    key = key + (args[i],)
+                    x = args[i]
+                    if isinstance(lltype.typeOf(x), lltype.Ptr): 
+                        x = llmemory.cast_ptr_to_adr(x)
+                    key = key + (x,)
                 i = i + 1
             cache = state.cache
             try:
@@ -222,7 +225,10 @@ class HintRTyper(RPythonTyper):
             residualargs = ()
             for color in argcolors:
                 if color == "green":
-                    key = key + (args[i],)
+                    x = args[i]
+                    if isinstance(lltype.typeOf(x), lltype.Ptr): 
+                        x = llmemory.cast_ptr_to_adr(x)
+                    key = key + (x,)
                 else:
                     residualargs = residualargs + (args[i],)
                 i = i + 1
