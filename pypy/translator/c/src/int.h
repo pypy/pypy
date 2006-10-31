@@ -145,7 +145,7 @@
 #define OP_ULLONG_FLOORDIV(x,y,r) r = (x) / (y)
 
 #define OP_INT_FLOORDIV_OVF(x,y,r) \
-	if ((y) == -1 && (x) < 0 && ((unsigned long)(x) << 1) == 0) \
+	if ((y) == -1 && (x) == LONG_MIN) \
             { FAIL_OVF("integer division"); } \
         else OP_INT_FLOORDIV(x,y,r)
 
@@ -174,7 +174,7 @@
 #define OP_ULLONG_MOD(x,y,r)  r = (x) % (y)
 
 #define OP_INT_MOD_OVF(x,y,r) \
-	if ((y) == -1 && (x) < 0 && ((unsigned long)(x) << 1) == 0) \
+	if ((y) == -1 && (x) == LONG_MIN) \
             { FAIL_OVF("integer modulo"); }\
         else OP_INT_MOD(x,y,r)
 

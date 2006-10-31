@@ -30,6 +30,11 @@
 #include "src/float.h"
 #include "src/address.h"
 
+/* optional assembler bits */
+#if defined(__GNUC__) && defined(__i386__)
+#  include "src/asm_gcc_x86.h"
+#endif
+
 /*** modules ***/
 #ifdef HAVE_RTYPER      /* only if we have an RTyper */
 #  include "src/rtyper.h"
