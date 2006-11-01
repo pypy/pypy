@@ -603,7 +603,7 @@ class Ontology:
                 prop.setValues(list(self.variables['rdf_Property'].getValues()))
                 # Get all properties by looking at 'rdf_Property'
                 # add a constraint trip[0] in domains[prop] and trip[2] in domains[prop].getValuesPrKey(trip[0])
-                self.constraints.append(PropertyConstrain(prop_name, indi, obj))
+                query_constr.append(PropertyConstrain(prop_name, indi, obj))
 
             elif case == 3:
                 #  search for s in p
@@ -630,7 +630,7 @@ class Ontology:
                     obj = self.variables[self.mangle_name(trip[2])]
                 else:
                     obj = trip[2]
-                self.constraints.append(PropertyConstrain2(prop_name, sub_name, obj))
+                query_constr.append(PropertyConstrain2(prop_name, sub_name, obj))
             elif case == 5:
                 #  return the values of p
                 prop = self.make_var(Property, URIRef(trip[1]))
@@ -658,17 +658,17 @@ class Ontology:
                 obj = self.make_var(Thing, trip[2])
                 self.variables[obj].setValues(things)
                 con = Expression([sub,prop,obj], "%s[0] == %s and %s[1] == %s" %(prop, sub, prop, obj))
-                self.constraints.append(con)
+                query_constr.append(con)
         # call finish on the variables in the query
         for v in vars:
-            query_dom, query_constr = self.variables[self.mangle_name(v)].finish(self.variables, self.constraints) #query_dom, query_constr)
+            query_dom, _ = self.variables[self.mangle_name(v)].finish(self.variables, query_constr) #query_dom, query_constr)
         # Build a repository with the variables in the query
-        #dom = dict([(self.mangle_name(v),self.variables[self.mangle_name(v))
-        #             for v in vars])
+        dom = dict([(self.mangle_name(v),self.variables[self.mangle_name(v)])
+                     for v in vars])
         # solve the repository and return the solution
-#        rep = Repository(query_dom.keys(), query_dom, query_constr)
-#        return Solver().solve(rep)
-        res_s = self.solve()
+        rep = Repository(dom.keys(), dom, query_constr)
+        res_s = Solver().solve(rep)
+        #res_s = self.solve()
         res = []
         for d in res_s:
            for k,v in d.items():
