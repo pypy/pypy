@@ -30,7 +30,7 @@ def read_js_output(code_string):
 def parse(code_string):
     read_code = read_js_output(code_string)
     output = read_code.split(os.linesep)
-    print '\n'.join(output)
+    #print '\n'.join(output)
     try:
         code = eval("\n".join(output))
     except (SyntaxError, NameError):

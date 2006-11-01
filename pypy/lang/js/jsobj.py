@@ -24,6 +24,10 @@ class W_Root(object):
     def __repr__(self):
         return "<%s(%s)>" % (self.__class__.__name__, str(self))
 
+class W_Array(W_Root):
+    # TODO to be continued :-)
+    pass
+
 class W_Undefined(W_Root):
     def __str__(self):
         return ""

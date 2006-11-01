@@ -16,6 +16,10 @@ class Node(object):
 #    getlist = staticmethod(getlist)
 
 
+class Array(Node):
+    def __init__(self, items=()):
+        self.items = items
+
 class Assign(Node):
     def __init__(self, identifier, expr):
         self.identifier = identifier
@@ -111,6 +115,8 @@ def from_dict(d):
     if tp == 'SCRIPT':
         # XXX: Cannot parse it right now
         return Script(getlist(d), [], [])
+    elif tp == 'ARRAY_INIT':
+        return Array(getlist(d))
     elif tp == 'SEMICOLON':
         return Semicolon(from_dict(d['expression']))
     elif tp == 'NUMBER':

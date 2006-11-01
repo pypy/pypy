@@ -129,3 +129,10 @@ class TestInterp(object):
         print(x[1]);
         """), ["test"])
 
+    def test_array_initializer(self):
+        py.test.skip('not ready yet')
+        self.assert_prints(parse_d("""
+        x = [];
+        print(x);
+        """), ["[]"])
+

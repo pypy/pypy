@@ -11,6 +11,11 @@ class ExecutionReturned(Exception):
     def __init__(self, value):
         self.value = value
 
+class __extend__(Array):
+    def call(self, context):
+        d = dict(enumerate(self.items))
+        return W_Array(d)
+            
 class __extend__(Assign):
     def call(self, context):
         val = self.expr.call(context)
@@ -148,3 +153,4 @@ class __extend__(Vars):
     def call(self, context=None):
         for var in self.nodes:
             var.call(context)
+
