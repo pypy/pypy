@@ -7,6 +7,9 @@ from pypy.rlib.rarithmetic import ovfcheck, ovfcheck_lshift
 ## ------------------------------------------------------------------------
 ##         Adapted from CPython, original code and algorithms by Tim Peters
 
+## CAREFUL:
+## this class has to be used carefully, because all the lists that are
+## sorted will be unified
 
 class TimSort:
     """TimSort(list).sort()

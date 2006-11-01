@@ -1,5 +1,5 @@
 import autopath
-from pypy.objspace.std.listsort import TimSort
+from pypy.rlib.listsort import TimSort
 import random, os
 
 def makeset(lst):

@@ -5,7 +5,7 @@ from pypy.objspace.std.tupleobject import W_TupleObject
 
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway, baseobjspace
-from pypy.objspace.std.listsort import TimSort
+from pypy.rlib.listsort import TimSort
 
 
 class W_ListObject(W_Object):
