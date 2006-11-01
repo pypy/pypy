@@ -20,39 +20,51 @@
 using namespace llvm;
 
 
-int testme(int n) {
-    return n * 2;
-}
+ExecutionEngine*    g_execution_engine;
 
 
-void* compile(const char* filename) {
+int compile(const char* filename) {
     std::string inputfile(filename);
 
     //from llvm-as.cpp
     Module*     module(ParseAssemblyFile(inputfile + ".ll"));
-    if (!module) return NULL;
+    if (!module) {
+        std::cerr << "Error: can not parse " << inputfile << ".ll\n" << std::flush;
+        return false;
+    }
 
     std::ostream *Out = new std::ofstream((inputfile + ".bc").c_str(),
             std::ios::out | std::ios::trunc | std::ios::binary);
     WriteBytecodeToFile(module, *Out); //XXX what to do with the 3rd param (NoCompress)?
 
-    return module;
+    ModuleProvider* module_provider = new ExistingModuleProvider(module);
+    if (!g_execution_engine) {
+        g_execution_engine = ExecutionEngine::create(module_provider, false);
+    } else {
+        g_execution_engine->addModuleProvider(module_provider);
+    }
+
+    return true;
 }
 
 
-int execute(void* compiled, const char* funcname, int param) { //currently compiled=Module
-    Module* module = (Module*)compiled;
-    if (!module) {
-        std::cerr << "Error: can not execute " << funcname << " in a non existing module\n" << std::flush;
-        return -1;
-    }
+int execute(const char* funcname, int param) { //currently compiled=Module
+    int err = -1;
 
-    ExistingModuleProvider* module_provider = new ExistingModuleProvider(module);
-    ExecutionEngine* EE = ExecutionEngine::create(module_provider, false);
+    if (!g_execution_engine) {
+        std::cerr << "Error: no llvm code compiled yet!\n" << std::flush;
+        return err;
+    }
 
     std::vector<GenericValue> args;
     args.push_back((void*)param);
-    GenericValue gv = EE->runFunction(module->getNamedFunction(funcname), args);
 
+    Function*   func = g_execution_engine->FindFunctionNamed(funcname);
+    if (!func) {
+        std::cerr << "Error: can not find function " << funcname << "\n" << std::flush;
+        return err;
+    }
+
+    GenericValue gv = g_execution_engine->runFunction(func, args);
     return gv.IntVal;
 }

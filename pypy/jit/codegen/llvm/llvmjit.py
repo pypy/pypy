@@ -21,14 +21,10 @@ class _FuncPtr(_CFuncPtr):
 llvmjit._FuncPtr = _FuncPtr
 
 #exposed functions...
-testme = llvmjit.testme
-testme.restype  = c_int
-testme.argtypes = [c_int]
-
 compile = llvmjit.compile
-compile.restype  = c_void_p
+compile.restype  = c_int
 compile.argtypes = [c_char_p]
 
 execute = llvmjit.execute
 execute.restype  = c_int
-execute.argtypes = [c_void_p, c_char_p, c_int]
+execute.argtypes = [c_char_p, c_int]

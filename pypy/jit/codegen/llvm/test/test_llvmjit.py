@@ -9,21 +9,31 @@ except OSError:
 
 curdir = dirname(__file__)
 square = join(curdir, 'square')
+mul2   = join(curdir, 'mul2')
 
-def test_testme():
-    assert llvmjit.testme(10) == 20
+def execute(filename, funcname, param):
+    assert llvmjit.compile(filename)
+    return llvmjit.execute(funcname, param)
 
-def test_testme_compile():
+def test_execute_compile():
     def f(x):
-        return llvmjit.testme(20+x)
+        return execute(square, 'square', x + 5)
     fn = compile(f, [int])
     res = fn(1)
-    assert res == 42
+    assert res == 36
 
 def test_compile():
     assert llvmjit.compile(square)
 
 def test_compiled():
-    compiled = llvmjit.compile(square)
-    assert llvmjit.execute(compiled, 'square', 4) == 4 * 4
+    assert execute(square, 'square', 4) == 4 * 4
 
+def test_compiled2():
+    llvmjit.compile(square)
+    llvmjit.compile(mul2)
+    for i in range(5):
+        assert llvmjit.execute('square', i) == i * i
+        assert llvmjit.execute('mul2', i) == i * 2
+
+def DONTtest_execute_accross_module():
+    pass
