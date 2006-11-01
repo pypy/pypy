@@ -8,18 +8,27 @@
 '''
 from pypy.rpython.rctypes import implementation
 
-import ctypes
+from ctypes import _CFuncPtr, _FUNCFLAG_CDECL
+from ctypes import *
 import os
 
 path = os.path.join(os.path.dirname(__file__), 'libllvmjit.so')
-llvmjit = ctypes.cdll.LoadLibrary(os.path.abspath(path))
-class _FuncPtr(ctypes._CFuncPtr):
-    _flags_ = ctypes._FUNCFLAG_CDECL
+llvmjit = cdll.LoadLibrary(os.path.abspath(path))
+class _FuncPtr(_CFuncPtr):
+    _flags_ = _FUNCFLAG_CDECL
     # aaarghdistutilsunixaaargh (may need something different for standalone builds...)
     libraries = (os.path.join(os.path.dirname(path), 'llvmjit'),)
 llvmjit._FuncPtr = _FuncPtr
 
-#impls
+#exposed functions...
 testme = llvmjit.testme
-testme.restype = ctypes.c_int
-testme.argtypes = [ctypes.c_int]
+testme.restype  = c_int
+testme.argtypes = [c_int]
+
+compile = llvmjit.compile
+compile.restype  = c_void_p
+compile.argtypes = [c_char_p]
+
+execute = llvmjit.execute
+execute.restype  = c_int
+execute.argtypes = [c_void_p, c_char_p, c_int]
