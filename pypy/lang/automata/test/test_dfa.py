@@ -14,11 +14,17 @@ from pypy.lang.automata.dfa import *
 
 def rundfa():
     a = getautomaton()
+    assert 'a' in a.get_language()
+    assert 'b' in a.get_language()
+    assert 'c' in a.get_language()
+    assert 'd' not in a.get_language()
+
     assert recognize(a, "aaaaaaaaaab")
     assert recognize(a, "b")
+    assert recognize(a, "aaaacb")
+    
     assert not recognize(a, "a")
     assert not recognize(a, "xyza")
-    assert recognize(a, "aaaacb")
 
 def test_dfa_simple():
     rundfa()
@@ -29,65 +35,9 @@ def test_dfa_interp():
 def test_dfa_compiledummy():
     def main(gets):
         a = getautomaton()
-        dfatable = convertdfa(a)
+        dfatable, final_states = convertdfa(a)
         s = ["aaaaaaaaaab", "aaaa"][gets]
-        return recognizetable(dfatable, s)
+        return recognizetable(dfatable, s, final_states)
+    assert interpret(main, [0])
+    assert not interpret(main, [1])
     
-    interpret(main, [0])
-    
-# class TestWithPortal(object):
-#     from pypy.jit.codegen.llgraph.rgenop import RGenOp
-
-#     def setup_class(cls):
-#         cls._cache = {}
-#         cls._cache_order = []
-
-#     def teardown_class(cls):
-#         del cls._cache
-#         del cls._cache_order
-
-#     def timeshift_from_portal(self, main, portal, main_args,
-#                               inline=None, policy=None,
-#                               backendoptimize=False):
-
-#         key = main, portal, inline, policy, backendoptimize
-#         try:
-#             maingraph, rtyper = self._cache[key]
-#         except KeyError:
-#             if len(self._cache_order) >= 3:
-#                 del self._cache[self._cache_order.pop(0)]
-
-#             hs, ha, rtyper = hannotate(main, main_args, portal=portal,
-#                                        policy=policy, inline=inline,
-#                                        backendoptimize=backendoptimize)
-
-#             t = rtyper.annotator.translator
-#             maingraph = graphof(t, main)
-#             # make the timeshifted graphs
-#             hrtyper = HintRTyper(ha, rtyper, self.RGenOp)
-#             origportalgraph = graphof(t, portal)
-#             hrtyper.specialize(origportalgraph=origportalgraph,
-#                                view = conftest.option.view)
-
-#             for graph in ha.translator.graphs:
-#                 checkgraph(graph)
-#                 t.graphs.append(graph)
-
-#             if conftest.option.view:
-#                 t.view()
-
-#             self._cache[key] = maingraph, rtyper
-#             self._cache_order.append(key)
-
-#         llinterp = LLInterpreter(rtyper)
-#         return llinterp.eval_graph(maingraph, main_args)
-
-#     def test_dfa_compile(self):
-#         def main(gets):
-#             a = getautomaton()
-#             dfatable = convertdfa(a)
-#             s = ["aaaaaaaaaab", "aaaa"][gets]
-#             return recognizetable(dfatable, s)
-
-#         res = self.timeshift_from_portal(main, recognizetable, [0], policy=P_NOVIRTUAL)
-#         assert res >= 0

@@ -1,43 +1,19 @@
-" a very stripped down versio of cfbolz's algorithm/automaton module "
+" a very stripped down version of cfbolz's algorithm/automaton module "
 
 from pypy.rlib.objectmodel import hint
 from pypy.rpython.lltypesystem.lltype import GcArray, Signed, malloc
 
-class LexerError(Exception):
-    def __init__(self, input, state, index):
-        self.input = input
-        self.state = state
-        self.index = index
-        self.args = (input, state, index)
-
 class DFA(object):
-    def __init__(self, num_states=0, transitions=None, final_states=None,
-                 names=None):
+    def __init__(self, num_states=0, transitions=None, final_states=None):
         self.num_states = 0
-        if transitions is None:
-            transitions = {}
-        if final_states is None:
-            final_states = {}
-        if names is None:
-            names = []
-        self.transitions = transitions
-        self.final_states = final_states
-        self.names = names
+        self.transitions = {}
+        self.final_states = {}
 
-    def __repr__(self):
-        from pprint import pformat
-        return "DFA%s" % (pformat((
-            self.num_states, self.transitions, self.final_states,
-            self.names)), )
-
-    def add_state(self, name=None, final=False):
+    def add_state(self, final=False):
         state = self.num_states
         self.num_states += 1
         if final:
             self.final_states[state] = None
-        if name is None:
-            name = str(state)
-        self.names.append(name)
         return self.num_states - 1
 
     def add_transition(self, state, input, next_state):
@@ -46,22 +22,21 @@ class DFA(object):
     def get_transition(self, state, input):
         return self.transitions[state, input]
 
-    def contains(self, (state, input)):
-        return (state, input) in self.transitions
-
-    def get_all_chars(self):
+    def get_language(self):
         all_chars = {}
         for state, input in self.transitions:
-            all_chars.add(input)
+            all_chars[input] = None
         return all_chars
 
-    def get_runner(self):
-        return DFARunner(self)
+    def __repr__(self):
+        from pprint import pformat
+        return "DFA%s" % (pformat(
+            self.num_states, self.transitions, self.final_states))
 
 def getautomaton():
-    # simple example of handcrafted dfa
+    " simple example of handcrafted dfa "
     a = DFA()
-    s0 = a.add_state("start")
+    s0 = a.add_state()
     s1 = a.add_state()
     s2 = a.add_state(final=True)
     a.add_transition(s0, "a", s0) 
@@ -71,6 +46,7 @@ def getautomaton():
     return a
 
 def recognize(automaton, s):
+    " a simple recognizer "
     state = 0
     try:
         for char in s:
@@ -80,53 +56,20 @@ def recognize(automaton, s):
 
     return state in automaton.final_states
 
-#________________________________________________________________________________
-
-# lower level version - more amenable to JIT
-
-# an earlier version to keep around, based of GcArray
-
-# A = GcArray(Signed, hints={'immutable': True})
-# def convertdfa(automaton):
-#     automaton.transitions
-#     size = automaton.num_states * 256
-#     dfatable = malloc(A, size)
-#     for ii in range(size):
-#         dfatable[ii] = -1
-#     for (s, c), r in automaton.transitions.items():
-#         dfatable[s * 256 + ord(c)] = r
-#     return dfatable
-
-# def recognizetable(dfatable, s):
-#     state = 0
-#     indx = 0
-#     while True:
-#         hint(None, global_merge_point=True)
-#         if indx >= len(s):
-#             break
-#         c = s[indx]
-#         c = hint(c, promote=True)
-#         state = dfatable[state * 256 + ord(c)]
-#         hint(state, concrete=True)
-#         if state < 0:
-#             break
-#         indx += 1
-#     return hint(state, variable=True)
-
-#________________________________________________________________________________
-
-# another lower level version - more amenable to JIT, this time converts
-# nice automata class to a table, represented as a big string 
-
 def convertdfa(automaton):
-    automaton.transitions
+    """ converts the dfa transitions into a table, represented as a big string.
+    this is just to make the code more amenable to current state of the JIT.  Returns
+     a two tuple of dfa as table, and final states"""
+
     size = automaton.num_states * 256
     dfatable = [chr(255)] * size
     for (s, c), r in automaton.transitions.items():
         dfatable[s * 256 + ord(c)] = chr(r)
-    return "".join(dfatable)
+    dfatable = "".join(dfatable)
+    final_states = "".join([chr(fs) for fs in automaton.final_states])
+    return dfatable, final_states
 
-def recognizetable(dfatable, s):
+def recognizetable(dfatable, s, finalstates):
     state = 0
     indx = 0
     while True:
@@ -140,4 +83,10 @@ def recognizetable(dfatable, s):
         if state == 255:
             break
         indx += 1
-    return hint(state, variable=True)
+    state = hint(state, variable=True)
+
+    # more strange code for now - check final state?
+    for fs in finalstates:
+        if state == ord(fs):
+            return 1
+    return 0
