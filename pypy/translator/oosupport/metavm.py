@@ -359,6 +359,13 @@ class _RuntimeNew(MicroInstruction):
         generator.instantiate()
         generator.downcast(op.result.concretetype)
 
+class _OOString(MicroInstruction):
+    def render(self, generator, op):
+        ARGTYPE = op.args[0].concretetype
+        generator.load(op.args[0])
+        generator.load(op.args[1])
+        generator.call_oostring(ARGTYPE)
+
 
 New = _New()
 
@@ -371,3 +378,4 @@ DoNothing = _DoNothing()
 Call = _Call()
 CallMethod = _CallMethod()
 RuntimeNew = _RuntimeNew()
+OOString = _OOString()
