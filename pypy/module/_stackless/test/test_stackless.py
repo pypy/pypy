@@ -394,3 +394,4 @@ def aCallable(name):
 
         schedule()
         assert output == [('a', x) for x in "ABCDE"]
+
