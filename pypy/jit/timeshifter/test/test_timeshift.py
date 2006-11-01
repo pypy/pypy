@@ -222,14 +222,9 @@ class TimeshiftingTests(object):
             from pypy.translator.tool.graphpage import FlowGraphPage
             FlowGraphPage(t, ha.translator.graphs).display()
 
-        if getattr(ll_function, '_dont_cache_', False):
-            # XXX TEMPORARY: for now, caching doesn't work in the presence
-            # of global caches
-            pass
-        else:
-            cache = self.__dict__.copy()
-            self._cache[key] = cache, getargtypes(rtyper.annotator, values)
-            self._cache_order.append(key)
+        cache = self.__dict__.copy()
+        self._cache[key] = cache, getargtypes(rtyper.annotator, values)
+        self._cache_order.append(key)
         return values
 
     def annotate_interface_functions(self):

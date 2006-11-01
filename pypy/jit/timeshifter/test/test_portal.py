@@ -130,3 +130,42 @@ class TestPortal(object):
 
         res = self.timeshift_from_portal(main, recognizetable, [0], policy=P_NOVIRTUAL)
         assert res >= 0
+
+    def test_method_call_promote(self):
+        class Base(object):
+            pass
+        class Int(Base):
+            def __init__(self, n):
+                self.n = n
+            def double(self):
+                return Int(self.n * 2)
+            def get(self):
+                return self.n
+        class Str(Base):
+            def __init__(self, s):
+                self.s = s
+            def double(self):
+                return Str(self.s + self.s)
+            def get(self):
+                return ord(self.s[4])
+
+        def ll_make(n):
+            if n > 0:
+                return Int(n)
+            else:
+                return Str('123')
+
+        def ll_function(n):
+            hint(None, global_merge_point=True)
+            o = ll_make(n)
+            hint(o.__class__, promote=True)
+            return o.double().get()
+
+        res = self.timeshift_from_portal(ll_function, ll_function, [5], policy=P_NOVIRTUAL)
+        assert res == 10
+        self.check_insns(indirect_call=0)
+
+        res = self.timeshift_from_portal(ll_function, ll_function, [0], policy=P_NOVIRTUAL)
+        assert res == ord('2')
+        self.check_insns(indirect_call=0)
+
