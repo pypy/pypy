@@ -76,3 +76,39 @@ class TestInterp(object):
         var z = 2;
         print(x(), y, p);
         """), ["5,3,0"])
+
+    def test_function_args(self):
+        self.assert_prints(parse_d("""
+        x = function (t,r) {
+               return t+r;
+        };
+        print(x(2,3));
+        """), ["5"])
+
+    def test_function_less_args(self):
+        self.assert_prints(parse_d("""
+        x = function (t, r) {
+                return t + r;
+        };
+        print(x(2));
+        """), ["NaN"])
+
+    def test_function_more_args(self):
+        self.assert_prints(parse_d("""
+        x = function (t, r) {
+                return t + r;
+        };
+        print(x(2,3,4));
+        """), ["5"])
+
+    def test_function_arguments(self):
+        self.assert_prints(parse_d("""
+        x = function () {
+                var r = arguments[0];
+                var t = arguments[1];
+                return t + r;
+        };
+        print(x(2,3));
+        """), ["5"])
+
+

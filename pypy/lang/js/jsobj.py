@@ -2,6 +2,9 @@
 class SeePage(NotImplementedError):
     pass
 
+INFDEF = 1e300 * 1e300
+NaN    = INFDEF/INFDEF
+
 class W_Root(object):
     def GetValue(self):
         return self
@@ -27,7 +30,7 @@ class W_Undefined(W_Root):
     
     def ToNumber(self):
         # XXX make NaN
-        return 0
+        return NaN
 
 class W_Null(W_Root):
     def __str__(self):
@@ -65,6 +68,9 @@ class W_Number(W_Root):
 
     def __str__(self):
         # XXX: more attention
+        # cough, cough
+        if str(self.floatval) == str(NaN):
+            return 'NaN'
         if float(int(self.floatval)) == self.floatval:
             return str(int(self.floatval))
         return str(self.floatval)
@@ -90,9 +96,11 @@ class W_Object(W_Root):
         self.function = function
         #self.class_ = None
 
-    def Call(self, this=None):
+    def Call(self, context=None, args=None, this=None):
         if self.function:
-            return self.function.body.call()
+            return self.function.body.call(context=context, 
+                                           args=args, this=this, 
+                                           params= self.function.params)
         else:
             raise SeePage(33)
     
