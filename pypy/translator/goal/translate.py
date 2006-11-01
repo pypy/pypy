@@ -117,12 +117,16 @@ def parse_options_and_load_target():
     options, args = opt_parser.parse_args()
 
     # set goals and skipped_goals
+    reset = False
     for name, _, _, _ in GOALS:
         if getattr(translateconfig.goal_options, name):
             if name not in translateconfig.goals:
                 translateconfig.goals.append(name)
         if getattr(translateconfig.goal_options, 'no_'+name):
             if name not in translateconfig.skipped_goals:
+                if not reset:
+                    translateconfig.skipped_goals[:] = []
+                    reset = True
                 translateconfig.skipped_goals.append(name)
         
     if args:
