@@ -796,9 +796,9 @@ class JVMGenerator(Generator):
         raise NotImplementedError
 
     def new(self, TYPE):
-        clsobj = self.db.pending_class(TYPE)
-        ctor = Method(clsobj.name, "<init>", "()V", opcode=INVOKESPECIAL)
-        self.emit(NEW, clsobj.jvm_type())
+        jtype = self.db.lltype_to_cts(TYPE)
+        ctor = Method(jtype.class_name(), "<init>", "()V", opcode=INVOKESPECIAL)
+        self.emit(NEW, jtype)
         self.emit(DUP)
         self.emit(ctor)
         
