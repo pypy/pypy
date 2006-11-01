@@ -7,7 +7,6 @@ import java.util.ArrayList;
  * Class with a number of utility routines.
  */
 public class PyPy {
-
     /** 
      * Compares two unsigned integers (value1 and value2) and returns
      * a value greater than, equal to, or less than zero if value 1 is
@@ -221,10 +220,11 @@ public class PyPy {
         dump_indented(indent, Double.toString(d));
     }
 
-    public static void dump_string(char[] b, int indent) {
+    public static void dump_string(byte[] b, int indent) {
         StringBuffer sb = new StringBuffer();
         sb.append('"');
-        for (char c : b) {
+        for (byte _c : b) {
+            char c = (char)_c;
             if (c == '"') 
                 sb.append("\\\"");
             else
@@ -256,7 +256,7 @@ public class PyPy {
     public static byte[] string2bytes(String s) {
     	return s.getBytes();
     }
-    
+
     // ----------------------------------------------------------------------
     // OOString support
     
@@ -289,9 +289,14 @@ public class PyPy {
         return s;
     }
 
-    public static byte[] OOString(boolean b, int base_)
+    public static final byte[] trueString = new byte[] {
+        (byte)'T', (byte)'r', (byte)'u', (byte)'e' };
+    public static final byte[] falseString = new byte[] {
+        (byte)'F', (byte)'a', (byte)'l', (byte)'s', (byte)'e' };
+    public static byte[] oostring(boolean b, int base_)
     {
-        return string2bytes(new Boolean(b).toString());
+        if (b) return trueString;
+        return falseString;
     }
 
     // ----------------------------------------------------------------------

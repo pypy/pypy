@@ -12,6 +12,66 @@ from pypy.translator.jvm.option import getoption
 import pypy.translator.jvm.generator as jvmgen
 import pypy.translator.jvm.typesystem as jvmtypes
 
+class BuiltInClassNode(object):
+
+    """
+    This is a fake node that is returned instead of a node.Class object
+    when pending_class is invoked on a built-in type.  It allows other
+    code to query the fields and methods.
+    """
+    
+    def __init__(self, db, OOTYPE):
+        self.db = db
+        self.OOTYPE = OOTYPE
+        self.jvmtype = db.lltype_to_cts(OOTYPE)
+
+        # Create a generic mapping. Other than SELFTYPE_T, we map each
+        # generic argument to ootype.ROOT.  We use a hack here where
+        # we assume that the only generic parameters are named
+        # SELFTYPE_T, ITEMTYPE_T, KEYTYPE_T, or VALUETYPE_T.
+        
+        self.generics = {}
+
+        if hasattr(self.OOTYPE, 'SELFTYPE_T'):
+            self.generics[self.OOTYPE.SELFTYPE_T] = self.OOTYPE
+
+        for param in ('ITEMTYPE_T', 'KEYTYPE_T', 'VALUETYPE_T'):
+            if hasattr(self.OOTYPE, param):
+                self.generics[getattr(self.OOTYPE, param)] = ootype.ROOT
+
+    def jvm_type(self):
+        return self.jvmtype
+
+    def lookup_field(self, fieldnm):
+        """ Given a field name, returns a jvmgen.Field object """
+        _, FIELDTY = self.OOTYPE._lookup_field(fieldnm)
+        jfieldty = self.db.lltype_to_cts(FIELDTY)
+        return jvmgen.Field(
+            self.jvmtype.class_name(), fieldnm, jfieldty, False)
+
+    def _map(self, ARG):
+        """ Maps ootype ARG to a java type.  If arg is one of our
+        generic arguments, substitutes the appropriate type before
+        performing the mapping. """
+        return self.db.lltype_to_cts(self.generics.get(ARG,ARG))
+
+    def lookup_method(self, methodnm):
+        """ Given the method name, returns a jvmgen.Method object """
+
+        # Lookup the generic method by name.
+        GENMETH = self.OOTYPE._GENERIC_METHODS[methodnm]
+
+        # Create an array with the Java version of each type in the
+        # argument list and return type.
+        jargtypes = [self._map(P) for P in GENMETH.ARGS]
+        jrettype = self._map(GENMETH.RESULT)
+        return jvmgen.Method(
+            self.jvmtype.class_name(),
+            methodnm,
+            jvm_method_desc(jargtypes, jrettype),
+            opcode=jvmgen.INVOKEVIRTUAL)
+        
+
 class Database:
     def __init__(self, genoo):
         # Public attributes:
@@ -57,7 +117,8 @@ class Database:
         self._pending_nodes.add(node)
 
     def pending_class(self, OOCLASS):
-        assert isinstance(OOCLASS, ootype.Instance)
+        if not isinstance(OOCLASS, ootype.Instance):
+            return BuiltInClassNode(self, OOCLASS)
 
         # Create class object if it does not already exist:
         if OOCLASS in self._classes:
@@ -179,12 +240,15 @@ class Database:
         ootype.Bool:jvmgen.PYPYDUMPBOOLEAN,
         ootype.Class:jvmgen.PYPYDUMPOBJECT,
         ootype.String:jvmgen.PYPYDUMPSTRING,
+        ootype.StringBuilder:jvmgen.PYPYDUMPOBJECT,
         }
 
     def generate_dump_method_for_ootype(self, OOTYPE):
         if OOTYPE in self._type_printing_methods:
             return self._type_printing_methods[OOTYPE]
-        return self.pending_class(OOTYPE).dump_method.method()
+        pclass = self.pending_class(OOTYPE)
+        assert hasattr(pclass, 'dump_method'), "No dump_method for "+OOTYPE
+        return pclass.dump_method.method()
 
     # Type translation functions
 
