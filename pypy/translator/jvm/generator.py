@@ -1,7 +1,8 @@
 import os # 
 from pypy.objspace.flow import model as flowmodel
 from pypy.translator.oosupport.metavm import Generator
-from pypy.translator.jvm.typesystem import JvmType
+from pypy.translator.jvm.typesystem import \
+     JvmType, jObject, jPrintStream, jvm_for_class, jVoid
 from pypy.rpython.ootypesystem import ootype
 
 # ___________________________________________________________________________
@@ -46,6 +47,8 @@ class Opcode(object):
                 return self.jvmstr + "_m1", ()
             elif args[0] >= 0 and args[0] <= 5:
                 return self.jvmstr + "_" + str(args[0]), ()
+            else:
+                return "ldc", args # HACK
 
         if self.flags & CONST3: 
             assert len(args) == 1
@@ -132,6 +135,7 @@ IF_ACMPNE = Opcode(BRANCH, 'if_acmpne')
 
 # Method invocation
 INVOKESTATIC = Opcode(INVOKE, 'invokestatic')
+INVOKEVIRTUAL = Opcode(INVOKE, 'invokevirtual')
 INVOKESPECIAL = Opcode(INVOKE, 'invokespecial')
 
 # Other opcodes
@@ -148,7 +152,7 @@ GETFIELD =  Opcode(FIELD, 'getfield')
 PUTFIELD =  Opcode(FIELD, 'putfield')
 GETSTATIC = Opcode(FIELD, 'getstatic')
 PUTSTATIC = Opcode(FIELD, 'putstatic')
-CHECKCAST = Opcode(NOFLAGS, 'checkcast')
+CHECKCAST = Opcode(CLASSINM, 'checkcast')
 INEG =      Opcode(NOFLAGS, 'ineg')
 IXOR =      Opcode(NOFLAGS, 'ixor')
 IADD =      Opcode(NOFLAGS, 'iadd')
@@ -190,6 +194,7 @@ LUSHR =     Opcode(NOFLAGS, 'lushr')
 NEW =       Opcode(CLASSINM, 'new')
 DUP =       Opcode(NOFLAGS, 'dup')
 POP =       Opcode(NOFLAGS, 'pop')
+INSTANCEOF= Opcode(CLASSINM, 'instanceof')
 # Loading/storing local variables
 LOAD =      OpcodeFamily(CONST3, "load")
 STORE =     OpcodeFamily(CONST3, "store")
@@ -231,6 +236,8 @@ MATHIABS =              Method('java.lang.Math', 'abs', '(I)I')
 MATHLABS =              Method('java.lang.Math', 'abs', '(L)L')
 MATHDABS =              Method('java.lang.Math', 'abs', '(D)D')
 MATHFLOOR =             Method('java.lang.Math', 'floor', '(D)D')
+PRINTSTREAMPRINTSTR =   Method('java.io.PrintStream', 'print',
+                               '(Ljava/lang/String;)V', opcode=INVOKEVIRTUAL)
 PYPYUINTCMP =           Method('pypy.PyPy', 'uint_cmp', '(II)I')
 PYPYULONGCMP =          Method('pypy.PyPy', 'ulong', '(LL)I')
 PYPYUINTTODOUBLE =      Method('pypy.PyPy', 'uint_to_double', '(I)D')
@@ -252,12 +259,19 @@ PYPYSTRTODOUBLE =       Method('pypy.PyPy', 'str_to_double',
                                '(Ljava/lang/String;)D')
 PYPYSTRTOCHAR =         Method('pypy.PyPy', 'str_to_char',
                                '(Ljava/lang/String;)C')
-PYPYDUMPINT  =          Method('pypy.PyPy', 'dump_int', '(I)V')
-PYPYDUMPUINT  =         Method('pypy.PyPy', 'dump_uint', '(I)V')
-PYPYDUMPLONG  =         Method('pypy.PyPy', 'dump_long', '(L)V')
-PYPYDUMPDOUBLE  =       Method('pypy.PyPy', 'dump_double', '(D)V')
-PYPYDUMPSTRING  =       Method('pypy.PyPy', 'dump_string', '([B)V')
-PYPYDUMPBOOLEAN =       Method('pypy.PyPy', 'dump_boolean', '(Z)V')
+PYPYDUMPINDENTED  =     Method('pypy.PyPy', 'dump_indented',
+                                 '(ILjava/lang/String;)V')
+PYPYDUMPINT  =          Method('pypy.PyPy', 'dump_int', '(II)V')
+PYPYDUMPUINT  =         Method('pypy.PyPy', 'dump_uint', '(II)V')
+PYPYDUMPLONG  =         Method('pypy.PyPy', 'dump_long', '(LI)V')
+PYPYDUMPDOUBLE  =       Method('pypy.PyPy', 'dump_double', '(DI)V')
+PYPYDUMPSTRING  =       Method('pypy.PyPy', 'dump_string', '([BI)V')
+PYPYDUMPBOOLEAN =       Method('pypy.PyPy', 'dump_boolean', '(ZI)V')
+PYPYDUMPOBJECT =        Method('pypy.PyPy', 'dump_object',
+                               '(Ljava/lang/Object;I)V')
+PYPYRUNTIMENEW =        Method('pypy.PyPy', 'RuntimeNew',
+                               '(Ljava/lang/Class;)Ljava/lang/Object;')
+
 
 # ___________________________________________________________________________
 # Fields
@@ -285,6 +299,9 @@ class Field(object):
         return "%s/%s %s" % (
             self.class_name.replace('.','/'), self.field_name, self.jtype)
 
+SYSTEMOUT = Field('java.lang.System', 'out', jPrintStream, True)
+SYSTEMERR = Field('java.lang.System', 'err', jPrintStream, True)
+
 # ___________________________________________________________________________
 # Constants
 #
@@ -304,6 +321,15 @@ class Const(object):
 class VoidConst(object):
     def load(self, gen):
         pass
+
+class NullConst(object):
+    def load(self, gen):
+        gen.emit(ACONST_NULL)
+
+class WarnNullConst(NullConst):
+    def load(self, gen):
+        gen.add_comment("   substituting NULL")
+        NullConst.load(self, gen)
 
 class SignedIntConst(Const):
     def __init__(self, value):
@@ -372,7 +398,13 @@ class UnicodeConst(Const):
         self.value = value
     def load(self, gen):
         assert isinstance(self.value, unicode)
-        res = '"' + self.value.encode('utf-8').replace('"', r'\"') + '"'
+        def escape(char):
+            if char == '"': return r'\"'
+            if char == '\n': return r'\n'
+            return char
+        res = ('"' + 
+               "".join(escape(c) for c in self.value.encode('utf-8')) +
+               '"')
         gen.emit(LDC, res)
 
 class ComplexConst(Const):
@@ -396,6 +428,40 @@ class ComplexConst(Const):
         gen.emit(self.methodinfo)
 
 # ___________________________________________________________________________
+# Generator State
+
+class ClassState(object):
+    """ When you invoked begin_class(), one of these objects is allocated
+    and tracks the state as we go through the definition process. """
+    def __init__(self, classnm, superclassnm):
+        self.class_name = classnm
+        self.superclass_name = superclassnm
+    def out(self, arg):
+        self.file.write(arg)
+
+class FunctionState(object):
+    """ When you invoked begin_function(), one of these objects is allocated
+    and tracks the state as we go through the definition process. """
+    def __init__(self):
+        self.next_offset = 0
+        self.local_vars = {}
+        self.instr_counter = 0
+    def add_var(self, jvar, jtype):
+        """ Adds new entry for variable 'jvar', of java type 'jtype' """
+        idx = self.next_offset
+        self.next_offset += jtype.type_width()
+        if jvar:
+            assert jvar not in self.local_vars # never been added before
+            self.local_vars[jvar] = idx
+        return idx
+    def var_offset(self, jvar, jtype):
+        """ Returns offset for variable 'jvar', of java type 'jtype' """
+        if jvar in self.local_vars:
+            return self.local_vars[jvar]
+        return self.add_var(jvar, jtype)
+
+
+# ___________________________________________________________________________
 # Generator
 
 class JVMGenerator(Generator):
@@ -410,6 +476,8 @@ class JVMGenerator(Generator):
     def __init__(self, db):
         self.db = db
         self.label_counter = 0
+        self.curclass = None
+        self.curfunc = None
 
     # __________________________________________________________________
     # JVM specific methods to be overloaded by a subclass
@@ -417,14 +485,38 @@ class JVMGenerator(Generator):
     # If the name does not begin with '_', it will be called from
     # outside the generator.
 
-    def begin_class(self, classnm):
+    def begin_class(self, classnm, superclsnm):
         """
+        Begins a class declaration.  Overall flow of class declaration
+        looks like:
+
+        begin_class()
+        [add_field()]
+        emit_constructor()
+        [begin_function()...end_function()]
+        end_class()
+
+        Where items in brackets may appear anywhere from 0 to inf times.
+        
         classnm --- full Java name of the class (i.e., "java.lang.String")
+        superclassnm --- full Java name of the super class
         """
-        unimplemented
+        assert not self.curclass
+        self.curclass = ClassState(classnm, superclsnm)
+        self._begin_class()
 
     def end_class(self):
-        unimplemented
+        self._end_class()
+        self.curclass = None
+        self.curfunc = None
+
+    def _begin_class(self):
+        """ Main implementation of begin_class """
+        raise NotImplementedError
+
+    def _end_class(self):
+        """ Main implementation of end_class """
+        raise NotImplementedError    
 
     def add_field(self, fobj):
         """
@@ -432,13 +524,29 @@ class JVMGenerator(Generator):
         """
         unimplemented
 
+    def emit_constructor(self):
+        """
+        Emits the constructor for this class, which merely invokes the
+        parent constructor.
+        
+        superclsnm --- same Java name of super class as from begin_class
+        """
+        jtype = jvm_for_class(self.curclass.class_name)
+        self.begin_function("<init>", [], [jtype], jVoid)
+        self.load_jvm_var(jtype, 0)
+        jmethod = Method(self.curclass.superclass_name, "<init>", "()V",
+                         opcode=INVOKESPECIAL)
+        jmethod.invoke(self)
+        self.return_val(jVoid)
+        self.end_function()
+
     def begin_function(self, funcname, argvars, argtypes, rettype,
                        static=False):
         """
         funcname --- name of the function
         argvars --- list of objects passed to load() that represent arguments;
                     should be in order, or () if load() will not be used
-        argtypes --- JvmType for each argument
+        argtypes --- JvmType for each argument [INCLUDING this]
         rettype --- JvmType for the return value
         static --- keyword, if true then a static func is generated
 
@@ -448,13 +556,12 @@ class JVMGenerator(Generator):
         # Compute the indicates of each argument in the local variables
         # for the function.  Note that some arguments take up two slots
         # depending on their type [this is compute by type_width()]
-        self.next_offset = 0
-        self.local_vars = {}
+        assert not self.curfunc
+        self.curfunc = FunctionState()
         for idx, ty in enumerate(argtypes):
-            if idx < len(argvars):
-                var = argvars[idx]
-                self.local_vars[var] = self.next_offset
-            self.next_offset += ty.type_width()
+            if idx < len(argvars): var = argvars[idx]
+            else: var = None
+            self.curfunc.add_var(var, ty)
         # Prepare a map for the local variable indices we will add
         # Let the subclass do the rest of the work; note that it does
         # not need to know the argvars parameter, so don't pass it
@@ -469,8 +576,7 @@ class JVMGenerator(Generator):
 
     def end_function(self):
         self._end_function()
-        del self.next_offset
-        del self.local_vars
+        self.curfunc = None
 
     def _end_function(self):
         unimplemented
@@ -488,17 +594,24 @@ class JVMGenerator(Generator):
         """ Returns a value from top of stack of the JvmType 'vartype' """
         self._instr(RETURN.for_type(vartype))
 
+    def load_string(self, str):
+        uni = str.decode('utf-8')
+        UnicodeConst(uni).load(self)
+
     def load_jvm_var(self, vartype, varidx):
         """ Loads from jvm slot #varidx, which is expected to hold a value of
         type vartype """
+        assert varidx < self.curfunc.next_offset
         opc = LOAD.for_type(vartype)
-        print "load_jvm_jar: vartype=%s varidx=%s opc=%s" % (
-            repr(vartype), repr(varidx), repr(opc))
+        self.add_comment("     load_jvm_jar: vartype=%s varidx=%s" % (
+            repr(vartype), repr(varidx)))
         self._instr(opc, varidx)
 
     def store_jvm_var(self, vartype, varidx):
         """ Loads from jvm slot #varidx, which is expected to hold a value of
         type vartype """
+        self.add_comment("     store_jvm_jar: vartype=%s varidx=%s" % (
+            repr(vartype), repr(varidx)))
         self._instr(STORE.for_type(vartype), varidx)
 
     def load_from_array(self, elemtype):
@@ -531,6 +644,11 @@ class JVMGenerator(Generator):
         if mark:
             self.mark(res)
         return res
+
+    def load_this_ptr(self):
+        """ Convenience method.  Be sure you only call it from a
+        virtual method, not static methods. """
+        self.load_jvm_var(jObject, 0)
     
     # __________________________________________________________________
     # Exception Handling
@@ -604,17 +722,11 @@ class JVMGenerator(Generator):
         jty = self.db.lltype_to_cts(v.concretetype)
         # Determine index in stack frame slots:
         #   note that arguments and locals can be treated the same here
-        if v in self.local_vars:
-            idx = self.local_vars[v]
-        else:
-            idx = self.local_vars[v] = self.next_offset
-            self.next_offset += jty.type_width()
-        return jty, idx
+        return jty, self.curfunc.var_offset(v, jty)
         
     def load(self, value):
         if isinstance(value, flowmodel.Variable):
             jty, idx = self._var_data(value)
-            print "load_jvm_var: jty=%s idx=%s" % (repr(jty), repr(idx))
             return self.load_jvm_var(jty, idx)
 
         if isinstance(value, flowmodel.Constant):
@@ -624,6 +736,10 @@ class JVMGenerator(Generator):
                         repr(value.concretetype) + " v=" + repr(value))
 
     def store(self, v):
+        # Ignore Void values
+        if v.concretetype is ootype.Void:
+            return
+        
         if isinstance(v, flowmodel.Variable):
             jty, idx = self._var_data(v)
             return self.store_jvm_var(jty, idx)
@@ -631,6 +747,9 @@ class JVMGenerator(Generator):
 
     def set_field(self, CONCRETETYPE, fieldname):
         if fieldname == "meta":
+            # temporary hack
+            self.add_comment("      WARNING: emulating meta for now")
+            self.emit(POP)
             self.emit(POP)
         else:
             clsobj = self.db.pending_class(CONCRETETYPE)
@@ -639,6 +758,7 @@ class JVMGenerator(Generator):
 
     def get_field(self, CONCRETETYPE, fieldname):
         if fieldname == 'meta':
+            self.add_comment("      WARNING: emulating meta for now")
             self.emit(POP)
             self.emit(ACONST_NULL)
         else:
@@ -646,8 +766,13 @@ class JVMGenerator(Generator):
             fieldobj = clsobj.lookup_field(fieldname)
             fieldobj.load(self)
 
-    def downcast(self, type):
-        self._instr(CHECKCAST, type)
+    def downcast(self, TYPE):
+        jtype = self.db.lltype_to_cts(TYPE)
+        self._instr(CHECKCAST, jtype)
+        
+    def instanceof(self, TYPE):
+        jtype = self.db.lltype_to_cts(TYPE)
+        self._instr(INSTANCEOF, jtype)
 
     def branch_unconditionally(self, target_label):
         self._instr(GOTO, target_label)
@@ -662,6 +787,11 @@ class JVMGenerator(Generator):
         mthd = self.db.pending_function(graph)
         mthd.invoke(self)
 
+    def call_method(self, OOCLASS, method_name):
+        clsobj = self.db.pending_class(OOCLASS)
+        mthd = clsobj.lookup_method(method_name)
+        mthd.invoke(self)
+
     def call_primitive(self, graph):
         raise NotImplementedError
 
@@ -671,6 +801,9 @@ class JVMGenerator(Generator):
         self.emit(NEW, clsobj.jvm_type())
         self.emit(DUP)
         self.emit(ctor)
+        
+    def instantiate(self):
+        self.emit(PYPYRUNTIMENEW)
 
     # __________________________________________________________________
     # Methods invoked directly by strings in jvm/opcode.py
@@ -712,6 +845,9 @@ class JVMGenerator(Generator):
         self.mark(midlbl)
         self._instr(ICONST, 1)
         self.mark(endlbl)
+
+    is_null = lambda self: self._compare_op(IFNULL)
+    is_not_null = lambda self: self._compare_op(IFNOTNULL)
 
     logical_not = lambda self: self._compare_op(IFEQ)
     equals_zero = logical_not
@@ -774,74 +910,60 @@ class JasminGenerator(JVMGenerator):
         JVMGenerator.__init__(self, db)
         self.outdir = outdir
 
-    def add_comment(self, comment):
-        self.out.write("  ; %s\n" % comment)
-
-    def begin_class(self, classnm):
+    def _begin_class(self):
         """
         classnm --- full Java name of the class (i.e., "java.lang.String")
         """
+
+        iclassnm = self.curclass.class_name.replace('.', '/')
+        isuper = self.curclass.superclass_name.replace('.', '/')
         
-        iclassnm = classnm.replace('.', '/')
         jfile = "%s/%s.j" % (self.outdir, iclassnm)
 
         try:
             jdir = jfile[:jfile.rindex('/')]
             os.makedirs(jdir)
         except OSError: pass
-        self.out = open(jfile, 'w')
+        self.curclass.file = open(jfile, 'w')
 
         # Write the JasminXT header
-        #self.out.write(".bytecode XX\n")
-        #self.out.write(".source \n")
-        self.out.write(".class public %s\n" % iclassnm)
-
-        # FIX: custom super class
-        self.out.write(".super java/lang/Object\n")
-        self.constructor_emitted = False
+        self.curclass.out(".class public %s\n" % iclassnm)
+        self.curclass.out(".super %s\n" % isuper)
         
-    def end_class(self):
-        self._emit_constructor()
-        self.out.close()
-        self.out = None
+    def _end_class(self):
+        self.curclass.file.close()
 
     def close(self):
-        assert self.out is None, "Unended class"
+        assert self.curclass is None
+
+    def add_comment(self, comment):
+        self.curclass.out("  ; %s\n" % comment)
 
     def add_field(self, fobj):
-        self.out.write('.field public %s %s\n' % (
+        self.curclass.out('.field public %s %s\n' % (
             fobj.field_name, fobj.jtype))
 
-    def _emit_constructor(self):
-        if not self.constructor_emitted:
-            self.out.write(".method public <init>()V\n")
-            self.out.write("    aload_0\n")
-            self.out.write("    invokespecial java/lang/Object/<init>()V\n")
-            self.out.write("    return\n")
-            self.out.write(".end method\n")
-            self.constructor_emitted = True
-            
     def _begin_function(self, funcname, argtypes, rettype, static):
 
-        self._emit_constructor()
+        if not static: argtypes = argtypes[1:]
 
         # Throws clause?  Only use RuntimeExceptions?
         kw = ['public']
         if static: kw.append('static')
-        self.out.write('.method %s %s(%s)%s\n' % (
+        self.curclass.out('.method %s %s(%s)%s\n' % (
             " ".join(kw), funcname,
             "".join(argtypes), rettype))
 
     def _end_function(self):
-        self.out.write('.limit stack 100\n') # HACK, track max offset
-        self.out.write('.limit locals %d\n' % self.next_offset)
-        self.out.write('.end method\n')
+        self.curclass.out('.limit stack 100\n') # HACK, track max offset
+        self.curclass.out('.limit locals %d\n' % self.curfunc.next_offset)
+        self.curclass.out('.end method\n')
 
     def mark(self, lbl):
         """ Marks the point that a label indicates. """
         _, lblnum, lbldesc = lbl
         assert _ == "Label"
-        self.out.write('  %s_%s:\n' % (lbldesc, lblnum))
+        self.curclass.out('  %s_%s:\n' % (lbldesc, lblnum))
 
     def _instr(self, opcode, *args):
         jvmstr, args = opcode.specialize_opcode(args)
@@ -853,10 +975,12 @@ class JasminGenerator(JVMGenerator):
         if opcode.flags & (INVOKE|FIELD):
             assert len(args) == 1
             args = (args[0].jasmin_syntax(),)
-        self.out.write('    %s %s\n' % (
-            jvmstr, " ".join([str(s) for s in args])))
+        instr_text = '    %s %s' % (jvmstr, " ".join([str(s) for s in args]))
+        self.curclass.out('    %-60s ; %d\n' % (
+            instr_text, self.curfunc.instr_counter))
+        self.curfunc.instr_counter+=1
 
     def try_catch_region(self, excclsty, trystartlbl, tryendlbl, catchlbl):
-        self.out.write('  .catch %s from %s to %s using %s\n' % (
+        self.curclass.out('  .catch %s from %s to %s using %s\n' % (
             excclsty.int_class_name(), trystartlbl, tryendlbl, catchlbl))
                        

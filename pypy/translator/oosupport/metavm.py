@@ -15,6 +15,19 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem.bltregistry import ExternalType
 
 class Generator(object):
+    
+    def add_comment(self, text):
+        """
+        Called w/in a function w/ a text string that could be
+        usefully added to the output.
+        """
+        pass
+
+    def dup(self, TYPE):
+        """ Duplicates the top of the stack, which is of the given TYPE.
+
+        Stack: val, ... -> val, val, ..."""
+        raise NotImplementedError
 
     def emit(self, instr, *args):
         """
@@ -49,7 +62,7 @@ class Generator(object):
         
         Stack: value, item, ... -> ...
         """
-        pass
+        raise NotImplementedError
 
     def get_field(self, CONCRETETYPE, fieldname):
         """
@@ -60,14 +73,34 @@ class Generator(object):
 
         Stack: item, ... -> ...
         """
-        pass
+        raise NotImplementedError
 
-    def downcast(self, type):
+    def downcast(self, TYPE):
         """
         Casts the object on the top of the stack to be of the specified
-        type.  Assumed to raise an exception on failure.
+        ootype.  Assumed to raise an exception on failure.
         
         Stack: obj, ... -> obj, ...
+        """
+        raise NotImplementedError
+        
+
+    def instantiate(self):
+        """
+        Instantiates an instance of the Class object that is on top of
+        the stack.  Class objects refers to an object representing a
+        class.  Used to implement RuntimeNew.
+
+        Stack: class_obj, ... -> instance_obj, ...
+        """
+        raise NotImplementedError
+
+    def instanceof(self, TYPE):
+        """
+        Determines whether the object on the top of the stack is an
+        instance of TYPE (an ootype).
+        
+        Stack: obj, ... -> boolean, ...
         """
         pass
 
@@ -85,13 +118,20 @@ class Generator(object):
         raise NotImplementedError
 
     def call_graph(self, graph):
-        """ Invokes the method corresponding to the given graph.  The
+        """ Invokes the function corresponding to the given graph.  The
         arguments to the graph have already been pushed in order
         (i.e., first argument pushed first, etc).  Pushes the return
         value.
 
         Stack: argN...arg2, arg1, arg0, ... -> ret, ... """
-        raise NotImplementedError        
+        raise NotImplementedError
+
+    def call_method(self, OOCLASS, method_name):
+        """ Invokes the given method on the object on the stack.  The
+        this ptr and all arguments have already been pushed.
+
+        Stack: argN, arg2, arg1, this, ... -> ret, ... """
+        raise NotImplementedError
 
     def call_primitive(self, graph):
         """ Like call_graph, but it has been suggested that the method be
@@ -104,6 +144,9 @@ class Generator(object):
         """ Creates a new object of the given type.
 
         Stack: ... -> newobj, ... """
+        raise NotImplementedError
+
+    def push_null(self):
         raise NotImplementedError
 
 class InstructionList(list):
@@ -182,9 +225,16 @@ class _DownCast(MicroInstruction):
     result on top of the stack. """
     def render(self, generator, op):
         RESULTTYPE = op.result.concretetype
-        resulttype = generator.cts.lltype_to_cts(RESULTTYPE)
         generator.load(op.args[0])
-        generator.downcast(resulttype)
+        generator.downcast(RESULTTYPE)
+
+class _InstanceOf(MicroInstruction):
+    """ Push the argument op.args[0] and cast it to the desired type, leaving
+    result on top of the stack. """
+    def render(self, generator, op):
+        RESULTTYPE = op.result.concretetype
+        generator.load(op.args[0])
+        generator.instanceof(RESULTTYPE)
 
 # There are three distinct possibilities where we need to map call differently:
 # 1. Object is marked with rpython_hints as a builtin, so every attribut access
@@ -292,37 +342,23 @@ class _Call(MicroInstruction):
             else:
                 generator.call_graph(graph)
         else:
-            self._render_method(generator, method_name, op.args[1:])
-
-    def _render_method(self, generator, method_name, args):
-        this = args[0]
-        for arg in args: # push parameters
-            generator.load(arg)
-
-        # XXX: very hackish, need refactoring
-        if this.concretetype is ootype.String:
-            # special case for string: don't use methods, but plain functions
-            METH = this.concretetype._METHODS[method_name]
-            cts = generator.cts
-            ret_type = cts.lltype_to_cts(METH.RESULT)
-            arg_types = [cts.lltype_to_cts(arg) for arg in METH.ARGS if arg is not ootype.Void]
-            arg_types.insert(0, cts.lltype_to_cts(ootype.String))
-            arg_list = ', '.join(arg_types)
-            signature = '%s %s::%s(%s)' % (ret_type, STRING_HELPER_CLASS, method_name, arg_list)
-            generator.call_signature(signature)
-        else:
+            this = op.args[1]
             generator.call_method(this.concretetype, method_name)
             
-            # special case: DictItemsIterator(XXX,
-            # Void).ll_current_value needs to return an int32 because
-            # we can't use 'void' as a parameter of a Generic. This
-            # means that after the call to ll_current_value there will
-            # be a value on the stack, and we need to explicitly pop
-            # it.
-            if isinstance(this.concretetype, ootype.DictItemsIterator) and \
-               this.concretetype._VALUETYPE is ootype.Void and \
-               method_name == 'll_current_value':
-                generator.ilasm.pop()
+class _CallMethod(MicroInstruction):
+    def render(self, generator, op):
+        method = op.args[0] # a FlowConstant string...
+        this = op.args[1]
+        for arg in op.args[1:]:
+            generator.load(arg)
+        generator.call_method(this.concretetype, method.value)
+
+class _RuntimeNew(MicroInstruction):
+    def render(self, generator, op):
+        generator.load(op.args[0])
+        generator.instantiate()
+        generator.downcast(op.result.concretetype)
+
 
 New = _New()
 
@@ -333,3 +369,5 @@ GetField = _GetField()
 DownCast = _DownCast()
 DoNothing = _DoNothing()
 Call = _Call()
+CallMethod = _CallMethod()
+RuntimeNew = _RuntimeNew()

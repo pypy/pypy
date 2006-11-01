@@ -40,6 +40,14 @@ class ExceptionWrapper:
     def __repr__(self):
         return 'ExceptionWrapper(%s)' % repr(self.class_name)
 
+class InstanceWrapper:
+    def __init__(self, fields):
+        # fields is a list of (name, value) tuples
+        self.fields = fields
+
+    def __repr__(self):
+        return 'InstanceWrapper(%s)' % repr(self.fields)
+
 # CLI could-be duplicate
 class JvmGeneratedSourceWrapper(object):
     def __init__(self, gensrc):

@@ -368,6 +368,9 @@ class Function(Node, Generator):
 
     # following methods belongs to the Generator interface
 
+    def add_comment(self, text):
+        pass
+    
     def function_signature(self, graph):
         return self.cts.graph_to_signature(graph, False)
 

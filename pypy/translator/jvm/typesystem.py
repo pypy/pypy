@@ -48,9 +48,13 @@ class JvmType(str):
         return not self.is_scalar()
     def is_array(self):
         return self[0] == '['
+    def class_name(self):
+        """ Converts a descriptor like Ljava/lang/Object; to
+        full class name java.lang.Object """
+        return self.int_class_name().replace('/','.')
     def int_class_name(self):
         """ Converts a descriptor like Ljava/lang/Object; to
-        java/lang/Object """
+        internal class name java/lang/Object """
         assert self[0] == 'L' and self[-1] == ';'
         return self[1:-1]
     def type_width(self):
@@ -93,6 +97,7 @@ jHashMap = jvm_for_class('java.util.HashMap')
 jIterator = jvm_for_class('java.util.Iterator')
 jClass = jvm_for_class('java.lang.Class')
 jStringBuilder = jvm_for_class('java.lang.StringBuilder')
+jPrintStream = jvm_for_class('java.io.PrintStream')
 
 # Map from OOType to an internal JVM type descriptor
 #  only handles the simple cases

@@ -158,9 +158,12 @@ class Function(object):
                 self.generator.branch_conditionally(link.exitcase, target_label)
 
     def _setup_link(self, link):
+        self.generator.add_comment("Setup link")
         target = link.target
         for to_load, to_store in zip(link.args, target.inputargs):
             if to_load.concretetype is not Void:
+                self.generator.add_comment("  to_load=%r to_store=%r" % (
+                    to_load, to_store))
                 self.generator.load(to_load)
                 self.generator.store(to_store)
 

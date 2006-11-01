@@ -18,7 +18,8 @@ class Database:
         self.genoo = genoo
         
         # Private attributes:
-        self._classes = {} # Maps ootype class objects to node.Class objects
+        self._classes = {} # Maps ootype class objects to node.Class objects,
+                           # and JvmType objects as well
         self._counter = 0  # Used to create unique names
         self._functions = {}      # graph -> jvmgen.Method
 
@@ -61,14 +62,26 @@ class Database:
         # Create class object if it does not already exist:
         if OOCLASS in self._classes:
             return self._classes[OOCLASS]
+        
+        # Resolve super class first
+        if OOCLASS._superclass:
+            superclsnm = self.lltype_to_cts(OOCLASS._superclass).class_name()
+        else:
+            superclsobj = "java.lang.Object" #?
+
         # TODO --- make package of java class reflect the package of the
         # OO class?
         clsnm = self._pkg(
             self._uniq(OOCLASS._name.replace('.','_')))
-        clsobj = node.Class(clsnm)
+        clsobj = node.Class(clsnm, superclsnm)
 
-        # TODO --- mangle field and method names?  Must be deterministic or
-        # use hashtable to avoid conflicts between classes?
+        # Store the class object for future calls
+        self._classes[OOCLASS] = clsobj
+        self._classes[clsobj.jvm_type()] = clsobj
+
+        # TODO --- mangle field and method names?  Must be
+        # deterministic, or use hashtable to avoid conflicts between
+        # classes?
         
         # Add fields:
         for fieldnm, (FIELDOOTY, fielddef) in OOCLASS._fields.iteritems():
@@ -86,16 +99,23 @@ class Database:
                 # this class it means that this method this method is
                 # not really used by the class: don't render it, else
                 # there would be a type mismatch.
-                args =  m_meth.graph.getargs()
+                args =  mimpl.graph.getargs()
                 SELF = args[0].concretetype
                 if not ootype.isSubclass(OOCLASS, SELF): continue
                 mobj = self._function_for_graph(
-                    clsobj, mimpl.name, False, mimpl.graph)
+                    clsobj, mname, False, mimpl.graph)
                 clsobj.add_method(mobj)
 
-        self._classes[OOCLASS] = clsobj
+        # currently, we always include a special "dump" method for debugging
+        # purposes
+        dump_method = node.TestDumpMethod(self, OOCLASS, clsobj)
+        clsobj.add_dump_method(dump_method)
+
         self.pending_node(clsobj)
         return clsobj
+
+    def class_obj_for_jvm_type(self, jvmtype):
+        return self._classes[jvmtype]
 
     def pending_function(self, graph):
         """
@@ -108,7 +128,7 @@ class Database:
         if graph in self._functions:
             return self._functions[graph]
         classnm = self._pkg(self._uniq(graph.name))
-        classobj = node.Class(classnm)
+        classobj = node.Class(classnm, 'java.lang.Object')
         funcobj = self._function_for_graph(classobj, "invoke", True, graph)
         classobj.add_method(funcobj)
         self.pending_node(classobj)
@@ -147,8 +167,23 @@ class Database:
         #   For NOW, we create a new class PER constant.
         #   Clearly this is probably undesirable in the long
         #   term.
-        print "TYPE=" + repr(TYPE)
-        return jvmgen.VoidConst() # TODO
+        return jvmgen.WarnNullConst() # TODO
+
+    # Other
+    
+    _type_printing_methods = {
+        ootype.Signed:jvmgen.PYPYDUMPINT,
+        ootype.Unsigned:jvmgen.PYPYDUMPUINT,
+        ootype.SignedLongLong:jvmgen.PYPYDUMPLONG,
+        ootype.Float:jvmgen.PYPYDUMPDOUBLE,
+        ootype.Bool:jvmgen.PYPYDUMPBOOLEAN,
+        ootype.Class:jvmgen.PYPYDUMPOBJECT,
+        }
+
+    def generate_dump_method_for_ootype(self, OOTYPE):
+        if OOTYPE in self._type_printing_methods:
+            return self._type_printing_methods[OOTYPE]
+        return self.pending_class(OOTYPE).dump_method.method()
 
     # Type translation functions
 

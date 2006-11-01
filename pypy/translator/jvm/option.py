@@ -8,7 +8,8 @@ _default_values = {
     'noasm':False,
     'package':'pypy',
     'wd':False,
-    'norun':False
+    'norun':False,
+    'trace':False
     }
 
 def getoption(name):

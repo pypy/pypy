@@ -185,45 +185,69 @@ public class PyPy {
 
     // Used in testing:
 
-    public static void dump_int(int i) {
-        System.out.println(i);
+    public static void dump_indented(int indent, String text) {
+        for (int i = 0; i < indent; i++)
+            System.out.print(" ");
+        System.out.println(text);
     }
 
-    public static void dump_uint(int i) {
+    public static void dump_int(int i, int indent) {
+        dump_indented(indent, Integer.toString(i));
+    }
+
+    public static void dump_uint(int i, int indent) {
         if (i >= 0)
-            System.out.println(i);
+            dump_indented(indent, Integer.toString(i));
         else {
             int loword = i & 0xFFFF;
             int hiword = i >>> 16;
             long res = loword + (hiword*0xFFFF);
-            System.out.println(res);
+            dump_indented(indent, Long.toString(res));
         }
     }
 
-    public static void dump_boolean(boolean l) {
+    public static void dump_boolean(boolean l, int indent) {
         if (l)
-            System.out.println("True");
+            dump_indented(indent, "True");
         else
-            System.out.println("False");
+            dump_indented(indent, "False");
     }
 
-    public static void dump_long(long l) {
-        System.out.println(l);
+    public static void dump_long(long l, int indent) {
+        dump_indented(indent, Long.toString(l));
     }
 
-    public static void dump_double(double d) {
-        System.out.println(d);
+    public static void dump_double(double d, int indent) {
+        dump_indented(indent, Double.toString(d));
     }
 
-    public static void dump_string(char[] b) {
-        System.out.print('"');
+    public static void dump_string(char[] b, int indent) {
+        StringBuffer sb = new StringBuffer();
+        sb.append('"');
         for (char c : b) {
             if (c == '"') 
-                System.out.print("\\\"");
-            System.out.print(c);
+                sb.append("\\\"");
+            else
+                sb.append(c);
         }
-        System.out.print('"');
-        System.out.println();
+        sb.append('"');
+        dump_indented(indent, sb.toString());
+    }
+
+    public static void dump_object(Object o, int indent) {
+        dump_indented(indent, o.toString());
+    }
+
+    // ----------------------------------------------------------------------
+    // Type Manipulation Routines
+
+    public static Object RuntimeNew(Class c) {
+        // all classes in our system have constructors w/ no arguments
+        try {
+            return c.getConstructor().newInstance();
+        } catch (Exception exc) {
+            throw new RuntimeException("Unexpected", exc);
+        }
     }
 
     // ----------------------------------------------------------------------

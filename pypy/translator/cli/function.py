@@ -99,6 +99,10 @@ class Function(OOFunction, Node, Generator):
 
 
     # Generator interface
+
+    def add_comment(self, text):
+        pass
+    
     def function_signature(self, graph, func_name=None):
         return self.cts.graph_to_signature(graph, False, func_name)
 
@@ -138,8 +142,12 @@ class Function(OOFunction, Node, Generator):
         signature, virtual = self.cts.method_signature(obj, name)
         self.ilasm.call_method(signature, virtual)
 
-    def downcast(self, type):
+    def downcast(self, TYPE):
+        type = self.cts.lltype_to_cts(TYPE)
         return self.ilasm.opcode('castclass', type)
+
+    def instantiate(self):
+        self.call_signature('object [pypylib]pypy.runtime.Utils::RuntimeNew(class [mscorlib]System.Type)')
 
     def load(self, v):
         if isinstance(v, flowmodel.Variable):

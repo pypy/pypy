@@ -7,7 +7,7 @@ come from the oosupport directory.
 
 from pypy.translator.oosupport.metavm import \
      PushArg, PushAllArgs, StoreResult, InstructionList, New, DoNothing, Call,\
-     SetField, GetField
+     SetField, GetField, CallMethod, DownCast, RuntimeNew
 import pypy.translator.jvm.generator as jvmgen
 
 def _check_zer(op):
@@ -23,14 +23,14 @@ def _check_ovf(op):
 opcodes = {
     # __________ object oriented operations __________
     'new':                      [New, StoreResult],
-    #'runtimenew':               [RuntimeNew],
+    'runtimenew':               [RuntimeNew, StoreResult],
     'oosetfield':               [SetField],
     'oogetfield':               [GetField, StoreResult],
-    #'oosend':                   [CallMethod],
-    #'ooupcast':                 DoNothing,
-    #'oodowncast':               [DownCast],
-    #'oois':                     'ceq',
-    #'oononnull':                [PushAllArgs, 'ldnull', 'ceq']+Not,
+    'oosend':                   [CallMethod, StoreResult],
+    'ooupcast':                 DoNothing,
+    'oodowncast':               [DownCast,StoreResult],
+    'oois':                     'is_null',
+    'oononnull':                'is_not_null',
     #'instanceof':               [CastTo, 'ldnull', 'cgt.un'],
     #'subclassof':               [PushAllArgs, 'call bool [pypylib]pypy.runtime.Utils::SubclassOf(class [mscorlib]System.Type, class[mscorlib]System.Type)'],
     #'ooidentityhash':           [PushAllArgs, 'callvirt instance int32 object::GetHashCode()'],
@@ -41,7 +41,7 @@ opcodes = {
     #
     'same_as':                  DoNothing,
     #'hint':                     [PushArg(0), StoreResult],
-    'direct_call':              [Call],
+    'direct_call':              [Call, StoreResult],
     #'indirect_call':            [IndirectCall],
     #
     #'cast_ptr_to_weakadr':      [PushAllArgs, 'newobj instance void class %s::.ctor(object)' % WEAKREF],

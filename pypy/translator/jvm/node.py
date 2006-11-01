@@ -8,8 +8,9 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.jvm.typesystem import \
      jString, jStringArray, jVoid, jThrowable
-from pypy.translator.jvm.typesystem import jvm_for_class, jvm_method_desc
+from pypy.translator.jvm.typesystem import jvm_for_class, jvm_method_desc, jInt
 from pypy.translator.jvm.opcodes import opcodes
+from pypy.translator.jvm.option import getoption
 from pypy.translator.oosupport.function import Function as OOFunction
 import pypy.translator.jvm.generator as jvmgen
 
@@ -60,16 +61,8 @@ class EntryPoint(Node):
         ootype.Char:jvmgen.PYPYSTRTOCHAR
         }
 
-    _type_printing_methods = {
-        ootype.Signed:jvmgen.PYPYDUMPINT,
-        ootype.Unsigned:jvmgen.PYPYDUMPUINT,
-        ootype.SignedLongLong:jvmgen.PYPYDUMPLONG,
-        ootype.Float:jvmgen.PYPYDUMPDOUBLE,
-        ootype.Bool:jvmgen.PYPYDUMPBOOLEAN,
-        }
-
     def render(self, gen):
-        gen.begin_class('pypy.Main')
+        gen.begin_class('pypy.Main', 'java.lang.Object')
         gen.begin_function(
             'main', (), [jStringArray], jVoid, static=True)
 
@@ -97,10 +90,10 @@ class EntryPoint(Node):
 
         # Print result?
         if self.print_result:
-            resootype = self.graph.getreturnvar().concretetype
-            resjtype = self.db.lltype_to_cts(resootype)
-            meth = self._type_printing_methods[resootype]
-            gen.emit(meth)
+            gen.emit(jvmgen.ICONST, 0)
+            RESOOTYPE = self.graph.getreturnvar().concretetype
+            dumpmethod = self.db.generate_dump_method_for_ootype(RESOOTYPE)
+            dumpmethod.invoke(gen)
 
         # And finish up
         gen.return_val(jVoid)
@@ -131,9 +124,13 @@ class Function(OOFunction):
 
     def method(self):
         """ Returns a jvmgen.Method that can invoke this function """
-        if not self.is_method: opcode = jvmgen.INVOKESTATIC
-        else: opcode = jvmgen.INVOKEVIRTUAL
-        mdesc = jvm_method_desc(self.jargtypes, self.jrettype)
+        if not self.is_method:
+            opcode = jvmgen.INVOKESTATIC
+            startidx = 0
+        else:
+            opcode = jvmgen.INVOKEVIRTUAL
+            startidx = 1
+        mdesc = jvm_method_desc(self.jargtypes[startidx:], self.jrettype)
         return jvmgen.Method(self.classnm, self.name, mdesc, opcode=opcode)
 
     def begin_render(self):
@@ -196,15 +193,14 @@ class Function(OOFunction):
         self.ilasm.load(exc)
         self.ilasm.throw()
 
-    def _setup_link(self, link):
-        target = link.target
-        for to_load, to_store in zip(link.args, target.inputargs):
-            if to_load.concretetype is not ootype.Void:
-                self.ilasm.load(to_load)
-                self.ilasm.store(to_store)
-
     def _render_op(self, op):
         self.generator.add_comment(str(op))
+        
+        if getoption('trace'):
+            jvmgen.SYSTEMERR.load(self.generator)
+            self.generator.load_string(str(op) + "\n")
+            jvmgen.PRINTSTREAMPRINTSTR.invoke(self.generator)
+            
         OOFunction._render_op(self, op)
 
 class Class(Node):
@@ -212,15 +208,16 @@ class Class(Node):
     """ Represents a class to be emitted.  Note that currently, classes
     are emitted all in one shot, not piecemeal. """
 
-    def __init__(self, name):
+    def __init__(self, name, supername):
         """
-        'name' should be a fully qualified Java class name like
+        'name' and 'super_name' should be fully qualified Java class names like
         "java.lang.String"
         """
-        self.name = name        # public attribute
-        self.fields = []
-        self.methods = []
+        self.name = name             # public attribute
+        self.super_name = supername  # public attribute
+        self.fields = {}
         self.rendered = False
+        self.methods = {}
 
     def jvm_type(self):
         return jvm_for_class(self.name)
@@ -229,29 +226,104 @@ class Class(Node):
         """ Creates a new field accessed via the jvmgen.Field
         descriptor 'fieldobj'.  Must be called before render()."""
         assert not self.rendered and isinstance(fieldobj, jvmgen.Field)
-        self.fields.append(fieldobj)
+        self.fields[fieldobj.field_name] = fieldobj
 
     def lookup_field(self, fieldnm):
-        for f in self.fields:
-            if f.field_name == fieldnm: return f
-        assert False, "No field named '%s' found" % fieldnm
+        """ Given a field name, returns a jvmgen.Field object """
+        return self.fields[fieldnm]
+
+    def lookup_method(self, methodnm):
+        """ Given the method name, returns a jvmgen.Method object """
+        return self.methods[methodnm].method()
 
     def add_method(self, func):
         """ Creates a new method in this class, represented by the
         Function object 'func'.  Must be called before render();
         intended to be invoked by the database.  Note that some of these
         'methods' may actually represent static functions. """
-        self.methods.append(func)
+        self.methods[func.name] = func
 
+    def add_dump_method(self, dm):
+        self.dump_method = dm # public attribute for reading
+        self.add_method(dm)
+        
     def render(self, gen):
         self.rendered = True
-        gen.begin_class(self.name)
+        gen.begin_class(self.name, self.super_name)
 
-        for field in self.fields:
+        for field in self.fields.values():
             gen.add_field(field)
 
-        for method in self.methods:
+        gen.emit_constructor()
+
+        for method in self.methods.values():
             method.render(gen)
         
         gen.end_class()
 
+class TestDumpMethod(object):
+
+    def __init__(self, db, OOCLASS, clsobj):
+        self.db = db
+        self.OOCLASS = OOCLASS
+        self.clsobj = clsobj
+        self.name = "_pypy_dump"
+        self.jargtypes = [clsobj.jvm_type(), jInt]
+        self.jrettype = jVoid
+
+    def method(self):
+        """ Returns a jvmgen.Method that can invoke this function """
+        mdesc = jvm_method_desc(self.jargtypes[1:], self.jrettype)
+        return jvmgen.Method(self.clsobj.name, self.name, mdesc,
+                             opcode=jvmgen.INVOKEVIRTUAL)
+
+    def render(self, gen):
+        clsobj = self.clsobj
+
+        gen.begin_function(
+            self.name, (), self.jargtypes, self.jrettype, static=False)
+
+        def genprint(str, unoffset=0):
+            gen.load_jvm_var(jInt, 1)
+            if unoffset:
+                gen.emit(jvmgen.ICONST, unoffset)
+                gen.emit(jvmgen.ISUB)
+            gen.load_string(str)
+            jvmgen.PYPYDUMPINDENTED.invoke(gen)
+
+        # Start the dump
+        genprint("InstanceWrapper([")
+
+        # Increment the indent
+        gen.load_jvm_var(jInt, 1)
+        gen.emit(jvmgen.ICONST, 2)
+        gen.emit(jvmgen.IADD)
+        gen.store_jvm_var(jInt, 1)
+
+        for fieldnm, (FIELDOOTY, fielddef) in self.OOCLASS._fields.iteritems():
+
+            if FIELDOOTY is ootype.Void: continue
+
+            genprint("(")
+            genprint(fieldnm+",")
+
+            print "fieldnm=%r fieldty=%r" % (fieldnm, FIELDOOTY)
+
+            # Print the value of the field:
+            gen.load_this_ptr()
+            fieldobj = clsobj.lookup_field(fieldnm)
+            fieldobj.load(gen)
+            gen.load_jvm_var(jInt, 1)
+            dumpmethod = self.db.generate_dump_method_for_ootype(FIELDOOTY)
+            gen.emit(dumpmethod)
+
+            genprint(")")
+
+        # Decrement indent and dump close
+        genprint("])", 2)
+
+        gen.emit(jvmgen.RETURN.for_type(jVoid))
+
+        gen.end_function()
+        
+        
