@@ -4,6 +4,7 @@
 
 # 1st attempt - exec the code
 
+import os
 import py
 import re
 from subprocess import Popen, PIPE, STDOUT
@@ -27,26 +28,12 @@ def read_js_output(code_string):
 
 def parse(code_string):
     read_code = read_js_output(code_string)
-    #print read_code
-    #for line in read_code.split("\n"):
-        #m = re.search('^(\s*)(\w+): +(.*?)(,)?$', line)
-        #if m and (m.group(3) != '{' or m.group(4)):
-        #    output.append("%s'%s': '%s'," % (m.group(1), m.group(2), m.group(3)))
-        #else:
-        #    m = re.search('^(\s*)(\w+):(.*)$', line)
-        #    if m:
-        #        output.append("%s'%s': %s" % (m.group(1), m.group(2), m.group(3)))
-        #    else:
-        #        output.append(line)
-
-    #print "\n".join(output)
-    output = read_code.split("\n")
-    d = {}
+    output = read_code.split(os.linesep)
     try:
-        exec "code =" + "\n".join(output) in d
+        code = eval("\n".join(output))
     except (SyntaxError, NameError):
         for num, line in enumerate(output):
             print "%d: %s" % (num + 1, line)
         open("/tmp/out", "w").write("\n".join(output))
         raise
-    return d['code']
+    return code
