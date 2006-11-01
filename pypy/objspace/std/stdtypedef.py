@@ -309,3 +309,16 @@ def slicemultimethods(space, typedef):
     for multimethod in typedef.local_multimethods:
         slicemultimethod(space, multimethod, typedef, result, local=True)
     return result
+
+def multimethods_defined_on(cls):
+    """NOT_RPYTHON: enumerate the (multimethod, local_flag) for all the
+    multimethods that have an implementation whose first typed argument
+    is 'cls'.
+    """
+    from pypy.objspace.std.objspace import StdObjSpace   # XXX for now
+    typedef = cls.typedef
+    for multimethod in hack_out_multimethods(StdObjSpace.MM.__dict__):
+        if cls in multimethod.dispatch_tree:
+            yield multimethod, False
+    for multimethod in typedef.local_multimethods:
+        yield multimethod, True
