@@ -1,6 +1,6 @@
 from pypy import conftest
 from pypy.translator.translator import graphof
-from pypy.jit.timeshifter.test.test_timeshift import hannotate
+from pypy.jit.timeshifter.test.test_timeshift import hannotate, getargtypes
 from pypy.jit.timeshifter.hrtyper import HintRTyper
 from pypy.jit.timeshifter.test.test_timeshift import P_NOVIRTUAL
 from pypy.rpython.llinterp import LLInterpreter
@@ -20,45 +20,66 @@ class TestPortal(object):
         del cls._cache
         del cls._cache_order
 
+    def postprocess_timeshifting(self):
+        self.readportalgraph = self.hrtyper.readportalgraph
+        
+    def _timeshift_from_portal(self, main, portal, main_args,
+                              inline=None, policy=None,
+                              backendoptimize=False):
+        # decode the 'values' if they are specified as strings
+        if hasattr(main, 'convert_arguments'):
+            assert len(main.convert_arguments) == len(values)
+            main_args = [decoder(value) for decoder, value in zip(
+                                        main.convert_arguments,
+                                        main_args)]
+        key = main, portal, inline, policy, backendoptimize
+        try:
+            cache, argtypes = self._cache[key]
+        except KeyError:
+            pass
+        else:
+            self.__dict__.update(cache)
+            assert argtypes == getargtypes(self.rtyper.annotator, main_args)
+            return
+
+        hs, ha, self.rtyper = hannotate(main, main_args, portal=portal,
+                                   policy=policy, inline=inline,
+                                   backendoptimize=backendoptimize)
+
+        t = self.rtyper.annotator.translator
+        self.maingraph = graphof(t, main)
+        # make the timeshifted graphs
+        self.hrtyper = HintRTyper(ha, self.rtyper, self.RGenOp)
+        origportalgraph = graphof(t, portal)
+        self.hrtyper.specialize(origportalgraph=origportalgraph,
+                           view = conftest.option.view)
+
+        for graph in ha.translator.graphs:
+            checkgraph(graph)
+            t.graphs.append(graph)
+
+        if conftest.option.view:
+            t.view()
+        self.postprocess_timeshifting()
+        self.readportalgraph = self.hrtyper.readportalgraph
+
+        # Populate the cache
+        if len(self._cache_order) >= 3:
+            del self._cache[self._cache_order.pop(0)]
+        cache = self.__dict__.copy()
+        self._cache[key] = cache, getargtypes(self.rtyper.annotator, main_args)
+        self._cache_order.append(key)
+
+    
     def timeshift_from_portal(self, main, portal, main_args,
                               inline=None, policy=None,
                               backendoptimize=False):
-
-        key = main, portal, inline, policy, backendoptimize
-        try:
-            maingraph, readportalgraph, rtyper = self._cache[key]
-        except KeyError:
-            if len(self._cache_order) >= 3:
-                del self._cache[self._cache_order.pop(0)]
-
-            hs, ha, rtyper = hannotate(main, main_args, portal=portal,
-                                       policy=policy, inline=inline,
-                                       backendoptimize=backendoptimize)
-
-            t = rtyper.annotator.translator
-            maingraph = graphof(t, main)
-            # make the timeshifted graphs
-            hrtyper = HintRTyper(ha, rtyper, self.RGenOp)
-            origportalgraph = graphof(t, portal)
-            hrtyper.specialize(origportalgraph=origportalgraph,
-                               view = conftest.option.view)
-
-            for graph in ha.translator.graphs:
-                checkgraph(graph)
-                t.graphs.append(graph)
-
-            if conftest.option.view:
-                t.view()
-
-            readportalgraph = hrtyper.readportalgraph
-            self._cache[key] = maingraph, readportalgraph, rtyper
-            self._cache_order.append(key)
-
-        self.readportalgraph = readportalgraph
+        self._timeshift_from_portal(main, portal, main_args,
+                                    inline=inline, policy=policy,
+                                    backendoptimize=backendoptimize)
         self.main_args = main_args
-        self.rtyper = rtyper
-        llinterp = LLInterpreter(rtyper)
-        res = llinterp.eval_graph(maingraph, main_args)
+        llinterp = LLInterpreter(self.rtyper)
+        res = llinterp.eval_graph(self.maingraph, main_args)
         return res
 
     def check_insns(self, expected=None, **counts):
