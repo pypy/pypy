@@ -10,7 +10,7 @@ class TestTypedOptimizedTestCase(_TestTypedTestCase):
     def process(self, t):
         _TestTypedTestCase.process(self, t)
         self.t = t
-        backend_optimizations(t, merge_if_blocks_to_switch=False)
+        backend_optimizations(t, merge_if_blocks=False)
         if conftest.option.view:
             t.view()
 
@@ -89,7 +89,7 @@ class TestTypedOptimizedSwitchTestCase:
         def process(self, t):
             _TestTypedTestCase.process(self, t)
             self.t = t
-            backend_optimizations(t, merge_if_blocks_to_switch=True)
+            backend_optimizations(t, merge_if_blocks=True)
 
     def test_int_switch(self):
         def f(x):
@@ -186,7 +186,7 @@ class TestTypedOptimizedRaisingOps:
         def process(self, t):
             _TestTypedTestCase.process(self, t)
             self.t = t
-            backend_optimizations(t, raisingop2direct_call_all=True)
+            backend_optimizations(t, raisingop2direct_call=True)
 
     def test_int_floordiv_zer(self):
         def f(x):

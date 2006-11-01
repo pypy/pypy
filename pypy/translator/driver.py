@@ -277,10 +277,10 @@ class TranslationDriver(SimpleTaskEngine):
     def task_backendopt_ootype(self):
         from pypy.translator.backendopt.all import backend_optimizations
         backend_optimizations(self.translator,
-                              raisingop2direct_call_all=False,
+                              raisingop2direct_call=False,
                               inline_threshold=0,
                               mallocs=False,
-                              merge_if_blocks_to_switch=False,
+                              merge_if_blocks=False,
                               propagate=False,
                               constfold=True,
                               heap2stack=False,

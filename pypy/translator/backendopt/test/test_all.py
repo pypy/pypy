@@ -139,7 +139,7 @@ def test_idempotent():
         c = [i for i in range(n2)]
         return 33 + big() + g(10)
 
-    t  = translateopt(idempotent, [int, int], raisingop2direct_call_all=True,
+    t  = translateopt(idempotent, [int, int], raisingop2direct_call=True,
                       constfold=False)
     digest1 = md5digest(t)
 
@@ -148,7 +148,7 @@ def test_idempotent():
 
     #XXX Inlining and constfold are currently non-idempotent.
     #    Maybe they just renames variables but the graph changes in some way.
-    backend_optimizations(t, raisingop2direct_call_all=True,
+    backend_optimizations(t, raisingop2direct_call=True,
                           inline_threshold=0, constfold=False)
     digest3 = md5digest(t)
     assert digest1 == digest3
@@ -184,7 +184,7 @@ def test_range_iter():
         for i in r:
             res = res * 51 + i
         return res
-    t = translateopt(fn, [int, int, int], merge_if_blocks_to_switch=True)
+    t = translateopt(fn, [int, int, int], merge_if_blocks=True)
     interp = LLInterpreter(t.rtyper)
     for args in [2, 7, 0], [7, 2, 0], [10, 50, 7], [50, -10, -3]:
         assert interp.eval_graph(graphof(t, fn), args) == intmask(fn(*args))

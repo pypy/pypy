@@ -335,13 +335,13 @@ def genllvm_compile(function,
 
     # use backend optimizations?
     if optimize:
-        backend_optimizations(translator, raisingop2direct_call_all=True)
+        backend_optimizations(translator, raisingop2direct_call=True)
     else:
         backend_optimizations(translator,
-                              raisingop2direct_call_all=True,
+                              raisingop2direct_call=True,
                               inline_threshold=0,
                               mallocs=False,
-                              merge_if_blocks_to_switch=False,
+                              merge_if_blocks=False,
                               constfold=False)
 
     # note: this is without stackless and policy transforms

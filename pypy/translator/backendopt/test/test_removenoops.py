@@ -21,7 +21,7 @@ def get_graph(fn, signature, inline_threshold=True, all_opts=True):
     if all_opts:
         backend_optimizations(t, inline_threshold=inline_threshold,
                               constfold=False,
-                              raisingop2direct_call_all=False)
+                              raisingop2direct_call=False)
     graph = graphof(t, fn)
     if conftest.option.view:
         t.view()

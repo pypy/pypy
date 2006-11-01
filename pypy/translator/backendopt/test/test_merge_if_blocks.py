@@ -154,7 +154,7 @@ def test_two_constants():
     a.build_types(fn, [])
     rtyper = t.buildrtyper()
     rtyper.specialize()
-    backend_optimizations(t, merge_if_blocks_to_switch=True)
+    backend_optimizations(t, merge_if_blocks=True)
     graph = tgraphof(t, fn)
     blocknum = len(list(graph.iterblocks()))
     merge_if_blocks(graph)
@@ -174,7 +174,7 @@ def test_same_cases():
     a.build_types(fn, [int])
     rtyper = t.buildrtyper()
     rtyper.specialize()
-    backend_optimizations(t, merge_if_blocks_to_switch=True)
+    backend_optimizations(t, merge_if_blocks=True)
     graph = tgraphof(t, fn)
     assert len(graph.startblock.exits) == 2
     interp = LLInterpreter(rtyper)
