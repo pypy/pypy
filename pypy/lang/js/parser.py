@@ -19,6 +19,7 @@ def read_js_output(code_string):
     jsparse = jsdir.join("jsparse.js").read()
     pipe = Popen("js", stdin=PIPE, stdout=PIPE, stderr=STDOUT)
     pipe.stdin.write(jsdefs + jsparse + "\n")
+    stripped_code = stripped_code.replace("'",r"\'")
     pipe.stdin.write("print(parse('%s'));\n" % stripped_code)
     pipe.stdin.close()
     retval = pipe.stdout.read()
@@ -29,6 +30,7 @@ def read_js_output(code_string):
 def parse(code_string):
     read_code = read_js_output(code_string)
     output = read_code.split(os.linesep)
+    print '\n'.join(output)
     try:
         code = eval("\n".join(output))
     except (SyntaxError, NameError):

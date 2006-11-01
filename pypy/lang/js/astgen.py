@@ -101,6 +101,9 @@ def getlist(d):
     output = [from_dict(d[str(i)]) for i in range(lgt)]
     return output
 
+def build_interpreter(d):
+    return from_dict(d)
+
 def from_dict(d):
     if d is None:
         return d

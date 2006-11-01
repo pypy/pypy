@@ -19,3 +19,8 @@ def test_simple_parse():
     assert data['0']['body']['0']['value']['value'] == '1'
     assert sorted(data.keys()) == ['0', 'funDecls', 'length', 'lineno', \
                                   'tokenizer', 'type', 'varDecls']
+
+def test_single_quote():
+    "test if parser eats single quotes"
+    data = parse("x = '2'")
+    assert data['type'] == 'SCRIPT'

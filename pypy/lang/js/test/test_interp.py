@@ -2,12 +2,13 @@
 from pypy.lang.js.astgen import *
 from pypy.lang.js import interpreter
 from pypy.lang.js.parser import parse
+import py.test
 
 import sys
 from StringIO import StringIO
 
 def parse_d(code):
-    return from_dict(parse(code))
+    return build_interpreter(parse(code))
 
 class TestInterp(object):
     def test_simple(self):
@@ -101,14 +102,30 @@ class TestInterp(object):
         print(x(2,3,4));
         """), ["5"])
 
-    def test_function_arguments(self):
+    def test_function_has_var(self):
         self.assert_prints(parse_d("""
         x = function () {
-                var r = arguments[0];
-                var t = arguments[1];
+                var t = 'test';
+                return t;
+        };
+        print(x());
+        """), ["test"])
+
+    def test_function_arguments(self):
+        #py.test.skip('not ready yet')
+        self.assert_prints(parse_d("""
+        x = function () {
+                r = arguments[0];
+                t = arguments[1];
                 return t + r;
         };
         print(x(2,3));
         """), ["5"])
 
+
+    def test_index(self):
+        self.assert_prints(parse_d("""
+        x = {1:"test"};
+        print(x[1]);
+        """), ["test"])
 
