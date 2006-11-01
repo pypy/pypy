@@ -600,8 +600,11 @@ class Ontology:
                 else:
                     obj = trip[2]
                 prop = self.variables[prop_name]
-                prop.setValues(list(self.variables['rdf_Property'].getValues()))
                 # Get all properties by looking at 'rdf_Property'
+                props = list(self.variables['rdf_Property'].getValues())
+                prop.setValues(props)
+                for p in props:
+                    query_dom[p] = self.variables[p]
                 # add a constraint trip[0] in domains[prop] and trip[2] in domains[prop].getValuesPrKey(trip[0])
                 query_constr.append(PropertyConstrain(prop_name, indi, obj))
 
@@ -624,7 +627,10 @@ class Ontology:
                 sub = self.variables[sub_name]
                 sub.setValues(list(self.variables['owl_Thing'].getValues()))
                 prop = self.variables[prop_name]
-                prop.setValues(list(self.variables['rdf_Property'].getValues()))
+                props = list(self.variables['rdf_Property'].getValues())
+                prop.setValues(props)
+                for p in props:
+                    query_dom[p] = self.variables[p]
                 obj_name = self.mangle_name(trip[2])
                 if  obj_name in self.variables:
                     obj = self.variables[self.mangle_name(trip[2])]
@@ -661,10 +667,12 @@ class Ontology:
                 query_constr.append(con)
         # call finish on the variables in the query
         for v in vars:
-            query_dom, _ = self.variables[self.mangle_name(v)].finish(self.variables, query_constr) #query_dom, query_constr)
+            _dom, _ = self.variables[self.mangle_name(v)].finish(self.variables, query_constr) #query_dom, query_constr)
+            query_dom.update(_dom)
         # Build a repository with the variables in the query
         dom = dict([(self.mangle_name(v),self.variables[self.mangle_name(v)])
                      for v in vars])
+        dom.update(query_dom)
         # solve the repository and return the solution
         rep = Repository(dom.keys(), dom, query_constr)
         res_s = Solver().solve(rep)
