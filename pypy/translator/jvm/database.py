@@ -10,7 +10,40 @@ from pypy.translator.jvm.typesystem import jvm_method_desc, ootype_to_jvm
 from pypy.translator.jvm import node
 from pypy.translator.jvm.option import getoption
 import pypy.translator.jvm.generator as jvmgen
-import pypy.translator.jvm.typesystem as jvmtypes
+from pypy.translator.jvm.typesystem import \
+     jStringBuilder, jInt, jVoid, jString, jOOString, jChar
+
+# When we lookup a method on a  BuiltInClassNode, we first check
+# the 'built_in_methods' table.  This allows us to redirect to other
+# methods if we like.
+
+def _ll_build_method():
+    # Choose an appropriate ll_build depending on what representation
+    # we are using for ootype.String:
+    if jOOString == jString:
+        return jvmgen.Method.v(
+            jStringBuilder.class_name(), "toString", (),jString)
+    return jvmgen.Method.s(
+        jvmgen.PYPYJAVA, "ll_build", (jStringBuilder,), jOOString)
+
+built_in_methods = {
+    (ootype.StringBuilder.__class__, "ll_allocate"):
+    jvmgen.Method.v(jStringBuilder.class_name(), "ensureCapacity",
+                    (jInt,), jVoid),
+    
+    (ootype.StringBuilder.__class__, "ll_append_char"):
+    jvmgen.Method.s(jvmgen.PYPYJAVA, "ll_append_char",
+                    (jStringBuilder, jChar), jVoid),
+    
+    (ootype.StringBuilder.__class__, "ll_append"):
+    jvmgen.Method.s(jvmgen.PYPYJAVA, "ll_append",
+                    (jStringBuilder, jOOString), jVoid),
+
+    # XXX will not work with --byte-arrays
+    (ootype.StringBuilder.__class__, "ll_build"):
+    _ll_build_method()
+    
+    }
 
 class BuiltInClassNode(object):
 
@@ -57,6 +90,14 @@ class BuiltInClassNode(object):
 
     def lookup_method(self, methodnm):
         """ Given the method name, returns a jvmgen.Method object """
+
+        # Look for a shortcut method
+        try:
+            key = (self.OOTYPE.__class__, methodnm)
+            print "key=%r" % (key,)
+            print "hash=%r" % (built_in_methods,)
+            return built_in_methods[key]
+        except KeyError: pass
 
         # Lookup the generic method by name.
         GENMETH = self.OOTYPE._GENERIC_METHODS[methodnm]

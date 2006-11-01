@@ -5,6 +5,10 @@ import java.util.ArrayList;
 
 /**
  * Class with a number of utility routines.
+ * 
+ * I apologize for the Python-esque naming conventions, but it seems
+ * I can't switch my mind to camelCase when working so closely with 
+ * Python mere minutes before.
  */
 public class PyPy {
     /** 
@@ -220,15 +224,30 @@ public class PyPy {
         dump_indented(indent, Double.toString(d));
     }
 
+    public static void _append_char(StringBuffer sb, char c) {
+        if (c == '"') 
+            sb.append("\\\"");
+        else
+            sb.append(c);
+    }
+
     public static void dump_string(byte[] b, int indent) {
         StringBuffer sb = new StringBuffer();
         sb.append('"');
         for (byte _c : b) {
             char c = (char)_c;
-            if (c == '"') 
-                sb.append("\\\"");
-            else
-                sb.append(c);
+            _append_char(sb, c);
+        }
+        sb.append('"');
+        dump_indented(indent, sb.toString());
+    }
+
+    public static void dump_string(String b, int indent) {
+        StringBuffer sb = new StringBuffer();
+        sb.append('"');
+        for (int i = 0; i < b.length(); i++) {
+            char c = b.charAt(i);
+            _append_char(sb, c);
         }
         sb.append('"');
         dump_indented(indent, sb.toString());
@@ -236,6 +255,37 @@ public class PyPy {
 
     public static void dump_object(Object o, int indent) {
         dump_indented(indent, o.toString());
+    }
+
+    // ----------------------------------------------------------------------
+    // StringBuffer
+
+    public static void ll_append_char(StringBuilder sb, char c) {
+        // annoyingly, the actual return code is StringBuilder, so I have
+        // to make this wrapper to ignore the return value
+        sb.append(c);
+    }
+
+    public static void ll_append(StringBuilder sb, String s) {
+        // annoyingly, the actual return code is StringBuilder, so I have
+        // to make this wrapper to ignore the return value
+        sb.append(s);
+    }
+
+    public static void ll_append(StringBuilder sb, byte[] s) {
+        // This is only used when we are using byte arrays instead of
+        // strings.  We should really replace StringBuilder with some
+        // kind of ByteBuilder in that case...
+        for (byte b : s) {
+            sb.append((char)b);
+        }
+    }
+
+    public static byte[] ll_build(StringBuilder sb) {
+        // This is only used when we are using byte arrays instead of
+        // strings.  We should really replace StringBuilder with some
+        // kind of ByteBuilder in that case...
+        return string2bytes(sb.toString());
     }
 
     // ----------------------------------------------------------------------
@@ -260,28 +310,28 @@ public class PyPy {
     // ----------------------------------------------------------------------
     // OOString support
     
-    public static byte[] oostring(int n, int base_) {
+    public static String oostring(int n, int base_) {
     	// XXX needs special case for unsigned ints
         if (base_ == -1)
             base_ = 10;
         if (n < 0 && base_ != 10)
-            return string2bytes("-" + Integer.toString(-n, base_));
+            return "-" + Integer.toString(-n, base_);
         else
-            return string2bytes(Integer.toString(n, base_));
+            return Integer.toString(n, base_);
     }
 
-    public static byte[] oostring(double d, int base_) {
-        return string2bytes(new Double(d).toString());
+    public static String oostring(double d, int base_) {
+        return new Double(d).toString();
     }
 
-    public static byte[] oostring(Object obj, int base_)
+    public static String oostring(Object obj, int base_)
     {
-        return string2bytes(String.format("<%s object>", new Object[] { obj.getClass().getName() }));
+        return String.format("<%s object>", new Object[] { obj.getClass().getName() });
     }
 
-    public static byte[] oostring(char ch, int base_)
+    public static String oostring(char ch, int base_)
     {
-        return string2bytes(new Character(ch).toString());
+        return new Character(ch).toString();
     }
 
     public static byte[] oostring(byte[] s, int base_)
@@ -289,14 +339,15 @@ public class PyPy {
         return s;
     }
 
-    public static final byte[] trueString = new byte[] {
-        (byte)'T', (byte)'r', (byte)'u', (byte)'e' };
-    public static final byte[] falseString = new byte[] {
-        (byte)'F', (byte)'a', (byte)'l', (byte)'s', (byte)'e' };
-    public static byte[] oostring(boolean b, int base_)
+    public static String oostring(String s, int base_)
     {
-        if (b) return trueString;
-        return falseString;
+        return s;
+    }
+
+    public static String oostring(boolean b, int base_)
+    {
+        if (b) return "True";
+        return "False";
     }
 
     // ----------------------------------------------------------------------

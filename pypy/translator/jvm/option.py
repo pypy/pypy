@@ -9,7 +9,8 @@ _default_values = {
     'package':'pypy',
     'wd':False,
     'norun':False,
-    'trace':False
+    'trace':False,
+    'byte-arrays':False
     }
 
 def getoption(name):

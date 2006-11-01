@@ -3,8 +3,13 @@ from pypy.objspace.flow import model as flowmodel
 from pypy.translator.oosupport.metavm import Generator
 from pypy.translator.jvm.typesystem import \
      JvmType, jObject, jPrintStream, jvm_for_class, jVoid, jvm_method_desc, \
-     jInt, jByteArray
+     jInt, jByteArray, jOOString, jString, jStringBuilder
 from pypy.rpython.ootypesystem import ootype
+
+# ___________________________________________________________________________
+# Helper class string constants
+
+PYPYJAVA = "pypy.PyPy"
 
 # ___________________________________________________________________________
 # JVM Opcode Flags:
@@ -221,6 +226,16 @@ ARRSTORE =     ArrayOpcodeFamily(NOFLAGS, "astore")
 # methobj is its Method instance.
 
 class Method(object):
+    
+    def v(classnm, methnm, argtypes, rettype):
+        return Method(classnm, methnm, jvm_method_desc(argtypes, rettype),
+                      opcode=INVOKEVIRTUAL)
+    v = staticmethod(v)
+    
+    def s(classnm, methnm, argtypes, rettype):
+        return Method(classnm, methnm, jvm_method_desc(argtypes, rettype))
+    s = staticmethod(s)
+    
     def __init__(self, classnm, methnm, desc, opcode=INVOKESTATIC):
         self.opcode = opcode
         self.class_name = classnm  # String, ie. "java.lang.Math"
@@ -239,39 +254,42 @@ MATHDABS =              Method('java.lang.Math', 'abs', '(D)D')
 MATHFLOOR =             Method('java.lang.Math', 'floor', '(D)D')
 PRINTSTREAMPRINTSTR =   Method('java.io.PrintStream', 'print',
                                '(Ljava/lang/String;)V', opcode=INVOKEVIRTUAL)
-PYPYUINTCMP =           Method('pypy.PyPy', 'uint_cmp', '(II)I')
-PYPYULONGCMP =          Method('pypy.PyPy', 'ulong', '(LL)I')
-PYPYUINTTODOUBLE =      Method('pypy.PyPy', 'uint_to_double', '(I)D')
-PYPYDOUBLETOUINT =      Method('pypy.PyPy', 'double_to_uint', '(D)I')
-PYPYLONGBITWISENEGATE = Method('pypy.PyPy', 'long_bitwise_negate', '(L)L')
-PYPYARRAYTOLIST =       Method('pypy.PyPy', 'array_to_list',
+PYPYUINTCMP =           Method(PYPYJAVA, 'uint_cmp', '(II)I')
+PYPYULONGCMP =          Method(PYPYJAVA, 'ulong', '(LL)I')
+PYPYUINTTODOUBLE =      Method(PYPYJAVA, 'uint_to_double', '(I)D')
+PYPYDOUBLETOUINT =      Method(PYPYJAVA, 'double_to_uint', '(D)I')
+PYPYLONGBITWISENEGATE = Method(PYPYJAVA, 'long_bitwise_negate', '(L)L')
+PYPYARRAYTOLIST =       Method(PYPYJAVA, 'array_to_list',
                                '([Ljava/lang/Object;)Ljava/util/List;')
-PYPYSTRTOINT =          Method('pypy.PyPy', 'str_to_int',
+PYPYSTRTOINT =          Method(PYPYJAVA, 'str_to_int',
                                '(Ljava/lang/String;)I')
-PYPYSTRTOUINT =         Method('pypy.PyPy', 'str_to_uint',
+PYPYSTRTOUINT =         Method(PYPYJAVA, 'str_to_uint',
                                '(Ljava/lang/String;)I')
-PYPYSTRTOLONG =         Method('pypy.PyPy', 'str_to_long',
+PYPYSTRTOLONG =         Method(PYPYJAVA, 'str_to_long',
                                '(Ljava/lang/String;)J')
-PYPYSTRTOULONG =        Method('pypy.PyPy', 'str_to_ulong',
+PYPYSTRTOULONG =        Method(PYPYJAVA, 'str_to_ulong',
                                '(Ljava/lang/String;)J')
-PYPYSTRTOBOOL =         Method('pypy.PyPy', 'str_to_bool',
+PYPYSTRTOBOOL =         Method(PYPYJAVA, 'str_to_bool',
                                '(Ljava/lang/String;)Z')
-PYPYSTRTODOUBLE =       Method('pypy.PyPy', 'str_to_double',
+PYPYSTRTODOUBLE =       Method(PYPYJAVA, 'str_to_double',
                                '(Ljava/lang/String;)D')
-PYPYSTRTOCHAR =         Method('pypy.PyPy', 'str_to_char',
+PYPYSTRTOCHAR =         Method(PYPYJAVA, 'str_to_char',
                                '(Ljava/lang/String;)C')
-PYPYDUMPINDENTED  =     Method('pypy.PyPy', 'dump_indented',
+PYPYDUMPINDENTED  =     Method(PYPYJAVA, 'dump_indented',
                                  '(ILjava/lang/String;)V')
-PYPYDUMPINT  =          Method('pypy.PyPy', 'dump_int', '(II)V')
-PYPYDUMPUINT  =         Method('pypy.PyPy', 'dump_uint', '(II)V')
-PYPYDUMPLONG  =         Method('pypy.PyPy', 'dump_long', '(LI)V')
-PYPYDUMPDOUBLE  =       Method('pypy.PyPy', 'dump_double', '(DI)V')
-PYPYDUMPSTRING  =       Method('pypy.PyPy', 'dump_string', '([BI)V')
-PYPYDUMPBOOLEAN =       Method('pypy.PyPy', 'dump_boolean', '(ZI)V')
-PYPYDUMPOBJECT =        Method('pypy.PyPy', 'dump_object',
+PYPYDUMPINT  =          Method(PYPYJAVA, 'dump_int', '(II)V')
+PYPYDUMPUINT  =         Method(PYPYJAVA, 'dump_uint', '(II)V')
+PYPYDUMPLONG  =         Method(PYPYJAVA, 'dump_long', '(LI)V')
+PYPYDUMPDOUBLE  =       Method(PYPYJAVA, 'dump_double', '(DI)V')
+PYPYDUMPSTRING  =       Method(PYPYJAVA, 'dump_string',
+                               jvm_method_desc((jOOString,jInt),jVoid))
+PYPYDUMPBOOLEAN =       Method(PYPYJAVA, 'dump_boolean', '(ZI)V')
+PYPYDUMPOBJECT =        Method(PYPYJAVA, 'dump_object',
                                '(Ljava/lang/Object;I)V')
-PYPYRUNTIMENEW =        Method('pypy.PyPy', 'RuntimeNew',
+PYPYRUNTIMENEW =        Method(PYPYJAVA, 'RuntimeNew',
                                '(Ljava/lang/Class;)Ljava/lang/Object;')
+PYPYSTRING2BYTES =      Method(PYPYJAVA, 'string2bytes',
+                               jvm_method_desc((jString),jByteArray))
 
 
 # ___________________________________________________________________________
@@ -798,8 +816,14 @@ class JVMGenerator(Generator):
 
     def call_oostring(self, OOTYPE):
         cts_type = self.db.lltype_to_cts(OOTYPE)
-        mthd = Method('pypy.PyPy', 'oostring', jvm_method_desc([cts_type, jInt], jByteArray))
-        self.emit(mthd)
+        if cts_type != jByteArray:
+            mthd = Method.s(PYPYJAVA, 'oostring', [cts_type, jInt], jString)
+            self.emit(mthd)
+            if jOOString == jByteArray:
+                self.emit(PYPYSTRING2BYTES)
+        else:
+            mthd = Method.s(PYPYJAVA, 'oostring',
+                            [jByteArray, jInt], jByteArray)
         
     def new(self, TYPE):
         jtype = self.db.lltype_to_cts(TYPE)

@@ -111,7 +111,7 @@ ootype_to_jvm = {
     ootype.Float:            jDouble,
     ootype.Char:             jByte,
     ootype.UniChar:          jChar,
-    ootype.String:           jByteArray,
+    ootype.String:           jString,
     ootype.ROOT:             jObject,
 
     # We may want to use PyPy wrappers here later:
@@ -122,6 +122,11 @@ ootype_to_jvm = {
     ootype.Dict:             jHashMap,
     ootype.DictItemsIterator:jIterator
     }
+
+# Determine which class we will use to represent strings:
+if getoption('byte-arrays'):
+    ootype_to_jvm[ootype.String] = jByteArray
+jOOString = ootype_to_jvm[ootype.String]
 
 # Method descriptor construction
 def jvm_method_desc(argtypes, rettype):
