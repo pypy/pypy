@@ -1,4 +1,7 @@
 """
+This code is not used anymore and it's tests are skipped.
+Keeping it around for a while...
+
 All code for using LLVM's JIT in one place
 """
 
