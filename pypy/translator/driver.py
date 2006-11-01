@@ -281,7 +281,6 @@ class TranslationDriver(SimpleTaskEngine):
                               inline_threshold=0,
                               mallocs=False,
                               merge_if_blocks=False,
-                              propagate=False,
                               constfold=True,
                               heap2stack=False,
                               clever_malloc_removal=False)
@@ -500,7 +499,7 @@ class TranslationDriver(SimpleTaskEngine):
                           config=self.config)
         filename = self.gen.generate_source()
         self.log.info("Wrote %s" % (filename,))
-    task_source_cli = taskdef(task_source_cli, [OOBACKENDOPT, OOTYPE],
+    task_source_cli = taskdef(task_source_cli, ["?" + OOBACKENDOPT, OOTYPE],
                              'Generating CLI source')
 
     def task_compile_cli(self):
