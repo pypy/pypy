@@ -1,10 +1,10 @@
 import py
 from pypy import conftest
 
-from pypy.rpython.test.test_llinterp import interpret 
+from pypy.rpython.test.test_llinterp import interpret
 from pypy.translator.translator import graphof
 from pypy.jit.timeshifter.test.test_timeshift import hannotate
-from pypy.jit.timeshifter.rtyper import HintRTyper
+from pypy.jit.timeshifter.hrtyper import HintRTyper
 from pypy.jit.timeshifter.test.test_timeshift import P_NOVIRTUAL
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.objspace.flow.model import checkgraph
