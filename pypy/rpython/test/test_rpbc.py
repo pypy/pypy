@@ -1456,7 +1456,7 @@ def test_hlinvoke_simple():
     rt.specialize()
 
     def ll_h(R, f, x):
-        from pypy.rpython.objectmodel import hlinvoke
+        from pypy.rlib.objectmodel import hlinvoke
         return hlinvoke(R, f, x, 2)
 
     from pypy.rpython import annlowlevel
@@ -1500,7 +1500,7 @@ def test_hlinvoke_simple2():
     rt.specialize()
 
     def ll_h(R, f, x):
-        from pypy.rpython.objectmodel import hlinvoke
+        from pypy.rlib.objectmodel import hlinvoke
         return hlinvoke(R, f, x, 2)
 
     from pypy.rpython import annlowlevel
@@ -1549,7 +1549,7 @@ def test_hlinvoke_hltype():
     rt.specialize()
 
     def ll_h(R, f, a):
-        from pypy.rpython.objectmodel import hlinvoke
+        from pypy.rlib.objectmodel import hlinvoke
         return hlinvoke(R, f, a)
 
     from pypy.rpython import annlowlevel
@@ -1599,7 +1599,7 @@ def test_hlinvoke_method_hltype():
     rt.specialize()
 
     def ll_h(R, f, a):
-        from pypy.rpython.objectmodel import hlinvoke
+        from pypy.rlib.objectmodel import hlinvoke
         return hlinvoke(R, f, a)
 
     from pypy.rpython import annlowlevel
@@ -1660,7 +1660,7 @@ def test_hlinvoke_pbc_method_hltype():
     rt.specialize()
 
     def ll_h(R, f, a):
-        from pypy.rpython.objectmodel import hlinvoke
+        from pypy.rlib.objectmodel import hlinvoke
         return hlinvoke(R, f, a)
 
     from pypy.rpython import annlowlevel

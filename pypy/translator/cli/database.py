@@ -15,7 +15,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem import llmemory
 from pypy.translator.cli.opcodes import opcodes
 from pypy.translator.cli import dotnet
-from pypy.rpython.objectmodel import CDefinedIntSymbolic
+from pypy.rlib.objectmodel import CDefinedIntSymbolic
 
 try:
     set

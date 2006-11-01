@@ -74,7 +74,7 @@ def test_external():
     assert result
 
 def test_instantiate():
-    from pypy.rpython.objectmodel import instantiate
+    from pypy.rlib.objectmodel import instantiate
     class A:
         pass 
     class B(A):

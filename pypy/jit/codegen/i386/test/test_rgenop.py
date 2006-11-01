@@ -1,6 +1,6 @@
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.llinterp import LLInterpreter
-from pypy.rpython.objectmodel import keepalive_until_here
+from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rpython.annlowlevel import MixLevelAnnotatorPolicy
 from pypy.translator.c.test import test_boehm
 from pypy.jit.codegen.i386.rgenop import RI386GenOp

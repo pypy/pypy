@@ -1,4 +1,4 @@
-from pypy.rpython.objectmodel import free_non_gc_object
+from pypy.rlib.objectmodel import free_non_gc_object
 from pypy.rpython.memory.support import get_address_linked_list
 
 from pypy.rpython.test.test_llinterp import interpret

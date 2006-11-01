@@ -1,7 +1,7 @@
 from pypy.rpython.memory.lladdress import *
 from pypy.annotation.model import SomeAddress, SomeChar
 from pypy.translator.c.test.test_genc import compile
-from pypy.rpython.objectmodel import free_non_gc_object
+from pypy.rlib.objectmodel import free_non_gc_object
 
 def test_null():
     def f():
@@ -122,8 +122,8 @@ def test_flavored_malloc_stack():
     assert fn(1) == 2
 
 def test_weakaddress():
-    from pypy.rpython.objectmodel import cast_object_to_weakgcaddress
-    from pypy.rpython.objectmodel import cast_weakgcaddress_to_object
+    from pypy.rlib.objectmodel import cast_object_to_weakgcaddress
+    from pypy.rlib.objectmodel import cast_weakgcaddress_to_object
     from pypy.rpython.lltypesystem.lloperation import llop
     class A(object):
         pass
@@ -139,8 +139,8 @@ def test_weakaddress():
     assert fn(10)
 
 def test_constant_weakaddress():
-    from pypy.rpython.objectmodel import cast_object_to_weakgcaddress
-    from pypy.rpython.objectmodel import cast_weakgcaddress_to_object
+    from pypy.rlib.objectmodel import cast_object_to_weakgcaddress
+    from pypy.rlib.objectmodel import cast_weakgcaddress_to_object
     from pypy.rpython.lltypesystem.lloperation import llop
     class A(object):
         pass

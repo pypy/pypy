@@ -100,7 +100,7 @@ class TestConstant(CliTest):
         assert self.interpret(fn2, [1]) == True
 
     def test_customdict_circular(self):
-        from pypy.rpython.objectmodel import r_dict
+        from pypy.rlib.objectmodel import r_dict
         def key_eq(a, b):
             return a.x[0] == b.x[0]
         def key_hash(a):

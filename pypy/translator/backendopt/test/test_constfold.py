@@ -2,7 +2,7 @@ from pypy.objspace.flow.model import checkgraph, Constant, summary
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython import objectmodel
+from pypy.rlib import objectmodel
 from pypy.translator.backendopt.constfold import constant_fold_graph
 from pypy import conftest
 

@@ -1,4 +1,4 @@
-from pypy.rpython.objectmodel import specialize
+from pypy.rlib.objectmodel import specialize
 from pypy.rpython.lltypesystem import lltype
 from pypy.jit.codegen.model import AbstractRGenOp, GenLabel, GenBuilder
 from pypy.jit.codegen.model import GenVar, GenConst, CodeGenSwitch

@@ -26,7 +26,7 @@ _formatd.unwrap_spec = [gateway.ObjSpace, int, int, str, float]
 def _pdb(space):
     """Run an interp-level pdb.
     This is not available in translated versions of PyPy."""
-    from pypy.rpython.objectmodel import we_are_translated
+    from pypy.rlib.objectmodel import we_are_translated
     if we_are_translated():
         raise OperationError(space.w_NotImplementedError,
                              space.wrap("Cannot use interp-level pdb in translated pypy"))

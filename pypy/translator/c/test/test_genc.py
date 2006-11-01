@@ -275,7 +275,7 @@ def test_long_strings():
 
 
 def test_keepalive():
-    from pypy.rpython import objectmodel
+    from pypy.rlib import objectmodel
     def f():
         x = [1]
         y = ['b']

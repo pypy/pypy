@@ -22,7 +22,7 @@ class GrammarSource(TokenSource):
     EOF: end of file
     SYMDEF: a symbol definition e.g. "file_input:"
     STRING: a simple string "'xxx'"
-    SYMBOL: a rule symbol usually appeary right of a SYMDEF
+    SYMBOL: a rule symbol usually appearing right of a SYMDEF
     tokens: '[', ']', '(' ,')', '*', '+', '|'
     """
     def __init__(self, inpstring ):

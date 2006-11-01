@@ -525,8 +525,8 @@ def test_arena_bump_ptr():
 
 class TestWeakAddressLLinterp(object):
     def test_null(self):
-        from pypy.rpython.objectmodel import cast_weakgcaddress_to_object
-        from pypy.rpython.objectmodel import cast_object_to_weakgcaddress
+        from pypy.rlib.objectmodel import cast_weakgcaddress_to_object
+        from pypy.rlib.objectmodel import cast_object_to_weakgcaddress
         class A:
             pass
         def f():
@@ -534,8 +534,8 @@ class TestWeakAddressLLinterp(object):
         assert interpret(f, [])
     
     def test_attribute(object):
-        from pypy.rpython.objectmodel import cast_weakgcaddress_to_object
-        from pypy.rpython.objectmodel import cast_object_to_weakgcaddress
+        from pypy.rlib.objectmodel import cast_weakgcaddress_to_object
+        from pypy.rlib.objectmodel import cast_object_to_weakgcaddress
         class A:
             pass
         class B:

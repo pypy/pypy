@@ -1,5 +1,5 @@
 from pypy.rpython.annlowlevel import MixLevelAnnotatorPolicy
-from pypy.rpython.objectmodel import keepalive_until_here
+from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.c.test import test_boehm
 from ctypes import c_void_p, cast, CFUNCTYPE, c_int

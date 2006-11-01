@@ -7,7 +7,7 @@ from pypy.rpython.lltypesystem import rstr
 from pypy.annotation import model as annmodel
 from pypy.jit.llabstractinterp.llabstractinterp import LLAbstractInterp, Policy
 from pypy.objspace.flow import model as flowmodel
-from pypy.rpython import objectmodel
+from pypy.rlib import objectmodel
 
 # one day maybe
 py.test.skip("XXX need to be ported to the newer rgenop interface")
@@ -424,7 +424,7 @@ def test_dont_unroll_loop():
     assert insns == {'int_lt': 1, 'int_add': 1, 'int_mul': 1}
 
 def test_hint():
-    from pypy.rpython.objectmodel import hint
+    from pypy.rlib.objectmodel import hint
     A = lltype.GcArray(lltype.Char, hints={'immutable': True})
     def ll_interp(code):
         accum = 0
@@ -449,7 +449,7 @@ def test_hint():
     assert insns == {'int_add': 4, 'int_lt': 1}
 
 def test_hint_across_call():
-    from pypy.rpython.objectmodel import hint
+    from pypy.rlib.objectmodel import hint
     A = lltype.GcArray(lltype.Char, hints={'immutable': True})
     def ll_length(a):
         return len(a)
@@ -478,7 +478,7 @@ def test_hint_across_call():
     assert insns == {'int_add': 4, 'int_lt': 1}
 
 def test_conditional_origin():
-    from pypy.rpython.objectmodel import hint
+    from pypy.rlib.objectmodel import hint
     def ll_function(x, y, variable):
         result = 0
         i = 0

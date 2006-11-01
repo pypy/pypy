@@ -1,5 +1,5 @@
 import sys, os
-from pypy.rpython.objectmodel import UnboxedValue
+from pypy.rlib.objectmodel import UnboxedValue
 
 
 class A(object):

@@ -4,7 +4,7 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from pypy.interpreter.gateway import interp2app, ObjSpace
-from pypy.rpython.objectmodel import cast_weakgcaddress_to_object, cast_object_to_weakgcaddress
+from pypy.rlib.objectmodel import cast_weakgcaddress_to_object, cast_object_to_weakgcaddress
 from pypy.rpython.lltypesystem.llmemory import WEAKNULL
 
 

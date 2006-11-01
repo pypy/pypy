@@ -10,7 +10,7 @@ from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rlib.rarithmetic import intmask, r_int, r_uint, r_ulonglong, r_longlong
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import log
-from pypy.rpython import objectmodel
+from pypy.rlib import objectmodel
 
 _integer_reprs = {}
 def getintegerrepr(lltype, prefix=None):

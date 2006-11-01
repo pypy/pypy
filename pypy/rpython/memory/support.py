@@ -1,6 +1,6 @@
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.memory.lltypelayout import sizeof
-from pypy.rpython.objectmodel import free_non_gc_object
+from pypy.rlib.objectmodel import free_non_gc_object
 
 INT_SIZE = sizeof(lltype.Signed)
 

@@ -2,7 +2,7 @@ import py
 from pypy.rpython.lltypesystem import lltype
 from pypy.jit.timeshifter.test.test_timeshift import TimeshiftingTests
 from pypy.jit.timeshifter.test.test_timeshift import P_NOVIRTUAL
-from pypy.rpython.objectmodel import hint
+from pypy.rlib.objectmodel import hint
 
 
 class TestPromotion(TimeshiftingTests):

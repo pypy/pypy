@@ -4,7 +4,7 @@ from pypy.jit.hintannotator.annotator import HintAnnotator
 from pypy.jit.hintannotator.bookkeeper import HintBookkeeper
 from pypy.jit.hintannotator.model import *
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.objectmodel import hint
+from pypy.rlib.objectmodel import hint
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow import model as flowmodel
 from pypy.annotation.policy import AnnotatorPolicy
@@ -350,7 +350,7 @@ def test_degenerated_merge_substructure():
     assert hs1.contentdef.degenerated
 
 def test_degenerated_merge_cross_substructure():
-    from pypy.rpython import objectmodel
+    from pypy.rlib import objectmodel
     S = lltype.Struct('S', ('n', lltype.Signed))
     T = lltype.GcStruct('T', ('s', S), ('s1', S), ('n', lltype.Float))
 

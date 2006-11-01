@@ -29,8 +29,9 @@ mark where overflow checking is required.
 
 """
 import math
-from pypy.rpython import extregistry, objectmodel
+from pypy.rpython import extregistry
 
+from pypy.rlib import objectmodel
 # set up of machine internals
 _bits = 0
 _itest = 1

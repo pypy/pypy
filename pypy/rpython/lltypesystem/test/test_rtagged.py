@@ -1,7 +1,7 @@
 import sys
 from pypy.rpython.test.test_llinterp import interpret, get_interpreter
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.objectmodel import UnboxedValue
+from pypy.rlib.objectmodel import UnboxedValue
 from pypy.translator.translator import graphof
 from pypy.objspace.flow.model import summary
 from pypy.translator.backendopt.all import backend_optimizations

@@ -8,7 +8,7 @@ from pypy.translator.backendopt.stat import print_statistics
 from pypy.translator.c import genc, gc
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rpython.objectmodel import cast_weakgcaddress_to_object, cast_object_to_weakgcaddress
+from pypy.rlib.objectmodel import cast_weakgcaddress_to_object, cast_object_to_weakgcaddress
 from pypy.config.config import Config
 from pypy.config.pypyoption import pypy_optiondescription
 from pypy import conftest

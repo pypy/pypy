@@ -9,7 +9,7 @@ from pypy.objspace.cclp.misc import w, v, AppCoroutine
 from pypy.objspace.cclp.global_state import sched
 from pypy.objspace.cclp.types import deref, W_Var, W_CVar, W_Future, W_FailedValue
 
-from pypy.rpython.objectmodel import we_are_translated
+from pypy.rlib.objectmodel import we_are_translated
 
 W_Root = baseobjspace.W_Root
 all_mms = {}

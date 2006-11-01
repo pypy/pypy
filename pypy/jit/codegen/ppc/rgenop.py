@@ -1,7 +1,7 @@
 from pypy.jit.codegen.model import AbstractRGenOp, GenLabel, GenBuilder
 from pypy.jit.codegen.model import GenVar, GenConst, CodeGenSwitch
 from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rpython.objectmodel import specialize, we_are_translated
+from pypy.rlib.objectmodel import specialize, we_are_translated
 from pypy.jit.codegen.ppc.conftest import option
 
 class Register(object):

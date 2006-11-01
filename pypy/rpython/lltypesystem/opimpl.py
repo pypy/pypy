@@ -2,7 +2,7 @@ import sys
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.lloperation import opimpls
-from pypy.rpython.objectmodel import CDefinedIntSymbolic
+from pypy.rlib.objectmodel import CDefinedIntSymbolic
 
 # ____________________________________________________________
 # Implementation of the 'canfold' operations

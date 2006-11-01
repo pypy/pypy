@@ -3,7 +3,7 @@
 import py
 from pypy.jit.tl.opcode import *
 from pypy.jit.tl import opcode as tlopcode
-from pypy.rpython.objectmodel import hint
+from pypy.rlib.objectmodel import hint
 
 class Obj(object):
 

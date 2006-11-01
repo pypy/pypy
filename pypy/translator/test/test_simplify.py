@@ -76,7 +76,7 @@ def test_dont_remove_if_exception_guarded():
 
 
 def test_remove_pointless_keepalive():
-    from pypy.rpython import objectmodel
+    from pypy.rlib import objectmodel
     class C:
         y = None
         z1 = None

@@ -8,7 +8,7 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import Wrappable, W_Root, ObjSpace
 from pypy.interpreter.error import OperationError
 from pypy.tool.sourcetools import compile2, func_with_new_name
-from pypy.rpython.objectmodel import instantiate
+from pypy.rlib.objectmodel import instantiate
 from pypy.rlib.rarithmetic import intmask
 
 class TypeDef:

@@ -1,5 +1,5 @@
 from pypy.interpreter import gateway, baseobjspace
-from pypy.rpython.objectmodel import we_are_translated
+from pypy.rlib.objectmodel import we_are_translated
 
 # commonly imported there, used from types, variable, thread
 from pypy.module._stackless.clonable import ClonableCoroutine

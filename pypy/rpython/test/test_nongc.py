@@ -3,7 +3,7 @@ import py
 from pypy.annotation import model as annmodel
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.rpython.rtyper import RPythonTyper
-from pypy.rpython.objectmodel import free_non_gc_object
+from pypy.rlib.objectmodel import free_non_gc_object
 from pypy.rpython.test.test_llinterp import interpret
 
 def test_free_non_gc_object():

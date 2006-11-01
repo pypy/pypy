@@ -1,5 +1,5 @@
 import py
-from pypy.rpython.objectmodel import *
+from pypy.rlib.objectmodel import *
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 
@@ -270,7 +270,7 @@ class BaseTestObjectModel(BaseRtypingTest):
         assert res == 77
 
     def test_hint(self):
-        from pypy.rpython import objectmodel
+        from pypy.rlib import objectmodel
         def f():
             x = objectmodel.hint(5, hello="world")
             return x
@@ -302,7 +302,7 @@ class TestLLtype(BaseTestObjectModel, LLRtypeMixin):
         assert isinstance(self.interpret(f, []), int)
 
     def test_rtype_keepalive(self):
-        from pypy.rpython import objectmodel
+        from pypy.rlib import objectmodel
         def f():
             x = [1]
             y = ['b']

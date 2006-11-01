@@ -4,7 +4,7 @@ from pypy.rpython.memory.support import get_address_linked_list
 from pypy.rpython.memory.gcheader import GCHeaderBuilder
 from pypy.rpython.memory import lltypesimulation
 from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rpython.objectmodel import free_non_gc_object
+from pypy.rlib.objectmodel import free_non_gc_object
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.rarithmetic import ovfcheck
 

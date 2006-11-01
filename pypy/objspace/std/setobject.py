@@ -1,6 +1,6 @@
 from pypy.objspace.std.objspace import W_Object, OperationError
 from pypy.objspace.std.objspace import registerimplementation, register_all
-from pypy.rpython.objectmodel import r_dict
+from pypy.rlib.objectmodel import r_dict
 from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.interpreter import gateway
 

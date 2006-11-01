@@ -1,5 +1,5 @@
 import os, sys
-from pypy.rpython.objectmodel import we_are_translated
+from pypy.rlib.objectmodel import we_are_translated
 
 AUTO_DEBUG = os.getenv('PYPY_DEBUG')
 RECORD_INTERPLEVEL_TRACEBACK = True

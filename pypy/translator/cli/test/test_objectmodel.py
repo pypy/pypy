@@ -1,8 +1,8 @@
 import py
 from pypy.translator.cli.test.runtest import CliTest
-from pypy.rpython.test.test_objectmodel import BaseTestObjectModel
+from pypy.rlib.test.test_objectmodel import BaseTestObjectModel
 
-from pypy.rpython.objectmodel import cast_object_to_weakgcaddress,\
+from pypy.rlib.objectmodel import cast_object_to_weakgcaddress,\
      cast_weakgcaddress_to_object
 
 def skip_r_dict(self):
@@ -12,7 +12,7 @@ class TestCliObjectModel(CliTest, BaseTestObjectModel):
     test_rtype_r_dict_bm = skip_r_dict
 
     def test_rdict_of_void_copy(self):
-        from pypy.rpython.test.test_objectmodel import r_dict, strange_key_eq, strange_key_hash
+        from pypy.rlib.test.test_objectmodel import r_dict, strange_key_eq, strange_key_hash
         def fn():
             d = r_dict(strange_key_eq, strange_key_hash)
             d['hello'] = None
@@ -22,7 +22,7 @@ class TestCliObjectModel(CliTest, BaseTestObjectModel):
         assert self.interpret(fn, []) == 2
 
     # this test is copied from TestLLtype in
-    # rpython/test_objectmodel.py. It is not in TestOOtype because at
+    # rlib/test_objectmodel.py. It is not in TestOOtype because at
     # the moment llinterpret can't handle cast_*weakadr*
     def test_cast_to_and_from_weakaddress(self):
         class A(object):

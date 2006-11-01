@@ -9,7 +9,7 @@ from pypy.tool.sourcetools import has_varargs, valid_identifier
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import getgcflavor
-from pypy.rpython.objectmodel import instantiate, ComputedIntSymbolic
+from pypy.rlib.objectmodel import instantiate, ComputedIntSymbolic
 
 def normalize_call_familes(annotator):
     for callfamily in annotator.bookkeeper.pbc_maximal_call_families.infos():

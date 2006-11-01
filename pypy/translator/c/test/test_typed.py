@@ -711,7 +711,7 @@ class TestTypedTestCase(CompilationTestCase):
         assert fn(1) == 42
 
     def test_r_dict_exceptions(self):
-        from pypy.rpython.objectmodel import r_dict
+        from pypy.rlib.objectmodel import r_dict
         
         def raising_hash(obj):
             if obj.startswith("bla"):

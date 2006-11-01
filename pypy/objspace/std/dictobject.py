@@ -8,7 +8,7 @@ for order comparisons.
 from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
 
-from pypy.rpython.objectmodel import r_dict
+from pypy.rlib.objectmodel import r_dict
 
 
 class W_DictObject(W_Object):

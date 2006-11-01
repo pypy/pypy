@@ -14,8 +14,8 @@ from pypy.translator.llvm.opaquenode import OpaqueNode, ExtOpaqueNode, \
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.objspace.flow.model import Constant, Variable
 from pypy.rpython.memory.lladdress import NULL
-from pypy.rpython.objectmodel import Symbolic, ComputedIntSymbolic
-from pypy.rpython.objectmodel import CDefinedIntSymbolic
+from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
+from pypy.rlib.objectmodel import CDefinedIntSymbolic
 
 log = log.database 
 

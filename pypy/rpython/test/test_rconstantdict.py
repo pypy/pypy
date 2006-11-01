@@ -1,5 +1,5 @@
 import py
-from pypy.rpython.objectmodel import r_dict
+from pypy.rlib.objectmodel import r_dict
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 
 class BaseTestRconstantdict(BaseRtypingTest):

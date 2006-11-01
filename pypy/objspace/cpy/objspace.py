@@ -8,7 +8,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import Function
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
-from pypy.rpython.objectmodel import we_are_translated, instantiate
+from pypy.rlib.objectmodel import we_are_translated, instantiate
 
 
 class CPyObjSpace(baseobjspace.ObjSpace):

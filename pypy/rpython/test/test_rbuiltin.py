@@ -1,6 +1,6 @@
 from pypy.translator.translator import graphof
 from pypy.rpython.test import test_llinterp
-from pypy.rpython.objectmodel import instantiate, we_are_translated
+from pypy.rlib.objectmodel import instantiate, we_are_translated
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool import udir
 from pypy.rlib.rarithmetic import r_uint, intmask

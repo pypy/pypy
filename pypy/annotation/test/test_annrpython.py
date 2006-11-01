@@ -11,7 +11,7 @@ from pypy.annotation.listdef import ListDef
 from pypy.annotation.dictdef import DictDef
 from pypy.objspace.flow.model import *
 from pypy.rlib.rarithmetic import r_uint, base_int, r_longlong, r_ulonglong
-from pypy.rpython import objectmodel
+from pypy.rlib import objectmodel
 from pypy.objspace.flow import FlowObjSpace
 
 from pypy.translator.test import snippet

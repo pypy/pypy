@@ -13,7 +13,7 @@ from pypy.rpython.memory.simulator import MemorySimulatorError
 from pypy.rpython.memory import gclltype
 from pypy.rpython.memory.test.test_llinterpsim import interpret
 from pypy.rpython.memory.lladdress import simulator
-from pypy.rpython.objectmodel import free_non_gc_object
+from pypy.rlib.objectmodel import free_non_gc_object
 
 def setup_module(mod):
     def stdout_ignore_ll_functions(msg):

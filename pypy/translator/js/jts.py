@@ -9,7 +9,7 @@ from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Void, Bool, Float
 from pypy.rpython.lltypesystem.lltype import SignedLongLong, UnsignedLongLong, Primitive
 from pypy.rpython.lltypesystem.lltype import Char, UniChar
 from pypy.rpython.ootypesystem.ootype import String, _string, List, StaticMethod
-from pypy.rpython.objectmodel import Symbolic
+from pypy.rlib.objectmodel import Symbolic
 
 from pypy.translator.js.log import log
 

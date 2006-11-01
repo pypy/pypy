@@ -13,7 +13,7 @@ from pypy.rpython.rclass import getinstancerepr
 from pypy.rpython.rbuiltin import gen_cast
 from pypy.rpython.rtyper import LowLevelOpList
 from pypy.rpython.module import ll_stackless, ll_stack
-from pypy.rpython.objectmodel import ComputedIntSymbolic
+from pypy.rlib.objectmodel import ComputedIntSymbolic
 from pypy.translator.backendopt import graphanalyze
 
 from pypy.translator.stackless.frame import SAVED_REFERENCE, STORAGE_TYPES

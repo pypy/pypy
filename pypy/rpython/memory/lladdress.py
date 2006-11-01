@@ -4,7 +4,7 @@ from pypy.rlib.rarithmetic import r_uint
 from pypy.rpython.lltypesystem import llmemory
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.memory.lltypelayout import convert_offset_to_int
-from pypy.rpython.objectmodel import ComputedIntSymbolic
+from pypy.rlib.objectmodel import ComputedIntSymbolic
 
 NULL = llmemory.NULL
 

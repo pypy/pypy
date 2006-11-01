@@ -11,7 +11,7 @@ a drop-in replacement for the 'socket' module.
 #   - methods makefile(),
 #   - SSL
 
-from pypy.rpython.objectmodel import instantiate
+from pypy.rlib.objectmodel import instantiate
 from pypy.module.rsocket import ctypes_socket as _c
 from ctypes import cast, POINTER, c_char, c_char_p, pointer, byref, c_void_p
 from ctypes import create_string_buffer, sizeof

@@ -145,7 +145,7 @@ class WeakGcAddressRepr(Repr):
 
     def convert_const(self, value):
         from pypy.rpython.lltypesystem import llmemory
-        from pypy.rpython.objectmodel import cast_object_to_weakgcaddress
+        from pypy.rlib.objectmodel import cast_object_to_weakgcaddress
         from pypy.objspace.flow.model import Constant
         assert isinstance(value, llmemory.fakeweakaddress)
         if value.ref is None:

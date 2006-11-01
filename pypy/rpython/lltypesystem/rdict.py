@@ -5,9 +5,9 @@ from pypy.rpython.rdict import AbstractDictRepr, AbstractDictIteratorRepr,\
      rtype_newdict, dum_variant, dum_keys, dum_values, dum_items
 from pypy.rpython.lltypesystem import lltype
 from pypy.rlib.rarithmetic import r_uint
-from pypy.rpython.objectmodel import hlinvoke
+from pypy.rlib.objectmodel import hlinvoke
 from pypy.rpython import robject
-from pypy.rpython import objectmodel
+from pypy.rlib import objectmodel
 from pypy.rpython import rmodel
 
 # ____________________________________________________________

@@ -119,7 +119,7 @@ def test_aliasing():
     check(fn6, [int], [1], 12, must_be_removed=False)
 
 def test_with_keepalive():
-    from pypy.rpython.objectmodel import keepalive_until_here
+    from pypy.rlib.objectmodel import keepalive_until_here
     def fn1(x, y):
         if x > 0:
             t = x+y, x-y

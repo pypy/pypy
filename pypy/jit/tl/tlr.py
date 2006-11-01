@@ -1,4 +1,4 @@
-from pypy.rpython.objectmodel import hint
+from pypy.rlib.objectmodel import hint
 
 
 MOV_A_R    = 1

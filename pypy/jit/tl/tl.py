@@ -2,7 +2,7 @@
 
 import py
 from pypy.jit.tl.opcode import *
-from pypy.rpython.objectmodel import hint
+from pypy.rlib.objectmodel import hint
 
 def char2int(c):
     t = ord(c)

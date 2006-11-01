@@ -4,7 +4,7 @@
 
 # sizeof, offsetof
 
-from pypy.rpython.objectmodel import Symbolic
+from pypy.rlib.objectmodel import Symbolic
 from pypy.rpython.lltypesystem import lltype
 
 class AddressOffset(Symbolic):

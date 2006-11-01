@@ -3,7 +3,7 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem import rclass
 from pypy.rpython.lltypesystem.rdict import rtype_r_dict
-from pypy.rpython import objectmodel
+from pypy.rlib import objectmodel
 from pypy.rpython.rmodel import TyperError, Constant
 from pypy.rpython.robject import pyobj_repr
 from pypy.rpython.rbool import bool_repr

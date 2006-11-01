@@ -16,7 +16,7 @@ from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation import description
 from pypy.objspace.flow.model import Constant
 import pypy.rlib.rarithmetic
-import pypy.rpython.objectmodel
+import pypy.rlib.objectmodel
 import pypy.rlib.rstack
 
 # convenience only!
@@ -356,13 +356,13 @@ for name, value in globals().items():
 ##BUILTIN_ANALYZERS[pypy.rlib.rarithmetic.ovfcheck] = rarith_ovfcheck
 ##BUILTIN_ANALYZERS[pypy.rlib.rarithmetic.ovfcheck_lshift] = rarith_ovfcheck_lshift
 BUILTIN_ANALYZERS[pypy.rlib.rarithmetic.intmask] = rarith_intmask
-BUILTIN_ANALYZERS[pypy.rpython.objectmodel.instantiate] = robjmodel_instantiate
-BUILTIN_ANALYZERS[pypy.rpython.objectmodel.we_are_translated] = (
+BUILTIN_ANALYZERS[pypy.rlib.objectmodel.instantiate] = robjmodel_instantiate
+BUILTIN_ANALYZERS[pypy.rlib.objectmodel.we_are_translated] = (
     robjmodel_we_are_translated)
-BUILTIN_ANALYZERS[pypy.rpython.objectmodel.r_dict] = robjmodel_r_dict
-BUILTIN_ANALYZERS[pypy.rpython.objectmodel.hlinvoke] = robjmodel_hlinvoke
-BUILTIN_ANALYZERS[pypy.rpython.objectmodel.keepalive_until_here] = robjmodel_keepalive_until_here
-BUILTIN_ANALYZERS[pypy.rpython.objectmodel.hint] = robjmodel_hint
+BUILTIN_ANALYZERS[pypy.rlib.objectmodel.r_dict] = robjmodel_r_dict
+BUILTIN_ANALYZERS[pypy.rlib.objectmodel.hlinvoke] = robjmodel_hlinvoke
+BUILTIN_ANALYZERS[pypy.rlib.objectmodel.keepalive_until_here] = robjmodel_keepalive_until_here
+BUILTIN_ANALYZERS[pypy.rlib.objectmodel.hint] = robjmodel_hint
 BUILTIN_ANALYZERS[pypy.rpython.lltypesystem.llmemory.cast_ptr_to_adr] = llmemory_cast_ptr_to_adr
 BUILTIN_ANALYZERS[pypy.rpython.lltypesystem.llmemory.cast_adr_to_ptr] = llmemory_cast_adr_to_ptr
 BUILTIN_ANALYZERS[pypy.rpython.lltypesystem.llmemory.cast_adr_to_int] = llmemory_cast_adr_to_int
@@ -549,7 +549,7 @@ BUILTIN_ANALYZERS[ootype.ooidentityhash] = ooidentityhash
 def robjmodel_free_non_gc_object(obj):
     pass
 
-BUILTIN_ANALYZERS[pypy.rpython.objectmodel.free_non_gc_object] = (
+BUILTIN_ANALYZERS[pypy.rlib.objectmodel.free_non_gc_object] = (
     robjmodel_free_non_gc_object)
 
 #_________________________________

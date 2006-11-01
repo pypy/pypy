@@ -5,7 +5,7 @@ from pypy.interpreter.module import Module
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pytraceback import PyTraceback
 from pypy.interpreter.generator import GeneratorIterator
-from pypy.rpython.objectmodel import instantiate
+from pypy.rlib.objectmodel import instantiate
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.objspace.std.dicttype import dictiter_typedef

@@ -99,7 +99,7 @@ class TestUsingBoehm(AbstractGCTestClass):
     def test_weakgcaddress_is_weak(self):
         from pypy.rpython.lltypesystem.lloperation import llop
         from pypy.rpython.lltypesystem import lltype
-        from pypy.rpython.objectmodel import cast_object_to_weakgcaddress
+        from pypy.rlib.objectmodel import cast_object_to_weakgcaddress
         class State:
             pass
         s = State()

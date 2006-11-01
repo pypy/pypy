@@ -1,7 +1,7 @@
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rpython.objectmodel import CDefinedIntSymbolic
+from pypy.rlib.objectmodel import CDefinedIntSymbolic
 from pypy.objspace.flow.model import Constant, Variable
 from pypy.objspace.flow.model import FunctionGraph, Block, Link
 

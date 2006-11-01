@@ -1,5 +1,5 @@
 import py
-from pypy.rpython.objectmodel import specialize
+from pypy.rlib.objectmodel import specialize
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.translator import TranslationContext, graphof

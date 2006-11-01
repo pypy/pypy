@@ -3,7 +3,7 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem import rclass
 from pypy.rpython.ootypesystem.rdict import rtype_r_dict
 from pypy.objspace.flow.model import Constant
-from pypy.rpython import objectmodel
+from pypy.rlib import objectmodel
 from pypy.rpython.error import TyperError
 
 def rtype_new(hop):

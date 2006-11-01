@@ -1,6 +1,6 @@
 from pypy.interpreter.pyframe import PyFrame, SuspendedUnroller
 from pypy.interpreter.error import OperationError
-from pypy.rpython.objectmodel import instantiate
+from pypy.rlib.objectmodel import instantiate
 from pypy.rlib.unroll import SpecTag
 from pypy.objspace.flow.model import *
 

@@ -8,7 +8,7 @@ from pypy.jit.timeshifter.rtyper import HintRTyper
 from pypy.jit.timeshifter.test.test_timeshift import P_NOVIRTUAL
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.objspace.flow.model import checkgraph
-from pypy.rpython.objectmodel import hint
+from pypy.rlib.objectmodel import hint
 
 from pypy.lang.automata.dfa import *
 

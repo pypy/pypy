@@ -13,7 +13,7 @@ from pypy.interpreter.argument import Arguments, ArgumentsFromValuestack
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.opcodeorder import opcodeorder
 from pypy.tool.sourcetools import func_with_new_name
-from pypy.rpython.objectmodel import we_are_translated
+from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.rarithmetic import intmask
 from pypy.tool import stdlib_opcode as pythonopcode
 from pypy.rlib import rstack # for resume points

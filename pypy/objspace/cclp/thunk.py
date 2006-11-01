@@ -10,7 +10,7 @@ from pypy.objspace.cclp.interp_var import interp_wait, interp_entail, \
 
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.listobject import W_TupleObject
-from pypy.rpython.objectmodel import we_are_translated
+from pypy.rlib.objectmodel import we_are_translated
 
 def logic_args(args):
     "returns logic vars found in unpacked normalized args"

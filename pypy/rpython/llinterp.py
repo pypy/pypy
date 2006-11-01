@@ -3,7 +3,7 @@ from pypy.rlib.rarithmetic import intmask, r_uint, ovfcheck, r_longlong, r_ulong
 from pypy.rpython.lltypesystem import lltype, llmemory, lloperation, llheap
 from pypy.rpython.lltypesystem import rclass
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.objectmodel import ComputedIntSymbolic
+from pypy.rlib.objectmodel import ComputedIntSymbolic
 
 import sys, os
 import math

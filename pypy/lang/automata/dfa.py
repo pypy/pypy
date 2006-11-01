@@ -1,6 +1,6 @@
 " a very stripped down versio of cfbolz's algorithm/automaton module "
 
-from pypy.rpython.objectmodel import hint
+from pypy.rlib.objectmodel import hint
 from pypy.rpython.lltypesystem.lltype import GcArray, Signed, malloc
 
 class LexerError(Exception):

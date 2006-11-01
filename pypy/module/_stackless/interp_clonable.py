@@ -1,6 +1,6 @@
 from pypy.module._stackless.interp_coroutine import AbstractThunk, BaseCoState, Coroutine
 from pypy.rlib.rgc import gc_swap_pool, gc_clone
-from pypy.rpython.objectmodel import we_are_translated
+from pypy.rlib.objectmodel import we_are_translated
 
 from pypy.interpreter.error import OperationError
 

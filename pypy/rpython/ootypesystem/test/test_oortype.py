@@ -7,7 +7,7 @@ from pypy.annotation import model as annmodel
 from pypy.objspace.flow import FlowObjSpace
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.test.test_llinterp import interpret
-from pypy.rpython.objectmodel import r_dict
+from pypy.rlib.objectmodel import r_dict
 from pypy.rpython.ootypesystem import ooregistry # side effects
 
 def gengraph(f, args=[], viewBefore=False, viewAfter=False):

@@ -1,6 +1,6 @@
 import sys
-from pypy.rpython.objectmodel import Symbolic, ComputedIntSymbolic
-from pypy.rpython.objectmodel import CDefinedIntSymbolic
+from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
+from pypy.rlib.objectmodel import CDefinedIntSymbolic
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.lltypesystem.llmemory import Address, fakeaddress, \
      AddressOffset, ItemOffset, ArrayItemsOffset, FieldOffset, \

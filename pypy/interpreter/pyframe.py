@@ -7,7 +7,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter import pytraceback
 from pypy.rlib.rarithmetic import r_uint, intmask
 import opcode
-from pypy.rpython.objectmodel import we_are_translated, instantiate
+from pypy.rlib.objectmodel import we_are_translated, instantiate
 from pypy.rlib import rstack # for resume points
 
 
@@ -633,7 +633,7 @@ class SApplicationException(ControlFlowException):
 
     def emptystack(self, frame):
         # propagate the exception to the caller
-        from pypy.rpython.objectmodel import we_are_translated
+        from pypy.rlib.objectmodel import we_are_translated
         if we_are_translated():
             raise self.operr
         else:

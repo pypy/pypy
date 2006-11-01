@@ -1,7 +1,7 @@
 import py
 from pypy.rpython.memory.lladdress import *
 from pypy.annotation.model import SomeAddress, SomeChar
-from pypy.rpython.objectmodel import free_non_gc_object
+from pypy.rlib.objectmodel import free_non_gc_object
 
 from pypy.translator.llvm.test.runtest import *
 
@@ -171,8 +171,8 @@ def test_fakeaddress2():
     assert f() == 579
     
 def test_weakaddress():
-    from pypy.rpython.objectmodel import cast_object_to_weakgcaddress
-    from pypy.rpython.objectmodel import cast_weakgcaddress_to_object
+    from pypy.rlib.objectmodel import cast_object_to_weakgcaddress
+    from pypy.rlib.objectmodel import cast_weakgcaddress_to_object
     from pypy.rpython.lltypesystem.lloperation import llop
     class A(object):
         pass

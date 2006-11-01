@@ -19,7 +19,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.annotation import model as annmodel
-from pypy.rpython.objectmodel import UnboxedValue
+from pypy.rlib.objectmodel import UnboxedValue
 from pypy.rlib.rarithmetic import intmask
 
 #

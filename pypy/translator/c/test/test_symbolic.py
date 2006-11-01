@@ -2,7 +2,7 @@ from pypy.translator.interactive import Translation
 from pypy import conftest
 from pypy.rpython.lltypesystem import llmemory, lltype
 from pypy.rpython.memory import lladdress
-from pypy.rpython.objectmodel import ComputedIntSymbolic
+from pypy.rlib.objectmodel import ComputedIntSymbolic
 
 def getcompiled(f, args):
     t = Translation(f)

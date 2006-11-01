@@ -1,5 +1,5 @@
 from pypy.interpreter import gateway, baseobjspace, argument
-from pypy.rpython.objectmodel import we_are_translated
+from pypy.rlib.objectmodel import we_are_translated
 
 from pypy.objspace.cclp.types import W_Var, W_Future, W_FailedValue
 from pypy.objspace.cclp.misc import w, v, AppCoroutine, get_current_cspace

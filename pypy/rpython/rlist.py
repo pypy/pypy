@@ -7,7 +7,7 @@ from pypy.rpython.rslice import AbstractSliceRepr
 from pypy.rpython.lltypesystem.lltype import typeOf, Ptr, Void, Signed, Bool
 from pypy.rpython.lltypesystem.lltype import nullptr, Char, UniChar
 from pypy.rpython import robject
-from pypy.rpython.objectmodel import malloc_zero_filled
+from pypy.rlib.objectmodel import malloc_zero_filled
 from pypy.rpython.annlowlevel import ADTInterface
 
 ADTIFixedList = ADTInterface(None, {

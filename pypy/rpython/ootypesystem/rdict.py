@@ -9,9 +9,9 @@ from pypy.rpython.rpbc import MethodOfFrozenPBCRepr,\
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem.rlist import ll_newlist
 from pypy.rlib.rarithmetic import r_uint
-from pypy.rpython.objectmodel import hlinvoke
+from pypy.rlib.objectmodel import hlinvoke
 from pypy.rpython import robject
-from pypy.rpython import objectmodel
+from pypy.rlib import objectmodel
 from pypy.rpython import rmodel
 from pypy.rpython import llinterp
 

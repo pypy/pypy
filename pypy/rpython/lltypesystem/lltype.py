@@ -2,7 +2,7 @@ import py
 from pypy.rlib.rarithmetic import r_int, r_uint, intmask
 from pypy.rlib.rarithmetic import r_ulonglong, r_longlong, base_int
 from pypy.rlib.rarithmetic import normalizedinttype
-from pypy.rpython.objectmodel import Symbolic
+from pypy.rlib.objectmodel import Symbolic
 from pypy.tool.uid import Hashable
 from pypy.tool.tls import tlsobject
 from pypy.tool.picklesupport import getstate_with_slots, setstate_with_slots, pickleable_weakref

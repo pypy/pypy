@@ -8,7 +8,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable, SpaceCache
 from pypy.interpreter.function import Function
 from pypy.interpreter.typedef import GetSetProperty
-from pypy.rpython.objectmodel import we_are_translated
+from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.rcpy import CPyTypeInterface, cpy_export, cpy_import
 from pypy.rpython.rcpy import cpy_typeobject, rpython_object, cpy_allocate
 from pypy.rpython.rcpy import init_rpython_data, get_rpython_data

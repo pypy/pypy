@@ -1,7 +1,7 @@
 import os, sys
 from pypy.annotation import model as annmodel
 from pypy.annotation.listdef import s_list_of_strings
-from pypy.rpython.objectmodel import keepalive_until_here
+from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.jit.timeshifter.test import test_timeshift
 from pypy.translator.c.genc import CStandaloneBuilder
 from pypy.rlib.unroll import unrolling_iterable

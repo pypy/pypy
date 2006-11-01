@@ -3,7 +3,7 @@ from pypy.rpython.lltypesystem.lltype import Bool, Void, UniChar, typeOf, \
         Primitive, isCompatibleType, enforce, saferecursive, SignedLongLong, UnsignedLongLong
 from pypy.rpython.lltypesystem.lltype import frozendict, isCompatibleType
 from pypy.rlib.rarithmetic import intmask
-from pypy.rpython import objectmodel
+from pypy.rlib import objectmodel
 from pypy.tool.uid import uid
 
 try:

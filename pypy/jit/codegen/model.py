@@ -1,4 +1,4 @@
-from pypy.rpython.objectmodel import specialize
+from pypy.rlib.objectmodel import specialize
 
 
 class NotConstant(Exception):

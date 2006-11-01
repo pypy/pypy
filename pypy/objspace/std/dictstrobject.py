@@ -1,7 +1,7 @@
 from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
 
-from pypy.rpython.objectmodel import r_dict
+from pypy.rlib.objectmodel import r_dict
 
 class W_DictStrObject(W_Object):
     from pypy.objspace.std.dicttype import dict_typedef as typedef

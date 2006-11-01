@@ -19,7 +19,7 @@ from pypy.annotation import description
 from pypy.interpreter.argument import Arguments, ArgErr
 from pypy.rlib.rarithmetic import r_int, r_uint, r_ulonglong, r_longlong
 from pypy.rlib.rarithmetic import base_int
-from pypy.rpython.objectmodel import r_dict, Symbolic
+from pypy.rlib.objectmodel import r_dict, Symbolic
 from pypy.tool.algo.unionfind import UnionFind
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.ootypesystem import ootype

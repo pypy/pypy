@@ -5,9 +5,9 @@ from pypy.jit.timeshifter.hrtyper import HintRTyper
 from pypy.jit.timeshifter.test.test_timeshift import P_NOVIRTUAL
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.objspace.flow.model import checkgraph, summary
-from pypy.rpython.objectmodel import hint
+from pypy.rlib.objectmodel import hint
 
-from pypy.rpython.objectmodel import hint
+from pypy.rlib.objectmodel import hint
 
 import py.test
 

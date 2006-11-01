@@ -7,7 +7,7 @@ from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.rlib.rarithmetic import ovfcheck, ovfcheck_lshift, LONG_BIT, r_uint
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.intobject import W_IntObject
-from pypy.rpython.objectmodel import UnboxedValue
+from pypy.rlib.objectmodel import UnboxedValue
 
 # XXX this is a complete copy of intobject.py.  Find a better but still
 # XXX annotator-friendly way to share code...

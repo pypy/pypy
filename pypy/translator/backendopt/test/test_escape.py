@@ -2,7 +2,7 @@ from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.backendopt.escape import AbstractDataFlowInterpreter, malloc_to_stack
 from pypy.translator.backendopt.support import find_backedges, find_loop_blocks
 from pypy.rpython.llinterp import LLInterpreter
-from pypy.rpython.objectmodel import instantiate
+from pypy.rlib.objectmodel import instantiate
 
 def build_adi(function, types):
     t = TranslationContext()

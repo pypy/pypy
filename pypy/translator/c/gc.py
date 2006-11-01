@@ -62,7 +62,7 @@ class BasicGcPolicy(object):
 class RefcountingInfo:
     static_deallocator = None
 
-from pypy.rpython.objectmodel import CDefinedIntSymbolic
+from pypy.rlib.objectmodel import CDefinedIntSymbolic
 
 class RefcountingGcPolicy(BasicGcPolicy):
     transformerclass = refcounting.RefcountingGCTransformer

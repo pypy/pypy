@@ -1,4 +1,4 @@
-from pypy.rpython.objectmodel import we_are_translated
+from pypy.rlib.objectmodel import we_are_translated
 from pypy.interpreter import baseobjspace, gateway, argument, typedef
 from pypy.interpreter.function import Function
 from pypy.interpreter.pycode import PyCode

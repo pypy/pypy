@@ -2,7 +2,7 @@ import py
 from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
 
-from pypy.rpython.objectmodel import r_dict, we_are_translated
+from pypy.rlib.objectmodel import r_dict, we_are_translated
 
 def _is_str(space, w_key):
     return space.is_w(space.type(w_key), space.w_str)

@@ -2,7 +2,7 @@ from pypy.objspace.std.register_all import register_all
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
 from pypy.interpreter.error import OperationError, debug_print
 from pypy.interpreter.typedef import get_unique_interplevel_subclass
-from pypy.rpython.objectmodel import instantiate
+from pypy.rlib.objectmodel import instantiate
 from pypy.interpreter.gateway import PyPyCacheDir
 from pypy.tool.cache import Cache 
 from pypy.tool.sourcetools import func_with_new_name

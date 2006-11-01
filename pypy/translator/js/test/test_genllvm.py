@@ -436,7 +436,7 @@ def test_me():
     assert fn() == some_test()
 
 def test_symbolic():
-    from pypy.rpython.objectmodel import malloc_zero_filled
+    from pypy.rlib.objectmodel import malloc_zero_filled
     
     def symbolic1():
         if malloc_zero_filled:

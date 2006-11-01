@@ -1,11 +1,11 @@
 import sys
-from pypy.rpython.objectmodel import specialize
+from pypy.rlib.objectmodel import specialize
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.jit.codegen.i386.ri386 import *
 from pypy.jit.codegen.i386.codebuf import InMemoryCodeBuilder, CodeBlockOverflow
 from pypy.jit.codegen.model import AbstractRGenOp, GenLabel, GenBuilder
 from pypy.jit.codegen.model import GenVar, GenConst, CodeGenSwitch
-from pypy.rpython import objectmodel
+from pypy.rlib import objectmodel
 from pypy.rpython.annlowlevel import llhelper
 
 WORD = 4
