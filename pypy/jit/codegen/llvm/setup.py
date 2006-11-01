@@ -6,7 +6,7 @@ cxxflags = popen('llvm-config --cxxflags').readline().split()
 ldflags  = popen('llvm-config --ldflags').readline().split()
 libs     = popen('llvm-config --libs all').readline().split()
 
-opts = dict(name='llvmjit',
+opts = dict(name='llvmjit_',
             sources=['lib/llvmjit.cpp'],
             libraries=[],
             include_dirs =["include"] + [f[2:] for f in cxxflags if f.startswith('-I')],
