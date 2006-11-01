@@ -37,3 +37,25 @@ def test_compiled2():
 
 def DONTtest_execute_accross_module():
     pass
+
+def DONTtest_modify_global_data():
+    pass
+
+def DONTtest_call_back_to_parent(): #call JIT-compiler again for it to add case(s) to flexswitch
+    pass
+
+def DONTtest_delete_function():
+    pass
+
+def DONTtest_functions_with_different_signatures():
+    pass
+
+def DONTtest_llvm_transformations():
+    pass
+
+def DONTtest_layers_of_codegenerators():    #e.g. i386 code until function stabilizes then llvm
+    pass
+
+def DONTtest_inmemory_ll_and_bc_files():
+    pass
+
