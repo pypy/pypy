@@ -86,7 +86,7 @@ class JvmGeneratedSource(object):
         res = subp.wait()
         if res or (not allow_stderr and stderr):
             raise JvmSubprogramError(res, args, stdout, stderr)
-        return stdout
+        return stdout, stderr
 
     def compile(self):
         """
@@ -125,7 +125,9 @@ class JvmGeneratedSource(object):
                '-cp',
                str(self.javadir),
                self.package+".Main"] + strargs
-        return self._invoke(cmd, True)
+        stdout, stderr = self._invoke(cmd, True)
+        sys.stderr.write(stderr)
+        return stdout
         
 def generate_source_for_function(func, annotation):
     
