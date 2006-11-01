@@ -59,7 +59,7 @@ def recognize(automaton, s):
 def convertdfa(automaton):
     """ converts the dfa transitions into a table, represented as a big string.
     this is just to make the code more amenable to current state of the JIT.  Returns
-     a two tuple of dfa as table, and final states"""
+    a two tuple of dfa as table, and final states"""
 
     size = automaton.num_states * 256
     dfatable = [chr(255)] * size
@@ -83,10 +83,18 @@ def recognizetable(dfatable, s, finalstates):
         if state == 255:
             break
         indx += 1
-    state = hint(state, variable=True)
 
     # more strange code for now - check final state?
-    for fs in finalstates:
-        if state == ord(fs):
-            return 1
-    return 0
+    res = 0
+    indx = 0
+    while True:
+        if indx >= len(finalstates):
+            break
+        fs = ord(finalstates[indx])
+        fs = hint(fs, concrete=True)
+        if state == fs:
+            res = 1
+            break
+        indx += 1
+    res = hint(res, variable=True)
+    return res

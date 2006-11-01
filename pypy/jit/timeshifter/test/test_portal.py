@@ -7,8 +7,6 @@ from pypy.rpython.llinterp import LLInterpreter
 from pypy.objspace.flow.model import checkgraph, summary
 from pypy.rlib.objectmodel import hint
 
-from pypy.rlib.objectmodel import hint
-
 import py.test
 
 class TestPortal(object):
@@ -121,11 +119,10 @@ class TestPortal(object):
         self.check_insns(int_floordiv=1, int_mul=0)
 
     def test_dfa_compile(self):
-        py.test.skip("we've gone yellow")
         from pypy.lang.automata.dfa import getautomaton, convertdfa, recognizetable
+        a = getautomaton()
+        dfatable, final_states = convertdfa(a)
         def main(gets):
-            a = getautomaton()
-            dfatable, final_states = convertdfa(a)
             s = ["aaaaaaaaaab", "aaaa"][gets]
             return recognizetable(dfatable, s, final_states)
 
