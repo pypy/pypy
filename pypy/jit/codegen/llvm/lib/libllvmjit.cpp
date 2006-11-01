@@ -1,6 +1,6 @@
 //implementation for using the LLVM JIT
 
-#include "llvmjit.h"
+#include "libllvmjit.h"
 
 int testme(int n) {
     return n * 2;

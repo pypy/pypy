@@ -6,12 +6,20 @@
 
     This file contains the ctypes specification to use the llvmjit library!
 '''
+from pypy.rpython.rctypes import implementation
 
 import ctypes
 import os
 
-path = os.path.join(os.path.dirname(__file__), 'llvmjit_.so')
+path = os.path.join(os.path.dirname(__file__), 'libllvmjit.so')
 llvmjit = ctypes.cdll.LoadLibrary(os.path.abspath(path))
+class _FuncPtr(ctypes._CFuncPtr):
+    _flags_ = ctypes._FUNCFLAG_CDECL
+    # aaarghdistutilsunixaaargh (may need something different for standalone builds...)
+    libraries = (os.path.join(os.path.dirname(path), 'llvmjit'),)
+llvmjit._FuncPtr = _FuncPtr
 
-def testme(n):
-    return llvmjit.testme(n)
+#impls
+testme = llvmjit.testme
+testme.restype = ctypes.c_int
+testme.argtypes = [ctypes.c_int]
