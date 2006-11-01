@@ -31,6 +31,25 @@ class Config(object):
             homeconfig, name = self._cfgimpl_get_home_by_path(name)
             homeconfig.setoption(name, value, 'default')
 
+    def copy(self, as_default=False, parent=None):
+        result = Config.__new__(self.__class__)
+        result._cfgimpl_descr = self._cfgimpl_descr
+        result._cfgimpl_value_owners = owners = {}
+        result._cfgimpl_parent = parent
+        result._cfgimpl_values = v = {}
+        for child in self._cfgimpl_descr._children:
+            if isinstance(child, Option):
+                v[child._name] = self._cfgimpl_values[child._name]
+                if as_default:
+                    owners[child._name] = 'default'
+                else:
+                    owners[child._name] = (
+                        self._cfgimpl_value_owners[child._name])
+            elif isinstance(child, OptionDescription):
+                v[child._name] = self._cfgimpl_values[child._name].copy(
+                    as_default, parent=result)
+        return result
+
     def __setattr__(self, name, value):
         if self._cfgimpl_frozen and getattr(self, name) != value:
             raise TypeError("trying to change a frozen option object")

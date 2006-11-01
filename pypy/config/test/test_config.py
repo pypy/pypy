@@ -424,3 +424,23 @@ def test_make_dict():
     d = make_dict(config)
     assert d == {"s1.a": True, "int": 43}
 
+def test_copy():
+    descr = OptionDescription("opt", "", [
+        OptionDescription("s1", "", [
+            BoolOption("a", "", default=False)]),
+        IntOption("int", "", default=42)])
+    c1 = Config(descr)
+    c1.int = 43
+    c2 = c1.copy()
+    assert c2.int == 43
+    assert not c2.s1.a
+    c2.s1.a = True
+    assert c2.s1.a
+    py.test.raises(ValueError, "c2.int = 44")
+    c2 = c1.copy(as_default=True)
+    assert c2.int == 43
+    assert not c2.s1.a
+    c2.s1.a = True
+    assert c2.s1.a
+    c2.int = 44 # does not crash
+
