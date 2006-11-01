@@ -2,7 +2,8 @@ import os #
 from pypy.objspace.flow import model as flowmodel
 from pypy.translator.oosupport.metavm import Generator
 from pypy.translator.jvm.typesystem import \
-     JvmType, jObject, jPrintStream, jvm_for_class, jVoid
+     JvmType, jObject, jPrintStream, jvm_for_class, jVoid, jvm_method_desc, \
+     jInt, jByteArray
 from pypy.rpython.ootypesystem import ootype
 
 # ___________________________________________________________________________
@@ -739,7 +740,7 @@ class JVMGenerator(Generator):
         # Ignore Void values
         if v.concretetype is ootype.Void:
             return
-        
+
         if isinstance(v, flowmodel.Variable):
             jty, idx = self._var_data(v)
             return self.store_jvm_var(jty, idx)
@@ -795,6 +796,11 @@ class JVMGenerator(Generator):
     def call_primitive(self, graph):
         raise NotImplementedError
 
+    def call_oostring(self, OOTYPE):
+        cts_type = self.db.lltype_to_cts(OOTYPE)
+        mthd = Method('pypy.PyPy', 'oostring', jvm_method_desc([cts_type, jInt], jByteArray))
+        self.emit(mthd)
+        
     def new(self, TYPE):
         jtype = self.db.lltype_to_cts(TYPE)
         ctor = Method(jtype.class_name(), "<init>", "()V", opcode=INVOKESPECIAL)
@@ -857,7 +863,7 @@ class JVMGenerator(Generator):
     less_than = lambda self: self._compare_op(IF_ICMPLT)
     greater_than = lambda self: self._compare_op(IF_ICMPGT)
     less_equals = lambda self: self._compare_op(IF_ICMPLT)
-    greater_equals = lambda self: self._compare_op(IF_ICMPGT)
+    greater_equals = lambda self: self._compare_op(IF_ICMPGE)
 
     def _uint_compare_op(self, cmpopcode):
         PYPYUINTCMP.invoke(self)

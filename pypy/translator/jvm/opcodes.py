@@ -7,7 +7,7 @@ come from the oosupport directory.
 
 from pypy.translator.oosupport.metavm import \
      PushArg, PushAllArgs, StoreResult, InstructionList, New, DoNothing, Call,\
-     SetField, GetField, CallMethod, DownCast, RuntimeNew
+     SetField, GetField, CallMethod, DownCast, RuntimeNew, OOString
 import pypy.translator.jvm.generator as jvmgen
 
 def _check_zer(op):
@@ -28,14 +28,14 @@ opcodes = {
     'oogetfield':               [GetField, StoreResult],
     'oosend':                   [CallMethod, StoreResult],
     'ooupcast':                 DoNothing,
-    'oodowncast':               [DownCast,StoreResult],
+    'oodowncast':               [DownCast, StoreResult],
     'oois':                     'is_null',
     'oononnull':                'is_not_null',
     #'instanceof':               [CastTo, 'ldnull', 'cgt.un'],
     #'subclassof':               [PushAllArgs, 'call bool [pypylib]pypy.runtime.Utils::SubclassOf(class [mscorlib]System.Type, class[mscorlib]System.Type)'],
     #'ooidentityhash':           [PushAllArgs, 'callvirt instance int32 object::GetHashCode()'],
     #'oohash':                   [PushAllArgs, 'callvirt instance int32 object::GetHashCode()'],    
-    #'oostring':                 [OOString],
+    'oostring':                 [OOString, StoreResult],
     #'ooparse_int':              [PushAllArgs, 'call int32 [pypylib]pypy.runtime.Utils::OOParseInt(string, int32)'],
     #'oonewcustomdict':          [NewCustomDict],
     #

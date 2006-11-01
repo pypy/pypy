@@ -251,6 +251,50 @@ public class PyPy {
     }
 
     // ----------------------------------------------------------------------
+    // Helpers
+    
+    public static byte[] string2bytes(String s) {
+    	return s.getBytes();
+    }
+    
+    // ----------------------------------------------------------------------
+    // OOString support
+    
+    public static byte[] oostring(int n, int base_) {
+    	// XXX needs special case for unsigned ints
+        if (base_ == -1)
+            base_ = 10;
+        if (n < 0 && base_ != 10)
+            return string2bytes("-" + Integer.toString(-n, base_));
+        else
+            return string2bytes(Integer.toString(n, base_));
+    }
+
+    public static byte[] oostring(double d, int base_) {
+        return string2bytes(new Double(d).toString());
+    }
+
+    public static byte[] oostring(Object obj, int base_)
+    {
+        return string2bytes(String.format("<%s object>", new Object[] { obj.getClass().getName() }));
+    }
+
+    public static byte[] oostring(char ch, int base_)
+    {
+        return string2bytes(new Character(ch).toString());
+    }
+
+    public static byte[] oostring(byte[] s, int base_)
+    {
+        return s;
+    }
+
+    public static byte[] OOString(boolean b, int base_)
+    {
+        return string2bytes(new Boolean(b).toString());
+    }
+
+    // ----------------------------------------------------------------------
     // Self Test
 
     public static int __counter = 0, __failures = 0;

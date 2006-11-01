@@ -178,6 +178,7 @@ class Database:
         ootype.Float:jvmgen.PYPYDUMPDOUBLE,
         ootype.Bool:jvmgen.PYPYDUMPBOOLEAN,
         ootype.Class:jvmgen.PYPYDUMPOBJECT,
+        ootype.String:jvmgen.PYPYDUMPSTRING,
         }
 
     def generate_dump_method_for_ootype(self, OOTYPE):
