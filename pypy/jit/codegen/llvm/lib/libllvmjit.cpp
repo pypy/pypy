@@ -33,9 +33,9 @@ int compile(const char* filename) {
         return false;
     }
 
-    std::ostream *Out = new std::ofstream((inputfile + ".bc").c_str(),
-            std::ios::out | std::ios::trunc | std::ios::binary);
-    WriteBytecodeToFile(module, *Out); //XXX what to do with the 3rd param (NoCompress)?
+    //std::ostream *Out = new std::ofstream((inputfile + ".bc").c_str(),
+    //        std::ios::out | std::ios::trunc | std::ios::binary);
+    //WriteBytecodeToFile(module, *Out); //XXX what to do with the 3rd param (NoCompress)?
 
     ModuleProvider* module_provider = new ExistingModuleProvider(module);
     if (!g_execution_engine) {
