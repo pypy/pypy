@@ -12,70 +12,67 @@ curdir = dirname(__file__)
 square = join(curdir, 'square')
 mul2   = join(curdir, 'mul2')
 
-square_src = '''int %square(int %n) {
+llsquare = '''int %square(int %n) {
 block0:
     %n2 = mul int %n, %n
     ret int %n2
 }'''
 
-mul2_src = '''int %mul2(int %n) {
+llmul2 = '''int %mul2(int %n) {
 block0:
     %n2 = mul int %n, 2
     ret int %n2
 }'''
 
 #helpers
-def execute(filename, funcname, param):
-    assert llvmjit.compile(filename)
-    return llvmjit.execute(funcname, param)
-
-def execute_src(src, funcname, param):
-    assert llvmjit.compile_src(src)
-    return llvmjit.execute(funcname, param)
+def execute(llsource, function_name, param):
+    assert llvmjit.compile(llsource)
+    function = llvmjit.find_function(function_name)
+    assert function
+    return llvmjit.execute(function, param)
 
 #tests...
 def test_restart():
-    llvmjit.restart()
+    for i in range(3):
+        llvmjit.restart()
+        assert not llvmjit.find_function('square')
+        assert llvmjit.compile(llsquare)
+        assert llvmjit.find_function('square')
+
+def test_find_function():
+    for i in range(3):
+        llvmjit.restart()
+        assert not llvmjit.find_function('square')
+        assert not llvmjit.find_function('square')
+        assert llvmjit.compile(llsquare)
+        assert llvmjit.find_function('square')
+        assert llvmjit.find_function('square')
 
 def test_execute_translation():
     llvmjit.restart()
     def f(x):
-        return execute(square, 'square', x + 5)
+        return execute(llsquare, 'square', x + 5)
     fn = compile(f, [int])
     res = fn(1)
     assert res == 36
 
 def test_compile():
     llvmjit.restart()
-    assert llvmjit.compile(square)
+    assert llvmjit.compile(llsquare)
 
 def test_execute():
     llvmjit.restart()
-    assert execute(square, 'square', 4) == 4 * 4
+    assert execute(llsquare, 'square', 4) == 4 * 4
 
 def test_execute_multiple():
     llvmjit.restart()
-    llvmjit.compile(square)
-    llvmjit.compile(mul2)
+    llvmjit.compile(llsquare)
+    llvmjit.compile(llmul2)
+    square = llvmjit.find_function('square')
+    mul2   = llvmjit.find_function('mul2')
     for i in range(5):
-        assert llvmjit.execute('square', i) == i * i
-        assert llvmjit.execute('mul2', i) == i * 2
-
-def test_compile_src():
-    llvmjit.restart()
-    assert llvmjit.compile_src(square_src)
-
-def test_execute_src():
-    llvmjit.restart()
-    assert execute_src(square_src, 'square', 4) == 4 * 4
-    
-def test_execute_multiple_src():
-    llvmjit.restart()
-    llvmjit.compile_src(square_src)
-    llvmjit.compile_src(mul2_src)
-    for i in range(5):
-        assert llvmjit.execute('square', i) == i * i
-        assert llvmjit.execute('mul2', i) == i * 2
+        assert llvmjit.execute(square, i) == i * i
+        assert llvmjit.execute(mul2  , i) == i * 2
 
 def DONTtest_execute_accross_module():
     pass
@@ -97,4 +94,3 @@ def DONTtest_llvm_transformations():
 
 def DONTtest_layers_of_codegenerators():    #e.g. i386 code until function stabilizes then llvm
     pass
-

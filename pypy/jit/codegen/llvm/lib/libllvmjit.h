@@ -5,9 +5,9 @@ extern "C" {
 #endif
 
 void    restart();
-int     compile(const char* filename);
-int     compile_src(const char* src);
-int     execute(const char* funcname, int param);
+int     compile(const char* llsource);
+void*   find_function(const char* funcname);
+int     execute(const void* function, int param);
 
 #ifdef  __cplusplus    
 }

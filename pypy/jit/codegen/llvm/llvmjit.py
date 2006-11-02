@@ -27,10 +27,10 @@ compile = llvmjit.compile
 compile.restype  = c_int
 compile.argtypes = [c_char_p]
 
-compile_src = llvmjit.compile_src
-compile_src.restype  = c_int
-compile_src.argtypes = [c_char_p]
+find_function = llvmjit.find_function
+find_function.restype  = c_void_p
+find_function.argtypes = [c_char_p]
 
 execute = llvmjit.execute
 execute.restype  = c_int
-execute.argtypes = [c_char_p, c_int]
+execute.argtypes = [c_void_p, c_int]

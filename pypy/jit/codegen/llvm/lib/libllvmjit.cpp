@@ -23,14 +23,20 @@ using namespace llvm;
 ExecutionEngine*    g_execution_engine;
 
 
-void restart() {
-    delete g_execution_engine;
+void    restart() {
+    delete g_execution_engine; //XXX test if this correctly cleans up including generated code
     g_execution_engine = NULL;
 }
 
 
-int add_module_to_execution_engine(Module* module) {
-    //std::ostream *Out = new std::ofstream((inputfile + ".bc").c_str(),
+int     compile(const char* llsource) {
+    Module*     module = ParseAssemblyString(llsource, new Module("llvmjit"));
+    if (!module) {
+        std::cerr << "Error: can not parse " << llsource << "\n" << std::flush;
+        return false;
+    }
+
+    //std::ostream *Out = new std::ofstream("temp-libllvmjit.bc",
     //        std::ios::out | std::ios::trunc | std::ios::binary);
     //WriteBytecodeToFile(module, *Out); //XXX what to do with the 3rd param (NoCompress)?
 
@@ -45,48 +51,28 @@ int add_module_to_execution_engine(Module* module) {
 }
 
 
-int compile(const char* filename) {
-    std::string inputfile(filename);
+void*   find_function(const char* name) {
+    if (!g_execution_engine)    return NULL; //note: decided not to be treated as an error
 
-    Module*     module(ParseAssemblyFile(inputfile + ".ll"));
-    if (!module) {
-        std::cerr << "Error: can not parse " << inputfile << ".ll\n" << std::flush;
-        return false;
-    }
-
-    return add_module_to_execution_engine(module);
+    return g_execution_engine->FindFunctionNamed(name); //note: can be NULL
 }
 
 
-int compile_src(const char* src) {
-    Module*     module = ParseAssemblyString(src, new Module("llvmjit"));
-    if (!module) {
-        std::cerr << "Error: can not parse " << src << "\n" << std::flush;
-        return false;
-    }
-
-    return add_module_to_execution_engine(module);
-}
-
-
-int execute(const char* funcname, int param) { //currently compiled=Module
-    int err = -1;
-
+int     execute(const void* function, int param) { //XXX allow different function signatures
     if (!g_execution_engine) {
         std::cerr << "Error: no llvm code compiled yet!\n" << std::flush;
-        return err;
+        return -1;
+    }
+
+    if (!function) {
+        std::cerr << "Error: no function supplied to libllvmjit.execute(...)\n" << std::flush;
+        return -1;
     }
 
     std::vector<GenericValue> args;
     args.push_back((void*)param);
 
-    Function*   func = g_execution_engine->FindFunctionNamed(funcname);
-    if (!func) {
-        std::cerr << "Error: can not find function " << funcname << "\n" << std::flush;
-        return err;
-    }
-
-    GenericValue gv = g_execution_engine->runFunction(func, args);
+    GenericValue gv = g_execution_engine->runFunction((Function*)function, args);
     return gv.IntVal;
 }
 
