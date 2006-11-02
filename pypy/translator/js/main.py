@@ -40,7 +40,7 @@ def get_arg_names(func_data):
         [:func_data.func_code.co_argcount])
 
 def rpython2javascript_main(argv, opts):
-    if len(argv) < 1:
+    if len(argv) < 2:
         print "usage: module <function_names>"
         import sys
         sys.exit(0)
@@ -114,8 +114,12 @@ def rpython2javascript(mod, function_names, opts=Options):
         if func_name not in mod.__dict__:
             raise FunctionNotFound("function %r was not found in module %r" % (func_name, module_name))
         func_code = mod.__dict__[func_name]
+        if func_code.func_defaults:
+            lgt = len(func_code.func_defaults)
+        else:
+            lgt = 0
         if func_code.func_code.co_argcount > 0 and func_code.func_code. \
-                co_argcount != len(func_code.func_defaults):
+                co_argcount != lgt:
             raise BadSignature("Function %s does not have default arguments" % func_name)
     source_ssf = get_source_ssf(mod, module_name, function_names, opts.debug_transform)
     exec(source_ssf) in globals()
