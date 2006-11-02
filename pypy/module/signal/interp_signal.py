@@ -1,3 +1,4 @@
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 from pypy.interpreter.miscutils import Action
 from pypy.module.signal import ctypes_signal
