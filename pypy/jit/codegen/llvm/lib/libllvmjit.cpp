@@ -23,16 +23,13 @@ using namespace llvm;
 ExecutionEngine*    g_execution_engine;
 
 
-int compile(const char* filename) {
-    std::string inputfile(filename);
+void restart() {
+    delete g_execution_engine;
+    g_execution_engine = NULL;
+}
 
-    //from llvm-as.cpp
-    Module*     module(ParseAssemblyFile(inputfile + ".ll"));
-    if (!module) {
-        std::cerr << "Error: can not parse " << inputfile << ".ll\n" << std::flush;
-        return false;
-    }
 
+int add_module_to_execution_engine(Module* module) {
     //std::ostream *Out = new std::ofstream((inputfile + ".bc").c_str(),
     //        std::ios::out | std::ios::trunc | std::ios::binary);
     //WriteBytecodeToFile(module, *Out); //XXX what to do with the 3rd param (NoCompress)?
@@ -45,6 +42,30 @@ int compile(const char* filename) {
     }
 
     return true;
+}
+
+
+int compile(const char* filename) {
+    std::string inputfile(filename);
+
+    Module*     module(ParseAssemblyFile(inputfile + ".ll"));
+    if (!module) {
+        std::cerr << "Error: can not parse " << inputfile << ".ll\n" << std::flush;
+        return false;
+    }
+
+    return add_module_to_execution_engine(module);
+}
+
+
+int compile_src(const char* src) {
+    Module*     module = ParseAssemblyString(src, new Module("llvmjit"));
+    if (!module) {
+        std::cerr << "Error: can not parse " << src << "\n" << std::flush;
+        return false;
+    }
+
+    return add_module_to_execution_engine(module);
 }
 
 
@@ -68,3 +89,4 @@ int execute(const char* funcname, int param) { //currently compiled=Module
     GenericValue gv = g_execution_engine->runFunction(func, args);
     return gv.IntVal;
 }
+

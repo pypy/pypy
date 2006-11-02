@@ -4,8 +4,10 @@
 extern "C" {
 #endif
 
-int compile(const char* filename);
-int execute(const char* funcname, int param);
+void    restart();
+int     compile(const char* filename);
+int     compile_src(const char* src);
+int     execute(const char* funcname, int param);
 
 #ifdef  __cplusplus    
 }
