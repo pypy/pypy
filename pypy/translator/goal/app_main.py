@@ -198,6 +198,17 @@ def entry_point(executable, argv):
     mainmodule = type(sys)('__main__')
     sys.modules['__main__'] = mainmodule
 
+    # set up the Ctrl-C => KeyboardInterrupt signal handler, if the
+    # signal module is available
+    try:
+        import signal
+    except ImportError:
+        pass
+    else:
+        def keyboard_interrupt_handler(*args):
+            raise KeyboardInterrupt
+        signal.signal(signal.SIGINT, keyboard_interrupt_handler)
+
     try:
         if sys.argv:
             if sys.argv[0] == '-c':

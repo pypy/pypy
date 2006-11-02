@@ -107,8 +107,8 @@ class ExecutionContext:
         #     as selected by sys.setcheckinterval()
         ticker = self.ticker
         if ticker <= 0:
-            Action.perform_actions(self.pending_actions)
             Action.perform_actions(self.space.pending_actions)
+            Action.perform_actions(self.pending_actions)
             ticker = self.space.sys.checkinterval
         self.ticker = ticker - 1
         if frame.w_f_trace is None or self.is_tracing:

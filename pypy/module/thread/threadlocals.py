@@ -12,6 +12,7 @@ class OSThreadLocals:
 
     def __init__(self):
         self._valuedict = {}   # {thread_ident: ExecutionContext()}
+        self._mainthreadident = 0
 
     def getvalue(self):
         ident = thread.get_ident()
@@ -19,7 +20,19 @@ class OSThreadLocals:
 
     def setvalue(self, value):
         ident = thread.get_ident()
-        self._valuedict[ident] = value
+        if value is not None:
+            if len(self._valuedict) == 0:
+                self._mainthreadident = ident
+            self._valuedict[ident] = value
+        else:
+            try:
+                del self._valuedict[ident]
+            except KeyError:
+                pass
+
+    def getmainthreadvalue(self):
+        ident = self._mainthreadident
+        return self._valuedict.get(ident, None)
 
     def enter_thread(self, space):
         "Notification that the current thread is just starting."

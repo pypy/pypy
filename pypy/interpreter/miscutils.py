@@ -165,6 +165,9 @@ class ThreadLocals:
     def setvalue(self, value):
         self._value = value
 
+    def getmainthreadvalue(self):
+        return self._value
+
     def getGIL(self):
         return None    # XXX temporary hack!
 
