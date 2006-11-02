@@ -27,9 +27,10 @@ block0:
 #helpers
 def execute(llsource, function_name, param):
     assert llvmjit.compile(llsource)
-    function = llvmjit.find_function(function_name)
-    assert function
-    return llvmjit.execute(function, param)
+    f = llvmjit.FindFunction(function_name)
+    assert f.function
+    return llvmjit.execute(f.function, param)
+    #return function(param) #XXX this does not seem to translate, how to do it instead?
 
 #tests...
 def test_restart():
@@ -48,14 +49,6 @@ def test_find_function():
         assert llvmjit.find_function('square')
         assert llvmjit.find_function('square')
 
-def test_execute_translation():
-    llvmjit.restart()
-    def f(x):
-        return execute(llsquare, 'square', x + 5)
-    fn = compile(f, [int])
-    res = fn(1)
-    assert res == 36
-
 def test_compile():
     llvmjit.restart()
     assert llvmjit.compile(llsquare)
@@ -73,6 +66,16 @@ def test_execute_multiple():
     for i in range(5):
         assert llvmjit.execute(square, i) == i * i
         assert llvmjit.execute(mul2  , i) == i * 2
+
+def test_call_found_function():
+    llvmjit.restart()
+    llvmjit.compile(llsquare)
+    llvmjit.compile(llmul2)
+    square = llvmjit.FindFunction('square')
+    mul2   = llvmjit.FindFunction('mul2')
+    for i in range(5):
+        assert square(i) == i * i
+        assert mul2(i) == i * 2
 
 def DONTtest_execute_accross_module():
     pass
@@ -94,3 +97,11 @@ def DONTtest_llvm_transformations():
 
 def DONTtest_layers_of_codegenerators():    #e.g. i386 code until function stabilizes then llvm
     pass
+    
+def test_execute_translation(): #put this one last because it takes the most time
+    llvmjit.restart()
+    def f(x):
+        return execute(llsquare, 'square', x + 5)
+    fn = compile(f, [int])
+    res = fn(1)
+    assert res == 36

@@ -34,3 +34,12 @@ find_function.argtypes = [c_char_p]
 execute = llvmjit.execute
 execute.restype  = c_int
 execute.argtypes = [c_void_p, c_int]
+
+#helpers...
+class FindFunction(object):
+    def __init__(self, function_name):
+        self.function = find_function(function_name)
+
+    def __call__(self, param):  #XXX this does not seem to translate, how to do it instead?
+        return execute(self.function, param)
+
