@@ -40,10 +40,6 @@ class OSThreadLocals:
             except KeyError:
                 pass
 
-    def yield_thread(self):
-        """Notification that the current thread is between two bytecodes
-        (so that it's a good time to yield some time to other threads)."""
-
     def atthreadexit(self, space, exit_func, w_obj):
         ec = space.getexecutioncontext()
         ec.thread_exit_funcs.append((exit_func, w_obj))

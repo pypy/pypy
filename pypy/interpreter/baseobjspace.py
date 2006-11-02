@@ -148,6 +148,7 @@ class ObjSpace(object):
             config = Config(pypy_optiondescription)
         self.config = config
         self.interned_strings = {}
+        self.pending_actions = []
         self.setoptions(**kw)
 
         if self.config.objspace.logbytecodes:            

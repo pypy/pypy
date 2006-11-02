@@ -1,5 +1,5 @@
 import sys
-from pypy.interpreter.miscutils import Stack
+from pypy.interpreter.miscutils import Stack, Action
 from pypy.interpreter.error import OperationError
 
 def new_framestack():
@@ -16,6 +16,7 @@ class ExecutionContext:
         self.w_profilefunc = None
         self.is_tracing = 0
         self.ticker = 0
+        self.pending_actions = []
         self.compiler = space.createcompiler()
 
     def enter(self, frame):
@@ -106,7 +107,8 @@ class ExecutionContext:
         #     as selected by sys.setcheckinterval()
         ticker = self.ticker
         if ticker <= 0:
-            self.space.threadlocals.yield_thread()
+            Action.perform_actions(self.pending_actions)
+            Action.perform_actions(self.space.pending_actions)
             ticker = self.space.sys.checkinterval
         self.ticker = ticker - 1
         if frame.w_f_trace is None or self.is_tracing:
@@ -254,3 +256,6 @@ class ExecutionContext:
                 frame.last_exception = last_exception
                 self.is_tracing -= 1
 
+    def add_pending_action(self, action):
+        self.pending_actions.append(action)
+        self.ticker = 0

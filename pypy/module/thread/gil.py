@@ -8,6 +8,7 @@ Global Interpreter Lock.
 # from time to time, using the executioncontext's XXX
 
 import thread
+from pypy.interpreter.miscutils import Action
 from pypy.module.thread.threadlocals import OSThreadLocals
 
 
@@ -39,3 +40,16 @@ class GILThreadLocals(OSThreadLocals):
 
     def getGIL(self):
         return self.GIL    # XXX temporary hack!
+
+
+class GILReleaseAction(Action):
+    """An action called when the current thread is between two bytecodes
+    (so that it's a good time to yield some time to other threads).
+    """
+    repeat = True
+
+    def __init__(self, threadlocals):
+        self.threadlocals = threadlocals
+
+    def perform(self):
+        self.threadlocals.yield_thread()
