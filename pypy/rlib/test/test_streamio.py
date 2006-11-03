@@ -2,6 +2,7 @@
 
 import os
 import time
+import random
 from pypy.tool.udir import udir
 
 from pypy.rlib import streamio
@@ -359,27 +360,33 @@ class BaseTestBufferingInputStreamTests(BaseRtypingTest):
 
     def test_seek(self):
         file = self.makeStream(tell=True, seek=True)
+        end = len(file.readall())
+        file.seek(0)
+        cases = [(readto, seekto, whence) for readto in range(0, end+1)
+                                          for seekto in range(0, end+1)
+                                          for whence in [0, 1, 2]]
+        random.shuffle(cases)
+        if isinstance(self, LLRtypeMixin):
+            cases = cases[:7]      # pick some cases at random - too slow!
         def f():
             all = file.readall()
-            end = len(all)
-            for readto in range(0, end+1):
-                for seekto in range(0, end+1):
-                    for whence in [0, 1, 2]:
-                        file.seek(0)
-                        assert file.tell() == 0
-                        head = file.read(readto)
-                        assert head == all[:readto]
-                        if whence == 1:
-                            offset = seekto - readto
-                        elif whence == 2:
-                            offset = seekto - end
-                        else:
-                            offset = seekto
-                        file.seek(offset, whence)
-                        here = file.tell()
-                        assert here == seekto
-                        rest = file.readall()
-                        assert rest == all[seekto:]
+            assert end == len(all)
+            for readto, seekto, whence in cases:
+                file.seek(0)
+                assert file.tell() == 0
+                head = file.read(readto)
+                assert head == all[:readto]
+                if whence == 1:
+                    offset = seekto - readto
+                elif whence == 2:
+                    offset = seekto - end
+                else:
+                    offset = seekto
+                file.seek(offset, whence)
+                here = file.tell()
+                assert here == seekto
+                rest = file.readall()
+                assert rest == all[seekto:]
             return True
         res = self.interpret(f, [])
         assert res
@@ -388,22 +395,26 @@ class BaseTestBufferingInputStreamTests(BaseRtypingTest):
         file = self.makeStream()
         all = file.readall()
         end = len(all)
+        cases = [(readto, seekto, whence) for readto in range(0, end+1)
+                                          for seekto in range(readto, end+1)
+                                          for whence in [1, 2]]
+        random.shuffle(cases)
+        if isinstance(self, LLRtypeMixin):
+            cases = cases[:7]      # pick some cases at random - too slow!
         def f():
-            for readto in range(0, end+1):
-                for seekto in range(readto, end+1):
-                    for whence in [1, 2]:
-                        base = TSource(self.packets)
-                        file = streamio.BufferingInputStream(base)
-                        head = file.read(readto)
-                        assert head == all[:readto]
-                        offset = 42 # for the flow space
-                        if whence == 1:
-                            offset = seekto - readto
-                        elif whence == 2:
-                            offset = seekto - end
-                        file.seek(offset, whence)
-                        rest = file.readall()
-                        assert rest == all[seekto:]
+            for readto, seekto, whence in cases:
+                base = TSource(self.packets)
+                file = streamio.BufferingInputStream(base)
+                head = file.read(readto)
+                assert head == all[:readto]
+                offset = 42 # for the flow space
+                if whence == 1:
+                    offset = seekto - readto
+                elif whence == 2:
+                    offset = seekto - end
+                file.seek(offset, whence)
+                rest = file.readall()
+                assert rest == all[seekto:]
             return True
         res = self.interpret(f, [])
         assert res
