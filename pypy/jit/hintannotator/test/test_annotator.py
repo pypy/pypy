@@ -464,6 +464,41 @@ def test_specialize_calls():
     assert ha.binding(v1).eager_concrete
     assert not ha.binding(v2).is_fixed()
 
+def test_specialize_deepfreeze_calls():
+
+    l1 = [1,2,3,4,5]
+    l2 = [6,7,8,9,10]
+    
+    def getlist(n):
+        if n:
+            return l1
+        else:
+            return l2
+
+    def ll_get(l, i):
+        return l[i]
+
+    def ll_function(n, i):
+        l = getlist(n)
+        l = hint(l, deepfreeze=True)
+
+        res = ll_get(l, i)
+        return res
+
+    hs, ha = hannotate(ll_function, [int, int], annotator=True, policy=P_NOVIRTUAL)
+    assert hs.deepfrozen
+    assert hs.concretetype == lltype.Signed
+    ll_get_graph = graphof(ha.base_translator, ll_get)
+    gdesc = ha.bookkeeper.getdesc(ll_get_graph)    
+    assert len(gdesc._cache) == 1
+    assert 'xDxx' in gdesc._cache
+    v1, v2 = gdesc._cache['xDxx'].getargs()
+
+    assert isinstance(ha.binding(v1), SomeLLAbstractConstant)
+    assert isinstance(ha.binding(v2), SomeLLAbstractConstant)
+    assert ha.binding(v1).deepfrozen
+    assert not ha.binding(v2).is_fixed()
+
 def test_propagate_fixing_across_func_arguments():
     def ll_func2(z):
         z = hint(z, concrete=True)
