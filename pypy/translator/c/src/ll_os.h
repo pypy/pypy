@@ -378,6 +378,15 @@ long LL_os_fork(void) {
 }
 #endif
 
+/*
+  The following code is only generated if spawnv exists and
+  if RPyListOfString exists. The latter is a bit tricky:
+  The RPyListOfString is necessary to correctly declare this function.
+  For this to work, the test code must be properly written in a way
+  that RPyListOfString is really annotated as such.
+  Please see the test in test_extfunc.py - creating the correct
+  argument string type is not obvious and error prone.
+ */
 #if defined(HAVE_SPAWNV) && defined(HAVE_RPY_LIST_OF_STRING)
 long LL_os_spawnv(int mode, RPyString *path, RPyListOfString *args) {
 	int pid, i, nargs = args->l_length;
