@@ -167,4 +167,17 @@ class TestInterp(object):
     def test_block(self):
         self.assert_result(parse_d("{ 5}"), W_Number(5))
         self.assert_result(parse_d("{3; 5}"), W_Number(5))
+    
+    def test_try_catch_finally(self):
+        self.assert_prints(parse_d("""
+        try {
+            throw(3);
+        }
+        catch (x) {
+            print(x);
+        }
+        finally {
+            print(5)
+        }
+        """), ["3", "5"])
         
