@@ -98,3 +98,23 @@ def recognizetable(dfatable, s, finalstates):
         indx += 1
     res = hint(res, variable=True)
     return res
+
+def recognizeparts(trans, finals, s):
+    " a less simple recognizer "
+    trans = hint(trans, deepfreeze=True)
+    finals = hint(finals, deepfreeze=True)
+    
+    state = 0
+    try:
+        hint(None, global_mp_to_follow=True)
+        for char in s:
+            char = hint(char, promote=True)
+            state = trans[state, char]
+            hint(state, concrete=True)
+
+    except KeyError:
+        return False
+
+    res = state in finals
+    res = hint(res, variable=True)
+    return res
