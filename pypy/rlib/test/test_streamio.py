@@ -533,14 +533,16 @@ class BaseTestLineBufferingOutputStream(BaseRtypingTest):
             assert base.buf == "123456789ABCDEF\n0123"
         self.interpret(f, [])
 
-    def xtest_write_seek(self):
+    def test_write_seek(self):
         base = TWriter()
         filter = streamio.BufferingOutputStream(base, 4)
-        filter.write("x"*6)
-        filter.seek(3)
-        filter.write("y"*2)
-        filter.close()
-        assert base.buf == "x"*3 + "y"*2 + "x"*1
+        def f():
+            filter.write("x"*6)
+            filter.seek(3)
+            filter.write("y"*2)
+            filter.close()
+            assert base.buf == "x"*3 + "y"*2 + "x"*1
+        self.interpret(f, [])
 
 class TestLineBufferingOutputStream(BaseTestLineBufferingOutputStream):
     def interpret(self, func, args, **kwds):
