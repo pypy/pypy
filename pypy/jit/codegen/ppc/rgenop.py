@@ -44,25 +44,71 @@ CT_REGISTER = 3
 class RegisterAllocation:
     def __init__(self, initial_mapping):
         self.insns = []
+        self.freeregs = gprs[3:]
         self.reg2var = {}
         self.var2reg = {}
+        self.var2spill = {}
         for var, reg in initial_mapping.iteritems():
             self.reg2var[reg] = var
             self.var2reg[var] = reg
         self.crfinfo = [(0, 0)] * 8
+        self._spill_index = 0
+
+    def _spill(self):
+        self._spill_index += 4
+        return self._spill_index
+
+    def _allocate_reg(self, newarg, lru):
+
+        # check if there is a register available
+        if self.freeregs:
+            reg = self.freeregs.pop()
+            self.reg2var[reg] = newarg
+            self.var2reg[newarg] = reg
+            return reg
+
+        # if not, find something to spill
+        argtospill = lru.pop(0)
+        assert argtospill in self.var2reg
+        spill = self._spill()
+        reg = self.var2reg[argtospill] # move argtospill to spill slot
+        self.var2spill[argtospill] = spill
+        del self.var2reg[argtospill]
+        self.reg2var[reg] = newarg     # assign reg to newarg
+        self.var2reg[newarg] = reg
+        self.insns.append(Spill(argtospill, reg, spill))
+        return reg
+        
     def allocate_for_insns(self, insns):
+        # Walk through instructions in forward order
+        lru = []
         for insn in insns:
+
+            # put things into the lru
+            for arg in insn.reg_args:
+                if arg in lru:
+                    del lru[lru.index(arg)]
+                lru.append(arg)
+
+            # We need to allocate a register for each used
+            # argument that is not already in one
             for i in range(len(insn.reg_args)):
                 arg = insn.reg_args[i]
                 argcls = insn.reg_arg_regclasses[i]
-                assert arg in self.var2reg
+
+                if arg not in self.var2reg:
+                    # It has no register now because it has been spilled
+                    assert argcls is GP_REGISTER, "uh-oh"
+                    reg = self._allocate_reg(arg, lru)
+                    self.insns.append(
+                        Unspill(arg, reg, self.var2spill[arg]))
+                    del self.var2spill[arg]
+
+            # Need to allocate a register for the destination
+            assert not insn.result or insn.result not in self.var2reg
             cand = None
             if insn.result_regclass is GP_REGISTER:
-                for cand in gprs[3:]:
-                    if cand not in self.reg2var:
-                        break
-                if not cand:
-                    assert 0
+                cand = self._allocate_reg(insn.result, lru)
             elif insn.result_regclass is CR_FIELD:
                 assert crfs[0] not in self.reg2var
                 cand = crfs[0]
@@ -237,6 +283,38 @@ class Jump(Insn):
         else:
             BO = 4  # jump if relavent bit is NOT set in the CR
         asm.bcctr(BO, self.bit)
+
+class Unspill(Insn):
+    """ A special instruction inserted by our register "allocator."  It
+    indicates that we need to load a value from the stack into a register
+    because we spilled a particular value. """
+    def __init__(self, var, reg, offset):
+        """
+        var --- the var we spilled (a Var)
+        reg --- the reg we spilled it from (an integer)
+        offset --- the offset on the stack we spilled it to (an integer)
+        """
+        self.var = var
+        self.reg = reg
+        self.offset = offset
+    def emit(self, asm):
+        asm.lwz(self.reg.number, rSP, self.offset)
+
+class Spill(Insn):
+    """ A special instruction inserted by our register "allocator."
+    It indicates that we need to store a value from the register into
+    the stack because we spilled a particular value."""
+    def __init__(self, var, reg, offset):
+        """
+        var --- the var we are spilling (a Var)
+        reg --- the reg we are spilling it from (an integer)
+        offset --- the offset on the stack we are spilling it to (an integer)
+        """
+        self.var = var
+        self.reg = reg
+        self.offset = offset
+    def emit(self, asm):
+        asm.stw(self.reg.number, rSP, self.offset)
 
 from pypy.jit.codegen.ppc import codebuf_posix as memhandler
 from ctypes import POINTER, cast, c_char, c_void_p, CFUNCTYPE, c_int
@@ -455,7 +533,7 @@ class Builder(GenBuilder):
         return (gv_result, gv_x.load(self))
 
     def op_int_add(self, gv_x, gv_y):
-        if isinstance(gv_y, IntConst) and abs(gv_y.value) < 2*16:
+        if isinstance(gv_y, IntConst) and abs(gv_y.value) < 2**16:
             gv_result = self.newvar()
             self.insns.append(
                 Insn_GPR__GPR_IMM(RPPCAssembler.addi,
