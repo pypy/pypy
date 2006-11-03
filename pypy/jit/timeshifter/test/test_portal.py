@@ -153,6 +153,19 @@ class TestPortal(object):
         res = self.timeshift_from_portal(main, recognizetable, [1], policy=P_NOVIRTUAL)
         assert not res
 
+    def test_dfa_compile2(self):
+        from pypy.lang.automata.dfa import getautomaton, recognizeparts
+        a = getautomaton()
+        def main(gets):
+            s = ["aaaaaaaaaab", "aaaa"][gets]
+            return recognizeparts(a.transitions, a.final_states, s)
+
+        res = self.timeshift_from_portal(main, recognizeparts, [0], policy=P_NOVIRTUAL)
+        assert res
+
+        res = self.timeshift_from_portal(main, recognizeparts, [1], policy=P_NOVIRTUAL)
+        assert not res
+
     def test_method_call_promote(self):
         class Base(object):
             pass
