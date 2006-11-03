@@ -15,7 +15,7 @@ class Node(object):
 #        return output
 #    getlist = staticmethod(getlist)
 
-
+        
 class Array(Node):
     def __init__(self, items=()):
         self.items = items

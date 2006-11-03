@@ -1,7 +1,7 @@
 
 from pypy.lang.js.astgen import *
 from pypy.lang.js.context import ExecutionContext
-from pypy.lang.js.jsobj import W_Number, W_String, W_Object, w_Undefined
+from pypy.lang.js.jsobj import W_Number, W_String, W_Object, w_Undefined, W_Arguments
 from pypy.lang.js.scope import scope_manager
 
 def writer(x):
@@ -15,7 +15,7 @@ class __extend__(Array):
     def call(self, context):
         d = dict(enumerate(self.items))
         return W_Array(d)
-            
+
 class __extend__(Assign):
     def call(self, context):
         val = self.expr.call(context)
@@ -116,7 +116,7 @@ class __extend__(Plus):
         #return self.left.call(context).add(self.right.call(context))
 
 class __extend__(Script):
-    def call(self, context=None, args=None, this=None, params=None):
+    def call(self, context=None, args=(), this=None, params=None):
         if params == None:
             params = []
         ncontext = ExecutionContext(context)
@@ -126,7 +126,11 @@ class __extend__(Script):
             except IndexError:
                 temp = w_Undefined
             ncontext.assign(item, temp)
-
+        
+        w_Arguments = W_Arguments(dict([(str(x),y) for x,y in enumerate(args)]))
+        print w_Arguments.dict_w
+        ncontext.assign('arguments', w_Arguments)
+        
         try:
             for node in self.nodes:
                 node.call(ncontext)
