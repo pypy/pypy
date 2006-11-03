@@ -3,7 +3,7 @@ from pypy.annotation.pairtype import pair, pairtype
 from pypy.jit.hintannotator.bookkeeper import getbookkeeper
 from pypy.rpython.lltypesystem import lltype, lloperation
 
-UNARY_OPERATIONS = """same_as hint getfield setfield getsubstruct getarraysize setarrayitem
+UNARY_OPERATIONS = """same_as hint getfield setfield getsubstruct getarraysize
                       cast_pointer
                       direct_call
                       indirect_call
@@ -22,7 +22,7 @@ BINARY_OPERATIONS = """int_add int_sub int_mul int_mod int_and int_rshift int_fl
                        char_gt char_lt char_le char_ge char_eq char_ne
                        int_gt int_lt int_le int_ge int_eq int_ne
                        uint_gt uint_lt uint_le uint_ge uint_eq uint_ne 
-                       getarrayitem
+                       getarrayitem setarrayitem
                        getarraysubstruct
                        ptr_eq ptr_ne""".split()
 
@@ -280,16 +280,16 @@ class __extend__(SomeLLAbstractValue):
         FIELD_TYPE = getattr(S, hs_fieldname.const)
         return SomeLLAbstractVariable(lltype.Ptr(FIELD_TYPE))
 
-    def getarrayitem(hs_v1, hs_index):
-        ARRAY = hs_v1.concretetype.TO
-        return SomeLLAbstractVariable(ARRAY.OF)
+##    def getarrayitem(hs_v1, hs_index):
+##        ARRAY = hs_v1.concretetype.TO
+##        return SomeLLAbstractVariable(ARRAY.OF)
 
-    def setarrayitem(hs_v1, hs_index, hs_value):
-        pass
+##    def setarrayitem(hs_v1, hs_index, hs_value):
+##        pass
 
-    def getarraysubstruct(hs_v1, hs_index):
-        ARRAY = hs_v1.concretetype.TO
-        return SomeLLAbstractVariable(lltype.Ptr(ARRAY.OF))
+##    def getarraysubstruct(hs_v1, hs_index):
+##        ARRAY = hs_v1.concretetype.TO
+##        return SomeLLAbstractVariable(lltype.Ptr(ARRAY.OF))
 
     def indirect_call(hs_v1, *args_hs):
         hs_graph_list = args_hs[-1]
@@ -425,6 +425,9 @@ class __extend__(pairtype(SomeLLAbstractValue, SomeLLAbstractValue)):
 
     def getarrayitem((hs_v1, hs_v2)):
         return SomeLLAbstractVariable(hs_v1.concretetype.TO.OF)
+
+    def setarrayitem((hs_v1, hs_v2), hs_v3):
+        pass
 
     def union((hs_v1, hs_v2)):
         raise annmodel.UnionError("%s %s don't mix" % (hs_v1, hs_v2))
