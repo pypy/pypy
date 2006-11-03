@@ -109,7 +109,10 @@ class __extend__(pairtype(AbstractStringRepr, PyObjRepr)):
                                  resulttype=pyobj_repr,
                                  _callable= lambda chars, sz: pyobjectptr(''.join(chars)))
 
+from pypy.rpython.lltypesystem.lloperation import llop
+
 def mallocstr(length):
+    llop.debug_assert(Void, "%s >= 0 # negative string length", length)
     r = malloc(STR, length)
     if not we_are_translated() or not malloc_zero_filled:
         r.hash = 0
@@ -507,7 +510,6 @@ class LLHelpers(AbstractLLHelpers):
 
     def ll_stringslice_minusone(s1):
         newlen = len(s1.chars) - 1
-        assert newlen >= 0
         newstr = mallocstr(newlen)
         j = 0
         while j < newlen:
