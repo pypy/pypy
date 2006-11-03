@@ -556,7 +556,7 @@ class LineBufferingOutputStream(BufferingOutputStream):
     def write(self, data):
         BufferingOutputStream.write(self, data)
         p = self.buf.rfind('\n') + 1
-        if p:
+        if p >= 0:
             self.do_write(self.buf[:p])
             self.buf = self.buf[p:]
 

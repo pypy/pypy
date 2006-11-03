@@ -512,24 +512,26 @@ class TestBufferingOutputStreamLLinterp(BaseTestBufferingOutputStream,
     pass
     
 
-class TestLineBufferingOutputStreamTests:
+class BaseTestLineBufferingOutputStream(BaseRtypingTest):
 
     def test_write(self):
         base = TWriter()
         filter = streamio.LineBufferingOutputStream(base)
-        filter.bufsize = 4 # More handy for testing than the default
-        filter.write("123")
-        assert base.buf == ""
-        assert filter.tell() == 3
-        filter.write("456")
-        assert base.buf == "1234"
-        filter.write("789ABCDEF\n")
-        assert base.buf == "123456789ABCDEF\n"
-        filter.write("0123")
-        assert base.buf == "123456789ABCDEF\n0123"
-        assert filter.tell() == 20
-        filter.close()
-        assert base.buf == "123456789ABCDEF\n0123"
+        def f():
+            filter.bufsize = 4 # More handy for testing than the default
+            filter.write("123")
+            assert base.buf == ""
+            assert filter.tell() == 3
+            filter.write("456")
+            assert base.buf == "1234"
+            filter.write("789ABCDEF\n")
+            assert base.buf == "123456789ABCDEF\n"
+            filter.write("0123")
+            assert base.buf == "123456789ABCDEF\n0123"
+            assert filter.tell() == 20
+            filter.close()
+            assert base.buf == "123456789ABCDEF\n0123"
+        self.interpret(f, [])
 
     def xtest_write_seek(self):
         base = TWriter()
@@ -539,6 +541,15 @@ class TestLineBufferingOutputStreamTests:
         filter.write("y"*2)
         filter.close()
         assert base.buf == "x"*3 + "y"*2 + "x"*1
+
+class TestLineBufferingOutputStream(BaseTestLineBufferingOutputStream):
+    def interpret(self, func, args, **kwds):
+        return func(*args)
+
+class TestLineBufferingOutputStreamLLinterp(BaseTestLineBufferingOutputStream,
+                                        LLRtypeMixin):
+    pass
+    
 
 class TestCRLFFilter:
 
