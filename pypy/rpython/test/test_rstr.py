@@ -378,12 +378,6 @@ class BaseTestRstr(BaseRtypingTest):
         res = self.interpret(fn, ())
         assert self.ll_to_string(res) == 'hell'
 
-    def test_str_slice_empty_string(self):
-        def fn():
-            return ''[1:] + 'hello'[6:]
-        res = self.interpret(fn, [])
-        assert self.ll_to_string(res) == ''
-
     def test_strformat(self):
         def percentS(s):
             return "before %s after" % (s,)
