@@ -138,7 +138,7 @@ class BaseTestBufferingInputStreamTests(BaseRtypingTest):
             base.seek = f
         return streamio.BufferingInputStream(base, bufsize)
 
-    def Xtest_readline(self):
+    def test_readline(self):
         for file in [self.makeStream(), self.makeStream(bufsize=1)]:
             def f():
                 i = 0
@@ -176,7 +176,7 @@ class BaseTestBufferingInputStreamTests(BaseRtypingTest):
         res = self.interpret(f, [])
         assert res
 
-    def Xtest_read_1_after_readline(self):
+    def test_read_1_after_readline(self):
         file = self.makeStream()
         def f():
             if not file.readline() == "ab\n":
@@ -246,7 +246,7 @@ class BaseTestBufferingInputStreamTests(BaseRtypingTest):
         res = self.interpret(f, [])
         assert res
         
-    def Xtest_read_4_after_readline(self):
+    def test_read_4_after_readline(self):
         file = self.makeStream()
         def f():
             os.write(1, "1\n")
@@ -304,7 +304,7 @@ class BaseTestBufferingInputStreamTests(BaseRtypingTest):
         res = self.interpret(f, [])
         assert res
 
-    def Xtest_tell_1_after_readline(self):
+    def test_tell_1_after_readline(self):
         file = self.makeStream(tell=True)
         def f():
             pos = 0
@@ -370,7 +370,7 @@ class BaseTestBufferingInputStreamTests(BaseRtypingTest):
         res = self.interpret(f, [])
         assert res
 
-    def Xtest_seek(self):
+    def test_seek(self):
         file = self.makeStream(tell=True, seek=True)
         def f():
             all = file.readall()

@@ -404,7 +404,8 @@ class BufferingInputStream(Stream):
                     cutoff = len(data) - (k-n)
                     assert cutoff >= 0
                     lines.append(data[:cutoff])
-                    self.lines[:i+1] = [data[cutoff:]]
+                    del self.lines[:i]
+                    self.lines[0] = data[cutoff:]
                     return "\n".join(lines)
                 k += 1
                 i += 1
