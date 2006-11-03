@@ -222,7 +222,6 @@ class Insn(object):
     reg_args is the vars that need to have registers allocated for them
     reg_arg_regclasses is the type of register that needs to be allocated
     '''
-    info = (0,0)
     def __init__(self):
         self.__magic_index = _var_index[0]
         _var_index[0] += 1
@@ -287,6 +286,7 @@ class Insn_GPR__IMM(Insn):
                      self.imm.value)
 
 class CMPInsn(Insn):
+    info = (0,0) # please the annotator for tests that don't use CMPW/CMPWI
     pass
 
 class CMPW(CMPInsn):
