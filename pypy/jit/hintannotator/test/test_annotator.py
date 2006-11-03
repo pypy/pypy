@@ -32,6 +32,7 @@ def hannotate(func, argtypes, policy=None, annotator=False, inline=None,
         from pypy.translator.backendopt.all import backend_optimizations
         backend_optimizations(t)
     graph1 = graphof(t, func)
+
     # build hint annotator types
     hannotator = HintAnnotator(base_translator=t, policy=policy)
     hs = hannotator.build_types(graph1, [SomeLLAbstractConstant(v.concretetype,
@@ -78,6 +79,22 @@ def test_simple_hint_result():
     hs = hannotate(ll_function, [bool, int, int])
     assert isinstance(hs, SomeLLAbstractConstant)
     assert hs.eager_concrete
+    assert hs.concretetype == lltype.Signed
+
+def test_deepfreeze():
+
+    A = lltype.GcArray(lltype.Signed)
+    
+    def ll_function(a, i):
+        a = hint(a, deepfreeze=True)
+        res = a[i]
+        res = hint(res, concrete=True)
+        
+        res = hint(res, variable=True)
+        return res
+
+    hs = hannotate(ll_function, [annmodel.SomePtr(lltype.Ptr(A)), int])
+    assert type(hs) is SomeLLAbstractVariable
     assert hs.concretetype == lltype.Signed
   
 def test_simple_hint_origins():

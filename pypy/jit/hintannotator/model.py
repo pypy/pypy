@@ -18,11 +18,12 @@ UNARY_OPERATIONS = """same_as hint getfield setfield getsubstruct getarraysize s
                       ptr_iszero""".split()
 
 BINARY_OPERATIONS = """int_add int_sub int_mul int_mod int_and int_rshift int_floordiv
-                       uint_add uint_sub uint_mul uint_mod uint_and uint_rshift uint_floordiv
+                       uint_add uint_sub uint_mul uint_mod uint_and uint_lshift uint_rshift uint_floordiv
                        char_gt char_lt char_le char_ge char_eq char_ne
                        int_gt int_lt int_le int_ge int_eq int_ne
-                       uint_gt uint_lt uint_le uint_ge uint_eq uint_ne
+                       uint_gt uint_lt uint_le uint_ge uint_eq uint_ne 
                        getarrayitem
+                       getarraysubstruct
                        ptr_eq ptr_ne""".split()
 
 class HintError(Exception):
@@ -132,7 +133,9 @@ class SomeLLAbstractValue(annmodel.SomeObject):
 
 
 class SomeLLAbstractConstant(SomeLLAbstractValue):
-
+    " color: dont know yet.. "
+    deepfrozen = False
+    
     def __init__(self, T, origins, eager_concrete=False, myorigin=None):
         SomeLLAbstractValue.__init__(self, T)
         self.origins = origins
@@ -188,6 +191,7 @@ class SomeLLAbstractConstant(SomeLLAbstractValue):
 
 
 class SomeLLAbstractVariable(SomeLLAbstractValue):
+    " color: hopelessly red"
     pass
 
 
@@ -262,7 +266,7 @@ class __extend__(SomeLLAbstractValue):
             hs_concrete = SomeLLAbstractConstant(hs_v1.concretetype, {})
             hs_concrete.eager_concrete = True
             return hs_concrete 
-
+            
     def getfield(hs_v1, hs_fieldname):
         S = hs_v1.concretetype.TO
         FIELD_TYPE = getattr(S, hs_fieldname.const)
@@ -324,6 +328,11 @@ class __extend__(SomeLLAbstractConstant):
         if hs_flags.const.get('forget', False):
             assert isinstance(hs_c1, SomeLLAbstractConstant)
             return reorigin(hs_c1)
+        if hs_flags.const.get('deepfreeze', False):
+            hs_concrete = SomeLLAbstractConstant(hs_c1.concretetype,
+                                                 hs_c1.origins)
+            hs_concrete.deepfrozen = True
+            return hs_concrete 
         return SomeLLAbstractValue.hint(hs_c1, hs_flags)
 
     def direct_call(hs_f1, *args_hs):
@@ -359,12 +368,14 @@ class __extend__(SomeLLAbstractConstant):
     def getfield(hs_c1, hs_fieldname):
         S = hs_c1.concretetype.TO
         FIELD_TYPE = getattr(S, hs_fieldname.const)
-        if S._hints.get('immutable', False):
+        if S._hints.get('immutable', False) or hs_c1.deepfrozen:
             origin = getbookkeeper().myorigin()
             d = setadd(hs_c1.origins, origin)
-            return SomeLLAbstractConstant(FIELD_TYPE, d,
-                                          eager_concrete=hs_c1.eager_concrete,
-                                          myorigin=origin)
+            res = SomeLLAbstractConstant(FIELD_TYPE, d,
+                                         eager_concrete=hs_c1.eager_concrete,
+                                         myorigin=origin)
+            res.deepfrozen = hs_c1.deepfrozen
+            return res
         else:
             return SomeLLAbstractVariable(FIELD_TYPE)
 
@@ -373,8 +384,10 @@ class __extend__(SomeLLAbstractConstant):
         SUB_TYPE = getattr(S, hs_fieldname.const)
         origin = getbookkeeper().myorigin()
         d = setadd(hs_c1.origins, origin)
-        return SomeLLAbstractConstant(lltype.Ptr(SUB_TYPE), d, myorigin=origin)
-
+        res = SomeLLAbstractConstant(lltype.Ptr(SUB_TYPE), d, myorigin=origin)
+        res.deepfrozen = hs_c1.deepfrozen
+        return res
+    
 
 class __extend__(SomeLLAbstractContainer):
 
@@ -441,15 +454,18 @@ class __extend__(pairtype(SomeLLAbstractConstant, SomeLLAbstractConstant)):
                                                        hs_c2.eager_concrete,
                                       myorigin = myorigin)
 
+
     def getarrayitem((hs_c1, hs_index)):
         A = hs_c1.concretetype.TO
         READ_TYPE = A.OF
-        if A._hints.get('immutable', False):
+        if A._hints.get('immutable', False) or hs_c1.deepfrozen:
             origin = getbookkeeper().myorigin()
             d = newset(hs_c1.origins, hs_index.origins, {origin: True})
-            return SomeLLAbstractConstant(READ_TYPE, d,
-                                          eager_concrete=hs_c1.eager_concrete,
-                                          myorigin=origin)
+            res = SomeLLAbstractConstant(READ_TYPE, d,
+                                         eager_concrete=hs_c1.eager_concrete,
+                                         myorigin=origin)
+            res.deepfrozen = hs_c1.deepfrozen
+            return res
         else:
             return SomeLLAbstractVariable(READ_TYPE)
 

@@ -14,7 +14,7 @@ class HintAnnotator(RPythonAnnotator):
         self.base_translator = base_translator
         assert base_translator is not None      # None not supported any more
         self.exceptiontransformer = base_translator.getexceptiontransformer()
-
+        
     def build_types(self, origgraph, input_args_hs):
         desc = self.bookkeeper.getdesc(origgraph)
         flowgraph = desc.specialize(input_args_hs)
@@ -28,6 +28,8 @@ class HintAnnotator(RPythonAnnotator):
             vstructdef = self.bookkeeper.getvirtualcontainerdef(TYPE)
             return hintmodel.SomeLLAbstractContainer(vstructdef)
 
+    consider_op_zero_malloc = consider_op_malloc
+
     def consider_op_malloc_varsize(self, hs_TYPE, hs_length):
         TYPE = hs_TYPE.const
         if getattr(self.policy, 'novirtualcontainer', False):
@@ -35,6 +37,8 @@ class HintAnnotator(RPythonAnnotator):
         else:
             vcontainerdef = self.bookkeeper.getvirtualcontainerdef(TYPE)
             return hintmodel.SomeLLAbstractContainer(vcontainerdef)
+
+    consider_op_zero_malloc_varsize = consider_op_malloc_varsize
 
     def consider_op_zero_gc_pointers_inside(self, hs_v):
         pass
