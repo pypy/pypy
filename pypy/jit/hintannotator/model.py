@@ -134,13 +134,14 @@ class SomeLLAbstractValue(annmodel.SomeObject):
 
 class SomeLLAbstractConstant(SomeLLAbstractValue):
     " color: dont know yet.. "
-    deepfrozen = False
-    
-    def __init__(self, T, origins, eager_concrete=False, myorigin=None):
+
+    def __init__(self, T, origins, eager_concrete=False, myorigin=None,
+                 deepfrozen=False):
         SomeLLAbstractValue.__init__(self, T)
         self.origins = origins
         self.eager_concrete = eager_concrete
         self.myorigin = myorigin
+        self.deepfrozen = deepfrozen
         assert myorigin is None or myorigin.spaceop is not None
 
     def fmt_origins(self, origins):
@@ -235,7 +236,9 @@ def reorigin(hs_v1, *deps_hs):
                         if isinstance(hs_dep, SomeLLAbstractConstant)]
         d = newset({getbookkeeper().myorigin(): True},
                    *deps_origins)
-        return SomeLLAbstractConstant(hs_v1.concretetype, d, eager_concrete=hs_v1.eager_concrete)
+        return SomeLLAbstractConstant(hs_v1.concretetype, d,
+                                      eager_concrete=hs_v1.eager_concrete,
+                                      deepfrozen=hs_v1.deepfrozen)
     else:
         return hs_v1
 
@@ -256,8 +259,6 @@ class __extend__(SomeLLAbstractValue):
     def hint(hs_v1, hs_flags):
         if hs_flags.const.get('variable', False): # only for testing purposes!!!
             return SomeLLAbstractVariable(hs_v1.concretetype)
-        if hs_flags.const.get('concrete', False):
-            raise HintError("cannot make a concrete from %r" % (hs_v1,))
         if hs_flags.const.get('forget', False):
             # turn a variable to a constant
             origin = getbookkeeper().myorigin()
@@ -266,7 +267,9 @@ class __extend__(SomeLLAbstractValue):
             hs_concrete = SomeLLAbstractConstant(hs_v1.concretetype, {})
             hs_concrete.eager_concrete = True
             return hs_concrete 
-            
+        raise HintError("hint %s makes no sense on %r" % (hs_flags.const,
+                                                          hs_v1))
+    
     def getfield(hs_v1, hs_fieldname):
         S = hs_v1.concretetype.TO
         FIELD_TYPE = getattr(S, hs_fieldname.const)
@@ -329,10 +332,9 @@ class __extend__(SomeLLAbstractConstant):
             assert isinstance(hs_c1, SomeLLAbstractConstant)
             return reorigin(hs_c1)
         if hs_flags.const.get('deepfreeze', False):
-            hs_concrete = SomeLLAbstractConstant(hs_c1.concretetype,
-                                                 hs_c1.origins)
-            hs_concrete.deepfrozen = True
-            return hs_concrete 
+            return SomeLLAbstractConstant(hs_c1.concretetype,
+                                          hs_c1.origins,
+                                          deepfrozen = True)
         return SomeLLAbstractValue.hint(hs_c1, hs_flags)
 
     def direct_call(hs_f1, *args_hs):
@@ -349,6 +351,7 @@ class __extend__(SomeLLAbstractConstant):
         # don't try to annotate suggested_primitive graphs
         if getattr(getattr(fnobj, '_callable', None), 'suggested_primitive', False):
             return SomeLLAbstractVariable(lltype.typeOf(fnobj).RESULT)
+
         # normal call
         if not hasattr(fnobj, 'graph'):
             raise NotImplementedError("XXX call to externals or primitives")
@@ -359,7 +362,7 @@ class __extend__(SomeLLAbstractConstant):
         if isinstance(hs_res, SomeLLAbstractConstant):
             hs_res.myorigin = bookkeeper.myorigin()
             hs_res.myorigin.is_call_result = True
-
+            
         # we need to make sure that hs_res does not become temporarily less
         # general as a result of calling another specialized version of the
         # function
@@ -371,11 +374,10 @@ class __extend__(SomeLLAbstractConstant):
         if S._hints.get('immutable', False) or hs_c1.deepfrozen:
             origin = getbookkeeper().myorigin()
             d = setadd(hs_c1.origins, origin)
-            res = SomeLLAbstractConstant(FIELD_TYPE, d,
-                                         eager_concrete=hs_c1.eager_concrete,
-                                         myorigin=origin)
-            res.deepfrozen = hs_c1.deepfrozen
-            return res
+            return SomeLLAbstractConstant(FIELD_TYPE, d,
+                                          eager_concrete=hs_c1.eager_concrete,
+                                          myorigin=origin,
+                                          deepfrozen=hs_c1.deepfrozen)
         else:
             return SomeLLAbstractVariable(FIELD_TYPE)
 
@@ -384,10 +386,9 @@ class __extend__(SomeLLAbstractConstant):
         SUB_TYPE = getattr(S, hs_fieldname.const)
         origin = getbookkeeper().myorigin()
         d = setadd(hs_c1.origins, origin)
-        res = SomeLLAbstractConstant(lltype.Ptr(SUB_TYPE), d, myorigin=origin)
-        res.deepfrozen = hs_c1.deepfrozen
-        return res
-    
+        return SomeLLAbstractConstant(lltype.Ptr(SUB_TYPE), d,
+                                      myorigin=origin,
+                                      deepfrozen=hs_c1.deepfrozen)    
 
 class __extend__(SomeLLAbstractContainer):
 
@@ -455,7 +456,8 @@ class __extend__(pairtype(SomeLLAbstractConstant, SomeLLAbstractConstant)):
         return SomeLLAbstractConstant(hs_c1.concretetype, d,
                                       eager_concrete = hs_c1.eager_concrete and
                                                        hs_c2.eager_concrete,
-                                      myorigin = myorigin)
+                                      myorigin = myorigin,
+                                      deepfrozen = hs_c1.deepfrozen and hs_c2.deepfrozen)
 
 
     def getarrayitem((hs_c1, hs_index)):
@@ -464,11 +466,10 @@ class __extend__(pairtype(SomeLLAbstractConstant, SomeLLAbstractConstant)):
         if A._hints.get('immutable', False) or hs_c1.deepfrozen:
             origin = getbookkeeper().myorigin()
             d = newset(hs_c1.origins, hs_index.origins, {origin: True})
-            res = SomeLLAbstractConstant(READ_TYPE, d,
-                                         eager_concrete=hs_c1.eager_concrete,
-                                         myorigin=origin)
-            res.deepfrozen = hs_c1.deepfrozen
-            return res
+            return SomeLLAbstractConstant(READ_TYPE, d,
+                                          eager_concrete=hs_c1.eager_concrete,
+                                          myorigin=origin,
+                                          deepfrozen=hs_c1.deepfrozen)
         else:
             return SomeLLAbstractVariable(READ_TYPE)
 
@@ -573,6 +574,7 @@ def var_binary((hs_v1, hs_v2), *rest_hs):
     return SomeLLAbstractVariable(RESTYPE)
 
 def const_unary(hs_c1):
+    #XXX unsure hacks
     bk = getbookkeeper()
     origin = bk.myorigin()
     d = setadd(hs_c1.origins, origin)
@@ -580,8 +582,10 @@ def const_unary(hs_c1):
     return SomeLLAbstractConstant(RESTYPE, d,
                                   eager_concrete = hs_c1.eager_concrete,
                                   myorigin = origin)
+                                  #deepfrozen = hs_c1.deepfrozen)
 
 def const_binary((hs_c1, hs_c2)):
+    #XXX unsure hacks
     bk = getbookkeeper()
     origin = bk.myorigin()
     d = newset(hs_c1.origins, hs_c2.origins, {origin: True})
@@ -590,6 +594,7 @@ def const_binary((hs_c1, hs_c2)):
                                   eager_concrete = hs_c1.eager_concrete or
                                                    hs_c2.eager_concrete,
                                   myorigin = origin)
+                                  #deepfrozen = hs_c1.deepfrozen and hs_c2.deepfrozen)
 
 def setup(oplist, ValueCls, var_fn, ConstantCls, const_fn):
     for name in oplist:

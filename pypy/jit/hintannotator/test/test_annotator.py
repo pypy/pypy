@@ -18,6 +18,9 @@ P_OOPSPEC_NOVIRTUAL = AnnotatorPolicy()
 P_OOPSPEC_NOVIRTUAL.oopspec = True
 P_OOPSPEC_NOVIRTUAL.novirtualcontainer = True
 
+P_NOVIRTUAL = AnnotatorPolicy()
+P_NOVIRTUAL.novirtualcontainer = True
+
 def hannotate(func, argtypes, policy=None, annotator=False, inline=None,
               backendoptimize=False):
     # build the normal ll graphs for ll_function
@@ -96,7 +99,31 @@ def test_deepfreeze():
     hs = hannotate(ll_function, [annmodel.SomePtr(lltype.Ptr(A)), int])
     assert type(hs) is SomeLLAbstractVariable
     assert hs.concretetype == lltype.Signed
-  
+
+def test_lists_deepfreeze():
+
+    l1 = [1,2,3,4,5]
+    l2 = [6,7,8,9,10]
+    
+    def getlist(n):
+        if n:
+            return l1
+        else:
+            return l2
+    
+    def ll_function(n, i):
+        l = getlist(n)
+        l = hint(l, deepfreeze=True)
+
+        res = l[i]
+        res = hint(res, concrete=True)
+        
+        res = hint(res, variable=True)
+        return res
+
+    hs = hannotate(ll_function, [int, int], policy=P_NOVIRTUAL)
+    assert hs.concretetype == lltype.Signed
+
 def test_simple_hint_origins():
     def ll_function(cond, x,y):
         if cond:
@@ -429,8 +456,9 @@ def test_specialize_calls():
     ll_add_graph = graphof(ha.base_translator, ll_add)
     gdesc = ha.bookkeeper.getdesc(ll_add_graph)    
     assert len(gdesc._cache) == 2
-    assert 'Ex' in gdesc._cache
-    v1, v2 = gdesc._cache['Ex'].getargs()
+    assert 'Exxx' in gdesc._cache
+    v1, v2 = gdesc._cache['Exxx'].getargs()
+
     assert isinstance(ha.binding(v1), SomeLLAbstractConstant)
     assert isinstance(ha.binding(v2), SomeLLAbstractConstant)
     assert ha.binding(v1).eager_concrete

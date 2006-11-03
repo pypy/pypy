@@ -175,6 +175,14 @@ class HintBookkeeper(object):
                     specialize = True
                 else:
                     key.append('x')
+
+                if (isinstance(arg_hs, hintmodel.SomeLLAbstractConstant)
+                    and arg_hs.deepfrozen):
+                    key.append('D')
+                    specialize = True
+                else:
+                    key.append('x')
+
             if specialize:
                 return ''.join(key)
             else:
