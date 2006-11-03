@@ -1006,6 +1006,42 @@ class TestAnnotateTestCase:
         assert a.binding(graph2.getreturnvar()).classdef == C2df
         assert graph1 in a.translator.graphs
         assert graph2 in a.translator.graphs
+    
+    def test_specialcase_args(self):
+        class C1(object):
+            pass
+        
+        class C2(object):
+            pass
+        
+        def alloc(cls, cls2):
+            i = cls()
+            assert isinstance(i, cls)
+            j = cls2()
+            assert isinstance(j, cls2)
+            return i
+        
+        def f():
+            alloc(C1, C1)
+            alloc(C1, C2)
+            alloc(C2, C1)
+            alloc(C2, C2)
+        
+        alloc._annspecialcase_ = "specialize:arg(0,1)"
+        
+        a = self.RPythonAnnotator()
+        C1df = a.bookkeeper.getuniqueclassdef(C1)
+        C2df = a.bookkeeper.getuniqueclassdef(C2)
+        s = a.build_types(f, [])
+        allocdesc = a.bookkeeper.getdesc(alloc)
+        s_C1 = a.bookkeeper.immutablevalue(C1)
+        s_C2 = a.bookkeeper.immutablevalue(C2)
+        graph1 = allocdesc.specialize([s_C1, s_C2])
+        graph2 = allocdesc.specialize([s_C2, s_C2])
+        assert a.binding(graph1.getreturnvar()).classdef == C1df
+        assert a.binding(graph2.getreturnvar()).classdef == C2df
+        assert graph1 in a.translator.graphs
+        assert graph2 in a.translator.graphs
 
     def test_assert_list_doesnt_lose_info(self):
         class T(object):

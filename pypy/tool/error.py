@@ -99,7 +99,7 @@ def format_blocked_annotation_error(annotator, blocked_blocks):
         text.append(gather_error(annotator, block, graph))
     return '\n'.join(text)
     
-def format_someobject_error(annotator, position_key, what, s_value, called_from_graph):
+def format_someobject_error(annotator, position_key, what, s_value, called_from_graph, binding=""):
     #block = getattr(annotator, 'flowin_block', None) or block
     msg = ["annotation of %r degenerated to SomeObject()" % (what,)]
     if position_key is not None:
@@ -111,6 +111,8 @@ def format_someobject_error(annotator, position_key, what, s_value, called_from_
     if s_value.origin is not None:
         msg.append(".. SomeObject() origin: %s" % (
             annotator.whereami(s_value.origin),))
+    msg.append("Previous annotation:")
+    msg.append("  " + str(binding))
     return "\n".join(msg)
 
 def format_global_error(graph, offset, message):

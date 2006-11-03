@@ -377,9 +377,9 @@ def specialize_argvalue(funcdesc, args_s, *argindices):
     key = tuple([args_s[i].const for i in argindices])
     return funcdesc.cachedgraph(key)
 
-def specialize_argtype(funcdesc, args_s, i):
-    key = args_s[i].knowntype
-    return funcdesc.cachedgraph(key)        
+def specialize_argtype(funcdesc, args_s, *argindices):
+    key = tuple([args_s[i].knowntype for i in argindices])
+    return funcdesc.cachedgraph(key)
 
 def specialize_arglistitemtype(funcdesc, args_s, i):
     s = args_s[i]

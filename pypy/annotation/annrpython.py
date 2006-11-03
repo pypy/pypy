@@ -312,7 +312,7 @@ class RPythonAnnotator(object):
 
         graph = position_key[0]
         msgstr = format_someobject_error(self, position_key, what, s_value,
-                                         called_from_graph)
+                                         called_from_graph, self.bindings[what])
         
 
         raise AnnotatorError(msgstr)
