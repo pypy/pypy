@@ -480,8 +480,10 @@ def test_specialize_deepfreeze_calls():
 
     def ll_function(n, i):
         l = getlist(n)
-        l = hint(l, deepfreeze=True)
 
+        l2 = ll_get(l, 0)
+
+        l = hint(l, deepfreeze=True)
         res = ll_get(l, i)
         return res
 
@@ -490,14 +492,13 @@ def test_specialize_deepfreeze_calls():
     assert hs.concretetype == lltype.Signed
     ll_get_graph = graphof(ha.base_translator, ll_get)
     gdesc = ha.bookkeeper.getdesc(ll_get_graph)    
-    assert len(gdesc._cache) == 1
+    assert len(gdesc._cache) == 2
     assert 'xDxx' in gdesc._cache
     v1, v2 = gdesc._cache['xDxx'].getargs()
 
     assert isinstance(ha.binding(v1), SomeLLAbstractConstant)
     assert isinstance(ha.binding(v2), SomeLLAbstractConstant)
     assert ha.binding(v1).deepfrozen
-    assert not ha.binding(v2).is_fixed()
 
 def test_propagate_fixing_across_func_arguments():
     def ll_func2(z):
