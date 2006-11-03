@@ -288,7 +288,7 @@ class Database:
         if OOTYPE in self._type_printing_methods:
             return self._type_printing_methods[OOTYPE]
         pclass = self.pending_class(OOTYPE)
-        assert hasattr(pclass, 'dump_method'), "No dump_method for "+OOTYPE
+        assert hasattr(pclass, 'dump_method'), "No dump_method for %r" % (OOTYPE, )
         return pclass.dump_method.method()
 
     # Type translation functions
