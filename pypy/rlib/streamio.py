@@ -528,10 +528,12 @@ class BufferingOutputStream(Stream):
         if datalen + buflen < self.bufsize:
             self.buf += data
         elif buflen:
-            self.buf += data[:self.bufsize-buflen]
+            slice = self.bufsize - buflen
+            assert slice >= 0
+            self.buf += data[:slice]
             self.do_write(self.buf)
             self.buf = ""
-            self.write(data[self.bufsize-buflen:])
+            self.write(data[slice:])
         else:
             self.do_write(data)
 
