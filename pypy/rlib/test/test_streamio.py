@@ -549,23 +549,33 @@ class TestLineBufferingOutputStream(BaseTestLineBufferingOutputStream):
         return func(*args)
 
 class TestLineBufferingOutputStreamLLinterp(BaseTestLineBufferingOutputStream,
-                                        LLRtypeMixin):
+                                            LLRtypeMixin):
     pass
     
 
-class TestCRLFFilter:
+class BaseTestCRLFFilter(BaseRtypingTest):
 
     def test_filter(self):
         packets = ["abc\ndef\rghi\r\nxyz\r", "123\r", "\n456"]
         expected = ["abc\ndef\nghi\nxyz\n", "123\n", "456"]
         crlf = streamio.CRLFFilter(TSource(packets))
-        blocks = []
-        while 1:
-            block = crlf.read(100)
-            if not block:
-                break
-            blocks.append(block)
-        assert blocks == expected
+        def f():
+            blocks = []
+            while 1:
+                block = crlf.read(100)
+                if not block:
+                    break
+                blocks.append(block)
+            assert blocks == expected
+        self.interpret(f, [])
+
+class TestCRLFFilter(BaseTestCRLFFilter):
+    def interpret(self, func, args, **kwds):
+        return func(*args)
+
+class TestCRLFFilterLLinterp(BaseTestCRLFFilter, LLRtypeMixin):
+    pass
+
 
 class TestMMapFile(BaseTestBufferingInputStreamTests):
     tfn = None
