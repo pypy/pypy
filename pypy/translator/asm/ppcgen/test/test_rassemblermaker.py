@@ -17,6 +17,7 @@ def test_rtyped():
     def f():
         ra = RPPCAssembler()
         ra.add(3, 3, 4)
+        ra.lwz(1, 1, 1)  # ensure that high bit doesn't produce long but r_uint
         return ra.insts[0]
     res = interpret(f, [])
     assert res == add_r3_r3_r4
@@ -36,4 +37,3 @@ def test_spr_coding():
         a.mtctr(3)
         mrs.append(a.insts[0])
     assert mrs[0].assemble() == mrs[1]
-

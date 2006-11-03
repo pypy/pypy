@@ -249,6 +249,11 @@ from pypy.translator.asm.ppcgen.ppc_assembler import MyPPCAssembler
 
 RPPCAssembler = make_rassembler(MyPPCAssembler)
 
+r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, \
+    r13, r14, r15, r16, r17, r18, r19, r20, r21, r22, \
+    r23, r24, r25, r26, r27, r28, r29, r30, r31 = range(32)
+rSP = r1
+
 def emit(self, value):
     self.mc.write(value)
 RPPCAssembler.emit = emit
@@ -361,6 +366,12 @@ class Builder(GenBuilder):
         self.initial_varmapping = {}
         for arg in self.inputargs:
             self.initial_varmapping[arg] = gprs[3+len(self.initial_varmapping)]
+
+        # Emit standard prologue
+        self.asm.mflr(r0)      
+        self.asm.stw(r0,rSP,8)
+        self.asm.stwu(rSP,rSP,-64)
+            
         return self.inputargs
 
     def _close(self):
@@ -388,7 +399,13 @@ class Builder(GenBuilder):
         allocator = self.emit()
         reg = allocator.var2reg[gv_returnvar]
         if reg.number != 3:
-            self.asm.mr(3, reg.number)
+            self.asm.mr(r3, reg.number)
+
+        # Emit standard epilogue:
+        #   TODO rewrite to handle varying size stack?
+        self.asm.lwz(r0,rSP,64+8)
+        self.asm.mtlr(r0)
+        self.asm.addi(rSP,rSP,64)
         self.asm.blr()
         self._close()
 

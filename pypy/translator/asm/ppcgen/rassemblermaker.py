@@ -1,5 +1,5 @@
 from pypy.tool.sourcetools import compile2
-
+from pypy.rlib.rarithmetic import r_uint
 from pypy.translator.asm.ppcgen.form import IDesc, IDupDesc
 
 ##     "opcode": ( 0,  5),
@@ -32,19 +32,19 @@ def make_func(name, desc):
     if isinstance(desc, IDupDesc):
         for destfield, srcfield in desc.dupfields.iteritems():
             fieldvalues.append((destfield, srcfield.name))
-    body = ['v = 0']
+    body = ['v = r_uint(0)']
     assert 'v' not in sig # that wouldn't be funny
     #body.append('print %r'%name + ', ' + ', '.join(["'%s:', %s"%(s, s) for s in sig]))
     for field, value in fieldvalues:
         if field.name == 'spr':
             body.append('spr = (%s&31) << 5 | (%s >> 5 & 31)'%(value, value))
             value = 'spr'
-        body.append('v |= (%3s & %#05x) << %d'%(value,
+        body.append('v |= (%3s & r_uint(%#05x)) << %d'%(value,
                                            field.mask,
                                            (32 - field.right - 1)))
     body.append('self.emit(v)')
     src = 'def %s(self, %s):\n    %s'%(name, ', '.join(sig), '\n    '.join(body))
-    d = {}
+    d = {'r_uint':r_uint}
     #print src
     exec compile2(src) in d
     return d[name]
