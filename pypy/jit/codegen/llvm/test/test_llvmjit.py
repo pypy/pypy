@@ -3,10 +3,12 @@ from sys import platform
 from os.path import dirname, join
 from pypy.translator.c.test.test_genc import compile
 
+from pypy.jit.codegen.llvm import llvmjit
+
 try:
     from pypy.jit.codegen.llvm import llvmjit
 except OSError:
-    py.test.skip("libllvmjit not found (see ../README.TXT)")
+    py.test.skip("can not load libllvmjit library (see ../README.TXT)")
 
 #helper data
 curdir = dirname(__file__)

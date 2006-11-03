@@ -13,6 +13,23 @@ from ctypes import *
 import os
 
 path = os.path.join(os.path.dirname(__file__), 'libllvmjit.so')
+
+curdir = os.getcwd()
+os.chdir(os.path.dirname(__file__))
+
+#With py.test --session=R the master server rsyncs the .so library too!?!
+#So we always need to recompile the library if its platform (output of file libllvmjit.so)
+#differs from the current (remote) platform.
+#note: we can't do this in global scope because that will only be executed on the master server.
+#os.system('rm -rf libllvmjit.so build')
+
+#We might want to generate an up-to-date version of the library always so running (tests)
+#on a clean checkout will produce correct results.
+os.system('python setup.py build_ext -i')
+
+os.chdir(curdir)
+
+#load the actual library
 llvmjit = cdll.LoadLibrary(os.path.abspath(path))
 class _FuncPtr(_CFuncPtr):
     _flags_ = _FUNCFLAG_CDECL
