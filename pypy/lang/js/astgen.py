@@ -105,6 +105,14 @@ class Throw(Node):
     def __init__(self, exception):
         self.exception = exception
 
+class Try(Node):
+    """The Try class."""
+    def __init__(self, tryblock, catchblock, finallyblock, catchparam):
+        self.tryblock = tryblock
+        self.catchblock = catchblock
+        self.finallyblock = finallyblock
+        self.catchparam = catchparam
+
 
 class Vars(Node):
     def __init__(self, nodes):
@@ -172,5 +180,16 @@ def from_dict(d):
         return Vars(getlist(d))
     elif tp == 'BLOCK':
         return Block(getlist(d))
+    elif tp == 'TRY':
+        finallyblock = None
+        catchblock = None
+        catchparam = ''
+        if 'finallyBlock' in d:
+            finallyblock = from_dict(d['finallyBlock'])
+        if 'catchClauses' in d:
+            #multiple catch clauses is a spidermonkey extension
+            catchblock = from_dict(d['catchClauses']['block'])
+            catchparam = d['catchClauses']['varName']
+        return Try(from_dict(d['tryBlock']), catchblock, finallyblock, catchparam)
     else:
         raise NotImplementedError("Dont know how to handler %s" % tp)

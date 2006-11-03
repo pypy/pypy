@@ -155,7 +155,6 @@ class TestInterp(object):
         self.assert_prints(parse_d("print((500,3))"), ["3"])
     
     def test_try_catch(self):
-        py.test.skip("not ready yet")
         self.assert_prints(parse_d("""
         try {
             throw(3);

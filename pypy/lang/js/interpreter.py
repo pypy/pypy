@@ -43,12 +43,6 @@ class __extend__(Call):
         if name == 'print':
             writer(",".join([i.ToString() for i in self.arglist.call(context)]))
         else:
-            #        #import pdb;pdb.set_trace()
-        
-#        #
-#        retval = self.body.call()
-#        #scope_manager.current_scope = backup_scope
-#        return retval
             backup_scope = scope_manager.current_scope
             w_obj = scope_manager.get_variable(name)
             scope_manager.current_scope = w_obj.function.scope
@@ -138,7 +132,6 @@ class __extend__(Plus):
             num_right = prim_right.ToNumber()
             # XXX: obey all the rules
             return W_Number(num_left + num_right)
-        #return self.left.call(context).add(self.right.call(context))
 
 class __extend__(Script):
     def call(self, context=None, args=(), this=None, params=None):
@@ -181,7 +174,32 @@ class __extend__(Return):
 class __extend__(Throw):
     def call(self, context=None):
         raise ThrowException(self.exception.call(context))
-    
+
+class __extend__(Try):
+    def call(self, context=None):
+        e = None
+        try:
+            tryresult = self.tryblock.call(context)
+        except ThrowException, e:
+            e = e
+            ncontext = ExecutionContext(context)
+            print "tried to catch it :)"
+            ncontext.assign(self.catchparam, e.exception)
+            if self.catchblock is not None:
+                tryresult = self.catchblock.call(ncontext)
+        
+        print self.finallyblock
+        if self.finallyblock is not None:
+            print "asdasd"
+            tryresult = self.finallyblock.call(context)
+        print "saddsa"
+        print a
+        #if there is no catchblock reraise the exception
+        if (e is not None) and (self.catchblock is not None):
+            raise e
+        
+        return tryresult
+
 class __extend__(Vars):
     def call(self, context=None):
         for var in self.nodes:
