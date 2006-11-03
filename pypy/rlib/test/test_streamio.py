@@ -456,60 +456,79 @@ class TestBufferedRead:
         for want, got, pos in self.source.chunks:
             assert want >= 4
 
-class TestBufferingOutputStream:
+class BaseTestBufferingOutputStream(BaseRtypingTest):
 
     def test_write(self):
-        base = TWriter()
-        filter = streamio.BufferingOutputStream(base, 4)
-        filter.write("123")
-        assert not base.chunks
-        assert filter.tell() == 3
-        filter.write("456")
-        filter.write("789ABCDEF")
-        filter.write("0123")
-        assert filter.tell() == 19
-        filter.close()
-        assert base.buf == "123456789ABCDEF0123"
-        for chunk in base.chunks[:-1]:
-            assert len(chunk[1]) >= 4
+        def f():
+            base = TWriter()
+            filter = streamio.BufferingOutputStream(base, 4)
+            filter.write("123")
+            assert not base.chunks
+            assert filter.tell() == 3
+            filter.write("456")
+            filter.write("789ABCDEF")
+            filter.write("0123")
+            assert filter.tell() == 19
+            filter.close()
+            assert base.buf == "123456789ABCDEF0123"
+            for chunk in base.chunks[:-1]:
+                assert len(chunk[1]) >= 4
+        self.interpret(f, [])
 
     def test_write_seek(self):
-        base = TWriter()
-        filter = streamio.BufferingOutputStream(base, 4)
-        filter.write("x"*6)
-        filter.seek(3)
-        filter.write("y"*2)
-        filter.close()
-        assert base.buf == "x"*3 + "y"*2 + "x"*1
+        def f():
+            base = TWriter()
+            filter = streamio.BufferingOutputStream(base, 4)
+            filter.write("x"*6)
+            filter.seek(3)
+            filter.write("y"*2)
+            filter.close()
+            assert base.buf == "x"*3 + "y"*2 + "x"*1
+        self.interpret(f, [])
 
     def test_write_seek_beyond_end(self):
         "Linux behaviour. May be different on other platforms."
-        base = TWriter()
-        filter = streamio.BufferingOutputStream(base, 4)
-        filter.seek(3)
-        filter.write("y"*2)
-        filter.close()
-        assert base.buf == "\0"*3 + "y"*2
+        def f():
+            base = TWriter()
+            filter = streamio.BufferingOutputStream(base, 4)
+            filter.seek(3)
+            filter.write("y"*2)
+            filter.close()
+            assert base.buf == "\0"*3 + "y"*2
+        self.interpret(f, [])
 
     def test_truncate(self):
         "Linux behaviour. May be different on other platforms."
-        base = TWriter()
-        filter = streamio.BufferingOutputStream(base, 4)
-        filter.write('x')
-        filter.truncate(4)
-        filter.write('y')
-        filter.close()
-        assert base.buf == 'xy' + '\0' * 2
+        def f():
+            base = TWriter()
+            filter = streamio.BufferingOutputStream(base, 4)
+            filter.write('x')
+            filter.truncate(4)
+            filter.write('y')
+            filter.close()
+            assert base.buf == 'xy' + '\0' * 2
+        self.interpret(f, [])
 
     def test_truncate2(self):
         "Linux behaviour. May be different on other platforms."
-        base = TWriter()
-        filter = streamio.BufferingOutputStream(base, 4)
-        filter.write('12345678')
-        filter.truncate(4)
-        filter.write('y')
-        filter.close()
-        assert base.buf == '1234' + '\0' * 4 + 'y'
+        def f():
+            base = TWriter()
+            filter = streamio.BufferingOutputStream(base, 4)
+            filter.write('12345678')
+            filter.truncate(4)
+            filter.write('y')
+            filter.close()
+            assert base.buf == '1234' + '\0' * 4 + 'y'
+        self.interpret(f, [])
+
+class TestBufferingOutputStream(BaseTestBufferingOutputStream):
+    def interpret(self, func, args, **kwds):
+        return func(*args)
+
+class TestBufferingOutputStreamLLinterp(BaseTestBufferingOutputStream,
+                                        LLRtypeMixin):
+    pass
+    
 
 class TestLineBufferingOutputStreamTests:
 
