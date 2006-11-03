@@ -14,6 +14,7 @@ class ExecutionReturned(Exception):
 class ThrowException(Exception):
     def __init__(self, exception):
         self.exception = exception
+        self.args = self.exception
 
 
 class __extend__(Array):
@@ -180,22 +181,18 @@ class __extend__(Try):
         e = None
         try:
             tryresult = self.tryblock.call(context)
-        except ThrowException, e:
-            e = e
+        except ThrowException, excpt:
+            e = excpt
             ncontext = ExecutionContext(context)
-            print "tried to catch it :)"
             ncontext.assign(self.catchparam, e.exception)
             if self.catchblock is not None:
                 tryresult = self.catchblock.call(ncontext)
         
-        print self.finallyblock
         if self.finallyblock is not None:
-            print "asdasd"
             tryresult = self.finallyblock.call(context)
-        print "saddsa"
-        print a
+        
         #if there is no catchblock reraise the exception
-        if (e is not None) and (self.catchblock is not None):
+        if (e is not None) and (self.catchblock is None):
             raise e
         
         return tryresult
