@@ -6,6 +6,7 @@ from pypy.rpython.rmodel import Repr, IteratorRepr, IntegerRepr, inputconst
 from pypy.rpython.rslice import AbstractSliceRepr
 from pypy.rpython.lltypesystem.lltype import typeOf, Ptr, Void, Signed, Bool
 from pypy.rpython.lltypesystem.lltype import nullptr, Char, UniChar
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython import robject
 from pypy.rlib.objectmodel import malloc_zero_filled
 from pypy.rpython.annlowlevel import ADTInterface
@@ -639,7 +640,8 @@ def ll_listslice(RESLIST, l1, slice):
 
 def ll_listslice_minusone(RESLIST, l1):
     newlength = l1.ll_length() - 1
-    #assert newlength >= 0 # XXX assert doesn't work in ootypesystem
+    llop.debug_assert(Void, "%s >= 0 # empty list is sliced with [:-1]",
+                            newlength)
     l = RESLIST.ll_newlist(newlength)
     j = 0
     while j < newlength:
@@ -680,8 +682,9 @@ def ll_listdelslice(l, slice):
 
 def ll_listsetslice(l1, slice, l2):
     count = l2.ll_length()
-    # XXX: assert doesn't work in ootypesystem
-    #assert count == slice.stop - slice.start, "setslice cannot resize lists in RPython")
+    llop.debug_assert(Void,
+         "%s == %s - %s # setslice cannot resize lists in RPython",
+                      count, slice.stop, slice.start)
     # XXX but it should be easy enough to support, soon
     start = slice.start
     j = start

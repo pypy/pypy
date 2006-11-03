@@ -362,7 +362,12 @@ def op_getarrayitem(p, index):
 
 def op_debug_assert(expr, *ll_args):
     if not isinstance(expr, str):
-        expr = ''.join(expr.chars)
+        if hasattr(expr, 'chars'):       # for lltypesystem
+            expr = ''.join(expr.chars)
+        elif hasattr(expr, '_str'):      # for ootypesystem
+            expr = expr._str
+        else:
+            raise TypeError("what is %r??" % (expr,))
     names = ['v%d' % i for i in range(len(ll_args))]
     d = dict(zip(names, ll_args))
     names = tuple(names)
