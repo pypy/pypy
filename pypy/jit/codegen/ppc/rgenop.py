@@ -368,11 +368,23 @@ class Builder(GenBuilder):
             self.initial_varmapping[arg] = gprs[3+len(self.initial_varmapping)]
 
         # Emit standard prologue
+        #   Minimum space = 24+params+lv+4*GPR+8*FPR
+        #   GPR=19
+        # Initially, we allocate only enough space for GPRs, and allow
+        # each basic block to ensure it has enough space to continue.
+        minspace = self._stack_offset(0,0)
         self.asm.mflr(r0)      
         self.asm.stw(r0,rSP,8)
-        self.asm.stwu(rSP,rSP,-64)
+        self.asm.stmw(r13,rSP,-(4*20))     # save all regs from 13-31 to stack
+        self.asm.stwu(rSP,rSP,-minspace)
             
         return self.inputargs
+
+    def _stack_offset(self, param, lv):
+        """ Returns the required stack offset to store all data, assuming
+        that there are 'param' words of parameters for callee functions and
+        'lv' words of local variable information. """
+        return ((24 + param*4 + lv*4 + 4*19) & ~15)+16
 
     def _close(self):
         self.rgenop.close_mc(self.asm.mc)
@@ -402,11 +414,11 @@ class Builder(GenBuilder):
             self.asm.mr(r3, reg.number)
 
         # Emit standard epilogue:
-        #   TODO rewrite to handle varying size stack?
-        self.asm.lwz(r0,rSP,64+8)
-        self.asm.mtlr(r0)
-        self.asm.addi(rSP,rSP,64)
-        self.asm.blr()
+        self.asm.lwz(rSP,rSP,0)     # restore old SP
+        self.asm.lmw(r13,rSP,-4*20) # restore all GPRs
+        self.asm.lwz(r0,rSP,8)      # load old Link Register and jump to it
+        self.asm.mtlr(r0)           #
+        self.asm.blr()              #
         self._close()
 
     def finish_and_goto(self, outputargs_gv, target):
