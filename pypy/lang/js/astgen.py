@@ -18,6 +18,11 @@ class Assign(Node):
         self.identifier = identifier
         self.expr = expr
 
+class Block(Node):
+    def __init__(self, nodes):
+        self.nodes = nodes
+
+
 class Call(Node):
     def __init__(self, identifier, arglist):
         self.identifier = identifier
@@ -42,7 +47,6 @@ class Function(Node):
         #self.scope = Scope(copy(scope.dict))
 
 class Group(Node):
-    """The Group class."""
     def __init__(self, expr):
         self.expr = expr
 
@@ -166,5 +170,7 @@ def from_dict(d):
         return Comma(from_dict(d['0']),from_dict(d['1']))
     elif tp == 'VAR':
         return Vars(getlist(d))
+    elif tp == 'BLOCK':
+        return Block(getlist(d))
     else:
         raise NotImplementedError("Dont know how to handler %s" % tp)

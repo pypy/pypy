@@ -27,6 +27,16 @@ class __extend__(Assign):
         scope_manager.set_variable(self.identifier.name, val)
         return val
 
+class __extend__(Block):
+    def call(self, context=None):
+        try:
+            last = w_Undefined
+            for node in self.nodes:
+                last = node.call(context)
+            return last
+        except ExecutionReturned, e:
+            return e.value
+
 class __extend__(Call):
     def call(self, context=None):
         name = self.identifier.get_literal()
@@ -146,15 +156,16 @@ class __extend__(Script):
         ncontext.assign('arguments', w_Arguments)
         
         try:
+            last = w_Undefined
             for node in self.nodes:
-                node.call(ncontext)
+                last = node.call(ncontext)
+            return last
         except ExecutionReturned, e:
             return e.value
-        return w_Undefined
 
 class __extend__(Semicolon):
     def call(self, context=None):
-        self.expr.call(context)
+        return self.expr.call(context)
 
 class __extend__(String):
     def call(self, context=None):

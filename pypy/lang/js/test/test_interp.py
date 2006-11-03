@@ -3,6 +3,7 @@ from pypy.lang.js.astgen import *
 from pypy.lang.js import interpreter
 from pypy.lang.js.parser import parse
 from pypy.lang.js.interpreter import ThrowException
+from pypy.lang.js.jsobj import W_Number
 import py.test
 
 import sys
@@ -18,7 +19,8 @@ class TestInterp(object):
         #    s.call()
         l = []
         interpreter.writer = l.append
-        Script([Semicolon(Call(Identifier('print', None), List([Number(1), Number(2)])))],[],[]).call()
+        Script([Semicolon(Call(Identifier('print', None), 
+                List([Number(1), Number(2)])))],[],[]).call()
         assert l == ['1,2']
 
     def assert_prints(self, code, assval):
@@ -30,6 +32,10 @@ class TestInterp(object):
             l.append("uncaught exception: "+str(excpt.exception))
         assert l == assval
     
+    def assert_result(self, code, result):
+        r = code.call()
+        assert r.ToString() == result.ToString()
+        
     def test_interp_parse(self):
         self.assert_prints(parse_d("print(1+1)"), ["2"])
         self.assert_prints(parse_d("print(1+2+3); print(1)"), ["6", "1"])
@@ -40,7 +46,7 @@ class TestInterp(object):
         self.assert_prints(parse_d("x=3;y=4;print(x+y);"), ["7"])
 
     def test_string_var(self):
-        self.assert_prints(parse_d("print(\"sss\");"), ["sss"])
+        self.assert_prints(parse_d('print(\"sss\");'), ["sss"])
     
     def test_string_concat(self):
         self.assert_prints(parse_d('x="xxx"; y="yyy"; print(x+y);'), ["xxxyyy"])
@@ -149,7 +155,7 @@ class TestInterp(object):
         self.assert_prints(parse_d("print((500,3))"), ["3"])
     
     def test_try_catch(self):
-        py.test.skip('Under Construction')
+        py.test.skip("not ready yet")
         self.assert_prints(parse_d("""
         try {
             throw(3);
@@ -158,4 +164,8 @@ class TestInterp(object):
             print(x);
         }
         """), ["3"])
+    
+    def test_block(self):
+        self.assert_result(parse_d("{ 5}"), W_Number(5))
+        self.assert_result(parse_d("{3; 5}"), W_Number(5))
         
