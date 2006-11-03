@@ -1,4 +1,5 @@
 import py
+from sys import platform
 from os.path import dirname, join
 from pypy.translator.c.test.test_genc import compile
 
@@ -99,6 +100,9 @@ def DONTtest_layers_of_codegenerators():    #e.g. i386 code until function stabi
     pass
     
 def test_execute_translation(): #put this one last because it takes the most time
+    if platform == 'darwin':
+        py.test.skip('dynamic vs. static library issue. see: http://www.cocoadev.com/index.pl?ApplicationLinkingIssues for more information (needs to be fixed)')
+
     llvmjit.restart()
     def f(x):
         return execute(llsquare, 'square', x + 5)
