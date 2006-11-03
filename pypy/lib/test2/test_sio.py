@@ -6,6 +6,9 @@ from pypy.tool.udir import udir
 
 from pypy.lib import _sio as sio
 
+# XXX XXX XXX XXX please don't change this file. it will go away soon
+# in favour of rlib/test/test_streamio.py
+
 
 class TSource(object):
 

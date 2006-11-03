@@ -29,6 +29,10 @@ an outout-buffering stream.
 
 import os
 
+
+# XXX XXX XXX XXX please don't change this file. it will go away soon
+# in favour of rlib/streamio.py
+
 # ____________________________________________________________
 
 
