@@ -680,7 +680,10 @@ class TestBufferingInputOutputStreamTestsLLinterp(
     pass
 
 
-class TestTextInputFilter:
+class BaseTestTextInputFilter(BaseRtypingTest):
+
+    def _freeze_(self):
+        return True
 
     packets = [
         "foo\r",
@@ -729,101 +732,137 @@ class TestTextInputFilter:
     def test_read(self):
         base = TReader(self.packets)
         filter = streamio.TextInputFilter(base)
-        for data, pos in self.expected:
-            assert filter.read(100) == data
+        def f():
+            for data, pos in self.expected:
+                assert filter.read(100) == data
+        self.interpret(f, [])
 
     def test_read_tell(self):
         base = TReader(self.packets)
         filter = streamio.TextInputFilter(base)
-        for data, pos in self.expected_with_tell:
-            assert filter.read(100) == data
-            assert filter.tell() == pos
-            assert filter.tell() == pos # Repeat the tell() !
+        def f():
+            for data, pos in self.expected_with_tell:
+                assert filter.read(100) == data
+                assert filter.tell() == pos
+                assert filter.tell() == pos # Repeat the tell() !
+        self.interpret(f, [])
 
     def test_seek(self):
         base = TReader(self.packets)
         filter = streamio.TextInputFilter(base)
-        sofar = ""
-        pairs = []
-        while True:
-            pairs.append((sofar, filter.tell()))
-            c = filter.read(1)
-            if not c:
-                break
-            assert len(c) == 1
-            sofar += c
-        all = sofar
-        for i in range(len(pairs)):
-            sofar, pos = pairs[i]
-            filter.seek(pos)
-            assert filter.tell() == pos
-            assert filter.tell() == pos
-            bufs = [sofar]
+        def f():
+            sofar = ""
+            pairs = []
             while True:
-                data = filter.read(100)
-                if not data:
-                    assert filter.read(100) == ""
+                pairs.append((sofar, filter.tell()))
+                c = filter.read(1)
+                if not c:
                     break
-                bufs.append(data)
-            assert "".join(bufs) == all
+                assert len(c) == 1
+                sofar += c
+            all = sofar
+            for i in range(len(pairs)):
+                sofar, pos = pairs[i]
+                filter.seek(pos)
+                assert filter.tell() == pos
+                assert filter.tell() == pos
+                bufs = [sofar]
+                while True:
+                    data = filter.read(100)
+                    if not data:
+                        assert filter.read(100) == ""
+                        break
+                    bufs.append(data)
+                assert "".join(bufs) == all
+        self.interpret(f, [])
             
-class TestTextOutputFilter: 
+class TestTextInputFilter(BaseTestTextInputFilter):
+    def interpret(self, func, args):
+        return func(*args)
+
+class TestTextInputFilterLLinterp(BaseTestTextInputFilter, LLRtypeMixin):
+    pass
+
+
+class BaseTestTextOutputFilter(BaseRtypingTest):
 
     def test_write_nl(self):
-        base = TWriter()
-        filter = streamio.TextOutputFilter(base, linesep="\n")
-        filter.write("abc")
-        filter.write("def\npqr\nuvw")
-        filter.write("\n123\n")
-        assert base.buf == "abcdef\npqr\nuvw\n123\n"
+        def f():
+            base = TWriter()
+            filter = streamio.TextOutputFilter(base, linesep="\n")
+            filter.write("abc")
+            filter.write("def\npqr\nuvw")
+            filter.write("\n123\n")
+            assert base.buf == "abcdef\npqr\nuvw\n123\n"
+        self.interpret(f, [])
 
     def test_write_cr(self):
-        base = TWriter()
-        filter = streamio.TextOutputFilter(base, linesep="\r")
-        filter.write("abc")
-        filter.write("def\npqr\nuvw")
-        filter.write("\n123\n")
-        assert base.buf == "abcdef\rpqr\ruvw\r123\r"
+        def f():
+            base = TWriter()
+            filter = streamio.TextOutputFilter(base, linesep="\r")
+            filter.write("abc")
+            filter.write("def\npqr\nuvw")
+            filter.write("\n123\n")
+            assert base.buf == "abcdef\rpqr\ruvw\r123\r"
+        self.interpret(f, [])
 
     def test_write_crnl(self):
-        base = TWriter()
-        filter = streamio.TextOutputFilter(base, linesep="\r\n")
-        filter.write("abc")
-        filter.write("def\npqr\nuvw")
-        filter.write("\n123\n")
-        assert base.buf == "abcdef\r\npqr\r\nuvw\r\n123\r\n"
+        def f():
+            base = TWriter()
+            filter = streamio.TextOutputFilter(base, linesep="\r\n")
+            filter.write("abc")
+            filter.write("def\npqr\nuvw")
+            filter.write("\n123\n")
+            assert base.buf == "abcdef\r\npqr\r\nuvw\r\n123\r\n"
+        self.interpret(f, [])
 
     def test_write_tell_nl(self):
-        base = TWriter()
-        filter = streamio.TextOutputFilter(base, linesep="\n")
-        filter.write("xxx")
-        assert filter.tell() == 3
-        filter.write("\nabc\n")
-        assert filter.tell() == 8
+        def f():
+            base = TWriter()
+            filter = streamio.TextOutputFilter(base, linesep="\n")
+            filter.write("xxx")
+            assert filter.tell() == 3
+            filter.write("\nabc\n")
+            assert filter.tell() == 8
+        self.interpret(f, [])
 
     def test_write_tell_cr(self):
-        base = TWriter()
-        filter = streamio.TextOutputFilter(base, linesep="\r")
-        filter.write("xxx")
-        assert filter.tell() == 3
-        filter.write("\nabc\n")
-        assert filter.tell() == 8
+        def f():
+            base = TWriter()
+            filter = streamio.TextOutputFilter(base, linesep="\r")
+            filter.write("xxx")
+            assert filter.tell() == 3
+            filter.write("\nabc\n")
+            assert filter.tell() == 8
+        self.interpret(f, [])
 
     def test_write_tell_crnl(self):
-        base = TWriter()
-        filter = streamio.TextOutputFilter(base, linesep="\r\n")
-        filter.write("xxx")
-        assert filter.tell() == 3
-        filter.write("\nabc\n")
-        assert filter.tell() == 10
+        def f():
+            base = TWriter()
+            filter = streamio.TextOutputFilter(base, linesep="\r\n")
+            filter.write("xxx")
+            assert filter.tell() == 3
+            filter.write("\nabc\n")
+            assert filter.tell() == 10
+        self.interpret(f, [])
 
     def test_write_seek(self):
-        base = TWriter()
-        filter = streamio.TextOutputFilter(base, linesep="\n")
-        filter.write("x"*100)
-        filter.seek(50)
-        filter.write("y"*10)
-        assert base.buf == "x"*50 + "y"*10 + "x"*40
+        def f():
+            base = TWriter()
+            filter = streamio.TextOutputFilter(base, linesep="\n")
+            filter.write("x"*100)
+            filter.seek(50)
+            filter.write("y"*10)
+            assert base.buf == "x"*50 + "y"*10 + "x"*40
+        self.interpret(f, [])
+
+class TestTextOutputFilter(BaseTestTextOutputFilter):
+    def interpret(self, func, args):
+        return func(*args)
+
+class TestTextOutputFilterLLinterp(BaseTestTextOutputFilter, LLRtypeMixin):
+    pass
+
 
 class TestDecodingInputFilter:
 
