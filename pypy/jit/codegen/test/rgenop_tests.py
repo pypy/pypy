@@ -96,31 +96,42 @@ def get_branching_runner(RGenOp):
 
 
 def make_goto(rgenop):
+    # z = 1
     # while x > 0:
     #     y += x
+    #     z *= x
     #     x -= 1
+    # y += z
     # return y
     signed_kind = rgenop.kindToken(lltype.Signed)
     sigtoken = rgenop.sigToken(FUNC2)
     builder, entrypoint, [gv_x, gv_y] = rgenop.newgraph(sigtoken)
 
     # loop start block
-    args_gv = [gv_x, gv_y]
-    loopblock = builder.enter_next_block([signed_kind, signed_kind], args_gv)
-    [gv_x, gv_y] = args_gv
+    args_gv = [gv_x, gv_y, rgenop.genconst(1)]
+    loopblock = builder.enter_next_block(
+        [signed_kind, signed_kind, signed_kind], args_gv)
+    [gv_x, gv_y, gv_z] = args_gv
 
     gv_cond = builder.genop2("int_gt", gv_x, rgenop.genconst(0))
     bodybuilder = builder.jump_if_true(gv_cond)
-    builder.finish_and_return(sigtoken, gv_y)
+    args_gv = [gv_y, gv_z]
+    builder.enter_next_block(
+        [signed_kind, signed_kind], args_gv)
+    [gv_y, gv_z] = args_gv
+    gv_y3 = builder.genop2("int_add", gv_y, gv_z)
+    builder.finish_and_return(sigtoken, gv_y3)
 
     # loop body
-    args_gv = [gv_y, gv_x]
-    bodybuilder.enter_next_block([signed_kind, signed_kind], args_gv)
-    [gv_y, gv_x] = args_gv
+    args_gv = [gv_z, gv_y, gv_x]
+    bodybuilder.enter_next_block(
+        [signed_kind, signed_kind, signed_kind], args_gv)
+    [gv_z, gv_y, gv_x] = args_gv
 
+    gv_z2 = bodybuilder.genop2("int_mul", gv_x, gv_z)
     gv_y2 = bodybuilder.genop2("int_add", gv_x, gv_y)
     gv_x2 = bodybuilder.genop2("int_sub", gv_x, rgenop.genconst(1))
-    bodybuilder.finish_and_goto([gv_x2, gv_y2], loopblock)
+    bodybuilder.finish_and_goto([gv_x2, gv_y2, gv_z2], loopblock)
 
     # done
     gv_gotofn = rgenop.gencallableconst(sigtoken, "goto", entrypoint)
@@ -293,17 +304,17 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         gv_gotofn = make_goto(rgenop)
         print gv_gotofn.value
         fnptr = cast(c_void_p(gv_gotofn.value), CFUNCTYPE(c_int, c_int, c_int))
-        res = fnptr(30, 17)    # <== the segfault is here
-        assert res == 31 * 15 + 17
+        res = fnptr(10, 17)    # <== the segfault is here
+        assert res == 3628872
         res = fnptr(3, 17)    # <== or here
-        assert res == 23
+        assert res == 29
 
     def test_goto_compile(self):
         fn = self.compile(get_goto_runner(self.RGenOp), [int, int])
-        res = fn(30, 17)
-        assert res == 31 * 15 + 17
+        res = fn(10, 17)
+        assert res == 3628872
         res = fn(3, 17)
-        assert res == 23
+        assert res == 29
 
     def test_if_direct(self):
         rgenop = self.RGenOp()

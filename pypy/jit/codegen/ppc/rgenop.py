@@ -4,9 +4,23 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rlib.objectmodel import specialize, we_are_translated
 from pypy.jit.codegen.ppc.conftest import option
 
-class Register(object):
-    def __init__(self):
-        pass
+class AllocationSlot(object):
+    pass
+
+class _StackSlot(AllocationSlot):
+    is_register = False
+    def __init__(self, offset):
+        self.offset = offset
+
+_stack_slot_cache = {}
+def stack_slot(offset):
+    if offset in _stack_slot_cache:
+        return _stack_slot_cache[offset]
+    _stack_slot_cache[offset] = res = _StackSlot(offset)
+    return res
+
+class Register(AllocationSlot):
+    is_register = True
 
 class GPR(Register):
     def __init__(self, number):
@@ -42,92 +56,142 @@ CR_FIELD = 2
 CT_REGISTER = 3
 
 class RegisterAllocation:
-    def __init__(self, initial_mapping):
-        self.insns = []
-        self.freeregs = gprs[3:]
-        self.reg2var = {}
-        self.var2reg = {}
-        self.var2spill = {}
-        for var, reg in initial_mapping.iteritems():
-            self.reg2var[reg] = var
-            self.var2reg[var] = reg
-        self.crfinfo = [(0, 0)] * 8
-        self._spill_index = 0
+    def __init__(self, minreg, initial_mapping):
+        #print
+        #print "RegisterAllocation __init__"
+        
+        self.insns = []   # Output list of instructions
+        self.freeregs = gprs[minreg:] # Registers with dead values
+        self.var2loc = {} # Maps a Var to an AllocationSlot
+        self.loc2var = {} # Maps an AllocationSlot to a Var
+        self.lru = []     # Least-recently-used list of vars; first is oldest.
+                          # Contains all vars in registers, and no vars on stack
+        self._spill_index = 0 # Where to put next spilled value
 
-    def _spill(self):
+        # Go through the initial mapping and initialize the data structures
+        for var, loc in initial_mapping.iteritems():
+            self.loc2var[loc] = var
+            self.var2loc[var] = loc
+            if loc in self.freeregs:
+                del self.freeregs[self.freeregs.index(loc)]
+                self.lru.append(var)
+        self.crfinfo = [(0, 0)] * 8
+
+    def spill(self):
+        """ Returns an offset onto the stack for an unused spill location """
+        # TODO --- reuse spill slots when contained values go dead?
         self._spill_index += 4
         return self._spill_index
 
-    def _allocate_reg(self, newarg, lru):
+    def _allocate_reg(self, newarg):
 
         # check if there is a register available
         if self.freeregs:
             reg = self.freeregs.pop()
-            self.reg2var[reg] = newarg
-            self.var2reg[newarg] = reg
+            self.loc2var[reg] = newarg
+            self.var2loc[newarg] = reg
+            #print "allocate_reg: Putting %r into fresh register %r" % (
+            #    newarg, reg)
             return reg
 
         # if not, find something to spill
-        argtospill = lru.pop(0)
-        assert argtospill in self.var2reg
-        spill = self._spill()
-        reg = self.var2reg[argtospill] # move argtospill to spill slot
-        self.var2spill[argtospill] = spill
-        del self.var2reg[argtospill]
-        self.reg2var[reg] = newarg     # assign reg to newarg
-        self.var2reg[newarg] = reg
+        argtospill = self.lru.pop(0)
+        reg = self.var2loc[argtospill]
+        assert reg.is_register
+
+        # Move the value we are spilling onto the stack, both in the
+        # data structures and in the instructions:
+        spill = stack_slot(self.spill())
+        self.var2loc[argtospill] = spill
+        self.loc2var[spill] = argtospill
         self.insns.append(Spill(argtospill, reg, spill))
+        #print "allocate_reg: Spilled %r to %r." % (argtospill, spill)
+
+        # If the value is currently on the stack, load it up into the
+        # register we are putting it into
+        if newarg in self.var2loc:
+            spill = self.var2loc[newarg]
+            assert not spill.is_register
+            self.insns.append(Unspill(newarg, reg, spill))
+            del self.loc2var[spill] # not stored there anymore, reuse??
+            #print "allocate_reg: Unspilled %r from %r." % (newarg, spill)
+
+        # Update data structures to put newarg into the register
+        self.var2loc[newarg] = reg
+        self.loc2var[reg] = newarg
+        #print "allocate_reg: Put %r in stolen reg %r." % (newarg, reg)
         return reg
+
+    def _promote(self, arg):
+        if arg in self.lru:
+            del self.lru[self.lru.index(arg)]
+        self.lru.append(arg)
         
     def allocate_for_insns(self, insns):
         # Walk through instructions in forward order
-        lru = []
         for insn in insns:
 
+            #print "Processing instruction %r with args %r and result %r:" % (
+            #    insn, insn.reg_args, insn.result)
+            #
+            #print "LRU list was: %r" % (self.lru,)
+
             # put things into the lru
-            for arg in insn.reg_args:
-                if arg in lru:
-                    del lru[lru.index(arg)]
-                lru.append(arg)
+            for i in range(len(insn.reg_args)):
+                arg = insn.reg_args[i]
+                argcls = insn.reg_arg_regclasses[i]
+                if argcls == GP_REGISTER:
+                    self._promote(arg)
+            if insn.result and insn.result_regclass == GP_REGISTER:
+                self._promote(insn.result)
+            #print "LRU list is now: %r" % (self.lru,)
 
             # We need to allocate a register for each used
             # argument that is not already in one
             for i in range(len(insn.reg_args)):
                 arg = insn.reg_args[i]
                 argcls = insn.reg_arg_regclasses[i]
+                #print "Allocating register for %r..." % (arg,)
 
-                if arg not in self.var2reg:
+                if not self.var2loc[arg].is_register:
                     # It has no register now because it has been spilled
                     assert argcls is GP_REGISTER, "uh-oh"
-                    reg = self._allocate_reg(arg, lru)
-                    self.insns.append(
-                        Unspill(arg, reg, self.var2spill[arg]))
-                    del self.var2spill[arg]
+                    self._allocate_reg(arg)
 
             # Need to allocate a register for the destination
-            assert not insn.result or insn.result not in self.var2reg
+            assert not insn.result or insn.result not in self.var2loc
             cand = None
             if insn.result_regclass is GP_REGISTER:
-                cand = self._allocate_reg(insn.result, lru)
+                #print "Allocating register for result %r..." % (cand,)
+                cand = self._allocate_reg(insn.result)
             elif insn.result_regclass is CR_FIELD:
-                assert crfs[0] not in self.reg2var
+                assert crfs[0] not in self.loc2var
+                assert isinstance(insn, CMPInsn)
                 cand = crfs[0]
                 self.crfinfo[0] = insn.info
             elif insn.result_regclass is CT_REGISTER:
-                assert ctr not in self.reg2var
+                assert ctr not in self.loc2var
                 cand = ctr
             elif insn.result_regclass is not NO_REGISTER:
                 assert 0
-            if cand is not None:
-                self.var2reg[insn.result] = cand
-                self.reg2var[cand] = insn.result
+            if cand is not None and cand not in self.loc2var:
+                self.var2loc[insn.result] = cand
+                self.loc2var[cand] = insn.result
+            else:
+                assert cand is None or self.loc2var[cand] is insn.result
             insn.allocate(self)
             self.insns.append(insn)
         return self.insns
 
+_var_index = [0]
 class Var(GenVar):
+    def __init__(self):
+        self.__magic_index = _var_index[0]
+        _var_index[0] += 1
     def load(self, builder):
         return self
+    def __repr__(self):
+        return "<Var %d>" % self.__magic_index
 
 class IntConst(GenConst):
 
@@ -158,9 +222,16 @@ class Insn(object):
     reg_args is the vars that need to have registers allocated for them
     reg_arg_regclasses is the type of register that needs to be allocated
     '''
+    info = (0,0)
+    def __init__(self):
+        self.__magic_index = _var_index[0]
+        _var_index[0] += 1
+    def __repr__(self):
+        return "<%s %d>" % (self.__class__.__name__, self.__magic_index)
 
 class Insn_GPR__GPR_GPR(Insn):
     def __init__(self, methptr, result, args):
+        Insn.__init__(self)
         self.methptr = methptr
 
         self.result = result
@@ -169,9 +240,9 @@ class Insn_GPR__GPR_GPR(Insn):
         self.reg_arg_regclasses = [GP_REGISTER, GP_REGISTER]
 
     def allocate(self, allocator):
-        self.result_reg = allocator.var2reg[self.result]
-        self.arg_reg1 = allocator.var2reg[self.reg_args[0]]
-        self.arg_reg2 = allocator.var2reg[self.reg_args[1]]
+        self.result_reg = allocator.var2loc[self.result]
+        self.arg_reg1 = allocator.var2loc[self.reg_args[0]]
+        self.arg_reg2 = allocator.var2loc[self.reg_args[1]]
 
     def emit(self, asm):
         self.methptr(asm,
@@ -181,6 +252,7 @@ class Insn_GPR__GPR_GPR(Insn):
 
 class Insn_GPR__GPR_IMM(Insn):
     def __init__(self, methptr, result, args):
+        Insn.__init__(self)
         self.methptr = methptr
         self.imm = args[1]
 
@@ -189,8 +261,8 @@ class Insn_GPR__GPR_IMM(Insn):
         self.reg_args = [args[0]]
         self.reg_arg_regclasses = [GP_REGISTER]
     def allocate(self, allocator):
-        self.result_reg = allocator.var2reg[self.result]
-        self.arg_reg = allocator.var2reg[self.reg_args[0]]
+        self.result_reg = allocator.var2loc[self.result]
+        self.arg_reg = allocator.var2loc[self.reg_args[0]]
     def emit(self, asm):
         self.methptr(asm,
                      self.result_reg.number,
@@ -199,6 +271,7 @@ class Insn_GPR__GPR_IMM(Insn):
 
 class Insn_GPR__IMM(Insn):
     def __init__(self, methptr, result, args):
+        Insn.__init__(self)
         self.methptr = methptr
         self.imm = args[0]
 
@@ -207,14 +280,18 @@ class Insn_GPR__IMM(Insn):
         self.reg_args = []
         self.reg_arg_regclasses = []
     def allocate(self, allocator):
-        self.result_reg = allocator.var2reg[self.result]
+        self.result_reg = allocator.var2loc[self.result]
     def emit(self, asm):
         self.methptr(asm,
                      self.result_reg.number,
                      self.imm.value)
 
-class CMPW(Insn):
+class CMPInsn(Insn):
+    pass
+
+class CMPW(CMPInsn):
     def __init__(self, info, result, args):
+        Insn.__init__(self)
         self.info = info
 
         self.result = result
@@ -224,15 +301,16 @@ class CMPW(Insn):
         self.reg_arg_regclasses = [GP_REGISTER, GP_REGISTER]
 
     def allocate(self, allocator):
-        self.result_reg = allocator.var2reg[self.result]
-        self.arg_reg1 = allocator.var2reg[self.reg_args[0]]
-        self.arg_reg2 = allocator.var2reg[self.reg_args[1]]
+        self.result_reg = allocator.var2loc[self.result]
+        self.arg_reg1 = allocator.var2loc[self.reg_args[0]]
+        self.arg_reg2 = allocator.var2loc[self.reg_args[1]]
 
     def emit(self, asm):
         asm.cmpw(self.result_reg.number, self.arg_reg1.number, self.arg_reg2.number)
 
-class CMPWI(Insn):
+class CMPWI(CMPInsn):
     def __init__(self, info, result, args):
+        Insn.__init__(self)
         self.info = info
         self.imm = args[1]
 
@@ -243,14 +321,15 @@ class CMPWI(Insn):
         self.reg_arg_regclasses = [GP_REGISTER]
 
     def allocate(self, allocator):
-        self.result_reg = allocator.var2reg[self.result]
-        self.arg_reg = allocator.var2reg[self.reg_args[0]]
+        self.result_reg = allocator.var2loc[self.result]
+        self.arg_reg = allocator.var2loc[self.reg_args[0]]
 
     def emit(self, asm):
         asm.cmpwi(self.result_reg.number, self.arg_reg.number, self.imm.value)
 
 class MTCTR(Insn):
     def __init__(self, result, args):
+        Insn.__init__(self)
         self.result = result
         self.result_regclass = CT_REGISTER
 
@@ -258,13 +337,14 @@ class MTCTR(Insn):
         self.reg_arg_regclasses = [GP_REGISTER]
 
     def allocate(self, allocator):
-        self.arg_reg = allocator.var2reg[self.reg_args[0]]
+        self.arg_reg = allocator.var2loc[self.reg_args[0]]
 
     def emit(self, asm):
         asm.mtctr(self.arg_reg.number)
 
 class Jump(Insn):
     def __init__(self, gv_cond, gv_target, jump_if_true):
+        Insn.__init__(self)
         self.gv_cond = gv_cond
         self.gv_target = gv_target
         self.jump_if_true = jump_if_true
@@ -274,8 +354,8 @@ class Jump(Insn):
         self.reg_args = [gv_cond, gv_target]
         self.reg_arg_regclasses = [CR_FIELD, CT_REGISTER]
     def allocate(self, allocator):
-        assert allocator.var2reg[self.reg_args[1]] is ctr
-        self.crf = allocator.var2reg[self.reg_args[0]]
+        assert allocator.var2loc[self.reg_args[1]] is ctr
+        self.crf = allocator.var2loc[self.reg_args[0]]
         self.bit, self.negated = allocator.crfinfo[self.crf.number]
     def emit(self, asm):
         if self.negated ^ self.jump_if_true:
@@ -288,33 +368,51 @@ class Unspill(Insn):
     """ A special instruction inserted by our register "allocator."  It
     indicates that we need to load a value from the stack into a register
     because we spilled a particular value. """
-    def __init__(self, var, reg, offset):
+    def __init__(self, var, reg, stack):
         """
         var --- the var we spilled (a Var)
         reg --- the reg we spilled it from (an integer)
         offset --- the offset on the stack we spilled it to (an integer)
         """
+        Insn.__init__(self)
         self.var = var
         self.reg = reg
-        self.offset = offset
+        self.stack = stack
     def emit(self, asm):
-        asm.lwz(self.reg.number, rSP, self.offset)
+        asm.lwz(self.reg.number, rSP, self.stack.offset)
 
 class Spill(Insn):
     """ A special instruction inserted by our register "allocator."
     It indicates that we need to store a value from the register into
     the stack because we spilled a particular value."""
-    def __init__(self, var, reg, offset):
+    def __init__(self, var, reg, stack):
         """
         var --- the var we are spilling (a Var)
         reg --- the reg we are spilling it from (an integer)
         offset --- the offset on the stack we are spilling it to (an integer)
         """
+        Insn.__init__(self)
         self.var = var
         self.reg = reg
-        self.offset = offset
+        self.stack = stack
     def emit(self, asm):
-        asm.stw(self.reg.number, rSP, self.offset)
+        asm.stw(self.reg.number, rSP, self.stack.offset)
+
+class Return(Insn):
+    """ Ensures the return value is in r3 """
+    def __init__(self, var):
+        Insn.__init__(self)
+        self.var = var
+        self.reg_args = [self.var]
+        self.reg_arg_regclasses = [GP_REGISTER]
+        self.result = None
+        self.result_regclass = NO_REGISTER
+        self.reg = None
+    def allocate(self, allocator):
+        self.reg = allocator.var2loc[self.var]
+    def emit(self, asm):
+        if self.reg.number != 3:
+            asm.mr(r3, self.reg.number)
 
 from pypy.jit.codegen.ppc import codebuf_posix as memhandler
 from ctypes import POINTER, cast, c_char, c_void_p, CFUNCTYPE, c_int
@@ -336,25 +434,129 @@ def emit(self, value):
     self.mc.write(value)
 RPPCAssembler.emit = emit
 
-def prepare_for_jump(builder, cur_locations, target):
-    assert len(target.arg_locations) == len(cur_locations)
-    targetregs = target.arg_locations
-    outregs = cur_locations
-    for i in range(len(cur_locations)):
-        treg = targetregs[i]
-        oreg = outregs[i]
-        if oreg == treg:
-            continue
-        if treg in outregs:
-            outi = outregs.index(treg)
-            assert outi > i
-            builder.asm.xor(treg.number, treg.number, oreg.number)
-            builder.asm.xor(oreg.number, treg.number, oreg.number)
-            builder.asm.xor(treg.number, treg.number, oreg.number)
-            outregs[outi] = oreg
-            outregs[i] == treg
-        else:
-            builder.asm.mr(treg.number, oreg.number)
+class CycleData:
+    # tar2src  -> map target var to source var
+    # src2tar  -> map source var to target var (!)
+    # tar2loc  -> map target var to location
+    # src2loc  -> map source var to location
+    # loc2src  -> map location to source var
+    # srcstack -> list of source vars
+    # freshctr -> how many fresh locations have we made so far
+    # emitted  -> list of emitted targets
+    pass
+
+def emit_moves(gen, tar2src, tar2loc, src2loc):
+
+    # Basic idea:
+    #
+    #   Construct a graph for each move (Ti <- Si)
+    #   There is an edge between two nodes i and j if loc[Ti] == loc[Sj]
+    #   If there are no cycles, then a simple tree walk will suffice
+    #   Algorithm is: avoid cycles by creating temps when needed
+    #
+    #   Do tree walk, if backedge is detected to node j, then move Sj to
+    #   a fresh slot Sn, and change Sj from Ti <- Sj to Ti <- Sn.  Now
+    #   there is no need for the backedge, so don't add it and continue.
+    #   When finishing a leaf node, emit the move.
+
+    tarvars = tar2src.keys()
+    
+    data = CycleData()
+    data.tar2src = tar2src
+    data.src2tar = {}
+    data.tar2loc = tar2loc
+    data.src2loc = src2loc
+    data.loc2src = {}
+    data.srcstack = []
+    data.freshctr = 0
+    data.emitted = []
+
+    for tar, src in tar2src.items():
+        data.src2tar[src] = tar
+
+    for src, loc in src2loc.items():
+        if src in data.src2tar:
+            data.loc2src[loc] = src
+
+    for tarvar in tarvars:
+        _cycle_walk(gen, tarvar, data)
+            
+    return data
+
+def _cycle_walk(gen, tarvar, data):
+
+    if tarvar in data.emitted: return
+
+    tarloc = data.tar2loc[tarvar]
+    srcvar = data.tar2src[tarvar]
+    srcloc = data.src2loc[srcvar]
+
+    # if location we are about to write to is not going to be read
+    # by anyone, we are safe
+    if tarloc not in data.loc2src:
+        gen.emit_move(tarloc, srcloc)
+        data.emitted.append(tarvar)
+        return
+
+    # Find source node that conflicts with us
+    conflictsrcvar = data.loc2src[tarloc]
+
+    if conflictsrcvar not in data.srcstack:
+        # No cycle on our stack yet
+        data.srcstack.append(srcvar)
+        _cycle_walk(gen, data.src2tar[conflictsrcvar], data)
+        srcloc = data.src2loc[srcvar] # warning: may have changed, so reload
+        gen.emit_move(tarloc, srcloc)
+        data.emitted.append(tarvar)
+        return 
+    
+    # Cycle detected, break it by moving the other node's source data
+    # somewhere else so we can overwrite it
+    freshloc = gen.create_fresh_location()
+    conflictsrcloc = data.src2loc[conflictsrcvar]
+    gen.emit_move(freshloc, conflictsrcloc)
+    data.src2loc[conflictsrcvar] = freshloc
+    gen.emit_move(tarloc, srcloc) # now safe to do our move
+    data.emitted.append(tarvar)
+    return
+
+class JumpPatchupGenerator(object):
+
+    def __init__(self, asm, regalloc):
+        self.asm = asm
+        self.regalloc = regalloc
+
+    def emit_move(self, tarloc, srcloc):
+        if tarloc == srcloc: return
+        if tarloc.is_register and srcloc.is_register:
+            self.asm.mr(tarloc.number, srcloc.number)
+        elif tarloc.is_register and not srcloc.is_register:
+            self.asm.lwz(tarloc.number, rSP, srcloc.offset)
+        elif not tarloc.is_register and srcloc.is_register:
+            self.asm.stw(srcloc.number, rSP, tarloc.offset)
+        elif not tarloc.is_register and not srcloc.is_register:
+            self.asm.lwz(r0, rSP, srcloc.offset)
+            self.asm.stw(r0, rSP, tarloc.offset)
+
+    def create_fresh_location(self):
+        offset = self.regalloc.spill()
+        return stack_slot(offset)
+
+def prepare_for_jump(asm, allocator, sourcevars, src2loc, target):
+
+    tar2src = {}     # tar var -> src var
+    tar2loc = {}
+
+    # construct mapping of targets to sources; note that "target vars"
+    # and "target locs" are the same thing right now
+    targetlocs = target.arg_locations
+    for i in range(len(targetlocs)):
+        tloc = targetlocs[i]
+        tar2loc[tloc] = tloc
+        tar2src[tloc] = sourcevars[i]
+
+    gen = JumpPatchupGenerator(asm, allocator)
+    emit_moves(gen, tar2src, tar2loc, src2loc)
 
 class MachineCodeBlock:
 
@@ -475,21 +677,21 @@ class Builder(GenBuilder):
 
     def emit(self):
         if self.parent is not None:
-            allocator = RegisterAllocation(self.parent.var2reg)
+            allocator = RegisterAllocation(
+                self.rgenop.MINUSERREG, self.parent.var2loc)
         else:
-            allocator = RegisterAllocation(self.initial_varmapping)
+            allocator = RegisterAllocation(
+                self.rgenop.MINUSERREG, self.initial_varmapping)
         self.insns = allocator.allocate_for_insns(self.insns)
         for insn in self.insns:
             insn.emit(self.asm)
-        self.var2reg = allocator.var2reg
+        self.var2loc = allocator.var2loc
         return allocator
 
     def finish_and_return(self, sigtoken, gv_returnvar):
         gv_returnvar = gv_returnvar.load(self)
+        self.insns.append(Return(gv_returnvar))
         allocator = self.emit()
-        reg = allocator.var2reg[gv_returnvar]
-        if reg.number != 3:
-            self.asm.mr(r3, reg.number)
 
         # Emit standard epilogue:
         self.asm.lwz(rSP,rSP,0)     # restore old SP
@@ -501,8 +703,8 @@ class Builder(GenBuilder):
 
     def finish_and_goto(self, outputargs_gv, target):
         allocator = self.emit()
-        cur_locations = [allocator.var2reg[v] for v in outputargs_gv]
-        prepare_for_jump(self, cur_locations, target)
+        prepare_for_jump(
+            self.asm, allocator, outputargs_gv, allocator.var2loc, target)
         self.asm.load_word(0, target.startaddr)
         self.asm.mtctr(0)
         self.asm.bctr()
@@ -515,9 +717,9 @@ class Builder(GenBuilder):
             gv = args_gv[i] = gv.load(self)
         allocator = self.emit()
         for gv in args_gv:
-            arg_locations.append(allocator.var2reg[gv])
+            arg_locations.append(allocator.var2loc[gv])
         self.insns = []
-        self.initial_varmapping = allocator.var2reg
+        self.initial_varmapping = allocator.var2loc
         return Label(self.asm.mc.tell(), arg_locations)
 
     def newvar(self):
@@ -531,6 +733,13 @@ class Builder(GenBuilder):
     def new_and_load_1(self, gv_x):
         gv_result = self.newvar()
         return (gv_result, gv_x.load(self))
+
+    def op_int_mul(self, gv_x, gv_y):
+        gv_result, gv_x, gv_y = self.new_and_load_2(gv_x, gv_y)
+        self.insns.append(
+            Insn_GPR__GPR_GPR(RPPCAssembler.mullw,
+                              gv_result, [gv_x, gv_y]))
+        return gv_result        
 
     def op_int_add(self, gv_x, gv_y):
         if isinstance(gv_y, IntConst) and abs(gv_y.value) < 2**16:
@@ -603,6 +812,10 @@ class Builder(GenBuilder):
 
 class RPPCGenOp(AbstractRGenOp):
     from pypy.jit.codegen.i386.codebuf import MachineCodeBlock
+
+    # minimum register we will use for register allocation
+    # we can artifically restrict it for testing purposes
+    MINUSERREG = 3
 
     def __init__(self):
         self.mcs = []   # machine code blocks where no-one is currently writing
