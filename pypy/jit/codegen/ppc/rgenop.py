@@ -449,15 +449,24 @@ def emit_moves(gen, tar2src, tar2loc, src2loc):
 
     # Basic idea:
     #
-    #   Construct a graph for each move (Ti <- Si)
-    #   There is an edge between two nodes i and j if loc[Ti] == loc[Sj]
-    #   If there are no cycles, then a simple tree walk will suffice
-    #   Algorithm is: avoid cycles by creating temps when needed
+    #   Construct a dependency graph, with a node for each move (Ti <-
+    #   Si).  Add an edge between two nodes i and j if loc[Ti] ==
+    #   loc[Sj].  (If executing the node's move would overwrite the
+    #   source for another move).  If there are no cycles, then a
+    #   simple tree walk will suffice.  If there *ARE* cycles, however,
+    #   something more is needed.
     #
-    #   Do tree walk, if backedge is detected to node j, then move Sj to
-    #   a fresh slot Sn, and change Sj from Ti <- Sj to Ti <- Sn.  Now
-    #   there is no need for the backedge, so don't add it and continue.
-    #   When finishing a leaf node, emit the move.
+    #   In a nutshell, the algorithm is to walk the tree, and whenever
+    #   a backedge is detected break the cycle by creating a fresh
+    #   location and remapping the source of the node so that it no
+    #   longer conflicts.  So, if you are in node i, and you detect a
+    #   cycle involving node j (so, Ti and Sj are the same location),
+    #   then you create a fresh location Sn.  You move Sj to Sn, and
+    #   remap node j so that instead of being Tj <- Sj it is Tj <- Sn.
+    #   Now there is no need for the backedge, so you can continue.
+    #   Whenever you have visited every edge going out from a node, all of
+    #   its dependent moves have been performed, so you can emit the
+    #   node's move and return.
 
     tarvars = tar2src.keys()
     
