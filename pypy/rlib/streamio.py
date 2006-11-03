@@ -27,7 +27,7 @@ an outout-buffering stream.
 
 """
 
-import os
+import os, sys
 
 # ____________________________________________________________
 
@@ -47,6 +47,12 @@ def replace_crlf_with_lf(s):
 
 def replace_char_with_str(string, c, s):
     return s.join(string.split(c))
+
+
+class StreamError(Exception):
+    def __init__(self, message):
+        self.message = message
+
 
 class Stream(object):
 
@@ -116,44 +122,28 @@ class DiskFile(Stream):
         self.fd = fd
 
     def seek(self, offset, whence=0):
-        try:
-            os.lseek(self.fd, offset, whence)
-        except OSError, e:
-            raise IOError(*e.args)
+        os.lseek(self.fd, offset, whence)
 
     def tell(self):
-        try:
-            return os.lseek(self.fd, 0, 1)
-        except OSError, e:
-            raise IOError(*e.args)
+        return os.lseek(self.fd, 0, 1)
 
     def read(self, n):
-        try:
-            return os.read(self.fd, n)
-        except OSError, e:
-            raise IOError(*e.args)
+        return os.read(self.fd, n)
 
     def write(self, data):
-        try:
-            while data:
-                n = os.write(self.fd, data)
-                data = data[n:]
-        except OSError, e:
-            raise IOError(*e.args)
+        while data:
+            n = os.write(self.fd, data)
+            data = data[n:]
 
     def close(self):
-        try:
-            os.close(self.fd)
-        except OSError, e:
-            raise IOError(*e.args)
+        os.close(self.fd)
 
-    def truncate(self, size):
-        try:
-            os.ftruncate(self.fd, size)
-        except OSError, e:
-            raise IOError(*e.args)
-        except AttributeError:
+    if sys.platform == "win32":
+        def truncate(self, size):
             raise NotImplementedError
+    else:
+        def truncate(self, size):
+            os.ftruncate(self.fd, size)
 
 
 # next class is not RPython
@@ -161,31 +151,6 @@ class DiskFile(Stream):
 class MMapFile(Stream):
 
     """Standard I/O basis stream using mmap."""
-
-##    def __init__(self, filename, mode="r"):
-##        import mmap
-##        self.filename = filename
-##        self.mode = mode
-##        if mode == "r":
-##            flag = os.O_RDONLY
-##            self.access = mmap.ACCESS_READ
-##        else:
-##            if mode == "w":
-##                flag = os.O_RDWR | os.O_CREAT
-##            elif mode == "a":
-##                flag = os.O_RDWR
-##            else:
-##                raise ValueError, "mode should be 'r', 'w' or 'a'"
-##            self.access = mmap.ACCESS_WRITE
-##        if hasattr(os, "O_BINARY"):
-##            flag |= os.O_BINARY
-##        self.fd = os.open(filename, flag)
-##        try:
-##            self.mapfile()
-##        except:
-##            os.close(self.fd)
-##            raise
-##        self.pos = 0
 
     def __init__(self, fd, mmapaccess):
         """NOT_RPYTHON"""
@@ -214,7 +179,7 @@ class MMapFile(Stream):
         elif whence == 2:
             self.pos = max(0, self.mm.size() + offset)
         else:
-            raise ValueError, "seek(): whence must be 0, 1 or 2"
+            raise StreamError("seek(): whence must be 0, 1 or 2")
 
     def readall(self):
         filesize = self.mm.size() # Actual file size, may be more than mapped
@@ -353,12 +318,14 @@ class BufferingInputStream(Stream):
             while self.lines:
                 line = self.lines[0]
                 if offset <= len(line):
+                    assert offset >= 0
                     self.lines[0] = line[offset:]
                     return
                 offset -= len(self.lines[0]) - 1
                 del self.lines[0]
             assert not self.lines
             if offset <= len(self.buf):
+                assert offset >= 0
                 self.buf = self.buf[offset:]
                 return
             offset -= len(self.buf)
@@ -395,13 +362,13 @@ class BufferingInputStream(Stream):
                     del buffers[0]
             cutoff = total + offset
             if cutoff < 0:
-                raise TypeError, "cannot seek back"
+                raise StreamError("cannot seek back")
             if buffers:
                 buffers[0] = buffers[0][cutoff:]
             self.buf = "".join(buffers)
             self.lines = []
             return
-        raise ValueError, "whence should be 0, 1 or 2"
+        raise StreamError("whence should be 0, 1 or 2")
 
     def readall(self):
         self.lines.append(self.buf)
@@ -418,6 +385,7 @@ class BufferingInputStream(Stream):
         return "".join(more)
 
     def read(self, n):
+        assert n >= 0
         if self.lines:
             # See if this can be satisfied from self.lines[0]
             line = self.lines[0]
@@ -434,6 +402,7 @@ class BufferingInputStream(Stream):
                     lines = self.lines[:i]
                     data = self.lines[i]
                     cutoff = len(data) - (k-n)
+                    assert cutoff >= 0
                     lines.append(data[:cutoff])
                     self.lines[:i+1] = [data[cutoff:]]
                     return "\n".join(lines)
@@ -445,6 +414,7 @@ class BufferingInputStream(Stream):
                 lines = self.lines
                 self.lines = []
                 cutoff = n - k
+                assert cutoff >= 0
                 lines.append(self.buf[:cutoff])
                 self.buf = self.buf[cutoff:]
                 return "\n".join(lines)
@@ -455,6 +425,8 @@ class BufferingInputStream(Stream):
             k = len(data)
             if k >= n:
                 cutoff = len(data) - (k-n)
+                assert cutoff >= 0
+                assert len(data) >= cutoff
                 self.buf = data[cutoff:]
                 return data[:cutoff]
 
@@ -472,8 +444,12 @@ class BufferingInputStream(Stream):
             if not data:
                 break
         cutoff = len(data) - (k-n)
-        self.buf = data[cutoff:]
-        more[-1] = data[:cutoff]
+        assert cutoff >= 0
+        if len(data) <= cutoff:
+            self.buf = ""
+        else:
+            self.buf = data[cutoff:]
+            more[-1] = data[:cutoff]
         return "".join(more)
 
     def readline(self):
@@ -487,7 +463,10 @@ class BufferingInputStream(Stream):
         if self.lines:
             return self.lines.pop(0) + "\n"
 
-        buf = self.buf and [self.buf] or []
+        if self.buf:
+            buf = [self.buf]
+        else:
+            buf = []
         while 1:
             self.buf = self.do_read(self.bufsize)
             self.lines = self.buf.split("\n")
