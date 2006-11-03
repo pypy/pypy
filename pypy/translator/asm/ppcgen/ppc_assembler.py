@@ -778,12 +778,18 @@ def hi(w):
 
 def ha(w):
     if (w >> 15) & 1:
-        return w >> 16 + 1
+        return (w >> 16) + 1
     else:
         return w >> 16
 
 def lo(w):
     return w & 0x0000FFFF
+
+def la(w):
+    v = w & 0x0000FFFF
+    if v & 0x8000:
+        return -((v ^ 0xFFFF) + 1) # "sign extend" to 32 bits
+    return v
 
 class MyPPCAssembler(PPCAssembler):
     def load_word(self, rD, word):
@@ -791,7 +797,7 @@ class MyPPCAssembler(PPCAssembler):
         self.ori(rD, rD, lo(word))
     def load_from(self, rD, addr):
         self.addis(rD, 0, ha(addr))
-        self.lwz(rD, rD, lo(addr))
+        self.lwz(rD, rD, la(addr))
 
 def b(n):
     r = []
