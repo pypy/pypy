@@ -40,4 +40,13 @@ def test_dfa_compiledummy():
         return recognizetable(dfatable, s, final_states)
     assert interpret(main, [0])
     assert not interpret(main, [1])
+
+def test_dfa_compiledummy2():
+    def main(gets):
+        a = getautomaton()
+        alltrans, final_states = convertagain(a)
+        s = ["aaaaaaaaaab", "aaaa"][gets]
+        return recognizeparts(alltrans, final_states, s)
+    assert interpret(main, [0])
+    assert not interpret(main, [1])
     

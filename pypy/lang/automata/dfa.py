@@ -99,10 +99,17 @@ def recognizetable(dfatable, s, finalstates):
     res = hint(res, variable=True)
     return res
 
-def recognizeparts(trans, finals, s):
+def convertagain(automaton):
+    alltrans = {}
+    for (s, c), r in automaton.transitions.items():
+        statetrans = alltrans.setdefault(s, {})
+        statetrans[c] = r
+    return alltrans, automaton.final_states
+
+def recognizeparts(alltrans, finals, s):
     " a less simple recognizer "
-    trans = hint(trans, deepfreeze=True)
     finals = hint(finals, deepfreeze=True)
+    alltrans = hint(alltrans, deepfreeze=True)
 
     indx = 0
     state = 0
@@ -114,10 +121,12 @@ def recognizeparts(trans, finals, s):
         char = s[indx]
         char = hint(char, promote=True)
 
-        state = trans.get((state, char), -1)
+        statetrans = alltrans[state]
+        state = statetrans.get(char, -1)
+        
+        hint(state, concrete=True)
         if state == -1:
             return False
-        hint(state, concrete=True)
         indx += 1
         
     res = state in finals
