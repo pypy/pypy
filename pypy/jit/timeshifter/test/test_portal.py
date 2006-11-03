@@ -154,6 +154,7 @@ class TestPortal(object):
         assert not res
 
     def test_dfa_compile2(self):
+        py.test.skip('wip')
         from pypy.lang.automata.dfa import getautomaton, recognizeparts
         a = getautomaton()
         def main(gets):
