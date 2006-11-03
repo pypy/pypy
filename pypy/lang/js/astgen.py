@@ -9,13 +9,6 @@ class Node(object):
 #    def __init__(self, lineno = 1):
 #        self.lineno = lineno
 
-#    def getlist(d):
-#        lgt = int(d['length'])
-#        output = [d[str(i)] for i in range(lgt)]
-#        return output
-#    getlist = staticmethod(getlist)
-
-        
 class Array(Node):
     def __init__(self, items=()):
         self.items = items
@@ -30,6 +23,11 @@ class Call(Node):
         self.identifier = identifier
         self.arglist = arglist
 
+class Comma(Node):
+    def __init__(self, left, right):
+        self.left = left
+        self.right = right
+
 class Dot(Node):
     def __init__(self, left, right):
         self.left = left
@@ -42,7 +40,12 @@ class Function(Node):
         self.scope = scope
         #w_obj = W_Object({}, function=self)
         #self.scope = Scope(copy(scope.dict))
-    
+
+class Group(Node):
+    """The Group class."""
+    def __init__(self, expr):
+        self.expr = expr
+
 class Identifier(Node):
     def __init__(self, name, initialiser):
         self.name = name
@@ -92,6 +95,12 @@ class Semicolon(Node):
 class String(Node):
     def __init__(self, strval):
         self.strval = strval
+
+class Throw(Node):
+    """The Throw class."""
+    def __init__(self, exception):
+        self.exception = exception
+
 
 class Vars(Node):
     def __init__(self, nodes):
@@ -149,6 +158,12 @@ def from_dict(d):
         return f
     elif tp == 'RETURN':
         return Return(from_dict(d['value']))
+    elif tp == 'THROW':
+        return Throw(from_dict(d['exception']))
+    elif tp == 'GROUP':
+        return Group(from_dict(d['0']))
+    elif tp == 'COMMA':
+        return Comma(from_dict(d['0']),from_dict(d['1']))
     elif tp == 'VAR':
         return Vars(getlist(d))
     else:

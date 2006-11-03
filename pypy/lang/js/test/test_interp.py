@@ -2,6 +2,7 @@
 from pypy.lang.js.astgen import *
 from pypy.lang.js import interpreter
 from pypy.lang.js.parser import parse
+from pypy.lang.js.interpreter import ThrowException
 import py.test
 
 import sys
@@ -23,7 +24,10 @@ class TestInterp(object):
     def assert_prints(self, code, assval):
         l = []
         interpreter.writer = l.append
-        code.call()
+        try:
+            code.call()
+        except ThrowException, excpt:
+            l.append("uncaught exception: "+str(excpt.exception))
         assert l == assval
     
     def test_interp_parse(self):
@@ -112,7 +116,6 @@ class TestInterp(object):
         """), ["test"])
 
     def test_function_arguments(self):
-        #py.test.skip('not ready yet')
         self.assert_prints(parse_d("""
         x = function () {
                 r = arguments[0];
@@ -136,3 +139,23 @@ class TestInterp(object):
         print(x);
         """), ["[]"])
 
+    def test_throw(self):
+        self.assert_prints(parse_d("throw(3)"), ["uncaught exception: 3"])
+        
+    def test_group(self):
+        self.assert_prints(parse_d("print((2+1))"), ["3"])
+
+    def test_comma(self):
+        self.assert_prints(parse_d("print((500,3))"), ["3"])
+    
+    def test_try_catch(self):
+        py.test.skip('Under Construction')
+        self.assert_prints(parse_d("""
+        try {
+            throw(3);
+        }
+        catch (x) {
+            print(x);
+        }
+        """), ["3"])
+        

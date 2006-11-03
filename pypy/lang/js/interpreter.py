@@ -11,6 +11,11 @@ class ExecutionReturned(Exception):
     def __init__(self, value):
         self.value = value
 
+class ThrowException(Exception):
+    def __init__(self, exception):
+        self.exception = exception
+
+
 class __extend__(Array):
     def call(self, context):
         d = dict(enumerate(self.items))
@@ -42,6 +47,11 @@ class __extend__(Call):
             scope_manager.current_scope = backup_scope
             return retval
 
+class __extend__(Comma):
+    def call(self, context=None):
+        self.left.call(context)
+        return self.right.call(context)
+
 class __extend__(Dot):
     def call(self, context=None):
         w_obj = self.left.call(context).GetValue().ToObject()
@@ -64,6 +74,11 @@ class __extend__(Identifier):
     
     def get_literal(self):
         return self.name
+
+class __extend__(Group):
+    """The __extend__ class."""
+    def call(self, context = None):
+        return self.expr.call(context)
 
 class __extend__(Index):
     def call(self, context=None):
@@ -128,7 +143,6 @@ class __extend__(Script):
             ncontext.assign(item, temp)
         
         w_Arguments = W_Arguments(dict([(str(x),y) for x,y in enumerate(args)]))
-        print w_Arguments.dict_w
         ncontext.assign('arguments', w_Arguments)
         
         try:
@@ -153,6 +167,10 @@ class __extend__(Return):
     def call(self, context=None):
         raise ExecutionReturned(self.expr.call(context))
 
+class __extend__(Throw):
+    def call(self, context=None):
+        raise ThrowException(self.exception.call(context))
+    
 class __extend__(Vars):
     def call(self, context=None):
         for var in self.nodes:
