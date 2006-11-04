@@ -284,9 +284,9 @@ Np.toString = function () {
     var s = "{\n" + INDENTATION.repeat(n) + "'type': '" + tokenstr(this.type) + "'";
     for (i = 0; i < a.length; i++) {
         val = a[i].value + "";
-        if (val.search("\\},\\{") != -1) {
+        if ((val.search("\\},\\{") != -1 )) {
             s += ",\n" + INDENTATION.repeat(n) + "'" + a[i].id + "': [" + val + "]";
-        } else {
+        } else { 
             if (val.search("\n") != -1) {
                 s += ",\n" + INDENTATION.repeat(n) + "'" + a[i].id + "': " + val + " ";
             } else {

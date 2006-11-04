@@ -25,7 +25,10 @@ class __extend__(Array):
 
 class __extend__(Assign):
     def call(self, context):
+        #print context.locals.keys(), "|||||", context.globals
+        #print context.globals['z']
         val = self.expr.call(context)
+        print val
         self.identifier.put(context,val)
 
 class __extend__(Block):
@@ -79,14 +82,14 @@ class __extend__(Dot):
         
 
 class __extend__(Function):
-    def call(self, context=None):
+    def call(self, context):
        w_obj = W_Object({}, function=self)
        return w_obj
 
 class __extend__(Identifier):
-    def call(self, context=None):
+    def call(self, context):
         if self.initialiser is not None:
-            scope_manager.set_variable(self.name, self.initialiser.call(context))
+            context.assign(self.name, self.initialiser.call(context))
         try:
             return context.access(self.name)
         except NameError:
@@ -197,7 +200,7 @@ class __extend__(Plus):
             return W_Number(num_left + num_right)
 
 class __extend__(Script):
-    def call(self, context=None, args=(), params=[]):
+    def call(self, context=None, args=(), params=[], first = False):
         ncontext = ExecutionContext(context)
         for i, item in enumerate(params):
             try:
@@ -205,6 +208,12 @@ class __extend__(Script):
             except IndexError:
                 temp = w_Undefined
             ncontext.assign(item, temp)
+
+        for var in self.var_decl:
+            if first:
+                ncontext.globals[var.name] = w_Undefined
+            else:
+                ncontext.locals[var.name] = w_Undefined
         
         w_Arguments = W_Arguments(dict([(str(x),y) for x,y in enumerate(args)]))
         ncontext.assign('arguments', w_Arguments)

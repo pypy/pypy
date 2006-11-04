@@ -8,11 +8,12 @@ class ExecutionContext(object):
             self.globals = {}
         else:
             self.globals = parent.globals
-        #self.locals = {}
 
     def assign(self, name, value):
-        self.locals[name] = value
-        #self.globals[name] = value
+        if (name not in self.locals) and (name in self.globals):
+            self.globals[name] = value
+        else:
+            self.locals[name] = value
 
     def access(self, name):
         if name in self.locals:

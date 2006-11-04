@@ -30,7 +30,7 @@ class TestInterp(object):
         ctx = ExecutionContext()
         ctx.globals['Object'] = W_Object({})
         try:
-            code.call(ctx)
+            code.call(ctx, first = True)
         except ThrowException, excpt:
             l.append("uncaught exception: "+str(excpt.exception))
         assert l == assval
@@ -227,4 +227,8 @@ class TestInterp(object):
         print(o.info);
         """), ["hello"])
 
+    def test_vars(self):
+        self.assert_prints(parse_d("""
+        var x;x=3; print(x)"""), ["3"])
+        
 

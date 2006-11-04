@@ -107,6 +107,7 @@ class Return(Node):
 class Script(Node):
     def __init__(self, nodes, var_decl, func_decl):
         self.nodes = nodes
+        [scope_manager.add_variable(id.name, w_Undefined) for id in var_decl]
         self.var_decl = var_decl
         self.func_decl = func_decl
 
@@ -139,7 +140,7 @@ class Undefined(Node):
 class Vars(Node):
     def __init__(self, nodes):
         self.nodes = nodes
-        [scope_manager.add_variable(id.name, w_Undefined) for id in nodes]
+        #[scope_manager.add_variable(id.name, w_Undefined) for id in nodes]
 
 class While(Node):
     def __init__(self, condition, body):
@@ -218,8 +219,12 @@ def from_dict(d):
     elif tp == 'RETURN':
         return Return(from_dict(d['value']))
     elif tp == 'SCRIPT':
-        # XXX: Cannot parse it right now
-        return Script(getlist(d), [], [])
+        # TODO: get function names
+        if isinstance(d['varDecls'], dict):
+            var_decl = [from_dict(d['varDecls']),]
+        else:
+            var_decl = [from_dict(x) for x in d['varDecls']]
+        return Script(getlist(d), var_decl, [])
     elif tp == 'SEMICOLON':
         return Semicolon(from_dict(d['expression']))
     elif tp == 'STRING':
