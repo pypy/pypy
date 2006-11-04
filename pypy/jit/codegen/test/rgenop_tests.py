@@ -77,6 +77,9 @@ def make_branching(rgenop):
     builder.finish_and_return(sigtoken, gv_s2)
 
     # false path
+    args_gv = [gv_y]
+    false_builder.enter_next_block([signed_kind], args_gv)
+    [gv_y] = args_gv
     false_builder.finish_and_return(sigtoken, gv_y)
 
     # done

@@ -56,9 +56,9 @@ CR_FIELD = 2
 CT_REGISTER = 3
 
 class RegisterAllocation:
-    def __init__(self, minreg, initial_mapping):
+    def __init__(self, minreg, initial_mapping, initial_spill_offset):
         #print
-        #print "RegisterAllocation __init__"
+        #print "RegisterAllocation __init__", initial_mapping
         
         self.insns = []   # Output list of instructions
         self.freeregs = gprs[minreg:] # Registers with dead values
@@ -66,22 +66,24 @@ class RegisterAllocation:
         self.loc2var = {} # Maps an AllocationSlot to a Var
         self.lru = []     # Least-recently-used list of vars; first is oldest.
                           # Contains all vars in registers, and no vars on stack
-        self._spill_index = 0 # Where to put next spilled value
+        self.spill_offset = initial_spill_offset # Where to put next spilled
+                                                 # value, relative to rFP,
+                                                 # measured in bytes
 
         # Go through the initial mapping and initialize the data structures
         for var, loc in initial_mapping.iteritems():
             self.loc2var[loc] = var
             self.var2loc[var] = loc
             if loc in self.freeregs:
-                del self.freeregs[self.freeregs.index(loc)]
+                self.freeregs.remove(loc)
                 self.lru.append(var)
         self.crfinfo = [(0, 0)] * 8
 
     def spill(self):
         """ Returns an offset onto the stack for an unused spill location """
         # TODO --- reuse spill slots when contained values go dead?
-        self._spill_index += 4
-        return self._spill_index
+        self.spill_offset -= 4
+        return self.spill_offset
 
     def _allocate_reg(self, newarg):
 
@@ -90,8 +92,7 @@ class RegisterAllocation:
             reg = self.freeregs.pop()
             self.loc2var[reg] = newarg
             self.var2loc[newarg] = reg
-            #print "allocate_reg: Putting %r into fresh register %r" % (
-            #    newarg, reg)
+            #print "allocate_reg: Putting %r into fresh register %r" % (newarg, reg)
             return reg
 
         # if not, find something to spill
@@ -124,16 +125,15 @@ class RegisterAllocation:
 
     def _promote(self, arg):
         if arg in self.lru:
-            del self.lru[self.lru.index(arg)]
+            self.lru.remove(arg)
         self.lru.append(arg)
-        
+
     def allocate_for_insns(self, insns):
         # Walk through instructions in forward order
         for insn in insns:
 
-            #print "Processing instruction %r with args %r and result %r:" % (
-            #    insn, insn.reg_args, insn.result)
-            #
+            #print "Processing instruction %r with args %r and result %r:" % (insn, insn.reg_args, insn.result)
+
             #print "LRU list was: %r" % (self.lru,)
 
             # put things into the lru
@@ -157,12 +157,15 @@ class RegisterAllocation:
                     # It has no register now because it has been spilled
                     assert argcls is GP_REGISTER, "uh-oh"
                     self._allocate_reg(arg)
+                else:
+                    #print "it was in ", self.var2loc[arg]
+                    pass
 
             # Need to allocate a register for the destination
             assert not insn.result or insn.result not in self.var2loc
             cand = None
             if insn.result_regclass is GP_REGISTER:
-                #print "Allocating register for result %r..." % (cand,)
+                #print "Allocating register for result %r..." % (insn.result,)
                 cand = self._allocate_reg(insn.result)
             elif insn.result_regclass is CR_FIELD:
                 assert crfs[0] not in self.loc2var
@@ -213,6 +216,13 @@ class IntConst(GenConst):
             Insn_GPR__IMM(RPPCAssembler.load_word,
                           var, [self]))
         return var
+
+    def load_now(self, asm, loc):
+        if loc.is_register:
+            asm.load_word(loc.number, self.value)
+        else:
+            asm.load_word(rSCRATCH, self.value)
+            asm.stw(rSCRATCH, rFP, loc.offset)
 
 class Insn(object):
     '''
@@ -379,7 +389,7 @@ class Unspill(Insn):
         self.reg = reg
         self.stack = stack
     def emit(self, asm):
-        asm.lwz(self.reg.number, rSP, self.stack.offset)
+        asm.lwz(self.reg.number, rFP, self.stack.offset)
 
 class Spill(Insn):
     """ A special instruction inserted by our register "allocator."
@@ -396,7 +406,7 @@ class Spill(Insn):
         self.reg = reg
         self.stack = stack
     def emit(self, asm):
-        asm.stw(self.reg.number, rSP, self.stack.offset)
+        asm.stw(self.reg.number, rFP, self.stack.offset)
 
 class Return(Insn):
     """ Ensures the return value is in r3 """
@@ -428,7 +438,9 @@ RPPCAssembler = make_rassembler(MyPPCAssembler)
 r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, \
     r13, r14, r15, r16, r17, r18, r19, r20, r21, r22, \
     r23, r24, r25, r26, r27, r28, r29, r30, r31 = range(32)
+rSCRATCH = r0
 rSP = r1
+rFP = r2 # the ABI doesn't specify a frame pointer.  however, we want one
 
 def emit(self, value):
     self.mc.write(value)
@@ -531,27 +543,28 @@ def _cycle_walk(gen, tarvar, data):
 
 class JumpPatchupGenerator(object):
 
-    def __init__(self, asm, regalloc):
+    def __init__(self, asm, min_offset):
         self.asm = asm
-        self.regalloc = regalloc
+        self.min_offset = min_offset
 
     def emit_move(self, tarloc, srcloc):
         if tarloc == srcloc: return
         if tarloc.is_register and srcloc.is_register:
             self.asm.mr(tarloc.number, srcloc.number)
         elif tarloc.is_register and not srcloc.is_register:
-            self.asm.lwz(tarloc.number, rSP, srcloc.offset)
+            self.asm.lwz(tarloc.number, rFP, srcloc.offset)
         elif not tarloc.is_register and srcloc.is_register:
-            self.asm.stw(srcloc.number, rSP, tarloc.offset)
+            self.asm.stw(srcloc.number, rFP, tarloc.offset)
         elif not tarloc.is_register and not srcloc.is_register:
-            self.asm.lwz(r0, rSP, srcloc.offset)
-            self.asm.stw(r0, rSP, tarloc.offset)
+            self.asm.lwz(rSCRATCH, rFP, srcloc.offset)
+            self.asm.stw(rSCRATCH, rFP, tarloc.offset)
 
     def create_fresh_location(self):
-        offset = self.regalloc.spill()
-        return stack_slot(offset)
+        r = self.min_offset
+        self.min_offset -= 4
+        return stack_slot(r)
 
-def prepare_for_jump(asm, allocator, sourcevars, src2loc, target):
+def prepare_for_jump(asm, min_offset, sourcevars, src2loc, target):
 
     tar2src = {}     # tar var -> src var
     tar2loc = {}
@@ -564,8 +577,9 @@ def prepare_for_jump(asm, allocator, sourcevars, src2loc, target):
         tar2loc[tloc] = tloc
         tar2src[tloc] = sourcevars[i]
 
-    gen = JumpPatchupGenerator(asm, allocator)
+    gen = JumpPatchupGenerator(asm, min_offset)
     emit_moves(gen, tar2src, tar2loc, src2loc)
+    return gen.min_offset
 
 class MachineCodeBlock:
 
@@ -598,9 +612,10 @@ class MachineCodeBlock:
 
 class Label(GenLabel):
 
-    def __init__(self, startaddr, arg_locations):
+    def __init__(self, startaddr, arg_locations, min_stack_offset):
         self.startaddr = startaddr
         self.arg_locations = arg_locations
+        self.min_stack_offset = min_stack_offset
 
 ## class FlexSwitch(CodeGenSwitch):
 
@@ -639,41 +654,56 @@ class Label(GenLabel):
 
 class Builder(GenBuilder):
 
-    def __init__(self, rgenop, mc, parent):
+    def __init__(self, rgenop, mc):
         self.rgenop = rgenop
         self.asm = RPPCAssembler()
         self.asm.mc = mc
         self.insns = []
-        self.parent = parent
+        self.stack_adj_addr = 0
+        self.initial_spill_offset = 0
+        self.initial_var2loc = None
+        self.fresh_from_jump = False
+
+    def make_fresh_from_jump(self, initial_var2loc):
+        self.fresh_from_jump = True
+        self.initial_var2loc = initial_var2loc
 
     def _write_prologue(self, sigtoken):
-        assert self.parent is None
         numargs = sigtoken     # for now
         if not we_are_translated() and option.trap:
             self.asm.trap()
-        self.inputargs = [self.newvar() for i in range(numargs)]
-        self.initial_varmapping = {}
-        for arg in self.inputargs:
-            self.initial_varmapping[arg] = gprs[3+len(self.initial_varmapping)]
+        inputargs = [self.newvar() for i in range(numargs)]
+        assert self.initial_var2loc is None
+        self.initial_var2loc = {}
+        for arg in inputargs:
+            self.initial_var2loc[arg] = gprs[3+len(self.initial_var2loc)]
+        self.initial_spill_offset = self._var_offset(0)
 
         # Emit standard prologue
         #   Minimum space = 24+params+lv+4*GPR+8*FPR
         #   GPR=19
         # Initially, we allocate only enough space for GPRs, and allow
         # each basic block to ensure it has enough space to continue.
-        minspace = self._stack_offset(0,0)
-        self.asm.mflr(r0)      
-        self.asm.stw(r0,rSP,8)
+        minspace = self._stack_size(0,self._var_offset(0))
+        self.asm.mflr(rSCRATCH)
+        self.asm.stw(rSCRATCH,rSP,8)
         self.asm.stmw(r13,rSP,-(4*20))     # save all regs from 13-31 to stack
+        self.asm.mr(rFP, rSP)              # set up our frame pointer
         self.asm.stwu(rSP,rSP,-minspace)
-            
-        return self.inputargs
 
-    def _stack_offset(self, param, lv):
-        """ Returns the required stack offset to store all data, assuming
-        that there are 'param' words of parameters for callee functions and
-        'lv' words of local variable information. """
-        return ((24 + param*4 + lv*4 + 4*19) & ~15)+16
+        return inputargs
+
+    def _var_offset(self, v):
+        """v represents an offset into the local variable area in bytes;
+        this returns the offset relative to rFP"""
+        return -(4*19+4+v)
+
+    def _stack_size(self, param, lv):
+        """ Returns the required stack size to store all data, assuming
+        that there are 'param' bytes of parameters for callee functions and
+        'lv' is the largest (wrt to abs() :) rFP-relative byte offset of
+        any variable on the stack."""
+        return ((24 + param - lv) & ~15)+16
 
     def _close(self):
         self.rgenop.close_mc(self.asm.mc)
@@ -684,52 +714,121 @@ class Builder(GenBuilder):
         genmethod = getattr(self, 'op_' + opname)
         return genmethod(gv_arg1, gv_arg2)
 
-    def emit(self):
-        if self.parent is not None:
-            allocator = RegisterAllocation(
-                self.rgenop.MINUSERREG, self.parent.var2loc)
-        else:
-            allocator = RegisterAllocation(
-                self.rgenop.MINUSERREG, self.initial_varmapping)
+    def allocate_and_emit(self):
+        assert self.initial_var2loc is not None
+        allocator = RegisterAllocation(
+            self.rgenop.MINUSERREG, self.initial_var2loc, self.initial_spill_offset)
         self.insns = allocator.allocate_for_insns(self.insns)
+        if self.insns:
+            self.patch_stack_adjustment(self._stack_size(0, allocator.spill_offset))
         for insn in self.insns:
             insn.emit(self.asm)
-        self.var2loc = allocator.var2loc
         return allocator
 
     def finish_and_return(self, sigtoken, gv_returnvar):
         gv_returnvar = gv_returnvar.load(self)
         self.insns.append(Return(gv_returnvar))
-        allocator = self.emit()
+        allocator = self.allocate_and_emit()
 
         # Emit standard epilogue:
-        self.asm.lwz(rSP,rSP,0)     # restore old SP
-        self.asm.lmw(r13,rSP,-4*20) # restore all GPRs
-        self.asm.lwz(r0,rSP,8)      # load old Link Register and jump to it
-        self.asm.mtlr(r0)           #
-        self.asm.blr()              #
+        self.asm.lwz(rSP,rSP,0)      # restore old SP
+        self.asm.lmw(r13,rSP,-4*20)  # restore all GPRs
+        self.asm.lwz(rSCRATCH,rSP,8) # load old Link Register and jump to it
+        self.asm.mtlr(rSCRATCH)      #
+        self.asm.blr()               #
         self._close()
 
     def finish_and_goto(self, outputargs_gv, target):
-        allocator = self.emit()
-        prepare_for_jump(
-            self.asm, allocator, outputargs_gv, allocator.var2loc, target)
-        self.asm.load_word(0, target.startaddr)
-        self.asm.mtctr(0)
+        allocator = self.allocate_and_emit()
+        min_offset = min(allocator.spill_offset, target.min_stack_offset)
+        min_offset = prepare_for_jump(
+            self.asm, min_offset, outputargs_gv, allocator.var2loc, target)
+        self.patch_stack_adjustment(self._stack_size(0, min_offset))
+        self.asm.load_word(rSCRATCH, target.startaddr)
+        self.asm.mtctr(rSCRATCH)
         self.asm.bctr()
         self._close()
 
+    def emit_stack_adjustment(self):
+        # the ABI requires that at all times that r1 is valid, in the
+        # sense that it must point to the bottom of the stack and that
+        # executing SP <- *(SP) repeatedly walks the stack.
+        # this code satisfies this, although there is a 1-instruction
+        # window where such walking would find a strange intermediate
+        # "frame" (apart from when the delta is 0... XXX)
+        # as we emit these instructions waaay before doing the
+        # register allocation for this block we don't know how much
+        # stack will be required, so we patch it later (see
+        # patch_stack_adjustment below).
+        self.stack_adj_addr = self.asm.mc.tell()
+        self.asm.addi(rSCRATCH, rFP, 0) # this is the immediate that later gets patched
+        self.asm.sub(rSCRATCH, rSCRATCH, rSP) # rSCRATCH should now be <= 0
+        self.asm.stwux(rSP, rSP, rSCRATCH)
+        self.asm.stw(rFP, rSP, 0)
+
+    def patch_stack_adjustment(self, newsize):
+        if self.stack_adj_addr == 0:
+            return
+        # we build an addi instruction by hand here
+        opcode = 14 << 26
+        rD = rSCRATCH << 21
+        rA = rFP << 16
+        # if we decided to use r0 as the frame pointer, this would
+        # emit addi rFOO, r0, SIMM which would just load SIMM into
+        # rFOO and be "unlikely" to work
+        assert rA != 0
+        SIMM = (-newsize) & 0xFFFF
+        p_instruction = cast(c_void_p(self.stack_adj_addr), POINTER(c_int*1))
+        p_instruction.contents[0] = opcode | rD | rA | SIMM
+
     def enter_next_block(self, kinds, args_gv):
+        if self.fresh_from_jump:
+            var2loc = self.initial_var2loc
+            self.fresh_from_jump = False
+        else:
+            var2loc = self.allocate_and_emit().var2loc
+
+        #print "enter_next_block:", args_gv, var2loc
+
+        min_stack_offset = self._var_offset(0)
+        usedregs = {}
+        livevar2loc = {}
+        for gv in args_gv:
+            if isinstance(gv, Var):
+                assert gv in var2loc
+                loc = var2loc[gv]
+                livevar2loc[gv] = loc
+                if not loc.is_register:
+                    min_stack_offset = min(min_stack_offset, loc.offset)
+                else:
+                    usedregs[loc] = None # XXX use this
+
+        unusedregs = [loc for loc in gprs[self.rgenop.MINUSERREG:] if loc not in usedregs]
         arg_locations = []
+
         for i in range(len(args_gv)):
             gv = args_gv[i]
-            gv = args_gv[i] = gv.load(self)
-        allocator = self.emit()
-        for gv in args_gv:
-            arg_locations.append(allocator.var2loc[gv])
+            if isinstance(gv, Var):
+                arg_locations.append(livevar2loc[gv])
+            else:
+                if unusedregs:
+                    loc = unusedregs.pop()
+                else:
+                    loc = stack_slot(min_stack_offset)
+                    min_stack_offset -= 4
+                gv.load_now(self.asm, loc)
+                args_gv[i] = gv = Var()
+                livevar2loc[gv] = loc
+                arg_locations.append(loc)
+
+        #print livevar2loc
+
         self.insns = []
-        self.initial_varmapping = allocator.var2loc
-        return Label(self.asm.mc.tell(), arg_locations)
+        self.initial_var2loc = livevar2loc
+        self.initial_spill_offset = min_stack_offset
+        target_addr = self.asm.mc.tell()
+        self.emit_stack_adjustment()
+        return Label(target_addr, arg_locations, min_stack_offset)
 
     def newvar(self):
         gv = Var()
@@ -798,6 +897,7 @@ class Builder(GenBuilder):
 
     def _jump(self, gv_condition, if_true):
         targetbuilder = self._fork()
+
         gv = self.newvar()
         self.insns.append(
             Insn_GPR__IMM(RPPCAssembler.load_word,
@@ -807,6 +907,11 @@ class Builder(GenBuilder):
             MTCTR(gv2, [gv]))
         self.insns.append(
             Jump(gv_condition, gv2, if_true))
+
+        allocator = self.allocate_and_emit()
+        self.make_fresh_from_jump(allocator.var2loc)
+        targetbuilder.make_fresh_from_jump(allocator.var2loc)
+
         return targetbuilder
 
     def jump_if_false(self, gv_condition):
@@ -816,7 +921,7 @@ class Builder(GenBuilder):
         return self._jump(gv_condition, True)
 
     def _fork(self):
-        return self.rgenop.openbuilder(self)
+        return self.rgenop.openbuilder()
 
 
 class RPPCGenOp(AbstractRGenOp):
@@ -848,12 +953,12 @@ class RPPCGenOp(AbstractRGenOp):
     def kindToken(T):
         return None     # for now
 
-    def openbuilder(self, parent):
-        return Builder(self, self.open_mc(), parent)
+    def openbuilder(self):
+        return Builder(self, self.open_mc())
 
     def newgraph(self, sigtoken):
         numargs = sigtoken          # for now
-        builder = self.openbuilder(None)
+        builder = self.openbuilder()
         entrypoint = builder.asm.mc.tell()
         inputargs_gv = builder._write_prologue(sigtoken)
         return builder, entrypoint, inputargs_gv
