@@ -155,11 +155,12 @@ class TestPortal(object):
 
     def test_dfa_compile2(self):
         py.test.skip('wip')
-        from pypy.lang.automata.dfa import getautomaton, recognizeparts
+        from pypy.lang.automata.dfa import getautomaton, convertagain, recognizeparts
         a = getautomaton()
         def main(gets):
+            alltrans, final_states = convertagain(a)
             s = ["aaaaaaaaaab", "aaaa"][gets]
-            return recognizeparts(a.transitions, a.final_states, s)
+            return recognizeparts(alltrans, final_states, s)
 
         res = self.timeshift_from_portal(main, recognizeparts, [0], policy=P_NOVIRTUAL)
         assert res

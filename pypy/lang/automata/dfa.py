@@ -121,7 +121,7 @@ def recognizeparts(alltrans, finals, s):
         char = s[indx]
         char = hint(char, promote=True)
 
-        statetrans = alltrans[state]
+        statetrans = alltrans.get(state, None)
         state = statetrans.get(char, -1)
         
         hint(state, concrete=True)
