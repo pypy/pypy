@@ -63,10 +63,18 @@ class __extend__(Dot):
         name = self.right.get_literal()
         return w_obj.Get(name)
         
-    def put(self, context, val):
-        w_obj = self.left.call(context).GetValue().ToObject()
-        name = self.right.get_literal()
-        w_obj.dict_w[self.name] = val
+    def put(self, context, val, obj=None):
+        if isinstance(self.left,Identifier):
+            assobj = obj or context
+            assobj.assign(self.left.name,val)
+        elif isinstance(self.left,Dot):
+            assobj = self.left.put(context, val, obj)
+
+        return assobj
+
+        #w_obj = self.left.put(context).GetValue().ToObject()
+        #name = self.right.get_literal()
+        #w_obj.dict_w[self.name] = val
         
 
 class __extend__(Function):
@@ -85,7 +93,19 @@ class __extend__(Identifier):
                 return scope_manager.get_variable(self.name)
             except NameError:
                 return self.name
-                
+
+    def put(self, context, val, obj=None):            
+        if self.initialiser is not None:
+            scope_manager.set_variable(self.name, self.initialiser.call(context))
+        try:
+            nobj = context.access(self.name)
+        except NameError:
+            try:
+                nobj = scope_manager.get_variable(self.name)
+            except NameError:
+                return self.name
+        nobj.assign(self.name, val)
+        return nobj
     
     def get_literal(self):
         return self.name
