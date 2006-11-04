@@ -3,7 +3,8 @@ from pypy.lang.js.astgen import *
 from pypy.lang.js import interpreter
 from pypy.lang.js.parser import parse
 from pypy.lang.js.interpreter import ThrowException
-from pypy.lang.js.jsobj import W_Number
+from pypy.lang.js.jsobj import W_Number, W_Object
+from pypy.lang.js.context import ExecutionContext
 import py.test
 
 import sys
@@ -26,8 +27,10 @@ class TestInterp(object):
     def assert_prints(self, code, assval):
         l = []
         interpreter.writer = l.append
+        ctx = ExecutionContext()
+        ctx.globals['Object'] = W_Object({})
         try:
-            code.call()
+            code.call(ctx)
         except ThrowException, excpt:
             l.append("uncaught exception: "+str(excpt.exception))
         assert l == assval
@@ -210,3 +213,18 @@ class TestInterp(object):
         }
         print(i);
         """), ["0","1","2","3"])
+
+    def test_object_creation(self):
+        self.assert_prints(parse_d("""
+        o = new Object();
+        print(o);
+        """), ["[object Object]"])
+
+    def test_new_with_function(self):
+        self.assert_prints(parse_d("""
+        x = function() {this.info = 'hello';};
+        o = new x();
+        print(o.info);
+        """), ["hello"])
+
+

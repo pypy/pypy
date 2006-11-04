@@ -35,6 +35,7 @@ class W_Object(W_Root):
         self.dict_w['toString'] = W_Builtin({}, self.w_string)
         # XXX A bit hairy here, we store here a Function, and Script
         #     is a self.function.body
+        self.dict_w['prototype'] = self
         self.function = function
         #self.class_ = None
 
@@ -44,7 +45,7 @@ class W_Object(W_Root):
                                            args=args, this=this, 
                                            params= self.function.params)
         else:
-            raise SeePage(33)
+            return W_Object({})
 
     def w_string(self):
         return W_String(str(self))

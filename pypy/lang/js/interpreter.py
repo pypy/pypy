@@ -126,6 +126,23 @@ class __extend__(List):
     def call(self, context=None):
         return [node.call(context) for node in self.nodes]
 
+class __extend__(New):
+    def call(self, context=None):
+        print context.__dict__
+        obj = W_Object({})
+        obj.Class = 'Object'
+        try:
+            constructor = context.access(self.identifier)
+        except NameError:
+            constructor = scope_manager.get_variable(self.identifier)
+        obj.dict_w['prototype'] = constructor.dict_w['prototype']
+        nctx = ExecutionContext(context)
+        nctx.assign('this',obj)
+        constructor.Call(nctx)
+
+        return obj
+
+
 class __extend__(Number):
     def call(self, context):
         return W_Number(self.num)
@@ -165,6 +182,7 @@ class __extend__(Plus):
 
 class __extend__(Script):
     def call(self, context=None, args=(), this=None, params=None):
+        print 'params',params
         if params == None:
             params = []
         ncontext = ExecutionContext(context)

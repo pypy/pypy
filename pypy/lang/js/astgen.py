@@ -60,7 +60,7 @@ class Group(Node):
 class Gt(BinaryOperator): pass
 
 class Identifier(Node):
-    def __init__(self, name, initialiser):
+    def __init__(self, name, initialiser=None):
         self.name = name
         self.initialiser = initialiser
 
@@ -80,6 +80,10 @@ class List(Node):
         self.nodes = nodes
 
 class Lt(BinaryOperator): pass
+
+class New(Node):
+    def __init__(self, identifier):
+        self.identifier = identifier
 
 class Number(Node):
     def __init__(self, num):
@@ -197,6 +201,8 @@ def from_dict(d):
         return List(getlist(d))
     elif tp == 'LT':
         return Lt(from_dict(d['0']), from_dict(d['1']))
+    elif tp == 'NEW':
+        return New(d['0']['value'])
     elif tp == 'NUMBER':
         return Number(float(d['value']))
     elif tp == 'OBJECT_INIT':
@@ -214,6 +220,8 @@ def from_dict(d):
         return Semicolon(from_dict(d['expression']))
     elif tp == 'STRING':
         return String(d['value'])
+    elif tp == 'THIS':
+        return Identifier(d['value'])
     elif tp == 'THROW':
         return Throw(from_dict(d['exception']))
     elif tp == 'TRY':
