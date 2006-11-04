@@ -15,7 +15,8 @@ UNARY_OPERATIONS = """same_as hint getfield setfield getsubstruct getarraysize
                       cast_char_to_int
                       cast_bool_to_int
                       ptr_nonzero
-                      ptr_iszero""".split()
+                      ptr_iszero
+                      debug_assert""".split()
 
 BINARY_OPERATIONS = """int_add int_sub int_mul int_mod int_and int_rshift int_floordiv int_xor int_or
                        uint_add uint_sub uint_mul uint_mod uint_and uint_lshift uint_rshift uint_floordiv
@@ -273,7 +274,10 @@ class __extend__(SomeLLAbstractValue):
 
         raise HintError("hint %s makes no sense on %r" % (hs_flags.const,
                                                           hs_v1))
-    
+
+    def debug_assert(hs_v1, *args_hs):
+        pass
+
     def getfield(hs_v1, hs_fieldname):
         S = hs_v1.concretetype.TO
         FIELD_TYPE = getattr(S, hs_fieldname.const)
@@ -340,6 +344,9 @@ class __extend__(SomeLLAbstractConstant):
                                           hs_c1.origins,
                                           deepfrozen = True)
         return SomeLLAbstractValue.hint(hs_c1, hs_flags)
+
+    def debug_assert(hs_c1, *args_hs):
+        pass
 
     def direct_call(hs_f1, *args_hs):
         bookkeeper = getbookkeeper()
