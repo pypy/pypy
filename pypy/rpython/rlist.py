@@ -103,6 +103,13 @@ class AbstractBaseListRepr(Repr):
         hop.exception_cannot_occur()
         hop.gendirectcall(ll_reverse,v_lst)
 
+    def rtype_method_remove(self, hop):
+        v_lst, v_value = hop.inputargs(self, self.item_repr)
+        hop.has_implicit_exception(ValueError)   # record that we know about it
+        hop.exception_is_here()
+        return hop.gendirectcall(ll_listremove, v_lst, v_value,
+                                 self.get_eqfunc())
+
     def rtype_method_index(self, hop):
         v_lst, v_value = hop.inputargs(self, self.item_repr)
         hop.has_implicit_exception(ValueError)   # record that we know about it
@@ -743,6 +750,11 @@ def ll_listindex(lst, obj, eqfn):
                 return j
         j += 1
     raise ValueError # can't say 'list.index(x): x not in list'
+
+def ll_listremove(lst, obj, eqfn):
+    index = ll_listindex(lst, obj, eqfn) # raises ValueError if obj not in lst
+    ll_delitem_nonneg(dum_nocheck, lst, index)
+ll_listremove.oopspec = 'list.remove(obj)'
 
 def ll_inplace_mul(l, factor):
     length = l.ll_length()

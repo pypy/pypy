@@ -1023,6 +1023,13 @@ class BaseTestRlist(BaseRtypingTest):
             assert lst in lst2
         self.interpret(dummyfn, [3])
 
+    def test_list_remove(self):
+        def dummyfn(n, p):
+            l = range(n)
+            l.remove(p)
+            return len(l)
+        res = self.interpret(dummyfn, [1, 0])
+        assert res == 0
 
 class TestLLtype(BaseTestRlist, LLRtypeMixin):
     rlist = ll_rlist

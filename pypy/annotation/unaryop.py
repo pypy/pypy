@@ -290,6 +290,10 @@ class __extend__(SomeList):
     def method_insert(lst, s_index, s_value):
         lst.method_append(s_value)
 
+    def method_remove(lst, s_value):
+        lst.listdef.resize()
+        lst.listdef.generalize(s_value)
+
     def method_pop(lst, s_index=None):
         lst.listdef.resize()
         return lst.listdef.read_item()
