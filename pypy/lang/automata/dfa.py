@@ -130,5 +130,6 @@ def recognizeparts(alltrans, finals, s):
         indx += 1
         
     res = state in finals
+    res = hint(res, concrete=True)
     res = hint(res, variable=True)
     return res

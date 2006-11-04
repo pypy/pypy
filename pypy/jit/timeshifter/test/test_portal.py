@@ -154,18 +154,18 @@ class TestPortal(object):
         assert not res
 
     def test_dfa_compile2(self):
-        py.test.skip('wip')
         from pypy.lang.automata.dfa import getautomaton, convertagain, recognizeparts
-        a = getautomaton()
-        def main(gets):
-            alltrans, final_states = convertagain(a)
+        more = [convertagain(getautomaton()), convertagain(getautomaton())]
+        def main(gets, gets2):
+            alltrans, final_states = more[gets2]
             s = ["aaaaaaaaaab", "aaaa"][gets]
             return recognizeparts(alltrans, final_states, s)
 
-        res = self.timeshift_from_portal(main, recognizeparts, [0], policy=P_NOVIRTUAL)
+        res = self.timeshift_from_portal(main, recognizeparts, [0, 0], policy=P_NOVIRTUAL)
         assert res
 
-        res = self.timeshift_from_portal(main, recognizeparts, [1], policy=P_NOVIRTUAL)
+        # XXX unfortunately we have to create a new version each time - because of pbc
+        res = self.timeshift_from_portal(main, recognizeparts, [1, 0], policy=P_NOVIRTUAL)
         assert not res
 
     def test_method_call_promote(self):
