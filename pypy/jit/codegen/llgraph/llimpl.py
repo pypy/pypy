@@ -153,7 +153,12 @@ def guess_result_type(opname, opvars):
             if example == 0:
                 example = type(example)(1)     # to avoid ZeroDivisionError
         examples.append(example)
-    result = op.fold(*examples)
+    try:
+        result = op.fold(*examples)
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except Exception, e:
+        assert 0, "failed to guess the type of %s: %s" % (opname, e)
     return lltype.typeOf(result)
 
 def gencallableconst(name, graph, gv_FUNCTYPE):
