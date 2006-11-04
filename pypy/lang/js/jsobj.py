@@ -39,10 +39,10 @@ class W_Object(W_Root):
         self.function = function
         #self.class_ = None
 
-    def Call(self, context=None, args=None, this=None):
+    def Call(self, context=None, args=[]):
         if self.function:
             return self.function.body.call(context=context, 
-                                           args=args, this=this, 
+                                           args=args, 
                                            params= self.function.params)
         else:
             return W_Object({})

@@ -26,11 +26,10 @@ class __extend__(Array):
 class __extend__(Assign):
     def call(self, context):
         val = self.expr.call(context)
-        scope_manager.set_variable(self.identifier.name, val)
-        return val
+        self.identifier.put(context,val)
 
 class __extend__(Block):
-    def call(self, context=None):
+    def call(self, context):
         try:
             last = w_Undefined
             for node in self.nodes:
@@ -40,7 +39,7 @@ class __extend__(Block):
             return e.value
 
 class __extend__(Call):
-    def call(self, context=None):
+    def call(self, context):
         name = self.identifier.get_literal()
         if name == 'print':
             writer(",".join([i.ToString() for i in self.arglist.call(context)]))
@@ -54,7 +53,7 @@ class __extend__(Call):
             return retval
 
 class __extend__(Comma):
-    def call(self, context=None):
+    def call(self, context):
         self.left.call(context)
         return self.right.call(context)
 
@@ -63,6 +62,12 @@ class __extend__(Dot):
         w_obj = self.left.call(context).GetValue().ToObject()
         name = self.right.get_literal()
         return w_obj.Get(name)
+        
+    def put(self, context, val):
+        w_obj = self.left.call(context).GetValue().ToObject()
+        name = self.right.get_literal()
+        w_obj.dict_w[self.name] = val
+        
 
 class __extend__(Function):
     def call(self, context=None):
@@ -76,7 +81,11 @@ class __extend__(Identifier):
         try:
             return context.access(self.name)
         except NameError:
-            return scope_manager.get_variable(self.name)
+            try:
+                return scope_manager.get_variable(self.name)
+            except NameError:
+                return self.name
+                
     
     def get_literal(self):
         return self.name
@@ -128,7 +137,6 @@ class __extend__(List):
 
 class __extend__(New):
     def call(self, context=None):
-        print context.__dict__
         obj = W_Object({})
         obj.Class = 'Object'
         try:
@@ -181,10 +189,7 @@ class __extend__(Plus):
             return W_Number(num_left + num_right)
 
 class __extend__(Script):
-    def call(self, context=None, args=(), this=None, params=None):
-        print 'params',params
-        if params == None:
-            params = []
+    def call(self, context=None, args=(), params=[]):
         ncontext = ExecutionContext(context)
         for i, item in enumerate(params):
             try:

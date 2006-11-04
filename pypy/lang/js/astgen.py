@@ -175,7 +175,11 @@ def from_dict(d):
     elif tp == 'FUNCTION':
         scope = scope_manager.enter_scope()
         body = from_dict(d['body'])
-        f = Function(d['params'].split(','), body, scope)
+        if d['params'] == '':
+            params = []
+        else:
+            params = d['params'].split(',')
+        f = Function(params, body, scope)
         scope_manager.leave_scope()
         return f
     elif tp == 'GROUP':
