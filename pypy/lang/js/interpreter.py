@@ -45,7 +45,8 @@ class __extend__(Call):
             writer(",".join([i.ToString() for i in self.arglist.call(context)]))
         else:
             backup_scope = scope_manager.current_scope
-            w_obj = scope_manager.get_variable(name)
+            
+            w_obj = context.access(name)
             scope_manager.current_scope = w_obj.function.scope
             
             retval = w_obj.Call(context=context, args=[i for i in self.arglist.call(context)])
@@ -89,23 +90,10 @@ class __extend__(Identifier):
         try:
             return context.access(self.name)
         except NameError:
-            try:
-                return scope_manager.get_variable(self.name)
-            except NameError:
-                return self.name
+            return scope_manager.get_variable(self.name)
 
     def put(self, context, val, obj=None):            
-        if self.initialiser is not None:
-            scope_manager.set_variable(self.name, self.initialiser.call(context))
-        try:
-            nobj = context.access(self.name)
-        except NameError:
-            try:
-                nobj = scope_manager.get_variable(self.name)
-            except NameError:
-                return self.name
-        nobj.assign(self.name, val)
-        return nobj
+        context.assign(self.name, val)
     
     def get_literal(self):
         return self.name
