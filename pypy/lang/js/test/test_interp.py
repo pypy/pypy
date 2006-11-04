@@ -181,3 +181,22 @@ class TestInterp(object):
         }
         """), ["3", "5"])
         
+    def test_if_then(self):
+        self.assert_prints(parse_d("""
+        if (1) {
+            print(1);
+        }
+        """), ["1"])
+
+    def test_if_then_else(self):
+        self.assert_prints(parse_d("""
+        if (0) {
+            print(1);
+        } else {
+            print(2);
+        }
+        """), ["2"])
+
+    def test_gt(self):
+        self.assert_prints(parse_d("print(1>0)"),["true"])
+        self.assert_prints(parse_d("print(0>1)"),["false"])

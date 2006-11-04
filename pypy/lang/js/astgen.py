@@ -9,6 +9,13 @@ class Node(object):
 #    def __init__(self, lineno = 1):
 #        self.lineno = lineno
 
+class BinaryOperator(Node):
+    """super class for binary operators"""
+    def __init__(self, left, right):
+        self.left = left
+        self.right = right
+
+
 class Array(Node):
     def __init__(self, items=()):
         self.items = items
@@ -50,10 +57,18 @@ class Group(Node):
     def __init__(self, expr):
         self.expr = expr
 
+class Gt(BinaryOperator): pass
+
 class Identifier(Node):
     def __init__(self, name, initialiser):
         self.name = name
         self.initialiser = initialiser
+
+class If(Node):
+    def __init__(self, condition, thenPart=None, elsePart=None):
+        self.condition = condition
+        self.thenPart = thenPart
+        self.elsePart = elsePart
 
 class Index(Node):
     def __init__(self, left, expr):
@@ -72,10 +87,7 @@ class ObjectInit(Node):
     def __init__(self, properties):
         self.properties = properties
 
-class Plus(Node):
-    def __init__(self, left, right):
-        self.left = left
-        self.right = right
+class Plus(BinaryOperator):pass
 
 class PropertyInit(Node):
     def __init__(self, name, value):
@@ -106,13 +118,17 @@ class Throw(Node):
         self.exception = exception
 
 class Try(Node):
-    """The Try class."""
+    # TODO: rewrite to use 'Undefined'
     def __init__(self, tryblock, catchblock, finallyblock, catchparam):
         self.tryblock = tryblock
         self.catchblock = catchblock
         self.finallyblock = finallyblock
         self.catchparam = catchparam
 
+
+class Undefined(Node):
+    def __init__(self):
+        pass
 
 class Vars(Node):
     def __init__(self, nodes):
@@ -133,53 +149,64 @@ def from_dict(d):
     if d is None:
         return d
     tp = d['type']
-    if tp == 'SCRIPT':
-        # XXX: Cannot parse it right now
-        return Script(getlist(d), [], [])
-    elif tp == 'ARRAY_INIT':
+    if tp == 'ARRAY_INIT':
         return Array(getlist(d))
-    elif tp == 'SEMICOLON':
-        return Semicolon(from_dict(d['expression']))
-    elif tp == 'NUMBER':
-        return Number(float(d['value']))
-    elif tp == 'IDENTIFIER':
-        return Identifier(d['value'], from_dict(d.get('initializer', None)))
-    elif tp == 'LIST':
-        return List(getlist(d))
-    elif tp == 'CALL':
-        return Call(from_dict(d['0']), from_dict(d['1']))
-    elif tp == 'PLUS':
-        return Plus(from_dict(d['0']), from_dict(d['1']))
     elif tp == 'ASSIGN':
         return Assign(from_dict(d['0']), from_dict(d['1']))
-    elif tp == 'STRING':
-        return String(d['value'])
-    elif tp == 'PROPERTY_INIT':
-        return PropertyInit(from_dict(d['0']), from_dict(d['1']))
-    elif tp == 'OBJECT_INIT':
-        return ObjectInit(getlist(d))
+    elif tp == 'BLOCK':
+        return Block(getlist(d))
+    elif tp == 'CALL':
+        return Call(from_dict(d['0']), from_dict(d['1']))
+    elif tp == 'COMMA':
+        return Comma(from_dict(d['0']),from_dict(d['1']))
     elif tp == 'DOT':
         return Dot(from_dict(d['0']), from_dict(d['1']))
-    elif tp == 'INDEX':
-        return Index(from_dict(d['0']), from_dict(d['1']))
     elif tp == 'FUNCTION':
         scope = scope_manager.enter_scope()
         body = from_dict(d['body'])
         f = Function(d['params'].split(','), body, scope)
         scope_manager.leave_scope()
         return f
-    elif tp == 'RETURN':
-        return Return(from_dict(d['value']))
-    elif tp == 'THROW':
-        return Throw(from_dict(d['exception']))
     elif tp == 'GROUP':
         return Group(from_dict(d['0']))
-    elif tp == 'COMMA':
-        return Comma(from_dict(d['0']),from_dict(d['1']))
-    elif tp == 'VAR':
-        return Vars(getlist(d))
-    elif tp == 'BLOCK':
-        return Block(getlist(d))
+    elif tp == 'GT':
+        return Gt(from_dict(d['0']), from_dict(d['1']))
+    elif tp == 'IDENTIFIER':
+        return Identifier(d['value'], from_dict(d.get('initializer', None)))
+    elif tp == 'IF':
+        condition = from_dict(d['condition'])
+        if d['thenPart'] == 'null':
+            thenPart = Undefined()
+        else:
+            thenPart = from_dict(d['thenPart'])
+        if d['elsePart'] == 'null':
+            elsePart = Undefined()
+        else:
+            elsePart = from_dict(d['elsePart'])
+        return If(condition,thenPart,elsePart)
+    elif tp == 'INDEX':
+        return Index(from_dict(d['0']), from_dict(d['1']))
+    elif tp == 'LIST':
+        return List(getlist(d))
+    elif tp == 'NUMBER':
+        return Number(float(d['value']))
+    elif tp == 'OBJECT_INIT':
+        return ObjectInit(getlist(d))
+    elif tp == 'PLUS':
+        return Plus(from_dict(d['0']), from_dict(d['1']))
+    elif tp == 'PROPERTY_INIT':
+        return PropertyInit(from_dict(d['0']), from_dict(d['1']))
+    elif tp == 'RETURN':
+        return Return(from_dict(d['value']))
+    elif tp == 'SCRIPT':
+        # XXX: Cannot parse it right now
+        return Script(getlist(d), [], [])
+    elif tp == 'SEMICOLON':
+        return Semicolon(from_dict(d['expression']))
+    elif tp == 'STRING':
+        return String(d['value'])
+    elif tp == 'THROW':
+        return Throw(from_dict(d['exception']))
     elif tp == 'TRY':
         finallyblock = None
         catchblock = None
@@ -191,5 +218,7 @@ def from_dict(d):
             catchblock = from_dict(d['catchClauses']['block'])
             catchparam = d['catchClauses']['varName']
         return Try(from_dict(d['tryBlock']), catchblock, finallyblock, catchparam)
+    elif tp == 'VAR':
+        return Vars(getlist(d))
     else:
         raise NotImplementedError("Dont know how to handler %s" % tp)

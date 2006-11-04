@@ -1,7 +1,8 @@
 
 from pypy.lang.js.astgen import *
 from pypy.lang.js.context import ExecutionContext
-from pypy.lang.js.jsobj import W_Number, W_String, W_Object, w_Undefined, W_Arguments
+from pypy.lang.js.jsobj import W_Number, W_String, W_Object 
+from pypy.lang.js.jsobj import w_Undefined, W_Arguments, W_Boolean
 from pypy.lang.js.scope import scope_manager
 
 def writer(x):
@@ -80,10 +81,30 @@ class __extend__(Identifier):
     def get_literal(self):
         return self.name
 
+class __extend__(If):
+    def call(self, context=None):
+        if self.condition.call(context).ToBoolean():
+            return self.thenPart.call(context)
+        else:
+            return self.elsePart.call(context)
+
 class __extend__(Group):
     """The __extend__ class."""
     def call(self, context = None):
         return self.expr.call(context)
+
+def AbstractRelationalLt(value1, value2):
+    # TODO: really implement the algorithm
+    return value1<value2
+
+class __extend__(Gt):
+    def call(self, context = None):
+        left = self.left.call(context).GetValue()
+        right = self.right.call(context).GetValue()
+        if left != right:
+            return W_Boolean(not AbstractRelationalLt(left, right))
+        else:
+            return W_Boolean(False)
 
 class __extend__(Index):
     def call(self, context=None):
@@ -196,6 +217,10 @@ class __extend__(Try):
             raise e
         
         return tryresult
+
+class __extend__(Undefined):
+    def call(self, context=None):
+        return None
 
 class __extend__(Vars):
     def call(self, context=None):

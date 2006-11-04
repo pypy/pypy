@@ -9,6 +9,9 @@ class W_Root(object):
     def GetValue(self):
         return self
 
+    def ToBoolean(self):
+        return bool(self)
+
     def ToPrimitive(self, hint=""):
         return self
 
@@ -111,13 +114,19 @@ class W_Undefined(W_Root):
         # XXX make NaN
         return NaN
 
+    def ToBoolean(self):
+        return False
+
 class W_Null(W_Root):
     def __str__(self):
         return "null"
 
+    def ToBoolean(self):
+        return False
+
 class W_Boolean(W_Root):
     def __init__(self, boolval):
-        self.boolval = boolval
+        self.boolval = bool(boolval)
 
     def __str__(self):
         if self.boolval:
@@ -128,6 +137,10 @@ class W_Boolean(W_Root):
         if self.boolval:
             return 1
         return 0
+
+    def ToBoolean(self):
+        return self.boolval
+
     
 class W_String(W_Root):
     def __init__(self, strval):
@@ -140,6 +153,9 @@ class W_String(W_Root):
     def __str__(self):
         # INSANE - should be like 'str' or so
         return self.strval
+
+    def ToBoolean(self):
+        return bool(self.strval)
 
 class W_Number(W_Root):
     def __init__(self, floatval):
@@ -154,6 +170,9 @@ class W_Number(W_Root):
             return str(int(self.floatval))
         return str(self.floatval)
     
+    def ToBoolean(self):
+        return bool(self.floatval)
+
     def Get(self, name):
         return w_Undefined
 
@@ -178,6 +197,9 @@ class W_List(W_Root):
 
     def ToString(self):
         raise SeePage(42)
+
+    def ToBoolean(self):
+        return bool(self.list_w)
 
 w_Undefined = W_Undefined()
 w_Null = W_Null()
