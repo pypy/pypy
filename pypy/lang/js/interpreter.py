@@ -95,7 +95,9 @@ class __extend__(Group):
 
 def AbstractRelationalLt(value1, value2):
     # TODO: really implement the algorithm
-    return value1<value2
+    v1 = value1.ToPrimitive().ToNumber()
+    v2 = value2.ToPrimitive().ToNumber()
+    return v1<v2
 
 class __extend__(Gt):
     def call(self, context = None):
@@ -105,6 +107,12 @@ class __extend__(Gt):
             return W_Boolean(not AbstractRelationalLt(left, right))
         else:
             return W_Boolean(False)
+
+class __extend__(Lt):
+    def call(self, context = None):
+        left = self.left.call(context).GetValue()
+        right = self.right.call(context).GetValue()
+        return W_Boolean(AbstractRelationalLt(left, right))
 
 class __extend__(Index):
     def call(self, context=None):
@@ -226,4 +234,9 @@ class __extend__(Vars):
     def call(self, context=None):
         for var in self.nodes:
             var.call(context)
+
+class __extend__(While):
+    def call(self, context=None):
+        while self.condition.call(context).ToBoolean():
+            self.body.call(context)
 

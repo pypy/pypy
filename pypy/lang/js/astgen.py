@@ -79,6 +79,8 @@ class List(Node):
     def __init__(self, nodes):
         self.nodes = nodes
 
+class Lt(BinaryOperator): pass
+
 class Number(Node):
     def __init__(self, num):
         self.num = num
@@ -135,6 +137,11 @@ class Vars(Node):
         self.nodes = nodes
         [scope_manager.add_variable(id.name, w_Undefined) for id in nodes]
 
+class While(Node):
+    def __init__(self, condition, body):
+        self.condition = condition
+        self.body = body
+
 def getlist(d):
     if 'length' not in d:
         return []
@@ -188,6 +195,8 @@ def from_dict(d):
         return Index(from_dict(d['0']), from_dict(d['1']))
     elif tp == 'LIST':
         return List(getlist(d))
+    elif tp == 'LT':
+        return Lt(from_dict(d['0']), from_dict(d['1']))
     elif tp == 'NUMBER':
         return Number(float(d['value']))
     elif tp == 'OBJECT_INIT':
@@ -220,5 +229,9 @@ def from_dict(d):
         return Try(from_dict(d['tryBlock']), catchblock, finallyblock, catchparam)
     elif tp == 'VAR':
         return Vars(getlist(d))
+    elif tp == 'WHILE':
+        body = from_dict(d['body'])
+        condition = from_dict(d['condition'])
+        return While(condition, body)
     else:
         raise NotImplementedError("Dont know how to handler %s" % tp)

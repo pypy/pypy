@@ -200,3 +200,13 @@ class TestInterp(object):
     def test_gt(self):
         self.assert_prints(parse_d("print(1>0)"),["true"])
         self.assert_prints(parse_d("print(0>1)"),["false"])
+
+    def test_while(self):
+        self.assert_prints(parse_d("""
+        i = 0;
+        while (i<3) {
+            print(i);
+            i = i+1;
+        }
+        print(i);
+        """), ["0","1","2","3"])
