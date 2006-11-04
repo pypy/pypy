@@ -1,5 +1,5 @@
 import py
-from pypy.jit.codegen.ppc.rgenop import emit_moves
+from pypy.jit.codegen.ppc.emit_moves import emit_moves
 
 class TheHeap(object):
     def __init__(self, locs):
