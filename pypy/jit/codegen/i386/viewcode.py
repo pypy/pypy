@@ -53,6 +53,7 @@ def lineaddresses(line):
 # ____________________________________________________________
 
 class CodeRange(object):
+    fallthrough = False
 
     def __init__(self, addr, data):
         self.addr = addr
@@ -90,7 +91,8 @@ class CodeRange(object):
 
     def findjumps(self):
         text = self.disassemble()
-        for i, line in enumerate(text.splitlines()):
+        lines = text.splitlines()
+        for i, line in enumerate(lines):
             if '\tj' not in line: # poor heuristic to recognize lines that
                 continue          # could be jump instructions
             addrs = list(lineaddresses(line))
@@ -98,6 +100,8 @@ class CodeRange(object):
                 continue
             addr = addrs[-1]
             yield i, addr
+        if self.fallthrough:
+            yield len(lines), self.addr + len(self.data)
 
 
 class World(object):
@@ -125,30 +129,31 @@ class World(object):
                         break
                 else:
                     self.ranges.append(coderange)
-##        # find cross-references between blocks
-##        for r in self.ranges:
-##            for lineno, targetaddr in r.findjumps():
-##                self.labeltargets[targetaddr] = True
-##        # split blocks at labeltargets
-##        # XXX slooooow!
-##        t = self.labeltargets
-##        print t
-##        for r in self.ranges:
-##            print r.addr, r.addr + len(r.data)
-##            for i in range(r.addr + 1, r.addr + len(r.data)):
-##                if i in t:
-##                    print i
-##                    ofs = i - r.addr
-##                    self.ranges.append(CodeRange(i, r.data[ofs:]))
-##                    r.data = r.data[:ofs]
-##                    del r.text
-##                    break
-##        # hack hack hacked
+        # find cross-references between blocks
+        for r in self.ranges:
+            for lineno, targetaddr in r.findjumps():
+                self.labeltargets[targetaddr] = True
+        # split blocks at labeltargets
+        # XXX slooooow!
+        t = self.labeltargets
+        print t
+        for r in self.ranges:
+            print r.addr, r.addr + len(r.data)
+            for i in range(r.addr + 1, r.addr + len(r.data)):
+                if i in t:
+                    print i
+                    ofs = i - r.addr
+                    self.ranges.append(CodeRange(i, r.data[ofs:]))
+                    r.data = r.data[:ofs]
+                    r.fallthrough = True
+                    del r.text
+                    break
+        # hack hack hacked
 
     def show(self):
         g1 = Graph('codedump')
         for r in self.ranges:
-            text = r.disassemble()
+            text = r.disassemble().replace('\t', '  ')
             text = '0x%x\n\n%s' % (r.addr, text)
             g1.emit_node('N_%x' % r.addr, shape="box", label=text)
             for lineno, targetaddr in r.findjumps():

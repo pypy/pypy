@@ -68,9 +68,9 @@ class I386PortalTestMixin(object):
     def check_insns(self, expected=None, **counts):
         "Cannot check instructions in the generated assembler."
     
-class TestPromotion(I386PortalTestMixin,
-                test_portal.TestPortal):
+class TestPortal(I386PortalTestMixin,
+                 test_portal.TestPortal):
 
     # for the individual tests see
-    # ====> ../../../timeshifter/test/test_promotion.py
+    # ====> ../../../timeshifter/test/test_portal.py
     pass
