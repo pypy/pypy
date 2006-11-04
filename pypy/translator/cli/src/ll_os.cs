@@ -235,6 +235,10 @@ namespace pypy.builtin
             try {
                 stream = new FileStream(name, f_mode, f_access, FileShare.ReadWrite);
             }
+            catch(UnauthorizedAccessException e) {
+                raise_OSError(Errno.EACCES, e.Message);
+                return -1;
+            }
             catch(FileNotFoundException e) {
                 raise_OSError(Errno.ENOENT, e.Message);
                 return -1;
