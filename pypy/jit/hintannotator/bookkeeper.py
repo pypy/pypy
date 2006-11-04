@@ -1,5 +1,5 @@
 from pypy.tool.tls import tlsobject
-from pypy.objspace.flow.model import copygraph, SpaceOperation
+from pypy.objspace.flow.model import copygraph, SpaceOperation, Constant
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.algo.unionfind import UnionFind
@@ -129,12 +129,14 @@ class HintBookkeeper(object):
     def immutableconstant(self, const):
         res = hintmodel.SomeLLAbstractConstant(const.concretetype, {})
         res.const = const.value
+        # we want null pointers to be deepfrozen!
+        if isinstance(const.concretetype, lltype.Ptr):
+            if not const.value:
+                res.deepfrozen = True
         return res
 
-    def immutablevalue(self, value):        
-        res = hintmodel.SomeLLAbstractConstant(lltype.typeOf(value), {})
-        res.const = value
-        return res
+    def immutablevalue(self, value):
+        return self.immutableconstant(Constant(value, lltype.typeOf(value)))
     
     def current_op_concretetype(self):
         _, block, i = self.position_key

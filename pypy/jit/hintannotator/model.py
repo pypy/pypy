@@ -401,6 +401,7 @@ class __extend__(SomeLLAbstractConstant):
                                       myorigin=origin,
                                       deepfrozen=hs_c1.deepfrozen)    
 
+
 class __extend__(SomeLLAbstractContainer):
 
     def setfield(hs_s1, hs_fieldname, hs_value):
@@ -484,7 +485,15 @@ class __extend__(pairtype(SomeLLAbstractConstant, SomeLLAbstractConstant)):
         else:
             return SomeLLAbstractVariable(READ_TYPE)
 
-
+    def getarraysubstruct((hs_c1, hs_index)):
+        A = hs_c1.concretetype.TO
+        SUB_TYPE = A.OF
+        origin = getbookkeeper().myorigin()
+        d = newset(hs_c1.origins, hs_index.origins, {origin: True})
+        return SomeLLAbstractConstant(lltype.Ptr(SUB_TYPE), d,
+                                      myorigin=origin,
+                                      deepfrozen=hs_c1.deepfrozen)    
+        
 class __extend__(pairtype(SomeLLAbstractContainer, SomeLLAbstractContainer)):
 
     def union((hs_cont1, hs_cont2)):

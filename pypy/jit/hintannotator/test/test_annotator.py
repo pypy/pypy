@@ -124,6 +124,31 @@ def test_lists_deepfreeze():
     hs = hannotate(ll_function, [int, int], policy=P_NOVIRTUAL)
     assert hs.concretetype == lltype.Signed
 
+def test_dicts_deepfreeze():
+
+    d1 = {1:2, 2:3}
+    d2 = {2:3, 3:4}
+    
+    def getdict(n):
+        if n:
+            return d1
+        else:
+            return d2
+    
+    def ll_function(n, i):
+        d = getdict(n)
+        d = hint(d, deepfreeze=True)
+
+        res = d[i]
+        res = hint(res, concrete=True)
+        
+        res = hint(res, variable=True)
+        return res
+
+    hs = hannotate(ll_function, [int, int], policy=P_NOVIRTUAL)
+    assert hs.concretetype == lltype.Signed
+
+
 def test_simple_hint_origins():
     def ll_function(cond, x,y):
         if cond:
