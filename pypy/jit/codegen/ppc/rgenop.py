@@ -755,16 +755,19 @@ class Builder(GenBuilder):
         # executing SP <- *(SP) repeatedly walks the stack.
         # this code satisfies this, although there is a 1-instruction
         # window where such walking would find a strange intermediate
-        # "frame" (apart from when the delta is 0... XXX)
+        # "frame"
         # as we emit these instructions waaay before doing the
         # register allocation for this block we don't know how much
         # stack will be required, so we patch it later (see
         # patch_stack_adjustment below).
         self.stack_adj_addr = self.asm.mc.tell()
         self.asm.addi(rSCRATCH, rFP, 0) # this is the immediate that later gets patched
-        self.asm.sub(rSCRATCH, rSCRATCH, rSP) # rSCRATCH should now be <= 0
+        self.asm.subx(rSCRATCH, rSCRATCH, rSP) # rSCRATCH should now be <= 0
+        self.asm.beq(3) # if rSCRATCH == 0, there is no actual adjustment, so
+                        # don't end up with the situation where *(rSP) == rSP
         self.asm.stwux(rSP, rSP, rSCRATCH)
         self.asm.stw(rFP, rSP, 0)
+        # branch to "here"
 
     def patch_stack_adjustment(self, newsize):
         if self.stack_adj_addr == 0:
