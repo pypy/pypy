@@ -48,7 +48,10 @@ class StructTypeDesc(object):
                 innermostdesc = substructdesc.innermostdesc
             else:
                 index = len(fielddescs)
-                desc = StructFieldDesc(RGenOp, self.PTRTYPE, name, index)
+                if FIELDTYPE is lltype.Void:
+                    desc = None
+                else:
+                    desc = StructFieldDesc(RGenOp, self.PTRTYPE, name, index)
                 fielddescs.append(desc)
                 fielddesc_by_name[name] = desc
         self.fielddescs = fielddescs
