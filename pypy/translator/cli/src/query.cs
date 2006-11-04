@@ -126,6 +126,7 @@ public class Query
             && t != typeof(void)
             &&(t == typeof(System.ValueType) ||
                t == typeof(System.Array) ||
+               t.FullName.StartsWith("System.Array+InternalArray") ||
                t.IsValueType ||
                t.IsByRef ||
                t.IsPointer ||

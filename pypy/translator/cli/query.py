@@ -83,7 +83,9 @@ def query_description(name):
         return NamespaceDesc(name)
 
 def load_class_maybe(name):
-    if name not in ClassCache:
+    if name.startswith('System.Array+InternalArray'):
+        ClassCache[name] = ClassCache['System.Array']
+    elif name not in ClassCache:
         load_class_or_namespace(name)
 
 
