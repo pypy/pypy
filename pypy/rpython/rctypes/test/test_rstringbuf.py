@@ -15,6 +15,7 @@ from pypy.rpython.test.test_llinterp import interpret
 from ctypes import create_string_buffer, cast, POINTER, c_void_p, c_char
 from ctypes import c_char_p, c_long, pointer, sizeof, c_int
 from pypy.rpython.rctypes.astringbuf import StringBufferType
+from pypy.rlib.rarithmetic import r_uint
 
 
 class Test_annotation:
@@ -28,6 +29,14 @@ class Test_annotation:
 
         if conftest.option.view:
             a.translator.view()
+
+        a = RPythonAnnotator()
+        s = a.build_types(func, [r_uint])
+        assert s.knowntype == StringBufferType
+
+        if conftest.option.view:
+            a.translator.view()
+
 
     def test_annotate_access(self):
         def func(n):
@@ -88,6 +97,13 @@ class Test_specialization:
             return create_string_buffer(n)
 
         res = interpret(func, [17])
+        c_data = res.c_data
+        assert c_data[0] == '\x00'
+        assert c_data[16] == '\x00'
+        assert len(c_data) == 17
+        py.test.raises(IndexError, "c_data[17]")
+
+        res = interpret(func, [r_uint(17)])
         c_data = res.c_data
         assert c_data[0] == '\x00'
         assert c_data[16] == '\x00'

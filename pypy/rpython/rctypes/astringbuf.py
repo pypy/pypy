@@ -1,7 +1,7 @@
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.rctypes.implementation import CTypesObjEntry
 from pypy.annotation.model import SomeCTypesObject, SomeString, SomeInteger
-
+from pypy.rlib.rarithmetic import r_uint
 from ctypes import create_string_buffer, c_char, sizeof
 
 ######################################################################
@@ -25,7 +25,7 @@ class CreateStringBufferFnEntry(ExtRegistryEntry):
     _about_ = create_string_buffer
 
     def compute_result_annotation(self, s_length):
-        if s_length.knowntype != int:
+        if s_length.knowntype not in (int, r_uint):
             raise Exception("only supports create_string_buffer(length)")
         return SomeCTypesObject(StringBufferType, ownsmemory=True)
 
