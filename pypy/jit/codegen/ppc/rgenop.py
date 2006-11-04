@@ -20,6 +20,8 @@ def emit(self, value):
     self.mc.write(value)
 RPPCAssembler.emit = emit
 
+NSAVEDREGISTERS = 19
+
 _var_index = [0]
 class Var(GenVar):
     def __init__(self):
@@ -170,13 +172,14 @@ class Builder(GenBuilder):
 
         # Emit standard prologue
         #   Minimum space = 24+params+lv+4*GPR+8*FPR
-        #   GPR=19
+        #   GPR=NSAVEDREGISTERS
         # Initially, we allocate only enough space for GPRs, and allow
         # each basic block to ensure it has enough space to continue.
-        minspace = self._stack_size(0,self._var_offset(0))
+        minspace = self._stack_size(0, self._var_offset(0))
         self.asm.mflr(rSCRATCH)
         self.asm.stw(rSCRATCH,rSP,8)
-        self.asm.stmw(gprs[13].number,rSP,-(4*20))     # save all regs from 13-31 to stack
+        # save all regs from -31 to stack
+        self.asm.stmw(gprs[32-NSAVEDREGISTERS].number,rSP,-4*(NSAVEDREGISTERS + 1))
         self.asm.mr(rFP, rSP)              # set up our frame pointer
         self.asm.stwu(rSP,rSP,-minspace)
 
@@ -185,7 +188,7 @@ class Builder(GenBuilder):
     def _var_offset(self, v):
         """v represents an offset into the local variable area in bytes;
         this returns the offset relative to rFP"""
-        return -(4*19+4+v)
+        return -(4*NSAVEDREGISTERS+4+v)
 
     def _stack_size(self, param, lv):
         """ Returns the required stack size to store all data, assuming
@@ -221,7 +224,7 @@ class Builder(GenBuilder):
 
         # Emit standard epilogue:
         self.asm.lwz(rSP,rSP,0)      # restore old SP
-        self.asm.lmw(gprs[13].number,rSP,-4*20)  # restore all GPRs
+        self.asm.lmw(gprs[32-NSAVEDREGISTERS].number,rSP,-4*(NSAVEDREGISTERS+1))  # restore all GPRs
         self.asm.lwz(rSCRATCH,rSP,8) # load old Link Register and jump to it
         self.asm.mtlr(rSCRATCH)      #
         self.asm.blr()               #
