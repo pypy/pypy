@@ -568,6 +568,31 @@ class BaseTestRPBC(BaseRtypingTest):
         res = self.interpret(f, [1])
         assert self.class_name(res) == 'B'
 
+    def test_call_classes_or_None(self):
+        class A: pass
+        class B(A): pass
+        def f(i):
+            if i == -1:
+                cls = None
+            elif i == 1:
+                cls = B
+            else:
+                cls = A
+            return cls()
+        res = self.interpret(f, [0])
+        assert self.class_name(res) == 'A'
+        res = self.interpret(f, [1])
+        assert self.class_name(res) == 'B'
+
+        #def f(i):
+        #    if i == -1:
+        #        cls = None
+        #    else:
+        #        cls = A
+        #    return cls()
+        #res = self.interpret(f, [0])
+        #assert self.class_name(res) == 'A'
+
     def test_call_classes_with_init2(self):
         class A:
             def __init__(self, z):

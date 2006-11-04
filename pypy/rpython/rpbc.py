@@ -595,9 +595,9 @@ class AbstractClassesPBCRepr(Repr):
     def __init__(self, rtyper, s_pbc):
         self.rtyper = rtyper
         self.s_pbc = s_pbc
-        if s_pbc.can_be_None:
-            raise TyperError("unsupported: variable of type "
-                             "class-pointer or None")
+        #if s_pbc.can_be_None:
+        #    raise TyperError("unsupported: variable of type "
+        #                     "class-pointer or None")
         if s_pbc.is_constant():
             self.lowleveltype = Void
         else:
@@ -627,6 +627,12 @@ class AbstractClassesPBCRepr(Repr):
         return rclass.get_type_repr(self.rtyper).convert_desc(desc)
 
     def convert_const(self, cls):
+        if cls is None:
+            if self.lowleveltype is Void:
+                return None
+            else:
+                T = self.lowleveltype
+                return self.rtyper.type_system.null_callable(T)
         bk = self.rtyper.annotator.bookkeeper
         classdesc = bk.getdesc(cls)
         return self.convert_desc(classdesc)
@@ -664,8 +670,10 @@ class AbstractClassesPBCRepr(Repr):
         s_instance = hop.s_result
         r_instance = hop.r_result
 
-        if self.lowleveltype is Void:
+        if len(self.s_pbc.descriptions) == 1:
             # instantiating a single class
+            if self.lowleveltype is not Void:
+                assert 0, "XXX None-or-1-class instantation not implemented"
             assert isinstance(s_instance, annmodel.SomeInstance)
             classdef = hop.s_result.classdef
             s_init = classdef.classdesc.s_read_attribute('__init__')
@@ -693,13 +701,13 @@ class AbstractClassesPBCRepr(Repr):
             vtypeptr = hop.inputarg(self, arg=0)
             try:
                 access_set, r_class = self.get_access_set('__init__')
-            except MissingRTypeAttribute:
+            except rclass.MissingRTypeAttribute:
                 s_init = annmodel.s_ImpossibleValue
             else:
                 s_init = access_set.s_value
                 v_init = r_class.getpbcfield(vtypeptr, access_set, '__init__',
                                              hop.llops)                
-                v_instance = self._instantiate_runtime_class(hop, vtypeptr, r_instance)
+            v_instance = self._instantiate_runtime_class(hop, vtypeptr, r_instance)
 
         if isinstance(s_init, annmodel.SomeImpossibleValue):
             assert hop.nb_args == 1, ("arguments passed to __init__, "
