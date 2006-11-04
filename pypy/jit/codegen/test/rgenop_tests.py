@@ -94,6 +94,37 @@ def get_branching_runner(RGenOp):
         return res
     return branching_runner
 
+# loop start block
+def loop_start(rgenop, builder, signed_kind, gv_x, gv_y):
+    args_gv = [gv_x, gv_y, rgenop.genconst(1)]
+    loopblock = builder.enter_next_block(
+        [signed_kind, signed_kind, signed_kind], args_gv)
+    [gv_x, gv_y, gv_z] = args_gv
+
+    gv_cond = builder.genop2("int_gt", gv_x, rgenop.genconst(0))
+    bodybuilder = builder.jump_if_true(gv_cond)
+    return args_gv, loopblock, bodybuilder
+
+# loop exit
+def loop_exit(builder, sigtoken, signed_kind, gv_y, gv_z):
+    args_gv = [gv_y, gv_z]
+    builder.enter_next_block(
+        [signed_kind, signed_kind], args_gv)
+    [gv_y, gv_z] = args_gv
+    gv_y3 = builder.genop2("int_add", gv_y, gv_z)
+    builder.finish_and_return(sigtoken, gv_y3)
+
+# loop body
+def loop_body(rgenop, loopblock, bodybuilder, signed_kind, gv_x, gv_y, gv_z):
+    args_gv = [gv_z, gv_y, gv_x]
+    bodybuilder.enter_next_block(
+        [signed_kind, signed_kind, signed_kind], args_gv)
+    [gv_z, gv_y, gv_x] = args_gv
+
+    gv_z2 = bodybuilder.genop2("int_mul", gv_x, gv_z)
+    gv_y2 = bodybuilder.genop2("int_add", gv_x, gv_y)
+    gv_x2 = bodybuilder.genop2("int_sub", gv_x, rgenop.genconst(1))
+    bodybuilder.finish_and_goto([gv_x2, gv_y2, gv_z2], loopblock)
 
 def make_goto(rgenop):
     # z = 1
@@ -107,31 +138,12 @@ def make_goto(rgenop):
     sigtoken = rgenop.sigToken(FUNC2)
     builder, entrypoint, [gv_x, gv_y] = rgenop.newgraph(sigtoken)
 
-    # loop start block
-    args_gv = [gv_x, gv_y, rgenop.genconst(1)]
-    loopblock = builder.enter_next_block(
-        [signed_kind, signed_kind, signed_kind], args_gv)
-    [gv_x, gv_y, gv_z] = args_gv
-
-    gv_cond = builder.genop2("int_gt", gv_x, rgenop.genconst(0))
-    bodybuilder = builder.jump_if_true(gv_cond)
-    args_gv = [gv_y, gv_z]
-    builder.enter_next_block(
-        [signed_kind, signed_kind], args_gv)
-    [gv_y, gv_z] = args_gv
-    gv_y3 = builder.genop2("int_add", gv_y, gv_z)
-    builder.finish_and_return(sigtoken, gv_y3)
-
-    # loop body
-    args_gv = [gv_z, gv_y, gv_x]
-    bodybuilder.enter_next_block(
-        [signed_kind, signed_kind, signed_kind], args_gv)
-    [gv_z, gv_y, gv_x] = args_gv
-
-    gv_z2 = bodybuilder.genop2("int_mul", gv_x, gv_z)
-    gv_y2 = bodybuilder.genop2("int_add", gv_x, gv_y)
-    gv_x2 = bodybuilder.genop2("int_sub", gv_x, rgenop.genconst(1))
-    bodybuilder.finish_and_goto([gv_x2, gv_y2, gv_z2], loopblock)
+    [gv_x, gv_y, gv_z],loopblock,bodybuilder = loop_start(
+        rgenop, builder, signed_kind, gv_x, gv_y)
+    loop_exit(
+        builder, sigtoken, signed_kind, gv_y, gv_z)
+    loop_body(
+        rgenop, loopblock, bodybuilder, signed_kind, gv_x, gv_y, gv_z)
 
     # done
     gv_gotofn = rgenop.gencallableconst(sigtoken, "goto", entrypoint)
