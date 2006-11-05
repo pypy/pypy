@@ -72,23 +72,33 @@ def pypy_initial_path(space, srcdir):
 
 pypy_initial_path.unwrap_spec = [ObjSpace, str]
 
-def get(space): 
+def get(space):
     return space.fromcache(State)
 
-class IOState: 
-    def __init__(self, space): 
+class IOState:
+    def __init__(self, space):
         self.space = space
-        if space.config.objspace.uselibfile: 
-            self.w_stdout = space.call_function(space.builtin.get('file'))
-            self.w_stderr = space.call_function(space.builtin.get('file'))
-            self.w_stdin = space.call_function(space.builtin.get('file'))
-        else: 
-            self.w_stdout = space.wrap(sys.__stdout__) 
-            self.w_stderr = space.wrap(sys.__stderr__) 
-            self.w_stdin = space.wrap(sys.__stdin__) 
 
-def getio(space): 
-    return space.fromcache(IOState) 
+        w_fdopen = space.getattr(space.builtin.get('file'),
+                                 space.wrap("fdopen"))
+        self.w_stdin = space.call_function(
+            w_fdopen, space.wrap(0), space.wrap("r"),
+            space.wrap(1))
+        space.setattr(self.w_stdin, space.wrap("_name"),
+                      space.wrap("<stdin>"))
+        self.w_stdout = space.call_function(
+            w_fdopen, space.wrap(1), space.wrap("w"),
+            space.wrap(1))
+        space.setattr(self.w_stdout, space.wrap("_name"),
+                      space.wrap("<stdout>"))
+        self.w_stderr = space.call_function(
+            w_fdopen, space.wrap(2), space.wrap("w"),
+            space.wrap(0))
+        space.setattr(self.w_stderr, space.wrap("_name"),
+                      space.wrap("<hahahaha>"))
+
+def getio(space):
+    return space.fromcache(IOState)
 
 def _pypy_getudir(space):
     """NOT_RPYTHON"""

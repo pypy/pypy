@@ -72,15 +72,11 @@ class AppTestPosix:
         ex(self.posix.dup, UNUSEDFD)
 
     def test_fdopen(self):
-        path = self.path 
-        posix = self.posix 
+        path = self.path
+        posix = self.posix
         fd = posix.open(path, posix.O_RDONLY, 0777)
-        try:
-            f = posix.fdopen(fd, "r")
-        except NotImplementedError:
-            pass
-        else:
-            raise "did not raise"
+        f = posix.fdopen(fd, "r")
+        f.close()
 
     def test_listdir(self):
         pdir = self.pdir

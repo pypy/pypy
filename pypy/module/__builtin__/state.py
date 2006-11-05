@@ -1,10 +1,9 @@
 
-class State: 
-    def __init__(self, space): 
-        if space.config.objspace.uselibfile:
-            self.w_file = space.builtin.get('__filestub')
-        else: 
-            self.w_file = space.wrap(file) 
+class State:
+    def __init__(self, space):
+        self.w_file = space.appexec([], """():
+                import _file;
+                return _file.file""")
         
-def get(space): 
+def get(space):
     return space.fromcache(State)

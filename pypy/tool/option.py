@@ -10,7 +10,6 @@ make_option = optparse.make_option
 class Options:
     objspace = "std" 
     oldstyle = 0
-    uselibfile = 0
     nofaking = 0
     parser = "pypy" # "cpython" / "pypy" 
     compiler = "ast" 
@@ -71,9 +70,6 @@ def make_config(cmdlineopt, **kwds):
         setattr(conf.objspace.usemodules, modname, True)
     if getattr(cmdlineopt, "nofaking", False) or kwds.get("nofaking", False):
         conf.objspace.nofaking = True
-    if (getattr(cmdlineopt, "uselibfile", False) or
-        kwds.get("uselibfile", False)):
-        conf.objspace.uselibfile = True
     if getattr(cmdlineopt, "oldstyle", False) or kwds.get("oldstyle", False):
         conf.objspace.std.oldstyle = True
     if hasattr(cmdlineopt, "parser") and cmdlineopt.parser is not None:

@@ -1,63 +1,6 @@
-import os, _sio
+"""NOT_RPYTHON"""
 
-##    # This is not quite correct, since more letters are allowed after
-##    # these. However, the following are the only starting strings allowed
-##    # in the mode parameter.
-##    modes = {
-##        'r'  : os.O_RDONLY,
-##        'rb' : os.O_RDONLY,
-##        'rU' : os.O_RDONLY,
-##        'U'  : os.O_RDONLY,
-##        'w'  : os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
-##        'wb' : os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
-##        'a'  : os.O_WRONLY | os.O_CREAT | os.O_EXCL,
-##        'ab' : os.O_WRONLY | os.O_CREAT | os.O_EXCL,
-##        'r+' : os.O_RDWR,
-##        'rb+': os.O_RDWR,
-##        'r+b': os.O_RDWR,
-##        'w+' : os.O_RDWR | os.O_CREAT | os.O_TRUNC,
-##        'wb+': os.O_RDWR | os.O_CREAT | os.O_TRUNC,
-##        'w+b': os.O_RDWR | os.O_CREAT | os.O_TRUNC,
-##        'a+' : os.O_RDWR | os.O_CREAT | os.O_EXCL,
-##        'ab+': os.O_RDWR | os.O_CREAT | os.O_EXCL,
-##        'a+b': os.O_RDWR | os.O_CREAT | os.O_EXCL,
-##        }
-##    def __init__(self, filename, mode="r"):
-##        self.filename = filename
-##        self.mode = mode
-##        try:
-##            flag = DiskFile.modes[mode]
-##        except KeyError:
-##            raise ValueError, "mode should be 'r', 'r+', 'w', 'w+' or 'a+'"
-
-##        O_BINARY = getattr(os, "O_BINARY", 0)
-##        flag |= O_BINARY
-##        try:
-##            self.fd = os.open(filename, flag)
-##        except OSError:
-##            # Opening in mode 'a' or 'a+' and file already exists
-##            flag = flag & (os.O_RDWR | O_BINARY)
-##            self.fd = os.open(filename, flag)
-##        if mode[0] == 'a':
-##            try:
-##                os.lseek(self.fd, 0, 2) # Move to end of file
-##            except:
-##                os.close(self.fd)
-##                raise
-
-
-from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC
-O_BINARY = getattr(os, "O_BINARY", 0)
-
-#          (basemode, plus)
-OS_MODE = {('r', False): O_RDONLY,
-           ('r', True):  O_RDWR,
-           ('w', False): O_WRONLY | O_CREAT | O_TRUNC,
-           ('w', True):  O_RDWR   | O_CREAT | O_TRUNC,
-           ('a', False): O_WRONLY | O_CREAT,
-           ('a', True):  O_RDWR   | O_CREAT,
-           }
-
+import os
 
 class file(object):
     """file(name[, mode[, buffering]]) -> file object
@@ -80,91 +23,33 @@ Note:  open() is an alias for file().
 
     _closed = True   # Until the file is successfully opened
 
-    def __init__(self, name, mode='r', buffering=None):
-        self.fd = None
+    def __init__(self, name, mode='r', buffering=-1):
+        import _file
         self._name = name
-        self._inithelper(mode, buffering)
+        self.softspace = 0    # Required according to file object docs
+        self.encoding = None  # This is not used internally by file objects
+        self._closed = False
+        self.stream = _file.open_file_as_stream(self._name, mode, buffering)
+        self._mode = mode
+        self.fd = self.stream.try_to_find_file_descriptor()
+        assert self.fd != -1
         
-    def fdopen(cls, fd, mode='r', buffering=None):
+    def fdopen(cls, fd, mode='r', buffering=-1):
         f = cls.__new__(cls)
         f._fdopen(fd, mode, buffering, '<fdopen>')
         return f
     fdopen = classmethod(fdopen)
 
-    def _fdopen(self, fd, mode, buffering, name): 
+    def _fdopen(self, fd, mode, buffering, name):
+        import _file
         self.fd = fd
-        self._name = name 
-        self._inithelper(mode, buffering)
-        
-    def _inithelper(self, mode, buffering):
-        self._mode = mode
-        if not mode or mode[0] not in ['r', 'w', 'a', 'U']:
-            raise IOError('invalid mode : %s' % mode)
-
-        if mode[0] == 'U':
-            mode = 'r' + mode
-
-        basemode  = mode[0]    # 'r', 'w' or 'a'
-        plus      = False
-        universal = False
-        binary    = False
-
-        for c in mode[1:]:
-            if c == '+':
-                plus = True
-            elif c == 'U':
-                universal = True
-            elif c == 'b':
-                binary = True
-            else:
-                break
-
-        flag = OS_MODE[basemode, plus]
-        if binary or universal:
-            flag |= O_BINARY
-
-        if self.fd is None:
-            try:
-                self.fd = os.open(self.name, flag)
-            except OSError, e:
-                raise IOError(*e.args)
-        if basemode == 'a':
-            try:
-                os.lseek(self.fd, 0, 2)
-            except OSError:
-                pass
-            
-        reading = basemode == 'r' or plus
-        writing = basemode != 'r' or plus
-
+        self._name = name
         self.softspace = 0    # Required according to file object docs
         self.encoding = None  # This is not used internally by file objects
-        
-        self.stream = _sio.DiskFile(self.fd)
         self._closed = False
-
-        if buffering == 0:   # no buffering
-            pass
-        elif buffering == 1:   # line-buffering
-            if writing:
-                self.stream = _sio.LineBufferingOutputStream(self.stream)
-            if reading:
-                self.stream = _sio.BufferingInputStream(self.stream)
-
-        else:     # default or explicit buffer sizes
-            if buffering is not None and buffering < 0:
-                buffering = None
-            if writing:
-                self.stream = _sio.BufferingOutputStream(self.stream, buffering)
-            if reading:
-                self.stream = _sio.BufferingInputStream(self.stream, buffering)
-
-        if universal:     # Wants universal newlines
-            if writing and os.linesep != '\n':
-                self.stream = _sio.TextOutputFilter(self.stream)
-            if reading:
-                self.stream = _sio.TextInputFilter(self.stream)
-
+        self.stream = _file.fdopen_as_stream(fd, mode, buffering)
+        self._mode = mode
+        
     def getnewlines(self):
         "end-of-line convention used in this file"
         if isinstance(self.stream, _sio.TextInputFilter):
@@ -326,7 +211,7 @@ Sets data attribute .closed to True.  A closed file cannot be used for
 further I/O operations.  close() may be called more than once without
 error.  Some kinds of file objects (for example, opened by popen())
 may return an exit status upon closing."""
-        if not self._closed:
+        if not self._closed and hasattr(self, 'stream'):
             self._closed = True
             self.stream.close()
 

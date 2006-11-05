@@ -125,12 +125,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
                         r[s] = value
                     return r
                 dict.fromkeys = classmethod(fromkeys)
-        """) 
+        """)
 
-        if self.config.objspace.uselibfile:
-            self.inituselibfile() 
-
-        if self.config.objspace.std.oldstyle: 
+        if self.config.objspace.std.oldstyle:
             self.enable_old_style_classes_as_default_metaclass()
 
         # final setup
@@ -177,36 +174,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
         mod = Module(self, self.wrap(publicname), w_dic)
         w_mod = self.wrap(mod)
         return w_mod, w_dic
-
-    def inituselibfile(self): 
-        """ NOT_RPYTHON use our application level file implementation
-            including re-wrapping sys.stdout/err/in
-        """ 
-        assert self.config.objspace.uselibfile 
-        space = self
-        # nice print helper if the below does not work 
-        # (we dont have prints working at applevel before
-        # inituselibfile is complete)
-        #from pypy.interpreter import gateway 
-        #def printit(space, w_msg): 
-        #    s = space.str_w(w_msg) 
-        #    print "$", s, 
-        #w_p = space.wrap(gateway.interp2app(printit))
-        #self.appexec([w_p], '''(p):
-        self.appexec([], '''():
-            import sys 
-            sys.stdin
-            sys.stdout
-            sys.stderr    # force unlazifying from mixedmodule 
-            from _file import file as libfile 
-            for name, value in libfile.__dict__.items(): 
-                if (name != '__dict__' and name != '__doc__'
-                    and name != '__module__' and name != '__weakref__'):
-                    setattr(file, name, value) 
-            sys.stdin._fdopen(0, "r", 1, '<stdin>') 
-            sys.stdout._fdopen(1, "w", 1, '<stdout>') 
-            sys.stderr._fdopen(2, "w", 0, '<stderr>') 
-        ''')
 
     def setup_exceptions(self):
         """NOT_RPYTHON"""

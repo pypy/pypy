@@ -1,7 +1,7 @@
 import os, random
-from pypy.lib import _file 
-from pypy.tool.udir import udir 
-import py 
+from pypy.tool.udir import udir
+import py
+from pypy.interpreter.mixedmodule import testmodule
 
 
 SAMPLE = ''.join([chr(random.randrange(0, 256)) for i in range(12487)])
@@ -12,6 +12,7 @@ for extra in ['\r\r', '\r\n', '\n\r', '\n\n']:
 
 
 def setup_module(mod):
+    mod._file = testmodule("_file")
     udir.join('sample').write(SAMPLE)
 
 

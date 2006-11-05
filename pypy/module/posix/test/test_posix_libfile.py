@@ -2,9 +2,9 @@ from pypy.conftest import gettestobjspace
 from pypy.tool.udir import udir
 import os
 
-def setup_module(mod): 
-    mod.space = gettestobjspace(usemodules=['posix'], uselibfile=True)
-    mod.path = udir.join('posixtestfile.txt') 
+def setup_module(mod):
+    mod.space = gettestobjspace(usemodules=['posix'])
+    mod.path = udir.join('posixtestfile.txt')
     mod.path.write("this is a test")
 
 class AppTestPosix: 

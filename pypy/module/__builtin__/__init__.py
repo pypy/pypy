@@ -72,8 +72,8 @@ class Module(MixedModule):
         'object'        : '(space.w_object)',
         'unicode'       : '(space.w_unicode)',
 
-        'file'          : 'state.get(space).w_file', 
-        'open'          : 'state.get(space).w_file', 
+        'file'          : 'state.get(space).w_file',
+        'open'          : 'state.get(space).w_file',
 
         # old-style classes dummy support
         '_classobj'     : 'space.w_classobj',

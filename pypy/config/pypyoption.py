@@ -11,7 +11,7 @@ default_modules = dict.fromkeys(
     [#"unicodedata",
      "_codecs", "gc", "_weakref", "array", "marshal", "errno",
      "math", "_sre", "_pickle_support", "sys", "exceptions", "__builtins__",
-     "recparser", "symbol", "_random"])
+     "recparser", "symbol", "_random", "_file"])
                               
 pypy_optiondescription = OptionDescription("pypy", "All PyPy Options", [
     OptionDescription("objspace", "Object Space Option", [
@@ -34,15 +34,10 @@ pypy_optiondescription = OptionDescription("pypy", "All PyPy Options", [
         BoolOption("nofaking", "disallow faking in the object space",
                    default=False,
                    requires=[
-                       ("objspace.uselibfile", True),
                        ("objspace.usemodules.posix", True),
                        ("objspace.usemodules.time", True),
                        ("objspace.usemodules.errno", True)],
                    cmdline='--nofaking'),
-
-        BoolOption("uselibfile", "use the applevel file implementation",
-                   default=False,
-                   cmdline='--uselibfile'),
 
         OptionDescription("usemodules", "Which Modules should be used", [
             BoolOption(modname, "use module %s" % (modname, ),

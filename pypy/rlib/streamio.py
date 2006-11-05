@@ -29,8 +29,19 @@ an outout-buffering stream.
 
 import os, sys
 
-# ____________________________________________________________
+from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC
+O_BINARY = getattr(os, "O_BINARY", 0)
 
+#          (basemode, plus)
+OS_MODE = {('r', False): O_RDONLY,
+           ('r', True):  O_RDWR,
+           ('w', False): O_WRONLY | O_CREAT | O_TRUNC,
+           ('w', True):  O_RDWR   | O_CREAT | O_TRUNC,
+           ('a', False): O_WRONLY | O_CREAT,
+           ('a', True):  O_RDWR   | O_CREAT,
+           }
+
+# ____________________________________________________________
 
 
 def replace_crlf_with_lf(s):
@@ -47,6 +58,85 @@ def replace_crlf_with_lf(s):
 
 def replace_char_with_str(string, c, s):
     return s.join(string.split(c))
+
+
+def open_file_as_stream(path, mode="r", buffering=-1):
+    os_flags, universal, reading, writing, basemode = decode_mode(mode)
+    stream = open_path_helper(path, os_flags, basemode == "a")
+    return construct_stream_tower(stream, buffering, universal, reading,
+                                  writing)
+
+def fdopen_as_stream(fd, mode, buffering):
+    # XXX XXX XXX you want do check whether the modes are compatible
+    # otherwise you get funny results
+    os_flags, universal, reading, writing, basemode = decode_mode(mode)
+    stream = DiskFile(fd)
+    return construct_stream_tower(stream, buffering, universal, reading,
+                                  writing)
+
+def open_path_helper(path, os_flags, append):
+    # XXX for now always return DiskFile
+    fd = os.open(path, os_flags, 0666)
+    if append:
+        try:
+            os.lseek(fd, 0, 2)
+        except OSError:
+            # XXX does this pass make sense?
+            pass
+    return DiskFile(fd)
+
+def decode_mode(mode):
+    if mode[0] == 'U':
+        mode = 'r' + mode
+
+    basemode  = mode[0]    # 'r', 'w' or 'a'
+    plus      = False
+    universal = False
+    binary    = False
+
+    for c in mode[1:]:
+        if c == '+':
+            plus = True
+        elif c == 'U':
+            universal = True
+        elif c == 'b':
+            binary = True
+        else:
+            break
+
+    flag = OS_MODE[basemode, plus]
+    if binary or universal:
+        flag |= O_BINARY
+
+    reading = basemode == 'r' or plus
+    writing = basemode != 'r' or plus
+
+    return flag, universal, reading, writing, basemode
+
+
+def construct_stream_tower(stream, buffering, universal, reading, writing):
+    if buffering == 0:   # no buffering
+        pass
+    elif buffering == 1:   # line-buffering
+        if writing:
+            stream = LineBufferingOutputStream(stream)
+        if reading:
+            stream = BufferingInputStream(stream)
+
+    else:     # default or explicit buffer sizes
+        if buffering is not None and buffering < 0:
+            buffering = -1
+        if writing:
+            stream = BufferingOutputStream(stream, buffering)
+        if reading:
+            stream = BufferingInputStream(stream, buffering)
+
+    if universal:     # Wants universal newlines
+        if writing and os.linesep != '\n':
+            stream = TextOutputFilter(stream)
+        if reading:
+            stream = TextInputFilter(stream)
+    return stream
 
 
 class StreamError(Exception):
@@ -68,7 +158,7 @@ class Stream(object):
     def tell(self):
         raise NotImplementedError
 
-    def seek(self, offset, whence=0):
+    def seek(self, offset, whence):
         raise NotImplementedError
 
     def readall(self):
@@ -113,6 +203,9 @@ class Stream(object):
     def peek(self):
         return ''
 
+    def try_to_find_file_descriptor(self):
+        return -1
+
 
 class DiskFile(Stream):
 
@@ -121,11 +214,12 @@ class DiskFile(Stream):
     def __init__(self, fd):
         self.fd = fd
 
-    def seek(self, offset, whence=0):
+    def seek(self, offset, whence):
         os.lseek(self.fd, offset, whence)
 
     def tell(self):
-        return os.lseek(self.fd, 0, 1)
+        #XXX for running on top of the cpy objspace. later we want r_longlong
+        return int(os.lseek(self.fd, 0, 1))
 
     def read(self, n):
         return os.read(self.fd, n)
@@ -145,6 +239,8 @@ class DiskFile(Stream):
         def truncate(self, size):
             os.ftruncate(self.fd, size)
 
+    def try_to_find_file_descriptor(self):
+        return self.fd
 
 # next class is not RPython
 
@@ -171,7 +267,7 @@ class MMapFile(Stream):
     def tell(self):
         return self.pos
 
-    def seek(self, offset, whence=0):
+    def seek(self, offset, whence):
         if whence == 0:
             self.pos = max(0, offset)
         elif whence == 1:
@@ -239,21 +335,43 @@ class MMapFile(Stream):
     def flush(self):
         self.mm.flush()
 
+    def try_to_find_file_descriptor(self):
+        return self.fd
+
 # ____________________________________________________________
 
+STREAM_METHODS = dict([
+    ("read", [int]),
+    ("write", [str]),
+    ("tell", []),
+    ("seek", [int, int]),
+    ("readall", []),
+    ("readline", []),
+    ("truncate", [int]),
+    ("flush", []),
+    ("close", []),
+    ("peek", []),
+    ("try_to_find_file_descriptor", []),
+    ])
 
 def PassThrough(meth_name, flush_buffers):
+    if meth_name in STREAM_METHODS:
+        signature = STREAM_METHODS[meth_name]
+        args = ", ".join(["v%s" % (i, ) for i in range(len(signature))])
+    else:
+        assert 0, "not a good idea"
+        args = "*args"
     if flush_buffers:
-        code = """def %s(self, *args):
+        code = """def %s(self, %s):
                       self.flush_buffers()
-                      return self.base.%s(*args)
+                      return self.base.%s(%s)
 """
     else:
-        code = """def %s(self, *args):
-                      return self.base.%s(*args)
+        code = """def %s(self, %s):
+                      return self.base.%s(%s)
 """
     d = {}
-    exec code % (meth_name, meth_name) in d
+    exec code % (meth_name, args, meth_name, args) in d
     return d[meth_name]
 
 
@@ -285,7 +403,7 @@ class BufferingInputStream(Stream):
     def flush_buffers(self):
         if self.lines or self.buf:
             try:
-                self.do_seek(self.tell())
+                self.do_seek(self.tell(), 0)
             except NotImplementedError:
                 pass
             else:
@@ -300,7 +418,7 @@ class BufferingInputStream(Stream):
         assert bytes >= offset #, (locals(), self.__dict__)
         return bytes - offset
 
-    def seek(self, offset, whence=0):
+    def seek(self, offset, whence):
         # This may fail on the do_seek() or do_tell() call.
         # But it won't call either on a relative forward seek.
         # Nor on a seek to the very end.
@@ -493,6 +611,9 @@ class BufferingInputStream(Stream):
     flush      = PassThrough("flush",     flush_buffers=True)
     close      = PassThrough("close",     flush_buffers=False)
 
+    def try_to_find_file_descriptor(self):
+        return self.base.try_to_find_file_descriptor()
+
 
 class BufferingOutputStream(Stream):
 
@@ -545,6 +666,9 @@ class BufferingOutputStream(Stream):
     flush      = PassThrough("flush",    flush_buffers=True)
     close      = PassThrough("close",    flush_buffers=True)
 
+    def try_to_find_file_descriptor(self):
+        return self.base.try_to_find_file_descriptor()
+
 
 class LineBufferingOutputStream(BufferingOutputStream):
 
@@ -559,6 +683,10 @@ class LineBufferingOutputStream(BufferingOutputStream):
         if p >= 0:
             self.do_write(self.buf[:p])
             self.buf = self.buf[p:]
+
+    def try_to_find_file_descriptor(self):
+        return self.base.try_to_find_file_descriptor()
+
 
 # ____________________________________________________________
 
@@ -590,6 +718,8 @@ class CRLFFilter(Stream):
     flush    = PassThrough("flush", flush_buffers=False)
     close    = PassThrough("close", flush_buffers=False)
 
+    def try_to_find_file_descriptor(self):
+        return self.base.try_to_find_file_descriptor()
 
 class TextInputFilter(Stream):
 
@@ -688,7 +818,7 @@ class TextInputFilter(Stream):
                 break
         return ''.join(result)
 
-    def seek(self, offset, whence=0):
+    def seek(self, offset, whence):
         """Seeks based on knowledge that does not come from a tell()
            may go to the wrong place, since the number of
            characters seen may not match the number of characters
@@ -739,6 +869,9 @@ class TextInputFilter(Stream):
     flush      = PassThrough("flush",     flush_buffers=True)
     close      = PassThrough("close",     flush_buffers=False)
 
+    def try_to_find_file_descriptor(self):
+        return self.base.try_to_find_file_descriptor()
+
 
 class TextOutputFilter(Stream):
 
@@ -762,6 +895,8 @@ class TextOutputFilter(Stream):
     flush      = PassThrough("flush",     flush_buffers=False)
     close      = PassThrough("close",     flush_buffers=False)
 
+    def try_to_find_file_descriptor(self):
+        return self.base.try_to_find_file_descriptor()
 
 
 # _________________________________________________
@@ -811,6 +946,8 @@ class DecodingInputFilter(Stream):
     flush      = PassThrough("flush",     flush_buffers=False)
     close      = PassThrough("close",     flush_buffers=False)
 
+    def try_to_find_file_descriptor(self):
+        return self.base.try_to_find_file_descriptor()
 
 class EncodingOutputFilter(Stream):
 
@@ -836,3 +973,7 @@ class EncodingOutputFilter(Stream):
     truncate   = PassThrough("truncate",  flush_buffers=False)
     flush      = PassThrough("flush",     flush_buffers=False)
     close      = PassThrough("close",     flush_buffers=False)
+
+    def try_to_find_file_descriptor(self):
+        return self.base.try_to_find_file_descriptor()
+

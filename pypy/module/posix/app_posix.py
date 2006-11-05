@@ -23,13 +23,10 @@ class stat_result(tuple):
     st_mtime = tuple_item_getter(8)
     st_ctime = tuple_item_getter(9)
 
-def fdopen(fd, mode='r', buffering=None):
+def fdopen(fd, mode='r', buffering=-1):
     """fdopen(fd [, mode='r' [, buffering]]) -> file_object
 
     Return an open file object connected to a file descriptor."""
 
-    try:
-        return file.fdopen(fd, mode, buffering)
-    except AttributeError:
-        raise NotImplementedError, "fdopen only works if you use PyPy's file implementation."
+    return file.fdopen(fd, mode, buffering)
 
