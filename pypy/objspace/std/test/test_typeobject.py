@@ -404,7 +404,7 @@ class AppTestTypeObject:
         class Z1(A):
             pass
         class Z2(A):
-            __slots__ = ['__dict__']
+            __slots__ = ['__dict__', '__weakref__']
         z1 = Z1()
         z1.__class__ = Z2
         assert z1.__class__ == Z2

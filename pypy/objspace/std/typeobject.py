@@ -225,6 +225,11 @@ class W_TypeObject(W_Object):
             return w_bestbase.get_layout()
         return w_self
 
+    # compute a tuple that fully describes the instance layout
+    def get_full_instance_layout(w_self):
+        w_layout = w_self.get_layout()
+        return (w_layout, w_self.hasdict, w_self.needsdel, w_self.weakrefable)
+
     def compute_mro(w_self):
         return compute_C3_mro(w_self.space, w_self)
 
