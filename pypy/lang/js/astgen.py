@@ -120,7 +120,6 @@ class String(Node):
         self.strval = strval
 
 class Throw(Node):
-    """The Throw class."""
     def __init__(self, exception):
         self.exception = exception
 

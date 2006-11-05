@@ -25,8 +25,8 @@ class __extend__(Array):
 
 class __extend__(Assign):
     def call(self, context):
-        #print context.locals.keys(), "|||||", context.globals
-        #print context.globals['z']
+        print context.locals.keys(), "|||||", context.globals
+        print context.locals['this']
         val = self.expr.call(context)
         print val
         self.identifier.put(context,val)
@@ -67,14 +67,16 @@ class __extend__(Dot):
         name = self.right.get_literal()
         return w_obj.Get(name)
         
-    def put(self, context, val, obj=None):
+    def put(self, context, val):
+        print self.left.name, self.right.name, val
         if isinstance(self.left,Identifier):
-            assobj = obj or context
-            assobj.assign(self.left.name,val)
+            obj = context.access(self.left.name)
+            print obj.Class
+            obj.dict_w[self.right.name] = val
         elif isinstance(self.left,Dot):
-            assobj = self.left.put(context, val, obj)
+            obj = self.left.put(context, val)
 
-        return assobj
+        return obj
 
         #w_obj = self.left.put(context).GetValue().ToObject()
         #name = self.right.get_literal()
@@ -91,7 +93,10 @@ class __extend__(Identifier):
         if self.initialiser is not None:
             context.assign(self.name, self.initialiser.call(context))
         try:
-            return context.access(self.name)
+            print "trying to access", self.name
+            value = context.access(self.name)
+            print "value", value
+            return value
         except NameError:
             return scope_manager.get_variable(self.name)
 
@@ -148,16 +153,18 @@ class __extend__(List):
 
 class __extend__(New):
     def call(self, context=None):
-        obj = W_Object({})
-        obj.Class = 'Object'
         try:
             constructor = context.access(self.identifier)
         except NameError:
             constructor = scope_manager.get_variable(self.identifier)
+        obj = W_Object({})
+        obj.Class = 'Object'
         obj.dict_w['prototype'] = constructor.dict_w['prototype']
-        nctx = ExecutionContext(context)
-        nctx.assign('this',obj)
-        constructor.Call(nctx)
+        #nctx = ExecutionContext(context)
+        #nctx.assign('this',obj)
+        #print nctx.locals.keys()
+        constructor.Call(context, this = obj)
+        
 
         return obj
 
@@ -200,7 +207,7 @@ class __extend__(Plus):
             return W_Number(num_left + num_right)
 
 class __extend__(Script):
-    def call(self, context=None, args=(), params=[], first = False):
+    def call(self, context=None, args=(), params=[], this=w_Undefined, first = False):
         ncontext = ExecutionContext(context)
         for i, item in enumerate(params):
             try:
@@ -217,6 +224,8 @@ class __extend__(Script):
         
         w_Arguments = W_Arguments(dict([(str(x),y) for x,y in enumerate(args)]))
         ncontext.assign('arguments', w_Arguments)
+        
+        ncontext.assign('this', this)
         
         try:
             last = w_Undefined

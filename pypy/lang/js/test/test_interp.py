@@ -221,11 +221,16 @@ class TestInterp(object):
         """), ["[object Object]"])
 
     def test_new_with_function(self):
-        self.assert_prints(parse_d("""
+        
+        
+        c= parse_d("""
         x = function() {this.info = 'hello';};
         o = new x();
         print(o.info);
-        """), ["hello"])
+        """)
+        print c
+        self.assert_prints(c
+        , ["hello"])
 
     def test_vars(self):
         self.assert_prints(parse_d("""

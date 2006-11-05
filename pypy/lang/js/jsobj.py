@@ -39,12 +39,16 @@ class W_Object(W_Root):
         self.function = function
         #self.class_ = None
 
-    def Call(self, context=None, args=[]):
+    def Call(self, context, args=[], this = None):
         if self.function:
             return self.function.body.call(context=context, 
-                                           args=args, 
-                                           params= self.function.params)
+                                           args=args,
+                                            
+                                           params= self.function.params,
+                                           this = this
+                                           )
         else:
+            print "returning common object"
             return W_Object({})
 
     def w_string(self):
@@ -60,14 +64,6 @@ class W_Object(W_Root):
             retval = valueof_meth.Call(this=self)
             # XXX: check primitiveness of retval
             return retval
-##    else:
-##            if isinstance(valueof_meth, W_Object):
-##                retval = valueof_meth.Call(this=self)
-##                # XXX: check primitiveness of retval
-##                return retval
-##            tostring_meth = self.Get("toString")
-##            if isinstance(tostring_meth, W_Object):
-##                return tostring_meth.Call(this=self)
         return w_Undefined
 
     def ToPrimitive(self, hint=""):
@@ -85,19 +81,15 @@ class W_Object(W_Root):
 
         return w_Undefined
 
-    #def ToPrimitive(self, hint=""):
-    #    return DefaultValue(hint)
-
-    #def ToString(self):
-    #    raise SeePage(42)
-
     def CanPut(self, name):
         return True
 
     def Put(self, name, w_obj):
         # INSANE - raise some exceptions in case of read only and such
+        print "We are insane"
         if not self.CanPut(name):
             return # AAAAAAAAAAAAaaaaaaaaaaaa
+        print name,"=", w_obj
         self.dict_w[name] = w_obj
 
     def __str__(self):
