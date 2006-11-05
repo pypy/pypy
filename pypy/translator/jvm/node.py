@@ -1,14 +1,24 @@
 """
-Rendering nodes for the JVM.  I suspect that a lot of this could be
-made to be common between CLR and JVM.
+Nodes describe Java structures that we are building.  They know how to
+render themselves so as to build the java structure they describe.
+They are entered onto the database worklist as we go.
+
+Some nodes describe parts of the JVM structure that already exist ---
+for example, there are nodes that are used to describe built-in JVM
+types like String, etc.  In this case, they are never placed on the
+database worklist, and don't know how to render themselves (since they
+don't have to).
+
+Nodes representing classes that we will build also implement the JvmType
+interface defined by database.JvmType.
 """
 
 
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.jvm.typesystem import \
-     jString, jStringArray, jVoid, jThrowable
-from pypy.translator.jvm.typesystem import jvm_for_class, jvm_method_desc, jInt
+     JvmClassType, jString, jStringArray, jVoid, jThrowable, jInt, jPyPyMain, \
+     jObject
 from pypy.translator.jvm.opcodes import opcodes
 from pypy.translator.jvm.option import getoption
 from pypy.translator.oosupport.function import Function as OOFunction
@@ -62,7 +72,7 @@ class EntryPoint(Node):
         }
 
     def render(self, gen):
-        gen.begin_class('pypy.Main', 'java.lang.Object')
+        gen.begin_class(jPyPyMain, jObject)
         gen.begin_function(
             'main', (), [jStringArray], jVoid, static=True)
 
@@ -105,10 +115,10 @@ class Function(OOFunction):
     
     """ Represents a function to be emitted. """
     
-    def __init__(self, db, classobj, name, jargtypes,
+    def __init__(self, db, classty, name, jargtypes,
                  jrettype, graph, is_static):
         """
-        classobj: the Class object this is a part of (even static
+        classty: the JvmClassType object this is a part of (even static
         functions have a class)
         name: the name of the function
         jargtypes: JvmType of each argument
@@ -117,7 +127,7 @@ class Function(OOFunction):
         is_static: boolean flag indicate whether func is static (!)
         """
         OOFunction.__init__(self, db, graph, name, not is_static)
-        self.classnm = classobj.name
+        self.classty = classty
         self.jargtypes = jargtypes
         self.jrettype = jrettype
         self._block_labels = {}
@@ -125,13 +135,13 @@ class Function(OOFunction):
     def method(self):
         """ Returns a jvmgen.Method that can invoke this function """
         if not self.is_method:
-            opcode = jvmgen.INVOKESTATIC
+            ctor = jvmgen.Method.s
             startidx = 0
         else:
-            opcode = jvmgen.INVOKEVIRTUAL
+            ctor = jvmgen.Method.v
             startidx = 1
-        mdesc = jvm_method_desc(self.jargtypes[startidx:], self.jrettype)
-        return jvmgen.Method(self.classnm, self.name, mdesc, opcode=opcode)
+        return ctor(self.classty, self.name,
+                    self.jargtypes[startidx:], self.jrettype)
 
     def begin_render(self):
         # Prepare argument lists for begin_function call
@@ -203,24 +213,21 @@ class Function(OOFunction):
             
         OOFunction._render_op(self, op)
 
-class Class(Node):
+class Class(Node, JvmClassType):
 
     """ Represents a class to be emitted.  Note that currently, classes
     are emitted all in one shot, not piecemeal. """
 
-    def __init__(self, name, supername):
+    def __init__(self, name, supercls):
         """
-        'name' and 'super_name' should be fully qualified Java class names like
-        "java.lang.String"
+        'name' should be a fully qualified Java class name like
+        "java.lang.String", supercls is a Class object
         """
-        self.name = name             # public attribute
-        self.super_name = supername  # public attribute
+        JvmClassType.__init__(self, name)
+        self.super_class = supercls
         self.fields = {}
         self.rendered = False
         self.methods = {}
-
-    def jvm_type(self):
-        return jvm_for_class(self.name)
 
     def add_field(self, fieldobj):
         """ Creates a new field accessed via the jvmgen.Field
@@ -230,11 +237,15 @@ class Class(Node):
 
     def lookup_field(self, fieldnm):
         """ Given a field name, returns a jvmgen.Field object """
-        return self.fields[fieldnm]
+        if fieldnm in self.fields:
+            return self.fields[fieldnm]
+        return self.super_class.lookup_field(fieldnm)
 
     def lookup_method(self, methodnm):
         """ Given the method name, returns a jvmgen.Method object """
-        return self.methods[methodnm].method()
+        if methodnm in self.methods:
+            return self.methods[methodnm].method()
+        return self.super_class.lookup_method(methodnm)
 
     def add_method(self, func):
         """ Creates a new method in this class, represented by the
@@ -249,7 +260,7 @@ class Class(Node):
         
     def render(self, gen):
         self.rendered = True
-        gen.begin_class(self.name, self.super_name)
+        gen.begin_class(self, self.super_class)
 
         for field in self.fields.values():
             gen.add_field(field)
@@ -268,14 +279,13 @@ class TestDumpMethod(object):
         self.OOCLASS = OOCLASS
         self.clsobj = clsobj
         self.name = "_pypy_dump"
-        self.jargtypes = [clsobj.jvm_type(), jInt]
+        self.jargtypes = [clsobj, jInt]
         self.jrettype = jVoid
 
     def method(self):
         """ Returns a jvmgen.Method that can invoke this function """
-        mdesc = jvm_method_desc(self.jargtypes[1:], self.jrettype)
-        return jvmgen.Method(self.clsobj.name, self.name, mdesc,
-                             opcode=jvmgen.INVOKEVIRTUAL)
+        return jvmgen.Method.v(
+            self.clsobj, self.name, self.jargtypes[1:], self.jrettype)
 
     def render(self, gen):
         clsobj = self.clsobj

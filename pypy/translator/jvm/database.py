@@ -1,144 +1,69 @@
 """
-The database tracks which graphs have already been generated, and maintains
-a worklist.  It also contains a pointer to the type system.  It is passed
-into every node for generation along with the generator.
+The database centralizes information about the state of our translation,
+and the mapping between the OOTypeSystem and the Java type system.
 """
+
 from cStringIO import StringIO
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
-from pypy.translator.jvm.typesystem import jvm_method_desc, ootype_to_jvm
+from pypy.translator.jvm import typesystem as jvmtype
 from pypy.translator.jvm import node
 from pypy.translator.jvm.option import getoption
 import pypy.translator.jvm.generator as jvmgen
+import pypy.translator.jvm.constant as jvmconst
 from pypy.translator.jvm.typesystem import \
-     jStringBuilder, jInt, jVoid, jString, jOOString, jChar
+     jStringBuilder, jInt, jVoid, jString, jChar, jPyPyConst, jObject
+from pypy.translator.jvm.builtin import JvmBuiltInType
 
-# When we lookup a method on a  BuiltInClassNode, we first check
-# the 'built_in_methods' table.  This allows us to redirect to other
-# methods if we like.
+from pypy.translator.oosupport.database import Database as OODatabase
 
-def _ll_build_method():
-    # Choose an appropriate ll_build depending on what representation
-    # we are using for ootype.String:
-    if jOOString == jString:
-        return jvmgen.Method.v(
-            jStringBuilder.class_name(), "toString", (),jString)
-    return jvmgen.Method.s(
-        jvmgen.PYPYJAVA, "ll_build", (jStringBuilder,), jOOString)
 
-built_in_methods = {
-    (ootype.StringBuilder.__class__, "ll_allocate"):
-    jvmgen.Method.v(jStringBuilder.class_name(), "ensureCapacity",
-                    (jInt,), jVoid),
-    
-    (ootype.StringBuilder.__class__, "ll_append_char"):
-    jvmgen.Method.s(jvmgen.PYPYJAVA, "ll_append_char",
-                    (jStringBuilder, jChar), jVoid),
-    
-    (ootype.StringBuilder.__class__, "ll_append"):
-    jvmgen.Method.s(jvmgen.PYPYJAVA, "ll_append",
-                    (jStringBuilder, jOOString), jVoid),
+# ______________________________________________________________________
+# Database object
 
-    # XXX will not work with --byte-arrays
-    (ootype.StringBuilder.__class__, "ll_build"):
-    _ll_build_method()
-    
-    }
-
-class BuiltInClassNode(object):
-
-    """
-    This is a fake node that is returned instead of a node.Class object
-    when pending_class is invoked on a built-in type.  It allows other
-    code to query the fields and methods.
-    """
-    
-    def __init__(self, db, OOTYPE):
-        self.db = db
-        self.OOTYPE = OOTYPE
-        self.jvmtype = db.lltype_to_cts(OOTYPE)
-
-        # Create a generic mapping. Other than SELFTYPE_T, we map each
-        # generic argument to ootype.ROOT.  We use a hack here where
-        # we assume that the only generic parameters are named
-        # SELFTYPE_T, ITEMTYPE_T, KEYTYPE_T, or VALUETYPE_T.
-        
-        self.generics = {}
-
-        if hasattr(self.OOTYPE, 'SELFTYPE_T'):
-            self.generics[self.OOTYPE.SELFTYPE_T] = self.OOTYPE
-
-        for param in ('ITEMTYPE_T', 'KEYTYPE_T', 'VALUETYPE_T'):
-            if hasattr(self.OOTYPE, param):
-                self.generics[getattr(self.OOTYPE, param)] = ootype.ROOT
-
-    def jvm_type(self):
-        return self.jvmtype
-
-    def lookup_field(self, fieldnm):
-        """ Given a field name, returns a jvmgen.Field object """
-        _, FIELDTY = self.OOTYPE._lookup_field(fieldnm)
-        jfieldty = self.db.lltype_to_cts(FIELDTY)
-        return jvmgen.Field(
-            self.jvmtype.class_name(), fieldnm, jfieldty, False)
-
-    def _map(self, ARG):
-        """ Maps ootype ARG to a java type.  If arg is one of our
-        generic arguments, substitutes the appropriate type before
-        performing the mapping. """
-        return self.db.lltype_to_cts(self.generics.get(ARG,ARG))
-
-    def lookup_method(self, methodnm):
-        """ Given the method name, returns a jvmgen.Method object """
-
-        # Look for a shortcut method
-        try:
-            key = (self.OOTYPE.__class__, methodnm)
-            print "key=%r" % (key,)
-            print "hash=%r" % (built_in_methods,)
-            return built_in_methods[key]
-        except KeyError: pass
-
-        # Lookup the generic method by name.
-        GENMETH = self.OOTYPE._GENERIC_METHODS[methodnm]
-
-        # Create an array with the Java version of each type in the
-        # argument list and return type.
-        jargtypes = [self._map(P) for P in GENMETH.ARGS]
-        jrettype = self._map(GENMETH.RESULT)
-        return jvmgen.Method(
-            self.jvmtype.class_name(),
-            methodnm,
-            jvm_method_desc(jargtypes, jrettype),
-            opcode=jvmgen.INVOKEVIRTUAL)
-        
-
-class Database:
+class Database(OODatabase):
     def __init__(self, genoo):
-        # Public attributes:
-        self.genoo = genoo
+        OODatabase.__init__(self, genoo)
         
         # Private attributes:
         self._classes = {} # Maps ootype class objects to node.Class objects,
                            # and JvmType objects as well
-        self._counter = 0  # Used to create unique names
         self._functions = {}      # graph -> jvmgen.Method
 
         self._function_names = {} # graph --> function_name
 
         self._constants = {}      # flowmodel.Variable --> jvmgen.Const
 
-        self._pending_nodes = set()  # Worklist
-        self._rendered_nodes = set()
+    # _________________________________________________________________
+    # Java String vs Byte Array
+    #
+    # We allow the user to configure whether Python strings are stored
+    # as Java strings, or as byte arrays.  The latter saves space; the
+    # former may be faster.  
 
+    using_byte_array = False
+
+    # XXX have to fill this in
+    
+    # _________________________________________________________________
+    # Miscellaneous
+    
     def _uniq(self, nm):
-        cnt = self._counter
-        self._counter += 1
-        return nm + "_" + str(cnt) + "_"
+        return nm + "_" + str(self.unique())
 
     def _pkg(self, nm):
         return "%s.%s" % (getoption('package'), nm)
 
+    def class_name(self, TYPE):
+        jtype = self.lltype_to_cts(TYPE)
+        assert isinstance(jtype, jvmtype.JvmClassType)
+        return jtype.name
+
+    # _________________________________________________________________
+    # Node Creation
+    #
+    # Creates nodes that represents classes, functions, simple constants.
+    
     def _function_for_graph(self, classobj, funcnm, is_static, graph):
         
         """
@@ -153,46 +78,45 @@ class Database:
         funcobj = node.Function(
             self, classobj, funcnm, jargtypes, jrettype, graph, is_static)
         return funcobj
-
-    def pending_node(self, node):
-        self._pending_nodes.add(node)
-
-    def pending_class(self, OOCLASS):
-        if not isinstance(OOCLASS, ootype.Instance):
-            return BuiltInClassNode(self, OOCLASS)
+    
+    def _translate_instance(self, OOTYPE):
+        assert isinstance(OOTYPE, ootype.Instance)
+        assert OOTYPE is not ootype.ROOT
 
         # Create class object if it does not already exist:
-        if OOCLASS in self._classes:
-            return self._classes[OOCLASS]
+        if OOTYPE in self._classes:
+            return self._classes[OOTYPE]
         
         # Resolve super class first
-        if OOCLASS._superclass:
-            superclsnm = self.lltype_to_cts(OOCLASS._superclass).class_name()
-        else:
-            superclsobj = "java.lang.Object" #?
+        assert OOTYPE._superclass
+        supercls = self.pending_class(OOTYPE._superclass)
 
         # TODO --- make package of java class reflect the package of the
         # OO class?
         clsnm = self._pkg(
-            self._uniq(OOCLASS._name.replace('.','_')))
-        clsobj = node.Class(clsnm, superclsnm)
+            self._uniq(OOTYPE._name.replace('.','_')))
+        clsobj = node.Class(clsnm, supercls)
+
+        print "Class %s has super %s" % (
+            clsnm, supercls.name)
 
         # Store the class object for future calls
-        self._classes[OOCLASS] = clsobj
-        self._classes[clsobj.jvm_type()] = clsobj
+        self._classes[OOTYPE] = clsobj
 
         # TODO --- mangle field and method names?  Must be
         # deterministic, or use hashtable to avoid conflicts between
         # classes?
         
         # Add fields:
-        for fieldnm, (FIELDOOTY, fielddef) in OOCLASS._fields.iteritems():
+        for fieldnm, (FIELDOOTY, fielddef) in OOTYPE._fields.iteritems():
+            print "Class %s has field %s of type %s" % (
+                clsobj.name, fieldnm, FIELDOOTY)
             if FIELDOOTY is ootype.Void: continue
             fieldty = self.lltype_to_cts(FIELDOOTY)
             clsobj.add_field(jvmgen.Field(clsnm, fieldnm, fieldty, False))
             
         # Add methods:
-        for mname, mimpl in OOCLASS._methods.iteritems():
+        for mname, mimpl in OOTYPE._methods.iteritems():
             if not hasattr(mimpl, 'graph'):
                 # Abstract method
                 TODO
@@ -203,21 +127,21 @@ class Database:
                 # there would be a type mismatch.
                 args =  mimpl.graph.getargs()
                 SELF = args[0].concretetype
-                if not ootype.isSubclass(OOCLASS, SELF): continue
+                if not ootype.isSubclass(OOTYPE, SELF): continue
                 mobj = self._function_for_graph(
                     clsobj, mname, False, mimpl.graph)
                 clsobj.add_method(mobj)
 
         # currently, we always include a special "dump" method for debugging
         # purposes
-        dump_method = node.TestDumpMethod(self, OOCLASS, clsobj)
+        dump_method = node.TestDumpMethod(self, OOTYPE, clsobj)
         clsobj.add_dump_method(dump_method)
 
         self.pending_node(clsobj)
         return clsobj
 
-    def class_obj_for_jvm_type(self, jvmtype):
-        return self._classes[jvmtype]
+    def pending_class(self, OOTYPE):
+        return self.lltype_to_cts(OOTYPE)
 
     def pending_function(self, graph):
         """
@@ -230,48 +154,66 @@ class Database:
         if graph in self._functions:
             return self._functions[graph]
         classnm = self._pkg(self._uniq(graph.name))
-        classobj = node.Class(classnm, 'java.lang.Object')
+        classobj = node.Class(classnm, self.pending_class(ootype.ROOT))
         funcobj = self._function_for_graph(classobj, "invoke", True, graph)
         classobj.add_method(funcobj)
         self.pending_node(classobj)
         res = self._functions[graph] = funcobj.method()
         return res
 
-    def len_pending(self):
-        return len(self._pending_nodes)
+    # _________________________________________________________________
+    # Constant Emitting
+    #
+    # We place all constants in a special "constant" class
+    #
+    # XXX I don't particularly like this code being here.  database
+    # shouldn't be so specific?  Guess it's okay...
 
-    def pop(self):
-        return self._pending_nodes.pop()
+    RecordConst = jvmconst.JVMRecordConst
+    InstanceConst = jvmconst.JVMInstanceConst
+    ClassConst = jvmconst.JVMClassConst
+    
+    def _begin_gen_constants(self, gen, all_constants):
+        gen.begin_class(jPyPyConst, jObject)
 
-    def gen_constants(self, gen):
-        pass
+        for c in all_constants:
+            assert isinstance(c, jvmconst.JVMFieldStorage)
+            gen.add_field(c.fieldobj)
 
-    def record_const(self, constobj):
-        TYPE = constobj.concretetype
+        # the constant initialization code is broken up into special
+        # methods that are then invoked from <clinit> --- this is to
+        # prevent the init functions from getting too big
+        self._constant_steps = 1
+        gen.begin_function('constant_init_0', [], [], jVoid, True)
+        return gen
+    
+    def _interrupt_gen_constants(self):
+        gen.return_val(jVoid)
+        gen.end_function()    # end constant_init_N
+        
+        next_nm = "constant_init_%d" % self._constant_steps
+        self._constant_steps += 1
+        gen.begin_function(next_nm, [], [], jVoid, True)
+    
+    def _end_gen_constants(self, gen):
+        gen.return_val(jVoid)
+        gen.end_function()    # end constant_init_N
 
-        # Handle the simple cases:
-        if TYPE is ootype.Void:
-            return jvmgen.VoidConst()
-        elif TYPE in (ootype.Bool, ootype.Signed):
-            return jvmgen.SignedIntConst(int(constobj.value))
-        elif TYPE is ootype.Char or TYPE is ootype.UniChar:
-            return jvmgen.SignedIntConst(ord(constobj.value))
-        elif TYPE is ootype.SignedLongLong:
-            return jvmgen.SignedLongConst(int(constobj.value))
-        elif TYPE is ootype.UnsignedLongLong:
-            return jvmgen.UnsignedLongConst(int(constobj.value))
-        elif TYPE is ootype.Float:
-            return jvmgen.DoubleConst(constobj.value)
+        # The static init code just needs to call constant_init_1..N
+        gen.begin_function('<clinit>', [], [], jVoid, True)
+        for x in range(self._constant_steps):
+            m = jvmgen.Method.s(jPyPyConst, "constant_init_%d" % x, [], jVoid)
+            gen.emit(m)
+        gen.return_val(jVoid)
+        gen.end_function()
+        
+        gen.end_class()
 
-        # Handle the complex cases:
-        #   In this case, we will need to create a method to
-        #   initialize the value and a field.
-        #   For NOW, we create a new class PER constant.
-        #   Clearly this is probably undesirable in the long
-        #   term.
-        return jvmgen.WarnNullConst() # TODO
-
-    # Other
+    # _________________________________________________________________
+    # Type printing functions
+    #
+    # Returns a method that prints details about the value out to
+    # stdout.  Should generalize to make it allow for stderr as well.
     
     _type_printing_methods = {
         ootype.Signed:jvmgen.PYPYDUMPINT,
@@ -282,16 +224,35 @@ class Database:
         ootype.Class:jvmgen.PYPYDUMPOBJECT,
         ootype.String:jvmgen.PYPYDUMPSTRING,
         ootype.StringBuilder:jvmgen.PYPYDUMPOBJECT,
+        ootype.Void:jvmgen.PYPYDUMPVOID,
         }
 
     def generate_dump_method_for_ootype(self, OOTYPE):
+        """
+        Assuming than an instance of type OOTYPE is pushed on the
+        stack, returns a Method object that you can invoke.  This
+        method will require that you also push an integer (usually 0)
+        that represents the indentation, and then invoke it.  i.e., you
+        can do something like:
+
+        > gen.load(var)
+        > mthd = db.generate_dump_method_for_ootype(var.concretetype)
+        > gen.emit(jvmgen.ICONST, 0)
+        > mthd.invoke(gen)
+
+        to print the value of 'var'.
+        """
         if OOTYPE in self._type_printing_methods:
             return self._type_printing_methods[OOTYPE]
         pclass = self.pending_class(OOTYPE)
         assert hasattr(pclass, 'dump_method'), "No dump_method for %r" % (OOTYPE, )
         return pclass.dump_method.method()
 
+    # _________________________________________________________________
     # Type translation functions
+    #
+    # Functions which translate from OOTypes to JvmType instances.
+    # FIX --- JvmType and their Class nodes should not be different.
 
     def escape_name(self, nm):
         # invoked by oosupport/function.py; our names don't need escaping?
@@ -302,29 +263,56 @@ class Database:
         and name of the given variable"""
         return self.lltype_to_cts(llv.concretetype), llv.name
 
+    # Dictionary for scalar types; in this case, if we see the key, we
+    # will return the value
+    ootype_to_scalar = {
+        ootype.Void:             jvmtype.jVoid,
+        ootype.Signed:           jvmtype.jInt,
+        ootype.Unsigned:         jvmtype.jInt,
+        ootype.SignedLongLong:   jvmtype.jLong,
+        ootype.UnsignedLongLong: jvmtype.jLong,
+        ootype.Bool:             jvmtype.jBool,
+        ootype.Float:            jvmtype.jDouble,
+        ootype.Char:             jvmtype.jByte,
+        ootype.UniChar:          jvmtype.jChar,
+        ootype.Class:            jvmtype.jClass,
+        ootype.ROOT:             jvmtype.jObject,  # count this as a scalar...
+        }
+
+    # Dictionary for non-scalar types; in this case, if we see the key, we
+    # will return a JvmBuiltInType based on the value
+    ootype_to_builtin = {
+        ootype.String:           jvmtype.jString,
+        ootype.StringBuilder:    jvmtype.jStringBuilder
+        }
+
     def lltype_to_cts(self, OOT):
         """ Returns an instance of JvmType corresponding to
-        the given OOType"""
+        the given OOType """
 
-        # Check the easy cases
-        if OOT in ootype_to_jvm:
-            return ootype_to_jvm[OOT]
-
-        # Now handle the harder ones
+        # Handle built-in types:
+        if OOT in self.ootype_to_scalar:
+            return self.ootype_to_scalar[OOT]
         if isinstance(OOT, lltype.Ptr) and isinstance(t.TO, lltype.OpaqueType):
             return jObject
+        if OOT in self.ootype_to_builtin:
+            return JvmBuiltInType(self, self.ootype_to_builtin[OOT], OOT)
+
+        # Handle non-built-in-types:
         if isinstance(OOT, ootype.Instance):
-            return self.pending_class(OOT).jvm_type()
+            return self._translate_instance(OOT)
         if isinstance(OOT, ootype.Record):
-            return XXX
+            return self._translate_record(OOT)
         if isinstance(OOT, ootype.StaticMethod):
             return XXX
+        
+        assert False, "Untranslatable type %s!" % OOT
 
-        # Uh-oh
-        unhandled_case
-
-    # Invoked by genoo:
-    #   I am not sure that we need them
+    # _________________________________________________________________
+    # Uh....
+    #
+    # These functions are invoked by the code in oosupport, but I
+    # don't think we need them or use them otherwise.
     
     def record_function(self, graph, name):
         self._function_names[graph] = name

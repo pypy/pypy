@@ -1,29 +1,49 @@
 import os # 
 from pypy.objspace.flow import model as flowmodel
 from pypy.translator.oosupport.metavm import Generator
-from pypy.translator.jvm.typesystem import \
-     JvmType, jObject, jPrintStream, jvm_for_class, jVoid, jvm_method_desc, \
-     jInt, jByteArray, jOOString, jString, jStringBuilder
 from pypy.rpython.ootypesystem import ootype
+from pypy.translator.oosupport.constant import push_constant
+from pypy.translator.jvm.typesystem import \
+     JvmType, jString, jInt, jLong, jDouble, jBool, jString, \
+     jPyPy, jVoid, jMath, desc_for_method, jPrintStream, jClass, jChar, \
+     jObject, jByteArray
 
 # ___________________________________________________________________________
 # Helper class string constants
 
-PYPYJAVA = "pypy.PyPy"
+PYPYJAVA = jPyPy.name
 
 # ___________________________________________________________________________
-# JVM Opcode Flags:
-#
-#   Indicates certain properties of each opcode.  Used mainly for debugging
-#   assertions
+# Miscellaneous helper functions
 
-NOFLAGS   = 0
-BRANCH    = 1          # Opcode is a branching opcode (implies a label argument)
-INVOKE    = 2          # Opcode is a Method object
-CONST5    = 4          # Opcode is specialized for int arguments from -1 to 5
-CONST3    = 8          # Opcode is specialized for int arguments from 0 to 3
-CLASSINM  = 16         # Argument is an internal class name
-FIELD     = 32         # Opcode is a Field object
+def _isnan(v):
+    return v != v*1.0 or (v == 1.0 and v == 2.0)
+
+def _isinf(v):
+    return v!=0 and (v == v*2)
+
+def _unsigned_to_signed_32(val):
+    """ In the JVM, we store unsigned integers in a signed integer slot
+    (since JVM has no signed integers).  This function converts an
+    unsigned value Python integer (possibly a long) into its corresponding
+    Python signed integer. """
+    if val <= 0x7FFFFFFF:
+        return int(val)
+    return int(_two_comp_32(val))
+
+def _unsigned_to_signed_64(val):
+    """ Same as _unsigned_to_signed_32, but for longs. """
+    if val <= 0x7FFFFFFFFFFFFFFF:
+        return val
+    return _two_comp_64(val)
+
+def _two_comp_32(val):
+    """ Returns the 32 bit two's complement. """
+    return -((val ^ 0xFFFFFFFF)+1)
+
+def _two_comp_64(val):
+    """ Returns the 64 bit two's complement. """
+    return -((val ^ 0xFFFFFFFFFFFFFFFF)+1)
 
 # ___________________________________________________________________________
 # JVM Opcodes:
@@ -31,40 +51,49 @@ FIELD     = 32         # Opcode is a Field object
 #   Map from symbolic name to an instance of the Opcode class
 
 class Opcode(object):
-    def __init__(self, flags, jvmstr):
+    def __init__(self, jvmstr):
         """
         flags is a set of flags (see above) that describe opcode
         jvmstr is the name for jasmin printouts
         """
-        self.flags = flags
         self.jvmstr = jvmstr
 
     def __repr__(self):
         return "<Opcode %s:%x>" % (self.jvmstr, self.flags)
-        
-    def specialize_opcode(self, args):
+
+    def specialize(self, args):
         """ Process the argument list according to the various flags.
         Returns a tuple (OPCODE, ARGS) where OPCODE is a string representing
-        the new opcode, and ARGS is a list of arguments or empty tuple """
+        the new opcode, and ARGS is a list of arguments or empty tuple.
+        Most of these do not do anything. """
+        return (self.jvmstr, args)
 
-        if self.flags & CONST5: 
-            assert len(args) == 1
-            if args[0] == -1:
-                return self.jvmstr + "_m1", ()
-            elif args[0] >= 0 and args[0] <= 5:
-                return self.jvmstr + "_" + str(args[0]), ()
-            else:
-                return "ldc", args # HACK
+class IntConstOpcode(Opcode):
+    """ The ICONST opcode specializes itself for small integer opcodes. """
+    def specialize(self, args):
+        assert len(args) == 1
+        if args[0] == -1:
+            return self.jvmstr + "_m1", ()
+        elif args[0] >= 0 and args[0] <= 5:
+            return self.jvmstr + "_" + str(args[0]), ()
+        # Non obvious: convert ICONST to LDC if the constant is out of
+        # range
+        return "ldc", args
 
-        if self.flags & CONST3: 
-            assert len(args) == 1
-            if args[0] >= 0 and args[0] <= 3:
-                return self.jvmstr + "_" + str(args[0]), ()
+class VarOpcode(Opcode):
+    """ An Opcode which takes a variable index as an argument; specialized
+    to small integer indices. """
+    def specialize(self, args):
+        assert len(args) == 1
+        if args[0] >= 0 and args[0] <= 3:
+            return self.jvmstr + "_" + str(args[0]), ()
+        return Opcode.specialize(self, args)
 
-        if self.flags & CLASSINM:
-            assert len(args) == 1
-            args = [args[0].int_class_name()]
-
+class IntClassNameOpcode(Opcode):
+    """ An opcode which takes an internal class name as its argument;
+    the actual argument will be a JvmType instance. """
+    def specialize(self, args):
+        args = [args[0].descriptor.int_class_name()]
         return self.jvmstr, args
         
 class OpcodeFamily(object):
@@ -76,12 +105,14 @@ class OpcodeFamily(object):
     defines one 'family' of opcodes, such as the LOAD family shown
     above, and produces Opcode objects specific to a particular type.
     """
-    def __init__(self, flags, suffix):
+    def __init__(self, opcclass, suffix):
         """
-        flags is a set of flags (see above) that describe opcode
+        opcclass is the opcode subclass to use (see above) when
+        instantiating a particular opcode
+        
         jvmstr is the name for jasmin printouts
         """
-        self.flags = flags
+        self.opcode_class = opcclass
         self.suffix = suffix
         self.cache = {}
 
@@ -89,27 +120,30 @@ class OpcodeFamily(object):
         try:
             return self.cache[prefix]
         except KeyError:
-            self.cache[prefix] = obj = Opcode(self.flags, prefix+self.suffix)
+            self.cache[prefix] = obj = self.opcode_class(
+                prefix+self.suffix)
             return obj
         
     def for_type(self, argtype):
         """ Returns a customized opcode of this family appropriate to
         'argtype', a JvmType object. """
 
+        desc = argtype.descriptor
+
         # These are always true:
-        if argtype[0] == 'L': return self._o("a")   # Objects
-        if argtype[0] == '[': return self._o("a")   # Arrays
-        if argtype == 'I':    return self._o("i")   # Integers
-        if argtype == 'J':    return self._o("l")   # Integers
-        if argtype == 'D':    return self._o("d")   # Doubles
-        if argtype == 'V':    return self._o("")    # Void [used by RETURN]
+        if desc[0] == 'L': return self._o("a")   # Objects
+        if desc[0] == '[': return self._o("a")   # Arrays
+        if desc == 'I':    return self._o("i")   # Integers
+        if desc == 'J':    return self._o("l")   # Integers
+        if desc == 'D':    return self._o("d")   # Doubles
+        if desc == 'V':    return self._o("")    # Void [used by RETURN]
 
         # Chars/Bytes/Booleans are normally represented as ints
         # in the JVM, but some opcodes are different.  They use a
         # different OpcodeFamily (see ArrayOpcodeFamily for ex)
-        if argtype == 'C':    return self._o("i")   # Characters
-        if argtype == 'B':    return self._o("i")   # Bytes
-        if argtype == 'Z':    return self._o("i")   # Boolean
+        if desc == 'C':    return self._o("i")   # Characters
+        if desc == 'B':    return self._o("i")   # Bytes
+        if desc == 'Z':    return self._o("i")   # Boolean
 
         assert False, "Unknown argtype=%s" % repr(argtype)
         raise NotImplementedError
@@ -130,81 +164,83 @@ class ArrayOpcodeFamily(OpcodeFamily):
 for cmpop in ('ne', 'eq', 'lt', 'gt', 'le', 'ge'):
     ifop = "if%s" % cmpop
     if_icmpop = "if_icmp%s" % cmpop
-    globals()[ifop.upper()] = Opcode(BRANCH, ifop)
-    globals()[if_icmpop.upper()] = Opcode(BRANCH, if_icmpop)
+    globals()[ifop.upper()] = Opcode(ifop)
+    globals()[if_icmpop.upper()] = Opcode(if_icmpop)
 
 # Compare references, either against NULL or against each other
-IFNULL =    Opcode(BRANCH, 'ifnull')
-IFNONNULL = Opcode(BRANCH, 'ifnonnull')
-IF_ACMPEQ = Opcode(BRANCH, 'if_acmpeq')
-IF_ACMPNE = Opcode(BRANCH, 'if_acmpne')
+IFNULL =    Opcode('ifnull')
+IFNONNULL = Opcode('ifnonnull')
+IF_ACMPEQ = Opcode('if_acmpeq')
+IF_ACMPNE = Opcode('if_acmpne')
 
 # Method invocation
-INVOKESTATIC = Opcode(INVOKE, 'invokestatic')
-INVOKEVIRTUAL = Opcode(INVOKE, 'invokevirtual')
-INVOKESPECIAL = Opcode(INVOKE, 'invokespecial')
+INVOKESTATIC = Opcode('invokestatic')
+INVOKEVIRTUAL = Opcode('invokevirtual')
+INVOKESPECIAL = Opcode('invokespecial')
 
 # Other opcodes
-LDC =       Opcode(NOFLAGS, 'ldc')       # single-word types
-LDC2 =      Opcode(NOFLAGS, 'ldc2_w')    # double-word types: doubles and longs
-GOTO =      Opcode(BRANCH,  'goto')
-ICONST =    Opcode(CONST5,  'iconst')
-ACONST_NULL=Opcode(NOFLAGS, 'aconst_null')
-DCONST_0 =  Opcode(NOFLAGS, 'dconst_0')
-DCONST_1 =  Opcode(NOFLAGS, 'dconst_0')
-LCONST_0 =  Opcode(NOFLAGS, 'lconst_1')
-LCONST_1 =  Opcode(NOFLAGS, 'lconst_1')
-GETFIELD =  Opcode(FIELD, 'getfield')
-PUTFIELD =  Opcode(FIELD, 'putfield')
-GETSTATIC = Opcode(FIELD, 'getstatic')
-PUTSTATIC = Opcode(FIELD, 'putstatic')
-CHECKCAST = Opcode(CLASSINM, 'checkcast')
-INEG =      Opcode(NOFLAGS, 'ineg')
-IXOR =      Opcode(NOFLAGS, 'ixor')
-IADD =      Opcode(NOFLAGS, 'iadd')
-ISUB =      Opcode(NOFLAGS, 'isub')
-IMUL =      Opcode(NOFLAGS, 'imul')
-IDIV =      Opcode(NOFLAGS, 'idiv')
-IREM =      Opcode(NOFLAGS, 'irem')
-IAND =      Opcode(NOFLAGS, 'iand')
-IOR =       Opcode(NOFLAGS, 'ior')
-ISHL =      Opcode(NOFLAGS, 'ishl')
-ISHR =      Opcode(NOFLAGS, 'ishr')
-IUSHR =     Opcode(NOFLAGS, 'iushr')
-DCMPG =     Opcode(NOFLAGS, 'dcmpg')
-DCMPL =     Opcode(NOFLAGS, 'dcmpl')
-NOP =       Opcode(NOFLAGS, 'nop')
-I2D =       Opcode(NOFLAGS, 'i2d')
-I2L =       Opcode(NOFLAGS, 'i2l')
-D2I=        Opcode(NOFLAGS, 'd2i')
-L2I =       Opcode(NOFLAGS, 'l2i')
-ATHROW =    Opcode(NOFLAGS, 'athrow')
-DNEG =      Opcode(NOFLAGS, 'dneg')
-DADD =      Opcode(NOFLAGS, 'dadd')
-DSUB =      Opcode(NOFLAGS, 'dsub')
-DMUL =      Opcode(NOFLAGS, 'dmul')
-DDIV =      Opcode(NOFLAGS, 'ddiv')
-DREM =      Opcode(NOFLAGS, 'drem')
-LNEG =      Opcode(NOFLAGS, 'lneg')
-LADD =      Opcode(NOFLAGS, 'ladd')
-LSUB =      Opcode(NOFLAGS, 'lsub')
-LMUL =      Opcode(NOFLAGS, 'lmul')
-LDIV =      Opcode(NOFLAGS, 'ldiv')
-LREM =      Opcode(NOFLAGS, 'lrem')
-LAND =      Opcode(NOFLAGS, 'land')
-LOR =       Opcode(NOFLAGS, 'lor')
-LXOR =      Opcode(NOFLAGS, 'lxor')
-LSHL =      Opcode(NOFLAGS, 'lshl')
-LSHR =      Opcode(NOFLAGS, 'lshr')
-LUSHR =     Opcode(NOFLAGS, 'lushr')
-NEW =       Opcode(CLASSINM, 'new')
-DUP =       Opcode(NOFLAGS, 'dup')
-POP =       Opcode(NOFLAGS, 'pop')
-INSTANCEOF= Opcode(CLASSINM, 'instanceof')
+LDC =       Opcode('ldc')       # single-word types
+LDC2 =      Opcode('ldc2_w')    # double-word types: doubles and longs
+GOTO =      Opcode('goto')
+ICONST =    IntConstOpcode('iconst')
+ACONST_NULL=Opcode('aconst_null')
+DCONST_0 =  Opcode('dconst_0')
+DCONST_1 =  Opcode('dconst_0')
+LCONST_0 =  Opcode('lconst_1')
+LCONST_1 =  Opcode('lconst_1')
+GETFIELD =  Opcode('getfield')
+PUTFIELD =  Opcode('putfield')
+GETSTATIC = Opcode('getstatic')
+PUTSTATIC = Opcode('putstatic')
+CHECKCAST = IntClassNameOpcode('checkcast')
+INEG =      Opcode('ineg')
+IXOR =      Opcode('ixor')
+IADD =      Opcode('iadd')
+ISUB =      Opcode('isub')
+IMUL =      Opcode('imul')
+IDIV =      Opcode('idiv')
+IREM =      Opcode('irem')
+IAND =      Opcode('iand')
+IOR =       Opcode('ior')
+ISHL =      Opcode('ishl')
+ISHR =      Opcode('ishr')
+IUSHR =     Opcode('iushr')
+DCMPG =     Opcode('dcmpg')
+DCMPL =     Opcode('dcmpl')
+NOP =       Opcode('nop')
+I2D =       Opcode('i2d')
+I2L =       Opcode('i2l')
+D2I=        Opcode('d2i')
+L2I =       Opcode('l2i')
+ATHROW =    Opcode('athrow')
+DNEG =      Opcode('dneg')
+DADD =      Opcode('dadd')
+DSUB =      Opcode('dsub')
+DMUL =      Opcode('dmul')
+DDIV =      Opcode('ddiv')
+DREM =      Opcode('drem')
+LNEG =      Opcode('lneg')
+LADD =      Opcode('ladd')
+LSUB =      Opcode('lsub')
+LMUL =      Opcode('lmul')
+LDIV =      Opcode('ldiv')
+LREM =      Opcode('lrem')
+LAND =      Opcode('land')
+LOR =       Opcode('lor')
+LXOR =      Opcode('lxor')
+LSHL =      Opcode('lshl')
+LSHR =      Opcode('lshr')
+LUSHR =     Opcode('lushr')
+NEW =       IntClassNameOpcode('new')
+DUP =       Opcode('dup')
+DUP2 =      Opcode('dup2')
+POP =       Opcode('pop')
+POP2 =      Opcode('pop2')
+INSTANCEOF= IntClassNameOpcode('instanceof')
 # Loading/storing local variables
-LOAD =      OpcodeFamily(CONST3, "load")
-STORE =     OpcodeFamily(CONST3, "store")
-RETURN =    OpcodeFamily(NOFLAGS, "return")
+LOAD =      OpcodeFamily(VarOpcode, "load")
+STORE =     OpcodeFamily(VarOpcode, "store")
+RETURN =    OpcodeFamily(Opcode, "return")
 
 # Loading/storing from arrays
 #   *NOTE*: This family is characterized by the type of the ELEMENT,
@@ -213,9 +249,27 @@ RETURN =    OpcodeFamily(NOFLAGS, "return")
 #   Also: here I break from convention by naming the objects ARRLOAD
 #   rather than ALOAD, even though the suffix is 'aload'.  This is to
 #   avoid confusion with the ALOAD opcode.
-ARRLOAD =      ArrayOpcodeFamily(NOFLAGS, "aload")
-ARRSTORE =     ArrayOpcodeFamily(NOFLAGS, "astore")
+ARRLOAD =      ArrayOpcodeFamily(Opcode, "aload")
+ARRSTORE =     ArrayOpcodeFamily(Opcode, "astore")
 
+# ___________________________________________________________________________
+# Labels
+#
+# We use a class here just for sanity checks and debugging print-outs.
+
+class Label(object):
+
+    def __init__(self, number, desc):
+        """ number is a unique integer
+        desc is a short, descriptive string that is a valid java identifier """
+        self.label = "%s_%s" % (desc, number)
+
+    def __repr__(self):
+        return "Label(%s)"%self.label
+
+    def jasmin_syntax(self):
+        return self.label
+    
 # ___________________________________________________________________________
 # Methods
 #
@@ -227,13 +281,37 @@ ARRSTORE =     ArrayOpcodeFamily(NOFLAGS, "astore")
 
 class Method(object):
     
-    def v(classnm, methnm, argtypes, rettype):
-        return Method(classnm, methnm, jvm_method_desc(argtypes, rettype),
+    def v(classty, methnm, argtypes, rettype):
+        """
+        Shorthand to create a virtual method.
+        'class' - JvmType object for the class
+        'methnm' - name of the method (Python string)
+        'argtypes' - list of JvmType objects, one for each argument but
+        not the this ptr
+        'rettype' - JvmType for return type
+        """
+        assert isinstance(classty, JvmType)
+        classnm = classty.name
+        argtypes = [a.descriptor for a in argtypes]
+        rettype = rettype.descriptor
+        return Method(classnm, methnm, desc_for_method(argtypes, rettype),
                       opcode=INVOKEVIRTUAL)
     v = staticmethod(v)
     
-    def s(classnm, methnm, argtypes, rettype):
-        return Method(classnm, methnm, jvm_method_desc(argtypes, rettype))
+    def s(classty, methnm, argtypes, rettype):
+        """
+        Shorthand to create a static method.
+        'class' - JvmType object for the class
+        'methnm' - name of the method (Python string)
+        'argtypes' - list of JvmType objects, one for each argument but
+        not the this ptr
+        'rettype' - JvmType for return type
+        """
+        assert isinstance(classty, JvmType)
+        classnm = classty.name
+        argtypes = [a.descriptor for a in argtypes]
+        rettype = rettype.descriptor
+        return Method(classnm, methnm, desc_for_method(argtypes, rettype))
     s = staticmethod(s)
     
     def __init__(self, classnm, methnm, desc, opcode=INVOKESTATIC):
@@ -248,48 +326,35 @@ class Method(object):
                             self.method_name,
                             self.descriptor)
 
-MATHIABS =              Method('java.lang.Math', 'abs', '(I)I')
-MATHLABS =              Method('java.lang.Math', 'abs', '(L)L')
-MATHDABS =              Method('java.lang.Math', 'abs', '(D)D')
-MATHFLOOR =             Method('java.lang.Math', 'floor', '(D)D')
-PRINTSTREAMPRINTSTR =   Method('java.io.PrintStream', 'print',
-                               '(Ljava/lang/String;)V', opcode=INVOKEVIRTUAL)
-PYPYUINTCMP =           Method(PYPYJAVA, 'uint_cmp', '(II)I')
-PYPYULONGCMP =          Method(PYPYJAVA, 'ulong', '(LL)I')
-PYPYUINTTODOUBLE =      Method(PYPYJAVA, 'uint_to_double', '(I)D')
-PYPYDOUBLETOUINT =      Method(PYPYJAVA, 'double_to_uint', '(D)I')
-PYPYLONGBITWISENEGATE = Method(PYPYJAVA, 'long_bitwise_negate', '(L)L')
-PYPYARRAYTOLIST =       Method(PYPYJAVA, 'array_to_list',
-                               '([Ljava/lang/Object;)Ljava/util/List;')
-PYPYSTRTOINT =          Method(PYPYJAVA, 'str_to_int',
-                               '(Ljava/lang/String;)I')
-PYPYSTRTOUINT =         Method(PYPYJAVA, 'str_to_uint',
-                               '(Ljava/lang/String;)I')
-PYPYSTRTOLONG =         Method(PYPYJAVA, 'str_to_long',
-                               '(Ljava/lang/String;)J')
-PYPYSTRTOULONG =        Method(PYPYJAVA, 'str_to_ulong',
-                               '(Ljava/lang/String;)J')
-PYPYSTRTOBOOL =         Method(PYPYJAVA, 'str_to_bool',
-                               '(Ljava/lang/String;)Z')
-PYPYSTRTODOUBLE =       Method(PYPYJAVA, 'str_to_double',
-                               '(Ljava/lang/String;)D')
-PYPYSTRTOCHAR =         Method(PYPYJAVA, 'str_to_char',
-                               '(Ljava/lang/String;)C')
-PYPYDUMPINDENTED  =     Method(PYPYJAVA, 'dump_indented',
-                                 '(ILjava/lang/String;)V')
-PYPYDUMPINT  =          Method(PYPYJAVA, 'dump_int', '(II)V')
-PYPYDUMPUINT  =         Method(PYPYJAVA, 'dump_uint', '(II)V')
-PYPYDUMPLONG  =         Method(PYPYJAVA, 'dump_long', '(LI)V')
-PYPYDUMPDOUBLE  =       Method(PYPYJAVA, 'dump_double', '(DI)V')
-PYPYDUMPSTRING  =       Method(PYPYJAVA, 'dump_string',
-                               jvm_method_desc((jOOString,jInt),jVoid))
-PYPYDUMPBOOLEAN =       Method(PYPYJAVA, 'dump_boolean', '(ZI)V')
-PYPYDUMPOBJECT =        Method(PYPYJAVA, 'dump_object',
-                               '(Ljava/lang/Object;I)V')
-PYPYRUNTIMENEW =        Method(PYPYJAVA, 'RuntimeNew',
-                               '(Ljava/lang/Class;)Ljava/lang/Object;')
-PYPYSTRING2BYTES =      Method(PYPYJAVA, 'string2bytes',
-                               jvm_method_desc((jString),jByteArray))
+MATHIABS =              Method.s(jMath, 'abs', (jInt,), jInt)
+MATHLABS =              Method.s(jMath, 'abs', (jLong,), jLong)
+MATHDABS =              Method.s(jMath, 'abs', (jDouble,), jDouble)
+MATHFLOOR =             Method.s(jMath, 'floor', (jDouble,), jDouble)
+PRINTSTREAMPRINTSTR =   Method.v(jPrintStream, 'print', (jString,), jVoid)
+CLASSFORNAME =          Method.s(jClass, 'forName', (jString,), jClass)
+PYPYUINTCMP =           Method.s(jPyPy, 'uint_cmp', (jInt,jInt,), jInt)
+PYPYULONGCMP =          Method.s(jPyPy, 'ulong_cmp', (jLong,jLong), jInt)
+PYPYUINTTODOUBLE =      Method.s(jPyPy, 'uint_to_double', (jInt,), jDouble)
+PYPYDOUBLETOUINT =      Method.s(jPyPy, 'double_to_uint', (jDouble,), jInt)
+PYPYLONGBITWISENEGATE = Method.s(jPyPy, 'long_bitwise_negate', (jLong,), jLong)
+PYPYSTRTOINT =          Method.s(jPyPy, 'str_to_int', (jString,), jInt)
+PYPYSTRTOUINT =         Method.s(jPyPy, 'str_to_uint', (jString,), jInt)
+PYPYSTRTOLONG =         Method.s(jPyPy, 'str_to_long', (jString,), jLong)
+PYPYSTRTOULONG =        Method.s(jPyPy, 'str_to_ulong', (jString,), jLong)
+PYPYSTRTOBOOL =         Method.s(jPyPy, 'str_to_bool', (jString,), jBool)
+PYPYSTRTODOUBLE =       Method.s(jPyPy, 'str_to_double', (jString,), jDouble)
+PYPYSTRTOCHAR =         Method.s(jPyPy, 'str_to_char', (jString,), jChar)
+PYPYDUMPINDENTED  =     Method.s(jPyPy, 'dump_indented', (jInt,jString,), jVoid)
+PYPYDUMPINT  =          Method.s(jPyPy, 'dump_int', (jInt,jInt), jVoid)
+PYPYDUMPUINT  =         Method.s(jPyPy, 'dump_uint', (jInt,jInt), jVoid)
+PYPYDUMPLONG  =         Method.s(jPyPy, 'dump_long', (jLong,jInt), jVoid)
+PYPYDUMPDOUBLE  =       Method.s(jPyPy, 'dump_double', (jDouble,jInt), jVoid)
+PYPYDUMPSTRING  =       Method.s(jPyPy, 'dump_string', (jString,jInt), jVoid)
+PYPYDUMPBOOLEAN =       Method.s(jPyPy, 'dump_boolean', (jBool,jInt), jVoid)
+PYPYDUMPOBJECT =        Method.s(jPyPy, 'dump_object', (jObject,jInt,), jVoid)
+PYPYDUMPVOID =          Method.s(jPyPy, 'dump_void', (jInt,), jVoid)
+PYPYRUNTIMENEW =        Method.s(jPyPy, 'RuntimeNew', (jClass,), jObject)
+PYPYSTRING2BYTES =      Method.s(jPyPy, 'string2bytes', (jString,), jByteArray)
 
 
 # ___________________________________________________________________________
@@ -316,135 +381,15 @@ class Field(object):
             gen._instr(PUTFIELD, self)
     def jasmin_syntax(self):
         return "%s/%s %s" % (
-            self.class_name.replace('.','/'), self.field_name, self.jtype)
+            self.class_name.replace('.','/'),
+            self.field_name,
+            self.jtype.descriptor)
 
-SYSTEMOUT = Field('java.lang.System', 'out', jPrintStream, True)
-SYSTEMERR = Field('java.lang.System', 'err', jPrintStream, True)
-
-# ___________________________________________________________________________
-# Constants
-#
-# Constant objects record constants of various types, and can be used
-# to emit the required instructions to load their value.
-
-class Const(object):
-    def load(self, gen):
-        """ Emits code required to reference a constant.  Usually invoked
-        by generator.emit() """
-        raise NotImplementedError
-    def initialize(self, gen):
-        """ Emits code required to DEFINE a constant (if any).  Default
-        version does nothing. """
-        pass
-
-class VoidConst(object):
-    def load(self, gen):
-        pass
-
-class NullConst(object):
-    def load(self, gen):
-        gen.emit(ACONST_NULL)
-
-class WarnNullConst(NullConst):
-    def load(self, gen):
-        gen.add_comment("   substituting NULL")
-        NullConst.load(self, gen)
-
-class SignedIntConst(Const):
-    def __init__(self, value):
-        self.value = value
-    def load(self, gen):
-        # In theory, we could get rid of CONST5 flag and do optimization
-        # here, but then all code would have to use SignedIntConst, and
-        # that seems uglier
-        gen.emit(ICONST, self.value)
-
-class UnsignedIntConst(SignedIntConst):
-    def __init__(self, value):
-        assert value >= 0
-        if value <= 0x7FFFFFFF:
-            SignedIntConst.__init__(self, value)
-        else:
-            # Find the negative version of the value that will
-            # represent this constant, and treat it like a signed
-            # integer:
-            value = value ^ 0xFFFFFFFF
-            value += 1
-            value *= -1
-            assert value < 0
-            value = int(value)
-            SignedIntConst.__init__(self, value)
-
-class DoubleConst(Const):
-    def __init__(self, value):
-        self.value = value
-    def load(self, gen):
-        if value == 0.0:
-            gen.emit(DCONST_0)
-        elif value == 1.0:
-            gen.emit(DCONST_1)
-        else:
-            gen.emit(LDC2, self.value)
-
-class SignedLongConst(Const):
-    def __init__(self, value):
-        self.value = value
-    def load(self, gen):
-        if value == 0:
-            gen.emit(LCONST_0)
-        elif value == 1:
-            gen.emit(LCONST_1)
-        else:
-            gen.emit(LDC2, self.value)
-
-class UnsignedLongConst(SignedLongConst):
-    def __init__(self, value):
-        assert value >= 0
-        if value <= 0x7FFFFFFFFFFFFFFFL:
-            SignedIntConst.__init__(self, value)
-        else:
-            # Find the negative version of the value that will
-            # represent this constant, and treat it like a signed
-            # integer:
-            value = value ^ 0xFFFFFFFFFFFFFFFF
-            value += 1
-            value *= -1
-            assert value < 0
-            SignedLongConst.__init__(self, value)
-
-class UnicodeConst(Const):
-    def __init__(self, value):
-        self.value = value
-    def load(self, gen):
-        assert isinstance(self.value, unicode)
-        def escape(char):
-            if char == '"': return r'\"'
-            if char == '\n': return r'\n'
-            return char
-        res = ('"' + 
-               "".join(escape(c) for c in self.value.encode('utf-8')) +
-               '"')
-        gen.emit(LDC, res)
-
-class ComplexConst(Const):
-    def __init__(self, fieldinfo, methodinfo):
-        """
-        Stores information about "complex" constants.  These are constants
-        that we cannot embed in the Java file and which require a method
-        to initialize.  They are stored in static fields, and initialized
-        with static methods that should be embedded in a class's static{}
-        section.
-        
-        fieldinfo --- the static field that will hold the value
-        methodinfo --- a static method that initializes the value.  Should
-        have no arguments.
-        """
-        self.fieldinfo = fieldinfo
-        self.methodinfo = methodinfo
-    def load(self, gen):
-        self.fieldinfo.load(gen)
-    def initialize(self, gen):
-        gen.emit(self.methodinfo)
+SYSTEMOUT =    Field('java.lang.System', 'out', jPrintStream, True)
+SYSTEMERR =    Field('java.lang.System', 'err', jPrintStream, True)
+DOUBLENAN =    Field('java.lang.Double', 'NaN', jDouble, True)
+DOUBLEPOSINF = Field('java.lang.Double', 'POSITIVE_INFINITY', jDouble, True)
+DOUBLENEGINF = Field('java.lang.Double', 'NEGATIVE_INFINITY', jDouble, True)
 
 # ___________________________________________________________________________
 # Generator State
@@ -452,9 +397,9 @@ class ComplexConst(Const):
 class ClassState(object):
     """ When you invoked begin_class(), one of these objects is allocated
     and tracks the state as we go through the definition process. """
-    def __init__(self, classnm, superclassnm):
-        self.class_name = classnm
-        self.superclass_name = superclassnm
+    def __init__(self, classty, superclassty):
+        self.class_type = classty
+        self.superclass_type = superclassty
     def out(self, arg):
         self.file.write(arg)
 
@@ -468,7 +413,7 @@ class FunctionState(object):
     def add_var(self, jvar, jtype):
         """ Adds new entry for variable 'jvar', of java type 'jtype' """
         idx = self.next_offset
-        self.next_offset += jtype.type_width()
+        self.next_offset += jtype.descriptor.type_width()
         if jvar:
             assert jvar not in self.local_vars # never been added before
             self.local_vars[jvar] = idx
@@ -504,7 +449,7 @@ class JVMGenerator(Generator):
     # If the name does not begin with '_', it will be called from
     # outside the generator.
 
-    def begin_class(self, classnm, superclsnm):
+    def begin_class(self, classty, superclsty):
         """
         Begins a class declaration.  Overall flow of class declaration
         looks like:
@@ -517,11 +462,11 @@ class JVMGenerator(Generator):
 
         Where items in brackets may appear anywhere from 0 to inf times.
         
-        classnm --- full Java name of the class (i.e., "java.lang.String")
-        superclassnm --- full Java name of the super class
+        classty --- JvmType for the class
+        superclassty --- JvmType for the superclass
         """
         assert not self.curclass
-        self.curclass = ClassState(classnm, superclsnm)
+        self.curclass = ClassState(classty, superclsty)
         self._begin_class()
 
     def end_class(self):
@@ -550,10 +495,9 @@ class JVMGenerator(Generator):
         
         superclsnm --- same Java name of super class as from begin_class
         """
-        jtype = jvm_for_class(self.curclass.class_name)
-        self.begin_function("<init>", [], [jtype], jVoid)
-        self.load_jvm_var(jtype, 0)
-        jmethod = Method(self.curclass.superclass_name, "<init>", "()V",
+        self.begin_function("<init>", [], [self.curclass.class_type], jVoid)
+        self.load_jvm_var(self.curclass.class_type, 0)
+        jmethod = Method(self.curclass.superclass_type.name, "<init>", "()V",
                          opcode=INVOKESPECIAL)
         jmethod.invoke(self)
         self.return_val(jVoid)
@@ -614,8 +558,19 @@ class JVMGenerator(Generator):
         self._instr(RETURN.for_type(vartype))
 
     def load_string(self, str):
-        uni = str.decode('utf-8')
-        UnicodeConst(uni).load(self)
+        """ Pushes a Java version of a Python string onto the stack.
+        'str' should be a Python string encoded in UTF-8 (I think) """
+        # Create an escaped version of str:
+        def escape(char):
+            if char == '"': return r'\"'
+            if char == '\n': return r'\n'
+            return char
+        res = ('"' + 
+               "".join(escape(c) for c in str) +
+               '"')
+        # Use LDC to load the Java version:
+        #     XXX --- support byte arrays here?  Would be trickier!
+        self._instr(LDC, res)
 
     def load_jvm_var(self, vartype, varidx):
         """ Loads from jvm slot #varidx, which is expected to hold a value of
@@ -657,9 +612,8 @@ class JVMGenerator(Generator):
         identifier.
 
         'mark' --- if True, then also calls self.mark() with the new lbl """
-        labelnum = self.label_counter
+        res = Label(self.label_counter, desc)
         self.label_counter += 1
-        res = ('Label', labelnum, desc)
         if mark:
             self.mark(res)
         return res
@@ -668,7 +622,7 @@ class JVMGenerator(Generator):
         """ Convenience method.  Be sure you only call it from a
         virtual method, not static methods. """
         self.load_jvm_var(jObject, 0)
-    
+
     # __________________________________________________________________
     # Exception Handling
 
@@ -749,7 +703,7 @@ class JVMGenerator(Generator):
             return self.load_jvm_var(jty, idx)
 
         if isinstance(value, flowmodel.Constant):
-            return self.db.record_const(value).load(self)
+            return push_constant(self.db, value.concretetype, value.value, self)
             
         raise Exception('Unexpected type for v in load(): '+
                         repr(value.concretetype) + " v=" + repr(value))
@@ -765,25 +719,14 @@ class JVMGenerator(Generator):
         raise Exception('Unexpected type for v in store(): '+v)
 
     def set_field(self, CONCRETETYPE, fieldname):
-        if fieldname == "meta":
-            # temporary hack
-            self.add_comment("      WARNING: emulating meta for now")
-            self.emit(POP)
-            self.emit(POP)
-        else:
-            clsobj = self.db.pending_class(CONCRETETYPE)
-            fieldobj = clsobj.lookup_field(fieldname)
-            fieldobj.store(self)
+        clsobj = self.db.pending_class(CONCRETETYPE)
+        fieldobj = clsobj.lookup_field(fieldname)
+        fieldobj.store(self)
 
     def get_field(self, CONCRETETYPE, fieldname):
-        if fieldname == 'meta':
-            self.add_comment("      WARNING: emulating meta for now")
-            self.emit(POP)
-            self.emit(ACONST_NULL)
-        else:
-            clsobj = self.db.pending_class(CONCRETETYPE)
-            fieldobj = clsobj.lookup_field(fieldname)
-            fieldobj.load(self)
+        clsobj = self.db.pending_class(CONCRETETYPE)
+        fieldobj = clsobj.lookup_field(fieldname)
+        fieldobj.load(self)
 
     def downcast(self, TYPE):
         jtype = self.db.lltype_to_cts(TYPE)
@@ -817,23 +760,86 @@ class JVMGenerator(Generator):
     def call_oostring(self, OOTYPE):
         cts_type = self.db.lltype_to_cts(OOTYPE)
         if cts_type != jByteArray:
-            mthd = Method.s(PYPYJAVA, 'oostring', [cts_type, jInt], jString)
+            mthd = Method.s(jPyPy, 'oostring', [cts_type, jInt], jString)
             self.emit(mthd)
-            if jOOString == jByteArray:
+            if self.db.using_byte_array:
                 self.emit(PYPYSTRING2BYTES)
         else:
-            mthd = Method.s(PYPYJAVA, 'oostring',
+            mthd = Method.s(jPyPy, 'oostring',
                             [jByteArray, jInt], jByteArray)
         
     def new(self, TYPE):
         jtype = self.db.lltype_to_cts(TYPE)
-        ctor = Method(jtype.class_name(), "<init>", "()V", opcode=INVOKESPECIAL)
+        ctor = Method(jtype.name, "<init>", "()V", opcode=INVOKESPECIAL)
         self.emit(NEW, jtype)
         self.emit(DUP)
         self.emit(ctor)
         
     def instantiate(self):
         self.emit(PYPYRUNTIMENEW)
+
+    def getclassobject(self, OOINSTANCE):
+        jvmtype = self.db.lltype_to_cts(OOINSTANCE)
+        self.load_string(jvmtype.name)
+        CLASSFORNAME.invoke(self)
+        
+    def dup(self, OOTYPE):
+        jvmtype = self.db.lltype_to_cts(OOTYPE)
+        if jvmtype.descriptor.type_width() == 1:
+            self.emit(DUP)
+        else:
+            self.emit(DUP2)
+            
+    def pop(self, OOTYPE):
+        jvmtype = self.db.lltype_to_cts(OOTYPE)
+        if jvmtype.descriptor.type_width() == 1:
+            self.emit(POP)
+        else:
+            self.emit(POP2)
+
+    def push_null(self, OOTYPE):
+        self.emit(ACONST_NULL)
+
+    def push_primitive_constant(self, TYPE, value):
+        if TYPE is ootype.Void:
+            return
+        elif TYPE in (ootype.Bool, ootype.Signed):
+            self.emit(ICONST, int(value))
+        elif TYPE is ootype.Unsigned:
+            # Converts the unsigned int into its corresponding signed value
+            # and emits it using ICONST.
+            self.emit(ICONST, _unsigned_to_signed_32(value))
+        elif TYPE is ootype.Char or TYPE is ootype.UniChar:
+            self.emit(ICONST, ord(value))
+        elif TYPE is ootype.SignedLongLong:
+            self._push_long_constant(long(value))
+        elif TYPE is ootype.UnsignedLongLong:
+            self._push_long_constant(_unsigned_to_signed_64(value))
+        elif TYPE is ootype.Float:
+            self._push_double_constant(float(value))
+        elif TYPE is ootype.String:
+            self.load_string(str(value))
+
+    def _push_long_constant(self, value):
+        if value == 0:
+            gen.emit(LCONST_0)
+        elif value == 1:
+            gen.emit(LCONST_1)
+        else:
+            gen.emit(LDC2, value)
+
+    def _push_double_constant(self, value):
+        if _isnan(value):
+            DOUBLENAN.load(self)
+        elif _isinf(value):
+            if value > 0: DOUBLEPOSINF.load(self)
+            else: DOUBLENEGINF.load(self)
+        elif value == 0.0:
+            gen.emit(DCONST_0)
+        elif value == 1.0:
+            gen.emit(DCONST_1)
+        else:
+            gen.emit(LDC2, self.value)        
 
     # __________________________________________________________________
     # Methods invoked directly by strings in jvm/opcode.py
@@ -945,8 +951,8 @@ class JasminGenerator(JVMGenerator):
         classnm --- full Java name of the class (i.e., "java.lang.String")
         """
 
-        iclassnm = self.curclass.class_name.replace('.', '/')
-        isuper = self.curclass.superclass_name.replace('.', '/')
+        iclassnm = self.curclass.class_type.descriptor.int_class_name()
+        isuper = self.curclass.superclass_type.descriptor.int_class_name()
         
         jfile = "%s/%s.j" % (self.outdir, iclassnm)
 
@@ -970,8 +976,10 @@ class JasminGenerator(JVMGenerator):
         self.curclass.out("  ; %s\n" % comment)
 
     def add_field(self, fobj):
-        self.curclass.out('.field public %s %s\n' % (
-            fobj.field_name, fobj.jtype))
+        kw = ['public']
+        if fobj.is_static: kw.append('static')
+        self.curclass.out('.field %s %s %s\n' % (
+            " ".join(kw), fobj.field_name, fobj.jtype.descriptor))
 
     def _begin_function(self, funcname, argtypes, rettype, static):
 
@@ -981,8 +989,10 @@ class JasminGenerator(JVMGenerator):
         kw = ['public']
         if static: kw.append('static')
         self.curclass.out('.method %s %s(%s)%s\n' % (
-            " ".join(kw), funcname,
-            "".join(argtypes), rettype))
+            " ".join(kw),
+            funcname,
+            "".join([a.descriptor for a in argtypes]),
+            rettype.descriptor))
 
     def _end_function(self):
         self.curclass.out('.limit stack 100\n') # HACK, track max offset
@@ -991,21 +1001,16 @@ class JasminGenerator(JVMGenerator):
 
     def mark(self, lbl):
         """ Marks the point that a label indicates. """
-        _, lblnum, lbldesc = lbl
-        assert _ == "Label"
-        self.curclass.out('  %s_%s:\n' % (lbldesc, lblnum))
+        assert isinstance(lbl, Label)
+        self.curclass.out('  %s:\n' % lbl.jasmin_syntax())
 
     def _instr(self, opcode, *args):
-        jvmstr, args = opcode.specialize_opcode(args)
-        # XXX this whole opcode flag things is stupid, redo to be class based
-        if opcode.flags & BRANCH:
-            assert len(args) == 1
-            _, lblnum, lbldesc = args[0]
-            args = ('%s_%s' % (lbldesc, lblnum),)
-        if opcode.flags & (INVOKE|FIELD):
-            assert len(args) == 1
-            args = (args[0].jasmin_syntax(),)
-        instr_text = '    %s %s' % (jvmstr, " ".join([str(s) for s in args]))
+        jvmstr, args = opcode.specialize(args)
+        def jasmin_syntax(arg):
+            if hasattr(arg, 'jasmin_syntax'): return arg.jasmin_syntax()
+            return str(arg)
+        strargs = [jasmin_syntax(arg) for arg in args]
+        instr_text = '%s %s' % (jvmstr, " ".join(strargs))
         self.curclass.out('    %-60s ; %d\n' % (
             instr_text, self.curfunc.instr_counter))
         self.curfunc.instr_counter+=1

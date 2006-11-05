@@ -194,6 +194,9 @@ public class PyPy {
         System.out.println(text);
     }
 
+    public static void dump_void(int indent) {
+    }
+
     public static void dump_int(int i, int indent) {
         dump_indented(indent, Integer.toString(i));
     }

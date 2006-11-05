@@ -23,6 +23,20 @@ class Generator(object):
         """
         pass
 
+    def add_section(self, text):
+        """
+        Prints a distinguished comment
+        """
+        self.add_comment("_" * 70)
+        self.add_comment(text)
+
+    def pop(self, TYPE):
+        """ Pops a value off the top of the stack, which is of the
+        given TYPE.
+
+        Stack: val, ... -> ..."""
+        raise NotImplementedError
+
     def dup(self, TYPE):
         """ Duplicates the top of the stack, which is of the given TYPE.
 
@@ -83,7 +97,14 @@ class Generator(object):
         Stack: obj, ... -> obj, ...
         """
         raise NotImplementedError
-        
+
+    def getclassobject(self, OOINSTANCE):
+        """
+        Gets the class object for the OOINSTANCE.  The type of the class
+        object will depend on the backend, of course; for example in JVM
+        it is java.lang.Class.
+        """
+        raise NotImplementedError
 
     def instantiate(self):
         """
@@ -146,8 +167,17 @@ class Generator(object):
         Stack: ... -> newobj, ... """
         raise NotImplementedError
 
-    def push_null(self):
+    def push_null(self, TYPE):
+        """ Push a NULL value onto the stack (the NULL value represents
+        a pointer to an instance of OOType TYPE, if it matters to you). """
         raise NotImplementedError
+
+    def push_primitive_constant(self, TYPE, value):
+        """ Push an instance of TYPE onto the stack with the given
+        value.  TYPE will be one of the types enumerated in
+        oosupport.constant.PRIMITIVE_TYPES.  value will be its
+        corresponding ootype implementation. """
+        raise NotImplementedError        
 
 class InstructionList(list):
     def render(self, generator, op):

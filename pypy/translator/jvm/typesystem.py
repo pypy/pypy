@@ -34,13 +34,25 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.translator.jvm.option import getoption
 from pypy.translator.jvm.log import log
 
-class JvmType(str):
+# ___________________________________________________________________________
+# Type Descriptors
+#
+# Internal representations of types for the JVM.  Generally speaking,
+# only the generator code should deal with these and even it tries to
+# avoid them except write before dumping to the output file.
+
+class JvmTypeDescriptor(str):
     """
-    The class we use to represent JVM types; it is just a string with
-    the JVM type descriptor at the moment.  Using JvmType allows us to
-    use isinstance, however. The grammar for type descriptors can be
-    read about here:
+    An internal class representing JVM type descriptors, which are
+    essentially Java's short hand for types.  This is the lowest level
+    of our representation for types and are mainly used when defining
+    the types of fields or arguments to methods.  The grammar for type
+    descriptors can be read about here:
+    
     http://java.sun.com/docs/books/vmspec/2nd-edition/html/ClassFile.doc.html
+
+    We use this class also to represent method descriptors, which define
+    a set of argument and return types.
     """
     def is_scalar(self):
         return self[0] != 'L' and self[0] != '['
@@ -48,6 +60,8 @@ class JvmType(str):
         return not self.is_scalar()
     def is_array(self):
         return self[0] == '['
+    def is_method(self):
+        return self[0] == '('
     def class_name(self):
         """ Converts a descriptor like Ljava/lang/Object; to
         full class name java.lang.Object """
@@ -68,71 +82,114 @@ class JvmType(str):
 
 # JVM type functions
 
-def jvm_array_of(jtype):
+def desc_for_array_of(jdescr):
     """ Returns a JvmType representing an array of 'jtype', which must be
     another JvmType """
-    assert isinstance(jtype, JvmType)
-    return JvmType('['+str(jtype))
+    assert isinstance(jdescr, JvmTypeDescriptor)
+    return JvmTypeDescriptor('['+jdescr)
 
-def jvm_for_class(classnm):
+def desc_for_class(classnm):
     """ Returns a JvmType representing a particular class 'classnm', which
     should be a fully qualified java class name (i.e., 'java.lang.String') """
-    return JvmType('L%s;' % classnm.replace('.','/'))
+    return JvmTypeDescriptor('L%s;' % classnm.replace('.','/'))
 
-# Common JVM types
-jVoid = JvmType('V')
-jInt = JvmType('I')
-jLong = JvmType('J')
-jBool = JvmType('Z')
-jDouble = JvmType('D')
-jByte = JvmType('B')
-jByteArray = jvm_array_of(jByte)
-jChar = JvmType('C')
-jThrowable = jvm_for_class('java.lang.Throwable')
-jObject = jvm_for_class('java.lang.Object')
-jString = jvm_for_class('java.lang.String')
-jStringArray = jvm_array_of(jString)
-jArrayList = jvm_for_class('java.util.ArrayList')
-jHashMap = jvm_for_class('java.util.HashMap')
-jIterator = jvm_for_class('java.util.Iterator')
-jClass = jvm_for_class('java.lang.Class')
-jStringBuilder = jvm_for_class('java.lang.StringBuilder')
-jPrintStream = jvm_for_class('java.io.PrintStream')
-
-# Map from OOType to an internal JVM type descriptor
-#  only handles the simple cases
-ootype_to_jvm = {
-    ootype.Void:             jVoid,
-    ootype.Signed:           jInt,
-    ootype.Unsigned:         jInt,
-    ootype.SignedLongLong:   jLong,
-    ootype.UnsignedLongLong: jLong,
-    ootype.Bool:             jBool,
-    ootype.Float:            jDouble,
-    ootype.Char:             jByte,
-    ootype.UniChar:          jChar,
-    ootype.String:           jString,
-    ootype.ROOT:             jObject,
-
-    # We may want to use PyPy wrappers here later:
-    llmemory.WeakGcAddress:  jObject, # XXX
-    ootype.StringBuilder:    jStringBuilder,
-    ootype.Class:            jClass,
-    ootype.List:             jArrayList,
-    ootype.Dict:             jHashMap,
-    ootype.DictItemsIterator:jIterator
-    }
-
-# Determine which class we will use to represent strings:
-if getoption('byte-arrays'):
-    ootype_to_jvm[ootype.String] = jByteArray
-jOOString = ootype_to_jvm[ootype.String]
-
-# Method descriptor construction
-def jvm_method_desc(argtypes, rettype):
+def desc_for_method(argtypes, rettype):
     """ A Java method has a descriptor, which is a string specified
     its argument and return types.  This function converts a list of
     argument types (JvmTypes) and the return type (also a JvmType),
     into one of these descriptor strings. """
-    return "(%s)%s" % ("".join(argtypes), rettype)
+    return JvmTypeDescriptor("(%s)%s" % ("".join(argtypes), rettype))
+
+# ______________________________________________________________________
+# Basic JVM Types
+
+class JvmType(object):
+    """
+    The JvmType interface defines the interface for type objects
+    that we return in the database in various places.
+    """
+    def __init__(self, descriptor):
+        """ 'descriptor' should be a jvm.generator.JvmTypeDescriptor object
+        for this type """
+        self.descriptor = descriptor  # public
+        self.name = None              # public, string like "java.lang.Object"
+                                      # (None for scalars and arrays)
+    def lookup_field(self, fieldnm):
+        """ Returns a jvm.generator.Field object representing the field
+        with the given name, or raises KeyError if that field does not
+        exist on this type. """
+        raise NotImplementedException
+    def lookup_method(self, methodnm):
+        """ Returns a jvm.generator.Method object representing the method
+        with the given name, or raises KeyError if that field does not
+        exist on this type. """
+        raise NotImplementedException
+
+    def __repr__(self):
+        return "%s<%s>" % (self.__class__.__name__, self.descriptor)
+
+class JvmScalarType(JvmType):
+    """
+    Subclass used for all scalar type instances.
+    """
+    def __init__(self, descrstr):
+        JvmType.__init__(self, JvmTypeDescriptor(descrstr))
+    def lookup_field(self, fieldnm):
+        raise KeyError(fieldnm)        # Scalar objects have no fields
+    def lookup_method(self, methodnm): 
+        raise KeyError(methodnm)       # Scalar objects have no methods
+
+jVoid = JvmScalarType('V')
+jInt = JvmScalarType('I')
+jLong = JvmScalarType('J')
+jBool = JvmScalarType('Z')
+jDouble = JvmScalarType('D')
+jByte = JvmScalarType('B')
+jChar = JvmScalarType('C')
+class JvmClassType(JvmType):
+    """
+    Base class used for all class instances.  Kind of an abstract class;
+    instances of this class do not support field or method lookup and
+    only work to obtain the descriptor.  We use it on occasion for classes
+    like java.lang.Object etc.
+    """
+    def __init__(self, classnm):
+        JvmType.__init__(self, desc_for_class(classnm))
+        self.name = classnm # public String, like 'java.lang.Object'
+    def lookup_field(self, fieldnm):
+        raise KeyError(fieldnm) # we treat as opaque type
+    def lookup_method(self, methodnm):
+        raise KeyError(fieldnm) # we treat as opaque type
+
+jThrowable = JvmClassType('java.lang.Throwable')
+jObject = JvmClassType('java.lang.Object')
+jString = JvmClassType('java.lang.String')
+jArrayList = JvmClassType('java.util.ArrayList')
+jHashMap = JvmClassType('java.util.HashMap')
+jIterator = JvmClassType('java.util.Iterator')
+jClass = JvmClassType('java.lang.Class')
+jStringBuilder = JvmClassType('java.lang.StringBuilder')
+jPrintStream = JvmClassType('java.io.PrintStream')
+jMath = JvmClassType('java.lang.Math')
+jList = JvmClassType('java.util.List')
+jPyPy = JvmClassType('pypy.PyPy')
+jPyPyConst = JvmClassType('pypy.Constant')
+jPyPyMain = JvmClassType('pypy.Main')
+
+class JvmArrayType(JvmType):
+    """
+    Subclass used for all array instances.
+    """
+    def __init__(self, elemtype):
+        JvmType.__init__(self, desc_for_array_of(elemtype.descriptor))
+        self.element_type = elemtype
+    def lookup_field(self, fieldnm):
+        raise KeyError(fieldnm)  # TODO adjust interface to permit opcode here
+    def lookup_method(self, methodnm): 
+        raise KeyError(methodnm) # Arrays have no methods
+    
+jByteArray = JvmArrayType(jByte)
+jObjectArray = JvmArrayType(jObject)
+jStringArray = JvmArrayType(jString)
+
 
