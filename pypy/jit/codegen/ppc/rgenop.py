@@ -170,18 +170,30 @@ class Builder(GenBuilder):
             self.initial_var2loc[arg] = gprs[3+len(self.initial_var2loc)]
         self.initial_spill_offset = self._var_offset(0)
 
-        # Emit standard prologue
-        #   Minimum space = 24+params+lv+4*GPR+8*FPR
-        #   GPR=NSAVEDREGISTERS
-        # Initially, we allocate only enough space for GPRs, and allow
-        # each basic block to ensure it has enough space to continue.
+        # Standard prologue:
+
+        # Minimum stack space = 24+params+lv+4*GPRSAVE+8*FPRSAVE
+        #   params = stack space for parameters for functions we call
+        #   lv = stack space for local variables
+        #   GPRSAVE = the number of callee-save GPRs we save, currently
+        #             NSAVEDREGISTERS which is 19, i.e. all of them
+        #   FPRSAVE = the number of callee-save FPRs we save, currently 0
+        # Initially, we set params == lv == 0 and allow each basic block to
+        # ensure it has enough space to continue.
+
         minspace = self._stack_size(0, self._var_offset(0))
+        # save Link Register
         self.asm.mflr(rSCRATCH)
-        self.asm.stw(rSCRATCH,rSP,8)
-        # save all regs from -31 to stack
-        self.asm.stmw(gprs[32-NSAVEDREGISTERS].number,rSP,-4*(NSAVEDREGISTERS + 1))
-        self.asm.mr(rFP, rSP)              # set up our frame pointer
-        self.asm.stwu(rSP,rSP,-minspace)
+        self.asm.stw(rSCRATCH, rSP, 8)
+        # save Condition Register
+        self.asm.mfcr(rSCRATCH)
+        self.asm.stw(rSCRATCH, rSP, 4)
+        # save the callee-save GPRs
+        self.asm.stmw(gprs[32-NSAVEDREGISTERS].number, rSP, -4*(NSAVEDREGISTERS + 1))
+        # set up frame pointer
+        self.asm.mr(rFP, rSP)
+        # save stack pointer into linkage area and set stack pointer for us.
+        self.asm.stwu(rSP, rSP, -minspace)
 
         return inputargs
 
@@ -222,12 +234,20 @@ class Builder(GenBuilder):
         self.insns.append(insn.Return(gv_returnvar))
         allocator = self.allocate_and_emit()
 
-        # Emit standard epilogue:
-        self.asm.lwz(rSP,rSP,0)      # restore old SP
-        self.asm.lmw(gprs[32-NSAVEDREGISTERS].number,rSP,-4*(NSAVEDREGISTERS+1))  # restore all GPRs
-        self.asm.lwz(rSCRATCH,rSP,8) # load old Link Register and jump to it
-        self.asm.mtlr(rSCRATCH)      #
-        self.asm.blr()               #
+        # standard epilogue:
+
+        # restore old SP
+        self.asm.lwz(rSP, rSP, 0)
+        # restore all callee-save GPRs
+        self.asm.lmw(gprs[32-NSAVEDREGISTERS].number, rSP, -4*(NSAVEDREGISTERS+1))
+        # restore Condition Register
+        self.asm.lwz(rSCRATCH, rSP, 4)
+        self.asm.mtcr(rSCRATCH)
+        # restore Link Register and jump to it
+        self.asm.lwz(rSCRATCH, rSP, 8)
+        self.asm.mtlr(rSCRATCH)
+        self.asm.blr()
+
         self._close()
 
     def finish_and_goto(self, outputargs_gv, target):
