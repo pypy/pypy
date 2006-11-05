@@ -159,13 +159,13 @@ class __extend__(New):
             constructor = scope_manager.get_variable(self.identifier)
         obj = W_Object({})
         obj.Class = 'Object'
+        #it should be undefined... to be completed
         obj.dict_w['prototype'] = constructor.dict_w['prototype']
         #nctx = ExecutionContext(context)
         #nctx.assign('this',obj)
         #print nctx.locals.keys()
         constructor.Call(context, this = obj)
         
-
         return obj
 
 
