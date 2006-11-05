@@ -1,7 +1,5 @@
 """NOT_RPYTHON"""
 
-import os
-
 class file(object):
     """file(name[, mode[, buffering]]) -> file object
 
@@ -242,6 +240,7 @@ This is needed for lower-level file interfaces, such os.read().'''
         """isatty() -> true or false.  True if the file is connected to a tty device."""
         if self._closed:
             raise ValueError('I/O operation on closed file')
+        import os
         return os.isatty(self.fd)
 
     def __repr__(self):
