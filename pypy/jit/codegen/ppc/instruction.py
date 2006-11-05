@@ -15,15 +15,26 @@ class _StackSlot(AllocationSlot):
 
 _stack_slot_cache = {}
 def stack_slot(offset):
+    # because stack slots are put into dictionaries which compare by
+    # identity, it is important that there's a unique _StackSlot
+    # object for each offset, at least per function generated or
+    # something.  doing the caching here is easier, though.
     if offset in _stack_slot_cache:
         return _stack_slot_cache[offset]
     _stack_slot_cache[offset] = res = _StackSlot(offset)
     return res
 
+NO_REGISTER = -1
+GP_REGISTER = 0
+FP_REGISTER = 1
+CR_FIELD = 2
+CT_REGISTER = 3
+
 class Register(AllocationSlot):
     is_register = True
 
 class GPR(Register):
+    regclass = GP_REGISTER
     def __init__(self, number):
         self.number = number
     def __repr__(self):
@@ -31,27 +42,24 @@ class GPR(Register):
 gprs = map(GPR, range(32))
 
 class FPR(Register):
+    regclass = FP_REGISTER
     def __init__(self, number):
         self.number = number
 
 fprs = map(GPR, range(32))
 
 class CRF(Register):
+    regclass = CR_FIELD
     def __init__(self, number):
         self.number = number
 
 crfs = map(CRF, range(8))
 
 class CTR(Register):
+    regclass = CT_REGISTER
     pass
 
 ctr = CTR()
-
-NO_REGISTER = -1
-GP_REGISTER = 0
-FP_REGISTER = 1
-CR_FIELD = 2
-CT_REGISTER = 3
 
 _insn_index = [0]
 

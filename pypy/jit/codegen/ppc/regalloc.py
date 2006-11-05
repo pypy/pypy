@@ -101,7 +101,7 @@ class RegisterAllocation:
 
                 if not self.var2loc[arg].is_register:
                     # It has no register now because it has been spilled
-                    assert argcls is GP_REGISTER, "uh-oh"
+                    assert argcls == GP_REGISTER, "uh-oh"
                     self._allocate_reg(arg)
                 else:
                     #print "it was in ", self.var2loc[arg]
@@ -110,18 +110,18 @@ class RegisterAllocation:
             # Need to allocate a register for the destination
             assert not insn.result or insn.result not in self.var2loc
             cand = None
-            if insn.result_regclass is GP_REGISTER:
+            if insn.result_regclass == GP_REGISTER:
                 #print "Allocating register for result %r..." % (insn.result,)
                 cand = self._allocate_reg(insn.result)
-            elif insn.result_regclass is CR_FIELD:
+            elif insn.result_regclass == CR_FIELD:
                 assert crfs[0] not in self.loc2var
                 assert isinstance(insn, CMPInsn)
                 cand = crfs[0]
                 self.crfinfo[0] = insn.info
-            elif insn.result_regclass is CT_REGISTER:
+            elif insn.result_regclass == CT_REGISTER:
                 assert ctr not in self.loc2var
                 cand = ctr
-            elif insn.result_regclass is not NO_REGISTER:
+            elif insn.result_regclass != NO_REGISTER:
                 assert 0
             if cand is not None and cand not in self.loc2var:
                 self.var2loc[insn.result] = cand
