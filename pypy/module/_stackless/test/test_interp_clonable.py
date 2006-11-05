@@ -11,6 +11,7 @@ from pypy.conftest import skip_on_missing_buildoption
 
 class TestClonableCoroutine(test_transformed_gc.GCTest):
 
+    gcname = "stacklessgc"
     class gcpolicy(gc.StacklessFrameworkGcPolicy):
         class transformerclass(stacklessframework.StacklessFrameworkGCTransformer):
             GC_PARAMS = {'start_heap_size': 4096 }
