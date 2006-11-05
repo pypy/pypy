@@ -16,7 +16,7 @@ default_modules = dict.fromkeys(
 pypy_optiondescription = OptionDescription("pypy", "All PyPy Options", [
     OptionDescription("objspace", "Object Space Option", [
         ChoiceOption("name", "Object Space name",
-                     ["std", "flow", "logic", "thunk", "cpy"], "std",
+                     ["std", "flow", "logic", "thunk", "cpy", "dump"], "std",
                      requires = {
                          "thunk": [("objspace.geninterp", False)],
                          "logic": [("objspace.geninterp", False)],
