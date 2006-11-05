@@ -18,6 +18,8 @@ option_to_typename = {
                         "dictmultiobject.W_DictMultiIterObject"],
     "withrangelist"  : ["rangeobject.W_RangeListObject",
                         "rangeobject.W_RangeIterObject"],
+    "withtproxy" : ["proxyobject.W_TransparentList",
+                    "proxyobject.W_TransparentDict"],
 }
 
 class StdTypeModel:
@@ -74,6 +76,7 @@ class StdTypeModel:
         from pypy.objspace.std import unicodeobject
         from pypy.objspace.std import dictproxyobject
         from pypy.objspace.std import rangeobject
+        from pypy.objspace.std import proxyobject
         from pypy.objspace.std import fake
         import pypy.objspace.std.default # register a few catch-all multimethods
 
@@ -137,6 +140,7 @@ class StdTypeModel:
         # register the order in which types are converted into each others
         # when trying to dispatch multimethods.
         # XXX build these lists a bit more automatically later
+        
         if config.objspace.std.withsmallint:
             self.typeorder[boolobject.W_BoolObject] += [
                 (smallintobject.W_SmallIntObject, boolobject.delegate_Bool2SmallInt),
@@ -195,6 +199,9 @@ class StdTypeModel:
         # put W_Root everywhere
         self.typeorder[W_Root] = []
         for type in self.typeorder:
+            from pypy.objspace.std import stdtypedef
+            if type is not W_Root and isinstance(type.typedef, stdtypedef.StdTypeDef):
+                self.typeorder[type].append((type.typedef.any, None))
             self.typeorder[type].append((W_Root, None))
 
         # ____________________________________________________________

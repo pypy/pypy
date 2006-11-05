@@ -27,6 +27,24 @@ class W_Root(object):
             return space.finditem(w_dict, w_attr)
         return None
 
+    def setdictvalue(self, space, w_attr, w_value):
+        w_dict = self.getdict()
+        if w_dict is not None:
+            space.set_str_keyed_item(w_dict, w_attr, w_value)
+            return True
+        return False
+    
+    def deldictvalue(self, space, w_name):
+        w_dict = self.getdict()
+        if w_dict is not None:
+            try:
+                space.delitem(w_dict, w_name)
+                return True
+            except OperationError, ex:
+                if not ex.match(space, space.w_KeyError):
+                    raise
+        return False
+
     def setdict(self, space, w_dict):
         typename = space.type(self).getname(space, '?')
         raise OperationError(space.w_TypeError,
@@ -73,6 +91,12 @@ class W_Root(object):
 
     def setslotvalue(self, index, w_val):
         raise NotImplementedError
+
+    def descr_call_mismatch(self, space, opname, RequiredClass, args):
+        msg = "'%s' object expected, got '%s' instead" % (
+            RequiredClass.typedef.name,
+            self.getclass(space).getname(space, '?'))
+        raise OperationError(space.w_TypeError, space.wrap(msg))
 
     # used by _weakref implemenation
 
@@ -129,6 +153,9 @@ class UnpackValueError(ValueError):
         self.msg = msg
     def __str__(self):
         return self.msg
+
+class DescrMismatch(Exception):
+    pass
 
 class ObjSpace(object):
     """Base class for the interpreter-level implementations of object spaces.
@@ -454,6 +481,13 @@ class ObjSpace(object):
             return w_obj
         return None
 
+    def descr_self_interp_w(self, RequiredClass, w_obj):
+        obj = self.interpclass_w(w_obj)
+        if not isinstance(obj, RequiredClass):
+            raise DescrMismatch()
+        return obj
+    descr_self_interp_w._annspecialcase_ = 'specialize:arg(1)'
+    
     def interp_w(self, RequiredClass, w_obj, can_be_None=False):
         """
         Unwrap w_obj, checking that it is an instance of the required internal

@@ -35,9 +35,7 @@ class Object:
             if space.is_data_descr(w_descr):
                 space.set(w_descr, w_obj, w_value)
                 return
-        w_dict = w_obj.getdict()
-        if w_dict is not None:
-            space.set_str_keyed_item(w_dict, w_name, w_value)
+        if w_obj.setdictvalue(space, w_name, w_value):
             return
         raiseattrerror(space, w_obj, name, w_descr)
 
@@ -48,14 +46,8 @@ class Object:
             if space.is_data_descr(w_descr):
                 space.delete(w_descr, w_obj)
                 return
-        w_dict = w_obj.getdict()
-        if w_dict is not None:
-            try:
-                space.delitem(w_dict, w_name)
-                return
-            except OperationError, ex:
-                if not ex.match(space, space.w_KeyError):
-                    raise
+        if w_obj.deldictvalue(space, w_name):
+            return
         raiseattrerror(space, w_obj, name, w_descr)
 
     def descr__init__(space, w_obj, __args__):
@@ -404,9 +396,11 @@ def _cmp(space, w_obj1, w_obj2):
     if space.is_w(w_obj2, space.w_None):
         return space.wrap(1)
     if space.is_w(w_typ1, w_typ2):
+        #print "WARNING, comparison by address!"
         w_id1 = space.id(w_obj1)
         w_id2 = space.id(w_obj2)
     else:
+        #print "WARNING, comparison by address!"
         w_id1 = space.id(w_typ1)
         w_id2 = space.id(w_typ2)
     if space.is_true(space.lt(w_id1, w_id2)):
@@ -451,6 +445,9 @@ def _make_comparison_impl(symbol, specialnames):
     left, right = specialnames
     op = getattr(operator, left)
     def comparison_impl(space, w_obj1, w_obj2):
+        #from pypy.objspace.std.tlistobject import W_TransparentList
+        #if isinstance(w_obj1, W_TransparentList):
+        #    import pdb;pdb.set_trace()
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
         w_left_src, w_left_impl = space.lookup_in_type_where(w_typ1, left)
@@ -523,9 +520,9 @@ for targetname, specialname, checkerspec in [
     l = ["space.is_true(space.isinstance(w_result, %s))" % x 
                 for x in checkerspec]
     checker = " or ".join(l) 
-    source = """if 1: 
+    source = """if 1:
         def %(targetname)s(space, w_obj):
-            w_impl = space.lookup(w_obj, %(specialname)r) 
+            w_impl = space.lookup(w_obj, %(specialname)r)
             if w_impl is None:
                 raise OperationError(space.w_TypeError,
                        space.wrap("operand does not support unary %(targetname)s"))

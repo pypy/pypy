@@ -16,7 +16,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter import eval
 from pypy.interpreter.function import Function, Method
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable
-from pypy.interpreter.baseobjspace import Wrappable, SpaceCache
+from pypy.interpreter.baseobjspace import Wrappable, SpaceCache, DescrMismatch
 from pypy.interpreter.argument import Arguments, AbstractArguments
 from pypy.tool.sourcetools import NiceCompile, compile2
 
@@ -55,7 +55,10 @@ class UnwrapSpecRecipe:
         if isinstance(el, str):
             getattr(self, "visit_%s" % (el,))(el, *args)
         elif isinstance(el, tuple):
-            self.visit_function(el, *args)
+            if el[0] == 'self':
+                self.visit_self(el[1], *args)
+            else:
+                self.visit_function(el, *args)
         else:
             for typ in self.bases_order:
                 if issubclass(el, typ):
@@ -100,6 +103,9 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
 
     def visit_function(self, (func, cls), app_sig):
         self.dispatch(cls, app_sig)
+
+    def visit_self(self, cls, app_sig):
+        self.visit__Wrappable(cls, app_sig)
         
     def visit__Wrappable(self, el, app_sig):
         name = el.__name__
@@ -170,6 +176,10 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
         self.run_args.append("%s(%s)" % (self.use(func),
                                          self.scopenext()))
 
+    def visit_self(self, typ):
+        self.run_args.append("space.descr_self_interp_w(%s, %s)" %
+                             (self.use(typ), self.scopenext()))
+        
     def visit__Wrappable(self, typ):
         self.run_args.append("space.interp_w(%s, %s)" % (self.use(typ),
                                                          self.scopenext()))
@@ -275,6 +285,10 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
     def visit_function(self, (func, cls)):
         raise FastFuncNotSupported
 
+    def visit_self(self, typ):
+        self.unwrap.append("space.descr_self_interp_w(%s, %s)" %
+                           (self.use(typ), self.nextarg()))
+
     def visit__Wrappable(self, typ):
         self.unwrap.append("space.interp_w(%s, %s)" % (self.use(typ),
                                                        self.nextarg()))
@@ -334,13 +348,16 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
 class BuiltinCode(eval.Code):
     "The code object implementing a built-in (interpreter-level) hook."
     hidden_applevel = True
+    descrmismatch_op = None
+    descr_reqcls = None
 
     # When a BuiltinCode is stored in a Function object,
     # you get the functionality of CPython's built-in function type.
 
     NOT_RPYTHON_ATTRIBUTES = ['_bltin', '_unwrap_spec']
 
-    def __init__(self, func, unwrap_spec = None, self_type = None):
+    def __init__(self, func, unwrap_spec = None, self_type = None,
+                 descrmismatch=None):
         "NOT_RPYTHON"
         # 'implfunc' is the interpreter-level function.
         # Note that this uses a lot of (construction-time) introspection.
@@ -375,7 +392,17 @@ class BuiltinCode(eval.Code):
         if self_type:
             assert unwrap_spec[0] == 'self',"self_type without 'self' spec element"
             unwrap_spec = list(unwrap_spec)
-            unwrap_spec[0] = self_type
+            if descrmismatch is not None:
+                assert issubclass(self_type, Wrappable)
+                unwrap_spec[0] = ('self', self_type)
+                self.descrmismatch_op = descrmismatch
+                self.descr_reqcls = self_type
+            else:
+                unwrap_spec[0] = self_type
+        else:
+            assert descrmismatch is None, (
+                "descrmismatch without a self-type specified")
+ 
 
         orig_sig = Signature(func, argnames, varargname, kwargname)
         app_sig = Signature(func)
@@ -433,7 +460,12 @@ class BuiltinCode(eval.Code):
             raise OperationError(space.w_MemoryError, space.w_None) 
         except RuntimeError, e: 
             raise OperationError(space.w_RuntimeError, 
-                                 space.wrap("internal error: " + str(e))) 
+                                 space.wrap("internal error: " + str(e)))
+        except DescrMismatch, e:
+            return scope_w[0].descr_call_mismatch(space,
+                                                  self.descrmismatch_op,
+                                                  self.descr_reqcls,
+                                                  args)
         if w_result is None:
             w_result = space.w_None
         return w_result
@@ -453,6 +485,11 @@ class BuiltinCodePassThroughArguments0(BuiltinCode):
         except RuntimeError, e: 
             raise OperationError(space.w_RuntimeError, 
                                  space.wrap("internal error: " + str(e))) 
+        except DescrMismatch, e:
+            return args.firstarg().descr_call_mismatch(space,
+                                                  self.descrmismatch_op,
+                                                  self.descr_reqcls,
+                                                  args)
         if w_result is None:
             w_result = space.w_None
         return w_result
@@ -475,6 +512,11 @@ class BuiltinCodePassThroughArguments1(BuiltinCode):
             except RuntimeError, e: 
                 raise OperationError(space.w_RuntimeError, 
                                      space.wrap("internal error: " + str(e))) 
+            except DescrMismatch, e:
+                return args.firstarg().descr_call_mismatch(space,
+                                                      self.descrmismatch_op,
+                                                      self.descr_reqcls,
+                                                      args)
             if w_result is None:
                 w_result = space.w_None
             return w_result
@@ -486,8 +528,8 @@ class BuiltinCode0(BuiltinCode):
         except KeyboardInterrupt: 
             raise OperationError(space.w_KeyboardInterrupt, space.w_None) 
         except MemoryError: 
-            raise OperationError(space.w_MemoryError, space.w_None) 
-        except RuntimeError, e: 
+            raise OperationError(space.w_MemoryError, space.w_None)
+        except (RuntimeError, DescrMismatch), e: 
             raise OperationError(space.w_RuntimeError, 
                                  space.wrap("internal error: " + str(e))) 
         if w_result is None:
@@ -504,7 +546,12 @@ class BuiltinCode1(BuiltinCode):
             raise OperationError(space.w_MemoryError, space.w_None) 
         except RuntimeError, e: 
             raise OperationError(space.w_RuntimeError, 
-                                 space.wrap("internal error: " + str(e))) 
+                                 space.wrap("internal error: " + str(e)))
+        except DescrMismatch, e:
+            return  w1.descr_call_mismatch(space,
+                                           self.descrmismatch_op,
+                                           self.descr_reqcls,
+                                           Arguments(space, [w1]))
         if w_result is None:
             w_result = space.w_None
         return w_result
@@ -520,6 +567,11 @@ class BuiltinCode2(BuiltinCode):
         except RuntimeError, e: 
             raise OperationError(space.w_RuntimeError, 
                                  space.wrap("internal error: " + str(e))) 
+        except DescrMismatch, e:
+            return  w1.descr_call_mismatch(space,
+                                           self.descrmismatch_op,
+                                           self.descr_reqcls,
+                                           Arguments(space, [w1, w2]))
         if w_result is None:
             w_result = space.w_None
         return w_result
@@ -534,7 +586,12 @@ class BuiltinCode3(BuiltinCode):
             raise OperationError(space.w_MemoryError, space.w_None) 
         except RuntimeError, e: 
             raise OperationError(space.w_RuntimeError, 
-                                 space.wrap("internal error: " + str(e))) 
+                                 space.wrap("internal error: " + str(e)))
+        except DescrMismatch, e:
+            return  w1.descr_call_mismatch(space,
+                                           self.descrmismatch_op,
+                                           self.descr_reqcls,
+                                           Arguments(space, [w1, w2, w3]))
         if w_result is None:
             w_result = space.w_None
         return w_result
@@ -549,7 +606,13 @@ class BuiltinCode4(BuiltinCode):
             raise OperationError(space.w_MemoryError, space.w_None) 
         except RuntimeError, e: 
             raise OperationError(space.w_RuntimeError, 
-                                 space.wrap("internal error: " + str(e))) 
+                                 space.wrap("internal error: " + str(e)))
+        except DescrMismatch, e:
+            return  w1.descr_call_mismatch(space,
+                                           self.descrmismatch_op,
+                                           self.descr_reqcls,
+                                           Arguments(space,
+                                                     [w1, w2, w3, w4]))
         if w_result is None:
             w_result = space.w_None
         return w_result
@@ -569,7 +632,8 @@ class interp2app(Wrappable):
 
     NOT_RPYTHON_ATTRIBUTES = ['_staticdefs']
     
-    def __init__(self, f, app_name=None, unwrap_spec = None):
+    def __init__(self, f, app_name=None, unwrap_spec = None,
+                 descrmismatch=None):
         "NOT_RPYTHON"
         Wrappable.__init__(self)
         # f must be a function whose name does NOT start with 'app_'
@@ -584,7 +648,9 @@ class interp2app(Wrappable):
                 raise ValueError, ("function name %r suspiciously starts "
                                    "with 'app_'" % f.func_name)
             app_name = f.func_name
-        self._code = BuiltinCode(f, unwrap_spec=unwrap_spec, self_type = self_type)
+        self._code = BuiltinCode(f, unwrap_spec=unwrap_spec,
+                                 self_type = self_type,
+                                 descrmismatch=descrmismatch)
         self.__name__ = f.func_name
         self.name = app_name
         self._staticdefs = list(f.func_defaults or ())

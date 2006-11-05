@@ -132,6 +132,12 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
         # final setup
         self.setup_builtin_modules()
+        # Adding transparent proxy call
+        if self.config.objspace.std.withtproxy:
+             from pypy.objspace.std.transparent import app_proxy
+        
+             self.setitem(self.builtin.w_dict, self.wrap('proxy'),
+                          self.wrap(app_proxy))
 
     def enable_old_style_classes_as_default_metaclass(self):
         self.setitem(self.builtin.w_dict, self.wrap('__metaclass__'), self.w_classobj)

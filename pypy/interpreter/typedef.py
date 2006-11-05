@@ -5,7 +5,8 @@
 import py
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.argument import Arguments
-from pypy.interpreter.baseobjspace import Wrappable, W_Root, ObjSpace
+from pypy.interpreter.baseobjspace import Wrappable, W_Root, ObjSpace, \
+    DescrMismatch
 from pypy.interpreter.error import OperationError
 from pypy.tool.sourcetools import compile2, func_with_new_name
 from pypy.rlib.objectmodel import instantiate
@@ -242,7 +243,7 @@ def make_descr_typecheck_wrapper(func, extraargs=(), cls=None):
         assert issubclass(cls, Wrappable)
         source = """
         def descr_typecheck_%(name)s(space, w_obj, %(extra)s):
-            obj = space.interp_w(%(cls_name)s, w_obj)
+            obj = space.descr_self_interp_w(%(cls_name)s, w_obj)
             return %(name)s(space, obj, %(extra)s)
         """
         miniglobals[cls_name] = cls
@@ -295,6 +296,7 @@ class GetSetProperty(Wrappable):
         self.fset = fset
         self.fdel = fdel
         self.doc = doc
+        self.reqcls = cls
         self.name = '<generic property>'
         self.objclass_getter = objclass_getter
     
@@ -307,7 +309,12 @@ class GetSetProperty(Wrappable):
             #print property, w_obj, w_cls
             return space.wrap(property)
         else:
-            return property.fget(space, w_obj)
+            try:
+                return property.fget(space, w_obj)
+            except DescrMismatch, e:
+                return w_obj.descr_call_mismatch(space, '__getattribute__',\
+                    property.reqcls, Arguments(space, [w_obj,
+                                           space.wrap(property.name)]))
     
     def descr_property_set(space, property, w_obj, w_value):
         """property.__set__(obj, value)
@@ -316,7 +323,12 @@ class GetSetProperty(Wrappable):
         if fset is None:
             raise OperationError(space.w_TypeError,
                                  space.wrap("readonly attribute"))
-        fset(space, w_obj, w_value)
+        try:
+            fset(space, w_obj, w_value)
+        except DescrMismatch, e:
+            w_obj.descr_call_mismatch(space, '__setattr__',\
+                property.reqcls, Arguments(space, [w_obj,
+                space.wrap(property.name), w_value]))
     
     def descr_property_del(space, property, w_obj):
         """property.__delete__(obj)
@@ -325,7 +337,12 @@ class GetSetProperty(Wrappable):
         if fdel is None:
             raise OperationError(space.w_AttributeError,
                                  space.wrap("cannot delete attribute"))
-        fdel(space, w_obj)
+        try:
+            fdel(space, w_obj)
+        except DescrMismatch, e:
+            w_obj.descr_call_mismatch(space, '__delattr__',\
+                property.reqcls, Arguments(space, [w_obj,
+                space.wrap(property.name)]))
     
     def descr_get_objclass(space, property):
         return property.objclass_getter(space)
@@ -583,9 +600,10 @@ getset_func_dict = GetSetProperty(descr_get_dict, descr_set_dict, cls=Function)
 Function.typedef = TypeDef("function",
     __new__ = interp2app(Function.descr_method__new__.im_func),
     __call__ = interp2app(Function.descr_function_call,
-                          unwrap_spec=['self', Arguments]),
+                          unwrap_spec=['self', Arguments],
+                          descrmismatch='__call__'),
     __get__ = interp2app(descr_function_get),
-    __repr__ = interp2app(Function.descr_function_repr),
+    __repr__ = interp2app(Function.descr_function_repr, descrmismatch='__repr__'),
     __reduce__ = interp2app(Function.descr_function__reduce__,
                             unwrap_spec=['self', ObjSpace]),
     __setstate__ = interp2app(Function.descr_function__setstate__,
@@ -650,8 +668,10 @@ PyTraceback.typedef = TypeDef("traceback",
 GeneratorIterator.typedef = TypeDef("generator",
     __reduce__   = interp2app(GeneratorIterator.descr__reduce__,
                               unwrap_spec=['self', ObjSpace]),
-    next       = interp2app(GeneratorIterator.descr_next),
-    __iter__   = interp2app(GeneratorIterator.descr__iter__),
+    next       = interp2app(GeneratorIterator.descr_next,
+                            descrmismatch='next'),
+    __iter__   = interp2app(GeneratorIterator.descr__iter__,
+                            descrmismatch='__iter__'),
     gi_running = interp_attrproperty('running', cls=GeneratorIterator),
     gi_frame   = interp_attrproperty('frame', cls=GeneratorIterator),
     __weakref__ = make_weakref_descr(GeneratorIterator),

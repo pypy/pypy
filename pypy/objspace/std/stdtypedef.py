@@ -20,6 +20,7 @@ class StdTypeDef(TypeDef):
     def __init__(self, __name, __base=None, **rawdict):
         "NOT_RPYTHON: initialization-time only."
         TypeDef.__init__(self, __name, __base, **rawdict)
+        self.any = type("W_Any"+__name.title(), (baseobjspace.W_Root,), {'typedef': self})
         self.local_multimethods = []
 
     def registermethods(self, namespace):

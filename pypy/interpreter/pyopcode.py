@@ -351,7 +351,8 @@ class PyInterpFrame(pyframe.PyFrame):
             raise operror
         else:
             tb = space.interpclass_w(w_traceback)
-            if not isinstance(tb, pytraceback.PyTraceback):
+            if tb is None or not space.is_true(space.isinstance(tb, 
+                space.gettypeobject(pytraceback.PyTraceback.typedef))):
                 raise OperationError(space.w_TypeError,
                       space.wrap("raise: arg 3 must be a traceback or None"))
             operror.application_traceback = tb

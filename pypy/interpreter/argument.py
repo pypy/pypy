@@ -350,6 +350,11 @@ class Arguments(AbstractArguments):
         "Return a ([w1,w2...], {'kw':w3...}) pair."
         self._unpack()
         return self.arguments_w, self.kwds_w
+    
+    def popfirst(self):
+        self._unpack()
+        return self.arguments_w[0], Arguments(self.space, self.arguments_w[1:],
+            kwds_w = self.kwds_w)
 
     def _unpack(self):
         "unpack the *arg and **kwd into w_arguments and kwds_w"
@@ -418,7 +423,7 @@ class Arguments(AbstractArguments):
             if not e.match(self.space, self.space.w_StopIteration):
                 raise
             return None
-
+        
     ###  Parsing for function calls  ###
 
     def _match_signature(self, scope_w, argnames, has_vararg=False,
