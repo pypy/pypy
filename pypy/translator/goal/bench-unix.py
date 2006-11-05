@@ -94,7 +94,7 @@ def get_executables():  #sorted by revision number (highest first)
 def main():
     benchmark_result = BenchmarkResult('bench-unix.benchmark_result')
 
-    print 'date                           size codesize    executable                                          richards            pystone'
+    print 'date                           size codesize    executable                                                      richards            pystone'
     sys.stdout.flush()
 
     ref_rich, ref_stone = None, None
@@ -117,7 +117,7 @@ def main():
         if not ref_stone:
             ref_stone = stone
 
-        fmt = '%-26s %8s %8s    <a href="microbench-archive/%s.txt">%-48s</a>   %6dms (%6.1fx)   %6d (%6.1fx)'
+        fmt = '%-26s %8s %8s    <a href="microbench-archive/%s.txt">%-60s</a>   %6dms (%6.1fx)   %6d (%6.1fx)'
         print fmt % (time.ctime(), '-', '-', 'python', 'CPython ' + v, rich, rich / ref_rich, stone, stone / ref_stone)
         sys.stdout.flush()
 
