@@ -178,7 +178,7 @@ attaching a attribute ``_alloc_flavor_ = "raw"`` to the class.
 
 Instance creation is done the regular way, to free an instance there is a
 special function ``free_non_gc_object`` defined in
-`pypy/rpython/objectmodel.py`_. Trying to access any attribute of the instance
+`pypy/rlib/objectmodel.py`_. Trying to access any attribute of the instance
 after it was freed gives an exception (which is not equivalent to the
 behaviour after translation: there it would just lead to a crash) Example::
 
