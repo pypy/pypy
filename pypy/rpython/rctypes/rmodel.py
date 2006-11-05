@@ -245,6 +245,10 @@ class CTypesValueRepr(CTypesRepr):
         r_temp.setvalue(llops, v_owned_box, v_value)
         return llops.convertvar(v_owned_box, r_temp, self)
 
+    def cast_return_value(self, llops, v_value):
+        # like return_value(), but used for the cast function
+        return self.return_value(llops, v_value)
+
     def rtype_is_true(self, hop):
         [v_box] = hop.inputargs(self)
         v_value = self.getvalue(hop.llops, v_box)

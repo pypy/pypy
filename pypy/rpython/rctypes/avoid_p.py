@@ -48,7 +48,8 @@ class CastFnEntry(ExtRegistryEntry):
     _about_ = cast
 
     def checkptr(self, ctype):
-        assert (isinstance(ctype, PointerType) or ctype == c_void_p or
+        assert (isinstance(ctype, PointerType) or
+                ctype in (c_void_p, c_char_p) or
                 isinstance(ctype, CFuncPtrType)), (
             "cast(): can only cast between pointers so far, not %r" % (ctype,))
 
@@ -67,6 +68,7 @@ class CastFnEntry(ExtRegistryEntry):
     def specialize_call(self, hop):
         from pypy.rpython.rctypes.rpointer import PointerRepr
         from pypy.rpython.rctypes.rvoid_p import CVoidPRepr
+        from pypy.rpython.rctypes.rchar_p import CCharPRepr
         from pypy.rpython.rctypes.rstringbuf import StringBufRepr
         from pypy.rpython.rctypes.rfunc import CFuncPtrRepr
         from pypy.rpython.lltypesystem import lltype, llmemory
@@ -76,7 +78,7 @@ class CastFnEntry(ExtRegistryEntry):
             # to become a general non-constant SomeCTypesObject
             s_arg = hop.args_s[0].normalized()
             r_arg = hop.rtyper.getrepr(s_arg)
-        assert isinstance(r_arg, (PointerRepr, CVoidPRepr,
+        assert isinstance(r_arg, (PointerRepr, CVoidPRepr, CCharPRepr,
                                   StringBufRepr, CFuncPtrRepr))
         targetctype = hop.args_s[1].const
         v_box, c_targetctype = hop.inputargs(r_arg, lltype.Void)
@@ -97,4 +99,4 @@ class CastFnEntry(ExtRegistryEntry):
             v_result = hop.genop('cast_adr_to_ptr', [v_adr],
                                  resulttype = hop.r_result.ll_type)
         hop.exception_cannot_occur()
-        return hop.r_result.return_value(hop.llops, v_result)
+        return hop.r_result.cast_return_value(hop.llops, v_result)

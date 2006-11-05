@@ -24,6 +24,10 @@ class CCharPRepr(CTypesValueRepr):
         # field instead of the c_data pointer
         return llops.gendirectcall(ll_charp2str, v_value)
 
+    def cast_return_value(self, llops, v_value):
+        # This should not return a string but a char pointer
+        return CTypesValueRepr.return_value(self, llops, v_value)
+
     def get_content_keepalive_type(self):
         "An extra keepalive used for the RPython string."
         return string_repr.lowleveltype

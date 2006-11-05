@@ -12,7 +12,7 @@ from pypy import conftest
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.test.test_llinterp import interpret
 
-from ctypes import c_void_p, c_int, c_long, cast, pointer, POINTER
+from ctypes import c_void_p, c_int, c_long, cast, pointer, POINTER, c_ubyte
 from ctypes import c_char, c_byte, c_char_p, create_string_buffer, CFUNCTYPE
 
 class Test_annotation:
@@ -53,11 +53,42 @@ class Test_annotation:
         s = a.build_types(fn, [])
         assert s.knowntype == c_void_p
 
+    def test_annotate_c_char_p(self):
+        def fn():
+            x = c_int(12)
+            p1 = cast(pointer(x), c_char_p)
+            p2 = cast(p1, POINTER(c_int))
+            assert p2.contents.value == 12
+            return p1, p2
+
+        t = TranslationContext()
+        a = t.buildannotator()
+        s = a.build_types(fn, [])
+        assert s.items[0].knowntype == c_char_p
+        assert s.items[1].knowntype == POINTER(c_int)
+
+        if conftest.option.view:
+            t.view()
+
+   
+
 class Test_specialization:
     def test_specialize_c_void_p(self):
         def func():
             x = c_int(12)
             p1 = cast(pointer(x), c_void_p)
+            p2 = cast(p1, POINTER(c_int))
+            return p1, p2.contents.value
+
+        res = interpret(func, [])
+        assert lltype.typeOf(res.item0.c_data[0]) == llmemory.Address
+        assert res.item1 == 12
+
+    def test_specialize_c_char_p(self):
+        py.test.skip("LLinterp is grumpy about converting between pointers pointing to different types of data.")
+        def func():
+            x = c_int(12)
+            p1 = cast(pointer(x), c_char_p)
             p2 = cast(p1, POINTER(c_int))
             return p1, p2.contents.value
 
@@ -118,11 +149,21 @@ class Test_specialization:
         assert lltype.typeOf(res) == lltype.Signed    # xxx
 
 class Test_compilation:
-    def test_compile_c_char_p(self):
+    def test_compile_c_void_p(self):
         def func():
             x = c_int(12)
             p1 = cast(pointer(x), c_void_p)
             p2 = cast(p1, POINTER(c_int))
+            return p2.contents.value
+
+        fn = compile(func, [])
+        assert fn() == 12
+
+    def test_compile_c_char_p(self):
+        def func():
+            x = c_ubyte(12)
+            p1 = cast(pointer(x), c_char_p)
+            p2 = cast(p1, POINTER(c_ubyte))
             return p2.contents.value
 
         fn = compile(func, [])
