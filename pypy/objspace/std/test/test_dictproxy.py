@@ -21,9 +21,9 @@ class AppTestUserObject:
     def test_dictproxyeq(self):
         class a(object):
             pass
-        class b(object):
+        class b(a):
             stuff = 42
-        class c(object):
+        class c(a):
             stuff = 42
         assert a.__dict__ == a.__dict__
         assert a.__dict__ != b.__dict__
