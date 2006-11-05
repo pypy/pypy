@@ -14,7 +14,7 @@ def test_call_five():
         return res == expected
     fn = compile_function(wrapper, [])
     result = fn()
-    assert result == 0
+    assert result == wrapper()
 
 def test_get_set_del_slice():
     def get_set_del_nonneg_slice(): # no neg slices for now!
