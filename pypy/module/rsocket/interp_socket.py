@@ -16,7 +16,7 @@ class W_RSocket(Wrappable, RSocket):
         info is a pair (hostaddr, port).
         """
         try:
-            sock, addr = self.accept()
+            sock, addr = self.accept(W_RSocket)
         except SocketError, e:
             raise converted_error(space, e)
         return space.newtuple([space.wrap(sock), addr.as_object(space)])
@@ -339,7 +339,7 @@ descr_socket_new = interp2app(newsocket,
 # Error handling
 
 def converted_error(space, e):
-    message = e.__str__()
+    message = e.get_msg()
     w_module = space.getbuiltinmodule('_socket')
     w_exception_class = space.getattr(w_module, space.wrap(e.applevelerrcls))
     w_exception = space.call_function(w_exception_class, space.wrap(message))

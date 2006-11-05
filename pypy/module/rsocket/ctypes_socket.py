@@ -8,6 +8,8 @@ from pypy.rpython.rctypes.aerrno import geterrno
 
 from ctypes import c_ushort, c_int, c_uint, c_char_p, c_void_p, c_char, c_ubyte
 from ctypes import c_short, POINTER, ARRAY, cdll, sizeof, SetPointerType
+from pypy.rlib.rarithmetic import intmask, r_uint
+
 
 # Also not used here, but exported for other code.
 from ctypes import cast, pointer, create_string_buffer
@@ -24,6 +26,7 @@ includes = ('sys/types.h',
             'netdb.h',
             'arpa/inet.h',
             'stdint.h', 
+            'errno.h',
             )
 cond_includes = [('AF_NETLINK', 'linux/netlink.h')]
 HEADER = ''.join(['#include <%s>\n' % filename for filename in includes])
@@ -47,6 +50,7 @@ class CConfig:
     POLLOUT = ctypes_platform.DefinedConstantInteger('POLLOUT')
     EINPROGRESS = ctypes_platform.DefinedConstantInteger('EINPROGRESS')
     EWOULDBLOCK = ctypes_platform.DefinedConstantInteger('EWOULDBLOCK')    
+    EAFNOSUPPORT = ctypes_platform.DefinedConstantInteger('EAFNOSUPPORT')    
 constant_names = '''
 AF_AAL5 AF_APPLETALK AF_ASH AF_ATMPVC AF_ATMSVC AF_AX25 AF_BLUETOOTH AF_BRIDGE
 AD_DECnet AF_ECONET AF_INET AF_INET6 AF_IPX AF_IRDA AF_KEY AF_LLC AF_NETBEUI
@@ -164,8 +168,9 @@ CConfig.sockaddr_in = ctypes_platform.Struct('struct sockaddr_in',
 
 CConfig.sockaddr_in6 = ctypes_platform.Struct('struct sockaddr_in6',
                                               [('sin6_family', c_int),
-                                               ('sin6_flowinfo', c_int),
+                                               ('sin6_port',   c_ushort),
                                                ('sin6_addr', CConfig.in6_addr),
+                                               ('sin6_flowinfo', c_int),
                                                ('sin6_scope_id', c_int)])
 
 CConfig.sockaddr_un = ctypes_platform.Struct('struct sockaddr_un',
@@ -235,6 +240,10 @@ for name, default in constants_w_defaults:
         constants[name] = default
 
 constants['has_ipv6'] = True # This is a configuration option in CPython
+for name, value in constants.items():
+    if isinstance(value, long):
+        if r_uint(value) == value:
+            constants[name] = intmask(value)
 
 locals().update(constants)
 
@@ -247,6 +256,7 @@ POLLIN = cConfig.POLLIN
 POLLOUT = cConfig.POLLOUT
 EINPROGRESS = cConfig.EINPROGRESS
 EWOULDBLOCK = cConfig.EWOULDBLOCK
+EAFNOSUPPORT = cConfig.EAFNOSUPPORT
 
 linux = cConfig.linux
 MS_WINDOWS = cConfig.MS_WINDOWS

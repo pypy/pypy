@@ -14,8 +14,9 @@ a drop-in replacement for the 'socket' module.
 from pypy.rlib.objectmodel import instantiate
 from pypy.module.rsocket import ctypes_socket as _c
 from ctypes import cast, POINTER, c_char, c_char_p, pointer, byref, c_void_p
-from ctypes import create_string_buffer, sizeof
+from ctypes import create_string_buffer, sizeof, cast
 from pypy.rpython.rctypes.astruct import offsetof
+from pypy.rlib.rarithmetic import intmask
 
 
 constants = _c.constants
@@ -51,7 +52,7 @@ class Address(object):
         # exception -- return it as a tuple.
         family = self.addr.sa_family
         buf = copy_buffer(cast(pointer(self.addr.sa_data), POINTER(c_char)),
-                          self.addrlen - offsetof(_c.sockaddr_un, 'sa_data'))
+                          self.addrlen - offsetof(_c.sockaddr, 'sa_data'))
         return space.newtuple([space.wrap(family),
                                space.wrap(buf.raw)])
 
@@ -94,7 +95,7 @@ def makeipaddr(name, result=None):
 
     # IPv4 also supports the special name "<broadcast>".
     if name == '<broadcast>':
-        return makeipv4addr(INADDR_BROADCAST, result)
+        return makeipv4addr(intmask(INADDR_BROADCAST), result)
 
     # "dd.dd.dd.dd" format.
     digits = name.split('.')
@@ -111,8 +112,8 @@ def makeipaddr(name, result=None):
                 0 <= d1 <= 255 and
                 0 <= d2 <= 255 and
                 0 <= d3 <= 255):
-                return makeipv4addr(htonl(
-                    (d0 << 24) | (d1 << 16) | (d2 << 8) | (d3 << 0)),
+                return makeipv4addr(intmask(htonl(
+                    (intmask(d0 << 24)) | (d1 << 16) | (d2 << 8) | (d3 << 0))),
                                     result)
 
     # generic host name to IP conversion
@@ -283,7 +284,7 @@ class INET6Address(IPAddress):
         pieces_w = space.unpackiterable(w_address)
         if not (2 <= len(pieces_w) <= 4):
             raise RSocketError("AF_INET6 address must be a tuple of length 2 "
-                               "to 4, not %d" % len(pieces))
+                               "to 4, not %d" % len(pieces_w))
         port = space.int_w(pieces_w[1])
         if len(pieces_w) > 2: flowinfo = space.int_w(pieces_w[2])
         else:                 flowinfo = 0
@@ -316,19 +317,19 @@ class UNIXAddress(Address):
     maxlen = sizeof(struct)
 
     def __init__(self, path):
-        addr = _c.sockaddr_un(sun_family = AF_UNIX)
+        sun = _c.sockaddr_un(sun_family = AF_UNIX)
         if _c.linux and path.startswith('\x00'):
             # Linux abstract namespace extension
-            if len(path) > sizeof(addr.sun_path):
+            if len(path) > sizeof(sun.sun_path):
                 raise RSocketError("AF_UNIX path too long")
         else:
             # regular NULL-terminated string
-            if len(path) >= sizeof(addr.sun_path):
+            if len(path) >= sizeof(sun.sun_path):
                 raise RSocketError("AF_UNIX path too long")
-            addr.sun_path[len(path)] = 0
+            sun.sun_path[len(path)] = 0
         for i in range(len(path)):
-            addr.sun_path[i] = ord(path[i])
-        self.addr = cast(pointer(addr), _c.sockaddr_ptr).contents
+            sun.sun_path[i] = ord(path[i])
+        self.addr = cast(pointer(sun), _c.sockaddr_ptr).contents
         self.addrlen = offsetof(_c.sockaddr_un, 'sun_path') + len(path)
 
     def as_sockaddr_un(self):
@@ -392,14 +393,15 @@ if 'AF_NETLINK' in constants:
             return '<NETLINKAddress %r>' % (self.get_pid(), self.get_groups())
         
         def as_object(self, space):
-            return space.wrap(self.get_pid(), self.get_groups())
+            return space.newtuple([space.wrap(self.get_pid()),
+                                   space.wrap(self.get_groups())])
 
         def from_object(space, w_address):
             try:
                 w_pid, w_groups = space.unpackiterable(w_address, 2)
             except ValueError:
                 raise TypeError("AF_NETLINK address must be a tuple of length 2")
-            return NETLINKAddress(space.int_w(w_pid), space.int_w(w_group))
+            return NETLINKAddress(space.int_w(w_pid), space.int_w(w_groups))
         from_object = staticmethod(from_object)
 
 # ____________________________________________________________
@@ -519,9 +521,11 @@ class RSocket(object):
         addr, maxlen = make_null_address(self.family)
         return addr, _c.socklen_t(maxlen)
 
-    def accept(self):
+    def accept(self, SocketClass=None):
         """Wait for an incoming connection.
         Return (new socket object, client address)."""
+        if SocketClass is None:
+            SocketClass = RSocket
         if self._select(False) == 1:
             raise SocketTimeout
         address, addrlen = self._addrbuf()
@@ -530,7 +534,7 @@ class RSocket(object):
             raise self.error_handler()
         address.addrlen = addrlen.value
         sock = make_socket(newfd, self.family, self.type, self.proto,
-                           self.__class__)
+                           SocketClass)
         return (sock, address)
 
     def bind(self, address):
@@ -625,7 +629,7 @@ class RSocket(object):
         buf = _c.create_string_buffer(maxlen)
         bufsize = _c.socklen_t()
         bufsize.value = maxlen
-        res = _c.socketgetsockopt(self.fd, level, option, byref(buf), byref(bufsize))
+        res = _c.socketgetsockopt(self.fd, level, option, cast(buf, POINTER(c_char)), byref(bufsize))
         if res < 0:
             raise self.error_handler()
         return buf.raw[:bufsize.value]
@@ -734,7 +738,7 @@ class RSocket(object):
         self.settimeout(timeout)
 
     def setsockopt(self, level, option, value):
-        res = _c.socketsetsockopt(self.fd, level, option, value, len(value))
+        res = _c.socketsetsockopt(self.fd, level, option, c_char_p(value), len(value))
         if res < 0:
             raise self.error_handler()
 
@@ -772,11 +776,16 @@ def make_socket(fd, family, type, proto, SocketClass=RSocket):
     result.proto = proto
     result.timeout = defaults.timeout
     return result
+make_socket._annspecialcase_ = 'specialize:arg(4)'
 
 class SocketError(Exception):
     applevelerrcls = 'error'
     def __init__(self):
         pass
+    def get_msg(self):
+        return ''
+    def __str__(self):
+        return self.get_msg()
 
 class SocketErrorWithErrno(SocketError):
     def __init__(self, errno):
@@ -785,11 +794,11 @@ class SocketErrorWithErrno(SocketError):
 class RSocketError(SocketError):
     def __init__(self, message):
         self.message = message
-    def __str__(self):
+    def get_msg(self):
         return self.message
 
 class CSocketError(SocketErrorWithErrno):
-    def __str__(self):
+    def get_msg(self):
         return _c.socket_strerror(self.errno)
 
 def last_error():
@@ -797,7 +806,7 @@ def last_error():
 
 class GAIError(SocketErrorWithErrno):
     applevelerrcls = 'gaierror'
-    def __str__(self):
+    def get_msg(self):
         return _c.gai_strerror(self.errno)
 
 class HSocketError(SocketError):
@@ -806,12 +815,12 @@ class HSocketError(SocketError):
         self.host = host
         # XXX h_errno is not easily available, and hstrerror() is
         # marked as deprecated in the Linux man pages
-    def __str__(self):
+    def get_msg(self):
         return "host lookup failed: '%s'" % (self.host,)
 
 class SocketTimeout(SocketError):
     applevelerrcls = 'timeout'
-    def __str__(self):
+    def get_msg(self):
         return 'timed out'
 
 class Defaults:
@@ -871,7 +880,7 @@ def gethost_common(hostname, hostent, addr):
         raise HSocketError(hostname)
     family = addr.family
     if hostent.contents.h_addrtype != family:
-        raise CSocketError(errno.EAFNOSUPPORT)
+        raise CSocketError(_c.EAFNOSUPPORT)
 
     aliases = []
     h_aliases = hostent.contents.h_aliases
