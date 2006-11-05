@@ -50,8 +50,10 @@ def __dirinfo(part):
 
     munged = {}
     for name, mod in sys.modules.items():
+        if '.' in name:
+            continue
         fn = getattr(mod, '__file__', None)
-        if '.' in name or not isinstance(fn, str):
+        if not isinstance(fn, str):
             continue
         newname = os.path.splitext(os.path.basename(fn))[0]
         if not newname.startswith(part + '.'):

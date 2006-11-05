@@ -41,15 +41,7 @@ def __dirinfo(part):
     else:
         raise EnvironmentError, "'%s' missing in '%r'" % (partdir, this_dir)
     
-    checkpaths = sys.path[:]
     pypy_root = os.path.join(head, '')
-    
-    while checkpaths:
-        orig = checkpaths.pop()
-        fullorig = os.path.join(os.path.realpath(orig), '')
-        if fullorig.startswith(pypy_root):
-            if os.path.exists(os.path.join(fullorig, '__init__.py')):
-                sys.path.remove(orig)
     try:
         sys.path.remove(head)
     except ValueError:
@@ -58,8 +50,10 @@ def __dirinfo(part):
 
     munged = {}
     for name, mod in sys.modules.items():
+        if '.' in name:
+            continue
         fn = getattr(mod, '__file__', None)
-        if '.' in name or not isinstance(fn, str):
+        if not isinstance(fn, str):
             continue
         newname = os.path.splitext(os.path.basename(fn))[0]
         if not newname.startswith(part + '.'):
