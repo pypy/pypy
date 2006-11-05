@@ -2,8 +2,8 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
 from pypy.interpreter.gateway import interp2app
-from pypy.module.rsocket.rsocket import RSocket, AF_INET, SOCK_STREAM
-from pypy.module.rsocket.rsocket import SocketError, SocketErrorWithErrno
+from pypy.rlib.rsocket import RSocket, AF_INET, SOCK_STREAM
+from pypy.rlib.rsocket import SocketError, SocketErrorWithErrno
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import gateway
 

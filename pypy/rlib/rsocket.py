@@ -12,7 +12,7 @@ a drop-in replacement for the 'socket' module.
 #   - SSL
 
 from pypy.rlib.objectmodel import instantiate
-from pypy.module.rsocket import ctypes_socket as _c
+from pypy.rlib import _rsocket_ctypes as _c
 from ctypes import cast, POINTER, c_char, c_char_p, pointer, byref, c_void_p
 from ctypes import create_string_buffer, sizeof, cast
 from pypy.rpython.rctypes.astruct import offsetof

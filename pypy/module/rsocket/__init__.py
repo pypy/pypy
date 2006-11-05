@@ -18,7 +18,7 @@ class Module(MixedModule):
     }
 
     def buildloaders(cls):
-        from pypy.module.rsocket import rsocket
+        from pypy.rlib import rsocket
         for name in """
             gethostbyname gethostbyname_ex gethostbyaddr gethostname
             getservbyname getservbyport getprotobyname

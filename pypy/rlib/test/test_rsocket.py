@@ -1,6 +1,6 @@
 import py, errno
-from pypy.module.rsocket import rsocket
-from pypy.module.rsocket.rsocket import *
+from pypy.rlib import rsocket
+from pypy.rlib.rsocket import *
 
 def test_ipv4_addr():
     a = INETAddress("localhost", 4000)
