@@ -264,6 +264,28 @@ class BaseTestRtuple(BaseRtypingTest):
             assert res[5] == "hello"
         self.interpret(f, [9])
 
+    def test_tuple_eq(self):
+        def f(n):
+            return (n, 6) == (3, n*2)
+        res = self.interpret(f, [3])
+        assert res is True
+        res = self.interpret(f, [2])
+        assert res is False
+
+    def test_tuple_ne(self):
+        def f(n):
+            return (n, 6) != (3, n*2)
+        res = self.interpret(f, [3])
+        assert res is False
+        res = self.interpret(f, [2])
+        assert res is True
+
+    def test_tuple_hash(self):
+        def f(n):
+            return hash((n, 6)) == hash((3, n*2))
+        res = self.interpret(f, [3])
+        assert res is True
+
 class TestLLtype(BaseTestRtuple, LLRtypeMixin):
     pass
 

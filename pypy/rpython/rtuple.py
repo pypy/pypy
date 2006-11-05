@@ -7,7 +7,7 @@ from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst
 from pypy.rpython.rmodel import IteratorRepr
 from pypy.rpython.rmodel import externalvsinternal
 from pypy.rpython.rslice import AbstractSliceRepr
-from pypy.rpython.lltypesystem.lltype import Void, Signed 
+from pypy.rpython.lltypesystem.lltype import Void, Signed, Bool
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.unroll import unrolling_iterable
 
@@ -193,6 +193,16 @@ class __extend__(pairtype(AbstractTupleRepr, AbstractTupleRepr)):
             vlist.append(r_tup2.getitem_internal(hop.llops, v_tuple2, i))
         return r_tup1.newtuple_cached(hop, vlist)
     rtype_inplace_add = rtype_add
+
+    def rtype_eq((r_tup1, r_tup2), hop):
+        # XXX assumes that r_tup2 is convertible to r_tup1
+        v_tuple1, v_tuple2 = hop.inputargs(r_tup1, r_tup1)
+        ll_eq = r_tup1.get_ll_eq_function()
+        return hop.gendirectcall(ll_eq, v_tuple1, v_tuple2)
+
+    def rtype_ne(tup1tup2, hop):
+        v_res = tup1tup2.rtype_eq(hop)
+        return hop.genop('bool_not', [v_res], resulttype=Bool)
 
     def convert_from_to((r_from, r_to), v, llops):
         if len(r_from.items_r) == len(r_to.items_r):
