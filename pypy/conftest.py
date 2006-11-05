@@ -59,6 +59,8 @@ def getobjspace(name=None, **kwds):
     try:
         return _SPACECACHE[key]
     except KeyError:
+        if option.runappdirect:
+            return TinyObjSpace(**kwds)
         mod = __import__('pypy.objspace.%s' % config.objspace.name,
                          None, None, ['Space'])
         Space = mod.Space
@@ -80,6 +82,17 @@ def getobjspace(name=None, **kwds):
         space.raises_w = appsupport.raises_w.__get__(space)
         space.eq_w = appsupport.eq_w.__get__(space) 
         return space
+
+class TinyObjSpace(object):
+    def __init__(self, **kwds):
+        if kwds:
+            py.test.skip("cannot runappdirect test: space needs %s" % (kwds,))
+    def appexec(self, args, body):
+        src = py.code.Source("def anonymous" + body)
+        d = {}
+        exec src.compile() in d
+        return d['anonymous'](*args)
+
 
 class OpErrKeyboardInterrupt(KeyboardInterrupt):
     pass
@@ -115,9 +128,18 @@ class Module(py.test.collect.Module):
         at the class) ourselves. 
     """
     def funcnamefilter(self, name): 
-        return name.startswith('test_') or name.startswith('app_test_')
+        if name.startswith('test_'):
+            return not option.runappdirect
+        if name.startswith('app_test_'):
+            return True
+        return False
+
     def classnamefilter(self, name): 
-        return name.startswith('Test') or name.startswith('AppTest') 
+        if name.startswith('Test'):
+            return not option.runappdirect
+        if name.startswith('AppTest'):
+            return True
+        return False
 
     def setup(self): 
         # stick py.test raise in module globals -- carefully
@@ -234,24 +256,20 @@ class AppTestFunction(PyPyTestFunction):
         print "executing", func
         self.execute_appex(space, func, space)
 
-    def teardown(self):
-        if option.runappdirect:
-            return 
-        return super(AppTestFunction, self).teardown()
-
 class AppTestMethod(AppTestFunction): 
 
     def setup(self): 
-        if option.runappdirect:
-            return 
         super(AppTestMethod, self).setup() 
         instance = self.parent.obj 
         w_instance = self.parent.w_instance 
         space = instance.space  
         for name in dir(instance): 
             if name.startswith('w_'): 
-                space.setattr(w_instance, space.wrap(name[2:]), 
-                              getattr(instance, name)) 
+                if option.runappdirect:
+                    setattr(w_instance, name[2:], getattr(instance, name))
+                else:
+                    space.setattr(w_instance, space.wrap(name[2:]), 
+                                  getattr(instance, name)) 
 
     def execute(self, target, *args): 
         assert not args 
@@ -278,18 +296,15 @@ class IntClassCollector(PyPyClassCollector):
 class AppClassInstance(py.test.collect.Instance): 
     Function = AppTestMethod 
 
-    def teardown(self):
-        if not option.runappdirect:
-            return super(AppClassInstance, self).teardown()
-
     def setup(self): 
-        if option.runappdirect:
-            return
         super(AppClassInstance, self).setup()         
         instance = self.obj 
         space = instance.space 
         w_class = self.parent.w_class 
-        self.w_instance = space.call_function(w_class)
+        if option.runappdirect:
+            self.w_instance = instance
+        else:
+            self.w_instance = space.call_function(w_class)
 
 class AppClassCollector(PyPyClassCollector): 
     Instance = AppClassInstance 
@@ -298,20 +313,16 @@ class AppClassCollector(PyPyClassCollector):
         return keyword == 'applevel' or \
                super(AppClassCollector, self).haskeyword(keyword)
 
-    def teardown(self):
-        if not option.runappdirect:
-            return super(AppClassCollector, self).teardown()
-
     def setup(self): 
-        if option.runappdirect:
-            #self.class_ = self.obj
-            return
         super(AppClassCollector, self).setup()         
         cls = self.obj 
         space = cls.space 
         clsname = cls.__name__ 
-        w_class = space.call_function(space.w_type,
-                                      space.wrap(clsname),
-                                      space.newtuple([]),
-                                      space.newdict())
+        if option.runappdirect:
+            w_class = cls
+        else:
+            w_class = space.call_function(space.w_type,
+                                          space.wrap(clsname),
+                                          space.newtuple([]),
+                                          space.newdict())
         self.w_class = w_class 
