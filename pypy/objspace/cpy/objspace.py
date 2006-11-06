@@ -106,6 +106,10 @@ class CPyObjSpace(baseobjspace.ObjSpace):
         return cpython2rpython(self, RequiredClass, w_obj)
     interp_w._annspecialcase_ = 'specialize:arg(1)'
 
+    def descr_self_interp_w(self, RequiredClass, w_obj):
+        return self.interp_w(RequiredClass, w_obj)
+    descr_self_interp_w._annspecialcase_ = 'specialize:arg(1)'
+
     def lookup(self, w_obj, name):
         w_type = self.type(w_obj)
         w_name = self.wrap(name)
