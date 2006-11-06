@@ -56,6 +56,7 @@ opcodes = {
     'cast_weakadr_to_ptr':      [CastWeakAdrToPtr],
     'gc__collect':              'call void class [mscorlib]System.GC::Collect()',
     'resume_point':             Ignore,
+    'debug_assert':             Ignore,
 
     # __________ numeric operations __________
 
