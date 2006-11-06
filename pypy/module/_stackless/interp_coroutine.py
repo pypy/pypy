@@ -208,12 +208,12 @@ class Coroutine(Wrappable):
         return self._execute(incoming_frame)
 
     def _execute(self, incoming_frame):
-        syncstate.switched(incoming_frame)
         state = self.costate
         try:
             try:
                 try:
                     exc = None
+                    syncstate.switched(incoming_frame)
                     self.thunk.call()
                     resume_point("coroutine__bind", self, state)
                 except Exception, e:

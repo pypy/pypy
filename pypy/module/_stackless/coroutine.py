@@ -225,6 +225,10 @@ def w_get_is_zombie(space, self):
     return space.wrap(self.get_is_zombie())
 AppCoroutine.w_get_is_zombie = w_get_is_zombie
 
+def w_get_is_alive(space, self):
+    return space.wrap(self.is_alive())
+AppCoroutine.w_get_is_alive = w_get_is_alive
+
 def w_descr__framestack(space, self):
     assert isinstance(self, AppCoroutine)
     if self.framestack:
@@ -258,7 +262,11 @@ AppCoroutine.typedef = TypeDef("coroutine",
     switch = interp2app(AppCoroutine.w_switch),
     kill = interp2app(AppCoroutine.w_kill),
     finished = interp2app(AppCoroutine.w_finished),
-    is_zombie = GetSetProperty(AppCoroutine.w_get_is_zombie, doc=AppCoroutine.get_is_zombie.__doc__),
+    is_alive = GetSetProperty(AppCoroutine.w_get_is_alive),
+    is_zombie = GetSetProperty(AppCoroutine.w_get_is_zombie,
+      doc=AppCoroutine.get_is_zombie.__doc__), #--- this flag is a bit obscure
+      # and not useful (it's totally different from Coroutine.is_zombie(), too)
+      # but lib/stackless.py uses it
     _framestack = GetSetProperty(w_descr__framestack),
     getcurrent = interp2app(AppCoroutine.w_getcurrent),
     __reduce__   = interp2app(AppCoroutine.descr__reduce__,

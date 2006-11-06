@@ -106,18 +106,11 @@ co.switch()
             raise Exception('co should be a zombie now')
 
     def test_kill(self):
-        skip('should a coroutine be a zombie after killing?')
-        # running this test actually produces an
-        # Fatal PyPy error: CoroutineExit (pypy-c)
-        # or
-        # some interpreter error when running on py.py
-        # actually, this looks quite similar to what I (stephan)
-        # have seen when playing around with the 'finish' routine
         import _stackless as stackless
         co = stackless.coroutine()
         def f():
             pass
         co.bind(f)
+        assert co.is_alive
         co.kill()
-        if not co.is_zombie:
-            raise Exception('co should be a zombie now')
+        assert not co.is_alive
