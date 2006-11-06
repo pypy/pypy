@@ -788,7 +788,6 @@ SNIPPETS = [
 
 LIBSTUFF = [
       '_marshal.py',
-      '_sio.py'
     ]
 
 def test_snippets():
