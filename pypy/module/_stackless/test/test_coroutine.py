@@ -10,15 +10,7 @@ class AppTest_Coroutine:
         space = gettestobjspace(usemodules=('_stackless',))
         cls.space = space
 
-    def test_one(self):
-        import _stackless as stackless
-        print stackless.__file__
-        co = stackless.coroutine()
-        print co
-        # not much we can do here without compiling.
-        # well, we can pickle, at least:
-
-    def test_pickle_coroutine(self):
+    def test_pickle_coroutine_empty(self):
         # this test is limited to basic pickling.
         # real stacks can only tested with a stackless pypy build.
         import _stackless as stackless
@@ -26,7 +18,12 @@ class AppTest_Coroutine:
         import pickle
         pckl = pickle.dumps(co)
         co2 = pickle.loads(pckl)
-    
+        # the empty unpickled coroutine can still be used:
+        result = []
+        co2.bind(result.append, 42)
+        co2.switch()
+        assert result == [42]
+
     def test_pickle_coroutine_frame(self):
         #skip('passes in interactive interpreter but not here :/')
         # this requires py.magic.greenlet!
