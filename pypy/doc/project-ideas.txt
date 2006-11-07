@@ -108,7 +108,7 @@ of an object and its implementation are completely independent.  This should
 allow a much more intuitive interface to, for example, objects that are backed
 by a persistent store, or whose implementation lives on a remote server.
 
-The recently added "transparent proxy" objects are a key step in this
+The recently added `transparent proxy`_ objects are a key step in this
 direction; now all that remains is to implement the interesting bits :-)
 
 An example project might be to implement functionality akin to the `ZODB's
@@ -197,4 +197,4 @@ mailing list`_.  You can also have a look around our documentation_.
 .. _`ZODB's Persistent class`: http://www.zope.org/Documentation/Books/ZDG/current/Persistence.stx
 .. _`JavaScript whatis`: js/whatis.html
 .. _`JavaScript using`: js/using.html
-
+.. _`transparent proxy`: proxy.html

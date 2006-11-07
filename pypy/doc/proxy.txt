@@ -12,7 +12,7 @@ of objects like functions, objects, lists etc. which forwards all
 operations performed on object to app-level function with specific
 signature.
 
-_`Object space`: objspace.html#object-types
+.. _`Object space`: objspace.html#object-types
 
 Example:
 ========
@@ -77,7 +77,7 @@ tricks to be implemented in a std objspace. Actually working objects are:
 user created classes & functions, lists, dicts, exceptions, tracebacks and
 frames.
 
-_`standart object space`: objspace.html#the-standard-object-space
-_`proxy_helpers.py`: http://codespeak.net/svn/pypy/dist/pypy/objspace/std/proxy_helpers.py
-_`proxyobject.py`: http://codespeak.net/svn/pypy/dist/pypy/objspace/std/proxyobject.py
-_`transparent.py`: http://codespeak.net/svn/pypy/dist/pypy/objspace/std/transparent.py
+.. _`standart object space`: objspace.html#the-standard-object-space
+.. _`proxy_helpers.py`: http://codespeak.net/svn/pypy/dist/pypy/objspace/std/proxy_helpers.py
+.. _`proxyobject.py`: http://codespeak.net/svn/pypy/dist/pypy/objspace/std/proxyobject.py
+.. _`transparent.py`: http://codespeak.net/svn/pypy/dist/pypy/objspace/std/transparent.py
