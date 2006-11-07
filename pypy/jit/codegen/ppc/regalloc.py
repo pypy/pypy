@@ -89,8 +89,21 @@ class RegisterAllocation:
         self.lru.append(arg)
 
     def allocate_for_insns(self, insns):
-        # Walk through instructions in forward order
+        from pypy.jit.codegen.ppc.rgenop import IntConst, Var
+
+        insns2 = []
+
         for insn in insns:
+            for i in range(len(insn.reg_args)):
+                arg = insn.reg_args[i]
+                if not isinstance(arg, Var):
+                    v = Var()
+                    arg.load(insns2, v)
+                    insn.reg_args[i] = v
+            insns2.append(insn)
+
+        # Walk through instructions in forward order
+        for insn in insns2:
 
             #print "Processing instruction %r with args %r and result %r:" % (insn, insn.reg_args, insn.result)
 

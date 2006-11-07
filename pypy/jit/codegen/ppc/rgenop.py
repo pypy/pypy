@@ -27,8 +27,6 @@ class Var(GenVar):
     def __init__(self):
         self.__magic_index = _var_index[0]
         _var_index[0] += 1
-    def load(self, builder):
-        return self
     def __repr__(self):
         return "<Var %d>" % self.__magic_index
 
@@ -46,12 +44,10 @@ class IntConst(GenConst):
         else:
             return lltype.cast_primitive(T, self.value)
 
-    def load(self, builder):
-        var = builder.newvar()
-        builder.insns.append(
+    def load(self, insns, var):
+        insns.append(
             insn.Insn_GPR__IMM(RPPCAssembler.load_word,
-                          var, [self]))
-        return var
+                               var, [self]))
 
     def load_now(self, asm, loc):
         if loc.is_register:
@@ -163,7 +159,7 @@ class Builder(GenBuilder):
         numargs = sigtoken     # for now
         if not we_are_translated() and option.trap:
             self.asm.trap()
-        inputargs = [self.newvar() for i in range(numargs)]
+        inputargs = [Var() for i in range(numargs)]
         assert self.initial_var2loc is None
         self.initial_var2loc = {}
         for arg in inputargs:
@@ -230,7 +226,6 @@ class Builder(GenBuilder):
         return allocator
 
     def finish_and_return(self, sigtoken, gv_returnvar):
-        gv_returnvar = gv_returnvar.load(self)
         self.insns.append(insn.Return(gv_returnvar))
         allocator = self.allocate_and_emit()
 
@@ -345,20 +340,8 @@ class Builder(GenBuilder):
         self.emit_stack_adjustment()
         return Label(target_addr, arg_locations, min_stack_offset)
 
-    def newvar(self):
-        gv = Var()
-        return gv
-
-    def new_and_load_2(self, gv_x, gv_y):
-        gv_result = self.newvar()
-        return (gv_result, gv_x.load(self), gv_y.load(self))
-
-    def new_and_load_1(self, gv_x):
-        gv_result = self.newvar()
-        return (gv_result, gv_x.load(self))
-
     def op_int_mul(self, gv_x, gv_y):
-        gv_result, gv_x, gv_y = self.new_and_load_2(gv_x, gv_y)
+        gv_result = Var()
         self.insns.append(
             insn.Insn_GPR__GPR_GPR(RPPCAssembler.mullw,
                                    gv_result, [gv_x, gv_y]))
@@ -366,32 +349,32 @@ class Builder(GenBuilder):
 
     def op_int_add(self, gv_x, gv_y):
         if isinstance(gv_y, IntConst) and abs(gv_y.value) < 2**16:
-            gv_result = self.newvar()
+            gv_result = Var()
             self.insns.append(
                 insn.Insn_GPR__GPR_IMM(RPPCAssembler.addi,
-                                       gv_result, [gv_x.load(self), gv_y]))
+                                       gv_result, [gv_x, gv_y]))
             return gv_result
         elif isinstance(gv_x, IntConst):
             return self.op_int_add(gv_y, gv_x)
         else:
-            gv_result = self.newvar()
+            gv_result = Var()
             self.insns.append(
                 insn.Insn_GPR__GPR_GPR(RPPCAssembler.add,
-                                       gv_result, [gv_x.load(self), gv_y.load(self)]))
+                                       gv_result, [gv_x, gv_y]))
             return gv_result
 
     def op_int_sub(self, gv_x, gv_y):
-        gv_result, gv_x, gv_y = self.new_and_load_2(gv_x, gv_y)
+        gv_result = Var()
         self.insns.append(
             insn.Insn_GPR__GPR_GPR(RPPCAssembler.sub,
                                    gv_result, [gv_x, gv_y]))
         return gv_result
 
     def op_int_floordiv(self, gv_x, gv_y):
-        gv_result, gv_x, gv_y = self.new_and_load_2(gv_x, gv_y)
+        gv_result = Var()
         self.insns.append(
             insn.Insn_GPR__GPR_GPR(RPPCAssembler.divw,
-                                   gv_result, [gv_x.load(self), gv_y.load(self)]))
+                                   gv_result, [gv_x, gv_y]))
         return gv_result
 
     def _compare(self, op, gv_x, gv_y):
@@ -413,22 +396,17 @@ class Builder(GenBuilder):
             'eq': (    2,         0   ),
             'ne': (    2,         1   ),
             }
-        result = self.newvar()
+        gv_result = Var()
         if isinstance(gv_y, IntConst) and abs(gv_y.value) < 2*16:
-            gv_x = gv_x.load(self)
             self.insns.append(
-                insn.CMPWI(cmp2info[op], result,
-                           [gv_x, gv_y]))
+                insn.CMPWI(cmp2info[op], gv_result, [gv_x, gv_y]))
         elif isinstance(gv_x, IntConst) and abs(gv_x.value) < 2*16:
-            gv_y = gv_y.load(self)
             self.insns.append(
-                insn.CMPWI(cmp2info_flipped[op], result,
-                           [gv_y, gv_x]))
+                insn.CMPWI(cmp2info_flipped[op], gv_result, [gv_y, gv_x]))
         else:
             self.insns.append(
-                insn.CMPW(cmp2info[op], result,
-                          [gv_x.load(self), gv_y.load(self)]))
-        return result
+                insn.CMPW(cmp2info[op], gv_result, [gv_x, gv_y]))
+        return gv_result
 
     def op_int_gt(self, gv_x, gv_y):
         return self._compare('gt', gv_x, gv_y)
@@ -451,11 +429,11 @@ class Builder(GenBuilder):
     def _jump(self, gv_condition, if_true):
         targetbuilder = self._fork()
 
-        gv = self.newvar()
+        gv = Var()
         self.insns.append(
             insn.Insn_GPR__IMM(RPPCAssembler.load_word,
                                gv, [IntConst(targetbuilder.asm.mc.tell())]))
-        gv2 = self.newvar()
+        gv2 = Var()
         self.insns.append(
             insn.MTCTR(gv2, [gv]))
         self.insns.append(
