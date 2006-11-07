@@ -434,15 +434,10 @@ class Builder(GenBuilder):
     def _jump(self, gv_condition, if_true):
         targetbuilder = self._fork()
 
-        gv = Var()
+        targetaddr = targetbuilder.asm.mc.tell()
+
         self.insns.append(
-            insn.Insn_GPR__IMM(RPPCAssembler.load_word,
-                               gv, [IntConst(targetbuilder.asm.mc.tell())]))
-        gv2 = Var()
-        self.insns.append(
-            insn.MTCTR(gv2, [gv]))
-        self.insns.append(
-            insn.Jump(gv_condition, gv2, if_true))
+            insn.Jump(gv_condition, self.rgenop.genconst(targetaddr), if_true))
 
         allocator = self.allocate_and_emit()
         self.make_fresh_from_jump(allocator.var2loc)

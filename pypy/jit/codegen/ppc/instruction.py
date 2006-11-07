@@ -60,7 +60,8 @@ crfs = map(CRF, range(8))
 
 class CTR(Register):
     regclass = CT_REGISTER
-    pass
+    def move_from_gpr(self, allocator, gpr):
+        return _GPR2CTR(gpr)
 
 ctr = CTR()
 
@@ -269,6 +270,13 @@ class _CRF2GPR(AllocTimeInsn):
         asm.extrwi(self.targetreg, self.targetreg, 1, self.bit)
         if self.negated:
             asm.xori(self.targetreg, self.targetreg, 1)
+
+class _GPR2CTR(AllocTimeInsn):
+    def __init__(self, fromreg):
+        AllocTimeInsn.__init__(self)
+        self.fromreg = fromreg
+    def emit(self, asm):
+        asm.mtctr(self.fromreg)
 
 class Return(Insn):
     """ Ensures the return value is in r3 """

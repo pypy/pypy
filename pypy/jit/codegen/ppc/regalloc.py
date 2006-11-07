@@ -1,7 +1,8 @@
 from pypy.jit.codegen.ppc.instruction import \
      gprs, fprs, crfs, ctr, \
      NO_REGISTER, GP_REGISTER, FP_REGISTER, CR_FIELD, CT_REGISTER, \
-     CMPInsn, Spill, Unspill, stack_slot
+     CMPInsn, Spill, Unspill, stack_slot, \
+     rSCRATCH
 
 class RegisterAllocation:
     def __init__(self, minreg, initial_mapping, initial_spill_offset):
@@ -129,14 +130,21 @@ class RegisterAllocation:
                     # It has no register now because it has been spilled
                     self._allocate_reg(argcls, arg)
                 elif argloc.regclass != argcls:
-                    if argcls == GP_REGISTER:
-                        del self.var2loc[arg]
-                        del self.loc2var[argloc]
-                        newloc = self._allocate_reg(GP_REGISTER, arg)
+                    del self.var2loc[arg]
+                    del self.loc2var[argloc]
+                    if argloc.regclass != GP_REGISTER:
+                        if argcls == GP_REGISTER:
+                            gpr = self._allocate_reg(GP_REGISTER, arg).number
+                        else:
+                            gpr = rSCRATCH
                         self.insns.append(
-                            argloc.move_to_gpr(self, newloc.number))
+                            argloc.move_to_gpr(self, gpr))
                     else:
-                        assert 0
+                        gpr = argloc.number
+                    if argcls != GP_REGISTER:
+                        newargloc = self._allocate_reg(argcls, arg)
+                        self.insns.append(
+                            newargloc.move_from_gpr(self, gpr))
                 else:
                     #print "it was in ", self.var2loc[arg]
                     pass
