@@ -1,18 +1,117 @@
 Independent project ideas in PyPy
 =================================
 
-PyPy allows experimentation in many directions.  This page is meant to
-collect some ideas of things to try.  If you are a student you can 
-also get inspired for a proposal for our new `Summer of PyPy`_ campaign:
-you get a mentor and good funding of travel and accomodation for our
-sprints.  
+PyPy allows experimentation in many directions -- indeed facilitating
+experimentation in language implementation was one of the main motivations for
+the project.  This page is meant to collect some ideas of things to try.
 
-Feel free to suggest new ideas and discuss them on IRC or the pypy-dev
-list (see the contact_ page).
+If you are a student, maybe you will be inspired to make a proposal for our
+`Summer of PyPy`_ campaign: you will have an experienced PyPy developer as a
+mentor and be invited to attend one or two of our sprints, with travel and
+accomodation costs refunded.
+
+Feel free to suggest new ideas and discuss them in #pypy on the freenode IRC
+network or the pypy-dev mailing list (see the contact_ page).
 
 -----------
 
 .. contents::
+
+Experiment with optimizations
+-----------------------------
+
+A research project: experiment with optimizations in PyPy, e.g. by trying
+various **data structures** for dicts or other built-in objects, by switching
+between data structures at run-time, comparing results for different
+applications, etc.  This should produce experimental results (mostly timings,
+memory usage trade-offs) as much as code.  (The point of PyPy is that we can
+do this without making the interpreted applications aware of the optimization
+at all.)
+
+For example, we have started some work on:
+
+* lazy string slices (slicing a string gives an object that references a part
+  of the original string).
+
+* lazily concatenated strings (repeated additions and joins are done
+  incrementally).
+
+* dictionaries specialized for string-only keys.
+
+
+
+
+Start or improve a back-end
+---------------------------
+
+PyPy has complete, or nearly so, back-ends for C, LLVM and CLI/.NET and
+partial backends for Common Lisp, Squeak and the JVM.  It would be an
+interesting project to improve either of these partial backends, or start one
+for another platform (objective C comes to mind).
+
+Improve one of the JIT back-ends
+--------------------------------
+
+PyPy's Just-In-Time compiler relies on two assembler backends for actual code
+generation: One for PowerPC and one for i386. Those two backends so far are
+mostly working, but nearly no effort was made to make them produce good
+assembler. This is an area where quite some improvements could be made.
+Another idea in a similar vein would be to use LLVM to re-compile functions
+that are particularly often used (LLVM cannot be used for *all* code
+generation, since it can only work on function at a time).
+
+Write a new front end
+---------------------
+
+Write an interpreter for **another dynamic language** in the PyPy framework.
+For example, a Scheme interpreter would be suitable.  Ruby too (though
+the latter is probably more than two months of work), or Lua, or ...
+
+We have a somewhat useable `Prolog interpreter`_ and the beginnings of a
+`JavaScript interpreter`_
+
+Investigate restricted execution models
+---------------------------------------
+
+Revive **rexec**\ : implement security checks, sandboxing, or some similar
+model within PyPy (which, if I may venture an opinion, makes more sense and is
+more robust than trying to do it in CPython).
+
+There are multiple approaches that can be discussed and tried.  One of them is
+about safely executing limited snippets of untrusted RPython code (see
+http://codespeak.net/pipermail/pypy-dev/2006q2/003131.html).  More general
+approaches, to execute general but untrusted Python code on top of PyPy,
+require more design.  The object space model of PyPy would easily allow
+objects to be tagged and tracked.  The translation of PyPy would also be a
+good place to insert e.g. systematic checks around all system calls.
+
+
+Experiment with distribution and persistence
+--------------------------------------------
+
+One of the advantages of PyPy's implementation is that the Python-level type
+of an object and its implementation are completely independent.  This should
+allow a much more intuitive interface to, for example, objects that are backed
+by a persistent store, or whose implementation lives on a remote server.
+
+The recently added "transparent proxy" objects are a key step in this
+direction; now all that remains is to implement the interesting bits :-)
+
+An example project might be to implement functionality akin to the `ZODB's
+Persistent class`_, without the need for the _p_changed hacks, and in pure
+Python code.
+
+Numeric/NumPy/numarray support
+------------------------------
+
+At the EuroPython sprint, some work was done on making RPython's annotator
+recognise Numeric arrays, with the goal of allowing programs using them to be
+efficiently translated.  It would be a reasonably sized project to finish this
+work, i.e. allow RPython programs to use some Numeric facilities.
+Additionally, these facilities could be exposed to applications interpreted by
+the translated PyPy interpreter.
+
+
 
 Extension modules
 -----------------
@@ -38,77 +137,7 @@ You are free to pick any other CPython module, either standard or third-party
 already, which would be a good start for porting them to PyPy's extension
 compiler.  We'd particularly appreciate ``readline`` :-)
 
-Numeric/NumPy/numarray support
-------------------------------
 
-At the EuroPython sprint, some work was done on making RPython's annotator
-recognise Numeric arrays, with the goal of allowing programs using them to be
-efficiently translated.  It would be a reasonably sized project to finish this
-work, i.e. allow RPython programs to use some Numeric facilities.
-Additionally, these facilities could be exposed to applications interpreted by
-the translated PyPy interpreter.
-
-Start or improve a back-end
----------------------------
-
-PyPy has complete, or nearly so, back-ends for C, LLVM and CLI/.NET and
-partial backends for Common Lisp and Squeak.  It would be an interesting
-project to improve either of these partial backends, or start one for another
-platform -- the most obvious of which would be the **Java** Virtual Machine.
-
-Write a new front end
----------------------
-
-Write an interpreter for **another dynamic language** in the PyPy framework.
-For example, a Javascript interpreter would be suitable.  Ruby too (though
-the latter is probably more than two months of work).  Or Scheme, or... etc.
-
-We have a prototype `Prolog interpreter`_ :-)
-
-Experiment with optimizations
------------------------------
-
-A research project: experiment with optimizations in PyPy, e.g. by trying
-various **data structures** for dicts or other built-in objects, by switching
-between data structures at run-time, comparing results for different
-applications, etc.  This should produce experimental results (mostly timings,
-memory usage trade-offs) as much as code.  (The point of PyPy is that we can
-do this without making the interpreted applications aware of the optimization
-at all.)
-
-For example, we have started some work on:
-
-* lazy string slices (slicing a string gives an object that references a part
-  of the original string).
-
-* lazily concatenated strings (repeated additions and joins are done
-  incrementally).
-
-* dictionaries specialized for string-only keys.
-
-Investigate restricted execution models
----------------------------------------
-
-Revive **rexec**\ : implement security checks, sandboxing, or some similar
-model within PyPy (which, if I may venture an opinion, makes more sense and is
-more robust than trying to do it in CPython).
-
-There are multiple approaches that can be discussed and tried.  One of them is
-about safely executing limited snippets of untrusted RPython code (see
-http://codespeak.net/pipermail/pypy-dev/2006q2/003131.html).  More general
-approaches, to execute general but untrusted Python code on top of PyPy,
-require more design.  The object space model of PyPy would easily allow
-objects to be tagged and tracked.  The translation of PyPy would also be a
-good place to insert e.g. systematic checks around all system calls.
-
-Write a new object space
-------------------------
-
-Write **new object spaces** adding features like transparent or
-semi-transparent distribution of a program across several machines, and/or
-persistence (pickling of program state).  This could typically be based on
-"proxy" objects, behaving as transparent links to objects located on other
-machines.  Read more about `object spaces`_...
 
 Extend py.execnet to a peer-to-peer model
 -----------------------------------------
@@ -146,6 +175,7 @@ mailing list`_.  You can also have a look around our documentation_.
 .. _`py.test`: http://codespeak.net/py/current/doc/test.html
 .. _`py.execnet`: http://codespeak.net/py/current/doc/execnet.html
 .. _`Prolog interpreter`: http://codespeak.net/svn/user/cfbolz/hack/prolog/interpreter
+.. _`JavaScript interpreter`: ../../../pypy/lang/js
 .. _`extension compiler`: extcompiler.html
 .. _`object spaces`: objspace.html
 .. _`code templating solution`: http://codespeak.net/svn/pypy/extradoc/soc-2006/code-templating.txt
@@ -154,3 +184,4 @@ mailing list`_.  You can also have a look around our documentation_.
 .. _contact: contact.html
 .. _`pypy-dev mailing list`: http://codespeak.net/mailman/listinfo/pypy-dev
 .. _`Summer of PyPy`: summer-of-pypy.html
+.. _`ZODB's Persistent class`: http://www.zope.org/Documentation/Books/ZDG/current/Persistence.stx
