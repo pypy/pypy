@@ -353,7 +353,7 @@ class tasklet(coroutine):
         """
         if not self.is_zombie:
             coroutine.kill(self)
-        return self.raise_excption(TaskletExit)
+        return self.raise_exception(TaskletExit, TaskletExit())
 
     def raise_exception(self, exc, value):
         """
