@@ -30,8 +30,9 @@ the _stackless module by running it as follows::
     py.py --withmod-_stackless
 
 This is implemented internally using greenlets, so it only works on a
-platform where greenlets_ are supported.  A few features do not work in
-this way, though, and really require a translated ``pypy-c``.
+platform where the `Py lib greenlets`_ are supported.  A few features do
+not work in this way, though, and really require a translated
+``pypy-c``.
 
 To obtained a translated version of ``pypy-c`` that includes Stackless
 support, run translate.py as follows::
@@ -167,9 +168,9 @@ to Coroutines, with a slightly different interface: greenlets put more
 emphasis on a tree structure.  The various greenlets of a program form a
 precise tree, which fully determines their order of execution.
 
-For usage reference, see the greenlet_ documentation in the Py lib.  The
-PyPy interface is identical, except that the `greenlet` class is in the
-``stackless`` module instead of in the ``py.magic`` module.
+For usage reference, see the documentation of the `Py lib greenlets`_.
+The PyPy interface is identical, except that the ``greenlet`` class is
+in the ``stackless`` module instead of in the ``py.magic`` module.
 
 
 Coroutine Pickling
@@ -190,8 +191,8 @@ general design decisions: simple internal objects like bound method
 objects and various kind of iterators are supported; frame objects can
 be fully pickled and unpickled (by serializing the bytecode they are
 running in addition to all the local variables).  References to globals
-and modules are pickled by name, like references to functions and
-classes in the traditional CPython ``pickle``.
+and modules are pickled by name, similarly to references to functions
+and classes in the traditional CPython ``pickle``.
 
 The "magic" part of this process is the implementation of the unpickling
 of a chain of frames.  The Python interpreter of PyPy uses
@@ -199,16 +200,17 @@ interpreter-level recursion to represent application-level calls.  The
 reason for this is that it tremendously simplifies the implementation of
 the interpreter itself.  Indeed, in Python, almost any operation can
 potentially result in a non-tail-recursive call to another Python
-function.  This makes writing an non-recursive interpreter extremely
-tedious.  For this reason, the interpreter is recursive, and we rely on
-lower-level transformations during the translation process to control
-this recursion - the `Stackless Transform`_.
+function.  This makes writing a non-recursive interpreter extremely
+tedious; instead, we rely on lower-level transformations during the
+translation process to control this recursion.  This is the `Stackless
+Transform`_, which is at the heart of PyPy's support for stackless-style
+concurrency.
 
 At any point in time, a chain of Python-level frames corresponds to a
 chain of interpreter-level frames (e.g. C frames in pypy-c), where each
 single Python-level frame corresponds to one or a few interpreter-level
 frames - depending on the length of the interpreter-level call chain
-from one bytecode evaluation loop to the next recursively invoked one.
+from one bytecode evaluation loop to the next (recursively invoked) one.
 
 This means that it is not sufficient to simply create a chain of Python
 frame objects in the heap of a process before we can resume execution of
@@ -216,7 +218,7 @@ these newly built frames.  We must recreate a corresponding chain of
 interpreter-level frames.  To this end, we have inserted a few *named
 resume points* (see XXX) in the Python interpreter of PyPy.  This is the
 motivation for implementing the interpreter-level primitives
-``resume_state_create()`` and ``resume_state_invoke()``, a powerful
+``resume_state_create()`` and ``resume_state_invoke()``, the powerful
 interface that allows an RPython program to artifically rebuild a chain
 of calls in a reflective way, completely from scratch, and jump to it.
 
@@ -225,19 +227,21 @@ Coroutine Cloning
 +++++++++++++++++
 
 In theory, coroutine pickling is general enough to allow coroutines to
-be *cloned* in-process; i.e. from one suspended coroutine, a copy can be
-made (by pickling and immediately unpickling it).  Both the original and
-the copy can then continue execution from the same point on.  Cloning
-gives much of the expressive power of full *continuations*.
+be *cloned* within a process; i.e. from one suspended coroutine, a copy
+can be made - simply by pickling and immediately unpickling it.  Both
+the original and the copy can then continue execution from the same
+point on.  Cloning gives much of the expressive power of full
+*continuations*.
 
-However, pickling has many problems in practice.  It is not a completely
-general solution because not all kinds of objects can be pickled;
-moreover, which objects are pickled by value or by reference only
-depends on the type of the object.  For the purpose of cloning, this
-means that coroutines cannot be pickled/unpickled in all situations, and
-even when they can, the user does not have full control over which of
-the objects currently reachable from a coroutine will be duplicated, and
-which will be shared with the original coroutine.
+However, pickling has several problems in practice (besides a relatively
+high overhead).  It is not a completely general solution because not all
+kinds of objects can be pickled; moreover, which objects are pickled by
+value or by reference only depends on the type of the object.  For the
+purpose of cloning, this means that coroutines cannot be
+pickled/unpickled in all situations, and even when they can, the user
+does not have full control over which of the objects currently reachable
+from a coroutine will be duplicated, and which will be shared with the
+original coroutine.
 
 For this reason, we implemented a direct cloning operation.  After some
 experiments, we determined that the following behavior is usually
@@ -246,26 +250,29 @@ those objects that were created by C (i.e. while C was running).  The
 objects not created by C (e.g. pre-existing, or created outside) are not
 duplicated, but directly shared between C and its new copy.  This
 heuristic generally matches the intuition that the objects created by C
-are also often the ones "owned" by C, in the sense that if C is cloned,
-the clone needs its own copy to avoid mutating the same shared objects
-in conflicit ways.  Conversely, objects of a more "global" nature, like
+are also the ones "owned" by C, in the sense that if C is cloned,
+the clone needs its own copy - to avoid mutating the same shared object
+in confliciting ways.  Conversely, objects of a more "global" nature, like
 modules and functions, which are typically created before the coroutine
 C started, should not be duplicated; this would result in unexpectedly
 invisible side-effects if they are mutated by the clone of C.
 
 The implementation of the above heuristic is based on support from the
 garbage collector.  For this reason, it is only available if both
-stackless and our own framework GC are compiled together in pypy-c (use
-``translate.py --stackless --framework=gc``).  In this mode, our garbage
-collector is extended to support the notion of "pool": a pool is a
-linked list of allocated objects.  All objects allocated go to a
-"current" pool.  When the stackless module switches execution between
-two ClonableCoroutine objects, it switches the GC's current pool as
-well, so that the allocated objects end up segregated by coroutine.
-Cloning is implemented by another GC extension which makes byte-level
-copies of allocated by following all references.  References that point
-to objects inside the current pool cause the objects to be recursively
-copied; other references are simply shared.
+stackless and our own framework GC are compiled together in pypy-c::
+
+    cd pypy/translator/goal
+    python translate.py --stackless --framework=gc
+
+In this mode, our garbage collector is extended to support the notion of
+"pool": a pool is a linked list of allocated objects.  All objects
+allocated go to a "current" pool.  When the stackless module switches
+execution between two ClonableCoroutine objects, it switches the GC's
+current pool as well, so that the allocated objects end up segregated by
+coroutine.  Cloning is implemented by another GC extension which makes
+byte-level copies of allocated objects.  Pointers to objects inside the
+current pool cause the target objects to be recursively copied; pointers
+outside the current pool are simply shared.
 
 
 Composability
@@ -278,7 +285,7 @@ in this way. XXX
 
 
 .. _`Stackless Python`: http://www.stackless.com
-.. _greenlet: http://codespeak.net/py/current/doc/greenlet.html
+.. _`Py lib greenlets`: http://codespeak.net/py/current/doc/greenlet.html
 .. _`Stackless Transform`: translation.html#the-stackless-transform
 
 .. include:: _ref.txt
