@@ -15,7 +15,7 @@ allow them to be parents of each other. Needs a bit more
 experience to decide where to set the limits.
 """
 
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.baseobjspace import Wrappable, UnpackValueError
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
@@ -132,41 +132,62 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         # this is trying to be simplistic at the moment.
         # we neither allow to pickle main (which can become a mess
         # since it has some deep anchestor frames)
-        # nor we allowto pickle the current coroutine.
+        # nor we allow to pickle the current coroutine.
         # rule: switch before pickling.
         # you cannot construct the tree that you are climbing.
-        # XXX missing checks!
         from pypy.interpreter.mixedmodule import MixedModule
         w_mod    = space.getbuiltinmodule('_stackless')
         mod      = space.interp_w(MixedModule, w_mod)
         w_mod2    = space.getbuiltinmodule('_pickle_support')
         mod2      = space.interp_w(MixedModule, w_mod2)
-        new_inst = mod.get('coroutine')
+        w_new_inst = mod.get('coroutine')
         w        = space.wrap
         nt = space.newtuple
         ec = self.space.getexecutioncontext()
 
         if self is self._get_state(space).main:
-            return space.newtuple([mod2.get('return_main'), space.newtuple([])])
+            return nt([mod2.get('return_main'), nt([])])
+
+        thunk = self.thunk
+        if isinstance(thunk, _AppThunk):
+            w_args, w_kwds = thunk.args.topacked()
+            w_thunk = nt([thunk.w_func, w_args, w_kwds])
+        else:
+            w_thunk = space.w_None
 
         tup_base = [
             ]
         tup_state = [
             w(self.flags),
             ec.subcontext_getstate(self),
+            w_thunk,
+            w(self.parent),
             ]
 
-        return nt([new_inst, nt(tup_base), nt(tup_state)])
+        return nt([w_new_inst, nt(tup_base), nt(tup_state)])
 
     def descr__setstate__(self, space, w_args):
-        args_w = space.unpackiterable(w_args)
-        w_flags, w_state = args_w
+        try:
+            w_flags, w_state, w_thunk, w_parent = space.unpackiterable(w_args,
+                                                             expected_length=4)
+        except UnpackValueError, e:
+            raise OperationError(space.w_ValueError, e.msg)
         self.flags = space.int_w(w_flags)
-        self.parent = AppCoroutine._get_state(space).current
+        self.parent = space.interp_w(AppCoroutine, w_parent, can_be_None=True)
         ec = self.space.getexecutioncontext()
         ec.subcontext_setstate(self, w_state)
         self.reconstruct_framechain()
-        
+        if space.is_w(w_thunk, space.w_None):
+            self.thunk = None
+        else:
+            try:
+                w_func, w_args, w_kwds = space.unpackiterable(w_thunk,
+                                                             expected_length=3)
+            except UnpackValueError, e:
+                raise OperationError(space.w_ValueError, e.msg)
+            args = Arguments.frompacked(space, w_args, w_kwds)
+            self.bind(_AppThunk(space, self.costate, w_func, args))
+
     def reconstruct_framechain(self):
         from pypy.interpreter.pyframe import PyFrame
         from pypy.rlib.rstack import resume_state_create

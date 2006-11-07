@@ -24,30 +24,18 @@ class AppTest_Coroutine:
         co2.switch()
         assert result == [42]
 
-    def test_pickle_coroutine_frame(self):
-        #skip('passes in interactive interpreter but not here :/')
-        # this requires py.magic.greenlet!
-        import pickle, sys, new
-        mod = new.module('mod')
-        try: 
-            sys.modules['mod'] = mod
-            exec '''
-import sys, _stackless as stackless
+    def test_pickle_coroutine_bound(self):
+        import pickle
+        import _stackless
+        lst = [4]
+        co = _stackless.coroutine()
+        co.bind(lst.append, 2)
+        pckl = pickle.dumps((co, lst))
 
-def f():
-        global the_frame
-        the_frame = sys._getframe()
-        main_coro.switch()
-
-co = stackless.coroutine()
-main_coro = stackless.coroutine.getcurrent()
-co.bind(f)
-co.switch()
-''' in mod.__dict__
-            pckl = pickle.dumps(mod.the_frame)
-            #co2 = pickle.loads(pckl)
-        finally:
-            del sys.modules['mod']
+        (co2, lst2) = pickle.loads(pckl)
+        assert lst2 == [4]
+        co2.switch()
+        assert lst2 == [4, 2]
 
     def test_raise_propagate(self):
         import _stackless as stackless
@@ -111,3 +99,11 @@ co.switch()
         assert co.is_alive
         co.kill()
         assert not co.is_alive
+
+    def test_bogus_bind(self):
+        import _stackless as stackless
+        co = stackless.coroutine()
+        def f():
+            pass
+        co.bind(f)
+        raises(ValueError, co.bind, f)

@@ -214,14 +214,15 @@ class Coroutine(Wrappable):
                 try:
                     exc = None
                     syncstate.switched(incoming_frame)
-                    self.thunk.call()
+                    thunk = self.thunk
+                    self.thunk = None
+                    thunk.call()
                     resume_point("coroutine__bind", self, state)
                 except Exception, e:
                     exc = e
                     raise
             finally:
                 self.finish(exc)
-                self.thunk = None
         except CoroutineExit:
             # ignore a shutdown exception
             pass
