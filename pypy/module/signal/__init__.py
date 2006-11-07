@@ -4,9 +4,9 @@ from pypy.interpreter.mixedmodule import MixedModule
 class Module(MixedModule):
     interpleveldefs = {
         'signal':  'interp_signal.signal',
-        'NSIG':    'interp_signal.NSIG',
-        'SIG_DFL': 'interp_signal.SIG_DFL',
-        'SIG_IGN': 'interp_signal.SIG_IGN',
+        'NSIG':    'space.wrap(interp_signal.NSIG)',
+        'SIG_DFL': 'space.wrap(interp_signal.SIG_DFL)',
+        'SIG_IGN': 'space.wrap(interp_signal.SIG_IGN)',
     }
 
     appleveldefs = {

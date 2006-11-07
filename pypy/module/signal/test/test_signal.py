@@ -3,10 +3,17 @@ from pypy.conftest import gettestobjspace
 class AppTestSignal:
 
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['signal'])
+        space = gettestobjspace(usemodules=['signal'])
+        cls.space = space
+        cls.w_signal = space.appexec([], "(): import signal; return signal")
+
+    def test_exported_names(self):
+        self.signal.__dict__   # crashes if the interpleveldefs are invalid
 
     def test_usr1(self):
-        import signal, types, posix
+        import types, posix
+        signal = self.signal   # the signal module to test
+
         received = []
         def myhandler(signum, frame):
             assert isinstance(frame, types.FrameType)

@@ -123,5 +123,30 @@ def pypysig_setflag(signum):
     cpy_signal.signal(signum, _queue_handler)
 
 
+# lltyping - direct mapping to the C functions defined in
+# translator/c/src/signals.h
+
 class Entry(ExtRegistryEntry):
-    pass   # in-progress
+    _about_ = pypysig_poll
+    def compute_result_annotation(self):
+        from pypy.annotation import model as annmodel
+        return annmodel.SomeInteger()
+    def specialize_call(self, hop):
+        from pypy.rpython.lltypesystem import lltype
+        hop.exception_cannot_occur()
+        return hop.llops.gencapicall("pypysig_poll", [], lltype.Signed,
+                                     includes=('src/signals.h',))
+
+for _fn in [pypysig_default, pypysig_ignore, pypysig_setflag]:
+    class Entry(ExtRegistryEntry):
+        _about_ = _fn
+        funcname = _fn.func_name
+        def compute_result_annotation(self, s_signum):
+            return None
+        def specialize_call(self, hop):
+            from pypy.rpython.lltypesystem import lltype
+            vlist = hop.inputargs(lltype.Signed)
+            hop.exception_cannot_occur()
+            hop.llops.gencapicall(self.funcname, vlist,
+                                  includes=('src/signals.h',))
+del _fn
