@@ -172,7 +172,7 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
             w_flags, w_state, w_thunk, w_parent = space.unpackiterable(w_args,
                                                              expected_length=4)
         except UnpackValueError, e:
-            raise OperationError(space.w_ValueError, e.msg)
+            raise OperationError(space.w_ValueError, space.wrap(e.msg))
         self.flags = space.int_w(w_flags)
         self.parent = space.interp_w(AppCoroutine, w_parent, can_be_None=True)
         ec = self.space.getexecutioncontext()
@@ -185,7 +185,7 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
                 w_func, w_args, w_kwds = space.unpackiterable(w_thunk,
                                                              expected_length=3)
             except UnpackValueError, e:
-                raise OperationError(space.w_ValueError, e.msg)
+                raise OperationError(space.w_ValueError, space.wrap(e.msg))
             args = Arguments.frompacked(space, w_args, w_kwds)
             self.bind(_AppThunk(space, self.costate, w_func, args))
 

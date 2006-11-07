@@ -44,7 +44,7 @@ class AbstractArguments:
         args_w, kwds_w = self.unpack()
         w_args = space.newtuple(args_w)
         w_kwds = space.newdict()
-        for key, w_value in kwds_w:
+        for key, w_value in kwds_w.items():
             space.setitem(w_kwds, space.wrap(key), w_value)
         return w_args, w_kwds
 
