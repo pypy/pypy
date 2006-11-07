@@ -52,6 +52,9 @@ class CRF(Register):
     regclass = CR_FIELD
     def __init__(self, number):
         self.number = number
+    def move_to_gpr(self, allocator, gpr):
+        bit, negated = allocator.crfinfo[self.number]
+        return _CRF2GPR(gpr, self.number*4 + bit, negated)
 
 crfs = map(CRF, range(8))
 
@@ -213,7 +216,15 @@ class Jump(Insn):
             BO = 4  # jump if relavent bit is NOT set in the CR
         asm.bcctr(BO, self.crf.number*4 + self.bit)
 
-class Unspill(Insn):
+class AllocTimeInsn(Insn):
+    def __init__(self):
+        Insn.__init__(self)
+        self.reg_args = []
+        self.reg_arg_regclasses = []
+        self.result_regclass =  NO_REGISTER
+        self.result = None
+
+class Unspill(AllocTimeInsn):
     """ A special instruction inserted by our register "allocator."  It
     indicates that we need to load a value from the stack into a register
     because we spilled a particular value. """
@@ -223,14 +234,14 @@ class Unspill(Insn):
         reg --- the reg we spilled it from (an integer)
         offset --- the offset on the stack we spilled it to (an integer)
         """
-        Insn.__init__(self)
+        AllocTimeInsn.__init__(self)
         self.var = var
         self.reg = reg
         self.stack = stack
     def emit(self, asm):
         asm.lwz(self.reg.number, rFP, self.stack.offset)
 
-class Spill(Insn):
+class Spill(AllocTimeInsn):
     """ A special instruction inserted by our register "allocator."
     It indicates that we need to store a value from the register into
     the stack because we spilled a particular value."""
@@ -240,12 +251,24 @@ class Spill(Insn):
         reg --- the reg we are spilling it from (an integer)
         offset --- the offset on the stack we are spilling it to (an integer)
         """
-        Insn.__init__(self)
+        AllocTimeInsn.__init__(self)
         self.var = var
         self.reg = reg
         self.stack = stack
     def emit(self, asm):
         asm.stw(self.reg.number, rFP, self.stack.offset)
+
+class _CRF2GPR(AllocTimeInsn):
+    def __init__(self, targetreg, bit, negated):
+        AllocTimeInsn.__init__(self)
+        self.targetreg = targetreg
+        self.bit = bit
+        self.negated = negated
+    def emit(self, asm):
+        asm.mfcr(self.targetreg)
+        asm.extrwi(self.targetreg, self.targetreg, 1, self.bit)
+        if self.negated:
+            asm.xori(self.targetreg, self.targetreg, 1)
 
 class Return(Insn):
     """ Ensures the return value is in r3 """

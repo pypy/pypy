@@ -395,20 +395,58 @@ class Builder(GenBuilder):
         return gv_result
 
     def _compare(self, op, gv_x, gv_y):
-        assert op == 'gt'
+        cmp2info = {
+            #      bit-in-crf  negated
+            'gt': (    1,         0   ),
+            'lt': (    0,         0   ),
+            'le': (    1,         1   ),
+            'ge': (    0,         1   ),
+            'eq': (    2,         0   ),
+            'ne': (    2,         1   ),
+            }
+        cmp2info_flipped = {
+            #      bit-in-crf  negated
+            'gt': (    1,         1   ),
+            'lt': (    0,         1   ),
+            'le': (    1,         0   ),
+            'ge': (    0,         0   ),
+            'eq': (    2,         0   ),
+            'ne': (    2,         1   ),
+            }
         result = self.newvar()
         if isinstance(gv_y, IntConst) and abs(gv_y.value) < 2*16:
             gv_x = gv_x.load(self)
-            self.insns.append(insn.CMPWI((1, 0), result, [gv_x, gv_y]))
+            self.insns.append(
+                insn.CMPWI(cmp2info[op], result,
+                           [gv_x, gv_y]))
         elif isinstance(gv_x, IntConst) and abs(gv_x.value) < 2*16:
             gv_y = gv_y.load(self)
-            self.insns.append(insn.CMPWI((1, 1), result, [gv_y, gv_x]))
+            self.insns.append(
+                insn.CMPWI(cmp2info_flipped[op], result,
+                           [gv_y, gv_x]))
         else:
-            self.insns.append(insn.CMPW((1, 0), result, [gv_x.load(self), gv_y.load(self)]))
+            self.insns.append(
+                insn.CMPW(cmp2info[op], result,
+                          [gv_x.load(self), gv_y.load(self)]))
         return result
 
     def op_int_gt(self, gv_x, gv_y):
         return self._compare('gt', gv_x, gv_y)
+
+    def op_int_lt(self, gv_x, gv_y):
+        return self._compare('lt', gv_x, gv_y)
+
+    def op_int_ge(self, gv_x, gv_y):
+        return self._compare('ge', gv_x, gv_y)
+
+    def op_int_le(self, gv_x, gv_y):
+        return self._compare('le', gv_x, gv_y)
+
+    def op_int_eq(self, gv_x, gv_y):
+        return self._compare('eq', gv_x, gv_y)
+
+    def op_int_ne(self, gv_x, gv_y):
+        return self._compare('ne', gv_x, gv_y)
 
     def _jump(self, gv_condition, if_true):
         targetbuilder = self._fork()

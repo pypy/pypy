@@ -110,10 +110,20 @@ class RegisterAllocation:
                 arg = insn.reg_args[i]
                 argcls = insn.reg_arg_regclasses[i]
                 #print "Allocating register for %r..." % (arg,)
+                argloc = self.var2loc[arg]
 
-                if not self.var2loc[arg].is_register:
+                if not argloc.is_register:
                     # It has no register now because it has been spilled
                     self._allocate_reg(argcls, arg)
+                elif argloc.regclass != argcls:
+                    if argcls == GP_REGISTER:
+                        del self.var2loc[arg]
+                        del self.loc2var[argloc]
+                        newloc = self._allocate_reg(GP_REGISTER, arg)
+                        self.insns.append(
+                            argloc.move_to_gpr(self, newloc.number))
+                    else:
+                        assert 0
                 else:
                     #print "it was in ", self.var2loc[arg]
                     pass
