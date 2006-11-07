@@ -211,7 +211,7 @@ class Jump(Insn):
             BO = 12 # jump if relavent bit is set in the CR
         else:
             BO = 4  # jump if relavent bit is NOT set in the CR
-        asm.bcctr(BO, self.bit)
+        asm.bcctr(BO, self.crf.number*4 + self.bit)
 
 class Unspill(Insn):
     """ A special instruction inserted by our register "allocator."  It

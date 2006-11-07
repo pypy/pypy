@@ -1,5 +1,7 @@
-from pypy.jit.codegen.ppc.instruction import gprs, NO_REGISTER, GP_REGISTER, \
-     FP_REGISTER, CR_FIELD, CT_REGISTER, CMPInsn, Spill, Unspill, crfs, ctr, stack_slot
+from pypy.jit.codegen.ppc.instruction import \
+     gprs, fprs, crfs, ctr, \
+     NO_REGISTER, GP_REGISTER, FP_REGISTER, CR_FIELD, CT_REGISTER, \
+     CMPInsn, Spill, Unspill, stack_slot
 
 class RegisterAllocation:
     def __init__(self, minreg, initial_mapping, initial_spill_offset):
@@ -7,7 +9,11 @@ class RegisterAllocation:
         #print "RegisterAllocation __init__", initial_mapping
 
         self.insns = []   # Output list of instructions
-        self.freeregs = gprs[minreg:] # Registers with dead values
+        # Registers with dead values
+        self.freeregs = {GP_REGISTER:gprs[minreg:],
+                         FP_REGISTER:fprs[:],
+                         CR_FIELD:crfs[:],
+                         CT_REGISTER:[ctr]}
         self.var2loc = {} # Maps a Var to an AllocationSlot
         self.loc2var = {} # Maps an AllocationSlot to a Var
         self.lru = []     # Least-recently-used list of vars; first is oldest.
@@ -20,8 +26,8 @@ class RegisterAllocation:
         for var, loc in initial_mapping.iteritems():
             self.loc2var[loc] = var
             self.var2loc[var] = loc
-            if loc in self.freeregs:
-                self.freeregs.remove(loc)
+            if loc.is_register and loc in self.freeregs[loc.regclass]:
+                self.freeregs[loc.regclass].remove(loc)
                 self.lru.append(var)
         self.crfinfo = [(0, 0)] * 8
 
@@ -31,20 +37,28 @@ class RegisterAllocation:
         self.spill_offset -= 4
         return self.spill_offset
 
-    def _allocate_reg(self, newarg):
+    def _allocate_reg(self, regclass, newarg):
 
         # check if there is a register available
-        if self.freeregs:
-            reg = self.freeregs.pop()
+        freeregs = self.freeregs[regclass]
+
+        if freeregs:
+            reg = freeregs.pop()
             self.loc2var[reg] = newarg
             self.var2loc[newarg] = reg
             #print "allocate_reg: Putting %r into fresh register %r" % (newarg, reg)
             return reg
 
         # if not, find something to spill
-        argtospill = self.lru.pop(0)
-        reg = self.var2loc[argtospill]
-        assert reg.is_register
+        for i in range(len(self.lru)):
+            argtospill = self.lru[i]
+            reg = self.var2loc[argtospill]
+            assert reg.is_register
+            if reg.regclass == regclass:
+                del self.lru[i]
+                break
+        else:
+            assert 0
 
         # Move the value we are spilling onto the stack, both in the
         # data structures and in the instructions:
@@ -85,10 +99,8 @@ class RegisterAllocation:
             # put things into the lru
             for i in range(len(insn.reg_args)):
                 arg = insn.reg_args[i]
-                argcls = insn.reg_arg_regclasses[i]
-                if argcls == GP_REGISTER:
-                    self._promote(arg)
-            if insn.result and insn.result_regclass == GP_REGISTER:
+                self._promote(arg)
+            if insn.result:
                 self._promote(insn.result)
             #print "LRU list is now: %r" % (self.lru,)
 
@@ -101,28 +113,20 @@ class RegisterAllocation:
 
                 if not self.var2loc[arg].is_register:
                     # It has no register now because it has been spilled
-                    assert argcls == GP_REGISTER, "uh-oh"
-                    self._allocate_reg(arg)
+                    self._allocate_reg(argcls, arg)
                 else:
                     #print "it was in ", self.var2loc[arg]
                     pass
 
             # Need to allocate a register for the destination
             assert not insn.result or insn.result not in self.var2loc
-            cand = None
-            if insn.result_regclass == GP_REGISTER:
+            if insn.result_regclass != NO_REGISTER:
                 #print "Allocating register for result %r..." % (insn.result,)
-                cand = self._allocate_reg(insn.result)
-            elif insn.result_regclass == CR_FIELD:
-                assert crfs[0] not in self.loc2var
-                assert isinstance(insn, CMPInsn)
-                cand = crfs[0]
-                self.crfinfo[0] = insn.info
-            elif insn.result_regclass == CT_REGISTER:
-                assert ctr not in self.loc2var
-                cand = ctr
-            elif insn.result_regclass != NO_REGISTER:
-                assert 0
+                cand = self._allocate_reg(insn.result_regclass, insn.result)
+                if isinstance(insn, CMPInsn):
+                    self.crfinfo[cand.number] = insn.info
+            else:
+                cand = None
             if cand is not None and cand not in self.loc2var:
                 self.var2loc[insn.result] = cand
                 self.loc2var[cand] = insn.result
