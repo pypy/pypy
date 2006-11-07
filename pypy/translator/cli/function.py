@@ -4,9 +4,7 @@ except NameError:
     from sets import Set as set
 
 from pypy.objspace.flow import model as flowmodel
-from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Void, Bool, Float
-from pypy.rpython.lltypesystem.lltype import SignedLongLong, UnsignedLongLong
-from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.lltypesystem.lltype import Void
 from pypy.translator.oosupport.function import Function as OOFunction
 from pypy.translator.cli.option import getoption
 from pypy.translator.cli.cts import CTS
@@ -15,8 +13,9 @@ from pypy.translator.cli.metavm import InstructionList, Generator
 from pypy.translator.cli.node import Node
 from pypy.translator.cli.class_ import Class
 from pypy.translator.cli.support import log
+from pypy.translator.cli.ilgenerator import CLIBaseGenerator
 
-class Function(OOFunction, Node, Generator):
+class Function(OOFunction, Node, CLIBaseGenerator):
 
     def __init__(self, *args, **kwargs):
         OOFunction.__init__(self, *args, **kwargs)
@@ -98,56 +97,8 @@ class Function(OOFunction, Node, Generator):
         self.ilasm.opcode('throw')
 
 
-    # Generator interface
-
-    def add_comment(self, text):
-        pass
-    
-    def function_signature(self, graph, func_name=None):
-        return self.cts.graph_to_signature(graph, False, func_name)
-
-    def class_name(self, TYPE):
-        if isinstance(TYPE, ootype.Instance):
-            return self.db.class_name(TYPE)
-        elif isinstance(TYPE, ootype.Record):
-            return self.db.get_record_name(TYPE)
-
-    def emit(self, instr, *args):
-        self.ilasm.opcode(instr, *args)
-
-    def call_graph(self, graph, func_name=None):
-        if func_name is None: # else it is a suggested primitive
-            self.db.pending_function(graph)
-        func_sig = self.function_signature(graph, func_name)
-        self.ilasm.call(func_sig)
-
-    def call_signature(self, signature):
-        self.ilasm.call(signature)
-
-    def cast_to(self, lltype):
-        cts_type = self.cts.lltype_to_cts(lltype, False)
-        self.ilasm.opcode('castclass', cts_type)
-
-    def new(self, obj):
-        self.ilasm.new(self.cts.ctor_name(obj))
-
-    def set_field(self, obj, name):
-        self.ilasm.opcode('stfld ' + self.field_name(obj, name))
-
-    def get_field(self, obj, name):
-        self.ilasm.opcode('ldfld ' + self.field_name(obj, name))
-
-    def call_method(self, obj, name):
-        # TODO: use callvirt only when strictly necessary
-        signature, virtual = self.cts.method_signature(obj, name)
-        self.ilasm.call_method(signature, virtual)
-
-    def downcast(self, TYPE):
-        type = self.cts.lltype_to_cts(TYPE)
-        return self.ilasm.opcode('castclass', type)
-
-    def instantiate(self):
-        self.call_signature('object [pypylib]pypy.runtime.Utils::RuntimeNew(class [mscorlib]System.Type)')
+    # Those parts of the generator interface that are function
+    # specific
 
     def load(self, v):
         if isinstance(v, flowmodel.Variable):
@@ -160,14 +111,8 @@ class Function(OOFunction, Node, Generator):
             else:
                 self.ilasm.load_local(v)
 
-        elif isinstance(v, flowmodel.Constant):
-            self._load_const(v)
         else:
-            assert False
-
-    def _load_const(self, const):
-        from pypy.translator.cli.database import AbstractConst
-        AbstractConst.load(self.db, const.concretetype, const.value, self.ilasm)
+            super(Function, self).load(v)
 
     def store(self, v):
         if isinstance(v, flowmodel.Variable):
@@ -175,12 +120,3 @@ class Function(OOFunction, Node, Generator):
                 self.ilasm.store_local(v)
         else:
             assert False
-
-    def isinstance(self, class_name):
-        self.ilasm.opcode('isinst', class_name)
-
-    def branch_unconditionally(self, target_label):
-        self.ilasm.branch(target_label)
-
-    def branch_conditionally(self, cond, target_label):
-        self.ilasm.branch_if(cond, target_label)

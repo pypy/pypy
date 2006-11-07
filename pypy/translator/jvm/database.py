@@ -162,54 +162,6 @@ class Database(OODatabase):
         return res
 
     # _________________________________________________________________
-    # Constant Emitting
-    #
-    # We place all constants in a special "constant" class
-    #
-    # XXX I don't particularly like this code being here.  database
-    # shouldn't be so specific?  Guess it's okay...
-
-    RecordConst = jvmconst.JVMRecordConst
-    InstanceConst = jvmconst.JVMInstanceConst
-    ClassConst = jvmconst.JVMClassConst
-    
-    def _begin_gen_constants(self, gen, all_constants):
-        gen.begin_class(jPyPyConst, jObject)
-
-        for c in all_constants:
-            assert isinstance(c, jvmconst.JVMFieldStorage)
-            gen.add_field(c.fieldobj)
-
-        # the constant initialization code is broken up into special
-        # methods that are then invoked from <clinit> --- this is to
-        # prevent the init functions from getting too big
-        self._constant_steps = 1
-        gen.begin_function('constant_init_0', [], [], jVoid, True)
-        return gen
-    
-    def _interrupt_gen_constants(self):
-        gen.return_val(jVoid)
-        gen.end_function()    # end constant_init_N
-        
-        next_nm = "constant_init_%d" % self._constant_steps
-        self._constant_steps += 1
-        gen.begin_function(next_nm, [], [], jVoid, True)
-    
-    def _end_gen_constants(self, gen):
-        gen.return_val(jVoid)
-        gen.end_function()    # end constant_init_N
-
-        # The static init code just needs to call constant_init_1..N
-        gen.begin_function('<clinit>', [], [], jVoid, True)
-        for x in range(self._constant_steps):
-            m = jvmgen.Method.s(jPyPyConst, "constant_init_%d" % x, [], jVoid)
-            gen.emit(m)
-        gen.return_val(jVoid)
-        gen.end_function()
-        
-        gen.end_class()
-
-    # _________________________________________________________________
     # Type printing functions
     #
     # Returns a method that prints details about the value out to

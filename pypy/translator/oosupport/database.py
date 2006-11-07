@@ -8,8 +8,9 @@ class Database(object):
         self.cts = genoo.TypeSystem(self)
         self._pending_nodes = set()
         self._rendered_nodes = set()
-        self._const_cache = {}
         self._unique_counter = 0
+        self.constant_generator = genoo.ConstantGenerator(self)
+        self.locked = False # new pending nodes are not allowed here
 
     # ____________________________________________________________
     # Miscellaneous
@@ -30,44 +31,17 @@ class Database(object):
 
     def gen_constants(self, ilasm):
         """ Renders the constants uncovered during the graph walk"""
+        self.locked = True # new pending nodes are not allowed here
+        self.constant_generator.gen_constants(ilasm)
+        self.locked = False
 
-        # Now, emit the initialization code:
-        all_constants = self._const_cache.values()
-        gen = self._begin_gen_constants(ilasm, all_constants)
-        gen.add_section("Create Pointer Phase")
-        ctr = 0
-        for const in all_constants:
-            gen.add_comment("Constant: %s" % const.name)
-            const.create_pointer(gen)
-            ctr = self._consider_interrupt(gen, ctr)
-        gen.add_section("Initialize Opaque Phase")
-        for const in all_constants:
-            gen.add_comment("Constant: %s" % const.name)
-            const.initialize_opaque(gen)
-            ctr = self._consider_interrupt(gen, ctr)
-        gen.add_section("Initialize Full Phase")
-        for const in all_constants:
-            gen.add_comment("Constant: %s" % const.name)
-            const.initialize_full(gen)
-            ctr = self._consider_interrupt(gen, ctr)
-        self._end_gen_constants(gen)
+    # ____________________________________________________________
+    # Generation phases
 
-    def _consider_interrupt(self, gen, ctr):
-        ctr += 1
-        if (ctr % 100) == 0: self._interrupt_gen_constants(gen)
-        return ctr
-
-    def _begin_gen_constants(self):
-        # returns a generator
+    def record_delegate(self, OOTYPE):
+        """ Returns a backend-specific type for a delegate class...
+        details currently undefined. """
         raise NotImplementedError
-
-    def _interrupt_gen_constants(self):
-        # invoked every so often so as to break up the generated
-        # code and not create one massive function
-        pass
-    
-    def _end_gen_constants(self, gen):
-        raise NotImplementedError        
 
     # ____________________________________________________________
     # Node creation
@@ -89,70 +63,15 @@ class Database(object):
     def pending_node(self, node):
         """ Adds a node to the worklist, so long as it is not already there
         and has not already been rendered. """
-        if node not in self._rendered_nodes:
-            self._pending_nodes.add(node)
+        assert not self.locked # sanity check
+        if node in self._pending_nodes or node in self._rendered_nodes:
+            return
+        self._pending_nodes.add(node)
+        node.dependencies()
             
     def len_pending(self):
         return len(self._pending_nodes)
 
     def pop(self):
         return self._pending_nodes.pop()
-
-    # ____________________________________________________________
-    # Constants
-
-    # Defines the subclasses used to represent complex constants by
-    # _create_complex_const:
-    
-    InstanceConst = None
-    RecordConst = None
-    ClassConst = None
-
-    def record_const(self, value):
-        """ Returns an object representing the constant, remembering also
-        any details needed to initialize the constant.  value should be an
-        ootype constant value """
-        assert not is_primitive(value)
-        if value in self._const_cache:
-            return self._const_cache[value]
-        const = self._create_complex_const(value)
-        self._const_cache[value] = const
-        const.record_dependencies()
-        return const
-
-    def push_primitive_const(self, gen, value):
-        """ Helper which pushes a primitive constant onto the stack """ 
-        raise NotImplementedException
-
-    def _create_complex_const(self, value):
-
-        """ A helper method which creates a Constant wrapper object for
-        the given value.  Uses the types defined in the sub-class. """
-        
-        # Determine if the static type differs from the dynamic type.
-        if isinstance(value, ootype._view):
-            static_type = value._TYPE
-            value = value._inst
-        else:
-            static_type = None
-
-        # Find the appropriate kind of Const object.
-        if isinstance(value, ootype._instance):
-            return self.InstanceConst(self, value, static_type, self.unique())
-        elif isinstance(value, ootype._record):
-            return self.RecordConst(self, value, self.unique())
-        elif isinstance(value, ootype._class):
-            return self.ClassConst(self, value, self.unique())
-        #elif isinstance(value, ootype._list):
-        #    return ListConst(db, value, count)
-        #elif isinstance(value, ootype._static_meth):
-        #    return StaticMethodConst(db, value, count)
-        #elif isinstance(value, ootype._custom_dict):
-        #    return CustomDictConst(db, value, count)
-        #elif isinstance(value, ootype._dict):
-        #    return DictConst(db, value, count)
-        #elif isinstance(value, llmemory.fakeweakaddress):
-        #    return WeakRefConst(db, value, count)
-        else:
-            assert False, 'Unknown constant: %s' % value
 

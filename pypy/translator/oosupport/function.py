@@ -132,7 +132,7 @@ class Function(object):
                 continue # see above
             assert issubclass(link.exitcase, Exception)
             ll_meta_exc = link.llexitcase
-            self.db.record_const(ll_meta_exc)
+            self.db.constant_generator.record_const(ll_meta_exc)
             self.begin_catch(link.llexitcase)
             self.store_exception_and_link(link)
             target_label = self._get_block_name(link.target)

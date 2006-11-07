@@ -2,80 +2,54 @@ from pypy.translator.jvm.generator import \
      Field, Method, ACONST_NULL, ICONST, LDC, DCONST_0, DCONST_1, LDC2
 from pypy.translator.oosupport.constant import \
      RecordConst, InstanceConst, ClassConst
-from pypy.translator.jvm.typesystem import jPyPyConst
+from pypy.translator.jvm.typesystem import \
+     jPyPyConst, jObject
 
 # ___________________________________________________________________________
-# Simple Constants
-#
-# We create simple dummy constant objects that follow the same
-# inteface as the complex constants from oosupport/constant.py.  None
-# of these requires initialization, so they only support push() and
-# they should never find their way into the database's constant list.
+# Constant Generator
 
-class Const(object):
-    def push(self, gen):
-        """ Emits code required to reference a constant.  Usually invoked
-        by generator.emit() """
-        raise NotImplementedError
+class JVMConstantGenerator(BaseConstantGenerator):
 
-class VoidConst(object):
-    def push(self, gen):
-        pass
+    # _________________________________________________________________
+    # Constant Operations
+    #
+    # We store constants in static fields of the jPyPyConst class.
+    
+    def _init_constant(self, const):
+        fieldty = self.db.lltype_to_cts(const.OOTYPE())
+        const.fieldobj = Field(jPyPyConst.name, const.name, fieldty, True)
 
-class NullConst(object):
-    def push(self, gen):
-        gen.emit(ACONST_NULL)
+    def push_constant(self, gen, const):
+        const.fieldobj.load(gen)
 
-class DoubleConst(Const):
-    def __init__(self, value):
-        self.value = value
-    def push(self, gen):
-        if value == 0.0:
-            gen.emit(DCONST_0)
-        elif value == 1.0:
-            gen.emit(DCONST_1)
-        else:
-            gen.emit(LDC2, self.value)
+    def _store_constant(self, gen, const):
+        const.fieldobj.store(gen)
 
-class UnicodeConst(Const):
-    def __init__(self, value):
-        self.value = value
-    def push(self, gen):
-        assert isinstance(self.value, unicode)
-        gen.emit(LDC, res)
+    # _________________________________________________________________
+    # Constant Generation
+    
+    def _begin_gen_constants(self, gen, all_constants):
+        gen.begin_class(jPyPyConst, jObject)
 
-# ___________________________________________________________________________
-# Complex Constants
+    def _declare_const(self, gen, const):
+        gen.add_field(c.fieldobj)
 
-class JVMFieldStorage(object):
-    """ A mix-in for the oosupport constant classes that stores the
-    pointer for the constant into a field on a class.  It implements
-    the push() and store() methods used by the oosupport classes and
-    elsewhere."""
-    def __init__(self):
-        # Note that self.name and self.value are set by the oosupport
-        # constance class:
-        fieldty = self.db.lltype_to_cts(self.value._TYPE)
-        self.fieldobj = Field(jPyPyConst.name, self.name, fieldty, True)
+    def _declare_step(self, gen, stepnum):
+        next_nm = "constant_init_%d" % stepnum
+        gen.begin_function(next_nm, [], [], jVoid, True)
+
+    def _close_step(self, gen, stepnum):
+        gen.return_val(jVoid)
+        gen.end_function()    # end constant_init_N where N == stepnum
+    
+    def _end_gen_constants(self, gen, numsteps):
+        # The static init code just needs to call constant_init_1..N
+        gen.begin_function('<clinit>', [], [], jVoid, True)
+        for x in range(numsteps):
+            m = jvmgen.Method.s(jPyPyConst, "constant_init_%d" % x, [], jVoid)
+            gen.emit(m)
+        gen.return_val(jVoid)
+        gen.end_function()
         
-    def push(self, gen):
-        self.fieldobj.load(gen)
-
-    def store(self, gen):
-        self.fieldobj.store(gen)
-
-class JVMRecordConst(RecordConst, JVMFieldStorage):
-    def __init__(self, db, record, count):
-        RecordConst.__init__(self, db, record, count)
-        JVMFieldStorage.__init__(self)
-
-class JVMInstanceConst(InstanceConst, JVMFieldStorage):
-    def __init__(self, db, obj, record, count):
-        InstanceConst.__init__(self, db, obj, record, count)
-        JVMFieldStorage.__init__(self)
-
-class JVMClassConst(ClassConst, JVMFieldStorage):
-    def __init__(self, db, class_, count):
-        ClassConst.__init__(self, db, class_, count)
-        JVMFieldStorage.__init__(self)
-
+        gen.end_class()
+    

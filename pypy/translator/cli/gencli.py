@@ -20,6 +20,7 @@ from pypy.translator.cli.support import Tee
 from pypy.translator.cli.prebuiltnodes import get_prebuilt_nodes
 from pypy.translator.cli.stackopt import StackOptGenerator
 from pypy.translator.cli import query
+from pypy.translator.cli import constant
 
 try:
     set
@@ -36,6 +37,16 @@ class GenCli(GenOO):
     opcodes = opcodes
     Database = LowLevelDatabase
     log = log
+    
+    ConstantGenerator = constant.StaticFieldConstGenerator
+    InstanceConst = constant.CLIInstanceConst
+    RecordConst = constant.CLIRecordConst
+    ClassConst = constant.CLIClassConst
+    ListConst = constant.CLIListConst
+    StaticMethodConst = constant.CLIStaticMethodConst
+    CustomDictConst = constant.CLICustomDictConst
+    DictConst = constant.CLIDictConst
+    WeakRefConst = constant.CLIWeakRefConst
 
     def __init__(self, tmpdir, translator, entrypoint, config=None):
         GenOO.__init__(self, tmpdir, translator, entrypoint, config)

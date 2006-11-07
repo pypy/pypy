@@ -1,5 +1,9 @@
 from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Void, Bool, Float
 from pypy.rpython.lltypesystem.lltype import SignedLongLong, UnsignedLongLong
+from pypy.rpython.ootypesystem import ootype
+from pypy.translator.oosupport.metavm import Generator
+from pypy.translator.oosupport.constant import push_constant
+from pypy.objspace.flow import model as flowmodel
 
 class CodeGenerator(object):
     def __init__(self, out, indentstep = 4, startblock = '{', endblock = '}'):
@@ -239,5 +243,82 @@ class IlasmGenerator(object):
             self.opcode('ldstr', string_literal(msg))
             self.call_method('void class [mscorlib]System.IO.TextWriter::WriteLine(string)', virtual=True)
 
+    def add_comment(self, text):
+        self.out.write('// %s\n' % text)
+
     def flush(self):
         pass
+
+class CLIBaseGenerator(Generator):
+    
+    """ Implements those parts of the metavm generator that are not
+    tied to any particular function."""
+
+    def __init__(self, db, ilasm):
+        self.ilasm = ilasm
+        self.db = db
+        self.cts = db.genoo.TypeSystem(db)
+
+    def add_comment(self, text):
+        pass
+    
+    def function_signature(self, graph, func_name=None):
+        return self.cts.graph_to_signature(graph, False, func_name)
+
+    def class_name(self, TYPE):
+        if isinstance(TYPE, ootype.Instance):
+            return self.db.class_name(TYPE)
+        elif isinstance(TYPE, ootype.Record):
+            return self.db.get_record_name(TYPE)
+
+    def emit(self, instr, *args):
+        self.ilasm.opcode(instr, *args)
+
+    def call_graph(self, graph, func_name=None):
+        if func_name is None: # else it is a suggested primitive
+            self.db.pending_function(graph)
+        func_sig = self.function_signature(graph, func_name)
+        self.ilasm.call(func_sig)
+
+    def call_signature(self, signature):
+        self.ilasm.call(signature)
+
+    def cast_to(self, lltype):
+        cts_type = self.cts.lltype_to_cts(lltype, False)
+        self.ilasm.opcode('castclass', cts_type)
+
+    def new(self, obj):
+        self.ilasm.new(self.cts.ctor_name(obj))
+
+    def set_field(self, obj, name):
+        self.ilasm.opcode('stfld ' + self.field_name(obj, name))
+
+    def get_field(self, obj, name):
+        self.ilasm.opcode('ldfld ' + self.field_name(obj, name))
+
+    def call_method(self, obj, name):
+        # TODO: use callvirt only when strictly necessary
+        signature, virtual = self.cts.method_signature(obj, name)
+        self.ilasm.call_method(signature, virtual)
+
+    def downcast(self, TYPE):
+        type = self.cts.lltype_to_cts(TYPE)
+        return self.ilasm.opcode('castclass', type)
+
+    def instantiate(self):
+        self.call_signature('object [pypylib]pypy.runtime.Utils::RuntimeNew(class [mscorlib]System.Type)')
+
+    def load(self, v):
+        if isinstance(v, flowmodel.Constant):
+            push_constant(self.db, v.concretetype, v.value, self)
+        else:
+            assert False
+
+    def isinstance(self, class_name):
+        self.ilasm.opcode('isinst', class_name)
+
+    def branch_unconditionally(self, target_label):
+        self.ilasm.branch(target_label)
+
+    def branch_conditionally(self, cond, target_label):
+        self.ilasm.branch_if(cond, target_label)

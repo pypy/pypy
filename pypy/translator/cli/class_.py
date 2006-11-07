@@ -1,6 +1,8 @@
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.cli.node import Node
 from pypy.translator.cli.cts import CTS
+from pypy.translator.oosupport.constant import push_constant
+from pypy.translator.cli.ilgenerator import CLIBaseGenerator
 
 try:
     set
@@ -73,6 +75,8 @@ class Class(Node):
             return
 
         self.ilasm = ilasm
+
+        gen = CLIBaseGenerator(self.db, ilasm)
         if self.namespace:
             ilasm.begin_namespace(self.namespace)
 
@@ -109,8 +113,7 @@ class Class(Node):
                 if isinstance(METH.RESULT, ootype.OOType):
                     ilasm.opcode('ldnull')
                 else:
-                    from pypy.translator.cli.database import AbstractConst
-                    AbstractConst.load(self.db, METH.RESULT, 0, ilasm)
+                    push_constant(self.db, METH.RESULT, 0, gen)
                 ilasm.opcode('ret')
                 ilasm.end_function()
 
@@ -120,7 +123,6 @@ class Class(Node):
             ilasm.end_namespace()
 
     def _ctor(self):
-        from pypy.translator.cli.database import AbstractConst
         self.ilasm.begin_function('.ctor', [], 'void', False, 'specialname', 'rtspecialname', 'instance')
         self.ilasm.opcode('ldarg.0')
         self.ilasm.call('instance void %s::.ctor()' % self.get_base_class())
@@ -130,7 +132,7 @@ class Class(Node):
             f_name = self.cts.escape_name(f_name)
             if cts_type != 'void':
                 self.ilasm.opcode('ldarg.0')
-                AbstractConst.load(self.db, F_TYPE, f_default, self.ilasm)
+                push_constant(self.db, F_TYPE, f_default, self)
                 class_name = self.db.class_name(self.INSTANCE)
                 self.ilasm.set_field((cts_type, class_name, f_name))
 

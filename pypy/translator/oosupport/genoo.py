@@ -11,6 +11,19 @@ class GenOO(object):
     opcodes = None
     log = None
 
+    # Defines the subclasses used to represent complex constants by
+    # _create_complex_const:
+    
+    ConstantGenerator = None
+    InstanceConst = None
+    RecordConst = None
+    ClassConst = None
+    ListConst = None
+    StaticMethodConst = None
+    CustomDictConst = None
+    DictConst = None
+    WeakRefConst = None
+
     def __init__(self, tmpdir, translator, entrypoint, config=None):
         self.tmpdir = tmpdir
         self.translator = translator

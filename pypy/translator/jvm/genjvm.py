@@ -172,6 +172,10 @@ class GenJvm(GenOO):
     Database = Database
     opcodes = opcodes
     log = log
+
+    RecordConst = jvmconst.JVMRecordConst
+    InstanceConst = jvmconst.JVMInstanceConst
+    ClassConst = jvmconst.JVMClassConst
     
     def __init__(self, tmpdir, translator, entrypoint):
         """

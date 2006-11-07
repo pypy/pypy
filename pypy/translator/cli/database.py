@@ -1,6 +1,5 @@
 import operator
 import string
-from pypy.translator.cli.cts import CTS, PYPY_LIST_OF_VOID, PYPY_DICT_OF_VOID, WEAKREF
 from pypy.translator.cli.function import Function, log
 from pypy.translator.cli.class_ import Class
 from pypy.translator.cli.record import Record
@@ -8,24 +7,17 @@ from pypy.translator.cli.delegate import Delegate
 from pypy.translator.cli.comparer import EqualityComparer
 from pypy.translator.cli.node import Node
 from pypy.translator.cli.support import string_literal, Counter
-from pypy.translator.cli.constgenerator import StaticFieldConstGenerator, InstanceFieldConstGenerator, LazyConstGenerator
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem.module import ll_os
-from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.lltypesystem import llmemory
 from pypy.translator.cli.opcodes import opcodes
 from pypy.translator.cli import dotnet
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
+from pypy.translator.oosupport.database import Database as OODatabase
 
 try:
     set
 except NameError:
     from sets import Set as set
-
-#CONST_GENERATOR = InstanceFieldConstGenerator
-CONST_GENERATOR = StaticFieldConstGenerator
-#CONST_GENERATOR = LazyConstGenerator
-
 
 BUILTIN_RECORDS = {
     ootype.Record({"item0": ootype.Signed, "item1": ootype.Signed}):
@@ -40,20 +32,9 @@ BUILTIN_RECORDS = {
     ll_os.STAT_RESULT: '[pypylib]pypy.runtime.Record_Stat_Result',
     }
 
-DEFINED_INT_SYMBOLICS = {'MALLOC_ZERO_FILLED':1}
-
-def isnan(v):
-        return v != v*1.0 or (v == 1.0 and v == 2.0)
-
-def isinf(v):
-    return v!=0 and (v == v*2)
-
-class LowLevelDatabase(object):
+class LowLevelDatabase(OODatabase):
     def __init__(self, genoo):
-        self._pending_nodes = set()
-        self._rendered_nodes = set()
-        self.genoo = genoo
-        self.cts = genoo.TypeSystem(self)
+        OODatabase.__init__(self, genoo)
         self.classes = {} # INSTANCE --> class_name
         self.classnames = set() # (namespace, name)
         self.recordnames = {} # RECORD --> name
@@ -62,13 +43,9 @@ class LowLevelDatabase(object):
         self.consts = {}  # value --> AbstractConst
         self.delegates = {} # StaticMethod --> type_name
         self.const_count = Counter() # store statistics about constants
-        self.const_names = set()
-        self.name_count = 0
-        self.locked = False
 
     def next_count(self):
-        self.name_count += 1
-        return self.name_count
+        return self.unique()
 
     def _default_record_name(self, RECORD):
         trans = string.maketrans('<>(), :', '_______')
@@ -133,14 +110,6 @@ class LowLevelDatabase(object):
         self.pending_node(r)
         return name
 
-    def pending_node(self, node):
-        if node in self._pending_nodes or node in self._rendered_nodes:
-            return
-
-        assert not self.locked # sanity check
-        self._pending_nodes.add(node)
-        node.dependencies()
-
     def record_function(self, graph, name):
         self.functions[graph] = name
 
@@ -166,16 +135,6 @@ class LowLevelDatabase(object):
         except KeyError:
             return self.recordnames[RECORD]
 
-    def record_const(self, value):
-        if value in self.consts:
-            const = self.consts[value]
-        else:
-            const = AbstractConst.make(self, value, self.next_count())
-            self.consts[value] = const
-            self.pending_node(const)
-
-        return const
-
     def record_delegate(self, TYPE):
         try:
             return self.delegates[TYPE]
@@ -184,497 +143,3 @@ class LowLevelDatabase(object):
             self.delegates[TYPE] = name
             self.pending_node(Delegate(self, TYPE, name))
             return name
-
-
-    def gen_constants(self, ilasm):
-        self.locked = True # new pending nodes are not allowed here
-        generator = CONST_GENERATOR(ilasm)
-        generator.begin_class()
-        
-        const_list = [const for const in self.consts.itervalues() if not const.is_inline()]
-        const_list.sort(key=operator.attrgetter('PRIORITY'))
-        num_const = len(const_list)
-
-        # render field definitions
-        for const in const_list:
-            assert not const.is_null()
-            generator.declare_const(const)
-
-        generator.generate_consts(const_list)
-        generator.end_class()
-        log.INFO("%d constants rendered" % num_const)
-        self.locked = False
-
-
-
-class AbstractConst(Node):
-    PRIORITY = 0
-    
-    def make(db, value, count):
-        if isinstance(value, ootype._view):
-            static_type = value._TYPE
-            value = value._inst
-        else:
-            static_type = None
-
-        if isinstance(value, ootype._instance):
-            return InstanceConst(db, value, static_type, count)
-        elif isinstance(value, ootype._record):
-            return RecordConst(db, value, count)
-        elif isinstance(value, ootype._list):
-            return ListConst(db, value, count)
-        elif isinstance(value, ootype._static_meth):
-            return StaticMethodConst(db, value, count)
-        elif isinstance(value, ootype._class):
-            return ClassConst(db, value, count)
-        elif isinstance(value, ootype._custom_dict):
-            return CustomDictConst(db, value, count)
-        elif isinstance(value, ootype._dict):
-            return DictConst(db, value, count)
-        elif isinstance(value, llmemory.fakeweakaddress):
-            return WeakRefConst(db, value, count)
-        else:
-            assert False, 'Unknown constant: %s' % value
-    make = staticmethod(make)
-
-    PRIMITIVE_TYPES = set([ootype.Void, ootype.Bool, ootype.Char, ootype.UniChar,
-                           ootype.Float, ootype.Signed, ootype.Unsigned, ootype.String,
-                           lltype.SignedLongLong, lltype.UnsignedLongLong])
-
-    def is_primitive(cls, TYPE):
-        return TYPE in cls.PRIMITIVE_TYPES
-    is_primitive = classmethod(is_primitive)
-
-    def load(cls, db, TYPE, value, ilasm):
-        if TYPE is ootype.Void:
-            pass
-        elif TYPE is ootype.Bool:
-            ilasm.opcode('ldc.i4', str(int(value)))
-        elif TYPE is ootype.Char or TYPE is ootype.UniChar:
-            ilasm.opcode('ldc.i4', ord(value))
-        elif TYPE is ootype.Float:
-            if isinf(value):
-                ilasm.opcode('ldc.r8', '(00 00 00 00 00 00 f0 7f)')
-            elif isnan(value):
-                ilasm.opcode('ldc.r8', '(00 00 00 00 00 00 f8 ff)')
-            else:
-                ilasm.opcode('ldc.r8', repr(value))
-        elif isinstance(value, CDefinedIntSymbolic):
-            ilasm.opcode('ldc.i4', DEFINED_INT_SYMBOLICS[value.expr])
-        elif TYPE in (ootype.Signed, ootype.Unsigned):
-            ilasm.opcode('ldc.i4', str(value))
-        elif TYPE in (lltype.SignedLongLong, lltype.UnsignedLongLong):
-            ilasm.opcode('ldc.i8', str(value))
-        elif TYPE is ootype.String:
-            if value._str is None:
-                ilasm.opcode('ldnull')
-            else:
-                ilasm.opcode("ldstr", string_literal(value._str))
-        else:
-            assert TYPE not in cls.PRIMITIVE_TYPES
-            const = db.record_const(value)
-            if const.is_null():
-                ilasm.opcode('ldnull')
-            else:
-                const._load(ilasm, TYPE)
-    load = classmethod(load)
-
-    def __hash__(self):
-        return hash(self.value)
-
-    def __eq__(self, other):
-        return self.value == other.value
-
-    def __ne__(self, other):
-        return not self == other
-
-    def __repr__(self):
-        return '<Const %s %s>' % (self.name, self.value)
-
-    def get_name(self):
-        pass
-
-    def get_type(self):
-        pass
-
-    def is_null(self):
-        return self.value is ootype.null(self.value._TYPE)
-
-    def is_inline(self):
-        """
-        Inline constants are not stored as static fields in the
-        Constant class, but they are newly created on the stack every
-        time they are used. Classes overriding is_inline should
-        override _load too.
-        """
-        return self.is_null() # by default only null constants are inlined
-
-    def _load(self, ilasm, EXPECTED_TYPE):
-        """
-        Load the constant onto the stack.
-        """
-        cts = CTS(self.db)
-        cts_static_type = self.get_type()
-        CONST_GENERATOR.load_const(ilasm, self)
-
-        if cts_static_type != cts.lltype_to_cts(EXPECTED_TYPE):
-            ilasm.opcode('castclass', cts.lltype_to_cts(EXPECTED_TYPE, include_class=False))
-
-    def record_const_maybe(self, TYPE, value):
-        if AbstractConst.is_primitive(TYPE):
-            return
-        self.db.record_const(value)
-
-    def render(self, ilasm):
-        pass
-
-    def dependencies(self):
-        """
-        Record all constants that are needed to correctly initialize
-        the object.
-        """
-
-    def instantiate(self, ilasm):
-        """
-        Instantiate the the object which represent the constant and
-        leave a reference to it on the stack.
-        """
-        raise NotImplementedError
-
-    def init(self, ilasm):
-        """
-        Do some sort of extra initialization, if needed. It assume the
-        object to be initialized is on the stack. Don't leave anything
-        on the stack.
-        """
-        assert not self.is_null()
-        ilasm.opcode('pop')
-
-
-class RecordConst(AbstractConst):
-    def __init__(self, db, record, count):
-        self.db = db
-        self.cts = CTS(db)        
-        self.value = record
-        self.name = 'RECORD__%d' % count
-
-    def get_type(self, include_class=True):
-        return self.cts.lltype_to_cts(self.value._TYPE, include_class)
-
-    def dependencies(self):
-        if self.value is ootype.null(self.value._TYPE):
-            return
-        for f_name, (FIELD_TYPE, f_default) in self.value._TYPE._fields.iteritems():
-            value = self.value._items[f_name]            
-            self.record_const_maybe(FIELD_TYPE, value)
-
-    def instantiate(self, ilasm):
-        assert not self.is_null()
-        class_name = self.get_type(False)
-        ilasm.new('instance void class %s::.ctor()' % class_name)
-        self.db.const_count.inc('Record')
-
-    def init(self, ilasm):
-        assert not self.is_null()
-        class_name = self.get_type(False)        
-        for f_name, (FIELD_TYPE, f_default) in self.value._TYPE._fields.iteritems():
-            if FIELD_TYPE is not ootype.Void:
-                f_type = self.cts.lltype_to_cts(FIELD_TYPE)
-                value = self.value._items[f_name]
-                ilasm.opcode('dup')
-                AbstractConst.load(self.db, FIELD_TYPE, value, ilasm)            
-                ilasm.set_field((f_type, class_name, f_name))
-        ilasm.opcode('pop')
-
-class StaticMethodConst(AbstractConst):
-    def __init__(self, db, sm, count):
-        self.db = db
-        self.cts = CTS(db)
-        self.value = sm
-        self.name = 'DELEGATE__%d' % count
-
-    def get_type(self, include_class=True):
-        return self.cts.lltype_to_cts(self.value._TYPE, include_class)
-
-    def dependencies(self):
-        if self.value is ootype.null(self.value._TYPE):
-            return
-        self.db.pending_function(self.value.graph)
-        self.delegate_type = self.db.record_delegate(self.value._TYPE)
-
-    def instantiate(self, ilasm):
-        assert not self.is_null()
-        signature = self.cts.graph_to_signature(self.value.graph)
-        ilasm.opcode('ldnull')
-        ilasm.opcode('ldftn', signature)
-        ilasm.new('instance void class %s::.ctor(object, native int)' % self.delegate_type)
-        self.db.const_count.inc('StaticMethod')
-
-class ClassConst(AbstractConst):
-    def __init__(self, db, class_, count):
-        self.db = db
-        self.cts = CTS(db)
-        self.value = class_
-        self.name = 'CLASS__%d' % count
-
-    def get_type(self, include_class=True):
-        return self.cts.lltype_to_cts(self.value._TYPE, include_class)
-
-    def dependencies(self):
-        INSTANCE = self.value._INSTANCE
-        if INSTANCE is not None:
-            self.cts.lltype_to_cts(INSTANCE) # force scheduling class generation
-
-    def is_null(self):
-        return self.value._INSTANCE is None
-
-    def is_inline(self):
-        return True
-
-    def _load(self, ilasm, EXPECTED_TYPE):
-        assert not self.is_null()
-        INSTANCE = self.value._INSTANCE
-        ilasm.opcode('ldtoken', self.db.class_name(INSTANCE))
-        ilasm.call('class [mscorlib]System.Type class [mscorlib]System.Type::GetTypeFromHandle(valuetype [mscorlib]System.RuntimeTypeHandle)')
-
-class ListConst(AbstractConst):
-    def __init__(self, db, list_, count):
-        self.db = db
-        self.cts = CTS(db)
-        self.value = list_
-        self.name = 'LIST__%d' % count
-
-    def get_type(self, include_class=True):
-        return self.cts.lltype_to_cts(self.value._TYPE, include_class)
-
-    def dependencies(self):
-        if not self.value:
-            return
-        for item in self.value._list:
-            self.record_const_maybe(self.value._TYPE._ITEMTYPE, item)
-
-    def instantiate(self, ilasm):
-        assert not self.is_null()
-        class_name = self.get_type(False)
-        AbstractConst.load(self.db, ootype.Signed, len(self.value._list), ilasm)
-        ilasm.new('instance void class %s::.ctor(int32)' % class_name)
-        self.db.const_count.inc('List')
-        self.db.const_count.inc('List', self.value._TYPE._ITEMTYPE)
-        self.db.const_count.inc('List', len(self.value._list))
-
-    def _list_of_zeroes(self):
-        try:
-            return self.value._list == [0] * len(self.value._list)
-        except:
-            return False
-
-    def init(self, ilasm):
-        assert not self.is_null()
-        ITEMTYPE = self.value._TYPE._ITEMTYPE
-        itemtype = self.cts.lltype_to_cts(ITEMTYPE)
-        itemtype_T = self.cts.lltype_to_cts(self.value._TYPE.ITEMTYPE_T)
-
-        # special case: List(Void); only resize it, don't care of the contents
-        # special case: list of zeroes, don't need to initialize every item
-        if ITEMTYPE is ootype.Void or self._list_of_zeroes():
-            AbstractConst.load(self.db, ootype.Signed, len(self.value._list), ilasm)            
-            meth = 'void class %s::_ll_resize(int32)' % self.get_type(False) #PYPY_LIST_OF_VOID
-            ilasm.call_method(meth, False)
-            return
-        
-        for item in self.value._list:
-            ilasm.opcode('dup')
-            AbstractConst.load(self.db, ITEMTYPE, item, ilasm)
-            meth = 'void class [pypylib]pypy.runtime.List`1<%s>::Add(%s)' % (itemtype, itemtype_T)
-            ilasm.call_method(meth, False)
-        ilasm.opcode('pop')
-
-class DictConst(AbstractConst):
-    def __init__(self, db, dict_, count):
-        self.db = db
-        self.cts = CTS(db)
-        self.value = dict_
-        self.name = 'DICT__%d' % count
-
-    def get_type(self, include_class=True):
-        return self.cts.lltype_to_cts(self.value._TYPE, include_class)
-
-    def dependencies(self):
-        if not self.value:
-            return
-        
-        for key, value in self.value._dict.iteritems():
-            self.record_const_maybe(self.value._TYPE._KEYTYPE, key)
-            self.record_const_maybe(self.value._TYPE._VALUETYPE, value)
-
-    def instantiate(self, ilasm):
-        assert not self.is_null()
-        class_name = self.get_type(False)
-        ilasm.new('instance void class %s::.ctor()' % class_name)
-        self.db.const_count.inc('Dict')
-        self.db.const_count.inc('Dict', self.value._TYPE._KEYTYPE, self.value._TYPE._VALUETYPE)
-        
-    def init(self, ilasm):
-        assert not self.is_null()
-        class_name = self.get_type(False)
-        KEYTYPE = self.value._TYPE._KEYTYPE
-        keytype = self.cts.lltype_to_cts(KEYTYPE)
-        keytype_T = self.cts.lltype_to_cts(self.value._TYPE.KEYTYPE_T)
-
-        VALUETYPE = self.value._TYPE._VALUETYPE
-        valuetype = self.cts.lltype_to_cts(VALUETYPE)
-        valuetype_T = self.cts.lltype_to_cts(self.value._TYPE.VALUETYPE_T)
-
-        if KEYTYPE is ootype.Void:
-            assert VALUETYPE is ootype.Void
-            ilasm.opcode('pop')
-            return
-
-        # special case: dict of void, ignore the values
-        if VALUETYPE is ootype.Void:
-            class_name = PYPY_DICT_OF_VOID % keytype
-            for key in self.value._dict:
-                ilasm.opcode('dup')
-                AbstractConst.load(self.db, KEYTYPE, key, ilasm)
-                meth = 'void class %s::ll_set(%s)' % (class_name, keytype_T)
-                ilasm.call_method(meth, False)
-            ilasm.opcode('pop')
-            return
-
-        for key, value in self.value._dict.iteritems():
-            ilasm.opcode('dup')
-            AbstractConst.load(self.db, KEYTYPE, key, ilasm)
-            AbstractConst.load(self.db, VALUETYPE, value, ilasm)
-            meth = 'void class [pypylib]pypy.runtime.Dict`2<%s, %s>::ll_set(%s, %s)' %\
-                   (keytype, valuetype, keytype_T, valuetype_T)
-            ilasm.call_method(meth, False)
-        ilasm.opcode('pop')
-
-class CustomDictConst(DictConst):
-    PRIORITY = 100
-    
-    def dependencies(self):
-        if not self.value:
-            return
-
-        eq = self.value._dict.key_eq
-        hash = self.value._dict.key_hash
-        self.comparer = EqualityComparer(self.db, self.value._TYPE._KEYTYPE, eq, hash)
-        self.db.pending_node(self.comparer)
-        DictConst.dependencies(self)
-
-    def instantiate(self, ilasm):
-        assert not self.is_null()
-        ilasm.new(self.comparer.get_ctor())
-        class_name = self.get_type()
-        ilasm.new('instance void %s::.ctor(class '
-                  '[mscorlib]System.Collections.Generic.IEqualityComparer`1<!0>)'
-                  % class_name)
-        self.db.const_count.inc('CustomDict')
-        self.db.const_count.inc('CustomDict', self.value._TYPE._KEYTYPE, self.value._TYPE._VALUETYPE)
-
-
-class InstanceConst(AbstractConst):
-    def __init__(self, db, obj, static_type, count):
-        self.db = db
-        self.cts = CTS(db)
-        self.value = obj
-        if static_type is None:
-            self.static_type = obj._TYPE
-        else:
-            self.static_type = static_type
-            self.cts.lltype_to_cts(obj._TYPE) # force scheduling of obj's class
-        class_name = db.class_name(obj._TYPE).replace('.', '_')
-        self.name = '%s__%d' % (class_name, count)
-
-    def get_type(self):
-        return self.cts.lltype_to_cts(self.static_type)
-
-    def dependencies(self):
-        if not self.value:
-            return
-
-        INSTANCE = self.value._TYPE
-        while INSTANCE is not None:
-            for name, (TYPE, default) in INSTANCE._fields.iteritems():
-                if TYPE is ootype.Void:
-                    continue
-                type_ = self.cts.lltype_to_cts(TYPE) # record type
-                value = getattr(self.value, name) # record value
-                self.record_const_maybe(TYPE, value)
-            INSTANCE = INSTANCE._superclass
-
-    def is_null(self):
-        return not self.value
-
-    def instantiate(self, ilasm):
-        assert not self.is_null()
-        INSTANCE = self.value._TYPE
-        ilasm.new('instance void class %s::.ctor()' % self.db.class_name(INSTANCE))
-        self.db.const_count.inc('Instance')
-        self.db.const_count.inc('Instance', INSTANCE)
-
-    def init(self, ilasm):
-        assert not self.is_null()
-        INSTANCE = self.value._TYPE
-        if INSTANCE is not self.static_type:
-            ilasm.opcode('castclass', self.cts.lltype_to_cts(INSTANCE, include_class=False))
-
-        # XXX, horrible hack: first collect all consts, then render
-        # CustomDicts at last because their ll_set could need other
-        # fields already initialized. We should really think a more
-        # general way to handle such things.
-        const_list = []
-        while INSTANCE is not None:
-            for name, (TYPE, default) in INSTANCE._fields.iteritems():
-                if TYPE is ootype.Void:
-                    continue
-                value = getattr(self.value, name)
-                const_list.append((TYPE, INSTANCE, name, value))
-            INSTANCE = INSTANCE._superclass
-
-        def mycmp(x, y):
-            if isinstance(x[0], ootype.CustomDict) and not isinstance(y[0], ootype.CustomDict):
-                return 1 # a CustomDict is always greater than non-CustomDicts
-            elif isinstance(y[0], ootype.CustomDict) and not isinstance(x[0], ootype.CustomDict):
-                return -1 # a non-CustomDict is always less than CustomDicts
-            else:
-                return cmp(x, y)
-        const_list.sort(mycmp)
-        
-        for TYPE, INSTANCE, name, value in const_list:
-            type_ = self.cts.lltype_to_cts(TYPE)
-            ilasm.opcode('dup')
-            AbstractConst.load(self.db, TYPE, value, ilasm)
-            ilasm.opcode('stfld %s %s::%s' % (type_, self.db.class_name(INSTANCE), name))
-
-        ilasm.opcode('pop')
-
-class WeakRefConst(AbstractConst):
-    def __init__(self, db, fakeaddr, count):
-        self.db = db
-        self.cts = CTS(db)
-        self.value = fakeaddr.get()
-        self.name = 'WEAKREF__%d' % count
-
-    def get_type(self, include_class=True):
-        return 'class ' + WEAKREF
-
-    def is_null(self):
-        return False
-
-    def dependencies(self):
-        if self.value is not None:
-            self.db.record_const(self.value)
-
-    def instantiate(self, ilasm):
-        ilasm.opcode('ldnull')
-        ilasm.new('instance void %s::.ctor(object)' % self.get_type())
-        self.db.const_count.inc('WeakRef')
-
-    def init(self, ilasm):
-        if self.value is not None:
-            AbstractConst.load(self.db, self.value._TYPE, self.value, ilasm)        
-            ilasm.call_method('void %s::set_Target(object)' % self.get_type(), True)
-        else:
-            ilasm.opcode('pop')
