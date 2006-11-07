@@ -1,7 +1,19 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 from pypy.interpreter.miscutils import Action
-from pypy.module.signal import ctypes_signal
+import signal as cpy_signal
+
+
+def setup():
+    for key, value in cpy_signal.__dict__.items():
+        if key.startswith('SIG') and isinstance(value, int):
+            globals()[key] = value
+            yield key
+
+NSIG    = cpy_signal.NSIG
+SIG_DFL = cpy_signal.SIG_DFL
+SIG_IGN = cpy_signal.SIG_IGN
+signal_names = list(setup())
 
 
 class CheckSignalAction(Action):
@@ -12,83 +24,47 @@ class CheckSignalAction(Action):
 
     def __init__(self, space):
         self.space = space
+        self.handlers_w = {}
 
     def perform(self):
-        if flag_queue.signal_occurred:
-            flag_queue.signal_occurred = 0
-            node = flag_queue.head
-            signum = 0
-            while node is not None:
-                if node.flag:
-                    node.flag = 0
-                    main_ec = self.space.threadlocals.getmainthreadvalue()
-                    main_ec.add_pending_action(ReportSignal(self.space,
-                                                            node, signum))
-                node = node.next
-                signum += 1
+        while True:
+            n = pypysig_poll()
+            if n < 0:
+                break
+            main_ec = self.space.threadlocals.getmainthreadvalue()
+            main_ec.add_pending_action(ReportSignal(self, n))
+
+    def get(space):
+        for action in space.pending_actions:
+            if isinstance(action, CheckSignalAction):
+                return action
+        raise OperationError(space.w_RuntimeError,
+                             space.wrap("lost CheckSignalAction"))
+    get = staticmethod(get)
 
 
 class ReportSignal(Action):
     """A one-shot action for the main thread's execution context."""
 
-    def __init__(self, space, node, signum):
-        self.space = space
-        self.node = node
+    def __init__(self, action, signum):
+        self.action = action
         self.signum = signum
 
     def perform(self):
-        w_handler = self.node.w_handler
-        if w_handler is not None:
-            space = self.space
-            ec = space.getexecutioncontext()
-            try:
-                w_frame = ec.framestack.top()
-            except IndexError:
-                w_frame = space.w_None
-            space.call_function(w_handler, space.wrap(self.signum), w_frame)
-
-
-# ____________________________________________________________
-# Global flags set by the signal handler
-
-# XXX some of these data structures may need to
-#     use the "volatile" keyword in the generated C code
-
-class FlagQueueNode(object):
-    def __init__(self):
-        self.flag = 0
-        self.next = None
-        self.w_handler = None
-
-class FlagQueue(object):
-    signal_occurred = 0
-    head = FlagQueueNode()
-
-flag_queue = FlagQueue()
-
-def get_flag_queue_signum(signum):
-    node = flag_queue.head
-    while signum > 0:
-        if node.next is None:
-            node.next = FlagQueueNode()
-        node = node.next
-        signum -= 1
-    return node
-
-def generic_signal_handler(signum):
-    node = flag_queue.head
-    index = 0
-    while index < signum:
-        node = node.next
-        index += 1
-    node.flag = 1
-    flag_queue.signal_occurred = 1
-    # XXX may need to set the handler again, in case the OS clears it
-
-def os_setsig(signum, handler):
-    return ctypes_signal.signal(signum, handler)
-
-# ____________________________________________________________
+        try:
+            w_handler = self.action.handlers_w[self.signum]
+        except KeyError:
+            return    # no handler, ignore signal
+        # re-install signal handler, for OSes that clear it
+        pypysig_setflag(self.signum)
+        # invoke the app-level handler
+        space = self.action.space
+        ec = space.getexecutioncontext()
+        try:
+            w_frame = ec.framestack.top()
+        except IndexError:
+            w_frame = space.w_None
+        space.call_function(w_handler, space.wrap(self.signum), w_frame)
 
 def signal(space, signum, w_handler):
     ec      = space.getexecutioncontext()
@@ -97,10 +73,55 @@ def signal(space, signum, w_handler):
         raise OperationError(space.w_ValueError,
                              space.wrap("signal() must be called from the "
                                         "main thread"))
-    node = get_flag_queue_signum(signum)
-    node.w_handler = w_handler
-    # XXX special values SIG_IGN, SIG_DFL
-    handler = ctypes_signal.sighandler_t(generic_signal_handler)
-    os_setsig(signum, handler)
-    # XXX return value
+    action = CheckSignalAction.get(space)
+    if space.eq_w(w_handler, space.wrap(SIG_DFL)):
+        if signum in action.handlers_w:
+            del action.handlers_w[signum]
+        pypysig_default(signum)
+    elif space.eq_w(w_handler, space.wrap(SIG_IGN)):
+        if signum in action.handlers_w:
+            del action.handlers_w[signum]
+        pypysig_ignore(signum)
+    else:
+        if not space.is_true(space.callable(w_handler)):
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("'handler' must be a callable "
+                                            "or SIG_DFL or SIG_IGN"))
+        action.handlers_w[signum] = w_handler
+        pypysig_setflag(signum)
+    # XXX return value missing
 signal.unwrap_spec = [ObjSpace, int, W_Root]
+
+# ____________________________________________________________
+# CPython and LLTypeSystem implementations
+
+from pypy.rpython.extregistry import ExtRegistryEntry
+
+signal_queue = []    # only for py.py, not for translated pypy-c's
+
+def pypysig_poll():
+    "NOT_RPYTHON"
+    if signal_queue:
+        return signal_queue.pop(0)
+    else:
+        return -1
+
+def pypysig_default(signum):
+    "NOT_RPYTHON"
+    cpy_signal.signal(signum, cpy_signal.SIG_DFL)  # XXX error handling
+
+def pypysig_ignore(signum):
+    "NOT_RPYTHON"
+    cpy_signal.signal(signum, cpy_signal.SIG_IGN)  # XXX error handling
+
+def _queue_handler(signum, frame):
+    if signum not in signal_queue:
+        signal_queue.append(signum)
+
+def pypysig_setflag(signum):
+    "NOT_RPYTHON"
+    cpy_signal.signal(signum, _queue_handler)
+
+
+class Entry(ExtRegistryEntry):
+    pass   # in-progress

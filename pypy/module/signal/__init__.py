@@ -3,16 +3,19 @@ from pypy.interpreter.mixedmodule import MixedModule
 
 class Module(MixedModule):
     interpleveldefs = {
-        'signal': 'interp_signal.signal',
+        'signal':  'interp_signal.signal',
+        'NSIG':    'interp_signal.NSIG',
+        'SIG_DFL': 'interp_signal.SIG_DFL',
+        'SIG_IGN': 'interp_signal.SIG_IGN',
     }
 
     appleveldefs = {
     }
 
     def buildloaders(cls):
-        from pypy.module.signal import ctypes_signal
-        for name in ctypes_signal.signal_names:
-            signum = getattr(ctypes_signal, name)
+        from pypy.module.signal import interp_signal
+        for name in interp_signal.signal_names:
+            signum = getattr(interp_signal, name)
             if signum is not None:
                 Module.interpleveldefs[name] = 'space.wrap(%d)' % (signum,)
         super(Module, cls).buildloaders()

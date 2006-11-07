@@ -3,6 +3,9 @@ from pypy.rpython.rctypes.tool.libc import libc
 from ctypes import *
 
 
+assert 0, "not used so far =============================================="
+
+
 signal_names = ['SIGINT', 'SIGTERM', 'SIGKILL',
                 # ...
                 ]
