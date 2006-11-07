@@ -6,6 +6,7 @@ of cyclic imports
 from pypy.objspace.std.model import W_ANY, W_Object
 from pypy.interpreter import baseobjspace
 from pypy.interpreter.argument import Arguments
+from pypy.tool.sourcetools import func_with_new_name
 
 def create_mm_names(classname, mm, is_local):
     s = ""
@@ -22,7 +23,7 @@ def install_general_args_trampoline(type_, mm, is_local, op_name):
         args = __args__.prepend(space.wrap(op_name))
         return space.call_args(w_transparent_list.w_controller, args)
     
-    function.func_name = mm.name
+    function = func_with_new_name(function, mm.name)
     mm.register(function, type_)
 
 def install_w_args_trampoline(type_, mm, is_local, op_name):
@@ -30,7 +31,7 @@ def install_w_args_trampoline(type_, mm, is_local, op_name):
         args = Arguments(space, [space.wrap(op_name)] + list(args_w[:-1]), w_stararg=args_w[-1])
         return space.call_args(w_transparent_list.w_controller, args)
     
-    function.func_name = mm.name
+    function = func_with_new_name(function, mm.name)
     mm.register(function, type_, *([W_ANY] * (mm.arity - 1)))
 
 def install_mm_trampoline(type_, mm, is_local):
@@ -46,7 +47,7 @@ def install_mm_trampoline(type_, mm, is_local):
     def function(space, w_transparent_list, *args_w):
         return space.call_function(w_transparent_list.w_controller, space.wrap\
             (op_name), *args_w)
-    function.func_name = mm_name
+    function = func_with_new_name(function, mm_name)
     mm.register(function, type_, *([W_ANY] * (mm.arity - 1)))
 
 def is_special_doublearg(mm, type_):
@@ -74,7 +75,7 @@ def install_mm_special(type_, mm, is_local):
             w_any)
         return retval
         
-    function.func_name = mm.specialnames[0]
+    function = func_with_new_name(function, mm.specialnames[0])
     
     mm.register(function, type_.typedef.any, type_)
 
