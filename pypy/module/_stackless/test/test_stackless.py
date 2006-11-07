@@ -348,7 +348,7 @@ class AppTest_StacklessPickling:
 
     def setup_class(cls):
         if not option.runappdirect:
-            py.test.skip('pure appdirect test (run with -A)')
+            skip('pure appdirect test (run with -A)')
         cls.space = gettestobjspace(usemodules=('_stackless',))
 
     def test_basic_tasklet_pickling(self):

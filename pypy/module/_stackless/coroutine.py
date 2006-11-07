@@ -52,9 +52,10 @@ class _AppThunk(AbstractThunk):
 
 class AppCoroutine(Coroutine): # XXX, StacklessFlags):
 
-    def __init__(self, space, is_main=False):
+    def __init__(self, space, is_main=False, state=None):
         self.space = space
-        state = self._get_state(space)
+        if state is None:
+            state = self._get_state(space)
         Coroutine.__init__(self, state)
         self.flags = 0
         self.framestack = None
@@ -145,7 +146,7 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         nt = space.newtuple
         ec = self.space.getexecutioncontext()
 
-        if self is self._get_state(space).main:
+        if self is self.costate.main:
             return nt([mod2.get('return_main'), nt([])])
 
         thunk = self.thunk
@@ -304,4 +305,5 @@ class AppCoState(BaseCoState):
         self.space = space
         
     def post_install(self):
-        self.current = self.main = AppCoroutine(self.space, is_main=True)
+        self.current = self.main = AppCoroutine(self.space, is_main=True,
+                                                state=self)

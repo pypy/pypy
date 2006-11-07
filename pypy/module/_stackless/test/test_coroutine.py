@@ -1,8 +1,6 @@
 from pypy.conftest import gettestobjspace
 from py.test import skip
 
-# no real testing possible without compiling stackless pypy
-#
 
 class AppTest_Coroutine:
 
