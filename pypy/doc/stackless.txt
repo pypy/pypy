@@ -2,9 +2,6 @@
          Application-level Stackless features
 ==========================================================
 
-.. contents::
-.. sectnum::
-
 Introduction
 ================
 
@@ -13,117 +10,75 @@ present in `Stackless Python`_: the ability to write code in a massively
 concurrent style.  It actually exposes three different paradigms to
 choose from:
 
-* Tasklets and channels;
+* `Tasklets and channels`_;
 
-* Greenlets;
+* Greenlets_;
 
-* Plain coroutines.
+* Plain coroutines_.
 
 All of them are extremely light-weight, which means that PyPy should be
-able to handle programs containing large amounts of
-coroutines/tasklet/greenlets.
+able to handle programs containing large amounts of coroutines, tasklets
+and greenlets.
 
 
 Requirements
-=================
+++++++++++++++++
 
 If you are running py.py on top of CPython, then you need to enable
 the _stackless module by running it as follows::
 
-    py.py --usemodules=_stackless
+    py.py --withmod-_stackless
 
 This is implemented internally using greenlets, so it only works on a
-platform where greenlets_ are supported.
+platform where greenlets_ are supported.  A few features do not work in
+this way, though, and really require a translated ``pypy-c``.
 
-To translate a version of ``pypy-c`` that includes Stackless support,
-run translate.py as follows::
+To obtained a translated version of ``pypy-c`` that includes Stackless
+support, run translate.py as follows::
 
     cd pypy/translator/goal
     python translate.py --stackless
 
 
-Quick reference
-==========================
+Application level interface
+=============================
 
-The new features are exposed in a module called ``stackless``.
+A stackless PyPy contains a module called ``stackless``.  The interface
+exposed by this module has not been much refined, so it should be
+considered in-flux (as of 2006).
 
+So far, PyPy does not provide support for ``stackless`` in a threaded
+environment.  This limitation is not fundamental, as previous experience
+has shown, so supporting this would probably be reasonably easy.
 
-Tasklets and channels
-+++++++++++++++++++++
-
-The ``stackless`` module provides an interface that is roughly
-compatible with the interface of the ``stackless`` module in `Stackless
-Python`_: it contains ``stackless.tasklet`` and ``stackless.channel``
-classes.  Tasklets are similar to microthreads, but don't actually run
-in parallel with other microthreads; instead, they synchronize and
-exchange data with each other over Channels, and these exchanges
-determine which Tasklet run next.
-
-For usage reference, see the documentation on the `Stackless Python`_
-website.
-
-Note that Tasklets and Channels are implemented at application-level in
-`pypy/lib/stackless.py`_ on top of coroutines.  You can refer to this
-module for more details and the actual documentation.
-
-The current ``stackless`` module (pypy 0.9) is not yet feature complete and 
-may fail in spectacular ways. Just be warned.
-
-There is no support for stackless in a threaded environment whatsoever.
-
-The stackless.py code tries to resemble the stackless C code as much
-as possible. This makes the code somewhat unpythonic.
-
-Bird eyes view of tasklets and channels
-----------------------------------------
-
-tasklets are a bit like threads: they capsulate a function in such a way that
-they can be suspended/restarted any time. Unlike threads, they won't
-run concurrently, but must be quite cooperative. When using stackless
-features, it is vitaly important that no action is performed that blocks
-everything else.
-
-Communication between tasklets is done via channels. 
-
-There are three ways for a tasklet to give up control:
-
-1. call ``schedule()``
-2. send something over a channel
-3. receive something from a channel
-
-A (living) tasklet can be either running, or wait to get scheduled, or be
-blocked by a channel.
-
-Scheduling is done strictly round-robin. A blocked tasklet is removed from 
-the scheduling queue and a blocked tasklet will be reinserted into the
-queue when it becomes unblocked.
-
-Greenlets
-+++++++++
-
-Greenlets are primitive Tasklets with a lower-level interface and
-with exact control over the execution order.  For usage reference,
-see the greenlets_ documentation.
+An interesting point is that the same ``stackless`` module can provide
+three different concurrency paradigms at the same time.  From a
+theoretical point of view, none of these three paradigms considered
+alone is new: two of them are from previous Python work, and the third
+one is a quite classical coroutine variant.  The new part is that the
+PyPy implementation manages to provide all of them and let the user
+implement more.  Moreover - and this might be an important theoretical
+contribution of this work - we manage to provide these concurrency
+concepts in a "composable" way.  In other words, it is possible to
+naturally mix in a single application multiple concurrency paradigms,
+and multiple unrelated usages of the same paradigm.  This is detailed in
+the Composability_ section below.
 
 
 Coroutines
 ++++++++++
 
-Coroutines are similar to greenlets, with a slightly different
-interface.  One way to see the difference is to note that greenlets put
-more emphasis on a tree structure: the various greenlets of a program
-form a precise tree, which controls the order of execution.
-
-The ``stackless.coroutine`` class is instantiated with no argument.
-Such a coroutine object is similar to a microthread.  When execution is
-transferred to it, it starts to execute some Python code.  When
+A Coroutine is similar to a microthread, with no preemptive scheduling.
+Within a family of coroutines, the execution can be explicitly
+transferred from one to another by the user.  When execution is
+transferred to a coroutine, it starts executing some Python code.  When
 execution is transferred away from it, it is temporarily suspended.
 When the execution comes back to it, it resumes its execution from the
-point where it was suspend.  Only one coroutine is actively running at
-any given time.
+point where it was suspend.  Conceptually, only one coroutine is
+actively running at any given time (but see Composability_ below).
 
-The class ``stackless.coroutine`` has the following methods and
-attributes:
+The ``stackless.coroutine`` class is instantiated with no argument.
+It provides the following methods and attributes:
 
 * ``stackless.coroutine.getcurrent()``
 
@@ -139,8 +94,10 @@ attributes:
     first time we call the ``coro.switch()`` method.  A coroutine must
     be bound before it is switched to.  When the coroutine finishes
     (because the call to the callable returns), the coroutine exits and
-    implicitly switches back to its parent coroutine; after this point,
-    it is possible to bind it again and switch to it again.
+    implicitly switches back to another coroutine (its "parent"); after
+    this point, it is possible to bind it again and switch to it again.
+    (Which coroutine is the parent of which is not documented, as it is
+    likely to change when the interface is refined.)
 
 * ``coro.switch()``
 
@@ -155,7 +112,173 @@ attributes:
     will be fixed in the future.)
 
 
+Tasklets and channels
++++++++++++++++++++++
+
+The ``stackless`` module also provides an interface that is roughly
+compatible with the interface of the ``stackless`` module in `Stackless
+Python`_: it contains ``stackless.tasklet`` and ``stackless.channel``
+classes.  Tasklets are similar to microthreads, but (like coroutines)
+they don't actually run in parallel with other microthreads; instead,
+they synchronize and exchange data with each other over Channels, and
+these exchanges determine which Tasklet runs next.
+
+For usage reference, see the documentation on the `Stackless Python`_
+website.
+
+Note that Tasklets and Channels are implemented at application-level in
+`pypy/lib/stackless.py`_ on top of coroutines_.  You can refer to this
+module for more details and the actual documentation.
+
+The stackless.py code tries to resemble the stackless C code as much
+as possible. This makes the code somewhat unpythonic.
+
+Bird eyes view of tasklets and channels
+----------------------------------------
+
+Tasklets are a bit like threads: they encapsulate a function in such a way that
+they can be suspended/restarted any time. Unlike threads, they won't
+run concurrently, but must be cooperative. When using stackless
+features, it is vitaly important that no action is performed that blocks
+everything else.  In particular, blocking input/output should be centralized
+to a single tasklet.
+
+Communication between tasklets is done via channels. 
+There are three ways for a tasklet to give up control:
+
+1. call ``schedule()``
+2. send something over a channel
+3. receive something from a channel
+
+A (living) tasklet can either be running, or wait to get scheduled, or be
+blocked by a channel.
+
+Scheduling is done in strictly round-robin manner. A blocked tasklet is
+removed from the scheduling queue and a blocked tasklet will be
+reinserted into the queue when it becomes unblocked.
+
+
+Greenlets
++++++++++
+
+A Greenlet is a kind of primitive Tasklet with a lower-level interface
+and with exact control over the execution order.  Greenlets are similar
+to Coroutines, with a slightly different interface: greenlets put more
+emphasis on a tree structure.  The various greenlets of a program form a
+precise tree, which fully determines their order of execution.
+
+For usage reference, see the greenlet_ documentation in the Py lib.  The
+PyPy interface is identical, except that the `greenlet` class is in the
+``stackless`` module instead of in the ``py.magic`` module.
+
+
+Coroutine Pickling
+++++++++++++++++++
+
+Coroutines and tasklets can be pickled and unpickled, i.e. serialized to
+a string of bytes for the purpose of storage or transmission.  This
+allows "live" coroutines or tasklets to be made persistent, moved to
+other machines, or cloned in any way.  The standard ``pickle`` module
+works with coroutines and tasklets (at least in a translated ``pypy-c``;
+unpickling live coroutines or tasklets cannot be easily implemented on
+top of CPython).
+
+To be able to achieve this result, we have to consider many objects that
+are not normally picklable in CPython.  Here again, the `Stackless
+Python`_ implementation has paved the way, and we follow the same
+general design decisions: simple internal objects like bound method
+objects and various kind of iterators are supported; frame objects can
+be fully pickled and unpickled (by serializing the bytecode they are
+running in addition to all the local variables).  References to globals
+and modules are pickled by name, like references to functions and
+classes in the traditional CPython ``pickle``.
+
+The "magic" part of this process is the implementation of the unpickling
+of a chain of frames.  The Python interpreter of PyPy uses
+interpreter-level recursion to represent application-level calls.  The
+reason for this is that it tremendously simplifies the implementation of
+the interpreter itself.  Indeed, in Python, almost any operation can
+potentially result in a non-tail-recursive call to another Python
+function.  This makes writing an non-recursive interpreter extremely
+tedious.  For this reason, the interpreter is recursive, and we rely on
+lower-level transformations during the translation process to control
+this recursion - the `Stackless Transform`_.
+
+At any point in time, a chain of Python-level frames corresponds to a
+chain of interpreter-level frames (e.g. C frames in pypy-c), where each
+single Python-level frame corresponds to one or a few interpreter-level
+frames - depending on the length of the interpreter-level call chain
+from one bytecode evaluation loop to the next recursively invoked one.
+
+This means that it is not sufficient to simply create a chain of Python
+frame objects in the heap of a process before we can resume execution of
+these newly built frames.  We must recreate a corresponding chain of
+interpreter-level frames.  To this end, we have inserted a few *named
+resume points* (see XXX) in the Python interpreter of PyPy.  This is the
+motivation for implementing the interpreter-level primitives
+``resume_state_create()`` and ``resume_state_invoke()``, a powerful
+interface that allows an RPython program to artifically rebuild a chain
+of calls in a reflective way, completely from scratch, and jump to it.
+
+
+Coroutine Cloning
++++++++++++++++++
+
+In theory, coroutine pickling is general enough to allow coroutines to
+be *cloned* in-process; i.e. from one suspended coroutine, a copy can be
+made (by pickling and immediately unpickling it).  Both the original and
+the copy can then continue execution from the same point on.  Cloning
+gives much of the expressive power of full *continuations*.
+
+However, pickling has many problems in practice.  It is not a completely
+general solution because not all kinds of objects can be pickled;
+moreover, which objects are pickled by value or by reference only
+depends on the type of the object.  For the purpose of cloning, this
+means that coroutines cannot be pickled/unpickled in all situations, and
+even when they can, the user does not have full control over which of
+the objects currently reachable from a coroutine will be duplicated, and
+which will be shared with the original coroutine.
+
+For this reason, we implemented a direct cloning operation.  After some
+experiments, we determined that the following behavior is usually
+considered correct: when cloning a coroutine C, we duplicate exactly
+those objects that were created by C (i.e. while C was running).  The
+objects not created by C (e.g. pre-existing, or created outside) are not
+duplicated, but directly shared between C and its new copy.  This
+heuristic generally matches the intuition that the objects created by C
+are also often the ones "owned" by C, in the sense that if C is cloned,
+the clone needs its own copy to avoid mutating the same shared objects
+in conflicit ways.  Conversely, objects of a more "global" nature, like
+modules and functions, which are typically created before the coroutine
+C started, should not be duplicated; this would result in unexpectedly
+invisible side-effects if they are mutated by the clone of C.
+
+The implementation of the above heuristic is based on support from the
+garbage collector.  For this reason, it is only available if both
+stackless and our own framework GC are compiled together in pypy-c (use
+``translate.py --stackless --framework=gc``).  In this mode, our garbage
+collector is extended to support the notion of "pool": a pool is a
+linked list of allocated objects.  All objects allocated go to a
+"current" pool.  When the stackless module switches execution between
+two ClonableCoroutine objects, it switches the GC's current pool as
+well, so that the allocated objects end up segregated by coroutine.
+Cloning is implemented by another GC extension which makes byte-level
+copies of allocated by following all references.  References that point
+to objects inside the current pool cause the objects to be recursively
+copied; other references are simply shared.
+
+
+Composability
++++++++++++++
+
+XXX, without having to complicate each part of the
+application with explicit knowledge about the other part's usage of
+concurrency.  Many traditional concurrency concepts cannot be composed
+in this way. XXX
+
+
 .. _`Stackless Python`: http://www.stackless.com
-.. _greenlets: http://codespeak.net/py/current/doc/greenlet.html
+.. _greenlet: http://codespeak.net/py/current/doc/greenlet.html
+.. _`Stackless Transform`: translation.html#the-stackless-transform
 
 .. include:: _ref.txt
