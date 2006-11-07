@@ -54,7 +54,7 @@ pypy_optiondescription = OptionDescription("pypy", "All PyPy Options", [
        
         OptionDescription("std", "Standard Object Space Options", [
             BoolOption("withtproxy", "support transparent proxies",
-                       default=False),
+                       default=False, cmdline='--with-transparent-proxy'),
 
             BoolOption("withsmallint", "use tagged integers",
                        default=False),
