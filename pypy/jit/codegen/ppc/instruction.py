@@ -180,20 +180,20 @@ class CMPWI(CMPInsn):
     def emit(self, asm):
         asm.cmpwi(self.result_reg.number, self.arg_reg.number, self.imm.value)
 
-class MTCTR(Insn):
-    def __init__(self, result, args):
-        Insn.__init__(self)
-        self.result = result
-        self.result_regclass = CT_REGISTER
+## class MTCTR(Insn):
+##     def __init__(self, result, args):
+##         Insn.__init__(self)
+##         self.result = result
+##         self.result_regclass = CT_REGISTER
 
-        self.reg_args = args
-        self.reg_arg_regclasses = [GP_REGISTER]
+##         self.reg_args = args
+##         self.reg_arg_regclasses = [GP_REGISTER]
 
-    def allocate(self, allocator):
-        self.arg_reg = allocator.var2loc[self.reg_args[0]]
+##     def allocate(self, allocator):
+##         self.arg_reg = allocator.var2loc[self.reg_args[0]]
 
-    def emit(self, asm):
-        asm.mtctr(self.arg_reg.number)
+##     def emit(self, asm):
+##         asm.mtctr(self.arg_reg.number)
 
 class Jump(Insn):
     def __init__(self, gv_cond, gv_target, jump_if_true):
@@ -237,6 +237,7 @@ class Unspill(AllocTimeInsn):
         """
         AllocTimeInsn.__init__(self)
         self.var = var
+        assert isinstance(reg, GPR)
         self.reg = reg
         self.stack = stack
     def emit(self, asm):
@@ -254,6 +255,7 @@ class Spill(AllocTimeInsn):
         """
         AllocTimeInsn.__init__(self)
         self.var = var
+        assert isinstance(reg, GPR)
         self.reg = reg
         self.stack = stack
     def emit(self, asm):
