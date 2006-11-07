@@ -51,7 +51,6 @@ class AppTest_Coroutine:
             raise AssertionError("exception not propagated")
 
     def test_strange_test(self):
-        skip("test is failing for atm unknown reasons")
         from _stackless import coroutine
         def f():
             print "in new coro"
@@ -75,20 +74,6 @@ class AppTest_Coroutine:
             a.kill()
         b.bind(kill)
         b.switch()
-
-    def test_finished(self):
-        skip('should a coroutine be a zombie after being done?')
-        import _stackless as stackless
-        co = stackless.coroutine()
-        def f():
-            pass
-        co.bind(f)
-        co.switch()
-        # doing an assert here runs into some (infinite looking)
-        # cycle.
-        # Lots of "GC Warning: Finalization cycle involving xxxx"
-        if not co.is_zombie:
-            raise Exception('co should be a zombie now')
 
     def test_kill(self):
         import _stackless as stackless
