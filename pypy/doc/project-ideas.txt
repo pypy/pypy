@@ -28,7 +28,7 @@ memory usage trade-offs) as much as code.  (The point of PyPy is that we can
 do this without making the interpreted applications aware of the optimization
 at all.)
 
-For example, we have started some work on:
+For example, we've got working implementations of things like:
 
 * lazy string slices (slicing a string gives an object that references a part
   of the original string).
@@ -38,16 +38,30 @@ For example, we have started some work on:
 
 * dictionaries specialized for string-only keys.
 
+Other interesting ideas might be:
 
-
+* lists which are specialised for int-only values (for saving memory).
 
 Start or improve a back-end
 ---------------------------
 
 PyPy has complete, or nearly so, back-ends for C, LLVM and CLI/.NET and
-partial backends for Common Lisp, Squeak and the JVM.  It would be an
+partial backends for JS, Common Lisp, Squeak and the JVM.  It would be an
 interesting project to improve either of these partial backends, or start one
 for another platform (objective C comes to mind).
+
+Improve JS backend
+------------------
+
+A JS backend is somehow different from other pypy's backends because it does
+not try to support all pypy (where it might be run than?), but rather to
+compile RPython programs into browser-stuff. Some documents are in a 
+`JS whatis`_ file and a `JS using`_ file. Some project ideas might be:
+
+* Write some examples to show different possibilities of using them
+
+* Improve facilities of testing RPython code on top of CPython, mostly
+  by improving existing DOM interface.
 
 Improve one of the JIT back-ends
 --------------------------------
@@ -85,7 +99,6 @@ require more design.  The object space model of PyPy would easily allow
 objects to be tagged and tracked.  The translation of PyPy would also be a
 good place to insert e.g. systematic checks around all system calls.
 
-
 Experiment with distribution and persistence
 --------------------------------------------
 
@@ -111,8 +124,6 @@ work, i.e. allow RPython programs to use some Numeric facilities.
 Additionally, these facilities could be exposed to applications interpreted by
 the translated PyPy interpreter.
 
-
-
 Extension modules
 -----------------
 
@@ -136,8 +147,6 @@ You are free to pick any other CPython module, either standard or third-party
 (if relatively well-known).  Note that some modules exist in a ctypes version
 already, which would be a good start for porting them to PyPy's extension
 compiler.  We'd particularly appreciate ``readline`` :-)
-
-
 
 Extend py.execnet to a peer-to-peer model
 -----------------------------------------
@@ -185,3 +194,6 @@ mailing list`_.  You can also have a look around our documentation_.
 .. _`pypy-dev mailing list`: http://codespeak.net/mailman/listinfo/pypy-dev
 .. _`Summer of PyPy`: summer-of-pypy.html
 .. _`ZODB's Persistent class`: http://www.zope.org/Documentation/Books/ZDG/current/Persistence.stx
+.. _`JS whatis`: js/whatis.html
+.. _`JS using`: js/using.html
+
