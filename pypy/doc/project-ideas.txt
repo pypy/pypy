@@ -46,17 +46,18 @@ Start or improve a back-end
 ---------------------------
 
 PyPy has complete, or nearly so, back-ends for C, LLVM and CLI/.NET and
-partial backends for JS, Common Lisp, Squeak and the JVM.  It would be an
-interesting project to improve either of these partial backends, or start one
-for another platform (objective C comes to mind).
+partial backends for JavaScript, Common Lisp, Squeak and the JVM.  It would 
+be an interesting project to improve either of these partial backends, 
+or start one for another platform (objective C comes to mind).
 
-Improve JS backend
-------------------
+Improve JavaScript backend
+--------------------------
 
-A JS backend is somehow different from other pypy's backends because it does
-not try to support all pypy (where it might be run than?), but rather to
-compile RPython programs into browser-stuff. Some documents are in a 
-`JS whatis`_ file and a `JS using`_ file. Some project ideas might be:
+A JavaScript backend is somehow different from other pypy's backends 
+because it does not try to support all pypy (where it might be run than?),
+but rather to compile RPython programs into browser-stuff. 
+Some documents are in a `JavaScript whatis`_ file and a `JavaScript using`_ 
+file. Some project ideas might be:
 
 * Write some examples to show different possibilities of using them
 
@@ -194,6 +195,6 @@ mailing list`_.  You can also have a look around our documentation_.
 .. _`pypy-dev mailing list`: http://codespeak.net/mailman/listinfo/pypy-dev
 .. _`Summer of PyPy`: summer-of-pypy.html
 .. _`ZODB's Persistent class`: http://www.zope.org/Documentation/Books/ZDG/current/Persistence.stx
-.. _`JS whatis`: js/whatis.html
-.. _`JS using`: js/using.html
+.. _`JavaScript whatis`: js/whatis.html
+.. _`JavaScript using`: js/using.html
 
