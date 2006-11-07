@@ -1,4 +1,4 @@
-from pypy.conftest import gettestobjspace, skip_on_missing_buildoption
+from pypy.conftest import gettestobjspace
 from py.test import skip
 
 # no real testing possible without compiling stackless pypy

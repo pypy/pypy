@@ -7,7 +7,6 @@ from pypy.rpython.memory.gctransform import stacklessframework
 from pypy.rpython.memory.test import test_transformed_gc
 from pypy.module._stackless.interp_clonable import InterpClonableCoroutine as ClonableCoroutine
 from pypy.module._stackless.interp_clonable import AbstractThunk, fork
-from pypy.conftest import skip_on_missing_buildoption
 
 class TestClonableCoroutine(test_transformed_gc.GCTest):
 

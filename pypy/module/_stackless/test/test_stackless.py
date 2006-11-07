@@ -1,4 +1,4 @@
-from pypy.conftest import gettestobjspace, skip_on_missing_buildoption
+from pypy.conftest import gettestobjspace, option
 from py.test import skip
 
 
@@ -344,11 +344,12 @@ class AppTest_Stackless:
                           ('schedule', 1), ('schedule', 2),
                           ('schedule', 1), ('schedule', 2),]
 
-class Test_StacklessPickling:
+class AppTest_StacklessPickling:
 
     def setup_class(cls):
-        skip_on_missing_buildoption(stackless=True)
-
+        if not option.runappdirect:
+            py.test.skip('pure appdirect test (run with -A)')
+        cls.space = gettestobjspace(usemodules=('_stackless',))
 
     def test_basic_tasklet_pickling(self):
         import stackless
