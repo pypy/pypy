@@ -344,6 +344,14 @@ def getpid(space):
     return space.wrap(pid)
 getpid.unwrap_spec = [ObjSpace]
 
+def kill(space, pid, sig):
+    "Kill a process with a signal."
+    try:
+        os.kill(pid, sig)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+kill.unwrap_spec = [ObjSpace, int, int]
+
 def link(space, src, dst):
     "Create a hard link to a file."
     try: 

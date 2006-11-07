@@ -47,6 +47,7 @@ corresponding Unix manual entries for more information on calls."""
     'chmod'     : 'interp_posix.chmod',
     'rename'    : 'interp_posix.rename',
     '_exit'     : 'interp_posix._exit',
+    'kill'      : 'interp_posix.kill',
     #'getuid'    : 'interp_posix.getuid',
     #'geteuid'   : 'interp_posix.geteuid',
     }

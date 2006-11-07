@@ -9,6 +9,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <signal.h>
 #ifndef PATH_MAX
   /* assume windows */
 #  define PATH_MAX 254
@@ -73,6 +74,7 @@ void LL_os_rmdir(RPyString * path);
 void LL_os_chmod(RPyString * path, int mode);
 void LL_os_rename(RPyString * path1, RPyString * path2);
 long LL_os_getpid(void);
+void LL_os_kill(int pid, int sig);
 void LL_os_link(RPyString * path1, RPyString * path2);
 void LL_os_symlink(RPyString * path1, RPyString * path2);
 long LL_readlink_into(RPyString *path, RPyString *buffer);
@@ -340,6 +342,13 @@ void LL_os_rename(RPyString * path1, RPyString * path2) {
 
 long LL_os_getpid(void) {
 	return getpid();
+}
+
+void LL_os_kill(int pid, int sig) {
+    int error = kill(pid, sig);
+    if (error != 0) {
+	RPYTHON_RAISE_OSERROR(errno);
+    }
 }
 
 #ifdef HAVE_FILESYSTEM_WITH_LINKS

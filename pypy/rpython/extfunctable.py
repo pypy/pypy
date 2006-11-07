@@ -217,6 +217,7 @@ declare(os.pipe     , pipeannotation, 'll_os/pipe')
 declare(os.chmod    , noneannotation, 'll_os/chmod')
 declare(os.rename   , noneannotation, 'll_os/rename')
 declare(os._exit    , noneannotation, 'll_os/_exit')
+declare(os.kill     , noneannotation, 'll_os/kill')
 if hasattr(os, 'getpid'):
     declare(os.getpid   , int,            'll_os/getpid')
 if hasattr(os, 'link'):

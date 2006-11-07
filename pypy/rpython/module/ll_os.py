@@ -143,6 +143,10 @@ class BaseOS:
         return os.getpid()
     ll_os_getpid.suggested_primitive = True
 
+    def ll_os_kill(cls, pid, sig):
+        os.kill(pid, sig)
+    ll_os_kill.suggested_primitive = True
+
     def ll_os_link(cls, path1, path2):
         os.link(cls.from_rstr(path1), cls.from_rstr(path2))
     ll_os_link.suggested_primitive = True
