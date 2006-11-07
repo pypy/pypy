@@ -9,7 +9,7 @@ os.umask(022)      # allow everyone to read/execute the produced pypy-c's
 
 homedir = os.getenv('HOME')
 tmpdir  = py.std.tempfile.gettempdir() + '/usession-' + os.environ['USER'] + '/'
-cflags  = "-march=pentium4 -O3 -fomit-frame-pointer"
+cflags  = "-mtune=pentium4 -O3 -fomit-frame-pointer"
 lflags  = "-lgc -lm -lpthread"
 
 dry_run = False
