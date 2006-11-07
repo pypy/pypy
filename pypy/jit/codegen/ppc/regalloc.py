@@ -5,16 +5,15 @@ from pypy.jit.codegen.ppc.instruction import \
      rSCRATCH
 
 class RegisterAllocation:
-    def __init__(self, minreg, initial_mapping, initial_spill_offset):
+    def __init__(self, freeregs, initial_mapping, initial_spill_offset):
         #print
         #print "RegisterAllocation __init__", initial_mapping
 
         self.insns = []   # Output list of instructions
         # Registers with dead values
-        self.freeregs = {GP_REGISTER:gprs[minreg:],
-                         FP_REGISTER:fprs[:],
-                         CR_FIELD:crfs[:],
-                         CT_REGISTER:[ctr]}
+        self.freeregs = {}
+        for regcls in freeregs:
+            self.freeregs[regcls] = freeregs[regcls][:]
         self.var2loc = {} # Maps a Var to an AllocationSlot
         self.loc2var = {} # Maps an AllocationSlot to a Var
         self.lru = []     # Least-recently-used list of vars; first is oldest.

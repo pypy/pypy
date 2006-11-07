@@ -222,7 +222,7 @@ class Builder(GenBuilder):
     def allocate_and_emit(self):
         assert self.initial_var2loc is not None
         allocator = RegisterAllocation(
-            self.rgenop.MINUSERREG, self.initial_var2loc, self.initial_spill_offset)
+            self.rgenop.freeregs, self.initial_var2loc, self.initial_spill_offset)
         self.insns = allocator.allocate_for_insns(self.insns)
         if self.insns:
             self.patch_stack_adjustment(self._stack_size(0, allocator.spill_offset))
@@ -318,7 +318,7 @@ class Builder(GenBuilder):
                 else:
                     usedregs[loc] = None # XXX use this
 
-        unusedregs = [loc for loc in gprs[self.rgenop.MINUSERREG:] if loc not in usedregs]
+        unusedregs = [loc for loc in self.rgenop.freeregs[insn.GP_REGISTER] if loc not in usedregs]
         arg_locations = []
 
         for i in range(len(args_gv)):
@@ -457,9 +457,13 @@ class Builder(GenBuilder):
 
 class RPPCGenOp(AbstractRGenOp):
 
-    # minimum register we will use for register allocation
+    # the set of registers we consider available for allocation
     # we can artifically restrict it for testing purposes
-    MINUSERREG = 3
+    freeregs = {
+        insn.GP_REGISTER:insn.gprs[3:],
+        insn.FP_REGISTER:insn.fprs,
+        insn.CR_FIELD:insn.crfs,
+        insn.CT_REGISTER:[insn.ctr]}
 
     def __init__(self):
         self.mcs = []   # machine code blocks where no-one is currently writing

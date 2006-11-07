@@ -3,9 +3,14 @@ from pypy.jit.codegen.ppc.rgenop import RPPCGenOp
 from pypy.rpython.lltypesystem import lltype
 from pypy.jit.codegen.test.rgenop_tests import AbstractRGenOpTests, FUNC2
 from ctypes import cast, c_int, c_void_p, CFUNCTYPE
+from pypy.jit.codegen.ppc import instruction as insn
 
 class FewRegisters(RPPCGenOp):
-    MINUSERREG = 29
+    freeregs = {
+        insn.GP_REGISTER:insn.gprs[29:],
+        insn.FP_REGISTER:insn.fprs,
+        insn.CR_FIELD:insn.crfs,
+        insn.CT_REGISTER:[insn.ctr]}
 
 class TestRPPCGenop(AbstractRGenOpTests):
     RGenOp = RPPCGenOp
