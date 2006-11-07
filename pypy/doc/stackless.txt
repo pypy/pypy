@@ -278,10 +278,141 @@ outside the current pool are simply shared.
 Composability
 +++++++++++++
 
-XXX, without having to complicate each part of the
-application with explicit knowledge about the other part's usage of
-concurrency.  Many traditional concurrency concepts cannot be composed
-in this way. XXX
+Although coroutines exist since a long time, they have not been
+generally integrated into mainstream languages, or only in limited form
+(like generators in Python and iterators C#).  We can argue that a
+possible reason for that is that they do not scale well when a program's
+complexity increases: they look attractive in small examples, but the
+models that require explicit switching, by naming the target coroutine,
+do not compose naturally.  This means that a program that uses
+coroutines for two unrelated purposes may run into conflits caused by
+unexpected interactions.
+
+To illustrate the problem, consider the following example (simplified
+code; see the full source in
+`pypy/module/_stackless/test/test_composable_coroutine.py`_).  First, a
+simple usage of coroutine::
+
+    main_coro = coroutine.getcurrent()    # the main (outer) coroutine
+    data = []
+
+    def data_producer():
+        for i in range(10):
+            # add some numbers to the list 'data' ...
+            data.append(i)
+            data.append(i * 5)
+            data.append(i * 25)
+            # and then switch back to main to continue processing
+            main_coro.switch()
+
+    producer_coro = coroutine()
+    producer_coro.bind(data_producer)
+
+    def grab_next_value():
+        if not data:
+            # put some more numbers in the 'data' list if needed
+            producer_coro.switch()
+        # then grab the next value from the list
+        return data.pop(0)
+
+Every call to grab_next_value() returns a single value, but if necessary
+it switches into the producer function (and back) to give it a chance to
+put some more numbers in it.
+
+Now consider a simple reimplementation of Python's generators in term of
+coroutines::
+
+    def generator(f):
+        """Wrap a function 'f' so that it behaves like a generator."""
+        def wrappedfunc(*args, **kwds):
+            g = generator_iterator()
+            g.bind(f, *args, **kwds)
+            return g
+        return wrappedfunc
+
+    class generator_iterator(coroutine):
+        def __iter__(self):
+            return self
+        def next(self):
+            self.caller = coroutine.getcurrent()
+            self.switch()
+            return self.answer
+
+    def Yield(value):
+        """Yield the value from the current generator."""
+        g = coroutine.getcurrent()
+        g.answer = value
+        g.caller.switch()
+
+    def squares(n):
+        """Demo generator, producing square numbers."""
+        for i in range(n):
+            Yield(i * i)
+    squares = generator(squares)
+
+    for x in squares(5):
+        print x       # this prints 0, 1, 4, 9, 16
+
+Both these examples are attractively elegant.  However, they cannot be
+composed.  If we try to write the following generator::
+
+    def grab_values(n):
+        for i in range(n):
+            Yield(grab_next_value())
+    grab_values = generator(grab_values)
+
+then the program does not behave as expected.  The reason is the
+following.  The generator coroutine that executes ``grab_values()``
+calls ``grab_next_value()``, which may switch to the ``producer_coro``
+coroutine.  This works so far, but the switching back from
+``data_producer()`` to ``main_coro`` lands in the wrong coroutine: it
+resumes execution in the main coroutine, which is not the one from which
+it comes.  We expect ``data_producer()`` to switch back to the
+``grab_next_values()`` call, but the latter lives in the generator
+coroutine ``g`` created in ``wrappedfunc``, which is totally unknown to
+the ``data_producer()`` code.  Instead, we really switch back to the
+main coroutine, which confuses the ``generator_iterator.next()`` method
+(it gets resumed, but not as a result of a call to ``Yield()``).
+
+As part of trying to combine multiple different paradigms into a single
+application-level module, we have built a way to solve this problem.
+The idea is to avoid the notion of a single, global "main" coroutine (or
+a single main greenlet, or a single main tasklet).  Instead, each
+conceptually separated user of one of these concurrency interfaces can
+create its own "view" on what the main coroutine/greenlet/tasklet is,
+which other coroutine/greenlet/tasklets there are, and which of these is
+the currently running one.  Each "view" is orthogonal to the others.  In
+particular, each view has one (and exactly one) "current"
+coroutine/greenlet/tasklet at any point in time.  When the user switches
+to a coroutine/greenlet/tasklet, it implicitly means that he wants to
+switch away from the current coroutine/greenlet/tasklet *that belongs to
+the same view as the target*.
+
+The precise application-level interface has not been fixed yet; so far,
+"views" in the above sense are objects of the type
+``stackless.usercostate``.  The above two examples can be rewritten in
+the following way::
+
+    producer_view = stackless.usercostate()   # a local view
+    main_coro = producer_view.getcurrent()    # the main (outer) coroutine
+    ...
+    producer_coro = producer_view.newcoroutine()
+    ...
+
+and::
+
+    generators_view = stackless.usercostate()
+
+    def generator(f):
+        def wrappedfunc(*args, **kwds):
+            g = generators_view.newcoroutine(generator_iterator)
+            ...
+
+            ...generators_view.getcurrent()...
+
+Then the composition ``grab_values()`` works as expected.
+
+XXX a few words about how
 
 
 .. _`Stackless Python`: http://www.stackless.com
