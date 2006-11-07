@@ -1,12 +1,14 @@
-from pypy.conftest import gettestobjspace, skip_on_missing_buildoption
+from pypy.conftest import gettestobjspace, option
 import py
 
 # app-level testing of coroutine pickling
 
-def setup_module(mod):
-    skip_on_missing_buildoption(stackless=True)
+class AppTestPickle:
 
-class TestPickle:
+    def setup_class(cls):
+        if not option.runappdirect:
+            py.test.skip('pure appdirect test (run with -A)')
+        cls.space = gettestobjspace(usemodules=('_stackless',))
 
     def test_simple_ish(self):
 

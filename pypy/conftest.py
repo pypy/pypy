@@ -84,9 +84,20 @@ def getobjspace(name=None, **kwds):
 class TinyObjSpace(object):
     def __init__(self, **kwds):
         import sys
-        for key, val in kwds.iteritems():
+        for key, value in kwds.iteritems():
+            if key == 'usemodules':
+                for modname in value:
+                    try:
+                        __import__(modname)
+                    except ImportError:
+                        py.test.skip("cannot runappdirect test: "
+                                     "module %r required" % (modname,))
+                continue
+            if not hasattr(sys, 'pypy_translation_info'):
+                py.test.skip("cannot runappdirect this test on top of CPython")
             has = sys.pypy_translation_info.get(key, None)
             if has != value:
+                print sys.pypy_translation_info
                 py.test.skip("cannot runappdirect test: space needs %s = %s, "\
                     "while pypy-c was built with %s" % (key, value, has))
 
