@@ -29,6 +29,8 @@ class Var(GenVar):
         _var_index[0] += 1
     def __repr__(self):
         return "<Var %d>" % self.__magic_index
+    def fits_in_immediate(self):
+        return False
 
 class IntConst(GenConst):
 
@@ -55,6 +57,9 @@ class IntConst(GenConst):
         else:
             asm.load_word(rSCRATCH, self.value)
             asm.stw(rSCRATCH, rFP, loc.offset)
+
+    def fits_in_immediate(self):
+        return abs(self.value) < 2**16
 
 class JumpPatchupGenerator(object):
 
@@ -348,20 +353,20 @@ class Builder(GenBuilder):
         return gv_result
 
     def op_int_add(self, gv_x, gv_y):
-        if isinstance(gv_y, IntConst) and abs(gv_y.value) < 2**16:
-            gv_result = Var()
+        gv_result = Var()
+        if gv_y.fits_in_immediate():
             self.insns.append(
                 insn.Insn_GPR__GPR_IMM(RPPCAssembler.addi,
                                        gv_result, [gv_x, gv_y]))
-            return gv_result
-        elif isinstance(gv_x, IntConst):
-            return self.op_int_add(gv_y, gv_x)
+        elif gv_x.fits_in_immediate():
+            self.insns.append(
+                insn.Insn_GPR__GPR_IMM(RPPCAssembler.addi,
+                                       gv_result, [gv_y, gv_x]))
         else:
-            gv_result = Var()
             self.insns.append(
                 insn.Insn_GPR__GPR_GPR(RPPCAssembler.add,
                                        gv_result, [gv_x, gv_y]))
-            return gv_result
+        return gv_result
 
     def op_int_sub(self, gv_x, gv_y):
         gv_result = Var()
@@ -397,10 +402,10 @@ class Builder(GenBuilder):
             'ne': (    2,         1   ),
             }
         gv_result = Var()
-        if isinstance(gv_y, IntConst) and abs(gv_y.value) < 2*16:
+        if gv_y.fits_in_immediate():
             self.insns.append(
                 insn.CMPWI(cmp2info[op], gv_result, [gv_x, gv_y]))
-        elif isinstance(gv_x, IntConst) and abs(gv_x.value) < 2*16:
+        elif gv_x.fits_in_immediate():
             self.insns.append(
                 insn.CMPWI(cmp2info_flipped[op], gv_result, [gv_y, gv_x]))
         else:
