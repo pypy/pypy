@@ -3,7 +3,7 @@ from pypy.interpreter.gateway import app2interp_temp
 from pypy.interpreter.error import OperationError
 from pypy.tool.pytest import appsupport 
 from pypy.tool.option import make_config
-from inspect import isclass
+from inspect import isclass, getmro
 
 rootdir = py.magic.autopath().dirpath()
 
@@ -199,6 +199,16 @@ def skip_on_missing_buildoption(**ropts):
     py.test.skip("need translated pypy with: %s, got %s" 
                  %(ropts,options))
 
+def getwithoutbinding(x, name):
+    try:
+        return x.__dict__[name]
+    except (AttributeError, KeyError):
+        for cls in getmro(x.__class__):
+            if name in cls.__dict__:
+                return cls.__dict__[name]
+        # uh? not found anywhere, fall back (which might raise AttributeError)
+        return getattr(x, name)
+
 class LazyObjSpaceGetter(object):
     def __get__(self, obj, cls=None):
         space = gettestobjspace()
@@ -280,7 +290,10 @@ class AppTestMethod(AppTestFunction):
         for name in dir(instance): 
             if name.startswith('w_'): 
                 if option.runappdirect:
-                    setattr(w_instance, name[2:], getattr(instance, name))
+                    # if the value is a function living on the class,
+                    # don't turn it into a bound method here
+                    obj = getwithoutbinding(instance, name)
+                    setattr(w_instance, name[2:], obj)
                 else:
                     space.setattr(w_instance, space.wrap(name[2:]), 
                                   getattr(instance, name)) 

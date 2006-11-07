@@ -54,6 +54,7 @@ class AppTest_ComposableCoroutine:
                 g.gi_caller.switch()
 
             generator.Yield = Yield
+            generator._costate = generators_costate
             return generator
         """)
 
@@ -96,6 +97,8 @@ class AppTest_ComposableCoroutine:
         import _stackless
         generator = self.generator
 
+        # you can see how it fails if we don't have two different costates
+        # by setting compute_costate to generator._costate instead
         compute_costate = _stackless.usercostate()
         compute_main = compute_costate.getcurrent()
         lst = []

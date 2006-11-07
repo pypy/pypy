@@ -376,8 +376,12 @@ BUILTIN_ANALYZERS[getattr(OSError.__init__, 'im_func', OSError.__init__)] = (
     OSError_init)
 
 BUILTIN_ANALYZERS[sys.getdefaultencoding] = conf
-import unicodedata
-BUILTIN_ANALYZERS[unicodedata.decimal] = unicodedata_decimal # xxx
+try:
+    import unicodedata
+except ImportError:
+    pass
+else:
+    BUILTIN_ANALYZERS[unicodedata.decimal] = unicodedata_decimal # xxx
 
 # object - just ignore object.__init__
 BUILTIN_ANALYZERS[object.__init__] = object_init
