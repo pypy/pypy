@@ -38,6 +38,16 @@ class AbstractArguments:
         return Arguments(space, [], w_stararg=w_args, w_starstararg=w_kwds)
     frompacked = staticmethod(frompacked)
 
+    def topacked(self):
+        """Express the Argument object as a pair of wrapped w_args, w_kwds."""
+        space = self.space
+        args_w, kwds_w = self.unpack()
+        w_args = space.newtuple(args_w)
+        w_kwds = space.newdict()
+        for key, w_value in kwds_w:
+            space.setitem(w_kwds, space.wrap(key), w_value)
+        return w_args, w_kwds
+
     def fromshape(space, (shape_cnt,shape_keys,shape_star,shape_stst), data_w):
         args_w = data_w[:shape_cnt]
         p = shape_cnt
