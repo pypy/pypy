@@ -344,12 +344,14 @@ long LL_os_getpid(void) {
 	return getpid();
 }
 
+#ifdef HAVE_KILL
 void LL_os_kill(int pid, int sig) {
     int error = kill(pid, sig);
     if (error != 0) {
 	RPYTHON_RAISE_OSERROR(errno);
     }
 }
+#endif
 
 #ifdef HAVE_FILESYSTEM_WITH_LINKS
 

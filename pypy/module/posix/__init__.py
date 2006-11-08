@@ -47,7 +47,6 @@ corresponding Unix manual entries for more information on calls."""
     'chmod'     : 'interp_posix.chmod',
     'rename'    : 'interp_posix.rename',
     '_exit'     : 'interp_posix._exit',
-    'kill'      : 'interp_posix.kill',
     #'getuid'    : 'interp_posix.getuid',
     #'geteuid'   : 'interp_posix.geteuid',
     }
@@ -57,6 +56,8 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['putenv'] = 'interp_posix.putenv'
     if hasattr(posix, 'unsetenv'): # note: emulated in os
         interpleveldefs['unsetenv'] = 'interp_posix.unsetenv'
+    if hasattr(os, 'kill'):
+        interpleveldefs['kill'] = 'interp_posix.kill'
     if hasattr(os, 'getpid'):
         interpleveldefs['getpid'] = 'interp_posix.getpid'
     if hasattr(os, 'link'):

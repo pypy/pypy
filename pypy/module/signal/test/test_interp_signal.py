@@ -1,6 +1,10 @@
-import os
+import os, py
 from pypy.translator.c.test.test_genc import compile
 from pypy.module.signal import interp_signal
+
+def setup_module(mod):
+    if not hasattr(os, 'kill') or not hasattr(os, 'getpid'):
+        py.test.skip("requires os.kill() and os.getpid()")
 
 
 def check(expected):
