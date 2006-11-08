@@ -262,7 +262,7 @@ garbage collector.  For this reason, it is only available if both
 stackless and our own framework GC are compiled together in pypy-c::
 
     cd pypy/translator/goal
-    python translate.py --stackless --framework=gc
+    python translate.py --stackless --gc=framework
 
 In this mode, our garbage collector is extended to support the notion of
 "pool": a pool is a linked list of allocated objects.  All objects
@@ -285,7 +285,7 @@ possible reason for that is that they do not scale well when a program's
 complexity increases: they look attractive in small examples, but the
 models that require explicit switching, by naming the target coroutine,
 do not compose naturally.  This means that a program that uses
-coroutines for two unrelated purposes may run into conflits caused by
+coroutines for two unrelated purposes may run into conflicts caused by
 unexpected interactions.
 
 To illustrate the problem, consider the following example (simplified
