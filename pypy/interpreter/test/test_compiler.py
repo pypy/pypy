@@ -466,7 +466,6 @@ def test():
                        snippet, '<tmp>', 'exec', 0)
 
     def test_really_nested_stuff(self):
-        py.test.skip("argh, scopes are a MESS")
         space = self.space
         snippet = str(py.code.Source(r'''
             def f(self):

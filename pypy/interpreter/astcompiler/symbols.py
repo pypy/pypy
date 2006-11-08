@@ -144,7 +144,7 @@ class Scope:
         if name in self.frees:
             del self.frees[name]
         for child in self.children:
-            if child.check_name(name) == SC_FREE:
+            if child.check_name(name) == SC_FREE or isinstance(child, ClassScope):
                 child.force_global(name)
 
     def add_frees(self, names):
