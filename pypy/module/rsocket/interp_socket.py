@@ -22,9 +22,10 @@ class W_RSocket(Wrappable, RSocket):
                 sock, addr = self.accept(W_RSocket)
             finally:
                 if GIL is not None: GIL.acquire(True)
+            return space.newtuple([space.wrap(sock),
+                                   addr.as_object(space)])
         except SocketError, e:
             raise converted_error(space, e)
-        return space.newtuple([space.wrap(sock), addr.as_object(space)])
     accept_w.unwrap_spec = ['self', ObjSpace]
 
     def bind_w(self, space, w_addr):
@@ -113,9 +114,9 @@ class W_RSocket(Wrappable, RSocket):
         """
         try:
             addr = self.getpeername()
+            return addr.as_object(space)
         except SocketError, e:
             raise converted_error(space, e)
-        return addr.as_object(space)
     getpeername_w.unwrap_spec = ['self', ObjSpace]
 
     def getsockname_w(self, space):
@@ -126,9 +127,9 @@ class W_RSocket(Wrappable, RSocket):
         """
         try:
             addr = self.getsockname()
+            return addr.as_object(space)
         except SocketError, e:
             raise converted_error(space, e)
-        return addr.as_object(space)
     getsockname_w.unwrap_spec = ['self', ObjSpace]
 
     def getsockopt_w(self, space, level, optname, w_buflen=NoneNotWrapped):
@@ -216,9 +217,10 @@ class W_RSocket(Wrappable, RSocket):
                 data, addr = self.recvfrom(buffersize, flags)
             finally:
                 if GIL is not None: GIL.acquire(True)
+            return space.newtuple([space.wrap(data),
+                                   addr.as_object(space)])
         except SocketError, e:
             raise converted_error(space, e)
-        return space.newtuple([space.wrap(data), addr.as_object(space)])
     recvfrom_w.unwrap_spec = ['self', ObjSpace, int, int]
 
     def send_w(self, space, data, flags=0):
