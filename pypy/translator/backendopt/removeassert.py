@@ -1,5 +1,6 @@
 from pypy.objspace.flow.model import Constant
 from pypy.translator.simplify import eliminate_empty_blocks, join_blocks
+from pypy.translator.simplify import transform_dead_op_vars
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem import rclass
 
@@ -10,6 +11,7 @@ def remove_asserts(translator, graphs):
     r_AssertionError = rclass.getclassrepr(rtyper, clsdef)
     ll_AssertionError = r_AssertionError.convert_const(AssertionError)
 
+    modified = {}
     while graphs:
         pending = []
         for graph in graphs:
@@ -20,9 +22,13 @@ def remove_asserts(translator, graphs):
                     and isinstance(link.args[0], Constant)
                     and link.args[0].value == ll_AssertionError):
                     if kill_assertion_link(graph, link):
+                        modified[graph] = True
                         pending.append(graph)
                         break
         graphs = pending
+    # now melt away the (hopefully) dead operation that compute the condition
+    for graph in modified:
+        transform_dead_op_vars(graph, translator)
 
 
 def kill_assertion_link(graph, link):

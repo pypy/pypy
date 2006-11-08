@@ -31,6 +31,16 @@ def test_simple():
         return n-1
     check(fn, [125], 124)
 
+def test_simple_melting_away():
+    def fn(n):
+        assert n >= 1
+        return n-1
+    graph, t = get_graph(fn, [int])
+    assert summary(graph) == {'int_ge': 1, 'int_sub': 1}
+    remove_asserts(t, [graph])
+    assert summary(graph) == {'int_sub': 1}
+    check_graph(graph, [1], 0, t)
+
 def test_and():
     def fn(n):
         assert n >= 1 and n < 10
