@@ -84,6 +84,8 @@ Accepted Proposals
 - `Complete gencli, the PyPy CLI backend`_
   by Antonio Cuni, mentored by Armin Rigo 
 
+- `JavaScript interpreter`_ by Leonardo Santagada, mentored by various people
+
 Note that Maciej, Lawrence and Antonio also have their proposal
 registered with the Google's Summer of Code under the PSF_. 
 
@@ -96,3 +98,4 @@ registered with the Google's Summer of Code under the PSF_.
 
 .. _`Complete gencli, the PyPy CLI backend`: http://code.google.com/soc/psf/appinfo.html?csaid=CB4EC4BA30BDDBCD
 
+.. _`JavaScript interpreter`: http://codespeak.net/svn/user/santagada/javascript_interpreter_sop.txt
