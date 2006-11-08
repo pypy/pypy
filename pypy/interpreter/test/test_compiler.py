@@ -465,6 +465,25 @@ def test():
         space.raises_w(space.w_SyntaxError, self.compiler.compile,
                        snippet, '<tmp>', 'exec', 0)
 
+    def test_really_nested_stuff(self):
+        py.test.skip("argh, scopes are a MESS")
+        space = self.space
+        snippet = str(py.code.Source(r'''
+            def f(self):
+                def get_nested_class():
+                    self
+                    class Test:
+                        def _STOP_HERE_(self):
+                            return _STOP_HERE_(self)
+                get_nested_class()
+            f(42)
+        '''))
+        code = self.compiler.compile(snippet, '<tmp>', 'exec', 0)
+        space = self.space
+        w_d = space.newdict()
+        space.exec_(code, w_d, w_d)
+        # assert did not crash
+
 class TestECCompiler(BaseTestCompiler):
     def setup_method(self, method):
         self.compiler = self.space.getexecutioncontext().compiler
