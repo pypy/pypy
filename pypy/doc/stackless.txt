@@ -53,29 +53,29 @@ environment.  This limitation is not fundamental, as previous experience
 has shown, so supporting this would probably be reasonably easy.
 
 An interesting point is that the same ``stackless`` module can provide
-three different concurrency paradigms at the same time.  From a
-theoretical point of view, none of these three paradigms considered
-alone is new: two of them are from previous Python work, and the third
-one is a quite classical coroutine variant.  The new part is that the
-PyPy implementation manages to provide all of them and let the user
-implement more.  Moreover - and this might be an important theoretical
-contribution of this work - we manage to provide these concurrency
-concepts in a "composable" way.  In other words, it is possible to
-naturally mix in a single application multiple concurrency paradigms,
-and multiple unrelated usages of the same paradigm.  This is detailed in
-the Composability_ section below.
+a number of different concurrency paradigms at the same time.  From a
+theoretical point of view, none of above-mentioned existing three
+paradigms considered on its own is new: two of them are from previous
+Python work, and the third one is a variant of the classical coroutine.
+The new part is that the PyPy implementation manages to provide all of
+them and let the user implement more.  Moreover - and this might be an
+important theoretical contribution of this work - we manage to provide
+these concurrency concepts in a "composable" way.  In other words, it
+is possible to naturally mix in a single application multiple
+concurrency paradigms, and multiple unrelated usages of the same
+paradigm.  This is discussed in the Composability_ section below.
 
 
 Coroutines
 ++++++++++
 
-A Coroutine is similar to a microthread, with no preemptive scheduling.
-Within a family of coroutines, the execution can be explicitly
-transferred from one to another by the user.  When execution is
-transferred to a coroutine, it starts executing some Python code.  When
-execution is transferred away from it, it is temporarily suspended.
-When the execution comes back to it, it resumes its execution from the
-point where it was suspend.  Conceptually, only one coroutine is
+A Coroutine is similar to a very small thread, with no preemptive scheduling.
+Within a family of coroutines, the flow of execution is explicitly
+transferred from one to another by the programmer.  When execution is
+transferred to a coroutine, it begins to execute some Python code.  When
+it transfers execution away from itself it is temporarily suspended, and
+when execution returns to it it resumes its execution from the
+point where it was suspended.  Conceptually, only one coroutine is
 actively running at any given time (but see Composability_ below).
 
 The ``stackless.coroutine`` class is instantiated with no argument.
@@ -119,7 +119,7 @@ Tasklets and channels
 The ``stackless`` module also provides an interface that is roughly
 compatible with the interface of the ``stackless`` module in `Stackless
 Python`_: it contains ``stackless.tasklet`` and ``stackless.channel``
-classes.  Tasklets are similar to microthreads, but (like coroutines)
+classes.  Tasklets are also similar to microthreads, but (like coroutines)
 they don't actually run in parallel with other microthreads; instead,
 they synchronize and exchange data with each other over Channels, and
 these exchanges determine which Tasklet runs next.
@@ -129,12 +129,12 @@ website.
 
 Note that Tasklets and Channels are implemented at application-level in
 `pypy/lib/stackless.py`_ on top of coroutines_.  You can refer to this
-module for more details and the actual documentation.
+module for more details and API documentation.
 
 The stackless.py code tries to resemble the stackless C code as much
 as possible. This makes the code somewhat unpythonic.
 
-Bird eyes view of tasklets and channels
+Bird's eye view of tasklets and channels
 ----------------------------------------
 
 Tasklets are a bit like threads: they encapsulate a function in such a way that
@@ -147,16 +147,16 @@ to a single tasklet.
 Communication between tasklets is done via channels. 
 There are three ways for a tasklet to give up control:
 
-1. call ``schedule()``
+1. call ``stackless.schedule()``
 2. send something over a channel
 3. receive something from a channel
 
-A (living) tasklet can either be running, or wait to get scheduled, or be
+A (live) tasklet can either be running, waiting to get scheduled, or be
 blocked by a channel.
 
-Scheduling is done in strictly round-robin manner. A blocked tasklet is
-removed from the scheduling queue and a blocked tasklet will be
-reinserted into the queue when it becomes unblocked.
+Scheduling is done in strictly round-robin manner. A blocked tasklet
+is removed from the scheduling queue and will be reinserted when it
+becomes unblocked.
 
 
 Greenlets
@@ -222,6 +222,8 @@ motivation for implementing the interpreter-level primitives
 interface that allows an RPython program to artifically rebuild a chain
 of calls in a reflective way, completely from scratch, and jump to it.
 
+XXX examples, limitations?
+
 
 Coroutine Cloning
 +++++++++++++++++
@@ -274,11 +276,12 @@ byte-level copies of allocated objects.  Pointers to objects inside the
 current pool cause the target objects to be recursively copied; pointers
 outside the current pool are simply shared.
 
+XXX examples? might be hard...
 
 Composability
 +++++++++++++
 
-Although coroutines exist since a long time, they have not been
+Although the concept of coroutines is far from new, they have not been
 generally integrated into mainstream languages, or only in limited form
 (like generators in Python and iterators C#).  We can argue that a
 possible reason for that is that they do not scale well when a program's
