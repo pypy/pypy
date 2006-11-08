@@ -212,6 +212,6 @@ mailing list`_.  You can also have a look around our documentation_.
 .. _`pypy-dev mailing list`: http://codespeak.net/mailman/listinfo/pypy-dev
 .. _`Summer of PyPy`: summer-of-pypy.html
 .. _`ZODB's Persistent class`: http://www.zope.org/Documentation/Books/ZDG/current/Persistence.stx
-.. _`JavaScript whatis`: js/whatis.html
-.. _`JavaScript using`: js/using.html
+.. _`what is pypy.js`: js/whatis.html
+.. _`using the JavaScript backend`: js/using.html
 .. _`transparent proxy`: proxy.html
