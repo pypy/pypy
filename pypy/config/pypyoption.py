@@ -191,6 +191,9 @@ pypy_optiondescription = OptionDescription("pypy", "All PyPy Options", [
                        requires=[("translation.stackless", False)]),
             BoolOption("clever_malloc_removal",
                        "Remove mallocs in a clever way", default=False),
+            BoolOption("remove_asserts",
+                       "Kill 'raise AssertionError', which lets the C "
+                       "optimizer remove the asserts", default=False),
             IntOption("inline_threshold", "Threshold when to inline functions",
                       default=1, cmdline=None),
         ]),

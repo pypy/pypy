@@ -8,6 +8,7 @@ from pypy.translator.backendopt.merge_if_blocks import merge_if_blocks
 from pypy.translator import simplify
 from pypy.translator.backendopt.escape import malloc_to_stack
 from pypy.translator.backendopt.mallocprediction import clever_inlining_and_malloc_removal
+from pypy.translator.backendopt.removeassert import remove_asserts
 from pypy.translator.backendopt.support import log
 from pypy.objspace.flow.model import checkgraph
 
@@ -15,7 +16,7 @@ def backend_optimizations(translator, graphs=None, **kwds):
     # sensible keywords are
     # raisingop2direct_call, inline_threshold, mallocs
     # merge_if_blocks, constfold, heap2stack
-    # clever_malloc_removal
+    # clever_malloc_removal, remove_asserts
 
     config = translator.config.translation.backendopt.copy()
     config.set(**kwds)
@@ -82,6 +83,9 @@ def backend_optimizations(translator, graphs=None, **kwds):
     if config.constfold:
         for graph in graphs:
             constant_fold_graph(graph)
+
+    if config.remove_asserts:
+        remove_asserts(translator, graphs)
 
     if config.heap2stack:
         assert graphs is translator.graphs  # XXX for now
