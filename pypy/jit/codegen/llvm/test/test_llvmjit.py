@@ -27,6 +27,36 @@ block0:
     ret int %n2
 }'''
 
+llacross1 = '''declare int %across2(int %n2)
+
+int %across1(int %n) {
+block0:
+    %n2 = mul int %n, 3
+    ret int %n2
+}
+
+int %across1to2(int %n) {
+block0:
+    %n2 = add int %n, 5
+    %n3 = call int %across2(int %n2)
+    ret int %n3
+}'''
+
+llacross2 = '''declare int %across1(int %n2)
+
+int %across2(int %n) {
+block0:
+    %n2 = mul int %n, 7
+    ret int %n2
+}
+
+int %across2to1(int %n) {
+block0:
+    %n2 = add int %n, 9
+    %n3 = call int %across1(int %n2)
+    ret int %n3
+}'''
+
 #helpers
 def execute(llsource, function_name, param):
     assert llvmjit.compile(llsource)
@@ -80,8 +110,28 @@ def test_call_found_function():
         assert square(i) == i * i
         assert mul2(i) == i * 2
 
-def DONTtest_execute_accross_module():
-    pass
+def DONTtest_execute_across_module():
+    def my_across1(n):
+        return n * 3
+
+    def my_across1to2(n):
+        return my_across2(n + 5)
+
+    def my_across2(n):
+        return n * 7
+
+    def my_across2to1(n):
+        return my_across1(n + 9)
+
+    llvmjit.restart()
+    llvmjit.compile(llacross1)
+    llvmjit.compile(llacross2)
+    across1to2 = llvmjit.FindFunction('across1to2')
+    across2to1 = llvmjit.FindFunction('across2to1')
+    for i in range(5):
+        assert across1to2(i) == my_across1to2(i)
+        assert across2to1(i) == my_across2to1(i)
+
 
 def DONTtest_modify_global_data():
     pass

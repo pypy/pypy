@@ -21,7 +21,7 @@ os.chdir(os.path.dirname(__file__))
 #So we always need to recompile the library if its platform (output of file libllvmjit.so)
 #differs from the current (remote) platform.
 #note: we can't do this in global scope because that will only be executed on the master server.
-os.system('rm -rf libllvmjit.so build')
+#os.system('rm -rf libllvmjit.so build')
 
 #We might want to generate an up-to-date version of the library always so running (tests)
 #on a clean checkout will produce correct results.
