@@ -96,9 +96,12 @@ Stackless_ and coroutines
 
 `Logic and Constraint`_ programming features
 
+`Transparent proxy`_ implementation
+
 .. _Thunk: getting-started.html#lazily-computed-objects
 .. _Stackless: stackless.html
 .. _`Logic and Constraint`: howto-logicobjspace-0.9.html
+.. _`Transparent proxy`: proxy.html
 
 
 Status
