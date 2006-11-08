@@ -16,6 +16,7 @@ from pypy.translator.js.modules._dom import setTimeout, get_document
 from pypy.translator.js.main import rpython2javascript
 from pypy.rpython.ootypesystem.bltregistry import MethodDesc, BasicExternal
 from pypy.translator.js import commproxy
+from pypy.translator.js.modules.mochikit import createLoggingPane, log
 
 commproxy.USE_MOCHIKIT = True
 
@@ -70,6 +71,13 @@ def add_text(text):
     data_elem = get_document().getElementById("data")
     data_elem.innerHTML += text
 
+class Storage(object):
+    def __init__(self):
+        self.level = 0
+        self.cmd = ""
+
+storage = Storage()
+
 def keypressed(key):
     kc = key.keyCode
     if kc == ord("\r"):
@@ -77,10 +85,18 @@ def keypressed(key):
         cmd = inp_elem.value
         add_text(">>> %s\n" % (cmd,))
         inp_elem.value = ''
-        inp_elem.disabled = True
-        httpd.some_callback(cmd, callback)
+        storage.cmd += cmd + "\n"
+        if cmd.endswith(':'):
+            storage.level += 1
+        elif storage.level == 0:
+            inp_elem.disabled = True
+            httpd.some_callback(storage.cmd, callback)
+            storage.cmd = ""
+        else:
+            storage.level -= 1
 
 def setup_page():
+    createLoggingPane(True)
     get_document().onkeypress = keypressed
 
 class Server(HTTPServer, BasicExternal):
