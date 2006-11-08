@@ -141,7 +141,8 @@ class CBuilder(object):
                                       symboltable = self.symboltable)
         else:
             if CBuilder.have___thread:
-                defines['HAVE___THREAD'] = 1
+                if not self.config.translation.no__thread:
+                    defines['USE___THREAD'] = 1
             cfile, extra = gen_source_standalone(db, modulename, targetdir,
                                                  entrypointname = pfname,
                                                  defines = defines)
@@ -389,7 +390,7 @@ class SourceGenerator:
 
     def gen_readable_parts_of_source(self, f):
         if py.std.sys.platform != "win32":
-            split_criteria_big = SPLIT_CRITERIA * 4
+            split_criteria_big = SPLIT_CRITERIA * 4 
         else:
             split_criteria_big = SPLIT_CRITERIA
         if self.one_source_file:

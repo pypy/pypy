@@ -18,7 +18,7 @@
 #include "thread_nt.h"
 #endif
 
-#ifdef HAVE___THREAD
+#ifdef USE___THREAD
 
 #define RPyThreadStaticTLS                  __thread void *
 #define RPyThreadStaticTLS_Create(tls)      NULL
