@@ -75,8 +75,8 @@ class Class(Node):
             return
 
         self.ilasm = ilasm
+        self.gen = CLIBaseGenerator(self.db, ilasm)
 
-        gen = CLIBaseGenerator(self.db, ilasm)
         if self.namespace:
             ilasm.begin_namespace(self.namespace)
 
@@ -113,7 +113,7 @@ class Class(Node):
                 if isinstance(METH.RESULT, ootype.OOType):
                     ilasm.opcode('ldnull')
                 else:
-                    push_constant(self.db, METH.RESULT, 0, gen)
+                    push_constant(self.db, METH.RESULT, 0, self.gen)
                 ilasm.opcode('ret')
                 ilasm.end_function()
 
@@ -132,7 +132,7 @@ class Class(Node):
             f_name = self.cts.escape_name(f_name)
             if cts_type != 'void':
                 self.ilasm.opcode('ldarg.0')
-                push_constant(self.db, F_TYPE, f_default, self)
+                push_constant(self.db, F_TYPE, f_default, self.gen)
                 class_name = self.db.class_name(self.INSTANCE)
                 self.ilasm.set_field((cts_type, class_name, f_name))
 

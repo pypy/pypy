@@ -27,6 +27,8 @@ import pypy.translator.jvm.generator as jvmgen
 class Node(object):
     def set_db(self, db):
         self.db = db
+    def dependencies(self):
+        pass
 
 class EntryPoint(Node):
 

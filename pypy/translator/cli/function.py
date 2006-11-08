@@ -59,15 +59,6 @@ class Function(OOFunction, Node, CLIBaseGenerator):
                 self.store(link.last_exc_value)
             self._setup_link(link)
 
-    def field_name(self, obj, field):
-        INSTANCE, type_ = obj._lookup_field(field)
-        assert type_ is not None, 'Cannot find the field %s in the object %s' % (field, obj)
-        
-        class_name = self.class_name(INSTANCE)
-        field_type = self.cts.lltype_to_cts(type_)
-        field = self.cts.escape_name(field)
-        return '%s %s::%s' % (field_type, class_name, field)
-
     def begin_render(self):
         returntype, returnvar = self.cts.llvar_to_cts(self.graph.getreturnvar())
         if self.is_method:

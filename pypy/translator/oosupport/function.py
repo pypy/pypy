@@ -173,9 +173,6 @@ class Function(object):
         assert isinstance(instr_list, InstructionList)
         instr_list.render(self.generator, op)
 
-    def field_name(self, obj, field):
-        raise NotImplementedError
-
     # ---------------------------------------------------------#
     # These methods are quite backend independent, but not     #
     # used in all backends. Invoke them from your __init__ if  #

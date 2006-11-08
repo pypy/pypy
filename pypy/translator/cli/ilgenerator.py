@@ -1,9 +1,11 @@
 from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Void, Bool, Float
 from pypy.rpython.lltypesystem.lltype import SignedLongLong, UnsignedLongLong
+from pypy.rlib.objectmodel import CDefinedIntSymbolic
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.oosupport.metavm import Generator
 from pypy.translator.oosupport.constant import push_constant
 from pypy.objspace.flow import model as flowmodel
+from pypy.translator.cli.support import string_literal
 
 class CodeGenerator(object):
     def __init__(self, out, indentstep = 4, startblock = '{', endblock = '}'):
@@ -249,6 +251,8 @@ class IlasmGenerator(object):
     def flush(self):
         pass
 
+DEFINED_INT_SYMBOLICS = {'MALLOC_ZERO_FILLED':1}
+
 class CLIBaseGenerator(Generator):
     
     """ Implements those parts of the metavm generator that are not
@@ -259,6 +263,9 @@ class CLIBaseGenerator(Generator):
         self.db = db
         self.cts = db.genoo.TypeSystem(db)
 
+    def pop(self, TYPE):
+        self.ilasm.opcode('pop')
+    
     def add_comment(self, text):
         pass
     
@@ -289,6 +296,15 @@ class CLIBaseGenerator(Generator):
 
     def new(self, obj):
         self.ilasm.new(self.cts.ctor_name(obj))
+
+    def field_name(self, obj, field):
+        INSTANCE, type_ = obj._lookup_field(field)
+        assert type_ is not None, 'Cannot find the field %s in the object %s' % (field, obj)
+        
+        class_name = self.class_name(INSTANCE)
+        field_type = self.cts.lltype_to_cts(type_)
+        field = self.cts.escape_name(field)
+        return '%s %s::%s' % (field_type, class_name, field)
 
     def set_field(self, obj, name):
         self.ilasm.opcode('stfld ' + self.field_name(obj, name))
@@ -322,3 +338,35 @@ class CLIBaseGenerator(Generator):
 
     def branch_conditionally(self, cond, target_label):
         self.ilasm.branch_if(cond, target_label)
+
+    def push_primitive_constant(self, TYPE, value):
+        ilasm = self.ilasm
+        if TYPE is ootype.Void:
+            pass
+        elif TYPE is ootype.Bool:
+            ilasm.opcode('ldc.i4', str(int(value)))
+        elif TYPE is ootype.Char or TYPE is ootype.UniChar:
+            ilasm.opcode('ldc.i4', ord(value))
+        elif TYPE is ootype.Float:
+            if isinf(value):
+                ilasm.opcode('ldc.r8', '(00 00 00 00 00 00 f0 7f)')
+            elif isnan(value):
+                ilasm.opcode('ldc.r8', '(00 00 00 00 00 00 f8 ff)')
+            else:
+                ilasm.opcode('ldc.r8', repr(value))
+        elif isinstance(value, CDefinedIntSymbolic):
+            ilasm.opcode('ldc.i4', DEFINED_INT_SYMBOLICS[value.expr])
+        elif TYPE in (ootype.Signed, ootype.Unsigned):
+            ilasm.opcode('ldc.i4', str(value))
+        elif TYPE in (ootype.SignedLongLong, ootype.UnsignedLongLong):
+            ilasm.opcode('ldc.i8', str(value))
+        elif TYPE is ootype.String:
+            if value._str is None:
+                ilasm.opcode('ldnull')
+            else:
+                ilasm.opcode("ldstr", string_literal(value._str))
+        else:
+            assert False, "Unexpected constant type"
+
+    def dup(self, TYPE):
+        self.ilasm.opcode('dup')

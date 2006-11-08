@@ -34,9 +34,8 @@ from pypy.translator.oosupport.constant import \
      push_constant, WeakRefConst, StaticMethodConst, CustomDictConst, \
      ListConst, ClassConst, InstanceConst, RecordConst, DictConst, \
      BaseConstantGenerator
-from pypy.translator.cli.support import string_literal
+from pypy.translator.cli.ilgenerator import CLIBaseGenerator
 from pypy.rpython.ootypesystem import ootype
-from pypy.rlib.objectmodel import CDefinedIntSymbolic
 from pypy.translator.cli.comparer import EqualityComparer
 from pypy.rpython.lltypesystem import lltype
 from pypy.translator.cli.cts import PYPY_DICT_OF_VOID, WEAKREF
@@ -50,33 +49,11 @@ DEBUG_CONST_INIT_VERBOSE = False
 MAX_CONST_PER_STEP = 100
 SERIALIZE = False
 
-DEFINED_INT_SYMBOLICS = {'MALLOC_ZERO_FILLED':1}
-
 def isnan(v):
         return v != v*1.0 or (v == 1.0 and v == 2.0)
 
 def isinf(v):
     return v!=0 and (v == v*2)
-
-# ______________________________________________________________________
-# MetaVM Generator interface
-
-class CLIGeneratorForConstants(object):
-
-    ''' Very minimal "implementation" of oosupport.metavm.Generator
-    interface.  Just what is actually used. '''
-    
-    def __init__(self, ilasm):
-        self.ilasm = ilasm
-        
-    def add_section(self, text):
-        return
-    
-    def add_comment(self, text):
-        return
-    
-    def pop(self, OOTYPE):
-        self.ilasm.pop()
 
 # ______________________________________________________________________
 # Constant Generators
@@ -97,7 +74,7 @@ class CLIBaseConstGenerator(BaseConstantGenerator):
     def _begin_gen_constants(self, ilasm, all_constants):
         self.ilasm = ilasm
         self.begin_class()
-        gen = CLIGeneratorForConstants(ilasm)
+        gen = CLIBaseGenerator(self.db, ilasm)
         return gen
 
     def _end_gen_constants(self, gen, numsteps):
@@ -114,35 +91,6 @@ class CLIBaseConstGenerator(BaseConstantGenerator):
 
     def _declare_const(self, gen, const):
         self.ilasm.field(const.name, const.get_type(), static=True)
-
-    def push_primitive_constant(self, gen, TYPE, value):
-        ilasm = gen.ilasm
-        if TYPE is ootype.Void:
-            pass
-        elif TYPE is ootype.Bool:
-            ilasm.opcode('ldc.i4', str(int(value)))
-        elif TYPE is ootype.Char or TYPE is ootype.UniChar:
-            ilasm.opcode('ldc.i4', ord(value))
-        elif TYPE is ootype.Float:
-            if isinf(value):
-                ilasm.opcode('ldc.r8', '(00 00 00 00 00 00 f0 7f)')
-            elif isnan(value):
-                ilasm.opcode('ldc.r8', '(00 00 00 00 00 00 f8 ff)')
-            else:
-                ilasm.opcode('ldc.r8', repr(value))
-        elif isinstance(value, CDefinedIntSymbolic):
-            ilasm.opcode('ldc.i4', DEFINED_INT_SYMBOLICS[value.expr])
-        elif TYPE in (ootype.Signed, ootype.Unsigned):
-            ilasm.opcode('ldc.i4', str(value))
-        elif TYPE in (ootype.SignedLongLong, ootype.UnsignedLongLong):
-            ilasm.opcode('ldc.i8', str(value))
-        elif TYPE is ootype.String:
-            if value._str is None:
-                ilasm.opcode('ldnull')
-            else:
-                ilasm.opcode("ldstr", string_literal(value._str))
-        else:
-            assert False, "Unexpected constant type"
 
     def downcast_constant(self, gen, const, EXPECTED_TYPE):
         type = self.cts.lltype_to_cts(EXPECTED_TYPE)
@@ -414,75 +362,17 @@ class CLIDictMixin(CLIBaseConstMixin):
 # the generator interface in the CLI.
 
 class CLIRecordConst(CLIBaseConstMixin, RecordConst):
-    # Eventually code should look more like this:
-    #def create_pointer(self, gen):
-    #    self.db.const_count.inc('Record')
-    #    super(CLIRecordConst, self).create_pointer(gen)
-
     def create_pointer(self, gen):
-        assert not self.is_null()
-        class_name = self.get_type(False)
-        gen.ilasm.new('instance void class %s::.ctor()' % class_name)
         self.db.const_count.inc('Record')
-
-    def initialize_data(self, gen):
-        assert not self.is_null()
-        class_name = self.get_type(False)        
-        for f_name, (FIELD_TYPE, f_default) in self.value._TYPE._fields.iteritems():
-            if FIELD_TYPE is not ootype.Void:
-                f_type = self.cts.lltype_to_cts(FIELD_TYPE)
-                value = self.value._items[f_name]
-                gen.ilasm.opcode('dup')
-                push_constant(self.db, FIELD_TYPE, value, gen)
-                gen.ilasm.set_field((f_type, class_name, f_name))
+        super(CLIRecordConst, self).create_pointer(gen)
 
 class CLIInstanceConst(CLIBaseConstMixin, InstanceConst):
     # Eventually code should look more like this:
-    #def create_pointer(self, gen):
-    #    self.db.const_count.inc('Instance')
-    #    self.db.const_count.inc('Instance', INSTANCE)
-    #    super(CLIInstanceConst, self).create_pointer(gen)
-
     def create_pointer(self, gen):
-        assert not self.is_null()
-        INSTANCE = self.value._TYPE
-        gen.ilasm.new('instance void class %s::.ctor()' % self.db.class_name(INSTANCE))
         self.db.const_count.inc('Instance')
-        self.db.const_count.inc('Instance', INSTANCE)
+        self.db.const_count.inc('Instance', self.OOTYPE())
+        super(CLIInstanceConst, self).create_pointer(gen)
 
-    def initialize_data(self, gen):
-        assert not self.is_null()
-        INSTANCE = self.value._TYPE
-        if INSTANCE is not self.static_type:
-            gen.ilasm.opcode('castclass', self.cts.lltype_to_cts(INSTANCE, include_class=False))
-
-        # XXX, horrible hack: first collect all consts, then render
-        # CustomDicts at last because their ll_set could need other
-        # fields already initialized. We should really think a more
-        # general way to handle such things.
-        const_list = []
-        while INSTANCE is not None:
-            for name, (TYPE, default) in INSTANCE._fields.iteritems():
-                if TYPE is ootype.Void:
-                    continue
-                value = getattr(self.value, name)
-                const_list.append((TYPE, INSTANCE, name, value))
-            INSTANCE = INSTANCE._superclass
-
-        def mycmp(x, y):
-            if isinstance(x[0], ootype.CustomDict) and not isinstance(y[0], ootype.CustomDict):
-                return 1 # a CustomDict is always greater than non-CustomDicts
-            elif isinstance(y[0], ootype.CustomDict) and not isinstance(x[0], ootype.CustomDict):
-                return -1 # a non-CustomDict is always less than CustomDicts
-            else:
-                return cmp(x, y)
-        const_list.sort(mycmp)
-        
-        for TYPE, INSTANCE, name, value in const_list:
-            type_ = self.cts.lltype_to_cts(TYPE)
-            gen.ilasm.opcode('dup')
-            push_constant(self.db, TYPE, value, gen)
-            gen.ilasm.opcode('stfld %s %s::%s' % (type_, self.db.class_name(INSTANCE), name))
 
 class CLIClassConst(CLIBaseConstMixin, ClassConst):
     def is_inline(self):
@@ -495,7 +385,6 @@ class CLIClassConst(CLIBaseConstMixin, ClassConst):
             gen.ilasm.call('class [mscorlib]System.Type class [mscorlib]System.Type::GetTypeFromHandle(valuetype [mscorlib]System.RuntimeTypeHandle)')
             return
         super(CLIClassConst, self).push_inline(gen, EXPECTED_TYPE)
-    pass
 
 class CLIListConst(CLIBaseConstMixin, ListConst):
 

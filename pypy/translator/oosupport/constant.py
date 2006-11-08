@@ -426,9 +426,9 @@ class RecordConst(AbstractConst):
         for f_name, (FIELD_TYPE, f_default) in self.value._TYPE._fields.iteritems():
             if FIELD_TYPE is not ootype.Void:
                 gen.dup(SELFTYPE)
+                value = self.value._items[f_name]
                 push_constant(self.db, FIELD_TYPE, value, gen)
                 gen.set_field(SELFTYPE, f_name)
-        gen.pop(SELFTYPE)
 
 # ______________________________________________________________________
 # Instances
@@ -507,9 +507,6 @@ class InstanceConst(AbstractConst):
             gen.dup(SELFTYPE)
             push_constant(self.db, FIELD_TYPE, value, gen)
             gen.set_field(INSTANCE, name)
-
-        # Pop selves from stack when done.
-        gen.pop(SELFTYPE)
 
 # ______________________________________________________________________
 # Class constants

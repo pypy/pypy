@@ -2,7 +2,7 @@
 """
 from pypy.config.config import Config
 from pypy.config.pypyoption import pypy_optiondescription
-
+from pypy.translator.oosupport import constant as ooconst
 
 class GenOO(object):
     TypeSystem = None
@@ -15,14 +15,14 @@ class GenOO(object):
     # _create_complex_const:
     
     ConstantGenerator = None
-    InstanceConst = None
-    RecordConst = None
-    ClassConst = None
-    ListConst = None
-    StaticMethodConst = None
-    CustomDictConst = None
-    DictConst = None
-    WeakRefConst = None
+    InstanceConst = ooconst.InstanceConst
+    RecordConst = ooconst.RecordConst
+    ClassConst = ooconst.ClassConst
+    ListConst = ooconst.ListConst
+    StaticMethodConst = ooconst.StaticMethodConst
+    CustomDictConst = ooconst.CustomDictConst
+    DictConst = ooconst.DictConst
+    WeakRefConst = ooconst.WeakRefConst
 
     def __init__(self, tmpdir, translator, entrypoint, config=None):
         self.tmpdir = tmpdir

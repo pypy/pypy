@@ -1,9 +1,9 @@
 from pypy.translator.jvm.generator import \
-     Field, Method, ACONST_NULL, ICONST, LDC, DCONST_0, DCONST_1, LDC2
+     Field, Method
 from pypy.translator.oosupport.constant import \
-     RecordConst, InstanceConst, ClassConst
+     BaseConstantGenerator, RecordConst, InstanceConst, ClassConst
 from pypy.translator.jvm.typesystem import \
-     jPyPyConst, jObject
+     jPyPyConst, jObject, jVoid
 
 # ___________________________________________________________________________
 # Constant Generator
@@ -30,9 +30,10 @@ class JVMConstantGenerator(BaseConstantGenerator):
     
     def _begin_gen_constants(self, gen, all_constants):
         gen.begin_class(jPyPyConst, jObject)
+        return gen
 
     def _declare_const(self, gen, const):
-        gen.add_field(c.fieldobj)
+        gen.add_field(const.fieldobj)
 
     def _declare_step(self, gen, stepnum):
         next_nm = "constant_init_%d" % stepnum
@@ -46,7 +47,7 @@ class JVMConstantGenerator(BaseConstantGenerator):
         # The static init code just needs to call constant_init_1..N
         gen.begin_function('<clinit>', [], [], jVoid, True)
         for x in range(numsteps):
-            m = jvmgen.Method.s(jPyPyConst, "constant_init_%d" % x, [], jVoid)
+            m = Method.s(jPyPyConst, "constant_init_%d" % x, [], jVoid)
             gen.emit(m)
         gen.return_val(jVoid)
         gen.end_function()
