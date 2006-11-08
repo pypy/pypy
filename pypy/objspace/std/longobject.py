@@ -139,6 +139,9 @@ def truediv__Long_Long(space, w_long1, w_long2):
     except ZeroDivisionError:
         raise OperationError(space.w_ZeroDivisionError,
                              space.wrap("long division or modulo by zero"))
+    except OverflowError:
+        raise OperationError(space.w_OverflowError,
+                             space.wrap("long/long too large for a float"))
 
 def floordiv__Long_Long(space, w_long1, w_long2):
     try:

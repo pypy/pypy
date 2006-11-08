@@ -123,4 +123,9 @@ class AppTestLong:
         assert long(n) == n
         assert str(long(n)) == str(n)
 
-
+    def test_huge_longs(self):
+        import operator
+        huge = 1L << 40000L
+        raises(OverflowError, float, huge)
+        raises(OverflowError, operator.truediv, huge, 3)
+        raises(OverflowError, operator.truediv, huge, 3L)
