@@ -560,7 +560,7 @@ class ListConst(AbstractConst):
         gen.new(SELFTYPE)
         
         # And then resize it to the correct size
-        gen.dup()
+        gen.dup(SELFTYPE)
         push_constant(self.db, ootype.Signed, len(self.value._list), gen)
         gen.call_method(SELFTYPE, '_ll_resize')
 
@@ -589,7 +589,7 @@ class ListConst(AbstractConst):
             gen.dup(SELFTYPE)
             push_constant(self.db, ootype.Signed, idx, gen)
             push_constant(self.db, ITEMTYPE, item, gen)
-            gen.call_method(SELFFTYPE, 'll_setitem_fast')
+            gen.call_method(SELFTYPE, 'll_setitem_fast')
 
 # ______________________________________________________________________
 # Dictionary constants

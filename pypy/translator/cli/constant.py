@@ -49,12 +49,6 @@ DEBUG_CONST_INIT_VERBOSE = False
 MAX_CONST_PER_STEP = 100
 SERIALIZE = False
 
-def isnan(v):
-        return v != v*1.0 or (v == 1.0 and v == 2.0)
-
-def isinf(v):
-    return v!=0 and (v == v*2)
-
 # ______________________________________________________________________
 # Constant Generators
 #
@@ -389,55 +383,20 @@ class CLIClassConst(CLIBaseConstMixin, ClassConst):
 class CLIListConst(CLIBaseConstMixin, ListConst):
 
     # Eventually code should look more like this:
-    #def _do_not_initialize(self):
-    #    # Check if it is a list of all zeroes:
-    #    try:
-    #        if self.value._list == [0] * len(self.value._list):
-    #            return True
-    #    except:
-    #        pass
-    #    return super(CLIListConst, self)._do_not_initialize(self)
-    #
-    #def create_pointer(self, gen):
-    #    self.db.const_count.inc('List')
-    #    self.db.const_count.inc('List', self.value._TYPE._ITEMTYPE)
-    #    self.db.const_count.inc('List', len(self.value._list))
-    #    super(CLIListConst, self).create_pointer(gen)        
-
+    def _do_not_initialize(self):
+        # Check if it is a list of all zeroes:
+        try:
+            if self.value._list == [0] * len(self.value._list):
+                return True
+        except:
+            pass
+        return super(CLIListConst, self)._do_not_initialize()
+    
     def create_pointer(self, gen):
-        assert not self.is_null()
-        class_name = self.get_type(False)
-        push_constant(self.db, ootype.Signed, len(self.value._list), gen)
-        gen.ilasm.new('instance void class %s::.ctor(int32)' % class_name)
         self.db.const_count.inc('List')
         self.db.const_count.inc('List', self.value._TYPE._ITEMTYPE)
         self.db.const_count.inc('List', len(self.value._list))
-
-    def _list_of_zeroes(self):
-        try:
-            return self.value._list == [0] * len(self.value._list)
-        except:
-            return False
-
-    def initialize_data(self, gen):
-        assert not self.is_null()
-        ITEMTYPE = self.value._TYPE._ITEMTYPE
-        itemtype = self.cts.lltype_to_cts(ITEMTYPE)
-        itemtype_T = self.cts.lltype_to_cts(self.value._TYPE.ITEMTYPE_T)
-
-        # special case: List(Void); only resize it, don't care of the contents
-        # special case: list of zeroes, don't need to initialize every item
-        if ITEMTYPE is ootype.Void or self._list_of_zeroes():
-            push_constant(self.db, ootype.Signed, len(self.value._list), gen)            
-            meth = 'void class %s::_ll_resize(int32)' % self.get_type(False) #PYPY_LIST_OF_VOID
-            gen.ilasm.call_method(meth, False)
-            return True
-        
-        for item in self.value._list:
-            gen.ilasm.opcode('dup')
-            push_constant(self.db, ITEMTYPE, item, gen)
-            meth = 'void class [pypylib]pypy.runtime.List`1<%s>::Add(%s)' % (itemtype, itemtype_T)
-            gen.ilasm.call_method(meth, False)
+        super(CLIListConst, self).create_pointer(gen)        
 
 class CLIDictConst(CLIDictMixin, DictConst):
 
