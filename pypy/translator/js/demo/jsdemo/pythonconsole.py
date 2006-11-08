@@ -16,7 +16,7 @@ from pypy.translator.js.modules._dom import setTimeout, get_document
 from pypy.translator.js.main import rpython2javascript
 from pypy.rpython.ootypesystem.bltregistry import MethodDesc, BasicExternal
 from pypy.translator.js import commproxy
-from pypy.translator.js.modules.mochikit import createLoggingPane, log
+#from pypy.translator.js.modules.mochikit import createLoggingPane, log
 
 commproxy.USE_MOCHIKIT = True
 
@@ -53,7 +53,7 @@ HTML_PAGE = """
 
     <pre id="data"></pre>
 
-    <input id="inp" size="100" type="text"/>
+    <input id="inp" size="100" type="text" autocomplete="off"/>
 
 </body>
 </html>
@@ -66,6 +66,7 @@ def callback(data):
     inp_elem.disabled = False
     answer = data.get('answer', '')
     add_text(answer)
+    inp_elem.focus()
 
 def add_text(text):
     data_elem = get_document().getElementById("data")
@@ -83,21 +84,25 @@ def keypressed(key):
     if kc == ord("\r"):
         inp_elem = get_document().getElementById("inp")
         cmd = inp_elem.value
-        add_text(">>> %s\n" % (cmd,))
-        inp_elem.value = ''
-        storage.cmd += cmd + "\n"
-        if cmd.endswith(':'):
-            storage.level += 1
-        elif storage.level == 0:
-            inp_elem.disabled = True
-            httpd.some_callback(storage.cmd, callback)
-            storage.cmd = ""
+        if storage.level == 0:
+            add_text(">>> %s\n" % (cmd,))
         else:
-            storage.level -= 1
+            add_text("... %s\n" % (cmd,))
+        inp_elem.value = ''
+        if cmd:
+            storage.cmd += cmd + "\n"
+        if cmd.endswith(':'):
+            storage.level = 1
+        elif storage.level == 0 or cmd == "":
+            if (not storage.level) or (not cmd):
+                inp_elem.disabled = True
+                httpd.some_callback(storage.cmd, callback)
+                storage.cmd = ""
+                storage.level = 0
 
 def setup_page():
-    createLoggingPane(True)
     get_document().onkeypress = keypressed
+    get_document().getElementById("inp").focus()
 
 class Server(HTTPServer, BasicExternal):
     # Methods and signatures how they are rendered for JS
