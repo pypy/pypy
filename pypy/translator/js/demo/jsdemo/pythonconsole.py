@@ -16,7 +16,8 @@ from pypy.translator.js.modules._dom import setTimeout, get_document
 from pypy.translator.js.main import rpython2javascript
 from pypy.rpython.ootypesystem.bltregistry import MethodDesc, BasicExternal
 from pypy.translator.js import commproxy
-#from pypy.translator.js.modules.mochikit import createLoggingPane, log
+from pypy.translator.js.modules.mochikit import createLoggingPane, log,\
+    escapeHTML
 
 commproxy.USE_MOCHIKIT = True
 
@@ -70,7 +71,7 @@ def callback(data):
 
 def add_text(text):
     data_elem = get_document().getElementById("data")
-    data_elem.innerHTML += text
+    data_elem.innerHTML += escapeHTML(text)
 
 class Storage(object):
     def __init__(self):

@@ -31,9 +31,9 @@ class ConsoleRoot(BasicExternal, Root):
     def index(self):
         return dict(now=time.ctime(), onload=self.jsname, code=self.jssource)
 
+    @described(retval={'aa':'aa'}, args={'str_to_eval':"aa"})
     @turbogears.expose(format="json")
-    @described(retval={'aa':'aa'})
-    def run_command(self, str_to_eval = "aa"):
+    def run_command(self, str_to_eval):
         # we need what has changed
         # we try to run it...
         lines = str_to_eval.split("<br>")

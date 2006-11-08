@@ -31,3 +31,7 @@ def logFatal(data):
     pass
 logFatal.suggested_primitive = True
 logFatal._annspecialcase_ = "specialize:argtype(0)"
+
+def escapeHTML(data):
+    return data
+escapeHTML.suggested_primitive = True
