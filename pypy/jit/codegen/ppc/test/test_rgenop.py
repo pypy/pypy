@@ -7,9 +7,9 @@ from pypy.jit.codegen.ppc import instruction as insn
 
 class FewRegisters(RPPCGenOp):
     freeregs = {
-        insn.GP_REGISTER:insn.gprs[29:],
+        insn.GP_REGISTER:insn.gprs[3:6],
         insn.FP_REGISTER:insn.fprs,
-        insn.CR_FIELD:insn.crfs,
+        insn.CR_FIELD:insn.crfs[:1],
         insn.CT_REGISTER:[insn.ctr]}
 
 class TestRPPCGenop(AbstractRGenOpTests):
@@ -25,7 +25,7 @@ class TestRPPCGenop(AbstractRGenOpTests):
         args_gv = [gv_x, gv_y]
         builder.enter_next_block([signed_kind, signed_kind], args_gv)
         [gv_x, gv_y] = args_gv
-        
+
         gv_gt = builder.genop2("int_gt", gv_x, gv_y)
         gv_lt = builder.genop2("int_lt", gv_x, gv_y)
         gv_ge = builder.genop2("int_ge", gv_x, gv_y)

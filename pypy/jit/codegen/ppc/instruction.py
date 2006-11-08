@@ -12,6 +12,8 @@ class _StackSlot(AllocationSlot):
     is_register = False
     def __init__(self, offset):
         self.offset = offset
+    def __repr__(self):
+        return "stack@%s"%(self.offset,)
 
 _stack_slot_cache = {}
 def stack_slot(offset):

@@ -53,6 +53,7 @@ class IntConst(GenConst):
 
     def load_now(self, asm, loc):
         if loc.is_register:
+            assert isinstance(loc, insn.GPR)
             asm.load_word(loc.number, self.value)
         else:
             asm.load_word(rSCRATCH, self.value)
@@ -316,7 +317,7 @@ class Builder(GenBuilder):
                 if not loc.is_register:
                     min_stack_offset = min(min_stack_offset, loc.offset)
                 else:
-                    usedregs[loc] = None # XXX use this
+                    usedregs[loc] = None
 
         unusedregs = [loc for loc in self.rgenop.freeregs[insn.GP_REGISTER] if loc not in usedregs]
         arg_locations = []

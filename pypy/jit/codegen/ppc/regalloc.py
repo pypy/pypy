@@ -44,6 +44,12 @@ class RegisterAllocation:
 
         if freeregs:
             reg = freeregs.pop()
+            if newarg in self.var2loc:
+                spill = self.var2loc[newarg]
+                assert not spill.is_register
+                self.insns.append(Unspill(newarg, reg, spill))
+                del self.loc2var[spill] # not stored there anymore, reuse??
+                #print "allocate_reg: Unspilled %r from %r." % (newarg, spill)
             self.loc2var[reg] = newarg
             self.var2loc[newarg] = reg
             #print "allocate_reg: Putting %r into fresh register %r" % (newarg, reg)
@@ -65,7 +71,12 @@ class RegisterAllocation:
         spill = stack_slot(self.spill())
         self.var2loc[argtospill] = spill
         self.loc2var[spill] = argtospill
-        self.insns.append(Spill(argtospill, reg, spill))
+        if regclass != GP_REGISTER:
+            self.insns.append(reg.move_to_gpr(self, 0))
+            _reg = gprs[0]
+        else:
+            _reg = reg
+        self.insns.append(Spill(argtospill, _reg, spill))
         #print "allocate_reg: Spilled %r to %r." % (argtospill, spill)
 
         # If the value is currently on the stack, load it up into the
