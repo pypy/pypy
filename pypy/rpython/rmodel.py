@@ -198,7 +198,8 @@ class Repr:
             raise TyperError("getattr() with a non-constant attribute name")
 
     def rtype_str(self, hop):
-        return hop.gendirectcall(self.ll_str, hop.args_v[0])
+        [v_self] = hop.inputargs(self)
+        return hop.gendirectcall(self.ll_str, v_self)
 
     def rtype_nonzero(self, hop):
         return self.rtype_is_true(hop)   # can call a subclass' rtype_is_true()

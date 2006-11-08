@@ -573,6 +573,13 @@ class BaseTestRstr(BaseRtypingTest):
         res = self.interpret(fn, [1])
         assert typeOf(res) == Signed
 
+    def test_call_str_on_string(self):
+        def fn(i):
+            s = "x" * i
+            return str(s)
+        res = self.interpret(fn, [3])
+        assert self.ll_to_string(res) == 'xxx'
+
 
 def FIXME_test_str_to_pystringobj():
     def f(n):
