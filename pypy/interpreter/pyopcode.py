@@ -305,22 +305,22 @@ class PyInterpFrame(pyframe.PyFrame):
     def PRINT_ITEM_TO(f):
         w_stream = f.valuestack.pop()
         w_item = f.valuestack.pop()
-        if w_stream == f.space.w_None:
+        if f.space.is_w(w_stream, f.space.w_None):
             w_stream = sys_stdout(f.space)   # grumble grumble special cases
         print_item_to(f.space, w_item, w_stream)
 
     def PRINT_ITEM(f):
         w_item = f.valuestack.pop()
-        print_item_to(f.space, w_item, sys_stdout(f.space))
+        print_item(f.space, w_item)
 
     def PRINT_NEWLINE_TO(f):
         w_stream = f.valuestack.pop()
-        if w_stream == f.space.w_None:
+        if f.space.is_w(w_stream, f.space.w_None):
             w_stream = sys_stdout(f.space)   # grumble grumble special cases
         print_newline_to(f.space, w_stream)
 
     def PRINT_NEWLINE(f):
-        print_newline_to(f.space, sys_stdout(f.space))
+        print_newline(f.space)
 
     def BREAK_LOOP(f):
         raise pyframe.SBreakLoop
@@ -909,9 +909,17 @@ app = gateway.applevel(r'''
         file_softspace(stream, True)
     print_item_to._annspecialcase_ = "specialize:argtype(0)"
 
+    def print_item(x):
+        print_item_to(x, sys_stdout())
+    print_item._annspecialcase_ = "flowspace:print_item"
+
     def print_newline_to(stream):
         stream.write("\n")
         file_softspace(stream, False)
+
+    def print_newline():
+        print_newline_to(sys_stdout())
+    print_newline._annspecialcase_ = "flowspace:print_newline"
 
     def file_softspace(file, newflag):
         try:
@@ -927,7 +935,9 @@ app = gateway.applevel(r'''
 
 sys_stdout      = app.interphook('sys_stdout')
 print_expr      = app.interphook('print_expr')
+print_item      = app.interphook('print_item')
 print_item_to   = app.interphook('print_item_to')
+print_newline   = app.interphook('print_newline')
 print_newline_to= app.interphook('print_newline_to')
 file_softspace  = app.interphook('file_softspace')
 
