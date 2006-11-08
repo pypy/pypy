@@ -168,7 +168,7 @@ def main(backends=[]):
             llvm--_objspace-std-withstrdict
             c
             c--gc=framework
-            c--_thread
+            c--thread--_objspace-std-withstrdict--profopt='-c "from richards import *;main(iterations=1)"'
             c--stackless
             c--stackless--_objspace-std-withstrdict--profopt='-c "from richards import *;main(iterations=1)"'
             c--profopt='-c "from richards import *;main(iterations=1)"'
@@ -199,4 +199,4 @@ if __name__ == '__main__':
         if args and args[0] == '--dry-run':
             del args[0]
             dry_run = True
-        main(*args)
+        main(args)
