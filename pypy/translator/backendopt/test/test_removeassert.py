@@ -17,11 +17,11 @@ def contains_raise(graph):
     else:
         return False
 
-def check(fn, args, expected_result):
+def check(fn, args, expected_result, remaining_raise=False):
     signature = [int] * len(args)   # for now
     graph, t = get_graph(fn, signature)
     remove_asserts(t, [graph])
-    assert not contains_raise(graph)
+    assert contains_raise(graph) == remaining_raise
     check_graph(graph, args, expected_result, t)
 
 
@@ -70,3 +70,15 @@ def test_isinstance():
         assert isinstance(x, B)
         return x.value
     check(fn, [5], 321)
+
+def test_with_exception():
+    def g(n):
+        if n < 0:
+            raise ValueError
+    def fn(n):
+        try:
+            g(n)
+            assert False
+        except ValueError:
+            return 42
+    check(fn, [-8], 42, remaining_raise=True)
