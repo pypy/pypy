@@ -19,9 +19,9 @@ def remove_asserts(translator, graphs):
                 if (link.target is graph.exceptblock
                     and isinstance(link.args[0], Constant)
                     and link.args[0].value == ll_AssertionError):
-                    kill_assertion_link(graph, link)
-                    pending.append(graph)
-                    break
+                    if kill_assertion_link(graph, link):
+                        pending.append(graph)
+                        break
         graphs = pending
 
 
@@ -36,3 +36,6 @@ def kill_assertion_link(graph, link):
             exits[0].exitcase = None
             exits[0].llexitcase = None
         block.recloseblock(*exits)
+        return True
+    else:
+        return False
