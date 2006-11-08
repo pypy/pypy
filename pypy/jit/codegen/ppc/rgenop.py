@@ -433,7 +433,7 @@ class Builder(GenBuilder):
         return self._compare('ne', gv_x, gv_y)
 
     def _jump(self, gv_condition, if_true):
-        targetbuilder = self._fork()
+        targetbuilder = self.rgenop.openbuilder()
 
         targetaddr = targetbuilder.asm.mc.tell()
 
@@ -451,9 +451,6 @@ class Builder(GenBuilder):
 
     def jump_if_true(self, gv_condition):
         return self._jump(gv_condition, True)
-
-    def _fork(self):
-        return self.rgenop.openbuilder()
 
 
 class RPPCGenOp(AbstractRGenOp):
