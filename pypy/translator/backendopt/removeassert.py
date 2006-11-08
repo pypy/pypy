@@ -27,6 +27,8 @@ def remove_asserts(translator, graphs):
                         count += 1
                         morework = True
                         break
+                    else:
+                        log.removeassert("cannot remove an assert from %s" % (graph.name,))
         if count:
             # now melt away the (hopefully) dead operation that compute
             # the condition
