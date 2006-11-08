@@ -961,6 +961,7 @@ class JasminGenerator(JVMGenerator):
             os.makedirs(jdir)
         except OSError: pass
         self.curclass.file = open(jfile, 'w')
+        self.db.add_jasmin_file(jfile)
 
         # Write the JasminXT header
         self.curclass.out(".class public %s\n" % iclassnm)

@@ -67,18 +67,23 @@ class JvmGeneratedSource(object):
         'tmpdir' --- the base directory where the sources are located
         'package' --- the package the sources are in; if package is pypy.jvm,
         then we expect to find the sources in $tmpdir/pypy/jvm
+        'jfiles' --- list of files we need to run jasmin on
         """
         self.tmpdir = tmpdir
         self.package = package
         self.compiled = False
+        self.jasmin_files = None
 
-        # Compute directory where .java files are
+        # Compute directory where .j files are
         self.javadir = self.tmpdir
         for subpkg in package.split('.'):
             self.javadir = self.javadir.join(subpkg)
 
         # Compute directory where .class files should go
         self.classdir = self.javadir
+
+    def set_jasmin_files(self, jfiles):
+        self.jasmin_files = jfiles
 
     def _invoke(self, args, allow_stderr):
         subp = subprocess.Popen(
@@ -93,24 +98,22 @@ class JvmGeneratedSource(object):
         """
         Compiles the .java sources into .class files, ready for execution.
         """
-        javacmd = [getoption('jasmin'), '-d', str(self.javadir)]
-        pypydir = self.javadir.join("pypy") # HACK; should do recursive
-        javafiles = [str(f) for f in pypydir.listdir()
-                     if str(f).endswith('.j')]
-
-        for javafile in javafiles:
-            print "Invoking jasmin on %s" % javafile
-            self._invoke(javacmd+[javafile], False)
+        jascmd = [getoption('jasmin'), '-d', str(self.javadir)]
+        for jasfile in self.jasmin_files:
+            print "Invoking jasmin on %s" % jasfile
+            self._invoke(jascmd+[jasfile], False)
 
         # HACK: compile the Java helper class.  Should eventually
         # use rte.py
-        sl = __file__.rindex('/')
-        javasrc = __file__[:sl]+"/src/PyPy.java"
-        self._invoke([getoption('javac'),
-                      '-nowarn',
-                      '-d', str(self.javadir),
-                      javasrc],
-                     True)
+        pypycls = self.classdir.join('PyPy.class')
+        if not os.path.exists(str(pypycls)):
+            sl = __file__.rindex('/')
+            javasrc = __file__[:sl]+"/src/PyPy.java"
+            self._invoke([getoption('javac'),
+                          '-nowarn',
+                          '-d', str(self.classdir),
+                          javasrc],
+                         True)
                            
         self.compiled = True
 
@@ -190,6 +193,7 @@ class GenJvm(GenOO):
         """ Creates the sources, and returns a JvmGeneratedSource object
         for manipulating them """
         GenOO.generate_source(self)
+        self.jvmsrc.set_jasmin_files(self.db.jasmin_files())
         return self.jvmsrc
 
     def create_assembler(self):

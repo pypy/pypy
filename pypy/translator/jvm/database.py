@@ -26,6 +26,7 @@ class Database(OODatabase):
         OODatabase.__init__(self, genoo)
         
         # Private attributes:
+        self._jasmin_files = [] # list of strings --- .j files we made
         self._classes = {} # Maps ootype class objects to node.Class objects,
                            # and JvmType objects as well
         self._functions = {}      # graph -> jvmgen.Method
@@ -58,6 +59,14 @@ class Database(OODatabase):
         jtype = self.lltype_to_cts(TYPE)
         assert isinstance(jtype, jvmtype.JvmClassType)
         return jtype.name
+
+    def add_jasmin_file(self, jfile):
+        """ Adds to the list of files we need to run jasmin on """
+        self._jasmin_files.append(jfile)
+
+    def jasmin_files(self):
+        """ Returns list of files we need to run jasmin on """
+        return self._jasmin_files
 
     # _________________________________________________________________
     # Node Creation
