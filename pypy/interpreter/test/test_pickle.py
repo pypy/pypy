@@ -1,3 +1,6 @@
+import py
+from pypy import conftest
+
 def _attach_helpers(space):
     from pypy.interpreter import pytraceback
     def hide_top_frame(space, w_frame):
@@ -46,6 +49,8 @@ def _detatch_helpers(space):
 class AppTestInterpObjectPickling:
 
     def setup_class(cls):
+        if conftest.option.runappdirect:
+            py.test.skip("not for py.test -A")
         _attach_helpers(cls.space)
 
     def teardown_class(cls):
