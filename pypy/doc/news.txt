@@ -16,6 +16,18 @@ for a list of past events.
 .. _eventhistory: eventhistory.html
 
 
+Duesseldorf sprint #2, 30th October - 5th November over
+==================================================================
+
+The Duesseldorf sprint is over. It was a very productive sprint with work done
+in various areas. Read the `sprint report`_ for a detailed description of what
+was achieved and the `full announcement`_ for various details.
+
+.. _`full announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/ddorf2006b/announce.html
+.. _`sprint report`: http://codespeak.net/pipermail/pypy-dev/2006q4/003396.html
+
+
+
 Dynamic Languages Symposium (OOPSLA, 23rd October)
 ==================================================================
 
@@ -33,18 +45,6 @@ how we are generating such VMs, not what they do.
 .. _`Dynamic Languages Symposium`: http://www.oopsla.org/2006/submission/tracks/dynamic_languages_symposium.html
 .. _`PyPy's approach to virtual machine construction`: http://codespeak.net/svn/pypy/extradoc/talk/dls2006/pypy-vm-construction.pdf
 
-
-Duesseldorf sprint #2, 30th October - 5th November
-==================================================================
-
-The next PyPy sprint will be held in Duesseldorf in Germany, where we
-already met in June.  This is a "non-core-people" friendly sprint; we
-will work on any topic of interest, be it from areas we are currently
-focusing on (JIT, optimizations, py.test, build tools...) or from areas
-that other people would like to consider (new back-ends, distribution,
-security...).  Read the `full announcement`_ for more details.
-
-.. _`full announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/ddorf2006b/announce.html
 
 
 Summer of PyPy: Calls for proposals open now! 
