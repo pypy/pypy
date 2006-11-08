@@ -135,7 +135,6 @@ pypy_optiondescription = OptionDescription("pypy", "All PyPy Options", [
                       "boehm", requires={
                          "stacklessgc": [("translation.stackless", True)]},
                       cmdline="--gc"),
-
         BoolOption("thread", "enable use of threading primitives",
                    default=False, cmdline="--thread"),
         BoolOption("verbose", "Print extra information", default=False),
@@ -153,6 +152,16 @@ pypy_optiondescription = OptionDescription("pypy", "All PyPy Options", [
         BoolOption("debug_transform", "Perform the debug transformation",
                    default=False, cmdline="--debug-transform", negation=False),
 
+        # portability options
+        BoolOption("vanilla",
+                   "Try to be as portable as possible, which is not much",
+                   default=False,
+                   cmdline="--vanilla",
+                   requires=[("translation.no__thread", True)]),
+        BoolOption("no__thread",
+                   "don't use __thread for implementing TLS",
+                   default=False, cmdline="--no__thread", negation=False),
+
         # Flags of the TranslationContext:
         BoolOption("simplifying", "Simplify flow graphs", default=True),
         BoolOption("do_imports_immediately", "XXX", default=True,
@@ -163,7 +172,7 @@ pypy_optiondescription = OptionDescription("pypy", "All PyPy Options", [
                    cmdline=None),
         ChoiceOption("fork_before",
                      "(UNIX) Create restartable checkpoint before step",
-                     ["annotate", "rtype", "backendopt", "database", "source"], 
+                     ["annotate", "rtype", "backendopt", "database", "source"],
                      default=None, cmdline="--fork-before"),
 
         OptionDescription("backendopt", "Backend Optimization Options", [
