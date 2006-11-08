@@ -59,7 +59,7 @@ except Exception:
 
 class AppTestMutate:
     def setup_class(cls):
-        cls.w_BaseVisitor, = cls.space.unpackiterable(cls.space.appexec([], '''():
+        cls.w_BaseVisitor = cls.space.appexec([], '''():
         class BaseVisitor:
             def __getattr__(self, attr):
                 if attr.startswith('visit'):
@@ -68,7 +68,7 @@ class AppTestMutate:
                     raise AttributeError(attr)
             def default(self, node):
                 return node
-        return BaseVisitor,'''))
+        return BaseVisitor''')
     
     def test_mutate_add(self):
         import parser
