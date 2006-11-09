@@ -195,8 +195,7 @@ class _socketobject(object):
     for _m in _socketmethods:
         exec _s % (_m, _m, _m, _m)
     del _m, _s
-if not hasattr(socket, 'dup'): # Simulate dup() and makefile()
-    socket = SocketType = _socketobject
+socket = SocketType = _socketobject
 
 class _fileobject(object):
     """Faux file object attached to a socket object."""
