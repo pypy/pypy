@@ -12,6 +12,10 @@ default_modules = dict.fromkeys(
      "_codecs", "gc", "_weakref", "array", "marshal", "errno",
      "math", "_sre", "_pickle_support", "sys", "exceptions", "__builtins__",
      "recparser", "symbol", "_random", "_file"])
+
+module_dependencies = { 'rctime': [("objspace.usemodules.select", True),],
+                        }
+
                               
 pypy_optiondescription = OptionDescription("pypy", "All PyPy Options", [
     OptionDescription("objspace", "Object Space Option", [
@@ -42,7 +46,8 @@ pypy_optiondescription = OptionDescription("pypy", "All PyPy Options", [
         OptionDescription("usemodules", "Which Modules should be used", [
             BoolOption(modname, "use module %s" % (modname, ),
                        default=modname in default_modules,
-                       cmdline="--withmod-%s" % (modname, ))
+                       cmdline="--withmod-%s" % (modname, ),
+                       requires= module_dependencies.get(modname, []))
             for modname in all_modules]),
 
         BoolOption("geninterp", "specify whether geninterp should be used",
