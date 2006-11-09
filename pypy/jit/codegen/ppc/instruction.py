@@ -94,9 +94,9 @@ class Insn_GPR__GPR_GPR(Insn):
         self.reg_arg_regclasses = [GP_REGISTER, GP_REGISTER]
 
     def allocate(self, allocator):
-        self.result_reg = allocator.var2loc[self.result]
-        self.arg_reg1 = allocator.var2loc[self.reg_args[0]]
-        self.arg_reg2 = allocator.var2loc[self.reg_args[1]]
+        self.result_reg = allocator.loc_of(self.result)
+        self.arg_reg1 = allocator.loc_of(self.reg_args[0])
+        self.arg_reg2 = allocator.loc_of(self.reg_args[1])
 
     def emit(self, asm):
         self.methptr(asm,
@@ -115,8 +115,8 @@ class Insn_GPR__GPR_IMM(Insn):
         self.reg_args = [args[0]]
         self.reg_arg_regclasses = [GP_REGISTER]
     def allocate(self, allocator):
-        self.result_reg = allocator.var2loc[self.result]
-        self.arg_reg = allocator.var2loc[self.reg_args[0]]
+        self.result_reg = allocator.loc_of(self.result)
+        self.arg_reg = allocator.loc_of(self.reg_args[0])
     def emit(self, asm):
         self.methptr(asm,
                      self.result_reg.number,
@@ -134,7 +134,7 @@ class Insn_GPR__IMM(Insn):
         self.reg_args = []
         self.reg_arg_regclasses = []
     def allocate(self, allocator):
-        self.result_reg = allocator.var2loc[self.result]
+        self.result_reg = allocator.loc_of(self.result)
     def emit(self, asm):
         self.methptr(asm,
                      self.result_reg.number,
@@ -156,9 +156,9 @@ class CMPW(CMPInsn):
         self.reg_arg_regclasses = [GP_REGISTER, GP_REGISTER]
 
     def allocate(self, allocator):
-        self.result_reg = allocator.var2loc[self.result]
-        self.arg_reg1 = allocator.var2loc[self.reg_args[0]]
-        self.arg_reg2 = allocator.var2loc[self.reg_args[1]]
+        self.result_reg = allocator.loc_of(self.result)
+        self.arg_reg1 = allocator.loc_of(self.reg_args[0])
+        self.arg_reg2 = allocator.loc_of(self.reg_args[1])
 
     def emit(self, asm):
         asm.cmpw(self.result_reg.number, self.arg_reg1.number, self.arg_reg2.number)
@@ -176,8 +176,8 @@ class CMPWI(CMPInsn):
         self.reg_arg_regclasses = [GP_REGISTER]
 
     def allocate(self, allocator):
-        self.result_reg = allocator.var2loc[self.result]
-        self.arg_reg = allocator.var2loc[self.reg_args[0]]
+        self.result_reg = allocator.loc_of(self.result)
+        self.arg_reg = allocator.loc_of(self.reg_args[0])
 
     def emit(self, asm):
         asm.cmpwi(self.result_reg.number, self.arg_reg.number, self.imm.value)
@@ -192,7 +192,7 @@ class CMPWI(CMPInsn):
 ##         self.reg_arg_regclasses = [GP_REGISTER]
 
 ##     def allocate(self, allocator):
-##         self.arg_reg = allocator.var2loc[self.reg_args[0]]
+##         self.arg_reg = allocator.loc_of(self.reg_args[0])
 
 ##     def emit(self, asm):
 ##         asm.mtctr(self.arg_reg.number)
@@ -209,8 +209,8 @@ class Jump(Insn):
         self.reg_args = [gv_cond, gv_target]
         self.reg_arg_regclasses = [CR_FIELD, CT_REGISTER]
     def allocate(self, allocator):
-        assert allocator.var2loc[self.reg_args[1]] is ctr
-        self.crf = allocator.var2loc[self.reg_args[0]]
+        assert allocator.loc_of(self.reg_args[1]) is ctr
+        self.crf = allocator.loc_of(self.reg_args[0])
         self.bit, self.negated = allocator.crfinfo[self.crf.number]
     def emit(self, asm):
         if self.negated ^ self.jump_if_true:
@@ -293,7 +293,7 @@ class Return(Insn):
         self.result_regclass = NO_REGISTER
         self.reg = None
     def allocate(self, allocator):
-        self.reg = allocator.var2loc[self.var]
+        self.reg = allocator.loc_of(self.var)
     def emit(self, asm):
         if self.reg.number != 3:
             asm.mr(r3, self.reg.number)
