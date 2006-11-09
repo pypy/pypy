@@ -3,29 +3,15 @@ import operator
 from pypy.jit.tl.opcode import *
 from pypy.jit.conftest import Benchmark
 
-from pypy.translator.translator import TranslationContext
+from pypy.translator.c.test import test_boehm
 from pypy.annotation import policy
-
-def translate(func, inputargs):
-    t = TranslationContext()
-    pol = policy.AnnotatorPolicy()
-    pol.allow_someobjects = False
-    t.buildannotator(policy=pol).build_types(func, inputargs)
-    t.buildrtyper().specialize()
-
-    from pypy.translator.c import genc
-    builder = genc.CExtModuleBuilder(t, func)
-    builder.generate_source()
-    builder.compile()
-    builder.import_module()
-    return builder.get_entry_point()  
 
 def list2bytecode(insn):
     return ''.join([chr(i & 0xff) for i in insn])
 
 # actual tests go here
 
-class TestTL(object):
+class TestTL(test_boehm.AbstractGCTestClass):
     from pypy.jit.tl.tl import interp
     interp = staticmethod(interp)
 
@@ -52,7 +38,7 @@ class TestTL(object):
 
     def test_tl_translatable(self):
         code = list2bytecode([PUSH,42, PUSH,100, ADD])
-        fn = translate(self.interp, [str, int, int])
+        fn = self.getcompiled(self.interp, [str, int, int])
         assert self.interp(code) == fn(code)
 
     def test_swap(self):
@@ -249,10 +235,9 @@ class TestTL(object):
                     break
             return res
 
-        fn = translate(driver, [])
+        fn = self.getcompiled(driver, [])
         res = fn()
         assert res == 0       # too many powers of 2 to be anything else
-
 
 FACTORIAL_SOURCE = '''
             PUSH 1   #  accumulator
