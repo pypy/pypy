@@ -690,7 +690,11 @@ class RSocket(object):
                                      byref(address.addr), byref(addrlen))
         if read_bytes < 0:
             raise self.error_handler()
-        address.addrlen = addrlen.value
+        result_addrlen = addrlen.value
+        if result_addrlen:
+            address.addrlen = result_addrlen
+        else:
+            address = None
         return (buf[:read_bytes], address)
 
     def send(self, data, flags=0):
