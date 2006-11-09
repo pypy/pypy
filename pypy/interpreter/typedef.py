@@ -157,7 +157,7 @@ def _buildusercls(cls, hasdict, wants_slots, wants_del, weakrefable):
         supercls = _get_unique_interplevel_subclass(cls, hasdict, False, False, False)
         
         class Proto(object):
-            slots_w = None
+            slots_w = []
             def user_setup_slots(self, nslots):
                 if nslots > 0:
                     self.slots_w = [None] * nslots
