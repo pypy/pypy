@@ -79,7 +79,7 @@ def call_startup(space):
 
 class PyPyTarget(object):
 
-    usage = "taget PyPy standalone"
+    usage = "target PyPy standalone"
 
     take_options = True
 
