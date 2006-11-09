@@ -337,11 +337,15 @@ class Builder(GenBuilder):
         
     def genop_call(self, sigtoken, gv_fnptr, args_gv):
         MASK = CALL_ALIGN-1
-        final_depth = self.stackdepth + len(args_gv)
-        delta = (final_depth+MASK)&~MASK-final_depth
-        if delta:
-            self.mc.SUB(esp, imm(delta*WORD))
-            self.stackdepth += delta
+        if MASK:
+            final_depth = self.stackdepth
+            for gv_arg in args_gv:
+                if gv_arg is not None:
+                    final_depth += 1
+            delta = (final_depth+MASK)&~MASK-final_depth
+            if delta:
+                self.mc.SUB(esp, imm(delta*WORD))
+                self.stackdepth += delta
         for i in range(len(args_gv)-1, -1, -1):
             gv_arg = args_gv[i]
             if gv_arg is not None:
