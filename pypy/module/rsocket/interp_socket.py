@@ -217,8 +217,11 @@ class W_RSocket(Wrappable, RSocket):
                 data, addr = self.recvfrom(buffersize, flags)
             finally:
                 if GIL is not None: GIL.acquire(True)
-            return space.newtuple([space.wrap(data),
-                                   addr.as_object(space)])
+            if addr:
+                w_addr = addr.as_object(space)
+            else:
+                w_addr = space.w_None
+            return space.newtuple([space.wrap(data), w_addr])
         except SocketError, e:
             raise converted_error(space, e)
     recvfrom_w.unwrap_spec = ['self', ObjSpace, int, int]
