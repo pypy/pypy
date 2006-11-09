@@ -1,5 +1,5 @@
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.gateway import ObjSpace, W_Root, NoneNotWrapped
 from pypy.interpreter.gateway import interp2app
 from pypy.rlib.rsocket import RSocket, AF_INET, SOCK_STREAM
@@ -472,5 +472,6 @@ shutdown(how) -- shut down traffic in one or both directions
 
  [*] not available on all platforms!""",
     __new__ = descr_socket_new,
+    __weakref__ = make_weakref_descr(W_RSocket),
     ** socketmethods
     )
