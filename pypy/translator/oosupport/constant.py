@@ -613,15 +613,18 @@ class DictConst(AbstractConst):
         KEYTYPE = self.value._TYPE._KEYTYPE
         VALUETYPE = self.value._TYPE._VALUETYPE
 
+        gen.add_comment('Initializing dictionary constant')
+
         if KEYTYPE is ootype.Void:
             assert VALUETYPE is ootype.Void
             return
 
         for key, value in self.value._dict.iteritems():
             gen.dup(SELFTYPE)
+            gen.add_comment('  key=%r value=%r' % (key,value))
             push_constant(self.db, KEYTYPE, key, gen)
             if VALUETYPE is ootype.Void:
-                # special case dict of Void
+                # special case dict of Void; for now store the key as value?
                 gen.dup(KEYTYPE)
             else:
                 push_constant(self.db, VALUETYPE, value, gen)

@@ -273,7 +273,7 @@ class CLIBaseGenerator(Generator):
         self.ilasm.opcode('pop')
     
     def add_comment(self, text):
-        pass
+        self.ilasm.add_comment(text)
     
     def function_signature(self, graph, func_name=None):
         return self.cts.graph_to_signature(graph, False, func_name)

@@ -3,15 +3,10 @@ ___________________________________________________________________________
 CLI Constants
 
 This module extends the oosupport/constant.py to be specific to the
-CLI.
-
-Currently, it is not terribly well integrated with the constant
-framework.  In particular, each kind of constant overloads the
-create_pointer() and initialize_data() methods with some CLI-specific
-stuff, rather than implementing the more general generator interface.
-This allowed me to cut and paste from the old CLI code, but should
-eventually be changed.  I have included some commented routines
-showing how the code should eventually look.
+CLI.  Most of the code in this file is in the constant generators, which
+determine how constants are stored and loaded (static fields, lazy
+initialization, etc), but some constant classes have been overloaded or
+extended to allow for special handling.
 
 The CLI implementation is broken into three sections:
 
@@ -282,64 +277,29 @@ class CLIBaseConstMixin(object):
         gen.ilasm.opcode('ldnull')
 
 class CLIDictMixin(CLIBaseConstMixin):
-    # Eventually code should look more like this:
-    #def _check_for_void_dict(self, gen):
-    #    KEYTYPE = self.value._TYPE._KEYTYPE
-    #    keytype = self.cts.lltype_to_cts(KEYTYPE)
-    #    keytype_T = self.cts.lltype_to_cts(self.value._TYPE.KEYTYPE_T)
-    #    VALUETYPE = self.value._TYPE._VALUETYPE
-    #    valuetype = self.cts.lltype_to_cts(VALUETYPE)
-    #    valuetype_T = self.cts.lltype_to_cts(self.value._TYPE.VALUETYPE_T)
-    #    if VALUETYPE is ootype.Void:
-    #        class_name = PYPY_DICT_OF_VOID % keytype
-    #        for key in self.value._dict:
-    #            gen.ilasm.opcode('dup')
-    #            push_constant(self.db, KEYTYPE, key, gen)
-    #            meth = 'void class %s::ll_set(%s)' % (class_name, keytype_T)
-    #            gen.ilasm.call_method(meth, False)
-    #        gen.ilasm.opcode('pop')
-    #        return True
-    #    return False
-    #
-    #def initialize_data(self, gen):
-    #    # special case: dict of void, ignore the values
-    #    if _check_for_void_dict(self, gen):
-    #        return
-    #    return super(CLIDictMixin, self).record_dependencies()
-
-    def initialize_data(self, gen):
-        assert not self.is_null()
-        class_name = self.get_type(False)
+    def _check_for_void_dict(self, gen):
         KEYTYPE = self.value._TYPE._KEYTYPE
         keytype = self.cts.lltype_to_cts(KEYTYPE)
         keytype_T = self.cts.lltype_to_cts(self.value._TYPE.KEYTYPE_T)
-
         VALUETYPE = self.value._TYPE._VALUETYPE
         valuetype = self.cts.lltype_to_cts(VALUETYPE)
         valuetype_T = self.cts.lltype_to_cts(self.value._TYPE.VALUETYPE_T)
-
-        if KEYTYPE is ootype.Void:
-            assert VALUETYPE is ootype.Void
-            return
-
-        # special case: dict of void, ignore the values
         if VALUETYPE is ootype.Void:
+            gen.add_comment('  CLI Dictionary w/ void value')
             class_name = PYPY_DICT_OF_VOID % keytype
             for key in self.value._dict:
                 gen.ilasm.opcode('dup')
                 push_constant(self.db, KEYTYPE, key, gen)
                 meth = 'void class %s::ll_set(%s)' % (class_name, keytype_T)
                 gen.ilasm.call_method(meth, False)
-            return
-
-        for key, value in self.value._dict.iteritems():
-            gen.ilasm.opcode('dup')
-            push_constant(self.db, KEYTYPE, key, gen)
-            push_constant(self.db, VALUETYPE, value, gen)
-            meth = 'void class [pypylib]pypy.runtime.Dict`2<%s, %s>::ll_set(%s, %s)' %\
-                   (keytype, valuetype, keytype_T, valuetype_T)
-            gen.ilasm.call_method(meth, False)
+            return True
+        return False
     
+    def initialize_data(self, gen):
+        # special case: dict of void, ignore the values
+        if self._check_for_void_dict(gen):
+            return 
+        return super(CLIDictMixin, self).initialize_data(gen)    
 
 # ______________________________________________________________________
 # Constant Classes
@@ -361,7 +321,6 @@ class CLIRecordConst(CLIBaseConstMixin, RecordConst):
         super(CLIRecordConst, self).create_pointer(gen)
 
 class CLIInstanceConst(CLIBaseConstMixin, InstanceConst):
-    # Eventually code should look more like this:
     def create_pointer(self, gen):
         self.db.const_count.inc('Instance')
         self.db.const_count.inc('Instance', self.OOTYPE())
@@ -382,7 +341,6 @@ class CLIClassConst(CLIBaseConstMixin, ClassConst):
 
 class CLIListConst(CLIBaseConstMixin, ListConst):
 
-    # Eventually code should look more like this:
     def _do_not_initialize(self):
         # Check if it is a list of all zeroes:
         try:
@@ -399,19 +357,10 @@ class CLIListConst(CLIBaseConstMixin, ListConst):
         super(CLIListConst, self).create_pointer(gen)        
 
 class CLIDictConst(CLIDictMixin, DictConst):
-
-    # Eventually code should look more like this:
-    #def create_pointer(self, gen):
-    #    self.db.const_count.inc('Dict')
-    #    self.db.const_count.inc('Dict', self.value._TYPE._KEYTYPE, self.value._TYPE._VALUETYPE)
-    #    super(CLIDictConst, self).create_pointer(gen)        
-        
     def create_pointer(self, gen):
-        assert not self.is_null()
-        class_name = self.get_type(False)
-        gen.ilasm.new('instance void class %s::.ctor()' % class_name)
         self.db.const_count.inc('Dict')
         self.db.const_count.inc('Dict', self.value._TYPE._KEYTYPE, self.value._TYPE._VALUETYPE)
+        super(CLIDictConst, self).create_pointer(gen)        
         
 class CLICustomDictConst(CLIDictMixin, CustomDictConst):
     def record_dependencies(self):
