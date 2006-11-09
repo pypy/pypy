@@ -110,43 +110,6 @@ class Label(GenLabel):
         self.arg_locations = arg_locations
         self.min_stack_offset = min_stack_offset
 
-## class FlexSwitch(CodeGenSwitch):
-
-##     def __init__(self, rgenop):
-##         self.rgenop = rgenop
-##         self.default_case_addr = 0
-
-##     def initialize(self, builder, gv_exitswitch):
-##         self.switch_reg = gv_exitswitch.load(builder)
-##         self.saved_state = builder._save_state()
-##         self._reserve(mc)
-
-##     def _reserve(self, mc):
-##         RESERVED = 11 # enough for 5 cases and a default
-##         pos = mc.tell()
-##         for i in range(RESERVED):
-##             mc.write(0)
-##         self.nextfreepos = pos
-##         self.endfreepos = pos + RESERVED * 4
-
-##     def _reserve_more(self):
-##         XXX
-##         start = self.nextfreepos
-##         end   = self.endfreepos
-##         newmc = self.rgenop.open_mc()
-##         self._reserve(newmc)
-##         self.rgenop.close_mc(newmc)
-##         fullmc = InMemoryCodeBuilder(start, end)
-##         a = RPPCAssembler()
-##         a.mc = newmc
-##         fullmc.ba(rel32(self.nextfreepos))
-##         fullmc.done()
-
-##     def add_case(self, gv_case):
-##     def add_default(self):
-
-
-
 # our approach to stack layout:
 
 # on function entry, the stack looks like this:
@@ -187,6 +150,120 @@ class Builder(GenBuilder):
         self.initial_spill_offset = 0
         self.initial_var2loc = None
         self.fresh_from_jump = False
+
+    # ----------------------------------------------------------------
+    # the public Builder interface:
+
+##     @specialize.arg(1)
+##     def genop1(self, opname, gv_arg):
+
+    @specialize.arg(1)
+    def genop2(self, opname, gv_arg1, gv_arg2):
+        genmethod = getattr(self, 'op_' + opname)
+        return genmethod(gv_arg1, gv_arg2)
+
+##     def genop_getfield(self, fieldtoken, gv_ptr):
+##     def genop_setfield(self, fieldtoken, gv_ptr, gv_value):
+##     def genop_getsubstruct(self, fieldtoken, gv_ptr):
+##     def genop_getarrayitem(self, arraytoken, gv_ptr, gv_index):
+##     def genop_getarraysize(self, arraytoken, gv_ptr):
+##     def genop_setarrayitem(self, arraytoken, gv_ptr, gv_index, gv_value):
+##     def genop_malloc_fixedsize(self, alloctoken):
+##     def genop_malloc_varsize(self, varsizealloctoken, gv_size):
+##     def genop_call(self, sigtoken, gv_fnptr, args_gv):
+##     def genop_same_as(self, kindtoken, gv_x):
+##     def genop_debug_pdb(self):    # may take an args_gv later
+
+    def enter_next_block(self, kinds, args_gv):
+        if self.fresh_from_jump:
+            var2loc = self.initial_var2loc
+            self.fresh_from_jump = False
+        else:
+            var2loc = self.allocate_and_emit().var2loc
+
+        #print "enter_next_block:", args_gv, var2loc
+
+        min_stack_offset = self._var_offset(0)
+        usedregs = {}
+        livevar2loc = {}
+        for gv in args_gv:
+            if isinstance(gv, Var):
+                assert gv in var2loc
+                loc = var2loc[gv]
+                livevar2loc[gv] = loc
+                if not loc.is_register:
+                    min_stack_offset = min(min_stack_offset, loc.offset)
+                else:
+                    usedregs[loc] = None
+
+        unusedregs = [loc for loc in self.rgenop.freeregs[insn.GP_REGISTER] if loc not in usedregs]
+        arg_locations = []
+
+        for i in range(len(args_gv)):
+            gv = args_gv[i]
+            if isinstance(gv, Var):
+                arg_locations.append(livevar2loc[gv])
+            else:
+                if unusedregs:
+                    loc = unusedregs.pop()
+                else:
+                    loc = insn.stack_slot(min_stack_offset)
+                    min_stack_offset -= 4
+                gv.load_now(self.asm, loc)
+                args_gv[i] = gv = Var()
+                livevar2loc[gv] = loc
+                arg_locations.append(loc)
+
+        #print livevar2loc
+
+        self.insns = []
+        self.initial_var2loc = livevar2loc
+        self.initial_spill_offset = min_stack_offset
+        target_addr = self.asm.mc.tell()
+        self.emit_stack_adjustment()
+        return Label(target_addr, arg_locations, min_stack_offset)
+
+    def jump_if_false(self, gv_condition):
+        return self._jump(gv_condition, False)
+
+    def jump_if_true(self, gv_condition):
+        return self._jump(gv_condition, True)
+
+    def finish_and_return(self, sigtoken, gv_returnvar):
+        self.insns.append(insn.Return(gv_returnvar))
+        self.allocate_and_emit()
+
+        # standard epilogue:
+
+        # restore old SP
+        self.asm.lwz(rSP, rSP, 0)
+        # restore all callee-save GPRs
+        self.asm.lmw(gprs[32-NSAVEDREGISTERS].number, rSP, -4*(NSAVEDREGISTERS+1))
+        # restore Condition Register
+        self.asm.lwz(rSCRATCH, rSP, 4)
+        self.asm.mtcr(rSCRATCH)
+        # restore Link Register and jump to it
+        self.asm.lwz(rSCRATCH, rSP, 8)
+        self.asm.mtlr(rSCRATCH)
+        self.asm.blr()
+
+        self._close()
+
+    def finish_and_goto(self, outputargs_gv, target):
+        allocator = self.allocate_and_emit()
+        min_offset = min(allocator.spill_offset, target.min_stack_offset)
+        min_offset = prepare_for_jump(
+            self.asm, min_offset, outputargs_gv, allocator.var2loc, target)
+        self.patch_stack_adjustment(self._stack_size(0, min_offset))
+        self.asm.load_word(rSCRATCH, target.startaddr)
+        self.asm.mtctr(rSCRATCH)
+        self.asm.bctr()
+        self._close()
+
+##     def flexswitch(self, gv_exitswitch):
+
+    # ----------------------------------------------------------------
+    # ppc-specific interface:
 
     def make_fresh_from_jump(self, initial_var2loc):
         self.fresh_from_jump = True
@@ -246,11 +323,6 @@ class Builder(GenBuilder):
         self.rgenop.close_mc(self.asm.mc)
         self.asm.mc = None
 
-    @specialize.arg(1)
-    def genop2(self, opname, gv_arg1, gv_arg2):
-        genmethod = getattr(self, 'op_' + opname)
-        return genmethod(gv_arg1, gv_arg2)
-
     def allocate_and_emit(self):
         assert self.initial_var2loc is not None
         allocator = RegisterAllocation(
@@ -261,37 +333,6 @@ class Builder(GenBuilder):
         for insn in self.insns:
             insn.emit(self.asm)
         return allocator
-
-    def finish_and_return(self, sigtoken, gv_returnvar):
-        self.insns.append(insn.Return(gv_returnvar))
-        self.allocate_and_emit()
-
-        # standard epilogue:
-
-        # restore old SP
-        self.asm.lwz(rSP, rSP, 0)
-        # restore all callee-save GPRs
-        self.asm.lmw(gprs[32-NSAVEDREGISTERS].number, rSP, -4*(NSAVEDREGISTERS+1))
-        # restore Condition Register
-        self.asm.lwz(rSCRATCH, rSP, 4)
-        self.asm.mtcr(rSCRATCH)
-        # restore Link Register and jump to it
-        self.asm.lwz(rSCRATCH, rSP, 8)
-        self.asm.mtlr(rSCRATCH)
-        self.asm.blr()
-
-        self._close()
-
-    def finish_and_goto(self, outputargs_gv, target):
-        allocator = self.allocate_and_emit()
-        min_offset = min(allocator.spill_offset, target.min_stack_offset)
-        min_offset = prepare_for_jump(
-            self.asm, min_offset, outputargs_gv, allocator.var2loc, target)
-        self.patch_stack_adjustment(self._stack_size(0, min_offset))
-        self.asm.load_word(rSCRATCH, target.startaddr)
-        self.asm.mtctr(rSCRATCH)
-        self.asm.bctr()
-        self._close()
 
     def emit_stack_adjustment(self):
         # the ABI requires that at all times that r1 is valid, in the
@@ -327,55 +368,6 @@ class Builder(GenBuilder):
         SIMM = (-newsize) & 0xFFFF
         p_instruction = cast(c_void_p(self.stack_adj_addr), POINTER(c_int*1))
         p_instruction.contents[0] = opcode | rD | rA | SIMM
-
-    def enter_next_block(self, kinds, args_gv):
-        if self.fresh_from_jump:
-            var2loc = self.initial_var2loc
-            self.fresh_from_jump = False
-        else:
-            var2loc = self.allocate_and_emit().var2loc
-
-        #print "enter_next_block:", args_gv, var2loc
-
-        min_stack_offset = self._var_offset(0)
-        usedregs = {}
-        livevar2loc = {}
-        for gv in args_gv:
-            if isinstance(gv, Var):
-                assert gv in var2loc
-                loc = var2loc[gv]
-                livevar2loc[gv] = loc
-                if not loc.is_register:
-                    min_stack_offset = min(min_stack_offset, loc.offset)
-                else:
-                    usedregs[loc] = None
-
-        unusedregs = [loc for loc in self.rgenop.freeregs[insn.GP_REGISTER] if loc not in usedregs]
-        arg_locations = []
-
-        for i in range(len(args_gv)):
-            gv = args_gv[i]
-            if isinstance(gv, Var):
-                arg_locations.append(livevar2loc[gv])
-            else:
-                if unusedregs:
-                    loc = unusedregs.pop()
-                else:
-                    loc = insn.stack_slot(min_stack_offset)
-                    min_stack_offset -= 4
-                gv.load_now(self.asm, loc)
-                args_gv[i] = gv = Var()
-                livevar2loc[gv] = loc
-                arg_locations.append(loc)
-
-        #print livevar2loc
-
-        self.insns = []
-        self.initial_var2loc = livevar2loc
-        self.initial_spill_offset = min_stack_offset
-        target_addr = self.asm.mc.tell()
-        self.emit_stack_adjustment()
-        return Label(target_addr, arg_locations, min_stack_offset)
 
     def op_int_mul(self, gv_x, gv_y):
         gv_result = Var()
@@ -477,12 +469,6 @@ class Builder(GenBuilder):
 
         return targetbuilder
 
-    def jump_if_false(self, gv_condition):
-        return self._jump(gv_condition, False)
-
-    def jump_if_true(self, gv_condition):
-        return self._jump(gv_condition, True)
-
 
 class RPPCGenOp(AbstractRGenOp):
 
@@ -497,27 +483,8 @@ class RPPCGenOp(AbstractRGenOp):
     def __init__(self):
         self.mcs = []   # machine code blocks where no-one is currently writing
 
-    def open_mc(self):
-        if self.mcs:
-            return self.mcs.pop()
-        else:
-            return codebuf.MachineCodeBlock(65536)   # XXX supposed infinite for now
-
-    def close_mc(self, mc):
-        self.mcs.append(mc)
-
-    @staticmethod
-    @specialize.memo()
-    def sigToken(FUNCTYPE):
-        return len(FUNCTYPE.ARGS)     # for now
-
-    @staticmethod
-    @specialize.memo()
-    def kindToken(T):
-        return None     # for now
-
-    def openbuilder(self):
-        return Builder(self, self.open_mc())
+    # ----------------------------------------------------------------
+    # the public RGenOp interface
 
     def newgraph(self, sigtoken):
         numargs = sigtoken          # for now
@@ -525,7 +492,6 @@ class RPPCGenOp(AbstractRGenOp):
         entrypoint = builder.asm.mc.tell()
         inputargs_gv = builder._write_prologue(sigtoken)
         return builder, entrypoint, inputargs_gv
-
 
     @staticmethod
     @specialize.genconst(0)
@@ -540,5 +506,90 @@ class RPPCGenOp(AbstractRGenOp):
         else:
             assert 0, "XXX not implemented"
 
+##     @staticmethod
+##     @specialize.genconst(0)
+##     def constPrebuiltGlobal(llvalue):
+
     def gencallableconst(self, sigtoken, name, entrypointaddr):
         return IntConst(entrypointaddr)
+
+##     def replay(self, label, kinds):
+
+##     @staticmethod
+##     def erasedType(T):
+
+##     @staticmethod
+##     @specialize.memo()
+##     def fieldToken(T, name):
+
+##     @staticmethod
+##     @specialize.memo()
+##     def allocToken(T):
+
+##     @staticmethod
+##     @specialize.memo()
+##     def varsizeAllocToken(T):
+
+##     @staticmethod
+##     @specialize.memo()
+##     def arrayToken(A):
+
+    @staticmethod
+    @specialize.memo()
+    def kindToken(T):
+        return None                   # for now
+
+    @staticmethod
+    @specialize.memo()
+    def sigToken(FUNCTYPE):
+        return len(FUNCTYPE.ARGS)     # for now
+
+    # ----------------------------------------------------------------
+    # ppc-specific interface:
+
+    def open_mc(self):
+        if self.mcs:
+            return self.mcs.pop()
+        else:
+            return codebuf.MachineCodeBlock(65536)   # XXX supposed infinite for now
+
+    def close_mc(self, mc):
+        self.mcs.append(mc)
+
+    def openbuilder(self):
+        return Builder(self, self.open_mc())
+
+## class FlexSwitch(CodeGenSwitch):
+
+##     def __init__(self, rgenop):
+##         self.rgenop = rgenop
+##         self.default_case_addr = 0
+
+##     def initialize(self, builder, gv_exitswitch):
+##         self.switch_reg = gv_exitswitch.load(builder)
+##         self.saved_state = builder._save_state()
+##         self._reserve(mc)
+
+##     def _reserve(self, mc):
+##         RESERVED = 11 # enough for 5 cases and a default
+##         pos = mc.tell()
+##         for i in range(RESERVED):
+##             mc.write(0)
+##         self.nextfreepos = pos
+##         self.endfreepos = pos + RESERVED * 4
+
+##     def _reserve_more(self):
+##         XXX
+##         start = self.nextfreepos
+##         end   = self.endfreepos
+##         newmc = self.rgenop.open_mc()
+##         self._reserve(newmc)
+##         self.rgenop.close_mc(newmc)
+##         fullmc = InMemoryCodeBuilder(start, end)
+##         a = RPPCAssembler()
+##         a.mc = newmc
+##         fullmc.ba(rel32(self.nextfreepos))
+##         fullmc.done()
+
+##     def add_case(self, gv_case):
+##     def add_default(self):
