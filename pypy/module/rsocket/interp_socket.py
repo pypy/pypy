@@ -354,6 +354,31 @@ class W_RSocket(Wrappable, RSocket):
             raise converted_error(space, e)
     shutdown_w.unwrap_spec = ['self', ObjSpace, int]
 
+    #------------------------------------------------------------
+    # Support functions for socket._socketobject
+    usecount = 1
+    def _reuse_w(self):
+        """_resue()
+
+        Increase the usecount of the socketobject.
+        Intended only to be used by socket._socketobject
+        """
+        self.usecount += 1
+    _reuse_w.unwrap_spec = ['self']
+
+    def _drop_w(self, space):
+        """_drop()
+
+        Decrease the usecount of the socketobject. If the
+        usecount reaches 0 close the socket.
+        Intended only to be used by socket._socketobject
+        """
+        self.usecount -= 1
+        if self.usecount > 0:
+            return
+        self.close_w(space)
+    _drop_w.unwrap_spec = ['self', ObjSpace]
+
 app_makefile = gateway.applevel(r'''
 def makefile(self, mode="r", buffersize=-1):
     """makefile([mode[, buffersize]]) -> file object
@@ -399,7 +424,7 @@ socketmethodnames = """
 accept bind close connect connect_ex dup fileno
 getpeername getsockname getsockopt gettimeout listen makefile
 recv recvfrom send sendall sendto setblocking
-setsockopt settimeout shutdown
+setsockopt settimeout shutdown _reuse _drop
 """.split()
 socketmethods = {}
 for methodname in socketmethodnames:

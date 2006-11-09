@@ -26,7 +26,6 @@ class SocketTCPTest(unittest.TestCase):
     def tearDown(self):
         self.serv.close()
         self.serv = None
-        gc.collect()
         
 class SocketUDPTest(unittest.TestCase):
 
@@ -38,7 +37,6 @@ class SocketUDPTest(unittest.TestCase):
     def tearDown(self):
         self.serv.close()
         self.serv = None
-        gc.collect()
 
 class ThreadableTest:
     """Threadable Test class
@@ -136,7 +134,6 @@ class ThreadableTest:
 
     def clientTearDown(self):
         self.done.set()
-        gc.collect()
         thread.exit()
 
 class ThreadedTCPSocketTest(SocketTCPTest, ThreadableTest):
@@ -223,6 +220,7 @@ class GeneralModuleTests(unittest.TestCase):
         self.assertEqual(p.fileno(), s.fileno())
         s.close()
         s = None
+        gc.collect()
         gc.collect()
         try:
             p.fileno()
