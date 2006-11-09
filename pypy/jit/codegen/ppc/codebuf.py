@@ -49,12 +49,10 @@ class CodeBlockOverflow(Exception):
 
 class MachineCodeBlock:
 
-    def __init__(self, map_size):
-        assert map_size % 4 == 0
-        res = alloc(map_size)
-        self._data = cast(res, POINTER(c_int * (map_size / 4)))
-        self._size = map_size/4
-        self._pos = 0
+    def __init__(self, _data, _size, _pos):
+        self._data = _data
+        self._size = _size
+        self._pos = _pos
 
     def write(self, data):
          p = self._pos
@@ -63,9 +61,30 @@ class MachineCodeBlock:
          self._data.contents[p] = data
          self._pos = p + 1
 
+    def getpos(self):
+        return self._pos
+
+    def setpos(self, _pos):
+        self._pos = _pos
+
     def tell(self):
         baseaddr = cast(self._data, c_void_p).value
         return baseaddr + self._pos * 4
 
+    def reserve(self, _size):
+        r = MachineCodeBlock(self._data, self._pos + _size, self._pos)
+        for i in range(_size):
+            self.write(0)
+        return r
+
+class OwningMachineCodeBlock(MachineCodeBlock):
     def __del__(self):
         free(cast(self._data, PTR), self._size * 4)
+
+def new_block(size_in_bytes):
+    assert size_in_bytes % 4 == 0
+    res = alloc(size_in_bytes)
+    return OwningMachineCodeBlock(
+        cast(res, POINTER(c_int * (size_in_bytes / 4))),
+        size_in_bytes/4,
+        0)

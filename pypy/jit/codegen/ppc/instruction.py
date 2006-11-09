@@ -297,3 +297,18 @@ class Return(Insn):
     def emit(self, asm):
         if self.reg.number != 3:
             asm.mr(r3, self.reg.number)
+
+class FakeUse(Insn):
+    """ A fake use of a var to get it into a register.  And reserving
+    a condition register field."""
+    def __init__(self, rvar, var):
+        Insn.__init__(self)
+        self.var = var
+        self.reg_args = [self.var]
+        self.reg_arg_regclasses = [GP_REGISTER]
+        self.result = rvar
+        self.result_regclass = CR_FIELD
+    def allocate(self, allocator):
+        pass
+    def emit(self, asm):
+        pass

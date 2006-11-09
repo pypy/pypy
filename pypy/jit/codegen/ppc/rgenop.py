@@ -260,7 +260,17 @@ class Builder(GenBuilder):
         self.asm.bctr()
         self._close()
 
-##     def flexswitch(self, gv_exitswitch):
+    def flexswitch(self, gv_exitswitch):
+        # make sure the exitswitch ends the block in a register:
+        crresult = Var()
+        self.insns.append(insn.FakeUse(crresult, gv_exitswitch))
+        allocator = self.allocate_and_emit()
+        switch_mc = self.asm.mc.reserve(7 * 5 + 4)
+        self._close()
+        return FlexSwitch(self.rgenop, switch_mc,
+                          allocator.loc_of(gv_exitswitch),
+                          allocator.loc_of(crresult),
+                          allocator.var2loc)
 
     # ----------------------------------------------------------------
     # ppc-specific interface:
@@ -551,45 +561,68 @@ class RPPCGenOp(AbstractRGenOp):
         if self.mcs:
             return self.mcs.pop()
         else:
-            return codebuf.MachineCodeBlock(65536)   # XXX supposed infinite for now
+            return codebuf.new_block(65536)   # XXX supposed infinite for now
 
     def close_mc(self, mc):
+##         from pypy.translator.asm.ppcgen.asmfunc import get_ppcgen
+##         print '!!!!', cast(mc._data, c_void_p).value
+##         print '!!!!', mc._data.contents[0]
+##         get_ppcgen().flush2(cast(mc._data, c_void_p).value,
+##                             mc._size*4)
         self.mcs.append(mc)
 
     def openbuilder(self):
         return Builder(self, self.open_mc())
 
-## class FlexSwitch(CodeGenSwitch):
+# a switch can take 7 instructions:
 
-##     def __init__(self, rgenop):
-##         self.rgenop = rgenop
-##         self.default_case_addr = 0
+# load_word rSCRATCH, gv_case.value (really two instructions)
+# cmpw crf, rSWITCH, rSCRATCH
+# load_word rSCRATCH, targetaddr    (again two instructions)
+# mtctr rSCRATCH
+# beqctr crf
 
-##     def initialize(self, builder, gv_exitswitch):
-##         self.switch_reg = gv_exitswitch.load(builder)
-##         self.saved_state = builder._save_state()
-##         self._reserve(mc)
+# yay RISC :/
 
-##     def _reserve(self, mc):
-##         RESERVED = 11 # enough for 5 cases and a default
-##         pos = mc.tell()
-##         for i in range(RESERVED):
-##             mc.write(0)
-##         self.nextfreepos = pos
-##         self.endfreepos = pos + RESERVED * 4
+class FlexSwitch(CodeGenSwitch):
+
+    def __init__(self, rgenop, mc, switch_reg, crf, var2loc):
+        self.rgenop = rgenop
+        self.crf = crf
+        self.switch_reg = switch_reg
+        self.var2loc = var2loc
+        self.asm = RPPCAssembler()
+        self.asm.mc = mc
+        self.default_target_addr = 0
 
 ##     def _reserve_more(self):
 ##         XXX
-##         start = self.nextfreepos
-##         end   = self.endfreepos
-##         newmc = self.rgenop.open_mc()
-##         self._reserve(newmc)
-##         self.rgenop.close_mc(newmc)
-##         fullmc = InMemoryCodeBuilder(start, end)
-##         a = RPPCAssembler()
-##         a.mc = newmc
-##         fullmc.ba(rel32(self.nextfreepos))
-##         fullmc.done()
 
-##     def add_case(self, gv_case):
-##     def add_default(self):
+    def add_case(self, gv_case):
+        targetbuilder = self.rgenop.openbuilder()
+        targetbuilder.make_fresh_from_jump(self.var2loc)
+        target_addr = targetbuilder.asm.mc.tell()
+        asm = self.asm
+        assert isinstance(gv_case, IntConst)
+        asm.load_word(rSCRATCH, gv_case.value)
+        asm.cmpw(self.crf.number, rSCRATCH, self.switch_reg.number)
+        asm.load_word(rSCRATCH, target_addr)
+        asm.mtctr(rSCRATCH)
+        asm.bcctr(12, self.crf.number*4 + 2)
+        if self.default_target_addr:
+            self._write_default()
+        return targetbuilder
+
+    def add_default(self):
+        targetbuilder = self.rgenop.openbuilder()
+        targetbuilder.make_fresh_from_jump(self.var2loc)
+        self.default_target_addr = targetbuilder.asm.mc.tell()
+        self._write_default()
+        return targetbuilder
+
+    def _write_default(self):
+        pos = self.asm.mc.getpos()
+        self.asm.load_word(rSCRATCH, self.default_target_addr)
+        self.asm.mtctr(rSCRATCH)
+        self.asm.bctr()
+        self.asm.mc.setpos(pos)
