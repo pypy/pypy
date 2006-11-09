@@ -46,7 +46,7 @@ translate_optiondescr = OptionDescription("translate", "XXX", [
                cmdline="--profile"),
     BoolOption("batch", "Don't run interactive helpers", default=False,
                cmdline="--batch", negation=False),
-    IntOption("huge", "Threshold in the number of functions after which"
+    IntOption("huge", "Threshold in the number of functions after which "
                       "a local call graph and not a full one is displayed",
               default=100, cmdline="--huge"),
     BoolOption("text", "Don't start the pygame viewer", default=False,
