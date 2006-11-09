@@ -88,12 +88,16 @@ class BaseTestCompiler:
         assert ex.match(self.space, self.space.w_SyntaxError)
 
     def test_scope_unoptimized_clash1_b(self):
+        # as far as I can tell, this case can be handled correctly
+        # by the interpreter so a SyntaxError is not required, but
+        # let's give one anyway for "compatibility"...
+
         # mostly taken from test_scope.py 
         e = py.test.raises(OperationError, self.compiler.compile, """if 1:
             def unoptimized_clash1(strip):
                 def f():
                     from string import *
-                    return s # ambiguity: free or local
+                    return s # ambiguity: free or local (? no, global or local)
                 return f""", '', 'exec', 0)
         ex = e.value 
         assert ex.match(self.space, self.space.w_SyntaxError)
@@ -482,6 +486,62 @@ def test():
         w_d = space.newdict()
         space.exec_(code, w_d, w_d)
         # assert did not crash
+
+    def test_free_vars_across_class(self):
+        space = self.space
+        snippet = str(py.code.Source(r'''
+            def f(x):
+                class Test:
+                    def meth(self):
+                        return x + 1
+                return Test()
+            res = f(42).meth()
+        '''))
+        code = self.compiler.compile(snippet, '<tmp>', 'exec', 0)
+        space = self.space
+        w_d = space.newdict()
+        space.exec_(code, w_d, w_d)
+        assert space.int_w(space.getitem(w_d, space.wrap('res'))) == 43
+
+    def test_pick_global_names(self):
+        space = self.space
+        snippet = str(py.code.Source(r'''
+            def f(x):
+                def g():
+                    global x
+                    def h():
+                        return x
+                    return h()
+                return g()
+            x = "global value"
+            res = f("local value")
+        '''))
+        code = self.compiler.compile(snippet, '<tmp>', 'exec', 0)
+        space = self.space
+        w_d = space.newdict()
+        space.exec_(code, w_d, w_d)
+        w_res = space.getitem(w_d, space.wrap('res'))
+        assert space.str_w(w_res) == "global value"
+
+    def test_method_and_var(self):
+        space = self.space
+        snippet = str(py.code.Source(r'''
+            def f():
+                method_and_var = "var"
+                class Test:
+                    def method_and_var(self):
+                        return "method"
+                    def test(self):
+                        return method_and_var
+                return Test().test()
+            res = f()
+        '''))
+        code = self.compiler.compile(snippet, '<tmp>', 'exec', 0)
+        space = self.space
+        w_d = space.newdict()
+        space.exec_(code, w_d, w_d)
+        w_res = space.getitem(w_d, space.wrap('res'))
+        assert space.eq_w(w_res, space.wrap("var"))
 
 class TestECCompiler(BaseTestCompiler):
     def setup_method(self, method):

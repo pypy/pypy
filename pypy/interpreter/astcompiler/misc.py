@@ -39,7 +39,7 @@ def mangle(name, klass):
     if tlen > MANGLE_LEN:
         end = len(klass) + MANGLE_LEN-tlen
         if end < 0:
-            klass = ''     # annotator hint
+            klass = ''     # slices of negative length are invalid in RPython
         else:
             klass = klass[:end]
 

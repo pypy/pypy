@@ -477,14 +477,15 @@ except NameError, err:
 except ValueError, err:
     pass
 """,
-    """try:
-    a
-except NameError, err:
-    a = 1
-    b = 2
-except ValueError, err:
-    a = 2
-    return a
+    """def f():
+    try:
+        a
+    except NameError, err:
+        a = 1
+        b = 2
+    except ValueError, err:
+        a = 2
+        return a
 """
     """try:
     a
@@ -500,11 +501,12 @@ else:
 finally:
     b
 """,
-    """try:
-    return a
-finally:
-    a = 3
-    return 1
+    """def f():
+    try:
+        return a
+    finally:
+        a = 3
+        return 1
 """,
 
     ]
@@ -556,7 +558,7 @@ returns = [
     'def f(): return a.b',
     'def f(): return a',
     'def f(): return a,b,c,d',
-    'return (a,b,c,d)',
+    #'return (a,b,c,d)',      --- this one makes no sense, as far as I can tell
     ]
 
 augassigns = [

@@ -7,210 +7,293 @@ from pypy.interpreter.astcompiler.misc import mangle, Counter
 from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.interpreter import gateway
 
-
 import sys
 
-MANGLE_LEN = 256
+
+# the 'role' of variables records how the variable is
+# syntactically used in a given scope.
+ROLE_NONE     = ' '
+ROLE_USED     = 'U'    # used only
+ROLE_DEFINED  = 'D'    # defined (i.e. assigned to) in the current scope
+ROLE_GLOBAL   = 'G'    # marked with the 'global' keyword in the current scope
+ROLE_PARAM    = 'P'    # function parameter
+
 
 class Scope:
-    localsfullyknown = True
-    # XXX how much information do I need about each name?
-    def __init__(self, name, module, klass=None):
+    bare_exec = False
+    import_star = False
+
+    def __init__(self, name, parent):
         self.name = name
-        self.module = module
-        self.defs = {}
-        self.uses = {}
-        self.globals = {}
-        self.params = {}
-        self.frees = {}
-        self.hasbeenfree = {}
-        self.cells = {}
-        self.children = []
-        # nested is true if the class could contain free variables,
-        # i.e. if it is nested within another function.
-        self.nested = 0
-        self.generator = False
-        self.firstReturnWithArgument = None
-        self.klass = None
-        if klass is not None:
-            for i in range(len(klass)):
-                if klass[i] != '_':
-                    self.klass = klass[i:]
-                    break
+        self.varroles = {}         # {variable: role}
+        self.children = []         # children scopes
+        self.varscopes = None      # initialized by build_var_scopes()
+        self.freevars = {}         # vars to show up in the code object's
+                                   #   co_freevars.  Note that some vars may
+                                   #   be only in this dict and not in
+                                   #   varscopes; see need_passthrough_name()
+        self.parent = parent
+        if parent is not None:
+            parent.children.append(self)
+
+    def mangle(self, name):
+        if self.parent is None:
+            return name
+        else:
+            return self.parent.mangle(name)
+
+    def locals_fully_known(self):
+        return not self.bare_exec and not self.import_star
 
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self.name)
 
-    def mangle(self, name):
-        if self.klass is None:
-            return name
-        return mangle(name, self.klass)
+    def add_use(self, name):
+        name = self.mangle(name)
+        if name not in self.varroles:
+            self.varroles[name] = ROLE_USED
 
     def add_def(self, name):
-        self.defs[self.mangle(name)] = 1
-
-    def add_use(self, name):
-        self.uses[self.mangle(name)] = 1
+        name = self.mangle(name)
+        if self.varroles.get(name, ROLE_USED) == ROLE_USED:
+            self.varroles[name] = ROLE_DEFINED
 
     def add_global(self, name):
         name = self.mangle(name)
-        if name in self.uses or name in self.defs:
-            pass # XXX warn about global following def/use
-        if name in self.params:
-            msg = "%s in %s is global and parameter" % (name, self.name)
-            raise SyntaxError( msg )
-        self.globals[name] = 1
-        self.module.add_def(name)
+        prevrole = self.varroles.get(name, ROLE_NONE)
+        self.varroles[name] = ROLE_GLOBAL
+        return prevrole
 
-    def add_param(self, name):
-        name = self.mangle(name)
-        self.defs[name] = 1
-        self.params[name] = 1
+    def add_return(self):
+        raise SyntaxError("'return' outside function")
 
-    def get_names(self):
-        d = {}
-        d.update(self.defs)
-        d.update(self.uses)
-        d.update(self.globals)
-        return d.keys()
-
-    def add_child(self, child):
-        self.children.append(child)
-
-    def get_children(self):
-        return self.children
+    def add_yield(self):
+        raise SyntaxError("'yield' outside function")
 
     def DEBUG(self):
-        print >> sys.stderr, self.name, self.nested and "nested" or ""
-        print >> sys.stderr, "\tglobals: ", self.globals
-        print >> sys.stderr, "\tcells: ", self.cells
-        print >> sys.stderr, "\tdefs: ", self.defs
-        print >> sys.stderr, "\tuses: ", self.uses
-        print >> sys.stderr, "\tfrees:", self.frees
+        print >> sys.stderr, self
+        print >> sys.stderr, "\troles:  ", self.varroles
+        print >> sys.stderr, "\tscopes: ", self.varscopes
+
+    def build_var_scopes(self, names_from_enclosing_funcs):
+        """Build the varscopes dictionary of this scope and all children.
+
+        The names_from_enclosing_funcs are the names that come from
+        enclosing scopes.  It is a dictionary {name: source_function_scope},
+        where the source_function_scope might be None to mean 'from the
+        global scope'.  The whole names_from_enclosing_funcs can also be
+        None, to mean that we don't know anything statically because of a
+        bare exec or import *.
+
+        A call to build_var_scopes() that uses a variable from an enclosing
+        scope must patch the varscopes of that enclosing scope, to make the
+        variable SC_CELL instead of SC_LOCAL, as well as the intermediate
+        scopes, to make the variable SC_FREE in them.
+        """
+        newnames = {}      # new names that this scope potentially exports
+                           # to its children (if it is a FunctionScope)
+        self.varscopes = {}
+        for name, role in self.varroles.items():
+            if role == ROLE_USED:
+                # where does this variable come from?
+                if names_from_enclosing_funcs is None:
+                    msg = self.parent.get_ambiguous_name_msg(
+                        "it contains a nested function using the "
+                        "variable '%s'" % (name,))
+                    raise SyntaxError(msg)
+                if name in names_from_enclosing_funcs:
+                    enclosingscope = names_from_enclosing_funcs[name]
+                    if enclosingscope is None:
+                        # it is a global var
+                        scope = SC_GLOBAL
+                    else:
+                        if not self.locals_fully_known():
+                            msg = self.get_ambiguous_name_msg(
+                                "it is a nested function, so the origin of "
+                                "the variable '%s' is ambiguous" % (name,))
+                            raise SyntaxError(msg)
+                        enclosingscope.varscopes[name] = SC_CELL
+                        parent = self.parent
+                        while parent is not enclosingscope:
+                            parent.need_passthrough_name(name)
+                            parent = parent.parent
+                        self.freevars[name] = True
+                        scope = SC_FREE
+                else:
+                    scope = SC_DEFAULT
+                self._use_var()
+            elif role == ROLE_GLOBAL:
+                # a global var
+                newnames[name] = None
+                scope = SC_GLOBAL
+            else:
+                # a ROLE_DEFINED or ROLE_PARAM local var
+                newnames[name] = self
+                scope = SC_LOCAL
+            self.varscopes[name] = scope
+        # call build_var_scopes() on all the children
+        names_enclosing_children = self.export_names_to_children(
+            names_from_enclosing_funcs,
+            newnames)
+        for subscope in self.children:
+            subscope.build_var_scopes(names_enclosing_children)
+
+    def export_names_to_children(self, names_from_enclosing_funcs, newnames):
+        # by default, scopes don't export names to their children
+        # (only FunctionScopes do)
+        return names_from_enclosing_funcs
+
+    def need_passthrough_name(self, name):
+        # make the 'name' pass through the 'self' scope, without showing
+        # up in the normal way in the scope.  This case occurs when a
+        # free variable is needed in some inner sub-scope, and comes from
+        # some outer super-scope.  Hiding the name is needed for e.g. class
+        # scopes, otherwise the name sometimes end up in the class __dict__.
+        # Note that FunctionScope override this to *not* hide the name,
+        # because users might expect it to show up in the function's locals
+        # then...
+        self.freevars[name] = True
+
+    def _use_var(self):
+        pass
+
+    def get_ambiguous_name_msg(self, reason):
+        if self.bare_exec:
+            cause = "unqualified exec"
+        elif self.import_star:
+            cause = "import *"
+        else:
+            assert self.parent
+            return self.parent.get_ambiguous_name_msg(reason)
+        return "%s is not allowed in '%s' because %s" % (cause, self.name,
+                                                         reason)
 
     def check_name(self, name):
         """Return scope of name.
-
-        The scope of a name could be LOCAL, GLOBAL, FREE, or CELL.
         """
-        if name in self.globals:
-            return SC_GLOBAL
-        if name in self.cells:
-            return SC_CELL
-        if name in self.defs:
-            return SC_LOCAL
-        if self.nested and (name in self.frees or
-                            name in self.uses):
-            return SC_FREE
-        if self.nested:
-            return SC_UNKNOWN
-        else:
-            return SC_DEFAULT
+        return self.varscopes.get(name, SC_UNKNOWN)
 
-    def get_free_vars(self):
-        if not self.nested:
-            return []
-        free = {}
-        free.update(self.frees)
-        for name in self.uses.keys():
-            if not (name in self.defs or
-                    name in self.globals):
-                free[name] = 1
-        self.hasbeenfree.update(free)
-        return free.keys()
+    def get_free_vars_in_scope(self):
+        # list the names of the free variables, giving them the name they
+        # should have inside this scope
+        result = []
+        for name in self.freevars:
+            if self.check_name(name) != SC_FREE:
+                # it's not considered as a free variable within this scope,
+                # but only a need_passthrough_name().  We need to hide the
+                # name to avoid confusion with another potential use of the
+                # name in the 'self' scope.
+                name = hiddenname(name)
+            result.append(name)
+        return result
 
-    def handle_children(self):
-        for child in self.children:
-            frees = child.get_free_vars()
-            globals = self.add_frees(frees)
-            for name in globals:
-                child.force_global(name)
-
-    def force_global(self, name):
-        """Force name to be global in scope.
-
-        Some child of the current node had a free reference to name.
-        When the child was processed, it was labelled a free
-        variable.  Now that all its enclosing scope have been
-        processed, the name is known to be a global or builtin.  So
-        walk back down the child chain and set the name to be global
-        rather than free.
-
-        Be careful to stop if a child does not think the name is
-        free.
-        """
-        if name not in self.defs:
-            self.globals[name] = 1
-        if name in self.frees:
-            del self.frees[name]
-        for child in self.children:
-            if child.check_name(name) == SC_FREE or isinstance(child, ClassScope):
-                child.force_global(name)
-
-    def add_frees(self, names):
-        """Process list of free vars from nested scope.
-
-        Returns a list of names that are either 1) declared global in the
-        parent or 2) undefined in a top-level parent.  In either case,
-        the nested scope should treat them as globals.
-        """
-        child_globals = []
-        for name in names:
-            name = self.mangle(name)
-            sc = self.check_name(name)
-            if self.nested:
-                if sc == SC_UNKNOWN or sc == SC_FREE \
-                   or isinstance(self, ClassScope):
-                    self.frees[name] = 1
-                elif sc == SC_DEFAULT or sc == SC_GLOBAL:
-                    child_globals.append(name)
-                elif isinstance(self, FunctionScope) and sc == SC_LOCAL:
-                    self.cells[name] = 1
-                elif sc != SC_CELL:
-                    child_globals.append(name)
-            else:
-                if sc == SC_LOCAL:
-                    self.cells[name] = 1
-                elif sc != SC_CELL:
-                    child_globals.append(name)
-        return child_globals
+    def get_free_vars_in_parent(self):
+        # list the names of the free variables, giving them the name they
+        # should have in the parent scope
+        result = []
+        for name in self.freevars:
+            if self.parent.check_name(name) not in (SC_FREE, SC_CELL):
+                # it's not considered as a free variable in the parent scope,
+                # but only a need_passthrough_name().  We need to hide the
+                # name to avoid confusion with another potential use of the
+                # name in the parent scope.
+                name = hiddenname(name)
+            result.append(name)
+        return result
 
     def get_cell_vars(self):
-        return self.cells.keys()
+        return [name for name, scope in self.varscopes.items()
+                     if scope == SC_CELL]
+
 
 class ModuleScope(Scope):
 
     def __init__(self):
-        Scope.__init__(self, "global", self)
+        Scope.__init__(self, "global", None)
+
+    def finished(self):
+        self.build_var_scopes({})
+
 
 class FunctionScope(Scope):
-    pass
+    generator = False
 
-GenExprScopeCounter = Counter(1)
+    def add_param(self, name):
+        name = self.mangle(name)
+        if name in self.varroles:
+            msg = "duplicate argument '%s' in function definition" % (name,)
+            raise SyntaxError(msg)
+        self.varroles[name] = ROLE_PARAM
+
+    def add_return(self):
+        pass
+
+    def add_yield(self):
+        self.generator = True
+
+    def export_names_to_children(self, names_from_enclosing_funcs, newnames):
+        if names_from_enclosing_funcs is None:
+            return None
+        if not self.locals_fully_known():
+            return None
+        d = names_from_enclosing_funcs.copy()
+        d.update(newnames)
+        return d
+
+    def need_passthrough_name(self, name):
+        # overrides Scope.need_passthrough_name(), see comments there
+        if name not in self.varscopes:
+            self.varscopes[name] = SC_FREE
+            self.freevars[name] = True
+
+    def _use_var(self):
+        # some extra checks just for CPython compatibility -- the logic
+        # of build_var_scopes() in symbols.py should be able to detect
+        # all the cases that would really produce broken code, but CPython
+        # insists on raising SyntaxError in some more cases
+        if self._is_nested_function():
+            if self.bare_exec:
+                raise SyntaxError("for CPython compatibility, an unqualified "
+                                  "exec is not allowed here")
+            if self.import_star:
+                raise SyntaxError("for CPython compatibility, import * "
+                                  "is not allowed here")
+
+    def _is_nested_function(self):
+        scope = self.parent
+        while scope is not None:
+            if isinstance(scope, FunctionScope):
+                return True
+            scope = scope.parent
+        return False
+
 
 class GenExprScope(FunctionScope):
+    _counter = Counter(1)
 
-    def __init__(self, module, klass=None):
-        i = GenExprScopeCounter.next()
-        Scope.__init__(self, "generator expression<%d>"%i, module, klass)
+    def __init__(self, parent):
+        i = GenExprScope._counter.next()
+        FunctionScope.__init__(self, "generator expression<%d>" % i, parent)
         self.add_param('[outmost-iterable]')
 
-    def get_names(self):
-        keys = Scope.get_names()
-        return keys
-
-LambdaScopeCounter = Counter(1)
 
 class LambdaScope(FunctionScope):
+    _counter = Counter(1)
 
-    def __init__(self, module, klass=None):
-        i = LambdaScopeCounter.next()
-        Scope.__init__(self, "lambda.%d" % i, module, klass)
+    def __init__(self, parent):
+        i = LambdaScope._counter.next()
+        FunctionScope.__init__(self, "lambda.%d" % i, parent)
+
 
 class ClassScope(Scope):
 
-    def __init__(self, name, module):
-        Scope.__init__(self, name, module, name)
+    def mangle(self, name):
+        return mangle(name, self.name)
+
+
+def hiddenname(name):
+    return '.(%s)' % (name,)
+
 
 app = gateway.applevel(r'''
 def issue_warning(msg, filename, lineno):
@@ -230,7 +313,6 @@ def issue_warning(space, msg, filename, lineno):
 class SymbolVisitor(ast.ASTVisitor):
     def __init__(self, space):
         self.space = space
-        self.klass = None
         self.scope_stack = []
         self.assign_stack = [ False ]
         
@@ -256,15 +338,19 @@ class SymbolVisitor(ast.ASTVisitor):
 
     def visitModule(self, node):
         scope = self.module = node.scope = ModuleScope()
+        if node.w_doc is not None:
+            scope.add_def('__doc__')
         self.push_scope(scope)
         node.node.accept(self)
         self.pop_scope()
+        scope.finished()
 
     def visitExpression(self, node):
         scope = self.module = node.scope = ModuleScope()
         self.push_scope(scope)
         node.node.accept(self)
         self.pop_scope()
+        scope.finished()
 
     def visitFunction(self, node):
         parent = self.cur_scope()
@@ -273,33 +359,26 @@ class SymbolVisitor(ast.ASTVisitor):
         parent.add_def(node.name)
         for n in node.defaults:
             n.accept( self )
-        scope = FunctionScope(node.name, self.module, self.klass)
-        if parent.nested or isinstance(parent, FunctionScope):
-            scope.nested = 1
+        scope = FunctionScope(node.name, parent)
         node.scope = scope
         self._do_args(scope, node.argnames)
         self.push_scope( scope )
         node.code.accept(self )
         self.pop_scope()
-        self.handle_free_vars(scope, parent)
 
     def visitExec(self, node):
         if not (node.globals or node.locals):
             parent = self.cur_scope()
-            parent.localsfullyknown = False # bare exec statement
+            parent.bare_exec = True
         ast.ASTVisitor.visitExec(self, node)
 
     def visitGenExpr(self, node ):
         parent = self.cur_scope()
-        scope = GenExprScope(self.module, self.klass);
-        if parent.nested or isinstance(parent, FunctionScope):
-            scope.nested = 1
-
+        scope = GenExprScope(parent)
         node.scope = scope
         self.push_scope(scope)
         node.code.accept(self)
         self.pop_scope()
-        self.handle_free_vars(scope, parent)
 
     def visitGenExprInner(self, node ):
         for genfor in node.quals:
@@ -311,7 +390,13 @@ class SymbolVisitor(ast.ASTVisitor):
         self.push_assignment( True )
         node.assign.accept(self)
         self.pop_assignment()
-        node.iter.accept(self )
+        if node.is_outmost:
+            curscope = self.cur_scope()
+            self.pop_scope()
+            node.iter.accept(self)     # in the parent scope
+            self.push_scope(curscope)
+        else:
+            node.iter.accept(self )
         for if_ in node.ifs:
             if_.accept( self )
 
@@ -326,15 +411,12 @@ class SymbolVisitor(ast.ASTVisitor):
         parent = self.cur_scope()
         for n in node.defaults:
             n.accept( self )
-        scope = LambdaScope(self.module, self.klass)
-        if parent.nested or isinstance(parent, FunctionScope):
-            scope.nested = 1
+        scope = LambdaScope(parent)
         node.scope = scope
         self._do_args(scope, node.argnames)
         self.push_scope(scope)
         node.code.accept(self)
         self.pop_scope()
-        self.handle_free_vars(scope, parent)
 
     def _do_args(self, scope, args):
         for arg in args:
@@ -347,29 +429,19 @@ class SymbolVisitor(ast.ASTVisitor):
                 msg = "Argument list contains ASTNodes other than AssName or AssTuple"
                 raise TypeError( msg )
 
-    def handle_free_vars(self, scope, parent):
-        parent.add_child(scope)
-        scope.handle_children()
-
     def visitClass(self, node):
         parent = self.cur_scope()
         parent.add_def(node.name)
         for n in node.bases:
             n.accept(self)
-        scope = ClassScope(node.name, self.module)
-        if parent.nested or isinstance(parent, FunctionScope):
-            scope.nested = 1
+        scope = ClassScope(node.name, parent)
         if node.w_doc is not None:
             scope.add_def('__doc__')
         scope.add_def('__module__')
         node.scope = scope
-        prev = self.klass
-        self.klass = node.name
         self.push_scope( scope )
         node.code.accept(self)
         self.pop_scope()
-        self.klass = prev
-        self.handle_free_vars(scope, parent)
 
     # name can be a def or a use
 
@@ -399,7 +471,7 @@ class SymbolVisitor(ast.ASTVisitor):
         scope = self.cur_scope()
         for name, asname in node.names:
             if name == "*":
-                scope.localsfullyknown = False
+                scope.import_star = True
                 continue
             scope.add_def(asname or name)
 
@@ -414,17 +486,18 @@ class SymbolVisitor(ast.ASTVisitor):
     def visitGlobal(self, node ):
         scope = self.cur_scope()
         for name in node.names:
-            name = scope.mangle(name)
-            namescope = scope.check_name(name)
-            if namescope == SC_LOCAL:
-                issue_warning(self.space, "name '%s' is assigned to before "
-                              "global declaration" %(name,),
+            prevrole = scope.add_global(name)
+            if prevrole == ROLE_PARAM:
+                msg = "name '%s' is a function parameter and declared global"
+                raise SyntaxError(msg % (name,))
+            elif prevrole == ROLE_DEFINED:
+                msg = "name '%s' is assigned to before global declaration"
+                issue_warning(self.space, msg % (name,),
                               node.filename, node.lineno)
-            elif namescope != SC_GLOBAL and name in scope.uses:
-                issue_warning(self.space, "name '%s' is used prior "
-                              "to global declaration" %(name,),
+            elif prevrole == ROLE_USED:
+                msg = "name '%s' is used prior to global declaration"
+                issue_warning(self.space, msg % (name,),
                               node.filename, node.lineno)
-            scope.add_global(name)
 
     def visitAssign(self, node ):
         """Propagate assignment flag down to child nodes.
@@ -485,21 +558,13 @@ class SymbolVisitor(ast.ASTVisitor):
 
     def visitYield(self, node ):
         scope = self.cur_scope()
-        scope.generator = True
-        if scope.firstReturnWithArgument is not None:
-                raise SyntaxError("'return' with argument inside generator",
-                                  scope.firstReturnWithArgument.lineno)
-            
+        scope.add_yield()
         node.value.accept( self )
         
     def visitReturn(self, node):
         scope = self.cur_scope()
+        scope.add_return()
         if node.value is not None:
-            if scope.generator:
-                raise SyntaxError("'return' with argument inside generator",
-                                  node.lineno)
-            if scope.firstReturnWithArgument is None:
-                scope.firstReturnWithArgument = node
             node.value.accept(self)
 
     def visitCondExpr(self, node):

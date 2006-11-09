@@ -101,23 +101,23 @@ VALID = splitcases("""
             exec "hi"
             x
 
-    def f(x):
-        class g:
-            exec "hi"
-            x
-
     def f():
-        class g:
-            from a import *
-            x
-
-    def f(x):
         class g:
             from a import *
             x
 
 """)
 
+##    --- the following ones are valid in CPython, but not sensibly so:
+##    --- if x is rebound, then it is even rebound in the parent scope!
+##    def f(x):
+##        class g:
+##            from a import *
+##            x
+##    def f(x):
+##        class g:
+##            exec "x=41"
+##            x
 
 INVALID = splitcases("""
 
@@ -125,6 +125,7 @@ INVALID = splitcases("""
         def g():
             exec "hi"
             x
+    # NB. the above one is invalid in CPython, but there is no real reason
 
     def f(x):
         def g():
@@ -135,6 +136,7 @@ INVALID = splitcases("""
         def g():
             from a import *
             x
+    # NB. the above one is invalid in CPython, but there is no real reason
 
     def f(x):
         def g():
@@ -205,6 +207,12 @@ INVALID = splitcases("""
 
     def f():
         (i for i in x) = 10
+
+    def f(x):
+        def g():
+            from a import *
+            def k():
+                return x
 
 """)
 

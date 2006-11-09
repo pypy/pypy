@@ -431,15 +431,15 @@ DONE = "DONE"
 
 class PyFlowGraph(FlowGraph):
 
-    def __init__(self, space, name, filename, args=None, mangler=None,
+    def __init__(self, space, name, filename, argnames=None,
                  optimized=0, klass=0, newlocals=0):
         FlowGraph.__init__(self, space)
-        if args is None:
-            args = []
+        if argnames is None:
+            argnames = []
         self.name = name
         self.filename = filename
         self.docstring = space.w_None
-        self.argcount = len(args)
+        self.argcount = len(argnames)
         self.klass = klass
         self.flags = 0
         if optimized:
@@ -458,13 +458,7 @@ class PyFlowGraph(FlowGraph):
         # The offsets used by LOAD_CLOSURE/LOAD_DEREF refer to both
         # kinds of variables.
         self.closure = []
-        self.varnames = []
-        for i in range(len(args)):
-            var = args[i]
-            if isinstance(var, ast.AssName):
-                self.varnames.append(mangler.mangle(var.name))
-            elif isinstance(var, ast.AssTuple):
-                self.varnames.append('.%d' % (2 * i))
+        self.varnames = list(argnames)
         self.stage = RAW
         self.orderedblocks = []
 
