@@ -230,7 +230,6 @@ namespace pypy.runtime
             while (true)
             {
                 int pos = ll_find(s1, s2, i, stop);
-                Console.Error.WriteLine("pos " + pos + "\n");
                 if (pos < 0)
                     return result;
                 result += 1;
