@@ -110,6 +110,30 @@ class __extend__(AbstractStringRepr):
     def rtype_method_rfind(self, hop):
         return self.rtype_method_find(hop, reverse=True)
 
+    def rtype_method_count(self, hop):
+        rstr = hop.rtyper.type_system.rstr
+        v_str = hop.inputarg(rstr.string_repr, arg=0)
+        if hop.args_r[1] == rstr.char_repr:
+            v_value = hop.inputarg(rstr.char_repr, arg=1)
+            llfn = self.ll.ll_count_char
+        else:
+            v_value = hop.inputarg(rstr.string_repr, arg=1)
+            llfn = self.ll.ll_count
+        if hop.nb_args > 2:
+            v_start = hop.inputarg(Signed, arg=2)
+            if not hop.args_s[2].nonneg:
+                raise TyperError("str.count() start must be proven non-negative")
+        else:
+            v_start = hop.inputconst(Signed, 0)
+        if hop.nb_args > 3:
+            v_end = hop.inputarg(Signed, arg=3)
+            if not hop.args_s[2].nonneg:
+                raise TyperError("str.count() end must be proven non-negative")
+        else:
+            v_end = hop.gendirectcall(self.ll.ll_strlen, v_str)
+        hop.exception_cannot_occur()
+        return hop.gendirectcall(llfn, v_str, v_value, v_start, v_end)
+
     def rtype_method_strip(self, hop, left=True, right=True):
         rstr = hop.rtyper.type_system.rstr
         v_str = hop.inputarg(rstr.string_repr, arg=0)

@@ -213,6 +213,44 @@ namespace pypy.runtime
             return s1.IndexOf(s2, start, count);
         }
 
+        public static int ll_count(string s1, string s2, int start, int stop)
+        {
+            if (stop > s1.Length)
+                stop = s1.Length;
+            if (s2.Length == 0)
+            {
+                if ((stop-start) < 0)
+                {
+                    return 0;
+                }
+                return stop - start + 1;
+            }
+            int result = 0;
+            int i = start;
+            while (true)
+            {
+                int pos = ll_find(s1, s2, i, stop);
+                Console.Error.WriteLine("pos " + pos + "\n");
+                if (pos < 0)
+                    return result;
+                result += 1;
+                i = pos + s2.Length;
+            }
+        }
+
+        public static int ll_count_char(string s1, char c, int start, int stop)
+        {
+            if (stop > s1.Length)
+                stop = s1.Length;
+            int result = 0;
+            for (int i=start; i < stop; i++) {
+                if (s1[i] == c)
+                    result += 1;
+            }
+            return result;
+        }
+
+
         public static int ll_rfind(string s1, string s2, int start, int stop)
         {
             if (stop > s1.Length)

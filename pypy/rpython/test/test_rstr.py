@@ -580,6 +580,21 @@ class BaseTestRstr(BaseRtypingTest):
         res = self.interpret(fn, [3])
         assert self.ll_to_string(res) == 'xxx'
 
+    def test_count_char(self):
+        def fn(i):
+            s = "".join(["abcasd"] * i)
+            return s.count("a") + s.count("a", 2) + s.count("b", 1, 6)
+        res = self.interpret(fn, [4])
+        assert res == 8 + 7 + 1
+
+    def test_count(self):
+        def fn(i):
+            s = "".join(["abcabsd"] * i)
+            one = i / i # confuse the annotator
+            return (s.count("abc") + "abcde".count("") +
+                    "abcda".count("a" * one))
+        res = self.interpret(fn, [4])
+        assert res == 4 + 6 + 2
 
 def FIXME_test_str_to_pystringobj():
     def f(n):

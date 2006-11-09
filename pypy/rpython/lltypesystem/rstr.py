@@ -126,6 +126,27 @@ mallocstr._annspecialcase_ = 'specialize:semierased'
 #  get flowed and annotated, mostly with SomePtr.
 #
 
+def ll_construct_restart_positions(s, l):
+    # Construct the array of possible restarting positions
+    # T = Array_of_ints [-1..len2]
+    # T[-1] = -1 s2.chars[-1] is supposed to be unequal to everything else
+    T = malloc( SIGNED_ARRAY, l)
+    T[0] = 0
+    i = 1
+    j = 0
+    while i<l:
+        if s.chars[i] == s.chars[j]:
+            j += 1
+            T[i] = j
+            i += 1
+        elif j>0:
+            j = T[j-1]
+        else:
+            T[i] = 0
+            i += 1
+            j = 0
+    return T
+
 class LLHelpers(AbstractLLHelpers):
 
     def ll_char_mul(ch, times):
@@ -355,6 +376,15 @@ class LLHelpers(AbstractLLHelpers):
                 return i
         return -1
 
+    def ll_count_char(s, ch, start, end):
+        count = 0
+        i = start
+        while i < end:
+            if s.chars[i] == ch:
+                count += 1
+            i += 1
+        return count
+
     def ll_find(cls, s1, s2, start, end):
         """Knuth Morris Prath algorithm for substring match"""
         len1 = len(s1.chars)
@@ -367,24 +397,8 @@ class LLHelpers(AbstractLLHelpers):
             if (end-start) < 0:
                 return -1
             return start
-        # Construct the array of possible restarting positions
-        # T = Array_of_ints [-1..len2]
-        # T[-1] = -1 s2.chars[-1] is supposed to be unequal to everything else
-        T = malloc( SIGNED_ARRAY, len2 )
-        T[0] = 0
-        i = 1
-        j = 0
-        while i<len2:
-            if s2.chars[i] == s2.chars[j]:
-                j += 1
-                T[i] = j
-                i += 1
-            elif j>0:
-                j = T[j-1]
-            else:
-                T[i] = 0
-                i += 1
-                j = 0
+
+        T = ll_construct_restart_positions(s2, len2)
 
         # Now the find algorithm
         i = 0
@@ -450,6 +464,42 @@ class LLHelpers(AbstractLLHelpers):
                     i = e
         return -1
     ll_rfind = classmethod(ll_rfind)
+
+    def ll_count(cls, s1, s2, start, end):
+        """Knuth Morris Prath algorithm for substring match"""
+        # XXX more code should be shared with ll_find
+        len1 = len(s1.chars)
+        if end > len1:
+            end = len1
+        len2 = len(s2.chars)
+        if len2 == 1:
+            return cls.ll_count_char(s1, s2.chars[0], start, end)
+        if len2 == 0:
+            if (end-start) < 0:
+                return 0
+            return end - start + 1
+        T = ll_construct_restart_positions(s2, len2)
+
+        # Now the find algorithm
+        i = 0
+        m = start
+        result = 0
+        while m+i<end:
+            if s1.chars[m+i]==s2.chars[i]:
+                i += 1
+                if i==len2:
+                    result += 1
+                else:
+                    continue
+            # mismatch, go back to the last possible starting pos
+            if i==0:
+                m += 1
+            else:
+                e = T[i-1]
+                m = m + i - e
+                i = e
+        return result
+    ll_count = classmethod(ll_count)
 
     def ll_join_strs(length, items):
         num_items = length

@@ -306,8 +306,10 @@ class String(BuiltinADTType):
             "ll_endswith": Meth([self.SELFTYPE_T], Bool),
             "ll_find": Meth([self.SELFTYPE_T, Signed, Signed], Signed),
             "ll_rfind": Meth([self.SELFTYPE_T, Signed, Signed], Signed),
+            "ll_count": Meth([self.SELFTYPE_T, Signed, Signed], Signed),
             "ll_find_char": Meth([Char, Signed, Signed], Signed),
             "ll_rfind_char": Meth([Char, Signed, Signed], Signed),
+            "ll_count_char": Meth([Char, Signed, Signed], Signed),
             "ll_strip": Meth([Char, Bool, Bool], self.SELFTYPE_T),
             "ll_upper": Meth([], self.SELFTYPE_T),
             "ll_lower": Meth([], self.SELFTYPE_T),
@@ -1017,6 +1019,10 @@ class _string(_builtin_type):
         # NOT_RPYTHON
         return self._str.rfind(s._str, start, end)
 
+    def ll_count(self, s, start, end):
+        # NOT_RPYTHON
+        return self._str.count(s._str, start, end)
+
     def ll_find_char(self, ch, start, end):
         # NOT_RPYTHON
         return self._str.find(ch, start, end)
@@ -1024,6 +1030,10 @@ class _string(_builtin_type):
     def ll_rfind_char(self, ch, start, end):
         # NOT_RPYTHON
         return self._str.rfind(ch, start, end)
+
+    def ll_count_char(self, ch, start, end):
+        # NOT_RPYTHON
+        return self._str.count(ch, start, end)
 
     def ll_strip(self, ch, left, right):
         # NOT_RPYTHON

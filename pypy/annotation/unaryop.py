@@ -416,6 +416,9 @@ class __extend__(SomeString):
     def method_rfind(str, frag, start=None, end=None):
         return SomeInteger()
 
+    def method_count(str, frag, start=None, end=None):
+        return SomeInteger(nonneg=True)
+
     def method_strip(str, chr):
         return SomeString()
 
