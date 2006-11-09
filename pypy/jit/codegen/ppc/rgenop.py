@@ -145,6 +145,37 @@ class Label(GenLabel):
 ##     def add_case(self, gv_case):
 ##     def add_default(self):
 
+
+
+# our approach to stack layout:
+
+# on function entry, the stack looks like this:
+
+#        ....
+# | parameter area |
+# |  linkage area  | <- rSP points to the last word of the linkage area
+# +----------------+
+
+# we set things up like so:
+
+# | parameter area  |
+# |  linkage area   | <- rFP points to where the rSP was
+# | saved registers |
+# | local variables |
+# +-----------------+ <- rSP points here, and moves around between basic blocks
+
+# points of note (as of 2006-11-09 anyway :-):
+# 1. we currently never spill to the parameter area (should fix?)
+# 2. we always save all callee-save registers
+# 3. as each basic block can move the SP around as it sees fit, we index
+#    into the local variables area from the FP (frame pointer; it is not
+#    usual on the PPC to have a frame pointer, but there's no reason we
+#    can't have one :-)
+# 4. we don't support calls, so we never allocate a parameter or
+#    linkage area for functions we call.  this shouldn't be too hard
+#    to support, it's just not done yet...
+
+
 class Builder(GenBuilder):
 
     def __init__(self, rgenop, mc):
@@ -233,7 +264,7 @@ class Builder(GenBuilder):
 
     def finish_and_return(self, sigtoken, gv_returnvar):
         self.insns.append(insn.Return(gv_returnvar))
-        allocator = self.allocate_and_emit()
+        self.allocate_and_emit()
 
         # standard epilogue:
 
