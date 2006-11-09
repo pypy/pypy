@@ -48,9 +48,12 @@ Things we've thought about but not yet implemented include:
 
 * lists which are specialised for int-only values (for saving memory).
 
-* some form of caching the lookups of builtin or even global names (mostly
+* some form of caching the lookups of builtin or even global names (most
   likely by special forms of dictionaries that can invalidate the caches when
   they are written to).
+
+* create multiple representations of Unicode string that store the character
+  data in narrower arrays when they can.
 
 Experiments of this kind are really experiments in the sense that we do not know
 whether they will work well or not and the only way to find out is to try.  A
