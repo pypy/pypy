@@ -209,7 +209,7 @@ class Builder(GenBuilder):
         that there are 'param' bytes of parameters for callee functions and
         'lv' is the largest (wrt to abs() :) rFP-relative byte offset of
         any variable on the stack."""
-        return ((24 + param - lv) & ~15)+16
+        return ((24 + param - lv + 15) & ~15)
 
     def _close(self):
         self.rgenop.close_mc(self.asm.mc)
