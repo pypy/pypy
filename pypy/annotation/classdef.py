@@ -115,8 +115,11 @@ class Attribute:
             if not s_newvalue.isNone() and s_newvalue.getKind() == description.MethodDesc:
                 if homedef.classdesc.read_attribute(attr, None) is None: # is method
                     if not homedef.check_missing_attribute_update(attr):
-                        self.bookkeeper.warning("demoting method %s to base class %s" % 
-                                                (self.name, homedef))
+                        for desc in s_newvalue.descriptions:
+                            if desc.selfclassdef is None:
+                                self.bookkeeper.warning("demoting method %s to base class %s" % 
+                                                        (self.name, homedef))
+                                break
 
         # check for attributes forbidden by slots
         if homedef.classdesc.allslots is not None:
