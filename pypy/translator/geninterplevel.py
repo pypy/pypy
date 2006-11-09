@@ -45,6 +45,7 @@ pieces in pypy svn.
 
 from __future__ import generators
 import autopath, os, sys, types
+import inspect
 import cPickle as pickle, __builtin__
 from copy_reg import _HEAPTYPE
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
@@ -71,7 +72,7 @@ from pypy.tool.ansi_print import ansi_log
 log = py.log.Producer("geninterp")
 py.log.setconsumer("geninterp", ansi_log)
 
-GI_VERSION = '1.1.18'  # bump this for substantial changes
+GI_VERSION = '1.1.19'  # bump this for substantial changes
 # ____________________________________________________________
 
 try:
@@ -605,9 +606,18 @@ else:
             return self.skipped_function(func)
         name = self.uniquename('gfunc_' + self.trans_funcname(
             namehint + func.__name__))
-        f_name = 'f_' + name[6:]
+
+        positional, varargs, varkwds, defs = inspect.getargspec(func)
+        if varargs is varkwds is defs is None:
+            unwrap = ', '.join(['gateway.W_Root']*len(positional))
+            interp_name = 'fastf_' + name[6:]            
+        else:
+            unwrap = 'gateway.Arguments'
+            interp_name = 'f_' + name[6:]
+        
         self.initcode.append1('from pypy.interpreter import gateway')
-        self.initcode.append1('%s = space.wrap(gateway.interp2app(%s, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))' % (name, f_name))
+        self.initcode.append1('%s = space.wrap(gateway.interp2app(%s, unwrap_spec=[gateway.ObjSpace, %s]))' %
+                              (name, interp_name, unwrap))
         self.pendingfunctions.append(func)
         return name
 
@@ -1203,6 +1213,8 @@ else:
 
         fast_set = dict(zip(fast_args, fast_args))
 
+        simple = (varargname is varkwname is None) and not name_of_defaults
+
         # create function declaration
         name = self.trans_funcname(func.__name__) # for <lambda>
         argstr = ", ".join(['space'] + fast_args)
@@ -1219,10 +1231,6 @@ else:
             #else:
             #    self.initcode.append1('del m.%s' % (name,))
 
-        print >> f, '  def %s(space, __args__):' % (name,)
-        if docstr is not None:
-            print >> f, docstr
-            print >> f
         def tupstr(seq):
             if len(seq) == 1:
                 fmt = '%s,'
@@ -1235,23 +1243,29 @@ else:
             else:
                 return tupstr(seq) + " = "
 
-        print >> f, '    funcname = "%s"' % func.__name__
+        if not simple:
+            print >> f, '  def %s(space, __args__):' % (name,)
+            if docstr is not None:
+                print >> f, docstr
+                print >> f
 
-        kwlist = list(func.func_code.co_varnames[:func.func_code.co_argcount])
-        signature = '    signature = %r' % kwlist
-        signature = ", ".join([signature, repr(varargname), repr(varkwname)])
-        print >> f, signature
+            print >> f, '    funcname = "%s"' % func.__name__
+            kwlist = list(func.func_code.co_varnames[:func.func_code.co_argcount])
+            signature = '    signature = %r' % kwlist
+            signature = ", ".join([signature, repr(varargname), repr(varkwname)])
+            print >> f, signature
 
-        print >> f, '    defaults_w = [%s]' % ", ".join(name_of_defaults)
+            print >> f, '    defaults_w = [%s]' % ", ".join(name_of_defaults)
 
-        print >> f, '    %s__args__.parse(funcname, signature, defaults_w)' % (
-            tupassstr(fast_args),)
-        print >> f, '    return %s(%s)' % (fast_name, ', '.join(["space"]+fast_args))
+            print >> f, '    %s__args__.parse(funcname, signature, defaults_w)' % (
+                tupassstr(fast_args),)
+            print >> f, '    return %s(%s)' % (fast_name, ', '.join(["space"]+fast_args))
 
-        for line in install_func(f_name, name):
-            print >> f, line
+            for line in install_func(f_name, name):
+                print >> f, line
 
-        print >> f
+            print >> f
+        
         print >> f, fast_function_header
         if docstr is not None:
             print >> f, docstr
