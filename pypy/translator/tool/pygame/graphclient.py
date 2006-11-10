@@ -23,8 +23,12 @@ def dot2plain(dotfile, plainfile, use_codespeak=False):
         plainfile = py.path.local(plainfile) 
         plainfile.write(py.path.local(dotfile).read())
     elif not use_codespeak:
-        py.process.cmdexec('dot -Tplain %s>%s' % (dotfile, plainfile))
-    elif 0: 
+        # try to see whether it is a directed graph or not:
+        if "digraph" in py.path.local(dotfile).read():
+            py.process.cmdexec('dot -Tplain %s>%s' % (dotfile, plainfile))
+        else:
+            py.process.cmdexec('neato -Tplain %s>%s' % (dotfile, plainfile))
+    elif 0:
         gw = py.execnet.SshGateway('codespeak.net')
         channel = gw.remote_exec("""
             import py
