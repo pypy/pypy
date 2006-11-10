@@ -107,6 +107,9 @@ class TinyObjSpace(object):
         exec src.compile() in d
         return d['anonymous'](*args)
 
+    def wrap(self, obj):
+        return obj
+
 
 class OpErrKeyboardInterrupt(KeyboardInterrupt):
     pass
