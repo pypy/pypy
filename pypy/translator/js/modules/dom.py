@@ -262,8 +262,7 @@ Node._fields = {
 
 Element._fields = Node._fields.copy()
 
-HTMLElement._fields = Element._fields.copy()
-HTMLElement._fields.update({
+Element._fields.update({
     'className' : "aa",
     'clientHeight' : 12,
     'clientWidth' : 12,
@@ -282,7 +281,7 @@ HTMLElement._fields.update({
     'scrollLeft' : 12,
     'scrollTop' : 12,
     'scrollWidth' : 12,
-    'style' : NonConstant(Style()),
+    'style' : Style(),
     'tabIndex' : 12,
     'onblur' : MethodDesc([Event()]),
     'onclick' : MethodDesc([MouseEvent()]),
@@ -299,13 +298,14 @@ HTMLElement._fields.update({
     'onresize' : MethodDesc([Event()]),
 })
 
+HTMLElement._fields = Element._fields.copy()
 Node._methods = {
-    'appendChild' : MethodDesc([Element()]),
-    'cloneNode' : MethodDesc([12], Element()),
+    'appendChild' : MethodDesc([HTMLElement()]),
+    'cloneNode' : MethodDesc([12], HTMLElement()),
     'hasChildNodes' : MethodDesc([], True),
-    'insertBefore' : MethodDesc([Element(), Element()], Element()),
-    'removeChild' : MethodDesc([Element()], Element()),
-    'replaceChild' : MethodDesc([Element(), Element()], Element()),
+    'insertBefore' : MethodDesc([HTMLElement(), HTMLElement()], HTMLElement()),
+    'removeChild' : MethodDesc([HTMLElement()], HTMLElement()),
+    'replaceChild' : MethodDesc([HTMLElement(), HTMLElement()], HTMLElement()),
 }
 
 Element._methods = Node._methods.copy()
@@ -327,10 +327,6 @@ Element._methods.update({
     'setAttributeNS' : MethodDesc(["aa", "aa", "aa"]),
     'setAttributeNode' : MethodDesc([Element()], Element()),
     'setAttributeNodeNS' : MethodDesc(["ns", Element()], Element()),
-})
-
-HTMLElement._methods = Element._methods.copy()
-HTMLElement._methods.update({
     'blur' : MethodDesc([]),
     'click' : MethodDesc([]),
     'dispatchEvent' : MethodDesc(["aa"], True),
@@ -339,6 +335,8 @@ HTMLElement._methods.update({
     'scrollIntoView' : MethodDesc([12]),
     'supports' : MethodDesc(["aa", 1.0]),
 })
+
+HTMLElement._methods = Element._methods.copy()
 
 Document._methods = Element._methods.copy()
 Document._methods.update({
