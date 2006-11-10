@@ -9,7 +9,7 @@ from pypy.rlib.objectmodel import hint
 
 import py.test
 
-class TestPortal(object):
+class PortalTest(object):
     from pypy.jit.codegen.llgraph.rgenop import RGenOp
 
     def setup_class(cls):
@@ -28,7 +28,7 @@ class TestPortal(object):
                               backendoptimize=False):
         # decode the 'values' if they are specified as strings
         if hasattr(main, 'convert_arguments'):
-            assert len(main.convert_arguments) == len(values)
+            assert len(main.convert_arguments) == len(main_args)
             main_args = [decoder(value) for decoder, value in zip(
                                         main.convert_arguments,
                                         main_args)]
@@ -40,7 +40,7 @@ class TestPortal(object):
         else:
             self.__dict__.update(cache)
             assert argtypes == getargtypes(self.rtyper.annotator, main_args)
-            return
+            return main_args
 
         hs, ha, self.rtyper = hannotate(main, main_args, portal=portal,
                                    policy=policy, inline=inline,
@@ -69,14 +69,15 @@ class TestPortal(object):
         cache = self.__dict__.copy()
         self._cache[key] = cache, getargtypes(self.rtyper.annotator, main_args)
         self._cache_order.append(key)
+        return main_args
 
     
     def timeshift_from_portal(self, main, portal, main_args,
                               inline=None, policy=None,
                               backendoptimize=False):
-        self._timeshift_from_portal(main, portal, main_args,
-                                    inline=inline, policy=policy,
-                                    backendoptimize=backendoptimize)
+        main_args = self._timeshift_from_portal(main, portal, main_args,
+                                                inline=inline, policy=policy,
+                                                backendoptimize=backendoptimize)
         self.main_args = main_args
         llinterp = LLInterpreter(self.rtyper)
         res = llinterp.eval_graph(self.maingraph, main_args)
@@ -92,6 +93,8 @@ class TestPortal(object):
             assert self.insns == expected
         for opname, count in counts.items():
             assert self.insns.get(opname, 0) == count
+
+class TestPortal(PortalTest):
             
     def test_simple(self):
 

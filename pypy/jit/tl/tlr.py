@@ -16,6 +16,7 @@ def interpret(bytecode, a):
     regs = []
     pc = 0
     while True:
+        hint(None, global_merge_point=True)
         opcode = hint(ord(bytecode[pc]), concrete=True)
         pc += 1
         if opcode == MOV_A_R:
