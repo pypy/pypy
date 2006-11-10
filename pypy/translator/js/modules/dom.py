@@ -14,6 +14,7 @@
 
 import time
 from pypy.rpython.ootypesystem.bltregistry import BasicExternal, MethodDesc
+from pypy.rlib.nonconst import NonConstant
 
 from pypy.translator.stackless.test.test_transform import one
 from xml.dom import minidom
@@ -298,7 +299,7 @@ Element._fields = {
         'scrollLeft' : 12,
         'scrollTop' : 12,
         'scrollWidth' : 12,
-        'style' : Style(),
+        'style' : NonConstant(Style()),
         'tabIndex' : 12,
         'tagName' : "aa",
         'textContent' : "aa",
@@ -483,17 +484,15 @@ Window._methods.update({
 # set the global 'window' instance to an empty HTML document, override using
 # dom.window = Window(html) (this will also set dom.document)
 window = Window()
+
 def get_document():
-    return document
+    return NonConstant(document)
 
 def get_window():
-    return window
+    return NonConstant(window)
 
 get_window.suggested_primitive = True
 get_document.suggested_primitive = True
-
-def some_fun():
-    pass
 
 def setTimeout(func, delay):
     # scheduler call, but we don't want to mess with threads right now
