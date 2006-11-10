@@ -28,29 +28,92 @@ class Node(BasicExternal):
     """base class of all node types"""
     
     def __init__(self, node=None):
-        if node is not None:
-            self._original = node
+        self._original = node
     
     def __getattr__(self, name):
         """attribute access gets proxied to the contained minidom node
 
             all returned minidom nodes are wrapped as Nodes
         """
+        if (name not in self._fields and
+                (not hasattr(self, '_methods') or name not in self._methods)):
+            raise NameError, name
         value = getattr(self._original, name)
         return _wrap(value)
 
+    def __eq__(self, other):
+        original = getattr(other, '_original', other)
+        return original is self._original
+
+def _quote_html(text):
+    for char, e in [('&', 'amp'), ('<', 'lt'), ('>', 'gt'), ('"', 'quot'),
+                    ("'", 'apos')]:
+        text = text.replace(char, '&%s;' % (e,))
+    return text
+
+_singletons = ['link', 'meta']
+def _serialize_html(node):
+    ret = []
+    if node.nodeType == 1:
+        nodeName = getattr(node, '_original', node).nodeName
+        ret += ['<', nodeName]
+        if len(node.attributes):
+            for aname in node.attributes.keys():
+                attr = node.attributes[aname]
+                ret.append(' %s="%s"' % (attr.nodeName, attr.nodeValue))
+        if len(node.childNodes) or nodeName not in _singletons:
+            ret.append('>')
+            for child in node.childNodes:
+                if child.nodeType == 1:
+                    ret.append(_serialize_html(child))
+                else:
+                    ret.append(_quote_html(child.nodeValue))
+            ret += ['</', nodeName, '>']
+        else:
+            ret.append(' />')
+    return ''.join(ret)
+
+class HTMLNode(Node):
+    def getElementsByTagName(self, name):
+        name = name.lower()
+        return self.__getattr__('getElementsByTagName')(name)
+
+    def _get_innerHTML(self):
+        ret = []
+        for child in self.childNodes:
+            ret.append(_serialize_html(child))
+        return ''.join(ret)
+
+    def _set_innerHTML(self, html):
+        dom = minidom.parseString('<doc>%s</doc>' % (html,))
+        while self.childNodes:
+            self.removeChild(self.lastChild)
+        for child in dom.documentElement.childNodes:
+            child = self.ownerDocument.importNode(child, True)
+            self.appendChild(child)
+        del dom
+
+    innerHTML = property(_get_innerHTML, _set_innerHTML)
+
 class Element(Node):
-    """element type"""
     nodeType = 1
+
+class HTMLElement(HTMLNode, Element):
     id = ''
-    nodeName = ''
+    style = None
 
     def __init__(self, node=None):
         super(Element, self).__init__(node)
         if node is not None:
-            self.id = node.getAttribute('id')
-            self.nodeName = node.nodeName.upper()
-            self.style = Style()
+            self._init(node)
+
+    def _init(self, node):
+        self.id = node.getAttribute('id')
+        self.style = Style()
+
+    def _nodeName(self):
+        return self._original.nodeName.upper()
+    nodeName = property(_nodeName)
 
 class Attribute(Node):
     nodeType = 2
@@ -58,13 +121,11 @@ class Attribute(Node):
 class Text(Node):
     nodeType = 3
 
-class Form(Element):
-    pass
-
-class Document(Element):
+class Document(HTMLNode):
     nodeType = 9
     
     def __init__(self, docnode=None):
+        super(Document, self).__init__(docnode)
         self._original = docnode
 
     def getElementById(self, id):
@@ -75,27 +136,49 @@ class Document(Element):
 
 class Window(BasicExternal):
     def __init__(self, html=('<html><head><title>Untitled document</title>'
-                             '</head><body></body></html>')):
+                             '</head><body></body></html>'), parent=None):
         global document
-        self.html = html
-        document = Document(minidom.parseString(html))
+        self._html = html
+        self.document = document = Document(minidom.parseString(html))
+
+        # references to windows
+        self.content = self
+        self.self = self
+        self.window = self
+        self.parent = parent or self
+        self.top = self.parent
+        while 1:
+            if self.top.parent is self.top:
+                break
+            self.top = self.top.parent
+
+        # other properties
+        self.closed = True
 
     def __getattr__(self, name):
         return globals()[name]
 
-# now some functionality to wrap minidom nodes with Node classes, and to make
-# sure all methods on the nodes return wrapped nodes rather than minidom ones
+# the following code wraps minidom nodes with Node classes, and makes
+# sure all methods on the nodes return wrapped nodes
+
 class _FunctionWrapper(object):
     """makes sure function return values are wrapped if appropriate"""
     def __init__(self, callable):
         self._original = callable
 
     def __call__(self, *args, **kwargs):
+        args = list(args)
+        for i, arg in enumerate(args):
+            if isinstance(arg, Node):
+                args[i] = arg._original
+        for name, arg in kwargs.iteritems():
+            if isinstance(arg, Node):
+                kwargs[arg] = arg._original
         value = self._original(*args, **kwargs)
         return _wrap(value)
 
 _typetoclass = {
-    1: Element,
+    1: HTMLElement,
     2: Attribute,
     3: Text,
     9: Document,
@@ -114,244 +197,148 @@ def _wrap(value):
 
 # more DOM API, the stuff that doesn't directly deal with XML
 #   note that we're mimicking the standard (Mozilla) APIs, so things tested
-#   against this code may not work on Internet Explorer
+#   against this code may not work in Internet Explorer
+
 class Event(BasicExternal):
     pass
 
 class KeyEvent(Event):
-    _fields = {
-        'keyCode' : 12,
-        'charCode' : 12,
-    }
+    pass
 
 class MouseEvent(Event):
     pass
 
 class Style(BasicExternal):
-    _fields = {
-        'azimuth' : 'aa',
-        'background' : 'aa',
-        'backgroundAttachment' : 'aa',
-        'backgroundColor' : 'aa',
-        'backgroundImage' : 'aa',
-        'backgroundPosition' : 'aa',
-        'backgroundRepeat' : 'aa',
-        'border' : 'aa',
-        'borderBottom' : 'aa',
-        'borderBottomColor' : 'aa',
-        'borderBottomStyle' : 'aa',
-        'borderBottomWidth' : 'aa',
-        'borderCollapse' : 'aa',
-        'borderColor' : 'aa',
-        'borderLeft' : 'aa',
-        'borderLeftColor' : 'aa',
-        'borderLeftStyle' : 'aa',
-        'borderLeftWidth' : 'aa',
-        'borderRight' : 'aa',
-        'borderRightColor' : 'aa',
-        'borderRightStyle' : 'aa',
-        'borderRightWidth' : 'aa',
-        'borderSpacing' : 'aa',
-        'borderStyle' : 'aa',
-        'borderTop' : 'aa',
-        'borderTopColor' : 'aa',
-        'borderTopStyle' : 'aa',
-        'borderTopWidth' : 'aa',
-        'borderWidth' : 'aa',
-        'bottom' : 'aa',
-        'captionSide' : 'aa',
-        'clear' : 'aa',
-        'clip' : 'aa',
-        'color' : 'aa',
-        'content' : 'aa',
-        'counterIncrement' : 'aa',
-        'counterReset' : 'aa',
-        'cssFloat' : 'aa',
-        'cssText' : 'aa',
-        'cue' : 'aa',
-        'cueAfter' : 'aa',
-        'onBefore' : 'aa',
-        'cursor' : 'aa',
-        'direction' : 'aa',
-        'displays' : 'aa',
-        'elevation' : 'aa',
-        'emptyCells' : 'aa',
-        'font' : 'aa',
-        'fontFamily' : 'aa',
-        'fontSize' : 'aa',
-        'fontSizeAdjust' : 'aa',
-        'fontStretch' : 'aa',
-        'fontStyle' : 'aa',
-        'fontVariant' : 'aa',
-        'fontWeight' : 'aa',
-        'height' : 'aa',
-        'left' : 'aa',
-        'length' : 'aa',
-        'letterSpacing' : 'aa',
-        'lineHeight' : 'aa',
-        'listStyle' : 'aa',
-        'listStyleImage' : 'aa',
-        'listStylePosition' : 'aa',
-        'listStyleType' : 'aa',
-        'margin' : 'aa',
-        'marginBottom' : 'aa',
-        'marginLeft' : 'aa',
-        'marginRight' : 'aa',
-        'marginTop' : 'aa',
-        'markerOffset' : 'aa',
-        'marks' : 'aa',
-        'maxHeight' : 'aa',
-        'maxWidth' : 'aa',
-        'minHeight' : 'aa',
-        'minWidth' : 'aa',
-        'MozBinding' : 'aa',
-        'MozOpacity' : 'aa',
-        'orphans' : 'aa',
-        'outline' : 'aa',
-        'outlineColor' : 'aa',
-        'outlineStyle' : 'aa',
-        'outlineWidth' : 'aa',
-        'overflow' : 'aa',
-        'padding' : 'aa',
-        'paddingBottom' : 'aa',
-        'paddingLeft' : 'aa',
-        'paddingRight' : 'aa',
-        'paddingTop' : 'aa',
-        'page' : 'aa',
-        'pageBreakAfter' : 'aa',
-        'pageBreakBefore' : 'aa',
-        'pageBreakInside' : 'aa',
-        'parentRule' : 'aa',
-        'pause' : 'aa',
-        'pauseAfter' : 'aa',
-        'pauseBefore' : 'aa',
-        'pitch' : 'aa',
-        'pitchRange' : 'aa',
-        'playDuring' : 'aa',
-        'position' : 'aa',
-        'quotes' : 'aa',
-        'richness' : 'aa',
-        'right' : 'aa',
-        'size' : 'aa',
-        'speak' : 'aa',
-        'speakHeader' : 'aa',
-        'speakNumeral' : 'aa',
-        'speakPunctuation' : 'aa',
-        'speechRate' : 'aa',
-        'stress' : 'aa',
-        'tableLayout' : 'aa',
-        'textAlign' : 'aa',
-        'textDecoration' : 'aa',
-        'textIndent' : 'aa',
-        'textShadow' : 'aa',
-        'textTransform' : 'aa',
-        'top' : 'aa',
-        'unicodeBidi' : 'aa',
-        'verticalAlign' : 'aa',
-        'visibility' : 'aa',
-        'voiceFamily' : 'aa',
-        'volume' : 'aa',
-        'whiteSpace' : 'aa',
-        'widows' : 'aa',
-        'width' : 'aa',
-        'wordSpacing' : 'aa',
-        'zIndex' : 'aa',
-    }
-
     def __getattr__(self, name):
-        pass
+        if name not in self._fields:
+            raise AttributeError, name
+        return None
 
-    def __setattr__(self, name):
-        pass
+# non-DOM ('DOM level 0') stuff
 
-Element._fields = {
-        'attributes' : [Attribute()],
-        'childNodes' : [Element()],
-        'className' : "aa",
-        'clientHeight' : 12,
-        'clientWidth' : 12,
-        'clientLeft' : 12,
-        'clientTop' : 12,
-        'dir' : "aa",
-        'firstChild' : Element(),
-        'innerHTML' : "asd",
-        'lang' : "asd",
-        'id' : "aa",
-        'lastChild' : Element(),
-        'length' : 12,
-        'localName' : "aa",
-        'name' : "aa",
-        'namespaceURI' : "aa",
-        'nextSibling' : Element(),
-        'nodeName' : "aa",
-        'nodeType' : 1,
-        'nodeValue' : "aa",
-        'offsetHeight' : 12,
-        'offsetLeft' : 12,
-        'offsetParent' : 12,
-        'offsetTop' : 12,
-        'offsetWidth' : 12,
-        'ownerDocument' : Document(),
-        'parentNode' : Element(),
-        'prefix' : "aa",
-        'previousSibling' : Element(),
-        'scrollHeight' : 12,
-        'scrollLeft' : 12,
-        'scrollTop' : 12,
-        'scrollWidth' : 12,
-        'style' : NonConstant(Style()),
-        'tabIndex' : 12,
-        'tagName' : "aa",
-        'textContent' : "aa",
-        'value' : "aa",
-        'onblur' : MethodDesc([Event()]),
-        'onclick' : MethodDesc([MouseEvent()]),
-        'ondblclick' : MethodDesc([MouseEvent()]),
-        'onfocus' : MethodDesc([Event()]),
-        'onkeydown' : MethodDesc([KeyEvent()]),
-        'onkeypress' : MethodDesc([KeyEvent()]),
-        'onkeyup' : MethodDesc([KeyEvent()]),
-        'onmousedown' : MethodDesc([MouseEvent()]),
-        'onmousemove' : MethodDesc([MouseEvent()]),
-        'onmouseup' : MethodDesc([MouseEvent()]),
-        'onmouseover' : MethodDesc([MouseEvent()]),
-        'onmouseup' : MethodDesc([MouseEvent()]),
-        'onresize' : MethodDesc([Event()]),
-    }
+def setTimeout(func, delay):
+    # scheduler call, but we don't want to mess with threads right now
+    if one():
+        setTimeout(some_fun, delay)
+    else:
+        func()
+    #pass
 
-Element._methods = {
-        'addEventListener' : MethodDesc(["aa", lambda : None, True]),
-        'appendChild' : MethodDesc([Element()]),
-        'blur' : MethodDesc([]),
-        'click' : MethodDesc([]),
-        'cloneNode' : MethodDesc([12], Element()),
-        'dispatchEvent' : MethodDesc(["aa"], True),
-        'focus' : MethodDesc([]),
-        'getAttribute' : MethodDesc(["aa"], "aa"),
-        'getAttributeNS' : MethodDesc(["aa", "aa"], "aa"),
-        'getAttributeNode' : MethodDesc(["aa"], Element()),
-        'getAttributeNodeNS' : MethodDesc(["aa", "aa"], Element()),
-        'getElementsByTagName' : MethodDesc(["aa"], [Element(), Element()]),
-        'hasAttribute' : MethodDesc(["aa"], True),
-        'hasAttributeNS' : MethodDesc(["aa", "aa"], True),
-        'hasAttributes' : MethodDesc([], True),
-        'hasChildNodes' : MethodDesc([], True),
-        'insertBefore' : MethodDesc([Element(), Element()], Element()),
-        'item' : MethodDesc([3], Element()),
-        'normalize' : MethodDesc([]),
-        'removeAttribute' : MethodDesc(['aa']),
-        'removeAttributeNS' : MethodDesc(["aa", "aa"]),
-        'removeAttributeNode' : MethodDesc([Element()], "aa"),
-        'removeChild' : MethodDesc([Element()], Element()),
-        'removeEventListener' : MethodDesc(["aa", lambda : None, True]),
-        'replaceChild' : MethodDesc([Element(), Element()], Element()),
-        'scrollIntoView' : MethodDesc([12]),
-        'setAttribute' : MethodDesc(["aa", "aa"]),
-        'setAttributeNS' : MethodDesc(["aa", "aa", "aa"]),
-        'setAttributeNode' : MethodDesc([Element()], Element()),
-        'setAttributeNodeNS' : MethodDesc(["ns", Element()], Element()),
-        'supports' : MethodDesc(["aa", 1.0]),
-    }
+def alert(msg):
+    pass
+
+# some helper functions (XXX imo these can go, but the code seem to use them
+# a lot... isn't it possible to just use dom.window and dom.document instead?)
+
+def get_document():
+    return NonConstant(document)
+
+def get_window():
+    return NonConstant(window)
+
+# rtyper stuff
+
+# the Node base class contains just about all XML-related properties
+Node._fields = {
+    'attributes' : [Attribute()],
+    'childNodes' : [Element()],
+    'firstChild' : Element(),
+    'lastChild' : Element(),
+    'localName' : "aa",
+    'name' : "aa",
+    'namespaceURI' : "aa",
+    'nextSibling' : Element(),
+    'nodeName' : "aa",
+    'nodeType' : 1,
+    'nodeValue' : "aa",
+    'ownerDocument' : Document(),
+    'parentNode' : Element(),
+    'prefix' : "aa",
+    'previousSibling' : Element(),
+    'tagName' : "aa",
+    'textContent' : "aa",
+    'value' : "aa",
+}
+
+Element._fields = Node._fields.copy()
+
+HTMLElement._fields = Element._fields.copy()
+HTMLElement._fields.update({
+    'className' : "aa",
+    'clientHeight' : 12,
+    'clientWidth' : 12,
+    'clientLeft' : 12,
+    'clientTop' : 12,
+    'dir' : "aa",
+    'innerHTML' : "asd",
+    'lang' : "asd",
+    'id' : "aa",
+    'offsetHeight' : 12,
+    'offsetLeft' : 12,
+    'offsetParent' : 12,
+    'offsetTop' : 12,
+    'offsetWidth' : 12,
+    'scrollHeight' : 12,
+    'scrollLeft' : 12,
+    'scrollTop' : 12,
+    'scrollWidth' : 12,
+    'style' : NonConstant(Style()),
+    'tabIndex' : 12,
+    'onblur' : MethodDesc([Event()]),
+    'onclick' : MethodDesc([MouseEvent()]),
+    'ondblclick' : MethodDesc([MouseEvent()]),
+    'onfocus' : MethodDesc([Event()]),
+    'onkeydown' : MethodDesc([KeyEvent()]),
+    'onkeypress' : MethodDesc([KeyEvent()]),
+    'onkeyup' : MethodDesc([KeyEvent()]),
+    'onmousedown' : MethodDesc([MouseEvent()]),
+    'onmousemove' : MethodDesc([MouseEvent()]),
+    'onmouseup' : MethodDesc([MouseEvent()]),
+    'onmouseover' : MethodDesc([MouseEvent()]),
+    'onmouseup' : MethodDesc([MouseEvent()]),
+    'onresize' : MethodDesc([Event()]),
+})
+
+Node._methods = {
+    'appendChild' : MethodDesc([Element()]),
+    'cloneNode' : MethodDesc([12], Element()),
+    'hasChildNodes' : MethodDesc([], True),
+    'insertBefore' : MethodDesc([Element(), Element()], Element()),
+    'removeChild' : MethodDesc([Element()], Element()),
+    'replaceChild' : MethodDesc([Element(), Element()], Element()),
+}
+
+Element._methods = Node._methods.copy()
+Element._methods.update({
+    'addEventListener' : MethodDesc(["aa", lambda : None, True]),
+    'getAttribute' : MethodDesc(["aa"], "aa"),
+    'getAttributeNS' : MethodDesc(["aa", "aa"], "aa"),
+    'getAttributeNode' : MethodDesc(["aa"], Element()),
+    'getAttributeNodeNS' : MethodDesc(["aa", "aa"], Element()),
+    'getElementsByTagName' : MethodDesc(["aa"], [Element(), Element()]),
+    'hasAttribute' : MethodDesc(["aa"], True),
+    'hasAttributeNS' : MethodDesc(["aa", "aa"], True),
+    'hasAttributes' : MethodDesc([], True),
+    'removeAttribute' : MethodDesc(['aa']),
+    'removeAttributeNS' : MethodDesc(["aa", "aa"]),
+    'removeAttributeNode' : MethodDesc([Element()], "aa"),
+    'removeEventListener' : MethodDesc(["aa", lambda : None, True]),
+    'setAttribute' : MethodDesc(["aa", "aa"]),
+    'setAttributeNS' : MethodDesc(["aa", "aa", "aa"]),
+    'setAttributeNode' : MethodDesc([Element()], Element()),
+    'setAttributeNodeNS' : MethodDesc(["ns", Element()], Element()),
+})
+
+HTMLElement._methods = Element._methods.copy()
+HTMLElement._methods.update({
+    'blur' : MethodDesc([]),
+    'click' : MethodDesc([]),
+    'dispatchEvent' : MethodDesc(["aa"], True),
+    'focus' : MethodDesc([]),
+    'normalize' : MethodDesc([]),
+    'scrollIntoView' : MethodDesc([12]),
+    'supports' : MethodDesc(["aa", 1.0]),
+})
 
 Document._methods = Element._methods.copy()
 Document._methods.update({
@@ -366,7 +353,6 @@ Document._methods.update({
     #'createRange' : MethodDesc(["aa"], Range()) - don't know what to do here
     'getElementById' : MethodDesc(["aa"], Element()),
     'getElementsByName' : MethodDesc(["aa"], [Element(), Element()]),
-    'getElementsByTagName' : MethodDesc(["aa"], [Element(), Element()]),
     'importNode' : MethodDesc([Element(), True], Element()),
     'open' : MethodDesc([]),
     'write' : MethodDesc(["aa"]),
@@ -388,14 +374,13 @@ Document._fields.update({
     'embeds' : [Element(), Element()],
     'fgColor' : "aa",
     'firstChild' : Element(),
-    'forms' : [Form(), Form()],
+    'forms' : [Element(), Element()],
     'height' : 123,
     'images' : [Element(), Element()],
     'lastModified' : "aa",
     'linkColor' : "aa",
     'links' : [Element(), Element()],
     'location' : "aa",
-    'namespaceURI' : "aa",
     'referrer' : "aa",
     'styleSheets' : [Style(), Style()],
     'title' : "aa",
@@ -404,8 +389,7 @@ Document._fields.update({
     'width' : 123,
 })
 
-Window._fields = Element._fields.copy()
-Window._fields.update({
+Window._fields = {
     'content' : Window(),
     'closed' : True,
     #'crypto' : Crypto() - not implemented in Gecko, leave alone
@@ -438,7 +422,7 @@ Window._fields.update({
     'status' : "asd",
     'top' : Window(),
     'window' : Window(),
-})
+}
 
 Window._methods = Element._methods.copy()
 Window._methods.update({
@@ -481,30 +465,150 @@ Window._methods.update({
     'onunload' : MethodDesc([Event()]),
 })
 
-# set the global 'window' instance to an empty HTML document, override using
-# dom.window = Window(html) (this will also set dom.document)
-window = Window()
+Style._fields = {
+    'azimuth' : 'aa',
+    'background' : 'aa',
+    'backgroundAttachment' : 'aa',
+    'backgroundColor' : 'aa',
+    'backgroundImage' : 'aa',
+    'backgroundPosition' : 'aa',
+    'backgroundRepeat' : 'aa',
+    'border' : 'aa',
+    'borderBottom' : 'aa',
+    'borderBottomColor' : 'aa',
+    'borderBottomStyle' : 'aa',
+    'borderBottomWidth' : 'aa',
+    'borderCollapse' : 'aa',
+    'borderColor' : 'aa',
+    'borderLeft' : 'aa',
+    'borderLeftColor' : 'aa',
+    'borderLeftStyle' : 'aa',
+    'borderLeftWidth' : 'aa',
+    'borderRight' : 'aa',
+    'borderRightColor' : 'aa',
+    'borderRightStyle' : 'aa',
+    'borderRightWidth' : 'aa',
+    'borderSpacing' : 'aa',
+    'borderStyle' : 'aa',
+    'borderTop' : 'aa',
+    'borderTopColor' : 'aa',
+    'borderTopStyle' : 'aa',
+    'borderTopWidth' : 'aa',
+    'borderWidth' : 'aa',
+    'bottom' : 'aa',
+    'captionSide' : 'aa',
+    'clear' : 'aa',
+    'clip' : 'aa',
+    'color' : 'aa',
+    'content' : 'aa',
+    'counterIncrement' : 'aa',
+    'counterReset' : 'aa',
+    'cssFloat' : 'aa',
+    'cssText' : 'aa',
+    'cue' : 'aa',
+    'cueAfter' : 'aa',
+    'onBefore' : 'aa',
+    'cursor' : 'aa',
+    'direction' : 'aa',
+    'displays' : 'aa',
+    'elevation' : 'aa',
+    'emptyCells' : 'aa',
+    'font' : 'aa',
+    'fontFamily' : 'aa',
+    'fontSize' : 'aa',
+    'fontSizeAdjust' : 'aa',
+    'fontStretch' : 'aa',
+    'fontStyle' : 'aa',
+    'fontVariant' : 'aa',
+    'fontWeight' : 'aa',
+    'height' : 'aa',
+    'left' : 'aa',
+    'length' : 'aa',
+    'letterSpacing' : 'aa',
+    'lineHeight' : 'aa',
+    'listStyle' : 'aa',
+    'listStyleImage' : 'aa',
+    'listStylePosition' : 'aa',
+    'listStyleType' : 'aa',
+    'margin' : 'aa',
+    'marginBottom' : 'aa',
+    'marginLeft' : 'aa',
+    'marginRight' : 'aa',
+    'marginTop' : 'aa',
+    'markerOffset' : 'aa',
+    'marks' : 'aa',
+    'maxHeight' : 'aa',
+    'maxWidth' : 'aa',
+    'minHeight' : 'aa',
+    'minWidth' : 'aa',
+    'MozBinding' : 'aa',
+    'MozOpacity' : 'aa',
+    'orphans' : 'aa',
+    'outline' : 'aa',
+    'outlineColor' : 'aa',
+    'outlineStyle' : 'aa',
+    'outlineWidth' : 'aa',
+    'overflow' : 'aa',
+    'padding' : 'aa',
+    'paddingBottom' : 'aa',
+    'paddingLeft' : 'aa',
+    'paddingRight' : 'aa',
+    'paddingTop' : 'aa',
+    'page' : 'aa',
+    'pageBreakAfter' : 'aa',
+    'pageBreakBefore' : 'aa',
+    'pageBreakInside' : 'aa',
+    'parentRule' : 'aa',
+    'pause' : 'aa',
+    'pauseAfter' : 'aa',
+    'pauseBefore' : 'aa',
+    'pitch' : 'aa',
+    'pitchRange' : 'aa',
+    'playDuring' : 'aa',
+    'position' : 'aa',
+    'quotes' : 'aa',
+    'richness' : 'aa',
+    'right' : 'aa',
+    'size' : 'aa',
+    'speak' : 'aa',
+    'speakHeader' : 'aa',
+    'speakNumeral' : 'aa',
+    'speakPunctuation' : 'aa',
+    'speechRate' : 'aa',
+    'stress' : 'aa',
+    'tableLayout' : 'aa',
+    'textAlign' : 'aa',
+    'textDecoration' : 'aa',
+    'textIndent' : 'aa',
+    'textShadow' : 'aa',
+    'textTransform' : 'aa',
+    'top' : 'aa',
+    'unicodeBidi' : 'aa',
+    'verticalAlign' : 'aa',
+    'visibility' : 'aa',
+    'voiceFamily' : 'aa',
+    'volume' : 'aa',
+    'whiteSpace' : 'aa',
+    'widows' : 'aa',
+    'width' : 'aa',
+    'wordSpacing' : 'aa',
+    'zIndex' : 'aa',
+}
 
-def get_document():
-    return NonConstant(document)
-
-def get_window():
-    return NonConstant(window)
+KeyEvent_fields = {
+    'keyCode' : 12,
+    'charCode' : 12,
+}
 
 get_window.suggested_primitive = True
 get_document.suggested_primitive = True
-
-def setTimeout(func, delay):
-    # scheduler call, but we don't want to mess with threads right now
-    if one():
-        setTimeout(some_fun, delay)
-    else:
-        func()
-    #pass
-
 setTimeout.suggested_primitive = True
-
-def alert(msg):
-    pass
-
 alert.suggested_primitive = True
+
+# initialization
+
+# set the global 'window' instance to an empty HTML document, override using
+# dom.window = Window(html) (this will also set dom.document)
+window = Window()
+this = window
+
