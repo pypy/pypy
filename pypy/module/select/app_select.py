@@ -56,7 +56,10 @@ On Windows, only sockets are supported; on Unix, all file descriptors.
     for fd, mask in polldict.iteritems():
         p.register(fd, mask)
     if timeout is not None:
-        ret = dict(p.poll(int(timeout * 1000)))
+        if (not hasattr(timeout, '__int__') and
+            not hasattr(timeout, '__float__')):
+            raise TypeError('timeout must be a float or None')
+        ret = dict(p.poll(int(float(timeout) * 1000)))
     else:
         ret = dict(p.poll())
 

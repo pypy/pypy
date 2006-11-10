@@ -46,6 +46,8 @@ if _POSIX:
     
         Delay execution for a given number of seconds.  The argument may be
         a floating point number for subsecond precision."""
+        if secs is None:
+            raise TypeError('a float is required')
         select([], [], [], secs)
 
 
