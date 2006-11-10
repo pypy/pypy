@@ -1,5 +1,5 @@
 import autopath
-import py
+import py, os
 from pypy.config.config import OptionDescription, BoolOption, IntOption
 from pypy.config.config import ChoiceOption, StrOption, to_optparse, Config
 
@@ -13,8 +13,9 @@ default_modules = dict.fromkeys(
      "math", "_sre", "_pickle_support", "sys", "exceptions", "__builtins__",
      "recparser", "symbol", "_random", "_file"])
 
-module_dependencies = { 'rctime': [("objspace.usemodules.select", True),],
-                        }
+module_dependencies = { }
+if os.name == "posix":
+    module_dependencies['rctime'] = [("objspace.usemodules.select", True),]
 
                               
 pypy_optiondescription = OptionDescription("pypy", "All PyPy Options", [
