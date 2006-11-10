@@ -3,7 +3,7 @@
 from pypy.rpython.ootypesystem.bltregistry import BasicExternal, MethodDesc, described
 
 from pypy.translator.js.modules import mochikit
-from pypy.translator.js.modules import _dom as dom
+from pypy.translator.js.modules import dom
 
 class PingHandler(BasicExternal):
     """Server side code which handles javascript calls"""

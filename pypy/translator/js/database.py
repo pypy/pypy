@@ -17,7 +17,7 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.ootypesystem import bltregistry
 
 from pypy.objspace.flow.model import Variable, Constant
-from pypy.translator.js.modules import _dom
+from pypy.translator.js.modules import dom
 from pypy.translator.js.commproxy import XmlHttp
 
 try:

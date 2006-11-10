@@ -5,7 +5,7 @@
 import autopath
 
 from pypy.translator.js.test.runtest import compile_function
-from pypy.translator.js.modules._dom import setTimeout, get_document
+from pypy.translator.js.modules.dom import setTimeout, get_document
 from pypy.rpython.ootypesystem.bltregistry import MethodDesc, BasicExternal
 from pypy.translator.js import commproxy
 

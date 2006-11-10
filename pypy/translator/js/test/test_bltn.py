@@ -10,9 +10,9 @@ from pypy.translator.js.test.runtest import compile_function, check_source_conta
 def setup_function(fun):
     rebuild_basic_external()
 
-# check rendering _dom.get_document()
+# check rendering dom.get_document()
 def test_simple_builtin():
-    from pypy.translator.js.modules._dom import get_document
+    from pypy.translator.js.modules.dom import get_document
     def test_document_call():
         return get_document().getElementById("some_id")
     
@@ -56,7 +56,7 @@ def test_callback():
     assert check_source_contains(fn, "\.some_callback = callback")
 
 def test_get_elements():
-    from pypy.translator.js.modules import _dom as dom
+    from pypy.translator.js.modules import dom
     
     def getaa(tname):
         return dom.get_document().getElementsByTagName(tname)[0].nodeValue

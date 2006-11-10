@@ -1,20 +1,119 @@
 
-""" Document Object Model support
-http://www.w3.org/DOM/ - main standart
-http://www.w3schools.com/dhtml/dhtml_dom.asp - more informal stuff
+"""Document Object Model support
+
+    this provides a mock browser API, both the standard DOM l. 1 and 2 stuff as
+    the browser-specific (level 0) additions
+
+    note that the API is not and will not be complete: more exotic features 
+    will most probably not behave as expected
+    
+    http://www.w3.org/DOM/ - main standard
+    http://www.w3schools.com/dhtml/dhtml_dom.asp - more informal stuff
+    http://developer.mozilla.org/en/docs/Gecko_DOM_Reference - Gecko reference
 """
 
 import time
 from pypy.rpython.ootypesystem.bltregistry import BasicExternal, MethodDesc
 
 from pypy.translator.stackless.test.test_transform import one
+from xml.dom import minidom
 
-class Attribute(BasicExternal):
+# XML node (level 2 basically) implementation
+#   the following classes are mostly wrappers around minidom nodes that try to
+#   mimic HTML DOM behaviour by implementing browser API and changing the
+#   behaviour a bit
+
+class Node(BasicExternal):
+    """base class of all node types"""
+    
+    def __init__(self, node=None):
+        if node is not None:
+            self._original = node
+    
+    def __getattr__(self, name):
+        """attribute access gets proxied to the contained minidom node
+
+            all returned minidom nodes are wrapped as Nodes
+        """
+        value = getattr(self._original, name)
+        return _wrap(value)
+
+class Element(Node):
+    """element type"""
+    nodeType = 1
+    id = ''
+    nodeName = ''
+
+    def __init__(self, node=None):
+        super(Element, self).__init__(node)
+        if node is not None:
+            self.id = node.getAttribute('id')
+            self.nodeName = node.nodeName.upper()
+            self.style = Style()
+
+class Attribute(Node):
+    nodeType = 2
+
+class Text(Node):
+    nodeType = 3
+
+class Form(Element):
     pass
 
-class Element(BasicExternal):
-    pass
+class Document(Element):
+    nodeType = 9
+    
+    def __init__(self, docnode=None):
+        self._original = docnode
 
+    def getElementById(self, id):
+        nodes = self.getElementsByTagName('*')
+        for node in nodes:
+            if node.getAttribute('id') == id:
+                return node
+
+class Window(BasicExternal):
+    def __init__(self, html=('<html><head><title>Untitled document</title>'
+                             '</head><body></body></html>')):
+        global document
+        self.html = html
+        document = Document(minidom.parseString(html))
+
+    def __getattr__(self, name):
+        return globals()[name]
+
+# now some functionality to wrap minidom nodes with Node classes, and to make
+# sure all methods on the nodes return wrapped nodes rather than minidom ones
+class _FunctionWrapper(object):
+    """makes sure function return values are wrapped if appropriate"""
+    def __init__(self, callable):
+        self._original = callable
+
+    def __call__(self, *args, **kwargs):
+        value = self._original(*args, **kwargs)
+        return _wrap(value)
+
+_typetoclass = {
+    1: Element,
+    2: Attribute,
+    3: Text,
+    9: Document,
+}
+def _wrap(value):
+    if isinstance(value, minidom.Node):
+        nodeclass = _typetoclass[value.nodeType]
+        return nodeclass(value)
+    elif callable(value):
+        return _FunctionWrapper(value)
+    # nothing fancier in minidom, i hope...
+    # XXX and please don't add anything fancier either ;)
+    elif isinstance(value, list):
+        return [_wrap(x) for x in value]
+    return value
+
+# more DOM API, the stuff that doesn't directly deal with XML
+#   note that we're mimicking the standard (Mozilla) APIs, so things tested
+#   against this code may not work on Internet Explorer
 class Event(BasicExternal):
     pass
 
@@ -25,18 +124,6 @@ class KeyEvent(Event):
     }
 
 class MouseEvent(Event):
-    pass
-
-class Node(Element):
-    pass
-
-class Document(Node):
-    pass
-
-class Window(Node):
-    pass
-
-class Form(Node):
     pass
 
 class Style(BasicExternal):
@@ -169,6 +256,12 @@ class Style(BasicExternal):
         'wordSpacing' : 'aa',
         'zIndex' : 'aa',
     }
+
+    def __getattr__(self, name):
+        pass
+
+    def __setattr__(self, name):
+        pass
 
 Element._fields = {
         'attributes' : [Attribute()],
@@ -387,16 +480,17 @@ Window._methods.update({
     'onunload' : MethodDesc([Event()]),
 })
 
+# set the global 'window' instance to an empty HTML document, override using
+# dom.window = Window(html) (this will also set dom.document)
+window = Window()
 def get_document():
-    return Document()
+    return document
 
 def get_window():
-    return Window()
+    return window
 
 get_window.suggested_primitive = True
 get_document.suggested_primitive = True
-
-document = Node()
 
 def some_fun():
     pass

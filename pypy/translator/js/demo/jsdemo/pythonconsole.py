@@ -12,7 +12,7 @@ import autopath
 
 import new, sys, os, cStringIO
 from cgi import parse_qs
-from pypy.translator.js.modules._dom import setTimeout, get_document
+from pypy.translator.js.modules.dom import setTimeout, get_document
 from pypy.translator.js.main import rpython2javascript
 from pypy.rpython.ootypesystem.bltregistry import MethodDesc, BasicExternal
 from pypy.translator.js import commproxy

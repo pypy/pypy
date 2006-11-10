@@ -2,7 +2,7 @@
 """ Some helpers
 """
 
-from pypy.translator.js.modules._dom import get_document
+from pypy.translator.js.modules.dom import get_document
 
 def escape(s):
     #return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"). \

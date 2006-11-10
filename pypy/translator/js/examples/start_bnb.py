@@ -12,7 +12,7 @@ conftest.option.tg = True
 conftest.option.browser = "default"
 
 from pypy.translator.js.test.runtest import compile_function
-from pypy.translator.js.modules._dom import get_document
+from pypy.translator.js.modules.dom import get_document
 from pypy.translator.js.modules.xmlhttp import XMLHttpRequest
 from pypy.translator.js.modules.mochikit import log, logWarning, createLoggingPane, logDebug
 from pypy.translator.js.modules.bltns import date
