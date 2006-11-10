@@ -1,5 +1,7 @@
 import py
 from pypy.translator.js.modules import dom
+from pypy.translator.js.main import rpython2javascript
+import sys
 
 def test_init():
     window = dom.Window('<html><body>foo</body></html>')
@@ -9,7 +11,6 @@ def test_init():
     assert docel == 'HTML'
     # XXX gotta love the DOM API ;)
     somediv = window.document.getElementsByTagName('body')[0].childNodes[0]
-    print somediv
     assert somediv.nodeValue == 'foo'
 
 def test_wrap():
@@ -18,7 +19,6 @@ def test_wrap():
     div = document.createElement('div')
     assert isinstance(div, dom.Element) # wrapped node
     assert div.nodeType == 1
-    print document.documentElement
     document.documentElement.appendChild(div)
     assert document.documentElement.childNodes[-1]._original is div._original
 
@@ -39,7 +39,7 @@ def test_element_style():
 
 def test_get_elements_by_tag_name():
     window = dom.Window('<html><body><div>foo</div>'
-                        '<div>bar</div></body></html>')
+                    '<div>bar</div></body></html>')
     document = window.document
     divs = document.getElementsByTagName('div')
     assert len(divs) == 2
@@ -69,7 +69,7 @@ def test_read_innerHTML():
     assert nodeName == 'HTML'
     html = window.document.documentElement.innerHTML
     assert html == ('<body><h1>some document</h1>'
-                    '<p id="content">some content</p></body>')
+                '<p id="content">some content</p></body>')
 
 def test_read_innerHTML_singletons():
     window = dom.Window('<html><head><meta name="foo" content="bar">'
@@ -85,3 +85,9 @@ def test_set_innerHTML():
     body.innerHTML = '<div>some content</div>'
     assert body.innerHTML == '<div>some content</div>'
 
+def test_build():
+    py.test.skip("Not implemented yet")
+    for var in globals():
+        if var.startswith('test_') and var != 'test_build':
+            # just build it
+            rpython2javascript(sys.modules[__name__], [var])
