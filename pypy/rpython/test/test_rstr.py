@@ -596,6 +596,12 @@ class BaseTestRstr(BaseRtypingTest):
         res = self.interpret(fn, [4])
         assert res == 4 + 6 + 2
 
+    def test_count_overlapping_occurences(self):
+        def fn():
+            return 'ababa'.count('aba')
+        res = self.interpret(fn, [])
+        assert res == 1
+
 def FIXME_test_str_to_pystringobj():
     def f(n):
         if n >= 0:

@@ -489,8 +489,9 @@ class LLHelpers(AbstractLLHelpers):
                 i += 1
                 if i==len2:
                     result += 1
-                else:
-                    continue
+                    i = 0
+                    m += len2
+                continue
             # mismatch, go back to the last possible starting pos
             if i==0:
                 m += 1
