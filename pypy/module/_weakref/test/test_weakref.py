@@ -6,7 +6,7 @@ class AppTestWeakref(object):
         cls.space = space
                     
     def test_simple(self):
-        import _weakref
+        import _weakref, gc
         class A:
             pass
         a = A()
@@ -16,10 +16,11 @@ class AppTestWeakref(object):
         assert a.__weakref__ is ref
         assert _weakref.getweakrefcount(a) == 1
         del a
+        gc.collect()
         assert ref() is None
 
     def test_callback(self):
-        import _weakref
+        import _weakref, gc
         class A:
             pass
         a1 = A()
@@ -30,11 +31,12 @@ class AppTestWeakref(object):
         ref2 = _weakref.ref(a1)
         assert _weakref.getweakrefcount(a1) == 2
         del a1
+        gc.collect()
         assert ref1() is None
         assert a2.ref is None
 
     def test_callback_order(self):
-        import _weakref
+        import _weakref, gc
         class A:
             pass
         a1 = A()
@@ -46,10 +48,11 @@ class AppTestWeakref(object):
         ref1 = _weakref.ref(a1, callback1)
         ref2 = _weakref.ref(a1, callback2)
         del a1
+        gc.collect()
         assert a2.x == 42
         
     def test_dont_callback_if_weakref_dead(self):
-        import _weakref
+        import _weakref, gc
         class A:
             pass
         a1 = A()
@@ -61,12 +64,14 @@ class AppTestWeakref(object):
         ref = _weakref.ref(a2, callback)
         assert _weakref.getweakrefcount(a2) == 1
         ref = None
+        gc.collect()
         assert _weakref.getweakrefcount(a2) == 0
         a2 = None
+        gc.collect()
         assert a1.x == 40
 
     def test_callback_cannot_ressurect(self):
-        import _weakref
+        import _weakref, gc
         class A:
             pass
         a = A()
@@ -77,10 +82,11 @@ class AppTestWeakref(object):
         ref1 = _weakref.ref(a, callback)
         ref2 = _weakref.ref(a, callback)
         del a
+        gc.collect()
         assert alive.a is None
 
     def test_weakref_reusing(self):
-        import _weakref
+        import _weakref, gc
         class A:
             pass
         a = A()
@@ -93,7 +99,7 @@ class AppTestWeakref(object):
         assert isinstance(wref1, wref)
 
     def test_correct_weakrefcount_after_death(self):
-        import _weakref
+        import _weakref, gc
         class A:
             pass
         a = A()
@@ -101,12 +107,14 @@ class AppTestWeakref(object):
         ref2 = _weakref.ref(a)
         assert _weakref.getweakrefcount(a) == 1
         del ref1
+        gc.collect()
         assert _weakref.getweakrefcount(a) == 1
         del ref2
+        gc.collect()
         assert _weakref.getweakrefcount(a) == 0
 
     def test_weakref_equality(self):
-        import _weakref
+        import _weakref, gc
         class A:
             def __eq__(self, other):
                 return True
@@ -116,14 +124,16 @@ class AppTestWeakref(object):
         ref2 = _weakref.ref(a2)
         assert ref1 == ref2
         del a1
+        gc.collect()
         assert not ref1 == ref2
         assert ref1 != ref2
         del a2
+        gc.collect()
         assert not ref1 == ref2
         assert ref1 != ref2
 
     def test_getweakrefs(self):
-        import _weakref
+        import _weakref, gc
         class A:
             pass
         a = A()
@@ -133,7 +143,7 @@ class AppTestWeakref(object):
         assert _weakref.getweakrefs(a) == [ref1]
 
     def test_hashing(self):
-        import _weakref
+        import _weakref, gc
         class A(object):
             def __hash__(self):
                 return 42
@@ -141,12 +151,14 @@ class AppTestWeakref(object):
         w = _weakref.ref(a)
         assert hash(a) == hash(w)
         del a
+        gc.collect()
         assert hash(w) == 42
         w = _weakref.ref(A())
+        gc.collect()
         raises(TypeError, hash, w)
 
     def test_weakref_subclassing(self):
-        import _weakref
+        import _weakref, gc
         class A(object):
             pass
         class Ref(_weakref.ref):
@@ -163,22 +175,24 @@ class AppTestWeakref(object):
         w2 = _weakref.ref(a, callable)
         assert a.__weakref__ is w1
         del a
+        gc.collect()
         assert w1() is None
         assert w() is None
         assert w2() is None
         assert b.a == 42
 
     def test_function_weakrefable(self):
-        import _weakref
+        import _weakref, gc
         def f(x):
             return 42
         wf = _weakref.ref(f)
         assert wf()(63) == 42
         del f
+        gc.collect()
         assert wf() is None
 
     def test_method_weakrefable(self):
-        import _weakref
+        import _weakref, gc
         class A(object):
             def f(self):
                 return 42
@@ -190,20 +204,22 @@ class AppTestWeakref(object):
         w_bound = _weakref.ref(meth)
         assert w_bound()() == 42
         del meth
+        gc.collect()
         assert w_unbound() is None
         assert w_bound() is None
 
     def test_set_weakrefable(self):
         skip("missing: weakrefs to interp-level sets")
-        import _weakref
+        import _weakref, gc
         s = set([1, 2, 3, 4])
         w = _weakref.ref(s)
         assert w() is s
         del s
+        gc.collect()
         assert w() is None
 
     def test_generator_weakrefable(self):
-        import _weakref
+        import _weakref, gc
         def f(x):
             for i in range(x):
                 yield i
@@ -214,10 +230,11 @@ class AppTestWeakref(object):
         r = g.next()
         assert r == 1
         del g
+        gc.collect()
         assert w() is None
 
     def test_weakref_subclass_with_del(self):
-        import _weakref
+        import _weakref, gc
         class Ref(_weakref.ref):
             def __del__(self):
                 b.a = 42
@@ -228,6 +245,7 @@ class AppTestWeakref(object):
         b.a = 1
         w = Ref(a)
         del w
+        gc.collect()
         assert b.a == 42
         if _weakref.getweakrefcount(a) > 0:
             # the following can crash if the presence of the applevel __del__
@@ -241,7 +259,7 @@ class AppTestProxy(object):
         cls.space = space
                     
     def test_simple(self):
-        import _weakref
+        import _weakref, gc
         class A(object):
             def __init__(self, x):
                 self.x = x
@@ -252,13 +270,13 @@ class AppTestProxy(object):
         raises(TypeError, p)
 
     def test_caching(self):
-        import _weakref
+        import _weakref, gc
         class A(object): pass
         a = A()
         assert _weakref.proxy(a) is _weakref.proxy(a)
 
     def test_callable_proxy(self):
-        import _weakref
+        import _weakref, gc
         class A(object):
             def __call__(self):
                 global_a.x = 1
@@ -272,7 +290,7 @@ class AppTestProxy(object):
         assert global_a.x == 1
 
     def test_callable_proxy_type(self):
-        import _weakref
+        import _weakref, gc
         class Callable:
             def __call__(self, x):
                 pass
@@ -281,12 +299,12 @@ class AppTestProxy(object):
         assert type(ref1) is _weakref.CallableProxyType
 
     def test_dont_create_directly(self):
-        import _weakref
+        import _weakref, gc
         raises(TypeError, _weakref.ProxyType, [])
         raises(TypeError, _weakref.CallableProxyType, [])
 
     def test_dont_hash(self):
-        import _weakref
+        import _weakref, gc
         class A(object):
             pass
         a = A()
@@ -294,7 +312,7 @@ class AppTestProxy(object):
         raises(TypeError, hash, p)
 
     def test_subclassing_not_allowed(self):
-        import _weakref
+        import _weakref, gc
         def tryit():
             class A(_weakref.ProxyType):
                 pass
