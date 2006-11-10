@@ -45,6 +45,8 @@ class IntObj(Obj):
 
     def lt(self, other): return self.value < other.int_o()
 
+zero = IntObj(0)
+
 class LispObj(Obj):
 
     def div(self, n):
@@ -108,14 +110,19 @@ def char2int(c):
     return t
 
 def make_interp(supports_call):
+
     def interp(code='', pc=0, inputarg=0):
         if not isinstance(code,str):
             raise TypeError("code '%s' should be a string" % str(code))
-
+        
+        return interp_eval(code, pc, IntObj(inputarg)).int_o()
+    
+    def interp_eval(code, pc, inputarg):
         code_len = len(code)
         stack = []
 
         while pc < code_len:
+            hint(None, global_merge_point=True)
             opcode = ord(code[pc])
             opcode = hint(opcode, concrete=True)
             pc += 1
@@ -224,22 +231,22 @@ def make_interp(supports_call):
             elif supports_call and opcode == CALL:
                 offset = char2int(code[pc])
                 pc += 1
-                res = interp(code, pc + offset)
-                stack.append( IntObj(res) )
+                res = interp_eval(code, pc + offset, zero)
+                stack.append( res )
 
             elif opcode == RETURN:
                 break
 
             elif opcode == PUSHARG:
-                stack.append(IntObj(inputarg))
+                stack.append(inputarg)
 
             else:
                 raise RuntimeError("unknown opcode: " + str(opcode))
 
-        return stack[-1].int_o()
+        return stack[-1]
 
-    return interp
+    return interp, interp_eval
 
 
-interp              = make_interp(supports_call = True)
-interp_without_call = make_interp(supports_call = False)
+interp             , interp_eval               = make_interp(supports_call = True)
+interp_without_call, interp_eval_without_call  = make_interp(supports_call = False)
