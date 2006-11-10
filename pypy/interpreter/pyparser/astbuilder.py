@@ -116,7 +116,7 @@ def parse_argument(tokens):
     return arguments, stararg_token, dstararg_token
 
 
-def parse_fpdef(tokens):
+def parse_fpdef(tokens, index):
     """fpdef: fpdef: NAME | '(' fplist ')'
     fplist: fpdef (',' fpdef)* [',']
 
@@ -124,29 +124,34 @@ def parse_fpdef(tokens):
     but it can't work with the default compiler.
     We switched to use astcompiler module now
     """
-    if tokens:
-        lineno = tokens[0].lineno
-    else:
-        lineno = -1
-    top = ast.AssTuple([], lineno)
-    stack = [ top ]
-    tokens_read = 0
-    while stack:
-        token = tokens[tokens_read]
-        tokens_read += 1
-        if isinstance(token, TokenObject) and token.name == tok.COMMA:
-            continue
-        elif isinstance(token, TokenObject) and token.name == tok.LPAR:
-            new_tuple = ast.AssTuple([], lineno)
-            stack[-1].nodes.append( new_tuple )
-            stack.append(new_tuple)
-        elif isinstance(token, TokenObject) and token.name == tok.RPAR:
-            stack.pop()
-        else:
-            assert isinstance(token, TokenObject)
+    nodes = []
+    comma = False
+    while True:
+        token = tokens[index]
+        index += 1
+        assert isinstance(token, TokenObject)
+        if token.name == tok.LPAR:       # nested item
+            index, node = parse_fpdef(tokens, index)
+        elif token.name == tok.RPAR:     # end of current nesting
+            break
+        else:                            # name
             val = token.get_value()
-            stack[-1].nodes.append(ast.AssName(val,consts.OP_ASSIGN, token.lineno))
-    return tokens_read, top
+            node = ast.AssName(val, consts.OP_ASSIGN, token.lineno)
+        nodes.append(node)
+
+        token = tokens[index]
+        index += 1
+        assert isinstance(token, TokenObject)
+        if token.name == tok.COMMA:
+            comma = True
+        else:
+            assert token.name == tok.RPAR
+            break
+    if len(nodes) == 1 and not comma:
+        node = nodes[0]
+    else:
+        node = ast.AssTuple(nodes, token.lineno)
+    return index, node
 
 def parse_arglist(tokens):
     """returns names, defaults, flags"""
@@ -169,9 +174,8 @@ def parse_arglist(tokens):
             # but we might do some experiment on the grammar at some point
             continue
         elif cur_token.name == tok.LPAR:
-            tokens_read, name_tuple = parse_fpdef(tokens[index:])
-            index += tokens_read
-            names.append(name_tuple)
+            index, node = parse_fpdef(tokens, index)
+            names.append(node)
         elif cur_token.name == tok.STAR or cur_token.name == tok.DOUBLESTAR:
             if cur_token.name == tok.STAR:
                 cur_token = tokens[index]
@@ -1091,10 +1095,8 @@ def build_funcdef(builder, nb):
     #     index += 1
     while index < len(atoms):
         atom = atoms[index]
-        if isinstance(atom, TokenObject):
-            assert isinstance(atom, TokenObject) # rtyper info
-            if atom.get_value() == 'def':
-                break
+        if isinstance(atom, TokenObject) and atom.get_value() == 'def':
+            break
         decorators.append(atoms[index])
         index += 1
     if decorators:

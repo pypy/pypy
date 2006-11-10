@@ -525,6 +525,7 @@ one_stmt_funcdefs = [
     "def f(a, b, (c, d), e): pass",
     "def f(a, b, (c, (d, e), f, (g, h))): pass",
     "def f(a, b, (c, (d, e), f, (g, h)), i): pass",
+    "def f((a)): pass",
     ]
 
 one_stmt_classdefs = [
