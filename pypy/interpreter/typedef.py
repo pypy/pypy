@@ -100,6 +100,13 @@ def get_unique_interplevel_subclass(cls, hasdict, wants_slots, needsdel=False,
 get_unique_interplevel_subclass._annspecialcase_ = "specialize:memo"
 
 def _get_unique_interplevel_subclass(cls, hasdict, wants_slots, needsdel, weakrefable):
+    "NOT_RPYTHON: initialization-time only"    
+    typedef = cls.typedef    
+    if hasdict and typedef.hasdict:
+        hasdict = False
+    if weakrefable and typedef.weakrefable:
+        weakrefable = False
+
     key = cls, hasdict, wants_slots, needsdel, weakrefable
     try:
         return _subclass_cache[key]
@@ -111,13 +118,6 @@ _subclass_cache = {}
 
 def _buildusercls(cls, hasdict, wants_slots, wants_del, weakrefable):
     "NOT_RPYTHON: initialization-time only"
-    typedef = cls.typedef
-    
-    if hasdict and typedef.hasdict:
-        hasdict = False
-    if weakrefable and typedef.weakrefable:
-        weakrefable = False
-
     name = ['User']
     if not hasdict:
         name.append('NoDict')
