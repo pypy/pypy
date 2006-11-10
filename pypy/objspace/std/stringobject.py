@@ -629,20 +629,7 @@ def str_count__String_String_ANY_ANY(space, w_self, w_arg, w_start, w_end):
     u_end = space.int_w(w_end)
     assert u_start >= 0
     assert u_end >= 0
-
-    if len(u_arg) == 0:
-        count = len(u_self) + 1
-    else:
-        count = 0  
-        while 1: 
-            pos = u_self.find(u_arg, u_start, u_end)
-            if pos < 0:
-                break
-            count += 1
-            u_start = pos + len(u_arg)
-       
-    return wrapint(space, count)
-
+    return wrapint(space, u_self.count(u_arg, u_start, u_end))
 
 def str_endswith__String_String_ANY_ANY(space, w_self, w_suffix, w_start, w_end):
     (u_self, suffix, start, end) = _convert_idx_params(space, w_self,
