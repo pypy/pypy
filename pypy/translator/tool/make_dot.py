@@ -74,6 +74,14 @@ class DotGen:
         self.emit('%s [%s];' % (safename(name), ", ".join(attrs)))
 
 
+TAG_TO_COLORS = {
+    "timeshifted":  "#cfa5f0",
+    "portal_entry": "#f084c2"
+}
+DEFAULT_TAG_COLOR = "#a5e6f0"
+RETURN_COLOR = "green"
+EXCEPT_COLOR = "#ffa000"
+
 class FlowGraphDotGen(DotGen):
     VERBOSE = False
 
@@ -86,9 +94,10 @@ class FlowGraphDotGen(DotGen):
         self.func = None
         self.prefix = name
         self.enter_subgraph(name)
-        self.visit_FunctionGraph(node)
+        tagcolor = TAG_TO_COLORS.get(node.tag, DEFAULT_TAG_COLOR)
+        self.visit_FunctionGraph(node, tagcolor)
         for block in safe_iterblocks(node):
-            self.visit_Block(block)
+            self.visit_Block(block, tagcolor)
         self.leave_subgraph()
 
     def blockname(self, block):
@@ -99,7 +108,7 @@ class FlowGraphDotGen(DotGen):
             self.blocks[i] = name = "%s_%d" % (self.prefix, len(self.blocks))
             return name
 
-    def visit_FunctionGraph(self, funcgraph):
+    def visit_FunctionGraph(self, funcgraph, tagcolor):
         name = self.prefix # +'_'+funcgraph.name
         data = funcgraph.name
         if getattr(funcgraph, 'source', None) is not None:
@@ -111,14 +120,11 @@ class FlowGraphDotGen(DotGen):
             data += "\\l".join(source.split('\n'))
         if hasattr(funcgraph, 'func'):
             self.func = funcgraph.func
-
-        self.emit_node(name, label=data, shape="box", fillcolor="green", style="filled")
-        #('%(name)s [fillcolor="green", shape=box, label="%(data)s"];' % locals())
+        self.emit_node(name, label=data, shape="box", fillcolor=tagcolor, style="filled")
         if hasattr(funcgraph, 'startblock'):
             self.emit_edge(name, self.blockname(funcgraph.startblock), 'startblock')
-        #self.emit_edge(name, self.blockname(funcgraph.returnblock), 'returnblock', style="dashed")
 
-    def visit_Block(self, block):
+    def visit_Block(self, block, tagcolor):
         # do the block itself
         name = self.blockname(block)
         if not isinstance(block, Block):
@@ -135,11 +141,12 @@ class FlowGraphDotGen(DotGen):
         fillcolor = getattr(block, "blockcolor", "white")
         if not numblocks:
            shape = "box"
-           fillcolor="green"
            if len(block.inputargs) == 1:
                lines[-1] += 'return %s' % tuple(block.inputargs)
+               fillcolor= RETURN_COLOR
            elif len(block.inputargs) == 2:
                lines[-1] += 'raise %s, %s' % tuple(block.inputargs)
+               fillcolor= EXCEPT_COLOR
         elif numblocks == 1:
             shape = "box"
         else:

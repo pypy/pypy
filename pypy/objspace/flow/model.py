@@ -57,6 +57,7 @@ class FunctionGraph(object):
                                   Variable('evalue')])  # exception value
         self.exceptblock.operations = ()
         self.exceptblock.exits      = ()
+        self.tag = None
 
     def getargs(self):
         return self.startblock.inputargs

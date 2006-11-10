@@ -274,6 +274,7 @@ class HintRTyper(RPythonTyper):
         s_result = annmodel.lltype_to_annotation(
                     origportalgraph.getreturnvar().concretetype)
         portalentrygraph = annhelper.getgraph(portalentry, args_s, s_result)
+        portalentrygraph.tag = "portal_entry"
 
         self.readportalgraph = annhelper.getgraph(readportal, args_s,
                                    annmodel.SomePtr(lltype.Ptr(FUNC)))

@@ -34,6 +34,7 @@ class GraphDesc(object):
         except KeyError:
             bk = self.bookkeeper
             graph = copygraph(self.origgraph)
+            graph.tag = 'timeshifted'
             try:
                 etrafo = bk.annotator.exceptiontransformer
             except AttributeError:
