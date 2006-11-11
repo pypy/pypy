@@ -426,15 +426,34 @@ def RFuncType(args_cls, rescls):
             LLTYPE = FUNCTYPE
             can_allocate = False
 
+            def fromllptr(p):
+                addr = llmemory.cast_ptr_to_adr(p)
+                memblock = EMPTY_RAW_MEM_BLOCK
+                return RCTypesFunc(addr, memblock)
+            fromllptr = staticmethod(fromllptr)
+
             def fromrpython(func):
                 """Return an RCTypes function that references the given
                 RPython function."""
                 p = annlowlevel.llhelper(PTRTYPE, func)
-                addr = llmemory.cast_ptr_to_adr(p)
-                memblock = EMPTY_RAW_MEM_BLOCK
-                return RCTypesFunc(addr, memblock)
+                return RCTypesFunc.fromllptr(p)
             fromrpython._annspecialcase_ = 'specialize:arg(0)'
             fromrpython = staticmethod(fromrpython)
+
+            def fromlib(rlib, c_funcname, llinterp_friendly_version=None):
+                flags = {'external': 'C'}
+                if rlib.pythonapi:
+                    pass   # no 'includes': hack to trigger
+                           # in GenC a PyErr_Occurred() check
+                else:
+                    flags['includes']  = rlib.c_includes
+                    flags['libraries'] = rlib.c_libs
+                if llinterp_friendly_version:
+                    flags['_callable'] = llinterp_friendly_version
+                p = lltype.functionptr(FUNCTYPE, c_funcname, **flags)
+                return RCTypesFunc.fromllptr(p)
+            fromlib._annspecialcase_ = 'specialize:memo'
+            fromlib = staticmethod(fromlib)
 
             def call(self, *args):
                 assert len(args) == len(ARGS)
@@ -445,13 +464,22 @@ def RFuncType(args_cls, rescls):
         return RCTypesFunc
 RFuncType._annspecialcase_ = 'specialize:memo'
 
-##class RLibrary(object):
 
-##    def __init__(self, c_libname=None, c_includes=None):
-##        self.c_libname = c_libname
-##        self.c_includes = c_includes
+class RLibrary(object):
+    """A C library.  Use to create references to external functions.
+    """
+    # XXX for now, lltype only supports functions imported from external
+    # libraries, not variables
 
-##    def link(self, cls, c_name):
-##        assert issubclass(cls, RCTypeObject)
-##        ...
-##    link._annspecialcase_ = 'specialize:arg(1)'
+    pythonapi = False
+
+    def __init__(self, c_libs=(), c_includes=()):
+        if isinstance(c_libs,     str): c_libs     = (c_libs,)
+        if isinstance(c_includes, str): c_includes = (c_includes,)
+        self.c_libs = c_libs
+        self.c_includes = c_includes
+
+    def _freeze_(self):
+        return True
+
+LIBC = RLibrary()

@@ -1,5 +1,6 @@
 from pypy.rlib.rctypesobject import *
 from pypy.rpython.test.test_llinterp import interpret
+from pypy.translator.c.test.test_genc import compile
 from pypy.annotation.policy import AnnotatorPolicy
 
 
@@ -163,9 +164,27 @@ class TestBasic:
         res = self.do(func)
         assert res == 42
 
+    def test_labs(self):
+        def ll_labs(n):
+            return abs(n)
+        labs = RFuncType((rc_int,), rc_int).fromlib(LIBC, 'labs', ll_labs)
+        def func():
+            return labs.call(-7)
+        res = self.do(func)
+        assert res == 7
+
+
+POLICY = AnnotatorPolicy()
+POLICY.allow_someobjects = False
+
 class TestLLInterpreted(TestBasic):
-    POLICY = AnnotatorPolicy()
-    POLICY.allow_someobjects = False
 
     def do(self, func):
-        return interpret(func, [], policy=self.POLICY)
+        return interpret(func, [], policy=POLICY)
+
+
+class TestCompiled(TestBasic):
+
+    def do(self, func):
+        fn = compile(func, [], annotatorpolicy=POLICY)
+        return fn()
