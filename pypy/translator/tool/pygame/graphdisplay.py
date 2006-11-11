@@ -634,8 +634,12 @@ class GraphDisplay(Display):
         if self.peek(VIDEORESIZE):
             return
         # XXX sometimes some jerk are trying to minimise our window,
-        # discard such event
-        if event.size[1] == 5:
+        # discard such event (we see a height of 5 in this case).
+        # XXX very specific MacOS/X workaround: after resizing the window
+        # to a height of 1 and back, we get two bogus VideoResize events,
+        # for height 16 and 32.
+        # XXX summary: let's ignore all resize events with a height <= 32
+        if event.size[1] <= 32:
             return
         self.resize(event.size)
         self.must_redraw = True
