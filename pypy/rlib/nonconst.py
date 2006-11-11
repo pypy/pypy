@@ -9,7 +9,13 @@ from pypy.rpython.lltypesystem import lltype
 
 class NonConstant(object):
     def __init__(self, _constant):
-        self.constant = _constant
+        self.__dict__['constant'] = _constant
+
+    def __getattr__(self, attr):
+        return getattr(self.__dict__['constant'], attr)
+
+    def __setattr__(self, attr, value):
+        setattr(self.__dict__['constant'], attr, value)
 
 class EntryNonConstant(ExtRegistryEntry):
     _about_ = NonConstant
