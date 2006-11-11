@@ -111,14 +111,12 @@ def recognizeparts(alltrans, finals, s):
     finals = hint(finals, deepfreeze=True)
     alltrans = hint(alltrans, deepfreeze=True)
 
-    indx = 0
     state = 0
-    while True:
+    indx = 0
+    while indx < len(s):
         hint(None, global_merge_point=True)
-        if indx >= len(s):
-            break
-        
         char = s[indx]
+        indx += 1
         char = hint(char, promote=True)
 
         statetrans = alltrans.get(state, None)
@@ -127,7 +125,6 @@ def recognizeparts(alltrans, finals, s):
         hint(state, concrete=True)
         if state == -1:
             return False
-        indx += 1
         
     res = state in finals
     res = hint(res, concrete=True)
