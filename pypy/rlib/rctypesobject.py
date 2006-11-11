@@ -1,4 +1,5 @@
 from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython import annlowlevel
 from pypy.interpreter.miscutils import InitializedClass
 from pypy.tool.sourcetools import func_with_new_name
 
@@ -18,6 +19,8 @@ class RawMemBlock(object):
         return self.keepalives[self.ofs_keepalives + index]
     def setkeepalive(self, index, memblock):
         self.keepalives[self.ofs_keepalives + index] = memblock
+
+EMPTY_RAW_MEM_BLOCK = RawMemBlock(0)
 
 class AllocatedRawMemBlock(RawMemBlock):
     def __init__(self, num_keepalives, rawsize):
@@ -57,6 +60,9 @@ class RCTypesObject(object):
                     cls.CDATATYPE = cls.LLTYPE
                 else:
                     cls.CDATATYPE = lltype.FixedSizeArray(cls.LLTYPE, 1)
+            if not getattr(cls, 'can_allocate', True):
+                return
+
             if not hasattr(cls, 'rawsize'):
                 cls.rawsize = llmemory.sizeof(cls.CDATATYPE)
 
@@ -397,3 +403,55 @@ def _initialize_array_of_char(RCClass, as_ll_charptr):
 
 
 create_string_buffer = RVarArray(rc_char).allocate
+
+# ____________________________________________________________
+
+_functype_cache = {}
+def RFuncType(args_cls, rescls):
+    """Build and return a new RCTypesFunc class.
+    Note that like lltype, but unlike ctypes, a 'function' type is not
+    automatically a pointer to a function.  Conceptually, it represents
+    the area of memory where the function's machine code is stored."""
+    args_cls = tuple(args_cls)
+    try:
+        return _functype_cache[args_cls, rescls]
+    except KeyError:
+
+        ARGS = [cls.LLTYPE for cls in args_cls]
+        RES  = rescls.LLTYPE
+        FUNCTYPE = lltype.FuncType(ARGS, RES)
+        PTRTYPE  = lltype.Ptr(FUNCTYPE)
+
+        class RCTypesFunc(RCTypesObject):
+            LLTYPE = FUNCTYPE
+            can_allocate = False
+
+            def fromrpython(func):
+                """Return an RCTypes function that references the given
+                RPython function."""
+                p = annlowlevel.llhelper(PTRTYPE, func)
+                addr = llmemory.cast_ptr_to_adr(p)
+                memblock = EMPTY_RAW_MEM_BLOCK
+                return RCTypesFunc(addr, memblock)
+            fromrpython._annspecialcase_ = 'specialize:arg(0)'
+            fromrpython = staticmethod(fromrpython)
+
+            def call(self, *args):
+                assert len(args) == len(ARGS)
+                p = llmemory.cast_adr_to_ptr(self.addr, PTRTYPE)
+                return p(*args)
+
+        _functype_cache[args_cls, rescls] = RCTypesFunc
+        return RCTypesFunc
+RFuncType._annspecialcase_ = 'specialize:memo'
+
+##class RLibrary(object):
+
+##    def __init__(self, c_libname=None, c_includes=None):
+##        self.c_libname = c_libname
+##        self.c_includes = c_includes
+
+##    def link(self, cls, c_name):
+##        assert issubclass(cls, RCTypeObject)
+##        ...
+##    link._annspecialcase_ = 'specialize:arg(1)'

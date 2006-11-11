@@ -154,6 +154,14 @@ class TestBasic:
         res = self.do(func)
         assert res == 1
 
+    def test_func(self):
+        def g(x, y):
+            return x - y
+        def func():
+            a = RFuncType((rc_int, rc_int), rc_int).fromrpython(g)
+            return a.call(50, 8)
+        res = self.do(func)
+        assert res == 42
 
 class TestLLInterpreted(TestBasic):
     POLICY = AnnotatorPolicy()
