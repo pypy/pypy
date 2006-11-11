@@ -130,6 +130,26 @@ class TestBasic:
             a.set_value("0123456789")
             assert a.get_raw() == "0123456789"
             assert a.get_value() == "0123456789"
+            assert a.get_substring(2, 5) == "23456"
+            return 1
+        res = self.do(func)
+        assert res == 1
+
+    def test_string_buffer(self):
+        def func():
+            a = create_string_buffer(10)
+            for i in range(6):
+                a.ref(i).set_value("hello!"[i])
+            assert a.get_value() == "hello!"
+            a.set_value("foo")
+            assert a.get_value() == "foo"
+            raw = ''.join([a.ref(i).get_value() for i in range(10)])
+            assert raw == "foo\x00o!\x00\x00\x00\x00"
+            assert raw == a.get_raw()
+            a.set_value("0123456789")
+            assert a.get_raw() == "0123456789"
+            assert a.get_value() == "0123456789"
+            assert a.get_substring(2, 5) == "23456"
             return 1
         res = self.do(func)
         assert res == 1

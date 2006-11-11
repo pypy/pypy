@@ -127,15 +127,9 @@ rc_char = Primitive(lltype.Char)
 class _RCTypesStringData(object):
     ARRAYTYPE = lltype.FixedSizeArray(lltype.Char, 1)
     ITEMOFS   = llmemory.sizeof(lltype.Char)
-    
-    def __init__(self, string):
-        rawsize = self.ITEMOFS * (len(string) + 1)
+    def __init__(self, bufsize):
+        rawsize = self.ITEMOFS * bufsize
         self.addr = llmemory.raw_malloc(rawsize)
-        a = self.addr
-        for i in range(len(string)):
-            a.char[0] = string[i]
-            a += self.ITEMOFS
-        a.char[0] = '\x00'
     def __del__(self):
         llmemory.raw_free(self.addr)
 
@@ -157,6 +151,14 @@ def charp2string(p, length):
         lst[i] = p[i]
     return ''.join(lst)
 
+def string2charp(p, length, string):
+    for i in range(length):
+        if i < len(string):
+            p[i] = string[i]
+        else:
+            p[i] = '\x00'
+            break
+
 class RCTypesCharP(RCTypesObject):
     LLTYPE = lltype.Ptr(_RCTypesStringData.ARRAYTYPE)
 
@@ -167,7 +169,13 @@ class RCTypesCharP(RCTypesObject):
         return charp2string(p, length)
 
     def set_value(self, string):
-        data = _RCTypesStringData(string)
+        n = len(string)
+        data = _RCTypesStringData(n + 1)
+        a = data.addr
+        for i in range(n):
+            a.char[0] = string[i]
+            a += _RCTypesStringData.ITEMOFS
+        a.char[0] = '\x00'
         ptr = self.ll_ref(RCTypesCharP.CDATATYPE)
         ptr[0] = llmemory.cast_adr_to_ptr(data.addr, RCTypesCharP.LLTYPE)
         self._keepalive_stringdata = data
@@ -287,29 +295,12 @@ def RFixedArray(itemcls, fixedsize):
                 subblock = self.memblock.addoffset(itemcls.num_keepalives * n)
                 return itemcls(subaddr, subblock)
 
-            if itemcls is rc_char:
-                # special methods for arrays of chars
-                def _as_ll_charptr(self):
-                    ptr = self.ll_ref(ARRAYTYPE)
-                    return lltype.direct_arrayitems(ptr)
-
-                def get_value(self):
-                    p = self._as_ll_charptr()
-                    n = strnlen(p, fixedsize)
-                    return charp2string(p, n)
-
-                def set_value(self, string):
-                    p = self._as_ll_charptr()
-                    for i in range(fixedsize):
-                        if i < len(string):
-                            p[i] = string[i]
-                        else:
-                            p[i] = '\x00'
-                            break
-
-                def get_raw(self):
-                    p = self._as_ll_charptr()
-                    return charp2string(p, fixedsize)
+        if itemcls is rc_char:
+            # attach special methods for arrays of chars
+            def as_ll_charptr(self):
+                ptr = self.ll_ref(ARRAYTYPE)
+                return lltype.direct_arrayitems(ptr)
+            _initialize_array_of_char(RCTypesFixedArray, as_ll_charptr)
 
         setattr(itemcls, key, RCTypesFixedArray)
         return RCTypesFixedArray
@@ -369,6 +360,40 @@ def RVarArray(itemcls):
                 subblock = self.memblock.addoffset(itemcls.num_keepalives * n)
                 return itemcls(subaddr, subblock)
 
+        if itemcls is rc_char:
+            # attach special methods for arrays of chars
+            def as_ll_charptr(self):
+                return llmemory.cast_adr_to_ptr(self.addr, RCTypesCharP.LLTYPE)
+            _initialize_array_of_char(RCTypesVarArray, as_ll_charptr)
+
         itemcls._vararraycls = RCTypesVarArray
         return RCTypesVarArray
 RVarArray._annspecialcase_ = 'specialize:memo'
+
+# ____________________________________________________________
+
+def _initialize_array_of_char(RCClass, as_ll_charptr):
+    # Attach additional methods for fixed- or variable-sized arrays of char
+
+    def get_value(self):
+        p = as_ll_charptr(self)
+        n = strnlen(p, self.length)
+        return charp2string(p, n)
+
+    def set_value(self, string):
+        string2charp(as_ll_charptr(self), self.length, string)
+
+    def get_raw(self):
+        return charp2string(as_ll_charptr(self), self.length)
+
+    def get_substring(self, start, length):
+        p = lltype.direct_ptradd(as_ll_charptr(self), start)
+        return charp2string(p, length)
+
+    RCClass.get_value     = get_value
+    RCClass.set_value     = set_value
+    RCClass.get_raw       = get_raw
+    RCClass.get_substring = get_substring
+
+
+create_string_buffer = RVarArray(rc_char).allocate
