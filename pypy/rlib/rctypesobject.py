@@ -94,6 +94,7 @@ class RCTypesObject(object):
         return llmemory.cast_adr_to_ptr(self.addr, lltype.Ptr(CDATATYPE))
     ll_ref._annspecialcase_ = 'specialize:arg(1)'
 
+# ____________________________________________________________
 
 _primitive_cache = {}
 def Primitive(TYPE):
@@ -121,16 +122,16 @@ def Primitive(TYPE):
 rc_int = Primitive(lltype.Signed)
 rc_char = Primitive(lltype.Char)
 
+# ____________________________________________________________
 
 class _RCTypesStringData(object):
-    ARRAYTYPE    = lltype.Array(lltype.Char, hints={'nolength': True})
-    FIRSTITEMOFS = llmemory.ArrayItemsOffset(ARRAYTYPE)
-    ITEMOFS      = llmemory.sizeof(lltype.Char)
+    ARRAYTYPE = lltype.FixedSizeArray(lltype.Char, 1)
+    ITEMOFS   = llmemory.sizeof(lltype.Char)
     
     def __init__(self, string):
-        rawsize = self.FIRSTITEMOFS + self.ITEMOFS * (len(string) + 1)
+        rawsize = self.ITEMOFS * (len(string) + 1)
         self.addr = llmemory.raw_malloc(rawsize)
-        a = self.addr + self.FIRSTITEMOFS
+        a = self.addr
         for i in range(len(string)):
             a.char[0] = string[i]
             a += self.ITEMOFS
@@ -138,25 +139,32 @@ class _RCTypesStringData(object):
     def __del__(self):
         llmemory.raw_free(self.addr)
 
+def strlen(p):
+    n = 0
+    while p[n] != '\x00':
+        n += 1
+    return n
+
+def strnlen(p, n_max):
+    n = 0
+    while n < n_max and p[n] != '\x00':
+        n += 1
+    return n
+
+def charp2string(p, length):
+    lst = ['\x00'] * length
+    for i in range(length):
+        lst[i] = p[i]
+    return ''.join(lst)
+
 class RCTypesCharP(RCTypesObject):
     LLTYPE = lltype.Ptr(_RCTypesStringData.ARRAYTYPE)
 
-    def strlen(self):
-        ptr = self.ll_ref(RCTypesCharP.CDATATYPE)
-        a = ptr[0]
-        n = 0
-        while a[n] != '\x00':
-            n += 1
-        return n
-
     def get_value(self):
-        length = self.strlen()
         ptr = self.ll_ref(RCTypesCharP.CDATATYPE)
-        a = ptr[0]
-        lst = ['\x00'] * length
-        for i in range(length):
-            lst[i] = a[i]
-        return ''.join(lst)
+        p = ptr[0]
+        length = strlen(p)
+        return charp2string(p, length)
 
     def set_value(self, string):
         data = _RCTypesStringData(string)
@@ -166,6 +174,7 @@ class RCTypesCharP(RCTypesObject):
 
 rc_char_p = RCTypesCharP
 
+# ____________________________________________________________
 
 def RPointer(contentscls):
     """Build and return a new RCTypesPointer class."""
@@ -209,6 +218,7 @@ def pointer(x):
     return p
 pointer._annspecialcase_ = 'specialize:argtype(0)'
 
+# ____________________________________________________________
 
 def RStruct(c_name, fields, c_external=False):
     """Build and return a new RCTypesStruct class."""
@@ -249,6 +259,7 @@ def RStruct(c_name, fields, c_external=False):
         make_accessors(name)
     return RCTypesStruct
 
+# ____________________________________________________________
 
 def RFixedArray(itemcls, fixedsize):
     """Build and return a new RCTypesFixedArray class."""
@@ -275,6 +286,30 @@ def RFixedArray(itemcls, fixedsize):
                 subaddr = self.addr + (FIRSTITEMOFS + ITEMOFS * n)
                 subblock = self.memblock.addoffset(itemcls.num_keepalives * n)
                 return itemcls(subaddr, subblock)
+
+            if itemcls is rc_char:
+                # special methods for arrays of chars
+                def _as_ll_charptr(self):
+                    ptr = self.ll_ref(ARRAYTYPE)
+                    return lltype.direct_arrayitems(ptr)
+
+                def get_value(self):
+                    p = self._as_ll_charptr()
+                    n = strnlen(p, fixedsize)
+                    return charp2string(p, n)
+
+                def set_value(self, string):
+                    p = self._as_ll_charptr()
+                    for i in range(fixedsize):
+                        if i < len(string):
+                            p[i] = string[i]
+                        else:
+                            p[i] = '\x00'
+                            break
+
+                def get_raw(self):
+                    p = self._as_ll_charptr()
+                    return charp2string(p, fixedsize)
 
         setattr(itemcls, key, RCTypesFixedArray)
         return RCTypesFixedArray
