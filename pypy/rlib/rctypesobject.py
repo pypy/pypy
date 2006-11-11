@@ -69,21 +69,21 @@ class RCTypesObject(object):
             def copyfrom1(self, srcbox):
                 assert isinstance(srcbox, cls)
                 llmemory.raw_memcopy(srcbox.addr, self.addr, cls.rawsize)
-                self.copykeepalives(0, srcbox)
+                self._copykeepalives(0, srcbox)
             cls.copyfrom = copyfrom1
 
     def sameaddr(self, otherbox):
         return self.addr == otherbox.addr
 
-    def keepalivememblock(self, index, memblock):
+    def _keepalivememblock(self, index, memblock):
         self.memblock.setkeepalive(index, memblock)
 
-    def copykeepalives(self, startindex, srcbox):
+    def _copykeepalives(self, startindex, srcbox):
         for i in range(self.num_keepalives):
             memblock = srcbox.memblock.getkeepalive(startindex + i)
             self.memblock.setkeepalive(i, memblock)
 
-    def getmemblock(self, index, target_num_keepalives):
+    def _getmemblock(self, index, target_num_keepalives):
         targetmemblock = self.memblock.getkeepalive(index)
         if targetmemblock is None:
             targetmemblock = RawMemBlock(target_num_keepalives)
@@ -142,7 +142,7 @@ def makeRPointer(contentscls):
                 ptr = self.ll_ref(RCTypesPtr.CDATATYPE)
                 targetaddr = llmemory.cast_ptr_to_adr(ptr[0])
                 targetkeepalives = contentscls.num_keepalives
-                targetmemblock = self.getmemblock(0, targetkeepalives)
+                targetmemblock = self._getmemblock(0, targetkeepalives)
                 return contentscls(targetaddr, targetmemblock)
 
             def set_contents(self, newcontentsbox):
@@ -151,7 +151,7 @@ def makeRPointer(contentscls):
                 ptr = self.ll_ref(RCTypesPtr.CDATATYPE)
                 ptr[0] = llmemory.cast_adr_to_ptr(targetaddr,
                                                   RCTypesPtr.LLTYPE)
-                self.keepalivememblock(0, targetmemblock)
+                self._keepalivememblock(0, targetmemblock)
 
         contentscls._ptrcls = RCTypesPtr
         return RCTypesPtr
