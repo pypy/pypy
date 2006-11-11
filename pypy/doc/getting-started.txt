@@ -246,6 +246,7 @@ transparent manner::
     cd pypy/bin
     python py.py -o thunk
 
+    >>>> from pypymagic import thunk
     >>>> def longcomputation(lst):
     ....     print "computing..."
     ....     return sum(lst)
@@ -286,7 +287,7 @@ providing a more extensive way to deal with laziness.
 Try it out::
 
     cd pypy/bin
-    python py.py -o logic --usemodules=_stackless
+    python py.py -o logic
 
     >>>> X = newvar()         # a logic variable
     >>>> bind(X, 42)          # give it a value

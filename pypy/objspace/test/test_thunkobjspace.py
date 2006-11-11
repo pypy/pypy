@@ -6,6 +6,7 @@ class AppTest_Thunk:
         cls.space = gettestobjspace('thunk')
 
     def test_simple(self):
+        from pypymagic import thunk, become
         computed = []
         def f():
             computed.append(True)
@@ -20,6 +21,7 @@ class AppTest_Thunk:
         assert computed == [True]
 
     def test_setitem(self):
+        from pypymagic import thunk, become
         computed = []
         def f(a):
             computed.append(True)
@@ -37,6 +39,7 @@ class AppTest_Thunk:
         assert d[7] == [43]
 
     def test_become(self):
+        from pypymagic import thunk, become
         x = []
         y = []
         assert x is not y
@@ -44,6 +47,7 @@ class AppTest_Thunk:
         assert x is y
 
     def test_id(self):
+        from pypymagic import thunk, become
         # these are the Smalltalk semantics of become().
         x = []; idx = id(x)
         y = []; idy = id(y)
@@ -52,6 +56,7 @@ class AppTest_Thunk:
         assert id(x) == id(y) == idy
 
     def test_double_become(self):
+        from pypymagic import thunk, become
         x = []
         y = []
         z = []
@@ -60,18 +65,21 @@ class AppTest_Thunk:
         assert x is y is z
 
     def test_thunk_forcing_while_forcing(self):
+        from pypymagic import thunk, become
         def f():
             return x+1
         x = thunk(f)
         raises(RuntimeError, 'x+1')
 
     def INPROGRESS_test_thunk_forcing_while_forcing_2(self):
+        from pypymagic import thunk, become
         def f():
             return x
         x = thunk(f)
         raises(RuntimeError, 'x+1')
 
     def test_is_thunk(self):
+        from pypymagic import thunk, become, is_thunk
         def f():
             pass
         assert is_thunk(thunk(f))

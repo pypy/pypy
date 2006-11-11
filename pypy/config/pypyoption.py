@@ -24,7 +24,8 @@ pypy_optiondescription = OptionDescription("pypy", "All PyPy Options", [
                      ["std", "flow", "logic", "thunk", "cpy", "dump"], "std",
                      requires = {
                          "thunk": [("objspace.geninterp", False)],
-                         "logic": [("objspace.geninterp", False)],
+                         "logic": [("objspace.geninterp", False),
+                                   ("objspace.usemodules._stackless", True)],
                      },
                      cmdline='--objspace -o'),
 

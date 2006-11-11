@@ -9,4 +9,3 @@ class Module(MixedModule):
     interpleveldefs = {
         'pypy_repr'             : 'interp_magic.pypy_repr',
     }
-

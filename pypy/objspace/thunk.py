@@ -1,6 +1,7 @@
 """Example usage:
 
     $ py.py -o thunk
+    >>> from pypymagic import thunk, become
     >>> def f():
     ...     print 'computing...'
     ...     return 6*7
@@ -152,10 +153,11 @@ def Space(*args, **kwds):
     from pypy.objspace import std
     space = std.Space(*args, **kwds)
     patch_space_in_place(space, 'thunk', proxymaker)
-    space.setitem(space.builtin.w_dict, space.wrap('thunk'),
+    w_pypymagic = space.getbuiltinmodule("pypymagic")
+    space.setattr(w_pypymagic, space.wrap('thunk'),
                   space.wrap(app_thunk))
-    space.setitem(space.builtin.w_dict, space.wrap('is_thunk'),
+    space.setattr(w_pypymagic, space.wrap('is_thunk'),
                   space.wrap(app_is_thunk))
-    space.setitem(space.builtin.w_dict, space.wrap('become'),
+    space.setattr(w_pypymagic, space.wrap('become'),
                  space.wrap(app_become))
     return space
