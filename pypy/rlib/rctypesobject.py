@@ -96,7 +96,7 @@ class RCTypesObject(object):
 
 
 _primitive_cache = {}
-def makePrimitive(TYPE):
+def Primitive(TYPE):
     """Build a return a new RCTypesPrimitive class."""
     try:
         return _primitive_cache[TYPE]
@@ -118,18 +118,18 @@ def makePrimitive(TYPE):
         return RCTypesPrimitive
 
 # a few prebuilt primitive types
-rc_int = makePrimitive(lltype.Signed)
-rc_char = makePrimitive(lltype.Char)
+rc_int = Primitive(lltype.Signed)
+rc_char = Primitive(lltype.Char)
 
 
-def makeRPointer(contentscls):
+def RPointer(contentscls):
     """Build and return a new RCTypesPointer class."""
     try:
         return contentscls._ptrcls
     except AttributeError:
         assert issubclass(contentscls, RCTypesObject)
         if contentscls is RCTypesObject:
-            raise Exception("cannot call makeRPointer(RCTypesObject) or "
+            raise Exception("cannot call RPointer(RCTypesObject) or "
                             "pointer(x) if x degenerated to the base "
                             "RCTypesObject class")
 
@@ -155,17 +155,17 @@ def makeRPointer(contentscls):
 
         contentscls._ptrcls = RCTypesPtr
         return RCTypesPtr
-makeRPointer._annspecialcase_ = 'specialize:memo'
+RPointer._annspecialcase_ = 'specialize:memo'
 
 def pointer(x):
-    PTR = makeRPointer(x.__class__)
+    PTR = RPointer(x.__class__)
     p = PTR.allocate()
     p.set_contents(x)
     return p
 pointer._annspecialcase_ = 'specialize:argtype(0)'
 
 
-def makeRStruct(c_name, fields, c_external=False):
+def RStruct(c_name, fields, c_external=False):
     """Build and return a new RCTypesStruct class."""
 
     def cmangle(name):
@@ -205,33 +205,88 @@ def makeRStruct(c_name, fields, c_external=False):
     return RCTypesStruct
 
 
-def makeRArray(itemcls, fixedsize):
-    """Build and return a new RCTypesArray class."""
+def RFixedArray(itemcls, fixedsize):
+    """Build and return a new RCTypesFixedArray class."""
 
-    key = '_arraycls%d' % (fixedsize,)
+    key = '_fixedarraycls%d' % (fixedsize,)
     try:
         return getattr(itemcls, key)
     except AttributeError:
         assert issubclass(itemcls, RCTypesObject)
         if itemcls is RCTypesObject:
-            raise Exception("cannot call makeRArray(RCTypesObject)")
+            raise Exception("cannot call RFixedArray(RCTypesObject)")
 
         ARRAYTYPE = lltype.FixedSizeArray(itemcls.LLTYPE, fixedsize)
         FIRSTITEMOFS = llmemory.ArrayItemsOffset(ARRAYTYPE)
         ITEMOFS      = llmemory.sizeof(itemcls.LLTYPE)
 
-        class RCTypesArray(RCTypesObject):
+        class RCTypesFixedArray(RCTypesObject):
+            ITEM   = ARRAYTYPE.OF
             LLTYPE = ARRAYTYPE
+            length = fixedsize
             num_keepalives = itemcls.num_keepalives * fixedsize
 
             def ref(self, n):
-                subaddr = self.addr + FIRSTITEMOFS + ITEMOFS * n
+                subaddr = self.addr + (FIRSTITEMOFS + ITEMOFS * n)
                 subblock = self.memblock.addoffset(itemcls.num_keepalives * n)
                 return itemcls(subaddr, subblock)
 
-            def length(self):
-                return fixedsize
+        setattr(itemcls, key, RCTypesFixedArray)
+        return RCTypesFixedArray
+RFixedArray._annspecialcase_ = 'specialize:memo'
 
-        setattr(itemcls, key, RCTypesArray)
-        return RCTypesArray
-makeRArray._annspecialcase_ = 'specialize:memo'
+
+def RVarArray(itemcls):
+    """Build and return a new RCTypesVarArray class.
+    Note that this is *not* a subclass of RCTypesObject, so you cannot
+    take a pointer to it, use it as a field of a structure, etc.
+    """
+    try:
+        return itemcls._vararraycls
+    except AttributeError:
+        assert issubclass(itemcls, RCTypesObject)
+        if itemcls is RCTypesObject:
+            raise Exception("cannot call RVarArray(RCTypesObject)")
+
+        ARRAYTYPE = lltype.Array(itemcls.LLTYPE, hints={'nolength': True})
+        FIRSTITEMOFS = llmemory.ArrayItemsOffset(ARRAYTYPE)
+        ITEMOFS      = llmemory.sizeof(itemcls.LLTYPE)
+
+        class RCTypesVarArray(object):
+            ITEM = ARRAYTYPE.OF
+
+            def __init__(self, addr, memblock, length):
+                self.addr = addr
+                self.memblock = memblock
+                self.length = length
+
+            def allocate(length):
+                rawsize = FIRSTITEMOFS + ITEMOFS * length
+                num_keepalives = itemcls.num_keepalives * length
+                memblock = AllocatedRawMemBlock(num_keepalives, rawsize)
+                addr = memblock.addr + FIRSTITEMOFS
+                return RCTypesVarArray(addr, memblock, length)
+            allocate = staticmethod(allocate)
+
+            def fromitem(itembox, length):
+                """Return a VarArray from a reference to its first element.
+                Note that if you use the VarArray to store pointer-ish data,
+                you have to keep the VarArray alive as long as you want
+                this new data to stay alive.
+                """
+                assert isinstance(itembox, itemcls)
+                num_keepalives = itemcls.num_keepalives * length
+                memblock = RawMemBlock(num_keepalives)
+                res = RCTypesVarArray(itembox.addr, memblock, length)
+                res._keepalive_memblock_fromitem = itembox.memblock
+                return res
+            fromitem = staticmethod(fromitem)
+
+            def ref(self, n):
+                subaddr = self.addr + ITEMOFS * n
+                subblock = self.memblock.addoffset(itemcls.num_keepalives * n)
+                return itemcls(subaddr, subblock)
+
+        itemcls._vararraycls = RCTypesVarArray
+        return RCTypesVarArray
+RVarArray._annspecialcase_ = 'specialize:memo'

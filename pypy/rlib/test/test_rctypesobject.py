@@ -32,8 +32,8 @@ class TestBasic:
         assert res == 18
 
     def test_struct(self):
-        S1 = makeRStruct('S1', [('x', rc_int),
-                                ('y', makeRPointer(rc_int))])
+        S1 = RStruct('S1', [('x', rc_int),
+                            ('y', RPointer(rc_int))])
         def func():
             x = rc_int.allocate()
             x.set_value(42)
@@ -63,16 +63,43 @@ class TestBasic:
         res = self.do(func)
         assert res == 303
 
-    def test_fixedsize_array(self):
+    def test_fixedarray(self):
         def func():
-            a = makeRArray(rc_int, 10).allocate()
+            a = RFixedArray(rc_int, 10).allocate()
             for i in range(10):
                 a.ref(i).set_value(5 * i)
             for i in range(10):
                 assert a.ref(i).get_value() == 5 * i
-            return a.length()
+            return a.length
         res = self.do(func)
         assert res == 10
+
+    def test_vararray(self):
+        def func():
+            a = RVarArray(rc_int).allocate(10)
+            for i in range(10):
+                a.ref(i).set_value(5 * i)
+            for i in range(10):
+                assert a.ref(i).get_value() == 5 * i
+            return a.length
+        res = self.do(func)
+        assert res == 10
+
+    def test_vararray_cast(self):
+        def func():
+            a = RVarArray(rc_int).allocate(10)
+            for i in range(10):
+                a.ref(i).set_value(100 + 5 * i)
+            p = pointer(a.ref(0))
+            del a
+            assert p.get_contents().get_value() == 100
+            a1 = RVarArray(rc_int).fromitem(p.get_contents(), 8)
+            del p
+            for i in range(8):
+                a1.ref(i).get_value() == 100 + 5 * i
+            return a1.length
+        res = self.do(func)
+        assert res == 8
 
 
 class TestLLInterpreted(TestBasic):
