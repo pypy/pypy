@@ -14,11 +14,9 @@ from pypy.jit.codegen.ppc.emit_moves import emit_moves
 from pypy.translator.asm.ppcgen.rassemblermaker import make_rassembler
 from pypy.translator.asm.ppcgen.ppc_assembler import MyPPCAssembler
 
-RPPCAssembler = make_rassembler(MyPPCAssembler)
-
-def emit(self, value):
-    self.mc.write(value)
-RPPCAssembler.emit = emit
+class RPPCAssembler(make_rassembler(MyPPCAssembler)):
+    def emit(self, value):
+        self.mc.write(value)
 
 NSAVEDREGISTERS = 19
 
@@ -355,6 +353,8 @@ class Builder(GenBuilder):
         # register allocation for this block we don't know how much
         # stack will be required, so we patch it later (see
         # patch_stack_adjustment below).
+        # note that this stomps on both rSCRATCH (not a problem) and
+        # crf0 (a very small chance of being a problem)
         self.stack_adj_addr = self.asm.mc.tell()
         self.asm.addi(rSCRATCH, rFP, 0) # this is the immediate that later gets patched
         self.asm.subx(rSCRATCH, rSCRATCH, rSP) # rSCRATCH should now be <= 0
@@ -586,6 +586,9 @@ class RPPCGenOp(AbstractRGenOp):
 
 class FlexSwitch(CodeGenSwitch):
 
+    # a fair part of this code could likely be shared with the i386
+    # backend.
+
     def __init__(self, rgenop, mc, switch_reg, crf, var2loc):
         self.rgenop = rgenop
         self.crf = crf
@@ -595,13 +598,31 @@ class FlexSwitch(CodeGenSwitch):
         self.asm.mc = mc
         self.default_target_addr = 0
 
-##     def _reserve_more(self):
-##         XXX
-
     def add_case(self, gv_case):
         targetbuilder = self.rgenop.openbuilder()
         targetbuilder.make_fresh_from_jump(self.var2loc)
         target_addr = targetbuilder.asm.mc.tell()
+        p = self.asm.mc.getpos()
+        # that this works depends a bit on the fixed length of the
+        # instruction sequences we use to jump around.  if the code is
+        # ever updated to use the branch-relative instructions (a good
+        # idea, btw) this will need to be thought about again
+        try:
+            self._add_case(gv_case, target_addr)
+        except codebuf.CodeBlockOverflow:
+            self.asm.mc.setpos(p)
+            mc = self.rgenop.open_mc()
+            newmc = mc.reserve(7 * 5 + 4)
+            self.rgenop.close_mc(mc)
+            new_addr = newmc.tell()
+            self.asm.load_word(rSCRATCH, new_addr)
+            self.asm.mtctr(rSCRATCH)
+            self.asm.bctr()
+            self.asm.mc = newmc
+            self._add_case(gv_case, target_addr)
+        return targetbuilder
+
+    def _add_case(self, gv_case, target_addr):
         asm = self.asm
         assert isinstance(gv_case, IntConst)
         asm.load_word(rSCRATCH, gv_case.value)
@@ -611,7 +632,6 @@ class FlexSwitch(CodeGenSwitch):
         asm.bcctr(12, self.crf.number*4 + 2)
         if self.default_target_addr:
             self._write_default()
-        return targetbuilder
 
     def add_default(self):
         targetbuilder = self.rgenop.openbuilder()

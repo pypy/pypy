@@ -212,13 +212,71 @@ def get_if_runner(RGenOp):
         return res
     return if_runner
 
-def build_switch(rgenop):
+def make_switch(rgenop):
     """
     def f(v0, v1):
         if v0 == 0: # switch
             return 21*v1
         elif v0 == 1:
             return 21+v1
+        else:
+            return v1
+    """
+    signed_kind = rgenop.kindToken(lltype.Signed)
+    sigtoken = rgenop.sigToken(FUNC2)
+    builder, entrypoint, [gv0, gv1] = rgenop.newgraph(sigtoken)
+
+    flexswitch = builder.flexswitch(gv0)
+    const21 = rgenop.genconst(21)
+
+    # case == 0
+    const0 = rgenop.genconst(0)
+    case_builder = flexswitch.add_case(const0)
+    case_args_gv = [gv1]
+    case_builder.enter_next_block([signed_kind], case_args_gv)
+    [gv1_case0] = case_args_gv
+    gv_res_case0 = case_builder.genop2('int_mul', const21, gv1_case0)
+    case_builder.finish_and_return(sigtoken, gv_res_case0)
+    # default
+    default_builder = flexswitch.add_default()
+    default_args_gv = [gv1]
+    default_builder.enter_next_block([signed_kind], default_args_gv)
+    [gv1_default] = default_args_gv
+    default_builder.finish_and_return(sigtoken, gv1_default)
+    # case == 1
+    const1 = rgenop.genconst(1)
+    case_builder = flexswitch.add_case(const1)
+    case_args_gv = [gv1]
+    case_builder.enter_next_block([signed_kind], case_args_gv)
+    [gv1_case1] = case_args_gv
+    gv_res_case1 = case_builder.genop2('int_add', const21, gv1_case1)
+    case_builder.finish_and_return(sigtoken, gv_res_case1)
+
+    gv_switch = rgenop.gencallableconst(sigtoken, "switch", entrypoint)
+    return gv_switch
+
+def get_switch_runner(RGenOp):
+    def switch_runner(x, y):
+        rgenop = RGenOp()
+        gv_switchfn = make_switch(rgenop)
+        switchfn = gv_switchfn.revealconst(lltype.Ptr(FUNC2))
+        res = switchfn(x, y)
+        keepalive_until_here(rgenop)    # to keep the code blocks alive
+        return res
+    return switch_runner
+
+def make_large_switch(rgenop):
+    """
+    def f(v0, v1):
+        if v0 == 0: # switch
+            return 21*v1
+        elif v0 == 1:
+            return 2+v1
+        elif v0 == 2:
+            return 4+v1
+        ...
+        elif v0 == 10:
+            return 2**10+v1
         else:
             return v1
     """
@@ -243,27 +301,29 @@ def build_switch(rgenop):
     default_builder.enter_next_block([signed_tok], default_args_gv)
     [gv1_default] = default_args_gv
     default_builder.finish_and_return(f2_token, gv1_default)
-    # case == 1
-    const1 = rgenop.genconst(1)
-    case_builder = flexswitch.add_case(const1)
-    case_args_gv = [gv1]
-    case_builder.enter_next_block([signed_tok], case_args_gv)
-    [gv1_case1] = case_args_gv
-    gv_res_case1 = case_builder.genop2('int_add', const21, gv1_case1)
-    case_builder.finish_and_return(f2_token, gv_res_case1)
+    # case == x
+    for x in range(1,11):
+         constx = rgenop.genconst(x)
+         case_builder = flexswitch.add_case(constx)
+         case_args_gv = [gv1]
+         case_builder.enter_next_block([signed_tok], case_args_gv)
+         [gv1_casex] = case_args_gv
+         const2px= rgenop.genconst(1<<x)
+         gv_res_casex = case_builder.genop2('int_add', const2px, gv1_casex)
+         case_builder.finish_and_return(f2_token, gv_res_casex)
 
-    gv_switch = rgenop.gencallableconst(f2_token, "switch", graph)
+    gv_switch = rgenop.gencallableconst(f2_token, "large_switch", graph)
     return gv_switch
 
-def get_switch_runner(RGenOp):
-    def switch_runner(x, y):
+def get_large_switch_runner(RGenOp):
+    def large_switch_runner(x, y):
         rgenop = RGenOp()
-        gv_switchfn = build_switch(rgenop)
-        switchfn = gv_switchfn.revealconst(lltype.Ptr(FUNC2))
-        res = switchfn(x, y)
+        gv_large_switchfn = make_large_switch(rgenop)
+        largeswitchfn = gv_large_switchfn.revealconst(lltype.Ptr(FUNC2))
+        res = largeswitchfn(x, y)
         keepalive_until_here(rgenop)    # to keep the code blocks alive
         return res
-    return switch_runner
+    return large_switch_runner
 
 class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
     RGenOp = None
@@ -348,14 +408,47 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         res = fn(3, 0)
         assert res == 6
 
-##     def test_switch_direct(self):
-##         rgenop = self.RGenOp()
-##         gv_switchfn = build_switch(rgenop)
-##         print gv_switchfn.value
-##         fnptr = cast(c_void_p(gv_switchfn.value), CFUNCTYPE(c_int, c_int, c_int))
-##         res = fnptr(0, 2)
-##         assert res == 42
-##         res = fnptr(1, 16)
-##         assert res == 37
-##         res = fnptr(42, 16)
-##         assert res == 16
+    def test_switch_direct(self):
+        rgenop = self.RGenOp()
+        gv_switchfn = make_switch(rgenop)
+        print gv_switchfn.value
+        import os
+        fnptr = cast(c_void_p(gv_switchfn.value), CFUNCTYPE(c_int, c_int))
+        res = fnptr(0, 2)
+        assert res == 42
+        res = fnptr(1, 16)
+        assert res == 37
+        res = fnptr(42, 16)
+        assert res == 16
+
+    def test_switch_compile(self):
+        fn = self.compile(get_switch_runner(self.RGenOp), [int, int])
+        res = fn(0, 2)
+        assert res == 42
+        res = fn(1, 17)
+        assert res == 38
+        res = fn(42, 18)
+        assert res == 18
+
+    def test_large_switch_direct(self):
+        rgenop = self.RGenOp()
+        gv_switchfn = make_large_switch(rgenop)
+        print gv_switchfn.value
+        fnptr = cast(c_void_p(gv_switchfn.value), CFUNCTYPE(c_int, c_int, c_int))
+        res = fnptr(0, 2)
+        assert res == 42
+        for x in range(1,11):
+            res = fnptr(x, 5)
+            assert res == 2**x+5
+        res = fnptr(42, 16)
+        assert res == 16
+
+    def test_large_switch_compile(self):
+        fn = self.compile(get_large_switch_runner(self.RGenOp), [int, int])
+        res = fn(0, 2)
+        assert res == 42
+        for x in range(1,11):
+            res = fn(x, 7)
+            assert res == 2**x+7 
+        res = fn(42, 18)
+        assert res == 18
