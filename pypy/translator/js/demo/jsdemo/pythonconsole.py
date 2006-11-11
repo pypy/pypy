@@ -16,8 +16,7 @@ from pypy.translator.js.modules.dom import setTimeout, get_document
 from pypy.translator.js.main import rpython2javascript
 from pypy.rpython.ootypesystem.bltregistry import MethodDesc, BasicExternal
 from pypy.translator.js import commproxy
-from pypy.translator.js.modules.mochikit import createLoggingPane, log,\
-    escapeHTML
+from pypy.translator.js.modules.mochikit import escapeHTML
 
 commproxy.USE_MOCHIKIT = True
 
