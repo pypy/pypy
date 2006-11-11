@@ -20,6 +20,8 @@ Example:
 Suppose we want to have list which stores all operations performed on
 it for later analysis. So we create a list an apropriate controller::
 
+ from pypymagic import transparent_proxy
+
  class Controller(object):
      def __init__(self, l):
          self.l = l
@@ -29,10 +31,11 @@ it for later analysis. So we create a list an apropriate controller::
          return getattr(self.l, name)(*args, **kwargs)
  l = []
  c = Controller(l)
- lst = proxy(list, c.perform)
+ lst = transparent_proxy(list, c.perform)
 
 Here, we've created original list, some random class and called magic
-``proxy`` function, which eats operation name and additional arguments.
+``transparent_proxy`` function, which eats operation name and additional 
+arguments.
 Important bit is that we do not need some existing object to perform
 operations on, it can do whatever we like. And of course 
 ``type(lst) is type(l)`` and ``lst is not l`` (well, the latter is not
