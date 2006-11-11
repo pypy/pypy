@@ -1439,14 +1439,15 @@ class _subarray(_parentable):     # only for cast_subarray_pointer()
         start, stop = self._parentstructure().getbounds()
         return start - baseoffset, stop - baseoffset
 
-    def getitem(self, index):
+    def getitem(self, index, uninitialized_ok=False):
         baseoffset = self._parent_index
         if isinstance(baseoffset, str):
             assert index == 0
             fieldname = baseoffset    # structfield case
             return getattr(self._parentstructure(), fieldname)
         else:
-            return self._parentstructure().getitem(baseoffset + index)
+            return self._parentstructure().getitem(baseoffset + index,
+                                             uninitialized_ok=uninitialized_ok)
 
     def setitem(self, index, value):
         baseoffset = self._parent_index

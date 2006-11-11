@@ -61,7 +61,9 @@ class RCTypesObject(object):
                 cls.rawsize = llmemory.sizeof(cls.CDATATYPE)
 
             def allocate1():
-                return allocate_object(cls, cls.num_keepalives, cls.rawsize)
+                memblock = AllocatedRawMemBlock(cls.num_keepalives,
+                                                cls.rawsize)
+                return cls(memblock.addr, memblock)
             cls.allocate = staticmethod(allocate1)
 
             def copyfrom1(self, srcbox):
@@ -90,11 +92,7 @@ class RCTypesObject(object):
 
     def ll_ref(self, CDATATYPE):
         return llmemory.cast_adr_to_ptr(self.addr, lltype.Ptr(CDATATYPE))
-
-
-def allocate_object(cls, num_keepalives, rawsize):
-    memblock = AllocatedRawMemBlock(num_keepalives, rawsize)
-    return cls(memblock.addr, memblock)
+    ll_ref._annspecialcase_ = 'specialize:arg(1)'
 
 
 _primitive_cache = {}
@@ -103,6 +101,8 @@ def makePrimitive(TYPE):
     try:
         return _primitive_cache[TYPE]
     except KeyError:
+        assert not isinstance(TYPE, lltype.ContainerType)
+
         class RCTypesPrimitive(RCTypesObject):
             LLTYPE = TYPE
 
@@ -128,6 +128,10 @@ def makeRPointer(contentscls):
         return contentscls._ptrcls
     except AttributeError:
         assert issubclass(contentscls, RCTypesObject)
+        if contentscls is RCTypesObject:
+            raise Exception("cannot call makeRPointer(RCTypesObject) or "
+                            "pointer(x) if x degenerated to the base "
+                            "RCTypesObject class")
 
         class RCTypesPtr(RCTypesObject):
             CONTENTS  = contentscls.CDATATYPE

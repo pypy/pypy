@@ -482,6 +482,26 @@ def test_raw_memcopy():
     raw_memcopy(at1, at2, sizeof(T))
     assert t2.x == 1
 
+def test_raw_memcopy_nonrec():
+    T = lltype.GcStruct('T', ('x', lltype.Signed))
+    A = lltype.FixedSizeArray(lltype.Ptr(T), 1)
+    t1 = lltype.malloc(T)
+    t2 = lltype.malloc(T)
+    t1.x = 1
+    t2.x = 2
+
+    at1 = raw_malloc(sizeof(A))
+    at2 = raw_malloc(sizeof(A))
+    p1 = cast_adr_to_ptr(at1, lltype.Ptr(A))
+    p2 = cast_adr_to_ptr(at2, lltype.Ptr(A))
+    p1[0] = t1
+    p2[0] = t2
+    raw_memcopy(at1, at2, sizeof(A))
+    assert p1[0] == t1
+    assert p2[0] == t1
+    assert t1.x == 1    #   not
+    assert t2.x == 2    # modified
+
 def test_inlined_substruct():
     T = lltype.Struct('T', ('x', lltype.Signed))
     S1 = lltype.GcStruct('S1', ('t1', T), ('t2', T))
