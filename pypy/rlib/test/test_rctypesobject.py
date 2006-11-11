@@ -1,5 +1,6 @@
 from pypy.rlib.rctypesobject import *
 from pypy.rpython.test.test_llinterp import interpret
+from pypy.annotation.policy import AnnotatorPolicy
 
 
 class TestBasic:
@@ -62,8 +63,21 @@ class TestBasic:
         res = self.do(func)
         assert res == 303
 
+    def test_fixedsize_array(self):
+        def func():
+            a = makeRArray(rc_int, 10).allocate()
+            for i in range(10):
+                a.ref(i).set_value(5 * i)
+            for i in range(10):
+                assert a.ref(i).get_value() == 5 * i
+            return a.length()
+        res = self.do(func)
+        assert res == 10
+
 
 class TestLLInterpreted(TestBasic):
-    
+    POLICY = AnnotatorPolicy()
+    POLICY.allow_someobjects = False
+
     def do(self, func):
-        return interpret(func, [])
+        return interpret(func, [], policy=self.POLICY)

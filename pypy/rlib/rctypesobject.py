@@ -30,7 +30,7 @@ class AllocatedRawMemBlock(RawMemBlock):
         #print 'raw_free:  ', self.addr
         llmemory.raw_free(self.addr)
 
-class RawMemSubBlock(object):
+class RawMemSubBlock(RawMemBlock):
     def __init__(self, baseblock, ofs_keepalives):
         self.baseblock = baseblock
         self.keepalives = baseblock.keepalives
@@ -203,3 +203,35 @@ def makeRStruct(c_name, fields, c_external=False):
     for name in fieldclasses:
         make_accessors(name)
     return RCTypesStruct
+
+
+def makeRArray(itemcls, fixedsize):
+    """Build and return a new RCTypesArray class."""
+
+    key = '_arraycls%d' % (fixedsize,)
+    try:
+        return getattr(itemcls, key)
+    except AttributeError:
+        assert issubclass(itemcls, RCTypesObject)
+        if itemcls is RCTypesObject:
+            raise Exception("cannot call makeRArray(RCTypesObject)")
+
+        ARRAYTYPE = lltype.FixedSizeArray(itemcls.LLTYPE, fixedsize)
+        FIRSTITEMOFS = llmemory.ArrayItemsOffset(ARRAYTYPE)
+        ITEMOFS      = llmemory.sizeof(itemcls.LLTYPE)
+
+        class RCTypesArray(RCTypesObject):
+            LLTYPE = ARRAYTYPE
+            num_keepalives = itemcls.num_keepalives * fixedsize
+
+            def ref(self, n):
+                subaddr = self.addr + FIRSTITEMOFS + ITEMOFS * n
+                subblock = self.memblock.addoffset(itemcls.num_keepalives * n)
+                return itemcls(subaddr, subblock)
+
+            def length(self):
+                return fixedsize
+
+        setattr(itemcls, key, RCTypesArray)
+        return RCTypesArray
+makeRArray._annspecialcase_ = 'specialize:memo'
