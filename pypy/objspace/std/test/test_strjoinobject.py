@@ -9,13 +9,13 @@ class AppTestStringObject(test_stringobject.AppTestStringObject):
         cls.space = gettestobjspace(**{"objspace.std.withstrjoin": True})
 
     def test_basic(self):
-        import sys
+        import pypymagic
         s = "Hello, " + "World!"
         assert type(s) is str
-        assert 'W_StringJoinObject' in sys.pypy_repr(s)
+        assert 'W_StringJoinObject' in pypymagic.pypy_repr(s)
 
     def test_function_with_strjoin(self):
-        py.test.skip("Failing")
+        skip("Failing")
         def f(x, y):
             if x[-1] != "/":
                 x += "/"
@@ -48,7 +48,6 @@ class AppTestStringObject(test_stringobject.AppTestStringObject):
         assert hash(s) & 0x7fffffff == 0x7e0bce58
 
     def test_len(self):
-        import sys
         s = "a" + "b"
         r = "c" + "d"
         t = s + r

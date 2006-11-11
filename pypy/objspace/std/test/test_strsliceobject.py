@@ -9,22 +9,22 @@ class AppTestStringObject(test_stringobject.AppTestStringObject):
         cls.space = gettestobjspace(**{"objspace.std.withstrslice": True})
 
     def test_basic(self):
-        import sys
+        import pypymagic
         def slice(s): return (s*3)[len(s):-len(s)]
         s = slice('0123456789' * 20)
         assert len(s) == 200
         assert s[5] == '5'
         assert s[-2] == '8'
         assert s[3:7] == '3456'
-        assert 'W_StringSliceObject' in sys.pypy_repr(s)
+        assert 'W_StringSliceObject' in pypymagic.pypy_repr(s)
         # when the slice is too short, don't use the slice string object
-        assert 'W_StringObject' in sys.pypy_repr("abcdefgh"[3:7])
+        assert 'W_StringObject' in pypymagic.pypy_repr("abcdefgh"[3:7])
 
     def test_find(self):
-        import sys
+        import pypymagic
         def slice(s): return (s*3)[len(s):-len(s)]
         s = slice('abcdefghiabc' + "X" * 100)
-        assert 'W_StringSliceObject' in sys.pypy_repr(s)
+        assert 'W_StringSliceObject' in pypymagic.pypy_repr(s)
         assert slice('abcdefghiabc' + 'X' * 100) == 'abcdefghiabc' + 'X' * 100
         res = s.find('abc')
         assert res == 0
@@ -32,11 +32,11 @@ class AppTestStringObject(test_stringobject.AppTestStringObject):
         assert s.find('def', 4) == -1
 
     def test_index(self):
-        import sys
+        import pypymagic, sys
         m = sys.maxint
         def slice(s): return (s*3)[len(s):-len(s)]
         s = slice('abcdefghiabc' * 20)
-        assert 'W_StringSliceObject' in sys.pypy_repr(s)
+        assert 'W_StringSliceObject' in pypymagic.pypy_repr(s)
         assert s.index('') == 0
         assert s.index('def') == 3
         assert s.index('abc') == 0
@@ -50,21 +50,21 @@ class AppTestStringObject(test_stringobject.AppTestStringObject):
         raises(TypeError, slice('abcdefghijklmn' * 20).index, 'abc', -10.0, 30)
 
     def test_rfind(self):
-        import sys
+        import pypymagic
         def slice(s): return (s*3)[len(s):-len(s)]
         s = slice('abcdefghiabc' + "X" * 100)
-        assert 'W_StringSliceObject' in sys.pypy_repr(s)
+        assert 'W_StringSliceObject' in pypymagic.pypy_repr(s)
         assert s.rfind('abc') == 9
         assert s.rfind('') == 112
         assert s.rfind('abcd') == 0
         assert s.rfind('abcz') == -1
 
     def test_rindex(self):
-        import sys
+        import pypymagic
         from sys import maxint
         def slice(s): return (s*3)[len(s):-len(s)]
         s = slice("X" * 100 + 'abcdefghiabc')
-        assert 'W_StringSliceObject' in sys.pypy_repr(s)
+        assert 'W_StringSliceObject' in pypymagic.pypy_repr(s)
         assert s.rindex('') == 112
         assert s.rindex('def') == 103
         assert s.rindex('abc') == 109
@@ -81,10 +81,10 @@ class AppTestStringObject(test_stringobject.AppTestStringObject):
                'abc', -10.0, 30)
 
     def test_contains(self):
-        import sys
+        import pypymagic
         def slice(s): return (s*3)[len(s):-len(s)]
         s = slice("abc" + "X" * 100)
-        assert 'W_StringSliceObject' in sys.pypy_repr(s)
+        assert 'W_StringSliceObject' in pypymagic.pypy_repr(s)
         assert '' in s
         assert 'a' in s
         assert 'ab' in s
@@ -92,11 +92,11 @@ class AppTestStringObject(test_stringobject.AppTestStringObject):
         raises(TypeError, slice('a' * 100).__contains__, 1)
         
     def test_hash(self):
-        import sys
+        import pypymagic
         # check that we have the same hash as CPython for at least 31 bits
         # (but don't go checking CPython's special case -1)
         # disabled: assert hash('') == 0 --- different special case
         def slice(s): return (s*3)[len(s):-len(s)]
         s = slice('a' * 101)
-        assert 'W_StringSliceObject' in sys.pypy_repr(s)
+        assert 'W_StringSliceObject' in pypymagic.pypy_repr(s)
         assert hash(s) & 0x7fffffff == 0x7e0bce58
