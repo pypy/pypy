@@ -14,7 +14,8 @@ Meta-documentation
 `getting started`_ provides hands-on instructions 
 including a two-liner to run PyPy on your system. 
 
-`coding guide`_ helps you to write code for PyPy. 
+`coding guide`_ helps you to write code for PyPy (especially also describes
+coding in RPython a bit). 
 
 `development methodology`_ describe our sprint-driven approach.
 
@@ -75,6 +76,9 @@ garbage collection in PyPy.
 `extension compiler`_ describes the (in-progress) tool that can be used
 to write modules in PyPy's style and compile them into regular CPython
 extension modules.
+
+`rlib`_ describes some modules that can be used when implementing programs in
+RPython.
 
 `JavaScript backend`_ describes how to use JavaScript backend to create
 AJAX-based web pages.
@@ -147,6 +151,7 @@ recent compliance test runs against PyPy.
 .. _`Nightly builds and benchmarks`: http://snake.cs.uni-duesseldorf.de/pypytest/benchmark.html
 .. _`build pypy-c`: http://snake.cs.uni-duesseldorf.de/pypy-c-tests/
 .. _`directory reference`: 
+.. _`rlib`: rlib.html
 
 PyPy directory cross-reference 
 ======================================================

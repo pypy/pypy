@@ -1,0 +1,229 @@
+=================================================
+Generally Useful RPython Modules 
+=================================================
+
+.. _Python: http://www.python.org/dev/doc/maint24/ref/ref.html
+
+.. contents::
+
+
+This page lists some of the modules in `pypy/rlib`_ together with some hints
+for what they can be used. The modules there are supposed to make up some sort
+of library for RPython programs (since most of the standard library modules are
+not RPython). Most of these modules are somewhat rough still and are likely to
+be changed at one point.  Usually it is useful to look at the tests in
+`pypy/rlib/test`_ to get an impression how the modules should be used.
+
+.. _`pypy/rlib`: ../../pypy/rlib
+.. _`pypy/rlib/test`: ../../pypy/rlib/test
+
+``listsort``
+============
+
+The listsort_ module contains an implementation of the timsort sorting algorithm
+(the sort method of lists is not RPython). To use it, subclass from the
+``listsort.TimSort`` class and override the ``lt`` method to change the
+comparison behaviour. The constructor of ``TimSort`` takes a list as an
+argument, which will be sorted in place when the ``sort`` method of the
+``TimSort`` instance is called. **Warning:** currently only one type of list can
+be sorted using the ``listsort`` module in one program, otherwise the annotator
+will be confused.
+
+.. _listsort: ../../pypy/rlib/listsort.py
+
+``nonconst``
+============
+
+The nonconst_ module is useful mostly for tests. The `flow object space`_ and
+the `annotator`_ do quite some constant folding, which is sometimes not desired
+in a test. To prevent constant folding on a certain value, use the ``NonConst``
+class. The constructor of ``NonConst`` takes an arbitrary value. The instance of
+``NonConst`` will behave during annotation like that value, but no constant
+folding will happen.
+
+.. _nonconst: ../../pypy/rlib/nonconst.py
+.. _`flow object space`: objspace.html#the-flow-object-space
+.. _`annotator`: translation.html#the-annotation-pass
+
+
+``objectmodel``
+===============
+
+The objectmodel_ module is a mixed bag of various functionality. Some of the
+more useful ones are:
+
+``ComputedIntSymbolic``:
+    Instances of ``ComputedIntSymbolic`` are treated like integers of unknown
+    value by the annotator. Their value is determined by a non-argument function
+    (which needs to be passed into the constructor of the class). When the
+    backend emits code, the function is called to determine the value.
+
+``CDefinedIntSymbolic``:
+    Instances of ``ComputedIntSymbolic`` are also treated like integers of
+    unknown value by the annotator. When C code is emitted they will be
+    represented by the attribute ``expr`` of the symbolic (which is also the
+    first argument of the constructor).
+
+``r_dict``:
+    An RPython dict-like object. The constructor of r_dict takes two functions:
+    ``key_eq`` and ``key_hash`` which are used for comparing and hashing the
+    entries in the dictionary.
+
+``instantiate(cls)``:
+    Instantiate class ``cls`` without calling ``__init__``.
+
+``we_are_translated()``:
+    This function returns ``False`` when run on top of CPython, but the
+    annotator thinks its return value is ``True``. Therefore it can be used to
+    do different things on top of CPython than after translation. This should be
+    used extremely sparingly (mostly for optimizations or debug code).
+
+``cast_object_to_weakaddress(obj)``:
+    Returns a sort of "weak reference" to obj, just without any convenience. The
+    weak address that it returns is not invalidated if the object dies, so you
+    need to take care yourself to know when the object dies. Use with extreme
+    care.
+
+``cast_weakadress_to_object(obj)``:
+    Inverse of the previous function. If the object died then a segfault will
+    ensue.
+
+``UnboxedValue``:
+    This is a class which should be used as a base class for a class which
+    carries exactly one integer field. The class should have ``__slots__``
+    with exactly one entry defined. After translation, instances of this class
+    won't be allocated but represented by *tagged pointers**, that is pointers
+    who have the lowest bit set.
+
+.. _objectmodel: ../../pypy/rlib/objectmodel.py
+
+
+``rarithmetic``
+===============
+
+The rarithmetic_ module contains functionality to handle the small differences
+in the behaviour of arithmetic code in regular Python and RPython code. Most of
+them are already described in the `coding guide`_
+
+.. _rarithmetic: ../../pypy/rlib/rarithmetic.py
+.. _`coding guide`: coding-guide.html
+
+
+``rlong``
+=========
+
+The rlong_ module contains a full RPython implementation of the Python ``long``
+type (which itself is not supported in RPython). The ``rlong`` class contains
+that implementation. To construct ``rlong`` instances use the static methods
+``fromint``, ``frombool``, ``fromfloat`` and ``fromdecimalstr``. To convert back
+to other types use the methods ``toint``, ``tobool``, ``touint`` and
+``tofloat``. Since RPython does not support operator overloading, all the
+special methods of ``rlong`` that would normally start and end with "__" have
+these underscores left out for better readability (so ``a.add(b)`` can be used
+to add two rlongs).
+
+.. _rlong: ../../pypy/rlib/rlong.py
+
+
+``rrandom``
+===========
+
+The rrandom_ module contains an implementation of the mersenne twister random
+number generator. It contains one class ``Random`` which most importantly has a
+``random`` method which returns a pseudo-random floating point number between
+0.0 and 1.0.
+
+.. _rrandom: ../../pypy/rlib/rrandom.py
+
+``rsocket``
+===========
+
+The rsocket_ module contains an RPython implementation of the functionality of
+the socket standard library with a slightly different interface.
+
+.. _rsocket: ../../pypy/rlib/rsocket.py
+
+
+``rstack``
+==========
+
+The rstack_ module allows an RPython progam to control its own execution stack.
+This is mostly only useful if the program is translated using stackless. An old
+description of the exposed functions is below.
+
+We introduce an RPython type ``frame_stack_top`` and a built-in function
+``yield_current_frame_to_caller()`` that work as follows (see example below):
+
+* The built-in function ``yield_current_frame_to_caller()`` causes the current
+  function's state to be captured in a new ``frame_stack_top`` object that is
+  returned to the parent.  Only one frame, the current one, is captured this
+  way.  The current frame is suspended and the caller continues to run.  Note
+  that the caller is only resumed once: when
+  ``yield_current_frame_to_caller()`` is called.  See below.
+
+* A ``frame_stack_top`` object can be jumped to by calling its ``switch()``
+  method with no argument.
+
+* ``yield_current_frame_to_caller()`` and ``switch()`` themselves return a new
+  ``frame_stack_top`` object: the freshly captured state of the caller of the
+  source ``switch()`` that was just executed, or None in the case described
+  below.
+
+* the function that called ``yield_current_frame_to_caller()`` also has a
+  normal return statement, like all functions.  This statement must return
+  another ``frame_stack_top`` object.  The latter is *not* returned to the
+  original caller; there is no way to return several times to the caller.
+  Instead, it designates the place to which the execution must jump, as if by
+  a ``switch()``.  The place to which we jump this way will see a None as the
+  source frame stack top.
+
+* every frame stack top must be resumed once and only once.  Not resuming
+  it at all causes a leak.  Resuming it several times causes a crash.
+
+* a function that called ``yield_current_frame_to_caller()`` should not raise.
+  It would have no implicit parent frame to propagate the exception to.  That
+  would be a crashingly bad idea.
+
+The following example would print the numbers from 1 to 7 in order::
+
+    def g():
+        print 2
+        frametop_before_5 = yield_current_frame_to_caller()
+        print 4
+        frametop_before_7 = frametop_before_5.switch()
+        print 6
+        return frametop_before_7
+
+    def f():
+        print 1
+        frametop_before_4 = g()
+        print 3
+        frametop_before_6 = frametop_before_4.switch()
+        print 5
+        frametop_after_return = frametop_before_6.switch()
+        print 7
+        assert frametop_after_return is None
+
+    f()
+
+.. _rstack: ../../pypy/rlib/rstack.py
+
+
+``streamio``
+============
+
+The streamio_ contains an RPython stream I/O implementation (which was started
+by Guido van Rossum as `sio.py`_ in the CPython sandbox as a prototype for the
+upcoming new file implementation in Python 300).
+
+.. _streamio: ../../pypy/rlib/streamio.py
+.. _`sio.py`: http://svn.python.org/view/sandbox/trunk/sio/sio.py
+
+``unroll``
+==========
+
+The unroll_ module most importantly contains the function ``unrolling_iterable``
+wich wraps an iterator. Looping over the iterator in RPython code will not
+produce a loop in the resulting flow graph but will unroll the loop instead.
+
+.. _unroll: ../../pypy/rlib/unroll.py
