@@ -101,6 +101,21 @@ class TestBasic:
         res = self.do(func)
         assert res == 8
 
+    def test_char_p(self):
+        def func():
+            p = rc_char_p.allocate()
+            s = ''
+            for i in range(65, 91):
+                s += chr(i)
+            p.set_value(s)
+            del s
+            s = p.get_value()
+            for i in range(26):
+                assert ord(s[i]) == 65 + i
+            return len(s)
+        res = self.do(func)
+        assert res == 26
+
 
 class TestLLInterpreted(TestBasic):
     POLICY = AnnotatorPolicy()

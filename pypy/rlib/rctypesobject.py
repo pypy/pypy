@@ -122,6 +122,51 @@ rc_int = Primitive(lltype.Signed)
 rc_char = Primitive(lltype.Char)
 
 
+class _RCTypesStringData(object):
+    ARRAYTYPE    = lltype.Array(lltype.Char, hints={'nolength': True})
+    FIRSTITEMOFS = llmemory.ArrayItemsOffset(ARRAYTYPE)
+    ITEMOFS      = llmemory.sizeof(lltype.Char)
+    
+    def __init__(self, string):
+        rawsize = self.FIRSTITEMOFS + self.ITEMOFS * (len(string) + 1)
+        self.addr = llmemory.raw_malloc(rawsize)
+        a = self.addr + self.FIRSTITEMOFS
+        for i in range(len(string)):
+            a.char[0] = string[i]
+            a += self.ITEMOFS
+        a.char[0] = '\x00'
+    def __del__(self):
+        llmemory.raw_free(self.addr)
+
+class RCTypesCharP(RCTypesObject):
+    LLTYPE = lltype.Ptr(_RCTypesStringData.ARRAYTYPE)
+
+    def strlen(self):
+        ptr = self.ll_ref(RCTypesCharP.CDATATYPE)
+        a = ptr[0]
+        n = 0
+        while a[n] != '\x00':
+            n += 1
+        return n
+
+    def get_value(self):
+        length = self.strlen()
+        ptr = self.ll_ref(RCTypesCharP.CDATATYPE)
+        a = ptr[0]
+        lst = ['\x00'] * length
+        for i in range(length):
+            lst[i] = a[i]
+        return ''.join(lst)
+
+    def set_value(self, string):
+        data = _RCTypesStringData(string)
+        ptr = self.ll_ref(RCTypesCharP.CDATATYPE)
+        ptr[0] = llmemory.cast_adr_to_ptr(data.addr, RCTypesCharP.LLTYPE)
+        self._keepalive_stringdata = data
+
+rc_char_p = RCTypesCharP
+
+
 def RPointer(contentscls):
     """Build and return a new RCTypesPointer class."""
     try:
@@ -240,6 +285,8 @@ def RVarArray(itemcls):
     """Build and return a new RCTypesVarArray class.
     Note that this is *not* a subclass of RCTypesObject, so you cannot
     take a pointer to it, use it as a field of a structure, etc.
+    You can take a pointer to one of its elements (e.g. the first),
+    though, and that pointer will keep the whole array alive.
     """
     try:
         return itemcls._vararraycls
