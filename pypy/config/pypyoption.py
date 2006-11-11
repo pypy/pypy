@@ -11,7 +11,7 @@ default_modules = dict.fromkeys(
     [#"unicodedata",
      "_codecs", "gc", "_weakref", "array", "marshal", "errno",
      "math", "_sre", "_pickle_support", "sys", "exceptions", "__builtins__",
-     "recparser", "symbol", "_random", "_file"])
+     "recparser", "symbol", "_random", "_file", "pypymagic"])
 
 module_dependencies = { }
 if os.name == "posix":
