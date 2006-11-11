@@ -578,6 +578,12 @@ BUILTIN_TYPER[lladdress.raw_free] = rtype_raw_free
 BUILTIN_TYPER[lladdress.raw_memclear] = rtype_raw_memclear
 BUILTIN_TYPER[lladdress.raw_memcopy] = rtype_raw_memcopy
 
+BUILTIN_TYPER[llmemory.raw_malloc] = rtype_raw_malloc
+BUILTIN_TYPER[llmemory.raw_malloc_usage] = rtype_raw_malloc_usage
+BUILTIN_TYPER[llmemory.raw_free] = rtype_raw_free
+BUILTIN_TYPER[llmemory.raw_memclear] = rtype_raw_memclear
+BUILTIN_TYPER[llmemory.raw_memcopy] = rtype_raw_memcopy
+
 def rtype_offsetof(hop):
     TYPE, field = hop.inputargs(lltype.Void, lltype.Void)
     return hop.inputconst(lltype.Signed,
