@@ -19,6 +19,7 @@ class AppTestProxyFunction(object):
                 return getattr(self.obj, name)(*args, **kwargs)
         def get_proxy(f):
             import types
+            from pypymagic import transparent_proxy as proxy
             return proxy(types.FunctionType, Controller(f).perform)
         return get_proxy
         """)

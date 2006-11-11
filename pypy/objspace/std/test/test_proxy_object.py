@@ -12,10 +12,14 @@ class AppTestProxyNoDict(AppProxyBasic):
             __slots__ = []
         return A
         """)
+        self.w_proxy = self.space.appexec([], """():
+        from pypymagic import transparent_proxy
+        return transparent_proxy
+        """)
     
     def test_write_dict(self):
         c = self.Controller(self.A())
-        obj = proxy(self.A, c.perform)
+        obj = self.proxy(self.A, c.perform)
         raises(AttributeError, "obj.__dict__ = {}")
 
 class AppTestProxyObj(AppProxyBasic):
@@ -32,14 +36,14 @@ class AppTestProxyObj(AppProxyBasic):
             pass
         
         c = self.Controller(self.A())
-        obj = proxy(AT, c.perform)
+        obj = self.proxy(AT, c.perform)
         
         assert type(obj) is AT
         assert obj.__class__ is AT
 
     def test__class__override(self):
         c = self.Controller(self.A())
-        obj = proxy(self.A, c.perform)
+        obj = self.proxy(self.A, c.perform)
         
         raises(TypeError, "obj.__class__ = self.A")
 
@@ -47,19 +51,19 @@ class AppTestProxyObj(AppProxyBasic):
         a = self.A()
         a.x = 3
         c = self.Controller(a)
-        obj = proxy(self.A, c.perform)
+        obj = self.proxy(self.A, c.perform)
         
         assert obj.x == 3
 
     def test_nonexistant_attribuite_access(self):
         c = self.Controller(self.A())
-        obj = proxy(self.A, c.perform)
+        obj = self.proxy(self.A, c.perform)
         raises(AttributeError, "obj.x")
     
     def test_setattr(self):
         a = self.A()
         c = self.Controller(a)
-        obj = proxy(self.A, c.perform)
+        obj = self.proxy(self.A, c.perform)
         obj.x = 1
         assert obj.x == 1
         assert a.x == 1
@@ -68,7 +72,7 @@ class AppTestProxyObj(AppProxyBasic):
         a = self.A()
         a.f = 3
         c = self.Controller(a)
-        obj = proxy(self.A, c.perform)
+        obj = self.proxy(self.A, c.perform)
         del obj.f
         raises(AttributeError, "obj.f")
     
@@ -76,13 +80,13 @@ class AppTestProxyObj(AppProxyBasic):
         a = self.A()
         a.x = 3
         c = self.Controller(a)
-        obj = proxy(self.A, c.perform)
+        obj = self.proxy(self.A, c.perform)
         assert 'x' in obj.__dict__
     
     def test_set__dict__(self):
         a = self.A()
         c = self.Controller(a)
-        obj = proxy(self.A, c.perform)
+        obj = self.proxy(self.A, c.perform)
         obj.__dict__ = {'x':3}
         assert obj.x == 3
         assert obj.__dict__.keys() == ['x']
@@ -90,7 +94,7 @@ class AppTestProxyObj(AppProxyBasic):
     def test_repr(self):
         a = self.A()
         c = self.Controller(a)
-        obj = proxy(self.A, c.perform)
+        obj = self.proxy(self.A, c.perform)
         assert repr(obj)[:6] == repr(a)[:6]
 
 class AppTestProxyObjectList(AppTestProxyObj):
@@ -101,10 +105,15 @@ class AppTestProxyObjectList(AppTestProxyObj):
             pass
         return A
         """)
+        self.w_proxy = self.space.appexec([], """():
+        from pypymagic import transparent_proxy
+        return transparent_proxy
+        """)
+
 
     def test_list_append(self):
         a = self.A([1,2,3])
         c = self.Controller(a)
-        obj = proxy(self.A, c.perform)
+        obj = self.proxy(self.A, c.perform)
         assert len(obj) == 3
         assert obj[1] == 2

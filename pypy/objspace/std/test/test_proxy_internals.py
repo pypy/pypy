@@ -16,6 +16,7 @@ class AppProxy(object):
             def perform(self, name, *args, **kwargs):
                 return getattr(self.obj, name)(*args, **kwargs)
         def get_proxy(f):
+            from pypymagic import transparent_proxy as proxy
             return proxy(type(f), Controller(f).perform)
         return get_proxy
         """)
@@ -58,6 +59,7 @@ class AppTestProxyTracebackController(AppProxy):
         import traceback
         
         def get_proxy(f):
+            from pypymagic import transparent_proxy as proxy
             return proxy(type(f), Controller(f).perform)
         
         class FakeTb(object):
