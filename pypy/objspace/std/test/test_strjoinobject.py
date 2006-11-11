@@ -14,21 +14,12 @@ class AppTestStringObject(test_stringobject.AppTestStringObject):
         assert type(s) is str
         assert 'W_StringJoinObject' in pypymagic.pypy_repr(s)
 
-    def test_function_with_strjoin(self):
-        skip("Failing")
-        def f(x, y):
-            if x[-1] != "/":
-                x += "/"
-            if y.startswith(x):
-                return y[len(x):]
-
-        x = "a"
-        y = "a/b/c/d"
-        x += ""
-        y += ""
-
-        assert f(x, y)
-        assert f(x, y)
+    def test_add_twice(self):
+        skip("minimal failing test")
+        x = "a" + ""
+        y = x + "b"
+        c = x + "b"
+        assert c == "ab"
 
     def test_add(self):
         import pypymagic
