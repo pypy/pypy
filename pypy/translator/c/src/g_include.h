@@ -45,7 +45,6 @@
 #  ifdef RPyExc_thread_error
 #    include "src/ll_thread.h"
 #  endif
-#  include "src/ll__socket.h"
 #endif
 
 #include "src/stack.h"
