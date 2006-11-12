@@ -48,7 +48,7 @@ class ParseError(Exception):
     def nice_error_message(self, filename="<unknown>", source=""):
         result = ["  File %s, line %s" % (filename, self.source_pos.lineno)]
         if source:
-            result.append(source.splitlines()[self.source_pos.lineno])
+            result.append(source.split("\n")[self.source_pos.lineno])
             result.append(" " * self.source_pos.columnno + "^")
         else:
             result.append("<couldn't get source>")

@@ -31,7 +31,7 @@ class LexerError(Exception):
 
     def nice_error_message(self, filename="<unknown>"):
         result = ["  File %s, line %s" % (filename, self.lineno)]
-        result.append(self.input.splitlines()[self.lineno])
+        result.append(self.input.split("\n")[self.lineno])
         result.append(" " * self.columnno + "^")
         result.append("LexerError")
         return "\n".join(result)
