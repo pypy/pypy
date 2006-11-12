@@ -121,7 +121,7 @@ def run(goal, var_to_pos, e):
     else:
         printmessage("yes\n")
 
-def repl(e):
+def repl(engine):
     printmessage("welcome!\n")
     while 1:
         printmessage(">?- ")
@@ -129,12 +129,15 @@ def repl(e):
         if line == "halt.\n":
             break
         try:
-            goals, var_to_pos = e.parse(line)
-        except ParseError:
-            printmessage("parse error\n")
+            goals, var_to_pos = engine.parse(line)
+        except ParseError, exc:
+            printmessage(exc.nice_error_message("<stdin>", line) + "\n")
+            continue
+        except LexerError, exc:
+            printmessage(exc.nice_error_message("<stdin>") + "\n")
             continue
         for goal in goals:
-            run(goal, var_to_pos, e)
+            run(goal, var_to_pos, engine)
  
 def execute(e, filename):
     e.run(term.Term("consult", [term.Atom(filename)]))
