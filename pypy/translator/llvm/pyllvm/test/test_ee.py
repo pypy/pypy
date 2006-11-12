@@ -6,7 +6,7 @@ from pypy.translator.llvm.buildllvm import llvm_is_on_path
 
 try:
     from pypy.translator.llvm.pyllvm import pyllvm
-except:
+except ImportError:
     py.test.skip("Unable to import pyllvm")
 
 from pypy.translator.llvm.pyllvm.test import ll_snippet

@@ -13,8 +13,8 @@ class cdecl(object):
             else:
                 cdll_load = cdll.LoadLibrary
             self.library  = cdll_load(d + libname + ".so")
-        except:
-            raise Exception("llvmcapi not found: run 'python setup.py build_ext -i' in " + d)
+        except Exception, e:
+            raise Exception(str(e) + "\nrun 'python setup.py build_ext -i' in " + d)
         self.restype  = restype
         self.argtypes = argtypes
 
