@@ -52,6 +52,8 @@ def add__StringJoin_StringJoin(space, w_self, w_other):
     return W_StringJoinObject(w_self.joined_strs)
 
 def add__StringJoin_String(space, w_self, w_other):
+    if len(w_self.joined_strs) > w_self.until:
+        w_self.force()
     other = space.str_w(w_other)
     w_self.joined_strs.append(other)
     return W_StringJoinObject(w_self.joined_strs)
