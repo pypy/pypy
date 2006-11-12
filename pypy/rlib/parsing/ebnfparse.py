@@ -1,12 +1,12 @@
 import py
-from algorithm.automaton.parsing import PackratParser, Rule
-from algorithm.automaton.tree import Nonterminal, Symbol, RPythonVisitor
-from algorithm.automaton.regexparse import parse_regex
+from pypy.rlib.parsing.parsing import PackratParser, Rule
+from pypy.rlib.parsing.tree import Nonterminal, Symbol, RPythonVisitor
+from pypy.rlib.parsing.regexparse import parse_regex
 import string
-from algorithm.automaton.regex import *
-from algorithm.automaton.deterministic import DFA
+from pypy.rlib.parsing.regex import *
+from pypy.rlib.parsing.deterministic import DFA
 from algorithm.tool.makeondemand import make_on_demand
-from algorithm.automaton.lexer import Lexer, DummyLexer
+from pypy.rlib.parsing.lexer import Lexer, DummyLexer
 
 def make_ebnf_parser():
     NONTERMINALNAME = parse_regex("([a-z]|_)[a-z0-9_]*")
@@ -54,7 +54,7 @@ def parse_ebnf(s):
     return zip(visitor.names, visitor.regexs), visitor.rules, ToAstVisitor
 
 def make_parse_function(regexs, rules, eof=False):
-    from algorithm.automaton.lexer import Lexer
+    from pypy.rlib.parsing.lexer import Lexer
     names, regexs = zip(*regexs)
     if "IGNORE" in names:
         ignore = ["IGNORE"]

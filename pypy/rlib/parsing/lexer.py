@@ -1,6 +1,6 @@
 import py
 from pypy.rlib.objectmodel import we_are_translated
-from algorithm.automaton import deterministic, regex
+from pypy.rlib.parsing import deterministic, regex
 
 class Lexer(object):
     def __init__(self, token_regexs, names, ignore=None):

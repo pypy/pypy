@@ -1,9 +1,9 @@
 import py
 from pypy.translator.interactive import Translation
-from algorithm.automaton.lexer import *
-from algorithm.automaton.regex import *
-from algorithm.automaton.parsing import *
-from algorithm.automaton import deterministic
+from pypy.rlib.parsing.lexer import *
+from pypy.rlib.parsing.regex import *
+from pypy.rlib.parsing.parsing import *
+from pypy.rlib.parsing import deterministic
 
 
 class TestTranslateLexer(object):
@@ -93,12 +93,12 @@ def test_translate_compiled_parser():
     assert res1 == res2
 
 def make_transformer(transformer):
-    from algorithm.automaton.tree import RPythonVisitor
+    from pypy.rlib.parsing.tree import RPythonVisitor
     exec py.code.Source(transformer).compile()
     return ToAST
 
 def test_translate_ast_visitor():
-    from algorithm.automaton.ebnfparse import parse_ebnf, make_parse_function
+    from pypy.rlib.parsing.ebnfparse import parse_ebnf, make_parse_function
     regexs, rules, transformer = parse_ebnf("""
 DECIMAL: "0|[1-9][0-9]*";
 IGNORE: " ";

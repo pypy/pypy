@@ -1,7 +1,7 @@
 import py
-from algorithm.automaton.lexer import *
-from algorithm.automaton.regex import *
-from algorithm.automaton import deterministic
+from pypy.rlib.parsing.lexer import *
+from pypy.rlib.parsing.regex import *
+from pypy.rlib.parsing import deterministic
 
 
 class TestDirectLexer(object):

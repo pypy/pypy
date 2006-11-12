@@ -1,8 +1,8 @@
 import py
-from algorithm.automaton.parsing import PackratParser, Rule
-from algorithm.automaton.regex import StringExpression, RangeExpression
-from algorithm.automaton.lexer import Lexer, DummyLexer
-from algorithm.automaton.deterministic import compress_char_set, DFA
+from pypy.rlib.parsing.parsing import PackratParser, Rule
+from pypy.rlib.parsing.regex import StringExpression, RangeExpression
+from pypy.rlib.parsing.lexer import Lexer, DummyLexer
+from pypy.rlib.parsing.deterministic import compress_char_set, DFA
 import string
 
 ESCAPES = {
@@ -17,7 +17,7 @@ ESCAPES = {
 }
 
 def make_regex_parser():
-    from algorithm.automaton.ebnfparse import parse_ebnf, make_parse_function
+    from pypy.rlib.parsing.ebnfparse import parse_ebnf, make_parse_function
     # construct regular expressions by hand, to not go completely insane
     # because of quoting
     special_chars = "*+()[]{}|.-?,^"

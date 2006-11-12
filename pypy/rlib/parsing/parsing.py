@@ -1,5 +1,5 @@
 import py
-from algorithm.automaton.tree import Node, Symbol, Nonterminal, Epsilon
+from pypy.rlib.parsing.tree import Node, Symbol, Nonterminal, Epsilon
 
 class Rule(object):
     def __init__(self, nonterminal, expansions):

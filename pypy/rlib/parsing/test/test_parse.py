@@ -1,4 +1,4 @@
-from algorithm.automaton.parsing import *
+from pypy.rlib.parsing.parsing import *
 
 class EvaluateVisitor(object):
     def visit_additive(self, node):

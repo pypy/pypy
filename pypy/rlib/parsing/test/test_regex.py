@@ -1,4 +1,4 @@
-from algorithm.automaton.regex import *
+from pypy.rlib.parsing.regex import *
 
 def compile_rex(rex, view=False):
     try:

@@ -1,4 +1,4 @@
-from algorithm.automaton.deterministic import *
+from pypy.rlib.parsing.deterministic import *
 
 def test_DFA_simple():
     a = DFA()

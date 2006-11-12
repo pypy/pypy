@@ -1,5 +1,5 @@
 def make_runner(regex, view=False):
-    from algorithm.automaton.regexparse import parse_regex
+    from pypy.rlib.parsing.regexparse import parse_regex
     r = parse_regex(regex)
     dfa = r.make_automaton().make_deterministic()
     if view:

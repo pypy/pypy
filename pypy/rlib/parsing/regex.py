@@ -1,4 +1,4 @@
-from algorithm.automaton.deterministic import NFA
+from pypy.rlib.parsing.deterministic import NFA
 
 class RegularExpression(object):
     def __init__(self):

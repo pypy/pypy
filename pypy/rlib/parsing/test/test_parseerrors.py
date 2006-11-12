@@ -1,9 +1,9 @@
 import py
-from algorithm.automaton.parsing import PackratParser, Rule, Nonterminal
-from algorithm.automaton.parsing import Symbol, ParseError
-from algorithm.automaton.ebnfparse import parse_ebnf, make_parse_function
-from algorithm.automaton.deterministic import LexerError
-from algorithm.automaton.tree import RPythonVisitor
+from pypy.rlib.parsing.parsing import PackratParser, Rule, Nonterminal
+from pypy.rlib.parsing.parsing import Symbol, ParseError
+from pypy.rlib.parsing.ebnfparse import parse_ebnf, make_parse_function
+from pypy.rlib.parsing.deterministic import LexerError
+from pypy.rlib.parsing.tree import RPythonVisitor
 
 class TestDictError(object):
     dictebnf = """
