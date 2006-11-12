@@ -32,7 +32,7 @@ def timelog(prefix, call, *args, **kwds):
     return res 
 
 def gengraph(func, argtypes=[], viewbefore='auto', policy=None,
-             type_system="lltype"):
+             type_system="lltype", backendopt=False):
     t = TranslationContext()
     a = t.buildannotator(policy=policy)
     timelog("annotating", a.build_types, func, argtypes)
@@ -46,6 +46,10 @@ def gengraph(func, argtypes=[], viewbefore='auto', policy=None,
     timelog("rtyper-specializing", typer.specialize) 
     #t.view()
     timelog("checking graphs", t.checkgraphs) 
+    if backendopt:
+        from pypy.translator.backendopt.all import backend_optimizations
+        backend_optimizations(t)
+        timelog("checking graphs", t.checkgraphs)
     desc = t.annotator.bookkeeper.getdesc(func)
     graph = desc.specialize(argtypes)
     return t, typer, graph
@@ -57,8 +61,9 @@ def clear_tcache():
     _tcache.clear()
 
 def get_interpreter(func, values, view='auto', viewbefore='auto', policy=None,
-                    someobjects=False, type_system="lltype"):
-    key = (func,) + tuple([typeOf(x) for x in values])+ (someobjects,)
+                    someobjects=False, type_system="lltype", backendopt=False):
+    key = (func,) + tuple([typeOf(x) for x in values])+ (someobjects,
+                                                         backendopt)
     try: 
         (t, interp, graph) = _tcache[key]
     except KeyError:
@@ -72,7 +77,8 @@ def get_interpreter(func, values, view='auto', viewbefore='auto', policy=None,
                 return lltype_to_annotation(T)
 
         t, typer, graph = gengraph(func, [annotation(x) for x in values],
-                                   viewbefore, policy, type_system=type_system)
+                                   viewbefore, policy, type_system=type_system,
+                                   backendopt=backendopt)
         interp = LLInterpreter(typer)
         _tcache[key] = (t, interp, graph)
         # keep the cache small 
@@ -86,15 +92,18 @@ def get_interpreter(func, values, view='auto', viewbefore='auto', policy=None,
     return interp, graph
 
 def interpret(func, values, view='auto', viewbefore='auto', policy=None,
-              someobjects=False, type_system="lltype"):
+              someobjects=False, type_system="lltype", backendopt=False):
     interp, graph = get_interpreter(func, values, view, viewbefore, policy,
-                                    someobjects, type_system=type_system)
+                                    someobjects, type_system=type_system,
+                                    backendopt=backendopt)
     return interp.eval_graph(graph, values)
 
 def interpret_raises(exc, func, values, view='auto', viewbefore='auto',
-                     policy=None, someobjects=False, type_system="lltype"):
+                     policy=None, someobjects=False, type_system="lltype",
+                     backendopt=False):
     interp, graph  = get_interpreter(func, values, view, viewbefore, policy,
-                             someobjects, type_system=type_system)
+                                     someobjects, type_system=type_system,
+                                     backendopt=backendopt)
     info = py.test.raises(LLException, "interp.eval_graph(graph, values)")
     assert interp.find_exception(info.value) is exc, "wrong exception type"
 

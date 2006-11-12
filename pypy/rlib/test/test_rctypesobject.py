@@ -1,3 +1,4 @@
+import py
 from pypy.rlib.rctypesobject import *
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.translator.c.test.test_genc import compile
@@ -117,6 +118,18 @@ class TestBasic:
         res = self.do(func)
         assert res == 26
 
+    def test_char_p_in_struct(self):
+        py.test.skip("keepalive problem in malloc removal?")
+        S2 = RStruct('S2', [('p', rc_char_p)])
+        def func():
+            s = S2.allocate()
+            for test in ["abc", "hello world"]:
+                s.ref_p().set_value(test)
+            assert s.ref_p().get_value() == "hello world"
+            return 1
+        res = self.do(func)
+        assert res == 1
+
     def test_char_array(self):
         def func():
             a = RFixedArray(rc_char, 10).allocate()
@@ -180,7 +193,7 @@ POLICY.allow_someobjects = False
 class TestLLInterpreted(TestBasic):
 
     def do(self, func):
-        return interpret(func, [], policy=POLICY)
+        return interpret(func, [], policy=POLICY, backendopt=True)
 
 
 class TestCompiled(TestBasic):

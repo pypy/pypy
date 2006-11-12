@@ -2,6 +2,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython import annlowlevel
 from pypy.interpreter.miscutils import InitializedClass
 from pypy.tool.sourcetools import func_with_new_name
+from pypy.rlib.objectmodel import keepalive_until_here
 
 
 class RawMemBlock(object):
@@ -12,9 +13,10 @@ class RawMemBlock(object):
         if ofs_keepalives == 0:
             return self
         else:
-            return self._addoffset(ofs_keepalives)
-    def _addoffset(self, ofs_keepalives):
-        return RawMemSubBlock(self, ofs_keepalives)
+            return RawMemSubBlock(self, ofs_keepalives)
+##            return self._addoffset(ofs_keepalives)
+##    def _addoffset(self, ofs_keepalives):
+##        return RawMemSubBlock(self, ofs_keepalives)
     def getkeepalive(self, index):
         return self.keepalives[self.ofs_keepalives + index]
     def setkeepalive(self, index, memblock):
@@ -23,14 +25,15 @@ class RawMemBlock(object):
 EMPTY_RAW_MEM_BLOCK = RawMemBlock(0)
 
 class AllocatedRawMemBlock(RawMemBlock):
-    def __init__(self, num_keepalives, rawsize):
+    def __init__(self, num_keepalives, rawsize, zero=True):
         RawMemBlock.__init__(self, num_keepalives)
         addr = llmemory.raw_malloc(rawsize)
         self.addr = addr
-        llmemory.raw_memclear(addr, rawsize)
-        #print 'raw_malloc:', addr
+        if zero:
+            llmemory.raw_memclear(addr, rawsize)
+        #print 'raw_malloc: %x' % llmemory.cast_adr_to_int(addr)
     def __del__(self):
-        #print 'raw_free:  ', self.addr
+        #print 'raw_free:   %x' % llmemory.cast_adr_to_int(self.addr)
         llmemory.raw_free(self.addr)
 
 class RawMemSubBlock(RawMemBlock):
@@ -38,9 +41,9 @@ class RawMemSubBlock(RawMemBlock):
         self.baseblock = baseblock
         self.keepalives = baseblock.keepalives
         self.ofs_keepalives = ofs_keepalives
-    def _addoffset(self, ofs_keepalives):
-        ofs_keepalives = self.ofs_keepalives + ofs_keepalives
-        return RawMemSubBlock(self.baseblock, ofs_keepalives)
+##    def _addoffset(self, ofs_keepalives):
+##        ofs_keepalives = self.ofs_keepalives + ofs_keepalives
+##        return RawMemSubBlock(self.baseblock, ofs_keepalives)
 
 
 class RCTypesObject(object):
@@ -78,6 +81,20 @@ class RCTypesObject(object):
                 self._copykeepalives(0, srcbox)
             cls.copyfrom = copyfrom1
 
+            if hasattr(cls, 'llvalue2value') and not hasattr(cls, 'get_value'):
+                def get_value(self):
+                    ptr = self.ll_ref(cls.CDATATYPE)
+                    res = cls.llvalue2value(ptr[0])
+                    keepalive_until_here(self)
+                    return res
+                cls.get_value = get_value
+
+            if hasattr(cls, 'value2llvalue') and not hasattr(cls, 'set_value'):
+                def set_value(self, value):
+                    ptr = self.ll_ref(cls.CDATATYPE)
+                    ptr[0] = cls.value2llvalue(value)
+                cls.set_value = set_value
+
     def sameaddr(self, otherbox):
         return self.addr == otherbox.addr
 
@@ -100,6 +117,8 @@ class RCTypesObject(object):
         return llmemory.cast_adr_to_ptr(self.addr, lltype.Ptr(CDATATYPE))
     ll_ref._annspecialcase_ = 'specialize:arg(1)'
 
+_abstract_classes = [RCTypesObject]
+
 # ____________________________________________________________
 
 _primitive_cache = {}
@@ -113,13 +132,13 @@ def Primitive(TYPE):
         class RCTypesPrimitive(RCTypesObject):
             LLTYPE = TYPE
 
-            def get_value(self):
-                ptr = self.ll_ref(RCTypesPrimitive.CDATATYPE)
-                return ptr[0]
+            def _no_conversion_needed(x):
+                return x
+            llvalue2value = staticmethod(_no_conversion_needed)
+            value2llvalue = staticmethod(_no_conversion_needed)
 
-            def set_value(self, llvalue):
-                ptr = self.ll_ref(RCTypesPrimitive.CDATATYPE)
-                ptr[0] = llvalue
+            #def get_value(self):        added by __initclass__() above
+            #def set_value(self, value): added by __initclass__() above
 
         _primitive_cache[TYPE] = RCTypesPrimitive
         return RCTypesPrimitive
@@ -130,14 +149,14 @@ rc_char = Primitive(lltype.Char)
 
 # ____________________________________________________________
 
-class _RCTypesStringData(object):
-    ARRAYTYPE = lltype.FixedSizeArray(lltype.Char, 1)
-    ITEMOFS   = llmemory.sizeof(lltype.Char)
-    def __init__(self, bufsize):
-        rawsize = self.ITEMOFS * bufsize
-        self.addr = llmemory.raw_malloc(rawsize)
-    def __del__(self):
-        llmemory.raw_free(self.addr)
+##class _RCTypesStringData(object):
+##    ARRAYTYPE = lltype.FixedSizeArray(lltype.Char, 1)
+##    ITEMOFS   = llmemory.sizeof(lltype.Char)
+##    def __init__(self, bufsize):
+##        rawsize = self.ITEMOFS * bufsize
+##        self.addr = llmemory.raw_malloc(rawsize)
+##    def __del__(self):
+##        llmemory.raw_free(self.addr)
 
 def strlen(p):
     n = 0
@@ -166,25 +185,31 @@ def string2charp(p, length, string):
             break
 
 class RCTypesCharP(RCTypesObject):
-    LLTYPE = lltype.Ptr(_RCTypesStringData.ARRAYTYPE)
+    ARRAYTYPE = lltype.FixedSizeArray(lltype.Char, 1)
+    ITEMOFS   = llmemory.sizeof(lltype.Char)
+    LLTYPE    = lltype.Ptr(ARRAYTYPE)
+    num_keepalives = 1
 
-    def get_value(self):
-        ptr = self.ll_ref(RCTypesCharP.CDATATYPE)
-        p = ptr[0]
+    def llvalue2value(p):
         length = strlen(p)
         return charp2string(p, length)
+    llvalue2value = staticmethod(llvalue2value)
+
+    #def get_value(self): added by __initclass__() above
 
     def set_value(self, string):
         n = len(string)
-        data = _RCTypesStringData(n + 1)
-        a = data.addr
+        rawsize = RCTypesCharP.ITEMOFS * (n + 1)
+        targetmemblock = AllocatedRawMemBlock(0, rawsize, zero=False)
+        targetaddr = targetmemblock.addr
+        a = targetaddr
         for i in range(n):
             a.char[0] = string[i]
-            a += _RCTypesStringData.ITEMOFS
+            a += RCTypesCharP.ITEMOFS
         a.char[0] = '\x00'
         ptr = self.ll_ref(RCTypesCharP.CDATATYPE)
-        ptr[0] = llmemory.cast_adr_to_ptr(data.addr, RCTypesCharP.LLTYPE)
-        self._keepalive_stringdata = data
+        ptr[0] = llmemory.cast_adr_to_ptr(targetaddr, RCTypesCharP.LLTYPE)
+        self._keepalivememblock(0, targetmemblock)
 
 rc_char_p = RCTypesCharP
 
@@ -196,10 +221,11 @@ def RPointer(contentscls):
         return contentscls._ptrcls
     except AttributeError:
         assert issubclass(contentscls, RCTypesObject)
-        if contentscls is RCTypesObject:
-            raise Exception("cannot call RPointer(RCTypesObject) or "
+        if contentscls in _abstract_classes:
+            raise Exception("cannot call RPointer(%s) or "
                             "pointer(x) if x degenerated to the base "
-                            "RCTypesObject class")
+                            "%s class" % (contentscls.__name__,
+                                          contentscls.__name__,))
 
         class RCTypesPtr(RCTypesObject):
             CONTENTS  = contentscls.CDATATYPE
@@ -283,8 +309,9 @@ def RFixedArray(itemcls, fixedsize):
         return getattr(itemcls, key)
     except AttributeError:
         assert issubclass(itemcls, RCTypesObject)
-        if itemcls is RCTypesObject:
-            raise Exception("cannot call RFixedArray(RCTypesObject)")
+        if itemcls in _abstract_classes:
+            raise Exception("cannot call RFixedArray(%s)" % (
+                itemcls.__name__,))
 
         ARRAYTYPE = lltype.FixedSizeArray(itemcls.LLTYPE, fixedsize)
         FIRSTITEMOFS = llmemory.ArrayItemsOffset(ARRAYTYPE)
@@ -324,8 +351,9 @@ def RVarArray(itemcls):
         return itemcls._vararraycls
     except AttributeError:
         assert issubclass(itemcls, RCTypesObject)
-        if itemcls is RCTypesObject:
-            raise Exception("cannot call RVarArray(RCTypesObject)")
+        if itemcls in _abstract_classes:
+            raise Exception("cannot call RVarArray(%s)" % (
+                itemcls.__name__,))
 
         ARRAYTYPE = lltype.Array(itemcls.LLTYPE, hints={'nolength': True})
         FIRSTITEMOFS = llmemory.ArrayItemsOffset(ARRAYTYPE)
