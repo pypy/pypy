@@ -119,7 +119,7 @@ class TestBasic:
         assert res == 26
 
     def test_char_p_in_struct(self):
-        py.test.skip("keepalive problem in malloc removal?")
+        #py.test.skip("keepalive problem in malloc removal?")
         S2 = RStruct('S2', [('p', rc_char_p)])
         def func():
             s = S2.allocate()
