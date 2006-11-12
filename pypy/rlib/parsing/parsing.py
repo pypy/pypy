@@ -218,7 +218,8 @@ class PackratParser(object):
 
     def __repr__(self):
         from pprint import pformat
-        return "PackratParser%s" % (pformat((self.rules, self.startsymbol)), )
+        return "%s%s" % (self.__class__.__name__,
+                         pformat((self.rules, self.startsymbol)), )
 
 class ParserCompiler(object):
     def __init__(self, parser):

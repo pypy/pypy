@@ -159,7 +159,7 @@ class ParserBuilder(object):
 def make_transformer(rules, changes, star_rules):
     rulenames = dict.fromkeys([r.nonterminal for r in rules])
     result = ["class ToAST(RPythonVisitor):"]
-    result.append("    def visit(self, node):")
+    result.append("    def general_visit(self, node):")
     result.append("        return node")
     for rule, change in zip(rules, changes):
         lenchanges = [len(c) for c in change]

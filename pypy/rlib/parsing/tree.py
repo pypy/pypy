@@ -68,7 +68,43 @@ class Epsilon(Node):
     pass
 
 class VisitError(Exception):
-    pass
+    def __init__(self, node):
+        self.node = node
+        self.args = (node, )
+
+    def __str__(self):
+        return "could not visit %s" % (self.node, )
+
+def make_dispatch_function(dispatch_table):
+    code = ["def dispatch(self, node):"]
+    code.append("    if isinstance(node, Nonterminal):")
+    code.append("        if node.symbol not in self.dispatch_table:")
+    if "__general_nonterminal_visit" in dispatch_table:
+        code.append(
+                "            return self.dispatch_table['__general_nonterminal_visit'](self, node)")
+    elif "__general_visit" in dispatch_table:
+        code.append(
+                "            return self.dispatch_table['__general_visit'](self, node)")
+    else:
+        code.append("            raise VisitError(node)")
+    code.append("        else:")
+    code.append("            return self.dispatch_table[node.symbol](self, node)")
+    code.append("    if isinstance(node, Symbol):")
+    code.append("        if node.symbol not in self.dispatch_table:")
+    if "__general_symbol_visit" in dispatch_table:
+        code.append(
+                "            return self.dispatch_table['__general_symbol_visit'](self, node)")
+    elif "__general_visit" in dispatch_table:
+        code.append(
+                "            return self.dispatch_table['__general_visit'](self, node)")
+    else:
+        code.append("              raise VisitError(node)")
+    code.append("        else:")
+    code.append("            return self.dispatch_table[node.symbol](self, node)")
+    code.append("    raise VisitError(node)")
+    print "\n".join(code)
+    exec py.code.Source("\n".join(code)).compile()
+    return dispatch
 
 class CreateDispatchDictionaryMetaclass(type):
     def __new__(cls, name, bases, dct):
@@ -76,9 +112,13 @@ class CreateDispatchDictionaryMetaclass(type):
         for name, value in dct.iteritems():
             if name.startswith("visit_"):
                 dispatch_table[name[len("visit_"):]] = value
-        if "visit" in dct:
-            dispatch_table["__general_symbol"] = dct["visit"]
+        for special in ["general_symbol_visit",
+                        "general_nonterminal_visit",
+                        "general_visit"]:
+            if special in dct:
+                dispatch_table["__" + special] = dct[special]
         dct["dispatch_table"] = dispatch_table
+        dct["dispatch"] = make_dispatch_function(dispatch_table)
         return type.__new__(cls, name, bases, dct)
 
 class RPythonVisitor(object):
@@ -87,15 +127,16 @@ class RPythonVisitor(object):
     def dispatch(self, node):
         if isinstance(node, Nonterminal):
             if node.symbol not in self.dispatch_table:
-                raise VisitError
+                raise VisitError(node)
             else:
                 return self.dispatch_table[node.symbol](self, node)
         elif isinstance(node, Symbol):
             if node.symbol not in self.dispatch_table:
                 if "__general_symbol" in self.dispatch_table:
                     return self.dispatch_table["__general_symbol"](self, node)
-                raise VisitError
+                raise VisitError(node)
             else:
                 return self.dispatch_table[node.symbol](self, node)
+
         else:
-            raise VisitError()
+            raise VisitError(node)
