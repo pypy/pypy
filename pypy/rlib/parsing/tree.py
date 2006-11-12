@@ -102,7 +102,6 @@ def make_dispatch_function(dispatch_table):
     code.append("        else:")
     code.append("            return self.dispatch_table[node.symbol](self, node)")
     code.append("    raise VisitError(node)")
-    print "\n".join(code)
     exec py.code.Source("\n".join(code)).compile()
     return dispatch
 
