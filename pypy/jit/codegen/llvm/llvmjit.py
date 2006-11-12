@@ -29,6 +29,10 @@ os.system('python setup.py build_ext -i')
 
 os.chdir(curdir)
 
+if not os.path.exists(path):
+    import py
+    py.test.skip("libllvmjit.so compilation failed (no llvm headers?)")
+
 #load the actual library
 llvmjit = cdll.LoadLibrary(os.path.abspath(path))
 class _FuncPtr(_CFuncPtr):
