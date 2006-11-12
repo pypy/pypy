@@ -80,17 +80,17 @@ class HintGraphTransformer(object):
                     if len(entrymap[prevblock]) > 1:
                         global_merge_blocks[prevblock] = True
                         cand += 1
-            op = block.operations[-1]
-            if (op.opname == 'hint' and
-                op.args[1].value == {'global_merge_point': True}):
-                hashint = True
-                for link in block.exits:
-                    if len(entrymap[link.target]) > 1:
-                        global_merge_blocks[link.target] = True
-                        cand += 1
+            #op = block.operations[-1]
+            #if (op.opname == 'hint' and
+            #    op.args[1].value == {'global_merge_point': True}):
+            #    hashint = True
+            #    for link in block.exits:
+            #        if len(entrymap[link.target]) > 1:
+            #            global_merge_blocks[link.target] = True
+            #            cand += 1
             assert not hashint or cand==1, (
                 "ambigous global merge point hint: %r" % block)
-            for op in block.operations[1:-1]:
+            for op in block.operations[1:]:
                 assert not (op.opname == 'hint' and
                     op.args[1].value == {'global_merge_point': True}), (
                     "stranded global merge point hint: %r" % block)
