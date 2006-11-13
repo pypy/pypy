@@ -1,5 +1,5 @@
 import math
-from pypy.rpython.objectmodel import we_are_translated, UnboxedValue
+from pypy.rlib.objectmodel import we_are_translated, UnboxedValue
 from pypy.rlib.rarithmetic import intmask
 from pypy.lang.prolog.interpreter.error import UnificationFailed, UncatchableError
 

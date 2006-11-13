@@ -2,7 +2,7 @@ import os
 import py
 
 from py.magic import greenlet
-from pypy.rpython.objectmodel import we_are_translated
+from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.rstack import yield_current_frame_to_caller
 from pypy.translator.c.test.test_stackless import StacklessTest
 

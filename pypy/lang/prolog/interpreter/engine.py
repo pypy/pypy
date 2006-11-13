@@ -91,7 +91,7 @@ class Engine(object):
         self.operations = None
     
     def add_rule(self, rule, end=True):
-        from prolog import builtin
+        from pypy.lang.prolog import builtin
         if DEBUG:
             debug_print("add_rule", rule)
         if isinstance(rule, Term):
