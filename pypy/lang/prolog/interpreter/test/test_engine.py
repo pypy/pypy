@@ -241,3 +241,12 @@ def test_runstring():
 
 def test_handle_non_callable():
     py.test.raises(CatchableError, assert_true, "1.")
+
+def test_call_atom():
+    e = get_engine("""
+        test(a).
+        test :- test(_).
+    """)
+    assert_true("test.", e)
+
+

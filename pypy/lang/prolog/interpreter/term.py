@@ -522,6 +522,12 @@ class Rule(object):
             extend_and_normalize_template_frame(template_frame, frame)
             for index, obj in to_instantiate:
                 frame.vars[index] = obj.instantiate_template(template_frame)
+        else:
+            next_free = frame.maxvar()
+            for i in range(self.numvars):
+                template_frame[i] = Var(next_free)
+                next_free += 1
+            frame.extend(next_free - frame.maxvar())
         body = self.body
         if body is None:
             return None
