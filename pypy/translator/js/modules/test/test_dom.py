@@ -44,6 +44,14 @@ def test_wrap():
     document.documentElement.appendChild(div)
     assert document.documentElement.childNodes[-1]._original is div._original
 
+def test_node_eq():
+    window = dom.Window()
+    body = window.document.getElementsByTagName('body')[0]
+    ref = body.parentNode.lastChild
+    assert ref == body
+    ref = window.document.createElement('body')
+    assert ref != body
+
 def test_get_element_by_id():
     window = dom.Window('<html><body><div id="foo" /></body></html>')
     div = window.document.getElementById('foo')
@@ -194,8 +202,17 @@ def test_event_vars():
     assert h.event.originalTarget == div
     assert h.event.currentTarget == body
 
+def test_class_name():
+    window = dom.Window('<html><body><div class="foo">foo</div></body></html>')
+    div = window.document.getElementsByTagName('div')[0]
+    assert div.className == 'foo'
+    body = div.parentNode
+    assert not body.className
+    div.className = 'bar'
+    assert div.className == 'bar'
+    assert body.innerHTML == '<div class="bar">foo</div>'
+
 def test_build():
-    py.test.skip("Not implemented yet")
     for var in globals():
         if var.startswith('test_') and var != 'test_build':
             # just build it

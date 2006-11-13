@@ -151,8 +151,24 @@ class HTMLNode(Node, EventTarget):
         name = name.lower()
         return self.__getattr__('getElementsByTagName')(name)
 
-    def __str__(self):
+    def __repr__(self):
         return '<%s %s>' % (self.__class__.__name__, self.nodeName)
+
+    def _getClassName(self):
+        return self.getAttribute('class')
+
+    def _setClassName(self, name):
+        self.setAttribute('class', name)
+
+    className = property(_getClassName, _setClassName)
+
+    def _getId(self):
+        return self.getAttribute('id')
+
+    def _setId(self, id):
+        self.setAttribute('id', id)
+
+    id = property(_getId, _setId)
 
 class HTMLElement(HTMLNode, Element):
     id = ''
@@ -160,11 +176,6 @@ class HTMLElement(HTMLNode, Element):
 
     def __init__(self, node=None):
         super(Element, self).__init__(node)
-        if node is not None:
-            self._init(node)
-
-    def _init(self, node):
-        self.id = node.getAttribute('id')
         self.style = Style()
 
     def _nodeName(self):
@@ -199,14 +210,11 @@ class HTMLDocument(Document, HTMLNode):
 
 # Window is the main environment, the root node of the JS object tree
 
-class Window(BasicExternal):
+class Window(EventTarget):
     def __init__(self, html=('<html><head><title>Untitled document</title>'
-                             '</head><body></body></html>'), parent=None,
-                             emit_events=False):
-        global document
+                             '</head><body></body></html>'), parent=None):
         self._html = html
-        self._emit_events = emit_events
-        self.document = document = HTMLDocument(minidom.parseString(html))
+        self.document = HTMLDocument(minidom.parseString(html))
 
         # references to windows
         self.content = self
@@ -221,11 +229,22 @@ class Window(BasicExternal):
 
         # other properties
         self.closed = True
-        if self._emit_events:
-            _emit_event(self, 'onload')
+        self._location = 'about:blank'
+
+        self._original = self # for EventTarget interface (XXX a bit nasty)
 
     def __getattr__(self, name):
         return globals()[name]
+
+    def _getLocation(self):
+        return self._location
+
+    def _setLocation(self, newloc):
+        url = urllib.urlopen(newloc)
+        html = url.read()
+        self.document = HTMLDocument(minidom.parseString(html))
+    
+    location = property(_getLocation, _setLocation)
 
 def setTimeout(func, delay):
     # scheduler call, but we don't want to mess with threads right now
@@ -242,7 +261,7 @@ def alert(msg):
 # a lot... isn't it possible to just use dom.window and dom.document instead?)
 
 def get_document():
-    return NonConstant(document)
+    return NonConstant(window.document)
 
 def get_window():
     return NonConstant(window)
@@ -251,7 +270,6 @@ def get_window():
 
 # the Node base class contains just about all XML-related properties
 Node._fields = {
-    'attributes' : [Attribute()],
     'childNodes' : [Element()],
     'firstChild' : Element(),
     'lastChild' : Element(),
@@ -276,11 +294,15 @@ Node._methods = {
     'getElementsByTagName' : MethodDesc(["aa"], [Element(), Element()]),
     'hasChildNodes' : MethodDesc([], True),
     'insertBefore' : MethodDesc([Element(), Element()], Element()),
+    'normalize' : MethodDesc([]),
     'removeChild' : MethodDesc([Element()], Element()),
     'replaceChild' : MethodDesc([Element(), Element()], Element()),
 }
 
 Element._fields = Node._fields.copy()
+Element._fields.update({
+    'attributes' : [Attribute()],
+})
 
 Element._methods = Node._methods.copy()
 Element._methods.update({
@@ -335,7 +357,6 @@ HTMLElement._methods.update({
     'blur' : MethodDesc([]),
     'click' : MethodDesc([]),
     'focus' : MethodDesc([]),
-    'normalize' : MethodDesc([]),
     'scrollIntoView' : MethodDesc([12]),
     'supports' : MethodDesc(["aa", 1.0]),
 })
@@ -343,7 +364,7 @@ HTMLElement._methods.update({
 Document._fields = Node._fields.copy()
 Document._fields.update({
     'characterSet' : "aa",
-    'contentWindow' : Window(),
+    # 'contentWindow' : Window(), XXX doesn't exist, only on iframe
     'doctype' : "aa",
     'documentElement' : Element(),
     'styleSheets' : [Style(), Style()],
@@ -351,8 +372,6 @@ Document._fields.update({
 
 Document._methods = Node._methods.copy()
 Document._methods.update({
-    'clear' : MethodDesc([]),
-    'close' : MethodDesc([]),
     'createAttribute' : MethodDesc(["aa"], Element()),
     'createDocumentFragment' : MethodDesc([], Element()),
     'createElement' : MethodDesc(["aa"], Element()),
@@ -363,9 +382,6 @@ Document._methods.update({
     'getElementById' : MethodDesc(["aa"], Element()),
     'getElementsByName' : MethodDesc(["aa"], [Element(), Element()]),
     'importNode' : MethodDesc([Element(), True], Element()),
-    'open' : MethodDesc([]),
-    'write' : MethodDesc(["aa"]),
-    'writeln' : MethodDesc(["aa"]),
 })
 
 HTMLDocument._fields = Document._fields.copy()
@@ -393,11 +409,18 @@ HTMLDocument._fields.update({
 })
 
 HTMLDocument._methods = Document._methods.copy()
+HTMLDocument._methods.update({
+    'clear' : MethodDesc([]),
+    'close' : MethodDesc([]),
+    'open' : MethodDesc([]),
+    'write' : MethodDesc(["aa"]),
+    'writeln' : MethodDesc(["aa"]),
+})
 
 Window._fields = {
     'content' : Window(),
     'closed' : True,
-    #'crypto' : Crypto() - not implemented in Gecko, leave alone
+    # 'crypto' : Crypto() - not implemented in Gecko, leave alone
     'defaultStatus' : "aa",
     'document' : Document(),
     # 'frameElement' :  - leave alone
@@ -445,28 +468,6 @@ Window._methods = {
     'getComputedStyle' : MethodDesc([Element(), "aa"], Style()),
     'home' : MethodDesc([]),
     'open' : MethodDesc(["aa", "aa"]),
-    'onabort' : MethodDesc([Event()]),
-    'onblur' : MethodDesc([Event()]),
-    'onchange' : MethodDesc([Event()]),
-    'onclick' : MethodDesc([MouseEvent()]),
-    'onclose' : MethodDesc([MouseEvent()]),
-    'ondragdrop' : MethodDesc([MouseEvent()]),
-    'onerror' : MethodDesc([MouseEvent()]),
-    'onfocus' : MethodDesc([Event()]),
-    'onkeydown' : MethodDesc([KeyEvent()]),
-    'onkeypress' : MethodDesc([KeyEvent()]),
-    'onkeyup' : MethodDesc([KeyEvent()]),
-    'onload' : MethodDesc([KeyEvent()]),
-    'onmousedown' : MethodDesc([MouseEvent()]),
-    'onmousemove' : MethodDesc([MouseEvent()]),
-    'onmouseup' : MethodDesc([MouseEvent()]),
-    'onmouseover' : MethodDesc([MouseEvent()]),
-    'onmouseup' : MethodDesc([MouseEvent()]),
-    'onresize' : MethodDesc([MouseEvent()]),
-    'onscroll' : MethodDesc([MouseEvent()]),
-    'onselect' : MethodDesc([MouseEvent()]),
-    'onsubmit' : MethodDesc([MouseEvent()]),
-    'onunload' : MethodDesc([Event()]),
 }
 
 Style._fields = {
@@ -600,19 +601,29 @@ Style._fields = {
 }
 
 EventTarget._fields = {
+    'onabort' : MethodDesc([Event()]),
     'onblur' : MethodDesc([Event()]),
+    'onchange' : MethodDesc([Event()]),
     'onclick' : MethodDesc([MouseEvent()]),
+    'onclose' : MethodDesc([MouseEvent()]),
     'ondblclick' : MethodDesc([MouseEvent()]),
+    'ondragdrop' : MethodDesc([MouseEvent()]),
+    'onerror' : MethodDesc([MouseEvent()]),
     'onfocus' : MethodDesc([Event()]),
     'onkeydown' : MethodDesc([KeyEvent()]),
     'onkeypress' : MethodDesc([KeyEvent()]),
     'onkeyup' : MethodDesc([KeyEvent()]),
+    'onload' : MethodDesc([KeyEvent()]),
     'onmousedown' : MethodDesc([MouseEvent()]),
     'onmousemove' : MethodDesc([MouseEvent()]),
     'onmouseup' : MethodDesc([MouseEvent()]),
     'onmouseover' : MethodDesc([MouseEvent()]),
     'onmouseup' : MethodDesc([MouseEvent()]),
     'onresize' : MethodDesc([Event()]),
+    'onscroll' : MethodDesc([MouseEvent()]),
+    'onselect' : MethodDesc([MouseEvent()]),
+    'onsubmit' : MethodDesc([MouseEvent()]),
+    'onunload' : MethodDesc([Event()]),
 }
 
 EventTarget._methods = {
