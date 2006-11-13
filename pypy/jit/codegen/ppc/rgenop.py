@@ -60,6 +60,41 @@ class IntConst(GenConst):
     def fits_in_immediate(self):
         return abs(self.value) < 2**16
 
+class AddrConst(GenConst):
+
+    def __init__(self, addr):
+        self.addr = addr
+
+    @specialize.arg(1)
+    def revealconst(self, T):
+        if T is llmemory.Address:
+            return self.addr
+        elif isinstance(T, lltype.Ptr):
+            return llmemory.cast_adr_to_ptr(self.addr, T)
+        elif T is lltype.Signed:
+            return llmemory.cast_adr_to_int(self.addr)
+        else:
+            assert 0, "XXX not implemented"
+
+    def fits_in_immediate(self):
+        return False
+
+    def load(self, insns, var):
+        i = IntConst(llmemory.cast_adr_to_int(self.addr))
+        insns.append(
+            insn.Insn_GPR__IMM(RPPCAssembler.load_word,
+                               var, [i]))
+
+    def load_now(self, asm, loc):
+        value = llmemory.cast_adr_to_int(self.addr)
+        if loc.is_register:
+            assert isinstance(loc, insn.GPR)
+            asm.load_word(loc.number, value)
+        else:
+            asm.load_word(rSCRATCH, value)
+            asm.stw(rSCRATCH, rFP, loc.offset)
+
+
 class JumpPatchupGenerator(object):
 
     def __init__(self, asm, min_offset):
@@ -160,6 +195,9 @@ class Builder(GenBuilder):
         genmethod = getattr(self, 'op_' + opname)
         return genmethod(gv_arg1, gv_arg2)
 
+    def genop_call(self, sigtoken, gv_fnptr, args_gv):
+        pass
+
 ##     def genop_getfield(self, fieldtoken, gv_ptr):
 ##     def genop_setfield(self, fieldtoken, gv_ptr, gv_value):
 ##     def genop_getsubstruct(self, fieldtoken, gv_ptr):
@@ -168,7 +206,6 @@ class Builder(GenBuilder):
 ##     def genop_setarrayitem(self, arraytoken, gv_ptr, gv_index, gv_value):
 ##     def genop_malloc_fixedsize(self, alloctoken):
 ##     def genop_malloc_varsize(self, varsizealloctoken, gv_size):
-##     def genop_call(self, sigtoken, gv_fnptr, args_gv):
 ##     def genop_same_as(self, kindtoken, gv_x):
 ##     def genop_debug_pdb(self):    # may take an args_gv later
 
@@ -492,6 +529,7 @@ class RPPCGenOp(AbstractRGenOp):
 
     def __init__(self):
         self.mcs = []   # machine code blocks where no-one is currently writing
+        self.keepalive_gc_refs = [] 
 
     # ----------------------------------------------------------------
     # the public RGenOp interface
@@ -503,16 +541,18 @@ class RPPCGenOp(AbstractRGenOp):
         inputargs_gv = builder._write_prologue(sigtoken)
         return builder, entrypoint, inputargs_gv
 
-    @staticmethod
-    @specialize.genconst(0)
-    def genconst(llvalue):
+    @specialize.genconst(1)
+    def genconst(self, llvalue):
         T = lltype.typeOf(llvalue)
         if isinstance(T, lltype.Primitive):
             return IntConst(lltype.cast_primitive(lltype.Signed, llvalue))
-##         elif T is llmemory.Address:
-##             return AddrConst(llvalue)
-##         elif isinstance(T, lltype.Ptr):
-##             return AddrConst(llmemory.cast_ptr_to_adr(llvalue))
+        elif T is llmemory.Address:
+            return AddrConst(llvalue)
+        elif isinstance(T, lltype.Ptr):
+            lladdr = llmemory.cast_ptr_to_adr(llvalue)
+            if T.TO._gckind == 'gc':
+                self.keepalive_gc_refs.append(lltype.cast_opaque_ptr(llmemory.GCREF, llvalue))
+            return AddrConst(lladdr)
         else:
             assert 0, "XXX not implemented"
 
@@ -646,3 +686,6 @@ class FlexSwitch(CodeGenSwitch):
         self.asm.mtctr(rSCRATCH)
         self.asm.bctr()
         self.asm.mc.setpos(pos)
+
+global_rgenop = RPPCGenOp()
+RPPCGenOp.constPrebuiltGlobal = global_rgenop.genconst
