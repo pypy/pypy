@@ -93,6 +93,7 @@ class RCTypesObject(object):
                 def set_value(self, value):
                     ptr = self.ll_ref(cls.CDATATYPE)
                     ptr[0] = cls.value2llvalue(value)
+                    keepalive_until_here(self)
                 cls.set_value = set_value
 
     def sameaddr(self, otherbox):
@@ -114,6 +115,10 @@ class RCTypesObject(object):
         return targetmemblock
 
     def ll_ref(self, CDATATYPE):
+        # Return a ptr to the memory that this object references.
+        # WARNING: always use 'keepalive_until_here(self)' when you
+        # are done using this ptr!  Otherwise the memory might be
+        # deallocated.
         return llmemory.cast_adr_to_ptr(self.addr, lltype.Ptr(CDATATYPE))
     ll_ref._annspecialcase_ = 'specialize:arg(1)'
 
@@ -209,6 +214,7 @@ class RCTypesCharP(RCTypesObject):
         a.char[0] = '\x00'
         ptr = self.ll_ref(RCTypesCharP.CDATATYPE)
         ptr[0] = llmemory.cast_adr_to_ptr(targetaddr, RCTypesCharP.LLTYPE)
+        keepalive_until_here(self)
         self._keepalivememblock(0, targetmemblock)
 
 rc_char_p = RCTypesCharP
@@ -235,6 +241,7 @@ def RPointer(contentscls):
             def get_contents(self):
                 ptr = self.ll_ref(RCTypesPtr.CDATATYPE)
                 targetaddr = llmemory.cast_ptr_to_adr(ptr[0])
+                keepalive_until_here(self)
                 targetkeepalives = contentscls.num_keepalives
                 targetmemblock = self._getmemblock(0, targetkeepalives)
                 return contentscls(targetaddr, targetmemblock)
@@ -245,6 +252,7 @@ def RPointer(contentscls):
                 ptr = self.ll_ref(RCTypesPtr.CDATATYPE)
                 ptr[0] = llmemory.cast_adr_to_ptr(targetaddr,
                                                   RCTypesPtr.LLTYPE)
+                keepalive_until_here(self)
                 self._keepalivememblock(0, targetmemblock)
 
         contentscls._ptrcls = RCTypesPtr
@@ -412,17 +420,24 @@ def _initialize_array_of_char(RCClass, as_ll_charptr):
     def get_value(self):
         p = as_ll_charptr(self)
         n = strnlen(p, self.length)
-        return charp2string(p, n)
+        res = charp2string(p, n)
+        keepalive_until_here(self)
+        return res
 
     def set_value(self, string):
         string2charp(as_ll_charptr(self), self.length, string)
+        keepalive_until_here(self)
 
     def get_raw(self):
-        return charp2string(as_ll_charptr(self), self.length)
+        res = charp2string(as_ll_charptr(self), self.length)
+        keepalive_until_here(self)
+        return res
 
     def get_substring(self, start, length):
         p = lltype.direct_ptradd(as_ll_charptr(self), start)
-        return charp2string(p, length)
+        res = charp2string(p, length)
+        keepalive_until_here(self)
+        return res
 
     RCClass.get_value     = get_value
     RCClass.set_value     = set_value
