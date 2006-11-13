@@ -5,7 +5,6 @@ from pypy.rlib.parsing.regexparse import parse_regex
 import string
 from pypy.rlib.parsing.regex import *
 from pypy.rlib.parsing.deterministic import DFA
-from algorithm.tool.makeondemand import make_on_demand
 from pypy.rlib.parsing.lexer import Lexer, DummyLexer
 
 def make_ebnf_parser():
