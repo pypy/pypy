@@ -2,7 +2,8 @@
 from py.test import raises, skip
 from pypy.interpreter.gateway import app2interp_temp
 
-def app_init_globals_hack():
+def init_globals_hack(space):
+    space.appexec([], """():
     import __builtin__ as b
     import sys, os.path
     # Uh-oh, ugly hack
@@ -12,7 +13,7 @@ def app_init_globals_hack():
     import support_test_app_sre
     b.s = support_test_app_sre
     sys.path.pop(0)
-
+    """)
 
 class AppTestSrePy:
 
@@ -224,7 +225,7 @@ class AppTestGetlower:
 
     def setup_class(cls):
         # This imports support_test_sre as the global "s"
-        app2interp_temp(app_init_globals_hack)(cls.space)
+        init_globals_hack(cls.space)
 
     def setup_method(self, method):
         import locale
@@ -481,7 +482,7 @@ class AppTestOpcodes:
 
     def setup_class(cls):
         # This imports support_test_sre as the global "s"
-        app2interp_temp(app_init_globals_hack)(cls.space)
+        init_globals_hack(cls.space)
 
     def test_length_optimization(self):
         pattern = "bla"
