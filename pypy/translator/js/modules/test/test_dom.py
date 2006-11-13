@@ -312,13 +312,13 @@ def test_class_name():
     assert body.innerHTML == '<div class="bar">foo</div>'
 
 def test_build():
-    py.test.skip('Borken')
+    #py.test.skip('Borken')
     global TRANSLATING
     TRANSLATING = True
     for var in globals():
         if var.startswith('code_'):
             # just build it
-            def f():
-                assert rpython2javascript(sys.modules[__name__], [var], use_pdb=False)
+            #def f():
+            assert rpython2javascript(sys.modules[__name__], [var])
             
-            yield f
+    TRANSLATING = False
