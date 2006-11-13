@@ -259,11 +259,15 @@ def alert(msg):
 # some helper functions (XXX imo these can go, but the code seems to use them
 # a lot... isn't it possible to just use dom.window and dom.document instead?)
 
+window = Window()
+
 def get_document():
-    return NonConstant(Window().document)
+    return window.document
+get_document.suggested_primitive = True
 
 def get_window():
-    return NonConstant(Window())
+    return window
+get_window.suggested_primitive = True
 
 # rtyper stuff
 

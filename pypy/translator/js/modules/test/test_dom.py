@@ -17,7 +17,10 @@ class handler:
         e.stopPropagation()
 
 def get_window():
-    return dom.get_window()
+    if TRANSLATING:
+        return dom.get_window()
+    else:
+        return dom.Window()
 
 def test_quote_html():
     assert dom._quote_html('foo&bar') == 'foo&amp;bar'
@@ -38,7 +41,7 @@ def test_serialize_html():
     assert roundtrip(html) == html
 
 def code_init():
-    window = dom.get_window()
+    window = get_window()
     nodeType = window.document.nodeType
     docel = window.document.documentElement.nodeName
     children = len(window.document.documentElement.childNodes)
@@ -310,8 +313,12 @@ def test_class_name():
 
 def test_build():
     py.test.skip('Borken')
+    global TRANSLATING
+    TRANSLATING = True
     for var in globals():
         if var.startswith('code_'):
             # just build it
-            rpython2javascript(sys.modules[__name__], [var])
-
+            def f():
+                assert rpython2javascript(sys.modules[__name__], [var], use_pdb=False)
+            
+            yield f
