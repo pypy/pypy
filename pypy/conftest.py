@@ -110,6 +110,9 @@ class TinyObjSpace(object):
     def wrap(self, obj):
         return obj
 
+    def unpackiterable(self, itr):
+        return list(itr)
+
 
 class OpErrKeyboardInterrupt(KeyboardInterrupt):
     pass
