@@ -267,7 +267,7 @@ def _try_inline_malloc(info):
 
     for block, vars in variables_by_block.items():
 
-        def flowin(var, newvarsmap, insert_keepalive=False):
+        def flowin(var, newvarsmap):
             # in this 'block', follow where the 'var' goes to and replace
             # it by a flattened-out family of variables.  This family is given
             # by newvarsmap, whose keys are the 'flatnames'.
@@ -383,12 +383,11 @@ def _try_inline_malloc(info):
                 for arg in link.args:
                     if arg in vars:
                         newargs += list_newvars()
-                        insert_keepalive = False   # kept alive by the link
                     else:
                         newargs.append(arg)
                 link.args[:] = newargs
 
-            if insert_keepalive and last_removed_access is not None:
+            if last_removed_access is not None:
                 keepalives = []
                 for v in list_newvars():
                     T = v.concretetype
@@ -415,7 +414,7 @@ def _try_inline_malloc(info):
                 newinputargs += block.inputargs[i+1:]
                 block.inputargs[:] = newinputargs
                 assert var not in block.inputargs
-                flowin(var, newvarsmap, insert_keepalive=True)
+                flowin(var, newvarsmap)
 
         # look for variables created inside the block by a malloc
         vars_created_here = []

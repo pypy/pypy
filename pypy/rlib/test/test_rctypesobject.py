@@ -1,8 +1,9 @@
 import py
 from pypy.rlib.rctypesobject import *
-from pypy.rpython.test.test_llinterp import interpret
+from pypy.rpython.test.test_llinterp import interpret, get_interpreter
 from pypy.translator.c.test.test_genc import compile
 from pypy.annotation.policy import AnnotatorPolicy
+from pypy.objspace.flow.model import mkentrymap
 
 
 class TestBasic:
@@ -193,6 +194,24 @@ class TestLLInterpreted(TestBasic):
 
     def do(self, func):
         return interpret(func, [], policy=POLICY, backendopt=True)
+
+    def test_simple_struct(self):
+        S0 = RStruct('S0', [('x', rc_int)])
+        def func():
+            s = S0.allocate()
+            s.ref_x().set_value(12)
+            return s.ref_x().get_value()
+
+        interp, graph = get_interpreter(func, [], policy=POLICY,
+                                        backendopt=True)
+        res = interp.eval_graph(graph, [])
+        assert res == 12
+        # after inlining the get_value() call, there is a getarrayitem
+        # at the end of the main graph.  However, the memory it accesses
+        # must be protected by a following keepalive...
+        entrymap = mkentrymap(graph)
+        [link] = entrymap[graph.returnblock]
+        assert link.prevblock.operations[-1].opname == 'keepalive'
 
 
 class TestCompiled(TestBasic):

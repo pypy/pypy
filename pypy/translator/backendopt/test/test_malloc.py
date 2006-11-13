@@ -5,9 +5,10 @@ from pypy.translator.backendopt.inline import inline_function
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator import simplify
-from pypy.objspace.flow.model import checkgraph, flatten, Block
+from pypy.objspace.flow.model import checkgraph, flatten, Block, mkentrymap
 from pypy.rpython.llinterp import LLInterpreter
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rlib import objectmodel
 from pypy.conftest import option
 
 
@@ -48,6 +49,7 @@ def check(fn, signature, args, expected_result, must_be_removed=True):
             break
     if must_be_removed:
         check_malloc_removed(graph)
+    return graph
 
 
 def test_fn1():
@@ -280,3 +282,35 @@ def test_union():
         x.u2.b = 6
         return x.u1.b * x.u2.a
     check(fn, [], [], Ellipsis)
+
+def test_keep_all_keepalives():
+    SIZE = llmemory.sizeof(lltype.Signed)
+    PARRAY = lltype.Ptr(lltype.FixedSizeArray(lltype.Signed, 1))
+    class A:
+        def __init__(self):
+            self.addr = llmemory.raw_malloc(SIZE)
+        def __del__(self):
+            llmemory.raw_free(self.addr)
+    class B:
+        pass
+    def myfunc():
+        b = B()
+        b.keep = A()
+        b.data = llmemory.cast_adr_to_ptr(b.keep.addr, PARRAY)
+        b.data[0] = 42
+        ptr = b.data
+        # normally 'b' could go away as early as here, which would free
+        # the memory held by the instance of A in b.keep...
+        res = ptr[0]
+        # ...so we explicitly keep 'b' alive until here
+        objectmodel.keepalive_until_here(b)
+        return res
+    graph = check(myfunc, [], [], 42,
+                  must_be_removed=False)    # 'A' instance left
+
+    # there is a getarrayitem near the end of the graph of myfunc.
+    # However, the memory it accesses must still be protected by the
+    # following keepalive, even after malloc removal
+    entrymap = mkentrymap(graph)
+    [link] = entrymap[graph.returnblock]
+    assert link.prevblock.operations[-1].opname == 'keepalive'
