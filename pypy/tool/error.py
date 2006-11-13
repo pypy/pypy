@@ -122,7 +122,7 @@ def format_global_error(graph, offset, message):
     msg += source_lines(graph, None, offset=offset)
     return "\n".join(msg)
 
-def debug(drv):
+def debug(drv, use_pdb=True):
     # XXX unify some code with pypy.translator.goal.translate
     from pypy.translator.tool.pdbplus import PdbPlusShow
     from pypy.translator.driver import log
@@ -156,5 +156,6 @@ def debug(drv):
             from pypy.translator.tool.graphserver import run_server_for_inprocess_client
             return run_server_for_inprocess_client(t, options)
 
-    pdb_plus_show = PdbPlusShow(t)
-    pdb_plus_show.start(tb, server_setup, graphic=True)
+    if use_pdb:
+        pdb_plus_show = PdbPlusShow(t)
+        pdb_plus_show.start(tb, server_setup, graphic=True)
