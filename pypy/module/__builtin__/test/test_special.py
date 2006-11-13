@@ -1,5 +1,11 @@
 import py 
 
+from pypy import conftest
+
+def setup_module(mod):
+    if conftest.option.runappdirect:
+        py.test.skip("doesn't make sense with -A")
+
 def app_test__isfake(): 
     assert not _isfake(map) 
     assert not _isfake(object) 

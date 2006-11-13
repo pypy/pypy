@@ -9,6 +9,8 @@ from pypy.lib._osfilewrapper import OsFileWrapper
 
 from pypy.module.__builtin__ import importing
 
+from pypy import conftest
+
 def setuppkg(pkgname, **entries):
     p = udir.join('impsubdir')
     if pkgname:
@@ -56,19 +58,22 @@ def setup_directory_structure(space):
 
     # create compiled/x.py and a corresponding pyc file
     p = setuppkg("compiled", x = "x = 84")
-    w = space.wrap
-    w_modname = w("compiled.x")
-    filename = str(p.join("x.py"))
-    fd = os.open(filename, os.O_RDONLY, 0666)
-    osfile = importing.OsFileWrapper(fd)
-    try:
-        importing.load_source_module(space,
-                                     w_modname,
-                                     w(importing.Module(space, w_modname)),
-                                     filename,
-                                     osfile)
-    finally:
-        osfile.close()
+    if conftest.option.runappdirect:
+        pass
+    else:
+        w = space.wrap
+        w_modname = w("compiled.x")
+        filename = str(p.join("x.py"))
+        fd = os.open(filename, os.O_RDONLY, 0666)
+        osfile = importing.OsFileWrapper(fd)
+        try:
+            importing.load_source_module(space,
+                                         w_modname,
+                                         w(importing.Module(space, w_modname)),
+                                         filename,
+                                         osfile)
+        finally:
+            osfile.close()
 
     return str(root)
 
