@@ -361,8 +361,9 @@ class Builder(GenBuilder):
         """ Returns the required stack size to store all data, assuming
         that there are 'param' bytes of parameters for callee functions and
         'lv' is the largest (wrt to abs() :) rFP-relative byte offset of
-        any variable on the stack."""
-        return ((24 + param - lv + 15) & ~15)
+        any variable on the stack.  Plus 4 because the rFP actually points
+        into our caller's linkage area."""
+        return ((4 + param - lv + 15) & ~15)
 
     def _close(self):
         self.rgenop.close_mc(self.asm.mc)
