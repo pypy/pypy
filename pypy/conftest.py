@@ -102,7 +102,7 @@ class TinyObjSpace(object):
                     "while pypy-c was built with %s" % (key, value, has))
 
     def appexec(self, args, body):
-        src = py.code.Source("def anonymous" + body)
+        src = py.code.Source("def anonymous" + body.lstrip())
         d = {}
         exec src.compile() in d
         return d['anonymous'](*args)
