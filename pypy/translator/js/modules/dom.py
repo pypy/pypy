@@ -1,11 +1,11 @@
 
 """Document Object Model support
 
-    this provides a mock browser API, both the standard DOM l. 1 and 2 stuff as
-    the browser-specific (level 0) additions
+    this provides a mock browser API, both the standard DOM level 2 stuff as
+    the browser-specific additions
 
     note that the API is not and will not be complete: more exotic features 
-    will most probably not behave as expected
+    will most probably not behave as expected, or are not implemented at all
     
     http://www.w3.org/DOM/ - main standard
     http://www.w3schools.com/dhtml/dhtml_dom.asp - more informal stuff
@@ -45,58 +45,114 @@ class Node(BasicExternal):
         original = getattr(other, '_original', other)
         return original is self._original
 
-def _quote_html(text):
-    for char, e in [('&', 'amp'), ('<', 'lt'), ('>', 'gt'), ('"', 'quot'),
-                    ("'", 'apos')]:
-        text = text.replace(char, '&%s;' % (e,))
-    return text
+class Element(Node):
+    nodeType = 1
 
-_singletons = ['link', 'meta']
-def _serialize_html(node):
-    ret = []
-    if node.nodeType == 1:
-        nodeName = getattr(node, '_original', node).nodeName
-        ret += ['<', nodeName]
-        if len(node.attributes):
-            for aname in node.attributes.keys():
-                attr = node.attributes[aname]
-                ret.append(' %s="%s"' % (attr.nodeName, attr.nodeValue))
-        if len(node.childNodes) or nodeName not in _singletons:
-            ret.append('>')
-            for child in node.childNodes:
-                if child.nodeType == 1:
-                    ret.append(_serialize_html(child))
-                else:
-                    ret.append(_quote_html(child.nodeValue))
-            ret += ['</', nodeName, '>']
-        else:
-            ret.append(' />')
-    return ''.join(ret)
+class Attribute(Node):
+    nodeType = 2
 
-class HTMLNode(Node):
+class Text(Node):
+    nodeType = 3
+
+class Document(Node):
+    nodeType = 9
+    
+    def __init__(self, docnode=None):
+        super(Document, self).__init__(docnode)
+        self._original = docnode
+
+    def createEvent(self, group=''):
+        """create an event
+
+            note that the group argument is ignored
+        """
+        if group in ('KeyboardEvent', 'KeyboardEvents'):
+            return KeyEvent()
+        elif group in ('MouseEvent', 'MouseEvents'):
+            return MouseEvent()
+        return Event()
+
+# the standard DOM stuff that doesn't directly deal with XML
+#   note that we're mimicking the standard (Mozilla) APIs, so things tested
+#   against this code may not work in Internet Explorer
+
+# XXX note that we store the events on the wrapped minidom node to avoid losing
+# them on re-wrapping
+class EventTarget(BasicExternal): # XXX mixin... is the super correct?!?
+    def addEventListener(self, type, listener, useCapture):
+        if not hasattr(self._original, '_events'):
+            self._original._events = []
+        # XXX note that useCapture is ignored...
+        self._original._events.append((type, listener, useCapture))
+
+    def dispatchEvent(self, event):
+        if event._cancelled:
+            return
+        event.currentTarget = self
+        if event.target is None:
+            event.target = self
+        if event.originalTarget is None:
+            event.originalTarget = self
+        if hasattr(self._original, '_events'):
+            for etype, handler, capture in self._original._events:
+                if etype == event.type:
+                    handler(event)
+        if event._cancelled or event.cancelBubble:
+            return
+        parent = getattr(self, 'parentNode', None)
+        if parent is not None:
+            parent.dispatchEvent(event)
+
+    def removeEventListener(self, type, listener, useCapture):
+        if not hasattr(self._original, '_events'):
+            raise ValueError('no registration for listener')
+        filtered = []
+        for data in self._original._events:
+            if data != (type, listener, useCapture):
+                filtered.append(data)
+        if filtered == self._original._events:
+            raise ValueError('no registration for listener')
+        self._original._events = filtered
+
+class Event(BasicExternal):
+    def initEvent(self, type, bubbles, cancelable):
+        self.type = type
+        self.cancelBubble = not bubbles
+        self.cancelable = cancelable
+        self.target = None
+        self.currentTarget = None
+        self.originalTarget = None
+        self._cancelled = False
+
+    def preventDefault(self):
+        if not self.cancelable:
+            raise TypeError('event can not be canceled')
+        self._cancelled = True
+
+    def stopPropagation(self):
+        self.cancelBubble = True
+
+class KeyEvent(Event):
+    pass
+
+class MouseEvent(Event):
+    pass
+
+class Style(BasicExternal):
+    def __getattr__(self, name):
+        if name not in self._fields:
+            raise AttributeError, name
+        return None
+
+# HTML DOM
+
+class HTMLNode(Node, EventTarget):
     def getElementsByTagName(self, name):
         name = name.lower()
         return self.__getattr__('getElementsByTagName')(name)
 
-    def _get_innerHTML(self):
-        ret = []
-        for child in self.childNodes:
-            ret.append(_serialize_html(child))
-        return ''.join(ret)
-
-    def _set_innerHTML(self, html):
-        dom = minidom.parseString('<doc>%s</doc>' % (html,))
-        while self.childNodes:
-            self.removeChild(self.lastChild)
-        for child in dom.documentElement.childNodes:
-            child = self.ownerDocument.importNode(child, True)
-            self.appendChild(child)
-        del dom
-
-    innerHTML = property(_get_innerHTML, _set_innerHTML)
-
-class Element(Node):
-    nodeType = 1
+    def __str__(self):
+        return '<%s %s>' % (self.__class__.__name__, self.nodeName)
 
 class HTMLElement(HTMLNode, Element):
     id = ''
@@ -115,31 +171,42 @@ class HTMLElement(HTMLNode, Element):
         return self._original.nodeName.upper()
     nodeName = property(_nodeName)
 
-class Attribute(Node):
-    nodeType = 2
+    def _get_innerHTML(self):
+        ret = []
+        for child in self.childNodes:
+            ret.append(_serialize_html(child))
+        return ''.join(ret)
 
-class Text(Node):
-    nodeType = 3
+    def _set_innerHTML(self, html):
+        dom = minidom.parseString('<doc>%s</doc>' % (html,))
+        while self.childNodes:
+            self.removeChild(self.lastChild)
+        for child in dom.documentElement.childNodes:
+            child = self.ownerDocument.importNode(child, True)
+            self._original.appendChild(child)
+        del dom
 
-class Document(HTMLNode):
-    nodeType = 9
-    
-    def __init__(self, docnode=None):
-        super(Document, self).__init__(docnode)
-        self._original = docnode
+    innerHTML = property(_get_innerHTML, _set_innerHTML)
 
+class HTMLDocument(Document, HTMLNode):
     def getElementById(self, id):
         nodes = self.getElementsByTagName('*')
         for node in nodes:
             if node.getAttribute('id') == id:
                 return node
 
+# non-DOM ('DOM level 0') stuff
+
+# Window is the main environment, the root node of the JS object tree
+
 class Window(BasicExternal):
     def __init__(self, html=('<html><head><title>Untitled document</title>'
-                             '</head><body></body></html>'), parent=None):
+                             '</head><body></body></html>'), parent=None,
+                             emit_events=False):
         global document
         self._html = html
-        self.document = document = Document(minidom.parseString(html))
+        self._emit_events = emit_events
+        self.document = document = HTMLDocument(minidom.parseString(html))
 
         # references to windows
         self.content = self
@@ -154,67 +221,11 @@ class Window(BasicExternal):
 
         # other properties
         self.closed = True
+        if self._emit_events:
+            _emit_event(self, 'onload')
 
     def __getattr__(self, name):
         return globals()[name]
-
-# the following code wraps minidom nodes with Node classes, and makes
-# sure all methods on the nodes return wrapped nodes
-
-class _FunctionWrapper(object):
-    """makes sure function return values are wrapped if appropriate"""
-    def __init__(self, callable):
-        self._original = callable
-
-    def __call__(self, *args, **kwargs):
-        args = list(args)
-        for i, arg in enumerate(args):
-            if isinstance(arg, Node):
-                args[i] = arg._original
-        for name, arg in kwargs.iteritems():
-            if isinstance(arg, Node):
-                kwargs[arg] = arg._original
-        value = self._original(*args, **kwargs)
-        return _wrap(value)
-
-_typetoclass = {
-    1: HTMLElement,
-    2: Attribute,
-    3: Text,
-    9: Document,
-}
-def _wrap(value):
-    if isinstance(value, minidom.Node):
-        nodeclass = _typetoclass[value.nodeType]
-        return nodeclass(value)
-    elif callable(value):
-        return _FunctionWrapper(value)
-    # nothing fancier in minidom, i hope...
-    # XXX and please don't add anything fancier either ;)
-    elif isinstance(value, list):
-        return [_wrap(x) for x in value]
-    return value
-
-# more DOM API, the stuff that doesn't directly deal with XML
-#   note that we're mimicking the standard (Mozilla) APIs, so things tested
-#   against this code may not work in Internet Explorer
-
-class Event(BasicExternal):
-    pass
-
-class KeyEvent(Event):
-    pass
-
-class MouseEvent(Event):
-    pass
-
-class Style(BasicExternal):
-    def __getattr__(self, name):
-        if name not in self._fields:
-            raise AttributeError, name
-        return None
-
-# non-DOM ('DOM level 0') stuff
 
 def setTimeout(func, delay):
     # scheduler call, but we don't want to mess with threads right now
@@ -227,7 +238,7 @@ def setTimeout(func, delay):
 def alert(msg):
     pass
 
-# some helper functions (XXX imo these can go, but the code seem to use them
+# some helper functions (XXX imo these can go, but the code seems to use them
 # a lot... isn't it possible to just use dom.window and dom.document instead?)
 
 def get_document():
@@ -257,12 +268,44 @@ Node._fields = {
     'previousSibling' : Element(),
     'tagName' : "aa",
     'textContent' : "aa",
-    'value' : "aa",
+}
+
+Node._methods = {
+    'appendChild' : MethodDesc([Element()]),
+    'cloneNode' : MethodDesc([12], Element()),
+    'getElementsByTagName' : MethodDesc(["aa"], [Element(), Element()]),
+    'hasChildNodes' : MethodDesc([], True),
+    'insertBefore' : MethodDesc([Element(), Element()], Element()),
+    'removeChild' : MethodDesc([Element()], Element()),
+    'replaceChild' : MethodDesc([Element(), Element()], Element()),
 }
 
 Element._fields = Node._fields.copy()
 
-Element._fields.update({
+Element._methods = Node._methods.copy()
+Element._methods.update({
+    'getAttribute' : MethodDesc(["aa"], "aa"),
+    'getAttributeNS' : MethodDesc(["aa", "aa"], "aa"),
+    'getAttributeNode' : MethodDesc(["aa"], Element()),
+    'getAttributeNodeNS' : MethodDesc(["aa", "aa"], Element()),
+    'hasAttribute' : MethodDesc(["aa"], True),
+    'hasAttributeNS' : MethodDesc(["aa", "aa"], True),
+    'hasAttributes' : MethodDesc([], True),
+    'removeAttribute' : MethodDesc(['aa']),
+    'removeAttributeNS' : MethodDesc(["aa", "aa"]),
+    'removeAttributeNode' : MethodDesc([Element()], "aa"),
+    'setAttribute' : MethodDesc(["aa", "aa"]),
+    'setAttributeNS' : MethodDesc(["aa", "aa", "aa"]),
+    'setAttributeNode' : MethodDesc([Element()], Element()),
+    'setAttributeNodeNS' : MethodDesc(["ns", Element()], Element()),
+})
+
+HTMLNode._fields = Node._fields.copy()
+HTMLNode._methods = Node._methods.copy()
+
+HTMLElement._fields = HTMLNode._fields.copy()
+HTMLElement._fields.update(Element._fields.copy())
+HTMLElement._fields.update({
     'className' : "aa",
     'clientHeight' : 12,
     'clientWidth' : 12,
@@ -270,8 +313,8 @@ Element._fields.update({
     'clientTop' : 12,
     'dir' : "aa",
     'innerHTML' : "asd",
-    'lang' : "asd",
     'id' : "aa",
+    'lang' : "asd",
     'offsetHeight' : 12,
     'offsetLeft' : 12,
     'offsetParent' : 12,
@@ -283,62 +326,30 @@ Element._fields.update({
     'scrollWidth' : 12,
     'style' : Style(),
     'tabIndex' : 12,
-    'onblur' : MethodDesc([Event()]),
-    'onclick' : MethodDesc([MouseEvent()]),
-    'ondblclick' : MethodDesc([MouseEvent()]),
-    'onfocus' : MethodDesc([Event()]),
-    'onkeydown' : MethodDesc([KeyEvent()]),
-    'onkeypress' : MethodDesc([KeyEvent()]),
-    'onkeyup' : MethodDesc([KeyEvent()]),
-    'onmousedown' : MethodDesc([MouseEvent()]),
-    'onmousemove' : MethodDesc([MouseEvent()]),
-    'onmouseup' : MethodDesc([MouseEvent()]),
-    'onmouseover' : MethodDesc([MouseEvent()]),
-    'onmouseup' : MethodDesc([MouseEvent()]),
-    'onresize' : MethodDesc([Event()]),
+    'value' : "aa", # XXX?
 })
 
-HTMLElement._fields = Element._fields.copy()
-Node._methods = {
-    'appendChild' : MethodDesc([HTMLElement()]),
-    'cloneNode' : MethodDesc([12], HTMLElement()),
-    'hasChildNodes' : MethodDesc([], True),
-    'insertBefore' : MethodDesc([HTMLElement(), HTMLElement()], HTMLElement()),
-    'removeChild' : MethodDesc([HTMLElement()], HTMLElement()),
-    'replaceChild' : MethodDesc([HTMLElement(), HTMLElement()], HTMLElement()),
-}
-
-Element._methods = Node._methods.copy()
-Element._methods.update({
-    'addEventListener' : MethodDesc(["aa", lambda : None, True]),
-    'getAttribute' : MethodDesc(["aa"], "aa"),
-    'getAttributeNS' : MethodDesc(["aa", "aa"], "aa"),
-    'getAttributeNode' : MethodDesc(["aa"], Element()),
-    'getAttributeNodeNS' : MethodDesc(["aa", "aa"], Element()),
-    'getElementsByTagName' : MethodDesc(["aa"], [Element(), Element()]),
-    'hasAttribute' : MethodDesc(["aa"], True),
-    'hasAttributeNS' : MethodDesc(["aa", "aa"], True),
-    'hasAttributes' : MethodDesc([], True),
-    'removeAttribute' : MethodDesc(['aa']),
-    'removeAttributeNS' : MethodDesc(["aa", "aa"]),
-    'removeAttributeNode' : MethodDesc([Element()], "aa"),
-    'removeEventListener' : MethodDesc(["aa", lambda : None, True]),
-    'setAttribute' : MethodDesc(["aa", "aa"]),
-    'setAttributeNS' : MethodDesc(["aa", "aa", "aa"]),
-    'setAttributeNode' : MethodDesc([Element()], Element()),
-    'setAttributeNodeNS' : MethodDesc(["ns", Element()], Element()),
+HTMLElement._methods = HTMLNode._methods.copy()
+HTMLElement._methods.update(Element._methods.copy())
+HTMLElement._methods.update({
     'blur' : MethodDesc([]),
     'click' : MethodDesc([]),
-    'dispatchEvent' : MethodDesc(["aa"], True),
     'focus' : MethodDesc([]),
     'normalize' : MethodDesc([]),
     'scrollIntoView' : MethodDesc([12]),
     'supports' : MethodDesc(["aa", 1.0]),
 })
 
-HTMLElement._methods = Element._methods.copy()
+Document._fields = Node._fields.copy()
+Document._fields.update({
+    'characterSet' : "aa",
+    'contentWindow' : Window(),
+    'doctype' : "aa",
+    'documentElement' : Element(),
+    'styleSheets' : [Style(), Style()],
+})
 
-Document._methods = Element._methods.copy()
+Document._methods = Node._methods.copy()
 Document._methods.update({
     'clear' : MethodDesc([]),
     'close' : MethodDesc([]),
@@ -346,8 +357,8 @@ Document._methods.update({
     'createDocumentFragment' : MethodDesc([], Element()),
     'createElement' : MethodDesc(["aa"], Element()),
     'createElementNS' : MethodDesc(["aa", "aa"], Element()),
-    'createTextNode' : MethodDesc(["aa"], Element()),
     'createEvent' : MethodDesc(["aa"], Event()),
+    'createTextNode' : MethodDesc(["aa"], Element()),
     #'createRange' : MethodDesc(["aa"], Range()) - don't know what to do here
     'getElementById' : MethodDesc(["aa"], Element()),
     'getElementsByName' : MethodDesc(["aa"], [Element(), Element()]),
@@ -357,21 +368,16 @@ Document._methods.update({
     'writeln' : MethodDesc(["aa"]),
 })
 
-Document._fields = Element._fields.copy()
-Document._fields.update({
+HTMLDocument._fields = Document._fields.copy()
+HTMLDocument._fields.update({
     'alinkColor' : "aa",
     'bgColor' : "aa",
     'body' : Element(),
-    'characterSet' : "aa",
     'cookie' : "aa",
-    'contentWindow' : Window(),
     'defaultView' : Window(),
-    'doctype' : "aa",
-    'documentElement' : Element(),
     'domain' : "aa",
     'embeds' : [Element(), Element()],
     'fgColor' : "aa",
-    'firstChild' : Element(),
     'forms' : [Element(), Element()],
     'height' : 123,
     'images' : [Element(), Element()],
@@ -380,12 +386,13 @@ Document._fields.update({
     'links' : [Element(), Element()],
     'location' : "aa",
     'referrer' : "aa",
-    'styleSheets' : [Style(), Style()],
     'title' : "aa",
     'URL' : "aa",
     'vlinkColor' : "aa",
     'width' : 123,
 })
+
+HTMLDocument._methods = Document._methods.copy()
 
 Window._fields = {
     'content' : Window(),
@@ -422,8 +429,7 @@ Window._fields = {
     'window' : Window(),
 }
 
-Window._methods = Element._methods.copy()
-Window._methods.update({
+Window._methods = {
     'alert' : MethodDesc(["aa"]),
     'atob' : MethodDesc(["aa"], "aa"),
     'back' : MethodDesc([]),
@@ -461,7 +467,7 @@ Window._methods.update({
     'onselect' : MethodDesc([MouseEvent()]),
     'onsubmit' : MethodDesc([MouseEvent()]),
     'onunload' : MethodDesc([Event()]),
-})
+}
 
 Style._fields = {
     'azimuth' : 'aa',
@@ -593,15 +599,123 @@ Style._fields = {
     'zIndex' : 'aa',
 }
 
-KeyEvent_fields = {
+EventTarget._fields = {
+    'onblur' : MethodDesc([Event()]),
+    'onclick' : MethodDesc([MouseEvent()]),
+    'ondblclick' : MethodDesc([MouseEvent()]),
+    'onfocus' : MethodDesc([Event()]),
+    'onkeydown' : MethodDesc([KeyEvent()]),
+    'onkeypress' : MethodDesc([KeyEvent()]),
+    'onkeyup' : MethodDesc([KeyEvent()]),
+    'onmousedown' : MethodDesc([MouseEvent()]),
+    'onmousemove' : MethodDesc([MouseEvent()]),
+    'onmouseup' : MethodDesc([MouseEvent()]),
+    'onmouseover' : MethodDesc([MouseEvent()]),
+    'onmouseup' : MethodDesc([MouseEvent()]),
+    'onresize' : MethodDesc([Event()]),
+}
+
+EventTarget._methods = {
+    'addEventListener' : MethodDesc(["aa", lambda : None, True]),
+    'dispatchEvent' : MethodDesc(["aa"], True),
+    'removeEventListener' : MethodDesc(["aa", lambda : None, True]),
+}
+
+Event._fields = {
+    'bubbles': True,
+    'cancelBubble': True,
+    'cancelable': True,
+    'currentTarget': Element(),
+    'detail': 1,
+    'relatedTarget': Element(),
+    'target': Element(),
+    'type': 'aa',
+}
+
+Event._methods = {
+    'initEvent': MethodDesc(["aa", True, True]),
+    'preventDefault': MethodDesc([]),
+    'stopPropagation': MethodDesc([]),
+}
+
+KeyEvent._fields = Event._fields.copy()
+KeyEvent._fields.update({
     'keyCode' : 12,
     'charCode' : 12,
-}
+})
 
 get_window.suggested_primitive = True
 get_document.suggested_primitive = True
 setTimeout.suggested_primitive = True
 alert.suggested_primitive = True
+
+# the following code wraps minidom nodes with Node classes, and makes
+# sure all methods on the nodes return wrapped nodes
+
+class _FunctionWrapper(object):
+    """makes sure function return values are wrapped if appropriate"""
+    def __init__(self, callable):
+        self._original = callable
+
+    def __call__(self, *args, **kwargs):
+        args = list(args)
+        for i, arg in enumerate(args):
+            if isinstance(arg, Node):
+                args[i] = arg._original
+        for name, arg in kwargs.iteritems():
+            if isinstance(arg, Node):
+                kwargs[arg] = arg._original
+        value = self._original(*args, **kwargs)
+        return _wrap(value)
+
+_typetoclass = {
+    1: HTMLElement,
+    2: Attribute,
+    3: Text,
+    9: HTMLDocument,
+}
+def _wrap(value):
+    if isinstance(value, minidom.Node):
+        nodeclass = _typetoclass[value.nodeType]
+        return nodeclass(value)
+    elif callable(value):
+        return _FunctionWrapper(value)
+    # nothing fancier in minidom, i hope...
+    # XXX and please don't add anything fancier either ;)
+    elif isinstance(value, list):
+        return [_wrap(x) for x in value]
+    return value
+
+# some helper functions
+
+def _quote_html(text):
+    for char, e in [('&', 'amp'), ('<', 'lt'), ('>', 'gt'), ('"', 'quot'),
+                    ("'", 'apos')]:
+        text = text.replace(char, '&%s;' % (e,))
+    return text
+
+_singletons = ['link', 'meta']
+def _serialize_html(node):
+    ret = []
+    if node.nodeType == 1:
+        nodeName = getattr(node, '_original', node).nodeName
+        ret += ['<', nodeName]
+        if len(node.attributes):
+            for aname in node.attributes.keys():
+                attr = node.attributes[aname]
+                ret.append(' %s="%s"' % (attr.nodeName,
+                                         _quote_html(attr.nodeValue)))
+        if len(node.childNodes) or nodeName not in _singletons:
+            ret.append('>')
+            for child in node.childNodes:
+                if child.nodeType == 1:
+                    ret.append(_serialize_html(child))
+                else:
+                    ret.append(_quote_html(child.nodeValue))
+            ret += ['</', nodeName, '>']
+        else:
+            ret.append(' />')
+    return ''.join(ret)
 
 # initialization
 

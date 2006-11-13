@@ -1,7 +1,26 @@
 import py
 from pypy.translator.js.modules import dom
 from pypy.translator.js.main import rpython2javascript
+from xml.dom.minidom import parseString
 import sys
+
+def test_quote_html():
+    assert dom._quote_html('foo&bar') == 'foo&amp;bar'
+    assert dom._quote_html('foo"&bar') == 'foo&quot;&amp;bar'
+
+def test_serialize_html():
+    def roundtrip(html):
+        return dom._serialize_html(parseString(html).documentElement)
+    html = '<div class="bar">content</div>'
+    assert roundtrip(html) == html
+    html = '<iframe src="foo?bar&amp;baz"></iframe>'
+    assert roundtrip(html) == html
+    html = '<meta name="foo"></meta>'
+    assert roundtrip(html) == '<meta name="foo" />'
+    html = '<div>\n  <div>foo</div>\n</div>'
+    assert roundtrip(html) == html
+    html = '<div>foo&amp;bar</div>'
+    assert roundtrip(html) == html
 
 def test_init():
     window = dom.Window('<html><body>foo</body></html>')
@@ -12,6 +31,9 @@ def test_init():
     # XXX gotta love the DOM API ;)
     somediv = window.document.getElementsByTagName('body')[0].childNodes[0]
     assert somediv.nodeValue == 'foo'
+
+    py.test.raises(py.std.xml.parsers.expat.ExpatError,
+                   'dom.Window("<html><body></html>")')
 
 def test_wrap():
     window = dom.Window()
@@ -84,6 +106,93 @@ def test_set_innerHTML():
     assert body.innerHTML == ''
     body.innerHTML = '<div>some content</div>'
     assert body.innerHTML == '<div>some content</div>'
+    assert body.childNodes[0].nodeName == 'DIV'
+
+def test_event_init():
+    window = dom.Window()
+    e = dom.Event()
+    e.initEvent('click', True, True)
+    assert e.cancelable == True
+    assert e.target == None
+    body = window.document.getElementsByTagName('body')[0]
+    body.dispatchEvent(e)
+    assert e.target is body
+
+def test_event_handling():
+    class handler:
+        called = False
+        def __call__(self, e):
+            self.called = True
+    h = handler()
+    window = dom.Window()
+    body = window.document.getElementsByTagName('body')[0]
+    body.addEventListener('click', h, False)
+    e = dom.Event()
+    e.initEvent('click', True, True)
+    body.dispatchEvent(e)
+    assert h.called == True
+
+def test_event_bubbling():
+    class handler:
+        called = False
+        def __call__(self, e):
+            self.called = True
+    h = handler()
+    window = dom.Window()
+    body = window.document.getElementsByTagName('body')[0]
+    div = window.document.createElement('div')
+    body.appendChild(div)
+    body.addEventListener('click', h, False)
+    e = dom.Event()
+    e.initEvent('click', False, True)
+    div.dispatchEvent(e)
+    assert h.called == False
+    e = dom.Event()
+    e.initEvent('click', True, True)
+    div.dispatchEvent(e)
+    assert h.called == True
+
+def test_remove_event_listener():
+    class handler:
+        called = False
+        def __call__(self, e):
+            self.called = True
+    window = dom.Window()
+    body = window.document.getElementsByTagName('body')[0]
+    div = window.document.createElement('div')
+    body.appendChild(div)
+    py.test.raises(Exception, 'body.removeEventListener("click", h, False)')
+    h = handler()
+    body.addEventListener('click', h, False)
+    e = dom.Event()
+    e.initEvent('click', True, True)
+    body.dispatchEvent(e)
+    assert h.called == True
+    h.called = False
+    body.removeEventListener('click', h, False)
+    e = dom.Event()
+    e.initEvent('click', True, True)
+    body.dispatchEvent(e)
+    assert h.called == False
+
+def test_event_vars():
+    class handler:
+        event = None # XXX annotator problem?
+        def __call__(self, e):
+            self.event = e
+            e.stopPropagation()
+    window = dom.Window()
+    body = window.document.getElementsByTagName('body')[0]
+    div = window.document.createElement('div')
+    body.appendChild(div)
+    h = handler()
+    body.addEventListener('click', h, False)
+    e = dom.Event()
+    e.initEvent('click', True, True)
+    div.dispatchEvent(e)
+    assert h.event.target == div
+    assert h.event.originalTarget == div
+    assert h.event.currentTarget == body
 
 def test_build():
     py.test.skip("Not implemented yet")
@@ -91,3 +200,4 @@ def test_build():
         if var.startswith('test_') and var != 'test_build':
             # just build it
             rpython2javascript(sys.modules[__name__], [var])
+
