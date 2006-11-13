@@ -178,7 +178,15 @@ if __name__ == '__main__':
         if not len(sys.argv) == 2:
             e = Engine()
         else:
-            e = get_engine(py.path.local(sys.argv[1]).read())
+            try:
+                source = py.path.local(sys.argv[1]).read()
+                e = get_engine(source)
+            except ParseError, exc:
+                print exc.nice_error_message("<stdin>", source) + "\n"
+                sys.exit(1)
+            except LexerError, exc:
+                print exc.nice_error_message("<stdin>") + "\n"
+                sys.exit(1)
         c = PrologConsole(e)
         c.interact("PyPy Prolog Console")
     finally:
