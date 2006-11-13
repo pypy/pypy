@@ -4,7 +4,7 @@ from pypy.lang.prolog.interpreter.parsing import parse_file, TermBuilder
 from pypy.lang.prolog.interpreter import engine, helper, term, error
 from pypy.lang.prolog.builtin import builtins
 
-from pypy.rpython.objectmodel import we_are_translated
+from pypy.rlib.objectmodel import we_are_translated
 
 def expose_builtin(func, name, unwrap_spec=None, handles_continuation=False,
                    translatable=True):

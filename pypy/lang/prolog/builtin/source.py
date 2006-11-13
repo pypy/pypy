@@ -3,7 +3,6 @@ from pypy.lang.prolog.interpreter import arithmetic
 from pypy.lang.prolog.interpreter.parsing import parse_file, TermBuilder
 from pypy.lang.prolog.interpreter import engine, helper, term, error
 from pypy.lang.prolog.interpreter.error import UnificationFailed, FunctionNotFound
-from pypy.rpython.objectmodel import we_are_translated
 from pypy.lang.prolog.builtin.register import expose_builtin
 
 
