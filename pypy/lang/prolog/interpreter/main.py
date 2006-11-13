@@ -1,7 +1,13 @@
 #!/usr/bin/env python
+
+try:
+    import autopath
+except ImportError:
+    pass
+
 import py
 import sys
-sys.path.append(str(py.magic.autopath().dirpath().dirpath()))
+#sys.path.append(str(py.magic.autopath().dirpath().dirpath()))
 
 from pypy.rlib.parsing.parsing import ParseError
 from pypy.rlib.parsing.deterministic import LexerError
