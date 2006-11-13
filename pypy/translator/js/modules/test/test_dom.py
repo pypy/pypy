@@ -311,6 +311,31 @@ def test_class_name():
     assert div.className == 'bar'
     assert body.innerHTML == '<div class="bar">foo</div>'
 
+def code_read_styles():
+    window = get_window()
+    body = window.document.getElementsByTagName('body')[0]
+    body.innerHTML = ('<div style="color: red; background-color: green">foo'
+                      '</div>')
+    return body.childNodes[0].style
+
+def test_read_styles():
+    style = code_read_styles()
+    assert style.color == 'red'
+    bgcolor = style.backgroundColor
+    assert bgcolor == 'green'
+
+def code_write_styles():
+    window = get_window()
+    body = window.document.getElementsByTagName('body')[0]
+    body.style.color = 'green'
+    body.style.backgroundColor = 'red'
+    return body
+
+def test_write_styles():
+    body = code_write_styles()
+    assert dom._serialize_html(body) == ('<body style="background-color: red; '
+                                         'color: green;"></body>')
+
 def test_build():
     #py.test.skip('Borken')
     global TRANSLATING

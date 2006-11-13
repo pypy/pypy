@@ -13,6 +13,7 @@
 """
 
 import time
+import re
 from pypy.rpython.ootypesystem.bltregistry import BasicExternal, MethodDesc
 from pypy.rlib.nonconst import NonConstant
 
@@ -115,7 +116,23 @@ class Element(Node):
 
     def __init__(self, node=None):
         super(Element, self).__init__(node)
-        self.style = Style()
+
+    def _style(self):
+        style = getattr(self._original, '_style', None)
+        if style is not None:
+            return style
+        styles = {}
+        if self._original.hasAttribute('style'):
+            for t in self._original.getAttribute('style').split(';'):
+                name, value = t.split(':')
+                dashcharpairs = re.findall('-\w', name)
+                for p in dashcharpairs:
+                    name = name.replace(p, p[1].upper())
+                styles[name.strip()] = value.strip()
+        style = Style(styles)
+        self._original._style = style
+        return style
+    style = property(_style)
 
     def _nodeName(self):
         return self._original.nodeName.upper()
@@ -199,10 +216,27 @@ class MouseEvent(Event):
     pass
 
 class Style(BasicExternal):
+    def __init__(self, styles={}):
+        for name, value in styles.iteritems():
+            setattr(self, name, value)
+    
     def __getattr__(self, name):
         if name not in self._fields:
             raise AttributeError, name
         return None
+
+    def _tostring(self):
+        ret = []
+        for name in sorted(self._fields):
+            value = getattr(self, name, None)
+            if value is not None:
+                ret.append(' ')
+                for char in name:
+                    if char.upper() == char:
+                        char = '-%s' % (char.lower(),)
+                    ret.append(char)
+                ret.append(': %s;' % (value,))
+        return ''.join(ret[1:])
 
 # non-DOM ('DOM level 0') stuff
 
@@ -696,13 +730,19 @@ _singletons = ['link', 'meta']
 def _serialize_html(node):
     ret = []
     if node.nodeType == 1:
-        nodeName = getattr(node, '_original', node).nodeName
+        original = getattr(node, '_original', node)
+        nodeName = original.nodeName
         ret += ['<', nodeName]
         if len(node.attributes):
             for aname in node.attributes.keys():
+                if aname == 'style':
+                    continue
                 attr = node.attributes[aname]
                 ret.append(' %s="%s"' % (attr.nodeName,
                                          _quote_html(attr.nodeValue)))
+        styles = getattr(original, '_style', None)
+        if styles:
+            ret.append(' style="%s"' % (_quote_html(styles._tostring()),))
         if len(node.childNodes) or nodeName not in _singletons:
             ret.append('>')
             for child in node.childNodes:

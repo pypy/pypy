@@ -23,6 +23,9 @@ class JavascriptNameManager(NameManager):
             self.reserved[name] = True
 
         #http://javascript.about.com/library/blclassobj.htm
+        # XXX WAAAHHH!!! IE alert :( there are a lot of objects here that are
+        # _not_ in standard JS, see
+        # http://devedge-temp.mozilla.org/library/manuals/2000/javascript/1.5/reference/
         predefined_classes_and_objects = '''
             Anchor anchors Applet applets Area Array Body
             Button Checkbox Date document Error EvalError FileUpload
