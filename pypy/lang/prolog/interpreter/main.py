@@ -136,7 +136,7 @@ screen."""
         except ImportError:
             try:
                 import tty, sys, termios
-	        self.impl = self.get_unix
+                self.impl = self.get_unix
             except ImportError:
                 import Carbon, Carbon.Evt
                 self.impl = self.get_carbon
