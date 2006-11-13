@@ -1,6 +1,6 @@
 import py
 import time, gc
-from pypy.conftest import gettestobjspace
+from pypy.conftest import gettestobjspace, option
 from pypy.interpreter.gateway import ObjSpace, W_Root, interp2app_temp
 
 
@@ -24,7 +24,21 @@ class GenericTestThread:
         space = gettestobjspace(usemodules=('thread', 'time'))
         cls.space = space
 
-        cls.w_waitfor = space.wrap(interp2app_temp(waitfor))
+        if option.runappdirect:
+            def plain_waitfor(condition, timeout=300.0):
+                adaptivedelay = 0.04
+                limit = time.time() + timeout
+                while time.time() <= limit:
+                    time.sleep(adaptivedelay)
+                    gc.collect()
+                    if condition():
+                        return
+                    adaptivedelay *= 1.05
+                print '*** timed out ***'
+                
+            cls.w_waitfor = plain_waitfor
+        else:
+            cls.w_waitfor = space.wrap(interp2app_temp(waitfor))
         cls.w_busywait = space.appexec([], """():
             import time
             return time.sleep
