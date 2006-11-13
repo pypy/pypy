@@ -77,32 +77,12 @@ class PrologConsole(code.InteractiveConsole):
             if not source.strip():
                 return None, None
             return get_query_and_vars(source)
-        except ParseError, e:
-            #print e
-            # fake a Python syntax error :-)
-            absoffset = e.args[1][-1]
-            lines = source.split("\n")
-            curroffset = 0
-            for i, line in enumerate(lines):
-                if curroffset <= absoffset < curroffset + len(line) + 1:
-                    break
-                curroffset = curroffset + len(line) + 1
-            if source.strip().endswith("."):
-                raise SyntaxError(
-                    "syntax error",
-                    (filename, i+1, absoffset - curroffset, line))
-            return None
-        except LexerError, e:
-            # fake a Python syntax error
-            absoffset = e.index
-            lines = source.split("\n")
-            curroffset = 0
-            for i, line in enumerate(lines):
-                if curroffset <= absoffset < curroffset + len(line) + 1:
-                    break
-                curroffset = curroffset + len(line) + 1
-            raise SyntaxError(
-                "token error", (filename, i + 1, absoffset - curroffset, line))
+        except ParseError, exc:
+            self.write(exc.nice_error_message("<stdin>", source) + "\n")
+            raise SyntaxError
+        except LexerError, exc:
+            self.write(exc.nice_error_message("<stdin>") + "\n")
+            raise SyntaxError
 
     def runcode(self, code):
         try:
