@@ -79,19 +79,25 @@ void RPyConvertExceptionToCPython(void)
 	/* XXX 1. uses officially bad fishing */
 	/* XXX 2. looks for exception classes by name, fragile */
 	char* clsname;
-	PyObject* pycls;
+	PyObject *pycls, *v, *tb;
 	assert(RPyExceptionOccurred());
 	assert(!PyErr_Occurred());
 	clsname = RPyFetchExceptionType()->ov_name->items;
 	pycls = PyDict_GetItemString(PyEval_GetBuiltins(), clsname);
 	if (pycls != NULL && PyExceptionClass_Check(pycls) &&
 	    PyObject_IsSubclass(pycls, PyExc_Exception)) {
-		PyErr_SetNone(pycls);
+		v = NULL;
 	}
 	else {
-		PyErr_SetString(RPythonError, clsname);
+		pycls = RPythonError;
+		v = PyString_FromString(clsname);
 	}
+	Py_INCREF(pycls);
+	tb = NULL;
 	RPyClearException();
+
+	PyErr_NormalizeException(&pycls, &v, &tb);
+	PyErr_Restore(pycls, v, tb);
 }
 #endif   /* !PYPY_STANDALONE */
 
