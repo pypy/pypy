@@ -3,11 +3,13 @@ import autopath
 from py.test import raises
 from pypy.interpreter.gateway import app2interp_temp
 
-def app_init_globals_via_builtins_hack():
+def init_globals_via_builtins_hack(space):
+    space.appexec([], """():
     import __builtin__ as b
     import cStringIO, sys
     b.cStringIO = cStringIO
     b.sys = sys
+    """)
 
 def test_stdin_exists(space):
     space.sys.get('stdin') 
@@ -80,7 +82,7 @@ def app_test_io():
 class AppTestSysModulePortedFromCPython:
 
     def setup_class(cls):
-        app2interp_temp(app_init_globals_via_builtins_hack)(cls.space)
+        init_globals_via_builtins_hack(cls.space)
 
     def test_original_displayhook(self):
         import __builtin__
