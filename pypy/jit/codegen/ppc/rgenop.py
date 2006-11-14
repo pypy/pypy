@@ -187,8 +187,10 @@ class Builder(GenBuilder):
     # ----------------------------------------------------------------
     # the public Builder interface:
 
-##     @specialize.arg(1)
-##     def genop1(self, opname, gv_arg):
+    @specialize.arg(1)
+    def genop1(self, opname, gv_arg):
+        genmethod = getattr(self, 'op_' + opname)
+        return genmethod(gv_arg)
 
     @specialize.arg(1)
     def genop2(self, opname, gv_arg1, gv_arg2):
@@ -196,7 +198,7 @@ class Builder(GenBuilder):
         return genmethod(gv_arg1, gv_arg2)
 
     def genop_call(self, sigtoken, gv_fnptr, args_gv):
-        pass
+        return Var()
 
 ##     def genop_getfield(self, fieldtoken, gv_ptr):
 ##     def genop_setfield(self, fieldtoken, gv_ptr, gv_value):
@@ -454,35 +456,36 @@ class Builder(GenBuilder):
                                    gv_result, [gv_x, gv_y]))
         return gv_result
 
+    cmp2info = {
+        #      bit-in-crf  negated
+        'gt': (    1,         0   ),
+        'lt': (    0,         0   ),
+        'le': (    1,         1   ),
+        'ge': (    0,         1   ),
+        'eq': (    2,         0   ),
+        'ne': (    2,         1   ),
+        }
+    cmp2info_flipped = {
+        #      bit-in-crf  negated
+        'gt': (    1,         1   ),
+        'lt': (    0,         1   ),
+        'le': (    1,         0   ),
+        'ge': (    0,         0   ),
+        'eq': (    2,         0   ),
+        'ne': (    2,         1   ),
+        }
+
     def _compare(self, op, gv_x, gv_y):
-        cmp2info = {
-            #      bit-in-crf  negated
-            'gt': (    1,         0   ),
-            'lt': (    0,         0   ),
-            'le': (    1,         1   ),
-            'ge': (    0,         1   ),
-            'eq': (    2,         0   ),
-            'ne': (    2,         1   ),
-            }
-        cmp2info_flipped = {
-            #      bit-in-crf  negated
-            'gt': (    1,         1   ),
-            'lt': (    0,         1   ),
-            'le': (    1,         0   ),
-            'ge': (    0,         0   ),
-            'eq': (    2,         0   ),
-            'ne': (    2,         1   ),
-            }
         gv_result = Var()
         if gv_y.fits_in_immediate():
             self.insns.append(
-                insn.CMPWI(cmp2info[op], gv_result, [gv_x, gv_y]))
+                insn.CMPWI(self.cmp2info[op], gv_result, [gv_x, gv_y]))
         elif gv_x.fits_in_immediate():
             self.insns.append(
-                insn.CMPWI(cmp2info_flipped[op], gv_result, [gv_y, gv_x]))
+                insn.CMPWI(self.cmp2info_flipped[op], gv_result, [gv_y, gv_x]))
         else:
             self.insns.append(
-                insn.CMPW(cmp2info[op], gv_result, [gv_x, gv_y]))
+                insn.CMPW(self.cmp2info[op], gv_result, [gv_x, gv_y]))
         return gv_result
 
     def op_int_gt(self, gv_x, gv_y):
@@ -517,6 +520,12 @@ class Builder(GenBuilder):
 
         return targetbuilder
 
+    def op_int_is_true(self, gv_arg):
+        gv_result = Var()
+        self.insns.append(
+            insn.CMPWI(self.cmp2info['eq'], gv_result, [gv_arg, self.rgenop.genconst(0)]))
+        return gv_result
+        
 
 class RPPCGenOp(AbstractRGenOp):
 
