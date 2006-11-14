@@ -128,8 +128,12 @@ def prepare_for_jump(asm, min_offset, sourcevars, src2loc, target):
     targetlocs = target.arg_locations
     for i in range(len(targetlocs)):
         tloc = targetlocs[i]
-        tar2loc[tloc] = tloc
-        tar2src[tloc] = sourcevars[i]
+        src = sourcevars[i]
+        if isinstance(src, Var):
+            tar2loc[tloc] = tloc
+            tar2src[tloc] = src
+        else:
+            src.load_now(asm, tloc)
 
     gen = JumpPatchupGenerator(asm, min_offset)
     emit_moves(gen, tar2src, tar2loc, src2loc)
@@ -215,7 +219,14 @@ class Builder(GenBuilder):
 ##     def genop_setarrayitem(self, arraytoken, gv_ptr, gv_index, gv_value):
 ##     def genop_malloc_fixedsize(self, alloctoken):
 ##     def genop_malloc_varsize(self, varsizealloctoken, gv_size):
-##     def genop_same_as(self, kindtoken, gv_x):
+
+    def genop_same_as(self, kindtoken, gv_arg):
+        if not isinstance(gv_arg, Var):
+            gv_result = Var()
+            gv_arg.load(self.insns, gv_result)
+        else:
+            return gv_arg
+
 ##     def genop_debug_pdb(self):    # may take an args_gv later
 
     def enter_next_block(self, kinds, args_gv):
@@ -537,7 +548,13 @@ class Builder(GenBuilder):
         self.insns.append(
             insn.CMPWI(self.cmp2info['ne'], gv_result, [gv_arg, self.rgenop.genconst(0)]))
         return gv_result
-        
+
+    def op_int_neg(self, gv_arg):
+        gv_result = Var()
+        self.insns.append(
+            insn.Insn_GPR__GPR(RPPCAssembler.neg, gv_result, gv_arg))
+        return gv_result
+
 
 class RPPCGenOp(AbstractRGenOp):
 

@@ -123,6 +123,23 @@ class Insn_GPR__GPR_IMM(Insn):
                      self.arg_reg.number,
                      self.imm.value)
 
+class Insn_GPR__GPR(Insn):
+    def __init__(self, methptr, result, arg):
+        Insn.__init__(self)
+        self.methptr = methptr
+
+        self.result = result
+        self.result_regclass = GP_REGISTER
+        self.reg_args = [arg]
+        self.reg_arg_regclasses = [GP_REGISTER]
+    def allocate(self, allocator):
+        self.result_reg = allocator.loc_of(self.result)
+        self.arg_reg = allocator.loc_of(self.reg_args[0])
+    def emit(self, asm):
+        self.methptr(asm,
+                     self.result_reg.number,
+                     self.arg_reg.number)
+
 class Insn_GPR__IMM(Insn):
     def __init__(self, methptr, result, args):
         Insn.__init__(self)
