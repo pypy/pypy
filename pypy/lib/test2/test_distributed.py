@@ -41,3 +41,14 @@ class AppTestDistributed(object):
         assert item[2] == 3
         item += [1,1,1]
         assert len(item) == 6
+
+    def test_protocol_call(self):
+        def f(x, y):
+            return x + y
+        
+        from distributed import LocalProtocol
+        protocol = LocalProtocol()
+        wrap = protocol.wrap
+        unwrap = protocol.unwrap
+        item = unwrap(wrap(f))
+        assert item(3, 2) == 5

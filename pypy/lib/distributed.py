@@ -43,6 +43,7 @@ except ImportError:
 # XXX We do not make any garbage collection. We'll need it at some point
 
 import types
+from marshal import dumps
 
 class AbstractProtocol(object):
     letter_types = {
@@ -101,12 +102,28 @@ class AbstractProtocol(object):
     
     def perform(self, *args, **kwargs):
         raise NotImplementedError("Abstract only protocol")
+    
+    # some simple wrappers
+    def pack_args(self, args, kwargs):
+        args = [self.wrap(i) for i in args]
+        kwargs = dict([(self.wrap(key), self.wrap(val)) for key, val in kwargs.items()])
+        return args, kwargs
+    
+    def unpack_args(self, args, kwargs):
+        args = [self.unwrap(i) for i in args]
+        kwargs = dict([(self.unwrap(key), self.unwrap(val)) for key, val in kwargs.items()])
+        return args, kwargs
 
 class LocalProtocol(AbstractProtocol):
     """ This is stupid protocol for testing purposes only
     """
     def perform(self, id, name, *args, **kwargs):
         obj = self.objs[id]
+        # we pack and than unpack, for tests
+        args, kwargs = self.pack_args(args, kwargs)
+        assert isinstance(name, str)
+        dumps((args, kwargs))
+        args, kwargs = self.unpack_args(args, kwargs)
         return getattr(obj, name)(*args, **kwargs)
 
 class RemoteObject(object):
