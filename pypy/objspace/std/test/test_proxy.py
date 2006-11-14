@@ -82,6 +82,12 @@ class AppTestListProxy(AppProxyBasic):
             pass
         else:
             fail("Accessing outside a list didn't raise")
+    
+    def test_list_inplace_add(self):
+        c = self.Controller([1,2,3])
+        lst = self.proxy(list, c.perform)
+        lst += [1,2,3]
+        assert len(lst) == 6
 
 class AppTestDictProxy(AppProxyBasic):
     def test_dict(self):

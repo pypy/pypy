@@ -14,8 +14,10 @@ def create_mm_names(classname, mm, is_local):
         s += "list_"
     s += mm.name + "__"
     s += "_".join([classname] + ["ANY"] * (mm.arity - 1))
-    if '__' + mm.name + '__' in mm.specialnames:
-        return s, '__' + mm.name + '__'
+    #if '__' + mm.name + '__' in mm.specialnames:
+    #    return s, '__' + mm.name + '__'
+    if mm.specialnames:
+        return s, mm.specialnames[0]
     return s, mm.name
 
 def install_general_args_trampoline(type_, mm, is_local, op_name):
