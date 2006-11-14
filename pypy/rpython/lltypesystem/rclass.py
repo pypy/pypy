@@ -569,8 +569,10 @@ class InstanceRepr(AbstractInstanceRepr):
         return hop.genop('ptr_nonzero', [vinst], resulttype=Bool)
 
     def ll_str(self, i): # doesn't work for non-gc classes!
-        instance = cast_pointer(OBJECTPTR, i)
         from pypy.rpython.lltypesystem import rstr
+        if not i:
+            return rstr.null_str
+        instance = cast_pointer(OBJECTPTR, i)
         nameLen = len(instance.typeptr.name)
         nameString = rstr.mallocstr(nameLen-1)
         i = 0

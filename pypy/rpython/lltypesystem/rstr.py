@@ -767,6 +767,8 @@ string_iterator_repr = StringIteratorRepr()
 instance_str_prefix = string_repr.convert_const("<")
 instance_str_suffix = string_repr.convert_const(" object>")
 
+null_str = string_repr.convert_const("NULL")
+
 unboxed_instance_str_prefix = string_repr.convert_const("<unboxed ")
 unboxed_instance_str_suffix = string_repr.convert_const(">")
 
