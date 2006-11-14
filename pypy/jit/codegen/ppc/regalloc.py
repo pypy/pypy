@@ -55,6 +55,17 @@ class RegisterAllocation:
             self.spill_offset -= 4
             return stack_slot(self.spill_offset)
 
+    def spill(self, reg, argtospill):
+        if argtospill in self.lru:
+            self.lru.remove(argtospill)
+        self.forget(argtospill, reg)
+        spillslot = self.spill_slot()
+        if reg.regclass != GP_REGISTER:
+            self.insns.append(reg.move_to_gpr(self, 0))
+            reg = gprs[0]
+        self.insns.append(Spill(argtospill, reg, spillslot))
+        self.set(argtospill, spillslot)
+
     def _allocate_reg(self, regclass, newarg):
 
         # check if there is a register available
@@ -80,17 +91,9 @@ class RegisterAllocation:
         # Move the value we are spilling onto the stack, both in the
         # data structures and in the instructions:
 
-        self.forget(argtospill, reg)
-        spill = self.spill_slot()
-        if regclass != GP_REGISTER:
-            self.insns.append(reg.move_to_gpr(self, 0))
-            spillfrom_reg = gprs[0]
-        else:
-            spillfrom_reg = reg
-        self.insns.append(Spill(argtospill, spillfrom_reg, spill))
-        self.set(argtospill, spill)
+        self.spill(reg, argtospill)
 
-        #print "allocate_reg: Spilled %r to %r." % (argtospill, spill)
+        #print "allocate_reg: Spilled %r to %r." % (argtospill, self.loc_of(argtospill))
 
         # update data structures to put newarg into the register
         self.set(newarg, reg)
@@ -143,17 +146,20 @@ class RegisterAllocation:
                 argcls = insn.reg_arg_regclasses[i]
                 #print "Allocating register for", arg, "..."
                 argloc = self.loc_of(arg)
+                #print "currently in", argloc
 
                 if not argloc.is_register:
                     # It has no register now because it has been spilled
                     self.forget(arg, argloc)
                     newargloc = self._allocate_reg(argcls, arg)
+                    #print "unspilling to", newargloc
                     self.insns.append(Unspill(arg, newargloc, argloc))
                     self.free_stack_slots.append(argloc)
                 elif argloc.regclass != argcls:
                     # it's in the wrong kind of register
                     # (this code is excessively confusing)
                     self.forget(arg, argloc)
+                    self.freeregs[argloc.regclass].append(argloc)
                     if argloc.regclass != GP_REGISTER:
                         if argcls == GP_REGISTER:
                             gpr = self._allocate_reg(GP_REGISTER, arg).number

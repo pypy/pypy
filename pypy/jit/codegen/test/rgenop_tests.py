@@ -358,6 +358,16 @@ def make_fact(rgenop):
     builder.finish_and_return(sigtoken, rgenop.genconst(1))
     return gv_fact
 
+def get_fact_runner(RGenOp):
+    def fact_runner(x):
+        rgenop = RGenOp()
+        gv_large_switchfn = make_fact(rgenop)
+        largeswitchfn = gv_large_switchfn.revealconst(lltype.Ptr(FUNC))
+        res = largeswitchfn(x)
+        keepalive_until_here(rgenop)    # to keep the code blocks alive
+        return res
+    return fact_runner
+
 class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
     RGenOp = None
 
@@ -495,3 +505,11 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
         assert res == 2
         res = fnptr(10)
         assert res == 3628800
+
+    def test_fact_compile(self):
+        fn = self.compile(get_fact_runner(self.RGenOp), [int])
+        res = fn(2)
+        assert res == 2
+        res = fn(11)
+        assert res == 39916800
+

@@ -219,6 +219,72 @@ class Jump(Insn):
             BO = 4  # jump if relavent bit is NOT set in the CR
         asm.bcctr(BO, self.crf.number*4 + self.bit)
 
+class SpillCalleeSaves(Insn):
+    def __init__(self):
+        Insn.__init__(self)
+        self.reg_args = []
+        self.reg_arg_regclasses = []
+        self.result = None
+        self.result_regclass = NO_REGISTER
+    def allocate(self, allocator):
+        # cough cough cough
+        callersave = gprs[3:13]
+        for v in allocator.var2loc:
+            loc = allocator.loc_of(v)
+            if loc in callersave:
+                #print "spilling", v, "from", loc, "to",
+                allocator.spill(loc, v)
+                #print allocator.loc_of(v)
+                allocator.freeregs[GP_REGISTER].append(loc)
+    def emit(self, asm):
+        pass
+
+class LoadArg(Insn):
+    def __init__(self, argnumber, arg):
+        Insn.__init__(self)
+        self.reg_args = []
+        self.reg_arg_regclasses = []
+        self.result = None
+        self.result_regclass = NO_REGISTER
+
+        self.argnumber = argnumber
+        self.arg = arg
+    def allocate(self, allocator):
+        self.loc = allocator.loc_of(self.arg)
+    def emit(self, asm):
+        targetreg = 3+self.argnumber
+        if self.loc.is_register:
+            asm.mr(targetreg, self.loc.number)
+        else:
+            asm.lwz(targetreg, rFP, self.loc.offset)
+
+class CALL(Insn):
+    def __init__(self, result, target):
+        Insn.__init__(self)
+        from pypy.jit.codegen.ppc.rgenop import Var
+        if isinstance(target, Var):
+            self.reg_args = [target]
+            self.reg_arg_regclasses = [CT_REGISTER]
+        else:
+            self.reg_args = []
+            self.reg_arg_regclasses = []
+            self.target = target
+        self.result = result
+        self.result_regclass = GP_REGISTER
+    def allocate(self, allocator):
+        if self.reg_args:
+            assert allocator.loc_of(self.reg_args[0]) is ctr
+        self.resultreg = allocator.loc_of(self.result)
+    def emit(self, asm):
+        if not self.reg_args:
+            self.target.load_now(asm, gprs[0])
+            asm.mtctr(0)
+        asm.bctrl()
+        asm.lwz(rFP, rSP, 0)
+        if self.resultreg != gprs[3]:
+            asm.mr(self.resultreg.number, 3)
+
+
 class AllocTimeInsn(Insn):
     def __init__(self):
         Insn.__init__(self)
@@ -293,7 +359,7 @@ class Return(Insn):
         self.result_regclass = NO_REGISTER
         self.reg = None
     def allocate(self, allocator):
-        self.reg = allocator.loc_of(self.var)
+        self.reg = allocator.loc_of(self.reg_args[0])
     def emit(self, asm):
         if self.reg.number != 3:
             asm.mr(r3, self.reg.number)

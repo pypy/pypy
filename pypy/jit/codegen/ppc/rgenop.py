@@ -183,6 +183,7 @@ class Builder(GenBuilder):
         self.initial_spill_offset = 0
         self.initial_var2loc = None
         self.fresh_from_jump = False
+        self.max_param_space = -1
 
     # ----------------------------------------------------------------
     # the public Builder interface:
@@ -198,7 +199,13 @@ class Builder(GenBuilder):
         return genmethod(gv_arg1, gv_arg2)
 
     def genop_call(self, sigtoken, gv_fnptr, args_gv):
-        return Var()
+        self.insns.append(insn.SpillCalleeSaves())
+        for i in range(len(args_gv)):
+            self.insns.append(insn.LoadArg(i, args_gv[i]))
+        gv_result = Var()
+        self.max_param_space = len(args_gv)*4
+        self.insns.append(insn.CALL(gv_result, gv_fnptr))
+        return gv_result
 
 ##     def genop_getfield(self, fieldtoken, gv_ptr):
 ##     def genop_setfield(self, fieldtoken, gv_ptr, gv_value):
@@ -291,7 +298,7 @@ class Builder(GenBuilder):
         min_offset = min(allocator.spill_offset, target.min_stack_offset)
         min_offset = prepare_for_jump(
             self.asm, min_offset, outputargs_gv, allocator.var2loc, target)
-        self.patch_stack_adjustment(self._stack_size(0, min_offset))
+        self.patch_stack_adjustment(self._stack_size(min_offset))
         self.asm.load_word(rSCRATCH, target.startaddr)
         self.asm.mtctr(rSCRATCH)
         self.asm.bctr()
@@ -315,6 +322,7 @@ class Builder(GenBuilder):
     def make_fresh_from_jump(self, initial_var2loc):
         self.fresh_from_jump = True
         self.initial_var2loc = initial_var2loc
+        self.max_param_space = -1
 
     def _write_prologue(self, sigtoken):
         numargs = sigtoken     # for now
@@ -338,7 +346,7 @@ class Builder(GenBuilder):
         # Initially, we set params == lv == 0 and allow each basic block to
         # ensure it has enough space to continue.
 
-        minspace = self._stack_size(0, self._var_offset(0))
+        minspace = self._stack_size(self._var_offset(0))
         # save Link Register
         self.asm.mflr(rSCRATCH)
         self.asm.stw(rSCRATCH, rSP, 8)
@@ -359,12 +367,16 @@ class Builder(GenBuilder):
         this returns the offset relative to rFP"""
         return -(4*NSAVEDREGISTERS+4+v)
 
-    def _stack_size(self, param, lv):
+    def _stack_size(self, lv):
         """ Returns the required stack size to store all data, assuming
         that there are 'param' bytes of parameters for callee functions and
         'lv' is the largest (wrt to abs() :) rFP-relative byte offset of
         any variable on the stack.  Plus 4 because the rFP actually points
         into our caller's linkage area."""
+        if self.max_param_space >= 0:
+            param = self.max_param_space + 24
+        else:
+            param = 0
         return ((4 + param - lv + 15) & ~15)
 
     def _close(self):
@@ -377,7 +389,7 @@ class Builder(GenBuilder):
             self.rgenop.freeregs, self.initial_var2loc, self.initial_spill_offset)
         self.insns = allocator.allocate_for_insns(self.insns)
         if self.insns:
-            self.patch_stack_adjustment(self._stack_size(0, allocator.spill_offset))
+            self.patch_stack_adjustment(self._stack_size(allocator.spill_offset))
         for insn in self.insns:
             insn.emit(self.asm)
         return allocator
@@ -523,7 +535,7 @@ class Builder(GenBuilder):
     def op_int_is_true(self, gv_arg):
         gv_result = Var()
         self.insns.append(
-            insn.CMPWI(self.cmp2info['eq'], gv_result, [gv_arg, self.rgenop.genconst(0)]))
+            insn.CMPWI(self.cmp2info['ne'], gv_result, [gv_arg, self.rgenop.genconst(0)]))
         return gv_result
         
 
