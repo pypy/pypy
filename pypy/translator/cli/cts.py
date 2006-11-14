@@ -147,9 +147,9 @@ class CTS(object):
         elif isinstance(t, lltype.Ptr) and isinstance(t.TO, lltype.OpaqueType):
             return self.__class('[mscorlib]System.Object', include_class)
         elif isinstance(t, ootype.Instance):
-            native_class = t._hints.get('native_class', None)
-            if native_class:
-                return self.__class(native_class, include_class)
+            NATIVE_INSTANCE = t._hints.get('NATIVE_INSTANCE', None)
+            if NATIVE_INSTANCE:
+                return self.__class(NATIVE_INSTANCE._name, include_class)
             else:
                 name = self.db.pending_class(t)
                 return self.__class(name, include_class)

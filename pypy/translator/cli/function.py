@@ -28,8 +28,8 @@ class Function(OOFunction, Node, CLIBaseGenerator):
     def record_ll_meta_exc(self, ll_meta_exc):
         # record the type only if it doesn't belong to a native_class
         ll_exc = ll_meta_exc._inst.class_._INSTANCE
-        native_class = ll_exc._hints.get('native_class', None)
-        if native_class is None:
+        NATIVE_INSTANCE = ll_exc._hints.get('NATIVE_INSTANCE', None)
+        if NATIVE_INSTANCE is None:
             OOFunction.record_ll_meta_exc(self, ll_meta_exc)
 
     def begin_try(self):

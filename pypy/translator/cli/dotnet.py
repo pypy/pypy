@@ -1,7 +1,7 @@
 import types
 
 from pypy.annotation.pairtype import pair, pairtype
-from pypy.annotation.model import SomeObject, SomeOOInstance, SomeInteger, s_None,\
+from pypy.annotation.model import SomeObject, SomeInstance, SomeOOInstance, SomeInteger, s_None,\
      s_ImpossibleValue, lltype_to_annotation, annotation_to_lltype, SomeChar, SomeString
 from pypy.rpython.error import TyperError
 from pypy.rpython.extregistry import ExtRegistryEntry
@@ -305,13 +305,13 @@ class Entry(ExtRegistryEntry):
 
 
 
-native_exc = {}
+native_exc_cache = {}
 def NativeException(cliClass):
     try:
-        return native_exc[cliClass._name]
+        return native_exc_cache[cliClass._name]
     except KeyError:
         res = _create_NativeException(cliClass)
-        native_exc[cliClass._name] = res
+        native_exc_cache[cliClass._name] = res
         return res
 
 def _create_NativeException(cliClass):
@@ -324,5 +324,22 @@ def _create_NativeException(cliClass):
     else:
         # we are not using pythonnet -- create a fake class
         res = types.ClassType(TYPE._classname, (Exception,), {})
-    res._rpython_hints = {'native_class': cliClass._name}
+    res._rpython_hints = {'NATIVE_INSTANCE': TYPE}
     return res
+
+def native_exc(exc):
+    return exc
+
+class Entry(ExtRegistryEntry):
+    _about_ = native_exc
+
+    def compute_result_annotation(self, exc_s):
+        assert isinstance(exc_s, SomeInstance)
+        cls = exc_s.classdef.classdesc.pyobj
+        assert issubclass(cls, Exception)
+        NATIVE_INSTANCE = cls._rpython_hints['NATIVE_INSTANCE']
+        return SomeOOInstance(NATIVE_INSTANCE)
+
+    def specialize_call(self, hop):
+        v_obj, = hop.inputargs(*hop.args_r)
+        return hop.genop('same_as', [v_obj], hop.r_result.lowleveltype)

@@ -6,7 +6,8 @@ from pypy.rpython.ootypesystem.ootype import meth, Meth, Char, Signed, Float, St
      ROOT, overload, Instance, new
 from pypy.translator.cli.test.runtest import CliTest
 from pypy.translator.cli.dotnet import SomeCliClass, SomeCliStaticMethod,\
-     NativeInstance, CLR, box, unbox, OverloadingResolver, NativeException
+     NativeInstance, CLR, box, unbox, OverloadingResolver, NativeException,\
+     native_exc
 
 System = CLR.System
 Math = CLR.System.Math
@@ -221,6 +222,18 @@ class TestDotnetRtyping(CliTest):
                 return True
         assert self.interpret(fn, []) == True
 
+    def test_native_exception_object(self):
+        SystemException = NativeException(CLR.System.Exception)
+        def fn():
+            x = ArrayList()
+            try:
+                x.get_Item(0)
+                return "Impossible!"
+            except SystemException, e:
+                ex = native_exc(e)
+                return ex.get_Message()
+        res = self.ll_to_string(self.interpret(fn, []))
+        assert res.startswith("Index is less than 0")
 
 class TestPythonnet(TestDotnetRtyping):
     # don't interpreter functions but execute them directly through pythonnet
