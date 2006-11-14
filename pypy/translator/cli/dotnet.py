@@ -1,3 +1,5 @@
+import types
+
 from pypy.annotation.pairtype import pair, pairtype
 from pypy.annotation.model import SomeObject, SomeOOInstance, SomeInteger, s_None,\
      s_ImpossibleValue, lltype_to_annotation, annotation_to_lltype, SomeChar, SomeString
@@ -66,6 +68,7 @@ class CliClassRepr(Repr):
         INSTANCE = hop.args_r[0].cli_class._INSTANCE
         cINST = hop.inputconst(ootype.Void, INSTANCE)
         vlist = hop.inputargs(*hop.args_r)[1:] # discard the first argument
+        hop.exception_is_here()
         return hop.genop("new", [cINST]+vlist, resulttype=hop.r_result.lowleveltype)
 
 class CliStaticMethodRepr(Repr):
@@ -265,6 +268,7 @@ def unbox(x, TYPE):
     # TODO: check that x is really of type TYPE
     return x
 
+
 class Entry(ExtRegistryEntry):
     _about_ = box
 
@@ -298,3 +302,27 @@ class Entry(ExtRegistryEntry):
             return hop.genop('oodowncast', [v_obj], hop.r_result.lowleveltype)
         else:
             return hop.genop('cliunbox', [v_obj, v_type], hop.r_result.lowleveltype)
+
+
+
+native_exc = {}
+def NativeException(cliClass):
+    try:
+        return native_exc[cliClass._name]
+    except KeyError:
+        res = _create_NativeException(cliClass)
+        native_exc[cliClass._name] = res
+        return res
+
+def _create_NativeException(cliClass):
+    from pypy.translator.cli.query import getattr_ex
+    TYPE = cliClass._INSTANCE
+    if PythonNet.__name__ == 'CLR':
+        # we are using pythonnet -- use the .NET class
+        name = '%s.%s' % (TYPE._namespace, TYPE._classname)
+        res = getattr_ex(PythonNet, name)
+    else:
+        # we are not using pythonnet -- create a fake class
+        res = types.ClassType(TYPE._classname, (Exception,), {})
+    res._rpython_hints = {'native_class': cliClass._name}
+    return res

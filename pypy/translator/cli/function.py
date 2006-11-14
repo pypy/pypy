@@ -25,6 +25,13 @@ class Function(OOFunction, Node, CLIBaseGenerator):
     def _create_generator(self, ilasm):
         return self # Function implements the Generator interface
 
+    def record_ll_meta_exc(self, ll_meta_exc):
+        # record the type only if it doesn't belong to a native_class
+        ll_exc = ll_meta_exc._inst.class_._INSTANCE
+        native_class = ll_exc._hints.get('native_class', None)
+        if native_class is None:
+            OOFunction.record_ll_meta_exc(self, ll_meta_exc)
+
     def begin_try(self):
         self.ilasm.begin_try()
 

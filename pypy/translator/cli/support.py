@@ -9,6 +9,7 @@ try:
     import CLR as PythonNet
 except ImportError:
     class _PythonNet:
+        __name__ = None
         def __getattr__(self, attr):
             py.test.skip('Must use pythonnet for being able to access .NET libraries')
     PythonNet = _PythonNet()

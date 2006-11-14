@@ -132,11 +132,14 @@ class Function(object):
                 continue # see above
             assert issubclass(link.exitcase, Exception)
             ll_meta_exc = link.llexitcase
-            self.db.constant_generator.record_const(ll_meta_exc)
+            self.record_ll_meta_exc(ll_meta_exc)
             self.begin_catch(link.llexitcase)
             self.store_exception_and_link(link)
             target_label = self._get_block_name(link.target)
             self.end_catch(target_label)
+
+    def record_ll_meta_exc(self, ll_meta_exc):
+        self.db.constant_generator.record_const(ll_meta_exc)
 
     def store_exception_and_link(self, link):
         raise NotImplementedError

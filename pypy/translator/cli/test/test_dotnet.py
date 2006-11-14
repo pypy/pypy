@@ -6,7 +6,7 @@ from pypy.rpython.ootypesystem.ootype import meth, Meth, Char, Signed, Float, St
      ROOT, overload, Instance, new
 from pypy.translator.cli.test.runtest import CliTest
 from pypy.translator.cli.dotnet import SomeCliClass, SomeCliStaticMethod,\
-     NativeInstance, CLR, box, unbox, OverloadingResolver
+     NativeInstance, CLR, box, unbox, OverloadingResolver, NativeException
 
 System = CLR.System
 Math = CLR.System.Math
@@ -198,6 +198,29 @@ class TestDotnetRtyping(CliTest):
             x.Add(None)
             return x.get_Item(0)
         assert self.interpret(fn, []) is None
+
+    def test_native_exception_precise(self):
+        ArgumentOutOfRangeException = NativeException(CLR.System.ArgumentOutOfRangeException)
+        def fn():
+            x = ArrayList()
+            try:
+                x.get_Item(0)
+                return False
+            except ArgumentOutOfRangeException:
+                return True
+        assert self.interpret(fn, []) == True
+
+    def test_native_exception_superclass(self):
+        SystemException = NativeException(CLR.System.Exception)
+        def fn():
+            x = ArrayList()
+            try:
+                x.get_Item(0)
+                return False
+            except SystemException:
+                return True
+        assert self.interpret(fn, []) == True
+
 
 class TestPythonnet(TestDotnetRtyping):
     # don't interpreter functions but execute them directly through pythonnet
