@@ -57,6 +57,8 @@ class TestRPPCGenop(AbstractRGenOpTests):
         res = fnptr(2, 1)
         assert res == 100101
 
+    def test_fact_direct(self):
+        py.test.skip("wip")
 
 class TestRPPCGenopNoRegs(TestRPPCGenop):
     RGenOp = FewRegisters

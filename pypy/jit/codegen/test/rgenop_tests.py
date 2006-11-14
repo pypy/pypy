@@ -325,6 +325,39 @@ def get_large_switch_runner(RGenOp):
         return res
     return large_switch_runner
 
+def make_fact(rgenop):
+    # def fact(x):
+    #     if x:
+    #         y = x-1
+    #         z = fact(y)
+    #         w = x*z
+    #         return w
+    #     return 1
+    signed_kind = rgenop.kindToken(lltype.Signed)
+    sigtoken = rgenop.sigToken(FUNC)
+    builder, entrypoint, [gv_x] = rgenop.newgraph(sigtoken)
+
+    gv_fact = rgenop.gencallableconst(sigtoken, "fact", entrypoint)
+
+    gv_cond = builder.genop1("int_is_true", gv_x)
+
+    true_builder = builder.jump_if_true(gv_cond)
+
+    args_gv = [gv_x]
+    true_builder.enter_next_block([signed_kind], args_gv)
+    [gv_x2] = args_gv
+
+    gv_y = true_builder.genop2("int_sub", gv_x, rgenop.genconst(1))
+    gv_z = true_builder.genop_call(sigtoken, gv_fact, [gv_y])
+    gv_w = true_builder.genop2("int_mul", gv_x, gv_z)
+
+    true_builder.finish_and_return(sigtoken, gv_w)
+
+    builder.enter_next_block([], [])
+
+    builder.finish_and_return(sigtoken, rgenop.genconst(1))
+    return gv_fact
+
 class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
     RGenOp = None
 
@@ -452,3 +485,13 @@ class AbstractRGenOpTests(test_boehm.AbstractGCTestClass):
             assert res == 2**x+7 
         res = fn(42, 18)
         assert res == 18
+
+    def test_fact_direct(self):
+        rgenop = self.RGenOp()
+        gv_fact = make_fact(rgenop)
+        print gv_fact.value
+        fnptr = cast(c_void_p(gv_fact.value), CFUNCTYPE(c_int))
+        res = fnptr(2)
+        assert res == 2
+        res = fnptr(10)
+        assert res == 3628800
