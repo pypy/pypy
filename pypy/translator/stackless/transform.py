@@ -744,7 +744,7 @@ class StacklessTransformer(object):
         if i == len(block.operations) - 1 \
                and block.exitswitch == model.c_last_exception:
             link = block.exits[0]
-            exitcases = dict.fromkeys(l.exitcase for l in block.exits)
+            exitcases = dict.fromkeys([l.exitcase for l in block.exits])
             nextblock = None
         else:
             link = support.split_block_with_keepalive(block, i+1)
