@@ -57,7 +57,8 @@ last_task_id = 0
 def restore_exception(etype, value, stack):
     """until I find out how to restore an exception on python level"""
     #sys.excepthook(etype, value, stack)
-    raise etype(value)
+    raise etype, value, stack
+    #raise etype(value)
 
 class TaskletProxy(object):
     """TaskletProxy is needed to give the main_coroutine tasklet behaviour"""
