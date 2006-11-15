@@ -14,14 +14,14 @@ DEFAULTS = {
 class Translation(object):
 
     def __init__(self, entry_point, argtypes=None, **kwds):
+        self.driver = driver.TranslationDriver(overrides=DEFAULTS)
+        self.config = self.driver.config
+
         self.entry_point = entry_point
-        self.context = TranslationContext()
+        self.context = TranslationContext(config=self.config)
         # for t.view() to work just after construction
         graph = self.context.buildflowgraph(entry_point)
         self.context._prebuilt_graphs[entry_point] = graph
-
-        self.driver = driver.TranslationDriver(overrides=DEFAULTS)
-        self.config = self.driver.config
 
         # hook into driver events
         driver_own_event = self.driver._event
@@ -53,7 +53,8 @@ class Translation(object):
             else:
                 if argtypes is None:
                     argtypes = []
-            self.driver.setup(self.entry_point, argtypes, policy, empty_translator=self.context)
+            self.driver.setup(self.entry_point, argtypes, policy,
+                              empty_translator=self.context)
             self.ann_argtypes = argtypes
             self.ann_policy = policy
             self.driver_setup = True

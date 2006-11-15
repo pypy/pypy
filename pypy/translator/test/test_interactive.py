@@ -8,6 +8,7 @@ def test_simple_annotate():
 
     t = Translation(f, [int, int])
     assert t.context is t.driver.translator
+    assert t.config is t.driver.config is t.context.config
     
     s = t.annotate([int, int])
     assert s.knowntype == int
