@@ -58,7 +58,8 @@ class AbstractProtocol(object):
         'l' : long,
         's' : str,
         'lst' : list,
-        'fun' : types.FunctionType
+        'fun' : types.FunctionType,
+        'cus' : object,
     }
     type_letters = dict([(value, key) for key, value in letter_types.items()])
     assert len(type_letters) == len(letter_types)
@@ -85,8 +86,9 @@ class AbstractProtocol(object):
             id = self.register_obj(obj)
             return (self.type_letters[tp], id)
         else:
-            raise NotImplementedError("Cannot wrap %s: unsupported type %s" %
-                (obj, tp))
+            type_id = self.register_type(tp)
+            id = self.register_obj(obj)
+            return ("cus", (type_id, id))
     
     def unwrap(self, data):
         """ Unwrap an object
@@ -99,6 +101,11 @@ class AbstractProtocol(object):
             return tuple([self.unwrap(i) for i in obj_data])
         elif tp in (list, dict, types.FunctionType):
             return proxy(tp, RemoteObject(self, obj_data).perform)
+        elif tp is object:
+            # we need to create a proper type
+            type_id, id = obj_data
+            real_tp = self.get_type(type_id)
+            return proxy(real_tp, RemoteObject(self, id).perform)
         else:
             raise NotImplementedError("Cannot unwrap %s" % (data,))
     
@@ -119,6 +126,10 @@ class AbstractProtocol(object):
 class LocalProtocol(AbstractProtocol):
     """ This is stupid protocol for testing purposes only
     """
+    def __init__(self):
+        super(LocalProtocol, self).__init__()
+        self.types = []
+   
     def perform(self, id, name, *args, **kwargs):
         obj = self.objs[id]
         # we pack and than unpack, for tests
@@ -127,6 +138,13 @@ class LocalProtocol(AbstractProtocol):
         dumps((args, kwargs))
         args, kwargs = self.unpack_args(args, kwargs)
         return getattr(obj, name)(*args, **kwargs)
+    
+    def register_type(self, tp):
+        self.types.append(tp)
+        return len(self.types) - 1
+    
+    def get_type(self, id):
+        return self.types[id]
 
 def remote_loop(send, receive, exported_names, protocol=None):
     # the simplest version possible, without any concurrency and such
@@ -154,10 +172,10 @@ class RemoteProtocol(AbstractProtocol):
     #def __init__(self, gateway, remote_code):
     #    self.gateway = gateway
     def __init__(self, send, receive, exported_names={}):
+        super(RemoteProtocol, self).__init__()
         self.exported_names = exported_names
         self.send = send
         self.receive = receive
-        self.objs = []
     
     def perform(self, id, name, *args, **kwargs):
         args, kwargs = self.pack_args(args, kwargs)

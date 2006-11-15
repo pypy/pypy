@@ -90,3 +90,19 @@ class AppTestDistributed(object):
         protocol = test_env({"f":f})
         fun = protocol.get_remote("f")
         assert fun(8) == 16
+
+    def test_local_obj(self):
+        class A:
+            def __init__(self, x):
+                self.x = x
+            
+            def __len__(self):
+                return self.x + 8
+        
+        from distributed import LocalProtocol
+        protocol = LocalProtocol()
+        wrap = protocol.wrap
+        unwrap = protocol.unwrap
+        item = unwrap(wrap(A(3)))
+        assert item.x == 3
+        assert len(item) == 11
