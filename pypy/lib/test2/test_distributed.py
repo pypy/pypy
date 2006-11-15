@@ -65,7 +65,7 @@ class AppTestDistributed(object):
         data = []
         result = []
         protocol = RemoteProtocol(result.append, data.pop)
-        data += [("finished", protocol.wrap(5)), protocol.wrap(f)]
+        data += [("finished", protocol.wrap(5)), ("finished", protocol.wrap(f))]
         fun = protocol.get_remote("f")
         assert isinstance(fun, types.FunctionType)
         assert fun(2, 3) == 5
@@ -106,3 +106,19 @@ class AppTestDistributed(object):
         item = unwrap(wrap(A(3)))
         assert item.x == 3
         assert len(item) == 11
+
+    def test_remote_obj(self):
+        class A:
+            def __init__(self, x):
+                self.x = x
+            
+            def __len__(self):
+                return self.x + 8
+        a = A(3)
+        
+        from distributed import test_env
+        protocol = test_env({'a':a})
+        xa = protocol.get_remote("a")
+        assert xa.x == 3
+        assert len(xa) == 11
+    
