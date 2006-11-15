@@ -20,6 +20,9 @@ int main(int argc, char *argv[])
     char *errmsg;
     int i, exitcode;
     RPyListOfString *list;
+
+    instrument_setup();
+
     errmsg = RPython_StartupCode();
     if (errmsg) goto error;
 

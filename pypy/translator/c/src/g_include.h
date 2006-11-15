@@ -30,6 +30,8 @@
 #include "src/float.h"
 #include "src/address.h"
 
+#include "src/instrument.h"
+
 /* optional assembler bits */
 #if defined(__GNUC__) && defined(__i386__)
 #  include "src/asm_gcc_x86.h"

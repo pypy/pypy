@@ -159,6 +159,9 @@ pypy_optiondescription = OptionDescription("pypy", "All PyPy Options", [
         BoolOption("debug_transform", "Perform the debug transformation",
                    default=False, cmdline="--debug-transform", negation=False),
 
+        BoolOption("instrument", "internal: turn instrumentation on",
+                   default=False, cmdline=None),
+
         # portability options
         BoolOption("vanilla",
                    "Try to be as portable as possible, which is not much",

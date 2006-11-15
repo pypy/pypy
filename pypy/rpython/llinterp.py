@@ -460,6 +460,9 @@ class LLFrame(object):
             ll_exc_type = lltype.cast_pointer(rclass.OBJECTPTR, ll_exc).typeptr
             raise LLFatalError(msg, LLException(ll_exc_type, ll_exc))
 
+    def op_instrument_count(self, ll_tag, ll_label):
+        pass # xxx for now
+
     def op_keepalive(self, value):
         pass
 

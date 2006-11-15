@@ -402,6 +402,9 @@ LL_OPERATIONS = {
     'debug_log_exc':        LLOp(),
     'debug_assert':         LLOp(canfold=True),
     'debug_fatalerror':     LLOp(),
+
+    # __________ instrumentation _________
+    'instrument_count':     LLOp(),
 }
 
     # __________ operations on PyObjects __________

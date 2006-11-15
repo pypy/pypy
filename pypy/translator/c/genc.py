@@ -132,6 +132,7 @@ class CBuilder(object):
         if CBuilder.have___thread is None:
             CBuilder.have___thread = check_under_under_thread()
         if not self.standalone:
+            assert not self.config.translation.instrument
             from pypy.translator.c.symboltable import SymbolTable
             # XXX fix symboltable
             #self.symboltable = SymbolTable()
@@ -140,6 +141,8 @@ class CBuilder(object):
                                       exports = self.exports,
                                       symboltable = self.symboltable)
         else:
+            if self.config.translation.instrument:
+                defines['INSTRUMENT'] = 1
             if CBuilder.have___thread:
                 if not self.config.translation.no__thread:
                     defines['USE___THREAD'] = 1
@@ -641,6 +644,13 @@ def gen_source_standalone(database, modulename, targetdir,
     gen_startupcode(f, database)
 
     f.close()
+
+    if 'INSTRUMENT' in defines:
+        fi = incfilename.open('a')
+        n = database.instrument_ncounter
+        print >>fi, "#define INSTRUMENT_NCOUNTER %d" % n
+        fi.close()
+    
     return filename, sg.getextrafiles()
 
 

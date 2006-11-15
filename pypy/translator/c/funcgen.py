@@ -736,6 +736,13 @@ class FunctionCodeGenerator(object):
             msg = 'RPyString_AsString(%s)' % self.expr(msg)
 
         return 'fprintf(stderr, "%%s\\n", %s); abort();' % msg
+
+    def OP_INSTRUMENT_COUNT(self, op):
+        counter_label = op.args[1].value
+        self.db.instrument_ncounter = max(self.db.instrument_ncounter,
+                                          counter_label+1)
+        counter_label = self.expr(op.args[1])
+        return 'INSTRUMENT_COUNT(%s);' % counter_label
             
 
 assert not USESLOTS or '__dict__' not in dir(FunctionCodeGenerator)

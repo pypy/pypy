@@ -62,6 +62,8 @@ class LowLevelDatabase(object):
             self.gctransformer = self.gcpolicy.transformerclass(translator)
         self.completed = False
 
+        self.instrument_ncounter = 0
+
     def gettypedefnode(self, T, varlength=1):
         if varlength <= 1:
             varlength = 1   # it's C after all
