@@ -122,3 +122,22 @@ class AppTestDistributed(object):
         assert xa.x == 3
         assert len(xa) == 11
     
+    def test_remote_doc_and_callback(self):
+        class A:
+            """xxx"""
+            def __init__(self):
+                pass
+
+            def meth(self, x):
+                return x() + 3
+        
+        def x():
+            return 1
+        
+        a = A()
+        
+        from distributed import test_env
+        protocol = test_env({'a':a})
+        xa = protocol.get_remote('a')
+        assert xa.__class__.__doc__ == 'xxx'
+        assert xa.meth(x) == 4
