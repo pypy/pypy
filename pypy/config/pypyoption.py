@@ -1,6 +1,6 @@
 import autopath
 import py, os
-from pypy.config.config import OptionDescription, BoolOption, IntOption
+from pypy.config.config import OptionDescription, BoolOption, IntOption, ArbitraryOption
 from pypy.config.config import ChoiceOption, StrOption, to_optparse, Config
 
 modulepath = py.magic.autopath().dirpath().dirpath().join("module")
@@ -161,6 +161,9 @@ pypy_optiondescription = OptionDescription("pypy", "All PyPy Options", [
 
         BoolOption("instrument", "internal: turn instrumentation on",
                    default=False, cmdline=None),
+
+        ArbitraryOption("instrumentctl", "internal",
+                   default=None),        
 
         # portability options
         BoolOption("vanilla",

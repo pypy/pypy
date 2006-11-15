@@ -259,11 +259,57 @@ def log_spawned_cmd(spawn):
     return spawn_and_log
 
 
+class ProfOpt(object):
+    #XXX assuming gcc style flags for now
+    name = "profopt"
+    
+    def __init__(self, compiler):
+        self.compiler = compiler
+
+    def first(self):
+        self.build('-fprofile-generate')
+
+    def probe(self, exe, args):
+        from py.compat import subprocess
+        subprocess.call([exe, args])
+        
+    def after(self):
+        self.build('-fprofile-use')
+
+    def build(self, option):
+        compiler = self.compiler
+        compiler.compile_extra.append(option)
+        compiler.link_extra.append(option)
+        try:
+            compiler._build()
+        finally:
+            compiler.compile_extra.pop()
+            compiler.link_extra.pop()
+
+class ProfInstrument(object):
+    name = "profinstrument"
+    
+    def __init__(self, compiler):
+        self.compiler = compiler
+
+    def first(self):
+        self.compiler._build()
+
+    def probe(self, exe, args):
+        from pypy.tool.udir import udir        
+        from py.compat import subprocess
+        env = os.environ.copy()
+        env['_INSTRUMENT_COUNTERS'] = str(udir.join('_instrument_counters'))
+        subprocess.call([exe, args], env=env)
+        
+    def after(self):
+        pass
+            
 class CCompiler:
 
     def __init__(self, cfilenames, outputfilename=None, include_dirs=[],
                  libraries=[], library_dirs=[], compiler_exe=None,
-                 profopt=None):
+                 profbased=None):
         self.cfilenames = cfilenames
         ext = ''
         self.compile_extra = []
@@ -272,7 +318,7 @@ class CCompiler:
         self.include_dirs = list(include_dirs)
         self.library_dirs = list(library_dirs)
         self.compiler_exe = compiler_exe
-        self.profopt = profopt
+        self.profbased = profbased
         if not sys.platform in ('win32', 'darwin'): # xxx
             if 'm' not in self.libraries:
                 self.libraries.append('m')
@@ -303,26 +349,18 @@ class CCompiler:
         try:
             try:
                 c = stdoutcapture.Capture(mixed_out_err = True)
-                log.profopt(str(self.profopt))
-                if self.profopt is None:
+                if self.profbased is None:
                     self._build()
-                else:   #XXX assuming gcc style flags for now
-                    self.compile_extra.append('-fprofile-generate')
-                    self.link_extra.append('-fprofile-generate')
-                    self._build()
-                    self.compile_extra.pop()
-                    self.link_extra.pop()
-
-                    log.profopt('Gathering profile data from: %s %s' % (
-                        str(self.outputfilename), self.profopt))
-                    import subprocess
-                    subprocess.call([str(self.outputfilename), self.profopt])
-
-                    self.compile_extra.append('-fprofile-use')
-                    self.link_extra.append('-fprofile-use')
-                    self._build()
-                    self.compile_extra.pop()
-                    self.link_extra.pop()
+                else:
+                    ProfDriver, args = self.profbased
+                    profdrv = ProfDriver(self)
+                    dolog = getattr(log, ProfDriver.name)
+                    dolog(args)
+                    profdrv.first()
+                    dolog('Gathering profile data from: %s %s' % (
+                           str(self.outputfilename), args))
+                    profdrv.probe(str(self.outputfilename),args)
+                    profdrv.after()
             finally:
                 foutput, foutput = c.done()
                 data = foutput.read()

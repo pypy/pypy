@@ -5,7 +5,7 @@ from pypy.translator.c.database import LowLevelDatabase
 from pypy.translator.c.extfunc import pre_include_code_lines
 from pypy.translator.gensupp import uniquemodulename, NameManager
 from pypy.translator.tool.cbuild import compile_c_module
-from pypy.translator.tool.cbuild import build_executable, CCompiler
+from pypy.translator.tool.cbuild import build_executable, CCompiler, ProfOpt
 from pypy.translator.tool.cbuild import import_module_from_directory
 from pypy.translator.tool.cbuild import check_under_under_thread
 from pypy.rpython.lltypesystem import lltype
@@ -227,12 +227,19 @@ class CStandaloneBuilder(CBuilder):
         from distutils import sysconfig
         python_inc = sysconfig.get_python_inc()
         cc = self.config.translation.cc
-        profopt = self.config.translation.profopt
+        profbased = None
+        if self.config.translation.instrumentctl is not None:
+            profbased = self.config.translation.instrumentctl
+        else:
+            profopt = self.config.translation.profopt
+            if profopt is not None:
+                profbased = (ProfOpt, profopt)
+
         return CCompiler(
             [self.c_source_filename] + self.extrafiles,
             include_dirs = [autopath.this_dir, python_inc] + extra_includes,
             libraries    = self.libraries,
-            compiler_exe = cc, profopt = profopt)
+            compiler_exe = cc, profbased = profbased)
 
     def compile(self):
         assert self.c_source_filename
