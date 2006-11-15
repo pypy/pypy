@@ -11,7 +11,8 @@ class AppTestNoProxy(object):
 
 class AppTestDistributed(object):
     def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withtproxy": True})
+        cls.space = gettestobjspace(**{"objspace.std.withtproxy": True,
+            "usemodules":("_stackless",)})
 
     def test_init(self):
         import distributed
@@ -53,12 +54,12 @@ class AppTestDistributed(object):
         item = unwrap(wrap(f))
         assert item(3, 2) == 5
 
-    def test_remote_protocol_call(self):
+    def test_simulation_call(self):
         def f(x, y):
             return x + y
         
         import types
-        from distributed import RemoteProtocol, bootstrap
+        from distributed import RemoteProtocol
         import sys
 
         data = []
@@ -67,4 +68,13 @@ class AppTestDistributed(object):
         data += [("finished", protocol.wrap(5)), protocol.wrap(f)]
         fun = protocol.get_remote("f")
         assert isinstance(fun, types.FunctionType)
+        assert fun(2, 3) == 5
+
+    def test_remote_protocol_call(self):
+        def f(x, y):
+            return x + y
+        
+        from distributed import test_env
+        protocol = test_env({"f": f})
+        fun = protocol.get_remote("f")
         assert fun(2, 3) == 5

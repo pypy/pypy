@@ -128,10 +128,10 @@ class LocalProtocol(AbstractProtocol):
         args, kwargs = self.unpack_args(args, kwargs)
         return getattr(obj, name)(*args, **kwargs)
 
-def remote_loop(send, receive, protocol=None):
+def remote_loop(send, receive, exported_names, protocol=None):
     # the simplest version possible, without any concurrency and such
     if protocol is None:
-        protocol = RemoteProtocol(send, receive, {})
+        protocol = RemoteProtocol(send, receive, exported_names)
     wrap = protocol.wrap
     unwrap = protocol.unwrap
     # we need this for wrap/unwrap
@@ -142,9 +142,8 @@ def remote_loop(send, receive, protocol=None):
             send(wrap(protocol.exported_names[data]))
         elif command == 'call':
             id, name, args, kwargs = data
-            args, kwargs = unpack_args(args, kwargs)
-            assert not 'Transparent' in pypy_repr(protocol.objs[id])
-            retval = getattr(protocol.objs[id], name)(args, kwargs)
+            args, kwargs = protocol.unpack_args(args, kwargs)
+            retval = getattr(protocol.objs[id], name)(*args, **kwargs)
             send(("finished", wrap(retval)))
         elif command == 'finished':
             return unwrap(data)
@@ -178,19 +177,13 @@ class RemoteObject(object):
     def perform(self, name, *args, **kwargs):
         return self.protocol.perform(self.id, name, *args, **kwargs)
 
-def bootstrap(gw):
-    import py
-    import sys
-    return gw.remote_exec(py.code.Source(sys.modules[__name__], "remote_loop(channel.send, channel.receive)"))
+def test_env(exported_names):
+    from stackless import channel, tasklet, run
+    inp, out = channel(), channel()
+    tasklet(remote_loop)(inp.send, out.receive, exported_names)
+    return RemoteProtocol(out.send, inp.receive)
 
-
-##class RemoteFunction(object):
-##    def __init__(self, channel, name):
-##        channel.send(protocol.get(name))
-##        self.channel = channel
-##        self.id = protocol.id(channel.receive())
-##        self.fun = proxy(types.FunctionType, self.perform)
-##    
-##    def perform(self, name, *args, **kwargs):
-##        self.channel.send(protocol.pack_call(self.id, name, args, kwargs))
-##        return protocol.unpack(self.channel.receive())
+#def bootstrap(gw):
+#    import py
+#    import sys
+#    return gw.remote_exec(py.code.Source(sys.modules[__name__], "remote_loop(channel.send, channel.receive)"))
