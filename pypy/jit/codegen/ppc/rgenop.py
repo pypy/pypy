@@ -14,11 +14,15 @@ from pypy.jit.codegen.ppc.emit_moves import emit_moves
 from pypy.translator.asm.ppcgen.rassemblermaker import make_rassembler
 from pypy.translator.asm.ppcgen.ppc_assembler import MyPPCAssembler
 
+from pypy.jit.codegen.i386.rgenop import gc_malloc_fnaddr
+
 class RPPCAssembler(make_rassembler(MyPPCAssembler)):
     def emit(self, value):
         self.mc.write(value)
 
 NSAVEDREGISTERS = 19
+
+DEBUG_TRAP = option.trap
 
 _var_index = [0]
 class Var(GenVar):
@@ -211,19 +215,85 @@ class Builder(GenBuilder):
         self.insns.append(insn.CALL(gv_result, gv_fnptr))
         return gv_result
 
-##     def genop_getfield(self, fieldtoken, gv_ptr):
-##     def genop_setfield(self, fieldtoken, gv_ptr, gv_value):
-##     def genop_getsubstruct(self, fieldtoken, gv_ptr):
-##     def genop_getarrayitem(self, arraytoken, gv_ptr, gv_index):
-##     def genop_getarraysize(self, arraytoken, gv_ptr):
-##     def genop_setarrayitem(self, arraytoken, gv_ptr, gv_index, gv_value):
-##     def genop_malloc_fixedsize(self, alloctoken):
-##     def genop_malloc_varsize(self, varsizealloctoken, gv_size):
+    def genop_getfield(self, fieldtoken, gv_ptr):
+        gv_result = Var()
+        self.insns.append(
+            insn.Insn_GPR__GPR_IMM(RPPCAssembler.lwz,
+                                   gv_result, [gv_ptr, IntConst(fieldtoken)]))
+        return gv_result
+
+    def genop_setfield(self, fieldtoken, gv_ptr, gv_value):
+        gv_result = Var()
+        self.insns.append(
+            insn.Insn_None__GPR_GPR_IMM(RPPCAssembler.stw,
+                                        [gv_value, gv_ptr, IntConst(fieldtoken)]))
+        return gv_result
+
+    def genop_getsubstruct(self, fieldtoken, gv_ptr):
+        gv_result = Var()
+        self.insns.append(
+            insn.Insn_GPR__GPR_IMM(RPPCAssembler.addi,
+                                   gv_result, [gv_ptr, IntConst(fieldtoken)]))
+        return gv_result
+
+    def genop_getarrayitem(self, arraytoken, gv_ptr, gv_index):
+        _, _, itemsize = arraytoken
+        assert itemsize == 4
+        gv_itemoffset = self.itemoffset(arraytoken, gv_index)
+        gv_result = Var()
+        if gv_itemoffset.fits_in_immediate():
+            self.insns.append(
+                insn.Insn_GPR__GPR_IMM(RPPCAssembler.lwz,
+                                       gv_result, [gv_ptr, gv_itemoffset]))
+        else:
+            self.insns.append(
+                insn.Insn_GPR__GPR_GPR(RPPCAssembler.lwzx,
+                                       gv_result, [gv_ptr, gv_itemoffset]))
+        return gv_result
+
+    def genop_getarraysize(self, arraytoken, gv_ptr):
+        lengthoffset, _, _ = arraytoken
+        gv_result = Var()
+        self.insns.append(
+                insn.Insn_GPR__GPR_IMM(RPPCAssembler.lwz,
+                                       gv_result, [gv_ptr, IntConst(lengthoffset)]))
+        return gv_result
+
+    def genop_setarrayitem(self, arraytoken, gv_ptr, gv_index, gv_value):
+        _, _, itemsize = arraytoken
+        assert itemsize == 4
+        gv_itemoffset = self.itemoffset(arraytoken, gv_index)
+        gv_result = Var()
+        if gv_itemoffset.fits_in_immediate():
+            self.insns.append(
+                insn.Insn_None__GPR_GPR_IMM(RPPCAssembler.stw,
+                                            [gv_value, gv_ptr, gv_itemoffset]))
+        else:
+            self.insns.append(
+                insn.Insn_None__GPR_GPR_GPR(RPPCAssembler.stwx,
+                                            [gv_value, gv_ptr, gv_itemoffset]))
+
+    def genop_malloc_fixedsize(self, alloctoken):
+        return self.genop_call(1, # COUGH
+                               IntConst(gc_malloc_fnaddr()),
+                               [IntConst(alloctoken)])
+
+    def genop_malloc_varsize(self, varsizealloctoken, gv_size):
+        gv_itemoffset = self.itemoffset(varsizealloctoken, gv_size)
+        gv_result = self.genop_call(1, # COUGH
+                                    IntConst(gc_malloc_fnaddr()),
+                                    [gv_itemoffset])
+        lengthoffset, _, _ = varsizealloctoken
+        self.insns.append(
+            insn.Insn_None__GPR_GPR_IMM(RPPCAssembler.stw,
+                                        [gv_size, gv_result, IntConst(lengthoffset)]))
+        return gv_result
 
     def genop_same_as(self, kindtoken, gv_arg):
         if not isinstance(gv_arg, Var):
             gv_result = Var()
             gv_arg.load(self.insns, gv_result)
+            return gv_result
         else:
             return gv_arg
 
@@ -330,6 +400,20 @@ class Builder(GenBuilder):
     # ----------------------------------------------------------------
     # ppc-specific interface:
 
+    def itemoffset(self, arraytoken, gv_index):
+        # if gv_index is constant, this can return a constant...
+        lengthoffset, startoffset, itemsize = arraytoken
+
+        gv_offset = Var()
+        self.insns.append(
+            insn.Insn_GPR__GPR_IMM(RPPCAssembler.mulli,
+                                   gv_offset, [gv_index, IntConst(itemsize)]))
+        gv_itemoffset = Var()
+        self.insns.append(
+            insn.Insn_GPR__GPR_IMM(RPPCAssembler.addi,
+                               gv_itemoffset, [gv_offset, IntConst(startoffset)]))
+        return gv_itemoffset
+
     def make_fresh_from_jump(self, initial_var2loc):
         self.fresh_from_jump = True
         self.initial_var2loc = initial_var2loc
@@ -337,7 +421,7 @@ class Builder(GenBuilder):
 
     def _write_prologue(self, sigtoken):
         numargs = sigtoken     # for now
-        if not we_are_translated() and option.trap:
+        if DEBUG_TRAP:
             self.asm.trap()
         inputargs = [Var() for i in range(numargs)]
         assert self.initial_var2loc is None
@@ -371,6 +455,8 @@ class Builder(GenBuilder):
         # save stack pointer into linkage area and set stack pointer for us.
         self.asm.stwu(rSP, rSP, -minspace)
 
+        self.emit_stack_adjustment()
+
         return inputargs
 
     def _var_offset(self, v):
@@ -399,8 +485,8 @@ class Builder(GenBuilder):
         allocator = RegisterAllocation(
             self.rgenop.freeregs, self.initial_var2loc, self.initial_spill_offset)
         self.insns = allocator.allocate_for_insns(self.insns)
-        if self.insns:
-            self.patch_stack_adjustment(self._stack_size(allocator.spill_offset))
+        #if self.insns:
+        self.patch_stack_adjustment(self._stack_size(allocator.spill_offset))
         for insn in self.insns:
             insn.emit(self.asm)
         return allocator
@@ -549,11 +635,20 @@ class Builder(GenBuilder):
             insn.CMPWI(self.cmp2info['ne'], gv_result, [gv_arg, self.rgenop.genconst(0)]))
         return gv_result
 
+    def op_bool_not(self, gv_arg):
+        gv_result = Var()
+        self.insns.append(
+            insn.CMPWI(self.cmp2info['eq'], gv_result, [gv_arg, self.rgenop.genconst(0)]))
+        return gv_result
+
     def op_int_neg(self, gv_arg):
         gv_result = Var()
         self.insns.append(
             insn.Insn_GPR__GPR(RPPCAssembler.neg, gv_result, gv_arg))
         return gv_result
+
+    op_ptr_nonzero = op_int_is_true
+    op_ptr_iszero  = op_bool_not        # for now
 
 
 class RPPCGenOp(AbstractRGenOp):
@@ -607,21 +702,38 @@ class RPPCGenOp(AbstractRGenOp):
 ##     @staticmethod
 ##     def erasedType(T):
 
-##     @staticmethod
-##     @specialize.memo()
-##     def fieldToken(T, name):
+    @staticmethod
+    @specialize.memo()
+    def fieldToken(T, name):
+        return llmemory.offsetof(T, name)
 
-##     @staticmethod
-##     @specialize.memo()
-##     def allocToken(T):
+    @staticmethod
+    @specialize.memo()
+    def allocToken(T):
+        return llmemory.sizeof(T)
 
-##     @staticmethod
-##     @specialize.memo()
-##     def varsizeAllocToken(T):
+    @staticmethod
+    @specialize.memo()
+    def varsizeAllocToken(T):
+        if isinstance(T, lltype.Array):
+            return RPPCGenOp.arrayToken(T)
+        else:
+            # var-sized structs
+            arrayfield = T._arrayfld
+            ARRAYFIELD = getattr(T, arrayfield)
+            arraytoken = RPPCGenOp.arrayToken(ARRAYFIELD)
+            length_offset, items_offset, item_size = arraytoken
+            arrayfield_offset = llmemory.offsetof(T, arrayfield)
+            return (arrayfield_offset+length_offset,
+                    arrayfield_offset+items_offset,
+                    item_size)
 
-##     @staticmethod
-##     @specialize.memo()
-##     def arrayToken(A):
+    @staticmethod
+    @specialize.memo()
+    def arrayToken(A):
+        return (llmemory.ArrayLengthOffset(A),
+                llmemory.ArrayItemsOffset(A),
+                llmemory.ItemOffset(A.OF))
 
     @staticmethod
     @specialize.memo()

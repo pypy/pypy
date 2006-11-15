@@ -17,7 +17,10 @@ class Directory(py.test.collect.Directory):
 
 Option = py.test.Config.Option
 
-option = py.test.Config.addoptions("ppc options", 
-        Option('--trap', action="store_true", default=False, 
-               dest="trap", 
+option = py.test.Config.addoptions("ppc options",
+        Option('--trap', action="store_true", default=False,
+               dest="trap",
+               help=""),
+        Option('--debug-print', action="store_true", default=False,
+               dest="debug_print",
                help=""))

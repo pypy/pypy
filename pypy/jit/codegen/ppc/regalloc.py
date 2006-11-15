@@ -4,10 +4,15 @@ from pypy.jit.codegen.ppc.instruction import \
      CMPInsn, Spill, Unspill, stack_slot, \
      rSCRATCH
 
+from pypy.jit.codegen.ppc.conftest import option
+
+DEBUG_PRINT = option.debug_print
+
 class RegisterAllocation:
     def __init__(self, freeregs, initial_mapping, initial_spill_offset):
-        #print
-        #print "RegisterAllocation __init__", initial_mapping
+        if DEBUG_PRINT:
+            print
+            print "RegisterAllocation __init__", initial_mapping.items()
 
         self.insns = []   # output list of instructions
 
@@ -74,7 +79,8 @@ class RegisterAllocation:
         if freeregs:
             reg = freeregs.pop()
             self.set(newarg, reg)
-            #print "allocate_reg: Putting %r into fresh register %r" % (newarg, reg)
+            if DEBUG_PRINT:
+                print "allocate_reg: Putting %r into fresh register %r" % (newarg, reg)
             return reg
 
         # if not, find something to spill
@@ -93,11 +99,13 @@ class RegisterAllocation:
 
         self.spill(reg, argtospill)
 
-        #print "allocate_reg: Spilled %r to %r." % (argtospill, self.loc_of(argtospill))
+        if DEBUG_PRINT:
+            print "allocate_reg: Spilled %r to %r." % (argtospill, self.loc_of(argtospill))
 
         # update data structures to put newarg into the register
         self.set(newarg, reg)
-        #print "allocate_reg: Put %r in stolen reg %r." % (newarg, reg)
+        if DEBUG_PRINT:
+            print "allocate_reg: Put %r in stolen reg %r." % (newarg, reg)
         return reg
 
     def _promote(self, arg):
@@ -127,32 +135,37 @@ class RegisterAllocation:
         # Walk through instructions in forward order
         for insn in insns2:
 
-            #print "Processing instruction", insn,
-            #print "with args", insn.reg_args, "and result", insn.result, ":"
+            if DEBUG_PRINT:
+                print "Processing instruction", insn,
+                print "with args", insn.reg_args, "and result", insn.result, ":"
 
-            #print "LRU list was:", self.lru
+                print "LRU list was:", self.lru
 
             # put things into the lru
             for arg in insn.reg_args:
                 self._promote(arg)
             if insn.result:
                 self._promote(insn.result)
-            #print "LRU list is now:", self.lru
+            if DEBUG_PRINT:
+                print "LRU list is now:", self.lru
 
             # We need to allocate a register for each used
             # argument that is not already in one
             for i in range(len(insn.reg_args)):
                 arg = insn.reg_args[i]
                 argcls = insn.reg_arg_regclasses[i]
-                #print "Allocating register for", arg, "..."
+                if DEBUG_PRINT:
+                    print "Allocating register for", arg, "..."
                 argloc = self.loc_of(arg)
-                #print "currently in", argloc
+                if DEBUG_PRINT:
+                    print "currently in", argloc
 
                 if not argloc.is_register:
                     # It has no register now because it has been spilled
                     self.forget(arg, argloc)
                     newargloc = self._allocate_reg(argcls, arg)
-                    #print "unspilling to", newargloc
+                    if DEBUG_PRINT:
+                        print "unspilling to", newargloc
                     self.insns.append(Unspill(arg, newargloc, argloc))
                     self.free_stack_slots.append(argloc)
                 elif argloc.regclass != argcls:
@@ -174,13 +187,15 @@ class RegisterAllocation:
                         self.insns.append(
                             newargloc.move_from_gpr(self, gpr))
                 else:
-                    #print "it was in ", argloc
+                    if DEBUG_PRINT:
+                        print "it was in ", argloc
                     pass
 
             # Need to allocate a register for the destination
             assert not insn.result or insn.result not in self.var2loc
             if insn.result_regclass != NO_REGISTER:
-                #print "Allocating register for result %r..." % (insn.result,)
+                if DEBUG_PRINT:
+                    print "Allocating register for result %r..." % (insn.result,)
                 resultreg = self._allocate_reg(insn.result_regclass, insn.result)
                 if isinstance(insn, CMPInsn):
                     self.crfinfo[resultreg.number] = insn.info

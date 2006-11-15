@@ -157,6 +157,44 @@ class Insn_GPR__IMM(Insn):
                      self.result_reg.number,
                      self.imm.value)
 
+class Insn_None__GPR_GPR_IMM(Insn):
+    def __init__(self, methptr, args):
+        Insn.__init__(self)
+        self.methptr = methptr
+        self.imm = args[2]
+
+        self.result = None
+        self.result_regclass = NO_REGISTER
+        self.reg_args = args[:2]
+        self.reg_arg_regclasses = [GP_REGISTER, GP_REGISTER]
+    def allocate(self, allocator):
+        self.reg1 = allocator.loc_of(self.reg_args[0])
+        self.reg2 = allocator.loc_of(self.reg_args[1])
+    def emit(self, asm):
+        self.methptr(asm,
+                     self.reg1.number,
+                     self.reg2.number,
+                     self.imm.value)
+
+class Insn_None__GPR_GPR_GPR(Insn):
+    def __init__(self, methptr, args):
+        Insn.__init__(self)
+        self.methptr = methptr
+
+        self.result = None
+        self.result_regclass = NO_REGISTER
+        self.reg_args = args
+        self.reg_arg_regclasses = [GP_REGISTER, GP_REGISTER, GP_REGISTER]
+    def allocate(self, allocator):
+        self.reg1 = allocator.loc_of(self.reg_args[0])
+        self.reg2 = allocator.loc_of(self.reg_args[1])
+        self.reg3 = allocator.loc_of(self.reg_args[2])
+    def emit(self, asm):
+        self.methptr(asm,
+                     self.reg1.number,
+                     self.reg2.number,
+                     self.reg3.number)
+
 class CMPInsn(Insn):
     info = (0,0) # please the annotator for tests that don't use CMPW/CMPWI
     pass
@@ -267,10 +305,16 @@ class LoadArg(Insn):
         self.argnumber = argnumber
         self.arg = arg
     def allocate(self, allocator):
-        self.loc = allocator.loc_of(self.arg)
+        from pypy.jit.codegen.ppc.rgenop import Var
+        if isinstance(self.arg, Var):
+            self.loc = allocator.loc_of(self.arg)
+        else:
+            self.loc = None
     def emit(self, asm):
         targetreg = 3+self.argnumber
-        if self.loc.is_register:
+        if self.loc is None:
+            self.arg.load_now(asm, gprs[targetreg])
+        elif self.loc.is_register:
             asm.mr(targetreg, self.loc.number)
         else:
             asm.lwz(targetreg, rFP, self.loc.offset)
