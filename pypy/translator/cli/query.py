@@ -63,7 +63,9 @@ def load_class_or_namespace(name):
     except KeyError:
         desc = query_description(name)
         Descriptions[name] = desc
-    setattr_ex(CLR, name, desc.build())
+    res = desc.build()
+    setattr_ex(CLR, name, res)
+    return res
 
 def query_description(name):
     log.query('Loading description for %s' % name)
@@ -84,9 +86,13 @@ def query_description(name):
 
 def load_class_maybe(name):
     if name.startswith('System.Array+InternalArray'):
-        ClassCache[name] = ClassCache['System.Array']
+        res = ClassCache['System.Array']
+        ClassCache[name] = res
+        return res
     elif name not in ClassCache:
-        load_class_or_namespace(name)
+        return load_class_or_namespace(name)
+    else:
+        return ClassCache[name]
 
 
 class Desc:

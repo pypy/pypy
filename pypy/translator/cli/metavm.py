@@ -185,12 +185,31 @@ class _Unbox(MicroInstruction):
         generator.load(v_obj)
         generator.ilasm.opcode('unbox.any', boxtype)
 
+class _NewArray(MicroInstruction):
+    def render(self, generator, op):
+        v_type, v_length = op.args
+        assert v_type.concretetype is ootype.Void
+        TYPE = v_type.value._INSTANCE
+        typetok = generator.cts.lltype_to_cts(TYPE)
+        generator.load(v_length)
+        generator.ilasm.opcode('newarr', typetok)
+
 class _GetArrayElem(MicroInstruction):
     def render(self, generator, op):
         generator.load(op.args[0])
         generator.load(op.args[1])
         rettype = generator.cts.lltype_to_cts(op.result.concretetype)
         generator.ilasm.opcode('ldelem', rettype)
+
+class _SetArrayElem(MicroInstruction):
+    def render(self, generator, op):
+        v_array, v_index, v_elem = op.args
+        generator.load(v_array)
+        generator.load(v_index)
+        generator.load(v_elem)
+        elemtype = generator.cts.lltype_to_cts(v_array.concretetype)
+        generator.ilasm.opcode('stelem', elemtype)
+
 
 Call = _Call()
 CallMethod = _CallMethod()
@@ -202,4 +221,6 @@ NewCustomDict = _NewCustomDict()
 CastWeakAdrToPtr = _CastWeakAdrToPtr()
 Box = _Box()
 Unbox = _Unbox()
+NewArray = _NewArray()
 GetArrayElem = _GetArrayElem()
+SetArrayElem = _SetArrayElem()

@@ -7,7 +7,7 @@ from pypy.rpython.ootypesystem.ootype import meth, Meth, Char, Signed, Float, St
 from pypy.translator.cli.test.runtest import CliTest
 from pypy.translator.cli.dotnet import SomeCliClass, SomeCliStaticMethod,\
      NativeInstance, CLR, box, unbox, OverloadingResolver, NativeException,\
-     native_exc
+     native_exc, init_array
 
 System = CLR.System
 Math = CLR.System.Math
@@ -188,6 +188,12 @@ class TestDotnetRtyping(CliTest):
             return unbox(array[0], ootype.Signed)
         assert self.interpret(fn, []) == 42
 
+    def test_init_array(self):
+        def fn():
+            array = init_array(System.Object, box(42), box(43))
+            return unbox(array[0], ootype.Signed) + unbox(array[1], ootype.Signed)
+        assert self.interpret(fn, []) == 42+43
+
     def test_null(self):
         def fn():
             return System.Object.Equals(None, None)
@@ -234,6 +240,7 @@ class TestDotnetRtyping(CliTest):
                 return ex.get_Message()
         res = self.ll_to_string(self.interpret(fn, []))
         assert res.startswith("Index is less than 0")
+
 
 class TestPythonnet(TestDotnetRtyping):
     # don't interpreter functions but execute them directly through pythonnet

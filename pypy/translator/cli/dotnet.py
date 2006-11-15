@@ -343,3 +343,34 @@ class Entry(ExtRegistryEntry):
     def specialize_call(self, hop):
         v_obj, = hop.inputargs(*hop.args_r)
         return hop.genop('same_as', [v_obj], hop.r_result.lowleveltype)
+
+
+def init_array(type, *args):
+    # PythonNet doesn't provide a straightforward way to create arrays... fake it with a list
+    return args
+
+class Entry(ExtRegistryEntry):
+    _about_ = init_array
+
+    def compute_result_annotation(self, type_s, *args_s):
+        from pypy.translator.cli.query import load_class_maybe
+        assert type_s.is_constant()
+        TYPE = type_s.const._INSTANCE
+        for i, arg_s in enumerate(args_s):
+            if TYPE is not arg_s.ootype:
+                raise TypeError, 'Wrong type of arg #%d: %s expected, %s found' % \
+                      (i, TYPE, arg_s.ootype)
+        fullname = '%s.%s[]' % (TYPE._namespace, TYPE._classname)
+        cliArray = load_class_maybe(fullname)
+        return SomeOOInstance(cliArray._INSTANCE)
+
+    def specialize_call(self, hop):
+        vlist = hop.inputargs(*hop.args_r)
+        c_type, v_elems = vlist[0], vlist[1:]
+        c_length = hop.inputconst(ootype.Signed, len(v_elems))
+        hop.exception_cannot_occur()
+        v_array = hop.genop('cli_newarray', [c_type, c_length], hop.r_result.lowleveltype)
+        for i, v_elem in enumerate(v_elems):
+            c_index = hop.inputconst(ootype.Signed, i)
+            hop.genop('cli_setelem', [v_array, c_index, v_elem], ootype.Void)
+        return v_array
