@@ -52,7 +52,7 @@ def test_print():
     # gives the strings unquoted in the list
 
 def test_counters():
-    if sys.platform != 'linux2':
+    if sys.platform == 'win32':
         py.test.skip("instrument counters support is unix only for now")
     from pypy.rpython.lltypesystem import lltype
     from pypy.rpython.lltypesystem.lloperation import llop
