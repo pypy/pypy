@@ -78,3 +78,15 @@ class AppTestDistributed(object):
         protocol = test_env({"f": f})
         fun = protocol.get_remote("f")
         assert fun(2, 3) == 5
+
+    def test_callback(self):
+        def g():
+            return 8
+        
+        def f(x):
+            return x + g()
+        
+        from distributed import test_env
+        protocol = test_env({"f":f})
+        fun = protocol.get_remote("f")
+        assert fun(8) == 16
