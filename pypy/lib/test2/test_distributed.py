@@ -141,3 +141,22 @@ class AppTestDistributed(object):
         xa = protocol.get_remote('a')
         assert xa.__class__.__doc__ == 'xxx'
         assert xa.meth(x) == 4
+
+    def test_double_reference(self):
+        class A:
+            def meth(self, one):
+                self.one = one
+            
+            def perform(self):
+                return 1 + len(self.one())
+        
+        class B:
+            def __call__(self):
+                return [1,2,3]
+        
+        from distributed import test_env
+        a = A()
+        protocol = test_env({'a': a})
+        xa = protocol.get_remote('a')
+        xa.meth(B())
+        assert xa.perform() == 4

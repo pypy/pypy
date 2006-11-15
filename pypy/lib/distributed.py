@@ -50,6 +50,7 @@ TODO list:
 2. Refactor it a bit (split class into logical/bookkeeper one)
 3. Add some garbage collection
 4. Add caching of objects that are presented (even on name level)
+5. Add exceptions, frames and error handling
 """
 
 from pypymagic import pypy_repr
@@ -58,6 +59,8 @@ import types
 from marshal import dumps
 
 class AbstractProtocol(object):
+    immutable_primitives = (str, int, float, long, unicode, bool, types.NotImplementedType)
+    
     letter_types = {
         'l' : list,
         'd' : dict,
@@ -68,6 +71,7 @@ class AbstractProtocol(object):
         'u' : unicode,
         'l' : long,
         's' : str,
+        'ni' : types.NotImplementedType,
         'n' : types.NoneType,
         'lst' : list,
         'fun' : types.FunctionType,
@@ -97,7 +101,7 @@ class AbstractProtocol(object):
             return "tp", self.remote_objects[ctrl]
         elif obj is None:
             return self.type_letters[tp]
-        elif tp in (str, int, float, long, unicode, bool):
+        elif tp in self.immutable_primitives:
             # simple, immutable object, just copy
             return (self.type_letters[tp], obj)
         elif tp is tuple:
@@ -129,7 +133,7 @@ class AbstractProtocol(object):
         tp = self.letter_types[tp_letter]
         if tp is None:
             return self.objs[obj_data]
-        elif tp in (str, int, float, long, unicode, bool):
+        elif tp in self.immutable_primitives:
             return obj_data # this is the object
         elif tp is tuple:
             return tuple([self.unwrap(i) for i in obj_data])
