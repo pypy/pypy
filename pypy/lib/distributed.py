@@ -259,8 +259,7 @@ class RemoteProtocol(AbstractProtocol):
         # XXX: We don't support inheritance here, nor recursive types
         #      shall we???
         _dict = dict([(key, self.wrap(getattr(tp, key))) for key in dir(tp) 
-            if key not in ('__dict__', '__weakref__', '__class__', '__new__',
-                '__doc__')])
+            if key not in ('__dict__', '__weakref__', '__class__', '__new__')])
         self.send(("type_reg", (tp_id, 
             tp.__name__, _dict)))
         return tp_id
@@ -275,10 +274,13 @@ class RemoteProtocol(AbstractProtocol):
         print "Faking type %s as %s" % (_name, type_id)
         # create and register new type
         d = dict([(key, None) for key in _dict])
+        if '__doc__' in _dict:
+            d['__doc__'] = self.unwrap(_dict['__doc__'])
         tp = type(_name, (object,), d)
         self.remote_types[type_id] = tp
         for key, value in _dict.items():
-            setattr(tp, key, self.unwrap(value))
+            if key != '__doc__':
+                setattr(tp, key, self.unwrap(value))
     
     def get_type(self, id):
         try:
