@@ -467,6 +467,8 @@ class Ontology:
             self.store_path = py.path.local().join("db").strpath
         self.variables = {}
         self.constraints = []
+        self.variables['owl_Thing'] = Thing('owl_Thing')
+        self.variables['owl_Literal'] = Literal('owl_Literal')
         self.seen = {}
         self.var2ns ={}
         self.nr_of_triples = 0
@@ -514,6 +516,9 @@ class Ontology:
                 constraint.narrow(self.variables)
 #                except ConsistencyFailure, e:
 #                    print "FAilure", e
+        things = self.variables['owl_Thing'].getValues()
+        things += self.variables['owl_Literal'].getValues()
+        self.variables['owl_Thing'].setValues(things)
 
     def _sparql(self, query):
         qe = SP.Query.parseString(query)
@@ -585,9 +590,13 @@ class Ontology:
                     raise ConsistencyFailure
             elif case == 1:
                 # Add a HasValue constraint
-                var = self.make_var(Restriction, URIRef(trip[0]))
-                self.onProperty(var, URIRef(trip[1]))
-                self.hasValue(var, trip[2])
+                ns,pred = trip[1].split("#")
+                if ns in namespaces.values():
+                    self.consider_triple(trip)
+                else:
+                    var = self.make_var(Restriction, URIRef(trip[0]))
+                    self.onProperty(var, URIRef(trip[1]))
+                    self.hasValue(var, trip[2])
             elif case == 2:
                 #  for all p's return p if p[0]==s and p[1]==o
 
@@ -640,28 +649,33 @@ class Ontology:
             elif case == 5:
                 #  return the values of p
                 prop = self.make_var(Property, URIRef(trip[1]))
+                query_dom[prop] = self.variables[prop]
                 p_vals = self.variables[prop].getValues()
-                var = self.make_var(Thing, trip[0])
-                self.variables[var].setValues([v[0] for v in p_vals])
-                p_vals = self.variables[prop].getValues()
-                var = self.make_var(Thing, trip[2])
-                self.variables[var].setValues([v[1] for v in p_vals])
+                sub = self.make_var(Thing, trip[0])
+                self.variables[sub].setValues([v[0] for v in p_vals])
+                obj = self.make_var(Thing, trip[2])
+                self.variables[obj].setValues([v[1] for v in p_vals])
+                con = Expression([sub,prop,obj], "%s == (%s, %s)" %(prop, sub, obj))
+                query_constr.append(con)
+
             elif case == 6:
-                #  for all p's return p[1] if p[0]==s  
+# 6     bound           var             var    ; for all p's return p[1] if p[0]==s
+                #  for all p's return p[1] if p[0]==s 
+                prop = self.make_var(Property, URIRef(trip[1]))
+
                 pass
             elif case == 7:
                 #  for all p's return p.getvalues
                 p_vals = []
                 for p in self.variables['rdf_Property'].getValues():
                     p_vals += self.variables[p].getValues()
-                
-                things = self.variables['owl_Thing'].getValues()
-                things += self.variables['owl_Literal'].getValues()
+                    
                 prop = self.make_var(Property, URIRef(trip[1]))
                 self.variables[prop].setValues(p_vals)
                 sub = self.make_var(Thing, trip[0])
-                self.variables[sub].setValues(things)
                 obj = self.make_var(Thing, trip[2])
+                things = self.variables['owl_Thing'].getValues()
+                things += self.variables['owl_Literal'].getValues()
                 self.variables[obj].setValues(things)
                 con = Expression([sub,prop,obj], "%s[0] == %s and %s[1] == %s" %(prop, sub, prop, obj))
                 query_constr.append(con)
@@ -672,10 +686,12 @@ class Ontology:
         # Build a repository with the variables in the query
         dom = dict([(self.mangle_name(v),self.variables[self.mangle_name(v)])
                      for v in vars])
+
         dom.update(query_dom)
+        print dom
         # solve the repository and return the solution
         rep = Repository(dom.keys(), dom, query_constr)
-        res_s = Solver().solve(rep)
+        res_s = Solver().solve(rep, 3)
         #res_s = self.solve()
         res = []
         for d in res_s:

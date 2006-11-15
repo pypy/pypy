@@ -28,6 +28,12 @@ def rdf_list(ont, name, data):
     ont.rest(own,  URIRef(namespaces['rdf']+'#nil'))
     return owllist
 
+def test_equivalentProperty_inconst():
+    O = Ontology()
+    O.add_file("testinconst.rdf")
+    O.attach_fd()
+    raises(ConsistencyFailure, O.consistency)
+
 def test_XMLSchema_string():
     O = Ontology()
     a = URIRef(u'A')

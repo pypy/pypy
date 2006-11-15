@@ -161,7 +161,6 @@ def test_case_6():
 
 def test_case_7():
     """ for all p's return p[1] if p[0]==s """
-    #py.test.skip("Doesn't work yet")
 
     query = qt_proto % ('?x ?y ?z', '?x ?y ?z .')
     O = Ontology()
@@ -172,6 +171,49 @@ def test_case_7():
     assert list(O.variables['query_x_'].getValues())[0].uri == u'http://example.org/ns#sub' 
     assert res[0]['query_x_'] == u'http://example.org/ns#sub' 
  
+query1 = """
+        PREFIX ltw : <http://www.lt-world.org/ltw.owl#>
+        PREFIX owl : <http://www.w3.org/2002/07/owl#>
+        SELECT ?person ?activity
+                WHERE {
+                                ?activity owl:subClassOf ltw:Active_Project .
+                                ?person_obj owl:subClassOf ltw:Active_Person .
+                                ?activity ltw:hasParticipant ?person_obj .
+                                ?person_obj ltw:personName ?person .
+                                }
+                ORDER BY ?person"""
+#how many projects have been funded by BMBF in 2006
+query2 = """
+        PREFIX ltw : <http://www.lt-world.org/ltw.owl#>
+        PREFIX owl : <http://www.w3.org/2002/07/owl#>
+        SELECT ?project
+                WHERE {
+                        ?project ltw:funded_by ltw:BMBF .
+                        ?project ltw:date_begin ?date_begin .
+                        ?project ltw:date_end ?date_end .
+                                FILTER ( ?date_begin  < 2007 ) .
+                FILTER ( ?date_end >= 2006) .
+                                }"""
+#which project is funded in a technological area (i.e. Semantic web),
+query3 = """
+        PREFIX ltw : <http://www.lt-world.org/ltw.owl#>
+        PREFIX owl : <http://www.w3.org/2002/07/owl#>
+        SELECT ?project
+                WHERE {
+                                ?project owl:subClassOf ltw:Active_Project .
+                                ?project owl:subClassOf ltw:Semantic_Web .
+                                ?project ltw:supportedby ?x .
+                                }"""
+
+def test_query1():
+    O = Ontology()
+    O.add_file("testont2.rdf")
+    O.attach_fd()
+
+    res = O.sparql(query1)
+    assert len(res) == 1
+    assert res[0]['query_activity_'] == u'http://www.lt-world.org/ltw.owl#obj_59754' 
+    assert res[0]['query_person_'] == u'\nKlara Vicsi' 
 
 import xmlrpclib, socket, os, signal
 
@@ -198,7 +240,6 @@ class TestXMLRPC:
         os.kill(self.shell.pid, signal.SIGTERM)
 
     def test_xmlrpc(self):
-        #py.test.skip("WIP")
         print "test_xmlrpc"
         server = xmlrpclib.ServerProxy("http://localhost:9000", allow_none=True)
         result = server.sparql(qt_proto % ('?x', 'ns:sub ns:p ?x .'))
