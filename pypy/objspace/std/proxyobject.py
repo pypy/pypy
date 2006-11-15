@@ -68,7 +68,7 @@ def transparent_class(name, BaseCls):
         def setdict(self, space, w_dict):
             if not self.setdictvalue(space, space.wrap('__dict__'), w_dict):
                 baseobjspace.W_Root.setdict(self, space, w_dict)
-        
+    
     W_Transparent.__name__ = name
     return W_Transparent
 

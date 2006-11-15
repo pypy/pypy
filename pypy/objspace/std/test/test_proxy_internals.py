@@ -101,6 +101,14 @@ class AppTestProxyTracebackController(AppProxy):
             e = sys.exc_info()
         
         assert traceback.format_tb(last_tb) == traceback.format_tb(e[2])
+    
+    def test_proxy_get(self):
+        from pypymagic import transparent_proxy, get_transparent_controller
+        l = [1,2,3]
+        def f(name, *args, **kwargs):
+            return getattr(l, name)(*args, **kwargs)
+        lst = transparent_proxy(list, f)
+        assert get_transparent_controller(lst) is f
 
 class DONTAppTestProxyType(AppProxy):
     def test_filetype(self):
