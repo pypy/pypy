@@ -52,3 +52,19 @@ class AppTestDistributed(object):
         unwrap = protocol.unwrap
         item = unwrap(wrap(f))
         assert item(3, 2) == 5
+
+    def test_remote_protocol_call(self):
+        def f(x, y):
+            return x + y
+        
+        import types
+        from distributed import RemoteProtocol, bootstrap
+        import sys
+
+        data = []
+        result = []
+        protocol = RemoteProtocol(result.append, data.pop)
+        data += [("finished", protocol.wrap(5)), protocol.wrap(f)]
+        fun = protocol.get_remote("f")
+        assert isinstance(fun, types.FunctionType)
+        assert fun(2, 3) == 5

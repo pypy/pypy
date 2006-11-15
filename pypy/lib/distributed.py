@@ -42,6 +42,8 @@ except ImportError:
 
 # XXX We do not make any garbage collection. We'll need it at some point
 
+from pypymagic import pypy_repr
+
 import types
 from marshal import dumps
 
@@ -126,6 +128,48 @@ class LocalProtocol(AbstractProtocol):
         args, kwargs = self.unpack_args(args, kwargs)
         return getattr(obj, name)(*args, **kwargs)
 
+def remote_loop(send, receive, protocol=None):
+    # the simplest version possible, without any concurrency and such
+    if protocol is None:
+        protocol = RemoteProtocol(send, receive, {})
+    wrap = protocol.wrap
+    unwrap = protocol.unwrap
+    # we need this for wrap/unwrap
+    while 1:
+        command, data = receive()
+        if command == 'get':
+            # XXX: Error recovery anyone???
+            send(wrap(protocol.exported_names[data]))
+        elif command == 'call':
+            id, name, args, kwargs = data
+            args, kwargs = unpack_args(args, kwargs)
+            assert not 'Transparent' in pypy_repr(protocol.objs[id])
+            retval = getattr(protocol.objs[id], name)(args, kwargs)
+            send(("finished", wrap(retval)))
+        elif command == 'finished':
+            return unwrap(data)
+        else:
+            raise NotImplementedError("command %s" % command)
+
+class RemoteProtocol(AbstractProtocol):
+    #def __init__(self, gateway, remote_code):
+    #    self.gateway = gateway
+    def __init__(self, send, receive, exported_names={}):
+        self.exported_names = exported_names
+        self.send = send
+        self.receive = receive
+        self.objs = []
+    
+    def perform(self, id, name, *args, **kwargs):
+        args, kwargs = self.pack_args(args, kwargs)
+        self.send(('call', (id, name, args, kwargs)))
+        retval = remote_loop(self.send, self.receive, self)
+        return retval
+    
+    def get_remote(self, name):
+        self.send(("get", name))
+        return self.unwrap(self.receive())
+
 class RemoteObject(object):
     def __init__(self, protocol, id):
         self.id = id
@@ -133,6 +177,12 @@ class RemoteObject(object):
     
     def perform(self, name, *args, **kwargs):
         return self.protocol.perform(self.id, name, *args, **kwargs)
+
+def bootstrap(gw):
+    import py
+    import sys
+    return gw.remote_exec(py.code.Source(sys.modules[__name__], "remote_loop(channel.send, channel.receive)"))
+
 
 ##class RemoteFunction(object):
 ##    def __init__(self, channel, name):
