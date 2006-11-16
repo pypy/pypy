@@ -7,7 +7,7 @@ from pypy.objspace.flow.model import SpaceOperation, c_last_exception
 from pypy.objspace.flow.model import FunctionGraph
 from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph
 from pypy.annotation import model as annmodel
-from pypy.rpython.lltypesystem.lltype import Bool, typeOf, Void, Ptr
+from pypy.rpython.lltypesystem.lltype import Bool, Signed, typeOf, Void, Ptr
 from pypy.rpython.lltypesystem.lltype import normalizeptr
 from pypy.rpython import rmodel
 from pypy.tool.algo import sparsemat
@@ -72,9 +72,10 @@ def contains_call(graph, calling_what):
         return False
 
 def inline_function(translator, inline_func, graph, lltype_to_classdef,
-                    raise_analyzer):
+                    raise_analyzer, call_count_pred=None):
     inliner = Inliner(translator, graph, inline_func, lltype_to_classdef,
-                      raise_analyzer = raise_analyzer)
+                      raise_analyzer = raise_analyzer,
+                      call_count_pred=call_count_pred)
     return inliner.inline_all()
 
 def simple_inline_function(translator, inline_func, graph):
@@ -128,7 +129,9 @@ def any_call_to_raising_graphs(from_graph, translator, raise_analyzer):
 class BaseInliner(object):
     def __init__(self, translator, graph, lltype_to_classdef, 
                  inline_guarded_calls=False,
-                 inline_guarded_calls_no_matter_what=False, raise_analyzer=None):
+                 inline_guarded_calls_no_matter_what=False,
+                 raise_analyzer=None,
+                 call_count_pred=None):
         self.translator = translator
         self.graph = graph
         self.inline_guarded_calls = inline_guarded_calls
@@ -138,10 +141,12 @@ class BaseInliner(object):
         assert raise_analyzer is not None
         self.raise_analyzer = raise_analyzer
         self.lltype_to_classdef = lltype_to_classdef
+        self.call_count_pred = call_count_pred
 
     def inline_all(self):
         count = 0
         non_recursive = {}
+        call_count_pred = self.call_count_pred
         while self.block_to_index:
             block, d = self.block_to_index.popitem()
             index_operation, subgraph = d.popitem()
@@ -151,6 +156,13 @@ class BaseInliner(object):
                 raise CannotInline("inlining a recursive function")
             else:
                 non_recursive[subgraph] = True
+            if call_count_pred:
+                countop = block.operations[index_operation-1]
+                assert countop.opname == 'instrument_count'
+                assert countop.args[0].value == 'inline'
+                label = countop.args[1].value
+                if not call_count_pred(label):
+                    continue
             operation = block.operations[index_operation]
             self.inline_once(block, index_operation)
             count += 1
@@ -417,12 +429,16 @@ class BaseInliner(object):
 
 
 class Inliner(BaseInliner):
-    def __init__(self, translator, graph, inline_func, lltype_to_classdef, inline_guarded_calls=False,
-                 inline_guarded_calls_no_matter_what=False, raise_analyzer=None):
+    def __init__(self, translator, graph, inline_func, lltype_to_classdef,
+                 inline_guarded_calls=False,
+                 inline_guarded_calls_no_matter_what=False,
+                 raise_analyzer=None,
+                 call_count_pred=None):
         BaseInliner.__init__(self, translator, graph, lltype_to_classdef,
                              inline_guarded_calls,
                              inline_guarded_calls_no_matter_what,
-                             raise_analyzer)
+                             raise_analyzer,
+                             call_count_pred)
         self.inline_func = inline_func
         # to simplify exception matching
         join_blocks(graph)
@@ -447,6 +463,7 @@ OP_WEIGHTS = {'same_as': 0,
               'malloc': 2,
               'yield_current_frame_to_caller': sys.maxint, # XXX bit extreme
               'resume_point': sys.maxint, # XXX bit extreme
+              'instrument_count': 0,
               }
 
 def block_weight(block, weights=OP_WEIGHTS):
@@ -535,8 +552,48 @@ def inlinable_static_callers(graphs):
     return result
 
 
+def instrument_inline_candidates(graphs, multiplier):
+    threshold = BASE_INLINE_THRESHOLD * multiplier
+    cache = {None: False}
+    def candidate(graph):
+        try:
+            return cache[graph]
+        except KeyError:
+            res = static_instruction_count(graph) <= threshold
+            cache[graph] = res
+            return res
+    n = 0
+    for parentgraph in graphs:
+        for block in parentgraph.iterblocks():
+            ops = block.operations
+            i = len(ops)-1
+            while i >= 0:
+                op = ops[i]
+                i -= 1
+                if op.opname == "direct_call":
+                    funcobj = op.args[0].value._obj
+                    graph = getattr(funcobj, 'graph', None)
+                    if graph is not None:
+                        if getattr(getattr(funcobj, '_callable', None),
+                                   'suggested_primitive', False):
+                            continue
+                        if getattr(getattr(funcobj, '_callable', None),
+                                   'dont_inline', False):
+                            continue
+                    if candidate(graph):
+                        tag = Constant('inline', Void)
+                        label = Constant(n, Signed)
+                        dummy = Variable()
+                        dummy.concretetype = Void
+                        count = SpaceOperation('instrument_count',
+                                               [tag, label], dummy)
+                        ops.insert(i+1, count)
+                        n += 1
+    log.inlining("%d call sites instrumented" % n)
+
 def auto_inlining(translator, multiplier=1, callgraph=None,
-                  threshold=BASE_INLINE_THRESHOLD):
+                  threshold=BASE_INLINE_THRESHOLD,
+                  call_count_pred=None):
     from heapq import heappush, heappop, heapreplace, heapify
     threshold = threshold * multiplier
     callers = {}     # {graph: {graphs-that-call-it}}
@@ -587,7 +644,8 @@ def auto_inlining(translator, multiplier=1, callgraph=None,
                 continue
             try:
                 res = bool(inline_function(translator, graph, parentgraph,
-                                           lltype_to_classdef, raise_analyzer))
+                                           lltype_to_classdef, raise_analyzer,
+                                           call_count_pred))
             except CannotInline:
                 couldnt_inline[graph] = True
                 res = CannotInline

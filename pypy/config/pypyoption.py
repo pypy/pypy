@@ -209,6 +209,10 @@ pypy_optiondescription = OptionDescription("pypy", "All PyPy Options", [
                        "optimizer remove the asserts", default=False),
             IntOption("inline_threshold", "Threshold when to inline functions",
                       default=1, cmdline=None),
+            StrOption("profile_based_inline",
+                      "Use call count profiling to drive inlining"
+                      ", specify arguments",
+                      default=None, cmdline="--prof-based-inline"),
         ]),
 
         OptionDescription("cli", "GenCLI options", [

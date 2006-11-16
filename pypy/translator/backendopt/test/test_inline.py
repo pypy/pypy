@@ -8,6 +8,7 @@ from pypy.translator.backendopt.inline import simple_inline_function, CannotInli
 from pypy.translator.backendopt.inline import auto_inlining, Inliner
 from pypy.translator.backendopt.inline import collect_called_graphs
 from pypy.translator.backendopt.inline import measure_median_execution_cost
+from pypy.translator.backendopt.inline import instrument_inline_candidates
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rlib.rarithmetic import ovfcheck
@@ -66,16 +67,25 @@ def check_inline(func, in_func, sig, entry=None, inline_guarded_calls=False):
         return interp.eval_graph(graphof(t, entry), args)
     return eval_func
 
-def check_auto_inlining(func, sig, multiplier=None):
+def check_auto_inlining(func, sig, multiplier=None, call_count_check=False):
     t = translate(func, sig)
     if option.view:
         t.view()
     # inline!
     sanity_check(t)    # also check before inlining (so we don't blame it)
-    if multiplier is None:
-        auto_inlining(t)
+
+    if multiplier is not None:
+        multiplier = {'multiplier': multiplier}
     else:
-        auto_inlining(t, multiplier=multiplier)
+        multiplier = {}
+
+    call_count_pred = None
+    if call_count_check:
+        call_count_pred = lambda lbl: True
+        instrument_inline_candidates(t.graphs, **multiplier)
+
+    auto_inlining(t, call_count_pred=call_count_pred, **multiplier)
+    
     sanity_check(t)
     if option.view:
         t.view()
@@ -356,6 +366,33 @@ def test_auto_inlining_small_call_big():
         except OverflowError:
             return -1
     eval_func, t = check_auto_inlining(f, [int], multiplier=10)
+    f_graph = graphof(t, f)
+    assert len(collect_called_graphs(f_graph, t)) == 0
+
+    result = eval_func([10])
+    assert result == 45
+    result = eval_func([15])
+    assert result == -1
+
+def test_auto_inlining_small_call_big_call_count():
+    def leaf(n):
+        total = 0
+        i = 0
+        while i < n:
+            total += i
+            if total > 100:
+                raise OverflowError
+            i += 1
+        return total
+    def g(n):
+        return leaf(n)
+    def f(n):
+        try:
+            return g(n)
+        except OverflowError:
+            return -1
+    eval_func, t = check_auto_inlining(f, [int], multiplier=10,
+                                       call_count_check=True)
     f_graph = graphof(t, f)
     assert len(collect_called_graphs(f_graph, t)) == 0
 

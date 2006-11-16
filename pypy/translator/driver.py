@@ -51,6 +51,31 @@ _BACKEND_TO_TYPESYSTEM = {
 def backend_to_typesystem(backend):
     return _BACKEND_TO_TYPESYSTEM.get(backend, 'ootype')
 
+
+class Instrument(Exception):
+    pass
+
+
+class ProfInstrument(object):
+    name = "profinstrument"
+    def __init__(self, datafile, compiler):
+        self.datafile = datafile
+        self.compiler = compiler
+
+    def first(self):
+        self.compiler._build()
+
+    def probe(self, exe, args):
+        from py.compat import subprocess
+        env = os.environ.copy()
+        env['_INSTRUMENT_COUNTERS'] = str(self.datafile)
+        subprocess.call([exe, args], env=env)
+        
+    def after(self):
+        # xxx
+        os._exit(0)
+
+
 class TranslationDriver(SimpleTaskEngine):
 
     def __init__(self, setopts=None, default_goal=None, disable=[],
@@ -183,6 +208,34 @@ class TranslationDriver(SimpleTaskEngine):
         self.entry_point = entry_point
         self.translator = translator
 
+        self.translator.driver_instrument_result = self.instrument_result
+
+    def instrument_result(self, args):
+        backend, ts = self.get_backend_and_type_system()
+        if backend != 'c' or sys.platform == 'win32':
+            raise Exception("instrumentation requires the c backend"
+                            " and unix for now")
+        from pypy.tool.udir import udir
+        
+        datafile = udir.join('_instrument_counters')
+        makeProfInstrument = lambda compiler: ProfInstrument(datafile, compiler)
+
+        pid = os.fork()
+        if pid == 0:
+            # child compiling and running with instrumentation
+            self.config.translation.instrument = True
+            self.config.translation.instrumentctl = (makeProfInstrument,
+                                                     args)
+            raise Instrument
+        else:
+            pid, status = os.waitpid(pid, 0)
+            if os.WIFEXITED(status):
+                status = os.WEXITSTATUS(status)
+                if status != 0:
+                    raise Exception, "instrumentation child failed: %d" % status
+            else:
+                raise Exception, "instrumentation child aborted"
+            return datafile
 
     def info(self, msg):
         log.info(msg)
@@ -194,9 +247,16 @@ class TranslationDriver(SimpleTaskEngine):
             return
         else:
             self.log.info("%s..." % title)
-        res = func()
+        instrument = False
+        try:
+            res = func()
+        except Instrument:
+            instrument = True
         if not func.task_idempotent:
             self.done[goal] = True
+        if instrument:
+            self.proceed('compile')
+            assert False, 'we should not get here'
         return res
 
     def task_annotate(self):
