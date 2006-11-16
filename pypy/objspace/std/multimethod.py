@@ -459,6 +459,13 @@ class MRDTable(object):
         for t1, num in self.typenum.items():
             setattr(t1, self.attrname, num)
         self.indexarray = CompressedArray(0)
+        self.strict_subclasses = {}
+        for cls1 in list_of_types:
+            lst = []
+            for cls2 in list_of_types:
+                if cls1 is not cls2 and issubclass(cls2, cls1):
+                    lst.append(cls2)
+            self.strict_subclasses[cls1] = lst
 
     def normalize_length(self, next_array):
         # make sure that the indexarray is not smaller than any funcarray
@@ -504,8 +511,9 @@ class FuncEntry(object):
             checklines.append(self.body)
             body = '\n    '.join(checklines)
         source = 'def %s(%s):\n    %s\n' % (name, ', '.join(fnargs), body)
-        #print '_' * 60
-        #print source
+        #f = open('/tmp/mm-source/%s' % name, 'a')
+        #print >> f, source
+        #f.close()
         exec compile2(source) in self.miniglobals
         self._function = self.miniglobals[name]
         return self._function
@@ -534,6 +542,27 @@ class FuncEntry(object):
                     fulls += 1
             if fulls == types_total:
                 return 1
+
+            # a word about subclasses: we are using isinstance() to do
+            # the checks in generate_typechecks(), which is a
+            # compromize.  In theory we should check the type ids
+            # instead.  But using isinstance() is better because the
+            # annotator can deduce information from that.  It is still
+            # correct to use isinstance() instead of type ids in
+            # "reasonable" cases, though -- where "reasonable" means
+            # that classes always have a delegate to their superclasses,
+            # e.g. W_IntObject delegates to W_Root.  If this is true
+            # then both kind of checks are good enough to spot
+            # mismatches caused by the compression table.
+
+            # Based on this reasoning, we can compress the typechecks a
+            # bit more - if we accept W_Root, for example, then we
+            # don't have to specifically accept W_IntObject too.
+            for cls, subnode in node.items():
+                for cls2 in mrdtable.strict_subclasses[cls]:
+                    if cls2 in node and node[cls2] == subnode:
+                        del node[cls2]
+
             return 0
 
         types_total = len(mrdtable.list_of_types)
