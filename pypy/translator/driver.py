@@ -235,7 +235,13 @@ class TranslationDriver(SimpleTaskEngine):
                     raise Exception, "instrumentation child failed: %d" % status
             else:
                 raise Exception, "instrumentation child aborted"
-            return datafile
+            import array, struct
+            n = datafile.size()//struct.calcsize('L')
+            datafile = datafile.open('rb')
+            counters = array.array('L')
+            counters.fromfile(datafile, n)
+            datafile.close()
+            return counters
 
     def info(self, msg):
         log.info(msg)

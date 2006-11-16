@@ -47,14 +47,9 @@ def backend_optimizations(translator, graphs=None, **kwds):
             inline_malloc_removal_phase(config, translator, graphs,
                                         config.inline_threshold*.5) # xxx tune!
             inline.instrument_inline_candidates(graphs, config.inline_threshold)
-            data = translator.driver_instrument_result(
+            counters = translator.driver_instrument_result(
                        config.profile_based_inline)
-            import array, struct
-            n = data.size()//struct.calcsize('L')
-            data = data.open('rb')
-            counters = array.array('L')
-            counters.fromfile(data, n)
-            data.close()
+            n = len(counters)
             def call_count_pred(label):
                 if label >= n:
                     return False
@@ -102,9 +97,10 @@ def inline_malloc_removal_phase(config, translator, graphs, inline_threshold,
     # inline functions in each other
     if inline_threshold:
         callgraph = inline.inlinable_static_callers(graphs)
-        inline.auto_inlining(translator, inline_threshold,
-                             callgraph=callgraph,
-                             call_count_pred=call_count_pred)
+        count = inline.auto_inlining(translator, inline_threshold,
+                                     callgraph=callgraph,
+                                     call_count_pred=call_count_pred)
+        log.inlining('inlined %d callsites.'% (count,))
         for graph in graphs:
             removenoops.remove_superfluous_keep_alive(graph)
             removenoops.remove_duplicate_casts(graph, translator)
@@ -129,3 +125,8 @@ def inline_malloc_removal_phase(config, translator, graphs, inline_threshold,
         if config.print_statistics:
             print "after malloc removal:"
             print_statistics(translator.graphs[0], translator)    
+
+    if config.constfold:
+        for graph in graphs:
+            constant_fold_graph(graph)
+

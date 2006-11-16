@@ -642,15 +642,17 @@ def auto_inlining(translator, multiplier=1, callgraph=None,
         for parentgraph in callers[graph]:
             if parentgraph == graph:
                 continue
+            subcount = 0
             try:
-                res = bool(inline_function(translator, graph, parentgraph,
+                subcount = inline_function(translator, graph, parentgraph,
                                            lltype_to_classdef, raise_analyzer,
-                                           call_count_pred))
+                                           call_count_pred)
+                res = bool(subcount)
             except CannotInline:
                 couldnt_inline[graph] = True
                 res = CannotInline
             if res is True:
-                count += 1
+                count += subcount
                 # the parentgraph should now contain all calls that were
                 # done by 'graph'
                 for graph2 in callees.get(graph, {}):
