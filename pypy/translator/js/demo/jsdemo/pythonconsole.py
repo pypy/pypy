@@ -176,13 +176,14 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-def _main(server_class=Server,
-          handler_class=RequestHandler):
-    global httpd
 
-    server_address = ('127.0.0.1', 8000)
-    httpd = server_class(server_address, handler_class)
+def build_http_server(server_address=('', 8000)):
+    global httpd
+    httpd = Server(server_address, RequestHandler)
     print 'http://127.0.0.1:%d' % (server_address[1],)
+
+def _main():
+    build_http_server()
     httpd.serve_forever()
 
 if __name__ == '__main__':
