@@ -1,6 +1,6 @@
 from pypy.interpreter.argument import Arguments, ArgErr
 from pypy.annotation import model as annmodel
-from pypy.rpython.lltypesystem import rtuple # XXX not independent of type system!
+from pypy.rpython import rtuple
 from pypy.rpython.error import TyperError
 from pypy.rpython.lltypesystem import lltype
 
@@ -137,12 +137,12 @@ class NewTupleHolder(Holder):
         return self.holders
 
     def _emit(self, repr, hop):
-        assert isinstance(repr, rtuple.TupleRepr)
+        assert isinstance(repr, rtuple.AbstractTupleRepr)
         tupleitems_v = []
         for h in self.holders:
             v = h.emit(repr.items_r[len(tupleitems_v)], hop)
             tupleitems_v.append(v)
-        vtuple = rtuple.newtuple(hop.llops, repr, tupleitems_v)
+        vtuple = repr.newtuple(hop.llops, repr, tupleitems_v)
         return vtuple
 
 
