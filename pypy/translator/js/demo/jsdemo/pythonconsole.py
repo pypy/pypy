@@ -10,36 +10,20 @@ Try to type:  import time; time.sleep(2); print 'hi'
 
 import autopath
 
-import new, sys, os, cStringIO
+import sys, os, cStringIO
 from cgi import parse_qs
 from pypy.translator.js.modules.dom import setTimeout, get_document
-from pypy.translator.js.main import rpython2javascript
 from pypy.rpython.ootypesystem.bltregistry import MethodDesc, BasicExternal
 from pypy.translator.js import commproxy
 from pypy.translator.js.modules.mochikit import escapeHTML
+
+from pypy.translator.js.demo.jsdemo import support
 
 commproxy.USE_MOCHIKIT = True
 
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 #from SimpleHTTPServer import SimpleHTTPRequestHandler
 
-def js_source(functions):
-    mod = new.module('_js_src')
-    function_names = []
-    for func in functions:
-        name = func.__name__
-        if hasattr(mod, name):
-            raise ValueError("exported function name %r is duplicated"
-                             % (name,))
-        mod.__dict__[name] = func
-        function_names.append(name)
-    sys.modules['_js_src'] = mod
-    try:
-        return rpython2javascript(mod, function_names)
-    finally:
-        del sys.modules['_js_src']
-
-# ____________________________________________________________
 
 HTML_PAGE = """
 <html>
@@ -181,7 +165,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         if self.server.source:
             source = self.server.source
         else:
-            source = js_source([setup_page])
+            source = support.js_source([setup_page])
             self.server.source = source
         self.serve_data("text/javascript", source)
     

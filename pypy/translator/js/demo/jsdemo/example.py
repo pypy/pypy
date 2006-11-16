@@ -4,7 +4,8 @@
 
 import autopath
 
-from pypy.translator.js.test.runtest import compile_function
+from pypy.translator.js.demo.jsdemo import support
+
 from pypy.translator.js.modules.dom import setTimeout, get_document
 from pypy.rpython.ootypesystem.bltregistry import MethodDesc, BasicExternal
 from pypy.translator.js import commproxy
@@ -81,10 +82,8 @@ class RequestHandler(BaseHTTPRequestHandler):
         if self.server.source:
             source = self.server.source
         else:
-            fn = compile_function(runjs, [])
-            source = fn.source()
+            source = support.js_source([runjs])
             self.server.source = source
-        
         self.serve_data("text/javascript", source)
     
     def serve_data(self, content_type, data):
