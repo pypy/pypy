@@ -36,10 +36,11 @@ def proxy(space, w_type, w_controller):
           "be wrapped (YET)" % w_type.getname(space, "?")))
 
 def proxy_controller(space, w_object):
-    if (not isinstance(w_object, W_Transparent)) and \
-        (not isinstance(w_object, W_TransparentObject)):
-        return None
-    return w_object.w_controller
+    if isinstance(w_object, W_Transparent):
+        return w_object.w_controller
+    if isinstance(w_object, W_TransparentObject):
+        return w_object.w_controller
+    return None
 
 app_proxy = gateway.interp2app(proxy, unwrap_spec=[gateway.ObjSpace, gateway.W_Root, \
     gateway.W_Root])
