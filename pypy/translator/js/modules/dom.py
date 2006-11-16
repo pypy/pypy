@@ -394,6 +394,8 @@ Element._fields.update({
     # HTML specific
     'style' : Style(),
     'tabIndex' : 12,
+    # XXX: From HTMLInputElement to make pythonconsole work.
+    'value': 'aa',
 })
 
 Element._methods = Node._methods.copy()
