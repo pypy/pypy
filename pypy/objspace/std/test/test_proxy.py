@@ -88,6 +88,12 @@ class AppTestListProxy(AppProxyBasic):
         lst = self.proxy(list, c.perform)
         lst += [1,2,3]
         assert len(lst) == 6
+    
+    def test_list_reverse_add(self):
+        c = self.Controller([1,2,3])
+        lst = self.proxy(list, c.perform)
+        l = [1] + lst
+        assert l == [1,1,2,3]
 
 class AppTestDictProxy(AppProxyBasic):
     def test_dict(self):

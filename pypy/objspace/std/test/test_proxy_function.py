@@ -80,3 +80,25 @@ class AppTestProxyFunction(object):
         del fun.__doc__
         assert f.__doc__ is None
 
+    def test_proxy_bind_method(self):
+        class A:
+            pass
+        
+        def f(self):
+            return 3
+        
+        class AA:
+            pass
+        
+        from pypymagic import transparent_proxy as proxy
+        a = A()
+        class X:
+            def __init__(self, x):
+                self.x = x
+            def f(self, name, *args, **kwargs):
+                return getattr(self.x, name)(*args, **kwargs)
+        
+        y = proxy(type(f), X(f).f)
+        x = proxy(AA, X(a).f)
+        AA.f = y
+        assert x.f() == 3
