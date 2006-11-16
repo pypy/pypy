@@ -16,8 +16,6 @@ NOFILE = 0
 PYFILE = 1
 PYCFILE = 2
 
-PYC_ONOFF = True
-
 def info_modtype(space, filepart):
     """
     calculate whether the .py file exists, the .pyc file exists
@@ -36,7 +34,7 @@ def info_modtype(space, filepart):
         pyfile_exist = False
     
     pycfile = filepart + ".pyc"    
-    if PYC_ONOFF and os.path.exists(pycfile):
+    if space.config.objspace.usepycfiles and os.path.exists(pycfile):
         pyc_state = check_compiled_module(space, pyfile, pyfile_ts, pycfile)
         pycfile_exists = pyc_state >= 0
         pycfile_ts_valid = pyc_state > 0 or (pyc_state == 0 and not pyfile_exist)
@@ -358,7 +356,7 @@ def load_source_module(space, w_modulename, w_mod, pathname, stream):
                       w(space.builtin))
     pycode.exec_code(space, w_dict, w_dict)
 
-    if PYC_ONOFF:
+    if space.config.objspace.usepycfiles:
         mtime = os.stat(pathname)[stat.ST_MTIME]
         cpathname = pathname + 'c'
         write_compiled_module(space, pycode, cpathname, mtime)

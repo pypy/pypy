@@ -58,6 +58,9 @@ pypy_optiondescription = OptionDescription("pypy", "All PyPy Options", [
         BoolOption("logbytecodes",
                    "keep track of bytecode usage",
                    default=False),
+
+        BoolOption("usepycfiles", "Write and read pyc files when importing",
+                   default=True),
        
         OptionDescription("std", "Standard Object Space Options", [
             BoolOption("withtproxy", "support transparent proxies",
