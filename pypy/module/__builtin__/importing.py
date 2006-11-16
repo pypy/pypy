@@ -9,31 +9,16 @@ from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 from pypy.interpreter.eval import Code
-from pypy.lib._osfilewrapper import OsFileWrapper
+from pypy.rlib import streamio
 from pypy.rlib.rarithmetic import intmask
-
-# XXX this uses the os.path module at interp-level, which means
-# XXX that translate_pypy will produce a translated version of
-# XXX PyPy that will only run on the same platform, as it contains
-# XXX a frozen version of some routines of only one of the
-# XXX posixpath/ntpath/macpath modules.
-
-try:
-    BIN_READMASK = os.O_BINARY | os.O_RDONLY
-    BIN_WRITEMASK = os.O_BINARY | os.O_RDWR | os.O_CREAT
-except AttributeError:
-    BIN_READMASK = os.O_RDONLY
-    BIN_WRITEMASK = os.O_RDWR | os.O_CREAT
 
 NOFILE = 0
 PYFILE = 1
 PYCFILE = 2
 
-import stat
-
 PYC_ONOFF = True
 
-def info_modtype(space ,filepart):
+def info_modtype(space, filepart):
     """
     calculate whether the .py file exists, the .pyc file exists
     and whether the .pyc file has the correct mtime entry.
@@ -99,11 +84,11 @@ def try_import_mod(space, w_modulename, filepart, w_parent, w_name, pkgdir=None)
     e = None
     if modtype == PYFILE:
         filename = filepart + ".py"
-        fd = os.open(filename, os.O_RDONLY, 0666)
+        stream = streamio.open_file_as_stream(filename, "r")
     else:
         assert modtype == PYCFILE
         filename = filepart + ".pyc"
-        fd = os.open(filename, BIN_READMASK, 0666)
+        stream = streamio.open_file_as_stream(filename, "rb")
 
     space.sys.setmodule(w_mod)
     space.setattr(w_mod, w('__file__'), space.wrap(filename))
@@ -112,14 +97,13 @@ def try_import_mod(space, w_modulename, filepart, w_parent, w_name, pkgdir=None)
         space.setattr(w_mod, w('__path__'), space.newlist([w(pkgdir)]))
 
     try:
-        osfile = OsFileWrapper(fd)
         try:
             if modtype == PYFILE:
-                load_source_module(space, w_modulename, w_mod, filename, osfile)
+                load_source_module(space, w_modulename, w_mod, filename, stream)
             else:
-                load_compiled_module(space, w_modulename, w_mod, filename, osfile)
+                load_compiled_module(space, w_modulename, w_mod, filename, stream)
         finally:
-            osfile.close()
+            stream.close()
             
     except OperationError, e:
          w_mods = space.sys.get('modules')
@@ -130,7 +114,7 @@ def try_import_mod(space, w_modulename, filepart, w_parent, w_name, pkgdir=None)
     if w_mod is not None and w_parent is not None:
         space.setattr(w_parent, w_name, w_mod)
     if e:
-        raise e        
+        raise e
     return w_mod
 
 def try_getattr(space, w_obj, w_name):
@@ -349,34 +333,33 @@ MAGIC = 62061 | (ord('\r')<<16) | (ord('\n')<<24)
 pyc_magic = MAGIC
 
 
-def parse_source_module(space, pathname, osfile):
+def parse_source_module(space, pathname, stream):
     """ Parse a source file and return the corresponding code object """
     w = space.wrap
-    size = os.fstat(osfile.fd)[stat.ST_SIZE]
-    source = osfile.read(size)    
+    source = stream.readall()
     w_source = w(source)
     w_mode = w("exec")
     w_pathname = w(pathname)
-    w_code = space.builtin.call('compile', w_source, w_pathname, w_mode) 
+    w_code = space.builtin.call('compile', w_source, w_pathname, w_mode)
     pycode = space.interp_w(Code, w_code)
     return pycode
 
-def load_source_module(space, w_modulename, w_mod, pathname, osfile):
+def load_source_module(space, w_modulename, w_mod, pathname, stream):
     """
     Load a source module from a given file and return its module
     object.
     """
     w = space.wrap
-    pycode = parse_source_module(space, pathname, osfile)
+    pycode = parse_source_module(space, pathname, stream)
 
     w_dict = space.getattr(w_mod, w('__dict__'))
-    space.call_method(w_dict, 'setdefault', 
-                      w('__builtins__'), 
+    space.call_method(w_dict, 'setdefault',
+                      w('__builtins__'),
                       w(space.builtin))
-    pycode.exec_code(space, w_dict, w_dict) 
+    pycode.exec_code(space, w_dict, w_dict)
 
     if PYC_ONOFF:
-        mtime = os.fstat(osfile.fd)[stat.ST_MTIME]
+        mtime = os.stat(pathname)[stat.ST_MTIME]
         cpathname = pathname + 'c'
         write_compiled_module(space, pycode, cpathname, mtime)
 
@@ -385,8 +368,8 @@ def load_source_module(space, w_modulename, w_mod, pathname, osfile):
 # helper, to avoid exposing internals of marshal and the
 # difficulties of using it though applevel.
 _r_correction = intmask(1L<<32)    # == 0 on 32-bit machines
-def _r_long(osfile):
-    s = osfile.read(4)
+def _r_long(stream):
+    s = stream.read(4) # XXX XXX could return smaller string
     if len(s) < 4:
         return -1   # good enough for our purposes
     a = ord(s[0])
@@ -398,7 +381,7 @@ def _r_long(osfile):
         x -= _r_correction
     return int(x)
 
-def _w_long(osfile, x):
+def _w_long(stream, x):
     a = x & 0xff
     x >>= 8
     b = x & 0xff
@@ -406,7 +389,7 @@ def _w_long(osfile, x):
     c = x & 0xff
     x >>= 8
     d = x & 0xff
-    osfile.write(chr(a) + chr(b) + chr(c) + chr(d))
+    stream.write(chr(a) + chr(b) + chr(c) + chr(d))
 
 def check_compiled_module(space, pathname, mtime, cpathname):
     """
@@ -423,31 +406,28 @@ def check_compiled_module(space, pathname, mtime, cpathname):
         #XXX debug
         #print "skipped checking of", cpathname
         return -1
-    fd = os.open(cpathname, BIN_READMASK, 0666) # using no defaults
-    osfile = OsFileWrapper(fd)
-    magic = _r_long(osfile)
+    stream = streamio.open_file_as_stream(cpathname, "rb")
+    magic = _r_long(stream)
     try:
         if magic != pyc_magic:
             # XXX what to do about Py_VerboseFlag ?
             # PySys_WriteStderr("# %s has bad magic\n", cpathname);
             return -1
-        pyc_mtime = _r_long(osfile)
+        pyc_mtime = _r_long(stream)
         if pyc_mtime != mtime:
             # PySys_WriteStderr("# %s has bad mtime\n", cpathname);
             return 0
         # if (Py_VerboseFlag)
            # PySys_WriteStderr("# %s matches %s\n", cpathname, pathname);
     finally:
-        os.close(fd)
+        stream.close()
     return 1
 
-def read_compiled_module(space, cpathname, osfile):
+def read_compiled_module(space, cpathname, stream):
     """ Read a code object from a file and check it for validity """
     
     w_marshal = space.getbuiltinmodule('marshal')
-    fd = osfile.fd
-    size = os.fstat(fd)[stat.ST_SIZE] - os.lseek(fd, 0, 1)
-    strbuf = osfile.read(size)
+    strbuf = stream.readall()
     w_code = space.call_method(w_marshal, 'loads', space.wrap(strbuf))
     pycode = space.interpclass_w(w_code)
     if pycode is None or not isinstance(pycode, Code):
@@ -455,19 +435,19 @@ def read_compiled_module(space, cpathname, osfile):
             "Non-code object in %s" % cpathname))
     return pycode
 
-def load_compiled_module(space, w_modulename, w_mod, cpathname, osfile):
+def load_compiled_module(space, w_modulename, w_mod, cpathname, stream):
     """
     Load a module from a compiled file, execute it, and return its
     module object.
     """
     w = space.wrap
-    magic = _r_long(osfile)
+    magic = _r_long(stream)
     if magic != pyc_magic:
         raise OperationError(space.w_ImportError, w(
             "Bad magic number in %s" % cpathname))
-    _r_long(osfile) # skip time stamp
+    _r_long(stream) # skip time stamp
     #print "loading pyc file:", cpathname
-    code_w = read_compiled_module(space, cpathname, osfile)
+    code_w = read_compiled_module(space, cpathname, stream)
     #if (Py_VerboseFlag)
     #    PySys_WriteStderr("import %s # precompiled from %s\n",
     #        name, cpathname);
@@ -509,24 +489,23 @@ def write_compiled_module(space, co, cpathname, mtime):
     # too much like a valid pyc file but really isn't one.
     #
     try:
-        fd = os.open(cpathname, BIN_WRITEMASK, 0666)
+        stream = streamio.open_file_as_stream(cpathname, "wb")
     except OSError:
         return    # cannot create file
     try:
-        osfile = OsFileWrapper(fd)
         try:
             # will patch the header later; write zeroes until we are sure that
             # the rest of the file is valid
-            _w_long(osfile, 0)   # pyc_magic
-            _w_long(osfile, 0)   # mtime
-            osfile.write(strbuf)
+            _w_long(stream, 0)   # pyc_magic
+            _w_long(stream, 0)   # mtime
+            stream.write(strbuf)
 
             # should be ok (XXX or should call os.fsync() to be sure?)
-            osfile.seek(0)
-            _w_long(osfile, pyc_magic)
-            _w_long(osfile, mtime)
+            stream.seek(0, 0)
+            _w_long(stream, pyc_magic)
+            _w_long(stream, mtime)
         finally:
-            osfile.close()
+            stream.close()
     except OSError:
         try:
             os.unlink(cpathname)
