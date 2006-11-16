@@ -23,12 +23,12 @@ import sys
 import math
 import time
 
-# RPython version of random: rrandom
-import autopath; import rrandom as random
+import autopath
+from pypy.rlib import rrandom
 
 PRINT_IT = False
 
-random.seed(0)
+random = rrandom.Random(1)
 
 # calculate a random number where:  a <= rand < b
 def rand(a, b):
