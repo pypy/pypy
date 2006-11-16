@@ -24,8 +24,8 @@ class Module(MixedModule):
         # are not yet directly supported
         from pypy.module._stackless.coroutine import post_install as post_install_coro
         post_install_coro(self)
-        from pypy.module._stackless.clonable import post_install as post_install_clonable
-        post_install_clonable(self)
+        #from pypy.module._stackless.clonable import post_install as post_install_clonable
+        #post_install_clonable(self)
         from pypy.module._stackless.interp_greenlet import post_install as post_install_greenlet
         post_install_greenlet(self)
 
