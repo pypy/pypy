@@ -135,7 +135,7 @@ The stackless.py code tries to resemble the stackless C code as much
 as possible. This makes the code somewhat unpythonic.
 
 Bird's eye view of tasklets and channels
-----------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Tasklets are a bit like threads: they encapsulate a function in such a way that
 they can be suspended/restarted any time. Unlike threads, they won't
@@ -169,8 +169,14 @@ emphasis on a tree structure.  The various greenlets of a program form a
 precise tree, which fully determines their order of execution.
 
 For usage reference, see the documentation of the `Py lib greenlets`_.
-The PyPy interface is identical, except that the ``greenlet`` class is
-in the ``stackless`` module instead of in the ``py.magic`` module.
+The PyPy interface is identical.  You should use ``py.magic.greenlet``
+instead of ``stackless.greenlet`` directly, because the Py lib can now
+give you the latter when you ask for the former on top of PyPy.
+
+PyPy's greenlets do not suffer from the cyclic GC limitation that the
+CPython greenlets have: greenlets referencing each other via local
+variables tend to leak on top of CPython (where it is mostly impossible
+to do the right thing).  It works correctly on top of PyPy.
 
 
 Coroutine Pickling
@@ -222,7 +228,99 @@ motivation for implementing the interpreter-level primitives
 interface that allows an RPython program to artifically rebuild a chain
 of calls in a reflective way, completely from scratch, and jump to it.
 
-XXX examples, limitations?
+Example
+~~~~~~~
+
+(See `demo/pickle_coroutine.py`_ for the complete source of this demo.)
+
+Consider a program which contains a part performing a long-running
+computation::
+
+    def ackermann(x, y):
+        if x == 0:
+            return y + 1
+        if y == 0:
+            return ackermann(x - 1, 1)
+        return ackermann(x - 1, ackermann(x, y - 1))
+
+By using pickling, we can save the state of the computation while it is
+running, for the purpose of restoring it later and continuing the
+computation at another time or on a different machine.  However,
+pickling does not produce a whole-program dump: it can only pickle
+individual coroutines.  This means that the computation should be
+started in its own coroutine::
+
+    # Make a coroutine that will run 'ackermann(3, 8)'
+    coro = coroutine()
+    coro.bind(ackermann, 3, 8)
+
+    # Now start running the coroutine
+    result = coro.switch()
+
+The coroutine itself must switch back to the main program when it needs
+to be interrupted (we can only pickle suspended coroutines).  Due to
+current limitations this requires an explicit check in the
+``ackermann()`` function::
+
+    def ackermann(x, y):
+        if interrupt_flag:      # test a global flag
+            main.switch()       # and switch back to 'main' if it is set
+        if x == 0:
+            return y + 1
+        if y == 0:
+            return ackermann(x - 1, 1)
+        return ackermann(x - 1, ackermann(x, y - 1))
+
+The global ``interrupt_flag`` would be set for example by a timeout, or
+by a signal handler reacting to Ctrl-C, etc.  It causes the coroutine to
+transfer control back to the main program.  The execution comes back
+just after the line ``coro.switch()``, where we can pickle the coroutine
+if necessary::
+
+    if not coro.is_alive:
+        print "finished; the result is:", result
+    else:
+        # save the state of the suspended coroutine
+        f = open('demo.pickle', 'w')
+        pickle.dump(coro, f)
+        f.close()
+
+The process can then stop.  At any later time, or on another machine,
+we can reload the file and restart the coroutine with::
+
+    f = open('demo.pickle', 'r')
+    coro = pickle.load(f)
+    f.close()
+    result = coro.switch()
+
+Limitations
+~~~~~~~~~~~
+
+Coroutine pickling is subject to some limitations.  First of all, it is
+not a whole-program "memory dump".  It means that only the "local" state
+of a coroutine is saved.  The local state is defined to include the
+chain of calls and the local variables, but not for example the value of
+any global variable.
+
+As in normal Python, the pickle will not include any function object's
+code, any class definition, etc., but only references to functions and
+classes.  Unlike normal Python, the pickle contains frames.  A pickled
+frame stores a bytecode index, representing the current execution
+position.  This means that the user program cannot be modified *at all*
+between pickling and unpickling!
+
+On the other hand, the pickled data is fairly independent from the
+platform and from the PyPy version.
+
+Pickling/unpickling fails if the coroutine is suspended in a state that
+involves Python frames which were *indirectly* called.  To define this
+more precisely, a Python function can issue a regular function or method
+call to invoke another Python function - this is a *direct* call and can
+be pickled and unpickled.  But there are many ways to invoke a Python
+function indirectly.  For example, most operators can invoke a special
+method ``__xyz__()`` on a class, various built-in functions can call
+back Python functions, signals can invoke signal handlers, and so on.
+These cases are not supported yet.
 
 
 Coroutine Cloning

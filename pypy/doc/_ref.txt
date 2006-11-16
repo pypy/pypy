@@ -1,4 +1,5 @@
 .. _`demo/`: ../../demo
+.. _`demo/pickle_coroutine.py`: ../../demo/pickle_coroutine.py
 .. _`lib-python/`: ../../lib-python
 .. _`lib-python/2.4.1/dis.py`: ../../lib-python/2.4.1/dis.py
 .. _`annotation/`:
@@ -48,7 +49,10 @@
 .. _`objspace/thunk.py`: ../../pypy/objspace/thunk.py
 .. _`objspace/trace.py`:
 .. _`pypy/objspace/trace.py`: ../../pypy/objspace/trace.py
+.. _`pypy/rlib`: ../../pypy/rlib
 .. _`pypy/rlib/objectmodel.py`: ../../pypy/rlib/objectmodel.py
+.. _`pypy/rlib/rarithmetic.py`: ../../pypy/rlib/rarithmetic.py
+.. _`pypy/rlib/test`: ../../pypy/rlib/test
 .. _`pypy/rpython`:
 .. _`pypy/rpython/`:
 .. _`rpython/`: ../../pypy/rpython
