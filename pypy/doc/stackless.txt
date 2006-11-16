@@ -112,6 +112,42 @@ It provides the following methods and attributes:
     catch it, and that ``try: finally:`` clauses are not honored.  This
     will be fixed in the future.)
 
+Example
+~~~~~~~
+
+Here is a classical producer/consumer example: an algorithm computes a
+sequence of values, while another consumes them.  For our purposes we
+assume that the producer can generate several values at once, and the
+consumer can process up to 3 values in a batch - it can also process
+batches with less than 3 values without waiting for the producer (which
+would be messy to express with a classical Python generator). ::
+
+    def producer(lst):
+        while True:
+            ...compute some more values...
+            lst.extend(new_values)
+            coro_consumer.switch()
+
+    def consumer(lst):
+        while True:
+            # First ask the producer for more values if needed
+            while len(lst) == 0:
+                coro_producer.switch()
+            # Process the available values in a batch, but at most 3
+            batch = lst[:3]
+            del lst[:3]
+            ... process batch ...
+
+    # Initialize two coroutines with a shared list as argument
+    exchangelst = []
+    coro_producer = coroutine()
+    coro_producer.bind(producer, exchangelst)
+    coro_consumer = coroutine()
+    coro_consumer.bind(consumer, exchangelst)
+
+    # Start running the consumer coroutine
+    coro_consumer.switch()
+
 
 Tasklets and channels
 +++++++++++++++++++++
