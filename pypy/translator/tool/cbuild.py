@@ -285,25 +285,6 @@ class ProfOpt(object):
         finally:
             compiler.compile_extra.pop()
             compiler.link_extra.pop()
-
-class ProfInstrument(object):
-    name = "profinstrument"
-    
-    def __init__(self, compiler):
-        self.compiler = compiler
-
-    def first(self):
-        self.compiler._build()
-
-    def probe(self, exe, args):
-        from pypy.tool.udir import udir        
-        from py.compat import subprocess
-        env = os.environ.copy()
-        env['_INSTRUMENT_COUNTERS'] = str(udir.join('_instrument_counters'))
-        subprocess.call([exe, args], env=env)
-        
-    def after(self):
-        pass
             
 class CCompiler:
 
@@ -354,7 +335,7 @@ class CCompiler:
                 else:
                     ProfDriver, args = self.profbased
                     profdrv = ProfDriver(self)
-                    dolog = getattr(log, ProfDriver.name)
+                    dolog = getattr(log, profdrv.name)
                     dolog(args)
                     profdrv.first()
                     dolog('Gathering profile data from: %s %s' % (
