@@ -14,7 +14,7 @@ class Module(MixedModule):
     interpleveldefs = {
         'tasklet'    : 'interp_stackless.tasklet',
         'coroutine'  : 'coroutine.AppCoroutine',
-        'clonable'   : 'clonable.ClonableCoroutine',
+        #'clonable'   : 'clonable.ClonableCoroutine',
         'greenlet'   : 'interp_greenlet.AppGreenlet',
         'usercostate': 'composable_coroutine.W_UserCoState',
     }
