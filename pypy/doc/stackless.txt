@@ -136,7 +136,7 @@ would be messy to express with a classical Python generator). ::
             # Process the available values in a batch, but at most 3
             batch = lst[:3]
             del lst[:3]
-            ... process batch ...
+            ...process batch...
 
     # Initialize two coroutines with a shared list as argument
     exchangelst = []
@@ -585,9 +585,34 @@ and::
 
             ...generators_view.getcurrent()...
 
-Then the composition ``grab_values()`` works as expected.
+Then the composition ``grab_values()`` works as expected, because the
+two views are independent.  The coroutine captured as ``self.caller`` in
+the ``generator_iterator.next()`` method is the main coroutine of the
+``generators_view``.  It is no longer the same object as the main
+coroutine of the ``producer_view``, so when ``data_producer()`` issues
+the following command::
 
-XXX a few words about how
+    main_coro.switch()
+
+the control flow cannot accidentally jump back to
+``generator_iterator.next()``.  In other words, from the point of view
+of ``producer_view``, the function ``grab_next_value()`` always runs in
+its main coroutine ``main_coro`` and the function ``data_producer`` in
+its coroutine ``producer_coro``.  This is the case independently of
+which ``generators_view``-based coroutine is the current one when
+``grab_next_value()`` is called.
+
+Only code that has explicit access to the ``producer_view`` or its
+coroutine objects can perform switches that are relevant for the
+generator code.  If the view object and the coroutine objects that share
+this view are all properly encapsulated inside the generator logic, no
+external code can accidentally temper with the expected control flow any
+longer.
+
+In conclusion: we will probably change the app-level interface of PyPy's
+stackless module in the future to not expose coroutines and greenlets at
+all, but only views.  They are not much more difficult to use, and they
+scale automatically to larger programs.
 
 
 .. _`Stackless Python`: http://www.stackless.com
