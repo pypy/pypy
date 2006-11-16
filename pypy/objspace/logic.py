@@ -187,12 +187,9 @@ def Space(*args, **kwds):
 
     # multimethods hack
     space.model.typeorder[W_Var] = [(W_Var, None), (W_Root, None)] # None means no conversion
-    space.model.typeorder[W_Future] = [(W_Future, None), (W_Var, None)]
-    space.model.typeorder[W_CVar] = [(W_CVar, None), (W_Var, None)]
-    space.model.typeorder[W_CSpace] = [(W_CSpace, None), (baseobjspace.Wrappable, None)]
-    space.model.typeorder[W_ThreadGroupScheduler] = [(W_ThreadGroupScheduler, None), (W_CSpace, None)]
+    space.model.typeorder[W_Future] = [(W_Future, None), (W_Var, None), (W_Root, None)]
+    space.model.typeorder[W_CVar] = [(W_CVar, None), (W_Var, None), (W_Root, None)]
     space.model.typeorder[W_FiniteDomain] = [(W_FiniteDomain, None), (W_Root, None)] 
-
 
     for name in all_mms.keys():
         exprargs, expr, miniglobals, fallback = (
