@@ -15,7 +15,6 @@ class AppTestStringObject(test_stringobject.AppTestStringObject):
         assert 'W_StringJoinObject' in pypymagic.pypy_repr(s)
 
     def test_add_twice(self):
-        skip("minimal failing test")
         x = "a" + ""
         y = x + "b"
         c = x + "b"
