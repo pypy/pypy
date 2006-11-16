@@ -80,8 +80,6 @@ class Module(MixedModule):
         '_instance'     : 'space.w_instance',
         # default __metaclass__
         '__metaclass__' : '(space.w_type)',
-        '_isfake'       : 'special._isfake',
-        '_pdb'          : 'special._pdb',
 
         # interp-level function definitions
         'abs'           : 'operation.abs',
@@ -103,7 +101,6 @@ class Module(MixedModule):
         'setattr'       : 'operation.setattr',
         'delattr'       : 'operation.delattr',
         'iter'          : 'operation.iter',
-        'hash'          : 'operation.hash',
         'id'            : 'operation.id',
         '_seqiter'      : 'operation._seqiter',
         'intern'        : 'operation.intern',

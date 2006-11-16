@@ -8,4 +8,6 @@ class Module(MixedModule):
 
     interpleveldefs = {
         'pypy_repr'             : 'interp_magic.pypy_repr',
+        'isfake'                : 'interp_magic.isfake',
+        'interp_pdb'            : 'interp_magic.interp_pdb',
     }
