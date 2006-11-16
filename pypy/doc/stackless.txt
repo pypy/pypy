@@ -194,6 +194,44 @@ Scheduling is done in strictly round-robin manner. A blocked tasklet
 is removed from the scheduling queue and will be reinserted when it
 becomes unblocked.
 
+Example
+~~~~~~~
+
+Here is a many-producers many-consumers example, where any consumer can
+process the result of any producer.  For this situation we set up a
+single channel where all producer send, and on which all consumers
+wait::
+
+    def producer(chan):
+        while True:
+            chan.send(...next value...)
+
+    def consumer(chan):
+        while True:
+            x = chan.receive()
+            ...do something with x...
+
+    # Set up the N producer and M consumer tasklets
+    common_channel = stackless.channel()
+    for i in range(N):
+        stackless.tasklet(producer, common_channel)()
+    for i in range(M):
+        stackless.tasklet(consumer, common_channel)()
+
+    # Run it all
+    stackless.run()
+
+Each item sent over the channel is received by one of the waiting
+consumers; which one is not specified.  The producers block until their
+item is consumed: the channel is not a queue, but rather a meeting point
+which causes tasklets to block until both a consumer and a producer are
+ready.  In practice, the reason for having several consumers receiving
+on a single channel is that some of the consumers can be busy in other
+ways part of the time.  For example, each consumer might receive a
+database request, process it, and send the result to a further channel
+before it asks for the next request.  In this situation, further
+requests can still be received by other consumers.
+
 
 Greenlets
 +++++++++
