@@ -12,7 +12,7 @@ from pypy.translator.backendopt.removeassert import remove_asserts
 from pypy.translator.backendopt.support import log
 from pypy.objspace.flow.model import checkgraph
 
-def backend_optimizations(translator, graphs=None, **kwds):
+def backend_optimizations(translator, graphs=None, secondary=False, **kwds):
     # sensible keywords are
     # raisingop2direct_call, inline_threshold, mallocs
     # merge_if_blocks, constfold, heap2stack
@@ -43,7 +43,7 @@ def backend_optimizations(translator, graphs=None, **kwds):
         print_statistics(translator.graphs[0], translator)
 
     if not config.clever_malloc_removal:
-        if config.profile_based_inline:
+        if config.profile_based_inline and not secondary:
             inline_malloc_removal_phase(config, translator, graphs,
                                         config.inline_threshold*.5) # xxx tune!
             inline.instrument_inline_candidates(graphs, config.inline_threshold)

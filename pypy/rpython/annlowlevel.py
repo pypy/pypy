@@ -290,7 +290,7 @@ class MixLevelHelperAnnotator:
         translator = self.rtyper.annotator.translator
         newgraphs = translator.graphs[self.original_graph_count:]
         self.original_graph_count = len(translator.graphs)
-        backend_optimizations(translator, newgraphs, **flags)
+        backend_optimizations(translator, newgraphs, secondary=True, **flags)
 
 # ____________________________________________________________
 
