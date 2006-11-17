@@ -7,7 +7,7 @@ from pypy.rpython.ootypesystem.ootype import meth, Meth, Char, Signed, Float, St
 from pypy.translator.cli.test.runtest import CliTest
 from pypy.translator.cli.dotnet import SomeCliClass, SomeCliStaticMethod,\
      NativeInstance, CLR, box, unbox, OverloadingResolver, NativeException,\
-     native_exc, init_array
+     native_exc, new_array, init_array
 
 System = CLR.System
 Math = CLR.System.Math
@@ -111,7 +111,7 @@ class TestDotnetAnnotation(object):
         a = RPythonAnnotator()
         s = a.build_types(fn, [])
         assert isinstance(s, annmodel.SomeOOInstance)
-        assert s.ootype._name == '[mscorlib]System.Object'
+        assert s.ootype._name == '[mscorlib]System.Object'            
 
 class TestDotnetRtyping(CliTest):
     def _skip_pythonnet(self, msg):
@@ -188,10 +188,18 @@ class TestDotnetRtyping(CliTest):
             return unbox(array[0], ootype.Signed)
         assert self.interpret(fn, []) == 42
 
+    def test_new_array(self):
+        def fn():
+            x = new_array(System.Object, 2)
+            x[0] = box(42)
+            x[1] = box(43)
+            return unbox(x[0], ootype.Signed) + unbox(x[1], ootype.Signed)
+        assert self.interpret(fn, []) == 42+43
+
     def test_init_array(self):
         def fn():
-            array = init_array(System.Object, box(42), box(43))
-            return unbox(array[0], ootype.Signed) + unbox(array[1], ootype.Signed)
+            x = init_array([box(42), box(43)])
+            return unbox(x[0], ootype.Signed) + unbox(x[1], ootype.Signed)
         assert self.interpret(fn, []) == 42+43
 
     def test_null(self):
@@ -240,7 +248,6 @@ class TestDotnetRtyping(CliTest):
                 return ex.get_Message()
         res = self.ll_to_string(self.interpret(fn, []))
         assert res.startswith("Index is less than 0")
-
 
 class TestPythonnet(TestDotnetRtyping):
     # don't interpreter functions but execute them directly through pythonnet

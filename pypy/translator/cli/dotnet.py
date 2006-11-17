@@ -50,7 +50,15 @@ class __extend__(pairtype(SomeOOInstance, SomeInteger)):
         if ooinst.ootype._isArray:
             return SomeOOInstance(ooinst.ootype._ELEMENT)
         return s_ImpossibleValue
-    
+
+    def setitem((ooinst, index), s_value):
+        if ooinst.ootype._isArray:
+            ELEMENT = ooinst.ootype._ELEMENT
+            VALUE = s_value.ootype
+            assert ootype.isSubclass(VALUE, ELEMENT)
+            return s_None
+        return s_ImpossibleValue
+
 
 ## Rtyper model
 
@@ -99,6 +107,13 @@ class __extend__(pairtype(OOInstanceRepr, IntegerRepr)):
         v_array, v_index = hop.inputargs(r_inst, ootype.Signed)
         hop.exception_is_here()
         return hop.genop('cli_getelem', [v_array, v_index], hop.r_result.lowleveltype)
+
+    def rtype_setitem((r_inst, r_int), hop):
+        if not r_inst.lowleveltype._isArray:
+            raise TyperError("setitem() on a non-array instance")        
+        vlist = hop.inputargs(*hop.args_r)
+        hop.exception_is_here()
+        return hop.genop('cli_setelem', vlist, hop.r_result.lowleveltype)
 
 
 ## OOType model
@@ -344,10 +359,30 @@ class Entry(ExtRegistryEntry):
         v_obj, = hop.inputargs(*hop.args_r)
         return hop.genop('same_as', [v_obj], hop.r_result.lowleveltype)
 
+def new_array(type, length):
+    return [None] * length
 
 def init_array(type, *args):
     # PythonNet doesn't provide a straightforward way to create arrays... fake it with a list
     return args
+
+class Entry(ExtRegistryEntry):
+    _about_ = new_array
+
+    def compute_result_annotation(self, type_s, length_s):
+        from pypy.translator.cli.query import load_class_maybe
+        assert type_s.is_constant()
+        assert isinstance(length_s, SomeInteger)
+        TYPE = type_s.const._INSTANCE
+        fullname = '%s.%s[]' % (TYPE._namespace, TYPE._classname)
+        cliArray = load_class_maybe(fullname)
+        return SomeOOInstance(cliArray._INSTANCE)
+
+    def specialize_call(self, hop):
+        c_type, v_length = hop.inputargs(*hop.args_r)
+        hop.exception_cannot_occur()
+        return hop.genop('cli_newarray', [c_type, v_length], hop.r_result.lowleveltype)
+
 
 class Entry(ExtRegistryEntry):
     _about_ = init_array
