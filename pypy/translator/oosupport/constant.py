@@ -29,6 +29,8 @@ from pypy.rpython.lltypesystem import llmemory
 from pypy.rpython.ootypesystem import ootype
 import operator
 
+MAX_CONST_PER_STEP = 100
+
 PRIMITIVE_TYPES = set([ootype.Void, ootype.Bool, ootype.Char, ootype.UniChar,
                        ootype.Float, ootype.Signed, ootype.Unsigned,
                        ootype.String, ootype.SignedLongLong,
@@ -255,9 +257,9 @@ class BaseConstantGenerator(object):
         """ Iterates through each constant, initializing its data. """
         gen.add_section("Initialize Data Phase")
         for const in all_constants:
+            self._consider_step(gen)
             gen.add_comment("Constant: %s" % const.name)
             self._push_constant_during_init(gen, const)
-            self._consider_step(gen)
             if not const.initialize_data(gen):
                 gen.pop(const.OOTYPE())
 
@@ -266,7 +268,7 @@ class BaseConstantGenerator(object):
         start a new step every so often to ensure the initialization
         functions don't get too large and upset mono or the JVM or
         what have you. """
-        if (self._all_counter % 100) == 0:
+        if (self._all_counter % MAX_CONST_PER_STEP) == 0:
             self._end_step(gen)
             self._declare_step(gen, self._step_counter) # open the next step
         self._all_counter += 1

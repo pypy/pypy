@@ -252,7 +252,7 @@ class IlasmGenerator(object):
             self.call_method('void class [mscorlib]System.IO.TextWriter::WriteLine(string)', virtual=True)
 
     def add_comment(self, text):
-        self.out.write('// %s\n' % text)
+        self.code.writeline('// %s' % text)
 
     def flush(self):
         pass

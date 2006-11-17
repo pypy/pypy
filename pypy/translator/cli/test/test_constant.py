@@ -119,3 +119,12 @@ class TestConstant(CliTest):
                 s = A('bar')
             return a.dict[s]
         assert self.interpret(fn, [True]) == 42
+
+    def test_multiple_step(self):
+        from pypy.translator.oosupport import constant
+        constant.MAX_CONST_PER_STEP = 2
+        c1 = [1]
+        c2 = [2]
+        def fn(x, y):
+            return c1[x] + c2[y]
+        assert self.interpret(fn, [0, 0]) == 3

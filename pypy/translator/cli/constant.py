@@ -41,7 +41,6 @@ CONST_CLASS = '%s.%s' % (CONST_NAMESPACE, CONST_CLASSNAME)
 
 DEBUG_CONST_INIT = False
 DEBUG_CONST_INIT_VERBOSE = False
-MAX_CONST_PER_STEP = 100
 SERIALIZE = False
 
 # ______________________________________________________________________
