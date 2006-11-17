@@ -249,6 +249,23 @@ class TestDotnetRtyping(CliTest):
         res = self.ll_to_string(self.interpret(fn, []))
         assert res.startswith("Index is less than 0")
 
+    def test_native_exception_invoke(self):
+        TargetInvocationException = NativeException(CLR.System.Reflection.TargetInvocationException)
+        def fn():
+            x = ArrayList()
+            t = x.GetType()
+            meth = t.GetMethod('get_Item')
+            args = init_array(System.Object, box(0))
+            try:
+                meth.Invoke(x, args)
+                return "Impossible!"
+            except TargetInvocationException, e:
+                inner = native_exc(e).get_InnerException()
+                message = str(inner.get_Message())
+                return message
+        res = self.ll_to_string(self.interpret(fn, []))
+        assert res.startswith("Index is less than 0")
+
 class TestPythonnet(TestDotnetRtyping):
     # don't interpreter functions but execute them directly through pythonnet
     def interpret(self, f, args):

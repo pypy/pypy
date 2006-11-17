@@ -127,7 +127,11 @@ class LowLevelDatabase(OODatabase):
         return name
 
     def class_name(self, INSTANCE):
-        return self.classes[INSTANCE]
+        try:
+            NATIVE_INSTANCE = INSTANCE._hints['NATIVE_INSTANCE']
+            return NATIVE_INSTANCE._name
+        except KeyError:
+            return self.classes[INSTANCE]
 
     def get_record_name(self, RECORD):
         try:
