@@ -27,7 +27,9 @@ block0:
     ret int %n2
 }'''
 
-llacross1 = '''declare int %across2(int %n2)
+llacross1 = '''declare int %across2(int)
+
+implementation
 
 int %across1(int %n) {
 block0:
@@ -42,7 +44,9 @@ block0:
     ret int %n3
 }'''
 
-llacross2 = '''declare int %across1(int %n2)
+llacross2 = '''declare int %across1(int %dsf)
+
+implementation
 
 int %across2(int %n) {
 block0:
@@ -60,10 +64,9 @@ block0:
 #helpers
 def execute(llsource, function_name, param):
     assert llvmjit.compile(llsource)
-    f = llvmjit.FindFunction(function_name)
-    assert f.function
-    return llvmjit.execute(f.function, param)
-    #return function(param) #XXX this does not seem to translate, how to do it instead?
+    function = llvmjit.find_function(function_name)
+    assert function
+    return llvmjit.execute(function, param)
 
 #tests...
 def test_restart():
@@ -90,6 +93,10 @@ def test_execute():
     llvmjit.restart()
     assert execute(llsquare, 'square', 4) == 4 * 4
 
+def test_execute_nothing():
+    llvmjit.restart()
+    assert llvmjit.execute(None, 4) == -1 #-1 == no function supplied
+
 def test_execute_multiple():
     llvmjit.restart()
     llvmjit.compile(llsquare)
@@ -104,13 +111,13 @@ def test_call_found_function():
     llvmjit.restart()
     llvmjit.compile(llsquare)
     llvmjit.compile(llmul2)
-    square = llvmjit.FindFunction('square')
-    mul2   = llvmjit.FindFunction('mul2')
+    square = llvmjit.find_function('square')
+    mul2   = llvmjit.find_function('mul2')
     for i in range(5):
-        assert square(i) == i * i
-        assert mul2(i) == i * 2
+        assert llvmjit.execute(square, i) == i * i
+        assert llvmjit.execute(mul2  , i) == i * 2
 
-def DONTtest_execute_across_module():
+def test_execute_across_module():
     def my_across1(n):
         return n * 3
 
@@ -126,11 +133,11 @@ def DONTtest_execute_across_module():
     llvmjit.restart()
     llvmjit.compile(llacross1)
     llvmjit.compile(llacross2)
-    across1to2 = llvmjit.FindFunction('across1to2')
-    across2to1 = llvmjit.FindFunction('across2to1')
+    across1to2 = llvmjit.find_function('across1to2')
+    across2to1 = llvmjit.find_function('across2to1')
     for i in range(5):
-        assert across1to2(i) == my_across1to2(i)
-        assert across2to1(i) == my_across2to1(i)
+        assert llvmjit.execute(across1to2, i) == my_across1to2(i)
+        assert llvmjit.execute(across2to1, i) == my_across2to1(i)
 
 
 def DONTtest_modify_global_data():

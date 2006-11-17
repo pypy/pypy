@@ -20,31 +20,24 @@
 using namespace llvm;
 
 
-ExecutionEngine*    g_execution_engine;
+Module*             gp_module           = new Module("llvmjit");
+ExecutionEngine*    gp_execution_engine = ExecutionEngine::create(
+                        new ExistingModuleProvider(gp_module), false);
 
 
 void    restart() {
-    delete g_execution_engine; //XXX test if this correctly cleans up including generated code
-    g_execution_engine = NULL;
+    delete gp_execution_engine; //XXX test if this correctly cleans up including generated code
+
+    gp_module           = new Module("llvmjit");
+    gp_execution_engine = ExecutionEngine::create(new ExistingModuleProvider(gp_module), false);
 }
 
 
 int     compile(const char* llsource) {
-    Module*     module = ParseAssemblyString(llsource, new Module("llvmjit"));
+    Module*     module = ParseAssemblyString(llsource, gp_module);
     if (!module) {
-        std::cerr << "Error: can not parse " << llsource << "\n" << std::flush;
+        std::cerr << "Can not parse:\n" << llsource << "\n" << std::flush;
         return false;
-    }
-
-    //std::ostream *Out = new std::ofstream("temp-libllvmjit.bc",
-    //        std::ios::out | std::ios::trunc | std::ios::binary);
-    //WriteBytecodeToFile(module, *Out); //XXX what to do with the 3rd param (NoCompress)?
-
-    ModuleProvider* module_provider = new ExistingModuleProvider(module);
-    if (!g_execution_engine) {
-        g_execution_engine = ExecutionEngine::create(module_provider, false);
-    } else {
-        g_execution_engine->addModuleProvider(module_provider);
     }
 
     return true;
@@ -52,27 +45,20 @@ int     compile(const char* llsource) {
 
 
 void*   find_function(const char* name) {
-    if (!g_execution_engine)    return NULL; //note: decided not to be treated as an error
-
-    return g_execution_engine->FindFunctionNamed(name); //note: can be NULL
+    return gp_execution_engine->FindFunctionNamed(name); //note: can be NULL
 }
 
 
 int     execute(const void* function, int param) { //XXX allow different function signatures
-    if (!g_execution_engine) {
-        std::cerr << "Error: no llvm code compiled yet!\n" << std::flush;
-        return -1;
-    }
-
     if (!function) {
-        std::cerr << "Error: no function supplied to libllvmjit.execute(...)\n" << std::flush;
+        std::cerr << "No function supplied to libllvmjit.execute(...)\n" << std::flush;
         return -1;
     }
 
     std::vector<GenericValue> args;
     args.push_back((void*)param);
 
-    GenericValue gv = g_execution_engine->runFunction((Function*)function, args);
+    GenericValue gv = gp_execution_engine->runFunction((Function*)function, args);
     return gv.IntVal;
 }
 
