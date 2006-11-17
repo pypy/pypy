@@ -1,9 +1,9 @@
 import py
-from pypy.conftest import gettestobjspace, runappdirect
+from pypy.conftest import gettestobjspace, option
 
 class AppTest(object):
     def setup_class(cls):
-        if runappdirect:
+        if option.runappdirect:
             py.test.skip("does not make sense on pypy-c")
         cls.space = gettestobjspace(**{"objspace.usemodules.select": False})
 
