@@ -55,7 +55,7 @@ class AppTestRCTime:
         assert res[-1] == 0 # DST is always zero in gmtime()
         t0 = rctime.mktime(rctime.gmtime())
         t1 = rctime.mktime(rctime.gmtime(None))
-        assert 0 <= (t1 - t0) < 0.2
+        assert 0 <= (t1 - t0) < 1.2
         t = rctime.time()
         assert rctime.gmtime(t) == rctime.gmtime(t)
 
@@ -69,7 +69,7 @@ class AppTestRCTime:
         assert isinstance(res, rctime.struct_time)
         t0 = rctime.mktime(rctime.localtime())
         t1 = rctime.mktime(rctime.localtime(None))
-        assert 0 <= (t1 - t0) < 0.2
+        assert 0 <= (t1 - t0) < 1.2
         t = rctime.time()
         assert rctime.localtime(t) == rctime.localtime(t)
     
