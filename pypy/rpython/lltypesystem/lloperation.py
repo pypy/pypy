@@ -123,7 +123,7 @@ LL_OPERATIONS = {
 
     'direct_call':          LLOp(canraise=(Exception,)),
     'indirect_call':        LLOp(canraise=(Exception,)),
-    'safe_call':            LLOp(),
+    #'safe_call':            LLOp(),
     'unsafe_call':          LLOp(canraise=(Exception,)),
 
     # __________ numeric operations __________

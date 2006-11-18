@@ -313,8 +313,8 @@ class GCTransformer(object):
             hop.rename('bare_' + hop.spaceop.opname)
     gct_setarrayitem = gct_setfield
 
-    def gct_safe_call(self, hop):
-        hop.rename("direct_call")
+    #def gct_safe_call(self, hop):
+    #    hop.rename("direct_call")
 
     def gct_zero_gc_pointers_inside(self, hop):
         pass
