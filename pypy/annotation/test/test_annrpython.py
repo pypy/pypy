@@ -2403,7 +2403,7 @@ class TestAnnotateTestCase:
 
 
     def test_simple_controllerentry(self):
-        from pypy.rpython.controllerentry import ControllerEntry
+        from pypy.rpython.controllerentry import Controller, ControllerEntry
 
         class C:
             "Imagine some magic here to have a foo attribute on instances"
@@ -2412,17 +2412,22 @@ class TestAnnotateTestCase:
             c = C()
             return c.foo
 
-        class MyC:
-            def get_foo(self):
-                return 42
+        class C_Controller(Controller):
+            knowntype = C
+
+            def new(self):
+                return "4"
+
+            def get_foo(self, obj):
+                return obj + "2"
 
         class Entry(ControllerEntry):
             _about_ = C
-            _implementation_ = MyC
+            _controller_ = C_Controller
 
-        a = self.RPythonAnnotator()
+        a = self.RPythonAnnotator(policy=policy.AnnotatorPolicy())
         s = a.build_types(fun, [])
-        assert isinstance(s, annmodel.SomeInteger)
+        assert s.const == "42"
 
 
 def g(n):
