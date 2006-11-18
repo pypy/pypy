@@ -430,7 +430,7 @@ new_arena(void)
 	if (bp == NULL)
 		return NULL;
 
-#ifdef PYMALLOC_DEBUG
+#if 0   /* XXX removed for PyPy - #ifdef PYMALLOC_DEBUG */
 	if (Py_GETENV("PYTHONMALLOCSTATS"))
 		_PyObject_DebugMallocStats();
 #endif
@@ -893,6 +893,16 @@ PyObject_Free(void *p)
 /* A x-platform debugging allocator.  This doesn't manage memory directly,
  * it wraps a real allocator, adding extra debugging info to the memory blocks.
  */
+
+/* XXX added for PyPy for stand-alone usage */
+void Py_FatalError(const char *msg)
+{
+  fprintf(stderr, "Py_FatalError() called in obmalloc!\n%s\n", msg);
+  exit(1);
+}
+#define PyOS_snprintf snprintf
+/* end of XXX */
+
 
 /* Special bytes broadcast into debug memory blocks at appropriate times.
  * Strings of these are unlikely to be valid addresses, floats, ints or
