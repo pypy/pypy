@@ -6,31 +6,46 @@ from pypy.interpreter.error import OperationError
 
 from pypy.tool import stdlib_opcode as pythonopcode
 
-class InterpClonableCoroutine(Coroutine):
-    local_pool = None
 
-    def hello(self):
+class InterpClonableMixin:
+    local_pool = None
+    _mixin_ = True
+
+    def hello_local_pool(self):
         if we_are_translated():
             self.saved_pool = gc_swap_pool(self.local_pool)
 
-    def goodbye(self):
+    def goodbye_local_pool(self):
         if we_are_translated():
             self.local_pool = gc_swap_pool(self.saved_pool)
 
-    def clone(self):
+    def clone_into(self, copy):
         if not we_are_translated():
             raise NotImplementedError
-        if self.getcurrent() is self:
-            raise RuntimeError("clone() cannot clone the current coroutine; "
-                               "use fork() instead")
         if self.local_pool is None:   # force it now
             self.local_pool = gc_swap_pool(gc_swap_pool(None))
         # cannot gc_clone() directly self, because it is not in its own
         # local_pool.  Moreover, it has a __del__, which cloning doesn't
         # support properly at the moment.
-        copy = InterpClonableCoroutine(self.costate)
         copy.parent = self.parent
         copy.frame, copy.local_pool = gc_clone(self.frame, self.local_pool)
+
+
+class InterpClonableCoroutine(Coroutine, InterpClonableMixin):
+
+    def hello(self):
+        self.hello_local_pool()
+
+    def goodbye(self):
+        self.goodbye_local_pool()
+
+    def clone(self):
+        # hack, this is overridden in AppClonableCoroutine
+        if self.getcurrent() is self:
+            raise RuntimeError("clone() cannot clone the current coroutine; "
+                               "use fork() instead")
+        copy = InterpClonableCoroutine(self.costate)
+        self.clone_into(copy)
         return copy
 
 

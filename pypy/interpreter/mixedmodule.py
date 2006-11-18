@@ -88,7 +88,15 @@ class MixedModule(Module):
             if '__doc__' not in loaders:
                 loaders['__doc__'] = cls.get__doc__
 
-    buildloaders = classmethod(buildloaders) 
+    buildloaders = classmethod(buildloaders)
+
+    def extra_interpdef(self, name, spec):
+        cls = self.__class__
+        pkgroot = cls.__module__
+        loader = getinterpevalloader(pkgroot, spec)
+        space = self.space
+        w_obj = loader(space)
+        space.setattr(space.wrap(self), space.wrap(name), w_obj)
 
     def get__file__(cls, space): 
         """ NOT_RPYTHON. 

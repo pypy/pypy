@@ -113,6 +113,9 @@ class TinyObjSpace(object):
     def unpackiterable(self, itr):
         return list(itr)
 
+    def is_true(self, obj):
+        return bool(obj)
+
 
 class OpErrKeyboardInterrupt(KeyboardInterrupt):
     pass
