@@ -33,6 +33,13 @@ class Controller(object):
         return getattr(self, 'get_' + attr)(obj)
     getattr._annspecialcase_ = 'specialize:arg(2)'
 
+    def ctrl_setattr(self, s_obj, s_attr, s_value):
+        return delegate(self.setattr, s_obj, s_attr, s_value)
+
+    def setattr(self, obj, attr, value):
+        return getattr(self, 'set_' + attr)(obj, value)
+    setattr._annspecialcase_ = 'specialize:arg(2)'
+
 
 def delegate(boundmethod, *args_s):
     bk = getbookkeeper()
@@ -55,6 +62,10 @@ class __extend__(SomeControlledInstance):
     def getattr(s_cin, s_attr):
         assert s_attr.is_constant()
         return s_cin.controller.ctrl_getattr(s_cin.s_real_obj, s_attr)
+
+    def setattr(s_cin, s_attr, s_value):
+        assert s_attr.is_constant()
+        s_cin.controller.ctrl_setattr(s_cin.s_real_obj, s_attr, s_value)
 
 
 class __extend__(pairtype(SomeControlledInstance, SomeControlledInstance)):

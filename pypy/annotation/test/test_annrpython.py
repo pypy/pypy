@@ -2409,8 +2409,10 @@ class TestAnnotateTestCase:
             "Imagine some magic here to have a foo attribute on instances"
 
         def fun():
+            lst = []
             c = C()
-            return c.foo
+            c.foo = lst    # side-effect on lst!  well, it's a test
+            return c.foo, lst[0]
 
         class C_Controller(Controller):
             knowntype = C
@@ -2421,13 +2423,16 @@ class TestAnnotateTestCase:
             def get_foo(self, obj):
                 return obj + "2"
 
+            def set_foo(self, obj, value):
+                value.append(obj)
+
         class Entry(ControllerEntry):
             _about_ = C
             _controller_ = C_Controller
 
         a = self.RPythonAnnotator(policy=policy.AnnotatorPolicy())
         s = a.build_types(fun, [])
-        assert s.const == "42"
+        assert s.const == ("42", "4")
 
 
 def g(n):
