@@ -1,9 +1,11 @@
 
 import autopath
 import py.test
+from pypy import conftest
 from pypy.tool.udir import udir
 
-from pypy.annotation.annrpython import annmodel
+from pypy.annotation import model as annmodel
+from pypy.annotation.annrpython import RPythonAnnotator as _RPythonAnnotator
 from pypy.translator.translator import graphof as tgraphof
 from pypy.annotation import policy
 from pypy.annotation import specialize
@@ -42,7 +44,12 @@ class TestAnnotateTestCase:
     def setup_class(cls): 
         cls.space = FlowObjSpace() 
 
-    from pypy.annotation.annrpython import RPythonAnnotator
+    class RPythonAnnotator(_RPythonAnnotator):
+        def build_types(self, *args):
+            s = _RPythonAnnotator.build_types(self, *args)
+            if conftest.option.view:
+                self.translator.view()
+            return s
 
     def make_fun(self, func):
         import inspect
@@ -54,11 +61,6 @@ class TestAnnotateTestCase:
         funcgraph = self.space.build_flow(func)
         funcgraph.source = inspect.getsource(func)
         return funcgraph
-
-    def show(self, a):
-        from pypy import conftest
-        if conftest.option.view:
-            a.translator.view()
 
     def test_simple_func(self):
         """
@@ -2293,7 +2295,6 @@ class TestAnnotateTestCase:
 
         a = self.RPythonAnnotator()
         a.build_types(f, [])
-        self.show(a)
         v1, v2 = graphof(a, readout).getargs()
         assert not a.bindings[v1].is_constant()
         assert not a.bindings[v2].is_constant()
@@ -2323,7 +2324,6 @@ class TestAnnotateTestCase:
 
         a = self.RPythonAnnotator()
         s = a.build_types(fun, [int])
-        self.show(a)
         assert isinstance(s, annmodel.SomeChar)
 
     def test_range_nonneg(self):
@@ -2334,7 +2334,6 @@ class TestAnnotateTestCase:
             return 0
         a = self.RPythonAnnotator()
         s = a.build_types(fun, [int, int])
-        self.show(a)
         assert isinstance(s, annmodel.SomeInteger)
         assert s.nonneg
 
@@ -2346,7 +2345,6 @@ class TestAnnotateTestCase:
             return 0
         a = self.RPythonAnnotator()
         s = a.build_types(fun, [int, int])
-        self.show(a)
         assert isinstance(s, annmodel.SomeInteger)
         assert s.nonneg
 
@@ -2402,6 +2400,30 @@ class TestAnnotateTestCase:
             else:
                 from pypy.annotation.classdef import NoSuchSlotError
                 py.test.raises(NoSuchSlotError, a.build_types, fun, [int])
+
+
+    def test_simple_controllerentry(self):
+        from pypy.rpython.controllerentry import ControllerEntry
+
+        class C:
+            "Imagine some magic here to have a foo attribute on instances"
+
+        def fun():
+            c = C()
+            return c.foo
+
+        class MyC:
+            def get_foo(self):
+                return 42
+
+        class Entry(ControllerEntry):
+            _about_ = C
+            _implementation_ = MyC
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(fun, [])
+        assert isinstance(s, annmodel.SomeInteger)
+
 
 def g(n):
     return [0,1,2,n]
