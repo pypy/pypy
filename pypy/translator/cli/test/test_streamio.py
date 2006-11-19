@@ -12,8 +12,7 @@ class TestBufferingOutputStream(CliTest, BaseTestBufferingOutputStream):
     pass
 
 class TestLineBufferingOutputStream(CliTest, BaseTestLineBufferingOutputStream):
-    def test_write(self):
-        py.test.skip('Fixme!')
+    pass
 
 class TestCRLFFilter(CliTest, BaseTestCRLFFilter):
     pass

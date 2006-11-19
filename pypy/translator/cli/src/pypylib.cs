@@ -273,7 +273,7 @@ namespace pypy.runtime
             if (stop > s.Length)
                 stop = s.Length;
             int count=stop-start;
-            if (start > s.Length)
+            if (start > s.Length || stop == 0)
                 return -1;
             return s.LastIndexOf(ch, stop-1, count);
         }
