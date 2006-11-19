@@ -41,12 +41,13 @@ try:
 except ImportError:
     raise ImportError("Cannot work without transparent proxy functional")
 
+from distributed.objkeeper import ObjKeeper
+
 # XXX We do not make any garbage collection. We'll need it at some point
 
 """
 TODO list:
 
-1. Move it to more than one file
 2. Refactor it a bit (split class into logical/bookkeeper one)
 3. Add some garbage collection
 4. Add caching of objects that are presented (even on name level)
@@ -83,14 +84,11 @@ class AbstractProtocol(object):
     type_letters = dict([(value, key) for key, value in letter_types.items()])
     assert len(type_letters) == len(letter_types)
     
-    def __init__(self):
-        self.remote_objects = {} # a dictionary controller --> id
-        self.objs = [] # we just store everything, maybe later
-           # we'll need some kind of garbage collection
-    
-    def register_obj(self, obj):
-        self.objs.append(obj)
-        return len(self.objs) - 1
+    def __init__(self, exported_names={}):
+        self.keeper = ObjKeeper(exported_names)
+        #self.remote_objects = {} # a dictionary controller --> id
+        #self.objs = [] # we just store everything, maybe later
+        #   # we'll need some kind of garbage collection
 
     def wrap(self, obj):
         """ Wrap an object as sth prepared for sending
@@ -98,7 +96,7 @@ class AbstractProtocol(object):
         tp = type(obj)
         ctrl = get_transparent_controller(obj)
         if ctrl:
-            return "tp", self.remote_objects[ctrl]
+            return "tp", self.keeper.get_remote_object(ctrl)
         elif obj is None:
             return self.type_letters[tp]
         elif tp in self.immutable_primitives:
@@ -108,7 +106,7 @@ class AbstractProtocol(object):
             # we just pack all of the items
             return ('t', tuple([self.wrap(elem) for elem in obj]))
         elif tp in (list, dict, types.FunctionType):
-            id = self.register_obj(obj)
+            id = self.keeper.register_object(obj)
             return (self.type_letters[tp], id)
         elif tp is type:
             id = self.register_type(obj)
@@ -120,7 +118,7 @@ class AbstractProtocol(object):
             return (self.type_letters[tp], (type_id, \
                 self.wrap(obj.im_func.func_name), w_func, w_self))
         else:
-            id = self.register_obj(obj)
+            id = self.keeper.register_object(obj)
             type_id = self.register_type(tp)
             return ("cus", (type_id, id))
     
@@ -132,7 +130,7 @@ class AbstractProtocol(object):
         tp_letter, obj_data = data
         tp = self.letter_types[tp_letter]
         if tp is None:
-            return self.objs[obj_data]
+            return self.keeper.get_object(obj_data)
         elif tp in self.immutable_primitives:
             return obj_data # this is the object
         elif tp is tuple:
@@ -140,7 +138,7 @@ class AbstractProtocol(object):
         elif tp in (list, dict, types.FunctionType):
             id = obj_data
             ro = RemoteObject(self, id)
-            self.remote_objects[ro.perform] = id
+            self.keeper.register_remote_object(ro.perform, id)
             return proxy(tp, ro.perform)
         elif tp is types.MethodType:
             type_id, w_name, w_func, w_self = obj_data
@@ -161,7 +159,7 @@ class AbstractProtocol(object):
             type_id, id = obj_data
             real_tp = self.get_type(type_id)
             ro = RemoteObject(self, id)
-            self.remote_objects[ro.perform] = id
+            self.keeper.register_remote_object(ro.perform, id)
             return proxy(real_tp, ro.perform)
         else:
             raise NotImplementedError("Cannot unwrap %s" % (data,))
@@ -180,6 +178,12 @@ class AbstractProtocol(object):
         kwargs = dict([(self.unwrap(key), self.unwrap(val)) for key, val in kwargs.items()])
         return args, kwargs
     
+    def register_type(self, tp):
+        return self.keeper.register_type(self, tp)
+    
+    def get_type(self, id):
+        return self.keeper.get_type(id)
+    
 class LocalProtocol(AbstractProtocol):
     """ This is stupid protocol for testing purposes only
     """
@@ -188,7 +192,7 @@ class LocalProtocol(AbstractProtocol):
         self.types = []
    
     def perform(self, id, name, *args, **kwargs):
-        obj = self.objs[id]
+        obj = self.keeper.get_object(id)
         # we pack and than unpack, for tests
         args, kwargs = self.pack_args(args, kwargs)
         assert isinstance(name, str)
@@ -214,17 +218,17 @@ def remote_loop(protocol):
         command, data = receive()
         if command == 'get':
             # XXX: Error recovery anyone???
-            send(("finished", wrap(protocol.exported_names[data])))
+            send(("finished", wrap(protocol.keeper.exported_names[data])))
         elif command == 'call':
             id, name, args, kwargs = data
             args, kwargs = protocol.unpack_args(args, kwargs)
-            retval = getattr(protocol.objs[id], name)(*args, **kwargs)
+            retval = getattr(protocol.keeper.get_object(id), name)(*args, **kwargs)
             send(("finished", wrap(retval)))
         elif command == 'finished':
             return unwrap(data)
         elif command == 'type_reg':
             type_id, name, _dict = data
-            protocol.register_fake_type(type_id, name, _dict)
+            protocol.keeper.fake_remote_type(protocol, type_id, name, _dict)
         else:
             raise NotImplementedError("command %s" % command)
 
@@ -232,13 +236,13 @@ class RemoteProtocol(AbstractProtocol):
     #def __init__(self, gateway, remote_code):
     #    self.gateway = gateway
     def __init__(self, send, receive, exported_names={}):
-        super(RemoteProtocol, self).__init__()
-        self.exported_names = exported_names
+        super(RemoteProtocol, self).__init__(exported_names)
+        #self.exported_names = exported_names
         self.send = send
         self.receive = receive
-        self.type_cache = {}
-        self.type_id = 0
-        self.remote_types = {}
+        #self.type_cache = {}
+        #self.type_id = 0
+        #self.remote_types = {}
     
     def perform(self, id, name, *args, **kwargs):
         args, kwargs = self.pack_args(args, kwargs)
@@ -250,46 +254,6 @@ class RemoteProtocol(AbstractProtocol):
         self.send(("get", name))
         retval = remote_loop(self)
         return retval
-    
-    def register_type(self, tp):
-        try:
-            return self.type_cache[tp]
-        except KeyError:
-            print "Registering type %s as %s" % (tp, self.type_id)
-            self.type_cache[tp] = self.type_id
-            tp_id = self.type_id
-            self.type_id += 1
-        
-        # XXX: We don't support inheritance here, nor recursive types
-        #      shall we???
-        _dict = dict([(key, self.wrap(getattr(tp, key))) for key in dir(tp) 
-            if key not in ('__dict__', '__weakref__', '__class__', '__new__',
-                '__base__', '__flags__', '__mro__', '__bases__')])
-        self.send(("type_reg", (tp_id, 
-            tp.__name__, _dict)))
-        return tp_id
-    
-    def register_fake_type(self, type_id, _name, _dict):
-        print "Faking type %s as %s" % (_name, type_id)
-        # create and register new type
-        d = dict([(key, None) for key in _dict])
-        if '__doc__' in _dict:
-            d['__doc__'] = self.unwrap(_dict['__doc__'])
-        tp = type(_name, (object,), d)
-        self.remote_types[type_id] = tp
-        for key, value in _dict.items():
-            if key != '__doc__':
-                try:
-                    setattr(tp, key, self.unwrap(value))
-                except TypeError:
-                    import pdb;pdb.set_trace()
-    
-    def get_type(self, id):
-        try:
-            return self.remote_types[id]
-        except KeyError:
-            print "Warning!!! Type %d is not present by now" % id
-            return object
 
 class RemoteObject(object):
     def __init__(self, protocol, id):
