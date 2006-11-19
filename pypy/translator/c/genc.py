@@ -864,6 +864,9 @@ debug:
 debug_exc:
 \tmake CFLAGS="-g -DDO_LOG_EXC"
 
+debug_mem:
+\tmake CFLAGS="-g -DNO_OBMALLOC"
+
 profile:
 \tmake CFLAGS="-pg $(CFLAGS)" LDFLAGS="-pg $(LDFLAGS)"
 
