@@ -137,6 +137,8 @@ class CodeGenerator(ast.ASTVisitor):
     """Defines basic code generator for Python bytecode
     """
 
+    localsfullyknown = False
+
     def __init__(self, space, graph):
         self.space = space
         self.setups = [] 
