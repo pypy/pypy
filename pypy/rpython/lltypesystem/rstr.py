@@ -2,6 +2,7 @@ from weakref import WeakValueDictionary
 from pypy.annotation.pairtype import pairtype
 from pypy.rpython.error import TyperError
 from pypy.rlib.objectmodel import malloc_zero_filled, we_are_translated
+from pypy.rlib.objectmodel import debug_assert
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rlib.rarithmetic import _hash_string
 from pypy.rpython.rmodel import inputconst, IntegerRepr
@@ -109,10 +110,8 @@ class __extend__(pairtype(AbstractStringRepr, PyObjRepr)):
                                  resulttype=pyobj_repr,
                                  _callable= lambda chars, sz: pyobjectptr(''.join(chars)))
 
-from pypy.rpython.lltypesystem.lloperation import llop
-
 def mallocstr(length):
-    llop.debug_assert(Void, "%s >= 0 # negative string length", length)
+    debug_assert(length >= 0, "negative string length")
     r = malloc(STR, length)
     if not we_are_translated() or not malloc_zero_filled:
         r.hash = 0

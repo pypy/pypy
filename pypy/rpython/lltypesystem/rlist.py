@@ -16,6 +16,7 @@ from pypy.rpython.lltypesystem.lltype import \
      Bool, nullptr, typeMethod
 from pypy.rpython.lltypesystem import rstr
 from pypy.rpython import robject
+from pypy.rlib.objectmodel import debug_assert
 
 # ____________________________________________________________
 #
@@ -374,6 +375,7 @@ def ll_both_none(lst1, lst2):
 #  Accessor methods
 
 def ll_newlist(LIST, length):
+    debug_assert(length >= 0, "negative list length")
     l = malloc(LIST)
     l.length = length
     l.items = malloc(LIST.items.TO, length)
@@ -387,19 +389,18 @@ def ll_length(l):
 def ll_items(l):
     return l.items
 
-from pypy.rpython.lltypesystem.lloperation import llop
-
 def ll_getitem_fast(l, index):
-    llop.debug_assert(Void, "%s < %s.length # getitem out of bounds", index, l)
+    debug_assert(index < l.length, "getitem out of bounds")
     return l.ll_items()[index]
 
 def ll_setitem_fast(l, index, item):
-    llop.debug_assert(Void, "%s < %s.length # setitem out of bounds", index, l)
+    debug_assert(index < l.length, "setitem out of bounds")
     l.ll_items()[index] = item
 
 # fixed size versions
 
 def ll_fixed_newlist(LIST, length):
+    debug_assert(length >= 0, "negative fixed list length")
     l = malloc(LIST, length)
     return l
 ll_fixed_newlist = typeMethod(ll_fixed_newlist)
@@ -412,9 +413,11 @@ def ll_fixed_items(l):
     return l
 
 def ll_fixed_getitem_fast(l, index):
+    debug_assert(index < len(l), "fixed getitem out of bounds")
     return l[index]
 
 def ll_fixed_setitem_fast(l, index, item):
+    debug_assert(index < len(l), "fixed setitem out of bounds")
     l[index] = item
 
 def newlist(llops, r_list, items_v):

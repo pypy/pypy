@@ -720,7 +720,8 @@ class FunctionCodeGenerator(object):
             ''.join([', ' + s for s in argv]))
 
     def OP_DEBUG_ASSERT(self, op):
-        return '/* debug_assert removed */'
+        return 'RPyAssert(%s, %s);' % (self.expr(op.args[0]),
+                                       c_string_constant(op.args[1].value))
 
     def OP_DEBUG_FATALERROR(self, op):
         # XXX

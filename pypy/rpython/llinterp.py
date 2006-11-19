@@ -448,9 +448,8 @@ class LLFrame(object):
         import pdb
         pdb.set_trace()
 
-    def op_debug_log_exc(self, exc_type):
-        # do nothing, this is useful in compiled code
-        pass
+    def op_debug_assert(self, x, msg):
+        assert x, msg
 
     def op_debug_fatalerror(self, ll_msg, ll_exc=None):
         msg = ''.join(ll_msg.chars)

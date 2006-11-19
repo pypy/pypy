@@ -859,13 +859,13 @@ clean:
 \trm -f $(OBJECTS) $(TARGET)
 
 debug:
-\tmake CFLAGS="-g"
+\tmake CFLAGS="-g -DRPY_ASSERT"
 
 debug_exc:
-\tmake CFLAGS="-g -DDO_LOG_EXC"
+\tmake CFLAGS="-g -DRPY_ASSERT -DDO_LOG_EXC"
 
 debug_mem:
-\tmake CFLAGS="-g -DNO_OBMALLOC"
+\tmake CFLAGS="-g -DRPY_ASSERT -DNO_OBMALLOC"
 
 profile:
 \tmake CFLAGS="-pg $(CFLAGS)" LDFLAGS="-pg $(LDFLAGS)"

@@ -172,11 +172,8 @@ class OpWriter(object):
     float_abs = int_abs
     llong_abs = int_abs
 
-    def debug_log_exc(self, opr):
-        # XXX tmp
-        pass
-
     def debug_assert(self, opr):
+        # XXX could do something about assertions
         pass
 
     def int_pow(self, opr):

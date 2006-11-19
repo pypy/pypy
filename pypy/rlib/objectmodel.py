@@ -190,8 +190,23 @@ class Entry(ExtRegistryEntry):
                          resulttype = hop.r_result.lowleveltype)
 
 
-   
-# __ hlinvoke XXX this doesn't seem completely the right place for this
+def debug_assert(x, msg):
+    """After translation to C, this becomes an RPyAssert."""
+    assert x, msg
+
+class Entry(ExtRegistryEntry):
+    _about_ = debug_assert
+
+    def compute_result_annotation(self, s_x, s_msg):
+        assert s_msg.is_constant(), ("debug_assert(x, msg): "
+                                     "the msg must be constant")
+        return None
+
+    def specialize_call(self, hop):
+        from pypy.rpython.lltypesystem import lltype
+        vlist = hop.inputargs(lltype.Bool, lltype.Void)
+        hop.genop('debug_assert', vlist)
+
 
 def hlinvoke(repr, llcallable, *args):
     raise TypeError, "hlinvoke is meant to be rtyped and not called direclty"

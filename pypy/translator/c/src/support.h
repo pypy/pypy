@@ -25,6 +25,26 @@
 		memcpy(itemsarray->items, PyString_AS_STRING(s),        \
                        itemsarray->length)
 
+#ifdef RPY_ASSERT
+#  define RPyAssert(x, msg)                                             \
+     if (!(x)) RPyAssertFailed(__FILE__, __LINE__, __FUNCTION__, msg)
+
+void RPyAssertFailed(const char* filename, long lineno,
+                     const char* function, const char *msg);
+#  ifndef PYPY_NOT_MAIN_FILE
+void RPyAssertFailed(const char* filename, long lineno,
+                     const char* function, const char *msg) {
+  fprintf(stderr,
+          "PyPy assertion failed at %s:%d:\n"
+          "in %s: %s\n",
+          filename, lineno, function, msg);
+  abort();
+}
+#  endif
+#else
+#  define RPyAssert(x, msg)   /* nothing */
+#endif
+
 #ifdef __RPyListOfString_New     /*  :-(  */
 #  define HAVE_RPY_LIST_OF_STRING
 #endif

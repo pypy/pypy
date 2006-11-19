@@ -464,6 +464,7 @@ OP_WEIGHTS = {'same_as': 0,
               'yield_current_frame_to_caller': sys.maxint, # XXX bit extreme
               'resume_point': sys.maxint, # XXX bit extreme
               'instrument_count': 0,
+              'debug_assert': -1,
               }
 
 def block_weight(block, weights=OP_WEIGHTS):
@@ -476,7 +477,7 @@ def block_weight(block, weights=OP_WEIGHTS):
         total += weights.get(op.opname, 1)
     if block.exitswitch is not None:
         total += 1
-    return total
+    return max(0, total)
 
 
 def measure_median_execution_cost(graph):
