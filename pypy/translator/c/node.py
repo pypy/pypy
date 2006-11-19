@@ -698,8 +698,9 @@ def select_function_code_generators(fnobj, db, functionname):
         raise ValueError, "trying to compile suggested primitive %r" % (
             fnobj._callable,)
     elif hasattr(fnobj, 'graph'):
-        cpython_exc = getattr(fnobj, 'exception_policy', None) == "CPython"
-        return [FunctionCodeGenerator(fnobj.graph, db, cpython_exc, functionname)]
+        exception_policy = getattr(fnobj, 'exception_policy', None)
+        return [FunctionCodeGenerator(fnobj.graph, db, exception_policy,
+                                      functionname)]
     elif getattr(fnobj, 'external', None) == 'C':
         # deprecated case
         if hasattr(fnobj, 'includes'):

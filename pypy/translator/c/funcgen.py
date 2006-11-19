@@ -27,7 +27,7 @@ class FunctionCodeGenerator(object):
 
     if USESLOTS:
         __slots__ = """graph db gcpolicy
-                       cpython_exc
+                       exception_policy
                        more_ll_values
                        vars
                        lltypes
@@ -36,11 +36,11 @@ class FunctionCodeGenerator(object):
                        blocknum
                        oldgraph""".split()
 
-    def __init__(self, graph, db, cpython_exc=False, functionname=None):
+    def __init__(self, graph, db, exception_policy=None, functionname=None):
         self.graph = graph
         self.db = db
         self.gcpolicy = db.gcpolicy
-        self.cpython_exc = cpython_exc
+        self.exception_policy = exception_policy
         self.functionname = functionname
         # apply the stackless transformation
         if db.stacklesstransformer:
@@ -85,7 +85,7 @@ class FunctionCodeGenerator(object):
                     self.more_ll_values.append(link.llexitcase)
                 elif link.exitcase is not None:
                     mix.append(Constant(link.exitcase))
-        if self.cpython_exc:
+        if self.exception_policy == "CPython":
             v, exc_cleanup_ops = self.graph.exc_cleanup
             mix.append(v)
             for cleanupop in exc_cleanup_ops:
@@ -179,7 +179,7 @@ class FunctionCodeGenerator(object):
         return self.db.get(ErrorValue(returnlltype))
 
     def return_with_error(self):
-        if self.cpython_exc:
+        if self.exception_policy == "CPython":
             assert self.lltypemap(self.graph.getreturnvar()) == PyObjPtr
             v, exc_cleanup_ops = self.graph.exc_cleanup
             vanishing_exc_value = self.expr(v)
@@ -226,13 +226,15 @@ class FunctionCodeGenerator(object):
             if len(block.exits) == 0:
                 assert len(block.inputargs) == 1
                 # regular return block
-                if self.cpython_exc:
+                if self.exception_policy == "CPython":
                     assert self.lltypemap(self.graph.getreturnvar()) == PyObjPtr
                     yield 'if (RPyExceptionOccurred()) {'
                     yield '\tRPyConvertExceptionToCPython();'
                     yield '\treturn NULL;'
                     yield '}'
                 retval = self.expr(block.inputargs[0])
+                if self.exception_policy != "exc_helper":
+                    yield 'RPY_DEBUG_RETURN();'
                 yield 'return %s;' % retval
                 continue
             elif block.exitswitch is None:
@@ -716,10 +718,6 @@ class FunctionCodeGenerator(object):
         return "fprintf(stderr, %s%s);" % (
             c_string_constant(' '.join(format) + '\n\000'),
             ''.join([', ' + s for s in argv]))
-
-    def OP_DEBUG_LOG_EXC(self, op):
-        exc_type = self.expr(op.args[0])
-        return 'RPY_LOG_EXC(%s);' % exc_type
 
     def OP_DEBUG_ASSERT(self, op):
         return '/* debug_assert removed */'

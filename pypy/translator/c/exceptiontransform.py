@@ -56,7 +56,6 @@ class ExceptionTransformer(object):
         
         def rpyexc_occured():
             exc_type = exc_data.exc_type
-            lloperation.llop.debug_log_exc(lltype.Void, exc_type)
             return exc_type is not null_type
 
         # XXX tmp HACK for genllvm
@@ -64,7 +63,6 @@ class ExceptionTransformer(object):
         # calling rpyexc_occured() from c code with lltype.Bool
         def _rpyexc_occured():
             exc_type = exc_data.exc_type
-            lloperation.llop.debug_log_exc(lltype.Void, exc_type)
             return exc_type is not null_type
 
         def rpyexc_fetch_type():
@@ -87,7 +85,8 @@ class ExceptionTransformer(object):
             rpyexc_occured, [], l2a(lltype.Bool))
         self.rpyexc_occured_ptr = Constant(lltype.functionptr(
             RPYEXC_OCCURED_TYPE, "RPyExceptionOccurred",
-            graph=rpyexc_occured_graph),
+            graph=rpyexc_occured_graph,
+            exception_policy="exc_helper"),
             lltype.Ptr(RPYEXC_OCCURED_TYPE))
 
         # XXX tmp HACK for genllvm
@@ -96,7 +95,8 @@ class ExceptionTransformer(object):
             _rpyexc_occured, [], l2a(lltype.Signed))
         self._rpyexc_occured_ptr = Constant(lltype.functionptr(
             _RPYEXC_OCCURED_TYPE, "_RPyExceptionOccurred",
-            graph=_rpyexc_occured_graph),
+            graph=_rpyexc_occured_graph,
+            exception_policy="exc_helper"),
             lltype.Ptr(_RPYEXC_OCCURED_TYPE))
         
         RPYEXC_FETCH_TYPE_TYPE = lltype.FuncType([], self.lltype_of_exception_type)
@@ -105,7 +105,8 @@ class ExceptionTransformer(object):
             l2a(self.lltype_of_exception_type))
         self.rpyexc_fetch_type_ptr = Constant(lltype.functionptr(
             RPYEXC_FETCH_TYPE_TYPE, "RPyFetchExceptionType",
-            graph=rpyexc_fetch_type_graph),
+            graph=rpyexc_fetch_type_graph,
+            exception_policy="exc_helper"),
             lltype.Ptr(RPYEXC_FETCH_TYPE_TYPE))
         
         RPYEXC_FETCH_VALUE_TYPE = lltype.FuncType([], self.lltype_of_exception_value)
@@ -114,7 +115,8 @@ class ExceptionTransformer(object):
             l2a(self.lltype_of_exception_value))
         self.rpyexc_fetch_value_ptr = Constant(lltype.functionptr(
             RPYEXC_FETCH_VALUE_TYPE, "RPyFetchExceptionValue",
-            graph=rpyexc_fetch_value_graph),
+            graph=rpyexc_fetch_value_graph,
+            exception_policy="exc_helper"),
             lltype.Ptr(RPYEXC_FETCH_VALUE_TYPE))
 
         RPYEXC_CLEAR = lltype.FuncType([], lltype.Void)
@@ -122,7 +124,8 @@ class ExceptionTransformer(object):
             rpyexc_clear, [], l2a(lltype.Void))
         self.rpyexc_clear_ptr = Constant(lltype.functionptr(
             RPYEXC_CLEAR, "RPyClearException",
-            graph=rpyexc_clear_graph),
+            graph=rpyexc_clear_graph,
+            exception_policy="exc_helper"),
             lltype.Ptr(RPYEXC_CLEAR))
 
         RPYEXC_RAISE = lltype.FuncType([self.lltype_of_exception_type,
@@ -134,7 +137,8 @@ class ExceptionTransformer(object):
             l2a(lltype.Void))
         self.rpyexc_raise_ptr = Constant(lltype.functionptr(
             RPYEXC_RAISE, "RPyRaiseException",
-            graph=rpyexc_raise_graph),
+            graph=rpyexc_raise_graph,
+            exception_policy="exc_helper"),
             lltype.Ptr(RPYEXC_RAISE))
 
         mixlevelannotator.finish()
@@ -321,7 +325,6 @@ class ExceptionTransformer(object):
                                           lltype.Bool)            
         else:
             v_exc_type = self.ExcData_repr.getfield(self.cexcdata, 'exc_type', llops)
-            llops.genop('debug_log_exc', [v_exc_type], lltype.Void)
             var_exc_occured = llops.genop('ptr_nonzero', [v_exc_type],
                                           lltype.Bool)
 

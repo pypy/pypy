@@ -208,7 +208,7 @@ def predeclare_exception_data(db, rtyper):
         yield ('RPYTHON_PYEXCCLASS2EXC', exceptiondata.fn_pyexcclass2exc)
 
     yield ('_RPyExceptionOccurred',    exctransformer._rpyexc_occured_ptr.value)
-    yield ('RPyExceptionOccurred',     exctransformer.rpyexc_occured_ptr.value)
+    yield ('RPyExceptionOccurred1',    exctransformer.rpyexc_occured_ptr.value)
     yield ('RPyFetchExceptionType',    exctransformer.rpyexc_fetch_type_ptr.value)
     yield ('RPyFetchExceptionValue',   exctransformer.rpyexc_fetch_value_ptr.value)
     yield ('RPyClearException',        exctransformer.rpyexc_clear_ptr.value)

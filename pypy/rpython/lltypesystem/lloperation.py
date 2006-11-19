@@ -399,7 +399,6 @@ LL_OPERATIONS = {
     'debug_view':           LLOp(),
     'debug_print':          LLOp(),
     'debug_pdb':            LLOp(),
-    'debug_log_exc':        LLOp(),
     'debug_assert':         LLOp(canfold=True),
     'debug_fatalerror':     LLOp(),
 

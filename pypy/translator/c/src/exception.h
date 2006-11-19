@@ -6,7 +6,9 @@
    PyObject *RPythonError;
 #endif 
 
-#define RPY_LOG_EXC(exc_type)
+/* just a renaming, unless DO_LOG_EXC is set */
+#define RPyExceptionOccurred RPyExceptionOccurred1
+#define RPY_DEBUG_RETURN()   /* nothing */
 
 #ifndef PyExceptionClass_Check    /* Python < 2.5 */
 # define PyExceptionClass_Check(x)	PyClass_Check(x)
@@ -21,13 +23,27 @@
 /******************************************************************/
 
 #ifdef DO_LOG_EXC
-#undef RPY_LOG_EXC
-#define RPY_LOG_EXC(exc_type)  if(exc_type) { \
-	fprintf(stderr, "propagating %s:%ld %s %s\n", \
-		__FILE__, __LINE__, __FUNCTION__, \
-		exc_type->ov_name->items); \
+#undef RPyExceptionOccurred
+#undef RPY_DEBUG_RETURN
+#define RPyExceptionOccurred()  RPyDebugException("  noticing a")
+#define RPY_DEBUG_RETURN()      RPyDebugException("leaving with")
+#define RPyDebugException(msg)  (                                       \
+  RPyExceptionOccurred1()                                               \
+    ? (RPyDebugReturnShowException(msg, __FILE__, __LINE__, __FUNCTION__), 1) \
+    : 0                                                                 \
+  )
+void RPyDebugReturnShowException(const char *msg, const char *filename,
+                                 long lineno, const char *functionname);
+#ifndef PYPY_NOT_MAIN_FILE
+void RPyDebugReturnShowException(const char *msg, const char *filename,
+                                 long lineno, const char *functionname)
+{
+  fprintf(stderr, "%s %s: %s:%ld %s\n", msg,
+          RPyFetchExceptionType()->ov_name->items,
+          filename, lineno, functionname);
 }
 #endif
+#endif  /* DO_LOG_EXC */
 
 /* Hint: functions and macros not defined here, like RPyRaiseException,
    come from exctransformer via the table in extfunc.py. */
@@ -109,7 +125,7 @@ void RPyConvertExceptionToCPython(void)
 #else    /* non-RPython version of exceptions, using CPython only */
 /******************************************************************/
 
-#define RPyExceptionOccurred()           PyErr_Occurred()
+#define RPyExceptionOccurred1()          PyErr_Occurred()
 #define RPyRaiseException(etype, evalue) PyErr_Restore(etype, evalue, NULL)
 #define RPyFetchException(etypevar, evaluevar, ignored)  do {	\
 		PyObject *__tb;					\
