@@ -61,3 +61,13 @@ class AppTestFile(object):
             f.close()
         assert oct(os.stat(self.temppath).st_mode & 0777 | umask) == oct(0666)
 
+    def test_newlines(self):
+        import _file, os
+        f = _file.file(self.temppath, "wb")
+        f.write("\r\n")
+        assert f.newlines is None
+        f.close()
+        f = _file.file(self.temppath, "rU")
+        res = f.read()
+        assert res == "\n"
+        assert f.newlines == "\r\n"

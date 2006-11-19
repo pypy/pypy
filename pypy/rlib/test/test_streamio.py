@@ -735,15 +735,13 @@ class BaseTestTextInputFilter(BaseRtypingTest):
         ]
 
     expected_newlines = [
-        (["abcd"], [None]),
-        (["abcd\n"], ["\n"]),
-        (["abcd\r\n"],["\r\n"]),
-        (["abcd\r"],[None]), # wrong, but requires precognition to fix
-        (["abcd\r", "\nefgh"], [None, "\r\n"]),
-        (["abcd", "\nefg\r", "hij", "k\r\n"], [None, "\n", ("\r", "\n"),
-                                               ("\r", "\n", "\r\n")]),
-        (["abcd", "\refg\r", "\nhij", "k\n"], [None, "\r", ("\r", "\r\n"),
-                                               ("\r", "\n", "\r\n")])
+        (["abcd"], [0]),
+        (["abcd\n"], [2]),
+        (["abcd\r\n"],[4]),
+        (["abcd\r"],[0]), # wrong, but requires precognition to fix
+        (["abcd\r", "\nefgh"], [0, 4]),
+        (["abcd", "\nefg\r", "hij", "k\r\n"], [0, 2, 3, 7]),
+        (["abcd", "\refg\r", "\nhij", "k\n"], [0, 1, 5, 7])
         ]
 
     def test_read(self):
@@ -792,7 +790,18 @@ class BaseTestTextInputFilter(BaseRtypingTest):
                     bufs.append(data)
                 assert "".join(bufs) == all
         self.interpret(f, [])
-            
+
+    def test_newlines_attribute(self):
+        for packets, expected in self.expected_newlines:
+            base = TReader(packets)
+            filter = streamio.TextInputFilter(base)
+            def f():
+                for e in expected:
+                    filter.read(100)
+                    assert filter.getnewlines() == e
+            self.interpret(f, [])
+
+    
 class TestTextInputFilter(BaseTestTextInputFilter):
     def interpret(self, func, args):
         return func(*args)
@@ -920,22 +929,6 @@ class TestEncodingOutputFilterTests:
                 pos += len(c)
                 filter.write(c)
             assert base.buf == data
-
-class OldDisabledTests:
-    def test_readlines(self):
-        # This also tests next() and __iter__()
-        file = self.makeStream()
-        assert file.readlines() == self.lines
-
-    
-    def test_newlines_attribute(self):
-
-        for packets, expected in self.expected_newlines:
-            base = TReader(packets)
-            filter = streamio.TextInputFilter(base)
-            for e in expected:
-                filter.read(100)
-                assert filter.newlines == e
 
 
 

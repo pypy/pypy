@@ -50,10 +50,25 @@ Note:  open() is an alias for file().
         
     def getnewlines(self):
         "end-of-line convention used in this file"
-        if isinstance(self.stream, _sio.TextInputFilter):
-            return self.stream.getnewlines()
-        else:
+
+        newlines = self.stream.getnewlines()
+        if newlines == 0:
             return None
+        if newlines in [1, 2, 4]:
+            if newlines == 1:
+                return "\r"
+            elif newlines == 2:
+                return "\n"
+            else:
+                return "\r\n"
+        result = []
+        if newlines & 1:
+            result.append('\r')
+        if newlines & 2:
+            result.append('\n')
+        if newlines & 4:
+            result.append('\r\n')
+        return tuple(result)
 
     mode     = property(lambda self: self._mode,
                         doc = "file mode ('r', 'U', 'w', 'a', "

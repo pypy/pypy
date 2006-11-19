@@ -206,6 +206,9 @@ class Stream(object):
     def try_to_find_file_descriptor(self):
         return -1
 
+    def getnewlines(self):
+        return 0
+
 
 class DiskFile(Stream):
 
@@ -352,6 +355,7 @@ STREAM_METHODS = dict([
     ("close", []),
     ("peek", []),
     ("try_to_find_file_descriptor", []),
+    ("getnewlines", []),
     ])
 
 def PassThrough(meth_name, flush_buffers):
@@ -735,25 +739,7 @@ class TextInputFilter(Stream):
         self.CRLF = False
 
     def getnewlines(self):
-        foundchars = self.CR * 1 + self.NL * 2 + self.CRLF * 4
-        if not foundchars:
-            return None
-        if foundchars in [1, 2, 4]:
-            if self.CR:
-                return '\r'
-            elif self.NL:
-                return '\n'
-            else:
-                return '\r\n'
-        else:
-            result = []
-            if self.CR:
-                result.append('\r')
-            if self.NL:
-                result.append('\n')
-            if self.CRLF:
-                result.append('\r\n')
-            return tuple(result)
+        return self.CR * 1 + self.NL * 2 + self.CRLF * 4
 
     def read(self, n):
         """Read up to n bytes."""
