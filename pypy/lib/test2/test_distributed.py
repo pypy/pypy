@@ -16,10 +16,9 @@ class AppTestDistributed(object):
 
     def test_init(self):
         import distributed
-        distributed.proxy
 
     def test_protocol(self):
-        from distributed import AbstractProtocol
+        from distributed.protocol import AbstractProtocol
         protocol = AbstractProtocol()
         for item in ("aaa", 3, u"aa", 344444444444444444L, 1.2, (1, "aa")):
             assert protocol.unwrap(protocol.wrap(item)) == item
@@ -33,7 +32,7 @@ class AppTestDistributed(object):
 
     def test_protocol_run(self):
         l = [1,2,3]
-        from distributed import LocalProtocol
+        from distributed.protocol import LocalProtocol
         protocol = LocalProtocol()
         wrap = protocol.wrap
         unwrap = protocol.unwrap
@@ -47,7 +46,7 @@ class AppTestDistributed(object):
         def f(x, y):
             return x + y
         
-        from distributed import LocalProtocol
+        from distributed.protocol import LocalProtocol
         protocol = LocalProtocol()
         wrap = protocol.wrap
         unwrap = protocol.unwrap
@@ -99,7 +98,7 @@ class AppTestDistributed(object):
             def __len__(self):
                 return self.x + 8
         
-        from distributed import LocalProtocol
+        from distributed.protocol import LocalProtocol
         protocol = LocalProtocol()
         wrap = protocol.wrap
         unwrap = protocol.unwrap
