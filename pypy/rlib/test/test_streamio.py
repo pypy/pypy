@@ -354,7 +354,7 @@ class BaseTestBufferingInputStreamTests(BaseRtypingTest):
                                           for seekto in range(0, end+1)
                                           for whence in [0, 1, 2]]
         random.shuffle(cases)
-        if isinstance(self, LLRtypeMixin):
+        if isinstance(self, (LLRtypeMixin, OORtypeMixin)):
             cases = cases[:7]      # pick some cases at random - too slow!
         def f():
             all = file.readall()
@@ -387,7 +387,7 @@ class BaseTestBufferingInputStreamTests(BaseRtypingTest):
                                           for seekto in range(readto, end+1)
                                           for whence in [1, 2]]
         random.shuffle(cases)
-        if isinstance(self, LLRtypeMixin):
+        if isinstance(self, (LLRtypeMixin, OORtypeMixin)):
             cases = cases[:7]      # pick some cases at random - too slow!
         def f():
             for readto, seekto, whence in cases:
@@ -413,6 +413,10 @@ class TestBufferingInputStreamTests(BaseTestBufferingInputStreamTests):
 
 class TestBufferingInputStreamTestsLLinterp(BaseTestBufferingInputStreamTests,
                                             LLRtypeMixin):
+    pass
+
+class TestBufferingInputStreamTestsOOinterp(BaseTestBufferingInputStreamTests,
+                                            OORtypeMixin):
     pass
 
 class TestBufferedRead:
@@ -509,7 +513,11 @@ class TestBufferingOutputStream(BaseTestBufferingOutputStream):
 class TestBufferingOutputStreamLLinterp(BaseTestBufferingOutputStream,
                                         LLRtypeMixin):
     pass
-    
+
+class TestBufferingOutputStreamOOinterp(BaseTestBufferingOutputStream,
+                                        OORtypeMixin):
+    pass
+
 
 class BaseTestLineBufferingOutputStream(BaseRtypingTest):
 
@@ -550,7 +558,11 @@ class TestLineBufferingOutputStream(BaseTestLineBufferingOutputStream):
 class TestLineBufferingOutputStreamLLinterp(BaseTestLineBufferingOutputStream,
                                             LLRtypeMixin):
     pass
-    
+
+class TestLineBufferingOutputStreamOOinterp(BaseTestLineBufferingOutputStream,
+                                            OORtypeMixin):
+    pass
+
 
 class BaseTestCRLFFilter(BaseRtypingTest):
 
@@ -575,6 +587,8 @@ class TestCRLFFilter(BaseTestCRLFFilter):
 class TestCRLFFilterLLinterp(BaseTestCRLFFilter, LLRtypeMixin):
     pass
 
+class TestCRLFFilterOOinterp(BaseTestCRLFFilter, OORtypeMixin):
+    pass
 
 class TestMMapFile(BaseTestBufferingInputStreamTests):
     tfn = None
@@ -676,6 +690,10 @@ class TestBufferingInputOutputStreamTests(
 
 class TestBufferingInputOutputStreamTestsLLinterp(
         BaseTestBufferingInputOutputStreamTests, LLRtypeMixin):
+    pass
+
+class TestBufferingInputOutputStreamTestsOOinterp(
+        BaseTestBufferingInputOutputStreamTests, OORtypeMixin):
     pass
 
 
@@ -782,6 +800,9 @@ class TestTextInputFilter(BaseTestTextInputFilter):
 class TestTextInputFilterLLinterp(BaseTestTextInputFilter, LLRtypeMixin):
     pass
 
+class TestTextInputFilterOOinterp(BaseTestTextInputFilter, OORtypeMixin):
+    pass
+
 
 class BaseTestTextOutputFilter(BaseRtypingTest):
 
@@ -860,6 +881,9 @@ class TestTextOutputFilter(BaseTestTextOutputFilter):
         return func(*args)
 
 class TestTextOutputFilterLLinterp(BaseTestTextOutputFilter, LLRtypeMixin):
+    pass
+
+class TestTextOutputFilterOOinterp(BaseTestTextOutputFilter, OORtypeMixin):
     pass
 
 
