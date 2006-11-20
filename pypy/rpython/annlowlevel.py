@@ -10,16 +10,6 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython import extfunctable, extregistry
 from pypy.objspace.flow.model import Constant
 
-def not_const(s_obj): # xxx move it somewhere else
-    if s_obj.is_constant():
-        new_s_obj = annmodel.SomeObject()
-        new_s_obj.__class__ = s_obj.__class__
-        new_s_obj.__dict__ = s_obj.__dict__.copy()
-        del new_s_obj.const
-        s_obj = new_s_obj
-    return s_obj
-
-
 class KeyComp(object):
     def __init__(self, val):
         self.val = val
@@ -59,7 +49,7 @@ class LowLevelAnnotatorPolicy(AnnotatorPolicy):
                 key.append(KeyComp(s_obj.const))
                 new_args_s.append(s_obj)
             else:
-                new_args_s.append(not_const(s_obj))
+                new_args_s.append(annmodel.not_const(s_obj))
                 try:
                     key.append(annmodel.annotation_to_lltype(s_obj))
                 except ValueError:

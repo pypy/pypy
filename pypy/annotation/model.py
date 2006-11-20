@@ -659,6 +659,18 @@ def merge_knowntypedata(ktd1, ktd2):
             r[truth_v] = unionof(ktd1[truth_v], ktd2[truth_v])
     return r
 
+def not_const(s_obj):
+    if s_obj.is_constant():
+        new_s_obj = SomeObject()
+        new_s_obj.__class__ = s_obj.__class__
+        dic = new_s_obj.__dict__ = s_obj.__dict__.copy()
+        if 'const' in dic:
+            del new_s_obj.const
+        else:
+            del new_s_obj.const_box
+        s_obj = new_s_obj
+    return s_obj
+
 # ____________________________________________________________
 # internal
 

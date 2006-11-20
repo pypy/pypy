@@ -10,7 +10,7 @@ from pypy.annotation.model import SomeFloat, SomeWeakGcAddress, unionof
 from pypy.annotation.model import SomePBC, SomeInstance, SomeDict
 from pypy.annotation.model import SomeExternalObject
 from pypy.annotation.model import annotation_to_lltype, lltype_to_annotation, ll_to_annotation
-from pypy.annotation.model import add_knowntypedata
+from pypy.annotation.model import add_knowntypedata, not_const
 from pypy.annotation.model import s_ImpossibleValue
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation import description
@@ -299,7 +299,7 @@ def robjmodel_keepalive_until_here(*args_s):
     return immutablevalue(None)
 
 def robjmodel_hint(s, **kwds_s):
-    return s
+    return not_const(s)
 
 def llmemory_cast_ptr_to_adr(s):
     return SomeAddress()
