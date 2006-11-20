@@ -597,6 +597,8 @@ class ListConst(AbstractConst):
 # Dictionary constants
 
 class DictConst(AbstractConst):
+    PRIORITY = 90
+
     def __init__(self, db, dict, count):
         AbstractConst.__init__(self, db, dict, count)
         self.name = 'DICT__%d' % count
