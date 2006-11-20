@@ -1,11 +1,15 @@
 import pdb
 import types
 import code
+import sys
 from pypy.objspace.flow.model import FunctionGraph
 
 class _EnableGraphic:
     def __init__(self, port=None):
         self.port = port
+
+class NoTTY(Exception):
+    pass
 
 class PdbPlusShow(pdb.Pdb):
 
@@ -19,6 +23,11 @@ class PdbPlusShow(pdb.Pdb):
         while t.tb_next is not None:
             t = t.tb_next
         self.interaction(t.tb_frame, t)        
+
+    def preloop(self):
+        if not hasattr(sys.stdout, 'isatty') or not sys.stdout.isatty():
+            raise NoTTY("Cannot start the debugger when stdout is captured.")
+        pdb.Pdb.preloop(self)
 
     def expose(self, d):
         self.exposed.update(d)
