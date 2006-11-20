@@ -145,6 +145,8 @@ opcodes = {'int_mul': '*',
     'cast_float_to_int':        [PushAllArgs,_CastFun("Math.floor",1)],
     'cast_float_to_uint':       [PushAllArgs,_CastFun("Math.floor",1)],
     'truncate_longlong_to_int': CopyName,
+    
+    'debug_assert' : DoNothing,
 }
 
 for key, value in opcodes.iteritems():
