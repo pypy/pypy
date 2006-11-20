@@ -344,6 +344,6 @@ def test_build():
         if var.startswith('code_'):
             # just build it
             #def f():
-            assert rpython2javascript(sys.modules[__name__], [var])
-            
+            assert rpython2javascript(sys.modules[__name__], [var], use_pdb=False)
+    
     TRANSLATING = False
