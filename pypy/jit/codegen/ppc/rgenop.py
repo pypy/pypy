@@ -252,7 +252,6 @@ class Builder(GenBuilder):
         return gv_result
 
     def genop_getarraysubstruct(self, arraytoken, gv_ptr, gv_index):
-        # xxx not tested
         _, _, itemsize = arraytoken
         assert itemsize == 4
         gv_itemoffset = self.itemoffset(arraytoken, gv_index)
