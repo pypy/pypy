@@ -14,6 +14,7 @@
 
 import time
 import re
+import urllib
 from pypy.rpython.ootypesystem.bltregistry import BasicExternal, MethodDesc
 from pypy.rlib.nonconst import NonConstant
 
@@ -86,6 +87,10 @@ class Node(EventTarget):
     def __eq__(self, other):
         original = getattr(other, '_original', other)
         return original is self._original
+
+    def __ne__(self, other):
+        original = getattr(other, '_original', other)
+        return original is not self._original
 
     def getElementsByTagName(self, name):
         name = name.lower()
@@ -160,6 +165,9 @@ class Attribute(Node):
 
 class Text(Node):
     nodeType = 3
+
+class Comment(Node):
+    nodeType = 8
 
 class Document(Node):
     nodeType = 9
@@ -706,6 +714,7 @@ _typetoclass = {
     1: Element,
     2: Attribute,
     3: Text,
+    8: Comment,
     9: Document,
 }
 def _wrap(value):
@@ -731,7 +740,9 @@ def _quote_html(text):
 _singletons = ['link', 'meta']
 def _serialize_html(node):
     ret = []
-    if node.nodeType == 1:
+    if node.nodeType in [3, 8]:
+        return node.nodeValue
+    elif node.nodeType == 1:
         original = getattr(node, '_original', node)
         nodeName = original.nodeName
         ret += ['<', nodeName]
@@ -755,6 +766,8 @@ def _serialize_html(node):
             ret += ['</', nodeName, '>']
         else:
             ret.append(' />')
+    else:
+        raise ValueError('unsupported node type %s' % (node.nodeType,))
     return ''.join(ret)
 
 # initialization

@@ -188,6 +188,21 @@ def test_set_innerHTML():
     body = code_set_innerHTML()
     assert body.innerHTML == '<div>some content</div>'
     assert body.childNodes[0].nodeName == 'DIV'
+    div = body.childNodes[0]
+    html = div.innerHTML
+    assert html == 'some content'
+
+def code_set_innerHTML_empty():
+    window = get_window()
+    body = window.document.getElementsByTagName('body')[0]
+    body.innerHTML = ''
+    body.appendChild(window.document.createTextNode('foobar'))
+    return body
+
+def test_set_innerHTML_empty():
+    body = code_set_innerHTML_empty()
+    html = body.innerHTML
+    assert html == 'foobar'
 
 def code_event_init_1():
     window = get_window()
