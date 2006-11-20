@@ -106,11 +106,11 @@ class BaseTestRtuple(BaseRtypingTest):
             x = (n, 42)    # constant (5, 42) detected by the annotator
             y = (5, 42)    # another one, built by the flow space
             z = x + ()     # yet another
-            return id(x) == id(y) == id(z)
+            return x, y, z
         def f():
             return g(5)
         res = self.interpret(f, [])
-        assert res is True
+        assert res.item0 == res.item1 == res.item2
 
     def test_inst_tuple_getitem(self):
         class A:

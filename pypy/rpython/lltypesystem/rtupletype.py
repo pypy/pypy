@@ -10,5 +10,6 @@ def TUPLE_TYPE(field_lltypes):
         return Void      # empty tuple
     else:
         fields = [('item%d' % i, TYPE) for i, TYPE in enumerate(field_lltypes)]
-        kwds = {'hints': {'immutable': True}}
+        kwds = {'hints': {'immutable': True,
+                          'noidentity': True}}
         return Ptr(GcStruct('tuple%d' % len(field_lltypes), *fields, **kwds))

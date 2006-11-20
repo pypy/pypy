@@ -124,6 +124,9 @@ class AbstractTupleRepr(Repr):
     def rtype_len(self, hop):
         return hop.inputconst(Signed, len(self.items_r))
 
+    def rtype_id(self, hop):
+        raise TyperError("cannot ask for the id() of a tuple")
+
     def get_ll_eq_function(self):
         return gen_eq_function(self.items_r)
 
@@ -218,7 +221,10 @@ class __extend__(pairtype(AbstractTupleRepr, AbstractTupleRepr)):
                 items_v.append(item_v)
             return r_from.newtuple(llops, r_to, items_v)
         return NotImplemented
- 
+
+    def rtype_is_((robj1, robj2), hop):
+        raise TyperError("cannot compare tuples with 'is'")
+
 
 class AbstractTupleIteratorRepr(IteratorRepr):
 
