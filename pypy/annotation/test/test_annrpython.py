@@ -44,6 +44,9 @@ class TestAnnotateTestCase:
     def setup_class(cls): 
         cls.space = FlowObjSpace() 
 
+    def teardown_method(self, meth):
+        assert annmodel.s_Bool == annmodel.SomeBool()
+
     class RPythonAnnotator(_RPythonAnnotator):
         def build_types(self, *args):
             s = _RPythonAnnotator.build_types(self, *args)

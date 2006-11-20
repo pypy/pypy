@@ -7,7 +7,7 @@ from pypy.annotation.model import \
      SomeDict, SomeUnicodeCodePoint, SomeTuple, SomeImpossibleValue, \
      SomeInstance, SomeBuiltin, SomeFloat, SomeIterator, SomePBC, \
      SomeExternalObject, SomeTypedAddressAccess, SomeAddress, \
-     SomeCTypesObject, s_ImpossibleValue, \
+     SomeCTypesObject, s_ImpossibleValue, s_Bool, \
      unionof, set, missing_operation, add_knowntypedata
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation import builtin
@@ -60,24 +60,22 @@ class __extend__(SomeObject):
                                               s_cls, vars)
         if obj.is_constant() and s_cls.is_constant():
             return immutablevalue(issubclass(obj.const, s_cls.const))
-        return SomeBool()
+        return s_Bool
 
     def len(obj):
         return SomeInteger(nonneg=True)
 
-    def is_true_behavior(obj):
+    def is_true_behavior(obj, s):
         if obj.is_immutable_constant():
-            return immutablevalue(bool(obj.const))
+            s.const = bool(obj.const)
         else:
             s_len = obj.len()
             if s_len.is_immutable_constant():
-                return immutablevalue(s_len.const > 0)
-            else:
-                return SomeBool()
+                s.const = s_len.const > 0
 
     def is_true(s_obj):
-        r = s_obj.is_true_behavior()
-        assert isinstance(r, SomeBool)
+        r = SomeBool()
+        s_obj.is_true_behavior(r)
 
         bk = getbookkeeper()
         knowntypedata = r.knowntypedata = {}
@@ -174,7 +172,7 @@ class __extend__(SomeObject):
         return SomeObject()
 
     def op_contains(obj, s_element):
-        return SomeBool()
+        return s_Bool
 
     def hint(self, *args_s):
         return self
@@ -192,7 +190,7 @@ class __extend__(SomeFloat):
     def is_true(self):
         if self.is_immutable_constant():
             return getbookkeeper().immutablevalue(bool(self.const))
-        return SomeBool()
+        return s_Bool
 
     def hash(flt):
         return SomeInteger()
@@ -318,7 +316,7 @@ class __extend__(SomeList):
 
     def op_contains(lst, s_element):
         lst.listdef.generalize(s_element)
-        return SomeBool()
+        return s_Bool
 
     def hint(lst, *args_s):
         hints = args_s[-1].const
@@ -399,16 +397,16 @@ class __extend__(SomeDict):
 
     def op_contains(dct, s_element):
         dct.dictdef.generalize_key(s_element)
-        return SomeBool()
+        return s_Bool
 
 
 class __extend__(SomeString):
 
     def method_startswith(str, frag):
-        return SomeBool()
+        return s_Bool
 
     def method_endswith(str, frag):
-        return SomeBool()
+        return s_Bool
 
     def method_find(str, frag, start=None, end=None):
         return SomeInteger()
@@ -468,22 +466,22 @@ class __extend__(SomeChar):
         return immutablevalue(1)
 
     def method_isspace(chr):
-        return SomeBool()
+        return s_Bool
 
     def method_isdigit(chr):
-        return SomeBool()
+        return s_Bool
 
     def method_isalpha(chr):
-        return SomeBool()
+        return s_Bool
 
     def method_isalnum(chr):
-        return SomeBool()
+        return s_Bool
 
     def method_islower(chr):
-        return SomeBool()
+        return s_Bool
 
     def method_isupper(chr):
-        return SomeBool()
+        return s_Bool
 
 class __extend__(SomeUnicodeCodePoint):
 
@@ -548,11 +546,9 @@ class __extend__(SomeInstance):
         getbookkeeper().needs_hash_support[ins.classdef] = True
         return SomeInteger()
 
-    def is_true_behavior(ins):
-        if ins.can_be_None:
-            return SomeBool()
-        else:
-            return immutablevalue(True)
+    def is_true_behavior(ins, s):
+        if not ins.can_be_None:
+            s.const = True
 
 
 class __extend__(SomeBuiltin):
@@ -594,13 +590,11 @@ class __extend__(SomePBC):
         d = [desc.bind_under(classdef, name) for desc in pbc.descriptions]
         return SomePBC(d, can_be_None=pbc.can_be_None)
 
-    def is_true_behavior(pbc):
+    def is_true_behavior(pbc, s):
         if pbc.isNone():
-            return immutablevalue(False)
-        elif pbc.can_be_None:
-            return SomeBool()
-        else:
-            return immutablevalue(True)
+            s.const = False
+        elif not pbc.can_be_None:
+            s.const = True
 
 
 class __extend__(SomeExternalObject):
@@ -649,7 +643,7 @@ class __extend__(SomePtr):
         return ll_to_annotation(v)
 
     def is_true(p):
-        return SomeBool()
+        return s_Bool
 
 class __extend__(SomeExternalBuiltin):
     def getattr(p, s_attr):
@@ -680,7 +674,7 @@ class __extend__(SomeExternalBuiltin):
         return obj.knowntype.get_field(name)
     
     def is_true(p):
-        return SomeBool()
+        return s_Bool
 
 class __extend__(SomeLLADTMeth):
 
@@ -706,7 +700,7 @@ class __extend__(SomeOOInstance):
             setattr(r.ootype._example(), s_attr.const, v._example())
 
     def is_true(p):
-        return SomeBool()
+        return s_Bool
 
 class __extend__(SomeOOBoundMeth):
     def simple_call(m, *args_s):
@@ -739,7 +733,7 @@ class __extend__(SomeCTypesObject):
             return SomeObject()
 
     def is_true(cto):
-        return SomeBool()
+        return s_Bool
 
     def simple_call(cto, *args_s):
         # for variables containing ctypes function pointers
@@ -761,4 +755,4 @@ class __extend__(SomeAddress):
     getattr.can_only_throw = []
 
     def is_true(s_addr):
-        return SomeBool()
+        return s_Bool

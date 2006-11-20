@@ -5,7 +5,7 @@ Binary operations between SomeValues.
 import py
 import operator
 from pypy.annotation.pairtype import pair, pairtype
-from pypy.annotation.model import SomeObject, SomeInteger, SomeBool
+from pypy.annotation.model import SomeObject, SomeInteger, SomeBool, s_Bool
 from pypy.annotation.model import SomeString, SomeChar, SomeList, SomeDict
 from pypy.annotation.model import SomeUnicodeCodePoint
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue, s_ImpossibleValue
@@ -112,42 +112,42 @@ class __extend__(pairtype(SomeObject, SomeObject)):
             return immutablevalue(obj1.const < obj2.const)
         else:
             getbookkeeper().count("non_int_comp", obj1, obj2)
-            return SomeBool()
+            return s_Bool
 
     def le((obj1, obj2)):
         if obj1.is_immutable_constant() and obj2.is_immutable_constant():
             return immutablevalue(obj1.const <= obj2.const)
         else:
             getbookkeeper().count("non_int_comp", obj1, obj2)
-            return SomeBool()
+            return s_Bool
 
     def eq((obj1, obj2)):
         if obj1.is_immutable_constant() and obj2.is_immutable_constant():
             return immutablevalue(obj1.const == obj2.const)
         else:
             getbookkeeper().count("non_int_eq", obj1, obj2)
-            return SomeBool()
+            return s_Bool
 
     def ne((obj1, obj2)):
         if obj1.is_immutable_constant() and obj2.is_immutable_constant():
             return immutablevalue(obj1.const != obj2.const)
         else:
             getbookkeeper().count("non_int_eq", obj1, obj2)
-            return SomeBool()
+            return s_Bool
 
     def gt((obj1, obj2)):
         if obj1.is_immutable_constant() and obj2.is_immutable_constant():
             return immutablevalue(obj1.const > obj2.const)
         else:
             getbookkeeper().count("non_int_comp", obj1, obj2)
-            return SomeBool()
+            return s_Bool
 
     def ge((obj1, obj2)):
         if obj1.is_immutable_constant() and obj2.is_immutable_constant():
             return immutablevalue(obj1.const >= obj2.const)
         else:
             getbookkeeper().count("non_int_comp", obj1, obj2)
-            return SomeBool()
+            return s_Bool
 
     def cmp((obj1, obj2)):
         getbookkeeper().count("cmp", obj1, obj2)
@@ -270,16 +270,15 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
     pow_ovf = _clone(pow, [ZeroDivisionError, OverflowError])
 
     def _compare_helper((int1, int2), opname, operation):
+        r = SomeBool()
         if int1.is_immutable_constant() and int2.is_immutable_constant():
-            r = immutablevalue(operation(int1.const, int2.const))
+            r.const = operation(int1.const, int2.const)
         else:
             # XXX VERY temporary hack
             if (opname == 'ge' and int2.is_immutable_constant() and
                 int2.const == 0 and
                 not rarithmetic.signedtype(int1.knowntype)):
-                r = immutablevalue(True)
-            else:
-                r = SomeBool()
+                r.const = True
         knowntypedata = {}
         # XXX HACK HACK HACK
         # propagate nonneg information between the two arguments
@@ -386,7 +385,7 @@ class __extend__(pairtype(SomeList, SomeList)):
 
     def eq((lst1, lst2)):
         lst1.listdef.agree(lst2.listdef)
-        return SomeBool()
+        return s_Bool
     ne = eq
 
 

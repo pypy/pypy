@@ -474,6 +474,7 @@ class SomeImpossibleValue(SomeObject):
 
 
 s_None = SomePBC([], can_be_None=True)
+s_Bool = SomeBool()
 s_ImpossibleValue = SomeImpossibleValue()
 
 # ____________________________________________________________
@@ -549,7 +550,7 @@ from pypy.rpython.ootypesystem import ootype
 NUMBER = object()
 annotation_to_ll_map = [
     (s_None, lltype.Void),   # also matches SomeImpossibleValue()
-    (SomeBool(), lltype.Bool),
+    (s_Bool, lltype.Bool),
     (SomeInteger(knowntype=r_ulonglong), NUMBER),    
     (SomeFloat(), lltype.Float),
     (SomeChar(), lltype.Char),

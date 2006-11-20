@@ -1,5 +1,5 @@
 from pypy.annotation.model import SomeObject, s_ImpossibleValue
-from pypy.annotation.model import SomeInteger, SomeBool, unionof
+from pypy.annotation.model import SomeInteger, s_Bool, unionof
 from pypy.annotation.model import SomeInstance
 from pypy.annotation.listdef import ListItem
 
@@ -62,7 +62,7 @@ class DictKey(ListItem):
 
         def check_eqfn(annotator, graph):
             s = annotator.binding(graph.getreturnvar())
-            assert SomeBool().contains(s), (
+            assert s_Bool.contains(s), (
                 "the custom eq function of an r_dict must return a boolean"
                 " (got %r)" % (s,))
         self.bookkeeper.emulate_pbc_call(myeq, self.s_rdict_eqfn, [s_key, s_key],
