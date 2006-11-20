@@ -51,8 +51,10 @@ class _AppThunk(AbstractThunk):
 
 class AppCoroutine(Coroutine): # XXX, StacklessFlags):
 
-    def __init__(self, space, state):
+    def __init__(self, space, state=None):
         self.space = space
+        if state is None:
+            state = AppCoroutine._get_state(space)
         Coroutine.__init__(self, state)
         self.flags = 0
         self.newsubctx()
@@ -63,7 +65,7 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
 
     def descr_method__new__(space, w_subtype):
         co = space.allocate_instance(AppCoroutine, w_subtype)
-        AppCoroutine.__init__(co, space, AppCoroutine._get_state(space))
+        AppCoroutine.__init__(co, space)
         return space.wrap(co)
 
     def _get_state(space):
