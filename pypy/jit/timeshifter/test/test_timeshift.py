@@ -739,6 +739,32 @@ class TestTimeshift(TimeshiftingTests):
                            'setarrayitem': 2, 'getarrayitem': 1,
                            'getarraysize': 1, 'int_mul': 1})
 
+    def test_red_struct_array(self):
+         S = lltype.Struct('s', ('x', lltype.Signed))
+         A = lltype.GcArray(S)
+         def ll_function(x, y, n):
+             a = lltype.malloc(A, 2)
+             a[0].x = x
+             a[1].x = y
+             return a[n].x*len(a)
+
+         res = self.timeshift(ll_function, [21, -21, 0], [],
+                              policy=P_NOVIRTUAL)
+         assert res == 42
+         self.check_insns({'malloc_varsize': 1, 'ptr_iszero': 1,
+                           'getarraysubstruct': 3,
+                           'setfield': 2, 'getfield': 1,
+                           'getarraysize': 1, 'int_mul': 1})
+
+         res = self.timeshift(ll_function, [21, -21, 1], [],
+                              policy=P_NOVIRTUAL)
+         assert res == -42
+         self.check_insns({'malloc_varsize': 1, 'ptr_iszero': 1,
+                           'getarraysubstruct': 3,
+                           'setfield': 2, 'getfield': 1,
+                           'getarraysize': 1, 'int_mul': 1})
+
+
     def test_red_varsized_struct(self):
          A = lltype.Array(lltype.Signed)
          S = lltype.GcStruct('S', ('foo', lltype.Signed), ('a', A))

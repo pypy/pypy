@@ -297,6 +297,12 @@ class Builder(GenBuilder):
             op = eax
         return self.returnvar(op)
 
+    def genop_getarraysubstruct(self, arraytoken, gv_ptr, gv_index):
+        self.mc.MOV(edx, gv_ptr.operand(self))
+        op = self.itemaddr(edx, arraytoken, gv_index)
+        self.mc.LEA(eax, op)
+        return self.returnvar(eax)
+
     def genop_getarraysize(self, arraytoken, gv_ptr):
         lengthoffset, startoffset, itemoffset = arraytoken
         self.mc.MOV(edx, gv_ptr.operand(self))
@@ -811,6 +817,9 @@ class ReplayBuilder(GenBuilder):
         return dummy_var
 
     def genop_getarrayitem(self, arraytoken, gv_ptr, gv_index):
+        return dummy_var
+
+    def genop_getarraysubstruct(self, arraytoken, gv_ptr, gv_index):
         return dummy_var
 
     def genop_getarraysize(self, arraytoken, gv_ptr):

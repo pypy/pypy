@@ -107,6 +107,11 @@ class LLBuilder(GenBuilder):
         return LLVar(llimpl.genop(self.b, 'getarrayitem', vars_gv,
                                   gv_ITEMTYPE.v))
 
+    def genop_getarraysubstruct(self, gv_ITEMTYPE, gv_ptr, gv_index):
+        vars_gv = [gv_ptr.v, gv_index.v]
+        return LLVar(llimpl.genop(self.b, 'getarraysubstruct', vars_gv,
+                                  gv_ITEMTYPE.v))
+
     def genop_setarrayitem(self, gv_ITEMTYPE, gv_ptr, gv_index, gv_value):
         vars_gv = [gv_ptr.v, gv_index.v, gv_value.v]
         return LLVar(llimpl.genop(self.b, 'setarrayitem', vars_gv,
@@ -232,7 +237,10 @@ class RGenOp(AbstractRGenOp):
     @staticmethod
     @specialize.memo()
     def arrayToken(A):
-        return LLConst(llimpl.constTYPE(A.OF))
+        ITEMTYPE = A.OF
+        if isinstance(ITEMTYPE, lltype.ContainerType):
+            ITEMTYPE = lltype.Ptr(ITEMTYPE)
+        return LLConst(llimpl.constTYPE(ITEMTYPE))
 
     @staticmethod
     @specialize.memo()

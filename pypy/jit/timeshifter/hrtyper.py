@@ -652,6 +652,27 @@ class HintRTyper(RPythonTyper):
             [v_jitstate,    c_fielddesc, v_argbox      ],
             ts.s_RedBox)
 
+    def translate_op_getarraysubstruct(self, hop):
+        PTRTYPE = originalconcretetype(hop.args_s[0])
+        if PTRTYPE.TO._hints.get('immutable', False): # foldable if all green
+            res = self.generic_translate_operation(hop, force=True)
+            if res is not None:
+                return res
+
+        ts = self
+        v_argbox, v_index = hop.inputargs(self.getredrepr(PTRTYPE),
+                                          self.getredrepr(lltype.Signed))
+        fielddesc = rcontainer.ArrayFieldDesc(self.RGenOp, PTRTYPE.TO)
+        c_fielddesc = inputconst(lltype.Void, fielddesc)
+        s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
+        v_jitstate = hop.llops.getjitstate()
+        return hop.llops.genmixlevelhelpercall(
+            rtimeshift.ll_gengetarraysubstruct,
+            [ts.s_JITState, s_fielddesc, ts.s_RedBox, ts.s_RedBox],
+            [v_jitstate,    c_fielddesc, v_argbox,    v_index    ],
+            ts.s_RedBox)
+
+
     def translate_op_cast_pointer(self, hop):
         FROM_TYPE = originalconcretetype(hop.args_s[0])
         [v_argbox] = hop.inputargs(self.getredrepr(FROM_TYPE))

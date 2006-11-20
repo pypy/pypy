@@ -251,6 +251,22 @@ class Builder(GenBuilder):
                                        gv_result, [gv_ptr, gv_itemoffset]))
         return gv_result
 
+    def genop_getarraysubstruct(self, arraytoken, gv_ptr, gv_index):
+        # xxx not tested
+        _, _, itemsize = arraytoken
+        assert itemsize == 4
+        gv_itemoffset = self.itemoffset(arraytoken, gv_index)
+        gv_result = Var()
+        if gv_itemoffset.fits_in_immediate():
+            self.insns.append(
+                insn.Insn_GPR__GPR_IMM(RPPCAssembler.addi,
+                                       gv_result, [gv_ptr, gv_itemoffset]))
+        else:
+            self.insns.append(
+                insn.Insn_GPR__GPR_GPR(RPPCAssembler.add,
+                                       gv_result, [gv_ptr, gv_itemoffset]))
+        return gv_result
+
     def genop_getarraysize(self, arraytoken, gv_ptr):
         lengthoffset, _, _ = arraytoken
         gv_result = Var()

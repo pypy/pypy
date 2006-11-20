@@ -125,6 +125,19 @@ def ll_gengetarrayitem(jitstate, fielddesc, argbox, indexbox):
                                                     
     return fielddesc.redboxcls(fielddesc.kind, genvar)
 
+def ll_gengetarraysubstruct(jitstate, fielddesc, argbox, indexbox):
+    if fielddesc.immutable and argbox.is_constant() and indexbox.is_constant():
+        array = rvalue.ll_getvalue(argbox, fielddesc.PTRTYPE)
+        res = array[rvalue.ll_getvalue(indexbox, lltype.Signed)]
+        return rvalue.ll_fromvalue(jitstate, res)
+    genvar = jitstate.curbuilder.genop_getarraysubstruct(
+        fielddesc.arraytoken,
+        argbox.getgenvar(jitstate.curbuilder),
+        indexbox.getgenvar(jitstate.curbuilder))
+                                                    
+    return fielddesc.redboxcls(fielddesc.kind, genvar)
+
+
 def ll_gensetarrayitem(jitstate, fielddesc, destbox, indexbox, valuebox):
     genvar = jitstate.curbuilder.genop_setarrayitem(
         fielddesc.arraytoken,
