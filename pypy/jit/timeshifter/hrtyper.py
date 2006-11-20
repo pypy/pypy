@@ -492,7 +492,7 @@ class HintRTyper(RPythonTyper):
                                                [c_opdesc, v_jitstate]    + args_v,
                                                ts.s_RedBox)
 
-    def translate_op_debug_log_exc(self, hop): # don't timeshift debug_log_exc
+    def translate_op_debug_assert(self, hop):
         pass
 
     def translate_op_keepalive(self,hop):
