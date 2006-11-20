@@ -460,9 +460,9 @@ class HintRTyper(RPythonTyper):
                     del link.args[0]    # Void
                 link.args = [v_jitstate] + link.args
 
-    def generic_translate_operation(self, hop, force=False):
+    def generic_translate_operation(self, hop):
         # detect constant-foldable all-green operations
-        if not force and hop.spaceop.opname not in rtimeshift.FOLDABLE_OPS:
+        if hop.spaceop.opname not in rtimeshift.FOLDABLE_GREEN_OPS:
             return None
         green = True
         for r_arg in hop.args_r:
@@ -526,49 +526,39 @@ class HintRTyper(RPythonTyper):
                                                    ts.s_RedBox)
         # non virtual case        
         PTRTYPE = originalconcretetype(hop.args_s[0])
-        if PTRTYPE.TO._hints.get('immutable', False): # foldable if all green
-            res = self.generic_translate_operation(hop, force=True)
-            if res is not None:
-                return res
-            
         v_argbox, c_fieldname = hop.inputargs(self.getredrepr(PTRTYPE),
                                               green_void_repr)
         v_argbox = hop.llops.as_ptrredbox(v_argbox)
+        c_deepfrozen = inputconst(lltype.Bool, hop.args_s[0].deepfrozen)
         structdesc = rcontainer.StructTypeDesc(self.RGenOp, PTRTYPE.TO)
         fielddesc = structdesc.getfielddesc(c_fieldname.value)
         c_fielddesc = inputconst(lltype.Void, fielddesc)
         s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
         v_jitstate = hop.llops.getjitstate()
         return hop.llops.genmixlevelhelpercall(rtimeshift.ll_gengetfield,
-            [ts.s_JITState, s_fielddesc, ts.s_PtrRedBox],
-            [v_jitstate,    c_fielddesc, v_argbox      ],
+            [ts.s_JITState, annmodel.s_Bool, s_fielddesc, ts.s_PtrRedBox],
+            [v_jitstate   , c_deepfrozen   , c_fielddesc, v_argbox      ],
             ts.s_RedBox)
 
     def translate_op_getarrayitem(self, hop):
         PTRTYPE = originalconcretetype(hop.args_s[0])
-        if PTRTYPE.TO._hints.get('immutable', False): # foldable if all green
-            res = self.generic_translate_operation(hop, force=True)
-            if res is not None:
-                return res
-
         ts = self
         v_argbox, v_index = hop.inputargs(self.getredrepr(PTRTYPE),
                                           self.getredrepr(lltype.Signed))
+        c_deepfrozen = inputconst(lltype.Bool, hop.args_s[0].deepfrozen)
         fielddesc = rcontainer.ArrayFieldDesc(self.RGenOp, PTRTYPE.TO)
         c_fielddesc = inputconst(lltype.Void, fielddesc)
         s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
         v_jitstate = hop.llops.getjitstate()
         return hop.llops.genmixlevelhelpercall(
             rtimeshift.ll_gengetarrayitem,
-            [ts.s_JITState, s_fielddesc, ts.s_RedBox, ts.s_RedBox],
-            [v_jitstate,    c_fielddesc, v_argbox,    v_index    ],
+            [ts.s_JITState, annmodel.s_Bool, s_fielddesc,
+                                ts.s_RedBox, ts.s_RedBox],
+            [v_jitstate,       c_deepfrozen, c_fielddesc,
+                                   v_argbox,    v_index ],
             ts.s_RedBox)
 
     def translate_op_getarraysize(self, hop):
-        res = self.generic_translate_operation(hop, force=True)
-        if res is not None:
-            return res
-        
         PTRTYPE = originalconcretetype(hop.args_s[0])
         ts = self
         [v_argbox] = hop.inputargs(self.getredrepr(PTRTYPE))
@@ -658,11 +648,6 @@ class HintRTyper(RPythonTyper):
 
     def translate_op_getarraysubstruct(self, hop):
         PTRTYPE = originalconcretetype(hop.args_s[0])
-        if PTRTYPE.TO._hints.get('immutable', False): # foldable if all green
-            res = self.generic_translate_operation(hop, force=True)
-            if res is not None:
-                return res
-
         ts = self
         v_argbox, v_index = hop.inputargs(self.getredrepr(PTRTYPE),
                                           self.getredrepr(lltype.Signed))
@@ -710,19 +695,36 @@ class HintRTyper(RPythonTyper):
         ts = self
         PTRTYPE = originalconcretetype(hop.args_s[0])
         v_argbox, = hop.inputargs(self.getredrepr(PTRTYPE))
+        v_argbox = hop.llops.as_ptrredbox(v_argbox)
         v_jitstate = hop.llops.getjitstate()
         c_reverse = hop.inputconst(lltype.Bool, reverse)
         return hop.llops.genmixlevelhelpercall(rtimeshift.ll_genptrnonzero,
-            [ts.s_JITState, ts.s_RedBox, annmodel.SomeBool()],
-            [v_jitstate,    v_argbox,    c_reverse          ],
+            [ts.s_JITState, ts.s_PtrRedBox, annmodel.s_Bool],
+            [v_jitstate   , v_argbox      , c_reverse      ],
             ts.s_RedBox)
 
     def translate_op_ptr_iszero(self, hop):
         return self.translate_op_ptr_nonzero(hop, reverse=True)
 
+    def translate_op_ptr_eq(self, hop, reverse=False):
+        ts = self
+        PTRTYPE = originalconcretetype(hop.args_s[0])
+        r_ptr = self.getredrepr(PTRTYPE)
+        v_argbox0, v_argbox1 = hop.inputargs(r_ptr, r_ptr)
+        v_argbox0 = hop.llops.as_ptrredbox(v_argbox0)
+        v_argbox1 = hop.llops.as_ptrredbox(v_argbox1)
+        v_jitstate = hop.llops.getjitstate()
+        c_reverse = hop.inputconst(lltype.Bool, reverse)
+        return hop.llops.genmixlevelhelpercall(rtimeshift.ll_genptreq,
+            [ts.s_JITState, ts.s_PtrRedBox, ts.s_PtrRedBox, annmodel.s_Bool],
+            [v_jitstate   , v_argbox0     , v_argbox1     , c_reverse      ],
+            ts.s_RedBox)
+
+    def translate_op_ptr_ne(self, hop):
+        return self.translate_op_ptr_eq(hop, reverse=True)
+
 
     # special operations inserted by the HintGraphTransformer
-
 
     def translate_op_ensure_queue(self, hop, prefix=''):
         mpfamily = hop.args_v[0].value

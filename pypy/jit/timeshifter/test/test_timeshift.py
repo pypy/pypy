@@ -1069,13 +1069,12 @@ class TestTimeshift(TimeshiftingTests):
         assert res == 42
         self.check_insns({})
 
-    def test_green_tuple(self):
-        py.test.skip("WIP")
+    def test_compile_time_const_tuple(self):
         d = {(4, 5): 42, (6, 7): 12}
         def f(a, b):
             d1 = hint(d, deepfreeze=True)
             return d1[a, b]
 
-        res = self.timeshift(f, [0, 4, 5], [0, 1, 2], policy=P_NOVIRTUAL)
+        res = self.timeshift(f, [4, 5], [0, 1], policy=P_NOVIRTUAL)
         assert res == 42
         self.check_insns({})

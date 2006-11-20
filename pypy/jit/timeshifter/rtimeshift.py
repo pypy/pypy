@@ -10,6 +10,10 @@ from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 
 FOLDABLE_OPS = dict.fromkeys(lloperation.enum_foldable_ops())
 
+FOLDABLE_GREEN_OPS = FOLDABLE_OPS.copy()
+FOLDABLE_GREEN_OPS['getfield'] = None
+FOLDABLE_GREEN_OPS['getarrayitem'] = None
+
 debug_view = lloperation.llop.debug_view
 debug_print = lloperation.llop.debug_print
 
@@ -96,8 +100,8 @@ def ll_genmalloc_varsize(jitstate, contdesc, sizebox):
     genvar = jitstate.curbuilder.genop_malloc_varsize(alloctoken, gv_size)
     return rvalue.PtrRedBox(contdesc.ptrkind, genvar)
 
-def ll_gengetfield(jitstate, fielddesc, argbox):
-    if fielddesc.immutable and argbox.is_constant():
+def ll_gengetfield(jitstate, deepfrozen, fielddesc, argbox):
+    if (fielddesc.immutable or deepfrozen) and argbox.is_constant():
         res = getattr(rvalue.ll_getvalue(argbox, fielddesc.PTRTYPE),
                       fielddesc.fieldname)
         return rvalue.ll_fromvalue(jitstate, res)
@@ -113,8 +117,9 @@ def ll_gengetsubstruct(jitstate, fielddesc, argbox):
         return rvalue.ll_fromvalue(jitstate, res)
     return argbox.op_getsubstruct(jitstate, fielddesc)
 
-def ll_gengetarrayitem(jitstate, fielddesc, argbox, indexbox):
-    if fielddesc.immutable and argbox.is_constant() and indexbox.is_constant():
+def ll_gengetarrayitem(jitstate, deepfrozen, fielddesc, argbox, indexbox):
+    if ((fielddesc.immutable or deepfrozen) and argbox.is_constant()
+                                            and indexbox.is_constant()):
         array = rvalue.ll_getvalue(argbox, fielddesc.PTRTYPE)
         res = array[rvalue.ll_getvalue(indexbox, lltype.Signed)]
         return rvalue.ll_fromvalue(jitstate, res)
@@ -126,7 +131,7 @@ def ll_gengetarrayitem(jitstate, fielddesc, argbox, indexbox):
     return fielddesc.redboxcls(fielddesc.kind, genvar)
 
 def ll_gengetarraysubstruct(jitstate, fielddesc, argbox, indexbox):
-    if fielddesc.immutable and argbox.is_constant() and indexbox.is_constant():
+    if argbox.is_constant() and indexbox.is_constant():
         array = rvalue.ll_getvalue(argbox, fielddesc.PTRTYPE)
         res = array[rvalue.ll_getvalue(indexbox, lltype.Signed)]
         return rvalue.ll_fromvalue(jitstate, res)
@@ -162,7 +167,6 @@ def ll_genptrnonzero(jitstate, argbox, reverse):
     if argbox.is_constant():
         addr = rvalue.ll_getvalue(argbox, llmemory.Address)
         return rvalue.ll_fromvalue(jitstate, bool(addr) ^ reverse)
-    assert isinstance(argbox, rvalue.PtrRedBox)
     builder = jitstate.curbuilder
     if argbox.content is None:
         gv_addr = argbox.getgenvar(builder)
@@ -172,6 +176,23 @@ def ll_genptrnonzero(jitstate, argbox, reverse):
             gv_res = builder.genop1("ptr_nonzero", gv_addr)
     else:
         gv_res = builder.rgenop.genconst(True ^ reverse)
+    return rvalue.IntRedBox(builder.rgenop.kindToken(lltype.Bool), gv_res)
+
+def ll_genptreq(jitstate, argbox0, argbox1, reverse):
+    builder = jitstate.curbuilder
+    if argbox0.content is not None or argbox1.content is not None:
+        equal = argbox0.content is argbox1.content
+        return rvalue.ll_fromvalue(jitstate, equal ^ reverse)
+    elif argbox0.is_constant() and argbox1.is_constant():
+        addr0 = rvalue.ll_getvalue(argbox0, llmemory.Address)
+        addr1 = rvalue.ll_getvalue(argbox1, llmemory.Address)
+        return rvalue.ll_fromvalue(jitstate, (addr0 == addr1) ^ reverse)
+    gv_addr0 = argbox0.getgenvar(builder)
+    gv_addr1 = argbox1.getgenvar(builder)
+    if reverse:
+        gv_res = builder.genop2("ptr_ne", gv_addr0, gv_addr1)
+    else:
+        gv_res = builder.genop2("ptr_eq", gv_addr0, gv_addr1)
     return rvalue.IntRedBox(builder.rgenop.kindToken(lltype.Bool), gv_res)
 
 # ____________________________________________________________
