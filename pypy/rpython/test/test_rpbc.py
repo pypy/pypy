@@ -1458,6 +1458,25 @@ class BaseTestRPBC(BaseRtypingTest):
         res = self.interpret(call_functionarg, [])
         assert res == 2 * 42 + 4
 
+    def test_convert_multiple_classes_to_single(self):
+        class A:
+            result = 321
+            def meth(self, n):
+                if n:
+                    return A
+                else:
+                    return B
+        class B(A):
+            result = 123
+            def meth(self, n):
+                return B
+        def f(n):
+            A().meth(n)
+            cls = B().meth(n)
+            return cls().result
+        res = self.interpret(f, [5])
+        assert res == 123
+
 
 # We don't care about the following test_hlinvoke tests working on
 # ootype. Maybe later. This kind of thing is only used in rdict

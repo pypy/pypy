@@ -744,6 +744,8 @@ class __extend__(pairtype(AbstractClassesPBCRepr, AbstractClassesPBCRepr)):
             return v
         if r_clspbc1.lowleveltype is Void:
             return inputconst(r_clspbc2, r_clspbc1.s_pbc.const)
+        if r_clspbc2.lowleveltype is Void:
+            return inputconst(Void, r_clspbc2.s_pbc.const)
         return NotImplemented
 
 def adjust_shape(hop2, s_shape):
