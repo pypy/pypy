@@ -160,6 +160,10 @@ class HintRTyper(RPythonTyper):
                 if nextgraph not in seen:
                     pending.append(nextgraph)
                     seen[nextgraph] = True
+        # only keep the hint-annotated graphs that are really useful
+        self.annotator.translator.graphs = [graph
+            for graph in self.annotator.translator.graphs
+            if graph in seen]
         if view:
             self.annotator.translator.view()     # in the middle
         for graph in seen:
