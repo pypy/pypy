@@ -198,6 +198,7 @@ class SomeLLAbstractVariable(SomeLLAbstractValue):
 
 
 class SomeLLAbstractContainer(SomeLLAbstractValue):
+    deepfrozen = False     # XXX for now
 
     def __init__(self, contentdef):
         self.contentdef = contentdef
@@ -248,6 +249,15 @@ def originalconcretetype(hs):
         return lltype.Void
     else:
         return hs.concretetype
+
+def deepunfreeze(hs):
+    if hs.deepfrozen:
+        hs1 = annmodel.SomeObject()
+        hs1.__class__ = hs.__class__
+        hs1.__dict__ = hs.__dict__.copy()
+        hs1.deepfrozen = False
+        hs = hs1
+    return hs
 
 # ____________________________________________________________
 # operations
@@ -448,22 +458,33 @@ class __extend__(pairtype(SomeLLAbstractValue, SomeLLAbstractValue)):
                                       hs_v1.deepfrozen)
 
     def union((hs_v1, hs_v2)):
+        if hs_v1.deepfrozen != hs_v2.deepfrozen:
+            hs_v1 = deepunfreeze(hs_v1)
+            hs_v2 = deepunfreeze(hs_v2)
+            if hs_v1 == hs_v2:
+                return hs_v1
+        return pair(hs_v1, hs_v2).union_frozen_equal()
+
+    def invalid_union((hs_v1, hs_v2)):
         raise annmodel.UnionError("%s %s don't mix" % (hs_v1, hs_v2))
+
+    union_frozen_equal = invalid_union
 
 
 class __extend__(pairtype(SomeLLAbstractVariable, SomeLLAbstractConstant),
                  pairtype(SomeLLAbstractConstant, SomeLLAbstractVariable)):
 
-    def union((hs_v1, hs_v2)):
+    def union_frozen_equal((hs_v1, hs_v2)):
         assert hs_v1.concretetype == hs_v2.concretetype
-        if getattr(hs_v1, 'eager_concrete', False) or getattr(hs_v2, 'eager_concrete', False):
-            raise annmodel.UnionError("%s %s don't mix" % (hs_v1, hs_v2))
-        return SomeLLAbstractVariable(hs_v1.concretetype)
+        if (getattr(hs_v1, 'eager_concrete', False) or
+            getattr(hs_v2, 'eager_concrete', False)):
+            pair(hs_v1, hs_v2).invalid_union()
+        return SomeLLAbstractVariable(hs_v1.concretetype, hs_v1.deepfrozen)
 
 
 class __extend__(pairtype(SomeLLAbstractConstant, SomeLLAbstractConstant)):
 
-    def union((hs_c1, hs_c2)):
+    def union_frozen_equal((hs_c1, hs_c2)):
         assert hs_c1.concretetype == hs_c2.concretetype
         d = newset(hs_c1.origins, hs_c2.origins)
         if hs_c1.myorigin is hs_c2.myorigin:
@@ -474,7 +495,7 @@ class __extend__(pairtype(SomeLLAbstractConstant, SomeLLAbstractConstant)):
                                       eager_concrete = hs_c1.eager_concrete and
                                                        hs_c2.eager_concrete,
                                       myorigin = myorigin,
-                                      deepfrozen = hs_c1.deepfrozen and hs_c2.deepfrozen)
+                                      deepfrozen = hs_c1.deepfrozen)
 
 
     def getarrayitem((hs_c1, hs_index)):
@@ -501,9 +522,9 @@ class __extend__(pairtype(SomeLLAbstractConstant, SomeLLAbstractConstant)):
         
 class __extend__(pairtype(SomeLLAbstractContainer, SomeLLAbstractContainer)):
 
-    def union((hs_cont1, hs_cont2)):
+    def union_frozen_equal((hs_cont1, hs_cont2)):
         contentdef = hs_cont1.contentdef.union(hs_cont2.contentdef)
-        return SomeLLAbstractContainer(contentdef)
+        return SomeLLAbstractContainer(contentdef)   # XXX deepfrozen?
 
     def ptr_eq((hs_cont1, hs_cont2)):
         return SomeLLAbstractConstant(lltype.Bool, {})
@@ -513,15 +534,15 @@ class __extend__(pairtype(SomeLLAbstractContainer, SomeLLAbstractContainer)):
 
 
 class __extend__(pairtype(SomeLLAbstractContainer, SomeLLAbstractValue)):
-    def union((hs_cont1, hs_val2)):
+    def union_frozen_equal((hs_cont1, hs_val2)):
         hs_cont1.contentdef.mark_degenerated()
         assert hs_cont1.concretetype == hs_val2.concretetype
-        return SomeLLAbstractVariable(hs_cont1.concretetype)
+        return SomeLLAbstractVariable(hs_cont1.concretetype) # XXX deepfrozen?
 
 
 class __extend__(pairtype(SomeLLAbstractValue, SomeLLAbstractContainer)):
-    def union((hs_val1, hs_cont2)):
-        return pair(hs_cont2, hs_val1).union()
+    def union_frozen_equal((hs_val1, hs_cont2)):
+        return pair(hs_cont2, hs_val1).union_frozen_equal()
 
 
 class __extend__(pairtype(SomeLLAbstractContainer, SomeLLAbstractValue),
