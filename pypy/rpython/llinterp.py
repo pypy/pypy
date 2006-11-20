@@ -558,8 +558,6 @@ class LLFrame(object):
                 return exceptiontransform.error_value(FTYPE.RESULT)
             raise
 
-    op_safe_call = op_direct_call
-
     def op_indirect_call(self, f, *args):
         graphs = args[-1]
         args = args[:-1]
