@@ -49,12 +49,14 @@ Currently supported are:
     Currently events aren't fired automatically, to test event handling an
     event must be explicitly instantiated and dispatched::
 
-      >>> from pypy.translator.js.modules.dom import get_window
-      >>> window = get_window()
-      >>> document = window.document
+      >>> def handler(e):
+      ...   e.foo = 'bar'
+      >>> body.addEventListener('click', handler, False)
       >>> e = document.createEvent('group is ignored')
       >>> e.initEvent('click', True, True)
       >>> document.getElementsByTagName('body')[0].dispatchEvent(e)
+      >>> e.foo
+      'bar'
 
     (This would result in all handlers for the 'click' event registered on
     body (and if not cancelled, bubbling up to the document node) getting
@@ -68,12 +70,10 @@ Currently supported are:
 
     Example::
 
-      >>> from pypy.translator.js.modules.dom import get_window
       >>> window.location
       'about:blank'
       >>> window.self is window
       True
-      >>> document = window.document
     
   * Additional HTML functionality on Element and Document
 
@@ -84,9 +84,22 @@ Currently supported are:
 
     Example::
 
-      >>> from pypy.translator.js.modules.dom import get_window
-      >>> document = get_window().document
       >>> body = document.getElementsByTagName('body')[0]
       >>> body.nodeName
       u'BODY'
+
+  * CSS support
+
+    There is support for inline style tags, not for stylesheets. Style 
+    attributes are read on accessing the style property, and the style property
+    is used on HTML serialization (using .innerHTML).
+
+    Example::
+
+      >>> body.innerHTML = '<div style="background-color: green">foo</div>'
+      >>> body.firstChild.style.backgroundColor
+      u'green'
+      >>> body.firstChild.style.backgroundColor = 'black'
+      >>> body.innerHTML
+      u'<div style="background-color: black;">foo</div>'
 
