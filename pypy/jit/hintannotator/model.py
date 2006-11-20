@@ -125,9 +125,10 @@ class GreenHandlerFrame(object):
 
 class SomeLLAbstractValue(annmodel.SomeObject):
 
-    def __init__(self, T):
+    def __init__(self, T, deepfrozen=False):
         self.concretetype = T
         assert self.__class__ != SomeLLAbstractValue
+        self.deepfrozen = deepfrozen
 
     def is_green(self, frame=None):
         return False
@@ -138,11 +139,10 @@ class SomeLLAbstractConstant(SomeLLAbstractValue):
 
     def __init__(self, T, origins, eager_concrete=False, myorigin=None,
                  deepfrozen=False):
-        SomeLLAbstractValue.__init__(self, T)
+        SomeLLAbstractValue.__init__(self, T, deepfrozen)
         self.origins = origins
         self.eager_concrete = eager_concrete
         self.myorigin = myorigin
-        self.deepfrozen = deepfrozen
         assert myorigin is None or myorigin.spaceop is not None
 
     def fmt_origins(self, origins):
@@ -281,7 +281,7 @@ class __extend__(SomeLLAbstractValue):
     def getfield(hs_v1, hs_fieldname):
         S = hs_v1.concretetype.TO
         FIELD_TYPE = getattr(S, hs_fieldname.const)
-        return SomeLLAbstractVariable(FIELD_TYPE)
+        return SomeLLAbstractVariable(FIELD_TYPE, hs_v1.deepfrozen)
 
     def setfield(hs_v1, hs_fieldname, hs_value):
         pass
@@ -289,7 +289,7 @@ class __extend__(SomeLLAbstractValue):
     def getsubstruct(hs_v1, hs_fieldname):
         S = hs_v1.concretetype.TO
         FIELD_TYPE = getattr(S, hs_fieldname.const)
-        return SomeLLAbstractVariable(lltype.Ptr(FIELD_TYPE))
+        return SomeLLAbstractVariable(lltype.Ptr(FIELD_TYPE), hs_v1.deepfrozen)
 
 ##    def getarrayitem(hs_v1, hs_index):
 ##        ARRAY = hs_v1.concretetype.TO
@@ -437,10 +437,15 @@ class __extend__(SomeLLAbstractContainer):
 class __extend__(pairtype(SomeLLAbstractValue, SomeLLAbstractValue)):
 
     def getarrayitem((hs_v1, hs_v2)):
-        return SomeLLAbstractVariable(hs_v1.concretetype.TO.OF)
+        return SomeLLAbstractVariable(hs_v1.concretetype.TO.OF,
+                                      hs_v1.deepfrozen)
 
     def setarrayitem((hs_v1, hs_v2), hs_v3):
         pass
+
+    def getarraysubstruct((hs_v1, hs_v2)):
+        return SomeLLAbstractVariable(lltype.Ptr(hs_v1.concretetype.TO.OF),
+                                      hs_v1.deepfrozen)
 
     def union((hs_v1, hs_v2)):
         raise annmodel.UnionError("%s %s don't mix" % (hs_v1, hs_v2))

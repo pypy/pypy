@@ -525,6 +525,17 @@ def test_specialize_deepfreeze_calls():
     assert isinstance(ha.binding(v2), SomeLLAbstractConstant)
     assert ha.binding(v1).deepfrozen
 
+def test_deepfreeze_variables():
+    l1 = [[1], [2, 3], [4], []]
+    def ll_function(i):
+        i = hint(i, variable=True)
+        l = hint(l1, deepfreeze=True)
+        return l[i]
+
+    hs, ha = hannotate(ll_function, [int], annotator=True, policy=P_NOVIRTUAL)
+    assert isinstance(hs, SomeLLAbstractVariable)
+    assert hs.deepfrozen
+
 def test_propagate_fixing_across_func_arguments():
     def ll_func2(z):
         z = hint(z, concrete=True)
