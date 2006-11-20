@@ -38,45 +38,41 @@ class ExecutionContext:
         if not frame.hide():
             self.framestack.pop()
 
-    # coroutine: subcontext support
-    def subcontext_new(coobj):
-        coobj.framestack = new_framestack()
-        coobj.w_tracefunc = None
-        coobj.w_profilefunc = None
-        coobj.is_tracing = 0
-    subcontext_new = staticmethod(subcontext_new)
 
-    def subcontext_enter(self, next):
-        self.framestack = next.framestack
-        self.w_tracefunc = next.w_tracefunc
-        self.w_profilefunc = next.w_profilefunc
-        self.is_tracing = next.is_tracing
+    class Subcontext(object):
+        # coroutine: subcontext support
 
-    def subcontext_leave(self, current):
-        current.framestack = self.framestack
-        current.w_tracefunc = self.w_tracefunc
-        current.w_profilefunc = self.w_profilefunc
-        current.is_tracing = self.is_tracing
+        def __init__(self):
+            self.framestack = new_framestack()
+            self.w_tracefunc = None
+            self.w_profilefunc = None
+            self.is_tracing = 0
 
-    # coroutine: I think this is all, folks!
+        def enter(self, ec):
+            ec.framestack = self.framestack
+            ec.w_tracefunc = self.w_tracefunc
+            ec.w_profilefunc = self.w_profilefunc
+            ec.is_tracing = self.is_tracing
 
-    # well, not quite: we need an interface for pickling
-    def subcontext_getstate(coobj):
-        # we just save the framestack
-        space = coobj.space
-        items = [space.wrap(item) for item in coobj.framestack.items]
-        return space.newtuple(items)
-    subcontext_getstate = staticmethod(subcontext_getstate)
+        def leave(self, ec):
+            self.framestack = ec.framestack
+            self.w_tracefunc = ec.w_tracefunc
+            self.w_profilefunc = ec.w_profilefunc
+            self.is_tracing = ec.is_tracing
 
-    def subcontext_setstate(coobj, w_state):
-        from pypy.interpreter.pyframe import PyFrame
-        space = coobj.space
-        items = [space.interp_w(PyFrame, item)
-                 for item in space.unpackiterable(w_state)]
-        coobj.framestack.items = items
-    subcontext_setstate = staticmethod(subcontext_setstate)
+        # the following interface is for pickling and unpickling
+        def getstate(self, space):
+            # we just save the framestack
+            items = [space.wrap(item) for item in self.framestack.items]
+            return space.newtuple(items)
 
-    # coroutine: now I really I think this is all, folks!
+        def setstate(self, space, w_state):
+            from pypy.interpreter.pyframe import PyFrame
+            items = [space.interp_w(PyFrame, w_item)
+                     for w_item in space.unpackiterable(w_state)]
+            self.framestack.items = items
+        # coroutine: I think this is all, folks!
+
 
     def get_builtin(self):
         try:

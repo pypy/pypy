@@ -9,6 +9,11 @@ from pypy.module._stackless.interp_clonable import InterpClonableMixin
 
 class AppClonableCoroutine(AppCoroutine, InterpClonableMixin):
 
+    def newsubctx(self):
+        self.hello_local_pool()
+        AppCoroutine.newsubctx(self)
+        self.goodbye_local_pool()
+
     def hello(self):
         self.hello_local_pool()
         AppCoroutine.hello(self)
@@ -40,7 +45,7 @@ class AppClonableCoroutine(AppCoroutine, InterpClonableMixin):
                                             "current coroutine"
                                             "; use fork() instead"))
         copy = AppClonableCoroutine(space, state=costate)
-        self.clone_into(copy)
+        copy.subctx = self.clone_into(copy, self.subctx)
         return space.wrap(copy)
 
     def descr__reduce__(self, space):
@@ -59,9 +64,8 @@ AppClonableCoroutine.typedef = TypeDef("clonable", AppCoroutine.typedef,
 
 class AppClonableCoState(AppCoState):
     def post_install(self):
-        self.current = self.main = AppClonableCoroutine(self.space,
-                                                        is_main=True,
-                                                        state=self)
+        self.current = self.main = AppClonableCoroutine(self.space, state=self)
+        self.main.subctx.framestack = None      # wack
 
 def post_install(module):
     makeStaticMethod(module, 'clonable', 'getcurrent')

@@ -45,26 +45,25 @@ class _AppThunk(AbstractThunk):
     def call(self):
         costate = self.costate
         w_result = self.space.call_args(self.w_func, self.args)
-        #XXX: unreachable code ?
         rstack.resume_point("appthunk", costate, returns=w_result)
         costate.w_tempval = w_result
 
 
 class AppCoroutine(Coroutine): # XXX, StacklessFlags):
 
-    def __init__(self, space, is_main=False, state=None):
+    def __init__(self, space, state):
         self.space = space
-        if state is None:
-            state = self._get_state(space)
         Coroutine.__init__(self, state)
         self.flags = 0
-        self.framestack = None
-        if not is_main:
-             space.getexecutioncontext().subcontext_new(self)
+        self.newsubctx()
+
+    def newsubctx(self):
+        ec = self.space.getexecutioncontext()
+        self.subctx = ec.Subcontext()
 
     def descr_method__new__(space, w_subtype):
         co = space.allocate_instance(AppCoroutine, w_subtype)
-        AppCoroutine.__init__(co, space)
+        AppCoroutine.__init__(co, space, AppCoroutine._get_state(space))
         return space.wrap(co)
 
     def _get_state(space):
@@ -109,11 +108,11 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
 
     def hello(self):
         ec = self.space.getexecutioncontext()
-        ec.subcontext_enter(self)
+        self.subctx.enter(ec)
 
     def goodbye(self):
         ec = self.space.getexecutioncontext()
-        ec.subcontext_leave(self)
+        self.subctx.leave(ec)
 
     def w_kill(self):
         self.kill()
@@ -160,7 +159,7 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
             ]
         tup_state = [
             w(self.flags),
-            ec.subcontext_getstate(self),
+            self.subctx.getstate(space),
             w_thunk,
             w(self.parent),
             ]
@@ -176,7 +175,7 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         self.flags = space.int_w(w_flags)
         self.parent = space.interp_w(AppCoroutine, w_parent, can_be_None=True)
         ec = self.space.getexecutioncontext()
-        ec.subcontext_setstate(self, w_state)
+        self.subctx.setstate(self.space, w_state)
         self.reconstruct_framechain()
         if space.is_w(w_thunk, space.w_None):
             self.thunk = None
@@ -192,7 +191,7 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
     def reconstruct_framechain(self):
         from pypy.interpreter.pyframe import PyFrame
         from pypy.rlib.rstack import resume_state_create
-        if self.framestack.empty():
+        if self.subctx.framestack.empty():
             self.frame = None
             return
 
@@ -206,7 +205,7 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         # rstack.resume_point("appthunk", costate, returns=w_result)
         appthunk_frame = resume_state_create(_bind_frame, "appthunk", costate)
         chain = appthunk_frame
-        for frame in self.framestack.items:
+        for frame in self.subctx.framestack.items:
             assert isinstance(frame, PyFrame)
             # rstack.resume_point("evalframe", self, executioncontext, returns=result)
             evalframe_frame = resume_state_create(chain, "evalframe", frame, ec)
@@ -253,8 +252,8 @@ AppCoroutine.w_get_is_alive = w_get_is_alive
 
 def w_descr__framestack(space, self):
     assert isinstance(self, AppCoroutine)
-    if self.framestack:
-        items = [space.wrap(item) for item in self.framestack.items]
+    if self.subctx.framestack is not None:
+        items = [space.wrap(item) for item in self.subctx.framestack.items]
         return space.newtuple(items)
     else:
         return space.newtuple([])
@@ -305,5 +304,5 @@ class AppCoState(BaseCoState):
         self.space = space
         
     def post_install(self):
-        self.current = self.main = AppCoroutine(self.space, is_main=True,
-                                                state=self)
+        self.current = self.main = AppCoroutine(self.space, state=self)
+        self.main.subctx.framestack = None    # wack

@@ -60,8 +60,10 @@ class AppGreenlet(Coroutine):
             assert isinstance(w_parent, AppGreenlet)
             self.w_parent = w_parent
         Coroutine.__init__(self, state)
-        if not is_main:
-            space.getexecutioncontext().subcontext_new(self)
+        self.subctx = space.getexecutioncontext().Subcontext()
+        if is_main:
+            self.subctx.framestack = None     # wack
+        else:
             self.bind(GreenletThunk(space, state, self))
 
     def descr_method__new__(space, w_subtype, w_callable):
@@ -75,11 +77,11 @@ class AppGreenlet(Coroutine):
 
     def hello(self):
         ec = self.space.getexecutioncontext()
-        ec.subcontext_enter(self)
+        self.subctx.enter(ec)
 
     def goodbye(self):
         ec = self.space.getexecutioncontext()
-        ec.subcontext_leave(self)
+        self.subctx.leave(ec)
 
     def w_getcurrent(space):
         return space.wrap(AppGreenlet._get_state(space).current)
@@ -143,10 +145,11 @@ def w_set_parent(space, w_self, w_parent):
 
 def w_get_frame(space, w_self):
     self = space.interp_w(AppGreenlet, w_self)    
-    if not self.has_ever_run or space.is_true(self.w_dead):
+    if (not self.has_ever_run or space.is_true(self.w_dead) or
+        self.costate.current is self):
         return space.w_None
     try:
-        return self.framestack.top(0)
+        return self.subctx.framestack.top(0)
     except IndexError:
         return space.w_None
 

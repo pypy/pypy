@@ -18,17 +18,25 @@ class InterpClonableMixin:
     def goodbye_local_pool(self):
         if we_are_translated():
             self.local_pool = gc_swap_pool(self.saved_pool)
+            self.saved_pool = None
 
-    def clone_into(self, copy):
+    def clone_into(self, copy, extradata=None):
         if not we_are_translated():
             raise NotImplementedError
-        if self.local_pool is None:   # force it now
-            self.local_pool = gc_swap_pool(gc_swap_pool(None))
         # cannot gc_clone() directly self, because it is not in its own
         # local_pool.  Moreover, it has a __del__, which cloning doesn't
         # support properly at the moment.
         copy.parent = self.parent
-        copy.frame, copy.local_pool = gc_clone(self.frame, self.local_pool)
+        # the hello/goodbye pair has two purposes: it forces
+        # self.local_pool to be computed even if it was None up to now,
+        # and it puts the 'data' tuple in the correct pool to be cloned.
+        self.hello_local_pool()
+        data = (self.frame, extradata)
+        self.goodbye_local_pool()
+        # clone!
+        data, copy.local_pool = gc_clone(data, self.local_pool)
+        copy.frame, extradata = data
+        return extradata
 
 
 class InterpClonableCoroutine(Coroutine, InterpClonableMixin):
