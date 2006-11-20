@@ -21,6 +21,10 @@ class OpFormatter:
     def nop(self, result, arg):
         yield "(setf %s %s)" % (result, arg)
 
+
+    def op_debug_assert(self, result, *args):
+        return []
+
     op_same_as = nop
     op_ooupcast = nop
     op_oodowncast = nop
