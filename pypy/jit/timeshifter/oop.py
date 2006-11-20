@@ -22,6 +22,8 @@ class OopSpecDesc:
         operation_name, args = ll_func.oopspec.split('(', 1)
         assert args.endswith(')')
         args = args[:-1] + ','     # trailing comma to force tuple syntax
+        if args.strip() == ',':
+            args = '()'
         argnames = ll_func.func_code.co_varnames[:nb_args]
         d = dict(zip(argnames, [Index(n) for n in range(nb_args)]))
         self.argtuple = eval(args, d)
@@ -53,6 +55,10 @@ class OopSpecDesc:
 
         if operation_name == 'newlist':
             typename, method = 'list', 'oop_newlist'
+            SELFTYPE = FUNCTYPE.RESULT.TO
+            self.is_method = False
+        elif operation_name == 'newdict':
+            typename, method = 'dict', 'oop_newdict'
             SELFTYPE = FUNCTYPE.RESULT.TO
             self.is_method = False
         else:

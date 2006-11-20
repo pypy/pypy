@@ -26,6 +26,9 @@ class ListTypeDesc(object):
         self.tok_ll_setitem_fast = RGenOp.sigToken(
             lltype.typeOf(ll_setitem_fast).TO)
 
+    def _freeze_(self):
+        return True
+
     def factory(self, length, itembox):
         vlist = VirtualList(self, length, itembox)
         box = rvalue.PtrRedBox(self.ptrkind)

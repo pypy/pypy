@@ -576,6 +576,8 @@ def handle_highlevel_operation(bookkeeper, ll_func, *args_hs):
     operation_name, args = ll_func.oopspec.split('(', 1)
     assert args.endswith(')')
     args = args[:-1] + ','     # trailing comma to force tuple syntax
+    if args.strip() == ',':
+        args = '()'
     argnames = ll_func.func_code.co_varnames[:len(args_hs)]
     d = dict(zip(argnames, args_hs))
     argtuple = eval(args, d)

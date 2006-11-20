@@ -170,6 +170,8 @@ class DictRepr(AbstractDictRepr):
                     'keyeq':    ll_keyeq,
                     'paranoia': False,
                     }
+            adtmeths['KEY']   = self.DICTKEY
+            adtmeths['VALUE'] = self.DICTVALUE
             self.DICT.become(lltype.GcStruct("dicttable", adtmeths=adtmeths,
                                              *fields))
 
@@ -394,6 +396,7 @@ def ll_dict_getitem(d, key):
         return entry.value 
     else: 
         raise KeyError 
+ll_dict_getitem.oopspec = 'dict.getitem(d, key)'
 
 def ll_dict_setitem(d, key, value):
     hash = d.keyhash(key)
@@ -414,6 +417,7 @@ def ll_dict_setitem(d, key, value):
         d.num_pristine_entries -= 1
         if d.num_pristine_entries <= len(d.entries) / 3:
             ll_dict_resize(d)
+ll_dict_setitem.oopspec = 'dict.setitem(d, key, value)'
 
 def ll_dict_insertclean(d, key, value, hash):
     # Internal routine used by ll_dict_resize() to insert an item which is
@@ -554,6 +558,7 @@ def ll_newdict(DICT):
     d.num_items = 0
     d.num_pristine_entries = DICT_INITSIZE
     return d
+ll_newdict.oopspec = 'newdict()'
 
 def ll_newdict_size(DICT, length_estimate):
     length_estimate = (length_estimate // 2) * 3
@@ -565,6 +570,7 @@ def ll_newdict_size(DICT, length_estimate):
     d.num_items = 0
     d.num_pristine_entries = DICT_INITSIZE
     return d
+ll_newdict_size.oopspec = 'newdict()'
 
 
 def rtype_r_dict(hop):
