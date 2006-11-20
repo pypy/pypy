@@ -2,6 +2,10 @@ import operator
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.annlowlevel import cachedtype
 from pypy.jit.timeshifter import rvalue
+from pypy.rlib.unroll import unrolling_iterable
+
+from pypy.rpython.lltypesystem import lloperation
+debug_print = lloperation.llop.debug_print
 
 class AbstractContainer(object):
     __slots__ = []
@@ -23,6 +27,7 @@ class StructTypeDesc(object):
     arrayfielddesc = None
     alloctoken = None
     varsizealloctoken = None
+    materialize = None
     
     def __init__(self, RGenOp, TYPE):
         self.TYPE = TYPE
@@ -58,6 +63,22 @@ class StructTypeDesc(object):
         self.fielddesc_by_name = fielddesc_by_name
         self.innermostdesc = innermostdesc
 
+        self.immutable = TYPE._hints.get('immutable', False)
+        self.noidentity = TYPE._hints.get('noidentity', False)
+
+        if self.immutable and self.noidentity:
+            descs = unrolling_iterable(fielddescs)
+            def materialize(rgenop, boxes):
+                s = lltype.malloc(TYPE)
+                i = 0
+                for desc in descs:
+                    v = rvalue.ll_getvalue(boxes[i], desc.RESTYPE)
+                    setattr(s, desc.fieldname, v)
+                    i = i + 1
+                return rgenop.genconst(s)
+
+            self.materialize = materialize
+                
     def getfielddesc(self, name):
         return self.fielddesc_by_name[name]
 
@@ -208,6 +229,16 @@ class VirtualStruct(AbstractStruct):
         typedesc = self.typedesc
         boxes = self.content_boxes
         self.content_boxes = None
+        if typedesc.materialize is not None:
+            for box in boxes:
+                if box is None or not box.is_constant():
+                    break
+            else:
+                gv = typedesc.materialize(builder.rgenop, boxes)
+                self.ownbox.genvar = gv
+                self.ownbox.content = None
+                return
+        debug_print(lltype.Void, "FORCE CONTAINER")
         genvar = builder.genop_malloc_fixedsize(typedesc.alloctoken)
         # force the box pointing to this VirtualStruct
         self.ownbox.genvar = genvar
