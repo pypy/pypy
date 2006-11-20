@@ -89,7 +89,18 @@ class AppTestDistributed(object):
         protocol = test_env({"f":f})
         fun = protocol.get_remote("f")
         assert fun(8) == 16
-
+    
+    def test_remote_dict(self):
+        #skip("Land of infinite recursion")
+        from distributed import test_env
+        d = {'a':3}
+        protocol = test_env({'d':d})
+        xd = protocol.get_remote('d')
+        #assert d['a'] == xd['a']
+        assert d.keys() == xd.keys()
+        assert d.values() == xd.values()
+        assert d == xd
+        
     def test_local_obj(self):
         class A:
             def __init__(self, x):
@@ -159,3 +170,13 @@ class AppTestDistributed(object):
         xa = protocol.get_remote('a')
         xa.meth(B())
         assert xa.perform() == 4
+
+    def test_frame(self):
+        #skip("Land of infinite recursion")
+        import sys
+        from distributed import test_env
+        f = sys._getframe()
+        protocol = test_env({'f':f})
+        xf = protocol.get_remote('f')
+        assert f.f_globals.keys() == xf.f_globals.keys()
+        assert f.f_locals.keys() == xf.f_locals.keys()

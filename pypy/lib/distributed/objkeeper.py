@@ -20,7 +20,7 @@ class ObjKeeper(object):
         try:
             return self.exported_types[tp]
         except KeyError:
-            #print "Registering type %s as %s" % (tp, self.type_id)
+            print "Registering type %s as %s" % (tp, self.exported_types_id)
             self.exported_types[tp] = self.exported_types_id
             tp_id = self.exported_types_id
             self.exported_types_id += 1
