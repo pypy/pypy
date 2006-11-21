@@ -564,6 +564,10 @@ class RPythonAnnotator(object):
                 # later by reflowing).  Throw the BlockedInference up to
                 # processblock().
                 raise
+
+        except annmodel.HarmlesslyBlocked:
+            return
+
         else:
             # dead code removal: don't follow all exits if the exitswitch
             # is known

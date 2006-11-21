@@ -713,6 +713,11 @@ def missing_operation(cls, name):
         return s_ImpossibleValue
     setattr(cls, name, default_op)
 
+class HarmlesslyBlocked(Exception):
+    """Raised by the unaryop/binaryop to signal a harmless kind of
+    BlockedInference: the current block is blocked, but not in a way
+    that gives 'Blocked block' errors at the end of annotation."""
+
 #
 # safety check that no-one is trying to make annotation and translation
 # faster by providing the -O option to Python.

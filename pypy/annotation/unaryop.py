@@ -8,7 +8,7 @@ from pypy.annotation.model import \
      SomeInstance, SomeBuiltin, SomeFloat, SomeIterator, SomePBC, \
      SomeExternalObject, SomeTypedAddressAccess, SomeAddress, \
      SomeCTypesObject, s_ImpossibleValue, s_Bool, \
-     unionof, set, missing_operation, add_knowntypedata
+     unionof, set, missing_operation, add_knowntypedata, HarmlesslyBlocked
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation import builtin
 from pypy.annotation.binaryop import _clone ## XXX where to put this?
@@ -524,6 +524,9 @@ class __extend__(SomeInstance):
                 s_result = ins.classdef.lookup_filter(s_result, attr)
             elif isinstance(s_result, SomeImpossibleValue):
                 ins.classdef.check_missing_attribute_update(attr)
+                if ins.classdef.classdesc.allslots is not None:
+                    if attr in ins.classdef.classdesc.allslots:
+                        raise HarmlesslyBlocked("getattr on a slot")
             return s_result
         return SomeObject()
     getattr.can_only_throw = []
