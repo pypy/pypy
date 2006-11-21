@@ -567,6 +567,12 @@ class NoneFrozenPBCRepr(Repr):
     def rtype_is_true(self, hop):
         return Constant(False, Bool)
 
+    def none_call(self, hop):
+        raise TyperError("attempt to call constant None")
+
+    rtype_simple_call = none_call
+    rtype_call_args = none_call
+
 none_frozen_pbc_repr = NoneFrozenPBCRepr()
 
 
