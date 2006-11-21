@@ -173,7 +173,7 @@ def test_type():
     O.type(sub, obj)
     O.type(obj, namespaces['owl']+"#Class")
     
-    assert O.variables[O.make_var(None, obj)].getValues()[0].__class__  == Individual 
+    assert list(O.variables[O.make_var(None, obj)].getValues())[0].__class__  == Individual 
 
 # test for multiple types
 # test for type hierarchy

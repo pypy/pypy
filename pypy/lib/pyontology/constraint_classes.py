@@ -502,11 +502,12 @@ class HasvalueConstraint(OneofPropertyConstraint):
         property = dom.property
         indi = dom.getValues()
         prop = Linkeddict(domains[property].getValues())
+        remove = []
         for v in indi:
             if not v in prop:
-                dom.removeValue(v)
+                remove.append(v)
             else:
                 prop_val = prop[v] 
                 if not val in prop_val:
-                       dom.removeValue(v)
-
+                       remove.append(v)
+        dom.removeValues(remove)

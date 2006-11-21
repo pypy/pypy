@@ -170,9 +170,9 @@ class ClassDomain(AbstractDomain, object):
         self.values[value] = True
 
     def getValues(self):
-        #for key in self.values:
-        #    yield key
-        return self.values.keys()
+        for key in self.values:
+            yield key
+        #return self.values.keys()
         
     def __iter__(self):
         return iter(self.values.keys())
@@ -228,9 +228,13 @@ class Individual(Thing):
     def __eq__(self, other):
         #log("CMP %r,%r %i"%(self.name,other, len(self.differentfrom)))
         #assert isinstance(other, ClassDomain)
-        if ((hasattr(other,'uri') and self.uri == other.uri) or
-            (not hasattr(other,'uri') and self.uri == other) or
-              other in self.sameas):
+        if hasattr(other,'uri'):
+            if self.uri == other.uri:
+                return True
+        elif not hasattr(other,'uri'):
+            if self.uri == other:
+                return True
+        elif other in self.sameas:
             return True
         if not other or other in self.differentfrom:
             return False
@@ -278,9 +282,7 @@ class Property(AbstractDomain, object):
         res = []
         for k,vals in items:
             for v in vals:
-                #yield (k,v)
-                res.append((k,v))
-        return res
+                yield (k,v)
 
     def getValuesPrKey(self, key= None):
         if key:
@@ -516,8 +518,8 @@ class Ontology:
                 constraint.narrow(self.variables)
 #                except ConsistencyFailure, e:
 #                    print "FAilure", e
-        things = self.variables['owl_Thing'].getValues()
-        things += self.variables['owl_Literal'].getValues()
+        things = list(self.variables['owl_Thing'].getValues())
+        things += list(self.variables['owl_Literal'].getValues())
         self.variables['owl_Thing'].setValues(things)
 
     def _sparql(self, query):
@@ -652,10 +654,17 @@ class Ontology:
                 query_dom[prop] = self.variables[prop]
                 p_vals = self.variables[prop].getValues()
                 sub = self.make_var(Thing, trip[0])
-                self.variables[sub].setValues([v[0] for v in p_vals])
+                vals = set([v[0] for v in p_vals])
+                if self.variables[sub].size():
+                    vals &= set(self.variables[sub].getValues())
+                self.variables[sub].setValues(vals)
                 obj = self.make_var(Thing, trip[2])
-                self.variables[obj].setValues([v[1] for v in p_vals])
-                con = Expression([sub,prop,obj], "%s == (%s, %s)" %(prop, sub, obj))
+                vals = set([v[1] for v in p_vals])
+                if self.variables[obj].size():
+                    vals &= set(self.variables[obj].getValues())
+                self.variables[obj].setValues(vals)
+                con = PropertyConstrain3(prop, sub, obj)
+#                con = Expression([sub,prop,obj], "%s == (%s, %s)" %(prop, sub, obj))
                 query_constr.append(con)
 
             elif case == 6:
@@ -688,20 +697,22 @@ class Ontology:
                      for v in vars])
 
         dom.update(query_dom)
-        print dom
         # solve the repository and return the solution
         rep = Repository(dom.keys(), dom, query_constr)
-        res_s = Solver().solve(rep, 3)
-        #res_s = self.solve()
+        res_s = Solver(MyDistributor()).solve(rep, verbose=0)
         res = []
+        query_vars = dict([('query_%s_'%name,name) for name in resvars])
         for d in res_s:
+           res_dict = {}
            for k,v in d.items():
                if hasattr(v,'uri'):
                    val = v.uri
                else:
                    val = v 
                d[k] = unicode(val)
-           res.append(d)
+               if k in query_vars:
+                   res_dict[query_vars[k]] = unicode(val)
+           res.append(res_dict)
         return res
     
     def consider_triple(self,(s, p, o)):
