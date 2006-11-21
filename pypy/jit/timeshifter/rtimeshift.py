@@ -828,6 +828,17 @@ class JITState(object):
         self.exc_value_box = self.exc_value_box.replace(memo)
 
 
+    def residual_ll_exception(self, ll_evalue):
+        ll_etype  = ll_evalue.typeptr
+        etypebox  = rvalue.ll_fromvalue(self, ll_etype)
+        evaluebox = rvalue.ll_fromvalue(self, ll_evalue)
+        setexctypebox (self, etypebox )
+        setexcvaluebox(self, evaluebox)
+
+    def residual_exception(self, e):
+        self.residual_ll_exception(cast_instance_to_base_ptr(e))
+        
+
 def ensure_queue(jitstate, DispatchQueueClass):
     return DispatchQueueClass()
 ensure_queue._annspecialcase_ = 'specialize:arg(1)'

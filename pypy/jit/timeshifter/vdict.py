@@ -242,7 +242,7 @@ def oop_dict_setitem(jitstate, oopspecdesc, selfbox, keybox, valuebox):
     else:
         oopspecdesc.residual_call(jitstate, [selfbox, keybox, valuebox])
 
-def oop_dict_getitem(jitstate, oopspecdesc, selfbox, keybox):
+def oop_dict_getitem(jitstate, oopspecdesc, deepfrozen, selfbox, keybox):
     content = selfbox.content
     if isinstance(content, AbstractVirtualDict) and keybox.is_constant():
         try:
@@ -250,4 +250,6 @@ def oop_dict_getitem(jitstate, oopspecdesc, selfbox, keybox):
         except KeyError:
             return oopspecdesc.residual_exception(jitstate, KeyError)
     else:
-        return oopspecdesc.residual_call(jitstate, [selfbox, keybox])
+        return oopspecdesc.residual_call(jitstate, [selfbox, keybox],
+                                         deepfrozen=deepfrozen)
+oop_dict_getitem.couldfold = True

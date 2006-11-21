@@ -1044,7 +1044,10 @@ class HintRTyper(RPythonTyper):
         # Pass them as constant Nones.
         ts = self
         ll_handler = oopspecdesc.ll_handler
-        missing_args = ((ll_handler.func_code.co_argcount - 2) -
+
+        couldfold = oopspecdesc.couldfold
+        
+        missing_args = ((ll_handler.func_code.co_argcount - 2 - couldfold) -
                         len(oopspecdesc.argtuple))
         assert missing_args >= 0
         if missing_args > 0:
@@ -1054,9 +1057,17 @@ class HintRTyper(RPythonTyper):
             args_v.extend([hop.llops.genconst(ll_None)] * missing_args)
 
         args_s = [ts.s_RedBox] * len(args_v)
+
         if oopspecdesc.is_method:
             args_s[0] = ts.s_PtrRedBox    # for more precise annotations
             args_v[0] = hop.llops.as_ptrredbox(args_v[0])
+
+        if couldfold:
+            args_s.insert(0, annmodel.s_Bool)
+            hs_self = hop.args_s[oopspecdesc.argtuple[0].n]
+            c_deepfrozen = inputconst(lltype.Bool, hs_self.deepfrozen)
+            args_v.insert(0, c_deepfrozen)
+        
         RESULT = originalconcretetype(hop.s_result)
         if RESULT is lltype.Void:
             s_result = annmodel.s_None
