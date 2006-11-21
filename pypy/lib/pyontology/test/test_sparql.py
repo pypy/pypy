@@ -91,6 +91,7 @@ def test_case_1():
     O = Ontology()
     O.add_file("testont.rdf")
     O.attach_fd()
+    O.finish()
     res = O.sparql(query)
     assert res[0]['x'] == u'http://example.org/ns#sub' 
 
@@ -102,6 +103,7 @@ def test_case_2():
     O.add_file("testont.rdf")
     O.attach_fd()
 
+    O.finish()
     res = O.sparql(query)
     assert list(O.variables['query_x_'].getValues())[0] == 'ns_p' 
     assert res[0]['x'] == 'ns_p'
@@ -114,8 +116,7 @@ def test_case_3():
     O.add_file("testont.rdf")
 
     O.attach_fd()
-#    import pdb
-#    pdb.set_trace()
+    O.finish()
     res = O.sparql(query)
     assert res[0]['x'] == '123'
 
@@ -126,6 +127,7 @@ def test_case_4():
     O = Ontology()
     O.add_file("testont.rdf")
     O.attach_fd()
+    O.finish()
 
     res = O.sparql(query)
     assert res[0]['x'] == u'http://example.org/ns#sub' 
@@ -139,6 +141,7 @@ def test_case_5():
     O = Ontology()
     O.add_file("testont.rdf")
     O.attach_fd()
+    O.finish()
 
     res = O.sparql(query)
     assert res[0]['x'] == u'http://example.org/ns#sub' 
@@ -153,6 +156,7 @@ def test_case_6():
     O = Ontology()
     O.add_file("testont.rdf")
     O.attach_fd()
+    O.finish()
 
     res = O.sparql(query)
     assert list(O.variables['x'].getValues())[0].uri == u'http://example.org/ns#sub' 
@@ -160,13 +164,13 @@ def test_case_6():
 
 def test_case_7():
     """ for all p's return p[1] if p[0]==s """
-    py.test.skip("Doesn't work yet due to changed generatorinterface")
+    #py.test.skip("Doesn't work yet due to changed generatorinterface")
 
     query = qt_proto % ('?x ?y ?z', '?x ?y ?z .')
     O = Ontology()
     O.add_file("testont.rdf")
     O.attach_fd()
-
+    O.finish()
     res = O.sparql(query)
     assert list(O.variables['query_x_'].getValues())[0].uri == u'http://example.org/ns#sub' 
     assert res[0]['x'] == u'http://example.org/ns#sub' 

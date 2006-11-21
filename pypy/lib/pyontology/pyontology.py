@@ -1,12 +1,13 @@
 import autopath
 from rdflib import Graph, URIRef, BNode, Literal as rdflib_literal
 from logilab.constraint import  Repository
-from logilab.constraint.fd import  Expression, FiniteDomain as fd
+from logilab.constraint.fd import  FiniteDomain as fd
 from logilab.constraint.propagation import AbstractDomain, AbstractConstraint,\
        ConsistencyFailure
 from pypy.lib.pyontology.sparql_grammar import SPARQLGrammar as SP
 from constraint_classes import *
 Solver = MySolver
+Expression = MyExpression
 import sys, py
 import datetime, time
 from urllib2 import URLError

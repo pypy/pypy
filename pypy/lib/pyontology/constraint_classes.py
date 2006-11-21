@@ -1,6 +1,7 @@
 from logilab.constraint.propagation import AbstractDomain, AbstractConstraint,\
        ConsistencyFailure, Solver
 from logilab.constraint.distributors import DichotomyDistributor, SplitDistributor
+from logilab.constraint.fd import Expression
 from rdflib import URIRef
 import autopath
 import py
@@ -48,6 +49,35 @@ class MySolver(Solver):
             print strftime('%H:%M:%S'),
             print 'Maximum recursion depth = ', self.max_depth
 
+class MyExpression(Expression):
+
+    def _assign_values(self, domains):
+        variables = []
+        kwargs = {}
+        for variable in self._variables:
+            domain = domains[variable]
+            values = list(domain.getValues())
+            variables.append((domain.size(), [variable, values, 0, len(values)]))
+            kwargs[variable] = values[0]
+        # sort variables to instanciate those with fewer possible values first
+        variables.sort()
+
+        go_on = 1
+        while go_on:
+            yield kwargs
+            # try to instanciate the next variable
+            for size, curr in variables:
+                if (curr[2] + 1) < curr[-1]:
+                    curr[2] += 1
+                    kwargs[curr[0]] = curr[1][curr[2]]
+                    break
+                else:
+                    curr[2] = 0
+                    kwargs[curr[0]] = curr[1][0]
+            else:
+                # it's over
+                go_on = 0
+ 
 
 class MyDistributor(SplitDistributor):
 
