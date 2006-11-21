@@ -263,3 +263,28 @@ class TestPromotion(TimeshiftingTests):
 
         res = self.timeshift(ll_function, [5, 100], [0], policy=P_NOVIRTUAL)
         assert res == 115
+
+    def test_remembers_across_mp(self):
+        def ll_function(x, flag):
+            hint(None, global_merge_point=True)
+            hint(x.field, promote=True)
+            m = x.field
+            if flag:
+                m += 1 * flag
+            else:
+                m += 2 + flag
+            hint(x.field, promote=True)
+            return m + x.field
+
+        S = lltype.GcStruct('S', ('field', lltype.Signed),
+                            hints={'immutable': True})
+
+        def struct_S(string):
+            s = lltype.malloc(S)
+            s.field = int(string)
+            return s
+        ll_function.convert_arguments = [struct_S, int]
+
+        res = self.timeshift(ll_function, ["20", 0], [], policy=P_NOVIRTUAL)
+        assert res == 42
+        self.check_flexswitches(1)

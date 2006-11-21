@@ -19,6 +19,15 @@ class AbstractContainer(object):
     def op_getsubstruct(self, jitstate, fielddesc):
         raise NotImplementedError
 
+
+class VirtualContainer(AbstractContainer):
+    __slots__ = []
+
+
+class FrozenContainer(AbstractContainer):
+    __slots__ = []
+
+
 # ____________________________________________________________
 
 class StructTypeDesc(object):
@@ -158,7 +167,7 @@ class ArrayFieldDesc(FieldDesc):
 
 # ____________________________________________________________
 
-class FrozenVirtualStruct(AbstractContainer):
+class FrozenVirtualStruct(FrozenContainer):
 
     def __init__(self, typedesc):
         self.typedesc = typedesc
@@ -199,6 +208,7 @@ class FrozenVirtualStruct(AbstractContainer):
         ownbox = typedesc.factory()
         contmemo[self] = ownbox
         vstruct = ownbox.content
+        assert isinstance(vstruct, VirtualStruct)
         self_boxes = self.fz_content_boxes
         for i in range(len(self_boxes)):
             fz_box = self_boxes[i]
@@ -207,11 +217,7 @@ class FrozenVirtualStruct(AbstractContainer):
         return ownbox
 
 
-class AbstractStruct(AbstractContainer):
-    pass
-
-
-class VirtualStruct(AbstractStruct):
+class VirtualStruct(VirtualContainer):
 
     def __init__(self, typedesc):
         self.typedesc = typedesc
@@ -284,8 +290,46 @@ class VirtualStruct(AbstractStruct):
     def op_getsubstruct(self, jitstate, fielddesc):
         return self.ownbox
 
+# ____________________________________________________________
 
-class PartialDataStruct(AbstractStruct):
+class FrozenPartialDataStruct(AbstractContainer):
+
+    def __init__(self):
+        self.fz_data = []
+
+    def getfzbox(self, searchindex):
+        for index, fzbox in self.fz_data:
+            if index == searchindex:
+                return fzbox
+        else:
+            return None
+
+    def match(self, box, partialdatamatch):
+        content = box.content
+        if not isinstance(content, PartialDataStruct):
+            return False
+
+        cankeep = {}
+        for index, subbox in content.data:
+            selfbox = self.getfzbox(index)
+            if selfbox is not None and selfbox.is_constant_equal(subbox):
+                cankeep[index] = None
+        fullmatch = len(cankeep) == len(self.fz_data)
+        try:
+            prevkeep = partialdatamatch[box]
+        except KeyError:
+            partialdatamatch[box] = cankeep
+        else:
+            if prevkeep is not None:
+                d = {}
+                for index in prevkeep:
+                    if index in cankeep:
+                        d[index] = None
+                partialdatamatch[box] = d
+        return fullmatch
+
+
+class PartialDataStruct(AbstractContainer):
 
     def __init__(self):
         self.data = []
@@ -307,6 +351,19 @@ class PartialDataStruct(AbstractStruct):
         else:
             self.data.append((searchindex, box))
 
+    def partialfreeze(self, memo):
+        contmemo = memo.containers
+        assert self not in contmemo     # contmemo no longer used
+        result = contmemo[self] = FrozenPartialDataStruct()
+        for index, box in self.data:
+            if box.is_constant():
+                frozenbox = box.freeze(memo)
+                result.fz_data.append((index, frozenbox))
+        if len(result.fz_data) == 0:
+            return None
+        else:
+            return result
+
     def copy(self, memo):
         result = PartialDataStruct()
         for index, box in self.data:
@@ -325,3 +382,18 @@ class PartialDataStruct(AbstractStruct):
             contmemo[self] = None
             for index, box in self.data:
                 box.enter_block(incoming, memo)
+
+    def cleanup_partial_data(self, keep):
+        if keep is None:
+            return None
+        j = 0
+        data = self.data
+        for i in range(len(data)):
+            item = data[i]
+            if item[0] in keep:
+                data[j] = item
+                j += 1
+        if j == 0:
+            return None
+        del data[j:]
+        return self

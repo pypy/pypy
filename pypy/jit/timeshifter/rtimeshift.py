@@ -2,7 +2,7 @@ import operator, weakref
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype, lloperation, llmemory
 from pypy.jit.hintannotator.model import originalconcretetype
-from pypy.jit.timeshifter import rvalue
+from pypy.jit.timeshifter import rvalue, rcontainer
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rpython.annlowlevel import cachedtype, base_ptr_lltype
 from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
@@ -219,6 +219,7 @@ def start_new_block(states_dic, jitstate, key, global_resumer):
     outgoingvarboxes = []
     res = frozen.exactmatch(jitstate, outgoingvarboxes, memo)
     assert res, "exactmatch() failed"
+    cleanup_partial_data(memo.partialdatamatch)
     newblock = enter_next_block(jitstate, outgoingvarboxes)
     states_dic[key] = frozen, newblock
     if global_resumer is not None and global_resumer is not return_marker:
@@ -251,6 +252,7 @@ def retrieve_jitstate_for_merge(states_dic, jitstate, key, global_resumer):
     # We need a more general block.  Do it by generalizing all the
     # redboxes from outgoingvarboxes, by making them variables.
     # Then we make a new block based on this new state.
+    cleanup_partial_data(memo.partialdatamatch)
     replace_memo = rvalue.copy_memo()
     for box in outgoingvarboxes:
         box.forcevar(jitstate.curbuilder, replace_memo)
@@ -261,6 +263,14 @@ def retrieve_jitstate_for_merge(states_dic, jitstate, key, global_resumer):
         merge_generalized(jitstate)
     return False       # continue
 retrieve_jitstate_for_merge._annspecialcase_ = "specialize:arglltype(2)"
+
+def cleanup_partial_data(partialdatamatch):
+    # remove entries from PartialDataStruct unless they matched
+    # their frozen equivalent
+    for box, keep in partialdatamatch.iteritems():
+        content = box.content
+        if isinstance(content, rcontainer.PartialDataStruct):
+            box.content = content.cleanup_partial_data(keep)
 
 def merge_generalized(jitstate):
     resuming = jitstate.resuming

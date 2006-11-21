@@ -14,7 +14,9 @@ def freeze_memo():
     return Memo()
 
 def exactmatch_memo():
-    return Memo()
+    memo = Memo()
+    memo.partialdatamatch = {}
+    return memo
 
 def copy_memo():
     return Memo()
@@ -242,29 +244,35 @@ class PtrRedBox(RedBox):
         try:
             return boxmemo[self]
         except KeyError:
+            content = self.content
             if not self.genvar:
-                assert self.content is not None
+                from pypy.jit.timeshifter import rcontainer
+                assert isinstance(content, rcontainer.VirtualContainer)
                 result = FrozenPtrVirtual(self.kind)
                 boxmemo[self] = result
-                result.fz_content = self.content.freeze(memo)
+                result.fz_content = content.freeze(memo)
+                return result
+            elif self.genvar.is_const:
+                result = FrozenPtrConst(self.kind, self.genvar)
+            elif content is None:
+                result = FrozenPtrVar(self.kind)
             else:
-                if self.is_constant():
-                    result = FrozenPtrConst(self.kind, self.genvar)
-                else:
-                    result = FrozenPtrVar(self.kind)
-                    # if self.content is not None, it's a PartialDataStruct
-                    # - for now, we always remove it while freezing so that
-                    #   we exactly match our frozen version
-                    # XXX unsure if it's the correct place to do that.
-                    # XXX maybe in exactmatch??
-                    self.content = None
+                # if self.content is not None, it's a PartialDataStruct
+                from pypy.jit.timeshifter import rcontainer
+                assert isinstance(content, rcontainer.PartialDataStruct)
+                result = FrozenPtrVarWithPartialData(self.kind)
                 boxmemo[self] = result
+                result.fz_partialcontent = content.partialfreeze(memo)
+                return result
+            boxmemo[self] = result
             return result
 
     def getgenvar(self, builder):
         if not self.genvar:
-            assert self.content
-            self.content.force_runtime_container(builder)
+            content = self.content
+            from pypy.jit.timeshifter import rcontainer
+            assert isinstance(content, rcontainer.VirtualContainer)
+            content.force_runtime_container(builder)
             assert self.genvar
         return self.genvar
 
@@ -288,28 +296,21 @@ class FrozenValue(object):
     def __init__(self, kind):
         self.kind = kind
 
+    def is_constant_equal(self, box):
+        return False
 
-class FrozenIntConst(FrozenValue):
 
-    def __init__(self, kind, gv_const):
-        self.kind = kind
-        self.gv_const = gv_const
+class FrozenConst(FrozenValue):
 
     def exactmatch(self, box, outgoingvarboxes, memo):
-        if (box.is_constant() and
-            self.gv_const.revealconst(lltype.Signed) ==
-               box.genvar.revealconst(lltype.Signed)):
+        if self.is_constant_equal(box):
             return True
         else:
             outgoingvarboxes.append(box)
             return False
 
-    def unfreeze(self, incomingvarboxes, memo):
-        # XXX could return directly the original IntRedBox
-        return IntRedBox(self.kind, self.gv_const)
 
-
-class FrozenIntVar(FrozenValue):
+class FrozenVar(FrozenValue):
 
     def exactmatch(self, box, outgoingvarboxes, memo):
         memo = memo.boxes
@@ -322,6 +323,25 @@ class FrozenIntVar(FrozenValue):
         else:
             outgoingvarboxes.append(box)
             return False
+
+
+class FrozenIntConst(FrozenConst):
+
+    def __init__(self, kind, gv_const):
+        self.kind = kind
+        self.gv_const = gv_const
+
+    def is_constant_equal(self, box):
+        return (box.is_constant() and
+                self.gv_const.revealconst(lltype.Signed) ==
+                box.genvar.revealconst(lltype.Signed))
+
+    def unfreeze(self, incomingvarboxes, memo):
+        # XXX could return directly the original IntRedBox
+        return IntRedBox(self.kind, self.gv_const)
+
+
+class FrozenIntVar(FrozenVar):
 
     def unfreeze(self, incomingvarboxes, memo):
         memo = memo.boxes
@@ -334,38 +354,22 @@ class FrozenIntVar(FrozenValue):
             return memo[self]
 
 
-class FrozenDoubleConst(FrozenValue):
+class FrozenDoubleConst(FrozenConst):
 
     def __init__(self, kind, gv_const):
         self.kind = kind
         self.gv_const = gv_const
 
-    def exactmatch(self, box, outgoingvarboxes, memo):
-        if (box.is_constant() and
-            self.gv_const.revealconst(lltype.Float) ==
-               box.genvar.revealconst(lltype.Float)):
-            return True
-        else:
-            outgoingvarboxes.append(box)
-            return False
+    def is_constant_equal(self, box):
+        return (box.is_constant() and
+                self.gv_const.revealconst(lltype.Float) ==
+                box.genvar.revealconst(lltype.Float))
 
     def unfreeze(self, incomingvarboxes, memo):
         return DoubleRedBox(self.kind, self.gv_const)
 
 
-class FrozenDoubleVar(FrozenValue):
-
-    def exactmatch(self, box, outgoingvarboxes, memo):
-        memo = memo.boxes
-        if self not in memo:
-            memo[self] = box
-            outgoingvarboxes.append(box)
-            return True
-        elif memo[self] is box:
-            return True
-        else:
-            outgoingvarboxes.append(box)
-            return False
+class FrozenDoubleVar(FrozenVar):
 
     def unfreeze(self, incomingvarboxes, memo):
         memo = memo.boxes
@@ -378,38 +382,32 @@ class FrozenDoubleVar(FrozenValue):
             return memo[self]
 
 
-class FrozenPtrConst(FrozenValue):
+class FrozenPtrConst(FrozenConst):
 
     def __init__(self, kind, gv_const):
         self.kind = kind
         self.gv_const = gv_const
 
+    def is_constant_equal(self, box):
+        return (box.is_constant() and
+                self.gv_const.revealconst(llmemory.Address) ==
+                box.genvar.revealconst(llmemory.Address))
+
     def exactmatch(self, box, outgoingvarboxes, memo):
-        if (box.is_constant() and
-            self.gv_const.revealconst(llmemory.Address) ==
-               box.genvar.revealconst(llmemory.Address)):
-            return True
-        else:
-            outgoingvarboxes.append(box)
-            return False
+        assert isinstance(box, PtrRedBox)
+        memo.partialdatamatch[box] = None     # could do better
+        return FrozenConst.exactmatch(self, box, outgoingvarboxes, memo)
 
     def unfreeze(self, incomingvarboxes, memo):
         return PtrRedBox(self.kind, self.gv_const)
 
 
-class FrozenPtrVar(FrozenValue):
+class FrozenPtrVar(FrozenVar):
 
     def exactmatch(self, box, outgoingvarboxes, memo):
-        memo = memo.boxes
-        if self not in memo:
-            memo[self] = box
-            outgoingvarboxes.append(box)
-            return True
-        elif memo[self] is box:
-            return True
-        else:
-            outgoingvarboxes.append(box)
-            return False
+        assert isinstance(box, PtrRedBox)
+        memo.partialdatamatch[box] = None
+        return FrozenVar.exactmatch(self, box, outgoingvarboxes, memo)
 
     def unfreeze(self, incomingvarboxes, memo):
         memo = memo.boxes
@@ -420,6 +418,19 @@ class FrozenPtrVar(FrozenValue):
             return newbox
         else:
             return memo[self]
+
+
+class FrozenPtrVarWithPartialData(FrozenPtrVar):
+
+    def exactmatch(self, box, outgoingvarboxes, memo):
+        if self.fz_partialcontent is None:
+            return FrozenPtrVar.exactmatch(self, box, outgoingvarboxes, memo)
+        assert isinstance(box, PtrRedBox)
+        partialdatamatch = self.fz_partialcontent.match(box,
+                                                        memo.partialdatamatch)
+        # skip the parent's exactmatch()!
+        exact = FrozenVar.exactmatch(self, box, outgoingvarboxes, memo)
+        return exact and partialdatamatch
 
 
 class FrozenPtrVirtual(FrozenValue):

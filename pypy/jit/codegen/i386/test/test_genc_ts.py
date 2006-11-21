@@ -140,6 +140,9 @@ class I386TimeshiftingTestMixin(object):
     def check_insns(self, expected=None, **counts):
         "Cannot check instructions in the generated assembler."
 
+    def check_flexswitches(self, expected_count):
+        "Cannot check instructions in the generated assembler."
+
 class TestTimeshiftI386(I386TimeshiftingTestMixin,
                         test_timeshift.TestTimeshift):
 

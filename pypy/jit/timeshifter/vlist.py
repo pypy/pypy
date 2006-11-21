@@ -1,5 +1,6 @@
 from pypy.rpython.lltypesystem import lltype
-from pypy.jit.timeshifter.rcontainer import AbstractContainer, cachedtype
+from pypy.jit.timeshifter.rcontainer import VirtualContainer, FrozenContainer
+from pypy.jit.timeshifter.rcontainer import cachedtype
 from pypy.jit.timeshifter import rvalue
 
 
@@ -39,7 +40,7 @@ class ListTypeDesc(object):
 TypeDesc = ListTypeDesc
 
 
-class FrozenVirtualList(AbstractContainer):
+class FrozenVirtualList(FrozenContainer):
 
     def __init__(self, typedesc):
         self.typedesc = typedesc
@@ -74,7 +75,7 @@ class FrozenVirtualList(AbstractContainer):
         return fullmatch
 
 
-class VirtualList(AbstractContainer):
+class VirtualList(VirtualContainer):
 
     def __init__(self, typedesc, length=0, itembox=None):
         self.typedesc = typedesc

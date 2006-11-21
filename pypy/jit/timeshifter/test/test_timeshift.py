@@ -5,7 +5,7 @@ from pypy.jit.hintannotator.bookkeeper import HintBookkeeper
 from pypy.jit.hintannotator.model import *
 from pypy.jit.timeshifter.hrtyper import HintRTyper, originalconcretetype
 from pypy.jit.timeshifter import rtimeshift, rvalue
-from pypy.objspace.flow.model import summary
+from pypy.objspace.flow.model import summary, Variable
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr
 from pypy.rlib.objectmodel import hint, keepalive_until_here
 from pypy.rlib.unroll import unrolling_iterable
@@ -319,6 +319,14 @@ class TimeshiftingTests(object):
             assert self.insns == expected
         for opname, count in counts.items():
             assert self.insns.get(opname, 0) == count
+
+    def check_flexswitches(self, expected_count):
+        count = 0
+        for block in self.residual_graph.iterblocks():
+            if (isinstance(block.exitswitch, Variable) and
+                block.exitswitch.concretetype is lltype.Signed):
+                count += 1
+        assert count == expected_count
 
 
 class TestTimeshift(TimeshiftingTests):

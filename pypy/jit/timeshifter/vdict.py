@@ -1,11 +1,15 @@
 import operator
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.lltypesystem import rdict
-from pypy.jit.timeshifter.rcontainer import AbstractContainer, cachedtype
+from pypy.jit.timeshifter.rcontainer import VirtualContainer, FrozenContainer
+from pypy.jit.timeshifter.rcontainer import cachedtype
 from pypy.jit.timeshifter import rvalue
 from pypy.rlib.objectmodel import r_dict
 
 HASH = lltype.Signed
+
+# XXXXXXXXXX! ARGH.
+# cannot use a dictionary as the item_boxes at all, because of order issues
 
 
 class LLEqDesc(object):
@@ -48,7 +52,7 @@ class LLEqDesc(object):
                 for key, valuebox in other.item_boxes.iteritems():
                     self.item_boxes[key] = valuebox.copy(memo)
 
-            def replace(self, memo):
+            def internal_replace(self, memo):
                 changes = []
                 for key, valuebox in self.item_boxes.iteritems():
                     newbox = valuebox.replace(memo)
@@ -137,7 +141,7 @@ class DictTypeDesc(object):
 TypeDesc = DictTypeDesc
 
 
-class AbstractFrozenVirtualDict(AbstractContainer):
+class AbstractFrozenVirtualDict(FrozenContainer):
     __slots__ = ('typedesc',)
 
     def __init__(self, typedesc):
@@ -171,9 +175,17 @@ class AbstractFrozenVirtualDict(AbstractContainer):
                 fullmatch = False
         return fullmatch
 
+    def freeze_from(self, vdict, memo):
+        raise NotImplementedError
 
-class AbstractVirtualDict(AbstractContainer):
+    def same_keys_as(self, vdict, boxes):
+        raise NotImplementedError
+
+
+class AbstractVirtualDict(VirtualContainer):
     __slots__ = ('typedesc', 'ownbox')     # and no item_boxes
+
+    FrozenVirtualDict = AbstractFrozenVirtualDict    # overridden in subclasses
 
     def __init__(self, typedesc):
         self.typedesc = typedesc
@@ -228,8 +240,29 @@ class AbstractVirtualDict(AbstractContainer):
         contmemo = memo.containers
         if self not in contmemo:
             contmemo[self] = None
-            self.replace(memo)
+            self.internal_replace(memo)
             self.ownbox = self.ownbox.replace(memo)
+
+    def make_item_boxes(self):
+        raise NotImplementedError
+
+    def getboxes(self):
+        raise NotImplementedError
+
+    def getitems_and_makeempty(self, rgenop):
+        raise NotImplementedError
+
+    def getitem(self, keybox):
+        raise NotImplementedError
+
+    def setitem(self, keybox, valuebox):
+        raise NotImplementedError
+
+    def copy_from(self, other, memo):
+        raise NotImplementedError
+
+    def internal_replace(self, memo):
+        raise NotImplementedError
 
 
 def oop_newdict(jitstate, oopspecdesc):
