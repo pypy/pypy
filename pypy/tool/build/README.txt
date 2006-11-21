@@ -35,7 +35,8 @@ already available, and if so returns that.
 If there isn't one, the server walks through a list of connected participating
 clients to see if one of them can handle the job, and if so dispatches the
 compilation. If there's no participating client to handle the job, it gets
-queued until there is.
+queued until there is. Also, if a client crashes during compilation, the job
+gets re-queued. This process will continue until a suitable build is available.
 
 Once a build is available, the server will send an email to all email addresses
 (it could be that more than one person asked for some build at the same time!)
