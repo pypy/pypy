@@ -349,6 +349,7 @@ def cast_object_to_ptr(PTR, object):
 
 def cast_instance_to_base_ptr(instance):
     return cast_object_to_ptr(base_ptr_lltype(), instance)
+cast_instance_to_base_ptr._annspecialcase_ = 'specialize:argtype(0)'
 
 def base_ptr_lltype():
     from pypy.rpython.lltypesystem.rclass import OBJECTPTR

@@ -735,3 +735,4 @@ def ll_kvi(dic, LIST, func):
 def ll_contains(d, key):
     entry = ll_dict_lookup(d, key, d.keyhash(key))
     return entry.valid()
+ll_contains.oopspec = 'dict.contains(d, key)'

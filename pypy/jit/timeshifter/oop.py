@@ -89,7 +89,7 @@ class OopSpecDesc:
             ARGS = FUNCTYPE.ARGS
             argpos = unrolling_iterable(enumerate(self.argpositions))
 
-            def do_call(rgenop, argboxes):
+            def do_call(jitstate, argboxes):
                 args = (None,)*nb_args
                 for i, pos in argpos:
                     if pos >= 0:
@@ -99,8 +99,7 @@ class OopSpecDesc:
                 result = fnptr(*args)
                 if FUNCTYPE.RESULT == lltype.Void:
                     return None
-                gv_result = rgenop.genconst(result)
-                return redboxbuilder(result_kind, gv_result)
+                return rvalue.ll_fromvalue(jitstate, result)
 
             self.do_call = do_call
             
@@ -117,7 +116,7 @@ class OopSpecDesc:
                 fold &= gv_arg.is_const
         if fold:
             try:
-                return self.do_call(builder.rgenop, argboxes)
+                return self.do_call(jitstate, argboxes)
             except Exception, e:
                 jitstate.residual_exception(e)
                 return self.errorbox

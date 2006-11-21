@@ -31,7 +31,7 @@ class DFA(object):
     def __repr__(self):
         from pprint import pformat
         return "DFA%s" % (pformat(
-            self.num_states, self.transitions, self.final_states))
+            (self.num_states, self.transitions, self.final_states)))
 
 def getautomaton():
     " simple example of handcrafted dfa "
@@ -130,3 +130,24 @@ def recognizeparts(alltrans, finals, s):
     res = hint(res, concrete=True)
     res = hint(res, variable=True)
     return res
+
+# a version of recognize() full of hints, but otherwise not too modified
+
+def recognize3(automaton, s):
+    automaton = hint(automaton, deepfreeze=True)
+    hint(automaton, concrete=True)
+    state = 0
+
+    index = 0
+    while index < len(s):
+        hint(None, global_merge_point=True)
+        char = s[index]
+        index += 1
+        char = hint(char, promote=True)
+        try:
+            state = automaton.get_transition(state, char)
+        except KeyError:
+            return False
+        state = hint(state, promote=True)
+
+    return state in automaton.final_states

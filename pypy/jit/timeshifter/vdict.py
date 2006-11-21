@@ -253,3 +253,17 @@ def oop_dict_getitem(jitstate, oopspecdesc, deepfrozen, selfbox, keybox):
         return oopspecdesc.residual_call(jitstate, [selfbox, keybox],
                                          deepfrozen=deepfrozen)
 oop_dict_getitem.couldfold = True
+
+def oop_dict_contains(jitstate, oopspecdesc, deepfrozen, selfbox, keybox):
+    content = selfbox.content
+    if isinstance(content, AbstractVirtualDict) and keybox.is_constant():
+        try:
+            content.getitem(keybox)
+            res = True
+        except KeyError:
+            res = False
+        return rvalue.ll_fromvalue(jitstate, res)
+    else:
+        return oopspecdesc.residual_call(jitstate, [selfbox, keybox],
+                                         deepfrozen=deepfrozen)
+oop_dict_contains.couldfold = True

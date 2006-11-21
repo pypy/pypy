@@ -624,6 +624,7 @@ def rtype_hint(hop, **kwds_i):
         hints[key[2:]] = s_value.const
     v = hop.inputarg(hop.args_r[0], arg=0)
     c_hint = hop.inputconst(lltype.Void, hints)
+    hop.exception_cannot_occur()
     return hop.genop('hint', [v, c_hint], resulttype=v.concretetype)
 
 BUILTIN_TYPER[objectmodel.hint] = rtype_hint
