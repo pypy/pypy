@@ -1,11 +1,12 @@
 import autopath
 from rdflib import Graph, URIRef, BNode, Literal as rdflib_literal
-from logilab.constraint import  Repository, Solver
+from logilab.constraint import  Repository
 from logilab.constraint.fd import  Expression, FiniteDomain as fd
 from logilab.constraint.propagation import AbstractDomain, AbstractConstraint,\
        ConsistencyFailure
 from pypy.lib.pyontology.sparql_grammar import SPARQLGrammar as SP
 from constraint_classes import *
+Solver = MySolver
 import sys, py
 import datetime, time
 from urllib2 import URLError
@@ -650,9 +651,11 @@ class Ontology:
                 query_constr.append(PropertyConstrain2(prop_name, sub_name, obj))
             elif case == 5:
                 #  return the values of p
+                #import pdb
+                ##pdb.set_trace()
                 prop = self.make_var(Property, URIRef(trip[1]))
                 query_dom[prop] = self.variables[prop]
-                p_vals = self.variables[prop].getValues()
+                p_vals = list(self.variables[prop].getValues())
                 sub = self.make_var(Thing, trip[0])
                 vals = set([v[0] for v in p_vals])
                 if self.variables[sub].size():
@@ -683,9 +686,6 @@ class Ontology:
                 self.variables[prop].setValues(p_vals)
                 sub = self.make_var(Thing, trip[0])
                 obj = self.make_var(Thing, trip[2])
-                things = self.variables['owl_Thing'].getValues()
-                things += self.variables['owl_Literal'].getValues()
-                self.variables[obj].setValues(things)
                 con = Expression([sub,prop,obj], "%s[0] == %s and %s[1] == %s" %(prop, sub, prop, obj))
                 query_constr.append(con)
         # call finish on the variables in the query
