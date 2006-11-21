@@ -334,6 +334,36 @@ class __extend__(pairtype(SomeBool, SomeBool)):
                 s.knowntypedata = ktd
         return s 
 
+    def and_((boo1, boo2)):
+        s = SomeBool()
+        if boo1.is_constant():
+            if not boo1.const:
+                s.const = False
+            else:
+                return boo2
+        if boo2.is_constant():
+            if not boo2.const:
+                s.const = False
+        return s
+
+    def or_((boo1, boo2)):
+        s = SomeBool()
+        if boo1.is_constant():
+            if boo1.const:
+                s.const = True
+            else:
+                return boo2
+        if boo2.is_constant():
+            if boo2.const:
+                s.const = True
+        return s
+        
+    def xor((boo1, boo2)):
+        s = SomeBool()
+        if boo1.is_constant() and boo2.is_constant():
+            s.const = boo1.const ^ boo2.const
+        return s
+        
 class __extend__(pairtype(SomeString, SomeString)):
 
     def union((str1, str2)):

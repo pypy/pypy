@@ -174,10 +174,16 @@ def _rtype_template(hop, func, implicit_excs=[]):
             appendix = op_appendices[implicit_exc]
             func += '_' + appendix
 
-    repr = hop.rtyper.makerepr(hop.s_result)
+    r_result = hop.rtyper.makerepr(hop.s_result)
+    if r_result.lowleveltype == Bool:
+        repr = signed_repr
+    else:
+        repr = r_result
     vlist = hop.inputargs(repr, repr)
     hop.exception_is_here()
-    return hop.genop(repr.opprefix+func, vlist, resulttype=repr)
+    v_res = hop.genop(repr.opprefix+func, vlist, resulttype=repr)
+    v_res = hop.llops.convertvar(v_res, repr, r_result)
+    return v_res
     
 
 #Helper functions for comparisons
