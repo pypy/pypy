@@ -226,7 +226,7 @@ def make_interp(supports_call):
 
             elif opcode == BR_COND:
                 cond = stack.pop()
-                hint(cond, promote=True)
+                hint(cond.__class__, promote=True)
                 if cond.t():
                     pc += char2int(code[pc])
                 pc += 1

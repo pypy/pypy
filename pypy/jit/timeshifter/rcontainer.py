@@ -6,6 +6,7 @@ from pypy.rlib.unroll import unrolling_iterable
 
 from pypy.rpython.lltypesystem import lloperation
 debug_print = lloperation.llop.debug_print
+debug_pdb = lloperation.llop.debug_pdb
 
 class AbstractContainer(object):
     __slots__ = []
@@ -250,6 +251,7 @@ class VirtualStruct(VirtualContainer):
                 self.ownbox.content = None
                 return
         debug_print(lltype.Void, "FORCE CONTAINER")
+        #debug_pdb(lltype.Void)
         genvar = builder.genop_malloc_fixedsize(typedesc.alloctoken)
         # force the box pointing to this VirtualStruct
         self.ownbox.genvar = genvar
