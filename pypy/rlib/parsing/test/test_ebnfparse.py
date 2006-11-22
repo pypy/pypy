@@ -55,7 +55,9 @@ primary: "(" <additive> ")" | <DECIMAL>;
 """)
     parse = make_parse_function(regexs, rules)
     print transformer
-    exec py.code.Source(transformer).compile()
+    ns = {"RPythonVisitor": RPythonVisitor, "Nonterminal": Nonterminal}
+    exec py.code.Source(transformer).compile() in ns
+    ToAST = ns["ToAST"]
     tree = parse("(0 +! 10) *! (999 +! 10) +! 1")
     print transformer
     tree = tree.visit(ToAST())
@@ -127,7 +129,9 @@ boolexpr: <BOOLCONST>; #XXX
     parse = make_parse_function(regexs, rules)
     tree = parse("x * floor + 1")
     print transformer
-    exec py.code.Source(transformer).compile()
+    ns = {"RPythonVisitor": RPythonVisitor, "Nonterminal": Nonterminal}
+    exec py.code.Source(transformer).compile() in ns
+    ToAST = ns["ToAST"]
     tree = tree.visit(ToAST())
     assert tree.children[2].symbol == "NUMBER"
 
@@ -238,7 +242,9 @@ def test_dictparse():
     'tokenizer': '[object Object]',
     'varDecls': ''
 }""")
-    exec py.code.Source(transformer).compile()
+    ns = {"RPythonVisitor": RPythonVisitor, "Nonterminal": Nonterminal}
+    exec py.code.Source(transformer).compile() in ns
+    ToAST = ns["ToAST"]
     print transformer
     t = t.visit(ToAST())
 
