@@ -260,6 +260,29 @@ def test_starparse():
     assert [c.symbol for c in t.children[0].children] == ["QUOTED_STRING"] * 2
     t = parse("['a']")
 
+def test_transform_star():
+    py.test.skip("This needs to be fixed - generated transformer is buggy")
+    regexs, rules, transformer = parse_ebnf("""
+    IGNORE: " ";
+    ATOM: "[\+a-zA-Z_][a-zA-Z0-9_]*";
+
+    sexpr: ATOM | list;
+    list: "(" sexpr* ")";
+""")
+    parse = make_parse_function(regexs, rules)
+    tree = parse("()")
+    print transformer
+    ns = {"RPythonVisitor": RPythonVisitor, "Nonterminal": Nonterminal}
+    exec py.code.Source(transformer).compile() in ns
+    ToAST = ns["ToAST"]
+    list_expr = tree.visit(ToAST()).children[0]
+    assert list_expr.symbol == 'list'
+    # should have two children, "(" and ")"
+    assert len(list_expr.children) == 2
+    assert list_expr.children[0].symbol == '('
+    assert list_expr.children[1].symbol == ')'
+
+
 def test_quoting():
     regexs, rules, transformer = parse_ebnf("""
     ATOM: "[a-z]*";
