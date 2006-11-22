@@ -396,6 +396,7 @@ def show_incremental_progress(graph):
     from pypy import conftest
     if conftest.option.view:
         graph = from_opaque_object(graph)
+        eliminate_empty_blocks(graph)
         graph.show()
 
 # ____________________________________________________________
