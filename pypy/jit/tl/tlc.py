@@ -184,10 +184,14 @@ def make_interp(supports_call):
 
             elif opcode == SUB:
                 a, b = stack.pop(), stack.pop()
+                hint(a.__class__, promote=True)
+                hint(b.__class__, promote=True)
                 stack.append(b.sub(a))
 
             elif opcode == MUL:
                 a, b = stack.pop(), stack.pop()
+                hint(a.__class__, promote=True)
+                hint(b.__class__, promote=True)
                 stack.append(b.mul(a))
 
             elif opcode == DIV:
@@ -208,6 +212,8 @@ def make_interp(supports_call):
 
             elif opcode == LE:
                 a, b = stack.pop(), stack.pop()
+                hint(a.__class__, promote=True)
+                hint(b.__class__, promote=True)
                 stack.append(IntObj(not a.lt(b)))
 
             elif opcode == GT:
@@ -219,7 +225,9 @@ def make_interp(supports_call):
                 stack.append(IntObj(not b.lt(a)))
 
             elif opcode == BR_COND:
-                if stack.pop().t():
+                cond = stack.pop()
+                hint(cond, promote=True)
+                if cond.t():
                     pc += char2int(code[pc])
                 pc += 1
 
