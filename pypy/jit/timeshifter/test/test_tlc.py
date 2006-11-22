@@ -21,6 +21,7 @@ tlc_interp_without_call.convert_arguments = [build_bytecode, int, int]
 
 
 class TestTLC(PortalTest):
+    small = False
 
     def test_factorial(self):
         code = tlc.compile(FACTORIAL_SOURCE)

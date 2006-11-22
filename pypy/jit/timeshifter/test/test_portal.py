@@ -13,6 +13,8 @@ import py.test
 class PortalTest(object):
     from pypy.jit.codegen.llgraph.rgenop import RGenOp
 
+    small = True
+
     def setup_class(cls):
         cls._cache = {}
         cls._cache_order = []
@@ -53,13 +55,13 @@ class PortalTest(object):
         self.hrtyper = HintRTyper(ha, self.rtyper, self.RGenOp)
         origportalgraph = graphof(t, portal)
         self.hrtyper.specialize(origportalgraph=origportalgraph,
-                           view = conftest.option.view)
+                           view = conftest.option.view and self.small)
 
         for graph in ha.translator.graphs:
             checkgraph(graph)
             t.graphs.append(graph)
 
-        if conftest.option.view:
+        if conftest.option.view and self.small:
             t.view()
         self.postprocess_timeshifting()
         self.readportalgraph = self.hrtyper.readportalgraph

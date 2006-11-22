@@ -63,6 +63,8 @@ def hannotate(func, values, policy=None, inline=None, backendoptimize=False,
 class TimeshiftingTests(object):
     from pypy.jit.codegen.llgraph.rgenop import RGenOp
 
+    small = True
+
     def setup_class(cls):
         cls._cache = {}
         cls._cache_order = []
@@ -98,7 +100,7 @@ class TimeshiftingTests(object):
 
         # make the timeshifted graphs
         hrtyper = HintRTyper(ha, rtyper, self.RGenOp)
-        hrtyper.specialize(view = conftest.option.view)
+        hrtyper.specialize(view = conftest.option.view and self.small)
 
         fresh_jitstate = hrtyper.ll_fresh_jitstate
         finish_jitstate = hrtyper.ll_finish_jitstate
@@ -218,7 +220,7 @@ class TimeshiftingTests(object):
         self.rtyper = rtyper
         self.hrtyper = hrtyper
         self.annotate_interface_functions()
-        if conftest.option.view:
+        if conftest.option.view and self.small:
             from pypy.translator.tool.graphpage import FlowGraphPage
             FlowGraphPage(t, ha.translator.graphs).display()
 
