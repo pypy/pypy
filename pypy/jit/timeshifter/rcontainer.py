@@ -27,6 +27,11 @@ class VirtualContainer(AbstractContainer):
 class FrozenContainer(AbstractContainer):
     __slots__ = []
 
+    def exactmatch(self, vstruct, outgoingvarboxes, memo):
+        raise NotImplementedError
+    
+    def unfreeze(self, incomingvarboxes, memo):
+        raise NotImplementedError
 
 # ____________________________________________________________
 

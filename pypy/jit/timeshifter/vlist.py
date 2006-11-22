@@ -74,6 +74,24 @@ class FrozenVirtualList(FrozenContainer):
                 fullmatch = False
         return fullmatch
 
+    def unfreeze(self, incomingvarboxes, memo):
+        contmemo = memo.containers
+        if self in contmemo:
+            return contmemo[self]
+        typedesc = self.typedesc
+        self_boxes = self.fz_item_boxes
+        length = len(self_boxes)
+        ownbox = typedesc.factory(length, None)
+        contmemo[self] = ownbox
+        vlist = ownbox.content
+        assert isinstance(vlist, VirtualList)
+        for i in range(length):
+            fz_box = self_boxes[i]
+            vlist.item_boxes[i] = fz_box.unfreeze(incomingvarboxes,
+                                                  memo)
+        return ownbox
+
+
 
 class VirtualList(VirtualContainer):
 
