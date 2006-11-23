@@ -879,7 +879,7 @@ class ReallyRunFileExternal(py.test.Item):
         if regrtest.compiler:
             pypy_options.append('--compiler=%s' % regrtest.compiler)
         pypy_options.extend(
-            ['--usemodules=%s' % mod for mod in regrtest.usemodules])
+            ['--withmod-%s' % mod for mod in regrtest.usemodules])
         sopt = " ".join(pypy_options) 
         # experimental: always use regrverbose script 
         # previously we only did it if regrtest.outputpath() was True
