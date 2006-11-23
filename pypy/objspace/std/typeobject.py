@@ -342,6 +342,16 @@ class W_TypeObject(W_Object):
         else:
             w_self.weak_subclasses_w.append(w_newref)
 
+    def remove_subclass(w_self, w_subclass):
+        space = w_self.space
+
+        for i in range(len(w_self.weak_subclasses_w)):
+            w_ref = w_self.weak_subclasses_w[i]
+            ob = space.call_function(w_ref)
+            if space.is_w(ob, w_subclass):
+                del w_self.weak_subclasses_w[i]
+                return
+
     # for now, weakref support for W_TypeObject is hard to get automatically
     _lifeline_ = None
     def getweakref(self):
