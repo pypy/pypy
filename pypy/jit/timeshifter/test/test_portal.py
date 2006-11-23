@@ -221,8 +221,8 @@ class TestPortal(PortalTest):
 
         res = self.timeshift_from_portal(ll_function, ll_function, [5], policy=P_NOVIRTUAL)
         assert res == 10
-        self.check_insns(indirect_call=0)
+        self.check_insns(indirect_call=0) #, malloc=0)
 
         res = self.timeshift_from_portal(ll_function, ll_function, [0], policy=P_NOVIRTUAL)
         assert res == ord('2')
-        self.check_insns(indirect_call=0)
+        self.check_insns(indirect_call=0) #, malloc=0)

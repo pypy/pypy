@@ -9,7 +9,7 @@ from pypy.translator.unsimplify import varoftype, copyvar
 from pypy.translator.unsimplify import split_block, split_block_at_start
 from pypy.translator.simplify import rec_op_has_side_effects
 from pypy.translator.backendopt.ssa import SSA_to_SSI
-from pypy.translator.backendopt import support
+from pypy.translator.unsimplify import split_block
 
 
 class MergePointFamily(object):
@@ -512,16 +512,25 @@ class HintGraphTransformer(object):
         self.go_to_dispatcher_if(block, v_finished)
 
     def handle_red_call(self, block, pos, color='red'):
-        varsalive = self.variables_alive(block, pos+1)
+        link = split_block(self.hannotator, block, pos+1)
         op = block.operations.pop(pos)
+        assert len(block.operations) == pos
+        nextblock = link.target
+        linkargs = link.args
+        varsalive = list(linkargs)
+        
         try:
-            varsalive.remove(op.result)
-            uses_retval = True      # it will be restored by 'fetch_return'
+            index = varsalive.index(op.result)
+            uses_retval = True      # it will be restored by a restore_local
+            del varsalive[index]
+            old_v_result = linkargs.pop(index)
+            linkargs.insert(0, old_v_result)
+            v_result = nextblock.inputargs.pop(index)
+            nextblock.inputargs.insert(0, v_result)      
         except ValueError:
             uses_retval = False
-        reds, greens = self.sort_by_color(varsalive)
 
-        nextblock = self.naive_split_block(block, pos)
+        reds, greens = self.sort_by_color(varsalive)
 
         v_func = op.args[0]
         hs_func = self.hannotator.binding(v_func)
@@ -538,29 +547,17 @@ class HintGraphTransformer(object):
                                        resulttype = lltype.Bool)
             self.genswitch(block, v_is_constant, true  = constantblock,
                                                  false = nonconstantblock)
-            constantblock.closeblock(Link([], nextblock))
-            nonconstantblock.closeblock(Link([], nextblock))
 
         postconstantblock = self.naive_split_block(constantblock,
                                                  len(constantblock.operations))
         blockset[postconstantblock] = False
         self.make_call(constantblock, op, reds, color)
 
-        mapping = {}
-        for i, var in enumerate(reds):
-            c_index = Constant(i, concretetype=lltype.Signed)
-            newvar = self.genop(postconstantblock, 'restore_local', [c_index],
-                                result_like = var)
-            mapping[var] = newvar
-
-        if uses_retval:
-            assert not self.hannotator.binding(op.result).is_green()
-            var = op.result
-            newvar = self.genop(postconstantblock, 'fetch_return', [],
-                                result_like = var)
-            mapping[var] = newvar
-
-        nextblock.renamevariables(mapping)
+        resumepoint = self.get_resume_point(nextblock)
+        c_resumepoint = inputconst(lltype.Signed, resumepoint)
+        self.genop(postconstantblock, 'collect_split', [c_resumepoint] + greens)
+        resumeblock = self.get_resume_point_link(nextblock).target
+        postconstantblock.recloseblock(Link([], resumeblock))
 
         if nonconstantblock is not None:
             args_v = op.args[1:]
@@ -571,21 +568,13 @@ class HintGraphTransformer(object):
             v_res = self.genop(nonconstantblock, 'residual_%s_call' % (color,),
                                [op.args[0]], result_like = op.result)
 
-            oldvars = mapping.keys()
-            newvars = [mapping[v] for v in oldvars]
-            postconstantblock.exits[0].args = newvars
-            nextblock.inputargs = newvars
+            if uses_retval:
+                linkargs[0] = v_res
+            
+            nonconstantblock.closeblock(Link(linkargs, nextblock))
 
-            mapping2 = dict([(v, copyvar(self.hannotator, v))
-                             for v in newvars])
-            nextblock.renamevariables(mapping2)
-
-            mapping3 = {op.result: v_res}
-            nonconstantblock.exits[0].args = [mapping3.get(v, v)
-                                              for v in oldvars]
-
-        blockset[block] = True    # reachable from outside
-        blockset[nextblock] = False
+        blockset[block] = True     # reachable from outside
+        blockset[nextblock] = True # reachable from outside
         SSA_to_SSI(blockset, self.hannotator)
 
     def handle_gray_call(self, block, pos):
@@ -619,8 +608,7 @@ class HintGraphTransformer(object):
             newop = SpaceOperation('same_as', [v_tmp], v_real_result)
             block.operations.insert(pos+1, newop)
 
-        link = support.split_block_with_keepalive(block, pos+1,
-                                                  annotator=self.hannotator)
+        link = split_block(self.hannotator, block, pos+1)
         op1 = block.operations.pop(pos)
         assert op1 is op
         assert len(block.operations) == pos
@@ -694,8 +682,7 @@ class HintGraphTransformer(object):
         newop = SpaceOperation('revealconst', [v_promote], op.result)
         block.operations[i] = newop
 
-        link = support.split_block_with_keepalive(block, i,
-                                                  annotator=self.hannotator)
+        link = split_block(self.hannotator, block, i)
         nextblock = link.target
 
         reds, greens = self.sort_by_color(link.args)

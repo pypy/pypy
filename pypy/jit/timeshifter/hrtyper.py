@@ -827,14 +827,6 @@ class HintRTyper(RPythonTyper):
                   [v_jitstate     , c_index                          , c_TYPE],
                   s_result)
 
-    def translate_op_fetch_return(self, hop):
-        ts = self
-        v_jitstate = hop.llops.getjitstate()
-        return hop.llops.genmixlevelhelpercall(rtimeshift.getreturnbox,
-                                               [ts.s_JITState],
-                                               [v_jitstate   ],
-                                               ts.s_RedBox)
-
     def translate_op_is_constant(self, hop):
         hs = hop.args_s[0]
         r_arg = self.getredrepr(originalconcretetype(hs))

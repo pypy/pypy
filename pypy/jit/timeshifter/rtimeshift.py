@@ -329,6 +329,8 @@ def collect_split(jitstate_chain, resumepoint, *greens_gv):
         for i in range(node.n):
             pending = pending.next
         pending.greens.extend(greens_gv)
+        if pending.returnbox is not None:
+            pending.frame.local_boxes.insert(0, getreturnbox(pending))
         pending.next = None
         return pending
 
@@ -337,6 +339,8 @@ def collect_split(jitstate_chain, resumepoint, *greens_gv):
         jitstate = pending
         pending = pending.next
         jitstate.greens.extend(greens_gv)   # item 0 is the return value
+        if jitstate.returnbox is not None:
+            jitstate.frame.local_boxes.insert(0, getreturnbox(jitstate))
         jitstate.resumepoint = resumepoint
         if resuming is None:
             node = jitstate.promotion_path
@@ -399,7 +403,9 @@ def ll_getgreenbox(jitstate, i, T):
     return jitstate.greens[i].revealconst(T)
 
 def getreturnbox(jitstate):
-    return jitstate.returnbox
+    retbox = jitstate.returnbox
+    jitstate.returnbox = None
+    return retbox
 
 def getexctypebox(jitstate):
     return jitstate.exc_type_box
@@ -916,6 +922,8 @@ def leave_graph_red(jitstate, dispatchqueue):
     if jitstate is not None:
         myframe = jitstate.frame
         leave_frame(jitstate)
+        jitstate.greens = []
+        jitstate.next = None
         jitstate.returnbox = myframe.local_boxes[0]
         # ^^^ fetched by a 'fetch_return' operation
     return jitstate
@@ -924,6 +932,9 @@ def leave_graph_gray(jitstate, dispatchqueue):
     jitstate = merge_returning_jitstates(jitstate, dispatchqueue)
     if jitstate is not None:
         leave_frame(jitstate)
+        jitstate.greens = []
+        jitstate.next = None        
+        jitstate.returnbox = None
     return jitstate
 
 def leave_frame(jitstate):
