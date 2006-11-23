@@ -82,7 +82,7 @@ class ForkThunk(AbstractThunk):
         oldcoro = self.coroutine
         self.coroutine = None
         newcoro = AppClonableCoroutine(oldcoro.space, state=oldcoro.costate)
-        oldcoro.clone_into(newcoro)
+        newcoro.subctx = oldcoro.clone_into(newcoro, oldcoro.subctx)
         self.newcoroutine = newcoro
 
 def fork(space):
