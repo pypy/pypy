@@ -45,6 +45,10 @@ llvmjit._FuncPtr = _FuncPtr
 #exposed functions...
 restart = llvmjit.restart
 
+transform = llvmjit.transform
+transform.restype  = c_int
+transform.argtypes = [c_char_p]
+
 compile = llvmjit.compile
 compile.restype  = c_int
 compile.argtypes = [c_char_p]

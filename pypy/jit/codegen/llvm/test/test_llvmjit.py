@@ -12,8 +12,6 @@ except OSError:
 
 #helper data
 curdir = dirname(__file__)
-square = join(curdir, 'square')
-mul2   = join(curdir, 'mul2')
 
 llsquare = '''int %square(int %n) {
 block0:
@@ -25,6 +23,19 @@ llmul2 = '''int %mul2(int %n) {
 block0:
     %n2 = mul int %n, 2
     ret int %n2
+}'''
+
+lldeadcode = '''int %deadcode(int %n) {
+Test:
+    %cond = seteq int %n, %n
+    br bool %cond, label %IfEqual, label %IfUnequal
+
+IfEqual:
+    %n2 = mul int %n, 2
+    ret int %n2
+
+IfUnequal:
+    ret int -1
 }'''
 
 llacross1 = '''declare int %across2(int)
@@ -107,16 +118,6 @@ def test_execute_multiple():
         assert llvmjit.execute(square, i) == i * i
         assert llvmjit.execute(mul2  , i) == i * 2
 
-def test_call_found_function():
-    llvmjit.restart()
-    llvmjit.compile(llsquare)
-    llvmjit.compile(llmul2)
-    square = llvmjit.find_function('square')
-    mul2   = llvmjit.find_function('mul2')
-    for i in range(5):
-        assert llvmjit.execute(square, i) == i * i
-        assert llvmjit.execute(mul2  , i) == i * 2
-
 def test_execute_across_module():
     def my_across1(n):
         return n * 3
@@ -139,6 +140,18 @@ def test_execute_across_module():
         assert llvmjit.execute(across1to2, i) == my_across1to2(i)
         assert llvmjit.execute(across2to1, i) == my_across2to1(i)
 
+def test_transform(): #XXX This uses Module transforms, think about Function transforms too.
+    llvmjit.restart()
+    llvmjit.compile(lldeadcode)
+    deadcode = llvmjit.find_function('deadcode')
+    assert llvmjit.execute(deadcode, 10) == 10 * 2
+
+    #XXX enable this part of the test asap
+    #assert not llvmjit.transform("instcombine printm verify")
+    assert llvmjit.execute(deadcode, 20) == 20 * 2
+
+    assert llvmjit.transform("instcombine simplifycfg printm verify")
+    assert llvmjit.execute(deadcode, 30) == 30 * 2
 
 def DONTtest_modify_global_data():
     pass
@@ -150,9 +163,6 @@ def DONTtest_delete_function():
     pass
 
 def DONTtest_functions_with_different_signatures():
-    pass
-
-def DONTtest_llvm_transformations():
     pass
 
 def DONTtest_layers_of_codegenerators():    #e.g. i386 code until function stabilizes then llvm
