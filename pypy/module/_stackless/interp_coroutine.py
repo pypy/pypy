@@ -217,11 +217,15 @@ class Coroutine(Wrappable):
                     thunk = self.thunk
                     self.thunk = None
                     thunk.call()
-                    resume_point("coroutine__bind", self, state)
+                    resume_point("coroutine__bind", state)
                 except Exception, e:
                     exc = e
                     raise
             finally:
+                # warning! we must reload the 'self' from the costate,
+                # because after a clone() the 'self' of both copies
+                # point to the original!
+                self = state.current
                 self.finish(exc)
         except CoroutineExit:
             # ignore a shutdown exception
@@ -242,7 +246,7 @@ class Coroutine(Wrappable):
             raise CoroutineDamage
         state = self.costate
         incoming_frame = state.update(self).switch()
-        resume_point("coroutine_switch", self, state, returns=incoming_frame)
+        resume_point("coroutine_switch", state, returns=incoming_frame)
         syncstate.switched(incoming_frame)
 
     def kill(self):

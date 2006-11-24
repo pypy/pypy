@@ -86,9 +86,9 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         if self.frame is None:
             raise OperationError(space.w_ValueError, space.wrap(
                 "cannot switch to an unbound Coroutine"))
-        self.switch()
-        rstack.resume_point("w_switch", self, space)
         state = self.costate
+        self.switch()
+        rstack.resume_point("w_switch", state, space)
         w_ret, state.w_tempval = state.w_tempval, space.w_None
         return w_ret
 
@@ -202,8 +202,8 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         costate = self.costate
         # now the big fun of recreating tiny things...
         bottom = resume_state_create(None, "yield_current_frame_to_caller_1")
-        # resume_point("coroutine__bind", self, state)
-        _bind_frame = resume_state_create(bottom, "coroutine__bind", self, costate)
+        # resume_point("coroutine__bind", state)
+        _bind_frame = resume_state_create(bottom, "coroutine__bind", costate)
         # rstack.resume_point("appthunk", costate, returns=w_result)
         appthunk_frame = resume_state_create(_bind_frame, "appthunk", costate)
         chain = appthunk_frame
@@ -231,10 +231,10 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
                 call_frame = resume_state_create(dispatch_call_frame, 'call_function', frame)
             chain = call_frame
 
-        # rstack.resume_point("w_switch", self, space)
-        w_switch_frame = resume_state_create(chain, 'w_switch', self, space)
-        # resume_point("coroutine_switch", self, state, returns=incoming_frame)
-        switch_frame = resume_state_create(w_switch_frame, "coroutine_switch", self, costate)
+        # rstack.resume_point("w_switch", state, space)
+        w_switch_frame = resume_state_create(chain, 'w_switch', costate, space)
+        # resume_point("coroutine_switch", state, returns=incoming_frame)
+        switch_frame = resume_state_create(w_switch_frame, "coroutine_switch", costate)
         self.frame = switch_frame
 
 # _mixin_ did not work
