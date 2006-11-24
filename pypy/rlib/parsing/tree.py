@@ -106,7 +106,7 @@ def make_dispatch_function(dispatch_table):
     return dispatch
 
 class CreateDispatchDictionaryMetaclass(type):
-    def __new__(cls, name, bases, dct):
+    def __new__(cls, name_, bases, dct):
         dispatch_table = {}
         for name, value in dct.iteritems():
             if name.startswith("visit_"):
@@ -118,7 +118,7 @@ class CreateDispatchDictionaryMetaclass(type):
                 dispatch_table["__" + special] = dct[special]
         dct["dispatch_table"] = dispatch_table
         dct["dispatch"] = make_dispatch_function(dispatch_table)
-        return type.__new__(cls, name, bases, dct)
+        return type.__new__(cls, name_, bases, dct)
 
 class RPythonVisitor(object):
     __metaclass__ = CreateDispatchDictionaryMetaclass
