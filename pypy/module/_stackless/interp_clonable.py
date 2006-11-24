@@ -64,7 +64,9 @@ class ForkThunk(AbstractThunk):
     def call(self):
         oldcoro = self.coroutine
         self.coroutine = None
-        self.newcoroutine = oldcoro.clone()
+        newcoro = oldcoro.clone()
+        newcoro.parent = oldcoro
+        self.newcoroutine = newcoro
 
 def fork():
     """Fork, as in the Unix fork(): the call returns twice, and the return

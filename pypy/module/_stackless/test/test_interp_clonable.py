@@ -92,6 +92,7 @@ class TestClonableCoroutine(test_transformed_gc.GCTest):
                     # in the parent
                     self.result.append(3)
                     newcoro.switch()
+                    self.result.append(5)
                 else:
                     # in the child
                     self.result.append(4)
@@ -103,8 +104,6 @@ class TestClonableCoroutine(test_transformed_gc.GCTest):
             coro.bind(T(result))
             result.append(1)
             coro.switch()
-            result.append(5)
-            coro.switch()   # resume after newcoro.switch()
             result.append(6)
             n = 0
             for i in result:

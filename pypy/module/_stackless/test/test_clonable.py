@@ -110,3 +110,58 @@ class AppTestClonable:
         coro.switch()
         assert clonable.getcurrent() is main
         assert counter == [4]
+
+
+    def test_fork(self):
+        import _stackless
+
+        class Fail(Exception):
+            pass
+
+        class Success(Exception):
+            pass
+
+        def first_solution(func):
+            global next_answer
+            co = _stackless.clonable()
+            co.bind(func)
+            try:
+                co.switch()
+            except Success, e:
+                return e.args[0]
+
+        def zero_or_one():
+            sub = _stackless.fork()
+            if sub is not None:
+                # in the parent: run the child first
+                try:
+                    sub.switch()
+                except Fail:
+                    pass
+                # then proceed with answer '1'
+                return 1
+            else:
+                # in the child: answer '0'
+                return 0
+
+        # ____________________________________________________________
+
+        invalid_prefixes = {
+            (0, 0): True,
+            (0, 1, 0): True,
+            (0, 1, 1): True,
+            (1, 0): True,
+            (1, 1, 0, 0): True,
+            }
+
+        def example():
+            test = []
+            for n in range(5):
+                test.append(zero_or_one())
+                if tuple(test) in invalid_prefixes:
+                    raise Fail
+            raise Success(test)
+
+        res = first_solution(example)
+        assert res == [1, 1, 0, 1, 0]
+
