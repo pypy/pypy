@@ -212,7 +212,7 @@ def enter_next_block(jitstate, incoming):
 def return_marker(jitstate):
     raise AssertionError("shouldn't get here")
 
-def start_new_block(states_dic, jitstate, key, global_resumer):
+def start_new_block(states_dic, jitstate, key, global_resumer, index=-1):
     memo = rvalue.freeze_memo()
     frozen = jitstate.freeze(memo)
     memo = rvalue.exactmatch_memo()
@@ -221,7 +221,11 @@ def start_new_block(states_dic, jitstate, key, global_resumer):
     assert res, "exactmatch() failed"
     cleanup_partial_data(memo.partialdatamatch)
     newblock = enter_next_block(jitstate, outgoingvarboxes)
-    states_dic[key] = frozen, newblock
+    if index == -1:
+        states_dic[key].append((frozen, newblock))
+    else:
+        states_dic[key][index] = (frozen, newblock)
+        
     if global_resumer is not None and global_resumer is not return_marker:
         greens_gv = jitstate.greens
         rgenop = jitstate.curbuilder.rgenop
@@ -233,35 +237,51 @@ def start_new_block(states_dic, jitstate, key, global_resumer):
         #debug_print(lltype.Void, "PROMOTION ROOT")
 start_new_block._annspecialcase_ = "specialize:arglltype(2)"
 
-def retrieve_jitstate_for_merge(states_dic, jitstate, key, global_resumer):
+class DontMerge(Exception):
+    pass
+
+def retrieve_jitstate_for_merge(states_dic, jitstate, key, global_resumer,
+                                force_merge=False):
     if key not in states_dic:
+        states_dic[key] = []
         start_new_block(states_dic, jitstate, key, global_resumer)
         return False   # continue
 
-    frozen, oldblock = states_dic[key]
-    memo = rvalue.exactmatch_memo()
-    outgoingvarboxes = []
-
-    if frozen.exactmatch(jitstate, outgoingvarboxes, memo):
-        linkargs = []
+    states = states_dic[key]
+    for i in range(len(states) -1, -1, -1):
+        frozen, oldblock =  states[i]
+        memo = rvalue.exactmatch_memo(force_merge)
+        outgoingvarboxes = []
+        
+        try:
+            match = frozen.exactmatch(jitstate, outgoingvarboxes, memo)
+        except DontMerge:
+            continue
+        if match:
+            linkargs = []
+            for box in outgoingvarboxes:
+                linkargs.append(box.getgenvar(jitstate.curbuilder))
+            jitstate.curbuilder.finish_and_goto(linkargs, oldblock)
+            return True    # finished
+        # A mergable blook found
+        # We need a more general block.  Do it by generalizing all the
+        # redboxes from outgoingvarboxes, by making them variables.
+        # Then we make a new block based on this new state.
+        cleanup_partial_data(memo.partialdatamatch)
+        replace_memo = rvalue.copy_memo()
         for box in outgoingvarboxes:
-            linkargs.append(box.getgenvar(jitstate.curbuilder))
-        jitstate.curbuilder.finish_and_goto(linkargs, oldblock)
-        return True    # finished
+            box.forcevar(jitstate.curbuilder, replace_memo)
+        if replace_memo.boxes:
+            jitstate.replace(replace_memo)
+        start_new_block(states_dic, jitstate, key, global_resumer, index=i)
+        if global_resumer is None:
+            merge_generalized(jitstate)
+        return False       # continue
 
-    # We need a more general block.  Do it by generalizing all the
-    # redboxes from outgoingvarboxes, by making them variables.
-    # Then we make a new block based on this new state.
-    cleanup_partial_data(memo.partialdatamatch)
-    replace_memo = rvalue.copy_memo()
-    for box in outgoingvarboxes:
-        box.forcevar(jitstate.curbuilder, replace_memo)
-    if replace_memo.boxes:
-        jitstate.replace(replace_memo)
+    # No mergable states found, make a new.
     start_new_block(states_dic, jitstate, key, global_resumer)
-    if global_resumer is None:
-        merge_generalized(jitstate)
-    return False       # continue
+    return False   
+
 retrieve_jitstate_for_merge._annspecialcase_ = "specialize:arglltype(2)"
 
 def cleanup_partial_data(partialdatamatch):
@@ -888,54 +908,64 @@ def enter_frame(jitstate, dispatchqueue):
                 parent_mergesleft = MC_CALL_NOT_TAKEN
         dispatchqueue.mergecounter = parent_mergesleft
 
-def merge_returning_jitstates(jitstate, dispatchqueue):
+def merge_returning_jitstates(jitstate, dispatchqueue, force_merge=False):
     return_chain = dispatchqueue.return_chain
-    resuming = jitstate.resuming
     return_cache = {}
     still_pending = None
     while return_chain is not None:
         jitstate = return_chain
         return_chain = return_chain.next
         res = retrieve_jitstate_for_merge(return_cache, jitstate, (),
-                                          return_marker)
+                                          return_marker,
+                                          force_merge=force_merge)
         if res is False:    # not finished
             jitstate.next = still_pending
             still_pending = jitstate
-    most_general_jitstate = still_pending
-    # if there are more than one jitstate still left, merge them forcefully
-    if still_pending is not None:
-        still_pending = still_pending.next
-        while still_pending is not None:
-            jitstate = still_pending
-            still_pending = still_pending.next
+    
+    # Of the jitstates we have left some may be mergable to a later
+    # more general one.
+    return_chain = still_pending
+    if return_chain is not None:
+        return_cache = {}
+        still_pending = None
+        while return_chain is not None:
+            jitstate = return_chain
+            return_chain = return_chain.next
             res = retrieve_jitstate_for_merge(return_cache, jitstate, (),
-                                              return_marker)
-            assert res is True   # finished
+                                              return_marker,
+                                              force_merge=force_merge)
+            if res is False:    # not finished
+                jitstate.next = still_pending
+                still_pending = jitstate
+    return still_pending
 
+def leave_graph_red(jitstate, dispatchqueue, is_portal):
+    resuming = jitstate.resuming
+    return_chain = merge_returning_jitstates(jitstate, dispatchqueue,
+                                             force_merge=is_portal)
     if resuming is not None:
         resuming.leave_call(dispatchqueue)
-        
-    return most_general_jitstate
-
-def leave_graph_red(jitstate, dispatchqueue):
-    jitstate = merge_returning_jitstates(jitstate, dispatchqueue)
-    if jitstate is not None:
+    jitstate = return_chain
+    while jitstate is not None:
         myframe = jitstate.frame
         leave_frame(jitstate)
         jitstate.greens = []
-        jitstate.next = None
         jitstate.returnbox = myframe.local_boxes[0]
-        # ^^^ fetched by a 'fetch_return' operation
-    return jitstate
+        jitstate = jitstate.next
+    return return_chain
 
 def leave_graph_gray(jitstate, dispatchqueue):
-    jitstate = merge_returning_jitstates(jitstate, dispatchqueue)
-    if jitstate is not None:
+    resuming = jitstate.resuming
+    return_chain = merge_returning_jitstates(jitstate, dispatchqueue)
+    if resuming is not None:
+        resuming.leave_call(dispatchqueue)
+    jitstate = return_chain
+    while jitstate is not None:
         leave_frame(jitstate)
         jitstate.greens = []
-        jitstate.next = None        
         jitstate.returnbox = None
-    return jitstate
+        jitstate = jitstate.next
+    return return_chain
 
 def leave_frame(jitstate):
     myframe = jitstate.frame

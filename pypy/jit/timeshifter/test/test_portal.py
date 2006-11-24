@@ -25,6 +25,7 @@ class PortalTest(object):
 
     def postprocess_timeshifting(self):
         self.readportalgraph = self.hrtyper.readportalgraph
+        self.readallportalsgraph = self.hrtyper.readallportalsgraph
         
     def _timeshift_from_portal(self, main, portal, main_args,
                               inline=None, policy=None,
@@ -82,6 +83,7 @@ class PortalTest(object):
                                                 inline=inline, policy=policy,
                                                 backendoptimize=backendoptimize)
         self.main_args = main_args
+        self.main_is_portal = main is portal
         llinterp = LLInterpreter(self.rtyper)
         res = llinterp.eval_graph(self.maingraph, main_args)
         return res
@@ -89,8 +91,14 @@ class PortalTest(object):
     def check_insns(self, expected=None, **counts):
         # XXX only works if the portal is the same as the main
         llinterp = LLInterpreter(self.rtyper)
-        residual_graph = llinterp.eval_graph(self.readportalgraph,
-                                             self.main_args)._obj.graph
+        if self.main_is_portal:
+            residual_graph = llinterp.eval_graph(self.readportalgraph,
+                                                 self.main_args)._obj.graph
+        else:
+            residual_graphs = llinterp.eval_graph(self.readallportalsgraph, [])
+            assert residual_graphs.ll_length() == 1
+            residual_graph = residual_graphs.ll_getitem_fast(0)._obj.graph
+            
         self.insns = summary(residual_graph)
         if expected is not None:
             assert self.insns == expected
@@ -207,6 +215,45 @@ class TestPortal(PortalTest):
             def get(self):
                 return ord(self.s[4])
 
+        def ll_main(n):
+            if n > 0:
+                o = Int(n)
+            else:
+                o = Str('123')
+            return ll_function(o)
+
+        def ll_function(o):
+            hint(None, global_merge_point=True)
+            hint(o.__class__, promote=True)
+            return o.double().get()
+
+        res = self.timeshift_from_portal(ll_main, ll_function, [5], policy=P_NOVIRTUAL)
+        assert res == 10
+        self.check_insns(indirect_call=0)
+
+        res = self.timeshift_from_portal(ll_main, ll_function, [0], policy=P_NOVIRTUAL)
+        assert res == ord('2')
+        self.check_insns(indirect_call=0)
+
+    def test_virt_obj_method_call_promote(self):
+        py.test.skip('WIP')
+        class Base(object):
+            pass
+        class Int(Base):
+            def __init__(self, n):
+                self.n = n
+            def double(self):
+                return Int(self.n * 2)
+            def get(self):
+                return self.n
+        class Str(Base):
+            def __init__(self, s):
+                self.s = s
+            def double(self):
+                return Str(self.s + self.s)
+            def get(self):
+                return ord(self.s[4])
+
         def ll_make(n):
             if n > 0:
                 return Int(n)
@@ -221,8 +268,8 @@ class TestPortal(PortalTest):
 
         res = self.timeshift_from_portal(ll_function, ll_function, [5], policy=P_NOVIRTUAL)
         assert res == 10
-        self.check_insns(indirect_call=0) #, malloc=0)
+        self.check_insns(indirect_call=0, malloc=0)
 
         res = self.timeshift_from_portal(ll_function, ll_function, [0], policy=P_NOVIRTUAL)
         assert res == ord('2')
-        self.check_insns(indirect_call=0) #, malloc=0)
+        self.check_insns(indirect_call=0, malloc=0)

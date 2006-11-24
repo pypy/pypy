@@ -13,9 +13,10 @@ def enter_block_memo():
 def freeze_memo():
     return Memo()
 
-def exactmatch_memo():
+def exactmatch_memo(force_merge=False):
     memo = Memo()
     memo.partialdatamatch = {}
+    memo.force_merge=force_merge
     return memo
 
 def copy_memo():

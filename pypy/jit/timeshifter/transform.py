@@ -37,9 +37,10 @@ class MergePointFamily(object):
 class HintGraphTransformer(object):
     c_dummy = inputconst(lltype.Void, None)
 
-    def __init__(self, hannotator, graph):
+    def __init__(self, hannotator, graph, is_portal=False):
         self.hannotator = hannotator
         self.graph = graph
+        self.is_portal = is_portal
         self.graphcolor = self.graph_calling_color(graph)
         self.resumepoints = {}
         self.mergepoint_set = {}    # set of blocks
@@ -399,7 +400,6 @@ class HintGraphTransformer(object):
         elif self.graphcolor == 'yellow':
             self.genop(block, 'save_greens', [v_retbox])
         elif self.graphcolor == 'red':
-            self.leave_graph_opname = 'leave_graph_red'
             self.genop(block, 'save_locals', [v_retbox])
         else:
             raise AssertionError(self.graph, self.graphcolor)
@@ -419,7 +419,11 @@ class HintGraphTransformer(object):
 
     def insert_leave_graph(self):
         block = self.before_return_block()
-        self.genop(block, 'leave_graph_%s' % (self.graphcolor,), [])
+        if self.is_portal:
+            assert self.graphcolor == 'red'
+            self.genop(block, 'leave_graph_portal', [])
+        else:
+            self.genop(block, 'leave_graph_%s' % (self.graphcolor,), [])
 
     # __________ handling of the various kinds of calls __________
 

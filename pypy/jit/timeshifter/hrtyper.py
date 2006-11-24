@@ -3,6 +3,7 @@ from pypy.objspace.flow import model as flowmodel
 from pypy.translator.unsimplify import varoftype
 from pypy.translator.backendopt.ssa import SSA_to_SSI
 from pypy.annotation import model as annmodel
+from pypy.annotation import listdef
 from pypy.annotation.pairtype import pair, pairtype
 from pypy.rpython.annlowlevel import PseudoHighLevelCallable
 from pypy.rlib.unroll import unrolling_iterable
@@ -152,11 +153,16 @@ class HintRTyper(RPythonTyper):
         bk = self.annotator.bookkeeper
         bk.compute_after_normalization()
         entrygraph = self.annotator.translator.graphs[0]
+        if origportalgraph:
+            portalgraph = bk.get_graph_by_key(origportalgraph, None)
+        else:
+            portalgraph = None
         pending = [entrygraph]
         seen = {entrygraph: True}
         while pending:
             graph = pending.pop()
-            for nextgraph in self.transform_graph(graph):
+            for nextgraph in self.transform_graph(graph,
+                                is_portal=graph is portalgraph):
                 if nextgraph not in seen:
                     pending.append(nextgraph)
                     seen[nextgraph] = True
@@ -170,7 +176,6 @@ class HintRTyper(RPythonTyper):
             self.timeshift_graph(graph)
 
         if origportalgraph:
-            portalgraph = bk.get_graph_by_key(origportalgraph, None)
             self.rewire_portal(origportalgraph, portalgraph)
         
     def rewire_portal(self, origportalgraph, portalgraph):
@@ -222,6 +227,9 @@ class HintRTyper(RPythonTyper):
                 return cache[key]
             except KeyError:
                 return lltype.nullptr(FUNC)
+
+        def readallportals():
+            return state.cache.values()
         
         def portalentry(*args):
             i = 0
@@ -280,8 +288,13 @@ class HintRTyper(RPythonTyper):
         portalentrygraph = annhelper.getgraph(portalentry, args_s, s_result)
         portalentrygraph.tag = "portal_entry"
 
+        s_funcptr = annmodel.SomePtr(lltype.Ptr(FUNC))
         self.readportalgraph = annhelper.getgraph(readportal, args_s,
-                                   annmodel.SomePtr(lltype.Ptr(FUNC)))
+                                   s_funcptr)
+
+        s_funcptrlist = annmodel.SomeList(listdef.ListDef(None, s_funcptr))
+        self.readallportalsgraph = annhelper.getgraph(readallportals, [],
+                                                      s_funcptrlist)
 
         annhelper.finish()
 
@@ -290,11 +303,12 @@ class HintRTyper(RPythonTyper):
         origportalgraph.exceptblock = portalentrygraph.exceptblock
         # name, func?
 
-    def transform_graph(self, graph):
+    def transform_graph(self, graph, is_portal=False):
         # prepare the graphs by inserting all bookkeeping/dispatching logic
         # as special operations
         assert graph.startblock in self.annotator.annotated
-        transformer = HintGraphTransformer(self.annotator, graph)
+        transformer = HintGraphTransformer(self.annotator, graph,
+                                           is_portal=is_portal)
         transformer.transform()
         flowmodel.checkgraph(graph)    # for now
         return transformer.tsgraphs_seen
@@ -752,13 +766,17 @@ class HintRTyper(RPythonTyper):
                                         [v_jitstate     , self.v_queue],
                                         annmodel.s_None)
 
-    def translate_op_leave_graph_red(self, hop):
+    def translate_op_leave_graph_red(self, hop, is_portal=False):
         v_jitstate = hop.llops.getjitstate()
+        c_is_portal = inputconst(lltype.Bool, is_portal)
         v_newjs = hop.llops.genmixlevelhelpercall(rtimeshift.leave_graph_red,
-                            [self.s_JITState, self.s_Queue],
-                            [v_jitstate     , self.v_queue],
+                            [self.s_JITState, self.s_Queue, annmodel.s_Bool],
+                            [v_jitstate     , self.v_queue, c_is_portal],
                             self.s_JITState)
         hop.llops.setjitstate(v_newjs)
+
+    def translate_op_leave_graph_portal(self, hop):
+        self.translate_op_leave_graph_red(hop, is_portal=True)
 
     def translate_op_leave_graph_gray(self, hop):
         v_jitstate = hop.llops.getjitstate()
