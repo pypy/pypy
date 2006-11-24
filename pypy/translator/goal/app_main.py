@@ -208,6 +208,7 @@ def entry_point(executable, argv):
         def keyboard_interrupt_handler(*args):
             raise KeyboardInterrupt
         signal.signal(signal.SIGINT, keyboard_interrupt_handler)
+        signal.signal(signal.SIGPIPE, signal.SIG_IGN)
 
     try:
         if sys.argv:
