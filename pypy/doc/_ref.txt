@@ -8,7 +8,10 @@
 .. _`annotation/binaryop.py`: ../../pypy/annotation/binaryop.py
 .. _`pypy/annotation/builtin.py`: ../../pypy/annotation/builtin.py
 .. _`pypy/annotation/model.py`: ../../pypy/annotation/model.py
+.. _`bin/`: ../../pypy/bin
+.. _`config/`: ../../pypy/config
 .. _`doc/`: ../../pypy/doc
+.. _`doc/discussion/`: ../../pypy/doc/discussion
 .. _`interpreter/`:
 .. _`pypy/interpreter`: ../../pypy/interpreter
 .. _`pypy/interpreter/argument.py`: ../../pypy/interpreter/argument.py
@@ -21,8 +24,18 @@
 .. _`pypy/interpreter/mixedmodule.py`: ../../pypy/interpreter/mixedmodule.py
 .. _`pypy/interpreter/nestedscope.py`: ../../pypy/interpreter/nestedscope.py
 .. _`pypy/interpreter/pyopcode.py`: ../../pypy/interpreter/pyopcode.py
+.. _`interpreter/pyparser/`:
 .. _`pypy/interpreter/pyparser`: ../../pypy/interpreter/pyparser
 .. _`pypy/interpreter/typedef.py`: ../../pypy/interpreter/typedef.py
+.. _`jit/`: ../../pypy/jit
+.. _`jit/codegen/`: ../../pypy/jit/codegen
+.. _`pypy/jit/codegen/model.py`: ../../pypy/jit/codegen/model.py
+.. _`jit/hintannotator/`: ../../pypy/jit/hintannotator
+.. _`jit/timeshifter/`: ../../pypy/jit/timeshifter
+.. _`jit/tl/`: ../../pypy/jit/tl
+.. _`lang/`: ../../pypy/lang
+.. _`lang/js/`: ../../pypy/lang/js
+.. _`lang/prolog/`: ../../pypy/lang/prolog
 .. _`lib/`:
 .. _`pypy/lib/`: ../../pypy/lib
 .. _`pypy/lib/stackless.py`: ../../pypy/lib/stackless.py
@@ -31,25 +44,24 @@
 .. _`module/`:
 .. _`pypy/module`:
 .. _`pypy/module/`: ../../pypy/module
-.. _`module/__builtin__/`: ../../pypy/module/__builtin__
 .. _`pypy/module/__builtin__/__init__.py`: ../../pypy/module/__builtin__/__init__.py
 .. _`pypy/module/_demo`: ../../pypy/module/_demo
-.. _`module/_sre/`:
 .. _`pypy/module/_sre`: ../../pypy/module/_sre
 .. _`pypy/module/_sre/interp_sre.py`: ../../pypy/module/_sre/interp_sre.py
 .. _`pypy/module/_stackless/test/test_composable_coroutine.py`: ../../pypy/module/_stackless/test/test_composable_coroutine.py
 .. _`pypy/module/readline`: ../../pypy/module/readline
-.. _`module/recparser/`: ../../pypy/module/recparser
-.. _`module/sys/`: ../../pypy/module/sys
 .. _`objspace/`:
 .. _`pypy/objspace`: ../../pypy/objspace
+.. _`objspace/dump.py`: ../../pypy/objspace/dump.py
 .. _`objspace/flow/`: ../../pypy/objspace/flow
+.. _`objspace/logic.py`: ../../pypy/objspace/logic.py
 .. _`objspace/std/`:
 .. _`pypy/objspace/std`: ../../pypy/objspace/std
 .. _`objspace/thunk.py`: ../../pypy/objspace/thunk.py
 .. _`objspace/trace.py`:
 .. _`pypy/objspace/trace.py`: ../../pypy/objspace/trace.py
-.. _`pypy/rlib`: ../../pypy/rlib
+.. _`pypy/rlib`:
+.. _`rlib/`: ../../pypy/rlib
 .. _`pypy/rlib/objectmodel.py`: ../../pypy/rlib/objectmodel.py
 .. _`pypy/rlib/rarithmetic.py`: ../../pypy/rlib/rarithmetic.py
 .. _`pypy/rlib/test`: ../../pypy/rlib/test
@@ -57,6 +69,7 @@
 .. _`pypy/rpython/`:
 .. _`rpython/`: ../../pypy/rpython
 .. _`pypy/rpython/extfunctable.py`: ../../pypy/rpython/extfunctable.py
+.. _`rpython/lltypesystem/`: ../../pypy/rpython/lltypesystem
 .. _`pypy/rpython/lltypesystem/lltype.py`:
 .. _`rpython/lltypesystem/lltype.py`: ../../pypy/rpython/lltypesystem/lltype.py
 .. _`rpython/memory/`: ../../pypy/rpython/memory
@@ -67,6 +80,7 @@
 .. _`pypy/rpython/module/`: ../../pypy/rpython/module
 .. _`pypy/rpython/module/ll_os.py`: ../../pypy/rpython/module/ll_os.py
 .. _`pypy/rpython/module/test`: ../../pypy/rpython/module/test
+.. _`rpython/ootypesystem/`: ../../pypy/rpython/ootypesystem
 .. _`rpython/ootypesystem/ootype.py`: ../../pypy/rpython/ootypesystem/ootype.py
 .. _`pypy/rpython/rctypes/test/test_ctypes.py`: ../../pypy/rpython/rctypes/test/test_ctypes.py
 .. _`rpython/rint.py`: ../../pypy/rpython/rint.py
@@ -81,12 +95,19 @@
 .. _`tool/tb_server/`: ../../pypy/tool/tb_server
 .. _`pypy/translator`:
 .. _`translator/`: ../../pypy/translator
+.. _`translator/backendopt/`: ../../pypy/translator/backendopt
 .. _`translator/c/`: ../../pypy/translator/c
 .. _`pypy/translator/c/extfunc.py`: ../../pypy/translator/c/extfunc.py
 .. _`pypy/translator/c/src/`: ../../pypy/translator/c/src
 .. _`pypy/translator/c/src/ll_os.h`: ../../pypy/translator/c/src/ll_os.h
 .. _`pypy/translator/c/test/test_extfunc.py`: ../../pypy/translator/c/test/test_extfunc.py
+.. _`translator/cl/`: ../../pypy/translator/cl
+.. _`translator/cli/`: ../../pypy/translator/cli
 .. _`translator/goal/`: ../../pypy/translator/goal
 .. _`pypy/translator/goal/targetnopstandalone.py`: ../../pypy/translator/goal/targetnopstandalone.py
+.. _`translator/js/`: ../../pypy/translator/js
+.. _`translator/jvm/`: ../../pypy/translator/jvm
 .. _`translator/llvm/`: ../../pypy/translator/llvm
+.. _`translator/squeak/`: ../../pypy/translator/squeak
+.. _`translator/stackless/`: ../../pypy/translator/stackless
 .. _`translator/tool/`: ../../pypy/translator/tool

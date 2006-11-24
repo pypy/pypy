@@ -85,11 +85,11 @@ directly -- this avoids problems with low-level details like
 over-allocation, which causes several identical RPython lists to look
 different when represented as low-level structs and arrays.
 
-Hint-RTyper
+Timeshifter
 -----------
 
-Once the graph has been colored, enters the hint-rtyper.  This tool --
-again loosely based on the normal RTyper -- transforms the colored
+Once the graph has been colored, enters the "timeshifter".  This
+tool -- loosely based on the normal RTyper -- transforms the colored
 low-level graphs into the graphs of the compiler.  Broadly speaking,
 this is done by transforming operations annotated with red variables
 into operations that will generate the original operation.  Indeed, red
@@ -183,7 +183,7 @@ example, it unrolls loops infinitely if they are not loops in the
 bytecode but loops in the implementation of a single opcode (we had this
 problem working on the annotator in Vilnius).
 
-The current preliminary work on the hint-rtyper turns the interpreter
+The current preliminary work on the timeshifter turns the interpreter
 into a compiler that saves its state at _all_ join-points permanently.  This
 makes sure that loops are not unexpectedly unrolled, and that the code
 that follows an if/else is not duplicated (as it would be in the
@@ -220,7 +220,7 @@ the compiler, as in Psyco:
 The motivation to do point 2. differently than in Psyco is that it is
 both more powerful (no extra unrolling/duplication of code) and closer
 to what we have already now: the bookkeeping code inserted by the
-hint-rtyper in the compiler's graphs.  In Psyco it would have been a
+timeshifter in the compiler's graphs.  In Psyco it would have been a
 mess to write that bookkeeping code everywhere by hand, not to mention
 changing it to experiment with other ideas.
 
@@ -235,3 +235,16 @@ also perform directly some interpretation as it goes along.  In this
 way, we can avoid some of the recompilation by using this attached value
 e.g. as the first switch case in the red-to-green promotions, or as a
 hint about which outcome of a run-time condition is more likely.
+
+Backends
+----------------
+
+The compilers produced by the timeshifter are linked with one of our
+backends, which are written by hand in RPython.  We currently have a
+backend for producing IA32/i386 machine code in memory, PowerPC machine
+code in memory, or (for testing) further low-level control flow graphs.
+
+The interface is documented in `pypy/jit/codegen/model.py`_.
+
+
+.. include:: _ref.txt

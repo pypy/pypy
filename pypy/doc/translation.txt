@@ -617,9 +617,6 @@ worked on sharing the backend external code with GenC.
 .. _`here`: getting-started.html#translating-the-flow-graph-to-llvm-code
 
 
-.. _`Python again`:
-.. _`Python back-end`:
-
 The Object-Oriented Backends
 ----------------------------
 
@@ -701,6 +698,10 @@ work on OOTyped graphs.
 
 GenCL has seen work from many people, but the driving force has mostly been
 Seo Sanghyeon.
+
+
+.. _`Python again`:
+.. _`Python back-end`:
 
 The Interpreter-Level backend
 -----------------------------

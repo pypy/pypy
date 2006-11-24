@@ -214,6 +214,8 @@ A simple hand-written parser could be sufficient for this.  On the
 other hand, the lexically bounded mini-language proposed above helps
 solve this more uniformly.
 
+.. _`logic programming`:
+
 Logic Programming, Prolog and Oz-style
 ======================================
 

@@ -431,6 +431,8 @@ very-low-level snippets of code.
 See for example `rpython/rlist.py`_.
 
 
+.. _`oo type`:
+
 Object Oriented Types
 ---------------------
 
