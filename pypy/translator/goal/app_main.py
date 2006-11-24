@@ -15,6 +15,13 @@ import sys, os
 
 originalexcepthook = sys.__excepthook__
 
+try:
+    from signal import signal, SIG_IGN, SIGPIPE
+    signal(SIGPIPE, SIG_IGN)
+except ImportError:
+    # XXX: we should do it on c-level anyway
+    pass
+
 def run_toplevel(f, *fargs, **fkwds):
     """Calls f() and handle all OperationErrors.
     Intended use is to run the main program or one interactive statement.
