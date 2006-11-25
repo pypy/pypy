@@ -8,7 +8,7 @@ from pypy.rpython.lltypesystem.lltype import Signed, Unsigned, Bool, Float, \
 from pypy.rpython.rmodel import IntegerRepr, inputconst
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rlib.rarithmetic import intmask, r_int, r_uint, r_ulonglong, r_longlong
-from pypy.rpython.error import TyperError
+from pypy.rpython.error import TyperError, MissingRTypeOperation
 from pypy.rpython.rmodel import log
 from pypy.rlib import objectmodel
 
@@ -116,6 +116,15 @@ class __extend__(pairtype(IntegerRepr, IntegerRepr)):
     def rtype_rshift(_, hop):
         return _rtype_template(hop, 'rshift', [ValueError])
     rtype_inplace_rshift = rtype_rshift
+
+    def rtype_pow(_, hop):
+        raise MissingRTypeOperation("pow(int, int)"
+                                    " (use float**float instead; it is too"
+                                    " easy to overlook the overflow"
+                                    " issues of int**int)")
+
+    rtype_pow_ovf = rtype_pow
+    rtype_inplace_pow = rtype_pow
 
 ##    def rtype_pow(_, hop, suffix=''):
 ##        if hop.has_implicit_exception(ZeroDivisionError):
