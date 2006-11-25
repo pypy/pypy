@@ -12,8 +12,9 @@ from pypy.interpreter.pyframe import ControlFlowException, ExitFrame
 # that return iterators).
 #
 
-class GeneratorFrame(EvalFrame):
+class GeneratorFrameMixin(object):
     "A frame attached to a generator."
+    _mixin_ = True
 
     def run(self):
         "Build a generator-iterator."

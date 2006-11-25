@@ -58,26 +58,20 @@ def setup_frame_classes():
     "NOT_RPYTHON"
     from pypy.interpreter.pyopcode import PyInterpFrame
     from pypy.interpreter.nestedscope import PyNestedScopeFrame
-    from pypy.interpreter.generator import GeneratorFrame
+    from pypy.interpreter.generator import GeneratorFrameMixin
 
-    def fresh_GeneratorFrame_methods():
-        from pypy.tool.sourcetools import func_with_new_name
-        dic = GeneratorFrame.__dict__.copy()
-        for n in dic:
-            x = dic[n]
-            if isinstance(x, types.FunctionType):
-                dic[n] = func_with_new_name(x, x.__name__)
-        return dic
+    class PyGeneratorFrame(GeneratorFrameMixin, PyInterpFrame):
+        pass
+
+    class PyNestedScopeGeneratorFrame(GeneratorFrameMixin, PyNestedScopeFrame):
+        pass
 
     frame_classes.extend([None]*4)
     frame_classes[0]                = PyInterpFrame
     frame_classes[NESTED]           = PyNestedScopeFrame
-    frame_classes[GENERATOR]        = type('PyGeneratorFrame',
-                                           (PyInterpFrame,),
-                                           fresh_GeneratorFrame_methods())
-    frame_classes[NESTED|GENERATOR] = type('PyNestedScopeGeneratorFrame',
-                                           (PyNestedScopeFrame,),
-                                           fresh_GeneratorFrame_methods())
+    frame_classes[GENERATOR]        = PyGeneratorFrame
+    frame_classes[NESTED|GENERATOR] = PyNestedScopeGeneratorFrame
+
 
 class PyCode(eval.Code):
     "CPython-style code objects."
