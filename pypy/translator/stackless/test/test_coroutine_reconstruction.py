@@ -43,14 +43,14 @@ class TestCoroutineReconstruction:
 
             costate = interp_coroutine.Coroutine._get_default_costate()
             bottom = resume_state_create(None, "yield_current_frame_to_caller_1")
-            _bind_frame = resume_state_create(bottom, "coroutine__bind", new_coro, costate)
+            _bind_frame = resume_state_create(bottom, "coroutine__bind", costate)
             f_frame_1 = resume_state_create(_bind_frame, "f_1", main_coro, 5, 1)
             f_frame_2 = resume_state_create(f_frame_1, "f_1", main_coro, 4, 2)
             f_frame_3 = resume_state_create(f_frame_2, "f_1", main_coro, 3, 4)
             f_frame_4 = resume_state_create(f_frame_3, "f_1", main_coro, 2, 8)
             f_frame_5 = resume_state_create(f_frame_4, "f_1", main_coro, 1, 16)
             f_frame_0 = resume_state_create(f_frame_5, "f_0")
-            switch_frame = resume_state_create(f_frame_0, "coroutine_switch", new_coro, costate)
+            switch_frame = resume_state_create(f_frame_0, "coroutine_switch", costate)
 
             new_coro.frame = switch_frame
 
