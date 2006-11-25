@@ -180,6 +180,8 @@ def make_interp(supports_call):
 
             elif opcode == ADD:
                 a, b = stack.pop(), stack.pop()
+                hint(a.__class__, promote=True)
+                hint(b.__class__, promote=True)
                 stack.append(b.add(a))
 
             elif opcode == SUB:
@@ -196,18 +198,26 @@ def make_interp(supports_call):
 
             elif opcode == DIV:
                 a, b = stack.pop(), stack.pop()
+                hint(a.__class__, promote=True)
+                hint(b.__class__, promote=True)
                 stack.append(b.div(a))
 
             elif opcode == EQ:
                 a, b = stack.pop(), stack.pop()
+                hint(a.__class__, promote=True)
+                hint(b.__class__, promote=True)
                 stack.append(IntObj(b.eq(a)))
 
             elif opcode == NE:
                 a, b = stack.pop(), stack.pop()
+                hint(a.__class__, promote=True)
+                hint(b.__class__, promote=True)
                 stack.append(IntObj(not b.eq(a)))
 
             elif opcode == LT:
                 a, b = stack.pop(), stack.pop()
+                hint(a.__class__, promote=True)
+                hint(b.__class__, promote=True)
                 stack.append(IntObj(b.lt(a)))
 
             elif opcode == LE:
@@ -218,10 +228,14 @@ def make_interp(supports_call):
 
             elif opcode == GT:
                 a, b = stack.pop(), stack.pop()
+                hint(a.__class__, promote=True)
+                hint(b.__class__, promote=True)
                 stack.append(IntObj(a.lt(b)))
 
             elif opcode == GE:
                 a, b = stack.pop(), stack.pop()
+                hint(a.__class__, promote=True)
+                hint(b.__class__, promote=True)
                 stack.append(IntObj(not b.lt(a)))
 
             elif opcode == BR_COND:
