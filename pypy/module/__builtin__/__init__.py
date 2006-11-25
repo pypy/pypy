@@ -4,6 +4,7 @@ from pypy.interpreter.mixedmodule import MixedModule
 
 class Module(MixedModule):
     """Built-in functions, exceptions, and other objects."""
+    expose__file__attribute = False
 
     appleveldefs = {
         'quit'          : 'app_help.exit',

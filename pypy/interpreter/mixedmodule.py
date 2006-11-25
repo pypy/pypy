@@ -12,6 +12,7 @@ class MixedModule(Module):
     NOT_RPYTHON_ATTRIBUTES = ['loaders']
 
     applevel_name = None
+    expose__file__attribute = True
     
     def __init__(self, space, w_name): 
         """ NOT_RPYTHON """ 
@@ -84,7 +85,8 @@ class MixedModule(Module):
             for name, spec in cls.appleveldefs.items(): 
                 loaders[name] = getappfileloader(pkgroot, spec) 
             assert '__file__' not in loaders 
-            loaders['__file__'] = cls.get__file__
+            if cls.expose__file__attribute:
+                loaders['__file__'] = cls.get__file__
             if '__doc__' not in loaders:
                 loaders['__doc__'] = cls.get__doc__
 

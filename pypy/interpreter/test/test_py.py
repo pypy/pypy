@@ -91,3 +91,16 @@ def test_tb_normalization():
         pass
     assert e," expected failure"
     assert e.err.splitlines()[-1] == 'KeyError: <normalized>'
+
+
+def test_no__file__in_main():
+    tmpfilepath = udir.join("test_py_script.py")
+    tmpfilepath.write(str(py.code.Source("""
+        try:
+            print __file__
+        except NameError:
+            print 'no __file__.'
+    """)))
+    output = py.process.cmdexec( '''"%s" "%s" "%s" ''' %
+                                 (sys.executable, pypypath, tmpfilepath) )
+    assert 'no __file__.\n' in output
