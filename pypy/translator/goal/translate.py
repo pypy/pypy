@@ -4,7 +4,7 @@ Command-line options for translate:
 
     See below
 """
-import sys, os
+import sys, os, new
 
 import autopath 
 
@@ -93,12 +93,10 @@ def load_target(targetspec):
         targetspec += '.py'
     thismod = sys.modules[__name__]
     sys.modules['translate'] = thismod
-    targetspec_dic = {
-        '__name__': os.path.splitext(os.path.basename(targetspec))[0],
-        '__file__': targetspec}
+    specname = os.path.splitext(os.path.basename(targetspec))[0]
     sys.path.insert(0, os.path.dirname(targetspec))
-    execfile(targetspec, targetspec_dic)
-    return targetspec_dic
+    mod = __import__(specname)
+    return mod.__dict__
 
 def parse_options_and_load_target():
     opt_parser = optparse.OptionParser(usage="%prog [options] [target] [target-specific-options]",
