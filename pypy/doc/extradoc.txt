@@ -8,7 +8,7 @@ Talks and Presentations
 Talks in 2006
 +++++++++++++
 
-* 'PyPy's VM Approach'_ talk, given by Armin Rigo at the Dynamic Languages
+* `PyPy's VM Approach`_ talk, given by Armin Rigo at the Dynamic Languages
   Symposium at OOPSLA'06 (Portland OR), and by Samuele Pedroni at Intel
   Hillsboro (OR)  (October). The talk presents the paper 
   `PyPy's approach to virtual machine construction`_ accepted for 
