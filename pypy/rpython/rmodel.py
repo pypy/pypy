@@ -299,24 +299,22 @@ class __extend__(pairtype(Repr, Repr)):
 # ____________________________________________________________
 
 
-def missing_rtype_operation(self, hop):
-    raise MissingRTypeOperation("unimplemented operation: '%s' on %r" % (
-        hop.spaceop.opname, self))
-
-def setattr_default(obj, attr, value):
-    if not hasattr(obj, attr):
-        setattr(obj, attr, value)
+def make_missing_op(rcls, opname):
+    attr = 'rtype_' + opname
+    if not hasattr(rcls, attr):
+        def missing_rtype_operation(self, hop):
+            raise MissingRTypeOperation("unimplemented operation: "
+                                        "'%s' on %r" % (opname, self))
+        setattr(rcls, attr, missing_rtype_operation)
 
 for opname in annmodel.UNARY_OPERATIONS:
-    setattr_default(Repr, 'rtype_' + opname, missing_rtype_operation)
+    make_missing_op(Repr, opname)
 
 for opname in annmodel.BINARY_OPERATIONS:
-    setattr_default(pairtype(Repr, Repr),
-                    'rtype_' + opname, missing_rtype_operation)
+    make_missing_op(pairtype(Repr, Repr), opname)
 
 # not in BINARY_OPERATIONS
-setattr_default(pairtype(Repr, Repr),
-                'rtype_contains', missing_rtype_operation)
+make_missing_op(pairtype(Repr, Repr), 'contains')
 
 class __extend__(pairtype(Repr, Repr)):
     def convert_from_to((r_from, r_to), v, llops):
