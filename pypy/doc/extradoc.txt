@@ -8,6 +8,12 @@ Talks and Presentations
 Talks in 2006
 +++++++++++++
 
+* 'PyPy's VM Approach'_ talk, given by Armin Rigo at the Dynamic Languages
+  Symposium at OOPSLA'06 (Portland OR), and by Samuele Pedroni at Intel
+  Hillsboro (OR)  (October). The talk presents the paper 
+  `PyPy's approach to virtual machine construction`_ accepted for 
+  the symposium.
+
 * `PyPy Status`_ talk, given by Samuele Pedroni at the Vancouner
   Python Workshop 2006 (August). 
 
@@ -88,6 +94,9 @@ Talks in 2004
 .. _`Open Source, EU-Funding and Agile Methods`: http://codespeak.net/pypy/extradoc/talk/22c3/agility.pdf
 .. _`PyPy Status`: http://codespeak.net/pypy/extradoc/talk/vancouver/talk.html
 .. _`Sprinting the PyPy way`: http://codespeak.net/svn/pypy/extradoc/talk/ep2005/pypy_sprinttalk_ep2005bd.pdf
+.. _`PyPy's VM Approach`: http://codespeak.net/pypy/extradoc/talk/dls2006/talk.html
+.. _`PyPy's approach to virtual machine construction`: http://codespeak.net/svn/pypy/extradoc/talk/dls2006/pypy-vm-construction.pdf
+
 
 Related projects 
 ----------------------------------
