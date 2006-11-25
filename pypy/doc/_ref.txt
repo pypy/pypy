@@ -48,6 +48,7 @@
 .. _`pypy/module/_demo`: ../../pypy/module/_demo
 .. _`pypy/module/_sre`: ../../pypy/module/_sre
 .. _`pypy/module/_sre/interp_sre.py`: ../../pypy/module/_sre/interp_sre.py
+.. _`pypy/module/_stackless/test/test_clonable.py`: ../../pypy/module/_stackless/test/test_clonable.py
 .. _`pypy/module/_stackless/test/test_composable_coroutine.py`: ../../pypy/module/_stackless/test/test_composable_coroutine.py
 .. _`pypy/module/readline`: ../../pypy/module/readline
 .. _`objspace/`:
