@@ -155,14 +155,20 @@ class HintRTyper(RPythonTyper):
         entrygraph = self.annotator.translator.graphs[0]
         if origportalgraph:
             portalgraph = bk.get_graph_by_key(origportalgraph, None)
+            leaveportalgraph = portalgraph
         else:
             portalgraph = None
+            # in the case of tests not specifying a portal
+            # we still need to force merges when entry
+            # returns
+            leaveportalgraph = entrygraph
+            
         pending = [entrygraph]
         seen = {entrygraph: True}
         while pending:
             graph = pending.pop()
             for nextgraph in self.transform_graph(graph,
-                                is_portal=graph is portalgraph):
+                                is_portal=graph is leaveportalgraph):
                 if nextgraph not in seen:
                     pending.append(nextgraph)
                     seen[nextgraph] = True

@@ -185,44 +185,6 @@ class TestPromotion(TimeshiftingTests):
         res = self.timeshift(ll_function, [100, 2], [], policy=P_NOVIRTUAL)
         assert res == ll_function(100, 2)
 
-
-    def test_method_call_nonpromote(self):
-        class Base(object):
-            pass
-        class Int(Base):
-            def __init__(self, n):
-                self.n = n
-            def double(self):
-                return Int(self.n * 2)
-            def get(self):
-                return self.n
-        class Str(Base):
-            def __init__(self, s):
-                self.s = s
-            def double(self):
-                return Str(self.s + self.s)
-            def get(self):
-                return int(self.s)
-
-        def ll_make(n):
-            if n > 0:
-                return Int(n)
-            else:
-                return Str('123')
-
-        def ll_function(n):
-            o = ll_make(n)
-            return o.double().get()
-
-        res = self.timeshift(ll_function, [5], [], policy=P_NOVIRTUAL)
-        assert res == 10
-        self.check_insns(indirect_call=2)
-
-        res = self.timeshift(ll_function, [0], [], policy=P_NOVIRTUAL)
-        assert res == 123123
-        self.check_insns(indirect_call=2)
-
-
     def test_mixed_merges(self):
         def ll_function(x, y, z, k):
             if x:

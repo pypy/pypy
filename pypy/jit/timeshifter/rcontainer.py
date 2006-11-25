@@ -1,3 +1,4 @@
+
 import operator
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.annlowlevel import cachedtype
@@ -192,6 +193,8 @@ class FrozenVirtualStruct(FrozenContainer):
             outgoingvarboxes.append(vstruct.ownbox)
             return False
         if self.typedesc is not vstruct.typedesc:
+            if not memo.force_merge:
+                raise rvalue.DontMerge
             outgoingvarboxes.append(vstruct.ownbox)
             return False
         contmemo[self] = vstruct

@@ -237,9 +237,6 @@ def start_new_block(states_dic, jitstate, key, global_resumer, index=-1):
         #debug_print(lltype.Void, "PROMOTION ROOT")
 start_new_block._annspecialcase_ = "specialize:arglltype(2)"
 
-class DontMerge(Exception):
-    pass
-
 def retrieve_jitstate_for_merge(states_dic, jitstate, key, global_resumer,
                                 force_merge=False):
     if key not in states_dic:
@@ -255,7 +252,7 @@ def retrieve_jitstate_for_merge(states_dic, jitstate, key, global_resumer,
         
         try:
             match = frozen.exactmatch(jitstate, outgoingvarboxes, memo)
-        except DontMerge:
+        except rvalue.DontMerge:
             continue
         if match:
             linkargs = []

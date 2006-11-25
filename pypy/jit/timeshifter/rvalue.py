@@ -25,6 +25,8 @@ def copy_memo():
 def unfreeze_memo():
     return Memo()
 
+class DontMerge(Exception):
+    pass
 
 class RedBox(object):
     __slots__ = ['kind', 'genvar']
@@ -397,7 +399,12 @@ class FrozenPtrConst(FrozenConst):
     def exactmatch(self, box, outgoingvarboxes, memo):
         assert isinstance(box, PtrRedBox)
         memo.partialdatamatch[box] = None     # could do better
-        return FrozenConst.exactmatch(self, box, outgoingvarboxes, memo)
+        match = FrozenConst.exactmatch(self, box, outgoingvarboxes, memo)
+        if not memo.force_merge and not match:
+            from pypy.jit.timeshifter.rcontainer import VirtualContainer
+            if isinstance(box.content, VirtualContainer):
+                raise DontMerge
+        return match
 
     def unfreeze(self, incomingvarboxes, memo):
         return PtrRedBox(self.kind, self.gv_const)
@@ -408,7 +415,12 @@ class FrozenPtrVar(FrozenVar):
     def exactmatch(self, box, outgoingvarboxes, memo):
         assert isinstance(box, PtrRedBox)
         memo.partialdatamatch[box] = None
-        return FrozenVar.exactmatch(self, box, outgoingvarboxes, memo)
+        match = FrozenVar.exactmatch(self, box, outgoingvarboxes, memo)
+        if not memo.force_merge and not match:
+            from pypy.jit.timeshifter.rcontainer import VirtualContainer
+            if isinstance(box.content, VirtualContainer):
+                raise DontMerge
+        return match
 
     def unfreeze(self, incomingvarboxes, memo):
         memo = memo.boxes
@@ -431,7 +443,12 @@ class FrozenPtrVarWithPartialData(FrozenPtrVar):
                                                         memo.partialdatamatch)
         # skip the parent's exactmatch()!
         exact = FrozenVar.exactmatch(self, box, outgoingvarboxes, memo)
-        return exact and partialdatamatch
+        match = exact and partialdatamatch
+        if not memo.force_merge and not match:
+            from pypy.jit.timeshifter.rcontainer import VirtualContainer
+            if isinstance(box.content, VirtualContainer):
+                raise DontMerge
+        return match
 
 
 class FrozenPtrVirtual(FrozenValue):
@@ -440,12 +457,13 @@ class FrozenPtrVirtual(FrozenValue):
         assert isinstance(box, PtrRedBox)
         if box.genvar:
             outgoingvarboxes.append(box)
-            return False
+            match = False
         else:
             assert box.content is not None
-            return self.fz_content.exactmatch(box.content, outgoingvarboxes,
+            match = self.fz_content.exactmatch(box.content, outgoingvarboxes,
                                               memo)
-
+        return match
+    
     def unfreeze(self, incomingvarboxes, memo):
         return self.fz_content.unfreeze(incomingvarboxes, memo)
 

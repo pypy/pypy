@@ -197,6 +197,43 @@ class TestPortal(PortalTest):
                                          policy=P_OOPSPEC)
         assert not res
 
+    def test_method_call_nonpromote(self):
+        class Base(object):
+            pass
+        class Int(Base):
+            def __init__(self, n):
+                self.n = n
+            def double(self):
+                return Int(self.n * 2)
+            def get(self):
+                return self.n
+        class Str(Base):
+            def __init__(self, s):
+                self.s = s
+            def double(self):
+                return Str(self.s + self.s)
+            def get(self):
+                return ord(self.s[4])
+
+        def ll_main(n):
+            if n > 0:
+                o = Int(n)
+            else:
+                o = Str('123')
+            return ll_function(o)
+
+        def ll_function(o):
+            hint(None, global_merge_point=True)
+            return o.double().get()
+
+        res = self.timeshift_from_portal(ll_main, ll_function, [5], policy=P_NOVIRTUAL)
+        assert res == 10
+        self.check_insns(indirect_call=2)
+
+        res = self.timeshift_from_portal(ll_main, ll_function, [0], policy=P_NOVIRTUAL)
+        assert res == ord('2')
+        self.check_insns(indirect_call=2)
+
     def test_method_call_promote(self):
         class Base(object):
             pass
@@ -236,7 +273,6 @@ class TestPortal(PortalTest):
         self.check_insns(indirect_call=0)
 
     def test_virt_obj_method_call_promote(self):
-        py.test.skip('WIP')
         class Base(object):
             pass
         class Int(Base):
