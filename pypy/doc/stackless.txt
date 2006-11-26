@@ -268,8 +268,9 @@ To be able to achieve this result, we have to consider many objects that
 are not normally picklable in CPython.  Here again, the `Stackless
 Python`_ implementation has paved the way, and we follow the same
 general design decisions: simple internal objects like bound method
-objects and various kind of iterators are supported; frame objects can
-be fully pickled and unpickled (by serializing the bytecode they are
+objects and various kinds of iterators are supported; frame objects can
+be fully pickled and unpickled
+(by serializing a reference to the bytecode they are
 running in addition to all the local variables).  References to globals
 and modules are pickled by name, similarly to references to functions
 and classes in the traditional CPython ``pickle``.
@@ -504,7 +505,7 @@ Composability
 
 Although the concept of coroutines is far from new, they have not been
 generally integrated into mainstream languages, or only in limited form
-(like generators in Python and iterators C#).  We can argue that a
+(like generators in Python and iterators in C#).  We can argue that a
 possible reason for that is that they do not scale well when a program's
 complexity increases: they look attractive in small examples, but the
 models that require explicit switching, by naming the target coroutine,
