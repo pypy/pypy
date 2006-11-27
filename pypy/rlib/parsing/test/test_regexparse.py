@@ -135,4 +135,16 @@ def test_singlequote():
     assert r.recognize("'X'")
     assert not r.recognize("''")
 
+def test_unescape():
+    from pypy.rlib.parsing.regexparse import unescape
+    s = "".join(["\\x%s%s" % (a, b) for a in "0123456789abcdefABCDEF"
+                    for b in "0123456789ABCDEFabcdef"])
+    assert unescape(s) == eval("'" + s + "'")
 
+def test_escaped_quote():
+    r = make_runner(r'"[^\\"]*(\\.[^\\"]*)*"')
+    assert r.recognize(r'""')
+    assert r.recognize(r'"a"')
+    assert r.recognize(r'"a\"b"')
+    assert r.recognize(r'"\\\""')
+    assert not r.recognize(r'"\\""')

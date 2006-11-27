@@ -20,17 +20,21 @@ def make_ebnf_parser():
                StringExpression('\t')]
     rs, rules, transformer = parse_ebnf(r"""
     file: list EOF;
-    list: element*;
-    element: regex | production;
+    list: element+;
+    element: <regex> | <production>;
     regex: SYMBOLNAME ":" QUOTE ";";
     production: NONTERMINALNAME ":" body ";";
-    body: expansion "|" body | expansion;
-    expansion: enclosed expansion | enclosed;
-    enclosed: "[" primary "]" |
+    body: (expansion ["|"])* expansion;
+    expansion: decorated+;
+    decorated: enclosed "*" |
+               enclosed "+" |
+               enclosed "?" |
+               <enclosed>;
+    enclosed: "[" expansion "]" |
+              ">" expansion "<" |
               "<" primary ">" |
-              primary_parens "*" |
-              primary;
-    primary_parens: "(" expansion ")" | primary;
+              "(" <expansion> ")" |
+              <primary>;
     primary: NONTERMINALNAME | SYMBOLNAME | QUOTE;
     """)
     names2, regexs2 = zip(*rs)
@@ -46,11 +50,25 @@ def parse_ebnf(s):
     print tokens
     s = parser.parse(tokens)
     s = s.visit(EBNFToAST())
+    assert len(s) == 1
+    s = s[0]
     s.visit(visitor)
-    visitor.fix_rule_order()
-    ToAstVisitor = make_transformer(visitor.rules, visitor.changes,
-                                    visitor.star_rules)
-    return zip(visitor.names, visitor.regexs), visitor.rules, ToAstVisitor
+    
+    rules, changes = visitor.get_rules_and_changes()
+    maker = TransformerMaker(rules, changes)
+    ToAstVisitor = maker.make_transformer()
+    return zip(visitor.names, visitor.regexs), rules, ToAstVisitor
+
+def check_for_missing_names(names, regexs, rules):
+    known_names = dict.fromkeys(names, True)
+    known_names["EOF"] = True
+    for rule in rules:
+        known_names[rule.nonterminal] = True
+    for rule in rules:
+        for expansion in rule.expansions:
+            for symbol in expansion:
+                if symbol not in known_names:
+                    raise ValueError("symbol '%s' not known" % (symbol, ))
 
 def make_parse_function(regexs, rules, eof=False):
     from pypy.rlib.parsing.lexer import Lexer
@@ -59,6 +77,7 @@ def make_parse_function(regexs, rules, eof=False):
         ignore = ["IGNORE"]
     else:
         ignore = []
+    check_for_missing_names(names, regexs, rules)
     lexer = Lexer(list(regexs), list(names), ignore=ignore)
     parser = PackratParser(rules, rules[0].nonterminal)
     def parse(s):
@@ -73,15 +92,18 @@ class ParserBuilder(object):
         self.names = []
         self.rules = []
         self.changes = []
-        self.star_rules = {}
+        self.maybe_rules = {}
+        self.num_plus_symbols = 0
         self.first_rule = None
+        self.literals = {}
+
     def visit_file(self, node):
         return node.children[0].visit(self)
+
     def visit_list(self, node):
-        for child in node.children[0].children:
+        for child in node.children:
             child.visit(self)
-    def visit_element(self, node):
-        node.children[0].visit(self)
+
     def visit_regex(self, node):
         regextext = node.children[2].additional_info[1:-1].replace('\\"', '"')
         regex = parse_regex(regextext)
@@ -90,233 +112,456 @@ class ParserBuilder(object):
                 "%s is not a valid regular expression" % regextext)
         self.regexs.append(regex)
         self.names.append(node.children[0].additional_info)
+
     def visit_production(self, node):
-        self.conditions = []
-        self.returnvals = []
         name = node.children[0].additional_info
-        expansions, changes = node.children[2].visit(self)
-        self.rules.append(Rule(name, expansions))
+        expansions = node.children[2].visit(self)
+        changes = []
+        rule_expansions = []
+        for expansion in expansions:
+            expansion, change = zip(*expansion)
+            rule_expansions.append(list(expansion))
+            changes.append("".join(change))
         if self.first_rule is None:
             self.first_rule = name
         self.changes.append(changes)
+        self.rules.append(Rule(name, rule_expansions))
+
     def visit_body(self, node):
-        if len(node.children) == 1:
-            expansion, changes = node.children[0].visit(self)
-            return [expansion], [changes]
-        expansion, change = node.children[0].visit(self)
-        expansions, changes = node.children[2].visit(self)
-        expansions.insert(0, expansion)
-        changes.insert(0, change)
-        return expansions, changes
+        expansions = []
+        for child in node.children:
+            expansion = child.visit(self)
+            expansions.append(expansion)
+        return expansions
+
     def visit_expansion(self, node):
-        if len(node.children) == 1:
-            return node.children[0].visit(self)
-        expansion1, changes1 = node.children[0].visit(self)
-        expansion2, changes2 = node.children[1].visit(self)
-        return expansion1 + expansion2, changes1 + changes2
+        expansions = []
+        for child in node.children:
+            expansion = child.visit(self)
+            expansions += expansion
+        return expansions
+
     def visit_enclosed(self, node):
-        if len(node.children) == 1:
-            return node.children[0].visit(self), " "
-        elif len(node.children) == 3:
-            return (node.children[1].visit(self),
-                    node.children[0].additional_info)
-        elif len(node.children) == 2:
-            # XXX
-            expansions, changes = node.children[0].visit(self)
-            name = "_star_symbol%s" % (len(self.star_rules), )
-            self.rules.append(Rule(name, [expansions + [name], []]))
-            self.changes.append([changes + " ", changes])
-            self.star_rules[name] = self.rules[-1]
-            return [name], " "
+        result = []
+        newchange = node.children[0].additional_info
+        for name, change in node.children[1].visit(self):
+            assert change == " " or change == newchange
+            result.append((name, newchange))
+        return result
+    
+    def visit_decorated(self, node):
+        expansions = node.children[0].visit(self)
+        expansions, changes = zip(*expansions)
+        expansions, changes = list(expansions), "".join(changes)
+        if node.children[1].additional_info == "*":
+            name = "_star_symbol%s" % (len(self.maybe_rules), )
+            maybe_rule = True
+            expansions = [expansions + [name], expansions]
+            changes = [changes + ">", changes]
+        elif node.children[1].additional_info == "+":
+            name = "_plus_symbol%s" % (self.num_plus_symbols, )
+            self.num_plus_symbols += 1
+            maybe_rule = False
+            expansions = [expansions + [name], expansions]
+            changes = [changes + ">", changes]
+        elif node.children[1].additional_info == "?":
+            name = "_maybe_symbol%s" % (len(self.maybe_rules), )
+            maybe_rule = True
+            expansions = [expansions]
+            changes = [changes]
+        self.rules.append(Rule(name, expansions))
+        self.changes.append(changes)
+        if maybe_rule:
+            self.maybe_rules[name] = self.rules[-1]
+        return [(name, ">")]
+
     def visit_primary_parens(self, node):
         if len(node.children) == 1:
-            return node.children[0].visit(self), " "
+            return node.children[0].visit(self)
         else:
             return node.children[1].visit(self)
+
     def visit_primary(self, node):
-        if len(node.children) == 3:
-            return node.children[1].visit(self)
-        elif node.children[0].symbol == "QUOTE":
-            # harmless, since the string starts and ends with quotes
+        if node.children[0].symbol == "QUOTE":
+            from pypy.rlib.parsing.regexparse import unescape
             content = node.children[0].additional_info[1:-1]
-            if content.endswith("'"):
-                e = '"""' + content + '"""'
-            else:
-                e = "'''" + content + "'''"
-            name = eval(e)
-            self.names.insert(0, name)
-            self.regexs.insert(0, StringExpression(name))
-            return [name]
+            expression = unescape(content)
+            name = self.get_literal_name(expression)
+            return [(name, " ")]
         else:
-            return [node.children[0].additional_info]
+            return [(node.children[0].additional_info, " ")]
+
+    def get_literal_name(self, expression):
+        if expression in self.literals:
+            return self.literals[expression]
+        name = "__%s_%s" % (len(self.literals), expression)
+        self.literals[expression] = name
+        self.regexs.insert(0, StringExpression(expression))
+        self.names.insert(0, name)
+        return name
+
+    def get_rules_and_changes(self):
+        self.fix_rule_order()
+        return self.add_all_possibilities()
+
     def fix_rule_order(self):
         if self.rules[0].nonterminal != self.first_rule:
-            i = [r.nonterminal for r in self.rules].index(self.first_rule)
+            for i, r in enumerate(self.rules):
+                if r.nonterminal == self.first_rule:
+                    break
             self.rules[i], self.rules[0] = self.rules[0], self.rules[i]
             self.changes[i], self.changes[0] = self.changes[0], self.changes[i]
 
-def make_transformer(rules, changes, star_rules):
-    rulenames = dict.fromkeys([r.nonterminal for r in rules])
-    result = ["class ToAST(RPythonVisitor):"]
-    result.append("    def general_visit(self, node):")
-    result.append("        return node")
-    for rule, change in zip(rules, changes):
-        lenchanges = [len(c) for c in change]
-        result.append("    def visit_%s(self, node):" % (rule.nonterminal, ))
-        if rule.nonterminal in star_rules:
-            subchange = change[0]
-            expansion = rule.expansions[0]
-            result.append("        children = []")
-            result.append("        while len(node.children) == %s:" % (
-                          len(expansion), ))
-            children = []
-            for i, (n, c) in enumerate(zip(expansion[:-1], subchange[:-1])):
-                if c == " ":
-                    children.append("self.dispatch(node.children[%s])" % (i, ))
-            result.append(
-                "            children.extend([%s])" % (
-                (",\n" + " " * 45).join(children)))
-            result.append("            node = node.children[-1]")
-            result.append(
-                "        children.extend([%s])" % (
-                (",\n" + " " * 45).join(children)))
-            result.append("        return Nonterminal('__list', children)")
-            continue
-        for j, (expansion, subchange) in enumerate(
-            zip(rule.expansions, change)):
-            if len(rule.expansions) == 1:
-                result.append("        if True:")
-            elif j == len(rule.expansions) - 1:
-                result.append("        else:")
-            elif lenchanges.count(len(expansion)) == 1:
-                result.append("        if len(node.children) == %s:" %
-                   (len(expansion), ))
-            else:
-                conds = ["len(node.children) == %s" % (len(expansion), )]
-                for i, n in enumerate(expansion):
-                    conds.append("node.children[%s].symbol == %r" % (i, n))
-                result.append(
-                    "        if (%s):" % (" and \n            ".join(conds), ))
+    def add_all_possibilities(self):
+        all_rules = []
+        all_changes = []
+        for rule, changes in zip(self.rules, self.changes):
+            real_changes = []
+            real_expansions = []
+            for expansion, change in zip(rule.expansions, changes):
+                maybe_pattern = [symbol in self.maybe_rules
+                                     for symbol in expansion]
+                n = maybe_pattern.count(True)
+                if n == 0:
+                    real_expansions.append(expansion)
+                    real_changes.append(change)
+                    continue
+                assert n != len(expansion), (
+                    "currently an expansion needs at least one"
+                    "symbol that always has to occur")
+                maybe_index = {}
+                for i, star in enumerate(maybe_pattern):
+                    if star:
+                        maybe_index[i] = len(maybe_index)
+                for i in range(2 ** n):
+                    real_expansion = []
+                    real_change = []
+                    for j, (symbol, ch) in enumerate(zip(expansion, change)):
+                        if (j not in maybe_index or
+                            (i & (2 ** (n - 1) >> maybe_index[j])) == 0):
+                            real_expansion.append(symbol)
+                            real_change.append(ch)
+                    real_expansions.append(real_expansion)
+                    real_changes.append(real_change)
+            all_rules.append(Rule(rule.nonterminal, real_expansions))
+            all_changes.append(real_changes)
+        return all_rules, all_changes
+
+class TransformerMaker(object):
+    def __init__(self, rules, changes):
+        self.rules = rules
+        self.changes = changes
+        self.nonterminals = dict.fromkeys([rule.nonterminal for rule in rules])
+        self.code = []
+        self.depth = 0
+        self.blocks = []
+
+    def make_transformer(self, print_code=False):
+        self.start_block("class ToAST(object):")
+        for i in range(len(self.rules)):
+            self.create_visit_method(i)
+        self.start_block("def transform(self, tree):")
+        self.emit("assert isinstance(tree, Nonterminal)")
+        startsymbol = self.rules[0].nonterminal
+        self.emit("assert tree.symbol == %r" % (startsymbol, ))
+        self.emit("r = self.visit_%s(tree)" % (startsymbol, ))
+        self.emit("assert len(r) == 1")
+        self.emit("return r[0]")
+        self.end_block("transform")
+        self.end_block("ToAST")
+        assert not self.blocks
+        code = "\n".join(self.code)
+        if print_code:
+            print code
+        ns = {"RPythonVisitor": RPythonVisitor, "Nonterminal": Nonterminal}
+        exec py.code.Source(code).compile() in ns
+        ToAST = ns["ToAST"]
+        ToAST.__module__ = "pypy.rlib.parsing.ebnfparse"
+        assert isinstance(ToAST, type)
+        assert ToAST.__name__ == "ToAST"
+        ToAST.source = code
+        return ToAST
+
+    def emit(self, line):
+        for line in line.split("\n"):
+            self.code.append(" " * (4 * len(self.blocks)) + line)
+
+    def start_block(self, blockstarter):
+        assert blockstarter.endswith(":")
+        self.emit(blockstarter)
+        self.blocks.append(blockstarter)
+
+    def end_block(self, starterpart=""):
+        block = self.blocks.pop()
+        assert starterpart in block, "ended wrong block %s with %s" % (
+            block, starterpart)
+
+    def dispatch(self, symbol, expr):
+        if symbol in self.nonterminals:
+            return "self.visit_%s(%s)" % (symbol, expr)
+        return "[%s]" % (expr, )
+
+    def create_visit_method(self, index):
+        rule = self.rules[index]
+        change = self.changes[index]
+        self.start_block("def visit_%s(self, node):" % (rule.nonterminal, ))
+        for expansion, subchange in self.generate_conditions(index):
             if "<" in subchange:
                 i = subchange.index("<")
-                assert subchange.count("<") == 1
-                result.append("            return self.dispatch(node.children[%s])" % (i, ))
+                assert subchange.count("<") == 1, (
+                    "cannot expand more than one node in rule %s" % (rule, ))
+                i = subchange.index("<")
+                returnval = self.dispatch(
+                    expansion[i], "node.children[%s]" % (i, ))
+                self.emit("return " + returnval)
             else:
-                children = []
-                assert len(expansion) == len(subchange)
-                for i, (n, c) in enumerate(zip(expansion, subchange)):
-                    if c == " ":
-                        children.append("self.dispatch(node.children[%s])" % (i, ))
-                result.append(
-                    "            return Nonterminal(node.symbol, [%s])" % (
-                    (",\n" + " " * 45).join(children)))
-        result.append("")
-    return "\n".join(result)
+                self.create_returning_code(expansion, subchange)
+        self.end_block(rule.nonterminal)
+
+    def create_returning_code(self, expansion, subchange):
+        assert len(expansion) == len(subchange)
+        children = []
+        self.emit("children = []")
+        for i, (symbol, c) in enumerate(zip(expansion, subchange)):
+            if c == "[":
+                continue
+            expr = self.dispatch(symbol, "node.children[%s]" % (i, ))
+            if c == " ":
+                self.emit("children.extend(%s)" % (expr, ))
+            if c == ">":
+                self.emit("expr = %s" % (expr, ))
+                self.emit("assert len(expr) == 1")
+                self.emit("children.extend(expr[0].children)")
+        self.emit("return [Nonterminal(node.symbol, children)]")
+
+    def generate_conditions(self, index):
+        rule = self.rules[index]
+        change = self.changes[index]
+        len_partition = {}
+        if len(rule.expansions) == 1:
+            yield rule.expansions[0], change[0]
+            return
+        for expansion, subchange in zip(rule.expansions, change):
+            len_partition.setdefault(len(expansion), []).append(
+                (expansion, subchange))
+        len_partition = len_partition.items()
+        len_partition.sort()
+        last_length = len_partition[-1][0]
+        self.emit("length = len(node.children)")
+        for length, items in len_partition:
+            if length < last_length:
+                self.start_block("if length == %s:" % (length, ))
+            if len(items) == 1:
+                yield items[0]
+                if length < last_length:
+                    self.end_block("if length ==")
+                continue
+            # XXX quite bad complexity, might be ok in practice
+            while items:
+                shorter = False
+                for i in range(length):
+                    symbols = {}
+                    for pos, item in enumerate(items):
+                        expansion = item[0]
+                        symbol = expansion[i]
+                        symbols.setdefault(symbol, []).append((pos, item))
+                    symbols = symbols.items()
+                    symbols.sort()
+                    remove = []
+                    for symbol, subitems in symbols:
+                        if (len(subitems) == 1 and
+                            (len(items) - len(remove)) > 1):
+                            self.start_block(
+                                "if node.children[%s].symbol == %r:" % (
+                                    i, symbol))
+                            pos, subitem = subitems[0]
+                            yield subitem
+                            remove.append(pos)
+                            shorter = True
+                            self.end_block("if node.children[")
+                    remove.sort()
+                    for pos in remove[::-1]:
+                        items.pop(pos)
+                if shorter:
+                    if len(items) == 1:
+                        yield items[0]
+                        items.pop(0)
+                    else:
+                        continue
+                break
+            # for the remaining items we do a brute force comparison
+            # could be even cleverer, but very unlikely to be useful
+            assert len(items) != 1
+            for expansion, subchange in items:
+                conds = []
+                for i, symbol in enumerate(expansion):
+                    conds.append("node.children[%s].symbol == %r" % (
+                        i, symbol))
+                self.start_block("if (%s):" % (" and ".join(conds), ))
+                yield expansion, subchange
+                self.end_block("if")
+            if length < last_length:
+                self.end_block("if length ==")
+
 
 
 # generated code between this line and its other occurence
 class EBNFToAST(object):
     def visit_file(self, node):
-        if True:
-            return Nonterminal(node.symbol, [node.children[0].visit(self),
-                                             node.children[1].visit(self)])
-
-    def visit__star_symbol0(self, node):
         children = []
-        while len(node.children) == 2:
-            children.extend([node.children[0].visit(self)])
-            node = node.children[-1]
-        children.extend([node.children[0].visit(self)])
-        return Nonterminal('__list', children)
+        children.extend(self.visit_list(node.children[0]))
+        children.extend([node.children[1]])
+        return [Nonterminal(node.symbol, children)]
+    def visit__plus_symbol0(self, node):
+        length = len(node.children)
+        if length == 1:
+            children = []
+            children.extend(self.visit_element(node.children[0]))
+            return [Nonterminal(node.symbol, children)]
+        children = []
+        children.extend(self.visit_element(node.children[0]))
+        expr = self.visit__plus_symbol0(node.children[1])
+        assert len(expr) == 1
+        children.extend(expr[0].children)
+        return [Nonterminal(node.symbol, children)]
     def visit_list(self, node):
-        if True:
-            return Nonterminal(node.symbol, [node.children[0].visit(self)])
-
+        children = []
+        expr = self.visit__plus_symbol0(node.children[0])
+        assert len(expr) == 1
+        children.extend(expr[0].children)
+        return [Nonterminal(node.symbol, children)]
     def visit_element(self, node):
-        if (len(node.children) == 1 and 
-            node.children[0].symbol == 'regex'):
-            return Nonterminal(node.symbol, [node.children[0].visit(self)])
-        else:
-            return Nonterminal(node.symbol, [node.children[0].visit(self)])
-
+        length = len(node.children)
+        if node.children[0].symbol == 'production':
+            return self.visit_production(node.children[0])
+        return self.visit_regex(node.children[0])
     def visit_regex(self, node):
-        if True:
-            return Nonterminal(node.symbol, [node.children[0].visit(self),
-                                             node.children[1].visit(self),
-                                             node.children[2].visit(self),
-                                             node.children[3].visit(self)])
-
+        children = []
+        children.extend([node.children[0]])
+        children.extend([node.children[1]])
+        children.extend([node.children[2]])
+        children.extend([node.children[3]])
+        return [Nonterminal(node.symbol, children)]
     def visit_production(self, node):
-        if True:
-            return Nonterminal(node.symbol, [node.children[0].visit(self),
-                                             node.children[1].visit(self),
-                                             node.children[2].visit(self),
-                                             node.children[3].visit(self)])
-
+        children = []
+        children.extend([node.children[0]])
+        children.extend([node.children[1]])
+        children.extend(self.visit_body(node.children[2]))
+        children.extend([node.children[3]])
+        return [Nonterminal(node.symbol, children)]
+    def visit__star_symbol0(self, node):
+        length = len(node.children)
+        if length == 2:
+            if (node.children[0].symbol == 'expansion' and node.children[1].symbol == '__2_|'):
+                children = []
+                children.extend(self.visit_expansion(node.children[0]))
+                return [Nonterminal(node.symbol, children)]
+            if (node.children[0].symbol == 'expansion' and node.children[1].symbol == '__2_|'):
+                children = []
+                children.extend(self.visit_expansion(node.children[0]))
+                return [Nonterminal(node.symbol, children)]
+        children = []
+        children.extend(self.visit_expansion(node.children[0]))
+        expr = self.visit__star_symbol0(node.children[2])
+        assert len(expr) == 1
+        children.extend(expr[0].children)
+        return [Nonterminal(node.symbol, children)]
     def visit_body(self, node):
-        if len(node.children) == 3:
-            return Nonterminal(node.symbol, [node.children[0].visit(self),
-                                             node.children[1].visit(self),
-                                             node.children[2].visit(self)])
-        else:
-            return Nonterminal(node.symbol, [node.children[0].visit(self)])
-
+        length = len(node.children)
+        if length == 1:
+            children = []
+            children.extend(self.visit_expansion(node.children[0]))
+            return [Nonterminal(node.symbol, children)]
+        children = []
+        expr = self.visit__star_symbol0(node.children[0])
+        assert len(expr) == 1
+        children.extend(expr[0].children)
+        children.extend(self.visit_expansion(node.children[1]))
+        return [Nonterminal(node.symbol, children)]
+    def visit__plus_symbol1(self, node):
+        length = len(node.children)
+        if length == 1:
+            children = []
+            children.extend(self.visit_decorated(node.children[0]))
+            return [Nonterminal(node.symbol, children)]
+        children = []
+        children.extend(self.visit_decorated(node.children[0]))
+        expr = self.visit__plus_symbol1(node.children[1])
+        assert len(expr) == 1
+        children.extend(expr[0].children)
+        return [Nonterminal(node.symbol, children)]
     def visit_expansion(self, node):
-        if len(node.children) == 2:
-            return Nonterminal(node.symbol, [node.children[0].visit(self),
-                                             node.children[1].visit(self)])
-        else:
-            return Nonterminal(node.symbol, [node.children[0].visit(self)])
-
+        children = []
+        expr = self.visit__plus_symbol1(node.children[0])
+        assert len(expr) == 1
+        children.extend(expr[0].children)
+        return [Nonterminal(node.symbol, children)]
+    def visit_decorated(self, node):
+        length = len(node.children)
+        if length == 1:
+            return self.visit_enclosed(node.children[0])
+        if node.children[1].symbol == '__3_*':
+            children = []
+            children.extend(self.visit_enclosed(node.children[0]))
+            children.extend([node.children[1]])
+            return [Nonterminal(node.symbol, children)]
+        if node.children[1].symbol == '__4_+':
+            children = []
+            children.extend(self.visit_enclosed(node.children[0]))
+            children.extend([node.children[1]])
+            return [Nonterminal(node.symbol, children)]
+        children = []
+        children.extend(self.visit_enclosed(node.children[0]))
+        children.extend([node.children[1]])
+        return [Nonterminal(node.symbol, children)]
     def visit_enclosed(self, node):
-        if (len(node.children) == 3 and 
-            node.children[0].symbol == '[' and 
-            node.children[1].symbol == 'primary' and 
-            node.children[2].symbol == ']'):
-            return Nonterminal(node.symbol, [node.children[0].visit(self),
-                                             node.children[1].visit(self),
-                                             node.children[2].visit(self)])
-        if (len(node.children) == 3 and 
-            node.children[0].symbol == '<' and 
-            node.children[1].symbol == 'primary' and 
-            node.children[2].symbol == '>'):
-            return Nonterminal(node.symbol, [node.children[0].visit(self),
-                                             node.children[1].visit(self),
-                                             node.children[2].visit(self)])
-        if len(node.children) == 2:
-            return Nonterminal(node.symbol, [node.children[0].visit(self),
-                                             node.children[1].visit(self)])
-        else:
-            return Nonterminal(node.symbol, [node.children[0].visit(self)])
-
-    def visit_primary_parens(self, node):
-        if len(node.children) == 3:
-            return Nonterminal(node.symbol, [node.children[0].visit(self),
-                                             node.children[1].visit(self),
-                                             node.children[2].visit(self)])
-        else:
-            return Nonterminal(node.symbol, [node.children[0].visit(self)])
-
+        length = len(node.children)
+        if length == 1:
+            return self.visit_primary(node.children[0])
+        if node.children[0].symbol == '__10_(':
+            return self.visit_expansion(node.children[1])
+        if node.children[0].symbol == '__6_[':
+            children = []
+            children.extend([node.children[0]])
+            children.extend(self.visit_expansion(node.children[1]))
+            children.extend([node.children[2]])
+            return [Nonterminal(node.symbol, children)]
+        if node.children[0].symbol == '__8_>':
+            children = []
+            children.extend([node.children[0]])
+            children.extend(self.visit_expansion(node.children[1]))
+            children.extend([node.children[2]])
+            return [Nonterminal(node.symbol, children)]
+        children = []
+        children.extend([node.children[0]])
+        children.extend(self.visit_primary(node.children[1]))
+        children.extend([node.children[2]])
+        return [Nonterminal(node.symbol, children)]
     def visit_primary(self, node):
-        if (len(node.children) == 1 and 
-            node.children[0].symbol == 'NONTERMINALNAME'):
-            return Nonterminal(node.symbol, [node.children[0].visit(self)])
-        if (len(node.children) == 1 and 
-            node.children[0].symbol == 'SYMBOLNAME'):
-            return Nonterminal(node.symbol, [node.children[0].visit(self)])
-        else:
-            return Nonterminal(node.symbol, [node.children[0].visit(self)])
-
+        length = len(node.children)
+        if node.children[0].symbol == 'NONTERMINALNAME':
+            children = []
+            children.extend([node.children[0]])
+            return [Nonterminal(node.symbol, children)]
+        if node.children[0].symbol == 'QUOTE':
+            children = []
+            children.extend([node.children[0]])
+            return [Nonterminal(node.symbol, children)]
+        children = []
+        children.extend([node.children[0]])
+        return [Nonterminal(node.symbol, children)]
 parser = PackratParser([Rule('file', [['list', 'EOF']]),
-  Rule('_star_symbol0', [['element', '_star_symbol0'], ['element']]),
-  Rule('list', [['_star_symbol0']]),
+  Rule('_plus_symbol0', [['element', '_plus_symbol0'], ['element']]),
+  Rule('list', [['_plus_symbol0']]),
   Rule('element', [['regex'], ['production']]),
-  Rule('regex', [['SYMBOLNAME', ':', 'QUOTE', ';']]),
-  Rule('production', [['NONTERMINALNAME', ':', 'body', ';']]),
-  Rule('body', [['expansion', '|', 'body'], ['expansion']]),
-  Rule('expansion', [['enclosed', 'expansion'], ['enclosed']]),
-  Rule('enclosed', [['[', 'primary', ']'], ['<', 'primary', '>'], ['primary_parens', '*'], ['primary']]),
-  Rule('primary_parens', [['(', 'expansion', ')'], ['primary']]),
+  Rule('regex', [['SYMBOLNAME', '__0_:', 'QUOTE', '__1_;']]),
+  Rule('production', [['NONTERMINALNAME', '__0_:', 'body', '__1_;']]),
+  Rule('_star_symbol0', [['expansion', '__2_|', '_star_symbol0'], ['expansion', '__2_|'], ['expansion', '__2_|']]),
+  Rule('body', [['_star_symbol0', 'expansion'], ['expansion']]),
+  Rule('_plus_symbol1', [['decorated', '_plus_symbol1'], ['decorated']]),
+  Rule('expansion', [['_plus_symbol1']]),
+  Rule('decorated', [['enclosed', '__3_*'], ['enclosed', '__4_+'], ['enclosed', '__5_?'], ['enclosed']]),
+  Rule('enclosed', [['__6_[', 'expansion', '__7_]'], ['__8_>', 'expansion', '__9_<'], ['__9_<', 'primary', '__8_>'], ['__10_(', 'expansion', '__11_)'], ['primary']]),
   Rule('primary', [['NONTERMINALNAME'], ['SYMBOLNAME'], ['QUOTE']])],
  'file')
 def recognize(runner, i):
@@ -349,26 +594,30 @@ def recognize(runner, i):
                 state = 8
             elif char == '(':
                 state = 9
-            elif char == '*':
+            elif char == '+':
                 state = 10
-            elif char == ';':
+            elif char == '*':
                 state = 11
-            elif char == ':':
+            elif char == ';':
                 state = 12
-            elif char == '<':
+            elif char == ':':
                 state = 13
-            elif char == '>':
+            elif char == '<':
                 state = 14
-            elif char == '[':
+            elif char == '?':
                 state = 15
-            elif char == ']':
+            elif char == '>':
                 state = 16
-            elif char == '_':
+            elif char == '[':
                 state = 17
-            elif 'a' <= char <= 'z':
+            elif char == ']':
                 state = 18
-            elif char == '|':
+            elif char == '_':
                 state = 19
+            elif 'a' <= char <= 'z':
+                state = 20
+            elif char == '|':
+                state = 21
             else:
                 break
         if state == 3:
@@ -396,7 +645,7 @@ def recognize(runner, i):
                 runner.state = 5
                 return ~i
             if char == '\n':
-                state = 25
+                state = 27
             elif '\x00' <= char <= '\t':
                 state = 5
                 continue
@@ -413,7 +662,9 @@ def recognize(runner, i):
                 runner.state = 6
                 return ~i
             if char == '\\':
-                state = 22
+                state = 24
+            elif char == '"':
+                state = 25
             elif '\x00' <= char <= '!':
                 state = 6
                 continue
@@ -423,8 +674,6 @@ def recognize(runner, i):
             elif ']' <= char <= '\xff':
                 state = 6
                 continue
-            elif char == '"':
-                state = 23
             else:
                 break
         if state == 7:
@@ -435,59 +684,48 @@ def recognize(runner, i):
                 runner.state = 7
                 return ~i
             if char == '"':
-                state = 20
+                state = 22
             else:
                 break
-        if state == 17:
+        if state == 19:
             runner.last_matched_index = i - 1
             runner.last_matched_state = state
             if i < len(input):
                 char = input[i]
                 i += 1
             else:
-                runner.state = 17
+                runner.state = 19
                 return i
             if char == '_':
-                state = 17
+                state = 19
                 continue
-            elif '0' <= char <= '9':
-                state = 18
-            elif 'a' <= char <= 'z':
-                state = 18
             elif 'A' <= char <= 'Z':
                 state = 3
                 continue
-            else:
-                break
-        if state == 18:
-            runner.last_matched_index = i - 1
-            runner.last_matched_state = state
-            if i < len(input):
-                char = input[i]
-                i += 1
-            else:
-                runner.state = 18
-                return i
-            if '0' <= char <= '9':
-                state = 18
-                continue
-            elif char == '_':
-                state = 18
-                continue
+            elif '0' <= char <= '9':
+                state = 20
             elif 'a' <= char <= 'z':
-                state = 18
-                continue
+                state = 20
             else:
                 break
         if state == 20:
+            runner.last_matched_index = i - 1
+            runner.last_matched_state = state
             if i < len(input):
                 char = input[i]
                 i += 1
             else:
                 runner.state = 20
-                return ~i
-            if char == "'":
-                state = 21
+                return i
+            if '0' <= char <= '9':
+                state = 20
+                continue
+            elif char == '_':
+                state = 20
+                continue
+            elif 'a' <= char <= 'z':
+                state = 20
+                continue
             else:
                 break
         if state == 22:
@@ -497,11 +735,22 @@ def recognize(runner, i):
             else:
                 runner.state = 22
                 return ~i
-            if char == '"':
+            if char == "'":
+                state = 23
+            else:
+                break
+        if state == 24:
+            if i < len(input):
+                char = input[i]
+                i += 1
+            else:
+                runner.state = 24
+                return ~i
+            if char == '\\':
                 state = 24
-            elif char == '\\':
-                state = 22
                 continue
+            elif char == '"':
+                state = 26
             elif '\x00' <= char <= '!':
                 state = 6
                 continue
@@ -513,23 +762,23 @@ def recognize(runner, i):
                 continue
             else:
                 break
-        if state == 24:
+        if state == 26:
             runner.last_matched_index = i - 1
             runner.last_matched_state = state
             if i < len(input):
                 char = input[i]
                 i += 1
             else:
-                runner.state = 24
+                runner.state = 26
                 return i
-            if '\x00' <= char <= '!':
+            if char == '"':
+                state = 25
+            elif '\x00' <= char <= '!':
                 state = 6
                 continue
             elif '#' <= char <= '\xff':
                 state = 6
                 continue
-            elif char == '"':
-                state = 23
             else:
                 break
         runner.last_matched_state = state
@@ -542,7 +791,7 @@ def recognize(runner, i):
         break
     runner.state = state
     return ~i
-lexer = DummyLexer(recognize, DFA(26,
+lexer = DummyLexer(recognize, DFA(28,
  {(0, '\t'): 1,
   (0, '\n'): 2,
   (0, ' '): 4,
@@ -551,11 +800,13 @@ lexer = DummyLexer(recognize, DFA(26,
   (0, "'"): 7,
   (0, '('): 9,
   (0, ')'): 8,
-  (0, '*'): 10,
-  (0, ':'): 12,
-  (0, ';'): 11,
-  (0, '<'): 13,
-  (0, '>'): 14,
+  (0, '*'): 11,
+  (0, '+'): 10,
+  (0, ':'): 13,
+  (0, ';'): 12,
+  (0, '<'): 14,
+  (0, '>'): 16,
+  (0, '?'): 15,
   (0, 'A'): 3,
   (0, 'B'): 3,
   (0, 'C'): 3,
@@ -582,36 +833,36 @@ lexer = DummyLexer(recognize, DFA(26,
   (0, 'X'): 3,
   (0, 'Y'): 3,
   (0, 'Z'): 3,
-  (0, '['): 15,
-  (0, ']'): 16,
-  (0, '_'): 17,
-  (0, 'a'): 18,
-  (0, 'b'): 18,
-  (0, 'c'): 18,
-  (0, 'd'): 18,
-  (0, 'e'): 18,
-  (0, 'f'): 18,
-  (0, 'g'): 18,
-  (0, 'h'): 18,
-  (0, 'i'): 18,
-  (0, 'j'): 18,
-  (0, 'k'): 18,
-  (0, 'l'): 18,
-  (0, 'm'): 18,
-  (0, 'n'): 18,
-  (0, 'o'): 18,
-  (0, 'p'): 18,
-  (0, 'q'): 18,
-  (0, 'r'): 18,
-  (0, 's'): 18,
-  (0, 't'): 18,
-  (0, 'u'): 18,
-  (0, 'v'): 18,
-  (0, 'w'): 18,
-  (0, 'x'): 18,
-  (0, 'y'): 18,
-  (0, 'z'): 18,
-  (0, '|'): 19,
+  (0, '['): 17,
+  (0, ']'): 18,
+  (0, '_'): 19,
+  (0, 'a'): 20,
+  (0, 'b'): 20,
+  (0, 'c'): 20,
+  (0, 'd'): 20,
+  (0, 'e'): 20,
+  (0, 'f'): 20,
+  (0, 'g'): 20,
+  (0, 'h'): 20,
+  (0, 'i'): 20,
+  (0, 'j'): 20,
+  (0, 'k'): 20,
+  (0, 'l'): 20,
+  (0, 'm'): 20,
+  (0, 'n'): 20,
+  (0, 'o'): 20,
+  (0, 'p'): 20,
+  (0, 'q'): 20,
+  (0, 'r'): 20,
+  (0, 's'): 20,
+  (0, 't'): 20,
+  (0, 'u'): 20,
+  (0, 'v'): 20,
+  (0, 'w'): 20,
+  (0, 'x'): 20,
+  (0, 'y'): 20,
+  (0, 'z'): 20,
+  (0, '|'): 21,
   (3, 'A'): 3,
   (3, 'B'): 3,
   (3, 'C'): 3,
@@ -649,7 +900,7 @@ lexer = DummyLexer(recognize, DFA(26,
   (5, '\x07'): 5,
   (5, '\x08'): 5,
   (5, '\t'): 5,
-  (5, '\n'): 25,
+  (5, '\n'): 27,
   (5, '\x0b'): 5,
   (5, '\x0c'): 5,
   (5, '\r'): 5,
@@ -929,7 +1180,7 @@ lexer = DummyLexer(recognize, DFA(26,
   (6, '\x1f'): 6,
   (6, ' '): 6,
   (6, '!'): 6,
-  (6, '"'): 23,
+  (6, '"'): 25,
   (6, '#'): 6,
   (6, '$'): 6,
   (6, '%'): 6,
@@ -987,7 +1238,7 @@ lexer = DummyLexer(recognize, DFA(26,
   (6, 'Y'): 6,
   (6, 'Z'): 6,
   (6, '['): 6,
-  (6, '\\'): 22,
+  (6, '\\'): 24,
   (6, ']'): 6,
   (6, '^'): 6,
   (6, '_'): 6,
@@ -1151,364 +1402,108 @@ lexer = DummyLexer(recognize, DFA(26,
   (6, '\xfd'): 6,
   (6, '\xfe'): 6,
   (6, '\xff'): 6,
-  (7, '"'): 20,
-  (17, '0'): 18,
-  (17, '1'): 18,
-  (17, '2'): 18,
-  (17, '3'): 18,
-  (17, '4'): 18,
-  (17, '5'): 18,
-  (17, '6'): 18,
-  (17, '7'): 18,
-  (17, '8'): 18,
-  (17, '9'): 18,
-  (17, 'A'): 3,
-  (17, 'B'): 3,
-  (17, 'C'): 3,
-  (17, 'D'): 3,
-  (17, 'E'): 3,
-  (17, 'F'): 3,
-  (17, 'G'): 3,
-  (17, 'H'): 3,
-  (17, 'I'): 3,
-  (17, 'J'): 3,
-  (17, 'K'): 3,
-  (17, 'L'): 3,
-  (17, 'M'): 3,
-  (17, 'N'): 3,
-  (17, 'O'): 3,
-  (17, 'P'): 3,
-  (17, 'Q'): 3,
-  (17, 'R'): 3,
-  (17, 'S'): 3,
-  (17, 'T'): 3,
-  (17, 'U'): 3,
-  (17, 'V'): 3,
-  (17, 'W'): 3,
-  (17, 'X'): 3,
-  (17, 'Y'): 3,
-  (17, 'Z'): 3,
-  (17, '_'): 17,
-  (17, 'a'): 18,
-  (17, 'b'): 18,
-  (17, 'c'): 18,
-  (17, 'd'): 18,
-  (17, 'e'): 18,
-  (17, 'f'): 18,
-  (17, 'g'): 18,
-  (17, 'h'): 18,
-  (17, 'i'): 18,
-  (17, 'j'): 18,
-  (17, 'k'): 18,
-  (17, 'l'): 18,
-  (17, 'm'): 18,
-  (17, 'n'): 18,
-  (17, 'o'): 18,
-  (17, 'p'): 18,
-  (17, 'q'): 18,
-  (17, 'r'): 18,
-  (17, 's'): 18,
-  (17, 't'): 18,
-  (17, 'u'): 18,
-  (17, 'v'): 18,
-  (17, 'w'): 18,
-  (17, 'x'): 18,
-  (17, 'y'): 18,
-  (17, 'z'): 18,
-  (18, '0'): 18,
-  (18, '1'): 18,
-  (18, '2'): 18,
-  (18, '3'): 18,
-  (18, '4'): 18,
-  (18, '5'): 18,
-  (18, '6'): 18,
-  (18, '7'): 18,
-  (18, '8'): 18,
-  (18, '9'): 18,
-  (18, '_'): 18,
-  (18, 'a'): 18,
-  (18, 'b'): 18,
-  (18, 'c'): 18,
-  (18, 'd'): 18,
-  (18, 'e'): 18,
-  (18, 'f'): 18,
-  (18, 'g'): 18,
-  (18, 'h'): 18,
-  (18, 'i'): 18,
-  (18, 'j'): 18,
-  (18, 'k'): 18,
-  (18, 'l'): 18,
-  (18, 'm'): 18,
-  (18, 'n'): 18,
-  (18, 'o'): 18,
-  (18, 'p'): 18,
-  (18, 'q'): 18,
-  (18, 'r'): 18,
-  (18, 's'): 18,
-  (18, 't'): 18,
-  (18, 'u'): 18,
-  (18, 'v'): 18,
-  (18, 'w'): 18,
-  (18, 'x'): 18,
-  (18, 'y'): 18,
-  (18, 'z'): 18,
-  (20, "'"): 21,
-  (22, '\x00'): 6,
-  (22, '\x01'): 6,
-  (22, '\x02'): 6,
-  (22, '\x03'): 6,
-  (22, '\x04'): 6,
-  (22, '\x05'): 6,
-  (22, '\x06'): 6,
-  (22, '\x07'): 6,
-  (22, '\x08'): 6,
-  (22, '\t'): 6,
-  (22, '\n'): 6,
-  (22, '\x0b'): 6,
-  (22, '\x0c'): 6,
-  (22, '\r'): 6,
-  (22, '\x0e'): 6,
-  (22, '\x0f'): 6,
-  (22, '\x10'): 6,
-  (22, '\x11'): 6,
-  (22, '\x12'): 6,
-  (22, '\x13'): 6,
-  (22, '\x14'): 6,
-  (22, '\x15'): 6,
-  (22, '\x16'): 6,
-  (22, '\x17'): 6,
-  (22, '\x18'): 6,
-  (22, '\x19'): 6,
-  (22, '\x1a'): 6,
-  (22, '\x1b'): 6,
-  (22, '\x1c'): 6,
-  (22, '\x1d'): 6,
-  (22, '\x1e'): 6,
-  (22, '\x1f'): 6,
-  (22, ' '): 6,
-  (22, '!'): 6,
-  (22, '"'): 24,
-  (22, '#'): 6,
-  (22, '$'): 6,
-  (22, '%'): 6,
-  (22, '&'): 6,
-  (22, "'"): 6,
-  (22, '('): 6,
-  (22, ')'): 6,
-  (22, '*'): 6,
-  (22, '+'): 6,
-  (22, ','): 6,
-  (22, '-'): 6,
-  (22, '.'): 6,
-  (22, '/'): 6,
-  (22, '0'): 6,
-  (22, '1'): 6,
-  (22, '2'): 6,
-  (22, '3'): 6,
-  (22, '4'): 6,
-  (22, '5'): 6,
-  (22, '6'): 6,
-  (22, '7'): 6,
-  (22, '8'): 6,
-  (22, '9'): 6,
-  (22, ':'): 6,
-  (22, ';'): 6,
-  (22, '<'): 6,
-  (22, '='): 6,
-  (22, '>'): 6,
-  (22, '?'): 6,
-  (22, '@'): 6,
-  (22, 'A'): 6,
-  (22, 'B'): 6,
-  (22, 'C'): 6,
-  (22, 'D'): 6,
-  (22, 'E'): 6,
-  (22, 'F'): 6,
-  (22, 'G'): 6,
-  (22, 'H'): 6,
-  (22, 'I'): 6,
-  (22, 'J'): 6,
-  (22, 'K'): 6,
-  (22, 'L'): 6,
-  (22, 'M'): 6,
-  (22, 'N'): 6,
-  (22, 'O'): 6,
-  (22, 'P'): 6,
-  (22, 'Q'): 6,
-  (22, 'R'): 6,
-  (22, 'S'): 6,
-  (22, 'T'): 6,
-  (22, 'U'): 6,
-  (22, 'V'): 6,
-  (22, 'W'): 6,
-  (22, 'X'): 6,
-  (22, 'Y'): 6,
-  (22, 'Z'): 6,
-  (22, '['): 6,
-  (22, '\\'): 22,
-  (22, ']'): 6,
-  (22, '^'): 6,
-  (22, '_'): 6,
-  (22, '`'): 6,
-  (22, 'a'): 6,
-  (22, 'b'): 6,
-  (22, 'c'): 6,
-  (22, 'd'): 6,
-  (22, 'e'): 6,
-  (22, 'f'): 6,
-  (22, 'g'): 6,
-  (22, 'h'): 6,
-  (22, 'i'): 6,
-  (22, 'j'): 6,
-  (22, 'k'): 6,
-  (22, 'l'): 6,
-  (22, 'm'): 6,
-  (22, 'n'): 6,
-  (22, 'o'): 6,
-  (22, 'p'): 6,
-  (22, 'q'): 6,
-  (22, 'r'): 6,
-  (22, 's'): 6,
-  (22, 't'): 6,
-  (22, 'u'): 6,
-  (22, 'v'): 6,
-  (22, 'w'): 6,
-  (22, 'x'): 6,
-  (22, 'y'): 6,
-  (22, 'z'): 6,
-  (22, '{'): 6,
-  (22, '|'): 6,
-  (22, '}'): 6,
-  (22, '~'): 6,
-  (22, '\x7f'): 6,
-  (22, '\x80'): 6,
-  (22, '\x81'): 6,
-  (22, '\x82'): 6,
-  (22, '\x83'): 6,
-  (22, '\x84'): 6,
-  (22, '\x85'): 6,
-  (22, '\x86'): 6,
-  (22, '\x87'): 6,
-  (22, '\x88'): 6,
-  (22, '\x89'): 6,
-  (22, '\x8a'): 6,
-  (22, '\x8b'): 6,
-  (22, '\x8c'): 6,
-  (22, '\x8d'): 6,
-  (22, '\x8e'): 6,
-  (22, '\x8f'): 6,
-  (22, '\x90'): 6,
-  (22, '\x91'): 6,
-  (22, '\x92'): 6,
-  (22, '\x93'): 6,
-  (22, '\x94'): 6,
-  (22, '\x95'): 6,
-  (22, '\x96'): 6,
-  (22, '\x97'): 6,
-  (22, '\x98'): 6,
-  (22, '\x99'): 6,
-  (22, '\x9a'): 6,
-  (22, '\x9b'): 6,
-  (22, '\x9c'): 6,
-  (22, '\x9d'): 6,
-  (22, '\x9e'): 6,
-  (22, '\x9f'): 6,
-  (22, '\xa0'): 6,
-  (22, '\xa1'): 6,
-  (22, '\xa2'): 6,
-  (22, '\xa3'): 6,
-  (22, '\xa4'): 6,
-  (22, '\xa5'): 6,
-  (22, '\xa6'): 6,
-  (22, '\xa7'): 6,
-  (22, '\xa8'): 6,
-  (22, '\xa9'): 6,
-  (22, '\xaa'): 6,
-  (22, '\xab'): 6,
-  (22, '\xac'): 6,
-  (22, '\xad'): 6,
-  (22, '\xae'): 6,
-  (22, '\xaf'): 6,
-  (22, '\xb0'): 6,
-  (22, '\xb1'): 6,
-  (22, '\xb2'): 6,
-  (22, '\xb3'): 6,
-  (22, '\xb4'): 6,
-  (22, '\xb5'): 6,
-  (22, '\xb6'): 6,
-  (22, '\xb7'): 6,
-  (22, '\xb8'): 6,
-  (22, '\xb9'): 6,
-  (22, '\xba'): 6,
-  (22, '\xbb'): 6,
-  (22, '\xbc'): 6,
-  (22, '\xbd'): 6,
-  (22, '\xbe'): 6,
-  (22, '\xbf'): 6,
-  (22, '\xc0'): 6,
-  (22, '\xc1'): 6,
-  (22, '\xc2'): 6,
-  (22, '\xc3'): 6,
-  (22, '\xc4'): 6,
-  (22, '\xc5'): 6,
-  (22, '\xc6'): 6,
-  (22, '\xc7'): 6,
-  (22, '\xc8'): 6,
-  (22, '\xc9'): 6,
-  (22, '\xca'): 6,
-  (22, '\xcb'): 6,
-  (22, '\xcc'): 6,
-  (22, '\xcd'): 6,
-  (22, '\xce'): 6,
-  (22, '\xcf'): 6,
-  (22, '\xd0'): 6,
-  (22, '\xd1'): 6,
-  (22, '\xd2'): 6,
-  (22, '\xd3'): 6,
-  (22, '\xd4'): 6,
-  (22, '\xd5'): 6,
-  (22, '\xd6'): 6,
-  (22, '\xd7'): 6,
-  (22, '\xd8'): 6,
-  (22, '\xd9'): 6,
-  (22, '\xda'): 6,
-  (22, '\xdb'): 6,
-  (22, '\xdc'): 6,
-  (22, '\xdd'): 6,
-  (22, '\xde'): 6,
-  (22, '\xdf'): 6,
-  (22, '\xe0'): 6,
-  (22, '\xe1'): 6,
-  (22, '\xe2'): 6,
-  (22, '\xe3'): 6,
-  (22, '\xe4'): 6,
-  (22, '\xe5'): 6,
-  (22, '\xe6'): 6,
-  (22, '\xe7'): 6,
-  (22, '\xe8'): 6,
-  (22, '\xe9'): 6,
-  (22, '\xea'): 6,
-  (22, '\xeb'): 6,
-  (22, '\xec'): 6,
-  (22, '\xed'): 6,
-  (22, '\xee'): 6,
-  (22, '\xef'): 6,
-  (22, '\xf0'): 6,
-  (22, '\xf1'): 6,
-  (22, '\xf2'): 6,
-  (22, '\xf3'): 6,
-  (22, '\xf4'): 6,
-  (22, '\xf5'): 6,
-  (22, '\xf6'): 6,
-  (22, '\xf7'): 6,
-  (22, '\xf8'): 6,
-  (22, '\xf9'): 6,
-  (22, '\xfa'): 6,
-  (22, '\xfb'): 6,
-  (22, '\xfc'): 6,
-  (22, '\xfd'): 6,
-  (22, '\xfe'): 6,
-  (22, '\xff'): 6,
+  (7, '"'): 22,
+  (19, '0'): 20,
+  (19, '1'): 20,
+  (19, '2'): 20,
+  (19, '3'): 20,
+  (19, '4'): 20,
+  (19, '5'): 20,
+  (19, '6'): 20,
+  (19, '7'): 20,
+  (19, '8'): 20,
+  (19, '9'): 20,
+  (19, 'A'): 3,
+  (19, 'B'): 3,
+  (19, 'C'): 3,
+  (19, 'D'): 3,
+  (19, 'E'): 3,
+  (19, 'F'): 3,
+  (19, 'G'): 3,
+  (19, 'H'): 3,
+  (19, 'I'): 3,
+  (19, 'J'): 3,
+  (19, 'K'): 3,
+  (19, 'L'): 3,
+  (19, 'M'): 3,
+  (19, 'N'): 3,
+  (19, 'O'): 3,
+  (19, 'P'): 3,
+  (19, 'Q'): 3,
+  (19, 'R'): 3,
+  (19, 'S'): 3,
+  (19, 'T'): 3,
+  (19, 'U'): 3,
+  (19, 'V'): 3,
+  (19, 'W'): 3,
+  (19, 'X'): 3,
+  (19, 'Y'): 3,
+  (19, 'Z'): 3,
+  (19, '_'): 19,
+  (19, 'a'): 20,
+  (19, 'b'): 20,
+  (19, 'c'): 20,
+  (19, 'd'): 20,
+  (19, 'e'): 20,
+  (19, 'f'): 20,
+  (19, 'g'): 20,
+  (19, 'h'): 20,
+  (19, 'i'): 20,
+  (19, 'j'): 20,
+  (19, 'k'): 20,
+  (19, 'l'): 20,
+  (19, 'm'): 20,
+  (19, 'n'): 20,
+  (19, 'o'): 20,
+  (19, 'p'): 20,
+  (19, 'q'): 20,
+  (19, 'r'): 20,
+  (19, 's'): 20,
+  (19, 't'): 20,
+  (19, 'u'): 20,
+  (19, 'v'): 20,
+  (19, 'w'): 20,
+  (19, 'x'): 20,
+  (19, 'y'): 20,
+  (19, 'z'): 20,
+  (20, '0'): 20,
+  (20, '1'): 20,
+  (20, '2'): 20,
+  (20, '3'): 20,
+  (20, '4'): 20,
+  (20, '5'): 20,
+  (20, '6'): 20,
+  (20, '7'): 20,
+  (20, '8'): 20,
+  (20, '9'): 20,
+  (20, '_'): 20,
+  (20, 'a'): 20,
+  (20, 'b'): 20,
+  (20, 'c'): 20,
+  (20, 'd'): 20,
+  (20, 'e'): 20,
+  (20, 'f'): 20,
+  (20, 'g'): 20,
+  (20, 'h'): 20,
+  (20, 'i'): 20,
+  (20, 'j'): 20,
+  (20, 'k'): 20,
+  (20, 'l'): 20,
+  (20, 'm'): 20,
+  (20, 'n'): 20,
+  (20, 'o'): 20,
+  (20, 'p'): 20,
+  (20, 'q'): 20,
+  (20, 'r'): 20,
+  (20, 's'): 20,
+  (20, 't'): 20,
+  (20, 'u'): 20,
+  (20, 'v'): 20,
+  (20, 'w'): 20,
+  (20, 'x'): 20,
+  (20, 'y'): 20,
+  (20, 'z'): 20,
+  (22, "'"): 23,
   (24, '\x00'): 6,
   (24, '\x01'): 6,
   (24, '\x02'): 6,
@@ -1543,7 +1538,7 @@ lexer = DummyLexer(recognize, DFA(26,
   (24, '\x1f'): 6,
   (24, ' '): 6,
   (24, '!'): 6,
-  (24, '"'): 23,
+  (24, '"'): 26,
   (24, '#'): 6,
   (24, '$'): 6,
   (24, '%'): 6,
@@ -1601,7 +1596,7 @@ lexer = DummyLexer(recognize, DFA(26,
   (24, 'Y'): 6,
   (24, 'Z'): 6,
   (24, '['): 6,
-  (24, '\\'): 6,
+  (24, '\\'): 24,
   (24, ']'): 6,
   (24, '^'): 6,
   (24, '_'): 6,
@@ -1764,9 +1759,265 @@ lexer = DummyLexer(recognize, DFA(26,
   (24, '\xfc'): 6,
   (24, '\xfd'): 6,
   (24, '\xfe'): 6,
-  (24, '\xff'): 6},
- set([1, 2, 3, 4, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 23, 24, 25]),
- set([1, 2, 3, 4, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 23, 24, 25]),
+  (24, '\xff'): 6,
+  (26, '\x00'): 6,
+  (26, '\x01'): 6,
+  (26, '\x02'): 6,
+  (26, '\x03'): 6,
+  (26, '\x04'): 6,
+  (26, '\x05'): 6,
+  (26, '\x06'): 6,
+  (26, '\x07'): 6,
+  (26, '\x08'): 6,
+  (26, '\t'): 6,
+  (26, '\n'): 6,
+  (26, '\x0b'): 6,
+  (26, '\x0c'): 6,
+  (26, '\r'): 6,
+  (26, '\x0e'): 6,
+  (26, '\x0f'): 6,
+  (26, '\x10'): 6,
+  (26, '\x11'): 6,
+  (26, '\x12'): 6,
+  (26, '\x13'): 6,
+  (26, '\x14'): 6,
+  (26, '\x15'): 6,
+  (26, '\x16'): 6,
+  (26, '\x17'): 6,
+  (26, '\x18'): 6,
+  (26, '\x19'): 6,
+  (26, '\x1a'): 6,
+  (26, '\x1b'): 6,
+  (26, '\x1c'): 6,
+  (26, '\x1d'): 6,
+  (26, '\x1e'): 6,
+  (26, '\x1f'): 6,
+  (26, ' '): 6,
+  (26, '!'): 6,
+  (26, '"'): 25,
+  (26, '#'): 6,
+  (26, '$'): 6,
+  (26, '%'): 6,
+  (26, '&'): 6,
+  (26, "'"): 6,
+  (26, '('): 6,
+  (26, ')'): 6,
+  (26, '*'): 6,
+  (26, '+'): 6,
+  (26, ','): 6,
+  (26, '-'): 6,
+  (26, '.'): 6,
+  (26, '/'): 6,
+  (26, '0'): 6,
+  (26, '1'): 6,
+  (26, '2'): 6,
+  (26, '3'): 6,
+  (26, '4'): 6,
+  (26, '5'): 6,
+  (26, '6'): 6,
+  (26, '7'): 6,
+  (26, '8'): 6,
+  (26, '9'): 6,
+  (26, ':'): 6,
+  (26, ';'): 6,
+  (26, '<'): 6,
+  (26, '='): 6,
+  (26, '>'): 6,
+  (26, '?'): 6,
+  (26, '@'): 6,
+  (26, 'A'): 6,
+  (26, 'B'): 6,
+  (26, 'C'): 6,
+  (26, 'D'): 6,
+  (26, 'E'): 6,
+  (26, 'F'): 6,
+  (26, 'G'): 6,
+  (26, 'H'): 6,
+  (26, 'I'): 6,
+  (26, 'J'): 6,
+  (26, 'K'): 6,
+  (26, 'L'): 6,
+  (26, 'M'): 6,
+  (26, 'N'): 6,
+  (26, 'O'): 6,
+  (26, 'P'): 6,
+  (26, 'Q'): 6,
+  (26, 'R'): 6,
+  (26, 'S'): 6,
+  (26, 'T'): 6,
+  (26, 'U'): 6,
+  (26, 'V'): 6,
+  (26, 'W'): 6,
+  (26, 'X'): 6,
+  (26, 'Y'): 6,
+  (26, 'Z'): 6,
+  (26, '['): 6,
+  (26, '\\'): 6,
+  (26, ']'): 6,
+  (26, '^'): 6,
+  (26, '_'): 6,
+  (26, '`'): 6,
+  (26, 'a'): 6,
+  (26, 'b'): 6,
+  (26, 'c'): 6,
+  (26, 'd'): 6,
+  (26, 'e'): 6,
+  (26, 'f'): 6,
+  (26, 'g'): 6,
+  (26, 'h'): 6,
+  (26, 'i'): 6,
+  (26, 'j'): 6,
+  (26, 'k'): 6,
+  (26, 'l'): 6,
+  (26, 'm'): 6,
+  (26, 'n'): 6,
+  (26, 'o'): 6,
+  (26, 'p'): 6,
+  (26, 'q'): 6,
+  (26, 'r'): 6,
+  (26, 's'): 6,
+  (26, 't'): 6,
+  (26, 'u'): 6,
+  (26, 'v'): 6,
+  (26, 'w'): 6,
+  (26, 'x'): 6,
+  (26, 'y'): 6,
+  (26, 'z'): 6,
+  (26, '{'): 6,
+  (26, '|'): 6,
+  (26, '}'): 6,
+  (26, '~'): 6,
+  (26, '\x7f'): 6,
+  (26, '\x80'): 6,
+  (26, '\x81'): 6,
+  (26, '\x82'): 6,
+  (26, '\x83'): 6,
+  (26, '\x84'): 6,
+  (26, '\x85'): 6,
+  (26, '\x86'): 6,
+  (26, '\x87'): 6,
+  (26, '\x88'): 6,
+  (26, '\x89'): 6,
+  (26, '\x8a'): 6,
+  (26, '\x8b'): 6,
+  (26, '\x8c'): 6,
+  (26, '\x8d'): 6,
+  (26, '\x8e'): 6,
+  (26, '\x8f'): 6,
+  (26, '\x90'): 6,
+  (26, '\x91'): 6,
+  (26, '\x92'): 6,
+  (26, '\x93'): 6,
+  (26, '\x94'): 6,
+  (26, '\x95'): 6,
+  (26, '\x96'): 6,
+  (26, '\x97'): 6,
+  (26, '\x98'): 6,
+  (26, '\x99'): 6,
+  (26, '\x9a'): 6,
+  (26, '\x9b'): 6,
+  (26, '\x9c'): 6,
+  (26, '\x9d'): 6,
+  (26, '\x9e'): 6,
+  (26, '\x9f'): 6,
+  (26, '\xa0'): 6,
+  (26, '\xa1'): 6,
+  (26, '\xa2'): 6,
+  (26, '\xa3'): 6,
+  (26, '\xa4'): 6,
+  (26, '\xa5'): 6,
+  (26, '\xa6'): 6,
+  (26, '\xa7'): 6,
+  (26, '\xa8'): 6,
+  (26, '\xa9'): 6,
+  (26, '\xaa'): 6,
+  (26, '\xab'): 6,
+  (26, '\xac'): 6,
+  (26, '\xad'): 6,
+  (26, '\xae'): 6,
+  (26, '\xaf'): 6,
+  (26, '\xb0'): 6,
+  (26, '\xb1'): 6,
+  (26, '\xb2'): 6,
+  (26, '\xb3'): 6,
+  (26, '\xb4'): 6,
+  (26, '\xb5'): 6,
+  (26, '\xb6'): 6,
+  (26, '\xb7'): 6,
+  (26, '\xb8'): 6,
+  (26, '\xb9'): 6,
+  (26, '\xba'): 6,
+  (26, '\xbb'): 6,
+  (26, '\xbc'): 6,
+  (26, '\xbd'): 6,
+  (26, '\xbe'): 6,
+  (26, '\xbf'): 6,
+  (26, '\xc0'): 6,
+  (26, '\xc1'): 6,
+  (26, '\xc2'): 6,
+  (26, '\xc3'): 6,
+  (26, '\xc4'): 6,
+  (26, '\xc5'): 6,
+  (26, '\xc6'): 6,
+  (26, '\xc7'): 6,
+  (26, '\xc8'): 6,
+  (26, '\xc9'): 6,
+  (26, '\xca'): 6,
+  (26, '\xcb'): 6,
+  (26, '\xcc'): 6,
+  (26, '\xcd'): 6,
+  (26, '\xce'): 6,
+  (26, '\xcf'): 6,
+  (26, '\xd0'): 6,
+  (26, '\xd1'): 6,
+  (26, '\xd2'): 6,
+  (26, '\xd3'): 6,
+  (26, '\xd4'): 6,
+  (26, '\xd5'): 6,
+  (26, '\xd6'): 6,
+  (26, '\xd7'): 6,
+  (26, '\xd8'): 6,
+  (26, '\xd9'): 6,
+  (26, '\xda'): 6,
+  (26, '\xdb'): 6,
+  (26, '\xdc'): 6,
+  (26, '\xdd'): 6,
+  (26, '\xde'): 6,
+  (26, '\xdf'): 6,
+  (26, '\xe0'): 6,
+  (26, '\xe1'): 6,
+  (26, '\xe2'): 6,
+  (26, '\xe3'): 6,
+  (26, '\xe4'): 6,
+  (26, '\xe5'): 6,
+  (26, '\xe6'): 6,
+  (26, '\xe7'): 6,
+  (26, '\xe8'): 6,
+  (26, '\xe9'): 6,
+  (26, '\xea'): 6,
+  (26, '\xeb'): 6,
+  (26, '\xec'): 6,
+  (26, '\xed'): 6,
+  (26, '\xee'): 6,
+  (26, '\xef'): 6,
+  (26, '\xf0'): 6,
+  (26, '\xf1'): 6,
+  (26, '\xf2'): 6,
+  (26, '\xf3'): 6,
+  (26, '\xf4'): 6,
+  (26, '\xf5'): 6,
+  (26, '\xf6'): 6,
+  (26, '\xf7'): 6,
+  (26, '\xf8'): 6,
+  (26, '\xf9'): 6,
+  (26, '\xfa'): 6,
+  (26, '\xfb'): 6,
+  (26, '\xfc'): 6,
+  (26, '\xfd'): 6,
+  (26, '\xfe'): 6,
+  (26, '\xff'): 6},
+ set([1, 2, 3, 4, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 23, 25, 26, 27]),
+ set([1, 2, 3, 4, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 23, 25, 26, 27]),
  ['0, 0, 0, final*, start*, 0, 0, 1, final*, start*, 0, 0, 0, start|, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0',
   'IGNORE',
   'IGNORE',
@@ -1775,18 +2026,20 @@ lexer = DummyLexer(recognize, DFA(26,
   '1, 0, start|, 0, final*, start*, 0, 0, 1, final|, start|, 0, final*, start*, 0, 0, final|, start|, 0, 1, final*, start*, 0',
   '1, 0, final*, start*, start|, 0, final|, final*, start*, 0, 0, 0, start|, 0, 0, final*, final|, start|, 0, final|, final*, start*, 0, 0, 0, start|, 1, 0, start*, 0, final*, final|, start|, 0, 1, final*, start*, 0, 0, 0, final|, start|, 0, start*, 0, 1, final|, start|, 0, final*, start*, 0, final*, final*, 1, final|, final*, 0, start|, 0, final*, start*, final*, start*, 0, final|, start|, 0, 0, 0, final|, start|, 0, 1, final*, start*, 0, final*, final*, final|, 1, final*, 0, start|, 0, final*, start*, final*, start*, 0, final|, start|, 0, 0, 0, final*, start*, final*, start*, 0, final|, start|, 0, 0, final*, final*, 0, 1, final|, final*, 0, start|, 0, final*, start*, final*, start*, 0, final|, start|, 0, 0, final*, final*, 0, final|, 1, final*, 0, start|, 0, final*, start*, final*, start*, 0, final|, start|, 0, 0, final*, final*, 0, final*, 0, 1, final|, start|, 0, 1, final*, start*, final*, start*, 0, final|, start|, 0, 0, final*, final*, 0, final*, 0, final|, start|, 0, final*, start*, final*, start*, 0, final|, start|, 0, 0, final*, final*, 0, 1, final|, final*, 0, 1, final|, start|, 0, 1, final*, start*, final*, start*, 0, final|, start|, 0, 0, final*, final*, 0, final|, 1, final*, 0, final|, start|, 0, 1, final|, start|, 0, final*, start*, 0, final*, final*, 1, final|, final*, 0, 1, final|, start|, 0, final*, start*, final*, start*, 0, final|, start|, 0, 0, 0, final|, start|, 0, 1, final*, start*, 0, final*, final*, final|, 1, final*, 0, final|, start|, 0, 1, final*, start*, final*, start*, 0, final|, start|, 0, 0, 0, 1, final|, start|, 0, final*, start*, 0, final*, final*, final*, 0, 1, final|, start|, 0, final*, start*, final*, start*, 0, final|, start|, 0, 0, 0, final|, start|, 0, 1, final*, start*, 0, final*, final*, final*, 0, final|, start|, 0, 1, final*, start*, final*, start*, 0, final|, start|, 0, 0',
   '1',
-  ')',
-  '(',
-  '*',
-  ';',
-  ':',
-  '<',
-  '>',
-  '[',
-  ']',
+  '__11_)',
+  '__10_(',
+  '__4_+',
+  '__3_*',
+  '__1_;',
+  '__0_:',
+  '__9_<',
+  '__5_?',
+  '__8_>',
+  '__6_[',
+  '__7_]',
   'NONTERMINALNAME',
   'NONTERMINALNAME',
-  '|',
+  '__2_|',
   '2',
   'QUOTE',
   '0, 1, final*, 0, final|, start|, 0, final*, 0, final|, start|, 0, 1, final*, 0, final|, start|, 0, 1, final*, start*, final*, start*, 0, final|, start|, 0, 1, 0, 0, final|, start|, 0, 1, final*, start*, 0, 1, 0, final|, start|, 0, 0, start|, 0, final*, start*, 0, final|, start|, 0, 1, 0, 0, final|, start|, 0, 1, final*, start*, 0, 1, final*, 0, final|, start|, 0, final*, 0, start|, 0, final*, 0, final|, start|, 0, 1, final*, start*, final*, start*, 0, final|, start|, 0, 1, 0, 0, final|, start|, 0, 1, final*, start*, 0, 1, final*, 0, final|, start|, 0, final*, 0, final|, start|, 0, 1, final*, 0, start|, 0, final*, start*, final*, start*, 0, final|, start|, 0, 1, 0, 0, final|, start|, 0, 1, final*, start*, 0, 1, final*, 0, final|, start|, 0, final*, 0, final|, start|, 0, 1, final*, 0, final|, start|, 0, 1, final*, start*, final*, start*, 0, final|, start|, 0, 1, 0, 0, 1, final*, 0, final|, start|, 0, final*, 0, start|, 0, final*, 0, final|, start|, 0, 1, final*, start*, final*, start*, 0, final|, start|, 0, 1, 0',
@@ -1801,7 +2054,8 @@ if __name__ == '__main__':
     s = "# GENERATED CODE BETWEEN THIS LINE AND ITS OTHER OCCURENCE\n".lower()
     pre, gen, after = oldcontent.split(s)
 
-    parser, lexer, transformer = make_ebnf_parser()
+    parser, lexer, ToAST = make_ebnf_parser()
+    transformer = ToAST.source
     newcontent = "%s%s%s\nparser = %r\n%s\n%s%s" % (
             pre, s, transformer.replace("ToAST", "EBNFToAST"),
             parser, lexer.get_dummy_repr(), s, after)

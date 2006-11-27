@@ -16,8 +16,7 @@ class TestDictError(object):
     """
 
     def setup_class(cls):
-        regexs, rules, transformer = parse_ebnf(cls.dictebnf)
-        exec py.code.Source(transformer).compile()
+        regexs, rules, ToAST = parse_ebnf(cls.dictebnf)
         cls.ToAST = ToAST
         parse = make_parse_function(regexs, rules, eof=True)
         cls.parse = staticmethod(parse)
@@ -50,6 +49,7 @@ LexerError"""
         assert source_pos.lineno == 4
         assert source_pos.columnno == 13
         msg = excinfo.value.nice_error_message("<stdin>", source)
+        print msg
         assert msg == """\
   File <stdin>, line 4
     'length':: '1',

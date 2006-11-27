@@ -92,14 +92,9 @@ def test_translate_compiled_parser():
     res2 = func(True)
     assert res1 == res2
 
-def make_transformer(transformer):
-    from pypy.rlib.parsing.tree import RPythonVisitor
-    exec py.code.Source(transformer).compile()
-    return ToAST
-
 def test_translate_ast_visitor():
     from pypy.rlib.parsing.ebnfparse import parse_ebnf, make_parse_function
-    regexs, rules, transformer = parse_ebnf("""
+    regexs, rules, ToAST = parse_ebnf("""
 DECIMAL: "0|[1-9][0-9]*";
 IGNORE: " ";
 additive: multitive ["+!"] additive | <multitive>;
@@ -107,19 +102,17 @@ multitive: primary ["*!"] multitive | <primary>; #nonsense!
 primary: "(" <additive> ")" | <DECIMAL>;
 """)
     parse = make_parse_function(regexs, rules)
-    print transformer
-    ToAST = make_transformer(transformer)
     def f():
         tree = parse("(0 +! 10) *! (999 +! 10) +! 1")
-        tree = ToAST().dispatch(tree)
+        tree = ToAST().visit_additive(tree)
+        assert len(tree) == 1
+        tree = tree[0]
         return tree.symbol + " " + "-&-".join([c.symbol for c in tree.children])
+    res1 = f()
     t = Translation(f)
     t.annotate()
-    t.backendopt()
     t.rtype()
+    t.backendopt()
     func = t.compile_c()
-    res1 = f()
     res2 = func()
     assert res1 == res2
-
-    

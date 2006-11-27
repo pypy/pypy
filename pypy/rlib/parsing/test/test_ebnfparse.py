@@ -46,7 +46,7 @@ primary: "(" additive ")" | DECIMAL;
     assert tree.visit(MyEvalVisitor()) == 10 + 999
 
 def test_toast():
-    regexs, rules, transformer = parse_ebnf("""
+    regexs, rules, ToAST = parse_ebnf("""
 DECIMAL: "0|[1-9][0-9]*";
 IGNORE: " ";
 additive: multitive ["+!"] additive | <multitive>;
@@ -54,13 +54,8 @@ multitive: primary ["*!"] multitive | <primary>; #nonsense!
 primary: "(" <additive> ")" | <DECIMAL>;
 """)
     parse = make_parse_function(regexs, rules)
-    print transformer
-    ns = {"RPythonVisitor": RPythonVisitor, "Nonterminal": Nonterminal}
-    exec py.code.Source(transformer).compile() in ns
-    ToAST = ns["ToAST"]
     tree = parse("(0 +! 10) *! (999 +! 10) +! 1")
-    print transformer
-    tree = tree.visit(ToAST())
+    tree = tree.visit(ToAST())[0]
     assert len(tree.children) == 2
     assert tree.children[0].children[0].symbol == "additive"
     assert tree.children[1].symbol == "DECIMAL"
@@ -74,7 +69,7 @@ additive0_9: multitive "+!" additive0_9 | multitive;
 multitive: primary "*!" multitive | primary; #nonsense!
 primary: "(" additive0_9 ")" | DECIMAL;
 """
-    regexs, rules, transformer = parse_ebnf(grammar)
+    regexs, rules, ToAST = parse_ebnf(grammar)
     class MyEvalVisitor(EvaluateVisitor):
         def visit_primary(self, node):
             if len(node.children) == 3:
@@ -92,7 +87,7 @@ primary: "(" additive0_9 ")" | DECIMAL;
 
 
 def test_prolog():
-    regexs, rules, transformer = parse_ebnf("""
+    regexs, rules, ToAST = parse_ebnf("""
 ATOM: "[a-z]([a-zA-Z0-9]|_)*";
 VAR: "[A-Z]([a-zA-Z0-9]|_)*|_";
 NUMBER: "0|[1-9][0-9]*";
@@ -112,7 +107,7 @@ foo(X, Y) :- bar(Y, X), bar(Y, X) ; foobar(X, Y, 1234, atom).""")
     assert tree is not None
 
 def test_toast_bigger():
-    regexs, rules, transformer = parse_ebnf("""
+    regexs, rules, ToAST = parse_ebnf("""
 BOOLCONST: "TRUE|FALSE";
 IDENTIFIER: "[a-zA-Z_][a-zA-Z0-9_]*";
 NUMBER: "0|[1-9][0-9]*";
@@ -124,19 +119,15 @@ multitive: primary "*" unaryexpr | primary "/" unaryexpr |
            primary "%" unaryexpr | <unaryexpr>;
 unaryexpr: "+" unaryexpr | "-" unaryexpr | <primary>;
 primary: "(" <intexpr> ")" | <NUMBER> | <IDENTIFIER>;
-boolexpr: <BOOLCONST>; #XXX
+boolexpr: <BOOLCONST>; #strange thing
 """)
     parse = make_parse_function(regexs, rules)
     tree = parse("x * floor + 1")
-    print transformer
-    ns = {"RPythonVisitor": RPythonVisitor, "Nonterminal": Nonterminal}
-    exec py.code.Source(transformer).compile() in ns
-    ToAST = ns["ToAST"]
-    tree = tree.visit(ToAST())
+    tree = ToAST().transform(tree)
     assert tree.children[2].symbol == "NUMBER"
 
 def test_parser_repr_is_evalable():
-    regexs, rules, transformer = parse_ebnf("""
+    regexs, rules, ToAST = parse_ebnf("""
 BOOLCONST: "TRUE|FALSE";
 IDENTIFIER: "[a-zA-Z_][a-zA-Z0-9_]*";
 NUMBER: "0|[1-9][0-9]*";
@@ -148,7 +139,7 @@ multitive: primary "*" unaryexpr | primary "/" unaryexpr |
            primary "%" unaryexpr | <unaryexpr>;
 unaryexpr: "+" unaryexpr | "-" unaryexpr | <primary>;
 primary: "(" <intexpr> ")" | <NUMBER> | <IDENTIFIER>;
-boolexpr: <BOOLCONST>; #XXX
+boolexpr: <BOOLCONST>; #strange thing
 
 """)
     parser = PackratParser(rules, rules[0].nonterminal)
@@ -158,7 +149,7 @@ boolexpr: <BOOLCONST>; #XXX
     assert repr(newparser) == s
 
 def test_lexer_end_string_corner_case():
-    regexs, rules, transformer = parse_ebnf("""
+    regexs, rules, ToAST = parse_ebnf("""
 NUMBER: "[0-9]*(\.[0-9]+)?";
 ATOM: "\.";
 IGNORE: " ";
@@ -170,7 +161,7 @@ expr: NUMBER ATOM EOF;
     assert t.children[1].additional_info == "."
 
 def test_escape_quotes():
-    regexs, rules, transformer = parse_ebnf("""
+    regexs, rules, ToAST = parse_ebnf("""
 QUOTE: "a\\"";
 IGNORE: " ";
 expr: QUOTE "\\"" EOF;""")
@@ -180,7 +171,7 @@ expr: QUOTE "\\"" EOF;""")
     assert t.children[1].additional_info == '"'
 
 def test_leftrecursion():
-    regexs, rules, transformer = parse_ebnf("""
+    regexs, rules, ToAST = parse_ebnf("""
 A: "a";
 B: "b";
 IGNORE: " |\n";
@@ -190,7 +181,7 @@ expr2: expr1 B;
     py.test.raises(AssertionError, make_parse_function, regexs, rules, True)
 
 def test_dictparse():
-    regexs, rules, transformer = parse_ebnf("""
+    regexs, rules, ToAST = parse_ebnf("""
     QUOTED_STRING: "'[^\\']*'";
     IGNORE: " |\n";
     data: <dict> | <QUOTED_STRING> | <list>;
@@ -242,33 +233,40 @@ def test_dictparse():
     'tokenizer': '[object Object]',
     'varDecls': ''
 }""")
-    ns = {"RPythonVisitor": RPythonVisitor, "Nonterminal": Nonterminal}
-    exec py.code.Source(transformer).compile() in ns
-    ToAST = ns["ToAST"]
-    print transformer
-    t = t.visit(ToAST())
+    t = ToAST().transform(t)
 
 def test_starparse():
-    regexs, rules, transformer = parse_ebnf("""
+    regexs, rules, ToAST = parse_ebnf("""
     QUOTED_STRING: "'[^\\']*'";
     IGNORE: " |\n";
     list: ["["] (QUOTED_STRING [","])* QUOTED_STRING ["]"];
 """)
     parse = make_parse_function(regexs, rules, eof=True)
     t = parse("""['a', 'b', 'c']""")
-    print transformer
-    exec py.code.Source(transformer).compile()
-    t = t.visit(ToAST())
+    t = ToAST().transform(t)
     assert t.symbol == "list"
-    assert len(t.children) == 2
-    assert t.children[0].symbol == "__list"
-    assert len(t.children[0].children) == 2
-    assert [c.symbol for c in t.children[0].children] == ["QUOTED_STRING"] * 2
+    assert len(t.children) == 3
+    assert [c.symbol for c in t.children] == ["QUOTED_STRING"] * 3
     t = parse("['a']")
+    t = ToAST().transform(t)
+    assert t.symbol == "list"
+    assert len(t.children) == 1
+    assert [c.symbol for c in t.children] == ["QUOTED_STRING"] * 1
+
+def test_double_star():
+    regexs, rules, ToAST = parse_ebnf("""
+    IGNORE: " |\n";
+    start: "a"* "b"* "c";
+""")
+    parse = make_parse_function(regexs, rules, eof=True)
+    for s in ["a a a b b c", "a b b c", "a a c", "b b c", "c"]:
+        t = parse(s)
+        t = ToAST().transform(t)
+        assert [c.additional_info for c in t.children] == s.split()
 
 def test_transform_star():
-    py.test.skip("This needs to be fixed - generated transformer is buggy")
-    regexs, rules, transformer = parse_ebnf("""
+    #py.test.skip("This needs to be fixed - generated transformer is buggy")
+    regexs, rules, ToAST = parse_ebnf("""
     IGNORE: " ";
     ATOM: "[\+a-zA-Z_][a-zA-Z0-9_]*";
 
@@ -277,20 +275,18 @@ def test_transform_star():
 """)
     parse = make_parse_function(regexs, rules)
     tree = parse("()")
-    print transformer
-    ns = {"RPythonVisitor": RPythonVisitor, "Nonterminal": Nonterminal}
-    exec py.code.Source(transformer).compile() in ns
-    ToAST = ns["ToAST"]
-    list_expr = tree.visit(ToAST()).children[0]
+    list_expr = tree.visit(ToAST())[0].children[0]
     assert list_expr.symbol == 'list'
     # should have two children, "(" and ")"
     assert len(list_expr.children) == 2
-    assert list_expr.children[0].symbol == '('
-    assert list_expr.children[1].symbol == ')'
+    assert list_expr.children[0].additional_info == '('
+    assert list_expr.children[1].additional_info == ')'
+    tree = parse("(a b c)")
+    list_expr = ToAST().transform(tree)
 
 
 def test_quoting():
-    regexs, rules, transformer = parse_ebnf("""
+    regexs, rules, ToAST = parse_ebnf("""
     ATOM: "[a-z]*";
     IGNORE: " ";
     list: ATOM "\n" ATOM;
@@ -300,3 +296,114 @@ def test_quoting():
   abd""")
     assert len(t.children) == 3
     assert t.children[1].additional_info == "\n"
+
+def test_check_for_missing_names():
+    regexs, rules, ToAST = parse_ebnf("""
+IGNORE: " ";
+DECIMAL: "0|[1-9][0-9]*";
+additive: multitive "+" additive | multitive;
+multitive: primary "*" multitive | primari; # observe the typo
+# the following too!
+primary: "(" additive ")" | DECIMAL;
+""")
+    excinfo = py.test.raises(ValueError, make_parse_function, regexs, rules)
+    assert "primari" in str(excinfo.value)
+ 
+def test_starred_star():
+    regexs, rules, ToAST = parse_ebnf("""
+IGNORE: " ";
+start: ("b"* "a")* EOF;
+    """)
+    parse = make_parse_function(regexs, rules, eof=True)
+    for s in ["b b b b a b b a", "b a b a", "a a", ""]:
+        t = parse(s)
+        t = ToAST().transform(t)
+        assert [c.additional_info for c in t.children] == (s + " EOF").split()
+
+def test_transform_greater_than():
+    regexs, rules, ToAST = parse_ebnf("""
+IGNORE: " ";
+x: ["a"] >b< "c";
+b: "A" "A";
+    """)
+    parse = make_parse_function(regexs, rules)
+    t = parse("a A A c")
+    t = ToAST().transform(t)
+    assert len(t.children) == 3
+    assert t.children[0].additional_info == "A"
+    assert t.children[1].additional_info == "A"
+    assert t.children[2].additional_info == "c"
+
+def test_plus():
+    regexs, rules, ToAST = parse_ebnf("""
+IGNORE: " ";
+x: "A"+ "B";
+    """)
+    parse = make_parse_function(regexs, rules)
+    t = parse("A A B")
+    t = ToAST().transform(t)
+    assert len(t.children) == 3
+    assert t.children[0].additional_info == "A"
+    assert t.children[1].additional_info == "A"
+    assert t.children[2].additional_info == "B"
+    py.test.raises(ParseError, parse, "B")
+
+def test_questionmark():
+    regexs, rules, ToAST = parse_ebnf("""
+IGNORE: " ";
+x: ["A"] ("B" ["C"] "D")? "E";
+    """)
+    parse = make_parse_function(regexs, rules)
+    t = parse("A B C D E")
+    py.test.raises(ParseError, parse, "A B C D B C D E")
+    t = ToAST().transform(t)
+    assert len(t.children) == 3
+    assert t.children[0].additional_info == "B"
+    assert t.children[1].additional_info == "D"
+    assert t.children[2].additional_info == "E"
+    t = parse("A  E")
+    t = ToAST().transform(t)
+    assert len(t.children) == 1
+    assert t.children[0].additional_info == "E"
+
+def test_grouping_only_parens():
+    regexs, rules, ToAST = parse_ebnf("""
+IGNORE: " ";
+x: ["m"] ("a" "b") "c" | <y>;
+y: ["n"] "a" "b" "c";
+    """)
+    parse = make_parse_function(regexs, rules)
+    t0 = ToAST().transform(parse("m a b c"))
+    t1 = ToAST().transform(parse("n a b c"))
+    assert len(t0.children) == len(t1.children)
+
+def test_mix_star_and_questionmark():
+    regexs, rules, ToAST = parse_ebnf("""
+IGNORE: " ";
+y: x "END";
+x: "B" ("A" "B")* "A"?;
+    """)
+    parse = make_parse_function(regexs, rules)
+    t = ToAST().transform(parse("B A B END"))
+    assert len(t.children[0].children) == 3
+
+def test_nest_star_and_questionmark():
+    regexs, rules, ToAST = parse_ebnf("""
+IGNORE: " ";
+y: x "END";
+x: "B" ("A" "B"?)*;
+    """)
+    parse = make_parse_function(regexs, rules)
+    t = ToAST().transform(parse("B A B A B END"))
+    t = ToAST().transform(parse("B A A A END"))
+
+def test_clash_literal_nonterminal():
+    regexs, rules, ToAST = parse_ebnf("""
+IGNORE: " ";
+y: x "END";
+x: "y";
+a: "x";
+    """)
+    parse = make_parse_function(regexs, rules)
+    py.test.raises(ParseError, parse, "x END")
+    parse("y END")

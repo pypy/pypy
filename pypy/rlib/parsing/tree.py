@@ -28,7 +28,7 @@ class Symbol(Node):
     def visit(self, visitor):
         "NOT_RPYTHON"
         if isinstance(visitor, RPythonVisitor):
-            visitor.dispatch(self)
+            return visitor.dispatch(self)
         method = getattr(visitor, "visit_" + self.symbol, None)
         if method is None:
             return self
