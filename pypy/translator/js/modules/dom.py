@@ -65,6 +65,7 @@ class EventTarget(BasicExternal):
 
 class Node(EventTarget):
     """base class of all node types"""
+    _original = None
     
     def __init__(self, node=None):
         self._original = node
@@ -83,6 +84,14 @@ class Node(EventTarget):
             raise NameError, name
         value = getattr(self._original, name)
         return _wrap(value)
+
+    def __setattr__(self, name, value):
+        """set an attribute on the wrapped node"""
+        if name in dir(self):
+            return super(Node, self).__setattr__(name, value)
+        if name not in self._fields:
+            raise NameError, name
+        setattr(self._original, name, value)
 
     def __eq__(self, other):
         original = getattr(other, '_original', other)

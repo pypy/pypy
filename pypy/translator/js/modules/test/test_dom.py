@@ -71,6 +71,18 @@ def test_wrap():
     assert div.nodeType == 1
     assert document.documentElement.childNodes[-1]._original is div._original
 
+def code_nodeValue():
+    window = get_window()
+    document = window.document
+    td = document.createElement('td')
+    td.appendChild(document.createTextNode('foo'))
+    td.childNodes[0].nodeValue = 'bar'
+    return td.childNodes[0].nodeValue
+
+def test_nodeValue():
+    nodevalue = code_nodeValue()
+    assert nodevalue == 'bar'
+
 def code_node_eq():
     window = get_window()
     body = window.document.getElementsByTagName('body')[0]
