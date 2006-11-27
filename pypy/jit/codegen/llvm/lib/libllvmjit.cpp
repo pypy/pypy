@@ -3,6 +3,8 @@
 #include "libllvmjit.h"
 
 #include "llvm/Module.h"
+#include "llvm/Type.h"
+#include "llvm/GlobalVariable.h"
 #include "llvm/Assembly/Parser.h"
 #include "llvm/Bytecode/Writer.h"
 #include "llvm/Analysis/Verifier.h"
@@ -37,6 +39,9 @@ ExecutionEngine*    gp_execution_engine = ExecutionEngine::create(
 //all optimization/transform passes
 static cl::list<const PassInfo*, bool, PassNameParser>
     PassList(cl::desc("Optimizations available:"));
+
+//some global data for the tests to play with
+char    g_char[2] = {10,0};
 
 
 //
@@ -98,5 +103,26 @@ int     execute(const void* function, int param) { //XXX allow different functio
 
     GenericValue gv = gp_execution_engine->runFunction((Function*)function, args);
     return gv.IntVal;
+}
+
+
+char*   get_pointer_to_global_char() {
+    printf("get_pointer_to_global_char g_char=%08x\n", g_char);
+    return g_char;
+}
+
+
+void    add_global_mapping(const char* name, void* address) {
+    //GlobalValue(const Type *Ty, ValueTy vty, Use *Ops, unsigned NumOps, LinkageTypes linkage, const std::string &name = "");
+
+    /// GlobalVariable ctor - If a parent module is specified, the global is
+    //  /// automatically inserted into the end of the specified modules global list.
+    //    GlobalVariable(const Type *Ty, bool isConstant, LinkageTypes Linkage,
+    //                     Constant *Initializer = 0, const std::string &Name = "",
+    //                                      Module *Parent = 0);
+
+    GlobalVariable  var(Type::UByteTy, false, GlobalVariable::ExternalLinkage, 0, name, gp_module);
+    printf("add_global_mapping address=%08x\n", address);
+    gp_execution_engine->addGlobalMapping(&var, address);
 }
 

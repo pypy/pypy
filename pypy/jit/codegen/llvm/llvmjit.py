@@ -61,3 +61,11 @@ execute = llvmjit.execute
 execute.restype  = c_int
 execute.argtypes = [c_void_p, c_int]
 
+get_pointer_to_global_char= llvmjit.get_pointer_to_global_char
+get_pointer_to_global_char.restype = c_char_p
+get_pointer_to_global_char.argtypes = []
+
+add_global_mapping = llvmjit.add_global_mapping
+#add_global_mapping.restype = c_void
+add_global_mapping.argtypes = [c_char_p, c_void_p]
+

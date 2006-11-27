@@ -14,13 +14,11 @@ except OSError:
 curdir = dirname(__file__)
 
 llsquare = '''int %square(int %n) {
-block0:
     %n2 = mul int %n, %n
     ret int %n2
 }'''
 
 llmul2 = '''int %mul2(int %n) {
-block0:
     %n2 = mul int %n, 2
     ret int %n2
 }'''
@@ -43,13 +41,11 @@ llacross1 = '''declare int %across2(int)
 implementation
 
 int %across1(int %n) {
-block0:
     %n2 = mul int %n, 3
     ret int %n2
 }
 
 int %across1to2(int %n) {
-block0:
     %n2 = add int %n, 5
     %n3 = call int %across2(int %n2)
     ret int %n3
@@ -60,16 +56,28 @@ llacross2 = '''declare int %across1(int %dsf)
 implementation
 
 int %across2(int %n) {
-block0:
     %n2 = mul int %n, 7
     ret int %n2
 }
 
 int %across2to1(int %n) {
-block0:
     %n2 = add int %n, 9
     %n3 = call int %across1(int %n2)
     ret int %n3
+}'''
+
+llglobalmul4 = '''%my_global_ubyte = external global ubyte
+
+implementation
+
+int %globalmul4(int %a) {
+    %aa = cast int %a to ubyte
+    %v0 = load ubyte* %my_global_ubyte
+    %v1 = mul ubyte %v0, 4
+    %v2 = add ubyte %v1, %aa
+    store ubyte %v2, ubyte* %my_global_ubyte
+    %v3 = cast ubyte %v2 to int
+    ret int %v3
 }'''
 
 #helpers
@@ -154,7 +162,15 @@ def test_transform(): #XXX This uses Module transforms, think about Function tra
     assert llvmjit.execute(deadcode, 30) == 30 * 2
 
 def DONTtest_modify_global_data():
-    pass
+    llvmjit.restart()
+    gp_char = llvmjit.get_pointer_to_global_char()
+    assert len(gp_char) == 1
+    assert ord(gp_char[0]) == 10
+    llvmjit.add_global_mapping('my_global_ubyte', gp_char) #note: should be prior to compile()
+    llvmjit.compile(llglobalmul4) #XXX assert error, incorrect types???
+    globalmul4 = llvmjit.find_function('globalmul4')
+    assert llvmjit.execute(globalmul4, 5) == 10 * 4 + 5
+    assert ord(gp_char[0]) == 10 * 4 + 5
 
 def DONTtest_call_back_to_parent(): #call JIT-compiler again for it to add case(s) to flexswitch
     pass
