@@ -29,7 +29,7 @@ and related projects.
 into PyPy.
 
 `PyPy video documentation`_ is a page linking to the videos (e.g. of talks and
-introductions) that is available.
+introductions) that are available.
 
 `license`_ contains licensing details (basically a straight MIT-license). 
 
