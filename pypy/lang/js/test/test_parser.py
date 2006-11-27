@@ -1,5 +1,11 @@
 from pypy.lang.js.parser import read_js_output, JsSyntaxError, parse
+from pypy.lang.js.test.test_interp import js_is_on_path
 import py
+
+
+if not js_is_on_path():
+    py.test.skip("js binary not found")
+
 
 def test_read_js_output():
     assert read_js_output("1+1").find("PLUS") > -1
