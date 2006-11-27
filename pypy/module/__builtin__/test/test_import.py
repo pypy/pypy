@@ -2,10 +2,10 @@ import py
 from pypy.interpreter.module import Module
 from pypy.interpreter import gateway
 import pypy.interpreter.pycode
-from pypy.tool.udir import udir 
+from pypy.tool.udir import udir
+from pypy.rlib import streamio
 import sys, os
 import tempfile, marshal
-from pypy.lib._osfilewrapper import OsFileWrapper
 
 from pypy.module.__builtin__ import importing
 
@@ -64,16 +64,15 @@ def setup_directory_structure(space):
         w = space.wrap
         w_modname = w("compiled.x")
         filename = str(p.join("x.py"))
-        fd = os.open(filename, os.O_RDONLY, 0666)
-        osfile = importing.OsFileWrapper(fd)
+        stream = streamio.open_file_as_stream(filename, "r")
         try:
             importing.load_source_module(space,
                                          w_modname,
                                          w(importing.Module(space, w_modname)),
                                          filename,
-                                         osfile)
+                                         stream)
         finally:
-            osfile.close()
+            stream.close()
 
     return str(root)
 
@@ -314,11 +313,14 @@ class TestPycStuff:
         mtime = 12345
         co = compile('x = 42', '?', 'exec')
         cpathname = _testfile(importing.pyc_magic, mtime, co)
-        fd = os.open(cpathname, importing.BIN_READMASK, 0777)
-        os.lseek(fd, 8, 0)
-        w_code = importing.read_compiled_module(space, cpathname, OsFileWrapper(fd))
-        pycode = space.interpclass_w(w_code)
-        os.close(fd)
+        stream = streamio.open_file_as_stream(cpathname, "r")
+        try:
+            stream.seek(8, 0)
+            w_code = importing.read_compiled_module(
+                    space, cpathname, stream)
+            pycode = space.interpclass_w(w_code)
+        finally:
+            stream.close()
         assert type(pycode) is pypy.interpreter.pycode.PyCode
         w_dic = space.newdict()
         pycode.exec_code(space, w_dic, w_dic)
@@ -333,14 +335,16 @@ class TestPycStuff:
         co = compile('x = 42', '?', 'exec')
         cpathname = _testfile(importing.pyc_magic, mtime, co)
         w_modulename = space.wrap('somemodule')
-        fd = os.open(cpathname, importing.BIN_READMASK, 0777)
-        w_mod = space.wrap(Module(space, w_modulename))
-        w_ret = importing.load_compiled_module(space,
-                                               w_modulename,
-                                               w_mod,
-                                               cpathname,
-                                               OsFileWrapper(fd))
-        os.close(fd)
+        stream = streamio.open_file_as_stream(cpathname, "r")
+        try:
+            w_mod = space.wrap(Module(space, w_modulename))
+            w_ret = importing.load_compiled_module(space,
+                                                   w_modulename,
+                                                   w_mod,
+                                                   cpathname,
+                                                   stream)
+        finally:
+            stream.close()
         assert w_mod is w_ret
         w_ret = space.getattr(w_mod, space.wrap('x'))
         ret = space.int_w(w_ret)
@@ -349,12 +353,13 @@ class TestPycStuff:
     def test_parse_source_module(self):
         space = self.space
         pathname = _testfilesource()
-        fd = os.open(pathname, importing.BIN_READMASK, 0777)
-        osfile = OsFileWrapper(fd)
-        w_ret = importing.parse_source_module(space,
-                                              pathname,
-                                              osfile)        
-        osfile.close()
+        stream = streamio.open_file_as_stream(pathname, "r")
+        try:
+            w_ret = importing.parse_source_module(space,
+                                                  pathname,
+                                                  stream)
+        finally:
+            stream.close()
         pycode = space.interpclass_w(w_ret)
         assert type(pycode) is pypy.interpreter.pycode.PyCode
         w_dic = space.newdict()
@@ -365,31 +370,38 @@ class TestPycStuff:
 
     def test_long_writes(self):
         pathname = str(udir.join('test.dat'))
-        f = file(pathname, "wb")
-        osfile = OsFileWrapper(f.fileno())
-        importing._w_long(osfile, 42)
-        importing._w_long(osfile, 12312)
-        importing._w_long(osfile, 128397198)
-        f.close()
-        f = file(pathname, "r")
-        osfile = OsFileWrapper(f.fileno())
-        assert importing._r_long(osfile) == 42
-        assert importing._r_long(osfile) == 12312
-        assert importing._r_long(osfile) == 128397198
+        stream = streamio.open_file_as_stream(pathname, "wb")
+        try:
+            importing._w_long(stream, 42)
+            importing._w_long(stream, 12312)
+            importing._w_long(stream, 128397198)
+        finally:
+            stream.close()
+        stream = streamio.open_file_as_stream(pathname, "r")
+        try:
+            res = importing._r_long(stream)
+            assert res == 42
+            res = importing._r_long(stream)
+            assert res == 12312
+            res = importing._r_long(stream)
+            assert res == 128397198
+        finally:
+            stream.close()
 
     def test_load_source_module(self):
         space = self.space
         w_modulename = space.wrap('somemodule')
         w_mod = space.wrap(Module(space, w_modulename))
         pathname = _testfilesource()
-        fd = os.open(pathname, importing.BIN_READMASK, 0777)
-        osfile = OsFileWrapper(fd)
-        w_ret = importing.load_source_module(space,
-                                             w_modulename,
-                                             w_mod,
-                                             pathname,
-                                             osfile)        
-        osfile.close()
+        stream = streamio.open_file_as_stream(pathname, "r")
+        try:
+            w_ret = importing.load_source_module(space,
+                                                 w_modulename,
+                                                 w_mod,
+                                                 pathname,
+                                                 stream)
+        finally:
+            stream.close()
         assert w_mod is w_ret
         w_ret = space.getattr(w_mod, space.wrap('x'))
         ret = space.int_w(w_ret)
@@ -400,12 +412,13 @@ class TestPycStuff:
     def test_write_compiled_module(self):
         space = self.space
         pathname = _testfilesource()
-        fd = os.open(pathname, importing.BIN_READMASK, 0777)
-        osfile = OsFileWrapper(fd)
-        w_ret = importing.parse_source_module(space,
-                                              pathname,
-                                              osfile)        
-        osfile.close()
+        stream = streamio.open_file_as_stream(pathname, "r")
+        try:
+            w_ret = importing.parse_source_module(space,
+                                                  pathname,
+                                                  stream)
+        finally:
+            stream.close()
         pycode = space.interpclass_w(w_ret)
         assert type(pycode) is pypy.interpreter.pycode.PyCode
 
@@ -425,12 +438,13 @@ class TestPycStuff:
         assert ret == 1
 
         # read compile module
-        fd = os.open(cpathname, importing.BIN_READMASK, 0777)
-        os.lseek(fd, 8, 0)
-        osfile = OsFileWrapper(fd)
-        w_code = importing.read_compiled_module(space, cpathname, osfile)
-        pycode = space.interpclass_w(w_code)
-        os.close(fd)
+        stream = streamio.open_file_as_stream(cpathname, "r")
+        try:
+            stream.seek(8, 0)
+            w_code = importing.read_compiled_module(space, cpathname, stream)
+            pycode = space.interpclass_w(w_code)
+        finally:
+            stream.close()
 
         # check value of load
         w_dic = space.newdict()
