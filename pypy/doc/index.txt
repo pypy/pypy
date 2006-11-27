@@ -80,7 +80,7 @@ extension modules.
 `rlib`_ describes some modules that can be used when implementing programs in
 RPython.
 
-`JavaScript backend`_ describes how to use JavaScript backend to create
+`JavaScript backend`_ describes how to use the JavaScript backend to create
 AJAX-based web pages.
 
 `EU reports`_ is a page that contains links to the
