@@ -17,7 +17,7 @@ including a two-liner to run PyPy on your system.
 `coding guide`_ helps you to write code for PyPy (especially also describes
 coding in RPython a bit). 
 
-`development methodology`_ describe our sprint-driven approach.
+`development methodology`_ describes our sprint-driven approach.
 
 `sprint reports`_ lists reports written at most of our sprints, from
 2003 to the present.
@@ -318,3 +318,4 @@ Directory                      explanation/links
 .. _Mono: http://www.mono-project.com/
 
 .. include:: _ref.txt
+
