@@ -394,10 +394,10 @@ def runblock(graph, FUNCTYPE, args,
     graph = buildgraph(graph, FUNCTYPE)
     return testgengraph(graph, args, viewbefore, executor)
 
-def show_incremental_progress(graph):
+def show_incremental_progress(gv_func):
     from pypy import conftest
     if conftest.option.view:
-        graph = from_opaque_object(graph)
+        graph = _getgraph(gv_func)
         eliminate_empty_blocks(graph)
         graph.show()
 
