@@ -61,6 +61,9 @@ class GraphLayout:
                 lines[i] = lines[i][:-2] + lines[i+1]
                 del lines[i+1]
         header = splitline(lines.pop(0))
+        # XXX very simple-minded way to give a somewhat better error message
+        if header[0] == '<body':
+            raise Exception("the dot on codespeak has very likely crashed")
         assert header[0] == 'graph'
         self.scale = float(header[1])
         self.boundingbox = float(header[2]), float(header[3])
