@@ -38,10 +38,10 @@ def runner2(build):
 
 def build_square():
     """def square(v0): return v0*v0"""
-    builder, graph, (gv0,) = rgenop.newgraph(f1_token)
+    builder, gv_square, (gv0,) = rgenop.newgraph(f1_token, "square")
     gv1 = builder.genop2('int_mul', gv0, gv0)
     builder.finish_and_return(f1_token, gv1)
-    gv_square = rgenop.gencallableconst(f1_token, "square", graph)
+    builder.end()
     square_ptr = gv_square.revealconst(lltype.Ptr(F1))
     return square_ptr
 
@@ -63,14 +63,14 @@ def build_if():
         else:
             return v0
     """
-    builder, graph, (gv0,) = rgenop.newgraph(f1_token)
+    builder, gv_if, (gv0,) = rgenop.newgraph(f1_token, "if")
  
     const0 = rgenop.genconst(0)
     gv1 = builder.genop2('int_lt', gv0, const0)
     false_builder = builder.jump_if_false(gv1)
     builder.finish_and_return(f1_token, const0)
     false_builder.finish_and_return(f1_token, gv0)
-    gv_if = rgenop.gencallableconst(f1_token, "if", graph)
+    builder.end()
     if_ptr = gv_if.revealconst(lltype.Ptr(F1))
     return if_ptr
 
@@ -100,7 +100,7 @@ def build_loop():
             if i > v0: break
         return result
     """
-    builder, graph, (gv0,) = rgenop.newgraph(f1_token)
+    builder, gv_loop, (gv0,) = rgenop.newgraph(f1_token, "loop")
     const1 = rgenop.genconst(1)
 
     args_gv = [const1, const1, gv0]
@@ -114,7 +114,7 @@ def build_loop():
     builder.finish_and_return(f1_token, gv_result1)
     loop_builder.finish_and_goto([gv_result1, gv_i1, gv1], loopblock)
 
-    gv_loop = rgenop.gencallableconst(f1_token, "loop", graph)
+    builder.end()
     loop_ptr = gv_loop.revealconst(lltype.Ptr(F1))
     return loop_ptr
 
@@ -165,7 +165,7 @@ def build_switch():
         else:
             return v1
     """
-    builder, graph, (gv0, gv1) = rgenop.newgraph(f2_token)
+    builder, gv_switch, (gv0, gv1) = rgenop.newgraph(f2_token, "switch")
 
     flexswitch = builder.flexswitch(gv0)
     const21 = rgenop.genconst(21)
@@ -193,7 +193,7 @@ def build_switch():
     [gv1_default] = default_args_gv
     default_builder.finish_and_return(f2_token, gv1_default)
 
-    gv_switch = rgenop.gencallableconst(f2_token, "switch", graph)
+    builder.end()
     switch_ptr = gv_switch.revealconst(lltype.Ptr(F2))
     return switch_ptr
 

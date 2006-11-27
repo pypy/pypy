@@ -38,19 +38,19 @@ class LLFlexSwitch(CodeGenSwitch):
     
     def __init__(self, b, g):
         self.b = b
-        self.g = g
+        self.gv_f = g
         self.cases_gv = []
 
     def add_case(self, gv_case):
         self.cases_gv.append(gv_case)  # not used so far, but keeps ptrs alive
         l_case = llimpl.add_case(self.b, gv_case.v)
-        builder = LLBuilder(self.g)
+        builder = LLBuilder(self.gv_f)
         builder.lnk = l_case
         return builder
 
     def add_default(self):
         l_default = llimpl.add_default(self.b)
-        builder = LLBuilder(self.g)
+        builder = LLBuilder(self.gv_f)
         builder.lnk = l_default
         return builder
 
@@ -59,8 +59,11 @@ class LLBuilder(GenBuilder):
 
     def __init__(self, g):
         self.rgenop = rgenop
-        self.g = g
+        self.gv_f = g
 
+    def end(self):
+        llimpl.end(self.gv_f)
+        
     @specialize.arg(1)
     def genop1(self, opname, gv_arg):
         return LLVar(llimpl.genop(self.b, opname, [gv_arg], llimpl.guess))
@@ -145,7 +148,7 @@ class LLBuilder(GenBuilder):
         llimpl.closelink(lnk, args_gv, self.b)
         for i in range(len(args_gv)):
             args_gv[i] = newb_args_gv[i]
-        return LLLabel(self.b, self.g)
+        return LLLabel(self.b, self.gv_f)
 
     def finish_and_goto(self, args_gv, target):
         lnk = self.lnk or llimpl.closeblock1(self.b)
@@ -156,12 +159,12 @@ class LLBuilder(GenBuilder):
         gv_returnvar = gv_returnvar or gv_dummy_placeholder
         lnk = self.lnk or llimpl.closeblock1(self.b)
         self.lnk = llimpl.nulllink
-        llimpl.closereturnlink(lnk, gv_returnvar.v, self.g)
+        llimpl.closereturnlink(lnk, gv_returnvar.v, self.gv_f)
 
     def jump_if_true(self, gv_cond):
         l_false, l_true = llimpl.closeblock2(self.b, gv_cond.v)
         self.b = llimpl.nullblock
-        later_builder = LLBuilder(self.g)
+        later_builder = LLBuilder(self.gv_f)
         later_builder.lnk = l_true
         self.lnk = l_false
         return later_builder
@@ -169,37 +172,33 @@ class LLBuilder(GenBuilder):
     def jump_if_false(self, gv_cond):
         l_false, l_true = llimpl.closeblock2(self.b, gv_cond.v)
         self.b = llimpl.nullblock
-        later_builder = LLBuilder(self.g)
+        later_builder = LLBuilder(self.gv_f)
         later_builder.lnk = l_false
         self.lnk = l_true
         return later_builder
 
     def flexswitch(self, gv_switchvar):
         llimpl.closeblockswitch(self.b, gv_switchvar.v)
-        flexswitch = LLFlexSwitch(self.b, self.g)
+        flexswitch = LLFlexSwitch(self.b, self.gv_f)
         self.b = llimpl.nullblock
         self.lnk = llimpl.nulllink
         return flexswitch
 
     def show_incremental_progress(self):
-        llimpl.show_incremental_progress(self.g)
+        llimpl.show_incremental_progress(self.gv_f)
 
 
 class RGenOp(AbstractRGenOp):
     gv_Void = gv_Void
 
 
-    def newgraph(self, (ARGS_gv, gv_RESULT, gv_FUNCTYPE)):
-        graph = llimpl.newgraph(gv_FUNCTYPE.v)
-        builder = LLBuilder(graph)
-        builder.b = llimpl.getstartblock(graph)
+    def newgraph(self, (ARGS_gv, gv_RESULT, gv_FUNCTYPE), name):
+        gv_func = llimpl.newgraph(gv_FUNCTYPE.v, name)
+        builder = LLBuilder(gv_func)
+        builder.b = llimpl.getstartblock(gv_func)
         inputargs_gv = [LLVar(llimpl.getinputarg(builder.b, i))
                         for i in range(len(ARGS_gv))]
-        return builder, graph, inputargs_gv
-
-    def gencallableconst(self, (ARGS_gv, gv_RESULT, gv_FUNCTYPE), name, graph):
-        return LLConst(llimpl.gencallableconst(name, graph,
-                                               gv_FUNCTYPE.v))
+        return builder, LLConst(gv_func), inputargs_gv
 
     @staticmethod
     @specialize.genconst(0)

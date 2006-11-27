@@ -256,7 +256,8 @@ class HintRTyper(RPythonTyper):
             except KeyError:
                 portal_ts_args = ()
                 sigtoken = rgenop.sigToken(FUNC)
-                builder, entrypoint, inputargs_gv = rgenop.newgraph(sigtoken)
+                builder, gv_generated, inputargs_gv = rgenop.newgraph(sigtoken,
+                                                             "generated")
                 i = 0
                 for color in argcolors:
                     if color == "green":
@@ -279,9 +280,7 @@ class HintRTyper(RPythonTyper):
                 if top_jitstate is not None:
                     finish_jitstate(top_jitstate, sigtoken)
 
-                gv_generated = rgenop.gencallableconst(sigtoken,
-                                                       "generated",
-                                                       entrypoint)
+                builder.end()
                 fn = gv_generated.revealconst(lltype.Ptr(FUNC))
                 builder.show_incremental_progress()
                 cache[key] = fn

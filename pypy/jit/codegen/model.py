@@ -152,12 +152,13 @@ class AbstractRGenOp(object):
     being written to.
     '''
 
-    def newgraph(self, sigtoken):
+    def newgraph(self, sigtoken, name):
         """Begin code generation for a new function, which signature
         described by sigtoken.  Returns a new builder, entrypoint,
         inputargs_gv where the new builder is for the startblock,
-        entrypoint is the address of the new function and inputargs_gv
-        is the location of each argument on entry to the function."""
+        entrypoint is the address of the new function as GenConst and
+        inputargs_gv is the location of each argument on entry to the
+        function.  name is for debugging purposes"""
 
     # all staticmethods commented out for the sake of the annotator
 
@@ -176,16 +177,6 @@ class AbstractRGenOp(object):
     #def constPrebuiltGlobal(llvalue):
     #    """Convert an llvalue to an instance of (a subclass of) GenConst.
     #    This is for immortal prebuilt data."""
-    #    raise NotImplementedError
-
-    #def gencallableconst(self, sigtoken, name, entrypoint):
-    #    """Returns a GenConst that contains a function pointer.  This
-    #    might be the time to do some further optimization of the
-    #    generated code.
-    #
-    #    sigtoken describes the signature, name is for debugging
-    #    purposes and entrypoint is what was returned from
-    #    newgraph."""
     #    raise NotImplementedError
 
     def replay(self, label, kinds):

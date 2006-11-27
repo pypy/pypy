@@ -10,7 +10,8 @@ def compile_graph(rgenop, graph):
     FUNC = lltype.FuncType([v.concretetype for v in graph.getargs()],
                            graph.getreturnvar().concretetype)
     sigtoken = rgenop.sigToken(FUNC)
-    builder, entrypoint, args_gv = rgenop.newgraph(sigtoken)
+    builder, gv_entrypoint, args_gv = rgenop.newgraph(sigtoken,
+                                         "compiled_%s" % (graph.name,))
 
     pending_blocks = {graph.startblock: (builder, args_gv)}
     seen_blocks = {}
@@ -73,5 +74,6 @@ def compile_graph(rgenop, graph):
             args_gv = [var2gv(v) for v in link.args]
             pending_blocks[link.target] = builder, args_gv
 
-    return rgenop.gencallableconst(sigtoken, "compiled_%s" % (graph.name,),
-                                   entrypoint)
+    builder.end()
+    return gv_entrypoint
+           

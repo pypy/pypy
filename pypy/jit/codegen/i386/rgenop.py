@@ -218,10 +218,14 @@ class FlexSwitch(CodeGenSwitch):
 
 class Builder(GenBuilder):
 
+
     def __init__(self, rgenop, mc, stackdepth):
         self.rgenop = rgenop
         self.stackdepth = stackdepth
         self.mc = mc
+
+    def end(self):
+        pass
 
     def _write_prologue(self, sigtoken):
         numargs = sigtoken     # for now
@@ -799,6 +803,9 @@ class ReplayBuilder(GenBuilder):
     def __init__(self, rgenop):
         self.rgenop = rgenop
 
+    def end(self):
+        pass
+
     @specialize.arg(1)
     def genop1(self, opname, gv_arg):
         return dummy_var
@@ -888,13 +895,13 @@ class RI386GenOp(AbstractRGenOp):
     def openbuilder(self, stackdepth):
         return Builder(self, self.open_mc(), stackdepth)
 
-    def newgraph(self, sigtoken):
+    def newgraph(self, sigtoken, name):
         numargs = sigtoken          # for now
         initialstackdepth = numargs+1
         builder = self.openbuilder(initialstackdepth)
         entrypoint = builder.mc.tell()
         inputargs_gv = builder._write_prologue(sigtoken)
-        return builder, entrypoint, inputargs_gv
+        return builder, IntConst(entrypoint), inputargs_gv
 
     def replay(self, label, kinds):
         return ReplayBuilder(self), [dummy_var] * len(kinds)
@@ -958,9 +965,6 @@ class RI386GenOp(AbstractRGenOp):
     @specialize.memo()
     def sigToken(FUNCTYPE):
         return len(FUNCTYPE.ARGS)     # for now
-
-    def gencallableconst(self, sigtoken, name, entrypointaddr):
-        return IntConst(entrypointaddr)
 
     @staticmethod
     def erasedType(T):

@@ -13,10 +13,10 @@ FUNC = lltype.FuncType([lltype.Signed], lltype.Signed)
 def make_adder(rgenop, n):
     # 'return x+n'
     sigtoken = rgenop.sigToken(FUNC)
-    builder, entrypoint, [gv_x] = rgenop.newgraph(sigtoken)
+    builder, gv_add_one, [gv_x] = rgenop.newgraph(sigtoken, "adder")
     gv_result = builder.genop2("int_add", gv_x, rgenop.genconst(n))
     builder.finish_and_return(sigtoken, gv_result)
-    gv_add_one = rgenop.gencallableconst(sigtoken, "adder", entrypoint)
+    builder.end()
     return gv_add_one
 
 def get_adder_runner(RGenOp):
@@ -35,7 +35,7 @@ def make_dummy(rgenop):
     # 'return x - (y - (x-1))'
     signed_kind = rgenop.kindToken(lltype.Signed)
     sigtoken = rgenop.sigToken(FUNC2)
-    builder, entrypoint, [gv_x, gv_y] = rgenop.newgraph(sigtoken)
+    builder, gv_dummyfn, [gv_x, gv_y] = rgenop.newgraph(sigtoken, "dummy")
     gv_z = builder.genop2("int_sub", gv_x, rgenop.genconst(1))
 
     args_gv = [gv_y, gv_z, gv_x]
@@ -46,7 +46,7 @@ def make_dummy(rgenop):
     gv_t2 = builder.genop2("int_sub", gv_x2, gv_s2)
     builder.finish_and_return(sigtoken, gv_t2)
 
-    gv_dummyfn = rgenop.gencallableconst(sigtoken, "dummy", entrypoint)
+    builder.end()
     return gv_dummyfn
 
 def get_dummy_runner(RGenOp):
@@ -64,7 +64,8 @@ def make_branching(rgenop):
     #  else:     return y'
     signed_kind = rgenop.kindToken(lltype.Signed)
     sigtoken = rgenop.sigToken(FUNC2)
-    builder, entrypoint, [gv_x, gv_y] = rgenop.newgraph(sigtoken)
+    builder, gv_branchingfn, [gv_x, gv_y] = rgenop.newgraph(sigtoken,
+                                                            "branching")
     gv_cond = builder.genop2("int_gt", gv_x, rgenop.genconst(5))
     false_builder = builder.jump_if_false(gv_cond)
 
@@ -83,8 +84,7 @@ def make_branching(rgenop):
     false_builder.finish_and_return(sigtoken, gv_y)
 
     # done
-    gv_branchingfn = rgenop.gencallableconst(sigtoken,
-                                             "branching", entrypoint)
+    builder.end()
     return gv_branchingfn
 
 def get_branching_runner(RGenOp):
@@ -139,7 +139,7 @@ def make_goto(rgenop):
     # return y
     signed_kind = rgenop.kindToken(lltype.Signed)
     sigtoken = rgenop.sigToken(FUNC2)
-    builder, entrypoint, [gv_x, gv_y] = rgenop.newgraph(sigtoken)
+    builder, gv_gotofn, [gv_x, gv_y] = rgenop.newgraph(sigtoken, "goto")
 
     [gv_x, gv_y, gv_z],loopblock,bodybuilder = loop_start(
         rgenop, builder, signed_kind, gv_x, gv_y)
@@ -149,7 +149,7 @@ def make_goto(rgenop):
         rgenop, loopblock, bodybuilder, signed_kind, gv_x, gv_y, gv_z)
 
     # done
-    gv_gotofn = rgenop.gencallableconst(sigtoken, "goto", entrypoint)
+    builder.end()
     return gv_gotofn
 
 def get_goto_runner(RGenOp):
@@ -169,7 +169,7 @@ def make_if(rgenop):
     # return x + a
     signed_kind = rgenop.kindToken(lltype.Signed)
     sigtoken = rgenop.sigToken(FUNC2)
-    builder, entrypoint, [gv_x1, gv_unused] = rgenop.newgraph(sigtoken)
+    builder, gv_gotofn, [gv_x1, gv_unused] = rgenop.newgraph(sigtoken, "if")
 
     # check
     args_gv = [gv_x1, gv_unused]
@@ -199,7 +199,7 @@ def make_if(rgenop):
     elsebuilder.finish_and_goto([gv_x3, gv_x3], label)
 
     # done
-    gv_gotofn = rgenop.gencallableconst(sigtoken, "goto", entrypoint)
+    builder.end()
     return gv_gotofn
 
 def get_if_runner(RGenOp):
@@ -224,7 +224,7 @@ def make_switch(rgenop):
     """
     signed_kind = rgenop.kindToken(lltype.Signed)
     sigtoken = rgenop.sigToken(FUNC2)
-    builder, entrypoint, [gv0, gv1] = rgenop.newgraph(sigtoken)
+    builder, gv_switch, [gv0, gv1] = rgenop.newgraph(sigtoken, "switch")
 
     flexswitch = builder.flexswitch(gv0)
     const21 = rgenop.genconst(21)
@@ -252,7 +252,7 @@ def make_switch(rgenop):
     gv_res_case1 = case_builder.genop2('int_add', const21, gv1_case1)
     case_builder.finish_and_return(sigtoken, gv_res_case1)
 
-    gv_switch = rgenop.gencallableconst(sigtoken, "switch", entrypoint)
+    builder.end()
     return gv_switch
 
 def get_switch_runner(RGenOp):
@@ -282,7 +282,7 @@ def make_large_switch(rgenop):
     """
     signed_tok = rgenop.kindToken(lltype.Signed)
     f2_token = rgenop.sigToken(FUNC2)
-    builder, graph, (gv0, gv1) = rgenop.newgraph(f2_token)
+    builder, gv_switch, (gv0, gv1) = rgenop.newgraph(f2_token, "large_switch")
 
     flexswitch = builder.flexswitch(gv0)
     const21 = rgenop.genconst(21)
@@ -312,7 +312,7 @@ def make_large_switch(rgenop):
          gv_res_casex = case_builder.genop2('int_add', const2px, gv1_casex)
          case_builder.finish_and_return(f2_token, gv_res_casex)
 
-    gv_switch = rgenop.gencallableconst(f2_token, "large_switch", graph)
+    builder.end()
     return gv_switch
 
 def get_large_switch_runner(RGenOp):
@@ -335,9 +335,7 @@ def make_fact(rgenop):
     #     return 1
     signed_kind = rgenop.kindToken(lltype.Signed)
     sigtoken = rgenop.sigToken(FUNC)
-    builder, entrypoint, [gv_x] = rgenop.newgraph(sigtoken)
-
-    gv_fact = rgenop.gencallableconst(sigtoken, "fact", entrypoint)
+    builder, gv_fact, [gv_x] = rgenop.newgraph(sigtoken, "fact")
 
     gv_cond = builder.genop1("int_is_true", gv_x)
 
@@ -356,6 +354,7 @@ def make_fact(rgenop):
     builder.enter_next_block([], [])
 
     builder.finish_and_return(sigtoken, rgenop.genconst(1))
+    builder.end()
     return gv_fact
 
 def get_fact_runner(RGenOp):

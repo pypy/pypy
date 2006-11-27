@@ -196,6 +196,9 @@ class Builder(GenBuilder):
     # ----------------------------------------------------------------
     # the public Builder interface:
 
+    def end(self):
+        pass
+
     @specialize.arg(1)
     def genop1(self, opname, gv_arg):
         genmethod = getattr(self, 'op_' + opname)
@@ -688,7 +691,7 @@ class RPPCGenOp(AbstractRGenOp):
         builder = self.openbuilder()
         entrypoint = builder.asm.mc.tell()
         inputargs_gv = builder._write_prologue(sigtoken)
-        return builder, entrypoint, inputargs_gv
+        return builder, IntConst(entrypoint), inputargs_gv
 
     @specialize.genconst(1)
     def genconst(self, llvalue):
@@ -708,9 +711,6 @@ class RPPCGenOp(AbstractRGenOp):
 ##     @staticmethod
 ##     @specialize.genconst(0)
 ##     def constPrebuiltGlobal(llvalue):
-
-    def gencallableconst(self, sigtoken, name, entrypointaddr):
-        return IntConst(entrypointaddr)
 
 ##     def replay(self, label, kinds):
 

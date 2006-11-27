@@ -20,7 +20,8 @@ class TestRPPCGenop(AbstractRGenOpTests):
         rgenop = self.RGenOp()
         signed_kind = rgenop.kindToken(lltype.Signed)
         sigtoken = rgenop.sigToken(FUNC2)
-        builder, entrypoint, [gv_x, gv_y] = rgenop.newgraph(sigtoken)
+        builder, gv_callable, [gv_x, gv_y] = rgenop.newgraph(sigtoken,
+                                                             "multicmp")
 
         args_gv = [gv_x, gv_y]
         builder.enter_next_block([signed_kind, signed_kind], args_gv)
@@ -48,7 +49,7 @@ class TestRPPCGenop(AbstractRGenOpTests):
         gv_r5 = builder.genop2("int_add", gv_r4, gv_ne2)
 
         builder.finish_and_return(sigtoken, gv_r5)
-        gv_callable = rgenop.gencallableconst(sigtoken, "multicmp", entrypoint)
+        builder.end()
         fnptr = cast(c_void_p(gv_callable.value), CFUNCTYPE(c_int, c_int))
         res = fnptr(1, 2)
         assert res == 101010

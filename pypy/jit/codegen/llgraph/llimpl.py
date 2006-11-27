@@ -28,8 +28,11 @@ def newblock():
     block = flowmodel.Block([])
     return to_opaque_object(block)
 
-def newgraph(gv_FUNCTYPE):
+def newgraph(gv_FUNCTYPE, name):
     FUNCTYPE = from_opaque_object(gv_FUNCTYPE).value
+    # 'name' is just a way to track things
+    if not isinstance(name, str):
+        name = LLSupport.from_rstr(name)
     inputargs = []
     erasedinputargs = []
     for ARG in FUNCTYPE.ARGS:
@@ -42,17 +45,27 @@ def newgraph(gv_FUNCTYPE):
     startblock = flowmodel.Block(inputargs)
     return_var = flowmodel.Variable()
     return_var.concretetype = FUNCTYPE.RESULT
-    graph = flowmodel.FunctionGraph("in_progress", startblock, return_var)
+    graph = flowmodel.FunctionGraph(name, startblock, return_var)
     v1 = flowmodel.Variable()
     v1.concretetype = lltype.erasedType(FUNCTYPE.RESULT)
     graph.prereturnblock = flowmodel.Block([v1])
     casting_link(graph.prereturnblock, [v1], graph.returnblock)
     substartblock = flowmodel.Block(erasedinputargs)
     casting_link(graph.startblock, inputargs, substartblock)
-    return to_opaque_object(graph)
+    fptr = lltype.functionptr(FUNCTYPE, name,
+                              graph=graph)
+    return genconst(fptr)
 
-def getstartblock(graph):
-    graph = from_opaque_object(graph)
+def _getgraph(gv_func):
+     graph = from_opaque_object(gv_func).value._obj.graph
+     return graph
+
+def end(gv_func):
+    graph = _getgraph(gv_func)
+    _buildgraph(graph)
+
+def getstartblock(gv_func):
+    graph = _getgraph(gv_func)
     [link] = graph.startblock.exits
     substartblock = link.target
     return to_opaque_object(substartblock)
@@ -160,17 +173,6 @@ def guess_result_type(opname, opvars):
     except Exception, e:
         assert 0, "failed to guess the type of %s: %s" % (opname, e)
     return lltype.typeOf(result)
-
-def gencallableconst(name, graph, gv_FUNCTYPE):
-    # 'name' is just a way to track things
-    if not isinstance(name, str):
-        name = LLSupport.from_rstr(name)
-    graph = from_opaque_object(graph)
-    graph.name = name
-    FUNCTYPE = from_opaque_object(gv_FUNCTYPE).value
-    fptr = lltype.functionptr(FUNCTYPE, name,
-                              graph=_buildgraph(graph, FUNCTYPE))
-    return genconst(fptr)
 
 def genconst(llvalue):
     T = lltype.typeOf(llvalue)
@@ -342,10 +344,10 @@ def closelink(link, vars, targetblock):
         import pdb; pdb.post_mortem(tb)
         raise
 
-def closereturnlink(link, returnvar, graph):
+def closereturnlink(link, returnvar, gv_func):
     returnvar = from_opaque_object(returnvar)
     link = from_opaque_object(link)
-    graph = from_opaque_object(graph)
+    graph = _getgraph(gv_func)
     _closelink(link, [returnvar], graph.prereturnblock)
 
 def casting_link(source, sourcevars, target):
@@ -370,7 +372,7 @@ class PseudoRTyper(object):
         from pypy.rpython.typesystem import LowLevelTypeSystem
         self.type_system = LowLevelTypeSystem.instance
 
-def _buildgraph(graph, FUNCTYPE):
+def _buildgraph(graph):
     flowmodel.checkgraph(graph)
     eliminate_empty_blocks(graph)
     join_blocks(graph)
@@ -379,7 +381,7 @@ def _buildgraph(graph, FUNCTYPE):
 
 def buildgraph(graph, FUNCTYPE):
     graph = from_opaque_object(graph)
-    return _buildgraph(graph, FUNCTYPE)
+    return _buildgraph(graph)
 
 def testgengraph(gengraph, args, viewbefore=False, executor=LLInterpreter):
     if viewbefore:
@@ -466,12 +468,12 @@ s_Block = annmodel.SomePtr(BLOCK)
 s_Graph = annmodel.SomePtr(GRAPH)
 
 setannotation(newblock, s_Block)
-setannotation(newgraph, s_Graph)
+setannotation(newgraph, s_ConstOrVar)
 setannotation(getstartblock, s_Block)
 setannotation(geninputarg, s_ConstOrVar)
 setannotation(getinputarg, s_ConstOrVar)
 setannotation(genop, s_ConstOrVar)
-setannotation(gencallableconst, s_ConstOrVar)
+setannotation(end, None)
 setannotation(genconst, s_ConstOrVar)
 setannotation(cast, s_ConstOrVar)
 setannotation(revealconst, lambda s_T, s_gv: annmodel.lltype_to_annotation(
