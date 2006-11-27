@@ -309,3 +309,47 @@ class TestPortal(PortalTest):
         res = self.timeshift_from_portal(ll_function, ll_function, [0], policy=P_NOVIRTUAL)
         assert res == ord('2')
         self.check_insns(indirect_call=0, malloc=0)
+
+    def test_simple_recursive_portal_call(self):
+
+        def main(code, x):
+            return evaluate(code, x)
+
+        def evaluate(y, x):
+            hint(y, concrete=True)
+            if y <= 0:
+                return x
+            z = 1 + evaluate(y - 1, x)
+            return z
+
+        res = self.timeshift_from_portal(main, evaluate, [3, 2])
+        assert res == 5
+
+        res = self.timeshift_from_portal(main, evaluate, [3, 5])
+        assert res == 8
+
+        res = self.timeshift_from_portal(main, evaluate, [4, 7])
+        assert res == 11
+    
+
+    def test_simple_recursive_portal_call2(self):
+
+        def main(code, x):
+            return evaluate(code, x)
+
+        def evaluate(y, x):
+            hint(y, concrete=True)
+            if x <= 0:
+                return y
+            z = evaluate(y, x - 1) + 1
+            return z
+
+        res = self.timeshift_from_portal(main, evaluate, [3, 2])
+        assert res == 5
+
+        res = self.timeshift_from_portal(main, evaluate, [3, 5])
+        assert res == 8
+
+        res = self.timeshift_from_portal(main, evaluate, [4, 7])
+        assert res == 11
+    
