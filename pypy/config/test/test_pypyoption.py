@@ -16,9 +16,6 @@ def test_required():
 
 def test_objspace_incopatibilities():
     conf = Config(pypy_optiondescription)
-    conf.objspace.name = "thunk"
-    assert not conf.objspace.geninterp
-    conf = Config(pypy_optiondescription)
     conf.objspace.name = "logic"
     assert not conf.objspace.geninterp
 

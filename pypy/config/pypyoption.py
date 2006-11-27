@@ -24,7 +24,6 @@ pypy_optiondescription = OptionDescription("pypy", "All PyPy Options", [
                      ["std", "flow", "logic", "thunk", "cpy", "dump", "sand"],
                      "std",
                      requires = {
-                         #"thunk": [("objspace.geninterp", False)],  uh? why?
                          "logic": [("objspace.geninterp", False),
                                    ("objspace.usemodules._stackless", True)],
                      },
