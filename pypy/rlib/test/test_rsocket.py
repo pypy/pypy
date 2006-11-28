@@ -205,14 +205,14 @@ def test_getsetsockopt():
     # Test string case
     s = RSocket(AF_INET, SOCK_STREAM)
     reusestr = s.getsockopt(SOL_SOCKET, SO_REUSEADDR, sizeof(c_int))
-    reuseptr = cast(c_char_p(reusestr), POINTER(c_int))
+    reuseptr = cast((c_char*len(reusestr))(*[c for c in reusestr]), POINTER(c_int))
     assert reuseptr[0] == 0
     optval = c_int(1)
     optvalp = cast(pointer(optval), POINTER(c_char))
     optstr = optvalp[:sizeof(c_int)]
     s.setsockopt(SOL_SOCKET, SO_REUSEADDR, optstr)
     reusestr = s.getsockopt(SOL_SOCKET, SO_REUSEADDR, sizeof(c_int))
-    reuseptr = cast(c_char_p(reusestr), POINTER(c_int))
+    reuseptr = cast((c_char*len(reusestr))(*[c for c in reusestr]), POINTER(c_int))
     assert reuseptr[0] != 0
 
 def test_dup():
