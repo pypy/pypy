@@ -9,6 +9,7 @@
 
 /* xxx macro from pyport.h, at some point define our owns */
 /* xxx this 2.3 name is later deprecated  */
+#include <errno.h>
 #define LL_MATH_SET_ERANGE_IF_MATH_ERROR Py_SET_ERANGE_IF_OVERFLOW
 
 #define LL_MATH_ERROR_RESET errno = 0

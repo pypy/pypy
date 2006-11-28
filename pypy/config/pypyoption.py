@@ -177,6 +177,10 @@ pypy_optiondescription = OptionDescription("pypy", "All PyPy Options", [
         BoolOption("no__thread",
                    "don't use __thread for implementing TLS",
                    default=False, cmdline="--no__thread", negation=False),
+        StrOption("compilerflags", "Specify flags for the compiler", 
+                   cmdline="--cflags"),
+        StrOption("linkerflags", "Specify flags for the linker", 
+                   cmdline="--ldflags"),
 
         # Flags of the TranslationContext:
         BoolOption("simplifying", "Simplify flow graphs", default=True),

@@ -37,8 +37,10 @@ int main(int argc, char *argv[])
     exitcode = STANDALONE_ENTRY_POINT(list);
     if (RPyExceptionOccurred()) {
         /* fish for the exception type, at least */
+#ifndef AVR
         fprintf(stderr, "Fatal PyPy error: %s\n",
                 RPyFetchExceptionType()->ov_name->items);
+#endif
         exitcode = 1;
     }
     return exitcode;
@@ -46,7 +48,9 @@ int main(int argc, char *argv[])
  memory_out:
     errmsg = "out of memory";
  error:
+#ifndef AVR
     fprintf(stderr, "Fatal error during initialization: %s\n", errmsg);
+#endif
     return 1;
 }
 

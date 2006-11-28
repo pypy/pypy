@@ -16,8 +16,12 @@
 
 #include "src/mem.h"
 #include "src/exception.h"
-#include "src/trace.h"
 #include "src/support.h"
+#ifndef AVR
+#include "src/trace.h"
+#else
+    #define PY_LONG_LONG long long
+#endif
 
 #ifndef PYPY_STANDALONE
 #  include "src/module.h"
@@ -26,9 +30,11 @@
 
 #include "src/int.h"
 #include "src/char.h"
-#include "src/unichar.h"
 #include "src/float.h"
+#ifndef AVR
+#include "src/unichar.h"
 #include "src/address.h"
+#endif
 
 #include "src/instrument.h"
 
@@ -40,6 +46,7 @@
 /*** modules ***/
 #ifdef HAVE_RTYPER      /* only if we have an RTyper */
 #  include "src/rtyper.h"
+#ifndef AVR
 #  include "src/ll_os.h"
 #  include "src/ll_time.h"
 #  include "src/ll_math.h"
@@ -48,8 +55,11 @@
 #    include "src/ll_thread.h"
 #  endif
 #endif
+#endif
 
+#ifndef AVR
 #include "src/stack.h"
+#endif
 
 #ifdef PYPY_STANDALONE
 #  include "src/main.h"
