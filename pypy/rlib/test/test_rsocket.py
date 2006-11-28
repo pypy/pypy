@@ -205,14 +205,20 @@ def test_getsetsockopt():
     # Test string case
     s = RSocket(AF_INET, SOCK_STREAM)
     reusestr = s.getsockopt(SOL_SOCKET, SO_REUSEADDR, sizeof(c_int))
-    reuseptr = cast((c_char*len(reusestr))(*[c for c in reusestr]), POINTER(c_int))
+    # XXX: This strange creation fo reuse_c_char instead of plain
+    # c_char_p(reusestr) is to work around a bug in the cast function
+    # of ctypes version 1.0.0
+    reuse_c_chars = (c_char*len(reusestr))(*[c for c in reusestr])
+    reuseptr = cast(reuse_c_chars, POINTER(c_int))
     assert reuseptr[0] == 0
     optval = c_int(1)
     optvalp = cast(pointer(optval), POINTER(c_char))
     optstr = optvalp[:sizeof(c_int)]
     s.setsockopt(SOL_SOCKET, SO_REUSEADDR, optstr)
     reusestr = s.getsockopt(SOL_SOCKET, SO_REUSEADDR, sizeof(c_int))
-    reuseptr = cast((c_char*len(reusestr))(*[c for c in reusestr]), POINTER(c_int))
+    # XXX: See above.
+    reuse_c_chars = (c_char*len(reusestr))(*[c for c in reusestr])
+    reuseptr = cast(reuse_c_chars, POINTER(c_int))
     assert reuseptr[0] != 0
 
 def test_dup():
