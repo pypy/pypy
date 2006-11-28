@@ -193,7 +193,7 @@ def getappfileloader(pkgroot, spec):
 # ____________________________________________________________
 # Helper to test mixed modules on top of CPython
 
-def testmodule(name):
+def testmodule(name, basepath='pypy.module'):
     """Helper to test mixed modules on top of CPython,
     running with the CPy Object Space.  The module should behave
     more or less as if it had been compiled, either with the
@@ -204,7 +204,8 @@ def testmodule(name):
     import sys, new
     from pypy.objspace.cpy.objspace import CPyObjSpace
     space = CPyObjSpace()
-    fullname = "pypy.module.%s" % name 
+    
+    fullname = "%s.%s" % (basepath, name) 
     Module = __import__(fullname, 
                         None, None, ["Module"]).Module
     if Module.applevel_name is not None:
