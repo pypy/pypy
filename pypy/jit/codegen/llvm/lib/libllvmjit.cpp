@@ -41,7 +41,7 @@ static cl::list<const PassInfo*, bool, PassNameParser>
     PassList(cl::desc("Optimizations available:"));
 
 //some global data for the tests to play with
-char    g_char[2] = {10,0};
+int g_data;
 
 
 //
@@ -106,23 +106,24 @@ int     execute(const void* function, int param) { //XXX allow different functio
 }
 
 
-char*   get_pointer_to_global_char() {
-    printf("get_pointer_to_global_char g_char=%08x\n", g_char);
-    return g_char;
+int     get_global_data() {
+    return g_data;
+}
+
+
+void    set_global_data(int n) {
+    g_data = n;
+}
+
+
+int*    get_pointer_to_global_data() {
+    return &g_data;
 }
 
 
 void    add_global_mapping(const char* name, void* address) {
-    //GlobalValue(const Type *Ty, ValueTy vty, Use *Ops, unsigned NumOps, LinkageTypes linkage, const std::string &name = "");
-
-    /// GlobalVariable ctor - If a parent module is specified, the global is
-    //  /// automatically inserted into the end of the specified modules global list.
-    //    GlobalVariable(const Type *Ty, bool isConstant, LinkageTypes Linkage,
-    //                     Constant *Initializer = 0, const std::string &Name = "",
-    //                                      Module *Parent = 0);
-
-    GlobalVariable  var(Type::UByteTy, false, GlobalVariable::ExternalLinkage, 0, name, gp_module);
-    printf("add_global_mapping address=%08x\n", address);
-    gp_execution_engine->addGlobalMapping(&var, address);
+    //note: using getNamedGlobal implies that we can not have globals of different type
+    //      but with identical names! This is probably easy to do.
+    gp_execution_engine->addGlobalMapping(gp_module->getNamedGlobal(name), address);
 }
 

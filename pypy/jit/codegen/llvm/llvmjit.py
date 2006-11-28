@@ -6,6 +6,7 @@
 
     This file contains the ctypes specification to use the llvmjit library!
 '''
+import autopath
 from pypy.rpython.rctypes import implementation
 from pypy.rpython.rctypes.tool.util import load_library
 
@@ -13,10 +14,11 @@ from ctypes import _CFuncPtr, _FUNCFLAG_CDECL
 from ctypes import *
 import os
 
-path = os.path.join(os.path.dirname(__file__), 'libllvmjit.so')
-
+newdir = os.path.dirname(__file__)
+path = os.path.join(newdir, 'libllvmjit.so')
 curdir = os.getcwd()
-os.chdir(os.path.dirname(__file__))
+if newdir:
+    os.chdir(newdir)
 
 #With py.test --session=R the master server rsyncs the .so library too!?!
 #So we always need to recompile the library if its platform (output of file libllvmjit.so)
@@ -61,11 +63,17 @@ execute = llvmjit.execute
 execute.restype  = c_int
 execute.argtypes = [c_void_p, c_int]
 
-get_pointer_to_global_char= llvmjit.get_pointer_to_global_char
-get_pointer_to_global_char.restype = c_char_p
-get_pointer_to_global_char.argtypes = []
+get_global_data= llvmjit.get_global_data
+get_global_data.restype = c_int
+get_global_data.argtypes = []
+
+set_global_data= llvmjit.set_global_data
+set_global_data.argtypes = [c_int]
+
+get_pointer_to_global_data= llvmjit.get_pointer_to_global_data
+get_pointer_to_global_data.restype = POINTER(c_int)
+get_pointer_to_global_data.argtypes = []
 
 add_global_mapping = llvmjit.add_global_mapping
-#add_global_mapping.restype = c_void
 add_global_mapping.argtypes = [c_char_p, c_void_p]
 

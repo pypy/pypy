@@ -66,18 +66,16 @@ int %across2to1(int %n) {
     ret int %n3
 }'''
 
-llglobalmul4 = '''%my_global_ubyte = external global ubyte
+llglobalmul4 = '''%my_global_data = external global int
 
 implementation
 
 int %globalmul4(int %a) {
-    %aa = cast int %a to ubyte
-    %v0 = load ubyte* %my_global_ubyte
-    %v1 = mul ubyte %v0, 4
-    %v2 = add ubyte %v1, %aa
-    store ubyte %v2, ubyte* %my_global_ubyte
-    %v3 = cast ubyte %v2 to int
-    ret int %v3
+    %v0 = load int* %my_global_data
+    %v1 = mul int %v0, 4
+    %v2 = add int %v1, %a
+    store int %v2, int* %my_global_data
+    ret int %v2
 }'''
 
 #helpers
@@ -161,16 +159,16 @@ def test_transform(): #XXX This uses Module transforms, think about Function tra
     assert llvmjit.transform("instcombine simplifycfg printm verify")
     assert llvmjit.execute(deadcode, 30) == 30 * 2
 
-def DONTtest_modify_global_data():
+def test_modify_global_data():
     llvmjit.restart()
-    gp_char = llvmjit.get_pointer_to_global_char()
-    assert len(gp_char) == 1
-    assert ord(gp_char[0]) == 10
-    llvmjit.add_global_mapping('my_global_ubyte', gp_char) #note: should be prior to compile()
-    llvmjit.compile(llglobalmul4) #XXX assert error, incorrect types???
+    llvmjit.set_global_data(10)
+    assert llvmjit.get_global_data() == 10
+    gp_data = llvmjit.get_pointer_to_global_data()
+    llvmjit.compile(llglobalmul4)
+    llvmjit.add_global_mapping('my_global_data', gp_data) #note: should be prior to execute()
     globalmul4 = llvmjit.find_function('globalmul4')
     assert llvmjit.execute(globalmul4, 5) == 10 * 4 + 5
-    assert ord(gp_char[0]) == 10 * 4 + 5
+    assert llvmjit.get_global_data() == 10 * 4 + 5
 
 def DONTtest_call_back_to_parent(): #call JIT-compiler again for it to add case(s) to flexswitch
     pass
