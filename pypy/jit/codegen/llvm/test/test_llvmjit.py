@@ -10,9 +10,7 @@ try:
 except OSError:
     py.test.skip("can not load libllvmjit library (see ../README.TXT)")
 
-#helper data
-curdir = dirname(__file__)
-
+#
 llsquare = '''int %square(int %n) {
     %n2 = mul int %n, %n
     ret int %n2
@@ -23,6 +21,7 @@ llmul2 = '''int %mul2(int %n) {
     ret int %n2
 }'''
 
+#
 lldeadcode = '''int %deadcode(int %n) {
 Test:
     %cond = seteq int %n, %n
@@ -36,6 +35,18 @@ IfUnequal:
     ret int -1
 }'''
 
+#
+llfuncA = '''int %func(int %n) {
+    %n2 = add int %n, %n
+    ret int %n2
+}'''
+
+llfuncB = '''int %func(int %n) {
+    %n2 = mul int %n, %n
+    ret int %n2
+}'''
+
+#
 llacross1 = '''declare int %across2(int)
 
 implementation
@@ -66,6 +77,7 @@ int %across2to1(int %n) {
     ret int %n3
 }'''
 
+#
 llglobalmul4 = '''%my_global_data = external global int
 
 implementation
@@ -80,7 +92,7 @@ int %globalmul4(int %a) {
 
 #helpers
 def execute(llsource, function_name, param):
-    assert llvmjit.compile(llsource)
+    assert llvmjit.parse(llsource)
     function = llvmjit.find_function(function_name)
     assert function
     return llvmjit.execute(function, param)
@@ -90,7 +102,7 @@ def test_restart():
     for i in range(3):
         llvmjit.restart()
         assert not llvmjit.find_function('square')
-        assert llvmjit.compile(llsquare)
+        assert llvmjit.parse(llsquare)
         assert llvmjit.find_function('square')
 
 def test_find_function():
@@ -98,13 +110,13 @@ def test_find_function():
         llvmjit.restart()
         assert not llvmjit.find_function('square')
         assert not llvmjit.find_function('square')
-        assert llvmjit.compile(llsquare)
+        assert llvmjit.parse(llsquare)
         assert llvmjit.find_function('square')
         assert llvmjit.find_function('square')
 
-def test_compile():
+def test_parse():
     llvmjit.restart()
-    assert llvmjit.compile(llsquare)
+    assert llvmjit.parse(llsquare)
 
 def test_execute():
     llvmjit.restart()
@@ -116,8 +128,8 @@ def test_execute_nothing():
 
 def test_execute_multiple():
     llvmjit.restart()
-    llvmjit.compile(llsquare)
-    llvmjit.compile(llmul2)
+    llvmjit.parse(llsquare)
+    llvmjit.parse(llmul2)
     square = llvmjit.find_function('square')
     mul2   = llvmjit.find_function('mul2')
     for i in range(5):
@@ -138,17 +150,39 @@ def test_execute_across_module():
         return my_across1(n + 9)
 
     llvmjit.restart()
-    llvmjit.compile(llacross1)
-    llvmjit.compile(llacross2)
+    llvmjit.parse(llacross1)
+    llvmjit.parse(llacross2)
     across1to2 = llvmjit.find_function('across1to2')
     across2to1 = llvmjit.find_function('across2to1')
     for i in range(5):
         assert llvmjit.execute(across1to2, i) == my_across1to2(i)
         assert llvmjit.execute(across2to1, i) == my_across2to1(i)
 
+def test_recompile():
+    py.test.skip("recompile new function implementation test is work in progress")
+
+    def funcA(n):
+        return n + n
+    
+    def funcB(n):
+        return n * n
+    llvmjit.restart()
+    llvmjit.parse(llfuncA)
+    _llfuncA = llvmjit.find_function('func')
+    print '_llfuncA', _llfuncA
+    for i in range(5):
+        assert llvmjit.execute(_llfuncA, i) == funcA(i)
+    llvmjit.freeMachineCodeForFunction(_llfuncA)
+    llvmjit.parse(llfuncB)
+    _llfuncB = llvmjit.find_function('func')
+    print '_llfuncB', _llfuncB
+    llvmjit.recompile(_llfuncB) #note: because %func has changed because of the 2nd parse
+    for i in range(5):
+        assert llvmjit.execute(_llfuncB, i) == funcB(i)
+
 def test_transform(): #XXX This uses Module transforms, think about Function transforms too.
     llvmjit.restart()
-    llvmjit.compile(lldeadcode)
+    llvmjit.parse(lldeadcode)
     deadcode = llvmjit.find_function('deadcode')
     assert llvmjit.execute(deadcode, 10) == 10 * 2
 
@@ -164,7 +198,7 @@ def test_modify_global_data():
     llvmjit.set_global_data(10)
     assert llvmjit.get_global_data() == 10
     gp_data = llvmjit.get_pointer_to_global_data()
-    llvmjit.compile(llglobalmul4)
+    llvmjit.parse(llglobalmul4)
     llvmjit.add_global_mapping('my_global_data', gp_data) #note: should be prior to execute()
     globalmul4 = llvmjit.find_function('globalmul4')
     assert llvmjit.execute(globalmul4, 5) == 10 * 4 + 5

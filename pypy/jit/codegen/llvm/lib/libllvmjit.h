@@ -6,8 +6,10 @@ extern "C" {
 
 void    restart();
 int     transform(const char* passnames);
-int     compile(const char* llsource);
+int     parse(const char* llsource);
 void*   find_function(const char* funcname);
+int     freeMachineCodeForFunction(const void* function);
+int     recompile(const void* function);
 int     execute(const void* function, int param);
 int     get_global_data();
 void    set_global_data(int n);

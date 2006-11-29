@@ -51,13 +51,21 @@ transform = llvmjit.transform
 transform.restype  = c_int
 transform.argtypes = [c_char_p]
 
-compile = llvmjit.compile
-compile.restype  = c_int
-compile.argtypes = [c_char_p]
+parse = llvmjit.parse
+parse.restype  = c_int
+parse.argtypes = [c_char_p]
 
 find_function = llvmjit.find_function
 find_function.restype  = c_void_p
 find_function.argtypes = [c_char_p]
+
+freeMachineCodeForFunction = llvmjit.freeMachineCodeForFunction
+freeMachineCodeForFunction.restype  = c_int
+freeMachineCodeForFunction.argtypes = [c_void_p]
+
+recompile = llvmjit.recompile
+recompile.restype  = c_int
+recompile.argtypes = [c_void_p]
 
 execute = llvmjit.execute
 execute.restype  = c_int

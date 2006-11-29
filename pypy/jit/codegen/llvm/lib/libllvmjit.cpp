@@ -76,7 +76,7 @@ int     transform(const char* passnames) {
 }
 
 
-int     compile(const char* llsource) {
+int     parse(const char* llsource) {
     Module*     module = ParseAssemblyString(llsource, gp_module);
     if (!module) {
         std::cerr << "Can not parse:\n" << llsource << "\n" << std::flush;
@@ -89,6 +89,28 @@ int     compile(const char* llsource) {
 
 void*   find_function(const char* name) {
     return gp_execution_engine->FindFunctionNamed(name); //note: can be NULL
+}
+
+
+int     freeMachineCodeForFunction(const void* function) {
+    if (!function) {
+        std::cerr << "No function supplied to libllvmjit.freeMachineCodeForFunction(...)\n" << std::flush;
+        return 0;
+    }
+
+    gp_execution_engine->freeMachineCodeForFunction((Function*)function);
+    return 1;
+}
+
+
+int     recompile(const void* function) {
+    if (!function) {
+        std::cerr << "No function supplied to libllvmjit.recompile(...)\n" << std::flush;
+        return 0;
+    }
+
+    gp_execution_engine->recompileAndRelinkFunction((Function*)function);
+    return 1;
 }
 
 
