@@ -2438,6 +2438,20 @@ class TestAnnotateTestCase:
         assert s.const == ("42", "4")
 
 
+    def test_float_cmp(self):
+        def fun(x, y):
+            return (x < y,
+                    x <= y,
+                    x == y,
+                    x != y,
+                    x > y,
+                    x >= y)
+
+        a = self.RPythonAnnotator(policy=policy.AnnotatorPolicy())
+        s = a.build_types(fun, [float, float])
+        assert [s_item.knowntype for s_item in s.items] == [bool] * 6
+
+
 def g(n):
     return [0,1,2,n]
 

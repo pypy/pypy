@@ -7,7 +7,7 @@ UNARY_OPERATIONS = """same_as hint getfield setfield getsubstruct getarraysize
                       cast_pointer
                       direct_call
                       indirect_call
-                      int_is_true int_neg
+                      int_is_true int_neg int_invert bool_not
                       uint_is_true
                       cast_int_to_char
                       cast_int_to_uint
@@ -16,10 +16,12 @@ UNARY_OPERATIONS = """same_as hint getfield setfield getsubstruct getarraysize
                       cast_bool_to_int
                       ptr_nonzero
                       ptr_iszero
-                      debug_assert""".split()
+                      debug_assert resume_point""".split()
 
-BINARY_OPERATIONS = """int_add int_sub int_mul int_mod int_and int_rshift int_floordiv int_xor int_or
-                       uint_add uint_sub uint_mul uint_mod uint_and uint_lshift uint_rshift uint_floordiv
+BINARY_OPERATIONS = """int_add int_sub int_mul int_mod int_and int_rshift
+                       int_lshift int_floordiv int_xor int_or
+                       uint_add uint_sub uint_mul uint_mod uint_and
+                       uint_lshift uint_rshift uint_floordiv
                        char_gt char_lt char_le char_ge char_eq char_ne
                        int_gt int_lt int_le int_ge int_eq int_ne
                        uint_gt uint_lt uint_le uint_ge uint_eq uint_ne 
@@ -103,7 +105,7 @@ class GreenHandlerFrame(object):
             return False     # was generalized, e.g. to SomeLLAbstractVariable
         hs_f1 = args_hs.pop(0)
         fnobj = hs_f1.const._obj
-        if (getattr(self.annotator.policy, 'oopspec', False) and
+        if (self.annotator.policy.oopspec and
             hasattr(fnobj._callable, 'oopspec')):
             assert False     # XXX?
 
@@ -183,12 +185,15 @@ class SomeLLAbstractConstant(SomeLLAbstractValue):
         """Compute the color of the variables with this annotation
         for the pygame viewer
         """
-        if self.eager_concrete:
-            return (0,100,0)     # green
-        elif self.is_green():
-            return (50,140,0)    # green-dark-cyan
-        else:
-            return None
+        try:
+            if self.eager_concrete:
+                return (0,100,0)     # green
+            elif self.is_green():
+                return (50,140,0)    # green-dark-cyan
+            else:
+                return None
+        except KeyError:     # can occur in is_green() if annotation crashed
+            return (0,200,200)
     annotationcolor = property(annotationcolor)
 
 
@@ -276,7 +281,7 @@ class __extend__(SomeLLAbstractValue):
             return SomeLLAbstractConstant(hs_v1.concretetype, {origin: True})
         if hs_flags.const.get('promote', False):
             hs_concrete = SomeLLAbstractConstant(hs_v1.concretetype, {})
-            hs_concrete.eager_concrete = True
+            #hs_concrete.eager_concrete = True
             return hs_concrete 
         for name in ["reverse_split_queue", "global_merge_point"]:
             if hs_flags.const.get(name, False):
@@ -286,6 +291,9 @@ class __extend__(SomeLLAbstractValue):
                                                           hs_v1))
 
     def debug_assert(hs_v1, *args_hs):
+        pass
+
+    def resume_point(hs_v1, *args_hs):
         pass
 
     def getfield(hs_v1, hs_fieldname):
@@ -317,9 +325,15 @@ class __extend__(SomeLLAbstractValue):
         args_hs = args_hs[:-1]
         assert hs_graph_list.is_constant()
         graph_list = hs_graph_list.const
-        assert graph_list      # XXX for now
+        if not graph_list:
+            # cannot follow
+            return SomeLLAbstractVariable(hs_v1.concretetype.TO.RESULT)
 
         bookkeeper = getbookkeeper()
+        for graph in graph_list:
+            if not bookkeeper.annotator.policy.look_inside_graph(graph):
+                return SomeLLAbstractVariable(hs_v1.concretetype.TO.RESULT)
+        
         fixed = bookkeeper.myorigin().read_fixed()
         hs_res = bookkeeper.graph_family_call(graph_list, fixed, args_hs)
 
@@ -361,7 +375,7 @@ class __extend__(SomeLLAbstractConstant):
     def direct_call(hs_f1, *args_hs):
         bookkeeper = getbookkeeper()
         fnobj = hs_f1.const._obj
-        if (getattr(bookkeeper.annotator.policy, 'oopspec', False) and
+        if (bookkeeper.annotator.policy.oopspec and
             hasattr(fnobj._callable, 'oopspec')):
             # try to handle the call as a high-level operation
             try:
@@ -376,6 +390,14 @@ class __extend__(SomeLLAbstractConstant):
         # normal call
         if not hasattr(fnobj, 'graph'):
             raise NotImplementedError("XXX call to externals or primitives")
+        if not bookkeeper.annotator.policy.look_inside_graph(fnobj.graph):
+            return SomeLLAbstractVariable(lltype.typeOf(fnobj).RESULT)
+
+        # recursive call from the entry point to itself: ignore them and
+        # just hope the annotations are correct
+        if (bookkeeper.getdesc(fnobj.graph)._cache.get(None, None) is
+            bookkeeper.annotator.translator.graphs[0]):
+            return SomeLLAbstractVariable(lltype.typeOf(fnobj).RESULT)
 
         fixed = bookkeeper.myorigin().read_fixed()
         hs_res = bookkeeper.graph_call(fnobj.graph, fixed, args_hs)
@@ -383,6 +405,11 @@ class __extend__(SomeLLAbstractConstant):
         if isinstance(hs_res, SomeLLAbstractConstant):
             hs_res.myorigin = bookkeeper.myorigin()
             hs_res.myorigin.is_call_result = True
+##        elif fnobj.graph.name.startswith('ll_stritem'):
+##            if isinstance(hs_res, SomeLLAbstractVariable):
+##                print hs_res
+##                import pdb; pdb.set_trace()
+        
             
         # we need to make sure that hs_res does not become temporarily less
         # general as a result of calling another specialized version of the
@@ -564,7 +591,7 @@ class __extend__(pairtype(SomeLLAbstractContainer, SomeLLAbstractConstant)):
 # ____________________________________________________________
 
 def handle_highlevel_operation(bookkeeper, ll_func, *args_hs):
-    if getattr(bookkeeper.annotator.policy, 'novirtualcontainer', False):
+    if bookkeeper.annotator.policy.novirtualcontainer:
         # "blue variables" disabled, we just return a red var all the time.
         RESULT = bookkeeper.current_op_concretetype()
         if RESULT is lltype.Void:

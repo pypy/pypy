@@ -243,7 +243,8 @@ le__Complex_Complex = lt__Complex_Complex
 
 def nonzero__Complex(space, w_complex):
     assert space.is_true(space.isinstance(w_complex, space.w_complex))
-    return space.newbool(w_complex.realval or w_complex.imagval)
+    return space.newbool((w_complex.realval != 0.0) or
+                         (w_complex.imagval != 0.0))
 
 def coerce__Complex_Complex(space, w_complex1, w_complex2):
     return space.newtuple([w_complex1, w_complex2])

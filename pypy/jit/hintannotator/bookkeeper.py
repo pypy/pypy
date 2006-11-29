@@ -1,10 +1,15 @@
+import py
 from pypy.tool.tls import tlsobject
+from pypy.tool.ansi_print import ansi_log
 from pypy.objspace.flow.model import copygraph, SpaceOperation, Constant
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.algo.unionfind import UnionFind
 
 TLS = tlsobject()
+
+log = py.log.Producer("hintannotate")
+py.log.setconsumer("hintannotate", ansi_log)
 
 
 class GraphDesc(object):
@@ -46,6 +51,7 @@ class GraphDesc(object):
                 graph.name = alt_name
             self._cache[key] = graph
             self.bookkeeper.annotator.translator.graphs.append(graph)
+            log(str(graph))
             return graph
 
 
@@ -172,6 +178,11 @@ class HintBookkeeper(object):
             key = []
             specialize = False
             for i, arg_hs in enumerate(args_hs):
+                if isinstance(arg_hs, hintmodel.SomeLLAbstractVariable):
+                    key.append('v')
+                    specialize = True
+                    continue
+
                 if (isinstance(arg_hs, hintmodel.SomeLLAbstractConstant)
                     and arg_hs.eager_concrete):
                     key.append('E')

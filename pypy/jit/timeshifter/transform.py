@@ -447,7 +447,7 @@ class HintGraphTransformer(object):
             c_func = spaceop.args[0]
             fnobj = c_func.value._obj
             if (hasattr(fnobj._callable, 'oopspec') and
-                getattr(self.hannotator.policy, 'oopspec', False)):
+                self.hannotator.policy.oopspec):
                 return 'oopspec'
 
         for v in spaceop.args:

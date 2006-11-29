@@ -1,12 +1,25 @@
+from pypy.annotation import policy
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.jit.hintannotator import model as hintmodel
 from pypy.jit.hintannotator.bookkeeper import HintBookkeeper
 from pypy.rpython.lltypesystem import lltype
 
 
+class HintAnnotatorPolicy(policy.AnnotatorPolicy):
+
+    def __init__(self, novirtualcontainer=False, oopspec=False):
+        self.novirtualcontainer = novirtualcontainer
+        self.oopspec            = oopspec
+
+    def look_inside_graph(self, graph):
+        return True
+
+DEFPOL = HintAnnotatorPolicy()
+
+
 class HintAnnotator(RPythonAnnotator):
 
-    def __init__(self, translator=None, base_translator=None, policy=None):
+    def __init__(self, translator=None, base_translator=None, policy=DEFPOL):
         bookkeeper = HintBookkeeper(self)        
         RPythonAnnotator.__init__(self, translator, policy=policy,
                                   bookkeeper=bookkeeper)
@@ -22,7 +35,7 @@ class HintAnnotator(RPythonAnnotator):
 
     def consider_op_malloc(self, hs_TYPE):
         TYPE = hs_TYPE.const
-        if getattr(self.policy, 'novirtualcontainer', False):
+        if self.policy.novirtualcontainer:
             return hintmodel.SomeLLAbstractVariable(lltype.Ptr(TYPE))
         else:
             vstructdef = self.bookkeeper.getvirtualcontainerdef(TYPE)
@@ -32,7 +45,7 @@ class HintAnnotator(RPythonAnnotator):
 
     def consider_op_malloc_varsize(self, hs_TYPE, hs_length):
         TYPE = hs_TYPE.const
-        if getattr(self.policy, 'novirtualcontainer', False):
+        if self.policy.novirtualcontainer:
             return hintmodel.SomeLLAbstractVariable(lltype.Ptr(TYPE))
         else:
             vcontainerdef = self.bookkeeper.getvirtualcontainerdef(TYPE)

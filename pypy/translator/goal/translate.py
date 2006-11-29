@@ -150,6 +150,9 @@ def parse_options_and_load_target():
     if 'handle_config' in targetspec_dic:
         targetspec_dic['handle_config'](config)
 
+    if 'handle_translate_config' in targetspec_dic:
+        targetspec_dic['handle_translate_config'](translateconfig)
+
     if translateconfig.help: 
         opt_parser.print_help()
         if 'print_help' in targetspec_dic:

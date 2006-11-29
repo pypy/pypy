@@ -13,7 +13,7 @@ from pypy.interpreter.argument import Arguments, ArgumentsFromValuestack
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.opcodeorder import opcodeorder
 from pypy.tool.sourcetools import func_with_new_name
-from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.objectmodel import we_are_translated, hint
 from pypy.rlib.rarithmetic import intmask
 from pypy.tool import stdlib_opcode as pythonopcode
 from pypy.rlib import rstack # for resume points
@@ -595,6 +595,7 @@ class PyInterpFrame(pyframe.PyFrame):
 
     def JUMP_FORWARD(f, stepby):
         f.next_instr += stepby
+    JUMP_FORWARD.can_jump = True
 
     def JUMP_IF_FALSE(f, stepby):
         w_cond = f.valuestack.top()
@@ -810,24 +811,33 @@ class PyInterpFrame(pyframe.PyFrame):
         import py
         
         dispatch_code  = '''
-def dispatch_translated(self, ec):
-    code = self.pycode.co_code
+def dispatch_translated(self, code, ec):
+    hint(None, global_merge_point=True)
+    next_instr = hint(self.next_instr, promote=True)
     while True:
-        self.last_instr = intmask(self.next_instr)
-        ec.bytecode_trace(self)
-        self.next_instr = self.last_instr
-        opcode = ord(code[self.next_instr])
+        hint(None, global_merge_point=True)
+        self.last_instr = intmask(next_instr)
+        #ec.bytecode_trace(self)            JJJ
+        #self.next_instr = self.last_instr  JJJ
+        opcode = ord(code[next_instr])
+        opcode = hint(opcode, concrete=True)
         if self.space.config.objspace.logbytecodes:
             self.space.bytecodecounts[opcode] = self.space.bytecodecounts.get(opcode, 0) + 1
-        self.next_instr += 1
+        next_instr += 1
+        self.next_instr = next_instr
         if opcode >= %s:
-            oparg = ord(code[self.next_instr]) | ord(code[self.next_instr + 1]) << 8
-            self.next_instr += 2
+            oparg = ord(code[next_instr]) | ord(code[next_instr + 1]) << 8
+            oparg = hint(oparg, concrete=True)
+            next_instr += 2
+            self.next_instr = next_instr
             while True:
                 if opcode == %s:
-                    opcode = ord(code[self.next_instr])
-                    oparg = oparg << 16 | ord(code[self.next_instr + 1]) | ord(code[self.next_instr + 2]) << 8
-                    self.next_instr += 3
+                    opcode = ord(code[next_instr])
+                    opcode = hint(opcode, concrete=True)
+                    oparg = oparg << 16 | ord(code[next_instr + 1]) | ord(code[next_instr + 2]) << 8
+                    oparg = hint(oparg, concrete=True)
+                    next_instr += 3
+                    self.next_instr = next_instr
                     if opcode < %s:
                         raise pyframe.BytecodeCorruption
                     continue

@@ -1,11 +1,18 @@
 # overrides for annotation specific to PyPy codebase
-from pypy.annotation.policy import AnnotatorPolicy
+from pypy.annotation.policy import AnnotatorPolicy, Sig
 # for some reason, model must be imported first,
 # or we create a cycle.
 from pypy.objspace.flow.model import Constant
 from pypy.annotation import model as annmodel
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation import specialize
+from pypy.interpreter import baseobjspace
+
+
+# patch - mostly for debugging, to enfore some signatures
+baseobjspace.ObjSpace.newbool.im_func._annenforceargs_ = Sig(lambda s1,s2: s1,
+                                                             bool)
+
 
 class PyPyAnnotatorPolicy(AnnotatorPolicy):
     allow_someobjects = False

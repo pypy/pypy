@@ -1,25 +1,19 @@
 import py
 from pypy.translator.translator import TranslationContext, graphof
-from pypy.jit.hintannotator.annotator import HintAnnotator
+from pypy.jit.hintannotator.annotator import HintAnnotator, HintAnnotatorPolicy
 from pypy.jit.hintannotator.bookkeeper import HintBookkeeper
 from pypy.jit.hintannotator.model import *
 from pypy.rpython.lltypesystem import lltype
 from pypy.rlib.objectmodel import hint
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow import model as flowmodel
-from pypy.annotation.policy import AnnotatorPolicy
 from pypy.translator.backendopt.inline import auto_inlining
 from pypy import conftest
 
-P_OOPSPEC = AnnotatorPolicy()
-P_OOPSPEC.oopspec = True
-
-P_OOPSPEC_NOVIRTUAL = AnnotatorPolicy()
-P_OOPSPEC_NOVIRTUAL.oopspec = True
-P_OOPSPEC_NOVIRTUAL.novirtualcontainer = True
-
-P_NOVIRTUAL = AnnotatorPolicy()
-P_NOVIRTUAL.novirtualcontainer = True
+P_OOPSPEC = HintAnnotatorPolicy(oopspec=True)
+P_OOPSPEC_NOVIRTUAL = HintAnnotatorPolicy(oopspec=True,
+                                          novirtualcontainer=True)
+P_NOVIRTUAL = HintAnnotatorPolicy(novirtualcontainer=True)
 
 def hannotate(func, argtypes, policy=None, annotator=False, inline=None,
               backendoptimize=False):
