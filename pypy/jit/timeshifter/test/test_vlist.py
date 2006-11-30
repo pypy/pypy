@@ -1,9 +1,7 @@
-from pypy.annotation.policy import AnnotatorPolicy
+from pypy.jit.hintannotator.annotator import HintAnnotatorPolicy
 from pypy.jit.timeshifter.test.test_timeshift import TimeshiftingTests
 
-P_OOPSPEC = AnnotatorPolicy()
-P_OOPSPEC.novirtualcontainer = True
-P_OOPSPEC.oopspec = True
+P_OOPSPEC = HintAnnotatorPolicy(novirtualcontainer=True, oopspec=True)
 
 
 class TestVList(TimeshiftingTests):

@@ -1,6 +1,6 @@
 import py
 from pypy.translator.translator import TranslationContext, graphof
-from pypy.jit.hintannotator.annotator import HintAnnotator
+from pypy.jit.hintannotator.annotator import HintAnnotator, HintAnnotatorPolicy
 from pypy.jit.hintannotator.bookkeeper import HintBookkeeper
 from pypy.jit.hintannotator.model import *
 from pypy.jit.timeshifter.hrtyper import HintRTyper, originalconcretetype
@@ -19,8 +19,7 @@ from pypy.translator.backendopt.inline import auto_inlining
 from pypy import conftest
 from pypy.jit.conftest import Benchmark
 
-P_NOVIRTUAL = AnnotatorPolicy()
-P_NOVIRTUAL.novirtualcontainer = True
+P_NOVIRTUAL = HintAnnotatorPolicy(novirtualcontainer=True)
 
 def getargtypes(annotator, values):
     return [annotation(annotator, x) for x in values]
