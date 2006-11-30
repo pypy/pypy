@@ -14,12 +14,12 @@ class HintAnnotatorPolicy(policy.AnnotatorPolicy):
     def look_inside_graph(self, graph):
         return True
 
-DEFPOL = HintAnnotatorPolicy()
-
 
 class HintAnnotator(RPythonAnnotator):
 
-    def __init__(self, translator=None, base_translator=None, policy=DEFPOL):
+    def __init__(self, translator=None, base_translator=None, policy=None):
+        if policy is None:
+            policy = HintAnnotatorPolicy()
         bookkeeper = HintBookkeeper(self)        
         RPythonAnnotator.__init__(self, translator, policy=policy,
                                   bookkeeper=bookkeeper)
