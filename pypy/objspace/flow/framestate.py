@@ -1,7 +1,6 @@
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pyopcode import SuspendedUnroller
 from pypy.interpreter.error import OperationError
-from pypy.rlib.objectmodel import instantiate
 from pypy.rlib.unroll import SpecTag
 from pypy.objspace.flow.model import *
 
@@ -175,6 +174,5 @@ def recursively_unflatten(space, lst):
             unrollerclass, argcount = UNPICKLE_TAGS[item]
             arguments = lst[i+1: i+1+argcount]
             del lst[i+1: i+1+argcount]
-            unroller = instantiate(unrollerclass)
-            unroller.state_pack_variables(space, *arguments)
+            unroller = unrollerclass.state_pack_variables(space, *arguments)
             lst[i] = space.wrap(unroller)

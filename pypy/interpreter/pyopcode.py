@@ -901,12 +901,10 @@ class SuspendedUnroller(Wrappable):
     """
     def nomoreblocks(self):
         raise BytecodeCorruption("misplaced bytecode - should not return")
-    # for the flow object space, a way to "pickle" and "unpickle" the
-    # ControlFlowException by enumerating the Variables it contains.
-    def state_unpack_variables(self, space):
-        return []     # by default, overridden below
-    def state_pack_variables(self, space, *values_w):
-        assert len(values_w) == 0
+
+    # NB. for the flow object space, the state_(un)pack_variables methods
+    # give a way to "pickle" and "unpickle" the SuspendedUnroller by
+    # enumerating the Variables it contains.
 
 class SReturnValue(SuspendedUnroller):
     """Signals a 'return' statement.
@@ -916,10 +914,12 @@ class SReturnValue(SuspendedUnroller):
         self.w_returnvalue = w_returnvalue
     def nomoreblocks(self):
         return self.w_returnvalue
+
     def state_unpack_variables(self, space):
         return [self.w_returnvalue]
-    def state_pack_variables(self, space, w_returnvalue):
-        self.w_returnvalue = w_returnvalue
+    def state_pack_variables(space, w_returnvalue):
+        return SReturnValue(w_returnvalue)
+    state_pack_variables = staticmethod(state_pack_variables)
 
 class SApplicationException(SuspendedUnroller):
     """Signals an application-level exception
@@ -929,14 +929,23 @@ class SApplicationException(SuspendedUnroller):
         self.operr = operr
     def nomoreblocks(self):
         raise self.operr
+
     def state_unpack_variables(self, space):
         return [self.operr.w_type, self.operr.w_value]
-    def state_pack_variables(self, space, w_type, w_value):
-        self.operr = OperationError(w_type, w_value)
+    def state_pack_variables(space, w_type, w_value):
+        return SApplicationException(OperationError(w_type, w_value))
+    state_pack_variables = staticmethod(state_pack_variables)
 
 class SBreakLoop(SuspendedUnroller):
     """Signals a 'break' statement."""
     kind = 0x04
+
+    def state_unpack_variables(self, space):
+        return []
+    def state_pack_variables(space):
+        return SBreakLoop.singleton
+    state_pack_variables = staticmethod(state_pack_variables)
+
 SBreakLoop.singleton = SBreakLoop()
 
 class SContinueLoop(SuspendedUnroller):
@@ -945,10 +954,12 @@ class SContinueLoop(SuspendedUnroller):
     kind = 0x08
     def __init__(self, jump_to):
         self.jump_to = jump_to
+
     def state_unpack_variables(self, space):
         return [space.wrap(self.jump_to)]
-    def state_pack_variables(self, space, w_jump_to):
-        self.jump_to = space.int_w(w_jump_to)
+    def state_pack_variables(space, w_jump_to):
+        return SContinueLoop(space.int_w(w_jump_to))
+    state_pack_variables = staticmethod(state_pack_variables)
 
 
 class FrameBlock:
