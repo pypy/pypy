@@ -37,6 +37,9 @@ pypy_optiondescription = OptionDescription("pypy", "All PyPy Options", [
                      ["cpython", "ast"], "ast",
                      cmdline='--compiler'),
 
+        OptionDescription("opcodes", "opcodes to enable in the interpreter", [
+            ]),
+
         BoolOption("nofaking", "disallow faking in the object space",
                    default=False,
                    requires=[

@@ -5,22 +5,22 @@ pyfastscope.py and pynestedscope.py.
 """
 
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.baseobjspace import UnpackValueError
+from pypy.interpreter.baseobjspace import UnpackValueError, Wrappable
 from pypy.interpreter import gateway, function, eval
 from pypy.interpreter import pyframe, pytraceback
-from pypy.interpreter.miscutils import InitializedClass
 from pypy.interpreter.argument import Arguments, ArgumentsFromValuestack
 from pypy.interpreter.pycode import PyCode
-from pypy.interpreter.opcodeorder import opcodeorder
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.objectmodel import we_are_translated, hint
-from pypy.rlib.rarithmetic import intmask
-from pypy.tool import stdlib_opcode as pythonopcode
+from pypy.rlib.rarithmetic import r_uint, intmask
+from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
+from pypy.tool.stdlib_opcode import unrolling_opcode_descs
+from pypy.tool.stdlib_opcode import opcode_method_names
 from pypy.rlib import rstack # for resume points
 
 def unaryoperation(operationname):
     """NOT_RPYTHON"""
-    def opimpl(f):
+    def opimpl(f, *ignored):
         operation = getattr(f.space, operationname)
         w_1 = f.valuestack.pop()
         w_result = operation(w_1)
@@ -30,7 +30,7 @@ def unaryoperation(operationname):
 
 def binaryoperation(operationname):
     """NOT_RPYTHON"""    
-    def opimpl(f):
+    def opimpl(f, *ignored):
         operation = getattr(f.space, operationname)
         w_2 = f.valuestack.pop()
         w_1 = f.valuestack.pop()
@@ -40,52 +40,167 @@ def binaryoperation(operationname):
     return func_with_new_name(opimpl, "opcode_impl_for_%s" % operationname)        
 
 
-class PyInterpFrame(pyframe.PyFrame):
+class __extend__(pyframe.PyFrame):
     """A PyFrame that knows about interpretation of standard Python opcodes
     minus the ones related to nested scopes."""
     
     ### opcode dispatch ###
- 
-    # 'opcode_has_arg' is a class attribute: list of True/False whether opcode takes arg
-    # 'dispatch_table_no_arg: list of functions/None
-    # 'dispatch_table_w_arg: list of functions/None 
-    # Currently, they are always setup in pyopcode.py
-    # but it could be a custom table.
 
-    def dispatch(self, ec):
+    def dispatch(self, co_code, next_instr, ec):
         while True:
-            self.last_instr = intmask(self.next_instr)
+            try:
+                return self.dispatch_bytecode(co_code, next_instr, ec)
+            except OperationError, operr:
+                next_instr = self.handle_operation_error(ec, operr)
+            except Reraise:
+                operr = self.last_exception
+                next_instr = self.handle_operation_error(ec, operr,
+                                                         attach_tb=False)
+            except KeyboardInterrupt:
+                next_instr = self.handle_asynchronous_error(ec,
+                    self.space.w_KeyboardInterrupt)
+            except MemoryError:
+                next_instr = self.handle_asynchronous_error(ec,
+                    self.space.w_MemoryError)
+            except RuntimeError:
+                if we_are_translated():
+                    # stack overflows should be the only kind of RuntimeErrors
+                    # in translated PyPy
+                    msg = "internal error (stack overflow?)"
+                else:
+                    msg = str(e)
+                next_instr = self.handle_asynchronous_error(ec,
+                    self.space.w_RuntimeError,
+                    self.space.wrap(msg))
+
+    def handle_asynchronous_error(self, ec, w_type, w_value=None):
+        # catch asynchronous exceptions and turn them
+        # into OperationErrors
+        if w_value is None:
+            w_value = self.space.w_None
+        operr = OperationError(w_type, w_value)
+        return self.handle_operation_error(ec, operr)
+
+    def handle_operation_error(self, ec, operr, attach_tb=True):
+        self.last_exception = operr
+        if attach_tb:
+            pytraceback.record_application_traceback(
+                self.space, operr, self, self.last_instr)
+            ec.exception_trace(self, operr)
+
+        block = self.unrollstack(SApplicationException.kind)
+        if block is None:
+            # no handler found for the OperationError
+            tb = cpython_tb()
+            raise OperationError, operr, tb
+        else:
+            unroller = SApplicationException(operr)
+            next_instr = block.handle(self, unroller)
+            return next_instr
+
+    def dispatch_bytecode(self, co_code, next_instr, ec):
+        space = self.space
+        while True:
+            self.last_instr = intmask(next_instr)
             ec.bytecode_trace(self)
-            self.next_instr = self.last_instr
-            opcode = self.nextop()
-            if self.space.config.objspace.logbytecodes:
-                self.space.bytecodecounts[opcode] = self.space.bytecodecounts.get(opcode, 0) + 1
-            if opcode >= pythonopcode.HAVE_ARGUMENT:
-                oparg = self.nextarg()
-                while True:
-                    if opcode == pythonopcode.EXTENDED_ARG:
-                        opcode = self.nextop()
-                        oparg = oparg<<16 | self.nextarg()
-                        if opcode < pythonopcode.HAVE_ARGUMENT:
-                            raise pyframe.BytecodeCorruption
-                        continue
-                    else:
-                        fn = self.dispatch_table_w_arg[opcode]
-                        fn(self, oparg)                    
-                    break
+            # For the sequel, force 'next_instr' to be unsigned for performance
+            next_instr = r_uint(self.last_instr)
+            opcode = ord(co_code[next_instr])
+            next_instr += 1
+            if space.config.objspace.logbytecodes:
+                space.bytecodecounts[opcode] = space.bytecodecounts.get(opcode, 0) + 1
+
+            if opcode >= HAVE_ARGUMENT:
+                lo = ord(co_code[next_instr])
+                hi = ord(co_code[next_instr+1])
+                next_instr += 2
+                oparg = (hi << 8) | lo
             else:
-                fn = self.dispatch_table_no_arg[opcode] 
-                fn(self)
+                oparg = 0
 
-    def nextop(self):
-        c = self.pycode.co_code[self.next_instr]
-        self.next_instr += 1
-        return ord(c)
+            while opcode == opcodedesc.EXTENDED_ARG.index:
+                opcode = ord(co_code[next_instr])
+                if opcode < HAVE_ARGUMENT:
+                    raise BytecodeCorruption
+                lo = ord(co_code[next_instr+1])
+                hi = ord(co_code[next_instr+2])
+                next_instr += 3
+                oparg = (oparg << 16) | (hi << 8) | lo
 
-    def nextarg(self):
-        lo = self.nextop()
-        hi = self.nextop()
-        return (hi<<8) + lo
+            if opcode == opcodedesc.RETURN_VALUE.index:
+                w_returnvalue = self.valuestack.pop()
+                block = self.unrollstack(SReturnValue.kind)
+                if block is None:
+                    self.frame_finished_execution = True  # for generators
+                    return w_returnvalue
+                else:
+                    unroller = SReturnValue(w_returnvalue)
+                    next_instr = block.handle(self, unroller)
+                    continue    # now inside a 'finally' block
+
+            if opcode == opcodedesc.YIELD_VALUE.index:
+                w_yieldvalue = self.valuestack.pop()
+                return w_yieldvalue
+
+            if opcode == opcodedesc.END_FINALLY.index:
+                # unlike CPython, when we reach this opcode the value stack has
+                # always been set up as follows (topmost first):
+                #   [exception type  or None]
+                #   [exception value or None]
+                #   [wrapped stack unroller ]
+                self.valuestack.pop()   # ignore the exception type
+                self.valuestack.pop()   # ignore the exception value
+                w_unroller = self.valuestack.pop()
+                unroller = self.space.interpclass_w(w_unroller)
+                if isinstance(unroller, SuspendedUnroller):
+                    # go on unrolling the stack
+                    block = self.unrollstack(unroller.kind)
+                    if block is None:
+                        self.frame_finished_execution = True  # for generators
+                        return unroller.nomoreblocks()
+                    else:
+                        next_instr = block.handle(self, unroller)
+                continue
+
+            if we_are_translated():
+                for opdesc in unrolling_opcode_descs:
+                    # static checks to skip this whole case if necessary
+                    if not opdesc.is_enabled(space):
+                        continue
+                    if not hasattr(pyframe.PyFrame, opdesc.methodname):
+                        continue   # e.g. for JUMP_FORWARD, implemented above
+
+                    if opcode == opdesc.index:
+                        # dispatch to the opcode method
+                        meth = getattr(self, opdesc.methodname)
+                        res = meth(oparg, next_instr)
+                        # !! warning, for the annotator the next line is not
+                        # comparing an int and None - you can't do that.
+                        # Instead, it's constant-folded to either True or False
+                        if res is not None:
+                            next_instr = res
+                        break
+                else:
+                    self.MISSING_OPCODE(oparg, next_instr)
+
+            else:  # when we are not translated, a list lookup is much faster
+                methodname = opcode_method_names[opcode]
+                res = getattr(self, methodname)(oparg, next_instr)
+                if res is not None:
+                    next_instr = res
+
+    def unrollstack(self, unroller_kind):
+        while not self.blockstack.empty():
+            block = self.blockstack.pop()
+            if (block.handling_mask & unroller_kind) != 0:
+                return block
+        return None
+
+    def unrollstack_and_jump(self, unroller):
+        block = self.unrollstack(unroller.kind)
+        if block is None:
+            raise BytecodeCorruption("misplaced bytecode - should not return")
+        return block.handle(self, unroller)
 
     ### accessor functions ###
 
@@ -110,10 +225,10 @@ class PyInterpFrame(pyframe.PyFrame):
     #  the 'self' argument of opcode implementations is called 'f'
     #  for historical reasons
 
-    def NOP(f):
+    def NOP(f, *ignored):
         pass
 
-    def LOAD_FAST(f, varindex):
+    def LOAD_FAST(f, varindex, *ignored):
         # access a local variable directly
         w_value = f.fastlocals_w[varindex]
         if w_value is None:
@@ -122,11 +237,11 @@ class PyInterpFrame(pyframe.PyFrame):
             raise OperationError(f.space.w_UnboundLocalError, f.space.wrap(message))
         f.valuestack.push(w_value)
 
-    def LOAD_CONST(f, constindex):
+    def LOAD_CONST(f, constindex, *ignored):
         w_const = f.getconstant_w(constindex)
         f.valuestack.push(w_const)
 
-    def STORE_FAST(f, varindex):
+    def STORE_FAST(f, varindex, *ignored):
         w_newvalue = f.valuestack.pop()
         f.fastlocals_w[varindex] = w_newvalue
         #except:
@@ -139,16 +254,16 @@ class PyInterpFrame(pyframe.PyFrame):
         #    print "co_nlocals", f.pycode.co_nlocals
         #    raise
 
-    def POP_TOP(f):
+    def POP_TOP(f, *ignored):
         f.valuestack.pop()
 
-    def ROT_TWO(f):
+    def ROT_TWO(f, *ignored):
         w_1 = f.valuestack.pop()
         w_2 = f.valuestack.pop()
         f.valuestack.push(w_1)
         f.valuestack.push(w_2)
 
-    def ROT_THREE(f):
+    def ROT_THREE(f, *ignored):
         w_1 = f.valuestack.pop()
         w_2 = f.valuestack.pop()
         w_3 = f.valuestack.pop()
@@ -156,7 +271,7 @@ class PyInterpFrame(pyframe.PyFrame):
         f.valuestack.push(w_3)
         f.valuestack.push(w_2)
 
-    def ROT_FOUR(f):
+    def ROT_FOUR(f, *ignored):
         w_1 = f.valuestack.pop()
         w_2 = f.valuestack.pop()
         w_3 = f.valuestack.pop()
@@ -166,11 +281,11 @@ class PyInterpFrame(pyframe.PyFrame):
         f.valuestack.push(w_3)
         f.valuestack.push(w_2)
 
-    def DUP_TOP(f):
+    def DUP_TOP(f, *ignored):
         w_1 = f.valuestack.top()
         f.valuestack.push(w_1)
 
-    def DUP_TOPX(f, itemcount):
+    def DUP_TOPX(f, itemcount, *ignored):
         assert 1 <= itemcount <= 5, "limitation of the current interpreter"
         for i in range(itemcount):
             w_1 = f.valuestack.top(itemcount-1)
@@ -182,7 +297,7 @@ class PyInterpFrame(pyframe.PyFrame):
     UNARY_CONVERT  = unaryoperation("repr")
     UNARY_INVERT   = unaryoperation("invert")
 
-    def BINARY_POWER(f):
+    def BINARY_POWER(f, *ignored):
         w_2 = f.valuestack.pop()
         w_1 = f.valuestack.pop()
         w_result = f.space.pow(w_1, w_2, f.space.w_None)
@@ -203,7 +318,7 @@ class PyInterpFrame(pyframe.PyFrame):
     BINARY_XOR = binaryoperation("xor")
     BINARY_OR  = binaryoperation("or_")
 
-    def INPLACE_POWER(f):
+    def INPLACE_POWER(f, *ignored):
         w_2 = f.valuestack.pop()
         w_1 = f.valuestack.pop()
         w_result = f.space.inplace_pow(w_1, w_2)
@@ -228,18 +343,18 @@ class PyInterpFrame(pyframe.PyFrame):
         w_result = f.space.getslice(w_obj, w_start, w_end)
         f.valuestack.push(w_result)
 
-    def SLICE_0(f):
+    def SLICE_0(f, *ignored):
         f.slice(f.space.w_None, f.space.w_None)
 
-    def SLICE_1(f):
+    def SLICE_1(f, *ignored):
         w_start = f.valuestack.pop()
         f.slice(w_start, f.space.w_None)
 
-    def SLICE_2(f):
+    def SLICE_2(f, *ignored):
         w_end = f.valuestack.pop()
         f.slice(f.space.w_None, w_end)
 
-    def SLICE_3(f):
+    def SLICE_3(f, *ignored):
         w_end = f.valuestack.pop()
         w_start = f.valuestack.pop()
         f.slice(w_start, w_end)
@@ -249,18 +364,18 @@ class PyInterpFrame(pyframe.PyFrame):
         w_newvalue = f.valuestack.pop()
         f.space.setslice(w_obj, w_start, w_end, w_newvalue)
 
-    def STORE_SLICE_0(f):
+    def STORE_SLICE_0(f, *ignored):
         f.storeslice(f.space.w_None, f.space.w_None)
 
-    def STORE_SLICE_1(f):
+    def STORE_SLICE_1(f, *ignored):
         w_start = f.valuestack.pop()
         f.storeslice(w_start, f.space.w_None)
 
-    def STORE_SLICE_2(f):
+    def STORE_SLICE_2(f, *ignored):
         w_end = f.valuestack.pop()
         f.storeslice(f.space.w_None, w_end)
 
-    def STORE_SLICE_3(f):
+    def STORE_SLICE_3(f, *ignored):
         w_end = f.valuestack.pop()
         w_start = f.valuestack.pop()
         f.storeslice(w_start, w_end)
@@ -269,69 +384,69 @@ class PyInterpFrame(pyframe.PyFrame):
         w_obj = f.valuestack.pop()
         f.space.delslice(w_obj, w_start, w_end)
 
-    def DELETE_SLICE_0(f):
+    def DELETE_SLICE_0(f, *ignored):
         f.deleteslice(f.space.w_None, f.space.w_None)
 
-    def DELETE_SLICE_1(f):
+    def DELETE_SLICE_1(f, *ignored):
         w_start = f.valuestack.pop()
         f.deleteslice(w_start, f.space.w_None)
 
-    def DELETE_SLICE_2(f):
+    def DELETE_SLICE_2(f, *ignored):
         w_end = f.valuestack.pop()
         f.deleteslice(f.space.w_None, w_end)
 
-    def DELETE_SLICE_3(f):
+    def DELETE_SLICE_3(f, *ignored):
         w_end = f.valuestack.pop()
         w_start = f.valuestack.pop()
         f.deleteslice(w_start, w_end)
 
-    def STORE_SUBSCR(f):
+    def STORE_SUBSCR(f, *ignored):
         "obj[subscr] = newvalue"
         w_subscr = f.valuestack.pop()
         w_obj = f.valuestack.pop()
         w_newvalue = f.valuestack.pop()
         f.space.setitem(w_obj, w_subscr, w_newvalue)
 
-    def DELETE_SUBSCR(f):
+    def DELETE_SUBSCR(f, *ignored):
         "del obj[subscr]"
         w_subscr = f.valuestack.pop()
         w_obj = f.valuestack.pop()
         f.space.delitem(w_obj, w_subscr)
 
-    def PRINT_EXPR(f):
+    def PRINT_EXPR(f, *ignored):
         w_expr = f.valuestack.pop()
         print_expr(f.space, w_expr)
 
-    def PRINT_ITEM_TO(f):
+    def PRINT_ITEM_TO(f, *ignored):
         w_stream = f.valuestack.pop()
         w_item = f.valuestack.pop()
         if f.space.is_w(w_stream, f.space.w_None):
             w_stream = sys_stdout(f.space)   # grumble grumble special cases
         print_item_to(f.space, w_item, w_stream)
 
-    def PRINT_ITEM(f):
+    def PRINT_ITEM(f, *ignored):
         w_item = f.valuestack.pop()
         print_item(f.space, w_item)
 
-    def PRINT_NEWLINE_TO(f):
+    def PRINT_NEWLINE_TO(f, *ignored):
         w_stream = f.valuestack.pop()
         if f.space.is_w(w_stream, f.space.w_None):
             w_stream = sys_stdout(f.space)   # grumble grumble special cases
         print_newline_to(f.space, w_stream)
 
-    def PRINT_NEWLINE(f):
+    def PRINT_NEWLINE(f, *ignored):
         print_newline(f.space)
 
-    def BREAK_LOOP(f):
-        raise pyframe.SBreakLoop
+    def BREAK_LOOP(f, *ignored):
+        next_instr = f.unrollstack_and_jump(SBreakLoop.singleton)
+        return next_instr
 
-    def CONTINUE_LOOP(f, startofloop):
-        raise pyframe.SContinueLoop(startofloop)
+    def CONTINUE_LOOP(f, startofloop, *ignored):
+        unroller = SContinueLoop(startofloop)
+        next_instr = f.unrollstack_and_jump(unroller)
+        return next_instr
 
-    def RAISE_VARARGS(f, nbargs):
-        # we use the .app.py file to prepare the exception/value/traceback
-        # but not to actually raise it, because we cannot use the 'raise'
-        # statement to implement RAISE_VARARGS
+    def RAISE_VARARGS(f, nbargs, *ignored):
         space = f.space
         if nbargs == 0:
             operror = space.getexecutioncontext().sys_exc_info()
@@ -339,7 +454,9 @@ class PyInterpFrame(pyframe.PyFrame):
                 raise OperationError(space.w_TypeError,
                     space.wrap("raise: no active exception to re-raise"))
             # re-raise, no new traceback obj will be attached
-            raise pyframe.SApplicationException(operror)
+            f.last_exception = operror
+            raise Reraise
+
         w_value = w_traceback = space.w_None
         if nbargs >= 3: w_traceback = f.valuestack.pop()
         if nbargs >= 2: w_value     = f.valuestack.pop()
@@ -357,16 +474,13 @@ class PyInterpFrame(pyframe.PyFrame):
                       space.wrap("raise: arg 3 must be a traceback or None"))
             operror.application_traceback = tb
             # re-raise, no new traceback obj will be attached
-            raise pyframe.SApplicationException(operror) 
+            f.last_exception = operror
+            raise Reraise
 
-    def LOAD_LOCALS(f):
+    def LOAD_LOCALS(f, *ignored):
         f.valuestack.push(f.w_locals)
 
-    def RETURN_VALUE(f):
-        w_returnvalue = f.valuestack.pop()
-        raise pyframe.SReturnValue(w_returnvalue)
-
-    def EXEC_STMT(f):
+    def EXEC_STMT(f, *ignored):
         w_locals  = f.valuestack.pop()
         w_globals = f.valuestack.pop()
         w_prog    = f.valuestack.pop()
@@ -386,25 +500,11 @@ class PyInterpFrame(pyframe.PyFrame):
         if plain:
             f.setdictscope(w_locals)
 
-    def POP_BLOCK(f):
+    def POP_BLOCK(f, *ignored):
         block = f.blockstack.pop()
         block.cleanup(f)  # the block knows how to clean up the value stack
 
-    def END_FINALLY(f):
-        # unlike CPython, when we reach this opcode the value stack has
-        # always been set up as follows (topmost first):
-        #   [exception type  or None]
-        #   [exception value or None]
-        #   [wrapped stack unroller ]
-        f.valuestack.pop()   # ignore the exception type
-        f.valuestack.pop()   # ignore the exception value
-        w_unroller = f.valuestack.pop()
-        unroller = f.space.interpclass_w(w_unroller)
-        if isinstance(unroller, pyframe.SuspendedUnroller):
-            # re-raise the unroller, if any
-            raise unroller.flowexc
-
-    def BUILD_CLASS(f):
+    def BUILD_CLASS(f, *ignored):
         w_methodsdict = f.valuestack.pop()
         w_bases       = f.valuestack.pop()
         w_name        = f.valuestack.pop()
@@ -415,12 +515,12 @@ class PyInterpFrame(pyframe.PyFrame):
                                            w_bases, w_methodsdict)
         f.valuestack.push(w_newclass)
 
-    def STORE_NAME(f, varindex):
+    def STORE_NAME(f, varindex, *ignored):
         w_varname = f.getname_w(varindex)
         w_newvalue = f.valuestack.pop()
         f.space.set_str_keyed_item(f.w_locals, w_varname, w_newvalue)
 
-    def DELETE_NAME(f, varindex):
+    def DELETE_NAME(f, varindex, *ignored):
         w_varname = f.getname_w(varindex)
         try:
             f.space.delitem(f.w_locals, w_varname)
@@ -431,7 +531,7 @@ class PyInterpFrame(pyframe.PyFrame):
             message = "name '%s' is not defined" % f.space.str_w(w_varname)
             raise OperationError(f.space.w_NameError, f.space.wrap(message))
 
-    def UNPACK_SEQUENCE(f, itemcount):
+    def UNPACK_SEQUENCE(f, itemcount, *ignored):
         w_iterable = f.valuestack.pop()
         try:
             items = f.space.unpackiterable(w_iterable, itemcount)
@@ -441,29 +541,29 @@ class PyInterpFrame(pyframe.PyFrame):
         for item in items:
             f.valuestack.push(item)
 
-    def STORE_ATTR(f, nameindex):
+    def STORE_ATTR(f, nameindex, *ignored):
         "obj.attributename = newvalue"
         w_attributename = f.getname_w(nameindex)
         w_obj = f.valuestack.pop()
         w_newvalue = f.valuestack.pop()
         f.space.setattr(w_obj, w_attributename, w_newvalue)
 
-    def DELETE_ATTR(f, nameindex):
+    def DELETE_ATTR(f, nameindex, *ignored):
         "del obj.attributename"
         w_attributename = f.getname_w(nameindex)
         w_obj = f.valuestack.pop()
         f.space.delattr(w_obj, w_attributename)
 
-    def STORE_GLOBAL(f, nameindex):
+    def STORE_GLOBAL(f, nameindex, *ignored):
         w_varname = f.getname_w(nameindex)
         w_newvalue = f.valuestack.pop()
         f.space.set_str_keyed_item(f.w_globals, w_varname, w_newvalue)
 
-    def DELETE_GLOBAL(f, nameindex):
+    def DELETE_GLOBAL(f, nameindex, *ignored):
         w_varname = f.getname_w(nameindex)
         f.space.delitem(f.w_globals, w_varname)
 
-    def LOAD_NAME(f, nameindex):
+    def LOAD_NAME(f, nameindex, *ignored):
         if f.w_locals is not f.w_globals:
             w_varname = f.getname_w(nameindex)
             w_value = f.space.finditem(f.w_locals, w_varname)
@@ -472,7 +572,7 @@ class PyInterpFrame(pyframe.PyFrame):
                 return
         f.LOAD_GLOBAL(nameindex)    # fall-back
 
-    def LOAD_GLOBAL(f, nameindex):
+    def LOAD_GLOBAL(f, nameindex, *ignored):
         w_varname = f.getname_w(nameindex)
         w_value = f.space.finditem(f.w_globals, w_varname)
         if w_value is None:
@@ -485,7 +585,7 @@ class PyInterpFrame(pyframe.PyFrame):
                                      f.space.wrap(message))
         f.valuestack.push(w_value)
 
-    def DELETE_FAST(f, varindex):
+    def DELETE_FAST(f, varindex, *ignored):
         if f.fastlocals_w[varindex] is None:
             varname = f.getlocalvarname(varindex)
             message = "local variable '%s' referenced before assignment" % varname
@@ -493,25 +593,25 @@ class PyInterpFrame(pyframe.PyFrame):
         f.fastlocals_w[varindex] = None
         
 
-    def BUILD_TUPLE(f, itemcount):
+    def BUILD_TUPLE(f, itemcount, *ignored):
         items = [f.valuestack.pop() for i in range(itemcount)]
         items.reverse()
         w_tuple = f.space.newtuple(items)
         f.valuestack.push(w_tuple)
 
-    def BUILD_LIST(f, itemcount):
+    def BUILD_LIST(f, itemcount, *ignored):
         items = [f.valuestack.pop() for i in range(itemcount)]
         items.reverse()
         w_list = f.space.newlist(items)
         f.valuestack.push(w_list)
 
-    def BUILD_MAP(f, zero):
+    def BUILD_MAP(f, zero, *ignored):
         if zero != 0:
-            raise pyframe.BytecodeCorruption
+            raise BytecodeCorruption
         w_dict = f.space.newdict()
         f.valuestack.push(w_dict)
 
-    def LOAD_ATTR(f, nameindex):
+    def LOAD_ATTR(f, nameindex, *ignored):
         "obj.attributename"
         w_attributename = f.getname_w(nameindex)
         w_obj = f.valuestack.pop()
@@ -549,17 +649,17 @@ class PyInterpFrame(pyframe.PyFrame):
         cmp_is_not,
         cmp_exc_match,
         ]
-    def COMPARE_OP(f, testnum):
+    def COMPARE_OP(f, testnum, *ignored):
         w_2 = f.valuestack.pop()
         w_1 = f.valuestack.pop()
         try:
             testfn = f.compare_dispatch_table[testnum]
         except IndexError:
-            raise pyframe.BytecodeCorruption, "bad COMPARE_OP oparg"
+            raise BytecodeCorruption, "bad COMPARE_OP oparg"
         w_result = testfn(f, w_1, w_2)
         f.valuestack.push(w_result)
 
-    def IMPORT_NAME(f, nameindex):
+    def IMPORT_NAME(f, nameindex, *ignored):
         space = f.space
         w_modulename = f.getname_w(nameindex)
         modulename = f.space.str_w(w_modulename)
@@ -575,13 +675,13 @@ class PyInterpFrame(pyframe.PyFrame):
                                     f.w_globals, w_locals, w_fromlist)
         f.valuestack.push(w_obj)
 
-    def IMPORT_STAR(f):
+    def IMPORT_STAR(f, *ignored):
         w_module = f.valuestack.pop()
         w_locals = f.getdictscope()
         import_all_from(f.space, w_module, w_locals)
         f.setdictscope(w_locals)
 
-    def IMPORT_FROM(f, nameindex):
+    def IMPORT_FROM(f, nameindex, *ignored):
         w_name = f.getname_w(nameindex)
         w_module = f.valuestack.top()
         try:
@@ -593,29 +693,31 @@ class PyInterpFrame(pyframe.PyFrame):
                              f.space.wrap("cannot import name '%s'" % f.space.str_w(w_name) ))
         f.valuestack.push(w_obj)
 
-    def JUMP_FORWARD(f, stepby):
-        f.next_instr += stepby
-    JUMP_FORWARD.can_jump = True
+    def JUMP_FORWARD(f, jumpby, next_instr, *ignored):
+        next_instr += jumpby
+        return next_instr
 
-    def JUMP_IF_FALSE(f, stepby):
+    def JUMP_IF_FALSE(f, stepby, next_instr, *ignored):
         w_cond = f.valuestack.top()
         if not f.space.is_true(w_cond):
-            f.next_instr += stepby
+            next_instr += stepby
+        return next_instr
 
-    def JUMP_IF_TRUE(f, stepby):
+    def JUMP_IF_TRUE(f, stepby, next_instr, *ignored):
         w_cond = f.valuestack.top()
         if f.space.is_true(w_cond):
-            f.next_instr += stepby
+            next_instr += stepby
+        return next_instr
 
-    def JUMP_ABSOLUTE(f, jumpto):
-        f.next_instr = jumpto
+    def JUMP_ABSOLUTE(f, jumpto, next_instr, *ignored):
+        return jumpto
 
-    def GET_ITER(f):
+    def GET_ITER(f, *ignored):
         w_iterable = f.valuestack.pop()
         w_iterator = f.space.iter(w_iterable)
         f.valuestack.push(w_iterator)
 
-    def FOR_ITER(f, jumpby):
+    def FOR_ITER(f, jumpby, next_instr, *ignored):
         w_iterator = f.valuestack.top()
         try:
             w_nextitem = f.space.next(w_iterator)
@@ -624,33 +726,33 @@ class PyInterpFrame(pyframe.PyFrame):
                 raise 
             # iterator exhausted
             f.valuestack.pop()
-            f.next_instr += jumpby
+            next_instr += jumpby
         else:
             f.valuestack.push(w_nextitem)
+        return next_instr
 
-    def FOR_LOOP(f, oparg):
-        raise pyframe.BytecodeCorruption, "old opcode, no longer in use"
+    def FOR_LOOP(f, oparg, *ignored):
+        raise BytecodeCorruption, "old opcode, no longer in use"
 
-    def SETUP_LOOP(f, offsettoend):
-        block = pyframe.LoopBlock(f, f.next_instr + offsettoend)
+    def SETUP_LOOP(f, offsettoend, next_instr, *ignored):
+        block = LoopBlock(f, next_instr + offsettoend)
         f.blockstack.push(block)
 
-    def SETUP_EXCEPT(f, offsettoend):
-        block = pyframe.ExceptBlock(f, f.next_instr + offsettoend)
+    def SETUP_EXCEPT(f, offsettoend, next_instr, *ignored):
+        block = ExceptBlock(f, next_instr + offsettoend)
         f.blockstack.push(block)
 
-    def SETUP_FINALLY(f, offsettoend):
-        block = pyframe.FinallyBlock(f, f.next_instr + offsettoend)
+    def SETUP_FINALLY(f, offsettoend, next_instr, *ignored):
+        block = FinallyBlock(f, next_instr + offsettoend)
         f.blockstack.push(block)
 
-    def WITH_CLEANUP(f):
+    def WITH_CLEANUP(f, *ignored):
         # see comment in END_FINALLY for stack state
         w_exitfunc = f.valuestack.pop()
         w_unroller = f.valuestack.top(2)
         unroller = f.space.interpclass_w(w_unroller)
-        if (isinstance(unroller, pyframe.SuspendedUnroller)
-            and isinstance(unroller.flowexc, pyframe.SApplicationException)):
-            operr = unroller.flowexc.operr
+        if isinstance(unroller, SApplicationException):
+            operr = unroller.operr
             w_result = f.space.call_function(w_exitfunc,
                                              operr.w_type,
                                              operr.w_value,
@@ -684,7 +786,7 @@ class PyInterpFrame(pyframe.PyFrame):
         rstack.resume_point("call_function", f, returns=w_result)
         f.valuestack.push(w_result)
         
-    def CALL_FUNCTION(f, oparg):
+    def CALL_FUNCTION(f, oparg, *ignored):
         # XXX start of hack for performance
         if (oparg >> 8) & 0xff == 0:
             # Only positional arguments
@@ -701,20 +803,20 @@ class PyInterpFrame(pyframe.PyFrame):
             # general case
             f.call_function(oparg)
 
-    def CALL_FUNCTION_VAR(f, oparg):
+    def CALL_FUNCTION_VAR(f, oparg, *ignored):
         w_varargs = f.valuestack.pop()
         f.call_function(oparg, w_varargs)
 
-    def CALL_FUNCTION_KW(f, oparg):
+    def CALL_FUNCTION_KW(f, oparg, *ignored):
         w_varkw = f.valuestack.pop()
         f.call_function(oparg, None, w_varkw)
 
-    def CALL_FUNCTION_VAR_KW(f, oparg):
+    def CALL_FUNCTION_VAR_KW(f, oparg, *ignored):
         w_varkw = f.valuestack.pop()
         w_varargs = f.valuestack.pop()
         f.call_function(oparg, w_varargs, w_varkw)
 
-    def MAKE_FUNCTION(f, numdefaults):
+    def MAKE_FUNCTION(f, numdefaults, *ignored):
         w_codeobj = f.valuestack.pop()
         codeobj = f.space.interp_w(PyCode, w_codeobj)
         defaultarguments = [f.valuestack.pop() for i in range(numdefaults)]
@@ -722,169 +824,244 @@ class PyInterpFrame(pyframe.PyFrame):
         fn = function.Function(f.space, codeobj, f.w_globals, defaultarguments)
         f.valuestack.push(f.space.wrap(fn))
 
-    def BUILD_SLICE(f, numargs):
+    def BUILD_SLICE(f, numargs, *ignored):
         if numargs == 3:
             w_step = f.valuestack.pop()
         elif numargs == 2:
             w_step = f.space.w_None
         else:
-            raise pyframe.BytecodeCorruption
+            raise BytecodeCorruption
         w_end   = f.valuestack.pop()
         w_start = f.valuestack.pop()
         w_slice = f.space.newslice(w_start, w_end, w_step)
         f.valuestack.push(w_slice)
 
-    def LIST_APPEND(f):
+    def LIST_APPEND(f, *ignored):
         w = f.valuestack.pop()
         v = f.valuestack.pop()
         f.space.call_method(v, 'append', w)
 
-    def SET_LINENO(f, lineno):
+    def SET_LINENO(f, lineno, *ignored):
         pass
 
-##     def EXTENDED_ARG(f, oparg):
+##     def EXTENDED_ARG(f, oparg, *ignored):
 ##         opcode = f.nextop()
 ##         oparg = oparg<<16 | f.nextarg()
 ##         fn = f.dispatch_table_w_arg[opcode]
 ##         if fn is None:
-##             raise pyframe.BytecodeCorruption
+##             raise BytecodeCorruption
 ##         fn(f, oparg)
 
-    def MISSING_OPCODE(f):
-        ofs = f.next_instr - 1
+    def MISSING_OPCODE(f, oparg, next_instr, *ignored):
+        ofs = next_instr - 1
         c = f.pycode.co_code[ofs]
         name = f.pycode.co_name
-        raise pyframe.BytecodeCorruption("unknown opcode, ofs=%d, code=%d, name=%s" %
-                                           (ofs, ord(c), name) )
-
-    def MISSING_OPCODE_W_ARG(f, oparg):
-        ofs = f.next_instr - 3
-        c = f.pycode.co_code[ofs]
-        name = f.pycode.co_name
-        raise pyframe.BytecodeCorruption("unknown opcode, ofs=%d, code=%d, name=%s" %
-                                           (ofs, ord(c), name) )
+        raise BytecodeCorruption("unknown opcode, ofs=%d, code=%d, name=%s" %
+                                 (ofs, ord(c), name) )
 
     STOP_CODE = MISSING_OPCODE
 
-    ### dispatch_table ###
 
-    # 'opcode_has_arg' is a class attribute: list of True/False whether opcode takes arg
-    # 'dispatch_table_no_arg: list of functions/None
-    # 'dispatch_table_w_arg: list of functions/None
+### ____________________________________________________________ ###
 
-    __metaclass__ = InitializedClass
-    def __initclass__(cls):
-        "NOT_RPYTHON"
-        # create the 'cls.dispatch_table' attribute
-        opcode_has_arg = []
-        dispatch_table_no_arg = []
-        dispatch_table_w_arg = []
-        missing_opcode = cls.MISSING_OPCODE.im_func
-        missing_opcode_w_arg = cls.MISSING_OPCODE_W_ARG.im_func
-        for i in range(256):
-            opname = pythonopcode.opname[i].replace('+', '_')
-            fn = getattr(cls, opname, None)
-            fn = getattr(fn, 'im_func',fn)
-            has_arg = i >= pythonopcode.HAVE_ARGUMENT
-            #if fn is missing_opcode and not opname.startswith('<') and i>0:
-            #    import warnings
-            #    warnings.warn("* Warning, missing opcode %s" % opname)
-            opcode_has_arg.append(has_arg)
-            if has_arg:
-                fn = fn or missing_opcode_w_arg
-                dispatch_table_w_arg.append(fn)
-                dispatch_table_no_arg.append(None)
-            else:
-                fn = fn or missing_opcode
-                dispatch_table_no_arg.append(fn)
-                dispatch_table_w_arg.append(None)
 
-        cls.opcode_has_arg = opcode_has_arg
-        cls.dispatch_table_no_arg = dispatch_table_no_arg
-        cls.dispatch_table_w_arg = dispatch_table_w_arg
+def cpython_tb():
+   """NOT_RPYTHON"""
+   import sys
+   return sys.exc_info()[2]   
+cpython_tb._annspecialcase_ = "override:ignore"
 
-        #XXX performance hack!
-        ### Create dispatch with a lot of if,elifs ###
-        ### (this gets optimized for translated pypy by the merge_if_blocks transformation) ###
-        if cls.__name__ != 'PyInterpFrame':
-            return
-        import py
-        
-        dispatch_code  = '''
-def dispatch_translated(self, code, ec):
-    hint(None, global_merge_point=True)
-    next_instr = hint(self.next_instr, promote=True)
-    while True:
-        hint(None, global_merge_point=True)
-        self.last_instr = intmask(next_instr)
-        #ec.bytecode_trace(self)            JJJ
-        #self.next_instr = self.last_instr  JJJ
-        opcode = ord(code[next_instr])
-        opcode = hint(opcode, concrete=True)
-        if self.space.config.objspace.logbytecodes:
-            self.space.bytecodecounts[opcode] = self.space.bytecodecounts.get(opcode, 0) + 1
-        next_instr += 1
-        self.next_instr = next_instr
-        if opcode >= %s:
-            oparg = ord(code[next_instr]) | ord(code[next_instr + 1]) << 8
-            oparg = hint(oparg, concrete=True)
-            next_instr += 2
-            self.next_instr = next_instr
-            while True:
-                if opcode == %s:
-                    opcode = ord(code[next_instr])
-                    opcode = hint(opcode, concrete=True)
-                    oparg = oparg << 16 | ord(code[next_instr + 1]) | ord(code[next_instr + 2]) << 8
-                    oparg = hint(oparg, concrete=True)
-                    next_instr += 3
-                    self.next_instr = next_instr
-                    if opcode < %s:
-                        raise pyframe.BytecodeCorruption
-                    continue
-''' % (pythonopcode.HAVE_ARGUMENT,
-        pythonopcode.EXTENDED_ARG,
-        pythonopcode.HAVE_ARGUMENT)
+class Reraise(Exception):
+    """Signal an application-level OperationError that should not grow
+    a new traceback entry nor trigger the trace hook."""
 
-        def sortkey(opcode, opcodeorder=opcodeorder, ValueError=ValueError):
-            try:
-                index = opcodeorder.index(opcode)
-            except ValueError:
-                index = 1000000
-            return index, opcode
-        opcases = [(sortkey(i), i, opname)
-                   for opname, i in pythonopcode.opmap.iteritems()]
-        opcases.sort()    # for predictable results
+class BytecodeCorruption(Exception):
+    """Detected bytecode corruption.  Never caught; it's an error."""
 
-        for _, i, opname in opcases:
-            if i == pythonopcode.EXTENDED_ARG or i < pythonopcode.HAVE_ARGUMENT:
-                continue
-            opname         = opname.replace('+', '_')
-            dispatch_code += '                elif opcode == %d:\n' % i
-            dispatch_code += '                    self.%s(oparg)\n'  % opname
-            if opname == 'CALL_FUNCTION':
-                dispatch_code += '                    rstack.resume_point("dispatch_call", self, code, ec)\n'
-        dispatch_code +=     '                else:\n'
-        dispatch_code +=     '                    self.MISSING_OPCODE_W_ARG(oparg)\n'
-        dispatch_code +=     '                break\n'
 
-        for _, i, opname in opcases:
-            if i >= pythonopcode.HAVE_ARGUMENT:
-                continue
-            opname         = opname.replace('+', '_')
-            dispatch_code += '        elif opcode == %d:\n' % i
-            dispatch_code += '            self.%s()\n'  % opname
-        dispatch_code +=     '        else:\n'
-        dispatch_code +=     '            self.MISSING_OPCODE()\n'
-        exec py.code.Source(dispatch_code).compile()
+### Frame Blocks ###
 
-        cls.dispatch_translated = dispatch_translated        
-    
+class SuspendedUnroller(Wrappable):
+    """Abstract base class for interpreter-level objects that
+    instruct the interpreter to change the control flow and the
+    block stack.
+
+    The concrete subclasses correspond to the various values WHY_XXX
+    values of the why_code enumeration in ceval.c:
+
+                WHY_NOT,        OK, not this one :-)
+                WHY_EXCEPTION,  SApplicationException
+                WHY_RERAISE,    implemented differently, see Reraise
+                WHY_RETURN,     SReturnValue
+                WHY_BREAK,      SBreakLoop
+                WHY_CONTINUE,   SContinueLoop
+                WHY_YIELD       not needed
+    """
+    def nomoreblocks(self):
+        raise BytecodeCorruption("misplaced bytecode - should not return")
+    # for the flow object space, a way to "pickle" and "unpickle" the
+    # ControlFlowException by enumerating the Variables it contains.
+    def state_unpack_variables(self, space):
+        return []     # by default, overridden below
+    def state_pack_variables(self, space, *values_w):
+        assert len(values_w) == 0
+
+class SReturnValue(SuspendedUnroller):
+    """Signals a 'return' statement.
+    Argument is the wrapped object to return."""
+    kind = 0x01
+    def __init__(self, w_returnvalue):
+        self.w_returnvalue = w_returnvalue
+    def nomoreblocks(self):
+        return self.w_returnvalue
+    def state_unpack_variables(self, space):
+        return [self.w_returnvalue]
+    def state_pack_variables(self, space, w_returnvalue):
+        self.w_returnvalue = w_returnvalue
+
+class SApplicationException(SuspendedUnroller):
+    """Signals an application-level exception
+    (i.e. an OperationException)."""
+    kind = 0x02
+    def __init__(self, operr):
+        self.operr = operr
+    def nomoreblocks(self):
+        raise self.operr
+    def state_unpack_variables(self, space):
+        return [self.operr.w_type, self.operr.w_value]
+    def state_pack_variables(self, space, w_type, w_value):
+        self.operr = OperationError(w_type, w_value)
+
+class SBreakLoop(SuspendedUnroller):
+    """Signals a 'break' statement."""
+    kind = 0x04
+SBreakLoop.singleton = SBreakLoop()
+
+class SContinueLoop(SuspendedUnroller):
+    """Signals a 'continue' statement.
+    Argument is the bytecode position of the beginning of the loop."""
+    kind = 0x08
+    def __init__(self, jump_to):
+        self.jump_to = jump_to
+    def state_unpack_variables(self, space):
+        return [space.wrap(self.jump_to)]
+    def state_pack_variables(self, space, w_jump_to):
+        self.jump_to = space.int_w(w_jump_to)
+
+
+class FrameBlock:
+
+    """Abstract base class for frame blocks from the blockstack,
+    used by the SETUP_XXX and POP_BLOCK opcodes."""
+
+    def __init__(self, frame, handlerposition):
+        self.handlerposition = handlerposition
+        self.valuestackdepth = frame.valuestack.depth()
+
+    def __eq__(self, other):
+        return (self.__class__ is other.__class__ and
+                self.handlerposition == other.handlerposition and
+                self.valuestackdepth == other.valuestackdepth)
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    def __hash__(self):
+        return hash((self.handlerposition, self.valuestackdepth))
+
+    def cleanupstack(self, frame):
+        for i in range(self.valuestackdepth, frame.valuestack.depth()):
+            frame.valuestack.pop()
+
+    def cleanup(self, frame):
+        "Clean up a frame when we normally exit the block."
+        self.cleanupstack(frame)
+
+    # internal pickling interface, not using the standard protocol
+    def _get_state_(self, space):
+        w = space.wrap
+        return space.newtuple([w(self._opname), w(self.handlerposition),
+                               w(self.valuestackdepth)])
+
+class LoopBlock(FrameBlock):
+    """A loop block.  Stores the end-of-loop pointer in case of 'break'."""
+
+    _opname = 'SETUP_LOOP'
+    handling_mask = SBreakLoop.kind | SContinueLoop.kind
+
+    def handle(self, frame, unroller):
+        if isinstance(unroller, SContinueLoop):
+            # re-push the loop block without cleaning up the value stack,
+            # and jump to the beginning of the loop, stored in the
+            # exception's argument
+            frame.blockstack.push(self)
+            return unroller.jump_to
+        else:
+            # jump to the end of the loop
+            self.cleanupstack(frame)
+            return self.handlerposition
+
+
+class ExceptBlock(FrameBlock):
+    """An try:except: block.  Stores the position of the exception handler."""
+
+    _opname = 'SETUP_EXCEPT'
+    handling_mask = SApplicationException.kind
+
+    def handle(self, frame, unroller):
+        # push the exception to the value stack for inspection by the
+        # exception handler (the code after the except:)
+        self.cleanupstack(frame)
+        assert isinstance(unroller, SApplicationException)
+        operationerr = unroller.operr
+        if frame.space.full_exceptions:
+            operationerr.normalize_exception(frame.space)
+        # the stack setup is slightly different than in CPython:
+        # instead of the traceback, we store the unroller object,
+        # wrapped.
+        frame.valuestack.push(frame.space.wrap(unroller))
+        frame.valuestack.push(operationerr.w_value)
+        frame.valuestack.push(operationerr.w_type)
+        return self.handlerposition   # jump to the handler
+
+
+class FinallyBlock(FrameBlock):
+    """A try:finally: block.  Stores the position of the exception handler."""
+
+    _opname = 'SETUP_FINALLY'
+    handling_mask = -1     # handles every kind of SuspendedUnroller
+
+    def cleanup(self, frame):
+        # upon normal entry into the finally: part, the standard Python
+        # bytecode pushes a single None for END_FINALLY.  In our case we
+        # always push three values into the stack: the wrapped ctlflowexc,
+        # the exception value and the exception type (which are all None
+        # here).
+        self.cleanupstack(frame)
+        # one None already pushed by the bytecode
+        frame.valuestack.push(frame.space.w_None)
+        frame.valuestack.push(frame.space.w_None)
+
+    def handle(self, frame, unroller):
+        # any abnormal reason for unrolling a finally: triggers the end of
+        # the block unrolling and the entering the finally: handler.
+        # see comments in cleanup().
+        self.cleanupstack(frame)
+        frame.valuestack.push(frame.space.wrap(unroller))
+        frame.valuestack.push(frame.space.w_None)
+        frame.valuestack.push(frame.space.w_None)
+        return self.handlerposition   # jump to the handler
+
+
+block_classes = {'SETUP_LOOP': LoopBlock,
+                 'SETUP_EXCEPT': ExceptBlock,
+                 'SETUP_FINALLY': FinallyBlock}
 
 ### helpers written at the application-level ###
 # Some of these functions are expected to be generally useful if other
 # parts of the code need to do the same thing as a non-trivial opcode,
 # like finding out which metaclass a new class should have.
-# This is why they are not methods of PyInterpFrame.
+# This is why they are not methods of PyFrame.
 # There are also a couple of helpers that are methods, defined in the
 # class above.
 

@@ -95,7 +95,7 @@ class BlockRecorder(Recorder):
 
     def bytecode_trace(self, ec, frame):
         assert frame is ec.crnt_frame, "seeing an unexpected frame!"
-        ec.crnt_offset = frame.next_instr      # save offset for opcode
+        ec.crnt_offset = frame.last_instr      # save offset for opcode
         if self.enterspamblock:
             # If we have a SpamBlock, the first call to bytecode_trace()
             # occurs as soon as frame.resume() starts, before interpretation
@@ -218,8 +218,10 @@ class FlowExecutionContext(ExecutionContext):
         # create an empty frame suitable for the code object
         # while ignoring any operation like the creation of the locals dict
         self.recorder = []
-        return self.code.create_frame(self.space, self.w_globals,
-                                      self.closure)
+        frame = self.code.create_frame(self.space, self.w_globals,
+                                       self.closure)
+        frame.last_instr = 0
+        return frame
 
     def bytecode_trace(self, frame):
         self.recorder.bytecode_trace(self, frame)
@@ -256,11 +258,15 @@ class FlowExecutionContext(ExecutionContext):
             except StopFlowing:
                 continue   # restarting a dead SpamBlock
             try:
+                self.framestack.push(frame)
                 self.crnt_frame = frame
                 try:
-                    w_result = frame.resume()
+                    w_result = frame.dispatch(frame.pycode.co_code,
+                                              frame.last_instr,
+                                              self)
                 finally:
                     self.crnt_frame = None
+                    self.framestack.pop()
 
             except OperationThatShouldNotBePropagatedError, e:
                 raise Exception(

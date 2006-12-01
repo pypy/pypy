@@ -9,7 +9,6 @@ attribute.
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.eval import Code
-from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.argument import Arguments, ArgumentsFromValuestack
 
 class Function(Wrappable):

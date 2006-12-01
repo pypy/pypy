@@ -9,7 +9,7 @@ import dis, imp, struct, types
 from pypy.interpreter import eval
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import NoneNotWrapped 
-from pypy.interpreter.baseobjspace import ObjSpace, W_Root 
+from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from pypy.rlib.rarithmetic import intmask
 
 # helper
@@ -48,29 +48,6 @@ def cpython_code_signature(code):
     return argnames, varargname, kwargname
 
 cpython_magic, = struct.unpack("<i", imp.get_magic())
-
-NESTED    = 1
-GENERATOR = 2
-
-frame_classes = []
-
-def setup_frame_classes():
-    "NOT_RPYTHON"
-    from pypy.interpreter.pyopcode import PyInterpFrame
-    from pypy.interpreter.nestedscope import PyNestedScopeFrame
-    from pypy.interpreter.generator import GeneratorFrameMixin
-
-    class PyGeneratorFrame(GeneratorFrameMixin, PyInterpFrame):
-        pass
-
-    class PyNestedScopeGeneratorFrame(GeneratorFrameMixin, PyNestedScopeFrame):
-        pass
-
-    frame_classes.extend([None]*4)
-    frame_classes[0]                = PyInterpFrame
-    frame_classes[NESTED]           = PyNestedScopeFrame
-    frame_classes[GENERATOR]        = PyGeneratorFrame
-    frame_classes[NESTED|GENERATOR] = PyNestedScopeGeneratorFrame
 
 
 class PyCode(eval.Code):
@@ -248,21 +225,10 @@ class PyCode(eval.Code):
         frame.init_cells()
         return frame.run()
 
-    def get_frame_class(self):
-        # select the appropriate kind of frame
-        if not frame_classes:
-            setup_frame_classes()   # lazily
-        choose = 0
-        if self.co_cellvars or self.co_freevars:
-            choose |= NESTED
-        if self.co_flags & CO_GENERATOR:
-            choose |= GENERATOR
-        Frame = frame_classes[choose]
-        return Frame
-
     def create_frame(self, space, w_globals, closure=None):
         "Create an empty PyFrame suitable for this code object."
-        return self.get_frame_class()(space, self, w_globals, closure)
+        from pypy.interpreter import pyframe
+        return pyframe.PyFrame(space, self, w_globals, closure)
 
     def getvarnames(self):
         return self.co_varnames
@@ -277,20 +243,6 @@ class PyCode(eval.Code):
         else:
             return None
 
-    def initialize_frame_scopes(self, frame): 
-        # regular functions always have CO_OPTIMIZED and CO_NEWLOCALS.
-        # class bodies only have CO_NEWLOCALS.
-        # CO_NEWLOCALS: make a locals dict unless optimized is also set
-        # CO_OPTIMIZED: no locals dict needed at all 
-        flags = self.co_flags
-        if flags & CO_OPTIMIZED: 
-            return 
-        if flags & CO_NEWLOCALS:
-            frame.w_locals = frame.space.newdict()
-        else:
-            assert frame.w_globals is not None
-            frame.w_locals = frame.w_globals 
-        
     def getjoinpoints(self):
         """Compute the bytecode positions that are potential join points
         (for FlowObjSpace)"""

@@ -1,5 +1,4 @@
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.pyopcode import PyInterpFrame
 from pypy.interpreter import function, pycode, pyframe
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.mixedmodule import MixedModule
@@ -59,7 +58,12 @@ class Cell(Wrappable):
                                      content, uid(self))
 
 
-class PyNestedScopeFrame(PyInterpFrame):
+super_initialize_frame_scopes = pyframe.PyFrame.initialize_frame_scopes
+super_fast2locals             = pyframe.PyFrame.fast2locals
+super_locals2fast             = pyframe.PyFrame.locals2fast
+
+
+class __extend__(pyframe.PyFrame):
     """This class enhances a standard frame with nested scope abilities,
     i.e. handling of cell/free variables."""
 
@@ -69,28 +73,47 @@ class PyNestedScopeFrame(PyInterpFrame):
     #     variables coming from a parent function in which i'm nested
     # 'closure' is a list of Cell instances: the received free vars.
 
-    def __init__(self, space, code, w_globals, closure):
-        PyInterpFrame.__init__(self, space, code, w_globals, closure)
+    cells = None
+
+    def initialize_frame_scopes(self, closure):
+        super_initialize_frame_scopes(self, closure)
+        code = self.pycode
         ncellvars = len(code.co_cellvars)
         nfreevars = len(code.co_freevars)
-        if closure is None:
-            if nfreevars:
-                raise OperationError(space.w_TypeError,
-                                     space.wrap("directly executed code object "
-                                                "may not contain free variables"))
-            closure = []
-        else:
-            if len(closure) != nfreevars:
-                raise ValueError("code object received a closure with "
+        if not nfreevars:
+            if not ncellvars:
+                return            # no self.cells needed - fast path
+            if closure is None:
+                closure = []
+        elif closure is None:
+            space = self.space
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("directly executed code object "
+                                            "may not contain free variables"))
+        if len(closure) != nfreevars:
+            raise ValueError("code object received a closure with "
                                  "an unexpected number of free variables")
         self.cells = [Cell() for i in range(ncellvars)] + closure
 
     def getclosure(self):
+        if self.cells is None:
+            return None
         ncellvars = len(self.pycode.co_cellvars)  # not part of the closure
         return self.cells[ncellvars:]
 
+    def _getcells(self):
+        return self.cells
+
+    def _setcellvars(self, cellvars):
+        ncellvars = len(self.pycode.co_cellvars)
+        if len(cellvars) != ncellvars:
+            raise OperationError(self.space.w_TypeError,
+                                 self.space.wrap("bad cellvars"))
+        if self.cells is not None:
+            self.cells[:ncellvars] = cellvars
+
     def fast2locals(self):
-        PyInterpFrame.fast2locals(self)
+        super_fast2locals(self)
         # cellvars are values exported to inner scopes
         # freevars are values coming from outer scopes 
         freevarnames = self.pycode.co_cellvars + self.pycode.co_freevars
@@ -106,7 +129,7 @@ class PyNestedScopeFrame(PyInterpFrame):
                 self.space.setitem(self.w_locals, w_name, w_value)
 
     def locals2fast(self):
-        PyInterpFrame.locals2fast(self)
+        super_locals2fast(self)
         freevarnames = self.pycode.co_cellvars + self.pycode.co_freevars
         for i in range(len(freevarnames)):
             name = freevarnames[i]
@@ -121,6 +144,8 @@ class PyNestedScopeFrame(PyInterpFrame):
                 cell.set(w_value)
 
     def init_cells(self):
+        if self.cells is None:
+            return
         args_to_copy = self.pycode._args_as_cellvars
         for i in range(len(args_to_copy)):
             argnum = args_to_copy[i]
@@ -136,13 +161,13 @@ class PyNestedScopeFrame(PyInterpFrame):
 
     ### extra opcodes ###
 
-    def LOAD_CLOSURE(f, varindex):
+    def LOAD_CLOSURE(f, varindex, *ignored):
         # nested scopes: access the cell object
         cell = f.cells[varindex]
         w_value = f.space.wrap(cell)
         f.valuestack.push(w_value)
 
-    def LOAD_DEREF(f, varindex):
+    def LOAD_DEREF(f, varindex, *ignored):
         # nested scopes: access a variable through its cell object
         cell = f.cells[varindex]
         try:
@@ -160,7 +185,7 @@ class PyNestedScopeFrame(PyInterpFrame):
         else:
             f.valuestack.push(w_value)
 
-    def STORE_DEREF(f, varindex):
+    def STORE_DEREF(f, varindex, *ignored):
         # nested scopes: access a variable through its cell object
         w_newvalue = f.valuestack.pop()
         #try:
@@ -170,7 +195,7 @@ class PyNestedScopeFrame(PyInterpFrame):
         #    raise
         cell.set(w_newvalue)
 
-    def MAKE_CLOSURE(f, numdefaults):
+    def MAKE_CLOSURE(f, numdefaults, *ignored):
         w_codeobj = f.valuestack.pop()
         codeobj = f.space.interp_w(pycode.PyCode, w_codeobj)
         if codeobj.magic >= 0xa0df281:    # CPython 2.5 AST branch merge

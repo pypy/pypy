@@ -150,7 +150,7 @@ class TestInterpreter:
                           1+2+3 + 5+6+7+8+900)
 
     def test_import(self):
-        # Regression test for a bug in PyInterpFrame.IMPORT_NAME: when an
+        # Regression test for a bug in PyFrame.IMPORT_NAME: when an
         # import statement was executed in a function without a locals dict, a
         # plain unwrapped None could be passed into space.call_function causing
         # assertion errors later on.

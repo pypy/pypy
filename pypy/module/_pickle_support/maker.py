@@ -61,11 +61,7 @@ def frame_new(space, __args__):
     w_pycode, = args_w
     pycode = space.interp_w(PyCode, w_pycode)
     w = space.wrap
-
-    # let the code object create the right kind of frame
-    # the distinction is a little over-done but computable
-    Klass = pycode.get_frame_class()
-    new_frame = instantiate(Klass)
+    new_frame = instantiate(PyFrame)
     return space.wrap(new_frame)
 frame_new.unwrap_spec = [ObjSpace, Arguments]
 
@@ -76,13 +72,11 @@ traceback_new.unwrap_spec = [ObjSpace]
 
 def generator_new(space, __args__):
     args_w, kwds_w = __args__.unpack()  #stolen from std/fake.py
-    w_frame, w_running, w_exhausted = args_w
+    w_frame, w_running = args_w
     frame = space.interp_w(PyFrame, w_frame)
     running = space.int_w(w_running)
-    exhausted = space.int_w(w_exhausted)
     new_generator = GeneratorIterator(frame)
     new_generator.running = running
-    new_generator.exhausted = exhausted
     return space.wrap(new_generator)
 generator_new.unwrap_spec = [ObjSpace, Arguments]
 

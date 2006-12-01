@@ -147,28 +147,3 @@ class Frame(Wrappable):
                 new_fastlocals_w[i] = w_value
 
         self.setfastscope(new_fastlocals_w)
-
-
-class EvalFrame(Frame):
-
-    def resume(self):
-        "Resume the execution of the frame from its current state."
-        executioncontext = self.space.getexecutioncontext()
-        executioncontext.enter(self)
-        try:
-            result = self.eval(executioncontext)
-            rstack.resume_point("evalframe", self, executioncontext, returns=result)
-        finally:
-            executioncontext.leave(self)
-        return result
-
-    # running a frame is usually the same as resuming it from its
-    # initial state, but not for generator frames
-    run = resume
-
-    def eval(self, executioncontext):
-        "Abstract method to override."
-        raise TypeError, "abstract"
-
-    def hide(self):
-        return False

@@ -1,4 +1,5 @@
-from pypy.interpreter.pyframe import PyFrame, SuspendedUnroller
+from pypy.interpreter.pyframe import PyFrame
+from pypy.interpreter.pyopcode import SuspendedUnroller
 from pypy.interpreter.error import OperationError
 from pypy.rlib.objectmodel import instantiate
 from pypy.rlib.unroll import SpecTag
@@ -21,7 +22,7 @@ class FrameState:
             self.mergeable = data
             self.nonmergeable = (
                 state.blockstack.items[:],
-                state.next_instr,
+                state.last_instr,   # == next_instr when between bytecodes
                 state.w_locals,
             )
         elif isinstance(state, tuple):
@@ -48,7 +49,7 @@ class FrameState:
                 frame.last_exception = OperationError(data[-2], data[-1])
             (
                 frame.blockstack.items[:],
-                frame.next_instr,
+                frame.last_instr,
                 frame.w_locals,
             ) = self.nonmergeable
         else:
@@ -157,9 +158,9 @@ def recursively_flatten(space, lst):
                 isinstance(item.value, SuspendedUnroller)):
             i += 1
         else:
-            flowexc = item.value.flowexc
-            vars = flowexc.state_unpack_variables(space)
-            key = flowexc.__class__, len(vars)
+            unroller = item.value
+            vars = unroller.state_unpack_variables(space)
+            key = unroller.__class__, len(vars)
             try:
                 tag = PICKLE_TAGS[key]
             except:
@@ -171,9 +172,9 @@ def recursively_unflatten(space, lst):
     for i in range(len(lst)-1, -1, -1):
         item = lst[i]
         if item in UNPICKLE_TAGS:
-            flowexcclass, argcount = UNPICKLE_TAGS[item]
+            unrollerclass, argcount = UNPICKLE_TAGS[item]
             arguments = lst[i+1: i+1+argcount]
             del lst[i+1: i+1+argcount]
-            flowexc = instantiate(flowexcclass)
-            flowexc.state_pack_variables(space, *arguments)
-            lst[i] = flowexc.wrap(space)
+            unroller = instantiate(unrollerclass)
+            unroller.state_pack_variables(space, *arguments)
+            lst[i] = space.wrap(unroller)

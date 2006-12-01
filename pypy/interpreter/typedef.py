@@ -442,7 +442,8 @@ Member.typedef = TypeDef(
 
 from pypy.interpreter.eval import Code, Frame
 from pypy.interpreter.pycode import PyCode, CO_VARARGS, CO_VARKEYWORDS
-from pypy.interpreter.pyframe import PyFrame, ControlFlowException
+from pypy.interpreter.pyframe import PyFrame
+from pypy.interpreter.pyopcode import SuspendedUnroller
 from pypy.interpreter.module import Module
 from pypy.interpreter.function import Function, Method, StaticMethod
 from pypy.interpreter.function import BuiltinFunction, descr_function_get
@@ -696,7 +697,7 @@ NotImplemented.typedef = TypeDef("NotImplemented",
     __repr__   = interp2app(NotImplemented.descr__repr__),
 )
 
-ControlFlowException.typedef = TypeDef("ControlFlowException")
+SuspendedUnroller.typedef = TypeDef("SuspendedUnroller")
 
 
 interptypes = [ val.typedef for name,val in globals().items() if hasattr(val,'__bases__') and hasattr(val,'typedef')  ]
