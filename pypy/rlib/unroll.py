@@ -43,12 +43,13 @@ class unrolling_iterable(SpecTag):
 
     def __init__(self, iterable):
         self._items = list(iterable)
+        self._head = _unroller(self._items)
 
     def __iter__(self):
         return iter(self._items)
 
     def get_unroller(self):
-        return _unroller(self._items)
+        return self._head
 
 
 class _unroller(SpecTag):
@@ -56,8 +57,10 @@ class _unroller(SpecTag):
     def __init__(self, items, i=0):
         self._items = items
         self._i = i
+        self._next = None
 
     def step(self):
         v = self._items[self._i]
-        next = _unroller(self._items, self._i+1)
-        return v, next
+        if self._next is None:
+            self._next = _unroller(self._items, self._i+1)
+        return v, self._next
