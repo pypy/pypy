@@ -91,8 +91,13 @@ class __extend__(pyframe.PyFrame):
         block = self.unrollstack(SApplicationException.kind)
         if block is None:
             # no handler found for the OperationError
-            tb = cpython_tb()
-            raise OperationError, operr, tb
+            if we_are_translated():
+                raise operr
+            else:
+                # try to preserve the CPython-level traceback
+                import sys
+                tb = sys.exc_info()[2]
+                raise OperationError, operr, tb
         else:
             unroller = SApplicationException(operr)
             next_instr = block.handle(self, unroller)
@@ -867,13 +872,6 @@ class __extend__(pyframe.PyFrame):
 
 
 ### ____________________________________________________________ ###
-
-
-def cpython_tb():
-   """NOT_RPYTHON"""
-   import sys
-   return sys.exc_info()[2]   
-cpython_tb._annspecialcase_ = "override:ignore"
 
 class Reraise(Exception):
     """Signal an application-level OperationError that should not grow
