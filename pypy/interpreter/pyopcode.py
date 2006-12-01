@@ -62,7 +62,7 @@ class __extend__(pyframe.PyFrame):
             except MemoryError:
                 next_instr = self.handle_asynchronous_error(ec,
                     self.space.w_MemoryError)
-            except RuntimeError:
+            except RuntimeError, e:
                 if we_are_translated():
                     # stack overflows should be the only kind of RuntimeErrors
                     # in translated PyPy
@@ -131,7 +131,6 @@ class __extend__(pyframe.PyFrame):
                 w_returnvalue = self.valuestack.pop()
                 block = self.unrollstack(SReturnValue.kind)
                 if block is None:
-                    self.frame_finished_execution = True  # for generators
                     return w_returnvalue
                 else:
                     unroller = SReturnValue(w_returnvalue)
@@ -143,20 +142,11 @@ class __extend__(pyframe.PyFrame):
                 return w_yieldvalue
 
             if opcode == opcodedesc.END_FINALLY.index:
-                # unlike CPython, when we reach this opcode the value stack has
-                # always been set up as follows (topmost first):
-                #   [exception type  or None]
-                #   [exception value or None]
-                #   [wrapped stack unroller ]
-                self.valuestack.pop()   # ignore the exception type
-                self.valuestack.pop()   # ignore the exception value
-                w_unroller = self.valuestack.pop()
-                unroller = self.space.interpclass_w(w_unroller)
+                unroller = self.end_finally()
                 if isinstance(unroller, SuspendedUnroller):
                     # go on unrolling the stack
                     block = self.unrollstack(unroller.kind)
                     if block is None:
-                        self.frame_finished_execution = True  # for generators
                         return unroller.nomoreblocks()
                     else:
                         next_instr = block.handle(self, unroller)
@@ -194,6 +184,8 @@ class __extend__(pyframe.PyFrame):
             block = self.blockstack.pop()
             if (block.handling_mask & unroller_kind) != 0:
                 return block
+            block.cleanupstack(self)
+        self.frame_finished_execution = True  # for generators
         return None
 
     def unrollstack_and_jump(self, unroller):
@@ -503,6 +495,18 @@ class __extend__(pyframe.PyFrame):
     def POP_BLOCK(f, *ignored):
         block = f.blockstack.pop()
         block.cleanup(f)  # the block knows how to clean up the value stack
+
+    def end_finally(f):
+        # unlike CPython, when we reach this opcode the value stack has
+        # always been set up as follows (topmost first):
+        #   [exception type  or None]
+        #   [exception value or None]
+        #   [wrapped stack unroller ]
+        f.valuestack.pop()   # ignore the exception type
+        f.valuestack.pop()   # ignore the exception value
+        w_unroller = f.valuestack.pop()
+        unroller = f.space.interpclass_w(w_unroller)
+        return unroller
 
     def BUILD_CLASS(f, *ignored):
         w_methodsdict = f.valuestack.pop()
