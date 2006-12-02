@@ -144,7 +144,15 @@ class HintBookkeeper(object):
 
     def immutablevalue(self, value):
         return self.immutableconstant(Constant(value, lltype.typeOf(value)))
-    
+
+    def valueoftype(self, TYPE):
+        # the union of all annotations of the given TYPE - that's a
+        # SomeLLAbstractVariable, unless TYPE is Void
+        if TYPE is lltype.Void:
+            return hintmodel.s_void
+        else:
+            return hintmodel.SomeLLAbstractVariable(TYPE)
+
     def current_op_concretetype(self):
         _, block, i = self.position_key
         op = block.operations[i]

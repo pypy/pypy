@@ -1,3 +1,6 @@
+"""
+A translation target:   python pypy/translator/goal/translate.py targetjit
+"""
 from pypy.translator.goal import targetpypystandalone
 from pypy.translator.driver import TranslationDriver, taskdef
 from pypy.annotation.pairtype import extendabletype
@@ -13,6 +16,14 @@ class __extend__(TranslationDriver):
                                 [TranslationDriver.BACKENDOPT],
                                 "Hint-annotate")
 
+    def task_timeshift(self):
+        from pypy.jit.goal import jitstep
+        jitstep.timeshift(self)
+    #
+    task_timeshift = taskdef(task_timeshift,
+                             ["hintannotate"],
+                             "Timeshift")
+
 
 class PyPyJITTarget(targetpypystandalone.PyPyTarget):
 
@@ -24,10 +35,11 @@ class PyPyJITTarget(targetpypystandalone.PyPyTarget):
 
     def handle_config(self, config):
         config.translation.backendopt.inline_threshold = 0
+        config.translation.backendopt.merge_if_blocks = False
         config.translation.fork_before = 'hintannotate'
 
     def handle_translate_config(self, translateconfig):
-        translateconfig.goals = ['hintannotate']
+        translateconfig.goals = ['timeshift']
 
 
 PyPyJITTarget().interface(globals())

@@ -144,6 +144,7 @@ class HintRTyper(RPythonTyper):
         self.ll_finish_jitstate = ll_finish_jitstate
 
         self.v_queue = varoftype(self.r_Queue.lowleveltype, 'queue')
+        self.void_red_repr = VoidRedRepr(self)
 
     def specialize(self, origportalgraph=None, view=False):
         """
@@ -473,6 +474,12 @@ class HintRTyper(RPythonTyper):
             self.red_reprs[lowleveltype] = r
             return r
 
+    def getredrepr_or_none(self, lowleveltype):
+        if lowleveltype is lltype.Void:
+            return self.void_red_repr
+        else:
+            return self.getredrepr(lowleveltype)
+
 ##    def gethscolor(self, hs):
 ##        try:
 ##            return self.color_cache[id(hs)]
@@ -617,6 +624,9 @@ class HintRTyper(RPythonTyper):
     def translate_op_debug_assert(self, hop):
         pass
 
+    def translate_op_resume_point(self, hop):
+        pass
+
     def translate_op_keepalive(self,hop):
         pass
 
@@ -698,6 +708,8 @@ class HintRTyper(RPythonTyper):
         ts = self
         PTRTYPE = originalconcretetype(hop.args_s[0])
         VALUETYPE = originalconcretetype(hop.args_s[2])
+        if VALUETYPE is lltype.Void:
+            return
         if hop.args_v[0] == ts.cexcdata:
             # reading one of the exception boxes (exc_type or exc_value)
             fieldname = hop.args_v[1].value
@@ -733,6 +745,8 @@ class HintRTyper(RPythonTyper):
     def translate_op_setarrayitem(self, hop):
         PTRTYPE = originalconcretetype(hop.args_s[0])
         VALUETYPE = PTRTYPE.TO.OF
+        if VALUETYPE is lltype.Void:
+            return
         ts = self
         v_argbox, v_index, v_valuebox= hop.inputargs(self.getredrepr(PTRTYPE),
                                                      self.getredrepr(lltype.Signed),
@@ -900,7 +914,7 @@ class HintRTyper(RPythonTyper):
 
     def translate_op_save_locals(self, hop):
         v_jitstate = hop.llops.getjitstate()
-        boxes_r = [self.getredrepr(originalconcretetype(hs))
+        boxes_r = [self.getredrepr_or_none(originalconcretetype(hs))
                    for hs in hop.args_s]
         boxes_v = hop.inputargs(*boxes_r)
         boxes_s = [self.s_RedBox] * len(hop.args_v)
@@ -1421,6 +1435,14 @@ class RedStructRepr(RedRepr):
         v_ptrbox = hop.llops.genmixlevelhelpercall(self.typedesc.ll_factory,
             [], [], ts.s_PtrRedBox)
         return hop.llops.as_redbox(v_ptrbox)
+
+
+class VoidRedRepr(Repr):
+    def __init__(self, hrtyper):
+        self.lowleveltype = hrtyper.r_RedBox.lowleveltype
+
+    def convert_const(self, ll_value):
+        return lltype.nullptr(self.lowleveltype.TO)
 
 
 class BlueRepr(Repr):

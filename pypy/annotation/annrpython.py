@@ -729,12 +729,15 @@ class RPythonAnnotator(object):
             graph = self.bookkeeper.position_key[0]
             raise_nicer_exception(op, str(graph))
         if resultcell is None:
-            resultcell = annmodel.s_ImpossibleValue  # no return value
+            resultcell = self.noreturnvalue(op)
         elif resultcell == annmodel.s_ImpossibleValue:
             raise BlockedInference(self, op) # the operation cannot succeed
         assert isinstance(resultcell, annmodel.SomeObject)
         assert isinstance(op.result, Variable)
         self.setbinding(op.result, resultcell)  # bind resultcell to op.result
+
+    def noreturnvalue(self, op):
+        return annmodel.s_ImpossibleValue  # no return value (hook method)
 
     # XXX "contains" clash with SomeObject method
     def consider_op_contains(self, seq, elem):

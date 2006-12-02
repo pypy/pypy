@@ -104,12 +104,16 @@ class __extend__(pyframe.PyFrame):
             return next_instr
 
     def dispatch_bytecode(self, co_code, next_instr, ec):
+        hint(None, global_merge_point=True)
+        next_instr = hint(r_uint(next_instr), promote=True)
         space = self.space
         while True:
-            self.last_instr = intmask(next_instr)
-            ec.bytecode_trace(self)
-            # For the sequel, force 'next_instr' to be unsigned for performance
-            next_instr = r_uint(self.last_instr)
+            hint(None, global_merge_point=True)
+            if not we_are_translated():   # JJJ
+                self.last_instr = intmask(next_instr)
+                ec.bytecode_trace(self)
+                # For the sequel, force 'next_instr' to be unsigned for performance
+                next_instr = r_uint(self.last_instr)
             opcode = ord(co_code[next_instr])
             next_instr += 1
             if space.config.objspace.logbytecodes:
@@ -122,6 +126,8 @@ class __extend__(pyframe.PyFrame):
                 oparg = (hi << 8) | lo
             else:
                 oparg = 0
+            hint(opcode, concrete=True)
+            hint(oparg, concrete=True)
 
             while opcode == opcodedesc.EXTENDED_ARG.index:
                 opcode = ord(co_code[next_instr])
@@ -131,6 +137,8 @@ class __extend__(pyframe.PyFrame):
                 hi = ord(co_code[next_instr+2])
                 next_instr += 3
                 oparg = (oparg << 16) | (hi << 8) | lo
+                hint(opcode, concrete=True)
+                hint(oparg, concrete=True)
 
             if opcode == opcodedesc.RETURN_VALUE.index:
                 w_returnvalue = self.valuestack.pop()
@@ -140,6 +148,7 @@ class __extend__(pyframe.PyFrame):
                 else:
                     unroller = SReturnValue(w_returnvalue)
                     next_instr = block.handle(self, unroller)
+                    next_instr = hint(next_instr, promote=True)
                     continue    # now inside a 'finally' block
 
             if opcode == opcodedesc.YIELD_VALUE.index:
@@ -155,6 +164,7 @@ class __extend__(pyframe.PyFrame):
                         return unroller.nomoreblocks()
                     else:
                         next_instr = block.handle(self, unroller)
+                        next_instr = hint(next_instr, promote=True)
                 continue
 
             if we_are_translated():
@@ -174,6 +184,7 @@ class __extend__(pyframe.PyFrame):
                         # Instead, it's constant-folded to either True or False
                         if res is not None:
                             next_instr = res
+                            next_instr = hint(next_instr, promote=True)
                         break
                 else:
                     self.MISSING_OPCODE(oparg, next_instr)
@@ -183,6 +194,7 @@ class __extend__(pyframe.PyFrame):
                 res = getattr(self, methodname)(oparg, next_instr)
                 if res is not None:
                     next_instr = res
+                    next_instr = hint(next_instr, promote=True)
 
     def unrollstack(self, unroller_kind):
         while not self.blockstack.empty():

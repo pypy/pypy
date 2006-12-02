@@ -194,6 +194,8 @@ class HintGraphTransformer(object):
         if by_color_of_vars is None:
             by_color_of_vars = vars
         for v, bcv in zip(vars, by_color_of_vars):
+            if v.concretetype is lltype.Void:
+                continue
             if self.hannotator.binding(bcv).is_green():
                 greens.append(v)
             else:
@@ -285,7 +287,9 @@ class HintGraphTransformer(object):
             greencount = 0
             newvars = []
             for v in block.inputargs:
-                if self.hannotator.binding(v).is_green():
+                if v.concretetype is lltype.Void:
+                    v1 = self.c_dummy
+                elif self.hannotator.binding(v).is_green():
                     c = inputconst(lltype.Signed, greencount)
                     v1 = self.genop(resumeblock, 'restore_green', [c],
                                     result_like = v)
@@ -438,6 +442,8 @@ class HintGraphTransformer(object):
             args_v = spaceop.args[1:-1]
         else:
             raise AssertionError(spaceop.opname)
+        if not self.hannotator.policy.look_inside_graphs(graphs):
+            return    # cannot follow this call
         for graph in graphs:
             tsgraph = self.timeshifted_graph_of(graph, args_v)
             yield graph, tsgraph
@@ -466,6 +472,8 @@ class HintGraphTransformer(object):
         for graph, tsgraph in self.graphs_from(spaceop):
             color = self.graph_calling_color(tsgraph)
             colors[color] = tsgraph
+        if not colors:
+            return 'residual'   # cannot follow this call
         assert len(colors) == 1, colors   # buggy normalization?
         return color
 
@@ -642,6 +650,26 @@ class HintGraphTransformer(object):
 
         SSA_to_SSI({block: True,
                     postblock: False}, self.hannotator)
+
+    def handle_residual_call(self, block, pos):
+        op = block.operations[pos]
+        if op.opname == 'direct_call':
+            args_v = op.args[1:]
+        elif op.opname == 'indirect_call':
+            args_v = op.args[1:-1]
+        else:
+            raise AssertionError(op.opname)
+        if op.result.concretetype is lltype.Void:
+            color = 'gray'
+        else:
+            color = 'red'
+        newops = []
+        # pseudo-obscure: the arguments for the call go in save_locals
+        self.genop(newops, 'save_locals', args_v)
+        self.genop(newops, 'residual_%s_call' % (color,),
+                   [op.args[0]], result_like = op.result)
+        newops[-1].result = op.result
+        block.operations[pos:pos+1] = newops
 
     # __________ hints __________
 

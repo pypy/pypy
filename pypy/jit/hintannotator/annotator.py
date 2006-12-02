@@ -1,5 +1,8 @@
 from pypy.annotation import policy
-from pypy.annotation.annrpython import RPythonAnnotator
+from pypy.annotation import model as annmodel
+from pypy.annotation.annrpython import RPythonAnnotator, BlockedInference
+from pypy.annotation.annrpython import raise_nicer_exception
+from pypy.objspace.flow.model import Variable
 from pypy.jit.hintannotator import model as hintmodel
 from pypy.jit.hintannotator.bookkeeper import HintBookkeeper
 from pypy.rpython.lltypesystem import lltype
@@ -12,6 +15,14 @@ class HintAnnotatorPolicy(policy.AnnotatorPolicy):
         self.oopspec            = oopspec
 
     def look_inside_graph(self, graph):
+        return True
+
+    def look_inside_graphs(self, graph_list):
+        if not graph_list:
+            return False   # cannot follow indirect call with no known targets
+        for graph in graph_list:
+            if not self.look_inside_graph(graph):
+                return False
         return True
 
 
@@ -62,7 +73,18 @@ class HintAnnotator(RPythonAnnotator):
     def consider_op_debug_log_exc(self, hs_v):
         pass
 
+    def consider_op_debug_assert(self, hs_v, *args_hs):
+        pass
+
+    def consider_op_resume_point(self, hs_v, *args_hs):
+        pass
+
     def simplify(self):
         RPythonAnnotator.simplify(self, extra_passes=[])
+
+    def noreturnvalue(self, op):
+        assert op.result.concretetype is lltype.Void, (
+            "missing annotation for the return variable of %s" % (op,))
+        return hintmodel.s_void
 
 HintAnnotator._registeroperations(hintmodel)

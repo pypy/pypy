@@ -16,7 +16,7 @@ UNARY_OPERATIONS = """same_as hint getfield setfield getsubstruct getarraysize
                       cast_bool_to_int
                       ptr_nonzero
                       ptr_iszero
-                      debug_assert resume_point""".split()
+                      """.split()
 
 BINARY_OPERATIONS = """int_add int_sub int_mul int_mod int_and int_rshift
                        int_lshift int_floordiv int_xor int_or
@@ -199,7 +199,10 @@ class SomeLLAbstractConstant(SomeLLAbstractValue):
 
 class SomeLLAbstractVariable(SomeLLAbstractValue):
     " color: hopelessly red"
-    pass
+
+    def __init__(self, T, deepfrozen=False):
+        SomeLLAbstractValue.__init__(self, T, deepfrozen)
+        assert T is not lltype.Void   # use bookkeeper.valueoftype()
 
 
 class SomeLLAbstractContainer(SomeLLAbstractValue):
@@ -218,6 +221,9 @@ class SomeLLAbstractContainer(SomeLLAbstractValue):
         else:
             return (0,60,160)  # blue
     annotationcolor = property(annotationcolor)
+
+
+s_void = SomeLLAbstractConstant(lltype.Void, {})
 
 
 setunion = annmodel.setunion
@@ -290,12 +296,6 @@ class __extend__(SomeLLAbstractValue):
         raise HintError("hint %s makes no sense on %r" % (hs_flags.const,
                                                           hs_v1))
 
-    def debug_assert(hs_v1, *args_hs):
-        pass
-
-    def resume_point(hs_v1, *args_hs):
-        pass
-
     def getfield(hs_v1, hs_fieldname):
         S = hs_v1.concretetype.TO
         FIELD_TYPE = getattr(S, hs_fieldname.const)
@@ -325,15 +325,12 @@ class __extend__(SomeLLAbstractValue):
         args_hs = args_hs[:-1]
         assert hs_graph_list.is_constant()
         graph_list = hs_graph_list.const
-        if not graph_list:
-            # cannot follow
-            return SomeLLAbstractVariable(hs_v1.concretetype.TO.RESULT)
 
         bookkeeper = getbookkeeper()
-        for graph in graph_list:
-            if not bookkeeper.annotator.policy.look_inside_graph(graph):
-                return SomeLLAbstractVariable(hs_v1.concretetype.TO.RESULT)
-        
+        if not bookkeeper.annotator.policy.look_inside_graphs(graph_list):
+            # cannot follow
+            return bookkeeper.valueoftype(hs_v1.concretetype.TO.RESULT)
+
         fixed = bookkeeper.myorigin().read_fixed()
         hs_res = bookkeeper.graph_family_call(graph_list, fixed, args_hs)
 
@@ -369,9 +366,6 @@ class __extend__(SomeLLAbstractConstant):
                                           deepfrozen = True)
         return SomeLLAbstractValue.hint(hs_c1, hs_flags)
 
-    def debug_assert(hs_c1, *args_hs):
-        pass
-
     def direct_call(hs_f1, *args_hs):
         bookkeeper = getbookkeeper()
         fnobj = hs_f1.const._obj
@@ -391,7 +385,7 @@ class __extend__(SomeLLAbstractConstant):
         if not hasattr(fnobj, 'graph'):
             raise NotImplementedError("XXX call to externals or primitives")
         if not bookkeeper.annotator.policy.look_inside_graph(fnobj.graph):
-            return SomeLLAbstractVariable(lltype.typeOf(fnobj).RESULT)
+            return bookkeeper.valueoftype(lltype.typeOf(fnobj).RESULT)
 
         # recursive call from the entry point to itself: ignore them and
         # just hope the annotations are correct
