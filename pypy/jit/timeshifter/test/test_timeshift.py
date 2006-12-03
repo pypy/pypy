@@ -14,7 +14,6 @@ from pypy.rpython.module.support import LLSupport
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLInterpreter, LLException
 from pypy.objspace.flow.model import checkgraph
-from pypy.annotation.policy import AnnotatorPolicy
 from pypy.translator.backendopt.inline import auto_inlining
 from pypy import conftest
 from pypy.jit.conftest import Benchmark
