@@ -203,7 +203,7 @@ class AbstractVirtualDict(VirtualContainer):
         typedesc = self.typedesc
         items = self.getitems_and_makeempty(builder.rgenop)
 
-        args_gv = [None]
+        args_gv = []
         gv_dict = builder.genop_call(typedesc.tok_ll_newdict,
                                      typedesc.gv_ll_newdict,
                                      args_gv)

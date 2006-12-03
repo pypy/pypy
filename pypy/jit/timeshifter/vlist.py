@@ -112,7 +112,7 @@ class VirtualList(VirtualContainer):
         boxes = self.item_boxes
         self.item_boxes = None
 
-        args_gv = [None, builder.rgenop.genconst(len(boxes))]
+        args_gv = [builder.rgenop.genconst(len(boxes))]
         gv_list = builder.genop_call(typedesc.tok_ll_newlist,
                                      typedesc.gv_ll_newlist,
                                      args_gv)

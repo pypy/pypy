@@ -91,7 +91,7 @@ class LLBuilder(GenBuilder):
             if ARGS_gv[i] is gv_Void:
                 gv_arg = gv_dummy_placeholder
             else:
-                gv_arg = LLVar(llimpl.cast(self.b, ARGS_gv[i].v, args_gv[j]))
+                gv_arg = LLVar(llimpl.cast(self.b, ARGS_gv[i].v, args_gv[j].v))
                 j += 1
             vars_gv.append(gv_arg)
         if gv_callable.is_const:

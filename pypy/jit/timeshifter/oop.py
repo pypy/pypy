@@ -32,16 +32,16 @@ class OopSpecDesc:
         self.argtuple = eval(args, d)
         # end of rather XXX'edly hackish parsing
 
-        self.argpositions = []
+        arg_llsig_to_oopsig = {}
         for i, obj in enumerate(self.argtuple):
             if isinstance(obj, Index):
-                self.argpositions.append(obj.n)
-            else:
-                self.argpositions.append(-1)
+                arg_llsig_to_oopsig[obj.n] = i
 
+        self.residualargsources = []
         for i in range(nb_args):
             ARGTYPE = FUNCTYPE.ARGS[i]
-            assert (i in self.argpositions) == (ARGTYPE is not lltype.Void)
+            if ARGTYPE is not lltype.Void:
+                self.residualargsources.append(arg_llsig_to_oopsig[i])
 
         RGenOp = hrtyper.RGenOp
         self.args_gv = [None] * nb_args
@@ -70,7 +70,7 @@ class OopSpecDesc:
         else:
             typename, method = operation_name.split('.')
             method = 'oop_%s_%s' % (typename, method)
-            SELFTYPE = FUNCTYPE.ARGS[self.argpositions[0]].TO
+            SELFTYPE = FUNCTYPE.ARGS[self.argtuple[0].n].TO
             self.is_method = True
 
         vmodule = __import__('pypy.jit.timeshifter.v%s' % (typename,),
@@ -87,15 +87,20 @@ class OopSpecDesc:
 
         if self.couldfold:
             ARGS = FUNCTYPE.ARGS
-            argpos = unrolling_iterable(enumerate(self.argpositions))
+            residualargsources = self.residualargsources
+            unrolling_ARGS = unrolling_iterable(ARGS)
 
             def do_call(jitstate, argboxes):
-                args = (None,)*nb_args
-                for i, pos in argpos:
-                    if pos >= 0:
-                        T = ARGS[pos]
-                        v = rvalue.ll_getvalue(argboxes[i], T)
-                        args = args[:pos] +(v,) + args[pos+1:]
+                args = ()
+                j = 0
+                for ARG in unrolling_ARGS:
+                    if ARG == lltype.Void:
+                        v = None
+                    else:
+                        argsrc = residualargsources[j]
+                        j = j + 1
+                        v = rvalue.ll_getvalue(argboxes[argsrc], ARG)
+                    args += (v,)
                 result = fnptr(*args)
                 if FUNCTYPE.RESULT == lltype.Void:
                     return None
@@ -110,15 +115,12 @@ class OopSpecDesc:
 
     def residual_call(self, jitstate, argboxes, deepfrozen=False):
         builder = jitstate.curbuilder
-        args_gv = self.args_gv[:]
-        argpositions = self.argpositions
+        args_gv = []
         fold = deepfrozen
-        for i in range(len(argpositions)):
-            pos = argpositions[i]
-            if pos >= 0:
-                gv_arg = argboxes[i].getgenvar(builder)
-                args_gv[pos] = gv_arg
-                fold &= gv_arg.is_const
+        for argsrc in self.residualargsources:
+            gv_arg = argboxes[argsrc].getgenvar(builder)
+            args_gv.append(gv_arg)
+            fold &= gv_arg.is_const
         if fold:
             try:
                 return self.do_call(jitstate, argboxes)
