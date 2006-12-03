@@ -228,7 +228,7 @@ def create_class_constructors(annotator):
         change = descs[0].mergeattrfamilies(descs[1:], '__init__')
         if hasattr(descs[0].getuniqueclassdef(), 'my_instantiate_graph'):
             assert not change, "after the fact change to a family of classes" # minimal sanity check
-            return
+            continue
         # Put __init__ into the attr family, for ClassesPBCRepr.call()
         attrfamily = descs[0].getattrfamily('__init__')
         inits_s = [desc.s_read_attribute('__init__') for desc in descs]
