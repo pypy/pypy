@@ -1,5 +1,6 @@
 from pypy.interpreter.pyframe import PyFrame
 
+from pypy.objspace.flow.model import checkgraph
 from pypy.translator.translator import graphof
 from pypy.jit.hintannotator.annotator import HintAnnotator, HintAnnotatorPolicy
 from pypy.jit.hintannotator.model import OriginFlags, SomeLLAbstractConstant
@@ -48,7 +49,9 @@ def hintannotate(drv):
 
 def timeshift(drv):
     from pypy.jit.timeshifter.hrtyper import HintRTyper
-    from pypy.jit.codegen.llgraph.rgenop import RGenOp    # for now
+    #from pypy.jit.codegen.llgraph.rgenop import RGenOp
+    from pypy.jit.codegen.i386.rgenop import RI386GenOp as RGenOp
+
     ha = drv.hannotator
     t = drv.translator
     # make the timeshifted graphs
@@ -58,4 +61,6 @@ def timeshift(drv):
     for graph in ha.translator.graphs:
         checkgraph(graph)
         t.graphs.append(graph)
-    import pdb; pdb.set_trace()
+
+    # XXX temp
+    drv.compile()
