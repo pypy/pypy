@@ -332,6 +332,14 @@ IDIV = Instruction()
 IDIV.mode1(MODRM,  ['\xF7', orbyte(7<<3), modrm(1)])
 IDIV.mode1(MODRM8, ['\xF6', orbyte(7<<3), modrm(1)])
 
+MUL = Instruction()
+MUL.mode1(MODRM,  ['\xF7', orbyte(4<<3), modrm(1)])
+MUL.mode1(MODRM8, ['\xF6', orbyte(4<<3), modrm(1)])
+
+DIV = Instruction()
+DIV.mode1(MODRM,  ['\xF7', orbyte(6<<3), modrm(1)])
+DIV.mode1(MODRM8, ['\xF6', orbyte(6<<3), modrm(1)])
+
 NEG = Instruction()
 NEG.mode1(MODRM,  ['\xF7', orbyte(3<<3), modrm(1)])
 NEG.mode1(MODRM8, ['\xF6', orbyte(3<<3), modrm(1)])

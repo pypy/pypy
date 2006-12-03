@@ -6,6 +6,7 @@ from pypy.translator.translator import TranslationContext, graphof
 from pypy.jit.codegen import graph2rgenop
 from pypy.jit.codegen.i386.rgenop import RI386GenOp
 from pypy.rpython.memory.lltypelayout import convert_offset_to_int
+from pypy.rlib.rarithmetic import r_uint
 from ctypes import cast, c_void_p, CFUNCTYPE, c_int
 
 
@@ -160,3 +161,21 @@ class TestBasic:
         fp = self.rgen(fn, [int])
         for i in range(5):
             assert fp(i) == fn(i)
+
+    def test_unsigned(self):
+        for fn in [lambda x, y: x + y,
+                   lambda x, y: x - y,
+                   lambda x, y: x * y,
+                   lambda x, y: x // y,
+                   lambda x, y: x % y,
+                   lambda x, y: x << y,
+                   lambda x, y: x >> y,
+                   lambda x, y: x ^ y,
+                   lambda x, y: x & y,
+                   lambda x, y: x | y,
+                   lambda x, y: -y,
+                   lambda x, y: ~y,
+                   ]:
+            fp = self.rgen(fn, [r_uint, r_uint])
+            assert fp(40, 2) == fn(40, 2)
+            assert fp(25, 3) == fn(25, 3)
