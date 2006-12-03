@@ -146,7 +146,7 @@ class HintRTyper(RPythonTyper):
         self.ll_finish_jitstate = ll_finish_jitstate
 
         self.v_queue = varoftype(self.r_Queue.lowleveltype, 'queue')
-        self.void_red_repr = VoidRedRepr(self)
+        #self.void_red_repr = VoidRedRepr(self)
 
     def specialize(self, origportalgraph=None, view=False):
         """
@@ -184,6 +184,7 @@ class HintRTyper(RPythonTyper):
             self.annotator.translator.view()     # in the middle
         for graph in seen:
             self.timeshift_graph(graph)
+        self.log.event("Timeshifted %d graphs." % (len(seen),))
 
         if origportalgraph:
             self.rewire_portal()
@@ -490,11 +491,11 @@ class HintRTyper(RPythonTyper):
             self.red_reprs[lowleveltype] = r
             return r
 
-    def getredrepr_or_none(self, lowleveltype):
-        if lowleveltype is lltype.Void:
-            return self.void_red_repr
-        else:
-            return self.getredrepr(lowleveltype)
+##    def getredrepr_or_none(self, lowleveltype):
+##        if lowleveltype is lltype.Void:
+##            return self.void_red_repr
+##        else:
+##            return self.getredrepr(lowleveltype)
 
 ##    def gethscolor(self, hs):
 ##        try:
@@ -613,7 +614,7 @@ class HintRTyper(RPythonTyper):
             hop.llops.append(hop.spaceop)
             return hop.spaceop.result
         else:
-            print "RED op", hop.spaceop
+            #print "RED op", hop.spaceop
             return None
 
     def default_translate_operation(self, hop):
@@ -930,7 +931,7 @@ class HintRTyper(RPythonTyper):
 
     def translate_op_save_locals(self, hop):
         v_jitstate = hop.llops.getjitstate()
-        boxes_r = [self.getredrepr_or_none(originalconcretetype(hs))
+        boxes_r = [self.getredrepr(originalconcretetype(hs))
                    for hs in hop.args_s]
         boxes_v = hop.inputargs(*boxes_r)
         boxes_s = [self.s_RedBox] * len(hop.args_v)
@@ -1454,12 +1455,12 @@ class RedStructRepr(RedRepr):
         return hop.llops.as_redbox(v_ptrbox)
 
 
-class VoidRedRepr(Repr):
-    def __init__(self, hrtyper):
-        self.lowleveltype = hrtyper.r_RedBox.lowleveltype
+##class VoidRedRepr(Repr):
+##    def __init__(self, hrtyper):
+##        self.lowleveltype = hrtyper.r_RedBox.lowleveltype
 
-    def convert_const(self, ll_value):
-        return lltype.nullptr(self.lowleveltype.TO)
+##    def convert_const(self, ll_value):
+##        return lltype.nullptr(self.lowleveltype.TO)
 
 
 class BlueRepr(Repr):

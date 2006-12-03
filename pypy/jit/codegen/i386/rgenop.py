@@ -346,20 +346,17 @@ class Builder(GenBuilder):
         return self.returnvar(eax)
         
     def genop_call(self, sigtoken, gv_fnptr, args_gv):
+        numargs = sigtoken      # for now
         MASK = CALL_ALIGN-1
         if MASK:
-            final_depth = self.stackdepth
-            for gv_arg in args_gv:
-                if gv_arg is not None:
-                    final_depth += 1
+            final_depth = self.stackdepth + numargs
             delta = (final_depth+MASK)&~MASK-final_depth
             if delta:
                 self.mc.SUB(esp, imm(delta*WORD))
                 self.stackdepth += delta
-        for i in range(len(args_gv)-1, -1, -1):
+        for i in range(numargs-1, -1, -1):
             gv_arg = args_gv[i]
-            if gv_arg is not None:
-                self.push(gv_arg.operand(self))
+            self.push(gv_arg.operand(self))
         if gv_fnptr.is_const:
             target = gv_fnptr.revealconst(lltype.Signed)
             self.mc.CALL(rel32(target))

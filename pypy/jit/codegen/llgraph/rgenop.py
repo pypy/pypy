@@ -25,7 +25,18 @@ class LLConst(GenConst):
     def __repr__(self):
         return repr(RGenOp.reveal(self))
 
-gv_Void = LLConst(llimpl.constTYPE(lltype.Void))
+
+_gv_TYPE_cache = {}
+def gv_TYPE(TYPE):
+    try:
+        return _gv_TYPE_cache[TYPE]
+    except KeyError:
+        gv = LLConst(llimpl.constTYPE(TYPE))
+        _gv_TYPE_cache[TYPE] = gv
+        return gv
+
+gv_Void = gv_TYPE(lltype.Void)
+gv_Signed = gv_TYPE(lltype.Signed)
 gv_dummy_placeholder = LLConst(llimpl.dummy_placeholder)
 
 
@@ -75,10 +86,13 @@ class LLBuilder(GenBuilder):
 
     def genop_call(self, (ARGS_gv, gv_RESULT, _), gv_callable, args_gv):
         vars_gv = [gv_callable]
+        j = 0
         for i in range(len(ARGS_gv)):
-            gv_arg = args_gv[i]
-            if gv_arg is not None:
-                gv_arg = LLVar(llimpl.cast(self.b, ARGS_gv[i].v, gv_arg.v))
+            if ARGS_gv[i] is gv_Void:
+                gv_arg = gv_dummy_placeholder
+            else:
+                gv_arg = LLVar(llimpl.cast(self.b, ARGS_gv[i].v, args_gv[j]))
+                j += 1
             vars_gv.append(gv_arg)
         if gv_callable.is_const:
             v = llimpl.genop(self.b, 'direct_call', vars_gv, gv_RESULT.v)
@@ -122,7 +136,7 @@ class LLBuilder(GenBuilder):
 
     def genop_getarraysize(self, gv_ITEMTYPE, gv_ptr):
         return LLVar(llimpl.genop(self.b, 'getarraysize', [gv_ptr.v],
-                                  llimpl.constTYPE(lltype.Signed)))
+                                  gv_Signed.v))
 
     def genop_malloc_fixedsize(self, (gv_TYPE, gv_PTRTYPE)):
         vars_gv = [gv_TYPE.v]
@@ -212,7 +226,7 @@ class RGenOp(AbstractRGenOp):
     @staticmethod
     @specialize.memo()
     def kindToken(T):
-        return LLConst(llimpl.constTYPE(T))        
+        return gv_TYPE(T)
 
     @staticmethod
     @specialize.memo()
@@ -222,14 +236,14 @@ class RGenOp(AbstractRGenOp):
         if isinstance(FIELDTYPE, lltype.ContainerType):
             FIELDTYPE = lltype.Ptr(FIELDTYPE)
         return (LLConst(llimpl.constFieldName(name)),
-                LLConst(llimpl.constTYPE(lltype.Ptr(T))),
-                LLConst(llimpl.constTYPE(FIELDTYPE)))
+                gv_TYPE(lltype.Ptr(T)),
+                gv_TYPE(FIELDTYPE))
 
     @staticmethod
     @specialize.memo()
     def allocToken(TYPE):
-        return (LLConst(llimpl.constTYPE(TYPE)),
-                LLConst(llimpl.constTYPE(lltype.Ptr(TYPE))))
+        return (gv_TYPE(TYPE),
+                gv_TYPE(lltype.Ptr(TYPE)))
 
     varsizeAllocToken = allocToken
 
@@ -239,14 +253,14 @@ class RGenOp(AbstractRGenOp):
         ITEMTYPE = A.OF
         if isinstance(ITEMTYPE, lltype.ContainerType):
             ITEMTYPE = lltype.Ptr(ITEMTYPE)
-        return LLConst(llimpl.constTYPE(ITEMTYPE))
+        return gv_TYPE(ITEMTYPE)
 
     @staticmethod
     @specialize.memo()
     def sigToken(FUNCTYPE):
-        return ([LLConst(llimpl.constTYPE(A)) for A in FUNCTYPE.ARGS],
-                LLConst(llimpl.constTYPE(FUNCTYPE.RESULT)),
-                LLConst(llimpl.constTYPE(FUNCTYPE)))
+        return ([gv_TYPE(A) for A in FUNCTYPE.ARGS],
+                gv_TYPE(FUNCTYPE.RESULT),
+                gv_TYPE(FUNCTYPE))
 
     constPrebuiltGlobal = genconst
 

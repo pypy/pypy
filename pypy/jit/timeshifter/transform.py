@@ -576,6 +576,7 @@ class HintGraphTransformer(object):
             if op.opname == 'indirect_call':
                 del args_v[-1]
             # pseudo-obscure: the arguments for the call go in save_locals
+            args_v = [v for v in args_v if v.concretetype is not lltype.Void]
             self.genop(nonconstantblock, 'save_locals', args_v)
             v_res = self.genop(nonconstantblock, 'residual_%s_call' % (color,),
                                [op.args[0]], result_like = op.result)
@@ -665,6 +666,7 @@ class HintGraphTransformer(object):
             color = 'red'
         newops = []
         # pseudo-obscure: the arguments for the call go in save_locals
+        args_v = [v for v in args_v if v.concretetype is not lltype.Void]
         self.genop(newops, 'save_locals', args_v)
         self.genop(newops, 'residual_%s_call' % (color,),
                    [op.args[0]], result_like = op.result)
