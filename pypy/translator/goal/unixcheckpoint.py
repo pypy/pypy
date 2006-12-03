@@ -25,7 +25,12 @@ def restartable_point_fork(auto=None, extra_msg=None):
             if line == 'quit':
                 raise SystemExit
             if line == 'pdb':
-                import pdb; pdb.set_trace()
+                try:
+                    import pdb; pdb.set_trace()
+                    dummy_for_pdb = 1    # for pdb to land
+                except Exception, e:
+                    print '(%s ignored)' % e.__class__.__name__
+                    continue
             if line == 'restart':
                 restart_process()
 
