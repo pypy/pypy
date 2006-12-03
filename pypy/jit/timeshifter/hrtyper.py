@@ -1,4 +1,6 @@
 import types
+import py
+from pypy.tool.ansi_print import ansi_log
 from pypy.objspace.flow import model as flowmodel
 from pypy.translator.unsimplify import varoftype
 from pypy.translator.backendopt.ssa import SSA_to_SSI
@@ -45,6 +47,8 @@ HintTypeSystem.instance = HintTypeSystem()
 
 
 class HintRTyper(RPythonTyper):
+    log = py.log.Producer("timeshifter")
+    py.log.setconsumer("timeshifter", ansi_log)
 
     def __init__(self, hannotator, rtyper, RGenOp):
         RPythonTyper.__init__(self, hannotator, 
@@ -66,8 +70,6 @@ class HintRTyper(RPythonTyper):
          self.r_RedBox)        = self.s_r_instanceof(rvalue.RedBox)
         (self.s_PtrRedBox,
          self.r_PtrRedBox)     = self.s_r_instanceof(rvalue.PtrRedBox)
-        (self.s_OopSpecDesc,
-         self.r_OopSpecDesc)   = self.s_r_instanceof(oop.OopSpecDesc)
         (self.s_ConstOrVar,
          self.r_ConstOrVar)    = self.s_r_instanceof(cgmodel.GenVarOrConst)
         (self.s_Queue,
@@ -452,6 +454,20 @@ class HintRTyper(RPythonTyper):
 
     def make_new_lloplist(self, block):
         return HintLowLevelOpList(self)
+
+    def translate_no_return_value(self, hop):
+        op = hop.spaceop
+        if op.result.concretetype is not lltype.Void:
+            raise TyperError("the hint-annotator doesn't agree that '%s' "
+                             "returns a Void" % op.opname)
+        # try to avoid a same_as in common cases
+        if (len(hop.llops) > 0
+            and hop.llops[-1].result.concretetype is lltype.Void):
+            hop.llops[-1].result = op.result
+        else:
+            hop.llops.append(flowmodel.SpaceOperation('same_as',
+                                                      [c_void],
+                                                      op.result))
 
     def getgreenrepr(self, lowleveltype):
         try:
@@ -1202,8 +1218,9 @@ class HintRTyper(RPythonTyper):
         else:
             s_result = ts.s_RedBox
 
-        s_oopspecdesc  = ts.s_OopSpecDesc
-        ll_oopspecdesc = ts.annhelper.delayedconst(ts.r_OopSpecDesc,
+        (s_oopspecdesc,
+         r_oopspecdesc) = self.s_r_instanceof(oopspecdesc.__class__)
+        ll_oopspecdesc = ts.annhelper.delayedconst(r_oopspecdesc,
                                                    oopspecdesc)
         c_oopspecdesc  = hop.llops.genconst(ll_oopspecdesc)
         v_jitstate = hop.llops.getjitstate()
@@ -1506,6 +1523,8 @@ class __extend__(pairtype(GreenRepr, RedRepr)):
                         [ts.s_JITState, r_from.annotation()],
                         [v_jitstate,    v],
                         ts.s_RedBox)
+
+c_void = flowmodel.Constant(None, concretetype=lltype.Void)
 
 # ____________________________________________________________
 

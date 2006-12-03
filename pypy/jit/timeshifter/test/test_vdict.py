@@ -17,3 +17,14 @@ class TestVDict(TimeshiftingTests):
         res = self.timeshift(ll_function, [], [], policy=P_OOPSPEC)
         assert res == 34
         self.check_insns({})
+
+    def test_vdict_and_vlist(self):
+        def ll_function():
+            dic = {}
+            lst = [12]
+            dic[12] = 34
+            dic[13] = 35
+            return dic[lst.pop()]
+        res = self.timeshift(ll_function, [], [], policy=P_OOPSPEC)
+        assert res == 34
+        self.check_insns({})

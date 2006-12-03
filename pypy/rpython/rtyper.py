@@ -29,12 +29,12 @@ from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import Repr, inputconst, BrokenReprTyperError
 from pypy.rpython.rmodel import warning, HalfConcreteWrapper
 from pypy.rpython.annlowlevel import annotate_lowlevel_helper, LowLevelAnnotatorPolicy
-from pypy.rpython.rmodel import log
 from pypy.rpython.typesystem import LowLevelTypeSystem,\
                                     ObjectOrientedTypeSystem
 
 
 class RPythonTyper(object):
+    from pypy.rpython.rmodel import log
 
     def __init__(self, annotator, type_system="lltype"):
         self.annotator = annotator
@@ -77,7 +77,7 @@ class RPythonTyper(object):
         try:
             self.seed = int(os.getenv('RTYPERSEED'))
             s = 'Using %d as seed for block shuffling' % self.seed
-            log.info(s)
+            self.log.info(s)
         except:
             self.seed = 0
         self.order = None
@@ -88,7 +88,7 @@ class RPythonTyper(object):
 ##            order_module = RTYPERORDER.split(',')[0]
 ##            self.order = __import__(order_module, {}, {},  ['*']).order
 ##            s = 'Using %s.%s for order' % (self.order.__module__, self.order.__name__)
-##            log.info(s)
+##            self.log.info(s)
         self.crash_on_first_typeerror = True
 
     def getconfig(self):
@@ -224,15 +224,16 @@ class RPythonTyper(object):
                         error_report = " but %d errors" % self.typererror_count
                     else:
                         error_report = ''
-                    log.event('specializing: %d / %d blocks   (%d%%)%s' % (
-                        n, total, 100 * n // total, error_report))
+                    self.log.event('specializing: %d / %d blocks   (%d%%)%s' %
+                                   (n, total, 100 * n // total, error_report))
             # make sure all reprs so far have had their setup() called
             self.call_all_setups()
 
         if self.typererrors: 
             self.dump_typererrors(to_log=True) 
             raise TyperError("there were %d error" % len(self.typererrors))
-        log.event('-=- specialized %d%s blocks -=-' % (blockcount, newtext))
+        self.log.event('-=- specialized %d%s blocks -=-' % (
+            blockcount, newtext))
 
     def dump_typererrors(self, num=None, minimize=True, to_log=False): 
         c = 0
@@ -252,13 +253,13 @@ class RPythonTyper(object):
                       str(err) +
                       "\n")
             if to_log:
-                log.ERROR(errmsg)
+                self.log.ERROR(errmsg)
             else:
                 print errmsg
         if bc:
             minmsg = "(minimized %d errors away for this dump)" % (bc,)
             if to_log:
-                log.ERROR(minmsg)
+                self.log.ERROR(minmsg)
             else:
                 print minmsg
 
@@ -457,22 +458,19 @@ class RPythonTyper(object):
             yield HighLevelOp(self, block.operations[-1], exclinks, llops)
 
     def translate_hl_to_ll(self, hop, varmapping):
-        #log.translating(hop.spaceop.opname, hop.args_s)
+        #self.log.translating(hop.spaceop.opname, hop.args_s)
         resultvar = hop.dispatch()
         if hop.exceptionlinks and hop.llops.llop_raising_exceptions is None:
             raise TyperError("the graph catches %s, but the rtyper did not "
                              "take exceptions into account "
                              "(exception_is_here() not called)" % (
                 [link.exitcase.__name__ for link in hop.exceptionlinks],))
-        op = hop.spaceop
         if resultvar is None:
             # no return value
-            if hop.s_result != annmodel.SomeImpossibleValue():
-                raise TyperError("the annotator doesn't agree that '%s' "
-                                 "has no return value" % op.opname)
-            op.result.concretetype = Void
+            self.translate_no_return_value(hop)
         else:
             assert isinstance(resultvar, (Variable, Constant))
+            op = hop.spaceop
             # for simplicity of the translate_meth, resultvar is usually not
             # op.result here.  We have to replace resultvar with op.result
             # in all generated operations.
@@ -503,6 +501,13 @@ class RPythonTyper(object):
                 # renaming unsafe.  Insert a 'same_as' operation...
                 hop.llops.append(SpaceOperation('same_as', [resultvar],
                                                 op.result))
+
+    def translate_no_return_value(self, hop):
+        op = hop.spaceop
+        if hop.s_result != annmodel.s_ImpossibleValue:
+            raise TyperError("the annotator doesn't agree that '%s' "
+                             "has no return value" % op.opname)
+        op.result.concretetype = Void
 
     def gottypererror(self, e, block, position, llops):
         """Record a TyperError without crashing immediately.

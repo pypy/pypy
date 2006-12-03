@@ -102,7 +102,12 @@ class OopSpecDesc:
                 return rvalue.ll_fromvalue(jitstate, result)
 
             self.do_call = do_call
-            
+
+        # hack! to avoid confusion between the .typedesc attribute
+        # of oopspecdescs of different types (lists, dicts, etc.)
+        # let's use different subclasses for the oopspecdesc too.
+        self.__class__ = globals()['OopSpecDesc_%s' % typename]
+
     def residual_call(self, jitstate, argboxes, deepfrozen=False):
         builder = jitstate.curbuilder
         args_gv = self.args_gv[:]
@@ -130,6 +135,13 @@ class OopSpecDesc:
         jitstate.residual_ll_exception(ll_evalue)
         return self.errorbox
     residual_exception._annspecialcase_ = 'specialize:arg(2)'
+
+
+class OopSpecDesc_list(OopSpecDesc):
+    pass
+
+class OopSpecDesc_dict(OopSpecDesc):
+    pass
 
 
 def get_ll_instance_for_exccls(ExcCls):

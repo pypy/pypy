@@ -41,7 +41,8 @@ def hintannotate(drv):
                                 [SomeLLAbstractConstant(v.concretetype,
                                                         {OriginFlags(): True})
                                  for v in portal_graph.getargs()])
-    print 'Hint-annotated %d graphs.' % (len(hannotator.translator.graphs),)
+    drv.log.info('Hint-annotated %d graphs.' % (
+        len(hannotator.translator.graphs),))
     drv.hannotator = hannotator
 
 
