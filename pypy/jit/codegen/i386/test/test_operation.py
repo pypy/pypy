@@ -148,6 +148,19 @@ class TestBasic:
         for i in range(5):
             assert fp(i) == fn(i)
 
+    def test_char_varsize_array(self):
+        A = lltype.GcArray(lltype.Char)
+        def fn(n):
+            a = lltype.malloc(A, n)
+            a[4] = 'H'
+            a[3] = 'e'
+            a[2] = 'l'
+            a[1] = 'l'
+            a[0] = 'o'
+            return ord(a[n-1])
+        fp = self.rgen(fn, [int])
+        assert fp(5) == fn(5)
+
     def test_unichar_array(self):
         A = lltype.GcArray(lltype.UniChar)
         def fn(n):

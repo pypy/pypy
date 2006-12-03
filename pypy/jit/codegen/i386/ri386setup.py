@@ -5,7 +5,7 @@ Not for direct importing.
 """
 from ri386 import *
 
-from pypy.objspace.std.multimethod import MultiMethodTable
+from pypy.objspace.std.multimethod import MultiMethodTable, InstallerVersion2
 from pypy.tool.sourcetools import compile2
 
 def reg2modrm(builder, reg):
@@ -193,7 +193,11 @@ class Instruction:
                     assert issubclass(cls, OPERAND)
                 encoder1 = generate_function(sig, opcodes)
                 table.register(encoder1, *sig)
-            encoder = table.install('__encode' + name, [type_order] * arity)
+            # always use the InstallerVersion2, including for testing,
+            # because it produces code that is more sensitive to
+            # registration errors
+            encoder = table.install('__encode' + name, [type_order] * arity,
+                                    installercls = InstallerVersion2)
             mmmin = min([len(mm) for mm in self.modes])
             if mmmin < arity:
                 encoder.func_defaults = (missing,) * (arity - mmmin)
@@ -384,10 +388,10 @@ XCHG.mode2(MODRM8, REG8, ['\x86', register(2,8,'b'), modrm(1,'b')])
 XCHG.mode2(REG8, MODRM8, ['\x86', register(1,8,'b'), modrm(2,'b')])
 
 LEA = Instruction()
-LEA.mode2(REG, MODRM, ['\x8D', register(1,8), modrm(2)])
-#for key in LEA.encodings.keys():
-#    if key[1] != MODRM:
-#        del LEA.encodings[key]
+LEA.mode2(REG, MODRM,  ['\x8D', register(1,8), modrm(2)])
+LEA.mode2(REG, MODRM8, ['\x8D', register(1,8), modrm(2)])
+# some cases produce a MODRM8, but the result is always a 32-bit REG
+# and the encoding is the same
 
 SHL = Instruction()
 SHL.mode2(MODRM,  IMM8,  ['\xC1', orbyte(4<<3), modrm(1), immediate(2,'b')])
