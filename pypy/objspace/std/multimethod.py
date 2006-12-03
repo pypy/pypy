@@ -40,20 +40,22 @@ class MultiMethodTable:
         lst[order] = function
 
     def install(self, prefix, list_of_typeorders, baked_perform_call=True,
-                base_typeorder=None):
+                base_typeorder=None, installercls=None):
         "NOT_RPYTHON: initialization-time only"
         assert len(list_of_typeorders) == self.arity
-        installer = Installer(self, prefix, list_of_typeorders,
-                              baked_perform_call=baked_perform_call,
-                              base_typeorder=base_typeorder)
+        installercls = installercls or Installer
+        installer = installercls(self, prefix, list_of_typeorders,
+                                 baked_perform_call=baked_perform_call,
+                                 base_typeorder=base_typeorder)
         return installer.install()
 
     def install_if_not_empty(self, prefix, list_of_typeorders,
-                             base_typeorder=None):
+                             base_typeorder=None, installercls=None):
         "NOT_RPYTHON: initialization-time only"
         assert len(list_of_typeorders) == self.arity
-        installer = Installer(self, prefix, list_of_typeorders,
-                              base_typeorder=base_typeorder)
+        installercls = installercls or Installer
+        installer = installercls(self, prefix, list_of_typeorders,
+                                 base_typeorder=base_typeorder)
         if installer.is_empty():
             return None
         else:
