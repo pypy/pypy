@@ -681,6 +681,16 @@ class TestTimeshift(TimeshiftingTests):
         res = self.timeshift(ll_function, [0], [])
         assert res == 4 * 4
 
+    def test_degenerate_with_voids(self):
+        S = lltype.GcStruct('S', ('y', lltype.Void),
+                                 ('x', lltype.Signed))
+        def ll_function():
+            s = lltype.malloc(S)
+            s.x = 123
+            return s
+        res = self.timeshift(ll_function, [], [], policy=P_NOVIRTUAL)
+        assert res.x == 123
+
     def test_plus_minus_all_inlined(self):
         def ll_plus_minus(s, x, y):
             acc = x
@@ -792,6 +802,20 @@ class TestTimeshift(TimeshiftingTests):
                               policy=P_NOVIRTUAL)
          assert res == -42
          self.check_insns(malloc_varsize=1)
+
+    def test_array_of_voids(self):
+        A = lltype.GcArray(lltype.Void)
+        def ll_function(n):
+            a = lltype.malloc(A, 3)
+            a[1] = None
+            b = a[n]
+            res = a, b
+            keepalive_until_here(b)      # to keep getarrayitem around
+            return res
+
+        res = self.timeshift(ll_function, [2], [], policy=P_NOVIRTUAL)
+        assert lltype.typeOf(res.item0) == lltype.Ptr(A)
+        assert res.item1 is None
 
     def test_red_propagate(self):
         S = lltype.GcStruct('S', ('n', lltype.Signed))

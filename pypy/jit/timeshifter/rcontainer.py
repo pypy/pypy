@@ -73,7 +73,7 @@ class StructTypeDesc(object):
                     desc = None
                 else:
                     desc = StructFieldDesc(RGenOp, self.PTRTYPE, name, index)
-                fielddescs.append(desc)
+                    fielddescs.append(desc)
                 fielddesc_by_name[name] = desc
         self.fielddescs = fielddescs
         self.fielddesc_by_name = fielddesc_by_name
@@ -120,6 +120,7 @@ class StructTypeDesc(object):
 # XXX basic field descs for now
 class FieldDesc(object):
     __metaclass__ = cachedtype
+    allow_void = False
 
     def __init__(self, RGenOp, PTRTYPE, RESTYPE):
         self.PTRTYPE = PTRTYPE
@@ -128,7 +129,10 @@ class FieldDesc(object):
         self.RESTYPE = RESTYPE
         self.ptrkind = RGenOp.kindToken(PTRTYPE)
         self.kind = RGenOp.kindToken(RESTYPE)
-        self.redboxcls = rvalue.ll_redboxcls(RESTYPE)
+        if RESTYPE is lltype.Void and self.allow_void:
+            pass   # no redboxcls at all
+        else:
+            self.redboxcls = rvalue.ll_redboxcls(RESTYPE)
         self.immutable = PTRTYPE.TO._hints.get('immutable', False)
 
     def _freeze_(self):
@@ -165,6 +169,8 @@ class StructFieldDesc(NamedFieldDesc):
         self.defaultbox = self.redboxcls(self.kind, self.gv_default)
 
 class ArrayFieldDesc(FieldDesc):
+    allow_void = True
+
     def __init__(self, RGenOp, TYPE):
         assert isinstance(TYPE, lltype.Array)
         FieldDesc.__init__(self, RGenOp, lltype.Ptr(TYPE), TYPE.OF)

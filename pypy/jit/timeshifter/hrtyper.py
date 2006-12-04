@@ -677,6 +677,8 @@ class HintRTyper(RPythonTyper):
         c_deepfrozen = inputconst(lltype.Bool, hop.args_s[0].deepfrozen)
         structdesc = rcontainer.StructTypeDesc(self.RGenOp, PTRTYPE.TO)
         fielddesc = structdesc.getfielddesc(c_fieldname.value)
+        if fielddesc is None:   # Void field
+            return
         c_fielddesc = inputconst(lltype.Void, fielddesc)
         s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
         v_jitstate = hop.llops.getjitstate()
@@ -687,6 +689,8 @@ class HintRTyper(RPythonTyper):
 
     def translate_op_getarrayitem(self, hop):
         PTRTYPE = originalconcretetype(hop.args_s[0])
+        if PTRTYPE.TO.OF is lltype.Void:
+            return
         ts = self
         v_argbox, v_index = hop.inputargs(self.getredrepr(PTRTYPE),
                                           self.getredrepr(lltype.Signed))
@@ -751,6 +755,7 @@ class HintRTyper(RPythonTyper):
         v_destbox = hop.llops.as_ptrredbox(v_destbox)
         structdesc = rcontainer.StructTypeDesc(self.RGenOp, PTRTYPE.TO)
         fielddesc = structdesc.getfielddesc(c_fieldname.value)
+        assert fielddesc is not None   # skipped above
         c_fielddesc = inputconst(lltype.Void, fielddesc)
         s_fielddesc = ts.rtyper.annotator.bookkeeper.immutablevalue(fielddesc)
         v_jitstate = hop.llops.getjitstate()

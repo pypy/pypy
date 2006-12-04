@@ -63,4 +63,4 @@ def timeshift(drv):
         t.graphs.append(graph)
 
     # XXX temp
-    drv.compile()
+    drv.source()

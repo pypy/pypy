@@ -956,12 +956,18 @@ class RI386GenOp(AbstractRGenOp):
     @staticmethod
     @specialize.memo()
     def kindToken(T):
+        if T is lltype.Float:
+            raise NotImplementedError("floats in the i386 back-end")
         return None     # for now
 
     @staticmethod
     @specialize.memo()
     def sigToken(FUNCTYPE):
-        return len(FUNCTYPE.ARGS)     # for now
+        numargs = 0
+        for ARG in FUNCTYPE.ARGS:
+            if ARG is not lltype.Void:
+                numargs += 1
+        return numargs     # for now
 
     @staticmethod
     def erasedType(T):

@@ -204,6 +204,14 @@ class SomeLLAbstractVariable(SomeLLAbstractValue):
         SomeLLAbstractValue.__init__(self, T, deepfrozen)
         assert T is not lltype.Void   # use bookkeeper.valueoftype()
 
+def variableoftype(TYPE, deepfrozen=False):
+    # the union of all annotations of the given TYPE - that's a
+    # SomeLLAbstractVariable, unless TYPE is Void
+    if TYPE is lltype.Void:
+        return s_void
+    else:
+        return SomeLLAbstractVariable(TYPE, deepfrozen=deepfrozen)
+
 
 class SomeLLAbstractContainer(SomeLLAbstractValue):
     deepfrozen = False     # XXX for now
@@ -299,7 +307,7 @@ class __extend__(SomeLLAbstractValue):
     def getfield(hs_v1, hs_fieldname):
         S = hs_v1.concretetype.TO
         FIELD_TYPE = getattr(S, hs_fieldname.const)
-        return SomeLLAbstractVariable(FIELD_TYPE, hs_v1.deepfrozen)
+        return variableoftype(FIELD_TYPE, hs_v1.deepfrozen)
 
     def setfield(hs_v1, hs_fieldname, hs_value):
         pass
@@ -308,17 +316,6 @@ class __extend__(SomeLLAbstractValue):
         S = hs_v1.concretetype.TO
         FIELD_TYPE = getattr(S, hs_fieldname.const)
         return SomeLLAbstractVariable(lltype.Ptr(FIELD_TYPE), hs_v1.deepfrozen)
-
-##    def getarrayitem(hs_v1, hs_index):
-##        ARRAY = hs_v1.concretetype.TO
-##        return SomeLLAbstractVariable(ARRAY.OF)
-
-##    def setarrayitem(hs_v1, hs_index, hs_value):
-##        pass
-
-##    def getarraysubstruct(hs_v1, hs_index):
-##        ARRAY = hs_v1.concretetype.TO
-##        return SomeLLAbstractVariable(lltype.Ptr(ARRAY.OF))
 
     def indirect_call(hs_v1, *args_hs):
         hs_graph_list = args_hs[-1]
@@ -329,7 +326,7 @@ class __extend__(SomeLLAbstractValue):
         bookkeeper = getbookkeeper()
         if not bookkeeper.annotator.policy.look_inside_graphs(graph_list):
             # cannot follow
-            return bookkeeper.valueoftype(hs_v1.concretetype.TO.RESULT)
+            return variableoftype(hs_v1.concretetype.TO.RESULT)
 
         fixed = bookkeeper.myorigin().read_fixed()
         hs_res = bookkeeper.graph_family_call(graph_list, fixed, args_hs)
@@ -379,19 +376,19 @@ class __extend__(SomeLLAbstractConstant):
                 pass
         # don't try to annotate suggested_primitive graphs
         if getattr(getattr(fnobj, '_callable', None), 'suggested_primitive', False):
-            return SomeLLAbstractVariable(lltype.typeOf(fnobj).RESULT)
+            return variableoftype(lltype.typeOf(fnobj).RESULT)
 
         # normal call
         if not hasattr(fnobj, 'graph'):
             raise NotImplementedError("XXX call to externals or primitives")
         if not bookkeeper.annotator.policy.look_inside_graph(fnobj.graph):
-            return bookkeeper.valueoftype(lltype.typeOf(fnobj).RESULT)
+            return variableoftype(lltype.typeOf(fnobj).RESULT)
 
         # recursive call from the entry point to itself: ignore them and
         # just hope the annotations are correct
         if (bookkeeper.getdesc(fnobj.graph)._cache.get(None, None) is
             bookkeeper.annotator.translator.graphs[0]):
-            return SomeLLAbstractVariable(lltype.typeOf(fnobj).RESULT)
+            return variableoftype(lltype.typeOf(fnobj).RESULT)
 
         fixed = bookkeeper.myorigin().read_fixed()
         hs_res = bookkeeper.graph_call(fnobj.graph, fixed, args_hs)
@@ -421,7 +418,7 @@ class __extend__(SomeLLAbstractConstant):
                                           myorigin=origin,
                                           deepfrozen=hs_c1.deepfrozen)
         else:
-            return SomeLLAbstractVariable(FIELD_TYPE)
+            return variableoftype(FIELD_TYPE)
 
     def getsubstruct(hs_c1, hs_fieldname):
         S = hs_c1.concretetype.TO
@@ -468,8 +465,7 @@ class __extend__(SomeLLAbstractContainer):
 class __extend__(pairtype(SomeLLAbstractValue, SomeLLAbstractValue)):
 
     def getarrayitem((hs_v1, hs_v2)):
-        return SomeLLAbstractVariable(hs_v1.concretetype.TO.OF,
-                                      hs_v1.deepfrozen)
+        return variableoftype(hs_v1.concretetype.TO.OF, hs_v1.deepfrozen)
 
     def setarrayitem((hs_v1, hs_v2), hs_v3):
         pass
@@ -500,7 +496,7 @@ class __extend__(pairtype(SomeLLAbstractVariable, SomeLLAbstractConstant),
         if (getattr(hs_v1, 'eager_concrete', False) or
             getattr(hs_v2, 'eager_concrete', False)):
             pair(hs_v1, hs_v2).invalid_union()
-        return SomeLLAbstractVariable(hs_v1.concretetype, hs_v1.deepfrozen)
+        return variableoftype(hs_v1.concretetype, hs_v1.deepfrozen)
 
 
 class __extend__(pairtype(SomeLLAbstractConstant, SomeLLAbstractConstant)):
@@ -530,7 +526,7 @@ class __extend__(pairtype(SomeLLAbstractConstant, SomeLLAbstractConstant)):
                                           myorigin=origin,
                                           deepfrozen=hs_c1.deepfrozen)
         else:
-            return SomeLLAbstractVariable(READ_TYPE)
+            return variableoftype(READ_TYPE)
 
     def getarraysubstruct((hs_c1, hs_index)):
         A = hs_c1.concretetype.TO
@@ -588,10 +584,7 @@ def handle_highlevel_operation(bookkeeper, ll_func, *args_hs):
     if bookkeeper.annotator.policy.novirtualcontainer:
         # "blue variables" disabled, we just return a red var all the time.
         RESULT = bookkeeper.current_op_concretetype()
-        if RESULT is lltype.Void:
-            return None
-        else:
-            return SomeLLAbstractVariable(RESULT)
+        return variableoftype(RESULT)
 
     # parse the oopspec and fill in the arguments
     operation_name, args = ll_func.oopspec.split('(', 1)
