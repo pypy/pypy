@@ -1132,3 +1132,17 @@ class TestTimeshift(TimeshiftingTests):
         res = self.timeshift(f, [4, 5], [0, 1], policy=P_NOVIRTUAL)
         assert res == 42
         self.check_insns({})
+
+    def test_green_red_mismatch_in_call(self):
+        py.test.skip("WIP")
+        def add(a,b, u):
+            return a+b
+
+        def f(x, y, u):
+            r = add(x+1,y+1, u)
+            z = x+y
+            hint(z, concrete=True)
+            return hint(z, variable=True)
+
+        res = self.timeshift(f, [4, 5, 0], [], policy=P_NOVIRTUAL)
+        assert res == 9
