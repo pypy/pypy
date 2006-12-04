@@ -215,16 +215,20 @@ class TestPromotion(TimeshiftingTests):
         assert res == ll_function(6, 3, 2, 2)
 
     def test_green_across_global_mp(self):
-        def ll_function(n, total):
-            while n:
+        def ll_function(n1, n2, n3, n4, total):
+            while n2:
                 hint(None, global_merge_point=True)
-                total += n
-                hint(n, concrete=True)
-                n -= 1
+                total += n3
+                hint(n4, concrete=True)
+                hint(n3, concrete=True)
+                hint(n2, concrete=True)
+                hint(n1, concrete=True)
+                n2 -= 1
             return total
 
-        res = self.timeshift(ll_function, [5, 100], [0], policy=P_NOVIRTUAL)
-        assert res == 115
+        res = self.timeshift(ll_function, [None, 4, 3, None, 100], [0],
+                             policy=P_NOVIRTUAL)
+        assert res == ll_function(None, 4, 3, None, 100)
 
     def test_remembers_across_mp(self):
         def ll_function(x, flag):

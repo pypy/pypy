@@ -108,11 +108,12 @@ class HintGraphTransformer(object):
     def graph_calling_color(self, tsgraph):
         args_hs, hs_res = self.hannotator.bookkeeper.tsgraphsigs[tsgraph]
         if originalconcretetype(hs_res) is lltype.Void:
-            return 'gray'
+            c = 'gray'
         elif hs_res.is_green():
-            return 'yellow'
+            c = 'yellow'
         else:
-            return 'red'
+            c = 'red'
+        return c
 
     def timeshifted_graph_of(self, graph, args_v):
         bk = self.hannotator.bookkeeper
@@ -349,6 +350,11 @@ class HintGraphTransformer(object):
             N = self.get_resume_point(mergeblock)
             c_resumeindex = inputconst(lltype.Signed, N)
             self.genop(block, 'guard_global_merge', [c_resumeindex])
+
+            # Note: the jitstate.greens list will contain the correct
+            # green gv's for the following global_merge_point, because
+            # the green values have just been restored by the resume
+            # point logic here
         else:
             mergeblock = block
             greens2 = greens1
@@ -526,21 +532,29 @@ class HintGraphTransformer(object):
     def handle_red_call(self, block, pos, color='red'):
         link = split_block(self.hannotator, block, pos+1)
         op = block.operations.pop(pos)
+        #if op.opname == 'direct_call':
+        #    f = open('LOG', 'a')
+        #    print >> f, color, op.args[0].value
+        #    f.close()
         assert len(block.operations) == pos
         nextblock = link.target
         linkargs = link.args
         varsalive = list(linkargs)
-        
+
+        if color == 'red':
+            assert not self.hannotator.binding(op.result).is_green()
+
         try:
             index = varsalive.index(op.result)
+        except ValueError:
+            uses_retval = False
+        else:
             uses_retval = True      # it will be restored by a restore_local
             del varsalive[index]
             old_v_result = linkargs.pop(index)
             linkargs.insert(0, old_v_result)
             v_result = nextblock.inputargs.pop(index)
             nextblock.inputargs.insert(0, v_result)      
-        except ValueError:
-            uses_retval = False
 
         reds, greens = self.sort_by_color(varsalive)
 
@@ -607,6 +621,10 @@ class HintGraphTransformer(object):
 
     def handle_yellow_call(self, block, pos):
         op = block.operations[pos]
+        #if op.opname == 'direct_call':
+        #    f = open('LOG', 'a')
+        #    print >> f, 'handle_yellow_call', op.args[0].value
+        #    f.close()
         hs_result = self.hannotator.binding(op.result)
         if not hs_result.is_green():
             # yellow calls are supposed to return greens,

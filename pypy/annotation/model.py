@@ -606,8 +606,7 @@ def ll_to_annotation(v):
     if v is None:
         # i think we can only get here in the case of void-returning
         # functions
-        from pypy.annotation.bookkeeper import getbookkeeper
-        return getbookkeeper().immutablevalue(None)
+        return s_None
     if isinstance(v, MethodType):
         ll_ptrtype = lltype.typeOf(v.im_self)
         assert isinstance(ll_ptrtype, lltype.Ptr)
