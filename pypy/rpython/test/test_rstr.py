@@ -472,6 +472,32 @@ class BaseTestRstr(BaseRtypingTest):
         res = res.replace('pypy.rpython.test.test_rstr.', '')        
         assert res == 'what a nice <D object>, much nicer than <C object>'
 
+    def test_percentformat_tuple(self):
+        for t, expected in [((),        "<<<()>>>"),
+                            ((5,),      "<<<(5,)>>>"),
+                            ((5, 6),    "<<<(5, 6)>>>"),
+                            ((5, 6, 7), "<<<(5, 6, 7)>>>")]:
+            def getter():
+                return t
+            def dummy():
+                return "<<<%s>>>" % (getter(),)
+
+            res = self.ll_to_string(self.interpret(dummy, []))
+            assert res == expected
+
+    def test_percentformat_list(self):
+        for t, expected in [([],        "<<<[]>>>"),
+                            ([5],       "<<<[5]>>>"),
+                            ([5, 6],    "<<<[5, 6]>>>"),
+                            ([5, 6, 7], "<<<[5, 6, 7]>>>")]:
+            def getter():
+                return t
+            def dummy():
+                return "<<<%s>>>" % (getter(),)
+
+            res = self.ll_to_string(self.interpret(dummy, []))
+            assert res == expected
+
     def test_split(self):
         def fn(i):
             s = ['', '0.1.2.4.8', '.1.2', '1.2.', '.1.2.4.'][i]

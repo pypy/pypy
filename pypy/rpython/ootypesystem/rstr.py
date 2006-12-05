@@ -241,9 +241,8 @@ class LLHelpers(AbstractLLHelpers):
                 vitem, r_arg = argsiter.next()
                 if not hasattr(r_arg, 'll_str'):
                     raise TyperError("ll_str unsupported for: %r" % r_arg)
-                if code == 's':
-                    # TODO: for now it works only with types supported by oostring
-                    vchunk = hop.genop('oostring', [vitem, cm1], resulttype=ootype.String)
+                if code == 's' or (code == 'r' and isinstance(r_arg, InstanceRepr)):
+                    vchunk = hop.gendirectcall(r_arg.ll_str, vitem)
                 elif code == 'd':
                     assert isinstance(r_arg, IntegerRepr)
                     vchunk = hop.genop('oostring', [vitem, c10], resulttype=ootype.String)
@@ -256,8 +255,6 @@ class LLHelpers(AbstractLLHelpers):
                 elif code == 'o':
                     assert isinstance(r_arg, IntegerRepr)
                     vchunk = hop.genop('oostring', [vitem, c8], resulttype=ootype.String)
-                elif code == 'r' and isinstance(r_arg, InstanceRepr):
-                    vchunk = hop.gendirectcall(r_arg.ll_str, vitem)
                 else:
                     raise TyperError, "%%%s is not RPython" % (code, )
             else:

@@ -353,6 +353,7 @@ class VoidRepr(Repr):
     def get_ll_eq_function(self): return None
     def get_ll_hash_function(self): return ll_hash_void
     get_ll_fasthash_function = get_ll_hash_function
+    def ll_str(self, nothing): raise AssertionError("unreachable code")
 impossible_repr = VoidRepr()
 
 class SimplePointerRepr(Repr):
