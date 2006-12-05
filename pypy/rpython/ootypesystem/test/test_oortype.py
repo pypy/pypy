@@ -200,11 +200,8 @@ def test_string_annotation():
     assert interpret(oof, [s], type_system='ootype') == 3
 
 def test_oostring():
-    def const(c):
-        return c
-    
     def oof(ch):
-        return oostring(ch, const(-1))
+        return oostring(ch, -1)
 
     ch = 'a'
     res = interpret(oof, [ch], type_system='ootype')

@@ -5,6 +5,7 @@ from pypy.rpython.rtuple import AbstractTupleRepr, AbstractTupleIteratorRepr
 from pypy.rpython.lltypesystem.lltype import \
      Ptr, GcStruct, Void, Signed, malloc, typeOf, nullptr
 from pypy.rpython.lltypesystem.rtupletype import TUPLE_TYPE
+from pypy.rpython.lltypesystem import rstr
 
 # ____________________________________________________________
 #
@@ -18,6 +19,7 @@ from pypy.rpython.lltypesystem.rtupletype import TUPLE_TYPE
 #    }
 
 class TupleRepr(AbstractTupleRepr):
+    rstr_ll = rstr.LLHelpers
 
     def __init__(self, rtyper, items_r):
         AbstractTupleRepr.__init__(self, rtyper, items_r)

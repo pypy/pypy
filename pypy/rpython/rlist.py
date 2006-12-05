@@ -84,6 +84,29 @@ class AbstractBaseListRepr(Repr):
     def prepare_const(self, nitems):
         raise NotImplementedError
 
+    def ll_str(self, l):
+        constant = self.rstr_ll.ll_constant
+        start    = self.rstr_ll.ll_build_start
+        push     = self.rstr_ll.ll_build_push
+        finish   = self.rstr_ll.ll_build_finish
+
+        length = l.ll_length()
+        if length == 0:
+            return constant("[]")
+
+        buf = start(2 * length + 1)
+        push(buf, constant("["), 0)
+        item_repr = self.item_repr
+        i = 0
+        while i < length:
+            if i > 0:
+                push(buf, constant(", "), 2 * i)
+            item = l.ll_getitem_fast(i)
+            push(buf, item_repr.ll_str(item), 2 * i + 1)
+            i += 1
+        push(buf, constant("]"), 2 * length)
+        return finish(buf)
+
     def rtype_bltn_list(self, hop):
         v_lst = hop.inputarg(self, 0)
         cRESLIST = hop.inputconst(Void, hop.r_result.LIST)

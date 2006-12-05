@@ -1,10 +1,10 @@
 from pypy.annotation.pairtype import pairtype
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow import model as flowmodel
-from pypy.rpython.lltypesystem.lltype import \
-     Ptr, ContainerType, Void, Signed, Bool, FuncType, typeOf, FixedSizeArray
+from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.error import TyperError
 from pypy.rpython.rmodel import Repr, IntegerRepr
+from pypy.rlib.rarithmetic import r_uint
 
 
 class __extend__(annmodel.SomePtr):
@@ -23,33 +23,38 @@ class __extend__(annmodel.SomePtr):
 class PtrRepr(Repr):
 
     def __init__(self, ptrtype):
-        assert isinstance(ptrtype, Ptr)
+        assert isinstance(ptrtype, lltype.Ptr)
         self.lowleveltype = ptrtype
+
+    def ll_str(self, p):
+        from pypy.rpython.lltypesystem.rstr import LLHelpers, ll_str
+        id = lltype.cast_ptr_to_int(p)
+        return ll_str.ll_int2hex(r_uint(id), True)
 
     def rtype_getattr(self, hop):
         attr = hop.args_s[1].const
         if isinstance(hop.s_result, annmodel.SomeLLADTMeth):
             return hop.inputarg(hop.r_result, arg=0)
         FIELD_TYPE = getattr(self.lowleveltype.TO, attr)
-        if isinstance(FIELD_TYPE, ContainerType):
+        if isinstance(FIELD_TYPE, lltype.ContainerType):
             newopname = 'getsubstruct'
         else:
             newopname = 'getfield'
-        vlist = hop.inputargs(self, Void)
+        vlist = hop.inputargs(self, lltype.Void)
         return hop.genop(newopname, vlist,
                          resulttype = hop.r_result.lowleveltype)
 
     def rtype_setattr(self, hop):
         attr = hop.args_s[1].const
         FIELD_TYPE = getattr(self.lowleveltype.TO, attr)
-        assert not isinstance(FIELD_TYPE, ContainerType)
-        vlist = hop.inputargs(self, Void, hop.args_r[2])
+        assert not isinstance(FIELD_TYPE, lltype.ContainerType)
+        vlist = hop.inputargs(self, lltype.Void, hop.args_r[2])
         hop.genop('setfield', vlist)
 
     def rtype_len(self, hop):
         ARRAY = hop.args_r[0].lowleveltype.TO
-        if isinstance(ARRAY, FixedSizeArray):
-            return hop.inputconst(Signed, ARRAY.length)
+        if isinstance(ARRAY, lltype.FixedSizeArray):
+            return hop.inputconst(lltype.Signed, ARRAY.length)
         else:
             vlist = hop.inputargs(self)
             return hop.genop('getarraysize', vlist,
@@ -57,10 +62,10 @@ class PtrRepr(Repr):
 
     def rtype_is_true(self, hop):
         vlist = hop.inputargs(self)
-        return hop.genop('ptr_nonzero', vlist, resulttype=Bool)
+        return hop.genop('ptr_nonzero', vlist, resulttype=lltype.Bool)
 
     def rtype_simple_call(self, hop):
-        if not isinstance(self.lowleveltype.TO, FuncType):
+        if not isinstance(self.lowleveltype.TO, lltype.FuncType):
             raise TyperError("calling a non-function %r", self.lowleveltype.TO)
         vlist = hop.inputargs(*hop.args_r)
         nexpected = len(self.lowleveltype.TO.ARGS)
@@ -74,7 +79,7 @@ class PtrRepr(Repr):
             opname = 'direct_call'
         else:
             opname = 'indirect_call'
-            vlist.append(hop.inputconst(Void, None))
+            vlist.append(hop.inputconst(lltype.Void, None))
         hop.exception_is_here()
         return hop.genop(opname, vlist,
                          resulttype = self.lowleveltype.TO.RESULT)
@@ -92,19 +97,19 @@ class __extend__(pairtype(PtrRepr, IntegerRepr)):
     def rtype_getitem((r_ptr, r_int), hop):
         ARRAY = r_ptr.lowleveltype.TO
         ITEM_TYPE = ARRAY.OF
-        if isinstance(ITEM_TYPE, ContainerType):
+        if isinstance(ITEM_TYPE, lltype.ContainerType):
             newopname = 'getarraysubstruct'
         else:
             newopname = 'getarrayitem'
-        vlist = hop.inputargs(r_ptr, Signed)
+        vlist = hop.inputargs(r_ptr, lltype.Signed)
         return hop.genop(newopname, vlist,
                          resulttype = hop.r_result.lowleveltype)
 
     def rtype_setitem((r_ptr, r_int), hop):
         ARRAY = r_ptr.lowleveltype.TO
         ITEM_TYPE = ARRAY.OF
-        assert not isinstance(ITEM_TYPE, ContainerType)
-        vlist = hop.inputargs(r_ptr, Signed, hop.args_r[2])
+        assert not isinstance(ITEM_TYPE, lltype.ContainerType)
+        vlist = hop.inputargs(r_ptr, lltype.Signed, hop.args_r[2])
         hop.genop('setarrayitem', vlist)
 
 # ____________________________________________________________
@@ -112,10 +117,10 @@ class __extend__(pairtype(PtrRepr, IntegerRepr)):
 #  Null Pointers
 
 ##class NullPtrRepr(Repr):
-##    lowleveltype = Void
+##    lowleveltype = lltype.Void
 
 ##    def rtype_is_true(self, hop):
-##        return hop.inputconst(Bool, False)
+##        return hop.inputconst(lltype.Bool, False)
 
 ##nullptr_repr = NullPtrRepr()
 
@@ -132,22 +137,22 @@ class __extend__(pairtype(PtrRepr, Repr)):
 
     def rtype_eq((r_ptr, r_any), hop):
         vlist = hop.inputargs(r_ptr, r_ptr)
-        return hop.genop('ptr_eq', vlist, resulttype=Bool)
+        return hop.genop('ptr_eq', vlist, resulttype=lltype.Bool)
 
     def rtype_ne((r_ptr, r_any), hop):
         vlist = hop.inputargs(r_ptr, r_ptr)
-        return hop.genop('ptr_ne', vlist, resulttype=Bool)
+        return hop.genop('ptr_ne', vlist, resulttype=lltype.Bool)
 
 
 class __extend__(pairtype(Repr, PtrRepr)):
 
     def rtype_eq((r_any, r_ptr), hop):
         vlist = hop.inputargs(r_ptr, r_ptr)
-        return hop.genop('ptr_eq', vlist, resulttype=Bool)
+        return hop.genop('ptr_eq', vlist, resulttype=lltype.Bool)
 
     def rtype_ne((r_any, r_ptr), hop):
         vlist = hop.inputargs(r_ptr, r_ptr)
-        return hop.genop('ptr_ne', vlist, resulttype=Bool)
+        return hop.genop('ptr_ne', vlist, resulttype=lltype.Bool)
 
 # ________________________________________________________________
 # ADT  methods

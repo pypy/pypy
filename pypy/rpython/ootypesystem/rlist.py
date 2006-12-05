@@ -11,6 +11,7 @@ from pypy.rpython.ootypesystem import rstr
 
 
 class BaseListRepr(AbstractBaseListRepr):
+    rstr_ll = rstr.LLHelpers
 
     def __init__(self, rtyper, item_repr, listitem=None):
         self.rtyper = rtyper
@@ -57,24 +58,6 @@ class BaseListRepr(AbstractBaseListRepr):
 
     def make_iterator_repr(self):
         return ListIteratorRepr(self)
-
-    def ll_str(self, lst):
-        item_repr = self.item_repr
-        length = lst.ll_length()        
-        buf = ootype.new(ootype.StringBuilder)
-        buf.ll_append_char('[')
-        i = 0
-        while i < length-1:
-            item = lst.ll_getitem_fast(i)
-            buf.ll_append(item_repr.ll_str(item))
-            buf.ll_append_char(',')
-            buf.ll_append_char(' ')
-            i += 1
-        if length > 0:
-            lastitem = lst.ll_getitem_fast(i)
-            buf.ll_append(item_repr.ll_str(lastitem))
-        buf.ll_append_char(']')
-        return buf.ll_build()
 
     def rtype_hint(self, hop):
         hints = hop.args_s[-1].const

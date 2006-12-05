@@ -1,9 +1,11 @@
 from pypy.rpython.rmodel import inputconst
 from pypy.rpython.rtuple import AbstractTupleRepr, AbstractTupleIteratorRepr
 from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.ootypesystem import rstr
 
 
 class TupleRepr(AbstractTupleRepr):
+    rstr_ll = rstr.LLHelpers
 
     def __init__(self, rtyper, items_r):
         AbstractTupleRepr.__init__(self, rtyper, items_r)

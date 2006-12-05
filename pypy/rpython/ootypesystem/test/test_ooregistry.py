@@ -21,11 +21,8 @@ def test_oostring_result_annotation():
     assert isinstance(s, annmodel.SomeOOInstance) and s.ootype is ootype.String
 
 def test_oostring_call():
-    def const(c):
-        return c
-
     def oof(ch):
-        return ootype.oostring(ch, const(-1))
+        return ootype.oostring(ch, -1)
 
     ch = 'a'
     res = interpret(oof, [ch], type_system='ootype')

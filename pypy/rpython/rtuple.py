@@ -23,6 +23,7 @@ class __extend__(annmodel.SomeTuple):
 
 _gen_eq_function_cache = {}
 _gen_hash_function_cache = {}
+_gen_str_function_cache = {}
 
 def gen_eq_function(items_r):
     eq_funcs = [r_item.get_ll_eq_function() or operator.eq for r_item in items_r]
@@ -67,6 +68,41 @@ def gen_hash_function(items_r):
 
         _gen_hash_function_cache[key] = ll_hash
         return ll_hash
+
+def gen_str_function(tuplerepr):
+    items_r = tuplerepr.items_r
+    str_funcs = [r_item.ll_str for r_item in items_r]
+    key = tuplerepr.rstr_ll, tuple(str_funcs)
+    try:
+        return _gen_str_function_cache[key]
+    except KeyError:
+        autounrolling_funclist = unrolling_iterable(enumerate(str_funcs))
+
+        constant = tuplerepr.rstr_ll.ll_constant
+        start    = tuplerepr.rstr_ll.ll_build_start
+        push     = tuplerepr.rstr_ll.ll_build_push
+        finish   = tuplerepr.rstr_ll.ll_build_finish
+        length = len(items_r)
+
+        def ll_str(t):
+            if length == 0:
+                return constant("()")
+            buf = start(2 * length + 1)
+            push(buf, constant("("), 0)
+            for i, str_func in autounrolling_funclist:
+                attrname = 'item%d' % i
+                item = getattr(t, attrname)
+                if i > 0:
+                    push(buf, constant(", "), 2 * i)
+                push(buf, str_func(item), 2 * i + 1)
+            if length == 1:
+                push(buf, constant(",)"), 2 * length)
+            else:
+                push(buf, constant(")"), 2 * length)
+            return finish(buf)
+
+        _gen_str_function_cache[key] = ll_str
+        return ll_str
 
 
 class AbstractTupleRepr(Repr):
@@ -132,6 +168,8 @@ class AbstractTupleRepr(Repr):
 
     def get_ll_hash_function(self):
         return gen_hash_function(self.items_r)    
+
+    ll_str = property(gen_str_function)
 
     def make_iterator_repr(self):
         if len(self.items_r) == 1:

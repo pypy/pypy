@@ -196,6 +196,27 @@ class LLHelpers(AbstractLLHelpers):
             raise ValueError
         return sign * val
 
+    # interface to build strings:
+    #   x = ll_build_start(n)
+    #   ll_build_push(x, next_string, 0)
+    #   ll_build_push(x, next_string, 1)
+    #   ...
+    #   ll_build_push(x, next_string, n-1)
+    #   s = ll_build_finish(x)
+
+    def ll_build_start(parts_count):
+        return ootype.new(ootype.StringBuilder)
+
+    def ll_build_push(buf, next_string, index):
+        buf.ll_append(next_string)
+
+    def ll_build_finish(buf):
+        return buf.ll_build()
+
+    def ll_constant(s):
+        return ootype.make_string(s)
+    ll_constant._annspecialcase_ = 'specialize:memo'
+
     def do_stringformat(cls, hop, sourcevarsrepr):
         InstanceRepr = hop.rtyper.type_system.rclass.InstanceRepr
         string_repr = hop.rtyper.type_system.rstr.string_repr

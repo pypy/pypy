@@ -286,6 +286,14 @@ class BaseTestRtuple(BaseRtypingTest):
         res = self.interpret(f, [3])
         assert res is True
 
+    def test_tuple_str(self):
+        def f(n):
+            assert str(()) == "()"
+            assert str((n,)) == "(%d,)" % n
+            assert str((n, 6)) == "(%d, 6)" % n
+            assert str(((n,),)) == "((%d,),)" % n
+        self.interpret(f, [3])
+
 class TestLLtype(BaseTestRtuple, LLRtypeMixin):
     pass
 

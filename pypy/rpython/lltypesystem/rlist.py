@@ -37,6 +37,7 @@ from pypy.rlib.objectmodel import debug_assert
 #
 
 class BaseListRepr(AbstractBaseListRepr):
+    rstr_ll = rstr.LLHelpers
 
     def __init__(self, rtyper, item_repr, listitem=None):
         self.rtyper = rtyper
@@ -63,24 +64,6 @@ class BaseListRepr(AbstractBaseListRepr):
 
     def make_iterator_repr(self):
         return ListIteratorRepr(self)
-
-    def ll_str(self, l):
-        items = l.ll_items()
-        length = l.ll_length()
-        item_repr = self.item_repr
-
-        temp = malloc(TEMP, length)
-        i = 0
-        while i < length:
-            temp[i] = item_repr.ll_str(items[i])
-            i += 1
-
-        return rstr.ll_strconcat(
-            rstr.list_str_open_bracket,
-            rstr.ll_strconcat(rstr.ll_join(rstr.list_str_sep,
-                                           length,
-                                           temp),
-                              rstr.list_str_close_bracket))
 
     def get_itemarray_lowleveltype(self):
         ITEM = self.item_repr.lowleveltype
@@ -363,8 +346,6 @@ def ll_append_noresize(l, newitem):
     l.ll_setitem_fast(length, newitem)
 ll_append_noresize.oopspec = 'list.append(l, newitem)'
 
-
-TEMP = GcArray(Ptr(rstr.STR))
 
 def ll_both_none(lst1, lst2):
     return not lst1 and not lst2

@@ -204,3 +204,15 @@ def test_call_ptr():
         fptr(*(x,y))
 
     py.test.raises(TypeError, "interpret(wrong, [1, 2])")
+
+
+def test_ptr_str():
+    def f():
+        return str(p)
+
+    S = GcStruct('S', ('x', Signed))
+    p = malloc(S)
+
+    res = interpret(f, [])
+    assert res.chars[0] == '0'
+    assert res.chars[1] == 'x'

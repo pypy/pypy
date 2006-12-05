@@ -667,13 +667,33 @@ class LLHelpers(AbstractLLHelpers):
             raise ValueError
         return sign * val
 
+    # interface to build strings:
+    #   x = ll_build_start(n)
+    #   ll_build_push(x, next_string, 0)
+    #   ll_build_push(x, next_string, 1)
+    #   ...
+    #   ll_build_push(x, next_string, n-1)
+    #   s = ll_build_finish(x)
+
+    def ll_build_start(parts_count):
+        return malloc(TEMP, parts_count)
+
+    def ll_build_push(builder, next_string, index):
+        builder[index] = next_string
+
+    def ll_build_finish(builder):
+        return LLHelpers.ll_join_strs(len(builder), builder)
+
+    def ll_constant(s):
+        return string_repr.convert_const(s)
+    ll_constant._annspecialcase_ = 'specialize:memo'
+
     def do_stringformat(cls, hop, sourcevarsrepr):
         s_str = hop.args_s[0]
         assert s_str.is_constant()
         s = s_str.const
         things = cls.parse_fmt_string(s)
         size = inputconst(Signed, len(things)) # could be unsigned?
-        TEMP = GcArray(Ptr(STR))
         cTEMP = inputconst(Void, TEMP)
         vtemp = hop.genop("malloc_varsize", [cTEMP, size],
                           resulttype=Ptr(TEMP))
@@ -718,6 +738,8 @@ class LLHelpers(AbstractLLHelpers):
         hop.exception_cannot_occur()   # to ignore the ZeroDivisionError of '%'
         return hop.gendirectcall(cls.ll_join_strs, size, vtemp)
     do_stringformat = classmethod(do_stringformat)
+
+TEMP = GcArray(Ptr(STR))
 
 
 # TODO: make the public interface of the rstr module cleaner
@@ -770,9 +792,5 @@ null_str = string_repr.convert_const("NULL")
 
 unboxed_instance_str_prefix = string_repr.convert_const("<unboxed ")
 unboxed_instance_str_suffix = string_repr.convert_const(">")
-
-list_str_open_bracket = string_repr.convert_const("[")
-list_str_close_bracket = string_repr.convert_const("]")
-list_str_sep = string_repr.convert_const(", ")
 
 percent_f = string_repr.convert_const("%f")
