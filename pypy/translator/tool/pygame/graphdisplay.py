@@ -3,7 +3,7 @@ import autopath
 import os, time, sys
 import pygame
 from pygame.locals import *
-from pypy.translator.tool.pygame.drawgraph import GraphRenderer
+from pypy.translator.tool.pygame.drawgraph import GraphRenderer, FIXEDFONT
 from pypy.translator.tool.pygame.drawgraph import Node, Edge
 from pypy.translator.tool.pygame.drawgraph import EventQueue, wait_for_events
 
@@ -59,7 +59,7 @@ class Display(object):
         self.screen = pygame.display.set_mode((w, h), HWSURFACE|RESIZABLE, 32)
 
 class GraphDisplay(Display):
-    STATUSBARFONT = os.path.join(autopath.this_dir, 'VeraMoBd.ttf')
+    STATUSBARFONT = FIXEDFONT
     ANIM_STEP = 0.07
     KEY_REPEAT = (500, 30)
     STATUSBAR_ALPHA = 0.75

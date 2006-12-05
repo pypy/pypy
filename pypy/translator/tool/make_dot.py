@@ -67,10 +67,11 @@ class DotGen:
                   color="black",
                   fillcolor="white", 
                   style="filled",
+                  width="0.75",
                   ):
         d = locals()
         attrs = [('%s="%s"' % (x, d[x].replace('"', '\\"').replace('\n', '\\n')))
-                 for x in ['shape', 'label', 'color', 'fillcolor', 'style']]
+                 for x in ['shape', 'label', 'color', 'fillcolor', 'style', 'width']]
         self.emit('%s [%s];' % (safename(name), ", ".join(attrs)))
 
 

@@ -134,6 +134,8 @@ class InProcessConnexion:
         key = page
         page = page.content()
         layout = ClientGraphLayout(self, key, page.source, page.links)
+        if getattr(page, 'fixedfont', False):
+            layout.fixedfont = True
         return layout
 
     def initiate_display(self, page, link=None, do_display=False):

@@ -2,9 +2,6 @@ import os
 from ctypes import POINTER, cast, c_char, c_void_p, CFUNCTYPE, c_int
 from ri386 import I386CodeBuilder
 
-# Set this to enable/disable the CODE_DUMP stdout lines
-CODE_DUMP = False
-
 # ____________________________________________________________
 
 
@@ -51,21 +48,46 @@ class InMemoryCodeBuilder(I386CodeBuilder):
 
     def done(self):
         # normally, no special action is needed here
-        if CODE_DUMP:
-            self.dump_range(self._last_dump_start, self._pos)
-            self._last_dump_start = self._pos
+        if machine_code_dumper.enabled:
+            machine_code_dumper.dump(self)
 
-    def dump_range(self, start, end):
+
+class MachineCodeDumper:
+    enabled = True
+    log_fd = -1
+
+    def dump(self, cb):
+        if self.log_fd < 0:
+            # check the environment for a file name
+            from pypy.rlib.ros import getenv
+            s = getenv('PYPYJITLOG')
+            if not s:
+                self.enabled = False
+                return
+            try:
+                flags = os.O_WRONLY|os.O_CREAT|os.O_TRUNC
+                self.log_fd = os.open(s, flags, 0666)
+            except OSError:
+                os.write(2, "could not create log file\n")
+                self.enabled = False
+                return
+        self.dump_range(cb, cb._last_dump_start, cb._pos)
+        cb._last_dump_start = cb._pos
+
+    def dump_range(self, cb, start, end):
         HEX = '0123456789ABCDEF'
         dump = []
         for p in range(start, end):
-            o = ord(self._data.contents[p])
+            o = ord(cb._data.contents[p])
             dump.append(HEX[o >> 4])
             dump.append(HEX[o & 15])
             if (p & 3) == 3:
                 dump.append(':')
-        os.write(2, 'CODE_DUMP @%x +%d  %s\n' % (self.tell() - self._pos,
-                                                 start, ''.join(dump)))
+        line = 'CODE_DUMP @%x +%d  %s\n' % (cb.tell() - cb._pos,
+                                            start, ''.join(dump))
+        os.write(self.log_fd, line)
+
+machine_code_dumper = MachineCodeDumper()
 
 
 class MachineCodeBlock(InMemoryCodeBuilder):

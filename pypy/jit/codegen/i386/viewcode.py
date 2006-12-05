@@ -8,6 +8,7 @@ or
     /tmp/usession-xxx/testing_1/testing_1 -var 4  2>&1  |  ./viewcode.py
 """
 
+import autopath
 import operator, sys, os, re, py
 
 # don't use pypy.tool.udir here to avoid removing old usessions which
@@ -153,13 +154,39 @@ class World(object):
     def show(self):
         g1 = Graph('codedump')
         for r in self.ranges:
-            text = r.disassemble().replace('\t', '  ')
+            text, width = tab2columns(r.disassemble())
             text = '0x%x\n\n%s' % (r.addr, text)
-            g1.emit_node('N_%x' % r.addr, shape="box", label=text)
+            g1.emit_node('N_%x' % r.addr, shape="box", label=text,
+                         width=str(width*0.125))
             for lineno, targetaddr in r.findjumps():
                 g1.emit_edge('N_%x' % r.addr, 'N_%x' % targetaddr)
         g1.display()
 
+
+def tab2columns(text):
+    lines = text.split('\n')
+    columnwidth = []
+    for line in lines:
+        columns = line.split('\t')
+        while len(columnwidth) < len(columns):
+            columnwidth.append(0)
+        for i, s in enumerate(columns):
+            width = len(s.strip())
+            if not s.endswith(':'):
+                width += 2
+            columnwidth[i] = max(columnwidth[i], width)
+    result = []
+    for line in lines:
+        columns = line.split('\t')
+        text = []
+        for width, s in zip(columnwidth, columns):
+            text.append(s.strip().ljust(width))
+        result.append(' '.join(text))
+    if result:
+        totalwidth = len(result[0])
+    else:
+        totalwidth = 1
+    return '\\l'.join(result), totalwidth
 
 # ____________________________________________________________
 # XXX pasted from
@@ -201,6 +228,8 @@ class _Page:
         return _PageContent(self.graph_builder)
 
 class _PageContent:
+    fixedfont = True
+
     def __init__(self, graph_builder):
         if callable(graph_builder):
             graph = graph_builder()
