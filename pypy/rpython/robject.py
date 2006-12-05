@@ -9,10 +9,10 @@ from pypy.tool.sourcetools import func_with_new_name
 
 class __extend__(annmodel.SomeObject):
     def rtyper_makerepr(self, rtyper):
-        if self.is_constant():
-            return constpyobj_repr
         if self.knowntype is type:
             return rclass.get_type_repr(rtyper)
+        elif self.is_constant():
+            return constpyobj_repr
         else:
             return pyobj_repr
     def rtyper_makekey(self):

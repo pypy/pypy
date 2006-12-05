@@ -614,7 +614,6 @@ class RPythonAnnotator(object):
                         candidates = [c for c in candidates if c not in covered]
 
         for link in exits:
-            self.links_followed[link] = True
             import types
             in_except_block = False
 
@@ -695,7 +694,12 @@ class RPythonAnnotator(object):
             if in_except_block:
                 last_exception_object.is_type_of = last_exc_value_vars
 
+            if annmodel.s_ImpossibleValue in cells:
+                continue    # ignore links that try to pass impossible values
+
+            self.links_followed[link] = True
             self.addpendingblock(graph, link.target, cells)
+
         if block in self.notify:
             # reflow from certain positions when this block is done
             for callback in self.notify[block]:
