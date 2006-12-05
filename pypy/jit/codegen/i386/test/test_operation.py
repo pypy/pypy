@@ -192,3 +192,22 @@ class TestBasic:
             fp = self.rgen(fn, [r_uint, r_uint])
             assert fp(40, 2) == fn(40, 2)
             assert fp(25, 3) == fn(25, 3)
+
+    def test_float_arithmetic(self):
+        py.test.skip("floats in codegen/i386")
+        for fn in [lambda x, y: bool(y),
+                   lambda x, y: bool(y - 2.0),
+                   lambda x, y: x + y,
+                   lambda x, y: x - y,
+                   lambda x, y: x * y,
+                   lambda x, y: x / y,
+                   #lambda x, y: x % y,     not used?
+                   lambda x, y: x ** y,
+                   lambda x, y: -y,
+                   lambda x, y: ~y,
+                   lambda x, y: abs(y),
+                   lambda x, y: abs(-x),
+                   ]:
+            fp = self.rgen(fn, [float, float])
+            assert fp(40.0, 2.0) == fn(40.0, 2.0)
+            assert fp(25.125, 1.5) == fn(25.125, 1.5)
