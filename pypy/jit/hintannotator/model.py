@@ -33,22 +33,26 @@ class HintError(Exception):
     pass
 
 class OriginFlags(object):
-
     fixed = False
     read_positions = None
-    greenargs_cached = None
-    is_call_result = False
+    greenargs = False
 
     def __init__(self, bookkeeper=None, spaceop=None):
         self.bookkeeper = bookkeeper
         self.spaceop = spaceop
 
     def __repr__(self):
+        return '<%s %s>' % (getattr(self.spaceop, 'result', '?'),
+                            self.reprstate())
+
+    def reprstate(self):
         if self.fixed:
             s = "fixed "
+        elif self.greenargs:
+            s = "green"
         else:
             s = ""
-        return "<%sorigin>" % (s,)
+        return "%sorigin" % (s,)
 
     def read_fixed(self):
         if self.read_positions is None:
@@ -64,63 +68,66 @@ class OriginFlags(object):
                 for p in self.read_positions:
                     annotator.reflowfromposition(p)
 
-    def greenargs(self, frame=None):
-        annotator = self.bookkeeper.annotator
-        if frame is None:
-            if self.greenargs_cached is not None:
-                return self.greenargs_cached
-            frame = GreenHandlerFrame(annotator)
-        if self.is_call_result:
-            return frame.greencallresult(self.spaceop)
+    def record_dependencies(self, greenorigindependencies):
+        deps = greenorigindependencies.setdefault(self, [])
+        deps.extend(self.spaceop.args)
+
+
+class CallOpOriginFlags(OriginFlags):
+
+    def record_dependencies(self, greenorigindependencies):
+        bk = self.bookkeeper
+        if self.spaceop.opname == 'direct_call':
+            args = self.spaceop.args[1:]
+        elif self.spaceop.opname == 'indirect_call':
+            args = self.spaceop.args[1:-1]
         else:
-            for v in self.spaceop.args:
-                if not frame.greenvar(v):
-                    return False
-            return True
+            raise AssertionError(self.spaceop.opname)
+
+        graph = self.any_called_graph
+        call_families = bk.tsgraph_maximal_call_families
+        _, repgraph, callfamily = call_families.find(graph)
+
+        # record the argument and return value dependencies
+        retdeps = greenorigindependencies.setdefault(self, [])
+        for graph in callfamily.tsgraphs:
+            retdeps.append(graph.getreturnvar())
+            for i, v in enumerate(args):
+                argorigin = bk.myinputargorigin(graph, i)
+                deps = greenorigindependencies.setdefault(argorigin, [])
+                deps.append(v)
 
 
-class GreenHandlerFrame(object):
+class InputArgOriginFlags(OriginFlags):
 
-    def __init__(self, annotator, parentframe=None):
-        self.annotator = annotator
-        self.parentframe = parentframe
-        self.inputarg2actualarg = {}    # {origin: annotation}
+    def __init__(self, bookkeeper, graph, i):
+        OriginFlags.__init__(self, bookkeeper)
+        self.graph = graph
+        self.i = i
 
-    def greenvar(self, v):
-        hs = self.annotator.binding(v)
-        if isinstance(hs, SomeLLAbstractConstant) and len(hs.origins) == 1:
-            [o] = hs.origins.keys()
-            if o in self.inputarg2actualarg:
-                hs_actual = self.inputarg2actualarg[o]
-                return hs_actual.is_green(self.parentframe)
-        return hs.is_green(self)
+    def getarg(self):
+        return self.graph.getargs()[self.i]
 
-    def greencallresult(self, spaceop):
-##        print spaceop
-##        if str(spaceop.result) == 'v58':
-##            import pdb; pdb.set_trace()
-        args_hs = [self.annotator.binding(v) for v in spaceop.args]
-        hs_result = self.annotator.binding(spaceop.result)
-        if not isinstance(hs_result, SomeLLAbstractConstant):
-            return False     # was generalized, e.g. to SomeLLAbstractVariable
-        hs_f1 = args_hs.pop(0)
-        fnobj = hs_f1.const._obj
-        if (self.annotator.policy.oopspec and
-            hasattr(fnobj._callable, 'oopspec')):
-            assert False     # XXX?
+    def __repr__(self):
+        return '<%s %s>' % (self.getarg(), self.reprstate())
 
-        input_args_hs = list(args_hs)
-        bk = self.annotator.bookkeeper
-        graph = bk.get_graph_for_call(fnobj.graph,
-                                      hs_result.is_fixed(),
-                                      input_args_hs)
-        newframe = GreenHandlerFrame(self.annotator, parentframe=self)
-        for hs_inp_arg, hs_arg in zip(input_args_hs, args_hs):
-            if isinstance(hs_arg, SomeLLAbstractConstant):
-                assert len(hs_inp_arg.origins) == 1
-                [o] = hs_inp_arg.origins.keys()
-                newframe.inputarg2actualarg[o] = hs_arg
-        return newframe.greenvar(graph.getreturnvar())
+    def record_dependencies(self, greenorigindependencies):
+        bk = self.bookkeeper
+        call_families = bk.tsgraph_maximal_call_families
+        _, repgraph, callfamily = call_families.find(self.graph)
+
+        # record the fact that each graph's input args should be as red
+        # as each other's
+        if self.graph is repgraph:
+            deps = greenorigindependencies.setdefault(self, [])
+            v = self.getarg()
+            for othergraph in callfamily.tsgraphs:
+                if othergraph is not repgraph:
+                    deps.append(othergraph.getargs()[self.i])
+                    otherorigin = bk.myinputargorigin(othergraph, self.i)
+                    otherdeps = greenorigindependencies.setdefault(otherorigin,
+                                                                   [])
+                    otherdeps.append(v)
 
 # ____________________________________________________________
 
@@ -132,7 +139,7 @@ class SomeLLAbstractValue(annmodel.SomeObject):
         assert self.__class__ != SomeLLAbstractValue
         self.deepfrozen = deepfrozen
 
-    def is_green(self, frame=None):
+    def is_green(self):
         return False
 
 
@@ -145,12 +152,11 @@ class SomeLLAbstractConstant(SomeLLAbstractValue):
         self.origins = origins
         self.eager_concrete = eager_concrete
         self.myorigin = myorigin
-        assert myorigin is None or myorigin.spaceop is not None
 
     def fmt_origins(self, origins):
         counts = {}
         for o in origins:
-            x = repr(o)
+            x = o.reprstate()
             counts[x] = counts.get(x, 0) + 1
         items = counts.items()
         items.sort()
@@ -167,7 +173,7 @@ class SomeLLAbstractConstant(SomeLLAbstractValue):
         if myorigin is None:
             return None
         else:
-            return str(myorigin.spaceop.result)
+            return repr(myorigin)
 
     def is_fixed(self):
         for o in self.origins:
@@ -175,18 +181,19 @@ class SomeLLAbstractConstant(SomeLLAbstractValue):
                 return False
         return True
 
-    def is_green(self, frame=None):
+    def is_green(self):
         return (self.is_fixed() or self.eager_concrete or
                 self.concretetype is lltype.Void or
-                (self.myorigin is not None and
-                 self.myorigin.greenargs(frame)))
+                (self.myorigin is not None and self.myorigin.greenargs))
 
     def annotationcolor(self):
         """Compute the color of the variables with this annotation
         for the pygame viewer
         """
         try:
-            if self.eager_concrete:
+            if self.concretetype is lltype.Void:
+                return annmodel.s_ImpossibleValue.annotationcolor
+            elif self.eager_concrete:
                 return (0,100,0)     # green
             elif self.is_green():
                 return (50,140,0)    # green-dark-cyan
@@ -328,11 +335,16 @@ class __extend__(SomeLLAbstractValue):
             # cannot follow
             return variableoftype(hs_v1.concretetype.TO.RESULT)
 
-        fixed = bookkeeper.myorigin().read_fixed()
-        hs_res = bookkeeper.graph_family_call(graph_list, fixed, args_hs)
+        myorigin = bookkeeper.myorigin()
+        myorigin.__class__ = CallOpOriginFlags     # thud
+        fixed = myorigin.read_fixed()
+        tsgraphs_accum = []
+        hs_res = bookkeeper.graph_family_call(graph_list, fixed, args_hs,
+                                              tsgraphs_accum)
+        myorigin.any_called_graph = tsgraphs_accum[0]
 
         if isinstance(hs_res, SomeLLAbstractConstant):
-            hs_res.myorigin = bookkeeper.myorigin()
+            hs_res.myorigin = myorigin
 
         # we need to make sure that hs_res does not become temporarily less
         # general as a result of calling another specialized version of the
@@ -390,12 +402,17 @@ class __extend__(SomeLLAbstractConstant):
             bookkeeper.annotator.translator.graphs[0]):
             return variableoftype(lltype.typeOf(fnobj).RESULT)
 
-        fixed = bookkeeper.myorigin().read_fixed()
-        hs_res = bookkeeper.graph_call(fnobj.graph, fixed, args_hs)
+        myorigin = bookkeeper.myorigin()
+        myorigin.__class__ = CallOpOriginFlags     # thud
+        fixed = myorigin.read_fixed()
+        tsgraphs_accum = []
+        hs_res = bookkeeper.graph_call(fnobj.graph, fixed, args_hs,
+                                       tsgraphs_accum)
+        myorigin.any_called_graph = tsgraphs_accum[0]
 
         if isinstance(hs_res, SomeLLAbstractConstant):
-            hs_res.myorigin = bookkeeper.myorigin()
-            hs_res.myorigin.is_call_result = True
+            hs_res.myorigin = myorigin
+
 ##        elif fnobj.graph.name.startswith('ll_stritem'):
 ##            if isinstance(hs_res, SomeLLAbstractVariable):
 ##                print hs_res

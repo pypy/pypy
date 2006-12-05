@@ -152,9 +152,9 @@ class HintRTyper(RPythonTyper):
         """
         Driver for running the timeshifter.
         """
-        self.type_system.perform_normalizations(self)
+##        self.type_system.perform_normalizations(self)
         bk = self.annotator.bookkeeper
-        bk.compute_after_normalization()
+##        bk.compute_after_normalization()
         entrygraph = self.annotator.translator.graphs[0]
         self.origportalgraph = origportalgraph
         if origportalgraph:

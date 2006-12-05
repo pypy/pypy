@@ -10,9 +10,12 @@ from pypy.rpython.lltypesystem import lltype
 
 class HintAnnotatorPolicy(policy.AnnotatorPolicy):
 
-    def __init__(self, novirtualcontainer=False, oopspec=False):
-        self.novirtualcontainer = novirtualcontainer
-        self.oopspec            = oopspec
+    def __init__(self, novirtualcontainer     = False,
+                       oopspec                = False,
+                       entrypoint_returns_red = True):
+        self.novirtualcontainer     = novirtualcontainer
+        self.oopspec                = oopspec
+        self.entrypoint_returns_red = entrypoint_returns_red
 
     def look_inside_graph(self, graph):
         return True

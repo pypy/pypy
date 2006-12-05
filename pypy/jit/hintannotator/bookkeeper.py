@@ -25,12 +25,15 @@ class GraphDesc(object):
 
         # modify input_args_hs in-place to change their origin
         for i in range(len(input_args_hs)):
-            old = self.bookkeeper.enter((graph, i))
-            try:
-                input_args_hs[i] = hintmodel.reorigin(input_args_hs[i])
-            finally:
-                self.bookkeeper.leave(old)
-
+            hs_v1 = input_args_hs[i]
+            if isinstance(hs_v1, hintmodel.SomeLLAbstractConstant):
+                myorigin = self.bookkeeper.myinputargorigin(graph, i)
+                hs_v1 = hintmodel.SomeLLAbstractConstant(
+                    hs_v1.concretetype, {myorigin: True},
+                    eager_concrete = hs_v1.eager_concrete,
+                    deepfrozen     = hs_v1.deepfrozen,
+                    myorigin       = myorigin)
+                input_args_hs[i] = hs_v1
         return graph
 
     def cachedgraph(self, key, alt_name=None):
@@ -100,31 +103,80 @@ class HintBookkeeper(object):
         else:
             self.position_key = old
 
+    def myinputargorigin(self, graph, i):
+        try:
+            origin = self.originflags[graph, i]
+        except KeyError:
+            origin = hintmodel.InputArgOriginFlags(self, graph, i)
+            self.originflags[graph, i] = origin
+        return origin
+
     def myorigin(self):
         try:
             origin = self.originflags[self.position_key]
         except KeyError:
-            if len(self.position_key) == 3:
-                graph, block, i = self.position_key
-                spaceop = block.operations[i]
-                spaceop = SpaceOperation(spaceop.opname,
-                                         list(spaceop.args),
-                                         spaceop.result)
-            else:
-                spaceop = None
+            assert len(self.position_key) == 3
+            graph, block, i = self.position_key
+            spaceop = block.operations[i]
+            spaceop = SpaceOperation(spaceop.opname,
+                                     list(spaceop.args),
+                                     spaceop.result)
             origin = hintmodel.OriginFlags(self, spaceop)
             self.originflags[self.position_key] = origin
         return origin
 
     def compute_at_fixpoint(self):
-        pass
+        binding = self.annotator.binding
 
-    def compute_after_normalization(self):
-        # compute and cache the green-ness of OriginFlags objects
-        # while we can do so (i.e. before the graphs are modified).
+        # for the entry point, we need to remove the 'myorigin' of
+        # the input arguments (otherwise they will always be green,
+        # as there is no call to the entry point to make them red)
+        tsgraph = self.annotator.translator.graphs[0]
+        for v in tsgraph.getargs():
+            hs_arg = binding(v)
+            if isinstance(hs_arg, hintmodel.SomeLLAbstractConstant):
+                hs_arg.myorigin = None
+        # for convenience, force the return var to be red too, as
+        # the timeshifter doesn't support anything else
+        if self.annotator.policy.entrypoint_returns_red:
+            v = tsgraph.getreturnvar()
+            hs_red = hintmodel.variableoftype(v.concretetype)
+            self.annotator.setbinding(v, hs_red)
+
+        # propagate the green/red constraints
+        log.event("Computing maximal green set...")
+        greenorigindependencies = {}
         for origin in self.originflags.values():
-            if origin.spaceop is not None:
-                origin.greenargs_cached = origin.greenargs()
+            origin.greenargs = True
+            origin.record_dependencies(greenorigindependencies)
+
+        while True:
+            progress = False
+            for origin, deps in greenorigindependencies.items():
+                for v in deps:
+                    if not binding(v).is_green():
+                        # not green => force the origin to be red too
+                        origin.greenargs = False
+                        del greenorigindependencies[origin]
+                        progress = True
+                        break
+            if not progress:
+                break
+
+        for callfamily in self.tsgraph_maximal_call_families.infos():
+            if len(callfamily.tsgraphs) > 1:
+                # if at least one graph in the family returns a red,
+                # we force a red as the return of all of them
+                returns_red = False
+                for graph in callfamily.tsgraphs:
+                    if not binding(graph.getreturnvar()).is_green():
+                        returns_red = True
+                if returns_red:
+                    for graph in callfamily.tsgraphs:
+                        v = graph.getreturnvar()
+                        hs_red = hintmodel.variableoftype(v.concretetype)
+                        self.annotator.setbinding(v, hs_red)
+
         # compute and cache the signature of the graphs before they are
         # modified by further code
         ha = self.annotator
@@ -249,8 +301,12 @@ class HintBookkeeper(object):
             hs_res = hintmodel.reorigin(hs_res, *deps_hs)
         return hs_res
 
-    def graph_family_call(self, graph_list, fixed, args_hs):
-        tsgraphs = []
+    def graph_family_call(self, graph_list, fixed, args_hs,
+                          tsgraphs_accum=None):
+        if tsgraphs_accum is None:
+            tsgraphs = []
+        else:
+            tsgraphs = tsgraphs_accum
         results_hs = []
         for graph in graph_list:
             results_hs.append(self.graph_call(graph, fixed, args_hs, tsgraphs))

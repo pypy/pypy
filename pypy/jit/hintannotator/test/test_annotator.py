@@ -10,12 +10,16 @@ from pypy.objspace.flow import model as flowmodel
 from pypy.translator.backendopt.inline import auto_inlining
 from pypy import conftest
 
-P_OOPSPEC = HintAnnotatorPolicy(oopspec=True)
+P_DEFAULT = HintAnnotatorPolicy(entrypoint_returns_red=False)
+P_OOPSPEC = HintAnnotatorPolicy(oopspec=True,
+                                entrypoint_returns_red=False)
 P_OOPSPEC_NOVIRTUAL = HintAnnotatorPolicy(oopspec=True,
-                                          novirtualcontainer=True)
-P_NOVIRTUAL = HintAnnotatorPolicy(novirtualcontainer=True)
+                                          novirtualcontainer=True,
+                                          entrypoint_returns_red=False)
+P_NOVIRTUAL = HintAnnotatorPolicy(novirtualcontainer=True,
+                                  entrypoint_returns_red=False)
 
-def hannotate(func, argtypes, policy=None, annotator=False, inline=None,
+def hannotate(func, argtypes, policy=P_DEFAULT, annotator=False, inline=None,
               backendoptimize=False):
     # build the normal ll graphs for ll_function
     t = TranslationContext()
