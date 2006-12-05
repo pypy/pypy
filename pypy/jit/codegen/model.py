@@ -138,6 +138,11 @@ class GenBuilder(object):
         So far, the machine code backends don\'t actually do anything for this.
         '''
 
+    def log(self, msg):
+        '''Optional method: prints or logs the position of the generated code
+        along with the given msg.
+        '''
+
 class GenLabel(object):
     '''A "smart" label.  Represents an address of the start of a basic
     block and the location of the inputargs on entry to that block.'''

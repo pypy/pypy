@@ -422,6 +422,9 @@ class Builder(GenBuilder):
     def show_incremental_progress(self):
         pass
 
+    def log(self, msg):
+        self.mc.log(msg)
+
     # ____________________________________________________________
 
     def stack_access(self, stackpos):

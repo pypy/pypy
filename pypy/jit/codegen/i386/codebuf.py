@@ -49,30 +49,41 @@ class InMemoryCodeBuilder(I386CodeBuilder):
     def done(self):
         # normally, no special action is needed here
         if machine_code_dumper.enabled:
-            machine_code_dumper.dump(self)
+            machine_code_dumper.dump_range(self, self._last_dump_start,
+                                           self._pos)
+            self._last_dump_start = self._pos
+
+    def log(self, msg):
+        if machine_code_dumper.enabled:
+            machine_code_dumper.dump(self, 'LOG', self._pos, msg)
 
 
 class MachineCodeDumper:
     enabled = True
     log_fd = -1
 
-    def dump(self, cb):
+    def open(self):
         if self.log_fd < 0:
             # check the environment for a file name
             from pypy.rlib.ros import getenv
             s = getenv('PYPYJITLOG')
             if not s:
                 self.enabled = False
-                return
+                return False
             try:
                 flags = os.O_WRONLY|os.O_CREAT|os.O_TRUNC
                 self.log_fd = os.open(s, flags, 0666)
             except OSError:
                 os.write(2, "could not create log file\n")
                 self.enabled = False
-                return
-        self.dump_range(cb, cb._last_dump_start, cb._pos)
-        cb._last_dump_start = cb._pos
+                return False
+        return True
+
+    def dump(self, cb, tag, pos, msg):
+        if not self.open():
+            return
+        line = '%s @%x +%d  %s\n' % (tag, cb.tell() - cb._pos, pos, msg)
+        os.write(self.log_fd, line)
 
     def dump_range(self, cb, start, end):
         HEX = '0123456789ABCDEF'
@@ -83,9 +94,7 @@ class MachineCodeDumper:
             dump.append(HEX[o & 15])
             if (p & 3) == 3:
                 dump.append(':')
-        line = 'CODE_DUMP @%x +%d  %s\n' % (cb.tell() - cb._pos,
-                                            start, ''.join(dump))
-        os.write(self.log_fd, line)
+        self.dump(cb, 'CODE_DUMP', start, ''.join(dump))
 
 machine_code_dumper = MachineCodeDumper()
 

@@ -221,12 +221,13 @@ def start_new_block(states_dic, jitstate, key, global_resumer, index=-1):
     assert res, "exactmatch() failed"
     cleanup_partial_data(memo.partialdatamatch)
     newblock = enter_next_block(jitstate, outgoingvarboxes)
-    if index == -1:
+    if index < 0:
         states_dic[key].append((frozen, newblock))
     else:
         states_dic[key][index] = (frozen, newblock)
         
     if global_resumer is not None and global_resumer is not return_marker:
+        jitstate.curbuilder.log('start_new_block %s' % (key,))
         greens_gv = jitstate.greens
         rgenop = jitstate.curbuilder.rgenop
         node = PromotionPathRoot(greens_gv, rgenop,
