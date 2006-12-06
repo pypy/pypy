@@ -1,5 +1,5 @@
 from pypy.annotation import model as annmodel
-from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.ootypesystem import ootype, rootype
 from pypy.rpython.ootypesystem import rclass
 from pypy.rpython.ootypesystem.rdict import rtype_r_dict
 from pypy.objspace.flow.model import Constant
@@ -20,23 +20,24 @@ def rtype_null(hop):
 
 def rtype_classof(hop):
     assert isinstance(hop.args_s[0], annmodel.SomeOOInstance)
-    return hop.genop('classof', hop.args_v,
+    vlist = hop.inputargs(hop.args_r[0])
+    return hop.genop('classof', vlist,
                      resulttype = ootype.Class)
 
 def rtype_subclassof(hop):
-    assert isinstance(hop.args_s[0], annmodel.SomeOOClass)
-    assert isinstance(hop.args_s[1], annmodel.SomeOOClass)
-    return hop.genop('subclassof', hop.args_v,
+    vlist = hop.inputargs(rootype.ooclass_repr, rootype.ooclass_repr)
+    return hop.genop('subclassof', vlist,
                      resulttype = ootype.Bool)
 
 def rtype_runtimenew(hop):
-    assert isinstance(hop.args_s[0], annmodel.SomeOOClass)
-    return hop.genop('runtimenew', hop.args_v,
+    vlist = hop.inputargs(rootype.ooclass_repr)
+    return hop.genop('runtimenew', vlist,
                      resulttype = hop.r_result.lowleveltype)
 
 def rtype_ooidentityhash(hop):
     assert isinstance(hop.args_s[0], annmodel.SomeOOInstance)
-    return hop.genop('ooidentityhash', hop.args_v,
+    vlist = hop.inputargs(hop.args_r[0])
+    return hop.genop('ooidentityhash', vlist,
                      resulttype = ootype.Signed)
 
 def rtype_builtin_isinstance(hop):

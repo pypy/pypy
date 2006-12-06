@@ -61,11 +61,8 @@ class UniCharRepr(AbstractUniCharRepr):
 
 class LLHelpers(AbstractLLHelpers):
 
-    def ll_const(c):
-        return c
-
     def ll_chr2str(ch):
-        return ootype.oostring(ch, LLHelpers.ll_const(-1))
+        return ootype.oostring(ch, -1)
 
     def ll_strhash(s):
         return ootype.oohash(s)

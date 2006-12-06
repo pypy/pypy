@@ -717,6 +717,8 @@ class HighLevelOp(object):
         return vars
 
     def genop(self, opname, args_v, resulttype=None):
+        assert args_v is not self.args_v, ("Wrong level! "
+            "You need to pass the result of hop.inputargs() to genop().")
         return self.llops.genop(opname, args_v, resulttype)
 
     def gendirectcall(self, ll_function, *args_v):
