@@ -813,10 +813,10 @@ class TestTimeshift(TimeshiftingTests):
             res = a, b
             keepalive_until_here(b)      # to keep getarrayitem around
             return res
+        ll_function.convert_result = lambda x: str(len(x.item0))
 
         res = self.timeshift(ll_function, [2], [], policy=P_NOVIRTUAL)
-        assert lltype.typeOf(res.item0) == lltype.Ptr(A)
-        assert res.item1 is None
+        assert res == "3"
 
     def test_red_propagate(self):
         S = lltype.GcStruct('S', ('n', lltype.Signed))
