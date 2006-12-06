@@ -115,11 +115,15 @@ class HintGraphTransformer(object):
             c = 'red'
         return c
 
-    def timeshifted_graph_of(self, graph, args_v):
+    def timeshifted_graph_of(self, graph, args_v, v_result):
         bk = self.hannotator.bookkeeper
         args_hs = [self.hannotator.binding(v) for v in args_v]
-        # fixed is always false here
-        specialization_key = bk.specialization_key(False, args_hs)
+        hs_result = self.hannotator.binding(v_result)
+        if isinstance(hs_result, hintmodel.SomeLLAbstractConstant):
+            fixed = hs_result.is_fixed()
+        else:
+            fixed = False
+        specialization_key = bk.specialization_key(fixed, args_hs)
         tsgraph = bk.get_graph_by_key(graph, specialization_key)
         self.tsgraphs_seen.append(tsgraph)
         return tsgraph
@@ -451,7 +455,7 @@ class HintGraphTransformer(object):
         if not self.hannotator.policy.look_inside_graphs(graphs):
             return    # cannot follow this call
         for graph in graphs:
-            tsgraph = self.timeshifted_graph_of(graph, args_v)
+            tsgraph = self.timeshifted_graph_of(graph, args_v, spaceop.result)
             yield graph, tsgraph
 
     def guess_call_kind(self, spaceop):
