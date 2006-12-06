@@ -19,7 +19,6 @@ class TranslationContext(object):
     FLOWING_FLAGS = {
         'verbose': False,
         'simplifying': True,
-        'do_imports_immediately': True,
         'builtins_can_raise_exceptions': False,
         'list_comprehension_operations': False,   # True, - not super-tested
         }
@@ -30,7 +29,7 @@ class TranslationContext(object):
             from pypy.config.pypyoption import pypy_optiondescription
             config = Config(pypy_optiondescription)
         # ZZZ should go away in the end
-        for attr in ['verbose', 'simplifying', 'do_imports_immediately',
+        for attr in ['verbose', 'simplifying',
                      'builtins_can_raise_exceptions',
                      'list_comprehension_operations']:
             if attr in flowing_flags:
@@ -59,6 +58,9 @@ class TranslationContext(object):
             if self.annotator:
                 # ZZZ
                 self.annotator.policy._adjust_space_config(space)
+            elif hasattr(self, 'no_annotator_but_do_imports_immediately'):
+                space.do_imports_immediately = (
+                    self.no_annotator_but_do_imports_immediately)
             graph = space.build_flow(func)
             if self.config.translation.simplifying:
                 simplify.simplify_graph(graph)

@@ -7,6 +7,8 @@ from pypy.translator.gensupp import NameManager
 #
 USESLOTS = True
 
+PyObjPtr = lltype.Ptr(lltype.PyObject)
+
 
 class ErrorValue:
     def __init__(self, TYPE):
@@ -48,6 +50,8 @@ def llvalue_from_constant(c):
     try:
         T = c.concretetype
     except AttributeError:
+        T = PyObjPtr
+    if T == PyObjPtr and not isinstance(c.value, lltype._ptr):
         return lltype.pyobjectptr(c.value)
     else:
         if T == lltype.Void:

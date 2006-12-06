@@ -715,7 +715,7 @@ class TestFlowObjSpace(Base):
 class TestFlowObjSpaceDelay(Base):
     def setup_class(cls):
         cls.space = FlowObjSpace()
-        cls.space.config.translation.do_imports_immediately = False
+        cls.space.do_imports_immediately = False
 
     def test_import_something(self):
         def f():

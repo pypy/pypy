@@ -29,8 +29,8 @@ class BasicAnnotatorPolicy(object):
 
     def _adjust_space_config(self, space):
         # allow to override space options.
-        if getattr(self, 'override_do_imports_immediately', None) is not None:
-            space.do_imports_immediately = self.override_do_imports_immediately
+        if getattr(self, 'do_imports_immediately', None) is not None:
+            space.do_imports_immediately = self.do_imports_immediately
 
 class AnnotatorPolicy(BasicAnnotatorPolicy):
     """

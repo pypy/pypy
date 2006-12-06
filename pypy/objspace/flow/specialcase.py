@@ -11,7 +11,7 @@ def sc_import(space, fn, args):
         # import * in a function gives us the locals as Variable
         # we always forbid it as a SyntaxError
         raise SyntaxError, "RPython: import * is not allowed in functions"
-    if space.config.translation.do_imports_immediately:
+    if space.do_imports_immediately:
         name, glob, loc, frm = (space.unwrap(w_name), space.unwrap(w_glob),
                                 space.unwrap(w_loc), space.unwrap(w_frm))
         try:

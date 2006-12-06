@@ -114,6 +114,9 @@ def format_someobject_error(annotator, position_key, what, s_value, called_from_
     msg = ["annotation of %r degenerated to SomeObject()" % (what,)]
     if position_key is not None:
         graph, block, operindex = position_key
+        oper = block.operations[operindex]
+        msg.append(str(oper))
+        msg.append('')
         msg += source_lines(graph, block, operindex, long=True)
         
     if called_from_graph is not None:

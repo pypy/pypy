@@ -1495,9 +1495,9 @@ def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
 
         entrypoint = dic
         t = TranslationContext(verbose=False, simplifying=True,
-                               do_imports_immediately=do_imports_immediately,
                                builtins_can_raise_exceptions=True,
                                list_comprehension_operations=False)
+        t.no_annotator_but_do_imports_immediately = do_imports_immediately
         gen = GenRpy(t, entrypoint, modname, dic)
 
     finally:

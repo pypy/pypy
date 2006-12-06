@@ -54,7 +54,7 @@ def gen_wrapper(func, translator, newname=None, as_method=False):
     vself = Variable('self')
     vargs = Variable('args')
     vkwds = Variable('kwds')
-    vfname = Constant(func.func_name)
+    vfname = Constant(func.func_name, PyObjPtr)
     # avoid incref/decref on the arguments: 'self' and 'kwds' can be NULL
     vself.concretetype = PyObjPtr
     vargs.concretetype = PyObjPtr
@@ -71,7 +71,7 @@ def gen_wrapper(func, translator, newname=None, as_method=False):
         # "argument_i = decode_arg_def(fname, i, name, vargs, vkwds, default)"
         vlist = [vfname,
                  inputconst(Signed, i),
-                 Constant(varnames[i]),
+                 Constant(varnames[i], PyObjPtr),
                  vargs,
                  vkwds]
         try:
@@ -80,19 +80,19 @@ def gen_wrapper(func, translator, newname=None, as_method=False):
             opname = 'decode_arg'
         else:
             opname = 'decode_arg_def'
-            vlist.append(Constant(default_value))
+            vlist.append(Constant(default_value, PyObjPtr))
 
-        v = newops.genop(opname, vlist, resulttype=Ptr(PyObject))
+        v = newops.genop(opname, vlist, resulttype=PyObjPtr)
         #v.set_name('a', i)
         varguments.append(v)
 
     if vararg:
         # "vararg = vargs[n:]"
         vlist = [vargs,
-                 Constant(nb_positional_args),
-                 Constant(None),
+                 Constant(nb_positional_args, PyObjPtr),
+                 Constant(None, PyObjPtr),
                  ]
-        vararg = newops.genop('getslice', vlist, resulttype=Ptr(PyObject))
+        vararg = newops.genop('getslice', vlist, resulttype=PyObjPtr)
         #vararg.set_name('vararg', 0)
         varguments.append(vararg)
     else:
@@ -172,6 +172,9 @@ def new_method_graph(graph, clsdef, newname, translator):
     newops = LowLevelOpList(translator.rtyper)
 
     callargs = graph.getargs()[:]
+    for v in callargs:
+        if not hasattr(v, 'concretetype'):
+            v.concretetype = PyObjPtr
     v_self_old = callargs.pop(0)
     v_self = Variable(v_self_old.name)
     binding = SomeInstance(clsdef)
