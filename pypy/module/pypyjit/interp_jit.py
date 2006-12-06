@@ -50,8 +50,6 @@ def setup():
             else:
                 return super_dispatch(self, co_code, next_instr, ec)
 
-    return PyFrame.dispatch_jit
-
 def setup2():
     # TEMPORARY: only patches dispatch_bytecode.
     PyFrame.dispatch_jit = func_with_new_name(
@@ -66,9 +64,9 @@ def setup2():
             else:
                 return super_dispatch_bytecode(self, co_code, next_instr, ec)
 
-    return PyFrame.dispatch_bytecode
+setup2()
 
-PORTAL = setup2()
+PORTAL = PyFrame.dispatch_jit
 
 # ____________________________________________________________
 #
