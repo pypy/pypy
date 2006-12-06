@@ -34,6 +34,7 @@ class PyPyJITTarget(targetpypystandalone.PyPyTarget):
     #    return main, None
 
     def handle_config(self, config):
+        config.objspace.usemodules.pypyjit = True
         config.translation.backendopt.inline_threshold = 0
         config.translation.backendopt.merge_if_blocks = False
         config.translation.fork_before = 'hintannotate'

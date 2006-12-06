@@ -1,12 +1,11 @@
-from pypy.interpreter.pyframe import PyFrame
+from pypy.module.pypyjit.interp_jit import PORTAL
 
 from pypy.objspace.flow.model import checkgraph
 from pypy.translator.translator import graphof
 from pypy.jit.hintannotator.annotator import HintAnnotator, HintAnnotatorPolicy
 from pypy.jit.hintannotator.model import OriginFlags, SomeLLAbstractConstant
 
-PORTAL = PyFrame.dispatch_bytecode.im_func
-#from pypy.jit.goal.x import evaluate as PORTAL
+PORTAL = getattr(PORTAL, 'im_func', PORTAL)
 
 
 class PyPyHintAnnotatorPolicy(HintAnnotatorPolicy):
