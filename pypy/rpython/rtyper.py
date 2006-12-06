@@ -717,8 +717,6 @@ class HighLevelOp(object):
         return vars
 
     def genop(self, opname, args_v, resulttype=None):
-        assert args_v is not self.args_v, ("Wrong level! "
-            "You need to pass the result of hop.inputargs() to genop().")
         return self.llops.genop(opname, args_v, resulttype)
 
     def gendirectcall(self, ll_function, *args_v):
@@ -829,6 +827,13 @@ class LowLevelOpList(list):
         return v
 
     def genop(self, opname, args_v, resulttype=None):
+        try:
+            for v in args_v:
+                v.concretetype
+        except AttributeError:
+            raise AssertionError("wrong level!  you must call hop.inputargs()"
+                                 " and pass its result to genop(),"
+                                 " never hop.args_v directly.")
         vresult = Variable()
         self.append(SpaceOperation(opname, args_v, vresult))
         if resulttype is None:
