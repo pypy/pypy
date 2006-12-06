@@ -27,7 +27,7 @@ class PtrRepr(Repr):
         self.lowleveltype = ptrtype
 
     def ll_str(self, p):
-        from pypy.rpython.lltypesystem.rstr import LLHelpers, ll_str
+        from pypy.rpython.lltypesystem.rstr import ll_str
         id = lltype.cast_ptr_to_int(p)
         return ll_str.ll_int2hex(r_uint(id), True)
 

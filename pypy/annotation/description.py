@@ -254,6 +254,10 @@ class FunctionDesc(Desc):
             self.specializer = policy.get_specializer(tag)
         enforceargs = getattr(self.pyobj, '_annenforceargs_', None)
         if enforceargs:
+            if not callable(enforceargs):
+                from pypy.annotation.policy import Sig
+                enforceargs = Sig(*enforceargs)
+                self.pyobj._annenforceargs_ = enforceargs
             enforceargs(self, inputcells) # can modify inputcells in-place
         return self.specializer(self, inputcells)
 

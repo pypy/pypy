@@ -8,6 +8,7 @@ def putenv(name_eq_value):
     # we fake it with the real one
     name, value = name_eq_value.split('=', 1)
     os.putenv(name, value)
+putenv._annenforceargs_ = (str,)
 
 _initial_items = os.environ.items()
 
@@ -29,6 +30,7 @@ def getenv(name):
             return value
         idx += 1
     return None
+getenv._annenforceargs_ = (str,)
 
 
 class DIR(object):
@@ -49,3 +51,4 @@ class DIR(object):
 
 def opendir(dirname):
     return DIR(dirname)
+opendir._annenforceargs_ = (str,)

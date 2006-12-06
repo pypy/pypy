@@ -244,12 +244,8 @@ class RPythonTyper(object):
                 bc += 1
                 continue
             block, position = err.where
-            func = self.annotator.annotated.get(block, None)
-            if func:
-                func = "(%s:%s)" %(func.__module__ or '?', func.__name__)
-            else:
-                func = "(?:?)"
-            errmsg = ("TyperError-%d: %s" % (c, func) +
+            graph = self.annotator.annotated.get(block, None)
+            errmsg = ("TyperError-%d: %s\n" % (c, graph) +
                       str(err) +
                       "\n")
             if to_log:

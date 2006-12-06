@@ -313,6 +313,7 @@ def build_int(name, sign, bits):
 
         def specialize_call(self, hop):
             v_result, = hop.inputargs(hop.r_result.lowleveltype)
+            hop.exception_cannot_occur()
             return v_result
             
     return int_type

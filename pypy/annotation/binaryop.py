@@ -630,10 +630,22 @@ class __extend__(pairtype(SomeBuiltin, SomeBuiltin)):
         return SomeBuiltin(bltn1.analyser, s_self, methodname=bltn1.methodname)
 
 class __extend__(pairtype(SomePBC, SomePBC)):
+
     def union((pbc1, pbc2)):       
         d = pbc1.descriptions.copy()
         d.update(pbc2.descriptions)
         return SomePBC(d, can_be_None = pbc1.can_be_None or pbc2.can_be_None)
+
+    def is_((obj1, obj2)):
+        thistype = pairtype(SomePBC, SomePBC)
+        s = super(thistype, pair(obj1, obj2)).is_()
+        if not s.is_constant():
+            for desc in obj1.descriptions:
+                if desc in obj2.descriptions:
+                    break
+            else:
+                s.const = False    # no common desc in the two sets
+        return s
 
 class __extend__(pairtype(SomeImpossibleValue, SomeObject)):
     def union((imp1, obj2)):

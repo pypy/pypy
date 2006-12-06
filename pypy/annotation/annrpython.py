@@ -645,6 +645,7 @@ class RPythonAnnotator(object):
                 last_exc_value_vars = []
                 in_except_block = True
 
+            ignore_link = False
             cells = []
             renaming = {}
             for a,v in zip(link.args,link.target.inputargs):
@@ -662,6 +663,9 @@ class RPythonAnnotator(object):
                     if (link.exitcase, a) in knowntypedata:
                         knownvarvalue = knowntypedata[(link.exitcase, a)]
                         cell = pair(cell, knownvarvalue).improve()
+                        # ignore links that try to pass impossible values
+                        if cell == annmodel.s_ImpossibleValue:
+                            ignore_link = True
 
                     if hasattr(cell,'is_type_of'):
                         renamed_is_type_of = []
@@ -691,11 +695,11 @@ class RPythonAnnotator(object):
 
                     cells.append(cell)
 
+            if ignore_link:
+                continue
+
             if in_except_block:
                 last_exception_object.is_type_of = last_exc_value_vars
-
-            if annmodel.s_ImpossibleValue in cells:
-                continue    # ignore links that try to pass impossible values
 
             self.links_followed[link] = True
             self.addpendingblock(graph, link.target, cells)

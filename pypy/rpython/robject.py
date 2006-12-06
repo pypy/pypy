@@ -9,19 +9,25 @@ from pypy.tool.sourcetools import func_with_new_name
 
 class __extend__(annmodel.SomeObject):
     def rtyper_makerepr(self, rtyper):
-        if self.knowntype is type:
+        kind = getkind(self)
+        if kind == "type":
             return rclass.get_type_repr(rtyper)
-        elif self.is_constant():
+        elif kind == "const":
             return constpyobj_repr
         else:
             return pyobj_repr
     def rtyper_makekey(self):
-        if self.is_constant():
-            return self.__class__, "const"
-        if self.knowntype is type:
-            return self.__class__, "type"
-        else:
-            return self.__class__, "pyobj"
+        return self.__class__, getkind(self)
+
+def getkind(s_obj):
+    if s_obj.is_constant():
+        if getattr(s_obj.const, '__module__', None) == '__builtin__':
+            return "const"
+    if s_obj.knowntype is type:
+        return "type"
+    if s_obj.is_constant():
+        return "const"
+    return "pyobj"
 
 
 class PyObjRepr(Repr):

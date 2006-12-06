@@ -7,6 +7,7 @@ from pypy.rpython.lltypesystem.llmemory import NULL, Address, \
 from pypy.rpython.rmodel import Repr, IntegerRepr
 from pypy.rpython.rptr import PtrRepr
 from pypy.rpython.lltypesystem import lltype
+from pypy.rlib.rarithmetic import r_uint
 
 class __extend__(annmodel.SomeAddress):
     def rtyper_makerepr(self, rtyper):
@@ -35,6 +36,11 @@ class AddressRepr(Repr):
     def convert_const(self, value):
         assert not isinstance(value, _address)
         return value
+
+    def ll_str(self, a):
+        from pypy.rpython.lltypesystem.rstr import ll_str
+        id = cast_adr_to_int(a)
+        return ll_str.ll_int2hex(r_uint(id), True)
 
     def rtype_getattr(self, hop):
         v_access = hop.inputarg(address_repr, 0)

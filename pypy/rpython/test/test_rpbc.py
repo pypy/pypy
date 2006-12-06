@@ -1477,6 +1477,20 @@ class BaseTestRPBC(BaseRtypingTest):
         res = self.interpret(f, [5])
         assert res == 123
 
+    def test_is_among_functions(self):
+        def g1(): pass
+        def g2(): pass
+        def g3(): pass
+        def f(n):
+            if n > 5:
+                g = g2
+            else:
+                g = g1
+            g()
+            g3()
+            return g is g3
+        res = self.interpret(f, [2])
+        assert res == False
 
 # We don't care about the following test_hlinvoke tests working on
 # ootype. Maybe later. This kind of thing is only used in rdict
