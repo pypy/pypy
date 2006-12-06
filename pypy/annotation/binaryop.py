@@ -636,15 +636,16 @@ class __extend__(pairtype(SomePBC, SomePBC)):
         d.update(pbc2.descriptions)
         return SomePBC(d, can_be_None = pbc1.can_be_None or pbc2.can_be_None)
 
-    def is_((obj1, obj2)):
+    def is_((pbc1, pbc2)):
         thistype = pairtype(SomePBC, SomePBC)
-        s = super(thistype, pair(obj1, obj2)).is_()
+        s = super(thistype, pair(pbc1, pbc2)).is_()
         if not s.is_constant():
-            for desc in obj1.descriptions:
-                if desc in obj2.descriptions:
-                    break
-            else:
-                s.const = False    # no common desc in the two sets
+            if not pbc1.can_be_None or not pbc2.can_be_None:
+                for desc in pbc1.descriptions:
+                    if desc in pbc2.descriptions:
+                        break
+                else:
+                    s.const = False    # no common desc in the two sets
         return s
 
 class __extend__(pairtype(SomeImpossibleValue, SomeObject)):
