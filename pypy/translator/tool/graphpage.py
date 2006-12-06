@@ -375,7 +375,10 @@ class LocalizedCallGraphPage(BaseTranslatorPage):
     that means just including direct callers and callees"""
 
     def graph_name(self, centers):
-        return 'LCG_%s' % nameof(centers[0])
+        if centers:
+            return 'LCG_%s' % nameof(centers[0])
+        else:
+            return 'EMPTY'
 
     def do_compute(self, dotgen, centers):
         centers = dict.fromkeys(centers)

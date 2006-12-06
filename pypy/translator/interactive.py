@@ -19,9 +19,6 @@ class Translation(object):
 
         self.entry_point = entry_point
         self.context = TranslationContext(config=self.config)
-        # for t.view() to work just after construction
-        graph = self.context.buildflowgraph(entry_point)
-        self.context._prebuilt_graphs[entry_point] = graph
 
         # hook into driver events
         driver_own_event = self.driver._event
@@ -32,6 +29,9 @@ class Translation(object):
         self.driver_setup = False
 
         self.update_options(argtypes, kwds)
+        # for t.view() to work just after construction
+        graph = self.context.buildflowgraph(entry_point)
+        self.context._prebuilt_graphs[entry_point] = graph
 
     def view(self):
         self.context.view()
