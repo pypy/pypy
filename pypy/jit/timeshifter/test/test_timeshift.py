@@ -688,8 +688,9 @@ class TestTimeshift(TimeshiftingTests):
             s = lltype.malloc(S)
             s.x = 123
             return s
+        ll_function.convert_result = lambda s: str(s.x)
         res = self.timeshift(ll_function, [], [], policy=P_NOVIRTUAL)
-        assert res.x == 123
+        assert res == "123"
 
     def test_plus_minus_all_inlined(self):
         def ll_plus_minus(s, x, y):

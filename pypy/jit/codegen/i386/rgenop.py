@@ -1,4 +1,4 @@
-import sys
+import sys, py
 from pypy.rlib.objectmodel import specialize
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.jit.codegen.i386.ri386 import *
@@ -218,7 +218,6 @@ class FlexSwitch(CodeGenSwitch):
 
 class Builder(GenBuilder):
 
-
     def __init__(self, rgenop, mc, stackdepth):
         self.rgenop = rgenop
         self.stackdepth = stackdepth
@@ -362,7 +361,7 @@ class Builder(GenBuilder):
             self.mc.CALL(rel32(target))
         else:
             self.mc.CALL(gv_fnptr.operand(self))
-        # XXX only for int return_kind
+        # XXX only for int return_kind, check calling conventions
         return self.returnvar(eax)
 
     def genop_same_as(self, kind, gv_x):
@@ -551,13 +550,13 @@ class Builder(GenBuilder):
 
     def op_int_lshift(self, gv_x, gv_y):
         self.mc.MOV(eax, gv_x.operand(self))
-        self.mc.MOV(ecx, gv_y.operand(self))
+        self.mc.MOV(ecx, gv_y.operand(self))   # XXX check if ecx >= 32
         self.mc.SHL(eax, cl)
         return self.returnvar(eax)
 
     def op_int_rshift(self, gv_x, gv_y):
         self.mc.MOV(eax, gv_x.operand(self))
-        self.mc.MOV(ecx, gv_y.operand(self))
+        self.mc.MOV(ecx, gv_y.operand(self))   # XXX check if ecx >= 32
         self.mc.SAR(eax, cl)
         return self.returnvar(eax)
 
@@ -621,7 +620,7 @@ class Builder(GenBuilder):
 
     def op_uint_rshift(self, gv_x, gv_y):
         self.mc.MOV(eax, gv_x.operand(self))
-        self.mc.MOV(ecx, gv_y.operand(self))
+        self.mc.MOV(ecx, gv_y.operand(self))   # XXX check if ecx >= 32
         self.mc.SHR(eax, cl)
         return self.returnvar(eax)
 
@@ -960,7 +959,7 @@ class RI386GenOp(AbstractRGenOp):
     @specialize.memo()
     def kindToken(T):
         if T is lltype.Float:
-            raise NotImplementedError("floats in the i386 back-end")
+            py.test.skip("not implemented: floats in the i386 back-end")
         return None     # for now
 
     @staticmethod
