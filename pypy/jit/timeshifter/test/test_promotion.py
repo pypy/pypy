@@ -225,6 +225,8 @@ class TestPromotion(TimeshiftingTests):
                 hint(n1, concrete=True)
                 n2 -= 1
             return total
+        void = lambda s: None
+        ll_function.convert_arguments = [void, int, int, void, int]
 
         res = self.timeshift(ll_function, [None, 4, 3, None, 100], [0],
                              policy=P_NOVIRTUAL)
