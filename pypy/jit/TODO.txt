@@ -17,6 +17,7 @@
   entry
 
 
+- make backend opts usable on the interp+timeshifted interp graph forest
 
 Improvements
 -------------
