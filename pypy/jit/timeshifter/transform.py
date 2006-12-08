@@ -547,18 +547,22 @@ class HintGraphTransformer(object):
 
         if color == 'red':
             assert not self.hannotator.binding(op.result).is_green()
-
-        try:
-            index = varsalive.index(op.result)
-        except ValueError:
-            uses_retval = False
+            # the result will be either passed as an extra local 0
+            # by the caller, or restored by a restore_local
+            try:
+                index = varsalive.index(op.result)
+            except ValueError:
+                linkargs.insert(0, op.result)
+                v_result = copyvar(self.hannotator, op.result)
+                nextblock.inputargs.insert(0, v_result)
+            else:
+                del varsalive[index]
+                old_v_result = linkargs.pop(index)
+                linkargs.insert(0, old_v_result)
+                v_result = nextblock.inputargs.pop(index)
+                nextblock.inputargs.insert(0, v_result)
         else:
-            uses_retval = True      # it will be restored by a restore_local
-            del varsalive[index]
-            old_v_result = linkargs.pop(index)
-            linkargs.insert(0, old_v_result)
-            v_result = nextblock.inputargs.pop(index)
-            nextblock.inputargs.insert(0, v_result)      
+            assert op.result not in varsalive   # XXX gray result used
 
         reds, greens = self.sort_by_color(varsalive)
 
@@ -599,7 +603,7 @@ class HintGraphTransformer(object):
             v_res = self.genop(nonconstantblock, 'residual_%s_call' % (color,),
                                [op.args[0]], result_like = op.result)
 
-            if uses_retval:
+            if color == 'red':
                 linkargs[0] = v_res
             
             nonconstantblock.closeblock(Link(linkargs, nextblock))

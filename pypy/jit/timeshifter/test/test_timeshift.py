@@ -1200,3 +1200,13 @@ class TestTimeshift(TimeshiftingTests):
         res = self.timeshift(f, [-20], [], policy=stop_at_h)
         assert res == 7
         self.check_insns(int_add=0)
+
+    def test_red_call_ignored_result(self):
+        def g(n):
+            return n * 7
+        def f(n, m):
+            g(n)   # ignore the result
+            return m
+
+        res = self.timeshift(f, [4, 212], [], policy=P_NOVIRTUAL)
+        assert res == 212
