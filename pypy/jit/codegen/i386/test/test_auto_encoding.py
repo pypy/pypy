@@ -61,7 +61,10 @@ def imm16_tests():
     return map(i386.imm16, v)
 
 def imm32_tests():
-    v = [0x80000000,0x7FFFFFFF] + [random.randrange(0,65536)<<16 | random.randrange(0,65536) for i in range(COUNT1)]
+    v = ([0x80000000, 0x7FFFFFFF, 128, 256, -129, -255] +
+         [random.randrange(0,65536)<<16 |
+             random.randrange(0,65536) for i in range(COUNT1)] +
+         [random.randrange(128, 256) for i in range(COUNT1)])
     return map(i386.imm32, filter(lambda x: x<-128 or x>=128, v))
 
 def pick1(memSIB, cache=[]):

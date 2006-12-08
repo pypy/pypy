@@ -41,6 +41,7 @@ def load_symbols(filename):
     symbollister = 'nm %s'
     re_symbolentry = re.compile(r'([0-9a-fA-F]+)\s\w\s(.*)')
     #
+    print 'loading symbols from %s...' % (filename,)
     symbols = {}
     g = os.popen(symbollister % filename, "r")
     for line in g:
@@ -52,6 +53,7 @@ def load_symbols(filename):
                 name = '\xb7' + name[7:]
             symbols[addr] = name
     g.close()
+    print '%d symbols found' % (len(symbols),)
     return symbols
 
 re_addr = re.compile(r'[\s,$]0x([0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]+)')
@@ -186,12 +188,12 @@ class World(object):
         # split blocks at labeltargets
         # XXX slooooow!
         t = self.labeltargets
-        print t
+        #print t
         for r in self.ranges:
-            print r.addr, r.addr + len(r.data)
+            #print r.addr, r.addr + len(r.data)
             for i in range(r.addr + 1, r.addr + len(r.data)):
                 if i in t:
-                    print i
+                    #print i
                     ofs = i - r.addr
                     self.ranges.append(CodeRange(self, i, r.data[ofs:]))
                     r.data = r.data[:ofs]

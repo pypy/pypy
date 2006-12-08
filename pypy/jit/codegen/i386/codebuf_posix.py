@@ -1,7 +1,7 @@
 import pypy.rpython.rctypes.implementation  # register rctypes types
 from pypy.rpython.rctypes.tool import ctypes_platform
 from pypy.rpython.rctypes.tool.libc import libc
-from ctypes import POINTER, c_char, c_int
+from ctypes import POINTER, c_char, c_int, cast, c_void_p
 
 class CConfig:
     _includes_ = ("sys/types.h", "sys/mman.h")
@@ -34,12 +34,17 @@ munmap_.argtypes = [PTR, size_t]
 munmap_.restype = c_int
 munmap_.includes = ("sys/mman.h",)
 
+class Hint:
+    pos = -0x4fff0000   # for reproducible results
+hint = Hint()
+
 def alloc(map_size):
     flags = MAP_PRIVATE | MAP_ANONYMOUS
     prot = PROT_EXEC | PROT_READ | PROT_WRITE
-    res = mmap_(PTR(), map_size, prot, flags, -1, 0)
+    res = mmap_(cast(c_void_p(hint.pos), PTR), map_size, prot, flags, -1, 0)
     if not res:
         raise MemoryError
+    hint.pos += map_size
     return res
 
 free = munmap_
