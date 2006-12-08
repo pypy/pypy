@@ -37,7 +37,10 @@ def binaryoperation(operationname):
         w_result = operation(w_1, w_2)
         f.valuestack.push(w_result)
 
-    return func_with_new_name(opimpl, "opcode_impl_for_%s" % operationname)        
+    return func_with_new_name(opimpl, "opcode_impl_for_%s" % operationname)
+
+
+BYTECODE_TRACE_ENABLED = True   # see also pypy.module.pypyjit
 
 
 class __extend__(pyframe.PyFrame):
@@ -110,7 +113,7 @@ class __extend__(pyframe.PyFrame):
         while True:
             hint(None, global_merge_point=True)
             self.last_instr = intmask(next_instr)
-            if not we_are_translated():   # JJJ
+            if BYTECODE_TRACE_ENABLED:
                 ec.bytecode_trace(self)
                 # For the sequel, force 'next_instr' to be unsigned for performance
                 next_instr = r_uint(self.last_instr)

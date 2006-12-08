@@ -7,6 +7,7 @@ loop, and the flag controls which of them is used.  One of them
 pypy/jit/*
 """
 import py
+import pypy.interpreter.pyopcode   # for side-effects
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.pyframe import PyFrame
 from pypy.tool.sourcetools import func_with_new_name
@@ -52,8 +53,22 @@ def setup():
 
 def setup2():
     # TEMPORARY: only patches dispatch_bytecode.
-    PyFrame.dispatch_jit = func_with_new_name(
-        PyFrame.dispatch_bytecode.im_func, 'dispatch_jit')
+    # make a copy of dispatch_bytecode in which BYTECODE_TRACE_ENABLED is False
+    # (hack hack!)
+    src2 = py.code.Source(PyFrame.dispatch_bytecode)
+    hdr = src2[0].strip()
+    assert hdr == 'def dispatch_bytecode(self, co_code, next_instr, ec):'
+    src2 = src2[1:].deindent()
+
+    src2 = src2.putaround(
+                  "def maker(BYTECODE_TRACE_ENABLED):\n" # no comma here
+                  "  def dispatch_jit(self, co_code, next_instr, ec):\n",
+                  "#\n" # for indentation :-(
+                  "  return dispatch_jit")
+    #print src2
+    d = {}
+    exec src2.compile() in super_dispatch.func_globals, d
+    PyFrame.dispatch_jit = d['maker'](BYTECODE_TRACE_ENABLED=False)
 
     class __extend__(PyFrame):
 
