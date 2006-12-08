@@ -100,9 +100,10 @@ class CodeRange(object):
             if not addrs:
                 continue
             addr = addrs[-1]
-            yield i, addr
+            final = '\tjmp' in line
+            yield i, addr, final
         if self.fallthrough:
-            yield len(lines), self.addr + len(self.data)
+            yield len(lines), self.addr + len(self.data), True
 
 
 class World(object):
@@ -132,7 +133,7 @@ class World(object):
                     self.ranges.append(coderange)
         # find cross-references between blocks
         for r in self.ranges:
-            for lineno, targetaddr in r.findjumps():
+            for lineno, targetaddr, _ in r.findjumps():
                 self.labeltargets[targetaddr] = True
         # split blocks at labeltargets
         # XXX slooooow!
@@ -147,7 +148,10 @@ class World(object):
                     self.ranges.append(CodeRange(i, r.data[ofs:]))
                     r.data = r.data[:ofs]
                     r.fallthrough = True
-                    del r.text
+                    try:
+                        del r.text
+                    except AttributeError:
+                        pass
                     break
         # hack hack hacked
 
@@ -158,8 +162,12 @@ class World(object):
             text = '0x%x\n\n%s' % (r.addr, text)
             g1.emit_node('N_%x' % r.addr, shape="box", label=text,
                          width=str(width*0.125))
-            for lineno, targetaddr in r.findjumps():
-                g1.emit_edge('N_%x' % r.addr, 'N_%x' % targetaddr)
+            for lineno, targetaddr, final in r.findjumps():
+                if final:
+                    color = "black"
+                else:
+                    color = "red"
+                g1.emit_edge('N_%x' % r.addr, 'N_%x' % targetaddr, color=color)
         g1.display()
 
 
