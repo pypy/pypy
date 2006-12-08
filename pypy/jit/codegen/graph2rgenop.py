@@ -43,6 +43,17 @@ def compile_graph(rgenop, graph):
             if op.opname == 'malloc':
                 token = rgenop.allocToken(op.args[0].value)
                 gv_result = builder.genop_malloc_fixedsize(token)
+            elif op.opname == 'getfield':
+                token = rgenop.fieldToken(op.args[0].concretetype.TO,
+                                          op.args[1].value)
+                gv_result = builder.genop_getfield(token,
+                                                   var2gv(op.args[0]))
+            elif op.opname == 'setfield':
+                token = rgenop.fieldToken(op.args[0].concretetype.TO,
+                                          op.args[1].value)
+                gv_result = builder.genop_setfield(token,
+                                                   var2gv(op.args[0]),
+                                                   var2gv(op.args[2]))
             elif op.opname == 'malloc_varsize':
                 token = rgenop.varsizeAllocToken(op.args[0].value)
                 gv_result = builder.genop_malloc_varsize(token,

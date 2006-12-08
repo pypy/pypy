@@ -256,18 +256,33 @@ class Builder(GenBuilder):
         genmethod = getattr(self, 'op_' + opname)
         return genmethod(gv_arg1, gv_arg2)
 
-    def genop_getfield(self, offset, gv_ptr):
-        # XXX only for int fields
+    def genop_getfield(self, (offset, fieldsize), gv_ptr):
         self.mc.MOV(edx, gv_ptr.operand(self))
-        return self.returnvar(mem(edx, offset))
+        if fieldsize == WORD:
+            op = mem(edx, offset)
+        else:
+            if fieldsize == 1:
+                op = mem8(edx, offset)
+            else:
+                assert fieldsize == 2
+                op = mem(edx, offset)
+            self.mc.MOVZX(eax, op)
+            op = eax
+        return self.returnvar(op)
 
-    def genop_setfield(self, offset, gv_ptr, gv_value):
-        # XXX only for ints for now.
+    def genop_setfield(self, (offset, fieldsize), gv_ptr, gv_value):
         self.mc.MOV(eax, gv_value.operand(self))
         self.mc.MOV(edx, gv_ptr.operand(self))
-        self.mc.MOV(mem(edx, offset), eax)
+        if fieldsize == 1:
+            self.mc.MOV(mem8(edx, offset), al)
+        else:
+            if fieldsize == 2:
+                self.mc.o16()    # followed by the MOV below
+            else:
+                assert fieldsize == WORD
+            self.mc.MOV(mem(edx, offset), eax)
 
-    def genop_getsubstruct(self, offset, gv_ptr):
+    def genop_getsubstruct(self, (offset, fieldsize), gv_ptr):
         self.mc.MOV(edx, gv_ptr.operand(self))
         self.mc.LEA(eax, mem(edx, offset))
         return self.returnvar(eax)
@@ -813,13 +828,13 @@ class ReplayBuilder(GenBuilder):
     def genop2(self, opname, gv_arg1, gv_arg2):
         return dummy_var
 
-    def genop_getfield(self, offset, gv_ptr):
+    def genop_getfield(self, fieldtoken, gv_ptr):
         return dummy_var
 
-    def genop_setfield(self, offset, gv_ptr, gv_value):
+    def genop_setfield(self, fieldtoken, gv_ptr, gv_value):
         return dummy_var
 
-    def genop_getsubstruct(self, offset, gv_ptr):
+    def genop_getsubstruct(self, fieldtoken, gv_ptr):
         return dummy_var
 
     def genop_getarrayitem(self, arraytoken, gv_ptr, gv_index):
@@ -874,6 +889,8 @@ class ReplayBuilder(GenBuilder):
 class RI386GenOp(AbstractRGenOp):
     from pypy.jit.codegen.i386.codebuf import MachineCodeBlock
 
+    MC_SIZE = 65536
+
     def __init__(self):
         self.mcs = []   # machine code blocks where no-one is currently writing
         self.keepalive_gc_refs = [] 
@@ -883,7 +900,8 @@ class RI386GenOp(AbstractRGenOp):
             # XXX think about inserting NOPS for alignment
             return self.mcs.pop()
         else:
-            return self.MachineCodeBlock(65536)   # XXX supposed infinite for now
+            # XXX supposed infinite for now
+            return self.MachineCodeBlock(self.MC_SIZE)
 
     def close_mc(self, mc):
         # an open 'mc' is ready for receiving code... but it's also ready
@@ -925,7 +943,12 @@ class RI386GenOp(AbstractRGenOp):
     @staticmethod
     @specialize.memo()
     def fieldToken(T, name):
-        return llmemory.offsetof(T, name)
+        FIELD = getattr(T, name)
+        if isinstance(FIELD, lltype.ContainerType):
+            fieldsize = 0      # not useful for getsubstruct
+        else:
+            fieldsize = llmemory.sizeof(FIELD)
+        return (llmemory.offsetof(T, name), fieldsize)
 
     @staticmethod
     @specialize.memo()

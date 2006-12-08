@@ -50,6 +50,7 @@ def timeshift(drv):
     from pypy.jit.timeshifter.hrtyper import HintRTyper
     #from pypy.jit.codegen.llgraph.rgenop import RGenOp
     from pypy.jit.codegen.i386.rgenop import RI386GenOp as RGenOp
+    RGenOp.MC_SIZE = 32 * 1024 * 1024     # 32MB - but supposed infinite!
 
     ha = drv.hannotator
     t = drv.translator
