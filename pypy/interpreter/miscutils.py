@@ -59,7 +59,7 @@ class Stack(RootStack):
         return len(self.items)
 
     def empty(self):
-        return not self.items
+        return len(self.items) == 0
 
 
 class FixedStack(RootStack):
