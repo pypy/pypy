@@ -1147,3 +1147,56 @@ class TestTimeshift(TimeshiftingTests):
 
         res = self.timeshift(f, [4, 5, 0], [], policy=P_NOVIRTUAL)
         assert res == 20
+
+    def test_residual_red_call(self):
+        def g(x):
+            return x+1
+
+        def f(x):
+            return 2*g(x)
+
+        class StopAtGPolicy(HintAnnotatorPolicy):
+            novirtualcontainer = True
+
+            def look_inside_graph(self, graph):
+                if graph.name == 'g':
+                    return False
+                return True
+
+        res = self.timeshift(f, [20], [], policy=StopAtGPolicy())
+        assert res == 42
+        self.check_insns(int_add=0)
+
+    def test_residual_red_call_with_exc(self):
+        def h(x):
+            if x > 0:
+                return x+1
+            else:
+                raise ValueError
+
+        def g(x):
+            return 2*h(x)
+
+        def f(x):
+            try:
+                return g(x)
+            except ValueError:
+                return 7
+
+        class StopAtHPolicy(HintAnnotatorPolicy):
+            novirtualcontainer = True
+
+            def look_inside_graph(self, graph):
+                if graph.name == 'h':
+                    return False
+                return True
+
+        stop_at_h = StopAtHPolicy()
+
+        res = self.timeshift(f, [20], [], policy=stop_at_h)
+        assert res == 42
+        self.check_insns(int_add=0)
+
+        res = self.timeshift(f, [-20], [], policy=stop_at_h)
+        assert res == 7
+        self.check_insns(int_add=0)

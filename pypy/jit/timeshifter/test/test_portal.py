@@ -353,3 +353,30 @@ class TestPortal(PortalTest):
         res = self.timeshift_from_portal(main, evaluate, [4, 7])
         assert res == 11
     
+    def test_simple_recursive_portal_call_with_exc(self):
+
+        def main(code, x):
+            return evaluate(code, x)
+
+        class Bottom(Exception):
+            pass
+
+        def evaluate(y, x):
+            hint(y, concrete=True)
+            if y <= 0:
+                raise Bottom
+            try:
+                z = 1 + evaluate(y - 1, x)
+            except Bottom:
+                z = 1 + x
+            return z
+
+        res = self.timeshift_from_portal(main, evaluate, [3, 2])
+        assert res == 5
+
+        res = self.timeshift_from_portal(main, evaluate, [3, 5])
+        assert res == 8
+
+        res = self.timeshift_from_portal(main, evaluate, [4, 7])
+        assert res == 11
+    

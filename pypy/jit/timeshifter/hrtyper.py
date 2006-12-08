@@ -337,6 +337,7 @@ class HintRTyper(RPythonTyper):
         TYPES = [v.concretetype for v in origportalgraph.getargs()]
         argcolorandtypes = unrolling_iterable(zip(argcolors,
                                                   TYPES))
+        fetch_global_excdata = self.fetch_global_excdata
 
         def portalreentry(jitstate, *args):
             i = 0
@@ -387,11 +388,12 @@ class HintRTyper(RPythonTyper):
 
  
             gv_res = curbuilder.genop_call(sigtoken, gv_generated, args_gv)
+            fetch_global_excdata(jitstate)
+
             if RESTYPE == lltype.Void:
                 retbox = None
             else:
                 retbox = boxbuilder(reskind, gv_res)
-                
             jitstate.returnbox = retbox
             assert jitstate.next is None
             return jitstate
@@ -1300,10 +1302,16 @@ class HintRTyper(RPythonTyper):
             s_result = self.s_RedBox
         else:
             s_result = annmodel.s_None
-        return hop.llops.genmixlevelhelpercall(rtimeshift.ll_gen_residual_call,
+        v_res = hop.llops.genmixlevelhelpercall(
+                                 rtimeshift.ll_gen_residual_call,
                                  [self.s_JITState, s_calldesc, self.s_RedBox],
                                  [v_jitstate,      c_calldesc, v_funcbox    ],
                                  s_result)
+        # XXX do something to do this only if the graph can raise
+        hop.llops.genmixlevelhelpercall(self.fetch_global_excdata,
+                                        [self.s_JITState], [v_jitstate],
+                                        annmodel.s_None)
+        return v_res
 
     def translate_op_residual_gray_call(self, hop):
         self.translate_op_residual_red_call(hop, color='gray')
