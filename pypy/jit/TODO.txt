@@ -1,4 +1,4 @@
-- review codegen (e.g. getfield/setfield for size != word)
+- fix the XXXs in codegen
 
 - [] (getitem) used inside complex try/except ends up using the bound
   checking version: transformation after flowgraphing that marks op
@@ -36,3 +36,8 @@ Improvements
 
 - reduce the size of the timeshifted code: no dispatch for no
   split/merge functions ...
+
+- insert hints to forget uninteresting constants, e.g. the
+  initial 0 of RPython list iterators
+
+- pyopcode.compare_dispatch_table => switch statement

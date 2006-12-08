@@ -109,8 +109,8 @@ class __extend__(pyframe.PyFrame):
         space = self.space
         while True:
             hint(None, global_merge_point=True)
+            self.last_instr = intmask(next_instr)
             if not we_are_translated():   # JJJ
-                self.last_instr = intmask(next_instr)
                 ec.bytecode_trace(self)
                 # For the sequel, force 'next_instr' to be unsigned for performance
                 next_instr = r_uint(self.last_instr)
@@ -152,6 +152,7 @@ class __extend__(pyframe.PyFrame):
                     continue    # now inside a 'finally' block
 
             if opcode == opcodedesc.YIELD_VALUE.index:
+                #self.last_instr = intmask(next_instr - 1) XXX clean up!
                 w_yieldvalue = self.valuestack.pop()
                 return w_yieldvalue
 

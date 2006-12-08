@@ -73,5 +73,14 @@ PORTAL = PyFrame.dispatch_jit
 # Public interface
 
 def enable(space, w_code, w_enabled=True):
+    # save the app-level sys.executable in JITInfo, where the machine
+    # code backend can fish for it - XXX the following import will look
+    # less obscure once codebuf.py is moved to a general
+    # processor-independent place
+    from pypy.jit.codegen.hlinfo import highleveljitinfo
+    if highleveljitinfo.sys_executable is None:
+        highleveljitinfo.sys_executable = space.str_w(
+            space.sys.get('executable'))
+
     code = space.interp_w(PyCode, w_code)
     code.jit_enable = space.is_true(w_enabled)

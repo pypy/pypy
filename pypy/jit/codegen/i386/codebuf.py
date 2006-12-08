@@ -61,6 +61,7 @@ class InMemoryCodeBuilder(I386CodeBuilder):
 class MachineCodeDumper:
     enabled = True
     log_fd = -1
+    sys_executable = None
 
     def open(self):
         if self.log_fd < 0:
@@ -77,6 +78,12 @@ class MachineCodeDumper:
                 os.write(2, "could not create log file\n")
                 self.enabled = False
                 return False
+            # log the executable name
+            from pypy.jit.codegen.hlinfo import highleveljitinfo
+            os.write(self.log_fd, 'BACKEND i386\n')
+            if highleveljitinfo.sys_executable:
+                os.write(self.log_fd, 'SYS_EXECUTABLE %s\n' % (
+                    highleveljitinfo.sys_executable,))
         return True
 
     def dump(self, cb, tag, pos, msg):
