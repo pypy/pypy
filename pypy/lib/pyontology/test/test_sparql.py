@@ -118,7 +118,7 @@ def test_case_3():
     O.attach_fd()
     O.finish()
     res = O.sparql(query)
-    assert res[0]['x'] == '123'
+    assert res[0]['x'] == 123
 
 def test_case_4():
     """ search for s in p """
@@ -145,7 +145,7 @@ def test_case_5():
 
     res = O.sparql(query)
     assert res[0]['x'] == u'http://example.org/ns#sub' 
-    assert res[0]['y'] == u'123' 
+    assert res[0]['y'] == 123 
     assert res[0]['x'] == u'http://example.org/ns#sub' 
 
 def test_case_6():
@@ -164,7 +164,6 @@ def test_case_6():
 
 def test_case_7():
     """ for all p's return p[1] if p[0]==s """
-    #py.test.skip("Doesn't work yet due to changed generatorinterface")
 
     query = qt_proto % ('?x ?y ?z', '?x ?y ?z .')
     O = Ontology()
@@ -174,7 +173,16 @@ def test_case_7():
     res = O.sparql(query)
     assert list(O.variables['query_x_'].getValues())[0].uri == u'http://example.org/ns#sub' 
     assert res[0]['x'] == u'http://example.org/ns#sub' 
- 
+
+def test_filter():
+    query = qt_proto % ('?x ?y', '?x ns:p ?y  .\n FILTER(?y < 124) .')
+    O = Ontology()
+    O.add_file("testont.rdf")
+    O.attach_fd()
+    O.finish()
+    res = O.sparql(query)
+    assert res[0]['y'] == 123
+    
 query1 = """
         PREFIX ltw : <http://www.lt-world.org/ltw.owl#>
         PREFIX owl : <http://www.w3.org/2002/07/owl#>
@@ -190,13 +198,12 @@ query1 = """
 query2 = """
         PREFIX ltw : <http://www.lt-world.org/ltw.owl#>
         PREFIX owl : <http://www.w3.org/2002/07/owl#>
-        SELECT ?project
+        SELECT ?project ?date_begin
                 WHERE {
                         ?project ltw:funded_by ltw:BMBF .
                         ?project ltw:dateStart ?date_begin .
                         ?project ltw:dateEnd ?date_end .
-                        FILTER ( ?date_begin  < 2007 ) .
-                FILTER ( ?date_end >= 2006) .
+                        FILTER ( ?date_begin  < 2007  &&  ?date_end >= 2006) .
                                 }"""
 #which project is funded in a technological area (i.e. Semantic web),
 query3 = """
@@ -220,7 +227,7 @@ def test_query1():
     assert res[0]['person'] == u'\nKlara Vicsi' 
 
 def test_query2():
-    py.test.skip("Doesn't work yet")
+#    py.test.skip("Doesn't work yet")
     O = Ontology()
     O.add_file("testont2.rdf")
     O.attach_fd()
@@ -228,7 +235,19 @@ def test_query2():
     res = O.sparql(query2)
     assert len(res) == 1
     assert res[0]['activity'] == u'http://www.lt-world.org/ltw.owl#obj_59754' 
+    assert res[0]['person'] == u'\nKlara Vicsi'
+
+def test_query3():
+    #py.test.skip("Doesn't work yet")
+    O = Ontology()
+    O.add_file("testont2.rdf")
+    O.attach_fd()
+
+    res = O.sparql(query3)
+    assert len(res) == 1
+    assert res[0]['activity'] == u'http://www.lt-world.org/ltw.owl#obj_59754' 
     assert res[0]['person'] == u'\nKlara Vicsi' 
+
 
 import xmlrpclib, socket, os, signal
 
@@ -258,4 +277,6 @@ class TestXMLRPC:
         print "test_xmlrpc"
         server = xmlrpclib.ServerProxy("http://localhost:9000", allow_none=True)
         result = server.sparql(qt_proto % ('?x', 'ns:sub ns:p ?x .'))
-        assert result[0]['x'] == '123'
+        result2 = server.sparql(qt_proto % ('?x', 'ns:test ns:p ?x .'))
+        print "Result 2",result2
+        assert result[0]['x'] == 123

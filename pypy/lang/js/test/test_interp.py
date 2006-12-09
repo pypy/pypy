@@ -211,9 +211,14 @@ class TestInterp(object):
         }
         """), ["2"])
 
-    def test_gt(self):
+    def test_compare(self):
         self.assert_prints(parse_d("print(1>0)"),["true"])
         self.assert_prints(parse_d("print(0>1)"),["false"])
+        self.assert_prints(parse_d("print(0>0)"),["false"])
+        self.assert_prints(parse_d("print(1<0)"),["false"])
+        self.assert_prints(parse_d("print(0<1)"),["true"])
+        self.assert_prints(parse_d("print(0<0)"),["false"])
+
 
     def test_while(self):
         self.assert_prints(parse_d("""
@@ -246,5 +251,13 @@ class TestInterp(object):
     def test_vars(self):
         self.assert_prints(parse_d("""
         var x;x=3; print(x)"""), ["3"])
+        
+    def test_fun_decl(self):
+        py.test.skip("still not ready")
+        self.assert_prints(parse_d("""
+        function x () { print('i work')}
+        x()
+        """), ["i work"])
+    
         
 

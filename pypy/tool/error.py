@@ -71,26 +71,16 @@ def gather_error(annotator, block, graph):
     msg = [""]
     msg.append('-+' * 30)
     from pypy.annotation import model
-    msg.append("Blocked block -- operation cannot succeed")
     if model.DEBUG:
+        msg.append("Blocked block -- operation cannot succeed")
         _, _, operindex = annotator.why_not_annotated[block][1].break_at
-    else:
-        # guess the blocked operation by the fact that its return value is
-        # not annotated
-        for operindex in range(len(block.operations)):
-            if block.operations[operindex].result not in annotator.bindings:
-                break
-        else:
-            operindex = None
-
-    if operindex is not None:
         oper = block.operations[operindex]
         msg.append(" " + str(oper))
     else:
-        oper = None
-        msg.append(" (inconsistency - the block is fully annotated??)")
+        msg.append("Blocked block")
+        operindex = None
     msg += source_lines(graph, block, operindex, long=True)
-    if oper is not None:
+    if model.DEBUG:
         if SHOW_ANNOTATIONS:
             msg.append("Known variable annotations:")
             for arg in oper.args + [oper.result]:
@@ -99,7 +89,7 @@ def gather_error(annotator, block, graph):
                         msg.append(" " + str(arg) + " = " + str(annotator.binding(arg)))
                     except KeyError:
                         pass
-        if model.DEBUG and SHOW_TRACEBACK:
+        if SHOW_TRACEBACK:
             msg.extend(traceback.format_exception(*annotator.why_not_annotated[block]))
     return "\n".join(msg)
 

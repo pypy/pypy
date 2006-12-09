@@ -133,7 +133,7 @@ def remove_mallocs(translator, graphs=None):
     tot = 0
     if graphs is None:
         graphs = translator.graphs
-    for graph in translator.graphs:
+    for graph in graphs:
         count = remove_simple_mallocs(graph)
         if count:
             # remove typical leftovers from malloc removal

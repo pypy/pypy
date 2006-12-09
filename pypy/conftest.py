@@ -1,8 +1,8 @@
 import py, sys
-from pypy.interpreter.gateway import app2interp_temp 
+from pypy.interpreter.gateway import app2interp_temp
 from pypy.interpreter.error import OperationError
-from pypy.tool.pytest import appsupport 
-from pypy.tool.option import make_config
+from pypy.tool.pytest import appsupport
+from pypy.tool.option import make_config, make_objspace
 from inspect import isclass, getmro
 
 rootdir = py.magic.autopath().dirpath()
@@ -13,43 +13,17 @@ rootdir = py.magic.autopath().dirpath()
 #
 Option = py.test.Config.Option
 
-#class Options: 
-#    group = "pypy options" 
-#    optionlist = 
 
-def usemodules_callback(option, opt, value, parser):
-    parser.values.usemodules.append(value)
-
-# XXX these options should go away
-
-option = py.test.Config.addoptions("pypy options", 
-        Option('-O', '--objspace', action="store", default=None, 
-               type="string", dest="objspace", 
-               help="object space to run tests on."),
-        Option('--oldstyle', action="store_true",dest="oldstyle", default=False,
-               help="enable oldstyle classes as default metaclass"),
-        Option('--nofaking', action="store_true", 
-               dest="nofaking", default=False,
-               help="avoid faking of modules and objects completely."),
-        Option('--usemodules', action="callback", type="string", metavar="NAME",
-               callback=usemodules_callback, default=[],
-               help="(mixed) modules to use."),
-        Option('--compiler', action="store", type="string", dest="compiler",
-               metavar="[ast|cpython]", default='ast',
-               help="""select compiling approach. see pypy/doc/README.compiling"""),
+option = py.test.Config.addoptions("pypy options",
         Option('--view', action="store_true", dest="view", default=False,
                help="view translation tests' flow graphs with Pygame"),
-        Option('--gc', action="store", default=None, 
-               type="choice", dest="gcpolicy",
-               choices=['ref', 'boehm', 'none', 'framework', 'exact_boehm'],
-               help="GcPolicy class to use for genc tests"),
-        Option('-A', '--runappdirect', action="store_true", 
+        Option('-A', '--runappdirect', action="store_true",
                default=False, dest="runappdirect",
-               help="run applevel tests directly on python interpreter (not through PyPy)"), 
+               help="run applevel tests directly on python interpreter (not through PyPy)"),
     )
 
 _SPACECACHE={}
-def getobjspace(name=None, **kwds): 
+def gettestobjspace(name=None, **kwds):
     """ helper for instantiating and caching space's for testing. 
     """ 
     config = make_config(option, objspace=name, **kwds)
@@ -59,26 +33,23 @@ def getobjspace(name=None, **kwds):
     except KeyError:
         if option.runappdirect:
             return TinyObjSpace(**kwds)
-        mod = __import__('pypy.objspace.%s' % config.objspace.name,
-                         None, None, ['Space'])
-        Space = mod.Space
-        try: 
-            space = Space(config)
+        try:
+            space = make_objspace(config)
         except OperationError, e:
             check_keyboard_interrupt(e)
-            if option.verbose:  
-                import traceback 
-                traceback.print_exc() 
+            if option.verbose:
+                import traceback
+                traceback.print_exc()
             py.test.fail("fatal: cannot initialize objspace:  %r" %(Space,))
         _SPACECACHE[key] = space
-        space.setitem(space.builtin.w_dict, space.wrap('AssertionError'), 
+        space.setitem(space.builtin.w_dict, space.wrap('AssertionError'),
                       appsupport.build_pytest_assertion(space))
         space.setitem(space.builtin.w_dict, space.wrap('raises'),
                       space.wrap(appsupport.app_raises))
         space.setitem(space.builtin.w_dict, space.wrap('skip'),
                       space.wrap(appsupport.app_skip))
         space.raises_w = appsupport.raises_w.__get__(space)
-        space.eq_w = appsupport.eq_w.__get__(space) 
+        space.eq_w = appsupport.eq_w.__get__(space)
         return space
 
 class TinyObjSpace(object):
@@ -188,9 +159,6 @@ class Module(py.test.collect.Module):
             else: 
                 return IntTestFunction(name, parent=self) 
 
-def gettestobjspace(name=None, **kwds):
-    space = getobjspace(name, **kwds)
-    return space
 
 def skip_on_missing_buildoption(**ropts): 
     __tracebackhide__ = True

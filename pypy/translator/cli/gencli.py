@@ -4,7 +4,6 @@ import shutil
 import py
 from py.compat import subprocess
 from pypy.config.config import Config
-from pypy.config.pypyoption import pypy_optiondescription
 from pypy.translator.oosupport.genoo import GenOO
 from pypy.translator.cli import conftest
 from pypy.translator.cli.ilgenerator import IlasmGenerator

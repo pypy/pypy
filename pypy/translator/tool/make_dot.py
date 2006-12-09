@@ -67,11 +67,10 @@ class DotGen:
                   color="black",
                   fillcolor="white", 
                   style="filled",
-                  width="0.75",
                   ):
         d = locals()
         attrs = [('%s="%s"' % (x, d[x].replace('"', '\\"').replace('\n', '\\n')))
-                 for x in ['shape', 'label', 'color', 'fillcolor', 'style', 'width']]
+                 for x in ['shape', 'label', 'color', 'fillcolor', 'style']]
         self.emit('%s [%s];' % (safename(name), ", ".join(attrs)))
 
 
@@ -193,7 +192,7 @@ class FlowGraphDotGen(DotGen):
             name2 = self.blockname(link.target)
             label = " ".join(map(repr, link.args))
             if link.exitcase is not None:
-                label = "%s: %s" %(link.exitcase, label)
+                label = "%s: %s" %(repr(link.exitcase).replace('\\', '\\\\'), label)
                 self.emit_edge(name, name2, label, style="dotted", color="red")
             else:
                 self.emit_edge(name, name2, label, style="solid")

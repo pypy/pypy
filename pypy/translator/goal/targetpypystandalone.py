@@ -13,8 +13,7 @@ from pypy.objspace.std.objspace import StdObjSpace
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.translator.goal.ann_override import PyPyAnnotatorPolicy
-from pypy.config.pypyoption import pypy_optiondescription
-from pypy.config.config import Config, to_optparse, make_dict
+from pypy.config.config import Config, to_optparse, make_dict, SUPPRESS_USAGE
 from pypy.tool.option import make_objspace
 
 thisdir = py.magic.autopath().dirpath()
@@ -79,7 +78,7 @@ def call_startup(space):
 
 class PyPyTarget(object):
 
-    usage = "target PyPy standalone"
+    usage = SUPPRESS_USAGE
 
     take_options = True
 
@@ -91,11 +90,12 @@ class PyPyTarget(object):
     def handle_config(self, config):
         pass
 
-    def handle_translate_config(self, translateconfig):
-        pass
-
     def print_help(self, config):
         self.opt_parser(config).print_help()
+
+    def get_additional_config_options(self):
+        from pypy.config.pypyoption import pypy_optiondescription
+        return pypy_optiondescription
 
     def target(self, driver, args):
         driver.exe_name = 'pypy-%(backend)s'
@@ -154,7 +154,7 @@ class PyPyTarget(object):
 
     def interface(self, ns):
         for name in ['take_options', 'handle_config', 'print_help', 'target',
-                     'handle_translate_config']:
+                     'get_additional_config_options']:
             ns[name] = getattr(self, name)
 
 

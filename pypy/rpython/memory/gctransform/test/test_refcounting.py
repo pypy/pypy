@@ -14,7 +14,7 @@ def llinterpreter_for_refcounted_graph(f, args_s):
     from pypy.translator.c import gc
 
     t = rtype(f, args_s)
-    cbuild = CStandaloneBuilder(t, f, gcpolicy=RefcountingGcPolicy2)
+    cbuild = CStandaloneBuilder(t, f, t.config, gcpolicy=RefcountingGcPolicy2)
     db = cbuild.generate_graphs_for_llinterp()
     graph = cbuild.getentrypointptr()._obj.graph
     llinterp = LLInterpreter(t.rtyper)

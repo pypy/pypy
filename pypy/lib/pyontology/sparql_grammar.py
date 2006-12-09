@@ -24,7 +24,7 @@ def production(lit, d=False):
     return o
 
 def replace_int(s, loc, toks):
-    return [rdfliteral(int(toks[0]), datatype="http://www.w3.org/2001/XMLSchema#int")]
+    return [rdfliteral(int(toks[0]), datatype="http://www.w3.org/2001/XMLSchema#integer")]
 
 
 def replace_string(s, loc, toks):
@@ -590,5 +590,7 @@ class SPARQLGrammar(object):
 
     # NCNAME ::= ( "_" | NCCHAR1 ) ((NCCHAR|".")* NCCHAR)?
 
-    NCNAME << ("_" | NCCHAR1)
+    NCNAME << ("_" | NCCHAR1) + Optional(ZeroOrMore(NCCHAR | ".") + NCCHAR)
+
+
 

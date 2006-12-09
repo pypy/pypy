@@ -7,7 +7,7 @@ def setup_module(mod):
     if sys.version[:3] != "2.4":
         py.test.skip("expected to work only on 2.4")
     import pypy.conftest
-    mod.std_space = pypy.conftest.getobjspace('std')
+    mod.std_space = pypy.conftest.gettestobjspace('std')
 
 def check_file_compile(filename):
     print 'Compiling:', filename

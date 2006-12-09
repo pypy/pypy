@@ -7,7 +7,7 @@ import py.test
 
 def setup_module(mod):
     import pypy.conftest
-    mod.std_space = pypy.conftest.getobjspace('std')
+    mod.std_space = pypy.conftest.gettestobjspace('std')
 
 from pypy.interpreter.astcompiler import ast, misc, pycodegen
 

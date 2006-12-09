@@ -15,3 +15,10 @@
 #endif
 
 #include <stddef.h>
+
+
+#ifdef __GNUC__       /* other platforms too, probably */
+typedef _Bool bool_t;
+#else
+typedef unsigned char bool_t;
+#endif

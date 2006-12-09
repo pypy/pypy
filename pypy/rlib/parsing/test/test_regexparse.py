@@ -1,14 +1,4 @@
-def make_runner(regex, view=False):
-    from pypy.rlib.parsing.regexparse import parse_regex
-    r = parse_regex(regex)
-    dfa = r.make_automaton().make_deterministic()
-    if view:
-        dfa.view()
-    dfa.optimize()
-    if view:
-        dfa.view()
-    r = dfa.get_runner()
-    return r
+from pypy.rlib.parsing.regexparse import make_runner
 
 def test_simple():
     r = make_runner("a*")

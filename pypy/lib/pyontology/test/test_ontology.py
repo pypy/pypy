@@ -46,6 +46,7 @@ def test_XMLSchema_string():
     O.consistency()
 
 def test_XMLSchema_string_fail():
+#    py.test.skip("WIP")
     O = Ontology()
     a = URIRef(u'A')
     p = URIRef(u'P')
@@ -658,11 +659,6 @@ def test_more_cardinality():
     lll = len(O.variables)
     assert len(list(O.graph.triples((None,)*3))) > l
 
-def test_allvalues_file():
-    O = Ontology()
-    O.add_file('approved/allValuesFrom/premises002.rdf')
-    O.add_file('approved/allValuesFrom/nonconclusions002.rdf')
-    
 def test_import():
     O = Ontology()
     s = URIRef('s')

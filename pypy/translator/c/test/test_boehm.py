@@ -1,10 +1,9 @@
 import py
 from pypy.translator.translator import TranslationContext
+from pypy.rpython.lltypesystem.lltype import Void
 from pypy.translator.tool.cbuild import check_boehm_presence
 from pypy.translator.c.genc import CExtModuleBuilder
 from pypy import conftest
-from pypy.config.config import Config
-from pypy.config.pypyoption import pypy_optiondescription
 
 def setup_module(mod):
     if not check_boehm_presence():
@@ -23,7 +22,8 @@ class AbstractGCTestClass:
 
     def getcompiled(self, func, argstypelist = [],
                     annotatorpolicy=None):
-        config = Config(pypy_optiondescription)
+        from pypy.config.pypyoption import get_pypy_config
+        config = get_pypy_config(translating=True)
         config.translation.gc = self.gcpolicy
         config.translation.simplifying = True
         t = TranslationContext(config=config)
@@ -177,6 +177,31 @@ class TestUsingBoehm(AbstractGCTestClass):
         res = fn()
         assert res == 10
         
+    # this test shows if we have a problem with refcounting PyObject
+    def test_refcount_pyobj(self):
+        from pypy.rpython.lltypesystem.lloperation import llop
+        def prob_with_pyobj(b):
+            return 3, b
+        def collect():
+            llop.gc__collect(Void)
+        f = self.getcompiled(prob_with_pyobj, [object])
+        c = self.getcompiled(collect, [])
+        from sys import getrefcount as g
+        obj = None
+        before = g(obj)
+        f(obj)
+        f(obj)
+        f(obj)
+        f(obj)
+        f(obj)
+        c()
+        c()
+        c()
+        c()
+        c()
+        after = g(obj)
+        assert abs(before - after) < 5
+
 
 class TestUsingExactBoehm(TestUsingBoehm):
     gcpolicy = "exact_boehm"

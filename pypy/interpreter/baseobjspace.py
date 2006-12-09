@@ -170,20 +170,15 @@ class ObjSpace(object):
         # set recursion limit
         # sets all the internal descriptors
         if config is None:
-            from pypy.config.config import Config
-            from pypy.config.pypyoption import pypy_optiondescription
-            config = Config(pypy_optiondescription)
+            from pypy.config.pypyoption import get_pypy_config
+            config = get_pypy_config(translating=False)
         self.config = config
-
-        # import extra modules for side-effects, possibly based on config
-        import pypy.interpreter.nestedscope     # register *_DEREF bytecodes
-
         self.interned_strings = {}
         self.pending_actions = []
         self.setoptions(**kw)
 
-        if self.config.objspace.logbytecodes:            
-            self.bytecodecounts = {}
+#        if self.config.objspace.logbytecodes:            
+#            self.bytecodecounts = {}
 
         self.initialize()
 

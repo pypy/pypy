@@ -48,9 +48,8 @@ Things we've thought about but not yet implemented include:
 
 * lists which are specialised for int-only values (for saving memory).
 
-* some form of caching the lookups of builtin or even global names (most
-  likely by special forms of dictionaries that can invalidate the caches when
-  they are written to).
+* in-progress: caching the lookups of builtin names (by special forms of
+  dictionaries that can invalidate the caches when they are written to)
 
 * create multiple representations of Unicode string that store the character
   data in narrower arrays when they can.
@@ -108,6 +107,8 @@ too (though the latter is probably more than two months of work), or Lua, or ...
 We already have a somewhat usable `Prolog interpreter`_ and the beginnings of a
 `JavaScript interpreter`_.
 
+.. _security:
+
 Investigate restricted execution models
 ---------------------------------------
 
@@ -122,6 +123,9 @@ approaches, to execute general but untrusted Python code on top of PyPy,
 require more design.  The object space model of PyPy will easily allow
 objects to be tagged and tracked.  The translation of PyPy would also be a
 good place to insert e.g. systematic checks around all system calls.
+
+.. _distribution:
+.. _persistence:
 
 Experiment with distribution and persistence
 --------------------------------------------

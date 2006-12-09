@@ -95,7 +95,7 @@ class IOState:
             w_fdopen, space.wrap(2), space.wrap("w"),
             space.wrap(0))
         space.setattr(self.w_stderr, space.wrap("_name"),
-                      space.wrap("<hahahaha>"))
+                      space.wrap("<stderr>"))
 
 def getio(space):
     return space.fromcache(IOState)

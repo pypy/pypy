@@ -3,59 +3,71 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef
 from pypy.rpython.ootypesystem import ootype
-from pypy.translator.cli.dotnet import CLR, box, unbox, NativeException, native_exc, new_array, init_array
+from pypy.translator.cli.dotnet import CLR, box, unbox, NativeException, native_exc,\
+     new_array, init_array, typeof
 
-# TODO: this code is not translatable
-
-Type = CLR.System.Type
-Object = CLR.System.Object
+System = CLR.System
 TargetInvocationException = NativeException(CLR.System.Reflection.TargetInvocationException)
 
 import sys
 
 class W_CliObject(Wrappable):
-    def __init__(self, space, obj):
+    def __init__(self, space, b_obj):
         self.space = space
-        self.obj = obj
+        self.b_obj = b_obj
 
     def call_method(self, name, w_args):
-        t = self.obj.GetType()
-        meth = t.GetMethod(name) # TODO: overloading!
-        args = self.rewrap_args(w_args)
+        b_type = self.b_obj.GetType()
+        b_meth = b_type.GetMethod(name) # TODO: overloading!
+        b_args = self.rewrap_args(w_args)
         try:
-            res = meth.Invoke(self.obj, args)
+            # for an explanation of the box() call, see the log message for revision 35167
+            b_res = box(b_meth.Invoke(self.b_obj, b_args))
         except TargetInvocationException, e:
-            inner = native_exc(e).get_InnerException()
-            message = str(inner.get_Message())
+            b_inner = native_exc(e).get_InnerException()
+            message = str(b_inner.get_Message())
             # TODO: use the appropriate exception, not StandardError
             raise OperationError(self.space.w_StandardError, self.space.wrap(message))
-        return self.cli2py(res)
+        return self.cli2py(b_res)
     call_method.unwrap_spec = ['self', str, W_Root]
 
     def rewrap_args(self, w_args):
-        py_args = self.space.unpackiterable(w_args)
-        res = new_array(Object, len(py_args))
-        for i in range(len(py_args)):
-            res[i] = self.py2cli(py_args[i])
-        return res
+        args = self.space.unpackiterable(w_args)
+        b_res = new_array(System.Object, len(args))
+        for i in range(len(args)):
+            b_res[i] = self.py2cli(args[i])
+        return b_res
 
     def py2cli(self, w_obj):
         space = self.space
         if space.is_true(space.isinstance(w_obj, self.space.w_int)):
             return box(space.int_w(w_obj))
+        if space.is_true(space.isinstance(w_obj, self.space.w_float)):
+            return box(space.float_w(w_obj))
         else:
-            assert False
+            typename = space.type(w_obj).getname(space, '?')
+            msg = "Can't convert type %s to .NET" % typename
+            raise OperationError(self.space.w_TypeError, self.space.wrap(msg))
 
-    def cli2py(self, obj):
-        intval = unbox(obj, ootype.Signed) # TODO: support other types
-        return self.space.wrap(intval)
+    def cli2py(self, b_obj):
+        b_type = b_obj.GetType()
+        # TODO: support other types
+        if b_type == typeof(System.Int32):
+            intval = unbox(b_obj, ootype.Signed)
+            return self.space.wrap(intval)
+        elif b_type == typeof(System.Double):
+            floatval = unbox(b_obj, ootype.Float)
+            return self.space.wrap(floatval)
+        else:
+            msg = "Can't convert object %s to Python" % str(b_obj.ToString())
+            raise OperationError(self.space.w_TypeError, self.space.wrap(msg))
 
 
 def cli_object_new(space, w_subtype, typename):
-    t = Type.GetType(typename)
-    ctor = t.GetConstructor(init_array(Type))
-    obj = ctor.Invoke(init_array(Object))
-    return space.wrap(W_CliObject(space, obj))
+    b_type = System.Type.GetType(typename)
+    b_ctor = b_type.GetConstructor(init_array(System.Type))
+    b_obj = b_ctor.Invoke(init_array(System.Object))
+    return space.wrap(W_CliObject(space, b_obj))
 cli_object_new.unwrap_spec = [ObjSpace, W_Root, str]
 
 

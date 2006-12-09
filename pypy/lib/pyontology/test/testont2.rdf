@@ -32,9 +32,9 @@ joseph.dichy@univ-lyon2.fr</contact>
 joseph.dichy@univ-lyon2.fr</contact>
 <dc_keyword>
 NLP!Natural Language Processing!MT</dc_keyword>
-<dateEnd>
+<dateEnd rdf:datatype="http://www.w3.org/2001/XMLSchema#date">
 2000-08-01</dateEnd>
-<dateStart>
+<dateStart rdf:datatype="http://www.w3.org/2001/XMLSchema#date">
 1998-02-01</dateStart>
 <dc_source>
 http://www.hltcentral.org/projects</dc_source>

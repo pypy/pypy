@@ -45,7 +45,7 @@ void RPyAssertFailed(const char* filename, long lineno,
 #  define RPyAssert(x, msg)   /* nothing */
 #endif
 
-#ifdef __RPyListOfString_New     /*  :-(  */
+#ifdef _RPyListOfString_New     /*  :-(  */
 #  define HAVE_RPY_LIST_OF_STRING
 #endif
 

@@ -70,9 +70,20 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['fork'] = 'interp_posix.fork'
     if hasattr(os, 'waitpid'):
         interpleveldefs['waitpid'] = 'interp_posix.waitpid'
+    if hasattr(os, 'execv'):
+        interpleveldefs['execv'] = 'interp_posix.execv'
+    if hasattr(os, 'execve'):
+        interpleveldefs['execve'] = 'interp_posix.execve'
     #if hasattr(ctypes_posix, 'uname'):
     #    interpleveldefs['uname'] = 'interp_posix.uname'
 
+    def setup_after_space_initialization(self):
+        """NOT_RPYTHON"""
+        space = self.space
+        config = space.config
+        # XXX execve does not work under ootypesystem yet :-(
+        if config.translating and config.translation.type_system != "lltype":
+            space.delattr(self, space.wrap("execve"))
 
 for constant in dir(os):
     value = getattr(os, constant)

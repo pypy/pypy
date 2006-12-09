@@ -1,7 +1,5 @@
 import os, sys
 
-from pypy.tool.option import make_config
-
 from pypy.objspace.std.objspace import StdObjSpace
 # XXX from pypy.annotation.model import *
 # since we are execfile()'ed this would pull some

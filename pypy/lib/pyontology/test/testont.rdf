@@ -11,7 +11,7 @@
       </owl:Class>
     <owl:Thing rdf:about="http://example.org/ns#sub">
         <ns:p rdf:datatype=
-        "http://www.w3.org/2001/XMLSchema#int">123</ns:p>
+        "http://www.w3.org/2001/XMLSchema#integer">123</ns:p>
     </owl:Thing>
     <owl:ObjectProperty rdf:about="http://example.org/ns#p" />
   </rdf:RDF>
