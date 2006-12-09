@@ -78,6 +78,9 @@ class EntryPoint(Node):
         gen.begin_function(
             'main', (), [jStringArray], jVoid, static=True)
 
+        if self.print_result:
+            gen.begin_try()
+
         # Handle arguments:
         if self.expand_arguments:
             # Convert each entry into the array to the desired type by
@@ -101,11 +104,25 @@ class EntryPoint(Node):
         gen.emit(self.db.pending_function(self.graph))
 
         # Print result?
+        #
+        #   Use the dump method for non-exceptional results
+        #
+        #   For exceptions, just print the runtime type
+        #
         if self.print_result:
+            done_printing = gen.unique_label('done_printing')
             gen.emit(jvmgen.ICONST, 0)
             RESOOTYPE = self.graph.getreturnvar().concretetype
             dumpmethod = self.db.generate_dump_method_for_ootype(RESOOTYPE)
             dumpmethod.invoke(gen)
+            gen.goto(done_printing)
+            gen.end_try()
+
+            gen.begin_catch(jObject)
+            gen.emit(jvmgen.PYPYDUMPEXCWRAPPER)
+            gen.end_catch()
+
+            gen.mark(done_printing)
 
         # And finish up
         gen.return_val(jVoid)

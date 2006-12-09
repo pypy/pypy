@@ -100,10 +100,8 @@ class Database(OODatabase):
         assert OOTYPE._superclass
         supercls = self.pending_class(OOTYPE._superclass)
 
-        # TODO --- make package of java class reflect the package of the
-        # OO class?
-        clsnm = self._pkg(
-            self._uniq(OOTYPE._name.replace('.','_')))
+        # Create the class object
+        clsnm = self._pkg(self._uniq(OOTYPE._name))
         clsobj = node.Class(clsnm, supercls)
 
         print "Class %s has super %s" % (

@@ -35,7 +35,14 @@ class OOList(list):
 # CLI duplicate
 class ExceptionWrapper:
     def __init__(self, class_name):
-        self.class_name = class_name
+        # We put all of our classes into some package like 'pypy':
+        # strip the initial 'pypy.' that results from the class name,
+        # and we append a number to make the class name unique. Strip
+        # those.
+        pkg = getoption('package')+'.'
+        assert class_name.startswith(pkg)
+        uniqidx = class_name.rindex('_')
+        self.class_name = class_name[len(pkg):uniqidx]
 
     def __repr__(self):
         return 'ExceptionWrapper(%s)' % repr(self.class_name)

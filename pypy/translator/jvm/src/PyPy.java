@@ -245,7 +245,7 @@ public class PyPy {
         dump_indented(indent, sb.toString());
     }
 
-    public static void dump_string(String b, int indent) {
+    public static String escaped_string(String b) {
         StringBuffer sb = new StringBuffer();
         sb.append('"');
         for (int i = 0; i < b.length(); i++) {
@@ -253,11 +253,27 @@ public class PyPy {
             _append_char(sb, c);
         }
         sb.append('"');
-        dump_indented(indent, sb.toString());
+        return sb.toString();
+    }
+
+    public static void dump_string(String b, int indent) {
+        dump_indented(indent, escaped_string(b));
     }
 
     public static void dump_object(Object o, int indent) {
         dump_indented(indent, o.toString());
+    }
+
+    // used in running unit tests
+    // not really part of the dump_XXX set of objects, hence the lack
+    // of an indent parameter
+    public static void dump_exc_wrapper(Object o) {
+        String clnm = o.getClass().getName();
+        StringBuffer sb = new StringBuffer();
+        sb.append("ExceptionWrapper(");
+        sb.append(escaped_string(clnm));
+        sb.append(")");
+        dump_indented(0, sb.toString());
     }
 
     // ----------------------------------------------------------------------
@@ -352,6 +368,27 @@ public class PyPy {
         if (b) return "True";
         return "False";
     }
+
+    // ----------------------------------------------------------------------
+    // Exceptions
+    //
+    // If we don't use true Java exceptions, then this 
+
+/*
+    static private ThreadLocal<Object> excObject  = new ThreadLocal();
+
+    public static int startTry() {
+        return excCounter.get();
+    }
+
+    public void throw(Object o) {
+        excObject.put(o);
+    }
+
+    public static Object catch(int ctr) {
+        return excObject.get();
+    }
+*/
 
     // ----------------------------------------------------------------------
     // Self Test

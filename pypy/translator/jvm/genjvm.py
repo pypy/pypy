@@ -94,6 +94,20 @@ class JvmGeneratedSource(object):
             raise JvmSubprogramError(res, args, stdout, stderr)
         return stdout, stderr
 
+    def _compile_helper(self, clsnm):
+        # HACK: compile the Java helper class.  Should eventually
+        # use rte.py
+        pypycls = self.classdir.join(clsnm + '.class')
+        if not os.path.exists(str(pypycls)):
+            sl = __file__.rindex('/')
+            javasrc = __file__[:sl]+("/src/%s.java" % clsnm)
+            self._invoke([getoption('javac'),
+                          '-nowarn',
+                          '-d', str(self.classdir),
+                          javasrc],
+                         True)
+        
+
     def compile(self):
         """
         Compiles the .java sources into .class files, ready for execution.
@@ -102,20 +116,10 @@ class JvmGeneratedSource(object):
         for jasfile in self.jasmin_files:
             print "Invoking jasmin on %s" % jasfile
             self._invoke(jascmd+[jasfile], False)
-
-        # HACK: compile the Java helper class.  Should eventually
-        # use rte.py
-        pypycls = self.classdir.join('PyPy.class')
-        if not os.path.exists(str(pypycls)):
-            sl = __file__.rindex('/')
-            javasrc = __file__[:sl]+"/src/PyPy.java"
-            self._invoke([getoption('javac'),
-                          '-nowarn',
-                          '-d', str(self.classdir),
-                          javasrc],
-                         True)
                            
         self.compiled = True
+        self._compile_helper('PyPy')
+        self._compile_helper('ExceptionWrapper')
 
     def execute(self, args):
         """

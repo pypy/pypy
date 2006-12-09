@@ -173,6 +173,7 @@ jPrintStream = JvmClassType('java.io.PrintStream')
 jMath = JvmClassType('java.lang.Math')
 jList = JvmClassType('java.util.List')
 jPyPy = JvmClassType('pypy.PyPy')
+jPyPyExcWrap = JvmClassType('pypy.ExceptionWrapper')
 jPyPyConst = JvmClassType('pypy.Constant')
 jPyPyMain = JvmClassType('pypy.Main')
 

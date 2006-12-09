@@ -6,12 +6,7 @@ from pypy.translator.oosupport.constant import push_constant
 from pypy.translator.jvm.typesystem import \
      JvmType, jString, jInt, jLong, jDouble, jBool, jString, \
      jPyPy, jVoid, jMath, desc_for_method, jPrintStream, jClass, jChar, \
-     jObject, jByteArray
-
-# ___________________________________________________________________________
-# Helper class string constants
-
-PYPYJAVA = jPyPy.name
+     jObject, jByteArray, jPyPyExcWrap
 
 # ___________________________________________________________________________
 # Miscellaneous helper functions
@@ -236,6 +231,7 @@ DUP =       Opcode('dup')
 DUP2 =      Opcode('dup2')
 POP =       Opcode('pop')
 POP2 =      Opcode('pop2')
+SWAP =      Opcode('swap')
 INSTANCEOF= IntClassNameOpcode('instanceof')
 # Loading/storing local variables
 LOAD =      OpcodeFamily(VarOpcode, "load")
@@ -353,9 +349,12 @@ PYPYDUMPSTRING  =       Method.s(jPyPy, 'dump_string', (jString,jInt), jVoid)
 PYPYDUMPBOOLEAN =       Method.s(jPyPy, 'dump_boolean', (jBool,jInt), jVoid)
 PYPYDUMPOBJECT =        Method.s(jPyPy, 'dump_object', (jObject,jInt,), jVoid)
 PYPYDUMPVOID =          Method.s(jPyPy, 'dump_void', (jInt,), jVoid)
+PYPYDUMPEXCWRAPPER =    Method.s(jPyPy, 'dump_exc_wrapper', (jObject,), jVoid)
 PYPYRUNTIMENEW =        Method.s(jPyPy, 'RuntimeNew', (jClass,), jObject)
 PYPYSTRING2BYTES =      Method.s(jPyPy, 'string2bytes', (jString,), jByteArray)
-
+OBJECTGETCLASS =        Method.v(jObject, 'getClass', (), jClass)
+CLASSGETNAME =          Method.v(jClass, 'getName', (), jString)
+EXCWRAPWRAP =           Method.s(jPyPyExcWrap, 'wrap', (jObject,), jPyPyExcWrap)
 
 # ___________________________________________________________________________
 # Fields
@@ -390,6 +389,8 @@ SYSTEMERR =    Field('java.lang.System', 'err', jPrintStream, True)
 DOUBLENAN =    Field('java.lang.Double', 'NaN', jDouble, True)
 DOUBLEPOSINF = Field('java.lang.Double', 'POSITIVE_INFINITY', jDouble, True)
 DOUBLENEGINF = Field('java.lang.Double', 'NEGATIVE_INFINITY', jDouble, True)
+
+EXCWRAPOBJ =   Field(jPyPyExcWrap.name, 'object', jObject, False)
 
 # ___________________________________________________________________________
 # Generator State
@@ -557,6 +558,13 @@ class JVMGenerator(Generator):
         """ Returns a value from top of stack of the JvmType 'vartype' """
         self._instr(RETURN.for_type(vartype))
 
+    def load_class_name(self):
+        """ Loads the name of the *Java* class of the object on the top of
+        the stack as a Java string.  Note that the result for a PyPy
+        generated class will look something like 'pypy.some.pkg.cls' """
+        self.emit(OBJECTGETCLASS)
+        self.emit(CLASSGETNAME)
+
     def load_string(self, str):
         """ Pushes a Java version of a Python string onto the stack.
         'str' should be a Python string encoded in UTF-8 (I think) """
@@ -647,10 +655,24 @@ class JVMGenerator(Generator):
         try region is reused.
         'excclsty' --- a JvmType for the class of exception to be caught
         """
-        catchlbl = self.unique_label("catch")
-        self.mark(catchlbl, mark=True)
-        self.try_catch_region(
-            excclsty, self.begintrylbl, send.endtrylbl, catchlbl)
+        catchlbl = self.unique_label("catch", mark=True)
+        self._try_catch_region(
+            jPyPyExcWrap, self.begintrylbl, self.endtrylbl, catchlbl)
+
+        # emit the code to unwrap the exception, check the type
+        # of the unwrapped object, and re-throw the exception
+        # if it not the right type
+        catch = self.unique_label('catch')
+        self.emit(DUP)
+        EXCWRAPOBJ.load(self)
+        self.emit(INSTANCEOF, excclsty)
+        self.emit(IFNE, catch)
+        self.emit(ATHROW)
+
+        # If it IS the right type, just dereference and get the
+        # wrapped Python object 
+        self.mark(catch)
+        EXCWRAPOBJ.load(self)
 
     def end_catch(self):
         """
@@ -659,7 +681,7 @@ class JVMGenerator(Generator):
         """
         return
         
-    def try_catch_region(self, excclsty, trystartlbl, tryendlbl, catchlbl):
+    def _try_catch_region(self, excclsty, trystartlbl, tryendlbl, catchlbl):
         """
         Indicates a try/catch region:
         'excclsty' --- a JvmType for the class of exception to be caught
@@ -737,7 +759,7 @@ class JVMGenerator(Generator):
         self._instr(INSTANCEOF, jtype)
 
     def branch_unconditionally(self, target_label):
-        self._instr(GOTO, target_label)
+        self.goto(target_label)
 
     def branch_conditionally(self, cond, target_label):
         if cond:
@@ -846,6 +868,12 @@ class JVMGenerator(Generator):
 
     def throw(self):
         """ Throw the object from top of the stack as an exception """
+
+        # We have to deal with the problem that exceptions must
+        # derive from Throwable, but our exception hierarchy in OOTYPE
+        # does not (today).  For now, we use a wrapper class, which is
+        # probably the worst answer of all, but an easy one.
+        self.emit(EXCWRAPWRAP)
         self._instr(ATHROW)
 
     def iabs(self):
@@ -858,6 +886,10 @@ class JVMGenerator(Generator):
         """ Invert all the bits in the "int" on the top of the stack """
         self._instr(ICONST, -1)
         self._instr(IXOR)
+
+    def goto(self, label):
+        """ Jumps unconditionally """
+        self._instr(GOTO, label)
 
     def goto_if_true(self, label):
         """ Jumps if the top of stack is true """
@@ -1016,7 +1048,10 @@ class JasminGenerator(JVMGenerator):
             instr_text, self.curfunc.instr_counter))
         self.curfunc.instr_counter+=1
 
-    def try_catch_region(self, excclsty, trystartlbl, tryendlbl, catchlbl):
+    def _try_catch_region(self, excclsty, trystartlbl, tryendlbl, catchlbl):
         self.curclass.out('  .catch %s from %s to %s using %s\n' % (
-            excclsty.int_class_name(), trystartlbl, tryendlbl, catchlbl))
+            excclsty.descriptor.int_class_name(),
+            trystartlbl.jasmin_syntax(),
+            tryendlbl.jasmin_syntax(),
+            catchlbl.jasmin_syntax()))
                        
