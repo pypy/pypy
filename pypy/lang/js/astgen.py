@@ -6,7 +6,6 @@ from pypy.lang.js.scope import scope_manager
 
 class Node(object):
     __metaclass__ = extendabletype
-    # TODO Add line info for debug
 #    def __init__(self, lineno = 1):
 #        self.lineno = lineno
 
@@ -47,11 +46,12 @@ class Dot(Node):
         self.right = right
 
 class Function(Node):
-    def __init__(self, name, params, body, scope):
-        self.name = name
+    def __init__(self, params, body, scope):
         self.params = params
         self.body = body
         self.scope = scope
+        #w_obj = W_Object({}, function=self)
+        #self.scope = Scope(copy(scope.dict))
 
 class Group(Node):
     def __init__(self, expr):
@@ -107,10 +107,7 @@ class Return(Node):
 class Script(Node):
     def __init__(self, nodes, var_decl, func_decl):
         self.nodes = nodes
-        import pdb
-        #pdb.set_trace()
         [scope_manager.add_variable(id.name, w_Undefined) for id in var_decl]
-        [scope_manager.add_variable(id.name, id) for id in func_decl]
         self.var_decl = var_decl
         self.func_decl = func_decl
 
@@ -176,14 +173,13 @@ def from_dict(d):
     elif tp == 'DOT':
         return Dot(from_dict(d['0']), from_dict(d['1']))
     elif tp == 'FUNCTION':
-        name = d['name']
         scope = scope_manager.enter_scope()
         body = from_dict(d['body'])
         if d['params'] == '':
             params = []
         else:
             params = d['params'].split(',')
-        f = Function(name, params, body, scope)
+        f = Function(params, body, scope)
         scope_manager.leave_scope()
         return f
     elif tp == 'GROUP':
@@ -223,16 +219,11 @@ def from_dict(d):
         return Return(from_dict(d['value']))
     elif tp == 'SCRIPT':
         # TODO: get function names
-        if isinstance(d['funDecls'], dict):
-            func_decl = [from_dict(d['funDecls']),]
-        else:
-            func_decl = [from_dict(x) for x in d['funDecls']]
-        
         if isinstance(d['varDecls'], dict):
             var_decl = [from_dict(d['varDecls']),]
         else:
             var_decl = [from_dict(x) for x in d['varDecls']]
-        return Script(getlist(d), var_decl, func_decl)
+        return Script(getlist(d), var_decl, [])
     elif tp == 'SEMICOLON':
         return Semicolon(from_dict(d['expression']))
     elif tp == 'STRING':

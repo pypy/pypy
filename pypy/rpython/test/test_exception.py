@@ -69,6 +69,7 @@ class BaseTestException(BaseRtypingTest):
         assert res == 42
 
     def test_catch_incompatible_class(self):
+        import py; py.test.skip("in-progress")
         class MyError(Exception):
             pass
         def h(x):

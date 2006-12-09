@@ -22,12 +22,16 @@ class CBuilder(object):
     symboltable = None
     modulename = None
     
-    def __init__(self, translator, entrypoint, config, libraries=None,
+    def __init__(self, translator, entrypoint, config=None, libraries=None,
                  gcpolicy=None):
         self.translator = translator
         self.entrypoint = entrypoint
         self.originalentrypoint = entrypoint
         self.gcpolicy = gcpolicy
+        if config is None:
+            from pypy.config.config import Config
+            from pypy.config.pypyoption import pypy_optiondescription
+            config = Config(pypy_optiondescription)
         if gcpolicy is not None and gcpolicy.requires_stackless:
             config.translation.stackless = True
         self.config = config

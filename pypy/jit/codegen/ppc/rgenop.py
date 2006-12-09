@@ -686,7 +686,7 @@ class RPPCGenOp(AbstractRGenOp):
     # ----------------------------------------------------------------
     # the public RGenOp interface
 
-    def newgraph(self, sigtoken, name):
+    def newgraph(self, sigtoken):
         numargs = sigtoken          # for now
         builder = self.openbuilder()
         entrypoint = builder.asm.mc.tell()

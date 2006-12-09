@@ -233,11 +233,11 @@ class Individual(Thing):
         if hasattr(other,'uri'):
             if self.uri == other.uri:
                 return True
-        elif other in self.sameas:
-            return True
-        else:
+        elif not hasattr(other,'uri'):
             if self.uri == other:
                 return True
+        elif other in self.sameas:
+            return True
         if not other or other in self.differentfrom:
             return False
         else:
@@ -296,7 +296,6 @@ class Property(AbstractDomain, object):
         self._dict[key].append(val)
     
     def setValues(self, values):
-        self._dict= {}
         for key, val in values:
             self.addValue(key, val)
     
@@ -425,10 +424,8 @@ class Literal(ClassDomain):
 def Types(typ):
     class Type(Literal):
         def __contains__(self, item):
-            if isinstance(item, rdflib_literal):
-                return item.datatype is None or item.datatype == self.Type
-            else:
-                return XMLTypes[self.Type.split("#")[-1]] == type(item)
+            #assert isinstance(item, rdflib_literal)
+            return item.datatype is None or item.datatype == self.Type
 
     datatype = Type
     datatype.Type = typ
@@ -457,9 +454,8 @@ builtin_voc = {
                getUriref('rdf', 'Literal') : Literal,
 #               getUriref('rdf', 'type') : Property,
               }
-#XMLTypes = ['string', 'float', 'integer', 'date']
-XMLTypes = {'string': str, 'float': float, 'integer': int, 
-            'date': lambda x: datetime.date(*[int(v) for v in x.split('-')])}
+
+XMLTypes = ['string', 'float', 'integer', 'date']
 
 for typ in XMLTypes:
     uri = getUriref('xmlschema', typ)
@@ -480,7 +476,7 @@ class Ontology:
         self.seen = {}
         self.var2ns ={}
         self.nr_of_triples = 0
-#        self.time = time.time()
+        self.time = time.time()
 #        for pr in builtin_voc:
 #            name = self.mangle_name(pr)
             # Instantiate ClassDomains to record instances of the types
@@ -530,6 +526,7 @@ class Ontology:
 
     def _sparql(self, query):
         qe = SP.Query.parseString(query)
+
         prefixes = qe.Prefix[0]
 
         resvars = []
@@ -548,11 +545,7 @@ class Ontology:
             trip_ = [trip.Subject[0], trip.Verb[0], trip.Object[0]]
             for item in trip_:
                 if isinstance(item[0], rdflib_literal):
-                    o = item[0]
-                    if o.datatype in builtin_voc:
-                        o = XMLTypes[o.datatype.split('#')[-1]](o)
-                    self.variables['owl_Literal'].addValue(o)
-                    newtrip.append(o)
+                    newtrip.append(item[0])
                 elif item[0].NCNAME_PREFIX:
                     uri = prefixes[item[0].NCNAME_PREFIX[0]] + item[0].NCNAME[0]
                     newtrip.append(URIRef(uri))
@@ -636,6 +629,9 @@ class Ontology:
                 p_vals = self.variables[prop].getValuesPrKey(indi)
                 var = self.make_var(Thing, trip[2])
                 self.variables[var].setValues((p_vals))
+                if [dom for dom in self.variables.values() if isinstance(dom, Individual)]: 
+                    import pdb
+                    pdb.set_trace()
             elif case == 4:
                 #  for all p's return p[0] if p[1]==o 
                  
@@ -656,6 +652,8 @@ class Ontology:
                 query_constr.append(PropertyConstrain2(prop_name, sub_name, obj))
             elif case == 5:
                 #  return the values of p
+                #import pdb
+                ##pdb.set_trace()
                 prop = self.make_var(Property, URIRef(trip[1]))
                 query_dom[prop] = self.variables[prop]
                 p_vals = list(self.variables[prop].getValues())
@@ -712,9 +710,9 @@ class Ontology:
                    val = v.uri
                else:
                    val = v 
-               d[k] = (val)
+               d[k] = unicode(val)
                if k in query_vars:
-                   res_dict[query_vars[k]] = (val)
+                   res_dict[query_vars[k]] = unicode(val)
            res.append(res_dict)
         return res
     
@@ -723,9 +721,9 @@ class Ontology:
             return
         self.nr_of_triples += 1
         log("Doing triple nr %i: %r" % (self.nr_of_triples,(s, p, o)))
-#        tim = time.time()
-#        log.considerTriple("Triples per second %f" %(1./(tim-self.time)))
-#        self.time = tim
+        tim = time.time()
+        log.considerTriple("Triples per second %f" %(1./(tim-self.time)))
+        self.time = tim
         self.seen[(s, p, o)] = True
         if p.find('#') != -1:
             ns, func = p.split('#')
@@ -749,9 +747,7 @@ class Ontology:
             else:
                 val = Individual(obj, o)
         elif type(o) == rdflib_literal:
-#            self.variables.setdefault('owl_Literal', ClassDomain('owl_Literal',u''))
-            if o.datatype in builtin_voc:
-               o = XMLTypes[o.datatype.split('#')[-1]](o)
+            self.variables.setdefault('owl_Literal', ClassDomain('owl_Literal',u''))
             self.variables['owl_Literal'].addValue(o)
             val = o
         else:

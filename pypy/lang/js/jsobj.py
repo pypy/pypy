@@ -150,7 +150,6 @@ class W_String(W_Root):
     def ToBoolean(self):
         return bool(self.strval)
 
-
 class W_Number(W_Root):
     def __init__(self, floatval):
         self.floatval = floatval

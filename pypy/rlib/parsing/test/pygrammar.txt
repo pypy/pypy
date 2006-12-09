@@ -22,8 +22,8 @@ decorator: "@" dotted_name ( "(" [arglist] ")" )? NEWLINE;
 decorators: decorator+;
 funcdef: decorators? ["def"] NAME parameters [":"] suite;
 parameters: ["("] >varargslist< [")"] | ["("] [")"];
-varargslist: (parameter [","])*  >star_or_starstarargs< |
-             parameter ([","] parameter)* [","]?;
+varargslist: (parameter ",")*  >star_or_starstarargs< |
+             parameter ("," parameter)* ","?;
 parameter: fpdef ("=" test)?;
 star_or_starstarargs:  starargs [","] starstarargs | starargs | starstarargs;
 starargs: ["*"] NAME;
@@ -32,29 +32,26 @@ fpdef: <NAME> | "(" fplist ")";
 fplist: fpdef ("," fpdef)* ","?;
 
 stmt: <simple_stmt> | <compound_stmt>;
-simple_stmt: small_stmt ([";"] small_stmt)+ [";"]? [NEWLINE] |
-             <small_stmt> [";"]? [NEWLINE];
-small_stmt: <expr_stmt> | <print_stmt>  | <del_stmt> |
-            <pass_stmt> | <flow_stmt> | <import_stmt> | <global_stmt> |
-            <exec_stmt> | <assert_stmt>;
-expr_stmt: <augassign_stmt> | testlist (["="] testlist)*;
-augassign_stmt: testlist >augassign< testlist;
+simple_stmt: small_stmt ([";"] small_stmt)* [";"]? [NEWLINE];
+small_stmt: <expr_stmt> | <print_stmt>  | <del_stmt> | <pass_stmt> |
+            <flow_stmt> | <import_stmt> | <global_stmt> | <exec_stmt> |
+            <assert_stmt>;
+expr_stmt: testlist augassign testlist | testlist ("=" testlist)*;
 augassign: "+=" | "-=" | "*=" | "/=" | "%=" | "&=" | "|=" | "^=" | "<<=" |
            ">>=" | "**=" | "//=";
 # For normal assignments, additional restrictions enforced by the interpreter
 
-print_stmt: ["print"] print_target (([","] test)+ [","]?)? |
-            ["print"] (test ([","] test)* [","]?)?;
-print_target: [">>"] test;
-del_stmt: ["del"] exprlist;
-pass_stmt: ["pass"];
+print_stmt: "print" ">>" test (("," test)+ ","?)? |
+            "print" (test ("," test)* ","?)?;
+del_stmt: "del" exprlist;
+pass_stmt: "pass";
 flow_stmt: <break_stmt> | <continue_stmt> | <return_stmt> | <raise_stmt> |
            <yield_stmt>;
-break_stmt: ["break"];
-continue_stmt: ["continue"];
+break_stmt: "break";
+continue_stmt: "continue";
 return_stmt: ["return"] testlist?;
-yield_stmt: ["yield"] testlist;
-raise_stmt: ["raise"] (test ("," test ("," test)?)?)?;
+yield_stmt: "yield" testlist;
+raise_stmt: "raise" (test ("," test ("," test)?)?)?;
 import_stmt: import_name | import_from;
 import_name: "import" dotted_as_names;
 import_from: "from" dotted_name "import" import_what;
@@ -74,12 +71,12 @@ compound_stmt: <if_stmt> | <while_stmt> | <for_stmt> | <try_stmt> |
                <funcdef> | <classdef>;
 if_stmt: "if" test ":" suite ("elif" test ":" suite)* ("else" ":" suite)?;
 while_stmt: ["while"] test [":"] suite (["else" ":"] suite)?;
-for_stmt: ["for"] exprlist ["in"] testlist [":"] suite (["else" ":"] suite)?;
+for_stmt: "for" exprlist "in" testlist ":" suite ("else" ":" suite)?;
 try_stmt: "try" ":" suite (except_clause ":" suite)+
           ("else" ":" suite)? | "try" ":" suite "finally" ":" suite;
 
 except_clause: "except" (test ("," test)?)?;
-suite: >simple_stmt< | [NEWLINE] [INDENT] stmt+ [DEDENT];
+suite: simple_stmt | [NEWLINE] [INDENT] stmt+ [DEDENT];
 
 test: and_test "or" test | <and_test> | <lambdef>;
 and_test: not_test "and" and_test | <not_test>;
@@ -103,19 +100,13 @@ term: factor "*" term |  # was (("*"|"/"|"%"|"//") factor)*
       <factor>;
 factor: "+" factor | "-" factor | "~" factor | <power>;
 power: atom trailer+ ("**" factor)? | atom "**" factor | <atom>;
-
-atom: "(" testlist_gexp? ")" | <listliteral> | <dictliteral> |
-       "`" testlist1 "`" | <NAME> | <NUMBER> | STRING+;
-listliteral: ["[" "]"] | "[" <listcomprehension> "]" | ["["] >listmaker< ["]"];
-listcomprehension: test list_for;
-listmaker: test ([","] test)* [","]?;
+atom: "(" testlist_gexp? ")" | "[" listmaker? "]" |
+      "{" dictmaker? "}" | "`" testlist1 "`" | <NAME> | <NUMBER> | STRING+;
+listmaker: test list_for |
+           test ("," test)* ","?;
 testlist_gexp: test gen_for |
                test ("," test)* ","?;
-
-dictliteral: ["{" "}"] | ["{"] dictitem ([","] dictitem)* [","]? ["}"];
-dictitem: test [":"] test;
-
-lambdef: ["lambda"] varargslist? [":"] test;
+lambdef: "lambda" varargslist? ":" test;
 trailer: "(" ")" | "(" arglist ")" | "[" subscriptlist "]" | "." NAME;
 subscriptlist: subscript ("," subscript)* ","?;
 subscript: "." "." "." | test? ":" test? sliceop? | test;
@@ -123,6 +114,7 @@ sliceop: ":" test?;
 exprlist: expr ("," expr)* ","?;
 testlist: test ("," test)* ","?;
 testlist_safe: test (("," test)+ ","?)?;
+dictmaker: test ":" test ("," test ":" test)* ","?;
 
 classdef: ["class"] NAME (["("] testlist [")"])? [":"] suite;
 
@@ -130,13 +122,13 @@ arglist: (argument [","])* arglist_rest;
 arglist_rest: "*" test ("," "**" test)? | "**" test | argument ","?;
 argument: (test "=")? test gen_for?;
 
-list_iter: <list_for> | <list_if>;
-list_for: ["for"] exprlist ["in"] testlist_safe list_iter?;
-list_if: ["if"] test list_iter?;
+list_iter: list_for | list_if;
+list_for: "for" exprlist "in" testlist_safe list_iter?;
+list_if: "if" test list_iter?;
 
-gen_iter: <gen_for> | <gen_if>;
-gen_for: ["for"] exprlist ["in"] test gen_iter?;
-gen_if: ["if"] test gen_iter?;
+gen_iter: gen_for | gen_if;
+gen_for: "for" exprlist "in" test gen_iter?;
+gen_if: "if" test gen_iter?;
 
 testlist1: test ("," test)*;
 

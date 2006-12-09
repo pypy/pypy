@@ -26,8 +26,7 @@ def test_framework_simple():
     from pypy.annotation.listdef import s_list_of_strings
 
     t = rtype(entrypoint, [s_list_of_strings])
-    cbuild = CStandaloneBuilder(t, entrypoint, t.config,
-                                gcpolicy=FrameworkGcPolicy2)
+    cbuild = CStandaloneBuilder(t, entrypoint, gcpolicy=FrameworkGcPolicy2)
     db = cbuild.generate_graphs_for_llinterp()
     entrypointptr = cbuild.getentrypointptr()
     entrygraph = entrypointptr._obj.graph

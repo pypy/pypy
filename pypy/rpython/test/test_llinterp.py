@@ -32,8 +32,8 @@ def timelog(prefix, call, *args, **kwds):
     return res 
 
 def gengraph(func, argtypes=[], viewbefore='auto', policy=None,
-             type_system="lltype", backendopt=False, config=None):
-    t = TranslationContext(config=config)
+             type_system="lltype", backendopt=False):
+    t = TranslationContext()
     a = t.buildannotator(policy=policy)
     timelog("annotating", a.build_types, func, argtypes)
     if viewbefore == 'auto':
@@ -61,7 +61,7 @@ def clear_tcache():
     _tcache.clear()
 
 def get_interpreter(func, values, view='auto', viewbefore='auto', policy=None,
-                    someobjects=False, type_system="lltype", backendopt=False, config=None):
+                    someobjects=False, type_system="lltype", backendopt=False):
     key = (func,) + tuple([typeOf(x) for x in values])+ (someobjects,
                                                          backendopt)
     try: 
@@ -78,7 +78,7 @@ def get_interpreter(func, values, view='auto', viewbefore='auto', policy=None,
 
         t, typer, graph = gengraph(func, [annotation(x) for x in values],
                                    viewbefore, policy, type_system=type_system,
-                                   backendopt=backendopt, config=config)
+                                   backendopt=backendopt)
         interp = LLInterpreter(typer)
         _tcache[key] = (t, interp, graph)
         # keep the cache small 
@@ -92,10 +92,10 @@ def get_interpreter(func, values, view='auto', viewbefore='auto', policy=None,
     return interp, graph
 
 def interpret(func, values, view='auto', viewbefore='auto', policy=None,
-              someobjects=False, type_system="lltype", backendopt=False, config=None):
+              someobjects=False, type_system="lltype", backendopt=False):
     interp, graph = get_interpreter(func, values, view, viewbefore, policy,
                                     someobjects, type_system=type_system,
-                                    backendopt=backendopt, config=config)
+                                    backendopt=backendopt)
     return interp.eval_graph(graph, values)
 
 def interpret_raises(exc, func, values, view='auto', viewbefore='auto',

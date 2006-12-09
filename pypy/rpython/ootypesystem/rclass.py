@@ -207,7 +207,7 @@ class InstanceRepr(AbstractInstanceRepr):
             else:
                 s_value = attrdef.s_value
                 if isinstance(s_value, annmodel.SomePBC):
-                    if len(s_value.descriptions) > 0 and s_value.getKind() == description.MethodDesc:
+                    if s_value.getKind() == description.MethodDesc:
                         # attrdef is for a method
                         if mangled in allclassattributes:
                             raise TyperError("method overrides class attribute")

@@ -225,24 +225,21 @@ class OrderTransformer(object):
     def transform(self, node):
         if isinstance(node, Symbol):
             return node
-        children = [c for c in node.children
-                        if isinstance(c, Symbol) or (
-                            isinstance(c, Nonterminal) and len(c.children))]
         if isinstance(node, Nonterminal):
-            if len(children) == 1:
+            if len(node.children) == 1:
                 return Nonterminal(
-                    node.symbol, [self.transform(children[0])])
-            if len(children) == 2 or len(children) == 3:
-                left = children[-2]
-                right = children[-1]
+                    node.symbol, [self.transform(node.children[0])])
+            if len(node.children) == 2 or len(node.children) == 3:
+                left = node.children[-2]
+                right = node.children[-1]
                 if (isinstance(right, Nonterminal) and
                     right.symbol.startswith("extraexpr")):
-                    if len(children) == 2:
+                    if len(node.children) == 2:
                         leftreplacement = self.transform(left)
                     else:
                         leftreplacement = Nonterminal(
                             node.symbol,
-                            [self.transform(children[0]),
+                            [self.transform(node.children[0]),
                              self.transform(left)])
                     children = [leftreplacement,
                                 self.transform(right.children[0]),
@@ -250,17 +247,14 @@ class OrderTransformer(object):
 
                     newnode = Nonterminal(node.symbol, children)
                     return self.transform_extra(right, newnode)
-            children = [self.transform(child) for child in children]
+            children = [self.transform(child) for child in node.children]
             return Nonterminal(node.symbol, children)
 
     def transform_extra(self, extranode, child):
-        children = [c for c in extranode.children
-                        if isinstance(c, Symbol) or (
-                            isinstance(c, Nonterminal) and len(c.children))]
         symbol = extranode.symbol[5:]
-        if len(children) == 2:
+        if len(extranode.children) == 2:
             return child
-        right = children[2]
+        right = extranode.children[2]
         assert isinstance(right, Nonterminal)
         children = [child,
                     self.transform(right.children[0]),

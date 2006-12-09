@@ -1492,14 +1492,6 @@ class BaseTestRPBC(BaseRtypingTest):
         res = self.interpret(f, [2])
         assert res == False
 
-
-class TestLLtype(BaseTestRPBC, LLRtypeMixin):
-    pass
-
-class TestOOtype(BaseTestRPBC, OORtypeMixin):
-    pass
-
-# ____________________________________________________________
 # We don't care about the following test_hlinvoke tests working on
 # ootype. Maybe later. This kind of thing is only used in rdict
 # anyway, that will probably have a different kind of implementation
@@ -1752,44 +1744,11 @@ def test_hlinvoke_pbc_method_hltype():
     res = interp.eval_graph(ll_h_graph, [None, c_f, c_a])
     assert typeOf(res) == A_repr.lowleveltype
 
-# ____________________________________________________________
+class TestLLtype(BaseTestRPBC, LLRtypeMixin):
+    pass
 
-class TestLLtypeSmallFuncSets(TestLLtype):
-    def setup_class(cls):
-        from pypy.config.pypyoption import get_pypy_config
-        cls.config = get_pypy_config(translating=True)
-        cls.config.translation.withsmallfuncsets = 10
+class TestOOtype(BaseTestRPBC, OORtypeMixin):
+    pass
 
-    def interpret(self, fn, args, **kwds):
-        kwds['config'] = self.config
-        return TestLLtype.interpret(self, fn, args, **kwds)
 
-def test_smallfuncsets_basic():
-    from pypy.translator.translator import TranslationContext, graphof
-    from pypy.config.pypyoption import get_pypy_config
-    from pypy.rpython.llinterp import LLInterpreter
-    config = get_pypy_config(translating=True)
-    config.translation.withsmallfuncsets = 10
-
-    def g(x):
-        return x + 1
-    def h(x):
-        return x - 1
-    def f(x, y):
-        if y > 0:
-            func = g
-        else:
-            func = h
-        return func(x)
-    t = TranslationContext(config=config)
-    a = t.buildannotator()
-    a.build_types(f, [int, int])
-    rtyper = t.buildrtyper()
-    rtyper.specialize()
-    graph = graphof(t, f)
-    interp = LLInterpreter(rtyper)
-    res = interp.eval_graph(graph, [0, 0])
-    assert res == -1
-    res = interp.eval_graph(graph, [0, 1])
-    assert res == 1
 

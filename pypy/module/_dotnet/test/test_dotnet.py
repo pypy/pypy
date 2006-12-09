@@ -24,10 +24,3 @@ class AppTestDotnet:
         import _dotnet
         obj = _dotnet.ArrayList()
         raises(StandardError, obj.get_Item, 0)
-
-    def test_float_conversion(self):
-        import _dotnet
-        obj = _dotnet.ArrayList()
-        obj.Add(42.0)
-        item = obj.get_Item(0)
-        assert isinstance(item, float)

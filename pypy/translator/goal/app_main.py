@@ -6,7 +6,6 @@ options:
   -i           inspect interactively after running script
   -O           dummy optimization flag for compatibility with C Python
   -c CMD       program passed in as CMD (terminates option list)
-  -u           unbuffered binary stdout and stderr
   -h, --help   show this help message and exit
   --version    print the PyPy version
   --info       print translation information about this PyPy executable
@@ -125,14 +124,6 @@ def print_error(msg):
     print >> sys.stderr, 'usage: %s [options]' % (sys.executable,)
     print >> sys.stderr, 'Try `%s -h` for more information.' % (sys.executable,)
 
-def set_unbuffered_io():
-    if os.name == 'nt':
-        raise NotImplementedError("binary stdin/stdout not implemented "
-                                  "on Windows")
-    sys.stdin  = sys.__stdin__  = os.fdopen(0, 'rb', 0)
-    sys.stdout = sys.__stdout__ = os.fdopen(1, 'wb', 0)
-    sys.stderr = sys.__stderr__ = os.fdopen(2, 'wb', 0)
-
 # ____________________________________________________________
 # Main entry point
 
@@ -171,7 +162,6 @@ def entry_point(executable, argv):
         break
 
     go_interactive = False
-    run_command = False
     i = 0
     while i < len(argv):
         arg = argv[i]
@@ -180,13 +170,10 @@ def entry_point(executable, argv):
         if arg == '-i':
             go_interactive = True
         elif arg == '-c':
-            if i >= len(argv):
+            if i >= len(argv)-1:
                 print_error('Argument expected for the -c option')
                 return 2
-            run_command = True
             break
-        elif arg == '-u':
-            set_unbuffered_io()
         elif arg == '-O':
             pass
         elif arg == '--version':
@@ -198,9 +185,6 @@ def entry_point(executable, argv):
         elif arg == '-h' or arg == '--help':
             print_help()
             return 0
-        elif arg == '--':
-            i += 1
-            break     # terminates option list
         else:
             print_error('unrecognized option %r' % (arg,))
             return 2
@@ -228,7 +212,7 @@ def entry_point(executable, argv):
 
     try:
         if sys.argv:
-            if run_command:
+            if sys.argv[0] == '-c':
                 cmd = sys.argv.pop(1)
                 def run_it():
                     exec cmd in mainmodule.__dict__

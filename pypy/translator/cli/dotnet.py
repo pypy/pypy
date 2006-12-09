@@ -3,7 +3,6 @@ import types
 from pypy.annotation.pairtype import pair, pairtype
 from pypy.annotation.model import SomeObject, SomeInstance, SomeOOInstance, SomeInteger, s_None,\
      s_ImpossibleValue, lltype_to_annotation, annotation_to_lltype, SomeChar, SomeString
-from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 from pypy.rpython.error import TyperError
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.rmodel import Repr
@@ -272,44 +271,17 @@ class CliNamespace(object):
 
 CLR = CliNamespace(None)
 
+
 BOXABLE_TYPES = [ootype.Signed, ootype.Unsigned, ootype.SignedLongLong,
                  ootype.UnsignedLongLong, ootype.Bool, ootype.Float,
                  ootype.Char, ootype.String]
 
 def box(x):
-    t = type(x)
-    if t is int:
-        return CLR.System.Int32(x)
-    elif t is r_uint:
-        return CLR.System.UInt32(x)
-    elif t is r_longlong:
-        return CLR.System.Int64(x)
-    elif t is r_ulonglong:
-        return CLR.System.UInt64(x)
-    elif t is bool:
-        return CLR.System.Boolean(x)
-    elif t is float:
-        return CLR.System.Double(x)
-    elif t is str:
-        if len(x) == 1:
-            return CLR.System.Char(x)
-        else:
-            return CLR.System.String(x)
-    elif isinstance(x, PythonNet.System.Object):
-        return x
-    else:
-        assert False
+    return x
 
 def unbox(x, TYPE):
     # TODO: check that x is really of type TYPE
-    
-    # this is a workaround against a pythonnet limitation: you can't
-    # directly get the, e.g., python int from the System.Int32 object:
-    # a simple way to do this is to put it into an ArrayList and
-    # retrieve the value.
-    tmp = PythonNet.System.Collections.ArrayList()
-    tmp.Add(x)
-    return tmp[0]
+    return x
 
 
 class Entry(ExtRegistryEntry):
@@ -320,15 +292,13 @@ class Entry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         v_obj, = hop.inputargs(*hop.args_r)
-
-        TYPE = v_obj.concretetype
-        if (TYPE is ootype.String or isinstance(TYPE, NativeInstance)):
+        if v_obj.concretetype not in BOXABLE_TYPES:
+            raise TyperError, "Can't box values of type %s" % v_obj.concretetype
+        
+        if (v_obj.concretetype is ootype.String):
             return hop.genop('ooupcast', [v_obj], hop.r_result.lowleveltype)
         else:
-            if TYPE not in BOXABLE_TYPES:
-                raise TyperError, "Can't box values of type %s" % v_obj.concretetype
             return hop.genop('clibox', [v_obj], hop.r_result.lowleveltype)
-
 
 class Entry(ExtRegistryEntry):
     _about_ = unbox
@@ -347,6 +317,7 @@ class Entry(ExtRegistryEntry):
             return hop.genop('oodowncast', [v_obj], hop.r_result.lowleveltype)
         else:
             return hop.genop('cliunbox', [v_obj, v_type], hop.r_result.lowleveltype)
+
 
 
 native_exc_cache = {}
@@ -438,22 +409,3 @@ class Entry(ExtRegistryEntry):
             c_index = hop.inputconst(ootype.Signed, i)
             hop.genop('cli_setelem', [v_array, c_index, v_elem], ootype.Void)
         return v_array
-
-
-def typeof(cliClass):
-    TYPE = cliClass._INSTANCE
-    name = '%s.%s' % (TYPE._namespace, TYPE._classname)
-    return PythonNet.System.Type.GetType(name)
-
-class Entry(ExtRegistryEntry):
-    _about_ = typeof
-
-    def compute_result_annotation(self, cliClass_s):
-        from query import load_class_maybe
-        assert cliClass_s.is_constant()
-        cliType = load_class_maybe('System.Type')
-        return SomeOOInstance(cliType._INSTANCE)
-
-    def specialize_call(self, hop):
-        v_type, = hop.inputargs(*hop.args_r)
-        return hop.genop('cli_typeof', [v_type], hop.r_result.lowleveltype)

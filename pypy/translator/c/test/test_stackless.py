@@ -6,6 +6,7 @@ from pypy.annotation.listdef import s_list_of_strings
 from pypy.rlib.rstack import stack_unwind, stack_frames_depth, stack_too_big
 from pypy.rlib.rstack import yield_current_frame_to_caller
 from pypy.config.config import Config
+from pypy.config.pypyoption import pypy_optiondescription
 import os
 
 
@@ -32,8 +33,7 @@ class StacklessTest(object):
             os.write(1, str(fn())+"\n")
             return 0
 
-        from pypy.config.pypyoption import get_pypy_config
-        config = get_pypy_config(translating=True)
+        config = Config(pypy_optiondescription)
         config.translation.gc = self.gcpolicy
         config.translation.stackless = True
         t = TranslationContext(config=config)

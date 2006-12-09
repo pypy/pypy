@@ -1,7 +1,4 @@
-try:
-    import thread
-except ImportError:
-    py.test.skip("Threads not supported")
+import thread
 import pypy.module.thread.rpython.exttable   # for declare()/declaretype()
 from pypy.module.thread.rpython.ll_thread import *
 from pypy.annotation.annrpython import RPythonAnnotator

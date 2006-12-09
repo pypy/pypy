@@ -20,7 +20,7 @@ def test_hello_world():
     t.buildannotator().build_types(entry_point, [s_list_of_strings])
     t.buildrtyper().specialize()
 
-    cbuilder = CStandaloneBuilder(t, entry_point, t.config)
+    cbuilder = CStandaloneBuilder(t, entry_point)
     cbuilder.generate_source()
     cbuilder.compile()
     data = cbuilder.cmdexec('hi there')
@@ -40,7 +40,7 @@ def test_print():
     t.buildannotator().build_types(entry_point, [s_list_of_strings])
     t.buildrtyper().specialize()
 
-    cbuilder = CStandaloneBuilder(t, entry_point, t.config)
+    cbuilder = CStandaloneBuilder(t, entry_point)
     cbuilder.generate_source()
     cbuilder.compile()
     data = cbuilder.cmdexec('hi there')

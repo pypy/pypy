@@ -7,7 +7,7 @@ from pypy.rpython.ootypesystem.ootype import meth, Meth, Char, Signed, Float, St
 from pypy.translator.cli.test.runtest import CliTest
 from pypy.translator.cli.dotnet import SomeCliClass, SomeCliStaticMethod,\
      NativeInstance, CLR, box, unbox, OverloadingResolver, NativeException,\
-     native_exc, new_array, init_array, typeof
+     native_exc, new_array, init_array
 
 System = CLR.System
 Math = CLR.System.Math
@@ -111,8 +111,7 @@ class TestDotnetAnnotation(object):
         a = RPythonAnnotator()
         s = a.build_types(fn, [])
         assert isinstance(s, annmodel.SomeOOInstance)
-        assert s.ootype._name == '[mscorlib]System.Object'
-
+        assert s.ootype._name == '[mscorlib]System.Object'            
 
 class TestDotnetRtyping(CliTest):
     def _skip_pythonnet(self, msg):
@@ -169,19 +168,17 @@ class TestDotnetRtyping(CliTest):
             return unbox(x.get_Item(0), ootype.String)
         assert self.interpret(fn, []) == 'foo'
 
-    def test_box_method(self):
+    def test_exception(self):
+        py.test.skip("It doesn't work so far")
         def fn():
-            x = box(42)
-            t = x.GetType()
-            return t.get_Name()
-        res = self.interpret(fn, [])
-        assert res == 'Int32'
-
-    def test_box_object(self):
-        def fn():
-            return box(System.Object()).ToString()
-        res = self.interpret(fn, [])
-        assert res == 'System.Object'
+            x = ArrayList()
+            try:
+                x.get_Item(0)
+            except System.ArgumentOutOfRangeException:
+                return 42
+            else:
+                return 43
+        assert self.interpret(fn, []) == 42
 
     def test_array(self):
         def fn():
@@ -201,7 +198,7 @@ class TestDotnetRtyping(CliTest):
 
     def test_init_array(self):
         def fn():
-            x = init_array(System.Object, box(42), box(43))
+            x = init_array([box(42), box(43)])
             return unbox(x[0], ootype.Signed) + unbox(x[1], ootype.Signed)
         assert self.interpret(fn, []) == 42+43
 
@@ -268,13 +265,6 @@ class TestDotnetRtyping(CliTest):
                 return message
         res = self.ll_to_string(self.interpret(fn, []))
         assert res.startswith("Index is less than 0")
-
-    def test_typeof(self):
-        def fn():
-            x = box(42)
-            return x.GetType() == typeof(System.Int32)
-        res = self.interpret(fn, [])
-        assert res is True
 
 class TestPythonnet(TestDotnetRtyping):
     # don't interpreter functions but execute them directly through pythonnet

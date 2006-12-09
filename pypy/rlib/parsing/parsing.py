@@ -1,5 +1,5 @@
 import py
-from pypy.rlib.parsing.tree import Node, Symbol, Nonterminal
+from pypy.rlib.parsing.tree import Node, Symbol, Nonterminal, Epsilon
 
 class Rule(object):
     def __init__(self, nonterminal, expansions):
@@ -119,11 +119,15 @@ class LazyParseTable(object):
                     if node is None:
                         error = combine_errors(error, error2)
                         break
-                    children.append(node)
+                    if not isinstance(node, Epsilon):
+                        children.append(node)
                     curr = next
                 else:
-                    assert len(expansion) == len(children)
-                    result = (Nonterminal(symbol, children), curr, error)
+                    if children:
+                        result = (Nonterminal(symbol, children), curr, error)
+                    else:
+                        assert expansion == []
+                        result = (Epsilon(), curr, error)
                     self.matched[i, symbol] = result
                     return result
             self.matched[i, symbol] = None, 0, error
@@ -300,7 +304,7 @@ class ParserCompiler(object):
             if expansionindex == %s:""" % (expansionindex, ))
             if not expansion:
                 code.append("""\
-                result = (Nonterminal(symbol, []), i)
+                result = (Epsilon(), i)
                 self.matched_nonterminals%(number)s[i] = result
                 return result""" % vars())
                 continue
@@ -319,6 +323,8 @@ class ParserCompiler(object):
                     last_failed_position = next
                     expansionindex = %(nextindex)s
                     continue
+                if not isinstance(node, Epsilon):
+                    children.append(node)
                 curr = next""" % vars())
             code.append("""\
                 result = (Nonterminal(%(symbol)r, children), curr)

@@ -8,6 +8,7 @@ using file_input, single_input and eval_input targets
 from pypy.interpreter.error import OperationError, debug_print
 from pypy.interpreter import gateway
 from pypy.interpreter.pyparser.error import SyntaxError
+from pypy.tool.option import Options
 from pythonlexer import Source, match_encoding_declaration
 from pypy.interpreter.astcompiler.consts import CO_FUTURE_WITH_STATEMENT
 import pysymbol
@@ -130,9 +131,8 @@ def get_grammar_file( version ):
         _ver = version
     return os.path.join( os.path.dirname(__file__), "data", "Grammar" + _ver ), _ver
 
-# unfortunately the command line options are not parsed yet, so it cannot
-# be made configurable yet
-PYTHON_GRAMMAR, PYPY_VERSION = get_grammar_file("2.5a")
+# unfortunately the command line options are not parsed yet
+PYTHON_GRAMMAR, PYPY_VERSION = get_grammar_file( Options.version )
 
 def python_grammar(fname):
     """returns a PythonParser build from the specified grammar file"""

@@ -1,8 +1,6 @@
 
 from py.compat import optparse
 
-SUPPRESS_USAGE = optparse.SUPPRESS_USAGE
-
 class AmbigousOptionError(Exception):
     pass
 

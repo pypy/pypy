@@ -174,7 +174,6 @@ def main(backends=[]):
             c--profopt='-c "from richards import *;main(iterations=1)"'
             c--_objspace-std-withstrdict--profopt='-c "from richards import *;main(iterations=1)"'
             c--gc=framework--_objspace-std-withstrdict--profopt='-c "from richards import *;main(iterations=1)"'
-            cli
             """.split('\n') if backend.strip() and not backend.strip().startswith('#')]
     print time.ctime()
     for backend in backends:

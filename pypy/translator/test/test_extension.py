@@ -33,7 +33,7 @@ def getcompiled(func, view=conftest.option.view, inline_threshold=1, use_boehm=F
     if use_boehm:
         gcpolicy = gc.BoehmGcPolicy
 
-    cbuilder = CExtModuleBuilder(t, func, t.config, gcpolicy=gcpolicy)
+    cbuilder = CExtModuleBuilder(t, func, gcpolicy=gcpolicy)
     cbuilder.generate_source()
     cbuilder.compile()
 

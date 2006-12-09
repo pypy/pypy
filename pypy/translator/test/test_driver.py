@@ -1,6 +1,8 @@
 import py
 
 from pypy.translator.driver import TranslationDriver
+from pypy.config.config import Config
+from pypy.config.pypyoption import pypy_optiondescription
 from py.compat import optparse
 
 def cmpl(l1, l2):

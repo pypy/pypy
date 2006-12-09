@@ -528,9 +528,7 @@ ultimate example of source that our translation toolchain can process::
 By default the translation process will try to use the
 `Boehm-Demers-Weiser garbage collector`_ for the translated PyPy (Use
 ``--gc=ref`` to use our own reference counting implementation which
-at the moment is slower but doesn't have external dependencies). Otherwise, be sure
-to install Boehm before starting the translation (e.g. by running
-``apt-get install libgc-dev`` on Debian).
+at the moment is slower but doesn't have external dependencies).
 
 This whole process will take some time and quite a lot of memory. To
 reduce the memory footprint of the translation process you can use the

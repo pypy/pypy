@@ -156,7 +156,7 @@ class ParserBuilder(object):
         if node.children[1].additional_info == "*":
             name = "_star_symbol%s" % (len(self.maybe_rules), )
             maybe_rule = True
-            expansions = [expansions + [name]]
+            expansions = [expansions + [name], expansions]
             changes = [changes + ">", changes]
         elif node.children[1].additional_info == "+":
             name = "_plus_symbol%s" % (self.num_plus_symbols, )
@@ -214,14 +214,11 @@ class ParserBuilder(object):
 
     def add_all_possibilities(self):
         all_rules = []
-        other_rules = []
         all_changes = []
-        other_changes = []
         for rule, changes in zip(self.rules, self.changes):
             real_changes = []
             real_expansions = []
-            for index, (expansion, change) in enumerate(
-                    zip(rule.expansions, changes)):
+            for expansion, change in zip(rule.expansions, changes):
                 maybe_pattern = [symbol in self.maybe_rules
                                      for symbol in expansion]
                 n = maybe_pattern.count(True)
@@ -232,41 +229,23 @@ class ParserBuilder(object):
                 assert n != len(expansion), (
                     "currently an expansion needs at least one"
                     "symbol that always has to occur")
-                slices = []
-                start = 0
-                for i, (maybe, symbol) in enumerate(
-                        zip(maybe_pattern, expansion)):
-                    if maybe:
-                        slices.append((start, i + 1))
-                        start = i + 1
-                rest_slice = (start, i + 1)
-                name = rule.nonterminal
-                for i, (start, stop) in enumerate(slices):
-                    nextname = "__%s_rest_%s_%s" % (rule.nonterminal, index, i)
-                    if i < len(slices) - 1:
-                        new_expansions = [
-                            expansion[start: stop] + [nextname],
-                            expansion[start: stop - 1] + [nextname]]
-                        new_changes = [change[start: stop] + ">",
-                                       change[start: stop - 1] + ">"]
-                    else:
-                        rest_expansion = expansion[slice(*rest_slice)]
-                        new_expansions = [
-                            expansion[start: stop] + rest_expansion,
-                            expansion[start: stop - 1] + rest_expansion]
-                        rest_change = change[slice(*rest_slice)]
-                        new_changes = [change[start: stop] + rest_change,
-                                       change[start: stop - 1] + rest_change]
-                    if i == 0:
-                        real_expansions += new_expansions
-                        real_changes += new_changes
-                    else:
-                        other_rules.append(Rule(name, new_expansions))
-                        other_changes.append(new_changes)
-                    name = nextname
+                maybe_index = {}
+                for i, star in enumerate(maybe_pattern):
+                    if star:
+                        maybe_index[i] = len(maybe_index)
+                for i in range(2 ** n):
+                    real_expansion = []
+                    real_change = []
+                    for j, (symbol, ch) in enumerate(zip(expansion, change)):
+                        if (j not in maybe_index or
+                            (i & (2 ** (n - 1) >> maybe_index[j])) == 0):
+                            real_expansion.append(symbol)
+                            real_change.append(ch)
+                    real_expansions.append(real_expansion)
+                    real_changes.append(real_change)
             all_rules.append(Rule(rule.nonterminal, real_expansions))
             all_changes.append(real_changes)
-        return all_rules + other_rules, all_changes + other_changes
+        return all_rules, all_changes
 
 class TransformerMaker(object):
     def __init__(self, rules, changes):
@@ -301,7 +280,6 @@ class TransformerMaker(object):
         assert isinstance(ToAST, type)
         assert ToAST.__name__ == "ToAST"
         ToAST.source = code
-        ToAST.changes = self.changes
         return ToAST
 
     def emit(self, line):

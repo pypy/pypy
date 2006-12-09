@@ -61,9 +61,8 @@ class ExternalBuiltinRepr(Repr):
     
     def call_method(self, name, hop):
         vlist = hop.inputargs(self, *(hop.args_r[1:]))
-        c_name = hop.inputconst(ootype.Void, name)
         hop.exception_is_here()
-        return hop.genop('oosend', [c_name] + vlist, resulttype=hop.r_result)
+        return hop.genop('oosend', [Constant(name)] + vlist, resulttype=hop.r_result)
     
     def rtype_is_true(self, hop):
         vlist = hop.inputargs(self)

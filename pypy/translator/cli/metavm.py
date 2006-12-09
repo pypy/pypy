@@ -210,15 +210,6 @@ class _SetArrayElem(MicroInstruction):
         elemtype = generator.cts.lltype_to_cts(v_array.concretetype)
         generator.ilasm.opcode('stelem', elemtype)
 
-class _TypeOf(MicroInstruction):
-    def render(self, generator, op):
-        v_type, = op.args
-        assert v_type.concretetype is ootype.Void
-        cliClass = v_type.value
-        fullname = cliClass._INSTANCE._name
-        generator.ilasm.opcode('ldtoken', fullname)
-        generator.ilasm.call('class [mscorlib]System.Type class [mscorlib]System.Type::GetTypeFromHandle(valuetype [mscorlib]System.RuntimeTypeHandle)')
-
 
 Call = _Call()
 CallMethod = _CallMethod()
@@ -233,4 +224,3 @@ Unbox = _Unbox()
 NewArray = _NewArray()
 GetArrayElem = _GetArrayElem()
 SetArrayElem = _SetArrayElem()
-TypeOf = _TypeOf()

@@ -128,6 +128,9 @@ class Element(Node):
     nodeType = 1
     style = None
 
+    def __init__(self, node=None):
+        super(Element, self).__init__(node)
+
     def _style(self):
         style = getattr(self._original, '_style', None)
         if style is not None:
@@ -166,9 +169,6 @@ class Element(Node):
 
     innerHTML = property(_get_innerHTML, _set_innerHTML)
 
-    def scrollIntoView(self):
-        pass
-
 class Attribute(Node):
     nodeType = 2
 
@@ -181,6 +181,10 @@ class Comment(Node):
 class Document(Node):
     nodeType = 9
     
+    def __init__(self, docnode=None):
+        super(Document, self).__init__(docnode)
+        self._original = docnode
+
     def createEvent(self, group=''):
         """create an event
 
@@ -292,9 +296,6 @@ class Window(EventTarget):
     
     location = property(_getLocation, _setLocation)
 
-def some_fun():
-    pass
-    
 def setTimeout(func, delay):
     # scheduler call, but we don't want to mess with threads right now
     if one():
@@ -434,7 +435,7 @@ Element._methods.update({
     'blur' : MethodDesc([]),
     'click' : MethodDesc([]),
     'focus' : MethodDesc([]),
-    'scrollIntoView' : MethodDesc([]),
+    'scrollIntoView' : MethodDesc([12]),
     'supports' : MethodDesc(["aa", 1.0]),
 })
 

@@ -24,7 +24,7 @@ def get_test_methods(klass):
             for name, meth in inspect.getmembers(klass())
             if not name.startswith('_')]
 
-def run_tests(tm, selected_tests):
+def run_tests(tm):
     
     tm.raises = raises
     tm.skip = skip
@@ -32,18 +32,13 @@ def run_tests(tm, selected_tests):
     successes = []
     failures = []
     skipped = []
-    all_tests = [get_test_methods(cl) for cl in get_test_classes()]
-    print "testing %s test(s) classe(s)" % len(all_tests)
-    for tests in all_tests:
+
+    for tests in [get_test_methods(cl) for cl in get_test_classes()] :
         for name, meth in tests:
             if name == 'setup_class': continue
-            if selected_tests and name not in selected_tests:
-                continue
             try:
                 meth()
             except Skip:
-##                 import traceback
-##                 traceback.print_exc()
                 skipped.append(name)
             except Exception, e:
                 failures.append((name, meth, e))
@@ -71,9 +66,4 @@ def run_tests(tm, selected_tests):
 if __name__ == __name__:
     import sys
     tm = __import__(sys.argv[1])
-    tests = []
-    try:
-        tests += (sys.argv[2:])
-    except:
-        pass
-    run_tests(tm, tests)
+    run_tests(tm)

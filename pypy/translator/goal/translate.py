@@ -11,7 +11,7 @@ import autopath
 from pypy.config.config import to_optparse, OptionDescription, BoolOption, \
                                ArbitraryOption, StrOption, IntOption, Config, \
                                ChoiceOption, OptHelpFormatter
-from pypy.config.translationoption import get_combined_translation_config
+from pypy.config.pypyoption import pypy_optiondescription
 
 
 GOALS= [
@@ -106,8 +106,8 @@ def parse_options_and_load_target():
 
     opt_parser.disable_interspersed_args()
 
-    config = get_combined_translation_config(
-                overrides=OVERRIDES, translating=True)
+    config = Config(pypy_optiondescription,
+                    **OVERRIDES)
     to_optparse(config, parser=opt_parser, useoptions=['translation.*'])
     translateconfig = Config(translate_optiondescr)
     to_optparse(translateconfig, parser=opt_parser)
@@ -149,19 +149,13 @@ def parse_options_and_load_target():
     # based on the config
     if 'handle_config' in targetspec_dic:
         targetspec_dic['handle_config'](config)
-    # give the target the possibility to get its own configuration options
-    # into the config
-    if 'get_additional_config_options' in targetspec_dic:
-        optiondescr = targetspec_dic['get_additional_config_options']()
-        config = get_combined_translation_config(
-                optiondescr,
-                existing_config=config,
-                translating=True)
 
-    if translateconfig.help:
+    if 'handle_translate_config' in targetspec_dic:
+        targetspec_dic['handle_translate_config'](translateconfig)
+
+    if translateconfig.help: 
         opt_parser.print_help()
         if 'print_help' in targetspec_dic:
-            print "\n\nTarget specific help:\n\n"
             targetspec_dic['print_help'](config)
         sys.exit(0)
     

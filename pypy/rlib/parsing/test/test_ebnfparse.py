@@ -27,7 +27,6 @@ primary: "(" additive ")" | DECIMAL;
     assert r == 22 * 12 + 44
     tree = parse("2*(3+5*2*(2+61))")
     assert tree.visit(MyEvalVisitor()) == 2 * (3 + 5 * 2 * (2 + 61))
-    tree = parse("12 + 4 * 5)")
 
 def test_long_inline_quotes():
     regexs, rules, transformer = parse_ebnf("""
@@ -408,24 +407,3 @@ a: "x";
     parse = make_parse_function(regexs, rules)
     py.test.raises(ParseError, parse, "x END")
     parse("y END")
-
-def test_example1():
-    regexs, rules, ToAST = parse_ebnf("""
-IGNORE: " ";
-n: "a" "b" "c" m;
-m: "(" <n> ")" | "d";
-    """)
-    parse = make_parse_function(regexs, rules)
-    t = parse("a b c (a b c d)")
-    t = ToAST().transform(t)
-
-def test_example2():
-    regexs, rules, ToAST = parse_ebnf("""
-IGNORE: " ";
-DECIMAL: "0|[1-9][0-9]*";
-list: DECIMAL >list< | DECIMAL;
-    """)
-    parse = make_parse_function(regexs, rules)
-    t = parse("1 2 3 4 5")
-    t = ToAST().transform(t)
-

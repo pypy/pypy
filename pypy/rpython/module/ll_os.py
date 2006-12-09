@@ -14,8 +14,7 @@ Dummy low-level implementations for the external functions of the 'os' module.
 # and buffer preparation stuff is not useful.
 
 import os, errno
-from pypy.rpython.module.support import ll_strcpy, _ll_strfill, ll_execve, \
-    from_rdict
+from pypy.rpython.module.support import ll_strcpy, _ll_strfill
 from pypy.rpython.module.support import to_opaque_object, from_opaque_object
 from pypy.rlib import ros
 from pypy.rlib.rarithmetic import r_longlong
@@ -96,14 +95,6 @@ class BaseOS:
     def ll_os_system(cls, cmd):
         return os.system(cls.from_rstr(cmd))
     ll_os_system.suggested_primitive = True
-
-    def ll_os_execv(cls, cmd, args):
-        os.execv(cmd, args)
-    ll_os_execv.suggested_primitive = True
-
-    def ll_os_execve(cls, cmd, args, env):
-        env_list = from_rdict(env)
-        ll_execve(cmd, args, env_list)
 
     def ll_os_unlink(cls, path):
         os.unlink(cls.from_rstr(path))

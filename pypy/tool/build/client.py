@@ -1,8 +1,5 @@
+import time
 import thread
-import py
-from zipfile import ZipFile
-from cStringIO import StringIO
-
 
 class PPBClient(object):
     def __init__(self, channel, sysinfo, testing=False):
@@ -79,6 +76,7 @@ initcode = """
 """
 def init(gw, sysconfig, path=None, port=12321, testing=False):
     from pypy.tool.build import execnetconference
+    from pypy.tool.build import server
     from pypy.config.config import make_dict
     
     if path is None:
@@ -88,19 +86,3 @@ def init(gw, sysconfig, path=None, port=12321, testing=False):
     conference = execnetconference.conference(gw, port, False)
     channel = conference.remote_exec(initcode % (path, sysinfo, testing))
     return channel
-
-def zip_result(res_dir, channel):
-    #    channelwrapper = ChannelWrapper(channel)
-    buf = StringIO()
-    zip = ZipFile(buf, 'w')
-    zip.writestr('pypy-c', open('pypy-c').read())
-    for fpath in res_dir.visit():
-        try:
-            zip.writestr(fpath.relto(res_dir), fpath.read())
-        except (py.error.ENOENT, py.error.EISDIR), exc:
-            print exc
-            continue
-    zip.close()
-    channel.send(buf.getvalue())
-    channel.send(None)
-   

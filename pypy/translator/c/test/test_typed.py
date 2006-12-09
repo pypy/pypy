@@ -8,6 +8,8 @@ from pypy import conftest
 from pypy.translator.test import snippet
 from pypy.translator.translator import TranslationContext
 from pypy.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong, intmask
+from pypy.config.config import Config
+from pypy.config.pypyoption import pypy_optiondescription
 
 # XXX this tries to make compiling faster for full-scale testing
 from pypy.translator.tool import cbuild
@@ -17,8 +19,7 @@ cbuild.enable_fast_compilation()
 class CompilationTestCase:
 
     def annotatefunc(self, func, argtypes=None):
-        from pypy.config.pypyoption import get_pypy_config
-        config = get_pypy_config(translating=True)
+        config = Config(pypy_optiondescription)
         config.translation.gc = "ref"
         config.translation.simplifying = True
         t = TranslationContext(config=config)

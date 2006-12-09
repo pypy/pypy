@@ -40,8 +40,9 @@ class GenLLVM(object):
         self.translator = translator
         
         if config is None:
-            from pypy.config.pypyoption import get_pypy_config
-            config = get_pypy_config(translating=True)
+            from pypy.config.config import Config
+            from pypy.config.pypyoption import pypy_optiondescription
+            config = Config(pypy_optiondescription)
         self.config = config
         self.stackless = stackless
 

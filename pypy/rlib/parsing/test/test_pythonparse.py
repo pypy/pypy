@@ -18,12 +18,12 @@ def test_parse_python_args():
 IGNORE: " ";
 NAME: "[a-zA-Z_]*";
 NUMBER: "0|[1-9][0-9]*";
-parameters: ["("] >varargslist<? [")"];
-varargslist: (fpdef ("=" test)? [","])* star_or_starstarargs |
-             fpdef ("=" test)? ([","] fpdef ("=" test)?)* [","]?;
-star_or_starstarargs:  "*" NAME [","] "**" NAME | "*" NAME | "**" NAME;
-fpdef: <NAME> | "(" <fplist> ")";
-fplist: fpdef ([","] fpdef)* [","]?;
+parameters: ["("] >varargslist< [")"] | ["("] [")"];
+varargslist: (fpdef ("=" test)? ",")* star_or_starstarargs |
+             fpdef ("=" test)? ("," fpdef ("=" test)?)* ","?;
+star_or_starstarargs:  "*" NAME "," "**" NAME | "*" NAME | "**" NAME;
+fpdef: NAME | "(" fplist ")";
+fplist: fpdef ("," fpdef)* ","?;
 test: NUMBER;
     """)
     parse = make_parse_function(regexs, rules)
@@ -32,7 +32,6 @@ test: NUMBER;
     t = parse("(a,b,c,d)").visit(ToAST())[0]
     t = parse("(a,b,c,d,)").visit(ToAST())[0]
     t = parse("((a, b, c),b,c,d,)").visit(ToAST())[0]
-    t = parse("((a, b, (d, e, (f, g))), b, *args, **kwargs)").visit(ToAST())[0]
     t = parse("((a, b, c),b,c,d,*args)").visit(ToAST())[0]
     t = parse("((a, b, c),b,c,d,**kwargs)").visit(ToAST())[0]
     t = parse("((a, b, c),b,c,d,*args, **args)").visit(ToAST())[0]
@@ -91,7 +90,6 @@ class TestParser(object):
         readline = cStringIO.StringIO(source).readline
         for token in tokenize.generate_tokens(readline):
             typ, s, (row, col), _, line = token
-            row -= 1
             pos += len(s)
             typ = tokenize.tok_name[typ]
             if typ == "ENDMARKER":
@@ -120,7 +118,9 @@ def f(x, null=0):
         pass
         return null - x
         """)
-        t = self.ToAST.transform(t)
+        t = t.visit(self.ToAST)
+        assert len(t) == 1
+        t = t[0]
 
     def test_class(self):
         t = self.parse("""
@@ -135,7 +135,7 @@ class A(object):
     def diagonal(self):
         return (self.a ** 2 + self.b ** 2) ** 0.5
         """)
-        t = self.ToAST.transform(t)
+        t = t.visit(self.ToAST)[0]
 
     def test_while(self):
         t = self.parse("""
@@ -151,7 +151,9 @@ def f(x, null=0):
         return result - 15
     return result
         """)
-        t = self.ToAST.transform(t)
+        t = t.visit(self.ToAST)
+        assert len(t) == 1
+        t = t[0]
 
     def test_comment(self):
         t = self.parse("""
@@ -161,77 +163,8 @@ def f(x):
 """)
         t = self.ToAST.transform(t)
 
-    def test_parse_print(self):
-        t = self.parse("""
-print >> f, a, b, c,
-print >> f, a, b
-print >> f
-print 
-print 1
-print 1, 2
-print 1, 2,  
-""")
-        t = self.ToAST.transform(t)
- 
-    def test_assignment(self):
-        t = self.parse("""
-a = 1
-a = b = c
-(a, b) = c
-a += 1
-b //= 3
-""")
-        t = self.ToAST.transform(t)
-
-    def test_lists(self):
-        t = self.parse("""
-l0 = [1, 2, [3, 4, [5, []]]]
-l1 = [i for i in range(10)]
-l1 = [i for i in range(10) if i ** 2 % 3 == 0]
-l2 = [ ]
-l3 = [     ]
-l4 = []
-""")
-        t = self.ToAST.transform(t)
-
-    def test_dicts(self):
-        t = self.parse("""
-{1: 2, 2: {1: 3},}
-{}
-""")
-        t = self.ToAST.transform(t)
-
-    def test_calls(self):
-        #XXX horrible trees
-        t = self.parse("""
-f(a)(b)(c)
-f() ** 2
-f(x) * 2
-f(x, y, z, *args) + 2
-""")
-        t = self.ToAST.transform(t)
-
-    def test_errors(self):
-        source = """
-def f(x):
-    if a:
-        pass
-    else:
-        pass
-        else:
-            pass
-"""
-        excinfo = py.test.raises(ParseError, self.parse, source)
-        error = excinfo.value.errorinformation
-        msg = excinfo.value.nice_error_message("<stdin>", source)
-
     def test_parse_this(self):
         s = py.magic.autopath().read()
+        s = s[s.index("\nclass"):]
         t = self.parse(s)
-        t = self.ToAST.transform(t)
-
-    def test_parsing(self):
-        s = py.magic.autopath().dirpath().dirpath().join("parsing.py").read()
-        t = self.parse(s)
-        t = self.ToAST.transform(t)
-
+        t = t.visit(self.ToAST)[0]

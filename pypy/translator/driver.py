@@ -7,7 +7,6 @@ from pypy.annotation import model as annmodel
 from pypy.annotation.listdef import s_list_of_strings
 from pypy.annotation import policy as annpolicy
 from py.compat import optparse
-from pypy.tool.udir import udir
 
 import py
 from pypy.tool.ansi_print import ansi_log
@@ -87,8 +86,10 @@ class TranslationDriver(SimpleTaskEngine):
         self.log = log
 
         if config is None:
-            from pypy.config.pypyoption import get_pypy_config
-            config = get_pypy_config(DEFAULTS, translating=True)
+            from pypy.config.config import Config
+            from pypy.config.pypyoption import pypy_optiondescription
+            config = Config(pypy_optiondescription,
+                            **DEFAULTS)
         self.config = config
         if overrides is not None:
             self.config.override(overrides)
@@ -304,12 +305,7 @@ class TranslationDriver(SimpleTaskEngine):
         so = query.qoutput(query.polluted_qgen(translator))
         tot = len(translator.graphs)
         percent = int(tot and (100.0*so / tot) or 0)
-        # if there are a few SomeObjects even if the policy doesn't allow
-        # them, it means that they were put there in a controlled way
-        # and then it's not a warning.
-        if not translator.annotator.policy.allow_someobjects:
-            pr = self.log.info
-        elif percent == 0:
+        if percent == 0:
             pr = self.log.info
         else:
             pr = log.WARNING
@@ -562,6 +558,7 @@ class TranslationDriver(SimpleTaskEngine):
     def task_source_cli(self):
         from pypy.translator.cli.gencli import GenCli
         from pypy.translator.cli.entrypoint import get_entrypoint
+        from pypy.tool.udir import udir
 
         entry_point_graph = self.translator.graphs[0]
         self.gen = GenCli(udir, self.translator, get_entrypoint(entry_point_graph),
@@ -577,35 +574,11 @@ class TranslationDriver(SimpleTaskEngine):
         filename = self.gen.build_exe()
         self.c_entryp = CliFunctionWrapper(filename)
         # restore original os values
-        if hasattr(self, 'old_cli_defs'):
-            unpatch(*self.old_cli_defs)
+        unpatch(*self.old_cli_defs)
         
         self.log.info("Compiled %s" % filename)
-        if self.standalone and self.exe_name:
-            self.copy_cli_exe()
     task_compile_cli = taskdef(task_compile_cli, ['source_cli'],
                               'Compiling CLI source')
-
-    def copy_cli_exe(self):
-        # XXX messy
-        import os.path
-        import shutil
-        main_exe = self.c_entryp._exe
-        usession_path, main_exe_name = os.path.split(main_exe)
-        pypylib_dll = os.path.join(usession_path, 'pypylib.dll')
-
-        shutil.copy(main_exe, '.')
-        shutil.copy(pypylib_dll, '.')
-        newexename = self.exe_name % self.get_info()
-        if '/' not in newexename and '\\' not in newexename:
-            newexename = './' + newexename
-        f = file(newexename, 'w')
-        f.write("""#!/bin/bash
-cd `dirname $0` # XXX doesn't work if it's placed in PATH
-mono "%s" "$@"
-""" % main_exe_name)
-        f.close()
-        os.chmod(newexename, 0755)
 
     def task_run_cli(self):
         pass

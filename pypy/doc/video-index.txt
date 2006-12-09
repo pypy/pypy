@@ -19,13 +19,9 @@ In order to view the downloaded movies you need to
 have a video player that supports DivX AVI files (DivX 5, mp3 audio)
 such as `mplayer`_, `xine`_, `vlc`_ or the windows media player.
 
-The videos are also available on the "1Dawg" video conversion service,
-`tagged with pypy`_. Thanks to johnjay for putting them there.
-
 .. _`mplayer`: http://www.mplayerhq.hu/design7/dload.html
 .. _`xine`: http://xinehq.de/index.php/releases
 .. _`vlc`: http://www.videolan.org/vlc/
-.. _`tagged with pypy`: http://1dawg.com/tagged/pypy
 
 You can find the necessary codecs in the ffdshow-library:
 http://ffdshow.sourceforge.net/tikiwiki/tiki-index.php
