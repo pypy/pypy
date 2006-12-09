@@ -14,17 +14,8 @@ class TestRLLVMGenop(AbstractRGenOpTests):
     def skip(self):
         py.test.skip('WIP')
 
-    test_goto_direct  = skip
-    test_goto_compile = skip
-
-    test_if_direct  = skip 
-    test_if_compile = skip 
-
     test_switch_direct  = skip
     test_switch_compile = skip
 
     test_large_switch_direct  = skip
     test_large_switch_compile = skip
-
-    test_fact_direct  = skip
-    test_fact_compile = skip
