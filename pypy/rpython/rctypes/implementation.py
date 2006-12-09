@@ -3,6 +3,11 @@ from pypy.annotation.model import SomeCTypesObject
 from pypy.rpython import extregistry
 from pypy.rpython.extregistry import ExtRegistryEntry
 
+import ctypes
+if ctypes.__version__ < '0.9.9.6':  # string comparison... good enough?
+    raise ImportError("requires ctypes >= 0.9.9.6, got %s" % (
+        ctypes.__version__,))
+
 # rctypes version of ctypes.CFUNCTYPE.
 # It's required to work around three limitations of CFUNCTYPE:
 #

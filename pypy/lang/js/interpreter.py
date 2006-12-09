@@ -2,7 +2,7 @@
 from pypy.lang.js.astgen import *
 from pypy.lang.js.context import ExecutionContext
 from pypy.lang.js.jsobj import W_Number, W_String, W_Object 
-from pypy.lang.js.jsobj import w_Undefined, W_Arguments, W_Boolean
+from pypy.lang.js.jsobj import w_Undefined, W_Arguments, W_Boolean, NaN
 from pypy.lang.js.scope import scope_manager
 
 def writer(x):
@@ -114,30 +114,48 @@ class __extend__(If):
             return self.elsePart.call(context)
 
 class __extend__(Group):
-    """The __extend__ class."""
     def call(self, context = None):
         return self.expr.call(context)
 
-def AbstractRelationalLt(value1, value2):
-    # TODO: really implement the algorithm
-    v1 = value1.ToPrimitive().ToNumber()
-    v2 = value2.ToPrimitive().ToNumber()
-    return v1<v2
+def ARC(x, y):
+    """
+    Implements the Abstract Relational Comparison x < y
+    Still not 100% to the spec
+    """
+    # TODO complete the funcion with strings comparison
+    s1 = x.ToPrimitive('Number')
+    s2 = y.ToPrimitive('Number')
+    if not (isinstance(s1, W_String) and isinstance(s2, W_String)):
+        s4 = s1.ToNumber()
+        s5 = s2.ToNumber()
+        if s4 == NaN or s5 == NaN:
+            return None
+        if s4 < s5:
+            return True
+        else:
+            return False
+    else:
+        pass 
 
 class __extend__(Gt):
     def call(self, context = None):
-        left = self.left.call(context).GetValue()
-        right = self.right.call(context).GetValue()
-        if left != right:
-            return W_Boolean(not AbstractRelationalLt(left, right))
-        else:
+        s2 = self.left.call(context).GetValue()
+        s4 = self.right.call(context).GetValue()
+        s5 = ARC(s4, s2)
+        if s5 is None:
             return W_Boolean(False)
+        else:
+            return W_Boolean(s5)
 
 class __extend__(Lt):
     def call(self, context = None):
-        left = self.left.call(context).GetValue()
-        right = self.right.call(context).GetValue()
-        return W_Boolean(AbstractRelationalLt(left, right))
+        s2 = self.left.call(context).GetValue()
+        s4 = self.right.call(context).GetValue()
+        s5 = ARC(s2, s4)
+        if s5 is None:
+            return W_Boolean(False)
+        else:
+            return W_Boolean(s5)
 
 class __extend__(Index):
     def call(self, context=None):

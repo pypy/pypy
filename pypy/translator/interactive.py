@@ -3,8 +3,6 @@ from py.compat import optparse
 import autopath
 from pypy.translator.translator import TranslationContext
 from pypy.translator import driver
-from pypy.config.config import Config
-from pypy.config.pypyoption import pypy_optiondescription
 
 DEFAULTS = {
   'translation.backend': None,

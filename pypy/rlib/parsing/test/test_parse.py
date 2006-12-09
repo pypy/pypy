@@ -74,6 +74,4 @@ def test_epsilon():
     p = PackratParser([r1], "S")
     assert p.parse([(c, i) for i, c, in enumerate("xyx")]) is not None
     assert p.parse([(c, i) for i, c, in enumerate("xx")]) is not None
-
-
-
+    t = p.parse([(c, i) for i, c, in enumerate("xxxxxx")])

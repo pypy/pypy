@@ -9,12 +9,11 @@ from pypy.translator.c import genc, gc
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.objectmodel import cast_weakgcaddress_to_object, cast_object_to_weakgcaddress
-from pypy.config.config import Config
-from pypy.config.pypyoption import pypy_optiondescription
 from pypy import conftest
 
 def compile_func(fn, inputtypes, t=None, gcpolicy="ref"):
-    config = Config(pypy_optiondescription)
+    from pypy.config.pypyoption import get_pypy_config
+    config = get_pypy_config(translating=True)
     config.translation.gc = gcpolicy
     if t is None:
         t = TranslationContext(config=config)

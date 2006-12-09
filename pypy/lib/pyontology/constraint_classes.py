@@ -248,7 +248,6 @@ class PropertyConstrain2(AbstractConstraint):
                     keep.append(key)
         sub.removeValues([v for v in sub.getValues() if not v in keep])
 
-import time
 class PropertyConstrain3(AbstractConstraint):
     cost = 1
     def __init__(self, prop, variable, cls_or_restriction):
@@ -345,14 +344,15 @@ class SubPropertyConstraint(SubClassConstraint):
 
 class EquivalentPropertyConstraint(SubClassConstraint):
 
-    cost = 100
+    cost = 10
     
     def narrow(self, domains):
         subdom = domains[self.variable]
         superdom = domains[self.object]
-        for value in subdom.getValues():
-            if not value in superdom:
-                superdom.addValue(value[0], value[1])
+        superset = set(superdom.getValues())
+        superset = superset.union(set(subdom.getValues()))
+        superdom.setValues(superset)
+        subdom.setValues(superset)
 
 class TypeConstraint(SubClassConstraint):
     cost = 1
@@ -367,6 +367,7 @@ class TypeConstraint(SubClassConstraint):
 
 class FunctionalCardinality(OwlConstraint):
     """Contraint: all values must be distinct"""
+    cost = 100
 
     def narrow(self, domains):
         """narrowing algorithm for the constraint"""

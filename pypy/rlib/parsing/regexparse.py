@@ -106,6 +106,17 @@ def parse_regex(s):
     assert res is not None
     return res
 
+def make_runner(regex, view=False):
+    r = parse_regex(regex)
+    dfa = r.make_automaton().make_deterministic()
+    if view:
+        dfa.view()
+    dfa.optimize()
+    if view:
+        dfa.view()
+    r = dfa.get_runner()
+    return r
+
 class RegexBuilder(object):
     def visit_regex(self, node):
         return node.children[0].visit(self) | node.children[2].visit(self)

@@ -1,0 +1,63 @@
+=======================
+JIT Generation in PyPy
+=======================
+
+Introduction
+=============
+
+Intepreters to compilers, psyco parallel...
+
+
+Hint-Annotation and Compile Time Values
+=========================================
+
+Hint annotator and hint(concrete=True)...
+
+
+Timeshifting: transforming interpreter into compilers
+======================================================
+
+intro and basics
+
+Split and Merges
+--------------------
+
+...
+
+Calls and inlining
+---------------------
+
+...
+
+Virtual Containers
+--------------------
+
+...
+
+Promotion and global merges
+-----------------------------
+
+...
+
+partial data
+-------------
+
+...
+
+
+Portals
+----------------------
+
+...
+
+
+Backends
+====================
+
+...
+
+The Backend interface
+-----------------------
+
+...
+

@@ -2,7 +2,8 @@
 """ Using narcisus to generate code
 """
 
-# 1st attempt - exec the code
+# FIXME Rename this file (overwrite the std python lib)
+# TODO Should be replaced by a real parser
 
 import os
 import py

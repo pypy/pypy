@@ -143,9 +143,15 @@ def main():
             benchmark_result.update(p, run_pystone(exe), PYSTONE_ASCENDING_GOOD)
         stone = benchmark_result.get_best_result(p)
 
-        codesize = os.popen('size "%s" | tail -n1 | cut -f1'%(exename,)).read().strip()
+        if 'pypy-cli' in exename:
+            codesize = 'N/A'
+            dirname, _ = os.path.split(exe)
+            exesize = os.path.getsize(os.path.join(dirname, 'main.exe'))
+        else:
+            codesize = os.popen('size "%s" | tail -n1 | cut -f1'%(exename,)).read().strip()
+            exesize = os.path.getsize(exe)
 
-        print fmt % (ctime, os.path.getsize(exe), codesize, exename, exename, rich, rich / ref_rich, stone, ref_stone / stone)
+        print fmt % (ctime, exesize, codesize, exename, exename, rich, rich / ref_rich, stone, ref_stone / stone)
         sys.stdout.flush()
 
 if __name__ == '__main__':

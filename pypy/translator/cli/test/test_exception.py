@@ -32,3 +32,9 @@ class TestCliException(CliTest, BaseTestException):
                 return -1
             return x
         self.interpret_raises(ValueError, fn, [0])
+
+    def test_raise_and_catch_other(self):
+        pass
+
+    def test_raise_prebuilt_and_catch_other(self):
+        pass

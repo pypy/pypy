@@ -227,3 +227,285 @@ which wraps an iterator. Looping over the iterator in RPython code will not
 produce a loop in the resulting flow graph but will unroll the loop instead.
 
 .. _unroll: ../../pypy/rlib/unroll.py
+
+``parsing``
+===========
+
+The parsing_ module is a still in-development module to generate tokenizers and
+parsers in RPython. It is still highly experimental and only really used by the
+`Prolog interpreter`_ (although in slightly non-standard ways). The easiest way
+to specify a tokenizer/grammar is to write it down using regular expressions and
+simple EBNF format. 
+
+The regular expressions are implemented using finite automatons. The parsing
+engine uses `packrat parsing`_, which has O(n) parsing time but is more
+powerful than LL(n) and LR(n) grammars.
+
+.. _`packrat parsing`: http://pdos.csail.mit.edu/~baford/packrat/
+
+Regular Expressions
+-------------------
+
+The regular expression syntax is mostly a subset of the syntax of the `re`_
+module. By default, non-special characters match themselves. If you concatenate
+regular expressions the result will match the concatenation of strings matched
+by the single regular expressions.
+
+``|``
+    ``R|S`` matches any string that *either* matches R or matches S.
+
+``*``
+    ``R*`` matches 0 or more repetitions of R.
+
+``+``
+    ``R+`` matches 1 or more repetitions of R.
+
+``?``
+    ``R?`` matches 0 or 1 repetition of R.
+
+``(...)``
+    Parenthesis can be used to group regular expressions (note that in constrast
+    to Python's re module you cannot later match the content of this group).
+
+``{m}``
+    ``R{m}`` matches exactly m repetitions of R.
+
+``{m, n}``
+    ``R{m, n}`` matches between m and n repetitions of R (including m and n).
+
+``[]``
+    Matches a set of characters. The characters to be matched can be listed
+    sequentially. A range of characters can be specified using ``-``. For
+    examples ``[ac-eg]`` matches the characters a, c, d, e and g.
+    The whole set can be inverted by starting it with ``^``. So [^a] matches
+    anything except a.
+
+To parse a regular expression and to get a matcher for it, you can use the
+function ``make_runner(s)`` in the ``pypy.rlib.parsing.parseregex`` module.  It
+returns a object with a ``recognize(input)`` method that returns True or False
+depending on whether ``input`` matches the string or not.
+
+.. _`re`: http://docs.python.org/lib/module-re.html
+
+EBNF
+----
+
+To describe a tokenizer and a grammar the ``pypy.rlib.parsing.ebnfparse``
+defines a syntax for doing that.
+
+The syntax file contains a sequence or rules. Every rule either describes a
+regular expression or a grammar rule.
+
+Regular expressions rules have the form::
+
+    NAME: "regex";
+
+NAME is the name of the token that the regular expression
+produces (it has to consist of upper-case letters), ``regex`` is a regular
+expression with the syntax described above. One token name is special-cased: a
+token called ``IGNORE`` will be filtered out of the token stream before being
+passed on to the parser and can thus be used to match comments or
+non-significant whitespace.
+
+Grammar rules have the form::
+    
+    name: expansion_1 | expansion_2 | ... | expansion_n;
+
+Where ``expansion_i`` is a sequence of nonterminal or token names::
+
+    symbol_1 symbol_2 symbol_3 ... symbol_n
+
+This means that the nonterminal symbol ``name`` (which has to consist of
+lower-case letters) can be expanded into any of the expansions. The expansions
+can consist of a sequence of token names, nonterminal names or literals, which
+are strings in quotes that are matched literally.
+
+An example to make this clearer::
+    
+    IGNORE: " ";
+    DECIMAL: "0|[1-9][0-9]*";
+    additive: multitive "+" additive |
+              multitive "-" additive |
+              multitive;
+    multitive: primary "*" multitive |
+               primary "/" multitive |
+               primary;
+    primary: "(" additive ")" | DECIMAL;
+
+This grammar describes the syntax of arithmetic impressions. The tokenizer
+produces a stream of either DECIMAL tokens or tokens that have matched one of
+the literals "+", "-", "*" or "/". Any space will be ignored. The grammar
+produces a syntax tree that follows the precedence of the operators. For example
+the expression ``12 + 4 * 5`` is parsed into the following tree:
+
+.. graphviz:: image/parsing_example1.dot
+
+Parse Trees
+-----------
+
+The parsing process builds up a tree consisting of intances of ``Symbol`` and
+``Nonterminal``, the former corresponding to tokens, the latter to nonterminal
+symbols. Both classes live in the `pypy.rlib.parsing.tree`_ module. You can use
+the ``view()`` method ``Nonterminal`` instances to get a pygame view of the
+parse tree.
+
+``Symbol`` instances have the following attributes: ``symbol``, which is the
+name of the token and ``additional_info`` which is the matched source.
+
+``Nonterminal`` instances have the following attributes: ``symbol`` is the name
+of the nonterminal and ``children`` which is a list of the children attributes.
+
+
+.. _`pypy.rlib.parsing.tree`: ../../pypy/rlib/parsing/tree.py
+
+Visitors
+++++++++
+
+To write tree visitors for the parse trees that are RPython, there is a special
+baseclass ``RPythonVisitor`` in ``pypy.rlib.parsing.tree``_ to use. If your
+class uses this, it will grow a ``dispatch(node)`` method, that calls an
+appropriate ``visit_<symbol>`` method, depending on the ``node`` argument. Here
+the <symbol> is replaced by the ``symbol`` attribute of the visited node.
+
+For the visitor to be RPython, the return values of all the visit methods need
+to be of the same type.
+
+
+Tree Transformations
+--------------------
+
+As the tree of arithmetic example above shows, by default the parse tree
+contains a lot of nodes that are not really conveying useful information.
+To get rid of some of them, there is some support in the grammar format to
+automatically create a visitor that transforms the tree to remove the additional
+nodes. The simplest such transformation is to just remove nodes, but there are
+more complex ones.
+
+The syntax for these transformations is to enclose symbols in expansions of a
+nonterminal by [...], <...> or >...<.
+
+[symbol_1 symbol_2 ... symbol_n]
+++++++++++++++++++++++++++++++++
+
+This will produce a transformer that completely removes the enclosed symbols
+from the tree.
+
+Example::
+
+    IGNORE: " ";
+    n: "A" [","] n | "A";
+
+Parsing the string "A, A, A" gives the tree:
+
+.. graphviz:: image/parsing_example2.dot
+
+After transformation the tree has the "," nodes removed:
+
+.. graphviz:: image/parsing_example3.dot
+
+<symbol>
+++++++++
+
+This will replace the parent with symbol. Every expansion can contain at most
+one symbol that is enclosed by <...>, because the parent can only be replaced
+once, obviously.
+
+Example::
+
+    IGNORE: " ";
+    n: "a" "b" "c" m;
+    m: "(" <n> ")" | "d";
+
+Parsing the string "a b c (a b c d)" gives the tree:
+
+.. graphviz:: image/parsing_example4.dot
+
+After transformation the tree looks like this:
+
+.. graphviz:: image/parsing_example5.dot
+
+
+>nonterminal_1 nonterminal_2 ... nonterminal_n<
++++++++++++++++++++++++++++++++++++++++++++++++
+
+This replaces the nodes nonterminal_1 to nonterminal_n by their children.
+
+Example::
+
+    IGNORE: " ";
+    DECIMAL: "0|[1-9][0-9]*";
+    list: DECIMAL >list< | DECIMAL;
+
+Parsing the string "1 2" gives the tree:
+
+.. graphviz:: image/parsing_example6.dot
+    
+after the transformation the tree looks like:
+
+.. graphviz:: image/parsing_example7.dot
+
+Note that the transformation works recursively. That means that the following
+also works: if the string "1 2 3 4 5" is parsed the tree at first looks like
+this:
+
+.. graphviz:: image/parsing_example8.dot
+
+But after transformation the whole thing collapses to one node with a lot of
+children:
+
+.. graphviz:: image/parsing_example9.dot
+
+
+Extensions to the EBNF grammar format
+-------------------------------------
+
+There are some extensions to the EBNF grammar format that are really only
+syntactic sugar but make writing grammars less tedious. These are:
+
+``symbol?``:
+    matches 0 or 1 repetitions of symbol
+
+``symbol*``:
+    matches 0 or more repetitions of symbol. After the tree transformation all
+    these repetitions are children of the current symbol.
+
+``symbol+``:
+    matches 1 or more repetitions of symbol. After the tree transformation all
+    these repetitions are children of the current symbol.
+
+These are implemented by adding some more rules to the grammar in the correct
+way. Examples: the grammar::
+
+    s: a b? c;
+
+is transformed to look like this::
+
+    s: a >_maybe_symbol_0_< c | a c;
+    _maybe_symbol_0_: b;
+
+The grammar::
+
+    s: a b* c;
+
+is transformed to look like this::
+
+    s: a >_star_symbol_0< c | a c;
+    _star_symbol_0: b >_symbol_star_0< | b;
+
+The grammar::
+
+    s: a b+ c;
+
+is transformed to look like this::
+
+    s: a >_plus_symbol_0< c;
+    _plus_symbol_0: b >_plus_symbol_0< | b;
+
+
+Full Example
+------------
+
+XXX to be written
+
+.. _`Prolog interpreter`: ../../pypy/lang/prolog/
+.. _parsing: ../../pypy/rlib/parsing/

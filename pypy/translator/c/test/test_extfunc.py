@@ -684,3 +684,51 @@ def test_opendir_readdir():
     compared_with.sort()
     assert result == compared_with
 
+if hasattr(posix, 'execv'):
+    def test_execv():
+        filename = str(udir.join('test_execv.txt'))
+        def does_stuff():
+            progname = str(sys.executable)
+            l = ['', '']
+            l[0] = progname
+            l[1] = "-c"
+            l.append('open("%s","w").write("1")' % filename)
+            pid = os.fork()
+            if pid == 0:
+                os.execv(progname, l)
+            else:
+                os.waitpid(pid, 0)
+        func = compile(does_stuff, [])
+        func()
+        assert open(filename).read() == "1"
+
+    def test_execv_raising():
+        def does_stuff():
+            l = []
+            l.append("asddsadw32eewdfwqdqwdqwd")
+            os.execv(l[0], l)
+
+        func = compile(does_stuff, [])
+        py.test.raises(OSError, "func()")
+
+    def test_execve():
+        filename = str(udir.join('test_execve.txt'))
+        def does_stuff():
+            progname = str(sys.executable)
+            l = []
+            l.append(progname)
+            l.append("-c")
+            l.append('import os; open("%s", "w").write(os.environ["STH"])' % filename)
+            env = {}
+            env["STH"] = "42"
+            env["sthelse"] = "a"
+            pid = os.fork()
+            if pid == 0:
+                os.execve(progname, l, env)
+            else:
+                os.waitpid(pid, 0)
+
+        func = compile(does_stuff, [])
+        func()
+        assert open(filename).read() == "42"
+

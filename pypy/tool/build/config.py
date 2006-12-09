@@ -18,8 +18,8 @@ system_config = Config(system_optiondescription)
 
 # compile option config, used by client to parse info, by startcompile for 
 # cmdline args, defaults are taken from the optiondescription
-from pypy.config.pypyoption import pypy_optiondescription
-compile_config = Config(pypy_optiondescription)
+from pypy.config.pypyoption import get_pypy_config
+compile_config = get_pypy_config()
 compile_config.override({'translation.backend': 'c'})
 
 # settings for the server

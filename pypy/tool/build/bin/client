@@ -5,34 +5,28 @@ BUFSIZE = 1024
 import path
 import sys
 import random
-from pypy.tool.build import config
+from pypy.tool.build import config as buildconfig
 
 from py.execnet import SshGateway, PopenGateway
-from pypy.tool.build.client import init
+from pypy.tool.build.client import init, zip_result
 from pypy.config.config import to_optparse, Config
 from pypy.config import pypyoption
 
 from pypy.translator.goal import targetpypystandalone
 from pypy.translator.driver import TranslationDriver
 from pypy.tool.udir import udir
-from zipfile import ZipFile
 
-if config.server in ['localhost', '127.0.0.1']:
+if buildconfig.server in ['localhost', '127.0.0.1']:
     gw = PopenGateway()
 else:
-    gw = SshGateway(config.server)
-channel = init(gw, config.system_config, path=config.path,
-                port=config.port)
+    gw = SshGateway(buildconfig.server)
+    
+channel = init(gw,
+               buildconfig.system_config,
+               path=buildconfig.path,
+               port=buildconfig.port)
 
-class ChannelWrapper(object):
-    def __init__(self, channel):
-        self.channel = channel
-        
-    def write(self, data):
-        self.channel.send(data)
 
-    def close(self):
-        self.channel.send(None)
 
 print channel.receive() # welcome message
 try:
@@ -50,7 +44,7 @@ try:
             # XXX we should compile here, using data dict for info
             print 'compilation requested for info %r, now faking that' % (
                     data,)
-            config = Config(pypyoption.pypy_optiondescription)
+            config = pypyoption.get_pypy_config()
             config.override(compileinfo)
 
             # XXX compile here...
@@ -59,12 +53,8 @@ try:
                         default_goal='compile')
             driver.proceed(['compile'])
 
-            channelwrapper = ChannelWrapper(channel)
-            zip = ZipFile(channelwrapper, 'w')
-            for fpath in udir.visit():
-                zip.writestr(fpath.relto(outdir), fpath.read())
-            zip.close()
-
+            zip_result(udir, channel)
+            
             print 'done with compilation, waiting for next'
     except EOFError:
         sys.exit()
