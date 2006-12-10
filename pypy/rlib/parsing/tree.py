@@ -44,7 +44,7 @@ class Nonterminal(Node):
         return "%s(%s)" % (self.symbol, ", ".join([str(c) for c in self.children]))
 
     def __repr__(self):
-        return "Nonterminal(%r, %r)" % (self.children, self.symbol)
+        return "Nonterminal(%r, %r)" % (self.symbol, self.children)
 
     def dot(self):
         yield '"%s" [label="%s"];' % (id(self), self.symbol)
