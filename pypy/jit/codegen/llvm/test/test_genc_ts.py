@@ -4,10 +4,10 @@ from pypy.jit.timeshifter.test import test_timeshift
 from pypy.jit.codegen.llvm.rgenop import RLLVMGenOp
 
 
-py.test.skip("WIP")
-
 class LLVMTimeshiftingTestMixin(I386TimeshiftingTestMixin):
     RGenOp = RLLVMGenOp
+
+py.test.skip("WIP")
 
 class TestTimeshiftLLVM(LLVMTimeshiftingTestMixin,
                         test_timeshift.TestTimeshift):

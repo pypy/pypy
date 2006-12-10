@@ -5,7 +5,7 @@ from pypy.jit.codegen.llvm.test.test_genc_ts import LLVMTimeshiftingTestMixin
 
 py.test.skip("WIP")
 
-class TestTLR(LLVMTimeshiftingTestMixin,
+class TestTL(LLVMTimeshiftingTestMixin,
               test_tl.TestTL):
 
     # for the individual tests see
