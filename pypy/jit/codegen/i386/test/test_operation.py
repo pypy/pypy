@@ -43,13 +43,14 @@ class RGenOpPacked(RI386GenOp):
 
 
 class TestBasic:
+    RGenOp = RGenOpPacked
 
     def rgen(self, ll_function, argtypes):
         t = TranslationContext()
         t.buildannotator().build_types(ll_function, argtypes)
         t.buildrtyper().specialize()
         graph = graphof(t, ll_function)
-        rgenop = RGenOpPacked()
+        rgenop = self.RGenOp()
         self.rgenop = rgenop      # keep this alive!
         gv_generated = graph2rgenop.compile_graph(rgenop, graph)
         ctypestypes = [c_int] * len(argtypes)   # for now
