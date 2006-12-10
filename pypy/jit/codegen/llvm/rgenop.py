@@ -1,3 +1,4 @@
+import py
 from pypy.rlib.objectmodel import specialize
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.jit.codegen.model import AbstractRGenOp, GenLabel, GenBuilder
@@ -470,6 +471,8 @@ class RLLVMGenOp(object):   #changed baseclass from (AbstractRGenOp) for better 
             return 'int*'
         elif T is llmemory.Address:
             return 'int*'
+        if T is lltype.Float:
+            py.test.skip("not implemented: floats in the llvm back-end")
         elif T is lltype.Bool:
             return 'bool'
         else:

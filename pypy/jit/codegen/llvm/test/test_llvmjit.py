@@ -1,5 +1,4 @@
 import py
-from sys import platform
 from os.path import dirname, join
 from pypy.translator.c.test.test_genc import compile
 from pypy.jit.codegen.llvm import llvmjit
@@ -8,6 +7,12 @@ try:
     from pypy.jit.codegen.llvm import llvmjit
 except OSError:
     py.test.skip("can not load libllvmjit library (see ../README.TXT)")
+
+#
+def skip_unsupported_platform():
+    from sys import platform
+    if platform == 'darwin':
+        py.test.skip('dynamic vs. static library issue on Darwin. see: http://www.cocoadev.com/index.pl?ApplicationLinkingIssues for more information (FIXME)')
 
 #
 llsquare = '''int %square(int %n) {
@@ -237,9 +242,7 @@ def DONTtest_layers_of_codegenerators():    #e.g. i386 code until function stabi
     pass
     
 def test_execute_translation(): #put this one last because it takes the most time
-    if platform == 'darwin':
-        py.test.skip('dynamic vs. static library issue on Darwin. see: http://www.cocoadev.com/index.pl?ApplicationLinkingIssues for more information (FIXME)')
-
+    skip_unsupported_platform()
     llvmjit.restart()
     def f(x):
         return execute(llsquare, 'square', x + 5)
