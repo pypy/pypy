@@ -476,9 +476,9 @@ class AppTest_LogicFutures(object):
                 
         X = newvar()
         F = future(fib, X)
-        # values > 11 triggers exhaustion of the cpython stack
-        unify(11, X)
-        assert F == 144
+        # values > 10 triggers exhaustion of the cpython stack
+        unify(10, X)
+        assert F == 89
 
     def test_stacklet(self):
 
