@@ -82,15 +82,16 @@ def _setup(space):
     return space.appexec([space.wrap(dn)], """
         (dn): 
             import sys
-            sys.path.append(dn)
-            return sys.modules.copy()
+            path = list(sys.path)
+            sys.path.insert(0, dn)
+            return path, sys.modules.copy()
     """)
 
 def _teardown(space, w_saved_modules):
     space.appexec([w_saved_modules], """
-        (saved_modules): 
+        ((saved_path, saved_modules)): 
             import sys
-            sys.path.pop()
+            sys.path[:] = saved_path
             sys.modules.clear()
             sys.modules.update(saved_modules)
     """)
