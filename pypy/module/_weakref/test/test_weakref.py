@@ -252,6 +252,23 @@ class AppTestWeakref(object):
             # leads to the fact that the __del__ of _weakref.ref is not called.
             assert _weakref.getweakrefs(a)[0]() is a
 
+    def test_buggy_case(self):
+        import gc, weakref
+        gone = []
+        class A(object):
+            def __del__(self):
+                gone.append(True)
+        a = A()
+        w = weakref.ref(a)
+        del a
+        tries = 5
+        for i in range(5):
+            if not gone:
+                gc.collect()
+        if gone:
+            a1 = w()
+            assert a1 is None
+
 
 class AppTestProxy(object):
     def setup_class(cls):
