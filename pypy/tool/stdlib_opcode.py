@@ -1,7 +1,8 @@
 # load opcode.py as pythonopcode from our own lib
 
 __all__ = ['opmap', 'opname', 'HAVE_ARGUMENT',
-           'hasjrel', 'hasjabs', 'cmp_op']
+           'hasconst', 'hasname', 'hasjrel', 'hasjabs',
+           'haslocal', 'hascompare', 'hasfree', 'cmp_op']
 
 def load_opcode():
     import py

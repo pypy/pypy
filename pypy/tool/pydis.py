@@ -8,11 +8,13 @@ XXX this only works for python-2.3 because of the linenumber
 import autopath
 import sys
 
+from pypy.tool import stdlib_opcode
 from pypy.tool.stdlib_opcode import *
-from pypy.tool.stdlib_opcode import __all__ as _opcodes_all
 
-__all__ = ["dis","pydisassemble","distb","disco"] + _opcodes_all
-del _opcodes_all
+__all__ = ["dis","pydisassemble","distb","disco"] + stdlib_opcode.__all__
+
+EXTENDED_ARG = stdlib_opcode.opcodedesc.EXTENDED_ARG.index
+
 
 class Bytecode:
     def __init__(self, disresult, bytecodeindex, oparg, lineno):

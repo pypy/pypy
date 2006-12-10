@@ -16,7 +16,7 @@ class ExecBytecode(object):
     def __init__(self, frame):
         self.frame = frame
         self.code = frame.pycode
-        self.index = intmask(frame.next_instr)
+        self.index = intmask(frame.last_instr)
 
 class EnterFrame(object):
     def __init__(self, frame):
