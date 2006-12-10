@@ -601,8 +601,7 @@ class TranslationDriver(SimpleTaskEngine):
             newexename = './' + newexename
         f = file(newexename, 'w')
         f.write("""#!/bin/bash
-cd `dirname $0` # XXX doesn't work if it's placed in PATH
-mono "%s" "$@"
+mono "$(dirname $0)/%s" "$@" # XXX doesn't work if it's placed in PATH
 """ % main_exe_name)
         f.close()
         os.chmod(newexename, 0755)
