@@ -13,11 +13,24 @@ Hint-Annotation and Compile Time Values
 
 Hint annotator and hint(concrete=True)...
 
+calls...
+
+green propagation at fixpoint...
+
+deepfreeze...
+
+blue containers...
+
 
 Timeshifting: transforming interpreter into compilers
 ======================================================
 
 intro and basics
+
+Transform vs hrtyping
+-----------------------
+
+...
 
 Split and Merges
 --------------------
@@ -32,6 +45,11 @@ Calls and inlining
 Virtual Containers
 --------------------
 
+...vstructs, vlist, vdict...
+
+Exceptions
+------------
+
 ...
 
 Promotion and global merges
@@ -39,13 +57,17 @@ Promotion and global merges
 
 ...
 
-partial data
+Partial data
 -------------
 
 ...
 
-
 Portals
+----------------------
+
+...
+
+Scaling to PyPy
 ----------------------
 
 ...
