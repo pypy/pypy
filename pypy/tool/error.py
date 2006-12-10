@@ -21,7 +21,7 @@ def source_lines(graph, block, operindex=None, offset=None, long=False, \
     show_lines_of_code=SHOW_DEFAULT_LINES_OF_CODE):
     if block is not None:
         if block is graph.returnblock:
-            return ['<return>']
+            return ['<return block>']
     try:
         source = graph.source
     except AttributeError:
@@ -114,8 +114,14 @@ def format_someobject_error(annotator, position_key, what, s_value, called_from_
     msg = ["annotation of %r degenerated to SomeObject()" % (what,)]
     if position_key is not None:
         graph, block, operindex = position_key
-        oper = block.operations[operindex]
-        msg.append(str(oper))
+        if operindex is not None:
+            oper = block.operations[operindex]
+            msg.append(str(oper))
+        else:
+            msg.append("at the start of the block with input arguments:")
+            for v in block.inputargs:
+                s_v = annotator.binding(v, "(no annotation)")
+                msg.append("%8s: %s" % (v, s_v))
         msg.append('')
         msg += source_lines(graph, block, operindex, long=True)
         
