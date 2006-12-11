@@ -42,7 +42,7 @@ def alloc(map_size):
     flags = MAP_PRIVATE | MAP_ANONYMOUS
     prot = PROT_EXEC | PROT_READ | PROT_WRITE
     res = mmap_(cast(c_void_p(hint.pos), PTR), map_size, prot, flags, -1, 0)
-    if not res:
+    if cast(res, c_void_p).value == -1:
         raise MemoryError
     hint.pos += map_size
     return res
