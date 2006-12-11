@@ -175,8 +175,8 @@ def from_dict(d):
         return Comma(from_dict(d['0']),from_dict(d['1']))
     elif tp == 'DOT':
         return Dot(from_dict(d['0']), from_dict(d['1']))
-    elif tp == 'FUNCTION':
-        name = d['name']
+    elif tp == 'FUNCTION':        
+        name = d.get('name', '')
         scope = scope_manager.enter_scope()
         body = from_dict(d['body'])
         if d['params'] == '':
