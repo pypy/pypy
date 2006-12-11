@@ -70,7 +70,7 @@ app_untaint = gateway.interp2app(untaint)
 # ____________________________________________________________
 
 
-class SandSpace(StdObjSpace):
+class TaintSpace(StdObjSpace):
 
     def __init__(self, *args, **kwds):
         StdObjSpace.__init__(self, *args, **kwds)
@@ -86,10 +86,10 @@ class SandSpace(StdObjSpace):
                      self.wrap(app_is_tainted))
         self.setattr(w_pypymagic, self.wrap('untaint'),
                      self.wrap(app_untaint))
-        patch_space_in_place(self, 'sand', proxymaker)
+        patch_space_in_place(self, 'taint', proxymaker)
 
 
-Space = SandSpace
+Space = TaintSpace
 
 
 def tainted_error(space, name):

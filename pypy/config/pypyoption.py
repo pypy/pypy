@@ -20,7 +20,8 @@ if os.name == "posix":
                               
 pypy_optiondescription = OptionDescription("objspace", "Object Space Option", [
     ChoiceOption("name", "Object Space name",
-                 ["std", "flow", "logic", "thunk", "cpy", "dump"], "std",
+                 ["std", "flow", "logic", "thunk", "cpy", "dump", "taint"],
+                 "std",
                  requires = {
                      "thunk": [("objspace.geninterp", False)],
                      "logic": [("objspace.geninterp", False),
