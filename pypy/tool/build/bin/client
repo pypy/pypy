@@ -38,7 +38,7 @@ try:
                 )
             sysinfo, compileinfo = data
             accepting = True
-            for checker in config.client_checkers:
+            for checker in buildconfig.client_checkers:
                 if not checker(sysinfo, compileinfo):
                     accepting = False
                     break
