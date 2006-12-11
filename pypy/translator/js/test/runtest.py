@@ -143,7 +143,10 @@ class JsTest(BaseRtypingTest, OORtypeMixin):
         #    return self._cli_func
         def f():
             res = fn(*args)
-            return str(res)
+            if isinstance(res, type(None)):
+                return None
+            else:
+                return str(res)
         return compile_function(f, [])
     
     def interpret(self, fn, args):
