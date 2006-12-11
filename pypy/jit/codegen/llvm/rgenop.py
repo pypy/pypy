@@ -38,8 +38,8 @@ class Var(GenVar):
         return '%%v%d' % (self.n,)
 
 
-class IntConst(GenConst):
-    type = 'int'
+class GenericConst(GenConst):
+    #type = 'generic'
 
     def __init__(self, value):
         self.value = value
@@ -58,6 +58,30 @@ class IntConst(GenConst):
             return llmemory.cast_int_to_adr(self.value)
         else:
             return lltype.cast_primitive(T, self.value)
+
+
+class BoolConst(GenericConst):
+    type = 'int'
+
+
+class CharConst(GenericConst):
+    type = 'ubyte'
+
+
+class UniCharConst(GenericConst):
+    type = 'int'
+
+
+class IntConst(GenericConst):
+    type = 'int'
+
+
+class UIntConst(GenericConst):
+    type = 'uint'
+
+
+class FloatConst(GenericConst):
+    type = 'float'
 
 
 class AddrConst(GenConst):
@@ -343,7 +367,7 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
 
     def op_int_neg(self, gv_x):     return self._rgenop2_generic('sub', IntConst(0), gv_x)
     def op_int_invert(self, gv_x):  return self._rgenop2_generic('xor', gv_x, IntConst(-1))
-    def op_uint_invert(self, gv_x): return self._rgenop2_generic('xor', gv_x, IntConst((1<<32)-1))
+    def op_uint_invert(self, gv_x): return self._rgenop2_generic('xor', gv_x, UIntConst((1<<32)-1))
 
     def op_int_abs(self, gv_x):
         gv_comp    = Var('bool')
@@ -460,6 +484,10 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
 
     def op_float_is_true(self, gv_x):   return self._is_true(gv_x, '0.0')
 
+    def genop_malloc_varsize(self, varsizealloctoken, gv_size):
+        gv_result = Var('sbyte') #XXX  TODO
+        return gv_result
+        
     def genop_call(self, sigtoken, gv_fnptr, args_gv):
         log('%s Builder.genop_call %s,%s,%s' % (
             self.block.label, sigtoken, gv_fnptr, [v.operand() for v in args_gv]))
@@ -556,6 +584,14 @@ class RLLVMGenOp(object):   #changed baseclass from (AbstractRGenOp) for better 
         T = lltype.typeOf(llvalue)
         if T is llmemory.Address:
             return AddrConst(llvalue)
+        elif T is lltype.Bool:
+            return BoolConst(lltype.cast_primitive(lltype.Bool, llvalue))
+        elif T is lltype.Char:
+            return CharConst(lltype.cast_primitive(lltype.Char, llvalue))
+        elif T is lltype.Unsigned:
+            return UIntConst(lltype.cast_primitive(lltype.Unsigned, llvalue))
+        elif T is lltype.Float:
+            return FloatConst(lltype.cast_primitive(lltype.Float, llvalue))
         elif isinstance(T, lltype.Primitive):
             return IntConst(lltype.cast_primitive(lltype.Signed, llvalue))
         elif isinstance(T, lltype.Ptr):
@@ -601,14 +637,14 @@ class RLLVMGenOp(object):   #changed baseclass from (AbstractRGenOp) for better 
     @staticmethod
     @specialize.memo()
     def varsizeAllocToken(T):
-        XXX
+        #XXX TODO
         if isinstance(T, lltype.Array):
-            return RI386GenOp.arrayToken(T)
+            return RLLVMGenOp.arrayToken(T)
         else:
             # var-sized structs
             arrayfield = T._arrayfld
             ARRAYFIELD = getattr(T, arrayfield)
-            arraytoken = RI386GenOp.arrayToken(ARRAYFIELD)
+            arraytoken = RLLVMGenOp.arrayToken(ARRAYFIELD)
             length_offset, items_offset, item_size = arraytoken
             arrayfield_offset = llmemory.offsetof(T, arrayfield)
             return (arrayfield_offset+length_offset,
@@ -618,7 +654,7 @@ class RLLVMGenOp(object):   #changed baseclass from (AbstractRGenOp) for better 
     @staticmethod
     @specialize.memo()
     def arrayToken(A):
-        XXX
+        #XXX TODO
         return (llmemory.ArrayLengthOffset(A),
                 llmemory.ArrayItemsOffset(A),
                 llmemory.ItemOffset(A.OF))
