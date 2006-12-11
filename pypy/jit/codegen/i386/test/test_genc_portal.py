@@ -44,7 +44,7 @@ class I386PortalTestMixin(object):
         annhelper.finish()
         t = self.rtyper.annotator.translator
         t.config.translation.gc = 'boehm'
-        self.cbuilder = CStandaloneBuilder(t, ll_main)
+        self.cbuilder = CStandaloneBuilder(t, ll_main, config=t.config)
         self.cbuilder.generate_source()
         self.cbuilder.compile()
         
