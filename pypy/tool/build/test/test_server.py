@@ -50,17 +50,22 @@ def test_compile():
     ret = svr.compile('test@domain.com', (info, None))
     assert not ret[0]
     assert ret[1].find('found a suitable client') > -1
-    assert svr._channel.receive().find('going to send compile job') > -1
-    assert c1.channel.receive() == 'foo: 1'
-    assert c1.channel.receive() is None
+    ret = svr._channel.receive()
+    assert ret.find('going to send compile job') > -1
+    ret = c1.channel.receive()
+    assert ret == 'foo: 1'
+    ret = c1.channel.receive()
+    assert ret is None
     py.test.raises(IndexError, "c2.channel.receive()")
 
     svr.compile('test@domain.com', ({'foo': 3}, None))
-    assert svr._channel.receive().find('no suitable client available') > -1
+    ret = svr._channel.receive()
+    assert ret.find('no suitable client available') > -1
 
     info = {'bar': [3]}
-    ret = svr.compile('test@domain.com', (info, None))
-    assert svr._channel.receive().find('going to send') > -1
+    svr.compile('test@domain.com', (info, None))
+    ret = svr._channel.receive()
+    assert ret.find('going to send') > -1
     assert c2.channel.receive() == 'bar: [3]'
     assert c2.channel.receive() is None
     py.test.raises(IndexError, "c1.channel.receive()")
@@ -78,10 +83,13 @@ def test_compile():
     assert ret[0]
     assert isinstance(ret[1], str)
     assert BuildPath(ret[1]) == bp
-    assert svr._channel.receive().find('compilation done for') > -1
+    ret = svr._channel.receive()
+    assert ret.find('compilation done for') > -1
     for i in range(2):
-        assert svr._channel.receive().find('going to send email to') > -1
-    assert svr._channel.receive().find('already a build for this info') > -1
+        ret = svr._channel.receive()
+        assert ret.find('going to send email to') > -1
+    ret = svr._channel.receive()
+    assert ret.find('already a build for this info') > -1
     
 def test_buildpath():
     tempdir = py.test.ensuretemp('pypybuilder-buildpath')

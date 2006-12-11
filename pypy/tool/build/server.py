@@ -211,8 +211,9 @@ class PPBServer(object):
                         info, client
                     )
                 )
-                client.compile(info)
-                return True
+                accepted = client.compile(info)
+                if accepted:
+                    return True
         self._channel.send(
             'no suitable client available for compilation with info %r' % (
                 info,

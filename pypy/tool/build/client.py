@@ -23,7 +23,10 @@ class PPBClient(object):
         """send a compile job to the client side"""
         self.busy_on = info
         self.channel.send(info)
-        thread.start_new_thread(self.wait_until_done, (info,))
+        accepted = self.channel.receive()
+        if accepted:
+            thread.start_new_thread(self.wait_until_done, (info,))
+        return accepted
 
     def wait_until_done(self, info):
         buildpath = self.server.get_new_buildpath(info)

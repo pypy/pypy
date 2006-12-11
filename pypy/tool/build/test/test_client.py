@@ -26,8 +26,11 @@ def setup_module(mod):
 
 def test_compile():
     info = ({'foo': 1}, {'bar': 2})
-    c1.compile(info)
-    c1.channel.receive()
+    c1c.send(True) # notifying we 'accept' the compile
+    accepted = c1.compile(info)
+    assert accepted
+    ret = c1.channel.receive()
+    assert ret == info # this was still in the buffer
     c1.channel.send('foo bar')
     c1.channel.send(None)
 
@@ -57,4 +60,10 @@ def test_channelwrapper():
     cw.write('baz')
     cw.close()
     assert c.buffer == ['foo', 'bar', 'baz', None]
+
+def test_failed_checker():
+    info = ({'foo': 1}, {'bar': 2})
+    c1c.send(False) # notifying we _don't_ 'accept' the compile
+    accepted = c1.compile(info)
+    assert not accepted
 

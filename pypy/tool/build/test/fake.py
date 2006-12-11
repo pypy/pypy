@@ -27,6 +27,7 @@ class FakeClient(object):
             self.channel.send('%s: %r' % (k, v))
         self.channel.send(None)
         self.busy_on = info
+        return True
 
 class FakeServer(object):
     def __init__(self, builddirpath):

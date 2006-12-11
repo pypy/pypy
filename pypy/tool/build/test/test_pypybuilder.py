@@ -20,7 +20,7 @@ def _get_sysconfig():
 def test_functional_1():
     if not py.test.pypybuilder_option.functional:
         py.test.skip('skipping functional test, use --functional to run it')
-        
+    
     # XXX this one is a bit messy, it's a quick functional test for the whole
     # system, but for instance contains time.sleep()s to make sure all threads
     # get the time to perform tasks and such... 
@@ -58,6 +58,12 @@ def test_functional_1():
     """
     compgw = py.execnet.PopenGateway()
     compconf = execnetconference.conference(compgw, config.port)
+
+    # clients normally respond with a boolean on a compilation request... to
+    # allow the code to continue, already put some Trues (meaning 'I accept
+    # the job') in the buffers
+    cc1.send(True)
+    cc2.send(True)
 
     # this one should fail because there's no client found for foo = 3
     compc = compconf.remote_exec(code % (config.testpath, 'foo1@bar.com',
@@ -97,6 +103,9 @@ def test_functional_1():
     sysconfig3.foo = 3
     cgw3 = py.execnet.PopenGateway()
     cc3 = client.init(cgw3, sysconfig3, port=config.port, testing=True)
+
+    # add True to the buffer just like we did for channels 1 and 2
+    cc3.send(True)
 
     # again a bit of waiting may be desired
     py.std.time.sleep(SLEEP_INTERVAL)

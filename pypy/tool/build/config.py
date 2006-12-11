@@ -32,3 +32,7 @@ mailfrom = 'pypybuilds@codespeak.net'
 # settings for the tests
 testpath = [str(py.magic.autopath().dirpath().dirpath())]
 
+# when considering a compile job, the checkers below will be called (args
+# sysinfo, compileinfo), if one of them returns False the compilation will
+# not be accepted
+client_checkers = []

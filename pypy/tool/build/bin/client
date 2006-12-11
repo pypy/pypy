@@ -37,6 +37,15 @@ try:
                             type(data),)
                 )
             sysinfo, compileinfo = data
+            accepting = True
+            for checker in config.client_checkers:
+                if not checker(sysinfo, compileinfo):
+                    accepting = False
+                    break
+            channel.send(accepting)
+            if not accepting:
+                print 'refusing compilation'
+                continue
             # XXX we should compile here, using data dict for info
             print 'compilation requested for info %r\n\nbuilding...' % (
                     data,)
