@@ -99,6 +99,7 @@ class PyFrame(eval.Frame):
             # the YIELD_VALUE instruction.
             next_instr = self.last_instr + 1
             w_exitvalue = self.dispatch(code, next_instr, executioncontext)
+            rstack.resume_point("execute_frame", self, executioncontext, returns=w_exitvalue)
             executioncontext.return_trace(self, w_exitvalue)
             # on exit, we try to release self.last_exception -- breaks an
             # obvious reference cycle, so it helps refcounting implementations
