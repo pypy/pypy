@@ -19,6 +19,8 @@ def autodetect():
         mach = os.popen('uname -m', 'r').read().strip()
         if not mach:
             raise ProcessorAutodetectError, "cannot run 'uname -m'"
+    if mach == 'x86_64' and sys.maxint == 2147483647:
+        mach = 'x86'     # it's a 64-bit processor but in 32-bits mode, maybe
     try:
         return {'i386': 'i386',
                 'i486': 'i386',
