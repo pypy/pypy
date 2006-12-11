@@ -2,6 +2,20 @@ import autopath
 
 
 class AppTestBuiltinApp:
+    def setup_class(cls):
+        class X(object):
+            def __eq__(self, other):
+                raise OverflowError
+            def __hash__(self):
+                return 42
+        d = {X(): 5}
+        try:
+            d[X()]
+        except OverflowError:
+            cls.w_sane_lookup = cls.space.wrap(True)
+        except KeyError:
+            cls.w_sane_lookup = cls.space.wrap(False)
+
     def test_import(self):
         m = __import__('pprint')
         assert m.pformat({}) == '{}'
@@ -268,6 +282,8 @@ class AppTestBuiltinApp:
         raises(RuntimeError, cmp, c1, c2)
 
     def test_cmp_cyclic(self):
+        if not self.sane_lookup:
+            skip("underlying Python implementation has insane dict lookup")
         a = []; a.append(a)
         b = []; b.append(b)
         from UserList import UserList
