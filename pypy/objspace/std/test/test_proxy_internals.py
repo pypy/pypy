@@ -31,6 +31,18 @@ class AppTestProxyInternals(AppProxy):
         
         tb = self.get_proxy(e[2])
         assert tb.tb_frame is e[2].tb_frame
+    
+    def test_traceback_catch(self):
+        try:
+            try:
+                1/0
+            except ZeroDivisionError, e:
+                ex = self.get_proxy(e)
+                raise ex
+        except ZeroDivisionError:
+            pass
+        else:
+            raise AssertionError("Did not raise")
 
     def test_traceback_reraise(self):
         #skip("Not implemented yet")
