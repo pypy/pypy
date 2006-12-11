@@ -96,7 +96,7 @@ class I386TimeshiftingTestMixin(object):
         annhelper.finish()
         t = self.rtyper.annotator.translator
         t.config.translation.gc = 'boehm'
-        cbuilder = CStandaloneBuilder(t, ll_main)
+        cbuilder = CStandaloneBuilder(t, ll_main, config=t.config)
         cbuilder.generate_source()
         cbuilder.compile()
         self.main_cbuilder= cbuilder
