@@ -2,6 +2,7 @@ import path
 from pypy.tool.build import client
 import py
 import time
+import sys
 from fake import FakeChannel, FakeServer
 
 class ClientForTests(client.PPBClient):
@@ -31,8 +32,10 @@ def test_compile():
     assert accepted
     ret = c1.channel.receive()
     assert ret == info # this was still in the buffer
+    assert c1.busy_on == info
     c1.channel.send('foo bar')
     c1.channel.send(None)
+    c1.channel.send('log')
 
     # meanwhile the client starts a thread that waits until there's data 
     # available on its own channel, with our FakeChannel it has data rightaway,
@@ -44,6 +47,7 @@ def test_compile():
     
     assert done[0] == info
     assert done[1] == (temp / 'build-0')
+    assert temp.join('build-0/log').read() == 'log'
 
 def test_channelwrapper():
     class FakeChannel(object):
@@ -67,4 +71,22 @@ def test_failed_checker():
     accepted = c1.compile(info)
     assert not accepted
     assert info in c1.refused
+    assert c1.busy_on == None
+
+def test_output_buffer():
+    b = client.OutputBuffer()
+    sys.stdout = b
+    try:
+        print 'foo'
+    finally:
+        sys.stdout = sys.__stdout__
+    assert b.getvalue() == 'foo\n'
+    s = py.std.StringIO.StringIO()
+    b = client.OutputBuffer(s)
+    sys.stdout = b
+    try:
+        print 'bar'
+    finally:
+        sys.stdout = sys.__stdout__
+    assert b.getvalue() == s.getvalue() == 'bar\n'
 

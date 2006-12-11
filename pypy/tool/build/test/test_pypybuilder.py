@@ -28,7 +28,7 @@ def test_functional_1():
     # first initialize a server
     sgw = py.execnet.PopenGateway()
     temppath = py.test.ensuretemp('pypybuilder-functional')
-    sc = server.init(sgw, port=config.port, path=config.testpath,
+    sc = server.init(sgw, port=config.testport, path=config.testpath,
                      buildpath=str(temppath))
 
     # give the server some time to wake up
@@ -37,12 +37,14 @@ def test_functional_1():
     # then two clients, both with different system info
     sysconfig1 = _get_sysconfig()
     cgw1 = py.execnet.PopenGateway()
-    cc1 = client.init(cgw1, sysconfig1, port=config.port, testing=True)
+    cc1 = client.init(cgw1, sysconfig1, port=config.testport, testing=True)
+    cc1.receive() # welcome message
 
     sysconfig2 = _get_sysconfig()
     sysconfig2.foo = 2
     cgw2 = py.execnet.PopenGateway()
-    cc2 = client.init(cgw2, sysconfig2, port=config.port, testing=True)
+    cc2 = client.init(cgw2, sysconfig2, port=config.testport, testing=True)
+    cc2.receive() # welcome message
 
     # give the clients some time to register themselves
     py.std.time.sleep(SLEEP_INTERVAL)
@@ -57,14 +59,11 @@ def test_functional_1():
         channel.close()
     """
     compgw = py.execnet.PopenGateway()
-    compconf = execnetconference.conference(compgw, config.port)
+    compconf = execnetconference.conference(compgw, config.testport)
 
-    # clients normally respond with a boolean on a compilation request... to
-    # allow the code to continue, already put some Trues (meaning 'I accept
-    # the job') in the buffers
-    cc1.send(True)
-    cc2.send(True)
-
+    # we're going to have to closely mimic the bin/client script to avoid
+    # freezes (from the app waiting for input)
+    
     # this one should fail because there's no client found for foo = 3
     compc = compconf.remote_exec(code % (config.testpath, 'foo1@bar.com',
                                             {'foo': 3}))
@@ -80,10 +79,14 @@ def test_functional_1():
     compc = compconf.remote_exec(code % (config.testpath, 'foo2@bar.com',
                                             {'foo': 1}))
     
+    # client 1 will now send a True to the server to tell it wants to compile
+    cc1.send(True)
+
     # and another one
     py.std.time.sleep(SLEEP_INTERVAL)
     
     ret = compc.receive()
+    print repr(ret)
     assert not ret[0]
     assert ret[1].find('found a suitable client') > -1
 
@@ -91,7 +94,6 @@ def test_functional_1():
     py.std.time.sleep(SLEEP_INTERVAL)
 
     # client 1 should by now have received the info to build for
-    cc1.receive() # 'welcome'
     ret = cc1.receive()
     assert ret == ({'foo': 1}, {})
 
@@ -102,7 +104,7 @@ def test_functional_1():
     sysconfig3 = _get_sysconfig()
     sysconfig3.foo = 3
     cgw3 = py.execnet.PopenGateway()
-    cc3 = client.init(cgw3, sysconfig3, port=config.port, testing=True)
+    cc3 = client.init(cgw3, sysconfig3, port=config.testport, testing=True)
 
     # add True to the buffer just like we did for channels 1 and 2
     cc3.send(True)
@@ -124,9 +126,10 @@ def test_functional_1():
         channel.close()
     """
     compgw2 = py.execnet.PopenGateway()
-    compconf2 = execnetconference.conference(compgw2, config.port)
+    compconf2 = execnetconference.conference(compgw2, config.testport)
 
     compc2 = compconf2.remote_exec(code % (config.testpath, SLEEP_INTERVAL))
+    cc2.send(True)
 
     # we check whether all emails are now sent, since after adding the third
     # client, and calling _try_queued(), both jobs should have been processed

@@ -1,7 +1,7 @@
 import thread
 import py
 from zipfile import ZipFile
-
+from cStringIO import StringIO
 
 class PPBClient(object):
     def __init__(self, channel, sysinfo, testing=False):
@@ -22,10 +22,10 @@ class PPBClient(object):
 
     def compile(self, info):
         """send a compile job to the client side"""
-        self.busy_on = info
         self.channel.send(info)
         accepted = self.channel.receive()
         if accepted:
+            self.busy_on = info
             thread.start_new_thread(self.wait_until_done, (info,))
         else:
             self.refused.append(info)
@@ -44,12 +44,15 @@ class PPBClient(object):
                     except EOFError:
                         # stop compilation, client has disconnected
                         return 
+                    # end of data is marked by sending a None
                     if chunk is None:
                         break
                     fp.write(chunk)
             finally:
                 fp.close()
-        
+            # write the log (process stdout/stderr) to the buildpath
+            buildpath.log = self.channel.receive()
+
         self.server.compilation_done(info, buildpath)
         self.busy_on = None
 
@@ -123,3 +126,17 @@ def zip_result(res_dir, channel):
             print exc
             continue
     zip.close()
+
+class OutputBuffer(object):
+    def __init__(self, print_channel=None):
+        self.print_channel = print_channel
+        self.buffer = StringIO()
+
+    def write(self, s):
+        self.buffer.write(s)
+        if self.print_channel:
+            self.print_channel.write(s)
+
+    def getvalue(self):
+        return self.buffer.getvalue()
+

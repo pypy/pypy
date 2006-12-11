@@ -132,6 +132,21 @@ class BuildPath(LocalPath):
 
     zipfile = property(_zipfile, _set_zipfile)
 
+    def _log(self):
+        log = self.join('log')
+        if not log.check():
+            return ''
+        return log.read()
+    
+    def _set_log(self, data):
+        self.join('log').write(data)
+
+    log = property(_log, _set_log)
+
+    def _done(self):
+        return not not self.log
+    done = property(_done)
+
 class PPBServer(object):
     retry_interval = 10
     
@@ -146,8 +161,13 @@ class PPBServer(object):
         
         self._buildpath = py.path.local(builddir)
         self._clients = []
-        info_to_path = [(p.info, str(p)) for p in 
-                        self._get_buildpaths(builddir)]
+        info_to_path = []
+        for bp in self._get_buildpaths(builddir):
+            if bp.done:
+                info_to_path.append((bp.info, str(bp)))
+            else:
+                # throw away half-done builds...
+                bp.remove()
         self._requeststorage = RequestStorage(info_to_path)
         self._queued = []
 

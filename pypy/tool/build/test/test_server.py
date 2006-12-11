@@ -94,13 +94,13 @@ def test_compile():
 def test_buildpath():
     tempdir = py.test.ensuretemp('pypybuilder-buildpath')
     # grmbl... local.__new__ checks for class equality :(
-    bp = BuildPath(str(tempdir / 'test1')) 
+    bp = BuildPath(str(tempdir / 'test1'))
     assert not bp.check()
     assert bp.info == ({}, {})
 
     bp.info = ({'foo': 1, 'bar': [1,2]}, {'baz': 1})
     assert bp.info == ({'foo': 1, 'bar': [1,2]}, {'baz': 1})
-    assert (sorted((bp / 'system_info.txt').readlines()) == 
+    assert (sorted((bp / 'system_info.txt').readlines()) ==
             ['bar: [1, 2]\n', 'foo: 1\n'])
 
     assert isinstance(bp.zipfile, py.path.local)
@@ -138,3 +138,15 @@ def test_get_new_buildpath():
             path2.remove()
     finally:
         path1.remove()
+
+def test_cleanup_old_builds():
+    temppath = py.test.ensuretemp('cleanup_old_builds')
+    bp1 = server.BuildPath(temppath.join('bp1'))
+    bp1.ensure(dir=True)
+    bp2 = server.BuildPath(temppath.join('bp2'))
+    bp2.ensure(dir=True)
+    bp2.log = 'log'
+    svr = server.PPBServer('test', FakeChannel(), str(temppath))
+    assert not bp1.check()
+    assert bp2.check()
+

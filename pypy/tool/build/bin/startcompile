@@ -41,8 +41,8 @@ def init(gw, sysinfo, compileinfo, path, email, port=12321):
     from pypy.tool.build import execnetconference
 
     conference = execnetconference.conference(gw, port, False)
-    channel = conference.remote_exec(initcode % (path, email, 
-                                                    sysinfo, compileinfo))
+    channel = conference.remote_exec(initcode % (path, email, sysinfo,
+                                                 compileinfo))
     return channel
 
 if __name__ == '__main__':
@@ -66,8 +66,8 @@ if __name__ == '__main__':
         gw = PopenGateway()
     else:
         gw = SshGateway(config.server)
-    channel = init(gw, sysinfo, compileinfo, config.path, args[0], 
-                    port=config.port)
+    channel = init(gw, sysinfo, compileinfo, config.path, args[0],
+                   port=config.port)
     data = channel.receive()
     if type(data) == str:
         print data
@@ -79,7 +79,7 @@ if __name__ == '__main__':
         ispath, data = data
         if ispath:
             print ('a suitable result is already available, you can find it '
-                    'at "%s"' % (data,))
+                   'at "%s"' % (data,))
         else:
             print data
             print 'you will be mailed once it\'s ready'

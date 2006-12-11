@@ -6,7 +6,7 @@ import random
 from pypy.tool.build import config as buildconfig
 
 from py.execnet import SshGateway, PopenGateway
-from pypy.tool.build.client import init, zip_result
+from pypy.tool.build.client import init, zip_result, OutputBuffer
 from pypy.config.config import to_optparse, Config
 from pypy.config import pypyoption
 
@@ -52,13 +52,23 @@ try:
             config = pypyoption.get_pypy_config()
             config.override(compileinfo)
 
-            # XXX compile here...
-            driver = TranslationDriver.from_targetspec(
-                        targetpypystandalone.__dict__, config=config,
-                        default_goal='compile')
-            driver.proceed(['compile'])
+            buffer = OutputBuffer(sys.__stderr__)
+            sys.stdout = buffer
+            sys.stderr = buffer
+            try:
+                driver = TranslationDriver.from_targetspec(
+                            targetpypystandalone.__dict__, config=config,
+                            default_goal='compile')
+                driver.proceed(['compile'])
+            finally:
+                sys.stdout = sys.__stdout__
+                sys.stderr = sys.__stderr__
 
+            # send over zip data, end with a None
             zip_result(udir, channel)
+            
+            # send over logs
+            channel.send(buffer.getvalue())
             
             print 'done with compilation, waiting for next'
     except EOFError:

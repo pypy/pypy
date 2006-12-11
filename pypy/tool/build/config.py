@@ -5,6 +5,7 @@ packageparent = py.magic.autopath().dirpath().dirpath().dirpath().dirpath()
 # general settings, used by both server and client
 server = 'localhost'
 port = 12321
+testport = 32123
 path = [str(packageparent)]
 
 # configuration of options for client and startcompile
