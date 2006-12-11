@@ -21,6 +21,7 @@ class FakeClient(object):
         self.channel = FakeChannel()
         self.sysinfo = info
         self.busy_on = None
+        self.refused = []
 
     def compile(self, info):
         for k, v in info[0].items():

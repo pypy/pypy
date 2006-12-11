@@ -66,4 +66,5 @@ def test_failed_checker():
     c1c.send(False) # notifying we _don't_ 'accept' the compile
     accepted = c1.compile(info)
     assert not accepted
+    assert info in c1.refused
 

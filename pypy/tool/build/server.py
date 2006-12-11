@@ -203,7 +203,8 @@ class PPBServer(object):
         # XXX shuffle should be replaced by something smarter obviously ;)
         random.shuffle(clients)
         for client in clients:
-            if client.busy_on or not issubdict(info[0], client.sysinfo):
+            if (client.busy_on or not issubdict(info[0], client.sysinfo) or
+                    info in client.refused):
                 continue
             else:
                 self._channel.send(

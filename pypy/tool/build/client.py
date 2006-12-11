@@ -8,6 +8,7 @@ class PPBClient(object):
         self.channel = channel
         self.sysinfo = sysinfo
         self.busy_on = None
+        self.refused = []
         self.testing = testing
 
         from pypy.tool.build import ppbserver
@@ -26,6 +27,8 @@ class PPBClient(object):
         accepted = self.channel.receive()
         if accepted:
             thread.start_new_thread(self.wait_until_done, (info,))
+        else:
+            self.refused.append(info)
         return accepted
 
     def wait_until_done(self, info):
