@@ -3,7 +3,7 @@ import py
 packageparent = py.magic.autopath().dirpath().dirpath().dirpath().dirpath()
 
 # general settings, used by both server and client
-server = '134.99.66.245'
+server = 'localhost'
 port = 12321
 path = [str(packageparent)]
 
@@ -25,9 +25,9 @@ compile_config.override({'translation.backend': 'c'})
 # settings for the server
 projectname = 'pypy'
 buildpath = packageparent.join('/pypy/tool/build/builds')
-mailhost = '127.0.0.1'
+mailhost = 'localhost'
 mailport = 25
-mailfrom = 'johnny@johnnydebris.net'
+mailfrom = 'pypybuilds@codespeak.net'
 
 # settings for the tests
 testpath = [str(py.magic.autopath().dirpath().dirpath())]

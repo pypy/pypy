@@ -41,3 +41,20 @@ def test_compile():
     
     assert done[0] == info
     assert done[1] == (temp / 'build-0')
+
+def test_channelwrapper():
+    class FakeChannel(object):
+        def __init__(self):
+            self.buffer = []
+        def send(self, data):
+            self.buffer.append(data)
+    c = FakeChannel()
+    cw = client.ChannelWrapper(c)
+    assert cw.tell() == 0
+    cw.write('foo')
+    cw.write('bar')
+    assert cw.tell() == 6
+    cw.write('baz')
+    cw.close()
+    assert c.buffer == ['foo', 'bar', 'baz', None]
+

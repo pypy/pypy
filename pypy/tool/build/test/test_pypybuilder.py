@@ -4,9 +4,13 @@ from pypy.tool.build import config
 from pypy.config import config as pypyconfig
 import py
 
+# XXX NOTE: if you encounter failing tests on a slow system, you may want to
+# increase the sleep interval a bit to see if that helps...
+SLEEP_INTERVAL = 1.0
+
 def _get_sysconfig():
     return pypyconfig.Config(
-        pypyconfig.OptionDescription('foo', [
+        pypyconfig.OptionDescription('foo', '', [
             pypyconfig.ChoiceOption('foo', 'foo', [1,2,3], 1),
         ])
     )
@@ -21,16 +25,14 @@ def test_functional_1():
     # system, but for instance contains time.sleep()s to make sure all threads
     # get the time to perform tasks and such... 
 
-    sleep_interval = 0.3
-
     # first initialize a server
     sgw = py.execnet.PopenGateway()
     temppath = py.test.ensuretemp('pypybuilder-functional')
-    sc = server.init(sgw, port=config.port, path=config.testpath, 
-                        buildpath=str(temppath))
+    sc = server.init(sgw, port=config.port, path=config.testpath,
+                     buildpath=str(temppath))
 
     # give the server some time to wake up
-    py.std.time.sleep(sleep_interval)
+    py.std.time.sleep(SLEEP_INTERVAL)
 
     # then two clients, both with different system info
     sysconfig1 = _get_sysconfig()
@@ -43,7 +45,7 @@ def test_functional_1():
     cc2 = client.init(cgw2, sysconfig2, port=config.port, testing=True)
 
     # give the clients some time to register themselves
-    py.std.time.sleep(sleep_interval)
+    py.std.time.sleep(SLEEP_INTERVAL)
 
     # now we're going to send some compile jobs
     code = """
@@ -58,11 +60,11 @@ def test_functional_1():
     compconf = execnetconference.conference(compgw, config.port)
 
     # this one should fail because there's no client found for foo = 3
-    compc = compconf.remote_exec(code % (config.testpath, 'foo1@bar.com', 
+    compc = compconf.remote_exec(code % (config.testpath, 'foo1@bar.com',
                                             {'foo': 3}))
     
     # sorry...
-    py.std.time.sleep(sleep_interval)
+    py.std.time.sleep(SLEEP_INTERVAL)
 
     ret = compc.receive()
     assert not ret[0]
@@ -73,18 +75,18 @@ def test_functional_1():
                                             {'foo': 1}))
     
     # and another one
-    py.std.time.sleep(sleep_interval)
+    py.std.time.sleep(SLEEP_INTERVAL)
     
     ret = compc.receive()
     assert not ret[0]
     assert ret[1].find('found a suitable client') > -1
 
     # the messages may take a bit to arrive, too
-    py.std.time.sleep(sleep_interval)
+    py.std.time.sleep(SLEEP_INTERVAL)
 
     # client 1 should by now have received the info to build for
     cc1.receive() # 'welcome'
-    ret = cc1.receive() 
+    ret = cc1.receive()
     assert ret == ({'foo': 1}, {})
 
     # this should have created a package in the temp dir
@@ -97,7 +99,7 @@ def test_functional_1():
     cc3 = client.init(cgw3, sysconfig3, port=config.port, testing=True)
 
     # again a bit of waiting may be desired
-    py.std.time.sleep(sleep_interval)
+    py.std.time.sleep(SLEEP_INTERVAL)
 
     # _try_queued() should check whether there are new clients available for 
     # queued jobs
@@ -115,8 +117,7 @@ def test_functional_1():
     compgw2 = py.execnet.PopenGateway()
     compconf2 = execnetconference.conference(compgw2, config.port)
 
-    compc2 = compconf2.remote_exec(code % (config.testpath, sleep_interval))
-
+    compc2 = compconf2.remote_exec(code % (config.testpath, SLEEP_INTERVAL))
 
     # we check whether all emails are now sent, since after adding the third
     # client, and calling _try_queued(), both jobs should have been processed

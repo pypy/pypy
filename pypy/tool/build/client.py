@@ -1,7 +1,6 @@
 import thread
 import py
 from zipfile import ZipFile
-from cStringIO import StringIO
 
 
 class PPBClient(object):
@@ -33,6 +32,7 @@ class PPBClient(object):
             fp = buildpath.zipfile.open('w')
             try:
                 while True:
+                    # read data in chunks
                     try:
                         chunk = self.channel.receive()
                     except EOFError:
@@ -58,12 +58,15 @@ initcode = """
             client = PPBClient(channel, %r, %r)
             client.sit_and_wait()
         except:
-            import sys, traceback
-            exc, e, tb = sys.exc_info()
-            channel.send(str(exc) + ' - ' + str(e))
-            for line in traceback.format_tb(tb):
-                channel.send(line[:-1])
-            del tb
+            try:
+                import sys, traceback
+                exc, e, tb = sys.exc_info()
+                channel.send(str(exc) + ' - ' + str(e))
+                for line in traceback.format_tb(tb):
+                    channel.send(line[:-1])
+                del tb
+            except:
+                pass
     finally:
         channel.close()
 """
@@ -114,5 +117,3 @@ def zip_result(res_dir, channel):
             print exc
             continue
     zip.close()
-    channel.send(None)
-   

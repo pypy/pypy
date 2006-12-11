@@ -38,7 +38,7 @@ try:
                 )
             sysinfo, compileinfo = data
             # XXX we should compile here, using data dict for info
-            print 'compilation requested for info %r, now faking that' % (
+            print 'compilation requested for info %r\n\nbuilding...' % (
                     data,)
             config = pypyoption.get_pypy_config()
             config.override(compileinfo)
