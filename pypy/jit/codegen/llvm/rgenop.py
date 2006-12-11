@@ -110,7 +110,7 @@ class BasicBlock(Block):
         # check the types for debugging
         sourcevartypes = [var.type for var in sourcevars]
         targetvartypes = [var.type for var in self.inputargs]
-        assert sourcevartypes == targetvartypes
+        #XXX ERIC assert sourcevartypes == targetvartypes
 
         # Check if the source block jumps to 'self' from multiple
         # positions: in this case we need an intermediate block...
@@ -283,20 +283,14 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
             gv_result.operand2(), llvm_opcode, gv_arg1.operand(), gv_arg2.operand2()))
         return gv_result
 
-    def op_int_add(self, gv_x, gv_y):       return self._rgenop2_generic('add'  , gv_x, gv_y)
-    def op_int_sub(self, gv_x, gv_y):       return self._rgenop2_generic('sub'  , gv_x, gv_y)
-    def op_int_mul(self, gv_x, gv_y):       return self._rgenop2_generic('mul'  , gv_x, gv_y)
-    def op_int_floordiv(self, gv_x, gv_y):  return self._rgenop2_generic('sdiv' , gv_x, gv_y)
-    def op_int_mod(self, gv_x, gv_y):       return self._rgenop2_generic('rem'  , gv_x, gv_y)
-    def op_int_and(self, gv_x, gv_y):       return self._rgenop2_generic('and'  , gv_x, gv_y)
-    def op_int_or(self, gv_x, gv_y):        return self._rgenop2_generic('or'   , gv_x, gv_y)
-    def op_int_xor(self, gv_x, gv_y):       return self._rgenop2_generic('xor'  , gv_x, gv_y)
-    def op_int_lt(self, gv_x, gv_y): return self._rgenop2_generic('setlt', gv_x, gv_y, 'bool')
-    def op_int_le(self, gv_x, gv_y): return self._rgenop2_generic('setle', gv_x, gv_y, 'bool')
-    def op_int_eq(self, gv_x, gv_y): return self._rgenop2_generic('seteq', gv_x, gv_y, 'bool')
-    def op_int_ne(self, gv_x, gv_y): return self._rgenop2_generic('setne', gv_x, gv_y, 'bool')
-    def op_int_gt(self, gv_x, gv_y): return self._rgenop2_generic('setgt', gv_x, gv_y, 'bool')
-    def op_int_ge(self, gv_x, gv_y): return self._rgenop2_generic('setge', gv_x, gv_y, 'bool')
+    def op_int_add(self, gv_x, gv_y):       return self._rgenop2_generic('add' , gv_x, gv_y)
+    def op_int_sub(self, gv_x, gv_y):       return self._rgenop2_generic('sub' , gv_x, gv_y)
+    def op_int_mul(self, gv_x, gv_y):       return self._rgenop2_generic('mul' , gv_x, gv_y)
+    def op_int_floordiv(self, gv_x, gv_y):  return self._rgenop2_generic('sdiv', gv_x, gv_y)
+    def op_int_mod(self, gv_x, gv_y):       return self._rgenop2_generic('rem' , gv_x, gv_y)
+    def op_int_and(self, gv_x, gv_y):       return self._rgenop2_generic('and' , gv_x, gv_y)
+    def op_int_or(self, gv_x, gv_y):        return self._rgenop2_generic('or'  , gv_x, gv_y)
+    def op_int_xor(self, gv_x, gv_y):       return self._rgenop2_generic('xor' , gv_x, gv_y)
 
     def op_int_lshift(self, gv_x, gv_y):
         gv_y_ubyte = Var('ubyte')
@@ -314,6 +308,31 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
             gv_result.operand2(), gv_x.operand(), gv_y_ubyte.operand()))
         return gv_result
 
+    op_uint_add = op_float_add = op_int_add
+    op_uint_sub = op_float_sub = op_int_sub
+    op_uint_mul = op_float_mul = op_int_mul
+    op_uint_floordiv = op_float_floordiv = op_int_floordiv
+    op_uint_mod = op_int_mod
+    op_uint_and = op_int_and
+    op_uint_or  = op_int_or
+    op_uint_xor = op_int_xor
+    op_uint_lshift = op_int_lshift
+    op_uint_rshift = op_int_rshift
+
+    def op_int_lt(self, gv_x, gv_y): return self._rgenop2_generic('setlt', gv_x, gv_y, 'bool')
+    def op_int_le(self, gv_x, gv_y): return self._rgenop2_generic('setle', gv_x, gv_y, 'bool')
+    def op_int_eq(self, gv_x, gv_y): return self._rgenop2_generic('seteq', gv_x, gv_y, 'bool')
+    def op_int_ne(self, gv_x, gv_y): return self._rgenop2_generic('setne', gv_x, gv_y, 'bool')
+    def op_int_gt(self, gv_x, gv_y): return self._rgenop2_generic('setgt', gv_x, gv_y, 'bool')
+    def op_int_ge(self, gv_x, gv_y): return self._rgenop2_generic('setge', gv_x, gv_y, 'bool')
+
+    op_char_lt = op_uint_lt = op_float_lt = op_int_lt
+    op_char_le = op_uint_le = op_float_le = op_int_le
+    op_char_eq = op_uint_eq = op_float_eq = op_unichar_eq = op_int_eq
+    op_char_ne = op_uint_ne = op_float_ne = op_unichar_ne = op_int_ne
+    op_char_gt = op_uint_gt = op_float_gt = op_int_gt
+    op_char_ge = op_uint_ge = op_float_ge = op_int_ge
+
     def _rgenop1_generic(self, llvm_opcode, gv_x, restype='int'):
         log('%s Builder._rgenop1_generic %s %s' % (
             self.block.label, llvm_opcode, gv_x.operand()))
@@ -324,6 +343,7 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
 
     def op_int_neg(self, gv_x):     return self._rgenop2_generic('sub', IntConst(0), gv_x)
     def op_int_invert(self, gv_x):  return self._rgenop2_generic('xor', gv_x, IntConst(-1))
+    def op_uint_invert(self, gv_x): return self._rgenop2_generic('xor', gv_x, IntConst((1<<32)-1))
 
     def op_int_abs(self, gv_x):
         gv_comp    = Var('bool')
@@ -335,8 +355,56 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
             gv_result.operand2(), gv_comp.operand(), gv_x.operand(), gv_abs_pos.operand()))
         return gv_result
 
-    #def op_bool_not(self, gv_x): #use select, xor or sub
-    #def op_cast_bool_to_int(self, gv_x):
+    #def op_bool_not(self, gv_x): #use select, xor or sub XXXX todo: did not see a test for this
+
+    def _cast_to(self, gv_x, restype='int'):
+        gv_result = Var(restype)
+        self.asm.append(' %s=cast %s to %s' % (
+            gv_result.operand2(), gv_x.operand(), restype))
+        return gv_result
+
+    def _cast_to_bool(self, gv_x):      return self._cast_to(gv_x, 'bool')
+    def _cast_to_char(self, gv_x):      return self._cast_to(gv_x, 'ubyte')
+    def _cast_to_unichar(self, gv_x):   return self._cast_to(gv_x, 'int')
+    def _cast_to_int(self, gv_x):       return self._cast_to(gv_x, 'int')
+    def _cast_to_uint(self, gv_x):      return self._cast_to(gv_x, 'uint')
+    def _cast_to_float(self, gv_x):     return self._cast_to(gv_x, 'float')
+
+    op_cast_char_to_bool    = _cast_to_bool
+    op_cast_unichar_to_bool = _cast_to_bool
+    op_cast_int_to_bool     = _cast_to_bool
+    op_cast_uint_to_bool    = _cast_to_bool
+    op_cast_float_to_bool   = _cast_to_bool
+
+    op_cast_bool_to_char    = _cast_to_char
+    op_cast_unichar_to_char = _cast_to_char
+    op_cast_int_to_char     = _cast_to_char
+    op_cast_uint_to_char    = _cast_to_char
+    op_cast_float_to_char   = _cast_to_char
+
+    op_cast_bool_to_unichar  = _cast_to_unichar
+    op_cast_char_to_unichar  = _cast_to_unichar
+    op_cast_int_to_unichar   = _cast_to_unichar
+    op_cast_uint_to_unichar  = _cast_to_unichar
+    op_cast_float_to_unichar = _cast_to_unichar
+
+    op_cast_bool_to_int    = _cast_to_int
+    op_cast_char_to_int    = _cast_to_int
+    op_cast_unichar_to_int = _cast_to_int
+    op_cast_uint_to_int    = _cast_to_int
+    op_cast_float_to_int   = _cast_to_int
+
+    op_cast_bool_to_uint    = _cast_to_uint
+    op_cast_char_to_uint    = _cast_to_uint
+    op_cast_unichar_to_uint = _cast_to_uint
+    op_cast_int_to_uint     = _cast_to_uint
+    op_cast_float_to_uint   = _cast_to_uint
+
+    op_cast_bool_to_float    = _cast_to_float
+    op_cast_char_to_float    = _cast_to_float
+    op_cast_unichar_to_float = _cast_to_float
+    op_cast_int_to_float     = _cast_to_float
+    op_cast_uint_to_float    = _cast_to_float
 
     def enter_next_block(self, kinds, args_gv):
         # if nextlabel is None, it means that we are currently
@@ -380,11 +448,17 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
             gv_condition.operand(), targetbuilder.nextlabel, self.nextlabel))
         return targetbuilder
 
-    def op_int_is_true(self, gv_x):
-        log('%s Build.op_int_is_true %s' % (self.block.label, gv_x.operand()))
+    def _is_true(self, gv_x, nullstr='0'):
+        log('%s Builder._is_true %s' % (self.block.label, gv_x.operand()))
         gv_result = Var('bool')
-        self.asm.append(' %s=setne %s,0' % (gv_result.operand2(), gv_x.operand()))
+        self.asm.append(' %s=setne %s,%s' % (
+            gv_result.operand2(), gv_x.operand(), nullstr))
         return gv_result
+
+    op_bool_is_true = op_char_is_true = op_unichar_is_true = op_int_is_true =\
+    op_uint_is_true = _is_true
+
+    def op_float_is_true(self, gv_x):   return self._is_true(gv_x, '0.0')
 
     def genop_call(self, sigtoken, gv_fnptr, args_gv):
         log('%s Builder.genop_call %s,%s,%s' % (
@@ -503,12 +577,16 @@ class RLLVMGenOp(object):   #changed baseclass from (AbstractRGenOp) for better 
             return 'int*'
         elif T is llmemory.Address:
             return 'int*'
-        if T is lltype.Float:
-            py.test.skip("not implemented: floats in the llvm back-end")
-        elif T is lltype.Bool:
+        if T is lltype.Bool:
             return 'bool'
+        elif T is lltype.Char:
+            return 'ubyte'
+        elif T is lltype.Unsigned:
+            return 'uint'
+        elif T is lltype.Float:
+            return 'float'
         else:
-            return 'int'
+            return 'int'    #Signed/UniChar/Void
 
     @staticmethod
     @specialize.memo()
