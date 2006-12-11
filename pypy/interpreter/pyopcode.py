@@ -183,7 +183,7 @@ class __extend__(pyframe.PyFrame):
                         # dispatch to the opcode method
                         meth = getattr(self, opdesc.methodname)
                         res = meth(oparg, next_instr)
-                        if opcode == opcodedesc.CALL_FUNCTION.index:
+                        if opdesc.index == opcodedesc.CALL_FUNCTION.index:
                             rstack.resume_point("dispatch_call", self, co_code, next_instr, ec)
                         # !! warning, for the annotator the next line is not
                         # comparing an int and None - you can't do that.
