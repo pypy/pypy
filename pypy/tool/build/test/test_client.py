@@ -35,7 +35,7 @@ def test_compile():
     # available on its own channel, with our FakeChannel it has data rightaway,
     # though (the channel out and in are the same, and we just sent 'info'
     # over the out one)
-    time.sleep(1) 
+    time.sleep(1)
     
     done = svr._done.pop()
     

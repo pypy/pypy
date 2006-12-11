@@ -27,14 +27,9 @@ class PPBClient(object):
         thread.start_new_thread(self.wait_until_done, (info,))
 
     def wait_until_done(self, info):
-        efp = open('/tmp/foo', 'w')
-        efp.write(repr(info) + '\n')
         buildpath = self.server.get_new_buildpath(info)
-        efp.flush()
         
         if not self.testing:
-            efp.write('2\n')
-            efp.flush()
             fp = buildpath.zipfile.open('w')
             try:
                 while True:
@@ -49,13 +44,8 @@ class PPBClient(object):
             finally:
                 fp.close()
         
-        efp.write('3\n')
-        efp.flush()
         self.server.compilation_done(info, buildpath)
         self.busy_on = None
-        efp.write(repr(info))
-        efp.flush()
-        efp.close()
 
 initcode = """
     import sys
@@ -89,11 +79,34 @@ def init(gw, sysconfig, path=None, port=12321, testing=False):
     channel = conference.remote_exec(initcode % (path, sysinfo, testing))
     return channel
 
+class ChannelWrapper(object):
+    """ wrapper around a channel
+
+        implements (a small part of) the file interface, sends the data
+        over the wire in chunks, ending with a None
+    """
+    def __init__(self, channel):
+        self.channel = channel
+        self.loc = 0
+
+    def write(self, data):
+        self.loc += len(data)
+        self.channel.send(data)
+
+    def close(self):
+        self.channel.send(None)
+
+    def tell(self):
+        return self.loc
+
+    def flush(self):
+        pass
+
 def zip_result(res_dir, channel):
-    #    channelwrapper = ChannelWrapper(channel)
-    buf = StringIO()
-    zip = ZipFile(buf, 'w')
-    zip.writestr('pypy-c', open('pypy-c').read())
+    channelwrapper = ChannelWrapper(channel)
+    zip = ZipFile(channelwrapper, 'w')
+    # might not be C pypy...
+    # zip.writestr('pypy-c', res_dir.join('testing_1/testing_1').read())
     for fpath in res_dir.visit():
         try:
             zip.writestr(fpath.relto(res_dir), fpath.read())
@@ -101,6 +114,5 @@ def zip_result(res_dir, channel):
             print exc
             continue
     zip.close()
-    channel.send(buf.getvalue())
     channel.send(None)
    

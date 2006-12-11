@@ -1,7 +1,5 @@
 #!/usr/bin/python
 
-BUFSIZE = 1024
-
 import path
 import sys
 import random
@@ -25,8 +23,6 @@ channel = init(gw,
                buildconfig.system_config,
                path=buildconfig.path,
                port=buildconfig.port)
-
-
 
 print channel.receive() # welcome message
 try:
