@@ -298,12 +298,44 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
     def op_int_gt(self, gv_x, gv_y): return self._rgenop2_generic('setgt', gv_x, gv_y, 'bool')
     def op_int_ge(self, gv_x, gv_y): return self._rgenop2_generic('setge', gv_x, gv_y, 'bool')
 
-    #def op_int_neg(self, gv_x):
-    #def op_int_abs(self, gv_x):
-    #def op_int_invert(self, gv_x):
-    #def op_int_lshift(self, gv_x, gv_y):
-    #def op_int_rshift(self, gv_x, gv_y):
-    #def op_bool_not(self, gv_x):
+    def op_int_lshift(self, gv_x, gv_y):
+        gv_y_ubyte = Var('ubyte')
+        self.asm.append(' %s=cast %s to ubyte' % (gv_y_ubyte.operand2(), gv_y.operand()))
+        gv_result = Var(gv_x.type)
+        self.asm.append(' %s=shl %s,%s' % (
+            gv_result.operand2(), gv_x.operand(), gv_y_ubyte.operand()))
+        return gv_result
+
+    def op_int_rshift(self, gv_x, gv_y):
+        gv_y_ubyte = Var('ubyte')
+        self.asm.append(' %s=cast %s to ubyte' % (gv_y_ubyte.operand2(), gv_y.operand()))
+        gv_result = Var(gv_x.type)
+        self.asm.append(' %s=shr %s,%s' % (
+            gv_result.operand2(), gv_x.operand(), gv_y_ubyte.operand()))
+        return gv_result
+
+    def _rgenop1_generic(self, llvm_opcode, gv_x, restype='int'):
+        log('%s Builder._rgenop1_generic %s %s' % (
+            self.block.label, llvm_opcode, gv_x.operand()))
+        gv_result = Var(restype)
+        self.asm.append(' %s=%s %s' % (
+            gv_result.operand2(), llvm_opcode, gv_x.operand()))
+        return gv_resulgv_comp.operand(), t
+
+    def op_int_neg(self, gv_x):     return self._rgenop2_generic('sub', IntConst(0), gv_x)
+    def op_int_invert(self, gv_x):  return self._rgenop2_generic('xor', gv_x, IntConst(-1))
+
+    def op_int_abs(self, gv_x):
+        gv_comp    = Var('bool')
+        gv_abs_pos = Var(gv_x.type)
+        gv_result  = Var(gv_x.type)
+        self.asm.append(' %s=setgt %s,-1' % (gv_comp.operand2(), gv_x.operand()))
+        self.asm.append(' %s=sub %s 0,%s' % (gv_abs_pos.operand2(), gv_x.type, gv_x.operand2()))
+        self.asm.append(' %s=select %s,%s,%s' % (
+            gv_result.operand2(), gv_comp.operand(), gv_x.operand(), gv_abs_pos.operand()))
+        return gv_result
+
+    #def op_bool_not(self, gv_x): #use select, xor or sub
     #def op_cast_bool_to_int(self, gv_x):
 
     def enter_next_block(self, kinds, args_gv):
