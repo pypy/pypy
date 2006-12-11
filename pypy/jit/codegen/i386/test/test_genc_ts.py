@@ -88,6 +88,7 @@ class I386TimeshiftingTestMixin(object):
                 if bench.stop():
                     break
             os.write(1, convert_result(res) + '\n')
+            rgenop.check_no_open_mc()
             keepalive_until_here(rgenop)    # to keep the code blocks alive
             return 0
             

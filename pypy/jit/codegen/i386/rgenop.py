@@ -894,6 +894,7 @@ class RI386GenOp(AbstractRGenOp):
     def __init__(self):
         self.mcs = []   # machine code blocks where no-one is currently writing
         self.keepalive_gc_refs = [] 
+        self.total_code_blocks = 0
 
     def open_mc(self):
         if self.mcs:
@@ -901,6 +902,7 @@ class RI386GenOp(AbstractRGenOp):
             return self.mcs.pop()
         else:
             # XXX supposed infinite for now
+            self.total_code_blocks += 1
             return self.MachineCodeBlock(self.MC_SIZE)
 
     def close_mc(self, mc):
@@ -908,6 +910,9 @@ class RI386GenOp(AbstractRGenOp):
         # for being garbage collected, so be sure to close it if you
         # want the generated code to stay around :-)
         self.mcs.append(mc)
+
+    def check_no_open_mc(self):
+        assert len(self.mcs) == self.total_code_blocks
 
     def openbuilder(self, stackdepth):
         return Builder(self, self.open_mc(), stackdepth)
