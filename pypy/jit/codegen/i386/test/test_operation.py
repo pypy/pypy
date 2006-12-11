@@ -8,6 +8,7 @@ from pypy.jit.codegen.i386.rgenop import RI386GenOp
 from pypy.rpython.memory.lltypelayout import convert_offset_to_int
 from pypy.rlib.rarithmetic import r_uint
 from ctypes import cast, c_void_p, CFUNCTYPE, c_int
+from pypy import conftest
 
 def conv(n):
     if not isinstance(n, int):
@@ -52,6 +53,8 @@ class BasicTests(object):
         t.buildannotator().build_types(ll_function, argtypes)
         t.buildrtyper().specialize()
         graph = graphof(t, ll_function)
+        if conftest.option.view:
+            graph.show()
         rgenop = self.RGenOp()
         self.rgenop = rgenop      # keep this alive!
         gv_generated = graph2rgenop.compile_graph(rgenop, graph)
