@@ -52,7 +52,9 @@ class __extend__(pyframe.PyFrame):
     def dispatch(self, co_code, next_instr, ec):
         while True:
             try:
-                return self.dispatch_bytecode(co_code, next_instr, ec)
+                w_result = self.dispatch_bytecode(co_code, next_instr, ec)
+                rstack.resume_point("dispatch", self, ec, returns=w_result)
+                return w_result
             except OperationError, operr:
                 next_instr = self.handle_operation_error(ec, operr)
             except Reraise:
