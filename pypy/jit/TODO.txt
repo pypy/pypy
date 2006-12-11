@@ -16,6 +16,8 @@
   beginning of the portal, but concretely implemented in the portal
   entry
 
+- minimize the number of concurrently open machinecodeblocks in the
+  machine code backends
 
 - make backend opts usable on the interp+timeshifted interp graph forest
 
@@ -41,3 +43,6 @@ Improvements
   initial 0 of RPython list iterators
 
 - pyopcode.compare_dispatch_table => switch statement
+
+- share code between the machine code backends (MachineCodeBlock,
+  possibly register allocation)
