@@ -58,15 +58,21 @@ from pypymagic import pypy_repr
 
 import types
 from marshal import dumps
+import exceptions
 
 class AbstractProtocol(object):
     immutable_primitives = (str, int, float, long, unicode, bool, types.NotImplementedType)
-    mutable_primitives = (list, dict, types.FunctionType, types.FrameType)
+    mutable_primitives = (list, dict, types.FunctionType, types.FrameType, types.TracebackType,
+        types.CodeType)
+    exc_dir = dict((val, name) for name, val in exceptions.__dict__.iteritems())
     
     letter_types = {
         'l' : list,
         'd' : dict,
+        'c' : types.CodeType,
         't' : tuple,
+        'e' : Exception,
+        'ex': exceptions, # for instances
         'i' : int,
         'b' : bool,
         'f' : float,
@@ -82,6 +88,7 @@ class AbstractProtocol(object):
         'type' : type,
         'tp' : None,
         'fr' : types.FrameType,
+        'tb' : types.TracebackType,
     }
     type_letters = dict([(value, key) for key, value in letter_types.items()])
     assert len(type_letters) == len(letter_types)
@@ -95,6 +102,12 @@ class AbstractProtocol(object):
     def wrap(self, obj):
         """ Wrap an object as sth prepared for sending
         """
+        def is_element(x, iterable):
+            try:
+                return x in iterable
+            except (TypeError, ValueError):
+                return False
+        
         tp = type(obj)
         ctrl = get_transparent_controller(obj)
         if ctrl:
@@ -104,6 +117,11 @@ class AbstractProtocol(object):
         elif tp in self.immutable_primitives:
             # simple, immutable object, just copy
             return (self.type_letters[tp], obj)
+        elif hasattr(obj, '__class__') and obj.__class__ in self.exc_dir:
+            return (self.type_letters[Exception], (self.exc_dir[obj.__class__], \
+                self.wrap(obj.args)))
+        elif is_element(obj, self.exc_dir): # weird hashing problems
+            return (self.type_letters[exceptions], self.exc_dir[obj])
         elif tp is tuple:
             # we just pack all of the items
             return ('t', tuple([self.wrap(elem) for elem in obj]))
@@ -147,6 +165,12 @@ class AbstractProtocol(object):
             p = proxy(tp, ro.perform)
             ro.obj = p
             return p
+        elif tp is Exception:
+            cls_name, w_args = obj_data
+            return getattr(exceptions, cls_name)(self.unwrap(w_args))
+        elif tp is exceptions:
+            cls_name = obj_data
+            return getattr(exceptions, cls_name)
         elif tp is types.MethodType:
             w_class, w_name, w_func, w_self = obj_data
             tp = self.unwrap(w_class)
@@ -240,10 +264,17 @@ def remote_loop(protocol):
         elif command == 'call':
             id, name, args, kwargs = data
             args, kwargs = protocol.unpack_args(args, kwargs)
-            retval = getattr(protocol.keeper.get_object(id), name)(*args, **kwargs)
-            send(("finished", wrap(retval)))
+            try:
+                retval = getattr(protocol.keeper.get_object(id), name)(*args, **kwargs)
+            except:
+                send(("raised", wrap(sys.exc_info())))
+            else:
+                send(("finished", wrap(retval)))
         elif command == 'finished':
             return unwrap(data)
+        elif command == 'raised':
+            exc, val, tb = unwrap(data)
+            raise exc, val, tb
         elif command == 'type_reg':
             type_id, name, _dict = data
             protocol.keeper.fake_remote_type(protocol, type_id, name, _dict)
@@ -272,7 +303,11 @@ class RemoteProtocol(AbstractProtocol):
     def perform(self, id, name, *args, **kwargs):
         args, kwargs = self.pack_args(args, kwargs)
         self.send(('call', (id, name, args, kwargs)))
-        retval = remote_loop(self)
+        try:
+            retval = remote_loop(self)
+        except:
+            e, val, tb = sys.exc_info()
+            raise e, val, tb.tb_next.tb_next
         return retval
     
     def get_remote(self, name):

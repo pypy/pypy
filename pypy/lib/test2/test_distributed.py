@@ -180,3 +180,20 @@ class AppTestDistributed(object):
         xf = protocol.get_remote('f')
         assert f.f_globals.keys() == xf.f_globals.keys()
         assert f.f_locals.keys() == xf.f_locals.keys()
+
+    def test_remote_exception(self):
+        from distributed import test_env
+        
+        def raising():
+            1/0
+        
+        protocol = test_env({'raising':raising})
+        xr = protocol.get_remote('raising')
+        try:
+            xr()
+        except ZeroDivisionError:
+            import sys
+            exc_info, val, tb  = sys.exc_info()
+            #assert tb.tb_next is None
+        else:
+            raise AssertionError("Did not raise")

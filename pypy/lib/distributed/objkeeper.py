@@ -2,6 +2,15 @@
 """ objkeeper - Storage for remoteprotocol
 """
 
+# XXX jeez
+
+import sys
+try:
+    1/0
+except:
+    _, _, tb = sys.exc_info()
+    GetSetDescriptor = type(type(tb).tb_frame)
+
 class ObjKeeper(object):
     def __init__(self, exported_names = {}):
         self.exported_objects = [] # list of object that we've exported outside
@@ -16,11 +25,22 @@ class ObjKeeper(object):
         self.exported_objects.append(obj)
         return len(self.exported_objects) - 1
     
+    def ignore(self, key, value):
+        #key not in ('__dict__', '__weakref__', '__class__', '__new__',
+        #        '__base__', '__flags__', '__mro__', '__bases__')]
+        if key in ('__dict__', '__weakref__', '__class__', '__new__'):
+            return True
+        if isinstance(value, GetSetDescriptor):
+            return True
+        return False
+    
     def register_type(self, protocol, tp):
         try:
             return self.exported_types[tp]
         except KeyError:
             print "Registering type %s as %s" % (tp, self.exported_types_id)
+            if str(tp).find('getset') != -1:
+                import pdb;pdb.set_trace()
             self.exported_types[tp] = self.exported_types_id
             tp_id = self.exported_types_id
             self.exported_types_id += 1
@@ -28,8 +48,7 @@ class ObjKeeper(object):
         # XXX: We don't support inheritance here, nor recursive types
         #      shall we???
         _dict = dict([(key, protocol.wrap(getattr(tp, key))) for key in dir(tp) 
-            if key not in ('__dict__', '__weakref__', '__class__', '__new__',
-                '__base__', '__flags__', '__mro__', '__bases__')])
+            if not self.ignore(key, getattr(tp, key))])
         protocol.send(("type_reg", (tp_id, 
             tp.__name__, _dict)))
         return tp_id
