@@ -209,17 +209,15 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         chain = appthunk_frame
         for frame in self.subctx.framestack.items:
             assert isinstance(frame, PyFrame)
-            # rstack.resume_point("evalframe", self, executioncontext, returns=result)
-            evalframe_frame = resume_state_create(chain, "evalframe", frame, ec)
-            # rstack.resume_point("eval", self, executioncontext)
-            eval_frame = resume_state_create(evalframe_frame, "eval", frame, ec)
+            evalframe_frame = resume_state_create(chain, "execute_frame", frame, ec)
+            eval_frame = resume_state_create(evalframe_frame, "dispatch", frame, ec)
             # rstack.resume_point("dispatch_call", self, code, ec)
             code = frame.getcode().co_code
-            dispatch_call_frame = resume_state_create(eval_frame, "dispatch_call", frame, code, ec)
             instr = frame.last_instr
             opcode = ord(code[instr])
             assert opcode == pythonopcode.opmap['CALL_FUNCTION']
             instr += 1
+            dispatch_call_frame = resume_state_create(eval_frame, "dispatch_call", frame, ec, code, instr+3)
             oparg = ord(code[instr]) | ord(code[instr + 1]) << 8
             if (oparg >> 8) & 0xff == 0:
                 # Only positional arguments
