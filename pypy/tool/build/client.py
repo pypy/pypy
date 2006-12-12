@@ -140,3 +140,5 @@ class OutputBuffer(object):
     def getvalue(self):
         return self.buffer.getvalue()
 
+    def isatty(self):
+        return False
