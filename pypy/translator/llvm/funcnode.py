@@ -33,13 +33,14 @@ class BranchException(Exception):
 
 
 class FuncNode(ConstantLLVMNode):
-    __slots__ = "db value ref graph block_to_name".split()
+    __slots__ = "db value ref graph block_to_name bad_switch_block".split()
 
     def __init__(self, db, value):
         self.db = db
         self.value = value
         self.ref   = self.make_ref('%pypy_', value.graph.name)
         self.graph = value.graph
+        self.bad_switch_block = False
 
         #XXX experimental
         #from pypy.translator.llvm.backendopt.mergemallocs import merge_mallocs
@@ -90,6 +91,14 @@ class FuncNode(ConstantLLVMNode):
                     break
             else:
                 self.write_block(codewriter, block)
+        if self.bad_switch_block:
+            codewriter.label('badswitch')
+            codewriter._indent('call void %abort()')
+            rettype = self.graph.getreturnvar().concretetype
+            if rettype is lltype.Void:
+                codewriter._indent('ret')
+            else:
+                codewriter._indent('ret %s 0'%(self.db.repr_type(rettype)))
         codewriter.closefunc()
 
     def writeglobalconstants(self, codewriter):
@@ -177,8 +186,13 @@ class FuncNode(ConstantLLVMNode):
                 value_labels.append( (exitcase,
                                       self.block_to_name[link.target]) )
 
-            codewriter.switch(condtype, cond,
-                              self.block_to_name[defaultlink.target], value_labels)
+            if defaultlink:
+                defaultblockname = self.block_to_name[defaultlink.target]
+            else:
+                defaultblockname = 'badswitch'
+                self.bad_switch_block = True
+
+            codewriter.switch(condtype, cond, defaultblockname, value_labels)
 
         else:
             raise BranchException("exitswitch type '%s' not supported" %

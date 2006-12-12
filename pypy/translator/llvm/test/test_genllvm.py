@@ -441,3 +441,21 @@ def test_broken_after_transform():
     assert f(0) == 0
     
 
+def test_switch_no_default():
+    from pypy.objspace.flow.model import FunctionGraph, Block, Constant, Link
+    from pypy.rpython.lltypesystem.lltype import FuncType, Signed, functionptr
+    from pypy.translator.unsimplify import varoftype
+    block = Block([varoftype(Signed)])
+    block.exitswitch = block.inputargs[0]
+    graph = FunctionGraph("t", block, varoftype(Signed))
+    links = []
+    for i in range(10):
+        links.append(Link([Constant(i*i, Signed)], graph.returnblock, i))
+        links[-1].llexitcase = i
+    block.closeblock(*links)
+    fptr = functionptr(FuncType([Signed], Signed), "t", graph=graph)
+    def func(x):
+        return fptr(x)
+    f = compile_function(func, [int])
+    res = f(4)
+    assert res == 16
