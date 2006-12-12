@@ -15,7 +15,7 @@ def test_AppFrame(space):
     import sys
     co = PyCode._from_code(space, somefunc.func_code)
     pyframe = PyFrame(space, co, space.newdict(), None)
-    runner = AppFrame(pyframe)
+    runner = AppFrame(space, pyframe)
     exprinfo.run("f = lambda x: x+1", runner)
     msg = exprinfo.interpret("assert isinstance(f(2), float)", runner)
     assert msg.startswith("assert isinstance(3, float)\n"

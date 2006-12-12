@@ -17,9 +17,13 @@ class AppCode(object):
         #except OperationError:
         #    self.path = space.unwrap(space.getattr(
         self.path = py.path.local(space.str_w(self.w_file))
+        self.space = space
     
     def fullsource(self):
-        return py.code.Source(self.path.read(mode="rU"))
+        try:
+            return self.space.str_w(self.w_file).__source__
+        except AttributeError:
+            return py.code.Source(self.path.read(mode="rU"))
     fullsource = property(fullsource, None, None, "Full source of AppCode")
 
 class AppFrame(py.code.Frame):
