@@ -5,9 +5,6 @@
   with implicit exceptions only if they are inside a precise
   try:except:
 
-- stability + do something about bytecode_trace such that the jit
-  branch can be merged
-
 - global merge point and portal should delegate their cache impl.
   to the application (to allow keeping things alive correctly)
 
