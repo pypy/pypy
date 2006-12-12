@@ -40,8 +40,7 @@ class GenLLVM(object):
         self.translator = translator
         
         if config is None:
-            from pypy.config.pypyoption import get_pypy_config
-            config = get_pypy_config(translating=True)
+            config = translator.config
         self.config = config
         self.stackless = stackless
 
@@ -328,7 +327,10 @@ def genllvm_compile(function,
     # annotate/rtype
     from pypy.translator.translator import TranslationContext
     from pypy.translator.backendopt.all import backend_optimizations
-    translator = TranslationContext()
+    from pypy.config.pypyoption import get_pypy_config
+    config = get_pypy_config(translating=True)
+    config.translation.gc = 'boehm'
+    translator = TranslationContext(config=config)
     translator.buildannotator().build_types(function, annotation)
     translator.buildrtyper().specialize()
 
