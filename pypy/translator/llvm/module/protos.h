@@ -19,6 +19,8 @@ void RPYTHON_RAISE_OSERROR(int error);
 #ifdef RPyListOfString
   RPyListOfString *_RPyListOfString_New(long);
   void _RPyListOfString_SetItem(RPyListOfString *, int, RPyString *);
+  RPyString *_RPyListOfString_GetItem(RPyListOfString *, int);
+  int _RPyListOfString_Length(RPyListOfString *);
 #endif
 
 // XXX end of proto hacks

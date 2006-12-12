@@ -143,10 +143,20 @@ def predeclare_utility_functions(db, rtyper):
         def _RPyListOfString_New(length=lltype.Signed):
             return LIST_OF_STR.ll_newlist(length)
 
+        def _RPyListOfString_New(length=lltype.Signed):
+            return LIST_OF_STR.ll_newlist(length)
+
         def _RPyListOfString_SetItem(l=p,
                                     index=lltype.Signed,
                                     newstring=lltype.Ptr(STR)):
             rlist.ll_setitem_nonneg(rlist.dum_nocheck, l, index, newstring)
+
+        def _RPyListOfString_GetItem(l=p,
+                                    index=lltype.Signed):
+            return rlist.ll_getitem_fast(l, index)
+
+        def _RPyListOfString_Length(l=p):
+            return rlist.ll_length(l)
 
     for fname, f in locals().items():
         if isinstance(f, types.FunctionType):

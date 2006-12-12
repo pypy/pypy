@@ -1,5 +1,9 @@
 
 // append some genc files here manually from python
+//#include "c/src/support.h"
+#ifdef _RPyListOfString_New     /*  :-(  */
+#  define HAVE_RPY_LIST_OF_STRING
+#endif
 #include "c/src/thread.h"
 #include "c/src/ll_os.h"
 #include "c/src/ll_math.h"

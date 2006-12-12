@@ -396,11 +396,11 @@ long LL_os_fork(void) {
 #if defined(HAVE_EXECV) && defined(HAVE_RPY_LIST_OF_STRING)
 char** get_slist(RPyListOfString *args)
 {
-	int i, nargs = args->l_length;
+	int i, nargs = _RPyListOfString_Length(args);
   char **slist = malloc((nargs+1) * sizeof(char*));
 	if (slist) {
 		for (i=0; i<nargs; i++)
-			slist[i] = RPyString_AsString(args->l_items->items[i]);
+			slist[i] = RPyString_AsString(_RPyListOfString_GetItem(args, i));
 		slist[nargs] = NULL;
     return slist;
   } else {

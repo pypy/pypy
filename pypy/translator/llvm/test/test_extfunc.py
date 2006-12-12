@@ -594,7 +594,6 @@ if hasattr(os, 'fork'):
 
 if hasattr(posix, 'execv'):
     def test_execv():
-        py.test.skip("fails to link")
         filename = str(udir.join('test_execv.txt'))
         executable = sys.executable
         def does_stuff():
@@ -614,7 +613,7 @@ if hasattr(posix, 'execv'):
         assert open(filename).read() == "1"
 
     def test_execv_raising():
-        py.test.skip("fails to link")
+        py.test.skip("does not raise")
         def does_stuff():
             l = []
             l.append("asddsadw32eewdfwqdqwdqwd")
@@ -624,7 +623,6 @@ if hasattr(posix, 'execv'):
         py.test.raises(OSError, "func()")
 
     def test_execve():
-        py.test.skip("fails to link")
         filename = str(udir.join('test_execve.txt'))
         executable = sys.executable
         def does_stuff():
