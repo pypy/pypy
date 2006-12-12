@@ -245,7 +245,7 @@ class OpWriter(object):
 
     def cast_primitive(self, opr):
         " works for all casts "
-        assert len(opr.argrefs) == 1
+        #assert len(opr.argrefs) == 1
         self.codewriter.cast(opr.retref, opr.argtypes[0],
                              opr.argrefs[0], opr.rettype)
     same_as = cast_primitive
@@ -512,3 +512,6 @@ class OpWriter(object):
 
     def debug_print(self, opr):
         pass     # XXX
+
+    def hint(self, opr):
+        self.same_as(opr)
