@@ -77,7 +77,8 @@ translation_optiondescription = OptionDescription(
                cmdline=None),
     ChoiceOption("fork_before",
                  "(UNIX) Create restartable checkpoint before step",
-                 ["annotate", "rtype", "backendopt", "database", "source"],
+                 ["annotate", "rtype", "backendopt", "database", "source",
+                  "hintannotate", "timeshift"],
                  default=None, cmdline="--fork-before"),
 
     OptionDescription("backendopt", "Backend Optimization Options", [
