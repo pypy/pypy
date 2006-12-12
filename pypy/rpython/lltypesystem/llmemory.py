@@ -559,8 +559,9 @@ class fakeweakaddress(object):
         if self.ref is None:
             return None
         ob = self.ref()
-        if ob is None:
-            raise DanglingPointerError
+        # xxx stop-gap
+        #if ob is None:
+        #    raise DanglingPointerError
         return ob
     def __repr__(self):
         if self.ref is None:
