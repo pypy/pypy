@@ -613,14 +613,18 @@ if hasattr(posix, 'execv'):
         assert open(filename).read() == "1"
 
     def test_execv_raising():
-        py.test.skip("does not raise")
         def does_stuff():
             l = []
             l.append("asddsadw32eewdfwqdqwdqwd")
-            os.execv(l[0], l)
-            return 1
+            try:
+                os.execv(l[0], l)
+            except OSError:
+                return 1
+            else:
+                return 0
         func = compile_function(does_stuff, [])
-        py.test.raises(OSError, "func()")
+        res = func()
+        assert res == 1
 
     def test_execve():
         filename = str(udir.join('test_execve.txt'))
