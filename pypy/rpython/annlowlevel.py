@@ -492,5 +492,13 @@ class cachedtype(type):
             return d[args]
         except KeyError:
             instance = d[args] = selfcls.__new__(selfcls, *args)
-            instance.__init__(*args)
+            try:
+                instance.__init__(*args)
+            except:
+                # If __init__ fails, remove the 'instance' from d.
+                # That's a "best effort" attempt, it's not really enough
+                # in theory because some other place might have grabbed
+                # a reference to the same broken 'instance' in the meantime
+                del d[args]
+                raise
             return instance
