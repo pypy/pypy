@@ -202,36 +202,39 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         costate = self.costate
         # now the big fun of recreating tiny things...
         bottom = resume_state_create(None, "yield_current_frame_to_caller_1")
-        # resume_point("coroutine__bind", state)
+        # ("coroutine__bind", state)
         _bind_frame = resume_state_create(bottom, "coroutine__bind", costate)
-        # rstack.resume_point("appthunk", costate, returns=w_result)
+        # ("appthunk", costate, returns=w_result)
         appthunk_frame = resume_state_create(_bind_frame, "appthunk", costate)
         chain = appthunk_frame
         for frame in self.subctx.framestack.items:
             assert isinstance(frame, PyFrame)
-            evalframe_frame = resume_state_create(chain, "execute_frame", frame, ec)
-            eval_frame = resume_state_create(evalframe_frame, "dispatch", frame, ec)
-            # rstack.resume_point("dispatch_call", self, code, ec)
-            code = frame.getcode().co_code
+            # ("execute_frame", self, executioncontext, returns=w_exitvalue)
+            chain = resume_state_create(chain, "execute_frame", frame, ec)
+            code = frame.pycode.co_code
+            # ("dispatch", self, co_code, ec, returns=w_result)
+            chain = resume_state_create(chain, "dispatch", frame, code, ec)
             instr = frame.last_instr
             opcode = ord(code[instr])
             assert opcode == pythonopcode.opmap['CALL_FUNCTION']
+            # ("dispatch_call", self, co_code, next_instr, ec)
+            chain = resume_state_create(chain, "dispatch_call", frame, code,
+                                        instr+3, ec)
             instr += 1
-            dispatch_call_frame = resume_state_create(eval_frame, "dispatch_call", frame, ec, code, instr+3)
             oparg = ord(code[instr]) | ord(code[instr + 1]) << 8
             if (oparg >> 8) & 0xff == 0:
                 # Only positional arguments
                 nargs = oparg & 0xff
-                # case1: rstack.resume_point("CALL_FUNCTION", f, nargs, returns=w_result)
-                call_frame = resume_state_create(dispatch_call_frame, 'CALL_FUNCTION', frame, nargs)
+                # case1: ("CALL_FUNCTION", f, nargs, returns=w_result)
+                chain = resume_state_create(chain, 'CALL_FUNCTION', frame,
+                                            nargs)
             else:
-                # case2: rstack.resume_point("call_function", f, returns=w_result)
-                call_frame = resume_state_create(dispatch_call_frame, 'call_function', frame)
-            chain = call_frame
+                # case2: ("call_function", f, returns=w_result)
+                chain = resume_state_create(chain, 'call_function', frame)
 
-        # rstack.resume_point("w_switch", state, space)
+        # ("w_switch", state, space)
         w_switch_frame = resume_state_create(chain, 'w_switch', costate, space)
-        # resume_point("coroutine_switch", state, returns=incoming_frame)
+        # ("coroutine_switch", state, returns=incoming_frame)
         switch_frame = resume_state_create(w_switch_frame, "coroutine_switch", costate)
         self.frame = switch_frame
 

@@ -53,7 +53,8 @@ class __extend__(pyframe.PyFrame):
         while True:
             try:
                 w_result = self.dispatch_bytecode(co_code, next_instr, ec)
-                rstack.resume_point("dispatch", self, ec, returns=w_result)
+                rstack.resume_point("dispatch", self, co_code, ec,
+                                    returns=w_result)
                 return w_result
             except OperationError, operr:
                 next_instr = self.handle_operation_error(ec, operr)
