@@ -473,7 +473,7 @@ class TranslationDriver(SimpleTaskEngine):
 
         # XXX Need more options for policies/llvm-backendoptions here?
         self.llvmgen = genllvm.GenLLVM(translator, self.config.translation.gc,
-                                       self.standalone, config=self.config)
+                                       self.standalone)
 
         llvm_filename = self.llvmgen.gen_llvm_source(self.entry_point)
         self.log.info("written: %s" % (llvm_filename,))
