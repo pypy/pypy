@@ -592,3 +592,56 @@ if hasattr(os, 'fork'):
         assert os.WIFEXITED(status1)
         assert os.WEXITSTATUS(status1) == 4
 
+if hasattr(posix, 'execv'):
+    def test_execv():
+        py.test.skip("fails to link")
+        filename = str(udir.join('test_execv.txt'))
+        executable = sys.executable
+        def does_stuff():
+            progname = str(executable)
+            l = ['', '']
+            l[0] = progname
+            l[1] = "-c"
+            l.append('open("%s","w").write("1")' % filename)
+            pid = os.fork()
+            if pid == 0:
+                os.execv(progname, l)
+            else:
+                os.waitpid(pid, 0)
+            return 1
+        func = compile_function(does_stuff, [])
+        func()
+        assert open(filename).read() == "1"
+
+    def test_execv_raising():
+        py.test.skip("fails to link")
+        def does_stuff():
+            l = []
+            l.append("asddsadw32eewdfwqdqwdqwd")
+            os.execv(l[0], l)
+            return 1
+        func = compile_function(does_stuff, [])
+        py.test.raises(OSError, "func()")
+
+    def test_execve():
+        py.test.skip("fails to link")
+        filename = str(udir.join('test_execve.txt'))
+        executable = sys.executable
+        def does_stuff():
+            progname = executable
+            l = []
+            l.append(progname)
+            l.append("-c")
+            l.append('import os; open("%s", "w").write(os.environ["STH"])' % filename)
+            env = {}
+            env["STH"] = "42"
+            env["sthelse"] = "a"
+            pid = os.fork()
+            if pid == 0:
+                os.execve(progname, l, env)
+            else:
+                os.waitpid(pid, 0)
+            return 1
+        func = compile_function(does_stuff, [])
+        func()
+        assert open(filename).read() == "42"
