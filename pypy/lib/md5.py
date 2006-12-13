@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1
+# -*- coding: iso-8859-1 -*-
 
 """A sample implementation of MD5 in pure Python.
 
