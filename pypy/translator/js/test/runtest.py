@@ -13,6 +13,7 @@ from pypy.translator.js.log import log
 from pypy.conftest import option
 from pypy.rpython.test.tool import BaseRtypingTest, OORtypeMixin
 from pypy.translator.transformer.debug import DebugTransformer
+from pypy.rlib.nonconst import NonConstant
 
 log = log.runtest
 use_browsertest = conftest.option.browser
@@ -39,8 +40,8 @@ class compile_function(object):
         ann.build_types(function, annotations)
         if debug_transform:
             DebugTransformer(t).transform_all()
-            if view or option.view:
-                t.view()
+        if view or option.view:
+            t.view()
         t.buildrtyper(type_system="ootype").specialize()
 
         if view or option.view:
@@ -141,20 +142,17 @@ class JsTest(BaseRtypingTest, OORtypeMixin):
         #    self._ann = ann
         #    self._cli_func = compile_function(fn, ann)
         #    return self._cli_func
-
-        # XXX this will capture and use constant values
-        # for some test, for example reused from rpython/test
-        # it may result in annotation failures
-        # because some paths are not considered!
-        # that's what is provoking the failures
-        # in test_rpython
-        def f():
-            res = fn(*args)
+        source = py.code.Source("""
+        def %s():
+            from pypy.rlib.nonconst import NonConstant
+            res = fn(%s)
             if isinstance(res, type(None)):
                 return None
             else:
-                return str(res)
-        return compile_function(f, [])
+                return str(res)"""
+        % (fn.func_name, ",".join(["NonConstant(%s)" % i for i in args])))
+        exec source.compile() in locals()
+        return compile_function(locals()[fn.func_name], [])
     
     def interpret(self, fn, args):
         #def f(args):
