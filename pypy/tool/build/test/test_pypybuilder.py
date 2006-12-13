@@ -23,6 +23,8 @@ def test_functional_1():
     if not py.test.pypybuilder_option.functional:
         py.test.skip('skipping functional test, use --functional to run it')
 
+    config.checkers = []
+
     # XXX this one is a bit messy, it's a quick functional test for the whole
     # system, but for instance contains time.sleep()s to make sure all threads
     # get the time to perform tasks and such... 

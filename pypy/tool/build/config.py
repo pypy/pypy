@@ -33,12 +33,23 @@ mailfrom = 'pypybuilds@codespeak.net'
 # settings for the tests
 testpath = [str(py.magic.autopath().dirpath().dirpath())]
 
-# when considering a compile job, the checkers below will be called (args
-# sysinfo, compileinfo), if one of them returns False the compilation will
+# this var is only used below
+svnroot = 'http://codespeak.net/svn/pypy'
+
+# when considering a compile job, the checkers below will be called (with
+# request as only arg), if one of them returns False the compilation will
 # not be accepted
-client_checkers = []
+def check_svnroot(req):
+    if not req.svnurl.startswith(svnroot):
+        return False
+    return True
+
+client_checkers = [check_svnroot]
 
 # function to turn SVN paths into full URLs
 def svnpath_to_url(p):
-    return 'http://codespeak.net/svn/pypy/%s' % (p,)
+    root = svnroot
+    if root.endswith('/'):
+        root = root[:-1]
+    return '%s/%s' % (root, p)
 
