@@ -53,6 +53,7 @@ the input program doesn't contain enough information to generate good
 code. What is really desired is not a generating extension doing
 static compilation, but one capable of dynamic compilation, exploiting
 runtime information in its result, or using a different terminology
+(XXX explain differently the following)
 capable of producing code that is specialised with respect to some of
 the run-time information, for example language-level types.
 
@@ -88,6 +89,7 @@ Timeshifting: transforming interpreter into compilers
 ======================================================
 
 intro and basics
+
 
 Transform vs hrtyping
 -----------------------
