@@ -39,46 +39,7 @@ import struct, copy
 
 # ======================================================================
 # Bit-Manipulation helpers
-#
-#   _long2bytes() was contributed by Barry Warsaw
-#   and is reused here with tiny modifications.
 # ======================================================================
-
-def _long2bytes(n, blocksize=0):
-    """Convert a long integer to a byte string.
-
-    If optional blocksize is given and greater than zero, pad the front
-    of the byte string with binary zeros so that the length is a multiple
-    of blocksize.
-    """
-
-    # After much testing, this algorithm was deemed to be the fastest.
-    s = ''
-    pack = struct.pack
-    while n > 0:
-        ### CHANGED FROM '>I' TO '<I'. (DCG)
-        s = pack('<I', n & 0xffffffffL) + s
-        ### --------------------------
-        n = n >> 32
-
-    # Strip off leading zeros.
-    for i in range(len(s)):
-        if s[i] <> '\000':
-            break
-    else:
-        # Only happens when n == 0.
-        s = '\000'
-        i = 0
-
-    s = s[i:]
-
-    # Add back some pad bytes. This could be done more efficiently
-    # w.r.t. the de-padding being done above, but sigh...
-    if blocksize > 0 and len(s) % blocksize:
-        s = (blocksize - len(s) % blocksize) * '\000' + s
-
-    return s
-
 
 def _bytelist2long(list):
     "Transform a list of characters into a list of longs."
@@ -358,10 +319,10 @@ class MD5Type:
         self._transform(bits)
 
         # Store state in digest.
-        digest = _long2bytes(self.A << 96, 16)[:4] + \
-                 _long2bytes(self.B << 64, 16)[4:8] + \
-                 _long2bytes(self.C << 32, 16)[8:12] + \
-                 _long2bytes(self.D, 16)[12:]
+        digest = (struct.pack("<I", self.A) +
+                  struct.pack("<I", self.B) +
+                  struct.pack("<I", self.C) +
+                  struct.pack("<I", self.D))
 
         self.A = A 
         self.B = B
