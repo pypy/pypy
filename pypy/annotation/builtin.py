@@ -224,7 +224,7 @@ def builtin_max(*s_values):
         return s_iter.next()
     else:
         s = unionof(*s_values)
-        if type(s) is SomeInteger:
+        if type(s) is SomeInteger and not s.nonneg:
             nonneg = False
             for s1 in s_values:
                 nonneg |= s1.nonneg
