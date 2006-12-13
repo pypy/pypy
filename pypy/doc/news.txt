@@ -16,6 +16,29 @@ for a list of past events.
 .. _eventhistory: eventhistory.html
 
 
+Leysin Winter Sports Sprint, 8th - 14th January 2007
+==================================================================
+
+.. raw:: html
+
+   <table border=0><tr><td>
+
+The next PyPy sprint will be in Leysin, Switzerland, for the fourth
+time.  This sprint is a fully public sprint and will also be a kick-off
+for the final work on the upcoming PyPy 1.0 release (scheduled for
+mid-February).  See the `Leysin announcement`_ for details.
+
+The sprint is the last best chance for students looking for a `"summer" job
+with PyPy`_ this winter!
+
+.. raw:: html
+
+   </td><td><img src="http://www.ermina.ch/002.JPG"></td></tr></table>
+
+.. _`Leysin announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/leysin-winter-2007/announcement.html
+.. _`"summer" job with PyPy`: http://codespeak.net/pypy/dist/pypy/doc/summer-of-pypy.html
+
+
 Duesseldorf sprint #2, 30th October - 5th November over
 ==================================================================
 
