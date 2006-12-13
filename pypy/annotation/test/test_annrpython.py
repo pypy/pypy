@@ -1417,7 +1417,14 @@ class TestAnnotateTestCase:
         wg2 = graphof(a, witness2)        
         assert a.binding(wg1.getargs()[0]).knowntype is r_ulonglong
         assert a.binding(wg2.getargs()[0]).knowntype is r_ulonglong
-    
+
+    def test_nonneg_cleverness_in_max(self):
+        def f(x):
+            return max(x, 0) + max(0, x)
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert s.nonneg
+
     def test_attr_moving_into_parent(self):
         class A: pass
         class B(A): pass

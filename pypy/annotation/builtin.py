@@ -218,7 +218,19 @@ def builtin_min(*s_values):
     else:
         return unionof(*s_values)
 
-builtin_max = builtin_min
+def builtin_max(*s_values):
+    if len(s_values) == 1: # xxx do we support this?
+        s_iter = s_values[0].iter()
+        return s_iter.next()
+    else:
+        s = unionof(*s_values)
+        if type(s) is SomeInteger:
+            nonneg = False
+            for s1 in s_values:
+                nonneg |= s1.nonneg
+            if nonneg:
+                s = SomeInteger(nonneg=True, knowntype=s.knowntype)
+        return s
 
 def builtin_apply(*stuff):
     getbookkeeper().warning("ignoring apply%r" % (stuff,))
