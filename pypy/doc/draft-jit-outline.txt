@@ -146,7 +146,98 @@ colors that we use when displaying the control flow graphs:
 Binding-time analysis
 =========================================
 
-Hint annotator and hint(concrete=True)...
+PyPy performs binding-time analysis of the source RPython_ program after
+it has been turned to `low-level graphs`_, i.e. at the level at which
+operations manipulate `pointer-and-structures-like objects`_.
+
+The binding-time analyzer of our translation toolchain is based on the
+same type inference engine that is used on the source RPython program,
+the annotator_.  In this mode, it is called the *hint-annotator*; it
+operates over input graphs that are already low-level instead of
+RPython-level, and propagates annotations that do not track types but
+value dependencies and manually-provided binding time hints.
+
+Hints
+----------------------------------
+
+Our goal in designing our approach to binding-time analysis was to
+minimize the number of explicit hints that the user must provide in the
+source of the RPython program.  This minimalism was not pushed to
+extremes, though, to keep the hint-annotator reasonably simple.
+
+The driving idea was that hints should be need-oriented.  In a program
+like an interpreter, there are a few clear places where it would be
+beneficial for a given value to be known at compile-time, i.e. green.
+This is where we require the hints to be added.
+
+The normal process of the hint-annotator is to propagate the binding
+time (i.e. color) of the variables using the following kind of rules:
+
+* For a foldable operation (i.e. one without side effect and which
+  depends only on its argument's value), if all arguments are green,
+  then the result can be green too.
+
+* Non-foldable operations always produce a red result.
+
+* At join points, where multiple possible values (depending on control
+  flow) are meeting into a fresh variable, if any incoming value comes
+  from a red variable, the result is red.  Otherwise, the color of the
+  result might be green.  We do not make it eagerly green, because of
+  the control flow dependency: the residual function is basically a
+  constant-folded copy of the source function, so it might retain some
+  of the same control flow.  The value that needs to be stored in the
+  fresh join variable thus depends on which branches are taken in the
+  residual graph.
+
+The hint-annotator assumes that all variables are red by default (with
+the exception of constants, which are always green).  It then propagates
+annotations that record dependency information.  When encountering the
+user-provided hints, the dependency information is used to make some
+variables green.  (Technically, the color itself is not part of the
+annotations propagated by the annotator.)  All hints are in the form of
+an operation ``hint(v1, someflag=True)`` which semantically just returns
+its first argument unmodified.  The three kinds of hints that are useful
+in practice are:
+
+``v2 = hint(v1, concrete=True)``
+    This is interpreted by the hint-annotator as a request for both
+    ``v1`` and ``v2`` to be green.  It is used in places where the
+    programmer considers the knowledge of the value to be essential.
+    This hint has a *global* effect on the binding times: it means that
+    not only ``v1`` but all the values that ``v1`` depends on -
+    recursively - are forced to be green.  Typically, it can only be
+    applied on values that directly depend on some input arguments,
+    making these input arguments green.  The hint-annotator complains if
+    the dependencies of ``v1`` include a value that cannot be green,
+    like a value read out of a field out of a non-immutable structure.
+
+    The color of the result ``v2`` is green as well.  Unlike ``v1``, all
+    further operations involving ``v2`` are checked to not meet any red
+    variable (i.e. ``v2`` is eagerly and recursively propagated, while
+    ``v1`` is only green and may be involved in further operations that
+    will produce red results).
+
+``v2 = hint(v1, promote=True)``
+    This hint is a *local* request for ``v2`` to be green.  Unlike the
+    previous hint, this one has no effect on the color of ``v1`` (which
+    is typically red - the hint has no effect otherwise).
+
+    Note that in classical approaches to partial evalution, it is not
+    possible to copy a red value into a green one.  The implementation
+    of such an operation ("promotion") is only possible in a
+    "just-in-time" approach that only Psyco_ implemented so far (to the
+    best of our knowledge).  Our hint is a direct generalization of the
+    latter.
+
+``v2 = hint(v1, variable=True)``
+    Force ``v2`` to be red, even if ``v1`` is green.
+
+A program using promotion also need to contain a "global merge point"
+hint; this has no effect on the hint-annotator and is described in the
+section about promotion_.
+
+
+
 
 calls...
 
@@ -189,10 +280,12 @@ Exceptions
 
 ...
 
+.. _promotion:
+
 Promotion and global merges
 -----------------------------
 
-...
+...global merge point...
 
 Partial data
 -------------
