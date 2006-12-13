@@ -237,6 +237,15 @@ A program using promotion also needs to contain a ``global_merge_point``
 hint; this has no effect on the hint-annotator and is described in the
 section about promotion_.
 
+
+.. _`example above`:
+
+Example
+----------------------------------
+
+XXX
+
+
 Calls
 ----------------------------------
 
@@ -279,10 +288,39 @@ only be determined at the end of the process, though, after all call
 sites are known and stable enough; we use another fixpoint loop for
 this.)
 
+
 Deep freezing
 ----------------------------------
 
-deepfreeze...
+Among the low-level operations, the one that reads data from a structure
+in memory (``getfield``) requires special care.  In a first
+approximation it can only return a red value, because the reading from
+the structure cannot be performed at compile-time - the structure may be
+mutated between compile-time and the point at run-time where the read
+was supposed to occur in the original code.
+
+This is a problem in most real-life examples.  Unlike our `example
+above`_, input arguments to such functions are typically not just
+strings and integers but complex data structures.  To produce sensible
+results, it is necessary to assume that some of these data structures
+will not be mutated after the compile-time process used their content.
+For example, PyPy's own interpreter works with an instance of a PyCode
+class containing not only a string representing the bytecode, but
+various simple Python objects (tuple of names, ...).  None of this data
+can be modified after its construction, though.
+
+To express this, we use a hint ``v2 = hint(v1, deepfreeze=True)``, where
+``v1`` is a pointer (in the low-level graph - it typically comes from a
+regular RPython object reference in the RPython source).  The
+hint-annotation will then propagate a "deepfrozen" flag on the
+annotation attached to ``v2``.  If ``v2`` is green, a ``getfield(v2,
+"name")`` operation then also returns a green.  Moreover, the result of
+the ``getfield`` is also itself "deepfrozen".  We decided to implement
+recursive freezing and not one-level-only freezing, as the latter seems
+more fragile with respect to changes both in the RPython source and in
+the way the source maps to low-level graphs; but variants could easily
+be implemented if needed.
+
 
 Blue containers
 ----------------------------------
@@ -297,6 +335,15 @@ Timeshifting: transforming interpreter into compilers
 ======================================================
 
 intro and basics
+
+Basics
+--------
+
+...red vs green operations...
+
+XXX Note that the "deepfrozen" flag is used at compile-time on red
+values too, to influence the details of how residual ``getfield``
+operations should be generated.
 
 Transform vs hrtyping
 -----------------------
