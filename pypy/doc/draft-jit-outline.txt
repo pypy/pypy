@@ -71,7 +71,79 @@ a default case to compile further specialised paths. This can be also
 thought as a generalisation of polymorphic inline caches XXX ref.
 
 
-Hint-Annotation and Compile Time Values
+Terminology
+=========================================
+
+Partial evaluation is the process of evaluating a function, say ``f(x,
+y)``, with only partial information about the value of its arguments,
+say the value of the ``x`` argument only.  This produces a *residual*
+function ``g(y)``, which takes less arguments than the original - only
+the information not specified during the partial evaluation process need
+to be provided to the residual function, in this example the ``y``
+argument.
+
+Partial evaluation (PE) comes in two flavors:
+
+* *On-line* PE: a compiler-like algorithm takes the source code of the
+  function ``f(x, y)`` (or its intermediate representation, i.e. its
+  control flow graph in PyPy's terminology), and some partial
+  information, e.g. ``x = 5``.  From this, it produces the residual
+  function ``g(y)`` directly, by following in which operations the
+  knowledge ``x = 5`` can be used, which loops can be unrolled, etc.
+
+* *Off-line* PE: in many cases, the goal of partial evaluation is to
+  improve performance in a specific application.  Assume that we have a
+  single known function ``f(x, y)`` in which we think that the value of
+  ``x`` will change slowly during the execution of our program - much
+  more slowly than the value of ``y``.  An obvious example is a loop
+  that calls ``f(x, y)`` many times with always the same value ``x``.
+  We could then use an on-line partial evaluator to produce a ``g(y)``
+  for each new value of ``x``.  In practice, the overhead of the partial
+  evaluator might be too large for it to be executed at run-time.
+  Howeer, if we know the function ``f`` in advance, and if we know
+  *which* arguments are the ones that we will want to partially evaluate
+  ``f`` with, then we do not need a full compiler-like analysis of ``f``
+  every time the value of ``x`` changes.  We can precompute off-line a
+  specialized function ``f1(x)``, which when called produces a residual
+  function ``g(y)``.
+
+Off-line partial evaluation is based on *binding-time analysis*, which
+is the process of determining among the variables used in a function (or
+a set of function) which ones are going to be known in advance and which
+ones are not.  In the above example, such an analysis would be able to
+infer that the constantness of the argument ``x`` implies the
+constantness of many intermediate values used in the function.  The
+*binding time* of a variable determines how early the value of the
+variable will be known.
+
+The PyPy JIT is essentially an off-line partial evaluator.  As such,
+there are three distinct phases:
+
+* *Translation time*: during the normal translation of an RPython
+  program like PyPy, we perform binding-time analysis and off-line
+  specialization.  This produces a new set of functions (``f1(x)`` in
+  our running example) which are linked with the rest of the program, as
+  described in Timeshifting_.
+
+* *Compile time*: during the execution of the program, when a new value
+  for ``x`` is found, ``f1(x)`` is invoked.  All the computations
+  performed by ``f1(x)`` are called compile-time computations.  This is
+  justified by the fact that ``f1(x)`` is in some sense a compiler,
+  whose sole effect is to produce residual code.
+
+* *Run time*: the normal execution of the program.
+
+The binding-time terminology that we are using in PyPy is based on the
+colors that we use when displaying the control flow graphs:
+
+* *Green* variables are values that are known at compile-time -
+  e.g. ``x``.
+
+* *Red* variables are values that are not known until run-time -
+  e.g. ``y``.
+
+
+Binding-time analysis
 =========================================
 
 Hint annotator and hint(concrete=True)...
@@ -84,6 +156,8 @@ deepfreeze...
 
 blue containers...
 
+
+.. _timeshifting:
 
 Timeshifting: transforming interpreter into compilers
 ======================================================
