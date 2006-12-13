@@ -14,8 +14,7 @@ in Time Compiler should be another aspect as much as possible
 transparently introduced by and during the translation process.
 
 Partial evaluation techniques should, at least theoretically, allow
-such a derivation of a compiler from an interpreter. XXX scalability
-issues references ...
+such a derivation of a compiler from an interpreter. (XXX references)
 
 The forest of flow graphs that the translation process generates and
 transforms constitutes a reasonable base for the necessary analyses.
@@ -32,6 +31,7 @@ capable of compiling the input programs.
 
 Generating extensions can be produced by self-applying partial evaluators,
 but this approach may lead to not optimal results or be not scalable
+(XXX expand this argument)
 
 For PyPy, our approach aims at producing the generating extension more
 directly from the analysed interpreter in the form of a forest of flow
@@ -44,8 +44,9 @@ versus respectively runtime values.
 
 Currently we base the binding time computation on propagating the
 information based on a few hint inserted in the interpreter. Propagation
-is implemented by reusing our annotation/type inference framework XXX
-ref.
+is implemented by reusing our `annotation/type inference framework`__.
+
+__ annotator_
 
 The code produced by a generating extension for an input program may
 not be good, especially for a dynamic language, because essentially
@@ -68,7 +69,7 @@ and the current run-time value is used and propagated as a compile-time
 value. Concretely the promotion expands into a switch to choose based
 on the run-time value one of the possible specialised code paths, plus
 a default case to compile further specialised paths. This can be also
-thought as a generalisation of polymorphic inline caches XXX ref.
+thought as a generalisation of polymorphic inline caches (XXX reference).
 
 
 Terminology
