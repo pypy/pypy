@@ -100,7 +100,7 @@ Partial evaluation (PE) comes in two flavors:
   We could then use an on-line partial evaluator to produce a ``g(y)``
   for each new value of ``x``.  In practice, the overhead of the partial
   evaluator might be too large for it to be executed at run-time.
-  Howeer, if we know the function ``f`` in advance, and if we know
+  However, if we know the function ``f`` in advance, and if we know
   *which* arguments are the ones that we will want to partially evaluate
   ``f`` with, then we do not need a full compiler-like analysis of ``f``
   every time the value of ``x`` changes.  We can precompute off-line a
@@ -109,14 +109,14 @@ Partial evaluation (PE) comes in two flavors:
 
 Off-line partial evaluation is based on *binding-time analysis*, which
 is the process of determining among the variables used in a function (or
-a set of function) which ones are going to be known in advance and which
+a set of functions) which ones are going to be known in advance and which
 ones are not.  In the above example, such an analysis would be able to
 infer that the constantness of the argument ``x`` implies the
 constantness of many intermediate values used in the function.  The
 *binding time* of a variable determines how early the value of the
 variable will be known.
 
-The PyPy JIT is essentially an off-line partial evaluator.  As such,
+The PyPy JIT is generated using off-line partial evaluation.  As such,
 there are three distinct phases:
 
 * *Translation time*: during the normal translation of an RPython
@@ -136,10 +136,10 @@ there are three distinct phases:
 The binding-time terminology that we are using in PyPy is based on the
 colors that we use when displaying the control flow graphs:
 
-* *Green* variables are values that are known at compile-time -
+* *Green* variables contain values that are known at compile-time -
   e.g. ``x``.
 
-* *Red* variables are values that are not known until run-time -
+* *Red* variables contain values that are not known until run-time -
   e.g. ``y``.
 
 
