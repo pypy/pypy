@@ -232,15 +232,6 @@ def op_truncate_longlong_to_int(b):
     assert -sys.maxint-1 <= b <= sys.maxint
     return int(b)
 
-def op_float_floor(b):
-    assert type(b) is float
-    return math.floor(b)
-
-def op_float_fmod(b,c):
-    assert type(b) is float
-    assert type(c) is float
-    return math.fmod(b,c)
-
 def op_float_pow(b,c):
     assert type(b) is float
     assert type(c) is float

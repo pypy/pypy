@@ -32,8 +32,6 @@ class OpFormatter:
         'bool_not':    'not',
 
         'cast_int_to_float': 'asFloat',
-        'float_fmod':  r'\\', # we can't really distinguish mod and fmod
-        'float_floor': 'floor',
         # XXX this potentially incorrect (may return LargeIntegers)
         'cast_float_to_int': 'truncated',
     }

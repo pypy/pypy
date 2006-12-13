@@ -154,15 +154,12 @@ opcodes = {
     'float_sub':                'sub',
     'float_mul':                'mul',
     'float_truediv':            'div', 
-    'float_mod':                'rem',
     'float_lt':                 'clt',
     'float_le':                 _not('cgt'),
     'float_eq':                 'ceq',
     'float_ne':                 _not('ceq'),
     'float_gt':                 'cgt',
     'float_ge':                 _not('clt'),
-    'float_floor':              None, # TODO
-    'float_fmod':               None, # TODO
 
     'llong_is_true':            [PushAllArgs, 'ldc.i8 0', 'cgt.un'],
     'llong_neg':                'neg',

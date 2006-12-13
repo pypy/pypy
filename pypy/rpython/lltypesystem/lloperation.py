@@ -114,10 +114,9 @@ class StackException(Exception):
 # ____________________________________________________________
 #
 # This list corresponds to the operations implemented by the LLInterpreter.
-# XXX Some clean-ups are needed:
-#      * many exception-raising operations are being replaced by calls to helpers
-#      * float_mod vs float_fmod ?
-# Run test_lloperation after changes.  Feel free to clean up LLInterpreter too :-)
+# Note that many exception-raising operations are being replaced by calls
+# to helpers by rpython/raisingops/.
+# ***** Run test_lloperation after changes. *****
 
 LL_OPERATIONS = {
 
@@ -210,15 +209,12 @@ LL_OPERATIONS = {
     'float_sub':            LLOp(canfold=True),
     'float_mul':            LLOp(canfold=True),
     'float_truediv':        LLOp(canfold=True),
-    'float_mod':            LLOp(canfold=True),
     'float_lt':             LLOp(canfold=True),
     'float_le':             LLOp(canfold=True),
     'float_eq':             LLOp(canfold=True),
     'float_ne':             LLOp(canfold=True),
     'float_gt':             LLOp(canfold=True),
     'float_ge':             LLOp(canfold=True),
-    'float_floor':          LLOp(canfold=True),    # XXX not used?
-    'float_fmod':           LLOp(canfold=True),    # XXX not used?
     'float_pow':            LLOp(canfold=True),
 
     'llong_is_true':        LLOp(canfold=True),

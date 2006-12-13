@@ -141,15 +141,12 @@ opcodes = {
     'float_sub':                jvmgen.DSUB,
     'float_mul':                jvmgen.DMUL,
     'float_truediv':            jvmgen.DDIV, 
-    'float_mod':                jvmgen.DREM, # use Math.IEEEremainder?
     'float_lt':                 'dbl_less_than',     
     'float_le':                 'dbl_less_equals',   
     'float_eq':                 'dbl_equals',        
     'float_ne':                 'dbl_not_equals',    
     'float_gt':                 'dbl_greater_than',  
     'float_ge':                 'dbl_greater_equals',
-    'float_floor':              jvmgen.MATHFLOOR,
-    'float_fmod':               jvmgen.DREM, # DREM is akin to fmod() in C
 
     'llong_is_true':            [PushAllArgs,
                                  jvmgen.LCONST_0,
