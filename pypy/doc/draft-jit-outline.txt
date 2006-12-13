@@ -242,7 +242,7 @@ Calls
 The ``concrete`` hint requires precise tracking of dependencies across
 calls.  More specifically, unlike the regular type-inferencing
 annotator, the hint-annotator does not simply propagate this information
-through called function, but keep all dependency information local to a
+through called functions, but keeps all dependency information local to a
 function.  The problem is best shown by an example::
 
     x = ...
@@ -267,7 +267,7 @@ are used in the "usual" annotator way, i.e. directly propagated between
 caller and callee and back.  If the result ``z`` of a call is forced to
 be green by a ``concrete`` hint, then this forcing effect is propagated
 inside the callee (more precisely, in a fresh copy of the callee, so
-that forced and non-forced call sites can respecitvely call a
+that forced and non-forced call sites can respectively call a
 mostly-green and a mostly-red version of the function; this is done with
 the technique of `specialization of functions`_ that is already
 available in the normal annotator).
@@ -360,4 +360,5 @@ The Backend interface
 .. _`low-level graphs`: rtyper.html
 .. _`pointer-and-structures-like objects`: rtyper.html#low-level-types 
 .. _`annotator`: dynamic-language-translation.html
+.. _`specialization of functions`: dynamic-language-translation.html#specialization
 .. _Psyco: http://psyco.sourceforge.net
