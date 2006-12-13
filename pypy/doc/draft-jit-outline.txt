@@ -269,11 +269,12 @@ and ``acc`` will stay red.
 The result ``op`` compared to the possible "instructions" will also be
 green. Because ``s`` is green also ``len(s)`` will be.
 
-Using this information the *timeshifting* of the ``ll_plus_minus``,
-should be able to produce code that unfolds the loop and respectively
-folds instruction dispatching (the ifs) at compile-time, because the
-while condition, the ``pc`` increment, and the dispatching are
-operations between greens only (constants are green by default).
+As we will see later, the timeshifter_ can use this information to
+generate code that unfolds the loop (because the ``while`` condition is
+green) and folds instruction dispatching (because the ``if`` conditions
+are green) at compile-time.  In other words, the only operations left
+involving red variables are ``acc += y`` and ``acc -= y``, so only these
+operations will eventually appear in the residual graph.
 
 Calls
 ----------------------------------
@@ -358,6 +359,7 @@ Undocumented yet.  Not implemented in the timeshifter, so not used so far.
 
 
 
+.. _timeshifter:
 .. _timeshifting:
 
 Timeshifting: transforming interpreter into compilers
