@@ -150,7 +150,7 @@ PyPy performs binding-time analysis of the source RPython_ program after
 it has been turned to `low-level graphs`_, i.e. at the level at which
 operations manipulate `pointer-and-structures-like objects`_.
 
-The binding-time analyzer of our translation toolchain is based on the
+The binding-time analyzer of our translation tool-chain is based on the
 same type inference engine that is used on the source RPython program,
 the annotator_.  In this mode, it is called the *hint-annotator*; it
 operates over input graphs that are already low-level instead of
@@ -174,7 +174,7 @@ The normal process of the hint-annotator is to propagate the binding
 time (i.e. color) of the variables using the following kind of rules:
 
 * For a foldable operation (i.e. one without side effect and which
-  depends only on its argument's value), if all arguments are green,
+  depends only on its argument values), if all arguments are green,
   then the result can be green too.
 
 * Non-foldable operations always produce a red result.
@@ -211,18 +211,18 @@ in practice are:
     the dependencies of ``v1`` include a value that cannot be green,
     like a value read out of a field out of a non-immutable structure.
 
-    The color of the result ``v2`` is green as well.  Unlike ``v1``, all
-    further operations involving ``v2`` are checked to not meet any red
-    variable (i.e. ``v2`` is eagerly and recursively propagated, while
-    ``v1`` is only green and may be involved in further operations that
-    will produce red results).
+    The color of the result ``v2`` is green as well.  Unlike ``v1``,
+    all further operations involving ``v2`` are checked to not meet
+    any red variable (i.e. ``v2`` color is eagerly and recursively
+    propagated, while ``v1`` is only green and may be involved in
+    further operations that will produce red results).
 
 ``v2 = hint(v1, promote=True)``
     This hint is a *local* request for ``v2`` to be green.  Unlike the
     previous hint, this one has no effect on the color of ``v1`` (which
     is typically red - the hint has no effect otherwise).
 
-    Note that in classical approaches to partial evalution, it is not
+    Note that in classical approaches to partial evaluation, it is not
     possible to copy a red value into a green one.  The implementation
     of such an operation ("promotion") is only possible in a
     "just-in-time" approach that only Psyco_ implemented so far (to the
@@ -313,3 +313,9 @@ The Backend interface
 
 ...
 
+
+.. _`RPython`: coding-guide.html#rpython
+.. _`low-level graphs`: rtyper.html
+.. _`pointer-and-structures-like objects`: rtyper.html#low-level-types 
+.. _`annotator`: dynamic-language-translation.html
+.. _Psyco: http://psyco.sourceforge.net
