@@ -32,6 +32,11 @@ def gettestobjspace(name=None, **kwds):
         return _SPACECACHE[key]
     except KeyError:
         if option.runappdirect:
+            if name not in (None, 'std'):
+                myname = getattr(sys, 'pypy_objspaceclass', '')
+                if not myname.lower().startswith(name):
+                    py.test.skip("cannot runappdirect test: "
+                                 "%s objspace required" % (name,))
             return TinyObjSpace(**kwds)
         try:
             space = make_objspace(config)
