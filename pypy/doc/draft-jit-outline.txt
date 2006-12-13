@@ -273,7 +273,7 @@ Using this information the *timeshifting* of the ``ll_plus_minus``,
 should be able to produce code that unfolds the loop and respectively
 folds instruction dispatching (the ifs) at compile-time, because the
 while condition, the ``pc`` increment, and the dispatching are
-operations among only greens (constants are green by default).
+operations between greens only (constants are green by default).
 
 Calls
 ----------------------------------
