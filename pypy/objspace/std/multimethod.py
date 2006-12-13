@@ -101,12 +101,15 @@ class MultiMethodTable:
 class InstallerVersion1:
     """NOT_RPYTHON"""
 
+    instance_counter = 0
+
     mmfunccache = {}
 
     prefix_memo = {}
 
     def __init__(self, multimethod, prefix, list_of_typeorders,
                  baked_perform_call=True, base_typeorder=None):
+        self.__class__.instance_counter += 1
         self.multimethod = multimethod
         # avoid prefix clashes, user code should supply different prefixes
         # itself for nice names in tracebacks
@@ -602,11 +605,13 @@ class FuncEntry(object):
 class InstallerVersion2(object):
     """NOT_RPYTHON"""
 
+    instance_counter = 0
     mrdtables = {}
 
     def __init__(self, multimethod, prefix, list_of_typeorders,
                  baked_perform_call=True, base_typeorder=None):
         #print 'InstallerVersion2:', prefix
+        self.__class__.instance_counter += 1
         self.multimethod = multimethod
         self.prefix = prefix
         self.list_of_typeorders = list_of_typeorders

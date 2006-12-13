@@ -2,13 +2,6 @@ import py
 
 import os, sys
 
-# as of revision 27081, multimethod.py uses the InstallerVersion1 by default
-# because it is much faster both to initialize and run on top of CPython.
-# The InstallerVersion2 is optimized for making a translator-friendly
-# structure.  So we patch here...
-from pypy.objspace.std import multimethod
-multimethod.Installer = multimethod.InstallerVersion2
-
 from pypy.objspace.std.objspace import StdObjSpace
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
@@ -88,7 +81,21 @@ class PyPyTarget(object):
         return parser
 
     def handle_config(self, config):
-        pass
+        # as of revision 27081, multimethod.py uses the InstallerVersion1 by default
+        # because it is much faster both to initialize and run on top of CPython.
+        # The InstallerVersion2 is optimized for making a translator-friendly
+        # structure for low level backends. However, InstallerVersion1 is still
+        # preferable for high level backends, so we patch here.
+        from pypy.objspace.std import multimethod
+        if config.translation.type_system == 'lltype':
+            assert multimethod.InstallerVersion1.instance_counter == 0,\
+                   'The wrong Installer version has already been instatiated'
+            multimethod.Installer = multimethod.InstallerVersion2
+        else:
+            # don't rely on the default, set again here
+            assert multimethod.InstallerVersion2.instance_counter == 0,\
+                   'The wrong Installer version has already been instatiated'
+            multimethod.Installer = multimethod.InstallerVersion1
 
     def handle_translate_config(self, translateconfig):
         pass
