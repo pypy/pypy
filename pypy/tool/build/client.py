@@ -20,22 +20,24 @@ class PPBClient(object):
         self.channel.waitclose()
         self.channel.close()
 
-    def compile(self, info):
+    def compile(self, request):
         """send a compile job to the client side"""
-        self.channel.send(info)
+        self.channel.send(request.serialize())
         accepted = self.channel.receive()
         if accepted:
-            self.busy_on = info
-            thread.start_new_thread(self.wait_until_done, (info,))
+            self.busy_on = request
+            thread.start_new_thread(self.wait_until_done, (request,))
         else:
-            self.refused.append(info)
+            self.refused.append(request)
         return accepted
 
-    def wait_until_done(self, info):
-        buildpath = self.server.get_new_buildpath(info)
+    def wait_until_done(self, request):
+        buildpath = self.server.get_new_buildpath(request)
+        open('/tmp/tessie', 'w').write('foo')
         
         if not self.testing:
             fp = buildpath.zipfile.open('w')
+            gotdata = False
             try:
                 while True:
                     # read data in chunks
@@ -47,13 +49,14 @@ class PPBClient(object):
                     # end of data is marked by sending a None
                     if chunk is None:
                         break
+                    gotdata = True
                     fp.write(chunk)
             finally:
                 fp.close()
             # write the log (process stdout/stderr) to the buildpath
             buildpath.log = self.channel.receive()
 
-        self.server.compilation_done(info, buildpath)
+        self.server.compilation_done(buildpath)
         self.busy_on = None
 
 initcode = """
@@ -142,3 +145,4 @@ class OutputBuffer(object):
 
     def isatty(self):
         return False
+

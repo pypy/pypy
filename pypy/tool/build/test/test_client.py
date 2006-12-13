@@ -1,5 +1,6 @@
 import path
 from pypy.tool.build import client
+from pypy.tool.build import build
 import py
 import time
 import sys
@@ -9,7 +10,10 @@ class ClientForTests(client.PPBClient):
     def __init__(self, *args, **kwargs):
         super(ClientForTests, self).__init__(*args, **kwargs)
         self._done = []
-        
+
+class BuildRequestForTests(build.BuildRequest):
+    normalized_rev = 1
+
 def setup_module(mod):
     mod.temp = temp = py.test.ensuretemp('pypybuilder-client')
     mod.svr = svr = FakeServer(temp)
@@ -26,27 +30,28 @@ def setup_module(mod):
     svr.register(c2)
 
 def test_compile():
-    info = ({'foo': 1}, {'bar': 2})
+    nfo = ({'foo': 1}, {'bar': 2})
+    br = BuildRequestForTests('foo@bar.com', {'foo': 1}, {'bar': 1},
+                              'file:///foo', 'HEAD', 0)
     c1c.send(True) # notifying we 'accept' the compile
-    accepted = c1.compile(info)
+    accepted = c1.compile(br)
     assert accepted
     ret = c1.channel.receive()
-    assert ret == info # this was still in the buffer
-    assert c1.busy_on == info
+    assert ret == br.serialize() # this was still in the buffer
+    assert c1.busy_on.serialize() == br.serialize()
     c1.channel.send('foo bar')
     c1.channel.send(None)
     c1.channel.send('log')
 
     # meanwhile the client starts a thread that waits until there's data 
     # available on its own channel, with our FakeChannel it has data rightaway,
-    # though (the channel out and in are the same, and we just sent 'info'
+    # though (the channel out and in are the same, and we just sent 'ret'
     # over the out one)
     time.sleep(1)
     
     done = svr._done.pop()
     
-    assert done[0] == info
-    assert done[1] == (temp / 'build-0')
+    assert str(done) == str(temp / 'build-0')
     assert temp.join('build-0/log').read() == 'log'
 
 def test_channelwrapper():
@@ -66,11 +71,13 @@ def test_channelwrapper():
     assert c.buffer == ['foo', 'bar', 'baz', None]
 
 def test_failed_checker():
-    info = ({'foo': 1}, {'bar': 2})
+    br = build.BuildRequest('foo@bar.com', {'foo': 1}, {'bar': 2},
+                            'file:///foo', 'HEAD', 0)
+    br._nr = 1
     c1c.send(False) # notifying we _don't_ 'accept' the compile
-    accepted = c1.compile(info)
+    accepted = c1.compile(br)
     assert not accepted
-    assert info in c1.refused
+    assert br in c1.refused
     assert c1.busy_on == None
 
 def test_output_buffer():

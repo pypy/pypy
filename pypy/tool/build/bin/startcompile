@@ -4,14 +4,17 @@ import path
 import sys
 import random
 from pypy.tool.build import config
+from pypy.tool.build import build
+from pypy.tool.build.tooloption import tool_config
 
-def parse_options(config):
+def parse_options(config, tool_config):
     # merge system + compile options into one optionparser
     from py.compat.optparse import OptionParser, OptionGroup
     from pypy.config.config import to_optparse
 
     optparser = to_optparse(config.system_config)
     to_optparse(config.compile_config, parser=optparser)
+    to_optparse(tool_config, parser=optparser)
 
     (options, args) = optparser.parse_args()
 
@@ -26,7 +29,8 @@ initcode = """
     
     try:
         from pypy.tool.build import ppbserver
-        ret = ppbserver.compile(%r, (%r, %r))
+        from pypy.tool.build import build
+        ret = ppbserver.compile(%r)
         channel.send(ret)
         channel.close()
     except:
@@ -37,22 +41,27 @@ initcode = """
             channel.send(line[:-1])
         del tb
 """
-def init(gw, sysinfo, compileinfo, path, email, port=12321):
+def init(gw, request, path, port=12321):
     from pypy.tool.build import execnetconference
 
     conference = execnetconference.conference(gw, port, False)
-    channel = conference.remote_exec(initcode % (path, email, sysinfo,
-                                                 compileinfo))
+    channel = conference.remote_exec(initcode % (path, request))
     return channel
 
 if __name__ == '__main__':
     from py.execnet import SshGateway, PopenGateway
     from pypy.config.config import make_dict
 
-    optparser, options, args = parse_options(config)
+    optparser, options, args = parse_options(config, tool_config)
 
     sysinfo = make_dict(config.system_config)
     compileinfo = make_dict(config.compile_config)
+    
+    buildrequest = build.BuildRequest(args[0], sysinfo, compileinfo,
+                                      config.svnpath_to_url(
+                                                    tool_config.svnpath),
+                                      tool_config.svnrev,
+                                      tool_config.revrange)
 
     print 'going to start compile job with info:'
     for k, v in sysinfo.items():
@@ -66,8 +75,8 @@ if __name__ == '__main__':
         gw = PopenGateway()
     else:
         gw = SshGateway(config.server)
-    channel = init(gw, sysinfo, compileinfo, config.path, args[0],
-                   port=config.port)
+
+    channel = init(gw, buildrequest, config.path, port=config.port)
     data = channel.receive()
     if type(data) == str:
         print data
@@ -85,3 +94,4 @@ if __name__ == '__main__':
             print 'you will be mailed once it\'s ready'
     channel.close()
     gw.exit()
+

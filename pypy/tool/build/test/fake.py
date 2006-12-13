@@ -1,4 +1,4 @@
-from pypy.tool.build.server import BuildPath
+from pypy.tool.build.build import BuildPath
 
 class FakeChannel(object):
     def __init__(self):
@@ -23,11 +23,10 @@ class FakeClient(object):
         self.busy_on = None
         self.refused = []
 
-    def compile(self, info):
-        for k, v in info[0].items():
-            self.channel.send('%s: %r' % (k, v))
+    def compile(self, request):
+        self.channel.send(request.serialize())
         self.channel.send(None)
-        self.busy_on = info
+        self.busy_on = request
         return True
 
 class FakeServer(object):
@@ -41,15 +40,15 @@ class FakeServer(object):
     def register(self, client):
         self._clients.append(client)
 
-    def compilation_done(self, info, data):
-        self._done.append((info, data))
+    def compilation_done(self, ret):
+        self._done.append(ret)
         
     i = 0
-    def get_new_buildpath(self, info):
+    def get_new_buildpath(self, request):
         name = 'build-%s' % (self.i,)
         self.i += 1
         bp = BuildPath(str(self._builddirpath / name))
-        bp.info = info
+        bp.request = request
         bp.ensure(dir=1)
         return bp
 

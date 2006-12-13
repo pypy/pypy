@@ -2,9 +2,9 @@ import path
 from pypy.tool.build import server
 import py
 from fake import FakeChannel, FakeClient
-from pypy.tool.build.server import RequestStorage
-from pypy.tool.build.server import BuildPath
+from pypy.tool.build import build
 import time
+from repo import create_temp_repo
 
 def setup_module(mod):
     mod.temppath = temppath = py.test.ensuretemp('pypybuilder-server')
@@ -45,44 +45,55 @@ def test_register():
     py.test.raises(IndexError, 'svr._channel.receive()')
 
 def test_compile():
-    # XXX this relies on the output not changing... quite scary
-    info = {'foo': 1}
-    ret = svr.compile('test@domain.com', (info, None))
+    repo = create_temp_repo('compile')
+    repodir = repo.mkdir('foo')
+    
+    br = build.BuildRequest('foo@bar.com', {'foo': 1}, {},
+                            str(repodir), 'HEAD', 0)
+    ret = svr.compile(br)
     assert not ret[0]
     assert ret[1].find('found a suitable client') > -1
     ret = svr._channel.receive()
     assert ret.find('going to send compile job') > -1
     ret = c1.channel.receive()
-    assert ret == 'foo: 1'
-    ret = c1.channel.receive()
-    assert ret is None
+    assert ret == br.serialize()
+    none = c1.channel.receive()
+    assert none is None
     py.test.raises(IndexError, "c2.channel.receive()")
 
-    svr.compile('test@domain.com', ({'foo': 3}, None))
+    br2 = build.BuildRequest('foo@baz.com', {'foo': 3}, {},
+                             str(repodir), 'HEAD', 0)
+    svr.compile(br2)
     ret = svr._channel.receive()
     assert ret.find('no suitable client available') > -1
 
-    info = {'bar': [3]}
-    svr.compile('test@domain.com', (info, None))
+    br3 = build.BuildRequest('foo@qux.com', {'bar': [3]}, {},
+                             str(repodir), 'HEAD', 0)
+    svr.compile(br3)
     ret = svr._channel.receive()
     assert ret.find('going to send') > -1
-    assert c2.channel.receive() == 'bar: [3]'
+    assert c2.channel.receive() == br3.serialize()
     assert c2.channel.receive() is None
     py.test.raises(IndexError, "c1.channel.receive()")
 
-    info = {'foo': 1}
-    ret = svr.compile('test@domain.com', (info, None))
+    br4 = build.BuildRequest('foo@spam.com', {'foo': 1}, {},
+                             str(repodir), 'HEAD', 0)
+    ret = svr.compile(br4)
     assert not ret[0]
     assert ret[1].find('this build is already') > -1
     assert svr._channel.receive().find('currently in progress') > -1
 
     c1.busy_on = None
-    bp = BuildPath(str(temppath / 'foo'))
-    svr.compilation_done((info, None), bp)
-    ret = svr.compile('test@domain.com', (info, None))
+    bp = build.BuildPath(str(temppath / 'foo'))
+    print br
+    bp.request = br
+    svr.compilation_done(bp)
+    clone = build.BuildRequest.fromstring(bp.request.serialize())
+    clone.email = 'test@domain.com'
+    ret = svr.compile(clone)
     assert ret[0]
     assert isinstance(ret[1], str)
-    assert BuildPath(ret[1]) == bp
+    assert build.BuildPath(ret[1]) == bp
     ret = svr._channel.receive()
     assert ret.find('compilation done for') > -1
     for i in range(2):
@@ -90,22 +101,6 @@ def test_compile():
         assert ret.find('going to send email to') > -1
     ret = svr._channel.receive()
     assert ret.find('already a build for this info') > -1
-    
-def test_buildpath():
-    tempdir = py.test.ensuretemp('pypybuilder-buildpath')
-    # grmbl... local.__new__ checks for class equality :(
-    bp = BuildPath(str(tempdir / 'test1'))
-    assert not bp.check()
-    assert bp.info == ({}, {})
-
-    bp.info = ({'foo': 1, 'bar': [1,2]}, {'baz': 1})
-    assert bp.info == ({'foo': 1, 'bar': [1,2]}, {'baz': 1})
-    assert (sorted((bp / 'system_info.txt').readlines()) ==
-            ['bar: [1, 2]\n', 'foo: 1\n'])
-
-    assert isinstance(bp.zipfile, py.path.local)
-    bp.zipfile = ['foo', 'bar', 'baz']
-    assert bp.zipfile.read() == 'foobarbaz'
 
 def test__create_filename():
     svr._i = 0 # reset counter
@@ -113,37 +108,42 @@ def test__create_filename():
     name1 = svr._create_filename()
     assert name1 == 'pypytest-%s-0' % (today,)
     assert svr._create_filename() == ('pypytest-%s-1' % (today,))
-    bp = BuildPath(str(temppath / ('pypytest-%s-2' % (today,))))
+    bp = build.BuildPath(str(temppath / ('pypytest-%s-2' % (today,))))
     try:
         bp.ensure()
         assert svr._create_filename() == 'pypytest-%s-3'% (today,)
     finally:
         bp.remove()
-    
+
 def test_get_new_buildpath():
+    repo = create_temp_repo('get_new_buildpath')
+    repodir = repo.mkdir('foo')
+    
     svr._i = 0
     today = time.strftime('%Y%m%d')
+    br = build.BuildRequest('foo@bar.com', {'foo': 'bar'}, {'baz': 'qux'},
+                            str(repodir), 'HEAD', 0)
 
-    path1 = svr.get_new_buildpath(({'foo': 'bar'}, {'baz': 'qux'}))
+    bp1 = svr.get_new_buildpath(br)
+    bp1.log = ['foo']
     try:
-        assert isinstance(path1, BuildPath)
-        assert path1.info == ({'foo': 'bar'}, {'baz': 'qux'})
-        assert path1.basename == 'pypytest-%s-0' % (today,)
+        assert isinstance(bp1, build.BuildPath)
+        assert bp1.basename == 'pypytest-%s-0' % (today,)
 
         try:
-            path2 = svr.get_new_buildpath(({'foo': 'baz'}, {'bar': 'qux'}))
-            assert path2.info == ({'foo': 'baz'}, {'bar': 'qux'})
-            assert path2.basename == 'pypytest-%s-1' % (today,)
+            bp2 = svr.get_new_buildpath(br)
+            bp2.log = ['bar']
+            assert bp2.basename == 'pypytest-%s-1' % (today,)
         finally:
-            path2.remove()
+            bp2.remove()
     finally:
-        path1.remove()
+        bp1.remove()
 
 def test_cleanup_old_builds():
     temppath = py.test.ensuretemp('cleanup_old_builds')
-    bp1 = server.BuildPath(temppath.join('bp1'))
+    bp1 = build.BuildPath(temppath.join('bp1'))
     bp1.ensure(dir=True)
-    bp2 = server.BuildPath(temppath.join('bp2'))
+    bp2 = build.BuildPath(temppath.join('bp2'))
     bp2.ensure(dir=True)
     bp2.log = 'log'
     svr = server.PPBServer('test', FakeChannel(), str(temppath))

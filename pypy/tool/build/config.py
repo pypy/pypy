@@ -37,3 +37,8 @@ testpath = [str(py.magic.autopath().dirpath().dirpath())]
 # sysinfo, compileinfo), if one of them returns False the compilation will
 # not be accepted
 client_checkers = []
+
+# function to turn SVN paths into full URLs
+def svnpath_to_url(p):
+    return 'http://codespeak.net/svn/pypy/%s' % (p,)
+

@@ -1,8 +1,10 @@
 import path
 from pypy.tool.build import client, server, execnetconference
 from pypy.tool.build import config
+from pypy.tool.build import build
 from pypy.config import config as pypyconfig
 import py
+from repo import create_temp_repo
 
 # XXX NOTE: if you encounter failing tests on a slow system, you may want to
 # increase the sleep interval a bit to see if that helps...
@@ -20,10 +22,14 @@ def _get_sysconfig():
 def test_functional_1():
     if not py.test.pypybuilder_option.functional:
         py.test.skip('skipping functional test, use --functional to run it')
-    
+
     # XXX this one is a bit messy, it's a quick functional test for the whole
     # system, but for instance contains time.sleep()s to make sure all threads
     # get the time to perform tasks and such... 
+
+    repo = create_temp_repo('functional')
+    repo.mkdir('foo')
+    foourl = str(repo.join('foo'))
 
     # first initialize a server
     sgw = py.execnet.PopenGateway()
@@ -55,7 +61,8 @@ def test_functional_1():
         sys.path += %r
         
         from pypy.tool.build import ppbserver
-        channel.send(ppbserver.compile(%r, (%r, {})))
+        from pypy.tool.build import build
+        channel.send(ppbserver.compile(%r))
         channel.close()
     """
     compgw = py.execnet.PopenGateway()
@@ -65,8 +72,9 @@ def test_functional_1():
     # freezes (from the app waiting for input)
     
     # this one should fail because there's no client found for foo = 3
-    compc = compconf.remote_exec(code % (config.testpath, 'foo1@bar.com',
-                                            {'foo': 3}))
+    br = build.BuildRequest('foo1@bar.com', {'foo': 3}, {}, foourl,
+                            1, 0)
+    compc = compconf.remote_exec(code % (config.testpath, br))
     
     # sorry...
     py.std.time.sleep(SLEEP_INTERVAL)
@@ -76,8 +84,9 @@ def test_functional_1():
     assert ret[1].find('no suitable client found') > -1
 
     # this one should be handled by client 1
-    compc = compconf.remote_exec(code % (config.testpath, 'foo2@bar.com',
-                                            {'foo': 1}))
+    br = build.BuildRequest('foo2@bar.com', {'foo': 1}, {}, foourl,
+                            1, 0)
+    compc = compconf.remote_exec(code % (config.testpath, br))
     
     # client 1 will now send a True to the server to tell it wants to compile
     cc1.send(True)
@@ -95,7 +104,8 @@ def test_functional_1():
 
     # client 1 should by now have received the info to build for
     ret = cc1.receive()
-    assert ret == ({'foo': 1}, {})
+    request = build.BuildRequest.fromstring(ret)
+    assert request.sysinfo == {'foo': 1}
 
     # this should have created a package in the temp dir
     assert len(temppath.listdir()) == 1
@@ -122,7 +132,7 @@ def test_functional_1():
         ppbserver._try_queued()
         # give the server some time, the clients 'compile' in threads
         time.sleep(%s) 
-        channel.send(ppbserver._requeststorage._id_to_emails)
+        channel.send(ppbserver._waiting)
         channel.close()
     """
     compgw2 = py.execnet.PopenGateway()
@@ -134,7 +144,7 @@ def test_functional_1():
     # we check whether all emails are now sent, since after adding the third
     # client, and calling _try_queued(), both jobs should have been processed
     ret = compc2.receive()
-    assert ret.values() == []
+    assert ret == []
 
     # this should also have created another package in the temp dir
     assert len(temppath.listdir()) == 2
@@ -152,3 +162,4 @@ def test_functional_1():
     compgw.exit()
     compgw2.exit()
     sgw.exit()
+
