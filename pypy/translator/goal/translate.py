@@ -145,10 +145,6 @@ def parse_options_and_load_target():
     if args and not targetspec_dic.get('take_options', False):
         log.WARNING("target specific arguments supplied but will be ignored: %s" % ' '.join(args))
 
-    # let the target modify or prepare itself
-    # based on the config
-    if 'handle_config' in targetspec_dic:
-        targetspec_dic['handle_config'](config)
     # give the target the possibility to get its own configuration options
     # into the config
     if 'get_additional_config_options' in targetspec_dic:
@@ -157,6 +153,11 @@ def parse_options_and_load_target():
                 optiondescr,
                 existing_config=config,
                 translating=True)
+
+    # let the target modify or prepare itself
+    # based on the config
+    if 'handle_config' in targetspec_dic:
+        targetspec_dic['handle_config'](config)
 
     if 'handle_translate_config' in targetspec_dic:
         targetspec_dic['handle_translate_config'](translateconfig)
