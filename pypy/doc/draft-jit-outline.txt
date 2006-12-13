@@ -243,8 +243,37 @@ section about promotion_.
 Example
 ----------------------------------
 
-XXX
+Let's consider a very small interpreter-like example::
 
+        def ll_plus_minus(s, x, y):
+            acc = x
+            pc = 0
+            while pc < len(s):
+                op = s[pc]
+                op = hint(op, concrete=True)
+                if op == '+':
+                    acc += y
+                elif op == '-':
+                    acc -= y
+                pc += 1
+            return acc
+
+``s`` here is an input program, simply a string of "+" or "-", x and y
+are integer input arguments.
+
+The annotation of ``op = hint(op, concrete=True)`` will follow the
+dependencies of the argument ``op``, which is the result of ``op =
+s[pc]``, so both ``s``and ``pc`` will be marked green. ``x``, ``y``
+and ``acc`` will stay red.
+
+The result ``op`` compared to the possible "instructions" will also be
+green. Because ``s``is green also ``len(s)`` will be.
+
+Using this information the *timeshifting* of the ``ll_plus_minus``,
+should be able to produce code that unfolds the loop and respectively
+folds instruction dispatching (the ifs) at compile-time, because the
+while condition, the ``pc``increment, and the dispatching are
+operations among only greens (constants are green by default).
 
 Calls
 ----------------------------------
