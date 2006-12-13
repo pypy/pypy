@@ -141,6 +141,13 @@ class JsTest(BaseRtypingTest, OORtypeMixin):
         #    self._ann = ann
         #    self._cli_func = compile_function(fn, ann)
         #    return self._cli_func
+
+        # XXX this will capture and use constant values
+        # for some test, for example reused from rpython/test
+        # it may result in annotation failures
+        # because some paths are not considered!
+        # that's what is provoking the failures
+        # in test_rpython
         def f():
             res = fn(*args)
             if isinstance(res, type(None)):
