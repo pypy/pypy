@@ -103,8 +103,6 @@ class AppGreenlet(Coroutine):
             self.costate.operr = None
             raise operr
         args_w, kwds_w = self.costate.__args__.unpack()
-        if args_w is None:
-            return self.space.w_None
         if len(args_w) == 1:
             return args_w[0]
         return self.space.newtuple(args_w)

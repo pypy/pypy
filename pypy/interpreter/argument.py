@@ -322,7 +322,7 @@ class Arguments(AbstractArguments):
 
     ###  Construction  ###
 
-    def __init__(self, space, args_w=None, kwds_w=None,
+    def __init__(self, space, args_w, kwds_w=None,
                  w_stararg=None, w_starstararg=None):
         self.space = space
         self.arguments_w = args_w
