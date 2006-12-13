@@ -1,8 +1,9 @@
-import sys
+import sys, operator
 from pypy.translator.translator import TranslationContext
 from pypy.annotation import model as annmodel
 from pypy.rpython.test import snippet
-from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
+from pypy.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
+from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 
 class TestSnippet(object):
@@ -173,6 +174,24 @@ class BaseTestRint(BaseRtypingTest):
             res = self.interpret(f, [inttype(0)])
             assert res == f(inttype(0))
             assert type(res) == inttype
+
+    def test_neg_abs_ovf(self):
+        for op in (operator.neg, abs):
+            def f(x):
+                try:
+                    return ovfcheck(op(x))
+                except OverflowError:
+                    return 0
+            res = self.interpret(f, [-1])
+            assert res == 1
+            res = self.interpret(f, [int(-1<<(r_int.BITS-1))])
+            assert res == 0
+
+            res = self.interpret(f, [r_longlong(-1)])
+            assert res == 1
+            res = self.interpret(f, [r_longlong(-1)<<(r_longlong.BITS-1)])
+            assert res == 0
+            
 
 class TestLLtype(BaseTestRint, LLRtypeMixin):
     pass

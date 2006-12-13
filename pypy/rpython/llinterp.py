@@ -769,6 +769,20 @@ class LLFrame(object):
         except OverflowError:
             self.make_llexception()
 
+    def op_llong_neg_ovf(self, x):
+        assert type(x) is r_longlong
+        try:
+            return ovfcheck(-x)
+        except OverflowError:
+            self.make_llexception()
+
+    def op_llong_abs_ovf(self, x):
+        assert type(x) is r_longlong
+        try:
+            return ovfcheck(abs(x))
+        except OverflowError:
+            self.make_llexception()
+
     def _makefunc2(fn, operator, xtype, ytype=None):
         import sys
         d = sys._getframe(1).f_locals
