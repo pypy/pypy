@@ -384,12 +384,8 @@ class NodeInfo:
                     print >> buf, '    if not space.is_w(w_%s, space.w_None):' % (argname,)
                 else:
                     indent = ''
-                print >> buf, indent+'    w_mutate_%s = space.getattr(w_%s, space.wrap("mutate"))' % ( argname,
-                                                                                          argname)
-                print >> buf, indent+"    w_mutate_%s_args = Arguments(space, [ w_visitor ])"% ( argname )
-                print >> buf, indent+"    w_new_%s = space.call_args(w_mutate_%s, w_mutate_%s_args)"% ( argname,
-                                                                                            argname,
-                                                                                            argname)
+                print >> buf, indent+'    w_new_%s = space.call_method(w_%s, "mutate", w_visitor)'% (argname,
+                                                                                                     argname)
                 print >> buf, indent+'    space.setattr(w_self, space.wrap("%s"), w_new_%s)' % ( argname,
                                                                                    argname)
                 print >> buf, ""
@@ -398,20 +394,14 @@ class NodeInfo:
                 print >> buf, '    list_w = space.unpackiterable(w_list)'
                 print >> buf, '    newlist_w = []'
                 print >> buf, '    for w_item in list_w:'
-                print >> buf, '        w_item_mutate = space.getattr(w_item, space.wrap("mutate"))'
-                print >> buf, '        w_item_mutate_args = Arguments(space, [ w_visitor ])'
-                print >> buf, '        w_newitem = space.call_args(w_item_mutate, w_item_mutate_args)'
+                print >> buf, '        w_newitem = space.call_method(w_item, "mutate", w_visitor)'
                 print >> buf, '        if not space.is_w(w_newitem, space.w_None):'
                 print >> buf, '            newlist_w.append(w_newitem)'
                 print >> buf, '    w_newlist = space.newlist(newlist_w)'
                 print >> buf, '    space.setattr(w_self, space.wrap("%s"), w_newlist)'%(argname)
                 
     
-        print >> buf, '    w_visit%s = space.getattr(w_visitor, space.wrap("visit%s"))' % (self.name,
-                                                                                    self.name)
-        print >> buf, "    w_visit%s_args = Arguments(space, [ w_self ])" % self.name
-        print >> buf, "    return space.call_args(w_visit%s, w_visit%s_args)" % (self.name,
-                                                                             self.name )
+        print >> buf, '    return space.call_method(w_visitor, "visit%s", w_self)' % (self.name,)
         
 
     def _gen_typedef(self, buf):
@@ -423,9 +413,7 @@ class NodeInfo:
             new_unwrap_spec = ['ObjSpace', 'W_Root', 'int']
         parent_type = "%s.typedef" % self.parent.name
         print >> buf, "def descr_%s_accept( space, w_self, w_visitor):" %self.name
-        print >> buf, "    w_callable = space.getattr(w_visitor, space.wrap('visit%s'))" % self.name
-        print >> buf, "    args = Arguments(space, [ w_self ])"
-        print >> buf, "    return space.call_args(w_callable, args)"
+        print >> buf, "    return space.call_method(w_visitor, 'visit%s', w_self)" % self.name
 
         print >> buf, ""
         # mutate stuff
@@ -649,7 +637,6 @@ from consts import CO_VARARGS, CO_VARKEYWORDS, OP_ASSIGN
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.interpreter.gateway import interp2app, W_Root, ObjSpace
-from pypy.interpreter.argument import Arguments
 from pypy.interpreter.error import OperationError
 
 def flatten(list):
@@ -709,14 +696,10 @@ class Node(Wrappable):
         return space.newlist( [ space.wrap( it ) for it in lst ] )
 
 def descr_node_accept( space, w_self, w_visitor ):
-    w_callable = space.getattr(w_visitor, space.wrap('visitNode'))
-    args = Arguments(space, [ w_self ])
-    return space.call_args( w_callable, args )
+    return space.call_method( w_visitor, 'visitNode', w_self )
 
 def descr_node_mutate(space, w_self, w_visitor): 
-    w_visitNode = space.getattr(w_visitor, space.wrap("visitNode"))
-    w_visitNode_args = Arguments(space, [ w_self ])
-    return space.call_args(w_visitNode, w_visitNode_args)
+    return space.call_method(w_visitor, 'visitNode', w_self)
 
 def descr_Node_new(space, w_subtype, lineno=-1):
     node = space.allocate_instance(Node, w_subtype)
@@ -774,20 +757,14 @@ def descr_expression_new(space, w_subtype, w_node, lineno=-1):
     return space.wrap(self)
 
 def descr_expression_accept(space, w_self, w_visitor):
-    w_callable = space.getattr(w_visitor, space.wrap("visitExpression"))
-    args = Arguments(space, [ w_self ])
-    return space.call_args(w_callable, args)
+    return space.call_method(w_visitor, 'visitExpression', w_self)
 
 def descr_expression_mutate(space, w_self, w_visitor):
     w_node = space.getattr(w_self, space.wrap("node"))
-    w_mutate_node = space.getattr(w_node, space.wrap("mutate"))
-    w_mutate_node_args = Arguments(space, [ w_visitor ])
-    w_new_node = space.call_args(w_mutate_node, w_mutate_node_args)
+    w_new_node = space.call_method(w_node, "mutate", w_visitor)
     space.setattr(w_self, space.wrap("node"), w_new_node)
 
-    w_visitExpression = space.getattr(w_visitor, space.wrap("visitExpression"))
-    w_visitExpression_args = Arguments(space, [ w_self ])
-    return space.call_args(w_visitExpression, w_visitExpression_args)
+    return space.call_method(w_visitor, "visitExpression", w_self)
 
 Expression.typedef = TypeDef('Expression', Node.typedef,
                      __new__ = interp2app(descr_expression_new, unwrap_spec=[ObjSpace, W_Root, W_Root, int]),
