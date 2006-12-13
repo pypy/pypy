@@ -90,7 +90,6 @@ Timeshifting: transforming interpreter into compilers
 
 intro and basics
 
-
 Transform vs hrtyping
 -----------------------
 
