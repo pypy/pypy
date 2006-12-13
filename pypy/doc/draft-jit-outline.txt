@@ -232,20 +232,62 @@ in practice are:
 ``v2 = hint(v1, variable=True)``
     Force ``v2`` to be red, even if ``v1`` is green.
 
-A program using promotion also need to contain a "global merge point"
+A program using promotion also needs to contain a ``global_merge_point``
 hint; this has no effect on the hint-annotator and is described in the
 section about promotion_.
 
+Calls
+----------------------------------
 
+The ``concrete`` hint requires precise tracking of dependencies across
+calls.  More specifically, unlike the regular type-inferencing
+annotator, the hint-annotator does not simply propagate this information
+through called function, but keep all dependency information local to a
+function.  The problem is best shown by an example::
 
+    x = ...
+    y = ...
+    z = f(x, y)
 
-calls...
+In this example, assuming that ``f(x, y)`` has no side effects, then we
+want the dependency set of ``z`` to be the union of the dependencies of
+``x`` and ``y`` (if both contribute to the result).  But if another call
+site calls ``f(x2, y2)`` then precision would be lost - the annotations
+that would propagate within ``f`` would be marked as depending on all of
+``x``, ``x2``, ``y`` and ``y2``, and then so would ``z``.
 
-green propagation at fixpoint...
+To fix this problem, we only propagate dependencies that are local to a
+function.  Around a call like ``z = f(x, y)``, we check in the
+annotations of the function ``f`` on which input arguments the result is
+marked as depending on, and we reproduce the same dependency
+relationship locally between ``x`` and ``y`` and ``z``.
+
+There are other aspects of the information carried by annotations that
+are used in the "usual" annotator way, i.e. directly propagated between
+caller and callee and back.  If the result ``z`` of a call is forced to
+be green by a ``concrete`` hint, then this forcing effect is propagated
+inside the callee (more precisely, in a fresh copy of the callee, so
+that forced and non-forced call sites can respecitvely call a
+mostly-green and a mostly-red version of the function; this is done with
+the technique of `specialization of functions`_ that is already
+available in the normal annotator).
+
+Also, if all call sites provide a green value for an argument, then the
+callee's corresponding input argument can safely be green.  (This can
+only be determined at the end of the process, though, after all call
+sites are known and stable enough; we use another fixpoint loop for
+this.)
+
+Deep freezing
+----------------------------------
 
 deepfreeze...
 
-blue containers...
+Blue containers
+----------------------------------
+
+Undocumented yet.  Not implemented in the timeshifter, so not used so far.
+
 
 
 .. _timeshifting:
