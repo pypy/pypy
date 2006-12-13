@@ -7,7 +7,7 @@ from pypy.jit.codegen import graph2rgenop
 from pypy.jit.codegen.i386.rgenop import RI386GenOp
 from pypy.rpython.memory.lltypelayout import convert_offset_to_int
 from pypy.rlib.rarithmetic import r_uint
-from ctypes import cast, c_void_p, CFUNCTYPE, c_int
+from ctypes import cast, c_void_p, CFUNCTYPE, c_int, c_float
 from pypy import conftest
 
 def conv(n):
@@ -48,7 +48,13 @@ class I386TestBasicMixin(object):
     
 
 class BasicTests(object):
-    def rgen(self, ll_function, argtypes):
+    @staticmethod
+    def _to_ctypes(t): #limited type support for now
+        if t is float:
+            return c_float
+        return c_int
+
+    def rgen(self, ll_function, argtypes, rettype=int): #XXX get rettype from annotation
         t = TranslationContext()
         t.buildannotator().build_types(ll_function, argtypes)
         t.buildrtyper().specialize()
@@ -58,8 +64,9 @@ class BasicTests(object):
         rgenop = self.RGenOp()
         self.rgenop = rgenop      # keep this alive!
         gv_generated = graph2rgenop.compile_graph(rgenop, graph)
-        ctypestypes = [c_int] * len(argtypes)   # for now
-        fp = cast(c_void_p(gv_generated.value), CFUNCTYPE(c_int, *ctypestypes))
+        ctypestypes = [BasicTests._to_ctypes(t) for t in argtypes]
+        fp = cast(c_void_p(gv_generated.value),
+                  CFUNCTYPE(BasicTests._to_ctypes(rettype), *ctypestypes))
         return fp
 
     def test_arithmetic(self):
@@ -147,7 +154,7 @@ class BasicTests(object):
     def test_char_array(self):
         A = lltype.GcArray(lltype.Char)
         def fn(n):
-            a = lltype.malloc(A, 5)
+            a = lltype.malloc(A, 5) #XXX this boils down to rgenop.genop_malloc_varsize() ?
             a[4] = 'H'
             a[3] = 'e'
             a[2] = 'l'
@@ -226,22 +233,36 @@ class BasicTests(object):
             assert fp(25, 3) == fn(25, 3)
 
     def test_float_arithmetic(self):
-        for fn in [lambda x, y: bool(y),
-                   lambda x, y: bool(y - 2.0),
-                   lambda x, y: x + y,
+        for fn in [lambda x, y: x + y,
                    lambda x, y: x - y,
                    lambda x, y: x * y,
                    lambda x, y: x / y,
-                   #lambda x, y: x % y,     not used?
-                   lambda x, y: x ** y,
+                   #lambda x, y: x % y,  #not used?
                    lambda x, y: -y,
-                   lambda x, y: ~y,
+                   #lambda x, y: ~y,    #TypeError: bad operand type for unary ~
                    lambda x, y: abs(y),
                    lambda x, y: abs(-x),
                    ]:
-            fp = self.rgen(fn, [float, float])
+            fp = self.rgen(fn, [float, float], float)
             assert fp(40.0, 2.0) == fn(40.0, 2.0)
             assert fp(25.125, 1.5) == fn(25.125, 1.5)
+
+    def test_float_pow(self): #harder test  for llvm
+        for fn in [lambda x, y: x ** y,    #not supported in llvm backend
+                   ]:
+            fp = self.rgen(fn, [float, float], float)
+            assert fp(40.0, 2.0) == fn(40.0, 2.0)
+            assert fp(25.125, 1.5) == fn(25.125, 1.5)
+
+    def test_float_cast(self): #because of differnt rettype
+        for fn in [lambda x: bool(x),
+                   lambda x: bool(x - 2.0),
+                   ]:
+            fp = self.rgen(fn, [float], bool)
+            assert fp(6.0) == fn(6.0)
+            assert fp(2.0) == fn(2.0)
+            assert fp(0.0) == fn(0.0)
+            assert fp(-2.0) == fn(-2.0)
 
 
 class TestBasic(I386TestBasicMixin,
