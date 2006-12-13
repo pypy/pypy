@@ -25,6 +25,7 @@ class AppTest_Stackless:
 
     def test_simple(self):
         import stackless
+        stackless._init()
 
         rlist = []
 
@@ -49,6 +50,7 @@ class AppTest_Stackless:
 
     def test_with_channel(self):
         import stackless
+        stackless._init()
 
         rlist = []
         def f(outchan):
@@ -79,6 +81,7 @@ class AppTest_Stackless:
     def test_counter(self):
         import random
         import stackless
+        stackless._init()
 
         numbers = range(20)
         random.shuffle(numbers)
@@ -103,6 +106,7 @@ class AppTest_Stackless:
 
     def test_scheduling_cleanup(self):
         import stackless
+        stackless._init()
         rlist = []
         def f():
             rlist.append('fb')
@@ -131,6 +135,7 @@ class AppTest_Stackless:
 
     def test_except(self):
         import stackless
+        stackless._init()
         
         rlist = []
         def f():
@@ -163,6 +168,7 @@ class AppTest_Stackless:
 
     def test_except_full(self):
         import stackless
+        stackless._init()
         
         rlist = []
         def f():
@@ -193,8 +199,9 @@ class AppTest_Stackless:
         assert rlist == "bg f E bh ag ah".split()
 
     def test_kill(self):
-        skip('kill is not really working')
         import stackless
+        stackless._init()
+
         def f():pass
         t =  stackless.tasklet(f)()
         t.kill()
@@ -208,6 +215,7 @@ class AppTest_Stackless:
             output.append(args)
 
         import stackless
+        stackless._init()
         def aCallable(value):
             print_("aCallable:", value)
 
@@ -235,10 +243,12 @@ class AppTest_Stackless:
 
     def test_simple_channel(self):
         output = []
+        #skip('')
         def print_(*args):
             output.append(args)
             
         import stackless
+        stackless._init()
         
         def Sending(channel):
             print_("sending")
@@ -251,9 +261,15 @@ class AppTest_Stackless:
         ch=stackless.channel()
 
         task=stackless.tasklet(Sending)(ch)
-        stackless.schedule(task)
+
+        # Note: the argument, schedule is taking is the value,
+        # schedule returns, not the task that runs next
+
+        #stackless.schedule(task)
+        stackless.schedule()
         task2=stackless.tasklet(Receiving)(ch)
-        stackless.schedule(task2)
+        #stackless.schedule(task2)
+        stackless.schedule()
 
         stackless.run()
 
@@ -261,12 +277,14 @@ class AppTest_Stackless:
 
     def test_balance_zero(self):
         import stackless
+        stackless._init()
 
         ch=stackless.channel()
         assert ch.balance == 0
         
     def test_balance_send(self):
         import stackless
+        stackless._init()
 
         def Sending(channel):
             channel.send("foo")
@@ -274,13 +292,13 @@ class AppTest_Stackless:
         ch=stackless.channel()
 
         task=stackless.tasklet(Sending)(ch)
-        stackless.schedule(task)
         stackless.run()
 
         assert ch.balance == 1
 
     def test_balance_recv(self):
         import stackless
+        stackless._init()
 
         def Receiving(channel):
             channel.receive()
@@ -288,7 +306,6 @@ class AppTest_Stackless:
         ch=stackless.channel()
 
         task=stackless.tasklet(Receiving)(ch)
-        stackless.schedule(task)
         stackless.run()
 
         assert ch.balance == -1
@@ -299,6 +316,7 @@ class AppTest_Stackless:
             output.append(args)
 
         import stackless
+        stackless._init()
         def f(i):
             print_(i)
 
@@ -314,6 +332,7 @@ class AppTest_Stackless:
             output.append(args)
 
         import stackless
+        stackless._init()
         def f(i):
             print_(i)
 
@@ -330,6 +349,7 @@ class AppTest_Stackless:
             output.append(args)
 
         import stackless
+        stackless._init()
         
         def Loop(i):
             for x in range(3):
@@ -343,56 +363,4 @@ class AppTest_Stackless:
         assert output == [('schedule', 1), ('schedule', 2),
                           ('schedule', 1), ('schedule', 2),
                           ('schedule', 1), ('schedule', 2),]
-
-class AppTest_StacklessPickling:
-
-    def setup_class(cls):
-        if not option.runappdirect:
-            skip('pure appdirect test (run with -A)')
-        cls.space = gettestobjspace(usemodules=('_stackless',))
-
-    def test_basic_tasklet_pickling(self):
-        import stackless
-        from stackless import run, schedule, tasklet
-        import pickle
-
-        output = []
-
-        import new
-
-        mod = new.module('mod')
-        mod.output = output
-
-        exec """from stackless import schedule
-        
-def aCallable(name):
-    output.append(('b', name))
-    schedule()
-    output.append(('a', name))
-""" in mod.__dict__
-        import sys
-        sys.modules['mod'] = mod
-        aCallable = mod.aCallable
-
-
-        tasks = []
-        for name in "ABCDE":
-            tasks.append(tasklet(aCallable)(name))
-
-        schedule()
-
-        assert output == [('b', x) for x in "ABCDE"]
-        del output[:]
-        pickledTasks = pickle.dumps(tasks)
-
-        schedule()
-        assert output == [('a', x) for x in "ABCDE"]
-        del output[:]
-        
-        unpickledTasks = pickle.loads(pickledTasks)
-        for task in unpickledTasks:
-            task.insert()
-
-        schedule()
-        assert output == [('a', x) for x in "ABCDE"]
 
