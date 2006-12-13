@@ -136,12 +136,6 @@ def test_execute():
     llvmjit.restart()
     assert execute(llsquare, 'square', 4) == 4 * 4
 
-def test_execute_with_ctypes():
-    py.test.skip('TODO: implement execute with ctypes thru real pointer to function')
-    llvmjit.restart()
-    #should use function.getPointerToFunction
-    assert execute(llsquare, 'square', 4) == 4 * 4
-
 def test_execute_nothing():
     llvmjit.restart()
     assert llvmjit.execute(None, 4) == -1 #-1 == no function supplied

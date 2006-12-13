@@ -15,3 +15,18 @@ from pypy.jit.codegen import detect_cpu
 #                py.test.skip('detected a %r CPU' % (processor,))
 #
 #        return super(Directory, self).run()
+
+Option = py.test.Config.Option
+
+option = py.test.Config.addoptions("llvm options",
+        Option('--lineno', action="store_true", default=False,
+               dest="lineno",
+               help="add linenumbers to the generated code"),
+
+        Option('--print-source', action="store_true", default=False,
+               dest="print_source",
+               help="print generated sources"),
+
+        Option('--print-debug', action="store_true", default=False,
+               dest="print_debug",
+               help="print debug information"))
