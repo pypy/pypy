@@ -342,6 +342,27 @@ class LLHelperEntry(extregistry.ExtRegistryEntry):
 
 # ____________________________________________________________
 
+def hlstr(ll_s):
+    if hasattr(ll_s, 'items'):
+        return ''.join(items)
+    else:
+        return ll_s._str
+
+class HLStrEntry(extregistry.ExtRegistryEntry):
+    _about_ = hlstr
+
+    def compute_result_annotation(self, s_ll_str):
+        return annmodel.SomeString()
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        assert hop.args_r[0].lowleveltype == hop.r_result.lowleveltype
+        v_ll_str, = hop.inputargs(*hop.args_r)
+        return hop.genop('same_as', [v_ll_str],
+                         resulttype = hop.r_result.lowleveltype)
+
+# ____________________________________________________________
+
 def cast_object_to_ptr(PTR, object):
     raise NotImplementedError("cast_object_to_ptr")
 

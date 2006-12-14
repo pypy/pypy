@@ -753,3 +753,20 @@ class TestTypedTestCase(CompilationTestCase):
         fn = self.getcompiled(f)
         res = fn()
         assert res == 42
+
+    def test_float(self):
+        ex = ['', '    ', '0', '1', '-1.5', '1.5E2', '2.5e-1', ' 0 ', '?']
+        def f(i):
+            s = ex[i]
+            try:
+                return float(s)
+            except ValueError:
+                return -999.0
+        
+        fn = self.getcompiled(f, [int])
+
+        for i in range(len(ex)):
+            expected = f(i)
+            res = fn(i)
+            assert res == expected
+

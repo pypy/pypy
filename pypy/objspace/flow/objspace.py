@@ -498,6 +498,7 @@ del _name, _exc
 
 implicit_exceptions = {
     int: [ValueError],      # built-ins that can always raise exceptions
+    float: [ValueError],
     chr: [ValueError],
     unichr: [ValueError],
     # specifying IndexError, and KeyError beyond Exception,

@@ -224,6 +224,13 @@ class __extend__(AbstractStringRepr):
         hop.exception_is_here()
         return hop.gendirectcall(self.ll.ll_int, v_str, v_base)
 
+    def rtype_float(self, hop):
+        hop.has_implicit_exception(ValueError)   # record that we know about it
+        string_repr = hop.rtyper.type_system.rstr.string_repr
+        v_str, = hop.inputargs(string_repr)
+        hop.exception_is_here()
+        return hop.gendirectcall(self.ll.ll_float, v_str)
+
     def ll_str(self, s):
         return s
 
@@ -598,3 +605,31 @@ class AbstractLLHelpers:
         if curstr:
             r.append(curstr)
         return r
+
+    def ll_float(ll_str):
+        from pypy.rpython.annlowlevel import hlstr
+        from pypy.rlib.rarithmetic import break_up_float, parts_to_float
+        s = hlstr(ll_str)
+
+        n = len(s)
+        beg = 0
+        while beg < n:
+            if s[beg] == ' ':
+                beg += 1
+            else:
+                break
+        if beg == n:
+            raise ValueError
+        end = n-1
+        while end >= 0:
+            if s[end] == ' ':
+                end -= 1
+            else:
+                break
+        assert end >= 0
+        sign, before_point, after_point, exponent = break_up_float(s[beg:end+1])
+    
+        if not before_point and not after_point:
+            raise ValueError
+
+        return parts_to_float(sign, before_point, after_point, exponent)
