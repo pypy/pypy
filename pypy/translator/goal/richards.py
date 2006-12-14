@@ -413,6 +413,20 @@ def main(entry_point = entry_point, iterations = 10):
     print "Total time for %d iterations: %.2f secs" %(iterations,total_s)
     print "Average time per iteration: %.2f ms" %(total_s*1000/iterations)
 
+try:
+    import pypyjit
+except ImportError:
+    pass
+else:
+    import types
+    for item in globals().values():
+        if isinstance(item, types.FunctionType):
+            pypyjit.enable(item.func_code)
+        elif isinstance(item, type):
+            for it in item.__dict__.values():
+                if isinstance(it, types.FunctionType):
+                    pypyjit.enable(it.func_code)
+    
 if __name__ == '__main__':
     import sys
     if len(sys.argv) >= 2:
