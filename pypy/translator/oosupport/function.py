@@ -1,5 +1,5 @@
 from pypy.objspace.flow import model as flowmodel
-from pypy.rpython.ootypesystem.ootype import Void
+from pypy.rpython.ootypesystem import ootype
 from pypy.translator.oosupport.metavm import InstructionList
 
 class Function(object):
@@ -166,26 +166,42 @@ class Function(object):
         raise NotImplementedError
             
     def render_normal_block(self, block):
-        # renders all ops but the last one
         for op in block.operations:
             self._render_op(op)
 
+        if block.exitswitch is None:
+            assert len(block.exits) == 1
+            link = block.exits[0]
+            target_label = self._get_block_name(link.target)
+            self._setup_link(link)
+            self.generator.branch_unconditionally(target_label)
+        elif block.exitswitch.concretetype is ootype.Bool:
+            self.render_bool_switch(block)
+        elif block.exitswitch.concretetype in (ootype.Signed, ootype.Unsigned, ootype.Char, ootype.UniChar):
+            self.render_numeric_switch(block)
+        else:
+            assert False, 'Unknonw exitswitch type: %s' % block.exitswitch.concretetype
+
+    def render_bool_switch(self, block):
         for link in block.exits:
             self._setup_link(link)
             target_label = self._get_block_name(link.target)
-            if link.exitcase is None or link is block.exits[-1]:
+            if link is block.exits[-1]:
                 self.generator.branch_unconditionally(target_label)
             else:
-                assert type(link.exitcase is bool)
+                assert type(link.exitcase) is bool
                 assert block.exitswitch is not None
                 self.generator.load(block.exitswitch)
                 self.generator.branch_conditionally(link.exitcase, target_label)
+
+    def render_numeric_switch(self, block):
+        raise NotImplementedError # it's too dependent on the backend to be implemented here
 
     def _setup_link(self, link):
         self.generator.add_comment("Setup link")
         target = link.target
         for to_load, to_store in zip(link.args, target.inputargs):
-            if to_load.concretetype is not Void:
+            if to_load.concretetype is not ootype.Void:
                 self.generator.add_comment("  to_load=%r to_store=%r" % (
                     to_load, to_store))
                 self.generator.load(to_load)
@@ -247,13 +263,13 @@ class Function(object):
         seen = {}
         for v in mix:
             is_var = isinstance(v, flowmodel.Variable)
-            if id(v) not in seen and is_var and v.name not in args and v.concretetype is not Void:
+            if id(v) not in seen and is_var and v.name not in args and v.concretetype is not ootype.Void:
                 locals.append(self.cts.llvar_to_cts(v))
                 seen[id(v)] = True
 
         self.locals = locals
 
     def _set_args(self):
-        args = [arg for arg in self.graph.getargs() if arg.concretetype is not Void]
+        args = [arg for arg in self.graph.getargs() if arg.concretetype is not ootype.Void]
         self.args = map(self.cts.llvar_to_cts, args)
         self.argset = set([argname for argtype, argname in self.args])

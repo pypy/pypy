@@ -8,7 +8,7 @@ from pypy.objspace.flow import model as flowmodel
 from pypy.translator.cli.support import string_literal
 
 def isnan(v):
-        return v != v*1.0 or (v == 1.0 and v == 2.0)
+    return v != v*1.0 or (v == 1.0 and v == 2.0)
 
 def isinf(v):
     return v!=0 and (v == v*2)
@@ -210,6 +210,10 @@ class IlasmGenerator(object):
     
     def load_local(self,v):
         self.opcode('ldloc', repr(v.name))
+
+    def switch(self, targets):
+        cmd = 'switch(%s)' % ', '.join(targets)
+        self.opcode(cmd)
 
     def load_const(self,type_,v):
         if type_ is Void:

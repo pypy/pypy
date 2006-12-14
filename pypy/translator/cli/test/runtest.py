@@ -9,6 +9,7 @@ from pypy.rpython.test.tool import BaseRtypingTest, OORtypeMixin
 from pypy.rpython.lltypesystem.lltype import typeOf
 from pypy.rpython.ootypesystem import ootype
 from pypy.annotation.model import lltype_to_annotation
+from pypy.translator.backendopt.all import backend_optimizations
 
 from pypy.translator.cli.option import getoption
 from pypy.translator.cli.gencli import GenCli
@@ -134,15 +135,15 @@ class TestEntryPoint(BaseEntryPoint):
             assert False, 'Input type %s not supported' % arg_type
 
 
-def compile_function(func, annotation=[], graph=None):
+def compile_function(func, annotation=[], graph=None, backend_opt={}):
     olddefs = patch()
-    gen = _build_gen(func, annotation, graph)
+    gen = _build_gen(func, annotation, graph, backend_opt)
     gen.generate_source()
     exe_name = gen.build_exe()
     unpatch(*olddefs) # restore original values
     return CliFunctionWrapper(exe_name)
 
-def _build_gen(func, annotation, graph=None):
+def _build_gen(func, annotation, graph=None, backend_opt={}):
     try: 
         func = func.im_func
     except AttributeError: 
@@ -162,7 +163,16 @@ def _build_gen(func, annotation, graph=None):
        t.view()
 
     t.buildrtyper(type_system="ootype").specialize()
-    
+    backend_opt_default = dict(
+        raisingop2direct_call=False,
+        inline_threshold=0,
+        mallocs=False,
+        merge_if_blocks=False,
+        constfold=True,
+        heap2stack=False,
+        clever_malloc_removal=False)
+    backend_opt_default.update(backend_opt)
+    backend_optimizations(t, **backend_opt_default)
     
     main_graph = t.graphs[0]
 

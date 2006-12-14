@@ -5,6 +5,7 @@ except NameError:
 
 from pypy.objspace.flow import model as flowmodel
 from pypy.rpython.lltypesystem.lltype import Void
+from pypy.rpython.ootypesystem import ootype
 from pypy.translator.oosupport.function import Function as OOFunction
 from pypy.translator.cli.option import getoption
 from pypy.translator.cli.cts import CTS
@@ -202,6 +203,39 @@ class Function(ExceptionHandler, OOFunction, Node, CLIBaseGenerator):
         if return_var.concretetype is not Void:
             self.load(return_var)
         self.ilasm.opcode('ret')
+
+    def render_numeric_switch(self, block):
+        cases = {}
+        for link in block.exits:
+            if link.exitcase == "default":
+                default = link, self.next_label('switch')
+            else:
+                if block.exitswitch.concretetype in (ootype.Char, ootype.UniChar):
+                    value = ord(link.exitcase)
+                else:
+                    value = link.exitcase
+                assert value >= 0
+                cases[value] = link, self.next_label('switch')
+
+        max_case = max(cases.keys())
+        if max_case > 4096: # XXX: how to find a good way to determine whether to use switch?
+            raise NotImplementedError # TODO
+
+        targets = []
+        for i in xrange(max_case+1):
+            link, lbl = cases.get(i, default)
+            targets.append(lbl)
+        self.generator.load(block.exitswitch)
+        self.ilasm.switch(targets)
+        self.render_switch_case(*default)
+        for link, lbl in cases.itervalues():
+            self.render_switch_case(link, lbl)
+
+    def render_switch_case(self, link, label):
+        target_label = self._get_block_name(link.target)
+        self.set_label(label)
+        self._setup_link(link)
+        self.generator.branch_unconditionally(target_label)
 
     # Those parts of the generator interface that are function
     # specific
