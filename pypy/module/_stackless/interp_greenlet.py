@@ -1,155 +1,199 @@
-from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
-from pypy.interpreter.typedef import interp_attrproperty, interp_attrproperty_w
 from pypy.interpreter.gateway import interp2app, ObjSpace, W_Root
+from pypy.interpreter.gateway import NoneNotWrapped
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.function import StaticMethod
 
-from pypy.module._stackless.stackless_flags import StacklessFlags
-from pypy.module._stackless.interp_coroutine import Coroutine, BaseCoState, AbstractThunk
-from pypy.module._stackless.coroutine import _AppThunk, makeStaticMethod
+from pypy.module._stackless.interp_coroutine import Coroutine, BaseCoState
+from pypy.module._stackless.interp_coroutine import AbstractThunk, syncstate
+from pypy.module._stackless.coroutine import makeStaticMethod
+
 
 class GreenletThunk(AbstractThunk):
 
-    def __init__(self, space, costate, greenlet):
-        self.space = space
-        self.costate = costate
+    def __init__(self, greenlet):
         self.greenlet = greenlet
 
     def call(self):
-        __args__ = self.costate.__args__
-        assert __args__ is not None
+        greenlet = self.greenlet
+        greenlet.active = True
         try:
-            w_result = self.space.call_args(self.greenlet.w_callable, __args__)
-        except OperationError, operr:
-            self.greenlet.w_dead = self.space.w_True
-            self.costate.operr = operr
-            w_result = self.space.w_None
-        else:
-            self.greenlet.w_dead = self.space.w_True
-        while 1:
-            __args__ = Arguments(self.space, [w_result])
+            space = greenlet.space
+            args_w = greenlet.costate.args_w
+            __args__ = Arguments(space, args_w)
             try:
-                w_result = self.greenlet.w_parent.w_switch(__args__)
-            except OperationError, operr:
-                self.costate.operr = operr
+                w_run = space.getattr(space.wrap(greenlet), space.wrap('run'))
+                greenlet.w_callable = None
+                w_result = space.call_args(w_run, __args__)
+            except OperationError, operror:
+                if not operror.match(space, greenlet.costate.w_GreenletExit):
+                    raise
+                w_result = operror.w_value
+        finally:
+            greenlet.active = False
+        greenlet.costate.args_w = [w_result]
 
 class AppGreenletCoState(BaseCoState):
     def __init__(self, space):
         BaseCoState.__init__(self)
-        self.__args__ = None
+        self.args_w = None
         self.space = space
-        self.operr = None
-        
+        self.w_GreenletExit  = get(space, "GreenletExit")
+        self.w_GreenletError = get(space, "GreenletError")
+
     def post_install(self):
         self.current = self.main = AppGreenlet(self.space, is_main=True)
 
 class AppGreenlet(Coroutine):
     def __init__(self, space, w_callable=None, is_main=False):
+        Coroutine.__init__(self, self._get_state(space))
         self.space = space
         self.w_callable = w_callable
-        self.w_dead = space.w_False
-        self.has_ever_run = False or is_main
-        self.is_main = is_main
-        state = self._get_state(space)
-        if is_main:
-            self.w_parent = None
-        else:
-            w_parent = state.current
-            assert isinstance(w_parent, AppGreenlet)
-            self.w_parent = w_parent
-        Coroutine.__init__(self, state)
+        self.active = is_main
         self.subctx = space.getexecutioncontext().Subcontext()
         if is_main:
             self.subctx.framestack = None     # wack
         else:
-            self.bind(GreenletThunk(space, state, self))
+            self.bind(GreenletThunk(self))
 
-    def descr_method__new__(space, w_subtype, w_callable):
+    def descr_method__new__(space, w_subtype, __args__):
         co = space.allocate_instance(AppGreenlet, w_subtype)
-        AppGreenlet.__init__(co, space, w_callable)
+        AppGreenlet.__init__(co, space)
         return space.wrap(co)
+
+    def descr_method__init__(self, w_run=NoneNotWrapped,
+                                   w_parent=NoneNotWrapped):
+        if w_run is not None:
+            self.w_set_run.im_func(self.space, self, w_run)
+        if w_parent is not None:
+            self.w_set_parent.im_func(self.space, self, w_parent)
+        # XXX strange style above, GetSetProperty needs a cleanup
 
     def _get_state(space):
         return space.fromcache(AppGreenletCoState)
     _get_state = staticmethod(_get_state)
 
     def hello(self):
+        print "hello  ", id(self), self.subctx.framestack.items
+        print syncstate.things_to_do, syncstate.temp_exc
         ec = self.space.getexecutioncontext()
         self.subctx.enter(ec)
 
     def goodbye(self):
         ec = self.space.getexecutioncontext()
         self.subctx.leave(ec)
+        print "goodbye", id(self), self.subctx.framestack.items
+        print syncstate.things_to_do, syncstate.temp_exc
 
     def w_getcurrent(space):
         return space.wrap(AppGreenlet._get_state(space).current)
     w_getcurrent = staticmethod(w_getcurrent)
 
-    def w_switch(self, __args__):
-        #print "switch", __args__, id(self)
-        if __args__.num_kwds():
-            raise OperationError(
-                self.space.w_TypeError,
-                self.space.wrap("switch() takes not keyword arguments"))
-        self.has_ever_run = True
-        self.costate.__args__ = __args__
-        self.switch()
-        #print "after switch"
-        #print self.costate.__args__
-        if self.costate.operr is not None:
-            operr = self.costate.operr
-            self.costate.operr = None
-            raise operr
-        args_w, kwds_w = self.costate.__args__.unpack()
-        if len(args_w) == 1:
-            return args_w[0]
-        return self.space.newtuple(args_w)
+    def w_switch(self, args_w):
+        # Find the switch target - it might be a parent greenlet
+        space = self.space
+        costate = self.costate
+        target = self
+        while target.isdead():
+            target = target.parent
+            assert isinstance(target, AppGreenlet)
+        # Switch to it
+        costate.args_w = args_w
+        if target is not costate.current:
+            target.switch()
+        else:
+            # case not handled in Coroutine.switch()
+            syncstate._do_things_to_do()
+        result_w = costate.args_w
+        costate.args_w = None
+        # costate.args_w can be set to None above for throw(), but then
+        # switch() should have raised.  At this point cosstate.args_w != None.
+        assert result_w is not None
+        # Return the result of a switch, packaging it in a tuple if
+        # there is more than one value.
+        if len(result_w) == 1:
+            return result_w[0]
+        return space.newtuple(result_w)
 
-    def w_throw(self, w_exception):
-        self.costate.operr = OperationError(w_exception, self.space.wrap(""))
-        self.w_switch(Arguments(self.space, []))
+    def w_throw(self, w_type=None, w_value=None, w_traceback=None):
+        space = self.space
+        if space.is_w(w_type, space.w_None):
+            w_type = self.costate.w_GreenletExit
+        # Code copied from RAISE_VARARGS but slightly modified.  Not too nice.
+        operror = OperationError(w_type, w_value)
+        operror.normalize_exception(space)
+        if not space.is_w(w_traceback, space.w_None):
+            from pypy.interpreter import pytraceback
+            tb = space.interpclass_w(w_traceback)
+            if tb is None or not space.is_true(space.isinstance(tb, 
+                space.gettypeobject(pytraceback.PyTraceback.typedef))):
+                raise OperationError(space.w_TypeError,
+                      space.wrap("throw: arg 3 must be a traceback or None"))
+            operror.application_traceback = tb
+        # Dead greenlet: turn GreenletExit into a regular return
+        if self.isdead() and operror.match(space, self.costate.w_GreenletExit):
+            args_w = [operror.w_value]
+        else:
+            syncstate.push_exception(operror)
+            args_w = None
+        return self.w_switch(args_w)
 
     def _userdel(self):
-        self.space.userdel(self)
+        self.space.userdel(self.space.wrap(self))
 
-def w_get_is_dead(space, w_self):
-    self = space.interp_w(AppGreenlet, w_self)
-    return self.w_dead
+    def isdead(self):
+        return self.thunk is None and not self.active
 
-def descr__bool__(space, w_self):
-    self = space.interp_w(AppGreenlet, w_self)
-    return space.wrap(self.has_ever_run and not space.is_true(self.w_dead))
+    def w_get_is_dead(space, self):
+        return space.newbool(self.isdead())
 
-def w_get_parent(space, w_self):
-    self = space.interp_w(AppGreenlet, w_self)
-    if self.w_parent is not None:
-        return self.w_parent
-    else:
-        return space.w_None
+    def descr__nonzero__(self):
+        return self.space.newbool(self.active)
 
-def w_set_parent(space, w_self, w_parent):
-    self = space.interp_w(AppGreenlet, w_self)
-    newparent = space.interp_w(AppGreenlet, w_parent)
-    curr = newparent
-    while 1:
-        if space.is_true(space.is_(self, curr)):
-            raise OperationError(space.w_ValueError, space.wrap("cyclic parent chain"))
-        if not curr.w_parent is None:
-            break
-        curr = curr.w_parent
-    self.w_parent = newparent
+    def w_get_run(space, self):
+        w_run = self.w_callable
+        if w_run is None:
+            raise OperationError(space.w_AttributeError, space.wrap("run"))
+        return w_run
 
-def w_get_frame(space, w_self):
-    self = space.interp_w(AppGreenlet, w_self)    
-    if (not self.has_ever_run or space.is_true(self.w_dead) or
-        self.costate.current is self):
-        return space.w_None
-    try:
-        return self.subctx.framestack.top(0)
-    except IndexError:
-        return space.w_None
+    def w_set_run(space, self, w_run):
+        space = self.space
+        if self.thunk is None:
+            raise OperationError(space.w_AttributeError,
+                                 space.wrap("run cannot be set "
+                                            "after the start of the greenlet"))
+        self.w_callable = w_run
+
+    def w_del_run(space, self):
+        if self.w_callable is None:
+            raise OperationError(space.w_AttributeError, space.wrap("run"))
+        self.w_callable = None
+
+    def w_get_parent(space, self):
+        return space.wrap(self.parent)
+
+    def w_set_parent(space, self, w_parent):
+        newparent = space.interp_w(AppGreenlet, w_parent)
+        if newparent.costate is not self.costate:
+            raise OperationError(self.costate.w_GreenletError,
+                                 space.wrap("invalid foreign parent"))
+        curr = newparent
+        while curr:
+            if curr is self:
+                raise OperationError(space.w_ValueError,
+                                     space.wrap("cyclic parent chain"))
+            curr = curr.parent
+        self.parent = newparent
+
+    def w_get_frame(space, self):
+        if not self.active or self.costate.current is self:
+            f = None
+        else:
+            try:
+                f = self.subctx.framestack.top(0)
+            except IndexError:
+                f = None
+        return space.wrap(f)
 
 def get(space, name):
     w_module = space.getbuiltinmodule('_stackless')
@@ -158,25 +202,32 @@ def get(space, name):
 def post_install(module):
     makeStaticMethod(module, 'greenlet', 'getcurrent')
     space = module.space
-    AppGreenlet._get_state(space).post_install()
+    state = AppGreenlet._get_state(space)
+    state.post_install()
     w_module = space.getbuiltinmodule('_stackless')
-    space.appexec([w_module, get(space, "GreenletExit"),
-                   get(space, "GreenletError")], """
+    space.appexec([w_module,
+                   state.w_GreenletExit,
+                   state.w_GreenletError], """
     (mod, exit, error):
         mod.greenlet.GreenletExit = exit
         mod.greenlet.error = error
     """)
 
 AppGreenlet.typedef = TypeDef("greenlet",
-    __new__ = interp2app(AppGreenlet.descr_method__new__.im_func),
+    __new__ = interp2app(AppGreenlet.descr_method__new__.im_func,
+                         unwrap_spec=[ObjSpace, W_Root, Arguments]),
+    __init__ = interp2app(AppGreenlet.descr_method__init__),
     switch = interp2app(AppGreenlet.w_switch,
-                        unwrap_spec=['self', Arguments]),
-    dead = GetSetProperty(w_get_is_dead),
-    parent = GetSetProperty(w_get_parent, w_set_parent),
+                        unwrap_spec=['self', 'args_w']),
+    dead = GetSetProperty(AppGreenlet.w_get_is_dead),
+    run = GetSetProperty(AppGreenlet.w_get_run,
+                         AppGreenlet.w_set_run,
+                         AppGreenlet.w_del_run),
+    parent = GetSetProperty(AppGreenlet.w_get_parent,
+                            AppGreenlet.w_set_parent),
     getcurrent = interp2app(AppGreenlet.w_getcurrent),
     throw = interp2app(AppGreenlet.w_throw),
-    gr_frame = GetSetProperty(w_get_frame),
-    __nonzero__ = interp2app(descr__bool__),
+    gr_frame = GetSetProperty(AppGreenlet.w_get_frame),
+    __nonzero__ = interp2app(AppGreenlet.descr__nonzero__),
     __module__ = '_stackless',
 )
-

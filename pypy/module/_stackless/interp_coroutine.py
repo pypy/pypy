@@ -35,12 +35,13 @@ from pypy.rlib.objectmodel import we_are_translated
 
 try:
     from py.magic import greenlet
-    #main_greenlet = greenlet.getcurrent()
+    main_greenlet = greenlet.getcurrent()
 except (ImportError, ValueError):
     def greenlet(*args, **kwargs):
         raise NotImplementedError("need either greenlets or a translated version of pypy")
 
 class FrameChain(object):
+    """Greenlet-based emulation of the primitive rstack 'frames' of RPython"""
 
     def __init__(self, thunk=None):
         if thunk:
@@ -51,11 +52,6 @@ class FrameChain(object):
     def switch(self):
         last = FrameChain()
         return self.greenlet.switch(last)
-
-    def shutdown(self):
-        current = FrameChain()
-        target = current.greenlet.parent
-        target.switch(None)
 
 import sys, os
 
@@ -110,6 +106,10 @@ class SyncState(object):
             entered.hello()
         if self.things_to_do:
             self._do_things_to_do()
+
+    def push_exception(self, exc):
+        self.things_to_do = True
+        self.temp_exc = exc
 
     def check_for_zombie(self, obj):
         return co in self.to_delete
@@ -188,22 +188,25 @@ class Coroutine(Wrappable):
             self.frame = self._greenlet_bind()
 
     def _greenlet_bind(self):
-        state = self.costate
-        self.parent = state.current
-        assert self.parent is not None
         weak = [self]
         def _greenlet_execute(incoming_frame):
             try:
-                return weak[0]._execute(incoming_frame)
-            finally:
-                del weak[0]
-                chain.shutdown()
+                chain2go2next = weak[0]._execute(incoming_frame)
+            except:
+                # no exception is supposed to get out of _execute()
+                # better report it directly into the main greenlet then,
+                # and hidden to prevent catching
+                main_greenlet.throw(AssertionError(
+                    "unexpected exception out of Coroutine._execute()",
+                    *sys.exc_info()))
+                assert 0
+            del weak[0]
+            greenlet.getcurrent().parent = chain2go2next.greenlet
+            return None   # as the result of the FrameChain.switch()
         chain = FrameChain(_greenlet_execute)
         return chain
 
     def _bind(self):
-        state = self.costate
-        self.parent = state.current
         incoming_frame = yield_current_frame_to_caller()
         return self._execute(incoming_frame)
 
@@ -213,9 +216,9 @@ class Coroutine(Wrappable):
             try:
                 try:
                     exc = None
-                    syncstate.switched(incoming_frame)
                     thunk = self.thunk
                     self.thunk = None
+                    syncstate.switched(incoming_frame)
                     thunk.call()
                     resume_point("coroutine__bind", state)
                 except Exception, e:
@@ -232,8 +235,7 @@ class Coroutine(Wrappable):
             pass
         except Exception, e:
             # redirect all unhandled exceptions to the parent
-            syncstate.things_to_do = True
-            syncstate.temp_exc = exc
+            syncstate.push_exception(e)
         while self.parent is not None and self.parent.frame is None:
             # greenlet behavior is fine
             self.parent = self.parent.parent
@@ -253,9 +255,21 @@ class Coroutine(Wrappable):
         if self.frame is None:
             return
         state = self.costate
-        syncstate.things_to_do = True
-        syncstate.temp_exc = CoroutineExit()
-        self.parent = state.current
+        syncstate.push_exception(CoroutineExit())
+        # careful here - if setting self.parent to state.current would
+        # create a loop, break it.  The assumption is that 'self'
+        # will die, so that state.current's chain of parents can be
+        # modified to skip 'self' without too many people noticing.
+        p = state.current
+        if p is self or self.parent is None:
+            pass  # killing the current of the main - don't change any parent
+        else:
+            while p.parent is not None:
+                if p.parent is self:
+                    p.parent = self.parent
+                    break
+                p = p.parent
+            self.parent = state.current
         self.switch()
 
     def _kill_finally(self):

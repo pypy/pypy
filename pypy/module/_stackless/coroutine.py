@@ -123,7 +123,7 @@ class AppCoroutine(Coroutine): # XXX, StacklessFlags):
         if self.get_is_zombie():
             return
         self.set_is_zombie(True)
-        self.space.userdel(self)
+        self.space.userdel(self.space.wrap(self))
 
     def w_getcurrent(space):
         return space.wrap(AppCoroutine._get_state(space).current)
