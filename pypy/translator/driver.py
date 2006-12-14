@@ -594,15 +594,20 @@ class TranslationDriver(SimpleTaskEngine):
         usession_path, main_exe_name = os.path.split(main_exe)
         pypylib_dll = os.path.join(usession_path, 'pypylib.dll')
 
-        shutil.copy(main_exe, '.')
-        shutil.copy(pypylib_dll, '.')
-        newexename = self.exe_name % self.get_info()
-        if '/' not in newexename and '\\' not in newexename:
-            newexename = './' + newexename
+        basename = self.exe_name % self.get_info()
+        dirname = basename + '-data/'
+        if '/' not in dirname and '\\' not in dirname:
+            dirname = './' + dirname
+
+        if not os.path.exists(dirname):
+            os.makedirs(dirname)
+        shutil.copy(main_exe, dirname)
+        shutil.copy(pypylib_dll, dirname)
+        newexename = basename
         f = file(newexename, 'w')
         f.write("""#!/bin/bash
-mono "$(dirname $0)/%s" "$@" # XXX doesn't work if it's placed in PATH
-""" % main_exe_name)
+mono "$(dirname $0)/%s/%s" "$@" # XXX doesn't work if it's placed in PATH
+""" % (dirname, main_exe_name))
         f.close()
         os.chmod(newexename, 0755)
 
