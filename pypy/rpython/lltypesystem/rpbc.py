@@ -323,6 +323,7 @@ class MethodsPBCRepr(AbstractMethodsPBCRepr):
         opname = 'simple_call'
         if call_args:
             opname = 'call_args'
+        hop2.forced_opname = opname
 
         hop2.v_s_insertfirstarg(v_func, s_func)   # insert 'function'
 
@@ -332,7 +333,7 @@ class MethodsPBCRepr(AbstractMethodsPBCRepr):
             hop2.args_v[0] = hop2.llops.convertvar(hop2.args_v[0], r_func, hop2.args_r[0])
 
         # now hop2 looks like simple_call(function, self, args...)
-        return hop2.dispatch(opname=opname)
+        return hop2.dispatch()
 
 
 # ____________________________________________________________

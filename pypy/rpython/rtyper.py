@@ -644,6 +644,7 @@ RPythonTyper._registeroperations(annmodel)
 
 
 class HighLevelOp(object):
+    forced_opname = None
 
     def __init__(self, rtyper, spaceop, exceptionlinks, llops):
         self.rtyper         = rtyper
@@ -669,17 +670,17 @@ class HighLevelOp(object):
             if type(value) is list:     # grunt
                 value = value[:]
             setattr(result, key, value)
+        result.forced_opname = self.forced_opname
         return result
 
-    def dispatch(self, opname=None):
+    def dispatch(self):
         rtyper = self.rtyper
         generic = rtyper.generic_translate_operation
         if generic is not None:
             res = generic(self)
             if res is not None:
                 return res
-        if not opname:
-             opname = self.spaceop.opname
+        opname = self.forced_opname or self.spaceop.opname
         translate_meth = getattr(rtyper, 'translate_op_'+opname,
                                  rtyper.default_translate_operation)
         return translate_meth(self)

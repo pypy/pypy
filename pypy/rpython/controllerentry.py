@@ -16,6 +16,10 @@ class ControllerEntry(ExtRegistryEntry):
     def getcontroller(self, *args_s):
         return self._controller_()
 
+    def specialize_call(self, hop):
+        controller = hop.s_result.controller
+        return controller.rtype_new(hop)
+
 
 class Controller(object):
     __metaclass__ = cachedtype
@@ -26,6 +30,12 @@ class Controller(object):
     def ctrl_new(self, *args_s):
         return delegate(self.new, *args_s)
 
+    def rtype_new(self, hop):
+        r_controlled_instance = hop.r_result
+        return r_controlled_instance.rtypedelegate(self.new, hop,
+                                                   revealargs=[],
+                                                   revealresult=True)
+
     def ctrl_getattr(self, s_obj, s_attr):
         return delegate(self.getattr, s_obj, s_attr)
 
@@ -33,8 +43,24 @@ class Controller(object):
         return getattr(self, 'get_' + attr)(obj)
     getattr._annspecialcase_ = 'specialize:arg(2)'
 
+    def rtype_getattr(self, hop):
+        hop2 = hop.copy()
+        r_controlled_instance = hop2.args_r[0]
+        _, s_attr = hop2.r_s_pop(1)
+        attr = s_attr.const
+        getter = getattr(self, 'get_' + attr)
+        return r_controlled_instance.rtypedelegate(getter, hop2)
+
     def ctrl_setattr(self, s_obj, s_attr, s_value):
         return delegate(self.setattr, s_obj, s_attr, s_value)
+
+    def rtype_setattr(self, hop):
+        hop2 = hop.copy()
+        r_controlled_instance = hop2.args_r[0]
+        _, s_attr = hop2.r_s_pop(1)
+        attr = s_attr.const
+        setter = getattr(self, 'set_' + attr)
+        return r_controlled_instance.rtypedelegate(setter, hop2)
 
     def setattr(self, obj, attr, value):
         return getattr(self, 'set_' + attr)(obj, value)
@@ -55,6 +81,14 @@ class SomeControlledInstance(annmodel.SomeObject):
         self.s_real_obj = s_real_obj
         self.controller = controller
         self.knowntype = controller.knowntype
+
+    def rtyper_makerepr(self, rtyper):
+        from pypy.rpython.rcontrollerentry import ControlledInstanceRepr
+        return ControlledInstanceRepr(rtyper, self.s_real_obj, self.controller)
+
+    def rtyper_makekey_ex(self, rtyper):
+        real_key = rtyper.makekey(self.s_real_obj)
+        return self.__class__, real_key, self.controller
 
 
 class __extend__(SomeControlledInstance):
