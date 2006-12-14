@@ -267,6 +267,25 @@ def test_abs():
     assert type(abs(r_longlong(1))) is r_longlong
 
 
+def test_break_up_float():
+    assert break_up_float('1') == ('', '1', '', '')
+    assert break_up_float('+1') == ('+', '1', '', '')
+    assert break_up_float('-1') == ('-', '1', '', '')
+
+    assert break_up_float('.5') == ('', '', '5', '')
+    
+    assert break_up_float('1.2e3') == ('', '1', '2', '3')
+    assert break_up_float('1.2e+3') == ('', '1', '2', '+3')
+    assert break_up_float('1.2e-3') == ('', '1', '2', '-3')
+
+    # some that will get thrown out on return:
+    assert break_up_float('.') == ('', '', '', '')
+    assert break_up_float('+') == ('+', '', '', '')
+    assert break_up_float('-') == ('-', '', '', '')
+    assert break_up_float('e1') == ('', '', '', '1')
+
+    py.test.raises(ValueError, break_up_float, 'e')
+
 class BaseTestRarithmetic(BaseRtypingTest):
     def test_formatd(self):
         from pypy.rlib.rarithmetic import formatd
@@ -275,6 +294,20 @@ class BaseTestRarithmetic(BaseRtypingTest):
         res = self.ll_to_string(self.interpret(f, [10/3.0]))
         assert res == '3.33'
 
+    def test_parts_to_float(self):
+        from pypy.rlib.rarithmetic import parts_to_float, break_up_float
+        def f(x):
+            if x == 0:
+                s = '1.0'
+            else:
+                s = '1e-100'
+            sign, beforept, afterpt, expt = break_up_float(s)   
+            return parts_to_float(sign, beforept, afterpt, expt)
+        res = self.interpret(f, [0])
+        assert res == 1.0
+
+        res = self.interpret(f, [1])
+        assert res == 1e-100                 
 
 class TestLLtype(BaseTestRarithmetic, LLRtypeMixin):
     pass

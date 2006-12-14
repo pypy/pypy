@@ -127,27 +127,6 @@ class TestStrUtil:
         assert string_to_w_long(space, '123L', 21).longval() == 441 + 42 + 3
         assert string_to_w_long(space, '1891234174197319').longval() == 1891234174197319
 
-
-def test_break_up_float():
-    assert break_up_float('1') == ('', '1', '', '')
-    assert break_up_float('+1') == ('+', '1', '', '')
-    assert break_up_float('-1') == ('-', '1', '', '')
-
-    assert break_up_float('.5') == ('', '', '5', '')
-    
-    assert break_up_float('1.2e3') == ('', '1', '2', '3')
-    assert break_up_float('1.2e+3') == ('', '1', '2', '+3')
-    assert break_up_float('1.2e-3') == ('', '1', '2', '-3')
-
-    # some that will get thrown out on return:
-    assert break_up_float('.') == ('', '', '', '')
-    assert break_up_float('+') == ('+', '', '', '')
-    assert break_up_float('-') == ('-', '', '', '')
-    assert break_up_float('e1') == ('', '', '', '1')
-
-    py.test.raises(ParseStringError, break_up_float, 'e')
-
-
 def test_string_to_float():
     assert string_to_float('0') == 0.0
     assert string_to_float('1') == 1.0

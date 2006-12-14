@@ -337,6 +337,60 @@ r_uint = build_int('r_uint', False, LONG_BIT)
 r_longlong = build_int('r_longlong', True, 64)
 r_ulonglong = build_int('r_ulonglong', False, 64)
 
+
+# float as string  -> sign, beforept, afterpt, exponent
+
+def break_up_float(s):
+    i = 0
+
+    sign = ''
+    before_point = ''
+    after_point = ''
+    exponent = ''
+
+    if s[i] in '+-':
+        sign = s[i]
+        i += 1
+
+    while i < len(s) and s[i] in '0123456789':
+        before_point += s[i]
+        i += 1
+
+    if i == len(s):
+        return sign, before_point, after_point, exponent
+
+    if s[i] == '.':
+        i += 1
+        while i < len(s) and s[i] in '0123456789':
+            after_point += s[i]
+            i += 1
+            
+        if i == len(s):
+            return sign, before_point, after_point, exponent
+
+    if s[i] not in  'eE':
+        raise ValueError
+
+    i += 1
+    if i == len(s):
+        raise ValueError
+
+    if s[i] in '-+':
+        exponent += s[i]
+        i += 1
+
+    if i == len(s):
+        raise ValueError
+    
+    while i < len(s) and s[i] in '0123456789':
+        exponent += s[i]
+        i += 1
+
+    if i != len(s):
+        raise ValueError
+
+    return sign, before_point, after_point, exponent
+
 # string -> float helper
 
 def parts_to_float(sign, beforept, afterpt, exponent):

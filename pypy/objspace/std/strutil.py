@@ -2,7 +2,7 @@
 Pure Python implementation of string utilities.
 """
 
-from pypy.rlib.rarithmetic import ovfcheck, parts_to_float
+from pypy.rlib.rarithmetic import ovfcheck, break_up_float, parts_to_float
 from pypy.interpreter.error import OperationError
 import math
 
@@ -139,58 +139,6 @@ def string_to_w_long(space, s, base=10, parser=None):
             return w_result
         w_result = space.add(space.mul(w_result,w_base), space.newlong(digit))
 
-def break_up_float(s):
-    i = 0
-
-    sign = ''
-    before_point = ''
-    after_point = ''
-    exponent = ''
-
-    if s[i] in '+-':
-        sign = s[i]
-        i += 1
-
-    while i < len(s) and s[i] in '0123456789':
-        before_point += s[i]
-        i += 1
-
-    if i == len(s):
-        return sign, before_point, after_point, exponent
-
-    if s[i] == '.':
-        i += 1
-        while i < len(s) and s[i] in '0123456789':
-            after_point += s[i]
-            i += 1
-            
-        if i == len(s):
-            return sign, before_point, after_point, exponent
-
-    if s[i] not in  'eE':
-        raise ParseStringError("invalid literal for float()")
-
-    i += 1
-    if i == len(s):
-        raise ParseStringError("invalid literal for float()")
-
-    if s[i] in '-+':
-        exponent += s[i]
-        i += 1
-
-    if i == len(s):
-        raise ParseStringError("invalid literal for float()")
-    
-    while i < len(s) and s[i] in '0123456789':
-        exponent += s[i]
-        i += 1
-
-    if i != len(s):
-        raise ParseStringError("invalid literal for float()")
-
-    return sign, before_point, after_point, exponent
-
-
 def string_to_float(s):
     """
     Conversion of string to float.
@@ -204,7 +152,10 @@ def string_to_float(s):
         raise ParseStringError("empty string for float()")
 
     # 1) parse the string into pieces.
-    sign, before_point, after_point, exponent = break_up_float(s)
+    try:
+        sign, before_point, after_point, exponent = break_up_float(s)
+    except ValueError:
+        raise ParseStringError("invalid literal for float()")
     
     if not before_point and not after_point:
         raise ParseStringError("invalid literal for float()")
@@ -291,8 +242,11 @@ def applevel_string_to_float(s):
         raise ParseStringError("empty string for float()")
 
     # 1) parse the string into pieces.
-    sign, before_point, after_point, exponent = break_up_float(s)
-    
+    try:
+        sign, before_point, after_point, exponent = break_up_float(s)
+    except ValueError:
+        raise ParseStringError("invalid literal for float()")
+        
     digits = before_point + after_point
     if digits:
         raise ParseStringError("invalid literal for float()")
@@ -384,7 +338,10 @@ def interp_string_to_float(space, s):
             "empty string for float()"))
 
     # 1) parse the string into pieces.
-    sign, before_point, after_point, exponent = break_up_float(s)
+    try:
+        sign, before_point, after_point, exponent = break_up_float(s)
+    except ValueError:
+        raise ParseStringError("invalid literal for float()")
     
     digits = before_point + after_point
     if not digits:
