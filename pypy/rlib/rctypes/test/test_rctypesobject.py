@@ -1,5 +1,5 @@
 import py
-from pypy.rlib.rctypesobject import *
+from pypy.rlib.rctypes.rctypesobject import *
 from pypy.rpython.test.test_llinterp import interpret, get_interpreter
 from pypy.translator.c.test.test_genc import compile
 from pypy.annotation.policy import AnnotatorPolicy

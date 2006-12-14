@@ -10,8 +10,7 @@ class ControllerEntry(ExtRegistryEntry):
     def compute_result_annotation(self, *args_s):
         cls = self.instance
         controller = self.getcontroller(*args_s)
-        s_real_obj = controller.ctrl_new(*args_s)
-        return SomeControlledInstance(s_real_obj, controller)
+        return controller.ctrl_new(*args_s)
 
     def getcontroller(self, *args_s):
         return self._controller_()
@@ -40,7 +39,8 @@ class Controller(object):
         return True
 
     def ctrl_new(self, *args_s):
-        return delegate(self.new, *args_s)
+        s_real_obj = delegate(self.new, *args_s)
+        return SomeControlledInstance(s_real_obj, controller=self)
 
     def rtype_new(self, hop):
         r_controlled_instance = hop.r_result
@@ -69,6 +69,20 @@ class Controller(object):
     def rtype_setattr(self, hop):
         r_controlled_instance = hop.args_r[0]
         return r_controlled_instance.rtypedelegate(self.setattr, hop)
+
+    def ctrl_getitem(self, s_obj, s_key):
+        return delegate(self.getitem, s_obj, s_key)
+
+    def rtype_getitem(self, hop):
+        r_controlled_instance = hop.args_r[0]
+        return r_controlled_instance.rtypedelegate(self.getitem, hop)
+
+    def ctrl_setitem(self, s_obj, s_key, s_value):
+        return delegate(self.setitem, s_obj, s_key, s_value)
+
+    def rtype_setitem(self, hop):
+        r_controlled_instance = hop.args_r[0]
+        return r_controlled_instance.rtypedelegate(self.setitem, hop)
 
 
 def delegate(boundmethod, *args_s):
@@ -104,6 +118,15 @@ class __extend__(SomeControlledInstance):
     def setattr(s_cin, s_attr, s_value):
         assert s_attr.is_constant()
         s_cin.controller.ctrl_setattr(s_cin.s_real_obj, s_attr, s_value)
+
+
+class __extend__(pairtype(SomeControlledInstance, annmodel.SomeObject)):
+
+    def getitem((s_cin, s_key)):
+        return s_cin.controller.ctrl_getitem(s_cin.s_real_obj, s_key)
+
+    def setitem((s_cin, s_key), s_value):
+        s_cin.controller.ctrl_setitem(s_cin.s_real_obj, s_key, s_value)
 
 
 class __extend__(pairtype(SomeControlledInstance, SomeControlledInstance)):

@@ -1,3 +1,4 @@
+from pypy.tool.pairtype import pairtype
 from pypy.objspace.flow.model import Constant
 from pypy.rpython.rmodel import Repr
 from pypy.rpython.error import TyperError
@@ -41,3 +42,12 @@ class ControlledInstanceRepr(Repr):
 
     def rtype_setattr(self, hop):
         return self.controller.rtype_setattr(hop)
+
+
+class __extend__(pairtype(ControlledInstanceRepr, Repr)):
+
+    def rtype_getitem((r_controlled, r_key), hop):
+        return r_controlled.controller.rtype_getitem(hop)
+
+    def rtype_setitem((r_controlled, r_key), hop):
+        return r_controlled.controller.rtype_setitem(hop)
