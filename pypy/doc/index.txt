@@ -124,7 +124,7 @@ snake server - PyPy kills machines :-)*
 PyPy's own tests, daily updated, `on Linux`_ and `on Windows`_ and
 on `build pypy-c`_ (various variants).
 
-`Nightly builds and benchmarks`_ of PyPy to C and LLVM.
+`Nightly builds and benchmarks`_ of PyPy to C, CLI and LLVM.
 
 `compliance test status`_ shows outcomes of 
 recent compliance test runs against PyPy. 
