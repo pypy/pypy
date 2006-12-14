@@ -58,6 +58,11 @@ class TestEntryPoint(BaseEntryPoint):
     def render(self, ilasm):
         ilasm.begin_function('main', [('string[]', 'argv')], 'void', True, 'static')
 
+        RETURN_TYPE = self.graph.getreturnvar().concretetype
+        return_type = self.cts.lltype_to_cts(RETURN_TYPE)
+        if return_type != 'void':
+            ilasm.locals([(return_type, 'res')])
+
         if self.wrap_exceptions:
             ilasm.begin_try()
 
@@ -72,10 +77,12 @@ class TestEntryPoint(BaseEntryPoint):
 
         # call the function and convert the result to a string containing a valid python expression
         ilasm.call(self.cts.graph_to_signature(self.graph))
-        TYPE = self.graph.getreturnvar().concretetype
-        format_object(TYPE, self.cts, ilasm)
-        ilasm.call('void class [mscorlib]System.Console::WriteLine(string)')
-        ilasm.leave('return')
+        if return_type != 'void':
+            ilasm.opcode('stloc', 'res')
+        if self.wrap_exceptions:
+            ilasm.leave('check_last_exception')
+        else:
+            ilasm.leave('print_result')
 
         if self.wrap_exceptions:
             ilasm.end_try()
@@ -89,6 +96,21 @@ class TestEntryPoint(BaseEntryPoint):
                     ilasm.call('void class [mscorlib]System.Console::WriteLine(string)')        
                     ilasm.leave('return')
                 ilasm.end_catch()
+
+            ilasm.label('check_last_exception')
+            ilasm.opcode('ldsfld', 'object last_exception')
+            ilasm.opcode('brnull', 'print_result')
+            # there is a pending exception
+            ilasm.opcode('ldsfld', 'object last_exception')
+            ilasm.call('string class [pypylib]pypy.test.Result::FormatException(object)')
+            ilasm.call('void class [mscorlib]System.Console::WriteLine(string)')
+            ilasm.opcode('br', 'return')
+
+        ilasm.label('print_result')
+        if return_type != 'void':
+            ilasm.opcode('ldloc', 'res')
+        format_object(RETURN_TYPE, self.cts, ilasm)
+        ilasm.call('void class [mscorlib]System.Console::WriteLine(string)')
 
         ilasm.label('return')
         ilasm.opcode('ret')
@@ -140,6 +162,8 @@ def _build_gen(func, annotation, graph=None):
        t.view()
 
     t.buildrtyper(type_system="ootype").specialize()
+    
+    
     main_graph = t.graphs[0]
 
     if getoption('view'):

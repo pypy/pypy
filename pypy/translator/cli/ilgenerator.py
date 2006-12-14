@@ -55,6 +55,7 @@ class IlasmGenerator(object):
         self.code.writeline('.assembly extern mscorlib {}')
         self.code.writeline('.assembly extern pypylib {}')
         self.code.writeline('.assembly %s {}' % name)
+        self.code.writeline('.field static object last_exception') # XXX
 
     def close(self):
         self.out.close()

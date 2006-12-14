@@ -15,23 +15,9 @@ from pypy.translator.cli.class_ import Class
 from pypy.translator.cli.support import log
 from pypy.translator.cli.ilgenerator import CLIBaseGenerator
 
-class Function(OOFunction, Node, CLIBaseGenerator):
+USE_LAST = False
 
-    def __init__(self, *args, **kwargs):
-        OOFunction.__init__(self, *args, **kwargs)
-        self._set_args()
-        self._set_locals()
-                 
-    def _create_generator(self, ilasm):
-        return self # Function implements the Generator interface
-
-    def record_ll_meta_exc(self, ll_meta_exc):
-        # record the type only if it doesn't belong to a native_class
-        ll_exc = ll_meta_exc._inst.class_._INSTANCE
-        NATIVE_INSTANCE = ll_exc._hints.get('NATIVE_INSTANCE', None)
-        if NATIVE_INSTANCE is None:
-            OOFunction.record_ll_meta_exc(self, ll_meta_exc)
-
+class NativeExceptionHandler(object):
     def begin_try(self):
         self.ilasm.begin_try()
 
@@ -48,6 +34,11 @@ class Function(OOFunction, Node, CLIBaseGenerator):
     def end_catch(self, target_label):
         self.ilasm.leave(target_label)
         self.ilasm.end_catch()
+
+    def render_raise_block(self, block):
+        exc = block.inputargs[1]
+        self.load(exc)
+        self.ilasm.opcode('throw')
 
     def store_exception_and_link(self, link):
         if self._is_raise_block(link.target):
@@ -66,6 +57,140 @@ class Function(OOFunction, Node, CLIBaseGenerator):
                 self.store(link.last_exc_value)
             self._setup_link(link)
 
+class LastExceptionHandler(object):
+    catch_label_count = 0
+    in_try = False
+
+    def next_catch_label(self):
+        self.catch_label_count += 1
+        return self.catch_label()
+
+    def catch_label(self):
+        return '__catch_%d' % self.catch_label_count
+
+    def begin_try(self):
+        self.in_try = True
+        self.ilasm.opcode('// begin_try')
+
+    def end_try(self, target_label):
+        self.ilasm.opcode('ldsfld', 'object last_exception')
+        self.ilasm.opcode('brnull', target_label)
+        self.ilasm.opcode('// end try')
+        self.in_try = False
+
+    def begin_catch(self, llexitcase):
+        self.ilasm.label(self.catch_label())
+        ll_meta_exc = llexitcase
+        ll_exc = ll_meta_exc._inst.class_._INSTANCE
+        cts_exc = self.cts.lltype_to_cts(ll_exc, False)
+        self.ilasm.opcode('ldsfld', 'object last_exception')
+        self.isinstance(cts_exc)
+        self.ilasm.opcode('dup')
+        self.ilasm.opcode('brtrue.s', 6) # ??
+        self.ilasm.opcode('pop')
+        self.ilasm.opcode('br', self.next_catch_label())
+        # here is the target of the above brtrue.s
+        self.ilasm.opcode('ldnull')
+        self.ilasm.opcode('stsfld', 'object last_exception')
+
+    def end_catch(self, target_label):
+        self.ilasm.opcode('br', target_label)
+
+    def store_exception_and_link(self, link):
+        if self._is_raise_block(link.target):
+            # the exception value is on the stack, use it as the 2nd target arg
+            assert len(link.args) == 2
+            assert len(link.target.inputargs) == 2
+            self.store(link.target.inputargs[1])
+        else:
+            # the exception value is on the stack, store it in the proper place
+            if isinstance(link.last_exception, flowmodel.Variable):
+                self.ilasm.opcode('dup')
+                self.store(link.last_exc_value)                            
+                self.ilasm.get_field(('class Object_meta', 'Object', 'meta'))
+                self.store(link.last_exception)
+            else:
+                self.store(link.last_exc_value)
+            self._setup_link(link)
+
+    def render_raise_block(self, block):
+        exc = block.inputargs[1]
+        self.load(exc)
+        self.ilasm.opcode('stsfld', 'object last_exception')
+        if not self.return_block: # must be a void function
+            TYPE = self.graph.getreturnvar().concretetype
+            default = TYPE._defl()
+            if default is not None: # concretetype is Void
+                try:
+                    self.db.constant_generator.push_primitive_constant(self, TYPE, default)
+                except AssertionError:
+                    self.ilasm.opcode('ldnull') # :-(
+            self.ilasm.opcode('ret')
+        else:
+            self.ilasm.opcode('br', self._get_block_name(self.return_block))
+
+
+    def _render_op(self, op):
+        from pypy.rpython.ootypesystem import ootype        
+        instr_list = self.db.genoo.opcodes.get(op.opname, None)
+        assert instr_list is not None, 'Unknown opcode: %s ' % op
+        assert isinstance(instr_list, InstructionList)
+        instr_list.render(self.generator, op)
+        if op.opname in ('direct_call', 'oosend', 'indirect_call') and not self.in_try:
+            self._premature_return()
+
+    def _premature_return(self):
+        try:
+            return_block = self._get_block_name(self.graph.returnblock)
+        except KeyError:
+            self.ilasm.opcode('//premature return')
+            self.ilasm.opcode('ldsfld', 'object last_exception')
+            TYPE = self.graph.getreturnvar().concretetype
+            default = TYPE._defl()
+            if default is None: # concretetype is Void
+                self.ilasm.opcode('brfalse.s', 1)
+                self.ilasm.opcode('ret')
+            else:
+                self.ilasm.opcode('brfalse.s', 3) # ??
+                try:
+                    self.db.constant_generator.push_primitive_constant(self, TYPE, default)
+                except AssertionError:
+                    self.ilasm.opcode('ldnull') # :-(
+                self.ilasm.opcode('ret')
+        else:
+            self.ilasm.opcode('ldsfld', 'object last_exception')
+            self.ilasm.opcode('brtrue', return_block)
+
+
+if USE_LAST:
+    ExceptionHandler = LastExceptionHandler
+else:
+    ExceptionHandler = NativeExceptionHandler
+
+class Function(ExceptionHandler, OOFunction, Node, CLIBaseGenerator):
+
+    def next_catch_label(self):
+        self.catch_label_count += 1
+        return self.catch_label()
+
+    def catch_label(self):
+        return '__catch_%d' % self.catch_label_count
+
+    def __init__(self, *args, **kwargs):
+        OOFunction.__init__(self, *args, **kwargs)
+        self._set_args()
+        self._set_locals()
+                 
+    def _create_generator(self, ilasm):
+        return self # Function implements the Generator interface
+
+    def record_ll_meta_exc(self, ll_meta_exc):
+        # record the type only if it doesn't belong to a native_class
+        ll_exc = ll_meta_exc._inst.class_._INSTANCE
+        NATIVE_INSTANCE = ll_exc._hints.get('NATIVE_INSTANCE', None)
+        if NATIVE_INSTANCE is None:
+            OOFunction.record_ll_meta_exc(self, ll_meta_exc)
+
     def begin_render(self):
         returntype, returnvar = self.cts.llvar_to_cts(self.graph.getreturnvar())
         if self.is_method:
@@ -76,6 +201,13 @@ class Function(OOFunction, Node, CLIBaseGenerator):
             meth_type = 'static'
         self.ilasm.begin_function(self.name, args, returntype, self.is_entrypoint, meth_type)        
         self.ilasm.locals(self.locals)
+
+    def before_last_blocks(self):
+        # This is only executed when using LastExceptionHandler.
+        # Need to be deleted when we will use a saner approach.
+        if hasattr(self, 'catch_label'):
+            self.ilasm.label(self.catch_label())
+            self.ilasm.opcode('nop')
 
     def end_render(self):
         self.ilasm.end_function()
@@ -88,12 +220,6 @@ class Function(OOFunction, Node, CLIBaseGenerator):
         if return_var.concretetype is not Void:
             self.load(return_var)
         self.ilasm.opcode('ret')
-
-    def render_raise_block(self, block):
-        exc = block.inputargs[1]
-        self.load(exc)
-        self.ilasm.opcode('throw')
-
 
     # Those parts of the generator interface that are function
     # specific

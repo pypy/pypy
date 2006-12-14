@@ -82,15 +82,16 @@ class Function(object):
         graph = self.graph
         self.begin_render()
 
-        return_blocks = []
+        self.return_block = None
+        self.raise_block = None
         for block in graph.iterblocks():
             if self._is_return_block(block):
-                return_blocks.append(block)
+                self.return_block = block
+            elif self._is_raise_block(block):
+                self.raise_block = block
             else:
                 self.set_label(self._get_block_name(block))
-                if self._is_raise_block(block):
-                    self.render_raise_block(block)
-                elif self._is_exc_handling_block(block):
+                if self._is_exc_handling_block(block):
                     self.render_exc_handling_block(block)
                 else:
                     self.render_normal_block(block)
@@ -98,13 +99,22 @@ class Function(object):
         # render return blocks at the end just to please the .NET
         # runtime that seems to need a return statement at the end of
         # the function
-        for block in return_blocks:
-            self.set_label(self._get_block_name(block))
-            self.render_return_block(block)
+
+        self.before_last_blocks()
+
+        if self.raise_block:
+            self.set_label(self._get_block_name(self.raise_block))
+            self.render_raise_block(self.raise_block)
+        if self.return_block:
+            self.set_label(self._get_block_name(self.return_block))
+            self.render_return_block(self.return_block)
 
         self.end_render()
         if not self.is_method:
             self.db.record_function(self.graph, self.name)
+
+    def before_last_blocks(self):
+        pass
 
     def render_exc_handling_block(self, block):
         # renders all ops but the last one
