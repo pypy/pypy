@@ -48,16 +48,20 @@ class Controller(object):
                                                    revealargs=[],
                                                    revealresult=True)
 
-    def ctrl_getattr(self, s_obj, s_attr):
-        return delegate(self.getattr, s_obj, s_attr)
-
     def getattr(self, obj, attr):
         return getattr(self, 'get_' + attr)(obj)
     getattr._annspecialcase_ = 'specialize:arg(2)'
 
+    def ctrl_getattr(self, s_obj, s_attr):
+        return delegate(self.getattr, s_obj, s_attr)
+
     def rtype_getattr(self, hop):
         r_controlled_instance = hop.args_r[0]
         return r_controlled_instance.rtypedelegate(self.getattr, hop)
+
+    def setattr(self, obj, attr, value):
+        return getattr(self, 'set_' + attr)(obj, value)
+    setattr._annspecialcase_ = 'specialize:arg(2)'
 
     def ctrl_setattr(self, s_obj, s_attr, s_value):
         return delegate(self.setattr, s_obj, s_attr, s_value)
@@ -65,10 +69,6 @@ class Controller(object):
     def rtype_setattr(self, hop):
         r_controlled_instance = hop.args_r[0]
         return r_controlled_instance.rtypedelegate(self.setattr, hop)
-
-    def setattr(self, obj, attr, value):
-        return getattr(self, 'set_' + attr)(obj, value)
-    setattr._annspecialcase_ = 'specialize:arg(2)'
 
 
 def delegate(boundmethod, *args_s):
