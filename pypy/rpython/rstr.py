@@ -610,6 +610,7 @@ class AbstractLLHelpers:
         from pypy.rpython.annlowlevel import hlstr
         from pypy.rlib.rarithmetic import break_up_float, parts_to_float
         s = hlstr(ll_str)
+        assert s is not None
 
         n = len(s)
         beg = 0
