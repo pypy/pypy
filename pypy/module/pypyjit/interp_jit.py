@@ -74,7 +74,6 @@ def setup2():
 
         def dispatch_bytecode(self, co_code, next_instr, ec):
             if self.pycode.jit_enable:
-                print "jitting:", self.pycode.co_name
                 return self.dispatch_jit(co_code, next_instr, ec)
             else:
                 return super_dispatch_bytecode(self, co_code, next_instr, ec)
