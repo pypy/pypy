@@ -111,7 +111,7 @@ Stackless_ and coroutines
 Status
 ======================================
 
-PyPy is mainly developed on Linux and Mac OS/X.  Windows is supported,
+PyPy is mainly developed on Linux and Mac OS X.  Windows is supported,
 but platform-specific bugs tend to take longer before we notice and fix
 them.  About 64-bit machines: although support is mostly present, we
 decided to stop tracking and fixing the remaining issues for a while, as
@@ -158,7 +158,7 @@ recent compliance test runs against PyPy.
 .. _`on Linux`: http://snake.cs.uni-duesseldorf.de/pypytest/summary.html
 .. _`on Windows`: http://scottdial.com/pypytest/summary.html
 .. _`ideas for PyPy related projects`: project-ideas.html
-.. _`Nightly builds and benchmarks`: http://snake.cs.uni-duesseldorf.de/pypytest/benchmark.html
+.. _`Nightly builds and benchmarks`: http://tuatara.cs.uni-duesseldorf.de/benchmark.html
 .. _`build pypy-c`: http://snake.cs.uni-duesseldorf.de/pypy-c-tests/
 .. _`directory reference`: 
 .. _`rlib`: rlib.html
