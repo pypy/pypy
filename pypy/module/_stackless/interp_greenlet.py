@@ -64,10 +64,9 @@ class AppGreenlet(Coroutine):
     def descr_method__init__(self, w_run=NoneNotWrapped,
                                    w_parent=NoneNotWrapped):
         if w_run is not None:
-            self.w_set_run.im_func(self.space, self, w_run)
+            self.set_run(w_run)
         if w_parent is not None:
-            self.w_set_parent.im_func(self.space, self, w_parent)
-        # XXX strange style above, GetSetProperty needs a cleanup
+            self.set_parent(w_parent)
 
     def _get_state(space):
         return space.fromcache(AppGreenletCoState)
@@ -156,13 +155,16 @@ class AppGreenlet(Coroutine):
             raise OperationError(space.w_AttributeError, space.wrap("run"))
         return w_run
 
-    def w_set_run(space, self, w_run):
+    def set_run(self, w_run):
         space = self.space
         if self.thunk is None:
             raise OperationError(space.w_AttributeError,
                                  space.wrap("run cannot be set "
                                             "after the start of the greenlet"))
         self.w_callable = w_run
+
+    def w_set_run(space, self, w_run):
+        self.set_run(w_run)
 
     def w_del_run(space, self):
         if self.w_callable is None:
@@ -172,7 +174,8 @@ class AppGreenlet(Coroutine):
     def w_get_parent(space, self):
         return space.wrap(self.parent)
 
-    def w_set_parent(space, self, w_parent):
+    def set_parent(self, w_parent):
+        space = self.space
         newparent = space.interp_w(AppGreenlet, w_parent)
         if newparent.costate is not self.costate:
             raise OperationError(self.costate.w_GreenletError,
@@ -184,6 +187,9 @@ class AppGreenlet(Coroutine):
                                      space.wrap("cyclic parent chain"))
             curr = curr.parent
         self.parent = newparent
+
+    def w_set_parent(space, self, w_parent):
+        self.set_parent(w_parent)
 
     def w_get_frame(space, self):
         if not self.active or self.costate.current is self:
