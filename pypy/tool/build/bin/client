@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import py
 import path
 import sys
 import random
@@ -7,15 +8,80 @@ import traceback
 from pypy.tool.build import config as buildconfig
 
 from py.execnet import SshGateway, PopenGateway
-from pypy.tool.build.client import init, zip_result, OutputBuffer
+from pypy.tool.build.client import init, zip_result
 from pypy.tool.build import build
 from pypy.config.config import to_optparse, Config
-from pypy.config import pypyoption
 
-from pypy.interpreter.error import OperationError
-from pypy.translator.goal import targetpypystandalone
-from pypy.translator.driver import TranslationDriver
-from pypy.tool.udir import udir
+def compile(wc, compileinfo):
+    code = """\
+import sys
+
+# interpolating the path
+sys.path = [%r] + sys.path
+
+# nasty, interpolating a large chunk of code (OutputBuffer)
+%s
+
+# interpolating config
+compileinfo = %r
+
+log = open('/tmp/buildclient.log', 'a')
+outbuffer = OutputBuffer(log)
+sys.stdout = outbuffer
+sys.stderr = outbuffer
+try:
+    try:
+        from pypy.interpreter.error import OperationError
+        from pypy.translator.goal import targetpypystandalone
+        from pypy.translator.driver import TranslationDriver
+        from pypy.config import pypyoption
+        from pypy.tool.udir import udir
+
+        config = pypyoption.get_pypy_config()
+        config.override(compileinfo)
+
+        driver = TranslationDriver.from_targetspec(
+                    targetpypystandalone.__dict__, config=config,
+                    default_goal='compile')
+        driver.proceed(['compile'])
+    except Exception, e:
+        # XXX we may want to check
+        exception_occurred = True
+        exc, e, tb = sys.exc_info()
+        print '=' * 79
+        print 'Exception during compilation:'
+        print '%%s: %%s' %% (exc, e)
+        print
+        print '\\n'.join(traceback.format_tb(tb))
+        print '=' * 79
+        del tb
+        channel.send(None)
+    else:
+        channel.send(str(udir))
+finally:
+    sys.stdout = sys.__stdout__
+    sys.stderr = sys.__stderr__
+    log.close()
+channel.send(outbuffer.getvalue())
+"""
+    gw = PopenGateway()
+    buffercode = py.magic.autopath().dirpath().dirpath()\
+                    .join('outputbuffer.py').read()
+    interpolated = code % (str(wc), buffercode, compileinfo)
+    channel = gw.remote_exec(interpolated)
+    upath = channel.receive()
+    output = channel.receive()
+
+    return upath, output
+
+def tempdir():
+    i = 0
+    tmp = py.path.local('/tmp')
+    while 1:
+        dirname = 'buildtemp-%s' % (i,)
+        if not tmp.join(dirname).check():
+            return tmp.ensure(dirname, dir=True)
+        i += 1
 
 if buildconfig.server in ['localhost', '127.0.0.1']:
     gw = PopenGateway()
@@ -26,12 +92,6 @@ channel = init(gw,
                buildconfig.system_config,
                path=buildconfig.path,
                port=buildconfig.port)
-
-def compile(config):
-    driver = TranslationDriver.from_targetspec(
-                targetpypystandalone.__dict__, config=config,
-                default_goal='compile')
-    driver.proceed(['compile'])
 
 print channel.receive() # welcome message
 try:
@@ -61,7 +121,7 @@ try:
                         name = '%s.%s' % (checker.im_class.__name__,
                                           checker.im_func.func_name)
                     else:
-                        name = checer.func_name
+                        name = checker.func_name
                     print 'request refused by checker', name
                     accepting = False
                     break
@@ -71,35 +131,30 @@ try:
                 continue
             # XXX we should compile here, using data dict for info
             print 'compilation requested for %s\nbuilding...\n' % (request,)
-            config = pypyoption.get_pypy_config()
-            config.override(request.compileinfo)
 
-            buffer = OutputBuffer(sys.__stderr__)
-            sys.stdout = buffer
-            sys.stderr = buffer
-            exception_occurred = False
+            # subversion checkout
+            print 'checking out %s@%s' % (request.svnurl,
+                                          request.normalized_rev)
+            #temp = tempdir()
+            #svnwc = py.path.svnwc(temp)
+            #svnwc.checkout(request.svnurl)
+            #svnwc.update(request.normalized_rev)
+            svnwc = py.path.svnwc('/tmp/buildtemp-1')
 
             try:
-                try:
-                    compile(config)
-                except Exception, e:
-                    exception_occurred = True
-                    exc, e, tb = sys.exc_info()
-                    print '=' * 79
-                    print 'Exception during compilation:'
-                    print '%s: %s' % (exc, e)
-                    print
-                    print '\n'.join(traceback.format_tb(tb))
-                    print '=' * 79
-                    del tb
-            finally:
-                sys.stdout = sys.__stdout__
-                sys.stderr = sys.__stderr__
+                print 'starting compilation'
+                upath, log = compile(svnwc, request.compileinfo)
+                print 'compilation done'
+            except KeyboardInterrupt:
+                print 'quitting...'
+                break
 
-            if not exception_occurred:
+            if upath:
                 # send over zip data, end with a None
-                zip_result(udir, channel)
+                print 'compilation successful, sending to server'
+                zip_result(py.path.local(udir), channel)
             else:
+                print 'compilation failed, sending log'
                 # just send the None
                 channel.send(None)
             

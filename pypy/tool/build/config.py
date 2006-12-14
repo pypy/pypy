@@ -25,7 +25,7 @@ compile_config.override({'translation.backend': 'c'})
 
 # settings for the server
 projectname = 'pypy'
-buildpath = packageparent.join('/pypy/tool/build/builds')
+buildpath = packageparent.ensure('/pypy/tool/build/builds', dir=True)
 mailhost = 'localhost'
 mailport = 25
 mailfrom = 'pypybuilds@codespeak.net'

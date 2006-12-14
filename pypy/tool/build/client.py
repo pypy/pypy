@@ -130,19 +130,3 @@ def zip_result(res_dir, channel):
             continue
     zip.close()
 
-class OutputBuffer(object):
-    def __init__(self, print_channel=None):
-        self.print_channel = print_channel
-        self.buffer = StringIO()
-
-    def write(self, s):
-        self.buffer.write(s)
-        if self.print_channel:
-            self.print_channel.write(s)
-
-    def getvalue(self):
-        return self.buffer.getvalue()
-
-    def isatty(self):
-        return False
-
