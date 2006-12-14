@@ -328,14 +328,14 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
     def op_int_sub(self, gv_x, gv_y):       return self._rgenop2_generic('sub' , gv_x, gv_y)
     def op_int_mul(self, gv_x, gv_y):       return self._rgenop2_generic('mul' , gv_x, gv_y)
     def op_int_floordiv(self, gv_x, gv_y):  return self._rgenop2_generic('sdiv', gv_x, gv_y)
-    def op_int_mod(self, gv_x, gv_y):       return self._rgenop2_generic('rem' , gv_x, gv_y)
+    def op_int_mod(self, gv_x, gv_y):       return self._rgenop2_generic('srem' , gv_x, gv_y)
     def op_int_and(self, gv_x, gv_y):       return self._rgenop2_generic('and' , gv_x, gv_y)
     def op_int_or(self, gv_x, gv_y):        return self._rgenop2_generic('or'  , gv_x, gv_y)
     def op_int_xor(self, gv_x, gv_y):       return self._rgenop2_generic('xor' , gv_x, gv_y)
 
     def op_int_lshift(self, gv_x, gv_y):
         gv_y_ubyte = Var('ubyte')
-        self.asm.append(' %s=cast %s to ubyte' % (gv_y_ubyte.operand2(), gv_y.operand()))
+        self.asm.append(' %s=trunc %s to ubyte' % (gv_y_ubyte.operand2(), gv_y.operand()))
         gv_result = Var(gv_x.type)
         self.asm.append(' %s=shl %s,%s' % (
             gv_result.operand2(), gv_x.operand(), gv_y_ubyte.operand()))
@@ -343,9 +343,10 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
 
     def op_int_rshift(self, gv_x, gv_y):
         gv_y_ubyte = Var('ubyte')
-        self.asm.append(' %s=cast %s to ubyte' % (gv_y_ubyte.operand2(), gv_y.operand()))
+        self.asm.append(' %s=trunc %s to ubyte' % (gv_y_ubyte.operand2(), gv_y.operand()))
         gv_result = Var(gv_x.type)
-        self.asm.append(' %s=shr %s,%s' % (
+        #XXX lshr/ashr
+        self.asm.append(' %s=lshr %s,%s' % (
             gv_result.operand2(), gv_x.operand(), gv_y_ubyte.operand()))
         return gv_result
 
@@ -407,10 +408,29 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
 
     #def op_bool_not(self, gv_x): #use select, xor or sub XXXX todo: did not see a test for this
 
+    #XXX 'cast' has been replaced by many sext/zext/uitofp/... opcodes in the upcoming llvm 2.0.
+    #The lines upto /XXX should be refactored to do the right thing
+    def op_same_as(self, gv_x):
+        gv_result = Var(gv_x.type)
+        self.asm.append(' %s=bitcast %s to %s' % (
+            gv_result.operand2(), gv_x.operand(), gv_x.type))
+        return gv_result
+
     def _cast_to(self, gv_x, restype=None):
         restype = restype or gv_x.type
+        if restype is gv_x.type:
+            return self.op_same_as(gv_x)
         gv_result = Var(restype)
-        self.asm.append(' %s=cast %s to %s' % (
+        self.asm.append(' %s=zext %s to %s' % (
+            gv_result.operand2(), gv_x.operand(), restype))
+        return gv_result
+
+    def _trunc_to(self, gv_x, restype=None):
+        restype = restype or gv_x.type
+        if restype is gv_x.type:
+            return self.op_same_as(gv_x)
+        gv_result = Var(restype)
+        self.asm.append(' %s=trunc %s to %s' % (
             gv_result.operand2(), gv_x.operand(), restype))
         return gv_result
 
@@ -421,41 +441,49 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
     def _cast_to_uint(self, gv_x):      return self._cast_to(gv_x, 'uint')
     def _cast_to_float(self, gv_x):     return self._cast_to(gv_x, 'float')
 
-    op_cast_char_to_bool    = _cast_to_bool
-    op_cast_unichar_to_bool = _cast_to_bool
-    op_cast_int_to_bool     = _cast_to_bool
-    op_cast_uint_to_bool    = _cast_to_bool
-    op_cast_float_to_bool   = _cast_to_bool
+    def _trunc_to_bool(self, gv_x):      return self._trunc_to(gv_x, 'bool')
+    def _trunc_to_char(self, gv_x):      return self._trunc_to(gv_x, 'ubyte')
+    def _trunc_to_unichar(self, gv_x):   return self._trunc_to(gv_x, 'int')
+    def _trunc_to_int(self, gv_x):       return self._trunc_to(gv_x, 'int')
+    def _trunc_to_uint(self, gv_x):      return self._trunc_to(gv_x, 'uint')
+    def _trunc_to_float(self, gv_x):     return self._trunc_to(gv_x, 'float')
+
+    op_cast_char_to_bool    = _trunc_to_bool
+    op_cast_unichar_to_bool = _trunc_to_bool
+    op_cast_int_to_bool     = _trunc_to_bool
+    op_cast_uint_to_bool    = _trunc_to_bool
+    op_cast_float_to_bool   = _trunc_to_bool
 
     op_cast_bool_to_char    = _cast_to_char
-    op_cast_unichar_to_char = _cast_to_char
-    op_cast_int_to_char     = _cast_to_char
-    op_cast_uint_to_char    = _cast_to_char
-    op_cast_float_to_char   = _cast_to_char
+    op_cast_unichar_to_char = _trunc_to_char
+    op_cast_int_to_char     = _trunc_to_char
+    op_cast_uint_to_char    = _trunc_to_char
+    op_cast_float_to_char   = _trunc_to_char
 
     op_cast_bool_to_unichar  = _cast_to_unichar
     op_cast_char_to_unichar  = _cast_to_unichar
     op_cast_int_to_unichar   = _cast_to_unichar
     op_cast_uint_to_unichar  = _cast_to_unichar
-    op_cast_float_to_unichar = _cast_to_unichar
+    op_cast_float_to_unichar = _trunc_to_unichar
 
     op_cast_bool_to_int    = _cast_to_int
     op_cast_char_to_int    = _cast_to_int
     op_cast_unichar_to_int = _cast_to_int
     op_cast_uint_to_int    = _cast_to_int
-    op_cast_float_to_int   = _cast_to_int
+    op_cast_float_to_int   = _trunc_to_int
 
     op_cast_bool_to_uint    = _cast_to_uint
     op_cast_char_to_uint    = _cast_to_uint
     op_cast_unichar_to_uint = _cast_to_uint
     op_cast_int_to_uint     = _cast_to_uint
-    op_cast_float_to_uint   = _cast_to_uint
+    op_cast_float_to_uint   = _trunc_to_uint
 
     op_cast_bool_to_float    = _cast_to_float
     op_cast_char_to_float    = _cast_to_float
     op_cast_unichar_to_float = _cast_to_float
     op_cast_int_to_float     = _cast_to_float
     op_cast_uint_to_float    = _cast_to_float
+    #/XXX
 
     def enter_next_block(self, kinds, args_gv):
         # if nextlabel is None, it means that we are currently

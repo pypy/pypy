@@ -4,7 +4,7 @@ from pypy.jit.codegen.i386.test.test_operation import BasicTests
 from pypy.jit.codegen.llvm.rgenop import RLLVMGenOp
 
 
-skip_unsupported_platform()
+#skip_unsupported_platform()
 
 
 class LLVMTestBasicMixin(object):
