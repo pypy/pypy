@@ -1,10 +1,11 @@
 from pypy.rpython.controllerentry import Controller, ControllerEntry
+from pypy.rpython.controllerentry import ControllerEntryForPrebuilt
 
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.rpython.test.test_llinterp import interpret
 
 
-class C:
+class C(object):
     "Imagine some magic here to have a foo attribute on instances"
 
 def fun(a):
@@ -19,6 +20,9 @@ class C_Controller(Controller):
     def new(self, a):
         return a + '_'
 
+    def convert(self, c):
+        return str(c._bar)
+
     def get_foo(self, obj):
         return obj + "2"
 
@@ -27,6 +31,10 @@ class C_Controller(Controller):
 
 class Entry(ControllerEntry):
     _about_ = C
+    _controller_ = C_Controller
+
+class Entry(ControllerEntryForPrebuilt):
+    _type_ = C
     _controller_ = C_Controller
 
 
@@ -39,3 +47,28 @@ def test_C_specialize():
     res = interpret(fun, ["4"])
     assert ''.join(res.item0.chars) == "4_2"
     assert ''.join(res.item1.chars) == "4_"
+
+
+c2 = C()
+c2._bar = 51
+
+c3 = C()
+c3._bar = 7654
+
+def fun2(flag):
+    if flag:
+        c = c2
+    else:
+        c = c3
+    return c.foo
+
+def test_C2_annotate():
+    a = RPythonAnnotator()
+    s = a.build_types(fun2, [a.bookkeeper.immutablevalue(True)])
+    assert s.const == "512"
+
+def test_C2_specialize():
+    res = interpret(fun2, [True])
+    assert ''.join(res.chars) == "512"
+    res = interpret(fun2, [False])
+    assert ''.join(res.chars) == "76542"

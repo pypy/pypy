@@ -21,6 +21,18 @@ class ControllerEntry(ExtRegistryEntry):
         return controller.rtype_new(hop)
 
 
+class ControllerEntryForPrebuilt(ExtRegistryEntry):
+
+    def compute_annotation(self):
+        controller = self.getcontroller()
+        real_obj = controller.convert(self.instance)
+        s_real_obj = self.bookkeeper.immutablevalue(real_obj)
+        return SomeControlledInstance(s_real_obj, controller)
+
+    def getcontroller(self):
+        return self._controller_()
+
+
 class Controller(object):
     __metaclass__ = cachedtype
 
@@ -44,23 +56,15 @@ class Controller(object):
     getattr._annspecialcase_ = 'specialize:arg(2)'
 
     def rtype_getattr(self, hop):
-        hop2 = hop.copy()
-        r_controlled_instance = hop2.args_r[0]
-        _, s_attr = hop2.r_s_pop(1)
-        attr = s_attr.const
-        getter = getattr(self, 'get_' + attr)
-        return r_controlled_instance.rtypedelegate(getter, hop2)
+        r_controlled_instance = hop.args_r[0]
+        return r_controlled_instance.rtypedelegate(self.getattr, hop)
 
     def ctrl_setattr(self, s_obj, s_attr, s_value):
         return delegate(self.setattr, s_obj, s_attr, s_value)
 
     def rtype_setattr(self, hop):
-        hop2 = hop.copy()
-        r_controlled_instance = hop2.args_r[0]
-        _, s_attr = hop2.r_s_pop(1)
-        attr = s_attr.const
-        setter = getattr(self, 'set_' + attr)
-        return r_controlled_instance.rtypedelegate(setter, hop2)
+        r_controlled_instance = hop.args_r[0]
+        return r_controlled_instance.rtypedelegate(self.setattr, hop)
 
     def setattr(self, obj, attr, value):
         return getattr(self, 'set_' + attr)(obj, value)

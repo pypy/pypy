@@ -2424,39 +2424,6 @@ class TestAnnotateTestCase:
                 py.test.raises(NoSuchSlotError, a.build_types, fun, [int])
 
 
-    def test_simple_controllerentry(self):
-        from pypy.rpython.controllerentry import Controller, ControllerEntry
-
-        class C:
-            "Imagine some magic here to have a foo attribute on instances"
-
-        def fun():
-            lst = []
-            c = C()
-            c.foo = lst    # side-effect on lst!  well, it's a test
-            return c.foo, lst[0]
-
-        class C_Controller(Controller):
-            knowntype = C
-
-            def new(self):
-                return "4"
-
-            def get_foo(self, obj):
-                return obj + "2"
-
-            def set_foo(self, obj, value):
-                value.append(obj)
-
-        class Entry(ControllerEntry):
-            _about_ = C
-            _controller_ = C_Controller
-
-        a = self.RPythonAnnotator(policy=policy.AnnotatorPolicy())
-        s = a.build_types(fun, [])
-        assert s.const == ("42", "4")
-
-
     def test_float_cmp(self):
         def fun(x, y):
             return (x < y,

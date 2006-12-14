@@ -12,6 +12,10 @@ class ControlledInstanceRepr(Repr):
         self.controller = controller
         self.lowleveltype = self.r_real_obj.lowleveltype
 
+    def convert_const(self, value):
+        real_value = self.controller.convert(value)
+        return self.r_real_obj.convert_const(real_value)
+
     def rtypedelegate(self, boundmethod, hop,
                       revealargs=[0], revealresult=False):
         bk = self.rtyper.annotator.bookkeeper
