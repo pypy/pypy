@@ -135,7 +135,6 @@ class LLTypeMachineCodeBlock(I386CodeBuilder):
     def __init__(self, map_size):
         self._size = map_size
         self._pos = 0
-        self._data = lltype.malloc(BUF, map_size)
         self._base = LLTypeMachineCodeBlock.state.base
         LLTypeMachineCodeBlock.state.base += 2 * map_size
 
@@ -143,13 +142,20 @@ class LLTypeMachineCodeBlock(I386CodeBuilder):
         p = self._pos
         if p + len(data) > self._size:
             raise CodeBlockOverflow
-        for c in data:
-            self._data[p] = c
-            p += 1
-        self._pos = p
+        self._pos += len(data)
+        return
 
     def tell(self):
         return self._base + 2 * self._pos
 
     def done(self):
         pass
+
+class LLTypeInMemoryCodeBuilder(LLTypeMachineCodeBlock):
+    _last_dump_start = 0
+
+    def __init__(self, start, end):
+        self._size = (end - start) / 2
+        self._pos = 0
+        self._base = start
+

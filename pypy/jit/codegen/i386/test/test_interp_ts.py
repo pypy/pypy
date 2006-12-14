@@ -13,6 +13,8 @@ class I386LLInterpTimeshiftingTestMixin(object):
     class RGenOp(RGenOpPacked):
         from pypy.jit.codegen.i386.codebuf import LLTypeMachineCodeBlock \
                                                as MachineCodeBlock
+        from pypy.jit.codegen.i386.codebuf import LLTypeInMemoryCodeBuilder \
+                                               as InMemoryCodeBuilder
 
     def timeshift(self, ll_function, values, opt_consts=[], *args, **kwds):
         values = self.timeshift_cached(ll_function, values, *args, **kwds)

@@ -1,8 +1,8 @@
-import sys, py
+import sys, py, os
 from pypy.rlib.objectmodel import specialize
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.jit.codegen.i386.ri386 import *
-from pypy.jit.codegen.i386.codebuf import InMemoryCodeBuilder, CodeBlockOverflow
+from pypy.jit.codegen.i386.codebuf import CodeBlockOverflow
 from pypy.jit.codegen.model import AbstractRGenOp, GenLabel, GenBuilder
 from pypy.jit.codegen.model import GenVar, GenConst, CodeGenSwitch
 from pypy.rlib import objectmodel
@@ -149,7 +149,9 @@ class FlexSwitch(CodeGenSwitch):
 
     def __init__(self, rgenop):
         self.rgenop = rgenop
-        self.default_case_addr = 0
+        self.default_case_builder = None
+        self.default_case_key = 0
+        self._je_key = 0
 
     def initialize(self, builder, gv_exitswitch):
         mc = builder.mc
@@ -171,62 +173,101 @@ class FlexSwitch(CodeGenSwitch):
         newmc = self.rgenop.open_mc()
         self._reserve(newmc)
         self.rgenop.close_mc(newmc)
-        fullmc = InMemoryCodeBuilder(start, end)
+        fullmc = self.rgenop.InMemoryCodeBuilder(start, end)
         fullmc.JMP(rel32(self.nextfreepos))
         fullmc.done()
         
     def add_case(self, gv_case):
         rgenop = self.rgenop
         targetbuilder = Builder._new_from_state(rgenop, self.saved_state)
-        target_addr = targetbuilder.mc.tell()
         try:
-            self._add_case(gv_case, target_addr)
+            self._add_case(gv_case, targetbuilder)
         except CodeBlockOverflow:
             self._reserve_more()
-            self._add_case(gv_case, target_addr)
+            self._add_case(gv_case, targetbuilder)
         return targetbuilder
     
-    def _add_case(self, gv_case, target_addr):
+    def _add_case(self, gv_case, targetbuilder):
         start = self.nextfreepos
         end   = self.endfreepos
-        mc = InMemoryCodeBuilder(start, end)
+        mc = self.rgenop.InMemoryCodeBuilder(start, end)
         mc.CMP(eax, gv_case.operand(None))
-        mc.JE(rel32(target_addr))
+        self._je_key = targetbuilder.come_from(mc, 'JE', self._je_key)
         pos = mc.tell()
-        if self.default_case_addr:
-            mc.JMP(rel32(self.default_case_addr))
+        if self.default_case_builder:
+            self.default_case_key = self.default_case_builder.come_from(
+                mc, 'JMP', self.default_case_key)
         else:
             illegal_start = mc.tell()
             mc.JMP(rel32(0))
             ud2_addr = mc.tell()
             mc.UD2()
-            illegal_mc = InMemoryCodeBuilder(illegal_start, end)
+            illegal_mc = self.rgenop.InMemoryCodeBuilder(illegal_start, end)
             illegal_mc.JMP(rel32(ud2_addr))
         mc.done()
+        self._je_key = 0
         self.nextfreepos = pos
 
     def add_default(self):
         rgenop = self.rgenop
         targetbuilder = Builder._new_from_state(rgenop, self.saved_state)
-        self.default_case_addr = targetbuilder.mc.tell()
+        self.default_case_builder = targetbuilder
         start = self.nextfreepos
         end   = self.endfreepos
-        mc = InMemoryCodeBuilder(start, end)
-        mc.JMP(rel32(self.default_case_addr))
-        mc.done()
+        mc = self.rgenop.InMemoryCodeBuilder(start, end)
+        self.default_case_key = targetbuilder.come_from(mc, 'JMP')
         return targetbuilder
 
 class Builder(GenBuilder):
 
-    def __init__(self, rgenop, mc, stackdepth):
+    def __init__(self, rgenop, mc_factory, stackdepth):
         self.rgenop = rgenop
         self.stackdepth = stackdepth
-        self.mc = mc
+        self.mc = None
+        self._mc_factory = mc_factory
+        self._pending_come_from = {}
+        self.start = 0
+        rgenop.openbuilders += 1
+        #os.write(1, 'Open builders+: %d\n' % rgenop.openbuilders)
 
+    def _open(self):
+        if self.mc is None and self._pending_come_from is not None:
+            self.mc = self._mc_factory()
+            self.start = self.mc.tell()
+            come_froms = self._pending_come_from
+            self._pending_come_from = None
+            for start, (end, insn) in come_froms.iteritems():
+                mc = self.rgenop.InMemoryCodeBuilder(start, end)
+                self._emit_come_from(mc, insn, self.start)
+                mc.done()
+
+    def _emit_come_from(self, mc, insn, addr):
+        if insn == 'JMP':
+            mc.JMP(rel32(addr))
+        elif insn == 'JE':
+            mc.JE(rel32(addr))
+        elif insn == 'JNE':
+            mc.JNE(rel32(addr))
+        else:
+            raise ValueError('Unsupported jump')
+        
+    def come_from(self, mc, insn, key=0):
+        start = mc.tell()
+        if self._pending_come_from is None:
+            self._emit_come_from(mc, insn, self.start)
+        else:
+            self._emit_come_from(mc, insn, 0)
+            end = mc.tell()
+            if key != 0:
+                del self._pending_come_from[key]
+            self._pending_come_from[start] = (end, insn)
+        return start
+    
     def end(self):
         pass
 
     def _write_prologue(self, sigtoken):
+        self._open()
         numargs = sigtoken     # for now
         #self.mc.BREAKPOINT()
         return [Var(pos) for pos in range(numargs-1, -1, -1)]
@@ -235,6 +276,8 @@ class Builder(GenBuilder):
         self.mc.done()
         self.rgenop.close_mc(self.mc)
         self.mc = None
+        self.rgenop.openbuilders -= 1
+        #os.write(1, 'Open builders-: %d\n' % self.rgenop.openbuilders)
 
     def _fork(self):
         return self.rgenop.openbuilder(self.stackdepth)
@@ -389,6 +432,7 @@ class Builder(GenBuilder):
         self.mc.BREAKPOINT()
 
     def enter_next_block(self, kinds, args_gv):
+        self._open()
         arg_positions = []
         seen = {}
         for i in range(len(args_gv)):
@@ -405,13 +449,13 @@ class Builder(GenBuilder):
     def jump_if_false(self, gv_condition):
         targetbuilder = self._fork()
         self.mc.CMP(gv_condition.operand(self), imm8(0))
-        self.mc.JE(rel32(targetbuilder.mc.tell()))
+        targetbuilder.come_from(self.mc, 'JE')
         return targetbuilder
 
     def jump_if_true(self, gv_condition):
         targetbuilder = self._fork()
         self.mc.CMP(gv_condition.operand(self), imm8(0))
-        self.mc.JNE(rel32(targetbuilder.mc.tell()))
+        targetbuilder.come_from(self.mc, 'JNE')
         return targetbuilder
 
     def finish_and_return(self, sigtoken, gv_returnvar):
@@ -885,12 +929,13 @@ class ReplayBuilder(GenBuilder):
     def show_incremental_progress(self):
         pass
 
-
 class RI386GenOp(AbstractRGenOp):
     from pypy.jit.codegen.i386.codebuf import MachineCodeBlock
+    from pypy.jit.codegen.i386.codebuf import InMemoryCodeBuilder
 
     MC_SIZE = 65536
-
+    openbuilders = 0
+    
     def __init__(self):
         self.mcs = []   # machine code blocks where no-one is currently writing
         self.keepalive_gc_refs = [] 
@@ -903,6 +948,7 @@ class RI386GenOp(AbstractRGenOp):
         else:
             # XXX supposed infinite for now
             self.total_code_blocks += 1
+            #os.write(1, 'Open codeblocks: %d\n' % (self.total_code_blocks,))
             return self.MachineCodeBlock(self.MC_SIZE)
 
     def close_mc(self, mc):
@@ -915,12 +961,13 @@ class RI386GenOp(AbstractRGenOp):
         assert len(self.mcs) == self.total_code_blocks
 
     def openbuilder(self, stackdepth):
-        return Builder(self, self.open_mc(), stackdepth)
+        return Builder(self, self.open_mc, stackdepth)
 
     def newgraph(self, sigtoken, name):
         numargs = sigtoken          # for now
         initialstackdepth = numargs+1
         builder = self.openbuilder(initialstackdepth)
+        builder._open() # Force builder to have an mc
         entrypoint = builder.mc.tell()
         inputargs_gv = builder._write_prologue(sigtoken)
         return builder, IntConst(entrypoint), inputargs_gv
