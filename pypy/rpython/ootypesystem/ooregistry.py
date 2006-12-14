@@ -49,6 +49,24 @@ class Entry_ooparse_int(ExtRegistryEntry):
         hop.exception_is_here()
         return hop.genop('ooparse_int', vlist, resulttype = ootype.Signed)
 
+
+class Entry_ooparse_float(ExtRegistryEntry):
+    _about_ = ootype.ooparse_float
+
+    def compute_result_annotation(self, str_s):
+        assert isinstance(str_s, annmodel.SomeOOInstance)\
+               and str_s.ootype is ootype.String
+        return annmodel.SomeFloat()
+
+    def specialize_call(self, hop):
+        assert isinstance(hop.args_s[0], annmodel.SomeOOInstance)\
+               and hop.args_s[0].ootype is ootype.String
+        vlist = hop.inputargs(hop.args_r[0])
+        hop.has_implicit_exception(ValueError)
+        hop.exception_is_here()
+        return hop.genop('ooparse_float', vlist, resulttype = ootype.Float)
+
+
 class Entry_oohash(ExtRegistryEntry):
     _about_ = ootype.oohash
 

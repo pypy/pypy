@@ -108,6 +108,17 @@ namespace pypy.runtime
             return Convert.ToInt32(s, base_);
         }
 
+        public static double OOParseFloat(string s)
+        {
+            try {
+                return Double.Parse(s.Trim());
+            }
+            catch(FormatException e) {
+                Helpers.raise_ValueError();
+                return -1;
+            }
+        }
+
         public static bool Equal<T>(T t1, T t2) 
         { 
             return t1.Equals(t2);

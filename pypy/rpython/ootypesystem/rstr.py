@@ -193,6 +193,9 @@ class LLHelpers(AbstractLLHelpers):
             raise ValueError
         return sign * val
 
+    def ll_float(ll_str):
+        return ootype.ooparse_float(ll_str)
+    
     # interface to build strings:
     #   x = ll_build_start(n)
     #   ll_build_push(x, next_string, 0)

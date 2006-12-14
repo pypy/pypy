@@ -1417,6 +1417,9 @@ def oostring(obj, base):
 def ooparse_int(s, base):
     return int(s._str, base)
 
+def ooparse_float(s):
+    return float(s._str)
+
 def setItemType(LIST, ITEMTYPE):
     return LIST._set_itemtype(ITEMTYPE)
 

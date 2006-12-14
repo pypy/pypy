@@ -49,6 +49,7 @@ opcodes = {
     'oohash':                   [PushAllArgs, 'callvirt instance int32 object::GetHashCode()'],    
     'oostring':                 [OOString],
     'ooparse_int':              [PushAllArgs, 'call int32 [pypylib]pypy.runtime.Utils::OOParseInt(string, int32)'],
+    'ooparse_float':            [PushAllArgs, 'call float64 [pypylib]pypy.runtime.Utils::OOParseFloat(string)'],
     'oonewcustomdict':          [NewCustomDict],
     
     'same_as':                  DoNothing,
