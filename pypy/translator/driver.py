@@ -346,14 +346,17 @@ class TranslationDriver(SimpleTaskEngine):
 
     def task_backendopt_ootype(self):
         from pypy.translator.backendopt.all import backend_optimizations
-        backend_optimizations(self.translator,
-                              raisingop2direct_call=False,
-                              inline_threshold=0,
-                              mallocs=False,
-                              merge_if_blocks=False,
-                              constfold=True,
-                              heap2stack=False,
-                              clever_malloc_removal=False)
+        opt = dict(
+            raisingop2direct_call=False,
+            inline_threshold=0,
+            mallocs=False,
+            merge_if_blocks=False,
+            constfold=True,
+            heap2stack=False,
+            clever_malloc_removal=False)
+        if self.config.translation.backend == 'cli':
+            opt['merge_if_blocks'] = True
+        backend_optimizations(self.translator, **opt)
     #
     task_backendopt_ootype = taskdef(task_backendopt_ootype, 
                                         [OOTYPE], "ootype back-end optimisations")
