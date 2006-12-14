@@ -5,14 +5,14 @@ from pypy.translator.c.support import cdecl
 from pypy.rpython.lltypesystem.rstr import STR, mallocstr
 from pypy.rpython.lltypesystem import rstr
 from pypy.rpython.lltypesystem import rlist
-from pypy.rpython.module import ll_time, ll_math, ll_strtod
+from pypy.rpython.module import ll_time, ll_math
 from pypy.rpython.module import ll_stackless, ll_stack
 from pypy.rpython.module.support import ll_execve
 from pypy.rpython.lltypesystem.module.ll_os import STAT_RESULT, PIPE_RESULT
 from pypy.rpython.lltypesystem.module.ll_os import WAITPID_RESULT
 from pypy.rpython.lltypesystem.module.ll_os import Implementation as impl
 from pypy.rpython.lltypesystem.module import ll_math as ll_math2
-from pypy.rpython.lltypesystem.module import ll_strtod as ll_strtod2
+from pypy.rpython.lltypesystem.module import ll_strtod
 from pypy.rlib import ros
 
 try:
@@ -74,9 +74,9 @@ EXTERNALS = {
     ll_math.ll_math_ldexp: 'LL_math_ldexp',
     ll_math2.Implementation.ll_math_modf.im_func:  'LL_math_modf',
     ll_math.ll_math_hypot: 'LL_math_hypot',
-    ll_strtod.ll_strtod_parts_to_float:
+    ll_strtod.Implementation.ll_strtod_parts_to_float:
         'LL_strtod_parts_to_float',
-    ll_strtod2.Implementation.ll_strtod_formatd:
+    ll_strtod.Implementation.ll_strtod_formatd:
         'LL_strtod_formatd',
     ll_stackless.ll_stackless_switch:             'LL_stackless_switch',
     ll_stackless.ll_stackless_stack_frames_depth: 'LL_stackless_stack_frames_depth',
