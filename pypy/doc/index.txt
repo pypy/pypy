@@ -111,6 +111,16 @@ Stackless_ and coroutines
 Status
 ======================================
 
+PyPy is mainly developed on Linux and Mac OS/X.  Windows is supported,
+but platform-specific bugs tend to take longer before we notice and fix
+them.  About 64-bit machines: although support is mostly present, we
+decided to stop tracking and fixing the remaining issues for a while, as
+an attempt to keep some focus.  So PyPy requires a 32-bit machine or OS
+for now.
+
+*Some links below are broken because of hardware failure of the
+snake server - PyPy kills machines :-)*
+
 PyPy's own tests, daily updated, `on Linux`_ and `on Windows`_ and
 on `build pypy-c`_ (various variants).
 

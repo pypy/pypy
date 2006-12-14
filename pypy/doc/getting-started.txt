@@ -106,7 +106,7 @@ may just `start reading sources`_ .
 Running all of PyPy's tests  
 ---------------------------
 
-If you want to see if PyPy works on your machine/platform 
+If you want to see `if PyPy works on your machine/platform`_
 you can simply run PyPy's large test suite with:: 
 
     cd pypy
@@ -114,6 +114,8 @@ you can simply run PyPy's large test suite with::
 
 test_all.py is just another name for `py.test`_ which is the
 testing tool that we are using and enhancing for PyPy.   
+
+.. _`if PyPy works on your machine/platform`: index.html#status
 
 Filing bugs or feature requests 
 -------------------------------
