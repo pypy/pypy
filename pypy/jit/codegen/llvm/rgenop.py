@@ -148,7 +148,7 @@ class BasicBlock(Block):
         # check the types for debugging
         sourcevartypes = [var.type for var in sourcevars]
         targetvartypes = [var.type for var in self.inputargs]
-        #XXX ERIC assert sourcevartypes == targetvartypes
+        assert sourcevartypes == targetvartypes
 
         # Check if the source block jumps to 'self' from multiple
         # positions: in this case we need an intermediate block...
@@ -602,7 +602,7 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
         gv_result = Var('ubyte*')
         gv_gc_malloc_fnaddr = Var('[0xubyte]* (int)*')
         #XXX or use addGlobalFunctionMapping in libllvmjit.restart()
-        self.asm.append(' %s=cast int %d to %s ;gc_malloc_fnaddr' % (
+        self.asm.append(' %s=inttoptr int %d to %s ;gc_malloc_fnaddr' % (
             gv_gc_malloc_fnaddr.operand2(), gc_malloc_fnaddr(), gv_gc_malloc_fnaddr.type))
         self.asm.append(' %s=call %s(int %d)' % (
             gv_result.operand2(), gv_gc_malloc_fnaddr.operand(), size))
@@ -626,7 +626,7 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
         gv_result = Var('ubyte*')
         gv_gc_malloc_fnaddr = Var('[0xubyte]* (int)*')
         #XXX or use addGlobalFunctionMapping in libllvmjit.restart()
-        self.asm.append(' %s=cast int %d to %s ;gc_malloc_fnaddr' % (
+        self.asm.append(' %s=inttoptr int %d to %s ;gc_malloc_fnaddr' % (
             gv_gc_malloc_fnaddr.operand2(), gc_malloc_fnaddr(), gv_gc_malloc_fnaddr.type))
         self.asm.append(' %s=call %s(%s)' % (
             gv_result.operand2(), gv_gc_malloc_fnaddr.operand(), gv_size.operand()))
