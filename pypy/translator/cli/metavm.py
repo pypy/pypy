@@ -154,7 +154,8 @@ class MapException(MicroInstruction):
         self.mapping = mapping
 
     def render(self, generator, op):
-        if hasattr(self, 'catch_label'):
+        from pypy.translator.cli.function import LastExceptionHandler
+        if isinstance(generator, LastExceptionHandler):
             self.render_last(generator, op)
         else:
             self.render_native(generator, op)

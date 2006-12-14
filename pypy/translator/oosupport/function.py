@@ -3,6 +3,7 @@ from pypy.rpython.ootypesystem.ootype import Void
 from pypy.translator.oosupport.metavm import InstructionList
 
 class Function(object):
+
     def __init__(self, db, graph, name = None, is_method = False, is_entrypoint = False):
         self.db = db
         self.cts = db.genoo.TypeSystem(db)
@@ -11,11 +12,21 @@ class Function(object):
         self.is_method = is_method
         self.is_entrypoint = is_entrypoint
         self.generator = None # set in render()
+        self.label_counters = {}
         
         # If you want to enumerate args/locals before processing, then
         # add these functions into your __init__() [they are defined below]
         #   self._set_args()
         #   self._set_locals()
+
+    def current_label(self, prefix='label'):
+        current = self.label_counters.get(prefix, 0)
+        return '__%s_%d' % (prefix, current)
+
+    def next_label(self, prefix='label'):
+        current = self.label_counters.get(prefix, 0)
+        self.label_counters[prefix] = current+1
+        return self.current_label(prefix)
 
     def get_name(self):
         return self.name

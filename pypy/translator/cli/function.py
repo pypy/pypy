@@ -58,15 +58,7 @@ class NativeExceptionHandler(object):
             self._setup_link(link)
 
 class LastExceptionHandler(object):
-    catch_label_count = 0
     in_try = False
-
-    def next_catch_label(self):
-        self.catch_label_count += 1
-        return self.catch_label()
-
-    def catch_label(self):
-        return '__catch_%d' % self.catch_label_count
 
     def begin_try(self):
         self.in_try = True
@@ -79,16 +71,16 @@ class LastExceptionHandler(object):
         self.in_try = False
 
     def begin_catch(self, llexitcase):
-        self.ilasm.label(self.catch_label())
+        self.ilasm.label(self.current_label('catch'))
         ll_meta_exc = llexitcase
         ll_exc = ll_meta_exc._inst.class_._INSTANCE
         cts_exc = self.cts.lltype_to_cts(ll_exc, False)
         self.ilasm.opcode('ldsfld', 'object last_exception')
         self.isinstance(cts_exc)
         self.ilasm.opcode('dup')
-        self.ilasm.opcode('brtrue.s', 6) # ??
+        self.ilasm.opcode('brtrue.s', 6)
         self.ilasm.opcode('pop')
-        self.ilasm.opcode('br', self.next_catch_label())
+        self.ilasm.opcode('br', self.next_label('catch'))
         # here is the target of the above brtrue.s
         self.ilasm.opcode('ldnull')
         self.ilasm.opcode('stsfld', 'object last_exception')
@@ -112,6 +104,10 @@ class LastExceptionHandler(object):
             else:
                 self.store(link.last_exc_value)
             self._setup_link(link)
+
+    def before_last_blocks(self):
+        self.ilasm.label(self.current_label('catch'))
+        self.ilasm.opcode('nop')
 
     def render_raise_block(self, block):
         exc = block.inputargs[1]
@@ -169,13 +165,6 @@ else:
 
 class Function(ExceptionHandler, OOFunction, Node, CLIBaseGenerator):
 
-    def next_catch_label(self):
-        self.catch_label_count += 1
-        return self.catch_label()
-
-    def catch_label(self):
-        return '__catch_%d' % self.catch_label_count
-
     def __init__(self, *args, **kwargs):
         OOFunction.__init__(self, *args, **kwargs)
         self._set_args()
@@ -201,13 +190,6 @@ class Function(ExceptionHandler, OOFunction, Node, CLIBaseGenerator):
             meth_type = 'static'
         self.ilasm.begin_function(self.name, args, returntype, self.is_entrypoint, meth_type)        
         self.ilasm.locals(self.locals)
-
-    def before_last_blocks(self):
-        # This is only executed when using LastExceptionHandler.
-        # Need to be deleted when we will use a saner approach.
-        if hasattr(self, 'catch_label'):
-            self.ilasm.label(self.catch_label())
-            self.ilasm.opcode('nop')
 
     def end_render(self):
         self.ilasm.end_function()
