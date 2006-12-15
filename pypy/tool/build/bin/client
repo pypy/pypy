@@ -4,7 +4,6 @@ import py
 import path
 import sys
 import random
-import traceback
 from pypy.tool.build import config as buildconfig
 
 from py.execnet import SshGateway, PopenGateway
@@ -15,9 +14,14 @@ from pypy.config.config import to_optparse, Config
 def compile(wc, compileinfo):
     code = """\
 import sys
+import os
+import traceback
 
 # interpolating the path
-sys.path = [%r] + sys.path
+pypath = %r
+
+sys.path = [pypath] + sys.path
+os.chdir(pypath)
 
 # nasty, interpolating a large chunk of code (OutputBuffer)
 %s
@@ -27,8 +31,12 @@ compileinfo = %r
 
 log = open('/tmp/buildclient.log', 'a')
 outbuffer = OutputBuffer(log)
+old_stdout = sys.__stdout__
+old_stderr = sys.__stderr__
 sys.stdout = outbuffer
 sys.stderr = outbuffer
+sys.__stdout__ = outbuffer
+sys.__stderr__ = outbuffer
 try:
     try:
         from pypy.interpreter.error import OperationError
@@ -59,10 +67,13 @@ try:
     else:
         channel.send(str(udir))
 finally:
+    sys.__stdout__ = old_stdout
+    sys.__stderr__ = old_stderr
     sys.stdout = sys.__stdout__
     sys.stderr = sys.__stderr__
     log.close()
 channel.send(outbuffer.getvalue())
+channel.close()
 """
     gw = PopenGateway()
     buffercode = py.magic.autopath().dirpath().dirpath()\
@@ -71,6 +82,7 @@ channel.send(outbuffer.getvalue())
     channel = gw.remote_exec(interpolated)
     upath = channel.receive()
     output = channel.receive()
+    channel.close()
 
     return upath, output
 
@@ -130,21 +142,19 @@ try:
                 print 'refusing compilation'
                 continue
             # XXX we should compile here, using data dict for info
-            print 'compilation requested for %s\nbuilding...\n' % (request,)
+            print 'compilation requested for %s' % (request,)
 
             # subversion checkout
             print 'checking out %s@%s' % (request.svnurl,
                                           request.normalized_rev)
-            #temp = tempdir()
-            #svnwc = py.path.svnwc(temp)
-            #svnwc.checkout(request.svnurl)
-            #svnwc.update(request.normalized_rev)
-            svnwc = py.path.svnwc('/tmp/buildtemp-1')
+            temp = tempdir()
+            svnwc = py.path.svnwc(temp)
+            svnwc.checkout(request.svnurl)
+            svnwc.update(request.normalized_rev)
 
             try:
                 print 'starting compilation'
                 upath, log = compile(svnwc, request.compileinfo)
-                print 'compilation done'
             except KeyboardInterrupt:
                 print 'quitting...'
                 break
@@ -152,14 +162,15 @@ try:
             if upath:
                 # send over zip data, end with a None
                 print 'compilation successful, sending to server'
-                zip_result(py.path.local(udir), channel)
+                zip_result(py.path.local(upath), channel)
             else:
-                print 'compilation failed, sending log'
+                print 'compilation failed, notifying server'
                 # just send the None
                 channel.send(None)
             
             # send over logs
-            channel.send(buffer.getvalue())
+            print 'sending log'
+            channel.send(log)
             
             print 'done with compilation, waiting for next'
     except EOFError:
