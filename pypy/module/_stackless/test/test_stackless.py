@@ -1,6 +1,8 @@
 from pypy.conftest import gettestobjspace, option
 from py.test import skip
 
+skip("rewrite of stackless.py in progress, see stackless_new.py")
+
 
 class AppTest_Stackless:
 
