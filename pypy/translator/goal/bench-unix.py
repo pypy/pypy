@@ -82,6 +82,8 @@ def run_richards(executable='/usr/local/bin/python', n=5):
 def get_executables():  #sorted by revision number (highest first)
     exes = []
     for exe in [os.path.join('.', name) for name in os.listdir('.') if name.startswith('pypy-')]:
+        if os.path.isdir(exe):
+            continue
         try:
             exes.append( (exe.split('-')[2], exe) )
         except:
@@ -144,8 +146,8 @@ def main():
         stone = benchmark_result.get_best_result(p)
 
         if 'pypy-cli' in exename:
+            dirname = exename + '-data'
             codesize = 'N/A'
-            dirname, _ = os.path.split(exe)
             exesize = os.path.getsize(os.path.join(dirname, 'main.exe'))
         else:
             codesize = os.popen('size "%s" | tail -n1 | cut -f1'%(exename,)).read().strip()
