@@ -15,7 +15,10 @@ except NameError:
 
 switches = 0
 
-from _stackless import coroutine, greenlet
+try:
+    from _stackless import coroutine, greenlet
+except ImportError:
+    from py.magic import coroutine, greenlet
 
 __all__ = 'run getcurrent getmain schedule tasklet \
                 channel TaskletExit coroutine greenlet'.split()

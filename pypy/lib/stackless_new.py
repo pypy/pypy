@@ -6,7 +6,10 @@ Please refer to their documentation.
 
 import traceback
 import sys
-from _stackless import coroutine, greenlet
+try:
+    from _stackless import coroutine, greenlet
+except ImportError:
+    from py.magic import coroutine, greenlet
 from collections import deque
 
 __all__ = 'run getcurrent getmain schedule tasklet channel coroutine \
