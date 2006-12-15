@@ -1444,7 +1444,6 @@ class BaseTestRPBC(BaseRtypingTest):
         assert res == 42
 
     def test_specialize_functionarg(self):
-        self._skip_oo("crashes in funny ways")
         def f(x, y):
             return x + y
         def g(x, y, z):
