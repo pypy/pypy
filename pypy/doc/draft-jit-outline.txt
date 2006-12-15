@@ -2,6 +2,9 @@
 JIT Generation in PyPy
 =======================
 
+.. contents::
+.. sectnum::
+
 Introduction
 =============
 
@@ -344,12 +347,16 @@ To express this, we use a hint ``v2 = hint(v1, deepfreeze=True)``, where
 regular RPython object reference in the RPython source).  The
 hint-annotation will then propagate a "deepfrozen" flag on the
 annotation attached to ``v2``.  If ``v2`` is green, a ``getfield(v2,
-"name")`` operation then also returns a green.  Moreover, the result of
-the ``getfield`` is also itself "deepfrozen".  We decided to implement
-recursive freezing and not one-level-only freezing, as the latter seems
-more fragile with respect to changes both in the RPython source and in
-the way the source maps to low-level graphs; but variants could easily
-be implemented if needed.
+"name")`` operation then also returns a green.  The flag is also
+relevant if ``v2`` is red, as we will see in `Red and Green Operations`_
+below.
+
+As the name suggests, the result of a ``getfield`` is itself
+"deepfrozen" if the structure was.  We decided to implement recursive
+freezing and not one-level-only freezing, as the latter seems more
+fragile with respect to changes both in the RPython source and in the
+way the source maps to low-level graphs; but variants could easily be
+implemented if needed.
 
 
 Blue containers
@@ -365,21 +372,161 @@ Undocumented yet.  Not implemented in the timeshifter, so not used so far.
 Timeshifting: transforming interpreter into compilers
 ======================================================
 
-intro and basics
+Once binding times (colors) have been assigned to all variables in a
+family of control flow graphs, the next step is to mutate the graphs
+accordingly.  This process is called *timeshifting*, because it changes
+the time at which the graphs are meant to be run.  So far, the graphs
+implemented some kind of interpreter; they were meant to execute at
+run-time, and directly computed the intended result and side-effects.
+After timeshifting, the graphs are logically very different: they are
+intended to be executed at compile-time, and their only side effects is
+to produce residual code.  The residual code itself can later be
+executed at run-time.
 
-Basics
---------
+Despite the difference, though, the timeshifted graphs are formally
+close to the original graphs.  The rest of this section describes this
+timeshifting process in more detail.
 
-...red vs green operations...
 
-XXX Note that the "deepfrozen" flag is used at compile-time on red
-values too, to influence the details of how residual ``getfield``
-operations should be generated.
+Red and Green Operations
+--------------------------
 
-Transform vs hrtyping
------------------------
+The basic idea of timeshifting is how to implement variables based
+on their color:
 
-...
+* The green variables are the compile-time variables.  Their values are
+  meant to be available during compile-time already.  A variable that
+  used to contain e.g. an integer at run-time in the original graph, and
+  which the hint-annotator found to be green, is turned into a variable
+  that contains an integer again, but now at compile-time.  In other
+  words, timeshifting leaves green variables untouched - they are
+  identical in the original and in the timeshifted graph.
+
+* The red (run-time) variables on the other hand cannot stay unmodified
+  in the timeshifted graph, because no actual value is available for
+  them during compile-time.  They are replaced by the notion of "red
+  box": a red box is a small object that describes where, in the
+  residual code, the value will be stored at run-time.  Multiple red
+  variables are turned into multiple red boxes, which are used to
+  distinguish the residual storage location for each of them.
+
+The basic feature of each red box is to provide a field ``genvar``,
+which is a backend-specific object that represents a machine code
+operand - either a value location (e.g. the register where it is stored)
+or a constant (an immediate).  Constants are used for red boxes whose
+value is, after all, known at compile-time.  This can occur even though
+the corresponding variable in the graph was red; it is the case when the
+hint-annotator cannot tell statically that a given variable will always
+contain a compile-time constant, even though it might dynamically be
+found to contain one at a particular point in (compile-)time.  In
+Partial Evaluation terminology, the timeshifted graphs are performing
+some *on-line* partial evaluation in addition to the off-line job
+enabled by the hint-annotator.
+
+In addition to the variables, all operations of the original graphs need
+to be checked:
+
+* If an operation has no side effect or other run-time dependency, and
+  if it only involves green operands, then it can stay unmodified in the
+  graph.  In this case, the operation that was run-time in the original
+  graph becomes a compile-time operation, and it will never be generated
+  in the residual code.  (This is the case that makes the whole approach
+  worthwhile: some operations become purely compile-time.)
+
+* In all other cases, the operation might have to be generated in the
+  residual code.  In the timeshifted graph, it is replaced by a call to
+  a helper.  There is one such helper per operation, which takes red
+  boxes as its arguments, and asks the backend to generate the
+  corresponding residual operation on the ``genvar`` of the red boxes.
+  The backend answers by giving a new ``genvar``, which is the location
+  of the result, and the helper puts it into a new red box, which is
+  returned to the timeshifted graph as the result of the call.
+
+Additionally, the helper for some operations checks if all arguments are
+red boxes containing constants, and if so just returns a red box
+containing the result without producing any residual code.  A particular
+case to note is that of the ``getfield`` operation: when applied on a
+constant red box, the field can sometimes be directly read out of the
+structure at compile-time - this decision is based on the static `Deep
+freezing`_ analysis performed by the hint-annotator.
+
+
+Support code
+--------------
+
+To implement red boxes, we have written a family of support classes in
+`pypy/jit/timeshifter/rvalue.py`_: IntRedBox, DoubleRedBox and
+PtrRedBox.  They are used, respectively, for integral values of any
+size, for floating-point values, and for pointers and addresses.  As we
+will see below, these classes support a number of additional features,
+particularly PtrRedBox.
+
+These classes are regular RPython classes that are translated to
+low-level and linked with the rest of the program.  The same holds for
+the helper functions that inspect red boxes and generate residual
+operations.  We make extensive use of this technique (described in more
+detail in VMC_): all the complex support code that is needed for the
+timeshifted graphs is implemented as regular RPython code and linked
+with the rest of the program, by inserting calls to these helpers from
+the timeshifted graphs, and also (as in the red box case) by putting
+variables in the graphs whose types are (the low-level representation
+of) instances of helper RPython classes.
+
+The amount of support code is quite extensive, as it includes the whole
+machine code backend as well: when helpers need to produce residual
+code, they do so through a well-defined API on classes that are provided
+by one of our JIT backends.  (This will be described in more details in
+the Backends_ section.)  All this support code can be arbitrarily
+complex RPython code, which allows us to experiment quite freely.
+
+
+Two-Phases Transformation
+---------------------------
+
+Concretely, the process of timeshiting replaces some variables with
+fresh variables of new types, and replaces some operations with calls to
+helper functions.  This is very similar to what the `RPython Typer`_
+does during a normal translation.  The latter replaces RPython-level
+variables and operations with low-level variables and operations and
+calls to helpers; it is guided by the annotations produced by the
+regular type inference.  The former does the same, except that the input
+is already low-level operations, and the annotations are colors,
+produced by the hint-annotator.
+
+In light of this close analogy, we have implemented the timeshifter
+based on the RTyper.  This gives us direct benefits, like automatic
+conversions for operation arguments or along links.  For example, if an
+operation takes two arguments, but one of them is red and the other
+green, then the whole operation must classify as "red" and be replaced
+by a call to the corresponding helper.  This helper expects two red
+boxes as arguments, though.  The red argument is a red box in the
+timeshifted graph, but not the green one.  Reusing the RTyper logic, the
+necessary conversion (creating a red box and putting the green value
+into it as an immediate) is inserted automatically in cases like this
+one.
+
+Unlike the regular RTyper, though, the timeshifter is faced with an
+additional difficulty that will only become apparent in the sequel: in
+addition to the local replacement of variables and operations, it also
+needs to modify the control flow of the graph.
+
+The approach that we have taken is in two phases:
+
+* The graphs are first transformed "manually".  This phase modifies the
+  control flow and adds pseudo-operations in key places.  In some sense,
+  all the interesting large-scale issues, experiments and solutions with
+  timeshifting a graph are present in this transformation.  The
+  pseudo-operations are placeholders for bookkeeping operations like
+  saving local variables into JIT state structures, scheduling various
+  parts of the compilation, and so on.  This phase preserves the colors;
+  its output is graphs that look like pseudo-code, convenient to inspect
+  in the graph viewer for debugging and explanation purposes.
+
+* The modified RTyper (called "HRTyper") is applied in a second phase.
+  It replaces variables and operations locally as described above.  The
+  pseudo-operations are replaced along with all the other ones, and
+  become calls to helpers.
+
 
 Split and Merges
 --------------------
@@ -435,9 +582,14 @@ The Backend interface
 ...
 
 
+
+.. _VMC: http://codespeak.net/svn/pypy/extradoc/talk/dls2006/pypy-vm-construction.pdf
 .. _`RPython`: coding-guide.html#rpython
+.. _`RPython Typer`: translation.html#rpython-typer
 .. _`low-level graphs`: rtyper.html
 .. _`pointer-and-structures-like objects`: rtyper.html#low-level-types 
 .. _`annotator`: dynamic-language-translation.html
 .. _`specialization of functions`: dynamic-language-translation.html#specialization
 .. _Psyco: http://psyco.sourceforge.net
+
+.. include:: _ref.txt
