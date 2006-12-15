@@ -1,3 +1,8 @@
+import py
+from pypy.tool.ansi_print import ansi_log
+log = py.log.Producer("oosupport") 
+py.log.setconsumer("oosupport", ansi_log) 
+
 from pypy.objspace.flow import model as flowmodel
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.oosupport.metavm import InstructionList
@@ -177,7 +182,9 @@ class Function(object):
             self.generator.branch_unconditionally(target_label)
         elif block.exitswitch.concretetype is ootype.Bool:
             self.render_bool_switch(block)
-        elif block.exitswitch.concretetype in (ootype.Signed, ootype.Unsigned, ootype.Char, ootype.UniChar):
+        elif block.exitswitch.concretetype in (ootype.Signed, ootype.SignedLongLong,
+                                               ootype.Unsigned, ootype.UnsignedLongLong,
+                                               ootype.Char, ootype.UniChar):
             self.render_numeric_switch(block)
         else:
             assert False, 'Unknonw exitswitch type: %s' % block.exitswitch.concretetype
@@ -195,7 +202,19 @@ class Function(object):
                 self.generator.branch_conditionally(link.exitcase, target_label)
 
     def render_numeric_switch(self, block):
-        raise NotImplementedError # it's too dependent on the backend to be implemented here
+        log.WARNING("The default version of render_numeric_switch is *slow*: please override it in the backend")
+        self.render_numeric_switch_naive(block)
+
+    def render_numeric_switch_naive(self, block):
+        for link in block.exits:
+            target_label = self._get_block_name(link.target)
+            self._setup_link(link)
+            if link.exitcase == 'default':
+                self.generator.branch_unconditionally(target_label)
+            else:
+                self.generator.push_primitive_constant(block.exitswitch.concretetype, link.exitcase)
+                self.generator.load(block.exitswitch)
+                self.generator.branch_if_equal(target_label)
 
     def _setup_link(self, link):
         self.generator.add_comment("Setup link")

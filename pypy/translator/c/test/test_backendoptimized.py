@@ -144,7 +144,7 @@ class TestTypedOptimizedSwitchTestCase:
             return 0
         codegenerator = self.CodeGenerator()
         fn = codegenerator.getcompiled(f, [r_ulonglong])
-        for x in (0,1,2,3,9,27,48, -9):
+        for x in (0,1,2,3,9,27,48, r_ulonglong(-9)):
             assert fn(x) == f(x)
 
     def test_chr_switch(self):

@@ -138,6 +138,15 @@ class Generator(object):
         Stack: cond, ... -> ... """
         raise NotImplementedError
 
+    def branch_if_equal(self, target_label):
+        """
+        Pops two values from the stack and branches to target_label if
+        they are equal.
+
+        Stack: obj1, obj2, ... -> ...
+        """
+        raise NotImplementedError
+
     def call_graph(self, graph):
         """ Invokes the function corresponding to the given graph.  The
         arguments to the graph have already been pushed in order

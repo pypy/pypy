@@ -206,6 +206,12 @@ class Function(ExceptionHandler, OOFunction, Node, CLIBaseGenerator):
         self.ilasm.opcode('ret')
 
     def render_numeric_switch(self, block):
+        if block.exitswitch.concretetype in (ootype.SignedLongLong, ootype.UnsignedLongLong):
+            # TODO: it could be faster to check is the values fit in
+            # 32bit, and perform a cast in that case
+            self.render_numeric_switch_naive(block)
+            return
+
         cases = {}
         naive = False
         for link in block.exits:
@@ -247,17 +253,6 @@ class Function(ExceptionHandler, OOFunction, Node, CLIBaseGenerator):
         self.set_label(label)
         self._setup_link(link)
         self.generator.branch_unconditionally(target_label)
-
-    def render_numeric_switch_naive(self, block):
-        for link in block.exits:
-            target_label = self._get_block_name(link.target)
-            self._setup_link(link)
-            if link.exitcase == 'default':
-                self.ilasm.opcode('br', target_label)
-            else:
-                push_constant(self.db, block.exitswitch.concretetype, link.exitcase, self)
-                self.generator.load(block.exitswitch)
-                self.ilasm.opcode('beq', target_label)
 
     # Those parts of the generator interface that are function
     # specific

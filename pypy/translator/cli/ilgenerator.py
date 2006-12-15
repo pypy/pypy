@@ -350,6 +350,9 @@ class CLIBaseGenerator(Generator):
     def branch_conditionally(self, cond, target_label):
         self.ilasm.branch_if(cond, target_label)
 
+    def branch_if_equal(self, target_label):
+        self.ilasm.opcode('beq', target_label)
+
     def push_primitive_constant(self, TYPE, value):
         ilasm = self.ilasm
         if TYPE is ootype.Void:
