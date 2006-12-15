@@ -142,7 +142,15 @@ class GenBuilder(object):
         '''Optional method: prints or logs the position of the generated code
         along with the given msg.
         '''
-
+    def pause(self):
+        '''Optional method: Called when the builder will not be used for a
+        while. This allows the builder to free temporary resources needed
+        during code generation. The next call to the builder will have to be
+        to enter_next_block, finish_and_got, finish_and_return or resume.
+        '''
+    def resume(self):
+        'Resumes a paused builder.'
+        
 class GenLabel(object):
     '''A "smart" label.  Represents an address of the start of a basic
     block and the location of the inputargs on entry to that block.'''

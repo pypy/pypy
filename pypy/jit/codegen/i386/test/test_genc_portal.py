@@ -59,9 +59,6 @@ class I386PortalTestMixin(object):
                                     backendoptimize=backendoptimize)
         cmdargs = ' '.join([str(arg) for arg in main_args])
         output = self.cbuilder.cmdexec(cmdargs)
-        print '-'*60
-        print output
-        print '-'*60
         lines = output.split()
         lastline = lines[-1]
         assert not lastline.startswith('EXCEPTION:')

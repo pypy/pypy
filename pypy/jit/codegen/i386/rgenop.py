@@ -220,27 +220,51 @@ class FlexSwitch(CodeGenSwitch):
 
 class Builder(GenBuilder):
 
-    def __init__(self, rgenop, mc_factory, stackdepth):
+    def __init__(self, rgenop, stackdepth):
         self.rgenop = rgenop
         self.stackdepth = stackdepth
         self.mc = None
-        self._mc_factory = mc_factory
         self._pending_come_from = {}
         self.start = 0
+        self.closed = False
+        self.tail = (0, 0)
         rgenop.openbuilders += 1
         #os.write(1, 'Open builders+: %d\n' % rgenop.openbuilders)
 
     def _open(self):
-        if self.mc is None and self._pending_come_from is not None:
-            self.mc = self._mc_factory()
-            self.start = self.mc.tell()
-            come_froms = self._pending_come_from
-            self._pending_come_from = None
-            for start, (end, insn) in come_froms.iteritems():
-                mc = self.rgenop.InMemoryCodeBuilder(start, end)
-                self._emit_come_from(mc, insn, self.start)
+        if self.mc is None and not self.closed:
+            self.mc = self.rgenop.open_mc()
+            if not self.start:
+                # This is the first open. remember the start address
+                # and patch all come froms.
+                self.start = self.mc.tell()
+                come_froms = self._pending_come_from
+                self._pending_come_from = None
+                for start, (end, insn) in come_froms.iteritems():
+                    mc = self.rgenop.InMemoryCodeBuilder(start, end)
+                    self._emit_come_from(mc, insn, self.start)
+                    mc.done()
+            else:
+                # We have been paused and are being opened again.
+                # Patch the jump at the end of the previous codeblock.
+                mc = self.rgenop.InMemoryCodeBuilder(*self.tail)
+                mc.JMP(rel32(self.mc.tell()))
                 mc.done()
 
+    def pause(self):
+        if self.mc is None:
+            return
+        start = self.mc.tell()
+        self.mc.JMP(rel32(0))
+        end = self.mc.tell()
+        self.tail = (start, end)
+        self.mc.done()
+        self.rgenop.close_mc(self.mc)
+        self.mc = None
+        
+    def resume(self):
+        self._open()
+        
     def _emit_come_from(self, mc, insn, addr):
         if insn == 'JMP':
             mc.JMP(rel32(addr))
@@ -273,6 +297,7 @@ class Builder(GenBuilder):
         return [Var(pos) for pos in range(numargs-1, -1, -1)]
 
     def _close(self):
+        self.closed = True
         self.mc.done()
         self.rgenop.close_mc(self.mc)
         self.mc = None
@@ -459,6 +484,7 @@ class Builder(GenBuilder):
         return targetbuilder
 
     def finish_and_return(self, sigtoken, gv_returnvar):
+        self._open()
         numargs = sigtoken      # for now
         initialstackdepth = numargs + 1
         self.mc.MOV(eax, gv_returnvar.operand(self))
@@ -467,6 +493,7 @@ class Builder(GenBuilder):
         self._close()
 
     def finish_and_goto(self, outputargs_gv, target):
+        self._open()
         remap_stack_layout(self, outputargs_gv, target)
         self.mc.JMP(rel32(target.startaddr))
         self._close()
@@ -961,7 +988,7 @@ class RI386GenOp(AbstractRGenOp):
         assert len(self.mcs) == self.total_code_blocks
 
     def openbuilder(self, stackdepth):
-        return Builder(self, self.open_mc, stackdepth)
+        return Builder(self, stackdepth)
 
     def newgraph(self, sigtoken, name):
         numargs = sigtoken          # for now

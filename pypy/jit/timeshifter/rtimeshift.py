@@ -308,6 +308,7 @@ def merge_generalized(jitstate):
             resuming.mergesleft -= 1
 
 def guard_global_merge(jitstate, resumepoint):
+    jitstate.curbuilder.pause()
     dispatchqueue = jitstate.frame.dispatchqueue
     jitstate.next = dispatchqueue.global_merge_chain
     dispatchqueue.global_merge_chain = jitstate
@@ -392,6 +393,7 @@ def dispatch_next(oldjitstate, dispatchqueue):
     elif dispatchqueue.global_merge_chain is not None:
         jitstate = dispatchqueue.global_merge_chain
         dispatchqueue.global_merge_chain = jitstate.next
+        jitstate.curbuilder.resume()
         return jitstate
     else:
         oldjitstate.resumepoint = -1
@@ -439,6 +441,7 @@ def setexcvaluebox(jitstate, box):
 
 def save_return(jitstate):
     # add 'jitstate' to the chain of return-jitstates
+    jitstate.curbuilder.pause()
     dispatchqueue = jitstate.frame.dispatchqueue
     jitstate.next = dispatchqueue.return_chain
     dispatchqueue.return_chain = jitstate
@@ -913,10 +916,13 @@ def merge_returning_jitstates(jitstate, dispatchqueue, force_merge=False):
     while return_chain is not None:
         jitstate = return_chain
         return_chain = return_chain.next
+        jitstate.curbuilder.resume()
         res = retrieve_jitstate_for_merge(return_cache, jitstate, (),
                                           return_marker,
                                           force_merge=force_merge)
         if res is False:    # not finished
+            if still_pending:
+                still_pending.curbuilder.pause()
             jitstate.next = still_pending
             still_pending = jitstate
     
@@ -929,10 +935,13 @@ def merge_returning_jitstates(jitstate, dispatchqueue, force_merge=False):
         while return_chain is not None:
             jitstate = return_chain
             return_chain = return_chain.next
+            jitstate.curbuilder.resume()
             res = retrieve_jitstate_for_merge(return_cache, jitstate, (),
                                               return_marker,
                                               force_merge=force_merge)
             if res is False:    # not finished
+                if still_pending:
+                    still_pending.curbuilder.pause()
                 jitstate.next = still_pending
                 still_pending = jitstate
     return still_pending
@@ -992,4 +1001,3 @@ def leave_graph_yellow(jitstate, mydispatchqueue):
         leave_frame(jitstate)
         jitstate = jitstate.next
     return return_chain    # a jitstate, which is the head of the chain
-
