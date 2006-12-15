@@ -3,6 +3,8 @@ from pypy.jit.timeshifter.test import test_vlist
 from pypy.jit.codegen.llvm.test.test_genc_ts import LLVMTimeshiftingTestMixin
 
 
+py.test.skip('WIP')
+
 class TestVList(LLVMTimeshiftingTestMixin,
                 test_vlist.TestVList):
 

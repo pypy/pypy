@@ -410,16 +410,19 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
 
     #XXX 'cast' has been replaced by many sext/zext/uitofp/... opcodes in the upcoming llvm 2.0.
     #The lines upto /XXX should be refactored to do the right thing
-    def op_same_as(self, gv_x):
-        gv_result = Var(gv_x.type)
-        self.asm.append(' %s=bitcast %s to %s' % (
-            gv_result.operand2(), gv_x.operand(), gv_x.type))
-        return gv_result
+    def genop_same_as(self, kind, gv_x):
+        if gv_x.is_const:    # must always return a var
+            gv_result = Var(gv_x.type)
+            self.asm.append(' %s=bitcast %s to %s' % (
+                gv_result.operand2(), gv_x.operand(), gv_x.type))
+            return gv_result
+        else:
+            return gv_x
 
     def _cast_to(self, gv_x, restype=None):
         restype = restype or gv_x.type
         if restype is gv_x.type:
-            return self.op_same_as(gv_x)
+            return self.genop_same_as(None, gv_x)
         gv_result = Var(restype)
         self.asm.append(' %s=zext %s to %s' % (
             gv_result.operand2(), gv_x.operand(), restype))
@@ -428,7 +431,7 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
     def _trunc_to(self, gv_x, restype=None):
         restype = restype or gv_x.type
         if restype is gv_x.type:
-            return self.op_same_as(gv_x)
+            return self.genop_same_as(None, gv_x)
         gv_result = Var(restype)
         self.asm.append(' %s=trunc %s to %s' % (
             gv_result.operand2(), gv_x.operand(), restype))
@@ -632,16 +635,26 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
             gv_result.operand2(), gv_gc_malloc_fnaddr.operand(), gv_size.operand()))
         #XXX TODO set length field
         return gv_result
-        
+
+    def _funcsig_type(self, args_gv, restype):
+        return '%s (%s)' % (restype, ','.join([a.type for a in args_gv]))
+
     def genop_call(self, sigtoken, gv_fnptr, args_gv):
         log('%s Builder.genop_call %s,%s,%s' % (
             self.block.label, sigtoken, gv_fnptr, [v.operand() for v in args_gv]))
         argtypes, restype = sigtoken
         gv_returnvar = Var(restype)
-        #XXX we probably need to call an address directly if we can't resolve the funcsig
+        if isinstance(gv_fnptr, AddrConst):
+            gv_fn = Var(self._funcsig_type(args_gv, restype))
+            self.asm.append(' %s=bitcast %s to %s' % (
+                gv_fnptr.operand2(), gv_fnptr.operand(), gv_fn.type))
+            funcsig = gv_fn.operand()
+        else:
+            #XXX we probably need to call an address directly if we can't resolve the funcsig
+            funcsig = self.rgenop.funcsig[gv_fnptr.value]
         self.asm.append(' %s=call %s(%s)' % (
                         gv_returnvar.operand2(),
-                        self.rgenop.funcsig[gv_fnptr.value],
+                        funcsig,
                         ','.join([v.operand() for v in args_gv])))
         return gv_returnvar
     
@@ -677,6 +690,9 @@ class RLLVMGenOp(object):   #changed baseclass from (AbstractRGenOp) for better 
 
     funcsig  = {} #HACK for looking up function signatures
     funcused = {} #we rename functions when encountered multiple times (for test_branching_compile)
+
+    def check_no_open_mc(self):
+        return True
 
     def end(self):
         log('   RLLVMGenOp.end')
@@ -743,8 +759,8 @@ class RLLVMGenOp(object):   #changed baseclass from (AbstractRGenOp) for better 
             return IntConst(lltype.cast_primitive(lltype.Signed, llvalue))
         elif isinstance(T, lltype.Ptr):
             lladdr = llmemory.cast_ptr_to_adr(llvalue)
-            if T.TO._gckind == 'gc':
-                self.keepalive_gc_refs.append(lltype.cast_opaque_ptr(llmemory.GCREF, llvalue))
+            #if T.TO._gckind == 'gc':
+            #    self.keepalive_gc_refs.append(lltype.cast_opaque_ptr(llmemory.GCREF, llvalue))
             return AddrConst(lladdr)
         else:
             assert 0, "XXX not implemented"
