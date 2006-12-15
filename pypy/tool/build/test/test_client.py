@@ -80,20 +80,3 @@ def test_failed_checker():
     assert br in c1.refused
     assert c1.busy_on == None
 
-def test_output_buffer():
-    b = client.OutputBuffer()
-    sys.stdout = b
-    try:
-        print 'foo'
-    finally:
-        sys.stdout = sys.__stdout__
-    assert b.getvalue() == 'foo\n'
-    s = py.std.StringIO.StringIO()
-    b = client.OutputBuffer(s)
-    sys.stdout = b
-    try:
-        print 'bar'
-    finally:
-        sys.stdout = sys.__stdout__
-    assert b.getvalue() == s.getvalue() == 'bar\n'
-
