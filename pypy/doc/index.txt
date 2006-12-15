@@ -51,8 +51,8 @@ and several implementations.
 `bytecode interpreter`_ explains the basic mechanisms 
 of the bytecode interpreter and virtual machine. 
 
-`translation`_ offers the beginnings of documentation 
-about our low level code generator backends. 
+`translation`_ is a detailed overview of our translation process.  The
+rtyper_ is the largest component of our translation process.
 
 `dynamic-language translation`_ is a paper that describes
 the translation process, especially the flow object space
@@ -319,6 +319,7 @@ Directory                      explanation/links
 .. _`jit backends`: jit.html#backends
 .. _`hint-annotator`: jit.html#hint-annotator
 .. _`timeshifter`: jit.html#timeshifter
+.. _rtyper: rtyper.html
 .. _`low-level type system`: rtyper.html#low-level-type
 .. _`object-oriented type system`: rtyper.html#oo-type
 .. _`Stackless Transform`: translation.html#the-stackless-transform
