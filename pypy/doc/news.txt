@@ -39,6 +39,16 @@ with PyPy`_ this winter!
 .. _`"summer" job with PyPy`: http://codespeak.net/pypy/dist/pypy/doc/summer-of-pypy.html
 
 
+Massive Parallelism and Translation Aspects
+========================================================
+
+Our next big `EU report`_ about Stackless features, optimizations, and
+memory management is finished.  You can download it `as pdf`_.
+
+.. _`EU report`: index-report.html
+.. _`as pdf`: http://codespeak.net/pypy/extradoc/eu-report/D07.1_Massive_Parallelism_and_Translation_Aspects-interim-2006-12-15.pdf
+
+
 Duesseldorf sprint #2, 30th October - 5th November over
 ==================================================================
 
