@@ -579,12 +579,12 @@ stops executing.
 
 The mirror issue is that of *split points*.  Splits are conditional
 branches.  There are two kinds of splits: the ones whose condition is
-itself a green variable, and the ones whose condition is red.  A green
+itself on a green variable, and the ones whose condition is red.  A green
 split (i.e. the former) is left untouched by the timeshifting
 transformation: as the condition will be known a compile-time, we know
-at compile-time which of the branches is followed.
+at compile-time which of the branches has to be followed.
 
-A red split is more delicate.  It must generate in a conditional branch
+A red split is more delicate.  It must generate a conditional branch
 in the residual code.  From a theoretical point of view, this is done by
 emitting a conditional jump instruction, and then *forking* the
 compile-time process in two identical copies: each copy follows one of
