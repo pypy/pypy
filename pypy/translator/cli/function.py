@@ -231,7 +231,7 @@ class Function(ExceptionHandler, OOFunction, Node, CLIBaseGenerator):
             max_case = max(cases.keys())
         except ValueError:
             max_case = 0
-        if max_case > 4096: # XXX: how to find a good way to determine whether to use switch?
+        if max_case > 3*len(cases) + 10: # the switch is very sparse, better to use the naive version
             naive = True
 
         if naive:
