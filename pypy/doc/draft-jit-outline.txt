@@ -456,7 +456,7 @@ The Example again
 
 If we timeshift the `ll_plus_minus`__ example, given the described
 binding time assignments, the only red operations generating
-code in the output residual graph are ``acc += x``, ``acc -=
+code in the output residual code are ``acc += x``, ``acc -=
 x``. Timeshifting substitute them with helpers that do emit such
 operations.
 
@@ -467,7 +467,7 @@ timeshifting.  The corresponding computations, the loop over the
 The timeshifted version of ll_plus_minus for the input "+-+" would
 produce something like (in pseudo notation)::
  
-   residual_plus_minus_graph(x,y):
+   residual_plus_minus(x,y):
        v0 = int_add(x , y)
        v1 = int_sub(v0, y)
        v2 = int_add(v1, y)
