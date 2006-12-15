@@ -391,8 +391,9 @@ timeshifting process in more detail.
 Red and Green Operations
 --------------------------
 
-The basic idea of timeshifting is how to implement variables based
-on their color:
+The basic idea of timeshifting is to transform operations depending on
+the color of their operands. Variables themselves need to be represented
+based on their color:
 
 * The green variables are the compile-time variables.  Their values are
   meant to be available during compile-time already.  A variable that
@@ -424,7 +425,7 @@ some *on-line* partial evaluation in addition to the off-line job
 enabled by the hint-annotator.
 
 In addition to the variables, all operations of the original graphs need
-to be checked:
+to be checked and accordingly transformed:
 
 * If an operation has no side effect or other run-time dependency, and
   if it only involves green operands, then it can stay unmodified in the
@@ -483,7 +484,7 @@ complex RPython code, which allows us to experiment quite freely.
 Two-Phases Transformation
 ---------------------------
 
-Concretely, the process of timeshiting replaces some variables with
+Concretely, the process of timeshifting replaces some variables with
 fresh variables of new types, and replaces some operations with calls to
 helper functions.  This is very similar to what the `RPython Typer`_
 does during a normal translation.  The latter replaces RPython-level
