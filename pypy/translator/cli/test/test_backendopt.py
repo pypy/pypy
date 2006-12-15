@@ -20,3 +20,17 @@ class TestOptimizedSwitchTestCase(CTestCompat, c_TestTypedOptimizedSwitchTestCas
 
     def test_ulonglong_switch(self):
         py.test.skip('Not yet supported')
+
+    def test_switch_naive(self):
+        def fn(x):
+            if x == -1:
+                return 3
+            elif x == 3:
+                return 9
+            elif x == 9:
+                return -1
+            return 42
+        codegenerator = self.CodeGenerator()
+        fn = codegenerator.getcompiled(fn, [int])
+        for x in (-5,-1,0,3,9,27,48):
+            assert fn(x) == fn(x)

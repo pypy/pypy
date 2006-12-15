@@ -7,6 +7,7 @@ from pypy.objspace.flow import model as flowmodel
 from pypy.rpython.lltypesystem.lltype import Void
 from pypy.rpython.ootypesystem import ootype
 from pypy.translator.oosupport.function import Function as OOFunction
+from pypy.translator.oosupport.constant import push_constant
 from pypy.translator.cli.option import getoption
 from pypy.translator.cli.cts import CTS
 from pypy.translator.cli.opcodes import opcodes
@@ -16,7 +17,7 @@ from pypy.translator.cli.class_ import Class
 from pypy.translator.cli.support import log
 from pypy.translator.cli.ilgenerator import CLIBaseGenerator
 
-USE_LAST = False
+USE_LAST = True
 
 class NativeExceptionHandler(object):
     def begin_try(self):
@@ -206,6 +207,7 @@ class Function(ExceptionHandler, OOFunction, Node, CLIBaseGenerator):
 
     def render_numeric_switch(self, block):
         cases = {}
+        naive = False
         for link in block.exits:
             if link.exitcase == "default":
                 default = link, self.next_label('switch')
@@ -214,12 +216,21 @@ class Function(ExceptionHandler, OOFunction, Node, CLIBaseGenerator):
                     value = ord(link.exitcase)
                 else:
                     value = link.exitcase
-                assert value >= 0
+                if value < 0:
+                    naive = True
+                    break
                 cases[value] = link, self.next_label('switch')
 
-        max_case = max(cases.keys())
+        try:
+            max_case = max(cases.keys())
+        except ValueError:
+            max_case = 0
         if max_case > 4096: # XXX: how to find a good way to determine whether to use switch?
-            raise NotImplementedError # TODO
+            naive = True
+
+        if naive:
+            self.render_numeric_switch_naive(block)
+            return
 
         targets = []
         for i in xrange(max_case+1):
@@ -236,6 +247,17 @@ class Function(ExceptionHandler, OOFunction, Node, CLIBaseGenerator):
         self.set_label(label)
         self._setup_link(link)
         self.generator.branch_unconditionally(target_label)
+
+    def render_numeric_switch_naive(self, block):
+        for link in block.exits:
+            target_label = self._get_block_name(link.target)
+            self._setup_link(link)
+            if link.exitcase == 'default':
+                self.ilasm.opcode('br', target_label)
+            else:
+                push_constant(self.db, block.exitswitch.concretetype, link.exitcase, self)
+                self.generator.load(block.exitswitch)
+                self.ilasm.opcode('beq', target_label)
 
     # Those parts of the generator interface that are function
     # specific
