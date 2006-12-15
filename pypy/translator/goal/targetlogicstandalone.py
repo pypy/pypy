@@ -7,6 +7,7 @@ from pypy.translator.goal.targetpypystandalone import PyPyTarget
 
 opt_defaults = {'translation.stackless' : True,
                 'translation.debug': True,
+                'translation.gc': 'framework',
                 'objspace.name': 'logic',
                 'objspace.usemodules._stackless': True}
 
