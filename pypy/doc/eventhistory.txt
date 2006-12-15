@@ -7,6 +7,27 @@
 
 .. _news: news.html
 
+EuroPython PyPy sprint 6-9 July 2006
+==================================================================
+
+Once again a PyPy sprint took place right after the EuroPython
+Conference from the *6th to the 9th of July*.
+
+Read more in the `EuroPython 2006 sprint report`_.
+
+.. _`EuroPython 2006 sprint report`: http://codespeak.net/pypy/extradoc/sprintinfo/post-ep2006/report.txt
+
+PyPy at XP 2006 and Agile 2006
+==================================================================
+
+PyPy presented experience reports at the two main agile conferences
+this year, `XP 2006`_ and `Agile 2006`_.
+Both experience reports focus on aspects of the sprint-driven
+development method that is being used in PyPy.
+
+.. _`XP 2006`: http://virtual.vtt.fi/virtual/xp2006/ 
+.. _`Agile 2006`: http://www.agile2006.org/
+
 Duesseldorf PyPy sprint 2-9 June 2006
 ==================================================================
 

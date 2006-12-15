@@ -124,30 +124,6 @@ We are proud to release PyPy 0.9.0, our fourth public release.  See
 the `release announcement <release-0.9.0.html>`__ to read about the
 many new features in this release.
 
-EuroPython PyPy sprint 6-9 July 2006
-==================================================================
-
-Once again a PyPy sprint will take place right after the EuroPython
-Conference. This year it will be from the *6th to the 9th of July*.
-
-Read more in `EuroPython sprint announcement`_, see who is  planning to attend
-on `the people page`_. There is also a page_ in the python wiki.
-
-.. _`EuroPython sprint announcement`: http://codespeak.net/pypy/extradoc/sprintinfo/post-ep2006/announce.html
-.. _`the people page`: http://codespeak.net/pypy/extradoc/sprintinfo/post-ep2006/people.html
-.. _page: http://wiki.python.org/moin/EuroPython2006
-
-PyPy at XP 2006 and Agile 2006
-==================================================================
-
-PyPy will present experience reports at the two main agile conferences
-this year, `XP 2006`_ and `Agile 2006`_.
-Both experience reports focus on aspects of the sprint-driven
-development method that is being used in PyPy.
-
-.. _`XP 2006`: http://virtual.vtt.fi/virtual/xp2006/ 
-.. _`Agile 2006`: http://www.agile2006.org/
-
 PyPy and Summer of Code 2006
 ==================================================================
 
