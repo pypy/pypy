@@ -13,9 +13,6 @@
   beginning of the portal, but concretely implemented in the portal
   entry
 
-- minimize the number of concurrently open machinecodeblocks in the
-  machine code backends
-
 - make backend opts usable on the interp+timeshifted interp graph forest
 
 Improvements
@@ -29,7 +26,8 @@ Improvements
 
 - floats
 
-- improve backends (reg. allocation ...)
+- improve backends (reg. allocation, produce code more lazily in larger units and avoid for example
+   many open machine blocks at the same time without resorting to many jumps...)
 
 - jit-friendlier interpreter (whatever, as needed)
 
