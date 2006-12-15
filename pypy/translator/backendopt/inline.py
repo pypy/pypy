@@ -1,6 +1,6 @@
 import sys
 from pypy.translator.simplify import join_blocks, cleanup_graph
-from pypy.translator.simplify import get_graph
+from pypy.translator.simplify import get_graph, get_funcobj
 from pypy.translator.unsimplify import copyvar
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import SpaceOperation, c_last_exception
@@ -20,7 +20,6 @@ BASE_INLINE_THRESHOLD = 32.4    # just enough to inline add__Int_Int()
 
 class CannotInline(Exception):
     pass
-
 
 def collect_called_graphs(graph, translator):
     graphs_or_something = {}
@@ -46,7 +45,7 @@ def iter_callsites(graph, calling_what):
         for i, op in enumerate(block.operations):
             if not op.opname == "direct_call":
                 continue
-            funcobj = op.args[0].value._obj
+            funcobj = get_funcobj(op.args[0].value)
             graph = getattr(funcobj, 'graph', None)
             # accept a function or a graph as 'inline_func'
             if (graph is calling_what or
@@ -173,7 +172,7 @@ class BaseInliner(object):
         self.varmap = {}
         self._copied_blocks = {}
         self.op = block.operations[index_operation]
-        self.graph_to_inline = self.op.args[0].value._obj.graph
+        self.graph_to_inline = get_funcobj(self.op.args[0].value).graph
         self.exception_guarded = False
         if (block.exitswitch == c_last_exception and
             index_operation == len(block.operations) - 1):
@@ -194,7 +193,7 @@ class BaseInliner(object):
         for i, op in enumerate(block.operations):
             if not op.opname == "direct_call":
                 continue
-            funcobj = op.args[0].value._obj
+            funcobj = get_funcobj(op.args[0].value)
             graph = getattr(funcobj, 'graph', None)
             # accept a function or a graph as 'inline_func'
             if (graph is self.inline_func or
@@ -275,7 +274,7 @@ class BaseInliner(object):
         linkfrominlined = Link(linkargs, afterblock)
         linkfrominlined.prevblock = copiedreturnblock
         copiedreturnblock.exitswitch = None
-        copiedreturnblock.exits = [linkfrominlined]
+        copiedreturnblock.exits = [linkfrominlined] ## HERE
         assert copiedreturnblock.exits[0].target == afterblock
        
     def rewire_exceptblock(self, afterblock):
@@ -288,8 +287,7 @@ class BaseInliner(object):
             self.rewire_exceptblock_with_guard(afterblock, copiedexceptblock)
             # generate blocks that do generic matching for cases when the
             # heuristic did not work
-#            self.translator.view()
-            self.generic_exception_matching(afterblock, copiedexceptblock)
+            self.generic_exception_matching(afterblock, copiedexceptblock) # HERE
 
     def rewire_exceptblock_no_guard(self, afterblock, copiedexceptblock):
          # find all copied links that go to copiedexceptblock
@@ -336,7 +334,7 @@ class BaseInliner(object):
 
     def generic_exception_matching(self, afterblock, copiedexceptblock):
         #XXXXX don't look: insert blocks that do exception matching
-        #for the cases where direct matching did not work
+        #for the cases where direct matching did not work        
         exc_match = Constant(
             self.translator.rtyper.getexceptiondata().fn_exception_match)
         exc_match.concretetype = typeOf(exc_match.value)
@@ -368,13 +366,14 @@ class BaseInliner(object):
                 l.llexitcase = False
                 blocks[-1].exits.insert(0, l)
             blocks.append(block)
+
         blocks[-1].exits = blocks[-1].exits[:1]
         blocks[-1].operations = []
         blocks[-1].exitswitch = None
         blocks[-1].exits[0].exitcase = None
         del blocks[-1].exits[0].llexitcase
         linkargs = copiedexceptblock.inputargs
-        copiedexceptblock.closeblock(Link(linkargs, blocks[0]))
+        copiedexceptblock.closeblock(Link(linkargs, blocks[0])) ## HERE
         copiedexceptblock.operations += generate_keepalive(linkargs)
 
       
@@ -540,7 +539,7 @@ def inlinable_static_callers(graphs):
         for block in parentgraph.iterblocks():
             for op in block.operations:
                 if op.opname == "direct_call":
-                    funcobj = op.args[0].value._obj
+                    funcobj = get_funcobj(op.args[0].value)
                     graph = getattr(funcobj, 'graph', None)
                     if graph is not None:
                         if getattr(getattr(funcobj, '_callable', None),
@@ -572,7 +571,7 @@ def instrument_inline_candidates(graphs, multiplier):
                 op = ops[i]
                 i -= 1
                 if op.opname == "direct_call":
-                    funcobj = op.args[0].value._obj
+                    funcobj = get_funcobj(op.args[0].value)
                     graph = getattr(funcobj, 'graph', None)
                     if graph is not None:
                         if getattr(getattr(funcobj, '_callable', None),

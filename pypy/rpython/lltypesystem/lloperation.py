@@ -402,6 +402,11 @@ LL_OPERATIONS = {
 
     # __________ instrumentation _________
     'instrument_count':     LLOp(),
+
+    # __________ ootype operations __________
+    'oosetfield':           LLOp(),
+    'oogetfield':           LLOp(),
+    'ooupcast':             LLOp(),
 }
 
     # __________ operations on PyObjects __________

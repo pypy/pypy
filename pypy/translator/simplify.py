@@ -12,27 +12,39 @@ from pypy.objspace.flow.model import c_last_exception
 from pypy.objspace.flow.model import checkgraph, traverse, mkentrymap
 from pypy.rpython.lltypesystem import lloperation
 
+def get_funcobj(func):
+    """
+    Return an object which is supposed to have attributes such as graph and _callable
+    """
+    if hasattr(func, '_obj'): 
+        return func._obj # lltypesystem
+    else:
+        return func # ootypesystem
+
+
 def get_graph(arg, translator):
     from pypy.translator.translator import graphof
     if isinstance(arg, Variable):
         return None
     f = arg.value
     from pypy.rpython.lltypesystem import lltype
-    if not isinstance(f, lltype._ptr):
+    from pypy.rpython.ootypesystem import ootype
+    if not isinstance(f, lltype._ptr) and not isinstance(f, ootype._callable):
         return None
+    funcobj = get_funcobj(f)
     try:
-        callable = f._obj._callable
+        callable = funcobj._callable
         # external function calls don't have a real graph
         if getattr(callable, "suggested_primitive", False):
             return None
     except (AttributeError, KeyError, AssertionError):
         return None
     try:
-        return f._obj.graph
+        return funcobj.graph
     except AttributeError:
         return None
     try:
-        callable = f._obj._callable
+        callable = funcobj._callable
         return graphof(translator, callable)
     except (AttributeError, KeyError, AssertionError):
         return None
