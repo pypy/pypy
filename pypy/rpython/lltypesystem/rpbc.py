@@ -289,7 +289,10 @@ class __extend__(pairtype(SmallFunctionSetPBCRepr, SmallFunctionSetPBCRepr)):
     def convert_from_to((r_from, r_to), v, llops):
         c_table = conversion_table(r_from, r_to)
         if c_table:
-            return llops.genop('getarrayitem', [c_table, v],
+            assert v.concretetype is Char
+            v_int = llops.genop('cast_char_to_int', [v],
+                                resulttype=Signed)
+            return llops.genop('getarrayitem', [c_table, v_int],
                                resulttype=Char)
         else:
             return v
