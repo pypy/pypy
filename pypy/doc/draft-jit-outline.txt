@@ -552,10 +552,53 @@ The approach that we have taken is in two phases:
   become calls to helpers.
 
 
-Split and Merges
+Merges and Splits
 --------------------
 
-...
+The description of the timeshifting transformation given so far misses a
+critical aspect: how to handle control flow (e.g. loops) that involves
+red variables.  It is easy to see why the timeshifted graphs cannot have
+exactly the same control flow than the original graphs: we may not know
+at compile-time how many iterations a loop will do at run-time, nor what
+branches of a condition will be taken.
+
+The issue of loops is handled by *merge points*.  Merge points are
+special operations inserted just after join points, i.e. just after two
+or more incoming control flow paths meet.  A merge point is a check to
+see if the compiler, i.e. the timeshifted graph, has come back to a
+state that was previously seen at the same merge point.  The goal is
+that when the timeshifted graph loops back, the residual code that its
+red operations produces should loop as well, as soon as possible.
+Without the merge point logic, the timeshifted graph would simply go on
+looping forever, producing an infinitely long sequence of residual
+operations.  The merge point prevents that: when a state is encountered
+that was already seen before, the merge logic emits in the residual code
+a jump that goes back to the residual code corresponding to the older
+state, thus creating a residual loop.  After this, the timeshifted graph
+stops executing.
+
+The mirror issue is that of *split points*.  Splits are conditional
+branches.  There are two kinds of splits: the ones whose condition is
+itself a green variable, and the ones whose condition is red.  A green
+split (i.e. the former) is left untouched by the timeshifting
+transformation: as the condition will be known a compile-time, we know
+at compile-time which of the branches is followed.
+
+A red split is more delicate.  It must generate in a conditional branch
+in the residual code.  From a theoretical point of view, this is done by
+emitting a conditional jump instruction, and then *forking* the
+compile-time process in two identical copies: each copy follows one of
+the branches in the timeshifted graph, and goes on generating code in
+the corresponding branch in the residual code.
+
+In practice, this is implemented by making a copy of the current JIT
+state, which is added to a scheduler's queue.  At the end of the
+timeshifted graph, an extra call to the scheduler will fetch the next
+pending JIT state and jump back to it.  (This implies that the control
+flow of the timeshifted graph is mangled by the timeshifting
+transformation, to allow the last block of the graph to jump back to any
+of the red splits.)
+
 
 Calls and inlining
 ---------------------
