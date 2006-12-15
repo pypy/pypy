@@ -228,8 +228,6 @@ class Builder(GenBuilder):
         self.start = 0
         self.closed = False
         self.tail = (0, 0)
-        rgenop.openbuilders += 1
-        #os.write(1, 'Open builders+: %d\n' % rgenop.openbuilders)
 
     def _open(self):
         if self.mc is None and not self.closed:
@@ -301,8 +299,6 @@ class Builder(GenBuilder):
         self.mc.done()
         self.rgenop.close_mc(self.mc)
         self.mc = None
-        self.rgenop.openbuilders -= 1
-        #os.write(1, 'Open builders-: %d\n' % self.rgenop.openbuilders)
 
     def _fork(self):
         return self.rgenop.openbuilder(self.stackdepth)
@@ -961,7 +957,6 @@ class RI386GenOp(AbstractRGenOp):
     from pypy.jit.codegen.i386.codebuf import InMemoryCodeBuilder
 
     MC_SIZE = 65536
-    openbuilders = 0
     
     def __init__(self):
         self.mcs = []   # machine code blocks where no-one is currently writing
@@ -975,7 +970,6 @@ class RI386GenOp(AbstractRGenOp):
         else:
             # XXX supposed infinite for now
             self.total_code_blocks += 1
-            #os.write(1, 'Open codeblocks: %d\n' % (self.total_code_blocks,))
             return self.MachineCodeBlock(self.MC_SIZE)
 
     def close_mc(self, mc):
