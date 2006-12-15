@@ -10,6 +10,7 @@ or
 
 import autopath
 import operator, sys, os, re, py
+from bisect import bisect_left
 
 # don't use pypy.tool.udir here to avoid removing old usessions which
 # might still contain interesting executables
@@ -81,11 +82,14 @@ class CodeRange(object):
         self.addr = addr
         self.data = data
 
+    def touches(self, other):
+        return (self .addr < other.addr + len(other.data) and
+                other.addr < self .addr + len(self.data))
+
     def update(self, other):
         if other.addr < self.addr:
             delta = self.addr - other.addr
             self.addr -= delta
-            self.offset += delta
             self.data = '\x00'*delta + self.data
         ofs1 = other.addr - self.addr
         ofs2 = ofs1 + len(other.data)
@@ -163,13 +167,15 @@ class World(object):
                 addr = baseaddr + offset
                 data = pieces[3].replace(':', '').decode('hex')
                 coderange = CodeRange(self, addr, data)
-                # XXX sloooooooow!
-                for r in self.ranges:
-                    if addr < r.addr+len(r.data) and r.addr < addr+len(data):
-                        r.update(coderange)
-                        break
-                else:
-                    self.ranges.append(coderange)
+                i = bisect_left(self.ranges, coderange)
+                j = i
+                while i>0 and coderange.touches(self.ranges[i-1]):
+                    coderange.update(self.ranges[i-1])
+                    i -= 1
+                while j<len(self.ranges) and coderange.touches(self.ranges[j]):
+                    coderange.update(self.ranges[j])
+                    j -= 1
+                self.ranges[i:j] = [coderange]
             elif line.startswith('LOG '):
                 pieces = line.split(None, 3)
                 assert pieces[1].startswith('@')
@@ -182,11 +188,18 @@ class World(object):
                 filename = line[len('SYS_EXECUTABLE '):].strip()
                 self.symbols.update(load_symbols(filename))
         # find cross-references between blocks
-        for r in self.ranges:
+        fnext = 0.1
+        for i, r in enumerate(self.ranges):
             for lineno, targetaddr, _ in r.findjumps():
                 self.labeltargets[targetaddr] = True
+            if i % 100 == 99:
+                f = float(i) / len(self.ranges)
+                if f >= fnext:
+                    sys.stderr.write("%d%%" % int(f*100.0))
+                    fnext += 0.1
+                sys.stderr.write(".")
+        sys.stderr.write("100%\n")
         # split blocks at labeltargets
-        # XXX slooooow!
         t = self.labeltargets
         #print t
         for r in self.ranges:
