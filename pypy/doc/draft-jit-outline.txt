@@ -392,8 +392,8 @@ Red and Green Operations
 --------------------------
 
 The basic idea of timeshifting is to transform operations depending on
-the color of their operands. Variables themselves need to be represented
-based on their color:
+the color of their operands and result. Variables themselves need to
+be represented based on their color:
 
 * The green variables are the compile-time variables.  Their values are
   meant to be available during compile-time already.  A variable that
@@ -451,6 +451,29 @@ constant red box, the field can sometimes be directly read out of the
 structure at compile-time - this decision is based on the static `Deep
 freezing`_ analysis performed by the hint-annotator.
 
+The Example again 
+------------------- 
+
+If we timeshift the `ll_plus_minus`__ example, given the described
+binding time assignments, the only red operations generating
+code in the output residual graph are ``acc += x``, ``acc -=
+x``. Timeshifting substitute them with helpers that do emit such
+operations.
+
+All the rest involves green variables and is left unmutated by
+timeshifting.  The corresponding computations, the loop over the
+"instructions" and dispaching on them would happen at compile-time.
+
+The timeshifted version of ll_plus_minus for the input "+-+" would
+produce something like (in pseudo notation)::
+ 
+   residual_plus_minus_graph(x,y):
+       v0 = int_add(x , y)
+       v1 = int_sub(v0, y)
+       v2 = int_add(v1, y)
+       return v2
+
+__ `Example above`_
 
 Support code
 --------------
