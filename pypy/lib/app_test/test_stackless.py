@@ -11,6 +11,7 @@ try:
     withinit = False
 except ImportError:
     from pypy.lib import stackless_new as stackless
+    #from pypy.lib import stackless
     withinit = True
 from py.test import skip
 

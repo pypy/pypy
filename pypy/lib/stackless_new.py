@@ -8,8 +8,14 @@ import traceback
 import sys
 try:
     from _stackless import coroutine, greenlet
-except ImportError:
-    from py.magic import coroutine, greenlet
+except ImportError: # we are running from CPython
+    # you must have coroutine from
+    # http://codespeak.net/svn/user/stephan/hacks/coroutine/
+    # in your path in order to get the following to work
+
+    from py.magic import greenlet
+    from coroutine import coroutine
+
 from collections import deque
 
 __all__ = 'run getcurrent getmain schedule tasklet channel coroutine \
