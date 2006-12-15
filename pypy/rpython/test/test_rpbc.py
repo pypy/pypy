@@ -1491,6 +1491,29 @@ class BaseTestRPBC(BaseRtypingTest):
         res = self.interpret(f, [2])
         assert res == False
 
+    def test_shrink_pbc_set(self):
+        def g1():
+            return 10
+        def g2():
+            return 20
+        def g3():
+            return 30
+        def h1(g):          # g in {g1, g2}
+            return 1 + g()
+        def h2(g):          # g in {g1, g2, g3}
+            return 2 + g()
+        def f(n):
+            if n > 5: g = g1
+            else:     g = g2
+            if n % 2: h = h1
+            else:     h = h2
+            res = h(g)
+            if n > 7: g = g3
+            h2(g)
+            return res
+        res = self.interpret(f, [7])
+        assert res == 11
+
 
 class TestLLtype(BaseTestRPBC, LLRtypeMixin):
     pass
@@ -1757,11 +1780,15 @@ class TestLLtypeSmallFuncSets(TestLLtype):
     def setup_class(cls):
         from pypy.config.pypyoption import get_pypy_config
         cls.config = get_pypy_config(translating=True)
-        cls.config.translation.withsmallfuncsets = 10
+        cls.config.translation.withsmallfuncsets = 3
 
     def interpret(self, fn, args, **kwds):
         kwds['config'] = self.config
         return TestLLtype.interpret(self, fn, args, **kwds)
+
+    def test_shrink_pbc_set(self):
+        # fails with config.translation.withsmallfuncsets == 3
+        py.test.skip("XXX not implemented")
 
 def test_smallfuncsets_basic():
     from pypy.translator.translator import TranslationContext, graphof
