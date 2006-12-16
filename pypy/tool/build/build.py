@@ -83,7 +83,12 @@ class BuildRequest(object):
         self.svnrev = svnrev
         self.revrange = revrange
 
+    def __str__(self):
+        return '<BuildRequest %s:%s>' % (self.svnurl, self.normalized_rev)
+
     def __repr__(self):
+        """ the result of this method can be exec-ed when build.py is imported
+        """
         return 'build.BuildRequest(%r, %r, %r, %r, %r, %r)' % (
                 self.email, self.sysinfo, self.compileinfo, self.svnurl,
                 self.svnrev, self.revrange)

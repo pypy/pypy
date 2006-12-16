@@ -11,6 +11,19 @@ from pypy.tool.build.client import init, zip_result
 from pypy.tool.build import build
 from pypy.config.config import to_optparse, Config
 
+# XXX complete and total utter hack!!! to get some stuff out of pypy that
+# basically freezes our execnet sandbox (because of using os.write to stderr
+# and stuff)
+replace_code_hack = """\
+path1 = '%s/pypy/translator/goal/targetpypystandalone.py' % (pypath,)
+data = open(path1).read()
+data = data.replace('os.write', 'pass # os.write')
+open(path1, 'w').write(data)
+
+path2 = '%s/pypy/translator/goal/app_basic_example.py' % (pypath,)
+open(path2, 'w').write('6 * 7\\n')
+"""
+
 def compile(wc, compileinfo):
     code = """\
 import sys
@@ -19,6 +32,9 @@ import traceback
 
 # interpolating the path
 pypath = %r
+
+# XXX replace hack
+%s
 
 sys.path = [pypath] + sys.path
 os.chdir(pypath)
@@ -29,14 +45,11 @@ os.chdir(pypath)
 # interpolating config
 compileinfo = %r
 
+# log locally too
 log = open('/tmp/buildclient.log', 'a')
 outbuffer = OutputBuffer(log)
-old_stdout = sys.__stdout__
-old_stderr = sys.__stderr__
 sys.stdout = outbuffer
 sys.stderr = outbuffer
-sys.__stdout__ = outbuffer
-sys.__stderr__ = outbuffer
 try:
     try:
         from pypy.interpreter.error import OperationError
@@ -67,8 +80,6 @@ try:
     else:
         channel.send(str(udir))
 finally:
-    sys.__stdout__ = old_stdout
-    sys.__stderr__ = old_stderr
     sys.stdout = sys.__stdout__
     sys.stderr = sys.__stderr__
     log.close()
@@ -78,10 +89,15 @@ channel.close()
     gw = PopenGateway()
     buffercode = py.magic.autopath().dirpath().dirpath()\
                     .join('outputbuffer.py').read()
-    interpolated = code % (str(wc), buffercode, compileinfo)
+    interpolated = code % (str(wc), replace_code_hack, buffercode, compileinfo)
     channel = gw.remote_exec(interpolated)
-    upath = channel.receive()
-    output = channel.receive()
+    try:
+        upath = channel.receive()
+        output = channel.receive()
+    except channel.RemoteError, e:
+        print 'Remote exception:'
+        print str(e)
+        return (None, str(e))
     channel.close()
 
     return upath, output

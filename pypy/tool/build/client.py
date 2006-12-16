@@ -129,4 +129,5 @@ def zip_result(res_dir, channel):
             print exc
             continue
     zip.close()
+    channelwrapper.close()
 
