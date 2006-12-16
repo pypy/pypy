@@ -8,8 +8,31 @@ class Test_Coroutine:
         co = coroutine()
         def f():
             print 'in coro'
+        assert not co.is_zombie
         co.bind(f)
         assert not co.is_zombie
+        co.switch()
+        assert not co.is_zombie
+
+    def test_is_zombie_del(self):
+        import gc
+        res = []
+        class MyCoroutine(coroutine):
+            def __del__(self):
+                res.append(self.is_zombie)
+        def f():
+            print 'in coro'
+        co = MyCoroutine()
+        co.bind(f)
+        co.switch()
+        del co
+        for i in range(5):
+            gc.collect()
+            if res:
+                break
+        if not res:
+            skip("MyCoroutine object not garbage-collected yet?")
+        assert res[0], "is_zombie was False in __del__"
 
     def test_raise_propagate(self):
         co = coroutine()
@@ -46,6 +69,7 @@ class Test_Coroutine:
         co = coroutine()
         def f():
             pass
+        assert not co.is_alive
         co.bind(f)
         assert co.is_alive
         co.kill()
