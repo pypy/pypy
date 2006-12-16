@@ -37,7 +37,7 @@ class PPBServer(object):
         self._mailport = mailport
         self._mailfrom = mailfrom
         
-        self._buildpath = py.path.local(builddir)
+        self._buildroot = py.path.local(builddir)
         self._clients = []
 
         done = []
@@ -49,8 +49,8 @@ class PPBServer(object):
                 bp.remove()
 
         self._done = done
-        self._queued = []
-        self._waiting = []
+        self._queued = [] # no compile client available
+        self._waiting = [] # compilation already in progress for someone else
 
         self._queuelock = thread.allocate_lock()
         self._namelock = thread.allocate_lock()
@@ -88,7 +88,7 @@ class PPBServer(object):
         for client in self._clients:
             if client.busy_on and request.has_satisfying_data(client.busy_on):
                 self._channel.send('build for %s currently in progress' %
-                                    (request,))
+                                   (request,))
                 self._waiting.append(request)
                 return (False, 'this build is already in progress')
         # we don't have a build for this yet, find a client to compile it
@@ -138,7 +138,7 @@ class PPBServer(object):
             self._try_queued()
 
     def get_new_buildpath(self, request):
-        path = BuildPath(str(self._buildpath / self._create_filename()))
+        path = BuildPath(str(self._buildroot / self._create_filename()))
         path.request = request
         return path
 
@@ -186,6 +186,9 @@ class PPBServer(object):
                     if request.has_satisfying_data(client.busy_on):
                         break
                 else:
+                    # move request from 'waiting' (waiting for a compilation
+                    # that is currently in progress) to 'queued' (waiting for
+                    # a suitable build client to connect)
                     self._waiting.remove(request)
                     self._queued.append(request)
                     continue
@@ -214,7 +217,7 @@ class PPBServer(object):
         try:
             today = time.strftime('%Y%m%d')
             buildnames = [p.basename for p in 
-                            py.path.local(self._buildpath).listdir()]
+                            py.path.local(self._buildroot).listdir()]
             while True:
                 name = '%s-%s-%s' % (self._projname, today, self._i)
                 self._i += 1

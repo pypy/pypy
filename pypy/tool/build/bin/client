@@ -1,28 +1,7 @@
 #!/usr/bin/python
 
 import py
-import path
-import sys
-import random
-from pypy.tool.build import config as buildconfig
-
-from py.execnet import SshGateway, PopenGateway
-from pypy.tool.build.client import init, zip_result
-from pypy.tool.build import build
-from pypy.config.config import to_optparse, Config
-
-# XXX complete and total utter hack!!! to get some stuff out of pypy that
-# basically freezes our execnet sandbox (because of using os.write to stderr
-# and stuff)
-replace_code_hack = """\
-path1 = '%s/pypy/translator/goal/targetpypystandalone.py' % (pypath,)
-data = open(path1).read()
-data = data.replace('os.write', 'pass # os.write')
-open(path1, 'w').write(data)
-
-path2 = '%s/pypy/translator/goal/app_basic_example.py' % (pypath,)
-open(path2, 'w').write('6 * 7\\n')
-"""
+from py.execnet import PopenGateway
 
 def compile(wc, compileinfo):
     code = """\
@@ -32,9 +11,6 @@ import traceback
 
 # interpolating the path
 pypath = %r
-
-# XXX replace hack
-%s
 
 sys.path = [pypath] + sys.path
 os.chdir(pypath)
@@ -89,7 +65,7 @@ channel.close()
     gw = PopenGateway()
     buffercode = py.magic.autopath().dirpath().dirpath()\
                     .join('outputbuffer.py').read()
-    interpolated = code % (str(wc), replace_code_hack, buffercode, compileinfo)
+    interpolated = code % (str(wc), buffercode, compileinfo)
     channel = gw.remote_exec(interpolated)
     try:
         upath = channel.receive()
@@ -102,96 +78,10 @@ channel.close()
 
     return upath, output
 
-def tempdir():
-    i = 0
-    tmp = py.path.local('/tmp')
-    while 1:
-        dirname = 'buildtemp-%s' % (i,)
-        if not tmp.join(dirname).check():
-            return tmp.ensure(dirname, dir=True)
-        i += 1
+if __name__ == '__main__':
+    # main bit
+    import path
+    from pypy.tool.build import config
+    from pypy.tool.build.client import main
 
-if buildconfig.server in ['localhost', '127.0.0.1']:
-    gw = PopenGateway()
-else:
-    gw = SshGateway(buildconfig.server)
-    
-channel = init(gw,
-               buildconfig.system_config,
-               path=buildconfig.path,
-               port=buildconfig.port)
-
-print channel.receive() # welcome message
-try:
-    try:
-        while 1:
-            # receive compile requests
-            request = channel.receive()
-            if isinstance(request, str):
-                try:
-                    request = build.BuildRequest.fromstring(request)
-                except (KeyError, SyntaxError), e:
-                    print ('exception occurred when trying to interpret the '
-                           'following request:')
-                    print request
-                    print
-                    print 'going to continue'
-                    continue
-            else:
-                raise ValueError(
-                    'received wrong unexpected data of type %s' % (
-                            type(request),)
-                )
-            accepting = True
-            for checker in buildconfig.client_checkers:
-                if not checker(request):
-                    if hasattr(checker, 'im_func'):
-                        name = '%s.%s' % (checker.im_class.__name__,
-                                          checker.im_func.func_name)
-                    else:
-                        name = checker.func_name
-                    print 'request refused by checker', name
-                    accepting = False
-                    break
-            channel.send(accepting)
-            if not accepting:
-                print 'refusing compilation'
-                continue
-            # XXX we should compile here, using data dict for info
-            print 'compilation requested for %s' % (request,)
-
-            # subversion checkout
-            print 'checking out %s@%s' % (request.svnurl,
-                                          request.normalized_rev)
-            temp = tempdir()
-            svnwc = py.path.svnwc(temp)
-            svnwc.checkout(request.svnurl)
-            svnwc.update(request.normalized_rev)
-
-            try:
-                print 'starting compilation'
-                upath, log = compile(svnwc, request.compileinfo)
-            except KeyboardInterrupt:
-                print 'quitting...'
-                break
-
-            if upath:
-                # send over zip data, end with a None
-                print 'compilation successful, sending to server'
-                zip_result(py.path.local(upath), channel)
-            else:
-                print 'compilation failed, notifying server'
-                # just send the None
-                channel.send(None)
-            
-            # send over logs
-            print 'sending log'
-            channel.send(log)
-            
-            print 'done with compilation, waiting for next'
-    except EOFError:
-        sys.exit()
-finally:
-    channel.close()
-    gw.exit()
-
+    main(config, path, compile)

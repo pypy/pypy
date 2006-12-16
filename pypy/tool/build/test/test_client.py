@@ -4,6 +4,8 @@ from pypy.tool.build import build
 import py
 import time
 import sys
+from zipfile import ZipFile
+from StringIO import StringIO
 from fake import FakeChannel, FakeServer
 
 class ClientForTests(client.PPBClient):
@@ -79,4 +81,29 @@ def test_failed_checker():
     assert not accepted
     assert br in c1.refused
     assert c1.busy_on == None
+
+def test_zip_result():
+    channel = FakeChannel()
+    tempdir = py.test.ensuretemp('zip_result')
+    tempdir.mkdir('foo')
+    tempdir.join('foo/bar.txt').write('bar')
+
+    client.zip_result(tempdir, channel)
+    zip = StringIO()
+    while 1:
+        chunk = channel.receive()
+        if chunk is None:
+            break
+        zip.write(chunk)
+
+    zip.seek(0)
+    zf = ZipFile(zip)
+    data = zf.read('foo/bar.txt')
+    assert data == 'bar'
+
+def test_tempdir():
+    parent = py.test.ensuretemp('tempdir')
+    for i in range(10):
+        t = client.tempdir(parent)
+        assert t.basename == 'buildtemp-%s' % (i,)
 

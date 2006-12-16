@@ -1,7 +1,8 @@
-import thread
 import py
+import thread
 from zipfile import ZipFile
 from cStringIO import StringIO
+from pypy.tool.build import build
 
 class PPBClient(object):
     def __init__(self, channel, sysinfo, testing=False):
@@ -33,7 +34,6 @@ class PPBClient(object):
 
     def wait_until_done(self, request):
         buildpath = self.server.get_new_buildpath(request)
-        open('/tmp/tessie', 'w').write('foo')
         
         if not self.testing:
             fp = buildpath.zipfile.open('w')
@@ -45,7 +45,7 @@ class PPBClient(object):
                         chunk = self.channel.receive()
                     except EOFError:
                         # stop compilation, client has disconnected
-                        return 
+                        return
                     # end of data is marked by sending a None
                     if chunk is None:
                         break
@@ -130,4 +130,101 @@ def zip_result(res_dir, channel):
             continue
     zip.close()
     channelwrapper.close()
+
+def tempdir(parent=None):
+    i = 0
+    if parent is None:
+        parent = py.path.local('/tmp')
+    while 1:
+        dirname = 'buildtemp-%s' % (i,)
+        if not parent.join(dirname).check():
+            return parent.ensure(dirname, dir=True)
+        i += 1
+
+def main(config, path, compilefunc):
+    from py.execnet import SshGateway, PopenGateway
+
+    if config.server in ['localhost', '127.0.0.1']:
+        gw = PopenGateway()
+    else:
+        gw = SshGateway(config.server)
+        
+    channel = init(gw,
+                   config.system_config,
+                   path=config.path,
+                   port=config.port)
+
+    print channel.receive() # welcome message
+    try:
+        try:
+            while 1:
+                # receive compile requests
+                request = channel.receive()
+                if isinstance(request, str):
+                    try:
+                        request = build.BuildRequest.fromstring(request)
+                    except (KeyError, SyntaxError), e:
+                        print ('exception occurred when trying to '
+                               'interpret the following request:')
+                        print request
+                        print
+                        print 'going to continue'
+                        continue
+                else:
+                    raise ValueError(
+                        'received wrong unexpected data of type %s' % (
+                                type(request),)
+                    )
+                accepting = True
+                for checker in config.client_checkers:
+                    if not checker(request):
+                        if hasattr(checker, 'im_func'):
+                            name = '%s.%s' % (checker.im_class.__name__,
+                                              checker.im_func.func_name)
+                        else:
+                            name = checker.func_name
+                        print 'request refused by checker', name
+                        accepting = False
+                        break
+                channel.send(accepting)
+                if not accepting:
+                    print 'refusing compilation'
+                    continue
+                # XXX we should compile here, using data dict for info
+                print 'compilation requested for %s' % (request,)
+
+                # subversion checkout
+                print 'checking out %s@%s' % (request.svnurl,
+                                              request.normalized_rev)
+                temp = tempdir()
+                svnwc = py.path.svnwc(temp)
+                svnwc.checkout(request.svnurl)
+                svnwc.update(request.normalized_rev)
+
+                try:
+                    print 'starting compilation'
+                    upath, log = compilefunc(svnwc, request.compileinfo)
+                except KeyboardInterrupt:
+                    print 'quitting...'
+                    break
+
+                if upath:
+                    # send over zip data, end with a None
+                    print 'compilation successful, sending to server'
+                    zip_result(py.path.local(upath), channel)
+                else:
+                    print 'compilation failed, notifying server'
+                    # just send the None
+                    channel.send(None)
+                
+                # send over logs
+                print 'sending log'
+                channel.send(log)
+                
+                print 'done with compilation, waiting for next'
+        except EOFError:
+            py.std.sys.exit()
+    finally:
+        channel.close()
+        gw.exit()
 
