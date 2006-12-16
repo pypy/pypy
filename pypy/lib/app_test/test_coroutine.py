@@ -1,6 +1,10 @@
-from pypy.lib.stackless import coroutine
-
 from py.test import skip, raises
+
+try:
+    from pypy.lib.stackless import coroutine
+except ImportError, e:
+    skip('cannot import stackless: %s' % (e,))
+
 
 class Test_Coroutine:
 

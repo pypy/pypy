@@ -4,16 +4,19 @@ These tests are supposed to run on the following platforms:
 2. CPython (with the stackless_new module in the path
 3. pypy-c
 """
+from py.test import skip
 try:
     import stackless
     if 'coroutine' in dir(stackless):
         raise ImportError("We are running pypy-c")
     withinit = False
 except ImportError:
-    from pypy.lib import stackless_new as stackless
+    try:
+        from pypy.lib import stackless_new as stackless
+    except ImportError, e:
+        skip('cannot import stackless: %s' % (e,))
     #from pypy.lib import stackless
     withinit = True
-from py.test import skip
 
 class Test_Stackless:
 
