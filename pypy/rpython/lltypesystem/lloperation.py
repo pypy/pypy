@@ -9,7 +9,7 @@ from pypy.objspace.flow.model import roproperty
 class LLOp(object):
 
     def __init__(self, sideeffects=True, canfold=False, canraise=(),
-                 pyobj=False, canunwindgc=False, canrun=False):
+                 pyobj=False, canunwindgc=False, canrun=False, oo=False):
         # self.opname = ... (set afterwards)
 
         if canfold:
@@ -42,6 +42,9 @@ class LLOp(object):
         # The operation can be run directly with __call__
         self.canrun = canrun or canfold
 
+        # The operation belongs to the ootypesystem
+        self.oo = oo
+
     # __________ make the LLOp instances callable from LL helpers __________
 
     __name__ = property(lambda self: 'llop_'+self.opname)
@@ -62,7 +65,10 @@ class LLOp(object):
         global lltype                 #  <- lazy import hack, worth an XXX
         from pypy.rpython.lltypesystem import lltype
         if self.canrun:
-            from pypy.rpython.lltypesystem.opimpl import get_op_impl
+            if self.oo:
+                from pypy.rpython.ootypesystem.ooopimpl import get_op_impl
+            else:
+                from pypy.rpython.lltypesystem.opimpl import get_op_impl
             op_impl = get_op_impl(self.opname)
         else:
             error = TypeError("cannot constant-fold operation %r" % (
@@ -404,10 +410,26 @@ LL_OPERATIONS = {
     'instrument_count':     LLOp(),
 
     # __________ ootype operations __________
-    'oosetfield':           LLOp(),
-    'oogetfield':           LLOp(),
-    'ooupcast':             LLOp(),
+    'new':                  LLOp(oo=True, canraise=(Exception,)),
+    'runtimenew':           LLOp(oo=True, canraise=(Exception,)),
+    'oonewcustomdict':      LLOp(oo=True, canraise=(Exception,)),
+    'oosetfield':           LLOp(oo=True),
+    'oogetfield':           LLOp(oo=True, sideeffects=False),
+    'oosend':               LLOp(oo=True, canraise=(Exception,)),
+    'ooupcast':             LLOp(oo=True, canfold=True),
+    'oodowncast':           LLOp(oo=True, canfold=True),
+    'oononnull':            LLOp(oo=True, canfold=True),
+    'oois':                 LLOp(oo=True, canfold=True),
+    'instanceof':           LLOp(oo=True, canfold=True),
+    'classof':              LLOp(oo=True, canfold=True),
+    'subclassof':           LLOp(oo=True, canfold=True),
+    'ooidentityhash':       LLOp(oo=True, sideeffects=False),
+    'oostring':             LLOp(oo=True, sideeffects=False),
+    'ooparse_int':          LLOp(oo=True, canraise=(ValueError,)),
+    'oohash':               LLOp(oo=True, sideeffects=False),
 }
+# ***** Run test_lloperation after changes. *****
+
 
     # __________ operations on PyObjects __________
 

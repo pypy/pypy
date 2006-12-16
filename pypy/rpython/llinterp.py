@@ -223,8 +223,7 @@ class LLFrame(object):
         ophandler = getattr(self, 'op_' + opname, None)
         if ophandler is None:
             # try to import the operation from opimpl.py
-            from pypy.rpython.lltypesystem.opimpl import get_op_impl
-            ophandler = get_op_impl(opname)
+            ophandler = lloperation.LL_OPERATIONS[opname].fold
             setattr(self.__class__, 'op_' + opname, staticmethod(ophandler))
         return ophandler
     # _______________________________________________________
@@ -886,37 +885,6 @@ class LLFrame(object):
         if getattr(m, 'abstract', False):
             raise RuntimeError("calling abstract method %r" % (m,))
         return self.perform_call(m, (lltype.typeOf(inst),)+lltype.typeOf(m).ARGS, [inst]+args)
-
-    def op_ooupcast(self, INST, inst):
-        return ootype.ooupcast(INST, inst)
-    op_ooupcast.need_result_type = True
-    
-    def op_oodowncast(self, INST, inst):
-        return ootype.oodowncast(INST, inst)
-    op_oodowncast.need_result_type = True
-
-    def op_oononnull(self, inst):
-        checkinst(inst)
-        return bool(inst)
-
-    def op_oois(self, obj1, obj2):
-        if is_inst(obj1):
-            checkinst(obj2)
-            return obj1 == obj2   # NB. differently-typed NULLs must be equal
-        elif isinstance(obj1, ootype._class):
-            assert isinstance(obj2, ootype._class)
-            return obj1 is obj2
-        else:
-            assert False, "oois on something silly"
-            
-    def op_instanceof(self, inst, INST):
-        return ootype.instanceof(inst, INST)
-
-    def op_classof(self, inst):
-        return ootype.classof(inst)
-
-    def op_subclassof(self, class1, class2):
-        return ootype.subclassof(class1, class2)
 
     def op_ooidentityhash(self, inst):
         return ootype.ooidentityhash(inst)

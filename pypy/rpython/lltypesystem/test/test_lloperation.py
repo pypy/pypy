@@ -1,18 +1,12 @@
 import py
 from pypy.rpython.lltypesystem.lloperation import LL_OPERATIONS, llop
 from pypy.rpython.lltypesystem import lltype, opimpl
+from pypy.rpython.ootypesystem import ootype, ooopimpl
 from pypy.rpython.llinterp import LLFrame
 from pypy.rpython.test.test_llinterp import interpret
 
 LL_INTERP_OPERATIONS = [name[3:] for name in LLFrame.__dict__.keys()
-                                 if name.startswith('op_')
-# Ignore OO operations for now
-                                    and not (name == 'op_new' or
-                                             name == 'op_subclassof' or
-                                             name == 'op_instanceof' or
-                                             name == 'op_classof' or
-                                             name == 'op_runtimenew' or
-                                             name.startswith('op_oo'))]
+                                 if name.startswith('op_')]
 
 # ____________________________________________________________
 
@@ -20,7 +14,10 @@ def test_canfold_opimpl_complete():
     for opname, llop in LL_OPERATIONS.items():
         assert opname == llop.opname
         if llop.canfold:
-            func = opimpl.get_op_impl(opname)
+            if llop.oo:
+                func = ooopimpl.get_op_impl(opname)
+            else:
+                func = opimpl.get_op_impl(opname)
             assert callable(func)
 
 def test_llop_fold():
