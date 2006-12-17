@@ -45,7 +45,8 @@ def gettestobjspace(name=None, **kwds):
             if option.verbose:
                 import traceback
                 traceback.print_exc()
-            py.test.fail("fatal: cannot initialize objspace:  %r" %(Space,))
+            py.test.fail("fatal: cannot initialize objspace: %r" %
+                             (config.objspace.name,))
         _SPACECACHE[key] = space
         space.setitem(space.builtin.w_dict, space.wrap('AssertionError'),
                       appsupport.build_pytest_assertion(space))
