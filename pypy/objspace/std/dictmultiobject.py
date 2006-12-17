@@ -7,6 +7,17 @@ from pypy.rlib.objectmodel import r_dict, we_are_translated
 def _is_str(space, w_key):
     return space.is_w(space.type(w_key), space.w_str)
 
+def _is_sane_hash(space, w_lookup_type):
+    """ Handles the case of a non string key lookup.
+    Types that have a sane hash/eq function should allow us to return True
+    directly to signal that the key is not in the dict in any case.
+    XXX The types should provide such a flag. """
+
+    # XXX there are much more types
+    return (space.is_w(w_lookup_type, space.w_NoneType) or
+            space.is_w(w_lookup_type, space.w_int))
+
+
 # DictImplementation lattice
 
 # a dictionary starts with an EmptyDictImplementation, and moves down
@@ -192,16 +203,6 @@ class SmallStrDictImplementation(DictImplementation):
         self.entries[0].w_value = w_value
         self.valid = 1
 
-    def _is_sane_hash(self, w_lookup_type):
-        """ Handles the case of a non string key lookup.
-        Types that have a sane hash/eq function should allow us to return True
-        directly to signal that the key is not in the dict in any case.
-        XXX The types should provide such a flag. """
-    
-        space = self.space
-        # XXX there are many more such types
-        return space.is_w(w_lookup_type, space.w_NoneType) or space.is_w(w_lookup_type, space.w_int)
-
     def _lookup(self, key):
         assert isinstance(key, str)
         _hash = hash(key)
@@ -270,7 +271,7 @@ class SmallStrDictImplementation(DictImplementation):
                 return self
             else:
                 raise KeyError
-        elif self._is_sane_hash(w_key_type):
+        elif _is_sane_hash(self.space, w_key_type):
             raise KeyError
         else:
             return self._convert_to_rdict().delitem(w_key)
@@ -283,7 +284,7 @@ class SmallStrDictImplementation(DictImplementation):
         w_lookup_type = space.type(w_lookup)
         if space.is_w(w_lookup_type, space.w_str):
             return self._lookup(space.str_w(w_lookup)).w_value
-        elif self._is_sane_hash(w_lookup_type):
+        elif _is_sane_hash(self.space, w_lookup_type):
             return None
         else:
             return self._convert_to_rdict().get(w_lookup)
@@ -329,7 +330,7 @@ class StrDictImplementation(DictImplementation):
                 return self
             else:
                 return space.emptydictimpl
-        elif self._is_sane_hash(w_key_type):
+        elif _is_sane_hash(space, w_key_type):
             raise KeyError
         else:
             return self._as_rdict().delitem(w_key)
@@ -342,7 +343,7 @@ class StrDictImplementation(DictImplementation):
         w_lookup_type = space.type(w_lookup)
         if space.is_w(w_lookup_type, space.w_str):
             return self.content.get(space.str_w(w_lookup), None)
-        elif self._is_sane_hash(w_lookup_type):
+        elif _is_sane_hash(space, w_lookup_type):
             return None
         else:
             return self._as_rdict().get(w_lookup)
@@ -367,15 +368,6 @@ class StrDictImplementation(DictImplementation):
         space = self.space
         return [(space.wrap(key), w_value) for (key, w_value) in self.content.iteritems()]
 
-    def _is_sane_hash(self, w_lookup_type):
-        """ Handles the case of a non string key lookup.
-        Types that have a sane hash/eq function should allow us to return True
-        directly to signal that the key is not in the dict in any case.
-        XXX The types should provide such a flag. """
-    
-        space = self.space
-        # XXX there are much more types
-        return space.is_w(w_lookup_type, space.w_NoneType) or space.is_w(w_lookup_type, space.w_int)
 
     def _as_rdict(self):
         newimpl = RDictImplementation(self.space)
@@ -420,6 +412,146 @@ class RDictImplementation(DictImplementation):
         return self.content.values()
     def items(self):
         return self.content.items()
+
+class SharedStructure(object):
+    def __init__(self, keys=None, length=0,
+                 other_structs=None,
+                 last_key=None,
+                 back_struct=None):
+        if keys is None:
+            keys = {}
+        self.keys = keys
+        self.length = length
+        self.back_struct = back_struct
+        if other_structs is None:
+            other_structs = []
+        self.other_structs = other_structs
+        self.last_key = last_key
+        if last_key is not None:
+            assert back_struct is not None
+        self.propagating = False
+
+    def new_structure(self, added_key):
+        keys = {}
+        for key, item in self.keys.iteritems():
+            if item >= 0:
+                keys[key] = item
+        new_structure = SharedStructure(keys, self.length + 1,
+                                        [], added_key, self)
+        new_index = len(keys)
+        new_structure.keys[added_key] = new_index
+        self.keys[added_key] = ~len(self.other_structs)
+        self.other_structs.append(new_structure)
+        return new_structure
+
+
+class State(object):
+    def __init__(self, space):
+        self.empty_structure = SharedStructure()
+        self.empty_structure.propagating = True
+
+
+class SharedDictImplementation(DictImplementation):
+
+    def __init__(self, space):
+        self.space = space
+        self.structure = space.fromcache(State).empty_structure
+        self.entries = []
+
+    def get(self, w_lookup):
+        space = self.space
+        w_lookup_type = space.type(w_lookup)
+        if space.is_w(w_lookup_type, space.w_str):
+            lookup = space.str_w(w_lookup)
+            i = self.structure.keys.get(lookup, -1)
+            if i < 0:
+                return None
+            return self.entries[i]
+        elif _is_sane_hash(space, w_lookup_type):
+            return None
+        else:
+            return self._as_rdict().get(w_lookup)
+
+    def setitem(self, w_key, w_value):
+        space = self.space
+        if space.is_w(space.type(w_key), space.w_str):
+            return self.setitem_str(w_key, w_value)
+        else:
+            return self._as_rdict().setitem(w_key, w_value)
+
+    def setitem_str(self, w_key, w_value):
+        m = ~len(self.structure.other_structs)
+        key = self.space.str_w(w_key)
+        i = self.structure.keys.get(key, m)
+        if i >= 0:
+            self.entries[i] = w_value
+            return self
+        if not self.structure.propagating:
+            return self._as_rdict(as_strdict=True).setitem_str(w_key, w_value)
+        if i == m:
+            new_structure = self.structure.new_structure(key)
+        else:
+            new_structure = self.structure.other_structs[~i]
+            new_structure.propagating = True
+        self.entries.append(w_value)
+        assert self.structure.length + 1 == new_structure.length
+        self.structure = new_structure
+        assert self.structure.keys[key] >= 0
+        return self
+            
+    def delitem(self, w_key):
+        space = self.space
+        w_key_type = space.type(w_key)
+        if space.is_w(w_key_type, space.w_str):
+            key = space.str_w(w_key)
+            if (self.structure.last_key is not None and
+                key == self.structure.last_key):
+                self.entries.pop()
+                self.structure = self.structure.back_struct
+                return self
+            return self._as_rdict().delitem(w_key)
+        elif _is_sane_hash(space, w_key_type):
+            raise KeyError
+        else:
+            return self._as_rdict().delitem(w_key)
+        
+    def length(self):
+        return self.structure.length
+
+    def iteritems(self):
+        return self._as_rdict().iteritems()
+
+    def iterkeys(self):
+        return self._as_rdict().iterkeys()
+
+    def itervalues(self):
+        return self._as_rdict().itervalues()
+
+    def keys(self):
+        space = self.space
+        return [space.wrap(key)
+                    for (key, item) in self.structure.keys.iteritems()
+                        if item >= 0]
+
+    def values(self):
+        return self.entries
+
+    def items(self):
+        space = self.space
+        return [(space.wrap(key), self.entries[item])
+                    for (key, item) in self.structure.keys.iteritems()
+                        if item >= 0]
+
+    def _as_rdict(self, as_strdict=False):
+        if as_strdict:
+            newimpl = StrDictImplementation(self.space)
+        else:
+            newimpl = RDictImplementation(self.space)
+        for k, i in self.structure.keys.items():
+            if i >= 0:
+                newimpl.setitem_str(self.space.wrap(k), self.entries[i])
+        return newimpl
+
 
 import time, py
 
@@ -592,6 +724,8 @@ class W_DictMultiObject(W_Object):
     def __init__(w_self, space):
         if space.config.objspace.std.withdictmeasurement:
             w_self.implementation = MeasuringDictImplementation(space)
+        elif space.config.objspace.std.withsharingdict:
+            w_self.implementation = SharedDictImplementation(space)
         else:
             w_self.implementation = space.emptydictimpl
 

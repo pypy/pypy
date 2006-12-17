@@ -14,6 +14,16 @@ class AppTest_DictObject(test_dictobject.AppTest_DictObject):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withmultidict": True})
 
+class TestW_DictObject(test_dictobject.TestW_DictObject):
+    def setup_class(cls):
+        cls.space = gettestobjspace(**{"objspace.std.withsharingdict": True})
+
+class AppTest_DictObject(test_dictobject.AppTest_DictObject):
+    def setup_class(cls):
+        cls.space = gettestobjspace(**{"objspace.std.withsharingdict": True})
+
+
+
 class FakeSpace(test_dictobject.FakeSpace):
     def str_w(self, string):
         assert isinstance(string, str)

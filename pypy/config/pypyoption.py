@@ -97,6 +97,11 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Option", [
                    default=False,
                    requires=[("objspace.std.withstrdict", False)]),
 
+        BoolOption("withsharingdict",
+                   "use dictionaries that share the keys part",
+                   default=False,
+                   requires=[("objspace.std.withmultidict", True)]),
+
         BoolOption("withdictmeasurement",
                    "create huge files with masses of information "
                    "about dictionaries",
