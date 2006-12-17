@@ -183,7 +183,10 @@ def _buildusercls(cls, hasdict, wants_slots, wants_del, weakrefable):
             def user_setup(self, space, w_subtype):
                 self.space = space
                 self.w__class__ = w_subtype
-                self.w__dict__ = space.newdict()
+                if space.config.objspace.std.withsharingdict:
+                    from pypy.objspace.std import dictmultiobject
+                    self.w__dict__ = dictmultiobject.W_DictMultiObject(space,
+                            sharing=True)
                 self.user_setup_slots(w_subtype.nslots)
     else:
         supercls = cls

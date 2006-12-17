@@ -598,7 +598,7 @@ class DictInfo(object):
         self._dict_infos.append(self)
     def __repr__(self):
         args = []
-        for k in sorted(self.__dict__):
+        for k in py.builtin.sorted(self.__dict__):
             v = self.__dict__[k]
             if v != 0:
                 args.append('%s=%r'%(k, v))
@@ -721,10 +721,10 @@ def report():
 class W_DictMultiObject(W_Object):
     from pypy.objspace.std.dicttype import dict_typedef as typedef
 
-    def __init__(w_self, space):
+    def __init__(w_self, space, sharing=False):
         if space.config.objspace.std.withdictmeasurement:
             w_self.implementation = MeasuringDictImplementation(space)
-        elif space.config.objspace.std.withsharingdict:
+        elif space.config.objspace.std.withsharingdict and sharing:
             w_self.implementation = SharedDictImplementation(space)
         else:
             w_self.implementation = space.emptydictimpl
