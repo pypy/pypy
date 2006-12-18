@@ -237,7 +237,7 @@ class BaseInliner(object):
         newblock = Block(args)
         self._copied_blocks[block] = newblock
         newblock.operations = [self.copy_operation(op) for op in block.operations]
-        newblock.exits = [self.copy_link(link, block) for link in block.exits]
+        newblock.closeblock(*[self.copy_link(link, block) for link in block.exits])
         newblock.exitswitch = self.get_new_name(block.exitswitch)
         self.search_for_calls(newblock)
         return newblock
@@ -245,7 +245,6 @@ class BaseInliner(object):
     def copy_link(self, link, prevblock):
         newargs = [self.get_new_name(a) for a in link.args] + self.passon_vars(prevblock)
         newlink = Link(newargs, self.copy_block(link.target), link.exitcase)
-        newlink.prevblock = self.copy_block(link.prevblock)
         newlink.last_exception = self.get_new_name(link.last_exception)
         newlink.last_exc_value = self.get_new_name(link.last_exc_value)
         if hasattr(link, 'llexitcase'):
@@ -272,9 +271,8 @@ class BaseInliner(object):
         linkargs = ([copiedreturnblock.inputargs[0]] +
                     self.passon_vars(self.graph_to_inline.returnblock))
         linkfrominlined = Link(linkargs, afterblock)
-        linkfrominlined.prevblock = copiedreturnblock
         copiedreturnblock.exitswitch = None
-        copiedreturnblock.exits = [linkfrominlined] ## HERE
+        copiedreturnblock.recloseblock(linkfrominlined)
         assert copiedreturnblock.exits[0].target == afterblock
        
     def rewire_exceptblock(self, afterblock):
@@ -358,22 +356,21 @@ class BaseInliner(object):
             l.prevblock = block
             l.exitcase = True
             l.llexitcase = True
-            block.exits.append(l)
+            block.closeblock(l)
             if i > 0:
                 l = Link(blocks[-1].inputargs, block)
-                l.prevblock = blocks[-1]
                 l.exitcase = False
                 l.llexitcase = False
-                blocks[-1].exits.insert(0, l)
+                blocks[-1].recloseblock(l, *blocks[-1].exits)
             blocks.append(block)
 
-        blocks[-1].exits = blocks[-1].exits[:1]
+        blocks[-1].recloseblock(*blocks[-1].exits[:1])
         blocks[-1].operations = []
         blocks[-1].exitswitch = None
         blocks[-1].exits[0].exitcase = None
         del blocks[-1].exits[0].llexitcase
         linkargs = copiedexceptblock.inputargs
-        copiedexceptblock.closeblock(Link(linkargs, blocks[0])) ## HERE
+        copiedexceptblock.recloseblock(Link(linkargs, blocks[0])) ## HERE
         copiedexceptblock.operations += generate_keepalive(linkargs)
 
       
@@ -415,7 +412,7 @@ class BaseInliner(object):
             self.rewire_exceptblock(afterblock)
         if self.exception_guarded:
             assert afterblock.exits[0].exitcase is None
-            afterblock.exits = [afterblock.exits[0]]
+            afterblock.recloseblock(afterblock.exits[0])
             afterblock.exitswitch = None
         self.search_for_calls(afterblock)
         self.search_for_calls(block)

@@ -203,7 +203,7 @@ def transform_ovfcheck(graph):
             link = block.exits[0]
             ovfblock = link.target
             check_syntax(ovfblock, block)
-            block.exits = [link]
+            block.recloseblock(link)
             block.exitswitch = None
             # remove the ovfcheck call from the None target
             remove_last_op(ovfblock)
@@ -284,7 +284,7 @@ def simplify_exceptions(graph):
             link.exitcase = case
             link.prevblock = block
             exits.append(link)
-        block.exits = tuple(preserve + exits)
+        block.recloseblock(*(preserve + exits))
 
     traverse(visit, graph)
 
@@ -318,7 +318,7 @@ def remove_dead_exceptions(graph):
                 exits.pop()
             exits.append(link)
             seen.append(case)
-        block.exits = tuple(exits)
+        block.recloseblock(*exits)
 
     traverse(visit, graph)
 
@@ -392,7 +392,7 @@ def remove_assertion_errors(graph):
                 # remove this exit
                 lst = list(block.exits)
                 del lst[i]
-                block.exits = tuple(lst)
+                block.recloseblock(*lst)
     traverse(visit, graph)
 
 

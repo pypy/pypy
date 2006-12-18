@@ -224,7 +224,7 @@ class ExceptionTransformer(object):
                 #       " guarding in graph %s" % (lastblock.operations[-1],
                 #                                  graph))
                 lastblock.exitswitch = None
-                lastblock.exits = [lastblock.exits[0]]
+                lastblock.recloseblock(lastblock.exits[0])
                 lastblock.exits[0].exitcase = None
             else:
                 self.insert_matching(lastblock, graph)

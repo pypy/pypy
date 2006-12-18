@@ -584,11 +584,14 @@ def checkgraph(graph):
 
         for block, nbargs in exitblocks.items():
             assert len(block.inputargs) == nbargs
-            assert not block.operations
-            assert not block.exits
+            assert block.operations == ()
+            assert block.exits == ()
 
         for block in graph.iterblocks():
             assert bool(block.isstartblock) == (block is graph.startblock)
+            assert type(block.exits) is tuple, (
+                "block.exits is a %s (closeblock() or recloseblock() missing?)"
+                % (type(block.exits).__name__,))
             if not block.exits:
                 assert block in exitblocks
             vars = {}

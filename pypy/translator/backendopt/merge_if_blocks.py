@@ -33,7 +33,6 @@ def merge_chain(chain, checkvar, varmap, graph):
     default = chain[-1][0].exits[0]
     default.exitcase = "default"
     default.llexitcase = None
-    default.prevblock = firstblock
     default.args = [get_new_arg(arg) for arg in default.args]
     for block, case in chain:
         if case.value in values:
@@ -45,10 +44,9 @@ def merge_chain(chain, checkvar, varmap, graph):
         links.append(link)
         link.exitcase = case.value
         link.llexitcase = case.value
-        link.prevblock = firstblock
         link.args = [get_new_arg(arg) for arg in link.args]
     links.append(default)
-    firstblock.exits = links
+    firstblock.recloseblock(*links)
 
 def merge_if_blocks_once(graph):
     """Convert consecutive blocks that all compare a variable (of Primitive type)

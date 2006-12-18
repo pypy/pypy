@@ -51,6 +51,8 @@ class DebugTransformer(BasicTransformer):
             graph.explicit_traceback = True
     
     def transform_block(self, graph, block):
+        if block.operations == ():
+            return
         next = []
         ann = self.annotator
         classdef = self.instance_const.concretetype.classdef
