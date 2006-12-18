@@ -201,83 +201,37 @@ class EpilogueBlock(Block):
         lines.append('}')
 
 
-class FlexSwitch(CodeGenSwitch):
+class FlexSwitch(Block):
 
-    def __init__(self, rgenop):
-        log('FlexSwitch.__init__')
+    def __init__(self, rgenop, builder, gv_exitswitch):
+        log('%s FlexSwitch.__init__ %s' % (builder.block.label, gv_exitswitch.operand()))
         self.rgenop = rgenop
-        #self.default_case_addr = 0
+        self.builder = builder
+        self.gv_exitswitch = gv_exitswitch
 
-    def initialize(self, builder, gv_exitswitch):
-        log('FlexSwitch.initialize TODO')
-        #mc = builder.mc
-        #mc.MOV(eax, gv_exitswitch.operand(builder))
-        #self.saved_state = builder._save_state()
-        #self._reserve(mc)
+        self.default_label = None
+        self.cases = []
 
-    def _reserve(self, mc):
-        log('FlexSwitch._reserve TODO')
-        #RESERVED = 11*4+5      # XXX quite a lot for now :-/
-        #pos = mc.tell()
-        #mc.UD2()
-        #mc.write('\x00' * (RESERVED-1))
-        #self.nextfreepos = pos
-        #self.endfreepos = pos + RESERVED
-
-    def _reserve_more(self):
-        log('FlexSwitch._reserve_more TODO')
-        #start = self.nextfreepos
-        #end   = self.endfreepos
-        #newmc = self.rgenop.open_mc()
-        #self._reserve(newmc)
-        #self.rgenop.close_mc(newmc)
-        #fullmc = InMemoryCodeBuilder(start, end)
-        #fullmc.JMP(rel32(self.nextfreepos))
-        #fullmc.done()
+        self.rgenop.blocklist.append(self)
 
     def add_case(self, gv_case):
-        log('FlexSwitch.add_case TODO')
-        #rgenop = self.rgenop
-        #targetbuilder = Builder._new_from_state(rgenop, self.saved_state)
-        #target_addr = targetbuilder.mc.tell()
-        #try:
-        #    self._add_case(gv_case, target_addr)
-        #except CodeBlockOverflow:
-        #    self._reserve_more()
-        #    self._add_case(gv_case, target_addr)
-        #return targetbuilder
-
-    def _add_case(self, gv_case, target_addr):
-        log('FlexSwitch._add_case TODO')
-        #start = self.nextfreepos
-        #end   = self.endfreepos
-        #mc = InMemoryCodeBuilder(start, end)
-        #mc.CMP(eax, gv_case.operand(None))
-        #mc.JE(rel32(target_addr))
-        #pos = mc.tell()
-        #if self.default_case_addr:
-        #    mc.JMP(rel32(self.default_case_addr))
-        #else:
-        #    illegal_start = mc.tell()
-        #    mc.JMP(rel32(0))
-        #    ud2_addr = mc.tell()
-        #    mc.UD2()
-        #    illegal_mc = InMemoryCodeBuilder(illegal_start, end)
-        #    illegal_mc.JMP(rel32(ud2_addr))
-        #mc.done()
-        #self.nextfreepos = pos
+        targetbuilder = self.builder._fork()
+        self.cases.append('%s,label %%%s' % (gv_case.operand(), targetbuilder.nextlabel))
+        log('%s FlexSwitch.add_case %s => %s' % (
+            self.builder.block.label, gv_case.operand(), targetbuilder.nextlabel))
+        return targetbuilder
 
     def add_default(self):
-        log('FlexSwitch.add_default TODO')
-        #rgenop = self.rgenop
-        #targetbuilder = Builder._new_from_state(rgenop, self.saved_state)
-        #self.default_case_addr = targetbuilder.mc.tell()
-        #start = self.nextfreepos
-        #end   = self.endfreepos
-        #mc = InMemoryCodeBuilder(start, end)
-        #mc.JMP(rel32(self.default_case_addr))
-        #mc.done()
-        #return targetbuilder
+        targetbuilder = self.builder._fork()
+        self.default_label = targetbuilder.nextlabel
+        log('%s FlexSwitch.add_default => %s' % (
+            self.builder.block.label, targetbuilder.nextlabel))
+        return targetbuilder
+
+    def writecode(self, lines):
+        #note: gv_exitswitch should be an integer! (cast might be required here)
+        lines.append(' switch %s,label %%%s [%s]' % (
+                self.gv_exitswitch.operand(), self.default_label, ' '.join(self.cases)))
 
 
 class Builder(object):  #changed baseclass from (GenBuilder) for better error messages
@@ -297,6 +251,12 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
 
     def end(self):
         self.rgenop.end()      # XXX Hack to be removed!
+
+    def pause(self):
+        log('%s Builder.pause' % self.block.label)
+
+    def resume(self):
+        log('%s Builder.resume' % self.block.label)
 
     # ----------------------------------------------------------------
     # The public Builder interface
@@ -489,9 +449,10 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
     #/XXX
 
     def enter_next_block(self, kinds, args_gv):
-        # if nextlabel is None, it means that we are currently
-        # generating a block; in this case we need to put a br
-        # to go to the next block
+        # if nextlabel is None, it means that we still need to
+        # properly terminate the current block (with a br to go
+        # to the next block)
+        # see: http://llvm.org/docs/LangRef.html#terminators
         if self.nextlabel is None:
             self.nextlabel = count.newlabel()
             self.asm.append(' br label %%%s' % (self.nextlabel,))
@@ -675,15 +636,7 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
 
     def flexswitch(self, gv_exitswitch):
         log('%s Builder.flexswitch %s' % (self.block.label, gv_exitswitch.operand()))
-        self.asm.append(' ;flexswitch ' + gv_exitswitch.operand())
-        result = FlexSwitch(self.rgenop)
-        result.initialize(self, gv_exitswitch)
-        self._close()
-        return result
-
-    def show_incremental_progress(self):
-        log('%s Builder.show_incremental_progress' % self.label.operand())
-        pass
+        return FlexSwitch(self.rgenop, self, gv_exitswitch)
 
 
 class RLLVMGenOp(object):   #changed baseclass from (AbstractRGenOp) for better error messages
