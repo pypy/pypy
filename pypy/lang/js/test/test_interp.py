@@ -10,6 +10,8 @@ import py.test
 import sys
 from StringIO import StringIO
 
+py.test.skip("not finished yet")
+
 def parse_d(code):
     return build_interpreter(parse(code))
 
