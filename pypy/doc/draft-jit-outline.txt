@@ -377,14 +377,14 @@ family of control flow graphs, the next step is to mutate the graphs
 accordingly.  This process is called *timeshifting*, because it changes
 the time at which the graphs are meant to be run.
 
-Keep in mind that the program described as the "source RPython program"
-in this document is typically an interpreter - the canonical example is
-that it is the whole `PyPy Standard Interpreter`_.  This program,
-considered as a forest of control flow graphs, implements a typical
-interpreter: the flow graphs are meant to execute at run-time, and
-directly compute the intended result and side-effects.  These are the
-flow graphs that we process (and not the application-level program,
-which cannot be expressed as low-level flow graphs anyway).
+Keep in mind that the program described as the "source RPython
+program" in this document is typically an interpreter - the canonical
+example is that it is the whole `PyPy Standard Interpreter`_.  This
+program is meant to execute at run-time, and directly compute the
+intended result and side-effects. The translation process transforms it
+into a forest of flow graphs.  These are the flow graphs that
+timeshifting processes (and not the application-level program, which
+cannot be expressed as low-level flow graphs anyway).
 
 After being timeshifted, the graphs of our interpreter become logically
 very different: they are no longer intended to be executed at run-time,
@@ -392,9 +392,10 @@ but just ahead of it (what we call "compile-time").  Their only side
 effects is to produce residual code.  The residual code itself runs "at
 run-time".
 
-Despite the conceptual difference, though, the timeshifted graphs are
-formally close to the original graphs.  The rest of this section
-describes this timeshifting process in more detail.
+Despite the conceptual difference, though, the form (flow of control)
+of timeshifted graphs is related and close to the original graphs.
+The rest of this section describes this timeshifting process in more
+detail.
 
 
 Red and Green Operations
