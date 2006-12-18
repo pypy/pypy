@@ -187,6 +187,8 @@ def _buildusercls(cls, hasdict, wants_slots, wants_del, weakrefable):
                     from pypy.objspace.std import dictmultiobject
                     self.w__dict__ = dictmultiobject.W_DictMultiObject(space,
                             sharing=True)
+                else:
+                    self.w__dict__ = space.newdict()
                 self.user_setup_slots(w_subtype.nslots)
     else:
         supercls = cls
