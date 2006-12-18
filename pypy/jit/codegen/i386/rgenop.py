@@ -9,6 +9,7 @@ from pypy.rlib import objectmodel
 from pypy.rpython.annlowlevel import llhelper
 
 WORD = 4
+DEBUG_CALL_ALIGN = True
 if sys.platform == 'darwin':
     CALL_ALIGN = 4
 else:
@@ -18,16 +19,17 @@ class Var(GenVar):
 
     def __init__(self, stackpos):
         # 'stackpos' is an index relative to the pushed arguments
-        # (where N is the number of arguments of the function):
+        # (where N is the number of arguments of the function
+        #  and B is a small integer for stack alignment purposes):
         #
-        #  0  = last arg
-        #     = ...
-        # N-1 = 1st arg
-        #  N  = return address
-        # N+1 = local var
-        # N+2 = ...
-        #       ...              <--- esp+4
-        #       local var        <--- esp
+        # B + 0  = last arg
+        #        = ...
+        # B +N-1 = 1st arg
+        # B + N  = return address
+        # B +N+1 = local var
+        # B +N+2 = ...
+        #          ...              <--- esp+4
+        #          local var        <--- esp
         #
         self.stackpos = stackpos
 
@@ -292,7 +294,9 @@ class Builder(GenBuilder):
         self._open()
         numargs = sigtoken     # for now
         #self.mc.BREAKPOINT()
-        return [Var(pos) for pos in range(numargs-1, -1, -1)]
+        # self.stackdepth-1 is the return address; the arguments
+        # come just before
+        return [Var(self.stackdepth-2-n) for n in range(numargs)]
 
     def _close(self):
         self.closed = True
@@ -428,13 +432,18 @@ class Builder(GenBuilder):
         MASK = CALL_ALIGN-1
         if MASK:
             final_depth = self.stackdepth + numargs
-            delta = (final_depth+MASK)&~MASK-final_depth
+            delta = ((final_depth+MASK)&~MASK)-final_depth
             if delta:
                 self.mc.SUB(esp, imm(delta*WORD))
                 self.stackdepth += delta
         for i in range(numargs-1, -1, -1):
             gv_arg = args_gv[i]
             self.push(gv_arg.operand(self))
+        if DEBUG_CALL_ALIGN:
+            self.mc.MOV(eax, esp)
+            self.mc.AND(eax, imm8((WORD*CALL_ALIGN)-1))
+            self.mc.ADD(eax, imm32(sys.maxint))   # overflows unless eax == 0
+            self.mc.INTO()
         if gv_fnptr.is_const:
             target = gv_fnptr.revealconst(lltype.Signed)
             self.mc.CALL(rel32(target))
@@ -481,8 +490,7 @@ class Builder(GenBuilder):
 
     def finish_and_return(self, sigtoken, gv_returnvar):
         self._open()
-        numargs = sigtoken      # for now
-        initialstackdepth = numargs + 1
+        initialstackdepth = self.rgenop._initial_stack_depth(sigtoken)
         self.mc.MOV(eax, gv_returnvar.operand(self))
         self.mc.ADD(esp, imm(WORD * (self.stackdepth - initialstackdepth)))
         self.mc.RET()
@@ -985,13 +993,24 @@ class RI386GenOp(AbstractRGenOp):
         return Builder(self, stackdepth)
 
     def newgraph(self, sigtoken, name):
-        numargs = sigtoken          # for now
-        initialstackdepth = numargs+1
-        builder = self.openbuilder(initialstackdepth)
+        builder = self.openbuilder(self._initial_stack_depth(sigtoken))
         builder._open() # Force builder to have an mc
         entrypoint = builder.mc.tell()
         inputargs_gv = builder._write_prologue(sigtoken)
         return builder, IntConst(entrypoint), inputargs_gv
+
+    def _initial_stack_depth(self, sigtoken):
+        # If a stack depth is a multiple of CALL_ALIGN then the
+        # arguments are correctly aligned for a call.  We have to
+        # precompute initialstackdepth to guarantee that.  For OS/X the
+        # convention is that the stack should be aligned just after all
+        # arguments are pushed, i.e. just before the return address is
+        # pushed by the CALL instruction.  In other words, after
+        # 'numargs' arguments have been pushed the stack is aligned:
+        numargs = sigtoken          # for now
+        MASK = CALL_ALIGN - 1
+        initialstackdepth = ((numargs+MASK)&~MASK) + 1
+        return initialstackdepth
 
     def replay(self, label, kinds):
         return ReplayBuilder(self), [dummy_var] * len(kinds)
