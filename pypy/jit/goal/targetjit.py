@@ -8,12 +8,21 @@ from pypy.annotation.pairtype import extendabletype
 class __extend__(TranslationDriver):
     __metaclass__ = extendabletype
 
+    def task_prehannotatebackendopt(self):
+        from pypy.translator.backendopt.all import backend_optimizations
+        backend_optimizations(self.translator,
+                              inline_threshold=0,
+                              merge_if_blocks=False)
+    #
+    task_prehannotatebackendopt = taskdef(task_prehannotatebackendopt,
+                                         [TranslationDriver.RTYPE],
+                                         "Backendopt before Hint-annotate")
     def task_hintannotate(self):
         from pypy.jit.goal import jitstep
         jitstep.hintannotate(self)
     #
     task_hintannotate = taskdef(task_hintannotate,
-                                [TranslationDriver.BACKENDOPT],
+                                ['prehannotatebackendopt'],
                                 "Hint-annotate")
 
     def task_timeshift(self):
@@ -35,8 +44,6 @@ class PyPyJITTarget(targetpypystandalone.PyPyTarget):
         return super(PyPyJITTarget, self).target(driver, args)
 
     def handle_config(self, config):
-        config.translation.backendopt.inline_threshold = 0
-        config.translation.backendopt.merge_if_blocks = False
         config.translation.fork_before = 'hintannotate'
 
     def handle_translate_config(self, translateconfig):

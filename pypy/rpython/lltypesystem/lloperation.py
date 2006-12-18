@@ -320,7 +320,7 @@ LL_OPERATIONS = {
     'direct_fieldptr':      LLOp(canfold=True),
     'direct_arrayitems':    LLOp(canfold=True),
     'direct_ptradd':        LLOp(canfold=True),
-    'cast_opaque_ptr':      LLOp(canfold=True),
+    'cast_opaque_ptr':      LLOp(sideeffects=False),
 
     # __________ address operations __________
 
