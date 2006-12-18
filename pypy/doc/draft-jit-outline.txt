@@ -76,7 +76,7 @@ thought as a generalisation of polymorphic inline caches (XXX reference).
 
 
 Terminology
-=========================================
+----------------------------------
 
 Partial evaluation is the process of evaluating a function, say ``f(x,
 y)``, with only partial information about the value of its arguments,
@@ -375,25 +375,34 @@ Timeshifting: transforming interpreter into compilers
 Once binding times (colors) have been assigned to all variables in a
 family of control flow graphs, the next step is to mutate the graphs
 accordingly.  This process is called *timeshifting*, because it changes
-the time at which the graphs are meant to be run.  So far, the graphs
-implemented some kind of interpreter; they were meant to execute at
-run-time, and directly computed the intended result and side-effects.
-After timeshifting, the graphs are logically very different: they are
-intended to be executed at compile-time, and their only side effects is
-to produce residual code.  The residual code itself can later be
-executed at run-time.
+the time at which the graphs are meant to be run.
 
-Despite the difference, though, the timeshifted graphs are formally
-close to the original graphs.  The rest of this section describes this
-timeshifting process in more detail.
+Keep in mind that the program described as the "source RPython program"
+in this document is typically an interpreter - the canonical example is
+that it is the whole `PyPy Standard Interpreter`_.  This program,
+considered as a forest of control flow graphs, implements a typical
+interpreter: the flow graphs are meant to execute at run-time, and
+directly compute the intended result and side-effects.  These are the
+flow graphs that we process (and not the application-level program,
+which cannot be expressed as low-level flow graphs anyway).
+
+After being timeshifted, the graphs of our interpreter become logically
+very different: they are no longer intended to be executed at run-time,
+but just ahead of it (what we call "compile-time").  Their only side
+effects is to produce residual code.  The residual code itself runs "at
+run-time".
+
+Despite the conceptual difference, though, the timeshifted graphs are
+formally close to the original graphs.  The rest of this section
+describes this timeshifting process in more detail.
 
 
 Red and Green Operations
 --------------------------
 
-The basic idea of timeshifting is to transform operations depending on
-the color of their operands and result. Variables themselves need to
-be represented based on their color:
+The basic idea of timeshifting is to transform operations in a way that
+depends on the color of their operands and result.  Variables themselves
+need to be represented based on their color:
 
 * The green variables are the compile-time variables.  Their values are
   meant to be available during compile-time already.  A variable that
@@ -474,6 +483,7 @@ produce something like (in pseudo notation)::
        return v2
 
 __ `Example above`_
+
 
 Support code
 --------------
@@ -658,5 +668,6 @@ The Backend interface
 .. _`annotator`: dynamic-language-translation.html
 .. _`specialization of functions`: dynamic-language-translation.html#specialization
 .. _Psyco: http://psyco.sourceforge.net
+.. _`PyPy Standard Interpreter`: architecture.html#standard-interpreter
 
 .. include:: _ref.txt
