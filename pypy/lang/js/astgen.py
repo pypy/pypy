@@ -107,8 +107,6 @@ class Return(Node):
 class Script(Node):
     def __init__(self, nodes, var_decl, func_decl):
         self.nodes = nodes
-        import pdb
-        #pdb.set_trace()
         [scope_manager.add_variable(id.name, w_Undefined) for id in var_decl]
         [scope_manager.add_variable(id.name, id) for id in func_decl]
         self.var_decl = var_decl
@@ -159,6 +157,21 @@ def getlist(d):
 def build_interpreter(d):
     return from_dict(d)
 
+# FIXME: Continue the translation from if/elif to this dict map
+build_map = {'ARRAY_INIT':Array,
+             'ASSIGN': Assign,
+             'BLOCK': Block}
+
+def from_dict_map(d):
+    if d is None:
+        return d
+    try:
+        build_map[d['type']](d)
+    except KeyError,e:
+        raise NotImplementedError("Don't know how to handle %s" %(d['type'],))
+    
+    
+    
 def from_dict(d):
     if d is None:
         return d

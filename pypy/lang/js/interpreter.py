@@ -3,7 +3,6 @@ from pypy.lang.js.astgen import *
 from pypy.lang.js.context import ExecutionContext
 from pypy.lang.js.jsobj import W_Number, W_String, W_Object 
 from pypy.lang.js.jsobj import w_Undefined, W_Arguments, W_Boolean, NaN
-from pypy.lang.js.scope import scope_manager
 
 def writer(x):
     print x
@@ -17,6 +16,27 @@ class ThrowException(Exception):
         self.exception = exception
         self.args = self.exception
 
+class Interpreter(object):
+    """Creates a js interpreter"""
+    def __init__(self, script_source=None):
+        self.w_Object = W_Object() #creating Object
+        self.w_Global = W_Object()
+        w_Global.Prototype = w_Object
+        w_Global.Set('prototype', 'Object')
+        w_Global.Set('Object', w_Object)
+        self.global_context = GlobalContext(w_global)
+        if script_source is not none:
+            self.load_source(script_source)
+    
+    def load_source(self, script_source):
+        """load a source script text to the interpreter"""
+        pass
+    
+    def run(self):
+        """run the interpreter"""
+        pass
+
+        
 
 class __extend__(Array):
     def call(self, context):
@@ -25,10 +45,7 @@ class __extend__(Array):
 
 class __extend__(Assign):
     def call(self, context):
-        print context.locals.keys(), "|||||", context.globals
-        print context.locals['this']
         val = self.expr.call(context)
-        print val
         self.identifier.put(context,val)
 
 class __extend__(Block):
@@ -93,9 +110,7 @@ class __extend__(Identifier):
         if self.initialiser is not None:
             context.assign(self.name, self.initialiser.call(context))
         try:
-            print "trying to access", self.name
             value = context.access(self.name)
-            print "value", value
             return value
         except NameError:
             return scope_manager.get_variable(self.name)
@@ -179,9 +194,6 @@ class __extend__(New):
         obj.Class = 'Object'
         #it should be undefined... to be completed
         obj.dict_w['prototype'] = constructor.dict_w['prototype']
-        #nctx = ExecutionContext(context)
-        #nctx.assign('this',obj)
-        #print nctx.locals.keys()
         constructor.Call(context, this = obj)
         
         return obj
@@ -203,9 +215,6 @@ class __extend__(ObjectInit):
             w_expr = property.value.call(context).GetValue()
             w_obj.Put(name, w_expr)
         return w_obj
-        #dict_w = {}
-        #for property in self.properties:
-        #    dict_w[property.name
 
 class __extend__(Plus):
     def call(self, context=None):

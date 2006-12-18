@@ -1,4 +1,4 @@
-from pypy.lang.js.parser import read_js_output, JsSyntaxError, parse
+from pypy.lang.js.jsparser import read_js_output, JsSyntaxError, parse
 from pypy.lang.js.test.test_interp import js_is_on_path
 import py
 

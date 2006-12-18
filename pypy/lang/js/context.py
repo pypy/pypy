@@ -1,23 +1,25 @@
 
 class ExecutionContext(object):
-    
-    def __init__(self, parent = None):
-        self.parent = parent
-        self.locals = {}
-        if parent is None:
-            self.globals = {}
-        else:
-            self.globals = parent.globals
+    def __init__(self):
+        self.scope = []
+        self.this = None
+        self.variable = None
+        self.property = Property('',w_Undefined) #Attribute flags for new vars
 
-    def assign(self, name, value):
-        if (name not in self.locals) and (name in self.globals):
-            self.globals[name] = value
-        else:
-            self.locals[name] = value
+    def get_identifier(self, identifier):
+        """docstring for get_identifier"""
+        pass
 
-    def access(self, name):
-        if name in self.locals:
-            return self.locals[name]
-        elif name in self.globals:
-            return self.globals[name]
-        raise NameError("%s is not declared" % name)
+
+
+
+class GlobalContext(ExecutionContext):
+    """docstring for GlobalContext"""
+    def __init__(self, global):
+        ExecutionContext.__init__()
+        self.scope.append(global)
+        self.this = global
+        self.variable = global
+        
+
+

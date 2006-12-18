@@ -1,7 +1,7 @@
 
 from pypy.lang.js.astgen import *
 from pypy.lang.js import interpreter
-from pypy.lang.js.parser import parse
+from pypy.lang.js.jsparser import parse
 from pypy.lang.js.interpreter import ThrowException
 from pypy.lang.js.jsobj import W_Number, W_Object
 from pypy.lang.js.context import ExecutionContext
