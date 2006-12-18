@@ -234,6 +234,9 @@ class ExceptionTransformer(object):
         # attach an except block -- let's hope that nobody uses it
         graph.exceptblock = Block([Variable('etype'),   # exception class
                                    Variable('evalue')])  # exception value
+        graph.exceptblock.operations = ()
+        graph.exceptblock.closeblock()
+        
         result = Variable()
         result.concretetype = lltype.Void
         block.operations = [SpaceOperation(
