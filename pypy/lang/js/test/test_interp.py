@@ -1,3 +1,5 @@
+import py.test
+py.test.skip("not finished yet")
 
 from pypy.lang.js.astgen import *
 from pypy.lang.js import interpreter
@@ -5,12 +7,10 @@ from pypy.lang.js.jsparser import parse
 from pypy.lang.js.interpreter import ThrowException
 from pypy.lang.js.jsobj import W_Number, W_Object
 from pypy.lang.js.context import ExecutionContext
-import py.test
 
 import sys
 from StringIO import StringIO
 
-py.test.skip("not finished yet")
 
 def parse_d(code):
     return build_interpreter(parse(code))
