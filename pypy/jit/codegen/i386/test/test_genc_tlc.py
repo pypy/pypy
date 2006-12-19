@@ -7,6 +7,6 @@ class TestTLC(I386PortalTestMixin,
               test_tlc.TestTLC):
 
     # for the individual tests see
-    # ====> ../../../timeshifter/test/test_tl.py
+    # ====> ../../../timeshifter/test/test_tlc.py
 
     pass
