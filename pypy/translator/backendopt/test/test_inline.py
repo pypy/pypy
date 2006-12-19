@@ -359,7 +359,6 @@ class BaseTestInline:
         py.test.raises(CannotInline, self.check_inline, factorial, f, [int])
 
     def test_auto_inlining_small_call_big(self):
-        self._skip_oo('exception rewiring')
         def leaf(n):
             total = 0
             i = 0
@@ -386,7 +385,6 @@ class BaseTestInline:
         assert result == -1
 
     def test_auto_inlining_small_call_big_call_count(self):
-        self._skip_oo('exception rewiring')
         def leaf(n):
             total = 0
             i = 0

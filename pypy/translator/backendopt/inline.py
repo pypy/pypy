@@ -9,6 +9,7 @@ from pypy.objspace.flow.model import traverse, mkentrymap, checkgraph
 from pypy.annotation import model as annmodel
 from pypy.rpython.lltypesystem.lltype import Bool, Signed, typeOf, Void, Ptr
 from pypy.rpython.lltypesystem.lltype import normalizeptr
+from pypy.rpython.ootypesystem import ootype
 from pypy.rpython import rmodel
 from pypy.tool.algo import sparsemat
 from pypy.translator.backendopt.support import log, split_block_with_keepalive
@@ -92,15 +93,22 @@ def _find_exception_type(block):
     i = len(ops)-1
     while True:
         if isinstance(currvar, Constant):
-            return typeOf(normalizeptr(currvar.value)), block.exits[0]
+            value = currvar.value
+            if isinstance(typeOf(value), ootype.Instance):
+                TYPE = ootype.dynamicType(value)
+            else:
+                TYPE = typeOf(normalizeptr(value))
+            return TYPE, block.exits[0]
         if i < 0:
             return None, None
         op = ops[i]
         i -= 1
-        if op.opname in ("same_as", "cast_pointer") and op.result is currvar:
+        if op.opname in ("same_as", "cast_pointer", "ooupcast", "oodowncast") and op.result is currvar:
             currvar = op.args[0]
         elif op.opname == "malloc" and op.result is currvar:
             return Ptr(op.args[0].value), block.exits[0]
+        elif op.opname == "new" and op.result is currvar:
+            return op.args[0].value, block.exits[0]
 
 def does_raise_directly(graph, raise_analyzer):
     """ this function checks, whether graph contains operations which can raise
@@ -285,7 +293,7 @@ class BaseInliner(object):
             self.rewire_exceptblock_with_guard(afterblock, copiedexceptblock)
             # generate blocks that do generic matching for cases when the
             # heuristic did not work
-            self.generic_exception_matching(afterblock, copiedexceptblock) # HERE
+            self.generic_exception_matching(afterblock, copiedexceptblock)
 
     def rewire_exceptblock_no_guard(self, afterblock, copiedexceptblock):
          # find all copied links that go to copiedexceptblock
@@ -306,7 +314,7 @@ class BaseInliner(object):
     def rewire_exceptblock_with_guard(self, afterblock, copiedexceptblock):
         # this rewiring does not always succeed. in the cases where it doesn't
         # there will be generic code inserted
-        from pypy.rpython.lltypesystem import rclass
+        rclass = self.translator.rtyper.type_system.rclass
         exc_match = self.translator.rtyper.getexceptiondata().fn_exception_match
         for link in self.entrymap[self.graph_to_inline.exceptblock]:
             copiedblock = self.copy_block(link.prevblock)
@@ -370,7 +378,7 @@ class BaseInliner(object):
         blocks[-1].exits[0].exitcase = None
         del blocks[-1].exits[0].llexitcase
         linkargs = copiedexceptblock.inputargs
-        copiedexceptblock.recloseblock(Link(linkargs, blocks[0])) ## HERE
+        copiedexceptblock.recloseblock(Link(linkargs, blocks[0]))
         copiedexceptblock.operations += generate_keepalive(linkargs)
 
       
@@ -469,6 +477,8 @@ def block_weight(block, weights=OP_WEIGHTS):
         if op.opname == "direct_call":
             total += 1.5 + len(op.args) / 2
         elif op.opname == "indirect_call":
+            total += 2 + len(op.args) / 2
+        elif op.opname == "oosend":
             total += 2 + len(op.args) / 2
         total += weights.get(op.opname, 1)
     if block.exitswitch is not None:
