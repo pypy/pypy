@@ -41,6 +41,11 @@ class InMemoryCodeBuilder(I386CodeBuilder):
         baseaddr = cast(self._data, c_void_p).value
         return baseaddr + self._pos
 
+    def seekback(self, count):
+        pos = self._pos - count
+        self._pos = pos
+        self._last_dump_start = pos
+
     def execute(self, arg1, arg2):
         # XXX old testing stuff
         fnptr = cast(self._data, binaryfn)

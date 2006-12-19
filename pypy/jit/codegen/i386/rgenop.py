@@ -241,15 +241,32 @@ class Builder(GenBuilder):
                 come_froms = self._pending_come_from
                 self._pending_come_from = None
                 for start, (end, insn) in come_froms.iteritems():
-                    mc = self.rgenop.InMemoryCodeBuilder(start, end)
-                    self._emit_come_from(mc, insn, self.start)
-                    mc.done()
+                    if end == self.start:
+                        # there was a pending JMP just before self.start,
+                        # so we can as well overwrite the JMP and start writing
+                        # code directly there
+                        self.mc.seekback(end - start)
+                        self.start = start
+                        break
+                for start, (end, insn) in come_froms.iteritems():
+                    if start != self.start:
+                        mc = self.rgenop.InMemoryCodeBuilder(start, end)
+                        self._emit_come_from(mc, insn, self.start)
+                        mc.done()
             else:
                 # We have been paused and are being opened again.
-                # Patch the jump at the end of the previous codeblock.
-                mc = self.rgenop.InMemoryCodeBuilder(*self.tail)
-                mc.JMP(rel32(self.mc.tell()))
-                mc.done()
+                # Is the new codeblock immediately after the previous one?
+                prevstart, prevend = self.tail
+                curpos = self.mc.tell()
+                if prevend == curpos:
+                    # Yes. We can overwrite the JMP and just continue writing
+                    # code directly there
+                    self.mc.seekback(prevend - prevstart)
+                else:
+                    # No. Patch the jump at the end of the previous codeblock.
+                    mc = self.rgenop.InMemoryCodeBuilder(prevstart, prevend)
+                    mc.JMP(rel32(curpos))
+                    mc.done()
 
     def pause(self):
         if self.mc is None:
