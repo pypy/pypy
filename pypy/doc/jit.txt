@@ -1,247 +1,677 @@
-===================================
-PyPy - Just-In-Time Specialization
-===================================
+=======================
+JIT Generation in PyPy
+=======================
 
-
-Warning: These are just a few notes quickly thrown together, to be
-clarified and expanded.
-
-For now we are working on the parallel document `draft-jit-outline`_.
-
-.. _`draft-jit-outline`: draft-jit-outline.html
-
-
-Draft
-=========================
+.. contents::
+.. sectnum::
 
 Introduction
-------------
+=============
 
-Our current "state of the art" in the area is represented by the test
-``pypy.jit.test.test_hint_timeshift.test_arith_plus_minus()``.  It is a
-really tiny interpreter which gets turned into a compiler.  Here is its
-complete source::
+.. Interpreters to compilers, psyco parallel...
 
-    def ll_plus_minus(encoded_insn, nb_insn, x, y):
-        acc = x
-        pc = 0
-        while pc < nb_insn:
-            op = (encoded_insn >> (pc*4)) & 0xF
-            op = hint(op, concrete=True)           # <-----
-            if op == 0xA:
-                acc += y
-            elif op == 0x5:
-                acc -= y
-            pc += 1
-        return acc
+One the of the central goals of the PyPy project is to automatically
+produce a Just in Time Compiler from the interpreter, with as little
+as possible intervention on the interpreter codebase itself.  The Just
+in Time Compiler should be another aspect as much as possible
+transparently introduced by and during the translation process.
 
-This interpreter goes via several transformations which you can follow
-in Pygame::
+Partial evaluation techniques should, at least theoretically, allow
+such a derivation of a compiler from an interpreter. (XXX references)
 
-    py.test test_hint_timeshift.py -k test_arith_plus_minus --view
+The forest of flow graphs that the translation process generates and
+transforms constitutes a reasonable base for the necessary analyses.
+That's a further reason why having an high-level runnable and
+analysable description of the language was always a central tenet of
+the project.
 
-What this does is turning (the graph of) the above interpreter into (the
-graph of) a compiler.  This compiler takes a user program as input --
-i.e. an ``encoded_insn`` and ``nb_insn`` -- and produces as output a new
-graph, which is the compiled version of the user program.  The new
-output graph is called the *residual* graph.  It takes ``x`` and ``y``
-as input.
+Transforming an interpreter into a compiler involves constructing a so
+called generating extension, which takes input programs to the
+interpreter, and produces what would be the output of partial
+evaluating the interpreter with the input data left variable and the
+input program being fixed. The generating extension is essentially
+capable of compiling the input programs.
 
-This generated compiler is not "just-in-time" in any sense.  It is a
-regular compiler, for now.
+Generating extensions can be produced by self-applying partial evaluators,
+but this approach may lead to not optimal results or be not scalable
+(XXX expand this argument)
 
-Hint-annotator
+For PyPy, our approach aims at producing the generating extension more
+directly from the analysed interpreter in the form of a forest of flow
+graphs. We call such process *timeshifting*.
+
+To be able to achieve this, gathering binding time information is
+crucial, this means for an input program distinguishing values in the
+data-flow that are compile-time bound and immutable at run-time,
+versus respectively runtime values.
+
+Currently we base the binding time computation on propagating the
+information based on a few hint inserted in the interpreter. Propagation
+is implemented by reusing our `annotation/type inference framework`__.
+
+__ annotator_
+
+The code produced by a generating extension for an input program may
+not be good, especially for a dynamic language, because essentially
+the input program doesn't contain enough information to generate good
+code. What is really desired is not a generating extension doing
+static compilation, but one capable of dynamic compilation, exploiting
+runtime information in its result, or using a different terminology
+(XXX explain differently the following)
+capable of producing code that is specialised with respect to some of
+the run-time information, for example language-level types.
+
+Inspired by Psyco, which in some sense is such a specialising
+generating extension for Python, but hand-written, we added support
+for so-called *promotion* to our framework for producing generating
+extensions.
+
+Simply put, promotion on a value stops compilation when encountered,
+when the same point is reached at run-time compilation is restarted
+and the current run-time value is used and propagated as a compile-time
+value. Concretely the promotion expands into a switch to choose based
+on the run-time value one of the possible specialised code paths, plus
+a default case to compile further specialised paths. This can be also
+thought as a generalisation of polymorphic inline caches (XXX reference).
+
+
+Terminology
+----------------------------------
+
+Partial evaluation is the process of evaluating a function, say ``f(x,
+y)``, with only partial information about the value of its arguments,
+say the value of the ``x`` argument only.  This produces a *residual*
+function ``g(y)``, which takes less arguments than the original - only
+the information not specified during the partial evaluation process need
+to be provided to the residual function, in this example the ``y``
+argument.
+
+Partial evaluation (PE) comes in two flavors:
+
+* *On-line* PE: a compiler-like algorithm takes the source code of the
+  function ``f(x, y)`` (or its intermediate representation, i.e. its
+  control flow graph in PyPy's terminology), and some partial
+  information, e.g. ``x = 5``.  From this, it produces the residual
+  function ``g(y)`` directly, by following in which operations the
+  knowledge ``x = 5`` can be used, which loops can be unrolled, etc.
+
+* *Off-line* PE: in many cases, the goal of partial evaluation is to
+  improve performance in a specific application.  Assume that we have a
+  single known function ``f(x, y)`` in which we think that the value of
+  ``x`` will change slowly during the execution of our program - much
+  more slowly than the value of ``y``.  An obvious example is a loop
+  that calls ``f(x, y)`` many times with always the same value ``x``.
+  We could then use an on-line partial evaluator to produce a ``g(y)``
+  for each new value of ``x``.  In practice, the overhead of the partial
+  evaluator might be too large for it to be executed at run-time.
+  However, if we know the function ``f`` in advance, and if we know
+  *which* arguments are the ones that we will want to partially evaluate
+  ``f`` with, then we do not need a full compiler-like analysis of ``f``
+  every time the value of ``x`` changes.  We can precompute off-line a
+  specialized function ``f1(x)``, which when called produces a residual
+  function ``g(y)``.
+
+Off-line partial evaluation is based on *binding-time analysis*, which
+is the process of determining among the variables used in a function (or
+a set of functions) which ones are going to be known in advance and which
+ones are not.  In the above example, such an analysis would be able to
+infer that the constantness of the argument ``x`` implies the
+constantness of many intermediate values used in the function.  The
+*binding time* of a variable determines how early the value of the
+variable will be known.
+
+The PyPy JIT is generated using off-line partial evaluation.  As such,
+there are three distinct phases:
+
+* *Translation time*: during the normal translation of an RPython
+  program like PyPy, we perform binding-time analysis and off-line
+  specialization.  This produces a new set of functions (``f1(x)`` in
+  our running example) which are linked with the rest of the program, as
+  described in Timeshifting_.
+
+* *Compile time*: during the execution of the program, when a new value
+  for ``x`` is found, ``f1(x)`` is invoked.  All the computations
+  performed by ``f1(x)`` are called compile-time computations.  This is
+  justified by the fact that ``f1(x)`` is in some sense a compiler,
+  whose sole effect is to produce residual code.
+
+* *Run time*: the normal execution of the program.
+
+The binding-time terminology that we are using in PyPy is based on the
+colors that we use when displaying the control flow graphs:
+
+* *Green* variables contain values that are known at compile-time -
+  e.g. ``x``.
+
+* *Red* variables contain values that are not known until run-time -
+  e.g. ``y``.
+
+
+Binding-time analysis
+=========================================
+
+PyPy performs binding-time analysis of the source RPython_ program after
+it has been turned to `low-level graphs`_, i.e. at the level at which
+operations manipulate `pointer-and-structures-like objects`_.
+
+The binding-time analyzer of our translation tool-chain is based on the
+same type inference engine that is used on the source RPython program,
+the annotator_.  In this mode, it is called the *hint-annotator*; it
+operates over input graphs that are already low-level instead of
+RPython-level, and propagates annotations that do not track types but
+value dependencies and manually-provided binding time hints.
+
+Hints
+----------------------------------
+
+Our goal in designing our approach to binding-time analysis was to
+minimize the number of explicit hints that the user must provide in the
+source of the RPython program.  This minimalism was not pushed to
+extremes, though, to keep the hint-annotator reasonably simple.
+
+The driving idea was that hints should be need-oriented.  In a program
+like an interpreter, there are a few clear places where it would be
+beneficial for a given value to be known at compile-time, i.e. green.
+This is where we require the hints to be added.
+
+The normal process of the hint-annotator is to propagate the binding
+time (i.e. color) of the variables using the following kind of rules:
+
+* For a foldable operation (i.e. one without side effect and which
+  depends only on its argument values), if all arguments are green,
+  then the result can be green too.
+
+* Non-foldable operations always produce a red result.
+
+* At join points, where multiple possible values (depending on control
+  flow) are meeting into a fresh variable, if any incoming value comes
+  from a red variable, the result is red.  Otherwise, the color of the
+  result might be green.  We do not make it eagerly green, because of
+  the control flow dependency: the residual function is basically a
+  constant-folded copy of the source function, so it might retain some
+  of the same control flow.  The value that needs to be stored in the
+  fresh join variable thus depends on which branches are taken in the
+  residual graph.
+
+The hint-annotator assumes that all variables are red by default (with
+the exception of constants, which are always green).  It then propagates
+annotations that record dependency information.  When encountering the
+user-provided hints, the dependency information is used to make some
+variables green.  (Technically, the color itself is not part of the
+annotations propagated by the annotator.)  All hints are in the form of
+an operation ``hint(v1, someflag=True)`` which semantically just returns
+its first argument unmodified.  The three kinds of hints that are useful
+in practice are:
+
+``v2 = hint(v1, concrete=True)``
+    This is interpreted by the hint-annotator as a request for both
+    ``v1`` and ``v2`` to be green.  It is used in places where the
+    programmer considers the knowledge of the value to be essential.
+    This hint has a *global* effect on the binding times: it means that
+    not only ``v1`` but all the values that ``v1`` depends on -
+    recursively - are forced to be green.  Typically, it can only be
+    applied on values that directly depend on some input arguments,
+    making these input arguments green.  The hint-annotator complains if
+    the dependencies of ``v1`` include a value that cannot be green,
+    like a value read out of a field out of a non-immutable structure.
+
+    The color of the result ``v2`` is green as well.  Unlike ``v1``,
+    all further operations involving ``v2`` are checked to not meet
+    any red variable (i.e. ``v2`` color is eagerly and recursively
+    propagated, while ``v1`` is only green and may be involved in
+    further operations that will produce red results).
+
+``v2 = hint(v1, promote=True)``
+    This hint is a *local* request for ``v2`` to be green.  Unlike the
+    previous hint, this one has no effect on the color of ``v1`` (which
+    is typically red - the hint has no effect otherwise).
+
+    Note that in classical approaches to partial evaluation, it is not
+    possible to copy a red value into a green one.  The implementation
+    of such an operation ("promotion") is only possible in a
+    "just-in-time" approach that only Psyco_ implemented so far (to the
+    best of our knowledge).  Our hint is a direct generalization of the
+    latter.
+
+``v2 = hint(v1, variable=True)``
+    Force ``v2`` to be red, even if ``v1`` is green.
+
+A program using promotion also needs to contain a ``global_merge_point``
+hint; this has no effect on the hint-annotator and is described in the
+section about promotion_.
+
+
+.. _`example above`:
+
+Example
+----------------------------------
+
+Let's consider a very small interpreter-like example::
+
+        def ll_plus_minus(s, x, y):
+            acc = x
+            pc = 0
+            while pc < len(s):
+                op = s[pc]
+                op = hint(op, concrete=True)
+                if op == '+':
+                    acc += y
+                elif op == '-':
+                    acc -= y
+                pc += 1
+            return acc
+
+``s`` here is an input program, simply a string of ``'+'`` or ``'-'``, ``x``
+and ``y`` are integer input arguments.
+
+The annotation of ``op = hint(op, concrete=True)`` will follow the
+dependencies of the argument ``op``, which is the result of ``op =
+s[pc]``, so both ``s`` and ``pc`` will be marked green. ``x``, ``y``
+and ``acc`` will stay red.
+
+The result ``op`` compared to the possible "instructions" will also be
+green. Because ``s`` is green also ``len(s)`` will be.
+
+As we will see later, the timeshifter_ can use this information to
+generate code that unfolds the loop (because the ``while`` condition is
+green) and folds instruction dispatching (because the ``if`` conditions
+are green) at compile-time.  In other words, the only operations left
+involving red variables are ``acc += y`` and ``acc -= y``, so only these
+operations will eventually appear in the residual graph.
+
+Calls
+----------------------------------
+
+The ``concrete`` hint requires precise tracking of dependencies across
+calls.  More specifically, unlike the regular type-inferencing
+annotator, the hint-annotator does not simply propagate this information
+through called functions, but keeps all dependency information local to a
+function.  The problem is best shown by an example::
+
+    x = ...
+    y = ...
+    z = f(x, y)
+
+In this example, assuming that ``f(x, y)`` has no side effects, then we
+want the dependency set of ``z`` to be the union of the dependencies of
+``x`` and ``y`` (if both contribute to the result).  But if another call
+site calls ``f(x2, y2)`` then precision would be lost - the annotations
+that would propagate within ``f`` would be marked as depending on all of
+``x``, ``x2``, ``y`` and ``y2``, and then so would ``z``.
+
+To fix this problem, we only propagate dependencies that are local to a
+function.  Around a call like ``z = f(x, y)``, we check in the
+annotations of the function ``f`` on which input arguments the result is
+marked as depending on, and we reproduce the same dependency
+relationship locally between ``x`` and ``y`` and ``z``.
+
+There are other aspects of the information carried by annotations that
+are used in the "usual" annotator way, i.e. directly propagated between
+caller and callee and back.  If the result ``z`` of a call is forced to
+be green by a ``concrete`` hint, then this forcing effect is propagated
+inside the callee (more precisely, in a fresh copy of the callee, so
+that forced and non-forced call sites can respectively call a
+mostly-green and a mostly-red version of the function; this is done with
+the technique of `specialization of functions`_ that is already
+available in the normal annotator).
+
+Also, if all call sites provide a green value for an argument, then the
+callee's corresponding input argument can safely be green.  (This can
+only be determined at the end of the process, though, after all call
+sites are known and stable enough; we use another fixpoint loop for
+this.)
+
+
+Deep freezing
+----------------------------------
+
+Among the low-level operations, the one that reads data from a structure
+in memory (``getfield``) requires special care.  In a first
+approximation it can only return a red value, because the reading from
+the structure cannot be performed at compile-time - the structure may be
+mutated between compile-time and the point at run-time where the read
+was supposed to occur in the original code.
+
+This is a problem in most real-life examples.  Unlike our `example
+above`_, input arguments to such functions are typically not just
+strings and integers but complex data structures.  To produce sensible
+results, it is necessary to assume that some of these data structures
+will not be mutated after the compile-time process used their content.
+For example, PyPy's own interpreter works with an instance of a PyCode
+class containing not only a string representing the bytecode, but
+various simple Python objects (tuple of names, ...).  None of this data
+can be modified after its construction, though.
+
+To express this, we use a hint ``v2 = hint(v1, deepfreeze=True)``, where
+``v1`` is a pointer (in the low-level graph - it typically comes from a
+regular RPython object reference in the RPython source).  The
+hint-annotation will then propagate a "deepfrozen" flag on the
+annotation attached to ``v2``.  If ``v2`` is green, a ``getfield(v2,
+"name")`` operation then also returns a green.  The flag is also
+relevant if ``v2`` is red, as we will see in `Red and Green Operations`_
+below.
+
+As the name suggests, the result of a ``getfield`` is itself
+"deepfrozen" if the structure was.  We decided to implement recursive
+freezing and not one-level-only freezing, as the latter seems more
+fragile with respect to changes both in the RPython source and in the
+way the source maps to low-level graphs; but variants could easily be
+implemented if needed.
+
+
+Blue containers
+----------------------------------
+
+Undocumented yet.  Not implemented in the timeshifter, so not used so far.
+
+
+
+.. _timeshifter:
+.. _timeshifting:
+
+Timeshifting: transforming interpreter into compilers
+======================================================
+
+Once binding times (colors) have been assigned to all variables in a
+family of control flow graphs, the next step is to mutate the graphs
+accordingly.  This process is called *timeshifting*, because it changes
+the time at which the graphs are meant to be run.
+
+Keep in mind that the program described as the "source RPython
+program" in this document is typically an interpreter - the canonical
+example is that it is the whole `PyPy Standard Interpreter`_.  This
+program is meant to execute at run-time, and directly compute the
+intended result and side-effects. The translation process transforms it
+into a forest of flow graphs.  These are the flow graphs that
+timeshifting processes (and not the application-level program, which
+cannot be expressed as low-level flow graphs anyway).
+
+After being timeshifted, the graphs of our interpreter become logically
+very different: they are no longer intended to be executed at run-time,
+but just ahead of it (what we call "compile-time").  Their only side
+effects is to produce residual code.  The residual code itself runs "at
+run-time".
+
+Despite the conceptual difference, though, the form (flow of control)
+of timeshifted graphs is related and close to the original graphs.
+The rest of this section describes this timeshifting process in more
+detail.
+
+
+Red and Green Operations
+--------------------------
+
+The basic idea of timeshifting is to transform operations in a way that
+depends on the color of their operands and result.  Variables themselves
+need to be represented based on their color:
+
+* The green variables are the compile-time variables.  Their values are
+  meant to be available during compile-time already.  A variable that
+  used to contain e.g. an integer at run-time in the original graph, and
+  which the hint-annotator found to be green, is turned into a variable
+  that contains an integer again, but now at compile-time.  In other
+  words, timeshifting leaves green variables untouched - they are
+  identical in the original and in the timeshifted graph.
+
+* The red (run-time) variables on the other hand cannot stay unmodified
+  in the timeshifted graph, because no actual value is available for
+  them during compile-time.  They are replaced by the notion of "red
+  box": a red box is a small object that describes where, in the
+  residual code, the value will be stored at run-time.  Multiple red
+  variables are turned into multiple red boxes, which are used to
+  distinguish the residual storage location for each of them.
+
+The basic feature of each red box is to provide a field ``genvar``,
+which is a backend-specific object that represents a machine code
+operand - either a value location (e.g. the register where it is stored)
+or a constant (an immediate).  Constants are used for red boxes whose
+value is, after all, known at compile-time.  This can occur even though
+the corresponding variable in the graph was red; it is the case when the
+hint-annotator cannot tell statically that a given variable will always
+contain a compile-time constant, even though it might dynamically be
+found to contain one at a particular point in (compile-)time.  In
+Partial Evaluation terminology, the timeshifted graphs are performing
+some *on-line* partial evaluation in addition to the off-line job
+enabled by the hint-annotator.
+
+In addition to the variables, all operations of the original graphs need
+to be checked and accordingly transformed:
+
+* If an operation has no side effect or other run-time dependency, and
+  if it only involves green operands, then it can stay unmodified in the
+  graph.  In this case, the operation that was run-time in the original
+  graph becomes a compile-time operation, and it will never be generated
+  in the residual code.  (This is the case that makes the whole approach
+  worthwhile: some operations become purely compile-time.)
+
+* In all other cases, the operation might have to be generated in the
+  residual code.  In the timeshifted graph, it is replaced by a call to
+  a helper.  There is one such helper per operation, which takes red
+  boxes as its arguments, and asks the backend to generate the
+  corresponding residual operation on the ``genvar`` of the red boxes.
+  The backend answers by giving a new ``genvar``, which is the location
+  of the result, and the helper puts it into a new red box, which is
+  returned to the timeshifted graph as the result of the call.
+
+Additionally, the helper for some operations checks if all arguments are
+red boxes containing constants, and if so just returns a red box
+containing the result without producing any residual code.  A particular
+case to note is that of the ``getfield`` operation: when applied on a
+constant red box, the field can sometimes be directly read out of the
+structure at compile-time - this decision is based on the static `Deep
+freezing`_ analysis performed by the hint-annotator.
+
+The Example again 
+------------------- 
+
+If we timeshift the `ll_plus_minus`__ example, given the described
+binding time assignments, the only red operations generating
+code in the output residual code are ``acc += x``, ``acc -=
+x``. Timeshifting substitute them with helpers that do emit such
+operations.
+
+All the rest involves green variables and is left unmutated by
+timeshifting.  The corresponding computations, the loop over the
+"instructions" and dispaching on them would happen at compile-time.
+
+The timeshifted version of ll_plus_minus for the input "+-+" would
+produce something like (in pseudo notation)::
+ 
+   residual_plus_minus(x,y):
+       v0 = int_add(x , y)
+       v1 = int_sub(v0, y)
+       v2 = int_add(v1, y)
+       return v2
+
+__ `Example above`_
+
+
+Support code
 --------------
 
-Let's follow how the interpreter is turned into a compiler.  First, the
-source of the interpreter is turned into low-level graphs in the usual
-way (it is actually already a low-level function).  This low-level graph
-goes then through a pass called the "hint-annotator", whose goal is to
-give colors -- red, green and blue -- to each variable in the graph.
-The color represents the "time" at which the value of a variable is
-expected to be known, when the interpreter works as a compiler.  In the
-above example, variables like ``pc`` and ``encoded_insn`` need to be
-known to the compiler -- otherwise, it wouldn't even know which program
-it must compile.  These variables need to be *green*.  Variables like
-``x`` and ``acc``, on the other hand, are expected to appear in the
-residual graph; they need to be *red*.
+To implement red boxes, we have written a family of support classes in
+`pypy/jit/timeshifter/rvalue.py`_: IntRedBox, DoubleRedBox and
+PtrRedBox.  They are used, respectively, for integral values of any
+size, for floating-point values, and for pointers and addresses.  As we
+will see below, these classes support a number of additional features,
+particularly PtrRedBox.
 
-The color of each variable is derived based on the hint (see the
-``<-----`` line in the source): the hint() forces ``op`` to be a green
-variable, along with any *previous* variable that is essential to
-compute the value of ``op``.  The hint-annotator computes dependencies
-and back-propagates "greenness" from hint() calls.
+These classes are regular RPython classes that are translated to
+low-level and linked with the rest of the program.  The same holds for
+the helper functions that inspect red boxes and generate residual
+operations.  We make extensive use of this technique (described in more
+detail in VMC_): all the complex support code that is needed for the
+timeshifted graphs is implemented as regular RPython code and linked
+with the rest of the program, by inserting calls to these helpers from
+the timeshifted graphs, and also (as in the red box case) by putting
+variables in the graphs whose types are (the low-level representation
+of) instances of helper RPython classes.
 
-The hint-annotator is implemented on top of the normal annotator; it's
-in hintannotator.py, hintmodel.py, hintbookkeeper.py, hintcontainer.py
-and hintvlist.py.  The latter two files are concerned about the *blue*
-variables, which are variable that contain pointers to structures of a
-mixed kind: structures which are themselves -- as containers -- known to
-the compiler, i.e. green, but whose fields may not all be known to the
-compiler.  There is no blue variable in the code above, but the stack of
-a stack-based interpreter is an example: the "shape" of the stack is
-known to the compiler when compiling any bytecode position, but the
-actual run-time values in the stack are not.  The hint-annotator can now
-handle many cases of blue structures and arrays.  For low-level
-structures and arrays that actually correspond to RPython lists,
-hintvlist.py recognize the RPython-level operations and handles them
-directly -- this avoids problems with low-level details like
-over-allocation, which causes several identical RPython lists to look
-different when represented as low-level structs and arrays.
+The amount of support code is quite extensive, as it includes the whole
+machine code backend as well: when helpers need to produce residual
+code, they do so through a well-defined API on classes that are provided
+by one of our JIT backends.  (This will be described in more details in
+the Backends_ section.)  All this support code can be arbitrarily
+complex RPython code, which allows us to experiment quite freely.
 
-Timeshifter
------------
 
-Once the graph has been colored, enters the "timeshifter".  This
-tool -- loosely based on the normal RTyper -- transforms the colored
-low-level graphs into the graphs of the compiler.  Broadly speaking,
-this is done by transforming operations annotated with red variables
-into operations that will generate the original operation.  Indeed, red
-variables are the variables whose run-time content is unknown to the
-compiler.  So for example, if the arguments of an ``int_add`` have been
-annotated as red, it means that the real value of these variables will
-not be known to the compiler; when the compiler actually runs, all it
-can do is generate a new ``int_add`` operation into the residual graph.
+Two-Phases Transformation
+---------------------------
 
-In the example above, only ``acc += y`` and ``acc -= y`` are annotated
-with red arguments.  After hint-rtyping, the ll_plus_minus() graph --
-which is now the graph of a compiler -- is mostly unchanged except for
-these two operations, which are replaced by a few operations which call
-helpers; when the graph of the now-compiler is running, these helpers
-will produce new ``int_add`` and ``int_sub`` operations.
+Concretely, the process of timeshifting replaces some variables with
+fresh variables of new types, and replaces some operations with calls to
+helper functions.  This is very similar to what the `RPython Typer`_
+does during a normal translation.  The latter replaces RPython-level
+variables and operations with low-level variables and operations and
+calls to helpers; it is guided by the annotations produced by the
+regular type inference.  The former does the same, except that the input
+is already low-level operations, and the annotations are colors,
+produced by the hint-annotator.
 
-Merging and bookkeeping
------------------------
+In light of this close analogy, we have implemented the timeshifter
+based on the RTyper.  This gives us direct benefits, like automatic
+conversions for operation arguments or along links.  For example, if an
+operation takes two arguments, but one of them is red and the other
+green, then the whole operation must classify as "red" and be replaced
+by a call to the corresponding helper.  This helper expects two red
+boxes as arguments, though.  The red argument is a red box in the
+timeshifted graph, but not the green one.  Reusing the RTyper logic, the
+necessary conversion (creating a red box and putting the green value
+into it as an immediate) is inserted automatically in cases like this
+one.
 
-XXX the following is not the way it works currently, but rather a
-proposal for how it might work -- although it's all open to changes.  It
-is a mix of how Psyco and the Flow Object Space work.
+Unlike the regular RTyper, though, the timeshifter is faced with an
+additional difficulty that will only become apparent in the sequel: in
+addition to the local replacement of variables and operations, it also
+needs to modify the control flow of the graph.
 
-Unlike ll_plus_minus() above, any realistic interpreter needs to handle
-two complications:
+The approach that we have taken is in two phases:
 
-1. Jumping or looping opcodes.  When looping back to a previous bytecode
-   position, the now-compiler must not continue to compile again and again;
-   it must generate a loop in the residual graph as well, and stop
-   compiling.
+* The graphs are first transformed "manually".  This phase modifies the
+  control flow and adds pseudo-operations in key places.  In some sense,
+  all the interesting large-scale issues, experiments and solutions with
+  timeshifting a graph are present in this transformation.  The
+  pseudo-operations are placeholders for bookkeeping operations like
+  saving local variables into JIT state structures, scheduling various
+  parts of the compilation, and so on.  This phase preserves the colors;
+  its output is graphs that look like pseudo-code, convenient to inspect
+  in the graph viewer for debugging and explanation purposes.
 
-2. Conditional branches.  Unless the condition is known at compile time,
-   the compiler must generate a branch in the residual graph and compile
-   both paths.
+* The modified RTyper (called "HRTyper") is applied in a second phase.
+  It replaces variables and operations locally as described above.  The
+  pseudo-operations are replaced along with all the other ones, and
+  become calls to helpers.
 
-Keep in mind that this is all about how the interpreter is transformed
-to become a compiler.  Unless explicitly specified, I don't speak about
-the interpreted user program here.
 
-As a reminder, this is handled in the Flow Space as follows:
+Merges and Splits
+--------------------
 
-1. When a residual operation is about to be generated, we check if the
-   bytecode position closed back to an already-seen position.  To do so,
-   for each bytecode position we save a "state".  The state remembers
-   the bytecode interpreter's frame state, as a pattern of Variables and
-   Constants; in addition, the state points to the residual block that
-   corresponded to that position.
+The description of the timeshifting transformation given so far misses a
+critical aspect: how to handle control flow (e.g. loops) that involves
+red variables.  It is easy to see why the timeshifted graphs cannot have
+exactly the same control flow than the original graphs: we may not know
+at compile-time how many iterations a loop will do at run-time, nor what
+branches of a condition will be taken.
 
-2. A branch forces the current block to fork in two "EggBlocks".  This
-   makes a tree with a "SpamBlock" at the root and two EggBlock children,
-   which themselves might again have two EggBlock children, and so on.
-   The Flow Space resumes its analysis from the start of the root
-   SpamBlock and explores each branch of this tree in turn.  Unexplored
-   branches are remembered for later.
+The issue of loops is handled by *merge points*.  Merge points are
+special operations inserted just after join points, i.e. just after two
+or more incoming control flow paths meet.  A merge point is a check to
+see if the compiler, i.e. the timeshifted graph, has come back to a
+state that was previously seen at the same merge point.  The goal is
+that when the timeshifted graph loops back, the residual code that its
+red operations produces should loop as well, as soon as possible.
+Without the merge point logic, the timeshifted graph would simply go on
+looping forever, producing an infinitely long sequence of residual
+operations.  The merge point prevents that: when a state is encountered
+that was already seen before, the merge logic emits in the residual code
+a jump that goes back to the residual code corresponding to the older
+state, thus creating a residual loop.  After this, the timeshifted graph
+stops executing.
 
-In Psyco:
+The mirror issue is that of *split points*.  Splits are conditional
+branches.  There are two kinds of splits: the ones whose condition is
+itself on a green variable, and the ones whose condition is red.  A green
+split (i.e. the former) is left untouched by the timeshifting
+transformation: as the condition will be known a compile-time, we know
+at compile-time which of the branches has to be followed.
 
-1. A state is saved at the beginning of each bytecode, as in the Flow
-   Space.  (There are actually memory-saving tricks to avoid saving a
-   state for each and every bytecode.)  We close a loop in the residual
-   graph as soon as we reach an already-seen bytecode position, but
-   only if the states are "compatible enough".  Indeed, as in the PyPy
-   JIT, Psyco states store more than just Variable/Constant: they store
-   "blue" containers detailing individual field's content.  Blue
-   containers of too-different shapes are not "compatible enough".  In
-   addition, some Constants can be marked as "fixed" to prevent them
-   from being merged with different Constants and becoming Variables.
+A red split is more delicate.  It must generate a conditional branch
+in the residual code.  From a theoretical point of view, this is done by
+emitting a conditional jump instruction, and then *forking* the
+compile-time process in two identical copies: each copy follows one of
+the branches in the timeshifted graph, and goes on generating code in
+the corresponding branch in the residual code.
 
-2. Branching in Psyco work as in the Flow Space, with the exception that
-   each condition has got a "likely" and a "less likely" outcome.  The
-   compilation follows the "likely" path only.  The "unlikely" paths
-   are only explored if at run-time the execution actually reaches them.
-   (When it does, the same trick as in the Flow Space is used:
-   compilation restarts from the root SpamBlock and follows the complete
-   branch of the EggBlock tree.)
+In practice, this is implemented by making a copy of the current JIT
+state, which is added to a scheduler's queue.  At the end of the
+timeshifted graph, an extra call to the scheduler will fetch the next
+pending JIT state and jump back to it.  (This implies that the control
+flow of the timeshifted graph is mangled by the timeshifting
+transformation, to allow the last block of the graph to jump back to any
+of the red splits.)
 
-3. A different kind of branching that doesn't occur in the Flow Space:
-   promoting a value from Variable to Constant.  This is used e.g. when
-   an indirect function call is about to be performed.  A typical
-   example is to call a PyTypeObject's slot based on the type of a
-   PyObject instance.  In this case, Psyco considers the PyObject's
-   ob_type field as a Variable, which it turns into a Constant.
-   Conceptually, the current residual block is ended with a "switch"
-   and every time a different run-time value reaches this point, a new
-   case is compiled and added to the switch.  (As in 2., the compilation
-   is restarted from the root SpamBlock until it reaches that point
-   again.)
 
-The "tree of EggBlocks" approach doesn't work too well in general.  For
-example, it unrolls loops infinitely if they are not loops in the
-bytecode but loops in the implementation of a single opcode (we had this
-problem working on the annotator in Vilnius).
+Calls and inlining
+---------------------
 
-The current preliminary work on the timeshifter turns the interpreter
-into a compiler that saves its state at _all_ join-points permanently.  This
-makes sure that loops are not unexpectedly unrolled, and that the code
-that follows an if/else is not duplicated (as it would be in the
-tree-of-EggBlocks approach).  It is also inefficient and
-perfect to explode the memory usage.
+...
 
-I think we could try to target the following model -- which also has the
-advantage that simple calls in the interpreter are still simple calls in
-the compiler, as in Psyco:
+Virtual Containers
+--------------------
 
-1. We only save the state at one point.  We probably need a hint to
-   specify where this point is -- at the beginning of the bytecode
-   interpreter loop.  It is easy to know in advance which information
-   needs to be stored in each state: the tuple of green variables is used
-   as a key in a global dict; the content of the red variables is stored
-   as a state under this key.  Several states can be stored under the same
-   key if they are not "compatible enough".
+...vstructs, vlist, vdict...
 
-2. Branching: a possible approach would be to try to have the compiler
-   produce a residual graph that has the same shape as the original
-   graph in the interpreter, at least as far as the conditions are
-   unknown at compile-time.  (This would remove the branches whose
-   conditions are known at compile time, and unroll all-green loops
-   like the bytecode interpreter loop itself.)
+Exceptions
+------------
 
-3. Promoting a Variable to a Constant, or, in colored terms, a red
-   variable to a green one (using a hint which we have not implemented
-   so far): this is the case where we have no choice but suspend the
-   compilation, and wait for execution to provide real values.  We will
-   implement this case later, but I mention it now because it seems that
-   there are solutions compatible with this model, including Psyco's
-   (see 3. above).
+...
 
-The motivation to do point 2. differently than in Psyco is that it is
-both more powerful (no extra unrolling/duplication of code) and closer
-to what we have already now: the bookkeeping code inserted by the
-timeshifter in the compiler's graphs.  In Psyco it would have been a
-mess to write that bookkeeping code everywhere by hand, not to mention
-changing it to experiment with other ideas.
+.. _promotion:
 
-Random notes
------------------
+Promotion and global merges
+-----------------------------
 
-An idea to consider: red variables in the compiler could come with
-a concrete value attached too, which represents a real execution-time
-value.  The compiler would perform concrete operations on it in addition
-to generating residual operations.  In other words, the compiler would
-also perform directly some interpretation as it goes along.  In this
-way, we can avoid some of the recompilation by using this attached value
-e.g. as the first switch case in the red-to-green promotions, or as a
-hint about which outcome of a run-time condition is more likely.
+...global merge point...
+
+Partial data
+-------------
+
+...
+
+Portals
+----------------------
+
+...
+
+Scaling to PyPy
+----------------------
+
+...
+
 
 Backends
-----------------
+====================
 
+The compilers produced by the timeshifter are linked with one of our
+backends, which are written by hand in RPython.  We currently have a
+backend for producing IA32/i386 machine code in memory, PowerPC machine
+code in memory, or (for testing) further low-level control flow graphs.
+
+The Backend interface
+-----------------------
+
+The interface (which is not yet completely stable) is documented in
+`pypy/jit/codegen/model.py`_.
+
+
+.. _VMC: http://codespeak.net/svn/pypy/extradoc/talk/dls2006/pypy-vm-construction.pdf
+.. _`RPython`: coding-guide.html#rpython
+.. _`RPython Typer`: translation.html#rpython-typer
+.. _`low-level graphs`: rtyper.html
+.. _`pointer-and-structures-like objects`: rtyper.html#low-level-types 
+.. _`annotator`: dynamic-language-translation.html
+.. _`specialization of functions`: dynamic-language-translation.html#specialization
+.. _Psyco: http://psyco.sourceforge.net
+.. _`PyPy Standard Interpreter`: architecture.html#standard-interpreter
 
 .. include:: _ref.txt
