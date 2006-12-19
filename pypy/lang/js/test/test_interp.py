@@ -12,18 +12,12 @@ import sys
 from StringIO import StringIO
 
 
-def parse_d(code):
-    return build_interpreter(parse(code))
-
 def js_is_on_path():
     try:
         py.path.local.sysfind("js")
     except py.error.ENOENT: 
-        return False 
-    return True
+        py.test.skip("js binary not found")
 
-if not js_is_on_path():
-    py.test.skip("js binary not found")
 
 
 class TestInterp(object):
@@ -34,7 +28,7 @@ class TestInterp(object):
         l = []
         interpreter.writer = l.append
         Script([Semicolon(Call(Identifier('print', None), 
-                List([Number(1), Number(2)])))],[],[]).call()
+                List([Number(1), Number(2)])))],[],[]).call(ExecutionContext())
         assert l == ['1,2']
 
     def assert_prints(self, code, assval):

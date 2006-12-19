@@ -236,30 +236,30 @@ class __extend__(Plus):
             return W_Number(num_left + num_right)
 
 class __extend__(Script):
-    def call(self, context=None, args=(), params=[], this=w_Undefined, first = False):
-        ncontext = ExecutionContext(context)
-        for i, item in enumerate(params):
-            try:
-                temp = args[i]
-            except IndexError:
-                temp = w_Undefined
-            ncontext.assign(item, temp)
-
-        for var in self.var_decl:
-            if first:
-                ncontext.globals[var.name] = w_Undefined
-            else:
-                ncontext.locals[var.name] = w_Undefined
+    def call(self, ctx):
+        # ncontext = ExecutionContext(context)
+        # for i, item in enumerate(params):
+        #     try:
+        #         temp = args[i]
+        #     except IndexError:
+        #         temp = w_Undefined
+        #     ncontext.assign(item, temp)
+        # 
+        # for var in self.var_decl:
+        #     if first:
+        #         ncontext.globals[var.name] = w_Undefined
+        #     else:
+        #         ncontext.locals[var.name] = w_Undefined
         
-        w_Arguments = W_Arguments(dict([(str(x),y) for x,y in enumerate(args)]))
-        ncontext.assign('arguments', w_Arguments)
-        
-        ncontext.assign('this', this)
+        # w_Arguments = W_Arguments(dict([(str(x),y) for x,y in enumerate(args)]))
+        # ncontext.assign('arguments', w_Arguments)
+        # 
+        # ncontext.assign('this', this)
         
         try:
             last = w_Undefined
             for node in self.nodes:
-                last = node.call(ncontext)
+                last = node.call(ctx)
             return last
         except ExecutionReturned, e:
             return e.value

@@ -1,6 +1,5 @@
 # encoding: utf-8
 
-from copy import copy
 from pypy.lang.js.jsobj import w_Undefined, Property
 from pypy.lang.js.reference import Reference
 
@@ -28,17 +27,17 @@ class ExecutionContext(object):
         return Reference(property_name)
     
 
-def global_context(global):
+def global_context(w_global):
     ctx = ExecutionContext()
-    ctx.push_object(global)
-    ctx.this = global
-    ctx.variable = global
+    ctx.push_object(w_global)
+    ctx.this = w_global
+    ctx.variable = w_global
     ctx.property = Property('', w_Undefined, DontDelete=True)
     return ctx
 
 def eval_context(calling_context):
     ctx = ExecutionContext()
-    ctx.scope = copy(calling_context.scope)
+    ctx.scope = calling_context.scope[:]
     ctx.this = calling_context.this
     ctx.variable = calling_context.variable
     ctx.property = Property('', w_Undefined)

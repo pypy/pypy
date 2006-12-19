@@ -3,8 +3,7 @@ from pypy.lang.js.test.test_interp import js_is_on_path
 import py
 
 
-if not js_is_on_path():
-    py.test.skip("js binary not found")
+js_is_on_path()
 
 
 def test_read_js_output():
