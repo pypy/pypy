@@ -652,13 +652,16 @@ Scaling to PyPy
 Backends
 ====================
 
-...
+The compilers produced by the timeshifter are linked with one of our
+backends, which are written by hand in RPython.  We currently have a
+backend for producing IA32/i386 machine code in memory, PowerPC machine
+code in memory, or (for testing) further low-level control flow graphs.
 
 The Backend interface
 -----------------------
 
-...
-
+The interface (which is not yet completely stable) is documented in
+`pypy/jit/codegen/model.py`_.
 
 
 .. _VMC: http://codespeak.net/svn/pypy/extradoc/talk/dls2006/pypy-vm-construction.pdf
