@@ -36,8 +36,6 @@ def test_register():
     assert svr._clients[0] == c1
     assert svr._clients[1] == c2
 
-    assert c1.channel.receive() == 'welcome'
-    assert c2.channel.receive() == 'welcome'
     py.test.raises(IndexError, "c1.channel.receive()")
 
     assert svr._channel.receive().find('registered') > -1

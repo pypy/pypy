@@ -5,12 +5,12 @@ from cStringIO import StringIO
 from pypy.tool.build import build
 
 class PPBClient(object):
-    def __init__(self, channel, sysinfo, testing=False):
+    def __init__(self, channel, sysinfo, testing_sleeptime=False):
         self.channel = channel
         self.sysinfo = sysinfo
         self.busy_on = None
         self.refused = []
-        self.testing = testing
+        self.testing_sleeptime = testing_sleeptime
 
         from pypy.tool.build import ppbserver
         self.server = ppbserver
@@ -35,7 +35,7 @@ class PPBClient(object):
     def wait_until_done(self, request):
         buildpath = self.server.get_new_buildpath(request)
         
-        if not self.testing:
+        if not self.testing_sleeptime:
             fp = buildpath.zipfile.open('w')
             gotdata = False
             try:
@@ -55,6 +55,11 @@ class PPBClient(object):
                 fp.close()
             # write the log (process stdout/stderr) to the buildpath
             buildpath.log = self.channel.receive()
+        else:
+            # pretend we're compiling by sleeping a bit...
+            open('/tmp/test_client_functional_crap', 'a').write('CLIENT - starting compile, sleeping %r secs\n' % (self.testing_sleeptime,))
+            py.std.time.sleep(self.testing_sleeptime)
+            open('/tmp/test_client_functional_crap', 'a').write('CLIENT - done with compile\n')
 
         self.server.compilation_done(buildpath)
         self.busy_on = None
@@ -82,7 +87,7 @@ initcode = """
     finally:
         channel.close()
 """
-def init(gw, sysconfig, path=None, port=12321, testing=False):
+def init(gw, sysconfig, path=None, port=12321, testing_sleeptime=False):
     from pypy.tool.build import execnetconference
     from pypy.config.config import make_dict
     
@@ -91,7 +96,8 @@ def init(gw, sysconfig, path=None, port=12321, testing=False):
 
     sysinfo = make_dict(sysconfig)
     conference = execnetconference.conference(gw, port, False)
-    channel = conference.remote_exec(initcode % (path, sysinfo, testing))
+    channel = conference.remote_exec(initcode % (path, sysinfo,
+                                                 testing_sleeptime))
     return channel
 
 class ChannelWrapper(object):
@@ -154,7 +160,7 @@ def main(config, path, compilefunc):
                    path=config.path,
                    port=config.port)
 
-    print channel.receive() # welcome message
+    print 'connected'
     try:
         try:
             while 1:
@@ -204,7 +210,7 @@ def main(config, path, compilefunc):
                 try:
                     print 'starting compilation'
                     upath, log = compilefunc(svnwc, request.compileinfo)
-                except KeyboardInterrupt:
+                except (SystemExit, KeyboardInterrupt):
                     print 'quitting...'
                     break
 

@@ -13,7 +13,7 @@ if __name__ == '__main__':
         gw = PopenGateway()
     else:
         gw = SshGateway(config.server)
-    channel = init(gw, port=config.port, path=config.path, 
+    channel = init(gw, port=config.port, path=config.path,
                     projectname=config.projectname,
                     buildpath=str(config.buildpath),
                     mailhost=config.mailhost,
@@ -29,3 +29,4 @@ if __name__ == '__main__':
     finally:
         channel.close()
         gw.exit()
+

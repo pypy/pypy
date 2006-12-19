@@ -26,18 +26,22 @@ def issubdict(d1, d2):
     return True
 
 class PPBServer(object):
+    """ the build server
+
+        this delegates or queues build requests, and stores results and sends
+        out emails when they're done
+    """
     retry_interval = 10
     
     def __init__(self, projname, channel, builddir, mailhost=None,
                     mailport=None, mailfrom=None):
         self._projname = projname
         self._channel = channel
-        self._builddir = builddir
+        self._buildroot = py.path.local(builddir)
         self._mailhost = mailhost
         self._mailport = mailport
         self._mailfrom = mailfrom
         
-        self._buildroot = py.path.local(builddir)
         self._clients = []
 
         done = []
@@ -49,6 +53,7 @@ class PPBServer(object):
                 bp.remove()
 
         self._done = done
+
         self._queued = [] # no compile client available
         self._waiting = [] # compilation already in progress for someone else
 
@@ -56,10 +61,10 @@ class PPBServer(object):
         self._namelock = thread.allocate_lock()
         
     def register(self, client):
+        """ register a client (instance) """
         self._clients.append(client)
         self._channel.send('registered %s with info %r' % (
                             client, client.sysinfo))
-        client.channel.send('welcome')
 
     def compile(self, request):
         """start a compilation
@@ -121,7 +126,10 @@ class PPBServer(object):
                 )
                 accepted = client.compile(request)
                 if accepted:
+                    self._channel.send('compile job accepted')
                     return True
+                else:
+                    self._channel.send('compile job denied')
         self._channel.send(
             'no suitable client available for compilation of %s' % (
                 request,
@@ -167,6 +175,7 @@ class PPBServer(object):
             clients = self._clients[:]
             for client in clients:
                 if client.channel.isclosed():
+                    self._channel.send('client %s disconnected' % (client,))
                     if client.busy_on:
                         self._queued.append(client.busy_on)
                     self._clients.remove(client)
@@ -282,3 +291,4 @@ def init(gw, port=12321, path=[], projectname='pypy', buildpath=None,
                                                     mailhost, mailport,
                                                     mailfrom))
     return channel
+

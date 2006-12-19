@@ -11,8 +11,6 @@ option = py.test.Config.addoptions("pypybuilder test options",
         ),
 )
 
-py.test.pypybuilder_option = option
-
 class Directory(Dir):
     def run(self):
         if self.fspath == mypath:
