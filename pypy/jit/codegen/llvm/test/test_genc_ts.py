@@ -44,10 +44,10 @@ class TestTimeshiftLLVM(LLVMTimeshiftingTestMixin,
     #test_normalize_indirect_call_more = skip
     #test_green_red_mismatch_in_call = skip
     #test_red_call_ignored_result = skip
+    #test_simple_struct = skip
+    #test_simple_array = skip
 
     #failing...
-    test_simple_struct = skip
-    test_simple_array = skip
     test_degenerated_before_return = skip
     test_degenerated_before_return_2 = skip
     test_degenerated_at_return = skip

@@ -1,4 +1,4 @@
-import py
+import py, os
 from pypy.rlib.objectmodel import specialize
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.jit.codegen.model import AbstractRGenOp, GenLabel, GenBuilder
@@ -14,10 +14,57 @@ LINENO       = option.lineno
 PRINT_SOURCE = option.print_source
 PRINT_DEBUG  = option.print_debug
 
+WORD = 4
+
+
+class Logger:
+    
+    enabled = True
+    log_fd = -1
+
+    def _freeze_(self):
+        # reset the machine_code_dumper global instance to its default state
+        if self.log_fd >= 0:
+            os.close(self.log_fd)
+            self.__dict__.clear()
+        return False
+                                                    
+    def open(self):
+        if not self.enabled:
+            return False
+        if self.log_fd < 0:
+            # check the environment for a file name
+            from pypy.rlib.ros import getenv
+            s = getenv('PYPYJITLOG')
+            if not s:
+                self.enabled = False
+                return False
+            try:
+                flags = os.O_WRONLY|os.O_CREAT|os.O_TRUNC
+                self.log_fd = os.open(s, flags, 0666)
+            except OSError:
+                os.write(2, "could not create log file\n")
+                self.enabled = False
+                return False
+            # log the executable name
+            from pypy.jit.codegen.hlinfo import highleveljitinfo
+            if highleveljitinfo.sys_executable:
+                os.write(self.log_fd, 'SYS_EXECUTABLE %s\n' % (
+                    highleveljitinfo.sys_executable,))
+        return True
+
+    def dump(self, s):
+        if not self.open():
+            return
+        os.write(self.log_fd, str(s) + '\n')
+
+logger = Logger()
+
 
 def log(s):
     if PRINT_DEBUG and not we_are_translated():
         print str(s)
+    logger.dump(s)
 
 
 class Count(object):
@@ -503,14 +550,59 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
 
     def op_float_is_true(self, gv_x):   return self._is_true(gv_x, '0.0')
 
+    def genop_getfield(self, (offset, fieldsize), gv_ptr):
+        log('%s Builder.genop_getfield ([%d]%d) %s' % (
+            self.block.label, offset, fieldsize, gv_ptr.operand()))
+        if fieldsize == WORD:
+            t = 'int'
+        else:
+            if fieldsize == 1:
+                t = 'ubyte'
+            else:
+                assert fieldsize == 2
+                t = 'short'
+        gv_p = Var(t + '*')
+        self.asm.append(' %s=getelementptr %s,int %s' % (
+            gv_p.operand2(), gv_ptr.operand(), offset / fieldsize))
+        gv_result = Var(t)
+        self.asm.append(' %s=load %s' % (
+            gv_result.operand2(), gv_p.operand()))
+        return gv_result
+
+    def genop_setfield(self, (offset, fieldsize), gv_ptr, gv_value):
+        log('%s Builder.senop_setfield %s,([%d]%d) %s=%s' % (
+            self.block.label, offset, fieldsize, gv_ptr.operand(), gv_value.operand()))
+        #if fieldsize == WORD:
+        #    gv_result = Var('int')
+        #else:
+        #    if fieldsize == 1:
+        #       gv_result = Var('ubyte')
+        #    else:
+        #       assert fieldsize == 2
+        #        gv_result = Var('short')
+        gv_p = Var(gv_value.type+'*')
+        self.asm.append(' %s=getelementptr %s,int %s' % (
+            gv_p.operand2(), gv_ptr.operand(), offset / fieldsize))
+        self.asm.append(' store %s,%s' % (
+            gv_value.operand2(), gv_p.operand()))
+
     def genop_getarrayitem(self, arraytoken, gv_ptr, gv_index):
-        #XXX what about non char arrays?
+        array_length_offset, array_items_offset, itemsize = arraytoken
         log('%s Builder.genop_getarrayitem %s,%s,%s' % (
-            self.block.label, arraytoken, gv_ptr, gv_index))
-        gv_result = Var('ubyte')
-        gv_p = Var(gv_result.type+'*')    #XXX get this from arraytoken
-        self.asm.append(' %s=getelementptr [0x%s]* %s,int 0,%s' % (
-            gv_p.operand2(), gv_result.type, gv_ptr.operand2(), gv_index.operand()))
+            self.block.label, arraytoken, gv_ptr.operand(), gv_index.operand()))
+            
+        gv_i = Var(gv_index.type)
+        try:
+            offset = array_items_offset / itemsize
+        except TypeError:
+            offset = 4 #XXX (get inspired by ppc backend)
+        self.asm.append(' %s=add %s,%d' % (
+            gv_i.operand2(), gv_index.operand(), offset)) #/itemsize correct?
+
+        gv_p = Var(gv_ptr.type)
+        self.asm.append(' %s=getelementptr %s,%s' % (
+            gv_p.operand2(), gv_ptr.operand(), gv_i.operand()))
+        gv_result = Var(gv_ptr.type[:-1])
         self.asm.append(' %s=load %s' % (
             gv_result.operand2(), gv_p.operand()))
         return gv_result
@@ -523,6 +615,7 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
         return self.returnvar(eax)
         '''
         #XXX TODO
+        array_length_offset, array_items_offset, itemsize = arraytoken
         gv_result = Var('int')
         log('%s Builder.genop_getarraysubstruct %s,%s,%s' % (
             self.block.label, arraytoken, gv_ptr, gv_index))
@@ -537,6 +630,7 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
         return self.returnvar(mem(edx, lengthoffset))
         '''
         #XXX TODO
+        array_length_offset, array_items_offset, itemsize = arraytoken
         gv_result = Var('int')
         log('%s Builder.genop_getarraysize %s,%s' % (
             self.block.label, arraytoken, gv_ptr))
@@ -545,26 +639,29 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
         return gv_result
 
     def genop_setarrayitem(self, arraytoken, gv_ptr, gv_index, gv_value):
-        #XXX what about non char arrays?
+        array_length_offset, array_items_offset, itemsize = arraytoken
         log('%s Builder.genop_setarrayitem %s,%s,%s,%s' % (
-            self.block.label, arraytoken, gv_ptr, gv_index, gv_value))
-        gv_p = Var('ubyte*')    #XXX get this from arraytoken
-        self.asm.append(' %s=getelementptr [0x%s]* %s,int 0,%s' % (
-            gv_p.operand2(), gv_ptr.type[:-1], gv_ptr.operand2(), gv_index.operand()))
+            self.block.label, arraytoken, gv_ptr.operand(), gv_index.operand(), gv_value.operand()))
+
+        try:
+            offset = array_items_offset / itemsize
+        except TypeError:
+            offset = 4 #XXX (get inspired by ppc backend)
+        gv_i = Var(gv_index.type)
+        self.asm.append(' %s=add %s,%d' % (
+            gv_i.operand2(), gv_index.operand(), offset)) #/itemsize correct?
+
+        gv_p = Var(gv_ptr.type)
+        self.asm.append(' %s=getelementptr %s,%s' % (
+            gv_p.operand2(), gv_ptr.operand(), gv_i.operand()))
         self.asm.append(' store %s,%s' % (
             gv_value.operand(), gv_p.operand()))
 
     def genop_malloc_fixedsize(self, size):
-        '''
-        # XXX boehm only, no atomic/non atomic distinction for now
-        self.push(imm(size))
-        self.mc.CALL(rel32(gc_malloc_fnaddr()))
-        return self.returnvar(eax)
-        '''
         log('%s Builder.genop_malloc_fixedsize %s' % (
-            self.block.label, size))
+            self.block.label, str(size)))
         gv_result = Var('ubyte*')
-        gv_gc_malloc_fnaddr = Var('[0xubyte]* (int)*')
+        gv_gc_malloc_fnaddr = Var('ubyte* (int)*')
         #XXX or use addGlobalFunctionMapping in libllvmjit.restart()
         self.asm.append(' %s=inttoptr int %d to %s ;gc_malloc_fnaddr' % (
             gv_gc_malloc_fnaddr.operand2(), gc_malloc_fnaddr(), gv_gc_malloc_fnaddr.type))
@@ -573,22 +670,10 @@ class Builder(object):  #changed baseclass from (GenBuilder) for better error me
         return gv_result
 
     def genop_malloc_varsize(self, varsizealloctoken, gv_size):
-        '''
-        # XXX boehm only, no atomic/non atomic distinction for now
-        # XXX no overflow checking for now
-        op_size = self.itemaddr(None, varsizealloctoken, gv_size)
-        self.mc.LEA(edx, op_size)
-        self.push(edx)
-        self.mc.CALL(rel32(gc_malloc_fnaddr()))
-        lengthoffset, _, _ = varsizealloctoken
-        self.mc.MOV(ecx, gv_size.operand(self))
-        self.mc.MOV(mem(eax, lengthoffset), ecx)
-        return self.returnvar(eax)
-        '''
         log('%s Builder.genop_malloc_varsize %s,%s' % (
-            self.block.label, varsizealloctoken, gv_size))
+            self.block.label, varsizealloctoken, gv_size.operand()))
         gv_result = Var('ubyte*')
-        gv_gc_malloc_fnaddr = Var('[0xubyte]* (int)*')
+        gv_gc_malloc_fnaddr = Var('ubyte* (int)*')
         #XXX or use addGlobalFunctionMapping in libllvmjit.restart()
         self.asm.append(' %s=inttoptr int %d to %s ;gc_malloc_fnaddr' % (
             gv_gc_malloc_fnaddr.operand2(), gc_malloc_fnaddr(), gv_gc_malloc_fnaddr.type))
@@ -660,6 +745,7 @@ class RLLVMGenOp(object):   #changed baseclass from (AbstractRGenOp) for better 
         self.blocklist = None
         if PRINT_SOURCE:
             print asm_string
+        logger.dump(asm_string)
         llvmjit.parse(asm_string)
         llvmjit.transform(3) #optimize module (should be on functions actually)
         function   = llvmjit.getNamedFunction(self.name)
@@ -743,7 +829,12 @@ class RLLVMGenOp(object):   #changed baseclass from (AbstractRGenOp) for better 
     @staticmethod
     @specialize.memo()
     def fieldToken(T, name):
-        return (RLLVMGenOp.kindToken(T), llmemory.offsetof(T, name))
+        FIELD = getattr(T, name)
+        if isinstance(FIELD, lltype.ContainerType):
+            fieldsize = 0      # not useful for getsubstruct
+        else:
+            fieldsize = llmemory.sizeof(FIELD)
+        return (llmemory.offsetof(T, name), fieldsize)
 
     @staticmethod
     @specialize.memo()
@@ -796,4 +887,5 @@ class RLLVMGenOp(object):   #changed baseclass from (AbstractRGenOp) for better 
 
 global_rgenop = RLLVMGenOp()
 RLLVMGenOp.constPrebuiltGlobal = global_rgenop.genconst
+
 
