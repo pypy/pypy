@@ -63,6 +63,13 @@ class MachineCodeDumper:
     log_fd = -1
     sys_executable = None
 
+    def _freeze_(self):
+        # reset the machine_code_dumper global instance to its default state
+        if self.log_fd >= 0:
+            os.close(self.log_fd)
+        self.__dict__.clear()
+        return False
+
     def open(self):
         if self.log_fd < 0:
             # check the environment for a file name
