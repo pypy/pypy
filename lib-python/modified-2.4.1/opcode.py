@@ -187,4 +187,7 @@ def_op('CALL_FUNCTION_VAR_KW', 142)  # #args + (#kwargs << 8)
 def_op('EXTENDED_ARG', 143)
 EXTENDED_ARG = 143
 
+# pypy modification, experimental bytecode
+def_op('CALL_LIKELY_BUILTIN', 144)    # #args + (#kwargs << 8)
+
 del def_op, name_op, jrel_op, jabs_op

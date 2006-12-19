@@ -1,6 +1,7 @@
 import py
 from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
+from pypy.module.__builtin__.__init__ import BUILTIN_TO_INDEX, OPTIMIZED_BUILTINS
 
 from pypy.rlib.objectmodel import r_dict, we_are_translated
 
@@ -54,12 +55,21 @@ class DictImplementation(object):
 ##     def itervalues(self):
 ##         pass
 
+
     def keys(self):
         return [w_k for w_k in self.iterkeys()]
     def values(self):
         return [w_v for w_v in self.itervalues()]
     def items(self):
         return [(w_key, w_value) or w_key, w_value in self.iteritems()]
+
+#   the following method only makes sense when the option to use the
+#   CALL_LIKELY_BUILTIN opcode is set. Otherwise it won't even be seen
+#   by the annotator
+    def get_builtin_indexed(self, i):
+        w_key = self.space.wrap(OPTIMIZED_BUILTINS[i])
+        return self.get(w_key)
+
 
 class EmptyDictImplementation(DictImplementation):
     def __init__(self, space):
@@ -312,8 +322,7 @@ class StrDictImplementation(DictImplementation):
     def setitem(self, w_key, w_value):
         space = self.space
         if space.is_w(space.type(w_key), space.w_str):
-            self.content[space.str_w(w_key)] = w_value
-            return self
+            return self.setitem_str(w_key, w_value)
         else:
             return self._as_rdict().setitem(w_key, w_value)
 
@@ -374,6 +383,37 @@ class StrDictImplementation(DictImplementation):
         for k, w_v in self.content.items():
             newimpl.setitem(self.space.wrap(k), w_v)
         return newimpl
+
+class WaryDictImplementation(StrDictImplementation):
+    def __init__(self, space):
+        StrDictImplementation.__init__(self, space)
+        self.shadowed = [None] * len(BUILTIN_TO_INDEX)
+
+    def setitem_str(self, w_key, w_value):
+        key = self.space.str_w(w_key)
+        i = BUILTIN_TO_INDEX.get(key, -1)
+        if i != -1:
+            self.shadowed[i] = w_value
+        self.content[key] = w_value
+        return self
+
+    def delitem(self, w_key):
+        space = self.space
+        w_key_type = space.type(w_key)
+        if space.is_w(w_key_type, space.w_str):
+            key = space.str_w(w_key)
+            del self.content[key]
+            i = BUILTIN_TO_INDEX.get(key, -1)
+            if i != -1:
+                self.shadowed[i] = None
+            return self
+        elif _is_sane_hash(space, w_key_type):
+            raise KeyError
+        else:
+            return self._as_rdict().delitem(w_key)
+
+    def get_builtin_indexed(self, i):
+        return self.shadowed[i]
 
 class RDictImplementation(DictImplementation):
     def __init__(self, space):
@@ -721,8 +761,10 @@ def report():
 class W_DictMultiObject(W_Object):
     from pypy.objspace.std.dicttype import dict_typedef as typedef
 
-    def __init__(w_self, space, sharing=False):
-        if space.config.objspace.std.withdictmeasurement:
+    def __init__(w_self, space, wary=False, sharing=False):
+        if space.config.objspace.opcodes.CALL_LIKELY_BUILTIN and wary:
+            w_self.implementation = WaryDictImplementation(space)
+        elif space.config.objspace.std.withdictmeasurement:
             w_self.implementation = MeasuringDictImplementation(space)
         elif space.config.objspace.std.withsharingdict and sharing:
             w_self.implementation = SharedDictImplementation(space)

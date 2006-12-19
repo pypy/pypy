@@ -30,6 +30,8 @@ EXCEPT = 2
 TRY_FINALLY = 3
 END_FINALLY = 4
 
+from pypy.module.__builtin__.__init__ import BUILTIN_TO_INDEX
+
 def compileFile(filename, display=0):
     f = open(filename, 'U')
     buf = f.read()
@@ -1005,6 +1007,8 @@ class CodeGenerator(ast.ASTVisitor):
         self.emit('EXEC_STMT')
 
     def visitCallFunc(self, node):
+        if self.emit_builtin_call(node):
+            return
         pos = 0
         kw = 0
         self.set_lineno(node)
@@ -1023,6 +1027,35 @@ class CodeGenerator(ast.ASTVisitor):
         have_dstar = node.dstar_args is not None
         opcode = callfunc_opcode_info[ have_star*2 + have_dstar]
         self.emitop_int(opcode, kw << 8 | pos)
+
+    def emit_builtin_call(self, node):
+        if not self.space.config.objspace.opcodes.CALL_LIKELY_BUILTIN:
+            return False
+        if node.star_args is not None or node.dstar_args is not None:
+            return False
+        pos = 0
+        # check for kw args
+        for arg in node.args:
+            if isinstance(arg, ast.Keyword):
+                return False
+            else:
+                pos = pos + 1
+        func = node.node
+        if not isinstance(func, ast.Name):
+            return False
+        
+        name = func.varname
+        scope = self.scope.check_name(name)
+        # YYY
+        index = BUILTIN_TO_INDEX.get(name, -1)
+        if ((scope == SC_GLOBAL or
+            (scope == SC_DEFAULT and self.optimized and self.localsfullyknown)) 
+            and index != -1):
+            for arg in node.args:
+                arg.accept(self)
+            self.emitop_int("CALL_LIKELY_BUILTIN", index << 8 | pos)
+            return True
+        return False
 
     def visitPrint(self, node):
         self.set_lineno(node)
