@@ -82,18 +82,25 @@ class CodeRange(object):
         self.addr = addr
         self.data = data
 
+    def __repr__(self):
+        return '<CodeRange %s length %d>' % (hex(self.addr), len(self.data))
+
     def touches(self, other):
         return (self .addr < other.addr + len(other.data) and
                 other.addr < self .addr + len(self.data))
 
-    def update(self, other):
+    def update_from_old(self, other):
         if other.addr < self.addr:
             delta = self.addr - other.addr
+            assert delta <= len(other.data)
             self.addr -= delta
-            self.data = '\x00'*delta + self.data
-        ofs1 = other.addr - self.addr
-        ofs2 = ofs1 + len(other.data)
-        self.data = self.data[:ofs1] + other.data + self.data[ofs2:]
+            self.data = other.data[:delta] + self.data
+        self_end  = self .addr + len(self .data)
+        other_end = other.addr + len(other.data)
+        if other_end > self_end:
+            extra = other_end - self_end
+            assert extra <= len(other.data)
+            self.data += other.data[-extra:]
 
     def cmpop(op):
         def _cmp(self, other):
@@ -170,11 +177,11 @@ class World(object):
                 i = bisect_left(self.ranges, coderange)
                 j = i
                 while i>0 and coderange.touches(self.ranges[i-1]):
-                    coderange.update(self.ranges[i-1])
+                    coderange.update_from_old(self.ranges[i-1])
                     i -= 1
                 while j<len(self.ranges) and coderange.touches(self.ranges[j]):
-                    coderange.update(self.ranges[j])
-                    j -= 1
+                    coderange.update_from_old(self.ranges[j])
+                    j += 1
                 self.ranges[i:j] = [coderange]
             elif line.startswith('LOG '):
                 pieces = line.split(None, 3)
