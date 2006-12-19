@@ -243,11 +243,6 @@ def op_cast_pointer(RESTYPE, obj):
     return lltype.cast_pointer(RESTYPE, obj)
 op_cast_pointer.need_result_type = True
 
-def op_cast_opaque_ptr(RESTYPE, obj):
-    checkptr(obj)
-    return lltype.cast_opaque_ptr(RESTYPE, obj)
-op_cast_opaque_ptr.need_result_type = True
-
 def op_cast_ptr_to_weakadr(ptr):
     checkptr(ptr)
     return llmemory.cast_ptr_to_weakadr(ptr)

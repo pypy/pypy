@@ -646,6 +646,10 @@ class LLFrame(object):
         checkptr(ptr1)
         return lltype.cast_ptr_to_int(ptr1)
 
+    def op_cast_opaque_ptr(self, RESTYPE, obj):
+        checkptr(obj)
+        return lltype.cast_opaque_ptr(RESTYPE, obj)
+    op_cast_opaque_ptr.need_result_type = True
 
     def op_gc__collect(self):
         import gc
